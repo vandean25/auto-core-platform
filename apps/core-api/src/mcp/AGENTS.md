@@ -62,9 +62,9 @@ Read tools are tenant- or active-site-scoped by the server. Their tier is `AUTO`
 | `draft_workshop_order` | Create a scheduled draft workshop order                      | Write  | Off by default; AUTO when enabled                     |
 | `reserve_part`         | Reserve on-hand stock for a workshop line                    | Write  | Off by default; AUTO up to the amount limit, else PROPOSE |
 | `release_reservation`  | Release a parts reservation                                  | Write  | Off by default; AUTO when enabled                     |
-| `propose_line_item`    | Propose a part or labor line on a workshop task              | Write  | Off by default; PROPOSE when enabled                  |
+| `propose_line_item`    | Propose a PART, LABOR, or FEE line on a workshop task        | Write  | Off by default; PROPOSE when enabled                  |
 | `propose_registration_intake` | Apply a reviewed registration document intake to customer/vehicle records | Write | Off by default; PROPOSE when enabled (clamped from AUTO) |
-| `propose_workshop_booking` | Propose a scheduled workshop order with an optional reserved loaner booking | Write | Off by default; PROPOSE when enabled (clamped from AUTO) |
+| `propose_workshop_booking` | Propose a scheduled workshop order with an optional reserved loaner booking and optional `loaner_charge` FEE line | Write | Off by default; PROPOSE when enabled (clamped from AUTO) |
 | `propose_purchase_order` | Propose a DRAFT purchase order from verified local parts requisition demand | Write | Off by default; PROPOSE when enabled (clamped from AUTO) |
 
 Write tools start Off (`enabled: false`) in the platform policy table. A tenant admin must enable a tool through the policy table before it can run; the admin cannot loosen the platform tier or conditions. `propose_line_item`, `propose_registration_intake`, `propose_workshop_booking`, and `propose_purchase_order` are clamped to `PROPOSE`. The server evaluates every write call, so never infer permission from this table alone.

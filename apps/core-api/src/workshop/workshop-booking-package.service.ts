@@ -1,11 +1,16 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { PLAN_STALE } from './workshop-position-plan.types.js';
-import { WorkshopOrderPurpose, WorkshopOrderStatus } from '@prisma/client';
+import {
+  Prisma,
+  WorkshopOrderPurpose,
+  WorkshopOrderStatus,
+} from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
@@ -23,6 +28,10 @@ import { executeCreateOrder } from './workshop-intake-insert.helpers.js';
 import { generateNextWorkshopOrderNumber } from './workshop-intake-number.helpers.js';
 import { normalizeWorkshopBookingPackage } from './workshop-booking-package.schema.js';
 import { WorkshopPositionPlanService } from './workshop-position-plan.service.js';
+import {
+  buildLoanerFeeLineItemData,
+  resolveLoanerFeeQuantityDays,
+} from './workshop-loaner-fee.helpers.js';
 
 export const POSITION_PLAN_EXECUTOR_REQUIRED =
   'POSITION_PLAN_EXECUTOR_REQUIRED';
@@ -74,6 +83,11 @@ export class WorkshopBookingPackageService {
     executionContext?: Record<string, unknown>,
   ): Promise<WorkshopBookingPackageResult> {
     const packageInput = normalizeWorkshopBookingPackage(input);
+    if (packageInput.loanerCharge && !packageInput.loaner) {
+      throw new BadRequestException(
+        'loaner_charge requires a complete loaner booking',
+      );
+    }
     const record =
       input && typeof input === 'object' && !Array.isArray(input)
         ? (input as Record<string, unknown>)
@@ -191,6 +205,18 @@ export class WorkshopBookingPackageService {
             plannedTo: packageInput.loaner.plannedTo,
           });
         loanerBookingId = booking.id;
+
+        if (packageInput.loanerCharge) {
+          await this.createLoanerFeeLineInTransaction(tx, {
+            tenantId,
+            siteId,
+            orderId: order.id,
+            plannedFrom: packageInput.loaner.plannedFrom,
+            plannedTo: packageInput.loaner.plannedTo,
+            unitPriceCents: packageInput.loanerCharge.unitPriceCents,
+            quantityDaysOverride: packageInput.loanerCharge.quantityDays,
+          });
+        }
       }
 
       return { orderId: order.id, loanerBookingId };
@@ -204,6 +230,51 @@ export class WorkshopBookingPackageService {
         ? { loaner_booking_id: outcome.loanerBookingId }
         : {}),
     };
+  }
+
+  private async createLoanerFeeLineInTransaction(
+    tx: Prisma.TransactionClient,
+    params: {
+      tenantId: string;
+      siteId: string;
+      orderId: string;
+      plannedFrom: string;
+      plannedTo: string;
+      unitPriceCents: number;
+      quantityDaysOverride?: number;
+    },
+  ): Promise<void> {
+    const task =
+      (await tx.workshopTask.findFirst({
+        where: {
+          tenant_id: params.tenantId,
+          workshop_order_id: params.orderId,
+          workshop_order: { site_id: params.siteId },
+        },
+        orderBy: { createdAt: 'asc' },
+      })) ??
+      (await tx.workshopTask.create({
+        data: {
+          tenant_id: params.tenantId,
+          workshop_order_id: params.orderId,
+          title: 'General Service',
+        },
+      }));
+
+    const quantityDays = resolveLoanerFeeQuantityDays(
+      params.plannedFrom,
+      params.plannedTo,
+      params.quantityDaysOverride,
+    );
+
+    await tx.workshopTaskLineItem.create({
+      data: buildLoanerFeeLineItemData({
+        tenantId: params.tenantId,
+        workshopTaskId: task.id,
+        unitPriceCents: params.unitPriceCents,
+        quantityDays,
+      }),
+    });
   }
 
   async buildExecutionContext(): Promise<Record<string, unknown>> {

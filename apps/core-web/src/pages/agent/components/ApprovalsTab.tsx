@@ -44,7 +44,7 @@ import { RejectProposalDialog } from './RejectProposalDialog'
 
 interface ProposedLine {
   name: string | null
-  type: 'PART' | 'LABOR'
+  type: 'PART' | 'LABOR' | 'FEE'
   quantity: number | null
   unitPriceEur: number | null
   amountEur: number | null
@@ -69,7 +69,12 @@ function getProposedLine(payload: Record<string, unknown>): ProposedLine {
       : Number(line.unit_price ?? line.unitPrice ?? 0)
   return {
     name: typeof line.description === 'string' ? line.description : null,
-    type: line.type === 'LABOR' ? 'LABOR' : 'PART',
+    type:
+      line.type === 'LABOR'
+        ? 'LABOR'
+        : line.type === 'FEE'
+          ? 'FEE'
+          : 'PART',
     quantity: toFiniteOrNull(quantity),
     unitPriceEur: toFiniteOrNull(unitPriceEur),
     amountEur: toFiniteOrNull(unitPriceEur * quantity),
@@ -242,10 +247,11 @@ export function ApprovalsTab({
     return `${formatted} (${formatTaxBasisLabel(basis)})`
   }
 
-  const formatLineType = (type: ProposedLine['type']) =>
-    type === 'LABOR'
-      ? getCopy(t.lineTypeLabor, language)
-      : getCopy(t.lineTypePart, language)
+  const formatLineType = (type: ProposedLine['type']) => {
+    if (type === 'LABOR') return getCopy(t.lineTypeLabor, language)
+    if (type === 'FEE') return getCopy(t.lineTypeFee, language)
+    return getCopy(t.lineTypePart, language)
+  }
 
   return (
     <div className="space-y-6" data-testid="approvals-tab">

@@ -80,11 +80,11 @@ export const MCP_TOOL_DESCRIPTIONS: Record<McpToolName, string> = {
   release_reservation:
     'Release a parts reservation (counter-tool of reserve_part)',
   propose_line_item:
-    'Propose a workshop task line item (never executes; records a pending proposal)',
+    'Propose a workshop task line item (PART, LABOR, or FEE; never executes; records a pending proposal)',
   propose_registration_intake:
     'Propose applying a reviewed registration document intake (never executes; records a pending proposal)',
   propose_workshop_booking:
-    'Propose a scheduled workshop order with an optional reserved loaner booking (never executes alone; records one pending proposal)',
+    'Propose a scheduled workshop order with an optional reserved loaner booking and optional loaner_charge FEE line (never executes alone; records one pending proposal)',
   propose_purchase_order:
     'Propose a DRAFT purchase order from verified local parts requisition demand (never sends externally; records one pending proposal)',
 };

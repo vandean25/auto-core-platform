@@ -66,6 +66,12 @@ const SEARCH_DEBOUNCE_MS = 300
 const MERGE_FLASH_DURATION_MS = 500
 const QUANTITY_POP_DURATION_MS = 240
 
+function lineTypeBadgeLabel(type: WorkshopLineItemType): string {
+  if (type === 'LABOR') return 'Labor'
+  if (type === 'FEE') return 'Fee'
+  return 'Part'
+}
+
 function formatHours(value: number | null | undefined) {
   if (value == null) return '—'
   return value.toFixed(2)
@@ -499,8 +505,10 @@ export function TaskLineItemEditor({
                     }`}
                   >
                     <TableCell>
-                      <Badge variant={item.type === 'LABOR' ? 'secondary' : 'outline'}>
-                        {item.type === 'LABOR' ? 'Labor' : 'Part'}
+                      <Badge
+                        variant={item.type === 'LABOR' ? 'secondary' : 'outline'}
+                      >
+                        {lineTypeBadgeLabel(item.type)}
                       </Badge>
                     </TableCell>
                     <TableCell className='font-medium'>{item.itemNo}</TableCell>

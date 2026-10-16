@@ -13,6 +13,10 @@ import { TenantContextService } from '../common/services/tenant-context.service.
 import { SiteContextService } from '../site/site-context.service.js';
 import { WorkshopIntakeService } from '../workshop/workshop-intake.service.js';
 import { incrementTaskLineItemsVersion } from '../workshop/workshop-task-line-items.helpers.js';
+import {
+  partExecutionStatusForNewLine,
+  resolveWorkshopLineItemType,
+} from '../workshop/workshop-line-item-type.helpers.js';
 import { assertOrderEditable } from '../workshop/workshop-order.helpers.js';
 import { PartsRequisitionService } from '../parts-requisition/parts-requisition.service.js';
 import type { AgentPolicyEvaluateContext } from '../agent-policy/agent-policy.types.js';
@@ -585,15 +589,14 @@ export class PendingActionExecutorService {
       line.unit_price_cents !== undefined
         ? Number(line.unit_price_cents) / 100
         : Number(line.unit_price ?? line.unitPrice ?? 0);
+    const lineType = resolveWorkshopLineItemType(String(line.type));
+    const isLabor = lineType === WorkshopLineItemType.LABOR;
     const created = await this.prisma.workshopTaskLineItem.create({
       data: {
         tenant_id: tenantId,
         workshop_task_id: task.id,
-        type:
-          line.type === 'LABOR'
-            ? WorkshopLineItemType.LABOR
-            : WorkshopLineItemType.PART,
-        part_execution_status: line.type === 'PART' ? 'PENDING_PICK' : null,
+        type: lineType,
+        part_execution_status: partExecutionStatusForNewLine(lineType),
         item_no: typeof line.item_no === 'string' ? line.item_no : 'MISC',
         description:
           typeof line.description === 'string'
@@ -601,8 +604,9 @@ export class PendingActionExecutorService {
             : 'Proposed line item',
         quantity: new Prisma.Decimal(Number(line.quantity ?? 1)),
         unit_price: new Prisma.Decimal(unitPrice),
-        labor_operation_id:
-          (line.labor_operation_id as string | undefined) ?? null,
+        labor_operation_id: isLabor
+          ? ((line.labor_operation_id as string | undefined) ?? null)
+          : null,
       },
       select: { id: true },
     });

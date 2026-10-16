@@ -16,6 +16,10 @@ import {
   type ReservationSliceState,
 } from '../parts-requisition/parts-requisition.helpers.js';
 import type { ReplaceWorkshopTaskLineItemsDto } from './dto/replace-workshop-task-line-items.dto.js';
+import {
+  partExecutionStatusForNewLine,
+  resolveWorkshopLineItemType,
+} from './workshop-line-item-type.helpers.js';
 
 export interface DeleteLineItemsContext {
   tx: Prisma.TransactionClient;
@@ -435,23 +439,22 @@ export function buildNewTaskLineItemRecord(
   taskId: string,
   item: ReplaceWorkshopTaskLineItemsDto['items'][number],
 ): Prisma.WorkshopTaskLineItemCreateManyInput {
-  const isLabor = item.type === WorkshopLineItemType.LABOR;
+  const lineType = resolveWorkshopLineItemType(item.type);
+  const isLabor = lineType === WorkshopLineItemType.LABOR;
   return {
     id: item.id ?? randomUUID(),
     tenant_id: tenantId,
     workshop_task_id: taskId,
-    type: isLabor ? WorkshopLineItemType.LABOR : WorkshopLineItemType.PART,
-    part_execution_status: isLabor
-      ? null
-      : WorkshopPartLineExecutionStatus.PENDING_PICK,
+    type: lineType,
+    part_execution_status: partExecutionStatusForNewLine(lineType),
     item_no: item.itemNo,
     description: item.description,
     quantity: new Prisma.Decimal(item.qty),
     unit_price: new Prisma.Decimal(item.unitPrice),
-    labor_operation_id: item.laborOperationId ?? null,
-    standard_aw: toDecimalOrNull(item.standardAw),
-    actual_hours: toDecimalOrNull(item.actualHours),
-    internal_cost_rate: toDecimalOrNull(item.internalCostRate),
+    labor_operation_id: isLabor ? (item.laborOperationId ?? null) : null,
+    standard_aw: isLabor ? toDecimalOrNull(item.standardAw) : null,
+    actual_hours: isLabor ? toDecimalOrNull(item.actualHours) : null,
+    internal_cost_rate: isLabor ? toDecimalOrNull(item.internalCostRate) : null,
   };
 }
 

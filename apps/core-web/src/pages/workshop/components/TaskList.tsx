@@ -205,7 +205,9 @@ function TaskAccordionRow({
     actualHours: item.actualHours ?? null,
     internalCostRate: item.internalCostRate ?? null,
   }))
-  const partsCount = lineItems.filter((item) => item.type === 'PART').length
+  const partsCount = lineItems.filter(
+    (item) => item.type === 'PART' || item.type === 'FEE',
+  ).length
   const laborCount = lineItems.filter((item) => item.type === 'LABOR').length
   const taskTotals = totals ?? {
     parts: 0,

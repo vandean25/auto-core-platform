@@ -4929,6 +4929,77 @@ describe('MCP server (e2e)', () => {
     });
   });
 
+  it('AUT-601: propose_workshop_booking with loaner_charge creates a FEE line on apply', async () => {
+    await setPolicyTier('workshop.booking_package', 'PROPOSE');
+    const draftVehicle = await createDraftVehicle('mcp-booking-loaner-fee');
+    const dedicatedBay = await prismaA.bay.create({
+      data: {
+        site_id: fixtures.siteId,
+        name: `MCP booking loaner fee ${Date.now()}`,
+        is_active: true,
+      },
+    });
+    const schedule = scheduledBooking(17);
+    const loanerVehicleRecord = await prismaA.vehicle.create({
+      data: {
+        customer_id: draftVehicle.customerId,
+        make: 'VW',
+        model: 'Polo',
+        year: 2019,
+        plate: 'W-MCP-FEE',
+        vin: 'MCPLOANERFEEVIN01',
+      },
+    });
+    const loanerFleet = await prismaA.loanerVehicle.create({
+      data: {
+        site_id: fixtures.siteId,
+        vehicle_id: loanerVehicleRecord.id,
+        display_name: 'MCP Fee Pool',
+        status: 'AVAILABLE',
+        active: true,
+      },
+    });
+
+    const result = await callMcpTool(
+      caller(adminHeaderA, 'e2e-booking-loaner-fee'),
+      'propose_workshop_booking',
+      {
+        customer_id: draftVehicle.customerId,
+        vehicle_id: draftVehicle.vehicleId,
+        bay_id: dedicatedBay.id,
+        scheduled_start_at: schedule.scheduled_start_at,
+        scheduled_end_at: schedule.scheduled_end_at,
+        loaner_vehicle_id: loanerFleet.id,
+        planned_from: schedule.scheduled_start_at,
+        planned_to: schedule.scheduled_end_at,
+        loaner_charge: { unit_price_cents: 3500, quantity_days: 1 },
+      },
+      '00000000-0000-4000-8000-000000000601',
+    );
+    const proposed = parsePayload<{
+      status: string;
+      pending_action_id: string;
+    }>(result);
+    expect(proposed.status).toBe('needs_approval');
+
+    await applyProposal(proposed.pending_action_id, adminHeaderA).expect(200);
+
+    const feeLine = await prismaA.workshopTaskLineItem.findFirst({
+      where: {
+        tenant_id: tenantA,
+        type: 'FEE',
+        description: 'Leihwagen',
+        workshop_task: {
+          workshop_order: { vehicle_id: draftVehicle.vehicleId },
+        },
+      },
+      select: { quantity: true, unit_price: true, item_no: true },
+    });
+    expect(feeLine?.item_no).toBe('LEIH');
+    expect(feeLine?.quantity.toString()).toBe('1');
+    expect(feeLine?.unit_price.toString()).toBe('35');
+  });
+
   describe('AUT-539 purchase_order.propose_draft acceptance', () => {
     type PurchaseDemandSeed = {
       requisitionId: string;

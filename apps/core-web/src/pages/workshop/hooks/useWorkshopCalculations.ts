@@ -82,7 +82,9 @@ export function findInvoiceItemByLineItemId(
 
 export function calculateTaskRawTotals(task: WorkshopTask): TaskTotals {
   const lineItems = task.lineItems ?? []
-  const partsLines = lineItems.filter((li) => li.type === 'PART')
+  const partsLines = lineItems.filter(
+    (li) => li.type === 'PART' || li.type === 'FEE',
+  )
   const laborLines = lineItems.filter((li) => li.type === 'LABOR')
 
   const parts = partsLines.reduce((sum, li) => sum + li.qty * li.unitPrice, 0)
@@ -173,7 +175,7 @@ export function groupCheckoutTasksByTask(
 
 export function aggregateCheckoutSummaries(checkoutLineSummaries: CheckoutLineSummary[]) {
   const checkoutPartsTotal = checkoutLineSummaries
-    .filter((l) => l.lineItem.type === 'PART')
+    .filter((l) => l.lineItem.type === 'PART' || l.lineItem.type === 'FEE')
     .reduce((sum, l) => sum + l.lineNet, 0)
 
   const checkoutLaborTotal = checkoutLineSummaries
