@@ -88,6 +88,7 @@ model Tenant {
   workshopInspections           WorkshopInspection[]
   workshopInspectionItems       WorkshopInspectionItem[]
   workshopMedia                 WorkshopMedia[]
+  workshopCheckIns              WorkshopCheckIn[]
   workshopVoiceNoteDrafts       WorkshopVoiceNoteDraft[]
   voiceNoteRateLimits           VoiceNoteRateLimit[]
   workshopOrders                WorkshopOrder[]
@@ -2488,6 +2489,7 @@ model WorkshopOrder {
   scheduled_end_at       DateTime?
   inspections            WorkshopInspection[]
   media                  WorkshopMedia[]
+  check_in               WorkshopCheckIn?
   tasks                  WorkshopTask[]
   invoice                Invoice?
   estimates              WorkshopEstimate[]
@@ -3094,6 +3096,17 @@ enum WorkshopMediaUrlStrategy {
   PUBLIC
 }
 
+enum WorkshopCheckInStatus {
+  DRAFT
+  COMPLETED
+}
+
+enum WorkshopMediaPurpose {
+  GENERAL
+  CHECK_IN
+  CHECK_IN_SIGNATURE
+}
+
 model WorkshopTask {
   id                String        @id @default(uuid())
   tenant_id         String
@@ -3363,6 +3376,31 @@ model WorkshopInspectionItem {
   @@map("workshop_inspection_items")
 }
 
+model WorkshopCheckIn {
+  id                  String                @id @default(uuid())
+  tenant_id           String
+  tenant              Tenant                @relation(fields: [tenant_id], references: [id])
+  workshop_order_id   String
+  workshop_order      WorkshopOrder         @relation(fields: [tenant_id, workshop_order_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
+  status              WorkshopCheckInStatus @default(DRAFT)
+  revision            Int                   @default(1)
+  condition_json      Json                  @default("{}")
+  damage_markers_json Json                  @default("[]")
+  items_left          String                @default("")
+  key_count           Int                   @default(0)
+  warning_lights      String[]              @default([])
+  odometer            Int
+  fuel_level          Int
+  media               WorkshopMedia[]
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, workshop_order_id])
+  @@index([tenant_id])
+  @@map("workshop_check_ins")
+}
+
 model WorkshopMedia {
   id                      String                   @id @default(uuid())
   tenant_id               String
@@ -3371,6 +3409,9 @@ model WorkshopMedia {
   workshop_order          WorkshopOrder            @relation(fields: [tenant_id, workshop_order_id], references: [tenant_id, id], onDelete: Cascade, onUpdate: Cascade)
   workshop_task_id        String?
   workshop_task           WorkshopTask?            @relation(fields: [tenant_id, workshop_task_id], references: [tenant_id, id], onDelete: SetNull, onUpdate: Cascade)
+  check_in_id             String?
+  check_in                WorkshopCheckIn?         @relation(fields: [tenant_id, check_in_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
+  purpose                 WorkshopMediaPurpose     @default(GENERAL)
   uploaded_by_employee_id String
   uploaded_by_employee    Employee                 @relation("WorkshopMediaUploadedByEmployee", fields: [tenant_id, uploaded_by_employee_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
   storage_bucket          String
@@ -3388,6 +3429,7 @@ model WorkshopMedia {
   @@index([tenant_id, workshop_order_id], map: "idx_workshop_media_order")
   @@index([tenant_id, workshop_task_id], map: "idx_workshop_media_task")
   @@index([tenant_id, uploaded_by_employee_id], map: "idx_workshop_media_employee")
+  @@index([tenant_id, check_in_id], map: "idx_workshop_media_check_in")
   @@map("workshop_media")
 }
 

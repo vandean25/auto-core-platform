@@ -1,4 +1,5 @@
 import { INestApplication } from '@nestjs/common';
+import { WorkshopMediaPurpose } from '@prisma/client';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
@@ -311,6 +312,112 @@ describe('Mechanic Execution Engine (e2e)', () => {
       .expect(201);
 
     expect(replay.body.proposalId).toBe(res.body.proposalId);
+  });
+
+  it('POST /tasks/:taskId/findings attaches only GENERAL workshop media', async () => {
+    const checkInId = '51500000-0000-4000-8000-000000000558';
+    const generalMediaId = '51500000-0000-4000-8000-000000000559';
+    const legacyMediaId = '51500000-0000-4000-8000-00000000055c';
+    const checkInMediaId = '51500000-0000-4000-8000-00000000055a';
+
+    await runWithTenantContext(tenantId, async () => {
+      await basePrisma.workshopCheckIn.create({
+        data: {
+          id: checkInId,
+          tenant_id: tenantId,
+          workshop_order_id: orderId,
+          status: 'DRAFT',
+          revision: 1,
+          odometer: 80000,
+          fuel_level: 60,
+        },
+      });
+
+      await basePrisma.workshopMedia.createMany({
+        data: [
+          {
+            id: generalMediaId,
+            tenant_id: tenantId,
+            workshop_order_id: orderId,
+            workshop_task_id: taskCId,
+            uploaded_by_employee_id: mechanicId,
+            purpose: WorkshopMediaPurpose.GENERAL,
+            storage_bucket: 'test-workshop-media-bucket',
+            storage_key: `tenants/${tenantId}/orders/${orderId}/tasks/${taskCId}/general.jpg`,
+            url_strategy: 'SIGNED',
+            mime_type: 'image/jpeg',
+            size_bytes: 1024,
+            caption: 'pilot customer general photo',
+          },
+          {
+            id: legacyMediaId,
+            tenant_id: tenantId,
+            workshop_order_id: orderId,
+            workshop_task_id: taskCId,
+            uploaded_by_employee_id: mechanicId,
+            storage_bucket: 'test-workshop-media-bucket',
+            storage_key: `tenants/${tenantId}/orders/${orderId}/tasks/${taskCId}/legacy-default.jpg`,
+            url_strategy: 'SIGNED',
+            mime_type: 'image/jpeg',
+            size_bytes: 1536,
+            caption: 'pilot customer legacy writer photo',
+          },
+          {
+            id: checkInMediaId,
+            tenant_id: tenantId,
+            workshop_order_id: orderId,
+            workshop_task_id: taskCId,
+            check_in_id: checkInId,
+            uploaded_by_employee_id: mechanicId,
+            purpose: WorkshopMediaPurpose.CHECK_IN,
+            storage_bucket: 'test-workshop-media-bucket',
+            storage_key: `tenants/${tenantId}/orders/${orderId}/check-in/photo.jpg`,
+            url_strategy: 'SIGNED',
+            mime_type: 'image/jpeg',
+            size_bytes: 2048,
+            caption: 'pilot customer check-in photo',
+          },
+        ],
+      });
+    });
+
+    await request(app.getHttpServer())
+      .patch(`/api/mechanic/tasks/${taskCId}/diagnostics`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ mechanicNotes: 'Visible wear on hose — pilot customer vehicle.' })
+      .expect(200);
+
+    const commandId = '51500000-0000-4000-8000-00000000055b';
+    const res = await request(app.getHttpServer())
+      .post(`/api/mechanic/tasks/${taskCId}/findings`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ command_id: commandId })
+      .expect(201);
+
+    const proposal = await runWithTenantContext(tenantId, async () =>
+      basePrisma.agentProposal.findFirst({
+        where: { id: res.body.proposalId },
+        select: { payload_json: true },
+      }),
+    );
+
+    const payload = proposal?.payload_json as {
+      finding?: { media?: Array<{ id: string }> };
+    };
+    const mediaIds = (payload.finding?.media ?? []).map((item) => item.id);
+
+    expect(mediaIds.sort()).toEqual(
+      [generalMediaId, legacyMediaId].sort(),
+    );
+    expect(mediaIds).not.toContain(checkInMediaId);
+
+    const legacyRow = await runWithTenantContext(tenantId, async () =>
+      basePrisma.workshopMedia.findFirst({
+        where: { id: legacyMediaId },
+        select: { purpose: true },
+      }),
+    );
+    expect(legacyRow?.purpose).toBe(WorkshopMediaPurpose.GENERAL);
   });
 
   it('POST /tasks/:taskId/findings rejects submit without saved notes', async () => {

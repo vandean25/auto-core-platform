@@ -6256,6 +6256,122 @@
         ]
       }
     },
+    "/api/workshop/orders/{orderId}/check-in": {
+      "post": {
+        "operationId": "WorkshopCheckInController_create",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWorkshopCheckInDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Idempotent retry when the same check-in id already exists.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopCheckInResponseDto"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopCheckInResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      },
+      "get": {
+        "operationId": "WorkshopCheckInController_get",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopCheckInResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      },
+      "patch": {
+        "operationId": "WorkshopCheckInController_updateDraft",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWorkshopCheckInDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopCheckInResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
     "/api/workshop/loaner-vehicles": {
       "get": {
         "operationId": "LoanerVehiclesController_list",
@@ -23635,6 +23751,212 @@
         },
         "required": [
           "resumed_task_ids"
+        ]
+      },
+      "CreateWorkshopCheckInDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "WorkshopCheckInResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workshop_order_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "COMPLETED"
+            ]
+          },
+          "revision": {
+            "type": "number"
+          },
+          "condition_json": {
+            "type": "object"
+          },
+          "damage_markers_json": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "items_left": {
+            "type": "string"
+          },
+          "key_count": {
+            "type": "number"
+          },
+          "warning_lights": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "odometer": {
+            "type": "number"
+          },
+          "fuel_level": {
+            "type": "number"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "workshop_order_id",
+          "status",
+          "revision",
+          "condition_json",
+          "damage_markers_json",
+          "items_left",
+          "key_count",
+          "warning_lights",
+          "odometer",
+          "fuel_level",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "CheckInConditionDto": {
+        "type": "object",
+        "properties": {
+          "tyre_season": {
+            "type": "string",
+            "enum": [
+              "SUMMER",
+              "WINTER",
+              "ALL_SEASON",
+              "UNKNOWN"
+            ]
+          },
+          "exterior_notes": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "interior_notes": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "tyre_season",
+          "exterior_notes",
+          "interior_notes"
+        ]
+      },
+      "CheckInDamageMarkerDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "zone_id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "SCRATCH",
+              "DENT",
+              "CRACK",
+              "OTHER"
+            ]
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "media_ids": {
+            "maxItems": 5,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "zone_id",
+          "type",
+          "note",
+          "media_ids"
+        ]
+      },
+      "UpdateWorkshopCheckInDto": {
+        "type": "object",
+        "properties": {
+          "expected_revision": {
+            "type": "number",
+            "minimum": 1
+          },
+          "condition": {
+            "nullable": false,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CheckInConditionDto"
+              }
+            ]
+          },
+          "damage_markers": {
+            "nullable": false,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CheckInDamageMarkerDto"
+            }
+          },
+          "items_left": {
+            "type": "string",
+            "maxLength": 2000,
+            "nullable": false
+          },
+          "key_count": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10,
+            "nullable": false
+          },
+          "warning_lights": {
+            "nullable": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "odometer": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 9999999,
+            "nullable": false
+          },
+          "fuel_level": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "nullable": false
+          }
+        },
+        "required": [
+          "expected_revision"
         ]
       },
       "LoanerVehicleResponseDto": {

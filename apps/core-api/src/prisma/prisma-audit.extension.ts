@@ -107,6 +107,7 @@ export const AUDITED_MODELS = new Set([
   'Invoice',
   'InvoiceItem',
   'WorkshopOrder',
+  'WorkshopCheckIn',
   'WorkshopEstimate',
   'WorkshopEstimateVersion',
   'WorkshopEstimateOverrun',

@@ -19,6 +19,7 @@ import { assertTaskAccessibleAndNotDone } from './mechanic-task-access.js';
 import type { SubmitMechanicFindingDto } from './dto/submit-mechanic-finding.dto.js';
 import type { SubmitMechanicFindingResponseDto } from './dto/submit-mechanic-finding.dto.js';
 import { MECHANIC_FINDING_ACTION_TYPE } from './mechanic-finding.constants.js';
+import { mechanicFindingMediaPurposeFilter } from '../workshop/workshop-media-purpose.helpers.js';
 import { fingerprintMcpWriteArgs } from '../mcp/mcp-write-command-idempotency.util.js';
 
 type FindingMediaRef = {
@@ -313,6 +314,7 @@ export class MechanicFindingService {
         workshop_task_id: taskId,
         workshop_order_id: orderId,
         uploaded_by_employee_id: mechanicId,
+        purpose: mechanicFindingMediaPurposeFilter(),
         workshop_order: { site_id: siteId },
       },
       select: {

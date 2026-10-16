@@ -1,0 +1,36 @@
+import { WorkshopOrderStatus } from '@prisma/client';
+
+export const CHECK_IN_ERROR_CODES = {
+  CHECK_IN_EXISTS: 'CHECK_IN_EXISTS',
+  CHECK_IN_CONFLICT: 'CHECK_IN_CONFLICT',
+  CHECK_IN_COMPLETED: 'CHECK_IN_COMPLETED',
+  CHECK_IN_ORDER_STATUS: 'CHECK_IN_ORDER_STATUS',
+  CHECK_IN_MEDIA_INVALID: 'CHECK_IN_MEDIA_INVALID',
+} as const;
+
+export const CHECK_IN_ALLOWED_ORDER_STATUSES: ReadonlySet<WorkshopOrderStatus> =
+  new Set([WorkshopOrderStatus.INTAKE, WorkshopOrderStatus.IN_PROGRESS]);
+
+export const CHECK_IN_MAX_DAMAGE_MARKERS = 50;
+export const CHECK_IN_MAX_DAMAGE_MARKER_NOTE_LENGTH = 500;
+export const CHECK_IN_MAX_MEDIA_IDS_PER_DAMAGE_MARKER = 5;
+export const CHECK_IN_MAX_WARNING_LIGHTS = 20;
+export const CHECK_IN_MAX_ITEMS_LEFT_LENGTH = 2000;
+export const CHECK_IN_MAX_NOTES_LENGTH = 2000;
+export const CHECK_IN_MAX_ODOMETER = 9_999_999;
+export const CHECK_IN_MAX_KEY_COUNT = 10;
+export const CHECK_IN_MAX_WARNING_LIGHT_LENGTH = 80;
+
+export const CHECK_IN_DAMAGE_TYPES = new Set([
+  'SCRATCH',
+  'DENT',
+  'CRACK',
+  'OTHER',
+]);
+
+export const CHECK_IN_TYRE_SEASONS = new Set([
+  'SUMMER',
+  'WINTER',
+  'ALL_SEASON',
+  'UNKNOWN',
+]);
