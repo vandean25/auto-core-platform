@@ -12,6 +12,7 @@ import {
   createTestTenant,
   createTenantAwarePrisma,
   resolveTestMainSiteId,
+  runWithTenantContext,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
 
@@ -20,8 +21,7 @@ describe('Inventory item mutations (e2e)', () => {
   let prisma: PrismaService;
   let tenantId: string;
   let authTokenAdmin: string;
-  let authTokenTech: string;
-  let userId: string;
+  let testTenant: Awaited<ReturnType<typeof createTestTenant>>;
   let catalogItemId: string;
   let binLocationId: string;
 
@@ -36,17 +36,9 @@ describe('Inventory item mutations (e2e)', () => {
     await app.init();
 
     prisma = app.get(PrismaService);
-    const testTenant = await createTestTenant(prisma, 'inventory-mutations');
+    testTenant = await createTestTenant(prisma, 'inventory-mutations');
     tenantId = testTenant.tenantId;
-    const user = await prisma.user.findFirstOrThrow({
-      where: { firebaseUid: testTenant.firebaseUid },
-      select: { id: true },
-    });
-    userId = user.id;
     authTokenAdmin = createTestAuthToken(app.get(AuthService), testTenant);
-    authTokenTech = createTestAuthToken(app.get(AuthService), testTenant, {
-      role: 'TECH',
-    });
 
     const tenantPrisma = createTenantAwarePrisma(prisma, tenantId);
     const siteId = await resolveTestMainSiteId(prisma, tenantId);
@@ -121,12 +113,18 @@ describe('Inventory item mutations (e2e)', () => {
   });
 
   it('forbids TECH users from receiving stock', async () => {
-    await prisma.tenantMember.update({
-      where: {
-        tenant_id_user_id: { tenant_id: tenantId, user_id: userId },
-      },
-      data: { role: 'TECH' },
+    await runWithTenantContext(tenantId, async () => {
+      await prisma.tenantMember.updateMany({
+        where: { tenant_id: tenantId },
+        data: { role: 'TECH' },
+      });
     });
+
+    const authTokenTech = createTestAuthToken(
+      app.get(AuthService),
+      { ...testTenant, role: 'TECH' },
+      { role: 'TECH' },
+    );
 
     await request(app.getHttpServer())
       .post(`/api/inventory/${catalogItemId}/receive`)
