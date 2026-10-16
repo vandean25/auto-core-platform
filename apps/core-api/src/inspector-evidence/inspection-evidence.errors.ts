@@ -19,11 +19,15 @@ export function employeeNotFound(id: string) {
 }
 
 export function unsupportedSchemaVersion() {
-  return new UnprocessableEntityException({ code: 'UNSUPPORTED_SCHEMA_VERSION' });
+  return new UnprocessableEntityException({
+    code: 'UNSUPPORTED_SCHEMA_VERSION',
+  });
 }
 
 export function invalidDocumentReference() {
-  return new UnprocessableEntityException({ code: 'INVALID_DOCUMENT_REFERENCE' });
+  return new UnprocessableEntityException({
+    code: 'INVALID_DOCUMENT_REFERENCE',
+  });
 }
 
 export function reviewRequired() {

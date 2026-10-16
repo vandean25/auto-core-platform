@@ -65,10 +65,14 @@ export function clampReviewValidUntil(
   requestedValidUntil: Date,
 ): Date {
   const cap = new Date(reviewedAt.getTime() + 30 * 24 * 60 * 60 * 1000);
-  return requestedValidUntil.getTime() > cap.getTime() ? cap : requestedValidUntil;
+  return requestedValidUntil.getTime() > cap.getTime()
+    ? cap
+    : requestedValidUntil;
 }
 
-export function evidencePayloadDigest(payload: InspectorEvidencePayload): string {
+export function evidencePayloadDigest(
+  payload: InspectorEvidencePayload,
+): string {
   const canonical = JSON.stringify({
     schema_version: payload.schema_version,
     source_version: payload.source_version,
@@ -94,11 +98,16 @@ export function evidencePayloadDigest(payload: InspectorEvidencePayload): string
   return createHash('sha256').update(canonical, 'utf8').digest('hex');
 }
 
-export function validateEvidencePayload(payload: InspectorEvidencePayload): void {
+export function validateEvidencePayload(
+  payload: InspectorEvidencePayload,
+): void {
   if (payload.schema_version !== INSPECTOR_EVIDENCE_SCHEMA_VERSION) {
     throw new Error('UNSUPPORTED_SCHEMA_VERSION');
   }
-  if (payload.vehicle_classes.length === 0 || payload.vehicle_classes.length > 32) {
+  if (
+    payload.vehicle_classes.length === 0 ||
+    payload.vehicle_classes.length > 32
+  ) {
     throw new Error('INVALID_VEHICLE_CLASSES');
   }
   for (const field of [
@@ -154,9 +163,7 @@ export function resolveEvidenceReviewState(
     return 'UNREVIEWED';
   }
 
-  if (
-    revisions.some((row) => row.evidence_review === 'SOURCE_CONFLICT')
-  ) {
+  if (revisions.some((row) => row.evidence_review === 'SOURCE_CONFLICT')) {
     return 'SOURCE_CONFLICT';
   }
 
@@ -231,7 +238,10 @@ export function evaluateTemporalScope(
 
   if (revision.withdrawal_effective_at) {
     const revokedAt = new Date(revision.withdrawal_effective_at);
-    if (!Number.isNaN(revokedAt.getTime()) && at.getTime() >= revokedAt.getTime()) {
+    if (
+      !Number.isNaN(revokedAt.getTime()) &&
+      at.getTime() >= revokedAt.getTime()
+    ) {
       return 'REVOKED';
     }
   }
@@ -249,10 +259,7 @@ export function evaluateTemporalScope(
     return 'NOT_YET_VALID';
   }
 
-  if (
-    revision.continuation_from &&
-    revision.continuation_until_exclusive
-  ) {
+  if (revision.continuation_from && revision.continuation_until_exclusive) {
     const contFrom = parseViennaCalendarDate(revision.continuation_from);
     const contUntil = parseViennaCalendarDate(
       revision.continuation_until_exclusive,
@@ -309,7 +316,9 @@ const SCOPE_PRECEDENCE: Record<EvidenceTemporalScope, number> = {
   CURRENT: 1,
 };
 
-function mergeTemporalScopes(scopes: EvidenceTemporalScope[]): EvidenceTemporalScope {
+function mergeTemporalScopes(
+  scopes: EvidenceTemporalScope[],
+): EvidenceTemporalScope {
   if (scopes.length === 0) {
     return 'UNKNOWN';
   }
@@ -459,10 +468,7 @@ export function deriveQualificationSupportStatus(
   if (evidenceReview !== 'EVIDENCE_REVIEWED') {
     return 'QUALIFICATION_UNKNOWN';
   }
-  if (
-    temporalAtInspection === 'EXPIRED' ||
-    temporalAsOf === 'EXPIRED'
-  ) {
+  if (temporalAtInspection === 'EXPIRED' || temporalAsOf === 'EXPIRED') {
     return 'QUALIFICATION_EXPIRED';
   }
   if (freshness === 'STALE') {
@@ -503,8 +509,7 @@ export function assessEvidence(
   }
 
   const identityConflict =
-    request.identity_conflict === true ||
-    hasAmbiguousPersonIdentity(revisions);
+    request.identity_conflict === true || hasAmbiguousPersonIdentity(revisions);
   const evidenceReview = resolveEvidenceReviewState(revisions);
 
   const rawInspectionScope = aggregateTemporalScope(

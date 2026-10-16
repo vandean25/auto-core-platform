@@ -28,7 +28,9 @@ export class InspectorEvidenceController {
   ) {}
 
   @Get()
-  @ApiOperation({ summary: 'List inspector evidence revisions (management only)' })
+  @ApiOperation({
+    summary: 'List inspector evidence revisions (management only)',
+  })
   @ApiOkResponse({ type: InspectorEvidenceListResponseDto })
   list(
     @Param('employeeId') employeeId: string,

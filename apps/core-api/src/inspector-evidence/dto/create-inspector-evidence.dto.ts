@@ -108,12 +108,16 @@ export class CreateInspectorEvidenceDto {
   @IsISO8601()
   withdrawal_effective_at?: string | null;
 
-  @ApiProperty({ description: 'Authorized storage object reference (never a public URL)' })
+  @ApiProperty({
+    description: 'Authorized storage object reference (never a public URL)',
+  })
   @IsString()
   @MaxLength(128)
   document_ref!: string;
 
-  @ApiProperty({ description: 'SHA-256 hex digest of restricted document bytes' })
+  @ApiProperty({
+    description: 'SHA-256 hex digest of restricted document bytes',
+  })
   @IsString()
   @Length(64, 64)
   @Matches(DIGEST_PATTERN)

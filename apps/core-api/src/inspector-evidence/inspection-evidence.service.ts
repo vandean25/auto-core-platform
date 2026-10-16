@@ -88,17 +88,21 @@ export class InspectorEvidenceService {
       ) {
         throw invalidDocumentReference();
       }
-      throw new UnprocessableEntityException({ code: 'INVALID_EVIDENCE_PAYLOAD' });
+      throw new UnprocessableEntityException({
+        code: 'INVALID_EVIDENCE_PAYLOAD',
+      });
     }
 
     if (dto.predecessor_revision_id) {
-      const predecessor = await this.prisma.inspectorEvidenceRevision.findFirst({
-        where: {
-          id: dto.predecessor_revision_id,
-          tenant_id: tenantId,
-          employee_id: employeeId,
+      const predecessor = await this.prisma.inspectorEvidenceRevision.findFirst(
+        {
+          where: {
+            id: dto.predecessor_revision_id,
+            tenant_id: tenantId,
+            employee_id: employeeId,
+          },
         },
-      });
+      );
       if (!predecessor) {
         throw inspectorEvidenceNotFound(dto.predecessor_revision_id);
       }

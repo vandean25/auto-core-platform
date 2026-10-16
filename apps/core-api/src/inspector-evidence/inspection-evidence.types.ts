@@ -3,9 +3,7 @@ export const INSPECTOR_EVIDENCE_SCHEMA_VERSION = 'acp-inspector-evidence/1';
 export const MAX_REVIEW_FRESHNESS_MS = 30 * 24 * 60 * 60 * 1000;
 
 export type InspectorEvidenceReviewState =
-  | 'UNREVIEWED'
-  | 'EVIDENCE_REVIEWED'
-  | 'SOURCE_CONFLICT';
+  'UNREVIEWED' | 'EVIDENCE_REVIEWED' | 'SOURCE_CONFLICT';
 
 export type EvidenceTemporalScope =
   | 'CURRENT'
@@ -19,9 +17,7 @@ export type EvidenceTemporalScope =
 export type EvidenceFreshness = 'CURRENT' | 'STALE';
 
 export type QualificationSupportStatus =
-  | 'QUALIFICATION_UNKNOWN'
-  | 'QUALIFICATION_EXPIRED'
-  | 'QUALIFICATION_CURRENT';
+  'QUALIFICATION_UNKNOWN' | 'QUALIFICATION_EXPIRED' | 'QUALIFICATION_CURRENT';
 
 export type InspectorEvidencePayload = {
   schema_version: string;

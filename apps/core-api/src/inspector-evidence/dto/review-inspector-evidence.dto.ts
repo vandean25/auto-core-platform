@@ -1,5 +1,13 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsInt, IsISO8601, IsString, Length, Matches, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsInt,
+  IsISO8601,
+  IsString,
+  Length,
+  Matches,
+  Min,
+} from 'class-validator';
 
 const DIGEST_PATTERN = /^[a-f0-9]{64}$/;
 
