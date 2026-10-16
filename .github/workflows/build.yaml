@@ -288,14 +288,14 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/auto_core_test
           NODE_OPTIONS: --max-old-space-size=8192
-        run: npm test --workspace=core-api -- --ci --maxWorkers=4 --testPathIgnorePatterns='document-branding-pdf-parser\.spec\.ts$'
+        run: npm test --workspace=core-api -- --ci --maxWorkers=4 --testPathIgnorePatterns='document-branding-(pdf-parser|extraction-image-processor)\.spec\.ts$'
 
       - name: Run timing-sensitive unit tests serially
-        # The PDF rasterization spec exceeds its 5 s budget when it shares CPU with parallel workers.
+        # Sharp/PDF rasterization specs exceed their 5 s budget when they share CPU with parallel workers.
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/auto_core_test
           NODE_OPTIONS: --max-old-space-size=8192
-        run: npm test --workspace=core-api -- --ci --runInBand --testPathPatterns='document-branding-pdf-parser\.spec\.ts$'
+        run: npm test --workspace=core-api -- --ci --runInBand --testPathPatterns='document-branding-(pdf-parser|extraction-image-processor)\.spec\.ts$'
 
   backend-e2e:
     name: Backend E2E Tests (shard ${{ matrix.shard }}/${{ strategy.job-total }})
