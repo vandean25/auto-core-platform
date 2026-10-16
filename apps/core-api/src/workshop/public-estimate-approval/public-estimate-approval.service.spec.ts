@@ -116,11 +116,15 @@ function build() {
   };
   const tenantContext = { setPublicEstimateApprovalTenant: jest.fn() };
   const audit = { recordTenantMutation: jest.fn().mockResolvedValue(undefined) };
-  const outbox = {
-    enqueueInTx: jest.fn().mockResolvedValue({ id: 'outbox-1', created: true }),
-  };
   const domainEventStore = {
-    appendInTx: jest.fn().mockResolvedValue(undefined),
+    appendInTx: jest.fn().mockResolvedValue({ eventId: 'event-1', sequence: BigInt(1) }),
+  };
+  const estimateDecidedConsumer = {
+    processTenantBatch: jest.fn().mockResolvedValue(1),
+  };
+  const estimateDecidedConsumerWakeUps = {
+    isEnabled: jest.fn().mockReturnValue(false),
+    enqueueWakeUp: jest.fn(),
   };
   const requestContext = {
     getTraceId: jest.fn().mockReturnValue('trace-approval-1'),
@@ -131,9 +135,10 @@ function build() {
     prisma as never,
     new PublicEstimateApprovalRateLimiter(),
     audit as never,
-    outbox,
     domainEventStore,
     requestContext,
+    estimateDecidedConsumer as never,
+    estimateDecidedConsumerWakeUps as never,
   );
   return {
     service,
@@ -142,9 +147,9 @@ function build() {
     lookup,
     tenantContext,
     audit,
-    outbox,
     domainEventStore,
     requestContext,
+    estimateDecidedConsumer,
   };
 }
 
@@ -352,9 +357,15 @@ describe('PublicEstimateApprovalService.decide', () => {
     });
   });
 
-  it('writes an audit row as the system and enqueues the decision event for a link decision', async () => {
-    const { service, audit, outbox, tx, domainEventStore, requestContext } =
-      build();
+  it('writes an audit row as the system and runs the estimate-decided consumer after commit', async () => {
+    const {
+      service,
+      audit,
+      tx,
+      domainEventStore,
+      requestContext,
+      estimateDecidedConsumer,
+    } = build();
 
     await service.decide(TOKEN, approval(), REQUEST, NOW);
 
@@ -377,17 +388,9 @@ describe('PublicEstimateApprovalService.decide', () => {
       }),
       tx,
     );
-    expect(outbox.enqueueInTx).toHaveBeenCalledWith(
-      tx,
-      expect.objectContaining({
-        tenantId: 'tenant-1',
-        eventType: 'CUSTOMER_ESTIMATE_DECIDED',
-        occurrenceId: 'approval-1',
-        channel: 'IN_APP',
-        recipientKind: 'INTERNAL_TEAM',
-        recipientKey: 'advisors',
-        workshopOrderId: 'order-1',
-      }),
+    expect(estimateDecidedConsumer.processTenantBatch).toHaveBeenCalledWith(
+      'tenant-1',
+      NOW,
     );
   });
 

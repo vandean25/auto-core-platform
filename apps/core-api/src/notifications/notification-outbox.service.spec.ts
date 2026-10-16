@@ -4,7 +4,10 @@ import {
   NotificationRecipientKind,
 } from '@prisma/client';
 import { NotificationOutboxService } from './notification-outbox.service.js';
-import type { EnqueueNotificationInput } from './notification-outbox.rows.js';
+import {
+  buildNotificationIdempotencyKey,
+  type EnqueueNotificationInput,
+} from './notification-outbox.rows.js';
 
 const input: EnqueueNotificationInput = {
   tenantId: 'tenant-1',
@@ -77,6 +80,18 @@ describe('NotificationOutboxService.enqueueInTx()', () => {
       },
       select: { id: true },
     });
+  });
+
+  it('keys estimate-decided notices by domain event id for consumer idempotency', () => {
+    const key = buildNotificationIdempotencyKey({
+      eventType: NotificationEventType.CUSTOMER_ESTIMATE_DECIDED,
+      occurrenceId: 'domain-event-1',
+      recipientKey: 'advisors',
+      channel: NotificationChannel.IN_APP,
+    });
+    expect(key).toBe(
+      'CUSTOMER_ESTIMATE_DECIDED:domain-event-1:advisors:IN_APP',
+    );
   });
 
   it('fails loudly if a skipped write cannot be found afterwards', async () => {

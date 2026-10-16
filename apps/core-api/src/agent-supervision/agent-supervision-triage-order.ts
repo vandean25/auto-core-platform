@@ -14,8 +14,9 @@ export interface SupervisionTriageCandidate {
 
 const KIND_RANK: Record<SupervisionTriageKind, number> = {
   OVERDUE_LOANER: 0,
-  CUSTOMER_WAITING: 1,
-  PENDING_APPROVAL: 2,
+  CUSTOMER_DECISION: 1,
+  CUSTOMER_WAITING: 2,
+  PENDING_APPROVAL: 3,
 };
 
 function dueSortKey(dueAt: Date | null): string {

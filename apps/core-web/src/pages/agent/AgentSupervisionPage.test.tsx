@@ -1496,6 +1496,38 @@ describe('AgentSupervisionPage', () => {
       expect(orderedIds[2]).toBe('proposal-card-prop-younger')
     })
 
+    it('renders a customer estimate decision triage row with localized copy', () => {
+      vi.mocked(useAgentSupervisionTriage).mockReturnValue({
+        data: {
+          data: [
+            {
+              kind: 'CUSTOMER_DECISION',
+              entity_id: 'notice-1',
+              site_id: 'site-1',
+              reason: 'CUSTOMER_ESTIMATE_APPROVED_REVIEW_WAITING_TASKS',
+              created_at: '2026-01-02T00:00:00.000Z',
+              due_at: null,
+              record_link: '/workshop/orders/order-1',
+              allowed_action: 'OPEN_RECORD',
+            },
+          ],
+          next_cursor: null,
+        },
+        isLoading: false,
+        isError: false,
+        refetch: mockRefetchTriage,
+      } as unknown as ReturnType<typeof useAgentSupervisionTriage>)
+
+      renderSupervisionPage()
+
+      expect(
+        screen.getByTestId('triage-card-CUSTOMER_DECISION-notice-1'),
+      ).toBeInTheDocument()
+      expect(
+        screen.getByText(/review waiting tasks before resuming work/i),
+      ).toBeInTheDocument()
+    })
+
     it('still renders approve actions for pending proposals listed via triage', async () => {
       vi.mocked(useAgentProposalsByIds).mockReturnValue({
         data: { data: [mockProposals[0]] },

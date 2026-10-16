@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AgentProposalModule } from '../agent-proposal/agent-proposal.module.js';
 import { CommonModule } from '../common/common.module.js';
 import { LoanerVehiclesModule } from '../loaner-vehicles/loaner-vehicles.module.js';
+import { WorkshopModule } from '../workshop/workshop.module.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { AgentSupervisionController } from './agent-supervision.controller.js';
 import { AgentSupervisionTriageService } from './agent-supervision-triage.service.js';
@@ -12,6 +13,7 @@ import { AgentSupervisionTriageService } from './agent-supervision-triage.servic
     CommonModule,
     AgentProposalModule,
     LoanerVehiclesModule,
+    WorkshopModule,
   ],
   controllers: [AgentSupervisionController],
   providers: [AgentSupervisionTriageService],

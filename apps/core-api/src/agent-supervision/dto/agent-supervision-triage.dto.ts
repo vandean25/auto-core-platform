@@ -3,7 +3,10 @@ import { Type } from 'class-transformer';
 import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export type SupervisionTriageKind =
-  'PENDING_APPROVAL' | 'CUSTOMER_WAITING' | 'OVERDUE_LOANER';
+  | 'PENDING_APPROVAL'
+  | 'CUSTOMER_WAITING'
+  | 'CUSTOMER_DECISION'
+  | 'OVERDUE_LOANER';
 
 export type SupervisionTriageAllowedAction = 'APPROVE_REJECT' | 'OPEN_RECORD';
 
@@ -26,7 +29,12 @@ export class QueryAgentSupervisionTriageDto {
 
 export class AgentSupervisionTriageItemDto {
   @ApiProperty({
-    enum: ['PENDING_APPROVAL', 'CUSTOMER_WAITING', 'OVERDUE_LOANER'],
+    enum: [
+      'PENDING_APPROVAL',
+      'CUSTOMER_WAITING',
+      'CUSTOMER_DECISION',
+      'OVERDUE_LOANER',
+    ],
   })
   kind!: SupervisionTriageKind;
 

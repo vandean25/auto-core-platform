@@ -26,6 +26,9 @@ describe('AgentSupervisionTriageService', () => {
     listCustomerWaitingTriageCandidates: jest.Mock;
     listPendingApprovalTriageCandidates: jest.Mock;
   };
+  let mockEstimateDecisions: {
+    listCustomerDecisionTriageCandidates: jest.Mock;
+  };
   let mockLoanerVehicles: { listOverdueTriageCandidates: jest.Mock };
 
   beforeEach(() => {
@@ -47,12 +50,16 @@ describe('AgentSupervisionTriageService', () => {
     mockLoanerVehicles = {
       listOverdueTriageCandidates: jest.fn().mockResolvedValue([]),
     };
+    mockEstimateDecisions = {
+      listCustomerDecisionTriageCandidates: jest.fn().mockResolvedValue([]),
+    };
 
     service = new AgentSupervisionTriageService(
       mockTenantContext as never,
       mockSiteContext as never,
       mockProposalReads as never,
       mockLoanerVehicles as never,
+      mockEstimateDecisions as never,
     );
   });
 

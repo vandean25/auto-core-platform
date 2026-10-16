@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { LoanerVehiclesService } from '../loaner-vehicles/loaner-vehicles.service.js';
+import { WorkshopEstimateDecisionTriageService } from '../workshop/workshop-estimate-decision-triage.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
 import { AgentProposalReadService } from '../agent-proposal/agent-proposal-read.service.js';
 import { assertSupervisorAccess } from '../agent-proposal/agent-proposal.authorization.js';
@@ -23,6 +24,7 @@ export class AgentSupervisionTriageService {
     private readonly siteContext: SiteContextService,
     private readonly proposalReads: AgentProposalReadService,
     private readonly loanerVehicles: LoanerVehiclesService,
+    private readonly estimateDecisions: WorkshopEstimateDecisionTriageService,
   ) {}
 
   async listTriage(
@@ -66,13 +68,21 @@ export class AgentSupervisionTriageService {
     tenantId: string,
     siteIds: string[],
   ): Promise<SupervisionTriageCandidate[]> {
-    const [overdue, customerWaiting, pendingApproval] = await Promise.all([
-      this.loanerVehicles.listOverdueTriageCandidates(tenantId, siteIds),
-      this.proposalReads.listCustomerWaitingTriageCandidates(tenantId, siteIds),
-      this.proposalReads.listPendingApprovalTriageCandidates(tenantId, siteIds),
-    ]);
+    const [overdue, customerDecisions, customerWaiting, pendingApproval] =
+      await Promise.all([
+        this.loanerVehicles.listOverdueTriageCandidates(tenantId, siteIds),
+        this.estimateDecisions.listCustomerDecisionTriageCandidates(
+          tenantId,
+          siteIds,
+        ),
+        this.proposalReads.listCustomerWaitingTriageCandidates(tenantId, siteIds),
+        this.proposalReads.listPendingApprovalTriageCandidates(
+          tenantId,
+          siteIds,
+        ),
+      ]);
 
-    return [...overdue, ...customerWaiting, ...pendingApproval];
+    return [...overdue, ...customerDecisions, ...customerWaiting, ...pendingApproval];
   }
 }
 

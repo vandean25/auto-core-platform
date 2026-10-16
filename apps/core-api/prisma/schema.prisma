@@ -178,6 +178,8 @@ model Tenant {
   workshopCommandPresets        WorkshopCommandPreset[]
   mcpWriteCommandReceipts       McpWriteCommandReceipt[]
   domainEvents                  DomainEvent[]
+  domainEventConsumerProgress   DomainEventConsumerProgress[]
+  domainEventConsumerDeliveries DomainEventConsumerDelivery[]
   registrationDocumentIntakes   RegistrationDocumentIntake[]
   registrationIntakeBytePurges  RegistrationIntakeBytePurge[]
   payments                      Payment[]
@@ -3689,12 +3691,47 @@ model DomainEvent {
   trace_id       String   @db.Uuid
   occurrence_key String
   payload        Json?
+  consumerDeliveries DomainEventConsumerDelivery[]
 
   @@unique([tenant_id, occurrence_key])
   @@unique([tenant_id, id])
   @@index([tenant_id, sequence])
   @@index([tenant_id, site_id, sequence])
   @@map("domain_events")
+}
+
+/// Per-tenant consumer cursor and lease (AUT-544). Progress advances only after a delivery row is
+/// committed for the event; a claim prevents two workers from processing the same tenant batch.
+model DomainEventConsumerProgress {
+  tenant_id        String
+  tenant           Tenant   @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  consumer_key     String
+  cursor_sequence  BigInt   @default(0)
+  cursor_event_id  String?
+  claim_token      String?  @db.Uuid
+  claim_expires_at DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@id([tenant_id, consumer_key])
+  @@map("domain_event_consumer_progress")
+}
+
+/// Idempotent effect of one consumer on one domain event (AUT-544). A replay or duplicate worker
+/// sees the row and advances the cursor without writing a second outbox notice.
+model DomainEventConsumerDelivery {
+  tenant_id              String
+  tenant                 Tenant     @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  consumer_key           String
+  domain_event_id        String
+  domain_event           DomainEvent @relation(fields: [tenant_id, domain_event_id], references: [tenant_id, id], onDelete: Restrict)
+  outcome                String
+  notification_outbox_id String?
+  createdAt              DateTime   @default(now())
+
+  @@unique([tenant_id, consumer_key, domain_event_id])
+  @@index([tenant_id, consumer_key])
+  @@map("domain_event_consumer_deliveries")
 }
 
 enum LoanerVehicleStatus {

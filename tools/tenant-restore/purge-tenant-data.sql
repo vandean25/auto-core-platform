@@ -31,6 +31,7 @@ VALUES
   ('decision_shadow_logs'),
   ('document_brand_quota_events'),
   ('document_brand_quota_locks'),
+  ('domain_event_consumer_progress'),
   ('employees'),
   ('finance_settings'),
   ('import_jobs'),
@@ -96,6 +97,7 @@ VALUES
   ('workshop_holidays'),
   ('workshop_opening_hours'),
   ('document_brand_profiles'),
+  ('domain_event_consumer_deliveries'),
   ('employee_work_schedule_days'),
   ('inspection_device_evidence'),
   ('inventory_stocks'),
@@ -251,6 +253,9 @@ VALUES
   ('document_brand_profiles', 'users', 'confirmed_by_user_id', 'id', 'SET NULL', 'CASCADE'),
   ('document_brand_quota_events', 'tenants', 'tenant_id', 'id', 'CASCADE', 'CASCADE'),
   ('document_brand_quota_locks', 'tenants', 'tenant_id', 'id', 'CASCADE', 'CASCADE'),
+  ('domain_event_consumer_deliveries', 'domain_events', 'tenant_id,domain_event_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('domain_event_consumer_deliveries', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('domain_event_consumer_progress', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('domain_events', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('domain_events', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('employee_leave_balances', 'employees', 'tenant_id,employee_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
@@ -877,6 +882,8 @@ DELETE FROM public."inspection_device_evidence"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."employee_work_schedule_days"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."domain_event_consumer_deliveries"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."document_brand_profiles"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_opening_hours"
@@ -1007,6 +1014,8 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."finance_settings"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."employees"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."domain_event_consumer_progress"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."document_brand_quota_locks"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
