@@ -11,9 +11,12 @@ import {
   buildWorkshopTasksSection,
   buildWorkshopVehicleSection,
 } from './workshop-pdf.layout.js';
+import { getWorkshopPdfCopy } from './workshop-pdf-copy.js';
 import type { WorkshopOrderForPdf } from './workshop-pdf.types.js';
 
 describe('workshop-pdf.layout', () => {
+  const deCopy = getWorkshopPdfCopy('de');
+  const enCopy = getWorkshopPdfCopy('en');
   const createBaseOrder = (): WorkshopOrderForPdf => ({
     id: 'order-123',
     tenant_id: 'tenant-1',
@@ -116,7 +119,7 @@ describe('workshop-pdf.layout', () => {
 
   describe('buildWorkshopHeader', () => {
     it('renders job card header with order number', () => {
-      const header = buildWorkshopHeader('WO-100');
+      const header = buildWorkshopHeader('WO-100', enCopy);
       expect(header).toContain('Job Card');
       expect(header).toContain('Order: WO-100');
       expect(header).toContain('Internal Document');
@@ -126,7 +129,7 @@ describe('workshop-pdf.layout', () => {
   describe('buildWorkshopCustomerSection', () => {
     it('renders private customer with full name and details', () => {
       const customer = createBaseOrder().customer;
-      const html = buildWorkshopCustomerSection(customer, escapeHtml);
+      const html = buildWorkshopCustomerSection(customer, escapeHtml, enCopy);
       expect(html).toContain('Max Mustermann');
       expect(html).toContain('1010 Wien');
       expect(html).toContain('Phone: +431234567');
@@ -139,7 +142,7 @@ describe('workshop-pdf.layout', () => {
         type: 'COMPANY' as const,
         company_name: 'Acme Motors GmbH',
       };
-      const html = buildWorkshopCustomerSection(customer, escapeHtml);
+      const html = buildWorkshopCustomerSection(customer, escapeHtml, enCopy);
       expect(html).toContain('Acme Motors GmbH');
     });
 
@@ -154,7 +157,7 @@ describe('workshop-pdf.layout', () => {
         phone: null,
         email: null,
       };
-      const html = buildWorkshopCustomerSection(customer, escapeHtml);
+      const html = buildWorkshopCustomerSection(customer, escapeHtml, enCopy);
       expect(html).toContain('>—<');
     });
   });
@@ -167,6 +170,7 @@ describe('workshop-pdf.layout', () => {
         order.odometer,
         order.fuel_level,
         escapeHtml,
+        enCopy,
       );
       expect(html).toContain('Audi A4 (2021)');
       expect(html).toContain(
@@ -178,7 +182,13 @@ describe('workshop-pdf.layout', () => {
     });
 
     it('renders dashes when vehicle or stats are missing', () => {
-      const html = buildWorkshopVehicleSection(null, null, null, escapeHtml);
+      const html = buildWorkshopVehicleSection(
+        null,
+        null,
+        null,
+        escapeHtml,
+        enCopy,
+      );
       expect(html).toContain('— — (—)');
       expect(html).toContain('>—</div>');
     });
@@ -186,14 +196,19 @@ describe('workshop-pdf.layout', () => {
 
   describe('buildWorkshopReportedIssueSection', () => {
     it('returns empty string when reported issue is not present', () => {
-      expect(buildWorkshopReportedIssueSection(null, escapeHtml)).toBe('');
-      expect(buildWorkshopReportedIssueSection('', escapeHtml)).toBe('');
+      expect(buildWorkshopReportedIssueSection(null, escapeHtml, enCopy)).toBe(
+        '',
+      );
+      expect(buildWorkshopReportedIssueSection('', escapeHtml, enCopy)).toBe(
+        '',
+      );
     });
 
     it('renders reported issue box when present', () => {
       const html = buildWorkshopReportedIssueSection(
         'Engine vibrates',
         escapeHtml,
+        enCopy,
       );
       expect(html).toContain('Reported Issue / Customer Complaint');
       expect(html).toContain('Engine vibrates');
@@ -202,13 +217,13 @@ describe('workshop-pdf.layout', () => {
 
   describe('buildWorkshopTasksSection', () => {
     it('renders fallback when no tasks exist', () => {
-      const html = buildWorkshopTasksSection([], escapeHtml);
+      const html = buildWorkshopTasksSection([], escapeHtml, enCopy);
       expect(html).toContain('No tasks assigned yet.');
     });
 
     it('renders tasks and line items table', () => {
       const order = createBaseOrder();
-      const html = buildWorkshopTasksSection(order.tasks, escapeHtml);
+      const html = buildWorkshopTasksSection(order.tasks, escapeHtml, enCopy);
       expect(html).toContain('Brake Inspection');
       expect(html).toContain('Mechanic Notes:');
       expect(html).toContain('Check front pads');
@@ -219,13 +234,16 @@ describe('workshop-pdf.layout', () => {
 
   describe('buildWorkshopInternalNotesSection', () => {
     it('returns empty string when notes are absent', () => {
-      expect(buildWorkshopInternalNotesSection(null, escapeHtml)).toBe('');
+      expect(buildWorkshopInternalNotesSection(null, escapeHtml, enCopy)).toBe(
+        '',
+      );
     });
 
     it('renders internal notes when present', () => {
       const html = buildWorkshopInternalNotesSection(
         'Keep until 5pm',
         escapeHtml,
+        enCopy,
       );
       expect(html).toContain('Internal Notes');
       expect(html).toContain('Keep until 5pm');
@@ -234,12 +252,12 @@ describe('workshop-pdf.layout', () => {
 
   describe('buildWorkshopFooterNotes and buildWorkshopFooterTemplate', () => {
     it('renders footer signature line', () => {
-      const html = buildWorkshopFooterNotes();
+      const html = buildWorkshopFooterNotes(enCopy);
       expect(html).toContain('Signature Mechanic:');
     });
 
     it('renders footer template for Playwright with safe order number', () => {
-      const template = buildWorkshopFooterTemplate('WO-100', escapeHtml);
+      const template = buildWorkshopFooterTemplate('WO-100', escapeHtml, 'en');
       expect(template).toContain('Job Card WO-100');
       expect(template).toContain('class="pageNumber"');
       expect(template).toContain('class="totalPages"');
@@ -249,13 +267,23 @@ describe('workshop-pdf.layout', () => {
   describe('buildWorkshopHtmlDocument', () => {
     it('assembles the full HTML document correctly', () => {
       const order = createBaseOrder();
-      const html = buildWorkshopHtmlDocument(order, 'WO-100', escapeHtml);
+      const html = buildWorkshopHtmlDocument(order, 'WO-100', escapeHtml, 'en');
       expect(html).toContain('<!DOCTYPE html>');
+      expect(html).toContain('lang="en"');
       expect(html).toContain('Job Card');
       expect(html).toContain('Max Mustermann');
       expect(html).toContain('Audi A4');
       expect(html).toContain('Brake Inspection');
       expect(html).toContain('Urgent customer request');
+    });
+
+    it('uses German labels when document locale is de', () => {
+      const order = createBaseOrder();
+      const html = buildWorkshopHtmlDocument(order, 'WO-100', escapeHtml, 'de');
+      expect(html).toContain('lang="de"');
+      expect(html).toContain('Arbeitskarte');
+      expect(html).toContain(deCopy.customerSectionTitle);
+      expect(html).not.toContain('Job Card');
     });
   });
 });

@@ -27,8 +27,11 @@ export class WorkshopPdfRenderer {
         const page = await browser.newPage();
 
         try {
-          const html = this.generateHtml(order, orderNumber);
-          void options.documentLocale;
+          const html = this.generateHtml(
+            order,
+            orderNumber,
+            options.documentLocale,
+          );
           await page.setContent(html, { timeout: 10_000 });
 
           const pdf = await Sentry.startSpan(
@@ -45,7 +48,10 @@ export class WorkshopPdfRenderer {
                   },
                   displayHeaderFooter: true,
                   headerTemplate: '<div></div>',
-                  footerTemplate: this.buildFooterTemplate(orderNumber),
+                  footerTemplate: this.buildFooterTemplate(
+                    orderNumber,
+                    options.documentLocale,
+                  ),
                   printBackground: true,
                 }),
                 15_000,
@@ -72,11 +78,20 @@ export class WorkshopPdfRenderer {
   private generateHtml(
     order: WorkshopOrderForPdf,
     orderNumber: string,
+    documentLocale: DisplayLanguage,
   ): string {
-    return buildWorkshopHtmlDocument(order, orderNumber, escapeHtml);
+    return buildWorkshopHtmlDocument(
+      order,
+      orderNumber,
+      escapeHtml,
+      documentLocale,
+    );
   }
 
-  private buildFooterTemplate(orderNumber: string): string {
-    return buildWorkshopFooterTemplate(orderNumber, escapeHtml);
+  private buildFooterTemplate(
+    orderNumber: string,
+    documentLocale: DisplayLanguage,
+  ): string {
+    return buildWorkshopFooterTemplate(orderNumber, escapeHtml, documentLocale);
   }
 }

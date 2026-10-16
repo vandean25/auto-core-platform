@@ -1,8 +1,13 @@
+import type { DisplayLanguage } from '@prisma/client';
 import {
   buildBasePdfStyles,
   buildPdfFooterTemplate,
   type EscapeHtml,
 } from '../common/pdf/pdf-layout.js';
+import {
+  getWorkshopPdfCopy,
+  type WorkshopPdfCopy,
+} from './workshop-pdf-copy.js';
 import type { WorkshopOrderForPdf } from './workshop-pdf.types.js';
 
 export const buildWorkshopDocumentStyles = (): string => `
@@ -37,14 +42,17 @@ export const buildWorkshopDocumentStyles = (): string => `
   .footer-notes { margin-top: 32px; padding-top: 16px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #6b7280; }
 `;
 
-export const buildWorkshopHeader = (safeOrderNumber: string): string => `
+export const buildWorkshopHeader = (
+  safeOrderNumber: string,
+  copy: WorkshopPdfCopy,
+): string => `
   <div class="header">
     <div>
-      <h1>Job Card</h1>
-      <div style="color: #6b7280; margin-top: 4px;">Order: ${safeOrderNumber}</div>
+      <h1>${copy.jobCardTitle}</h1>
+      <div style="color: #6b7280; margin-top: 4px;">${copy.orderLabel}: ${safeOrderNumber}</div>
     </div>
     <div>
-      <span class="badge-jobcard">Internal Document</span>
+      <span class="badge-jobcard">${copy.internalDocumentBadge}</span>
     </div>
   </div>
 `;
@@ -52,6 +60,7 @@ export const buildWorkshopHeader = (safeOrderNumber: string): string => `
 export const buildWorkshopCustomerSection = (
   customer: WorkshopOrderForPdf['customer'],
   escape: EscapeHtml,
+  copy: WorkshopPdfCopy,
 ): string => {
   const personName = [customer?.first_name, customer?.last_name]
     .filter(Boolean)
@@ -69,11 +78,11 @@ export const buildWorkshopCustomerSection = (
 
   return `
     <div class="section">
-      <div class="section-title">Customer</div>
+      <div class="section-title">${copy.customerSectionTitle}</div>
       <div style="font-weight: 600;">${escape(safeCustomerName)}</div>
       ${cityLine ? `<div>${escape(cityLine)}</div>` : ''}
-      ${customer?.phone ? `<div>Phone: ${escape(customer.phone)}</div>` : ''}
-      ${customer?.email ? `<div>Email: ${escape(customer.email)}</div>` : ''}
+      ${customer?.phone ? `<div>${copy.phoneLabel}: ${escape(customer.phone)}</div>` : ''}
+      ${customer?.email ? `<div>${copy.emailLabel}: ${escape(customer.email)}</div>` : ''}
     </div>
   `;
 };
@@ -83,6 +92,7 @@ export const buildWorkshopVehicleSection = (
   odometer: number | null | undefined,
   fuelLevel: number | null | undefined,
   escape: EscapeHtml,
+  copy: WorkshopPdfCopy,
 ): string => {
   const makeModelYear = `${escape(vehicle?.make) || '—'} ${escape(vehicle?.model) || '—'} (${escape(vehicle?.year) || '—'})`;
   const odometerDisplay = odometer != null ? `${escape(odometer)} km` : '—';
@@ -90,18 +100,18 @@ export const buildWorkshopVehicleSection = (
 
   return `
     <div class="section">
-      <div class="section-title">Vehicle Details</div>
+      <div class="section-title">${copy.vehicleSectionTitle}</div>
       <div style="font-weight: 600; font-size: 14px;">${makeModelYear}</div>
-      ${vehicle?.vin ? `<div>VIN: <span style="font-family: monospace;">${escape(vehicle.vin)}</span></div>` : ''}
-      ${vehicle?.plate ? `<div>Plate: <strong>${escape(vehicle.plate)}</strong></div>` : ''}
+      ${vehicle?.vin ? `<div>${copy.vinLabel}: <span style="font-family: monospace;">${escape(vehicle.vin)}</span></div>` : ''}
+      ${vehicle?.plate ? `<div>${copy.plateLabel}: <strong>${escape(vehicle.plate)}</strong></div>` : ''}
       
       <div class="vehicle-stats">
         <div class="stat-box">
-          <div class="stat-label">Odometer</div>
+          <div class="stat-label">${copy.odometerLabel}</div>
           <div class="stat-value">${odometerDisplay}</div>
         </div>
         <div class="stat-box">
-          <div class="stat-label">Fuel Level</div>
+          <div class="stat-label">${copy.fuelLevelLabel}</div>
           <div class="stat-value">${fuelDisplay}</div>
         </div>
       </div>
@@ -112,6 +122,7 @@ export const buildWorkshopVehicleSection = (
 export const buildWorkshopReportedIssueSection = (
   reportedIssue: string | null | undefined,
   escape: EscapeHtml,
+  copy: WorkshopPdfCopy,
 ): string => {
   if (!reportedIssue) {
     return '';
@@ -119,7 +130,7 @@ export const buildWorkshopReportedIssueSection = (
 
   return `
     <div class="issue-box">
-      <div class="issue-title">Reported Issue / Customer Complaint</div>
+      <div class="issue-title">${copy.reportedIssueTitle}</div>
       <div style="white-space: pre-wrap;">${escape(reportedIssue)}</div>
     </div>
   `;
@@ -128,12 +139,13 @@ export const buildWorkshopReportedIssueSection = (
 export const buildWorkshopTasksSection = (
   tasks: WorkshopOrderForPdf['tasks'],
   escape: EscapeHtml,
+  copy: WorkshopPdfCopy,
 ): string => {
   if (!tasks || !Array.isArray(tasks) || tasks.length === 0) {
     return `
       <div class="section">
-        <div class="section-title" style="font-size: 14px;">Tasks & Operations</div>
-        <div style="color: #6b7280; padding: 12px; background: #f9fafb; border-radius: 6px; text-align: center;">No tasks assigned yet.</div>
+        <div class="section-title" style="font-size: 14px;">${copy.tasksSectionTitle}</div>
+        <div style="color: #6b7280; padding: 12px; background: #f9fafb; border-radius: 6px; text-align: center;">${copy.noTasksMessage}</div>
       </div>
     `;
   }
@@ -150,10 +162,10 @@ export const buildWorkshopTasksSection = (
           <table class="line-items">
             <thead>
               <tr>
-                <th style="width: 50px;">Type</th>
-                <th style="width: 80px;">Item No</th>
-                <th>Description</th>
-                <th style="text-align: right; width: 60px;">Qty</th>
+                <th style="width: 50px;">${copy.lineItemTypeHeader}</th>
+                <th style="width: 80px;">${copy.lineItemNoHeader}</th>
+                <th>${copy.lineItemDescriptionHeader}</th>
+                <th style="text-align: right; width: 60px;">${copy.lineItemQtyHeader}</th>
               </tr>
             </thead>
             <tbody>
@@ -182,7 +194,7 @@ export const buildWorkshopTasksSection = (
           ${
             task.mechanic_notes
               ? `<div class="task-notes">
-                  <strong>Mechanic Notes:</strong><br/>
+                  <strong>${copy.mechanicNotesLabel}:</strong><br/>
                   ${escape(task.mechanic_notes)}
                 </div>`
               : ''
@@ -195,7 +207,7 @@ export const buildWorkshopTasksSection = (
 
   return `
     <div class="section">
-      <div class="section-title" style="font-size: 14px;">Tasks & Operations</div>
+      <div class="section-title" style="font-size: 14px;">${copy.tasksSectionTitle}</div>
       ${tasksHtml}
     </div>
   `;
@@ -204,6 +216,7 @@ export const buildWorkshopTasksSection = (
 export const buildWorkshopInternalNotesSection = (
   notes: string | null | undefined,
   escape: EscapeHtml,
+  copy: WorkshopPdfCopy,
 ): string => {
   if (!notes) {
     return '';
@@ -211,50 +224,56 @@ export const buildWorkshopInternalNotesSection = (
 
   return `
     <div class="section">
-      <div class="section-title">Internal Notes</div>
+      <div class="section-title">${copy.internalNotesTitle}</div>
       <div style="white-space: pre-wrap;">${escape(notes)}</div>
     </div>
   `;
 };
 
-export const buildWorkshopFooterNotes = (): string => `
+export const buildWorkshopFooterNotes = (copy: WorkshopPdfCopy): string => `
   <div class="footer-notes">
-    Signature Mechanic: ___________________________ &nbsp;&nbsp;&nbsp;&nbsp; Date: ________________
+    ${copy.footerSignatureLine}
   </div>
 `;
 
 export const buildWorkshopFooterTemplate = (
   orderNumber: string,
   escape: EscapeHtml,
-): string => buildPdfFooterTemplate(`Job Card ${escape(orderNumber)}`);
+  documentLocale: DisplayLanguage,
+): string => {
+  const copy = getWorkshopPdfCopy(documentLocale);
+  return buildPdfFooterTemplate(escape(copy.footerDocumentLabel(orderNumber)));
+};
 
 export const buildWorkshopHtmlDocument = (
   order: WorkshopOrderForPdf,
   orderNumber: string,
   escape: EscapeHtml,
+  documentLocale: DisplayLanguage,
 ): string => {
   const safeOrderNumber = escape(orderNumber);
+  const copy = getWorkshopPdfCopy(documentLocale);
 
   return `
     <!DOCTYPE html>
-    <html>
+    <html lang="${copy.htmlLang}">
     <head>
       <style>
         ${buildWorkshopDocumentStyles()}
       </style>
     </head>
     <body>
-      ${buildWorkshopHeader(safeOrderNumber)}
+      ${buildWorkshopHeader(safeOrderNumber, copy)}
 
       <div class="info-grid">
-        ${buildWorkshopCustomerSection(order.customer, escape)}
-        ${buildWorkshopVehicleSection(order.vehicle, order.odometer, order.fuel_level, escape)}
+        ${buildWorkshopCustomerSection(order.customer, escape, copy)}
+        ${buildWorkshopVehicleSection(order.vehicle, order.odometer, order.fuel_level, escape, copy)}
       </div>
 
-      ${buildWorkshopReportedIssueSection(order.reported_issue, escape)}
-      ${buildWorkshopTasksSection(order.tasks, escape)}
-      ${buildWorkshopInternalNotesSection(order.notes, escape)}
-      ${buildWorkshopFooterNotes()}
+      ${buildWorkshopReportedIssueSection(order.reported_issue, escape, copy)}
+      ${buildWorkshopTasksSection(order.tasks, escape, copy)}
+      ${buildWorkshopInternalNotesSection(order.notes, escape, copy)}
+      ${buildWorkshopFooterNotes(copy)}
     </body>
     </html>
   `;
