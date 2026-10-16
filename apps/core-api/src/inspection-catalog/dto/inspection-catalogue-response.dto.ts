@@ -11,16 +11,16 @@ export class InspectionCataloguePreviewResponseDto {
   @ApiProperty()
   manifest_reference!: string;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({ nullable: true, type: String })
   fingerprint!: string | null;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({ nullable: true, type: String })
   manifest_digest!: string | null;
 
   @ApiProperty({ nullable: true, type: String, format: 'date-time' })
   preview_expires_at!: string | null;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({ nullable: true, type: String })
   error_code!: string | null;
 
   @ApiProperty()
@@ -68,13 +68,13 @@ export class CatalogueReferenceResolutionDto {
   @ApiProperty()
   position_id!: string;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({ nullable: true, type: String })
   entry_id!: string | null;
 
   @ApiProperty()
   status!: string;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({ nullable: true, type: String })
   label!: string | null;
 
   @ApiProperty()
@@ -83,10 +83,10 @@ export class CatalogueReferenceResolutionDto {
   @ApiProperty()
   coverage!: string;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({ nullable: true, type: String, format: 'uuid' })
   catalogue_version_id!: string | null;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({ nullable: true, type: String })
   source_version!: string | null;
 
   @ApiProperty({ nullable: true, type: String, format: 'date-time' })
@@ -134,6 +134,38 @@ export class CreateInspectionFindingReferenceDto {
   vehicle_class?: string | null;
 }
 
+export class InspectionFindingReferenceListItemDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty()
+  position_id!: string;
+
+  @ApiProperty({ nullable: true, type: String })
+  entry_id!: string | null;
+
+  @ApiProperty()
+  label_snapshot!: string;
+
+  @ApiProperty()
+  source_version!: string;
+
+  @ApiProperty()
+  source_kind!: string;
+
+  @ApiProperty()
+  coverage!: string;
+
+  @ApiProperty({ type: String, format: 'date-time' })
+  recheck_after!: string;
+
+  @ApiProperty({ type: Object })
+  provenance_snapshot!: Record<string, unknown>;
+
+  @ApiProperty({ nullable: true, type: String })
+  human_finding_label!: string | null;
+}
+
 export class InspectionFindingReferenceResponseDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
@@ -141,7 +173,7 @@ export class InspectionFindingReferenceResponseDto {
   @ApiProperty()
   position_id!: string;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({ nullable: true, type: String })
   entry_id!: string | null;
 
   @ApiProperty()

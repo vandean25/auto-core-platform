@@ -7514,11 +7514,11 @@ export interface components {
             id: string;
             state: string;
             manifest_reference: string;
-            fingerprint: Record<string, never> | null;
-            manifest_digest: Record<string, never> | null;
+            fingerprint: string | null;
+            manifest_digest: string | null;
             /** Format: date-time */
             preview_expires_at: string | null;
-            error_code: Record<string, never> | null;
+            error_code: string | null;
             version: number;
             source_kind: string;
             source_version: string;
@@ -7542,13 +7542,14 @@ export interface components {
         };
         CatalogueReferenceResolutionDto: {
             position_id: string;
-            entry_id: Record<string, never> | null;
+            entry_id: string | null;
             status: string;
-            label: Record<string, never> | null;
+            label: string | null;
             source_kind: string;
             coverage: string;
-            catalogue_version_id: Record<string, never> | null;
-            source_version: Record<string, never> | null;
+            /** Format: uuid */
+            catalogue_version_id: string | null;
+            source_version: string | null;
             /** Format: date-time */
             recheck_after: string | null;
             currentness_stale: boolean;
@@ -7570,11 +7571,25 @@ export interface components {
             /** Format: uuid */
             id: string;
             position_id: string;
-            entry_id: Record<string, never> | null;
+            entry_id: string | null;
             label_snapshot: string;
             source_version: string;
             source_kind: string;
             coverage: string;
+        };
+        InspectionFindingReferenceListItemDto: {
+            /** Format: uuid */
+            id: string;
+            position_id: string;
+            entry_id: string | null;
+            label_snapshot: string;
+            source_version: string;
+            source_kind: string;
+            coverage: string;
+            /** Format: date-time */
+            recheck_after: string;
+            provenance_snapshot: Record<string, never>;
+            human_finding_label: string | null;
         };
         LoanerVehicleResponseDto: {
             id: string;
@@ -14855,7 +14870,11 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["PaginatedResponseDto"] & {
+                        data?: components["schemas"]["InspectionFindingReferenceListItemDto"][];
+                    };
+                };
             };
         };
     };

@@ -2295,8 +2295,8 @@ model TenantInspectionCatalogueActivation {
   id                   String                   @id @default(uuid())
   tenant_id            String
   tenant               Tenant                   @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
-  site_id              String?
-  site                 Site?                    @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
+  site_id              String
+  site                 Site                     @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
   catalogue_version_id String
   catalogueVersion     InspectionCatalogueVersion @relation(fields: [tenant_id, catalogue_version_id], references: [tenant_id, id], onDelete: Restrict)
   source_kind          InspectionCatalogueSourceKind

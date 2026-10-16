@@ -88,17 +88,29 @@ export function intervalsOverlap(
   return aFrom < bEnd && bFrom < aEnd;
 }
 
+export type CatalogueLookupPurpose = 'position_only' | 'scoped_recommendation';
+
 export function resolveCatalogueReference(params: {
   manifest: CatalogueManifest;
   request: CatalogueReferenceRequest;
   inspectionTime: Date;
   vehicleClass?: string | null;
   forCurrentUse: boolean;
+  lookupPurpose: CatalogueLookupPurpose;
 }): CatalogueResolutionStatus {
-  const { manifest, request, inspectionTime, vehicleClass, forCurrentUse } =
-    params;
+  const {
+    manifest,
+    request,
+    inspectionTime,
+    vehicleClass,
+    forCurrentUse,
+    lookupPurpose,
+  } = params;
 
-  if (forCurrentUse && inspectionTime > new Date(manifest.recheck_after)) {
+  if (
+    forCurrentUse &&
+    inspectionTime.getTime() >= new Date(manifest.recheck_after).getTime()
+  ) {
     return 'STALE_CATALOG';
   }
 
@@ -112,13 +124,20 @@ export function resolveCatalogueReference(params: {
     return 'STALE_CATALOG';
   }
 
-  const position = manifest.positions.find(
-    (entry) =>
-      entry.position_id === request.position_id &&
-      (request.entry_id == null
-        ? entry.entry_id == null
-        : entry.entry_id === request.entry_id),
-  );
+  const position =
+    request.entry_id == null
+      ? (manifest.positions.find(
+          (entry) =>
+            entry.position_id === request.position_id && entry.entry_id == null,
+        ) ??
+        manifest.positions.find(
+          (entry) => entry.position_id === request.position_id,
+        ))
+      : manifest.positions.find(
+          (entry) =>
+            entry.position_id === request.position_id &&
+            entry.entry_id === request.entry_id,
+        );
   if (!position) {
     return 'UNKNOWN_CODE';
   }
@@ -127,15 +146,15 @@ export function resolveCatalogueReference(params: {
     return 'UNKNOWN_CODE';
   }
 
-  if (position.vehicle_scope === 'REQUIRES_SOURCE_REVIEW' && !vehicleClass) {
+  if (lookupPurpose === 'position_only' && request.entry_id == null) {
+    return 'RESOLVED';
+  }
+
+  if (position.vehicle_scope === 'REQUIRES_SOURCE_REVIEW') {
     return 'OUT_OF_SCOPE';
   }
 
-  if (
-    position.vehicle_scope !== 'REQUIRES_SOURCE_REVIEW' &&
-    vehicleClass &&
-    position.vehicle_scope !== vehicleClass
-  ) {
+  if (vehicleClass && position.vehicle_scope !== vehicleClass) {
     return 'OUT_OF_SCOPE';
   }
 

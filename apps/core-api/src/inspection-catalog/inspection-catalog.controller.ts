@@ -1,14 +1,17 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
   HttpCode,
   Inject,
   Param,
+  ParseIntPipe,
   Post,
   Query,
 } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiPaginatedResponse } from '../common/dto/paginated-response.dto.js';
 import { ActivateInspectionCatalogueDto } from './dto/activate-inspection-catalogue.dto.js';
 import { PreviewInspectionCatalogueDto } from './dto/preview-inspection-catalogue.dto.js';
 import {
@@ -16,6 +19,7 @@ import {
   CatalogueReferenceListResponseDto,
   CreateInspectionFindingReferenceDto,
   InspectionCataloguePreviewResponseDto,
+  InspectionFindingReferenceListItemDto,
   InspectionFindingReferenceResponseDto,
 } from './dto/inspection-catalogue-response.dto.js';
 import { InspectionCatalogService } from './inspection-catalog.service.js';
@@ -83,8 +87,17 @@ export class InspectionCatalogController {
 
   @Get('workshop-inspections/:inspectionId/catalogue-references')
   @ApiOperation({ summary: 'List catalogue reference snapshots on inspection' })
-  listFindingReferences(@Param('inspectionId') inspectionId: string) {
-    return this.inspectionCatalog.listFindingReferences(inspectionId);
+  @ApiPaginatedResponse(InspectionFindingReferenceListItemDto)
+  listFindingReferences(
+    @Param('inspectionId') inspectionId: string,
+    @Query('page', new ParseIntPipe({ optional: true })) page = 1,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit = 20,
+  ) {
+    return this.inspectionCatalog.listFindingReferences(
+      inspectionId,
+      page,
+      limit,
+    );
   }
 
   private parseReferenceCodes(
@@ -93,11 +106,21 @@ export class InspectionCatalogController {
     codesJson?: string,
   ): Array<{ position_id: string; entry_id?: string | null }> {
     if (codesJson) {
-      const parsed = JSON.parse(codesJson) as Array<{
-        position_id: string;
-        entry_id?: string | null;
-      }>;
-      return parsed.slice(0, 50);
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(codesJson);
+      } catch {
+        throw new BadRequestException({ code: 'INVALID_CODES_JSON' });
+      }
+      if (!Array.isArray(parsed)) {
+        throw new BadRequestException({ code: 'INVALID_CODES_JSON' });
+      }
+      return (
+        parsed as Array<{
+          position_id: string;
+          entry_id?: string | null;
+        }>
+      ).slice(0, 50);
     }
     if (positionId) {
       return [{ position_id: positionId, entry_id: entryId ?? null }];

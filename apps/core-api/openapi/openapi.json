@@ -6776,7 +6776,28 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PaginatedResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/InspectionFindingReferenceListItemDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
           }
         },
         "summary": "List catalogue reference snapshots on inspection",
@@ -25135,11 +25156,11 @@
             "type": "string"
           },
           "fingerprint": {
-            "type": "object",
+            "type": "string",
             "nullable": true
           },
           "manifest_digest": {
-            "type": "object",
+            "type": "string",
             "nullable": true
           },
           "preview_expires_at": {
@@ -25148,7 +25169,7 @@
             "format": "date-time"
           },
           "error_code": {
-            "type": "object",
+            "type": "string",
             "nullable": true
           },
           "version": {
@@ -25236,14 +25257,14 @@
             "type": "string"
           },
           "entry_id": {
-            "type": "object",
+            "type": "string",
             "nullable": true
           },
           "status": {
             "type": "string"
           },
           "label": {
-            "type": "object",
+            "type": "string",
             "nullable": true
           },
           "source_kind": {
@@ -25253,11 +25274,12 @@
             "type": "string"
           },
           "catalogue_version_id": {
-            "type": "object",
-            "nullable": true
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
           },
           "source_version": {
-            "type": "object",
+            "type": "string",
             "nullable": true
           },
           "recheck_after": {
@@ -25340,7 +25362,7 @@
             "type": "string"
           },
           "entry_id": {
-            "type": "object",
+            "type": "string",
             "nullable": true
           },
           "label_snapshot": {
@@ -25364,6 +25386,57 @@
           "source_version",
           "source_kind",
           "coverage"
+        ]
+      },
+      "InspectionFindingReferenceListItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "position_id": {
+            "type": "string"
+          },
+          "entry_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "label_snapshot": {
+            "type": "string"
+          },
+          "source_version": {
+            "type": "string"
+          },
+          "source_kind": {
+            "type": "string"
+          },
+          "coverage": {
+            "type": "string"
+          },
+          "recheck_after": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "provenance_snapshot": {
+            "type": "object"
+          },
+          "human_finding_label": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "position_id",
+          "entry_id",
+          "label_snapshot",
+          "source_version",
+          "source_kind",
+          "coverage",
+          "recheck_after",
+          "provenance_snapshot",
+          "human_finding_label"
         ]
       },
       "LoanerVehicleResponseDto": {

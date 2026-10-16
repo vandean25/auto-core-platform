@@ -160,30 +160,6 @@ export class InspectionCatalogService {
     }
     const manifest = loaded;
 
-    const existingVersion =
-      await this.prisma.inspectionCatalogueVersion.findFirst({
-        where: {
-          tenant_id: tenantId,
-          content_sha256: importRow.manifest_digest ?? undefined,
-          source_version: manifest.source_version,
-        },
-        select: {
-          id: true,
-          source_version: true,
-          source_kind: true,
-          coverage: true,
-        },
-      });
-    if (existingVersion) {
-      return {
-        catalogue_version_id: existingVersion.id,
-        source_version: existingVersion.source_version,
-        source_kind: existingVersion.source_kind,
-        coverage: existingVersion.coverage,
-        replay: true,
-      };
-    }
-
     if (importRow.state === 'CONFLICT') {
       throw sourceConflict();
     }
@@ -217,64 +193,89 @@ export class InspectionCatalogService {
           throw sourceConflict();
         }
 
-        const version = await tx.inspectionCatalogueVersion.create({
-          data: {
-            tenant_id: tenantId,
-            schema_version: manifest.schema_version,
-            source_kind: manifest.source_kind,
-            publisher: manifest.publisher,
-            source_uri: manifest.source_uri,
-            source_document_id: manifest.source_document_id,
-            source_version: manifest.source_version,
-            valid_from: parseViennaDate(manifest.valid_from),
-            valid_to: manifest.valid_to
-              ? parseViennaDate(manifest.valid_to)
-              : null,
-            retrieved_at: new Date(manifest.retrieved_at),
-            verified_current_at: new Date(manifest.verified_current_at),
-            recheck_after: new Date(manifest.recheck_after),
-            content_sha256: importRow.manifest_digest!,
-            coverage: manifest.coverage,
-            rights: manifest.rights,
-            approval_evidence_ref: manifest.approval_evidence_ref,
-          },
-        });
-
-        if (manifest.positions.length > 0) {
-          await tx.inspectionCatalogueEntry.createMany({
-            data: manifest.positions.map((position) => ({
-              tenant_id: tenantId,
-              catalogue_version_id: version.id,
-              position_id: position.position_id,
-              entry_id: position.entry_id,
-              entry_locator: entryLocator(position),
-              label: position.label,
-              allowed_groups: position.allowed_groups,
-              vehicle_scope: position.vehicle_scope,
-            })),
-          });
-        }
-
-        await tx.tenantInspectionCatalogueActivation.updateMany({
+        const existingVersion = await tx.inspectionCatalogueVersion.findFirst({
           where: {
             tenant_id: tenantId,
-            site_id: siteId,
-            source_kind: manifest.source_kind,
-            deactivated_at: null,
+            content_sha256: importRow.manifest_digest ?? undefined,
+            source_version: manifest.source_version,
           },
-          data: { deactivated_at: now },
         });
 
-        await tx.tenantInspectionCatalogueActivation.create({
-          data: {
-            tenant_id: tenantId,
-            site_id: siteId,
-            catalogue_version_id: version.id,
-            source_kind: manifest.source_kind,
-            activated_at: now,
-            activated_by_user_id: user.id,
-          },
-        });
+        const existingSiteActivation =
+          existingVersion &&
+          (await tx.tenantInspectionCatalogueActivation.findFirst({
+            where: {
+              tenant_id: tenantId,
+              site_id: siteId,
+              catalogue_version_id: existingVersion.id,
+              deactivated_at: null,
+            },
+          }));
+
+        let version = existingVersion;
+        if (!version) {
+          const createdVersion = await tx.inspectionCatalogueVersion.create({
+            data: {
+              tenant_id: tenantId,
+              schema_version: manifest.schema_version,
+              source_kind: manifest.source_kind,
+              publisher: manifest.publisher,
+              source_uri: manifest.source_uri,
+              source_document_id: manifest.source_document_id,
+              source_version: manifest.source_version,
+              valid_from: parseViennaDate(manifest.valid_from),
+              valid_to: manifest.valid_to
+                ? parseViennaDate(manifest.valid_to)
+                : null,
+              retrieved_at: new Date(manifest.retrieved_at),
+              verified_current_at: new Date(manifest.verified_current_at),
+              recheck_after: new Date(manifest.recheck_after),
+              content_sha256: importRow.manifest_digest!,
+              coverage: manifest.coverage,
+              rights: manifest.rights,
+              approval_evidence_ref: manifest.approval_evidence_ref,
+            },
+          });
+          version = createdVersion;
+
+          if (manifest.positions.length > 0) {
+            await tx.inspectionCatalogueEntry.createMany({
+              data: manifest.positions.map((position) => ({
+                tenant_id: tenantId,
+                catalogue_version_id: createdVersion.id,
+                position_id: position.position_id,
+                entry_id: position.entry_id,
+                entry_locator: entryLocator(position),
+                label: position.label,
+                allowed_groups: position.allowed_groups,
+                vehicle_scope: position.vehicle_scope,
+              })),
+            });
+          }
+        }
+
+        if (!existingSiteActivation) {
+          await tx.tenantInspectionCatalogueActivation.updateMany({
+            where: {
+              tenant_id: tenantId,
+              site_id: siteId,
+              source_kind: manifest.source_kind,
+              deactivated_at: null,
+            },
+            data: { deactivated_at: now },
+          });
+
+          await tx.tenantInspectionCatalogueActivation.create({
+            data: {
+              tenant_id: tenantId,
+              site_id: siteId,
+              catalogue_version_id: version.id,
+              source_kind: manifest.source_kind,
+              activated_at: now,
+              activated_by_user_id: user.id,
+            },
+          });
+        }
 
         await tx.inspectionCatalogueImport.updateMany({
           where: { id: importId, tenant_id: tenantId, version: dto.version },
@@ -304,7 +305,7 @@ export class InspectionCatalogService {
           source_version: version.source_version,
           source_kind: version.source_kind,
           coverage: version.coverage,
-          replay: false,
+          replay: Boolean(existingSiteActivation),
         };
       });
     } catch (error: unknown) {
@@ -361,7 +362,8 @@ export class InspectionCatalogService {
 
     const manifest = this.versionToManifest(version);
     const staleCurrent =
-      forCurrentUse && inspectionTime > version.recheck_after;
+      forCurrentUse &&
+      inspectionTime.getTime() >= version.recheck_after.getTime();
 
     const entryByLocator = new Map(
       version.entries.map((entry) => [entry.entry_locator, entry]),
@@ -374,6 +376,7 @@ export class InspectionCatalogService {
         inspectionTime,
         vehicleClass: options.vehicle_class,
         forCurrentUse,
+        lookupPurpose: 'scoped_recommendation',
       });
 
       const locator = code.entry_id
@@ -440,6 +443,8 @@ export class InspectionCatalogService {
       inspectionTime: now,
       vehicleClass: dto.vehicle_class ?? null,
       forCurrentUse: true,
+      lookupPurpose:
+        dto.entry_id == null ? 'position_only' : 'scoped_recommendation',
     });
     if (status === 'UNKNOWN_CODE') {
       throw unknownCode();
@@ -496,31 +501,60 @@ export class InspectionCatalogService {
     };
   }
 
-  async listFindingReferences(workshopInspectionId: string) {
+  async listFindingReferences(
+    workshopInspectionId: string,
+    page = 1,
+    limit = 20,
+  ) {
     assertCatalogueReadAccess(this.tenantContext);
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
     await requireActiveCurrentUser(this.prisma, this.tenantContext, tenantId);
 
-    const rows = await this.prisma.inspectionFindingReference.findMany({
+    const inspection = await this.prisma.workshopInspection.findFirst({
       where: {
+        id: workshopInspectionId,
         tenant_id: tenantId,
-        site_id: siteId,
-        workshop_inspection_id: workshopInspectionId,
+        workshop_order: { site_id: siteId },
       },
-      include: {
-        catalogueVersion: {
-          select: {
-            source_version: true,
-            source_kind: true,
-            coverage: true,
-            recheck_after: true,
+      select: { id: true },
+    });
+    if (!inspection) {
+      throw workshopInspectionNotFound();
+    }
+
+    const take = Math.min(Math.max(limit, 1), MAX_REFERENCE_CODES);
+    const skip = (Math.max(page, 1) - 1) * take;
+
+    const [rows, total] = await Promise.all([
+      this.prisma.inspectionFindingReference.findMany({
+        where: {
+          tenant_id: tenantId,
+          site_id: siteId,
+          workshop_inspection_id: workshopInspectionId,
+        },
+        include: {
+          catalogueVersion: {
+            select: {
+              source_version: true,
+              source_kind: true,
+              coverage: true,
+              recheck_after: true,
+            },
           },
         },
-      },
-      orderBy: { createdAt: 'asc' },
-      take: MAX_REFERENCE_CODES,
-    });
+        orderBy: { createdAt: 'asc' },
+        skip,
+        take,
+      }),
+      this.prisma.inspectionFindingReference.count({
+        where: {
+          tenant_id: tenantId,
+          site_id: siteId,
+          workshop_inspection_id: workshopInspectionId,
+        },
+      }),
+    ]);
 
     return {
       data: rows.map((row) => ({
@@ -535,6 +569,12 @@ export class InspectionCatalogService {
         provenance_snapshot: row.provenance_snapshot,
         human_finding_label: row.human_finding_label,
       })),
+      meta: {
+        total,
+        page: Math.max(page, 1),
+        pageSize: take,
+        pageCount: Math.ceil(total / take) || 0,
+      },
     };
   }
 

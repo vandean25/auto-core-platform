@@ -19,6 +19,16 @@ const RESOLUTION_STATUS_LABELS: Record<string, string> = {
   SOURCE_CONFLICT: 'Quellenkonflikt',
 }
 
+const SOURCE_KIND_LABELS: Record<string, string> = {
+  STATUTORY_REFERENCE: 'Gesetzliche Referenz',
+  TEST_ONLY: 'Nur Test',
+}
+
+const COVERAGE_LABELS: Record<string, string> = {
+  SUBSET: 'Teilmenge',
+  COMPLETE: 'Vollständig',
+}
+
 type Props = {
   inspectionId: string
   orderId: string
@@ -42,6 +52,12 @@ export function InspectionCatalogueReferencePicker({
   const resolution = resolutionQuery.data
   const statusLabel = resolution
     ? RESOLUTION_STATUS_LABELS[resolution.status] ?? 'Unbekannt'
+    : '—'
+  const sourceKindLabel = resolution
+    ? SOURCE_KIND_LABELS[resolution.source_kind] ?? resolution.source_kind
+    : '—'
+  const coverageLabel = resolution
+    ? COVERAGE_LABELS[resolution.coverage] ?? resolution.coverage
     : '—'
 
   async function attachPosition() {
@@ -75,7 +91,7 @@ export function InspectionCatalogueReferencePicker({
         <dl className="grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
           <div>
             <dt className="font-medium text-foreground">Quelle</dt>
-            <dd>{resolution.source_kind}</dd>
+            <dd>{sourceKindLabel}</dd>
           </div>
           <div>
             <dt className="font-medium text-foreground">Version</dt>
@@ -87,7 +103,7 @@ export function InspectionCatalogueReferencePicker({
           </div>
           <div>
             <dt className="font-medium text-foreground">Abdeckung</dt>
-            <dd>{resolution.coverage}</dd>
+            <dd>{coverageLabel}</dd>
           </div>
           <div className="flex items-center gap-2">
             <dt className="font-medium text-foreground">Status</dt>

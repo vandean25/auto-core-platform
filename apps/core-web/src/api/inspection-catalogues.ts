@@ -88,7 +88,14 @@ export function useAttachCatalogueReference() {
         },
       )
       if (!response.ok) {
-        throw new Error('CATALOGUE_REFERENCE_ATTACH_FAILED')
+        const payload = (await response.json().catch(() => undefined)) as
+          | { code?: string }
+          | undefined
+        const code =
+          typeof payload?.code === 'string'
+            ? payload.code
+            : 'CATALOGUE_REFERENCE_ATTACH_FAILED'
+        throw new Error(code)
       }
       return (await response.json()) as InspectionFindingReference
     },

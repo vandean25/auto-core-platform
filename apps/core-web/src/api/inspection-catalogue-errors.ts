@@ -18,7 +18,11 @@ export const INSPECTION_CATALOGUE_ERROR_MESSAGES: Record<string, string> = {
 
 export function describeInspectionCatalogueError(error: unknown): string {
   const body = getErrorBody(error)
-  const code = body?.code
+  const messageCode =
+    error instanceof Error && INSPECTION_CATALOGUE_ERROR_MESSAGES[error.message]
+      ? error.message
+      : undefined
+  const code = body?.code ?? messageCode
   if (code && INSPECTION_CATALOGUE_ERROR_MESSAGES[code]) {
     return INSPECTION_CATALOGUE_ERROR_MESSAGES[code]
   }

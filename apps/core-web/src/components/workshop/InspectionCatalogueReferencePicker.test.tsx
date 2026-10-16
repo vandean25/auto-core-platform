@@ -26,7 +26,8 @@ describe('InspectionCatalogueReferencePicker', () => {
     )
 
     expect(screen.getByText('Katalogreferenz (§57a)')).toBeInTheDocument()
-    expect(screen.getByText('STATUTORY_REFERENCE')).toBeInTheDocument()
+    expect(screen.getByText('Gesetzliche Referenz')).toBeInTheDocument()
+    expect(screen.getByText('Teilmenge')).toBeInTheDocument()
     expect(screen.getByText('ACP-RIS-Anl6-258-2022-subset')).toBeInTheDocument()
   })
 })
