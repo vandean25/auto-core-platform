@@ -16,6 +16,10 @@ const ESTIMATE_SENT = '00000000-0000-4000-8000-0000000000e1';
 const ESTIMATE_APPROVED = '00000000-0000-4000-8000-0000000000e2';
 
 const SENT_TODAY = new Date('2026-10-16T09:30:00.000Z');
+/** Keeps the SENT fixture decidable; expiry uses the real clock in the service. */
+const VALID_UNTIL_FAR_FUTURE = new Date(
+  Date.now() + 30 * 24 * 60 * 60 * 1000,
+);
 
 function workshopOrderRow(id: string, siteId: string) {
   return {
@@ -54,7 +58,7 @@ function buildService(options: {
       version: 1,
       status: WorkshopEstimateStatus.SENT,
       sent_at: SENT_TODAY,
-      valid_until: new Date('2026-11-16T00:00:00.000Z'),
+      valid_until: VALID_UNTIL_FAR_FUTURE,
       total_gross: new Prisma.Decimal('240.00'),
       estimate: {
         estimate_number: 'KV-2026-0001',
