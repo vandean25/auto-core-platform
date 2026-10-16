@@ -40,7 +40,7 @@ describe('AppSidebar Help / Docs link', () => {
   it('opens the documentation in a new tab with safe rel attributes', () => {
     renderSidebar()
 
-    const link = screen.getByRole('link', { name: 'Help / Docs' })
+    const link = screen.getByRole('link', { name: 'Hilfe / Dokumentation' })
     expect(link).toHaveAttribute('href', 'https://autocore-platform.mintlify.site/')
     expect(link).toHaveAttribute('target', '_blank')
     expect(link.getAttribute('rel')?.split(' ')).toEqual(expect.arrayContaining(['noopener', 'noreferrer']))
@@ -49,13 +49,15 @@ describe('AppSidebar Help / Docs link', () => {
   it('tells assistive tech that the link opens in a new tab', () => {
     renderSidebar()
 
-    expect(screen.getByRole('link', { name: 'Help / Docs' })).toHaveAccessibleDescription(/opens in a new tab/i)
+    expect(screen.getByRole('link', { name: 'Hilfe / Dokumentation' })).toHaveAccessibleDescription(
+      /neuem Tab/i,
+    )
   })
 
   it('keeps its accessible name when the sidebar is collapsed', () => {
     renderSidebar({ collapsed: true })
 
-    const link = screen.getByRole('link', { name: 'Help / Docs' })
+    const link = screen.getByRole('link', { name: 'Hilfe / Dokumentation' })
     expect(link).toHaveAttribute('href', 'https://autocore-platform.mintlify.site/')
     expect(link).toHaveAttribute('target', '_blank')
   })
@@ -63,8 +65,8 @@ describe('AppSidebar Help / Docs link', () => {
   it('sits in the footer, outside the core modules navigation', () => {
     renderSidebar()
 
-    const coreModules = screen.getByRole('navigation', { name: 'Core modules' })
-    expect(within(coreModules).queryByRole('link', { name: 'Help / Docs' })).not.toBeInTheDocument()
+    const coreModules = screen.getByRole('navigation', { name: 'Kernmodule' })
+    expect(within(coreModules).queryByRole('link', { name: 'Hilfe / Dokumentation' })).not.toBeInTheDocument()
   })
 
   it('has no accessibility violations', async () => {

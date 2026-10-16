@@ -21,5 +21,94 @@
   "profile": {
     "menuLabel": "Profilmenü",
     "signOut": "Abmelden"
+  },
+  "shell": {
+    "sessionLoadFailed": "Mandantensitzung konnte nicht geladen werden.",
+    "switchTenantFailed": "Mandantenwechsel fehlgeschlagen.",
+    "switchSiteFailed": "Standortwechsel fehlgeschlagen."
+  },
+  "notFound": {
+    "title": "Seite nicht gefunden",
+    "description": "Die angeforderte Seite existiert nicht oder wurde verschoben.",
+    "goHome": "Zur Startseite"
+  },
+  "errorBoundary": {
+    "chunkTitle": "Aktualisierung erforderlich",
+    "chunkDescription": "Die Anwendung wurde aktualisiert oder die Verbindung wurde unterbrochen. Bitte neu laden.",
+    "unexpectedTitle": "Unerwarteter Fehler",
+    "unexpectedDescription": "Ein unerwarteter Fehler ist aufgetreten. Bitte neu laden.",
+    "unknownError": "Unbekannter Fehler",
+    "reload": "Anwendung neu laden"
+  },
+  "login": {
+    "title": "Auto Core",
+    "tagline": "ACP führt Lager, Aufträge und Rechnungen in einem Werkstattbuch.",
+    "highlights": {
+      "parts": "Teile im Regal",
+      "jobs": "Aufträge am Board",
+      "invoices": "Rechnungen mit Nachweis"
+    },
+    "demoWorkshop": "Demo-Werkstatt",
+    "demoOffice": "Büro: demo-office@example.com",
+    "demoMechanic": "Mechaniker: demo-mechanic@example.com",
+    "demoPasswordHint": "Passwort beim Pilotkunden erfragen.",
+    "documentation": "Dokumentation",
+    "signInTitle": "Anmelden",
+    "signInDescription": "Mit der E-Mail anmelden, mit der Ihre Werkstatt Sie eingeladen hat.",
+    "notConfigured": "Anmeldung ist für diese Umgebung nicht konfiguriert.",
+    "continueGoogle": "Mit Google fortfahren",
+    "signingInGoogle": "Anmeldung mit Google…",
+    "orDivider": "Oder",
+    "email": "E-Mail",
+    "password": "Passwort",
+    "forgotPassword": "Passwort vergessen?",
+    "signIn": "Anmelden",
+    "signingIn": "Anmeldung…",
+    "validation": {
+      "bothRequired": "E-Mail und Passwort sind erforderlich.",
+      "emailRequired": "E-Mail ist erforderlich.",
+      "passwordRequired": "Passwort ist erforderlich."
+    },
+    "errors": {
+      "loginFailed": "Anmeldung fehlgeschlagen. E-Mail und Passwort prüfen und erneut versuchen.",
+      "googleFailed": "Google-Anmeldung fehlgeschlagen. Bitte erneut versuchen."
+    },
+    "toast": {
+      "resetEmailRequired": "E-Mail für Passwort-Reset eingeben.",
+      "resetSent": "E-Mail mit Reset-Link wurde gesendet.",
+      "resetFailed": "Reset-E-Mail konnte nicht gesendet werden. Adresse prüfen und erneut versuchen."
+    }
+  },
+  "landingDemo": {
+    "sessionRejected": {
+      "title": "Demo-Zugang nicht verfügbar",
+      "description": "Der serverseitige Demo-Zugang konnte nicht bestätigt werden.",
+      "requestNewLink": "Neuen Demo-Link anfordern",
+      "requestOnLanding": "Fordern Sie auf der Auto-Core-Landingpage einen neuen Demo-Link an.",
+      "signOut": "Abmelden"
+    },
+    "errors": {
+      "grantInvalid": "Dieser Anmeldelink ist abgelaufen oder wurde bereits verwendet.",
+      "invalidEmail": "Bitte geben Sie die E-Mail-Adresse ein, mit der Sie die Demo angefordert haben.",
+      "retry": "Die Anmeldung konnte nicht abgeschlossen werden. Bitte erneut versuchen.",
+      "unknown": "Die Anmeldung konnte nicht abgeschlossen werden.",
+      "invalidConfiguration": "Dieser Anmeldelink ist ungültig oder die Anmeldung ist nicht konfiguriert."
+    },
+    "emailLink": {
+      "pageTitle": "Demo-Anmeldung",
+      "pageDescription": "Wir schließen Ihre Anmeldung ab und leiten Sie in die Demo-Umgebung weiter.",
+      "retry": "Erneut versuchen",
+      "startDemo": "Demo starten",
+      "completingTitle": "Demo-Anmeldung wird abgeschlossen",
+      "completingDescription": "E-Mail-Link wird bestätigt…",
+      "needsEmailTitle": "E-Mail bestätigen",
+      "needsEmailDescription": "Geben Sie die E-Mail ein, mit der Sie den Demo-Link angefordert haben.",
+      "emailLabel": "E-Mail",
+      "submit": "Anmeldung abschließen",
+      "submitting": "Wird abgeschlossen…",
+      "errorTitle": "Anmeldung fehlgeschlagen",
+      "requestNewLink": "Neuen Demo-Link anfordern",
+      "requestOnLanding": "Fordern Sie auf der Auto-Core-Landingpage einen neuen Demo-Link an."
+    }
   }
 }

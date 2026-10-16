@@ -2,6 +2,10 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { GlobalSearch } from './GlobalSearch'
+
+const SEARCH_PLACEHOLDER_DE = 'Teile, Kunden, Fahrzeuge, Aufträge…'
+const SEARCH_DESCRIPTION_DE =
+  'Teil, Kunde, Fahrzeug, Auftrag oder Befehl aufrufen.'
 import * as searchHook from '@/hooks/useGlobalSearch'
 import type { WorkshopOrder } from '@/api/types'
 
@@ -39,8 +43,8 @@ describe('GlobalSearch Component', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByPlaceholderText('Search parts, customers, vehicles, jobs…')).toBeInTheDocument()
-    expect(screen.getByText('Jump to a part, customer, vehicle, job, or command.')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText(SEARCH_PLACEHOLDER_DE)).toBeInTheDocument()
+    expect(screen.getByText(SEARCH_DESCRIPTION_DE)).toBeInTheDocument()
   })
 
   it('renders Customers, Vehicles, Workshop orders, and Inventory groups when query matches', () => {
@@ -101,19 +105,19 @@ describe('GlobalSearch Component', () => {
       </MemoryRouter>,
     )
 
-    const input = screen.getByPlaceholderText('Search parts, customers, vehicles, jobs…')
+    const input = screen.getByPlaceholderText(SEARCH_PLACEHOLDER_DE)
     fireEvent.change(input, { target: { value: 'Mustermann' } })
 
-    expect(screen.getByText('Customers')).toBeInTheDocument()
+    expect(screen.getByText('Kunden')).toBeInTheDocument()
     expect(screen.getByText('Max Mustermann')).toBeInTheDocument()
 
-    expect(screen.getByText('Vehicles')).toBeInTheDocument()
+    expect(screen.getByText('Fahrzeuge')).toBeInTheDocument()
     expect(screen.getByText('W-12345AB')).toBeInTheDocument()
 
-    expect(screen.getByText('Workshop orders')).toBeInTheDocument()
+    expect(screen.getByText('Werkstattaufträge')).toBeInTheDocument()
     expect(screen.getByText('WO-2026-0004')).toBeInTheDocument()
 
-    expect(screen.getByText('Inventory')).toBeInTheDocument()
+    expect(screen.getByText('Lager')).toBeInTheDocument()
     expect(screen.getByText('BRK-001')).toBeInTheDocument()
   })
 
@@ -147,7 +151,7 @@ describe('GlobalSearch Component', () => {
       </MemoryRouter>,
     )
 
-    const input = screen.getByPlaceholderText('Search parts, customers, vehicles, jobs…')
+    const input = screen.getByPlaceholderText(SEARCH_PLACEHOLDER_DE)
     fireEvent.change(input, { target: { value: 'Mustermann' } })
 
     const customerItem = screen.getByText('Max Mustermann')
@@ -171,11 +175,11 @@ describe('GlobalSearch Component', () => {
       </MemoryRouter>,
     )
 
-    const input = screen.getByPlaceholderText('Search parts, customers, vehicles, jobs…')
+    const input = screen.getByPlaceholderText(SEARCH_PLACEHOLDER_DE)
     fireEvent.change(input, { target: { value: 'xyz123nonexistent' } })
 
     expect(
-      screen.getByText('No parts, customers, vehicles, jobs, or commands match “xyz123nonexistent”.'),
+      screen.getByText(/Keine Teile, Kunden, Fahrzeuge, Aufträge oder Befehle passen zu „xyz123nonexistent“\./),
     ).toBeInTheDocument()
   })
 
@@ -209,7 +213,7 @@ describe('GlobalSearch Component', () => {
       </MemoryRouter>,
     )
 
-    const input = screen.getByPlaceholderText('Search parts, customers, vehicles, jobs…')
+    const input = screen.getByPlaceholderText(SEARCH_PLACEHOLDER_DE)
     fireEvent.change(input, { target: { value: 'W-12345AB' } })
 
     const vehicleItem = screen.getByText('W-12345AB')
@@ -247,7 +251,7 @@ describe('GlobalSearch Component', () => {
       </MemoryRouter>,
     )
 
-    const input = screen.getByPlaceholderText('Search parts, customers, vehicles, jobs…')
+    const input = screen.getByPlaceholderText(SEARCH_PLACEHOLDER_DE)
     fireEvent.change(input, { target: { value: 'WO-2026-0004' } })
 
     const orderItem = screen.getByText('WO-2026-0004')
@@ -271,7 +275,7 @@ describe('GlobalSearch Component', () => {
       </MemoryRouter>,
     )
 
-    const input = screen.getByPlaceholderText('Search parts, customers, vehicles, jobs…')
+    const input = screen.getByPlaceholderText(SEARCH_PLACEHOLDER_DE)
     fireEvent.change(input, { target: { value: 'invoice' } })
 
     expect(screen.getByText('Find a sales order to invoice')).toBeInTheDocument()
@@ -292,10 +296,10 @@ describe('GlobalSearch Component', () => {
       </MemoryRouter>,
     )
 
-    const input = screen.getByPlaceholderText('Search parts, customers, vehicles, jobs…')
+    const input = screen.getByPlaceholderText(SEARCH_PLACEHOLDER_DE)
     fireEvent.change(input, { target: { value: 'Mustermann' } })
 
-    expect(screen.getByText('Searching…')).toBeInTheDocument()
+    expect(screen.getByText('Suche…')).toBeInTheDocument()
     expect(screen.queryByText(/No parts, customers, vehicles, jobs, or commands match/)).not.toBeInTheDocument()
   })
 
@@ -313,10 +317,10 @@ describe('GlobalSearch Component', () => {
       </MemoryRouter>,
     )
 
-    const input = screen.getByPlaceholderText('Search parts, customers, vehicles, jobs…')
+    const input = screen.getByPlaceholderText(SEARCH_PLACEHOLDER_DE)
     fireEvent.change(input, { target: { value: 'test' } })
 
-    expect(screen.getByText('Search is temporarily unavailable.')).toBeInTheDocument()
+    expect(screen.getByText('Suche vorübergehend nicht verfügbar.')).toBeInTheDocument()
     expect(screen.queryByText(/No parts, customers, vehicles, jobs, or commands match/)).not.toBeInTheDocument()
   })
 })

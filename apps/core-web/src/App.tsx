@@ -9,6 +9,8 @@ import {
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion'
 import * as React from 'react'
 import { toast } from 'sonner'
+import { ShellSessionLoadFailed } from '@/components/shell/ShellSessionLoadFailed'
+import { shellSwitchSiteFailedMessage, shellSwitchTenantFailedMessage } from '@/lib/shell-session-toasts'
 import type { components } from '@/api/generated/openapi'
 import { useAuthSession, useSwitchTenant, type AuthSessionMembership, type AuthSessionTenant } from '@/api/auth-session'
 import { useMySites, useSetActiveSite, type MeSite } from '@/api/sites'
@@ -582,7 +584,7 @@ function AuthenticatedApp() {
   }
 
   if (!sessionQuery.data) {
-    return <div className="min-h-screen flex items-center justify-center bg-slate-100 text-sm text-slate-500">Unable to load your tenant session.</div>
+    return <ShellSessionLoadFailed />
   }
 
   return (
@@ -600,12 +602,12 @@ function AuthenticatedApp() {
       isSwitchingSite={switchSiteMutation.isPending}
       onSwitchTenant={(tenantId) => {
         switchTenantMutation.mutateAsync(tenantId).catch((error: unknown) => {
-          toast.error(error instanceof Error ? error.message : 'Failed to switch tenant')
+          toast.error(shellSwitchTenantFailedMessage(error))
         })
       }}
       onSwitchSite={(siteId) => {
         switchSiteMutation.mutateAsync(siteId).catch((error: unknown) => {
-          toast.error(error instanceof Error ? error.message : 'Failed to switch site')
+          toast.error(shellSwitchSiteFailedMessage(error))
         })
       }}
       onSignOut={() => void signOutUser()}

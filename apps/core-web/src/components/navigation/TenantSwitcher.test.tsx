@@ -36,7 +36,7 @@ describe('TenantSwitcher', () => {
     expect(screen.getByText('vienna')).toBeInTheDocument()
     expect(screen.getByText('ADMIN')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Switch to Auto Core Graz' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Zu Auto Core Graz wechseln' }))
 
     expect(onSwitch).toHaveBeenCalledWith('tenant-b')
   })

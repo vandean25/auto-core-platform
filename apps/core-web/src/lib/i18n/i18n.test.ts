@@ -26,9 +26,9 @@ describe('i18n foundation', () => {
 
   it('exposes glossary entries in both languages', async () => {
     await changeUiLanguage('de')
-    expect(i18n.t('glossary:workshopOrder')).toBe('Werkstattauftrag')
+    expect(i18n.t('glossary:workshopOrder.term')).toBe('Werkstattauftrag')
     await changeUiLanguage('en')
-    expect(i18n.t('glossary:workshopOrder')).toBe('Workshop order')
+    expect(i18n.t('glossary:workshopOrder.term')).toBe('Workshop order')
     await changeUiLanguage('de')
   })
 })

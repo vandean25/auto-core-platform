@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { BookOpen, ChevronsLeft, ChevronsRight, ExternalLink, Search, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { DOCUMENTATION_URL } from '@/lib/external-links'
@@ -20,13 +21,15 @@ export function AppSidebarFooter({
   onOpenSearch,
   onSignOut,
 }: AppSidebarFooterProps) {
+  const { t } = useTranslation('nav')
+
   return (
     <div className={cn('border-t border-slate-800 space-y-2', collapsed ? 'p-2' : 'p-3')}>
       <button
         type="button"
         onClick={onOpenSearch}
-        title="Search"
-        aria-label="Open search"
+        title={t('footer.search')}
+        aria-label={t('footer.openSearch')}
         className={cn(
           moduleLinkBaseClass,
           collapsed ? 'h-10 w-full justify-center' : 'h-10 w-full justify-start gap-3 px-3',
@@ -34,12 +37,12 @@ export function AppSidebarFooter({
         )}
       >
         <Search aria-hidden="true" className="h-4 w-4 shrink-0" />
-        <span className={collapsed ? 'sr-only' : ''}>Search</span>
+        <span className={collapsed ? 'sr-only' : ''}>{t('footer.search')}</span>
       </button>
 
       <NavLink
         to="/settings"
-        title="Settings"
+        title={t('footer.settings')}
         className={({ isActive }) =>
           cn(
             moduleLinkBaseClass,
@@ -51,14 +54,14 @@ export function AppSidebarFooter({
         }
       >
         <Settings aria-hidden="true" className="h-4 w-4 shrink-0" />
-        <span className={collapsed ? 'sr-only' : ''}>Settings</span>
+        <span className={collapsed ? 'sr-only' : ''}>{t('footer.settings')}</span>
       </NavLink>
 
       <a
         href={DOCUMENTATION_URL}
         target="_blank"
         rel="noopener noreferrer"
-        title="Help / Docs (opens in a new tab)"
+        title={t('footer.helpDocsOpensNewTab')}
         className={cn(
           moduleLinkBaseClass,
           collapsed ? 'h-10 justify-center px-0' : 'h-10 gap-3 px-3',
@@ -66,7 +69,7 @@ export function AppSidebarFooter({
         )}
       >
         <BookOpen aria-hidden="true" className="h-4 w-4 shrink-0" />
-        <span className={collapsed ? 'sr-only' : ''}>Help / Docs</span>
+        <span className={collapsed ? 'sr-only' : ''}>{t('footer.helpDocs')}</span>
         {collapsed ? null : <ExternalLink aria-hidden="true" className="ml-auto h-3.5 w-3.5 shrink-0 text-slate-400" />}
       </a>
 
@@ -75,8 +78,8 @@ export function AppSidebarFooter({
       <button
         type="button"
         onClick={onToggleCollapsed}
-        title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        title={collapsed ? t('footer.expandSidebar') : t('footer.collapseSidebar')}
+        aria-label={collapsed ? t('footer.expandSidebar') : t('footer.collapseSidebar')}
         className={cn(
           moduleLinkBaseClass,
           collapsed ? 'h-10 w-full justify-center' : 'h-10 w-full justify-start gap-3 px-3',
@@ -88,7 +91,9 @@ export function AppSidebarFooter({
         ) : (
           <ChevronsLeft aria-hidden="true" className="h-4 w-4 shrink-0" />
         )}
-        <span className={collapsed ? 'sr-only' : ''}>{collapsed ? 'Expand sidebar' : 'Collapse sidebar'}</span>
+        <span className={collapsed ? 'sr-only' : ''}>
+          {collapsed ? t('footer.expandSidebar') : t('footer.collapseSidebar')}
+        </span>
       </button>
 
     </div>

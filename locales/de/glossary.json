@@ -1,10 +1,62 @@
 {
-  "pickerl": "Pickerl (§57a)",
-  "kva": "Kostenvoranschlag (KVA)",
-  "vehicleCheckIn": "Fahrzeugannahme",
-  "workshopOrder": "Werkstattauftrag",
-  "creditNote": "Gutschrift",
-  "statutoryWarranty": "Gewährleistung",
-  "commercialGuarantee": "Garantie",
-  "nova": "Normverbrauchsabgabe (NoVA)"
+  "pickerl": {
+    "short": "Pickerl",
+    "term": "Pickerl (§57a)",
+    "description": "Gesetzlich vorgeschriebene periodische Fahrzeugüberprüfung nach §57a."
+  },
+  "kva": {
+    "short": "KVA",
+    "term": "Kostenvoranschlag (KVA)",
+    "description": "Vorläufige Kostenaufstellung für Werkstattleistungen vor Freigabe."
+  },
+  "vehicleCheckIn": {
+    "short": "Annahme",
+    "term": "Fahrzeugannahme",
+    "description": "Erfassung des Fahrzeugs und des Kundenanliegens zu Beginn des Werkstattbesuchs."
+  },
+  "workshopOrder": {
+    "short": "WO",
+    "term": "Werkstattauftrag",
+    "description": "Auftrag für Werkstattleistungen an einem Fahrzeug, inklusive Teile und Arbeit."
+  },
+  "salesOrder": {
+    "short": "SO",
+    "term": "Kundenauftrag",
+    "description": "Kundenauftrag für Teile oder Fahrzeuge vor Rechnungsstellung."
+  },
+  "invoice": {
+    "short": "RE",
+    "term": "Rechnung",
+    "description": "Ausgestellte Verkaufsrechnung mit fortlaufender RE-Nummer."
+  },
+  "atp": {
+    "short": "ATP",
+    "term": "Verfügbarer Bestand (ATP)",
+    "description": "Menge am Lagerort abzüglich reservierter Menge; Basis für Verfügbarkeitsprüfungen."
+  },
+  "storageBayBin": {
+    "short": "Lagerplatz",
+    "term": "Regal / Lagerplatz",
+    "description": "Physischer Lagerort (Gang/Regal/Fach) innerhalb eines Standorts."
+  },
+  "creditNote": {
+    "short": "GS",
+    "term": "Gutschrift",
+    "description": "Ausgestellte Gutschrift zu einer Rechnung oder einem Verkauf."
+  },
+  "statutoryWarranty": {
+    "short": "Gew.",
+    "term": "Gewährleistung",
+    "description": "Gesetzliche Gewährleistung nach Kauf oder Reparatur."
+  },
+  "commercialGuarantee": {
+    "short": "Gar.",
+    "term": "Garantie",
+    "description": "Freiwillige Hersteller- oder Händlergarantie zusätzlich zur Gewährleistung."
+  },
+  "nova": {
+    "short": "NoVA",
+    "term": "Normverbrauchsabgabe (NoVA)",
+    "description": "Österreichische Normverbrauchsabgabe bei Fahrzeugzulassung."
+  }
 }

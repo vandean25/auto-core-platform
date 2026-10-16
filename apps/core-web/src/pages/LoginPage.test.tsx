@@ -42,21 +42,27 @@ describe('LoginPage', () => {
 
     render(<LoginPage />)
 
-    expect(screen.getByText('Sign-in is not configured for this deployment.')).toBeInTheDocument()
+    expect(
+      screen.getByText('Anmeldung ist für diese Umgebung nicht konfiguriert.'),
+    ).toBeInTheDocument()
     expect(screen.queryByText(/VITE_FIREBASE|Firebase Authentication/)).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Sign in' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Anmelden' })).not.toBeInTheDocument()
   })
 
   it('shows the first-run product explanation and invite-only sign-in copy', () => {
     render(<LoginPage />)
 
     expect(screen.getByRole('heading', { name: 'Auto Core' })).toBeInTheDocument()
-    expect(screen.getByText('ACP keeps stock, jobs, and invoices in one workshop ledger.')).toBeInTheDocument()
-    expect(screen.getByText('Parts on the shelf')).toBeInTheDocument()
-    expect(screen.getByText('Jobs on the board')).toBeInTheDocument()
-    expect(screen.getByText('Invoices with a paper trail')).toBeInTheDocument()
-    expect(screen.getByText('Sign in with the email your workshop invited.')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Documentation' })).toHaveAttribute(
+    expect(
+      screen.getByText('ACP führt Lager, Aufträge und Rechnungen in einem Werkstattbuch.'),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Teile im Regal')).toBeInTheDocument()
+    expect(screen.getByText('Aufträge am Board')).toBeInTheDocument()
+    expect(screen.getByText('Rechnungen mit Nachweis')).toBeInTheDocument()
+    expect(
+      screen.getByText('Mit der E-Mail anmelden, mit der Ihre Werkstatt Sie eingeladen hat.'),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Dokumentation' })).toHaveAttribute(
       'href',
       'https://autocore-platform.mintlify.site/',
     )
@@ -67,48 +73,48 @@ describe('LoginPage', () => {
     vi.stubGlobal('location', { hostname: 'auto-core-platform-vande.web.app' })
     const { unmount } = render(<LoginPage />)
 
-    expect(screen.getByText('Demo workshop')).toBeInTheDocument()
-    expect(screen.getByText('Office: grok-bot@auto.core.at')).toBeInTheDocument()
-    expect(screen.getByText('Mechanic: grok-bot-tech@auto.core.at')).toBeInTheDocument()
-    expect(screen.getByText('Ask the demo owner for the password.')).toBeInTheDocument()
+    expect(screen.getByText('Demo-Werkstatt')).toBeInTheDocument()
+    expect(screen.getByText('Büro: demo-office@example.com')).toBeInTheDocument()
+    expect(screen.getByText('Mechaniker: demo-mechanic@example.com')).toBeInTheDocument()
+    expect(screen.getByText('Passwort beim Pilotkunden erfragen.')).toBeInTheDocument()
     expect(screen.queryByText(/password:/i)).not.toBeInTheDocument()
 
     unmount()
     vi.stubGlobal('location', { hostname: 'localhost' })
     render(<LoginPage />)
 
-    expect(screen.queryByText('Demo workshop')).not.toBeInTheDocument()
+    expect(screen.queryByText('Demo-Werkstatt')).not.toBeInTheDocument()
   })
 
   it('shows an accessible error when both fields are empty on submit', async () => {
     render(<LoginPage />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Anmelden' }))
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Email and password are required')
+    expect(alert).toHaveTextContent('E-Mail und Passwort sind erforderlich')
     expect(signIn).not.toHaveBeenCalled()
   })
 
   it('shows an accessible error when only email is empty', async () => {
     render(<LoginPage />)
 
-    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secret' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+    fireEvent.change(screen.getByLabelText('Passwort'), { target: { value: 'secret' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Anmelden' }))
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Email is required')
+    expect(alert).toHaveTextContent('E-Mail ist erforderlich')
     expect(signIn).not.toHaveBeenCalled()
   })
 
   it('shows an accessible error when only password is empty', async () => {
     render(<LoginPage />)
 
-    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'user@example.com' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+    fireEvent.change(screen.getByLabelText('E-Mail'), { target: { value: 'user@example.com' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Anmelden' }))
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Password is required')
+    expect(alert).toHaveTextContent('Passwort ist erforderlich')
     expect(signIn).not.toHaveBeenCalled()
   })
 
@@ -117,9 +123,9 @@ describe('LoginPage', () => {
 
     render(<LoginPage />)
 
-    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'user@example.com' } })
-    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secret' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+    fireEvent.change(screen.getByLabelText('E-Mail'), { target: { value: 'user@example.com' } })
+    fireEvent.change(screen.getByLabelText('Passwort'), { target: { value: 'secret' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Anmelden' }))
 
     await waitFor(() => {
       expect(signIn).toHaveBeenCalledWith('user@example.com', 'secret')
@@ -130,10 +136,10 @@ describe('LoginPage', () => {
   it('clears validation errors when the user edits a field', async () => {
     render(<LoginPage />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Anmelden' }))
     expect(await screen.findByRole('alert')).toBeInTheDocument()
 
-    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'user@example.com' } })
+    fireEvent.change(screen.getByLabelText('E-Mail'), { target: { value: 'user@example.com' } })
 
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
@@ -142,34 +148,36 @@ describe('LoginPage', () => {
     sendPasswordResetEmail.mockResolvedValue(undefined)
     render(<LoginPage />)
 
-    fireEvent.change(screen.getByLabelText('Email'), { target: { value: ' user@example.com ' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Forgot password?' }))
+    fireEvent.change(screen.getByLabelText('E-Mail'), { target: { value: ' user@example.com ' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Passwort vergessen?' }))
 
     await waitFor(() => {
       expect(sendPasswordResetEmail).toHaveBeenCalledWith('user@example.com')
     })
-    expect(toast.success).toHaveBeenCalledWith('Check your email for a reset link.')
+    expect(toast.success).toHaveBeenCalledWith('E-Mail mit Reset-Link wurde gesendet.')
   })
 
   it('shows the approved reset error when sending fails', async () => {
     sendPasswordResetEmail.mockRejectedValue(new Error('reset failed'))
     render(<LoginPage />)
 
-    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'user@example.com' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Forgot password?' }))
+    fireEvent.change(screen.getByLabelText('E-Mail'), { target: { value: 'user@example.com' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Passwort vergessen?' }))
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('We could not send a reset email. Check the address and try again.')
+      expect(toast.error).toHaveBeenCalledWith(
+        'Reset-E-Mail konnte nicht gesendet werden. Adresse prüfen und erneut versuchen.',
+      )
     })
   })
 
   it('requires an email before starting a password reset', async () => {
     render(<LoginPage />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Forgot password?' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Passwort vergessen?' }))
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('Enter your email to reset your password.')
+      expect(toast.error).toHaveBeenCalledWith('E-Mail für Passwort-Reset eingeben.')
     })
     expect(sendPasswordResetEmail).not.toHaveBeenCalled()
   })

@@ -1,13 +1,8 @@
 import { Loader2, MapPin } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { MeSite } from '@/api/sites'
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { ReadOnlyCurrentSite, SitePicker } from './site-switcher-picker'
 
 type SiteSwitcherProps = {
   activeSiteId: string | null
@@ -18,104 +13,7 @@ type SiteSwitcherProps = {
   collapsed?: boolean
 }
 
-type SitePickerProps = {
-  activeSiteId: string | null
-  sites: MeSite[]
-  isLoadingSites: boolean
-  isSwitching: boolean
-  onSwitch: (siteId: string) => void
-  compact?: boolean
-}
-
-function SitePicker({
-  activeSiteId,
-  sites,
-  isLoadingSites,
-  isSwitching,
-  onSwitch,
-  compact = false,
-}: SitePickerProps) {
-  const activeSite = sites.find((site) => site.id === activeSiteId)
-
-  return (
-    <Select
-      value={activeSite?.id ?? undefined}
-      onValueChange={onSwitch}
-      disabled={isSwitching}
-    >
-      <SelectTrigger
-        aria-label="Switch site"
-        className={
-          compact
-            ? 'h-10 w-full'
-            : 'h-9 border-slate-700 bg-slate-950 text-slate-200 focus:ring-slate-500'
-        }
-      >
-        {isLoadingSites ? (
-          <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
-        ) : (
-          <SelectValue placeholder="Select site" />
-        )}
-      </SelectTrigger>
-      <SelectContent>
-        {sites.map((site) => (
-          <SelectItem key={site.id} value={site.id}>
-            {site.name}
-            <span className="ml-2 text-xs text-slate-400">{site.code}</span>
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  )
-}
-
-function ReadOnlyCurrentSite({
-  siteName,
-  collapsed = false,
-}: {
-  siteName: string
-  collapsed?: boolean
-}) {
-  if (collapsed) {
-    return (
-      <div className="px-2 pt-3">
-        <div
-          role="img"
-          className="flex h-10 items-center justify-center rounded-md border border-slate-800 bg-slate-900 text-slate-300"
-          title={`Current Site: ${siteName}`}
-          aria-label={`Current Site: ${siteName}`}
-        >
-          <MapPin className="h-4 w-4" />
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <section className="px-3 pt-3">
-      <div className="rounded-xl border border-slate-800 bg-slate-900/80 p-3">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">
-          Current Site
-        </p>
-        <div className="mt-2 flex items-center gap-2 text-sm text-slate-200">
-          <MapPin className="h-4 w-4 shrink-0 text-slate-400" />
-          <span className="truncate font-medium">{siteName}</span>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-/**
- * Current-site switcher (UX Compliance / Site switcher).
- *
- * - Read-only "Current Site" when the user has exactly one active grant and it
- *   is already the session's active site (AUT-290 QA clarity).
- * - Shown as a recovery prompt/action when `active_site_id` is null (tenant
- *   switch, membership revoke, site deactivation) even with a single remaining
- *   grant — operational APIs return `ACTIVE_SITE_REQUIRED` until the PATCH.
- * - Otherwise a dropdown of `GET /me/sites` (active sites only, ruling 47).
- */
+/** Current-site switcher (UX Compliance / Site switcher). */
 export function SiteSwitcher({
   activeSiteId,
   sites,
@@ -124,6 +22,7 @@ export function SiteSwitcher({
   onSwitch,
   collapsed = false,
 }: SiteSwitcherProps) {
+  const { t } = useTranslation('nav')
   const activeSite = sites.find((site) => site.id === activeSiteId) ?? null
 
   if (sites.length === 0) {
@@ -139,11 +38,11 @@ export function SiteSwitcher({
   const recoveryPrompt = !activeSite
     ? recoverySite
       ? {
-          title: 'No active site',
-          actionLabel: `Activate ${recoverySite.name}`,
+          title: t('siteSwitcher.noActiveSite'),
+          actionLabel: t('siteSwitcher.activateSite', { name: recoverySite.name }),
           onAction: () => onSwitch(recoverySite.id),
         }
-      : { title: 'No active site', actionLabel: null, onAction: null }
+      : { title: t('siteSwitcher.noActiveSite'), actionLabel: null, onAction: null }
     : null
 
   if (collapsed) {
@@ -186,8 +85,8 @@ export function SiteSwitcher({
         <div
           role="img"
           className="flex h-10 items-center justify-center rounded-md border border-slate-800 bg-slate-900 text-slate-300"
-          title={activeSite?.name ?? 'Select site'}
-          aria-label={activeSite?.name ?? 'Select site'}
+          title={activeSite?.name ?? t('siteSwitcher.selectSite')}
+          aria-label={activeSite?.name ?? t('siteSwitcher.selectSite')}
         >
           <MapPin className="h-4 w-4" />
         </div>
@@ -206,9 +105,7 @@ export function SiteSwitcher({
                   {recoveryPrompt.title}
                 </p>
                 {recoveryPrompt.actionLabel ? (
-                  <p className="truncate text-xs text-slate-400">
-                    Operational views need a site selection.
-                  </p>
+                  <p className="truncate text-xs text-slate-400">{t('siteSwitcher.operationalNeedsSite')}</p>
                 ) : null}
               </div>
               {recoveryPrompt.actionLabel ? (
@@ -232,9 +129,7 @@ export function SiteSwitcher({
               <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-amber-400">
                 {recoveryPrompt.title}
               </p>
-              <p className="truncate text-xs text-slate-400">
-                Operational views need a site selection.
-              </p>
+              <p className="truncate text-xs text-slate-400">{t('siteSwitcher.operationalNeedsSite')}</p>
               <SitePicker
                 activeSiteId={activeSiteId}
                 sites={sites}
@@ -247,7 +142,7 @@ export function SiteSwitcher({
         ) : (
           <>
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">
-              Current Site
+              {t('siteSwitcher.currentSite')}
             </p>
             <div className="mt-2 flex items-center gap-2">
               <MapPin className="h-4 w-4 shrink-0 text-slate-400" />

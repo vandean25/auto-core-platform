@@ -1,4 +1,5 @@
 import { Building2, Car, Package, UserRound, Wrench } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import type { InventoryItem, WorkshopOrder } from '@/api/types'
 import type { WorkshopSearchCustomer, WorkshopSearchVehicle } from '@/hooks/useGlobalSearch'
@@ -59,12 +60,13 @@ export function CustomerResultsGroup({
   customers: WorkshopSearchCustomer[]
   onSelect: SelectHandler
 }) {
+  const { t } = useTranslation('nav')
   if (customers.length === 0) return null
 
   return (
     <>
       <CommandSeparator />
-      <CommandGroup heading="Customers">
+      <CommandGroup heading={t('globalSearch.groups.customers')}>
         {customers.map((customer) => {
           const CustomerIcon = customer.type === 'COMPANY' ? Building2 : UserRound
           const contactDetails = getCustomerContactDetails(customer)
@@ -97,12 +99,13 @@ export function VehicleResultsGroup({
   vehicles: WorkshopSearchVehicle[]
   onSelect: SelectHandler
 }) {
+  const { t } = useTranslation('nav')
   if (vehicles.length === 0) return null
 
   return (
     <>
       <CommandSeparator />
-      <CommandGroup heading="Vehicles">
+      <CommandGroup heading={t('globalSearch.groups.vehicles')}>
         {vehicles.map((vehicle) => {
           const makeModel = getVehicleMakeModel(vehicle)
           const displayTitle = vehicle.plate || makeModel
@@ -134,12 +137,13 @@ export function OrderResultsGroup({
   orders: WorkshopOrder[]
   onSelect: SelectHandler
 }) {
+  const { t } = useTranslation('nav')
   if (orders.length === 0) return null
 
   return (
     <>
       <CommandSeparator />
-      <CommandGroup heading="Workshop orders">
+      <CommandGroup heading={t('globalSearch.groups.workshopOrders')}>
         {orders.map((order) => {
           const subtitle = getOrderSubtitle(order)
 
@@ -174,12 +178,13 @@ export function InventoryResultsGroup({
   items: InventoryItem[]
   onSelect: SelectHandler
 }) {
+  const { t } = useTranslation('nav')
   if (items.length === 0) return null
 
   return (
     <>
       <CommandSeparator />
-      <CommandGroup heading="Inventory">
+      <CommandGroup heading={t('globalSearch.groups.inventory')}>
         {items.map((item) => (
           <CommandItem
             key={item.id}
@@ -192,7 +197,9 @@ export function InventoryResultsGroup({
               <span className="truncate text-xs text-muted-foreground">{item.name}</span>
             </div>
             <div className="ml-4 flex shrink-0 flex-col items-end text-xs text-slate-500">
-              <span className="tabular-nums">{item.quantity_available} in stock</span>
+              <span className="tabular-nums">
+                {t('globalSearch.inventoryInStock', { count: item.quantity_available })}
+              </span>
               <span className="tabular-nums">{formatSearchCurrency(item.price)}</span>
             </div>
           </CommandItem>

@@ -22,7 +22,7 @@ const emptySearchResults = {
   error: null,
 }
 
-const SEARCH_PLACEHOLDER = 'Search parts, customers, vehicles, jobs…'
+const SEARCH_PLACEHOLDER = 'Teile, Kunden, Fahrzeuge, Aufträge…'
 
 function renderPalette(onOpenChange = vi.fn()) {
   render(

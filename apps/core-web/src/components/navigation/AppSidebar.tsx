@@ -1,275 +1,14 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom'
-import type { LucideIcon } from 'lucide-react'
 import type { components } from '@/api/generated/openapi'
 import type { AuthSessionMembership, AuthSessionTenant } from '@/api/auth-session'
 import type { MeSite } from '@/api/sites'
 import { TenantSwitcher } from '@/components/navigation/TenantSwitcher'
 import { SiteSwitcher } from '@/components/navigation/SiteSwitcher'
 import { AppSidebarFooter } from '@/components/navigation/AppSidebarFooter'
-import { moduleLinkBaseClass } from '@/components/navigation/app-sidebar-styles'
-import {
-  Bot,
-  Building2,
-  Car,
-  ClipboardCheck,
-  ClipboardList,
-  FileText,
-  LayoutDashboard,
-  Package,
-  ReceiptText,
-  Settings,
-  Star,
-  Truck,
-  UserRound,
-  Users,
-  Wrench,
-  Warehouse,
-  LayoutGrid,
-  Calendar,
-  CalendarRange,
-  CarFront,
-  ArrowLeftRight,
-  X,
-} from 'lucide-react'
+import { AppSidebarHeader } from '@/components/navigation/AppSidebarHeader'
+import { AppSidebarModuleNav } from '@/components/navigation/AppSidebarModuleNav'
+import { AppSidebarFavorites } from '@/components/navigation/AppSidebarFavorites'
+import { ShellGlossaryHints } from '@/components/navigation/ShellGlossaryHints'
 import { cn } from '@/lib/utils'
-import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
-import { useSavedViews } from '@/features/saved-views/SavedViewsProvider'
-import { isAgentSupervisionEnabled } from '@/lib/runtime-flags'
-
-type SidebarAccessContext = {
-  userEmail: string | null
-  platformRole: string | null
-  activeRole: components['schemas']['TenantMemberRole'] | null
-}
-
-type SidebarModule = {
-  id: string
-  label: string
-  to: string
-  icon: LucideIcon
-  isVisible: (context: SidebarAccessContext) => boolean
-  isActive: (pathname: string, search: string) => boolean
-}
-
-const coreModules: SidebarModule[] = [
-  {
-    id: 'dashboard',
-    label: 'Dashboard',
-    to: '/dashboard',
-    icon: LayoutDashboard,
-    isVisible: () => true,
-    isActive: (pathname) => pathname === '/' || pathname.startsWith('/dashboard'),
-  },
-  {
-    id: 'platform-tenants',
-    label: 'Tenants',
-    to: '/platform/tenants',
-    icon: Building2,
-    isVisible: (context) => context.platformRole === 'SUPER_ADMIN',
-    isActive: (pathname) => pathname.startsWith('/platform/tenants'),
-  },
-  {
-    id: 'agent-supervision',
-    label: 'Agent Supervision',
-    to: '/agent/supervision',
-    icon: Bot,
-    isVisible: (context) =>
-      isAgentSupervisionEnabled() && ['OWNER', 'ADMIN', 'ADVISOR'].includes(context.activeRole ?? ''),
-    isActive: (pathname) => pathname.startsWith('/agent/supervision'),
-  },
-  {
-    id: 'customers',
-    label: 'Customers',
-    to: '/customers',
-    icon: UserRound,
-    isVisible: () => true,
-    isActive: (pathname) => pathname.startsWith('/customers'),
-  },
-  {
-    id: 'vehicles',
-    label: 'Vehicles',
-    to: '/vehicles',
-    icon: Car,
-    isVisible: () => true,
-    isActive: (pathname) =>
-      pathname.startsWith('/vehicles') &&
-      !pathname.startsWith('/vehicles/stock') &&
-      !pathname.startsWith('/vehicles/pickerl-due') &&
-      !pathname.startsWith('/vehicles/gewaehrleistung-due'),
-  },
-  {
-    id: 'pickerl-due',
-    label: 'Pickerl fällig',
-    to: '/vehicles/pickerl-due',
-    icon: Car,
-    isVisible: () => true,
-    isActive: (pathname) => pathname.startsWith('/vehicles/pickerl-due'),
-  },
-  {
-    id: 'gewaehrleistung-due',
-    label: 'Gewährleistung fällig',
-    to: '/vehicles/gewaehrleistung-due',
-    icon: Car,
-    isVisible: () => true,
-    isActive: (pathname) => pathname.startsWith('/vehicles/gewaehrleistung-due'),
-  },
-  {
-    id: 'vehicle-stock',
-    label: 'Vehicle Stock',
-    to: '/vehicle-stock',
-    icon: Car,
-    isVisible: () => true,
-    isActive: (pathname) =>
-      pathname.startsWith('/vehicle-stock') || pathname.startsWith('/vehicles/stock'),
-  },
-  {
-    id: 'sales-orders',
-    label: 'Sales Orders',
-    to: '/sales-orders',
-    icon: ClipboardList,
-    isVisible: () => true,
-    isActive: (pathname) => pathname.startsWith('/sales-orders'),
-  },
-  {
-    id: 'sales-invoices',
-    label: 'Invoices',
-    to: APP_ROUTE_PATHS.salesInvoices,
-    icon: FileText,
-    isVisible: () => true,
-    isActive: (pathname) => pathname.startsWith('/sales/invoices'),
-  },
-  {
-    id: 'workshop-orders',
-    label: 'Workshop Orders',
-    to: '/workshop/orders',
-    icon: Wrench,
-    isVisible: () => true,
-    isActive: (pathname) => pathname.startsWith('/workshop/orders') || pathname.startsWith('/workshop/intake') || pathname.startsWith('/workshop/pick'),
-  },
-  {
-    id: 'workshop-board',
-    label: 'Workshop Board',
-    to: '/workshop/board',
-    icon: LayoutGrid,
-    isVisible: () => true,
-    isActive: (pathname) => pathname.startsWith('/workshop/board'),
-  },
-  {
-    id: 'workshop-planner',
-    label: 'Workshop Planner',
-    to: '/workshop/planner',
-    icon: Calendar,
-    isVisible: () => true,
-    isActive: (pathname) => pathname.startsWith('/workshop/planner'),
-  },
-  {
-    id: 'workshop-capacity',
-    label: 'Workshop Capacity',
-    to: '/workshop/capacity',
-    icon: CalendarRange,
-    isVisible: () => true,
-    isActive: (pathname) => pathname.startsWith('/workshop/capacity'),
-  },
-  {
-    id: 'workshop-kpi-reports',
-    label: 'Workshop KPIs',
-    to: '/workshop/reports/kpis',
-    icon: Wrench,
-    isVisible: (context) => ['OWNER', 'ADMIN', 'SALES'].includes(context.activeRole ?? ''),
-    isActive: (pathname) => pathname.startsWith('/workshop/reports'),
-  },
-  {
-    id: 'workshop-loaner-vehicles',
-    label: 'Ersatzfahrzeuge',
-    to: '/workshop/loaner-vehicles',
-    icon: CarFront,
-    isVisible: () => true,
-    isActive: (pathname) => pathname.startsWith('/workshop/loaner-vehicles'),
-  },
-  {
-    id: 'tyre-storage',
-    label: 'Reifenlager',
-    to: '/workshop/tyre-storage',
-    icon: Warehouse,
-    isVisible: () => true,
-    isActive: (pathname) => pathname.startsWith('/workshop/tyre-storage'),
-  },
-  {
-    id: 'hr',
-    label: 'HR',
-    to: '/hr/employees',
-    icon: Users,
-    isVisible: (context) => context.activeRole !== 'TECH',
-    isActive: (pathname) => pathname.startsWith('/hr'),
-  },
-  {
-    id: 'inventory',
-    label: 'Inventory',
-    to: '/inventory',
-    icon: Package,
-    isVisible: () => true,
-    isActive: (pathname) => pathname.startsWith('/inventory'),
-  },
-  {
-    id: 'stock-transfers',
-    label: 'Transfers',
-    to: '/stock-transfers',
-    icon: ArrowLeftRight,
-    isVisible: () => true,
-    isActive: (pathname) => pathname.startsWith('/stock-transfers'),
-  },
-  {
-    id: 'vendors',
-    label: 'Vendors',
-    to: '/vendors',
-    icon: Truck,
-    isVisible: () => true,
-    isActive: (pathname) => pathname.startsWith('/vendors'),
-  },
-  {
-    id: 'purchase-orders',
-    label: 'Purchase Orders',
-    to: '/purchase-orders',
-    icon: ClipboardList,
-    isVisible: () => true,
-    isActive: (pathname) => pathname.startsWith('/purchase-orders'),
-  },
-  {
-    id: 'credit-notes',
-    label: 'Credit Notes',
-    to: '/finance/credit-notes',
-    icon: ReceiptText,
-    isVisible: (context) =>
-      context.activeRole === 'OWNER' || context.activeRole === 'ADMIN',
-    isActive: (pathname) => pathname.startsWith('/finance/credit-notes'),
-  },
-  {
-    id: 'accounting-export-readiness',
-    label: 'Export Readiness',
-    to: '/finance/accounting-export-readiness',
-    icon: ClipboardCheck,
-    isVisible: (context) =>
-      context.activeRole === 'OWNER' || context.activeRole === 'ADMIN',
-    isActive: (pathname) =>
-      pathname.startsWith('/finance/accounting-export-readiness'),
-  },
-  {
-    id: 'purchase-bills',
-    label: 'Purchase Bills',
-    to: '/purchase-bills',
-    icon: ReceiptText,
-    isVisible: () => true,
-    isActive: (pathname) => pathname.startsWith('/purchase-bills') || pathname.startsWith('/purchase-invoices'),
-  },
-  {
-    id: 'finance',
-    label: 'Finance',
-    to: '/settings?tab=finance',
-    icon: Settings,
-    isVisible: () => true,
-    isActive: (pathname, search) => pathname.startsWith('/settings') && new URLSearchParams(search).get('tab') === 'finance',
-  },
-]
 
 type AppSidebarProps = {
   userEmail: string | null
@@ -290,13 +29,6 @@ type AppSidebarProps = {
   onSignOut: () => void
 }
 
-function normalizePathWithQuery(pathname: string, search: string): string {
-  const params = new URLSearchParams(search)
-  params.sort()
-  const normalizedSearch = params.toString()
-  return `${pathname}${normalizedSearch ? `?${normalizedSearch}` : ''}`
-}
-
 export function AppSidebar({
   userEmail,
   platformRole,
@@ -315,13 +47,6 @@ export function AppSidebar({
   onSwitchSite,
   onSignOut,
 }: AppSidebarProps) {
-  const location = useLocation()
-  const navigate = useNavigate()
-  const { savedViews, removeSavedView } = useSavedViews()
-
-  const visibleModules = coreModules.filter((module) => module.isVisible({ userEmail, platformRole, activeRole }))
-  const currentPathWithQuery = normalizePathWithQuery(location.pathname, location.search)
-
   return (
     <aside
       className={cn(
@@ -330,16 +55,7 @@ export function AppSidebar({
       )}
     >
       <div className="flex h-full flex-col">
-        <div className={cn('border-b border-slate-800', collapsed ? 'px-2 py-4' : 'px-4 py-4')}>
-          <div className={cn('flex items-center', collapsed ? 'justify-center' : 'justify-between')}>
-            <span className={cn('font-semibold tracking-tight text-white', collapsed ? 'text-base' : 'text-lg')}>ACP</span>
-            {!collapsed ? (
-              <span className="rounded-md border border-slate-700 bg-slate-900 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-300">
-                Workshop
-              </span>
-            ) : null}
-          </div>
-        </div>
+        <AppSidebarHeader collapsed={collapsed} />
 
         <div className="flex-1 overflow-y-auto">
           <TenantSwitcher
@@ -360,94 +76,15 @@ export function AppSidebar({
             collapsed={collapsed}
           />
 
-          <section className={cn('pt-4', collapsed ? 'px-2' : 'px-3')}>
-            {!collapsed ? (
-              <p className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Core Modules</p>
-            ) : null}
-            <nav className="space-y-1" aria-label="Core modules">
-              {visibleModules.map((module) => {
-                const Icon = module.icon
-                const active = module.isActive(location.pathname, location.search)
-                return (
-                  <Link
-                    key={module.id}
-                    to={module.to}
-                    aria-current={active ? 'page' : undefined}
-                    title={collapsed ? module.label : undefined}
-                    className={cn(
-                      moduleLinkBaseClass,
-                      collapsed ? 'h-10 justify-center px-0' : 'h-10 gap-3 px-3',
-                      active
-                        ? 'bg-slate-800 text-white'
-                        : 'text-slate-300 hover:bg-slate-900 hover:text-white',
-                    )}
-                  >
-                    <Icon className="h-4 w-4 shrink-0" />
-                    <span className={collapsed ? 'sr-only' : 'truncate'}>{module.label}</span>
-                  </Link>
-                )
-              })}
-            </nav>
-          </section>
+          <AppSidebarModuleNav
+            userEmail={userEmail}
+            platformRole={platformRole}
+            activeRole={activeRole}
+            collapsed={collapsed}
+          />
 
-          <section className={cn('mt-5 border-t border-slate-800 pt-4', collapsed ? 'px-2' : 'px-3')}>
-            {!collapsed ? (
-              <p className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Favorites</p>
-            ) : null}
-            {savedViews.length === 0 ? (
-              collapsed ? null : (
-                <p className="px-2 text-xs text-slate-400">
-                  No saved views yet. Apply filters on a table and click Save as sidebar view.
-                </p>
-              )
-            ) : (
-              <div className="space-y-1">
-                {savedViews.map((view) => {
-                  const isActive = view.href === currentPathWithQuery
-                  return (
-                    <div
-                      key={view.id}
-                      className={cn(
-                        'group relative rounded-md',
-                        isActive ? 'bg-emerald-500/15 ring-1 ring-emerald-400/30' : 'hover:bg-slate-900',
-                      )}
-                    >
-                      <button
-                        type="button"
-                        title={view.name}
-                        onClick={() => navigate(view.href)}
-                        className={cn(
-                          'w-full text-left transition-colors',
-                          collapsed ? 'flex h-10 items-center justify-center' : 'flex items-center gap-2 px-3 py-2',
-                        )}
-                      >
-                        <Star className={cn('h-4 w-4 shrink-0', isActive ? 'text-emerald-300' : 'text-slate-400')} />
-                        <span
-                          className={cn(
-                            collapsed ? 'sr-only' : 'truncate text-sm',
-                            isActive ? 'text-emerald-200' : 'text-slate-300',
-                          )}
-                        >
-                          {view.name}
-                        </span>
-                      </button>
-
-                      {!collapsed ? (
-                        <button
-                          type="button"
-                          onClick={() => removeSavedView(view.id)}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-1 text-slate-400 opacity-0 transition group-hover:opacity-100 hover:bg-slate-800 hover:text-slate-200"
-                          aria-label={`Remove saved view ${view.name}`}
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      ) : null}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </section>
+          <AppSidebarFavorites collapsed={collapsed} />
+          <ShellGlossaryHints collapsed={collapsed} />
         </div>
 
         <AppSidebarFooter

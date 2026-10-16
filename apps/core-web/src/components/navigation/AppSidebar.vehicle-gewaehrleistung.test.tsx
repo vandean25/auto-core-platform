@@ -38,6 +38,6 @@ describe('AppSidebar Gewaehrleistung navigation', () => {
     const dueListLink = screen.getByRole('link', { name: 'Gewährleistung fällig' })
     expect(dueListLink).toHaveAttribute('href', '/vehicles/gewaehrleistung-due')
     expect(dueListLink).toHaveAttribute('aria-current', 'page')
-    expect(screen.getByRole('link', { name: 'Vehicles' })).not.toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('link', { name: 'Fahrzeuge' })).not.toHaveAttribute('aria-current', 'page')
   })
 })
