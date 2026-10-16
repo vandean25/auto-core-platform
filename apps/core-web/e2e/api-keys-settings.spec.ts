@@ -187,7 +187,7 @@ test.describe("Blueprint: API keys settings", () => {
     await expect(revokeDialog).toBeVisible();
     await revokeDialog.getByRole("button", { name: "Revoke key" }).click();
 
-    await expect(rowFor(page, "Dashboard feed")).toContainText(/REVOKED/i);
+    await expect(rowFor(page, "Dashboard feed")).toContainText(DE_STATUS.REVOKED);
     await expect(rowFor(page, "Dashboard feed").getByRole("button", { name: "Revoke" })).toHaveCount(0);
     expect(calls).toContainEqual({
       method: "POST",
