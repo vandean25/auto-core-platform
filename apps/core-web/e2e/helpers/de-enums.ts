@@ -1,4 +1,4 @@
-import deEnums from '../../../../locales/de/enums.json'
+import deEnums from '../../../../locales/de/enums.json' with { type: 'json' }
 
 /** German status labels for Playwright assertions (default UI locale). */
 export const DE_STATUS = deEnums.status
