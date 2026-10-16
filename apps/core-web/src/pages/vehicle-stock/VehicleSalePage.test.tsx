@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import VehicleSalePage from './VehicleSalePage'
 import * as vehicleStockApi from '@/api/vehicle-stock'
 import { expectFieldErrorLinked, expectFieldValid } from '@/test/form-a11y'
+import { formatStatusLabel } from '@/lib/i18n/enum-labels'
 import { formattedCurrencyPattern } from '@/test/format-assertions'
 import { toast } from 'sonner'
 
@@ -815,7 +816,7 @@ describe('VehicleSalePage Gewährleistung after invoicing', () => {
 
     expect(screen.getByText('Basisfrist bis 08.10.2028')).toBeInTheDocument()
     expect(screen.getByText('Vermutungsfrist bis 08.10.2027')).toBeInTheDocument()
-    expect(screen.getByText('Aktiv')).toBeInTheDocument()
+    expect(screen.getByText(formatStatusLabel('GEWAEHRLEISTUNG_ACTIVE'))).toBeInTheDocument()
   })
 
   it('links the invoiced sale to its finalized invoice by invoice number', () => {
@@ -849,7 +850,7 @@ describe('VehicleSalePage Gewährleistung after invoicing', () => {
     renderSalePage()
 
     expect(within(screen.getByText('Vermutungsfrist bis 01.10.2026')).getByText('Abgelaufen')).toBeInTheDocument()
-    expect(screen.getByText('Aktiv')).toBeInTheDocument()
+    expect(screen.getByText(formatStatusLabel('GEWAEHRLEISTUNG_ACTIVE'))).toBeInTheDocument()
     expect(screen.getAllByText('Abgelaufen')).toHaveLength(1)
   })
 

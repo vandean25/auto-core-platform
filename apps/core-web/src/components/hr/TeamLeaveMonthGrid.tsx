@@ -1,6 +1,7 @@
 import type { Employee } from '@/api/employees'
 import type { LeaveRequest } from '@/api/hr'
 import { StatusBadge } from '@/components/status/StatusBadge'
+import { formatStatusLabel } from '@/lib/i18n/enum-labels'
 import { cn } from '@/lib/utils'
 
 type GridEmployee = Pick<Employee, 'id' | 'name' | 'role'>
@@ -73,7 +74,7 @@ export function TeamLeaveMonthGrid({
                     key={date}
                     data-testid={cellTestId}
                     className='flex min-h-10 items-center justify-center border-b border-r bg-emerald-50 px-1'
-                    aria-label={`${employee.name}, ${date}, status Booked`}
+                    aria-label={`${employee.name}, ${date}, status ${formatStatusLabel('BOOKED')}`}
                     title={booking.note || 'Booked leave'}
                   >
                     <StatusBadge status='BOOKED' className='px-1 py-0.5 text-[10px]' />

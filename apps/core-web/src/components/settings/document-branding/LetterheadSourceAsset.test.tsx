@@ -269,6 +269,6 @@ describe("LetterheadSourceAsset", () => {
       initialAsset: quarantinedAsset,
     });
 
-    expect(screen.getByRole("status")).toHaveTextContent(/checking file/i);
+    expect(screen.getByRole("status")).toHaveTextContent(/Datei wird geprüft/i);
   });
 });
