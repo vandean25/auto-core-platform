@@ -24,6 +24,7 @@ describe('Workshop order ready email (AUT-357 e2e)', () => {
   let testTenant: TestTenantResult;
   let adminToken: string;
   let techToken: string;
+  let adminUserId: string;
   let customerId: string;
   let otherTenantId: string | undefined;
 
@@ -31,28 +32,21 @@ describe('Workshop order ready email (AUT-357 e2e)', () => {
   const adminAuth = () => ({ Authorization: `Bearer ${adminToken}` });
   const techAuth = () => ({ Authorization: `Bearer ${techToken}` });
 
-  async function setTenantMemberRole(role: 'ADMIN' | 'TECH') {
-    await prisma.tenantMember.updateMany({
-      where: { tenant_id: tenantId },
-      data: { role },
-    });
-  }
-
-  async function createCompletedOrder() {
+  async function completeCustomerOrder(forCustomerId: string) {
     const vehicle = await prisma.vehicle.create({
       data: {
         make: 'Skoda',
         model: 'Octavia',
         year: 2019,
         vin: `VIN-RDY-${randomUUID()}`,
-        customer_id: customerId,
+        customer_id: forCustomerId,
       },
     });
     const order = await api()
       .post('/api/workshop/orders')
       .set(adminAuth())
       .send({
-        customerId,
+        customerId: forCustomerId,
         vehicleId: vehicle.id,
         odometer: 1000,
         fuelLevel: 50,
@@ -81,12 +75,18 @@ describe('Workshop order ready email (AUT-357 e2e)', () => {
     app.useGlobalPipes(createGlobalValidationPipe());
     await app.init();
     basePrisma = app.get(PrismaService);
+    const authService = app.get(AuthService);
     testTenant = await createTestTenant(basePrisma);
     tenantId = testTenant.tenantId;
     prisma = createTenantAwarePrisma(basePrisma, tenantId);
-    adminToken = createTestAuthToken(app.get(AuthService), testTenant);
-    techToken = adminToken;
+    adminToken = createTestAuthToken(authService, testTenant);
+    techToken = createTestAuthToken(authService, testTenant, { role: 'TECH' });
     await seedReadySellerAndAccountingProfile(prisma, tenantId);
+    const adminUser = await prisma.user.findFirstOrThrow({
+      where: { firebaseUid: testTenant.firebaseUid },
+      select: { id: true },
+    });
+    adminUserId = adminUser.id;
     const customer = await prisma.customer.create({
       data: {
         first_name: 'Max',
@@ -100,6 +100,7 @@ describe('Workshop order ready email (AUT-357 e2e)', () => {
   });
 
   afterAll(async () => {
+    await prisma.auditLog.deleteMany();
     await prisma.notificationOutbox.deleteMany();
     await prisma.workshopTask.deleteMany();
     await prisma.workshopOrder.deleteMany();
@@ -113,12 +114,21 @@ describe('Workshop order ready email (AUT-357 e2e)', () => {
   });
 
   it('queues one ready email on first transition to COMPLETED and exposes notice on the order', async () => {
-    const orderId = await createCompletedOrder();
+    const orderId = await completeCustomerOrder(customerId);
     const detail = await api()
       .get(`/api/workshop/orders/${orderId}`)
       .set(adminAuth())
       .expect(200);
+    expect(detail.body.status).toBe('COMPLETED');
     expect(detail.body.ready_email_notice?.code).toBe('QUEUED');
+
+    const outboxCount = await prisma.notificationOutbox.count({
+      where: {
+        workshop_order_id: orderId,
+        event_type: 'WORKSHOP_ORDER_READY',
+      },
+    });
+    expect(outboxCount).toBe(1);
 
     const communications = await api()
       .get(`/api/workshop/orders/${orderId}/communications`)
@@ -142,20 +152,99 @@ describe('Workshop order ready email (AUT-357 e2e)', () => {
       (row: { kind: string }) => row.kind === 'READY_EMAIL',
     );
     expect(readyAgain).toHaveLength(1);
+    expect(
+      await prisma.notificationOutbox.count({
+        where: {
+          workshop_order_id: orderId,
+          event_type: 'WORKSHOP_ORDER_READY',
+        },
+      }),
+    ).toBe(1);
+  });
+
+  it('shows a blocked notice and writes no outbox row when contact_email_ok is false', async () => {
+    const blocked = await prisma.customer.create({
+      data: {
+        first_name: 'Erika',
+        last_name: 'Beispiel',
+        email: 'blocked@example.at',
+        type: 'PRIVATE',
+        contact_email_ok: false,
+      },
+    });
+    const orderId = await completeCustomerOrder(blocked.id);
+    const detail = await api()
+      .get(`/api/workshop/orders/${orderId}`)
+      .set(adminAuth())
+      .expect(200);
+    expect(detail.body.ready_email_notice?.code).toBe(
+      'BLOCKED_EMAIL_NOT_CONFIRMED',
+    );
+    expect(
+      await prisma.notificationOutbox.count({
+        where: {
+          workshop_order_id: orderId,
+          event_type: 'WORKSHOP_ORDER_READY',
+        },
+      }),
+    ).toBe(0);
+  });
+
+  it('allows advisor resend with audit and a second outbox occurrence', async () => {
+    const orderId = await completeCustomerOrder(customerId);
+    const resend = await api()
+      .post(`/api/workshop/orders/${orderId}/ready-email/resend`)
+      .set(adminAuth())
+      .expect(200);
+    expect(resend.body.code).toBe('QUEUED');
+
+    expect(
+      await prisma.notificationOutbox.count({
+        where: {
+          workshop_order_id: orderId,
+          event_type: 'WORKSHOP_ORDER_READY',
+        },
+      }),
+    ).toBe(2);
+
+    const audit = await prisma.auditLog.findFirst({
+      where: {
+        tenant_id: tenantId,
+        source: 'workshop-order-ready-resend',
+        actor_user_id: adminUserId,
+      },
+      orderBy: { occurred_at: 'desc' },
+    });
+    expect(audit).toMatchObject({
+      action: 'CREATE',
+      entity_type: 'NotificationOutbox',
+    });
+    expect(audit?.after).toMatchObject({
+      workshop_order_id: orderId,
+      event_type: 'WORKSHOP_ORDER_READY',
+      resend: true,
+    });
+
+    const communications = await api()
+      .get(`/api/workshop/orders/${orderId}/communications`)
+      .set(adminAuth())
+      .expect(200);
+    const readyRows = communications.body.data.filter(
+      (row: { kind: string }) => row.kind === 'READY_EMAIL',
+    );
+    expect(readyRows).toHaveLength(2);
   });
 
   it('refuses resend for TECH with 403', async () => {
-    const orderId = await createCompletedOrder();
-    await setTenantMemberRole('TECH');
+    const orderId = await completeCustomerOrder(customerId);
     await api()
       .post(`/api/workshop/orders/${orderId}/ready-email/resend`)
       .set(techAuth())
       .expect(403);
-    await setTenantMemberRole('ADMIN');
   });
 
   it('isolates ready communications by tenant', async () => {
-    const orderId = await createCompletedOrder();
+    const orderId = await completeCustomerOrder(customerId);
     const other = await createTestTenant(basePrisma);
     otherTenantId = other.tenantId;
     const otherToken = createTestAuthToken(app.get(AuthService), other);
