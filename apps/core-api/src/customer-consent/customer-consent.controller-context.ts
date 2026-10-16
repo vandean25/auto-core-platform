@@ -8,13 +8,18 @@ import type { PrismaService } from '../prisma/prisma.service.js';
 import type { TenantContextService } from '../common/services/tenant-context.service.js';
 import { isApiKeyPrincipal } from '../auth/types/authenticated-user.js';
 
-const BLOCKED_ROLES = new Set(['TECH', 'DEMO']);
+const CONSENT_LEDGER_ROLES = new Set(['OWNER', 'ADMIN', 'SALES']);
 
 export function assertConsentLedgerAccess(
   tenantContext: TenantContextService,
 ): void {
   const user = tenantContext.getAuthenticatedUser();
-  if (!user?.role || BLOCKED_ROLES.has(user.role)) {
+  if (isApiKeyPrincipal(user)) {
+    throw new ForbiddenException(
+      'Consent ledger access is not allowed for API keys.',
+    );
+  }
+  if (!user?.role || !CONSENT_LEDGER_ROLES.has(user.role)) {
     throw new ForbiddenException(
       'Consent ledger access is not allowed for this role.',
     );
@@ -86,7 +91,9 @@ export async function resolveConsentActorMemberId(
     return null;
   }
   if (isApiKeyPrincipal(authUser)) {
-    return null;
+    throw new ForbiddenException(
+      'Active site membership is required for this controller.',
+    );
   }
 
   const user = await prisma.user.findUnique({

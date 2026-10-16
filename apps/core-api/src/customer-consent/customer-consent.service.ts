@@ -3,6 +3,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { assertValidCommunicationEventRequest } from './customer-consent-event-validation.js';
+import {
+  anyMarketingPurposeNeedsUnsubscribe,
+  buildUnsubscribeIdempotencyKey,
+  marketingPurposeNeedsUnsubscribe,
+} from './customer-consent-unsubscribe.helpers.js';
 import {
   AuditActorType,
   AuditLogAction,
@@ -78,7 +84,7 @@ export class CustomerConsentService {
       select: { id: true, name: true },
     });
 
-    const state = await this.ensureCommunicationState(
+    const state = await this.findCommunicationStateOrDefault(
       tenantId,
       controllerId,
       customerId,
@@ -193,6 +199,8 @@ export class CustomerConsentService {
       tenantId,
       controllerId,
     );
+
+    assertValidCommunicationEventRequest(dto);
 
     const existing = await this.prisma.customerConsent.findFirst({
       where: {
@@ -400,22 +408,37 @@ export class CustomerConsentService {
 
       try {
         await this.prisma.$transaction(async (tx) => {
-          const idempotencyKey = `unsubscribe:${tokenHash}`;
-          const existing = await tx.customerConsent.findFirst({
+          const ledgerEvents = await tx.customerConsent.findMany({
             where: {
               tenant_id: tokenRow.tenant_id,
-              controller_legal_entity_id: tokenRow.controller_legal_entity_id,
               customer_id: tokenRow.customer_id,
-              idempotency_key: idempotencyKey,
+              controller_legal_entity_id: tokenRow.controller_legal_entity_id,
+            },
+            select: {
+              purpose: true,
+              channel: true,
+              status: true,
+              sequence: true,
+              basis: true,
+              text_version: true,
+              text_snapshot: true,
+              evidence: true,
             },
           });
-          if (existing) {
-            if (!tokenRow.used_at) {
-              await tx.customerConsentUnsubscribeToken.updateMany({
-                where: { id: tokenRow.id, used_at: null },
-                data: { used_at: now },
-              });
-            }
+          const eventSlices: LedgerEventSlice[] = ledgerEvents.map((row) => ({
+            purpose: row.purpose,
+            channel: row.channel,
+            status: row.status,
+            sequence: row.sequence,
+            basis: row.basis,
+            text_version: row.text_version,
+            text_snapshot: row.text_snapshot,
+            evidence: row.evidence as LedgerEventSlice['evidence'],
+          }));
+
+          if (
+            !anyMarketingPurposeNeedsUnsubscribe(eventSlices, tokenRow.channel)
+          ) {
             return;
           }
 
@@ -433,7 +456,34 @@ export class CustomerConsentService {
             tokenRow.customer_id,
           );
 
+          let wroteRevoke = false;
           for (const purpose of MARKETING_CONSENT_PURPOSES) {
+            const { needed, supersededSequence } =
+              marketingPurposeNeedsUnsubscribe(
+                eventSlices,
+                purpose,
+                tokenRow.channel,
+              );
+            if (!needed) {
+              continue;
+            }
+            const idempotencyKey = buildUnsubscribeIdempotencyKey(
+              tokenHash,
+              purpose,
+              supersededSequence,
+            );
+            const existing = await tx.customerConsent.findFirst({
+              where: {
+                tenant_id: tokenRow.tenant_id,
+                controller_legal_entity_id: tokenRow.controller_legal_entity_id,
+                customer_id: tokenRow.customer_id,
+                idempotency_key: idempotencyKey,
+              },
+            });
+            if (existing) {
+              continue;
+            }
+
             const lastSequence = await tx.customerConsent.findFirst({
               where: {
                 tenant_id: tokenRow.tenant_id,
@@ -459,16 +509,14 @@ export class CustomerConsentService {
                 occurred_at: now,
                 source: 'UNSUBSCRIBE',
                 revoked_at: now,
-                idempotency_key:
-                  purpose === 'NEWSLETTER'
-                    ? idempotencyKey
-                    : `${idempotencyKey}:${purpose}`,
+                idempotency_key: idempotencyKey,
                 retain_until: null,
                 evidence: {
                   contact_fingerprint: tokenRow.contact_fingerprint,
                 },
               },
             });
+            wroteRevoke = true;
 
             await this.auditService.recordTenantMutation(
               {
@@ -481,6 +529,10 @@ export class CustomerConsentService {
               },
               tx,
             );
+          }
+
+          if (!wroteRevoke) {
+            return;
           }
 
           await stampProofChainRetainUntil(tx, {
@@ -521,7 +573,7 @@ export class CustomerConsentService {
       tenantId,
       controllerLegalEntityId,
     );
-    const state = await this.ensureCommunicationState(
+    const state = await this.findCommunicationStateOrDefault(
       tenantId,
       controllerId,
       customerId,
@@ -562,6 +614,9 @@ export class CustomerConsentService {
         channel: true,
         status: true,
         sequence: true,
+        basis: true,
+        text_version: true,
+        text_snapshot: true,
         evidence: true,
       },
     });
@@ -570,8 +625,33 @@ export class CustomerConsentService {
       channel: row.channel,
       status: row.status,
       sequence: row.sequence,
+      basis: row.basis,
+      text_version: row.text_version,
+      text_snapshot: row.text_snapshot,
       evidence: row.evidence as LedgerEventSlice['evidence'],
     }));
+  }
+
+  private async findCommunicationStateOrDefault(
+    tenantId: string,
+    controllerId: string,
+    customerId: string,
+  ) {
+    const existing = await this.prisma.customerCommunicationState.findFirst({
+      where: {
+        tenant_id: tenantId,
+        controller_legal_entity_id: controllerId,
+        customer_id: customerId,
+      },
+    });
+    if (existing) {
+      return existing;
+    }
+    return {
+      id: '',
+      revision: 0,
+      processing_status: 'ACTIVE' as const,
+    };
   }
 
   private async ensureCommunicationState(

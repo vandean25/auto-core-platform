@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import { RequestContextService } from '../common/services/request-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SystemPrismaService } from '../prisma/system-prisma.service.js';
+import { purgeExpiredConsentProofRows } from './customer-consent-retention-purge.helpers.js';
 
 /**
  * Purges expired consent proof rows per tenant (AUT-374). Runs on the same daily worker
@@ -41,14 +42,8 @@ export class CustomerConsentRetentionService {
   }
 
   async purgeForTenant(tenantId: string, now: Date): Promise<number> {
-    const [consentResult, tokenResult] = await Promise.all([
-      this.prisma.customerConsent.deleteMany({
-        where: {
-          tenant_id: tenantId,
-          retain_until: { lt: now },
-          legal_hold: false,
-        },
-      }),
+    const [consentPurged, tokenResult] = await Promise.all([
+      purgeExpiredConsentProofRows(this.prisma, tenantId, now),
       this.prisma.customerConsentUnsubscribeToken.deleteMany({
         where: {
           tenant_id: tenantId,
@@ -56,10 +51,10 @@ export class CustomerConsentRetentionService {
         },
       }),
     ]);
-    const total = consentResult.count + tokenResult.count;
+    const total = consentPurged + tokenResult.count;
     if (total > 0) {
       this.logger.log(
-        `Purged ${consentResult.count} consent proof rows and ${tokenResult.count} unsubscribe tokens for one tenant`,
+        `Purged ${consentPurged} consent proof rows and ${tokenResult.count} unsubscribe tokens for one tenant`,
       );
     }
     return total;

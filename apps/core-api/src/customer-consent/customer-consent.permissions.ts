@@ -1,8 +1,10 @@
 import type {
+  CustomerConsentBasis,
   CustomerConsentChannel,
   CustomerConsentPurpose,
   CustomerConsentStatus,
 } from '@prisma/client';
+import { marketingGrantProofComplete } from './customer-consent-event-validation.js';
 import {
   isMarketingPurpose,
   isTransactionalPurpose,
@@ -34,6 +36,9 @@ export type LedgerEventSlice = {
   channel: CustomerConsentChannel;
   status: CustomerConsentStatus;
   sequence: number;
+  basis?: CustomerConsentBasis | null;
+  text_version?: string | null;
+  text_snapshot?: string | null;
   evidence?: SoftOptInEvidence | null;
 };
 
@@ -73,18 +78,15 @@ function softOptInFactsComplete(
   );
 }
 
-function statusAllowsMarketing(
-  status: CustomerConsentStatus,
-  evidence: SoftOptInEvidence | null | undefined,
-): boolean {
-  if (status === 'REVOKED') {
+function statusAllowsMarketing(slice: LedgerEventSlice): boolean {
+  if (slice.status === 'REVOKED') {
     return false;
   }
-  if (status === 'GRANTED') {
-    return true;
+  if (slice.status === 'GRANTED') {
+    return marketingGrantProofComplete(slice);
   }
-  if (status === 'SOFT_OPT_IN') {
-    return softOptInFactsComplete(evidence);
+  if (slice.status === 'SOFT_OPT_IN') {
+    return softOptInFactsComplete(slice.evidence);
   }
   return false;
 }
@@ -147,7 +149,7 @@ export function canContact(params: {
   }
 
   if (isMarketingPurpose(params.purpose)) {
-    if (!statusAllowsMarketing(latest.status, latest.evidence)) {
+    if (!statusAllowsMarketing(latest)) {
       return {
         allowed: false,
         reason:

@@ -277,6 +277,12 @@ export class CustomerService {
       const { clearRegistrationEvidenceForCustomer } =
         await import('../registration-intake/registration-intake-evidence-cleanup.js');
       await clearRegistrationEvidenceForCustomer(tx, tenantId, id);
+      await tx.customerConsentUnsubscribeToken.deleteMany({
+        where: { tenant_id: tenantId, customer_id: id },
+      });
+      await tx.customerCommunicationState.deleteMany({
+        where: { tenant_id: tenantId, customer_id: id },
+      });
       return tx.customer.deleteMany({
         where: { id, tenant_id: tenantId },
       });

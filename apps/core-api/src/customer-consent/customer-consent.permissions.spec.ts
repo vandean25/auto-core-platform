@@ -21,10 +21,31 @@ describe('canContact', () => {
           channel: 'EMAIL',
           status: 'GRANTED',
           sequence: 1,
+          basis: 'CONSENT',
+          text_version: 'v1',
+          text_snapshot: 'Shown consent text',
         },
       ],
     });
     expect(result.allowed).toBe(true);
+  });
+
+  it('denies marketing GRANTED without consent wording proof', () => {
+    const result = canContact({
+      purpose: 'NEWSLETTER',
+      channel: 'EMAIL',
+      events: [
+        {
+          purpose: 'NEWSLETTER',
+          channel: 'EMAIL',
+          status: 'GRANTED',
+          sequence: 1,
+          basis: 'CONSENT',
+        },
+      ],
+    });
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toBe('MARKETING_PERMISSION_MISSING');
   });
 
   it('does not allow newsletter grant to authorise service reminders', () => {
@@ -37,6 +58,9 @@ describe('canContact', () => {
           channel: 'EMAIL',
           status: 'GRANTED',
           sequence: 1,
+          basis: 'CONSENT',
+          text_version: 'v1',
+          text_snapshot: 'newsletter only',
         },
       ],
     });
@@ -54,6 +78,9 @@ describe('canContact', () => {
           channel: 'EMAIL',
           status: 'GRANTED',
           sequence: 1,
+          basis: 'CONSENT',
+          text_version: 'v1',
+          text_snapshot: 'text',
         },
         {
           purpose: 'NEWSLETTER',

@@ -166,6 +166,132 @@ describe('Customer consent ledger (e2e)', () => {
     expect(foreign.body.message).toMatch(/not found/i);
   });
 
+  it('rejects marketing GRANTED without consent wording', async () => {
+    const prefs = await request(app.getHttpServer())
+      .get(`/api/customers/${customerId}/communication-preferences`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .post(`/api/customers/${customerId}/communication-events`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        controller_legal_entity_id: controllerId,
+        expected_revision: prefs.body.revision,
+        idempotency_key: `bad-grant-${Date.now()}`,
+        channel: 'EMAIL',
+        purpose: 'NEWSLETTER',
+        status: 'GRANTED',
+        basis: 'CONSENT',
+        source: 'IMPORT',
+      })
+      .expect(400);
+  });
+
+  it('does not create communication state rows on preferences read alone', async () => {
+    const fresh = await prisma.customer.create({
+      data: {
+        first_name: 'Read',
+        last_name: 'Only',
+        email: `aut589-read-${Date.now()}@example.com`,
+        type: 'PRIVATE',
+      },
+    });
+    await request(app.getHttpServer())
+      .get(`/api/customers/${fresh.id}/communication-preferences`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+    const states = await prisma.customerCommunicationState.count({
+      where: { tenant_id: tenantId, customer_id: fresh.id },
+    });
+    expect(states).toBe(0);
+  });
+
+  it('unsubscribe link withdraws again after a later grant', async () => {
+    const fresh = await prisma.customer.create({
+      data: {
+        first_name: 'Unsub',
+        last_name: 'Twice',
+        email: `aut589-unsub-${Date.now()}@example.com`,
+        type: 'PRIVATE',
+      },
+    });
+    const prefs = await request(app.getHttpServer())
+      .get(`/api/customers/${fresh.id}/communication-preferences`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    const grantBody = {
+      controller_legal_entity_id: controllerId,
+      channel: 'EMAIL',
+      purpose: 'NEWSLETTER',
+      status: 'GRANTED',
+      basis: 'CONSENT',
+      source: 'PROFILE',
+      contact_address: 'unsub.twice@example.com',
+      text_version: 'mkt-v1',
+      text_snapshot: 'Marketing consent wording.',
+    };
+
+    await request(app.getHttpServer())
+      .post(`/api/customers/${fresh.id}/communication-events`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        ...grantBody,
+        expected_revision: prefs.body.revision,
+        idempotency_key: `grant-a-${Date.now()}`,
+      })
+      .expect(201);
+
+    const { mintUnsubscribeToken } =
+      await import('../src/customer-consent/customer-consent-token.helpers.js');
+    const token = mintUnsubscribeToken();
+    await prisma.customerConsentUnsubscribeToken.create({
+      data: {
+        tenant_id: tenantId,
+        controller_legal_entity_id: controllerId,
+        customer_id: fresh.id,
+        channel: 'EMAIL',
+        contact_fingerprint: 'fp-test',
+        token_sha256: token.sha256,
+        retain_until: new Date('2099-01-01'),
+      },
+    });
+
+    await request(app.getHttpServer())
+      .post(`/api/public/consent-unsubscribe/${token.raw}`)
+      .expect(200);
+
+    const prefsAfterRevoke = await request(app.getHttpServer())
+      .get(`/api/customers/${fresh.id}/communication-preferences`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .post(`/api/customers/${fresh.id}/communication-events`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        ...grantBody,
+        expected_revision: prefsAfterRevoke.body.revision,
+        idempotency_key: `grant-b-${Date.now()}`,
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post(`/api/public/consent-unsubscribe/${token.raw}`)
+      .expect(200);
+
+    const prefsFinal = await request(app.getHttpServer())
+      .get(`/api/customers/${fresh.id}/communication-preferences`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+    const marketing = prefsFinal.body.preferences.find(
+      (row: { purpose: string; channel: string }) =>
+        row.purpose === 'NEWSLETTER' && row.channel === 'EMAIL',
+    );
+    expect(marketing.allowed).toBe(false);
+  });
+
   it('records audit log entries for consent changes', async () => {
     const audit = await prisma.auditLog.findFirst({
       where: {

@@ -30,7 +30,6 @@ export async function stampProofChainRetainUntil(
       customer_id: params.customerId,
       channel: params.channel,
       purpose: { in: params.purposes },
-      legal_hold: false,
     },
     data: { retain_until: retainUntil },
   });
