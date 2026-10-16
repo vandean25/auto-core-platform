@@ -1,0 +1,219 @@
+{
+  "fixture_kind": "ACP_CANONICAL_SYNTHETIC_NOT_EBV_WIRE",
+  "subject": "pilot customer",
+  "native_profile_verified": false,
+  "network_allowed": false,
+  "interpretation": "Independent cases start with request and result below. Overrides replace fields at dotted paths. trusted_fake_adapter is server-side test context, not a browser assertion. Native field mapping, receipt authenticity and native conformance remain unverified.",
+  "trusted_fake_adapter": {
+    "profile": "TEST_ONLY",
+    "source_schema_version": "TEST_ONLY/1",
+    "station_binding": "SYNTH-STATION-001",
+    "account_binding": "SYNTH-ACCOUNT-001",
+    "active_site_member": true,
+    "role": "SALES",
+    "trusted_receipt": true,
+    "now": "2026-10-16T10:00:00Z"
+  },
+  "request": {
+    "vehicle_id": "00000000-0000-4000-8000-000000000101",
+    "connection_id": "00000000-0000-4000-8000-000000000102",
+    "native_result_reference": "SYNTH-RESULT-001"
+  },
+  "target_vehicle": {
+    "vin": "WVWZZZ1JZXW000001",
+    "first_registration_on": "2020-10-01",
+    "registration_plate": "SYNTH-001"
+  },
+  "result": {
+    "schema_version": "acp-inspection-result/1",
+    "source_schema_version": "TEST_ONLY/1",
+    "source_system": "EBV",
+    "source_account_ref": "SYNTH-ACCOUNT-001",
+    "source_station_id": "SYNTH-STATION-001",
+    "source_result_id": "SYNTH-RESULT-001",
+    "source_revision": "SYNTH-REV-1",
+    "zbd_report_id": "SYNTH-ZBD-001",
+    "occurrence_relation": {
+      "kind": "INITIAL",
+      "predecessor": null,
+      "classification_evidence_ref": "SYNTH-DISTINCT-INSPECTION-001"
+    },
+    "vehicle": {
+      "vin": "WVWZZZ1JZXW000001",
+      "first_registration_on": "2020-10-01",
+      "registration_plate": "SYNTH-001"
+    },
+    "inspected_at": "2026-10-15T23:30:00+02:00",
+    "inspector": {
+      "source_person_id": "SYNTH-PERSON-001",
+      "qualification_evidence_ref": null
+    },
+    "outcome": "POSITIVE",
+    "native_outcome_code": "SYNTH-POSITIVE",
+    "plate": { "number": "SYNTH-PLATE-001", "colour": "SYNTH-COLOUR", "valid_until": "2027-10" },
+    "odometer": { "value": "12345.000", "unit": "km" },
+    "finality": "FINAL",
+    "acknowledgement": {
+      "state": "CONFIRMED",
+      "evidence_type": "TEST_ONLY_FINAL_RECEIPT",
+      "evidence_ref": "SYNTH-RECEIPT-001"
+    }
+  },
+  "cases": [
+    {
+      "id": "positive_preview_apply",
+      "actions": ["trusted_fake_fetch", "preview", "human_apply"],
+      "expected": { "import_state": "APPLIED", "external_results_created": 1, "projection_rows_created": 1, "projection_source": "EBV_IMPORTED", "inspected_on": "2026-10-15", "expiry": "2027-10", "qualification_state": "NOT_VERIFIED", "manual_rows_changed": 0, "outbound_calls": 0 }
+    },
+    {
+      "id": "wrong_vehicle",
+      "overrides": { "result.vehicle.vin": "WVWZZZ1JZXW000002" },
+      "actions": ["preview"],
+      "expected": { "http_status": 422, "error": "VEHICLE_IDENTITY_MISMATCH", "projection_rows_created": 0, "external_results_created": 0 }
+    },
+    {
+      "id": "wrong_station",
+      "overrides": { "result.source_station_id": "SYNTH-STATION-999" },
+      "actions": ["preview"],
+      "expected": { "http_status": 422, "error": "STATION_MISMATCH", "external_results_created": 0 }
+    },
+    {
+      "id": "corrupt_file",
+      "raw_utf8_input": "{\"schema_version\":",
+      "actions": ["canonical_parse"],
+      "expected": { "http_status": 400, "error": "INVALID_INSPECTION_PAYLOAD", "external_results_created": 0 }
+    },
+    {
+      "id": "unknown_schema",
+      "overrides": { "result.schema_version": "acp-inspection-result/999" },
+      "actions": ["preview"],
+      "expected": { "http_status": 422, "error": "UNSUPPORTED_SCHEMA_VERSION", "external_results_created": 0 }
+    },
+    {
+      "id": "unknown_unit",
+      "overrides": { "result.odometer.unit": "mile" },
+      "actions": ["preview"],
+      "expected": { "http_status": 422, "error": "UNSUPPORTED_UNIT", "external_results_created": 0 }
+    },
+    {
+      "id": "identical_replay",
+      "actions": ["preview", "human_apply", "fetch_same_result_later", "preview", "human_apply"],
+      "expected": { "http_status": 200, "external_results_total": 1, "projection_rows_total": 1, "duplicate_apply_events": 0 }
+    },
+    {
+      "id": "contradictory_stored_occurrence",
+      "actions": ["preview", "human_apply", "change_same_occurrence_expiry_to_2028_10", "preview"],
+      "expected": { "http_status": 409, "error": "EXTERNAL_RESULT_CONFLICT", "external_results_total": 1, "stored_expiry": "2027-10", "due_status": "UNKNOWN", "warning": "EXTERNAL_RESULT_REQUIRES_REVIEW" }
+    },
+    {
+      "id": "receipt_missing",
+      "overrides": { "result.acknowledgement.state": "UNCONFIRMED", "result.acknowledgement.evidence_ref": null, "trusted_fake_adapter.trusted_receipt": false },
+      "actions": ["preview", "human_apply"],
+      "expected": { "import_state": "UNCONFIRMED", "display": "NICHT_BESTÄTIGT", "apply_http_status": 422, "error": "RESULT_UNCONFIRMED", "external_results_created": 0, "projection_rows_created": 0 }
+    },
+    {
+      "id": "spoofed_browser_receipt",
+      "overrides": { "trusted_fake_adapter.trusted_receipt": false },
+      "actions": ["post_canonical_result_as_browser_preview_body"],
+      "expected": { "http_status": 400, "external_results_created": 0, "receipt_upgraded_by_human": false }
+    },
+    {
+      "id": "negative_does_not_extend_expiry",
+      "overrides": { "result.outcome": "NEGATIVE", "result.native_outcome_code": "SYNTH-NEGATIVE", "result.plate": null },
+      "preexisting_manual": { "inspected_on": "2025-10-01", "expiry": "2026-10" },
+      "actions": ["preview", "human_apply"],
+      "expected": { "external_results_created": 1, "projection_rows_created": 0, "manual_rows_changed": 0, "due_status": "UNKNOWN", "historical_due_month": "2026-10", "warning": "EXTERNAL_RESULT_REQUIRES_REVIEW" }
+    },
+    {
+      "id": "correction_not_arbitrary_overwrite",
+      "second_result_overrides": {
+        "source_revision": "SYNTH-REV-2",
+        "plate.valid_until": "2028-10",
+        "occurrence_relation": {
+          "kind": "CORRECTION",
+          "predecessor": { "source_account_ref": "SYNTH-ACCOUNT-001", "source_station_id": "SYNTH-STATION-001", "source_result_id": "SYNTH-RESULT-001", "source_revision": "SYNTH-REV-1", "zbd_report_id": "SYNTH-ZBD-001" },
+          "classification_evidence_ref": "SYNTH-CORRECTION-ORDERING-001"
+        }
+      },
+      "actions": ["preview", "human_apply", "fetch_second_result", "preview"],
+      "expected": { "import_state": "CONFLICT", "http_status": 409, "external_results_total": 1, "manual_override_allowed": false }
+    },
+    {
+      "id": "later_manual_cannot_clear_negative",
+      "overrides": { "result.outcome": "NEGATIVE", "result.native_outcome_code": "SYNTH-NEGATIVE", "result.plate": null },
+      "actions": ["preview", "human_apply", "create_manual_date_2026_10_16_expiry_2027_10", "patch_manual_to_2026_10_14", "delete_manual"],
+      "expected_after_each_manual_action": { "negative_barrier": true, "detail_status": "UNKNOWN", "due_list_status": "UNKNOWN", "filter_status": "UNKNOWN", "csv_status": "UNKNOWN", "warning": "EXTERNAL_RESULT_REQUIRES_REVIEW" }
+    },
+    {
+      "id": "later_manual_or_positive_cannot_clear_report_conflict",
+      "actions": ["preview", "human_apply", "change_same_occurrence_expiry_to_2028_10", "preview", "create_manual_date_2026_10_16_expiry_2027_10", "patch_manual_to_2026_10_14", "delete_manual", "apply_distinct_later_confirmed_positive"],
+      "expected_after_each_manual_action_and_later_positive": { "conflict_barrier": true, "detail_status": "UNKNOWN", "due_list_status": "UNKNOWN", "filter_status": "UNKNOWN", "csv_status": "UNKNOWN", "warning": "EXTERNAL_RESULT_REQUIRES_REVIEW" }
+    },
+    {
+      "id": "same_report_different_vehicle_account_revision",
+      "second_request_overrides": { "vehicle_id": "00000000-0000-4000-8000-000000000199", "connection_id": "00000000-0000-4000-8000-000000000198" },
+      "second_adapter_binding": { "account": "SYNTH-ACCOUNT-002", "station": "SYNTH-STATION-002", "target_vin": "WVWZZZ1JZXW000002", "target_first_registration_on": "2020-10-01", "target_registration_plate": "SYNTH-002" },
+      "second_result_overrides": { "source_account_ref": "SYNTH-ACCOUNT-002", "source_station_id": "SYNTH-STATION-002", "source_result_id": "SYNTH-RESULT-002", "source_revision": "SYNTH-OTHER-REV-2", "vehicle.vin": "WVWZZZ1JZXW000002", "vehicle.registration_plate": "SYNTH-002" },
+      "actions": ["preview", "human_apply", "fetch_second_result", "preview", "human_apply_if_ready"],
+      "expected": { "second_http_status": 409, "error": "EXTERNAL_RESULT_CONFLICT", "report_identity_rows": 1, "external_results_total": 1, "second_vehicle_projection_rows": 0, "foreign_vehicle_disclosed": false }
+    },
+    {
+      "id": "parallel_report_identity_binding",
+      "uses_second_payload_from": "same_report_different_vehicle_account_revision",
+      "actions": ["preview_both_on_empty_database", "parallel_human_apply_both"],
+      "expected": { "report_identity_rows": 1, "external_results_total": 1, "successful_applies": 1, "conflicts": 1, "projection_rows_total": 1 }
+    },
+    {
+      "id": "manual_typo_ambiguity_is_recomputed",
+      "preexisting_manual_rows": [
+        { "id": "SYNTH-MANUAL-1", "inspected_on": "2026-10-15", "expiry": "2027-10" },
+        { "id": "SYNTH-MANUAL-2", "inspected_on": "2026-10-15", "expiry": "2028-10" }
+      ],
+      "actions": ["read_due_all_paths", "correct_second_manual_expiry_to_2027_10", "read_due_all_paths"],
+      "expected_before_correction": { "status": "UNKNOWN", "warning": "MANUAL_EXPIRY_AMBIGUITY", "external_conflict_barrier": false },
+      "expected_after_correction": { "due_month": "2027-10", "status": "OK", "warnings_exclude": ["MANUAL_EXPIRY_AMBIGUITY", "EXTERNAL_RESULT_REQUIRES_REVIEW"], "external_results_created": 0 }
+    },
+    {
+      "id": "manual_expiry_corrected_to_external_positive",
+      "preexisting_manual": { "inspected_on": "2026-10-15", "expiry": "2028-10" },
+      "actions": ["preview", "human_apply", "read_due_all_paths", "correct_manual_expiry_to_2027_10", "read_due_all_paths"],
+      "expected_before_correction": { "status": "UNKNOWN", "warning": "MANUAL_EXPIRY_AMBIGUITY", "external_conflict_barrier": false },
+      "expected_after_correction": { "due_month": "2027-10", "status": "OK", "external_conflict_barrier": false, "external_results_total": 1, "external_result_mutated": false }
+    },
+    {
+      "id": "manual_ambiguity_fix_preserves_independent_source_conflict",
+      "preexisting_manual": { "inspected_on": "2026-10-15", "expiry": "2028-10" },
+      "actions": ["preview", "human_apply", "change_same_occurrence_expiry_to_2028_10", "preview", "correct_manual_expiry_to_2027_10", "read_due_all_paths"],
+      "expected": { "status": "UNKNOWN", "warnings_include": ["EXTERNAL_RESULT_REQUIRES_REVIEW"], "warnings_exclude": ["MANUAL_EXPIRY_AMBIGUITY"], "external_conflict_barrier": true, "external_results_total": 1 }
+    },
+    {
+      "id": "native_profile_missing",
+      "overrides": { "trusted_fake_adapter.profile": null },
+      "actions": ["native_fetch"],
+      "expected": { "http_status": 422, "port_status": "NOT_CONFIGURED", "error": "EXCHANGE_NOT_CONFIGURED", "network_calls": 0 }
+    },
+    {
+      "id": "read_timeout_is_not_result",
+      "transport_response": "TIMEOUT",
+      "actions": ["native_fetch"],
+      "expected": { "http_status": 502, "retrieval_outcome": "UNKNOWN", "external_results_created": 0, "projection_rows_created": 0, "outbound_transmissions": 0 }
+    },
+    {
+      "id": "site_revoked_between_preview_and_apply",
+      "actions": ["preview", "revoke_site_membership", "human_apply"],
+      "expected": { "http_status": 404, "external_results_created": 0, "projection_rows_created": 0 }
+    },
+    {
+      "id": "vienna_calendar_day",
+      "overrides": { "result.inspected_at": "2026-10-15T22:30:00Z" },
+      "actions": ["preview", "human_apply"],
+      "expected": { "inspected_on": "2026-10-16", "projection_rows_created": 1 }
+    },
+    {
+      "id": "employee_role_not_qualification",
+      "overrides": { "trusted_fake_adapter.role": "MECHANIC" },
+      "actions": ["preview"],
+      "expected": { "http_status": 403, "qualification_state": "NOT_VERIFIED", "external_results_created": 0 }
+    }
+  ]
+}
