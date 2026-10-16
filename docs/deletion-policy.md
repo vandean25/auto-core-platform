@@ -48,7 +48,7 @@ This document defines when deletion is allowed in Auto Core Platform.
 | CustomerConsent | Retention-bound (AUT-589) | Append-only ledger; no update/delete API. Proof rows carry `retain_until` (withdrawal/unsubscribe + 3 calendar years) and `legal_hold`. Purge only when expired and not on hold. |
 | CustomerCommunicationState | No direct delete | Controller-scoped revision fence for consent mutations; tenant purge only. |
 | CustomerConsentUnsubscribeToken | Retention-bound (AUT-589) | Stores only token SHA-256 for public marketing opt-out. Kept until `retain_until`; no business delete API. |
-| Vehicle | Conditional | Blocked if linked to any `WorkshopOrder`, `SalesOrder`, `Invoice`, `VehiclePurchase`, `VehicleSale`, `VehicleLedgerEntry`, `LoanerVehicle` fleet entry, or retained `ExternalInspectionResult` / `InspectionReportIdentity` evidence (AUT-533). |
+| Vehicle | Conditional | Blocked if linked to any `WorkshopOrder`, `SalesOrder`, `Invoice`, `VehiclePurchase`, `VehicleSale`, `VehicleLedgerEntry`, `LoanerVehicle` fleet entry, or retained `ExternalInspectionResult` / `InspectionReportIdentity` / `InspectionMeasurement` evidence (AUT-533, AUT-592). |
 | VehicleInspectionRecord | Conditional | `MANUAL` rows follow existing inspection-record rules. `EBV_IMPORTED` projections are immutable (no PATCH/DELETE API). |
 | InspectionSourceConnection | Deactivate preferred | Set `is_active = false` and `read_enabled = false`; revoke `secret_ref` independently. Hard delete only when no imports/results reference the connection. |
 | InspectionExchangeImport | Retention-bound | Unapplied previews and rejected attempts purge after 30 days unless legal hold or unresolved `CONFLICT`. Applied imports retained with their external result. |
@@ -61,6 +61,11 @@ This document defines when deletion is allowed in Auto Core Platform.
 | InspectionCatalogueImport | Retention-bound | Unapplied previews purge after 30 days unless legal hold or unresolved `CONFLICT`. Activated imports retained with their version. |
 | InspectionFindingReference | No | Immutable snapshot on a workshop inspection; deleting checklist/order/site does not cascade-remove references (FK `Restrict`). |
 | InspectionSupportEvent | No | Append-only cross-contract support audit. Tenant purge only. |
+| InspectionDeviceSource | Deactivate preferred | Set `is_active = false` and `read_enabled = false`; revoke `secret_ref` independently. Hard delete only when no measurement imports/results reference the source. |
+| InspectionDeviceEvidence | No direct delete | Append-only calibration/range evidence revisions; supersede by new evidence row. Tenant purge only. |
+| InspectionMeasurementIdentity | No | Immutable deduplication lock for `(tenant, source_system, source_instance_id, measurement_id)`. Tenant purge only. |
+| InspectionMeasurementImport | Retention-bound | Unapplied previews and rejected/quarantined attempts purge after 30 days unless legal hold or unresolved conflict. Applied imports retained with their measurement. |
+| InspectionMeasurement | No | Append-only applied brake session evidence; re-tests use new measurement IDs. Tenant purge only. |
 | SalesOrder | Draft-only | Allow only in `DRAFT` and only when no linked `Invoice` exists. |
 | SalesOrderItem | No direct delete | Managed by parent `SalesOrder` lifecycle. |
 | Invoice | No | Financial/legal document; use status cancellation flow. |
