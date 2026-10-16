@@ -19,12 +19,7 @@ import { useDecisionShadowLogs } from '@/api/decision-shadow-logs'
 import { toast } from 'sonner'
 import { MemoryRouter } from 'react-router-dom'
 import AgentSupervisionPage from './AgentSupervisionPage'
-import {
-  formattedCurrency,
-  formattedCurrencyLabel,
-  formattedCurrencyPattern,
-  formattedCurrencyLabelPattern,
-} from '@/test/format-assertions'
+import { formattedCurrencyPattern, formattedCurrencyLabelPattern } from '@/test/format-assertions'
 
 function renderSupervisionPage() {
   return render(

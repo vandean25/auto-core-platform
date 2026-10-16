@@ -2,12 +2,16 @@ import '@testing-library/jest-dom/vitest'
 import * as matchers from '@testing-library/jest-dom/matchers'
 import { afterEach, beforeAll, expect, vi } from 'vitest'
 import React from 'react'
-import { initI18n } from '@/lib/i18n'
+import { changeUiLanguage, initI18n } from '@/lib/i18n'
 
 expect.extend(matchers)
 
 beforeAll(async () => {
   await initI18n({ language: 'de' })
+})
+
+afterEach(async () => {
+  await changeUiLanguage('de')
 })
 
 // Some test files run in the node environment (`// @vitest-environment node`), where there is no window.

@@ -17,7 +17,7 @@ import * as vehicleInspectionApi from "@/api/vehicle-inspection-records";
 import * as authSessionApi from "@/api/auth-session";
 import * as estimateApi from "@/api/workshop-estimates";
 import { toast } from "sonner";
-import { formattedCurrency, formattedCurrencyPattern } from "@/test/format-assertions";
+import { formattedCurrencyPattern } from "@/test/format-assertions";
 
 vi.mock("@/api/workshop", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/api/workshop")>();

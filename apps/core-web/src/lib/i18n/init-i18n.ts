@@ -10,6 +10,7 @@ import { loadNamespace } from './lazy-resources'
 import { applyZodLocale } from './zod-locale'
 import { resolveInitialUiLanguage } from './storage'
 import { syncDocumentLang } from './sync-document-lang'
+import { refreshMountedFormValidations } from './form-validation-refresh'
 
 export type InitI18nOptions = {
   language?: UiLanguage
@@ -40,6 +41,8 @@ export async function initI18n(options: InitI18nOptions = {}): Promise<typeof i1
       partialBundledLanguages: true,
       load: 'languageOnly',
     })
+  } else {
+    await i18n.changeLanguage(language)
   }
 
   await preloadNamespaces(language)
@@ -47,6 +50,14 @@ export async function initI18n(options: InitI18nOptions = {}): Promise<typeof i1
   applyZodLocale(language)
 
   return i18n
+}
+
+function listLoadedNamespaces(forLanguage: string): AppNamespace[] {
+  const bundle = i18n.services.resourceStore.data[forLanguage]
+  if (!bundle) {
+    return [...PRELOAD_NAMESPACES]
+  }
+  return Object.keys(bundle) as AppNamespace[]
 }
 
 export async function ensureNamespaceLoaded(namespace: AppNamespace): Promise<void> {
@@ -64,10 +75,14 @@ export async function changeUiLanguage(nextLanguage: UiLanguage): Promise<void> 
     return
   }
 
-  const namespacesToLoad = i18n.options.ns ?? PRELOAD_NAMESPACES
+  const namespacesToLoad = new Set<AppNamespace>([
+    ...(i18n.options.ns ?? PRELOAD_NAMESPACES) as AppNamespace[],
+    ...listLoadedNamespaces(current),
+  ])
+
   for (const namespace of namespacesToLoad) {
     if (!i18n.hasResourceBundle(nextLanguage, namespace)) {
-      const resources = await loadNamespace(nextLanguage, namespace as AppNamespace)
+      const resources = await loadNamespace(nextLanguage, namespace)
       i18n.addResourceBundle(nextLanguage, namespace, resources, true, true)
     }
   }
@@ -75,6 +90,7 @@ export async function changeUiLanguage(nextLanguage: UiLanguage): Promise<void> 
   await i18n.changeLanguage(nextLanguage)
   syncDocumentLang(nextLanguage)
   applyZodLocale(nextLanguage)
+  await refreshMountedFormValidations()
 }
 
 export { i18n }

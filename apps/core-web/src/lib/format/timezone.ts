@@ -49,8 +49,13 @@ export function zonedWallClockToUtc(
   minute: number,
 ): Date {
   const utcGuess = Date.UTC(year, month - 1, day, hour, minute, 0)
-  const offsetMs = localOffsetMs(new Date(utcGuess), timeZone)
-  return new Date(utcGuess - offsetMs)
+  const firstOffsetMs = localOffsetMs(new Date(utcGuess), timeZone)
+  let utcMillis = utcGuess - firstOffsetMs
+  const secondOffsetMs = localOffsetMs(new Date(utcMillis), timeZone)
+  if (secondOffsetMs !== firstOffsetMs) {
+    utcMillis = utcGuess - secondOffsetMs
+  }
+  return new Date(utcMillis)
 }
 
 export function parseHhMm(value: string): { hour: number; minute: number } {

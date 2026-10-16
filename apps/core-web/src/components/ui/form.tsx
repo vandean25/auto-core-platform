@@ -7,13 +7,25 @@ import {
   type FieldPath,
   type FieldValues,
   FormProvider,
+  type FormProviderProps,
   useFormContext,
 } from "react-hook-form"
 
 import { cn } from "@/lib/utils"
 import { Label } from "@/components/ui/label"
+import { FormLanguageValidationSync } from "@/lib/i18n/FormLanguageValidationSync"
 
-const Form = FormProvider
+function Form<TFieldValues extends FieldValues, TContext = unknown, TTransformedValues = TFieldValues>(
+  props: FormProviderProps<TFieldValues, TContext, TTransformedValues>,
+) {
+  const { children, ...providerProps } = props
+  return (
+    <FormProvider {...providerProps}>
+      <FormLanguageValidationSync />
+      {children}
+    </FormProvider>
+  )
+}
 
 type FormFieldContextValue<
   TFieldValues extends FieldValues = FieldValues,

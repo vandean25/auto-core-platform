@@ -2,12 +2,28 @@ import { DEFAULT_TIME_ZONE, FORMAT_LOCALE } from '@/lib/i18n/constants'
 
 export type DateTimeFormatPartType = Intl.DateTimeFormatPartTypes
 
+/** Austrian thousands separator is always `.` (spec), not ICU narrow no-break space. */
+function formatPartsToAustrianString(parts: Intl.NumberFormatPart[]): string {
+  return parts
+    .map((part) => {
+      if (part.type === 'group') {
+        return '.'
+      }
+      return part.value
+    })
+    .join('')
+}
+
 export function formatWithIntlNumber(value: number, options?: Intl.NumberFormatOptions): string {
-  return new Intl.NumberFormat(FORMAT_LOCALE, options).format(value)
+  const parts = new Intl.NumberFormat(FORMAT_LOCALE, options).formatToParts(value)
+  return formatPartsToAustrianString(parts)
 }
 
 export function formatWithIntlCurrency(value: number, currency: string): string {
-  return new Intl.NumberFormat(FORMAT_LOCALE, { style: 'currency', currency }).format(value)
+  const parts = new Intl.NumberFormat(FORMAT_LOCALE, { style: 'currency', currency }).formatToParts(
+    value,
+  )
+  return formatPartsToAustrianString(parts)
 }
 
 export function formatWithIntlDateTime(

@@ -7,19 +7,21 @@ describe('i18n foundation', () => {
     expect(i18n.t('common:placeholders.missing')).toBe('—')
   })
 
-  it('updates document lang and Zod messages when switching to English', async () => {
-    await changeUiLanguage('en')
-    expect(document.documentElement.lang).toBe('en')
-
+  it('uses distinct Zod email messages per active locale', async () => {
     const schema = z.string().email()
-    const result = schema.safeParse('not-an-email')
-    expect(result.success).toBe(false)
-    if (!result.success) {
-      expect(result.error.issues[0]?.message.toLowerCase()).toContain('email')
-    }
 
     await changeUiLanguage('de')
-    expect(document.documentElement.lang).toBe('de')
+    const german = schema.safeParse('not-an-email')
+    expect(german.success).toBe(false)
+    const germanMessage = german.error?.issues[0]?.message ?? ''
+
+    await changeUiLanguage('en')
+    const english = schema.safeParse('not-an-email')
+    expect(english.success).toBe(false)
+    const englishMessage = english.error?.issues[0]?.message ?? ''
+
+    expect(germanMessage).not.toBe(englishMessage)
+    expect(englishMessage.toLowerCase()).toContain('email')
   })
 
   it('exposes glossary entries in both languages', async () => {
