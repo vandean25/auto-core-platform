@@ -115,13 +115,21 @@ export class McpWorkshopOrderReadService {
     const orderBy = buildWorkshopOrderOrderBy(undefined, 'desc');
     const [records, total] = await Promise.all([
       this.prisma.workshopOrder.findMany({
-        where,
+        where: {
+          ...where,
+          site_id: siteId,
+        },
         include: ORDER_WITH_RELATIONS,
         skip,
         take: pageSize,
         orderBy,
       }),
-      this.prisma.workshopOrder.count({ where }),
+      this.prisma.workshopOrder.count({
+        where: {
+          ...where,
+          site_id: siteId,
+        },
+      }),
     ]);
 
     const estimatesByOrderId = await this.loadCurrentEstimatesByOrderId(

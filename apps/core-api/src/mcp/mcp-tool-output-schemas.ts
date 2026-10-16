@@ -321,6 +321,7 @@ const workshopOrderShape = {
       number: nonEmptyString,
       version: count,
       status: z.enum([
+        WorkshopEstimateStatus.DRAFT,
         WorkshopEstimateStatus.SENT,
         WorkshopEstimateStatus.APPROVED,
         WorkshopEstimateStatus.DECLINED,
