@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { DE_SHELL } from './helpers/de-shell';
 import { expectNoCriticalA11yViolations } from './utils/a11y';
 
 test.describe('Login Page', () => {
@@ -27,9 +28,9 @@ test.describe('Login Page', () => {
     await page.goto('/login');
 
     // Wait for the actual sign in form to appear
-    await expect(page.getByLabel('Email')).toBeVisible({ timeout: 10000 });
-    await expect(page.getByLabel('Password')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
+    await expect(page.getByLabel(DE_SHELL.login.email)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByLabel(DE_SHELL.login.password)).toBeVisible();
+    await expect(page.getByRole('button', { name: DE_SHELL.login.signIn })).toBeVisible();
 
     await expectNoCriticalA11yViolations(page);
   });

@@ -17,4 +17,9 @@ export const DE_SHELL = {
     chunkTitle: 'Aktualisierung erforderlich',
     reload: 'Anwendung neu laden',
   },
+  login: {
+    email: 'E-Mail',
+    password: 'Passwort',
+    signIn: 'Anmelden',
+  },
 } as const
