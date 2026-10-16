@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { SiteSwitcher } from '@/components/navigation/SiteSwitcher'
+import { SiteSwitcher } from '@/components/navigation/site-switcher-i18n'
 import type { MeSite } from '@/api/sites'
 
 afterEach(cleanup)

@@ -1,10 +1,11 @@
 import { expect, test } from '@playwright/test'
+import { DE_SHELL } from './helpers/de-shell'
 
 // The suite runs against the production bundle (vite preview), so the lazy route chunk is a hashed asset.
 const dashboardModulePattern = /DashboardPage-[\w-]+\.js$/
 
 async function expectRecoveredUi(page: import('@playwright/test').Page) {
-  const updateRequired = page.getByText('Update Required')
+  const updateRequired = page.getByText(DE_SHELL.errorBoundary.chunkTitle)
   const dashboardHeading = page.getByRole('heading', { name: 'Dashboard' })
 
   await expect(updateRequired.or(dashboardHeading)).toBeVisible({ timeout: 30_000 })
@@ -61,10 +62,10 @@ test.describe('Stale chunk recovery', () => {
 
     await page.goto('/dashboard')
 
-    await expect(page.getByText('Update Required')).toBeVisible({ timeout: 20_000 })
-    await expect(page.getByRole('button', { name: 'Reload Application' })).toBeVisible()
+    await expect(page.getByText(DE_SHELL.errorBoundary.chunkTitle)).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByRole('button', { name: DE_SHELL.errorBoundary.reload })).toBeVisible()
 
     const rootText = await page.locator('#root').innerText()
-    expect(rootText).toContain('Update Required')
+    expect(rootText).toContain(DE_SHELL.errorBoundary.chunkTitle)
   })
 })

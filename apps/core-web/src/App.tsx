@@ -9,6 +9,8 @@ import {
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion'
 import * as React from 'react'
 import { toast } from 'sonner'
+import { AuthLoadingScreen } from '@/components/shell/AuthLoadingScreen'
+import { MechanicShell } from '@/components/shell/MechanicShell'
 import { ShellSessionLoadFailed } from '@/components/shell/ShellSessionLoadFailed'
 import { shellSwitchSiteFailedMessage, shellSwitchTenantFailedMessage } from '@/lib/shell-session-toasts'
 import type { components } from '@/api/generated/openapi'
@@ -348,14 +350,7 @@ function AppShell({
   )
 }
 
-// ─── Mechanic Shell ───────────────────────────────────────────────────────────
-
-type MechanicShellProps = {
-  activeTenant: AuthSessionTenant | null
-  userEmail: string | null
-  onSignOut: () => void
-  children?: React.ReactNode
-}
+// ─── Mechanic routes ──────────────────────────────────────────────────────────
 
 function MechanicRoutes() {
   const location = useLocation()
@@ -379,57 +374,6 @@ function MechanicRoutes() {
         </AnimatePresence>
       </React.Suspense>
     </LayoutGroup>
-  )
-}
-
-// ADR-0014: The stale localStorage key written by the previous client-side mechanic
-// selection model.  Removing it on every shell mount ensures no residual identity
-// can survive an upgrade even if the user never explicitly cleared site data.
-const LEGACY_MECHANIC_ID_KEY = 'acp:mechanic-id'
-
-export function MechanicShell({ activeTenant, userEmail, onSignOut, children }: MechanicShellProps) {
-  React.useEffect(() => {
-    window.localStorage.removeItem(LEGACY_MECHANIC_ID_KEY)
-  }, [])
-
-  return (
-    <div className="min-h-screen bg-slate-50">
-      <NewVersionAvailableBanner />
-      {/* Minimal top bar — hides all admin/billing navigation */}
-      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 shadow-sm">
-        <div className="flex items-center gap-3">
-          <span className="font-semibold tracking-tight text-slate-900">ACP</span>
-          {activeTenant && (
-            <span className="rounded-md border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-              {activeTenant.name}
-            </span>
-          )}
-          <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">
-            Mechanic
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          {userEmail && (
-            <span className="hidden sm:block text-xs text-slate-500 truncate max-w-[160px]">
-              {userEmail}
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={onSignOut}
-            className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 active:bg-slate-100 transition-colors"
-          >
-            Sign out
-          </button>
-        </div>
-      </header>
-      <main>
-        <GlobalErrorBoundary>
-          {children ?? <MechanicRoutes />}
-        </GlobalErrorBoundary>
-      </main>
-      <Toaster />
-    </div>
   )
 }
 
@@ -495,7 +439,9 @@ export function ShellRouter(props: ShellRouterProps) {
         activeTenant={props.activeTenant}
         userEmail={props.userEmail}
         onSignOut={props.onSignOut}
-      />
+      >
+        <MechanicRoutes />
+      </MechanicShell>
     )
   }
 
@@ -505,10 +451,6 @@ export function ShellRouter(props: ShellRouterProps) {
 function resolvePostLoginPath(state: unknown) {
   const from = (state as { from?: Location } | null)?.from?.pathname
   return from && isKnownAppPath(from) ? from : APP_ROUTE_PATHS.inventory
-}
-
-function AuthLoadingScreen() {
-  return <div className="min-h-screen flex items-center justify-center bg-slate-100 text-sm text-slate-500">Loading…</div>
 }
 
 function LoginRoute() {

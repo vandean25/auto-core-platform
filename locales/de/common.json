@@ -25,7 +25,9 @@
   "shell": {
     "sessionLoadFailed": "Mandantensitzung konnte nicht geladen werden.",
     "switchTenantFailed": "Mandantenwechsel fehlgeschlagen.",
-    "switchSiteFailed": "Standortwechsel fehlgeschlagen."
+    "switchSiteFailed": "Standortwechsel fehlgeschlagen.",
+    "mechanicBadge": "Mechaniker",
+    "loading": "Laden…"
   },
   "notFound": {
     "title": "Seite nicht gefunden",

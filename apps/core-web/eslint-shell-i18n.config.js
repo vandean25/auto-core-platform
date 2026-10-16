@@ -43,7 +43,6 @@ export const shellI18nEslintConfig = {
           'size',
           'side',
           'align',
-          'title',
         ],
       },
     ],

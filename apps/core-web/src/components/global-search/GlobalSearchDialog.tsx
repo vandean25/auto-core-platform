@@ -16,7 +16,7 @@ import {
   OrderResultsGroup,
   QuickActionGroup,
   VehicleResultsGroup,
-} from './GlobalSearchResultGroups'
+} from './GlobalSearchResultGroups.i18n'
 import { truncate } from './global-search-format'
 import { filterQuickActionSections } from './global-search-quick-actions'
 import { getGlobalSearchQuickActionSections } from './global-search-quick-actions-data'

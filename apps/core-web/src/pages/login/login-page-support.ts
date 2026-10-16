@@ -6,21 +6,7 @@ export function isDemoHost() {
   return typeof globalThis.location !== 'undefined' && globalThis.location.hostname === DEMO_HOSTNAME
 }
 
-export function describeAuthError(error: unknown, fallback: string) {
-  if (error && typeof error === 'object') {
-    const details = [
-      ['name', 'name' in error ? String((error as { name?: string }).name ?? '') : ''],
-      ['code', 'code' in error ? String((error as { code?: string }).code ?? '') : ''],
-      ['message', 'message' in error ? String((error as { message?: string }).message ?? '') : ''],
-    ]
-      .filter(([, value]) => value)
-      .map(([key, value]) => `${key}=${value}`)
-
-    if (details.length > 0) {
-      return `${fallback} (${details.join(', ')})`
-    }
-  }
-
+export function describeAuthError(_error: unknown, fallback: string) {
   return fallback
 }
 
