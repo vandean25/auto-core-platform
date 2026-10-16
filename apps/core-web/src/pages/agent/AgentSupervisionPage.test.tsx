@@ -1142,8 +1142,9 @@ describe('AgentSupervisionPage', () => {
         card.getByTestId('change-preview-mcp-prop-1'),
       )
       expect(defaultPreview.getByText('Sales order — Update')).toBeInTheDocument()
-      expect(defaultPreview.queryByText('Site update')).not.toBeInTheDocument()
-      expect(defaultPreview.queryByText('Workshop location')).not.toBeInTheDocument()
+      expect(
+        defaultPreview.queryByText('Workshop location — Update'),
+      ).not.toBeInTheDocument()
 
       fireEvent.click(screen.getByTestId('toggle-preview-mcp-prop-1'))
       const details = within(
