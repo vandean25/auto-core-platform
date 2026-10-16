@@ -41,6 +41,14 @@ export {
   type PdfTaskKind,
   type SignedPdfTaskPayload,
 } from './pdf/index.js';
+export {
+  processUploadImage,
+  DEFAULT_UPLOAD_IMAGE_LIMIT_INPUT_PIXELS,
+  type ProcessUploadImageOptions,
+  type ProcessUploadImageResult,
+  type ProcessedImageVariant,
+  type UploadImageResizeLimits,
+} from './media/index.js';
 export { PlaywrightBrowserService } from './services/playwright-browser.service.js';
 export {
   createGlobalValidationPipe,
