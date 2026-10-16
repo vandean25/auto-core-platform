@@ -81,6 +81,17 @@ vi.mock('@/api/hr', () => ({
   useEmployeeWorkSchedule: vi.fn(),
 }))
 
+vi.mock('@/api/inspector-evidence', () => ({
+  useInspectorEvidenceList: vi.fn(() => ({
+    isLoading: false,
+    data: { data: [] },
+  })),
+  useInspectorEvidenceAssessment: vi.fn(() => ({
+    isLoading: false,
+    data: undefined,
+  })),
+}))
+
 vi.mock('@/components/hr/WorkScheduleEditor', () => ({
   WorkScheduleEditor: () => <div data-testid='work-schedule-editor' />,
 }))
