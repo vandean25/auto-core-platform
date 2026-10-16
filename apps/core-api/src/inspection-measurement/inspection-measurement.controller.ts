@@ -36,7 +36,9 @@ export class InspectionMeasurementController {
 
   @Post(':orderId/measurements/preview')
   @HttpCode(201)
-  @ApiOperation({ summary: 'Preview brake measurement import for workshop order' })
+  @ApiOperation({
+    summary: 'Preview brake measurement import for workshop order',
+  })
   @ApiOkResponse({ type: MeasurementImportPreviewResponseDto })
   preview(
     @Param('orderId') orderId: string,
@@ -58,7 +60,9 @@ export class InspectionMeasurementController {
   }
 
   @Get(':orderId/measurements')
-  @ApiOperation({ summary: 'List brake measurement imports for workshop order' })
+  @ApiOperation({
+    summary: 'List brake measurement imports for workshop order',
+  })
   @ApiPaginatedResponse(MeasurementImportListItemDto)
   list(
     @Param('orderId') orderId: string,

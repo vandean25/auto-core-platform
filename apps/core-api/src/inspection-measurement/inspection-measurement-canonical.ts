@@ -125,12 +125,23 @@ export function parseCanonicalBrakeMeasurementUtf8(
     throw invalidMeasurementPayload('device_range is required');
   }
   const deviceRangeObj = deviceRangeRaw as Record<string, unknown>;
-  const rangeUnit = assertBoundedString(deviceRangeObj.unit, 'device_range.unit');
+  const rangeUnit = assertBoundedString(
+    deviceRangeObj.unit,
+    'device_range.unit',
+  );
   if (rangeUnit !== 'kN') {
     throw unsupportedUnit();
   }
-  const rangeMin = assertBoundedString(deviceRangeObj.min, 'device_range.min', 32);
-  const rangeMax = assertBoundedString(deviceRangeObj.max, 'device_range.max', 32);
+  const rangeMin = assertBoundedString(
+    deviceRangeObj.min,
+    'device_range.min',
+    32,
+  );
+  const rangeMax = assertBoundedString(
+    deviceRangeObj.max,
+    'device_range.max',
+    32,
+  );
   if (!FORCE_PATTERN.test(rangeMin) || !FORCE_PATTERN.test(rangeMax)) {
     throw invalidMeasurementPayload('device_range bounds are invalid');
   }
@@ -211,7 +222,11 @@ export function parseCanonicalBrakeMeasurementUtf8(
   };
 
   if (body.raw_sha256 !== undefined) {
-    measurement.raw_sha256 = assertBoundedString(body.raw_sha256, 'raw_sha256', 64);
+    measurement.raw_sha256 = assertBoundedString(
+      body.raw_sha256,
+      'raw_sha256',
+      64,
+    );
   }
   if (body.canonical_sha256 !== undefined) {
     measurement.canonical_sha256 = assertBoundedString(

@@ -44,7 +44,8 @@ export function registerSyntheticMeasurement(
   overrides: Partial<CanonicalBrakeMeasurement> = {},
 ): void {
   const base =
-    RECORDED_BY_REFERENCE[reference] ?? structuredClone(SYNTHETIC_BRAKE_MEASUREMENT);
+    RECORDED_BY_REFERENCE[reference] ??
+    structuredClone(SYNTHETIC_BRAKE_MEASUREMENT);
   RECORDED_BY_REFERENCE[reference] = {
     ...base,
     ...overrides,

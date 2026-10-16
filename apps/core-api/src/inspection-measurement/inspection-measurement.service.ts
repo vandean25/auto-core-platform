@@ -310,19 +310,19 @@ export class InspectionMeasurementService {
           measurement_id: envelope.canonical.measurement_id,
         };
 
-        const existingIdentity = await tx.inspectionMeasurementIdentity.findFirst(
-          { where: identityKey },
-        );
+        const existingIdentity =
+          await tx.inspectionMeasurementIdentity.findFirst({
+            where: identityKey,
+          });
         if (existingIdentity) {
           if (existingIdentity.semantic_digest === resolved.semanticDigest) {
-            const existingMeasurement = await tx.inspectionMeasurement.findFirst(
-              {
+            const existingMeasurement =
+              await tx.inspectionMeasurement.findFirst({
                 where: {
                   tenant_id: tenantId,
                   measurement_identity_id: existingIdentity.id,
                 },
-              },
-            );
+              });
             if (!existingMeasurement) {
               throw reviewRequired();
             }
@@ -355,7 +355,7 @@ export class InspectionMeasurementService {
           });
         }
 
-        let identity = await tx.inspectionMeasurementIdentity.create({
+        const identity = await tx.inspectionMeasurementIdentity.create({
           data: {
             ...identityKey,
             vehicle_id: order.vehicle_id,
@@ -407,7 +407,6 @@ export class InspectionMeasurementService {
             if (!raced) {
               throw error;
             }
-            identity = raced;
             if (raced.semantic_digest !== resolved.semanticDigest) {
               throw new InspectionMeasurementApplyConflictSignal({
                 tenantId,
@@ -551,7 +550,10 @@ export class InspectionMeasurementService {
 
     return {
       data: rows.map((row) =>
-        this.mapListItem(row, appliedById.get(row.applied_measurement_id ?? '')),
+        this.mapListItem(
+          row,
+          appliedById.get(row.applied_measurement_id ?? ''),
+        ),
       ),
       meta: {
         total,
@@ -722,7 +724,10 @@ export class InspectionMeasurementService {
     };
   }
 
-  private mapApplyResponse(measurement: InspectionMeasurement, replay: boolean) {
+  private mapApplyResponse(
+    measurement: InspectionMeasurement,
+    replay: boolean,
+  ) {
     const wheels = measurement.wheels_json as Array<{
       axle: number;
       side: string;
@@ -835,7 +840,8 @@ export class InspectionMeasurementService {
         reason: params.reason,
         actor_user_id: params.actorUserId,
         source_digest: params.sourceDigest ?? null,
-        detail_redacted: (params.detail ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+        detail_redacted: (params.detail ??
+          Prisma.JsonNull) as Prisma.InputJsonValue,
       },
     });
   }

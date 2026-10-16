@@ -1,13 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { components } from '@/api/generated/openapi'
 import { fetchWithAuth } from './client'
-import { workshopKeys } from '@/api/workshop'
-
 export const measurementKeys = {
   all: ['workshop-measurements'] as const,
   deviceSources: () => [...measurementKeys.all, 'device-sources'] as const,
   order: (orderId: string) =>
-    [...workshopKeys.detail(orderId), 'measurements'] as const,
+    [...measurementKeys.all, 'order', orderId, 'measurements'] as const,
 }
 
 export type MeasurementImportPreview =

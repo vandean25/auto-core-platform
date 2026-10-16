@@ -74,7 +74,5 @@ export function measurementImportForbidden() {
 }
 
 export function measurementReadForbidden() {
-  return new ForbiddenException(
-    'Insufficient role to read brake measurements',
-  );
+  return new ForbiddenException('Insufficient role to read brake measurements');
 }
