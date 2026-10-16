@@ -1,3 +1,4 @@
+import type { DragOverEvent, DragStartEvent } from '@dnd-kit/core'
 import { describe, expect, it } from 'vitest'
 import { createWorkshopBoardAnnouncements, WORKSHOP_BOARD_UNASSIGNED_COLUMN_ID } from './workshop-board-announcements'
 import type { BoardOrder } from '@/api/workshop'
@@ -28,9 +29,14 @@ describe('createWorkshopBoardAnnouncements', () => {
       'mechanic',
     )
 
-    expect(announcements.onDragStart?.({ active: { id: 'order-1' } })).toContain('WO-TEST-001')
     expect(
-      announcements.onDragOver?.({ active: { id: 'order-1' }, over: { id: 'mech-a' } }),
+      announcements.onDragStart?.({ active: { id: 'order-1' } } as DragStartEvent),
+    ).toContain('WO-TEST-001')
+    expect(
+      announcements.onDragOver?.({
+        active: { id: 'order-1' },
+        over: { id: 'mech-a' },
+      } as DragOverEvent),
     ).toContain('mechanic Alex')
   })
 })
