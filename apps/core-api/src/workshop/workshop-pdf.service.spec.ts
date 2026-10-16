@@ -247,7 +247,7 @@ describe('WorkshopPdfService', () => {
       });
     });
 
-    it('passes customer preferred language to the renderer before upload', async () => {
+    it('stores de on pdf_render_input when customer prefers en until PDF templates are translated', async () => {
       const englishOrder = {
         ...orderRow,
         customer: { preferred_language: 'en' as const },
@@ -257,13 +257,13 @@ describe('WorkshopPdfService', () => {
       await service.generateNow(workshopOrderId);
 
       expect(renderer.render).toHaveBeenCalledWith(englishOrder, {
-        documentLocale: 'en',
+        documentLocale: 'de',
       });
       expect(prisma.client.workshopOrder.updateMany).toHaveBeenCalledWith({
         where: { id: workshopOrderId, tenant_id: tenantId },
         data: expect.objectContaining({
           pdf_render_input: expect.objectContaining({
-            document_locale: 'en',
+            document_locale: 'de',
           }),
         }),
       });

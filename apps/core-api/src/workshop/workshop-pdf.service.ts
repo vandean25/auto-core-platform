@@ -13,10 +13,7 @@ import {
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { readCachedWorkshopPdfMetadata } from './workshop-pdf.generation.js';
 import type { WorkshopOrderForPdf } from './workshop-pdf.types.js';
-import {
-  loadTenantDefaultLocale,
-  resolveCustomerDocumentLanguage,
-} from '../common/i18n/customer-document-language.js';
+import { documentLocaleFrozenForCurrentRenderers } from '../common/i18n/rendered-document-locale.js';
 import { buildWorkshopOrderPdfRenderInput } from './workshop-order-pdf-render-input.js';
 
 export type WorkshopPdfRequestGenerationResponse = {
@@ -198,14 +195,7 @@ export class WorkshopPdfService {
     const key = `workshop-orders/${order.id}.pdf`;
 
     try {
-      const tenantDefaultLocale = await loadTenantDefaultLocale(
-        this.prisma.client,
-        tenantId,
-      );
-      const documentLocale = resolveCustomerDocumentLanguage(
-        order.customer,
-        tenantDefaultLocale,
-      );
+      const documentLocale = documentLocaleFrozenForCurrentRenderers();
       const upload = await this.uploadRenderedPdf(order, key, documentLocale);
       const generatedAt = new Date();
       const renderInput = buildWorkshopOrderPdfRenderInput({

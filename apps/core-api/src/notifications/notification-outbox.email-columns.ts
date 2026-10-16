@@ -1,9 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { DisplayLanguage } from '@prisma/client';
-import {
-  DEFAULT_DISPLAY_LANGUAGE,
-  DEFAULT_FORMAT_LOCALE,
-} from '../common/i18n/display-language.js';
+import { DEFAULT_FORMAT_LOCALE } from '../common/i18n/display-language.js';
+import { documentLocaleFrozenForCurrentRenderers } from '../common/i18n/rendered-document-locale.js';
 import { isPlainEmailAddress } from './email/email-address.js';
 import { isSingleLineText } from './email/header-text.js';
 
@@ -32,9 +30,7 @@ export function buildEmailColumns(email: EmailDraft | undefined) {
     recipient_email: email?.recipientEmail ?? null,
     template_id: email?.templateId ?? null,
     template_version: email?.templateVersion ?? null,
-    document_locale: email
-      ? (email.documentLocale ?? DEFAULT_DISPLAY_LANGUAGE)
-      : null,
+    document_locale: email ? documentLocaleFrozenForCurrentRenderers() : null,
     format_locale: email ? (email.formatLocale ?? DEFAULT_FORMAT_LOCALE) : null,
     subject: email?.subject ?? null,
     body: email?.text ?? null,
