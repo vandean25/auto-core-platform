@@ -19,6 +19,7 @@ import { omitInvoiceSnapshot } from './invoice-response.mapper.js';
 import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util.js';
 import type { CreateDraftInvoiceDto } from './dto/create-draft-invoice.dto.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
+import { defaultRevenueGroupNameForWorkshopLineType } from '../workshop/workshop-line-item-type.helpers.js';
 
 export const DEFAULT_VAT_RATE = new Prisma.Decimal(
   process.env.DEFAULT_VAT_RATE ?? 20,
@@ -160,8 +161,8 @@ export function buildDraftInvoiceLineItem(
 
   let revenueGroupName =
     item.revenue_group_name ?? item.revenueGroupName ?? null;
-  if (!revenueGroupName && item.type === 'LABOR') {
-    revenueGroupName = 'Labor / workshop services';
+  if (!revenueGroupName) {
+    revenueGroupName = defaultRevenueGroupNameForWorkshopLineType(item.type);
   }
 
   return {
@@ -380,7 +381,7 @@ export function buildDraftInvoiceLinesFromOrder(
 
   if (lineItems.length === 0) {
     throw new BadRequestException(
-      'Cannot create invoice because no labor/parts lines exist on tasks',
+      'Cannot create invoice because no billable workshop lines exist on tasks',
     );
   }
 

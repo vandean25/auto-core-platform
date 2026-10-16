@@ -23,6 +23,7 @@ const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 const LINE_TYPE_LABEL: Record<WorkshopLineItemType, string> = {
   LABOR: 'Arbeitsleistung',
   PART: 'Ersatzteil',
+  FEE: 'Nebenleistung',
 };
 
 const MONEY_FORMAT = new Intl.NumberFormat('de-AT', {

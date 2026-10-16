@@ -38,6 +38,7 @@ export interface GroupedCheckoutTask {
 
 export interface TaskTotals {
   parts: number
+  fees: number
   labor: number
   total: number
   laborStandardHours: number
@@ -83,9 +84,11 @@ export function findInvoiceItemByLineItemId(
 export function calculateTaskRawTotals(task: WorkshopTask): TaskTotals {
   const lineItems = task.lineItems ?? []
   const partsLines = lineItems.filter((li) => li.type === 'PART')
+  const feeLines = lineItems.filter((li) => li.type === 'FEE')
   const laborLines = lineItems.filter((li) => li.type === 'LABOR')
 
   const parts = partsLines.reduce((sum, li) => sum + li.qty * li.unitPrice, 0)
+  const fees = feeLines.reduce((sum, li) => sum + li.qty * li.unitPrice, 0)
   const labor = laborLines.reduce((sum, li) => sum + li.qty * li.unitPrice, 0)
 
   const laborStandardHours = laborLines.reduce(
@@ -107,8 +110,9 @@ export function calculateTaskRawTotals(task: WorkshopTask): TaskTotals {
 
   return {
     parts,
+    fees,
     labor,
-    total: parts + labor,
+    total: parts + fees + labor,
     laborStandardHours,
     laborActualHours,
     laborInternalCost,
@@ -176,6 +180,10 @@ export function aggregateCheckoutSummaries(checkoutLineSummaries: CheckoutLineSu
     .filter((l) => l.lineItem.type === 'PART')
     .reduce((sum, l) => sum + l.lineNet, 0)
 
+  const checkoutFeesTotal = checkoutLineSummaries
+    .filter((l) => l.lineItem.type === 'FEE')
+    .reduce((sum, l) => sum + l.lineNet, 0)
+
   const checkoutLaborTotal = checkoutLineSummaries
     .filter((l) => l.lineItem.type === 'LABOR')
     .reduce((sum, l) => sum + l.lineNet, 0)
@@ -188,6 +196,7 @@ export function aggregateCheckoutSummaries(checkoutLineSummaries: CheckoutLineSu
 
   return {
     checkoutPartsTotal,
+    checkoutFeesTotal,
     checkoutLaborTotal,
     checkoutSubtotal,
     checkoutDiscountTotal,
@@ -231,6 +240,10 @@ export function useWorkshopCalculations({
   // ── Base order totals (pre-discount) ──────────────────────────────────
   const baseOrderPartsTotal = useMemo(
     () => Array.from(rawTaskTotals.values()).reduce((sum, t) => sum + t.parts, 0),
+    [rawTaskTotals],
+  )
+  const baseOrderFeesTotal = useMemo(
+    () => Array.from(rawTaskTotals.values()).reduce((sum, t) => sum + t.fees, 0),
     [rawTaskTotals],
   )
   const baseOrderLaborTotal = useMemo(
@@ -317,6 +330,7 @@ export function useWorkshopCalculations({
   // ── Checkout aggregate totals ─────────────────────────────────────────
   const {
     checkoutPartsTotal,
+    checkoutFeesTotal,
     checkoutLaborTotal,
     checkoutSubtotal,
     checkoutDiscountTotal,
@@ -330,8 +344,9 @@ export function useWorkshopCalculations({
 
   // ── View-aware order totals ───────────────────────────────────────────
   const orderPartsTotal = isCheckoutView ? checkoutPartsTotal : baseOrderPartsTotal
+  const orderFeesTotal = isCheckoutView ? checkoutFeesTotal : baseOrderFeesTotal
   const orderLaborTotal = isCheckoutView ? checkoutLaborTotal : baseOrderLaborTotal
-  const orderGrandTotal = orderPartsTotal + orderLaborTotal
+  const orderGrandTotal = orderPartsTotal + orderFeesTotal + orderLaborTotal
   const orderLaborRevenue = orderLaborTotal
   const orderLaborInternalCostTotal = baseOrderLaborInternalCostTotal
   const orderLaborMarginPercent =
@@ -346,6 +361,7 @@ export function useWorkshopCalculations({
     rawTaskTotals,
     // Base order totals
     baseOrderPartsTotal,
+    baseOrderFeesTotal,
     baseOrderLaborTotal,
     // Checkout structures
     checkoutLineRows,
@@ -357,6 +373,7 @@ export function useWorkshopCalculations({
     discountSeedFromInvoice,
     // Checkout totals
     checkoutPartsTotal,
+    checkoutFeesTotal,
     checkoutLaborTotal,
     checkoutSubtotal,
     checkoutDiscountTotal,
@@ -365,6 +382,7 @@ export function useWorkshopCalculations({
     checkoutGrossTotal,
     // View-aware totals
     orderPartsTotal,
+    orderFeesTotal,
     orderLaborTotal,
     orderGrandTotal,
     orderLaborRevenue,

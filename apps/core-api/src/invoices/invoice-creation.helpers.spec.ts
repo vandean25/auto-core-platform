@@ -215,6 +215,17 @@ describe('invoice-creation.helpers', () => {
       expect(line.revenue_group_name).toBe('Labor / workshop services');
     });
 
+    it('assigns fee revenue group when type is FEE', () => {
+      const line = buildDraftInvoiceLineItem({
+        description: 'Leihwagen',
+        quantity: 2,
+        unit_price: 35,
+        type: 'FEE',
+      });
+
+      expect(line.revenue_group_name).toBe('Workshop fees / ancillary services');
+    });
+
     it('preserves custom revenue_group_name if specified', () => {
       const line = buildDraftInvoiceLineItem({
         description: 'Parts line',
@@ -455,6 +466,32 @@ describe('invoice-creation.helpers', () => {
       expect(result.totals.subtotal).toEqual(new Prisma.Decimal(100));
       expect(result.totals.totalTax).toEqual(new Prisma.Decimal(20));
       expect(result.totals.totalGross).toEqual(new Prisma.Decimal(120));
+    });
+
+    it('includes FEE lines when building invoice items from an order', () => {
+      const result = buildDraftInvoiceLinesFromOrder(
+        {
+          tasks: [
+            {
+              line_items: [
+                {
+                  description: 'Leihwagen',
+                  quantity: 2,
+                  unit_price: 30,
+                  type: 'FEE',
+                },
+              ],
+            },
+          ],
+        },
+        'tenant-1',
+      );
+
+      expect(result.lineItems).toHaveLength(1);
+      expect(result.itemsData[0].revenue_group_name).toBe(
+        'Workshop fees / ancillary services',
+      );
+      expect(result.totals.subtotal).toEqual(new Prisma.Decimal(60));
     });
   });
 

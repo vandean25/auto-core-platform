@@ -152,6 +152,20 @@ describe('workshop-task.helpers', () => {
       expect(record.actual_hours).toBeNull();
       expect(record.internal_cost_rate).toBeNull();
     });
+
+    it('constructs a fee line without pick or labor fields', () => {
+      const record = buildNewTaskLineItemRecord('ten-1', 'task-1', {
+        type: WorkshopLineItemType.FEE,
+        itemNo: 'LEIH',
+        description: 'Leihwagen',
+        qty: 2,
+        unitPrice: 45,
+      });
+
+      expect(record.type).toBe(WorkshopLineItemType.FEE);
+      expect(record.part_execution_status).toBeNull();
+      expect(record.labor_operation_id).toBeNull();
+    });
   });
 
   describe('classifyDeletedLineItems', () => {

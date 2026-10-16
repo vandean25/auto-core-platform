@@ -19,6 +19,28 @@
     "term": "Werkstattauftrag",
     "description": "Auftrag für Werkstattleistungen an einem Fahrzeug, inklusive Teile und Arbeit."
   },
+  "workshopTaskLine": {
+    "partsSubtotal": {
+      "short": "Teile",
+      "term": "Teilesumme",
+      "description": "Katalog- und Freitext-Teilepositionen auf einer Werkstattaufgabe."
+    },
+    "laborSubtotal": {
+      "short": "Arbeit",
+      "term": "Arbeitssumme",
+      "description": "Arbeitsleistungen auf einer Werkstattaufgabe."
+    },
+    "feesSubtotal": {
+      "short": "Nebenleistungen",
+      "term": "Nebenleistungen",
+      "description": "Leihwagen, Entsorgung und andere Pauschalen."
+    },
+    "taskTotal": {
+      "short": "Summe",
+      "term": "Aufgabensumme",
+      "description": "Summe aus Teilen, Arbeit und Nebenleistungen auf einer Werkstattaufgabe."
+    }
+  },
   "salesOrder": {
     "short": "SO",
     "term": "Kundenauftrag",

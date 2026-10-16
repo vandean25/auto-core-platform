@@ -12,6 +12,13 @@ const optionalMcpCommandIdSchema = {
     .describe('Optional idempotency key for MCP write replay'),
 };
 
+const loanerChargeInputSchema = z
+  .object({
+    unit_price_cents: z.number().int().min(0),
+    quantity_days: z.number().int().positive().optional(),
+  })
+  .strict();
+
 const positionLineInputSchema = z
   .object({
     preset_key: z.string().min(1).optional(),
@@ -56,6 +63,7 @@ export const proposeWorkshopBookingInputSchema = z
     loaner_vehicle_id: uuidSchema.optional(),
     planned_from: isoInstantSchema.optional(),
     planned_to: isoInstantSchema.optional(),
+    loaner_charge: loanerChargeInputSchema.optional(),
     position_lines: z.array(positionLineInputSchema).optional(),
     ...optionalMcpCommandIdSchema,
   })
@@ -72,6 +80,12 @@ export const proposeWorkshopBookingInputSchema = z
             'loaner_vehicle_id, planned_from, and planned_to must be provided together',
         });
       }
+    }
+    if (value.loaner_charge !== undefined && !hasLoanerId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'loaner_charge requires a complete loaner booking',
+      });
     }
   });
 
@@ -93,6 +107,10 @@ export type NormalizedWorkshopBookingPackage = {
     loanerVehicleId: string;
     plannedFrom: string;
     plannedTo: string;
+  };
+  loanerCharge?: {
+    unitPriceCents: number;
+    quantityDays?: number;
   };
   positionPlanLineCount: number;
 };
@@ -136,6 +154,28 @@ function readScheduleTimes(record: Record<string, unknown>): {
       ? record.scheduled_end_at
       : undefined;
   return { start, end };
+}
+
+function resolveLoanerCharge(
+  record: Record<string, unknown>,
+): NormalizedWorkshopBookingPackage['loanerCharge'] {
+  const charge = record.loaner_charge;
+  if (!charge || typeof charge !== 'object' || Array.isArray(charge)) {
+    return undefined;
+  }
+  const chargeRecord = charge as Record<string, unknown>;
+  const unitPriceCents = chargeRecord.unit_price_cents;
+  if (typeof unitPriceCents !== 'number' || !Number.isInteger(unitPriceCents)) {
+    return undefined;
+  }
+  const quantityDays = chargeRecord.quantity_days;
+  return {
+    unitPriceCents,
+    quantityDays:
+      typeof quantityDays === 'number' && Number.isInteger(quantityDays)
+        ? quantityDays
+        : undefined,
+  };
 }
 
 function resolveLoaner(
@@ -216,6 +256,12 @@ export function normalizeWorkshopBookingPackage(
               plannedTo: value.planned_to,
             }
           : undefined,
+      loanerCharge: value.loaner_charge
+        ? {
+            unitPriceCents: value.loaner_charge.unit_price_cents,
+            quantityDays: value.loaner_charge.quantity_days,
+          }
+        : undefined,
       positionPlanLineCount: Array.isArray(value.position_lines)
         ? value.position_lines.length
         : 0,
@@ -260,6 +306,7 @@ export function normalizeWorkshopBookingPackage(
         ? record.reported_issue
         : undefined,
     loaner: resolveLoaner(record),
+    loanerCharge: resolveLoanerCharge(record),
     positionPlanLineCount: readPositionPlanLineCount(record),
   };
 }

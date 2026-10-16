@@ -23,6 +23,7 @@ const STATUS_LABELS: Record<WarrantyClaimResponse['status'], string> = {
 const LINE_TYPE_LABELS: Record<WorkshopLineItemType, string> = {
   LABOR: 'Arbeit',
   PART: 'Teil',
+  FEE: 'Nebenleistung',
 };
 
 export type WarrantyClaimPdfContent = {

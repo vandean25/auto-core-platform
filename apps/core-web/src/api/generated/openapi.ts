@@ -6854,7 +6854,7 @@ export interface components {
         WorkshopTaskLineItemResponseDto: {
             id: string;
             /** @enum {string} */
-            type: "LABOR" | "PART";
+            type: "LABOR" | "PART" | "FEE";
             itemNo: string;
             description: string;
             qty: number;
@@ -6966,7 +6966,7 @@ export interface components {
         WorkshopCatalogLineItemResponseDto: {
             id: string;
             /** @enum {string} */
-            type: "LABOR" | "PART";
+            type: "LABOR" | "PART" | "FEE";
             itemNo: string;
             description: string;
             qty: number;
@@ -7058,7 +7058,7 @@ export interface components {
              */
             id?: string;
             /** @enum {string} */
-            type: "LABOR" | "PART";
+            type: "LABOR" | "PART" | "FEE";
             itemNo: string;
             description: string;
             /** @example 1.5 */
@@ -7202,7 +7202,7 @@ export interface components {
         BoardLineItemDto: {
             id: string;
             /** @enum {string} */
-            type: "LABOR" | "PART";
+            type: "LABOR" | "PART" | "FEE";
             itemNo: string;
             description: string;
             quantity: number;
@@ -7445,7 +7445,7 @@ export interface components {
         WorkshopEstimateLineDto: {
             source_line_id: string;
             /** @enum {string} */
-            type: "LABOR" | "PART";
+            type: "LABOR" | "PART" | "FEE";
             item_no: string;
             description: string;
             quantity: string;
@@ -8221,7 +8221,7 @@ export interface components {
             id: string;
             workshopTaskLineItemId: string;
             /** @enum {string} */
-            lineType: "LABOR" | "PART";
+            lineType: "LABOR" | "PART" | "FEE";
             itemNo: string;
             description: string;
             /** @example 1.000 */
@@ -8358,7 +8358,7 @@ export interface components {
         MechanicTaskLineItemDto: {
             id: string;
             /** @enum {string} */
-            type: "LABOR" | "PART";
+            type: "LABOR" | "PART" | "FEE";
             itemNo?: string | null;
             description: string;
             qty: number;

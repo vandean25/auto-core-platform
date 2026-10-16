@@ -22571,7 +22571,8 @@
             "type": "string",
             "enum": [
               "LABOR",
-              "PART"
+              "PART",
+              "FEE"
             ]
           },
           "itemNo": {
@@ -22992,7 +22993,8 @@
             "type": "string",
             "enum": [
               "LABOR",
-              "PART"
+              "PART",
+              "FEE"
             ]
           },
           "itemNo": {
@@ -23319,7 +23321,8 @@
             "type": "string",
             "enum": [
               "LABOR",
-              "PART"
+              "PART",
+              "FEE"
             ]
           },
           "itemNo": {
@@ -23838,7 +23841,8 @@
             "type": "string",
             "enum": [
               "LABOR",
-              "PART"
+              "PART",
+              "FEE"
             ]
           },
           "itemNo": {
@@ -24807,7 +24811,8 @@
             "type": "string",
             "enum": [
               "LABOR",
-              "PART"
+              "PART",
+              "FEE"
             ]
           },
           "item_no": {
@@ -27622,7 +27627,8 @@
             "type": "string",
             "enum": [
               "LABOR",
-              "PART"
+              "PART",
+              "FEE"
             ]
           },
           "itemNo": {
@@ -28100,7 +28106,8 @@
             "type": "string",
             "enum": [
               "LABOR",
-              "PART"
+              "PART",
+              "FEE"
             ]
           },
           "itemNo": {

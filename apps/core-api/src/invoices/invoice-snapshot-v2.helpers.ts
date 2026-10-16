@@ -795,7 +795,9 @@ export function resolveLineAllocation(params: {
   if (
     params.invoice.workshop_order_id &&
     !params.catalogItem?.revenue_group &&
-    !params.item.catalog_item_id
+    !params.item.catalog_item_id &&
+    (params.item.revenue_group_name === null ||
+      params.item.revenue_group_name === 'Labor / workshop services')
   ) {
     return resolveAccountingAllocation(
       params.profile,

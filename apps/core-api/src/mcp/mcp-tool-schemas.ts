@@ -842,14 +842,22 @@ export const proposeLineItemInputSchema = z
     expected_line_items_version: z.number().int().min(0),
     line_item: z
       .object({
-        type: z.enum(['PART', 'LABOR']),
+        type: z.enum(['PART', 'LABOR', 'FEE']),
         item_no: z.string().min(1),
         description: z.string().min(1),
         quantity: z.number().min(0.001),
         unit_price_cents: z.number().int().min(0),
         labor_operation_id: uuidSchema.optional(),
       })
-      .strict(),
+      .strict()
+      .superRefine((line, ctx) => {
+        if (line.type === 'FEE' && line.labor_operation_id !== undefined) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'FEE lines cannot reference labor_operation_id',
+          });
+        }
+      }),
     ...optionalMcpCommandIdSchema,
   })
   .strict();

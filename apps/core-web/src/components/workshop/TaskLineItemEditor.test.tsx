@@ -2,13 +2,15 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as workshopApi from '@/api/workshop'
 import * as laborApi from '@/api/labor'
+import { changeUiLanguage, initI18n } from '@/lib/i18n'
 import { TaskLineItemEditor } from './TaskLineItemEditor'
 
 vi.mock('@/api/workshop')
 vi.mock('@/api/labor')
 
 describe('TaskLineItemEditor labor metadata', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await initI18n()
     vi.clearAllMocks()
     ;(workshopApi.useCatalogSearch as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
       data: { labor: [], parts: [] },
@@ -106,5 +108,30 @@ describe('TaskLineItemEditor labor metadata', () => {
     expect(screen.getByText(/Standard AW\s+1\.50/i)).toBeInTheDocument()
     expect(screen.getByLabelText('Actual Hours')).toBeInTheDocument()
     expect(screen.getByText(/Efficiency\s+0\.75x/i)).toBeInTheDocument()
+  })
+
+  it('includes FEE lines in the task total footer', async () => {
+    await changeUiLanguage('en')
+    render(
+      <TaskLineItemEditor
+        workshopOrderId='wo-1'
+        taskId='task-1'
+        lineItems={[
+          {
+            id: 'fee-1',
+            type: 'FEE',
+            itemNo: 'LEIH',
+            description: 'Leihwagen',
+            qty: 2,
+            unitPrice: 35,
+          },
+        ]}
+        readOnly={true}
+        onLineItemsChange={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('Fees')).toBeInTheDocument()
+    expect(screen.getAllByText(/70[,.]00/).length).toBeGreaterThanOrEqual(2)
   })
 })

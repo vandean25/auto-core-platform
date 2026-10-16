@@ -3902,6 +3902,7 @@ enum LaborPauseReason {
 enum WorkshopLineItemType {
   LABOR
   PART
+  FEE
 }
 
 enum WorkshopPartLineExecutionStatus {

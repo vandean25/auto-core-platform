@@ -165,6 +165,10 @@ export const SUPERVISION_COPY = {
       en: 'Labor',
       de: 'Arbeit',
     },
+    lineTypeFee: {
+      en: 'Fee',
+      de: 'Nebenleistung',
+    },
     previewDiff: {
       en: 'Preview / Diff',
       de: 'Vorschau / Differenz',

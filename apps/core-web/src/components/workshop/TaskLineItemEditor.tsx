@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { motion } from 'framer-motion'
-import { CircleDollarSign, Clock3, Package, Trash2 } from 'lucide-react'
+import { CircleDollarSign, Clock3, Package, Receipt, Trash2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { useLaborOperation } from '@/api/labor'
 import { useCatalogSearch } from '@/api/workshop'
 import type {
@@ -66,6 +68,12 @@ const SEARCH_DEBOUNCE_MS = 300
 const MERGE_FLASH_DURATION_MS = 500
 const QUANTITY_POP_DURATION_MS = 240
 
+function lineTypeBadgeLabel(type: WorkshopLineItemType): string {
+  if (type === 'LABOR') return 'Labor'
+  if (type === 'FEE') return 'Fee'
+  return 'Part'
+}
+
 function formatHours(value: number | null | undefined) {
   if (value == null) return '—'
   return value.toFixed(2)
@@ -93,6 +101,10 @@ export function TaskLineItemEditor({
   readOnly,
   onLineItemsChange,
 }: TaskLineItemEditorProps) {
+  const { t } = useTranslation('glossary')
+  useEffect(() => {
+    void ensureNamespaceLoaded('glossary')
+  }, [])
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
   const [newQty, setNewQty] = useState('1')
@@ -342,10 +354,13 @@ export function TaskLineItemEditor({
   const partsSubtotal = lineItems
     .filter((item) => item.type === 'PART')
     .reduce((acc, item) => acc + item.qty * item.unitPrice, 0)
+  const feesSubtotal = lineItems
+    .filter((item) => item.type === 'FEE')
+    .reduce((acc, item) => acc + item.qty * item.unitPrice, 0)
   const laborSubtotal = lineItems
     .filter((item) => item.type === 'LABOR')
     .reduce((acc, item) => acc + item.qty * item.unitPrice, 0)
-  const taskTotal = partsSubtotal + laborSubtotal
+  const taskTotal = partsSubtotal + feesSubtotal + laborSubtotal
 
   return (
     <div className='space-y-4' data-workshop-task-editor={taskId}>
@@ -499,8 +514,10 @@ export function TaskLineItemEditor({
                     }`}
                   >
                     <TableCell>
-                      <Badge variant={item.type === 'LABOR' ? 'secondary' : 'outline'}>
-                        {item.type === 'LABOR' ? 'Labor' : 'Part'}
+                      <Badge
+                        variant={item.type === 'LABOR' ? 'secondary' : 'outline'}
+                      >
+                        {lineTypeBadgeLabel(item.type)}
                       </Badge>
                     </TableCell>
                     <TableCell className='font-medium'>{item.itemNo}</TableCell>
@@ -652,25 +669,32 @@ export function TaskLineItemEditor({
         </div>
       </div>
 
-      <div className='grid grid-cols-3 gap-2'>
+      <div className='grid grid-cols-2 gap-2 md:grid-cols-4'>
         <div className='rounded-xl border bg-muted/40 px-3 py-2'>
           <div className='flex items-center gap-1.5 text-[11px] text-muted-foreground'>
             <Package className='h-3.5 w-3.5' />
-            <span>Parts</span>
+            <span>{t('workshopTaskLine.partsSubtotal.short')}</span>
           </div>
           <div className='mt-1 text-sm font-medium'>{formatCurrency(partsSubtotal)}</div>
         </div>
         <div className='rounded-xl border bg-muted/40 px-3 py-2'>
           <div className='flex items-center gap-1.5 text-[11px] text-muted-foreground'>
             <Clock3 className='h-3.5 w-3.5' />
-            <span>Labor</span>
+            <span>{t('workshopTaskLine.laborSubtotal.short')}</span>
           </div>
           <div className='mt-1 text-sm font-medium'>{formatCurrency(laborSubtotal)}</div>
+        </div>
+        <div className='rounded-xl border bg-muted/40 px-3 py-2'>
+          <div className='flex items-center gap-1.5 text-[11px] text-muted-foreground'>
+            <Receipt className='h-3.5 w-3.5' />
+            <span>{t('workshopTaskLine.feesSubtotal.short')}</span>
+          </div>
+          <div className='mt-1 text-sm font-medium'>{formatCurrency(feesSubtotal)}</div>
         </div>
         <div className='rounded-xl border border-primary/20 bg-primary/10 px-3 py-2'>
           <div className='flex items-center gap-1.5 text-[11px] text-primary/80'>
             <CircleDollarSign className='h-3.5 w-3.5' />
-            <span>Task Total</span>
+            <span>{t('workshopTaskLine.taskTotal.short')}</span>
           </div>
           <div className='mt-1 text-sm font-semibold text-primary'>{formatCurrency(taskTotal)}</div>
         </div>

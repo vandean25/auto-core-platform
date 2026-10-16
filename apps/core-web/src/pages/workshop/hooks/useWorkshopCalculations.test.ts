@@ -177,8 +177,37 @@ describe("useWorkshopCalculations — rawTaskTotals", () => {
     );
     const totals = result.current.rawTaskTotals.get("empty")!;
     expect(totals.parts).toBe(0);
+    expect(totals.fees).toBe(0);
     expect(totals.labor).toBe(0);
     expect(totals.total).toBe(0);
+  });
+
+  it("tracks FEE lines separately from parts", () => {
+    const feeLine = {
+      id: "line-fee",
+      type: "FEE" as const,
+      itemNo: "LEIH",
+      description: "Leihwagen",
+      qty: 2,
+      unitPrice: 35,
+    };
+    const taskWithFee: WorkshopTask = {
+      ...singleTask,
+      lineItems: [feeLine],
+    };
+    const { result } = renderHook(() =>
+      useWorkshopCalculations({
+        ...defaultInput,
+        orderTasks: [taskWithFee],
+      }),
+    );
+    const totals = result.current.rawTaskTotals.get("task-1")!;
+    expect(totals.parts).toBe(0);
+    expect(totals.fees).toBe(70);
+    expect(totals.labor).toBe(0);
+    expect(totals.total).toBe(70);
+    expect(result.current.baseOrderFeesTotal).toBe(70);
+    expect(result.current.orderGrandTotal).toBe(70);
   });
 
   it("includes labor hours and internal cost analytics per task", () => {
