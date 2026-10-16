@@ -17,7 +17,7 @@ describe('McpToolHandlerService workshop order reads', () => {
   const context = HANDLER_SPEC_CONTEXT;
   const emptyPage = {
     ...HANDLER_SPEC_EMPTY_PAGE,
-    meta: { total: 0, page: 1, page_size: 10 },
+    meta: { total: 0, page: 1, pageSize: 10, pageCount: 0 },
   };
 
   let handler: McpToolHandlerService;

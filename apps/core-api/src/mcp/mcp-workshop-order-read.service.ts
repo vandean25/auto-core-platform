@@ -53,7 +53,7 @@ const CURRENT_VERSION_SELECT = {
 
 const EMPTY_PAGE = {
   data: [] as ReturnType<typeof toMcpWorkshopOrderListRow>[],
-  meta: { total: 0, page: 1, page_size: 10 },
+  meta: { total: 0, page: 1, pageSize: 10, pageCount: 0 },
 };
 
 /**
@@ -99,7 +99,10 @@ export class McpWorkshopOrderReadService {
       sentRange,
     });
     if (estimateOrderIds !== null && estimateOrderIds.length === 0) {
-      return { ...EMPTY_PAGE, meta: { total: 0, page, page_size: pageSize } };
+      return {
+        ...EMPTY_PAGE,
+        meta: { total: 0, page, pageSize, pageCount: 0 },
+      };
     }
 
     const where = this.buildOrderWhere({
@@ -149,7 +152,12 @@ export class McpWorkshopOrderReadService {
 
     return {
       data: data.map((row) => toMcpJsonObject(row)),
-      meta: { total, page, page_size: pageSize },
+      meta: {
+        total,
+        page,
+        pageSize,
+        pageCount: total === 0 ? 0 : Math.ceil(total / pageSize),
+      },
     };
   }
 

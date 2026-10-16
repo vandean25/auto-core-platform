@@ -148,7 +148,12 @@ describe('McpWorkshopOrderReadService', () => {
       status: 'SENT',
       total_gross: '240.00',
     });
-    expect(page.meta).toEqual({ total: 1, page: 1, page_size: 10 });
+    expect(page.meta).toEqual({
+      total: 1,
+      page: 1,
+      pageSize: 10,
+      pageCount: 1,
+    });
   });
 
   it('scopes orders to the active tenant and site from the session', async () => {

@@ -333,6 +333,13 @@ describe('MCP tool output schemas (AUT-427)', () => {
     expectValid(mcpToolOutputSchemas.list_invoices, emptyKeysetPage);
   });
 
+  it('accepts list_workshop_orders offset meta with pageSize and pageCount', () => {
+    expectValid(mcpToolOutputSchemas.list_workshop_orders, {
+      data: [],
+      meta: { total: 0, page: 1, pageSize: 10, pageCount: 0 },
+    });
+  });
+
   it('accepts the truncation marker from every tool, read and write', () => {
     for (const toolName of MCP_TOOL_NAMES) {
       expectValid(mcpToolOutputSchemas[toolName], truncatedResult);
