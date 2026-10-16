@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { ExternalLink, Inbox, RefreshCw, Search } from 'lucide-react'
+import { Copy, ExternalLink, Inbox, RefreshCw, Search } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -20,6 +21,7 @@ import {
   resolveDecidedByLabel,
   resolveUserId,
 } from '../agent-labels'
+import { parseActivityActionOrTraceSearch } from '../activity-search'
 
 interface ActivityTabProps {
   language?: Language
@@ -43,8 +45,11 @@ export function ActivityTab({
   const [statusFilter, setStatusFilter] = useState<string>('ALL')
   const [tierFilter, setTierFilter] = useState<string>('ALL')
   const [agentSearch, setAgentSearch] = useState<string>('')
+  const [actionOrTraceSearch, setActionOrTraceSearch] = useState<string>('')
   const [startDate, setStartDate] = useState<string>('')
   const [endDate, setEndDate] = useState<string>('')
+
+  const actionOrTraceFilter = parseActivityActionOrTraceSearch(actionOrTraceSearch)
 
   const t = SUPERVISION_COPY.activity
   const common = SUPERVISION_COPY.common
@@ -62,12 +67,23 @@ export function ActivityTab({
       statusFilter !== 'ALL' ? (statusFilter as AgentActionStatus) : undefined,
     tier: tierFilter !== 'ALL' ? (tierFilter as AgentActionTier) : undefined,
     agentId: agentSearch.trim() || undefined,
+    traceId: actionOrTraceFilter.traceId,
+    actionType: actionOrTraceFilter.actionType,
     startDate: startDate ? toLocalStartOfDayIso(startDate) : undefined,
     endDate: endDate ? toLocalEndOfDayIso(endDate) : undefined,
     limit: 50,
   })
 
   const logs = logsData?.pages.flatMap((page) => page.data) ?? []
+
+  const copyTraceId = async (traceId: string) => {
+    try {
+      await navigator.clipboard.writeText(traceId)
+      toast.success(getCopy(t.traceIdCopied, language))
+    } catch {
+      toast.error(getCopy(t.traceIdCopyFailed, language))
+    }
+  }
 
   return (
     <div className="space-y-6" data-testid="activity-tab">
@@ -87,6 +103,24 @@ export function ActivityTab({
               onChange={(e) => setAgentSearch(e.target.value)}
               className="pl-9 text-xs"
               data-testid="filter-agent-input"
+            />
+          </div>
+
+          <div className="relative w-72">
+            <Search
+              className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400"
+              aria-hidden="true"
+            />
+            <Input
+              type="text"
+              placeholder={getCopy(
+                t.filters.actionOrTracePlaceholder,
+                language,
+              )}
+              value={actionOrTraceSearch}
+              onChange={(e) => setActionOrTraceSearch(e.target.value)}
+              className="pl-9 text-xs"
+              data-testid="filter-action-or-trace-input"
             />
           </div>
 
@@ -303,18 +337,31 @@ export function ActivityTab({
                     </TableCell>
                     <TableCell>
                       {log.traceId ? (
-                        <button
-                          type="button"
-                          onClick={() => onSelectTraceId(log.traceId)}
-                          className="inline-flex items-center gap-1 font-mono text-xs text-indigo-600 hover:text-indigo-800 hover:underline"
-                          data-testid={`activity-trace-btn-${log.id}`}
-                        >
-                          <span>{log.traceId.slice(0, 12)}...</span>
-                          <ExternalLink
-                            className="h-3 w-3"
-                            aria-hidden="true"
-                          />
-                        </button>
+                        <div className="inline-flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => onSelectTraceId(log.traceId)}
+                            className="inline-flex items-center gap-1 font-mono text-xs text-indigo-600 hover:text-indigo-800 hover:underline"
+                            data-testid={`activity-trace-btn-${log.id}`}
+                          >
+                            <span>{log.traceId.slice(0, 12)}...</span>
+                            <ExternalLink
+                              className="h-3 w-3"
+                              aria-hidden="true"
+                            />
+                          </button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-slate-500 hover:text-slate-800"
+                            aria-label={getCopy(t.copyTraceId, language)}
+                            data-testid={`activity-trace-copy-btn-${log.id}`}
+                            onClick={() => void copyTraceId(log.traceId)}
+                          >
+                            <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+                          </Button>
+                        </div>
                       ) : (
                         <span className="text-slate-400 text-xs">—</span>
                       )}

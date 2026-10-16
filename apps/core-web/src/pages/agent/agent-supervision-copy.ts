@@ -352,6 +352,10 @@ export const SUPERVISION_COPY = {
         en: 'Filter by agent name...',
         de: 'Nach Agenten filtern...',
       },
+      actionOrTracePlaceholder: {
+        en: 'Filter by action or trace ID...',
+        de: 'Nach Aktion oder Trace-ID filtern...',
+      },
       startDateLabel: {
         en: 'From',
         de: 'Von',
@@ -414,6 +418,18 @@ export const SUPERVISION_COPY = {
     viewAudit: {
       en: 'View correlated audit logs',
       de: 'Korrelierte Audit-Logs anzeigen',
+    },
+    copyTraceId: {
+      en: 'Copy trace ID',
+      de: 'Trace-ID kopieren',
+    },
+    traceIdCopied: {
+      en: 'Trace ID copied',
+      de: 'Trace-ID kopiert',
+    },
+    traceIdCopyFailed: {
+      en: 'Copy failed. Select the trace ID and copy it manually.',
+      de: 'Kopieren fehlgeschlagen. Trace-ID manuell auswählen und kopieren.',
     },
   },
   decisionShadow: {

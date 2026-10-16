@@ -8864,6 +8864,15 @@
         "operationId": "AgentActionLogController_findAll",
         "parameters": [
           {
+            "name": "actionType",
+            "required": false,
+            "in": "query",
+            "description": "Filter by action type (case-insensitive substring match on action_type)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "agentId",
             "required": false,
             "in": "query",

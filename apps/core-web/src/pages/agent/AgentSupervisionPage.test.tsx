@@ -643,6 +643,60 @@ describe('AgentSupervisionPage', () => {
     )
   })
 
+  it('passes Activity tab action search to useAgentActions as actionType', () => {
+    renderSupervisionPage()
+
+    fireEvent.click(screen.getByTestId('tab-activity'))
+
+    fireEvent.change(screen.getByTestId('filter-action-or-trace-input'), {
+      target: { value: 'draft_workshop_order' },
+    })
+
+    expect(vi.mocked(useAgentActions)).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        actionType: 'draft_workshop_order',
+        traceId: undefined,
+      }),
+    )
+  })
+
+  it('passes Activity tab full trace ID search to useAgentActions as traceId', () => {
+    renderSupervisionPage()
+
+    fireEvent.click(screen.getByTestId('tab-activity'))
+
+    const traceId = '11111111-1111-1111-1111-111111111111'
+    fireEvent.change(screen.getByTestId('filter-action-or-trace-input'), {
+      target: { value: traceId },
+    })
+
+    expect(vi.mocked(useAgentActions)).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        traceId,
+        actionType: undefined,
+      }),
+    )
+  })
+
+  it('copies the full Activity trace ID from the copy control', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.assign(navigator, {
+      clipboard: { writeText },
+    })
+
+    renderSupervisionPage()
+    fireEvent.click(screen.getByTestId('tab-activity'))
+
+    fireEvent.click(screen.getByTestId('activity-trace-copy-btn-log-1'))
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith(
+        '11111111-1111-1111-1111-111111111111',
+      )
+      expect(toast.success).toHaveBeenCalledWith('Trace ID copied')
+    })
+  })
+
   it('switches to the Decision shadow tab and filters its read-only log by use case', () => {
     renderSupervisionPage()
 

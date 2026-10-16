@@ -15577,6 +15577,8 @@ export interface operations {
     AgentActionLogController_findAll: {
         parameters: {
             query?: {
+                /** @description Filter by action type (case-insensitive substring match on action_type) */
+                actionType?: string;
                 /** @description Filter by agent identifier (case-insensitive substring match) */
                 agentId?: string;
                 /** @description Opaque cursor for forward pagination */

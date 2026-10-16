@@ -53,6 +53,15 @@ export function buildAgentActionWhere(
   if (query.traceId) {
     where.trace_id = query.traceId;
   }
+  if (query.actionType) {
+    const actionSearch = query.actionType.trim();
+    if (actionSearch.length > 0) {
+      where.action_type = {
+        contains: actionSearch,
+        mode: 'insensitive',
+      };
+    }
+  }
   if (query.agentId) {
     const agentSearch = query.agentId.trim();
     if (agentSearch.length > 0) {
