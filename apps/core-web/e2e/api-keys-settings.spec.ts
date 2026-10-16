@@ -147,7 +147,7 @@ test.describe("Blueprint: API keys settings", () => {
     const seededRow = rowFor(page, "Warehouse BI");
     await expect(seededRow).toBeVisible();
     await expect(seededRow).toContainText("acp_live_3f9a2c1b");
-    await expect(seededRow).toContainText("Aktiv");
+    await expect(seededRow).toContainText(DE_STATUS.ACTIVE);
 
     // Create: the form refuses an empty name and an empty scope set.
     await page.getByRole("button", { name: "+ API key" }).click();
