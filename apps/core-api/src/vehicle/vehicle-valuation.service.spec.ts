@@ -164,7 +164,7 @@ describe('VehicleValuationService', () => {
     await expect(
       service.createValuation(
         caseFix.http!.vehicleId,
-        caseFix.http!.body as CreateVehicleValuationDto,
+        caseFix.http!.body,
         caseFix.http!.idempotencyKey,
         now,
       ),
@@ -185,7 +185,7 @@ describe('VehicleValuationService', () => {
     await expect(
       service.createValuation(
         caseFix.http!.vehicleId,
-        caseFix.http!.body as CreateVehicleValuationDto,
+        caseFix.http!.body,
         caseFix.http!.idempotencyKey,
         now,
       ),
@@ -201,7 +201,7 @@ describe('VehicleValuationService', () => {
     await expect(
       service.createValuation(
         caseFix.http!.vehicleId,
-        caseFix.http!.body as CreateVehicleValuationDto,
+        caseFix.http!.body,
         caseFix.http!.idempotencyKey,
         now,
       ),
@@ -221,7 +221,7 @@ describe('VehicleValuationService', () => {
     await expect(
       service.createValuation(
         caseFix.http!.vehicleId,
-        caseFix.http!.body as CreateVehicleValuationDto,
+        caseFix.http!.body,
         caseFix.http!.idempotencyKey,
         now,
       ),
@@ -250,7 +250,7 @@ describe('VehicleValuationService', () => {
 
     const result = await service.createValuation(
       caseFix.http!.vehicleId,
-      caseFix.http!.body as CreateVehicleValuationDto,
+      caseFix.http!.body,
       caseFix.http!.idempotencyKey,
       now,
     );
@@ -293,7 +293,7 @@ describe('VehicleValuationService', () => {
     await expect(
       service.createValuation(
         baseVehicle.id,
-        fixtures.cases['quoted-market-value'].http!.body as CreateVehicleValuationDto,
+        fixtures.cases['quoted-market-value'].http!.body,
         caseFix.retry!.idempotencyKey,
         now,
       ),
@@ -348,7 +348,7 @@ describe('VehicleValuationService', () => {
     await expect(
       service.createValuation(
         baseVehicle.id,
-        fixtures.cases['quoted-market-value'].http!.body as CreateVehicleValuationDto,
+        fixtures.cases['quoted-market-value'].http!.body,
         'synthetic-ref-unknown',
         now,
       ),
@@ -364,7 +364,7 @@ describe('VehicleValuationService', () => {
     await expect(
       service.createValuation(
         baseVehicle.id,
-        fixtures.cases['quoted-market-value'].http!.body as CreateVehicleValuationDto,
+        fixtures.cases['quoted-market-value'].http!.body,
         'synthetic-asof-unknown',
         now,
       ),
@@ -382,7 +382,7 @@ describe('VehicleValuationService', () => {
     await expect(
       service.createValuation(
         baseVehicle.id,
-        fixtures.cases['quoted-market-value'].http!.body as CreateVehicleValuationDto,
+        fixtures.cases['quoted-market-value'].http!.body,
         'site-mismatch-key-12345678',
         now,
       ),

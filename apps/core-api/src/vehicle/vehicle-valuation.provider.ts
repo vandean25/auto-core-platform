@@ -5,9 +5,7 @@ export const VEHICLE_VALUATION_PROVIDER = Symbol('VEHICLE_VALUATION_PROVIDER');
 export const VALUATION_CONTRACT_VERSION = 'acp-valuation-contract-1';
 
 export type ValuationCondition =
-  | 'ROADWORTHY_AVERAGE'
-  | 'POOR'
-  | 'NOT_ROADWORTHY';
+  'ROADWORTHY_AVERAGE' | 'POOR' | 'NOT_ROADWORTHY';
 
 export interface ValuationQuoteInput {
   market: 'AT';

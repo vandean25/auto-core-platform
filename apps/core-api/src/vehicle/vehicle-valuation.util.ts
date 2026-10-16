@@ -48,7 +48,9 @@ export function createValuationInputSha256(input: {
   return createHash('sha256').update(canonical).digest('hex');
 }
 
-export function hashValuationProviderBody(output: ValuationQuoteOutput): string {
+export function hashValuationProviderBody(
+  output: ValuationQuoteOutput,
+): string {
   const canonical = JSON.stringify(output);
   return createHash('sha256').update(canonical).digest('hex');
 }

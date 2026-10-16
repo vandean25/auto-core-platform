@@ -201,7 +201,7 @@ export class VehicleValuationService {
     );
 
     if (providerOutput.result !== 'QUOTED') {
-      throw this.mapProviderFailure(providerOutput, requestedAsOf);
+      this.mapProviderFailure(providerOutput, requestedAsOf);
     }
 
     if (
@@ -210,10 +210,10 @@ export class VehicleValuationService {
       !providerOutput.referenceVersion ||
       providerOutput.currency !== 'EUR'
     ) {
-      throw this.mapProviderFailure(providerOutput, requestedAsOf);
+      this.mapProviderFailure(providerOutput, requestedAsOf);
     }
 
-    const siteId = await this.resolveSnapshotSiteId(vehicle);
+    const siteId = this.resolveSnapshotSiteId(vehicle);
     const snapshotId = randomUUID();
     const createdAt = now;
     const providerBodySha256 = hashValuationProviderBody(providerOutput);
@@ -229,7 +229,9 @@ export class VehicleValuationService {
         mileage_km: mileageKm,
         condition,
         requested_as_of: new Date(`${requestedAsOf}T00:00:00.000Z`),
-        provider_as_of: new Date(`${providerOutput.providerAsOf}T00:00:00.000Z`),
+        provider_as_of: new Date(
+          `${providerOutput.providerAsOf}T00:00:00.000Z`,
+        ),
         currency: 'EUR',
         amount: providerOutput.amount,
         source: 'EUROTAX_AT_AUTOVALUATION',
@@ -262,9 +264,7 @@ export class VehicleValuationService {
     );
   }
 
-  private validateIdempotencyKey(
-    idempotencyKey: string | undefined,
-  ): string {
+  private validateIdempotencyKey(idempotencyKey: string | undefined): string {
     const key = typeof idempotencyKey === 'string' ? idempotencyKey.trim() : '';
     if (!VALUATION_IDEMPOTENCY_KEY_PATTERN.test(key)) {
       throw valuationIdempotencyKeyInvalid();
@@ -286,7 +286,7 @@ export class VehicleValuationService {
   private mapProviderFailure(
     output: ValuationQuoteOutput,
     requestedAsOf: string,
-  ) {
+  ): never {
     const body = buildProviderFailureBody(output.result, output, requestedAsOf);
     const statusCode =
       output.result === 'AMBIGUOUS_VARIANT'
@@ -299,10 +299,10 @@ export class VehicleValuationService {
     throw valuationProviderResult(statusCode, body);
   }
 
-  private async resolveSnapshotSiteId(vehicle: {
+  private resolveSnapshotSiteId(vehicle: {
     inventory_role: VehicleInventoryRole;
     site_id: string | null;
-  }): Promise<string | null> {
+  }): string | null {
     if (!STOCK_ROLES.includes(vehicle.inventory_role)) {
       return null;
     }
