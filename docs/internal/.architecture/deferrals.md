@@ -237,6 +237,17 @@ Then update status, or cancel the phase if the product dropped it.
 
 ---
 
+### Watch voice capture follow-ons (AUT-517 / ADR-0030)
+
+**Status:** Deferred — 2026-10-16. The Wear OS standalone contract is the proposed decision. The items below are not part of that contract.
+
+| Deferred capability | Reason / cost of waiting | Re-entry trigger |
+| --- | --- | --- |
+| watchOS client | AAC recordings are outside the current voice-note MIME allow-list, and a second store is a second client | A workshop standardizes on Apple Watch and a spec adds `audio/mp4` to the provider map with its own probes |
+| Phone Data Layer companion | Core upload would depend on a phone the browser review does not use | A named bay has Wear OS watches that cannot reach the API except through a phone, and a spec accepts that second device |
+| Grant refresh tokens | A 12 hour grant matches one shift. A refresh token is a long-lived secret on the watch | Mechanics regularly lose a recording because the grant expired mid-shift and re-pairing is not acceptable |
+| Play production release | Internal testing is enough for the named devices | The device pass on Pixel Watch 4 and Galaxy Watch Ultra (2025) is written up and a release owner asks for a production track |
+
 ## Metrics
 
 Reset 2026-08-18. Counts below are **product deferrals only**. Twenty-two framework-meta items were archived that day and are not in these numbers.
