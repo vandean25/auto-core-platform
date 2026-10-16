@@ -305,6 +305,44 @@ export function useSaveDiagnostics() {
   });
 }
 
+export type SubmitMechanicFindingPayload = {
+  command_id?: string;
+  media_ids?: string[];
+  voice_note_draft_id?: string;
+  summary?: string;
+};
+
+export type SubmitMechanicFindingResponse = {
+  proposalId: string;
+  traceId: string;
+  actionType: string;
+};
+
+export function useSubmitMechanicFinding() {
+  return useMutation({
+    mutationFn: async ({
+      taskId,
+      payload,
+    }: {
+      taskId: string;
+      payload: SubmitMechanicFindingPayload;
+    }) => {
+      const response = await fetchWithAuth(
+        `/api/mechanic/tasks/${encodeURIComponent(taskId)}/findings`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
+      if (!response.ok) {
+        return throwHttpError(response, "Failed to submit finding to advisor");
+      }
+      return response.json() as Promise<SubmitMechanicFindingResponse>;
+    },
+  });
+}
+
 export function useRequestPart() {
   const queryClient = useQueryClient();
   return useMutation({

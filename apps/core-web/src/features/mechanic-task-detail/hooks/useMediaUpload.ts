@@ -13,6 +13,7 @@ export function useMediaUpload(taskId: string) {
   const createUploadPolicy = useCreateMediaUploadPolicy()
   const saveMediaMeta = useSaveMediaMetadata()
   const [uploadState, setUploadState] = useState<UploadState>('idle')
+  const [uploadedMediaIds, setUploadedMediaIds] = useState<string[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const uploadDoneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -49,7 +50,7 @@ export function useMediaUpload(taskId: string) {
         )
       }
 
-      await saveMediaMeta.mutateAsync({
+      const saved = await saveMediaMeta.mutateAsync({
         taskId,
         payload: {
           storageKey: policy.storageKey,
@@ -58,6 +59,9 @@ export function useMediaUpload(taskId: string) {
           sizeBytes: file.size,
         },
       })
+      setUploadedMediaIds((previous) =>
+        previous.includes(saved.id) ? previous : [...previous, saved.id],
+      )
 
       setUploadState('done')
       toast.success('Media uploaded successfully')
@@ -79,5 +83,6 @@ export function useMediaUpload(taskId: string) {
     setUploadState,
     fileInputRef,
     handleFileSelected,
+    uploadedMediaIds,
   }
 }

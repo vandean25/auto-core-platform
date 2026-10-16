@@ -86,6 +86,7 @@ function setupDefaultMocks(task = makeTask()) {
   asMock(mechanicApi.useCreateMediaUploadPolicy).mockReturnValue(createMutationMock())
   asMock(mechanicApi.useSaveMediaMetadata).mockReturnValue(createMutationMock())
   asMock(mechanicApi.useUploadVoiceNote).mockReturnValue(createMutationMock())
+  asMock(mechanicApi.useSubmitMechanicFinding).mockReturnValue(createMutationMock())
 }
 
 type MockMediaRecorderInstance = {
@@ -338,6 +339,58 @@ describe('MechanicTaskDetailPage', () => {
       expect(screen.queryByText(/john doe/i)).not.toBeInTheDocument()
       expect(screen.queryByText(/john@/i)).not.toBeInTheDocument()
       expect(screen.queryByText(/\+\d{10}/)).not.toBeInTheDocument()
+    })
+  })
+
+  // ─── Advisor finding submit (AUT-538) ───────────────────────────────────────
+
+  describe('submit finding to advisor', () => {
+    it('calls submitFinding when notes exist and the task is in progress', async () => {
+      const saveMock = vi.fn().mockResolvedValue({
+        taskId: TASK_ID,
+        mechanicNotes: 'Oil leak at filter housing for pilot customer vehicle.',
+      })
+      const submitMock = vi.fn().mockResolvedValue({
+        proposalId: 'proposal-538',
+        traceId: 'trace-538',
+        actionType: 'workshop_order.mechanic_finding',
+      })
+      setupDefaultMocks(
+        makeTask({
+          taskStatus: 'IN_PROGRESS',
+          mechanicNotes: 'Oil leak at filter housing for pilot customer vehicle.',
+        }),
+      )
+      asMock(mechanicApi.useSaveDiagnostics).mockReturnValue({
+        mutateAsync: saveMock,
+        isPending: false,
+      })
+      asMock(mechanicApi.useSubmitMechanicFinding).mockReturnValue({
+        mutateAsync: submitMock,
+        isPending: false,
+      })
+
+      renderDetailPage()
+
+      const button = screen.getByRole('button', { name: /send finding to advisor/i })
+      expect(button).not.toBeDisabled()
+      fireEvent.click(button)
+
+      await waitFor(() => expect(saveMock).toHaveBeenCalled())
+      await waitFor(() => expect(submitMock).toHaveBeenCalled())
+      expect(submitMock.mock.calls[0]?.[0]).toMatchObject({
+        taskId: TASK_ID,
+        payload: { command_id: expect.any(String) },
+      })
+      expect(toast.success).toHaveBeenCalledWith('Finding sent to the service advisor')
+    })
+
+    it('keeps submit disabled when diagnostic notes are empty', () => {
+      setupDefaultMocks(makeTask({ taskStatus: 'IN_PROGRESS', mechanicNotes: '' }))
+
+      renderDetailPage()
+
+      expect(screen.getByRole('button', { name: /send finding to advisor/i })).toBeDisabled()
     })
   })
 

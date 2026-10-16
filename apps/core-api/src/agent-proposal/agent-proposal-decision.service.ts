@@ -343,7 +343,8 @@ export class AgentProposalDecisionService {
       proposal.action_type !== 'workshop_order.create' &&
       proposal.action_type !== 'registration_intake.apply' &&
       proposal.action_type !== 'workshop.booking_package' &&
-      proposal.action_type !== 'purchase_order.propose_draft'
+      proposal.action_type !== 'purchase_order.propose_draft' &&
+      proposal.action_type !== 'workshop_order.mechanic_finding'
     ) {
       return;
     }

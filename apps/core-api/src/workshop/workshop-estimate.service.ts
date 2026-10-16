@@ -42,6 +42,7 @@ import {
 import {
   buildWorkshopEstimateLines,
   buildWorkshopEstimateTotals,
+  collectEstimateCustomerSendBlockers,
   collectEstimateSourceLines,
 } from './workshop-estimate-lines.helpers.js';
 import {
@@ -115,6 +116,7 @@ const ORDER_FOR_ESTIMATE_SELECT = {
           quantity: true,
           unit_price: true,
           part_execution_status: true,
+          fitment_notes: true,
         },
       },
     },
@@ -456,9 +458,17 @@ export class WorkshopEstimateService {
           scope,
           version.estimate.workshop_order_id,
         );
-        const lines = buildWorkshopEstimateLines(
-          collectEstimateSourceLines(order.tasks),
-        );
+        const sourceLines = collectEstimateSourceLines(order.tasks);
+        const sendBlockers = collectEstimateCustomerSendBlockers(sourceLines);
+        if (sendBlockers.length > 0) {
+          throw new UnprocessableEntityException({
+            code: 'ESTIMATE_CUSTOMER_SEND_BLOCKED',
+            message:
+              'The estimate cannot be sent to the customer until zero-price and claimed-fitment lines are resolved.',
+            blockers: sendBlockers,
+          });
+        }
+        const lines = buildWorkshopEstimateLines(sourceLines);
         if (lines.length === 0) {
           throw new UnprocessableEntityException({
             code: 'ESTIMATE_NO_LINES',
@@ -796,11 +806,16 @@ export class WorkshopEstimateService {
         ? await this.overruns.observe(scope.tenantId, approved.id, warning)
         : null;
 
+    const customerSendBlockers = collectEstimateCustomerSendBlockers(
+      collectEstimateSourceLines(order.tasks),
+    );
+
     return toWorkshopEstimateDto({
       estimate,
       overrun,
       sendEnabled: isCustomerEstimateSendEnabled(),
       thresholdPct,
+      customerSendBlockers,
     });
   }
 

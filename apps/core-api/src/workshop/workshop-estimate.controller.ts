@@ -38,6 +38,8 @@ import { WorkshopEstimatePdfService } from './workshop-estimate-pdf.service.js';
 import { WorkshopEstimateService } from './workshop-estimate.service.js';
 import { WorkshopEstimateApprovalService } from './workshop-estimate-approval.service.js';
 import { WorkshopOverrunNoticeService } from './workshop-overrun-notice.service.js';
+import { WorkshopMechanicFindingService } from './workshop-mechanic-finding.service.js';
+import { WorkshopMechanicFindingListResponseDto } from './dto/workshop-mechanic-finding.dto.js';
 
 async function servePdfDownload(
   estimates: WorkshopEstimateService,
@@ -65,7 +67,14 @@ export class WorkshopEstimateController {
     private readonly pdfService: WorkshopEstimatePdfService,
     private readonly approvals: WorkshopEstimateApprovalService,
     private readonly overrunNotices: WorkshopOverrunNoticeService,
+    private readonly mechanicFindings: WorkshopMechanicFindingService,
   ) {}
+
+  @Get('orders/:id/mechanic-findings')
+  @ApiOkResponse({ type: WorkshopMechanicFindingListResponseDto })
+  listMechanicFindings(@Param('id') id: string) {
+    return this.mechanicFindings.listForOrder(id);
+  }
 
   @Post('orders/:id/estimates')
   @ApiCreatedResponse({ type: WorkshopEstimateResponseDto })

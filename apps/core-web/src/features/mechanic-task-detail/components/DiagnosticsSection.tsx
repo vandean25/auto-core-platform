@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import type { SaveState, VoiceNoteState } from '../types'
 import { SaveStateIndicator } from './SaveStateIndicator'
 import { VoiceNoteControls } from './VoiceNoteControls'
@@ -16,6 +17,9 @@ type DiagnosticsSectionProps = {
   onVoiceDraftChange: (value: string) => void
   onAcceptVoiceDraft: () => void
   onDiscardVoiceDraft: () => void
+  canSubmitFinding?: boolean
+  submitFindingPending?: boolean
+  onSubmitFinding?: () => void
 }
 
 export function DiagnosticsSection({
@@ -31,6 +35,9 @@ export function DiagnosticsSection({
   onVoiceDraftChange,
   onAcceptVoiceDraft,
   onDiscardVoiceDraft,
+  canSubmitFinding = false,
+  submitFindingPending = false,
+  onSubmitFinding,
 }: DiagnosticsSectionProps) {
   return (
     <Card>
@@ -60,6 +67,18 @@ export function DiagnosticsSection({
           className="w-full resize-y rounded-md border border-slate-200 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 disabled:opacity-50"
           disabled={disabled}
         />
+        {onSubmitFinding && (
+          <div className="mt-4 flex justify-end">
+            <Button
+              type="button"
+              size="sm"
+              disabled={!canSubmitFinding || submitFindingPending}
+              onClick={onSubmitFinding}
+            >
+              {submitFindingPending ? 'Sending…' : 'Send finding to advisor'}
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   )

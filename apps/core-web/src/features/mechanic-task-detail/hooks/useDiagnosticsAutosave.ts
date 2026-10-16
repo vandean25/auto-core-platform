@@ -16,6 +16,11 @@ export function useDiagnosticsAutosave({ taskId, initialNotes }: UseDiagnosticsA
   const [notesInitialized, setNotesInitialized] = useState(false)
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const notesValueRef = useRef(notesValue)
+
+  useEffect(() => {
+    notesValueRef.current = notesValue
+  }, [notesValue])
 
   useEffect(() => {
     setNotesInitialized(false)
@@ -42,6 +47,15 @@ export function useDiagnosticsAutosave({ taskId, initialNotes }: UseDiagnosticsA
     }
   }, [cancelPendingSave])
 
+  const flushAndSaveNotes = useCallback(async (): Promise<void> => {
+    cancelPendingSave()
+    await saveDiagnostics.mutateAsync({
+      taskId,
+      payload: { mechanicNotes: notesValueRef.current },
+    })
+    setSaveState('saved')
+  }, [cancelPendingSave, saveDiagnostics, taskId])
+
   const handleNotesChange = (value: string) => {
     setNotesValue(value)
     setSaveState('saving')
@@ -62,5 +76,6 @@ export function useDiagnosticsAutosave({ taskId, initialNotes }: UseDiagnosticsA
     saveState,
     handleNotesChange,
     cancelPendingSave,
+    flushAndSaveNotes,
   }
 }

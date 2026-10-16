@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsEnum, IsString, IsUUID } from 'class-validator';
 import {
   EstimateApprovalChannel,
   EstimateApprovalDecision,
@@ -7,6 +8,24 @@ import {
   WorkshopEstimateStatus,
   WorkshopLineItemType,
 } from '@prisma/client';
+
+export class WorkshopEstimateCustomerSendBlockerDto {
+  @ApiProperty({ enum: ['ZERO_UNIT_PRICE', 'CLAIMED_FITMENT'] })
+  @IsEnum(['ZERO_UNIT_PRICE', 'CLAIMED_FITMENT'])
+  code!: 'ZERO_UNIT_PRICE' | 'CLAIMED_FITMENT';
+
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  source_line_id!: string;
+
+  @ApiProperty()
+  @IsString()
+  item_no!: string;
+
+  @ApiProperty()
+  @IsString()
+  description!: string;
+}
 
 export class WorkshopEstimateOverrunWarningDto {
   @ApiProperty()
@@ -169,6 +188,13 @@ export class WorkshopEstimateResponseDto {
 
   @ApiProperty({ type: String })
   overrun_threshold_pct!: string;
+
+  @ApiProperty({
+    type: [WorkshopEstimateCustomerSendBlockerDto],
+    description:
+      'Lines that block customer send until an advisor resolves zero price or claimed fitment.',
+  })
+  customer_send_blockers!: WorkshopEstimateCustomerSendBlockerDto[];
 }
 
 export class WorkshopEstimateListResponseDto {
