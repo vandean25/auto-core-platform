@@ -15,6 +15,7 @@ import { ResumeWaitingTasksPanel } from "@/components/workshop/ResumeWaitingTask
 import { InvoiceOverrunWarning } from "@/components/workshop/InvoiceOverrunWarning";
 import { canManageWorkshopEstimates } from "@/features/workshop/workshop-estimate-permissions";
 import { TyreSetsSummary } from "@/features/tyre-storage/TyreSetsSummary";
+import { WorkshopOrderMeasurementsSection } from "@/components/workshop/WorkshopOrderMeasurementsSection";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -420,6 +421,7 @@ export function WorkshopOrderDetails() {
 
         <VehicleIdentityBanner vehicleId={order.vehicle.id} />
         <TyreSetsSummary vehicleId={order.vehicle.id} readOnly as="h2" />
+        <WorkshopOrderMeasurementsSection orderId={order.id} />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
           <motion.div
