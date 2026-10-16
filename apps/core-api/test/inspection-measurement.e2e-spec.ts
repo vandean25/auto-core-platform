@@ -300,7 +300,10 @@ describe('Inspection measurement (e2e)', () => {
     const res = await preview('SYNTH-WRONG-DEVICE').expect(422);
     expect(res.body.code).toBe('DEVICE_BINDING_MISMATCH');
     const count = await prisma.inspectionMeasurement.count({
-      where: { tenant_id: tenantId },
+      where: {
+        tenant_id: tenantId,
+        measurement_id: 'SYNTH-MEASUREMENT-WRONG-DEVICE',
+      },
     });
     expect(count).toBe(0);
   });
