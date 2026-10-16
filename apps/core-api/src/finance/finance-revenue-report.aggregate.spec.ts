@@ -8,6 +8,10 @@ import {
 
 const d = (value: string) => new Prisma.Decimal(value);
 
+const marginSnapshot = (marginTax: string) => ({
+  margin: { margin_tax: marginTax, cost_basis: '0.00', tax_rate: '20.00' },
+});
+
 function workshopInvoice(
   overrides: Partial<RevenueInvoiceRow> & { id: string },
 ): RevenueInvoiceRow {
@@ -71,10 +75,12 @@ describe('finance-revenue-report.aggregate', () => {
         total_net: d('50.00'),
         total_tax: d('10.00'),
         total_gross: d('60.00'),
+        snapshot: null,
         original_invoice: {
           workshop_order_id: 'wo-1',
           vehicle_sale_id: null,
           tax_mode: InvoiceTaxMode.STANDARD,
+          total_tax: d('10.00'),
         },
         items: [
           {
@@ -179,10 +185,12 @@ describe('finance-revenue-report.aggregate', () => {
         total_net: d('45.00'),
         total_tax: d('9.00'),
         total_gross: d('54.00'),
+        snapshot: null,
         original_invoice: {
           workshop_order_id: 'wo-1',
           vehicle_sale_id: null,
           tax_mode: InvoiceTaxMode.STANDARD,
+          total_tax: d('9.00'),
         },
         items: [
           {
@@ -255,5 +263,148 @@ describe('finance-revenue-report.aggregate', () => {
     expect(report.totals.vat.toFixed(2)).toBe('500.00');
     expect(report.totals.net.toFixed(2)).toBe('10500.00');
     expect(report.totals.net.add(report.totals.vat).toFixed(2)).toBe('11000.00');
+  });
+
+  it('nets a full margin-scheme credit to zero using snapshot margin VAT', () => {
+    const invoices: RevenueInvoiceRow[] = [
+      {
+        id: 'margin-inv',
+        tax_mode: InvoiceTaxMode.MARGIN_SCHEME,
+        workshop_order_id: null,
+        vehicle_sale_id: 'sale-margin',
+        global_discount_type: null,
+        global_discount_value: null,
+        total_net: d('14500.00'),
+        total_tax: d('500.00'),
+        total_gross: d('15000.00'),
+        items: [
+          {
+            id: 'line-1',
+            revenue_group_name: 'Vehicle used (margin)',
+            quantity: d('1'),
+            unit_price: d('15000.00'),
+            line_total: d('15000.00'),
+            line_discount_type: null,
+            line_discount_value: null,
+            tax_rate: d('20'),
+          },
+        ],
+      },
+    ];
+    const creditNotes: RevenueCreditNoteRow[] = [
+      {
+        id: 'cn-margin-full',
+        total_net: d('15000.00'),
+        total_tax: d('0.00'),
+        total_gross: d('15000.00'),
+        snapshot: marginSnapshot('500.00'),
+        original_invoice: {
+          workshop_order_id: null,
+          vehicle_sale_id: 'sale-margin',
+          tax_mode: InvoiceTaxMode.MARGIN_SCHEME,
+          total_tax: d('500.00'),
+        },
+        items: [
+          {
+            snapshot: { net: '15000.00', tax: '0.00', gross: '15000.00' },
+            original_invoice_item: {
+              revenue_group_name: 'Vehicle used (margin)',
+            },
+          },
+        ],
+      },
+    ];
+
+    const report = aggregateRevenueReport({
+      period: { from: '2026-05-01', to: '2026-05-31', timezone: 'Europe/Vienna' },
+      site_id: 'site-1',
+      invoices,
+      creditNotes,
+    });
+
+    expect(report.totals.net.toFixed(2)).toBe('0.00');
+    expect(report.totals.vat.toFixed(2)).toBe('0.00');
+    expect(report.totals.gross.toFixed(2)).toBe('0.00');
+    expect(
+      report.by_source.find((row) => row.source === 'vehicle_sales'),
+    ).toMatchObject({ net: d('0.00'), vat: d('0.00'), gross: d('0.00') });
+  });
+
+  it('nets a full margin credit with trade-in to zero on net, VAT, and gross', () => {
+    const invoices: RevenueInvoiceRow[] = [
+      {
+        id: 'margin-trade',
+        tax_mode: InvoiceTaxMode.MARGIN_SCHEME,
+        workshop_order_id: null,
+        vehicle_sale_id: 'sale-trade',
+        global_discount_type: null,
+        global_discount_value: null,
+        total_net: d('14500.00'),
+        total_tax: d('500.00'),
+        total_gross: d('11000.00'),
+        items: [
+          {
+            id: 'line-sale',
+            revenue_group_name: 'Vehicle used (margin)',
+            quantity: d('1'),
+            unit_price: d('15000.00'),
+            line_total: d('15000.00'),
+            line_discount_type: null,
+            line_discount_value: null,
+            tax_rate: d('20'),
+          },
+          {
+            id: 'line-trade',
+            revenue_group_name: 'Vehicle used (margin)',
+            quantity: d('1'),
+            unit_price: d('-4000.00'),
+            line_total: d('-4000.00'),
+            line_discount_type: null,
+            line_discount_value: null,
+            tax_rate: d('20'),
+          },
+        ],
+      },
+    ];
+    const creditNotes: RevenueCreditNoteRow[] = [
+      {
+        id: 'cn-margin-trade',
+        total_net: d('11000.00'),
+        total_tax: d('0.00'),
+        total_gross: d('11000.00'),
+        snapshot: marginSnapshot('500.00'),
+        original_invoice: {
+          workshop_order_id: null,
+          vehicle_sale_id: 'sale-trade',
+          tax_mode: InvoiceTaxMode.MARGIN_SCHEME,
+          total_tax: d('500.00'),
+        },
+        items: [
+          {
+            snapshot: { net: '15000.00', tax: '0.00', gross: '15000.00' },
+            original_invoice_item: {
+              revenue_group_name: 'Vehicle used (margin)',
+            },
+          },
+          {
+            snapshot: { net: '-4000.00', tax: '0.00', gross: '-4000.00' },
+            original_invoice_item: {
+              revenue_group_name: 'Vehicle used (margin)',
+            },
+          },
+        ],
+      },
+    ];
+
+    const report = aggregateRevenueReport({
+      period: { from: '2026-06-01', to: '2026-06-30', timezone: 'Europe/Vienna' },
+      site_id: 'site-1',
+      invoices,
+      creditNotes,
+    });
+
+    expect(report.totals.net.toFixed(2)).toBe('0.00');
+    expect(report.totals.vat.toFixed(2)).toBe('0.00');
+    expect(report.totals.gross.toFixed(2)).toBe('0.00');
   });
 });

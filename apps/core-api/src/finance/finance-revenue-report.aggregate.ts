@@ -35,10 +35,12 @@ export type RevenueCreditNoteRow = {
   total_net: Prisma.Decimal;
   total_tax: Prisma.Decimal;
   total_gross: Prisma.Decimal;
+  snapshot: unknown;
   original_invoice: {
     workshop_order_id: string | null;
     vehicle_sale_id: string | null;
     tax_mode: InvoiceTaxMode;
+    total_tax: Prisma.Decimal;
   };
   items: Array<{
     snapshot: unknown;
@@ -227,6 +229,40 @@ function marginDocumentAmounts(
   return amountsFromParts(net, vat, gross);
 }
 
+const MARGIN_TAX_PATTERN = /^\d+\.\d{2}$/;
+
+function readMarginTaxFromCreditSnapshot(
+  snapshot: unknown,
+): Prisma.Decimal | null {
+  if (!snapshot || typeof snapshot !== 'object') {
+    return null;
+  }
+  const margin = (snapshot as { margin?: unknown }).margin;
+  if (!margin || typeof margin !== 'object') {
+    return null;
+  }
+  const marginTax = (margin as { margin_tax?: unknown }).margin_tax;
+  if (typeof marginTax !== 'string' || !MARGIN_TAX_PATTERN.test(marginTax)) {
+    return null;
+  }
+  return new Prisma.Decimal(marginTax);
+}
+
+/**
+ * Margin-scheme credits store `total_tax` as zero; margin VAT lives on the snapshot
+ * (`margin.margin_tax`), matching invoices where VAT is `total_tax` on the document.
+ */
+function marginCreditNoteDocumentAmounts(
+  creditNote: RevenueCreditNoteRow,
+): RevenueReportAmounts {
+  const gross = creditNote.total_gross;
+  const vat =
+    readMarginTaxFromCreditSnapshot(creditNote.snapshot) ??
+    creditNote.original_invoice.total_tax;
+  const net = gross.sub(vat);
+  return amountsFromParts(net, vat, gross);
+}
+
 function applyInvoice(
   invoice: RevenueInvoiceRow,
   bySource: Map<RevenueReportSource, RevenueReportAmounts>,
@@ -267,9 +303,7 @@ function applyCreditNote(
   const source = classifyRevenueSource(creditNote.original_invoice);
 
   if (creditNote.original_invoice.tax_mode === InvoiceTaxMode.MARGIN_SCHEME) {
-    const gross = creditNote.total_gross;
-    const vat = creditNote.total_tax;
-    const document = amountsFromParts(gross.sub(vat), vat, gross);
+    const document = marginCreditNoteDocumentAmounts(creditNote);
     subtractFromMap(bySource, source, document);
     const primaryGroup = revenueGroupLabel(
       creditNote.items[0]?.original_invoice_item.revenue_group_name,

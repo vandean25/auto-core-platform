@@ -402,11 +402,13 @@ export class FinanceService {
         total_net: true,
         total_tax: true,
         total_gross: true,
+        snapshot: true,
         original_invoice: {
           select: {
             workshop_order_id: true,
             vehicle_sale_id: true,
             tax_mode: true,
+            total_tax: true,
           },
         },
         items: {
