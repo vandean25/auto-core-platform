@@ -99,3 +99,5 @@ export function AppSidebarFooterShell({
     </div>
   )
 }
+
+export { AppSidebarFooterShell as AppSidebarFooter }

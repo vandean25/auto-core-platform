@@ -4,7 +4,7 @@ import { changeUiLanguage, i18n } from '@/lib/i18n'
 
 describe('i18n foundation', () => {
   it('loads German common resources by default in tests', () => {
-    expect(i18n.t('common:placeholders.missing')).toBe('—')
+    expect(i18n.t('common:shell.loading')).toBe('Laden…')
   })
 
   it('uses distinct Zod email messages per active locale', async () => {

@@ -78,7 +78,7 @@ describe('HR navigation visibility', () => {
       </SavedViewsProvider>,
     )
 
-    const hrLinks = screen.getAllByRole('link', { name: 'HR' })
+    const hrLinks = screen.getAllByRole('link', { name: 'Personal' })
     expect(hrLinks).toHaveLength(1)
     expect(hrLinks[0]).toHaveAttribute('href', '/hr/employees')
     expect(hrLinks[0]).toHaveClass('bg-slate-800', 'text-white')
@@ -95,7 +95,7 @@ describe('HR navigation visibility', () => {
         </SavedViewsProvider>,
       )
 
-      const hrLink = screen.getByRole('link', { name: 'HR' })
+      const hrLink = screen.getByRole('link', { name: 'Personal' })
       expect(hrLink).toHaveAttribute('aria-current', 'page')
       expect(hrLink).toHaveClass('bg-slate-800', 'text-white')
     },

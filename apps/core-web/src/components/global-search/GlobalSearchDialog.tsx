@@ -27,7 +27,7 @@ interface GlobalSearchDialogProps {
 }
 
 export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogProps) {
-  const { t } = useTranslation('nav')
+  const { t, i18n } = useTranslation('nav')
   const [search, setSearch] = React.useState('')
   const query = search.trim()
   const truncatedQuery = truncate(query)
@@ -56,7 +56,9 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
 
   const filteredQuickActions = React.useMemo(
     () => filterQuickActionSections(getGlobalSearchQuickActionSections(), query),
-    [query],
+    // i18n.language: quick-action labels must refresh when the UI locale changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- locale is intentional memo input
+    [query, i18n.language],
   )
 
   const hasAnyResults =

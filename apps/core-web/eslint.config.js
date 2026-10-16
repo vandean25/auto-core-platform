@@ -70,16 +70,4 @@ export default defineConfig([
     },
   },
   shellI18nEslintConfig,
-  {
-    // Kept byte-identical to main for Repowise; AppSidebar imports *Shell / TenantSwitcherView instead.
-    files: [
-      'src/components/navigation/TenantSwitcher.tsx',
-      'src/components/navigation/SiteSwitcher.tsx',
-      'src/components/navigation/AppSidebarFooter.tsx',
-      'src/components/global-search/GlobalSearchResultGroups.tsx',
-    ],
-    rules: {
-      'i18next/no-literal-string': 'off',
-    },
-  },
 ])

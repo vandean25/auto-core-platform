@@ -106,3 +106,5 @@ export function TenantSwitcherView({
     </section>
   )
 }
+
+export { TenantSwitcherView as TenantSwitcher }

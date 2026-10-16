@@ -6,7 +6,6 @@ import {
   useLocation,
   type Location,
 } from 'react-router-dom'
-import { AnimatePresence, LayoutGroup, motion } from 'framer-motion'
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -31,196 +30,21 @@ import {
   APP_ROUTE_PATHS,
   LANDING_DEMO_SIGN_IN_FINISH_ALT_PATH,
   LOGIN_PATH,
-  MECHANIC_ROUTE_PATHS,
   isKnownAppPath,
 } from '@/lib/app-route-paths'
-import { isAgentSupervisionEnabled } from '@/lib/runtime-flags'
 import { isMechanicPath, isPlatformPath } from '@/lib/shell-paths'
 import { GlobalErrorBoundary } from '@/components/GlobalErrorBoundary'
 import { NewVersionAvailableBanner } from '@/components/NewVersionAvailableBanner'
 import { RouteTitle } from '@/components/RouteTitle'
 import { PageBreadcrumbsProvider, PageContainerWithBreadcrumbs } from '@/components/layout/PageBreadcrumbs'
 import { PageLoader } from '@/components/ui/PageLoader'
-import { lazyWithRetry } from '@/lib/lazyWithRetry'
-
+import { AppRoutes, MechanicRoutes } from '@/app/AppRouteTree'
+import { MechanicAccessDeniedPage, NotFoundPage } from '@/app/lazy-app-pages'
 import LandingDemoEmailLinkCompletionPage from '@/pages/LandingDemoEmailLinkCompletionPage'
 import LandingDemoSessionRejectedPage from '@/pages/LandingDemoSessionRejectedPage'
 import LoginPage from '@/pages/LoginPage'
 
-const PickerlDueList = lazyWithRetry(() => import('@/pages/vehicles/PickerlDueList'))
-const GewaehrleistungDueList = lazyWithRetry(() => import('@/pages/vehicles/GewaehrleistungDueList'))
-const NotFoundPage = lazyWithRetry(() => import('@/pages/NotFoundPage'))
-const InventoryList = lazyWithRetry(() => import('./pages/InventoryList'))
-const InventoryLedgerPage = lazyWithRetry(() => import('./pages/inventory/InventoryLedgerPage'))
-const VendorList = lazyWithRetry(() => import('./pages/vendors/VendorList'))
-const VendorDetail = lazyWithRetry(() => import('./pages/vendors/VendorDetail'))
-const PurchaseOrderList = lazyWithRetry(() => import('./pages/purchase-orders/PurchaseOrderList'))
-const PurchaseOrderCreate = lazyWithRetry(() => import('./pages/purchase-orders/PurchaseOrderCreate'))
-const PurchaseOrderDetail = lazyWithRetry(() => import('./pages/purchase-orders/PurchaseOrderDetail'))
-const StockTransferList = lazyWithRetry(() => import('./pages/stock-transfers/StockTransferList'))
-const StockTransferDetail = lazyWithRetry(() => import('./pages/stock-transfers/StockTransferDetail'))
-const SalesInvoiceNewPage = lazyWithRetry(() => import('./pages/sales/SalesInvoiceNewPage'))
-const InvoiceDraftEditPage = lazyWithRetry(() => import('./pages/sales/InvoiceDraftEditPage'))
-const InvoiceListPage = lazyWithRetry(() => import('./pages/sales/InvoiceListPage'))
-const InvoiceDetailPage = lazyWithRetry(() => import('./pages/sales/InvoiceDetailPage'))
-const PurchaseInvoiceCreatePage = lazyWithRetry(() => import('./pages/purchase-invoices/PurchaseInvoiceCreatePage'))
-const PurchaseBillsPage = lazyWithRetry(() => import('./pages/purchase-bills/PurchaseBillsPage'))
-const PurchaseBillDetailPage = lazyWithRetry(() => import('./pages/purchase-bills/PurchaseBillDetailPage'))
-const PurchaseBillCreatePage = lazyWithRetry(() => import('./pages/purchase-bills/PurchaseBillCreatePage'))
-const CreditNotesPage = lazyWithRetry(() => import('./pages/finance/CreditNotesPage'))
-const CreditNoteDetailPage = lazyWithRetry(() => import('./pages/finance/CreditNoteDetailPage'))
-const AccountingExportReadinessPage = lazyWithRetry(() => import('./pages/finance/AccountingExportReadinessPage'))
-const SettingsPage = lazyWithRetry(() => import('./pages/SettingsPage'))
-const DashboardPage = lazyWithRetry(() => import('./pages/DashboardPage'))
-const PlatformTenantsPage = lazyWithRetry(() => import('./pages/platform/PlatformTenantsPage'))
-const IntakeDashboard = lazyWithRetry(() =>
-  import('./pages/workshop/IntakeDashboard').then((m) => ({ default: m.IntakeDashboard })),
-)
-const WorkshopOrderDetails = lazyWithRetry(() => import('./pages/workshop/WorkshopOrderDetails'))
-const WorkshopOrderLayout = lazyWithRetry(() => import('./pages/workshop/WorkshopOrderLayout'))
-const WorkshopOrderWarrantyClaims = lazyWithRetry(() => import('./pages/workshop/WorkshopOrderWarrantyClaims'))
-const WorkshopOrderList = lazyWithRetry(() => import('./pages/workshop/WorkshopOrderList'))
-const WorkshopPickList = lazyWithRetry(() => import('./pages/workshop/WorkshopPickList'))
-const WorkshopBoard = lazyWithRetry(() => import('./pages/workshop/WorkshopBoard'))
-const WorkshopPlannerPage = lazyWithRetry(() => import('./pages/workshop/WorkshopPlannerPage'))
-const WorkshopCapacityPage = lazyWithRetry(() => import('./pages/workshop/WorkshopCapacityPage'))
-const LoanerVehiclesPage = lazyWithRetry(() => import('./pages/workshop/LoanerVehiclesPage'))
-const LoanerBookingPrintPage = lazyWithRetry(() => import('./pages/workshop/LoanerBookingPrintPage'))
-const TyreStorageListPage = lazyWithRetry(() => import('./pages/tyre-storage/TyreStorageListPage'))
-const TyreSetDetailPage = lazyWithRetry(() => import('./pages/tyre-storage/TyreSetDetailPage'))
-const CustomerList = lazyWithRetry(() => import('./pages/customers/CustomerList'))
-const CustomerDetail = lazyWithRetry(() => import('./pages/customers/CustomerDetail'))
-const VehicleDetail = lazyWithRetry(() => import('./pages/vehicles/VehicleDetail'))
-const VehicleList = lazyWithRetry(() => import('./pages/vehicles/VehicleList'))
-const VehicleStockList = lazyWithRetry(() => import('./pages/vehicle-stock/VehicleStockList'))
-const VehicleStockReportsPage = lazyWithRetry(() => import('./pages/vehicle-stock/VehicleStockReportsPage'))
-const WorkshopKpiReportsPage = lazyWithRetry(() => import('./pages/reports/WorkshopKpiReportsPage'))
-const VehicleStockDetail = lazyWithRetry(() => import('./pages/vehicle-stock/VehicleStockDetail'))
-const VehiclePurchasePage = lazyWithRetry(() => import('./pages/vehicle-stock/VehiclePurchasePage'))
-const VehicleSalePage = lazyWithRetry(() => import('./pages/vehicle-stock/VehicleSalePage'))
-const SalesOrderList = lazyWithRetry(() => import('./pages/sales-orders/SalesOrderList'))
-const SalesOrderCreate = lazyWithRetry(() => import('./pages/sales-orders/SalesOrderCreate'))
-const SalesOrderDetail = lazyWithRetry(() => import('./pages/sales-orders/SalesOrderDetail'))
-const HrLayout = lazyWithRetry(() => import('./pages/hr/HrLayout'))
-const HrEmployeesPage = lazyWithRetry(() => import('./pages/hr/HrEmployeesPage'))
-const HrClockPage = lazyWithRetry(() => import('./pages/hr/HrClockPage'))
-const HrLeavePage = lazyWithRetry(() => import('./pages/hr/HrLeavePage'))
-const MechanicQueuePage = lazyWithRetry(() => import('./pages/mechanic/MechanicQueuePage'))
-const MechanicTaskDetailPage = lazyWithRetry(() => import('./pages/mechanic/MechanicTaskDetailPage'))
-const MechanicAccessDeniedPage = lazyWithRetry(() => import('./pages/mechanic/MechanicAccessDeniedPage'))
-const AgentSupervisionPage = lazyWithRetry(() => import('./pages/agent/AgentSupervisionPage'))
-
 const SIDEBAR_COLLAPSED_STORAGE_KEY = 'acp:sidebar-collapsed'
-
-export function AppRoutes() {
-  const location = useLocation()
-
-  return (
-    <LayoutGroup id="app-routes">
-      <React.Suspense fallback={<PageLoader />}>
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={location.pathname}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1, transition: { duration: 0.2, ease: 'easeOut' } }}
-            exit={{ opacity: 0, transition: { duration: 0.16, ease: 'easeIn' } }}
-          >
-            <Routes location={location}>
-              <Route path={APP_ROUTE_PATHS.home} element={<Navigate to={APP_ROUTE_PATHS.inventory} replace />} />
-              <Route path={APP_ROUTE_PATHS.inventory} element={<InventoryList />} />
-              <Route path={APP_ROUTE_PATHS.inventoryLedger} element={<InventoryLedgerPage />} />
-              <Route path={APP_ROUTE_PATHS.dashboard} element={<DashboardPage />} />
-              <Route
-                path={APP_ROUTE_PATHS.agentSupervision}
-                element={
-                  isAgentSupervisionEnabled() ? (
-                    <AgentSupervisionPage />
-                  ) : (
-                    <Navigate to={APP_ROUTE_PATHS.home} replace />
-                  )
-                }
-              />
-              <Route path={APP_ROUTE_PATHS.customers} element={<CustomerList />} />
-              <Route path={APP_ROUTE_PATHS.customerDetail} element={<CustomerDetail />} />
-              <Route path={APP_ROUTE_PATHS.vehicles} element={<VehicleList />} />
-              <Route path={APP_ROUTE_PATHS.vehiclePickerlDue} element={<React.Suspense fallback={<PageLoader />}><PickerlDueList /></React.Suspense>} />
-              <Route path={APP_ROUTE_PATHS.vehicleGewaehrleistungDue} element={<React.Suspense fallback={<PageLoader />}><GewaehrleistungDueList /></React.Suspense>} />
-              <Route
-                path={APP_ROUTE_PATHS.vehicleStockAlias}
-                element={<Navigate to={APP_ROUTE_PATHS.vehicleStock} replace />}
-              />
-              <Route path={APP_ROUTE_PATHS.vehicleDetail} element={<VehicleDetail />} />
-              <Route path={APP_ROUTE_PATHS.vehicleStock} element={<VehicleStockList />} />
-              <Route path={APP_ROUTE_PATHS.vehicleStockReports} element={<VehicleStockReportsPage />} />
-              <Route path={APP_ROUTE_PATHS.workshopKpiReports} element={<WorkshopKpiReportsPage />} />
-              <Route path={APP_ROUTE_PATHS.vehicleStockPurchaseNew} element={<VehiclePurchasePage />} />
-              <Route path={APP_ROUTE_PATHS.vehicleStockPurchaseDetail} element={<VehiclePurchasePage />} />
-              <Route path={APP_ROUTE_PATHS.vehicleStockSaleNew} element={<VehicleSalePage />} />
-              <Route path={APP_ROUTE_PATHS.vehicleStockSaleDetail} element={<VehicleSalePage />} />
-              <Route path={APP_ROUTE_PATHS.vehicleStockDetail} element={<VehicleStockDetail />} />
-              <Route path={APP_ROUTE_PATHS.salesOrders} element={<SalesOrderList />} />
-              <Route path={APP_ROUTE_PATHS.salesOrderNew} element={<SalesOrderCreate />} />
-              <Route path={APP_ROUTE_PATHS.salesOrderDetail} element={<SalesOrderDetail />} />
-              <Route path={APP_ROUTE_PATHS.vendors} element={<VendorList />} />
-              <Route path={APP_ROUTE_PATHS.vendorDetail} element={<VendorDetail />} />
-              <Route path={APP_ROUTE_PATHS.purchaseOrders} element={<PurchaseOrderList />} />
-              <Route path={APP_ROUTE_PATHS.purchaseOrderNew} element={<PurchaseOrderCreate />} />
-              <Route path={APP_ROUTE_PATHS.purchaseOrderDetail} element={<PurchaseOrderDetail />} />
-              <Route path={APP_ROUTE_PATHS.stockTransfers} element={<StockTransferList />} />
-              <Route path={APP_ROUTE_PATHS.stockTransferDetail} element={<StockTransferDetail />} />
-              <Route path={APP_ROUTE_PATHS.purchaseBills} element={<PurchaseBillsPage />} />
-              <Route path={APP_ROUTE_PATHS.purchaseBillNew} element={<PurchaseBillCreatePage />} />
-              <Route path={APP_ROUTE_PATHS.purchaseBillDetail} element={<PurchaseBillDetailPage />} />
-              <Route path={APP_ROUTE_PATHS.salesInvoiceNew} element={<SalesInvoiceNewPage />} />
-              <Route path={APP_ROUTE_PATHS.salesInvoiceEdit} element={<InvoiceDraftEditPage />} />
-              <Route path={APP_ROUTE_PATHS.salesInvoiceDetail} element={<InvoiceDetailPage />} />
-              <Route path={APP_ROUTE_PATHS.salesInvoices} element={<InvoiceListPage />} />
-              <Route
-                path={APP_ROUTE_PATHS.financeInvoices}
-                element={<Navigate to={APP_ROUTE_PATHS.salesInvoices} replace />}
-              />
-              <Route
-                path={APP_ROUTE_PATHS.invoicesLegacy}
-                element={<Navigate to={APP_ROUTE_PATHS.salesInvoices} replace />}
-              />
-              <Route path={APP_ROUTE_PATHS.creditNotes} element={<CreditNotesPage />} />
-              <Route path={APP_ROUTE_PATHS.creditNoteDetail} element={<CreditNoteDetailPage />} />
-              <Route path={APP_ROUTE_PATHS.accountingExportReadiness} element={<AccountingExportReadinessPage />} />
-              <Route path={APP_ROUTE_PATHS.purchaseInvoiceNew} element={<PurchaseInvoiceCreatePage />} />
-              <Route path={APP_ROUTE_PATHS.settings} element={<SettingsPage />} />
-              <Route path={APP_ROUTE_PATHS.hr} element={<HrLayout />}>
-                <Route index element={<Navigate to="employees" replace />} />
-                <Route path="employees" element={<HrEmployeesPage />} />
-                <Route path="clock" element={<HrClockPage />} />
-                <Route path="leave" element={<HrLeavePage />} />
-              </Route>
-              <Route path={APP_ROUTE_PATHS.platformTenants} element={<PlatformTenantsPage />} />
-              <Route path={APP_ROUTE_PATHS.workshopIntake} element={<IntakeDashboard />} />
-              <Route path={APP_ROUTE_PATHS.workshopOrders} element={<WorkshopOrderList />} />
-              <Route
-                path={APP_ROUTE_PATHS.workshopPick}
-                element={<Navigate to={APP_ROUTE_PATHS.workshopPickList} replace />}
-              />
-              <Route path={APP_ROUTE_PATHS.workshopPickList} element={<WorkshopPickList />} />
-              <Route path={APP_ROUTE_PATHS.workshopBoard} element={<WorkshopBoard />} />
-              <Route path={APP_ROUTE_PATHS.workshopPlanner} element={<WorkshopPlannerPage />} />
-              <Route path={APP_ROUTE_PATHS.workshopCapacity} element={<WorkshopCapacityPage />} />
-              <Route path={APP_ROUTE_PATHS.workshopLoanerVehicles} element={<LoanerVehiclesPage />} />
-              <Route path={APP_ROUTE_PATHS.workshopLoanerBookingPrint} element={<LoanerBookingPrintPage />} />
-              <Route path={APP_ROUTE_PATHS.workshopOrderDetail} element={<WorkshopOrderLayout />}>
-                <Route index element={<WorkshopOrderDetails />} />
-                <Route path="garantie-kulanz" element={<WorkshopOrderWarrantyClaims />} />
-              </Route>
-              <Route path={APP_ROUTE_PATHS.tyreStorage} element={<TyreStorageListPage />} />
-              <Route path={APP_ROUTE_PATHS.tyreStorageDetail} element={<TyreSetDetailPage />} />
-              <Route path="*" element={<NotFoundPage />} />
-            </Routes>
-          </motion.div>
-        </AnimatePresence>
-      </React.Suspense>
-    </LayoutGroup>
-  )
-}
 
 type AppMainProps = {
   sidebarCollapsed: boolean
@@ -349,33 +173,6 @@ function AppShell({
         </RealtimeDashboardSyncProvider>
       </DashboardWidgetsProvider>
     </SavedViewsProvider>
-  )
-}
-
-// ─── Mechanic routes ──────────────────────────────────────────────────────────
-
-function MechanicRoutes() {
-  const location = useLocation()
-  return (
-    <LayoutGroup id="mechanic-routes">
-      <React.Suspense fallback={<PageLoader />}>
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={location.pathname}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1, transition: { duration: 0.2, ease: 'easeOut' } }}
-            exit={{ opacity: 0, transition: { duration: 0.16, ease: 'easeIn' } }}
-          >
-            <Routes location={location}>
-              <Route path={MECHANIC_ROUTE_PATHS.queue} element={<MechanicQueuePage />} />
-              <Route path={MECHANIC_ROUTE_PATHS.taskDetail} element={<MechanicTaskDetailPage />} />
-              <Route path={MECHANIC_ROUTE_PATHS.root} element={<Navigate to={MECHANIC_ROUTE_PATHS.queue} replace />} />
-              <Route path="*" element={<NotFoundPage />} />
-            </Routes>
-          </motion.div>
-        </AnimatePresence>
-      </React.Suspense>
-    </LayoutGroup>
   )
 }
 
@@ -572,6 +369,7 @@ function App() {
   )
 }
 
+export { AppRoutes, MechanicRoutes } from '@/app/AppRouteTree'
 export { MechanicShell } from '@/components/shell/MechanicShell'
 
 export default App

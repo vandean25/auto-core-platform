@@ -1,7 +1,6 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { changeUiLanguage } from '@/lib/i18n'
 import { GlobalSearch } from './GlobalSearch'
 import * as searchHook from '@/hooks/useGlobalSearch'
 
@@ -23,7 +22,7 @@ const emptySearchResults = {
   error: null,
 }
 
-const SEARCH_PLACEHOLDER = 'Teile, Kunden, Fahrzeuge, Aufträge…'
+const SEARCH_PLACEHOLDER = 'Search parts, customers, vehicles, jobs…'
 
 function renderPalette(onOpenChange = vi.fn()) {
   render(
@@ -35,8 +34,7 @@ function renderPalette(onOpenChange = vi.fn()) {
 }
 
 describe('GlobalSearch no-result hint and quick action routing', () => {
-  beforeEach(async () => {
-    await changeUiLanguage('de')
+  beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(searchHook.useGlobalSearch).mockReturnValue(emptySearchResults)
   })
@@ -51,9 +49,9 @@ describe('GlobalSearch no-result hint and quick action routing', () => {
     fireEvent.change(input, { target: { value: 'zzz unknown' } })
 
     expect(
-      screen.getByText(/Keine Teile, Kunden, Fahrzeuge, Aufträge oder Befehle passen zu „zzz unknown“/),
+      screen.getByText(/No parts, customers, vehicles, jobs, or commands match “zzz unknown”/),
     ).toBeInTheDocument()
-    expect(screen.getByText(/Vollständigen Namen/)).toBeInTheDocument()
+    expect(screen.getByText(/Try a full name \(first and last\)/)).toBeInTheDocument()
   })
 
   it('does not show the no-result hint before the user types', () => {
@@ -65,8 +63,8 @@ describe('GlobalSearch no-result hint and quick action routing', () => {
   it('opens the sales order list from "Find a sales order to invoice" and closes the palette', () => {
     const { input, onOpenChange } = renderPalette()
 
-    fireEvent.change(input, { target: { value: 'rechnung' } })
-    fireEvent.click(screen.getByText('Kundenauftrag zum Fakturieren finden'))
+    fireEvent.change(input, { target: { value: 'invoice' } })
+    fireEvent.click(screen.getByText('Find a sales order to invoice'))
 
     expect(mockNavigate).toHaveBeenCalledWith('/sales-orders')
     expect(onOpenChange).toHaveBeenCalledWith(false)
@@ -83,8 +81,8 @@ describe('GlobalSearch no-result hint and quick action routing', () => {
   it('routes Create Sales Order to the new sales order form', () => {
     const { input } = renderPalette()
 
-    fireEvent.change(input, { target: { value: 'kundenauftrag' } })
-    fireEvent.click(screen.getByText('Kundenauftrag anlegen'))
+    fireEvent.change(input, { target: { value: 'sales order' } })
+    fireEvent.click(screen.getByText('Create Sales Order'))
 
     expect(mockNavigate).toHaveBeenCalledWith('/sales-orders/new')
   })

@@ -160,3 +160,5 @@ export function SiteSwitcherShell({
     </section>
   )
 }
+
+export { SiteSwitcherShell as SiteSwitcher }
