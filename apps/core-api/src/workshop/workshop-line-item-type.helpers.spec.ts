@@ -11,6 +11,9 @@ describe('workshop-line-item-type.helpers', () => {
     expect(resolveWorkshopLineItemType('LABOR')).toBe(WorkshopLineItemType.LABOR);
     expect(resolveWorkshopLineItemType('PART')).toBe(WorkshopLineItemType.PART);
     expect(resolveWorkshopLineItemType('FEE')).toBe(WorkshopLineItemType.FEE);
+    expect(resolveWorkshopLineItemType('unknown')).toBe(
+      WorkshopLineItemType.PART,
+    );
   });
 
   it('assigns revenue groups for labor and fee lines', () => {
