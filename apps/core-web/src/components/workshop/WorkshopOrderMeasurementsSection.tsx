@@ -53,9 +53,9 @@ export function WorkshopOrderMeasurementsSection({
   }
 
   return (
-    <Card>
-      <CardHeader className='flex flex-row items-center justify-between space-y-0'>
-        <div>
+    <Card className='min-w-0 overflow-hidden'>
+      <CardHeader className='flex flex-col gap-3 space-y-0 sm:flex-row sm:items-center sm:justify-between'>
+        <div className='min-w-0'>
           <CardTitle>Geräteergebnis Bremsen</CardTitle>
           <p className='text-sm text-muted-foreground'>
             Externe Bremsmessung prüfen und als Nachweis übernehmen.
@@ -63,6 +63,7 @@ export function WorkshopOrderMeasurementsSection({
         </div>
         <Button
           variant='outline'
+          className='shrink-0 self-start sm:self-center'
           onClick={() => {
             resetDialog()
             setDialogOpen(true)
@@ -89,7 +90,7 @@ export function WorkshopOrderMeasurementsSection({
                     MEASUREMENT_IMPORT_STATE_LABELS[row.state] ?? row.state
                   }
                 />
-                <span className='text-muted-foreground'>
+                <span className='min-w-0 break-all text-muted-foreground'>
                   {row.native_measurement_reference}
                 </span>
                 {row.quarantine_reason ? (
