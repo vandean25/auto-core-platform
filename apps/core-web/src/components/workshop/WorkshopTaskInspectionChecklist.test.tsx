@@ -4,12 +4,18 @@ import * as workshopApi from '@/api/workshop'
 import { WorkshopTaskInspectionChecklist } from './WorkshopTaskInspectionChecklist'
 
 vi.mock('@/api/workshop')
+vi.mock('@/api/inspection-catalogues', () => ({
+  useCatalogueReferenceResolution: () => ({ data: null }),
+  useInspectionCatalogueReferences: () => ({ data: [] }),
+  useAttachCatalogueReference: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}))
 
 describe('WorkshopTaskInspectionChecklist', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(workshopApi.useWorkshopTaskChecklist).mockReturnValue({
       data: {
+        id: 'inspection-1',
         title: '§57a Vorbereitung',
         items: [{ id: 'item-1', label_snapshot: 'Beleuchtung', passed: null, notes: null }],
       },

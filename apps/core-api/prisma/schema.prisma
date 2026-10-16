@@ -82,6 +82,12 @@ model Tenant {
   inspectionReportIdentities    InspectionReportIdentity[]
   externalInspectionResults     ExternalInspectionResult[]
   inspectionExchangeEvents      InspectionExchangeEvent[]
+  inspectionCatalogueVersions   InspectionCatalogueVersion[]
+  inspectionCatalogueEntries    InspectionCatalogueEntry[]
+  inspectionCatalogueActivations TenantInspectionCatalogueActivation[]
+  inspectionCatalogueImports    InspectionCatalogueImport[]
+  inspectionFindingReferences   InspectionFindingReference[]
+  inspectionSupportEvents       InspectionSupportEvent[]
   vehicleValuationSnapshots     VehicleValuationSnapshot[]
   salesOrders                   SalesOrder[]
   salesOrderItems               SalesOrderItem[]
@@ -819,6 +825,10 @@ model Site {
   inspectionExchangeImports   InspectionExchangeImport[]
   externalInspectionResults     ExternalInspectionResult[]
   inspectionExchangeEvents      InspectionExchangeEvent[]
+  inspectionCatalogueActivations TenantInspectionCatalogueActivation[]
+  inspectionCatalogueImports    InspectionCatalogueImport[]
+  inspectionFindingReferences   InspectionFindingReference[]
+  inspectionSupportEvents       InspectionSupportEvent[]
   outboundTransfers        StockTransfer[]       @relation("StockTransferFromSite")
   inboundTransfers         StockTransfer[]       @relation("StockTransferToSite")
   salesOrders              SalesOrder[]
@@ -2192,6 +2202,180 @@ model InspectionExchangeEvent {
 
   @@index([tenant_id, import_id, created_at])
   @@map("inspection_exchange_events")
+}
+
+enum InspectionCatalogueSourceKind {
+  STATUTORY_REFERENCE
+  APPROVED_CATALOGUE
+  TEST_ONLY
+}
+
+enum InspectionCatalogueCoverage {
+  SUBSET
+  COMPLETE
+}
+
+enum InspectionCatalogueImportState {
+  RECEIVED
+  REJECTED
+  READY_FOR_ACTIVATION
+  ACTIVATED
+  CONFLICT
+}
+
+enum InspectionReferenceResolutionStatus {
+  RESOLVED
+  UNKNOWN_CODE
+  STALE_CATALOG
+  OUT_OF_SCOPE
+  NOT_CONFIGURED
+  SOURCE_CONFLICT
+}
+
+enum InspectionSupportContractKind {
+  INSPECTION_CATALOGUE
+  INSPECTOR_EVIDENCE
+  BRAKE_MEASUREMENT
+  EXTERNAL_RESULT
+}
+
+model InspectionCatalogueVersion {
+  id                    String                        @id @default(uuid())
+  tenant_id             String
+  tenant                Tenant                        @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  schema_version        String                        @db.VarChar(32)
+  source_kind           InspectionCatalogueSourceKind
+  publisher             String
+  source_uri            String
+  source_document_id    String                        @db.VarChar(256)
+  source_version        String                        @db.VarChar(128)
+  valid_from            DateTime                      @db.Date
+  valid_to              DateTime?                     @db.Date
+  retrieved_at          DateTime
+  verified_current_at   DateTime
+  recheck_after         DateTime
+  content_sha256        String                        @db.Char(64)
+  coverage              InspectionCatalogueCoverage
+  rights                String                        @db.VarChar(128)
+  approval_evidence_ref String?                       @db.VarChar(128)
+  createdAt             DateTime                      @default(now())
+
+  entries             InspectionCatalogueEntry[]
+  activations         TenantInspectionCatalogueActivation[]
+  findingReferences   InspectionFindingReference[]
+  stagedImports       InspectionCatalogueImport[] @relation("StagedCatalogueVersion")
+
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, source_kind, source_version, content_sha256])
+  @@index([tenant_id, source_kind, valid_from])
+  @@map("inspection_catalogue_versions")
+}
+
+model InspectionCatalogueEntry {
+  id                   String                   @id @default(uuid())
+  tenant_id            String
+  tenant               Tenant                   @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  catalogue_version_id String
+  catalogueVersion     InspectionCatalogueVersion @relation(fields: [tenant_id, catalogue_version_id], references: [tenant_id, id], onDelete: Restrict)
+  position_id          String                   @db.VarChar(64)
+  entry_id             String?                  @db.VarChar(64)
+  entry_locator        String                   @db.VarChar(192)
+  label                String
+  allowed_groups       Json
+  vehicle_scope        String                   @db.VarChar(64)
+  createdAt            DateTime                 @default(now())
+
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, catalogue_version_id, entry_locator])
+  @@index([tenant_id, catalogue_version_id, position_id])
+  @@map("inspection_catalogue_entries")
+}
+
+model TenantInspectionCatalogueActivation {
+  id                   String                   @id @default(uuid())
+  tenant_id            String
+  tenant               Tenant                   @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  site_id              String
+  site                 Site                     @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
+  catalogue_version_id String
+  catalogueVersion     InspectionCatalogueVersion @relation(fields: [tenant_id, catalogue_version_id], references: [tenant_id, id], onDelete: Restrict)
+  source_kind          InspectionCatalogueSourceKind
+  activated_at         DateTime
+  activated_by_user_id String
+  deactivated_at       DateTime?
+  createdAt            DateTime                 @default(now())
+
+  @@unique([tenant_id, id])
+  @@index([tenant_id, site_id, source_kind, deactivated_at])
+  @@map("tenant_inspection_catalogue_activations")
+}
+
+model InspectionCatalogueImport {
+  id                   String                         @id @default(uuid())
+  tenant_id            String
+  tenant               Tenant                         @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  site_id              String
+  site                 Site                           @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
+  state                InspectionCatalogueImportState
+  manifest_reference   String                         @db.VarChar(128)
+  preview_fingerprint  String?                        @db.Char(64)
+  manifest_digest      String?                        @db.Char(64)
+  preview_expires_at   DateTime?
+  error_code           String?                        @db.VarChar(64)
+  version              Int                            @default(0)
+  staged_version_id    String?
+  stagedVersion        InspectionCatalogueVersion?    @relation("StagedCatalogueVersion", fields: [tenant_id, staged_version_id], references: [tenant_id, id], onDelete: Restrict)
+  created_by_user_id   String
+  activated_by_user_id String?
+  activated_at         DateTime?
+  createdAt            DateTime                       @default(now())
+  updatedAt            DateTime                       @updatedAt
+
+  @@unique([tenant_id, id])
+  @@index([tenant_id, site_id, createdAt])
+  @@map("inspection_catalogue_imports")
+}
+
+model InspectionFindingReference {
+  id                       String                   @id @default(uuid())
+  tenant_id                String
+  tenant                   Tenant                   @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  site_id                  String
+  site                     Site                     @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
+  workshop_inspection_id   String
+  workshopInspection       WorkshopInspection       @relation(fields: [tenant_id, workshop_inspection_id], references: [tenant_id, id], onDelete: Restrict)
+  catalogue_version_id     String
+  catalogueVersion         InspectionCatalogueVersion @relation(fields: [tenant_id, catalogue_version_id], references: [tenant_id, id], onDelete: Restrict)
+  position_id              String                   @db.VarChar(64)
+  entry_id                 String?                  @db.VarChar(64)
+  label_snapshot           String
+  allowed_groups_snapshot  Json
+  provenance_snapshot      Json
+  human_finding_label      String?
+  created_by_user_id       String
+  createdAt                DateTime                 @default(now())
+
+  @@unique([tenant_id, id])
+  @@index([tenant_id, workshop_inspection_id])
+  @@map("inspection_finding_references")
+}
+
+model InspectionSupportEvent {
+  id              String                        @id @default(uuid())
+  tenant_id       String
+  tenant          Tenant                        @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  site_id         String?
+  site            Site?                         @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
+  contract_kind   InspectionSupportContractKind
+  object_id       String                        @db.VarChar(64)
+  source_digest   String?                       @db.Char(64)
+  reason          String?                       @db.VarChar(128)
+  actor_user_id   String?
+  detail_redacted Json?
+  created_at      DateTime                      @default(now())
+
+  @@index([tenant_id, contract_kind, object_id, created_at])
+  @@map("inspection_support_events")
 }
 
 model VehicleValuationSnapshot {
@@ -3741,6 +3925,7 @@ model WorkshopInspection {
   inspection_template    InspectionTemplate?      @relation(fields: [tenant_id, inspection_template_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
   title                  String
   items                  WorkshopInspectionItem[]
+  catalogueFindingReferences InspectionFindingReference[]
   createdAt              DateTime                 @default(now())
   updatedAt              DateTime                 @updatedAt
 

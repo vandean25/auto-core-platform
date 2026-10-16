@@ -18,6 +18,7 @@ type ExtractionViewState = {
   polling: boolean;
   timedOut: boolean;
   startedAt: number | null;
+  pollingSuspended: boolean;
 };
 
 function restoreExtractionState(legalEntityId: string): ExtractionViewState {
@@ -27,7 +28,14 @@ function restoreExtractionState(legalEntityId: string): ExtractionViewState {
   } catch {
     // The in-memory state still works when browser storage is unavailable.
   }
-  return { legalEntityId, extractionId, polling: false, timedOut: false, startedAt: null };
+  return {
+    legalEntityId,
+    extractionId,
+    polling: false,
+    timedOut: false,
+    startedAt: null,
+    pollingSuspended: false,
+  };
 }
 
 function persistExtractionId(legalEntityId: string, extractionId: string) {
@@ -59,7 +67,8 @@ export function LetterheadImport({
   const scopedState = viewState.legalEntityId === legalEntityId
     ? viewState
     : restoreExtractionState(legalEntityId);
-  const { extractionId, polling, timedOut, startedAt } = scopedState;
+  const { extractionId, polling, timedOut, startedAt, pollingSuspended } =
+    scopedState;
   const updateCurrentEntityState = React.useCallback(
     (update: Partial<ExtractionViewState>) => {
       setViewState((current) => {
@@ -93,7 +102,7 @@ export function LetterheadImport({
       if (polling) updateCurrentEntityState({ polling: false });
       return;
     }
-    if (polling || timedOut) return;
+    if (polling || timedOut || pollingSuspended) return;
     setViewState((current) => {
       const ownerState = current.legalEntityId === legalEntityId
         ? current
@@ -105,7 +114,15 @@ export function LetterheadImport({
         startedAt: ownerState.startedAt ?? Date.now(),
       };
     });
-  }, [extraction.data, extractionId, legalEntityId, polling, timedOut, updateCurrentEntityState]);
+  }, [
+    extraction.data,
+    extractionId,
+    legalEntityId,
+    polling,
+    pollingSuspended,
+    timedOut,
+    updateCurrentEntityState,
+  ]);
 
   React.useEffect(() => {
     if (!polling || !extractionId) return;
@@ -136,6 +153,7 @@ export function LetterheadImport({
         extractionId: job.id,
         startedAt: Date.now(),
         timedOut: false,
+        pollingSuspended: false,
         polling: job.state === "QUEUED" || job.state === "RUNNING",
       });
     } catch (error) {
@@ -149,6 +167,7 @@ export function LetterheadImport({
     updateCurrentEntityState({
       timedOut: false,
       startedAt: Date.now(),
+      pollingSuspended: false,
       polling: true,
     });
     await extraction.refetch();
@@ -158,7 +177,11 @@ export function LetterheadImport({
     if (!extractionId) return;
     try {
       await discard.mutateAsync({ legalEntityId, extractionId });
-      updateCurrentEntityState({ polling: false, timedOut: false });
+      updateCurrentEntityState({
+        polling: false,
+        timedOut: false,
+        pollingSuspended: true,
+      });
     } catch (error) {
       toast.error("Extraction could not be discarded", {
         description: error instanceof Error ? error.message : "Try again.",

@@ -443,6 +443,12 @@ export async function cleanupTestTenantGraph(
   await tenantPrisma.inspectionExchangeImport.deleteMany({});
   await tenantPrisma.inspectionReportIdentity.deleteMany({});
   await tenantPrisma.inspectionSourceConnection.deleteMany({});
+  await tenantPrisma.inspectionFindingReference.deleteMany({});
+  await tenantPrisma.inspectionSupportEvent.deleteMany({});
+  await tenantPrisma.inspectionCatalogueImport.deleteMany({});
+  await tenantPrisma.tenantInspectionCatalogueActivation.deleteMany({});
+  await tenantPrisma.inspectionCatalogueEntry.deleteMany({});
+  await tenantPrisma.inspectionCatalogueVersion.deleteMany({});
   await tenantPrisma.vehicleLedgerEntry.deleteMany({});
   await tenantPrisma.creditNoteItem.deleteMany({});
   await tenantPrisma.creditNote.deleteMany({});

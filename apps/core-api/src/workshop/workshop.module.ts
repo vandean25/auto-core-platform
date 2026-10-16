@@ -54,10 +54,12 @@ import { LoanerVehiclesModule } from '../loaner-vehicles/loaner-vehicles.module.
 import { WorkshopBookingPackageService } from './workshop-booking-package.service.js';
 import { WorkshopPositionPlanService } from './workshop-position-plan.service.js';
 import { MechanicMediaStorage } from '../mechanic/mechanic-media.storage.js';
+import { InspectionCatalogModule } from '../inspection-catalog/inspection-catalog.module.js';
 
 @Module({
   imports: [
     PrismaModule,
+    InspectionCatalogModule,
     LoanerVehiclesModule,
     NotificationsModule,
     DomainEventStoreModule,

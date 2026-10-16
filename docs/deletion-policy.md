@@ -55,6 +55,12 @@ This document defines when deletion is allowed in Auto Core Platform.
 | InspectionReportIdentity | No direct delete | Immutable ZBD report-to-vehicle binding; retained while associated external results exist. |
 | ExternalInspectionResult | No | Append-only applied evidence; corrections are new revisions, not updates. Tenant purge only. |
 | InspectionExchangeEvent | No | Append-only audit correlation for imports/results. Tenant purge only. |
+| InspectionCatalogueVersion | No | Immutable activated source manifest; new versions supersede activation only. Tenant purge only. |
+| InspectionCatalogueEntry | No | Immutable rows for an activated catalogue version. Tenant purge only. |
+| TenantInspectionCatalogueActivation | Deactivate preferred | New activation sets `deactivated_at` on prior row; history retained. |
+| InspectionCatalogueImport | Retention-bound | Unapplied previews purge after 30 days unless legal hold or unresolved `CONFLICT`. Activated imports retained with their version. |
+| InspectionFindingReference | No | Immutable snapshot on a workshop inspection; deleting checklist/order/site does not cascade-remove references (FK `Restrict`). |
+| InspectionSupportEvent | No | Append-only cross-contract support audit. Tenant purge only. |
 | SalesOrder | Draft-only | Allow only in `DRAFT` and only when no linked `Invoice` exists. |
 | SalesOrderItem | No direct delete | Managed by parent `SalesOrder` lifecycle. |
 | Invoice | No | Financial/legal document; use status cancellation flow. |
