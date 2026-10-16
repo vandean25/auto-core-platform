@@ -81,6 +81,10 @@ export function connectionNotFound() {
   return new NotFoundException('Inspection source connection not found');
 }
 
+export function vehicleNotFound() {
+  return new NotFoundException('Vehicle not found');
+}
+
 export function inspectionImportForbidden() {
   return new ForbiddenException('Insufficient role for inspection import');
 }

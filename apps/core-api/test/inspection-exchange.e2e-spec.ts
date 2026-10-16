@@ -29,8 +29,9 @@ describe('Inspection exchange (e2e)', () => {
   let legalEntityId: string;
   let vehicleId: string;
   let connectionId: string;
+  let ownerFirebaseUid: string;
 
-  async function previewResult(reference = 'SYNTH-RESULT-001') {
+  function previewResult(reference = 'SYNTH-RESULT-001') {
     return request(app.getHttpServer())
       .post(`/api/vehicles/${vehicleId}/inspection-imports/preview`)
       .set('Authorization', `Bearer ${token}`)
@@ -40,7 +41,7 @@ describe('Inspection exchange (e2e)', () => {
       });
   }
 
-  async function applyImport(previewBody: {
+  function applyImport(previewBody: {
     id: string;
     fingerprint: string;
     version: number;
@@ -69,6 +70,7 @@ describe('Inspection exchange (e2e)', () => {
     basePrisma = app.get(PrismaService);
     const testTenant = await createTestTenant(basePrisma, 'inspection-exchange');
     tenantId = testTenant.tenantId;
+    ownerFirebaseUid = testTenant.firebaseUid;
     prisma = createTenantAwarePrisma(basePrisma, tenantId);
     token = createTestAuthToken(app.get(AuthService), testTenant);
 
@@ -355,11 +357,11 @@ describe('Inspection exchange (e2e)', () => {
       app.get(AuthService),
       {
         tenantId,
-        firebaseUid: 'mechanic-uid',
+        firebaseUid: ownerFirebaseUid,
         email: 'mechanic@test.local',
         role: 'ADMIN',
       },
-      { role: 'MECHANIC', sub: 'mechanic-uid' },
+      { role: 'MECHANIC', sub: ownerFirebaseUid },
     );
 
     await request(app.getHttpServer())

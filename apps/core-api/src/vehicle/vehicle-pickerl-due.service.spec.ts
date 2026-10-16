@@ -10,6 +10,9 @@ describe('VehiclePickerlDueService', () => {
     findOpenPickerlOrders: jest.Mock;
   };
   let service: VehiclePickerlDueService;
+  let pickerlBarriers: {
+    loadBarrierFlagsByVehicleIds: jest.Mock;
+  };
 
   const overdueVehicle = {
     id: 'vehicle-overdue',
@@ -43,8 +46,12 @@ describe('VehiclePickerlDueService', () => {
       findPickerlCandidates: jest.fn(),
       findOpenPickerlOrders: jest.fn(),
     };
+    pickerlBarriers = {
+      loadBarrierFlagsByVehicleIds: jest.fn().mockResolvedValue(new Map()),
+    };
     service = new VehiclePickerlDueService(
       persistence as unknown as VehiclePersistenceService,
+      pickerlBarriers as never,
     );
   });
 

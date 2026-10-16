@@ -41,6 +41,7 @@ describe('McpOrderHistoryReadService', () => {
   let vehicle: { findFirst: jest.Mock };
   let customerService: { findOne: jest.Mock };
   let documentReads: { listDocuments: jest.Mock };
+  let pickerlBarriers: { loadBarrierFlags: jest.Mock };
 
   beforeEach(() => {
     workshopOrder = orderModel();
@@ -79,6 +80,9 @@ describe('McpOrderHistoryReadService', () => {
         truncated: false,
       }),
     };
+    pickerlBarriers = {
+      loadBarrierFlags: jest.fn().mockResolvedValue({}),
+    };
     service = new McpOrderHistoryReadService(
       {
         workshopOrder,
@@ -92,6 +96,7 @@ describe('McpOrderHistoryReadService', () => {
       {
         getTenantId: jest.fn().mockResolvedValue(TENANT_ID),
       } as unknown as TenantContextService,
+      pickerlBarriers as never,
       customerService as unknown as CustomerService,
       documentReads as unknown as McpDocumentReadService,
     );

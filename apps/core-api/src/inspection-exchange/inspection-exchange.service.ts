@@ -11,6 +11,7 @@ import {
 } from './inspection-exchange-canonical.js';
 import {
   connectionNotFound,
+  vehicleNotFound,
   exchangeNotConfigured,
   externalResultConflict,
   importNotFound,
@@ -80,7 +81,7 @@ export class InspectionExchangeService {
       },
     });
     if (!vehicle) {
-      throw vehicleIdentityMismatch();
+      throw vehicleNotFound();
     }
 
     const connection = await this.prisma.inspectionSourceConnection.findFirst({

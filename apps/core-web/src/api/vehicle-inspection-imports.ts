@@ -2,13 +2,22 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { components } from '@/api/generated/openapi'
 import { fetchWithAuth } from './client'
 import { vehicleKeys } from '@/api/vehicles'
+import { vehicleInspectionKeys } from '@/api/vehicle-inspection-records'
+
+export const inspectionImportKeys = {
+  all: ['inspection-imports'] as const,
+  sourceConnections: () =>
+    [...inspectionImportKeys.all, 'source-connections'] as const,
+  vehicleImports: (vehicleId: string) =>
+    [...vehicleKeys.detail(vehicleId), 'inspection-imports'] as const,
+}
 
 export type InspectionImportPreview =
   components['schemas']['InspectionImportPreviewResponseDto']
 
 export function useInspectionSourceConnections() {
   return useQuery({
-    queryKey: ['inspection-source-connections'],
+    queryKey: inspectionImportKeys.sourceConnections(),
     queryFn: async () => {
       const response = await fetchWithAuth('/api/inspection-source-connections')
       if (!response.ok) {
@@ -28,7 +37,7 @@ export function useInspectionSourceConnections() {
 
 export function useInspectionImports(vehicleId: string) {
   return useQuery({
-    queryKey: [...vehicleKeys.detail(vehicleId), 'inspection-imports'],
+    queryKey: inspectionImportKeys.vehicleImports(vehicleId),
     queryFn: async () => {
       const response = await fetchWithAuth(
         `/api/vehicles/${encodeURIComponent(vehicleId)}/inspection-imports?limit=20`,
@@ -70,7 +79,7 @@ export function usePreviewInspectionImport(vehicleId: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: [...vehicleKeys.detail(vehicleId), 'inspection-imports'],
+        queryKey: inspectionImportKeys.vehicleImports(vehicleId),
       })
     },
   })
@@ -106,7 +115,7 @@ export function useApplyInspectionImport(vehicleId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: vehicleKeys.detail(vehicleId) })
       queryClient.invalidateQueries({
-        queryKey: [...vehicleKeys.detail(vehicleId), 'inspection-records'],
+        queryKey: vehicleInspectionKeys.all(vehicleId),
       })
       queryClient.invalidateQueries({ queryKey: vehicleKeys.pickerlDueAll() })
     },
