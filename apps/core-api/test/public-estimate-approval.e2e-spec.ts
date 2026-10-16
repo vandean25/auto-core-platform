@@ -272,7 +272,7 @@ describe('Public estimate approval (e2e, ADR-0025 §7)', () => {
   });
 
   it('approves once: records the evidence, moves the version and answers gone afterwards', async () => {
-    const { versionId, rawToken } = await estimateSentByEmail();
+    const { orderId, versionId, rawToken } = await estimateSentByEmail();
 
     const decided = await publicDecide(rawToken, APPROVE).expect(200);
 
@@ -393,6 +393,22 @@ describe('Public estimate approval (e2e, ADR-0025 §7)', () => {
         reason: 'CUSTOMER_ESTIMATE_APPROVED',
       }),
     );
+
+    await prisma.workshopOrder.update({
+      where: { id: orderId },
+      data: { status: 'INVOICED' },
+    });
+    const triageAfterInvoice = await api()
+      .get('/api/agent-supervision/triage')
+      .set(adminAuth())
+      .expect(200);
+    expect(triageAfterInvoice.body.data).not.toContainEqual(
+      expect.objectContaining({
+        kind: 'CUSTOMER_DECISION',
+        entity_id: notices[0].id,
+      }),
+    );
+    void orderId;
   });
 
   it('declines without confirmations and records the decision', async () => {

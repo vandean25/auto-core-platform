@@ -4,6 +4,8 @@ import {
   NotificationEventType,
   NotificationOutboxStatus,
   WorkshopEstimateStatus,
+  WorkshopOrderStatus,
+  WorkshopTaskStatus,
   type Prisma,
 } from '@prisma/client';
 import type { SupervisionTriageCandidate } from '../agent-supervision/agent-supervision-triage-order.js';
@@ -66,6 +68,42 @@ export class WorkshopEstimateDecisionTriageService {
           });
     const versionStatus = new Map(versions.map((v) => [v.id, v.status]));
 
+    const candidateOrderIds = [
+      ...new Set(
+        rows
+          .map((row) => {
+            const payload = readPayload(row.payload);
+            return payload?.workshop_order_id ?? row.workshop_order_id;
+          })
+          .filter(
+            (id): id is string => typeof id === 'string' && id.length > 0,
+          ),
+      ),
+    ];
+    const orders =
+      candidateOrderIds.length === 0
+        ? []
+        : await this.prisma.workshopOrder.findMany({
+            where: { tenant_id: tenantId, id: { in: candidateOrderIds } },
+            select: { id: true, status: true },
+          });
+    const orderStatus = new Map(orders.map((o) => [o.id, o.status]));
+    const waitingTaskGroups =
+      candidateOrderIds.length === 0
+        ? []
+        : await this.prisma.workshopTask.groupBy({
+            by: ['workshop_order_id'],
+            where: {
+              tenant_id: tenantId,
+              workshop_order_id: { in: candidateOrderIds },
+              status: WorkshopTaskStatus.WAITING_CUSTOMER,
+            },
+            _count: { _all: true },
+          });
+    const waitingCustomerCountByOrder = new Map(
+      waitingTaskGroups.map((g) => [g.workshop_order_id, g._count._all]),
+    );
+
     const items: SupervisionTriageCandidate[] = [];
     for (const row of rows) {
       const payload = readPayload(row.payload);
@@ -92,7 +130,16 @@ export class WorkshopEstimateDecisionTriageService {
       if (!orderId) {
         continue;
       }
-      const reason = triageReasonFromPayload(payload);
+      const orderState = orderStatus.get(orderId);
+      if (
+        orderState === WorkshopOrderStatus.COMPLETED ||
+        orderState === WorkshopOrderStatus.INVOICED
+      ) {
+        continue;
+      }
+      const waitingCustomerCount =
+        waitingCustomerCountByOrder.get(orderId) ?? 0;
+      const reason = triageReasonFromPayload(payload, waitingCustomerCount);
       items.push({
         kind: 'CUSTOMER_DECISION',
         entity_id: row.id,
@@ -119,9 +166,11 @@ function readPayload(
 
 function triageReasonFromPayload(
   payload: EstimateDecisionNoticePayload | null,
+  waitingCustomerCount: number,
 ): string {
   const decision = payload?.decision;
-  const needsReview = payload?.needs_human_review === true;
+  const needsReview =
+    payload?.needs_human_review === true && waitingCustomerCount > 0;
   if (decision === 'APPROVED') {
     return needsReview
       ? 'CUSTOMER_ESTIMATE_APPROVED_REVIEW_WAITING_TASKS'

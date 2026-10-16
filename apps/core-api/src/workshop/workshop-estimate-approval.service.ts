@@ -28,7 +28,7 @@ import {
   appendEstimateDecisionDomainEvent,
   resolveAdvisorDecidedAt,
 } from './workshop-estimate-decision.helpers.js';
-import { wakeEstimateDecidedConsumerAfterCommit } from './wake-estimate-decided-consumer.js';
+import { runEstimateDecidedConsumerAfterCommit } from './wake-estimate-decided-consumer.js';
 import { WorkshopEstimateDecidedConsumerService } from './workshop-estimate-decided-consumer.service.js';
 import {
   resolveActorUserId,
@@ -98,8 +98,8 @@ export class WorkshopEstimateApprovalService {
       })
       .catch(mapDecisionWriteError);
 
-    await this.estimateDecidedConsumer.processTenantBatch(scope.tenantId);
-    await wakeEstimateDecidedConsumerAfterCommit(
+    await runEstimateDecidedConsumerAfterCommit(
+      this.estimateDecidedConsumer,
       this.estimateDecidedConsumerWakeUps,
       scope.tenantId,
     );

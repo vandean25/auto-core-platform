@@ -22,7 +22,7 @@ import { DomainEventConsumerCloudTasksService } from '../../domain-event-consume
 import { RequestContextService } from '../../common/services/request-context.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { appendEstimateDecisionDomainEvent } from '../workshop-estimate-decision.helpers.js';
-import { wakeEstimateDecidedConsumerAfterCommit } from '../wake-estimate-decided-consumer.js';
+import { runEstimateDecidedConsumerAfterCommit } from '../wake-estimate-decided-consumer.js';
 import { WorkshopEstimateDecidedConsumerService } from '../workshop-estimate-decided-consumer.service.js';
 import { hashApprovalToken } from '../workshop-estimate-approval-token.helpers.js';
 import type { WorkshopEstimateSnapshot } from '../workshop-estimate-snapshot.js';
@@ -126,13 +126,11 @@ export class PublicEstimateApprovalService {
     await this.prisma.$transaction((tx) =>
       this.recordDecision(tx, approval, version, input, request, now),
     );
-    await this.estimateDecidedConsumer.processTenantBatch(
-      approval.tenantId,
-      now,
-    );
-    await wakeEstimateDecidedConsumerAfterCommit(
+    await runEstimateDecidedConsumerAfterCommit(
+      this.estimateDecidedConsumer,
       this.estimateDecidedConsumerWakeUps,
       approval.tenantId,
+      now,
     );
     return {
       decision: input.approve ? 'APPROVED' : 'DECLINED',

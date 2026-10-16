@@ -287,12 +287,12 @@ export const SUPERVISION_COPY = {
         de: 'Kostenvoranschlag wartet auf Kundenantwort',
       },
       CUSTOMER_ESTIMATE_APPROVED: {
-        en: 'Pilot customer approved the estimate (KVA)',
-        de: 'Pilotkunde hat den Kostenvoranschlag bestätigt',
+        en: 'Customer approved the estimate (KVA)',
+        de: 'Kunde hat den Kostenvoranschlag bestätigt',
       },
       CUSTOMER_ESTIMATE_DECLINED: {
-        en: 'Pilot customer declined the estimate (KVA)',
-        de: 'Pilotkunde hat den Kostenvoranschlag abgelehnt',
+        en: 'Customer declined the estimate (KVA)',
+        de: 'Kunde hat den Kostenvoranschlag abgelehnt',
       },
       CUSTOMER_ESTIMATE_APPROVED_REVIEW_WAITING_TASKS: {
         en: 'Estimate approved — review waiting tasks before resuming work',

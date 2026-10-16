@@ -88,7 +88,7 @@ export class WorkshopEstimateDecidedConsumerService {
         },
       });
       for (const event of events) {
-        await this.processOneEvent(tenantId, event.id, now);
+        await this.processOneEvent(tenantId, event.id, now, claimToken);
         processed += 1;
       }
     } finally {
@@ -152,6 +152,7 @@ export class WorkshopEstimateDecidedConsumerService {
     tenantId: string,
     eventId: string,
     now: Date,
+    claimToken: string,
   ): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
       const existing = await tx.domainEventConsumerDelivery.findFirst({
@@ -174,7 +175,13 @@ export class WorkshopEstimateDecidedConsumerService {
         return;
       }
       if (existing) {
-        await this.advanceCursor(tx, tenantId, event.sequence, event.id);
+        await this.advanceCursor(
+          tx,
+          tenantId,
+          claimToken,
+          event.sequence,
+          event.id,
+        );
         return;
       }
 
@@ -197,13 +204,20 @@ export class WorkshopEstimateDecidedConsumerService {
           notification_outbox_id: notificationOutboxId,
         },
       });
-      await this.advanceCursor(tx, tenantId, event.sequence, event.id);
+      await this.advanceCursor(
+        tx,
+        tenantId,
+        claimToken,
+        event.sequence,
+        event.id,
+      );
     });
   }
 
   private async advanceCursor(
     tx: Prisma.TransactionClient,
     tenantId: string,
+    claimToken: string,
     sequence: bigint,
     eventId: string,
   ): Promise<void> {
@@ -211,6 +225,8 @@ export class WorkshopEstimateDecidedConsumerService {
       where: {
         tenant_id: tenantId,
         consumer_key: this.consumerKey,
+        claim_token: claimToken,
+        cursor_sequence: { lt: sequence },
       },
       data: {
         cursor_sequence: sequence,
