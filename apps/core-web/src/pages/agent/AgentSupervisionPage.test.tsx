@@ -714,7 +714,6 @@ describe('AgentSupervisionPage', () => {
         workshop_order_id: ORDER_UUID,
         workshop_task_id: '44444444-4444-4444-4444-444444444444',
         expected_line_items_version: 0,
-        amount_tax_basis: 'NET',
         line_item: {
           type: 'PART',
           item_no: 'DEMO-PART-001',
@@ -836,8 +835,8 @@ describe('AgentSupervisionPage', () => {
       expect(lines.getByText('Brake pad set')).toBeInTheDocument()
       expect(lines.getByText('Part')).toBeInTheDocument()
       expect(lines.getByText('2')).toBeInTheDocument()
-      expect(lines.getByText('€250.00 (net)')).toBeInTheDocument()
-      expect(lines.getByText('€500.00 (net)')).toBeInTheDocument()
+      expect(lines.getAllByText('€250.00 (Tax basis not set)')).toHaveLength(1)
+      expect(lines.getAllByText('€500.00 (Tax basis not set)')).toHaveLength(1)
     })
 
     it('formats proposed line amounts as German euros', () => {
@@ -846,8 +845,8 @@ describe('AgentSupervisionPage', () => {
 
       const lines = within(screen.getByTestId('proposed-lines-wo-prop-1'))
       expect(lines.getByText('Teil')).toBeInTheDocument()
-      expect(lines.getByText(/250,00\s€ \(netto\)/)).toBeInTheDocument()
-      expect(lines.getByText(/500,00\s€ \(netto\)/)).toBeInTheDocument()
+      expect(lines.getByText(/250,00\s€ \(Steuerbasis nicht gesetzt\)/)).toBeInTheDocument()
+      expect(lines.getByText(/500,00\s€ \(Steuerbasis nicht gesetzt\)/)).toBeInTheDocument()
     })
 
     it('shows the proposal ID on the approval card', () => {
@@ -859,7 +858,7 @@ describe('AgentSupervisionPage', () => {
       )
     })
 
-    it('labels amounts as gross when amount_tax_basis is GROSS', () => {
+    it('labels amounts as gross when preview carries document.price_display GROSS', () => {
       renderWithProposals([
         workshopOrderProposal({
           id: 'wo-prop-gross',
@@ -871,12 +870,24 @@ describe('AgentSupervisionPage', () => {
           payload_json: {
             agent_id: 'workshop-agent',
             workshop_order_id: ORDER_UUID,
-            amount_tax_basis: 'GROSS',
+            workshop_task_id: '44444444-4444-4444-4444-444444444444',
+            expected_line_items_version: 0,
             line_item: {
               type: 'PART',
+              item_no: 'SKU-002',
               description: 'Line item 001',
               quantity: 1,
               unit_price_cents: 10000,
+            },
+          },
+          preview_json: {
+            payload: {},
+            would_change: [],
+            provisional: true,
+            preview: {
+              document: {
+                price_display: 'GROSS',
+              },
             },
           },
         }),
@@ -889,6 +900,38 @@ describe('AgentSupervisionPage', () => {
       expect(
         card.getByTestId('proposal-amount-wo-prop-gross'),
       ).toHaveTextContent('€100.00 (gross)')
+    })
+
+    it('labels purchase_order.propose_draft amounts as net from cost_basis.unit_cost_net', () => {
+      const poProposal = {
+        ...workshopOrderProposal(),
+        id: 'po-prop-net',
+        action_type: 'purchase_order.propose_draft',
+        payload_json: {
+          vendor_id: '00000000-0000-4000-8000-000000000010',
+          requisition_id: '00000000-0000-4000-8000-000000000011',
+          lines: [
+            {
+              reservation_id: '00000000-0000-4000-8000-000000000012',
+              catalog_item_id: '00000000-0000-4000-8000-000000000013',
+              cost_basis: { version: 1, unit_cost_net: '12.50' },
+            },
+          ],
+        },
+        effective_summary: {
+          target_type: 'PurchaseOrder',
+          target_id: 'e5555555-5555-4555-8555-555555555505',
+          amount_eur: 12.5,
+        },
+        workshop_order_summary: null,
+        preview_json: null,
+      }
+      renderWithProposals([poProposal])
+
+      const card = within(screen.getByTestId('proposal-card-po-prop-net'))
+      expect(
+        card.getByTestId('proposal-amount-po-prop-net'),
+      ).toHaveTextContent('€12.50 (net)')
     })
 
     it('shows Tax basis not set when amount_tax_basis is missing', () => {

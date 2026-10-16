@@ -2,80 +2,96 @@ import type { AgentProposal } from '@/api/agent-proposals'
 
 export type AmountTaxBasis = 'NET' | 'GROSS'
 
-const TAX_BASIS_KEYS = [
-  'amount_tax_basis',
-  'tax_basis',
-  'amountTaxBasis',
-  'taxBasis',
-] as const
+export type WorkshopPriceDisplay = 'GROSS' | 'NET_WITH_VAT'
+
+const PURCHASE_ORDER_PROPOSE_ACTION = 'purchase_order.propose_draft'
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
-function normalizeTaxBasis(value: unknown): AmountTaxBasis | null {
-  if (typeof value !== 'string') {
-    return null
-  }
-  const normalized = value.trim().toUpperCase()
-  if (normalized === 'NET' || normalized === 'NET_WITH_VAT') {
-    return 'NET'
-  }
-  if (normalized === 'GROSS') {
+function mapPriceDisplay(
+  value: unknown,
+): AmountTaxBasis | null {
+  if (value === 'GROSS') {
     return 'GROSS'
+  }
+  if (value === 'NET_WITH_VAT') {
+    return 'NET'
   }
   return null
 }
 
-function readTaxBasisFromRecord(
+function readDocumentPriceDisplay(
   record: Record<string, unknown> | null | undefined,
 ): AmountTaxBasis | null {
   if (!record) {
     return null
   }
-  for (const key of TAX_BASIS_KEYS) {
-    const basis = normalizeTaxBasis(record[key])
-    if (basis) {
-      return basis
-    }
+  const document = record.document
+  if (!isRecord(document)) {
+    return null
   }
-  if (isRecord(record.line_item)) {
-    return readTaxBasisFromRecord(record.line_item)
-  }
-  if (isRecord(record.context)) {
-    return readTaxBasisFromRecord(record.context)
-  }
-  return null
+  return mapPriceDisplay(document.price_display)
 }
 
-/** Reads net/gross basis from the proposal summary, payload, or preview (no inference). */
+/** Purchase-order propose payloads store net unit costs on each line (MCP / REST). */
+export function purchaseOrderPayloadUsesNetCostBasis(
+  payload: Record<string, unknown>,
+): boolean {
+  const lines = payload.lines
+  if (!Array.isArray(lines) || lines.length === 0) {
+    return false
+  }
+  return lines.every(
+    (line) =>
+      isRecord(line) &&
+      isRecord(line.cost_basis) &&
+      typeof line.cost_basis.unit_cost_net === 'string',
+  )
+}
+
+/**
+ * Reads net/gross from fields the backend actually stores on agent proposals.
+ * Does not infer from unit prices or workshop pricing rules.
+ */
 export function resolveProposalAmountTaxBasis(
   proposal: AgentProposal,
 ): AmountTaxBasis | null {
-  const summary = proposal.effective_summary as
-    | { amount_tax_basis?: unknown }
-    | undefined
-  const fromSummary = normalizeTaxBasis(summary?.amount_tax_basis)
-  if (fromSummary) {
-    return fromSummary
+  const payload = (proposal.payload_json ?? {}) as Record<string, unknown>
+
+  if (
+    proposal.action_type === PURCHASE_ORDER_PROPOSE_ACTION &&
+    purchaseOrderPayloadUsesNetCostBasis(payload)
+  ) {
+    return 'NET'
   }
 
-  const payload = (proposal.payload_json ?? {}) as Record<string, unknown>
-  const fromPayload = readTaxBasisFromRecord(payload)
-  if (fromPayload) {
-    return fromPayload
+  const fromPayloadDocument = readDocumentPriceDisplay(payload)
+  if (fromPayloadDocument) {
+    return fromPayloadDocument
   }
 
   const preview = (proposal.preview_json ?? null) as Record<string, unknown> | null
-  return readTaxBasisFromRecord(preview)
+  if (!preview) {
+    return null
+  }
+
+  const fromPreviewRoot = readDocumentPriceDisplay(preview)
+  if (fromPreviewRoot) {
+    return fromPreviewRoot
+  }
+
+  const nestedPreview = preview.preview
+  if (isRecord(nestedPreview)) {
+    return readDocumentPriceDisplay(nestedPreview)
+  }
+
+  return null
 }
 
-/** Line-level basis when present on the line payload; otherwise the proposal-level basis. */
+/** Workshop line amounts use the proposal-level basis (line payloads carry no basis flag). */
 export function resolveLineAmountTaxBasis(
   proposal: AgentProposal,
-  linePayload: Record<string, unknown>,
 ): AmountTaxBasis | null {
-  return (
-    readTaxBasisFromRecord(linePayload) ??
-    resolveProposalAmountTaxBasis(proposal)
-  )
+  return resolveProposalAmountTaxBasis(proposal)
 }

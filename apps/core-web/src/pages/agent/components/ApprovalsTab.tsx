@@ -484,12 +484,9 @@ export function ApprovalsTab({
             const proposedLines = isWorkshopOrderLine
               ? [getProposedLine(payload)]
               : []
-            const linePayload = isRecord(payload.line_item)
-              ? payload.line_item
-              : payload
             const proposalTaxBasis = resolveProposalAmountTaxBasis(proposal)
             const lineTaxBasis = isWorkshopOrderLine
-              ? resolveLineAmountTaxBasis(proposal, linePayload)
+              ? resolveLineAmountTaxBasis(proposal)
               : proposalTaxBasis
             const wouldChange = parseWouldChangeFromPreview(proposal.preview_json)
             const defaultChanges = getDefaultSupervisionChanges(wouldChange)
