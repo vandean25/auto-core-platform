@@ -7564,6 +7564,7 @@ export interface components {
             position_id: string;
             entry_id?: Record<string, never> | null;
             human_finding_label?: Record<string, never> | null;
+            vehicle_class?: Record<string, never> | null;
         };
         InspectionFindingReferenceResponseDto: {
             /** Format: uuid */

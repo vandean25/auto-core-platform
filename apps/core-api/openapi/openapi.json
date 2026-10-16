@@ -25317,6 +25317,10 @@
           "human_finding_label": {
             "type": "object",
             "nullable": true
+          },
+          "vehicle_class": {
+            "type": "object",
+            "nullable": true
           }
         },
         "required": [

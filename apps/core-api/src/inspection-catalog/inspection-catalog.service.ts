@@ -438,7 +438,7 @@ export class InspectionCatalogService {
         entry_id: dto.entry_id ?? null,
       },
       inspectionTime: now,
-      vehicleClass: null,
+      vehicleClass: dto.vehicle_class ?? null,
       forCurrentUse: true,
     });
     if (status === 'UNKNOWN_CODE') {

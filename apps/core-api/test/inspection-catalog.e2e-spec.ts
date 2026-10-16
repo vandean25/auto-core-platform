@@ -155,7 +155,6 @@ describe('Inspection catalogue (e2e)', () => {
   });
 
   it('rejects unknown catalogue codes', async () => {
-    await previewCatalogue();
     const resolve = await request(app.getHttpServer())
       .get('/api/inspection-catalogues/references')
       .query({ position_id: 'SYNTH-NOT-A-CODE' })
@@ -179,6 +178,7 @@ describe('Inspection catalogue (e2e)', () => {
         workshop_order_id: orderId,
         workshop_task_id: taskId,
         position_id: '0.1',
+        vehicle_class: 'M1',
       })
       .expect(201);
 
@@ -206,8 +206,6 @@ describe('Inspection catalogue (e2e)', () => {
         data: {
           firebaseUid: mechanicFirebaseUid,
           email: mechanicEmail,
-          active_tenant_id: tenantId,
-          active_site_id: siteId,
         },
       });
       mechanicUserId = mechanicUser.id;
@@ -223,6 +221,10 @@ describe('Inspection catalogue (e2e)', () => {
           site_id: siteId,
           is_active: true,
         },
+      });
+      await prisma.user.update({
+        where: { id: mechanicUserId },
+        data: { active_tenant_id: tenantId, active_site_id: siteId },
       });
     });
     const mechanicToken = createTestAuthToken(app.get(AuthService), {

@@ -126,6 +126,12 @@ export class CreateInspectionFindingReferenceDto {
   @IsString()
   @MaxLength(256)
   human_finding_label?: string | null;
+
+  @ApiProperty({ nullable: true, required: false })
+  @IsOptional()
+  @IsString()
+  @MaxLength(16)
+  vehicle_class?: string | null;
 }
 
 export class InspectionFindingReferenceResponseDto {
