@@ -31,6 +31,7 @@ describe('Inspection measurement (e2e)', () => {
   let siteId: string;
   let orderId: string;
   let deviceSourceId: string;
+  let vehicleId: string;
   const orderNumber = `SYNTH-ORDER-${Date.now()}`;
 
   function preview(reference = 'SYNTH-NATIVE-RESULT-1') {
@@ -117,6 +118,19 @@ describe('Inspection measurement (e2e)', () => {
         },
       });
       orderId = order.id;
+      vehicleId = vehicle.id;
+
+      await prisma.vehicleInspectionRecord.create({
+        data: {
+          tenant_id: tenantId,
+          vehicle_id: vehicle.id,
+          inspection_type: 'PICKERL_57A',
+          inspected_on: new Date('2025-06-01'),
+          plaketten_valid_until_year: 2027,
+          plaketten_valid_until_month: 6,
+          station_name: 'SYNTH-STATION',
+        },
+      });
 
       const profileDigest = createHash('sha256').update('TEST_ONLY').digest('hex');
       const deviceSource = await prisma.inspectionDeviceSource.create({
@@ -316,6 +330,28 @@ describe('Inspection measurement (e2e)', () => {
     expect(res.body.code).toBe('IMPLAUSIBLE_MEASUREMENT');
   });
 
+  it('rejects measured_at without timezone offset', async () => {
+    registerSyntheticMeasurement('SYNTH-NO-TZ', {
+      ...SYNTHETIC_BRAKE_MEASUREMENT,
+      measurement_id: 'SYNTH-MEASUREMENT-NO-TZ',
+      measured_at: '2026-10-16T11:15:00',
+      workshop_order_ref: orderNumber,
+    });
+    const res = await preview('SYNTH-NO-TZ').expect(400);
+    expect(res.body.code).toBe('INVALID_MEASUREMENT_PAYLOAD');
+  });
+
+  it('rejects future measured_at with INVALID_MEASUREMENT_PAYLOAD', async () => {
+    registerSyntheticMeasurement('SYNTH-FUTURE', {
+      ...SYNTHETIC_BRAKE_MEASUREMENT,
+      measurement_id: 'SYNTH-MEASUREMENT-FUTURE',
+      measured_at: '2030-10-16T11:15:00+02:00',
+      workshop_order_ref: orderNumber,
+    });
+    const res = await preview('SYNTH-FUTURE').expect(400);
+    expect(res.body.code).toBe('INVALID_MEASUREMENT_PAYLOAD');
+  });
+
   it('rejects malformed JSON with INVALID_MEASUREMENT_PAYLOAD', async () => {
     registerSyntheticMeasurement('SYNTH-MALFORMED-JSON', {
       ...SYNTHETIC_BRAKE_MEASUREMENT,
@@ -385,6 +421,54 @@ describe('Inspection measurement (e2e)', () => {
       })
       .expect(422);
     expect(res.body.code).toBe('NOT_CONFIGURED');
+  });
+
+  it('still applies when inspector qualification is expired (C2 not a brake gate)', async () => {
+    registerSyntheticMeasurement('SYNTH-QUAL-EXPIRED', {
+      ...SYNTHETIC_BRAKE_MEASUREMENT,
+      measurement_id: 'SYNTH-MEASUREMENT-QUAL-EXPIRED',
+      workshop_order_ref: orderNumber,
+    });
+    const previewRes = await preview('SYNTH-QUAL-EXPIRED').expect(201);
+    expect(previewRes.body.state).toBe('READY_FOR_REVIEW');
+    await applyImport(previewRes.body).expect(200);
+    const applied = await prisma.inspectionMeasurement.findFirst({
+      where: { measurement_id: 'SYNTH-MEASUREMENT-QUAL-EXPIRED' },
+    });
+    expect(applied).not.toBeNull();
+  });
+
+  it('does not mutate vehicle inspection due records or checklist on apply', async () => {
+    const recordsBefore = await prisma.vehicleInspectionRecord.findMany({
+      where: { tenant_id: tenantId, vehicle_id: vehicleId },
+    });
+    const checklistBefore = await prisma.workshopInspectionItem.count({
+      where: { tenant_id: tenantId },
+    });
+
+    registerSyntheticMeasurement('SYNTH-NO-SIDE-EFFECT', {
+      ...SYNTHETIC_BRAKE_MEASUREMENT,
+      measurement_id: 'SYNTH-MEASUREMENT-NO-SIDE-EFFECT',
+      workshop_order_ref: orderNumber,
+    });
+    const previewRes = await preview('SYNTH-NO-SIDE-EFFECT').expect(201);
+    await applyImport(previewRes.body).expect(200);
+
+    const recordsAfter = await prisma.vehicleInspectionRecord.findMany({
+      where: { tenant_id: tenantId, vehicle_id: vehicleId },
+    });
+    const checklistAfter = await prisma.workshopInspectionItem.count({
+      where: { tenant_id: tenantId },
+    });
+
+    expect(recordsAfter).toHaveLength(recordsBefore.length);
+    expect(recordsAfter[0]?.plaketten_valid_until_year).toBe(
+      recordsBefore[0]?.plaketten_valid_until_year,
+    );
+    expect(recordsAfter[0]?.plaketten_valid_until_month).toBe(
+      recordsBefore[0]?.plaketten_valid_until_month,
+    );
+    expect(checklistAfter).toBe(checklistBefore);
   });
 
   it('replays parallel apply with a single measurement row', async () => {

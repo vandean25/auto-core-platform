@@ -23,7 +23,7 @@ vi.mock('@/api/workshop-measurements', () => ({
           },
         },
       ],
-      meta: { total: 51, page, limit: 50, totalPages: 2 },
+      meta: { total: 51, page, pageSize: 50, pageCount: 2 },
     },
   }),
   useInspectionDeviceSources: () => ({

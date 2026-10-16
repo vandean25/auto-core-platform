@@ -48,7 +48,7 @@ export function WorkshopOrderMeasurementsSection({
   const deviceSources = deviceSourcesQuery.data?.data ?? []
   const selectedDeviceId = deviceSourceId || deviceSources[0]?.id || ''
   const meta = measurementsQuery.data?.meta
-  const totalPages = meta?.totalPages ?? 1
+  const totalPages = meta?.pageCount ?? 1
 
   const resetDialog = () => {
     setPreview(null)

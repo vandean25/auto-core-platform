@@ -538,8 +538,8 @@ export class InspectionMeasurementService {
       meta: {
         total,
         page: Math.max(page, 1),
-        limit: cappedLimit,
-        totalPages: Math.ceil(total / cappedLimit) || 1,
+        pageSize: cappedLimit,
+        pageCount: Math.ceil(total / cappedLimit) || 1,
       },
     };
   }
