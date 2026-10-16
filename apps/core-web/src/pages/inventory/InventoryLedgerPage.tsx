@@ -72,7 +72,11 @@ export default function InventoryLedgerPage() {
             <Button variant="outline" size="sm" onClick={() => setAdjustOpen(true)}>
               Adjust
             </Button>
-            <Button size="sm" onClick={() => setEditOpen(true)}>
+            <Button
+              size="sm"
+              disabled={!detailItem || isDetailLoading}
+              onClick={() => setEditOpen(true)}
+            >
               Edit
             </Button>
           </div>
@@ -181,11 +185,13 @@ export default function InventoryLedgerPage() {
         <>
           <ReceiveInventoryStockDialog itemId={itemId} open={receiveOpen} onOpenChange={setReceiveOpen} />
           <AdjustInventoryStockDialog itemId={itemId} open={adjustOpen} onOpenChange={setAdjustOpen} />
-          <EditInventoryItemDialog
-            item={{ ...item, cost_price: detailItem?.cost_price ?? 0 }}
-            open={editOpen}
-            onOpenChange={setEditOpen}
-          />
+          {detailItem ? (
+            <EditInventoryItemDialog
+              item={detailItem}
+              open={editOpen}
+              onOpenChange={setEditOpen}
+            />
+          ) : null}
         </>
       ) : null}
     </div>

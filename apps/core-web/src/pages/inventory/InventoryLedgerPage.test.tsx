@@ -54,6 +54,6 @@ describe('InventoryLedgerPage', () => {
     renderPage()
     expect(screen.getByRole('button', { name: 'Receive' })).toBeVisible()
     expect(screen.getByRole('button', { name: 'Adjust' })).toBeVisible()
-    expect(screen.getByRole('button', { name: 'Edit' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeEnabled()
   })
 })

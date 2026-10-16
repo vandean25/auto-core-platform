@@ -14,6 +14,15 @@ import { ReceiveInventoryStockDto } from './dto/receive-inventory-stock.dto.js';
 import { UpdateInventoryItemDto } from './dto/update-inventory-item.dto.js';
 
 const MANUAL_RECEIPT_REFERENCE = 'manual-receipt';
+const MANUAL_ADJUSTMENT_REFERENCE = 'manual-adjustment';
+
+function normalizeAdjustmentReason(reason: string): string {
+  const trimmed = reason.trim();
+  if (!trimmed) {
+    throw new BadRequestException('Adjustment reason is required.');
+  }
+  return trimmed;
+}
 
 @Injectable()
 export class InventoryItemMutationsService {
@@ -46,18 +55,21 @@ export class InventoryItemMutationsService {
         ],
         tx,
       );
-    });
 
-    await this.auditService.recordTenantMutation({
-      entityType: 'CATALOG_ITEM',
-      entityId: itemId,
-      action: AuditLogAction.UPDATE,
-      source: 'inventory.manual_receive',
-      after: {
-        locationId: dto.locationId,
-        quantity: dto.quantity,
-        transactionType: TransactionType.PURCHASE_RECEIPT,
-      },
+      await this.auditService.recordTenantMutation(
+        {
+          entityType: 'CATALOG_ITEM',
+          entityId: itemId,
+          action: AuditLogAction.UPDATE,
+          source: 'inventory.manual_receive',
+          after: {
+            locationId: dto.locationId,
+            quantity: dto.quantity,
+            transactionType: TransactionType.PURCHASE_RECEIPT,
+          },
+        },
+        tx,
+      );
     });
   }
 
@@ -68,6 +80,7 @@ export class InventoryItemMutationsService {
     if (dto.quantity === 0) {
       throw new BadRequestException('Adjustment quantity must not be zero.');
     }
+    const reason = normalizeAdjustmentReason(dto.reason);
 
     const tenantId = await this.tenantContext.getTenantId();
     await this.requireCatalogItem(tenantId, itemId);
@@ -80,24 +93,27 @@ export class InventoryItemMutationsService {
             locationId: dto.locationId,
             quantity: dto.quantity,
             type: TransactionType.ADJUSTMENT,
-            referenceId: dto.reason.trim(),
+            referenceId: MANUAL_ADJUSTMENT_REFERENCE,
           },
         ],
         tx,
       );
-    });
 
-    await this.auditService.recordTenantMutation({
-      entityType: 'CATALOG_ITEM',
-      entityId: itemId,
-      action: AuditLogAction.UPDATE,
-      source: 'inventory.adjustment',
-      after: {
-        locationId: dto.locationId,
-        quantity: dto.quantity,
-        reason: dto.reason.trim(),
-        transactionType: TransactionType.ADJUSTMENT,
-      },
+      await this.auditService.recordTenantMutation(
+        {
+          entityType: 'CATALOG_ITEM',
+          entityId: itemId,
+          action: AuditLogAction.UPDATE,
+          source: 'inventory.adjustment',
+          after: {
+            locationId: dto.locationId,
+            quantity: dto.quantity,
+            reason,
+            transactionType: TransactionType.ADJUSTMENT,
+          },
+        },
+        tx,
+      );
     });
   }
 
@@ -141,33 +157,38 @@ export class InventoryItemMutationsService {
       brand_id: existing.brand_id,
     };
 
-    const updated = await this.prisma.catalogItem.update({
-      where: { id: itemId, tenant_id: tenantId },
-      data: {
-        sku: dto.sku,
-        name: dto.name,
-        cost_price: dto.cost_price,
-        retail_price: dto.retail_price,
-        brand_id: dto.brandId ?? null,
-      },
-    });
+    return await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.catalogItem.update({
+        where: { id: itemId, tenant_id: tenantId },
+        data: {
+          sku: dto.sku,
+          name: dto.name,
+          cost_price: dto.cost_price,
+          retail_price: dto.retail_price,
+          brand_id: dto.brandId ?? null,
+        },
+      });
 
-    await this.auditService.recordTenantMutation({
-      entityType: 'CATALOG_ITEM',
-      entityId: itemId,
-      action: AuditLogAction.UPDATE,
-      source: 'inventory.item_edit',
-      before,
-      after: {
-        sku: updated.sku,
-        name: updated.name,
-        cost_price: updated.cost_price,
-        retail_price: updated.retail_price,
-        brand_id: updated.brand_id,
-      },
-    });
+      await this.auditService.recordTenantMutation(
+        {
+          entityType: 'CATALOG_ITEM',
+          entityId: itemId,
+          action: AuditLogAction.UPDATE,
+          source: 'inventory.item_edit',
+          before,
+          after: {
+            sku: updated.sku,
+            name: updated.name,
+            cost_price: updated.cost_price,
+            retail_price: updated.retail_price,
+            brand_id: updated.brand_id,
+          },
+        },
+        tx,
+      );
 
-    return updated;
+      return updated;
+    });
   }
 
   private async requireCatalogItem(tenantId: string, itemId: string) {
