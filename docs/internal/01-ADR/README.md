@@ -35,5 +35,6 @@ One-page index of ADRs in this folder. Filename is the stable link; the number i
 | ADR-0027 | Sentry Spans and App Trace ID Linkage Without a Schema Change          | Accepted | 2026-10-11                      | [2026-10-11-sentry-app-trace-linkage.md](2026-10-11-sentry-app-trace-linkage.md)                                   |
 | ADR-0028 | Vehicle valuation is a separate port from identity                     | Proposed | 2026-10-15                      | [2026-10-15-valuation-separate-from-identity.md](2026-10-15-valuation-separate-from-identity.md)                   |
 | ADR-0029 | Audatex BMS 5.7.0 file is the first damage-estimate import             | Proposed | 2026-10-15                      | [2026-10-15-audatex-bms-damage-estimate-import.md](2026-10-15-audatex-bms-damage-estimate-import.md)               |
+| ADR-0030 | Wear OS standalone watch for mechanic voice capture                    | Proposed | 2026-10-16                      | [2026-10-16-wear-os-standalone-watch-voice.md](2026-10-16-wear-os-standalone-watch-voice.md)                       |
 
-Next free number: **ADR-0030**.
+Next free number: **ADR-0031**.
