@@ -83,6 +83,7 @@ VALUES
   ('inspection_catalogue_imports'),
   ('inspection_source_connections'),
   ('inspection_support_events'),
+  ('inspector_evidence_revisions'),
   ('labor_fitments'),
   ('parts_requisition_lines'),
   ('purchase_orders'),
@@ -303,6 +304,10 @@ VALUES
   ('inspection_template_items', 'inspection_templates', 'tenant_id,inspection_template_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('inspection_template_items', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('inspection_templates', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('inspector_evidence_revisions', 'employees', 'tenant_id,employee_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('inspector_evidence_revisions', 'inspector_evidence_revisions', 'tenant_id,predecessor_revision_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('inspector_evidence_revisions', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('inspector_evidence_revisions', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('inventory_stocks', 'catalog_items', 'catalog_item_id', 'id', 'RESTRICT', 'CASCADE'),
   ('inventory_stocks', 'storage_locations', 'tenant_id,site_id,location_id', 'tenant_id,site_id,id', 'RESTRICT', 'CASCADE'),
   ('inventory_stocks', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
@@ -726,6 +731,9 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 UPDATE public."agent_action_logs"
 SET "reverted_by_log_id" = NULL
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+UPDATE public."inspector_evidence_revisions"
+SET "predecessor_revision_id" = NULL
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 UPDATE public."labor_categories"
 SET "parent_id" = NULL
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
@@ -856,6 +864,8 @@ DELETE FROM public."parts_requisition_lines"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."labor_fitments" AS child
 WHERE EXISTS (SELECT 1 FROM public."labor_operations" AS parent_0 WHERE parent_0."id" = child."labor_operation_id" AND parent_0."tenant_id" = current_setting('app.target_tenant_id'));
+DELETE FROM public."inspector_evidence_revisions"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inspection_support_events"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inspection_source_connections"

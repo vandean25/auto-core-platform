@@ -87,6 +87,7 @@ model Tenant {
   inspectionCatalogueActivations TenantInspectionCatalogueActivation[]
   inspectionCatalogueImports    InspectionCatalogueImport[]
   inspectionFindingReferences   InspectionFindingReference[]
+  inspectorEvidenceRevisions    InspectorEvidenceRevision[]
   inspectionSupportEvents       InspectionSupportEvent[]
   vehicleValuationSnapshots     VehicleValuationSnapshot[]
   salesOrders                   SalesOrder[]
@@ -828,6 +829,7 @@ model Site {
   inspectionCatalogueActivations TenantInspectionCatalogueActivation[]
   inspectionCatalogueImports    InspectionCatalogueImport[]
   inspectionFindingReferences   InspectionFindingReference[]
+  inspectorEvidenceRevisions    InspectorEvidenceRevision[]
   inspectionSupportEvents       InspectionSupportEvent[]
   outboundTransfers        StockTransfer[]       @relation("StockTransferFromSite")
   inboundTransfers         StockTransfer[]       @relation("StockTransferToSite")
@@ -2378,6 +2380,58 @@ model InspectionSupportEvent {
   @@map("inspection_support_events")
 }
 
+enum InspectorEvidenceReviewStatus {
+  UNREVIEWED
+  EVIDENCE_REVIEWED
+  SOURCE_CONFLICT
+}
+
+model InspectorEvidenceRevision {
+  id                           String                        @id @default(uuid())
+  tenant_id                    String
+  tenant                       Tenant                        @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  employee_id                  String
+  employee                     Employee                      @relation(fields: [tenant_id, employee_id], references: [tenant_id, id], onDelete: Restrict)
+  site_id                      String
+  site                         Site                          @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
+  schema_version               String                        @db.VarChar(32)
+  source_version               String                        @db.VarChar(128)
+  issuer                       String                        @db.VarChar(128)
+  source_person_ref            String                        @db.VarChar(128)
+  station_ref                  String                        @db.VarChar(128)
+  assignment_ref               String                        @db.VarChar(128)
+  assignment_from              DateTime?                     @db.Date
+  assignment_until_exclusive   DateTime?                     @db.Date
+  vehicle_classes              Json
+  weight_scope                 String?                       @db.VarChar(128)
+  brake_course_scope           String?                       @db.VarChar(128)
+  training_completed_on        DateTime?                     @db.Date
+  next_training_due_on         DateTime?                     @db.Date
+  continuation_from            DateTime?                     @db.Date
+  continuation_until_exclusive DateTime?                     @db.Date
+  effective_from               DateTime?                     @db.Date
+  effective_until_exclusive    DateTime?                     @db.Date
+  withdrawal_effective_at      DateTime?
+  document_ref                 String                        @db.VarChar(128)
+  document_digest              String                        @db.Char(64)
+  provenance                   String                        @db.VarChar(128)
+  evidence_review              InspectorEvidenceReviewStatus @default(UNREVIEWED)
+  reviewed_at                  DateTime?
+  review_valid_until           DateTime?
+  reviewed_by_user_id          String?
+  predecessor_revision_id      String?
+  predecessorRevision          InspectorEvidenceRevision?    @relation("InspectorEvidencePredecessor", fields: [tenant_id, predecessor_revision_id], references: [tenant_id, id], onDelete: Restrict)
+  successorRevisions           InspectorEvidenceRevision[]   @relation("InspectorEvidencePredecessor")
+  version                      Int                           @default(0)
+  created_by_user_id           String
+  createdAt                    DateTime                      @default(now())
+
+  @@unique([tenant_id, id])
+  @@index([tenant_id, employee_id, createdAt])
+  @@index([tenant_id, site_id, station_ref])
+  @@map("inspector_evidence_revisions")
+}
+
 model VehicleValuationSnapshot {
   id                    String   @id @default(uuid())
   tenant_id             String
@@ -2848,6 +2902,7 @@ model Employee {
   leaveRequests            LeaveRequest[]
   attendanceEvents         AttendanceEvent[]
   loaner_licence_checks    LoanerBooking[]          @relation("LoanerLicenceCheckedBy")
+  inspectorEvidenceRevisions InspectorEvidenceRevision[]
   createdAt                DateTime                 @default(now())
   updatedAt                DateTime                 @updatedAt
 

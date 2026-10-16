@@ -12360,6 +12360,188 @@
         ]
       }
     },
+    "/api/employees/{employeeId}/inspection-evidence": {
+      "get": {
+        "operationId": "InspectorEvidenceController_list",
+        "parameters": [
+          {
+            "name": "employeeId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InspectorEvidenceListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List inspector evidence revisions (management only)",
+        "tags": [
+          "employees"
+        ]
+      },
+      "post": {
+        "operationId": "InspectorEvidenceController_create",
+        "parameters": [
+          {
+            "name": "employeeId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInspectorEvidenceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InspectorEvidenceRevisionResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Append UNREVIEWED inspector evidence revision",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/employees/{employeeId}/inspection-evidence/assessment": {
+      "get": {
+        "operationId": "InspectorEvidenceController_assess",
+        "parameters": [
+          {
+            "name": "as_of",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "employeeId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "inspection_time",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "station_ref",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "vehicle_class",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InspectorEvidenceAssessmentResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Assess inspector evidence support state for station/scope/time",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/employees/{employeeId}/inspection-evidence/{revisionId}/review": {
+      "post": {
+        "operationId": "InspectorEvidenceController_review",
+        "parameters": [
+          {
+            "name": "employeeId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "revisionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewInspectorEvidenceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InspectorEvidenceRevisionResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Human review of inspector evidence document",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
     "/api/bays": {
       "get": {
         "operationId": "BayController_findAll",
@@ -31850,6 +32032,236 @@
         },
         "required": [
           "days"
+        ]
+      },
+      "InspectorEvidenceRevisionResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "employee_id": {
+            "type": "string"
+          },
+          "site_id": {
+            "type": "string"
+          },
+          "schema_version": {
+            "type": "string"
+          },
+          "source_version": {
+            "type": "string"
+          },
+          "station_ref": {
+            "type": "string"
+          },
+          "evidence_review": {
+            "type": "string"
+          },
+          "reviewed_at": {
+            "type": "object"
+          },
+          "review_valid_until": {
+            "type": "object"
+          },
+          "version": {
+            "type": "number"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "document_ref": {
+            "type": "string",
+            "description": "Restricted document reference; management roles only"
+          }
+        },
+        "required": [
+          "id",
+          "employee_id",
+          "site_id",
+          "schema_version",
+          "source_version",
+          "station_ref",
+          "evidence_review",
+          "version",
+          "created_at"
+        ]
+      },
+      "InspectorEvidenceListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InspectorEvidenceRevisionResponseDto"
+            }
+          },
+          "meta": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "InspectorEvidenceAssessmentResponseDto": {
+        "type": "object",
+        "properties": {
+          "evidence_review": {
+            "type": "string"
+          },
+          "inspection_time_temporal_scope": {
+            "type": "string"
+          },
+          "as_of_temporal_scope": {
+            "type": "string"
+          },
+          "freshness": {
+            "type": "string"
+          },
+          "qualification_support_status": {
+            "type": "string"
+          },
+          "registry_adapter": {
+            "type": "string",
+            "enum": [
+              "NOT_CONFIGURED"
+            ]
+          }
+        },
+        "required": [
+          "evidence_review",
+          "inspection_time_temporal_scope",
+          "as_of_temporal_scope",
+          "freshness",
+          "qualification_support_status",
+          "registry_adapter"
+        ]
+      },
+      "CreateInspectorEvidenceDto": {
+        "type": "object",
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "example": "acp-inspector-evidence/1"
+          },
+          "source_version": {
+            "type": "string"
+          },
+          "issuer": {
+            "type": "string"
+          },
+          "source_person_ref": {
+            "type": "string"
+          },
+          "station_ref": {
+            "type": "string"
+          },
+          "assignment_ref": {
+            "type": "string"
+          },
+          "assignment_from": {
+            "type": "object",
+            "format": "date"
+          },
+          "assignment_until_exclusive": {
+            "type": "object",
+            "format": "date"
+          },
+          "vehicle_classes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "weight_scope": {
+            "type": "object"
+          },
+          "brake_course_scope": {
+            "type": "object"
+          },
+          "training_completed_on": {
+            "type": "object",
+            "format": "date"
+          },
+          "next_training_due_on": {
+            "type": "object",
+            "format": "date"
+          },
+          "continuation_from": {
+            "type": "object",
+            "format": "date"
+          },
+          "continuation_until_exclusive": {
+            "type": "object",
+            "format": "date"
+          },
+          "effective_from": {
+            "type": "object",
+            "format": "date"
+          },
+          "effective_until_exclusive": {
+            "type": "object",
+            "format": "date"
+          },
+          "withdrawal_effective_at": {
+            "type": "object"
+          },
+          "document_ref": {
+            "type": "string",
+            "description": "Authorized storage object reference (never a public URL)"
+          },
+          "document_digest": {
+            "type": "string",
+            "description": "SHA-256 hex digest of restricted document bytes"
+          },
+          "provenance": {
+            "type": "string"
+          },
+          "predecessor_revision_id": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "schema_version",
+          "source_version",
+          "issuer",
+          "source_person_ref",
+          "station_ref",
+          "assignment_ref",
+          "vehicle_classes",
+          "document_ref",
+          "document_digest",
+          "provenance"
+        ]
+      },
+      "ReviewInspectorEvidenceDto": {
+        "type": "object",
+        "properties": {
+          "document_digest": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number"
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "ACCEPT",
+              "SOURCE_CONFLICT"
+            ]
+          },
+          "review_valid_until": {
+            "type": "string",
+            "description": "Source review freshness bound (max ~30 days)"
+          }
+        },
+        "required": [
+          "document_digest",
+          "version",
+          "decision",
+          "review_valid_until"
         ]
       },
       "BayResponseDto": {

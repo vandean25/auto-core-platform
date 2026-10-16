@@ -444,6 +444,7 @@ export async function cleanupTestTenantGraph(
   await tenantPrisma.inspectionReportIdentity.deleteMany({});
   await tenantPrisma.inspectionSourceConnection.deleteMany({});
   await tenantPrisma.inspectionFindingReference.deleteMany({});
+  await tenantPrisma.inspectorEvidenceRevision.deleteMany({});
   await tenantPrisma.inspectionSupportEvent.deleteMany({});
   await tenantPrisma.inspectionCatalogueImport.deleteMany({});
   await tenantPrisma.tenantInspectionCatalogueActivation.deleteMany({});

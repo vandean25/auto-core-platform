@@ -60,6 +60,7 @@ This document defines when deletion is allowed in Auto Core Platform.
 | TenantInspectionCatalogueActivation | Deactivate preferred | New activation sets `deactivated_at` on prior row; history retained. |
 | InspectionCatalogueImport | Retention-bound | Unapplied previews purge after 30 days unless legal hold or unresolved `CONFLICT`. Activated imports retained with their version. |
 | InspectionFindingReference | No | Immutable snapshot on a workshop inspection; deleting checklist/order/site does not cascade-remove references (FK `Restrict`). |
+| InspectorEvidenceRevision | No | Append-only restricted HR evidence; review corrections are new revisions. Blocks hard-delete of `Employee` and `Site` while retained (FK `Restrict`). |
 | InspectionSupportEvent | No | Append-only cross-contract support audit. Tenant purge only. |
 | SalesOrder | Draft-only | Allow only in `DRAFT` and only when no linked `Invoice` exists. |
 | SalesOrderItem | No direct delete | Managed by parent `SalesOrder` lifecycle. |
@@ -111,7 +112,7 @@ This document defines when deletion is allowed in Auto Core Platform.
 | VehicleLedgerEntry | No | Immutable vehicle cost/movement audit trail; never deleted through ordinary APIs. |
 | LaborCategory | Conditional | Allow only when no `LaborOperation` references it, no child categories exist, and it is not `CatalogProviderSettings.default_labor_category_id`. `WorkshopTaskLineItem.labor_category_id` uses `ON DELETE SET NULL` (hourly/cost rates are snapshotted on the line). |
 | LaborOperation | Soft-delete only | Set `is_active = false`; hard delete is not allowed through the API. |
-| Employee | Soft-disable preferred | Set `is_active = false`. Hard delete returns `409` if `WorkshopOrder.mechanic_id`, work records (`WorkshopTask`, `WorkshopMedia`, `WorkshopVoiceNoteDraft`, `LaborEntry`), or HR records (`AttendanceEvent`, `LeaveRequest`, `EmployeeLeaveBalance`) reference this employee. `EmployeeWorkSchedule` rows cascade on employee hard-delete — not a separate 409 reason. |
+| Employee | Soft-disable preferred | Set `is_active = false`. Hard delete returns `409` if `WorkshopOrder.mechanic_id`, work records (`WorkshopTask`, `WorkshopMedia`, `WorkshopVoiceNoteDraft`, `LaborEntry`), HR records (`AttendanceEvent`, `LeaveRequest`, `EmployeeLeaveBalance`), or retained `InspectorEvidenceRevision` rows reference this employee. `EmployeeWorkSchedule` rows cascade on employee hard-delete — not a separate 409 reason. |
 | EmployeeWorkSchedule | No API delete | Versioned expected work pattern per employee. Correct times via PATCH; add versions via POST. Rows cascade on employee hard-delete or tenant purge. Parent PATCH is audited. |
 | EmployeeWorkScheduleDay | No direct delete | Seven weekday rows per schedule version; managed by parent `EmployeeWorkSchedule` lifecycle. Cascade with parent schedule. |
 | EmployeeLeaveBalance | No API delete | Update allowance/carryover through the leave-balance API. Rows are removed only during tenant purge. |

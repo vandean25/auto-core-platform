@@ -38,10 +38,14 @@ describe('EmployeeLifecycleService', () => {
     employeeLeaveBalance: {
       count: jest.fn(),
     },
+    inspectorEvidenceRevision: {
+      count: jest.fn(),
+    },
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPrisma.inspectorEvidenceRevision.count.mockResolvedValue(0);
     service = new EmployeeLifecycleService(
       mockPrisma as unknown as PrismaService,
     );
@@ -123,7 +127,7 @@ describe('EmployeeLifecycleService', () => {
 
     await expect(service.remove('tenant-1', 'emp-1')).rejects.toThrow(
       new ConflictException(
-        'Cannot delete employee with attendance, leave, or balance records',
+        'Cannot delete employee with attendance, leave, balance, or inspector evidence records',
       ),
     );
     expect(mockPrisma.employee.deleteMany).not.toHaveBeenCalled();
