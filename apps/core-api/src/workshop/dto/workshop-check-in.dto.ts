@@ -66,7 +66,10 @@ export class CheckInDamageMarkerDto {
   @MaxLength(CHECK_IN_MAX_DAMAGE_MARKER_NOTE_LENGTH)
   note!: string;
 
-  @ApiProperty({ type: [String], maxItems: CHECK_IN_MAX_MEDIA_IDS_PER_DAMAGE_MARKER })
+  @ApiProperty({
+    type: [String],
+    maxItems: CHECK_IN_MAX_MEDIA_IDS_PER_DAMAGE_MARKER,
+  })
   @IsArray()
   @ArrayMaxSize(CHECK_IN_MAX_MEDIA_IDS_PER_DAMAGE_MARKER)
   @ArrayUnique()
