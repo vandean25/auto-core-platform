@@ -342,7 +342,9 @@ export class MechanicFindingService {
 
     return includeIds
       .map((id) => authorizedById.get(id))
-      .filter((row): row is (typeof authorizedRows)[number] => row !== undefined)
+      .filter(
+        (row): row is (typeof authorizedRows)[number] => row !== undefined,
+      )
       .map((row) => ({
         id: row.id,
         mime_type: row.mime_type,

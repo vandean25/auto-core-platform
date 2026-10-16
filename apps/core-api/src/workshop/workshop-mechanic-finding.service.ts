@@ -89,26 +89,26 @@ export class WorkshopMechanicFindingService {
 
     const readUrlByMediaId = await this.loadReadUrls(tenantId, [...mediaIds]);
 
-    const data: WorkshopMechanicFindingDto[] = parsed.map(({ proposal, dto }) => ({
-      proposal_id: proposal.id,
-      trace_id: proposal.trace_id,
-      status: proposal.status,
-      workshop_task_id: dto.workshop_task_id,
-      finding_text: dto.finding_text,
-      summary: dto.summary,
-      created_at: proposal.createdAt.toISOString(),
-      media: dto.media.map((item) => ({
-        ...item,
-        read_url: readUrlByMediaId.get(item.id) ?? '',
-      })),
-    }));
+    const data: WorkshopMechanicFindingDto[] = parsed.map(
+      ({ proposal, dto }) => ({
+        proposal_id: proposal.id,
+        trace_id: proposal.trace_id,
+        status: proposal.status,
+        workshop_task_id: dto.workshop_task_id,
+        finding_text: dto.finding_text,
+        summary: dto.summary,
+        created_at: proposal.createdAt.toISOString(),
+        media: dto.media.map((item) => ({
+          ...item,
+          read_url: readUrlByMediaId.get(item.id) ?? '',
+        })),
+      }),
+    );
 
     return { data };
   }
 
-  private parseFindingPayload(proposal: {
-    payload_json: unknown;
-  }): {
+  private parseFindingPayload(proposal: { payload_json: unknown }): {
     workshop_task_id: string;
     finding_text: string;
     summary: string | null;

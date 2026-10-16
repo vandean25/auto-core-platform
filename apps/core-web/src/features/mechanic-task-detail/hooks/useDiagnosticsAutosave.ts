@@ -17,7 +17,10 @@ export function useDiagnosticsAutosave({ taskId, initialNotes }: UseDiagnosticsA
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const notesValueRef = useRef(notesValue)
-  notesValueRef.current = notesValue
+
+  useEffect(() => {
+    notesValueRef.current = notesValue
+  }, [notesValue])
 
   useEffect(() => {
     setNotesInitialized(false)
