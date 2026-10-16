@@ -5,13 +5,15 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import {
-  LocationType,
+  type CatalogItem,
+  type LaborOperation,
   Prisma,
   WorkshopLineItemType,
   WorkshopOrderStatus,
   WorkshopPartLineExecutionStatus,
   WorkshopTaskStatus,
 } from '@prisma/client';
+import { mcpStockBinWhere } from '../mcp/mcp-stock-read.mapper.js';
 import { createHash } from 'node:crypto';
 import { AtpService } from '../inventory/atp.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -142,14 +144,16 @@ export class WorkshopPositionPlanService {
             ? row.labor_operation_id
             : null,
         catalogItemId:
-          typeof row.catalog_item_id === 'string'
-            ? row.catalog_item_id
-            : null,
+          typeof row.catalog_item_id === 'string' ? row.catalog_item_id : null,
         description:
           typeof row.description === 'string' ? row.description : 'Position',
-        quantity:
-          typeof row.quantity === 'string' ? row.quantity : '1.000',
-        unit: typeof row.unit === 'string' ? row.unit : kind === 'LABOR' ? 'h' : 'pcs',
+        quantity: typeof row.quantity === 'string' ? row.quantity : '1.000',
+        unit:
+          typeof row.unit === 'string'
+            ? row.unit
+            : kind === 'LABOR'
+              ? 'h'
+              : 'pcs',
         unitPriceCents: Number(row.unit_price_cents ?? 0),
         netCents: Number(row.net_cents ?? 0),
         reservation,
@@ -195,7 +199,9 @@ export class WorkshopPositionPlanService {
         data: {
           tenant_id: tenantId,
           workshop_task_id: task.id,
-          type: isLabor ? WorkshopLineItemType.LABOR : WorkshopLineItemType.PART,
+          type: isLabor
+            ? WorkshopLineItemType.LABOR
+            : WorkshopLineItemType.PART,
           part_execution_status: isLabor
             ? null
             : WorkshopPartLineExecutionStatus.PENDING_PICK,
@@ -305,7 +311,9 @@ export class WorkshopPositionPlanService {
       return [];
     }
     return callerLines
-      .filter((line) => line && typeof line === 'object' && !Array.isArray(line))
+      .filter(
+        (line) => line && typeof line === 'object' && !Array.isArray(line),
+      )
       .map((line) => this.callerLineToRaw(line as CallerPositionLine));
   }
 
@@ -334,7 +342,9 @@ export class WorkshopPositionPlanService {
     return raw;
   }
 
-  private readReservation(value: unknown): ResolvedPositionPlanLine['reservation'] {
+  private readReservation(
+    value: unknown,
+  ): ResolvedPositionPlanLine['reservation'] {
     if (value === 'reserved' || value === 'unbooked') {
       return value;
     }
@@ -404,6 +414,8 @@ export class WorkshopPositionPlanService {
       }
     }
 
+    const emptyLabor: LaborOperation[] = [];
+    const emptyCatalog: CatalogItem[] = [];
     const [laborOps, catalogItems] = await Promise.all([
       laborIds.size > 0
         ? this.prisma.laborOperation.findMany({
@@ -413,12 +425,12 @@ export class WorkshopPositionPlanService {
               is_active: true,
             },
           })
-        : [],
+        : emptyLabor,
       catalogIds.size > 0
         ? this.prisma.catalogItem.findMany({
             where: { tenant_id: tenantId, id: { in: [...catalogIds] } },
           })
-        : [],
+        : emptyCatalog,
     ]);
 
     const laborById = new Map(laborOps.map((row) => [row.id, row]));
@@ -460,7 +472,7 @@ export class WorkshopPositionPlanService {
       {
         id: string;
         sku: string;
-        description: string;
+        name: string;
         unit: string;
         retail_price: Prisma.Decimal;
       }
@@ -471,17 +483,19 @@ export class WorkshopPositionPlanService {
       typeof line.preset_key === 'string' ? line.preset_key : undefined;
     const preset = presetKey ? presetByKey.get(presetKey) : undefined;
     const kind =
-      preset?.kind === 'PART' || line.catalog_item_id
-        ? 'PART'
-        : 'LABOR';
+      preset?.kind === 'PART' || line.catalog_item_id ? 'PART' : 'LABOR';
 
     if (kind === 'LABOR') {
       const laborId =
         (typeof line.labor_operation_id === 'string'
           ? line.labor_operation_id
-          : undefined) ?? preset?.labor_operation_id ?? null;
+          : undefined) ??
+        preset?.labor_operation_id ??
+        null;
       if (!laborId) {
-        throw new BadRequestException('Labor position requires labor_operation_id');
+        throw new BadRequestException(
+          'Labor position requires labor_operation_id',
+        );
       }
       const labor = laborById.get(laborId);
       if (!labor) {
@@ -521,7 +535,9 @@ export class WorkshopPositionPlanService {
     const catalogId =
       (typeof line.catalog_item_id === 'string'
         ? line.catalog_item_id
-        : undefined) ?? preset?.catalog_item_id ?? null;
+        : undefined) ??
+      preset?.catalog_item_id ??
+      null;
     if (!catalogId) {
       throw new BadRequestException('Part position requires catalog_item_id');
     }
@@ -535,21 +551,22 @@ export class WorkshopPositionPlanService {
     const quantityMilli =
       typeof line.quantity_milli === 'number'
         ? line.quantity_milli
-        : preset?.quantity_milli ?? 1000;
+        : (preset?.quantity_milli ?? 1000);
     const unitPriceCents = new Prisma.Decimal(catalog.retail_price)
       .mul(100)
       .toDecimalPlaces(0, Prisma.Decimal.ROUND_HALF_UP)
       .toNumber();
     const netCents = partNetCents(quantityMilli, unitPriceCents);
     const reservation = this.readReservation(
-      line.reservation ?? (line.reserve_part === true ? 'reserved' : 'unbooked'),
+      line.reservation ??
+        (line.reserve_part === true ? 'reserved' : 'unbooked'),
     );
     return {
       presetKey,
       kind: 'PART',
       laborOperationId: null,
       catalogItemId: catalogId,
-      description: catalog.description,
+      description: catalog.name,
       quantity: formatQuantityString(quantityMilli / 1000),
       unit: catalog.unit,
       unitPriceCents,
@@ -614,12 +631,7 @@ export class WorkshopPositionPlanService {
     quantity: Prisma.Decimal,
   ): Promise<{ id: string } | null> {
     const stocks = await tx.inventoryStock.findMany({
-      where: {
-        tenant_id: tenantId,
-        site_id: siteId,
-        catalog_item_id: catalogItemId,
-        location: { type: LocationType.BIN, deletedAt: null },
-      },
+      where: mcpStockBinWhere(tenantId, siteId, [catalogItemId]),
       select: {
         location_id: true,
         quantity_on_hand: true,

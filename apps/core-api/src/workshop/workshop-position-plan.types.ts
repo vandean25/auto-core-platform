@@ -3,9 +3,7 @@ export const PLAN_STALE = 'PLAN_STALE';
 export const DEFERRED_PART_RESERVATION_MARKER = 'booking-plan:defer-reserve';
 
 export type PositionPlanReservationState =
-  | 'not_applicable'
-  | 'unbooked'
-  | 'reserved';
+  'not_applicable' | 'unbooked' | 'reserved';
 
 export type ResolvedPositionPlanLine = {
   presetKey?: string;

@@ -160,6 +160,7 @@ export async function executeCreateWorkshopOrder(
     | 'scheduleService'
     | 'domainEventStore'
     | 'requestContext'
+    | 'positionPlan'
   >,
   dto: CreateWorkshopOrderDto,
   generateOrderNumber: (tx: Prisma.TransactionClient) => Promise<string>,
@@ -194,6 +195,7 @@ export async function executeCreateWorkshopOrder(
 
   try {
     const traceId = services.requestContext.getTraceId();
+    const positionPlan = services.positionPlan;
     return await services.prisma.$transaction((tx) =>
       executeCreateOrder({
         tx,
@@ -207,14 +209,15 @@ export async function executeCreateWorkshopOrder(
         generateOrderNumber,
         domainEventStore: services.domainEventStore,
         traceId,
-        afterPromoteScheduledOrder: services.positionPlan
-          ? (client, orderId) =>
-              services.positionPlan!.fulfillDeferredReservationsOnIntake(
+        afterPromoteScheduledOrder: positionPlan
+          ? async (client, orderId) => {
+              await positionPlan.fulfillDeferredReservationsOnIntake(
                 client,
                 tenantId,
                 siteId,
                 orderId,
-              )
+              );
+            }
           : undefined,
       }),
     );
