@@ -1,0 +1,216 @@
+---
+title: "Used-car marketplace export"
+date: "2026-10-16"
+module: "Vehicle"
+status: draft
+linear-project: "Used Vehicle Trading"
+tags:
+  - feature-spec
+  - vehicle-stock
+  - export
+---
+
+# Used-car marketplace export
+
+## Scope and delivery
+
+[AUT-389](https://linear.app/auto-core-platform/issue/AUT-389) defines manual listing-file export for Austrian used-car stock: mobile.de-style reference CSV/ZIP, a provisional AutoScout24 CSV/ZIP and generic willhaben CSV/ZIP. [AUT-553](https://linear.app/auto-core-platform/issue/AUT-553) already has implementation children AUT-565–573. The 16 October issue update supersedes discovery/HUMAN gates and waiting for partner formats: implement the explicit best-effort contracts below, record unknowns, and revise serializers when verified formats arrive. No duplicate tickets or dependency on aggregators.
+
+This PR contains only this spec: no product code, credentials, marketplace API calls, scraping, partner contact, uploads or paid commitments. Public documentation was read anonymously. Manual files can be generated without portal contracts; generation does not mean a portal accepted/published the file. Existing API work is a fake adapter behind a default-OFF flag, not an integration advertised as live.
+
+Delivery checklist: verify issue/source/formats; define listing/photos/equipment/serializers/lifecycle; create draft PR; GPT-6.1 Sol high posts review findings; fix and re-review until clean; GitHub CI; squash merge. No local tests/builds/runtime checks/installations. Product implementation gets scoped plans and TDD in the owning tickets.
+
+## Verified current code
+
+Read against main `57a866a242ef68599ec68e1684ab3e19dccfc161`, 16 October 2026.
+
+| Evidence | Reuse / missing capability |
+| --- | --- |
+| `apps/core-api/prisma/schema.prisma`, Vehicle | Make/model/year, mileage/color, fuel/power, first_registration_date, WLTP/NEDC CO2, national_code, nova_class, emission_class, stock role/status/tax scheme and lot/site exist. No VehicleMedia, listing, asking price, portal state or structured equipment collection. |
+| `apps/core-api/src/vehicle-stock/vehicle-stock-query.service.ts`, `vehicle-stock-move.service.ts` | Dealer-stock queries and locked site moves exist. Reuse lot-derived site scope and active-membership checks; CRM vehicle identity remains tenant-wide. |
+| `apps/core-api/src/vehicle-stock/vehicle-sale.service.ts` | Finalisation atomically changes USED vehicle to CUSTOMER and clears stock_status. Do not rely on observing `SOLD` afterward to deactivate listings. A sale is not a listing asking-price source. |
+| `apps/core-api/src/vehicle-stock/vehicle-purchase.service.ts` | Received purchase provides a stock-cycle identity. Re-purchasing the same vehicle must not resurrect an old marketplace listing. |
+| `apps/core-api/src/vehicle-stock/dto/patch-vehicle-stock.dto.ts`, `apps/core-web/src/pages/vehicle-stock/VehicleStockDetail.tsx` | Existing stock details/edit paths; add a listing tab/actions, not a second stock application. |
+| `apps/core-api/src/finance/accounting-export/accounting-export-serializer.{registry,types}.ts`, serializers and golden specs | Pure serializer port, profile registry and unsupported-profile rejection pattern. Reuse the architecture, not accounting rows/tax assumptions. |
+| `apps/core-api/src/nova-calculator/`, `docs/internal/02-Feature-Specs/Vehicles/nova-calculator.md` | Versioned calculation/preview; not an authoritative listing price or proof NoVA was paid. |
+| `docs/internal/02-Feature-Specs/Workshop/tablet-check-in.md`, AUT-554 | Shared sanitising image pipeline is the dependency for AUT-565. Listing photos stay separate from check-in/signature/customer documents. |
+| `apps/core-api/src/mcp/mcp-tool-output-schemas.ts`, `mcp/AGENTS.md` | Explicit read tool schemas, tenant/site guards and policy tiers exist. AUT-573 adds listing-status read output, not publishing rights. |
+
+## Format verification matrix
+
+Research date for every row: **2026-10-16**. VERIFIED means the stated public-document fact only; no live portal upload was tested. All access/cost unknowns are open points, not prerequisites to implementing manual files.
+
+| Target | Transport / fields / images | Update/delete / access / cost | Status and source |
+| --- | --- | --- | --- |
+| mobile.de | Public positional CSV format; exact source field layout, encoding and image naming inform `MOBILE_DE_REFERENCE_V1` below. | Account/service entitlement and account-wide replacement scope must be established before a dealer uploads. Empty-stock deletion risk is explicit. Price/access terms not verified. | **VERIFIED public CSV rules; UNVERIFIED account acceptance**, [official manual](https://services.mobile.de/manual/upload-interface-csv_de.html). |
+| AutoScout24 AT file import | Official FAQ describes CSV from `Mustertabelle_AS24.xls`, first interface setup and images in ZIP matching CSV filenames. Template link did not yield readable workbook bytes in this research. | Account/onboarding needed for actual import; precise schema, supported account settings and removal semantics unknown. Exact fee not verified; interfaces page describes paid webservices. | **VERIFIED transport/onboarding; UNVERIFIED field layout**, [FAQ](https://www.autoscout24.at/partner-infoportal/faq/), [interfaces](https://www.autoscout24.at/partner-infoportal/schnittstellen/). |
+| AutoScout24 API | Public European Listing Creation documentation describes listing lifecycle, JSON and account authentication; AT account entitlement/current version not proven. Swiss DMS documentation is a separate market contract. | AUT-572 uses fake create/update/deactivate; no production calls or stored credentials in this slice. No price quote or AT account test. | **UNVERIFIED AT API contract/access**, [European docs](https://m.listing-creation.api.autoscout24.com/docs), [Swiss DMS overview](https://help.autoscout24.ch/hc/de/articles/34448520065170-Was-ist-die-DMS-API). |
+| willhaben Auto & Motor | Public dealer packages describe software interfaces; no vehicle-import field specification retrieved. A general Marktplatz shop interface is not proof of a car-import schema. | Actual import/update/removal/account terms and fee unknown. AUT-571 implements ACP generic export, without promising willhaben accepts it. | **UNVERIFIED import format**, [dealer packages](https://fahrzeughandel.willhaben.at/produktpakete/), [vehicle advert guidance](https://hilfe.willhaben.at/hc/de/articles/10901294733586-Welche-Angaben-sind-bei-der-Anzeigen%C3%BCbergabe-zu-beachten). |
+
+No portal password, API endpoint or email address is a production default. Do not infer AT compatibility from `autoscout24.ch` API schemas or an old mobile/AS24 example. Golden fixtures establish conformance to the named ACP profile, not external certification.
+
+## Canonical listing and field mapping
+
+First slice covers dealer-owned **USED passenger cars** with a received purchase and parked lot at an active authorised site. Only `IN_STOCK` can be marked ACTIVE/exported as an offer. `RESERVED`, `IN_PREP`, `ON_ORDER`, `SOLD`, CUSTOMER and missing-lot vehicles are excluded from active offers. A later return to IN_STOCK requires explicit advisor reactivation; no accidental automatic republishing. New/demo/commercial/leasing/financing exports are separate scope, not guessed from year/mileage.
+
+| Canonical export field | ACP source / expand-only addition | Mapping / rule |
+| --- | --- | --- |
+| `listing_ref` | New immutable public ref on listing, generated once per stock cycle | ASCII UUID-derived `L` + UUID without hyphens; same ref for a channel's lifetime. No customer id, plate or full VIN as filename/ref. |
+| `make`, `model`, `model_year` | Vehicle.make/model/year | Explicit portal make/category mapping version; do not assume a vehicle-brand id is a portal id. Year is not registration month. |
+| `first_registration` | Vehicle.first_registration_date | Canonical ISO day; serializer converts to required format. Missing date is a field validation blocker, not fabricated 1 January. |
+| `mileage_km`, `color`, `fuel`, `power_kw` | Vehicle.mileage/color/fuel_type/power_kw | Mileage nonnegative integer, power positive where known. Normalise recognised fuel values through a versioned map; unknown values retain free text in provisional files and require a choice where strict profile needs a code. |
+| `co2_wltp_g_km`, `co2_nedc_g_km`, `emission_class` | Existing regulatory fields | Keep cycles separately labelled; no NEDC→WLTP conversion or automatic choice just to fill an unknown portal field. |
+| `body_type`, `transmission`, `doors`, `seats`, `displacement_cc`, `consumption_combined`, `consumption_unit`, `consumption_cycle` | New optional structured fields on listing; missing Vehicle attributes are not assumed present | Controlled body/transmission enums; doors 1–6, seats 1–9, displacement positive integer, consumption positive decimal plus unit/cycle. Only asserted values exported; required portal fields demand explicit input. |
+| `damage_status`, `roadworthy`, `metallic`, `guarantee_included` | New listing assertions | Damage `NONE/REPAIRED/UNREPAIRED/UNKNOWN`; nullable booleans for unknown. A nullable field is never silently exported as no damage/no guarantee. Required profile assertions block until answered. Existing voluntary-guarantee facts may prefill for advisor confirmation, not create a warranty promise. |
+| `title`, `description`, `description_language` | New listing text, separate from private vehicle/workshop notes | Title 1–120, description 1–3000 plain text, de/en explicit. Original author text preserved; no auto-translation or customer history/notes. |
+| `price_gross_eur`, `vat_display`, `nova_included_confirmed`, `mandatory_fees_included_confirmed` | New Decimal(12,2) asking price and declarations; Vehicle.tax_scheme supplies default for confirmation | All-in consumer amount >0; `vat_display: STANDARD/MARGIN`. Never use purchase cost, margin VAT preview or net a trade-in allowance. Unknown tax/NoVA/fee completeness blocks active export. |
+| `equipment`, `equipment_free_text` | New taxonomy and vehicle equipment selections (AUT-566) | Stable local codes + per-profile mapping; unknown options stay free text in description, never silently discarded or turned into false booleans. |
+| `images` | New ordered VehicleMedia (AUT-565), selected listing photo ids | Only sanitised READY photos of this stock cycle, explicit selection; filenames/digests in manifest. Cover is first. Never include WorkshopMedia, registration scans or signatures. |
+| `seller_name`, `seller_contact`, `seller_postcode`, `seller_city` | Authorised site/legal-entity **public dealer contact** snapshot and explicit listing contact where needed | No customer/employee private contact. Missing public contact is a validation error; don't invent from user session. |
+| `vin` | Existing Vehicle.vin, opt-in `include_vin=false` default | Never export by default; explicit reviewed inclusion only for a profile using VIN. No plate, customer details, purchase cost or internal location identifiers in files. |
+
+Price is advisor-entered and confirmed as inclusive of applicable VAT, NoVA and unavoidable charges. STANDARD may display “inkl. USt. und NoVA”; MARGIN displays “differenzbesteuert; USt. nicht gesondert ausweisbar” and the same all-in gross amount. No separate margin tax/net-price calculation or NoVA preview is exported. Formatting for files is profile-defined machine data, independent of UI de-AT formatting; EUR only, no thousands separators. Preserve finance calculations, legal flags and approval rules. AUT-587 supplies reviewed legal wording when implemented; the note here is a draft price-display requirement, not legal approval.
+
+## Proposed expand-only data model
+
+All new rows have UUID id, tenant_id and timestamps, composite tenant FKs and `@@unique([tenant_id,id])`; every tenant-scoped lookup/include uses context tenant. Site-owned rows resolve/check active-site context and active SiteMembership joined to active TenantMember. Schema additions never rename/drop current fields or backfill existing vehicles into publishable listings.
+
+| Model / table | Fields and invariants |
+| --- | --- |
+| `VehicleMedia` / `vehicle_media` | tenant_id, vehicle_id, stock_purchase_id, site_id, client_upload_id (tenant-unique), display_order, processing_state, bucket/key, transformed SHA-256, MIME/bytes/dimensions, variants JSON, created_by_member_id. Composite tenant FK to Vehicle and stock purchase; service validates purchase belongs to that vehicle/site/cycle. Nullable/unused metadata never exposes raw bytes/keys in public DTOs. |
+| `VehicleEquipmentOption` / `vehicle_equipment_options` | Tenant-owned stable code, DE/EN labels, category, active flag; unique tenant/code. Seed the same starter codes per tenant, no globally writable shared tenant table. Deactivate used options, don't delete referenced ones. |
+| `VehicleEquipmentSelection` / `vehicle_equipment_selections` | tenant/vehicle/option links, explicit boolean/value where relevant; tenant-unique vehicle/option. Unknown custom text lives on listing, not as fake portal ids. |
+| `VehicleListing` / `vehicle_listings` | tenant_id, site_id, vehicle_id, stock_purchase_id, listing_ref, revision, canonical text/price/assertions/technical overrides, selected photo ids, description_language, content_sha256. Unique tenant/vehicle/stock_purchase_id; stock receipt identifies cycle. Listing fields cannot retarget another vehicle/purchase. |
+| `VehicleListingChannel` / `vehicle_listing_channels` | tenant_id, listing_id, platform (`MOBILE_DE/AS24/WILLHABEN`), serializer_profile, mapping_version, desired_state (`ACTIVE/INACTIVE`), export_state (`NEVER_EXPORTED/DIRTY/FILE_GENERATED/REMOVAL_REQUIRED`), last_export_at/hash, optional external_ref, remote_state (`UNKNOWN/CONFIRMED_ACTIVE/CONFIRMED_INACTIVE`). Unique tenant/listing/platform. File generation never sets confirmed remote state. |
+| `VehicleListingExport` / `vehicle_listing_exports` | tenant_id, site_id, platform/profile/mapping version, created_by_member_id, idempotency_key, selection/config snapshot, rows snapshot including stable refs/revisions/hashes/actions, state (`BUILDING/READY/FAILED/STALE`), artifact keys/digests/counts, createdAt/completed_at/expires_at, safe failure code. Tenant-unique idempotency key; archive is immutable once READY. |
+
+Per-portal equipment/body/fuel maps are versioned repository JSON, with source/status metadata; not a second admin database. `VehicleListingChannel` checks it can only select a profile registered for that platform. Listing photo arrays get batch referential validation (same tenant/vehicle/purchase and READY). If strong SQL linkage requires a join table during implementation, add it in AUT-567's plan with the same composite constraints; never trust arbitrary media ids in JSON. Actors use TenantMember, not a required mechanic Employee.
+
+VehicleMedia is site-owned stock evidence despite Vehicle's tenant-wide CRM identity. On a stock move, under the existing sorted site-row/vehicle locks, move media ownership and listing to destination only after validating both memberships/site activity; invalidate generated artifacts and mark channels INACTIVE/REMOVAL_REQUIRED for the old advertised location. Retain an immutable old public ref/site removal snapshot in export history accessible only in its original site. A user at the old site cannot inspect destination stock/photos through a stale listing id. Re-enable destination offers only after dealer location/contact review; do not carry a portal account binding across sites silently.
+
+`docs/deletion-policy.md` implementation proposal: inactive listing/channel/equipment is retained for export/removal history; no public hard-delete once exported. Draft unexported listing may be removed under authorised site scope. Media selected by a listing/export is pinned until references expire; old stock-cycle media never automatically attaches to a re-purchase. Authorised expiry releases archive references and deletes orphan objects safely. Tenant purge clears export/media objects and new rows in FK order. Export files expire after 30 days; retain minimal ref/action/hash/actor metadata for 1 year (engineering defaults for product/privacy review), no legal-financial archive claim. AUT-565/567/569 update the derived `tools/tenant-restore/tenant-schema.mjs` manifest coverage, regenerate purge/schema SQL, and cover blob inventories, referenced image variants, cross-tenant FK validation and restore/purge ordering. No deletion-policy file changes in this spec-only PR.
+
+## Photos and equipment contracts
+
+AUT-565 consumes AUT-554's EXIF/GPS-strip/orientation/resize pipeline. Accept JPEG/PNG/WebP <=10 MiB and <=40 MP per input, <=30 READY photos per vehicle cycle. Original bytes remain private staging only until processed, then removed. Use JPEG variants longest edge 2048/1600 px, thumbnail 320 px, no upscaling, quality 85. These are **ACP defaults, not verified portal size guarantees**. Reject corrupt/type-spoofed/decompression-bomb input. Hash transformed bytes, pin storage generation, deterministic crop-free output. Photos may contain people/plates; advisor reviews/retakes/redacts before selection, confirms publication rights, and never exports customer evidence. Signed UI preview URLs expire and are never embedded as durable portal references.
+
+Reorder with `{expected_revision,media_ids}` is one transaction over the full selected set; reject duplicates/missing/foreign IDs, cover = first item. Reordering/removal increments listing revision/hash and dirties channels. Exports take a pinned ordered snapshot of image bytes; ZIP names derive from public listing ref + sequence only. Never accept client-supplied ZIP paths/object keys or fetch arbitrary image URLs. For mobile reference include <=15 images; require explicit photo selection if more, never silently truncate. For provisional AS24/willhaben allow <=30, labelled ACP limit. All selected images are included every run, not only changed photos.
+
+AUT-566 starter semantic codes: `ABS`, `ESP`, `AIR_CONDITIONING`, `AUTOMATIC_CLIMATE`, `ALLOY_WHEELS`, `TOW_BAR`, `NAVIGATION`, `CRUISE_CONTROL`, `SEAT_HEATING`, `BLUETOOTH`, `PARKING_FRONT`, `PARKING_REAR`, `PARKING_CAMERA`, `ISOFIX`. Required booleans preserve unknown vs confirmed absent. Per-portal map entry is `{local_code,profile,portal_field,portal_value,verification,source,version}`; explicit negative values only from recorded assertions. In provisional profiles use local codes directly, not invented official AS24/willhaben ids. Unmapped/custom equipment appends a labelled, plain-text equipment paragraph to description; if total exceeds profile capacity, validation errors list items to edit, never truncate. Goldens cover positive/negative/unknown and overlapping climate options.
+
+## Serializers and deterministic file contracts
+
+Create `apps/core-api/src/vehicle/listing-export/listing-serializer.{types,registry}.ts` and per-profile serializer modules following the accounting registry pattern. `ListingSerializer` has `profileCode`, `platform`, `verification`, `limits`, `validate(input) -> FieldIssue[]`, `serialize(input) -> {files,sha256,rowCount,byteLength}`, `buildFilename(input)`. Input is a frozen canonical snapshot with generatedAt/profile/mapping version and pinned image names/hashes; serializers perform no DB/network calls. Registry uses an explicit profile list/map and rejects unknown profile with 422 `LISTING_SERIALIZER_UNSUPPORTED`. Tests/golden fixtures use synthetic identities/photos/prices only.
+
+One run <=100 listings, <=20 MiB CSV and <=250 MiB complete ZIP; too large returns 413 and preserves previous READY artifact. ZIP entries sorted by listing_ref/sequence, fixed entry timestamps from frozen generatedAt, no traversal/duplicate names; include only allowlisted CSV, JPEG, `manifest.json` and `removals.csv`. Manifest contains profile/schema/version, verification label, scope, counts, public refs, actions and byte digests, no tenant/customer/internal actor ids or secrets. It records pending manual removals separately; it is not a native portal deletion instruction.
+
+### `MOBILE_DE_REFERENCE_V1`
+
+Public-manual-derived rules: ISO-8859-15, semicolon, quoted text/doubled quotes, one record per line; keep all 212 positions (0–211), including reserved empties. Identity uses 1; account 0 only when required. Core positions: category 2, make 3, model 4, kW 5, registration 8, km 9, price 10, VAT indicator 11, damage 15, colour 16, description 25, image id 26, currency 28. Keep VAT-rate position 29 empty so price remains gross; STANDARD indicator 0, MARGIN 1. Dates at registration use month/year. Preserve internal empty slots; no header. Use image-id sequence JPG naming, max 15; full image set per vehicle. Empty CSV can delete all stock. [Official source](https://services.mobile.de/manual/upload-interface-csv_de.html).
+
+ACP design: initialise a 212-cell array, fill the selected map and mandatory/asserted flags in AUT-569's pinned layout manifest; leave unasserted optional fields empty, never shift columns. Required old/new/recommendation/metallic/guarantee flags must be explicitly resolved for the supported used-car category, not invented from missing values. Seed ordinary used-car flags only where their semantics are certain; expose unresolved required assertions in preview. Other mapped equipment uses the same versioned layout manifest. Portal category/make values come from an explicit stored mapping/override with verification status; missing mandatory values block that row, unavailable vendor taxonomy does not block building the serializer. WLTP/NEDC and optional consumption remain blank unless a pinned column/cycle match is established. VIN omitted by default. Reject characters not representable in ISO-8859-15 with field-specific errors, no lossy replacement. Normalise embedded CR/LF in description to spaces before hashing/preview; XML/HTML/portal formatting syntax is not accepted. Price has two decimal places, decimal point, no thousands separators.
+
+AUT-569 commits a complete 212-position mapping manifest (including reserved/required fields, fuel/body/equipment and quote rules), synthetic golden CSV and extracted assertion checks against this profile. It does not copy the vendor's prose/sample listing. Actual portal acceptance is UNVERIFIED until tested under an authorised account; download remains labelled reference. No account credential is required for reference generation.
+
+### `AS24_PROVISIONAL_V1` and `WILLHABEN_GENERIC_V1`
+
+Both implement this **ACP-defined** schema immediately without waiting for the missing AS24 workbook/willhaben contract: UTF-8 BOM, semicolon, all cells double-quoted, doubled quotes, CRLF rows, one-line escaped/normalised text and header. Fixed header order:
+
+`listing_ref;action;title;make;model;model_year;first_registration;mileage_km;fuel;power_kw;body_type;transmission;doors;seats;color;damage_status;roadworthy;price_gross_eur;currency;vat_display;nova_included;co2_wltp_g_km;co2_nedc_g_km;emission_class;description_language;description;equipment_codes;equipment_free_text;image_files;seller_name;seller_contact;seller_postcode;seller_city`
+
+`action=UPSERT` for active offers; removals are in the separate action file. ISO first-registration day, numbers decimal point/no grouping, lowercase `true/false` or empty for nullable booleans, EUR currency; equipment codes and image filenames joined by `|` (reject literal `|` in those atomic values). Each image reference matches a flat `<listing_ref>_<01..30>.jpg` ZIP member exactly. Description and display title stay original data; formula-leading text (`= + - @`, including leading whitespace/control characters) is prefixed with apostrophe in these spreadsheet-oriented profiles, with preview showing the exported text. Mobile reference instead rejects such leading values where spreadsheet safety cannot be represented without changing portal meaning. No newline, control-code or CSV injection via free text, filenames or contacts.
+
+AS24 uses `autoscout24-provisional.csv`, willhaben `willhaben-generic.csv`. Manifest/UI/file-name label UNVERIFIED/PROVISIONAL. This is a concrete field contract and usable review/edit/download artifact, **not a claim of compatibility with Mustertabelle_AS24 or willhaben's import**. When an official schema arrives, add a new profile/version + field/code mapping/goldens, retain old run interpretation; do not silently change the provisional format. No manual upload is sent by ACP.
+
+### Account scope and removal semantics
+
+Downloads are active-site-only selected listings; no all-tenant replacement file hidden behind “Export”. Every package is a manual reference with a manifest saying `external_import_semantics: UNVERIFIED`, unless a separately validated account/profile binding explicitly establishes full-stock replacement coverage. V1 provides **no full-account replacement mode or automatic schedule**. Do not upload a partial site/reference package to an account that treats omission as deletion. UI/package warns about that risk even when the file has rows. An empty active selection returns 422 `LISTING_EXPORT_EMPTY`, never a zero-byte marketplace CSV.
+
+`removals.csv` is ACP's explicit companion action list: header `platform;listing_ref;external_ref;reason`, same UTF-8 CSV safety rules; reasons SOLD/RESERVED/IN_PREP/MOVED_SITE/UNPUBLISHED. A removal-only package may contain manifest + removals.csv, but **no empty portal CSV**. Unknown portal delete behaviour means dealer must remove/deactivate in the portal and reconcile; output does not assert removal occurred. This fulfils AUT-573's next-export action visibility without inventing a native delete field. Successful file generation sets FILE_GENERATED/last_export_at for the frozen rows only; REMOVAL_REQUIRED remains until a supported external acknowledgement/reconciliation, never cleared merely by download.
+
+## API, authorisation and concurrency
+
+Proposed routes use `/api/vehicle-stock/:vehicleId/listing` (L) and `/api/vehicle-listing-exports` (E). OWNER/ADMIN/SALES can read/manage/export at their active site; TECH/DEMO cannot publish/export listing packages. Tenant API keys need an explicitly scoped read permission for MCP status, no new write/push capability. Missing active site 422 `ACTIVE_SITE_REQUIRED`; foreign tenant/site/listing/photo/export id 404; forbidden role 403. API body never authorises tenant/site. All new UUID params validated, DTO whitelist/types/lengths applied, response storage keys redacted. Historical export reads use the run's persisted site and membership, not current vehicle role.
+
+| Method / route | Contract |
+| --- | --- |
+| `GET/POST L` | Get existing listing; create `{id,expectedStockPurchaseId}` with current parked active-site/cycle checks. Idempotent same id/cycle, different request conflict. No implicit creation by GET. |
+| `PATCH L` | `{expected_revision,...editable fields,photo_ids,equipment_free_text}`; atomically validate same cycle/site and increment revision/hash; public offer readiness separate from saving an incomplete draft. |
+| `PATCH L/channels/:platform` | `{expected_revision,desired_state,serializer_profile}`; ACTIVE requires current readiness, INACTIVE allowed without fresh photos/price. Dirties channel; no remote call. |
+| `POST L/media`, `PATCH L/media/order`, `DELETE L/media/:mediaId` | Multipart bytes + stable client_upload_id, revisioned full reorder, detach/delete only unpinned authorised photos. Idempotent upload retries verify content digest; no arbitrary storage URL/key. |
+| `GET /api/vehicle-equipment-options` | Tenant-owned active options `{data,meta}`, search/sort; tenant OWNER/ADMIN manage/deactivate via create/patch routes, no delete referenced codes. Vehicle selections update in listing PATCH, validating every option id. |
+| `POST E/preview` | `{platform,profile,listing_ids}` (or explicit removal ids), no download/history mutation; returns typed field issues and complete public export preview including sanitisation and UNVERIFIED warnings. |
+| `POST E` | Same selection + `{idempotency_key,expected_revisions}`. 201 BUILDING run, 200 original for exact retry; conflicting key body 409. Reject partial success: all selected rows valid, limits satisfied, or whole generation fails. |
+| `GET E/:id`, `GET E` | Run state/counts/warnings/failure + paginated active-site history `{data,meta}`. No private customer or blob fields. |
+| `GET E/:id/download` | 200 ZIP once READY and current scope/stock revalidation passes; BUILDING 409, FAILED/STALE/expired 410 with safe code. No fallback to previous/partial bytes. |
+
+Generation begins a repeatable/locked transaction: lock active site then sorted vehicle/listing rows, recheck receipt/cycle/lot/role/status/member, prefetch selected media/options, validate assertions and freeze snapshot+request digest. No DB query per row/image/option. Process image/ZIP bytes outside long DB transactions from pinned immutable generations; final short transaction rechecks revisions, stock/site state and references before marking READY, publishing artifact keys/hash and per-channel exported hash. A concurrent sale/move/edit makes run STALE, no last_export advancement. Error removes temporary artifacts safely. Exact idempotency retry returns original run; new snapshot needs new key. Queue/worker is an internal artifact-generation job, never a marketplace sync.
+
+Revalidate at each download too: otherwise a sold vehicle could be freshly downloaded from a previously READY file. Mark stale active-offer archives on relevant stock mutation; old metadata remains auditable but export cannot re-serve it as a current listing package. Files already downloaded cannot be revoked; UI states generation time and responsibility to upload current file. Removal snapshot remains accessible only in original authorised site even after vehicle becomes CRM CUSTOMER or moves. Expired/disabled membership revokes downloads immediately.
+
+Every defining source edit (vehicle regulatory/mileage/make, equipment, public contact, image order/bytes, canonical listing fields, portal map/profile version, stock receipt/status/site, description language) invalidates readiness/hash; hashing only VehicleListing.updatedAt is insufficient. Compute SHA-256 over canonical UTF-8 sorted-key JSON with schema version, sorted equipment, ordered photos+digests, all exported/asserted fields and profile/mapping versions. Exclude expiring URLs, generatedAt, actor and last_export_at from listing content hash. Export artifact hash separately covers exact generated bytes. Two serializer calls on one frozen input produce identical CSV/ZIP bytes; same content/new run time may have different artifact hash.
+
+## Sold / withdrawn / site move and API flag
+
+AUT-573 hooks the **same sale finalisation transaction** that changes inventory_role to CUSTOMER and clears stock_status: listing channels become desired INACTIVE, reason SOLD, export state REMOVAL_REQUIRED when previously exported; never wait for a later SOLD query. Mark active-offer runs STALE, retain stable listing/external refs/site for manual removal. Also handle any supported direct SOLD transition, reserve/prep/stock-role changes and site moves in their owning transaction. Rollback leaves listings untouched. Cancelled DRAFT sale does not imply sold or auto-reactivate. A re-purchase creates a new cycle/listing ref and cannot cancel the previous channel's pending removal.
+
+AUT-572 adds `VEHICLE_LISTING_AS24_PUSH_ENABLED=false` by default and a `ListingPublisher` port with fake `upsert/deactivate` contract tests. Disabled requests return 503 `LISTING_PUSH_DISABLED` **before** HTTP client/credential resolution; enabled-without-configured-real-adapter returns 503 `LISTING_PUSH_UNCONFIGURED`, still no external calls. Production adapter/scheduler, credentials, webhooks, full-account reconciliation and AT contract verification are later scoped work. A fake response must never set CONFIRMED_* on production rows. Automatic feed/push cannot be enabled just by toggling this flag until the real adapter exists; manual downloads remain available.
+
+MCP read tool `get_vehicle_listing_status` accepts vehicle id or listing public ref, with an explicit output schema: profile/verification, desired/export/remote state, last_export_at/hash, validation issues, pending-removal reason, no blob keys/credentials/contacts/customer data. Site-owned offer status follows active lot-site scope; old removal refs/history follow authorised persisted run site. Do not expose a previously sold dealer vehicle through the tenant-wide CRM identity path. Tool read is AUTO under current read policy, not authority to publish/deactivate externally; descriptions English, prose locale per AUT-575.
+
+## UX and realtime
+
+AUT-568 adds a listing tab to VehicleStockDetail with identity context left and top-right Preview/Download actions; photo ordering, equipment, description, all-in asking price/assertions and per-platform readiness. Complex form autosaves at 750ms with persistent Saving/Saved/Error; flush before preview/download/activate, preserve dirty draft on conflict. An incomplete draft saves but cannot export ACTIVE. Standard status badges distinguish Desired active, File generated, Removal required and External status unknown; never show Published after a download. Show format/version/UNVERIFIED warning before generation and on artifact panel, plus full-replacement risk. Display removal action even when no active offers remain.
+
+Use shadcn controls, existing PageContainer/header typography, `generateId()`, domain query factories and generated OpenAPI types. New features use t() once AUT-577 foundation lands; keep canonical equipment/portal keys out of translated values. Any new history/list view uses shared DataTable, cross-visible-field search, sortable columns and row detail interaction; no unsupported delete context action. Prisma realtime entity mapping plus `dashboard-entity-map.ts` invalidates stock/listing/export status after source changes/sale, without replacing unsaved text silently. Permission/UI hiding supplements backend enforcement.
+
+## Legal, privacy and open points
+
+Price-display research: [PrAG §9](https://startup.usp.gv.at/linkresolution/link/25362) requires consumer gross prices including taxes/charges; [willhaben guidance](https://hilfe.willhaben.at/hc/de/articles/10901294733586-Welche-Angaben-sind-bei-der-Anzeigen%C3%BCbergabe-zu-beachten) explicitly includes NoVA in offered vehicle price. Accurate mileage/condition and public dealer location must be stated; avoid misleading absence-of-damage or VAT-deductibility claims. [willhaben advert rules](https://www.willhaben.at/iad/anzeigenrichtlinien) and [accuracy guidance](https://hilfe.willhaben.at/hc/de/articles/5112187860626-Irref%C3%BChrende-Angaben-von-Fahrzeugen-im-Bereich-Auto-Motor) are portal rules, not a complete UWG/legal opinion. Lawyer/Steuerberater review requested for all-in price/margin wording, mandatory energy/CO2 information by vehicle/category/market, consumer disclosures, photo rights, dealer identity and removal duties. No engine calculation or file format certifies those obligations.
+
+Only reviewed public listing text/photos/contact go into files. Plate/face redaction and photo-use rights belong to advisor review; EXIF stripping alone is not anonymity. No customer notes/VIN by default, customer evidence, purchase costs or signed object URLs. Archive/download audit records actor/time/ref/profile/hash, never image bodies/secrets in logs. No new public feed/bucket or arbitrary external media fetch. Existing snapshot/tenant restore and erasure rules apply; do not retain a public photo indefinitely merely because an export once existed.
+
+| Open point | Current concrete behaviour / owner |
+| --- | --- |
+| AS24 workbook fields/codes and acceptance | AUT-570 ships specified provisional CSV+ZIP/goldens now; new verified profile later, no wait on onboarding. |
+| willhaben vehicle import schema/transport | AUT-571 ships named generic profile now; obtain contract only for a later compatible adapter. |
+| mobile account replacement coverage / taxonomy acceptance | AUT-569 reference download, no schedule/account-wide replacement; explicit readiness errors for unknown required mappings, no live claims. |
+| AS24 AT API entitlement/auth/cost; CH is separate | AUT-572 fake default-off port; no endpoints/credentials guessed. Production contract is follow-up scope. |
+| Portal account fees | No quoted price or free-integration claim; manual artifact generator has no portal subscription side effect. |
+| Legal wording/energy rules | Engineering defaults and explicit assertions; Dejan with counsel/Steuerberater can revise; no HUMAN/discovery gate for building the issue's manual profiles. |
+
+## Existing implementation split and acceptance tests
+
+| Ticket | Size / delivery |
+| --- | --- |
+| AUT-565 | M: stock-cycle VehicleMedia upload/order/variants, depends AUT-554. |
+| AUT-566 | M: tenant equipment taxonomy, repository per-profile maps and seeded starter values. |
+| AUT-567 | M: listing/channel/cycle model, scope/readiness/hash, restore/deletion contract; depends photos/equipment/spec. |
+| AUT-568 | M: listing editor and per-profile preview/download/removal UX. |
+| AUT-569 | M: registry, reference mobile layout/goldens, scoped manual export run/ZIP/download. |
+| AUT-570 | M: concrete AS24 provisional CSV+ZIP/goldens and verification manifest. |
+| AUT-571 | S: concrete generic willhaben profile/golden/warnings. |
+| AUT-572 | S: fake AS24 publisher port/default-off guards, no real push. |
+| AUT-573 | M: atomic withdrawal hooks (including sold role-clear), stale runs/removal manifests and MCP read schema. |
+
+Existing Linear dependencies stay; AUT-568 export actions integrate as AUT-569–571 land. Core listing can precede lifecycle integration, but epic release requires AUT-573; do not release a download feature that keeps exporting sold cars. No new issue creation required. Every implementing route/DTO/schema change regenerates/commits OpenAPI and generated frontend types; add new public error codes through the safe filter/translation registry as AUT-585 lands.
+
+Required CI coverage in owning PRs, not local checks in this spec task:
+
+- Tenant/site/role denial for listing/media/options/export/download/MCP, forged purchase/photo/option ids, foreign-site nested data and no hidden purchase/customer data in CSV/ZIP/manifest. Advisor member without Employee can upload.
+- Expand-only migration on existing rows, composite tenant/cycle constraints, restore/purge with pinned blobs, no auto-publish/backfill; old app revision still writes existing models.
+- Golden synthetic CSV for every profile: exact bytes/encoding/columns/quotes/reserved empties/header/date/numbers; full mobile position manifest and gross-price VAT interpretation; AS24/willhaben explicitly provisional; unrepresentable characters/embedded quotes/CRLF/control/formula/pipe handling.
+- Photo orientation/metadata/byte validation, stable order/cover/ref names, full selected set in ZIP, image hash/reference match, limits/quota rejection; more than 15 mobile photos requires explicit choice; no private originals/check-in/registration/signature inclusion.
+- Taxonomy known/unmapped/custom/unknown/negative assertions, description-length overflow, no silent truncation or wrong fuel/CO2-cycle conversion, portal category/make mapping version invalidates hash.
+- Gross all-in price vs purchase cost/trade-in and margin treatment, unknown NoVA/fees/VAT/damage readiness, stale master/price/photo/contact changes, portal-specific validation issues in UI.
+- Race tests: duplicate uploads/generation key, simultaneous edit/sale/reserve/move/re-purchase/generation/download, membership/site disable, stale before artifact publish; no last_export update on failed/stale run. Sale rollback leaves listings active; successful role-clear produces pending-removal ref without CRM leak.
+- Empty active export returns 422; removal-only ZIP has no portal CSV; pending removal survives file generation; partial-site/reference package never claims full account replacement. No false external confirmation or automatic reactivation.
+- Disabled/unconfigured API push produces no network/secret access; fake adapter contract cannot change production remote confirmation. MCP status has schema and preserves policy/access boundaries.
+- Frontend tablet/desktop editor, 750ms save flush/conflict, visible format uncertainty/all-in assertions/removal action and generated-vs-published status; search/sort/history rules and realtime invalidation.
+- Backend lint/build/unit/tenant guard/fresh unseeded E2E and frontend lint/build/unit/Playwright/contract checks on GitHub; Repowise applies without weakening baseline. This spec PR runs no local validation and claims no live portal/account/legal acceptance.
+
+## References
+
+- [AUT-389](https://linear.app/auto-core-platform/issue/AUT-389), [AUT-553](https://linear.app/auto-core-platform/issue/AUT-553) and existing children AUT-565–573, read via Linear CLI.
+- [Vehicle stock](vehicle-stock-trading.md), [NoVA](../Vehicles/nova-calculator.md), [i18n architecture](../Platform/i18n-de-en.md), [legal texts](../Platform/i18n-legal-texts.md), [tablet/image dependency](../Workshop/tablet-check-in.md), ADR-0022 site scope and `docs/deletion-policy.md`.
+- Public portal sources and verification dates are listed in the matrix; `Mustertabelle_AS24.xls` link was followed but its contents were unavailable to the browser reader. No authenticated pages or marketplace APIs were used.
