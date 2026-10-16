@@ -40,19 +40,26 @@ import { proposeWorkshopBookingInputSchema } from '../workshop/workshop-booking-
 import { proposePurchaseOrderInputSchema } from '../purchase/purchase-propose-draft.schema.js';
 
 const pageSchema = z.number().int().min(1).optional();
-const pageSizeSchema = z.number().int().min(1).max(25).optional();
 const uuidSchema = z.string().uuid();
+
+/** AUT-429 contract: camelCase `pageSize` on every paging MCP tool input. */
+const pageSizeCamelSchema = z
+  .number()
+  .int()
+  .min(1)
+  .max(MCP_MAX_PAGE_SIZE)
+  .optional();
 
 export const searchCustomersInputSchema = z.object({
   search: z.string().min(1).optional(),
   page: pageSchema,
-  page_size: pageSizeSchema,
+  pageSize: pageSizeCamelSchema,
 });
 
 export const searchVehiclesInputSchema = z.object({
   search: z.string().min(1).optional(),
   page: pageSchema,
-  page_size: pageSizeSchema,
+  pageSize: pageSizeCamelSchema,
 });
 
 export const getVehicleInputSchema = z.object({
@@ -63,7 +70,7 @@ export const listWorkshopOrdersInputSchema = z.object({
   search: z.string().min(1).optional(),
   customer_id: uuidSchema.optional(),
   page: pageSchema,
-  page_size: pageSizeSchema,
+  pageSize: pageSizeCamelSchema,
 });
 
 export const getWorkshopOrderInputSchema = z.object({
@@ -74,7 +81,7 @@ export const searchPartsInputSchema = z.object({
   query: z.string().min(1),
   workshop_order_id: uuidSchema.optional(),
   page: pageSchema,
-  page_size: pageSizeSchema,
+  pageSize: pageSizeCamelSchema,
 });
 
 export const getStockLevelBaseSchema = z.object({
@@ -100,17 +107,17 @@ const stockAgeBucketSchema = z.enum([
 
 export const listBaysInputSchema = z.object({
   page: pageSchema,
-  page_size: pageSizeSchema,
+  pageSize: pageSizeCamelSchema,
 });
 
 export const listBinsInputSchema = z.object({
   page: pageSchema,
-  page_size: pageSizeSchema,
+  pageSize: pageSizeCamelSchema,
 });
 
 export const listWorkshopTasksInputSchema = z.object({
   page: pageSchema,
-  page_size: pageSizeSchema,
+  pageSize: pageSizeCamelSchema,
 });
 
 export const whoamiInputSchema = z.object({});
@@ -128,12 +135,6 @@ export const getCapabilitiesInputSchema = z.object({
 });
 
 /** AUT-455 contract: camelCase `pageSize` and a keyset `cursor` from `meta.next_cursor`. */
-const pageSizeCamelSchema = z
-  .number()
-  .int()
-  .min(1)
-  .max(MCP_MAX_PAGE_SIZE)
-  .optional();
 
 const keysetCursorSchema = z
   .string()

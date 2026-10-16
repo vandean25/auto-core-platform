@@ -61,7 +61,7 @@ export class McpStockReadService {
     query: string;
     workshop_order_id?: string;
     page?: number;
-    page_size?: number;
+    pageSize?: number;
   }) {
     if (input.workshop_order_id) {
       const catalogResult = await this.catalogService.search(
@@ -72,7 +72,7 @@ export class McpStockReadService {
     }
 
     const page = clampMcpPage(input.page);
-    const pageSize = clampMcpPageSize(input.page_size);
+    const pageSize = clampMcpPageSize(input.pageSize);
     const inventoryResult = await this.inventoryService.findAll({
       search: input.query,
       page,
