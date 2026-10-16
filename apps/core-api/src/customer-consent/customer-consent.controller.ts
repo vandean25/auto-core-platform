@@ -1,16 +1,7 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Post,
-  Query,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOkResponse, ApiQuery } from '@nestjs/swagger';
 import { CustomerConsentService } from './customer-consent.service.js';
-import {
-  assertConsentLedgerAccess,
-} from './customer-consent.controller-context.js';
+import { assertConsentLedgerAccess } from './customer-consent.controller-context.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import {
   CommunicationEventResponseDto,
@@ -33,7 +24,7 @@ export class CustomerConsentController {
     @Param('id') customerId: string,
     @Query('controller_legal_entity_id') controllerLegalEntityId?: string,
   ) {
-    await assertConsentLedgerAccess(this.tenantContext);
+    assertConsentLedgerAccess(this.tenantContext);
     return this.consentService.getCommunicationPreferences(
       customerId,
       controllerLegalEntityId,
@@ -51,7 +42,7 @@ export class CustomerConsentController {
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
   ) {
-    await assertConsentLedgerAccess(this.tenantContext);
+    assertConsentLedgerAccess(this.tenantContext);
     const parsedPage = page ? parseInt(page, 10) : 1;
     const parsedSize = pageSize ? parseInt(pageSize, 10) : 25;
     return this.consentService.listCommunicationHistory(
@@ -68,7 +59,7 @@ export class CustomerConsentController {
     @Param('id') customerId: string,
     @Body() body: RecordCommunicationEventDto,
   ) {
-    await assertConsentLedgerAccess(this.tenantContext);
+    assertConsentLedgerAccess(this.tenantContext);
     return this.consentService.recordCommunicationEvent(customerId, body);
   }
 }

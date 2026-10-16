@@ -65,9 +65,11 @@ export class NotificationOutboxService {
     const token = await this.marketingUnsubscribe.mintTokenForMarketingMessage(
       input.marketingUnsubscribe,
     );
-    const origin =
-      process.env.FRONTEND_URL?.trim() || 'http://localhost:5173';
-    const url = this.marketingUnsubscribe.buildUnsubscribePostUrl(origin, token);
+    const origin = process.env.FRONTEND_URL?.trim() || 'http://localhost:5173';
+    const url = this.marketingUnsubscribe.buildUnsubscribePostUrl(
+      origin,
+      token,
+    );
     return {
       ...input,
       email: {

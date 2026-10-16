@@ -28,7 +28,10 @@ import {
   resolveConsentActorMemberId,
   resolveControllerLegalEntityId,
 } from './customer-consent.controller-context.js';
-import { canContact, type LedgerEventSlice } from './customer-consent.permissions.js';
+import {
+  canContact,
+  type LedgerEventSlice,
+} from './customer-consent.permissions.js';
 import {
   ALL_CONSENT_PURPOSES,
   MARKETING_CONSENT_PURPOSES,
@@ -277,8 +280,7 @@ export class CustomerConsentService {
             text_language: dto.text_language ?? null,
             text_snapshot: dto.text_snapshot ?? null,
             evidence: (dto.evidence ?? undefined) as
-              | Prisma.InputJsonValue
-              | undefined,
+              Prisma.InputJsonValue | undefined,
             revoked_at: isRevocation ? serverNow : null,
             idempotency_key: dto.idempotency_key,
             retain_until: null,
@@ -458,7 +460,9 @@ export class CustomerConsentService {
                 source: 'UNSUBSCRIBE',
                 revoked_at: now,
                 idempotency_key:
-                  purpose === 'NEWSLETTER' ? idempotencyKey : `${idempotencyKey}:${purpose}`,
+                  purpose === 'NEWSLETTER'
+                    ? idempotencyKey
+                    : `${idempotencyKey}:${purpose}`,
                 retain_until: null,
                 evidence: {
                   contact_fingerprint: tokenRow.contact_fingerprint,
@@ -607,6 +611,7 @@ export class CustomerConsentService {
       controllerId,
       customerId,
     );
+    // eslint-disable-next-line no-restricted-syntax -- tenant-qualified communication state row lock (FOR UPDATE) for consent ledger serialization.
     const locked = await tx.$queryRaw<
       Array<{
         id: string;

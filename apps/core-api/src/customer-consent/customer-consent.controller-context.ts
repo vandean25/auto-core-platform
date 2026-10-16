@@ -10,9 +10,9 @@ import { isApiKeyPrincipal } from '../auth/types/authenticated-user.js';
 
 const BLOCKED_ROLES = new Set(['TECH', 'DEMO']);
 
-export async function assertConsentLedgerAccess(
+export function assertConsentLedgerAccess(
   tenantContext: TenantContextService,
-): Promise<void> {
+): void {
   const user = tenantContext.getAuthenticatedUser();
   if (!user?.role || BLOCKED_ROLES.has(user.role)) {
     throw new ForbiddenException(
@@ -66,9 +66,10 @@ export async function assertCustomerInTenant(
   }
 }
 
-export type CommunicationStateRow = Prisma.CustomerCommunicationStateGetPayload<{
-  select: { id: true; revision: true; processing_status: true };
-}>;
+export type CommunicationStateRow =
+  Prisma.CustomerCommunicationStateGetPayload<{
+    select: { id: true; revision: true; processing_status: true };
+  }>;
 
 /**
  * Ensures the authenticated principal has an active site membership for the controller legal entity.

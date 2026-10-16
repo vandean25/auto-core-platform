@@ -11,11 +11,15 @@ const ADDRESS_HMAC_VERSION = 1;
 function encryptionKey(): Buffer {
   const raw = process.env.SECRET_ENCRYPTION_KEY;
   if (!raw) {
-    throw new Error('SECRET_ENCRYPTION_KEY is required for contact address storage.');
+    throw new Error(
+      'SECRET_ENCRYPTION_KEY is required for contact address storage.',
+    );
   }
   const key = Buffer.from(raw, 'base64');
   if (key.length !== 32) {
-    throw new Error('SECRET_ENCRYPTION_KEY must be a base64-encoded 32-byte key.');
+    throw new Error(
+      'SECRET_ENCRYPTION_KEY must be a base64-encoded 32-byte key.',
+    );
   }
   return key;
 }
@@ -73,6 +77,9 @@ export function fingerprintContactAddress(
   normalized: string,
 ): string {
   return createHmac('sha256', encryptionKey())
-    .update(`${ADDRESS_HMAC_VERSION}:${tenantId}:${channel}:${normalized}`, 'utf8')
+    .update(
+      `${ADDRESS_HMAC_VERSION}:${tenantId}:${channel}:${normalized}`,
+      'utf8',
+    )
     .digest('hex');
 }

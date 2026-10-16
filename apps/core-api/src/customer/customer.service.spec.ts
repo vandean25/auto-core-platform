@@ -37,6 +37,8 @@ describe('CustomerService', () => {
     vehicle: { count: jest.fn() },
     vehiclePurchase: { count: jest.fn() },
     vehicleSale: { count: jest.fn() },
+    customerContactPoint: { count: jest.fn() },
+    customerConsent: { count: jest.fn() },
   };
 
   beforeEach(async () => {
@@ -59,6 +61,8 @@ describe('CustomerService', () => {
 
     service = module.get<CustomerService>(CustomerService);
     jest.clearAllMocks();
+    mockPrisma.customerContactPoint.count.mockResolvedValue(0);
+    mockPrisma.customerConsent.count.mockResolvedValue(0);
   });
 
   it('does not expose identity resolution state from customer detail vehicles', async () => {

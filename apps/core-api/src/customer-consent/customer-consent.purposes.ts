@@ -18,9 +18,7 @@ export const ALL_CONSENT_PURPOSES: CustomerConsentPurpose[] = [
   ...MARKETING_CONSENT_PURPOSES,
 ];
 
-export function isMarketingPurpose(
-  purpose: CustomerConsentPurpose,
-): boolean {
+export function isMarketingPurpose(purpose: CustomerConsentPurpose): boolean {
   return MARKETING_CONSENT_PURPOSES.includes(purpose);
 }
 

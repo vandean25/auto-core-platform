@@ -1,4 +1,8 @@
-import type { CustomerConsentChannel, CustomerConsentPurpose, Prisma } from '@prisma/client';
+import type {
+  CustomerConsentChannel,
+  CustomerConsentPurpose,
+  Prisma,
+} from '@prisma/client';
 import { consentProofRetainUntil } from './customer-consent-retention-core.helpers.js';
 
 export {
