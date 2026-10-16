@@ -28,6 +28,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useDebouncedAutoSave } from "@/hooks/useDebouncedAutoSave";
 import { triggerBlobDownload } from "@/lib/download";
 import { getErrorMessage } from "@/lib/error-utils";
+import { formatDate } from "@/lib/format";
 import {
   TEXTAREA_CLASS_NAME,
   WARRANTY_CLAIM_TYPE_OPTIONS,
@@ -236,8 +237,8 @@ export function WarrantyClaimEditor({
           </div>
           <p className="text-sm text-slate-500">
             Order {orderNumber}
-            {claim.submittedAt ? ` · Submitted ${new Date(claim.submittedAt).toLocaleDateString("de-AT")}` : ""}
-            {claim.closedAt ? ` · Closed ${new Date(claim.closedAt).toLocaleDateString("de-AT")}` : ""}
+            {claim.submittedAt ? ` · Submitted ${formatDate(claim.submittedAt)}` : ""}
+            {claim.closedAt ? ` · Closed ${formatDate(claim.closedAt)}` : ""}
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">

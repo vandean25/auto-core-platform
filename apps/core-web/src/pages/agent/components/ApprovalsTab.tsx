@@ -28,6 +28,7 @@ import {
 import type { Language } from '../agent-supervision-copy'
 import { getCopy, SUPERVISION_COPY } from '../agent-supervision-copy'
 import { resolveDecidedByLabel, resolveProposalAgentName } from '../agent-labels'
+import { formatCurrency, formatDate, formatDateTime, formatNumber } from '@/lib/format'
 import {
   formatDetailSupervisionChangeLabel,
   formatDefaultSupervisionChangeLabel,
@@ -217,10 +218,7 @@ export function ApprovalsTab({
 
   const formatAmount = (amountEur: number | null | undefined) => {
     if (amountEur === null || amountEur === undefined) return null
-    return amountEur.toLocaleString(language === 'de' ? 'de-DE' : 'en-US', {
-      style: 'currency',
-      currency: 'EUR',
-    })
+    return formatCurrency(amountEur)
   }
 
   const formatTaxBasisLabel = (basis: AmountTaxBasis | null) => {
@@ -409,15 +407,9 @@ export function ApprovalsTab({
                           className="mr-1 inline h-3.5 w-3.5"
                           aria-hidden="true"
                         />
-                        {new Date(item.created_at).toLocaleString(
-                          language === 'de' ? 'de-DE' : 'en-US',
-                        )}
+                        {formatDateTime(item.created_at)}
                         {item.due_at
-                          ? ` · ${getCopy(t.dueAt, language)} ${new Date(
-                              item.due_at,
-                            ).toLocaleString(
-                              language === 'de' ? 'de-DE' : 'en-US',
-                            )}`
+                          ? ` · ${getCopy(t.dueAt, language)} ${formatDateTime(item.due_at)}`
                           : null}
                       </p>
                     </div>
@@ -586,12 +578,12 @@ export function ApprovalsTab({
                           className="inline mr-1 h-3 w-3"
                           aria-hidden="true"
                         />
-                        {new Date(proposal.created_at).toLocaleString()}
+                        {formatDateTime(proposal.created_at)}
                       </span>
                       {proposal.expires_at && isPending && (
                         <span className="text-amber-800">
                           {getCopy(t.expiresAt, language)}:{' '}
-                          {new Date(proposal.expires_at).toLocaleDateString()}
+                          {formatDate(proposal.expires_at)}
                         </span>
                       )}
                     </div>
@@ -725,9 +717,7 @@ export function ApprovalsTab({
                               <td className="py-1.5 pr-3 text-right font-mono">
                                 {line.quantity === null
                                   ? '—'
-                                  : line.quantity.toLocaleString(
-                                      language === 'de' ? 'de-DE' : 'en-US',
-                                    )}
+                                  : formatNumber(line.quantity)}
                               </td>
                               <td className="py-1.5 pr-3 text-right font-mono">
                                 {formatMoneyWithTaxBasis(

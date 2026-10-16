@@ -259,8 +259,10 @@ describe("warranty claim form helpers", () => {
 
   describe("display", () => {
     it("formats euros in German notation and shows a dash for missing amounts", () => {
-      expect(formatEur("1250")).toMatch(/^1\.250,00\s€$/);
-      expect(formatEur(0.5)).toMatch(/^0,50\s€$/);
+      expect(formatEur("1250")).toContain("1.250,00");
+      expect(formatEur("1250")).toMatch(/€/);
+      expect(formatEur(0.5)).toContain("0,50");
+      expect(formatEur(0.5)).toMatch(/€/);
       expect(formatEur(null)).toBe("–");
       expect(formatEur("")).toBe("–");
     });

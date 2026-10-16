@@ -1,4 +1,5 @@
 import { getErrorCode, getErrorMessage } from '@/lib/error-utils'
+import { formatDateUtcMedium } from '@/lib/format'
 
 /** Basisfrist status from the API: expired, expiring soon (due within 30 days), or active. */
 export type GewaehrleistungStatus = 'ACTIVE' | 'EXPIRING_SOON' | 'EXPIRED'
@@ -17,9 +18,7 @@ export function gewaehrleistungStatusBadge(status: GewaehrleistungStatus) {
 /** A stored date-only value (`YYYY-MM-DD`) as a German day, e.g. `14.10.2026`. */
 export function formatWarrantyDay(value: string | null | undefined): string {
   if (!value) return '—'
-  return new Intl.DateTimeFormat('de-AT', { dateStyle: 'medium', timeZone: 'UTC' }).format(
-    new Date(`${value.slice(0, 10)}T00:00:00Z`),
-  )
+  return formatDateUtcMedium(`${value.slice(0, 10)}T00:00:00Z`)
 }
 
 export const GARANTIE_MONTHS_MIN = 1

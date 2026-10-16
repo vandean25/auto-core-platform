@@ -7,9 +7,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useMySites } from '@/api/sites'
 import { useWorkshopKpiReport, type WorkshopKpiReport } from '@/api/workshop-kpi-reports'
 import { downloadCsv, serializeCsv } from '@/lib/csv'
+import { formatNumber } from '@/lib/format'
 
 function number(value: string | null | undefined, suffix = ''): string {
-  return value == null ? '—' : `${Number(value).toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${suffix}`
+  return value == null
+    ? '—'
+    : `${formatNumber(Number(value), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${suffix}`
 }
 
 export function serializeWorkshopKpiCsv(report: WorkshopKpiReport): string {
@@ -109,7 +112,7 @@ export default function WorkshopKpiReportsPage() {
         <p className="mt-1 text-xs text-slate-500">Nicht bewertete Lagerpositionen: {report.data?.parts_turnover.unvalued_stock_item_count ?? 0}</p>
         <h3 className="mb-2 mt-5 text-sm font-semibold">Teile ohne Werkstattverbrauch in den letzten 90 Tagen</h3>
         <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b text-left"><th className="p-2">Artikel</th><th className="p-2">Menge</th><th className="p-2">Lagerwert</th><th className="p-2">Tage seit Verbrauch</th></tr></thead>
-          <tbody>{report.data?.parts_turnover.slow_movers.length ? report.data.parts_turnover.slow_movers.map((part) => <tr key={part.catalog_item_id} className="border-b"><td className="p-2">{part.sku} · {part.name}</td><td className="p-2">{Number(part.quantity_on_hand).toLocaleString('de-AT', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}</td><td className="p-2">{number(part.stock_value, ' €')}</td><td className="p-2">{part.days_since_last_issue ?? 'Nie'}</td></tr>) : <tr><td className="p-3 text-slate-500" colSpan={4}>Keine passenden Teile im Bestand.</td></tr>}</tbody>
+          <tbody>{report.data?.parts_turnover.slow_movers.length ? report.data.parts_turnover.slow_movers.map((part) => <tr key={part.catalog_item_id} className="border-b"><td className="p-2">{part.sku} · {part.name}</td><td className="p-2">{formatNumber(Number(part.quantity_on_hand), { minimumFractionDigits: 3, maximumFractionDigits: 3 })}</td><td className="p-2">{number(part.stock_value, ' €')}</td><td className="p-2">{part.days_since_last_issue ?? 'Nie'}</td></tr>) : <tr><td className="p-3 text-slate-500" colSpan={4}>Keine passenden Teile im Bestand.</td></tr>}</tbody>
         </table></div>
       </CardContent></Card>
     </div>

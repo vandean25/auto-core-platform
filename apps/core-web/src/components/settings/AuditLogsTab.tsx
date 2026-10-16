@@ -13,29 +13,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
+import { formatIsoDateTimeInZone } from '@/lib/format'
 
 const DEFAULT_TIMEZONE = 'Europe/Vienna'
 
 export function formatAuditTimestamp(timestamp: string, timezone: string): string {
-  const date = new Date(timestamp)
-  if (Number.isNaN(date.getTime())) return '—'
-
-  const parts = Object.fromEntries(
-    new Intl.DateTimeFormat('en-US', {
-      timeZone: timezone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hourCycle: 'h23',
-    })
-      .formatToParts(date)
-      .map(({ type, value }) => [type, value]),
-  )
-
-  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`
+  return formatIsoDateTimeInZone(timestamp, timezone) ?? '—'
 }
 
 function normalizeSearch(value: string): string {

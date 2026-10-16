@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from '@/auth/AuthProvider'
+import { I18nProvider } from '@/lib/i18n'
 import { registerVitePreloadErrorHandler } from '@/lib/chunk-load-recovery'
 import { isPublicApprovalPath } from '@/lib/public-approval-path'
 import { PublicEstimateApprovalRoot } from '@/pages/public/PublicEstimateApprovalRoot'
@@ -31,13 +32,17 @@ createRoot(document.getElementById('root')!, {
 }).render(
   <StrictMode>
     {isPublicApproval ? (
-      <PublicEstimateApprovalRoot />
+      <I18nProvider>
+        <PublicEstimateApprovalRoot />
+      </I18nProvider>
     ) : (
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <App />
-        </AuthProvider>
-      </QueryClientProvider>
+      <I18nProvider>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <App />
+          </AuthProvider>
+        </QueryClientProvider>
+      </I18nProvider>
     )}
   </StrictMode>,
 )

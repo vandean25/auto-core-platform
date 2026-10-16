@@ -1,4 +1,5 @@
 import type { WorkshopEstimateStatus, WorkshopEstimateVersionSummary } from '@/api/workshop-estimates'
+import { formatCurrency } from '@/lib/format'
 
 type EstimateApprovalSummary = NonNullable<WorkshopEstimateVersionSummary['approval']>
 
@@ -39,10 +40,8 @@ export function reactionOptionsFor(
   return CUSTOMER_REACTION_OPTIONS.filter((option) => allowed.includes(option.value))
 }
 
-const moneyFormat = new Intl.NumberFormat('de-AT', { style: 'currency', currency: 'EUR' })
-
 export function formatEstimateMoney(value: string | null | undefined): string {
-  return value == null ? '—' : moneyFormat.format(Number(value))
+  return value == null ? '—' : formatCurrency(Number(value))
 }
 
 const NOTE_MIN_LENGTH = 3

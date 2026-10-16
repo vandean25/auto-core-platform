@@ -12,6 +12,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useDecisionShadowLogs } from '@/api/decision-shadow-logs'
+import { formatDateTime } from '@/lib/format'
 import type {
   DecisionShadowLog,
   DecisionShadowUseCase,
@@ -250,7 +251,7 @@ function DecisionShadowRow({
   return (
     <TableRow data-testid={`decision-shadow-row-${row.id}`}>
       <TableCell className="text-xs text-slate-500 whitespace-nowrap">
-        {new Date(row.createdAt).toLocaleString()}
+        {formatDateTime(row.createdAt)}
       </TableCell>
       <TableCell className="text-xs text-slate-700">
         {getCopy(t.useCases[row.useCase], language)}

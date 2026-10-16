@@ -12,6 +12,7 @@ import type { SalesOrder } from '@/api/types'
 import { toast } from 'sonner'
 import { DASHBOARD_WIDGET_SOURCE_SALES_ORDERS } from '@/features/dashboard-widgets/sources'
 import { getErrorMessage } from '@/lib/error-utils'
+import { formatDate } from '@/lib/format'
 
 // Used by the Customer and Vehicle cells, and by their CSV export values.
 function customerDisplayName(customer: SalesOrder['customer']): string {
@@ -50,7 +51,7 @@ export default function SalesOrderList() {
         {
             accessorKey: 'createdAt',
             header: ({ column }) => <DataTableColumnHeader column={column} title="Date" />,
-            cell: ({ row }) => new Date(row.original.createdAt).toLocaleDateString(),
+            cell: ({ row }) => formatDate(row.original.createdAt),
         },
         {
             accessorKey: 'customer.last_name', // Filter on last name by default or use a computed field in backend? 

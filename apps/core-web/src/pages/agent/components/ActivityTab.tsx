@@ -16,6 +16,7 @@ import { useAgentActions } from '@/api/agent-actions'
 import type { AgentActionStatus, AgentActionTier } from '@/api/agent-actions'
 import type { Language } from '../agent-supervision-copy'
 import { getCopy, SUPERVISION_COPY } from '../agent-supervision-copy'
+import { formatDateTime } from '@/lib/format'
 import {
   resolveActivityAgentName,
   resolveDecidedByLabel,
@@ -293,7 +294,7 @@ export function ActivityTab({
                 return (
                   <TableRow key={log.id} data-testid={`activity-row-${log.id}`}>
                     <TableCell className="text-xs text-slate-500 whitespace-nowrap">
-                      {new Date(log.createdAt).toLocaleString()}
+                      {formatDateTime(log.createdAt)}
                     </TableCell>
                     <TableCell className="text-xs font-semibold text-slate-800">
                       {agentName}

@@ -1,0 +1,25 @@
+{
+  "language": {
+    "de": "Deutsch",
+    "en": "English",
+    "label": "Sprache",
+    "switchPending": "Sprache wird gewechselt…",
+    "switchError": "Sprache konnte nicht gespeichert werden."
+  },
+  "placeholders": {
+    "missing": "—",
+    "unknown": "Unbekannt"
+  },
+  "relative": {
+    "minutesAgo_one": "vor {{count}} Minute",
+    "minutesAgo_other": "vor {{count}} Minuten",
+    "hoursAgo_one": "vor {{count}} Stunde",
+    "hoursAgo_other": "vor {{count}} Stunden",
+    "daysAgo_one": "vor {{count}} Tag",
+    "daysAgo_other": "vor {{count}} Tagen"
+  },
+  "profile": {
+    "menuLabel": "Profilmenü",
+    "signOut": "Abmelden"
+  }
+}

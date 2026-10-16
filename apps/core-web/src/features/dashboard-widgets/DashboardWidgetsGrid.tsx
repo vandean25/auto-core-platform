@@ -9,6 +9,7 @@ import { fetchRowsForWidgetHref } from '@/features/dashboard-widgets/data-source
 import { useDashboardWidgets } from '@/features/dashboard-widgets/DashboardWidgetsProvider'
 import type { DashboardWidget, DashboardWidgetTableSource } from '@/features/dashboard-widgets/types'
 import { getValueByPath, stringifyValue, toNumber } from '@/features/dashboard-widgets/utils'
+import { formatCurrency, formatNumber } from '@/lib/format'
 
 const DONUT_COLORS = ['#0ea5e9', '#22c55e', '#f97316', '#a855f7', '#ef4444', '#eab308', '#14b8a6', '#6366f1']
 
@@ -78,13 +79,12 @@ function DashboardWidgetCard({
 
   const formattedMetricValue = useMemo(() => {
     if (metricValue == null) return '-'
-    const locale = typeof navigator !== 'undefined' ? navigator.language : 'en-US'
 
     if (widget.metricCalculation === 'sum' && metricFieldType === 'currency') {
-      return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(metricValue)
+      return formatCurrency(metricValue, currency)
     }
     if (widget.metricCalculation === 'sum') {
-      return new Intl.NumberFormat(locale).format(metricValue)
+      return formatNumber(metricValue)
     }
     return `${metricValue}`
   }, [currency, metricFieldType, metricValue, widget.metricCalculation])

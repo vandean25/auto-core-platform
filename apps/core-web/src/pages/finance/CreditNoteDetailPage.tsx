@@ -44,17 +44,13 @@ import {
   validateCreditQuantity,
 } from '@/lib/credit-note-quantity'
 import { getErrorMessage } from '@/lib/error-utils'
+import { formatDateShort } from '@/lib/format'
 import { formatCurrency } from '@/lib/utils'
 import { generateId } from '@/lib/id'
 
 const CREDIT_NOTES_API = '/api/credit-notes'
 
-const formatDate = (value: string) =>
-  new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(new Date(value))
+const formatDate = (value: string) => formatDateShort(value)
 
 type DraftLineState = {
   originalItemId: string

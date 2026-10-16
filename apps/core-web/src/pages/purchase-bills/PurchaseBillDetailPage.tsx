@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { ArrowLeft, CheckCircle2, Loader2 } from 'lucide-react'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { parseLocalDate } from '@/lib/date-utils'
+import { formatCurrency, formatDate } from '@/lib/format'
 import { toast } from 'sonner'
 import { PurchaseBillForm } from '@/components/purchase-bills/PurchaseBillForm'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
@@ -80,7 +81,7 @@ export default function PurchaseBillDetailPage() {
                     </div>
                     <div className="text-right">
                         <div className="text-3xl font-bold">
-                            {parseFloat(invoice.total_amount).toLocaleString('en-US', { style: 'currency', currency: 'EUR' })}
+                            {formatCurrency(parseFloat(invoice.total_amount))}
                         </div>
                         <div className="mt-1 flex justify-end">
                             <StatusBadge status={invoice.status} />
@@ -94,7 +95,7 @@ export default function PurchaseBillDetailPage() {
                         <p className="text-base font-medium">
                             {(() => {
                                 const date = parseLocalDate(invoice.invoice_date)
-                                return date ? date.toLocaleDateString() : '-'
+                                return date ? formatDate(date) : '-'
                             })()}
                         </p>
                     </div>
@@ -103,7 +104,7 @@ export default function PurchaseBillDetailPage() {
                         <p className="text-base font-medium">
                             {(() => {
                                 const date = parseLocalDate(invoice.due_date)
-                                return date ? date.toLocaleDateString() : '-'
+                                return date ? formatDate(date) : '-'
                             })()}
                         </p>
                     </div>
@@ -128,10 +129,10 @@ export default function PurchaseBillDetailPage() {
                                             <td className="py-2 px-4">{line.description}</td>
                                             <td className="text-right py-2 px-4">{line.quantity}</td>
                                             <td className="text-right py-2 px-4">
-                                                {parseFloat(line.unit_price).toLocaleString('en-US', { style: 'currency', currency: 'EUR' })}
+                                                {formatCurrency(parseFloat(line.unit_price))}
                                             </td>
                                             <td className="text-right py-2 px-4">
-                                                {parseFloat(line.line_total).toLocaleString('en-US', { style: 'currency', currency: 'EUR' })}
+                                                {formatCurrency(parseFloat(line.line_total))}
                                             </td>
                                         </tr>
                                     ))}

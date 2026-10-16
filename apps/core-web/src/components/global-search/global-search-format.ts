@@ -1,11 +1,11 @@
 import type { WorkshopOrder } from '@/api/types'
 import type { WorkshopSearchCustomer, WorkshopSearchVehicle } from '@/hooks/useGlobalSearch'
 import { getWorkshopCustomerDisplayName } from '@/features/workshop/pick-utils'
+import { formatCurrency } from '@/lib/format'
 
-export const currencyFormatter = new Intl.NumberFormat('de-DE', {
-  style: 'currency',
-  currency: 'EUR',
-})
+export function formatSearchCurrency(price: number): string {
+  return formatCurrency(price)
+}
 
 export const truncate = (text: string, max = 50) =>
   text.length > max ? `${text.slice(0, max).trimEnd()}…` : text

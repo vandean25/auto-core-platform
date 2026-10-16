@@ -6,6 +6,7 @@ import * as purchaseApi from '@/api/usePurchaseInvoices'
 import * as vendorApi from '@/api/vendors'
 import * as inventoryApi from '@/api/inventory'
 import type { PurchaseInvoice } from '@/api/types'
+import { formattedCurrencyPattern } from '@/test/format-assertions'
 
 vi.mock('@/api/usePurchaseInvoices')
 vi.mock('@/api/vendors')
@@ -97,8 +98,8 @@ describe('PurchaseBillForm Characterization', () => {
     expect(taxCard).not.toBeNull()
     expect(totalCard).not.toBeNull()
 
-    expect(within(itemsCard as HTMLElement).getByText('€100.00')).toBeInTheDocument()
-    expect(within(taxCard as HTMLElement).getByText('€20.00')).toBeInTheDocument()
-    expect(within(totalCard as HTMLElement).getByText('€120.00')).toBeInTheDocument()
+    expect(within(itemsCard as HTMLElement).getByText(formattedCurrencyPattern(100))).toBeInTheDocument()
+    expect(within(taxCard as HTMLElement).getByText(formattedCurrencyPattern(20))).toBeInTheDocument()
+    expect(within(totalCard as HTMLElement).getByText(formattedCurrencyPattern(120))).toBeInTheDocument()
   })
 })

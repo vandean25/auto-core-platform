@@ -11,6 +11,7 @@ import {
   getOemConcernLabel,
   isVehicleIdentityStale,
 } from '@/features/workshop/catalog-source-copy'
+import { formatDateTime } from '@/lib/format'
 
 export interface VehicleIdentityBannerProps {
   vehicleId: string
@@ -84,7 +85,7 @@ export function VehicleIdentityBanner({
           </p>
           {vehicle.identity_resolved_at && (
             <p className='text-xs text-muted-foreground'>
-              Resolved {new Date(vehicle.identity_resolved_at).toLocaleString()}
+              Resolved {formatDateTime(vehicle.identity_resolved_at)}
             </p>
           )}
           {!vehicle.vin && (

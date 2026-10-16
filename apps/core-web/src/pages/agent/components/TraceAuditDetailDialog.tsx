@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import type { Language } from '../agent-supervision-copy'
 import { getCopy, SUPERVISION_COPY } from '../agent-supervision-copy'
+import { formatDateTime } from '@/lib/format'
 import {
   resolveActivityAgentName,
   resolveDecidedByLabel,
@@ -101,7 +102,7 @@ export function TraceAuditDetailDialog({
                             </details>
                           </div>
                         )}
-                        <span>Time: {new Date(act.createdAt).toLocaleString()}</span>
+                        <span>Time: {formatDateTime(act.createdAt)}</span>
                       </div>
                     </div>
                   )
@@ -133,7 +134,7 @@ export function TraceAuditDetailDialog({
                       </div>
                       <div className="flex items-center gap-4 text-slate-500">
                         <span>User: {entry.actorEmail ?? entry.actorUserId ?? 'System / Agent'}</span>
-                        <span>{new Date(entry.occurredAt).toLocaleString()}</span>
+                        <span>{formatDateTime(entry.occurredAt)}</span>
                       </div>
                     </div>
                   ))}

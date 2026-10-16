@@ -26,6 +26,7 @@ import { DataTableColumnHeader } from '@/components/data-table/data-table-column
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
+import { formatDateShort } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 const ALL_FILTER_VALUE = 'all'
@@ -73,13 +74,7 @@ const MAX_SEARCH_LENGTH = 200
 const MAX_PAGE_SIZE = 100
 
 // UTC keeps the calendar day the server sends, in every browser time zone.
-const formatDate = (value: string) =>
-  new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'UTC',
-  }).format(new Date(value))
+const formatDate = (value: string) => formatDateShort(value, { timeZone: 'UTC' })
 
 const formatIsoDate = (date: Date) => {
   const month = String(date.getMonth() + 1).padStart(2, '0')

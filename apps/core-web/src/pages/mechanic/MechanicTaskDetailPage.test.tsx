@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { MechanicTaskDetail } from '@/api/mechanic'
 import * as mechanicApi from '@/api/mechanic'
 import { toast } from 'sonner'
+import { formatOdometerKm } from '@/lib/format'
 import MechanicTaskDetailPage from './MechanicTaskDetailPage'
 
 vi.mock('@/api/mechanic')
@@ -1003,7 +1004,7 @@ describe('MechanicTaskDetailPage', () => {
 
       renderDetailPage()
 
-      const expectedOdometer = `${baseTask.odometer.toLocaleString()} km`.replace(/\s+/gu, ' ')
+      const expectedOdometer = formatOdometerKm(baseTask.odometer).replace(/\s+/gu, ' ')
 
       expect(
         screen.getByText((_, element) => {

@@ -4,15 +4,7 @@ import type { WorkshopOrderCommunication } from '@/api/workshop-communications'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-
-const dateTimeFormat = new Intl.DateTimeFormat('de-AT', {
-  day: '2-digit',
-  month: '2-digit',
-  year: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-  timeZone: 'Europe/Vienna',
-})
+import { formatDateTime } from '@/lib/format'
 
 /** The channels an advisor records a decision or an overrun notice by. Other channels get no suffix. */
 const ADVISOR_CHANNEL_LABELS: Partial<Record<string, string>> = {
@@ -158,7 +150,7 @@ export function WorkshopCommunicationTimeline({ orderId }: { orderId: string }) 
                 <div className="min-w-0">
                   <p className="text-sm">{describeCommunication(entry)}</p>
                   <time className="text-xs text-muted-foreground" dateTime={entry.occurred_at}>
-                    {dateTimeFormat.format(new Date(entry.occurred_at))}
+                    {formatDateTime(entry.occurred_at)}
                   </time>
                 </div>
               </li>

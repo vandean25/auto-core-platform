@@ -17,6 +17,7 @@ import * as vehicleInspectionApi from "@/api/vehicle-inspection-records";
 import * as authSessionApi from "@/api/auth-session";
 import * as estimateApi from "@/api/workshop-estimates";
 import { toast } from "sonner";
+import { formattedCurrencyPattern } from "@/test/format-assertions";
 
 vi.mock("@/api/workshop", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/api/workshop")>();
@@ -677,7 +678,7 @@ describe("WorkshopOrderDetails Characterization", () => {
     it("renders odometer and fuel level when present", () => {
       renderComponent();
 
-      // toLocaleString() output varies by JSDOM locale; match the number flexibly
+      // formatOdometerKm output may use narrow spaces; match the number flexibly
       expect(
         screen.getAllByText((content) =>
           /85.?000\s*km/i.test(content.replace(/\u202f/g, " ")),
@@ -713,9 +714,9 @@ describe("WorkshopOrderDetails Characterization", () => {
       // Parts: 1 * 15 = €15.00 | Labor: 0.5 * 80 = €40.00 | Grand: €55.00
       renderComponent();
 
-      expect(screen.getAllByText(/€15\.00/)[0]).toBeInTheDocument();
-      expect(screen.getAllByText(/€40\.00/)[0]).toBeInTheDocument();
-      expect(screen.getAllByText(/€55\.00/)[0]).toBeInTheDocument();
+      expect(screen.getAllByText(formattedCurrencyPattern(15))[0]).toBeInTheDocument();
+      expect(screen.getAllByText(formattedCurrencyPattern(40))[0]).toBeInTheDocument();
+      expect(screen.getAllByText(formattedCurrencyPattern(55))[0]).toBeInTheDocument();
     });
 
     it("renders task list with title, total, and status", () => {
@@ -1076,7 +1077,7 @@ describe("WorkshopOrderDetails Characterization", () => {
       renderComponent();
 
       expect(screen.getByText("Grand total")).toBeInTheDocument();
-      expect(screen.getAllByText("€55.00").length).toBeGreaterThan(0);
+      expect(screen.getAllByText(formattedCurrencyPattern(55)).length).toBeGreaterThan(0);
       expect(
         screen.getByRole("button", { name: /^Checkout$/i }),
       ).toBeInTheDocument();
@@ -1166,7 +1167,7 @@ describe("WorkshopOrderDetails Characterization", () => {
       fireEvent.click(screen.getByRole("button", { name: /^Checkout$/i }));
 
       // Net: 15 + 40 = 55.00
-      expect(screen.getAllByText("€55.00").length).toBeGreaterThan(0);
+      expect(screen.getAllByText(formattedCurrencyPattern(55)).length).toBeGreaterThan(0);
     });
 
     it("shows empty checkout message when there are no tasks", () => {
@@ -1204,9 +1205,9 @@ describe("WorkshopOrderDetails Characterization", () => {
 
       // Base: 55.00, Discount: 5.50, Net: 49.50
       await waitFor(() => {
-        expect(screen.getAllByText("€49.50").length).toBeGreaterThan(0);
+        expect(screen.getAllByText(formattedCurrencyPattern(49.5)).length).toBeGreaterThan(0);
       });
-      expect(screen.getAllByText("-€5.50").length).toBeGreaterThan(0);
+      expect(screen.getAllByText(formattedCurrencyPattern(-5.5)).length).toBeGreaterThan(0);
     });
 
     it("expands task group to show line items in checkout view", async () => {
@@ -1249,10 +1250,10 @@ describe("WorkshopOrderDetails Characterization", () => {
       // VAT: 3.15 + 0 + 10 = 13.15
       // Grand: 168.15
       await waitFor(() => {
-        expect(screen.getAllByText("€155.00").length).toBeGreaterThan(0);
+        expect(screen.getAllByText(formattedCurrencyPattern(155)).length).toBeGreaterThan(0);
       });
-      expect(screen.getAllByText("€13.15").length).toBeGreaterThan(0);
-      expect(screen.getAllByText("€168.15").length).toBeGreaterThan(0);
+      expect(screen.getAllByText(formattedCurrencyPattern(13.15)).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(formattedCurrencyPattern(168.15)).length).toBeGreaterThan(0);
     });
   });
 
@@ -1279,7 +1280,7 @@ describe("WorkshopOrderDetails Characterization", () => {
       renderComponent();
 
       expect(screen.getByText("Grand total")).toBeInTheDocument();
-      expect(screen.getByText("€58.15")).toBeInTheDocument();
+      expect(screen.getByText(formattedCurrencyPattern(58.15))).toBeInTheDocument();
     });
 
     it("shows Issue Invoice button when draft invoice is linked", () => {
@@ -1460,7 +1461,7 @@ describe("WorkshopOrderDetails Characterization", () => {
       renderComponent();
 
       expect(screen.getAllByText("Empty")[0]).toBeInTheDocument();
-      expect(screen.getAllByText("€0.00")[0]).toBeInTheDocument();
+      expect(screen.getAllByText(formattedCurrencyPattern(0))[0]).toBeInTheDocument();
     });
 
     it("normalizes phone number for tel: link", () => {

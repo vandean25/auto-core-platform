@@ -23,15 +23,11 @@ import { fetchInvoicePdfGenerationError } from '@/api/invoices'
 import { usePdfDownload } from '@/hooks/usePdfDownload'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { usePageBreadcrumbs } from '@/hooks/usePageBreadcrumbs'
+import { formatDateShort } from '@/lib/format'
 
 const INVOICES_API = '/api/invoices'
 
-const formatDate = (value: string) =>
-  new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(new Date(value))
+const formatDate = (value: string) => formatDateShort(value)
 
 interface InvoiceLineSummary {
   item: InvoiceItem

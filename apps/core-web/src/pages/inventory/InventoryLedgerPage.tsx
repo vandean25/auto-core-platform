@@ -13,6 +13,7 @@ import { canManageInventoryItems } from '@/features/inventory/inventory-manageme
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { formatDateTime } from '@/lib/format'
 import { formatCurrency } from '@/lib/utils'
 
 const transactionLabels: Record<TransactionType, string> = {
@@ -25,14 +26,7 @@ const transactionLabels: Record<TransactionType, string> = {
   WORKSHOP_CONSUMPTION: 'Workshop Consumption',
 }
 
-const formatLedgerDate = (dateString: string) =>
-  new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(dateString))
+const formatLedgerDate = (dateString: string) => formatDateTime(dateString)
 
 export default function InventoryLedgerPage() {
   const { itemId = '' } = useParams<{ itemId: string }>()

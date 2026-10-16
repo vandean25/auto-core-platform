@@ -1,0 +1,25 @@
+{
+  "language": {
+    "de": "Deutsch",
+    "en": "English",
+    "label": "Language",
+    "switchPending": "Switching language…",
+    "switchError": "Could not save language."
+  },
+  "placeholders": {
+    "missing": "—",
+    "unknown": "Unknown"
+  },
+  "relative": {
+    "minutesAgo_one": "{{count}} minute ago",
+    "minutesAgo_other": "{{count}} minutes ago",
+    "hoursAgo_one": "{{count}} hour ago",
+    "hoursAgo_other": "{{count}} hours ago",
+    "daysAgo_one": "{{count}} day ago",
+    "daysAgo_other": "{{count}} days ago"
+  },
+  "profile": {
+    "menuLabel": "Profile menu",
+    "signOut": "Sign out"
+  }
+}

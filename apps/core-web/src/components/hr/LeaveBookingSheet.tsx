@@ -22,6 +22,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { getErrorMessage } from '@/lib/error-utils'
+import { formatLocalDateInZone } from '@/lib/format'
 
 type TenantMemberRole = components['schemas']['TenantMemberRole']
 type LeaveEmployee = Pick<Employee, 'id' | 'name' | 'role'>
@@ -53,18 +54,7 @@ function canManageLeave(activeRole?: TenantMemberRole | null): boolean {
 }
 
 function getToday(timezone: string): string {
-  const parts = Object.fromEntries(
-    new Intl.DateTimeFormat('en-US', {
-      timeZone: timezone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    })
-      .formatToParts(new Date())
-      .map(({ type, value }) => [type, value]),
-  )
-
-  return `${parts.year}-${parts.month}-${parts.day}`
+  return formatLocalDateInZone(new Date(), timezone)
 }
 
 function getInitialFormState(

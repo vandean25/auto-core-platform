@@ -1,6 +1,7 @@
 import { format } from 'date-fns'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { MechanicTaskDetail } from '@/api/mechanic'
+import { formatOdometerKm } from '@/lib/format'
 
 export function VehicleInfoCard({ task }: { task: MechanicTaskDetail }) {
   const { vehicle, bay, scheduledDate } = task
@@ -31,7 +32,7 @@ export function VehicleInfoCard({ task }: { task: MechanicTaskDetail }) {
         )}
         <div>
           <p className="text-xs text-slate-500 uppercase tracking-wide">Odometer</p>
-          <p className="font-medium">{task.odometer.toLocaleString()} km</p>
+          <p className="font-medium">{formatOdometerKm(task.odometer)}</p>
         </div>
         {bay && (
           <div>

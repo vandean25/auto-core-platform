@@ -2,25 +2,14 @@ import { StatusBadge } from '@/components/status/StatusBadge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { FiscalReceiptSummary, SettlementPaymentSummary } from '@/api/useInvoiceSettlement'
 import { SettlementReceiptQr } from '@/components/finance/SettlementReceiptQr'
+import { formatIsoDateTimeInZone } from '@/lib/format'
 
 function formatRksvTimestamp(
   timeSignature: number | null,
   timeZone: string,
 ): string | null {
   if (!timeSignature) return null
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  }).formatToParts(new Date(timeSignature * 1000))
-  const pick = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((part) => part.type === type)?.value ?? ''
-  return `${pick('year')}-${pick('month')}-${pick('day')} ${pick('hour')}:${pick('minute')}:${pick('second')}`
+  return formatIsoDateTimeInZone(timeSignature * 1000, timeZone)
 }
 
 function SignedReceiptDetails({

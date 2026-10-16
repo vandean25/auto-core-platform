@@ -41,6 +41,7 @@ import {
   estimateBadgeLabel,
   formatEstimateMoney,
 } from '@/features/workshop/workshop-estimate-decision'
+import { formatDateTime, formatPercent } from '@/lib/format'
 
 /** The warning fields the overrun description reads. */
 type DescribedOverrun = Pick<
@@ -57,20 +58,10 @@ const STATUS_LABEL: Record<WorkshopEstimateStatus, string> = {
   SUPERSEDED: 'Ersetzt',
 }
 
-const percentFormat = new Intl.NumberFormat('de-AT', { maximumFractionDigits: 1 })
-const dateTimeFormat = new Intl.DateTimeFormat('de-AT', {
-  day: '2-digit',
-  month: '2-digit',
-  year: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-  timeZone: 'Europe/Vienna',
-})
-
 export { formatEstimateMoney }
 
 function formatEstimateDateTime(value: string | null | undefined): string {
-  return value ? `${dateTimeFormat.format(new Date(value))} Uhr` : '—'
+  return value ? `${formatDateTime(value)} Uhr` : '—'
 }
 
 /** The German label of a stored option value, or a dash when there is none. */
@@ -88,9 +79,9 @@ export function describeEstimateOverrun(warning: DescribedOverrun): string[] {
     const approved = Number(warning.approved_total_gross)
     const current = Number(warning.current_total_gross)
     const percent = approved > 0 ? ((current - approved) / approved) * 100 : null
-    const percentText = percent === null ? '' : ` (+${percentFormat.format(percent)} %)`
+    const percentText = percent === null ? '' : ` (+${formatPercent(percent)})`
     lines.push(
-      `Gesamtbetrag brutto ${formatEstimateMoney(warning.current_total_gross)} liegt über dem freigegebenen Betrag ${formatEstimateMoney(warning.approved_total_gross)}${percentText}. Grenzwert: ${percentFormat.format(Number(warning.threshold_pct))} %.`,
+      `Gesamtbetrag brutto ${formatEstimateMoney(warning.current_total_gross)} liegt über dem freigegebenen Betrag ${formatEstimateMoney(warning.approved_total_gross)}${percentText}. Grenzwert: ${formatPercent(Number(warning.threshold_pct))}.`,
     )
   }
   if (warning.new_work_lines) {

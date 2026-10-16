@@ -12,6 +12,7 @@ import { StatusBadge } from '@/components/status/StatusBadge'
 import { parseLocalDate } from '@/lib/date-utils'
 import { DASHBOARD_WIDGET_SOURCE_PURCHASE_BILLS } from '@/features/dashboard-widgets/sources'
 import { getErrorMessage } from '@/lib/error-utils'
+import { formatCurrency, formatDate } from '@/lib/format'
 
 export default function PurchaseBillsPage() {
     const navigate = useNavigate()
@@ -63,7 +64,7 @@ export default function PurchaseBillsPage() {
             cell: ({ row }) => {
                 const date = parseLocalDate(row.original.invoice_date)
                 if (!date) return <div>-</div>
-                return <div>{date.toLocaleDateString()}</div>
+                return <div>{formatDate(date)}</div>
             },
         },
         {
@@ -74,7 +75,7 @@ export default function PurchaseBillsPage() {
             cell: ({ row }) => {
                 const date = parseLocalDate(row.original.due_date)
                 if (!date) return <div>-</div>
-                return <div>{date.toLocaleDateString()}</div>
+                return <div>{formatDate(date)}</div>
             },
         },
         {
@@ -86,7 +87,7 @@ export default function PurchaseBillsPage() {
                 const amount = parseFloat(row.original.total_amount)
                 return (
                     <div className="text-right font-medium">
-                        {amount.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
+                        {formatCurrency(amount)}
                     </div>
                 )
             },

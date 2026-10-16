@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { formattedHours } from '@/test/format-assertions'
 import WorkshopCapacityPage from './WorkshopCapacityPage'
 import * as workshopApi from '@/api/workshop'
 import type { WorkshopCapacityBay, WorkshopCapacityWeek } from '@/api/workshop'
@@ -189,7 +190,7 @@ describe('WorkshopCapacityPage', () => {
   it('highlights cells where planned hours exceed the working day', () => {
     renderPage()
 
-    const overbooked = screen.getByText('Overbooked by 0.5 h').closest('[data-overbooked]')
+    const overbooked = screen.getByText(`Overbooked by ${formattedHours(0.5)}`).closest('[data-overbooked]')
     expect(overbooked).toHaveAttribute('data-overbooked', 'true')
     expect(screen.getByText('3 h free').closest('[data-overbooked]')).toHaveAttribute(
       'data-overbooked',
@@ -238,8 +239,8 @@ describe('WorkshopCapacityPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Next week' }))
 
-    expect(screen.getByText(/12 Oct 2026 –/)).toBeInTheDocument()
-    expect(screen.queryByText(/19 Oct 2026/)).not.toBeInTheDocument()
+    expect(document.body.textContent).toContain('Mo., 12. Okt. 2026')
+    expect(document.body.textContent).not.toContain('Mo., 19. Okt. 2026')
     expect(screen.getByRole('table').closest('[aria-busy]')).toHaveAttribute('aria-busy', 'true')
   })
 })

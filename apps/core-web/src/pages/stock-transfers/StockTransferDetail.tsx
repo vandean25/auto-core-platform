@@ -51,6 +51,7 @@ import {
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { generateId } from '@/lib/id'
 import { getErrorMessage } from '@/lib/error-utils'
+import { formatNumber } from '@/lib/format'
 import {
   buildMemberSiteIdSet,
   canApproveOrRejectTransfer,
@@ -68,7 +69,7 @@ import {
 
 function formatQty(value: string) {
   const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed.toLocaleString() : value
+  return Number.isFinite(parsed) ? formatNumber(parsed) : value
 }
 
 export default function StockTransferDetail() {

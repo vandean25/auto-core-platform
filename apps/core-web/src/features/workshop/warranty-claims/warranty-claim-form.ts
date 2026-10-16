@@ -7,6 +7,7 @@ import type {
   WorkshopLineItemType,
   WorkshopTask,
 } from '@/api/types'
+import { formatCurrency } from '@/lib/format'
 
 export const WARRANTY_CLAIM_TYPE_OPTIONS: ReadonlyArray<{ value: WarrantyClaimType; label: string }> = [
   { value: 'GARANTIE', label: 'Garantie' },
@@ -288,12 +289,7 @@ export function formatEur(value: number | string | null | undefined): string {
   if (value === null || value === undefined || value === '') return '–'
   const numeric = typeof value === 'number' ? value : Number(value)
   if (!Number.isFinite(numeric)) return '–'
-  return new Intl.NumberFormat('de-DE', {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(numeric)
+  return formatCurrency(numeric)
 }
 
 /** File name the API uses for the claim PDF, so a client download matches a direct one. */

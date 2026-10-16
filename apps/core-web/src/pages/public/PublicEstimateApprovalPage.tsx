@@ -12,6 +12,7 @@ import {
   submitPublicEstimateDecision,
 } from '@/api/public-estimate-approvals'
 import type { PublicEstimateDecisionResult, PublicEstimateView } from '@/api/public-estimate-approvals'
+import { formatCurrency, formatDateTime, formatNumber } from '@/lib/format'
 
 const PAGE_TITLE = 'Kostenvoranschlag'
 const MAX_NAME_LENGTH = 120
@@ -27,19 +28,9 @@ const ERROR_MESSAGES: Record<number, string> = {
 /** After these statuses the link can no longer be used, so the page shows only the message. */
 const TERMINAL_STATUSES = new Set([404, 409, 410])
 
-const moneyFormat = new Intl.NumberFormat('de-AT', { style: 'currency', currency: 'EUR' })
-const quantityFormat = new Intl.NumberFormat('de-AT', { maximumFractionDigits: 3 })
-const dateTimeFormat = new Intl.DateTimeFormat('de-AT', {
-  day: '2-digit',
-  month: '2-digit',
-  year: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-  timeZone: 'Europe/Vienna',
-})
-
-const formatMoney = (value: string) => moneyFormat.format(Number(value))
-const formatDateTime = (value: string) => `${dateTimeFormat.format(new Date(value))} Uhr`
+const formatMoney = (value: string) => formatCurrency(Number(value))
+const formatQuantity = (value: string) => formatNumber(Number(value), { maximumFractionDigits: 3 })
+const formatEstimateDateTime = (value: string) => `${formatDateTime(value)} Uhr`
 
 function describeError(error: unknown): string {
   if (error instanceof PublicEstimateApprovalError) {
@@ -121,7 +112,7 @@ function EstimateSummary({ view }: { view: PublicEstimateView }) {
 
       <p className='text-sm break-words'>
         <span className='font-medium'>Fahrzeug:</span> {vehicleLine}
-        {order.odometer > 0 && ` · ${quantityFormat.format(order.odometer)} km`}
+        {order.odometer > 0 && ` · ${formatQuantity(String(order.odometer))} km`}
       </p>
 
       {doc.free_of_charge && <p className='text-sm text-slate-600'>Dieser Kostenvoranschlag ist kostenlos.</p>}
@@ -132,7 +123,7 @@ function EstimateSummary({ view }: { view: PublicEstimateView }) {
             <div className='min-w-0'>
               <p className='break-words font-medium'>{line.description}</p>
               <p className='text-xs text-slate-500'>
-                {quantityFormat.format(Number(line.quantity))} × {formatMoney(line.unit_price)}
+                {formatQuantity(line.quantity)} × {formatMoney(line.unit_price)}
                 {showGross ? ' (brutto)' : ' (netto)'}
               </p>
             </div>
@@ -361,7 +352,7 @@ export function PublicEstimateApprovalPage({ token }: PublicEstimateApprovalPage
             </CardHeader>
             <CardContent className='space-y-5'>
               <EstimateSummary view={state.view} />
-              <p className='text-sm font-medium'>Gültig bis {formatDateTime(state.view.document.valid_until)}</p>
+              <p className='text-sm font-medium'>Gültig bis {formatEstimateDateTime(state.view.document.valid_until)}</p>
               <DecisionForm
                 token={token}
                 paragraphs={state.view.legal.paragraphs}
@@ -381,7 +372,7 @@ export function PublicEstimateApprovalPage({ token }: PublicEstimateApprovalPage
               <p className='font-medium'>{state.result.decision === 'APPROVED' ? 'Angenommen' : 'Abgelehnt'}</p>
               <p className='text-slate-600'>
                 {state.result.decision === 'APPROVED' ? 'Elektronisch bestätigt am' : 'Entschieden am'}{' '}
-                {formatDateTime(state.result.decided_at)}
+                {formatEstimateDateTime(state.result.decided_at)}
               </p>
             </CardContent>
           </Card>

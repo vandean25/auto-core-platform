@@ -6,11 +6,12 @@ import { DataTableColumnHeader } from '@/components/data-table/data-table-column
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { useGewaehrleistungDueList } from '@/api/vehicle-stock'
 import type { VehicleGewaehrleistungDueRow } from '@/api/vehicle-stock'
+import { formatDateUtcMedium, localeCompareDisplay, normalizeForSearch } from '@/lib/format'
 
 const WINDOWS = [30, 60, 90] as const
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat('de-AT', { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(`${value.slice(0, 10)}T00:00:00Z`))
+function formatDueDate(value: string) {
+  return formatDateUtcMedium(`${value.slice(0, 10)}T00:00:00Z`)
 }
 
 function customerName(row: VehicleGewaehrleistungDueRow) {
@@ -49,24 +50,24 @@ export default function GewaehrleistungDueList() {
     vehicle: `${row.vehicle.plate || `${row.vehicle.make} ${row.vehicle.model}`} · ${row.vehicle.year}`,
     customer: customerName(row) || '—',
     handedOver: row.handed_over_at?.slice(0, 10) ?? '',
-    handedOverLabel: row.handed_over_at ? formatDate(row.handed_over_at) : '—',
+    handedOverLabel: row.handed_over_at ? formatDueDate(row.handed_over_at) : '—',
     warrantyEnds: row.gewaehrleistung_ends_on.slice(0, 10),
-    warrantyEndsLabel: formatDate(row.gewaehrleistung_ends_on),
+    warrantyEndsLabel: formatDueDate(row.gewaehrleistung_ends_on),
     presumptionEnds: row.presumption_ends_on?.slice(0, 10) ?? '',
-    presumptionEndsLabel: row.presumption_ends_on ? formatDate(row.presumption_ends_on) : '—',
+    presumptionEndsLabel: row.presumption_ends_on ? formatDueDate(row.presumption_ends_on) : '—',
   })), [data])
   const { sortField, sortDirection } = queryParams
   const filteredRows = useMemo(() => {
-    const term = search?.trim().toLocaleLowerCase('de-AT')
+    const term = search?.trim() ? normalizeForSearch(search.trim()) : ''
     const matchingRows = term
       ? rows.filter((row) => [row.vehicle, row.customer, row.handedOverLabel, row.warrantyEndsLabel, row.presumptionEndsLabel]
-        .some((value) => value.toLocaleLowerCase('de-AT').includes(term)))
+        .some((value) => normalizeForSearch(value).includes(term)))
       : rows
     if (!sortField || !sortDirection) return matchingRows
     return [...matchingRows].sort((left, right) => {
       const a = String(left[sortField as keyof DueRow] ?? '')
       const b = String(right[sortField as keyof DueRow] ?? '')
-      return a.localeCompare(b, 'de-AT', { numeric: true }) * (sortDirection === 'desc' ? -1 : 1)
+      return localeCompareDisplay(a, b) * (sortDirection === 'desc' ? -1 : 1)
     })
   }, [search, sortField, sortDirection, rows])
   const pageRows = filteredRows.slice(

@@ -19,6 +19,7 @@ import { useDecisionShadowLogs } from '@/api/decision-shadow-logs'
 import { toast } from 'sonner'
 import { MemoryRouter } from 'react-router-dom'
 import AgentSupervisionPage from './AgentSupervisionPage'
+import { formattedCurrencyPattern, formattedCurrencyLabelPattern } from '@/test/format-assertions'
 
 function renderSupervisionPage() {
   return render(
@@ -429,8 +430,8 @@ describe('AgentSupervisionPage', () => {
     expect(screen.getByText('Customer (customer)')).toBeInTheDocument()
     expect(screen.queryByText(/WorkshopOrder \(/)).not.toBeInTheDocument()
     expect(screen.getByText('Order No. not set')).toBeInTheDocument()
-    expect(screen.getByText(/125\.00/)).toBeInTheDocument()
-    expect(screen.getAllByText(/100\.00/).length).toBeGreaterThan(0)
+    expect(screen.getByText(formattedCurrencyPattern(125))).toBeInTheDocument()
+    expect(screen.getAllByText(formattedCurrencyPattern(100)).length).toBeGreaterThan(0)
   })
 
   it('localizes approval detail labels in German', () => {
@@ -889,8 +890,8 @@ describe('AgentSupervisionPage', () => {
       expect(lines.getByText('Brake pad set')).toBeInTheDocument()
       expect(lines.getByText('Part')).toBeInTheDocument()
       expect(lines.getByText('2')).toBeInTheDocument()
-      expect(lines.getAllByText('€250.00 (Tax basis not set)')).toHaveLength(1)
-      expect(lines.getAllByText('€500.00 (Tax basis not set)')).toHaveLength(1)
+      expect(lines.getAllByText(formattedCurrencyLabelPattern(250, 'Tax basis not set'))).toHaveLength(1)
+      expect(lines.getAllByText(formattedCurrencyLabelPattern(500, 'Tax basis not set'))).toHaveLength(1)
     })
 
     it('formats proposed line amounts as German euros', () => {
@@ -899,8 +900,12 @@ describe('AgentSupervisionPage', () => {
 
       const lines = within(screen.getByTestId('proposed-lines-wo-prop-1'))
       expect(lines.getByText('Teil')).toBeInTheDocument()
-      expect(lines.getByText(/250,00\s€ \(Steuerbasis nicht gesetzt\)/)).toBeInTheDocument()
-      expect(lines.getByText(/500,00\s€ \(Steuerbasis nicht gesetzt\)/)).toBeInTheDocument()
+      expect(
+        lines.getByText(formattedCurrencyLabelPattern(250, 'Steuerbasis nicht gesetzt')),
+      ).toBeInTheDocument()
+      expect(
+        lines.getByText(formattedCurrencyLabelPattern(500, 'Steuerbasis nicht gesetzt')),
+      ).toBeInTheDocument()
     })
 
     it('shows the proposal ID on the approval card', () => {
@@ -948,12 +953,12 @@ describe('AgentSupervisionPage', () => {
       ])
 
       const card = within(screen.getByTestId('proposal-card-wo-prop-gross'))
-      expect(card.getAllByText('€100.00 (gross)').length).toBeGreaterThanOrEqual(
+      expect(card.getAllByText(formattedCurrencyLabelPattern(100, 'gross')).length).toBeGreaterThanOrEqual(
         2,
       )
-      expect(
-        card.getByTestId('proposal-amount-wo-prop-gross'),
-      ).toHaveTextContent('€100.00 (gross)')
+      expect(card.getByTestId('proposal-amount-wo-prop-gross').textContent).toMatch(
+        formattedCurrencyLabelPattern(100, 'gross'),
+      )
     })
 
     it('labels purchase_order.propose_draft amounts as net from cost_basis.unit_cost_net', () => {
@@ -983,9 +988,9 @@ describe('AgentSupervisionPage', () => {
       renderWithProposals([poProposal])
 
       const card = within(screen.getByTestId('proposal-card-po-prop-net'))
-      expect(
-        card.getByTestId('proposal-amount-po-prop-net'),
-      ).toHaveTextContent('€12.50 (net)')
+      expect(card.getByTestId('proposal-amount-po-prop-net').textContent).toMatch(
+        formattedCurrencyLabelPattern(12.5, 'net'),
+      )
     })
 
     it('shows Tax basis not set when amount_tax_basis is missing', () => {
@@ -1009,7 +1014,7 @@ describe('AgentSupervisionPage', () => {
         screen.getByTestId('proposal-card-wo-prop-unknown-basis'),
       )
       expect(
-        card.getAllByText('€50.00 (Tax basis not set)').length,
+        card.getAllByText(formattedCurrencyLabelPattern(50, 'Tax basis not set')).length,
       ).toBeGreaterThanOrEqual(2)
     })
 
@@ -1033,7 +1038,7 @@ describe('AgentSupervisionPage', () => {
 
       const card = within(screen.getByTestId('proposal-card-wo-prop-de-unknown'))
       expect(
-        card.getAllByText(/50,00\s€ \(Steuerbasis nicht gesetzt\)/).length,
+        card.getAllByText(formattedCurrencyLabelPattern(50, 'Steuerbasis nicht gesetzt')).length,
       ).toBeGreaterThanOrEqual(2)
     })
 
@@ -1082,7 +1087,7 @@ describe('AgentSupervisionPage', () => {
       const lines = within(screen.getByTestId('proposed-lines-wo-prop-1'))
       expect(lines.getByText('Proposed line item')).toBeInTheDocument()
       expect(lines.getByText('1')).toBeInTheDocument()
-      expect(lines.getAllByText('€250.00 (Tax basis not set)')).toHaveLength(2)
+      expect(lines.getAllByText(formattedCurrencyLabelPattern(250, 'Tax basis not set'))).toHaveLength(2)
     })
 
     it('keeps the existing target label for workshop order proposals that are not line actions', () => {
