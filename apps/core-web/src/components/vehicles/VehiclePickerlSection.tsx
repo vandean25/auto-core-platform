@@ -16,6 +16,8 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { RecordPickerlDialog } from './RecordPickerlDialog'
+import { InspectionImportDialog } from './InspectionImportDialog'
+import { useInspectionSourceConnections } from '@/api/vehicle-inspection-imports'
 import { WorkshopOrderIntakeDialog } from '@/components/workshop/WorkshopOrderIntakeDialog'
 
 type PickerlDue = components['schemas']['PickerlDueDto']
@@ -38,7 +40,10 @@ export function VehiclePickerlSection({
   pickerlDue,
 }: VehiclePickerlSectionProps) {
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [intakeOpen, setIntakeOpen] = useState(false)
+  const connectionsQuery = useInspectionSourceConnections()
+  const primaryConnectionId = connectionsQuery.data?.data[0]?.id
   const navigate = useNavigate()
   const sessionQuery = useAuthSession()
   const canRecord = canRecordVehicleInspection(sessionQuery.data?.activeRole)
@@ -61,6 +66,15 @@ export function VehiclePickerlSection({
           {canRecord ? (
             <Button size='sm' onClick={() => setDialogOpen(true)}>
               Pickerl erfasst
+            </Button>
+          ) : null}
+          {canRecord && primaryConnectionId ? (
+            <Button
+              size='sm'
+              variant='outline'
+              onClick={() => setImportOpen(true)}
+            >
+              Begutachtung importieren
             </Button>
           ) : null}
           {canRecord && openOrderQuery.data ? (
@@ -109,19 +123,20 @@ export function VehiclePickerlSection({
           <TableRow>
             <TableHead>Begutachtet</TableHead>
             <TableHead>Plakette</TableHead>
+            <TableHead>Quelle</TableHead>
             <TableHead>Prüfstelle</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {isLoading ? (
             <TableRow>
-              <TableCell colSpan={3} className='text-muted-foreground'>
+              <TableCell colSpan={4} className='text-muted-foreground'>
                 Laden…
               </TableCell>
             </TableRow>
           ) : records.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={3} className='text-muted-foreground'>
+              <TableCell colSpan={4} className='text-muted-foreground'>
                 Noch keine Begutachtung erfasst.
               </TableCell>
             </TableRow>
@@ -137,6 +152,9 @@ export function VehiclePickerlSection({
                   {String(record.plaketten_valid_until_month).padStart(2, '0')}/
                   {record.plaketten_valid_until_year}
                 </TableCell>
+                <TableCell>
+                  {record.source === 'EBV_IMPORTED' ? 'EBV importiert' : 'Manuell'}
+                </TableCell>
                 <TableCell>{record.station_name ?? '—'}</TableCell>
               </TableRow>
             ))
@@ -149,6 +167,14 @@ export function VehiclePickerlSection({
         open={dialogOpen}
         onOpenChange={setDialogOpen}
       />
+      {primaryConnectionId ? (
+        <InspectionImportDialog
+          vehicleId={vehicleId}
+          connectionId={primaryConnectionId}
+          open={importOpen}
+          onOpenChange={setImportOpen}
+        />
+      ) : null}
       {intakeOpen ? (
         <WorkshopOrderIntakeDialog
           open

@@ -77,6 +77,11 @@ model Tenant {
   vehicleSales                  VehicleSale[]
   vehicleLedgerEntries          VehicleLedgerEntry[]
   vehicleInspectionRecords      VehicleInspectionRecord[]
+  inspectionSourceConnections   InspectionSourceConnection[]
+  inspectionExchangeImports     InspectionExchangeImport[]
+  inspectionReportIdentities    InspectionReportIdentity[]
+  externalInspectionResults     ExternalInspectionResult[]
+  inspectionExchangeEvents      InspectionExchangeEvent[]
   vehicleValuationSnapshots     VehicleValuationSnapshot[]
   salesOrders                   SalesOrder[]
   salesOrderItems               SalesOrderItem[]
@@ -457,6 +462,7 @@ model LegalEntity {
   customerConsents            CustomerConsent[]
   customerCommunicationStates CustomerCommunicationState[]
   customerConsentUnsubscribeTokens CustomerConsentUnsubscribeToken[]
+  inspectionSourceConnections       InspectionSourceConnection[]
   createdAt                   DateTime                      @default(now())
   updatedAt                   DateTime                      @updatedAt
 
@@ -809,6 +815,10 @@ model Site {
   storageLocations         StorageLocation[]
   workshopOrders           WorkshopOrder[]
   registrationDocumentIntakes RegistrationDocumentIntake[]
+  inspectionSourceConnections InspectionSourceConnection[]
+  inspectionExchangeImports   InspectionExchangeImport[]
+  externalInspectionResults     ExternalInspectionResult[]
+  inspectionExchangeEvents      InspectionExchangeEvent[]
   outboundTransfers        StockTransfer[]       @relation("StockTransferFromSite")
   inboundTransfers         StockTransfer[]       @relation("StockTransferToSite")
   salesOrders              SalesOrder[]
@@ -1753,6 +1763,9 @@ model Vehicle {
   ledger_entries                 VehicleLedgerEntry[]
   loaner_fleet_entry             LoanerVehicle?
   inspection_records             VehicleInspectionRecord[]
+  inspectionReportIdentities     InspectionReportIdentity[]
+  inspectionExchangeImports      InspectionExchangeImport[]
+  externalInspectionResults      ExternalInspectionResult[]
   valuation_snapshots            VehicleValuationSnapshot[]
   tyre_sets                      TyreSet[]
   appliedRegistrationIntakes     RegistrationDocumentIntake[] @relation("RegistrationIntakeAppliedVehicle")
@@ -1951,6 +1964,46 @@ enum VehicleInspectionType {
 
 enum VehicleInspectionRecordSource {
   MANUAL
+  EBV_IMPORTED
+}
+
+enum InspectionSourceSystem {
+  EBV
+}
+
+enum InspectionExchangeImportState {
+  RECEIVED
+  REJECTED
+  UNCONFIRMED
+  READY_FOR_REVIEW
+  APPLIED
+  CONFLICT
+}
+
+enum ExternalInspectionOutcome {
+  POSITIVE
+  NEGATIVE
+  REVOKED
+  UNKNOWN
+}
+
+enum ExternalInspectionFinality {
+  FINAL
+  DRAFT
+  UNKNOWN
+}
+
+enum ExternalInspectionAckState {
+  CONFIRMED
+  UNCONFIRMED
+  UNKNOWN
+}
+
+enum InspectionOccurrenceKind {
+  INITIAL
+  CORRECTION
+  REVOCATION
+  UNKNOWN
 }
 
 model VehicleInspectionRecord {
@@ -1965,16 +2018,180 @@ model VehicleInspectionRecord {
   plaketten_valid_until_month  Int                           @map("plaketten_valid_until_month")
   station_name                 String?                       @map("station_name")
   source                       VehicleInspectionRecordSource @default(MANUAL)
+  external_inspection_result_id String?                      @map("external_inspection_result_id")
+  externalInspectionResult     ExternalInspectionResult?     @relation(fields: [tenant_id, external_inspection_result_id], references: [tenant_id, id], onDelete: Restrict)
   notes                        String?
   created_by_user_id           String?                       @map("created_by_user_id")
   createdAt                    DateTime                      @default(now())
   updatedAt                    DateTime                      @updatedAt
 
   @@unique([tenant_id, id])
+  @@unique([tenant_id, external_inspection_result_id])
   @@index([tenant_id, vehicle_id, inspected_on], map: "idx_vehicle_inspection_records_vehicle_inspected")
   @@index([tenant_id, plaketten_valid_until_year, plaketten_valid_until_month], map: "idx_vehicle_inspection_records_tenant_valid_until")
 
   @@map("vehicle_inspection_records")
+}
+
+model InspectionSourceConnection {
+  id                  String                 @id @default(uuid())
+  tenant_id           String
+  tenant              Tenant                 @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  site_id             String
+  site                Site                   @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
+  legal_entity_id     String
+  legal_entity        LegalEntity            @relation(fields: [tenant_id, legal_entity_id], references: [tenant_id, id], onDelete: Restrict)
+  source_system       InspectionSourceSystem
+  source_account_ref  String                 @db.VarChar(128)
+  source_station_id   String                 @db.VarChar(128)
+  profile_id          String                 @db.VarChar(64)
+  profile_version     String                 @db.VarChar(64)
+  profile_digest      String                 @db.Char(64)
+  binding_revision    Int                    @default(1)
+  read_enabled        Boolean                @default(false)
+  secret_ref          String?                @db.VarChar(256)
+  is_active           Boolean                @default(true)
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+
+  imports           InspectionExchangeImport[]
+  externalResults   ExternalInspectionResult[]
+
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, site_id, source_system, source_account_ref])
+  @@index([tenant_id, site_id, is_active])
+  @@map("inspection_source_connections")
+}
+
+model InspectionReportIdentity {
+  id            String   @id @default(uuid())
+  tenant_id     String
+  tenant        Tenant   @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  zbd_report_id String   @db.VarChar(128)
+  vehicle_id    String
+  vehicle       Vehicle  @relation(fields: [vehicle_id], references: [id], onDelete: Restrict)
+  createdAt     DateTime @default(now())
+
+  externalResults ExternalInspectionResult[]
+
+  @@unique([tenant_id, zbd_report_id])
+  @@unique([tenant_id, id, vehicle_id])
+  @@map("inspection_report_identities")
+}
+
+model InspectionExchangeImport {
+  id                         String                        @id @default(uuid())
+  tenant_id                  String
+  tenant                     Tenant                        @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  site_id                    String
+  site                       Site                          @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
+  vehicle_id                 String
+  vehicle                    Vehicle                       @relation(fields: [vehicle_id], references: [id], onDelete: Restrict)
+  connection_id              String
+  connection                 InspectionSourceConnection      @relation(fields: [tenant_id, connection_id], references: [tenant_id, id], onDelete: Restrict)
+  workshop_order_id          String?
+  state                      InspectionExchangeImportState
+  native_result_reference    String                        @db.VarChar(128)
+  preview_fingerprint        String?                       @db.Char(64)
+  semantic_digest              String?                       @db.Char(64)
+  preview_expires_at         DateTime?
+  error_code                 String?                       @db.VarChar(64)
+  error_detail_redacted      String?                       @db.VarChar(512)
+  version                    Int                           @default(0)
+  created_by_user_id         String
+  reviewed_by_user_id        String?
+  reviewed_at                DateTime?
+  applied_external_result_id String?
+  createdAt                  DateTime                      @default(now())
+  updatedAt                  DateTime                      @updatedAt
+
+  events          InspectionExchangeEvent[]
+  externalResult  ExternalInspectionResult?
+
+  @@unique([tenant_id, id])
+  @@index([tenant_id, site_id, vehicle_id, createdAt])
+  @@index([tenant_id, vehicle_id])
+  @@map("inspection_exchange_imports")
+}
+
+model ExternalInspectionResult {
+  id                            String                     @id @default(uuid())
+  tenant_id                     String
+  tenant                        Tenant                     @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  site_id                       String
+  site                          Site                       @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
+  vehicle_id                    String
+  vehicle                       Vehicle                    @relation(fields: [vehicle_id], references: [id], onDelete: Restrict)
+  connection_id                 String
+  connection                    InspectionSourceConnection @relation(fields: [tenant_id, connection_id], references: [tenant_id, id], onDelete: Restrict)
+  import_id                     String
+  import                        InspectionExchangeImport   @relation(fields: [tenant_id, import_id], references: [tenant_id, id], onDelete: Restrict)
+  report_identity_id            String?
+  reportIdentity                InspectionReportIdentity?  @relation(fields: [tenant_id, report_identity_id, vehicle_id], references: [tenant_id, id, vehicle_id], onDelete: Restrict)
+  source_system                   InspectionSourceSystem
+  source_account_ref              String                     @db.VarChar(128)
+  source_station_id               String                     @db.VarChar(128)
+  source_result_id                String                     @db.VarChar(128)
+  source_revision                 String                     @db.VarChar(128)
+  source_schema_version           String                     @db.VarChar(64)
+  zbd_report_id                   String?                    @db.VarChar(128)
+  occurrence_kind                 InspectionOccurrenceKind
+  occurrence_predecessor          Json?
+  classification_evidence_ref     String?                    @db.VarChar(128)
+  vehicle_vin                     String                     @db.VarChar(17)
+  vehicle_first_registration_on   DateTime                   @db.Date
+  vehicle_registration_plate      String?                    @db.VarChar(32)
+  inspected_at                    DateTime
+  inspected_on                    DateTime                   @db.Date
+  inspector_source_person_id      String                     @db.VarChar(128)
+  qualification_evidence_ref      String?                    @db.VarChar(128)
+  outcome                         ExternalInspectionOutcome
+  native_outcome_code             String?                    @db.VarChar(128)
+  plate_number                    String?                    @db.VarChar(32)
+  plate_colour                    String?                    @db.VarChar(32)
+  plate_valid_until_year          Int?
+  plate_valid_until_month         Int?
+  odometer_value                  Decimal?                   @db.Decimal(12, 3)
+  odometer_unit                   String?                    @db.VarChar(8)
+  finality                        ExternalInspectionFinality
+  acknowledgement_state           ExternalInspectionAckState
+  acknowledgement_evidence_type   String?                    @db.VarChar(64)
+  acknowledgement_evidence_ref    String?                    @db.VarChar(128)
+  retrieved_at                    DateTime
+  original_digest                 String                     @db.Char(64)
+  semantic_digest                 String                     @db.Char(64)
+  applied_by_user_id              String
+  applied_at                      DateTime                   @default(now())
+  createdAt                       DateTime                   @default(now())
+
+  projection VehicleInspectionRecord?
+
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, import_id])
+  @@unique([tenant_id, source_system, source_account_ref, source_station_id, source_result_id, source_revision])
+  @@index([tenant_id, vehicle_id])
+  @@map("external_inspection_results")
+}
+
+model InspectionExchangeEvent {
+  id                 String                        @id @default(uuid())
+  tenant_id          String
+  tenant             Tenant                        @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  site_id            String
+  site               Site                          @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
+  import_id          String
+  import             InspectionExchangeImport      @relation(fields: [tenant_id, import_id], references: [tenant_id, id], onDelete: Restrict)
+  external_result_id String?
+  previous_state     InspectionExchangeImportState?
+  new_state          InspectionExchangeImportState
+  reason             String?                       @db.VarChar(128)
+  actor_user_id      String?
+  semantic_digest    String?                       @db.Char(64)
+  conflicting_digest String?                       @db.Char(64)
+  created_at         DateTime                      @default(now())
+
+  @@index([tenant_id, import_id, created_at])
+  @@map("inspection_exchange_events")
 }
 
 model VehicleValuationSnapshot {

@@ -6,6 +6,7 @@ import { viennaIsoDay } from '../vehicle-stock/gewaehrleistung/gewaehrleistung-s
 import { omitKaufvertragArchiveInternals } from '../vehicle-stock/kaufvertrag/kaufvertrag-sale-response.js';
 import { toGewaehrleistungReadFields } from '../vehicle-stock/vehicle-sale.warranty.js';
 import { attachPickerlDue } from './pickerl/attach-pickerl-due.js';
+import type { PickerlBarrierFlags } from './pickerl/apply-pickerl-record-selection.js';
 import { stripVehicleIdentityResolutionState } from './vehicle-identity.util.js';
 import type { VehiclePersistenceService } from './vehicle-persistence.service.js';
 
@@ -42,6 +43,7 @@ export function toVehicleDetailResponse(
   vehicle: VehicleDetailRow,
   authorizedSiteIds: readonly string[],
   onDate: Date,
+  pickerlBarriers?: PickerlBarrierFlags,
 ) {
   const today = viennaIsoDay(onDate);
   const projected = projectVehicleOperationalFields(
@@ -55,5 +57,8 @@ export function toVehicleDetailResponse(
     authorizedSiteIds,
   );
 
-  return attachPickerlDue(projected, onDate);
+  return attachPickerlDue(
+    { ...projected, pickerl_barriers: pickerlBarriers },
+    onDate,
+  );
 }

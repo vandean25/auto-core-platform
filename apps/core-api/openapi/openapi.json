@@ -11181,6 +11181,174 @@
         ]
       }
     },
+    "/api/inspection-source-connections": {
+      "get": {
+        "operationId": "InspectionExchangeController_listConnections",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List active inspection source connections for site",
+        "tags": [
+          "vehicles"
+        ]
+      }
+    },
+    "/api/vehicles/{vehicleId}/inspection-imports/preview": {
+      "post": {
+        "operationId": "InspectionExchangeController_preview",
+        "parameters": [
+          {
+            "name": "vehicleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewInspectionImportDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InspectionImportPreviewResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Preview external §57a inspection result import",
+        "tags": [
+          "vehicles"
+        ]
+      }
+    },
+    "/api/vehicles/{vehicleId}/inspection-imports/{importId}/apply": {
+      "post": {
+        "operationId": "InspectionExchangeController_apply",
+        "parameters": [
+          {
+            "name": "importId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "vehicleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplyInspectionImportDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplyInspectionImportResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Apply reviewed external inspection import",
+        "tags": [
+          "vehicles"
+        ]
+      }
+    },
+    "/api/vehicles/{vehicleId}/inspection-imports": {
+      "get": {
+        "operationId": "InspectionExchangeController_list",
+        "parameters": [
+          {
+            "name": "vehicleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List inspection import attempts for vehicle",
+        "tags": [
+          "vehicles"
+        ]
+      }
+    },
+    "/api/vehicles/{vehicleId}/external-inspection-results/{resultId}": {
+      "get": {
+        "operationId": "InspectionExchangeController_getResult",
+        "parameters": [
+          {
+            "name": "resultId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "vehicleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalInspectionResultSummaryDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get external inspection result provenance summary",
+        "tags": [
+          "vehicles"
+        ]
+      }
+    },
     "/api/employees": {
       "get": {
         "operationId": "EmployeeController_findAll",
@@ -29842,7 +30010,8 @@
       "VehicleInspectionRecordSource": {
         "type": "string",
         "enum": [
-          "MANUAL"
+          "MANUAL",
+          "EBV_IMPORTED"
         ]
       },
       "VehicleInspectionRecordResponseDto": {
@@ -29973,6 +30142,157 @@
             "type": "object"
           }
         }
+      },
+      "PreviewInspectionImportDto": {
+        "type": "object",
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "native_result_reference": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "workshop_order_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "connection_id",
+          "native_result_reference"
+        ]
+      },
+      "InspectionImportReviewedFieldsDto": {
+        "type": "object",
+        "properties": {
+          "outcome": {
+            "type": "string"
+          },
+          "finality": {
+            "type": "string"
+          },
+          "acknowledgement_state": {
+            "type": "string"
+          },
+          "inspected_on": {
+            "type": "string"
+          },
+          "plate_valid_until": {
+            "type": "object",
+            "nullable": true
+          },
+          "source": {
+            "type": "string"
+          },
+          "qualification_state": {
+            "type": "string"
+          },
+          "display_unconfirmed": {
+            "type": "object",
+            "nullable": true
+          }
+        },
+        "required": [
+          "outcome",
+          "finality",
+          "acknowledgement_state",
+          "inspected_on",
+          "source",
+          "qualification_state"
+        ]
+      },
+      "InspectionImportPreviewResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number"
+          },
+          "preview_expires_at": {
+            "type": "object",
+            "nullable": true
+          },
+          "fingerprint": {
+            "type": "object",
+            "nullable": true
+          },
+          "reviewed_fields": {
+            "$ref": "#/components/schemas/InspectionImportReviewedFieldsDto"
+          }
+        },
+        "required": [
+          "id",
+          "state",
+          "version",
+          "reviewed_fields"
+        ]
+      },
+      "ApplyInspectionImportDto": {
+        "type": "object",
+        "properties": {
+          "fingerprint": {
+            "type": "string",
+            "description": "Reviewed preview fingerprint (64-char hex)"
+          },
+          "version": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "fingerprint",
+          "version"
+        ]
+      },
+      "ExternalInspectionResultSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "outcome": {
+            "type": "string"
+          },
+          "finality": {
+            "type": "string"
+          },
+          "acknowledgement_state": {
+            "type": "string"
+          },
+          "inspected_on": {
+            "type": "string"
+          },
+          "qualification_state": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "outcome",
+          "finality",
+          "acknowledgement_state",
+          "inspected_on",
+          "qualification_state"
+        ]
+      },
+      "ApplyInspectionImportResponseDto": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "$ref": "#/components/schemas/ExternalInspectionResultSummaryDto"
+          },
+          "replay": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "result",
+          "replay"
+        ]
       },
       "EmployeeRole": {
         "type": "string",
