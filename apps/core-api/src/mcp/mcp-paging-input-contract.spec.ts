@@ -34,8 +34,13 @@ function inputSchemaProperties(
   toolName: (typeof MCP_PAGING_TOOL_NAMES)[number],
 ): Record<string, unknown> {
   const schema = MCP_REGISTERED_TOOL_INPUT_SCHEMAS[toolName];
-  if (schema && typeof schema === 'object' && !('parse' in schema)) {
-    return schema as Record<string, unknown>;
+  if (
+    schema &&
+    typeof schema === 'object' &&
+    !('parse' in schema) &&
+    !Array.isArray(schema)
+  ) {
+    return schema;
   }
   throw new Error(`Expected a shape object for ${toolName}`);
 }
