@@ -24,4 +24,4 @@ ON "workshop_command_presets"("tenant_id", "active");
 
 ALTER TABLE "workshop_command_presets"
 ADD CONSTRAINT "workshop_command_presets_tenant_id_fkey"
-FOREIGN KEY ("tenant_id") REFERENCES "Tenant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
