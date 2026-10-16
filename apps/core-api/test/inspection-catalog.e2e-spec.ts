@@ -27,14 +27,14 @@ describe('Inspection catalogue (e2e)', () => {
   let taskId: string;
   let inspectionId: string;
 
-  async function previewCatalogue(manifestRef = STATUTORY_MANIFEST_REFERENCE) {
+  function previewCatalogue(manifestRef = STATUTORY_MANIFEST_REFERENCE) {
     return request(app.getHttpServer())
       .post('/api/inspection-catalogues/preview')
       .set('Authorization', `Bearer ${token}`)
       .send({ manifest_reference: manifestRef });
   }
 
-  async function activateCatalogue(previewBody: {
+  function activateCatalogue(previewBody: {
     id: string;
     fingerprint: string;
     version: number;

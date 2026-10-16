@@ -79,7 +79,11 @@ export function InspectionCatalogueReferencePicker({
           </div>
           <div>
             <dt className="font-medium text-foreground">Version</dt>
-            <dd>{resolution.source_version ?? '—'}</dd>
+            <dd>
+              {typeof resolution.source_version === 'string'
+                ? resolution.source_version
+                : '—'}
+            </dd>
           </div>
           <div>
             <dt className="font-medium text-foreground">Abdeckung</dt>
