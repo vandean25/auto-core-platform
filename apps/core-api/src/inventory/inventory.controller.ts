@@ -1,13 +1,25 @@
-import { Controller, Get, Post, Body, Param, Query } from '@nestjs/common';
-import { ApiOkResponse, ApiCreatedResponse, ApiQuery } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
+import { ApiCreatedResponse, ApiOkResponse, ApiQuery } from '@nestjs/swagger';
 import { InventoryService } from './inventory.service.js';
 import { LedgerService } from './ledger.service.js';
+import { InventoryItemMutationsService } from './inventory-item-mutations.service.js';
 import { CreateInventoryItemDto } from './dto/create-inventory-item.dto.js';
 import {
   AvailabilityCheckResultDto,
+  CatalogItemResponseDto,
+  InventoryItemDetailResponseDto,
   InventoryItemResponseDto,
   InventoryTransactionResponseDto,
-  CatalogItemResponseDto,
 } from './dto/inventory-response.dto.js';
 import { ApiPaginatedResponse } from '../common/dto/paginated-response.dto.js';
 import {
@@ -15,12 +27,16 @@ import {
   parsePositiveInt,
   parseSortDirection,
 } from './inventory-list-query.js';
+import { ReceiveInventoryStockDto } from './dto/receive-inventory-stock.dto.js';
+import { AdjustInventoryStockDto } from './dto/adjust-inventory-stock.dto.js';
+import { UpdateInventoryItemDto } from './dto/update-inventory-item.dto.js';
 
 @Controller('inventory')
 export class InventoryController {
   constructor(
     private readonly inventoryService: InventoryService,
     private readonly ledgerService: LedgerService,
+    private readonly inventoryItemMutations: InventoryItemMutationsService,
   ) {}
 
   @Get('availability/:sku')
@@ -33,8 +49,40 @@ export class InventoryController {
   @ApiOkResponse({ type: [InventoryTransactionResponseDto] })
   async getHistory(@Param('id') id: string) {
     const transactions = await this.ledgerService.getTransactionHistory(id);
-    // Return last 20 transactions
     return transactions.slice(0, 20);
+  }
+
+  @Get(':id')
+  @ApiOkResponse({ type: InventoryItemDetailResponseDto })
+  async findOne(@Param('id') id: string) {
+    return await this.inventoryService.findOne(id);
+  }
+
+  @Post(':id/receive')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async receiveStock(
+    @Param('id') id: string,
+    @Body() dto: ReceiveInventoryStockDto,
+  ) {
+    await this.inventoryItemMutations.receiveStock(id, dto);
+  }
+
+  @Post(':id/adjust')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async adjustStock(
+    @Param('id') id: string,
+    @Body() dto: AdjustInventoryStockDto,
+  ) {
+    await this.inventoryItemMutations.adjustStock(id, dto);
+  }
+
+  @Patch(':id')
+  @ApiOkResponse({ type: CatalogItemResponseDto })
+  async updateItem(
+    @Param('id') id: string,
+    @Body() dto: UpdateInventoryItemDto,
+  ) {
+    return await this.inventoryItemMutations.updateItem(id, dto);
   }
 
   @Get()

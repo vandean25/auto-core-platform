@@ -7,8 +7,15 @@ import { LocationType, Prisma } from '@prisma/client';
 import { SiteContextService } from '../common/services/site-context.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { AtpService, type AtpStockInput } from './atp.service.js';
+import { AtpService } from './atp.service.js';
 import { buildInventoryOrderBy } from './inventory-list-query.js';
+import {
+  filterAtpStocks,
+  toAtpStockInput,
+  transformInventoryDetailItem,
+  transformInventoryListItem,
+  type CatalogItemWithStocksAndBrand,
+} from './inventory-item.transform.js';
 
 function buildCatalogItemInclude(tenantId: string, siteId: string) {
   return {
@@ -60,14 +67,6 @@ export interface InventoryQueryParams {
   sortDirection?: 'asc' | 'desc';
 }
 
-type CatalogItemWithStocksAndBrand = Prisma.CatalogItemGetPayload<{
-  include: {
-    brand: true;
-    stocks: { include: { location: true } };
-    superseded_by: { select: { id: true; sku: true } };
-  };
-}>;
-
 interface InventoryContext {
   tenantId: string;
   siteId: string;
@@ -118,63 +117,6 @@ function resolveInventoryPagination(params: InventoryQueryParams): {
   const effectivePageSize = pageSize ?? limit;
   const skip = (page - 1) * effectivePageSize;
   return { skip, pageSize: effectivePageSize };
-}
-
-function toAtpStockInput(
-  stock: CatalogItemWithStocksAndBrand['stocks'][number],
-): AtpStockInput {
-  return {
-    id: stock.id,
-    locationId: stock.location_id,
-    quantity_on_hand: stock.quantity_on_hand,
-    quantity_reserved: stock.quantity_reserved,
-  };
-}
-
-function filterAtpStocks(
-  stocks: CatalogItemWithStocksAndBrand['stocks'],
-  siteId: string,
-) {
-  return stocks.filter(
-    (stock) =>
-      stock.location.site_id === siteId &&
-      stock.location.type !== LocationType.staging_tote &&
-      stock.location.type !== LocationType.in_transit,
-  );
-}
-
-function transformInventoryItem(
-  item: CatalogItemWithStocksAndBrand,
-  atpService: AtpService,
-  siteId: string,
-) {
-  const eligibleStocks = filterAtpStocks(item.stocks, siteId);
-  const totals = atpService.sumAtp(eligibleStocks.map(toAtpStockInput), {
-    operation: 'inventory_list',
-    tenantId: item.tenant_id,
-  });
-  const available = totals.quantityAvailable.toNumber();
-
-  let status: 'IN_STOCK' | 'OUT_OF_STOCK' | 'SUPERSEDED';
-  if (item.superseded_by) {
-    status = 'SUPERSEDED';
-  } else if (totals.quantityAvailable.gt(0)) {
-    status = 'IN_STOCK';
-  } else {
-    status = 'OUT_OF_STOCK';
-  }
-
-  return {
-    id: item.id,
-    sku: item.sku,
-    name: item.name,
-    brand: item.brand?.name || '',
-    brand_id: item.brand_id,
-    price: Number(item.retail_price),
-    status,
-    quantity_available: available,
-    warehouse_location: eligibleStocks[0]?.location?.name || 'N/A',
-  };
 }
 
 @Injectable()
@@ -260,7 +202,7 @@ export class InventoryService {
     );
     const pageCount = Math.ceil(total / resolvedPageSize);
     const transformedItems = items.map((item) =>
-      transformInventoryItem(item, this.atpService, context.siteId),
+      transformInventoryListItem(item, this.atpService, context.siteId),
     );
 
     return {
@@ -326,6 +268,18 @@ export class InventoryService {
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
     return { tenantId, siteId };
+  }
+
+  async findOne(id: string) {
+    const context = await this.getInventoryContext();
+    const item = await this.prisma.catalogItem.findFirst({
+      where: { id, tenant_id: context.tenantId },
+      include: buildCatalogItemInclude(context.tenantId, context.siteId),
+    });
+    if (!item) {
+      throw new NotFoundException(`Catalog item ${id} not found`);
+    }
+    return transformInventoryDetailItem(item, this.atpService, context.siteId);
   }
 
   async createItem(data: {

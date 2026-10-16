@@ -6,11 +6,19 @@ import { LedgerService } from './ledger.service.js';
 import { LocationService } from './location.service.js';
 import { LocationController } from './location.controller.js';
 import { AtpService } from './atp.service.js';
+import { AuditModule } from '../audit/audit.module.js';
+import { InventoryItemMutationsService } from './inventory-item-mutations.service.js';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, AuditModule],
   controllers: [InventoryController, LocationController],
-  providers: [InventoryService, LedgerService, LocationService, AtpService],
+  providers: [
+    InventoryService,
+    InventoryItemMutationsService,
+    LedgerService,
+    LocationService,
+    AtpService,
+  ],
   exports: [LedgerService, LocationService, AtpService, InventoryService],
 })
 export class InventoryModule {}

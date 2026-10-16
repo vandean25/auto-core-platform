@@ -15,9 +15,14 @@ type InventoryApiResponse = {
     }
 }
 
+export type InventoryItemDetail = InventoryItem & {
+    cost_price: number
+}
+
 export const inventoryKeys = {
     all: ['inventory'] as const,
     list: (params: { page?: number; pageSize?: number; search?: string; brand?: string; location?: string; sortField?: string; sortDirection?: 'asc' | 'desc' }) => [...inventoryKeys.all, 'list', params] as const,
+    detail: (itemId: string) => [...inventoryKeys.all, 'detail', itemId] as const,
     history: (itemId: string) => [...inventoryKeys.all, 'history', itemId] as const,
     sku: (sku?: string, itemId?: string) => [...inventoryKeys.all, 'sku', sku ?? '', itemId ?? ''] as const,
 }
@@ -77,6 +82,30 @@ export function useInventory(
     })
 }
 
+async function parseApiError(response: Response, fallback: string): Promise<Error> {
+    try {
+        const body = (await response.json()) as { message?: string | string[] }
+        const message = Array.isArray(body.message) ? body.message.join(', ') : body.message
+        return new Error(message || fallback)
+    } catch {
+        return new Error(fallback)
+    }
+}
+
+export function useInventoryItem(itemId: string) {
+    return useQuery<InventoryItemDetail>({
+        queryKey: inventoryKeys.detail(itemId),
+        queryFn: async () => {
+            const response = await fetchWithAuth(`/api/inventory/${itemId}`)
+            if (!response.ok) {
+                throw await parseApiError(response, 'Failed to fetch inventory item')
+            }
+            return response.json()
+        },
+        enabled: !!itemId,
+    })
+}
+
 export function useInventoryHistory(itemId: string) {
     return useQuery<InventoryTransaction[]>({
         queryKey: inventoryKeys.history(itemId),
@@ -111,6 +140,70 @@ export function useInventoryItemBySku(sku?: string, itemId?: string) {
             return match ?? payload.data[0] ?? null
         },
         enabled: !!sku,
+    })
+}
+
+export function useReceiveInventoryStock(itemId: string) {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: async (data: { locationId: string; quantity: number }) => {
+            const response = await fetchWithAuth(`/api/inventory/${itemId}/receive`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            })
+            if (!response.ok) {
+                throw await parseApiError(response, 'Failed to receive stock')
+            }
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: inventoryKeys.all })
+        },
+    })
+}
+
+export function useAdjustInventoryStock(itemId: string) {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: async (data: { locationId: string; quantity: number; reason: string }) => {
+            const response = await fetchWithAuth(`/api/inventory/${itemId}/adjust`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            })
+            if (!response.ok) {
+                throw await parseApiError(response, 'Failed to adjust stock')
+            }
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: inventoryKeys.all })
+        },
+    })
+}
+
+export function useUpdateInventoryItem(itemId: string) {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: async (data: {
+            sku: string
+            name: string
+            cost_price: number
+            retail_price: number
+            brandId?: number
+        }) => {
+            const response = await fetchWithAuth(`/api/inventory/${itemId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            })
+            if (!response.ok) {
+                throw await parseApiError(response, 'Failed to update item')
+            }
+            return response.json()
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: inventoryKeys.all })
+        },
     })
 }
 

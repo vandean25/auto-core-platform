@@ -116,6 +116,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/inventory/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["InventoryController_findOne"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["InventoryController_updateItem"];
+        trace?: never;
+    };
+    "/api/inventory/{id}/receive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["InventoryController_receiveStock"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/inventory/{id}/adjust": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["InventoryController_adjustStock"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/inventory": {
         parameters: {
             query?: never;
@@ -210,6 +258,26 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["LocationController_update"];
+        trace?: never;
+    };
+    "/api/audit-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List tenant audit logs
+         * @description Returns a paginated list of immutable business mutation and deletion audit records for the authenticated tenant.
+         */
+        get: operations["AuditController_findAll"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/purchase-orders": {
@@ -2257,26 +2325,6 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["VehicleStockController_moveSite"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/audit-logs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List tenant audit logs
-         * @description Returns a paginated list of immutable business mutation and deletion audit records for the authenticated tenant.
-         */
-        get: operations["AuditController_findAll"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4545,6 +4593,32 @@ export interface components {
             item: components["schemas"]["InventoryTransactionItemDto"];
             location: components["schemas"]["InventoryTransactionLocationDto"];
         };
+        InventoryItemDetailResponseDto: {
+            id: string;
+            sku: string;
+            name: string;
+            brand: string;
+            brand_id?: number | null;
+            price: number;
+            /** @enum {string} */
+            status: "IN_STOCK" | "OUT_OF_STOCK" | "SUPERSEDED";
+            quantity_available: number;
+            warehouse_location: string;
+            cost_price: number;
+        };
+        ReceiveInventoryStockDto: Record<string, never>;
+        AdjustInventoryStockDto: Record<string, never>;
+        UpdateInventoryItemDto: Record<string, never>;
+        CatalogItemResponseDto: {
+            id: string;
+            sku: string;
+            name: string;
+            cost_price?: string | null;
+            retail_price: string;
+            unit: string;
+            brand_id?: number | null;
+            revenue_group_id?: number | null;
+        };
         PaginationMetaDto: {
             total: number;
             page: number;
@@ -4568,16 +4642,6 @@ export interface components {
             warehouse_location: string;
         };
         CreateInventoryItemDto: Record<string, never>;
-        CatalogItemResponseDto: {
-            id: string;
-            sku: string;
-            name: string;
-            cost_price?: string | null;
-            retail_price: string;
-            unit: string;
-            brand_id?: number | null;
-            revenue_group_id?: number | null;
-        };
         LocationParentResponseDto: {
             id: string;
             name: string;
@@ -4621,6 +4685,89 @@ export interface components {
         };
         CreateLocationDto: Record<string, never>;
         UpdateLocationDto: Record<string, never>;
+        AuditLogResponseDto: {
+            /** @description Audit log unique identifier */
+            id: string;
+            /** @description Tenant identifier */
+            tenantId: string;
+            /** @description Entity model name (e.g. Customer, SalesOrder) */
+            entityType: string;
+            /** @description Target entity record ID */
+            entityId: string;
+            /**
+             * @description Mutation action type
+             * @enum {string}
+             */
+            action: "CREATE" | "UPDATE" | "DELETE";
+            /** @description User ID of the actor who performed the mutation */
+            actorUserId?: string | null;
+            /** @description Email of the actor who performed the mutation */
+            actorEmail?: string | null;
+            /** @description Role of the actor at mutation time */
+            actorRole?: string | null;
+            /**
+             * @description Actor classification type
+             * @enum {string}
+             */
+            actorType: "USER" | "SYSTEM" | "MIGRATION";
+            /** @description HTTP request correlation ID */
+            requestId?: string | null;
+            /** @description Source channel (e.g. API, JOB) */
+            source?: string | null;
+            /** @description Client IP address */
+            ipAddress?: string | null;
+            /** @description Client User-Agent header */
+            userAgent?: string | null;
+            /** @description Snapshot of entity state before mutation */
+            before?: {
+                [key: string]: unknown;
+            } | null;
+            /** @description Snapshot of entity state after mutation */
+            after?: {
+                [key: string]: unknown;
+            } | null;
+            /** @description Computed diff of changed fields */
+            diff?: {
+                [key: string]: unknown;
+            } | null;
+            /** @description List of field names that changed */
+            changedFields?: string[] | null;
+            /** @description List of field names that were redacted */
+            redactedFields?: string[] | null;
+            /**
+             * Format: date-time
+             * @description Timestamp when mutation occurred
+             */
+            occurredAt: string;
+        };
+        AuditLogPaginationMetaDto: {
+            /**
+             * @description Total number of matching audit records
+             * @example 42
+             */
+            total: number;
+            /**
+             * @description Current page number
+             * @example 1
+             */
+            page: number;
+            /**
+             * @description Items per page
+             * @example 20
+             */
+            limit: number;
+            /**
+             * @description Total number of pages
+             * @example 3
+             */
+            totalPages: number;
+        };
+        AuditLogListResponseDto: {
+            /** @description List of audit log items */
+            data: components["schemas"]["AuditLogResponseDto"][];
+            /** @description Pagination metadata */
+            meta: components["schemas"]["AuditLogPaginationMetaDto"];
+        };
         PurchaseOrderItemDto: {
             /**
              * @description Catalog item ID
@@ -7309,89 +7456,6 @@ export interface components {
             toSiteId: string;
             toLocationId: string;
             expectedLocationId: string;
-        };
-        AuditLogResponseDto: {
-            /** @description Audit log unique identifier */
-            id: string;
-            /** @description Tenant identifier */
-            tenantId: string;
-            /** @description Entity model name (e.g. Customer, SalesOrder) */
-            entityType: string;
-            /** @description Target entity record ID */
-            entityId: string;
-            /**
-             * @description Mutation action type
-             * @enum {string}
-             */
-            action: "CREATE" | "UPDATE" | "DELETE";
-            /** @description User ID of the actor who performed the mutation */
-            actorUserId?: string | null;
-            /** @description Email of the actor who performed the mutation */
-            actorEmail?: string | null;
-            /** @description Role of the actor at mutation time */
-            actorRole?: string | null;
-            /**
-             * @description Actor classification type
-             * @enum {string}
-             */
-            actorType: "USER" | "SYSTEM" | "MIGRATION";
-            /** @description HTTP request correlation ID */
-            requestId?: string | null;
-            /** @description Source channel (e.g. API, JOB) */
-            source?: string | null;
-            /** @description Client IP address */
-            ipAddress?: string | null;
-            /** @description Client User-Agent header */
-            userAgent?: string | null;
-            /** @description Snapshot of entity state before mutation */
-            before?: {
-                [key: string]: unknown;
-            } | null;
-            /** @description Snapshot of entity state after mutation */
-            after?: {
-                [key: string]: unknown;
-            } | null;
-            /** @description Computed diff of changed fields */
-            diff?: {
-                [key: string]: unknown;
-            } | null;
-            /** @description List of field names that changed */
-            changedFields?: string[] | null;
-            /** @description List of field names that were redacted */
-            redactedFields?: string[] | null;
-            /**
-             * Format: date-time
-             * @description Timestamp when mutation occurred
-             */
-            occurredAt: string;
-        };
-        AuditLogPaginationMetaDto: {
-            /**
-             * @description Total number of matching audit records
-             * @example 42
-             */
-            total: number;
-            /**
-             * @description Current page number
-             * @example 1
-             */
-            page: number;
-            /**
-             * @description Items per page
-             * @example 20
-             */
-            limit: number;
-            /**
-             * @description Total number of pages
-             * @example 3
-             */
-            totalPages: number;
-        };
-        AuditLogListResponseDto: {
-            /** @description List of audit log items */
-            data: components["schemas"]["AuditLogResponseDto"][];
-            /** @description Pagination metadata */
-            meta: components["schemas"]["AuditLogPaginationMetaDto"];
         };
         HolderDto: {
             firstName: string;
@@ -10112,6 +10176,98 @@ export interface operations {
             };
         };
     };
+    InventoryController_findOne: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryItemDetailResponseDto"];
+                };
+            };
+        };
+    };
+    InventoryController_updateItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateInventoryItemDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogItemResponseDto"];
+                };
+            };
+        };
+    };
+    InventoryController_receiveStock: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReceiveInventoryStockDto"];
+            };
+        };
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InventoryController_adjustStock: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdjustInventoryStockDto"];
+            };
+        };
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     InventoryController_findAll: {
         parameters: {
             query?: {
@@ -10306,6 +10462,45 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LocationResponseDto"];
+                };
+            };
+        };
+    };
+    AuditController_findAll: {
+        parameters: {
+            query?: {
+                /** @description Filter by audit action (UPDATE, DELETE) */
+                action?: "CREATE" | "UPDATE" | "DELETE";
+                /** @description Filter by actor user ID */
+                actorUserId?: string;
+                /** @description End date filter (ISO string) */
+                endDate?: string;
+                /** @description Filter by entity ID */
+                entityId?: string;
+                /** @description Filter by entity type (e.g. Customer, SalesOrder, Invoice) */
+                entityType?: string;
+                /** @description Items per page */
+                limit?: number;
+                /** @description Page number */
+                page?: number;
+                /** @description Free-text search across entityId, actorEmail, and requestId */
+                search?: string;
+                /** @description Start date filter (ISO string) */
+                startDate?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated list of audit log entries */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditLogListResponseDto"];
                 };
             };
         };
@@ -14636,45 +14831,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-        };
-    };
-    AuditController_findAll: {
-        parameters: {
-            query?: {
-                /** @description Filter by audit action (UPDATE, DELETE) */
-                action?: "CREATE" | "UPDATE" | "DELETE";
-                /** @description Filter by actor user ID */
-                actorUserId?: string;
-                /** @description End date filter (ISO string) */
-                endDate?: string;
-                /** @description Filter by entity ID */
-                entityId?: string;
-                /** @description Filter by entity type (e.g. Customer, SalesOrder, Invoice) */
-                entityType?: string;
-                /** @description Items per page */
-                limit?: number;
-                /** @description Page number */
-                page?: number;
-                /** @description Free-text search across entityId, actorEmail, and requestId */
-                search?: string;
-                /** @description Start date filter (ISO string) */
-                startDate?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Paginated list of audit log entries */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuditLogListResponseDto"];
-                };
             };
         };
     };
