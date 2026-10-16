@@ -210,6 +210,65 @@ function lineNetBeforeGlobalDiscount(
   );
 }
 
+/** Line inputs for billed net after line and invoice-level discounts (snapshot parity). */
+export type InvoiceBilledLineInput = {
+  id: string;
+  quantity: Prisma.Decimal;
+  unitPrice: Prisma.Decimal;
+  taxRate: Prisma.Decimal;
+  lineDiscountType: DiscountType | null;
+  lineDiscountValue: Prisma.Decimal | null;
+};
+
+export type InvoiceBilledLineAmounts = {
+  net: Prisma.Decimal;
+  tax: Prisma.Decimal;
+  gross: Prisma.Decimal;
+};
+
+/** Per-line net, half-up tax, and gross using the same rules as `buildInvoiceSnapshotV2`. */
+export function computeStandardInvoiceBilledLineAmounts(
+  lines: readonly InvoiceBilledLineInput[],
+  globalDiscountType: DiscountType | null,
+  globalDiscountValue: Prisma.Decimal | null,
+): Map<string, InvoiceBilledLineAmounts> {
+  const netByLine = allocateGlobalDiscount(
+    lines.map((line) => ({
+      id: line.id,
+      description: '',
+      quantity: line.quantity,
+      unitPrice: line.unitPrice,
+      taxRate: line.taxRate,
+      lineDiscountType: line.lineDiscountType,
+      lineDiscountValue: line.lineDiscountValue,
+      revenueGroupName: null,
+      accountingAllocation: {
+        profileCode: null,
+        profileVersion: 0,
+        sourceCategoryKey: '',
+        sourceCategoryLabel: '',
+        revenueAccount: '',
+        debtorAccount: '',
+        taxMode: 'STANDARD',
+        taxRate: '0.00',
+        taxTreatment: 'automatic',
+        buKey: null,
+        countryIso: 'AT',
+        currency: 'EUR',
+      },
+    })),
+    globalDiscountType,
+    globalDiscountValue,
+  );
+  const amounts = new Map<string, InvoiceBilledLineAmounts>();
+  for (const line of lines) {
+    const net = netByLine.get(line.id) ?? new Prisma.Decimal(0);
+    const tax = halfUpTax(net, line.taxRate);
+    amounts.set(line.id, { net, tax, gross: net.add(tax) });
+  }
+  return amounts;
+}
+
 function allocateGlobalDiscount(
   lines: LineAllocationInput[],
   globalDiscountType: DiscountType | null,

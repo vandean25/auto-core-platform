@@ -1,4 +1,5 @@
-import { InvoiceTaxMode, Prisma } from '@prisma/client';
+import { DiscountType, InvoiceTaxMode, Prisma } from '@prisma/client';
+import { computeStandardInvoiceBilledLineAmounts } from '../invoices/invoice-snapshot-v2.js';
 import type {
   RevenueReportAmounts,
   RevenueReportCore,
@@ -12,6 +13,8 @@ export type RevenueInvoiceRow = {
   tax_mode: InvoiceTaxMode;
   workshop_order_id: string | null;
   vehicle_sale_id: string | null;
+  global_discount_type: DiscountType | null;
+  global_discount_value: Prisma.Decimal | null;
   total_net: Prisma.Decimal;
   total_tax: Prisma.Decimal;
   total_gross: Prisma.Decimal;
@@ -21,6 +24,8 @@ export type RevenueInvoiceRow = {
     quantity: Prisma.Decimal;
     unit_price: Prisma.Decimal;
     line_total: Prisma.Decimal | null;
+    line_discount_type: DiscountType | null;
+    line_discount_value: Prisma.Decimal | null;
     tax_rate: Prisma.Decimal;
   }>;
 };
@@ -94,26 +99,75 @@ export function classifyRevenueSource(input: {
   return 'other';
 }
 
-function lineNet(item: RevenueInvoiceRow['items'][number]): Prisma.Decimal {
-  if (item.line_total !== null) {
-    return item.line_total;
-  }
-  return item.quantity.mul(item.unit_price);
+function hasGlobalDiscount(invoice: RevenueInvoiceRow): boolean {
+  return (
+    invoice.global_discount_type !== null &&
+    invoice.global_discount_value !== null
+  );
 }
 
-function lineTax(net: Prisma.Decimal, taxRate: Prisma.Decimal): Prisma.Decimal {
-  return net
-    .mul(taxRate)
-    .div(100)
-    .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+function hasLineDiscount(item: RevenueInvoiceRow['items'][number]): boolean {
+  return (
+    item.line_discount_type !== null && item.line_discount_value !== null
+  );
 }
 
-function standardLineAmounts(
+function legacyUndiscountedLineAmounts(
   item: RevenueInvoiceRow['items'][number],
 ): RevenueReportAmounts {
-  const net = lineNet(item);
-  const vat = lineTax(net, item.tax_rate);
+  const net =
+    item.line_total !== null
+      ? item.line_total
+      : item.quantity.mul(item.unit_price);
+  const vat = net
+    .mul(item.tax_rate)
+    .div(100)
+    .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
   return amountsFromParts(net, vat, net.add(vat));
+}
+
+function standardInvoiceLineAmounts(
+  invoice: RevenueInvoiceRow,
+  billedByLineId: Map<string, RevenueReportAmounts>,
+  item: RevenueInvoiceRow['items'][number],
+  options?: { legacyUndiscountedNet?: boolean },
+): RevenueReportAmounts {
+  if (
+    options?.legacyUndiscountedNet &&
+    !hasGlobalDiscount(invoice) &&
+    !hasLineDiscount(item)
+  ) {
+    return legacyUndiscountedLineAmounts(item);
+  }
+  return (
+    billedByLineId.get(item.id) ?? {
+      net: ZERO,
+      vat: ZERO,
+      gross: ZERO,
+    }
+  );
+}
+
+function standardInvoiceBilledLines(
+  invoice: RevenueInvoiceRow,
+): Map<string, RevenueReportAmounts> {
+  const billed = computeStandardInvoiceBilledLineAmounts(
+    invoice.items.map((item) => ({
+      id: item.id,
+      quantity: item.quantity,
+      unitPrice: item.unit_price,
+      taxRate: item.tax_rate,
+      lineDiscountType: item.line_discount_type,
+      lineDiscountValue: item.line_discount_value,
+    })),
+    invoice.global_discount_type,
+    invoice.global_discount_value,
+  );
+  const amounts = new Map<string, RevenueReportAmounts>();
+  for (const [id, line] of billed.entries()) {
+    amounts.set(id, amountsFromParts(line.net, line.tax, line.gross));
+  }
+  return amounts;
 }
 
 function readCreditLineAmounts(snapshot: unknown): RevenueReportAmounts | null {
@@ -161,24 +215,27 @@ function subtractFromMap(
   map.set(key, subtractAmounts(current, delta));
 }
 
-function invoiceDocumentAmounts(
-  invoice: RevenueInvoiceRow,
-): RevenueReportAmounts {
-  return amountsFromParts(
-    invoice.total_net,
-    invoice.total_tax,
-    invoice.total_gross,
-  );
+/**
+ * Margin-scheme revenue in the report: `gross` is the amount due after any trade-in
+ * allowance (`total_gross`); `vat` is margin VAT (`total_tax`); `net` is gross minus VAT
+ * so net + VAT = gross. This matches the no-trade-in chart net (sale price minus margin VAT).
+ */
+function marginDocumentAmounts(invoice: RevenueInvoiceRow): RevenueReportAmounts {
+  const vat = invoice.total_tax;
+  const gross = invoice.total_gross;
+  const net = gross.sub(vat);
+  return amountsFromParts(net, vat, gross);
 }
 
 function applyInvoice(
   invoice: RevenueInvoiceRow,
   bySource: Map<RevenueReportSource, RevenueReportAmounts>,
   byGroup: Map<string, RevenueReportAmounts>,
+  options?: { legacyUndiscountedNet?: boolean },
 ): void {
   const source = classifyRevenueSource(invoice);
   if (invoice.tax_mode === InvoiceTaxMode.MARGIN_SCHEME) {
-    const document = invoiceDocumentAmounts(invoice);
+    const document = marginDocumentAmounts(invoice);
     addToMap(bySource, source, document);
     const primaryGroup = revenueGroupLabel(
       sortedItems(invoice.items)[0]?.revenue_group_name,
@@ -187,9 +244,15 @@ function applyInvoice(
     return;
   }
 
+  const billedByLineId = standardInvoiceBilledLines(invoice);
   let document = emptyAmounts();
   for (const item of sortedItems(invoice.items)) {
-    const line = standardLineAmounts(item);
+    const line = standardInvoiceLineAmounts(
+      invoice,
+      billedByLineId,
+      item,
+      options,
+    );
     document = addAmounts(document, line);
     addToMap(byGroup, revenueGroupLabel(item.revenue_group_name), line);
   }
@@ -202,14 +265,12 @@ function applyCreditNote(
   byGroup: Map<string, RevenueReportAmounts>,
 ): void {
   const source = classifyRevenueSource(creditNote.original_invoice);
-  const document = amountsFromParts(
-    creditNote.total_net,
-    creditNote.total_tax,
-    creditNote.total_gross,
-  );
-  subtractFromMap(bySource, source, document);
 
   if (creditNote.original_invoice.tax_mode === InvoiceTaxMode.MARGIN_SCHEME) {
+    const gross = creditNote.total_gross;
+    const vat = creditNote.total_tax;
+    const document = amountsFromParts(gross.sub(vat), vat, gross);
+    subtractFromMap(bySource, source, document);
     const primaryGroup = revenueGroupLabel(
       creditNote.items[0]?.original_invoice_item.revenue_group_name,
     );
@@ -217,14 +278,17 @@ function applyCreditNote(
     return;
   }
 
+  let document = emptyAmounts();
   for (const item of creditNote.items) {
     const line = readCreditLineAmounts(item.snapshot) ?? emptyAmounts();
+    document = addAmounts(document, line);
     subtractFromMap(
       byGroup,
       revenueGroupLabel(item.original_invoice_item.revenue_group_name),
       line,
     );
   }
+  subtractFromMap(bySource, source, document);
 }
 
 function mapToSourceRows(
@@ -258,12 +322,13 @@ export function aggregateRevenueReport(input: {
   site_id: string | null;
   invoices: readonly RevenueInvoiceRow[];
   creditNotes: readonly RevenueCreditNoteRow[];
+  options?: { legacyUndiscountedNet?: boolean };
 }): RevenueReportCore {
   const bySource = new Map<RevenueReportSource, RevenueReportAmounts>();
   const byGroup = new Map<string, RevenueReportAmounts>();
 
   for (const invoice of input.invoices) {
-    applyInvoice(invoice, bySource, byGroup);
+    applyInvoice(invoice, bySource, byGroup, input.options);
   }
   for (const creditNote of input.creditNotes) {
     applyCreditNote(creditNote, bySource, byGroup);
@@ -286,7 +351,9 @@ export function legacyAnalyticsByGroup(
   const byGroup = new Map<string, RevenueReportAmounts>();
   const bySource = new Map<RevenueReportSource, RevenueReportAmounts>();
   for (const invoice of invoices) {
-    applyInvoice(invoice, bySource, byGroup);
+    applyInvoice(invoice, bySource, byGroup, {
+      legacyUndiscountedNet: true,
+    });
   }
   return new Map(
     [...byGroup.entries()].map(([name, amounts]) => [name, amounts.net]),

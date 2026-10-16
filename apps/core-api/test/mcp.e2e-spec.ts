@@ -3061,6 +3061,12 @@ describe('MCP server (e2e)', () => {
         }),
       ).toBe(true);
       expect(
+        await callFails(who, 'get_revenue_report', {
+          ...PERIOD,
+          site_id: fixtures.siteId,
+        }),
+      ).toBe(true);
+      expect(
         await callFails(who, 'get_vehicle_stock_age_report', {
           site_id: fixtures.siteId,
         }),

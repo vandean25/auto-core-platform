@@ -14,6 +14,7 @@ import { SiteContextService } from '../site/site-context.service.js';
 import { localDateStartUtc } from '../workshop/workshop-kpi-reports.math.js';
 import {
   aggregateRevenueReport,
+  legacyAnalyticsByGroup,
   type RevenueCreditNoteRow,
   type RevenueInvoiceRow,
 } from './finance-revenue-report.aggregate.js';
@@ -124,20 +125,29 @@ export class FinanceService {
   }
 
   async getRevenueAnalytics() {
+    const tenantId = await this.tenantContext.getTenantId();
     const { from, to, periodLabel } = serverLocalMonthBounds();
-    const report = await this.getRevenueReport({
-      from,
-      to,
-      scope: 'tenant',
-      subtract_credit_notes: false,
-      enforce_report_role: false,
+    const start = new Date(
+      Number(from.slice(0, 4)),
+      Number(from.slice(5, 7)) - 1,
+      Number(from.slice(8, 10)),
+    );
+    const end = new Date(
+      Number(to.slice(0, 4)),
+      Number(to.slice(5, 7)) - 1,
+      Number(to.slice(8, 10)) + 1,
+    );
+    const invoices = await this.loadRevenueInvoices({
+      tenantId,
+      invoiceDate: { gte: start, lt: end },
     });
-    const data = report.by_revenue_group.map((slice) => ({
-      name: slice.name,
-      value: Number(slice.net),
-      color: this.getGroupColor(slice.name),
+    const revenueByGroup = legacyAnalyticsByGroup(invoices);
+    const data = [...revenueByGroup.entries()].map(([name, value]) => ({
+      name,
+      value: Number(value),
+      color: this.getGroupColor(name),
     }));
-    const total = Number(report.totals.net);
+    const total = data.reduce((sum, slice) => sum + slice.value, 0);
     return {
       data,
       total,
@@ -351,6 +361,8 @@ export class FinanceService {
         tax_mode: true,
         workshop_order_id: true,
         vehicle_sale_id: true,
+        global_discount_type: true,
+        global_discount_value: true,
         total_net: true,
         total_tax: true,
         total_gross: true,
@@ -362,6 +374,8 @@ export class FinanceService {
             quantity: true,
             unit_price: true,
             line_total: true,
+            line_discount_type: true,
+            line_discount_value: true,
             tax_rate: true,
           },
           orderBy: { id: 'asc' },
