@@ -5,7 +5,6 @@ import {
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { WorkshopIntakeService } from './workshop-intake.service.js';
-import { WorkshopPositionPlanService } from './workshop-position-plan.service.js';
 import { WorkshopScheduleService } from './workshop-schedule.service.js';
 import { PartsRequisitionService } from '../parts-requisition/parts-requisition.service.js';
 import { VEHICLE_IDENTITY_RESET } from '../vehicle/vehicle-identity.util.js';
@@ -24,6 +23,7 @@ import {
   WorkshopTaskStatus,
   workshopSiteProvider,
   workshopAuthorizedSiteProvider,
+  workshopPositionPlanProvider,
 } from './workshop.spec.support.js';
 
 describe('WorkshopIntakeService', () => {
@@ -54,10 +54,7 @@ describe('WorkshopIntakeService', () => {
           provide: RequestContextService,
           useValue: { getTraceId: jest.fn() },
         },
-        {
-          provide: WorkshopPositionPlanService,
-          useValue: { fulfillDeferredReservationsOnIntake: jest.fn() },
-        },
+        workshopPositionPlanProvider,
       ],
     }).compile();
 
