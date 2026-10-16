@@ -9,8 +9,10 @@ import type {
 export const DEFAULT_UPLOAD_IMAGE_LIMIT_INPUT_PIXELS = 16_000_000;
 const DEFAULT_JPEG_QUALITY = 85;
 
+type SharpPipeline = ReturnType<typeof sharp>;
+
 async function toJpegVariant(
-  pipeline: sharp.Sharp,
+  pipeline: SharpPipeline,
   limits: UploadImageResizeLimits,
   jpegQuality: number,
 ): Promise<ProcessedImageVariant> {
