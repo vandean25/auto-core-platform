@@ -80,10 +80,7 @@ const bothOrNoneRangeOptions = {
   path: ['from'],
 };
 
-function isBothOrNoneRange(value: {
-  from?: string;
-  to?: string;
-}): boolean {
+function isBothOrNoneRange(value: { from?: string; to?: string }): boolean {
   return (value.from === undefined) === (value.to === undefined);
 }
 
@@ -106,12 +103,16 @@ export const listWorkshopOrdersBaseSchema = z.object({
     .string()
     .date()
     .optional()
-    .describe('Scheduled start date, YYYY-MM-DD, inclusive, in the site timezone'),
+    .describe(
+      'Scheduled start date, YYYY-MM-DD, inclusive, in the site timezone',
+    ),
   scheduled_to: z
     .string()
     .date()
     .optional()
-    .describe('Scheduled start date, YYYY-MM-DD, inclusive, in the site timezone'),
+    .describe(
+      'Scheduled start date, YYYY-MM-DD, inclusive, in the site timezone',
+    ),
   sent_from: z
     .string()
     .date()
@@ -140,8 +141,7 @@ export const listWorkshopOrdersInputSchema = listWorkshopOrdersBaseSchema
     { ...bothOrNoneRangeOptions, path: ['scheduled_from'] },
   )
   .refine(
-    (value) =>
-      isBothOrNoneRange({ from: value.sent_from, to: value.sent_to }),
+    (value) => isBothOrNoneRange({ from: value.sent_from, to: value.sent_to }),
     { ...bothOrNoneRangeOptions, path: ['sent_from'] },
   )
   .refine(
@@ -150,7 +150,10 @@ export const listWorkshopOrdersInputSchema = listWorkshopOrdersBaseSchema
         from: value.scheduled_from,
         to: value.scheduled_to,
       }),
-    { message: 'scheduled_from must not be after scheduled_to', path: ['scheduled_from'] },
+    {
+      message: 'scheduled_from must not be after scheduled_to',
+      path: ['scheduled_from'],
+    },
   )
   .refine(
     (value) =>

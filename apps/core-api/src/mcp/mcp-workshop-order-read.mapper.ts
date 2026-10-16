@@ -99,12 +99,8 @@ export function toMcpEstimateSummary(
     version: version.version,
     status: effectiveEstimateStatus(version, now),
     sent_at: version.sent_at ? version.sent_at.toISOString() : null,
-    valid_until: version.valid_until
-      ? version.valid_until.toISOString()
-      : null,
-    total_gross: version.total_gross
-      ? version.total_gross.toFixed(2)
-      : null,
+    valid_until: version.valid_until ? version.valid_until.toISOString() : null,
+    total_gross: version.total_gross ? version.total_gross.toFixed(2) : null,
   };
 }
 

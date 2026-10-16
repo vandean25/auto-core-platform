@@ -73,18 +73,24 @@ export class McpWorkshopOrderReadService {
     const page = clampMcpPage(input.page);
     const pageSize = clampMcpPageSize(input.pageSize);
     const skip = (page - 1) * pageSize;
-    const { tenantId, siteId, timeZone } = await this.scope();
+    const needsTimezone = Boolean(
+      input.scheduled_from ||
+        input.scheduled_to ||
+        input.sent_from ||
+        input.sent_to,
+    );
+    const { tenantId, siteId, timeZone } = await this.scope(needsTimezone);
 
-    const scheduledRange = siteLocalInclusiveDateRange(
-      input.scheduled_from,
-      input.scheduled_to,
-      timeZone,
-    );
-    const sentRange = siteLocalInclusiveDateRange(
-      input.sent_from,
-      input.sent_to,
-      timeZone,
-    );
+    const scheduledRange = timeZone
+      ? siteLocalInclusiveDateRange(
+          input.scheduled_from,
+          input.scheduled_to,
+          timeZone,
+        )
+      : null;
+    const sentRange = timeZone
+      ? siteLocalInclusiveDateRange(input.sent_from, input.sent_to, timeZone)
+      : null;
 
     const estimateOrderIds = await this.resolveEstimateFilteredOrderIds({
       tenantId,
@@ -256,10 +262,10 @@ export class McpWorkshopOrderReadService {
       },
       select: CURRENT_VERSION_SELECT,
     });
-    return versions as CurrentEstimateVersionRow[];
+    return versions;
   }
 
-  private async scope() {
+  private async scope(requireTimezone: boolean) {
     const [tenantId, siteId] = await Promise.all([
       this.tenantContext.getTenantId(),
       this.siteContext.getSiteId(),
@@ -271,7 +277,7 @@ export class McpWorkshopOrderReadService {
     if (!site) {
       throw new NotFoundException('Active site not found');
     }
-    if (!site.timezone) {
+    if (requireTimezone && !site.timezone) {
       throw new BadRequestException('active site timezone is not configured');
     }
     return { tenantId, siteId, timeZone: site.timezone };
