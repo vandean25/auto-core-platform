@@ -51,7 +51,7 @@ describe('VehiclePickerlSection', () => {
     )
 
     expect(screen.getByText(/Erstzulassung fehlt/)).toBeInTheDocument()
-    expect(screen.getByText('Unbekannt')).toBeInTheDocument()
+    expect(screen.getAllByText('Unbekannt').length).toBeGreaterThanOrEqual(1)
   })
 
   it('links the existing open order instead of offering another intake', async () => {

@@ -1,5 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
+
+import { i18n } from '@/lib/i18n'
 import {
   resolveActivityAgentName,
   resolveDecidedByLabel,
@@ -23,9 +25,10 @@ describe('resolveProposalAgentName', () => {
     expect(resolveProposalAgentName(undefined, { agentId: 'billing-agent' })).toBe('billing-agent')
   })
 
-  it('uses the generic label only when no agent is recorded anywhere', () => {
-    expect(resolveProposalAgentName(null, {})).toBe('agent')
-    expect(resolveProposalAgentName(null, { agent_id: '' })).toBe('agent')
+  it('uses the localized generic label only when no agent is recorded anywhere', () => {
+    const generic = i18n.t('enums:agent.genericName')
+    expect(resolveProposalAgentName(null, {})).toBe(generic)
+    expect(resolveProposalAgentName(null, { agent_id: '' })).toBe(generic)
   })
 })
 
@@ -34,9 +37,10 @@ describe('resolveActivityAgentName', () => {
     expect(resolveActivityAgentName('mcp:qa-fresh-agent')).toBe('mcp:qa-fresh-agent')
   })
 
-  it('uses the generic label only when the log has no agent id', () => {
-    expect(resolveActivityAgentName(null)).toBe('agent')
-    expect(resolveActivityAgentName(undefined)).toBe('agent')
+  it('uses the localized generic label only when the log has no agent id', () => {
+    const generic = i18n.t('enums:agent.genericName')
+    expect(resolveActivityAgentName(null)).toBe(generic)
+    expect(resolveActivityAgentName(undefined)).toBe(generic)
   })
 })
 

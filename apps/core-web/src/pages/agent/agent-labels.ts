@@ -3,6 +3,12 @@
  * card and the Activity table both read these, so one proposal shows one agent.
  */
 
+import { translateEnum } from '@/lib/i18n/enum-labels'
+
+function genericAgentLabel(): string {
+  return translateEnum('agent', 'genericName')
+}
+
 /**
  * The agent that created the proposal. Falls back to the agent id in the
  * payload (same order the backend uses for the Activity row), then to the
@@ -17,7 +23,7 @@ export function resolveProposalAgentName(
     typeof payloadAgentId === 'string' && payloadAgentId.length > 0
       ? payloadAgentId
       : undefined
-  return createdByAgent ?? fromPayload ?? 'agent'
+  return createdByAgent ?? fromPayload ?? genericAgentLabel()
 }
 
 /**
@@ -25,7 +31,7 @@ export function resolveProposalAgentName(
  * API types this field loosely, so anything that is not a string is ignored.
  */
 export function resolveActivityAgentName(agentId: unknown): string {
-  return typeof agentId === 'string' ? agentId : 'agent'
+  return typeof agentId === 'string' ? agentId : genericAgentLabel()
 }
 
 /** A user id from the API, or null. The API types this field loosely, so only non-empty strings count. */

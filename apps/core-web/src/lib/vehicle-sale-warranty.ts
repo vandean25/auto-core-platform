@@ -1,18 +1,20 @@
 import { getErrorCode, getErrorMessage } from '@/lib/error-utils'
+import { formatStatusLabel } from '@/lib/i18n/enum-labels'
 import { formatDateUtcMedium } from '@/lib/format'
 
 /** Basisfrist status from the API: expired, expiring soon (due within 30 days), or active. */
 export type GewaehrleistungStatus = 'ACTIVE' | 'EXPIRING_SOON' | 'EXPIRED'
 
-const GEWAEHRLEISTUNG_BADGES: Record<GewaehrleistungStatus, { status: string; label: string }> = {
-  ACTIVE: { status: 'GEWAEHRLEISTUNG_ACTIVE', label: 'Aktiv' },
-  EXPIRING_SOON: { status: 'GEWAEHRLEISTUNG_EXPIRING_SOON', label: 'Läuft bald ab' },
-  EXPIRED: { status: 'GEWAEHRLEISTUNG_EXPIRED', label: 'Abgelaufen' },
+const GEWAEHRLEISTUNG_BADGE_STATUSES: Record<GewaehrleistungStatus, string> = {
+  ACTIVE: 'GEWAEHRLEISTUNG_ACTIVE',
+  EXPIRING_SOON: 'GEWAEHRLEISTUNG_EXPIRING_SOON',
+  EXPIRED: 'GEWAEHRLEISTUNG_EXPIRED',
 }
 
-/** The shared StatusBadge key and German label for a Gewährleistung status. */
+/** The shared StatusBadge key and localized label for a Gewährleistung status. */
 export function gewaehrleistungStatusBadge(status: GewaehrleistungStatus) {
-  return GEWAEHRLEISTUNG_BADGES[status]
+  const badgeStatus = GEWAEHRLEISTUNG_BADGE_STATUSES[status]
+  return { status: badgeStatus, label: formatStatusLabel(badgeStatus) }
 }
 
 /** A stored date-only value (`YYYY-MM-DD`) as a German day, e.g. `14.10.2026`. */

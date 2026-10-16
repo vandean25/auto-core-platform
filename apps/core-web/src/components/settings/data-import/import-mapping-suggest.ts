@@ -1,4 +1,5 @@
-import type { ImportFieldDefinition } from './import-field-labels'
+import type { ImportEntityTypeUi, ImportFieldDefinition } from './import-field-labels'
+import { importFieldHeaderLabelCandidates } from './import-field-labels'
 
 function normalizeHeader(value: string): string {
   return value
@@ -34,9 +35,10 @@ function findHeaderForAlias(
 function matchFieldToHeader(
   csvHeaders: string[],
   usedHeaders: Set<string>,
+  entityType: ImportEntityTypeUi,
   field: ImportFieldDefinition,
 ): string | undefined {
-  const labelCandidates = [field.labelDe, field.labelEn]
+  const labelCandidates = importFieldHeaderLabelCandidates(entityType, field.key)
   for (const label of labelCandidates) {
     const match = findHeaderForAlias(csvHeaders, usedHeaders, label)
     if (match) return match
@@ -52,13 +54,14 @@ function matchFieldToHeader(
 
 export function suggestColumnMapping(
   csvHeaders: string[],
+  entityType: ImportEntityTypeUi,
   fields: ImportFieldDefinition[],
 ): Record<string, string> {
   const usedHeaders = new Set<string>()
   const mapping: Record<string, string> = {}
 
   for (const field of fields) {
-    const match = matchFieldToHeader(csvHeaders, usedHeaders, field)
+    const match = matchFieldToHeader(csvHeaders, usedHeaders, entityType, field)
     if (match) {
       mapping[field.key] = match
       usedHeaders.add(match)
