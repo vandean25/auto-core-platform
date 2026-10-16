@@ -3165,6 +3165,7 @@ model WorkshopTaskLineItem {
   standard_aw             Decimal?                         @db.Decimal(10, 2)
   actual_hours            Decimal?                         @db.Decimal(10, 2)
   internal_cost_rate      Decimal?                         @db.Decimal(10, 2)
+  deferred_part_reservation Boolean                        @default(false)
   parts_reservations      PartsReservation[]
   warranty_claim_lines    WarrantyClaimLine[]
 

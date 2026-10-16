@@ -1,9 +1,16 @@
 export const POSITION_PLAN_VERSION = 1;
 export const PLAN_STALE = 'PLAN_STALE';
-export const DEFERRED_PART_RESERVATION_MARKER = 'booking-plan:defer-reserve';
 
 export type PositionPlanReservationState =
   'not_applicable' | 'unbooked' | 'reserved';
+
+export type PositionPlanQuestion = {
+  code: string;
+  message: string;
+  preset_key?: string;
+  labor_operation_id?: string;
+  catalog_item_id?: string;
+};
 
 export type ResolvedPositionPlanLine = {
   presetKey?: string;
@@ -24,4 +31,5 @@ export type ResolvedPositionPlan = {
   version: number;
   lines: ResolvedPositionPlanLine[];
   fingerprint: string;
+  questions?: PositionPlanQuestion[];
 };

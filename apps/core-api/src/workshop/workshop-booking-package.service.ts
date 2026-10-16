@@ -121,6 +121,14 @@ export class WorkshopBookingPackageService {
         message: 'The position plan changed; submit a new review',
       });
     }
+    if (
+      storedPlan &&
+      ((storedPlan.questions?.length ?? 0) > 0 || storedPlan.lines.length === 0)
+    ) {
+      throw new UnprocessableEntityException(
+        'The position plan has unresolved lines; submit a new review after clarifying',
+      );
+    }
     const recomputedPlan = storedPlan
       ? await this.positionPlan.resolvePlan(tenantId, siteId, record, {
           forApplyStaleCheck: true,

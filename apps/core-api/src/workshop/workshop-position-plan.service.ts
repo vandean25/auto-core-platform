@@ -2,7 +2,6 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
-  UnprocessableEntityException,
 } from '@nestjs/common';
 import {
   type CatalogItem,
@@ -18,10 +17,11 @@ import { createHash } from 'node:crypto';
 import { AtpService } from '../inventory/atp.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { executeCreateOnHandReservation } from '../parts-requisition/parts-requisition-lifecycle.helpers.js';
+import { pickWorkshopCommandPresetForSite } from './workshop-command-preset.helpers.js';
 import {
-  DEFERRED_PART_RESERVATION_MARKER,
   PLAN_STALE,
   POSITION_PLAN_VERSION,
+  type PositionPlanQuestion,
   type ResolvedPositionPlan,
   type ResolvedPositionPlanLine,
 } from './workshop-position-plan.types.js';
@@ -78,9 +78,21 @@ export class WorkshopPositionPlanService {
     if (rawLines.length === 0) {
       return null;
     }
-    const lines = await this.buildResolvedLines(tenantId, siteId, rawLines);
+    const { lines, questions } = await this.buildResolvedLines(
+      tenantId,
+      siteId,
+      rawLines,
+    );
+    if (lines.length === 0 && questions.length === 0) {
+      return null;
+    }
     const fingerprint = this.fingerprint(lines);
-    return { version: POSITION_PLAN_VERSION, lines, fingerprint };
+    return {
+      version: POSITION_PLAN_VERSION,
+      lines,
+      fingerprint,
+      ...(questions.length > 0 ? { questions } : {}),
+    };
   }
 
   assertStoredPlanMatches(
@@ -97,6 +109,17 @@ export class WorkshopPositionPlanService {
       });
     }
     if (stored.version !== recomputed.version) {
+      throw new ConflictException({
+        code: PLAN_STALE,
+        message: 'The position plan changed; submit a new review',
+      });
+    }
+    const storedQuestions = stored.questions ?? [];
+    const recomputedQuestions = recomputed.questions ?? [];
+    if (
+      storedQuestions.length !== recomputedQuestions.length ||
+      JSON.stringify(storedQuestions) !== JSON.stringify(recomputedQuestions)
+    ) {
       throw new ConflictException({
         code: PLAN_STALE,
         message: 'The position plan changed; submit a new review',
@@ -140,14 +163,30 @@ export class WorkshopPositionPlanService {
     if (!Array.isArray(lines) || lines.length === 0) {
       return null;
     }
-    const resolved: ResolvedPositionPlanLine[] = lines.map((line) => {
+    const questions = this.parseStoredQuestions(record);
+    const resolved: ResolvedPositionPlanLine[] = [];
+    for (const line of lines) {
       if (!line || typeof line !== 'object' || Array.isArray(line)) {
         throw new BadRequestException('Invalid position plan line');
       }
       const row = line as Record<string, unknown>;
-      const kind = row.kind === 'PART' ? 'PART' : 'LABOR';
+      if (row.kind !== 'PART' && row.kind !== 'LABOR') {
+        throw new BadRequestException('Invalid position plan line kind');
+      }
+      const kind = row.kind;
       const reservation = this.readReservation(row.reservation);
-      return {
+      if (
+        typeof row.description !== 'string' ||
+        typeof row.quantity !== 'string' ||
+        typeof row.unit !== 'string' ||
+        typeof row.unit_price_cents !== 'number' ||
+        typeof row.net_cents !== 'number'
+      ) {
+        throw new BadRequestException(
+          'Reviewed position plan line is incomplete',
+        );
+      }
+      resolved.push({
         presetKey:
           typeof row.preset_key === 'string' ? row.preset_key : undefined,
         kind,
@@ -157,17 +196,11 @@ export class WorkshopPositionPlanService {
             : null,
         catalogItemId:
           typeof row.catalog_item_id === 'string' ? row.catalog_item_id : null,
-        description:
-          typeof row.description === 'string' ? row.description : 'Position',
-        quantity: typeof row.quantity === 'string' ? row.quantity : '1.000',
-        unit:
-          typeof row.unit === 'string'
-            ? row.unit
-            : kind === 'LABOR'
-              ? 'h'
-              : 'pcs',
-        unitPriceCents: Number(row.unit_price_cents ?? 0),
-        netCents: Number(row.net_cents ?? 0),
+        description: row.description,
+        quantity: row.quantity,
+        unit: row.unit,
+        unitPriceCents: row.unit_price_cents,
+        netCents: row.net_cents,
         reservation,
         durationMinutes:
           typeof row.duration_minutes === 'number'
@@ -177,13 +210,47 @@ export class WorkshopPositionPlanService {
           typeof row.quantity_milli === 'number'
             ? row.quantity_milli
             : undefined,
-      };
-    });
+      });
+    }
     return {
       version: Number(record.version ?? POSITION_PLAN_VERSION),
       lines: resolved,
       fingerprint: this.fingerprint(resolved),
+      ...(questions.length > 0 ? { questions } : {}),
     };
+  }
+
+  private parseStoredQuestions(
+    record: Record<string, unknown>,
+  ): PositionPlanQuestion[] {
+    const raw = record.questions;
+    if (!Array.isArray(raw)) {
+      return [];
+    }
+    const questions: PositionPlanQuestion[] = [];
+    for (const entry of raw) {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+        continue;
+      }
+      const row = entry as Record<string, unknown>;
+      if (typeof row.code !== 'string' || typeof row.message !== 'string') {
+        continue;
+      }
+      questions.push({
+        code: row.code,
+        message: row.message,
+        ...(typeof row.preset_key === 'string'
+          ? { preset_key: row.preset_key }
+          : {}),
+        ...(typeof row.labor_operation_id === 'string'
+          ? { labor_operation_id: row.labor_operation_id }
+          : {}),
+        ...(typeof row.catalog_item_id === 'string'
+          ? { catalog_item_id: row.catalog_item_id }
+          : {}),
+      });
+    }
+    return questions;
   }
 
   async applyPlanInTransaction(
@@ -200,6 +267,21 @@ export class WorkshopPositionPlanService {
     if (existingTaskCount > 0) {
       return;
     }
+
+    const reservedCatalogIds = plan.lines
+      .filter(
+        (line) =>
+          line.kind === 'PART' &&
+          line.catalogItemId &&
+          line.reservation === 'reserved',
+      )
+      .map((line) => line.catalogItemId as string);
+    const stockByCatalog = await this.loadBinStocksByCatalogItem(
+      tx,
+      tenantId,
+      siteId,
+      reservedCatalogIds,
+    );
 
     let sequence = 0;
     for (const line of plan.lines) {
@@ -235,10 +317,8 @@ export class WorkshopPositionPlanService {
           hourly_rate_snapshot: isLabor
             ? new Prisma.Decimal(line.unitPriceCents / 100)
             : null,
-          external_operation_code:
-            !isLabor && line.reservation === 'unbooked'
-              ? DEFERRED_PART_RESERVATION_MARKER
-              : null,
+          deferred_part_reservation:
+            !isLabor && line.reservation === 'unbooked',
         },
       });
 
@@ -255,6 +335,7 @@ export class WorkshopPositionPlanService {
           lineItem.id,
           line.catalogItemId,
           new Prisma.Decimal(line.quantity),
+          stockByCatalog,
         );
       }
     }
@@ -269,7 +350,7 @@ export class WorkshopPositionPlanService {
     const lines = await tx.workshopTaskLineItem.findMany({
       where: {
         tenant_id: tenantId,
-        external_operation_code: DEFERRED_PART_RESERVATION_MARKER,
+        deferred_part_reservation: true,
         workshop_task: { workshop_order_id: orderId },
       },
       select: {
@@ -279,6 +360,17 @@ export class WorkshopPositionPlanService {
         parts_reservations: { select: { id: true }, take: 1 },
       },
     });
+    const catalogIds = lines
+      .filter(
+        (line) => line.catalog_item_id && line.parts_reservations.length === 0,
+      )
+      .map((line) => line.catalog_item_id as string);
+    const stockByCatalog = await this.loadBinStocksByCatalogItem(
+      tx,
+      tenantId,
+      siteId,
+      catalogIds,
+    );
     for (const line of lines) {
       if (line.parts_reservations.length > 0 || !line.catalog_item_id) {
         continue;
@@ -290,10 +382,11 @@ export class WorkshopPositionPlanService {
         line.id,
         line.catalog_item_id,
         line.quantity,
+        stockByCatalog,
       );
       await tx.workshopTaskLineItem.updateMany({
         where: { id: line.id, tenant_id: tenantId },
-        data: { external_operation_code: null },
+        data: { deferred_part_reservation: false },
       });
     }
   }
@@ -301,6 +394,9 @@ export class WorkshopPositionPlanService {
   toPayloadPositionPlan(plan: ResolvedPositionPlan): Record<string, unknown> {
     return {
       version: plan.version,
+      ...(plan.questions && plan.questions.length > 0
+        ? { questions: plan.questions }
+        : {}),
       lines: plan.lines.map((line) => ({
         ...(line.presetKey ? { preset_key: line.presetKey } : {}),
         kind: line.kind,
@@ -422,7 +518,10 @@ export class WorkshopPositionPlanService {
     tenantId: string,
     siteId: string,
     rawLines: RawPlanLine[],
-  ): Promise<ResolvedPositionPlanLine[]> {
+  ): Promise<{
+    lines: ResolvedPositionPlanLine[];
+    questions: PositionPlanQuestion[];
+  }> {
     const presetKeys = rawLines
       .map((line) =>
         typeof line.preset_key === 'string' ? line.preset_key : null,
@@ -442,16 +541,11 @@ export class WorkshopPositionPlanService {
           })
         : [];
 
-    const presetByKey = new Map<string, (typeof presets)[number]>();
-    for (const preset of presets) {
-      const existing = presetByKey.get(preset.preset_key);
-      if (!existing || preset.site_id === siteId) {
-        presetByKey.set(preset.preset_key, preset);
-      }
-    }
+    const presetByKey = pickWorkshopCommandPresetForSite(presets, siteId);
 
     const laborIds = new Set<string>();
     const catalogIds = new Set<string>();
+    const questions: PositionPlanQuestion[] = [];
     for (const line of rawLines) {
       const presetKey =
         typeof line.preset_key === 'string' ? line.preset_key : undefined;
@@ -469,10 +563,12 @@ export class WorkshopPositionPlanService {
         preset?.catalog_item_id ??
         undefined;
       if (presetKey && !preset) {
-        throw new UnprocessableEntityException({
+        questions.push({
           code: 'UNSUPPORTED_SERVICE',
           message: `Preset ${presetKey} is not configured at this site`,
+          preset_key: presetKey,
         });
+        continue;
       }
       if (laborId) {
         laborIds.add(laborId);
@@ -506,14 +602,29 @@ export class WorkshopPositionPlanService {
 
     const resolved: ResolvedPositionPlanLine[] = [];
     for (const line of rawLines) {
-      resolved.push(
-        this.resolveLine(line, presetByKey, laborById, catalogById, siteId),
+      const presetKey =
+        typeof line.preset_key === 'string' ? line.preset_key : undefined;
+      if (presetKey && !presetByKey.get(presetKey)) {
+        continue;
+      }
+      const outcome = this.tryResolveLine(
+        line,
+        presetByKey,
+        laborById,
+        catalogById,
       );
+      if (outcome.question) {
+        questions.push(outcome.question);
+        continue;
+      }
+      if (outcome.line) {
+        resolved.push(outcome.line);
+      }
     }
-    return resolved;
+    return { lines: resolved, questions };
   }
 
-  private resolveLine(
+  private tryResolveLine(
     line: RawPlanLine,
     presetByKey: Map<
       string,
@@ -545,8 +656,7 @@ export class WorkshopPositionPlanService {
         retail_price: Prisma.Decimal;
       }
     >,
-    siteId: string,
-  ): ResolvedPositionPlanLine {
+  ): { line?: ResolvedPositionPlanLine; question?: PositionPlanQuestion } {
     const presetKey =
       typeof line.preset_key === 'string' ? line.preset_key : undefined;
     const preset = presetKey ? presetByKey.get(presetKey) : undefined;
@@ -561,15 +671,23 @@ export class WorkshopPositionPlanService {
         preset?.labor_operation_id ??
         null;
       if (!laborId) {
-        throw new BadRequestException(
-          'Labor position requires labor_operation_id',
-        );
+        return {
+          question: {
+            code: 'MISSING_LABOR_REFERENCE',
+            message: 'Labor position requires a configured labor operation',
+            preset_key: presetKey,
+          },
+        };
       }
       const labor = laborById.get(laborId);
       if (!labor) {
-        throw new UnprocessableEntityException(
-          `Labor operation ${laborId} is not available`,
-        );
+        return {
+          question: {
+            code: 'LABOR_NOT_AVAILABLE',
+            message: `Labor operation ${laborId} is not available`,
+            labor_operation_id: laborId,
+          },
+        };
       }
       let durationMinutes: number;
       if (preset?.duration_minutes != null) {
@@ -584,17 +702,19 @@ export class WorkshopPositionPlanService {
         .toNumber();
       const netCents = laborNetCents(durationMinutes, unitPriceCents);
       return {
-        presetKey,
-        kind: 'LABOR',
-        laborOperationId: laborId,
-        catalogItemId: null,
-        description: labor.description,
-        quantity: formatQuantityString(hours),
-        unit: 'h',
-        unitPriceCents,
-        netCents,
-        reservation: 'not_applicable',
-        durationMinutes,
+        line: {
+          presetKey,
+          kind: 'LABOR',
+          laborOperationId: laborId,
+          catalogItemId: null,
+          description: labor.description,
+          quantity: formatQuantityString(hours),
+          unit: 'h',
+          unitPriceCents,
+          netCents,
+          reservation: 'not_applicable',
+          durationMinutes,
+        },
       };
     }
 
@@ -605,15 +725,24 @@ export class WorkshopPositionPlanService {
       preset?.catalog_item_id ??
       null;
     if (!catalogId) {
-      throw new BadRequestException('Part position requires catalog_item_id');
+      return {
+        question: {
+          code: 'MISSING_PART_REFERENCE',
+          message: 'Part position requires a catalog item',
+          preset_key: presetKey,
+        },
+      };
     }
     const catalog = catalogById.get(catalogId);
     if (!catalog) {
-      throw new UnprocessableEntityException(
-        `Catalog item ${catalogId} is not available`,
-      );
+      return {
+        question: {
+          code: 'PART_NOT_AVAILABLE',
+          message: `Catalog item ${catalogId} is not available`,
+          catalog_item_id: catalogId,
+        },
+      };
     }
-    void siteId;
     const quantityMilli =
       typeof line.quantity_milli === 'number'
         ? line.quantity_milli
@@ -628,17 +757,20 @@ export class WorkshopPositionPlanService {
         (line.reserve_part === true ? 'reserved' : 'unbooked'),
     );
     return {
-      presetKey,
-      kind: 'PART',
-      laborOperationId: null,
-      catalogItemId: catalogId,
-      description: catalog.name,
-      quantity: formatQuantityString(quantityMilli / 1000),
-      unit: catalog.unit,
-      unitPriceCents,
-      netCents,
-      reservation: reservation === 'not_applicable' ? 'unbooked' : reservation,
-      quantityMilli,
+      line: {
+        presetKey,
+        kind: 'PART',
+        laborOperationId: null,
+        catalogItemId: catalogId,
+        description: catalog.name,
+        quantity: formatQuantityString(quantityMilli / 1000),
+        unit: catalog.unit,
+        unitPriceCents,
+        netCents,
+        reservation:
+          reservation === 'not_applicable' ? 'unbooked' : reservation,
+        quantityMilli,
+      },
     };
   }
 
@@ -655,6 +787,84 @@ export class WorkshopPositionPlanService {
     return createHash('sha256').update(JSON.stringify(canonical)).digest('hex');
   }
 
+  private async loadBinStocksByCatalogItem(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    siteId: string,
+    catalogItemIds: string[],
+  ): Promise<
+    Map<
+      string,
+      {
+        location_id: string;
+        quantity_on_hand: Prisma.Decimal;
+        quantity_reserved: Prisma.Decimal;
+      }[]
+    >
+  > {
+    const uniqueIds = [...new Set(catalogItemIds)];
+    if (uniqueIds.length === 0) {
+      return new Map();
+    }
+    const stocks = await tx.inventoryStock.findMany({
+      where: {
+        tenant_id: tenantId,
+        site_id: siteId,
+        catalog_item_id: { in: uniqueIds },
+        location: {
+          type: LocationType.bin,
+          deletedAt: null,
+          site_id: siteId,
+          tenant_id: tenantId,
+        },
+      },
+      select: {
+        catalog_item_id: true,
+        location_id: true,
+        quantity_on_hand: true,
+        quantity_reserved: true,
+      },
+    });
+    const byCatalog = new Map<
+      string,
+      {
+        location_id: string;
+        quantity_on_hand: Prisma.Decimal;
+        quantity_reserved: Prisma.Decimal;
+      }[]
+    >();
+    for (const stock of stocks) {
+      const bucket = byCatalog.get(stock.catalog_item_id) ?? [];
+      bucket.push(stock);
+      byCatalog.set(stock.catalog_item_id, bucket);
+    }
+    return byCatalog;
+  }
+
+  private pickReservationLocation(
+    stockByCatalog: Map<
+      string,
+      {
+        location_id: string;
+        quantity_on_hand: Prisma.Decimal;
+        quantity_reserved: Prisma.Decimal;
+      }[]
+    >,
+    catalogItemId: string,
+    quantity: Prisma.Decimal,
+  ): { id: string } | null {
+    const stocks = stockByCatalog.get(catalogItemId) ?? [];
+    for (const stock of stocks) {
+      const available = new Prisma.Decimal(stock.quantity_on_hand).sub(
+        stock.quantity_reserved,
+      );
+      if (available.gte(quantity)) {
+        return { id: stock.location_id };
+      }
+    }
+    return null;
+  }
+
   private async reservePartLineInTransaction(
     tx: Prisma.TransactionClient,
     tenantId: string,
@@ -662,14 +872,24 @@ export class WorkshopPositionPlanService {
     lineItemId: string,
     catalogItemId: string,
     quantity: Prisma.Decimal,
+    stockByCatalog?: Map<
+      string,
+      {
+        location_id: string;
+        quantity_on_hand: Prisma.Decimal;
+        quantity_reserved: Prisma.Decimal;
+      }[]
+    >,
   ): Promise<void> {
-    const location = await this.findReservationLocation(
-      tx,
-      tenantId,
-      siteId,
-      catalogItemId,
-      quantity,
-    );
+    const location = stockByCatalog
+      ? this.pickReservationLocation(stockByCatalog, catalogItemId, quantity)
+      : await this.findReservationLocation(
+          tx,
+          tenantId,
+          siteId,
+          catalogItemId,
+          quantity,
+        );
     if (!location) {
       throw new ConflictException({
         code: 'INSUFFICIENT_STOCK',
