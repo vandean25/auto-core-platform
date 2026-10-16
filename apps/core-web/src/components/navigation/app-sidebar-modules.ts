@@ -24,6 +24,9 @@ import {
 } from 'lucide-react'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { isAgentSupervisionEnabled } from '@/lib/runtime-flags'
+import type nav from '../../../../../locales/de/nav.json'
+
+export type NavModuleLabelKey = `modules.${keyof typeof nav.modules}`
 
 type SidebarAccessContext = {
   userEmail: string | null
@@ -33,7 +36,7 @@ type SidebarAccessContext = {
 
 export type SidebarModuleDefinition = {
   id: string
-  labelKey: string
+  labelKey: NavModuleLabelKey
   to: string
   icon: LucideIcon
   isVisible: (context: SidebarAccessContext) => boolean
