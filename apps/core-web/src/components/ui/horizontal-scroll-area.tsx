@@ -64,39 +64,76 @@ export function HorizontalScrollArea({
 
   const isWorkshopBoard = layout === 'workshop-board'
   const showHorizontalChrome = !isWorkshopBoard || canScrollLeft || canScrollRight
+  const workshopScrollControls = isWorkshopBoard && (canScrollLeft || canScrollRight)
 
   return (
     <div className={cn('relative w-full min-w-0', className)} data-testid="horizontal-scroll-area">
-      {isWorkshopBoard && canScrollRight && (
-        <p
-          className="mb-2 hidden items-center gap-1 text-xs text-slate-600 lg:flex"
+      {workshopScrollControls && (
+        <div
+          className="mb-2 hidden items-center justify-between gap-2 lg:flex"
           data-testid="workshop-board-scroll-hint"
         >
-          <ChevronRight className="h-4 w-4 shrink-0" aria-hidden />
-          Scroll or use the arrows to see more columns
-        </p>
+          <p className="flex min-w-0 items-center gap-1 text-xs text-slate-600">
+            <ChevronRight className="h-4 w-4 shrink-0" aria-hidden />
+            Scroll or use the arrows to see more columns
+          </p>
+          <div className="flex shrink-0 items-center gap-1">
+            {canScrollLeft && (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-11 w-11 min-h-11 min-w-11 rounded-full shadow-sm"
+                aria-label="Scroll left"
+                data-testid="workshop-board-scroll-left"
+                onClick={() => scrollBy(-scrollStep)}
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+            )}
+            {canScrollRight && (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-11 w-11 min-h-11 min-w-11 rounded-full shadow-sm"
+                aria-label="Scroll right"
+                data-testid="workshop-board-scroll-right"
+                onClick={() => scrollBy(scrollStep)}
+              >
+                <ChevronRight className="h-5 w-5" />
+              </Button>
+            )}
+          </div>
+        </div>
       )}
 
       {showHorizontalChrome && canScrollLeft && (
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-y-0 left-0 z-10 w-12 bg-gradient-to-r from-slate-100 to-transparent max-lg:hidden"
+          className={cn(
+            'pointer-events-none absolute inset-y-0 left-0 z-10 w-12 bg-gradient-to-r from-slate-100 to-transparent max-lg:hidden',
+            isWorkshopBoard && 'top-0',
+          )}
         />
       )}
 
       {showHorizontalChrome && canScrollRight && (
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-slate-100 to-transparent max-lg:hidden"
+          className={cn(
+            'pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-slate-100 to-transparent max-lg:hidden',
+            isWorkshopBoard && 'top-0',
+          )}
         />
       )}
 
-      {showHorizontalChrome && canScrollLeft && (
+      {!isWorkshopBoard && showHorizontalChrome && canScrollLeft && (
         <Button
           type="button"
           variant="outline"
           size="icon"
-          className="absolute left-1 top-1/2 z-20 h-11 w-11 min-h-11 min-w-11 -translate-y-1/2 rounded-full bg-white/90 shadow-sm max-lg:hidden"
+          className="absolute left-1 top-1/2 z-20 h-11 w-11 min-h-11 min-w-11 -translate-y-1/2 rounded-full bg-white/90 shadow-sm"
           aria-label="Scroll left"
           onClick={() => scrollBy(-scrollStep)}
         >
@@ -104,12 +141,12 @@ export function HorizontalScrollArea({
         </Button>
       )}
 
-      {showHorizontalChrome && canScrollRight && (
+      {!isWorkshopBoard && showHorizontalChrome && canScrollRight && (
         <Button
           type="button"
           variant="outline"
           size="icon"
-          className="absolute right-1 top-1/2 z-20 h-11 w-11 min-h-11 min-w-11 -translate-y-1/2 rounded-full bg-white/90 shadow-sm max-lg:hidden"
+          className="absolute right-1 top-1/2 z-20 h-11 w-11 min-h-11 min-w-11 -translate-y-1/2 rounded-full bg-white/90 shadow-sm"
           aria-label="Scroll right"
           onClick={() => scrollBy(scrollStep)}
         >

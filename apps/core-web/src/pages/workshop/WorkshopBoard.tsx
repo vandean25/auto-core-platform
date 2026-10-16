@@ -8,31 +8,23 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core'
-import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
-import { toast } from 'sonner'
-import { useQueryClient } from '@tanstack/react-query'
 import { HorizontalScrollArea } from '@/components/ui/horizontal-scroll-area'
 import { WorkshopOrderCardOverlay } from '@/components/workshop/WorkshopOrderCard'
 import { BoardViewToggle } from '@/components/workshop/BoardViewToggle'
 import type { BoardViewMode } from '@/components/workshop/BoardViewToggle'
-import {
-  type BoardActiveResponse,
-  type BoardAssignmentTarget,
-  useBoardActive,
-  useWorkshopResources,
-  useAssignBoard,
-  workshopKeys,
-} from '@/api/workshop'
-import { createWorkshopBoardAnnouncements, WORKSHOP_BOARD_UNASSIGNED_COLUMN_ID } from './workshop-board-announcements'
+import { useBoardActive, useWorkshopResources } from '@/api/workshop'
+import { createWorkshopBoardAnnouncements } from './workshop-board-announcements'
 import { WorkshopBoardColumn } from './WorkshopBoardColumn'
 import { WorkshopBoardEmptyResources } from './WorkshopBoardEmptyResources'
+import { createWorkshopBoardDragHandlers } from './workshop-board-drag-handlers'
+import { buildQuickAssignTargets, buildWorkshopBoardColumns } from './workshop-board-model'
 import {
   readWorkshopBoardViewMode,
   WORKSHOP_BOARD_VIEW_MODE_KEY,
 } from './workshop-board-view-mode'
+import { useWorkshopBoardAssignment } from './useWorkshopBoardAssignment'
 
 export default function WorkshopBoard() {
-  const queryClient = useQueryClient()
   const [viewMode, setViewMode] = React.useState<BoardViewMode>(readWorkshopBoardViewMode)
   const [activeId, setActiveId] = React.useState<string | null>(null)
 
@@ -46,7 +38,7 @@ export default function WorkshopBoard() {
 
   const { data: resourcesData, isLoading: resourcesLoading } = useWorkshopResources()
   const { data: boardData, isLoading: boardLoading } = useBoardActive()
-  const assignBoard = useAssignBoard()
+  const performBoardAssign = useWorkshopBoardAssignment(viewMode)
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -54,132 +46,37 @@ export default function WorkshopBoard() {
     useSensor(KeyboardSensor),
   )
 
-  const quickAssignTargets = React.useMemo<BoardAssignmentTarget[]>(() => {
-    const mechanicTargets = (resourcesData?.mechanics ?? []).map((mechanic) => ({
-      kind: 'mechanic' as const,
-      id: mechanic.id,
-      label: mechanic.name,
-    }))
-    const bayTargets = (resourcesData?.bays ?? []).map((bay) => ({
-      kind: 'bay' as const,
-      id: bay.id,
-      label: bay.name,
-    }))
-    return [...mechanicTargets, ...bayTargets]
-  }, [resourcesData])
+  const quickAssignTargets = React.useMemo(
+    () => buildQuickAssignTargets(resourcesData),
+    [resourcesData],
+  )
 
-  const resources = React.useMemo(() =>
-    viewMode === 'mechanic'
-      ? (resourcesData?.mechanics ?? [])
-      : (resourcesData?.bays ?? []), [resourcesData, viewMode])
+  const resources = React.useMemo(
+    () =>
+      viewMode === 'mechanic'
+        ? (resourcesData?.mechanics ?? [])
+        : (resourcesData?.bays ?? []),
+    [resourcesData, viewMode],
+  )
 
   const orders = React.useMemo(() => boardData?.data ?? [], [boardData])
 
-  const columns = React.useMemo(() => {
-    const resourceCols = resources.map((r) => ({
-      id: r.id,
-      label: r.name,
-      orders: orders.filter((o) =>
-        viewMode === 'mechanic' ? o.mechanicId === r.id : o.bayId === r.id,
-      ),
-    }))
-
-    const unassignedOrders = orders.filter((o) =>
-      viewMode === 'mechanic' ? !o.mechanicId : !o.bayId,
-    )
-
-    return [
-      ...resourceCols,
-      { id: WORKSHOP_BOARD_UNASSIGNED_COLUMN_ID, label: 'Unassigned', orders: unassignedOrders },
-    ]
-  }, [resources, orders, viewMode])
+  const columns = React.useMemo(
+    () => buildWorkshopBoardColumns(viewMode, resources, orders),
+    [resources, orders, viewMode],
+  )
 
   const accessibility = React.useMemo(
     () => ({ announcements: createWorkshopBoardAnnouncements(orders, columns, viewMode) }),
     [orders, columns, viewMode],
   )
 
-  const activeOrder = activeId ? orders.find((o) => o.id === activeId) ?? null : null
+  const activeOrder = activeId ? orders.find((order) => order.id === activeId) ?? null : null
 
-  const performBoardAssign = React.useCallback(
-    (orderId: string, target: BoardAssignmentTarget | null) => {
-      const previousData = queryClient.getQueryData<BoardActiveResponse>(
-        workshopKeys.boardActive(),
-      )
-
-      queryClient.setQueryData<BoardActiveResponse>(workshopKeys.boardActive(), (old) => {
-        if (!old) return old
-
-        return {
-          ...old,
-          data: old.data.map((order) => {
-            if (order.id !== orderId) return order
-
-            if (target?.kind === 'mechanic') {
-              return {
-                ...order,
-                mechanicId: target.id,
-              }
-            }
-
-            if (target?.kind === 'bay') {
-              return {
-                ...order,
-                bayId: target.id,
-              }
-            }
-
-            return viewMode === 'mechanic'
-              ? { ...order, mechanicId: null }
-              : { ...order, bayId: null }
-          }),
-        }
-      })
-
-      const payload =
-        target?.kind === 'mechanic'
-          ? { orderId, mechanicId: target.id }
-          : target?.kind === 'bay'
-            ? { orderId, bayId: target.id }
-            : viewMode === 'mechanic'
-              ? { orderId, mechanicId: null }
-              : { orderId, bayId: null }
-
-      assignBoard.mutate(payload, {
-        onError: () => {
-          queryClient.setQueryData(workshopKeys.boardActive(), previousData)
-          toast.error('Failed to assign order. Please try again.')
-        },
-        onSettled: () => {
-          void queryClient.invalidateQueries({ queryKey: workshopKeys.boardActive() })
-        },
-      })
-    },
-    [assignBoard, queryClient, viewMode],
+  const dragHandlers = React.useMemo(
+    () => createWorkshopBoardDragHandlers(viewMode, setActiveId, performBoardAssign),
+    [viewMode, performBoardAssign],
   )
-
-  function handleDragStart(event: DragStartEvent) {
-    setActiveId(String(event.active.id))
-  }
-
-  function handleDragEnd(event: DragEndEvent) {
-    setActiveId(null)
-    const { active, over } = event
-    if (!over || active.id === over.id) return
-
-    const orderId = String(active.id)
-    const targetColumnId = String(over.id)
-    if (targetColumnId === WORKSHOP_BOARD_UNASSIGNED_COLUMN_ID) {
-      performBoardAssign(orderId, null)
-      return
-    }
-
-    performBoardAssign(orderId, {
-      kind: viewMode === 'mechanic' ? 'mechanic' : 'bay',
-      id: targetColumnId,
-      label: targetColumnId,
-    })
-  }
 
   const isLoading = resourcesLoading || boardLoading
 
@@ -204,8 +101,8 @@ export default function WorkshopBoard() {
           <DndContext
             sensors={sensors}
             accessibility={accessibility}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
+            onDragStart={dragHandlers.onDragStart}
+            onDragEnd={dragHandlers.onDragEnd}
           >
             <HorizontalScrollArea
               layout="workshop-board"
