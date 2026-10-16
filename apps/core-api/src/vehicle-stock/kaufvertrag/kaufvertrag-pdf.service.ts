@@ -22,6 +22,7 @@ import { enqueueOrGeneratePdf } from '../../common/pdf/pdf-generation-dispatch.j
 import { DocumentBrandingAssetStorage } from '../../document-branding/document-branding-asset-storage.js';
 import { resolveBrandingSnapshot } from '../../invoices/invoice-snapshot-v2.helpers.js';
 import { buildSellerSnapshot } from '../../invoices/invoice-snapshot-v2.js';
+import { documentLocaleFrozenForCurrentRenderers } from '../../common/i18n/rendered-document-locale.js';
 import { getErrorCode } from '../../invoices/invoice-pdf-archive.helpers.js';
 import { brandRenderInputUnavailable } from '../../invoices/invoice-pdf-branding.helpers.js';
 import {
@@ -357,6 +358,7 @@ export class VehicleSaleKaufvertragPdfService {
       ),
     );
 
+    const documentLocale = documentLocaleFrozenForCurrentRenderers();
     const snapshot = buildKaufvertragSnapshot({
       sale: {
         id: sale.id,
@@ -386,6 +388,7 @@ export class VehicleSaleKaufvertragPdfService {
             }
           : null,
       branding,
+      documentLocale,
     });
 
     return {

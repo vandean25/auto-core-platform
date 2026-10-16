@@ -26,6 +26,10 @@ const e2eAuthSession: AuthSession = {
   activeRole: 'ADMIN',
   activeSiteId: null,
   memberships: [],
+  locale: null,
+  effectiveLocale: 'de',
+  defaultLocale: 'de',
+  formatLocale: 'de-AT',
 }
 
 function getE2EAuthSession(pathname = window.location.pathname): AuthSession {

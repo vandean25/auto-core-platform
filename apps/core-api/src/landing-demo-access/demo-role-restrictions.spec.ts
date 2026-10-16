@@ -18,6 +18,19 @@ describe('demo-role-restrictions', () => {
     expect(isDemoMutationAllowed('POST', '/api/auth/switch-tenant')).toBe(true);
   });
 
+  it('allows demo users to persist their own locale preference only', () => {
+    expect(isDemoMutationAllowed('PATCH', '/api/auth/me/preferences')).toBe(
+      true,
+    );
+    expect(isDemoMutationAllowed('GET', '/api/auth/me/preferences')).toBe(true);
+    expect(isDemoMutationAllowed('POST', '/api/auth/me/preferences')).toBe(
+      false,
+    );
+    expect(isDemoMutationAllowed('PATCH', '/api/tenants/current/locale')).toBe(
+      false,
+    );
+  });
+
   it('blocks admin, settings, sites, employees, and finance mutations', () => {
     expect(isDemoMutationAllowed('POST', '/api/tenant-members/invite')).toBe(
       false,

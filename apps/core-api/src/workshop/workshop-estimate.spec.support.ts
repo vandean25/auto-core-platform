@@ -96,6 +96,7 @@ export function buildEstimateSnapshotInput(
       ],
     },
     branding: estimateBrandingFixture,
+    documentLocale: 'de',
     ...overrides,
   };
 }

@@ -44,6 +44,7 @@ import { SiteModule } from './site/site.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { PlatformAdminModule } from './platform-admin/platform-admin.module.js';
 import { TenantMemberModule } from './tenant-member/tenant-member.module.js';
+import { TenantModule } from './tenant/tenant.module.js';
 import { VoiceTranslationModule } from './voice-translation/voice-translation.module.js';
 import { SettingsModule } from './settings/settings.module.js';
 import { AuditModule } from './audit/audit.module.js';
@@ -106,6 +107,7 @@ import { SettlementModule } from './settlement/settlement.module.js';
     AuthModule,
     PlatformAdminModule,
     TenantMemberModule,
+    TenantModule,
     VoiceTranslationModule,
     SettingsModule,
     AuditModule,

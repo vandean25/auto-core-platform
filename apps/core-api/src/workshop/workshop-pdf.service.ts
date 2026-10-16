@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import type { DisplayLanguage } from '@prisma/client';
 import type { Readable } from 'node:stream';
 import * as Sentry from '@sentry/node';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -12,6 +13,8 @@ import {
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { readCachedWorkshopPdfMetadata } from './workshop-pdf.generation.js';
 import type { WorkshopOrderForPdf } from './workshop-pdf.types.js';
+import { documentLocaleFrozenForCurrentRenderers } from '../common/i18n/rendered-document-locale.js';
+import { buildWorkshopOrderPdfRenderInput } from './workshop-order-pdf-render-input.js';
 
 export type WorkshopPdfRequestGenerationResponse = {
   mode: 'cached' | 'enqueued' | 'generated';
@@ -192,9 +195,22 @@ export class WorkshopPdfService {
     const key = `workshop-orders/${order.id}.pdf`;
 
     try {
-      const upload = await this.uploadRenderedPdf(order, key);
+      const documentLocale = documentLocaleFrozenForCurrentRenderers();
+      const upload = await this.uploadRenderedPdf(order, key, documentLocale);
       const generatedAt = new Date();
-      await this.persistGeneratedPdf(order.id, tenantId, upload, generatedAt);
+      const renderInput = buildWorkshopOrderPdfRenderInput({
+        workshopOrderId: order.id,
+        orderNumber: order.order_number,
+        frozenAt: generatedAt,
+        documentLocale,
+      });
+      await this.persistGeneratedPdf(
+        order.id,
+        tenantId,
+        upload,
+        generatedAt,
+        renderInput,
+      );
 
       return {
         workshopOrderId: order.id,
@@ -211,9 +227,10 @@ export class WorkshopPdfService {
   private async uploadRenderedPdf(
     order: WorkshopOrderForPdf,
     key: string,
+    documentLocale: DisplayLanguage,
   ): Promise<PdfUploadResult> {
     return renderAndUploadPdf({
-      render: () => this.renderer.render(order),
+      render: () => this.renderer.render(order, { documentLocale }),
       upload: (pdf) =>
         this.storage.uploadPdf({
           key,
@@ -234,6 +251,7 @@ export class WorkshopPdfService {
     tenantId: string,
     upload: Pick<PdfUploadResult, 'bucket' | 'key'>,
     generatedAt: Date,
+    renderInput: ReturnType<typeof buildWorkshopOrderPdfRenderInput>,
   ): Promise<void> {
     await this.prisma.client.workshopOrder.updateMany({
       where: { id: workshopOrderId, tenant_id: tenantId },
@@ -242,6 +260,7 @@ export class WorkshopPdfService {
         pdf_storage_key: upload.key,
         pdf_generated_at: generatedAt,
         pdf_generation_error: null,
+        pdf_render_input: renderInput,
       },
     });
   }

@@ -7,6 +7,12 @@ import type {
   KaufvertragGewaehrleistung,
   KaufvertragRegime,
 } from './kaufvertrag-facts.js';
+import type { DocumentSnapshotLocaleFields } from '../../common/i18n/document-snapshot-locale.js';
+import { buildDocumentSnapshotLocaleFields } from '../../common/i18n/document-snapshot-locale.js';
+import {
+  DEFAULT_DISPLAY_LANGUAGE,
+  type DisplayLanguage,
+} from '../../common/i18n/display-language.js';
 
 export const KAUFVERTRAG_TEMPLATE_VERSION = 'kaufvertrag-brand-v1' as const;
 export const KAUFVERTRAG_SNAPSHOT_SCHEMA_VERSION = 1 as const;
@@ -51,6 +57,8 @@ export type KaufvertragSnapshotInput = {
   warranty: KaufvertragGewaehrleistung;
   garantie: { months: number; terms: string | null } | null;
   branding: KaufvertragSnapshotBranding;
+  documentLocale?: DisplayLanguage;
+  legalTextVersion?: string | null;
 };
 
 export type KaufvertragSnapshot = {
@@ -86,7 +94,7 @@ export type KaufvertragSnapshot = {
   };
   garantie: { duration_months: number; terms: string | null } | null;
   branding: KaufvertragSnapshotBranding;
-};
+} & Partial<DocumentSnapshotLocaleFields>;
 
 function isoDay(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -116,7 +124,12 @@ export function buildKaufvertragSnapshot(
   input: KaufvertragSnapshotInput,
 ): KaufvertragSnapshot {
   const { sale, vehicle, warranty } = input;
+  const documentLocale = input.documentLocale ?? DEFAULT_DISPLAY_LANGUAGE;
   return {
+    ...buildDocumentSnapshotLocaleFields(
+      documentLocale,
+      input.legalTextVersion,
+    ),
     schema_version: KAUFVERTRAG_SNAPSHOT_SCHEMA_VERSION,
     template_version: KAUFVERTRAG_TEMPLATE_VERSION,
     sale: {

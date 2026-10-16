@@ -7,7 +7,7 @@ import {
   IsString,
   ValidateIf,
 } from 'class-validator';
-import { CustomerType } from '@prisma/client';
+import { CustomerType, DisplayLanguage } from '@prisma/client';
 
 export class CreateCustomerDto {
   @ApiPropertyOptional({ enum: CustomerType, enumName: 'CustomerType' })
@@ -69,4 +69,13 @@ export class CreateCustomerDto {
   @IsString()
   @IsOptional()
   address_country?: string;
+
+  @ApiPropertyOptional({
+    enum: DisplayLanguage,
+    enumName: 'DisplayLanguage',
+    nullable: true,
+  })
+  @IsEnum(DisplayLanguage)
+  @IsOptional()
+  preferred_language?: DisplayLanguage | null;
 }

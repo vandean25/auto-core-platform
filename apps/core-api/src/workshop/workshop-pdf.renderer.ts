@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import type { DisplayLanguage } from '@prisma/client';
 import * as Sentry from '@sentry/node';
 import { PlaywrightBrowserService } from '../common/index.js';
 import { escapeHtml } from '../common/pdf/pdf-layout.js';
@@ -14,7 +15,10 @@ export class WorkshopPdfRenderer {
 
   constructor(private readonly browserService: PlaywrightBrowserService) {}
 
-  async render(order: WorkshopOrderForPdf): Promise<Buffer> {
+  async render(
+    order: WorkshopOrderForPdf,
+    options: { documentLocale: DisplayLanguage },
+  ): Promise<Buffer> {
     return Sentry.startSpan(
       { name: 'Render Workshop PDF', op: 'pdf.render' },
       async () => {
@@ -23,7 +27,11 @@ export class WorkshopPdfRenderer {
         const page = await browser.newPage();
 
         try {
-          const html = this.generateHtml(order, orderNumber);
+          const html = this.generateHtml(
+            order,
+            orderNumber,
+            options.documentLocale,
+          );
           await page.setContent(html, { timeout: 10_000 });
 
           const pdf = await Sentry.startSpan(
@@ -40,7 +48,10 @@ export class WorkshopPdfRenderer {
                   },
                   displayHeaderFooter: true,
                   headerTemplate: '<div></div>',
-                  footerTemplate: this.buildFooterTemplate(orderNumber),
+                  footerTemplate: this.buildFooterTemplate(
+                    orderNumber,
+                    options.documentLocale,
+                  ),
                   printBackground: true,
                 }),
                 15_000,
@@ -67,11 +78,20 @@ export class WorkshopPdfRenderer {
   private generateHtml(
     order: WorkshopOrderForPdf,
     orderNumber: string,
+    documentLocale: DisplayLanguage,
   ): string {
-    return buildWorkshopHtmlDocument(order, orderNumber, escapeHtml);
+    return buildWorkshopHtmlDocument(
+      order,
+      orderNumber,
+      escapeHtml,
+      documentLocale,
+    );
   }
 
-  private buildFooterTemplate(orderNumber: string): string {
-    return buildWorkshopFooterTemplate(orderNumber, escapeHtml);
+  private buildFooterTemplate(
+    orderNumber: string,
+    documentLocale: DisplayLanguage,
+  ): string {
+    return buildWorkshopFooterTemplate(orderNumber, escapeHtml, documentLocale);
   }
 }

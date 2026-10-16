@@ -6,6 +6,11 @@ import {
   INVOICE_SNAPSHOT_TEMPLATE_VERSION,
 } from '../invoices/invoice-snapshot-v2.js';
 import type { OriginalLineSnapshot } from './credit-note-allocation.js';
+import {
+  buildDocumentSnapshotLocaleFields,
+  readDocumentSnapshotLocaleFields,
+} from '../common/i18n/document-snapshot-locale.js';
+import { resolveDocumentLanguage } from '../common/i18n/locale-resolution.js';
 
 export type CreditNoteSnapshotV2 = Omit<InvoiceSnapshotV2, 'document_kind'> & {
   document_kind: 'CREDIT_NOTE';
@@ -99,8 +104,14 @@ export function buildCreditNoteSnapshot(input: {
   }
 
   const seller = input.originalSnapshot.seller;
+  const inheritedLocale =
+    readDocumentSnapshotLocaleFields(input.originalSnapshot) ??
+    buildDocumentSnapshotLocaleFields(
+      resolveDocumentLanguage(input.originalSnapshot),
+    );
 
   return {
+    ...inheritedLocale,
     schema_version: INVOICE_SNAPSHOT_SCHEMA_VERSION,
     document_kind: 'CREDIT_NOTE',
     credit_title: input.isFullCredit ? 'Stornorechnung' : 'Rechnungskorrektur',

@@ -125,6 +125,56 @@
         ]
       }
     },
+    "/api/auth/me/preferences": {
+      "get": {
+        "operationId": "AuthLocalePreferencesController_getPreferences",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserLocalePreferencesResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "AuthLocalePreferences"
+        ]
+      },
+      "patch": {
+        "operationId": "AuthLocalePreferencesController_patchPreferences",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchUserLocalePreferencesDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserLocalePreferencesResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "AuthLocalePreferences"
+        ]
+      }
+    },
     "/api/inventory/locations/tree": {
       "get": {
         "operationId": "LocationController_getTree",
@@ -12588,6 +12638,56 @@
         ]
       }
     },
+    "/api/tenants/current/locale": {
+      "get": {
+        "operationId": "TenantLocaleController_getCurrent",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantLocaleSettingsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "tenants"
+        ]
+      },
+      "patch": {
+        "operationId": "TenantLocaleController_patchCurrent",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchTenantLocaleSettingsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantLocaleSettingsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "tenants"
+        ]
+      }
+    },
     "/api/settings/catalog-providers": {
       "get": {
         "operationId": "CatalogProviderSettingsController_getSettings",
@@ -14890,6 +14990,13 @@
           "SUPER_ADMIN"
         ]
       },
+      "DisplayLanguage": {
+        "type": "string",
+        "enum": [
+          "de",
+          "en"
+        ]
+      },
       "AuthSessionResponseDto": {
         "type": "object",
         "properties": {
@@ -14926,6 +15033,32 @@
                 "$ref": "#/components/schemas/PlatformAdminRole"
               }
             ]
+          },
+          "locale": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DisplayLanguage"
+              }
+            ]
+          },
+          "effectiveLocale": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DisplayLanguage"
+              }
+            ]
+          },
+          "defaultLocale": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DisplayLanguage"
+              }
+            ]
+          },
+          "formatLocale": {
+            "type": "string",
+            "example": "de-AT"
           }
         },
         "required": [
@@ -14934,7 +15067,11 @@
           "activeTenant",
           "activeRole",
           "activeSiteId",
-          "memberships"
+          "memberships",
+          "locale",
+          "effectiveLocale",
+          "defaultLocale",
+          "formatLocale"
         ]
       },
       "SwitchTenantDto": {
@@ -14947,6 +15084,60 @@
         },
         "required": [
           "tenantId"
+        ]
+      },
+      "UserLocalePreferencesResponseDto": {
+        "type": "object",
+        "properties": {
+          "locale": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DisplayLanguage"
+              }
+            ]
+          },
+          "effectiveLocale": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DisplayLanguage"
+              }
+            ]
+          },
+          "defaultLocale": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DisplayLanguage"
+              }
+            ]
+          },
+          "formatLocale": {
+            "type": "string",
+            "example": "de-AT"
+          }
+        },
+        "required": [
+          "locale",
+          "effectiveLocale",
+          "defaultLocale",
+          "formatLocale"
+        ]
+      },
+      "PatchUserLocalePreferencesDto": {
+        "type": "object",
+        "properties": {
+          "locale": {
+            "nullable": true,
+            "description": "Set de/en or null to follow the active tenant default.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DisplayLanguage"
+              }
+            ]
+          }
+        },
+        "required": [
+          "locale"
         ]
       },
       "LocationParentResponseDto": {
@@ -17630,6 +17821,14 @@
             "type": "string",
             "nullable": true
           },
+          "preferred_language": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DisplayLanguage"
+              }
+            ]
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string"
@@ -18572,6 +18771,14 @@
           },
           "address_country": {
             "type": "string"
+          },
+          "preferred_language": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DisplayLanguage"
+              }
+            ]
           }
         },
         "required": [
@@ -18904,6 +19111,14 @@
           },
           "address_country": {
             "type": "string"
+          },
+          "preferred_language": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DisplayLanguage"
+              }
+            ]
           },
           "contact_email_ok": {
             "type": "boolean"
@@ -22084,6 +22299,14 @@
           "address_country": {
             "type": "string",
             "nullable": true
+          },
+          "preferred_language": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DisplayLanguage"
+              }
+            ]
           },
           "createdAt": {
             "format": "date-time",
@@ -31000,6 +31223,41 @@
             "type": "boolean"
           }
         }
+      },
+      "TenantLocaleSettingsResponseDto": {
+        "type": "object",
+        "properties": {
+          "default_locale": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DisplayLanguage"
+              }
+            ]
+          },
+          "format_locale": {
+            "type": "string",
+            "example": "de-AT"
+          }
+        },
+        "required": [
+          "default_locale",
+          "format_locale"
+        ]
+      },
+      "PatchTenantLocaleSettingsDto": {
+        "type": "object",
+        "properties": {
+          "default_locale": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DisplayLanguage"
+              }
+            ]
+          }
+        },
+        "required": [
+          "default_locale"
+        ]
       },
       "CatalogProviderDefaultLaborCategoryDto": {
         "type": "object",

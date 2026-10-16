@@ -23,6 +23,12 @@ import {
   type WorkshopEstimateLegalBlock,
 } from './workshop-estimate-legal-text.js';
 import type { WorkshopEstimateLine } from './workshop-estimate-lines.helpers.js';
+import type { DocumentSnapshotLocaleFields } from '../common/i18n/document-snapshot-locale.js';
+import { buildDocumentSnapshotLocaleFields } from '../common/i18n/document-snapshot-locale.js';
+import {
+  DEFAULT_DISPLAY_LANGUAGE,
+  type DisplayLanguage,
+} from '../common/i18n/display-language.js';
 
 /**
  * Immutable record of what the customer was offered (ADR-0025 §4). Built once
@@ -65,7 +71,7 @@ export type WorkshopEstimateSnapshot = {
   };
   branding: WorkshopEstimateBranding;
   legal: WorkshopEstimateLegalBlock;
-};
+} & Partial<DocumentSnapshotLocaleFields>;
 
 /** Frozen ADR-0024 branding, labelled with the estimate renderer version. */
 export type WorkshopEstimateBranding = Omit<
@@ -100,6 +106,8 @@ export type BuildWorkshopEstimateSnapshotInput = {
   lines: WorkshopEstimateLine[];
   totals: WorkshopEstimateSnapshot['totals'];
   branding: InvoiceSnapshotV2Branding;
+  documentLocale?: DisplayLanguage;
+  legalTextVersion?: string | null;
 };
 
 /** Business-time date for the document ("24.10.2026"). */
@@ -148,7 +156,12 @@ export function buildWorkshopEstimateValidityWindow(issuedAt: Date): {
 export function buildWorkshopEstimateSnapshot(
   input: BuildWorkshopEstimateSnapshotInput,
 ): WorkshopEstimateSnapshot {
+  const documentLocale = input.documentLocale ?? DEFAULT_DISPLAY_LANGUAGE;
   return {
+    ...buildDocumentSnapshotLocaleFields(
+      documentLocale,
+      input.legalTextVersion,
+    ),
     schema_version: WORKSHOP_ESTIMATE_SNAPSHOT_SCHEMA_VERSION,
     document: {
       kind: 'WORKSHOP_ESTIMATE',

@@ -61,6 +61,11 @@ describe('InvoiceSnapshotCommitService', () => {
 
   const tx = {
     $queryRaw: jest.fn(),
+    tenant: {
+      findFirst: jest
+        .fn()
+        .mockResolvedValue({ default_locale: 'de' as const }),
+    },
     workshopOrder: { findFirst: jest.fn() },
     site: { findFirst: jest.fn() },
     legalEntity: {

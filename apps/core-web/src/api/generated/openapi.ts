@@ -84,6 +84,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/me/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["AuthLocalePreferencesController_getPreferences"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["AuthLocalePreferencesController_patchPreferences"];
+        trace?: never;
+    };
     "/api/inventory/locations/tree": {
         parameters: {
             query?: never;
@@ -3837,6 +3853,22 @@ export interface paths {
         patch: operations["TenantMemberController_update"];
         trace?: never;
     };
+    "/api/tenants/current/locale": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["TenantLocaleController_getCurrent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["TenantLocaleController_patchCurrent"];
+        trace?: never;
+    };
     "/api/settings/catalog-providers": {
         parameters: {
             query?: never;
@@ -4564,6 +4596,8 @@ export interface components {
         };
         /** @enum {string} */
         PlatformAdminRole: "SUPER_ADMIN";
+        /** @enum {string} */
+        DisplayLanguage: "de" | "en";
         AuthSessionResponseDto: {
             userId: string;
             email: string;
@@ -4573,10 +4607,26 @@ export interface components {
             activeSiteId: string | null;
             memberships: components["schemas"]["AuthSessionMembershipDto"][];
             platformRole?: components["schemas"]["PlatformAdminRole"];
+            locale: components["schemas"]["DisplayLanguage"] | null;
+            effectiveLocale: components["schemas"]["DisplayLanguage"];
+            defaultLocale: components["schemas"]["DisplayLanguage"];
+            /** @example de-AT */
+            formatLocale: string;
         };
         SwitchTenantDto: {
             /** Format: uuid */
             tenantId: string;
+        };
+        UserLocalePreferencesResponseDto: {
+            locale: components["schemas"]["DisplayLanguage"] | null;
+            effectiveLocale: components["schemas"]["DisplayLanguage"];
+            defaultLocale: components["schemas"]["DisplayLanguage"];
+            /** @example de-AT */
+            formatLocale: string;
+        };
+        PatchUserLocalePreferencesDto: {
+            /** @description Set de/en or null to follow the active tenant default. */
+            locale: components["schemas"]["DisplayLanguage"] | null;
         };
         LocationParentResponseDto: {
             id: string;
@@ -5421,6 +5471,7 @@ export interface components {
             address_city?: string | null;
             address_zip?: string | null;
             address_country?: string | null;
+            preferred_language?: components["schemas"]["DisplayLanguage"] | null;
             /** Format: date-time */
             createdAt?: string;
             /** Format: date-time */
@@ -5677,6 +5728,7 @@ export interface components {
             address_city?: string;
             address_zip?: string;
             address_country?: string;
+            preferred_language?: components["schemas"]["DisplayLanguage"] | null;
         };
         VehicleSummaryDto: {
             id: string;
@@ -5758,6 +5810,7 @@ export interface components {
             address_city?: string;
             address_zip?: string;
             address_country?: string;
+            preferred_language?: components["schemas"]["DisplayLanguage"] | null;
             contact_email_ok?: boolean;
         };
         FinanceSettingsResponseDto: {
@@ -6646,6 +6699,7 @@ export interface components {
             address_city?: string | null;
             address_zip?: string | null;
             address_country?: string | null;
+            preferred_language?: components["schemas"]["DisplayLanguage"] | null;
             /** Format: date-time */
             createdAt?: string;
             /** Format: date-time */
@@ -9264,6 +9318,14 @@ export interface components {
             role?: components["schemas"]["TenantMemberRole"];
             isActive?: boolean;
         };
+        TenantLocaleSettingsResponseDto: {
+            default_locale: components["schemas"]["DisplayLanguage"];
+            /** @example de-AT */
+            format_locale: string;
+        };
+        PatchTenantLocaleSettingsDto: {
+            default_locale: components["schemas"]["DisplayLanguage"];
+        };
         CatalogProviderDefaultLaborCategoryDto: {
             /** Format: uuid */
             id: string;
@@ -10193,6 +10255,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuthSessionResponseDto"];
+                };
+            };
+        };
+    };
+    AuthLocalePreferencesController_getPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserLocalePreferencesResponseDto"];
+                };
+            };
+        };
+    };
+    AuthLocalePreferencesController_patchPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchUserLocalePreferencesDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserLocalePreferencesResponseDto"];
                 };
             };
         };
@@ -17962,6 +18066,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TenantMemberResponseDto"];
+                };
+            };
+        };
+    };
+    TenantLocaleController_getCurrent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantLocaleSettingsResponseDto"];
+                };
+            };
+        };
+    };
+    TenantLocaleController_patchCurrent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchTenantLocaleSettingsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantLocaleSettingsResponseDto"];
                 };
             };
         };

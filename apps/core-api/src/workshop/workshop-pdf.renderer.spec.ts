@@ -57,12 +57,27 @@ describe('WorkshopPdfRenderer', () => {
         },
       }),
       'WO-1',
+      'en',
     );
 
     expect(html).toContain('>—<');
     expect(html).toContain('class="issue-box"');
     expect(html).toContain('Reported Issue / Customer Complaint');
     expect(html).toContain('white-space: pre-wrap');
+  });
+
+  it('renders German document labels when documentLocale is de', () => {
+    const browserService = {
+      getBrowser: jest.fn(),
+      withTimeout: jest.fn(),
+    };
+    const renderer = new WorkshopPdfRenderer(browserService as never);
+    const html = (renderer as any).generateHtml(createOrder(), 'WO-1', 'de');
+
+    expect(html).toContain('lang="de"');
+    expect(html).toContain('Arbeitskarte');
+    expect(html).toContain('Gemeldetes Problem / Kundenbeanstandung');
+    expect(html).not.toContain('Job Card');
   });
 
   it('requests the browser lazily and closes the page when rendering fails', async () => {
@@ -80,7 +95,9 @@ describe('WorkshopPdfRenderer', () => {
     const renderer = new WorkshopPdfRenderer(browserService as never);
 
     expect(browserService.getBrowser).not.toHaveBeenCalled();
-    await expect(renderer.render(createOrder())).rejects.toThrow(
+    await expect(
+      renderer.render(createOrder(), { documentLocale: 'de' }),
+    ).rejects.toThrow(
       'setContent failed',
     );
     expect(browserService.getBrowser).toHaveBeenCalledTimes(1);

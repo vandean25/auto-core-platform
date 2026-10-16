@@ -23,6 +23,7 @@ describe('WorkshopPdfService', () => {
     pdf_storage_key: null,
     pdf_generated_at: null,
     updatedAt: new Date('2026-04-01T00:00:00.000Z'),
+    customer: { preferred_language: null as 'de' | 'en' | null },
   };
 
   let service: WorkshopPdfService;
@@ -68,6 +69,11 @@ describe('WorkshopPdfService', () => {
         workshopOrder: {
           findFirst: jest.fn().mockResolvedValue(orderRow),
           updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+        tenant: {
+          findFirst: jest
+            .fn()
+            .mockResolvedValue({ default_locale: 'de' as const }),
         },
       },
     };
@@ -223,7 +229,9 @@ describe('WorkshopPdfService', () => {
       expect(result.key).toBe(`workshop-orders/${workshopOrderId}.pdf`);
       expect(result.generatedAt).toBeInstanceOf(Date);
 
-      expect(renderer.render).toHaveBeenCalledWith(orderRow);
+      expect(renderer.render).toHaveBeenCalledWith(orderRow, {
+        documentLocale: 'de',
+      });
       expect(storage.uploadPdf).toHaveBeenCalledWith({
         key: `workshop-orders/${workshopOrderId}.pdf`,
         body: Buffer.from('pdf-data'),
@@ -235,6 +243,28 @@ describe('WorkshopPdfService', () => {
           pdf_storage_bucket: 'test-bucket',
           pdf_storage_key: `workshop-orders/${workshopOrderId}.pdf`,
           pdf_generation_error: null,
+        }),
+      });
+    });
+
+    it('stores de on pdf_render_input when customer prefers en until PDF templates are translated', async () => {
+      const englishOrder = {
+        ...orderRow,
+        customer: { preferred_language: 'en' as const },
+      };
+      prisma.client.workshopOrder.findFirst.mockResolvedValue(englishOrder);
+
+      await service.generateNow(workshopOrderId);
+
+      expect(renderer.render).toHaveBeenCalledWith(englishOrder, {
+        documentLocale: 'de',
+      });
+      expect(prisma.client.workshopOrder.updateMany).toHaveBeenCalledWith({
+        where: { id: workshopOrderId, tenant_id: tenantId },
+        data: expect.objectContaining({
+          pdf_render_input: expect.objectContaining({
+            document_locale: 'de',
+          }),
         }),
       });
     });

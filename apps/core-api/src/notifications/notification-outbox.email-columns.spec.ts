@@ -17,6 +17,8 @@ describe('buildEmailColumns()', () => {
       subject: null,
       body: null,
       body_sha256: null,
+      document_locale: null,
+      format_locale: null,
     });
   });
 

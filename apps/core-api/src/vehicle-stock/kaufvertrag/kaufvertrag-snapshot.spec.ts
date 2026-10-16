@@ -93,6 +93,7 @@ function input(
     warranty: WARRANTY,
     garantie: null,
     branding: BRANDING,
+    documentLocale: 'de',
     ...overrides,
   };
 }

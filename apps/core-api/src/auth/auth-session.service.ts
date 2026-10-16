@@ -17,6 +17,13 @@ import type {
   PlatformAuthenticatedUser,
   TenantAuthenticatedUser,
 } from './types/authenticated-user.js';
+import { DisplayLanguage } from '@prisma/client';
+import {
+  DEFAULT_DISPLAY_LANGUAGE,
+  DEFAULT_FORMAT_LOCALE,
+} from '../common/i18n/display-language.js';
+import { resolveUserLanguage } from '../common/i18n/locale-resolution.js';
+import { isMembershipCurrentlyValid } from './membership-validity.js';
 
 type AuthSessionClaims = {
   sub: string;
@@ -34,6 +41,8 @@ type UserAccessMembership = {
     name: string;
     slug: string;
     is_active: boolean;
+    default_locale: DisplayLanguage;
+    format_locale: string;
   };
 };
 
@@ -41,6 +50,7 @@ type UserAccessRecord = {
   id: string;
   firebaseUid: string;
   email: string;
+  locale: DisplayLanguage | null;
   active_tenant_id: string | null;
   active_site_id: string | null;
   platformAdmin: {
@@ -72,12 +82,17 @@ export type AuthSession = {
   activeSiteId: string | null;
   memberships: AuthSessionMembership[];
   platformRole?: PlatformAdminRole;
+  locale: DisplayLanguage | null;
+  effectiveLocale: DisplayLanguage;
+  defaultLocale: DisplayLanguage;
+  formatLocale: string;
 };
 
 const USER_ACCESS_SELECT = {
   id: true,
   firebaseUid: true,
   email: true,
+  locale: true,
   active_tenant_id: true,
   active_site_id: true,
   platformAdmin: {
@@ -105,6 +120,8 @@ const USER_ACCESS_SELECT = {
           name: true,
           slug: true,
           is_active: true,
+          default_locale: true,
+          format_locale: true,
         },
       },
     },
@@ -197,7 +214,7 @@ export class AuthSessionService {
     }
 
     user.memberships = user.memberships.filter((membership) =>
-      this.isMembershipCurrentlyValid(membership),
+      isMembershipCurrentlyValid(membership),
     );
 
     const activeMembership = await this.ensureActiveMembership(user);
@@ -233,7 +250,7 @@ export class AuthSessionService {
     }
 
     const validMemberships = userRecord.memberships.filter((membership) =>
-      this.isMembershipCurrentlyValid(membership),
+      isMembershipCurrentlyValid(membership),
     );
 
     const requestedMembership = validMemberships.find(
@@ -328,15 +345,6 @@ export class AuthSessionService {
     };
   }
 
-  private isMembershipCurrentlyValid(
-    membership: UserAccessMembership,
-  ): boolean {
-    if (!membership.demo_access_expires_at) {
-      return true;
-    }
-    return membership.demo_access_expires_at.getTime() > Date.now();
-  }
-
   private async ensureActiveMembership(
     user: UserAccessRecord,
   ): Promise<UserAccessMembership | null> {
@@ -372,6 +380,10 @@ export class AuthSessionService {
     user: UserAccessRecord,
     activeMembership: UserAccessMembership,
   ): AuthSession {
+    const defaultLocale =
+      activeMembership.tenant.default_locale ?? DEFAULT_DISPLAY_LANGUAGE;
+    const formatLocale =
+      activeMembership.tenant.format_locale ?? DEFAULT_FORMAT_LOCALE;
     const session: AuthSession = {
       userId: user.firebaseUid,
       email: user.email,
@@ -389,6 +401,10 @@ export class AuthSessionService {
         role: membership.role,
         isActive: membership.is_active,
       })),
+      locale: user.locale,
+      defaultLocale,
+      formatLocale,
+      effectiveLocale: resolveUserLanguage(user.locale, defaultLocale),
     };
 
     if (user.platformAdmin?.is_active) {
