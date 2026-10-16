@@ -27,7 +27,7 @@ export function resolveWorkshopLineItemType(
   if (value === WorkshopLineItemType.FEE) {
     return WorkshopLineItemType.FEE;
   }
-  throw new Error(`Unsupported workshop line item type: ${value}`);
+  return WorkshopLineItemType.PART;
 }
 
 export function partExecutionStatusForNewLine(
