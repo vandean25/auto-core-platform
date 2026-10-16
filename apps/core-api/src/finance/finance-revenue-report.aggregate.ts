@@ -107,9 +107,7 @@ function hasGlobalDiscount(invoice: RevenueInvoiceRow): boolean {
 }
 
 function hasLineDiscount(item: RevenueInvoiceRow['items'][number]): boolean {
-  return (
-    item.line_discount_type !== null && item.line_discount_value !== null
-  );
+  return item.line_discount_type !== null && item.line_discount_value !== null;
 }
 
 function legacyUndiscountedLineAmounts(
@@ -220,7 +218,9 @@ function subtractFromMap(
  * allowance (`total_gross`); `vat` is margin VAT (`total_tax`); `net` is gross minus VAT
  * so net + VAT = gross. This matches the no-trade-in chart net (sale price minus margin VAT).
  */
-function marginDocumentAmounts(invoice: RevenueInvoiceRow): RevenueReportAmounts {
+function marginDocumentAmounts(
+  invoice: RevenueInvoiceRow,
+): RevenueReportAmounts {
   const vat = invoice.total_tax;
   const gross = invoice.total_gross;
   const net = gross.sub(vat);
