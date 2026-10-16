@@ -25637,6 +25637,29 @@
           "native_measurement_reference"
         ]
       },
+      "BrakeMeasurementWheelResponseDto": {
+        "type": "object",
+        "properties": {
+          "axle": {
+            "type": "number"
+          },
+          "side": {
+            "type": "string"
+          },
+          "force": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "axle",
+          "side",
+          "force",
+          "unit"
+        ]
+      },
       "MeasurementImportReviewedFieldsDto": {
         "type": "object",
         "properties": {
@@ -25662,7 +25685,7 @@
           "wheels": {
             "type": "array",
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/BrakeMeasurementWheelResponseDto"
             }
           }
         },
@@ -25749,7 +25772,7 @@
           "wheels": {
             "type": "array",
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/BrakeMeasurementWheelResponseDto"
             }
           }
         },

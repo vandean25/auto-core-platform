@@ -7672,6 +7672,12 @@ export interface components {
             device_source_id: string;
             native_measurement_reference: string;
         };
+        BrakeMeasurementWheelResponseDto: {
+            axle: number;
+            side: string;
+            force: string;
+            unit: string;
+        };
         MeasurementImportReviewedFieldsDto: {
             measured_at: string;
             finality: string;
@@ -7679,7 +7685,7 @@ export interface components {
             device_serial: string;
             session_ref: string;
             quarantine_reason?: string | null;
-            wheels: string[];
+            wheels: components["schemas"]["BrakeMeasurementWheelResponseDto"][];
         };
         MeasurementImportPreviewResponseDto: {
             id: string;
@@ -7701,7 +7707,7 @@ export interface components {
             revision: string;
             measured_at: string;
             semantic_digest: string;
-            wheels: string[];
+            wheels: components["schemas"]["BrakeMeasurementWheelResponseDto"][];
         };
         ApplyMeasurementImportResponseDto: {
             measurement: components["schemas"]["AppliedMeasurementSummaryDto"];
