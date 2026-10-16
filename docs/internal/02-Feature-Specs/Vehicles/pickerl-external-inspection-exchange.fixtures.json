@@ -33,6 +33,11 @@
     "source_result_id": "SYNTH-RESULT-001",
     "source_revision": "SYNTH-REV-1",
     "zbd_report_id": "SYNTH-ZBD-001",
+    "occurrence_relation": {
+      "kind": "INITIAL",
+      "predecessor": null,
+      "classification_evidence_ref": "SYNTH-DISTINCT-INSPECTION-001"
+    },
     "vehicle": {
       "vin": "WVWZZZ1JZXW000001",
       "first_registration_on": "2020-10-01",
@@ -121,8 +126,42 @@
     },
     {
       "id": "correction_not_arbitrary_overwrite",
-      "actions": ["preview", "human_apply", "fetch_revision_2_with_predecessor", "preview"],
+      "second_result_overrides": {
+        "source_revision": "SYNTH-REV-2",
+        "plate.valid_until": "2028-10",
+        "occurrence_relation": {
+          "kind": "CORRECTION",
+          "predecessor": { "source_account_ref": "SYNTH-ACCOUNT-001", "source_station_id": "SYNTH-STATION-001", "source_result_id": "SYNTH-RESULT-001", "source_revision": "SYNTH-REV-1", "zbd_report_id": "SYNTH-ZBD-001" },
+          "classification_evidence_ref": "SYNTH-CORRECTION-ORDERING-001"
+        }
+      },
+      "actions": ["preview", "human_apply", "fetch_second_result", "preview"],
       "expected": { "import_state": "CONFLICT", "http_status": 409, "external_results_total": 1, "manual_override_allowed": false }
+    },
+    {
+      "id": "later_manual_cannot_clear_negative",
+      "overrides": { "result.outcome": "NEGATIVE", "result.native_outcome_code": "SYNTH-NEGATIVE", "result.plate": null },
+      "actions": ["preview", "human_apply", "create_manual_date_2026_10_16_expiry_2027_10", "patch_manual_to_2026_10_14", "delete_manual"],
+      "expected_after_each_manual_action": { "negative_barrier": true, "detail_status": "UNKNOWN", "due_list_status": "UNKNOWN", "filter_status": "UNKNOWN", "csv_status": "UNKNOWN", "warning": "EXTERNAL_RESULT_REQUIRES_REVIEW" }
+    },
+    {
+      "id": "later_manual_or_positive_cannot_clear_report_conflict",
+      "actions": ["preview", "human_apply", "change_same_occurrence_expiry_to_2028_10", "preview", "create_manual_date_2026_10_16_expiry_2027_10", "patch_manual_to_2026_10_14", "delete_manual", "apply_distinct_later_confirmed_positive"],
+      "expected_after_each_manual_action_and_later_positive": { "conflict_barrier": true, "detail_status": "UNKNOWN", "due_list_status": "UNKNOWN", "filter_status": "UNKNOWN", "csv_status": "UNKNOWN", "warning": "EXTERNAL_RESULT_REQUIRES_REVIEW" }
+    },
+    {
+      "id": "same_report_different_vehicle_account_revision",
+      "second_request_overrides": { "vehicle_id": "00000000-0000-4000-8000-000000000199", "connection_id": "00000000-0000-4000-8000-000000000198" },
+      "second_adapter_binding": { "account": "SYNTH-ACCOUNT-002", "station": "SYNTH-STATION-002", "target_vin": "WVWZZZ1JZXW000002", "target_first_registration_on": "2020-10-01", "target_registration_plate": "SYNTH-002" },
+      "second_result_overrides": { "source_account_ref": "SYNTH-ACCOUNT-002", "source_station_id": "SYNTH-STATION-002", "source_result_id": "SYNTH-RESULT-002", "source_revision": "SYNTH-OTHER-REV-2", "vehicle.vin": "WVWZZZ1JZXW000002", "vehicle.registration_plate": "SYNTH-002" },
+      "actions": ["preview", "human_apply", "fetch_second_result", "preview", "human_apply_if_ready"],
+      "expected": { "second_http_status": 409, "error": "EXTERNAL_RESULT_CONFLICT", "report_identity_rows": 1, "external_results_total": 1, "second_vehicle_projection_rows": 0, "foreign_vehicle_disclosed": false }
+    },
+    {
+      "id": "parallel_report_identity_binding",
+      "uses_second_payload_from": "same_report_different_vehicle_account_revision",
+      "actions": ["preview_both_on_empty_database", "parallel_human_apply_both"],
+      "expected": { "report_identity_rows": 1, "external_results_total": 1, "successful_applies": 1, "conflicts": 1, "projection_rows_total": 1 }
     },
     {
       "id": "native_profile_missing",
