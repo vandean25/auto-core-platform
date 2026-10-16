@@ -7109,11 +7109,13 @@ export interface components {
             interior_notes: string;
         };
         CheckInDamageMarkerDto: {
+            /** Format: uuid */
+            id: string;
             zone_id: string;
             /** @enum {string} */
             type: "SCRATCH" | "DENT" | "CRACK" | "OTHER";
-            /** Format: uuid */
-            media_id?: Record<string, never> | null;
+            note: string;
+            media_ids: string[];
         };
         UpdateWorkshopCheckInDto: {
             expected_revision: number;

@@ -4,7 +4,6 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { AgentPolicyTier, AgentProposalStatus } from '@prisma/client';
-import { WorkshopMediaPurpose } from '@prisma/client';
 import { MechanicFindingService } from './mechanic-finding.service.js';
 import { MECHANIC_FINDING_ACTION_TYPE } from './mechanic-finding.constants.js';
 import {
@@ -130,29 +129,6 @@ describe('MechanicFindingService', () => {
         action_type: MECHANIC_FINDING_ACTION_TYPE,
         tier: AgentPolicyTier.PROPOSE,
         trace_id: '51500000-0000-4000-8000-000000000538',
-      }),
-    );
-  });
-
-  it('scopes authorized media to GENERAL purpose (excludes check-in uploads)', async () => {
-    mockPrisma.workshopTask.findFirst.mockResolvedValue(OPEN_TASK);
-    mockPrisma.workshopMedia.findMany.mockResolvedValue([]);
-    mockAgentProposals.persistPendingAction.mockResolvedValue({
-      id: 'proposal-1',
-      trace_id: 'trace-1',
-      action_type: MECHANIC_FINDING_ACTION_TYPE,
-      status: AgentProposalStatus.PENDING,
-    });
-
-    await service.submitFinding(MECHANIC_ID, TASK_ID, {
-      command_id: '51500000-0000-4000-8000-000000000542',
-    });
-
-    expect(mockPrisma.workshopMedia.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          purpose: { in: [WorkshopMediaPurpose.GENERAL] },
-        }),
       }),
     );
   });

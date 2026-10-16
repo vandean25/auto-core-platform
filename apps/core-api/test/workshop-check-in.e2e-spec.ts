@@ -155,9 +155,11 @@ describe('Workshop check-in (e2e)', () => {
         },
         damage_markers: [
           {
+            id: '51500000-0000-4000-8000-000000000556',
             zone_id: 'rear_bumper',
             type: 'SCRATCH',
-            media_id: null,
+            note: 'pilot customer scratch',
+            media_ids: [],
           },
         ],
       })

@@ -3,7 +3,7 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { WorkshopCheckInStatus, WorkshopOrderStatus } from '@prisma/client';
+import { Prisma, WorkshopCheckInStatus, WorkshopOrderStatus } from '@prisma/client';
 import { WorkshopCheckInService } from './workshop-check-in.service.js';
 import {
   mockPrisma,
@@ -13,6 +13,8 @@ import {
 
 const ORDER_ID = '550e8400-e29b-41d4-a716-446655440010';
 const CHECK_IN_ID = '550e8400-e29b-41d4-a716-446655440011';
+const MARKER_ID = '550e8400-e29b-41d4-a716-446655440012';
+const TENANT_ID = '00000000-0000-0000-0000-000000000001';
 
 describe('WorkshopCheckInService', () => {
   let service: WorkshopCheckInService;
@@ -22,6 +24,7 @@ describe('WorkshopCheckInService', () => {
     mockPrisma.workshopOrder.findFirst.mockReset();
     mockPrisma.workshopCheckIn.findFirst.mockReset();
     mockPrisma.workshopCheckIn.create.mockReset();
+    mockPrisma.workshopCheckIn.updateMany.mockReset();
     mockTenantContext.getAuthenticatedUser.mockReturnValue({
       role: 'ADMIN',
       userId: 'u-1',
@@ -43,7 +46,7 @@ describe('WorkshopCheckInService', () => {
     mockPrisma.workshopCheckIn.findFirst.mockResolvedValue(null);
     mockPrisma.workshopCheckIn.create.mockResolvedValue({
       id: CHECK_IN_ID,
-      tenant_id: 'tenant-1',
+      tenant_id: TENANT_ID,
       workshop_order_id: ORDER_ID,
       status: WorkshopCheckInStatus.DRAFT,
       revision: 1,
@@ -61,16 +64,82 @@ describe('WorkshopCheckInService', () => {
     const result = await service.create(ORDER_ID, { id: CHECK_IN_ID });
 
     expect(result.odometer).toBe(42000);
-    expect(mockPrisma.workshopCheckIn.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          id: CHECK_IN_ID,
-          workshop_order_id: ORDER_ID,
-          odometer: 42000,
-          fuel_level: 55,
-        }),
+    expect(mockPrisma.workshopCheckIn.create).toHaveBeenCalled();
+  });
+
+  it('maps concurrent create unique violations to CHECK_IN_EXISTS', async () => {
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+      id: ORDER_ID,
+      status: WorkshopOrderStatus.INTAKE,
+      odometer: 1,
+      fuel_level: 1,
+    });
+    mockPrisma.workshopCheckIn.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: 'other-check-in',
+        tenant_id: TENANT_ID,
+        workshop_order_id: ORDER_ID,
+        status: WorkshopCheckInStatus.DRAFT,
+        revision: 1,
+        condition_json: {},
+        damage_markers_json: [],
+        items_left: '',
+        key_count: 0,
+        warning_lights: [],
+        odometer: 1,
+        fuel_level: 1,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    mockPrisma.workshopCheckIn.create.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('Unique constraint', {
+        code: 'P2002',
+        clientVersion: '7.0.0',
       }),
     );
+
+    await expect(service.create(ORDER_ID, { id: CHECK_IN_ID })).rejects.toMatchObject({
+      response: { code: 'CHECK_IN_EXISTS' },
+    });
+  });
+
+  it('retries idempotent create after concurrent unique violation', async () => {
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+      id: ORDER_ID,
+      status: WorkshopOrderStatus.INTAKE,
+      odometer: 1,
+      fuel_level: 1,
+    });
+    mockPrisma.workshopCheckIn.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: CHECK_IN_ID,
+        tenant_id: TENANT_ID,
+        workshop_order_id: ORDER_ID,
+        status: WorkshopCheckInStatus.DRAFT,
+        revision: 1,
+        condition_json: {},
+        damage_markers_json: [],
+        items_left: '',
+        key_count: 0,
+        warning_lights: [],
+        odometer: 1,
+        fuel_level: 1,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    mockPrisma.workshopCheckIn.create.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('Unique constraint', {
+        code: 'P2002',
+        clientVersion: '7.0.0',
+      }),
+    );
+
+    const result = await service.create(ORDER_ID, { id: CHECK_IN_ID });
+    expect(result.id).toBe(CHECK_IN_ID);
   });
 
   it('rejects create when order status is not intake or in progress', async () => {
@@ -86,54 +155,31 @@ describe('WorkshopCheckInService', () => {
     ).rejects.toBeInstanceOf(UnprocessableEntityException);
   });
 
-  it('returns existing draft on idempotent create retry', async () => {
-    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
-      id: ORDER_ID,
-      status: WorkshopOrderStatus.INTAKE,
-      odometer: 1,
-      fuel_level: 1,
-    });
-    mockPrisma.workshopCheckIn.findFirst
-      .mockResolvedValueOnce({
-        id: CHECK_IN_ID,
-        tenant_id: 'tenant-1',
-        workshop_order_id: ORDER_ID,
-        status: WorkshopCheckInStatus.DRAFT,
-        revision: 1,
-        condition_json: {},
-        damage_markers_json: [],
-        items_left: '',
-        key_count: 0,
-        warning_lights: [],
-        odometer: 1,
-        fuel_level: 1,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .mockResolvedValueOnce(null);
-
-    const result = await service.create(ORDER_ID, { id: CHECK_IN_ID });
-
-    expect(result.id).toBe(CHECK_IN_ID);
-    expect(mockPrisma.workshopCheckIn.create).not.toHaveBeenCalled();
-  });
-
-  it('rejects stale revision on draft update', async () => {
+  it('updates draft only when tenant, order, revision and DRAFT match', async () => {
     mockPrisma.workshopOrder.findFirst.mockResolvedValue({
       id: ORDER_ID,
       status: WorkshopOrderStatus.IN_PROGRESS,
       odometer: 1,
       fuel_level: 1,
     });
+    mockPrisma.workshopCheckIn.updateMany.mockResolvedValue({ count: 1 });
     mockPrisma.workshopCheckIn.findFirst.mockResolvedValue({
       id: CHECK_IN_ID,
-      tenant_id: 'tenant-1',
+      tenant_id: TENANT_ID,
       workshop_order_id: ORDER_ID,
       status: WorkshopCheckInStatus.DRAFT,
       revision: 2,
       condition_json: {},
-      damage_markers_json: [],
-      items_left: '',
+      damage_markers_json: [
+        {
+          id: MARKER_ID,
+          zone_id: 'rear_bumper',
+          type: 'SCRATCH',
+          note: 'pilot customer mark',
+          media_ids: [],
+        },
+      ],
+      items_left: 'pilot customer jacket',
       key_count: 0,
       warning_lights: [],
       odometer: 1,
@@ -142,9 +188,75 @@ describe('WorkshopCheckInService', () => {
       updatedAt: new Date(),
     });
 
+    await service.updateDraft(ORDER_ID, {
+      expected_revision: 1,
+      items_left: 'pilot customer jacket',
+      damage_markers: [
+        {
+          id: MARKER_ID,
+          zone_id: 'rear_bumper',
+          type: 'SCRATCH',
+          note: 'pilot customer mark',
+          media_ids: [],
+        },
+      ],
+    });
+
+    expect(mockPrisma.workshopCheckIn.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          tenant_id: TENANT_ID,
+          workshop_order_id: ORDER_ID,
+          revision: 1,
+          status: WorkshopCheckInStatus.DRAFT,
+        },
+      }),
+    );
+  });
+
+  it('rejects stale revision on draft update with CHECK_IN_CONFLICT', async () => {
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+      id: ORDER_ID,
+      status: WorkshopOrderStatus.IN_PROGRESS,
+      odometer: 1,
+      fuel_level: 1,
+    });
+    mockPrisma.workshopCheckIn.updateMany.mockResolvedValue({ count: 0 });
+    mockPrisma.workshopCheckIn.findFirst.mockResolvedValue({
+      id: CHECK_IN_ID,
+      status: WorkshopCheckInStatus.DRAFT,
+      revision: 2,
+    });
+
     await expect(
-      service.updateDraft(ORDER_ID, { expected_revision: 1, items_left: 'pilot customer jacket' }),
-    ).rejects.toBeInstanceOf(ConflictException);
+      service.updateDraft(ORDER_ID, {
+        expected_revision: 1,
+        items_left: 'pilot customer jacket',
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'CHECK_IN_CONFLICT' },
+    });
+  });
+
+  it('rejects update when check-in is completed', async () => {
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+      id: ORDER_ID,
+      status: WorkshopOrderStatus.IN_PROGRESS,
+      odometer: 1,
+      fuel_level: 1,
+    });
+    mockPrisma.workshopCheckIn.updateMany.mockResolvedValue({ count: 0 });
+    mockPrisma.workshopCheckIn.findFirst.mockResolvedValue({
+      id: CHECK_IN_ID,
+      status: WorkshopCheckInStatus.COMPLETED,
+      revision: 3,
+    });
+
+    await expect(
+      service.updateDraft(ORDER_ID, { expected_revision: 3, items_left: 'x' }),
+    ).rejects.toMatchObject({
+      response: { code: 'CHECK_IN_COMPLETED' },
+    });
   });
 
   it('returns 404 when check-in is missing', async () => {

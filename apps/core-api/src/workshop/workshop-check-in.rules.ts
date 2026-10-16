@@ -11,6 +11,8 @@ export const CHECK_IN_ALLOWED_ORDER_STATUSES: ReadonlySet<WorkshopOrderStatus> =
   new Set([WorkshopOrderStatus.INTAKE, WorkshopOrderStatus.IN_PROGRESS]);
 
 export const CHECK_IN_MAX_DAMAGE_MARKERS = 50;
+export const CHECK_IN_MAX_DAMAGE_MARKER_NOTE_LENGTH = 500;
+export const CHECK_IN_MAX_MEDIA_IDS_PER_DAMAGE_MARKER = 5;
 export const CHECK_IN_MAX_WARNING_LIGHTS = 20;
 export const CHECK_IN_MAX_ITEMS_LEFT_LENGTH = 2000;
 export const CHECK_IN_MAX_NOTES_LENGTH = 2000;

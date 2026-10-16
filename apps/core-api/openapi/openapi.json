@@ -23856,6 +23856,10 @@
       "CheckInDamageMarkerDto": {
         "type": "object",
         "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
           "zone_id": {
             "type": "string"
           },
@@ -23868,15 +23872,24 @@
               "OTHER"
             ]
           },
-          "media_id": {
-            "type": "object",
-            "format": "uuid",
-            "nullable": true
+          "note": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "media_ids": {
+            "maxItems": 5,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
+          "id",
           "zone_id",
-          "type"
+          "type",
+          "note",
+          "media_ids"
         ]
       },
       "UpdateWorkshopCheckInDto": {

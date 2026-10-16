@@ -15,6 +15,7 @@ import {
   DEFAULT_CHECK_IN_CONDITION_JSON,
   EMPTY_DAMAGE_MARKERS_JSON,
 } from './workshop-check-in.defaults.js';
+import { serializeCheckInDamageMarkers } from './workshop-check-in-damage-markers.js';
 import { toWorkshopCheckInResponse } from './workshop-check-in.mapper.js';
 import type { WorkshopCheckInResponseDto } from './dto/workshop-check-in.dto.js';
 import {
@@ -23,6 +24,13 @@ import {
 } from './workshop-check-in.rules.js';
 import { resolveEstimateScope } from './workshop-estimate-scope.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
+
+function isCheckInUniqueViolation(error: unknown): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === 'P2002'
+  );
+}
 
 @Injectable()
 export class WorkshopCheckInService {
@@ -68,24 +76,31 @@ export class WorkshopCheckInService {
       });
     }
 
-    const created = await this.prisma.workshopCheckIn.create({
-      data: {
-        id: dto.id,
-        tenant_id: tenantId,
-        workshop_order_id: orderId,
-        status: WorkshopCheckInStatus.DRAFT,
-        revision: 1,
-        condition_json: DEFAULT_CHECK_IN_CONDITION_JSON,
-        damage_markers_json: EMPTY_DAMAGE_MARKERS_JSON,
-        items_left: '',
-        key_count: 0,
-        warning_lights: [],
-        odometer: order.odometer,
-        fuel_level: order.fuel_level,
-      },
-    });
+    try {
+      const created = await this.prisma.workshopCheckIn.create({
+        data: {
+          id: dto.id,
+          tenant_id: tenantId,
+          workshop_order_id: orderId,
+          status: WorkshopCheckInStatus.DRAFT,
+          revision: 1,
+          condition_json: DEFAULT_CHECK_IN_CONDITION_JSON,
+          damage_markers_json: EMPTY_DAMAGE_MARKERS_JSON,
+          items_left: '',
+          key_count: 0,
+          warning_lights: [],
+          odometer: order.odometer,
+          fuel_level: order.fuel_level,
+        },
+      });
 
-    return toWorkshopCheckInResponse(created);
+      return toWorkshopCheckInResponse(created);
+    } catch (error) {
+      if (!isCheckInUniqueViolation(error)) {
+        throw error;
+      }
+      return this.resolveCreateUniqueViolation(tenantId, orderId, dto.id);
+    }
   }
 
   async get(orderId: string): Promise<WorkshopCheckInResponseDto> {
@@ -117,26 +132,14 @@ export class WorkshopCheckInService {
     });
     await this.findMutableOrder(tenantId, siteId, orderId);
 
-    const row = await this.prisma.workshopCheckIn.findFirst({
-      where: { tenant_id: tenantId, workshop_order_id: orderId },
-    });
-    if (!row) {
-      throw new NotFoundException('Workshop check-in not found');
-    }
-    if (row.status === WorkshopCheckInStatus.COMPLETED) {
-      throw new ConflictException({
-        code: CHECK_IN_ERROR_CODES.CHECK_IN_COMPLETED,
-        message: 'Completed check-in records cannot be edited.',
-      });
-    }
-    if (row.revision !== dto.expected_revision) {
-      throw new ConflictException({
-        code: CHECK_IN_ERROR_CODES.CHECK_IN_CONFLICT,
-        message: 'Check-in revision is stale. Reload and retry.',
-      });
-    }
+    const draftWhere = {
+      tenant_id: tenantId,
+      workshop_order_id: orderId,
+      revision: dto.expected_revision,
+      status: WorkshopCheckInStatus.DRAFT,
+    } satisfies Prisma.WorkshopCheckInWhereInput;
 
-    const data: Prisma.WorkshopCheckInUpdateInput = {
+    const data: Prisma.WorkshopCheckInUpdateManyMutationInput = {
       revision: { increment: 1 },
     };
 
@@ -149,11 +152,9 @@ export class WorkshopCheckInService {
       };
     }
     if (dto.damage_markers !== undefined) {
-      data.damage_markers_json = dto.damage_markers.map((marker) => ({
-        zone_id: marker.zone_id,
-        type: marker.type,
-        media_id: marker.media_id ?? null,
-      }));
+      data.damage_markers_json = serializeCheckInDamageMarkers(
+        dto.damage_markers,
+      );
     }
     if (dto.items_left !== undefined) {
       data.items_left = dto.items_left;
@@ -171,12 +172,60 @@ export class WorkshopCheckInService {
       data.fuel_level = dto.fuel_level;
     }
 
-    const updated = await this.prisma.workshopCheckIn.update({
-      where: { tenant_id: tenantId, id: row.id },
+    const { count } = await this.prisma.workshopCheckIn.updateMany({
+      where: draftWhere,
       data,
     });
 
+    if (count === 0) {
+      const row = await this.prisma.workshopCheckIn.findFirst({
+        where: { tenant_id: tenantId, workshop_order_id: orderId },
+      });
+      if (!row) {
+        throw new NotFoundException('Workshop check-in not found');
+      }
+      if (row.status === WorkshopCheckInStatus.COMPLETED) {
+        throw new ConflictException({
+          code: CHECK_IN_ERROR_CODES.CHECK_IN_COMPLETED,
+          message: 'Completed check-in records cannot be edited.',
+        });
+      }
+      throw new ConflictException({
+        code: CHECK_IN_ERROR_CODES.CHECK_IN_CONFLICT,
+        message: 'Check-in revision is stale. Reload and retry.',
+      });
+    }
+
+    const updated = await this.prisma.workshopCheckIn.findFirst({
+      where: {
+        tenant_id: tenantId,
+        workshop_order_id: orderId,
+      },
+    });
+    if (!updated) {
+      throw new NotFoundException('Workshop check-in not found');
+    }
+
     return toWorkshopCheckInResponse(updated);
+  }
+
+  private async resolveCreateUniqueViolation(
+    tenantId: string,
+    orderId: string,
+    requestedId: string,
+  ): Promise<WorkshopCheckInResponseDto> {
+    const existingByOrder = await this.prisma.workshopCheckIn.findFirst({
+      where: { tenant_id: tenantId, workshop_order_id: orderId },
+    });
+    if (existingByOrder?.id === requestedId) {
+      return toWorkshopCheckInResponse(existingByOrder);
+    }
+
+    throw new ConflictException({
+      code: CHECK_IN_ERROR_CODES.CHECK_IN_EXISTS,
+      message: 'This workshop order already has a check-in record.',
+      existing_check_in_id: existingByOrder?.id ?? null,
+    });
   }
 
   private async assertOrderInSite(

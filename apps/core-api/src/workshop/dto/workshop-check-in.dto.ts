@@ -3,6 +3,7 @@ import { WorkshopCheckInStatus } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
+  ArrayUnique,
   IsArray,
   IsIn,
   IsInt,
@@ -17,7 +18,9 @@ import {
 } from 'class-validator';
 import {
   CHECK_IN_DAMAGE_TYPES,
+  CHECK_IN_MAX_DAMAGE_MARKER_NOTE_LENGTH,
   CHECK_IN_MAX_DAMAGE_MARKERS,
+  CHECK_IN_MAX_MEDIA_IDS_PER_DAMAGE_MARKER,
   CHECK_IN_MAX_ITEMS_LEFT_LENGTH,
   CHECK_IN_MAX_KEY_COUNT,
   CHECK_IN_MAX_NOTES_LENGTH,
@@ -45,6 +48,10 @@ export class CheckInConditionDto {
 }
 
 export class CheckInDamageMarkerDto {
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  id!: string;
+
   @ApiProperty()
   @IsString()
   zone_id!: string;
@@ -54,10 +61,17 @@ export class CheckInDamageMarkerDto {
   @IsIn([...CHECK_IN_DAMAGE_TYPES])
   type!: string;
 
-  @ApiPropertyOptional({ format: 'uuid', nullable: true })
-  @IsOptional()
-  @IsUUID()
-  media_id?: string | null;
+  @ApiProperty({ maxLength: CHECK_IN_MAX_DAMAGE_MARKER_NOTE_LENGTH })
+  @IsString()
+  @MaxLength(CHECK_IN_MAX_DAMAGE_MARKER_NOTE_LENGTH)
+  note!: string;
+
+  @ApiProperty({ type: [String], maxItems: CHECK_IN_MAX_MEDIA_IDS_PER_DAMAGE_MARKER })
+  @IsArray()
+  @ArrayMaxSize(CHECK_IN_MAX_MEDIA_IDS_PER_DAMAGE_MARKER)
+  @ArrayUnique()
+  @IsUUID('4', { each: true })
+  media_ids!: string[];
 }
 
 export class CreateWorkshopCheckInDto {
