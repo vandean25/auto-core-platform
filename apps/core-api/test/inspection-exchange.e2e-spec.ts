@@ -423,8 +423,8 @@ describe('Inspection exchange (e2e)', () => {
         make: 'VW',
         model: 'Caddy',
         year: 2022,
-        vin: 'WVWZZZ1JZXW000088',
-        plate: 'SYNTH-088',
+        vin: 'WVWZZZ1JZXW000090',
+        plate: 'SYNTH-090',
         first_registration_date: new Date('2022-03-01T00:00:00.000Z'),
       },
     });
@@ -434,9 +434,9 @@ describe('Inspection exchange (e2e)', () => {
       source_revision: 'SYNTH-REV-NO-ZBD',
       zbd_report_id: null,
       vehicle: {
-        vin: 'WVWZZZ1JZXW000088',
+        vin: 'WVWZZZ1JZXW000090',
         first_registration_on: '2022-03-01',
-        registration_plate: 'SYNTH-088',
+        registration_plate: 'SYNTH-090',
       },
       occurrence_relation: {
         ...SYNTHETIC_CANONICAL_POSITIVE.occurrence_relation,
