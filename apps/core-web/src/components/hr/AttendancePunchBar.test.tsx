@@ -2,7 +2,8 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { components } from '@/api/generated/openapi'
-import { StatusBadge, formatStatusLabel } from '@/components/status/StatusBadge'
+import { StatusBadge } from '@/components/status/StatusBadge'
+import { formatStatusLabel } from '@/lib/i18n/enum-labels'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AttendancePunchBar } from './AttendancePunchBar'
@@ -81,7 +82,7 @@ describe('AttendancePunchBar', () => {
 
   it('renders compact controls with the current state badge', () => {
     const { container } = renderPunchBar('CLOCKED_IN', false, 'compact')
-    const stateBadge = screen.getByText('Clocked In')
+    const stateBadge = screen.getByText(formatStatusLabel('CLOCKED_IN'))
 
     expect(stateBadge).toHaveClass(
       'border-emerald-200',

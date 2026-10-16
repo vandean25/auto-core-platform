@@ -1,4 +1,5 @@
 import type { DocumentBrandAsset } from "@/api/document-branding";
+import { translateEnum, translateEnumOptions } from "@/lib/i18n/enum-labels";
 
 export function formatDocumentBrandFileSize(byteLength: number): string {
   if (byteLength < 1024) return `${byteLength} B`;
@@ -14,49 +15,52 @@ export function describeLetterheadSourceAsset(
 ): string {
   if (asset.state === "QUARANTINED") {
     if (options.pollTimedOut) {
-      return "Validation is taking longer than expected. Refresh the status or try again later.";
+      return translateEnum("letterheadSource", "message", "pollTimedOut");
     }
-    return "Checking file…";
+    return translateEnum("letterheadSource", "message", "quarantined");
   }
   if (asset.state === "READY") {
     if (!options.extractionAvailable) {
-      return "Validated. Waiting for assisted extraction, currently unavailable.";
+      return translateEnum("letterheadSource", "message", "readyWaitingExtraction");
     }
-    return "Validated and ready for assisted extraction.";
+    return translateEnum("letterheadSource", "message", "readyForExtraction");
   }
   if (asset.state === "REJECTED") {
     return describeRejection(asset.failureCode);
   }
   if (asset.state === "DELETING" || asset.state === "DELETED") {
-    return "This file was removed and is no longer available.";
+    return translateEnum("letterheadSource", "message", "removed");
   }
-  return "Processing upload…";
+  return translateEnum("letterheadSource", "message", "processing");
 }
 
 function describeRejection(failureCode: string | null): string {
   switch (failureCode) {
     case "BRAND_FILE_TYPE_UNSUPPORTED":
-      return "This file type is not supported. Upload a PDF or PNG letterhead.";
+      return translateEnum("letterheadSource", "message", "rejectedUnsupportedType");
     case "BRAND_UPLOAD_TOO_LARGE":
-      return "This file is too large. Letterhead sources must be 10 MiB or smaller.";
+      return translateEnum("letterheadSource", "message", "rejectedTooLarge");
     case "VALIDATION_RETRIES_EXHAUSTED":
-      return "We could not validate this file after several attempts. Try another copy or format.";
+      return translateEnum("letterheadSource", "message", "rejectedRetries");
     case "BRAND_SOURCE_EXPIRED":
-      return "This letterhead source expired before it could be used.";
+      return translateEnum("letterheadSource", "message", "rejectedExpired");
     default:
       return failureCode
-        ? `This file was rejected (${failureCode.replaceAll("_", " ").toLowerCase()}).`
-        : "This file was rejected. Choose another PDF or PNG letterhead.";
+        ? translateEnumOptions(
+            ["letterheadSource", "message", "rejectedWithCode"],
+            { code: failureCode.replaceAll("_", " ").toLowerCase() },
+          )
+        : translateEnum("letterheadSource", "message", "rejectedGeneric");
   }
 }
 
 export function letterheadSourceDisplayName(asset: DocumentBrandAsset): string {
   if (asset.originalFilename) return asset.originalFilename;
   if (asset.detectedMimeType === "application/pdf") {
-    return "letterhead.pdf";
+    return translateEnum("letterheadSource", "displayName", "pdf");
   }
   if (asset.detectedMimeType === "image/png") {
-    return "letterhead.png";
+    return translateEnum("letterheadSource", "displayName", "png");
   }
-  return "letterhead source";
+  return translateEnum("letterheadSource", "displayName", "fallback");
 }

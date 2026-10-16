@@ -1,0 +1,75 @@
+// @vitest-environment node
+import { readFileSync } from 'node:fs'
+import { describe, expect, it } from 'vitest'
+
+import { getImportFieldsForEntity } from '@/components/settings/data-import/import-field-labels'
+
+import deEnums from '../../../../../locales/de/enums.json'
+import enEnums from '../../../../../locales/en/enums.json'
+import {
+  DATA_TABLE_COLUMN_IDS,
+  IMPORT_ENTITY_TYPE_VALUES,
+  STATUS_ENUM_VALUES,
+  importFieldSegmentForEntity,
+  type ImportEntityTypeUi,
+} from './enum-registry'
+
+function leafKeys(value: unknown, prefix = ''): string[] {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return prefix ? [prefix] : []
+  }
+  return Object.entries(value as Record<string, unknown>).flatMap(([key, child]) => {
+    const next = prefix ? `${prefix}.${key}` : key
+    if (child !== null && typeof child === 'object' && !Array.isArray(child)) {
+      return leafKeys(child, next)
+    }
+    return [next]
+  })
+}
+
+const statusBadgeKeys = [
+  ...readFileSync('src/components/status/StatusBadge.tsx', 'utf8').matchAll(
+    /^\s+([A-Z][A-Z0-9_]*): '/gm,
+  ),
+].map((match) => match[1])
+
+describe('enum locale resources', () => {
+  it('keeps DE and EN enum trees aligned', () => {
+    expect(leafKeys(deEnums).sort()).toEqual(leafKeys(enEnums).sort())
+  })
+
+  it('covers every shared status wire value', () => {
+    const statusRecord = deEnums.status satisfies Record<(typeof STATUS_ENUM_VALUES)[number], string>
+    for (const value of STATUS_ENUM_VALUES) {
+      expect(statusRecord[value].length).toBeGreaterThan(0)
+      expect(enEnums.status[value].length).toBeGreaterThan(0)
+    }
+  })
+
+  it('covers every StatusBadge wire value', () => {
+    for (const value of statusBadgeKeys) {
+      expect(deEnums.status[value as keyof typeof deEnums.status]?.length).toBeGreaterThan(0)
+      expect(enEnums.status[value as keyof typeof enEnums.status]?.length).toBeGreaterThan(0)
+    }
+  })
+
+  it('covers import entity types and field keys', () => {
+    const entityRecord = deEnums.importEntityType satisfies Record<ImportEntityTypeUi, string>
+    for (const entityType of IMPORT_ENTITY_TYPE_VALUES) {
+      expect(entityRecord[entityType].length).toBeGreaterThan(0)
+      const segment = importFieldSegmentForEntity(entityType)
+      const segmentFields = deEnums.importField[segment] as Record<string, string>
+      for (const field of getImportFieldsForEntity(entityType)) {
+        expect(segmentFields[field.key]?.length).toBeGreaterThan(0)
+        expect((enEnums.importField[segment] as Record<string, string>)[field.key]?.length).toBeGreaterThan(0)
+      }
+    }
+  })
+
+  it('covers data table column ids', () => {
+    const columnRecord = deEnums.dataTableColumn satisfies Record<(typeof DATA_TABLE_COLUMN_IDS)[number], string>
+    for (const id of DATA_TABLE_COLUMN_IDS) {
+      expect(columnRecord[id].length).toBeGreaterThan(0)
+    }
+  })
+})

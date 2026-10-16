@@ -15,7 +15,7 @@ import {
 describe('import mapping suggest', () => {
   it('auto-suggests mixed German header aliases from a pilot-style CSV', () => {
     const headers = ['Kunden-Nr', 'Firma', 'Mail', 'Tel', 'Ust-ID', 'Zip']
-    const mapping = suggestColumnMapping(headers, CUSTOMER_IMPORT_FIELDS)
+    const mapping = suggestColumnMapping(headers, 'CUSTOMER', CUSTOMER_IMPORT_FIELDS)
 
     expect(mapping).toEqual({
       external_id: 'Kunden-Nr',
@@ -29,7 +29,7 @@ describe('import mapping suggest', () => {
 
   it('auto-suggests German and English customer headers', () => {
     const headers = ['Kunden-Nr', 'Vorname', 'Last Name', 'E-Mail', 'UID']
-    const mapping = suggestColumnMapping(headers, CUSTOMER_IMPORT_FIELDS)
+    const mapping = suggestColumnMapping(headers, 'CUSTOMER', CUSTOMER_IMPORT_FIELDS)
 
     expect(mapping.external_id).toBe('Kunden-Nr')
     expect(mapping.first_name).toBe('Vorname')
@@ -40,7 +40,7 @@ describe('import mapping suggest', () => {
 
   it('maps vehicle external_id to Fahrzeug-Nr when Kunden-Nr appears first', () => {
     const headers = ['Kunden-Nr', 'Fahrzeug-Nr', 'Marke', 'Modell', 'Baujahr']
-    const mapping = suggestColumnMapping(headers, VEHICLE_IMPORT_FIELDS)
+    const mapping = suggestColumnMapping(headers, 'VEHICLE', VEHICLE_IMPORT_FIELDS)
 
     expect(mapping.external_id).toBe('Fahrzeug-Nr')
     expect(mapping.owner_customer_external_id).toBe('Kunden-Nr')
@@ -56,7 +56,7 @@ describe('import mapping suggest', () => {
       'UVP',
       'Einheit',
     ]
-    const mapping = suggestColumnMapping(headers, SUPPLIER_PRICE_LIST_IMPORT_FIELDS)
+    const mapping = suggestColumnMapping(headers, 'SUPPLIER_PRICE_LIST', SUPPLIER_PRICE_LIST_IMPORT_FIELDS)
 
     expect(mapping).toEqual({
       supplier_article_no: 'Lieferanten-Artikelnummer',
