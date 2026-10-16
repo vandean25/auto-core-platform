@@ -16,6 +16,7 @@ import type {
   SubmitPendingAgentActionDto,
 } from './dto/agent-proposal.dto.js';
 import { fingerprintMcpWriteArgs } from '../mcp/mcp-write-command-idempotency.util.js';
+import { WorkshopBookingPackageService } from '../workshop/workshop-booking-package.service.js';
 
 /** Creates pending proposals: direct creation, persisted pending actions, and simulated submissions. */
 @Injectable()
@@ -28,7 +29,18 @@ export class AgentProposalSubmissionService {
     private readonly dryRun: DryRunService,
     private readonly pendingActionExecutors: PendingActionExecutorService,
     private readonly policyEvaluator: AgentProposalPolicyEvaluator,
+    private readonly workshopBookingPackage: WorkshopBookingPackageService,
   ) {}
+
+  private async normalizeSubmitPayload(
+    actionType: string,
+    payload: unknown,
+  ): Promise<unknown> {
+    if (actionType === 'workshop.booking_package') {
+      return this.workshopBookingPackage.enrichInput(payload);
+    }
+    return payload;
+  }
 
   async createProposal(
     dto: CreateAgentProposalDto,
@@ -82,10 +94,14 @@ export class AgentProposalSubmissionService {
     dto: SubmitPendingAgentActionDto,
   ): Promise<AgentProposalResponseDto> {
     const actionType = dto.action_type;
+    const payload = await this.normalizeSubmitPayload(
+      actionType,
+      dto.payload_json,
+    );
     const executor = this.pendingActionExecutors.resolve(actionType);
     const evaluation = await this.policyEvaluator.evaluate(
       actionType,
-      dto.payload_json,
+      payload,
       executor,
     );
     if (evaluation.tier !== AgentPolicyTier.PROPOSE) {
@@ -94,15 +110,13 @@ export class AgentProposalSubmissionService {
       );
     }
 
-    const executionContext = await executor.buildExecutionContext?.(
-      dto.payload_json,
-    );
+    const executionContext = await executor.buildExecutionContext?.(payload);
     const intendedSiteId =
       typeof executionContext?.site_id === 'string'
         ? executionContext.site_id
         : undefined;
     const simulation = await this.dryRun.executeInRollbackTransaction(() =>
-      executor.execute(dto.payload_json, executionContext),
+      executor.execute(payload, executionContext),
     );
     if (
       intendedSiteId &&
@@ -120,24 +134,21 @@ export class AgentProposalSubmissionService {
       actionType,
       tier: AgentPolicyTier.PROPOSE,
       status: 'PROPOSED',
-      inputSummary: { payload: dto.payload_json },
+      inputSummary: { payload },
       resultSummary: { would_change: simulation.wouldChange },
     });
     const mcpIdempotency = dto.command_id
       ? {
           mcp_command_idempotency: {
             command_id: dto.command_id,
-            args_fingerprint: fingerprintMcpWriteArgs(
-              actionType,
-              dto.payload_json,
-            ),
+            args_fingerprint: fingerprintMcpWriteArgs(actionType, payload),
           },
         }
       : {};
 
     return this.persistPendingAction({
       action_type: actionType,
-      payload_json: dto.payload_json,
+      payload_json: payload,
       preview_json: {
         result: simulation.result,
         would_change: simulation.wouldChange,

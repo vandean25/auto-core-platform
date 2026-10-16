@@ -120,6 +120,7 @@ export function createAgentProposalSpecHarness() {
     buildExecutionContext: jest
       .fn()
       .mockResolvedValue({ site_id: 'site-1' }),
+    enrichInput: jest.fn(async (input: unknown) => input),
   };
   const mockPurchaseService = {
     applyProposedPurchaseOrderDraft: jest.fn(),
@@ -161,6 +162,7 @@ export function createAgentProposalSpecHarness() {
     mockDryRun,
     mockPendingActionExecutors,
     policyEvaluator,
+    mockWorkshopBookingPackage,
   );
   const service = new AgentProposalService(
     mockTenantContext,

@@ -1,0 +1,947 @@
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+} from '@nestjs/common';
+import {
+  type CatalogItem,
+  type LaborOperation,
+  LocationType,
+  Prisma,
+  WorkshopLineItemType,
+  WorkshopOrderStatus,
+  WorkshopPartLineExecutionStatus,
+  WorkshopTaskStatus,
+} from '@prisma/client';
+import { createHash } from 'node:crypto';
+import { AtpService } from '../inventory/atp.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { executeCreateOnHandReservation } from '../parts-requisition/parts-requisition-lifecycle.helpers.js';
+import { pickWorkshopCommandPresetForSite } from './workshop-command-preset.helpers.js';
+import {
+  PLAN_STALE,
+  POSITION_PLAN_VERSION,
+  type PositionPlanQuestion,
+  type ResolvedPositionPlan,
+  type ResolvedPositionPlanLine,
+} from './workshop-position-plan.types.js';
+import {
+  formatQuantityString,
+  hoursToDurationMinutes,
+  laborNetCents,
+  partNetCents,
+} from './workshop-position-plan.math.js';
+
+type RawPlanLine = Record<string, unknown>;
+
+export type CallerPositionLine = {
+  preset_key?: string;
+  labor_operation_id?: string;
+  catalog_item_id?: string;
+  quantity_milli?: number;
+  reserve_part?: boolean;
+};
+
+export type ResolvePlanOptions = {
+  /** Re-resolve caller intent for apply stale checks (position_lines first). */
+  forApplyStaleCheck?: boolean;
+};
+
+@Injectable()
+export class WorkshopPositionPlanService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly atpService: AtpService,
+  ) {}
+
+  hasPlanContent(input: Record<string, unknown>): boolean {
+    const plan = input.position_plan;
+    if (plan && typeof plan === 'object' && !Array.isArray(plan)) {
+      const lines = (plan as Record<string, unknown>).lines;
+      if (Array.isArray(lines) && lines.length > 0) {
+        return true;
+      }
+    }
+    const callerLines = input.position_lines;
+    return Array.isArray(callerLines) && callerLines.length > 0;
+  }
+
+  async resolvePlan(
+    tenantId: string,
+    siteId: string,
+    input: Record<string, unknown>,
+    options?: ResolvePlanOptions,
+  ): Promise<ResolvedPositionPlan | null> {
+    const rawLines = options?.forApplyStaleCheck
+      ? this.collectRawLinesForApply(input)
+      : this.collectRawLines(input);
+    if (rawLines.length === 0) {
+      return null;
+    }
+    const { lines, questions } = await this.buildResolvedLines(
+      tenantId,
+      siteId,
+      rawLines,
+    );
+    if (lines.length === 0 && questions.length === 0) {
+      return null;
+    }
+    const fingerprint = this.fingerprint(lines);
+    return {
+      version: POSITION_PLAN_VERSION,
+      lines,
+      fingerprint,
+      ...(questions.length > 0 ? { questions } : {}),
+    };
+  }
+
+  assertStoredPlanMatches(
+    stored: ResolvedPositionPlan | null,
+    recomputed: ResolvedPositionPlan | null,
+  ): void {
+    if (!stored && !recomputed) {
+      return;
+    }
+    if (!stored || !recomputed) {
+      throw new ConflictException({
+        code: PLAN_STALE,
+        message: 'The position plan changed; submit a new review',
+      });
+    }
+    if (stored.version !== recomputed.version) {
+      throw new ConflictException({
+        code: PLAN_STALE,
+        message: 'The position plan changed; submit a new review',
+      });
+    }
+    const storedQuestions = stored.questions ?? [];
+    const recomputedQuestions = recomputed.questions ?? [];
+    if (
+      storedQuestions.length !== recomputedQuestions.length ||
+      JSON.stringify(storedQuestions) !== JSON.stringify(recomputedQuestions)
+    ) {
+      throw new ConflictException({
+        code: PLAN_STALE,
+        message: 'The position plan changed; submit a new review',
+      });
+    }
+    if (stored.lines.length !== recomputed.lines.length) {
+      throw new ConflictException({
+        code: PLAN_STALE,
+        message: 'The position plan changed; submit a new review',
+      });
+    }
+    for (let i = 0; i < stored.lines.length; i++) {
+      const a = stored.lines[i];
+      const b = recomputed.lines[i];
+      if (
+        a.kind !== b.kind ||
+        a.laborOperationId !== b.laborOperationId ||
+        a.catalogItemId !== b.catalogItemId ||
+        a.netCents !== b.netCents ||
+        a.unitPriceCents !== b.unitPriceCents ||
+        a.quantity !== b.quantity ||
+        a.reservation !== b.reservation ||
+        (a.durationMinutes ?? null) !== (b.durationMinutes ?? null) ||
+        (a.quantityMilli ?? null) !== (b.quantityMilli ?? null)
+      ) {
+        throw new ConflictException({
+          code: PLAN_STALE,
+          message: 'The position plan changed; submit a new review',
+        });
+      }
+    }
+  }
+
+  parseStoredPlan(input: Record<string, unknown>): ResolvedPositionPlan | null {
+    const plan = input.position_plan;
+    if (!plan || typeof plan !== 'object' || Array.isArray(plan)) {
+      return null;
+    }
+    const record = plan as Record<string, unknown>;
+    const lines = record.lines;
+    if (!Array.isArray(lines) || lines.length === 0) {
+      return null;
+    }
+    const questions = this.parseStoredQuestions(record);
+    const resolved: ResolvedPositionPlanLine[] = [];
+    for (const line of lines) {
+      if (!line || typeof line !== 'object' || Array.isArray(line)) {
+        throw new BadRequestException('Invalid position plan line');
+      }
+      const row = line as Record<string, unknown>;
+      if (row.kind !== 'PART' && row.kind !== 'LABOR') {
+        throw new BadRequestException('Invalid position plan line kind');
+      }
+      const kind = row.kind;
+      const reservation = this.readReservation(row.reservation);
+      if (
+        typeof row.description !== 'string' ||
+        typeof row.quantity !== 'string' ||
+        typeof row.unit !== 'string' ||
+        typeof row.unit_price_cents !== 'number' ||
+        typeof row.net_cents !== 'number'
+      ) {
+        throw new BadRequestException(
+          'Reviewed position plan line is incomplete',
+        );
+      }
+      resolved.push({
+        presetKey:
+          typeof row.preset_key === 'string' ? row.preset_key : undefined,
+        kind,
+        laborOperationId:
+          typeof row.labor_operation_id === 'string'
+            ? row.labor_operation_id
+            : null,
+        catalogItemId:
+          typeof row.catalog_item_id === 'string' ? row.catalog_item_id : null,
+        description: row.description,
+        quantity: row.quantity,
+        unit: row.unit,
+        unitPriceCents: row.unit_price_cents,
+        netCents: row.net_cents,
+        reservation,
+        durationMinutes:
+          typeof row.duration_minutes === 'number'
+            ? row.duration_minutes
+            : undefined,
+        quantityMilli:
+          typeof row.quantity_milli === 'number'
+            ? row.quantity_milli
+            : undefined,
+      });
+    }
+    return {
+      version: Number(record.version ?? POSITION_PLAN_VERSION),
+      lines: resolved,
+      fingerprint: this.fingerprint(resolved),
+      ...(questions.length > 0 ? { questions } : {}),
+    };
+  }
+
+  private parseStoredQuestions(
+    record: Record<string, unknown>,
+  ): PositionPlanQuestion[] {
+    const raw = record.questions;
+    if (!Array.isArray(raw)) {
+      return [];
+    }
+    const questions: PositionPlanQuestion[] = [];
+    for (const entry of raw) {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+        continue;
+      }
+      const row = entry as Record<string, unknown>;
+      if (typeof row.code !== 'string' || typeof row.message !== 'string') {
+        continue;
+      }
+      questions.push({
+        code: row.code,
+        message: row.message,
+        ...(typeof row.preset_key === 'string'
+          ? { preset_key: row.preset_key }
+          : {}),
+        ...(typeof row.labor_operation_id === 'string'
+          ? { labor_operation_id: row.labor_operation_id }
+          : {}),
+        ...(typeof row.catalog_item_id === 'string'
+          ? { catalog_item_id: row.catalog_item_id }
+          : {}),
+      });
+    }
+    return questions;
+  }
+
+  async applyPlanInTransaction(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    siteId: string,
+    orderId: string,
+    orderStatus: WorkshopOrderStatus,
+    plan: ResolvedPositionPlan,
+  ): Promise<void> {
+    const existingTaskCount = await tx.workshopTask.count({
+      where: { tenant_id: tenantId, workshop_order_id: orderId },
+    });
+    if (existingTaskCount > 0) {
+      return;
+    }
+
+    const reservedCatalogIds = plan.lines
+      .filter(
+        (line) =>
+          line.kind === 'PART' &&
+          line.catalogItemId &&
+          line.reservation === 'reserved',
+      )
+      .map((line) => line.catalogItemId as string);
+    const stockByCatalog = await this.loadBinStocksByCatalogItem(
+      tx,
+      tenantId,
+      siteId,
+      reservedCatalogIds,
+    );
+
+    let sequence = 0;
+    for (const line of plan.lines) {
+      sequence += 1;
+      const task = await tx.workshopTask.create({
+        data: {
+          tenant_id: tenantId,
+          workshop_order_id: orderId,
+          title: line.description,
+          status: WorkshopTaskStatus.NOT_STARTED,
+          sequence,
+        },
+      });
+
+      const isLabor = line.kind === 'LABOR';
+      const lineItem = await tx.workshopTaskLineItem.create({
+        data: {
+          tenant_id: tenantId,
+          workshop_task_id: task.id,
+          type: isLabor
+            ? WorkshopLineItemType.LABOR
+            : WorkshopLineItemType.PART,
+          part_execution_status: isLabor
+            ? null
+            : WorkshopPartLineExecutionStatus.PENDING_PICK,
+          item_no: isLabor ? 'LABOR' : 'PART',
+          description: line.description,
+          quantity: new Prisma.Decimal(line.quantity),
+          unit_price: new Prisma.Decimal(line.unitPriceCents / 100),
+          labor_operation_id: line.laborOperationId,
+          catalog_item_id: line.catalogItemId,
+          standard_aw: isLabor ? new Prisma.Decimal(line.quantity) : null,
+          hourly_rate_snapshot: isLabor
+            ? new Prisma.Decimal(line.unitPriceCents / 100)
+            : null,
+          deferred_part_reservation:
+            !isLabor && line.reservation === 'unbooked',
+        },
+      });
+
+      if (
+        !isLabor &&
+        line.catalogItemId &&
+        line.reservation === 'reserved' &&
+        orderStatus === WorkshopOrderStatus.SCHEDULED
+      ) {
+        await this.reservePartLineInTransaction(
+          tx,
+          tenantId,
+          siteId,
+          lineItem.id,
+          line.catalogItemId,
+          new Prisma.Decimal(line.quantity),
+          stockByCatalog,
+        );
+      }
+    }
+  }
+
+  async fulfillDeferredReservationsOnIntake(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    siteId: string,
+    orderId: string,
+  ): Promise<void> {
+    const lines = await tx.workshopTaskLineItem.findMany({
+      where: {
+        tenant_id: tenantId,
+        deferred_part_reservation: true,
+        workshop_task: { workshop_order_id: orderId },
+      },
+      select: {
+        id: true,
+        catalog_item_id: true,
+        quantity: true,
+        parts_reservations: { select: { id: true }, take: 1 },
+      },
+    });
+    const catalogIds = lines
+      .filter(
+        (line) => line.catalog_item_id && line.parts_reservations.length === 0,
+      )
+      .map((line) => line.catalog_item_id as string);
+    const stockByCatalog = await this.loadBinStocksByCatalogItem(
+      tx,
+      tenantId,
+      siteId,
+      catalogIds,
+    );
+    for (const line of lines) {
+      if (line.parts_reservations.length > 0 || !line.catalog_item_id) {
+        continue;
+      }
+      await this.reservePartLineInTransaction(
+        tx,
+        tenantId,
+        siteId,
+        line.id,
+        line.catalog_item_id,
+        line.quantity,
+        stockByCatalog,
+      );
+      await tx.workshopTaskLineItem.updateMany({
+        where: { id: line.id, tenant_id: tenantId },
+        data: { deferred_part_reservation: false },
+      });
+    }
+  }
+
+  toPayloadPositionPlan(plan: ResolvedPositionPlan): Record<string, unknown> {
+    return {
+      version: plan.version,
+      ...(plan.questions && plan.questions.length > 0
+        ? { questions: plan.questions }
+        : {}),
+      lines: plan.lines.map((line) => ({
+        ...(line.presetKey ? { preset_key: line.presetKey } : {}),
+        kind: line.kind,
+        labor_operation_id: line.laborOperationId,
+        catalog_item_id: line.catalogItemId,
+        description: line.description,
+        quantity: line.quantity,
+        unit: line.unit,
+        unit_price_cents: line.unitPriceCents,
+        net_cents: line.netCents,
+        reservation: line.reservation,
+        ...(line.durationMinutes !== undefined
+          ? { duration_minutes: line.durationMinutes }
+          : {}),
+        ...(line.quantityMilli !== undefined
+          ? { quantity_milli: line.quantityMilli }
+          : {}),
+      })),
+    };
+  }
+
+  private collectRawLines(input: Record<string, unknown>): RawPlanLine[] {
+    const callerLines = input.position_lines;
+    if (Array.isArray(callerLines) && callerLines.length > 0) {
+      return callerLines
+        .filter(
+          (line) => line && typeof line === 'object' && !Array.isArray(line),
+        )
+        .map((line) => this.callerLineToRaw(line as CallerPositionLine));
+    }
+    return this.rawLinesFromStoredPlan(input);
+  }
+
+  private collectRawLinesForApply(
+    input: Record<string, unknown>,
+  ): RawPlanLine[] {
+    return this.collectRawLines(input);
+  }
+
+  private rawLinesFromStoredPlan(
+    input: Record<string, unknown>,
+  ): RawPlanLine[] {
+    const plan = input.position_plan;
+    if (!plan || typeof plan !== 'object' || Array.isArray(plan)) {
+      return [];
+    }
+    const lines = (plan as Record<string, unknown>).lines;
+    if (!Array.isArray(lines)) {
+      return [];
+    }
+    return lines
+      .filter(
+        (line) => line && typeof line === 'object' && !Array.isArray(line),
+      )
+      .map((line) =>
+        this.storedPlanPayloadLineToRaw(line as Record<string, unknown>),
+      );
+  }
+
+  private storedPlanPayloadLineToRaw(
+    row: Record<string, unknown>,
+  ): RawPlanLine {
+    const raw: RawPlanLine = {};
+    if (typeof row.preset_key === 'string') {
+      raw.preset_key = row.preset_key;
+    }
+    if (typeof row.labor_operation_id === 'string') {
+      raw.labor_operation_id = row.labor_operation_id;
+    }
+    if (typeof row.catalog_item_id === 'string') {
+      raw.catalog_item_id = row.catalog_item_id;
+    }
+    if (typeof row.quantity_milli === 'number') {
+      raw.quantity_milli = row.quantity_milli;
+    } else if (row.kind === 'PART' && typeof row.quantity === 'string') {
+      const quantity = Number.parseFloat(row.quantity);
+      if (!Number.isNaN(quantity)) {
+        raw.quantity_milli = Math.round(quantity * 1000);
+      }
+    }
+    if (row.reservation === 'reserved' || row.reservation === 'unbooked') {
+      raw.reservation = row.reservation;
+    }
+    return raw;
+  }
+
+  private callerLineToRaw(line: CallerPositionLine): RawPlanLine {
+    const raw: RawPlanLine = {};
+    if (line.preset_key) {
+      raw.preset_key = line.preset_key;
+    }
+    if (line.labor_operation_id) {
+      raw.labor_operation_id = line.labor_operation_id;
+    }
+    if (line.catalog_item_id) {
+      raw.catalog_item_id = line.catalog_item_id;
+    }
+    if (line.quantity_milli !== undefined) {
+      raw.quantity_milli = line.quantity_milli;
+    }
+    if (line.reserve_part === true) {
+      raw.reservation = 'reserved';
+    } else if (line.catalog_item_id) {
+      raw.reservation = 'unbooked';
+    }
+    return raw;
+  }
+
+  private readReservation(
+    value: unknown,
+  ): ResolvedPositionPlanLine['reservation'] {
+    if (value === 'reserved' || value === 'unbooked') {
+      return value;
+    }
+    return 'not_applicable';
+  }
+
+  private async buildResolvedLines(
+    tenantId: string,
+    siteId: string,
+    rawLines: RawPlanLine[],
+  ): Promise<{
+    lines: ResolvedPositionPlanLine[];
+    questions: PositionPlanQuestion[];
+  }> {
+    const presetKeys = rawLines
+      .map((line) =>
+        typeof line.preset_key === 'string' ? line.preset_key : null,
+      )
+      .filter((key): key is string => Boolean(key));
+
+    const presets =
+      presetKeys.length > 0
+        ? await this.prisma.workshopCommandPreset.findMany({
+            where: {
+              tenant_id: tenantId,
+              preset_key: { in: presetKeys },
+              active: true,
+              OR: [{ site_id: siteId }, { site_id: null }],
+            },
+            orderBy: [{ site_id: { sort: 'desc', nulls: 'last' } }],
+          })
+        : [];
+
+    const presetByKey = pickWorkshopCommandPresetForSite(presets, siteId);
+
+    const laborIds = new Set<string>();
+    const catalogIds = new Set<string>();
+    const questions: PositionPlanQuestion[] = [];
+    for (const line of rawLines) {
+      const presetKey =
+        typeof line.preset_key === 'string' ? line.preset_key : undefined;
+      const preset = presetKey ? presetByKey.get(presetKey) : undefined;
+      const laborId =
+        (typeof line.labor_operation_id === 'string'
+          ? line.labor_operation_id
+          : undefined) ??
+        preset?.labor_operation_id ??
+        undefined;
+      const catalogId =
+        (typeof line.catalog_item_id === 'string'
+          ? line.catalog_item_id
+          : undefined) ??
+        preset?.catalog_item_id ??
+        undefined;
+      if (presetKey && !preset) {
+        questions.push({
+          code: 'UNSUPPORTED_SERVICE',
+          message: `Preset ${presetKey} is not configured at this site`,
+          preset_key: presetKey,
+        });
+        continue;
+      }
+      if (laborId) {
+        laborIds.add(laborId);
+      }
+      if (catalogId) {
+        catalogIds.add(catalogId);
+      }
+    }
+
+    const emptyLabor: LaborOperation[] = [];
+    const emptyCatalog: CatalogItem[] = [];
+    const [laborOps, catalogItems] = await Promise.all([
+      laborIds.size > 0
+        ? this.prisma.laborOperation.findMany({
+            where: {
+              tenant_id: tenantId,
+              id: { in: [...laborIds] },
+              is_active: true,
+            },
+          })
+        : emptyLabor,
+      catalogIds.size > 0
+        ? this.prisma.catalogItem.findMany({
+            where: { tenant_id: tenantId, id: { in: [...catalogIds] } },
+          })
+        : emptyCatalog,
+    ]);
+
+    const laborById = new Map(laborOps.map((row) => [row.id, row]));
+    const catalogById = new Map(catalogItems.map((row) => [row.id, row]));
+
+    const resolved: ResolvedPositionPlanLine[] = [];
+    for (const line of rawLines) {
+      const presetKey =
+        typeof line.preset_key === 'string' ? line.preset_key : undefined;
+      if (presetKey && !presetByKey.get(presetKey)) {
+        continue;
+      }
+      const outcome = this.tryResolveLine(
+        line,
+        presetByKey,
+        laborById,
+        catalogById,
+      );
+      if (outcome.question) {
+        questions.push(outcome.question);
+        continue;
+      }
+      if (outcome.line) {
+        resolved.push(outcome.line);
+      }
+    }
+    return { lines: resolved, questions };
+  }
+
+  private tryResolveLine(
+    line: RawPlanLine,
+    presetByKey: Map<
+      string,
+      {
+        preset_key: string;
+        kind: string;
+        labor_operation_id: string | null;
+        catalog_item_id: string | null;
+        duration_minutes: number | null;
+        quantity_milli: number | null;
+      }
+    >,
+    laborById: Map<
+      string,
+      {
+        id: string;
+        description: string;
+        standard_aw: Prisma.Decimal;
+        hourly_rate: Prisma.Decimal;
+      }
+    >,
+    catalogById: Map<
+      string,
+      {
+        id: string;
+        sku: string;
+        name: string;
+        unit: string;
+        retail_price: Prisma.Decimal;
+      }
+    >,
+  ): { line?: ResolvedPositionPlanLine; question?: PositionPlanQuestion } {
+    const presetKey =
+      typeof line.preset_key === 'string' ? line.preset_key : undefined;
+    const preset = presetKey ? presetByKey.get(presetKey) : undefined;
+    const kind =
+      preset?.kind === 'PART' || line.catalog_item_id ? 'PART' : 'LABOR';
+
+    if (kind === 'LABOR') {
+      const laborId =
+        (typeof line.labor_operation_id === 'string'
+          ? line.labor_operation_id
+          : undefined) ??
+        preset?.labor_operation_id ??
+        null;
+      if (!laborId) {
+        return {
+          question: {
+            code: 'MISSING_LABOR_REFERENCE',
+            message: 'Labor position requires a configured labor operation',
+            preset_key: presetKey,
+          },
+        };
+      }
+      const labor = laborById.get(laborId);
+      if (!labor) {
+        return {
+          question: {
+            code: 'LABOR_NOT_AVAILABLE',
+            message: `Labor operation ${laborId} is not available`,
+            labor_operation_id: laborId,
+          },
+        };
+      }
+      let durationMinutes: number;
+      if (preset?.duration_minutes != null) {
+        durationMinutes = preset.duration_minutes;
+      } else {
+        durationMinutes = hoursToDurationMinutes(Number(labor.standard_aw));
+      }
+      const hours = durationMinutes / 60;
+      const unitPriceCents = new Prisma.Decimal(labor.hourly_rate)
+        .mul(100)
+        .toDecimalPlaces(0, Prisma.Decimal.ROUND_HALF_UP)
+        .toNumber();
+      const netCents = laborNetCents(durationMinutes, unitPriceCents);
+      return {
+        line: {
+          presetKey,
+          kind: 'LABOR',
+          laborOperationId: laborId,
+          catalogItemId: null,
+          description: labor.description,
+          quantity: formatQuantityString(hours),
+          unit: 'h',
+          unitPriceCents,
+          netCents,
+          reservation: 'not_applicable',
+          durationMinutes,
+        },
+      };
+    }
+
+    const catalogId =
+      (typeof line.catalog_item_id === 'string'
+        ? line.catalog_item_id
+        : undefined) ??
+      preset?.catalog_item_id ??
+      null;
+    if (!catalogId) {
+      return {
+        question: {
+          code: 'MISSING_PART_REFERENCE',
+          message: 'Part position requires a catalog item',
+          preset_key: presetKey,
+        },
+      };
+    }
+    const catalog = catalogById.get(catalogId);
+    if (!catalog) {
+      return {
+        question: {
+          code: 'PART_NOT_AVAILABLE',
+          message: `Catalog item ${catalogId} is not available`,
+          catalog_item_id: catalogId,
+        },
+      };
+    }
+    const quantityMilli =
+      typeof line.quantity_milli === 'number'
+        ? line.quantity_milli
+        : (preset?.quantity_milli ?? 1000);
+    const unitPriceCents = new Prisma.Decimal(catalog.retail_price)
+      .mul(100)
+      .toDecimalPlaces(0, Prisma.Decimal.ROUND_HALF_UP)
+      .toNumber();
+    const netCents = partNetCents(quantityMilli, unitPriceCents);
+    const reservation = this.readReservation(
+      line.reservation ??
+        (line.reserve_part === true ? 'reserved' : 'unbooked'),
+    );
+    return {
+      line: {
+        presetKey,
+        kind: 'PART',
+        laborOperationId: null,
+        catalogItemId: catalogId,
+        description: catalog.name,
+        quantity: formatQuantityString(quantityMilli / 1000),
+        unit: catalog.unit,
+        unitPriceCents,
+        netCents,
+        reservation:
+          reservation === 'not_applicable' ? 'unbooked' : reservation,
+        quantityMilli,
+      },
+    };
+  }
+
+  private fingerprint(lines: ResolvedPositionPlanLine[]): string {
+    const canonical = lines.map((line) => ({
+      kind: line.kind,
+      labor_operation_id: line.laborOperationId,
+      catalog_item_id: line.catalogItemId,
+      quantity: line.quantity,
+      unit_price_cents: line.unitPriceCents,
+      net_cents: line.netCents,
+      reservation: line.reservation,
+    }));
+    return createHash('sha256').update(JSON.stringify(canonical)).digest('hex');
+  }
+
+  private async loadBinStocksByCatalogItem(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    siteId: string,
+    catalogItemIds: string[],
+  ): Promise<
+    Map<
+      string,
+      {
+        location_id: string;
+        quantity_on_hand: Prisma.Decimal;
+        quantity_reserved: Prisma.Decimal;
+      }[]
+    >
+  > {
+    const uniqueIds = [...new Set(catalogItemIds)];
+    if (uniqueIds.length === 0) {
+      return new Map();
+    }
+    const stocks = await tx.inventoryStock.findMany({
+      where: {
+        tenant_id: tenantId,
+        site_id: siteId,
+        catalog_item_id: { in: uniqueIds },
+        location: {
+          type: LocationType.bin,
+          deletedAt: null,
+          site_id: siteId,
+          tenant_id: tenantId,
+        },
+      },
+      select: {
+        catalog_item_id: true,
+        location_id: true,
+        quantity_on_hand: true,
+        quantity_reserved: true,
+      },
+    });
+    const byCatalog = new Map<
+      string,
+      {
+        location_id: string;
+        quantity_on_hand: Prisma.Decimal;
+        quantity_reserved: Prisma.Decimal;
+      }[]
+    >();
+    for (const stock of stocks) {
+      const bucket = byCatalog.get(stock.catalog_item_id) ?? [];
+      bucket.push(stock);
+      byCatalog.set(stock.catalog_item_id, bucket);
+    }
+    return byCatalog;
+  }
+
+  private pickReservationLocation(
+    stockByCatalog: Map<
+      string,
+      {
+        location_id: string;
+        quantity_on_hand: Prisma.Decimal;
+        quantity_reserved: Prisma.Decimal;
+      }[]
+    >,
+    catalogItemId: string,
+    quantity: Prisma.Decimal,
+  ): { id: string } | null {
+    const stocks = stockByCatalog.get(catalogItemId) ?? [];
+    for (const stock of stocks) {
+      const available = new Prisma.Decimal(stock.quantity_on_hand).sub(
+        stock.quantity_reserved,
+      );
+      if (available.gte(quantity)) {
+        return { id: stock.location_id };
+      }
+    }
+    return null;
+  }
+
+  private async reservePartLineInTransaction(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    siteId: string,
+    lineItemId: string,
+    catalogItemId: string,
+    quantity: Prisma.Decimal,
+    stockByCatalog?: Map<
+      string,
+      {
+        location_id: string;
+        quantity_on_hand: Prisma.Decimal;
+        quantity_reserved: Prisma.Decimal;
+      }[]
+    >,
+  ): Promise<void> {
+    const location = stockByCatalog
+      ? this.pickReservationLocation(stockByCatalog, catalogItemId, quantity)
+      : await this.findReservationLocation(
+          tx,
+          tenantId,
+          siteId,
+          catalogItemId,
+          quantity,
+        );
+    if (!location) {
+      throw new ConflictException({
+        code: 'INSUFFICIENT_STOCK',
+        message: 'Insufficient stock to reserve the planned part line',
+      });
+    }
+    await executeCreateOnHandReservation(
+      tx,
+      tenantId,
+      siteId,
+      {
+        workshopTaskLineItemId: lineItemId,
+        quantity: quantity.toNumber(),
+        locationId: location.id,
+      },
+      this.atpService,
+    );
+  }
+
+  private async findReservationLocation(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    siteId: string,
+    catalogItemId: string,
+    quantity: Prisma.Decimal,
+  ): Promise<{ id: string } | null> {
+    const stocks = await tx.inventoryStock.findMany({
+      where: {
+        tenant_id: tenantId,
+        site_id: siteId,
+        catalog_item_id: catalogItemId,
+        location: {
+          type: LocationType.bin,
+          deletedAt: null,
+          site_id: siteId,
+          tenant_id: tenantId,
+        },
+      },
+      select: {
+        location_id: true,
+        quantity_on_hand: true,
+        quantity_reserved: true,
+      },
+    });
+    for (const stock of stocks) {
+      const available = new Prisma.Decimal(stock.quantity_on_hand).sub(
+        stock.quantity_reserved,
+      );
+      if (available.gte(quantity)) {
+        return { id: stock.location_id };
+      }
+    }
+    return null;
+  }
+}

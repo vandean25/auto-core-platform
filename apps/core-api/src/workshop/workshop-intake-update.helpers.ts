@@ -16,6 +16,15 @@ import { assertPersistedSiteId } from '../site/document-retarget.helpers.js';
 import { ORDER_WITH_INVOICE_RELATIONS } from './workshop-intake-query.helpers.js';
 import { executeUpdateOrderRetargeting } from './workshop-intake-retarget.helpers.js';
 
+export type PositionPlanIntakeHooks = {
+  fulfillDeferredReservationsOnIntake(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    siteId: string,
+    orderId: string,
+  ): Promise<void>;
+};
+
 export interface WorkshopIntakeServices {
   prisma: PrismaService;
   tenantContext: TenantContextService;
@@ -24,6 +33,7 @@ export interface WorkshopIntakeServices {
   partsRequisitionService: Pick<PartsRequisitionService, 'releaseReservation'>;
   domainEventStore: DomainEventStoreService;
   requestContext: RequestContextService;
+  positionPlan?: PositionPlanIntakeHooks;
 }
 
 export interface ExecuteBasicOrderUpdateParams {

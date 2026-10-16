@@ -31,6 +31,10 @@ export interface ExecuteCreateOrderParams {
   generateOrderNumber: (tx: Prisma.TransactionClient) => Promise<string>;
   domainEventStore: DomainEventStoreService;
   traceId?: string;
+  afterPromoteScheduledOrder?: (
+    tx: Prisma.TransactionClient,
+    orderId: string,
+  ) => Promise<void>;
 }
 
 export interface InsertWorkshopOrderParams {
@@ -236,6 +240,7 @@ export async function executeCreateOrder(
     generateOrderNumber,
     domainEventStore,
     traceId,
+    afterPromoteScheduledOrder,
   } = params;
 
   await lockSitesAndAssertActive(tx, tenantId, [siteId]);
@@ -243,6 +248,9 @@ export async function executeCreateOrder(
   if (!isScheduled) {
     const promoted = await tryPromoteScheduledOrder(tx, tenantId, siteId, dto);
     if (promoted) {
+      if (afterPromoteScheduledOrder) {
+        await afterPromoteScheduledOrder(tx, promoted.id);
+      }
       return attachPickerlTaskIfRequested(
         tx,
         tenantId,

@@ -32,6 +32,7 @@ import {
   parseMcpWriteCommandInput,
 } from './mcp-write-command-idempotency.util.js';
 import { randomUUID } from 'node:crypto';
+import { WorkshopBookingPackageService } from '../workshop/workshop-booking-package.service.js';
 
 export type McpWriteToolContext = {
   agentId: string;
@@ -97,6 +98,7 @@ export class McpWritePipelineService {
   private readonly commandIdempotency: McpWriteCommandIdempotencyService;
   private readonly requestContext: RequestContextService;
   private readonly tenantContext: TenantContextService;
+  private readonly workshopBookingPackage: WorkshopBookingPackageService;
 
   // Fields are assigned in the body rather than declared as parameter properties: cohesion analysis
   // otherwise counts the constructor as a separate component and flags the whole class as low-cohesion.
@@ -109,6 +111,7 @@ export class McpWritePipelineService {
     commandIdempotency: McpWriteCommandIdempotencyService,
     requestContext: RequestContextService,
     tenantContext: TenantContextService,
+    workshopBookingPackage: WorkshopBookingPackageService,
   ) {
     this.prisma = prisma;
     this.agentPolicy = agentPolicy;
@@ -118,6 +121,17 @@ export class McpWritePipelineService {
     this.commandIdempotency = commandIdempotency;
     this.requestContext = requestContext;
     this.tenantContext = tenantContext;
+    this.workshopBookingPackage = workshopBookingPackage;
+  }
+
+  private async normalizeWriteInput(
+    execution: McpWriteExecution,
+    input: unknown,
+  ): Promise<unknown> {
+    if (execution.toolName === 'propose_workshop_booking') {
+      return this.workshopBookingPackage.enrichInput(input);
+    }
+    return input;
   }
 
   /**
@@ -183,9 +197,10 @@ export class McpWritePipelineService {
     idempotencyMeta?: { command_id: string; args_fingerprint: string },
     claim?: McpWriteCommandClaim,
   ): Promise<McpWriteToolResult> {
+    const normalizedInput = await this.normalizeWriteInput(execution, input);
     const call: WriteCall = {
       execution,
-      input,
+      input: normalizedInput,
       context,
       actionType: logActionType(execution.toolName),
       inputSummary: { tool: execution.toolName, args: loggedInput },

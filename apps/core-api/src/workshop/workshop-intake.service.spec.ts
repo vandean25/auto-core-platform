@@ -24,6 +24,7 @@ import {
   WorkshopTaskStatus,
   workshopSiteProvider,
   workshopAuthorizedSiteProvider,
+  workshopPositionPlanProvider,
 } from './workshop.spec.support.js';
 
 describe('WorkshopIntakeService', () => {
@@ -58,6 +59,7 @@ describe('WorkshopIntakeService', () => {
           provide: WorkshopOrderReadyEmailService,
           useValue: { loadNoticeForOrder: jest.fn().mockResolvedValue(null) },
         },
+        workshopPositionPlanProvider,
       ],
     }).compile();
 

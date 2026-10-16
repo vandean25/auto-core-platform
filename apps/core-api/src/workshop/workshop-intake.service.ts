@@ -12,6 +12,7 @@ import { DomainEventStoreService } from '../domain-event-store/domain-event-stor
 import { normalizeWorkshopOrder } from './workshop-order.helpers.js';
 import { WorkshopScheduleService } from './workshop-schedule.service.js';
 import { WorkshopOrderReadyEmailService } from './workshop-order-ready-email.service.js';
+import { WorkshopPositionPlanService } from './workshop-position-plan.service.js';
 import {
   executeCreateWorkshopOrder,
   executeFindAllWorkshopOrders,
@@ -33,6 +34,7 @@ export class WorkshopIntakeService {
   private readonly domainEventStore: DomainEventStoreService;
   private readonly requestContext: RequestContextService;
   private readonly readyEmail: WorkshopOrderReadyEmailService;
+  private readonly positionPlan: WorkshopPositionPlanService;
 
   constructor(
     @Inject(PrismaService) prisma: PrismaService,
@@ -43,6 +45,7 @@ export class WorkshopIntakeService {
     domainEventStore: DomainEventStoreService,
     requestContext: RequestContextService,
     readyEmail: WorkshopOrderReadyEmailService,
+    positionPlan: WorkshopPositionPlanService,
   ) {
     this.prisma = prisma;
     this.tenantContext = tenantContext;
@@ -52,6 +55,7 @@ export class WorkshopIntakeService {
     this.domainEventStore = domainEventStore;
     this.requestContext = requestContext;
     this.readyEmail = readyEmail;
+    this.positionPlan = positionPlan;
   }
 
   private getServices(): WorkshopIntakeServices {
@@ -63,6 +67,7 @@ export class WorkshopIntakeService {
       partsRequisitionService: this.partsRequisitionService,
       domainEventStore: this.domainEventStore,
       requestContext: this.requestContext,
+      positionPlan: this.positionPlan,
     };
   }
 

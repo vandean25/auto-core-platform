@@ -21,6 +21,7 @@ import {
   workshopAuthorizedSiteProvider,
   workshopTenantProvider,
   workshopVehicleLedgerProvider,
+  workshopPositionPlanProvider,
   Prisma,
   WorkshopLineItemType,
   WorkshopOrderStatus,
@@ -42,6 +43,7 @@ describe('WorkshopTaskService', () => {
         workshopAuthorizedSiteProvider,
         workshopTenantProvider,
         workshopVehicleLedgerProvider,
+        workshopPositionPlanProvider,
         {
           provide: WorkshopScheduleService,
           useValue: { assertCanBook: jest.fn() },

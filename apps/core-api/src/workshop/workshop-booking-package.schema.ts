@@ -12,6 +12,34 @@ const optionalMcpCommandIdSchema = {
     .describe('Optional idempotency key for MCP write replay'),
 };
 
+const positionLineInputSchema = z
+  .object({
+    preset_key: z.string().min(1).optional(),
+    labor_operation_id: uuidSchema.optional(),
+    catalog_item_id: uuidSchema.optional(),
+    quantity_milli: z.number().int().positive().optional(),
+    reserve_part: z.boolean().optional(),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    const hasLabor = value.labor_operation_id !== undefined;
+    const hasPart = value.catalog_item_id !== undefined;
+    const hasPreset = value.preset_key !== undefined;
+    if (!hasLabor && !hasPart && !hasPreset) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'Each position line needs preset_key, labor_operation_id, or catalog_item_id',
+      });
+    }
+    if (hasLabor && hasPart) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'A position line cannot combine labor and catalog references',
+      });
+    }
+  });
+
 export const proposeWorkshopBookingInputSchema = z
   .object({
     customer_id: uuidSchema,
@@ -28,6 +56,7 @@ export const proposeWorkshopBookingInputSchema = z
     loaner_vehicle_id: uuidSchema.optional(),
     planned_from: isoInstantSchema.optional(),
     planned_to: isoInstantSchema.optional(),
+    position_lines: z.array(positionLineInputSchema).optional(),
     ...optionalMcpCommandIdSchema,
   })
   .strict()
@@ -187,7 +216,9 @@ export function normalizeWorkshopBookingPackage(
               plannedTo: value.planned_to,
             }
           : undefined,
-      positionPlanLineCount: 0,
+      positionPlanLineCount: Array.isArray(value.position_lines)
+        ? value.position_lines.length
+        : 0,
     };
   }
 

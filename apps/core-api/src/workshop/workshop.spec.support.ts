@@ -15,6 +15,7 @@ import { SiteContextService } from '../common/services/site-context.service.js';
 import { SiteContextService as AuthorizedSiteContextService } from '../site/site-context.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { VehicleLedgerService } from '../vehicle-stock/vehicle-ledger.service.js';
+import { WorkshopPositionPlanService } from './workshop-position-plan.service.js';
 
 export const mockPrisma = {
   financeSettings: {
@@ -213,6 +214,10 @@ export const workshopLedgerProvider = {
 export const workshopVehicleLedgerProvider = {
   provide: VehicleLedgerService,
   useValue: mockVehicleLedger,
+};
+export const workshopPositionPlanProvider = {
+  provide: WorkshopPositionPlanService,
+  useValue: { fulfillDeferredReservationsOnIntake: jest.fn() },
 };
 
 export {
