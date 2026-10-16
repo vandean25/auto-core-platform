@@ -10324,6 +10324,117 @@
         ]
       }
     },
+    "/api/vehicles/{id}/valuations": {
+      "get": {
+        "operationId": "VehicleController_listValuations",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/VehicleValuationResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List stored vehicle valuations (newest first)",
+        "tags": [
+          "Vehicle"
+        ]
+      },
+      "post": {
+        "operationId": "VehicleController_createValuation",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateVehicleValuationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleValuationResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleValuationErrorResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleValuationErrorResponseDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleValuationErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Request a market valuation snapshot",
+        "tags": [
+          "Vehicle"
+        ]
+      }
+    },
     "/api/vehicles/{id}": {
       "get": {
         "operationId": "VehicleController_findOne",
@@ -28082,6 +28193,223 @@
           "make",
           "model",
           "year"
+        ]
+      },
+      "VehicleValuationResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "QUOTED"
+            ]
+          },
+          "amount": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "EUR"
+            ]
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "EUROTAX_AT_AUTOVALUATION"
+            ]
+          },
+          "sourceState": {
+            "type": "string",
+            "enum": [
+              "KNOWN"
+            ]
+          },
+          "requestedAsOf": {
+            "type": "string"
+          },
+          "providerAsOf": {
+            "type": "string"
+          },
+          "asOfState": {
+            "type": "string",
+            "enum": [
+              "KNOWN"
+            ]
+          },
+          "referenceVersion": {
+            "type": "string"
+          },
+          "referenceVersionState": {
+            "type": "string",
+            "enum": [
+              "KNOWN"
+            ]
+          },
+          "contractVersion": {
+            "type": "string",
+            "example": "acp-valuation-contract-1"
+          },
+          "nativeId": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              null
+            ]
+          },
+          "nativeIdState": {
+            "type": "string",
+            "enum": [
+              "NATIVE_ID_UNKNOWN"
+            ]
+          },
+          "nationalCode": {
+            "type": "string"
+          },
+          "mileageKm": {
+            "type": "number"
+          },
+          "condition": {
+            "type": "string",
+            "enum": [
+              "ROADWORTHY_AVERAGE",
+              "POOR",
+              "NOT_ROADWORTHY"
+            ]
+          },
+          "stale": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "result",
+          "amount",
+          "currency",
+          "source",
+          "sourceState",
+          "requestedAsOf",
+          "providerAsOf",
+          "asOfState",
+          "referenceVersion",
+          "referenceVersionState",
+          "contractVersion",
+          "nativeId",
+          "nativeIdState",
+          "nationalCode",
+          "mileageKm",
+          "condition",
+          "stale",
+          "createdAt"
+        ]
+      },
+      "CreateVehicleValuationDto": {
+        "type": "object",
+        "properties": {
+          "valuationType": {
+            "type": "string",
+            "enum": [
+              "MARKET_VALUE"
+            ]
+          },
+          "mileageKm": {
+            "type": "object",
+            "minimum": 0,
+            "maximum": 999999
+          },
+          "condition": {
+            "type": "string",
+            "enum": [
+              "ROADWORTHY_AVERAGE",
+              "POOR",
+              "NOT_ROADWORTHY"
+            ]
+          },
+          "requestedAsOf": {
+            "type": "string",
+            "example": "2026-10-15"
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "EUR"
+            ]
+          }
+        },
+        "required": [
+          "valuationType",
+          "currency"
+        ]
+      },
+      "VehicleValuationErrorResponseDto": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "object",
+            "nullable": true
+          },
+          "currency": {
+            "type": "object",
+            "nullable": true
+          },
+          "source": {
+            "type": "object",
+            "nullable": true
+          },
+          "sourceState": {
+            "type": "string"
+          },
+          "requestedAsOf": {
+            "type": "string"
+          },
+          "providerAsOf": {
+            "type": "object",
+            "nullable": true
+          },
+          "asOfState": {
+            "type": "string"
+          },
+          "referenceVersion": {
+            "type": "object",
+            "nullable": true
+          },
+          "referenceVersionState": {
+            "type": "string"
+          },
+          "contractVersion": {
+            "type": "string"
+          },
+          "nativeId": {
+            "type": "string",
+            "nullable": true
+          },
+          "nativeIdState": {
+            "type": "string"
+          },
+          "missing": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "candidates": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "result"
         ]
       },
       "UpdateVehicleDto": {
