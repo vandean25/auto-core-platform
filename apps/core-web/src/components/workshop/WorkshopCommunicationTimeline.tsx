@@ -46,6 +46,21 @@ function estimateWording(version: number | null): EstimateWording {
   }
 }
 
+function describeReadyEmail(entry: WorkshopOrderCommunication): string {
+  switch (entry.status) {
+    case 'QUEUED':
+      return 'Die Abholbenachrichtigung wird per E-Mail versendet'
+    case 'SENT':
+      return 'Die Abholbenachrichtigung wurde per E-Mail gesendet'
+    case 'FAILED':
+      return 'Die Abholbenachrichtigung konnte nicht per E-Mail gesendet werden'
+    case 'SUPPRESSED':
+      return 'Die Abholbenachrichtigung wurde nicht per E-Mail gesendet'
+    default:
+      return 'Abholbenachrichtigung per E-Mail'
+  }
+}
+
 function describeEstimateEmail(entry: WorkshopOrderCommunication, wording: EstimateWording): string {
   switch (entry.status) {
     case 'QUEUED':
@@ -81,6 +96,8 @@ function describeOverrunNotice(entry: WorkshopOrderCommunication, wording: Estim
 export function describeCommunication(entry: WorkshopOrderCommunication): string {
   const wording = estimateWording(entry.version)
   switch (entry.kind) {
+    case 'READY_EMAIL':
+      return describeReadyEmail(entry)
     case 'ESTIMATE_EMAIL':
       return describeEstimateEmail(entry, wording)
     case 'ESTIMATE_APPROVAL':
@@ -93,7 +110,7 @@ export function describeCommunication(entry: WorkshopOrderCommunication): string
 }
 
 function TimelineIcon({ entry }: { entry: WorkshopOrderCommunication }) {
-  if (entry.kind === 'ESTIMATE_EMAIL') {
+  if (entry.kind === 'ESTIMATE_EMAIL' || entry.kind === 'READY_EMAIL') {
     return <Mail className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
   }
   if (entry.kind === 'OVERRUN_DETECTED' || entry.kind === 'OVERRUN_NOTIFICATION') {

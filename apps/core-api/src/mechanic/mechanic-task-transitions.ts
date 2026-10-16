@@ -171,6 +171,12 @@ export interface CompleteLaborAndTaskParams {
   orderId: string;
   openEntryId: string | null;
   allOtherTasksDone: boolean;
+  onOrderCompleted?: (
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    siteId: string,
+    orderId: string,
+  ) => Promise<void>;
 }
 
 /**
@@ -270,6 +276,9 @@ export async function completeLaborAndTask(
         orderId,
         params.siteId,
       );
+      if (params.onOrderCompleted) {
+        await params.onOrderCompleted(tx, tenantId, params.siteId, orderId);
+      }
     }
   }
 }

@@ -7,6 +7,7 @@ import { VehicleStockModule } from '../vehicle-stock/vehicle-stock.module.js';
 import { VoiceTranslationModule } from '../voice-translation/voice-translation.module.js';
 import { WorkshopInspectionService } from '../workshop/workshop-inspection.service.js';
 import { AgentProposalModule } from '../agent-proposal/agent-proposal.module.js';
+import { WorkshopModule } from '../workshop/workshop.module.js';
 import { MechanicFindingService } from './mechanic-finding.service.js';
 import { MechanicExecutionService } from './mechanic-execution.service.js';
 import { MechanicIdentityService } from './mechanic-identity.service.js';
@@ -27,6 +28,7 @@ import { RateLimitStore } from './rate-limit/rate-limit.store.js';
     VehicleStockModule,
     NotificationsModule,
     AgentProposalModule,
+    WorkshopModule,
   ],
   controllers: [MechanicController],
   providers: [

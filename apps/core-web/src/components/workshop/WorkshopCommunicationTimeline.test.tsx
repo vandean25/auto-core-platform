@@ -149,6 +149,10 @@ describe('describeCommunication', () => {
       entry({ kind: 'ESTIMATE_APPROVAL', channel: 'ADVISOR_RECORDED', decision: 'DECLINED', status: null }),
       'Die Ablehnung des Kostenvoranschlags (Version 1) wurde vom Berater erfasst',
     ],
+    [
+      entry({ kind: 'READY_EMAIL', status: 'SENT' }),
+      'Die Abholbenachrichtigung wurde per E-Mail gesendet',
+    ],
   ])('describes %j in German', (row, expected) => {
     expect(describeCommunication(row)).toBe(expected)
   })

@@ -10,6 +10,8 @@ import { WorkshopScheduleService } from './workshop-schedule.service.js';
 import { WorkshopTaskService } from './workshop-task.service.js';
 import { PartsRequisitionService } from '../parts-requisition/parts-requisition.service.js';
 import { DomainEventStoreService } from '../domain-event-store/domain-event-store.service.js';
+import { NotificationCloudTasksService } from '../notifications/notification-cloud-tasks.service.js';
+import { WorkshopOrderReadyEmailService } from './workshop-order-ready-email.service.js';
 import { RequestContextService } from '../common/services/request-context.service.js';
 import {
   mockPrisma,
@@ -55,6 +57,14 @@ describe('WorkshopTaskService', () => {
         {
           provide: RequestContextService,
           useValue: { getTraceId: jest.fn() },
+        },
+        {
+          provide: WorkshopOrderReadyEmailService,
+          useValue: { onOrderCompletedInTx: jest.fn().mockResolvedValue(null) },
+        },
+        {
+          provide: NotificationCloudTasksService,
+          useValue: { enqueueWakeUp: jest.fn() },
         },
       ],
     }).compile();
