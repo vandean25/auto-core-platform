@@ -1,6 +1,8 @@
 import type { CatalogueManifest } from './inspection-catalog.types.js';
 
 export const STATUTORY_MANIFEST_REFERENCE = 'ACP-RIS-Anl6-258-2022-subset';
+export const STATUTORY_MANIFEST_REFERENCE_ALT =
+  'ACP-RIS-Anl6-258-2022-subset-rev-b';
 export const TEST_ONLY_MANIFEST_REFERENCE = 'TEST_ONLY_CATALOGUE';
 export const APPROVED_CATALOGUE_MANIFEST_REFERENCE = 'APPROVED_CATALOGUE';
 
@@ -31,6 +33,20 @@ export const SYNTHETIC_STATUTORY_MANIFEST: CatalogueManifest = {
   ],
 };
 
+export const SYNTHETIC_STATUTORY_MANIFEST_ALT: CatalogueManifest = {
+  ...SYNTHETIC_STATUTORY_MANIFEST,
+  source_version: STATUTORY_MANIFEST_REFERENCE_ALT,
+  positions: [
+    {
+      position_id: '0.2',
+      entry_id: null,
+      label: 'SYNTH overlapping statutory position',
+      allowed_groups: [],
+      vehicle_scope: 'REQUIRES_SOURCE_REVIEW',
+    },
+  ],
+};
+
 export const SYNTHETIC_TEST_ONLY_MANIFEST: CatalogueManifest = {
   ...SYNTHETIC_STATUTORY_MANIFEST,
   source_kind: 'TEST_ONLY',
@@ -48,6 +64,7 @@ export const SYNTHETIC_TEST_ONLY_MANIFEST: CatalogueManifest = {
 
 const manifestByReference = new Map<string, CatalogueManifest>([
   [STATUTORY_MANIFEST_REFERENCE, SYNTHETIC_STATUTORY_MANIFEST],
+  [STATUTORY_MANIFEST_REFERENCE_ALT, SYNTHETIC_STATUTORY_MANIFEST_ALT],
   [TEST_ONLY_MANIFEST_REFERENCE, SYNTHETIC_TEST_ONLY_MANIFEST],
 ]);
 

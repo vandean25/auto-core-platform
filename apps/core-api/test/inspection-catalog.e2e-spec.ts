@@ -17,7 +17,7 @@ import {
 import { teardownTestApp } from './test-lifecycle.js';
 import {
   STATUTORY_MANIFEST_REFERENCE,
-  TEST_ONLY_MANIFEST_REFERENCE,
+  STATUTORY_MANIFEST_REFERENCE_ALT,
 } from '../src/inspection-catalog/inspection-catalog-synthetic-fixtures.js';
 
 describe('Inspection catalogue (e2e)', () => {
@@ -227,7 +227,7 @@ describe('Inspection catalogue (e2e)', () => {
     await ensureActivatedCatalogue();
 
     const overlapPreview = await previewCatalogue(
-      TEST_ONLY_MANIFEST_REFERENCE,
+      STATUTORY_MANIFEST_REFERENCE_ALT,
     ).expect(201);
     expect(overlapPreview.body.state).toBe('CONFLICT');
     expect(overlapPreview.body.error_code).toBe('SOURCE_CONFLICT');
