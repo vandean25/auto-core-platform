@@ -380,7 +380,7 @@ describe('MechanicTaskDetailPage', () => {
       await waitFor(() => expect(submitMock).toHaveBeenCalled())
       expect(submitMock.mock.calls[0]?.[0]).toMatchObject({
         taskId: TASK_ID,
-        payload: expect.objectContaining({ command_id: expect.any(String) }),
+        payload: { command_id: expect.any(String) },
       })
       expect(toast.success).toHaveBeenCalledWith('Finding sent to the service advisor')
     })

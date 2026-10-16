@@ -2,10 +2,10 @@ import { useRef } from 'react'
 import { toast } from 'sonner'
 import { useSubmitMechanicFinding as useSubmitMechanicFindingMutation } from '@/api/mechanic'
 import { generateId } from '@/lib/id'
+import { getErrorMessage } from '@/lib/error-utils'
 
 type UseSubmitMechanicFindingOptions = {
   taskId: string
-  mediaIds: string[]
   disabled: boolean
   hasNotes: boolean
   flushAndSaveNotes: () => Promise<void>
@@ -13,7 +13,6 @@ type UseSubmitMechanicFindingOptions = {
 
 export function useSubmitMechanicFinding({
   taskId,
-  mediaIds,
   disabled,
   hasNotes,
   flushAndSaveNotes,
@@ -25,7 +24,13 @@ export function useSubmitMechanicFinding({
 
   const submit = async () => {
     if (!canSubmit) return
-    await flushAndSaveNotes()
+    try {
+      await flushAndSaveNotes()
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Could not save diagnostic notes'))
+      return
+    }
+
     if (!commandIdRef.current) {
       commandIdRef.current = generateId()
     }
@@ -35,13 +40,12 @@ export function useSubmitMechanicFinding({
         taskId,
         payload: {
           command_id: commandId,
-          media_ids: mediaIds.length > 0 ? mediaIds : undefined,
         },
       })
       commandIdRef.current = null
       toast.success('Finding sent to the service advisor')
-    } catch {
-      // Keep commandIdRef for a safe retry with the same idempotency key.
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Could not send finding to the advisor'))
     }
   }
 

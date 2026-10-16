@@ -53,7 +53,6 @@ export function MechanicTaskDetailView({
   const partRequest = useRequestPartForm(task.taskId);
   const submitFinding = useSubmitMechanicFinding({
     taskId: task.taskId,
-    mediaIds: mediaUpload.uploadedMediaIds,
     disabled: capabilities.isDone,
     hasNotes: diagnostics.notesValue.trim().length > 0,
     flushAndSaveNotes: diagnostics.flushAndSaveNotes,
