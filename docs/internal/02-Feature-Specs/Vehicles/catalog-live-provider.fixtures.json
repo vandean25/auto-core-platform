@@ -106,8 +106,8 @@
             "getArticleIdsWithState": {
               "articleCountry": "AT",
               "assemblyGroupNodeId": null,
-              "brandNo": { "array": [9001] },
-              "genericArticleId": { "array": [900669] },
+              "brandNo": [9001],
+              "genericArticleId": [900669],
               "lang": "de",
               "linkingTargetId": 900000042,
               "linkingTargetType": "P",
@@ -244,8 +244,10 @@
         "oemNumbers": ["SYN-OE-001"],
         "genericArticleId": 900669,
         "genericArticleName": "Synthetic product group",
+        "brandNo": 9001,
         "dataVersion": "00/0000",
         "articleLinkId": "900000002",
+        "carId": 900000042,
         "linkingTargetId": "900000042",
         "linkingTargetType": "P",
         "synthetic": false,
@@ -450,7 +452,7 @@
         {
           "externalId": "900000031",
           "sourceSystem": "tecdoc",
-          "name": "Synthetic brake pad",
+          "name": "SYN-LINK-001",
           "articleNumber": "SYN-LINK-001",
           "brandLabel": "Synthetic Brand",
           "unitPrice": null,
@@ -565,7 +567,9 @@
         {
           "externalId": "900000051",
           "sourceSystem": "tecdoc",
+          "name": "Synthetic multi-ean pad",
           "articleNumber": "SYN-EAN-001",
+          "brandLabel": "Synthetic Brand",
           "ean": null,
           "oemNumbers": [],
           "unitPrice": null,
@@ -607,10 +611,10 @@
     {
       "id": "auth-failure",
       "acpOutcome": "auth-failure",
+      "transportNote": "Body status 401 is documented. The HTTP status that carries it is not. Do not treat HTTP 200 as a TecDoc fact.",
       "calls": [
         {
           "function": "getPegasusVersionInfo2",
-          "httpStatus": 200,
           "response": {
             "status": 401,
             "statusText": null
@@ -643,10 +647,10 @@
     {
       "id": "too-many-results",
       "acpOutcome": "too-many-results",
+      "transportNote": "Body status 413 is documented. The HTTP status that carries it is not. Do not treat HTTP 200 as a TecDoc fact.",
       "calls": [
         {
           "function": "getArticleIdsWithState",
-          "httpStatus": 200,
           "response": {
             "status": 413,
             "statusText": null,
@@ -663,10 +667,10 @@
     {
       "id": "timeout",
       "acpOutcome": "timeout",
+      "transportNote": "Body status 402 is documented. The HTTP status that carries it is not. Do not treat HTTP 200 as a TecDoc fact.",
       "calls": [
         {
           "function": "getArticleDirectSearchAllNumbersWithState",
-          "httpStatus": 200,
           "response": {
             "status": 402,
             "statusText": null,
@@ -699,10 +703,10 @@
     {
       "id": "invalid-request",
       "acpOutcome": "provider-rejected",
+      "transportNote": "Body status 400 is documented. The HTTP status that carries it is not. Do not treat HTTP 200 as a TecDoc fact.",
       "calls": [
         {
           "function": "getArticleIdsWithState",
-          "httpStatus": 200,
           "response": {
             "status": 400,
             "statusText": null

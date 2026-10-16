@@ -21,7 +21,7 @@ The contract is TecAlliance **TecDoc Web Service**, interface **TecdocToCat**, p
 
 This document is the AUT-525 deliverable. It does not buy a provider seat, open a network connection, scrape a catalogue, or ship product code. AUT-534 is the implementation issue and stays blocked until this spec is accepted. Local contract tests load the fixture file and wait on no TecAlliance contact.
 
-The folder for this spec is `docs/internal/02-Feature-Specs/Vehicles/`. New vehicle specs landed there on 2026-10-15 and 2026-10-16 (Zulassungsschein intake, NoVA, nationalcode valuation). The August 2026 catalog spec remains at `docs/internal/02-Feature-Specs/Vehicle/2026-08-28-vehicle-intelligence-and-parts-catalog.md`. This document links to it and does not move it.
+AUT-525 names the path `docs/internal/02-Feature-Specs/Vehicle/catalog-live-provider.md`. This file is `docs/internal/02-Feature-Specs/Vehicles/catalog-live-provider.md` on purpose. Vehicle specs committed on 2026-10-15 and 2026-10-16 use `Vehicles/`. The August catalog spec stays at `docs/internal/02-Feature-Specs/Vehicle/2026-08-28-vehicle-intelligence-and-parts-catalog.md` and is linked below. There is no second copy under `Vehicle/`. AUT-534 and the Linear issue open this `Vehicles/` path.
 
 No new ADR. [ADR-0021](../../01-ADR/2026-08-28-vehicle-intelligence-catalog-providers.md) already split parts and labour into ports and left TecDoc as a commercial aftermarket adapter. This spec names the contract that fills the parts port. It adds no entity, status machine, or ledger path.
 
@@ -45,11 +45,11 @@ No new ADR. [ADR-0021](../../01-ADR/2026-08-28-vehicle-intelligence-catalog-prov
 | The aftermarket parts sandbox returns one row with `sourceSystem: "tecdoc"`, `externalId` prefixed `tecdoc-`, brand label `Bosch`, a fixed `unitPrice` of `79.99`, and EAN `4012345678901`. | `sandbox-aftermarket-parts.provider.ts` |
 | The aftermarket labour sandbox returns `sourceSystem: "haynes"` and a fixed `standardAw`. It is not TecDoc and not TecRMI. | `sandbox-aftermarket-labor.provider.ts` |
 | External search is `GET /api/catalog/external/search`. Parts hits expose `unitPrice` as a required number. `costPriceEst`, `ean`, `unit`, `fitmentNotes`, and `oemNumbers` are optional. | `catalog-external-search.dto.ts` |
-| Add-to-order rejects a parts hit whose `unitPrice` or `articleNumber` is missing (`Incomplete catalog hit token`). JIT upserts `CatalogItem` on `(tenant_id, source_system, external_article_id)` and writes no stock ledger row. | `workshop-catalog-line.service.ts`, ADR-0021 |
+| Add-to-order verifies `CatalogHitPayload` and does not call the provider again. Claims today are tenant, order, vehicle, task, concern, `sourceSystem`, `externalId`, `jti`, `exp`, `name`, and optional article number, price, brand, EAN, unit, fitment notes, cost, OE numbers, and labour fields. `canonicalString` signs that set. There is no `articleLinkId`, `brandNo`, `genericArticleId`, `genericArticleName`, `dataVersion`, `carId`, or `linkingTargetType`. A parts claim with a missing `unitPrice` or `articleNumber` fails `assertCompleteClaims`. JIT upserts `CatalogItem` on `(tenant_id, source_system, external_article_id)` and does not write `CatalogItem.specs`. | `catalog-hit-payload.ts`, `workshop-catalog-line.service.ts`, ADR-0021 |
 | `identity_keys` is JSON on `Vehicle`. The sandbox identity provider writes `{ vin }`. It does not write a TecDoc car id. | `vehicle-identity.provider.ts`, `schema.prisma` |
 | `CatalogProviderSettings` stores aftermarket adapter ids and secret refs. It has no country or language column. | `schema.prisma` |
 | Estimate customer-send blockers are `ZERO_UNIT_PRICE` and `CLAIMED_FITMENT`. `CLAIMED_FITMENT` is raised when `fitment_notes` is non-empty. Send throws `422` with `code` `ESTIMATE_CUSTOMER_SEND_BLOCKED` and a `blockers` array. There is no fitment `Verified` status. | `workshop-estimate-lines.helpers.ts`, `workshop-estimate.service.ts` |
-| `GlobalExceptionFilter` forwards `code` only when it is in `CLIENT_SAFE_HTTP_ERROR_CODES`. `ESTIMATE_CUSTOMER_SEND_BLOCKED` is not in that set, so production drops `code` and `blockers`. The thrown message still names zero-price and claimed-fitment lines. | `client-safe-http-error-codes.ts`, `global-exception.filter.ts` |
+| `GlobalExceptionFilter` forwards `code` only when it is in `CLIENT_SAFE_HTTP_ERROR_CODES`. `pickClientSafeHttpErrorDetails` then copies keys listed in `CLIENT_SAFE_HTTP_ERROR_DETAIL_KEYS`, and only when the value is a string. That map has no `blockers` entry. `ESTIMATE_CUSTOMER_SEND_BLOCKED` is not in the code set. Production therefore drops `code` and the `blockers` array. Allowlisting the code keeps `code` and the message. It does not keep `blockers`, because that value is an array of objects. | `client-safe-http-error-codes.ts`, `global-exception.filter.ts` |
 | Catalog e2e expects aftermarket `sourceSystem` to be `tecdoc`. | `apps/core-api/test/catalog-external.e2e-spec.ts` |
 | Direct aftermarket search does not catch `CatalogProviderError`. The OEM chain catches it and can fall through to aftermarket. | `catalog-router.service.ts` |
 
@@ -67,6 +67,7 @@ No new ADR. [ADR-0021](../../01-ADR/2026-08-28-vehicle-intelligence-catalog-prov
 8. **The live adapter is default-off.** Adapter id `tecdoc-pegasus-3-0-parts` is invoked only when `CATALOG_TECDOC_PARTS_ENABLED` is `true` and the tenant secret has provider id, API key, `articleCountry`, and `lang`. Otherwise the call is not made. The id does not contain the substring `aftermarket`, because today’s composite routes that substring to the sandbox.
 9. **Sandbox rows are visibly synthetic.** The follow-up changes the parts sandbox to `sourceSystem: "sandbox-tecdoc"`, names that start with `Synthetic `, and article numbers that start with `SYN-`. `synthetic` is true. Those rows fail the live-fitment predicate below. Existing sandbox rows whose `external_article_id` starts with `tecdoc-` also fail it, because a live id is a decimal `articleId`.
 10. **No catalogue cache in Postgres.** Search stays ephemeral, as in ADR-0021. An in-process cache may keep a fixture-shaped response for at most the existing hit-token TTL of 15 minutes, keyed by provider id, country, language, `dataVersion`, `carId`, linking type, and the exact article number. Process exit drops it. TecDoc payloads are not inserted into `CatalogItem` until Add to order, and Add to order of a priceless or ambiguous hit is refused.
+11. **`specs.tecdoc` comes from the signed hit token.** Add-to-order does not call TecDoc again. The follow-up adds these claims to `CatalogHitPayloadClaims` and to `canonicalString`: `articleLinkId`, `brandNo`, `genericArticleId`, `genericArticleName`, `dataVersion`, `carId`, `linkingTargetType`, `synthetic`, and `linkageOutcome`. A live unique parts hit signs all of them. JIT reads `specs.tecdoc` from the verified claims and from nowhere else. `assertCompleteClaims` still requires a non-null `unitPrice`, so a unique hit with a null price is shown and then refused at add. That refusal writes no `specs`. When a priced hit is added later, the same claim fields are the only legal source.
 
 ---
 
@@ -112,7 +113,9 @@ The TecDoc status page lists Web Service regions AWS `EU-Central-1`, `US-West-2`
 
 The public status table is: `200` OK, `400` invalid request, `401` request not authorized, `402` timeout, `405` method not allowed, `413` too many results, `500` internal error. No requests-per-minute figure is published. `413` is “Too many results found”. It is not a rate limit. HTTP `429`, with or without a body, is the rate-limit fixture. The adapter makes one attempt and returns `PROVIDER_RATE_LIMIT`. It does not invent a `Retry-After` delay.
 
-`402` and a transport timeout are both `PROVIDER_TIMEOUT`. `401` is `PROVIDER_UNAUTHORIZED`. `400`, `405`, and `500` are `PROVIDER_REJECTED`. `413` is `PROVIDER_TOO_MANY_RESULTS`. Each of these returns no hits. A `413` is not treated as “no such article”. Partial arrays are not returned as unique fitment.
+The method JSON puts `status` on the JSON body (“Status code in HTML to lean on”). It does not say the HTTP status stays 200 while that body field is 401, 402, 413, or 400. The info-site client continues only on HTTP 2xx (`$http` success in `pegasus-3-0/info/src/implementation/backend.js`). This slice maps the body `status` when the transport status is 2xx. It maps a non-2xx transport status with the same table. It does not record HTTP 200 as a TecDoc fact. Fixture cases `auth-failure`, `timeout`, `too-many-results`, and `invalid-request` therefore omit transport HTTP status.
+
+`402` on a 2xx body, and a transport timeout, are both `PROVIDER_TIMEOUT`. Body or transport `401` is `PROVIDER_UNAUTHORIZED`. Body or transport `400`, `405`, and `500` are `PROVIDER_REJECTED`. Body or transport `413` is `PROVIDER_TOO_MANY_RESULTS`. Each of these returns no hits. A `413` is not treated as “no such article”. Partial arrays are not returned as unique fitment. HTTP 429 is an ACP transport case. It is not a published TecDoc status.
 
 These failures on the aftermarket path stay failures. Today a `CatalogProviderError` during direct aftermarket search is uncaught. The follow-up throws the HTTP statuses in the API table and does not convert them into a 200 with an empty success list. Empty success is only TecDoc `status` 200 with `data.empty` true, or a 200 id list that does not contain the requested `articleId`. The follow-up adds each new `code` to `CLIENT_SAFE_HTTP_ERROR_CODES`, because a code outside that set is removed in production.
 
@@ -128,6 +131,8 @@ Live use needs a TecAlliance TecDoc Web Service licence whose provider id is all
 
 The adapter is enabled only after the tenant secret exists and a recorded note names the licence holder as the pilot customer’s contracting party, the provider id (not the key), the country, and whether prices are included. Price inclusion does not by itself map integers onto `unitPrice`; the scale is still unmapped. Local tests use `providerId: 0` and `apiKey: "REDACTED"` from the fixture file.
 
+A stored TecDoc car id is a separate live prerequisite. This parts adapter only reads `identity_keys.TECDOC.carId` and `identity_keys.TECDOC.linkingTargetType`. The sandbox identity provider writes `{ vin }` and nothing under `TECDOC`. VIN decode is out of scope, so this slice has no writer for that object. Before the flag can return a hit, a later identity adapter or an explicit manual update must store `carId` as a positive integer and `linkingTargetType` as `P` on the vehicle. With the flag on and no stored car id, every current vehicle is `WRONG_VEHICLE_KEY`.
+
 ---
 
 ## Call sequence
@@ -140,8 +145,8 @@ Configured secret fields: `providerId`, `articleCountry`, `lang`. Stored vehicle
 4. `getArticleDirectSearchAllNumbersWithState` with `articleNumber` = query, `numberType` 0, `searchExact` true, `sortType` 1 (documented sort “1: Brand”). Omit `brandId` and `genericArticleId`. Keep rows with `numberType` 0.
 5. Zero kept rows, or `data.empty` true: no match.
 6. More than one distinct `articleId`: ambiguous. Do not call detail. Do not add to order. The listed rows use the direct-search `articleName`, `articleNo`, and `brandName`, with null price, null EAN, and `linkageOutcome: "ambiguous"`.
-7. One `articleId`: `getArticleIdsWithState` with `linkingTargetId` = `carId`, `linkingTargetType` `P`, `sort` 1, and `brandNo` / `genericArticleId` from that row. The JSON object definition types those two as `IntegerList` (`{ array: number[] }`), and `articleIdPairs` as `{ array: [{ articleId, articleLinkId }] }` with a documented maximum of 25. Keep state rows with the same `articleId`.
-8. Zero kept state rows: no match. More than one `articleLinkId`: ambiguous, no detail call.
+7. One `articleId`: `getArticleIdsWithState` with `linkingTargetId` = `carId`, `linkingTargetType` `P`, `sort` 1, and `brandNo` / `genericArticleId` from that row. The method JSON names those two fields `IntegerList` and does not give a JSON shape. The sample client `pegasus-3-0/info/src/implementation/backend.js` wraps a list only where it builds the POST body: `getDirectArticlesByIds6Internal` sets `articleId` to `{ array: chunk }`, and `getAssignedArticlesByIds6Internal` does the same for `articleIdPairs` after the caller passed an array (maximum 25, `splitParamList`). `getArticleIdsWithStateInternal` forwards `brandNo` and `genericArticleId` unchanged and does not add that wrap. The `hit` fixture therefore sends those two fields as JSON arrays. AUT-534 must not wrap them again. `articleIdPairs` on the detail call uses `{ array: [{ articleId, articleLinkId }] }` because that is the POST body the `*6` client sends. `getAssignedArticlesByIds7` is not in that 2015 client file. The JSON object definition `TecdocToCatDLB.html` writes the same `ArticleIdPairSeq` shape and `IntegerList = { array : array of NUMBER }`. That HTML file is not the method JSON, and it is not what `getArticleIdsWithStateInternal` applies to `brandNo`. Keep state rows with the same `articleId`.
+8. Zero kept state rows: no match. More than one `articleLinkId`: ambiguous, no detail call. `getArticleIdsWithState` has no `articleName`. The hit `name` is `articleNo` from that response.
 9. One pair, and the pair count is within the documented maximum of 25: `getAssignedArticlesByIds7` with that `articleId` and `articleLinkId`, the same linking target, and the flags in the `hit` fixture (`prices` and `normalAustauschPrice` false; `basicData`, `eanNumbers`, `oeNumbers`, `attributs`, and `immediateAttributs` true; other include flags false).
 10. Detail status other than 200: the status map. One detail record that passes the unique-linkage rules: one `CatalogPartsHit`. Otherwise ambiguous and no add-to-order.
 
@@ -165,7 +170,7 @@ Public text is quoted from the method JSON or the functions guide read on 2026-1
 | `articleId` | Article ID | `externalId`, `CatalogItem.external_article_id` | Decimal string. |
 | `articleLinkId` | Article link id | hit `articleLinkId`, `CatalogItem.specs.tecdoc.articleLinkId` | Not the upsert key. |
 | `articleNo` | Article number | `articleNumber` | Direct. |
-| `articleName` | Article name | `name` | Direct. `articleAddName` is unmapped. |
+| `articleName` | Article name | `name` | Direct when the response includes it. `getArticleIdsWithState` has no `articleName`, so that hit’s `name` is `articleNo`. `articleAddName` is unmapped. |
 | `brandName` / `brandNo` | Brand name / brand number | `brandLabel`; `specs.tecdoc.brandNo` | Name is the label. Number is specs only. |
 | `genericArticleId` | Generic article ID | hit `genericArticleId`, `specs.tecdoc.genericArticleId` | Product group id. No `CatalogPartsHit` product-group column exists today. |
 | `genericArticleName` | Generic article name | hit `genericArticleName`, `specs.tecdoc.genericArticleName` | Not copied into `name`. |
@@ -181,7 +186,7 @@ Public text is quoted from the method JSON or the functions guide read on 2026-1
 | Labour / AW | Not a TecdocToCat field | `standardAw`, `plannedHours` | Unset. TecRMI is a separate product. |
 | Stock, lead time | Not a TecdocToCat search field | none | Unmapped. TecdocToBusiness is out of scope. |
 
-`CatalogItem.specs` is existing JSON. The follow-up writes `specs.tecdoc` only inside the existing JIT upsert, and only for a unique, non-synthetic hit that the advisor adds. Search itself writes nothing.
+`CatalogItem.specs` is existing JSON. Search writes nothing. JIT writes `specs.tecdoc` only when add-to-order accepts a unique, non-synthetic, priced hit, and only from the verified claims: `articleId` (the `externalId`), `articleLinkId`, `brandNo`, `genericArticleId`, `genericArticleName`, `dataVersion`, `carId`, and `linkingTargetType`. A null `unitPrice` still fails `assertCompleteClaims`, so that hit never reaches the upsert.
 
 ---
 
@@ -211,7 +216,7 @@ A parts line is eligible for a live fitment outcome only when all of these hold:
 
 Sandbox output fails this predicate. `sourceSystem` `sandbox-tecdoc`, `synthetic: true`, and the current sandbox id prefix `tecdoc-` are each enough. The follow-up adds estimate blocker `SYNTHETIC_CATALOG` for a line whose catalog source is `sandbox-tecdoc` or whose external id still has the sandbox prefix `tecdoc-`. That blocker is separate from `CLAIMED_FITMENT`, which stays tied to non-empty `fitment_notes`. This adapter writes `fitmentNotes` null, so a live unique hit does not trip `CLAIMED_FITMENT`.
 
-There is no `Verified` enum in the estimate API today. The predicate is the rule a later verified status has to use. Until that status exists, sandbox rows still cannot pass it. A synthetic line is a send blocker `SYNTHETIC_CATALOG` on the existing `422` `ESTIMATE_CUSTOMER_SEND_BLOCKED`. The follow-up extends that exception’s message so it names synthetic catalog lines, and it allowlists `ESTIMATE_CUSTOMER_SEND_BLOCKED` so production keeps `code` and the `blockers` array.
+There is no `Verified` enum in the estimate API today. The predicate is the rule a later verified status has to use. Until that status exists, sandbox rows still cannot pass it. A synthetic line is a send blocker `SYNTHETIC_CATALOG` inside the existing `422` `ESTIMATE_CUSTOMER_SEND_BLOCKED`. The follow-up extends that exception’s message so it names synthetic catalog lines. It adds `ESTIMATE_CUSTOMER_SEND_BLOCKED` to `CLIENT_SAFE_HTTP_ERROR_CODES`, which keeps `code` and the message. It also changes `pickClientSafeHttpErrorDetails` so this one code forwards `blockers`. Each element is an object whose `code`, `source_line_id`, `item_no`, and `description` are strings. The current helper copies only string detail keys, so listing `blockers` in `CLIENT_SAFE_HTTP_ERROR_DETAIL_KEYS` would still drop the array. `SYNTHETIC_CATALOG` is carried on that array. Allowlisting it alone does not surface it.
 
 ---
 
@@ -239,8 +244,8 @@ A later labour spec has to pin a TecRMI version the same way this document pins 
 
 | Table | Change | Migration Required? |
 |---|---|---|
-| `CatalogItem.specs` | On JIT of a unique live hit, write `tecdoc.articleId`, `articleLinkId`, `brandNo`, `genericArticleId`, `genericArticleName`, `dataVersion`, `carId`, `linkingTargetType` | No. Existing JSON. |
-| `Vehicle.identity_keys` | A future identity adapter may store `TECDOC.carId` and `TECDOC.linkingTargetType`. This parts adapter only reads them | No write in this slice. |
+| `CatalogItem.specs` | On JIT of a unique priced live hit, write `tecdoc` from the verified hit-token claims listed in decision 11 | No. Existing JSON. No provider re-query. |
+| `Vehicle.identity_keys` | Not written here. A later identity adapter or a manual update stores `TECDOC.carId` and `TECDOC.linkingTargetType` before the flag can return a hit | No write in this slice. |
 
 ### Deletion Policy Impact
 
@@ -278,7 +283,7 @@ This docs change does not modify HTTP. The follow-up does.
 |---|---|---|
 | GET | `/api/catalog/external/search` | Parts items gain nullable `unitPrice` and optional `genericArticleId`, `genericArticleName`, `dataVersion`, `articleLinkId`, `synthetic`, `linkageOutcome`. Labour items are unchanged. No-match and ambiguous results stay HTTP 200. `WRONG_VEHICLE_KEY` is HTTP 422. `PROVIDER_UNAUTHORIZED`, `PROVIDER_TOO_MANY_RESULTS`, and `PROVIDER_REJECTED` are HTTP 502. `PROVIDER_RATE_LIMIT` is HTTP 429. `PROVIDER_TIMEOUT` is HTTP 504. Each of those codes is added to `CLIENT_SAFE_HTTP_ERROR_CODES`. |
 | POST | `/api/workshop/orders/:id/tasks/:taskId/lines/from-catalog` | Unique live hit with null `unitPrice` keeps today’s rejection. Ambiguous hit returns `422` `AMBIGUOUS_LINKAGE`, also allowlisted. |
-| POST | existing estimate customer send | Blocker enum gains `SYNTHETIC_CATALOG`. The HTTP code stays `ESTIMATE_CUSTOMER_SEND_BLOCKED`. That code is allowlisted, and `blockers` is forwarded. |
+| POST | existing estimate customer send | Blocker enum gains `SYNTHETIC_CATALOG`. The HTTP code stays `ESTIMATE_CUSTOMER_SEND_BLOCKED`. That code is allowlisted. The filter is changed so this code’s `blockers` array is forwarded. Each blocker keeps string `code`, `source_line_id`, `item_no`, and `description`. |
 
 ### OpenAPI Regeneration
 
@@ -322,10 +327,11 @@ AUT-534 implements this slice and nothing wider. Suggested issue text:
 - Change `SandboxAftermarketPartsCatalogProvider` to the `sandbox-parts` fixture shape. Update `catalog-external.e2e-spec.ts` so aftermarket `sourceSystem` is `sandbox-tecdoc` and the name starts with `Synthetic `. That replaces the current `tecdoc` expectation; it does not delete the assertion.
 - Leave `SandboxAftermarketLaborCatalogProvider` on `haynes`. Do not add a TecDoc labour method.
 - Map `unitPrice` null through the search DTO. Keep the add-to-order rejection for a missing price.
-- Write `specs.tecdoc` only on JIT of a unique live hit.
-- Add blocker `SYNTHETIC_CATALOG` on the existing `422` `ESTIMATE_CUSTOMER_SEND_BLOCKED`, allowlist that code, forward `blockers`, and test that a `sandbox-tecdoc` line cannot be sent.
+- Extend `CatalogHitPayloadClaims` and `canonicalString` with `articleLinkId`, `brandNo`, `genericArticleId`, `genericArticleName`, `dataVersion`, `carId`, `linkingTargetType`, `synthetic`, and `linkageOutcome`. JIT copies `specs.tecdoc` from those verified claims. It does not call TecDoc on add.
+- Add blocker `SYNTHETIC_CATALOG` on the existing `422` `ESTIMATE_CUSTOMER_SEND_BLOCKED`, allowlist that code, and change the filter so the `blockers` array survives. Test that a `sandbox-tecdoc` line cannot be sent.
+- Send `getArticleIdsWithState` `brandNo` and `genericArticleId` as JSON arrays, matching `getArticleIdsWithStateInternal`, which does not wrap them. Wrap `articleIdPairs` as `{ array: [...] }` on the detail POST, matching `getAssignedArticlesByIds6Internal`.
 
-**Still required before any environment sets the flag:** a TecDoc Web Service licence, provider id, API key, static address allowlist, `articleCountry`, `lang`, and a written note that prices are either absent or still unmapped. The flag ships default off. No deploy and no provider call are part of AUT-534’s definition of done.
+**Still required before any environment sets the flag:** a TecDoc Web Service licence, provider id, API key, static address allowlist, `articleCountry`, `lang`, a written note that prices are either absent or still unmapped, and a stored `identity_keys.TECDOC` car id (`carId` plus `linkingTargetType` `P`) written by a later identity adapter or by a manual update. This parts adapter does not write that key. The flag ships default off. No deploy and no provider call are part of AUT-534’s definition of done.
 
 ---
 
@@ -360,6 +366,8 @@ These are unmapped on purpose.
 | Requests per minute | Not published | One attempt; HTTP 429 is rate limit |
 | Hostname region | Status page lists three AWS regions; the endpoint has no region field | Call the pinned host only |
 | `statusText` wording | “Error text if status > 200” | Ignore the text |
+| HTTP status beside body `status` | Method JSON documents body `status` only. The sample client reads a body after HTTP 2xx. It does not say body 401/402/413/400 arrives as HTTP 200 | Map body `status` on transport 2xx. Map a non-2xx transport status with the same table. Do not assume HTTP 200 |
+| `IntegerList` JSON shape on `getArticleIdsWithState` | Method JSON says the type name only. `TecdocToCatDLB.html` writes `{ array }`. `getArticleIdsWithStateInternal` does not apply that wrap | Send a JSON array for `brandNo` and `genericArticleId`. Do not wrap it again |
 | TecRMI operation code and AW unit | Product page names labour times; no function schema on the TecDoc info site | No labour call |
 
 ---
