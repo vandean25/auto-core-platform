@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { CustomerConsentModule } from '../customer-consent/customer-consent.module.js';
 import { NotificationCloudTasksService } from './notification-cloud-tasks.service.js';
 import { NotificationOutboxService } from './notification-outbox.service.js';
 
@@ -8,6 +9,7 @@ import { NotificationOutboxService } from './notification-outbox.service.js';
  * worker route and the sweeps, so they stay out of every domain module's import graph.
  */
 @Module({
+  imports: [CustomerConsentModule],
   providers: [NotificationOutboxService, NotificationCloudTasksService],
   exports: [NotificationOutboxService, NotificationCloudTasksService],
 })

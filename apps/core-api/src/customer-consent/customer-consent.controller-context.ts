@@ -6,6 +6,7 @@ import {
 import type { Prisma } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { TenantContextService } from '../common/services/tenant-context.service.js';
+import { isApiKeyPrincipal } from '../auth/types/authenticated-user.js';
 
 const BLOCKED_ROLES = new Set(['TECH', 'DEMO']);
 
@@ -14,7 +15,9 @@ export async function assertConsentLedgerAccess(
 ): Promise<void> {
   const user = tenantContext.getAuthenticatedUser();
   if (!user?.role || BLOCKED_ROLES.has(user.role)) {
-    throw new ForbiddenException('Consent ledger access is not allowed for this role.');
+    throw new ForbiddenException(
+      'Consent ledger access is not allowed for this role.',
+    );
   }
 }
 
@@ -66,3 +69,62 @@ export async function assertCustomerInTenant(
 export type CommunicationStateRow = Prisma.CustomerCommunicationStateGetPayload<{
   select: { id: true; revision: true; processing_status: true };
 }>;
+
+/**
+ * Ensures the authenticated principal has an active site membership for the controller legal entity.
+ * Returns the tenant member id for ledger actor_member_id.
+ */
+export async function resolveConsentActorMemberId(
+  prisma: PrismaService,
+  tenantContext: TenantContextService,
+  tenantId: string,
+  controllerLegalEntityId: string,
+): Promise<string | null> {
+  const authUser = tenantContext.getAuthenticatedUser();
+  if (!authUser?.userId) {
+    return null;
+  }
+  if (isApiKeyPrincipal(authUser)) {
+    return null;
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { firebaseUid: authUser.userId },
+    select: { id: true },
+  });
+  if (!user) {
+    throw new ForbiddenException(
+      'Active site membership is required for this controller.',
+    );
+  }
+
+  const member = await prisma.tenantMember.findFirst({
+    where: { tenant_id: tenantId, user_id: user.id, is_active: true },
+    select: { id: true },
+  });
+  if (!member) {
+    throw new ForbiddenException(
+      'Active site membership is required for this controller.',
+    );
+  }
+
+  const siteGrant = await prisma.siteMembership.findFirst({
+    where: {
+      tenant_id: tenantId,
+      user_id: user.id,
+      is_active: true,
+      site: {
+        is_active: true,
+        legal_entity_id: controllerLegalEntityId,
+      },
+    },
+    select: { id: true },
+  });
+  if (!siteGrant) {
+    throw new ForbiddenException(
+      'Active site membership is required for this controller.',
+    );
+  }
+
+  return member.id;
+}

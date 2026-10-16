@@ -2,7 +2,8 @@
   "consent": {
     "tab": "Contact preferences",
     "title": "Contact preferences",
-    "description": "Marketing and transactional contact choices for the pilot customer (per controller).",
+    "description": "Marketing and transactional contact choices for this customer (per controller).",
+    "controller": "Controller",
     "channel": "Channel",
     "purpose": "Purpose",
     "status": "Effective status",
@@ -10,12 +11,20 @@
     "yes": "Yes",
     "no": "No",
     "historyTitle": "Consent history",
+    "recorded": "Recorded",
     "recordGrant": "Record marketing consent",
     "recordRevoke": "Withdraw marketing",
-    "softOptIn": "Record soft opt-in",
     "saved": "Consent recorded",
     "failed": "Could not record consent",
     "emptyHistory": "No consent events yet.",
-    "revision": "State revision"
+    "revision": "State revision",
+    "textRequired": "Enter the consent wording shown to the customer.",
+    "textVersion": "Text version",
+    "textShown": "Consent wording shown to the customer",
+    "grantDialogTitle": "Record marketing consent",
+    "revokeDialogTitle": "Withdraw marketing consent",
+    "confirmGrant": "Confirm and record",
+    "confirmRevoke": "Confirm withdrawal",
+    "cancel": "Cancel"
   }
 }

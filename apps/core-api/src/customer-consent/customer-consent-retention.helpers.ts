@@ -1,25 +1,33 @@
-/** AUT-374 default: keep consent proof until withdrawal/unsubscribe + 3 calendar years (leap day clamps). */
-export const CUSTOMER_CONSENT_PROOF_RETENTION_YEARS = 3;
+import type { CustomerConsentChannel, CustomerConsentPurpose, Prisma } from '@prisma/client';
+import { consentProofRetainUntil } from './customer-consent-retention-core.helpers.js';
 
-export function addCalendarYearsPreservingDate(
-  anchor: Date,
-  years: number,
-): Date {
-  const month = anchor.getUTCMonth();
-  const day = anchor.getUTCDate();
-  const result = new Date(anchor.getTime());
-  result.setUTCFullYear(result.getUTCFullYear() + years);
-  if (result.getUTCMonth() !== month) {
-    result.setUTCDate(0);
-  } else {
-    result.setUTCDate(day);
-  }
-  return result;
-}
+export {
+  addCalendarYearsPreservingDate,
+  consentProofRetainUntil,
+  CUSTOMER_CONSENT_PROOF_RETENTION_YEARS,
+} from './customer-consent-retention-core.helpers.js';
 
-export function consentProofRetainUntil(cessationAt: Date): Date {
-  return addCalendarYearsPreservingDate(
-    cessationAt,
-    CUSTOMER_CONSENT_PROOF_RETENTION_YEARS,
-  );
+export async function stampProofChainRetainUntil(
+  tx: Prisma.TransactionClient,
+  params: {
+    tenantId: string;
+    controllerLegalEntityId: string;
+    customerId: string;
+    channel: CustomerConsentChannel;
+    purposes: CustomerConsentPurpose[];
+    cessationAt: Date;
+  },
+): Promise<void> {
+  const retainUntil = consentProofRetainUntil(params.cessationAt);
+  await tx.customerConsent.updateMany({
+    where: {
+      tenant_id: params.tenantId,
+      controller_legal_entity_id: params.controllerLegalEntityId,
+      customer_id: params.customerId,
+      channel: params.channel,
+      purpose: { in: params.purposes },
+      legal_hold: false,
+    },
+    data: { retain_until: retainUntil },
+  });
 }

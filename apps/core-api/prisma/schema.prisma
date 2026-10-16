@@ -1501,8 +1501,13 @@ enum CustomerType {
 }
 
 enum CustomerConsentPurpose {
-  TRANSACTIONAL
-  MARKETING
+  ORDER_COMMUNICATION
+  INVOICE_DELIVERY
+  PICKERL_REMINDER
+  SERVICE_REMINDER
+  REVIEW_REQUEST
+  SEASONAL_OFFERS
+  NEWSLETTER
 }
 
 enum CustomerConsentChannel {
@@ -1585,6 +1590,7 @@ model Customer {
   contact_points           CustomerContactPoint[]
   consent_events           CustomerConsent[]
   communication_states     CustomerCommunicationState[]
+  consent_unsubscribe_tokens CustomerConsentUnsubscribeToken[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1602,7 +1608,7 @@ model CustomerContactPoint {
   customer_id         String
   customer            Customer                       @relation(fields: [tenant_id, customer_id], references: [tenant_id, id], onDelete: Restrict)
   channel             CustomerConsentChannel
-  normalized_address  String
+  encrypted_address   String
   address_fingerprint String
   is_current          Boolean                        @default(true)
   transport_validity  CustomerContactTransportValidity @default(UNKNOWN)
@@ -1667,7 +1673,8 @@ model CustomerConsent {
   created_at               DateTime               @default(now())
 
   @@unique([tenant_id, id])
-  @@unique([tenant_id, idempotency_key])
+  @@unique([tenant_id, controller_legal_entity_id, customer_id, idempotency_key], map: "customer_consents_tnt_ctrl_cust_idem_key")
+  @@unique([tenant_id, controller_legal_entity_id, customer_id, channel, purpose, sequence], map: "customer_consents_tnt_ctrl_cust_ch_purpose_seq")
   @@index([tenant_id, customer_id, controller_legal_entity_id, channel, purpose, sequence])
   @@index([tenant_id, retain_until, legal_hold])
   @@map("customer_consents")
@@ -1680,6 +1687,7 @@ model CustomerConsentUnsubscribeToken {
   controller_legal_entity_id String
   controller_legal_entity  LegalEntity            @relation(fields: [tenant_id, controller_legal_entity_id], references: [tenant_id, id], onDelete: Restrict)
   customer_id              String
+  customer                 Customer               @relation(fields: [tenant_id, customer_id], references: [tenant_id, id], onDelete: Restrict)
   channel                  CustomerConsentChannel
   contact_fingerprint      String
   token_sha256             String

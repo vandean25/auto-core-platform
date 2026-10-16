@@ -1,7 +1,7 @@
 import {
   addCalendarYearsPreservingDate,
   consentProofRetainUntil,
-} from './customer-consent-retention.helpers.js';
+} from './customer-consent-retention-core.helpers.js';
 
 describe('consent proof retention', () => {
   it('adds three calendar years on a normal date', () => {

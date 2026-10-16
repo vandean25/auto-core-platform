@@ -9,7 +9,7 @@ import {
   type Customer,
   type CustomerConsentChannel,
   type CustomerConsentPurpose,
-  type Prisma,
+  Prisma,
 } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { AuditService } from '../audit/audit.service.js';
@@ -18,23 +18,30 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import { TenantContextStorage } from '../common/services/tenant-context.storage.js';
 import {
+  decryptContactAddress,
+  encryptContactAddress,
   fingerprintContactAddress,
   normalizeContactAddress,
-} from './customer-consent-contact-point.js';
+} from './customer-consent-address-crypto.js';
 import {
   assertCustomerInTenant,
+  resolveConsentActorMemberId,
   resolveControllerLegalEntityId,
 } from './customer-consent.controller-context.js';
 import { canContact, type LedgerEventSlice } from './customer-consent.permissions.js';
+import {
+  ALL_CONSENT_PURPOSES,
+  MARKETING_CONSENT_PURPOSES,
+} from './customer-consent.purposes.js';
 import { consentProofRetainUntil } from './customer-consent-retention.helpers.js';
+import { stampProofChainRetainUntil } from './customer-consent-retention.helpers.js';
 import {
   hashUnsubscribeToken,
   mintUnsubscribeToken,
 } from './customer-consent-token.helpers.js';
 import type { RecordCommunicationEventDto } from './dto/customer-consent.dto.js';
 
-const CHANNELS: CustomerConsentChannel[] = ['EMAIL', 'SMS', 'PHONE', 'POST'];
-const PURPOSES: CustomerConsentPurpose[] = ['TRANSACTIONAL', 'MARKETING'];
+const PREFERENCE_CHANNELS: CustomerConsentChannel[] = ['EMAIL', 'SMS'];
 
 @Injectable()
 export class CustomerConsentService {
@@ -56,25 +63,43 @@ export class CustomerConsentService {
       tenantId,
       controllerLegalEntityId,
     );
+    await resolveConsentActorMemberId(
+      this.prisma,
+      this.tenantContext,
+      tenantId,
+      controllerId,
+    );
+
+    const controller = await this.prisma.legalEntity.findFirst({
+      where: { tenant_id: tenantId, id: controllerId },
+      select: { id: true, name: true },
+    });
 
     const state = await this.ensureCommunicationState(
       tenantId,
       controllerId,
       customerId,
     );
+    const customer = await this.prisma.customer.findFirst({
+      where: { tenant_id: tenantId, id: customerId },
+      select: { contact_email_ok: true },
+    });
     const events = await this.loadLedgerSlices(
       tenantId,
       customerId,
       controllerId,
     );
 
-    const preferences = CHANNELS.flatMap((channel) =>
-      PURPOSES.map((purpose) => {
+    const preferences = ALL_CONSENT_PURPOSES.flatMap((purpose) =>
+      PREFERENCE_CHANNELS.map((channel) => {
         const decision = canContact({
           purpose,
           channel,
           events,
           processingRestricted: state.processing_status !== 'ACTIVE',
+          transactionalProjection: {
+            orderEmailConfirmed: customer?.contact_email_ok ?? false,
+          },
         });
         const latest = events
           .filter(
@@ -94,6 +119,7 @@ export class CustomerConsentService {
     return {
       customer_id: customerId,
       controller_legal_entity_id: controllerId,
+      controller_legal_entity_name: controller?.name ?? null,
       revision: state.revision,
       processing_status: state.processing_status,
       preferences,
@@ -112,6 +138,12 @@ export class CustomerConsentService {
       this.prisma,
       tenantId,
       controllerLegalEntityId,
+    );
+    await resolveConsentActorMemberId(
+      this.prisma,
+      this.tenantContext,
+      tenantId,
+      controllerId,
     );
 
     const where: Prisma.CustomerConsentWhereInput = {
@@ -152,10 +184,18 @@ export class CustomerConsentService {
       tenantId,
       dto.controller_legal_entity_id,
     );
+    const actorMemberId = await resolveConsentActorMemberId(
+      this.prisma,
+      this.tenantContext,
+      tenantId,
+      controllerId,
+    );
 
     const existing = await this.prisma.customerConsent.findFirst({
       where: {
         tenant_id: tenantId,
+        controller_legal_entity_id: controllerId,
+        customer_id: customerId,
         idempotency_key: dto.idempotency_key,
       },
     });
@@ -173,97 +213,140 @@ export class CustomerConsentService {
       };
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const state = await this.lockCommunicationState(
-        tx,
-        tenantId,
-        controllerId,
-        customerId,
-      );
-      if (state.revision !== dto.expected_revision) {
-        throw new ConflictException('Stale communication state revision.');
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const state = await this.lockCommunicationState(
+          tx,
+          tenantId,
+          controllerId,
+          customerId,
+        );
+        if (state.revision !== dto.expected_revision) {
+          throw new ConflictException('Stale communication state revision.');
+        }
+
+        const customer = await tx.customer.findFirst({
+          where: { tenant_id: tenantId, id: customerId },
+        });
+        if (!customer) {
+          throw new NotFoundException('Customer not found.');
+        }
+
+        const contactPoint = await this.resolveContactPoint(
+          tx,
+          tenantId,
+          customer,
+          dto.channel,
+          dto.contact_address,
+        );
+
+        const lastSequence = await tx.customerConsent.findFirst({
+          where: {
+            tenant_id: tenantId,
+            customer_id: customerId,
+            controller_legal_entity_id: controllerId,
+            channel: dto.channel,
+            purpose: dto.purpose,
+          },
+          orderBy: { sequence: 'desc' },
+          select: { sequence: true },
+        });
+        const sequence = (lastSequence?.sequence ?? 0) + 1;
+        const serverNow = new Date();
+        const occurredAt = dto.occurred_at
+          ? new Date(dto.occurred_at)
+          : serverNow;
+        const isRevocation = dto.status === 'REVOKED';
+
+        const created = await tx.customerConsent.create({
+          data: {
+            id: randomUUID(),
+            tenant_id: tenantId,
+            controller_legal_entity_id: controllerId,
+            customer_id: customerId,
+            contact_point_id: contactPoint?.id ?? null,
+            channel: dto.channel,
+            purpose: dto.purpose,
+            status: dto.status,
+            basis: dto.basis ?? null,
+            sequence,
+            occurred_at: occurredAt,
+            source: dto.source,
+            actor_member_id: actorMemberId,
+            text_version: dto.text_version ?? null,
+            text_language: dto.text_language ?? null,
+            text_snapshot: dto.text_snapshot ?? null,
+            evidence: (dto.evidence ?? undefined) as
+              | Prisma.InputJsonValue
+              | undefined,
+            revoked_at: isRevocation ? serverNow : null,
+            idempotency_key: dto.idempotency_key,
+            retain_until: null,
+          },
+        });
+
+        if (isRevocation) {
+          await stampProofChainRetainUntil(tx, {
+            tenantId,
+            controllerLegalEntityId: controllerId,
+            customerId,
+            channel: dto.channel,
+            purposes: [dto.purpose],
+            cessationAt: serverNow,
+          });
+        }
+
+        const nextRevision = state.revision + 1;
+        await tx.customerCommunicationState.update({
+          where: { id: state.id },
+          data: { revision: nextRevision },
+        });
+
+        await this.auditService.recordTenantMutation(
+          {
+            entityType: 'CustomerConsent',
+            entityId: created.id,
+            action: AuditLogAction.CREATE,
+            after: this.toEventSummary(created),
+            source: 'customer-consent.recordCommunicationEvent',
+          },
+          tx,
+        );
+
+        return {
+          ...this.toEventSummary(created),
+          revision: nextRevision,
+        };
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        const replay = await this.prisma.customerConsent.findFirst({
+          where: {
+            tenant_id: tenantId,
+            controller_legal_entity_id: controllerId,
+            customer_id: customerId,
+            idempotency_key: dto.idempotency_key,
+          },
+        });
+        if (replay) {
+          const state = await this.prisma.customerCommunicationState.findFirst({
+            where: {
+              tenant_id: tenantId,
+              controller_legal_entity_id: controllerId,
+              customer_id: customerId,
+            },
+          });
+          return {
+            ...this.toEventSummary(replay),
+            revision: state?.revision ?? 0,
+          };
+        }
       }
-
-      const customer = await tx.customer.findFirst({
-        where: { tenant_id: tenantId, id: customerId },
-      });
-      if (!customer) {
-        throw new NotFoundException('Customer not found.');
-      }
-
-      const contactPoint = await this.resolveContactPoint(
-        tx,
-        tenantId,
-        customer,
-        dto.channel,
-        dto.contact_address,
-      );
-
-      const lastSequence = await tx.customerConsent.findFirst({
-        where: {
-          tenant_id: tenantId,
-          customer_id: customerId,
-          controller_legal_entity_id: controllerId,
-          channel: dto.channel,
-          purpose: dto.purpose,
-        },
-        orderBy: { sequence: 'desc' },
-        select: { sequence: true },
-      });
-      const sequence = (lastSequence?.sequence ?? 0) + 1;
-      const occurredAt = dto.occurred_at
-        ? new Date(dto.occurred_at)
-        : new Date();
-      const isRevocation = dto.status === 'REVOKED';
-      const retainUntil = isRevocation
-        ? consentProofRetainUntil(occurredAt)
-        : null;
-
-      const created = await tx.customerConsent.create({
-        data: {
-          id: randomUUID(),
-          tenant_id: tenantId,
-          controller_legal_entity_id: controllerId,
-          customer_id: customerId,
-          contact_point_id: contactPoint?.id ?? null,
-          channel: dto.channel,
-          purpose: dto.purpose,
-          status: dto.status,
-          basis: dto.basis ?? null,
-          sequence,
-          occurred_at: occurredAt,
-          source: dto.source,
-          text_version: dto.text_version ?? null,
-          text_snapshot: dto.text_snapshot ?? null,
-          evidence: (dto.evidence ?? undefined) as Prisma.InputJsonValue | undefined,
-          revoked_at: isRevocation ? occurredAt : null,
-          idempotency_key: dto.idempotency_key,
-          retain_until: retainUntil,
-        },
-      });
-
-      const nextRevision = state.revision + 1;
-      await tx.customerCommunicationState.update({
-        where: { id: state.id },
-        data: { revision: nextRevision },
-      });
-
-      await this.auditService.recordTenantMutation(
-        {
-          entityType: 'CustomerConsent',
-          entityId: created.id,
-          action: AuditLogAction.CREATE,
-          after: this.toEventSummary(created),
-          source: 'customer-consent.recordCommunicationEvent',
-        },
-        tx,
-      );
-
-      return {
-        ...this.toEventSummary(created),
-        revision: nextRevision,
-      };
-    });
+      throw error;
+    }
   }
 
   async mintMarketingUnsubscribeToken(params: {
@@ -300,6 +383,11 @@ export class CustomerConsentService {
       return;
     }
 
+    const now = new Date();
+    if (tokenRow.retain_until < now) {
+      return;
+    }
+
     await TenantContextStorage.run(async () => {
       TenantContextStorage.setUser({
         userId: 'public-consent-unsubscribe',
@@ -308,83 +396,112 @@ export class CustomerConsentService {
         role: 'SYSTEM',
       });
 
-      await this.prisma.$transaction(async (tx) => {
-      if (!tokenRow.used_at) {
-        await tx.customerConsentUnsubscribeToken.update({
-          where: { id: tokenRow.id },
-          data: { used_at: new Date() },
+      try {
+        await this.prisma.$transaction(async (tx) => {
+          const idempotencyKey = `unsubscribe:${tokenHash}`;
+          const existing = await tx.customerConsent.findFirst({
+            where: {
+              tenant_id: tokenRow.tenant_id,
+              controller_legal_entity_id: tokenRow.controller_legal_entity_id,
+              customer_id: tokenRow.customer_id,
+              idempotency_key: idempotencyKey,
+            },
+          });
+          if (existing) {
+            if (!tokenRow.used_at) {
+              await tx.customerConsentUnsubscribeToken.updateMany({
+                where: { id: tokenRow.id, used_at: null },
+                data: { used_at: now },
+              });
+            }
+            return;
+          }
+
+          if (!tokenRow.used_at) {
+            await tx.customerConsentUnsubscribeToken.updateMany({
+              where: { id: tokenRow.id, used_at: null },
+              data: { used_at: now },
+            });
+          }
+
+          const state = await this.lockCommunicationState(
+            tx,
+            tokenRow.tenant_id,
+            tokenRow.controller_legal_entity_id,
+            tokenRow.customer_id,
+          );
+
+          for (const purpose of MARKETING_CONSENT_PURPOSES) {
+            const lastSequence = await tx.customerConsent.findFirst({
+              where: {
+                tenant_id: tokenRow.tenant_id,
+                customer_id: tokenRow.customer_id,
+                controller_legal_entity_id: tokenRow.controller_legal_entity_id,
+                channel: tokenRow.channel,
+                purpose,
+              },
+              orderBy: { sequence: 'desc' },
+              select: { sequence: true },
+            });
+            const sequence = (lastSequence?.sequence ?? 0) + 1;
+            const created = await tx.customerConsent.create({
+              data: {
+                id: randomUUID(),
+                tenant_id: tokenRow.tenant_id,
+                controller_legal_entity_id: tokenRow.controller_legal_entity_id,
+                customer_id: tokenRow.customer_id,
+                channel: tokenRow.channel,
+                purpose,
+                status: 'REVOKED',
+                sequence,
+                occurred_at: now,
+                source: 'UNSUBSCRIBE',
+                revoked_at: now,
+                idempotency_key:
+                  purpose === 'NEWSLETTER' ? idempotencyKey : `${idempotencyKey}:${purpose}`,
+                retain_until: null,
+                evidence: {
+                  contact_fingerprint: tokenRow.contact_fingerprint,
+                },
+              },
+            });
+
+            await this.auditService.recordTenantMutation(
+              {
+                entityType: 'CustomerConsent',
+                entityId: created.id,
+                action: AuditLogAction.CREATE,
+                actorType: AuditActorType.SYSTEM,
+                after: this.toEventSummary(created),
+                source: 'customer-consent.publicUnsubscribe',
+              },
+              tx,
+            );
+          }
+
+          await stampProofChainRetainUntil(tx, {
+            tenantId: tokenRow.tenant_id,
+            controllerLegalEntityId: tokenRow.controller_legal_entity_id,
+            customerId: tokenRow.customer_id,
+            channel: tokenRow.channel,
+            purposes: [...MARKETING_CONSENT_PURPOSES],
+            cessationAt: now,
+          });
+
+          await tx.customerCommunicationState.update({
+            where: { id: state.id },
+            data: { revision: state.revision + 1 },
+          });
         });
+      } catch (error) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002'
+        ) {
+          return;
+        }
+        throw error;
       }
-
-      const state = await this.lockCommunicationState(
-        tx,
-        tokenRow.tenant_id,
-        tokenRow.controller_legal_entity_id,
-        tokenRow.customer_id,
-      );
-
-      const idempotencyKey = `unsubscribe:${tokenHash}`;
-      const existing = await tx.customerConsent.findFirst({
-        where: {
-          tenant_id: tokenRow.tenant_id,
-          idempotency_key: idempotencyKey,
-        },
-      });
-      if (existing) {
-        return;
-      }
-
-      const lastSequence = await tx.customerConsent.findFirst({
-        where: {
-          tenant_id: tokenRow.tenant_id,
-          customer_id: tokenRow.customer_id,
-          controller_legal_entity_id: tokenRow.controller_legal_entity_id,
-          channel: tokenRow.channel,
-          purpose: 'MARKETING',
-        },
-        orderBy: { sequence: 'desc' },
-        select: { sequence: true },
-      });
-      const sequence = (lastSequence?.sequence ?? 0) + 1;
-      const now = new Date();
-      const created = await tx.customerConsent.create({
-        data: {
-          id: randomUUID(),
-          tenant_id: tokenRow.tenant_id,
-          controller_legal_entity_id: tokenRow.controller_legal_entity_id,
-          customer_id: tokenRow.customer_id,
-          channel: tokenRow.channel,
-          purpose: 'MARKETING',
-          status: 'REVOKED',
-          sequence,
-          occurred_at: now,
-          source: 'UNSUBSCRIBE',
-          revoked_at: now,
-          idempotency_key: idempotencyKey,
-          retain_until: consentProofRetainUntil(now),
-          evidence: {
-            contact_fingerprint: tokenRow.contact_fingerprint,
-          },
-        },
-      });
-
-      await tx.customerCommunicationState.update({
-        where: { id: state.id },
-        data: { revision: state.revision + 1 },
-      });
-
-      await this.auditService.recordTenantMutation(
-        {
-          entityType: 'CustomerConsent',
-          entityId: created.id,
-          action: AuditLogAction.CREATE,
-          actorType: AuditActorType.SYSTEM,
-          after: this.toEventSummary(created),
-          source: 'customer-consent.publicUnsubscribe',
-        },
-        tx,
-      );
-      });
     });
   }
 
@@ -405,6 +522,10 @@ export class CustomerConsentService {
       controllerId,
       customerId,
     );
+    const customer = await this.prisma.customer.findFirst({
+      where: { tenant_id: tenantId, id: customerId },
+      select: { contact_email_ok: true },
+    });
     const events = await this.loadLedgerSlices(
       tenantId,
       customerId,
@@ -415,6 +536,9 @@ export class CustomerConsentService {
       channel,
       events,
       processingRestricted: state.processing_status !== 'ACTIVE',
+      transactionalProjection: {
+        orderEmailConfirmed: customer?.contact_email_ok ?? false,
+      },
     });
   }
 
@@ -434,9 +558,16 @@ export class CustomerConsentService {
         channel: true,
         status: true,
         sequence: true,
+        evidence: true,
       },
     });
-    return rows;
+    return rows.map((row) => ({
+      purpose: row.purpose,
+      channel: row.channel,
+      status: row.status,
+      sequence: row.sequence,
+      evidence: row.evidence as LedgerEventSlice['evidence'],
+    }));
   }
 
   private async ensureCommunicationState(
@@ -465,6 +596,41 @@ export class CustomerConsentService {
   }
 
   private async lockCommunicationState(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    controllerId: string,
+    customerId: string,
+  ) {
+    await this.ensureCommunicationStateInTx(
+      tx,
+      tenantId,
+      controllerId,
+      customerId,
+    );
+    const locked = await tx.$queryRaw<
+      Array<{
+        id: string;
+        revision: number;
+        processing_status: Prisma.CustomerCommunicationStateGetPayload<object>['processing_status'];
+      }>
+    >(
+      Prisma.sql`
+        SELECT id, revision, processing_status
+        FROM customer_communication_states
+        WHERE tenant_id = ${tenantId}
+          AND controller_legal_entity_id = ${controllerId}
+          AND customer_id = ${customerId}
+        FOR UPDATE
+      `,
+    );
+    const row = locked[0];
+    if (!row) {
+      throw new NotFoundException('Communication state not found.');
+    }
+    return row;
+  }
+
+  private async ensureCommunicationStateInTx(
     tx: Prisma.TransactionClient,
     tenantId: string,
     controllerId: string,
@@ -508,7 +674,12 @@ export class CustomerConsentService {
       return null;
     }
     const normalized = normalizeContactAddress(channel, raw);
-    const fingerprint = fingerprintContactAddress(channel, normalized);
+    const fingerprint = fingerprintContactAddress(
+      tenantId,
+      channel,
+      normalized,
+    );
+    const encrypted = encryptContactAddress(normalized);
     const existing = await tx.customerContactPoint.findFirst({
       where: {
         tenant_id: tenantId,
@@ -530,7 +701,7 @@ export class CustomerConsentService {
         });
         return tx.customerContactPoint.update({
           where: { id: existing.id },
-          data: { is_current: true },
+          data: { is_current: true, encrypted_address: encrypted },
         });
       }
       return existing;
@@ -552,11 +723,16 @@ export class CustomerConsentService {
         tenant_id: tenantId,
         customer_id: customer.id,
         channel,
-        normalized_address: normalized,
+        encrypted_address: encrypted,
         address_fingerprint: fingerprint,
         is_current: true,
       },
     });
+  }
+
+  /** Decrypts a stored contact point for authorised staff display (masked in API later). */
+  decryptStoredAddress(encrypted: string): string {
+    return decryptContactAddress(encrypted);
   }
 
   private toEventSummary(row: {

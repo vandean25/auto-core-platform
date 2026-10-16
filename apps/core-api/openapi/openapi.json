@@ -18892,8 +18892,13 @@
           "purpose": {
             "type": "string",
             "enum": [
-              "TRANSACTIONAL",
-              "MARKETING"
+              "ORDER_COMMUNICATION",
+              "INVOICE_DELIVERY",
+              "PICKERL_REMINDER",
+              "SERVICE_REMINDER",
+              "REVIEW_REQUEST",
+              "SEASONAL_OFFERS",
+              "NEWSLETTER"
             ]
           },
           "effective_status": {
@@ -18930,6 +18935,10 @@
           "controller_legal_entity_id": {
             "type": "string",
             "format": "uuid"
+          },
+          "controller_legal_entity_name": {
+            "type": "object",
+            "nullable": true
           },
           "revision": {
             "type": "number"
@@ -18977,8 +18986,13 @@
           "purpose": {
             "type": "string",
             "enum": [
-              "TRANSACTIONAL",
-              "MARKETING"
+              "ORDER_COMMUNICATION",
+              "INVOICE_DELIVERY",
+              "PICKERL_REMINDER",
+              "SERVICE_REMINDER",
+              "REVIEW_REQUEST",
+              "SEASONAL_OFFERS",
+              "NEWSLETTER"
             ]
           },
           "status": {
@@ -19080,8 +19094,13 @@
           "purpose": {
             "type": "string",
             "enum": [
-              "TRANSACTIONAL",
-              "MARKETING"
+              "ORDER_COMMUNICATION",
+              "INVOICE_DELIVERY",
+              "PICKERL_REMINDER",
+              "SERVICE_REMINDER",
+              "REVIEW_REQUEST",
+              "SEASONAL_OFFERS",
+              "NEWSLETTER"
             ]
           },
           "status": {
@@ -19123,6 +19142,10 @@
           "text_version": {
             "type": "string"
           },
+          "text_language": {
+            "type": "string",
+            "example": "de"
+          },
           "text_snapshot": {
             "type": "string"
           },
@@ -19159,8 +19182,13 @@
           "purpose": {
             "type": "string",
             "enum": [
-              "TRANSACTIONAL",
-              "MARKETING"
+              "ORDER_COMMUNICATION",
+              "INVOICE_DELIVERY",
+              "PICKERL_REMINDER",
+              "SERVICE_REMINDER",
+              "REVIEW_REQUEST",
+              "SEASONAL_OFFERS",
+              "NEWSLETTER"
             ]
           },
           "status": {

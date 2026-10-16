@@ -206,6 +206,7 @@ VALUES
   ('customer_communication_states', 'customers', 'tenant_id,customer_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('customer_communication_states', 'legal_entities', 'tenant_id,controller_legal_entity_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('customer_communication_states', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('customer_consent_unsubscribe_tokens', 'customers', 'tenant_id,customer_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('customer_consent_unsubscribe_tokens', 'legal_entities', 'tenant_id,controller_legal_entity_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('customer_consent_unsubscribe_tokens', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('customer_consents', 'customer_contact_points', 'tenant_id,contact_point_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),

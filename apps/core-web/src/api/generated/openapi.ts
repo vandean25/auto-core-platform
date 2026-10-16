@@ -5781,7 +5781,7 @@ export interface components {
             /** @enum {string} */
             channel: "EMAIL" | "SMS" | "PHONE" | "POST";
             /** @enum {string} */
-            purpose: "TRANSACTIONAL" | "MARKETING";
+            purpose: "ORDER_COMMUNICATION" | "INVOICE_DELIVERY" | "PICKERL_REMINDER" | "SERVICE_REMINDER" | "REVIEW_REQUEST" | "SEASONAL_OFFERS" | "NEWSLETTER";
             /** @enum {string|null} */
             effective_status: "GRANTED" | "REVOKED" | "SOFT_OPT_IN" | null;
             allowed: boolean;
@@ -5792,6 +5792,7 @@ export interface components {
             customer_id: string;
             /** Format: uuid */
             controller_legal_entity_id: string;
+            controller_legal_entity_name?: Record<string, never> | null;
             revision: number;
             /** @enum {string} */
             processing_status: "ACTIVE" | "RESTRICTED" | "ERASURE_PENDING" | "TOMBSTONED";
@@ -5803,7 +5804,7 @@ export interface components {
             /** @enum {string} */
             channel: "EMAIL" | "SMS" | "PHONE" | "POST";
             /** @enum {string} */
-            purpose: "TRANSACTIONAL" | "MARKETING";
+            purpose: "ORDER_COMMUNICATION" | "INVOICE_DELIVERY" | "PICKERL_REMINDER" | "SERVICE_REMINDER" | "REVIEW_REQUEST" | "SEASONAL_OFFERS" | "NEWSLETTER";
             /** @enum {string} */
             status: "GRANTED" | "REVOKED" | "SOFT_OPT_IN";
             /** @enum {string|null} */
@@ -5827,7 +5828,7 @@ export interface components {
             /** @enum {string} */
             channel: "EMAIL" | "SMS" | "PHONE" | "POST";
             /** @enum {string} */
-            purpose: "TRANSACTIONAL" | "MARKETING";
+            purpose: "ORDER_COMMUNICATION" | "INVOICE_DELIVERY" | "PICKERL_REMINDER" | "SERVICE_REMINDER" | "REVIEW_REQUEST" | "SEASONAL_OFFERS" | "NEWSLETTER";
             /** @enum {string} */
             status: "GRANTED" | "REVOKED" | "SOFT_OPT_IN";
             /** @enum {string} */
@@ -5837,6 +5838,8 @@ export interface components {
             contact_address?: string;
             occurred_at?: string;
             text_version?: string;
+            /** @example de */
+            text_language?: string;
             text_snapshot?: string;
             evidence?: {
                 [key: string]: unknown;
@@ -5848,7 +5851,7 @@ export interface components {
             /** @enum {string} */
             channel: "EMAIL" | "SMS" | "PHONE" | "POST";
             /** @enum {string} */
-            purpose: "TRANSACTIONAL" | "MARKETING";
+            purpose: "ORDER_COMMUNICATION" | "INVOICE_DELIVERY" | "PICKERL_REMINDER" | "SERVICE_REMINDER" | "REVIEW_REQUEST" | "SEASONAL_OFFERS" | "NEWSLETTER";
             /** @enum {string} */
             status: "GRANTED" | "REVOKED" | "SOFT_OPT_IN";
             /** @enum {string|null} */

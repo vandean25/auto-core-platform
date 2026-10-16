@@ -28,6 +28,8 @@ describe('Customer consent ledger (e2e)', () => {
   let controllerId: string;
 
   beforeAll(async () => {
+    process.env.SECRET_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64');
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -58,7 +60,7 @@ describe('Customer consent ledger (e2e)', () => {
 
     const customer = await prisma.customer.create({
       data: {
-        first_name: 'Pilot',
+        first_name: 'Sample',
         last_name: 'Customer',
         email: `aut589-${Date.now()}@example.com`,
         type: 'PRIVATE',
@@ -94,7 +96,7 @@ describe('Customer consent ledger (e2e)', () => {
 
     const marketingBefore = prefsBefore.body.preferences.find(
       (row: { purpose: string; channel: string }) =>
-        row.purpose === 'MARKETING' && row.channel === 'EMAIL',
+        row.purpose === 'NEWSLETTER' && row.channel === 'EMAIL',
     );
     expect(marketingBefore.allowed).toBe(false);
 
@@ -103,16 +105,18 @@ describe('Customer consent ledger (e2e)', () => {
       .post(`/api/customers/${customerId}/communication-events`)
       .set('Authorization', `Bearer ${authToken}`)
       .send({
+        controller_legal_entity_id: controllerId,
         expected_revision: revision,
         idempotency_key: `grant-${Date.now()}`,
         channel: 'EMAIL',
-        purpose: 'MARKETING',
+        purpose: 'NEWSLETTER',
         status: 'GRANTED',
         basis: 'CONSENT',
         source: 'PROFILE',
-        contact_address: 'pilot.customer@example.com',
+        contact_address: 'sample.customer@example.com',
         text_version: 'mkt-v1',
-        text_snapshot: 'Pilot customer marketing opt-in text',
+        text_language: 'en',
+        text_snapshot: 'Optional marketing email consent wording shown to the customer.',
       })
       .expect(201);
 
@@ -122,7 +126,7 @@ describe('Customer consent ledger (e2e)', () => {
       .expect(200);
     const marketingGranted = prefsGranted.body.preferences.find(
       (row: { purpose: string; channel: string }) =>
-        row.purpose === 'MARKETING' && row.channel === 'EMAIL',
+        row.purpose === 'NEWSLETTER' && row.channel === 'EMAIL',
     );
     expect(marketingGranted.allowed).toBe(true);
 
@@ -130,13 +134,14 @@ describe('Customer consent ledger (e2e)', () => {
       .post(`/api/customers/${customerId}/communication-events`)
       .set('Authorization', `Bearer ${authToken}`)
       .send({
+        controller_legal_entity_id: controllerId,
         expected_revision: prefsGranted.body.revision,
         idempotency_key: `revoke-${Date.now()}`,
         channel: 'EMAIL',
-        purpose: 'MARKETING',
+        purpose: 'NEWSLETTER',
         status: 'REVOKED',
         source: 'PROFILE',
-        contact_address: 'pilot.customer@example.com',
+        contact_address: 'sample.customer@example.com',
       })
       .expect(201);
 
@@ -145,7 +150,7 @@ describe('Customer consent ledger (e2e)', () => {
       orderBy: { sequence: 'asc' },
     });
     const decision = canContact({
-      purpose: 'MARKETING',
+      purpose: 'NEWSLETTER',
       channel: 'EMAIL',
       events,
     });

@@ -12,6 +12,7 @@ export type CommunicationPreferenceRow = {
 export type CommunicationPreferencesResponse = {
   customer_id: string
   controller_legal_entity_id: string
+  controller_legal_entity_name?: string | null
   revision: number
   processing_status: string
   preferences: CommunicationPreferenceRow[]

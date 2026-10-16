@@ -78,6 +78,12 @@ export class RecordCommunicationEventDto {
   @MaxLength(64)
   text_version?: string;
 
+  @ApiPropertyOptional({ example: 'de' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(8)
+  text_language?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
@@ -120,6 +126,9 @@ export class CommunicationPreferencesResponseDto {
 
   @ApiProperty({ format: 'uuid' })
   controller_legal_entity_id!: string;
+
+  @ApiPropertyOptional({ nullable: true })
+  controller_legal_entity_name?: string | null;
 
   @ApiProperty()
   revision!: number;
