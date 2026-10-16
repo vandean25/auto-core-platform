@@ -13,6 +13,7 @@ export type AgentActionTier = AgentActionLog['tier']
 
 export type AgentActionFilters = {
   traceId?: string
+  actionType?: string
   agentId?: string
   status?: AgentActionStatus
   tier?: AgentActionTier
@@ -53,6 +54,7 @@ export function useAgentActions(filters: AgentActionFilters = {}) {
       const params = new URLSearchParams()
 
       if (filters.traceId) params.append('traceId', filters.traceId)
+      if (filters.actionType) params.append('actionType', filters.actionType)
       if (filters.agentId) params.append('agentId', filters.agentId)
       if (filters.status) params.append('status', filters.status)
       if (filters.tier) params.append('tier', filters.tier)

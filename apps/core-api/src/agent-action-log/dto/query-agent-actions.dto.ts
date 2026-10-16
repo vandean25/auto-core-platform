@@ -43,6 +43,14 @@ export class QueryAgentActionsDto {
 
   @ApiPropertyOptional({
     description:
+      'Filter by action type (case-insensitive substring match on action_type)',
+  })
+  @IsOptional()
+  @IsString()
+  actionType?: string;
+
+  @ApiPropertyOptional({
+    description:
       'Filter by agent identifier (case-insensitive substring match)',
   })
   @IsOptional()

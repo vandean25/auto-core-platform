@@ -40,6 +40,28 @@ describe('agent-action-log-query.builder', () => {
     });
   });
 
+  it('filters action_type with a case-insensitive substring match', () => {
+    expect(
+      buildAgentActionWhere('tenant-1', {
+        actionType: 'draft_workshop_order',
+      }),
+    ).toEqual({
+      tenant_id: 'tenant-1',
+      action_type: {
+        contains: 'draft_workshop_order',
+        mode: 'insensitive',
+      },
+    });
+  });
+
+  it('filters by exact trace_id when traceId is provided', () => {
+    const traceId = '11111111-1111-1111-1111-111111111111';
+    expect(buildAgentActionWhere('tenant-1', { traceId })).toEqual({
+      tenant_id: 'tenant-1',
+      trace_id: traceId,
+    });
+  });
+
   it('keeps tenant scoping when filtering by agent substring', () => {
     const where = buildAgentActionWhere('tenant-42', {
       agentId: 'mcp:QA-FRESH',
