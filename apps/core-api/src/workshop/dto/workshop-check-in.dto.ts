@@ -108,14 +108,21 @@ export class UpdateWorkshopCheckInDto {
   @Type(() => CheckInDamageMarkerDto)
   damage_markers?: CheckInDamageMarkerDto[];
 
-  @ApiPropertyOptional({ maxLength: CHECK_IN_MAX_ITEMS_LEFT_LENGTH, nullable: false })
+  @ApiPropertyOptional({
+    maxLength: CHECK_IN_MAX_ITEMS_LEFT_LENGTH,
+    nullable: false,
+  })
   @ValidateIf((_obj, value) => value !== undefined)
   @NotEquals(null)
   @IsString()
   @MaxLength(CHECK_IN_MAX_ITEMS_LEFT_LENGTH)
   items_left?: string;
 
-  @ApiPropertyOptional({ minimum: 0, maximum: CHECK_IN_MAX_KEY_COUNT, nullable: false })
+  @ApiPropertyOptional({
+    minimum: 0,
+    maximum: CHECK_IN_MAX_KEY_COUNT,
+    nullable: false,
+  })
   @ValidateIf((_obj, value) => value !== undefined)
   @NotEquals(null)
   @IsInt()
@@ -133,7 +140,11 @@ export class UpdateWorkshopCheckInDto {
   @MaxLength(CHECK_IN_MAX_WARNING_LIGHT_LENGTH, { each: true })
   warning_lights?: string[];
 
-  @ApiPropertyOptional({ minimum: 0, maximum: CHECK_IN_MAX_ODOMETER, nullable: false })
+  @ApiPropertyOptional({
+    minimum: 0,
+    maximum: CHECK_IN_MAX_ODOMETER,
+    nullable: false,
+  })
   @ValidateIf((_obj, value) => value !== undefined)
   @NotEquals(null)
   @IsInt()

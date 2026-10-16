@@ -3,10 +3,7 @@ import { Prisma, WorkshopMediaPurpose } from '@prisma/client';
 import type { CheckInDamageMarkerDto } from './dto/workshop-check-in.dto.js';
 import { CHECK_IN_ERROR_CODES } from './workshop-check-in.rules.js';
 
-type CheckInDb = Pick<
-  Prisma.TransactionClient,
-  'workshopMedia'
->;
+type CheckInDb = Pick<Prisma.TransactionClient, 'workshopMedia'>;
 
 export async function assertCheckInDamageMarkerMediaIds(
   db: CheckInDb,
