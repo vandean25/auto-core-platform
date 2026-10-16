@@ -90,7 +90,7 @@ export class EmployeeLifecycleService {
   }
 
   private async assertNoHrRecords(tenantId: string, id: string): Promise<void> {
-    const [attendance, leave, balances] = await Promise.all([
+    const [attendance, leave, balances, inspectorEvidence] = await Promise.all([
       this.prisma.attendanceEvent.count({
         where: { tenant_id: tenantId, employee_id: id },
       }),
@@ -100,10 +100,13 @@ export class EmployeeLifecycleService {
       this.prisma.employeeLeaveBalance.count({
         where: { tenant_id: tenantId, employee_id: id },
       }),
+      this.prisma.inspectorEvidenceRevision.count({
+        where: { tenant_id: tenantId, employee_id: id },
+      }),
     ]);
-    if (attendance > 0 || leave > 0 || balances > 0) {
+    if (attendance > 0 || leave > 0 || balances > 0 || inspectorEvidence > 0) {
       throw new ConflictException(
-        'Cannot delete employee with attendance, leave, or balance records',
+        'Cannot delete employee with attendance, leave, balance, or inspector evidence records',
       );
     }
   }

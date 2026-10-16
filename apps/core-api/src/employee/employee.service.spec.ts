@@ -22,6 +22,9 @@ const mockPrisma = {
     upsert: jest.fn(),
     count: jest.fn(),
   },
+  inspectorEvidenceRevision: {
+    count: jest.fn(),
+  },
   leaveRequest: {
     groupBy: jest.fn(),
     count: jest.fn(),
@@ -112,6 +115,7 @@ describe('EmployeeService', () => {
     mockPrisma.laborEntry.count.mockResolvedValue(0);
     mockPrisma.leaveRequest.count.mockResolvedValue(0);
     mockPrisma.employeeLeaveBalance.count.mockResolvedValue(0);
+    mockPrisma.inspectorEvidenceRevision.count.mockResolvedValue(0);
     service = new EmployeeService(
       mockPrisma as unknown as PrismaService,
       mockTenantContext as unknown as TenantContextService,

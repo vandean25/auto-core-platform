@@ -15,6 +15,7 @@ import {
 import { usePatchLeaveBalance, useEmployeeWorkSchedule } from '@/api/hr'
 import { DataTable } from '@/components/data-table/DataTable'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
+import { InspectorEvidenceSection } from '@/components/hr/InspectorEvidenceSection'
 import { WorkScheduleEditor } from '@/components/hr/WorkScheduleEditor'
 import { InlineEdit } from '@/components/inline-edit/InlineEdit'
 import { StatusBadge } from '@/components/status/StatusBadge'
@@ -772,6 +773,10 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
                 canEdit={hasHrEditAccess}
                 defaultEffectiveFrom={selectedEmployee.hiredOn ?? undefined}
               />
+
+              {hasHrEditAccess ? (
+                <InspectorEvidenceSection employeeId={selectedEmployee.id} />
+              ) : null}
 
               {hasHrEditAccess ? (
                 <div className='space-y-2'>

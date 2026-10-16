@@ -3888,6 +3888,58 @@ export interface paths {
         patch: operations["HrController_updateWorkSchedule"];
         trace?: never;
     };
+    "/api/employees/{employeeId}/inspection-evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List inspector evidence revisions (management only) */
+        get: operations["InspectorEvidenceController_list"];
+        put?: never;
+        /** Append UNREVIEWED inspector evidence revision */
+        post: operations["InspectorEvidenceController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/employees/{employeeId}/inspection-evidence/assessment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Assess inspector evidence support state for station/scope/time */
+        get: operations["InspectorEvidenceController_assess"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/employees/{employeeId}/inspection-evidence/{revisionId}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Human review of inspector evidence document */
+        post: operations["InspectorEvidenceController_review"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/bays": {
         parameters: {
             query?: never;
@@ -9685,6 +9737,84 @@ export interface components {
              * @description Accepted for compatibility but ignored; effectiveFrom is immutable.
              */
             effectiveFrom?: string | null;
+        };
+        InspectorEvidenceRevisionResponseDto: {
+            id: string;
+            employee_id: string;
+            site_id: string;
+            schema_version: string;
+            source_version: string;
+            station_ref: string;
+            vehicle_classes: string[];
+            evidence_review: string;
+            reviewed_at?: Record<string, never>;
+            review_valid_until?: Record<string, never>;
+            version: number;
+            created_at: string;
+            /** @description Restricted document reference; management roles only */
+            document_ref?: string;
+        };
+        InspectorEvidenceListMetaDto: {
+            page: number;
+            limit: number;
+            total: number;
+            pageCount: number;
+        };
+        InspectorEvidenceListResponseDto: {
+            data: components["schemas"]["InspectorEvidenceRevisionResponseDto"][];
+            meta: components["schemas"]["InspectorEvidenceListMetaDto"];
+        };
+        InspectorEvidenceAssessmentResponseDto: {
+            evidence_review: string;
+            inspection_time_temporal_scope: string;
+            as_of_temporal_scope: string;
+            freshness: string;
+            qualification_support_status: string;
+            /** @enum {string} */
+            registry_adapter: "NOT_CONFIGURED";
+        };
+        CreateInspectorEvidenceDto: {
+            /** @example acp-inspector-evidence/1 */
+            schema_version: string;
+            source_version: string;
+            issuer: string;
+            source_person_ref: string;
+            station_ref: string;
+            assignment_ref: string;
+            /** Format: date */
+            assignment_from?: Record<string, never>;
+            /** Format: date */
+            assignment_until_exclusive?: Record<string, never>;
+            vehicle_classes: string[];
+            weight_scope?: Record<string, never>;
+            brake_course_scope?: Record<string, never>;
+            /** Format: date */
+            training_completed_on?: Record<string, never>;
+            /** Format: date */
+            next_training_due_on?: Record<string, never>;
+            /** Format: date */
+            continuation_from?: Record<string, never>;
+            /** Format: date */
+            continuation_until_exclusive?: Record<string, never>;
+            /** Format: date */
+            effective_from?: Record<string, never>;
+            /** Format: date */
+            effective_until_exclusive?: Record<string, never>;
+            withdrawal_effective_at?: Record<string, never>;
+            /** @description Authorized storage object reference (never a public URL) */
+            document_ref: string;
+            /** @description SHA-256 hex digest of restricted document bytes */
+            document_digest: string;
+            provenance: string;
+            predecessor_revision_id?: Record<string, never>;
+        };
+        ReviewInspectorEvidenceDto: {
+            document_digest: string;
+            version: number;
+            /** @enum {string} */
+            decision: "ACCEPT" | "SOURCE_CONFLICT";
+            /** @description Source review freshness bound (max ~30 days) */
+            review_valid_until: string;
         };
         BayResponseDto: {
             /** Format: uuid */
@@ -18526,6 +18656,104 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EmployeeWorkScheduleVersionResponseDto"];
+                };
+            };
+        };
+    };
+    InspectorEvidenceController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                employeeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InspectorEvidenceListResponseDto"];
+                };
+            };
+        };
+    };
+    InspectorEvidenceController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                employeeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateInspectorEvidenceDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InspectorEvidenceRevisionResponseDto"];
+                };
+            };
+        };
+    };
+    InspectorEvidenceController_assess: {
+        parameters: {
+            query: {
+                as_of: string;
+                inspection_time: string;
+                station_ref: string;
+                vehicle_class: string;
+            };
+            header?: never;
+            path: {
+                employeeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InspectorEvidenceAssessmentResponseDto"];
+                };
+            };
+        };
+    };
+    InspectorEvidenceController_review: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                employeeId: string;
+                revisionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewInspectorEvidenceDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InspectorEvidenceRevisionResponseDto"];
                 };
             };
         };
