@@ -416,6 +416,57 @@ describe('Inspection exchange (e2e)', () => {
       .expect(403);
   });
 
+  it('marks POSITIVE without zbd_report_id as UNCONFIRMED and rejects apply', async () => {
+    const vehicle = await prisma.vehicle.create({
+      data: {
+        tenant_id: tenantId,
+        make: 'VW',
+        model: 'Caddy',
+        year: 2022,
+        vin: 'WVWZZZ1JZXW000088',
+        plate: 'SYNTH-088',
+        first_registration_date: new Date('2022-03-01T00:00:00.000Z'),
+      },
+    });
+    registerSyntheticCanonicalResult('SYNTH-RESULT-NO-ZBD', {
+      ...SYNTHETIC_CANONICAL_POSITIVE,
+      source_result_id: 'SYNTH-RESULT-NO-ZBD',
+      source_revision: 'SYNTH-REV-NO-ZBD',
+      zbd_report_id: null,
+      vehicle: {
+        vin: 'WVWZZZ1JZXW000088',
+        first_registration_on: '2022-03-01',
+        registration_plate: 'SYNTH-088',
+      },
+      occurrence_relation: {
+        ...SYNTHETIC_CANONICAL_POSITIVE.occurrence_relation,
+        classification_evidence_ref: 'SYNTH-DISTINCT-NO-ZBD',
+      },
+    });
+
+    const preview = await request(app.getHttpServer())
+      .post(`/api/vehicles/${vehicle.id}/inspection-imports/preview`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        connection_id: connectionId,
+        native_result_reference: 'SYNTH-RESULT-NO-ZBD',
+      })
+      .expect(201);
+
+    expect(preview.body.state).toBe('UNCONFIRMED');
+
+    await request(app.getHttpServer())
+      .post(
+        `/api/vehicles/${vehicle.id}/inspection-imports/${preview.body.id}/apply`,
+      )
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        fingerprint: preview.body.fingerprint,
+        version: preview.body.version,
+      })
+      .expect(422);
+  });
+
   it('marks POSITIVE without plate as UNCONFIRMED and rejects apply', async () => {
     const vehicle = await prisma.vehicle.create({
       data: {
