@@ -19,6 +19,28 @@
     "term": "Workshop order",
     "description": "Job for workshop labour and parts on a vehicle."
   },
+  "workshopTaskLine": {
+    "partsSubtotal": {
+      "short": "Parts",
+      "term": "Parts subtotal",
+      "description": "Catalog and free-text part lines on a workshop task."
+    },
+    "laborSubtotal": {
+      "short": "Labor",
+      "term": "Labor subtotal",
+      "description": "Labor operation lines on a workshop task."
+    },
+    "feesSubtotal": {
+      "short": "Fees",
+      "term": "Ancillary fees",
+      "description": "Loaner car, disposal, and other flat workshop charges."
+    },
+    "taskTotal": {
+      "short": "Task total",
+      "term": "Task total",
+      "description": "Sum of parts, labor, and fee lines on a workshop task."
+    }
+  },
   "salesOrder": {
     "short": "SO",
     "term": "Sales order",

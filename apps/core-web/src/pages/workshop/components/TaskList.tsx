@@ -205,12 +205,12 @@ function TaskAccordionRow({
     actualHours: item.actualHours ?? null,
     internalCostRate: item.internalCostRate ?? null,
   }))
-  const partsCount = lineItems.filter(
-    (item) => item.type === 'PART' || item.type === 'FEE',
-  ).length
+  const partsCount = lineItems.filter((item) => item.type === 'PART').length
+  const feesCount = lineItems.filter((item) => item.type === 'FEE').length
   const laborCount = lineItems.filter((item) => item.type === 'LABOR').length
   const taskTotals = totals ?? {
     parts: 0,
+    fees: 0,
     labor: 0,
     total: 0,
     laborStandardHours: 0,
@@ -248,9 +248,16 @@ function TaskAccordionRow({
             </span>
           </span>
           <span className='w-full text-xs text-muted-foreground'>
-            {partsCount} {partsCount === 1 ? 'part' : 'parts'} · {laborCount}{' '}
-            {laborCount === 1 ? 'labor line' : 'labor lines'} · Parts{' '}
-            {formatCurrency(taskTotals.parts)} · Labor {formatCurrency(taskTotals.labor)} · Std{' '}
+            {partsCount} {partsCount === 1 ? 'part' : 'parts'}
+            {feesCount > 0
+              ? ` · ${feesCount} ${feesCount === 1 ? 'fee' : 'fees'}`
+              : ''}{' '}
+            · {laborCount} {laborCount === 1 ? 'labor line' : 'labor lines'} · Parts{' '}
+            {formatCurrency(taskTotals.parts)}
+            {taskTotals.fees > 0
+              ? ` · Fees ${formatCurrency(taskTotals.fees)}`
+              : ''}{' '}
+            · Labor {formatCurrency(taskTotals.labor)} · Std{' '}
             {taskTotals.laborStandardHours.toFixed(2)}h · Actual{' '}
             {taskTotals.laborActualHours.toFixed(2)}h
           </span>
