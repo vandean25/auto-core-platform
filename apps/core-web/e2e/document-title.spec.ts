@@ -107,7 +107,7 @@ test.describe('Per-route document title (AUT-473)', () => {
 
     // The list page mounts only after the outgoing page's exit animation has finished, so once its
     // heading is visible any stale write from the outgoing page has already happened.
-    await expect(page.getByRole('heading', { name: DE_SHELL.modules.customers, exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Customers', exact: true })).toBeVisible();
     await expect(page).toHaveTitle('Customers - Auto Core');
   });
 });

@@ -100,7 +100,8 @@ test.describe('AUT-475: navigation and breadcrumbs', () => {
     await expectNoCriticalA11yViolations(page);
     await expectNoHeadingOrderViolations(page);
 
-    await breadcrumbTrail(page).getByRole('link', { name: DE_SHELL.modules.salesOrders }).click();
+    // Breadcrumb list labels still come from route section titles (English).
+    await breadcrumbTrail(page).getByRole('link', { name: 'Sales Orders' }).click();
 
     await expect(page).toHaveURL('/sales-orders');
     await expect(breadcrumbTrail(page)).toHaveCount(0);
@@ -122,7 +123,7 @@ test.describe('AUT-475: navigation and breadcrumbs', () => {
     await expectNoCriticalA11yViolations(page);
     await expectNoHeadingOrderViolations(page);
 
-    await breadcrumbTrail(page).getByRole('link', { name: DE_SHELL.modules.salesInvoices }).click();
+    await breadcrumbTrail(page).getByRole('link', { name: 'Invoices' }).click();
 
     await expect(page).toHaveURL('/sales/invoices');
     await expect(breadcrumbTrail(page)).toHaveCount(0);
