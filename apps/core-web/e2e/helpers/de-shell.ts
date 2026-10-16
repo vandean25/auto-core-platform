@@ -2,8 +2,16 @@
 export const DE_SHELL = {
   coreModulesNav: 'Kernmodule',
   modules: {
+    customers: 'Kunden',
     salesOrders: 'Kundenaufträge',
     salesInvoices: 'Rechnungen',
+  },
+  favorites: {
+    empty:
+      'Noch keine gespeicherten Ansichten. Filter in einer Tabelle setzen und „Als Seitenleistenansicht speichern“ wählen.',
+  },
+  footer: {
+    helpDocs: 'Hilfe / Dokumentation',
   },
   errorBoundary: {
     chunkTitle: 'Aktualisierung erforderlich',

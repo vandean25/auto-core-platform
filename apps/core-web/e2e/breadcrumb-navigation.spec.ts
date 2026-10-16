@@ -100,7 +100,7 @@ test.describe('AUT-475: navigation and breadcrumbs', () => {
     await expectNoCriticalA11yViolations(page);
     await expectNoHeadingOrderViolations(page);
 
-    await breadcrumbTrail(page).getByRole('link', { name: 'Sales Orders' }).click();
+    await breadcrumbTrail(page).getByRole('link', { name: DE_SHELL.modules.salesOrders }).click();
 
     await expect(page).toHaveURL('/sales-orders');
     await expect(breadcrumbTrail(page)).toHaveCount(0);
@@ -122,12 +122,12 @@ test.describe('AUT-475: navigation and breadcrumbs', () => {
     await expectNoCriticalA11yViolations(page);
     await expectNoHeadingOrderViolations(page);
 
-    await breadcrumbTrail(page).getByRole('link', { name: 'Invoices' }).click();
+    await breadcrumbTrail(page).getByRole('link', { name: DE_SHELL.modules.salesInvoices }).click();
 
     await expect(page).toHaveURL('/sales/invoices');
     await expect(breadcrumbTrail(page)).toHaveCount(0);
     await expect(
-      coreModules(page).getByRole('link', { name: 'Invoices', exact: true }),
+      coreModules(page).getByRole('link', { name: DE_SHELL.modules.salesInvoices, exact: true }),
     ).toHaveAttribute('aria-current', 'page');
   });
 
