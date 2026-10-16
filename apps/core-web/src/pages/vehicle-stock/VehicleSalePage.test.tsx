@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import VehicleSalePage from './VehicleSalePage'
 import * as vehicleStockApi from '@/api/vehicle-stock'
 import { expectFieldErrorLinked, expectFieldValid } from '@/test/form-a11y'
+import { formattedCurrencyPattern } from '@/test/format-assertions'
 import { toast } from 'sonner'
 
 const {
@@ -573,7 +574,7 @@ describe('VehicleSalePage trade-in', () => {
     fireEvent.change(screen.getByLabelText('Model'), { target: { value: 'Octavia' } })
     fireEvent.change(screen.getByLabelText('Model year'), { target: { value: '2016' } })
     expect(screen.getByText(/Amount due after trade-in/)).toBeInTheDocument()
-    expect(screen.getByText('€7,000.00')).toBeInTheDocument()
+    expect(screen.getByText(formattedCurrencyPattern(7000))).toBeInTheDocument()
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(750)
@@ -629,7 +630,7 @@ describe('VehicleSalePage trade-in', () => {
     renderSalePage()
 
     expect(screen.getByLabelText('VIN')).toHaveValue('TRDNB000000000001')
-    expect(screen.getAllByText('€7,000.00').length).toBeGreaterThan(0)
+    expect(screen.getAllByText(formattedCurrencyPattern(7000)).length).toBeGreaterThan(0)
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Remove trade-in' }))
