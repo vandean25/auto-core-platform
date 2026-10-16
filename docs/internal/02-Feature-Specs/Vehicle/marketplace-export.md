@@ -2,7 +2,7 @@
 title: "Used-car marketplace export"
 date: "2026-10-16"
 module: "Vehicle"
-status: draft
+status: accepted
 linear-project: "Used Vehicle Trading"
 tags:
   - feature-spec

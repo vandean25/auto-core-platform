@@ -2,7 +2,7 @@
 title: "DE/EN internationalisation architecture"
 date: "2026-10-16"
 module: "Platform"
-status: approved
+status: accepted
 linear-project: "i18n DE/EN"
 tags:
   - feature-spec

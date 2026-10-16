@@ -2,7 +2,7 @@
 title: "Customer consent and contact preferences"
 date: "2026-10-16"
 module: "Platform"
-status: draft
+status: accepted
 linear-project: "Austria Market Roadmap"
 tags:
   - feature-spec

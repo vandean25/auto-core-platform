@@ -2,7 +2,7 @@
 title: "Tablet vehicle check-in (Fahrzeugannahme)"
 date: "2026-10-16"
 module: "Workshop"
-status: approved
+status: accepted
 linear-project: "Austria Market Roadmap"
 tags:
   - feature-spec
