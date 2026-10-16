@@ -51,9 +51,9 @@ const statusClassMap: Record<string, string> = {
   UNREVIEWED: 'border-amber-200 bg-amber-100 text-amber-700',
   SOURCE_CONFLICT: 'border-rose-200 bg-rose-100 text-rose-700',
   CURRENT: 'border-emerald-200 bg-emerald-100 text-emerald-700',
-  EXPIRED: 'border-rose-200 bg-rose-100 text-rose-700',
-  UNKNOWN: 'border-amber-200 bg-amber-100 text-amber-700',
   OUT_OF_SCOPE: 'border-slate-200 bg-slate-100 text-slate-700',
+  CONTINUATION: 'border-sky-200 bg-sky-100 text-sky-700',
+  NOT_YET_VALID: 'border-amber-200 bg-amber-100 text-amber-700',
   // Audit statuses
   CREATE: 'border-blue-200 bg-blue-100 text-blue-700',
   UPDATE: 'border-amber-200 bg-amber-100 text-amber-700',

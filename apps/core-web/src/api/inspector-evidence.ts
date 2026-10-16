@@ -1,7 +1,19 @@
 import { useQuery } from '@tanstack/react-query'
 
-import { fetchWithAuth, getErrorMessage } from '@/api/fetch-with-auth'
 import type { components } from '@/api/generated/openapi'
+import { fetchWithAuth } from './client'
+
+async function getErrorMessage(
+  response: Response,
+  fallbackMessage: string,
+): Promise<string> {
+  try {
+    const body = (await response.json()) as { message?: string }
+    return body.message ?? fallbackMessage
+  } catch {
+    return fallbackMessage
+  }
+}
 
 export type InspectorEvidenceRevision =
   components['schemas']['InspectorEvidenceRevisionResponseDto']
