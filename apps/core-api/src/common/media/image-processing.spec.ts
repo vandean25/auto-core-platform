@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import sharp from 'sharp';
+import { exifHasGpsIfd } from './exif-has-gps-ifd.js';
 import { processUploadImage } from './image-processing.js';
 
 const gpsFixture = new URL('./fixtures/gps-oriented.jpg', import.meta.url);
@@ -8,9 +9,8 @@ describe('processUploadImage', () => {
   it('strips EXIF and GPS metadata from a fixture JPEG', async () => {
     const source = await readFile(gpsFixture);
     const before = await sharp(source).metadata();
-    // Fixture JPEG includes IFD0 + GPS EXIF (see fixtures/gps-oriented.jpg).
     expect(before.exif).toBeDefined();
-    expect(before.exif!.length).toBeGreaterThan(200);
+    expect(exifHasGpsIfd(before.exif!)).toBe(true);
     expect(before.orientation).toBe(6);
 
     const { main } = await processUploadImage(source, {
