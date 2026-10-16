@@ -6,6 +6,7 @@ import { createGlobalValidationPipe } from '../src/common/index.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { canContact } from '../src/customer-consent/customer-consent.permissions.js';
+import { mintUnsubscribeToken } from '../src/customer-consent/customer-consent-token.helpers.js';
 import {
   cleanupTestTenantGraph,
   createTenantAwarePrisma,
@@ -243,8 +244,6 @@ describe('Customer consent ledger (e2e)', () => {
       })
       .expect(201);
 
-    const { mintUnsubscribeToken } =
-      await import('../src/customer-consent/customer-consent-token.helpers.js');
     const token = mintUnsubscribeToken();
     await prisma.customerConsentUnsubscribeToken.create({
       data: {

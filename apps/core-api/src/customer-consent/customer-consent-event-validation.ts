@@ -1,5 +1,4 @@
 import { BadRequestException } from '@nestjs/common';
-import type { CustomerConsentPurpose } from '@prisma/client';
 import { isMarketingPurpose } from './customer-consent.purposes.js';
 import type { SoftOptInEvidence } from './customer-consent.permissions.js';
 import type { RecordCommunicationEventDto } from './dto/customer-consent.dto.js';

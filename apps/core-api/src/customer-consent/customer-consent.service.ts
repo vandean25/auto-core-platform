@@ -654,43 +654,33 @@ export class CustomerConsentService {
     };
   }
 
-  private async ensureCommunicationState(
-    tenantId: string,
-    controllerId: string,
-    customerId: string,
-  ) {
-    const existing = await this.prisma.customerCommunicationState.findFirst({
-      where: {
-        tenant_id: tenantId,
-        controller_legal_entity_id: controllerId,
-        customer_id: customerId,
-      },
-    });
-    if (existing) {
-      return existing;
-    }
-    return this.prisma.customerCommunicationState.create({
-      data: {
-        id: randomUUID(),
-        tenant_id: tenantId,
-        controller_legal_entity_id: controllerId,
-        customer_id: customerId,
-      },
-    });
-  }
-
   private async lockCommunicationState(
     tx: Prisma.TransactionClient,
     tenantId: string,
     controllerId: string,
     customerId: string,
   ) {
-    await this.ensureCommunicationStateInTx(
-      tx,
-      tenantId,
-      controllerId,
-      customerId,
-    );
+    const existing = await tx.customerCommunicationState.findFirst({
+      where: {
+        tenant_id: tenantId,
+        controller_legal_entity_id: controllerId,
+        customer_id: customerId,
+      },
+      select: { id: true, revision: true, processing_status: true },
+    });
+    if (!existing) {
+      const created = await tx.customerCommunicationState.create({
+        data: {
+          id: randomUUID(),
+          tenant_id: tenantId,
+          controller_legal_entity_id: controllerId,
+          customer_id: customerId,
+        },
+        select: { id: true, revision: true, processing_status: true },
+      });
+      return created;
+    }
+
     // eslint-disable-next-line no-restricted-syntax -- tenant-qualified communication state row lock (FOR UPDATE) for consent ledger serialization.
     const locked = await tx.$queryRaw<
       Array<{
@@ -703,8 +693,7 @@ export class CustomerConsentService {
         SELECT id, revision, processing_status
         FROM customer_communication_states
         WHERE tenant_id = ${tenantId}
-          AND controller_legal_entity_id = ${controllerId}
-          AND customer_id = ${customerId}
+          AND id = ${existing.id}
         FOR UPDATE
       `,
     );
@@ -713,32 +702,6 @@ export class CustomerConsentService {
       throw new NotFoundException('Communication state not found.');
     }
     return row;
-  }
-
-  private async ensureCommunicationStateInTx(
-    tx: Prisma.TransactionClient,
-    tenantId: string,
-    controllerId: string,
-    customerId: string,
-  ) {
-    const existing = await tx.customerCommunicationState.findFirst({
-      where: {
-        tenant_id: tenantId,
-        controller_legal_entity_id: controllerId,
-        customer_id: customerId,
-      },
-    });
-    if (existing) {
-      return existing;
-    }
-    return tx.customerCommunicationState.create({
-      data: {
-        id: randomUUID(),
-        tenant_id: tenantId,
-        controller_legal_entity_id: controllerId,
-        customer_id: customerId,
-      },
-    });
   }
 
   private async resolveContactPoint(
