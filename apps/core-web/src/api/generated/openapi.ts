@@ -1115,38 +1115,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/customers": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["CustomerController_findAll"];
-        put?: never;
-        post: operations["CustomerController_create"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/customers/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["CustomerController_findOne"];
-        put?: never;
-        post?: never;
-        delete: operations["CustomerController_remove"];
-        options?: never;
-        head?: never;
-        patch: operations["CustomerController_update"];
-        trace?: never;
-    };
     "/api/customers/{id}/communication-preferences": {
         parameters: {
             query?: never;
@@ -1209,6 +1177,38 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/customers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["CustomerController_findAll"];
+        put?: never;
+        post: operations["CustomerController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/customers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["CustomerController_findOne"];
+        put?: never;
+        post?: never;
+        delete: operations["CustomerController_remove"];
+        options?: never;
+        head?: never;
+        patch: operations["CustomerController_update"];
         trace?: never;
     };
     "/api/finance/settings": {
@@ -5777,6 +5777,90 @@ export interface components {
             expiresAt: string | null;
             failureCode: string | null;
         };
+        ChannelPreferenceDto: {
+            /** @enum {string} */
+            channel: "EMAIL" | "SMS" | "PHONE" | "POST";
+            /** @enum {string} */
+            purpose: "TRANSACTIONAL" | "MARKETING";
+            /** @enum {string|null} */
+            effective_status: "GRANTED" | "REVOKED" | "SOFT_OPT_IN" | null;
+            allowed: boolean;
+            reason: string;
+        };
+        CommunicationPreferencesResponseDto: {
+            /** Format: uuid */
+            customer_id: string;
+            /** Format: uuid */
+            controller_legal_entity_id: string;
+            revision: number;
+            /** @enum {string} */
+            processing_status: "ACTIVE" | "RESTRICTED" | "ERASURE_PENDING" | "TOMBSTONED";
+            preferences: components["schemas"]["ChannelPreferenceDto"][];
+        };
+        CommunicationEventSummaryDto: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            channel: "EMAIL" | "SMS" | "PHONE" | "POST";
+            /** @enum {string} */
+            purpose: "TRANSACTIONAL" | "MARKETING";
+            /** @enum {string} */
+            status: "GRANTED" | "REVOKED" | "SOFT_OPT_IN";
+            /** @enum {string|null} */
+            basis?: "CONTRACT" | "LEGAL_OBLIGATION" | "CONSENT" | "LEGITIMATE_INTEREST" | null;
+            sequence: number;
+            recorded_at: string;
+            occurred_at: string;
+            /** @enum {string} */
+            source: "INTAKE" | "PROFILE" | "WEB_FORM" | "IMPORT" | "LEGACY_MIGRATION" | "UNSUBSCRIBE" | "PROVIDER" | "SYSTEM";
+            revoked_at?: Record<string, never> | null;
+        };
+        CommunicationHistoryResponseDto: {
+            data: components["schemas"]["CommunicationEventSummaryDto"][];
+            meta: components["schemas"]["PaginationMetaDto"];
+        };
+        RecordCommunicationEventDto: {
+            /** Format: uuid */
+            controller_legal_entity_id?: string;
+            expected_revision: number;
+            idempotency_key: string;
+            /** @enum {string} */
+            channel: "EMAIL" | "SMS" | "PHONE" | "POST";
+            /** @enum {string} */
+            purpose: "TRANSACTIONAL" | "MARKETING";
+            /** @enum {string} */
+            status: "GRANTED" | "REVOKED" | "SOFT_OPT_IN";
+            /** @enum {string} */
+            basis?: "CONTRACT" | "LEGAL_OBLIGATION" | "CONSENT" | "LEGITIMATE_INTEREST";
+            /** @enum {string} */
+            source: "INTAKE" | "PROFILE" | "WEB_FORM" | "IMPORT" | "LEGACY_MIGRATION" | "UNSUBSCRIBE" | "PROVIDER" | "SYSTEM";
+            contact_address?: string;
+            occurred_at?: string;
+            text_version?: string;
+            text_snapshot?: string;
+            evidence?: {
+                [key: string]: unknown;
+            };
+        };
+        CommunicationEventResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            channel: "EMAIL" | "SMS" | "PHONE" | "POST";
+            /** @enum {string} */
+            purpose: "TRANSACTIONAL" | "MARKETING";
+            /** @enum {string} */
+            status: "GRANTED" | "REVOKED" | "SOFT_OPT_IN";
+            /** @enum {string|null} */
+            basis?: "CONTRACT" | "LEGAL_OBLIGATION" | "CONSENT" | "LEGITIMATE_INTEREST" | null;
+            sequence: number;
+            recorded_at: string;
+            occurred_at: string;
+            /** @enum {string} */
+            source: "INTAKE" | "PROFILE" | "WEB_FORM" | "IMPORT" | "LEGACY_MIGRATION" | "UNSUBSCRIBE" | "PROVIDER" | "SYSTEM";
+            revoked_at?: Record<string, never> | null;
+            revision: number;
+        };
         /** @enum {string} */
         CustomerType: "PRIVATE" | "COMPANY";
         CreateCustomerDto: {
@@ -5876,90 +5960,6 @@ export interface components {
             address_country?: string;
             preferred_language?: components["schemas"]["DisplayLanguage"] | null;
             contact_email_ok?: boolean;
-        };
-        ChannelPreferenceDto: {
-            /** @enum {string} */
-            channel: "EMAIL" | "SMS" | "PHONE" | "POST";
-            /** @enum {string} */
-            purpose: "TRANSACTIONAL" | "MARKETING";
-            /** @enum {string|null} */
-            effective_status: "GRANTED" | "REVOKED" | "SOFT_OPT_IN" | null;
-            allowed: boolean;
-            reason: string;
-        };
-        CommunicationPreferencesResponseDto: {
-            /** Format: uuid */
-            customer_id: string;
-            /** Format: uuid */
-            controller_legal_entity_id: string;
-            revision: number;
-            /** @enum {string} */
-            processing_status: "ACTIVE" | "RESTRICTED" | "ERASURE_PENDING" | "TOMBSTONED";
-            preferences: components["schemas"]["ChannelPreferenceDto"][];
-        };
-        CommunicationEventSummaryDto: {
-            /** Format: uuid */
-            id: string;
-            /** @enum {string} */
-            channel: "EMAIL" | "SMS" | "PHONE" | "POST";
-            /** @enum {string} */
-            purpose: "TRANSACTIONAL" | "MARKETING";
-            /** @enum {string} */
-            status: "GRANTED" | "REVOKED" | "SOFT_OPT_IN";
-            /** @enum {string|null} */
-            basis?: "CONTRACT" | "LEGAL_OBLIGATION" | "CONSENT" | "LEGITIMATE_INTEREST" | null;
-            sequence: number;
-            recorded_at: string;
-            occurred_at: string;
-            /** @enum {string} */
-            source: "INTAKE" | "PROFILE" | "WEB_FORM" | "IMPORT" | "LEGACY_MIGRATION" | "UNSUBSCRIBE" | "PROVIDER" | "SYSTEM";
-            revoked_at?: Record<string, never> | null;
-        };
-        CommunicationHistoryResponseDto: {
-            data: components["schemas"]["CommunicationEventSummaryDto"][];
-            meta: Record<string, never>;
-        };
-        RecordCommunicationEventDto: {
-            /** Format: uuid */
-            controller_legal_entity_id?: string;
-            expected_revision: number;
-            idempotency_key: string;
-            /** @enum {string} */
-            channel: "EMAIL" | "SMS" | "PHONE" | "POST";
-            /** @enum {string} */
-            purpose: "TRANSACTIONAL" | "MARKETING";
-            /** @enum {string} */
-            status: "GRANTED" | "REVOKED" | "SOFT_OPT_IN";
-            /** @enum {string} */
-            basis?: "CONTRACT" | "LEGAL_OBLIGATION" | "CONSENT" | "LEGITIMATE_INTEREST";
-            /** @enum {string} */
-            source: "INTAKE" | "PROFILE" | "WEB_FORM" | "IMPORT" | "LEGACY_MIGRATION" | "UNSUBSCRIBE" | "PROVIDER" | "SYSTEM";
-            contact_address?: string;
-            occurred_at?: string;
-            text_version?: string;
-            text_snapshot?: string;
-            evidence?: {
-                [key: string]: unknown;
-            };
-        };
-        CommunicationEventResponseDto: {
-            /** Format: uuid */
-            id: string;
-            /** @enum {string} */
-            channel: "EMAIL" | "SMS" | "PHONE" | "POST";
-            /** @enum {string} */
-            purpose: "TRANSACTIONAL" | "MARKETING";
-            /** @enum {string} */
-            status: "GRANTED" | "REVOKED" | "SOFT_OPT_IN";
-            /** @enum {string|null} */
-            basis?: "CONTRACT" | "LEGAL_OBLIGATION" | "CONSENT" | "LEGITIMATE_INTEREST" | null;
-            sequence: number;
-            recorded_at: string;
-            occurred_at: string;
-            /** @enum {string} */
-            source: "INTAKE" | "PROFILE" | "WEB_FORM" | "IMPORT" | "LEGACY_MIGRATION" | "UNSUBSCRIBE" | "PROVIDER" | "SYSTEM";
-            revoked_at?: Record<string, never> | null;
-            revision: number;
         };
         FinanceSettingsResponseDto: {
             id: string;
@@ -12515,6 +12515,99 @@ export interface operations {
             };
         };
     };
+    CustomerConsentController_getPreferences: {
+        parameters: {
+            query?: {
+                controller_legal_entity_id?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommunicationPreferencesResponseDto"];
+                };
+            };
+        };
+    };
+    CustomerConsentController_getHistory: {
+        parameters: {
+            query?: {
+                controller_legal_entity_id?: string;
+                page?: string;
+                pageSize?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommunicationHistoryResponseDto"];
+                };
+            };
+        };
+    };
+    CustomerConsentController_recordEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordCommunicationEventDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommunicationEventResponseDto"];
+                };
+            };
+        };
+    };
+    PublicCustomerConsentUnsubscribeController_unsubscribe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Generic success even for unknown or replayed tokens. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     CustomerController_findAll: {
         parameters: {
             query?: {
@@ -12637,99 +12730,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["CustomerResponseDto"];
                 };
-            };
-        };
-    };
-    CustomerConsentController_getPreferences: {
-        parameters: {
-            query?: {
-                controller_legal_entity_id?: string;
-            };
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CommunicationPreferencesResponseDto"];
-                };
-            };
-        };
-    };
-    CustomerConsentController_getHistory: {
-        parameters: {
-            query?: {
-                controller_legal_entity_id?: string;
-                page?: string;
-                pageSize?: string;
-            };
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CommunicationHistoryResponseDto"];
-                };
-            };
-        };
-    };
-    CustomerConsentController_recordEvent: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RecordCommunicationEventDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CommunicationEventResponseDto"];
-                };
-            };
-        };
-    };
-    PublicCustomerConsentUnsubscribeController_unsubscribe: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                token: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Generic success even for unknown or replayed tokens. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
         };
     };

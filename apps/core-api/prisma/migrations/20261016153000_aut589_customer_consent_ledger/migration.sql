@@ -95,7 +95,7 @@ CREATE INDEX "customer_consents_tenant_id_customer_id_controller_legal_entity_id
 CREATE INDEX "customer_consents_tenant_id_retain_until_legal_hold_idx" ON "customer_consents"("tenant_id", "retain_until", "legal_hold");
 
 CREATE UNIQUE INDEX "customer_consent_unsubscribe_tokens_tenant_id_id_key" ON "customer_consent_unsubscribe_tokens"("tenant_id", "id");
-CREATE UNIQUE INDEX "customer_consent_unsubscribe_tokens_token_sha256_key" ON "customer_consent_unsubscribe_tokens"("token_sha256");
+CREATE UNIQUE INDEX "customer_consent_unsubscribe_tokens_tenant_id_token_sha256_key" ON "customer_consent_unsubscribe_tokens"("tenant_id", "token_sha256");
 CREATE INDEX "customer_consent_unsubscribe_tokens_tenant_id_customer_id_idx" ON "customer_consent_unsubscribe_tokens"("tenant_id", "customer_id");
 
 ALTER TABLE "customer_contact_points" ADD CONSTRAINT "customer_contact_points_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

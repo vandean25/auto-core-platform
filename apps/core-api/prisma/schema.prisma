@@ -1682,12 +1682,13 @@ model CustomerConsentUnsubscribeToken {
   customer_id              String
   channel                  CustomerConsentChannel
   contact_fingerprint      String
-  token_sha256             String                 @unique
+  token_sha256             String
   retain_until             DateTime
   created_at               DateTime               @default(now())
   used_at                  DateTime?
 
   @@unique([tenant_id, id])
+  @@unique([tenant_id, token_sha256])
   @@index([tenant_id, customer_id])
   @@map("customer_consent_unsubscribe_tokens")
 }

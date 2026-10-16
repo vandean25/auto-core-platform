@@ -167,7 +167,7 @@ describe('Customer consent ledger (e2e)', () => {
         tenant_id: tenantId,
         entity_type: 'CustomerConsent',
       },
-      orderBy: { created_at: 'desc' },
+      orderBy: { occurred_at: 'desc' },
     });
     expect(audit).toBeTruthy();
   });

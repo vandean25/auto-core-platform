@@ -18,7 +18,10 @@ import {
   IsUUID,
   MaxLength,
   Min,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+import { PaginationMetaDto } from '../../common/dto/paginated-response.dto.js';
 
 export class RecordCommunicationEventDto {
   @ApiPropertyOptional({ format: 'uuid' })
@@ -164,13 +167,10 @@ export class CommunicationHistoryResponseDto {
   @ApiProperty({ type: [CommunicationEventSummaryDto] })
   data!: CommunicationEventSummaryDto[];
 
-  @ApiProperty()
-  meta!: {
-    total: number;
-    page: number;
-    pageSize: number;
-    pageCount: number;
-  };
+  @ApiProperty({ type: PaginationMetaDto })
+  @ValidateNested()
+  @Type(() => PaginationMetaDto)
+  meta!: PaginationMetaDto;
 }
 
 export class CommunicationEventResponseDto extends CommunicationEventSummaryDto {

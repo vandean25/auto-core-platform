@@ -3523,6 +3523,161 @@
         ]
       }
     },
+    "/api/customers/{id}/communication-preferences": {
+      "get": {
+        "operationId": "CustomerConsentController_getPreferences",
+        "parameters": [
+          {
+            "name": "controller_legal_entity_id",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommunicationPreferencesResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "CustomerConsent"
+        ]
+      }
+    },
+    "/api/customers/{id}/communication-history": {
+      "get": {
+        "operationId": "CustomerConsentController_getHistory",
+        "parameters": [
+          {
+            "name": "controller_legal_entity_id",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommunicationHistoryResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "CustomerConsent"
+        ]
+      }
+    },
+    "/api/customers/{id}/communication-events": {
+      "post": {
+        "operationId": "CustomerConsentController_recordEvent",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordCommunicationEventDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommunicationEventResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "CustomerConsent"
+        ]
+      }
+    },
+    "/api/public/consent-unsubscribe/{token}": {
+      "post": {
+        "operationId": "PublicCustomerConsentUnsubscribeController_unsubscribe",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Generic success even for unknown or replayed tokens."
+          }
+        },
+        "tags": [
+          "PublicCustomerConsentUnsubscribe"
+        ]
+      }
+    },
     "/api/customers": {
       "post": {
         "operationId": "CustomerController_create",
@@ -3769,161 +3924,6 @@
         },
         "tags": [
           "Customer"
-        ]
-      }
-    },
-    "/api/customers/{id}/communication-preferences": {
-      "get": {
-        "operationId": "CustomerConsentController_getPreferences",
-        "parameters": [
-          {
-            "name": "controller_legal_entity_id",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CommunicationPreferencesResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "CustomerConsent"
-        ]
-      }
-    },
-    "/api/customers/{id}/communication-history": {
-      "get": {
-        "operationId": "CustomerConsentController_getHistory",
-        "parameters": [
-          {
-            "name": "controller_legal_entity_id",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "page",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "pageSize",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CommunicationHistoryResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "CustomerConsent"
-        ]
-      }
-    },
-    "/api/customers/{id}/communication-events": {
-      "post": {
-        "operationId": "CustomerConsentController_recordEvent",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RecordCommunicationEventDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CommunicationEventResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "CustomerConsent"
-        ]
-      }
-    },
-    "/api/public/consent-unsubscribe/{token}": {
-      "post": {
-        "operationId": "PublicCustomerConsentUnsubscribeController_unsubscribe",
-        "parameters": [
-          {
-            "name": "token",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Generic success even for unknown or replayed tokens."
-          }
-        },
-        "tags": [
-          "PublicCustomerConsentUnsubscribe"
         ]
       }
     },
@@ -18877,6 +18877,352 @@
           "failureCode"
         ]
       },
+      "ChannelPreferenceDto": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string",
+            "enum": [
+              "EMAIL",
+              "SMS",
+              "PHONE",
+              "POST"
+            ]
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "TRANSACTIONAL",
+              "MARKETING"
+            ]
+          },
+          "effective_status": {
+            "type": "string",
+            "enum": [
+              "GRANTED",
+              "REVOKED",
+              "SOFT_OPT_IN"
+            ],
+            "nullable": true
+          },
+          "allowed": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "channel",
+          "purpose",
+          "effective_status",
+          "allowed",
+          "reason"
+        ]
+      },
+      "CommunicationPreferencesResponseDto": {
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "controller_legal_entity_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revision": {
+            "type": "number"
+          },
+          "processing_status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "RESTRICTED",
+              "ERASURE_PENDING",
+              "TOMBSTONED"
+            ]
+          },
+          "preferences": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChannelPreferenceDto"
+            }
+          }
+        },
+        "required": [
+          "customer_id",
+          "controller_legal_entity_id",
+          "revision",
+          "processing_status",
+          "preferences"
+        ]
+      },
+      "CommunicationEventSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "EMAIL",
+              "SMS",
+              "PHONE",
+              "POST"
+            ]
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "TRANSACTIONAL",
+              "MARKETING"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "GRANTED",
+              "REVOKED",
+              "SOFT_OPT_IN"
+            ]
+          },
+          "basis": {
+            "type": "string",
+            "enum": [
+              "CONTRACT",
+              "LEGAL_OBLIGATION",
+              "CONSENT",
+              "LEGITIMATE_INTEREST"
+            ],
+            "nullable": true
+          },
+          "sequence": {
+            "type": "number"
+          },
+          "recorded_at": {
+            "type": "string"
+          },
+          "occurred_at": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "INTAKE",
+              "PROFILE",
+              "WEB_FORM",
+              "IMPORT",
+              "LEGACY_MIGRATION",
+              "UNSUBSCRIBE",
+              "PROVIDER",
+              "SYSTEM"
+            ]
+          },
+          "revoked_at": {
+            "type": "object",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "channel",
+          "purpose",
+          "status",
+          "sequence",
+          "recorded_at",
+          "occurred_at",
+          "source"
+        ]
+      },
+      "CommunicationHistoryResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommunicationEventSummaryDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PaginationMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "RecordCommunicationEventDto": {
+        "type": "object",
+        "properties": {
+          "controller_legal_entity_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expected_revision": {
+            "type": "number"
+          },
+          "idempotency_key": {
+            "type": "string"
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "EMAIL",
+              "SMS",
+              "PHONE",
+              "POST"
+            ]
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "TRANSACTIONAL",
+              "MARKETING"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "GRANTED",
+              "REVOKED",
+              "SOFT_OPT_IN"
+            ]
+          },
+          "basis": {
+            "type": "string",
+            "enum": [
+              "CONTRACT",
+              "LEGAL_OBLIGATION",
+              "CONSENT",
+              "LEGITIMATE_INTEREST"
+            ]
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "INTAKE",
+              "PROFILE",
+              "WEB_FORM",
+              "IMPORT",
+              "LEGACY_MIGRATION",
+              "UNSUBSCRIBE",
+              "PROVIDER",
+              "SYSTEM"
+            ]
+          },
+          "contact_address": {
+            "type": "string"
+          },
+          "occurred_at": {
+            "type": "string"
+          },
+          "text_version": {
+            "type": "string"
+          },
+          "text_snapshot": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "expected_revision",
+          "idempotency_key",
+          "channel",
+          "purpose",
+          "status",
+          "source"
+        ]
+      },
+      "CommunicationEventResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "EMAIL",
+              "SMS",
+              "PHONE",
+              "POST"
+            ]
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "TRANSACTIONAL",
+              "MARKETING"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "GRANTED",
+              "REVOKED",
+              "SOFT_OPT_IN"
+            ]
+          },
+          "basis": {
+            "type": "string",
+            "enum": [
+              "CONTRACT",
+              "LEGAL_OBLIGATION",
+              "CONSENT",
+              "LEGITIMATE_INTEREST"
+            ],
+            "nullable": true
+          },
+          "sequence": {
+            "type": "number"
+          },
+          "recorded_at": {
+            "type": "string"
+          },
+          "occurred_at": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "INTAKE",
+              "PROFILE",
+              "WEB_FORM",
+              "IMPORT",
+              "LEGACY_MIGRATION",
+              "UNSUBSCRIBE",
+              "PROVIDER",
+              "SYSTEM"
+            ]
+          },
+          "revoked_at": {
+            "type": "object",
+            "nullable": true
+          },
+          "revision": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "channel",
+          "purpose",
+          "status",
+          "sequence",
+          "recorded_at",
+          "occurred_at",
+          "source",
+          "revision"
+        ]
+      },
       "CustomerType": {
         "type": "string",
         "enum": [
@@ -19279,352 +19625,6 @@
             "type": "boolean"
           }
         }
-      },
-      "ChannelPreferenceDto": {
-        "type": "object",
-        "properties": {
-          "channel": {
-            "type": "string",
-            "enum": [
-              "EMAIL",
-              "SMS",
-              "PHONE",
-              "POST"
-            ]
-          },
-          "purpose": {
-            "type": "string",
-            "enum": [
-              "TRANSACTIONAL",
-              "MARKETING"
-            ]
-          },
-          "effective_status": {
-            "type": "string",
-            "enum": [
-              "GRANTED",
-              "REVOKED",
-              "SOFT_OPT_IN"
-            ],
-            "nullable": true
-          },
-          "allowed": {
-            "type": "boolean"
-          },
-          "reason": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "channel",
-          "purpose",
-          "effective_status",
-          "allowed",
-          "reason"
-        ]
-      },
-      "CommunicationPreferencesResponseDto": {
-        "type": "object",
-        "properties": {
-          "customer_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "controller_legal_entity_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "revision": {
-            "type": "number"
-          },
-          "processing_status": {
-            "type": "string",
-            "enum": [
-              "ACTIVE",
-              "RESTRICTED",
-              "ERASURE_PENDING",
-              "TOMBSTONED"
-            ]
-          },
-          "preferences": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ChannelPreferenceDto"
-            }
-          }
-        },
-        "required": [
-          "customer_id",
-          "controller_legal_entity_id",
-          "revision",
-          "processing_status",
-          "preferences"
-        ]
-      },
-      "CommunicationEventSummaryDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "channel": {
-            "type": "string",
-            "enum": [
-              "EMAIL",
-              "SMS",
-              "PHONE",
-              "POST"
-            ]
-          },
-          "purpose": {
-            "type": "string",
-            "enum": [
-              "TRANSACTIONAL",
-              "MARKETING"
-            ]
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "GRANTED",
-              "REVOKED",
-              "SOFT_OPT_IN"
-            ]
-          },
-          "basis": {
-            "type": "string",
-            "enum": [
-              "CONTRACT",
-              "LEGAL_OBLIGATION",
-              "CONSENT",
-              "LEGITIMATE_INTEREST"
-            ],
-            "nullable": true
-          },
-          "sequence": {
-            "type": "number"
-          },
-          "recorded_at": {
-            "type": "string"
-          },
-          "occurred_at": {
-            "type": "string"
-          },
-          "source": {
-            "type": "string",
-            "enum": [
-              "INTAKE",
-              "PROFILE",
-              "WEB_FORM",
-              "IMPORT",
-              "LEGACY_MIGRATION",
-              "UNSUBSCRIBE",
-              "PROVIDER",
-              "SYSTEM"
-            ]
-          },
-          "revoked_at": {
-            "type": "object",
-            "nullable": true
-          }
-        },
-        "required": [
-          "id",
-          "channel",
-          "purpose",
-          "status",
-          "sequence",
-          "recorded_at",
-          "occurred_at",
-          "source"
-        ]
-      },
-      "CommunicationHistoryResponseDto": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/CommunicationEventSummaryDto"
-            }
-          },
-          "meta": {
-            "type": "object"
-          }
-        },
-        "required": [
-          "data",
-          "meta"
-        ]
-      },
-      "RecordCommunicationEventDto": {
-        "type": "object",
-        "properties": {
-          "controller_legal_entity_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "expected_revision": {
-            "type": "number"
-          },
-          "idempotency_key": {
-            "type": "string"
-          },
-          "channel": {
-            "type": "string",
-            "enum": [
-              "EMAIL",
-              "SMS",
-              "PHONE",
-              "POST"
-            ]
-          },
-          "purpose": {
-            "type": "string",
-            "enum": [
-              "TRANSACTIONAL",
-              "MARKETING"
-            ]
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "GRANTED",
-              "REVOKED",
-              "SOFT_OPT_IN"
-            ]
-          },
-          "basis": {
-            "type": "string",
-            "enum": [
-              "CONTRACT",
-              "LEGAL_OBLIGATION",
-              "CONSENT",
-              "LEGITIMATE_INTEREST"
-            ]
-          },
-          "source": {
-            "type": "string",
-            "enum": [
-              "INTAKE",
-              "PROFILE",
-              "WEB_FORM",
-              "IMPORT",
-              "LEGACY_MIGRATION",
-              "UNSUBSCRIBE",
-              "PROVIDER",
-              "SYSTEM"
-            ]
-          },
-          "contact_address": {
-            "type": "string"
-          },
-          "occurred_at": {
-            "type": "string"
-          },
-          "text_version": {
-            "type": "string"
-          },
-          "text_snapshot": {
-            "type": "string"
-          },
-          "evidence": {
-            "type": "object",
-            "additionalProperties": true
-          }
-        },
-        "required": [
-          "expected_revision",
-          "idempotency_key",
-          "channel",
-          "purpose",
-          "status",
-          "source"
-        ]
-      },
-      "CommunicationEventResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "channel": {
-            "type": "string",
-            "enum": [
-              "EMAIL",
-              "SMS",
-              "PHONE",
-              "POST"
-            ]
-          },
-          "purpose": {
-            "type": "string",
-            "enum": [
-              "TRANSACTIONAL",
-              "MARKETING"
-            ]
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "GRANTED",
-              "REVOKED",
-              "SOFT_OPT_IN"
-            ]
-          },
-          "basis": {
-            "type": "string",
-            "enum": [
-              "CONTRACT",
-              "LEGAL_OBLIGATION",
-              "CONSENT",
-              "LEGITIMATE_INTEREST"
-            ],
-            "nullable": true
-          },
-          "sequence": {
-            "type": "number"
-          },
-          "recorded_at": {
-            "type": "string"
-          },
-          "occurred_at": {
-            "type": "string"
-          },
-          "source": {
-            "type": "string",
-            "enum": [
-              "INTAKE",
-              "PROFILE",
-              "WEB_FORM",
-              "IMPORT",
-              "LEGACY_MIGRATION",
-              "UNSUBSCRIBE",
-              "PROVIDER",
-              "SYSTEM"
-            ]
-          },
-          "revoked_at": {
-            "type": "object",
-            "nullable": true
-          },
-          "revision": {
-            "type": "number"
-          }
-        },
-        "required": [
-          "id",
-          "channel",
-          "purpose",
-          "status",
-          "sequence",
-          "recorded_at",
-          "occurred_at",
-          "source",
-          "revision"
-        ]
       },
       "FinanceSettingsResponseDto": {
         "type": "object",
