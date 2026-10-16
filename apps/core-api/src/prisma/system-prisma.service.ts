@@ -127,6 +127,10 @@ export class SystemPrismaService
     return this.prisma.notificationOutbox;
   }
 
+  get customerConsentUnsubscribeToken(): PrismaClient['customerConsentUnsubscribeToken'] {
+    return this.prisma.customerConsentUnsubscribeToken;
+  }
+
   $transaction<Result>(
     fn: (transaction: SystemPrismaTransactionClient) => Promise<Result>,
     options?: Parameters<SystemPrismaClient['$transaction']>[1],

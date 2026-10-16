@@ -25,6 +25,7 @@ import { PurchaseModule } from './purchase/purchase.module.js';
 import { VendorModule } from './vendor/vendor.module.js';
 import { SalesModule } from './sales/sales.module.js';
 import { CustomerModule } from './customer/customer.module.js';
+import { CustomerConsentModule } from './customer-consent/customer-consent.module.js';
 import { FinanceModule } from './finance/finance.module.js';
 import { BrandModule } from './brand/brand.module.js';
 import { SalesOrderModule } from './sales/sales-order/sales-order.module.js';
@@ -84,6 +85,7 @@ import { SettlementModule } from './settlement/settlement.module.js';
     PurchaseModule,
     VendorModule,
     SalesModule,
+    CustomerConsentModule,
     CustomerModule,
     FinanceModule,
     BrandModule,

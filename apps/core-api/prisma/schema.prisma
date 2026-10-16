@@ -68,6 +68,10 @@ model Tenant {
   purchaseOrders                PurchaseOrder[]
   purchaseOrderItems            PurchaseOrderItem[]
   customers                     Customer[]
+  customerContactPoints         CustomerContactPoint[]
+  customerConsents              CustomerConsent[]
+  customerCommunicationStates   CustomerCommunicationState[]
+  customerConsentUnsubscribeTokens CustomerConsentUnsubscribeToken[]
   vehicles                      Vehicle[]
   vehiclePurchases              VehiclePurchase[]
   vehicleSales                  VehicleSale[]
@@ -450,6 +454,9 @@ model LegalEntity {
   workshopEstimateAssetRefs  WorkshopEstimateBrandAssetReference[]
   invoices                    Invoice[]
   creditNotes                 CreditNote[]
+  customerConsents            CustomerConsent[]
+  customerCommunicationStates CustomerCommunicationState[]
+  customerConsentUnsubscribeTokens CustomerConsentUnsubscribeToken[]
   createdAt                   DateTime                      @default(now())
   updatedAt                   DateTime                      @updatedAt
 
@@ -1493,6 +1500,55 @@ enum CustomerType {
   COMPANY
 }
 
+enum CustomerConsentPurpose {
+  TRANSACTIONAL
+  MARKETING
+}
+
+enum CustomerConsentChannel {
+  EMAIL
+  SMS
+  PHONE
+  POST
+}
+
+enum CustomerConsentStatus {
+  GRANTED
+  REVOKED
+  SOFT_OPT_IN
+}
+
+enum CustomerConsentBasis {
+  CONTRACT
+  LEGAL_OBLIGATION
+  CONSENT
+  LEGITIMATE_INTEREST
+}
+
+enum CustomerConsentSource {
+  INTAKE
+  PROFILE
+  WEB_FORM
+  IMPORT
+  LEGACY_MIGRATION
+  UNSUBSCRIBE
+  PROVIDER
+  SYSTEM
+}
+
+enum CustomerContactTransportValidity {
+  UNKNOWN
+  VALID
+  INVALID
+}
+
+enum CustomerCommunicationProcessingStatus {
+  ACTIVE
+  RESTRICTED
+  ERASURE_PENDING
+  TOMBSTONED
+}
+
 model Customer {
   id           String       @id @default(uuid())
   tenant_id    String
@@ -1526,6 +1582,9 @@ model Customer {
   loaner_bookings         LoanerBooking[]
   tyre_sets               TyreSet[]
   appliedRegistrationIntakes RegistrationDocumentIntake[] @relation("RegistrationIntakeAppliedCustomer")
+  contact_points           CustomerContactPoint[]
+  consent_events           CustomerConsent[]
+  communication_states     CustomerCommunicationState[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1534,6 +1593,103 @@ model Customer {
   @@unique([tenant_id, email]) // tenant-scoped
   @@index([tenant_id])
   @@map("customers")
+}
+
+model CustomerContactPoint {
+  id                  String                         @id @default(uuid())
+  tenant_id           String
+  tenant              Tenant                         @relation(fields: [tenant_id], references: [id])
+  customer_id         String
+  customer            Customer                       @relation(fields: [tenant_id, customer_id], references: [tenant_id, id], onDelete: Restrict)
+  channel             CustomerConsentChannel
+  normalized_address  String
+  address_fingerprint String
+  is_current          Boolean                        @default(true)
+  transport_validity  CustomerContactTransportValidity @default(UNKNOWN)
+  created_at          DateTime                       @default(now())
+  updated_at          DateTime                       @updatedAt
+  consent_events      CustomerConsent[]
+
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, customer_id, channel, address_fingerprint])
+  @@index([tenant_id, customer_id, channel, is_current])
+  @@map("customer_contact_points")
+}
+
+model CustomerCommunicationState {
+  id                       String                              @id @default(uuid())
+  tenant_id                String
+  tenant                   Tenant                              @relation(fields: [tenant_id], references: [id])
+  controller_legal_entity_id String
+  controller_legal_entity  LegalEntity                         @relation(fields: [tenant_id, controller_legal_entity_id], references: [tenant_id, id], onDelete: Restrict)
+  customer_id              String
+  customer                 Customer                            @relation(fields: [tenant_id, customer_id], references: [tenant_id, id], onDelete: Restrict)
+  revision                 Int                                 @default(0)
+  processing_status        CustomerCommunicationProcessingStatus @default(ACTIVE)
+  preferred_service_channel CustomerConsentChannel?
+  created_at               DateTime                            @default(now())
+  updated_at               DateTime                            @updatedAt
+
+  @@unique([tenant_id, controller_legal_entity_id, customer_id])
+  @@unique([tenant_id, id])
+  @@map("customer_communication_states")
+}
+
+model CustomerConsent {
+  id                       String                 @id @default(uuid())
+  tenant_id                String
+  tenant                   Tenant                 @relation(fields: [tenant_id], references: [id])
+  controller_legal_entity_id String
+  controller_legal_entity  LegalEntity            @relation(fields: [tenant_id, controller_legal_entity_id], references: [tenant_id, id], onDelete: Restrict)
+  customer_id              String
+  customer                 Customer               @relation(fields: [tenant_id, customer_id], references: [tenant_id, id], onDelete: Restrict)
+  contact_point_id         String?
+  contact_point            CustomerContactPoint?  @relation(fields: [tenant_id, contact_point_id], references: [tenant_id, id], onDelete: Restrict)
+  channel                  CustomerConsentChannel
+  purpose                  CustomerConsentPurpose
+  status                   CustomerConsentStatus
+  basis                    CustomerConsentBasis?
+  sequence                 Int
+  recorded_at              DateTime               @default(now())
+  occurred_at              DateTime
+  source                   CustomerConsentSource
+  actor_member_id          String?
+  text_version             String?
+  text_language            String?                @db.VarChar(8)
+  text_snapshot            String?
+  text_content_hash        String?
+  evidence                 Json?
+  supersedes_event_id      String?
+  revoked_at               DateTime?
+  idempotency_key          String?
+  retain_until             DateTime?
+  legal_hold               Boolean                @default(false)
+  created_at               DateTime               @default(now())
+
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, idempotency_key])
+  @@index([tenant_id, customer_id, controller_legal_entity_id, channel, purpose, sequence])
+  @@index([tenant_id, retain_until, legal_hold])
+  @@map("customer_consents")
+}
+
+model CustomerConsentUnsubscribeToken {
+  id                       String                 @id @default(uuid())
+  tenant_id                String
+  tenant                   Tenant                 @relation(fields: [tenant_id], references: [id])
+  controller_legal_entity_id String
+  controller_legal_entity  LegalEntity            @relation(fields: [tenant_id, controller_legal_entity_id], references: [tenant_id, id], onDelete: Restrict)
+  customer_id              String
+  channel                  CustomerConsentChannel
+  contact_fingerprint      String
+  token_sha256             String                 @unique
+  retain_until             DateTime
+  created_at               DateTime               @default(now())
+  used_at                  DateTime?
+
+  @@unique([tenant_id, id])
+  @@index([tenant_id, customer_id])
+  @@map("customer_consent_unsubscribe_tokens")
 }
 
 model Vehicle {

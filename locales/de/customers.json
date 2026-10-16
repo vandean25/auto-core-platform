@@ -1,0 +1,21 @@
+{
+  "consent": {
+    "tab": "Kontaktpräferenzen",
+    "title": "Kontaktpräferenzen",
+    "description": "Marketing- und Auftragskontakt für den Pilotkunden (je Rechtsträger).",
+    "channel": "Kanal",
+    "purpose": "Zweck",
+    "status": "Aktueller Stand",
+    "allowed": "Kontakt erlaubt",
+    "yes": "Ja",
+    "no": "Nein",
+    "historyTitle": "Einwilligungsverlauf",
+    "recordGrant": "Marketing-Einwilligung erfassen",
+    "recordRevoke": "Marketing widerrufen",
+    "softOptIn": "Soft Opt-in erfassen",
+    "saved": "Einwilligung gespeichert",
+    "failed": "Einwilligung konnte nicht gespeichert werden",
+    "emptyHistory": "Noch keine Einwilligungsereignisse.",
+    "revision": "Stand-Revision"
+  }
+}
