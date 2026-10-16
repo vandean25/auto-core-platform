@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { DE_STATUS } from './helpers/de-enums'
 import { AutoCorePage } from './pom/AutoCorePage'
 import { createMockListResponse } from './utils/mock-factories'
 
@@ -54,7 +55,7 @@ test.describe('Pickerl due list and dashboard widgets', () => {
     await page.waitForLoadState('networkidle')
 
     await expect(page.getByText('W-MOCK-1')).toBeVisible()
-    await expect(page.getByText('Unknown')).toBeVisible()
+    await expect(page.getByText(DE_STATUS.UNKNOWN)).toBeVisible()
   })
 
   test('opens the existing intake and posts a §57a task for a due vehicle', async ({ page }) => {

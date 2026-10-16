@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { DE_STATUS } from "./helpers/de-enums";
 import { AutoCorePage } from "./pom/AutoCorePage";
 import {
   createMockPurchaseOrder,
@@ -116,7 +117,7 @@ test.describe("Blueprint: Purchase Order Detail", () => {
       page.getByRole("heading", { name: "PO-2026-0001", exact: true }),
     ).toBeVisible();
     await expect(page.getByText("Vendor: Bosch Automotive")).toBeVisible();
-    await expect(page.getByText(/DRAFT/i)).toBeVisible();
+    await expect(page.getByText(DE_STATUS.DRAFT, { exact: true })).toBeVisible();
 
     // exact: the row's delete action is named "Delete item TEST-SKU-1 Test Part" (AUT-471), so substring matches on either value also resolve to the actions cell.
     await expect(page.getByRole("cell", { name: "TEST-SKU-1", exact: true })).toBeVisible();
@@ -212,7 +213,7 @@ test.describe("Blueprint: Purchase Order Detail", () => {
     const sendButton = page.getByRole("button", { name: /Mark as Sent/i });
     await expect(sendButton).toBeVisible();
     await sendButton.click();
-    await expect(page.getByText("Sent", { exact: true })).toBeVisible();
+    await expect(page.getByText(DE_STATUS.SENT, { exact: true })).toBeVisible();
   });
 
   test.fixme("Purchase Order Detail - auto-save on field change", async ({

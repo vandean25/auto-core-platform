@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { DE_STATUS } from './helpers/de-enums'
 import { AutoCorePage } from './pom/AutoCorePage'
 import {
   createMockInventoryItem,
@@ -177,7 +178,7 @@ test.describe('Stock Transfers — destination-only request and cancel', () => {
     await expect(page).toHaveURL(`/stock-transfers/${TRANSFER_ID}`)
     await expect(page.getByRole('heading', { name: 'TR-2026-0042' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'TR-2026-0042' }).locator('span')).toHaveText(
-      'Requested',
+      DE_STATUS.REQUESTED,
     )
 
     await page.getByRole('button', { name: 'Cancel', exact: true }).click()
@@ -185,7 +186,7 @@ test.describe('Stock Transfers — destination-only request and cancel', () => {
     await page.getByRole('button', { name: 'Cancel transfer' }).click()
 
     await expect(page.getByRole('heading', { name: 'TR-2026-0042' }).locator('span')).toHaveText(
-      'Cancelled',
+      DE_STATUS.CANCELLED,
     )
   })
 })

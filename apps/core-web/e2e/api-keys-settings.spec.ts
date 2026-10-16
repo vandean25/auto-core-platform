@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { DE_STATUS } from "./helpers/de-enums";
 import { AutoCorePage } from "./pom/AutoCorePage";
 import { createMockFinanceSettings, createMockListResponse } from "./utils/mock-factories";
 
@@ -146,7 +147,7 @@ test.describe("Blueprint: API keys settings", () => {
     const seededRow = rowFor(page, "Warehouse BI");
     await expect(seededRow).toBeVisible();
     await expect(seededRow).toContainText("acp_live_3f9a2c1b");
-    await expect(seededRow).toContainText(/ACTIVE/i);
+    await expect(seededRow).toContainText("Aktiv");
 
     // Create: the form refuses an empty name and an empty scope set.
     await page.getByRole("button", { name: "+ API key" }).click();

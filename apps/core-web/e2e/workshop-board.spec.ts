@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { DE_STATUS } from './helpers/de-enums'
 import { AutoCorePage } from './pom/AutoCorePage'
 import { expectNoAxeViolationsForRules } from './utils/a11y'
 import {
@@ -237,11 +238,11 @@ test.describe('Blueprint: Workshop Board', () => {
 
     // First card has READY parts status
     await expect(page.getByText('WO-2026-0001')).toBeVisible()
-    await expect(page.locator('text=Ready').first()).toBeVisible()
+    await expect(page.getByText(DE_STATUS.READY).first()).toBeVisible()
 
     // Second card has NO_PARTS
     await expect(page.getByText('WO-2026-0002')).toBeVisible()
-    await expect(page.locator('text=No Parts').first()).toBeVisible()
+    await expect(page.getByText(DE_STATUS.NO_PARTS).first()).toBeVisible()
   })
 
   test('Empty state card renders when no mechanic resources exist', async ({ page }) => {
