@@ -7,13 +7,13 @@ import {
 import {
   type CatalogItem,
   type LaborOperation,
+  LocationType,
   Prisma,
   WorkshopLineItemType,
   WorkshopOrderStatus,
   WorkshopPartLineExecutionStatus,
   WorkshopTaskStatus,
 } from '@prisma/client';
-import { mcpStockBinWhere } from '../mcp/mcp-stock-read.mapper.js';
 import { createHash } from 'node:crypto';
 import { AtpService } from '../inventory/atp.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -631,7 +631,17 @@ export class WorkshopPositionPlanService {
     quantity: Prisma.Decimal,
   ): Promise<{ id: string } | null> {
     const stocks = await tx.inventoryStock.findMany({
-      where: mcpStockBinWhere(tenantId, siteId, [catalogItemId]),
+      where: {
+        tenant_id: tenantId,
+        site_id: siteId,
+        catalog_item_id: catalogItemId,
+        location: {
+          type: LocationType.bin,
+          deletedAt: null,
+          site_id: siteId,
+          tenant_id: tenantId,
+        },
+      },
       select: {
         location_id: true,
         quantity_on_hand: true,
