@@ -119,7 +119,17 @@ function normalizeDemoRequestPath(path: string): string {
     : `/api${decoded.startsWith('/') ? '' : '/'}${decoded}`;
 }
 
-function isDemoMutationPathAllowed(normalizedPath: string): boolean {
+function isDemoMutationPathAllowed(
+  normalizedPath: string,
+  method: string,
+): boolean {
+  if (normalizedPath === '/api/auth/me/preferences' && method !== 'PATCH') {
+    return false;
+  }
+  if (normalizedPath === '/api/tenants/current/locale') {
+    return false;
+  }
+
   for (const prefix of DEMO_MUTATION_BLOCKED_PREFIXES) {
     if (normalizedPath.startsWith(prefix)) {
       return false;
@@ -160,7 +170,7 @@ export function isDemoMutationAllowed(method: string, path: string): boolean {
   }
 
   const normalizedPath = normalizeDemoRequestPath(path);
-  return isDemoMutationPathAllowed(normalizedPath);
+  return isDemoMutationPathAllowed(normalizedPath, upperMethod);
 }
 
 export function demoAccessExpiresAt(from: Date = new Date()): Date {

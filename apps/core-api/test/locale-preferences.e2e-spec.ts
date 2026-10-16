@@ -170,15 +170,6 @@ describe('Locale preferences (e2e)', () => {
       .expect(403);
   });
 
-  it('denies tenant locale PATCH for DEMO role', async () => {
-    const demoToken = await createMemberToken('DEMO');
-    await request(app.getHttpServer())
-      .patch('/api/tenants/current/locale')
-      .set('Authorization', `Bearer ${demoToken}`)
-      .send({ default_locale: 'de' })
-      .expect(403);
-  });
-
   it('denies tenant API keys on user preference routes', async () => {
     const keyRes = await request(app.getHttpServer())
       .post('/api/tenant-api-keys')

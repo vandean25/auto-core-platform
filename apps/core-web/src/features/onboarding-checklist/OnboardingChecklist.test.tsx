@@ -19,6 +19,10 @@ function sessionFor(activeRole: AuthSession['activeRole'], userId = 'user-1'): A
     activeRole,
     activeSiteId: null,
     memberships: [],
+    locale: null,
+    effectiveLocale: 'de',
+    defaultLocale: 'de',
+    formatLocale: 'de-AT',
   }
 }
 
