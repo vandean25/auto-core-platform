@@ -64,6 +64,7 @@ model Tenant {
   vehicleSales                  VehicleSale[]
   vehicleLedgerEntries          VehicleLedgerEntry[]
   vehicleInspectionRecords      VehicleInspectionRecord[]
+  vehicleValuationSnapshots     VehicleValuationSnapshot[]
   salesOrders                   SalesOrder[]
   salesOrderItems               SalesOrderItem[]
   invoices                      Invoice[]
@@ -795,6 +796,7 @@ model Site {
   purchaseOrders           PurchaseOrder[]
   vehiclePurchases         VehiclePurchase[]
   vehicleSales             VehicleSale[]
+  vehicleValuationSnapshots VehicleValuationSnapshot[]
   tyreSets                 TyreSet[]
   invoices                 Invoice[]
   creditNotes              CreditNote[]
@@ -1572,6 +1574,7 @@ model Vehicle {
   ledger_entries                 VehicleLedgerEntry[]
   loaner_fleet_entry             LoanerVehicle?
   inspection_records             VehicleInspectionRecord[]
+  valuation_snapshots            VehicleValuationSnapshot[]
   tyre_sets                      TyreSet[]
   appliedRegistrationIntakes     RegistrationDocumentIntake[] @relation("RegistrationIntakeAppliedVehicle")
 
@@ -1793,6 +1796,37 @@ model VehicleInspectionRecord {
   @@index([tenant_id, plaketten_valid_until_year, plaketten_valid_until_month], map: "idx_vehicle_inspection_records_tenant_valid_until")
 
   @@map("vehicle_inspection_records")
+}
+
+model VehicleValuationSnapshot {
+  id                    String   @id @default(uuid())
+  tenant_id             String
+  tenant                Tenant   @relation(fields: [tenant_id], references: [id])
+  vehicle_id            String
+  vehicle               Vehicle  @relation(fields: [vehicle_id], references: [id], onDelete: Cascade)
+  site_id               String?
+  site                  Site?    @relation(fields: [tenant_id, site_id], references: [tenant_id, id])
+  national_code         String   @map("national_code") @db.VarChar(6)
+  valuation_type        String   @map("valuation_type")
+  mileage_km            Int      @map("mileage_km")
+  condition             String
+  requested_as_of       DateTime @map("requested_as_of") @db.Date
+  provider_as_of        DateTime @map("provider_as_of") @db.Date
+  currency              String   @db.Char(3)
+  amount                Decimal  @db.Decimal(12, 2)
+  source                String
+  reference_version     String   @map("reference_version")
+  contract_version      String   @map("contract_version")
+  native_id_state       String   @map("native_id_state")
+  input_sha256          String   @map("input_sha256") @db.Char(64)
+  provider_body_sha256  String   @map("provider_body_sha256") @db.Char(64)
+  idempotency_key       String   @map("idempotency_key") @db.VarChar(80)
+  created_by            String   @map("created_by")
+  createdAt             DateTime @default(now()) @map("created_at")
+
+  @@unique([tenant_id, idempotency_key])
+  @@index([tenant_id, vehicle_id, createdAt])
+  @@map("vehicle_valuation_snapshots")
 }
 
 enum SalesOrderStatus {

@@ -11,6 +11,7 @@ describe('VehicleController NoVA calculation', () => {
     const controller = new VehicleController(
       {} as never,
       {} as never,
+      {} as never,
       novaCalculationService as never,
     );
 

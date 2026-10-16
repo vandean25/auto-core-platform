@@ -1,0 +1,366 @@
+{
+  "contractVersion": "acp-valuation-contract-1",
+  "holderLabel": "pilot customer",
+  "note": "Synthetic ACP contract fixtures. http.body is CreateVehicleValuation and has no nationalCode. mileageKm and condition are optional there: missing-mileage omits mileageKm so the service returns 422 MISSING_DATA. JSON null is the same service result, not a pipe 400. providerInput is ValuationQuoteInput and copies the stored national code. These are not Eurotax or Schwacke payloads.",
+  "cases": {
+    "quoted-market-value": {
+      "http": {
+        "vehicleId": "00000000-0000-4000-8000-000000000527",
+        "idempotencyKey": "synthetic-quote-527",
+        "body": {
+          "valuationType": "MARKET_VALUE",
+          "mileageKm": 84200,
+          "condition": "ROADWORTHY_AVERAGE",
+          "requestedAsOf": "2026-10-15",
+          "currency": "EUR"
+        }
+      },
+      "vehicle": {
+        "vin": "WAUZZZSYNTH000527",
+        "typenscheinNo": "TS-SYNTH-527",
+        "hsn": "0603",
+        "tsn": "AAA",
+        "nationalCode": "100527",
+        "firstRegistrationDate": "2021-03-15",
+        "inventoryRole": "CUSTOMER"
+      },
+      "providerInput": {
+        "market": "AT",
+        "valuationType": "MARKET_VALUE",
+        "nationalCode": "100527",
+        "mileageKm": 84200,
+        "condition": "ROADWORTHY_AVERAGE",
+        "requestedAsOf": "2026-10-15",
+        "currency": "EUR",
+        "contractVersion": "acp-valuation-contract-1"
+      },
+      "response": {
+        "result": "QUOTED",
+        "amount": "14850.00",
+        "currency": "EUR",
+        "source": "EUROTAX_AT_AUTOVALUATION",
+        "sourceState": "KNOWN",
+        "requestedAsOf": "2026-10-15",
+        "providerAsOf": "2026-10-15",
+        "asOfState": "KNOWN",
+        "referenceVersion": "synthetic-ref-2026-10",
+        "referenceVersionState": "KNOWN",
+        "contractVersion": "acp-valuation-contract-1",
+        "nativeId": null,
+        "nativeIdState": "NATIVE_ID_UNKNOWN",
+        "stale": false
+      }
+    },
+    "national-code-in-body": {
+      "http": {
+        "vehicleId": "00000000-0000-4000-8000-000000000527",
+        "idempotencyKey": "synthetic-body-code",
+        "body": {
+          "valuationType": "MARKET_VALUE",
+          "nationalCode": "999999",
+          "mileageKm": 84200,
+          "condition": "ROADWORTHY_AVERAGE",
+          "requestedAsOf": "2026-10-15",
+          "currency": "EUR"
+        }
+      },
+      "vehicle": {
+        "nationalCode": "100527"
+      },
+      "response": {
+        "result": null,
+        "httpStatus": 400,
+        "providerCalled": false
+      }
+    },
+    "uncertain-identity-vin-shaped": {
+      "http": {
+        "vehicleId": "00000000-0000-4000-8000-000000000528",
+        "idempotencyKey": "synthetic-uncertain-vin",
+        "body": {
+          "valuationType": "MARKET_VALUE",
+          "mileageKm": 12000,
+          "condition": "ROADWORTHY_AVERAGE",
+          "requestedAsOf": "2026-10-15",
+          "currency": "EUR"
+        }
+      },
+      "vehicle": {
+        "vin": "WAUZZZSYNTH000528",
+        "nationalCode": "WAUZZZSYNTH000528"
+      },
+      "response": {
+        "result": "UNCERTAIN_IDENTITY",
+        "amount": null,
+        "currency": null,
+        "source": null,
+        "sourceState": "UNKNOWN",
+        "requestedAsOf": "2026-10-15",
+        "providerAsOf": null,
+        "asOfState": "AS_OF_UNKNOWN",
+        "referenceVersion": null,
+        "referenceVersionState": "REFERENCE_VERSION_UNKNOWN",
+        "contractVersion": "acp-valuation-contract-1",
+        "nativeId": null,
+        "nativeIdState": "NATIVE_ID_UNKNOWN",
+        "httpStatus": 422
+      }
+    },
+    "uncertain-identity-equals-typenschein": {
+      "http": {
+        "vehicleId": "00000000-0000-4000-8000-000000000529",
+        "idempotencyKey": "synthetic-uncertain-typenschein",
+        "body": {
+          "valuationType": "MARKET_VALUE",
+          "mileageKm": 12000,
+          "condition": "ROADWORTHY_AVERAGE",
+          "requestedAsOf": "2026-10-15",
+          "currency": "EUR"
+        }
+      },
+      "vehicle": {
+        "typenscheinNo": "100529",
+        "nationalCode": "100529"
+      },
+      "response": {
+        "result": "UNCERTAIN_IDENTITY",
+        "amount": null,
+        "sourceState": "UNKNOWN",
+        "asOfState": "AS_OF_UNKNOWN",
+        "referenceVersionState": "REFERENCE_VERSION_UNKNOWN",
+        "nativeId": null,
+        "nativeIdState": "NATIVE_ID_UNKNOWN",
+        "httpStatus": 422
+      }
+    },
+    "ambiguous-variant": {
+      "http": {
+        "vehicleId": "00000000-0000-4000-8000-000000000530",
+        "idempotencyKey": "synthetic-ambiguous",
+        "body": {
+          "valuationType": "MARKET_VALUE",
+          "mileageKm": 45000,
+          "condition": "ROADWORTHY_AVERAGE",
+          "requestedAsOf": "2026-10-15",
+          "currency": "EUR"
+        }
+      },
+      "vehicle": {
+        "nationalCode": "100530"
+      },
+      "providerInput": {
+        "market": "AT",
+        "valuationType": "MARKET_VALUE",
+        "nationalCode": "100530",
+        "mileageKm": 45000,
+        "condition": "ROADWORTHY_AVERAGE",
+        "requestedAsOf": "2026-10-15",
+        "currency": "EUR",
+        "contractVersion": "acp-valuation-contract-1"
+      },
+      "response": {
+        "result": "AMBIGUOUS_VARIANT",
+        "amount": null,
+        "currency": null,
+        "source": "EUROTAX_AT_AUTOVALUATION",
+        "sourceState": "KNOWN",
+        "requestedAsOf": "2026-10-15",
+        "providerAsOf": "2026-10-15",
+        "asOfState": "KNOWN",
+        "referenceVersion": "synthetic-ref-2026-10",
+        "referenceVersionState": "KNOWN",
+        "contractVersion": "acp-valuation-contract-1",
+        "nativeId": null,
+        "nativeIdState": "NATIVE_ID_UNKNOWN",
+        "candidates": [
+          { "nationalCode": "100530", "label": "synthetic variant A" },
+          { "nationalCode": "100531", "label": "synthetic variant B" }
+        ],
+        "httpStatus": 409
+      }
+    },
+    "missing-mileage": {
+      "http": {
+        "vehicleId": "00000000-0000-4000-8000-000000000527",
+        "idempotencyKey": "synthetic-missing-mileage",
+        "body": {
+          "valuationType": "MARKET_VALUE",
+          "condition": "ROADWORTHY_AVERAGE",
+          "requestedAsOf": "2026-10-15",
+          "currency": "EUR"
+        }
+      },
+      "vehicle": {
+        "nationalCode": "100527"
+      },
+      "response": {
+        "result": "MISSING_DATA",
+        "missing": ["mileageKm"],
+        "amount": null,
+        "sourceState": "UNKNOWN",
+        "asOfState": "AS_OF_UNKNOWN",
+        "referenceVersionState": "REFERENCE_VERSION_UNKNOWN",
+        "nativeId": null,
+        "nativeIdState": "NATIVE_ID_UNKNOWN",
+        "httpStatus": 422
+      }
+    },
+    "quoted-poor-without-first-registration": {
+      "http": {
+        "vehicleId": "00000000-0000-4000-8000-000000000531",
+        "idempotencyKey": "synthetic-poor-no-registration",
+        "body": {
+          "valuationType": "MARKET_VALUE",
+          "mileageKm": 210000,
+          "condition": "POOR",
+          "requestedAsOf": "2026-10-15",
+          "currency": "EUR"
+        }
+      },
+      "vehicle": {
+        "nationalCode": "100531",
+        "firstRegistrationDate": null
+      },
+      "providerInput": {
+        "market": "AT",
+        "valuationType": "MARKET_VALUE",
+        "nationalCode": "100531",
+        "mileageKm": 210000,
+        "condition": "POOR",
+        "requestedAsOf": "2026-10-15",
+        "currency": "EUR",
+        "contractVersion": "acp-valuation-contract-1"
+      },
+      "response": {
+        "result": "QUOTED",
+        "amount": "4200.00",
+        "currency": "EUR",
+        "source": "EUROTAX_AT_AUTOVALUATION",
+        "sourceState": "KNOWN",
+        "requestedAsOf": "2026-10-15",
+        "providerAsOf": "2026-10-15",
+        "asOfState": "KNOWN",
+        "referenceVersion": "synthetic-ref-2026-10",
+        "referenceVersionState": "KNOWN",
+        "contractVersion": "acp-valuation-contract-1",
+        "nativeId": null,
+        "nativeIdState": "NATIVE_ID_UNKNOWN",
+        "stale": false,
+        "httpStatus": 201
+      }
+    },
+    "stale-valuation": {
+      "http": {
+        "vehicleId": "00000000-0000-4000-8000-000000000527",
+        "idempotencyKey": "synthetic-stale",
+        "body": {
+          "valuationType": "MARKET_VALUE",
+          "mileageKm": 84200,
+          "condition": "ROADWORTHY_AVERAGE",
+          "requestedAsOf": "2026-10-01",
+          "currency": "EUR"
+        }
+      },
+      "vehicle": {
+        "nationalCode": "100527",
+        "firstRegistrationDate": "2021-03-15"
+      },
+      "providerInput": {
+        "market": "AT",
+        "valuationType": "MARKET_VALUE",
+        "nationalCode": "100527",
+        "mileageKm": 84200,
+        "condition": "ROADWORTHY_AVERAGE",
+        "requestedAsOf": "2026-10-01",
+        "currency": "EUR",
+        "contractVersion": "acp-valuation-contract-1"
+      },
+      "readOn": "2026-10-15",
+      "response": {
+        "result": "QUOTED",
+        "amount": "15100.00",
+        "currency": "EUR",
+        "source": "EUROTAX_AT_AUTOVALUATION",
+        "sourceState": "KNOWN",
+        "requestedAsOf": "2026-10-01",
+        "providerAsOf": "2026-10-01",
+        "asOfState": "KNOWN",
+        "referenceVersion": "synthetic-ref-2026-09",
+        "referenceVersionState": "KNOWN",
+        "contractVersion": "acp-valuation-contract-1",
+        "nativeId": null,
+        "nativeIdState": "NATIVE_ID_UNKNOWN",
+        "stale": true
+      }
+    },
+    "conflict-replay": {
+      "stored": {
+        "idempotencyKey": "synthetic-quote-527",
+        "inputSha256": "synthetic-input-hash-quote"
+      },
+      "retry": {
+        "idempotencyKey": "synthetic-quote-527",
+        "inputSha256": "synthetic-input-hash-other-mileage"
+      },
+      "response": {
+        "result": "CONFLICT_REPLAY",
+        "amount": null,
+        "sourceState": "UNKNOWN",
+        "asOfState": "AS_OF_UNKNOWN",
+        "referenceVersionState": "REFERENCE_VERSION_UNKNOWN",
+        "nativeId": null,
+        "nativeIdState": "NATIVE_ID_UNKNOWN",
+        "httpStatus": 409
+      }
+    },
+    "reference-version-unknown": {
+      "response": {
+        "result": "REFERENCE_VERSION_UNKNOWN",
+        "amount": null,
+        "currency": null,
+        "source": "EUROTAX_AT_AUTOVALUATION",
+        "sourceState": "KNOWN",
+        "requestedAsOf": "2026-10-15",
+        "providerAsOf": "2026-10-15",
+        "asOfState": "KNOWN",
+        "referenceVersion": null,
+        "referenceVersionState": "REFERENCE_VERSION_UNKNOWN",
+        "contractVersion": "acp-valuation-contract-1",
+        "nativeId": null,
+        "nativeIdState": "NATIVE_ID_UNKNOWN",
+        "httpStatus": 422
+      }
+    },
+    "as-of-unknown": {
+      "response": {
+        "result": "AS_OF_UNKNOWN",
+        "amount": null,
+        "source": "EUROTAX_AT_AUTOVALUATION",
+        "sourceState": "KNOWN",
+        "requestedAsOf": "2026-10-15",
+        "providerAsOf": null,
+        "asOfState": "AS_OF_UNKNOWN",
+        "referenceVersion": "synthetic-ref-2026-10",
+        "referenceVersionState": "KNOWN",
+        "nativeId": null,
+        "nativeIdState": "NATIVE_ID_UNKNOWN",
+        "httpStatus": 422
+      }
+    },
+    "provider-unavailable": {
+      "response": {
+        "result": "PROVIDER_UNAVAILABLE",
+        "amount": null,
+        "source": null,
+        "sourceState": "UNKNOWN",
+        "providerAsOf": null,
+        "asOfState": "AS_OF_UNKNOWN",
+        "referenceVersion": null,
+        "referenceVersionState": "REFERENCE_VERSION_UNKNOWN",
+        "nativeId": null,
+        "nativeIdState": "NATIVE_ID_UNKNOWN",
+        "httpStatus": 503
+      }
+    }
+  }
+}

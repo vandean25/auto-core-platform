@@ -8,6 +8,11 @@ import {
   VEHICLE_IDENTITY_PROVIDER,
 } from './vehicle-identity.provider.js';
 import { VehicleIdentityService } from './vehicle-identity.service.js';
+import {
+  DisabledEurotaxAtVehicleValuationProvider,
+  VEHICLE_VALUATION_PROVIDER,
+} from './vehicle-valuation.provider.js';
+import { VehicleValuationService } from './vehicle-valuation.service.js';
 import { VehicleService } from './vehicle.service.js';
 import { VehiclePersistenceService } from './vehicle-persistence.service.js';
 import { VehiclePickerlDueService } from './vehicle-pickerl-due.service.js';
@@ -25,10 +30,16 @@ import { NovaCalculationService } from './nova-calculation.service.js';
     NovaCalculationService,
     VehicleInspectionRecordService,
     VehicleIdentityService,
+    VehicleValuationService,
     SandboxVehicleIdentityProvider,
     {
       provide: VEHICLE_IDENTITY_PROVIDER,
       useExisting: SandboxVehicleIdentityProvider,
+    },
+    DisabledEurotaxAtVehicleValuationProvider,
+    {
+      provide: VEHICLE_VALUATION_PROVIDER,
+      useExisting: DisabledEurotaxAtVehicleValuationProvider,
     },
   ],
   exports: [VehicleService, NovaCalculationService],
