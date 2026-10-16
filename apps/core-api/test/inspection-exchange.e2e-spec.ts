@@ -538,6 +538,17 @@ describe('Inspection exchange (e2e)', () => {
         first_registration_date: new Date('2016-04-01T00:00:00.000Z'),
       },
     });
+    await prisma.vehicleInspectionRecord.create({
+      data: {
+        tenant_id: tenantId,
+        vehicle_id: otherVehicle.id,
+        inspection_type: 'PICKERL_57A',
+        inspected_on: new Date('2025-10-01T00:00:00.000Z'),
+        plaketten_valid_until_year: 2026,
+        plaketten_valid_until_month: 10,
+        source: 'MANUAL',
+      },
+    });
     registerSyntheticCanonicalResult('SYNTH-RESULT-ZBD-OTHER', {
       ...SYNTHETIC_CANONICAL_POSITIVE,
       source_result_id: 'SYNTH-RESULT-ZBD-OTHER',
