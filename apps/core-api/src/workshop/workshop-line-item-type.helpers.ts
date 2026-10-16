@@ -1,4 +1,7 @@
-import { WorkshopLineItemType, WorkshopPartLineExecutionStatus } from '@prisma/client';
+import {
+  WorkshopLineItemType,
+  WorkshopPartLineExecutionStatus,
+} from '@prisma/client';
 
 export const WORKSHOP_LABOR_REVENUE_GROUP_NAME = 'Labor / workshop services';
 
@@ -13,7 +16,7 @@ export function workshopFeeRevenueGroupName(): string {
 }
 
 export function resolveWorkshopLineItemType(
-  value: string | WorkshopLineItemType,
+  value: string,
 ): WorkshopLineItemType {
   if (value === WorkshopLineItemType.LABOR) {
     return WorkshopLineItemType.LABOR;
@@ -37,12 +40,12 @@ export function partExecutionStatusForNewLine(
 }
 
 export function defaultRevenueGroupNameForWorkshopLineType(
-  type: WorkshopLineItemType | string | null | undefined,
+  type: string | null | undefined,
 ): string | null {
-  if (type === WorkshopLineItemType.LABOR || type === 'LABOR') {
+  if (type === WorkshopLineItemType.LABOR) {
     return WORKSHOP_LABOR_REVENUE_GROUP_NAME;
   }
-  if (type === WorkshopLineItemType.FEE || type === 'FEE') {
+  if (type === WorkshopLineItemType.FEE) {
     return workshopFeeRevenueGroupName();
   }
   return null;

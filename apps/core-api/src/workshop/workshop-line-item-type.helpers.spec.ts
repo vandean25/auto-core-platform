@@ -14,13 +14,15 @@ describe('workshop-line-item-type.helpers', () => {
   });
 
   it('assigns revenue groups for labor and fee lines', () => {
-    expect(defaultRevenueGroupNameForWorkshopLineType('LABOR')).toBe(
-      'Labor / workshop services',
-    );
-    expect(defaultRevenueGroupNameForWorkshopLineType('FEE')).toBe(
-      workshopFeeRevenueGroupName(),
-    );
-    expect(defaultRevenueGroupNameForWorkshopLineType('PART')).toBeNull();
+    expect(
+      defaultRevenueGroupNameForWorkshopLineType(WorkshopLineItemType.LABOR),
+    ).toBe('Labor / workshop services');
+    expect(
+      defaultRevenueGroupNameForWorkshopLineType(WorkshopLineItemType.FEE),
+    ).toBe(workshopFeeRevenueGroupName());
+    expect(
+      defaultRevenueGroupNameForWorkshopLineType(WorkshopLineItemType.PART),
+    ).toBeNull();
   });
 
   it('only parts get a pick status on create', () => {
