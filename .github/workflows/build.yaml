@@ -285,18 +285,17 @@ jobs:
 
       - name: Run unit tests in parallel
         # No Postgres service: no unit spec opens a database connection.
-        # Invoke Jest directly with a single worker so we stay within ubuntu-latest RAM (npm test uses 12 GiB per worker).
-        working-directory: apps/core-api
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/auto_core_test
-        run: node --max-old-space-size=6144 --experimental-vm-modules ../../node_modules/jest/bin/jest.js --ci --maxWorkers=1 --testPathIgnorePatterns='document-branding-(pdf-parser|extraction-image-processor)\.spec\.ts$'
+          NODE_OPTIONS: --max-old-space-size=8192
+        run: npm test --workspace=core-api -- --ci --maxWorkers=4 --testPathIgnorePatterns='document-branding-(pdf-parser|extraction-image-processor)\.spec\.ts$'
 
       - name: Run timing-sensitive unit tests serially
         # Sharp/PDF rasterization specs exceed their 5 s budget when they share CPU with parallel workers.
-        working-directory: apps/core-api
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/auto_core_test
-        run: node --max-old-space-size=6144 --experimental-vm-modules ../../node_modules/jest/bin/jest.js --ci --runInBand --testPathPatterns='document-branding-(pdf-parser|extraction-image-processor)\.spec\.ts$'
+          NODE_OPTIONS: --max-old-space-size=8192
+        run: npm test --workspace=core-api -- --ci --runInBand --testPathPatterns='document-branding-(pdf-parser|extraction-image-processor)\.spec\.ts$'
 
   backend-e2e:
     name: Backend E2E Tests (shard ${{ matrix.shard }}/${{ strategy.job-total }})
