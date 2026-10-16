@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { useGermanUiInTests } from '@/test/german-ui'
+import { registerGermanUiForTests } from '@/test/german-ui'
 import { toast } from 'sonner'
 
 import LoginPage from './LoginPage'
@@ -24,7 +24,7 @@ vi.mock('@/auth/AuthProvider', () => ({
   }),
 }))
 
-useGermanUiInTests()
+registerGermanUiForTests()
 
 afterEach(() => {
   cleanup()

@@ -1,13 +1,10 @@
 import { cleanup, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
-import { useGermanUiInTests } from '@/test/german-ui'
 import { MemoryRouter } from 'react-router-dom'
 import { AppSidebar } from './AppSidebar'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 
 afterEach(cleanup)
-
-useGermanUiInTests()
 
 const sidebarProps = {
   userEmail: 'admin@example.com',
@@ -42,36 +39,36 @@ describe('AppSidebar Invoices navigation', () => {
   it('lists Invoices directly after Sales Orders in the core modules nav', () => {
     renderSidebar('/dashboard')
 
-    const coreModules = screen.getByRole('navigation', { name: 'Kernmodule' })
+    const coreModules = screen.getByRole('navigation', { name: 'Core modules' })
     const labels = within(coreModules)
       .getAllByRole('link')
       .map((link) => link.textContent)
-    const salesOrdersIndex = labels.indexOf('Kundenaufträge')
+    const salesOrdersIndex = labels.indexOf('Sales Orders')
 
     expect(salesOrdersIndex).toBeGreaterThanOrEqual(0)
-    expect(labels[salesOrdersIndex + 1]).toBe('Rechnungen')
+    expect(labels[salesOrdersIndex + 1]).toBe('Invoices')
   })
 
   it('links Invoices to the invoice list and marks it current on that list', () => {
     renderSidebar('/sales/invoices')
 
-    const invoicesLink = screen.getByRole('link', { name: 'Rechnungen' })
+    const invoicesLink = screen.getByRole('link', { name: 'Invoices' })
     expect(invoicesLink).toHaveAttribute('href', '/sales/invoices')
     expect(invoicesLink).toHaveAttribute('aria-current', 'page')
-    expect(screen.getByRole('link', { name: 'Kundenaufträge' })).not.toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('link', { name: 'Sales Orders' })).not.toHaveAttribute('aria-current', 'page')
   })
 
   it('keeps Invoices current on invoice detail pages without activating Sales Orders', () => {
     renderSidebar('/sales/invoices/inv-1')
 
-    expect(screen.getByRole('link', { name: 'Rechnungen' })).toHaveAttribute('aria-current', 'page')
-    expect(screen.getByRole('link', { name: 'Kundenaufträge' })).not.toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('link', { name: 'Invoices' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('link', { name: 'Sales Orders' })).not.toHaveAttribute('aria-current', 'page')
   })
 
   it('does not mark Invoices current on sales order pages', () => {
     renderSidebar('/sales-orders/so-1')
 
-    expect(screen.getByRole('link', { name: 'Kundenaufträge' })).toHaveAttribute('aria-current', 'page')
-    expect(screen.getByRole('link', { name: 'Rechnungen' })).not.toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('link', { name: 'Sales Orders' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('link', { name: 'Invoices' })).not.toHaveAttribute('aria-current', 'page')
   })
 })

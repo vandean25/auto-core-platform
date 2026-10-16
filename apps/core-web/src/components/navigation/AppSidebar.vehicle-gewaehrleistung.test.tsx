@@ -1,13 +1,10 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
-import { useGermanUiInTests } from '@/test/german-ui'
 import { MemoryRouter } from 'react-router-dom'
 import { AppSidebar } from './AppSidebar'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 
 afterEach(cleanup)
-
-useGermanUiInTests()
 
 const sidebarProps = {
   userEmail: 'admin@example.com',
@@ -41,6 +38,6 @@ describe('AppSidebar Gewaehrleistung navigation', () => {
     const dueListLink = screen.getByRole('link', { name: 'Gewährleistung fällig' })
     expect(dueListLink).toHaveAttribute('href', '/vehicles/gewaehrleistung-due')
     expect(dueListLink).toHaveAttribute('aria-current', 'page')
-    expect(screen.getByRole('link', { name: 'Fahrzeuge' })).not.toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('link', { name: 'Vehicles' })).not.toHaveAttribute('aria-current', 'page')
   })
 })

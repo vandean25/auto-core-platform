@@ -56,7 +56,7 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
 
   const filteredQuickActions = React.useMemo(
     () => filterQuickActionSections(getGlobalSearchQuickActionSections(), query),
-    [query, t],
+    [query],
   )
 
   const hasAnyResults =

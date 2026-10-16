@@ -2,13 +2,13 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it } from 'vitest'
 import { changeUiLanguage } from '@/lib/i18n'
-import { useGermanUiInTests } from '@/test/german-ui'
+import { registerGermanUiForTests } from '@/test/german-ui'
 import { AppSidebar } from './AppSidebar'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 
 afterEach(cleanup)
 
-useGermanUiInTests()
+registerGermanUiForTests()
 
 const sidebarProps = {
   userEmail: 'admin@example.com',

@@ -36,12 +36,12 @@
     "goHome": "Go to home"
   },
   "errorBoundary": {
-    "chunkTitle": "Update required",
+    "chunkTitle": "Update Required",
     "chunkDescription": "The application was updated or encountered a network interruption. A reload is required to continue.",
     "unexpectedTitle": "Unexpected error",
     "unexpectedDescription": "The application encountered an unexpected error. Please try reloading to recover.",
     "unknownError": "Unknown error occurred",
-    "reload": "Reload application"
+    "reload": "Reload Application"
   },
   "login": {
     "title": "Auto Core",

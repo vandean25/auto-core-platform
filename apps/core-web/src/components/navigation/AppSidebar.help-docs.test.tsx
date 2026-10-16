@@ -2,13 +2,10 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 import axe from 'axe-core'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it } from 'vitest'
-import { useGermanUiInTests } from '@/test/german-ui'
 import { AppSidebar } from './AppSidebar'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 
 afterEach(cleanup)
-
-useGermanUiInTests()
 
 const sidebarProps = {
   userEmail: 'admin@example.com',
@@ -43,7 +40,7 @@ describe('AppSidebar Help / Docs link', () => {
   it('opens the documentation in a new tab with safe rel attributes', () => {
     renderSidebar()
 
-    const link = screen.getByRole('link', { name: 'Hilfe / Dokumentation' })
+    const link = screen.getByRole('link', { name: 'Help / Docs' })
     expect(link).toHaveAttribute('href', 'https://autocore-platform.mintlify.site/')
     expect(link).toHaveAttribute('target', '_blank')
     expect(link.getAttribute('rel')?.split(' ')).toEqual(expect.arrayContaining(['noopener', 'noreferrer']))
@@ -52,15 +49,13 @@ describe('AppSidebar Help / Docs link', () => {
   it('tells assistive tech that the link opens in a new tab', () => {
     renderSidebar()
 
-    expect(screen.getByRole('link', { name: 'Hilfe / Dokumentation' })).toHaveAccessibleDescription(
-      /neuem Tab/i,
-    )
+    expect(screen.getByRole('link', { name: 'Help / Docs' })).toHaveAccessibleDescription(/opens in a new tab/i)
   })
 
   it('keeps its accessible name when the sidebar is collapsed', () => {
     renderSidebar({ collapsed: true })
 
-    const link = screen.getByRole('link', { name: 'Hilfe / Dokumentation' })
+    const link = screen.getByRole('link', { name: 'Help / Docs' })
     expect(link).toHaveAttribute('href', 'https://autocore-platform.mintlify.site/')
     expect(link).toHaveAttribute('target', '_blank')
   })
@@ -68,8 +63,8 @@ describe('AppSidebar Help / Docs link', () => {
   it('sits in the footer, outside the core modules navigation', () => {
     renderSidebar()
 
-    const coreModules = screen.getByRole('navigation', { name: 'Kernmodule' })
-    expect(within(coreModules).queryByRole('link', { name: 'Hilfe / Dokumentation' })).not.toBeInTheDocument()
+    const coreModules = screen.getByRole('navigation', { name: 'Core modules' })
+    expect(within(coreModules).queryByRole('link', { name: 'Help / Docs' })).not.toBeInTheDocument()
   })
 
   it('has no accessibility violations', async () => {

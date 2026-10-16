@@ -1,8 +1,8 @@
 import { beforeEach } from 'vitest'
 import { changeUiLanguage } from '@/lib/i18n'
 
-/** Use in specs that assert German shell copy while the default Vitest locale is English. */
-export function useGermanUiInTests() {
+/** Register a beforeEach hook that switches Vitest to German UI for specs that assert DE copy. */
+export function registerGermanUiForTests() {
   beforeEach(async () => {
     await changeUiLanguage('de')
   })

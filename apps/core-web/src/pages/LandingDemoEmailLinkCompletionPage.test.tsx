@@ -2,7 +2,6 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { StrictMode } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { useGermanUiInTests } from '@/test/german-ui'
 import LandingDemoEmailLinkCompletionPage, {
   resetLandingDemoAutoCompletionGuardForTests,
 } from './LandingDemoEmailLinkCompletionPage'
@@ -57,8 +56,6 @@ function renderCompletionPage() {
 }
 
 describe('LandingDemoEmailLinkCompletionPage', () => {
-  useGermanUiInTests()
-
   beforeEach(() => {
     resetLandingDemoAutoCompletionGuardForTests()
     completeSignIn.mockReset()
@@ -159,7 +156,7 @@ describe('LandingDemoEmailLinkCompletionPage', () => {
     renderCompletionPage()
 
     expect(
-      await screen.findByText(/Anmeldung konnte nicht abgeschlossen werden/i),
+      await screen.findByText(/Internetverbindung/i),
     ).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Neuen Demo-Link anfordern' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Erneut versuchen' })).toBeInTheDocument()
