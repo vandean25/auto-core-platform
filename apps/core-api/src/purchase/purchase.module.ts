@@ -10,9 +10,18 @@ import { DashboardRealtimeModule } from '../dashboard-realtime/dashboard-realtim
 
 import { PurchaseInvoiceLifecycleService } from './purchase-invoice-lifecycle.service.js';
 import { PurchaseReceiptService } from './purchase-receipt.service.js';
+import { PurchaseProposeDraftService } from './purchase-propose-draft.service.js';
+import { PartsRequisitionModule } from '../parts-requisition/parts-requisition.module.js';
+import { SiteModule } from '../site/site.module.js';
 
 @Module({
-  imports: [InventoryModule, PrismaModule, DashboardRealtimeModule],
+  imports: [
+    InventoryModule,
+    PrismaModule,
+    DashboardRealtimeModule,
+    PartsRequisitionModule,
+    SiteModule,
+  ],
   controllers: [
     PurchaseController,
     PurchaseInvoiceController,
@@ -23,6 +32,8 @@ import { PurchaseReceiptService } from './purchase-receipt.service.js';
     PurchaseReceiptService,
     PurchaseInvoiceService,
     PurchaseInvoiceLifecycleService,
+    PurchaseProposeDraftService,
   ],
+  exports: [PurchaseService, PurchaseProposeDraftService],
 })
 export class PurchaseModule {}

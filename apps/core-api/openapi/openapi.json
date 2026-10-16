@@ -1314,6 +1314,731 @@
         ]
       }
     },
+    "/api/parts-reservations": {
+      "post": {
+        "operationId": "PartsRequisitionController_createReservation",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePartsReservationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartsReservationResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "parts-requisitions"
+        ]
+      }
+    },
+    "/api/parts-reservations/{id}/consume": {
+      "post": {
+        "operationId": "PartsRequisitionController_consumeReservation",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsumePartsReservationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartsReservationResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "parts-requisitions"
+        ]
+      }
+    },
+    "/api/parts-reservations/{id}/release": {
+      "post": {
+        "operationId": "PartsRequisitionController_releaseReservation",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReleasePartsReservationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartsReservationResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "parts-requisitions"
+        ]
+      }
+    },
+    "/api/parts-requisitions/shortages": {
+      "get": {
+        "operationId": "PartsRequisitionController_getShortages",
+        "parameters": [
+          {
+            "name": "workshopOrderId",
+            "required": false,
+            "in": "query",
+            "description": "Limit the queue to one workshop order.",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PaginatedResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/PartsShortageResponseDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "parts-requisitions"
+        ]
+      }
+    },
+    "/api/parts-requisitions": {
+      "post": {
+        "operationId": "PartsRequisitionController_createRequisitionSheet",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePartsRequisitionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartsRequisitionResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "parts-requisitions"
+        ]
+      }
+    },
+    "/api/parts-requisitions/{id}/create-purchase-order": {
+      "post": {
+        "operationId": "PartsRequisitionController_createPurchaseOrder",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRequisitionPurchaseOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseOrderResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "parts-requisitions"
+        ]
+      }
+    },
+    "/api/legal-entities": {
+      "get": {
+        "operationId": "LegalEntityController_listLegalEntities",
+        "parameters": [
+          {
+            "name": "includeInactive",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LegalEntityResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List legal entities (OWNER/ADMIN, includes inactive by default)",
+        "tags": [
+          "legal-entities"
+        ]
+      },
+      "post": {
+        "operationId": "LegalEntityController_createLegalEntity",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLegalEntityDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegalEntityResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create a legal entity (OWNER/ADMIN)",
+        "tags": [
+          "legal-entities"
+        ]
+      }
+    },
+    "/api/legal-entities/{id}/accounting-profile": {
+      "get": {
+        "operationId": "LegalEntityController_getAccountingProfile",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountingProfileResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get accounting profile for a legal entity (OWNER/ADMIN)",
+        "tags": [
+          "legal-entities"
+        ]
+      },
+      "patch": {
+        "operationId": "LegalEntityController_updateAccountingProfile",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAccountingProfileDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountingProfileResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Update accounting profile for a legal entity (OWNER/ADMIN)",
+        "tags": [
+          "legal-entities"
+        ]
+      }
+    },
+    "/api/legal-entities/{id}": {
+      "get": {
+        "operationId": "LegalEntityController_getLegalEntity",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegalEntityResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get a legal entity (OWNER/ADMIN)",
+        "tags": [
+          "legal-entities"
+        ]
+      },
+      "patch": {
+        "operationId": "LegalEntityController_updateLegalEntity",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLegalEntityDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegalEntityResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Update a legal entity (OWNER/ADMIN)",
+        "tags": [
+          "legal-entities"
+        ]
+      },
+      "delete": {
+        "operationId": "LegalEntityController_deleteLegalEntity",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Hard-delete an unused legal entity (OWNER/ADMIN)",
+        "tags": [
+          "legal-entities"
+        ]
+      }
+    },
+    "/api/sites": {
+      "get": {
+        "operationId": "SiteController_listSites",
+        "parameters": [
+          {
+            "name": "includeInactive",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Active site directory or full list (OWNER/ADMIN)",
+        "tags": [
+          "sites"
+        ]
+      },
+      "post": {
+        "operationId": "SiteController_createSite",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSiteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Create a site (OWNER/ADMIN)",
+        "tags": [
+          "sites"
+        ]
+      }
+    },
+    "/api/sites/{id}": {
+      "get": {
+        "operationId": "SiteController_getSite",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Get a single site",
+        "tags": [
+          "sites"
+        ]
+      },
+      "patch": {
+        "operationId": "SiteController_updateSite",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSiteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Update a site (OWNER/ADMIN)",
+        "tags": [
+          "sites"
+        ]
+      },
+      "delete": {
+        "operationId": "SiteController_deleteSite",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Hard-delete a pristine site (OWNER/ADMIN)",
+        "tags": [
+          "sites"
+        ]
+      }
+    },
+    "/api/sites/{id}/memberships": {
+      "get": {
+        "operationId": "SiteController_listSiteMemberships",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List site memberships",
+        "tags": [
+          "sites"
+        ]
+      },
+      "post": {
+        "operationId": "SiteController_addSiteMembership",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSiteMembershipDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Add a site membership (OWNER/ADMIN)",
+        "tags": [
+          "sites"
+        ]
+      }
+    },
+    "/api/sites/{id}/memberships/{userId}": {
+      "delete": {
+        "operationId": "SiteController_removeSiteMembership",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Remove a site membership (OWNER/ADMIN)",
+        "tags": [
+          "sites"
+        ]
+      }
+    },
+    "/api/me/sites": {
+      "get": {
+        "operationId": "MeSiteController_listMySites",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MeSiteDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List activatable sites for the current session (ruling 47)",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/api/me/active-site": {
+      "patch": {
+        "description": "Validates tenant, site activity, active TenantMember and active SiteMembership before switching. Emits site:context_updated on user_{firebaseUid}.",
+        "operationId": "MeSiteController_setActiveSite",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetActiveSiteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActiveSiteResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Set the session active site (ruling 9)",
+        "tags": [
+          "me"
+        ]
+      }
+    },
     "/api/vendors": {
       "post": {
         "operationId": "VendorController_create",
@@ -4873,6 +5598,36 @@
         ]
       }
     },
+    "/api/workshop/orders/{id}/mechanic-findings": {
+      "get": {
+        "operationId": "WorkshopEstimateController_listMechanicFindings",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopMechanicFindingListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
     "/api/workshop/orders/{id}/estimates": {
       "post": {
         "operationId": "WorkshopEstimateController_create",
@@ -6695,234 +7450,6 @@
         ]
       }
     },
-    "/api/parts-reservations": {
-      "post": {
-        "operationId": "PartsRequisitionController_createReservation",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreatePartsReservationDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PartsReservationResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "parts-requisitions"
-        ]
-      }
-    },
-    "/api/parts-reservations/{id}/consume": {
-      "post": {
-        "operationId": "PartsRequisitionController_consumeReservation",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ConsumePartsReservationDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PartsReservationResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "parts-requisitions"
-        ]
-      }
-    },
-    "/api/parts-reservations/{id}/release": {
-      "post": {
-        "operationId": "PartsRequisitionController_releaseReservation",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ReleasePartsReservationDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PartsReservationResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "parts-requisitions"
-        ]
-      }
-    },
-    "/api/parts-requisitions/shortages": {
-      "get": {
-        "operationId": "PartsRequisitionController_getShortages",
-        "parameters": [
-          {
-            "name": "workshopOrderId",
-            "required": false,
-            "in": "query",
-            "description": "Limit the queue to one workshop order.",
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/PaginatedResponseDto"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/PartsShortageResponseDto"
-                          }
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "parts-requisitions"
-        ]
-      }
-    },
-    "/api/parts-requisitions": {
-      "post": {
-        "operationId": "PartsRequisitionController_createRequisitionSheet",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreatePartsRequisitionDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PartsRequisitionResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "parts-requisitions"
-        ]
-      }
-    },
-    "/api/parts-requisitions/{id}/create-purchase-order": {
-      "post": {
-        "operationId": "PartsRequisitionController_createPurchaseOrder",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateRequisitionPurchaseOrderDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PurchaseOrderResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "parts-requisitions"
-        ]
-      }
-    },
     "/api/workshop/registration-intakes": {
       "post": {
         "operationId": "RegistrationIntakeController_create",
@@ -7659,6 +8186,47 @@
         ]
       }
     },
+    "/api/mechanic/tasks/{taskId}/findings": {
+      "post": {
+        "operationId": "MechanicController_submitFinding",
+        "parameters": [
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitMechanicFindingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmitMechanicFindingResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Submit accepted diagnostic notes and media to the service advisor as a structured finding",
+        "tags": [
+          "mechanic"
+        ]
+      }
+    },
     "/api/mechanic/tasks/{taskId}/parts": {
       "post": {
         "operationId": "MechanicController_requestPart",
@@ -7893,6 +8461,535 @@
         },
         "tags": [
           "voice-translation"
+        ]
+      }
+    },
+    "/api/agent-proposals": {
+      "get": {
+        "description": "Returns agent proposals for the authenticated tenant with lazy expiration handling.",
+        "operationId": "AgentProposalController_listProposals",
+        "parameters": [
+          {
+            "name": "ids",
+            "required": false,
+            "in": "query",
+            "description": "When set, return only proposals with these IDs (still tenant-scoped)",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Maximum number of items to return",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50,
+              "type": "number"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Filter by proposal status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDING",
+                "APPROVED",
+                "REJECTED",
+                "EXPIRED",
+                "EXECUTED",
+                "FAILED"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentProposalListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List agent proposals (OWNER/ADMIN/ADVISOR)",
+        "tags": [
+          "Agent Proposals"
+        ]
+      },
+      "post": {
+        "description": "Creates a new agent proposal for the current tenant in PENDING status.",
+        "operationId": "AgentProposalController_createProposal",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAgentProposalDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentProposalResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create an agent proposal (seeding/testing)",
+        "tags": [
+          "Agent Proposals"
+        ]
+      }
+    },
+    "/api/agent-proposals/{id}/approve": {
+      "post": {
+        "description": "Re-evaluates policy conditions, atomically transitions status to APPROVED, logs the audit event, dispatches the payload, and marks as EXECUTED.",
+        "operationId": "AgentProposalController_approveProposal",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentProposalResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Approve and execute an agent proposal",
+        "tags": [
+          "Agent Proposals"
+        ]
+      }
+    },
+    "/api/agent-proposals/{id}/apply": {
+      "post": {
+        "description": "Re-evaluates current policy and atomically applies one pending action.",
+        "operationId": "AgentProposalController_applyProposal",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentProposalResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Apply and execute a pending agent action",
+        "tags": [
+          "Agent Proposals"
+        ]
+      }
+    },
+    "/api/agent-proposals/batch-apply": {
+      "post": {
+        "description": "Applies each proposal in its own transaction and returns an outcome per ID.",
+        "operationId": "AgentProposalController_batchApplyProposals",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchApplyAgentProposalsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchApplyAgentProposalsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Apply pending agent actions independently by ID",
+        "tags": [
+          "Agent Proposals"
+        ]
+      }
+    },
+    "/api/agent-proposals/{id}/reject": {
+      "post": {
+        "description": "Transitions proposal to REJECTED with reason and logs the rejection in agent action audit logs.",
+        "operationId": "AgentProposalController_rejectProposal",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectAgentProposalDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentProposalResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Reject an agent proposal",
+        "tags": [
+          "Agent Proposals"
+        ]
+      }
+    },
+    "/api/agent-proposals/submit": {
+      "post": {
+        "description": "Builds policy context on the server, simulates the supported action, and stores it in the tenant proposal queue.",
+        "operationId": "AgentProposalController_submitPendingAction",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitPendingAgentActionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentProposalResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Simulate and submit a pending agent action",
+        "tags": [
+          "Agent Proposals"
+        ]
+      }
+    },
+    "/api/agent-policy/rules": {
+      "get": {
+        "operationId": "AgentPolicyController_listRules",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentPolicyRuleListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List effective agent policy rules (OWNER/ADMIN)",
+        "tags": [
+          "agent-policy"
+        ]
+      }
+    },
+    "/api/agent-policy/rules/{actionType}": {
+      "put": {
+        "operationId": "AgentPolicyController_upsertRule",
+        "parameters": [
+          {
+            "name": "actionType",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpsertAgentPolicyRuleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentPolicyRuleResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create a new tenant policy rule version (OWNER/ADMIN)",
+        "tags": [
+          "agent-policy"
+        ]
+      }
+    },
+    "/api/agent-policy/evaluate": {
+      "post": {
+        "operationId": "AgentPolicyController_evaluate",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentPolicyEvaluateRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentPolicyEvaluationResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Evaluate policy tier for an action (OWNER/ADMIN, dry-run)",
+        "tags": [
+          "agent-policy"
+        ]
+      }
+    },
+    "/api/agent-actions": {
+      "get": {
+        "description": "Returns cursor-paginated agent action log rows for the authenticated tenant.",
+        "operationId": "AgentActionLogController_findAll",
+        "parameters": [
+          {
+            "name": "agentId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by agent identifier (case-insensitive substring match)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Opaque cursor for forward pagination",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "endDate",
+            "required": false,
+            "in": "query",
+            "description": "End of created_at range (ISO-8601)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "entityId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by entity ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "entityType",
+            "required": false,
+            "in": "query",
+            "description": "Filter by entity type",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Maximum number of rows to return",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "startDate",
+            "required": false,
+            "in": "query",
+            "description": "Start of created_at range (ISO-8601)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Filter by action status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PROPOSED",
+                "APPROVED",
+                "REJECTED",
+                "EXECUTED",
+                "REFUSED",
+                "FAILED",
+                "DRY_RUN",
+                "FALLBACK"
+              ]
+            }
+          },
+          {
+            "name": "tier",
+            "required": false,
+            "in": "query",
+            "description": "Filter by policy tier",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "AUTO",
+                "PROPOSE",
+                "HUMAN_ONLY",
+                "NOT_EVALUATED"
+              ]
+            }
+          },
+          {
+            "name": "traceId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by trace ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentActionLogListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List agent action logs (OWNER/ADMIN/ADVISOR)",
+        "tags": [
+          "Agent Actions"
+        ]
+      }
+    },
+    "/api/agent-actions/{traceId}": {
+      "get": {
+        "description": "Returns all log rows for a trace ID plus audit entries correlated on the same trace.",
+        "operationId": "AgentActionLogController_findByTraceId",
+        "parameters": [
+          {
+            "name": "traceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentActionTraceDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get agent action trace detail (OWNER/ADMIN/ADVISOR)",
+        "tags": [
+          "Agent Actions"
         ]
       }
     },
@@ -10426,503 +11523,6 @@
         ]
       }
     },
-    "/api/legal-entities": {
-      "get": {
-        "operationId": "LegalEntityController_listLegalEntities",
-        "parameters": [
-          {
-            "name": "includeInactive",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/LegalEntityResponseDto"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "List legal entities (OWNER/ADMIN, includes inactive by default)",
-        "tags": [
-          "legal-entities"
-        ]
-      },
-      "post": {
-        "operationId": "LegalEntityController_createLegalEntity",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateLegalEntityDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LegalEntityResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Create a legal entity (OWNER/ADMIN)",
-        "tags": [
-          "legal-entities"
-        ]
-      }
-    },
-    "/api/legal-entities/{id}/accounting-profile": {
-      "get": {
-        "operationId": "LegalEntityController_getAccountingProfile",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AccountingProfileResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Get accounting profile for a legal entity (OWNER/ADMIN)",
-        "tags": [
-          "legal-entities"
-        ]
-      },
-      "patch": {
-        "operationId": "LegalEntityController_updateAccountingProfile",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateAccountingProfileDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AccountingProfileResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Update accounting profile for a legal entity (OWNER/ADMIN)",
-        "tags": [
-          "legal-entities"
-        ]
-      }
-    },
-    "/api/legal-entities/{id}": {
-      "get": {
-        "operationId": "LegalEntityController_getLegalEntity",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LegalEntityResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Get a legal entity (OWNER/ADMIN)",
-        "tags": [
-          "legal-entities"
-        ]
-      },
-      "patch": {
-        "operationId": "LegalEntityController_updateLegalEntity",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateLegalEntityDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LegalEntityResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Update a legal entity (OWNER/ADMIN)",
-        "tags": [
-          "legal-entities"
-        ]
-      },
-      "delete": {
-        "operationId": "LegalEntityController_deleteLegalEntity",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "summary": "Hard-delete an unused legal entity (OWNER/ADMIN)",
-        "tags": [
-          "legal-entities"
-        ]
-      }
-    },
-    "/api/sites": {
-      "get": {
-        "operationId": "SiteController_listSites",
-        "parameters": [
-          {
-            "name": "includeInactive",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "summary": "Active site directory or full list (OWNER/ADMIN)",
-        "tags": [
-          "sites"
-        ]
-      },
-      "post": {
-        "operationId": "SiteController_createSite",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateSiteDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "summary": "Create a site (OWNER/ADMIN)",
-        "tags": [
-          "sites"
-        ]
-      }
-    },
-    "/api/sites/{id}": {
-      "get": {
-        "operationId": "SiteController_getSite",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "summary": "Get a single site",
-        "tags": [
-          "sites"
-        ]
-      },
-      "patch": {
-        "operationId": "SiteController_updateSite",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateSiteDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "summary": "Update a site (OWNER/ADMIN)",
-        "tags": [
-          "sites"
-        ]
-      },
-      "delete": {
-        "operationId": "SiteController_deleteSite",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "summary": "Hard-delete a pristine site (OWNER/ADMIN)",
-        "tags": [
-          "sites"
-        ]
-      }
-    },
-    "/api/sites/{id}/memberships": {
-      "get": {
-        "operationId": "SiteController_listSiteMemberships",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "summary": "List site memberships",
-        "tags": [
-          "sites"
-        ]
-      },
-      "post": {
-        "operationId": "SiteController_addSiteMembership",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateSiteMembershipDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "summary": "Add a site membership (OWNER/ADMIN)",
-        "tags": [
-          "sites"
-        ]
-      }
-    },
-    "/api/sites/{id}/memberships/{userId}": {
-      "delete": {
-        "operationId": "SiteController_removeSiteMembership",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "userId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "summary": "Remove a site membership (OWNER/ADMIN)",
-        "tags": [
-          "sites"
-        ]
-      }
-    },
-    "/api/me/sites": {
-      "get": {
-        "operationId": "MeSiteController_listMySites",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/MeSiteDto"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "List activatable sites for the current session (ruling 47)",
-        "tags": [
-          "me"
-        ]
-      }
-    },
-    "/api/me/active-site": {
-      "patch": {
-        "description": "Validates tenant, site activity, active TenantMember and active SiteMembership before switching. Emits site:context_updated on user_{firebaseUid}.",
-        "operationId": "MeSiteController_setActiveSite",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SetActiveSiteDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ActiveSiteResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Set the session active site (ruling 9)",
-        "tags": [
-          "me"
-        ]
-      }
-    },
     "/api/stock-transfers": {
       "get": {
         "operationId": "StockTransferController_list",
@@ -11635,171 +12235,6 @@
         },
         "tags": [
           "settings"
-        ]
-      }
-    },
-    "/api/agent-actions": {
-      "get": {
-        "description": "Returns cursor-paginated agent action log rows for the authenticated tenant.",
-        "operationId": "AgentActionLogController_findAll",
-        "parameters": [
-          {
-            "name": "agentId",
-            "required": false,
-            "in": "query",
-            "description": "Filter by agent identifier (case-insensitive substring match)",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "cursor",
-            "required": false,
-            "in": "query",
-            "description": "Opaque cursor for forward pagination",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "endDate",
-            "required": false,
-            "in": "query",
-            "description": "End of created_at range (ISO-8601)",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "entityId",
-            "required": false,
-            "in": "query",
-            "description": "Filter by entity ID",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "entityType",
-            "required": false,
-            "in": "query",
-            "description": "Filter by entity type",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "required": false,
-            "in": "query",
-            "description": "Maximum number of rows to return",
-            "schema": {
-              "minimum": 1,
-              "maximum": 100,
-              "default": 20,
-              "type": "number"
-            }
-          },
-          {
-            "name": "startDate",
-            "required": false,
-            "in": "query",
-            "description": "Start of created_at range (ISO-8601)",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "status",
-            "required": false,
-            "in": "query",
-            "description": "Filter by action status",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "PROPOSED",
-                "APPROVED",
-                "REJECTED",
-                "EXECUTED",
-                "REFUSED",
-                "FAILED",
-                "DRY_RUN",
-                "FALLBACK"
-              ]
-            }
-          },
-          {
-            "name": "tier",
-            "required": false,
-            "in": "query",
-            "description": "Filter by policy tier",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "AUTO",
-                "PROPOSE",
-                "HUMAN_ONLY",
-                "NOT_EVALUATED"
-              ]
-            }
-          },
-          {
-            "name": "traceId",
-            "required": false,
-            "in": "query",
-            "description": "Filter by trace ID",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AgentActionLogListResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "List agent action logs (OWNER/ADMIN/ADVISOR)",
-        "tags": [
-          "Agent Actions"
-        ]
-      }
-    },
-    "/api/agent-actions/{traceId}": {
-      "get": {
-        "description": "Returns all log rows for a trace ID plus audit entries correlated on the same trace.",
-        "operationId": "AgentActionLogController_findByTraceId",
-        "parameters": [
-          {
-            "name": "traceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AgentActionTraceDetailResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Get agent action trace detail (OWNER/ADMIN/ADVISOR)",
-        "tags": [
-          "Agent Actions"
         ]
       }
     },
@@ -13070,370 +13505,6 @@
         "summary": "Sign fiscal cancellation receipt (OWNER/ADMIN)",
         "tags": [
           "FiscalReceipts"
-        ]
-      }
-    },
-    "/api/agent-policy/rules": {
-      "get": {
-        "operationId": "AgentPolicyController_listRules",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AgentPolicyRuleListResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "List effective agent policy rules (OWNER/ADMIN)",
-        "tags": [
-          "agent-policy"
-        ]
-      }
-    },
-    "/api/agent-policy/rules/{actionType}": {
-      "put": {
-        "operationId": "AgentPolicyController_upsertRule",
-        "parameters": [
-          {
-            "name": "actionType",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpsertAgentPolicyRuleDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AgentPolicyRuleResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Create a new tenant policy rule version (OWNER/ADMIN)",
-        "tags": [
-          "agent-policy"
-        ]
-      }
-    },
-    "/api/agent-policy/evaluate": {
-      "post": {
-        "operationId": "AgentPolicyController_evaluate",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AgentPolicyEvaluateRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AgentPolicyEvaluationResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Evaluate policy tier for an action (OWNER/ADMIN, dry-run)",
-        "tags": [
-          "agent-policy"
-        ]
-      }
-    },
-    "/api/agent-proposals": {
-      "get": {
-        "description": "Returns agent proposals for the authenticated tenant with lazy expiration handling.",
-        "operationId": "AgentProposalController_listProposals",
-        "parameters": [
-          {
-            "name": "ids",
-            "required": false,
-            "in": "query",
-            "description": "When set, return only proposals with these IDs (still tenant-scoped)",
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "format": "uuid"
-              }
-            }
-          },
-          {
-            "name": "limit",
-            "required": false,
-            "in": "query",
-            "description": "Maximum number of items to return",
-            "schema": {
-              "minimum": 1,
-              "maximum": 100,
-              "default": 50,
-              "type": "number"
-            }
-          },
-          {
-            "name": "status",
-            "required": false,
-            "in": "query",
-            "description": "Filter by proposal status",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "PENDING",
-                "APPROVED",
-                "REJECTED",
-                "EXPIRED",
-                "EXECUTED",
-                "FAILED"
-              ]
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AgentProposalListResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "List agent proposals (OWNER/ADMIN/ADVISOR)",
-        "tags": [
-          "Agent Proposals"
-        ]
-      },
-      "post": {
-        "description": "Creates a new agent proposal for the current tenant in PENDING status.",
-        "operationId": "AgentProposalController_createProposal",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateAgentProposalDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AgentProposalResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Create an agent proposal (seeding/testing)",
-        "tags": [
-          "Agent Proposals"
-        ]
-      }
-    },
-    "/api/agent-proposals/{id}/approve": {
-      "post": {
-        "description": "Re-evaluates policy conditions, atomically transitions status to APPROVED, logs the audit event, dispatches the payload, and marks as EXECUTED.",
-        "operationId": "AgentProposalController_approveProposal",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AgentProposalResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Approve and execute an agent proposal",
-        "tags": [
-          "Agent Proposals"
-        ]
-      }
-    },
-    "/api/agent-proposals/{id}/apply": {
-      "post": {
-        "description": "Re-evaluates current policy and atomically applies one pending action.",
-        "operationId": "AgentProposalController_applyProposal",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AgentProposalResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Apply and execute a pending agent action",
-        "tags": [
-          "Agent Proposals"
-        ]
-      }
-    },
-    "/api/agent-proposals/batch-apply": {
-      "post": {
-        "description": "Applies each proposal in its own transaction and returns an outcome per ID.",
-        "operationId": "AgentProposalController_batchApplyProposals",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BatchApplyAgentProposalsDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BatchApplyAgentProposalsResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Apply pending agent actions independently by ID",
-        "tags": [
-          "Agent Proposals"
-        ]
-      }
-    },
-    "/api/agent-proposals/{id}/reject": {
-      "post": {
-        "description": "Transitions proposal to REJECTED with reason and logs the rejection in agent action audit logs.",
-        "operationId": "AgentProposalController_rejectProposal",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RejectAgentProposalDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AgentProposalResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Reject an agent proposal",
-        "tags": [
-          "Agent Proposals"
-        ]
-      }
-    },
-    "/api/agent-proposals/submit": {
-      "post": {
-        "description": "Builds policy context on the server, simulates the supported action, and stores it in the tenant proposal queue.",
-        "operationId": "AgentProposalController_submitPendingAction",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SubmitPendingAgentActionDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AgentProposalResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Simulate and submit a pending agent action",
-        "tags": [
-          "Agent Proposals"
         ]
       }
     },
@@ -15470,6 +15541,1199 @@
           "quantityInvoiced",
           "quantityPending",
           "lastUnitCost"
+        ]
+      },
+      "CreatePartsReservationDto": {
+        "type": "object",
+        "properties": {
+          "workshopTaskLineItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quantity": {
+            "type": "number",
+            "example": 1.5,
+            "minimum": 0.001,
+            "multipleOf": 0.001
+          },
+          "locationId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "workshopTaskLineItemId",
+          "quantity",
+          "locationId"
+        ]
+      },
+      "PartsReservationResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workshopTaskLineItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quantity": {
+            "type": "string",
+            "example": "1.500"
+          },
+          "quantityReceived": {
+            "type": "string",
+            "example": "0.000"
+          },
+          "quantityConsumed": {
+            "type": "string",
+            "example": "0.000"
+          },
+          "quantityStaged": {
+            "type": "string",
+            "example": "0.000"
+          },
+          "quantityReturned": {
+            "type": "string",
+            "example": "0.000"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "ON_HAND",
+              "REQUISITION"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "ORDERED",
+              "STAGED",
+              "FULFILLED",
+              "CANCELLED"
+            ]
+          },
+          "locationId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenantId",
+          "workshopTaskLineItemId",
+          "quantity",
+          "quantityReceived",
+          "quantityConsumed",
+          "quantityStaged",
+          "quantityReturned",
+          "kind",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "ConsumePartsReservationDto": {
+        "type": "object",
+        "properties": {
+          "quantity": {
+            "type": "number",
+            "example": 1.5,
+            "minimum": 0.001,
+            "multipleOf": 0.001
+          }
+        },
+        "required": [
+          "quantity"
+        ]
+      },
+      "ReleasePartsReservationDto": {
+        "type": "object",
+        "properties": {
+          "returnLocationId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "PartsShortageResponseDto": {
+        "type": "object",
+        "properties": {
+          "workshopOrderId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workshopOrderNumber": {
+            "type": "string"
+          },
+          "workshopTaskId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workshopTaskLineItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "itemNo": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "lineQuantity": {
+            "type": "string",
+            "example": "4.000"
+          },
+          "consumedQuantity": {
+            "type": "string",
+            "example": "1.500"
+          },
+          "activeCommitment": {
+            "type": "string",
+            "example": "1.000"
+          },
+          "shortageQuantity": {
+            "type": "string",
+            "example": "1.500"
+          },
+          "siteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vehicleMake": {
+            "type": "string",
+            "description": "Vehicle make label from the workshop order vehicle."
+          },
+          "vehicleMakeBrandId": {
+            "type": "number",
+            "nullable": true,
+            "description": "Vehicle-make Brand id used to group the requisition sheet."
+          }
+        },
+        "required": [
+          "workshopOrderId",
+          "workshopOrderNumber",
+          "workshopTaskId",
+          "workshopTaskLineItemId",
+          "itemNo",
+          "description",
+          "lineQuantity",
+          "consumedQuantity",
+          "activeCommitment",
+          "shortageQuantity",
+          "siteId",
+          "vehicleMake"
+        ]
+      },
+      "PartsRequisitionItemDto": {
+        "type": "object",
+        "properties": {
+          "workshopTaskLineItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quantity": {
+            "type": "number",
+            "example": 1.5,
+            "minimum": 0.001,
+            "multipleOf": 0.001
+          }
+        },
+        "required": [
+          "workshopTaskLineItemId",
+          "quantity"
+        ]
+      },
+      "CreatePartsRequisitionDto": {
+        "type": "object",
+        "properties": {
+          "vehicleMakeBrandId": {
+            "type": "number",
+            "description": "Vehicle-make Brand the sheet is raised for.",
+            "example": 1
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PartsRequisitionItemDto"
+            }
+          }
+        },
+        "required": [
+          "vehicleMakeBrandId",
+          "items"
+        ]
+      },
+      "PartsRequisitionLineResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reservationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workshopTaskLineItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workshopOrderId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workshopOrderNumber": {
+            "type": "string"
+          },
+          "itemNo": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "string",
+            "example": "1.500"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "ORDERED",
+              "STAGED",
+              "FULFILLED",
+              "CANCELLED"
+            ]
+          },
+          "purchaseOrderItemId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "reservationId",
+          "workshopTaskLineItemId",
+          "workshopOrderId",
+          "workshopOrderNumber",
+          "itemNo",
+          "description",
+          "quantity",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "PartsRequisitionResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vehicleMakeBrandId": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "ORDERED",
+              "COMPLETED",
+              "CANCELLED"
+            ]
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PartsRequisitionLineResponseDto"
+            }
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenantId",
+          "vehicleMakeBrandId",
+          "status",
+          "lines",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "RequisitionPurchaseOrderItemDto": {
+        "type": "object",
+        "properties": {
+          "reservationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "unitCost": {
+            "type": "number",
+            "description": "Clerk-confirmed unit cost for this reservation slice. Must be a JSON number.",
+            "example": 10.5,
+            "minimum": 0
+          }
+        },
+        "required": [
+          "reservationId",
+          "unitCost"
+        ]
+      },
+      "CreateRequisitionPurchaseOrderDto": {
+        "type": "object",
+        "properties": {
+          "vendorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RequisitionPurchaseOrderItemDto"
+            }
+          }
+        },
+        "required": [
+          "vendorId",
+          "items"
+        ]
+      },
+      "LegalEntitySellerReadinessDto": {
+        "type": "object",
+        "properties": {
+          "is_ready": {
+            "type": "boolean"
+          },
+          "missing_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "is_ready",
+          "missing_fields"
+        ]
+      },
+      "LegalEntityResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenant_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "country_iso": {
+            "type": "string",
+            "enum": [
+              "AT",
+              "DE"
+            ]
+          },
+          "is_active": {
+            "type": "boolean"
+          },
+          "address_street": {
+            "type": "string",
+            "nullable": true
+          },
+          "address_line2": {
+            "type": "string",
+            "nullable": true
+          },
+          "address_zip": {
+            "type": "string",
+            "nullable": true
+          },
+          "address_city": {
+            "type": "string",
+            "nullable": true
+          },
+          "tax_number": {
+            "type": "string",
+            "nullable": true
+          },
+          "vat_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "iban": {
+            "type": "string",
+            "nullable": true
+          },
+          "bic": {
+            "type": "string",
+            "nullable": true
+          },
+          "bank_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "registration_number": {
+            "type": "string",
+            "nullable": true
+          },
+          "registration_court": {
+            "type": "string",
+            "nullable": true
+          },
+          "representatives": {
+            "type": "string",
+            "nullable": true
+          },
+          "payment_terms_days": {
+            "type": "number",
+            "nullable": true
+          },
+          "payment_terms_text": {
+            "type": "string",
+            "nullable": true
+          },
+          "seller_readiness": {
+            "$ref": "#/components/schemas/LegalEntitySellerReadinessDto"
+          },
+          "rksv_mode": {
+            "type": "string",
+            "enum": [
+              "OFF",
+              "UNKNOWN",
+              "REQUIRED_EXTERNAL_KASSE",
+              "REQUIRED_ACP_RKSV"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "tenant_id",
+          "name",
+          "country_iso",
+          "is_active",
+          "seller_readiness",
+          "rksv_mode"
+        ]
+      },
+      "RzlSteuercodesDto": {
+        "type": "object",
+        "properties": {
+          "vat20": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 4,
+            "description": "RZL Steuercode for 20% VAT (1 to 4 digits)."
+          },
+          "vat13": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 4,
+            "description": "RZL Steuercode for 13% VAT (1 to 4 digits)."
+          },
+          "vat10": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 4,
+            "description": "RZL Steuercode for 10% VAT (1 to 4 digits)."
+          }
+        }
+      },
+      "RzlSerializerParamsDto": {
+        "type": "object",
+        "properties": {
+          "firmNumber": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 32
+          },
+          "costCenterLength": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 1,
+            "maximum": 16
+          },
+          "steuercodes": {
+            "$ref": "#/components/schemas/RzlSteuercodesDto"
+          }
+        }
+      },
+      "BmdSteuercodesDto": {
+        "type": "object",
+        "properties": {
+          "vat20": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 4,
+            "description": "BMD Steuercode (tax key defined per BMD client) for 20% VAT (1 to 4 digits)."
+          },
+          "vat13": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 4,
+            "description": "BMD Steuercode (tax key defined per BMD client) for 13% VAT (1 to 4 digits)."
+          },
+          "vat10": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 4,
+            "description": "BMD Steuercode (tax key defined per BMD client) for 10% VAT (1 to 4 digits)."
+          }
+        }
+      },
+      "BmdSerializerParamsDto": {
+        "type": "object",
+        "properties": {
+          "steuercodes": {
+            "$ref": "#/components/schemas/BmdSteuercodesDto"
+          }
+        }
+      },
+      "MarginSchemeSerializerParamsDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Lifts the margin-scheme export block for this legal entity on the DATEV profile (AUT-369). Off by default."
+          },
+          "vatAccount": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 9,
+            "description": "Ledger account for the frozen margin VAT (1 to 9 digits). Required when enabled."
+          }
+        }
+      },
+      "AccountingProfileSerializerParamsDto": {
+        "type": "object",
+        "properties": {
+          "rzl": {
+            "$ref": "#/components/schemas/RzlSerializerParamsDto"
+          },
+          "bmd": {
+            "$ref": "#/components/schemas/BmdSerializerParamsDto"
+          },
+          "marginScheme": {
+            "$ref": "#/components/schemas/MarginSchemeSerializerParamsDto"
+          }
+        }
+      },
+      "AccountingMappingRuleDto": {
+        "type": "object",
+        "properties": {
+          "sourceCategoryKey": {
+            "type": "string"
+          },
+          "sourceCategoryLabel": {
+            "type": "string"
+          },
+          "taxMode": {
+            "type": "string",
+            "enum": [
+              "STANDARD",
+              "MARGIN_SCHEME"
+            ]
+          },
+          "taxRate": {
+            "type": "string"
+          },
+          "revenueAccount": {
+            "type": "string"
+          },
+          "taxTreatment": {
+            "type": "string",
+            "enum": [
+              "automatic",
+              "manual_bu"
+            ]
+          },
+          "buKey": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "sourceCategoryKey",
+          "sourceCategoryLabel",
+          "taxMode",
+          "taxRate",
+          "revenueAccount",
+          "taxTreatment"
+        ]
+      },
+      "SourceCategoryDefinitionDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "taxMode": {
+            "type": "string",
+            "enum": [
+              "STANDARD",
+              "MARGIN_SCHEME"
+            ]
+          },
+          "taxRate": {
+            "type": "string"
+          },
+          "suggestedRevenueAccount": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "taxMode",
+          "taxRate"
+        ]
+      },
+      "AccountingProfileReadinessDto": {
+        "type": "object",
+        "properties": {
+          "is_ready": {
+            "type": "boolean"
+          },
+          "missing_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unmapped_categories": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "is_ready",
+          "missing_fields",
+          "unmapped_categories"
+        ]
+      },
+      "AccountingProfileResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenant_id": {
+            "type": "string"
+          },
+          "legal_entity_id": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number"
+          },
+          "is_enabled": {
+            "type": "boolean"
+          },
+          "profile_code": {
+            "type": "string",
+            "nullable": true
+          },
+          "format_version": {
+            "type": "string",
+            "nullable": true
+          },
+          "chart": {
+            "type": "string",
+            "nullable": true
+          },
+          "account_length": {
+            "type": "number",
+            "nullable": true
+          },
+          "advisor_number": {
+            "type": "string",
+            "nullable": true
+          },
+          "client_number": {
+            "type": "string",
+            "nullable": true
+          },
+          "fiscal_year_start_month": {
+            "type": "number",
+            "nullable": true
+          },
+          "default_debtor_account": {
+            "type": "string",
+            "nullable": true
+          },
+          "serializer_params": {
+            "$ref": "#/components/schemas/AccountingProfileSerializerParamsDto"
+          },
+          "serializer_released": {
+            "type": "boolean",
+            "description": "Whether the platform releases this profile code for CSV generation (RZL is gated by ACCOUNTING_EXPORT_RZL_SERIALIZER_ENABLED, BMD by ACCOUNTING_EXPORT_BMD_SERIALIZER_ENABLED)."
+          },
+          "export_missing_fields": {
+            "description": "Export-only configuration gaps (RZL firm number and Steuercodes; BMD Steuercodes; format version; chart; account length; default debtor account). Empty when complete or not applicable. Does not affect invoice issuance.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mapping_rules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AccountingMappingRuleDto"
+            }
+          },
+          "required_source_categories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceCategoryDefinitionDto"
+            }
+          },
+          "mapping_readiness": {
+            "$ref": "#/components/schemas/AccountingProfileReadinessDto"
+          }
+        },
+        "required": [
+          "id",
+          "tenant_id",
+          "legal_entity_id",
+          "version",
+          "is_enabled",
+          "serializer_params",
+          "serializer_released",
+          "export_missing_fields",
+          "mapping_rules",
+          "required_source_categories",
+          "mapping_readiness"
+        ]
+      },
+      "UpdateAccountingProfileDto": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "number",
+            "description": "Optimistic-lock version from the last GET response"
+          },
+          "profileCode": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 64
+          },
+          "formatVersion": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 64
+          },
+          "chart": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 32
+          },
+          "accountLength": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 1,
+            "maximum": 8
+          },
+          "advisorNumber": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 32
+          },
+          "clientNumber": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 32
+          },
+          "fiscalYearStartMonth": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 1,
+            "maximum": 12
+          },
+          "defaultDebtorAccount": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 16
+          },
+          "mappingRules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AccountingMappingRuleDto"
+            }
+          },
+          "serializerParams": {
+            "description": "Serializer-specific parameters: RZL firm number and Steuercodes, BMD Steuercodes. Expand-only JSON storage.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AccountingProfileSerializerParamsDto"
+              }
+            ]
+          },
+          "isEnabled": {
+            "type": "boolean",
+            "description": "Gates accounting CSV export only; does not affect invoice issuance readiness"
+          }
+        },
+        "required": [
+          "expectedVersion"
+        ]
+      },
+      "CreateLegalEntityDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "countryIso": {
+            "type": "string",
+            "enum": [
+              "AT",
+              "DE"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "countryIso"
+        ]
+      },
+      "UpdateLegalEntityDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "addressStreet": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "addressLine2": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "addressZip": {
+            "type": "string",
+            "maxLength": 20
+          },
+          "addressCity": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "taxNumber": {
+            "type": "string",
+            "maxLength": 32
+          },
+          "vatId": {
+            "type": "string",
+            "maxLength": 32
+          },
+          "iban": {
+            "type": "string",
+            "maxLength": 34
+          },
+          "bic": {
+            "type": "string",
+            "maxLength": 11
+          },
+          "bankName": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "email": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 254
+          },
+          "phone": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "registrationNumber": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "registrationCourt": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "representatives": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "paymentTermsDays": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 365
+          },
+          "paymentTermsText": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "rksvMode": {
+            "type": "string",
+            "enum": [
+              "OFF",
+              "UNKNOWN",
+              "REQUIRED_EXTERNAL_KASSE",
+              "REQUIRED_ACP_RKSV"
+            ]
+          }
+        }
+      },
+      "CreateSiteOpeningHourDto": {
+        "type": "object",
+        "properties": {
+          "weekday": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 7
+          },
+          "isClosed": {
+            "type": "boolean"
+          },
+          "openTime": {
+            "type": "string",
+            "example": "07:30"
+          },
+          "closeTime": {
+            "type": "string",
+            "example": "17:00"
+          }
+        },
+        "required": [
+          "weekday",
+          "isClosed",
+          "openTime",
+          "closeTime"
+        ]
+      },
+      "CreateSiteDto": {
+        "type": "object",
+        "properties": {
+          "legalEntityId": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "addressStreet": {
+            "type": "string"
+          },
+          "addressCity": {
+            "type": "string"
+          },
+          "addressZip": {
+            "type": "string"
+          },
+          "addressCountry": {
+            "type": "string"
+          },
+          "timezone": {
+            "type": "string",
+            "example": "Europe/Vienna"
+          },
+          "slotMinutes": {
+            "type": "number",
+            "minimum": 15,
+            "maximum": 60
+          },
+          "holidayCountryIso": {
+            "type": "string",
+            "example": "AT"
+          },
+          "holidaySubdivisionCode": {
+            "type": "string"
+          },
+          "openingHours": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateSiteOpeningHourDto"
+            }
+          }
+        },
+        "required": [
+          "legalEntityId",
+          "code",
+          "name"
+        ]
+      },
+      "UpdateSiteFiscalRegisterDto": {
+        "type": "object",
+        "properties": {
+          "providerCashRegisterId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "providerScuId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "env": {
+            "type": "string",
+            "enum": [
+              "TEST",
+              "LIVE"
+            ]
+          },
+          "providerState": {
+            "type": "string"
+          },
+          "credentialsSecretRef": {
+            "type": "object",
+            "description": "Opaque GSM secret ref; never the API key."
+          }
+        }
+      },
+      "UpdateSiteDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "addressStreet": {
+            "type": "string"
+          },
+          "addressCity": {
+            "type": "string"
+          },
+          "addressZip": {
+            "type": "string"
+          },
+          "addressCountry": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "fiscalRegister": {
+            "$ref": "#/components/schemas/UpdateSiteFiscalRegisterDto"
+          }
+        }
+      },
+      "CreateSiteMembershipDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId"
+        ]
+      },
+      "MeSiteDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "legalEntityId": {
+            "type": "string"
+          },
+          "legalEntityName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "legalEntityId"
+        ]
+      },
+      "SetActiveSiteDto": {
+        "type": "object",
+        "properties": {
+          "siteId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Site id to activate from GET /api/me/sites, or null to clear."
+          }
+        },
+        "required": [
+          "siteId"
+        ]
+      },
+      "ActiveSiteResponseDto": {
+        "type": "object",
+        "properties": {
+          "activeSiteId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        },
+        "required": [
+          "activeSiteId"
         ]
       },
       "CreateVendorDto": {
@@ -20764,6 +22028,100 @@
           "parts_turnover"
         ]
       },
+      "WorkshopMechanicFindingMediaDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mime_type": {
+            "type": "string"
+          },
+          "caption": {
+            "type": "string",
+            "nullable": true
+          },
+          "read_url": {
+            "type": "string",
+            "description": "Short-lived signed URL for the advisor to open the bay photo or video."
+          }
+        },
+        "required": [
+          "id",
+          "mime_type",
+          "caption",
+          "read_url"
+        ]
+      },
+      "WorkshopMechanicFindingDto": {
+        "type": "object",
+        "properties": {
+          "proposal_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "trace_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "APPROVED",
+              "REJECTED",
+              "EXPIRED",
+              "EXECUTED",
+              "FAILED"
+            ]
+          },
+          "workshop_task_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "finding_text": {
+            "type": "string"
+          },
+          "media": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopMechanicFindingMediaDto"
+            }
+          },
+          "summary": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "proposal_id",
+          "trace_id",
+          "status",
+          "workshop_task_id",
+          "finding_text",
+          "media",
+          "summary",
+          "created_at"
+        ]
+      },
+      "WorkshopMechanicFindingListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopMechanicFindingDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
       "WorkshopEstimateApprovalDto": {
         "type": "object",
         "properties": {
@@ -21002,6 +22360,34 @@
           "requires_customer_notice"
         ]
       },
+      "WorkshopEstimateCustomerSendBlockerDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "ZERO_UNIT_PRICE",
+              "CLAIMED_FITMENT"
+            ]
+          },
+          "source_line_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "item_no": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "source_line_id",
+          "item_no",
+          "description"
+        ]
+      },
       "WorkshopEstimateResponseDto": {
         "type": "object",
         "properties": {
@@ -21041,6 +22427,13 @@
           },
           "overrun_threshold_pct": {
             "type": "string"
+          },
+          "customer_send_blockers": {
+            "description": "Lines that block customer send until an advisor resolves zero price or claimed fitment.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopEstimateCustomerSendBlockerDto"
+            }
           }
         },
         "required": [
@@ -21052,7 +22445,8 @@
           "versions",
           "overrun_warning",
           "send_enabled",
-          "overrun_threshold_pct"
+          "overrun_threshold_pct",
+          "customer_send_blockers"
         ]
       },
       "WorkshopEstimateListResponseDto": {
@@ -23249,398 +24643,6 @@
           "meta"
         ]
       },
-      "CreatePartsReservationDto": {
-        "type": "object",
-        "properties": {
-          "workshopTaskLineItemId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "quantity": {
-            "type": "number",
-            "example": 1.5,
-            "minimum": 0.001,
-            "multipleOf": 0.001
-          },
-          "locationId": {
-            "type": "string",
-            "format": "uuid"
-          }
-        },
-        "required": [
-          "workshopTaskLineItemId",
-          "quantity",
-          "locationId"
-        ]
-      },
-      "PartsReservationResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "tenantId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "workshopTaskLineItemId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "quantity": {
-            "type": "string",
-            "example": "1.500"
-          },
-          "quantityReceived": {
-            "type": "string",
-            "example": "0.000"
-          },
-          "quantityConsumed": {
-            "type": "string",
-            "example": "0.000"
-          },
-          "quantityStaged": {
-            "type": "string",
-            "example": "0.000"
-          },
-          "quantityReturned": {
-            "type": "string",
-            "example": "0.000"
-          },
-          "kind": {
-            "type": "string",
-            "enum": [
-              "ON_HAND",
-              "REQUISITION"
-            ]
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "OPEN",
-              "ORDERED",
-              "STAGED",
-              "FULFILLED",
-              "CANCELLED"
-            ]
-          },
-          "locationId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
-          },
-          "createdAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "updatedAt": {
-            "format": "date-time",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "tenantId",
-          "workshopTaskLineItemId",
-          "quantity",
-          "quantityReceived",
-          "quantityConsumed",
-          "quantityStaged",
-          "quantityReturned",
-          "kind",
-          "status",
-          "createdAt",
-          "updatedAt"
-        ]
-      },
-      "ConsumePartsReservationDto": {
-        "type": "object",
-        "properties": {
-          "quantity": {
-            "type": "number",
-            "example": 1.5,
-            "minimum": 0.001,
-            "multipleOf": 0.001
-          }
-        },
-        "required": [
-          "quantity"
-        ]
-      },
-      "ReleasePartsReservationDto": {
-        "type": "object",
-        "properties": {
-          "returnLocationId": {
-            "type": "string",
-            "format": "uuid"
-          }
-        }
-      },
-      "PartsShortageResponseDto": {
-        "type": "object",
-        "properties": {
-          "workshopOrderId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "workshopOrderNumber": {
-            "type": "string"
-          },
-          "workshopTaskId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "workshopTaskLineItemId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "itemNo": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "lineQuantity": {
-            "type": "string",
-            "example": "4.000"
-          },
-          "consumedQuantity": {
-            "type": "string",
-            "example": "1.500"
-          },
-          "activeCommitment": {
-            "type": "string",
-            "example": "1.000"
-          },
-          "shortageQuantity": {
-            "type": "string",
-            "example": "1.500"
-          },
-          "siteId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "vehicleMake": {
-            "type": "string",
-            "description": "Vehicle make label from the workshop order vehicle."
-          },
-          "vehicleMakeBrandId": {
-            "type": "number",
-            "nullable": true,
-            "description": "Vehicle-make Brand id used to group the requisition sheet."
-          }
-        },
-        "required": [
-          "workshopOrderId",
-          "workshopOrderNumber",
-          "workshopTaskId",
-          "workshopTaskLineItemId",
-          "itemNo",
-          "description",
-          "lineQuantity",
-          "consumedQuantity",
-          "activeCommitment",
-          "shortageQuantity",
-          "siteId",
-          "vehicleMake"
-        ]
-      },
-      "PartsRequisitionItemDto": {
-        "type": "object",
-        "properties": {
-          "workshopTaskLineItemId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "quantity": {
-            "type": "number",
-            "example": 1.5,
-            "minimum": 0.001,
-            "multipleOf": 0.001
-          }
-        },
-        "required": [
-          "workshopTaskLineItemId",
-          "quantity"
-        ]
-      },
-      "CreatePartsRequisitionDto": {
-        "type": "object",
-        "properties": {
-          "vehicleMakeBrandId": {
-            "type": "number",
-            "description": "Vehicle-make Brand the sheet is raised for.",
-            "example": 1
-          },
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PartsRequisitionItemDto"
-            }
-          }
-        },
-        "required": [
-          "vehicleMakeBrandId",
-          "items"
-        ]
-      },
-      "PartsRequisitionLineResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "reservationId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "workshopTaskLineItemId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "workshopOrderId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "workshopOrderNumber": {
-            "type": "string"
-          },
-          "itemNo": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "quantity": {
-            "type": "string",
-            "example": "1.500"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "OPEN",
-              "ORDERED",
-              "STAGED",
-              "FULFILLED",
-              "CANCELLED"
-            ]
-          },
-          "purchaseOrderItemId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
-          },
-          "createdAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "updatedAt": {
-            "format": "date-time",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "reservationId",
-          "workshopTaskLineItemId",
-          "workshopOrderId",
-          "workshopOrderNumber",
-          "itemNo",
-          "description",
-          "quantity",
-          "status",
-          "createdAt",
-          "updatedAt"
-        ]
-      },
-      "PartsRequisitionResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "tenantId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "vehicleMakeBrandId": {
-            "type": "number"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "DRAFT",
-              "ORDERED",
-              "COMPLETED",
-              "CANCELLED"
-            ]
-          },
-          "lines": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PartsRequisitionLineResponseDto"
-            }
-          },
-          "createdAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "updatedAt": {
-            "format": "date-time",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "tenantId",
-          "vehicleMakeBrandId",
-          "status",
-          "lines",
-          "createdAt",
-          "updatedAt"
-        ]
-      },
-      "RequisitionPurchaseOrderItemDto": {
-        "type": "object",
-        "properties": {
-          "reservationId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "unitCost": {
-            "type": "number",
-            "description": "Clerk-confirmed unit cost for this reservation slice. Must be a JSON number.",
-            "example": 10.5,
-            "minimum": 0
-          }
-        },
-        "required": [
-          "reservationId",
-          "unitCost"
-        ]
-      },
-      "CreateRequisitionPurchaseOrderDto": {
-        "type": "object",
-        "properties": {
-          "vendorId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/RequisitionPurchaseOrderItemDto"
-            }
-          }
-        },
-        "required": [
-          "vendorId",
-          "items"
-        ]
-      },
       "HolderDto": {
         "type": "object",
         "properties": {
@@ -24487,6 +25489,56 @@
           "taskId"
         ]
       },
+      "SubmitMechanicFindingDto": {
+        "type": "object",
+        "properties": {
+          "command_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Idempotency key. A duplicate submit with the same command_id returns the original proposal."
+          },
+          "media_ids": {
+            "description": "Workshop media ids uploaded by this mechanic for the task. Foreign or closed-task media is rejected.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "voice_note_draft_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Accepted voice-note draft id. When set, the draft must already be ACCEPTED for this task and mechanic."
+          },
+          "summary": {
+            "type": "string",
+            "description": "Optional short label for the advisor queue. Finding text comes from saved mechanic notes.",
+            "maxLength": 120
+          }
+        }
+      },
+      "SubmitMechanicFindingResponseDto": {
+        "type": "object",
+        "properties": {
+          "proposalId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "traceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "actionType": {
+            "type": "string",
+            "example": "workshop_order.mechanic_finding"
+          }
+        },
+        "required": [
+          "proposalId",
+          "traceId",
+          "actionType"
+        ]
+      },
       "RequestPartDto": {
         "type": "object",
         "properties": {
@@ -24836,6 +25888,638 @@
             "nullable": true
           }
         }
+      },
+      "AgentProposalEffectiveSummaryDto": {
+        "type": "object",
+        "properties": {
+          "target_type": {
+            "type": "string",
+            "nullable": true
+          },
+          "target_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "amount_eur": {
+            "type": "number",
+            "nullable": true
+          }
+        },
+        "required": [
+          "target_type",
+          "target_id",
+          "amount_eur"
+        ]
+      },
+      "AgentProposalWorkshopOrderSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "order_number": {
+            "type": "string",
+            "nullable": true,
+            "example": "WO-2026-0001"
+          },
+          "customer_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "vehicle_registration": {
+            "type": "string",
+            "nullable": true
+          },
+          "vehicle_description": {
+            "type": "string",
+            "nullable": true,
+            "example": "2019 Volkswagen Golf"
+          }
+        },
+        "required": [
+          "id",
+          "order_number",
+          "customer_name",
+          "vehicle_registration",
+          "vehicle_description"
+        ]
+      },
+      "AgentProposalResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenant_id": {
+            "type": "string"
+          },
+          "trace_id": {
+            "type": "string"
+          },
+          "action_type": {
+            "type": "string"
+          },
+          "tier": {
+            "type": "string",
+            "enum": [
+              "AUTO",
+              "PROPOSE",
+              "HUMAN_ONLY"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "APPROVED",
+              "REJECTED",
+              "EXPIRED",
+              "EXECUTED",
+              "FAILED"
+            ]
+          },
+          "payload_json": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "effective_summary": {
+            "$ref": "#/components/schemas/AgentProposalEffectiveSummaryDto"
+          },
+          "workshop_order_summary": {
+            "nullable": true,
+            "description": "Readable workshop order context (order number, customer, vehicle). Filled on list and detail reads; null for other proposals, on write responses, and when the order is not visible to the caller.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AgentProposalWorkshopOrderSummaryDto"
+              }
+            ]
+          },
+          "preview_json": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true
+          },
+          "created_by_agent": {
+            "type": "string",
+            "nullable": true
+          },
+          "decided_by": {
+            "type": "string",
+            "nullable": true
+          },
+          "decided_by_name": {
+            "type": "string",
+            "nullable": true,
+            "description": "Name of the user who decided (first and last name). Null when the proposal is undecided or the user has no name set."
+          },
+          "decided_by_email": {
+            "type": "string",
+            "nullable": true,
+            "description": "Email of the user who decided. Null when the proposal is undecided or the user is not a member of the tenant."
+          },
+          "decided_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "expires_at": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenant_id",
+          "trace_id",
+          "action_type",
+          "tier",
+          "status",
+          "payload_json",
+          "effective_summary",
+          "workshop_order_summary",
+          "preview_json",
+          "created_by_agent",
+          "decided_by",
+          "decided_by_name",
+          "decided_by_email",
+          "decided_at",
+          "reason",
+          "expires_at",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "AgentProposalListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentProposalResponseDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "BatchApplyAgentProposalsDto": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "minItems": 1,
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": [
+          "ids"
+        ]
+      },
+      "BatchApplyAgentProposalResultDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "applied",
+              "failed"
+            ]
+          },
+          "error": {
+            "type": "string"
+          },
+          "proposal": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "status"
+        ]
+      },
+      "BatchApplyAgentProposalsResponseDto": {
+        "type": "object",
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BatchApplyAgentProposalResultDto"
+            }
+          }
+        },
+        "required": [
+          "results"
+        ]
+      },
+      "RejectAgentProposalDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "Reason for rejecting the proposal",
+            "maxLength": 500
+          }
+        }
+      },
+      "CreateAgentProposalDto": {
+        "type": "object",
+        "properties": {
+          "action_type": {
+            "type": "string",
+            "example": "workshop_order.add_line"
+          },
+          "payload_json": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "preview_json": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "trace_id": {
+            "type": "string",
+            "description": "Optional correlation trace ID (UUID)"
+          },
+          "tier": {
+            "type": "string",
+            "enum": [
+              "AUTO",
+              "PROPOSE",
+              "HUMAN_ONLY"
+            ],
+            "default": "PROPOSE"
+          }
+        },
+        "required": [
+          "action_type",
+          "payload_json"
+        ]
+      },
+      "SubmitPendingAgentActionDto": {
+        "type": "object",
+        "properties": {
+          "action_type": {
+            "type": "string",
+            "example": "workshop_order.add_line"
+          },
+          "payload_json": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "command_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Optional correlation UUID stored in preview_json.mcp_command_idempotency for orchestration with MCP; does not claim an MCP write receipt (REST-wide idempotency is out of scope)."
+          }
+        },
+        "required": [
+          "action_type",
+          "payload_json"
+        ]
+      },
+      "AgentPolicyConditionsDto": {
+        "type": "object",
+        "properties": {
+          "amount_max": {
+            "type": "number",
+            "nullable": true
+          },
+          "customer_facing": {
+            "type": "boolean"
+          },
+          "reversible": {
+            "type": "boolean"
+          },
+          "affects_legal_document": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AgentPolicyRuleResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "action_type": {
+            "type": "string"
+          },
+          "tier": {
+            "type": "string",
+            "enum": [
+              "AUTO",
+              "PROPOSE",
+              "HUMAN_ONLY"
+            ]
+          },
+          "conditions": {
+            "$ref": "#/components/schemas/AgentPolicyConditionsDto"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "number"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "platform",
+              "tenant"
+            ]
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "action_type",
+          "tier",
+          "conditions",
+          "enabled",
+          "version",
+          "source",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "AgentPolicyRuleListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentPolicyRuleResponseDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "UpsertAgentPolicyRuleDto": {
+        "type": "object",
+        "properties": {
+          "tier": {
+            "type": "string",
+            "enum": [
+              "AUTO",
+              "PROPOSE",
+              "HUMAN_ONLY"
+            ]
+          },
+          "conditions": {
+            "$ref": "#/components/schemas/AgentPolicyConditionsDto"
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "tier"
+        ]
+      },
+      "AgentPolicyEvaluateContextDto": {
+        "type": "object",
+        "properties": {
+          "amount_eur": {
+            "type": "number"
+          },
+          "customer_facing": {
+            "type": "boolean"
+          },
+          "reversible": {
+            "type": "boolean"
+          },
+          "affects_legal_document": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AgentPolicyEvaluateRequestDto": {
+        "type": "object",
+        "properties": {
+          "action_type": {
+            "type": "string",
+            "example": "workshop_order.add_line"
+          },
+          "context": {
+            "$ref": "#/components/schemas/AgentPolicyEvaluateContextDto"
+          }
+        },
+        "required": [
+          "action_type"
+        ]
+      },
+      "AgentPolicyEvaluationResponseDto": {
+        "type": "object",
+        "properties": {
+          "tier": {
+            "type": "string",
+            "enum": [
+              "AUTO",
+              "PROPOSE",
+              "HUMAN_ONLY"
+            ]
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rule_id": {
+            "type": "object",
+            "nullable": true
+          },
+          "rule_version": {
+            "type": "object",
+            "nullable": true
+          }
+        },
+        "required": [
+          "tier",
+          "reasons",
+          "rule_id",
+          "rule_version"
+        ]
+      },
+      "AgentActionLogResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "traceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "parentTraceId": {
+            "type": "object",
+            "format": "uuid",
+            "nullable": true
+          },
+          "actorType": {
+            "type": "string",
+            "enum": [
+              "AGENT",
+              "USER",
+              "SYSTEM",
+              "API_KEY"
+            ]
+          },
+          "agentId": {
+            "type": "object",
+            "nullable": true
+          },
+          "onBehalfOfUserId": {
+            "type": "object",
+            "nullable": true
+          },
+          "onBehalfOfUserName": {
+            "type": "string",
+            "nullable": true,
+            "description": "Name of the on-behalf-of user (first and last name). Null when the user is not a member of the tenant or has no name set."
+          },
+          "onBehalfOfUserEmail": {
+            "type": "string",
+            "nullable": true,
+            "description": "Email of the on-behalf-of user. Null when the user is not a member of the tenant."
+          },
+          "apiKeyId": {
+            "type": "object",
+            "nullable": true
+          },
+          "actionType": {
+            "type": "string"
+          },
+          "tier": {
+            "type": "string",
+            "enum": [
+              "AUTO",
+              "PROPOSE",
+              "HUMAN_ONLY",
+              "NOT_EVALUATED"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PROPOSED",
+              "APPROVED",
+              "REJECTED",
+              "EXECUTED",
+              "REFUSED",
+              "FAILED",
+              "DRY_RUN",
+              "FALLBACK"
+            ]
+          },
+          "inputSummary": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "resultSummary": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "entityType": {
+            "type": "object",
+            "nullable": true
+          },
+          "entityId": {
+            "type": "object",
+            "nullable": true
+          },
+          "reversible": {
+            "type": "boolean"
+          },
+          "revertedByLogId": {
+            "type": "object",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "tenantId",
+          "traceId",
+          "actorType",
+          "actionType",
+          "tier",
+          "status",
+          "reversible",
+          "createdAt"
+        ]
+      },
+      "AgentActionLogListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentActionLogResponseDto"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "description": "Cursor for the next page when more results exist",
+            "nullable": true
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "AgentActionTraceDetailResponseDto": {
+        "type": "object",
+        "properties": {
+          "logs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentActionLogResponseDto"
+            }
+          },
+          "auditEntries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuditLogResponseDto"
+            }
+          }
+        },
+        "required": [
+          "logs",
+          "auditEntries"
+        ]
       },
       "NotificationOutboxReplayRequestDto": {
         "type": "object",
@@ -27661,807 +29345,6 @@
           "id"
         ]
       },
-      "LegalEntitySellerReadinessDto": {
-        "type": "object",
-        "properties": {
-          "is_ready": {
-            "type": "boolean"
-          },
-          "missing_fields": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "required": [
-          "is_ready",
-          "missing_fields"
-        ]
-      },
-      "LegalEntityResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "tenant_id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "country_iso": {
-            "type": "string",
-            "enum": [
-              "AT",
-              "DE"
-            ]
-          },
-          "is_active": {
-            "type": "boolean"
-          },
-          "address_street": {
-            "type": "string",
-            "nullable": true
-          },
-          "address_line2": {
-            "type": "string",
-            "nullable": true
-          },
-          "address_zip": {
-            "type": "string",
-            "nullable": true
-          },
-          "address_city": {
-            "type": "string",
-            "nullable": true
-          },
-          "tax_number": {
-            "type": "string",
-            "nullable": true
-          },
-          "vat_id": {
-            "type": "string",
-            "nullable": true
-          },
-          "iban": {
-            "type": "string",
-            "nullable": true
-          },
-          "bic": {
-            "type": "string",
-            "nullable": true
-          },
-          "bank_name": {
-            "type": "string",
-            "nullable": true
-          },
-          "email": {
-            "type": "string",
-            "nullable": true
-          },
-          "phone": {
-            "type": "string",
-            "nullable": true
-          },
-          "registration_number": {
-            "type": "string",
-            "nullable": true
-          },
-          "registration_court": {
-            "type": "string",
-            "nullable": true
-          },
-          "representatives": {
-            "type": "string",
-            "nullable": true
-          },
-          "payment_terms_days": {
-            "type": "number",
-            "nullable": true
-          },
-          "payment_terms_text": {
-            "type": "string",
-            "nullable": true
-          },
-          "seller_readiness": {
-            "$ref": "#/components/schemas/LegalEntitySellerReadinessDto"
-          },
-          "rksv_mode": {
-            "type": "string",
-            "enum": [
-              "OFF",
-              "UNKNOWN",
-              "REQUIRED_EXTERNAL_KASSE",
-              "REQUIRED_ACP_RKSV"
-            ]
-          }
-        },
-        "required": [
-          "id",
-          "tenant_id",
-          "name",
-          "country_iso",
-          "is_active",
-          "seller_readiness",
-          "rksv_mode"
-        ]
-      },
-      "RzlSteuercodesDto": {
-        "type": "object",
-        "properties": {
-          "vat20": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 4,
-            "description": "RZL Steuercode for 20% VAT (1 to 4 digits)."
-          },
-          "vat13": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 4,
-            "description": "RZL Steuercode for 13% VAT (1 to 4 digits)."
-          },
-          "vat10": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 4,
-            "description": "RZL Steuercode for 10% VAT (1 to 4 digits)."
-          }
-        }
-      },
-      "RzlSerializerParamsDto": {
-        "type": "object",
-        "properties": {
-          "firmNumber": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 32
-          },
-          "costCenterLength": {
-            "type": "number",
-            "nullable": true,
-            "minimum": 1,
-            "maximum": 16
-          },
-          "steuercodes": {
-            "$ref": "#/components/schemas/RzlSteuercodesDto"
-          }
-        }
-      },
-      "BmdSteuercodesDto": {
-        "type": "object",
-        "properties": {
-          "vat20": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 4,
-            "description": "BMD Steuercode (tax key defined per BMD client) for 20% VAT (1 to 4 digits)."
-          },
-          "vat13": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 4,
-            "description": "BMD Steuercode (tax key defined per BMD client) for 13% VAT (1 to 4 digits)."
-          },
-          "vat10": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 4,
-            "description": "BMD Steuercode (tax key defined per BMD client) for 10% VAT (1 to 4 digits)."
-          }
-        }
-      },
-      "BmdSerializerParamsDto": {
-        "type": "object",
-        "properties": {
-          "steuercodes": {
-            "$ref": "#/components/schemas/BmdSteuercodesDto"
-          }
-        }
-      },
-      "MarginSchemeSerializerParamsDto": {
-        "type": "object",
-        "properties": {
-          "enabled": {
-            "type": "boolean",
-            "description": "Lifts the margin-scheme export block for this legal entity on the DATEV profile (AUT-369). Off by default."
-          },
-          "vatAccount": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 9,
-            "description": "Ledger account for the frozen margin VAT (1 to 9 digits). Required when enabled."
-          }
-        }
-      },
-      "AccountingProfileSerializerParamsDto": {
-        "type": "object",
-        "properties": {
-          "rzl": {
-            "$ref": "#/components/schemas/RzlSerializerParamsDto"
-          },
-          "bmd": {
-            "$ref": "#/components/schemas/BmdSerializerParamsDto"
-          },
-          "marginScheme": {
-            "$ref": "#/components/schemas/MarginSchemeSerializerParamsDto"
-          }
-        }
-      },
-      "AccountingMappingRuleDto": {
-        "type": "object",
-        "properties": {
-          "sourceCategoryKey": {
-            "type": "string"
-          },
-          "sourceCategoryLabel": {
-            "type": "string"
-          },
-          "taxMode": {
-            "type": "string",
-            "enum": [
-              "STANDARD",
-              "MARGIN_SCHEME"
-            ]
-          },
-          "taxRate": {
-            "type": "string"
-          },
-          "revenueAccount": {
-            "type": "string"
-          },
-          "taxTreatment": {
-            "type": "string",
-            "enum": [
-              "automatic",
-              "manual_bu"
-            ]
-          },
-          "buKey": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "required": [
-          "sourceCategoryKey",
-          "sourceCategoryLabel",
-          "taxMode",
-          "taxRate",
-          "revenueAccount",
-          "taxTreatment"
-        ]
-      },
-      "SourceCategoryDefinitionDto": {
-        "type": "object",
-        "properties": {
-          "key": {
-            "type": "string"
-          },
-          "label": {
-            "type": "string"
-          },
-          "taxMode": {
-            "type": "string",
-            "enum": [
-              "STANDARD",
-              "MARGIN_SCHEME"
-            ]
-          },
-          "taxRate": {
-            "type": "string"
-          },
-          "suggestedRevenueAccount": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "required": [
-          "key",
-          "label",
-          "taxMode",
-          "taxRate"
-        ]
-      },
-      "AccountingProfileReadinessDto": {
-        "type": "object",
-        "properties": {
-          "is_ready": {
-            "type": "boolean"
-          },
-          "missing_fields": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "unmapped_categories": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "required": [
-          "is_ready",
-          "missing_fields",
-          "unmapped_categories"
-        ]
-      },
-      "AccountingProfileResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "tenant_id": {
-            "type": "string"
-          },
-          "legal_entity_id": {
-            "type": "string"
-          },
-          "version": {
-            "type": "number"
-          },
-          "is_enabled": {
-            "type": "boolean"
-          },
-          "profile_code": {
-            "type": "string",
-            "nullable": true
-          },
-          "format_version": {
-            "type": "string",
-            "nullable": true
-          },
-          "chart": {
-            "type": "string",
-            "nullable": true
-          },
-          "account_length": {
-            "type": "number",
-            "nullable": true
-          },
-          "advisor_number": {
-            "type": "string",
-            "nullable": true
-          },
-          "client_number": {
-            "type": "string",
-            "nullable": true
-          },
-          "fiscal_year_start_month": {
-            "type": "number",
-            "nullable": true
-          },
-          "default_debtor_account": {
-            "type": "string",
-            "nullable": true
-          },
-          "serializer_params": {
-            "$ref": "#/components/schemas/AccountingProfileSerializerParamsDto"
-          },
-          "serializer_released": {
-            "type": "boolean",
-            "description": "Whether the platform releases this profile code for CSV generation (RZL is gated by ACCOUNTING_EXPORT_RZL_SERIALIZER_ENABLED, BMD by ACCOUNTING_EXPORT_BMD_SERIALIZER_ENABLED)."
-          },
-          "export_missing_fields": {
-            "description": "Export-only configuration gaps (RZL firm number and Steuercodes; BMD Steuercodes; format version; chart; account length; default debtor account). Empty when complete or not applicable. Does not affect invoice issuance.",
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "mapping_rules": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AccountingMappingRuleDto"
-            }
-          },
-          "required_source_categories": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SourceCategoryDefinitionDto"
-            }
-          },
-          "mapping_readiness": {
-            "$ref": "#/components/schemas/AccountingProfileReadinessDto"
-          }
-        },
-        "required": [
-          "id",
-          "tenant_id",
-          "legal_entity_id",
-          "version",
-          "is_enabled",
-          "serializer_params",
-          "serializer_released",
-          "export_missing_fields",
-          "mapping_rules",
-          "required_source_categories",
-          "mapping_readiness"
-        ]
-      },
-      "UpdateAccountingProfileDto": {
-        "type": "object",
-        "properties": {
-          "expectedVersion": {
-            "type": "number",
-            "description": "Optimistic-lock version from the last GET response"
-          },
-          "profileCode": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 64
-          },
-          "formatVersion": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 64
-          },
-          "chart": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 32
-          },
-          "accountLength": {
-            "type": "number",
-            "nullable": true,
-            "minimum": 1,
-            "maximum": 8
-          },
-          "advisorNumber": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 32
-          },
-          "clientNumber": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 32
-          },
-          "fiscalYearStartMonth": {
-            "type": "number",
-            "nullable": true,
-            "minimum": 1,
-            "maximum": 12
-          },
-          "defaultDebtorAccount": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 16
-          },
-          "mappingRules": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AccountingMappingRuleDto"
-            }
-          },
-          "serializerParams": {
-            "description": "Serializer-specific parameters: RZL firm number and Steuercodes, BMD Steuercodes. Expand-only JSON storage.",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/AccountingProfileSerializerParamsDto"
-              }
-            ]
-          },
-          "isEnabled": {
-            "type": "boolean",
-            "description": "Gates accounting CSV export only; does not affect invoice issuance readiness"
-          }
-        },
-        "required": [
-          "expectedVersion"
-        ]
-      },
-      "CreateLegalEntityDto": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "maxLength": 120
-          },
-          "countryIso": {
-            "type": "string",
-            "enum": [
-              "AT",
-              "DE"
-            ]
-          }
-        },
-        "required": [
-          "name",
-          "countryIso"
-        ]
-      },
-      "UpdateLegalEntityDto": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "maxLength": 120
-          },
-          "isActive": {
-            "type": "boolean"
-          },
-          "addressStreet": {
-            "type": "string",
-            "maxLength": 200
-          },
-          "addressLine2": {
-            "type": "string",
-            "maxLength": 200
-          },
-          "addressZip": {
-            "type": "string",
-            "maxLength": 20
-          },
-          "addressCity": {
-            "type": "string",
-            "maxLength": 120
-          },
-          "taxNumber": {
-            "type": "string",
-            "maxLength": 32
-          },
-          "vatId": {
-            "type": "string",
-            "maxLength": 32
-          },
-          "iban": {
-            "type": "string",
-            "maxLength": 34
-          },
-          "bic": {
-            "type": "string",
-            "maxLength": 11
-          },
-          "bankName": {
-            "type": "string",
-            "maxLength": 120
-          },
-          "email": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 254
-          },
-          "phone": {
-            "type": "string",
-            "maxLength": 40
-          },
-          "registrationNumber": {
-            "type": "string",
-            "maxLength": 64
-          },
-          "registrationCourt": {
-            "type": "string",
-            "maxLength": 120
-          },
-          "representatives": {
-            "type": "string",
-            "maxLength": 500
-          },
-          "paymentTermsDays": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 365
-          },
-          "paymentTermsText": {
-            "type": "string",
-            "maxLength": 1000
-          },
-          "rksvMode": {
-            "type": "string",
-            "enum": [
-              "OFF",
-              "UNKNOWN",
-              "REQUIRED_EXTERNAL_KASSE",
-              "REQUIRED_ACP_RKSV"
-            ]
-          }
-        }
-      },
-      "CreateSiteOpeningHourDto": {
-        "type": "object",
-        "properties": {
-          "weekday": {
-            "type": "number",
-            "minimum": 1,
-            "maximum": 7
-          },
-          "isClosed": {
-            "type": "boolean"
-          },
-          "openTime": {
-            "type": "string",
-            "example": "07:30"
-          },
-          "closeTime": {
-            "type": "string",
-            "example": "17:00"
-          }
-        },
-        "required": [
-          "weekday",
-          "isClosed",
-          "openTime",
-          "closeTime"
-        ]
-      },
-      "CreateSiteDto": {
-        "type": "object",
-        "properties": {
-          "legalEntityId": {
-            "type": "string"
-          },
-          "code": {
-            "type": "string",
-            "maxLength": 64
-          },
-          "name": {
-            "type": "string",
-            "maxLength": 120
-          },
-          "addressStreet": {
-            "type": "string"
-          },
-          "addressCity": {
-            "type": "string"
-          },
-          "addressZip": {
-            "type": "string"
-          },
-          "addressCountry": {
-            "type": "string"
-          },
-          "timezone": {
-            "type": "string",
-            "example": "Europe/Vienna"
-          },
-          "slotMinutes": {
-            "type": "number",
-            "minimum": 15,
-            "maximum": 60
-          },
-          "holidayCountryIso": {
-            "type": "string",
-            "example": "AT"
-          },
-          "holidaySubdivisionCode": {
-            "type": "string"
-          },
-          "openingHours": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/CreateSiteOpeningHourDto"
-            }
-          }
-        },
-        "required": [
-          "legalEntityId",
-          "code",
-          "name"
-        ]
-      },
-      "UpdateSiteFiscalRegisterDto": {
-        "type": "object",
-        "properties": {
-          "providerCashRegisterId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "providerScuId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "env": {
-            "type": "string",
-            "enum": [
-              "TEST",
-              "LIVE"
-            ]
-          },
-          "providerState": {
-            "type": "string"
-          },
-          "credentialsSecretRef": {
-            "type": "object",
-            "description": "Opaque GSM secret ref; never the API key."
-          }
-        }
-      },
-      "UpdateSiteDto": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "maxLength": 120
-          },
-          "addressStreet": {
-            "type": "string"
-          },
-          "addressCity": {
-            "type": "string"
-          },
-          "addressZip": {
-            "type": "string"
-          },
-          "addressCountry": {
-            "type": "string"
-          },
-          "isActive": {
-            "type": "boolean"
-          },
-          "fiscalRegister": {
-            "$ref": "#/components/schemas/UpdateSiteFiscalRegisterDto"
-          }
-        }
-      },
-      "CreateSiteMembershipDto": {
-        "type": "object",
-        "properties": {
-          "userId": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "userId"
-        ]
-      },
-      "MeSiteDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "code": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "legalEntityId": {
-            "type": "string"
-          },
-          "legalEntityName": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "code",
-          "name",
-          "legalEntityId"
-        ]
-      },
-      "SetActiveSiteDto": {
-        "type": "object",
-        "properties": {
-          "siteId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true,
-            "description": "Site id to activate from GET /api/me/sites, or null to clear."
-          }
-        },
-        "required": [
-          "siteId"
-        ]
-      },
-      "ActiveSiteResponseDto": {
-        "type": "object",
-        "properties": {
-          "activeSiteId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
-          }
-        },
-        "required": [
-          "activeSiteId"
-        ]
-      },
       "StockTransferLineResponseDto": {
         "type": "object",
         "properties": {
@@ -29418,160 +30301,6 @@
             }
           }
         }
-      },
-      "AgentActionLogResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "tenantId": {
-            "type": "string"
-          },
-          "traceId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "parentTraceId": {
-            "type": "object",
-            "format": "uuid",
-            "nullable": true
-          },
-          "actorType": {
-            "type": "string",
-            "enum": [
-              "AGENT",
-              "USER",
-              "SYSTEM",
-              "API_KEY"
-            ]
-          },
-          "agentId": {
-            "type": "object",
-            "nullable": true
-          },
-          "onBehalfOfUserId": {
-            "type": "object",
-            "nullable": true
-          },
-          "onBehalfOfUserName": {
-            "type": "string",
-            "nullable": true,
-            "description": "Name of the on-behalf-of user (first and last name). Null when the user is not a member of the tenant or has no name set."
-          },
-          "onBehalfOfUserEmail": {
-            "type": "string",
-            "nullable": true,
-            "description": "Email of the on-behalf-of user. Null when the user is not a member of the tenant."
-          },
-          "apiKeyId": {
-            "type": "object",
-            "nullable": true
-          },
-          "actionType": {
-            "type": "string"
-          },
-          "tier": {
-            "type": "string",
-            "enum": [
-              "AUTO",
-              "PROPOSE",
-              "HUMAN_ONLY",
-              "NOT_EVALUATED"
-            ]
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "PROPOSED",
-              "APPROVED",
-              "REJECTED",
-              "EXECUTED",
-              "REFUSED",
-              "FAILED",
-              "DRY_RUN",
-              "FALLBACK"
-            ]
-          },
-          "inputSummary": {
-            "type": "object",
-            "additionalProperties": true
-          },
-          "resultSummary": {
-            "type": "object",
-            "additionalProperties": true
-          },
-          "entityType": {
-            "type": "object",
-            "nullable": true
-          },
-          "entityId": {
-            "type": "object",
-            "nullable": true
-          },
-          "reversible": {
-            "type": "boolean"
-          },
-          "revertedByLogId": {
-            "type": "object",
-            "nullable": true
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "id",
-          "tenantId",
-          "traceId",
-          "actorType",
-          "actionType",
-          "tier",
-          "status",
-          "reversible",
-          "createdAt"
-        ]
-      },
-      "AgentActionLogListResponseDto": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AgentActionLogResponseDto"
-            }
-          },
-          "nextCursor": {
-            "type": "string",
-            "description": "Cursor for the next page when more results exist",
-            "nullable": true
-          }
-        },
-        "required": [
-          "data"
-        ]
-      },
-      "AgentActionTraceDetailResponseDto": {
-        "type": "object",
-        "properties": {
-          "logs": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AgentActionLogResponseDto"
-            }
-          },
-          "auditEntries": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AuditLogResponseDto"
-            }
-          }
-        },
-        "required": [
-          "logs",
-          "auditEntries"
-        ]
       },
       "ImportEntityType": {
         "type": "string",
@@ -30866,484 +31595,6 @@
         },
         "required": [
           "idempotencyKey"
-        ]
-      },
-      "AgentPolicyConditionsDto": {
-        "type": "object",
-        "properties": {
-          "amount_max": {
-            "type": "number",
-            "nullable": true
-          },
-          "customer_facing": {
-            "type": "boolean"
-          },
-          "reversible": {
-            "type": "boolean"
-          },
-          "affects_legal_document": {
-            "type": "boolean"
-          }
-        }
-      },
-      "AgentPolicyRuleResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "action_type": {
-            "type": "string"
-          },
-          "tier": {
-            "type": "string",
-            "enum": [
-              "AUTO",
-              "PROPOSE",
-              "HUMAN_ONLY"
-            ]
-          },
-          "conditions": {
-            "$ref": "#/components/schemas/AgentPolicyConditionsDto"
-          },
-          "enabled": {
-            "type": "boolean"
-          },
-          "version": {
-            "type": "number"
-          },
-          "source": {
-            "type": "string",
-            "enum": [
-              "platform",
-              "tenant"
-            ]
-          },
-          "created_at": {
-            "type": "string"
-          },
-          "updated_at": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "action_type",
-          "tier",
-          "conditions",
-          "enabled",
-          "version",
-          "source",
-          "created_at",
-          "updated_at"
-        ]
-      },
-      "AgentPolicyRuleListResponseDto": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AgentPolicyRuleResponseDto"
-            }
-          }
-        },
-        "required": [
-          "data"
-        ]
-      },
-      "UpsertAgentPolicyRuleDto": {
-        "type": "object",
-        "properties": {
-          "tier": {
-            "type": "string",
-            "enum": [
-              "AUTO",
-              "PROPOSE",
-              "HUMAN_ONLY"
-            ]
-          },
-          "conditions": {
-            "$ref": "#/components/schemas/AgentPolicyConditionsDto"
-          },
-          "enabled": {
-            "type": "boolean",
-            "default": true
-          }
-        },
-        "required": [
-          "tier"
-        ]
-      },
-      "AgentPolicyEvaluateContextDto": {
-        "type": "object",
-        "properties": {
-          "amount_eur": {
-            "type": "number"
-          },
-          "customer_facing": {
-            "type": "boolean"
-          },
-          "reversible": {
-            "type": "boolean"
-          },
-          "affects_legal_document": {
-            "type": "boolean"
-          }
-        }
-      },
-      "AgentPolicyEvaluateRequestDto": {
-        "type": "object",
-        "properties": {
-          "action_type": {
-            "type": "string",
-            "example": "workshop_order.add_line"
-          },
-          "context": {
-            "$ref": "#/components/schemas/AgentPolicyEvaluateContextDto"
-          }
-        },
-        "required": [
-          "action_type"
-        ]
-      },
-      "AgentPolicyEvaluationResponseDto": {
-        "type": "object",
-        "properties": {
-          "tier": {
-            "type": "string",
-            "enum": [
-              "AUTO",
-              "PROPOSE",
-              "HUMAN_ONLY"
-            ]
-          },
-          "reasons": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "rule_id": {
-            "type": "object",
-            "nullable": true
-          },
-          "rule_version": {
-            "type": "object",
-            "nullable": true
-          }
-        },
-        "required": [
-          "tier",
-          "reasons",
-          "rule_id",
-          "rule_version"
-        ]
-      },
-      "AgentProposalEffectiveSummaryDto": {
-        "type": "object",
-        "properties": {
-          "target_type": {
-            "type": "string",
-            "nullable": true
-          },
-          "target_id": {
-            "type": "string",
-            "nullable": true
-          },
-          "amount_eur": {
-            "type": "number",
-            "nullable": true
-          }
-        },
-        "required": [
-          "target_type",
-          "target_id",
-          "amount_eur"
-        ]
-      },
-      "AgentProposalWorkshopOrderSummaryDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "order_number": {
-            "type": "string",
-            "nullable": true,
-            "example": "WO-2026-0001"
-          },
-          "customer_name": {
-            "type": "string",
-            "nullable": true
-          },
-          "vehicle_registration": {
-            "type": "string",
-            "nullable": true
-          },
-          "vehicle_description": {
-            "type": "string",
-            "nullable": true,
-            "example": "2019 Volkswagen Golf"
-          }
-        },
-        "required": [
-          "id",
-          "order_number",
-          "customer_name",
-          "vehicle_registration",
-          "vehicle_description"
-        ]
-      },
-      "AgentProposalResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "tenant_id": {
-            "type": "string"
-          },
-          "trace_id": {
-            "type": "string"
-          },
-          "action_type": {
-            "type": "string"
-          },
-          "tier": {
-            "type": "string",
-            "enum": [
-              "AUTO",
-              "PROPOSE",
-              "HUMAN_ONLY"
-            ]
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "PENDING",
-              "APPROVED",
-              "REJECTED",
-              "EXPIRED",
-              "EXECUTED",
-              "FAILED"
-            ]
-          },
-          "payload_json": {
-            "type": "object",
-            "additionalProperties": true
-          },
-          "effective_summary": {
-            "$ref": "#/components/schemas/AgentProposalEffectiveSummaryDto"
-          },
-          "workshop_order_summary": {
-            "nullable": true,
-            "description": "Readable workshop order context (order number, customer, vehicle). Filled on list and detail reads; null for other proposals, on write responses, and when the order is not visible to the caller.",
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/AgentProposalWorkshopOrderSummaryDto"
-              }
-            ]
-          },
-          "preview_json": {
-            "type": "object",
-            "additionalProperties": true,
-            "nullable": true
-          },
-          "created_by_agent": {
-            "type": "string",
-            "nullable": true
-          },
-          "decided_by": {
-            "type": "string",
-            "nullable": true
-          },
-          "decided_by_name": {
-            "type": "string",
-            "nullable": true,
-            "description": "Name of the user who decided (first and last name). Null when the proposal is undecided or the user has no name set."
-          },
-          "decided_by_email": {
-            "type": "string",
-            "nullable": true,
-            "description": "Email of the user who decided. Null when the proposal is undecided or the user is not a member of the tenant."
-          },
-          "decided_at": {
-            "type": "string",
-            "nullable": true
-          },
-          "reason": {
-            "type": "string",
-            "nullable": true
-          },
-          "expires_at": {
-            "type": "string"
-          },
-          "created_at": {
-            "type": "string"
-          },
-          "updated_at": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "tenant_id",
-          "trace_id",
-          "action_type",
-          "tier",
-          "status",
-          "payload_json",
-          "effective_summary",
-          "workshop_order_summary",
-          "preview_json",
-          "created_by_agent",
-          "decided_by",
-          "decided_by_name",
-          "decided_by_email",
-          "decided_at",
-          "reason",
-          "expires_at",
-          "created_at",
-          "updated_at"
-        ]
-      },
-      "AgentProposalListResponseDto": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AgentProposalResponseDto"
-            }
-          }
-        },
-        "required": [
-          "data"
-        ]
-      },
-      "BatchApplyAgentProposalsDto": {
-        "type": "object",
-        "properties": {
-          "ids": {
-            "minItems": 1,
-            "maxItems": 100,
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        },
-        "required": [
-          "ids"
-        ]
-      },
-      "BatchApplyAgentProposalResultDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "applied",
-              "failed"
-            ]
-          },
-          "error": {
-            "type": "string"
-          },
-          "proposal": {
-            "type": "object"
-          }
-        },
-        "required": [
-          "id",
-          "status"
-        ]
-      },
-      "BatchApplyAgentProposalsResponseDto": {
-        "type": "object",
-        "properties": {
-          "results": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/BatchApplyAgentProposalResultDto"
-            }
-          }
-        },
-        "required": [
-          "results"
-        ]
-      },
-      "RejectAgentProposalDto": {
-        "type": "object",
-        "properties": {
-          "reason": {
-            "type": "string",
-            "description": "Reason for rejecting the proposal",
-            "maxLength": 500
-          }
-        }
-      },
-      "CreateAgentProposalDto": {
-        "type": "object",
-        "properties": {
-          "action_type": {
-            "type": "string",
-            "example": "workshop_order.add_line"
-          },
-          "payload_json": {
-            "type": "object",
-            "additionalProperties": true
-          },
-          "preview_json": {
-            "type": "object",
-            "additionalProperties": true
-          },
-          "trace_id": {
-            "type": "string",
-            "description": "Optional correlation trace ID (UUID)"
-          },
-          "tier": {
-            "type": "string",
-            "enum": [
-              "AUTO",
-              "PROPOSE",
-              "HUMAN_ONLY"
-            ],
-            "default": "PROPOSE"
-          }
-        },
-        "required": [
-          "action_type",
-          "payload_json"
-        ]
-      },
-      "SubmitPendingAgentActionDto": {
-        "type": "object",
-        "properties": {
-          "action_type": {
-            "type": "string",
-            "example": "workshop_order.add_line"
-          },
-          "payload_json": {
-            "type": "object",
-            "additionalProperties": true
-          },
-          "command_id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Optional correlation UUID stored in preview_json.mcp_command_idempotency for orchestration with MCP; does not claim an MCP write receipt (REST-wide idempotency is out of scope)."
-          }
-        },
-        "required": [
-          "action_type",
-          "payload_json"
         ]
       },
       "AgentSupervisionTriageItemDto": {

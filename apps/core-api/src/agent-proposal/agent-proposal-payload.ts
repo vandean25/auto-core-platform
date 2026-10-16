@@ -22,6 +22,12 @@ export function resolveWorkshopOrderId(
   actionType: string,
   payload: Record<string, unknown>,
 ): string | null {
+  if (
+    actionType === 'workshop_order.mechanic_finding' &&
+    typeof payload.workshop_order_id === 'string'
+  ) {
+    return payload.workshop_order_id;
+  }
   if (!isWorkshopOrderLineAction(actionType)) {
     return null;
   }

@@ -31,10 +31,13 @@ import { DOCUMENT_SORT_TYPES } from '../decision/decision.constants.js';
 import { RegistrationIntakeApplyService } from '../registration-intake/registration-intake-apply.service.js';
 import { proposeRegistrationIntakeInputSchema } from '../mcp/mcp-tool-schemas.js';
 import { WorkshopBookingPackageService } from '../workshop/workshop-booking-package.service.js';
+import { PurchaseService } from '../purchase/purchase.service.js';
+import { proposePurchaseOrderInputSchema } from '../purchase/purchase-propose-draft.schema.js';
 
 export type PendingActionType =
   | 'workshop_order.create'
   | 'workshop.booking_package'
+  | 'purchase_order.propose_draft'
   | 'workshop_task.reserve_part'
   | 'inventory.part_reserve'
   | 'workshop_task.release_reservation'
@@ -44,7 +47,8 @@ export type PendingActionType =
   | 'customer.update'
   | 'decision.import_row_match'
   | 'decision.document_sort'
-  | 'registration_intake.apply';
+  | 'registration_intake.apply'
+  | 'workshop_order.mechanic_finding';
 
 export type PendingActionExecutor = {
   actionType: PendingActionType;
@@ -72,6 +76,7 @@ export class PendingActionExecutorService {
     private readonly partsRequisition: PartsRequisitionService,
     private readonly registrationIntakeApply: RegistrationIntakeApplyService,
     private readonly workshopBookingPackage: WorkshopBookingPackageService,
+    private readonly purchaseService: PurchaseService,
   ) {}
 
   resolve(actionType: string): PendingActionExecutor {
@@ -131,6 +136,26 @@ export class PendingActionExecutorService {
           execute: (input) => this.addProposedLineItem(input),
           buildResultSummary: (result) => ({
             line_item_id: (result as { id: string }).id,
+          }),
+        };
+      case 'workshop_order.mechanic_finding':
+        return {
+          actionType,
+          buildPolicyContext: () => Promise.resolve({}),
+          buildExecutionContext: async (input) => {
+            const record = this.asRecord(input);
+            const siteId =
+              typeof record.site_id === 'string'
+                ? record.site_id
+                : await this.siteContext.getSiteId();
+            return { site_id: siteId };
+          },
+          execute: (input) => this.acknowledgeMechanicFinding(input),
+          buildResultSummary: (result) => ({
+            workshop_task_id: (result as { workshop_task_id: string })
+              .workshop_task_id,
+            workshop_order_id: (result as { workshop_order_id: string })
+              .workshop_order_id,
           }),
         };
       case 'workshop_order.add_line':
@@ -227,6 +252,31 @@ export class PendingActionExecutorService {
             entityType: 'WorkshopOrder',
             entityId: (result as { workshop_order_id: string })
               .workshop_order_id,
+            reversible: true,
+          }),
+        };
+      case 'purchase_order.propose_draft':
+        return {
+          actionType,
+          buildPolicyContext: (input) =>
+            Promise.resolve(this.purchaseOrderProposePolicyContext(input)),
+          buildExecutionContext: () =>
+            this.purchaseService.buildProposedPurchaseOrderExecutionContext(),
+          execute: (input, context) =>
+            this.purchaseService.applyProposedPurchaseOrderDraft(
+              input,
+              context,
+            ),
+          buildResultSummary: (result) => ({
+            purchase_order_id: (result as { purchase_order_id: string })
+              .purchase_order_id,
+            status: (result as { status: string }).status,
+            totals: (result as { totals: { net: string } }).totals,
+          }),
+          buildLogMetadata: (result) => ({
+            entityType: 'PurchaseOrder',
+            entityId: (result as { purchase_order_id: string })
+              .purchase_order_id,
             reversible: true,
           }),
         };
@@ -393,6 +443,20 @@ export class PendingActionExecutorService {
     };
   }
 
+  private purchaseOrderProposePolicyContext(
+    input: unknown,
+  ): AgentPolicyEvaluateContext {
+    const parsed = proposePurchaseOrderInputSchema.safeParse(input);
+    if (!parsed.success) {
+      throw new BadRequestException('Invalid purchase order proposal payload');
+    }
+    const amountEur = parsed.data.lines.reduce((sum, line) => {
+      const unitCost = Number(line.cost_basis.unit_cost_net);
+      return sum + unitCost;
+    }, 0);
+    return { amount_eur: amountEur };
+  }
+
   private addProposedLineItem(input: unknown): Promise<unknown> {
     const parsed = proposeLineItemInputSchema.safeParse(input);
     if (!parsed.success) {
@@ -543,6 +607,60 @@ export class PendingActionExecutorService {
       select: { id: true },
     });
     return { id: created.id, entityId: created.id };
+  }
+
+  /** Advisor acknowledgment of a mechanic finding. Does not add estimate lines. */
+  private async acknowledgeMechanicFinding(input: unknown): Promise<unknown> {
+    const record = this.asRecord(input);
+    const orderId =
+      typeof record.workshop_order_id === 'string'
+        ? record.workshop_order_id
+        : '';
+    const taskId =
+      typeof record.workshop_task_id === 'string'
+        ? record.workshop_task_id
+        : '';
+    if (!orderId || !taskId) {
+      throw new BadRequestException(
+        'Mechanic finding payload requires workshop_order_id and workshop_task_id',
+      );
+    }
+    const [tenantId, siteId] = await Promise.all([
+      this.tenantContext.getTenantId(),
+      this.siteContext.getSiteId(),
+    ]);
+    const payloadSiteId =
+      typeof record.site_id === 'string' ? record.site_id : null;
+    if (payloadSiteId && payloadSiteId !== siteId) {
+      throw new BadRequestException(
+        `Action payload site (${payloadSiteId}) does not match caller authorized site (${siteId})`,
+      );
+    }
+    const order = await this.prisma.workshopOrder.findFirst({
+      where: { id: orderId, tenant_id: tenantId, site_id: siteId },
+      select: { id: true, status: true, purpose: true },
+    });
+    if (!order) {
+      throw new NotFoundException(`Workshop order ${orderId} not found`);
+    }
+    assertOrderEditable(order);
+    const task = await this.prisma.workshopTask.findFirst({
+      where: {
+        id: taskId,
+        tenant_id: tenantId,
+        workshop_order_id: orderId,
+        workshop_order: { site_id: siteId },
+      },
+      select: { id: true },
+    });
+    if (!task) {
+      throw new NotFoundException(`Workshop task ${taskId} not found`);
+    }
+    return {
+      workshop_order_id: orderId,
+      workshop_task_id: taskId,
+      entityId: taskId,
+    };
   }
 
   /**

@@ -14,6 +14,12 @@ describe('effectiveMcpWriteTier', () => {
     ).toBe(AgentPolicyTier.PROPOSE);
   });
 
+  it('holds propose_purchase_order at PROPOSE when policy says AUTO', () => {
+    expect(
+      effectiveMcpWriteTier('propose_purchase_order', AgentPolicyTier.AUTO),
+    ).toBe(AgentPolicyTier.PROPOSE);
+  });
+
   it('keeps the policy tier in every other case', () => {
     expect(
       effectiveMcpWriteTier('propose_line_item', AgentPolicyTier.PROPOSE),

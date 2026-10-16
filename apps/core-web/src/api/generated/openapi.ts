@@ -404,6 +404,266 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/parts-reservations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["PartsRequisitionController_createReservation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/parts-reservations/{id}/consume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["PartsRequisitionController_consumeReservation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/parts-reservations/{id}/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["PartsRequisitionController_releaseReservation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/parts-requisitions/shortages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["PartsRequisitionController_getShortages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/parts-requisitions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["PartsRequisitionController_createRequisitionSheet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/parts-requisitions/{id}/create-purchase-order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["PartsRequisitionController_createPurchaseOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/legal-entities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List legal entities (OWNER/ADMIN, includes inactive by default) */
+        get: operations["LegalEntityController_listLegalEntities"];
+        put?: never;
+        /** Create a legal entity (OWNER/ADMIN) */
+        post: operations["LegalEntityController_createLegalEntity"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/legal-entities/{id}/accounting-profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get accounting profile for a legal entity (OWNER/ADMIN) */
+        get: operations["LegalEntityController_getAccountingProfile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update accounting profile for a legal entity (OWNER/ADMIN) */
+        patch: operations["LegalEntityController_updateAccountingProfile"];
+        trace?: never;
+    };
+    "/api/legal-entities/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a legal entity (OWNER/ADMIN) */
+        get: operations["LegalEntityController_getLegalEntity"];
+        put?: never;
+        post?: never;
+        /** Hard-delete an unused legal entity (OWNER/ADMIN) */
+        delete: operations["LegalEntityController_deleteLegalEntity"];
+        options?: never;
+        head?: never;
+        /** Update a legal entity (OWNER/ADMIN) */
+        patch: operations["LegalEntityController_updateLegalEntity"];
+        trace?: never;
+    };
+    "/api/sites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Active site directory or full list (OWNER/ADMIN) */
+        get: operations["SiteController_listSites"];
+        put?: never;
+        /** Create a site (OWNER/ADMIN) */
+        post: operations["SiteController_createSite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sites/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a single site */
+        get: operations["SiteController_getSite"];
+        put?: never;
+        post?: never;
+        /** Hard-delete a pristine site (OWNER/ADMIN) */
+        delete: operations["SiteController_deleteSite"];
+        options?: never;
+        head?: never;
+        /** Update a site (OWNER/ADMIN) */
+        patch: operations["SiteController_updateSite"];
+        trace?: never;
+    };
+    "/api/sites/{id}/memberships": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List site memberships */
+        get: operations["SiteController_listSiteMemberships"];
+        put?: never;
+        /** Add a site membership (OWNER/ADMIN) */
+        post: operations["SiteController_addSiteMembership"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sites/{id}/memberships/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a site membership (OWNER/ADMIN) */
+        delete: operations["SiteController_removeSiteMembership"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/sites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List activatable sites for the current session (ruling 47) */
+        get: operations["MeSiteController_listMySites"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/active-site": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Set the session active site (ruling 9)
+         * @description Validates tenant, site activity, active TenantMember and active SiteMembership before switching. Emits site:context_updated on user_{firebaseUid}.
+         */
+        patch: operations["MeSiteController_setActiveSite"];
+        trace?: never;
+    };
     "/api/vendors": {
         parameters: {
             query?: never;
@@ -1388,6 +1648,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/workshop/orders/{id}/mechanic-findings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["WorkshopEstimateController_listMechanicFindings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/workshop/orders/{id}/estimates": {
         parameters: {
             query?: never;
@@ -1991,102 +2267,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/parts-reservations": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["PartsRequisitionController_createReservation"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/parts-reservations/{id}/consume": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["PartsRequisitionController_consumeReservation"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/parts-reservations/{id}/release": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["PartsRequisitionController_releaseReservation"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/parts-requisitions/shortages": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["PartsRequisitionController_getShortages"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/parts-requisitions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["PartsRequisitionController_createRequisitionSheet"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/parts-requisitions/{id}/create-purchase-order": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["PartsRequisitionController_createPurchaseOrder"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/workshop/registration-intakes": {
         parameters: {
             query?: never;
@@ -2364,6 +2544,23 @@ export interface paths {
         patch: operations["MechanicController_saveDiagnostics"];
         trace?: never;
     };
+    "/api/mechanic/tasks/{taskId}/findings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit accepted diagnostic notes and media to the service advisor as a structured finding */
+        post: operations["MechanicController_submitFinding"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/mechanic/tasks/{taskId}/parts": {
         parameters: {
             query?: never;
@@ -2449,6 +2646,221 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["VoiceTranslationController_updateSettings"];
+        trace?: never;
+    };
+    "/api/agent-proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List agent proposals (OWNER/ADMIN/ADVISOR)
+         * @description Returns agent proposals for the authenticated tenant with lazy expiration handling.
+         */
+        get: operations["AgentProposalController_listProposals"];
+        put?: never;
+        /**
+         * Create an agent proposal (seeding/testing)
+         * @description Creates a new agent proposal for the current tenant in PENDING status.
+         */
+        post: operations["AgentProposalController_createProposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent-proposals/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve and execute an agent proposal
+         * @description Re-evaluates policy conditions, atomically transitions status to APPROVED, logs the audit event, dispatches the payload, and marks as EXECUTED.
+         */
+        post: operations["AgentProposalController_approveProposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent-proposals/{id}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply and execute a pending agent action
+         * @description Re-evaluates current policy and atomically applies one pending action.
+         */
+        post: operations["AgentProposalController_applyProposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent-proposals/batch-apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply pending agent actions independently by ID
+         * @description Applies each proposal in its own transaction and returns an outcome per ID.
+         */
+        post: operations["AgentProposalController_batchApplyProposals"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent-proposals/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject an agent proposal
+         * @description Transitions proposal to REJECTED with reason and logs the rejection in agent action audit logs.
+         */
+        post: operations["AgentProposalController_rejectProposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent-proposals/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Simulate and submit a pending agent action
+         * @description Builds policy context on the server, simulates the supported action, and stores it in the tenant proposal queue.
+         */
+        post: operations["AgentProposalController_submitPendingAction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent-policy/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List effective agent policy rules (OWNER/ADMIN) */
+        get: operations["AgentPolicyController_listRules"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent-policy/rules/{actionType}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Create a new tenant policy rule version (OWNER/ADMIN) */
+        put: operations["AgentPolicyController_upsertRule"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent-policy/evaluate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Evaluate policy tier for an action (OWNER/ADMIN, dry-run) */
+        post: operations["AgentPolicyController_evaluate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent-actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List agent action logs (OWNER/ADMIN/ADVISOR)
+         * @description Returns cursor-paginated agent action log rows for the authenticated tenant.
+         */
+        get: operations["AgentActionLogController_findAll"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent-actions/{traceId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get agent action trace detail (OWNER/ADMIN/ADVISOR)
+         * @description Returns all log rows for a trace ID plus audit entries correlated on the same trace.
+         */
+        get: operations["AgentActionLogController_findByTraceId"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/notifications/outbox/replay": {
@@ -3092,170 +3504,6 @@ export interface paths {
         patch: operations["BayController_update"];
         trace?: never;
     };
-    "/api/legal-entities": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List legal entities (OWNER/ADMIN, includes inactive by default) */
-        get: operations["LegalEntityController_listLegalEntities"];
-        put?: never;
-        /** Create a legal entity (OWNER/ADMIN) */
-        post: operations["LegalEntityController_createLegalEntity"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/legal-entities/{id}/accounting-profile": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get accounting profile for a legal entity (OWNER/ADMIN) */
-        get: operations["LegalEntityController_getAccountingProfile"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Update accounting profile for a legal entity (OWNER/ADMIN) */
-        patch: operations["LegalEntityController_updateAccountingProfile"];
-        trace?: never;
-    };
-    "/api/legal-entities/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get a legal entity (OWNER/ADMIN) */
-        get: operations["LegalEntityController_getLegalEntity"];
-        put?: never;
-        post?: never;
-        /** Hard-delete an unused legal entity (OWNER/ADMIN) */
-        delete: operations["LegalEntityController_deleteLegalEntity"];
-        options?: never;
-        head?: never;
-        /** Update a legal entity (OWNER/ADMIN) */
-        patch: operations["LegalEntityController_updateLegalEntity"];
-        trace?: never;
-    };
-    "/api/sites": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Active site directory or full list (OWNER/ADMIN) */
-        get: operations["SiteController_listSites"];
-        put?: never;
-        /** Create a site (OWNER/ADMIN) */
-        post: operations["SiteController_createSite"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/sites/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get a single site */
-        get: operations["SiteController_getSite"];
-        put?: never;
-        post?: never;
-        /** Hard-delete a pristine site (OWNER/ADMIN) */
-        delete: operations["SiteController_deleteSite"];
-        options?: never;
-        head?: never;
-        /** Update a site (OWNER/ADMIN) */
-        patch: operations["SiteController_updateSite"];
-        trace?: never;
-    };
-    "/api/sites/{id}/memberships": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List site memberships */
-        get: operations["SiteController_listSiteMemberships"];
-        put?: never;
-        /** Add a site membership (OWNER/ADMIN) */
-        post: operations["SiteController_addSiteMembership"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/sites/{id}/memberships/{userId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Remove a site membership (OWNER/ADMIN) */
-        delete: operations["SiteController_removeSiteMembership"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/me/sites": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List activatable sites for the current session (ruling 47) */
-        get: operations["MeSiteController_listMySites"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/me/active-site": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Set the session active site (ruling 9)
-         * @description Validates tenant, site activity, active TenantMember and active SiteMembership before switching. Emits site:context_updated on user_{firebaseUid}.
-         */
-        patch: operations["MeSiteController_setActiveSite"];
-        trace?: never;
-    };
     "/api/stock-transfers": {
         parameters: {
             query?: never;
@@ -3505,46 +3753,6 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["CatalogProviderSettingsController_updateSettings"];
-        trace?: never;
-    };
-    "/api/agent-actions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List agent action logs (OWNER/ADMIN/ADVISOR)
-         * @description Returns cursor-paginated agent action log rows for the authenticated tenant.
-         */
-        get: operations["AgentActionLogController_findAll"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/agent-actions/{traceId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get agent action trace detail (OWNER/ADMIN/ADVISOR)
-         * @description Returns all log rows for a trace ID plus audit entries correlated on the same trace.
-         */
-        get: operations["AgentActionLogController_findByTraceId"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
         trace?: never;
     };
     "/api/imports": {
@@ -3965,181 +4173,6 @@ export interface paths {
         put?: never;
         /** Sign fiscal cancellation receipt (OWNER/ADMIN) */
         post: operations["FiscalReceiptsController_cancelFiscalReceipt"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/agent-policy/rules": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List effective agent policy rules (OWNER/ADMIN) */
-        get: operations["AgentPolicyController_listRules"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/agent-policy/rules/{actionType}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Create a new tenant policy rule version (OWNER/ADMIN) */
-        put: operations["AgentPolicyController_upsertRule"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/agent-policy/evaluate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Evaluate policy tier for an action (OWNER/ADMIN, dry-run) */
-        post: operations["AgentPolicyController_evaluate"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/agent-proposals": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List agent proposals (OWNER/ADMIN/ADVISOR)
-         * @description Returns agent proposals for the authenticated tenant with lazy expiration handling.
-         */
-        get: operations["AgentProposalController_listProposals"];
-        put?: never;
-        /**
-         * Create an agent proposal (seeding/testing)
-         * @description Creates a new agent proposal for the current tenant in PENDING status.
-         */
-        post: operations["AgentProposalController_createProposal"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/agent-proposals/{id}/approve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Approve and execute an agent proposal
-         * @description Re-evaluates policy conditions, atomically transitions status to APPROVED, logs the audit event, dispatches the payload, and marks as EXECUTED.
-         */
-        post: operations["AgentProposalController_approveProposal"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/agent-proposals/{id}/apply": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Apply and execute a pending agent action
-         * @description Re-evaluates current policy and atomically applies one pending action.
-         */
-        post: operations["AgentProposalController_applyProposal"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/agent-proposals/batch-apply": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Apply pending agent actions independently by ID
-         * @description Applies each proposal in its own transaction and returns an outcome per ID.
-         */
-        post: operations["AgentProposalController_batchApplyProposals"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/agent-proposals/{id}/reject": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Reject an agent proposal
-         * @description Transitions proposal to REJECTED with reason and logs the rejection in agent action audit logs.
-         */
-        post: operations["AgentProposalController_rejectProposal"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/agent-proposals/submit": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Simulate and submit a pending agent action
-         * @description Builds policy context on the server, simulates the supported action, and stores it in the tenant proposal queue.
-         */
-        post: operations["AgentProposalController_submitPendingAction"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4739,6 +4772,362 @@ export interface components {
             quantityInvoiced: number;
             quantityPending: number;
             lastUnitCost: number;
+        };
+        CreatePartsReservationDto: {
+            /** Format: uuid */
+            workshopTaskLineItemId: string;
+            /** @example 1.5 */
+            quantity: number;
+            /** Format: uuid */
+            locationId: string;
+        };
+        PartsReservationResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            tenantId: string;
+            /** Format: uuid */
+            workshopTaskLineItemId: string;
+            /** @example 1.500 */
+            quantity: string;
+            /** @example 0.000 */
+            quantityReceived: string;
+            /** @example 0.000 */
+            quantityConsumed: string;
+            /** @example 0.000 */
+            quantityStaged: string;
+            /** @example 0.000 */
+            quantityReturned: string;
+            /** @enum {string} */
+            kind: "ON_HAND" | "REQUISITION";
+            /** @enum {string} */
+            status: "OPEN" | "ORDERED" | "STAGED" | "FULFILLED" | "CANCELLED";
+            /** Format: uuid */
+            locationId?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        ConsumePartsReservationDto: {
+            /** @example 1.5 */
+            quantity: number;
+        };
+        ReleasePartsReservationDto: {
+            /** Format: uuid */
+            returnLocationId?: string;
+        };
+        PartsShortageResponseDto: {
+            /** Format: uuid */
+            workshopOrderId: string;
+            workshopOrderNumber: string;
+            /** Format: uuid */
+            workshopTaskId: string;
+            /** Format: uuid */
+            workshopTaskLineItemId: string;
+            itemNo: string;
+            description: string;
+            /** @example 4.000 */
+            lineQuantity: string;
+            /** @example 1.500 */
+            consumedQuantity: string;
+            /** @example 1.000 */
+            activeCommitment: string;
+            /** @example 1.500 */
+            shortageQuantity: string;
+            /** Format: uuid */
+            siteId: string;
+            /** @description Vehicle make label from the workshop order vehicle. */
+            vehicleMake: string;
+            /** @description Vehicle-make Brand id used to group the requisition sheet. */
+            vehicleMakeBrandId?: number | null;
+        };
+        PartsRequisitionItemDto: {
+            /** Format: uuid */
+            workshopTaskLineItemId: string;
+            /** @example 1.5 */
+            quantity: number;
+        };
+        CreatePartsRequisitionDto: {
+            /**
+             * @description Vehicle-make Brand the sheet is raised for.
+             * @example 1
+             */
+            vehicleMakeBrandId: number;
+            items: components["schemas"]["PartsRequisitionItemDto"][];
+        };
+        PartsRequisitionLineResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            reservationId: string;
+            /** Format: uuid */
+            workshopTaskLineItemId: string;
+            /** Format: uuid */
+            workshopOrderId: string;
+            workshopOrderNumber: string;
+            itemNo: string;
+            description: string;
+            /** @example 1.500 */
+            quantity: string;
+            /** @enum {string} */
+            status: "OPEN" | "ORDERED" | "STAGED" | "FULFILLED" | "CANCELLED";
+            /** Format: uuid */
+            purchaseOrderItemId?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        PartsRequisitionResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            tenantId: string;
+            vehicleMakeBrandId: number;
+            /** @enum {string} */
+            status: "DRAFT" | "ORDERED" | "COMPLETED" | "CANCELLED";
+            lines: components["schemas"]["PartsRequisitionLineResponseDto"][];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        RequisitionPurchaseOrderItemDto: {
+            /** Format: uuid */
+            reservationId: string;
+            /**
+             * @description Clerk-confirmed unit cost for this reservation slice. Must be a JSON number.
+             * @example 10.5
+             */
+            unitCost: number;
+        };
+        CreateRequisitionPurchaseOrderDto: {
+            /** Format: uuid */
+            vendorId: string;
+            items: components["schemas"]["RequisitionPurchaseOrderItemDto"][];
+        };
+        LegalEntitySellerReadinessDto: {
+            is_ready: boolean;
+            missing_fields: string[];
+        };
+        LegalEntityResponseDto: {
+            id: string;
+            tenant_id: string;
+            name: string;
+            /** @enum {string} */
+            country_iso: "AT" | "DE";
+            is_active: boolean;
+            address_street?: string | null;
+            address_line2?: string | null;
+            address_zip?: string | null;
+            address_city?: string | null;
+            tax_number?: string | null;
+            vat_id?: string | null;
+            iban?: string | null;
+            bic?: string | null;
+            bank_name?: string | null;
+            email?: string | null;
+            phone?: string | null;
+            registration_number?: string | null;
+            registration_court?: string | null;
+            representatives?: string | null;
+            payment_terms_days?: number | null;
+            payment_terms_text?: string | null;
+            seller_readiness: components["schemas"]["LegalEntitySellerReadinessDto"];
+            /** @enum {string} */
+            rksv_mode: "OFF" | "UNKNOWN" | "REQUIRED_EXTERNAL_KASSE" | "REQUIRED_ACP_RKSV";
+        };
+        RzlSteuercodesDto: {
+            /** @description RZL Steuercode for 20% VAT (1 to 4 digits). */
+            vat20?: string | null;
+            /** @description RZL Steuercode for 13% VAT (1 to 4 digits). */
+            vat13?: string | null;
+            /** @description RZL Steuercode for 10% VAT (1 to 4 digits). */
+            vat10?: string | null;
+        };
+        RzlSerializerParamsDto: {
+            firmNumber?: string | null;
+            costCenterLength?: number | null;
+            steuercodes?: components["schemas"]["RzlSteuercodesDto"];
+        };
+        BmdSteuercodesDto: {
+            /** @description BMD Steuercode (tax key defined per BMD client) for 20% VAT (1 to 4 digits). */
+            vat20?: string | null;
+            /** @description BMD Steuercode (tax key defined per BMD client) for 13% VAT (1 to 4 digits). */
+            vat13?: string | null;
+            /** @description BMD Steuercode (tax key defined per BMD client) for 10% VAT (1 to 4 digits). */
+            vat10?: string | null;
+        };
+        BmdSerializerParamsDto: {
+            steuercodes?: components["schemas"]["BmdSteuercodesDto"];
+        };
+        MarginSchemeSerializerParamsDto: {
+            /** @description Lifts the margin-scheme export block for this legal entity on the DATEV profile (AUT-369). Off by default. */
+            enabled?: boolean;
+            /** @description Ledger account for the frozen margin VAT (1 to 9 digits). Required when enabled. */
+            vatAccount?: string | null;
+        };
+        AccountingProfileSerializerParamsDto: {
+            rzl?: components["schemas"]["RzlSerializerParamsDto"];
+            bmd?: components["schemas"]["BmdSerializerParamsDto"];
+            marginScheme?: components["schemas"]["MarginSchemeSerializerParamsDto"];
+        };
+        AccountingMappingRuleDto: {
+            sourceCategoryKey: string;
+            sourceCategoryLabel: string;
+            /** @enum {string} */
+            taxMode: "STANDARD" | "MARGIN_SCHEME";
+            taxRate: string;
+            revenueAccount: string;
+            /** @enum {string} */
+            taxTreatment: "automatic" | "manual_bu";
+            buKey?: string | null;
+        };
+        SourceCategoryDefinitionDto: {
+            key: string;
+            label: string;
+            /** @enum {string} */
+            taxMode: "STANDARD" | "MARGIN_SCHEME";
+            taxRate: string;
+            suggestedRevenueAccount?: string | null;
+        };
+        AccountingProfileReadinessDto: {
+            is_ready: boolean;
+            missing_fields: string[];
+            unmapped_categories: string[];
+        };
+        AccountingProfileResponseDto: {
+            id: string;
+            tenant_id: string;
+            legal_entity_id: string;
+            version: number;
+            is_enabled: boolean;
+            profile_code?: string | null;
+            format_version?: string | null;
+            chart?: string | null;
+            account_length?: number | null;
+            advisor_number?: string | null;
+            client_number?: string | null;
+            fiscal_year_start_month?: number | null;
+            default_debtor_account?: string | null;
+            serializer_params: components["schemas"]["AccountingProfileSerializerParamsDto"];
+            /** @description Whether the platform releases this profile code for CSV generation (RZL is gated by ACCOUNTING_EXPORT_RZL_SERIALIZER_ENABLED, BMD by ACCOUNTING_EXPORT_BMD_SERIALIZER_ENABLED). */
+            serializer_released: boolean;
+            /** @description Export-only configuration gaps (RZL firm number and Steuercodes; BMD Steuercodes; format version; chart; account length; default debtor account). Empty when complete or not applicable. Does not affect invoice issuance. */
+            export_missing_fields: string[];
+            mapping_rules: components["schemas"]["AccountingMappingRuleDto"][];
+            required_source_categories: components["schemas"]["SourceCategoryDefinitionDto"][];
+            mapping_readiness: components["schemas"]["AccountingProfileReadinessDto"];
+        };
+        UpdateAccountingProfileDto: {
+            /** @description Optimistic-lock version from the last GET response */
+            expectedVersion: number;
+            profileCode?: string | null;
+            formatVersion?: string | null;
+            chart?: string | null;
+            accountLength?: number | null;
+            advisorNumber?: string | null;
+            clientNumber?: string | null;
+            fiscalYearStartMonth?: number | null;
+            defaultDebtorAccount?: string | null;
+            mappingRules?: components["schemas"]["AccountingMappingRuleDto"][];
+            /** @description Serializer-specific parameters: RZL firm number and Steuercodes, BMD Steuercodes. Expand-only JSON storage. */
+            serializerParams?: components["schemas"]["AccountingProfileSerializerParamsDto"];
+            /** @description Gates accounting CSV export only; does not affect invoice issuance readiness */
+            isEnabled?: boolean;
+        };
+        CreateLegalEntityDto: {
+            name: string;
+            /** @enum {string} */
+            countryIso: "AT" | "DE";
+        };
+        UpdateLegalEntityDto: {
+            name?: string;
+            isActive?: boolean;
+            addressStreet?: string;
+            addressLine2?: string;
+            addressZip?: string;
+            addressCity?: string;
+            taxNumber?: string;
+            vatId?: string;
+            iban?: string;
+            bic?: string;
+            bankName?: string;
+            email?: string | null;
+            phone?: string;
+            registrationNumber?: string;
+            registrationCourt?: string;
+            representatives?: string;
+            paymentTermsDays?: number;
+            paymentTermsText?: string;
+            /** @enum {string} */
+            rksvMode?: "OFF" | "UNKNOWN" | "REQUIRED_EXTERNAL_KASSE" | "REQUIRED_ACP_RKSV";
+        };
+        CreateSiteOpeningHourDto: {
+            weekday: number;
+            isClosed: boolean;
+            /** @example 07:30 */
+            openTime: string;
+            /** @example 17:00 */
+            closeTime: string;
+        };
+        CreateSiteDto: {
+            legalEntityId: string;
+            code: string;
+            name: string;
+            addressStreet?: string;
+            addressCity?: string;
+            addressZip?: string;
+            addressCountry?: string;
+            /** @example Europe/Vienna */
+            timezone?: string;
+            slotMinutes?: number;
+            /** @example AT */
+            holidayCountryIso?: string;
+            holidaySubdivisionCode?: string;
+            openingHours?: components["schemas"]["CreateSiteOpeningHourDto"][];
+        };
+        UpdateSiteFiscalRegisterDto: {
+            /** Format: uuid */
+            providerCashRegisterId?: string;
+            /** Format: uuid */
+            providerScuId?: string;
+            /** @enum {string} */
+            env?: "TEST" | "LIVE";
+            providerState?: string;
+            /** @description Opaque GSM secret ref; never the API key. */
+            credentialsSecretRef?: Record<string, never>;
+        };
+        UpdateSiteDto: {
+            name?: string;
+            addressStreet?: string;
+            addressCity?: string;
+            addressZip?: string;
+            addressCountry?: string;
+            isActive?: boolean;
+            fiscalRegister?: components["schemas"]["UpdateSiteFiscalRegisterDto"];
+        };
+        CreateSiteMembershipDto: {
+            userId: string;
+        };
+        MeSiteDto: {
+            id: string;
+            code: string;
+            name: string;
+            legalEntityId: string;
+            legalEntityName?: string;
+        };
+        SetActiveSiteDto: {
+            /**
+             * Format: uuid
+             * @description Site id to activate from GET /api/me/sites, or null to clear.
+             */
+            siteId: string | null;
+        };
+        ActiveSiteResponseDto: {
+            /** Format: uuid */
+            activeSiteId: string | null;
         };
         CreateVendorDto: Record<string, never>;
         UpdateVendorDto: Record<string, never>;
@@ -6205,6 +6594,31 @@ export interface components {
             totals: components["schemas"]["WorkshopKpiReportRowDto"];
             parts_turnover: components["schemas"]["WorkshopKpiPartsTurnoverDto"];
         };
+        WorkshopMechanicFindingMediaDto: {
+            /** Format: uuid */
+            id: string;
+            mime_type: string;
+            caption: string | null;
+            /** @description Short-lived signed URL for the advisor to open the bay photo or video. */
+            read_url: string;
+        };
+        WorkshopMechanicFindingDto: {
+            /** Format: uuid */
+            proposal_id: string;
+            /** Format: uuid */
+            trace_id: string;
+            /** @enum {string} */
+            status: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED" | "EXECUTED" | "FAILED";
+            /** Format: uuid */
+            workshop_task_id: string;
+            finding_text: string;
+            media: components["schemas"]["WorkshopMechanicFindingMediaDto"][];
+            summary: string | null;
+            created_at: string;
+        };
+        WorkshopMechanicFindingListResponseDto: {
+            data: components["schemas"]["WorkshopMechanicFindingDto"][];
+        };
         WorkshopEstimateApprovalDto: {
             id: string;
             /** @enum {string} */
@@ -6259,6 +6673,14 @@ export interface components {
             note: string | null;
             requires_customer_notice: boolean;
         };
+        WorkshopEstimateCustomerSendBlockerDto: {
+            /** @enum {string} */
+            code: "ZERO_UNIT_PRICE" | "CLAIMED_FITMENT";
+            /** Format: uuid */
+            source_line_id: string;
+            item_no: string;
+            description: string;
+        };
         WorkshopEstimateResponseDto: {
             id: string;
             workshop_order_id: string;
@@ -6270,6 +6692,8 @@ export interface components {
             /** @description False until CUSTOMER_ESTIMATE_SEND_ENABLED is on (legal copy approval pending). Sending is refused with 503 while false. */
             send_enabled: boolean;
             overrun_threshold_pct: string;
+            /** @description Lines that block customer send until an advisor resolves zero price or claimed fitment. */
+            customer_send_blockers: components["schemas"]["WorkshopEstimateCustomerSendBlockerDto"][];
         };
         WorkshopEstimateListResponseDto: {
             data: components["schemas"]["WorkshopEstimateResponseDto"][];
@@ -6927,140 +7351,6 @@ export interface components {
             /** @description Pagination metadata */
             meta: components["schemas"]["AuditLogPaginationMetaDto"];
         };
-        CreatePartsReservationDto: {
-            /** Format: uuid */
-            workshopTaskLineItemId: string;
-            /** @example 1.5 */
-            quantity: number;
-            /** Format: uuid */
-            locationId: string;
-        };
-        PartsReservationResponseDto: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            tenantId: string;
-            /** Format: uuid */
-            workshopTaskLineItemId: string;
-            /** @example 1.500 */
-            quantity: string;
-            /** @example 0.000 */
-            quantityReceived: string;
-            /** @example 0.000 */
-            quantityConsumed: string;
-            /** @example 0.000 */
-            quantityStaged: string;
-            /** @example 0.000 */
-            quantityReturned: string;
-            /** @enum {string} */
-            kind: "ON_HAND" | "REQUISITION";
-            /** @enum {string} */
-            status: "OPEN" | "ORDERED" | "STAGED" | "FULFILLED" | "CANCELLED";
-            /** Format: uuid */
-            locationId?: string | null;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            updatedAt: string;
-        };
-        ConsumePartsReservationDto: {
-            /** @example 1.5 */
-            quantity: number;
-        };
-        ReleasePartsReservationDto: {
-            /** Format: uuid */
-            returnLocationId?: string;
-        };
-        PartsShortageResponseDto: {
-            /** Format: uuid */
-            workshopOrderId: string;
-            workshopOrderNumber: string;
-            /** Format: uuid */
-            workshopTaskId: string;
-            /** Format: uuid */
-            workshopTaskLineItemId: string;
-            itemNo: string;
-            description: string;
-            /** @example 4.000 */
-            lineQuantity: string;
-            /** @example 1.500 */
-            consumedQuantity: string;
-            /** @example 1.000 */
-            activeCommitment: string;
-            /** @example 1.500 */
-            shortageQuantity: string;
-            /** Format: uuid */
-            siteId: string;
-            /** @description Vehicle make label from the workshop order vehicle. */
-            vehicleMake: string;
-            /** @description Vehicle-make Brand id used to group the requisition sheet. */
-            vehicleMakeBrandId?: number | null;
-        };
-        PartsRequisitionItemDto: {
-            /** Format: uuid */
-            workshopTaskLineItemId: string;
-            /** @example 1.5 */
-            quantity: number;
-        };
-        CreatePartsRequisitionDto: {
-            /**
-             * @description Vehicle-make Brand the sheet is raised for.
-             * @example 1
-             */
-            vehicleMakeBrandId: number;
-            items: components["schemas"]["PartsRequisitionItemDto"][];
-        };
-        PartsRequisitionLineResponseDto: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            reservationId: string;
-            /** Format: uuid */
-            workshopTaskLineItemId: string;
-            /** Format: uuid */
-            workshopOrderId: string;
-            workshopOrderNumber: string;
-            itemNo: string;
-            description: string;
-            /** @example 1.500 */
-            quantity: string;
-            /** @enum {string} */
-            status: "OPEN" | "ORDERED" | "STAGED" | "FULFILLED" | "CANCELLED";
-            /** Format: uuid */
-            purchaseOrderItemId?: string | null;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            updatedAt: string;
-        };
-        PartsRequisitionResponseDto: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            tenantId: string;
-            vehicleMakeBrandId: number;
-            /** @enum {string} */
-            status: "DRAFT" | "ORDERED" | "COMPLETED" | "CANCELLED";
-            lines: components["schemas"]["PartsRequisitionLineResponseDto"][];
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            updatedAt: string;
-        };
-        RequisitionPurchaseOrderItemDto: {
-            /** Format: uuid */
-            reservationId: string;
-            /**
-             * @description Clerk-confirmed unit cost for this reservation slice. Must be a JSON number.
-             * @example 10.5
-             */
-            unitCost: number;
-        };
-        CreateRequisitionPurchaseOrderDto: {
-            /** Format: uuid */
-            vendorId: string;
-            items: components["schemas"]["RequisitionPurchaseOrderItemDto"][];
-        };
         HolderDto: {
             firstName: string;
             lastName: string;
@@ -7308,6 +7598,30 @@ export interface components {
             taskId: string;
             mechanicNotes?: string | null;
         };
+        SubmitMechanicFindingDto: {
+            /**
+             * Format: uuid
+             * @description Idempotency key. A duplicate submit with the same command_id returns the original proposal.
+             */
+            command_id?: string;
+            /** @description Workshop media ids uploaded by this mechanic for the task. Foreign or closed-task media is rejected. */
+            media_ids?: string[];
+            /**
+             * Format: uuid
+             * @description Accepted voice-note draft id. When set, the draft must already be ACCEPTED for this task and mechanic.
+             */
+            voice_note_draft_id?: string;
+            /** @description Optional short label for the advisor queue. Finding text comes from saved mechanic notes. */
+            summary?: string;
+        };
+        SubmitMechanicFindingResponseDto: {
+            /** Format: uuid */
+            proposalId: string;
+            /** Format: uuid */
+            traceId: string;
+            /** @example workshop_order.mechanic_finding */
+            actionType: string;
+        };
         RequestPartDto: {
             /** @description SKU / part number */
             itemNo: string;
@@ -7448,6 +7762,190 @@ export interface components {
             googleLocation?: string;
             /** @description Google service account JSON credentials. The API stores this encrypted and never returns the raw value. */
             googleServiceAccountJson?: string | null;
+        };
+        AgentProposalEffectiveSummaryDto: {
+            target_type: string | null;
+            target_id: string | null;
+            amount_eur: number | null;
+        };
+        AgentProposalWorkshopOrderSummaryDto: {
+            /** Format: uuid */
+            id: string;
+            /** @example WO-2026-0001 */
+            order_number: string | null;
+            customer_name: string | null;
+            vehicle_registration: string | null;
+            /** @example 2019 Volkswagen Golf */
+            vehicle_description: string | null;
+        };
+        AgentProposalResponseDto: {
+            id: string;
+            tenant_id: string;
+            trace_id: string;
+            action_type: string;
+            /** @enum {string} */
+            tier: "AUTO" | "PROPOSE" | "HUMAN_ONLY";
+            /** @enum {string} */
+            status: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED" | "EXECUTED" | "FAILED";
+            payload_json: {
+                [key: string]: unknown;
+            };
+            effective_summary: components["schemas"]["AgentProposalEffectiveSummaryDto"];
+            /** @description Readable workshop order context (order number, customer, vehicle). Filled on list and detail reads; null for other proposals, on write responses, and when the order is not visible to the caller. */
+            workshop_order_summary: components["schemas"]["AgentProposalWorkshopOrderSummaryDto"] | null;
+            preview_json: {
+                [key: string]: unknown;
+            } | null;
+            created_by_agent: string | null;
+            decided_by: string | null;
+            /** @description Name of the user who decided (first and last name). Null when the proposal is undecided or the user has no name set. */
+            decided_by_name: string | null;
+            /** @description Email of the user who decided. Null when the proposal is undecided or the user is not a member of the tenant. */
+            decided_by_email: string | null;
+            decided_at: string | null;
+            reason: string | null;
+            expires_at: string;
+            created_at: string;
+            updated_at: string;
+        };
+        AgentProposalListResponseDto: {
+            data: components["schemas"]["AgentProposalResponseDto"][];
+        };
+        BatchApplyAgentProposalsDto: {
+            ids: string[];
+        };
+        BatchApplyAgentProposalResultDto: {
+            id: string;
+            /** @enum {string} */
+            status: "applied" | "failed";
+            error?: string;
+            proposal?: Record<string, never>;
+        };
+        BatchApplyAgentProposalsResponseDto: {
+            results: components["schemas"]["BatchApplyAgentProposalResultDto"][];
+        };
+        RejectAgentProposalDto: {
+            /** @description Reason for rejecting the proposal */
+            reason?: string;
+        };
+        CreateAgentProposalDto: {
+            /** @example workshop_order.add_line */
+            action_type: string;
+            payload_json: {
+                [key: string]: unknown;
+            };
+            preview_json?: {
+                [key: string]: unknown;
+            };
+            /** @description Optional correlation trace ID (UUID) */
+            trace_id?: string;
+            /**
+             * @default PROPOSE
+             * @enum {string}
+             */
+            tier: "AUTO" | "PROPOSE" | "HUMAN_ONLY";
+        };
+        SubmitPendingAgentActionDto: {
+            /** @example workshop_order.add_line */
+            action_type: string;
+            payload_json: {
+                [key: string]: unknown;
+            };
+            /**
+             * Format: uuid
+             * @description Optional correlation UUID stored in preview_json.mcp_command_idempotency for orchestration with MCP; does not claim an MCP write receipt (REST-wide idempotency is out of scope).
+             */
+            command_id?: string;
+        };
+        AgentPolicyConditionsDto: {
+            amount_max?: number | null;
+            customer_facing?: boolean;
+            reversible?: boolean;
+            affects_legal_document?: boolean;
+        };
+        AgentPolicyRuleResponseDto: {
+            id: string;
+            action_type: string;
+            /** @enum {string} */
+            tier: "AUTO" | "PROPOSE" | "HUMAN_ONLY";
+            conditions: components["schemas"]["AgentPolicyConditionsDto"];
+            enabled: boolean;
+            version: number;
+            /** @enum {string} */
+            source: "platform" | "tenant";
+            created_at: string;
+            updated_at: string;
+        };
+        AgentPolicyRuleListResponseDto: {
+            data: components["schemas"]["AgentPolicyRuleResponseDto"][];
+        };
+        UpsertAgentPolicyRuleDto: {
+            /** @enum {string} */
+            tier: "AUTO" | "PROPOSE" | "HUMAN_ONLY";
+            conditions?: components["schemas"]["AgentPolicyConditionsDto"];
+            /** @default true */
+            enabled: boolean;
+        };
+        AgentPolicyEvaluateContextDto: {
+            amount_eur?: number;
+            customer_facing?: boolean;
+            reversible?: boolean;
+            affects_legal_document?: boolean;
+        };
+        AgentPolicyEvaluateRequestDto: {
+            /** @example workshop_order.add_line */
+            action_type: string;
+            context?: components["schemas"]["AgentPolicyEvaluateContextDto"];
+        };
+        AgentPolicyEvaluationResponseDto: {
+            /** @enum {string} */
+            tier: "AUTO" | "PROPOSE" | "HUMAN_ONLY";
+            reasons: string[];
+            rule_id: Record<string, never> | null;
+            rule_version: Record<string, never> | null;
+        };
+        AgentActionLogResponseDto: {
+            id: string;
+            tenantId: string;
+            /** Format: uuid */
+            traceId: string;
+            /** Format: uuid */
+            parentTraceId?: Record<string, never> | null;
+            /** @enum {string} */
+            actorType: "AGENT" | "USER" | "SYSTEM" | "API_KEY";
+            agentId?: Record<string, never> | null;
+            onBehalfOfUserId?: Record<string, never> | null;
+            /** @description Name of the on-behalf-of user (first and last name). Null when the user is not a member of the tenant or has no name set. */
+            onBehalfOfUserName?: string | null;
+            /** @description Email of the on-behalf-of user. Null when the user is not a member of the tenant. */
+            onBehalfOfUserEmail?: string | null;
+            apiKeyId?: Record<string, never> | null;
+            actionType: string;
+            /** @enum {string} */
+            tier: "AUTO" | "PROPOSE" | "HUMAN_ONLY" | "NOT_EVALUATED";
+            /** @enum {string} */
+            status: "PROPOSED" | "APPROVED" | "REJECTED" | "EXECUTED" | "REFUSED" | "FAILED" | "DRY_RUN" | "FALLBACK";
+            inputSummary?: {
+                [key: string]: unknown;
+            };
+            resultSummary?: {
+                [key: string]: unknown;
+            };
+            entityType?: Record<string, never> | null;
+            entityId?: Record<string, never> | null;
+            reversible: boolean;
+            revertedByLogId?: Record<string, never> | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AgentActionLogListResponseDto: {
+            data: components["schemas"]["AgentActionLogResponseDto"][];
+            /** @description Cursor for the next page when more results exist */
+            nextCursor?: string | null;
+        };
+        AgentActionTraceDetailResponseDto: {
+            logs: components["schemas"]["AgentActionLogResponseDto"][];
+            auditEntries: components["schemas"]["AuditLogResponseDto"][];
         };
         NotificationOutboxReplayRequestDto: {
             /** @description Outbox row ids in FAILED status to send again. */
@@ -8334,228 +8832,6 @@ export interface components {
             isActive?: boolean;
             deleted?: boolean;
         };
-        LegalEntitySellerReadinessDto: {
-            is_ready: boolean;
-            missing_fields: string[];
-        };
-        LegalEntityResponseDto: {
-            id: string;
-            tenant_id: string;
-            name: string;
-            /** @enum {string} */
-            country_iso: "AT" | "DE";
-            is_active: boolean;
-            address_street?: string | null;
-            address_line2?: string | null;
-            address_zip?: string | null;
-            address_city?: string | null;
-            tax_number?: string | null;
-            vat_id?: string | null;
-            iban?: string | null;
-            bic?: string | null;
-            bank_name?: string | null;
-            email?: string | null;
-            phone?: string | null;
-            registration_number?: string | null;
-            registration_court?: string | null;
-            representatives?: string | null;
-            payment_terms_days?: number | null;
-            payment_terms_text?: string | null;
-            seller_readiness: components["schemas"]["LegalEntitySellerReadinessDto"];
-            /** @enum {string} */
-            rksv_mode: "OFF" | "UNKNOWN" | "REQUIRED_EXTERNAL_KASSE" | "REQUIRED_ACP_RKSV";
-        };
-        RzlSteuercodesDto: {
-            /** @description RZL Steuercode for 20% VAT (1 to 4 digits). */
-            vat20?: string | null;
-            /** @description RZL Steuercode for 13% VAT (1 to 4 digits). */
-            vat13?: string | null;
-            /** @description RZL Steuercode for 10% VAT (1 to 4 digits). */
-            vat10?: string | null;
-        };
-        RzlSerializerParamsDto: {
-            firmNumber?: string | null;
-            costCenterLength?: number | null;
-            steuercodes?: components["schemas"]["RzlSteuercodesDto"];
-        };
-        BmdSteuercodesDto: {
-            /** @description BMD Steuercode (tax key defined per BMD client) for 20% VAT (1 to 4 digits). */
-            vat20?: string | null;
-            /** @description BMD Steuercode (tax key defined per BMD client) for 13% VAT (1 to 4 digits). */
-            vat13?: string | null;
-            /** @description BMD Steuercode (tax key defined per BMD client) for 10% VAT (1 to 4 digits). */
-            vat10?: string | null;
-        };
-        BmdSerializerParamsDto: {
-            steuercodes?: components["schemas"]["BmdSteuercodesDto"];
-        };
-        MarginSchemeSerializerParamsDto: {
-            /** @description Lifts the margin-scheme export block for this legal entity on the DATEV profile (AUT-369). Off by default. */
-            enabled?: boolean;
-            /** @description Ledger account for the frozen margin VAT (1 to 9 digits). Required when enabled. */
-            vatAccount?: string | null;
-        };
-        AccountingProfileSerializerParamsDto: {
-            rzl?: components["schemas"]["RzlSerializerParamsDto"];
-            bmd?: components["schemas"]["BmdSerializerParamsDto"];
-            marginScheme?: components["schemas"]["MarginSchemeSerializerParamsDto"];
-        };
-        AccountingMappingRuleDto: {
-            sourceCategoryKey: string;
-            sourceCategoryLabel: string;
-            /** @enum {string} */
-            taxMode: "STANDARD" | "MARGIN_SCHEME";
-            taxRate: string;
-            revenueAccount: string;
-            /** @enum {string} */
-            taxTreatment: "automatic" | "manual_bu";
-            buKey?: string | null;
-        };
-        SourceCategoryDefinitionDto: {
-            key: string;
-            label: string;
-            /** @enum {string} */
-            taxMode: "STANDARD" | "MARGIN_SCHEME";
-            taxRate: string;
-            suggestedRevenueAccount?: string | null;
-        };
-        AccountingProfileReadinessDto: {
-            is_ready: boolean;
-            missing_fields: string[];
-            unmapped_categories: string[];
-        };
-        AccountingProfileResponseDto: {
-            id: string;
-            tenant_id: string;
-            legal_entity_id: string;
-            version: number;
-            is_enabled: boolean;
-            profile_code?: string | null;
-            format_version?: string | null;
-            chart?: string | null;
-            account_length?: number | null;
-            advisor_number?: string | null;
-            client_number?: string | null;
-            fiscal_year_start_month?: number | null;
-            default_debtor_account?: string | null;
-            serializer_params: components["schemas"]["AccountingProfileSerializerParamsDto"];
-            /** @description Whether the platform releases this profile code for CSV generation (RZL is gated by ACCOUNTING_EXPORT_RZL_SERIALIZER_ENABLED, BMD by ACCOUNTING_EXPORT_BMD_SERIALIZER_ENABLED). */
-            serializer_released: boolean;
-            /** @description Export-only configuration gaps (RZL firm number and Steuercodes; BMD Steuercodes; format version; chart; account length; default debtor account). Empty when complete or not applicable. Does not affect invoice issuance. */
-            export_missing_fields: string[];
-            mapping_rules: components["schemas"]["AccountingMappingRuleDto"][];
-            required_source_categories: components["schemas"]["SourceCategoryDefinitionDto"][];
-            mapping_readiness: components["schemas"]["AccountingProfileReadinessDto"];
-        };
-        UpdateAccountingProfileDto: {
-            /** @description Optimistic-lock version from the last GET response */
-            expectedVersion: number;
-            profileCode?: string | null;
-            formatVersion?: string | null;
-            chart?: string | null;
-            accountLength?: number | null;
-            advisorNumber?: string | null;
-            clientNumber?: string | null;
-            fiscalYearStartMonth?: number | null;
-            defaultDebtorAccount?: string | null;
-            mappingRules?: components["schemas"]["AccountingMappingRuleDto"][];
-            /** @description Serializer-specific parameters: RZL firm number and Steuercodes, BMD Steuercodes. Expand-only JSON storage. */
-            serializerParams?: components["schemas"]["AccountingProfileSerializerParamsDto"];
-            /** @description Gates accounting CSV export only; does not affect invoice issuance readiness */
-            isEnabled?: boolean;
-        };
-        CreateLegalEntityDto: {
-            name: string;
-            /** @enum {string} */
-            countryIso: "AT" | "DE";
-        };
-        UpdateLegalEntityDto: {
-            name?: string;
-            isActive?: boolean;
-            addressStreet?: string;
-            addressLine2?: string;
-            addressZip?: string;
-            addressCity?: string;
-            taxNumber?: string;
-            vatId?: string;
-            iban?: string;
-            bic?: string;
-            bankName?: string;
-            email?: string | null;
-            phone?: string;
-            registrationNumber?: string;
-            registrationCourt?: string;
-            representatives?: string;
-            paymentTermsDays?: number;
-            paymentTermsText?: string;
-            /** @enum {string} */
-            rksvMode?: "OFF" | "UNKNOWN" | "REQUIRED_EXTERNAL_KASSE" | "REQUIRED_ACP_RKSV";
-        };
-        CreateSiteOpeningHourDto: {
-            weekday: number;
-            isClosed: boolean;
-            /** @example 07:30 */
-            openTime: string;
-            /** @example 17:00 */
-            closeTime: string;
-        };
-        CreateSiteDto: {
-            legalEntityId: string;
-            code: string;
-            name: string;
-            addressStreet?: string;
-            addressCity?: string;
-            addressZip?: string;
-            addressCountry?: string;
-            /** @example Europe/Vienna */
-            timezone?: string;
-            slotMinutes?: number;
-            /** @example AT */
-            holidayCountryIso?: string;
-            holidaySubdivisionCode?: string;
-            openingHours?: components["schemas"]["CreateSiteOpeningHourDto"][];
-        };
-        UpdateSiteFiscalRegisterDto: {
-            /** Format: uuid */
-            providerCashRegisterId?: string;
-            /** Format: uuid */
-            providerScuId?: string;
-            /** @enum {string} */
-            env?: "TEST" | "LIVE";
-            providerState?: string;
-            /** @description Opaque GSM secret ref; never the API key. */
-            credentialsSecretRef?: Record<string, never>;
-        };
-        UpdateSiteDto: {
-            name?: string;
-            addressStreet?: string;
-            addressCity?: string;
-            addressZip?: string;
-            addressCountry?: string;
-            isActive?: boolean;
-            fiscalRegister?: components["schemas"]["UpdateSiteFiscalRegisterDto"];
-        };
-        CreateSiteMembershipDto: {
-            userId: string;
-        };
-        MeSiteDto: {
-            id: string;
-            code: string;
-            name: string;
-            legalEntityId: string;
-            legalEntityName?: string;
-        };
-        SetActiveSiteDto: {
-            /**
-             * Format: uuid
-             * @description Site id to activate from GET /api/me/sites, or null to clear.
-             */
-            siteId: string | null;
-        };
-        ActiveSiteResponseDto: {
-            /** Format: uuid */
-            activeSiteId: string | null;
-        };
         StockTransferLineResponseDto: {
             id: string;
             catalogItemId: string;
@@ -8858,49 +9134,6 @@ export interface components {
             awMinutes?: number;
             /** @description OEM concern member-make assignments to upsert. */
             oemConcerns?: components["schemas"]["UpdateCatalogProviderOemConcernDto"][];
-        };
-        AgentActionLogResponseDto: {
-            id: string;
-            tenantId: string;
-            /** Format: uuid */
-            traceId: string;
-            /** Format: uuid */
-            parentTraceId?: Record<string, never> | null;
-            /** @enum {string} */
-            actorType: "AGENT" | "USER" | "SYSTEM" | "API_KEY";
-            agentId?: Record<string, never> | null;
-            onBehalfOfUserId?: Record<string, never> | null;
-            /** @description Name of the on-behalf-of user (first and last name). Null when the user is not a member of the tenant or has no name set. */
-            onBehalfOfUserName?: string | null;
-            /** @description Email of the on-behalf-of user. Null when the user is not a member of the tenant. */
-            onBehalfOfUserEmail?: string | null;
-            apiKeyId?: Record<string, never> | null;
-            actionType: string;
-            /** @enum {string} */
-            tier: "AUTO" | "PROPOSE" | "HUMAN_ONLY" | "NOT_EVALUATED";
-            /** @enum {string} */
-            status: "PROPOSED" | "APPROVED" | "REJECTED" | "EXECUTED" | "REFUSED" | "FAILED" | "DRY_RUN" | "FALLBACK";
-            inputSummary?: {
-                [key: string]: unknown;
-            };
-            resultSummary?: {
-                [key: string]: unknown;
-            };
-            entityType?: Record<string, never> | null;
-            entityId?: Record<string, never> | null;
-            reversible: boolean;
-            revertedByLogId?: Record<string, never> | null;
-            /** Format: date-time */
-            createdAt: string;
-        };
-        AgentActionLogListResponseDto: {
-            data: components["schemas"]["AgentActionLogResponseDto"][];
-            /** @description Cursor for the next page when more results exist */
-            nextCursor?: string | null;
-        };
-        AgentActionTraceDetailResponseDto: {
-            logs: components["schemas"]["AgentActionLogResponseDto"][];
-            auditEntries: components["schemas"]["AuditLogResponseDto"][];
         };
         /** @enum {string} */
         ImportEntityType: "CUSTOMER" | "VEHICLE" | "SUPPLIER_PRICE_LIST";
@@ -9344,147 +9577,6 @@ export interface components {
         CancelFiscalReceiptDto: {
             /** Format: uuid */
             idempotencyKey: string;
-        };
-        AgentPolicyConditionsDto: {
-            amount_max?: number | null;
-            customer_facing?: boolean;
-            reversible?: boolean;
-            affects_legal_document?: boolean;
-        };
-        AgentPolicyRuleResponseDto: {
-            id: string;
-            action_type: string;
-            /** @enum {string} */
-            tier: "AUTO" | "PROPOSE" | "HUMAN_ONLY";
-            conditions: components["schemas"]["AgentPolicyConditionsDto"];
-            enabled: boolean;
-            version: number;
-            /** @enum {string} */
-            source: "platform" | "tenant";
-            created_at: string;
-            updated_at: string;
-        };
-        AgentPolicyRuleListResponseDto: {
-            data: components["schemas"]["AgentPolicyRuleResponseDto"][];
-        };
-        UpsertAgentPolicyRuleDto: {
-            /** @enum {string} */
-            tier: "AUTO" | "PROPOSE" | "HUMAN_ONLY";
-            conditions?: components["schemas"]["AgentPolicyConditionsDto"];
-            /** @default true */
-            enabled: boolean;
-        };
-        AgentPolicyEvaluateContextDto: {
-            amount_eur?: number;
-            customer_facing?: boolean;
-            reversible?: boolean;
-            affects_legal_document?: boolean;
-        };
-        AgentPolicyEvaluateRequestDto: {
-            /** @example workshop_order.add_line */
-            action_type: string;
-            context?: components["schemas"]["AgentPolicyEvaluateContextDto"];
-        };
-        AgentPolicyEvaluationResponseDto: {
-            /** @enum {string} */
-            tier: "AUTO" | "PROPOSE" | "HUMAN_ONLY";
-            reasons: string[];
-            rule_id: Record<string, never> | null;
-            rule_version: Record<string, never> | null;
-        };
-        AgentProposalEffectiveSummaryDto: {
-            target_type: string | null;
-            target_id: string | null;
-            amount_eur: number | null;
-        };
-        AgentProposalWorkshopOrderSummaryDto: {
-            /** Format: uuid */
-            id: string;
-            /** @example WO-2026-0001 */
-            order_number: string | null;
-            customer_name: string | null;
-            vehicle_registration: string | null;
-            /** @example 2019 Volkswagen Golf */
-            vehicle_description: string | null;
-        };
-        AgentProposalResponseDto: {
-            id: string;
-            tenant_id: string;
-            trace_id: string;
-            action_type: string;
-            /** @enum {string} */
-            tier: "AUTO" | "PROPOSE" | "HUMAN_ONLY";
-            /** @enum {string} */
-            status: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED" | "EXECUTED" | "FAILED";
-            payload_json: {
-                [key: string]: unknown;
-            };
-            effective_summary: components["schemas"]["AgentProposalEffectiveSummaryDto"];
-            /** @description Readable workshop order context (order number, customer, vehicle). Filled on list and detail reads; null for other proposals, on write responses, and when the order is not visible to the caller. */
-            workshop_order_summary: components["schemas"]["AgentProposalWorkshopOrderSummaryDto"] | null;
-            preview_json: {
-                [key: string]: unknown;
-            } | null;
-            created_by_agent: string | null;
-            decided_by: string | null;
-            /** @description Name of the user who decided (first and last name). Null when the proposal is undecided or the user has no name set. */
-            decided_by_name: string | null;
-            /** @description Email of the user who decided. Null when the proposal is undecided or the user is not a member of the tenant. */
-            decided_by_email: string | null;
-            decided_at: string | null;
-            reason: string | null;
-            expires_at: string;
-            created_at: string;
-            updated_at: string;
-        };
-        AgentProposalListResponseDto: {
-            data: components["schemas"]["AgentProposalResponseDto"][];
-        };
-        BatchApplyAgentProposalsDto: {
-            ids: string[];
-        };
-        BatchApplyAgentProposalResultDto: {
-            id: string;
-            /** @enum {string} */
-            status: "applied" | "failed";
-            error?: string;
-            proposal?: Record<string, never>;
-        };
-        BatchApplyAgentProposalsResponseDto: {
-            results: components["schemas"]["BatchApplyAgentProposalResultDto"][];
-        };
-        RejectAgentProposalDto: {
-            /** @description Reason for rejecting the proposal */
-            reason?: string;
-        };
-        CreateAgentProposalDto: {
-            /** @example workshop_order.add_line */
-            action_type: string;
-            payload_json: {
-                [key: string]: unknown;
-            };
-            preview_json?: {
-                [key: string]: unknown;
-            };
-            /** @description Optional correlation trace ID (UUID) */
-            trace_id?: string;
-            /**
-             * @default PROPOSE
-             * @enum {string}
-             */
-            tier: "AUTO" | "PROPOSE" | "HUMAN_ONLY";
-        };
-        SubmitPendingAgentActionDto: {
-            /** @example workshop_order.add_line */
-            action_type: string;
-            payload_json: {
-                [key: string]: unknown;
-            };
-            /**
-             * Format: uuid
-             * @description Optional correlation UUID stored in preview_json.mcp_command_idempotency for orchestration with MCP; does not claim an MCP write receipt (REST-wide idempotency is out of scope).
-             */
-            command_id?: string;
         };
         AgentSupervisionTriageItemDto: {
             /** @enum {string} */
@@ -10588,6 +10680,511 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UnbilledReceiptItemDto"][];
+                };
+            };
+        };
+    };
+    PartsRequisitionController_createReservation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePartsReservationDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PartsReservationResponseDto"];
+                };
+            };
+        };
+    };
+    PartsRequisitionController_consumeReservation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsumePartsReservationDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PartsReservationResponseDto"];
+                };
+            };
+        };
+    };
+    PartsRequisitionController_releaseReservation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReleasePartsReservationDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PartsReservationResponseDto"];
+                };
+            };
+        };
+    };
+    PartsRequisitionController_getShortages: {
+        parameters: {
+            query?: {
+                /** @description Limit the queue to one workshop order. */
+                workshopOrderId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedResponseDto"] & {
+                        data?: components["schemas"]["PartsShortageResponseDto"][];
+                    };
+                };
+            };
+        };
+    };
+    PartsRequisitionController_createRequisitionSheet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePartsRequisitionDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PartsRequisitionResponseDto"];
+                };
+            };
+        };
+    };
+    PartsRequisitionController_createPurchaseOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateRequisitionPurchaseOrderDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseOrderResponseDto"];
+                };
+            };
+        };
+    };
+    LegalEntityController_listLegalEntities: {
+        parameters: {
+            query?: {
+                includeInactive?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalEntityResponseDto"][];
+                };
+            };
+        };
+    };
+    LegalEntityController_createLegalEntity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateLegalEntityDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalEntityResponseDto"];
+                };
+            };
+        };
+    };
+    LegalEntityController_getAccountingProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountingProfileResponseDto"];
+                };
+            };
+        };
+    };
+    LegalEntityController_updateAccountingProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAccountingProfileDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountingProfileResponseDto"];
+                };
+            };
+        };
+    };
+    LegalEntityController_getLegalEntity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalEntityResponseDto"];
+                };
+            };
+        };
+    };
+    LegalEntityController_deleteLegalEntity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LegalEntityController_updateLegalEntity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateLegalEntityDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalEntityResponseDto"];
+                };
+            };
+        };
+    };
+    SiteController_listSites: {
+        parameters: {
+            query?: {
+                includeInactive?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SiteController_createSite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSiteDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SiteController_getSite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SiteController_deleteSite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SiteController_updateSite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSiteDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SiteController_listSiteMemberships: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SiteController_addSiteMembership: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSiteMembershipDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SiteController_removeSiteMembership: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MeSiteController_listMySites: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeSiteDto"][];
+                };
+            };
+        };
+    };
+    MeSiteController_setActiveSite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetActiveSiteDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActiveSiteResponseDto"];
                 };
             };
         };
@@ -12779,6 +13376,27 @@ export interface operations {
             };
         };
     };
+    WorkshopEstimateController_listMechanicFindings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopMechanicFindingListResponseDto"];
+                };
+            };
+        };
+    };
     WorkshopEstimateController_list: {
         parameters: {
             query?: never;
@@ -13938,151 +14556,6 @@ export interface operations {
             };
         };
     };
-    PartsRequisitionController_createReservation: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreatePartsReservationDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PartsReservationResponseDto"];
-                };
-            };
-        };
-    };
-    PartsRequisitionController_consumeReservation: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ConsumePartsReservationDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PartsReservationResponseDto"];
-                };
-            };
-        };
-    };
-    PartsRequisitionController_releaseReservation: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ReleasePartsReservationDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PartsReservationResponseDto"];
-                };
-            };
-        };
-    };
-    PartsRequisitionController_getShortages: {
-        parameters: {
-            query?: {
-                /** @description Limit the queue to one workshop order. */
-                workshopOrderId?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PaginatedResponseDto"] & {
-                        data?: components["schemas"]["PartsShortageResponseDto"][];
-                    };
-                };
-            };
-        };
-    };
-    PartsRequisitionController_createRequisitionSheet: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreatePartsRequisitionDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PartsRequisitionResponseDto"];
-                };
-            };
-        };
-    };
-    PartsRequisitionController_createPurchaseOrder: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateRequisitionPurchaseOrderDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PurchaseOrderResponseDto"];
-                };
-            };
-        };
-    };
     RegistrationIntakeController_create: {
         parameters: {
             query?: never;
@@ -14548,6 +15021,31 @@ export interface operations {
             };
         };
     };
+    MechanicController_submitFinding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                taskId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmitMechanicFindingDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubmitMechanicFindingResponseDto"];
+                };
+            };
+        };
+    };
     MechanicController_requestPart: {
         parameters: {
             query?: never;
@@ -14721,6 +15219,296 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VoiceTranslationSettingsResponseDto"];
+                };
+            };
+        };
+    };
+    AgentProposalController_listProposals: {
+        parameters: {
+            query?: {
+                /** @description When set, return only proposals with these IDs (still tenant-scoped) */
+                ids?: string[];
+                /** @description Maximum number of items to return */
+                limit?: number;
+                /** @description Filter by proposal status */
+                status?: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED" | "EXECUTED" | "FAILED";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentProposalListResponseDto"];
+                };
+            };
+        };
+    };
+    AgentProposalController_createProposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAgentProposalDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentProposalResponseDto"];
+                };
+            };
+        };
+    };
+    AgentProposalController_approveProposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentProposalResponseDto"];
+                };
+            };
+        };
+    };
+    AgentProposalController_applyProposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentProposalResponseDto"];
+                };
+            };
+        };
+    };
+    AgentProposalController_batchApplyProposals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BatchApplyAgentProposalsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchApplyAgentProposalsResponseDto"];
+                };
+            };
+        };
+    };
+    AgentProposalController_rejectProposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RejectAgentProposalDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentProposalResponseDto"];
+                };
+            };
+        };
+    };
+    AgentProposalController_submitPendingAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmitPendingAgentActionDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentProposalResponseDto"];
+                };
+            };
+        };
+    };
+    AgentPolicyController_listRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentPolicyRuleListResponseDto"];
+                };
+            };
+        };
+    };
+    AgentPolicyController_upsertRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                actionType: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertAgentPolicyRuleDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentPolicyRuleResponseDto"];
+                };
+            };
+        };
+    };
+    AgentPolicyController_evaluate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentPolicyEvaluateRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentPolicyEvaluationResponseDto"];
+                };
+            };
+        };
+    };
+    AgentActionLogController_findAll: {
+        parameters: {
+            query?: {
+                /** @description Filter by agent identifier (case-insensitive substring match) */
+                agentId?: string;
+                /** @description Opaque cursor for forward pagination */
+                cursor?: string;
+                /** @description End of created_at range (ISO-8601) */
+                endDate?: string;
+                /** @description Filter by entity ID */
+                entityId?: string;
+                /** @description Filter by entity type */
+                entityType?: string;
+                /** @description Maximum number of rows to return */
+                limit?: number;
+                /** @description Start of created_at range (ISO-8601) */
+                startDate?: string;
+                /** @description Filter by action status */
+                status?: "PROPOSED" | "APPROVED" | "REJECTED" | "EXECUTED" | "REFUSED" | "FAILED" | "DRY_RUN" | "FALLBACK";
+                /** @description Filter by policy tier */
+                tier?: "AUTO" | "PROPOSE" | "HUMAN_ONLY" | "NOT_EVALUATED";
+                /** @description Filter by trace ID */
+                traceId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentActionLogListResponseDto"];
+                };
+            };
+        };
+    };
+    AgentActionLogController_findByTraceId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                traceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentActionTraceDetailResponseDto"];
                 };
             };
         };
@@ -16251,366 +17039,6 @@ export interface operations {
             };
         };
     };
-    LegalEntityController_listLegalEntities: {
-        parameters: {
-            query?: {
-                includeInactive?: boolean;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LegalEntityResponseDto"][];
-                };
-            };
-        };
-    };
-    LegalEntityController_createLegalEntity: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateLegalEntityDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LegalEntityResponseDto"];
-                };
-            };
-        };
-    };
-    LegalEntityController_getAccountingProfile: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AccountingProfileResponseDto"];
-                };
-            };
-        };
-    };
-    LegalEntityController_updateAccountingProfile: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateAccountingProfileDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AccountingProfileResponseDto"];
-                };
-            };
-        };
-    };
-    LegalEntityController_getLegalEntity: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LegalEntityResponseDto"];
-                };
-            };
-        };
-    };
-    LegalEntityController_deleteLegalEntity: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    LegalEntityController_updateLegalEntity: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateLegalEntityDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LegalEntityResponseDto"];
-                };
-            };
-        };
-    };
-    SiteController_listSites: {
-        parameters: {
-            query?: {
-                includeInactive?: boolean;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SiteController_createSite: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateSiteDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SiteController_getSite: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SiteController_deleteSite: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SiteController_updateSite: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateSiteDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SiteController_listSiteMemberships: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SiteController_addSiteMembership: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateSiteMembershipDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SiteController_removeSiteMembership: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-                userId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    MeSiteController_listMySites: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MeSiteDto"][];
-                };
-            };
-        };
-    };
-    MeSiteController_setActiveSite: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SetActiveSiteDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ActiveSiteResponseDto"];
-                };
-            };
-        };
-    };
     StockTransferController_list: {
         parameters: {
             query?: never;
@@ -17081,67 +17509,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CatalogProviderSettingsResponseDto"];
-                };
-            };
-        };
-    };
-    AgentActionLogController_findAll: {
-        parameters: {
-            query?: {
-                /** @description Filter by agent identifier (case-insensitive substring match) */
-                agentId?: string;
-                /** @description Opaque cursor for forward pagination */
-                cursor?: string;
-                /** @description End of created_at range (ISO-8601) */
-                endDate?: string;
-                /** @description Filter by entity ID */
-                entityId?: string;
-                /** @description Filter by entity type */
-                entityType?: string;
-                /** @description Maximum number of rows to return */
-                limit?: number;
-                /** @description Start of created_at range (ISO-8601) */
-                startDate?: string;
-                /** @description Filter by action status */
-                status?: "PROPOSED" | "APPROVED" | "REJECTED" | "EXECUTED" | "REFUSED" | "FAILED" | "DRY_RUN" | "FALLBACK";
-                /** @description Filter by policy tier */
-                tier?: "AUTO" | "PROPOSE" | "HUMAN_ONLY" | "NOT_EVALUATED";
-                /** @description Filter by trace ID */
-                traceId?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AgentActionLogListResponseDto"];
-                };
-            };
-        };
-    };
-    AgentActionLogController_findByTraceId: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                traceId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AgentActionTraceDetailResponseDto"];
                 };
             };
         };
@@ -17943,235 +18310,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SettlementResponseDto"];
-                };
-            };
-        };
-    };
-    AgentPolicyController_listRules: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AgentPolicyRuleListResponseDto"];
-                };
-            };
-        };
-    };
-    AgentPolicyController_upsertRule: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                actionType: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpsertAgentPolicyRuleDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AgentPolicyRuleResponseDto"];
-                };
-            };
-        };
-    };
-    AgentPolicyController_evaluate: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AgentPolicyEvaluateRequestDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AgentPolicyEvaluationResponseDto"];
-                };
-            };
-        };
-    };
-    AgentProposalController_listProposals: {
-        parameters: {
-            query?: {
-                /** @description When set, return only proposals with these IDs (still tenant-scoped) */
-                ids?: string[];
-                /** @description Maximum number of items to return */
-                limit?: number;
-                /** @description Filter by proposal status */
-                status?: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED" | "EXECUTED" | "FAILED";
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AgentProposalListResponseDto"];
-                };
-            };
-        };
-    };
-    AgentProposalController_createProposal: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateAgentProposalDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AgentProposalResponseDto"];
-                };
-            };
-        };
-    };
-    AgentProposalController_approveProposal: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AgentProposalResponseDto"];
-                };
-            };
-        };
-    };
-    AgentProposalController_applyProposal: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AgentProposalResponseDto"];
-                };
-            };
-        };
-    };
-    AgentProposalController_batchApplyProposals: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["BatchApplyAgentProposalsDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BatchApplyAgentProposalsResponseDto"];
-                };
-            };
-        };
-    };
-    AgentProposalController_rejectProposal: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RejectAgentProposalDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AgentProposalResponseDto"];
-                };
-            };
-        };
-    };
-    AgentProposalController_submitPendingAction: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SubmitPendingAgentActionDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AgentProposalResponseDto"];
                 };
             };
         };

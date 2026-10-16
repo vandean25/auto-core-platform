@@ -263,9 +263,13 @@ jobs:
         run: npm run test:e2e:runner --workspace=core-api
 
   backend-unit:
-    name: Backend Unit Tests
+    name: Backend Unit Tests (shard ${{ matrix.shard }}/2)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -288,14 +292,15 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/auto_core_test
           NODE_OPTIONS: --max-old-space-size=8192
-        run: npm test --workspace=core-api -- --ci --maxWorkers=4 --testPathIgnorePatterns='document-branding-pdf-parser\.spec\.ts$'
+        run: npm test --workspace=core-api -- --ci --maxWorkers=2 --shard=${{ matrix.shard }}/2 --testPathIgnorePatterns='document-branding-(pdf-parser|extraction-image-processor)\.spec\.ts$'
 
       - name: Run timing-sensitive unit tests serially
-        # The PDF rasterization spec exceeds its 5 s budget when it shares CPU with parallel workers.
+        if: matrix.shard == 1
+        # Sharp/PDF rasterization specs exceed their 5 s budget when they share CPU with parallel workers.
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/auto_core_test
           NODE_OPTIONS: --max-old-space-size=8192
-        run: npm test --workspace=core-api -- --ci --runInBand --testPathPatterns='document-branding-pdf-parser\.spec\.ts$'
+        run: npm test --workspace=core-api -- --ci --runInBand --testPathPatterns='document-branding-(pdf-parser|extraction-image-processor)\.spec\.ts$'
 
   backend-e2e:
     name: Backend E2E Tests (shard ${{ matrix.shard }}/${{ strategy.job-total }})

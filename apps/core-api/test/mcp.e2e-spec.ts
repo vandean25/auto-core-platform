@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
@@ -25,6 +26,7 @@ import {
 import { teardownTestApp } from './test-lifecycle.js';
 import { PdfStorage } from '../src/common/pdf/pdf-storage.js';
 import { createInMemoryPdfArchive } from './support/in-memory-pdf-archive.js';
+import { PURCHASE_PROPOSE_DISCLAIMER } from '../src/purchase/purchase-propose-draft.service.js';
 
 type ReadToolName = (typeof MCP_READ_TOOL_NAMES)[number];
 
@@ -4885,6 +4887,594 @@ describe('MCP server (e2e)', () => {
     await expectActionLogRow(traceId, 'mcp.propose_workshop_booking', {
       status: 'PROPOSED',
       tier: 'PROPOSE',
+    });
+  });
+
+  describe('AUT-539 purchase_order.propose_draft acceptance', () => {
+    type PurchaseDemandSeed = {
+      requisitionId: string;
+      reservationIds: string[];
+      unitCostNet: string;
+      vendorArticleId: string;
+      cleanup: () => Promise<void>;
+    };
+
+    async function seedRequisitionDemandForPurchasePropose(
+      options: { secondLineOnSamePart?: boolean } = {},
+    ): Promise<PurchaseDemandSeed> {
+      const dedicatedTask = await prismaA.workshopTask.create({
+        data: {
+          tenant_id: tenantA,
+          workshop_order_id: fixtures.workshopOrderId,
+          title: `MCP PO demand ${Date.now()}`,
+          status: 'NOT_STARTED',
+        },
+      });
+      const dedicatedLine = await createPartLine(prismaA, dedicatedTask.id, {
+        item_no: fixtures.sku,
+        description: fixtures.searchToken,
+        unit_price: 2,
+        catalog_item_id: fixtures.catalogItemId,
+      });
+      const catalogBefore = await prismaA.catalogItem.findFirstOrThrow({
+        where: { id: fixtures.catalogItemId, tenant_id: tenantA },
+        select: { brand_id: true, cost_price: true, unit: true },
+      });
+      const vehicleBefore = await prismaA.vehicle.findFirstOrThrow({
+        where: { id: fixtures.vehicleId, tenant_id: tenantA },
+        select: { make: true, make_brand_id: true },
+      });
+      let vehicleMakeBrandId = vehicleBefore.make_brand_id;
+      let createdMakeBrandId: number | null = null;
+      if (!vehicleMakeBrandId) {
+        const makeName = `McpPoMake-${Date.now()}`;
+        const makeBrand = await prismaA.brand.create({
+          data: {
+            tenant_id: tenantA,
+            name: makeName,
+            normalized_name: makeName.toLowerCase(),
+            isVehicleMake: true,
+          },
+        });
+        vehicleMakeBrandId = makeBrand.id;
+        createdMakeBrandId = makeBrand.id;
+        await prismaA.vehicle.update({
+          where: { id: fixtures.vehicleId },
+          data: { make_brand_id: makeBrand.id },
+        });
+      }
+      await prismaA.catalogItem.update({
+        where: { id: fixtures.catalogItemId },
+        data: { brand_id: vehicleMakeBrandId, cost_price: 1 },
+      });
+      await prismaA.vendor.update({
+        where: { id: fixtures.vendorId },
+        data: {
+          supportedBrands: { connect: [{ id: vehicleMakeBrandId }] },
+        },
+      });
+      const vendorArticle = await prismaA.vendorArticle.create({
+        data: {
+          tenant_id: tenantA,
+          vendor_id: fixtures.vendorId,
+          catalog_item_id: fixtures.catalogItemId,
+          vendor_article_no: `MCP-VA-${Date.now()}`,
+          last_cost: 3.5,
+        },
+      });
+      const requisitionItems: Array<{
+        workshopTaskLineItemId: string;
+        quantity: number;
+      }> = [
+        {
+          workshopTaskLineItemId: dedicatedLine.id,
+          quantity: 1,
+        },
+      ];
+      if (options.secondLineOnSamePart) {
+        const secondTask = await prismaA.workshopTask.create({
+          data: {
+            tenant_id: tenantA,
+            workshop_order_id: fixtures.workshopOrderId,
+            title: `MCP PO second job ${Date.now()}`,
+            status: 'NOT_STARTED',
+          },
+        });
+        const secondLine = await createPartLine(prismaA, secondTask.id, {
+          item_no: fixtures.sku,
+          description: fixtures.searchToken,
+          unit_price: 2,
+          catalog_item_id: fixtures.catalogItemId,
+        });
+        requisitionItems.push({
+          workshopTaskLineItemId: secondLine.id,
+          quantity: 1,
+        });
+      }
+      const sheet = await request(app.getHttpServer())
+        .post('/api/parts-requisitions')
+        .set('Authorization', adminHeaderA)
+        .send({
+          vehicleMakeBrandId: vehicleMakeBrandId,
+          items: requisitionItems,
+        });
+      if (sheet.status !== 201) {
+        throw new Error(
+          `requisition seed failed: ${sheet.status} ${JSON.stringify(sheet.body)}`,
+        );
+      }
+      if (vehicleMakeBrandId === null) {
+        throw new Error('vehicle make brand id missing after seed');
+      }
+      const reservationIds = sheet.body.lines.map(
+        (line: { reservationId: string }) => line.reservationId,
+      );
+      return {
+        requisitionId: sheet.body.id,
+        reservationIds,
+        unitCostNet: '3.50',
+        vendorArticleId: vendorArticle.id,
+        async cleanup() {
+          await prismaA.vendorArticle.deleteMany({
+            where: { id: vendorArticle.id },
+          });
+          await prismaA.vendor.update({
+            where: { id: fixtures.vendorId },
+            data: {
+              supportedBrands: { disconnect: [{ id: vehicleMakeBrandId }] },
+            },
+          });
+          await prismaA.catalogItem.update({
+            where: { id: fixtures.catalogItemId },
+            data: {
+              brand_id: catalogBefore.brand_id,
+              cost_price: catalogBefore.cost_price,
+            },
+          });
+          if (createdMakeBrandId) {
+            await prismaA.vehicle.update({
+              where: { id: fixtures.vehicleId },
+              data: { make_brand_id: vehicleBefore.make_brand_id },
+            });
+          }
+        },
+      };
+    }
+
+    function purchaseProposeArgs(
+      demand: PurchaseDemandSeed,
+      overrides: Record<string, unknown> = {},
+    ) {
+      return {
+        vendor_id: fixtures.vendorId,
+        requisition_id: demand.requisitionId,
+        lines: demand.reservationIds.map((reservationId) => ({
+          reservation_id: reservationId,
+          catalog_item_id: fixtures.catalogItemId,
+          cost_basis: { version: 1, unit_cost_net: demand.unitCostNet },
+        })),
+        ...overrides,
+      };
+    }
+
+    async function countVendorDraftPos() {
+      return prismaA.purchaseOrder.count({
+        where: { vendor_id: fixtures.vendorId, status: 'DRAFT' },
+      });
+    }
+
+    beforeEach(async () => {
+      await setPolicyTier('purchase_order.propose_draft', 'PROPOSE');
+    });
+
+    it('propose_purchase_order PROPOSE: preview is provisional and apply commits one DRAFT only', async () => {
+      const demand = await seedRequisitionDemandForPurchasePropose();
+      try {
+        const poCountBefore = await countVendorDraftPos();
+        const stockBefore = await prismaA.inventoryStock.findFirstOrThrow({
+          where: {
+            catalog_item_id: fixtures.catalogItemId,
+            site_id: fixtures.siteId,
+            location_id: fixtures.locationId,
+          },
+        });
+
+        const traceId = '00000000-0000-4000-8000-000000000539';
+        const result = await callMcpTool(
+          caller(adminHeaderA, 'e2e-purchase-propose'),
+          'propose_purchase_order',
+          purchaseProposeArgs(demand),
+          traceId,
+        );
+        const proposed = parsePayload<{
+          status: string;
+          pending_action_id: string;
+          would_change: WouldChangeEntry[];
+          proposal: {
+            provisional: boolean;
+            preview: {
+              totals: { net: string };
+              disclaimer: string;
+              lines: Array<{
+                unit: string;
+                unit_cost_net: string;
+                cost_source: {
+                  kind: string;
+                  vendor_article_no: string | null;
+                  verified: boolean;
+                };
+              }>;
+            };
+          };
+        }>(result);
+        expect(proposed.status).toBe('needs_approval');
+        expect(proposed.proposal.provisional).toBe(true);
+        expect(proposed.proposal.preview.totals.net).toBe('3.50');
+        expect(proposed.proposal.preview.disclaimer).toBe(
+          PURCHASE_PROPOSE_DISCLAIMER,
+        );
+        expect(proposed.proposal.preview.lines[0].unit).toBeTruthy();
+        expect(proposed.proposal.preview.lines[0].unit_cost_net).toBe('3.50');
+        expect(proposed.proposal.preview.lines[0].cost_source).toMatchObject({
+          kind: 'vendor_article',
+          verified: true,
+        });
+        const previewPo = previewCreatedRow(
+          proposed.would_change,
+          'PurchaseOrder',
+        );
+        expect(
+          await prismaA.purchaseOrder.findFirst({ where: { id: previewPo.id } }),
+        ).toBeNull();
+        expect(await countVendorDraftPos()).toBe(poCountBefore);
+
+        const stockAfterPreview = await prismaA.inventoryStock.findFirstOrThrow(
+          {
+            where: { id: stockBefore.id },
+          },
+        );
+        expect(stockAfterPreview.quantity_on_hand).toEqual(
+          stockBefore.quantity_on_hand,
+        );
+
+        await applyProposal(proposed.pending_action_id, adminHeaderA).expect(200);
+
+        const committed = await prismaA.purchaseOrder.findFirst({
+          where: {
+            vendor_id: fixtures.vendorId,
+            site_id: fixtures.siteId,
+            status: 'DRAFT',
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+        expect(committed).toBeTruthy();
+        expect(committed?.id).not.toBe(previewPo.id);
+        expect(await countVendorDraftPos()).toBe(poCountBefore + 1);
+
+        await expectActionLogRow(traceId, 'mcp.propose_purchase_order', {
+          status: 'PROPOSED',
+          tier: 'PROPOSE',
+        });
+      } finally {
+        await demand.cleanup();
+      }
+    });
+
+    it('allows two reservation lines for the same catalog item', async () => {
+      const demand = await seedRequisitionDemandForPurchasePropose({
+        secondLineOnSamePart: true,
+      });
+      try {
+        const result = await callMcpTool(
+          caller(adminHeaderA, 'e2e-purchase-two-lines'),
+          'propose_purchase_order',
+          purchaseProposeArgs(demand),
+          '00000000-0000-4000-8000-000000000543',
+        );
+        const proposed = parsePayload<{
+          status: string;
+          proposal: { preview: { lines: unknown[]; totals: { net: string } } };
+        }>(result);
+        expect(proposed.status).toBe('needs_approval');
+        expect(proposed.proposal.preview.lines).toHaveLength(2);
+        expect(proposed.proposal.preview.totals.net).toBe('7.00');
+      } finally {
+        await demand.cleanup();
+      }
+    });
+
+    it('rejects foreign vendor, requisition, and reservation ids without creating a PO', async () => {
+      const demand = await seedRequisitionDemandForPurchasePropose();
+      const prismaB = createTenantAwarePrisma(prisma, tenantB);
+      const foreignVendor = await prismaB.vendor.create({
+        data: {
+          tenant_id: tenantB,
+          name: 'Foreign vendor',
+          email: 'foreign-vendor@example.test',
+          account_number: `FOREIGN-${Date.now()}`,
+        },
+      });
+      try {
+        const before = await countVendorDraftPos();
+        const foreignId = randomUUID();
+
+        for (const args of [
+          {
+            ...purchaseProposeArgs(demand),
+            vendor_id: foreignVendor.id,
+          },
+          {
+            ...purchaseProposeArgs(demand),
+            requisition_id: foreignId,
+          },
+          {
+            ...purchaseProposeArgs(demand),
+            lines: [
+              {
+                reservation_id: foreignId,
+                catalog_item_id: fixtures.catalogItemId,
+                cost_basis: { version: 1, unit_cost_net: demand.unitCostNet },
+              },
+            ],
+          },
+        ]) {
+          const result = await callMcpTool(
+            caller(adminHeaderA, 'e2e-purchase-foreign'),
+            'propose_purchase_order',
+            args,
+            randomUUID(),
+          );
+          expect(result.isError).toBe(true);
+        }
+        expect(await countVendorDraftPos()).toBe(before);
+      } finally {
+        await demand.cleanup();
+        await prismaB.vendor.deleteMany({ where: { id: foreignVendor.id } });
+      }
+    });
+
+    it('rejects invalid and negative unit costs at the MCP schema', async () => {
+      const demand = await seedRequisitionDemandForPurchasePropose();
+      try {
+        const before = await countVendorDraftPos();
+        for (const unitCost of ['12.5', '-1.00', 'abc']) {
+          const result = await callMcpTool(
+            caller(adminHeaderA, 'e2e-purchase-bad-cost'),
+            'propose_purchase_order',
+            {
+              ...purchaseProposeArgs(demand),
+              lines: [
+                {
+                  reservation_id: demand.reservationIds[0],
+                  catalog_item_id: fixtures.catalogItemId,
+                  cost_basis: { version: 1, unit_cost_net: unitCost },
+                },
+              ],
+            },
+            randomUUID(),
+          );
+          expect(result.isError).toBe(true);
+        }
+        expect(await countVendorDraftPos()).toBe(before);
+      } finally {
+        await demand.cleanup();
+      }
+    });
+
+    it('rejects stale demand after the slice is already on a PO', async () => {
+      const demand = await seedRequisitionDemandForPurchasePropose();
+      try {
+        const before = await countVendorDraftPos();
+        const proposed = parsePayload<{ pending_action_id: string }>(
+          await callMcpTool(
+            caller(adminHeaderA, 'e2e-purchase-stale'),
+            'propose_purchase_order',
+            purchaseProposeArgs(demand),
+            '00000000-0000-4000-8000-000000000544',
+          ),
+        );
+        await applyProposal(proposed.pending_action_id, adminHeaderA).expect(200);
+        expect(await countVendorDraftPos()).toBe(before + 1);
+
+        const stale = await callMcpTool(
+          caller(adminHeaderA, 'e2e-purchase-stale-2'),
+          'propose_purchase_order',
+          purchaseProposeArgs(demand),
+          '00000000-0000-4000-8000-000000000545',
+        );
+        expect(stale.isError).toBe(true);
+        expect(await countVendorDraftPos()).toBe(before + 1);
+      } finally {
+        await demand.cleanup();
+      }
+    });
+
+    it('rejects a non-positive reservation quantity without creating a PO', async () => {
+      const demand = await seedRequisitionDemandForPurchasePropose();
+      try {
+        const before = await countVendorDraftPos();
+        await prismaA.partsReservation.update({
+          where: { id: demand.reservationIds[0] },
+          data: { quantity: 0 },
+        });
+        const result = await callMcpTool(
+          caller(adminHeaderA, 'e2e-purchase-zero-qty'),
+          'propose_purchase_order',
+          purchaseProposeArgs(demand),
+          '00000000-0000-4000-8000-000000000546',
+        );
+        expect(result.isError).toBe(true);
+        expect(await countVendorDraftPos()).toBe(before);
+      } finally {
+        await demand.cleanup();
+      }
+    });
+
+    it('rejects apply when unit cost changes after preview', async () => {
+      const demand = await seedRequisitionDemandForPurchasePropose();
+      try {
+        const before = await countVendorDraftPos();
+        const proposed = parsePayload<{ pending_action_id: string }>(
+          await callMcpTool(
+            caller(adminHeaderA, 'e2e-purchase-cost-stale'),
+            'propose_purchase_order',
+            purchaseProposeArgs(demand),
+            '00000000-0000-4000-8000-000000000547',
+          ),
+        );
+        await prismaA.vendorArticle.update({
+          where: { id: demand.vendorArticleId },
+          data: { last_cost: 9.99 },
+        });
+        await applyProposal(proposed.pending_action_id, adminHeaderA).expect(422);
+        expect(await countVendorDraftPos()).toBe(before);
+      } finally {
+        await demand.cleanup();
+      }
+    });
+
+    it('refuses apply when the active site changed after simulation', async () => {
+      const demand = await seedRequisitionDemandForPurchasePropose();
+      const mainSite = await prismaA.site.findFirstOrThrow({
+        where: { id: fixtures.siteId },
+        select: { legal_entity_id: true },
+      });
+      const otherSite = await prismaA.site.create({
+        data: {
+          legal_entity_id: mainSite.legal_entity_id,
+          code: `MCP-PO-SITE-${Date.now()}`,
+          name: 'MCP PO other site',
+          timezone: 'Europe/Vienna',
+          slot_minutes: 30,
+          holiday_country_iso: 'AT',
+        },
+      });
+      await prismaA.siteMembership.create({
+        data: {
+          tenant_id: tenantA,
+          user_id: tenantAUserId,
+          site_id: otherSite.id,
+          is_active: true,
+        },
+      });
+      try {
+        const before = await countVendorDraftPos();
+        const proposed = parsePayload<{ pending_action_id: string }>(
+          await callMcpTool(
+            caller(adminHeaderA, 'e2e-purchase-site'),
+            'propose_purchase_order',
+            purchaseProposeArgs(demand),
+            '00000000-0000-4000-8000-000000000548',
+          ),
+        );
+        await prismaA.user.update({
+          where: { id: tenantAUserId },
+          data: { active_site_id: otherSite.id },
+        });
+        await applyProposal(proposed.pending_action_id, adminHeaderA).expect(422);
+        await prismaA.user.update({
+          where: { id: tenantAUserId },
+          data: { active_site_id: fixtures.siteId },
+        });
+        expect(await countVendorDraftPos()).toBe(before);
+      } finally {
+        await demand.cleanup();
+      }
+    });
+
+    it('allows only one successful apply under concurrent approval', async () => {
+      const demand = await seedRequisitionDemandForPurchasePropose();
+      try {
+        const before = await countVendorDraftPos();
+        const proposed = parsePayload<{ pending_action_id: string }>(
+          await callMcpTool(
+            caller(adminHeaderA, 'e2e-purchase-double-apply'),
+            'propose_purchase_order',
+            purchaseProposeArgs(demand),
+            '00000000-0000-4000-8000-000000000549',
+          ),
+        );
+        const [first, second] = await Promise.all([
+          applyProposal(proposed.pending_action_id, adminHeaderA),
+          applyProposal(proposed.pending_action_id, adminHeaderA),
+        ]);
+        const statuses = [first.status, second.status];
+        expect(statuses.some((status) => status === 200)).toBe(true);
+        expect(await countVendorDraftPos()).toBe(before + 1);
+      } finally {
+        await demand.cleanup();
+      }
+    });
+
+    it('rolls back apply when the EXECUTED agent action log insert fails', async () => {
+      const demand = await seedRequisitionDemandForPurchasePropose();
+      const agentActionLog = app.get(AgentActionLogService);
+      const realRecordInTransaction =
+        agentActionLog.recordInTransaction.bind(agentActionLog);
+      const recordSpy = jest
+        .spyOn(agentActionLog, 'recordInTransaction')
+        .mockImplementation(async (input, tx, work, metadata) => {
+          if (
+            input.status === 'EXECUTED' &&
+            input.actionType === 'purchase_order.propose_draft'
+          ) {
+            if (work) {
+              await work();
+            }
+            throw new Error('simulated EXECUTED log insert failure');
+          }
+          return realRecordInTransaction(input, tx, work, metadata);
+        });
+      try {
+        const before = await countVendorDraftPos();
+        const proposed = parsePayload<{ pending_action_id: string }>(
+          await callMcpTool(
+            caller(adminHeaderA, 'e2e-purchase-audit-rollback'),
+            'propose_purchase_order',
+            purchaseProposeArgs(demand),
+            '00000000-0000-4000-8000-000000000550',
+          ),
+        );
+        await applyProposal(proposed.pending_action_id, adminHeaderA).expect(500);
+        expect(await countVendorDraftPos()).toBe(before);
+      } finally {
+        recordSpy.mockRestore();
+        await demand.cleanup();
+      }
+    });
+
+    it('replays propose_purchase_order with the same command_id', async () => {
+      const demand = await seedRequisitionDemandForPurchasePropose();
+      try {
+        const commandId = '00000000-0000-4000-8000-000000000540';
+        const args = { ...purchaseProposeArgs(demand), command_id: commandId };
+        const first = await callMcpTool(
+          caller(adminHeaderA, 'e2e-purchase-replay'),
+          'propose_purchase_order',
+          args,
+          '00000000-0000-4000-8000-000000000541',
+        );
+        const second = await callMcpTool(
+          caller(adminHeaderA, 'e2e-purchase-replay'),
+          'propose_purchase_order',
+          args,
+          '00000000-0000-4000-8000-000000000542',
+        );
+        const firstPayload = parsePayload<{
+          pending_action_id: string;
+          replayed?: boolean;
+        }>(first);
+        const secondPayload = parsePayload<{
+          pending_action_id: string;
+          replayed?: boolean;
+        }>(second);
+        expect(secondPayload.pending_action_id).toBe(
+          firstPayload.pending_action_id,
+        );
+        expect(secondPayload.replayed).toBe(true);
+      } finally {
+        await demand.cleanup();
+      }
     });
   });
 

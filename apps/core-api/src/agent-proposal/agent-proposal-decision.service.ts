@@ -342,7 +342,9 @@ export class AgentProposalDecisionService {
     if (
       proposal.action_type !== 'workshop_order.create' &&
       proposal.action_type !== 'registration_intake.apply' &&
-      proposal.action_type !== 'workshop.booking_package'
+      proposal.action_type !== 'workshop.booking_package' &&
+      proposal.action_type !== 'purchase_order.propose_draft' &&
+      proposal.action_type !== 'workshop_order.mechanic_finding'
     ) {
       return;
     }
@@ -416,7 +418,8 @@ export class AgentProposalDecisionService {
                 proposal.payload_json,
                 proposal.action_type === 'workshop_order.create' ||
                   proposal.action_type === 'registration_intake.apply' ||
-                  proposal.action_type === 'workshop.booking_package'
+                  proposal.action_type === 'workshop.booking_package' ||
+                  proposal.action_type === 'purchase_order.propose_draft'
                   ? { site_id: readExecutionSiteId(proposal.preview_json) }
                   : undefined,
               ),

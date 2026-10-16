@@ -21,6 +21,7 @@ export const MCP_WRITE_POLICY_ACTION_TYPES = {
   propose_line_item: 'workshop_order.propose_line',
   propose_registration_intake: 'registration_intake.apply',
   propose_workshop_booking: 'workshop.booking_package',
+  propose_purchase_order: 'purchase_order.propose_draft',
 } as const;
 
 export type McpWritePolicyActionType =

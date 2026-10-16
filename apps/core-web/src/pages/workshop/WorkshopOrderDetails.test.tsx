@@ -18,7 +18,23 @@ import * as authSessionApi from "@/api/auth-session";
 import * as estimateApi from "@/api/workshop-estimates";
 import { toast } from "sonner";
 
-vi.mock("@/api/workshop");
+vi.mock("@/api/workshop", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/api/workshop")>();
+  return {
+    ...actual,
+    useWorkshopOrder: vi.fn(),
+    useUpdateWorkshopOrder: vi.fn(),
+    useCreateWorkshopTask: vi.fn(),
+    useDeleteWorkshopTask: vi.fn(),
+    useUpdateWorkshopTask: vi.fn(),
+    useReplaceWorkshopTaskLineItems: vi.fn(),
+    useCatalogSearch: vi.fn(),
+    useWorkshopResources: vi.fn(),
+    useAssignBoard: vi.fn(),
+    useGenerateWorkshopPdf: vi.fn(),
+    downloadWorkshopPdf: vi.fn(),
+  };
+});
 vi.mock("@/api/sales");
 vi.mock("@/api/invoices");
 vi.mock("@/api/vehicle-inspection-records");

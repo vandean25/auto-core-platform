@@ -17,6 +17,7 @@ import { useMediaUpload } from "./hooks/useMediaUpload";
 import { useRequestPartForm } from "./hooks/useRequestPartForm";
 import { useTaskLifecycle } from "./hooks/useTaskLifecycle";
 import { useVoiceNote } from "./hooks/useVoiceNote";
+import { useSubmitMechanicFinding } from "./hooks/useSubmitMechanicFinding";
 import { getTaskCapabilities } from "./task-capabilities";
 import { MechanicTaskInspectionChecklist } from "./components/MechanicTaskInspectionChecklist";
 
@@ -50,6 +51,12 @@ export function MechanicTaskDetailView({
     cancelPendingSave: diagnostics.cancelPendingSave,
   });
   const partRequest = useRequestPartForm(task.taskId);
+  const submitFinding = useSubmitMechanicFinding({
+    taskId: task.taskId,
+    disabled: capabilities.isDone,
+    hasNotes: diagnostics.notesValue.trim().length > 0,
+    flushAndSaveNotes: diagnostics.flushAndSaveNotes,
+  });
 
   const laborItems = task.lineItems.filter(
     (lineItem) => lineItem.type === "LABOR",
@@ -115,6 +122,9 @@ export function MechanicTaskDetailView({
         onVoiceDraftChange={voiceNote.setVoiceDraftValue}
         onAcceptVoiceDraft={voiceNote.handleAcceptVoiceDraft}
         onDiscardVoiceDraft={voiceNote.handleDiscardVoiceDraft}
+        canSubmitFinding={submitFinding.canSubmitFinding}
+        submitFindingPending={submitFinding.submitFindingPending}
+        onSubmitFinding={() => void submitFinding.submitFinding()}
       />
 
       <LaborItemsCard laborItems={laborItems} />

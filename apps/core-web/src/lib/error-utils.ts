@@ -126,3 +126,21 @@ export function createHttpError(message: string, status: number): Error & { stat
     err.status = status
     return err
 }
+
+/** Reads the API error message and throws an Error with `.status` attached. */
+export async function throwHttpError(
+    response: Response,
+    fallback: string,
+): Promise<never> {
+    const payload = (await response.json().catch(() => undefined)) as
+        | { message?: string | string[] }
+        | undefined
+    const raw = payload?.message
+    const message =
+        typeof raw === 'string'
+            ? raw
+            : Array.isArray(raw)
+              ? raw.join(', ')
+              : fallback
+    throw createHttpError(message, response.status)
+}

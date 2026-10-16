@@ -5,6 +5,7 @@ import { SiteModule } from '../site/site.module.js';
 import { WorkshopModule } from '../workshop/workshop.module.js';
 import { LoanerVehiclesModule } from '../loaner-vehicles/loaner-vehicles.module.js';
 import { RegistrationIntakeModule } from '../registration-intake/registration-intake.module.js';
+import { PurchaseModule } from '../purchase/purchase.module.js';
 import { PendingActionExecutorService } from './pending-action-executor.service.js';
 
 @Module({
@@ -15,6 +16,7 @@ import { PendingActionExecutorService } from './pending-action-executor.service.
     LoanerVehiclesModule,
     PartsRequisitionModule,
     RegistrationIntakeModule,
+    PurchaseModule,
   ],
   providers: [PendingActionExecutorService],
   exports: [PendingActionExecutorService],

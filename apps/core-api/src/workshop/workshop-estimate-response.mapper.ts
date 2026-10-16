@@ -8,7 +8,10 @@ import type {
   WorkshopEstimateVersionDetailDto,
   WorkshopEstimateVersionSummaryDto,
 } from './dto/workshop-estimate-response.dto.js';
-import type { WorkshopEstimateLine } from './workshop-estimate-lines.helpers.js';
+import type {
+  EstimateCustomerSendBlocker,
+  WorkshopEstimateLine,
+} from './workshop-estimate-lines.helpers.js';
 import type { WorkshopEstimateOverrunView } from './workshop-estimate-overrun-tracking.helpers.js';
 
 /** The decision of a version. The evidence fields that stay server-side (IP address, user agent) are not selected. */
@@ -133,6 +136,7 @@ export function toWorkshopEstimateDto(params: {
   overrun: WorkshopEstimateOverrunView | null;
   sendEnabled: boolean;
   thresholdPct: string;
+  customerSendBlockers: EstimateCustomerSendBlocker[];
 }): WorkshopEstimateResponseDto {
   return {
     id: params.estimate.id,
@@ -144,6 +148,7 @@ export function toWorkshopEstimateDto(params: {
     overrun_warning: toWorkshopEstimateOverrunDto(params.overrun),
     send_enabled: params.sendEnabled,
     overrun_threshold_pct: params.thresholdPct,
+    customer_send_blockers: params.customerSendBlockers,
   };
 }
 

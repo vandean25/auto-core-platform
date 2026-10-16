@@ -24,7 +24,8 @@ export const mockPrisma = {
   partsReservation: { findMany: jest.fn().mockResolvedValue([]) },
   workshopInspection: { findFirst: jest.fn() },
   workshopInspectionItem: { updateMany: jest.fn() },
-  workshopMedia: { create: jest.fn() },
+  workshopMedia: { create: jest.fn(), findMany: jest.fn() },
+  agentProposal: { findFirst: jest.fn() },
   workshopVoiceNoteDraft: {
     create: jest.fn(),
     findFirst: jest.fn(),

@@ -18,6 +18,7 @@ import {
   Prisma,
 } from '@prisma/client';
 import { PurchaseReceiptService } from './purchase-receipt.service.js';
+import { PurchaseProposeDraftService } from './purchase-propose-draft.service.js';
 
 import Decimal = Prisma.Decimal;
 
@@ -114,6 +115,13 @@ describe('PurchaseService', () => {
           provide: SiteService,
           useValue: {
             resolveDefaultSiteId: jest.fn().mockResolvedValue('site-1'),
+          },
+        },
+        {
+          provide: PurchaseProposeDraftService,
+          useValue: {
+            applyDraft: jest.fn(),
+            buildExecutionContext: jest.fn(),
           },
         },
       ],

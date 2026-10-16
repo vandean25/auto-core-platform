@@ -53,6 +53,17 @@ describe('PendingActionExecutorService', () => {
       .mockResolvedValue({ id: 'reservation-1' }),
     releaseReservation: jest.fn().mockResolvedValue({ id: 'reservation-1' }),
   };
+  const mockPurchaseService = {
+    applyProposedPurchaseOrderDraft: jest.fn().mockResolvedValue({
+      id: 'po-1',
+      entityId: 'po-1',
+      purchase_order_id: 'po-1',
+      status: 'DRAFT',
+    }),
+    buildProposedPurchaseOrderExecutionContext: jest
+      .fn()
+      .mockResolvedValue({ site_id: 'site-1' }),
+  };
 
   let service: PendingActionExecutorService;
 
@@ -66,7 +77,31 @@ describe('PendingActionExecutorService', () => {
       mockParts as never,
       mockRegistrationIntakeApply as never,
       mockWorkshopBookingPackage as never,
+      mockPurchaseService as never,
     );
+  });
+
+  describe('purchase_order.propose_draft', () => {
+    it('binds site in execution context and delegates apply to purchase service', async () => {
+      const executor = service.resolve('purchase_order.propose_draft');
+      const context = await executor.buildExecutionContext?.({});
+      expect(context).toEqual({ site_id: 'site-1' });
+      await executor.execute(
+        {
+          vendor_id: '00000000-0000-4000-8000-000000000010',
+          requisition_id: '00000000-0000-4000-8000-000000000011',
+          lines: [
+            {
+              reservation_id: '00000000-0000-4000-8000-000000000012',
+              catalog_item_id: '00000000-0000-4000-8000-000000000013',
+              cost_basis: { version: 1, unit_cost_net: '10.00' },
+            },
+          ],
+        },
+        context,
+      );
+      expect(mockPurchaseService.applyProposedPurchaseOrderDraft).toHaveBeenCalled();
+    });
   });
 
   describe('workshop.booking_package', () => {
