@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useCustomer, useUpdateCustomer } from '@/api/customers'
@@ -20,6 +20,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Phone, Mail, MapPin, ArrowLeft, Package, Wrench } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { CustomerConsentPanel } from './CustomerConsentPanel'
 import {
   Table,
   TableBody,
@@ -107,6 +110,10 @@ function getCustomerDisplayName(customer: Pick<Customer, 'type' | 'company_name'
 }
 
 export default function CustomerDetail() {
+  const { t } = useTranslation('customers')
+  useEffect(() => {
+    void ensureNamespaceLoaded('customers')
+  }, [])
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
   const { data: customer, isLoading, error } = useCustomer<CustomerDetailResponse>(id ?? '')
@@ -384,10 +391,11 @@ export default function CustomerDetail() {
 
         <div className='lg:col-span-2'>
           <Tabs defaultValue='orders'>
-            <TabsList>
+            <TabsList className='flex h-auto min-h-9 w-full flex-wrap gap-1'>
               <TabsTrigger value='orders'>Active Orders</TabsTrigger>
               <TabsTrigger value='invoices'>Invoice History</TabsTrigger>
               <TabsTrigger value='vehicles'>Vehicles</TabsTrigger>
+              <TabsTrigger value='consent'>{t('consent.tab')}</TabsTrigger>
             </TabsList>
 
             <TabsContent value='orders' className='mt-4'>
@@ -527,6 +535,10 @@ export default function CustomerDetail() {
                   </Table>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value='consent' className='mt-4'>
+              <CustomerConsentPanel customerId={customer.id} contactEmail={customer.email} />
             </TabsContent>
           </Tabs>
         </div>

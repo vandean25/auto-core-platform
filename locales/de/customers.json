@@ -1,0 +1,30 @@
+{
+  "consent": {
+    "tab": "Kontaktpräferenzen",
+    "title": "Kontaktpräferenzen",
+    "description": "Marketing- und Auftragskontakt für diesen Kunden (je Rechtsträger).",
+    "controller": "Rechtsträger",
+    "channel": "Kanal",
+    "purpose": "Zweck",
+    "status": "Aktueller Stand",
+    "allowed": "Kontakt erlaubt",
+    "yes": "Ja",
+    "no": "Nein",
+    "historyTitle": "Einwilligungsverlauf",
+    "recorded": "Erfasst",
+    "recordGrant": "Marketing-Einwilligung erfassen",
+    "recordRevoke": "Marketing widerrufen",
+    "saved": "Einwilligung gespeichert",
+    "failed": "Einwilligung konnte nicht gespeichert werden",
+    "emptyHistory": "Noch keine Einwilligungsereignisse.",
+    "revision": "Stand-Revision",
+    "textRequired": "Bitte den dem Kunden gezeigten Einwilligungstext eingeben.",
+    "textVersion": "Textversion",
+    "textShown": "Dem Kunden gezeigter Einwilligungstext",
+    "grantDialogTitle": "Marketing-Einwilligung erfassen",
+    "revokeDialogTitle": "Marketing-Einwilligung widerrufen",
+    "confirmGrant": "Bestätigen und speichern",
+    "confirmRevoke": "Widerruf bestätigen",
+    "cancel": "Abbrechen"
+  }
+}

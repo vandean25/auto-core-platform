@@ -131,6 +131,18 @@ export const A11Y_SMOKE_ROUTES: A11ySmokeRoute[] = [
         `/api/customers/${CUSTOMER_ID}`,
         createMockCustomerDetailResponse({ id: CUSTOMER_ID, first_name: 'Jane', last_name: 'Smith' }),
       );
+      await mockApi(page, `/api/customers/${CUSTOMER_ID}/communication-preferences`, {
+        customer_id: CUSTOMER_ID,
+        controller_legal_entity_id: 'ctrl-1',
+        controller_legal_entity_name: 'Demo Workshop GmbH',
+        revision: 0,
+        processing_status: 'ACTIVE',
+        preferences: [],
+      });
+      await mockApi(page, `/api/customers/${CUSTOMER_ID}/communication-history`, {
+        data: [],
+        meta: { total: 0, page: 1, pageSize: 25, pageCount: 1 },
+      });
     },
     ready: titleReady('Jane Smith'),
   },

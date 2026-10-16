@@ -18,6 +18,7 @@ import type { Prisma, PrismaClient } from '@prisma/client';
  *   (before tenant context; global abuse counters).
  * - site, siteMembership: AUT-547 demo user provisioning (membership on the landing demo tenant only).
  * - notificationOutbox: AUT-547 outbox writes in the same transaction as demo access grants (tenant id on row).
+ * - customerConsentUnsubscribeToken: public marketing opt-out lookup by token hash before tenant context (AUT-589).
  */
 export const SYSTEM_PRISMA_MODEL_DELEGATES = [
   'tenant',
@@ -38,6 +39,7 @@ export const SYSTEM_PRISMA_MODEL_DELEGATES = [
   'site',
   'siteMembership',
   'notificationOutbox',
+  'customerConsentUnsubscribeToken',
 ] as const;
 
 export type SystemPrismaModelDelegate =
@@ -103,5 +105,6 @@ export function createSystemPrismaTransactionClient(
     site: client.site,
     siteMembership: client.siteMembership,
     notificationOutbox: client.notificationOutbox,
+    customerConsentUnsubscribeToken: client.customerConsentUnsubscribeToken,
   };
 }

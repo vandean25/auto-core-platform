@@ -4,6 +4,7 @@ import type nav from '../../../../../locales/de/nav.json'
 import type errors from '../../../../../locales/de/errors.json'
 import type glossary from '../../../../../locales/de/glossary.json'
 import type enums from '../../../../../locales/de/enums.json'
+import type customers from '../../../../../locales/de/customers.json'
 
 declare module 'i18next' {
   interface CustomTypeOptions {
@@ -14,6 +15,7 @@ declare module 'i18next' {
       errors: typeof errors
       glossary: typeof glossary
       enums: typeof enums
+      customers: typeof customers
     }
   }
 }

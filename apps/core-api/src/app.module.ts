@@ -17,6 +17,7 @@ import { AUTH_THROTTLER_OPTIONS } from './auth/auth-throttling.js';
 import { LANDING_DEMO_THROTTLER_OPTIONS } from './landing-demo-access/landing-demo-access.constants.js';
 import { LandingDemoAccessModule } from './landing-demo-access/landing-demo-access.module.js';
 import { ESTIMATE_APPROVAL_THROTTLER_OPTIONS } from './workshop/public-estimate-approval/public-estimate-approval.constants.js';
+import { CONSENT_UNSUBSCRIBE_THROTTLER_OPTIONS } from './customer-consent/public-customer-consent-unsubscribe.constants.js';
 import { PublicEstimateApprovalHeadersMiddleware } from './workshop/public-estimate-approval/public-estimate-approval.headers.middleware.js';
 import { ApiKeyAuthGuard } from './public-api/api-keys/api-key.guard.js';
 import { PublicApiModule } from './public-api/public-api.module.js';
@@ -25,6 +26,7 @@ import { PurchaseModule } from './purchase/purchase.module.js';
 import { VendorModule } from './vendor/vendor.module.js';
 import { SalesModule } from './sales/sales.module.js';
 import { CustomerModule } from './customer/customer.module.js';
+import { CustomerConsentModule } from './customer-consent/customer-consent.module.js';
 import { FinanceModule } from './finance/finance.module.js';
 import { BrandModule } from './brand/brand.module.js';
 import { SalesOrderModule } from './sales/sales-order/sales-order.module.js';
@@ -77,6 +79,7 @@ import { SettlementModule } from './settlement/settlement.module.js';
     ThrottlerModule.forRoot([
       AUTH_THROTTLER_OPTIONS,
       ESTIMATE_APPROVAL_THROTTLER_OPTIONS,
+      CONSENT_UNSUBSCRIBE_THROTTLER_OPTIONS,
       LANDING_DEMO_THROTTLER_OPTIONS,
     ]),
     DryRunModule,
@@ -84,6 +87,7 @@ import { SettlementModule } from './settlement/settlement.module.js';
     PurchaseModule,
     VendorModule,
     SalesModule,
+    CustomerConsentModule,
     CustomerModule,
     FinanceModule,
     BrandModule,

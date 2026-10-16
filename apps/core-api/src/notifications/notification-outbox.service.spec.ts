@@ -30,7 +30,13 @@ function makeTx(overrides: {
 }
 
 describe('NotificationOutboxService.enqueueInTx()', () => {
-  const service = new NotificationOutboxService();
+  const marketingUnsubscribe = {
+    mintTokenForMarketingMessage: jest.fn(),
+    buildUnsubscribePostUrl: jest.fn(),
+  };
+  const service = new NotificationOutboxService(
+    marketingUnsubscribe as never,
+  );
 
   it('writes one row through the caller transaction with skipDuplicates', async () => {
     const tx = makeTx({ createCount: 1 });

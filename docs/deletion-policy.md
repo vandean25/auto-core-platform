@@ -44,6 +44,10 @@ This document defines when deletion is allowed in Auto Core Platform.
 | McpWriteCommandReceipt | No | Durable MCP write idempotency receipt for AUTO/PROPOSE tools. Unique `(tenant_id, command_id)`. Required `created_at`. Never deleted through ordinary APIs; tenant purge only. Unbounded retention until a later spec defines expiry. |
 | Vendor | Conditional | Allow only when no `PurchaseOrder`, no `PurchaseInvoice`, and no `VehiclePurchase` references exist. |
 | Customer | Conditional | Allow only when no `SalesOrder`, `Invoice`, `WorkshopOrder`, linked `Vehicle`, `VehiclePurchase` (as seller), or `VehicleSale` (as buyer). |
+| CustomerContactPoint | No direct delete | Tenant-scoped contact identities for consent evidence; managed by consent workflows. Removed only by tenant purge or retention after dependencies expire. |
+| CustomerConsent | Retention-bound (AUT-589) | Append-only ledger; no update/delete API. Proof rows carry `retain_until` (withdrawal/unsubscribe + 3 calendar years) and `legal_hold`. Purge only when expired and not on hold. |
+| CustomerCommunicationState | No direct delete | Controller-scoped revision fence for consent mutations; tenant purge only. |
+| CustomerConsentUnsubscribeToken | Retention-bound (AUT-589) | Stores only token SHA-256 for public marketing opt-out. Kept until `retain_until`; no business delete API. |
 | Vehicle | Conditional | Blocked if linked to any `WorkshopOrder`, `SalesOrder`, `Invoice`, `VehiclePurchase`, `VehicleSale`, `VehicleLedgerEntry`, or `LoanerVehicle` fleet entry. |
 | SalesOrder | Draft-only | Allow only in `DRAFT` and only when no linked `Invoice` exists. |
 | SalesOrderItem | No direct delete | Managed by parent `SalesOrder` lifecycle. |

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
+import { CustomerConsentOutboundUnsubscribeService } from '../customer-consent/customer-consent-outbound-unsubscribe.service.js';
 import {
   buildNotificationOutboxRow,
   type EnqueueNotificationInput,
@@ -15,6 +16,10 @@ export interface EnqueuedNotification {
 
 @Injectable()
 export class NotificationOutboxService {
+  constructor(
+    private readonly marketingUnsubscribe: CustomerConsentOutboundUnsubscribeService,
+  ) {}
+
   /**
    * Writes one outbox row inside the caller's transaction. Call it in the same `$transaction` as the
    * state change it announces, so the row exists if and only if that change committed (ADR-0025 §6).
@@ -26,7 +31,8 @@ export class NotificationOutboxService {
     input: EnqueueNotificationInput,
     now: Date = new Date(),
   ): Promise<EnqueuedNotification> {
-    const row = buildNotificationOutboxRow(input, now);
+    const prepared = await this.appendMarketingUnsubscribeLink(input);
+    const row = buildNotificationOutboxRow(prepared, now);
     const result = await tx.notificationOutbox.createMany({
       data: [row],
       skipDuplicates: true,
@@ -48,5 +54,28 @@ export class NotificationOutboxService {
       );
     }
     return { id: existing.id, created: false };
+  }
+
+  private async appendMarketingUnsubscribeLink(
+    input: EnqueueNotificationInput,
+  ): Promise<EnqueueNotificationInput> {
+    if (!input.marketingUnsubscribe || !input.email) {
+      return input;
+    }
+    const token = await this.marketingUnsubscribe.mintTokenForMarketingMessage(
+      input.marketingUnsubscribe,
+    );
+    const origin = process.env.FRONTEND_URL?.trim() || 'http://localhost:5173';
+    const url = this.marketingUnsubscribe.buildUnsubscribePostUrl(
+      origin,
+      token,
+    );
+    return {
+      ...input,
+      email: {
+        ...input.email,
+        text: `${input.email.text}\n\n${url}`,
+      },
+    };
   }
 }

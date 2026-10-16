@@ -87,6 +87,8 @@ async function getCustomerReferenceCounts(
     vehicles,
     vehiclePurchases,
     vehicleSales,
+    contactPoints,
+    consentEvents,
   ] = await Promise.all([
     prisma.salesOrder.count({ where: siteScoped }),
     prisma.invoice.count({ where: tenantScoped }),
@@ -94,6 +96,8 @@ async function getCustomerReferenceCounts(
     prisma.vehicle.count({ where: tenantScoped }),
     prisma.vehiclePurchase.count({ where: siteScoped }),
     prisma.vehicleSale.count({ where: siteScoped }),
+    prisma.customerContactPoint.count({ where: tenantScoped }),
+    prisma.customerConsent.count({ where: tenantScoped }),
   ]);
   return {
     salesOrders,
@@ -102,6 +106,8 @@ async function getCustomerReferenceCounts(
     vehicles,
     vehiclePurchases,
     vehicleSales,
+    contactPoints,
+    consentEvents,
   };
 }
 
@@ -261,10 +267,22 @@ export class CustomerService {
       );
     }
 
+    if (counts.contactPoints > 0 || counts.consentEvents > 0) {
+      throw new BadRequestException(
+        'Customer cannot be deleted while contact preferences or consent proof are retained. Use erasure processing or wait for retention expiry.',
+      );
+    }
+
     const deleteResult = await this.prisma.$transaction(async (tx) => {
       const { clearRegistrationEvidenceForCustomer } =
         await import('../registration-intake/registration-intake-evidence-cleanup.js');
       await clearRegistrationEvidenceForCustomer(tx, tenantId, id);
+      await tx.customerConsentUnsubscribeToken.deleteMany({
+        where: { tenant_id: tenantId, customer_id: id },
+      });
+      await tx.customerCommunicationState.deleteMany({
+        where: { tenant_id: tenantId, customer_id: id },
+      });
       return tx.customer.deleteMany({
         where: { id, tenant_id: tenantId },
       });

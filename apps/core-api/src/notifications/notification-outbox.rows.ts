@@ -11,6 +11,7 @@ import {
   buildEmailColumns,
   type EmailDraft,
 } from './notification-outbox.email-columns.js';
+import type { MarketingUnsubscribeEmailContext } from '../customer-consent/customer-consent-outbound-unsubscribe.service.js';
 
 export type { EmailDraft } from './notification-outbox.email-columns.js';
 
@@ -32,6 +33,8 @@ export interface EnqueueNotificationInput {
   payload?: Prisma.InputJsonObject;
   /** Required for EMAIL rows and forbidden for IN_APP rows. */
   email?: EmailDraft;
+  /** When set, a marketing unsubscribe token is minted and appended to the email body. */
+  marketingUnsubscribe?: MarketingUnsubscribeEmailContext;
 }
 
 /** Event, occurrence, recipient and channel: a repeated write for the same key is a no-op. */

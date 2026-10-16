@@ -20,16 +20,32 @@ describe('CustomerService', () => {
     delete: jest.fn(),
     deleteMany: jest.fn(),
   };
+  const customerConsentUnsubscribeToken = {
+    deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+  };
+  const customerCommunicationState = {
+    deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+  };
   const mockPrisma = {
     registrationDocumentIntake,
     customer,
+    customerConsentUnsubscribeToken,
+    customerCommunicationState,
     $transaction: jest.fn(
       async (
         fn: (tx: {
           registrationDocumentIntake: typeof registrationDocumentIntake;
           customer: typeof customer;
+          customerConsentUnsubscribeToken: typeof customerConsentUnsubscribeToken;
+          customerCommunicationState: typeof customerCommunicationState;
         }) => Promise<unknown>,
-      ) => fn({ registrationDocumentIntake, customer }),
+      ) =>
+        fn({
+          registrationDocumentIntake,
+          customer,
+          customerConsentUnsubscribeToken,
+          customerCommunicationState,
+        }),
     ),
     salesOrder: { count: jest.fn() },
     invoice: { count: jest.fn() },
@@ -37,6 +53,8 @@ describe('CustomerService', () => {
     vehicle: { count: jest.fn() },
     vehiclePurchase: { count: jest.fn() },
     vehicleSale: { count: jest.fn() },
+    customerContactPoint: { count: jest.fn() },
+    customerConsent: { count: jest.fn() },
   };
 
   beforeEach(async () => {
@@ -59,6 +77,8 @@ describe('CustomerService', () => {
 
     service = module.get<CustomerService>(CustomerService);
     jest.clearAllMocks();
+    mockPrisma.customerContactPoint.count.mockResolvedValue(0);
+    mockPrisma.customerConsent.count.mockResolvedValue(0);
   });
 
   it('does not expose identity resolution state from customer detail vehicles', async () => {
@@ -207,6 +227,26 @@ describe('CustomerService', () => {
     mockPrisma.invoice.count.mockResolvedValue(0);
 
     await expect(service.findOne('missing')).rejects.toThrow(NotFoundException);
+  });
+
+  it('deletes communication state rows created by viewing preferences', async () => {
+    mockPrisma.customer.findFirst.mockResolvedValue({ id: 'c-1' });
+    mockPrisma.salesOrder.count.mockResolvedValue(0);
+    mockPrisma.invoice.count.mockResolvedValue(0);
+    mockPrisma.workshopOrder.count.mockResolvedValue(0);
+    mockPrisma.vehicle.count.mockResolvedValue(0);
+    mockPrisma.vehiclePurchase.count.mockResolvedValue(0);
+    mockPrisma.vehicleSale.count.mockResolvedValue(0);
+    mockPrisma.customer.deleteMany.mockResolvedValue({ count: 1 });
+
+    await service.remove('c-1');
+
+    expect(customerCommunicationState.deleteMany).toHaveBeenCalledWith({
+      where: { tenant_id: 'tenant-1', customer_id: 'c-1' },
+    });
+    expect(customerConsentUnsubscribeToken.deleteMany).toHaveBeenCalledWith({
+      where: { tenant_id: 'tenant-1', customer_id: 'c-1' },
+    });
   });
 
   it('deletes customer when no linked business records exist', async () => {
