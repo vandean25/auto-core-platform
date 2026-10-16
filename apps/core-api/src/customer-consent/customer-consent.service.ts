@@ -202,6 +202,19 @@ export class CustomerConsentService {
 
     assertValidCommunicationEventRequest(dto);
 
+    const customer = await this.prisma.customer.findFirst({
+      where: { tenant_id: tenantId, id: customerId },
+    });
+    if (!customer) {
+      throw new NotFoundException('Customer not found.');
+    }
+
+    await this.ensureCommunicationStateRow(
+      tenantId,
+      controllerId,
+      customerId,
+    );
+
     const existing = await this.prisma.customerConsent.findFirst({
       where: {
         tenant_id: tenantId,
@@ -234,13 +247,6 @@ export class CustomerConsentService {
         );
         if (state.revision !== dto.expected_revision) {
           throw new ConflictException('Stale communication state revision.');
-        }
-
-        const customer = await tx.customer.findFirst({
-          where: { tenant_id: tenantId, id: customerId },
-        });
-        if (!customer) {
-          throw new NotFoundException('Customer not found.');
         }
 
         const contactPoint = await this.resolveContactPoint(
@@ -407,6 +413,12 @@ export class CustomerConsentService {
       });
 
       try {
+        await this.ensureCommunicationStateRow(
+          tokenRow.tenant_id,
+          tokenRow.controller_legal_entity_id,
+          tokenRow.customer_id,
+        );
+
         await this.prisma.$transaction(async (tx) => {
           const ledgerEvents = await tx.customerConsent.findMany({
             where: {
@@ -654,33 +666,35 @@ export class CustomerConsentService {
     };
   }
 
+  private async ensureCommunicationStateRow(
+    tenantId: string,
+    controllerId: string,
+    customerId: string,
+  ) {
+    await this.prisma.customerCommunicationState.upsert({
+      where: {
+        tenant_id_controller_legal_entity_id_customer_id: {
+          tenant_id: tenantId,
+          controller_legal_entity_id: controllerId,
+          customer_id: customerId,
+        },
+      },
+      create: {
+        id: randomUUID(),
+        tenant_id: tenantId,
+        controller_legal_entity_id: controllerId,
+        customer_id: customerId,
+      },
+      update: {},
+    });
+  }
+
   private async lockCommunicationState(
     tx: Prisma.TransactionClient,
     tenantId: string,
     controllerId: string,
     customerId: string,
   ) {
-    const existing = await tx.customerCommunicationState.findFirst({
-      where: {
-        tenant_id: tenantId,
-        controller_legal_entity_id: controllerId,
-        customer_id: customerId,
-      },
-      select: { id: true, revision: true, processing_status: true },
-    });
-    if (!existing) {
-      const created = await tx.customerCommunicationState.create({
-        data: {
-          id: randomUUID(),
-          tenant_id: tenantId,
-          controller_legal_entity_id: controllerId,
-          customer_id: customerId,
-        },
-        select: { id: true, revision: true, processing_status: true },
-      });
-      return created;
-    }
-
     // eslint-disable-next-line no-restricted-syntax -- tenant-qualified communication state row lock (FOR UPDATE) for consent ledger serialization.
     const locked = await tx.$queryRaw<
       Array<{
@@ -693,7 +707,8 @@ export class CustomerConsentService {
         SELECT id, revision, processing_status
         FROM customer_communication_states
         WHERE tenant_id = ${tenantId}
-          AND id = ${existing.id}
+          AND controller_legal_entity_id = ${controllerId}
+          AND customer_id = ${customerId}
         FOR UPDATE
       `,
     );
