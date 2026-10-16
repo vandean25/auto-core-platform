@@ -1,5 +1,7 @@
 export const INSPECTOR_EVIDENCE_SCHEMA_VERSION = 'acp-inspector-evidence/1';
 
+export const MAX_REVIEW_FRESHNESS_MS = 30 * 24 * 60 * 60 * 1000;
+
 export type InspectorEvidenceReviewState =
   | 'UNREVIEWED'
   | 'EVIDENCE_REVIEWED'
@@ -49,6 +51,7 @@ export type EvidenceAssessmentRequest = {
   vehicle_class: string | null;
   inspection_time: Date;
   as_of: Date;
+  identity_conflict?: boolean;
 };
 
 export type EvidenceAssessmentResult = {
@@ -61,6 +64,9 @@ export type EvidenceAssessmentResult = {
 };
 
 export type StoredEvidenceRevision = InspectorEvidencePayload & {
+  id: string;
+  predecessor_revision_id: string | null;
+  created_at: Date;
   evidence_review: InspectorEvidenceReviewState;
   document_digest: string;
   reviewed_at: Date | null;

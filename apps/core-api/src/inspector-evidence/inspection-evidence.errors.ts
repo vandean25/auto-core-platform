@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   NotFoundException,
@@ -27,6 +28,10 @@ export function invalidDocumentReference() {
 
 export function reviewRequired() {
   return new ConflictException({ code: 'REVIEW_REQUIRED' });
+}
+
+export function invalidAssessmentTimestamp() {
+  return new BadRequestException({ code: 'INVALID_ASSESSMENT_TIMESTAMP' });
 }
 
 export function sourceConflict() {

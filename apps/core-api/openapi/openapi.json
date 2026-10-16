@@ -32055,6 +32055,12 @@
           "station_ref": {
             "type": "string"
           },
+          "vehicle_classes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "evidence_review": {
             "type": "string"
           },
@@ -32082,6 +32088,7 @@
           "schema_version",
           "source_version",
           "station_ref",
+          "vehicle_classes",
           "evidence_review",
           "version",
           "created_at"

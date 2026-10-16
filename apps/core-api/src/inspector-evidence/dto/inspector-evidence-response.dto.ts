@@ -19,6 +19,9 @@ export class InspectorEvidenceRevisionResponseDto {
   @ApiProperty()
   station_ref!: string;
 
+  @ApiProperty({ type: [String] })
+  vehicle_classes!: string[];
+
   @ApiProperty()
   evidence_review!: string;
 

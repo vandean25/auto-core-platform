@@ -26,10 +26,14 @@ function supportStatusLabel(status: string) {
 
 export function InspectorEvidenceSection({ employeeId }: InspectorEvidenceSectionProps) {
   const listQuery = useInspectorEvidenceList(employeeId, true)
-  const stationRef = listQuery.data?.data[0]?.station_ref ?? ''
+  const latestRevision = listQuery.data?.data[0]
+  const stationRef = latestRevision?.station_ref ?? ''
+  const classes = latestRevision?.vehicle_classes ?? []
+  const vehicleClass = classes.length === 1 ? classes[0] : null
   const assessmentQuery = useInspectorEvidenceAssessment(
     employeeId,
     stationRef,
+    vehicleClass,
     Boolean(stationRef),
   )
 

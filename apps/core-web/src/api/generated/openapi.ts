@@ -9607,6 +9607,7 @@ export interface components {
             schema_version: string;
             source_version: string;
             station_ref: string;
+            vehicle_classes: string[];
             evidence_review: string;
             reviewed_at?: Record<string, never>;
             review_valid_until?: Record<string, never>;

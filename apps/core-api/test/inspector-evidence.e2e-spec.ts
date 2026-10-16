@@ -111,6 +111,17 @@ describe('Inspector evidence (e2e)', () => {
     );
   });
 
+  it('rejects invalid assessment timestamps', async () => {
+    await request(app.getHttpServer())
+      .get(`/api/employees/${employeeId}/inspection-evidence/assessment`)
+      .query({
+        station_ref: SYNTHETIC_STATION_REF,
+        inspection_time: 'not-a-date',
+      })
+      .set('Authorization', `Bearer ${token}`)
+      .expect(400);
+  });
+
   it('rejects review when digest does not match', async () => {
     const create = await request(app.getHttpServer())
       .post(`/api/employees/${employeeId}/inspection-evidence`)

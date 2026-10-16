@@ -11,6 +11,8 @@ import {
 import {
   assessEvidence,
   assertDigestFormat,
+  clampReviewValidUntil,
+  parseAssessmentInstant,
   parseViennaCalendarDate,
   validateEvidencePayload,
 } from './inspection-evidence-canonical.js';
@@ -19,6 +21,7 @@ import {
   employeeNotFound,
   inspectorEvidenceNotFound,
   inspectorEvidenceForbidden,
+  invalidAssessmentTimestamp,
   invalidDocumentReference,
   reviewRequired,
   unsupportedSchemaVersion,
@@ -192,7 +195,10 @@ export class InspectorEvidenceService {
       throw reviewRequired();
     }
 
-    const reviewValidUntil = new Date(dto.review_valid_until);
+    const reviewValidUntil = clampReviewValidUntil(
+      now,
+      new Date(dto.review_valid_until),
+    );
     const nextStatus =
       dto.decision === InspectorEvidenceReviewDecision.ACCEPT
         ? InspectorEvidenceReviewStatus.EVIDENCE_REVIEWED
@@ -307,20 +313,31 @@ export class InspectorEvidenceService {
     const rows = await this.prisma.inspectorEvidenceRevision.findMany({
       where: { tenant_id: tenantId, employee_id: employeeId },
       orderBy: { createdAt: 'desc' },
-      take: MAX_LIST_LIMIT,
     });
 
     const stored = rows.map((row) => this.toStoredRevision(row));
-    const inspectionTime = query.inspection_time
-      ? new Date(query.inspection_time)
-      : now;
-    const asOf = query.as_of ? new Date(query.as_of) : now;
+
+    let inspectionTime: Date;
+    let asOf: Date;
+    try {
+      inspectionTime = parseAssessmentInstant(query.inspection_time, now);
+      asOf = parseAssessmentInstant(query.as_of, now);
+    } catch {
+      throw invalidAssessmentTimestamp();
+    }
+
+    const identityConflict = await this.hasCrossEmployeePersonConflict(
+      tenantId,
+      employeeId,
+      stored,
+    );
 
     const assessment = assessEvidence(stored, {
       station_ref: query.station_ref,
       vehicle_class: query.vehicle_class ?? null,
       inspection_time: inspectionTime,
       as_of: asOf,
+      identity_conflict: identityConflict,
     });
 
     return assessment;
@@ -356,10 +373,46 @@ export class InspectorEvidenceService {
     };
   }
 
+  private async hasCrossEmployeePersonConflict(
+    tenantId: string,
+    employeeId: string,
+    revisions: StoredEvidenceRevision[],
+  ): Promise<boolean> {
+    const refs = new Set<string>();
+    for (const row of revisions) {
+      if (
+        row.evidence_review === 'EVIDENCE_REVIEWED' ||
+        row.evidence_review === 'SOURCE_CONFLICT'
+      ) {
+        refs.add(row.source_person_ref);
+      }
+    }
+    if (refs.size === 0) {
+      return false;
+    }
+    const conflicts = await this.prisma.inspectorEvidenceRevision.count({
+      where: {
+        tenant_id: tenantId,
+        employee_id: { not: employeeId },
+        source_person_ref: { in: [...refs] },
+        evidence_review: {
+          in: [
+            InspectorEvidenceReviewStatus.EVIDENCE_REVIEWED,
+            InspectorEvidenceReviewStatus.SOURCE_CONFLICT,
+          ],
+        },
+      },
+    });
+    return conflicts > 0;
+  }
+
   private toStoredRevision(
     row: Prisma.InspectorEvidenceRevisionGetPayload<Record<string, never>>,
   ): StoredEvidenceRevision {
     return {
+      id: row.id,
+      predecessor_revision_id: row.predecessor_revision_id,
+      created_at: row.createdAt,
       schema_version: row.schema_version,
       source_version: row.source_version,
       issuer: row.issuer,
@@ -416,6 +469,7 @@ export class InspectorEvidenceService {
       schema_version: row.schema_version,
       source_version: row.source_version,
       station_ref: row.station_ref,
+      vehicle_classes: row.vehicle_classes as string[],
       evidence_review: row.evidence_review,
       reviewed_at: row.reviewed_at?.toISOString() ?? null,
       review_valid_until: row.review_valid_until?.toISOString() ?? null,

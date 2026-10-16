@@ -12,8 +12,14 @@ export const inspectorEvidenceKeys = {
   all: ['inspector-evidence'] as const,
   list: (employeeId: string) =>
     [...inspectorEvidenceKeys.all, 'list', employeeId] as const,
-  assessment: (employeeId: string, stationRef: string) =>
-    [...inspectorEvidenceKeys.all, 'assessment', employeeId, stationRef] as const,
+  assessment: (employeeId: string, stationRef: string, vehicleClass?: string) =>
+    [
+      ...inspectorEvidenceKeys.all,
+      'assessment',
+      employeeId,
+      stationRef,
+      vehicleClass ?? '',
+    ] as const,
 }
 
 export function useInspectorEvidenceList(employeeId: string | null, enabled: boolean) {
@@ -40,16 +46,23 @@ export function useInspectorEvidenceList(employeeId: string | null, enabled: boo
 export function useInspectorEvidenceAssessment(
   employeeId: string | null,
   stationRef: string,
+  vehicleClass: string | null,
   enabled: boolean,
 ) {
   return useQuery({
-    queryKey: inspectorEvidenceKeys.assessment(employeeId ?? '', stationRef),
+    queryKey: inspectorEvidenceKeys.assessment(
+      employeeId ?? '',
+      stationRef,
+      vehicleClass ?? undefined,
+    ),
     enabled: Boolean(employeeId) && enabled && Boolean(stationRef),
     queryFn: async () => {
       const params = new URLSearchParams({
         station_ref: stationRef,
-        vehicle_class: 'M1',
       })
+      if (vehicleClass) {
+        params.set('vehicle_class', vehicleClass)
+      }
       const response = await fetchWithAuth(
         `/api/employees/${employeeId}/inspection-evidence/assessment?${params.toString()}`,
       )

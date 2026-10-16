@@ -12,6 +12,7 @@ vi.mock('@/api/inspector-evidence', () => ({
           id: 'rev-1',
           source_version: 'SYNTH-DOC-1',
           station_ref: 'SYNTH-STATION-1',
+          vehicle_classes: ['M1'],
           evidence_review: 'EVIDENCE_REVIEWED',
         },
       ],

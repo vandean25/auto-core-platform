@@ -13,6 +13,20 @@ import {
 
 const SHA256_HEX = /^[a-f0-9]{64}$/;
 
+export function parseAssessmentInstant(
+  value: string | undefined,
+  fallback: Date,
+): Date {
+  if (value === undefined || value === '') {
+    return fallback;
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error('INVALID_ASSESSMENT_TIMESTAMP');
+  }
+  return parsed;
+}
+
 export function parseViennaCalendarDate(value: string): Date {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) {
@@ -38,9 +52,20 @@ export function isInstantInCalendarInterval(
   untilExclusive: Date,
 ): boolean {
   const day = calendarDayUtc(instant);
+  if (Number.isNaN(day)) {
+    return false;
+  }
   return (
     day >= calendarDayUtc(fromInclusive) && day < calendarDayUtc(untilExclusive)
   );
+}
+
+export function clampReviewValidUntil(
+  reviewedAt: Date,
+  requestedValidUntil: Date,
+): Date {
+  const cap = new Date(reviewedAt.getTime() + 30 * 24 * 60 * 60 * 1000);
+  return requestedValidUntil.getTime() > cap.getTime() ? cap : requestedValidUntil;
 }
 
 export function evidencePayloadDigest(payload: InspectorEvidencePayload): string {
@@ -111,11 +136,26 @@ export function assertDigestFormat(digest: string): void {
   }
 }
 
+export function isSupersededRevision(
+  revisionId: string,
+  revisions: StoredEvidenceRevision[],
+): boolean {
+  return revisions.some(
+    (row) => row.predecessor_revision_id === revisionId,
+  );
+}
+
 export function resolveEvidenceReviewState(
   revisions: StoredEvidenceRevision[],
 ): InspectorEvidenceReviewState {
   if (revisions.length === 0) {
     return 'UNREVIEWED';
+  }
+
+  if (
+    revisions.some((row) => row.evidence_review === 'SOURCE_CONFLICT')
+  ) {
+    return 'SOURCE_CONFLICT';
   }
 
   const reviewed = revisions.filter(
@@ -140,23 +180,41 @@ export function resolveEvidenceReviewState(
   return 'EVIDENCE_REVIEWED';
 }
 
-export function pickAssessmentRevision(
+export function hasAmbiguousPersonIdentity(
   revisions: StoredEvidenceRevision[],
-  stationRef: string,
-): StoredEvidenceRevision | null {
-  const stationScoped = revisions.filter((row) => row.station_ref === stationRef);
-  if (stationScoped.length === 0) {
-    return null;
+): boolean {
+  const refs = new Set<string>();
+  for (const row of revisions) {
+    if (
+      row.evidence_review === 'EVIDENCE_REVIEWED' ||
+      row.evidence_review === 'SOURCE_CONFLICT'
+    ) {
+      refs.add(row.source_person_ref);
+    }
   }
-  const reviewed = stationScoped.find(
-    (row) => row.evidence_review === 'EVIDENCE_REVIEWED',
-  );
-  return reviewed ?? stationScoped[0];
+  return refs.size > 1;
+}
+
+function trainingCoversInspection(
+  revision: StoredEvidenceRevision,
+  at: Date,
+): boolean {
+  if (!revision.training_completed_on || !revision.next_training_due_on) {
+    return false;
+  }
+  const completed = parseViennaCalendarDate(revision.training_completed_on);
+  const due = parseViennaCalendarDate(revision.next_training_due_on);
+  const day = calendarDayUtc(at);
+  if (Number.isNaN(day)) {
+    return false;
+  }
+  return day >= calendarDayUtc(completed) && day < calendarDayUtc(due);
 }
 
 export function evaluateTemporalScope(
   revision: StoredEvidenceRevision,
   request: EvidenceAssessmentRequest,
+  at: Date,
 ): EvidenceTemporalScope {
   if (revision.station_ref !== request.station_ref) {
     return 'OUT_OF_SCOPE';
@@ -169,10 +227,9 @@ export function evaluateTemporalScope(
     return 'OUT_OF_SCOPE';
   }
 
-  const at = request.inspection_time;
   if (revision.withdrawal_effective_at) {
     const revokedAt = new Date(revision.withdrawal_effective_at);
-    if (at.getTime() >= revokedAt.getTime()) {
+    if (!Number.isNaN(revokedAt.getTime()) && at.getTime() >= revokedAt.getTime()) {
       return 'REVOKED';
     }
   }
@@ -189,6 +246,34 @@ export function evaluateTemporalScope(
   if (calendarDayUtc(at) < calendarDayUtc(effectiveFrom)) {
     return 'NOT_YET_VALID';
   }
+
+  if (
+    revision.continuation_from &&
+    revision.continuation_until_exclusive
+  ) {
+    const contFrom = parseViennaCalendarDate(revision.continuation_from);
+    const contUntil = parseViennaCalendarDate(
+      revision.continuation_until_exclusive,
+    );
+    if (isInstantInCalendarInterval(at, contFrom, contUntil)) {
+      if (!trainingCoversInspection(revision, at)) {
+        return 'UNKNOWN';
+      }
+      if (revision.assignment_from && revision.assignment_until_exclusive) {
+        const assignFrom = parseViennaCalendarDate(revision.assignment_from);
+        const assignUntil = parseViennaCalendarDate(
+          revision.assignment_until_exclusive,
+        );
+        if (!isInstantInCalendarInterval(at, assignFrom, assignUntil)) {
+          return 'OUT_OF_SCOPE';
+        }
+      } else {
+        return 'UNKNOWN';
+      }
+      return 'CONTINUATION';
+    }
+  }
+
   if (!isInstantInCalendarInterval(at, effectiveFrom, effectiveUntil)) {
     return 'EXPIRED';
   }
@@ -205,32 +290,96 @@ export function evaluateTemporalScope(
     return 'UNKNOWN';
   }
 
-  if (
-    revision.continuation_from &&
-    revision.continuation_until_exclusive
-  ) {
-    const contFrom = parseViennaCalendarDate(revision.continuation_from);
-    const contUntil = parseViennaCalendarDate(
-      revision.continuation_until_exclusive,
-    );
-    if (at >= contFrom && at < contUntil) {
-      return 'CONTINUATION';
-    }
+  if (!trainingCoversInspection(revision, at)) {
+    return 'UNKNOWN';
   }
 
   return 'CURRENT';
 }
 
+const SCOPE_PRECEDENCE: Record<EvidenceTemporalScope, number> = {
+  REVOKED: 7,
+  EXPIRED: 6,
+  OUT_OF_SCOPE: 5,
+  UNKNOWN: 4,
+  NOT_YET_VALID: 3,
+  CONTINUATION: 2,
+  CURRENT: 1,
+};
+
+function mergeTemporalScopes(scopes: EvidenceTemporalScope[]): EvidenceTemporalScope {
+  if (scopes.length === 0) {
+    return 'UNKNOWN';
+  }
+  return scopes.reduce((worst, scope) =>
+    SCOPE_PRECEDENCE[scope] > SCOPE_PRECEDENCE[worst] ? scope : worst,
+  );
+}
+
+function activeReviewedRevisions(
+  revisions: StoredEvidenceRevision[],
+  stationRef: string,
+): StoredEvidenceRevision[] {
+  return revisions
+    .filter(
+      (row) =>
+        row.station_ref === stationRef &&
+        row.evidence_review === 'EVIDENCE_REVIEWED' &&
+        !isSupersededRevision(row.id, revisions),
+    )
+    .sort((a, b) => b.created_at.getTime() - a.created_at.getTime());
+}
+
+export function aggregateTemporalScope(
+  revisions: StoredEvidenceRevision[],
+  request: EvidenceAssessmentRequest,
+  at: Date,
+): EvidenceTemporalScope {
+  const active = activeReviewedRevisions(revisions, request.station_ref);
+  if (active.length === 0) {
+    const anyAtStation = revisions.some(
+      (row) => row.station_ref === request.station_ref,
+    );
+    return anyAtStation ? 'UNKNOWN' : 'OUT_OF_SCOPE';
+  }
+
+  const scopes = active.map((row) =>
+    evaluateTemporalScope(row, request, at),
+  );
+  return mergeTemporalScopes(scopes);
+}
+
+export function pickFreshnessRevision(
+  revisions: StoredEvidenceRevision[],
+  stationRef: string,
+): StoredEvidenceRevision | null {
+  const active = activeReviewedRevisions(revisions, stationRef);
+  return active[0] ?? null;
+}
+
 export function evaluateFreshness(
-  revision: StoredEvidenceRevision,
+  revision: StoredEvidenceRevision | null,
   asOf: Date,
 ): EvidenceFreshness {
-  if (!revision.review_valid_until) {
+  if (!revision?.review_valid_until) {
     return 'STALE';
   }
-  return asOf.getTime() <= revision.review_valid_until.getTime()
+  return asOf.getTime() < revision.review_valid_until.getTime()
     ? 'CURRENT'
     : 'STALE';
+}
+
+export function applyStaleReviewToScope(
+  scope: EvidenceTemporalScope,
+  freshness: EvidenceFreshness,
+): EvidenceTemporalScope {
+  if (freshness !== 'STALE') {
+    return scope;
+  }
+  if (scope === 'EXPIRED' || scope === 'REVOKED') {
+    return scope;
+  }
+  return 'UNKNOWN';
 }
 
 export function deriveQualificationSupportStatus(
@@ -238,15 +387,22 @@ export function deriveQualificationSupportStatus(
   temporalAtInspection: EvidenceTemporalScope,
   temporalAsOf: EvidenceTemporalScope,
   freshness: EvidenceFreshness,
+  identityConflict: boolean,
 ): QualificationSupportStatus {
+  if (identityConflict || evidenceReview === 'SOURCE_CONFLICT') {
+    return 'QUALIFICATION_UNKNOWN';
+  }
   if (evidenceReview !== 'EVIDENCE_REVIEWED') {
     return 'QUALIFICATION_UNKNOWN';
   }
+  if (
+    temporalAtInspection === 'EXPIRED' ||
+    temporalAsOf === 'EXPIRED'
+  ) {
+    return 'QUALIFICATION_EXPIRED';
+  }
   if (freshness === 'STALE') {
     return 'QUALIFICATION_UNKNOWN';
-  }
-  if (temporalAtInspection === 'EXPIRED' || temporalAsOf === 'EXPIRED') {
-    return 'QUALIFICATION_EXPIRED';
   }
   if (
     temporalAtInspection === 'UNKNOWN' ||
@@ -282,44 +438,40 @@ export function assessEvidence(
     };
   }
 
+  const identityConflict =
+    request.identity_conflict === true ||
+    hasAmbiguousPersonIdentity(revisions);
   const evidenceReview = resolveEvidenceReviewState(revisions);
-  const revision = pickAssessmentRevision(revisions, request.station_ref);
 
-  if (!revision) {
-    return {
-      evidence_review: evidenceReview,
-      inspection_time_temporal_scope: 'OUT_OF_SCOPE',
-      as_of_temporal_scope: 'OUT_OF_SCOPE',
-      freshness: 'STALE',
-      qualification_support_status: 'QUALIFICATION_UNKNOWN',
-      registry_adapter: 'NOT_CONFIGURED',
-    };
-  }
+  const rawInspectionScope = aggregateTemporalScope(
+    revisions,
+    request,
+    request.inspection_time,
+  );
+  const rawAsOfScope = aggregateTemporalScope(
+    revisions,
+    request,
+    request.as_of,
+  );
 
-  const inspectionTimeScope = evaluateTemporalScope(revision, {
-    ...request,
-    inspection_time: request.inspection_time,
-  });
-  const asOfScope = evaluateTemporalScope(revision, {
-    ...request,
-    inspection_time: request.as_of,
-  });
-  const freshness = evaluateFreshness(revision, request.as_of);
+  const freshnessRevision = pickFreshnessRevision(
+    revisions,
+    request.station_ref,
+  );
+  const freshness = evaluateFreshness(freshnessRevision, request.as_of);
 
-  let inspectionScope = inspectionTimeScope;
-  let asOfTemporal = asOfScope;
-  if (freshness === 'STALE' && inspectionScope !== 'EXPIRED') {
-    inspectionScope = 'UNKNOWN';
-  }
-  if (freshness === 'STALE' && asOfTemporal !== 'EXPIRED') {
-    asOfTemporal = 'UNKNOWN';
-  }
+  const inspectionScope = applyStaleReviewToScope(
+    rawInspectionScope,
+    freshness,
+  );
+  const asOfTemporal = applyStaleReviewToScope(rawAsOfScope, freshness);
 
   const qualificationSupportStatus = deriveQualificationSupportStatus(
     evidenceReview,
     inspectionScope,
     asOfTemporal,
     freshness,
+    identityConflict,
   );
 
   return {
