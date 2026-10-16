@@ -13,6 +13,23 @@ describe('inspection-measurement-canonical', () => {
     assertForcesWithinDeviceRange(parsed, '0.000', '10.000');
   });
 
+  it('rejects unknown top-level property', () => {
+    const payload = { ...SYNTHETIC_BRAKE_MEASUREMENT, note: 'extra' };
+    expect(() =>
+      parseCanonicalBrakeMeasurementUtf8(JSON.stringify(payload)),
+    ).toThrow();
+  });
+
+  it('rejects measured_at without timezone offset', () => {
+    const payload = {
+      ...SYNTHETIC_BRAKE_MEASUREMENT,
+      measured_at: '2026-10-16T11:15:00',
+    };
+    expect(() =>
+      parseCanonicalBrakeMeasurementUtf8(JSON.stringify(payload)),
+    ).toThrow();
+  });
+
   it('rejects unsupported wheel unit', () => {
     const payload = {
       ...SYNTHETIC_BRAKE_MEASUREMENT,

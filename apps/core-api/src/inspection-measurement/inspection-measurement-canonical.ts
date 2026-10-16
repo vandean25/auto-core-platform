@@ -14,12 +14,40 @@ const MAX_PAYLOAD_BYTES = 256 * 1024;
 const MAX_REF_LENGTH = 128;
 const VIN_LENGTH = 17;
 const FORCE_PATTERN = /^\d+(\.\d{1,3})?$/;
+const MEASURED_AT_OFFSET_PATTERN = /(Z|[+-]\d{2}:\d{2})$/;
 const WHEEL_SLOTS = [
   { axle: 1 as const, side: 'LEFT' as const },
   { axle: 1 as const, side: 'RIGHT' as const },
   { axle: 2 as const, side: 'LEFT' as const },
   { axle: 2 as const, side: 'RIGHT' as const },
 ];
+
+const KNOWN_TOP_LEVEL_KEYS = new Set([
+  'schema_version',
+  'native_schema_version',
+  'profile_digest',
+  'source_system',
+  'source_instance_id',
+  'measurement_id',
+  'revision',
+  'previous_measurement_ref',
+  'device_serial',
+  'device_model',
+  'device_software_version',
+  'vehicle_vin',
+  'workshop_order_ref',
+  'session_ref',
+  'measured_at',
+  'received_at',
+  'finality',
+  'test_kind',
+  'wheels',
+  'device_range',
+  'device_evidence_ref',
+  'native_result_ref',
+  'raw_sha256',
+  'canonical_sha256',
+]);
 
 function assertBoundedString(
   value: unknown,
@@ -56,12 +84,147 @@ function parseWheel(value: unknown): BrakeWheelReading {
   return { axle, side, force, unit: 'kN' };
 }
 
+function skipJsonWhitespace(input: string, index: number): number {
+  while (index < input.length && /\s/.test(input[index])) {
+    index += 1;
+  }
+  return index;
+}
+
+function readJsonString(input: string, startQuote: number): {
+  value: string;
+  end: number;
+} {
+  let i = startQuote + 1;
+  let value = '';
+  while (i < input.length) {
+    const ch = input[i];
+    if (ch === '"') {
+      return { value, end: i + 1 };
+    }
+    if (ch === '\\') {
+      i += 1;
+      if (i >= input.length) {
+        throw invalidMeasurementPayload('malformed JSON string');
+      }
+      value += input[i];
+      i += 1;
+      continue;
+    }
+    value += ch;
+    i += 1;
+  }
+  throw invalidMeasurementPayload('malformed JSON string');
+}
+
+function skipJsonValue(input: string, index: number): number {
+  index = skipJsonWhitespace(input, index);
+  if (index >= input.length) {
+    throw invalidMeasurementPayload('malformed JSON');
+  }
+  const ch = input[index];
+  if (ch === '"') {
+    return readJsonString(input, index).end;
+  }
+  if (ch === '{') {
+    let depth = 0;
+    let i = index;
+    while (i < input.length) {
+      if (input[i] === '{') depth += 1;
+      if (input[i] === '}') {
+        depth -= 1;
+        if (depth === 0) {
+          return i + 1;
+        }
+      }
+      if (input[i] === '"') {
+        i = readJsonString(input, i).end;
+        continue;
+      }
+      i += 1;
+    }
+    throw invalidMeasurementPayload('malformed JSON object');
+  }
+  if (ch === '[') {
+    let depth = 0;
+    let i = index;
+    while (i < input.length) {
+      if (input[i] === '[') depth += 1;
+      if (input[i] === ']') {
+        depth -= 1;
+        if (depth === 0) {
+          return i + 1;
+        }
+      }
+      if (input[i] === '"') {
+        i = readJsonString(input, i).end;
+        continue;
+      }
+      i += 1;
+    }
+    throw invalidMeasurementPayload('malformed JSON array');
+  }
+  if (ch === 'n' && input.startsWith('null', index)) {
+    return index + 4;
+  }
+  if (ch === 't' && input.startsWith('true', index)) {
+    return index + 4;
+  }
+  if (ch === 'f' && input.startsWith('false', index)) {
+    return index + 5;
+  }
+  let i = index;
+  while (i < input.length && !',}]'.includes(input[i])) {
+    i += 1;
+  }
+  return i;
+}
+
+function assertUniqueTopLevelJsonKeys(utf8: string): void {
+  const trimmed = utf8.trim();
+  if (!trimmed.startsWith('{')) {
+    throw invalidMeasurementPayload('expected object');
+  }
+  const seen = new Set<string>();
+  let i = skipJsonWhitespace(trimmed, 1);
+  while (i < trimmed.length) {
+    i = skipJsonWhitespace(trimmed, i);
+    if (trimmed[i] === '}') {
+      return;
+    }
+    if (trimmed[i] !== '"') {
+      throw invalidMeasurementPayload('malformed JSON');
+    }
+    const { value: key, end } = readJsonString(trimmed, i);
+    i = end;
+    if (seen.has(key)) {
+      throw invalidMeasurementPayload('duplicate JSON keys');
+    }
+    seen.add(key);
+    i = skipJsonWhitespace(trimmed, i);
+    if (trimmed[i] !== ':') {
+      throw invalidMeasurementPayload('malformed JSON');
+    }
+    i = skipJsonValue(trimmed, i + 1);
+    i = skipJsonWhitespace(trimmed, i);
+    if (trimmed[i] === ',') {
+      i += 1;
+      continue;
+    }
+    if (trimmed[i] === '}') {
+      return;
+    }
+    throw invalidMeasurementPayload('malformed JSON');
+  }
+}
+
 export function parseCanonicalBrakeMeasurementUtf8(
   utf8: string,
 ): CanonicalBrakeMeasurement {
   if (Buffer.byteLength(utf8, 'utf8') > MAX_PAYLOAD_BYTES) {
     throw invalidMeasurementPayload('payload too large');
   }
+  assertUniqueTopLevelJsonKeys(utf8);
   let parsed: unknown;
   try {
     parsed = JSON.parse(utf8);
@@ -72,12 +235,8 @@ export function parseCanonicalBrakeMeasurementUtf8(
     throw invalidMeasurementPayload('expected object');
   }
   const body = parsed as Record<string, unknown>;
-  const keys = Object.keys(body);
-  if (keys.some((key, index) => keys.indexOf(key) !== index)) {
-    throw invalidMeasurementPayload('duplicate JSON keys');
-  }
-  for (const key of keys) {
-    if (!/^[a-z0-9_]+$/.test(key)) {
+  for (const key of Object.keys(body)) {
+    if (!KNOWN_TOP_LEVEL_KEYS.has(key)) {
       throw invalidMeasurementPayload('unknown property');
     }
   }
@@ -164,6 +323,9 @@ export function parseCanonicalBrakeMeasurementUtf8(
   }
 
   const measuredAt = assertBoundedString(body.measured_at, 'measured_at', 40);
+  if (!MEASURED_AT_OFFSET_PATTERN.test(measuredAt.trim())) {
+    throw invalidMeasurementPayload('measured_at must include timezone');
+  }
   if (Number.isNaN(Date.parse(measuredAt))) {
     throw invalidMeasurementPayload('measured_at is invalid');
   }
@@ -256,4 +418,18 @@ export function assertForcesWithinDeviceRange(
 
 export function measuredAtInstant(measuredAt: string): Date {
   return new Date(measuredAt);
+}
+
+export function assertMeasuredAtNotFuture(
+  measuredAt: string,
+  now: Date,
+  toleranceMs: number,
+): void {
+  const instant = measuredAtInstant(measuredAt);
+  if (Number.isNaN(instant.getTime())) {
+    throw invalidMeasurementPayload('measured_at is invalid');
+  }
+  if (instant.getTime() > now.getTime() + toleranceMs) {
+    throw invalidMeasurementPayload('measured_at is in the future');
+  }
 }

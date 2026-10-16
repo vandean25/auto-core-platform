@@ -13,7 +13,11 @@ const CODE_MESSAGES: Record<string, string> = {
 
 export function describeMeasurementError(error: unknown): string {
   const body = getErrorBody(error)
-  const code = body?.code
+  const code =
+    body?.code ??
+    (error instanceof Error && CODE_MESSAGES[error.message]
+      ? error.message
+      : undefined)
   if (code && CODE_MESSAGES[code]) {
     return CODE_MESSAGES[code]
   }

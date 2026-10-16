@@ -77,8 +77,36 @@ export class AppliedMeasurementSummaryDto {
   @ApiProperty()
   semantic_digest!: string;
 
+  @ApiPropertyOptional({ type: String, nullable: true })
+  device_serial!: string | null;
+
   @ApiProperty({ type: [BrakeMeasurementWheelResponseDto] })
   wheels!: BrakeMeasurementWheelResponseDto[];
+}
+
+export class InspectionDeviceSourceListItemDto {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  source_instance_id!: string;
+
+  @ApiProperty()
+  device_serial!: string;
+
+  @ApiProperty()
+  device_model!: string;
+
+  @ApiProperty()
+  profile_id!: string;
+
+  @ApiProperty()
+  binding_revision!: number;
+}
+
+export class InspectionDeviceSourceListResponseDto {
+  @ApiProperty({ type: [InspectionDeviceSourceListItemDto] })
+  data!: InspectionDeviceSourceListItemDto[];
 }
 
 export class ApplyMeasurementImportResponseDto {

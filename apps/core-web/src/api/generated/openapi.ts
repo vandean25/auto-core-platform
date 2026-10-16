@@ -7668,6 +7668,17 @@ export interface components {
             provenance_snapshot: components["schemas"]["InspectionFindingProvenanceSnapshotDto"];
             human_finding_label: string | null;
         };
+        InspectionDeviceSourceListItemDto: {
+            id: string;
+            source_instance_id: string;
+            device_serial: string;
+            device_model: string;
+            profile_id: string;
+            binding_revision: number;
+        };
+        InspectionDeviceSourceListResponseDto: {
+            data: components["schemas"]["InspectionDeviceSourceListItemDto"][];
+        };
         PreviewMeasurementImportDto: {
             device_source_id: string;
             native_measurement_reference: string;
@@ -7707,6 +7718,7 @@ export interface components {
             revision: string;
             measured_at: string;
             semantic_digest: string;
+            device_serial?: string | null;
             wheels: components["schemas"]["BrakeMeasurementWheelResponseDto"][];
         };
         ApplyMeasurementImportResponseDto: {
@@ -15026,7 +15038,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["InspectionDeviceSourceListResponseDto"];
+                };
             };
         };
     };
@@ -15045,7 +15059,7 @@ export interface operations {
             };
         };
         responses: {
-            200: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };

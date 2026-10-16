@@ -14,6 +14,7 @@ import {
 } from './inspection-measurement.authorization.js';
 import {
   assertForcesWithinDeviceRange,
+  assertMeasuredAtNotFuture,
   measuredAtInstant,
   parseCanonicalBrakeMeasurementUtf8,
 } from './inspection-measurement-canonical.js';
@@ -24,10 +25,14 @@ import {
   measurementImportNotFound,
   measurementNotConfigured,
   reviewRequired,
+  unsupportedSchemaVersion,
   vehicleIdentityMismatch,
   workshopOrderNotFound,
 } from './inspection-measurement.errors.js';
-import { InspectionMeasurementApplyConflictSignal } from './inspection-measurement-apply.signals.js';
+import {
+  InspectionMeasurementApplyConflictSignal,
+  InspectionMeasurementIdentityRaceSignal,
+} from './inspection-measurement-apply.signals.js';
 import {
   previewFingerprint,
   semanticDigestForMeasurement,
@@ -401,49 +406,18 @@ export class InspectionMeasurementService {
             error instanceof Prisma.PrismaClientKnownRequestError &&
             error.code === 'P2002'
           ) {
-            const raced = await tx.inspectionMeasurementIdentity.findFirst({
-              where: identityKey,
+            throw new InspectionMeasurementIdentityRaceSignal({
+              tenantId,
+              siteId,
+              importId,
+              actorUserId: user.id,
+              orderId: order.id,
+              vehicleId: order.vehicle_id,
+              deviceSourceId: importRow.device_source_id,
+              identityKey,
+              semanticDigest: resolved.semanticDigest,
+              importVersion: dto.version,
             });
-            if (!raced) {
-              throw error;
-            }
-            if (raced.semantic_digest !== resolved.semanticDigest) {
-              throw new InspectionMeasurementApplyConflictSignal({
-                tenantId,
-                siteId,
-                importId,
-                actorUserId: user.id,
-                previousState: importRow.state,
-                semanticDigest: resolved.semanticDigest,
-                conflictingDigest: raced.semantic_digest,
-                reason: 'MEASUREMENT_CONFLICT',
-              });
-            }
-            const racedMeasurement = await tx.inspectionMeasurement.findFirst({
-              where: {
-                tenant_id: tenantId,
-                measurement_identity_id: raced.id,
-              },
-            });
-            if (!racedMeasurement) {
-              throw reviewRequired();
-            }
-            await tx.inspectionMeasurementImport.updateMany({
-              where: {
-                id: importId,
-                tenant_id: tenantId,
-                version: dto.version,
-              },
-              data: {
-                state: 'APPLIED',
-                applied_measurement_id: racedMeasurement.id,
-                measurement_identity_id: raced.id,
-                reviewed_by_user_id: user.id,
-                reviewed_at: now,
-                version: { increment: 1 },
-              },
-            });
-            return this.mapApplyResponse(racedMeasurement, true);
           }
           throw error;
         }
@@ -475,6 +449,9 @@ export class InspectionMeasurementService {
         return this.mapApplyResponse(measurement, false);
       });
     } catch (error: unknown) {
+      if (error instanceof InspectionMeasurementIdentityRaceSignal) {
+        return await this.reconcileApplyIdentityRace(error.params, now);
+      }
       if (error instanceof InspectionMeasurementApplyConflictSignal) {
         await this.persistApplyConflict(error.params);
         if (error.params.reason === 'MEASUREMENT_CONFLICT') {
@@ -544,6 +521,9 @@ export class InspectionMeasurementService {
       appliedIds.length > 0
         ? await this.prisma.inspectionMeasurement.findMany({
             where: { tenant_id: tenantId, id: { in: appliedIds } },
+            include: {
+              deviceSource: { select: { device_serial: true } },
+            },
           })
         : [];
     const appliedById = new Map(appliedRows.map((row) => [row.id, row]));
@@ -592,7 +572,7 @@ export class InspectionMeasurementService {
       id: string;
       profile_digest: string;
       profile_id: string;
-      native_schema_version?: string;
+      profile_version: string;
       device_serial: string;
       source_instance_id: string;
       binding_revision: number;
@@ -601,6 +581,19 @@ export class InspectionMeasurementService {
     },
     now: Date,
   ): Promise<ResolvedPreview> {
+    parseCanonicalBrakeMeasurementUtf8(originalUtf8);
+
+    if (measurement.native_schema_version !== deviceSource.profile_version) {
+      throw unsupportedSchemaVersion();
+    }
+
+    if (
+      deviceSource.profile_id !== 'TEST_ONLY' &&
+      measurement.native_schema_version.startsWith('TEST_ONLY')
+    ) {
+      throw measurementNotConfigured();
+    }
+
     if (
       measurement.profile_digest &&
       measurement.profile_digest !== deviceSource.profile_digest
@@ -628,10 +621,12 @@ export class InspectionMeasurementService {
       deviceSource.range_max.toFixed(3),
     );
 
+    assertMeasuredAtNotFuture(
+      measurement.measured_at,
+      now,
+      FUTURE_TOLERANCE_MS,
+    );
     const measuredAt = measuredAtInstant(measurement.measured_at);
-    if (measuredAt.getTime() > now.getTime() + FUTURE_TOLERANCE_MS) {
-      throw vehicleIdentityMismatch();
-    }
 
     const semanticDigest = semanticDigestForMeasurement(measurement);
     const fingerprint = previewFingerprint(
@@ -672,15 +667,6 @@ export class InspectionMeasurementService {
       quarantineReason = 'PARTIAL_FINALITY';
       errorCode = 'RESULT_UNCONFIRMED';
     }
-
-    if (
-      deviceSource.profile_id !== 'TEST_ONLY' &&
-      measurement.native_schema_version.startsWith('TEST_ONLY')
-    ) {
-      throw measurementNotConfigured();
-    }
-
-    parseCanonicalBrakeMeasurementUtf8(originalUtf8);
 
     return {
       measurement,
@@ -759,7 +745,9 @@ export class InspectionMeasurementService {
       version: number;
       createdAt: Date;
     },
-    appliedMeasurement?: InspectionMeasurement,
+    appliedMeasurement?: InspectionMeasurement & {
+      deviceSource?: { device_serial: string };
+    },
   ) {
     return {
       id: row.id,
@@ -778,6 +766,8 @@ export class InspectionMeasurementService {
             revision: appliedMeasurement.revision,
             measured_at: appliedMeasurement.measured_at.toISOString(),
             semantic_digest: appliedMeasurement.semantic_digest,
+            device_serial:
+              appliedMeasurement.deviceSource?.device_serial ?? null,
             wheels: appliedMeasurement.wheels_json as Array<{
               axle: number;
               side: string;
@@ -787,6 +777,63 @@ export class InspectionMeasurementService {
           }
         : null,
     };
+  }
+
+  private async reconcileApplyIdentityRace(
+    params: InspectionMeasurementIdentityRaceSignal['params'],
+    now: Date,
+  ) {
+    const existing =
+      await this.prisma.inspectionMeasurementIdentity.findFirst({
+        where: params.identityKey,
+      });
+    if (!existing) {
+      throw reviewRequired();
+    }
+    if (existing.semantic_digest !== params.semanticDigest) {
+      await this.persistApplyConflict({
+        tenantId: params.tenantId,
+        siteId: params.siteId,
+        importId: params.importId,
+        actorUserId: params.actorUserId,
+        previousState: 'READY_FOR_REVIEW',
+        semanticDigest: params.semanticDigest,
+        conflictingDigest: existing.semantic_digest,
+        reason: 'MEASUREMENT_CONFLICT',
+      });
+      throw measurementConflict();
+    }
+
+    const measurement = await this.prisma.inspectionMeasurement.findFirst({
+      where: {
+        tenant_id: params.tenantId,
+        measurement_identity_id: existing.id,
+      },
+    });
+    if (!measurement) {
+      throw reviewRequired();
+    }
+
+    const updated = await this.prisma.inspectionMeasurementImport.updateMany({
+      where: {
+        id: params.importId,
+        tenant_id: params.tenantId,
+        version: params.importVersion,
+      },
+      data: {
+        state: 'APPLIED',
+        applied_measurement_id: measurement.id,
+        measurement_identity_id: existing.id,
+        reviewed_by_user_id: params.actorUserId,
+        reviewed_at: now,
+        version: { increment: 1 },
+      },
+    });
+    if (updated.count === 0) {
+      throw reviewRequired();
+    }
+
+    return this.mapApplyResponse(measurement, true);
   }
 
   private async persistApplyConflict(params: {

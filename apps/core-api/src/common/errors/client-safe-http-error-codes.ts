@@ -90,6 +90,16 @@ export const CLIENT_SAFE_HTTP_ERROR_CODES = new Set<string>([
   'FISCAL_RECEIPT_ENV_MISMATCH',
   // AUT-548 demo magic-link grant on GET /api/auth/me for DEMO memberships.
   'LANDING_DEMO_SIGN_IN_GRANT_INVALID',
+  // AUT-592 §57a C3 brake measurement import (pickerl device contracts).
+  'NOT_CONFIGURED',
+  'UNSUPPORTED_SCHEMA_VERSION',
+  'UNSUPPORTED_UNIT',
+  'VEHICLE_IDENTITY_MISMATCH',
+  'DEVICE_BINDING_MISMATCH',
+  'IMPLAUSIBLE_MEASUREMENT',
+  'MEASUREMENT_CONFLICT',
+  'REVIEW_REQUIRED',
+  'INVALID_MEASUREMENT_PAYLOAD',
 ]);
 
 /**

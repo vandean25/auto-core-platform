@@ -9,6 +9,7 @@ import { describeMeasurementError } from '@/api/measurement-errors'
 import {
   MEASUREMENT_IMPORT_STATE_LABELS,
   MEASUREMENT_QUARANTINE_LABELS,
+  MEASUREMENT_WHEEL_SIDE_LABELS,
 } from '@/api/measurement-labels'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -31,7 +32,8 @@ type WorkshopOrderMeasurementsSectionProps = {
 export function WorkshopOrderMeasurementsSection({
   orderId,
 }: WorkshopOrderMeasurementsSectionProps) {
-  const measurementsQuery = useWorkshopMeasurements(orderId)
+  const [page, setPage] = useState(1)
+  const measurementsQuery = useWorkshopMeasurements(orderId, page)
   const deviceSourcesQuery = useInspectionDeviceSources()
   const previewMutation = usePreviewWorkshopMeasurement(orderId)
   const applyMutation = useApplyWorkshopMeasurement(orderId)
@@ -45,6 +47,8 @@ export function WorkshopOrderMeasurementsSection({
 
   const deviceSources = deviceSourcesQuery.data?.data ?? []
   const selectedDeviceId = deviceSourceId || deviceSources[0]?.id || ''
+  const meta = measurementsQuery.data?.meta
+  const totalPages = meta?.totalPages ?? 1
 
   const resetDialog = () => {
     setPreview(null)
@@ -82,27 +86,73 @@ export function WorkshopOrderMeasurementsSection({
             {(measurementsQuery.data?.data ?? []).map((row) => (
               <li
                 key={row.id}
-                className='flex flex-wrap items-center gap-2 rounded-md border p-2'
+                className='space-y-1 rounded-md border p-2'
               >
-                <StatusBadge
-                  status={row.state}
-                  label={
-                    MEASUREMENT_IMPORT_STATE_LABELS[row.state] ?? row.state
-                  }
-                />
-                <span className='min-w-0 break-all text-muted-foreground'>
-                  {row.native_measurement_reference}
-                </span>
-                {row.quarantine_reason ? (
-                  <span className='text-amber-700'>
-                    {MEASUREMENT_QUARANTINE_LABELS[row.quarantine_reason] ??
-                      row.quarantine_reason}
+                <div className='flex flex-wrap items-center gap-2'>
+                  <StatusBadge
+                    status={row.state}
+                    label={
+                      MEASUREMENT_IMPORT_STATE_LABELS[row.state] ?? row.state
+                    }
+                  />
+                  <span className='min-w-0 break-all text-muted-foreground'>
+                    {row.native_measurement_reference}
                   </span>
+                  {row.quarantine_reason ? (
+                    <span className='text-amber-700'>
+                      {MEASUREMENT_QUARANTINE_LABELS[row.quarantine_reason] ??
+                        row.quarantine_reason}
+                    </span>
+                  ) : null}
+                </div>
+                {row.applied_measurement ? (
+                  <div className='text-muted-foreground'>
+                    {row.applied_measurement.device_serial ? (
+                      <p>Gerät: {row.applied_measurement.device_serial}</p>
+                    ) : null}
+                    <ul className='grid grid-cols-2 gap-1'>
+                      {row.applied_measurement.wheels.map((wheel) => (
+                        <li key={`${row.id}-${wheel.axle}-${wheel.side}`}>
+                          Achse {wheel.axle}{' '}
+                          {MEASUREMENT_WHEEL_SIDE_LABELS[wheel.side] ??
+                            wheel.side}
+                          : {wheel.force} {wheel.unit}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 ) : null}
               </li>
             ))}
           </ul>
         )}
+        {totalPages > 1 ? (
+          <div className='flex items-center justify-end gap-2 pt-1'>
+            <Button
+              type='button'
+              variant='outline'
+              size='sm'
+              disabled={page <= 1}
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+            >
+              Zurück
+            </Button>
+            <span className='text-xs text-muted-foreground'>
+              Seite {page} / {totalPages}
+            </span>
+            <Button
+              type='button'
+              variant='outline'
+              size='sm'
+              disabled={page >= totalPages}
+              onClick={() =>
+                setPage((current) => Math.min(totalPages, current + 1))
+              }
+            >
+              Weiter
+            </Button>
+          </div>
+        ) : null}
       </CardContent>
 
       <Dialog
@@ -163,6 +213,9 @@ export function WorkshopOrderMeasurementsSection({
                   }
                 />
               </div>
+              <p className='text-muted-foreground'>
+                Gerät: {preview.reviewed_fields.device_serial}
+              </p>
               {preview.reviewed_fields.quarantine_reason ? (
                 <p className='text-amber-700'>
                   {MEASUREMENT_QUARANTINE_LABELS[
@@ -173,7 +226,9 @@ export function WorkshopOrderMeasurementsSection({
               <ul className='grid grid-cols-2 gap-1'>
                 {preview.reviewed_fields.wheels.map((wheel) => (
                   <li key={`${wheel.axle}-${wheel.side}`}>
-                    Achse {wheel.axle} {wheel.side}: {wheel.force} {wheel.unit}
+                    Achse {wheel.axle}{' '}
+                    {MEASUREMENT_WHEEL_SIDE_LABELS[wheel.side] ?? wheel.side}:{' '}
+                    {wheel.force} {wheel.unit}
                   </li>
                 ))}
               </ul>

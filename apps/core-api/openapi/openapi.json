@@ -6812,7 +6812,14 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InspectionDeviceSourceListResponseDto"
+                }
+              }
+            }
           }
         },
         "summary": "List active brake device sources for site",
@@ -6845,7 +6852,7 @@
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "description": "",
             "content": {
               "application/json": {
@@ -25621,6 +25628,51 @@
           "human_finding_label"
         ]
       },
+      "InspectionDeviceSourceListItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "source_instance_id": {
+            "type": "string"
+          },
+          "device_serial": {
+            "type": "string"
+          },
+          "device_model": {
+            "type": "string"
+          },
+          "profile_id": {
+            "type": "string"
+          },
+          "binding_revision": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "source_instance_id",
+          "device_serial",
+          "device_model",
+          "profile_id",
+          "binding_revision"
+        ]
+      },
+      "InspectionDeviceSourceListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InspectionDeviceSourceListItemDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
       "PreviewMeasurementImportDto": {
         "type": "object",
         "properties": {
@@ -25768,6 +25820,10 @@
           },
           "semantic_digest": {
             "type": "string"
+          },
+          "device_serial": {
+            "type": "string",
+            "nullable": true
           },
           "wheels": {
             "type": "array",

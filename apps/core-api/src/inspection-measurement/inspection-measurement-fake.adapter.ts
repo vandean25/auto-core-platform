@@ -17,14 +17,14 @@ export class FakeBrakeMeasurementReadAdapter implements BrakeMeasurementReadPort
     if (!raw) {
       return Promise.resolve({ status: 'NOT_FOUND' as const });
     }
-    const canonical = {
-      ...raw,
-      source_instance_id: connection.sourceInstanceId,
-      device_serial: connection.deviceSerial,
-      profile_digest: connection.profileDigest,
-    };
-    const originalUtf8 = JSON.stringify(canonical);
-    parseCanonicalBrakeMeasurementUtf8(originalUtf8);
+    const canonical = { ...raw };
+    const originalUtf8 =
+      nativeReference === 'SYNTH-MALFORMED-JSON'
+        ? '{not-json'
+        : JSON.stringify(canonical);
+    if (nativeReference !== 'SYNTH-MALFORMED-JSON') {
+      parseCanonicalBrakeMeasurementUtf8(originalUtf8);
+    }
     return Promise.resolve({
       status: 'RESULT' as const,
       canonical,

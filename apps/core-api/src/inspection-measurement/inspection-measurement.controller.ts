@@ -9,11 +9,17 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { ApiPaginatedResponse } from '../common/dto/paginated-response.dto.js';
 import { ApplyMeasurementImportDto } from './dto/apply-measurement-import.dto.js';
 import {
   ApplyMeasurementImportResponseDto,
+  InspectionDeviceSourceListResponseDto,
   MeasurementImportListItemDto,
   MeasurementImportPreviewResponseDto,
 } from './dto/measurement-import-response.dto.js';
@@ -30,6 +36,7 @@ export class InspectionMeasurementController {
 
   @Get('inspection-device-sources')
   @ApiOperation({ summary: 'List active brake device sources for site' })
+  @ApiOkResponse({ type: InspectionDeviceSourceListResponseDto })
   listDeviceSources() {
     return this.measurementService.listActiveDeviceSources();
   }
@@ -39,7 +46,7 @@ export class InspectionMeasurementController {
   @ApiOperation({
     summary: 'Preview brake measurement import for workshop order',
   })
-  @ApiOkResponse({ type: MeasurementImportPreviewResponseDto })
+  @ApiCreatedResponse({ type: MeasurementImportPreviewResponseDto })
   preview(
     @Param('orderId') orderId: string,
     @Body() dto: PreviewMeasurementImportDto,

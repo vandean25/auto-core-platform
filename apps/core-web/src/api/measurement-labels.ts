@@ -11,3 +11,8 @@ export const MEASUREMENT_QUARANTINE_LABELS: Record<string, string> = {
   UNCONFIRMED_DEVICE: 'Gerätenachweis unbestätigt oder abgelaufen',
   PARTIAL_FINALITY: 'Ergebnis ist nicht endgültig',
 }
+
+export const MEASUREMENT_WHEEL_SIDE_LABELS: Record<string, string> = {
+  LEFT: 'links',
+  RIGHT: 'rechts',
+}

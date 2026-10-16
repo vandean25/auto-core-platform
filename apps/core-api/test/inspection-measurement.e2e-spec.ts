@@ -3,7 +3,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { createHash } from 'node:crypto';
 import { AuthService } from '../src/auth/auth.service.js';
-import { createGlobalValidationPipe } from '../src/common/index.js';
+import {
+  createGlobalValidationPipe,
+  GlobalExceptionFilter,
+} from '../src/common/index.js';
 import { AppModule } from '../src/app.module.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
@@ -64,6 +67,7 @@ describe('Inspection measurement (e2e)', () => {
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
     app.useGlobalPipes(createGlobalValidationPipe());
+    app.useGlobalFilters(new GlobalExceptionFilter());
     await app.init();
 
     basePrisma = app.get(PrismaService);
@@ -270,6 +274,166 @@ describe('Inspection measurement (e2e)', () => {
         effective_until_exclusive: new Date('2027-01-01T00:00:00.000Z'),
       },
     });
+  });
+
+  it('rejects wrong device serial with DEVICE_BINDING_MISMATCH', async () => {
+    registerSyntheticMeasurement('SYNTH-WRONG-DEVICE', {
+      ...SYNTHETIC_BRAKE_MEASUREMENT,
+      measurement_id: 'SYNTH-MEASUREMENT-WRONG-DEVICE',
+      device_serial: 'SYNTH-OTHER-DEVICE',
+      workshop_order_ref: orderNumber,
+    });
+    const res = await preview('SYNTH-WRONG-DEVICE').expect(422);
+    expect(res.body.code).toBe('DEVICE_BINDING_MISMATCH');
+    const count = await prisma.inspectionMeasurement.count({
+      where: { tenant_id: tenantId },
+    });
+    expect(count).toBe(0);
+  });
+
+  it('rejects unknown native schema version with UNSUPPORTED_SCHEMA_VERSION', async () => {
+    registerSyntheticMeasurement('SYNTH-UNKNOWN-NATIVE', {
+      ...SYNTHETIC_BRAKE_MEASUREMENT,
+      measurement_id: 'SYNTH-MEASUREMENT-UNKNOWN-NATIVE',
+      native_schema_version: 'UNKNOWN/999',
+      workshop_order_ref: orderNumber,
+    });
+    const res = await preview('SYNTH-UNKNOWN-NATIVE').expect(422);
+    expect(res.body.code).toBe('UNSUPPORTED_SCHEMA_VERSION');
+  });
+
+  it('rejects implausible forces with IMPLAUSIBLE_MEASUREMENT', async () => {
+    registerSyntheticMeasurement('SYNTH-OUT-OF-RANGE', {
+      ...SYNTHETIC_BRAKE_MEASUREMENT,
+      measurement_id: 'SYNTH-MEASUREMENT-OUT-OF-RANGE',
+      workshop_order_ref: orderNumber,
+      wheels: [
+        { axle: 1, side: 'LEFT', force: '99.000', unit: 'kN' },
+        ...SYNTHETIC_BRAKE_MEASUREMENT.wheels.slice(1),
+      ],
+    });
+    const res = await preview('SYNTH-OUT-OF-RANGE').expect(422);
+    expect(res.body.code).toBe('IMPLAUSIBLE_MEASUREMENT');
+  });
+
+  it('rejects malformed JSON with INVALID_MEASUREMENT_PAYLOAD', async () => {
+    registerSyntheticMeasurement('SYNTH-MALFORMED-JSON', {
+      ...SYNTHETIC_BRAKE_MEASUREMENT,
+      measurement_id: 'SYNTH-MEASUREMENT-MALFORMED',
+      workshop_order_ref: orderNumber,
+    });
+    const res = await preview('SYNTH-MALFORMED-JSON').expect(400);
+    expect(res.body.code).toBe('INVALID_MEASUREMENT_PAYLOAD');
+  });
+
+  it('returns 404 for foreign workshop order', async () => {
+    await request(app.getHttpServer())
+      .post(
+        `/api/workshop-orders/00000000-0000-4000-8000-000000000099/measurements/preview`,
+      )
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        device_source_id: deviceSourceId,
+        native_measurement_reference: 'SYNTH-NATIVE-RESULT-1',
+      })
+      .expect(404);
+  });
+
+  it('returns 403 for API key principal on preview', async () => {
+    const keyRes = await request(app.getHttpServer())
+      .post('/api/tenant-api-keys')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ name: 'measurement-e2e', scopes: ['customers:read'] })
+      .expect(201);
+    const apiKeyToken = keyRes.body.token as string;
+    await request(app.getHttpServer())
+      .post(`/api/workshop-orders/${orderId}/measurements/preview`)
+      .set('Authorization', `Bearer ${apiKeyToken}`)
+      .send({
+        device_source_id: deviceSourceId,
+        native_measurement_reference: 'SYNTH-NATIVE-RESULT-1',
+      })
+      .expect(403);
+  });
+
+  it('returns NOT_CONFIGURED for non-TEST_ONLY device profile', async () => {
+    const prodSource = await prisma.inspectionDeviceSource.create({
+      data: {
+        tenant_id: tenantId,
+        site_id: siteId,
+        source_system: 'WORKSHOP_NET',
+        source_instance_id: 'SYNTH-NETWORK-PROD',
+        device_serial: 'SYNTH-BRAKE-SERIAL-PROD',
+        device_model: 'SYNTH-BRAKE-MODEL',
+        profile_id: 'VENDOR_X',
+        profile_version: 'VENDOR_X/1',
+        profile_digest: createHash('sha256').update('VENDOR_X').digest('hex'),
+        binding_revision: 1,
+        range_min: '0',
+        range_max: '10',
+        range_unit: 'kN',
+        read_enabled: true,
+        is_active: true,
+      },
+    });
+    const res = await request(app.getHttpServer())
+      .post(`/api/workshop-orders/${orderId}/measurements/preview`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        device_source_id: prodSource.id,
+        native_measurement_reference: 'SYNTH-NATIVE-RESULT-1',
+      })
+      .expect(422);
+    expect(res.body.code).toBe('NOT_CONFIGURED');
+  });
+
+  it('replays parallel apply with a single measurement row', async () => {
+    registerSyntheticMeasurement('SYNTH-PARALLEL', {
+      ...SYNTHETIC_BRAKE_MEASUREMENT,
+      measurement_id: 'SYNTH-MEASUREMENT-PARALLEL',
+      workshop_order_ref: orderNumber,
+    });
+    const previewRes = await preview('SYNTH-PARALLEL').expect(201);
+    const [first, second] = await Promise.all([
+      applyImport(previewRes.body),
+      applyImport(previewRes.body),
+    ]);
+    expect([first.status, second.status].sort()).toEqual([200, 200]);
+    const count = await prisma.inspectionMeasurement.count({
+      where: { measurement_id: 'SYNTH-MEASUREMENT-PARALLEL' },
+    });
+    expect(count).toBe(1);
+  });
+
+  it('persists conflict support event after MEASUREMENT_CONFLICT preview', async () => {
+    registerSyntheticMeasurement('SYNTH-EVENT-A', {
+      ...SYNTHETIC_BRAKE_MEASUREMENT,
+      measurement_id: 'SYNTH-MEASUREMENT-EVENT',
+      revision: 'SYNTH-REV-EVENT-1',
+      workshop_order_ref: orderNumber,
+    });
+    const firstPreview = await preview('SYNTH-EVENT-A').expect(201);
+    await applyImport(firstPreview.body).expect(200);
+
+    registerSyntheticMeasurement('SYNTH-EVENT-B', {
+      ...SYNTHETIC_BRAKE_MEASUREMENT,
+      measurement_id: 'SYNTH-MEASUREMENT-EVENT',
+      revision: 'SYNTH-REV-EVENT-2',
+      wheels: [
+        { axle: 1, side: 'LEFT', force: '2.800', unit: 'kN' },
+        ...SYNTHETIC_BRAKE_MEASUREMENT.wheels.slice(1),
+      ],
+      workshop_order_ref: orderNumber,
+    });
+    await preview('SYNTH-EVENT-B').expect(409);
+    const events = await prisma.inspectionSupportEvent.findMany({
+      where: {
+        tenant_id: tenantId,
+        reason: 'MEASUREMENT_CONFLICT',
+        contract_kind: 'BRAKE_MEASUREMENT',
+      },
+    });
+    expect(events.length).toBeGreaterThan(0);
   });
 
   it('returns 409 REVIEW_REQUIRED when device binding changes after preview', async () => {

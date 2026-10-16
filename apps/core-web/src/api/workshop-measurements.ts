@@ -35,13 +35,13 @@ export function useInspectionDeviceSources() {
   })
 }
 
-export function useWorkshopMeasurements(orderId: string) {
+export function useWorkshopMeasurements(orderId: string, page = 1) {
   return useQuery({
-    queryKey: measurementKeys.order(orderId),
+    queryKey: [...measurementKeys.order(orderId), page],
     enabled: Boolean(orderId),
     queryFn: async () => {
       const response = await fetchWithAuth(
-        `/api/workshop-orders/${encodeURIComponent(orderId)}/measurements?limit=50`,
+        `/api/workshop-orders/${encodeURIComponent(orderId)}/measurements?limit=50&page=${page}`,
       )
       if (!response.ok) {
         throw new Error('MEASUREMENTS_LOAD_FAILED')
@@ -68,11 +68,15 @@ export function usePreviewWorkshopMeasurement(orderId: string) {
           body: JSON.stringify(body),
         },
       )
+      const payload = await response.json().catch(() => ({}))
       if (!response.ok) {
-        const bodyText = await response.text()
-        throw new Error(bodyText || 'MEASUREMENT_PREVIEW_FAILED')
+        const code =
+          typeof payload?.code === 'string'
+            ? payload.code
+            : 'MEASUREMENT_PREVIEW_FAILED'
+        throw new Error(code)
       }
-      return response.json() as Promise<MeasurementImportPreview>
+      return payload as MeasurementImportPreview
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: measurementKeys.order(orderId) })
@@ -99,13 +103,15 @@ export function useApplyWorkshopMeasurement(orderId: string) {
           }),
         },
       )
+      const payload = await response.json().catch(() => ({}))
       if (!response.ok) {
-        const bodyText = await response.text()
-        throw new Error(bodyText || 'MEASUREMENT_APPLY_FAILED')
+        const code =
+          typeof payload?.code === 'string'
+            ? payload.code
+            : 'MEASUREMENT_APPLY_FAILED'
+        throw new Error(code)
       }
-      return response.json() as Promise<
-        components['schemas']['ApplyMeasurementImportResponseDto']
-      >
+      return payload as components['schemas']['ApplyMeasurementImportResponseDto']
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: measurementKeys.order(orderId) })
