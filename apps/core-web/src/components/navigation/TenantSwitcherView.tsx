@@ -8,7 +8,7 @@ type AuthSessionMembership = components['schemas']['AuthSessionMembershipDto']
 type AuthSessionTenant = components['schemas']['AuthSessionTenantDto']
 type TenantMemberRole = components['schemas']['TenantMemberRole']
 
-type TenantSwitcherProps = {
+type TenantSwitcherViewProps = {
   activeTenant: AuthSessionTenant | null
   activeRole: TenantMemberRole | null
   memberships: AuthSessionMembership[]
@@ -17,14 +17,14 @@ type TenantSwitcherProps = {
   collapsed?: boolean
 }
 
-export function TenantSwitcher({
+export function TenantSwitcherView({
   activeTenant,
   activeRole,
   memberships,
   onSwitch,
   isSwitching,
   collapsed = false,
-}: TenantSwitcherProps) {
+}: TenantSwitcherViewProps) {
   const { t } = useTranslation('nav')
 
   if (!activeTenant) {
@@ -81,7 +81,6 @@ export function TenantSwitcher({
                   key={membership.tenantId}
                   type="button"
                   variant="ghost"
-                  data-testid={`tenant-switch-${membership.tenantSlug}`}
                   onClick={() => onSwitch(membership.tenantId)}
                   disabled={isSwitching}
                   aria-label={t('tenantSwitcher.switchTo', { name: membership.tenantName })}

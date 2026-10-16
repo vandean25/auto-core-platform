@@ -7,11 +7,11 @@ import { changeUiLanguage, initI18n } from '@/lib/i18n'
 expect.extend(matchers)
 
 beforeAll(async () => {
-  await initI18n({ language: 'de' })
+  await initI18n({ language: 'en' })
 })
 
 afterEach(async () => {
-  await changeUiLanguage('de')
+  await changeUiLanguage('en')
 })
 
 // Some test files run in the node environment (`// @vitest-environment node`), where there is no window.

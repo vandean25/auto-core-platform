@@ -1,4 +1,3 @@
-/* eslint-disable i18next/no-literal-string -- English stub for Repowise parity; app uses site-switcher-i18n.tsx */
 import { Loader2, MapPin } from 'lucide-react'
 import type { MeSite } from '@/api/sites'
 import { Button } from '@/components/ui/button'

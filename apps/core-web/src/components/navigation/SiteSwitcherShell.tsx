@@ -2,13 +2,7 @@ import { Loader2, MapPin } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { MeSite } from '@/api/sites'
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { ReadOnlyCurrentSite, SitePicker } from './site-switcher-picker'
 
 type SiteSwitcherProps = {
   activeSiteId: string | null
@@ -19,111 +13,8 @@ type SiteSwitcherProps = {
   collapsed?: boolean
 }
 
-type SitePickerProps = {
-  activeSiteId: string | null
-  sites: MeSite[]
-  isLoadingSites: boolean
-  isSwitching: boolean
-  onSwitch: (siteId: string) => void
-  compact?: boolean
-}
-
-function SitePicker({
-  activeSiteId,
-  sites,
-  isLoadingSites,
-  isSwitching,
-  onSwitch,
-  compact = false,
-  switchSiteLabel,
-  selectSitePlaceholder,
-}: SitePickerProps & { switchSiteLabel: string; selectSitePlaceholder: string }) {
-  const activeSite = sites.find((site) => site.id === activeSiteId)
-
-  return (
-    <Select
-      value={activeSite?.id ?? undefined}
-      onValueChange={onSwitch}
-      disabled={isSwitching}
-    >
-      <SelectTrigger
-        aria-label={switchSiteLabel}
-        className={
-          compact
-            ? 'h-10 w-full'
-            : 'h-9 border-slate-700 bg-slate-950 text-slate-200 focus:ring-slate-500'
-        }
-      >
-        {isLoadingSites ? (
-          <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
-        ) : (
-          <SelectValue placeholder={selectSitePlaceholder} />
-        )}
-      </SelectTrigger>
-      <SelectContent>
-        {sites.map((site) => (
-          <SelectItem key={site.id} value={site.id}>
-            {site.name}
-            <span className="ml-2 text-xs text-slate-400">{site.code}</span>
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  )
-}
-
-function ReadOnlyCurrentSite({
-  siteName,
-  collapsed = false,
-  currentSiteLabel,
-}: {
-  siteName: string
-  collapsed?: boolean
-  currentSiteLabel: string
-}) {
-  const label = `${currentSiteLabel}: ${siteName}`
-
-  if (collapsed) {
-    return (
-      <div className="px-2 pt-3">
-        <div
-          role="img"
-          className="flex h-10 items-center justify-center rounded-md border border-slate-800 bg-slate-900 text-slate-300"
-          title={label}
-          aria-label={label}
-        >
-          <MapPin className="h-4 w-4" />
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <section className="px-3 pt-3">
-      <div className="rounded-xl border border-slate-800 bg-slate-900/80 p-3">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">
-          {currentSiteLabel}
-        </p>
-        <div className="mt-2 flex items-center gap-2 text-sm text-slate-200">
-          <MapPin className="h-4 w-4 shrink-0 text-slate-400" />
-          <span className="truncate font-medium">{siteName}</span>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-/**
- * Current-site switcher (UX Compliance / Site switcher).
- *
- * - Read-only "Current Site" when the user has exactly one active grant and it
- *   is already the session's active site (AUT-290 QA clarity).
- * - Shown as a recovery prompt/action when `active_site_id` is null (tenant
- *   switch, membership revoke, site deactivation) even with a single remaining
- *   grant — operational APIs return `ACTIVE_SITE_REQUIRED` until the PATCH.
- * - Otherwise a dropdown of `GET /me/sites` (active sites only, ruling 47).
- */
-export function SiteSwitcher({
+/** Current-site switcher (UX Compliance / Site switcher). */
+export function SiteSwitcherShell({
   activeSiteId,
   sites,
   isLoadingSites,
@@ -133,23 +24,13 @@ export function SiteSwitcher({
 }: SiteSwitcherProps) {
   const { t } = useTranslation('nav')
   const activeSite = sites.find((site) => site.id === activeSiteId) ?? null
-  const pickerLabels = {
-    switchSiteLabel: t('siteSwitcher.switchSite'),
-    selectSitePlaceholder: t('siteSwitcher.selectSite'),
-  }
 
   if (sites.length === 0) {
     return null
   }
 
   if (sites.length === 1 && activeSite) {
-    return (
-      <ReadOnlyCurrentSite
-        siteName={activeSite.name}
-        collapsed={collapsed}
-        currentSiteLabel={t('siteSwitcher.currentSite')}
-      />
-    )
+    return <ReadOnlyCurrentSite siteName={activeSite.name} collapsed={collapsed} />
   }
 
   const recoverySite = sites.length === 1 ? sites[0] : null
@@ -175,7 +56,6 @@ export function SiteSwitcher({
             isSwitching={isSwitching}
             onSwitch={onSwitch}
             compact
-            {...pickerLabels}
           />
         </div>
       )
@@ -205,8 +85,8 @@ export function SiteSwitcher({
         <div
           role="img"
           className="flex h-10 items-center justify-center rounded-md border border-slate-800 bg-slate-900 text-slate-300"
-          title={activeSite?.name ?? pickerLabels.selectSitePlaceholder}
-          aria-label={activeSite?.name ?? pickerLabels.selectSitePlaceholder}
+          title={activeSite?.name ?? t('siteSwitcher.selectSite')}
+          aria-label={activeSite?.name ?? t('siteSwitcher.selectSite')}
         >
           <MapPin className="h-4 w-4" />
         </div>
@@ -225,9 +105,7 @@ export function SiteSwitcher({
                   {recoveryPrompt.title}
                 </p>
                 {recoveryPrompt.actionLabel ? (
-                  <p className="truncate text-xs text-slate-400">
-                    {t('siteSwitcher.operationalNeedsSite')}
-                  </p>
+                  <p className="truncate text-xs text-slate-400">{t('siteSwitcher.operationalNeedsSite')}</p>
                 ) : null}
               </div>
               {recoveryPrompt.actionLabel ? (
@@ -251,16 +129,13 @@ export function SiteSwitcher({
               <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-amber-400">
                 {recoveryPrompt.title}
               </p>
-              <p className="truncate text-xs text-slate-400">
-                {t('siteSwitcher.operationalNeedsSite')}
-              </p>
+              <p className="truncate text-xs text-slate-400">{t('siteSwitcher.operationalNeedsSite')}</p>
               <SitePicker
                 activeSiteId={activeSiteId}
                 sites={sites}
                 isLoadingSites={isLoadingSites}
                 isSwitching={isSwitching}
                 onSwitch={onSwitch}
-                {...pickerLabels}
               />
             </div>
           )
@@ -277,7 +152,6 @@ export function SiteSwitcher({
                 isLoadingSites={isLoadingSites}
                 isSwitching={isSwitching}
                 onSwitch={onSwitch}
-                {...pickerLabels}
               />
             </div>
           </>

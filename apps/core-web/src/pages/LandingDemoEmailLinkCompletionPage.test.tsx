@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { StrictMode } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useGermanUiInTests } from '@/test/german-ui'
 import LandingDemoEmailLinkCompletionPage, {
   resetLandingDemoAutoCompletionGuardForTests,
 } from './LandingDemoEmailLinkCompletionPage'
@@ -56,6 +57,8 @@ function renderCompletionPage() {
 }
 
 describe('LandingDemoEmailLinkCompletionPage', () => {
+  useGermanUiInTests()
+
   beforeEach(() => {
     resetLandingDemoAutoCompletionGuardForTests()
     completeSignIn.mockReset()

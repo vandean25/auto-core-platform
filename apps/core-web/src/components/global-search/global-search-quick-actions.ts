@@ -24,7 +24,6 @@ export type QuickActionSection = {
   items: QuickAction[]
 }
 
-/** English fixture data for filter unit tests (product copy is built in global-search-quick-actions-data). */
 export const quickActionSections: QuickActionSection[] = [
   {
     heading: 'Navigate',

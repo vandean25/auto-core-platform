@@ -10,13 +10,13 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { cn } from '@/lib/utils'
+import { QuickActionGroup } from './GlobalSearchResultGroups'
 import {
   CustomerResultsGroup,
   InventoryResultsGroup,
   OrderResultsGroup,
-  QuickActionGroup,
   VehicleResultsGroup,
-} from './GlobalSearchResultGroups.i18n'
+} from './GlobalSearchResultGroupsView'
 import { truncate } from './global-search-format'
 import { filterQuickActionSections } from './global-search-quick-actions'
 import { getGlobalSearchQuickActionSections } from './global-search-quick-actions-data'

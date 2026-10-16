@@ -15,6 +15,7 @@ export const shellI18nFiles = [
   'src/pages/not-found/**/*.{ts,tsx}',
   'src/pages/landing-demo/**/*.{ts,tsx}',
   'src/components/shell/**/*.{ts,tsx}',
+  'src/App.tsx',
 ]
 
 export const shellI18nEslintConfig = {

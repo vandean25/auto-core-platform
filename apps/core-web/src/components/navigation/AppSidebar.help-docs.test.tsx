@@ -2,10 +2,13 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 import axe from 'axe-core'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it } from 'vitest'
+import { useGermanUiInTests } from '@/test/german-ui'
 import { AppSidebar } from './AppSidebar'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 
 afterEach(cleanup)
+
+useGermanUiInTests()
 
 const sidebarProps = {
   userEmail: 'admin@example.com',

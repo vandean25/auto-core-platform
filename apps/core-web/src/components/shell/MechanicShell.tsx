@@ -11,7 +11,7 @@ export type MechanicShellProps = {
   activeTenant: AuthSessionTenant | null
   userEmail: string | null
   onSignOut: () => void
-  children: React.ReactNode
+  children?: React.ReactNode
 }
 
 export function MechanicShell({ activeTenant, userEmail, onSignOut, children }: MechanicShellProps) {

@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { changeUiLanguage } from '@/lib/i18n'
 import { GlobalSearch } from './GlobalSearch'
 
 const SEARCH_PLACEHOLDER_DE = 'Teile, Kunden, Fahrzeuge, Aufträge…'
@@ -21,7 +22,8 @@ vi.mock('react-router-dom', async () => {
 vi.mock('@/hooks/useGlobalSearch')
 
 describe('GlobalSearch Component', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await changeUiLanguage('de')
     vi.clearAllMocks()
   })
 
@@ -276,9 +278,9 @@ describe('GlobalSearch Component', () => {
     )
 
     const input = screen.getByPlaceholderText(SEARCH_PLACEHOLDER_DE)
-    fireEvent.change(input, { target: { value: 'invoice' } })
+    fireEvent.change(input, { target: { value: 'rechnung' } })
 
-    expect(screen.getByText('Find a sales order to invoice')).toBeInTheDocument()
+    expect(screen.getByText('Kundenauftrag zum Fakturieren finden')).toBeInTheDocument()
     expect(screen.queryByText('Create Purchase Order')).not.toBeInTheDocument()
   })
 

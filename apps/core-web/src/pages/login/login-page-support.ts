@@ -6,7 +6,10 @@ export function isDemoHost() {
   return typeof globalThis.location !== 'undefined' && globalThis.location.hostname === DEMO_HOSTNAME
 }
 
-export function describeAuthError(_error: unknown, fallback: string) {
+export function describeAuthError(error: unknown, fallback: string) {
+  if (error !== undefined && error !== null) {
+    console.warn('[login] auth error', error)
+  }
   return fallback
 }
 

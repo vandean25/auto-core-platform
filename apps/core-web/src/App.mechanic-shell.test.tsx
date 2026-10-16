@@ -10,8 +10,7 @@ import { render, screen, cleanup } from '@testing-library/react'
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { MechanicShell } from '@/components/shell/MechanicShell'
-import { ShellRouter } from './App'
+import { MechanicShell, ShellRouter } from './App'
 import * as mechanicApi from '@/api/mechanic'
 import { MECHANIC_ROUTE_PATHS } from '@/lib/app-route-paths'
 
@@ -67,9 +66,7 @@ function renderShell(
                 }
                 userEmail={opts.userEmail ?? 'mechanic@workshop.com'}
                 onSignOut={vi.fn()}
-              >
-                <div data-testid="mechanic-routes-placeholder" />
-              </MechanicShell>
+              />
             }
           />
         </Routes>
@@ -123,7 +120,7 @@ describe('MechanicShell (ADR-0014 §8.2)', () => {
     it('renders the sign-out button as the only action in the header', () => {
       renderShell()
 
-      expect(screen.getByRole('button', { name: /abmelden/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /sign out/i })).toBeInTheDocument()
     })
 
     it('shows the tenant name as a read-only badge when a tenant is active', () => {
@@ -221,7 +218,7 @@ describe('role-aware shell route guards', () => {
     renderShellRouter('/mechanic', { activeRole: 'ADMIN' })
 
     expect(await screen.findByText('Admin dashboard')).toBeInTheDocument()
-    expect(screen.queryByText(/^Mechaniker$/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/^Mechanic$/)).not.toBeInTheDocument()
   })
 
   it('redirects a non-super-admin from platform tenants to the admin app', async () => {
@@ -234,8 +231,8 @@ describe('role-aware shell route guards', () => {
   it('keeps a TECH user in the mechanic shell on back-office routes', async () => {
     renderShellRouter('/inventory', { activeRole: 'TECH' })
 
-    expect(await screen.findByRole('button', { name: /abmelden/i })).toBeInTheDocument()
-    expect(screen.getByText('Mechaniker')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /sign out/i })).toBeInTheDocument()
+    expect(screen.getByText('Mechanic')).toBeInTheDocument()
   })
 
   it.each(['/hr/employees', '/hr/clock', '/hr/leave'])(
@@ -243,8 +240,8 @@ describe('role-aware shell route guards', () => {
     async (path) => {
       renderShellRouter(path, { activeRole: 'TECH' })
 
-      expect(await screen.findByRole('button', { name: /abmelden/i })).toBeInTheDocument()
-      expect(screen.getByText('Mechaniker')).toBeInTheDocument()
+      expect(await screen.findByRole('button', { name: /sign out/i })).toBeInTheDocument()
+      expect(screen.getByText('Mechanic')).toBeInTheDocument()
       expect(screen.queryByRole('heading', { name: 'HR' })).not.toBeInTheDocument()
       expect(screen.queryByRole('heading', { name: 'Employees' })).not.toBeInTheDocument()
     },
@@ -258,7 +255,7 @@ describe('role-aware shell route guards', () => {
       expect(await screen.findByRole('heading', { name: 'Office access restricted' })).toBeInTheDocument()
       expect(screen.getByText(/don't have access to office tools/i)).toBeInTheDocument()
       expect(screen.getByRole('link', { name: /go to mechanic queue/i })).toHaveAttribute('href', MECHANIC_ROUTE_PATHS.queue)
-      expect(screen.getByText('Mechaniker')).toBeInTheDocument()
+      expect(screen.getByText('Mechanic')).toBeInTheDocument()
       expect(screen.queryByText('Admin dashboard')).not.toBeInTheDocument()
     },
   )

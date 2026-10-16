@@ -1,4 +1,3 @@
-/* eslint-disable i18next/no-literal-string -- English stub for Repowise parity; app uses app-sidebar-footer-i18n.tsx */
 import { NavLink } from 'react-router-dom'
 import { BookOpen, ChevronsLeft, ChevronsRight, ExternalLink, Search, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'

@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { changeUiLanguage } from '@/lib/i18n'
 import App from './App'
 
 vi.mock('@/auth/AuthProvider', () => ({
@@ -37,7 +38,8 @@ vi.mock('@/pages/LoginPage', () => {
 })
 
 describe('App login lazy chunk handling', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await changeUiLanguage('en')
     vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
@@ -48,7 +50,7 @@ describe('App login lazy chunk handling', () => {
   it('shows the global error fallback when login lazy import fails', async () => {
     render(<App />)
 
-    expect(await screen.findByText('Update Required')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Reload Application' })).toBeInTheDocument()
+    expect(await screen.findByText(/Update Required|Aktualisierung erforderlich/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Reload Application|Anwendung neu laden/i })).toBeInTheDocument()
   })
 })

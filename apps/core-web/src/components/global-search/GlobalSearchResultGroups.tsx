@@ -1,4 +1,3 @@
-/* eslint-disable i18next/no-literal-string -- English stub kept for Repowise parity; app uses GlobalSearchResultGroups.i18n.tsx */
 import { Building2, Car, Package, UserRound, Wrench } from 'lucide-react'
 
 import type { InventoryItem, WorkshopOrder } from '@/api/types'

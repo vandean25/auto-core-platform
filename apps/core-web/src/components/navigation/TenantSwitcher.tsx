@@ -1,4 +1,3 @@
-/* eslint-disable i18next/no-literal-string -- English stub for Repowise parity; app uses tenant-switcher-i18n.tsx */
 import { Building2, Loader2 } from 'lucide-react'
 import type { components } from '@/api/generated/openapi'
 import { Button } from '@/components/ui/button'

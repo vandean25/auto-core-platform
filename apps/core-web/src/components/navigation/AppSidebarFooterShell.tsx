@@ -14,7 +14,7 @@ type AppSidebarFooterProps = {
   onSignOut: () => void
 }
 
-export function AppSidebarFooter({
+export function AppSidebarFooterShell({
   userEmail,
   collapsed,
   onToggleCollapsed,
@@ -95,6 +95,7 @@ export function AppSidebarFooter({
           {collapsed ? t('footer.expandSidebar') : t('footer.collapseSidebar')}
         </span>
       </button>
+
     </div>
   )
 }

@@ -27,7 +27,8 @@
     "switchTenantFailed": "Mandantenwechsel fehlgeschlagen.",
     "switchSiteFailed": "Standortwechsel fehlgeschlagen.",
     "mechanicBadge": "Mechaniker",
-    "loading": "Laden…"
+    "loading": "Laden…",
+    "skipToMainContent": "Zum Hauptinhalt springen"
   },
   "notFound": {
     "title": "Seite nicht gefunden",
@@ -51,9 +52,9 @@
       "invoices": "Rechnungen mit Nachweis"
     },
     "demoWorkshop": "Demo-Werkstatt",
-    "demoOffice": "Büro: demo-office@example.com",
-    "demoMechanic": "Mechaniker: demo-mechanic@example.com",
-    "demoPasswordHint": "Passwort beim Pilotkunden erfragen.",
+    "demoOffice": "Büro: grok-bot@auto.core.at",
+    "demoMechanic": "Mechaniker: grok-bot-tech@auto.core.at",
+    "demoPasswordHint": "Zugangsdaten erhalten Sie von der Demo-Werkstatt.",
     "documentation": "Dokumentation",
     "signInTitle": "Anmelden",
     "signInDescription": "Mit der E-Mail anmelden, mit der Ihre Werkstatt Sie eingeladen hat.",

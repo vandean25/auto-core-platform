@@ -8,6 +8,7 @@ import {
 } from 'react-router-dom'
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion'
 import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { AuthLoadingScreen } from '@/components/shell/AuthLoadingScreen'
 import { MechanicShell } from '@/components/shell/MechanicShell'
@@ -277,6 +278,7 @@ function AppShell({
   onSwitchSite,
   onSignOut,
 }: AppShellProps) {
+  const { t } = useTranslation('common')
   const [deviceId] = React.useState(() => {
     if (typeof window === 'undefined') return 'server'
     const stored = window.localStorage.getItem('deviceId')
@@ -319,7 +321,7 @@ function AppShell({
               href="#main-content"
               className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-white focus:px-3 focus:py-2 focus:text-sm focus:shadow-md"
             >
-              Skip to main content
+              {t('shell.skipToMainContent')}
             </a>
 
             <AppSidebar
@@ -569,5 +571,7 @@ function App() {
     </Router>
   )
 }
+
+export { MechanicShell } from '@/components/shell/MechanicShell'
 
 export default App

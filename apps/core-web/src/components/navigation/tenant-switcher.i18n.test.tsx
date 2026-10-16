@@ -1,6 +1,11 @@
 import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
-import { TenantSwitcher } from '@/components/navigation/TenantSwitcher'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { changeUiLanguage } from '@/lib/i18n'
+import { TenantSwitcherView as TenantSwitcher } from './TenantSwitcherView'
+
+beforeEach(async () => {
+  await changeUiLanguage('de')
+})
 
 describe('TenantSwitcher (de)', () => {
   it('uses German switch labels for alternate tenants', () => {
@@ -32,7 +37,7 @@ describe('TenantSwitcher (de)', () => {
       />,
     )
 
-    fireEvent.click(screen.getByTestId('tenant-switch-graz'))
+    fireEvent.click(screen.getByRole('button', { name: 'Zu Auto Core Graz wechseln' }))
     expect(onSwitch).toHaveBeenCalledWith('tenant-b')
   })
 })
