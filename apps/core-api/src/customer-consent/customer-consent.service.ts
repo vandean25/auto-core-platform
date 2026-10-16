@@ -209,11 +209,7 @@ export class CustomerConsentService {
       throw new NotFoundException('Customer not found.');
     }
 
-    await this.ensureCommunicationStateRow(
-      tenantId,
-      controllerId,
-      customerId,
-    );
+    await this.ensureCommunicationStateRow(tenantId, controllerId, customerId);
 
     const existing = await this.prisma.customerConsent.findFirst({
       where: {
