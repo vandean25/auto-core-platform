@@ -80,6 +80,7 @@ function ReadOnlyCurrentSite({
     return (
       <div className="px-2 pt-3">
         <div
+          role="img"
           className="flex h-10 items-center justify-center rounded-md border border-slate-800 bg-slate-900 text-slate-300"
           title={`Current Site: ${siteName}`}
           aria-label={`Current Site: ${siteName}`}
@@ -183,6 +184,7 @@ export function SiteSwitcher({
     return (
       <div className="px-2 pt-3">
         <div
+          role="img"
           className="flex h-10 items-center justify-center rounded-md border border-slate-800 bg-slate-900 text-slate-300"
           title={activeSite?.name ?? 'Select site'}
           aria-label={activeSite?.name ?? 'Select site'}

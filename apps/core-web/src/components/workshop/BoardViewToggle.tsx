@@ -16,7 +16,7 @@ export function BoardViewToggle({ value, onChange }: BoardViewToggleProps) {
       onValueChange={(val) => {
         if (val === 'mechanic' || val === 'bay') onChange(val)
       }}
-      className="rounded-md border border-slate-200 bg-white p-0.5"
+      className="flex flex-wrap rounded-md border border-slate-200 bg-white p-0.5"
     >
       <ToggleGroupItem
         value="mechanic"
