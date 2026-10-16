@@ -134,6 +134,23 @@ export class InspectionExchangeService {
       now,
     );
 
+    const existingByKey = await this.prisma.externalInspectionResult.findFirst({
+      where: {
+        tenant_id: tenantId,
+        source_system: 'EBV',
+        source_account_ref: envelope.canonical.source_account_ref,
+        source_station_id: envelope.canonical.source_station_id,
+        source_result_id: envelope.canonical.source_result_id,
+        source_revision: envelope.canonical.source_revision,
+      },
+    });
+    if (
+      existingByKey &&
+      existingByKey.semantic_digest !== resolved.semanticDigest
+    ) {
+      resolved.state = 'CONFLICT';
+    }
+
     const importRow = await this.prisma.inspectionExchangeImport.create({
       data: {
         tenant_id: tenantId,
