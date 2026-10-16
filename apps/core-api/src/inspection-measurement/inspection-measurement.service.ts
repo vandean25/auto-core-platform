@@ -783,10 +783,9 @@ export class InspectionMeasurementService {
     params: InspectionMeasurementIdentityRaceSignal['params'],
     now: Date,
   ) {
-    const existing =
-      await this.prisma.inspectionMeasurementIdentity.findFirst({
-        where: params.identityKey,
-      });
+    const existing = await this.prisma.inspectionMeasurementIdentity.findFirst({
+      where: params.identityKey,
+    });
     if (!existing) {
       throw reviewRequired();
     }

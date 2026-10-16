@@ -91,7 +91,10 @@ function skipJsonWhitespace(input: string, index: number): number {
   return index;
 }
 
-function readJsonString(input: string, startQuote: number): {
+function readJsonString(
+  input: string,
+  startQuote: number,
+): {
   value: string;
   end: number;
 } {
