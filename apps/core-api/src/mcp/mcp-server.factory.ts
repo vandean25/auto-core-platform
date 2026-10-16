@@ -58,6 +58,7 @@ export const MCP_REGISTERED_TOOL_INPUT_SCHEMAS: Record<
   list_price_lists: schemas.listPriceListsInputSchema.shape,
   list_margin_rules: schemas.listMarginRulesInputSchema.shape,
   get_workshop_kpi_report: schemas.getWorkshopKpiReportBaseSchema.shape,
+  get_revenue_report: schemas.getRevenueReportBaseSchema.shape,
   list_pickerl_due: schemas.listPickerlDueInputSchema.shape,
   get_nova_preview: schemas.getNovaPreviewInputSchema.shape,
   draft_workshop_order: schemas.mcpWriteToolInputSchemas.draft_workshop_order,

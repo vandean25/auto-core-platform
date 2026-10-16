@@ -69,6 +69,8 @@ export const MCP_TOOL_DESCRIPTIONS: Record<McpToolName, string> = {
     'Active margin rules, the ones the price engine applies, in priority order: scope (brand, revenue group, EUR cost bracket), markup percent or supplier RRP, and rounding (pageSize max 25, opaque cursor)',
   get_workshop_kpi_report:
     'Workshop KPIs for a period (from and to) at the active site or a given site (site_id): utilisation (Auslastung), productivity (Leistungsgrad), average net revenue per order, labor and parts net revenue, and parts turnover. Totals only; read only',
+  get_revenue_report:
+    'Revenue for a period (from and to, max 366 days) at the active site or a given site (site_id): net, VAT, and gross totals split by workshop, vehicle sales, and other sources, plus revenue groups. Finalized credit notes in the period are subtracted. Optional compare_previous adds the prior period of equal length. Read only',
   list_pickerl_due:
     'Vehicles with a Pickerl due within 30, 60, or 90 days (window, default 30), overdue vehicles always included: vehicle, customer name, status, and due date (last day of the due month). Overdue first, then by due month (pageSize max 25, opaque cursor)',
   get_nova_preview:

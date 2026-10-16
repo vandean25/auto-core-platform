@@ -46,6 +46,7 @@ Read tools are tenant- or active-site-scoped by the server. Their tier is `AUTO`
 | `list_price_lists` | List applied supplier price lists with vendor, applied date, and item count, newest first | Read | AUTO |
 | `list_margin_rules` | List active margin rules in priority order with their scope, markup, and rounding | Read | AUTO |
 | `get_workshop_kpi_report` | Workshop KPIs for a period at the active site or a given site: utilisation, productivity, revenue per order, and parts turnover | Read | AUTO |
+| `get_revenue_report` | Revenue for a period at the active site or a given site: net, VAT, and gross split by workshop, vehicle sales, and other, plus revenue groups; optional prior-period comparison | Read | AUTO |
 | `list_pickerl_due` | Vehicles with a Pickerl due within 30, 60, or 90 days, overdue vehicles always included: vehicle, customer name, and due date | Read | AUTO |
 | `get_nova_preview` | A calculation preview of NoVA for a vehicle at a net EUR price, which saves nothing; the Steuerberater must still confirm while an unconfirmed rule applies | Read | AUTO |
 | `list_bays` | List active bays for the active site | Read | AUTO |
@@ -89,7 +90,7 @@ Policy-mode wording maps approximately as follows: `Allowed` to `AUTO`, `Ask fir
 
 Offset list and search tools accept `page` and `pageSize`; the server defaults to page 1 and 10 rows and caps `pageSize` at 25. Cursor-based tools take `pageSize` and an opaque `cursor` from `meta.next_cursor` with the same default and maximum. `get_customer` and `get_vehicle_history` page their order list with `orders_page_size` and `orders_cursor`. Offset cursors are limited to `get_capabilities`, the three stock/Pickerl report reads, and nothing else; other cursor tools use keyset positions.
 
-- `get_capabilities` pages the tool catalog by offset. Its default and maximum page size is 25. The catalog holds 47 tools, so follow `meta.next_cursor` before deciding that a write tool is unavailable.
+- `get_capabilities` pages the tool catalog by offset. Its default and maximum page size is 25. The catalog holds 48 tools, so follow `meta.next_cursor` before deciding that a write tool is unavailable.
 - `list_sites` pages with `pageSize` (default 10, max 25) and an opaque `cursor` from `meta.next_cursor`, in site code order.
 - `list_audit_events`, `get_entity_history`, `get_agent_action`, and `list_agent_actions` page with a keyset cursor. The default page size is 10 and the maximum is 25. Audit lists are newest first. `get_agent_action` log rows are oldest first.
 - `list_invoices` pages with a keyset cursor over issue date and invoice ID, with the same default and maximum. It is newest first.
@@ -184,8 +185,9 @@ The serialized-result cap is 32 KB (32,768). An audit or agent action page drops
 
 ### Report reads
 
-- The report reads are AUTO and read only. The tenant comes from the session. `get_workshop_kpi_report`, `get_vehicle_stock_age_report`, and `get_vehicle_stock_margin_report` take `site_id`, which defaults to the active site. A site the caller is not authorized for is not found.
+- The report reads are AUTO and read only. The tenant comes from the session. `get_workshop_kpi_report`, `get_revenue_report`, `get_vehicle_stock_age_report`, and `get_vehicle_stock_margin_report` take `site_id`, which defaults to the active site. A site the caller is not authorized for is not found. `get_workshop_kpi_report` and `get_revenue_report` return `ForbiddenException` for callers who are not OWNER, ADMIN, or SALES.
 - `get_workshop_kpi_report` takes `from` and `to`, inclusive site-local days, at most 366 days. It returns totals across mechanics: utilisation (Auslastung) and productivity (Leistungsgrad) as percent strings, `revenue_per_order` (average net revenue per closed order), labor and parts net revenue, and `parts_turnover`. Per-mechanic rows and slow movers are not returned. A value is `null` when the period has nothing to divide by.
+- `get_revenue_report` takes `from` and `to`, inclusive site-local days, at most 366 days, and optional `compare_previous`. It returns net, VAT, and gross EUR decimal strings for totals, by source (`workshop`, `vehicle_sales`, `other`), and by revenue group, plus `invoice_count`. Finalized credit notes dated in the period are subtracted. Margin-scheme (Differenzbesteuerung) documents count at document net, not line gross. With `compare_previous`, `previous` carries the same shape for the prior period of equal length.
 - `get_vehicle_stock_age_report` reports the dealer stock on hand at the site. `from` and `to`, when given together, limit it to vehicles that came in during that stock-in window. `get_vehicle_stock_margin_report` requires `from` and `to`, which are inclusive invoice dates.
 - Both stock reports return `data` rows, a `totals` block, and `meta` with `total`, `page_size`, and `next_cursor`. Amounts are EUR decimal strings.
 - `list_pickerl_due` lists vehicles whose Pickerl falls due within `window` days (30, 60, or 90; default 30), counted from today. Overdue vehicles are always listed. Each row has `vehicle`, `customer_name`, `status`, and `due_date`, the last day of the sticker's due month. Overdue rows come first, then rows by due month. It sends no reminder; reminders are a person's action.

@@ -1,4 +1,6 @@
 import { NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import type { FinanceService } from '../finance/finance.service.js';
 import type { NovaCalculationService } from '../vehicle/nova-calculation.service.js';
 import type { VehicleService } from '../vehicle/vehicle.service.js';
 import type { SiteContextService } from '../site/site-context.service.js';
@@ -32,10 +34,29 @@ describe('McpReportReadService', () => {
   let siteContext: { getSiteId: jest.Mock };
   let vehicles: { getPickerlDueData: jest.Mock };
   let workshopKpis: { getReport: jest.Mock };
+  let finance: { getRevenueReport: jest.Mock };
   let novaCalculation: { calculate: jest.Mock };
 
   beforeEach(() => {
     siteContext = { getSiteId: jest.fn().mockResolvedValue(SITE_ACTIVE) };
+    finance = {
+      getRevenueReport: jest.fn().mockResolvedValue({
+        period: {
+          from: '2026-10-01',
+          to: '2026-10-31',
+          timezone: 'Europe/Vienna',
+        },
+        site_id: SITE_ACTIVE,
+        totals: {
+          net: new Prisma.Decimal('0'),
+          vat: new Prisma.Decimal('0'),
+          gross: new Prisma.Decimal('0'),
+        },
+        by_source: [],
+        by_revenue_group: [],
+        invoice_count: 0,
+      }),
+    };
     vehicles = { getPickerlDueData: jest.fn().mockResolvedValue([]) };
     workshopKpis = {
       getReport: jest.fn().mockResolvedValue({
@@ -82,10 +103,32 @@ describe('McpReportReadService', () => {
     };
     service = new McpReportReadService(
       siteContext as unknown as SiteContextService,
+      finance as unknown as FinanceService,
       vehicles as unknown as VehicleService,
       workshopKpis as unknown as WorkshopKpiReportsService,
       novaCalculation as unknown as NovaCalculationService,
     );
+  });
+
+  describe('get_revenue_report', () => {
+    it('defaults to the active site and maps EUR strings', async () => {
+      const result = await service.getRevenueReport({
+        from: '2026-10-01',
+        to: '2026-10-31',
+      });
+
+      expect(finance.getRevenueReport).toHaveBeenCalledWith({
+        from: '2026-10-01',
+        to: '2026-10-31',
+        site_id: SITE_ACTIVE,
+        compare_previous: undefined,
+      });
+      expect(result.totals).toEqual({
+        net: '0.00',
+        vat: '0.00',
+        gross: '0.00',
+      });
+    });
   });
 
   describe('get_workshop_kpi_report', () => {

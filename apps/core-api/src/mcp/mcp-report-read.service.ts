@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { z } from 'zod';
+import { FinanceService } from '../finance/finance.service.js';
 import { NovaCalculationService } from '../vehicle/nova-calculation.service.js';
 import { VehicleService } from '../vehicle/vehicle.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
@@ -11,15 +12,18 @@ import {
   toMcpNovaPreview,
   toMcpPageMeta,
   toMcpPickerlDueRow,
+  toMcpRevenueReport,
   toMcpWorkshopKpiReport,
 } from './mcp-report-read.mapper.js';
 import type {
   getNovaPreviewInputSchema,
+  getRevenueReportInputSchema,
   getWorkshopKpiReportInputSchema,
   listPickerlDueInputSchema,
 } from './mcp-tool-schemas.js';
 
 type WorkshopKpiInput = z.infer<typeof getWorkshopKpiReportInputSchema>;
+type RevenueReportInput = z.infer<typeof getRevenueReportInputSchema>;
 type PickerlDueInput = z.infer<typeof listPickerlDueInputSchema>;
 type NovaPreviewInput = z.infer<typeof getNovaPreviewInputSchema>;
 
@@ -36,10 +40,22 @@ const DEFAULT_PICKERL_WINDOW_DAYS = 30;
 export class McpReportReadService {
   constructor(
     private readonly siteContext: SiteContextService,
+    private readonly finance: FinanceService,
     private readonly vehicles: VehicleService,
     private readonly workshopKpis: WorkshopKpiReportsService,
     private readonly novaCalculation: NovaCalculationService,
   ) {}
+
+  async getRevenueReport(input: RevenueReportInput) {
+    const siteId = input.site_id ?? (await this.siteContext.getSiteId());
+    const report = await this.finance.getRevenueReport({
+      from: input.from,
+      to: input.to,
+      site_id: siteId,
+      compare_previous: input.compare_previous,
+    });
+    return toMcpRevenueReport(report);
+  }
 
   async getWorkshopKpiReport(input: WorkshopKpiInput) {
     const siteId = input.site_id ?? (await this.siteContext.getSiteId());

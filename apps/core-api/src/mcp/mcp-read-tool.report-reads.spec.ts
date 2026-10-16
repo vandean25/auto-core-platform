@@ -27,6 +27,7 @@ describe('McpToolHandlerService AUT-461 report reads', () => {
   let agentActionLog: { record: jest.Mock };
   let reportReads: {
     getWorkshopKpiReport: jest.Mock;
+    getRevenueReport: jest.Mock;
     listPickerlDue: jest.Mock;
     getNovaPreview: jest.Mock;
   };
@@ -39,6 +40,7 @@ describe('McpToolHandlerService AUT-461 report reads', () => {
     agentActionLog = handlerSpecActionLog();
     reportReads = {
       getWorkshopKpiReport: jest.fn().mockResolvedValue({ site_id: SITE_ID }),
+      getRevenueReport: jest.fn().mockResolvedValue({ site_id: SITE_ID }),
       listPickerlDue: jest.fn().mockResolvedValue(EMPTY_RESULT),
       getNovaPreview: jest.fn().mockResolvedValue({ vehicle_id: VEHICLE_ID }),
     };
@@ -76,6 +78,11 @@ describe('McpToolHandlerService AUT-461 report reads', () => {
       'get_workshop_kpi_report',
       { from: '2026-10-01', to: '2026-10-31', site_id: SITE_ID },
       'getWorkshopKpiReport',
+    ],
+    [
+      'get_revenue_report',
+      { from: '2026-10-01', to: '2026-10-31', site_id: SITE_ID },
+      'getRevenueReport',
     ],
     ['list_pickerl_due', { window: 60 }, 'listPickerlDue'],
     [
@@ -154,6 +161,11 @@ describe('McpToolHandlerService AUT-461 report reads', () => {
     ['get_nova_preview', { vehicle_id: VEHICLE_ID, net_price_eur: '12000,00' }],
     ['get_workshop_kpi_report', { from: '2026-10-01' }],
     ['get_workshop_kpi_report', { from: '2026-10-31', to: '2026-10-01' }],
+    ['get_revenue_report', { from: '2026-10-01' }],
+    [
+      'get_revenue_report',
+      { from: '2025-01-01', to: '2026-01-02' },
+    ],
     ['get_vehicle_stock_age_report', { pageSize: 26 }],
     ['get_vehicle_stock_age_report', { from: '2026-07-01' }],
     [
@@ -167,6 +179,7 @@ describe('McpToolHandlerService AUT-461 report reads', () => {
     ).rejects.toBeInstanceOf(ZodError);
 
     expect(reportReads.getWorkshopKpiReport).not.toHaveBeenCalled();
+    expect(reportReads.getRevenueReport).not.toHaveBeenCalled();
     expect(reportReads.listPickerlDue).not.toHaveBeenCalled();
     expect(reportReads.getNovaPreview).not.toHaveBeenCalled();
     expect(stockReads.vehicleStockAgeReport).not.toHaveBeenCalled();
