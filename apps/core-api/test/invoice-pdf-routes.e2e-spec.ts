@@ -1,4 +1,3 @@
-import { Readable } from 'node:stream';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
@@ -294,7 +293,7 @@ describe('Invoice PDF routes (e2e)', () => {
     });
 
     it('runs requestGeneration and streams a PDF for a finalized invoice', async () => {
-      const invoiceId = await createIssuedInvoiceId(basePrisma, tenantId);
+      const invoiceId = await createIssuedInvoiceId(prisma, tenantId);
       const pdfService = app.get(InvoicePdfService);
       const requestSpy = jest.spyOn(pdfService, 'requestGeneration');
       const getSpy = jest.spyOn(pdfService, 'getPdf');
