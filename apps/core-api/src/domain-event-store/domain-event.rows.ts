@@ -56,6 +56,18 @@ export function buildWorkshopEstimateDecidedPayload(input: {
   };
 }
 
+export function buildWorkshopOrderReadyPayload(input: {
+  occurrenceId: string;
+  outboxId: string | null;
+  resend: boolean;
+}): Prisma.InputJsonObject {
+  return {
+    occurrence_id: input.occurrenceId,
+    outbox_id: input.outboxId,
+    resend: input.resend,
+  };
+}
+
 export function workshopOrderScheduledOccurrenceKey(orderId: string): string {
   return buildDomainEventOccurrenceKey(
     DOMAIN_EVENT_TYPES.workshopOrderScheduledV1,
@@ -69,5 +81,12 @@ export function workshopEstimateDecidedOccurrenceKey(
   return buildDomainEventOccurrenceKey(
     DOMAIN_EVENT_TYPES.workshopEstimateDecidedV1,
     approvalId,
+  );
+}
+
+export function workshopOrderReadyOccurrenceKey(occurrenceId: string): string {
+  return buildDomainEventOccurrenceKey(
+    DOMAIN_EVENT_TYPES.workshopOrderReadyV1,
+    occurrenceId,
   );
 }

@@ -93,9 +93,12 @@ describe('customer email templates (AUT-356 phase 3)', () => {
       vehicleLabel: 'Skoda Octavia',
     });
 
-    expect(draft.subject).toBe('Ihr Fahrzeug ist fertig: Auftrag WO-2026-0001');
+    expect(draft.subject).toBe('WO-2026-0001');
     expect(draft.text).toContain('Arbeiten an Ihrem Fahrzeug Skoda Octavia');
     expect(draft.text).toContain('Sie können Ihr Fahrzeug bei uns abholen.');
+    expect(draft.text).toContain(
+      'Diese E-Mail betrifft Ihren Auftrag Nr. WO-2026-0001.',
+    );
     expect(draft.text).not.toContain('Termin');
     expect(draft.text).not.toMatch(INFORMAL_FORM);
   });

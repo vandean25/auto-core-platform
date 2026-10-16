@@ -682,7 +682,21 @@ describe('AgentSupervisionPage', () => {
     renderSupervisionPage()
 
     expect(screen.getByTestId('approvals-empty-state')).toBeInTheDocument()
-    expect(screen.getByText(/Supervision inbox is clear/i)).toBeInTheDocument()
+    expect(screen.getByText(/No proposals waiting/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/New agent proposals will appear here/i),
+    ).toBeInTheDocument()
+  })
+
+  it('labels the approvals refresh control Refresh, not Retry', () => {
+    renderSupervisionPage()
+    const approvalsTab = screen.getByTestId('approvals-tab')
+    expect(
+      within(approvalsTab).getByRole('button', { name: 'Refresh' }),
+    ).toBeInTheDocument()
+    expect(
+      within(approvalsTab).queryByRole('button', { name: 'Retry' }),
+    ).not.toBeInTheDocument()
   })
 
   describe('workshop order approval cards', () => {
@@ -1099,6 +1113,47 @@ describe('AgentSupervisionPage', () => {
       ).toBeInTheDocument()
     })
 
+    it('hides internal Site update from the default change preview and lists it under Show details', () => {
+      renderWith({
+        proposals: [
+          mcpProposal({
+            preview_json: {
+              would_change: [
+                {
+                  entity: 'SalesOrder',
+                  id: 'so-900',
+                  op: 'update',
+                  provisional: false,
+                },
+                {
+                  entity: 'Site',
+                  id: 'site-1',
+                  op: 'update',
+                  provisional: false,
+                },
+              ],
+            },
+          }),
+        ],
+      })
+
+      const card = within(screen.getByTestId('proposal-card-mcp-prop-1'))
+      const defaultPreview = within(
+        card.getByTestId('change-preview-mcp-prop-1'),
+      )
+      expect(defaultPreview.getByText('Sales order — Update')).toBeInTheDocument()
+      expect(
+        defaultPreview.queryByText('Workshop location — Update'),
+      ).not.toBeInTheDocument()
+
+      fireEvent.click(screen.getByTestId('toggle-preview-mcp-prop-1'))
+      const details = within(
+        screen.getByTestId('change-preview-details-mcp-prop-1'),
+      )
+      expect(details.getByText('Sales order — Update')).toBeInTheDocument()
+      expect(details.getByText('Workshop location')).toBeInTheDocument()
+    })
+
     it('shows the Proposal approved toast after a successful Approve', async () => {
       renderWith({ proposals: [mcpProposal()] })
 
@@ -1154,7 +1209,7 @@ describe('AgentSupervisionPage', () => {
       renderSupervisionPage()
 
       expect(screen.getByTestId('approvals-empty-state')).toBeInTheDocument()
-      expect(screen.getByText(/Supervision inbox is clear/i)).toBeInTheDocument()
+      expect(screen.getByText(/No proposals waiting/i)).toBeInTheDocument()
     })
 
     it('does not show the empty inbox when triage fails to load', () => {
@@ -1170,7 +1225,7 @@ describe('AgentSupervisionPage', () => {
       expect(screen.getByTestId('approvals-error-state')).toBeInTheDocument()
       expect(screen.queryByTestId('approvals-empty-state')).not.toBeInTheDocument()
       expect(
-        screen.queryByText(/Supervision inbox is clear/i),
+        screen.queryByText(/No proposals waiting/i),
       ).not.toBeInTheDocument()
     })
 
@@ -1332,7 +1387,7 @@ describe('AgentSupervisionPage', () => {
 
       expect(screen.queryByTestId('approvals-proposals-error-state')).not.toBeInTheDocument()
       expect(screen.getByTestId('approvals-empty-state')).toBeInTheDocument()
-      expect(screen.getByText(/Supervision inbox is clear/i)).toBeInTheDocument()
+      expect(screen.getByText(/No proposals waiting/i)).toBeInTheDocument()
     })
 
     it('does not show inbox clear when only pending proposals fail to load', () => {
@@ -1359,7 +1414,7 @@ describe('AgentSupervisionPage', () => {
       ).toBeInTheDocument()
       expect(screen.queryByTestId('approvals-empty-state')).not.toBeInTheDocument()
       expect(
-        screen.queryByText(/Supervision inbox is clear/i),
+        screen.queryByText(/No proposals waiting/i),
       ).not.toBeInTheDocument()
     })
 

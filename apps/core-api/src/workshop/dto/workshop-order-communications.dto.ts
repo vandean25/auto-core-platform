@@ -2,6 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export const WORKSHOP_COMMUNICATION_KINDS = [
   'ESTIMATE_EMAIL',
+  'READY_EMAIL',
   'ESTIMATE_APPROVAL',
   'OVERRUN_DETECTED',
   'OVERRUN_NOTIFICATION',

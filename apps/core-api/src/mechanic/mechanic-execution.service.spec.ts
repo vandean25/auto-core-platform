@@ -40,6 +40,8 @@ describe('MechanicExecutionService', () => {
       mockNotificationOutbox,
       mockVehicleLedger,
       { getSiteId: jest.fn().mockResolvedValue('site-1') } as unknown as SiteContextService,
+      { onOrderCompletedInTx: jest.fn().mockResolvedValue(null) },
+      { enqueueWakeUp: jest.fn().mockResolvedValue(undefined) },
     );
     (mockTenantContext.getAuthenticatedUser as jest.Mock).mockReturnValue({
       userId: 'user-1',

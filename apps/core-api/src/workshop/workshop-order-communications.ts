@@ -31,6 +31,12 @@ export interface EstimateEmailRecord {
   source_entity_id: string | null;
 }
 
+export interface ReadyEmailRecord {
+  id: string;
+  status: NotificationOutboxStatus;
+  createdAt: Date;
+}
+
 export interface EstimateApprovalRecord {
   id: string;
   workshop_estimate_version_id: string;
@@ -53,6 +59,7 @@ export interface OverrunRecord {
 
 export interface WorkshopCommunicationsInput {
   emails: EstimateEmailRecord[];
+  readyEmails: ReadyEmailRecord[];
   approvals: EstimateApprovalRecord[];
   /** Overrun records of this order. Empty when the order has none. */
   overrunRecords?: OverrunRecord[];
@@ -113,11 +120,25 @@ function overrunEntries(
  */
 export function buildWorkshopOrderCommunications({
   emails,
+  readyEmails,
   approvals,
   overrunRecords = [],
   versionNumbers,
 }: WorkshopCommunicationsInput): WorkshopOrderCommunicationDto[] {
   const entries: TimedEntry[] = [
+    ...readyEmails.map((row): TimedEntry => ({
+      id: row.id,
+      at: row.createdAt,
+      dto: {
+        id: row.id,
+        kind: 'READY_EMAIL',
+        channel: 'EMAIL',
+        version: null,
+        occurred_at: row.createdAt.toISOString(),
+        status: EMAIL_STATUS[row.status],
+        decision: null,
+      },
+    })),
     ...emails.map((row): TimedEntry => ({
       id: row.id,
       at: row.createdAt,

@@ -181,10 +181,10 @@ export function ActivityTab({
           size="sm"
           onClick={() => refetch()}
           className="text-slate-500 hover:text-slate-900"
-          aria-label={getCopy(common.retry, language)}
+          aria-label={getCopy(common.refresh, language)}
         >
           <RefreshCw className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-          {getCopy(common.retry, language)}
+          {getCopy(common.refresh, language)}
         </Button>
       </div>
 

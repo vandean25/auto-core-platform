@@ -11,6 +11,7 @@ import { SiteContextService } from '../site/site-context.service.js';
 import { DomainEventStoreService } from '../domain-event-store/domain-event-store.service.js';
 import { normalizeWorkshopOrder } from './workshop-order.helpers.js';
 import { WorkshopScheduleService } from './workshop-schedule.service.js';
+import { WorkshopOrderReadyEmailService } from './workshop-order-ready-email.service.js';
 import { WorkshopPositionPlanService } from './workshop-position-plan.service.js';
 import {
   executeCreateWorkshopOrder,
@@ -32,6 +33,7 @@ export class WorkshopIntakeService {
   private readonly partsRequisitionService: PartsRequisitionService;
   private readonly domainEventStore: DomainEventStoreService;
   private readonly requestContext: RequestContextService;
+  private readonly readyEmail: WorkshopOrderReadyEmailService;
   private readonly positionPlan: WorkshopPositionPlanService;
 
   constructor(
@@ -42,6 +44,7 @@ export class WorkshopIntakeService {
     partsRequisitionService: PartsRequisitionService,
     domainEventStore: DomainEventStoreService,
     requestContext: RequestContextService,
+    readyEmail: WorkshopOrderReadyEmailService,
     positionPlan: WorkshopPositionPlanService,
   ) {
     this.prisma = prisma;
@@ -51,6 +54,7 @@ export class WorkshopIntakeService {
     this.partsRequisitionService = partsRequisitionService;
     this.domainEventStore = domainEventStore;
     this.requestContext = requestContext;
+    this.readyEmail = readyEmail;
     this.positionPlan = positionPlan;
   }
 
@@ -123,7 +127,18 @@ export class WorkshopIntakeService {
     const services = this.getServices();
     const tenantId = await services.tenantContext.getTenantId();
     const siteId = await services.siteContext.getSiteId();
-    return executeFindOneWorkshopOrder(services.prisma, tenantId, siteId, id);
+    const order = await executeFindOneWorkshopOrder(
+      services.prisma,
+      tenantId,
+      siteId,
+      id,
+    );
+    const ready_email_notice = await this.readyEmail.loadNoticeForOrder(
+      tenantId,
+      siteId,
+      id,
+    );
+    return { ...order, ready_email_notice };
   }
 
   async updateOrder(id: string, dto: UpdateWorkshopOrderDto) {

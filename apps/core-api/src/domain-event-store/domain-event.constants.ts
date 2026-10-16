@@ -2,6 +2,7 @@
 export const DOMAIN_EVENT_TYPES = {
   workshopOrderScheduledV1: 'workshop_order.scheduled.v1',
   workshopEstimateDecidedV1: 'workshop_estimate.decided.v1',
+  workshopOrderReadyV1: 'workshop_order.ready.v1',
 } as const;
 
 export type DomainEventType =

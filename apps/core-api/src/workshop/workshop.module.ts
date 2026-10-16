@@ -28,6 +28,8 @@ import { WorkshopEstimateOverrunService } from './workshop-estimate-overrun.serv
 import { WorkshopOverrunNoticeService } from './workshop-overrun-notice.service.js';
 import { WorkshopWaitingTasksService } from './workshop-waiting-tasks.service.js';
 import { WorkshopWaitingTasksController } from './workshop-waiting-tasks.controller.js';
+import { WorkshopOrderReadyEmailController } from './workshop-order-ready-email.controller.js';
+import { WorkshopOrderReadyEmailService } from './workshop-order-ready-email.service.js';
 import { AuditModule } from '../audit/audit.module.js';
 import { WorkshopPdfService } from './workshop-pdf.service.js';
 import { WorkshopPickPartsService } from './workshop-pick-parts.service.js';
@@ -76,6 +78,7 @@ import { MechanicMediaStorage } from '../mechanic/mechanic-media.storage.js';
     WorkshopKpiReportsController,
     WorkshopEstimateController,
     WorkshopWaitingTasksController,
+    WorkshopOrderReadyEmailController,
   ],
   providers: [
     PublicEstimateApprovalService,
@@ -88,6 +91,7 @@ import { MechanicMediaStorage } from '../mechanic/mechanic-media.storage.js';
     WorkshopEstimateOverrunService,
     WorkshopOverrunNoticeService,
     WorkshopWaitingTasksService,
+    WorkshopOrderReadyEmailService,
     WorkshopEstimatePdfService,
     WorkshopEstimatePdfRenderer,
     WorkshopIntakeService,
@@ -118,6 +122,7 @@ import { MechanicMediaStorage } from '../mechanic/mechanic-media.storage.js';
     WorkshopBoardService,
     WorkshopKpiReportsService,
     WorkshopPlannerService,
+    WorkshopOrderReadyEmailService,
   ],
 })
 export class WorkshopModule {}

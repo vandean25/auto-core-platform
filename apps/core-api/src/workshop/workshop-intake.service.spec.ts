@@ -10,6 +10,7 @@ import { PartsRequisitionService } from '../parts-requisition/parts-requisition.
 import { VEHICLE_IDENTITY_RESET } from '../vehicle/vehicle-identity.util.js';
 import { DomainEventStoreService } from '../domain-event-store/domain-event-store.service.js';
 import { RequestContextService } from '../common/services/request-context.service.js';
+import { WorkshopOrderReadyEmailService } from './workshop-order-ready-email.service.js';
 import {
   mockPrisma,
   mockSiteContext,
@@ -53,6 +54,10 @@ describe('WorkshopIntakeService', () => {
         {
           provide: RequestContextService,
           useValue: { getTraceId: jest.fn() },
+        },
+        {
+          provide: WorkshopOrderReadyEmailService,
+          useValue: { loadNoticeForOrder: jest.fn().mockResolvedValue(null) },
         },
         workshopPositionPlanProvider,
       ],
