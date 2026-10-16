@@ -68,6 +68,7 @@ export const MCP_READ_TOOL_NAMES = [
   'list_price_lists',
   'list_margin_rules',
   'get_workshop_kpi_report',
+  'get_revenue_report',
   'list_pickerl_due',
   'get_nova_preview',
 ] as const;

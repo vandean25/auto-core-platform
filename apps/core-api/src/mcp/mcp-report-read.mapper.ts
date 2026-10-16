@@ -5,6 +5,7 @@ import {
 } from '../vehicle/pickerl/pickerl-date.util.js';
 import type { NovaCalculateResult } from '../vehicle/nova-calculation.service.js';
 import type { VehicleStockReportsService } from '../vehicle-stock/vehicle-stock-reports.service.js';
+import type { RevenueReportResult } from '../finance/finance-revenue-report.types.js';
 import type { WorkshopKpiReportsService } from '../workshop/workshop-kpi-reports.service.js';
 import {
   mcpCustomerName,
@@ -142,6 +143,47 @@ export function toMcpStockMarginReport(
  * Workshop KPIs for the period, as totals across mechanics. Utilisation is Auslastung,
  * productivity is Leistungsgrad. Per-mechanic rows and slow movers are not returned.
  */
+function formatRevenueAmounts(amounts: {
+  net: { toFixed: (digits: number) => string };
+  vat: { toFixed: (digits: number) => string };
+  gross: { toFixed: (digits: number) => string };
+}) {
+  return {
+    net: amounts.net.toFixed(2),
+    vat: amounts.vat.toFixed(2),
+    gross: amounts.gross.toFixed(2),
+  };
+}
+
+function toMcpRevenueReportCore(
+  report: RevenueReportResult | NonNullable<RevenueReportResult['previous']>,
+) {
+  return {
+    period: report.period,
+    site_id: report.site_id,
+    totals: formatRevenueAmounts(report.totals),
+    by_source: report.by_source.map((row) => ({
+      source: row.source,
+      ...formatRevenueAmounts(row),
+    })),
+    by_revenue_group: report.by_revenue_group.map((row) => ({
+      name: row.name,
+      ...formatRevenueAmounts(row),
+    })),
+    invoice_count: report.invoice_count,
+  };
+}
+
+/** Revenue totals for a site-local period, split by source and revenue group. */
+export function toMcpRevenueReport(report: RevenueReportResult) {
+  return {
+    ...toMcpRevenueReportCore(report),
+    ...(report.previous
+      ? { previous: toMcpRevenueReportCore(report.previous) }
+      : {}),
+  };
+}
+
 export function toMcpWorkshopKpiReport(
   report: WorkshopKpiReport,
   siteId: string,

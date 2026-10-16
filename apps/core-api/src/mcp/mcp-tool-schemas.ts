@@ -643,6 +643,42 @@ export const getWorkshopKpiReportBaseSchema = z.object({
 export const getWorkshopKpiReportInputSchema =
   getWorkshopKpiReportBaseSchema.refine(isOrderedRange, orderedRangeOptions);
 
+const maxReportDaysOptions = {
+  message: 'from and to must span at most 366 calendar days',
+  path: ['to'],
+};
+
+function isWithinMaxReportDays(value: { from: string; to: string }): boolean {
+  const days =
+    (Date.parse(normalizeMcpRangeEnd(value.to)) -
+      Date.parse(normalizeMcpRangeStart(value.from))) /
+      86_400_000 +
+    1;
+  return days <= 366;
+}
+
+export const getRevenueReportBaseSchema = z.object({
+  from: z
+    .string()
+    .date()
+    .describe('Period start, YYYY-MM-DD, inclusive, in the site timezone'),
+  to: z
+    .string()
+    .date()
+    .describe('Period end, YYYY-MM-DD, inclusive, in the site timezone'),
+  site_id: reportSiteIdSchema,
+  compare_previous: z
+    .boolean()
+    .optional()
+    .describe(
+      'When true, include the previous period of the same length ending the day before from',
+    ),
+});
+
+export const getRevenueReportInputSchema = getRevenueReportBaseSchema
+  .refine(isOrderedRange, orderedRangeOptions)
+  .refine(isWithinMaxReportDays, maxReportDaysOptions);
+
 /** AUT-461 Pickerl due list: vehicles due within the window, plus every overdue vehicle. */
 export const listPickerlDueInputSchema = z.object({
   window: z
@@ -738,6 +774,7 @@ export const mcpToolInputSchemas: Record<
   get_purchase_order: getPurchaseOrderInputSchema,
   list_vendors: listVendorsInputSchema,
   get_workshop_kpi_report: getWorkshopKpiReportInputSchema,
+  get_revenue_report: getRevenueReportInputSchema,
   list_pickerl_due: listPickerlDueInputSchema,
   get_nova_preview: getNovaPreviewInputSchema,
   list_catalog_items: listCatalogItemsInputSchema,

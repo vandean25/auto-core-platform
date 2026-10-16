@@ -1257,6 +1257,68 @@ export const mcpToolOutputSchemas = {
   }),
   list_price_lists: resultOf(cursorPageShape(priceListRow)),
   list_margin_rules: resultOf(cursorPageShape(marginRuleRow)),
+  get_revenue_report: resultOf({
+    period: z.object({
+      from: isoDateOnly,
+      to: isoDateOnly,
+      timezone: nonEmptyString,
+    }),
+    site_id: idString,
+    totals: z.object({
+      net: decimalString,
+      vat: decimalString,
+      gross: decimalString,
+    }),
+    by_source: z.array(
+      z.object({
+        source: z.enum(['workshop', 'vehicle_sales', 'other']),
+        net: decimalString,
+        vat: decimalString,
+        gross: decimalString,
+      }),
+    ),
+    by_revenue_group: z.array(
+      z.object({
+        name: nonEmptyString,
+        net: decimalString,
+        vat: decimalString,
+        gross: decimalString,
+      }),
+    ),
+    invoice_count: count,
+    previous: z
+      .object({
+        period: z.object({
+          from: isoDateOnly,
+          to: isoDateOnly,
+          timezone: nonEmptyString,
+        }),
+        site_id: idString,
+        totals: z.object({
+          net: decimalString,
+          vat: decimalString,
+          gross: decimalString,
+        }),
+        by_source: z.array(
+          z.object({
+            source: z.enum(['workshop', 'vehicle_sales', 'other']),
+            net: decimalString,
+            vat: decimalString,
+            gross: decimalString,
+          }),
+        ),
+        by_revenue_group: z.array(
+          z.object({
+            name: nonEmptyString,
+            net: decimalString,
+            vat: decimalString,
+            gross: decimalString,
+          }),
+        ),
+        invoice_count: count,
+      })
+      .optional(),
+  }),
   get_workshop_kpi_report: resultOf({
     site_id: idString,
     period: z.object({

@@ -24,6 +24,7 @@ import {
   getInvoiceInputSchema,
   getLegalEntityInputSchema,
   getNovaPreviewInputSchema,
+  getRevenueReportInputSchema,
   getWorkshopKpiReportInputSchema,
   getPurchaseOrderInputSchema,
   getStockLevelInputSchema,
@@ -159,6 +160,10 @@ export class McpReadToolService {
       case 'get_workshop_kpi_report':
         return this.reportReads.getWorkshopKpiReport(
           getWorkshopKpiReportInputSchema.parse(parsed),
+        );
+      case 'get_revenue_report':
+        return this.reportReads.getRevenueReport(
+          getRevenueReportInputSchema.parse(parsed),
         );
       case 'list_pickerl_due':
         return this.reportReads.listPickerlDue(

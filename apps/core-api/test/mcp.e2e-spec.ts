@@ -726,6 +726,10 @@ describe('MCP server (e2e)', () => {
         name: 'get_workshop_kpi_report',
         arguments: { from: '2026-10-01', to: '2026-10-31' },
       },
+      {
+        name: 'get_revenue_report',
+        arguments: { from: '2026-10-01', to: '2026-10-31' },
+      },
       { name: 'list_pickerl_due', arguments: {} },
       {
         name: 'get_nova_preview',
@@ -2968,6 +2972,32 @@ describe('MCP server (e2e)', () => {
       });
     });
 
+    it('returns revenue report totals for the active site and period', async () => {
+      const result = await callMcpTool(
+        caller(adminHeaderA, 'e2e-revenue-own'),
+        'get_revenue_report',
+        PERIOD,
+      );
+
+      expect(result.isError).not.toBe(true);
+      expect(parsePayload(result)).toMatchObject({
+        site_id: fixtures.siteId,
+        period: {
+          from: PERIOD.from,
+          to: PERIOD.to,
+          timezone: expect.any(String),
+        },
+        totals: {
+          net: expect.stringMatching(/^\d+\.\d{2}$/),
+          vat: expect.stringMatching(/^\d+\.\d{2}$/),
+          gross: expect.stringMatching(/^\d+\.\d{2}$/),
+        },
+        by_source: expect.any(Array),
+        by_revenue_group: expect.any(Array),
+        invoice_count: expect.any(Number),
+      });
+    });
+
     it('lists the overdue Pickerl vehicle of the session tenant with its due date and customer name', async () => {
       const rows = await allPickerlRows(
         caller(adminHeaderA, 'e2e-pickerl-own'),
@@ -3026,6 +3056,12 @@ describe('MCP server (e2e)', () => {
 
       expect(
         await callFails(who, 'get_workshop_kpi_report', {
+          ...PERIOD,
+          site_id: fixtures.siteId,
+        }),
+      ).toBe(true);
+      expect(
+        await callFails(who, 'get_revenue_report', {
           ...PERIOD,
           site_id: fixtures.siteId,
         }),
