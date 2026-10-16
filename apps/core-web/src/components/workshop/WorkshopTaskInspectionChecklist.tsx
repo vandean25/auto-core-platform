@@ -4,6 +4,7 @@ import {
   useWorkshopTaskChecklist,
 } from "@/api/workshop";
 import { WorkshopTaskInspectionChecklistView } from "./WorkshopTaskInspectionChecklistView";
+import { InspectionCatalogueReferencePicker } from "./InspectionCatalogueReferencePicker";
 
 type Props = { orderId: string; taskId: string; readOnly?: boolean };
 
@@ -45,11 +46,19 @@ export function WorkshopTaskInspectionChecklist({
       </p>
     );
   return (
-    <WorkshopTaskInspectionChecklistView
-      checklist={checklistQuery.data}
-      readOnly={readOnly}
-      saving={updateChecklist.isPending}
-      onSave={saveItem}
-    />
+    <div className="space-y-4">
+      <WorkshopTaskInspectionChecklistView
+        checklist={checklistQuery.data}
+        readOnly={readOnly}
+        saving={updateChecklist.isPending}
+        onSave={saveItem}
+      />
+      <InspectionCatalogueReferencePicker
+        inspectionId={checklistQuery.data.id}
+        orderId={orderId}
+        taskId={taskId}
+        readOnly={readOnly}
+      />
+    </div>
   );
 }

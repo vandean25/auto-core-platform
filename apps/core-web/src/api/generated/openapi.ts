@@ -1988,6 +1988,91 @@ export interface paths {
         patch: operations["WorkshopCheckInController_updateDraft"];
         trace?: never;
     };
+    "/api/inspection-catalogues/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stage inspection catalogue manifest for activation */
+        post: operations["InspectionCatalogController_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/inspection-catalogues/{importId}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Activate staged inspection catalogue version */
+        post: operations["InspectionCatalogController_activate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/inspection-catalogues/references": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Resolve official catalogue reference codes */
+        get: operations["InspectionCatalogController_resolveReferences"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/inspection-catalogues/finding-references": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Attach immutable official catalogue reference snapshot to checklist */
+        post: operations["InspectionCatalogController_createFindingReference"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop-inspections/{inspectionId}/catalogue-references": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List catalogue reference snapshots on inspection */
+        get: operations["InspectionCatalogController_listFindingReferences"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/workshop/loaner-vehicles": {
         parameters: {
             query?: never;
@@ -7416,6 +7501,79 @@ export interface components {
             warning_lights?: string[];
             odometer?: number;
             fuel_level?: number;
+        };
+        PreviewInspectionCatalogueDto: {
+            /**
+             * @description Allowlisted manifest reference (synthetic statutory subset)
+             * @example ACP-RIS-Anl6-258-2022-subset
+             */
+            manifest_reference: string;
+        };
+        InspectionCataloguePreviewResponseDto: {
+            /** Format: uuid */
+            id: string;
+            state: string;
+            manifest_reference: string;
+            fingerprint: Record<string, never> | null;
+            manifest_digest: Record<string, never> | null;
+            /** Format: date-time */
+            preview_expires_at: string | null;
+            error_code: Record<string, never> | null;
+            version: number;
+            source_kind: string;
+            source_version: string;
+            coverage: string;
+            /** Format: date-time */
+            recheck_after: string | null;
+        };
+        ActivateInspectionCatalogueDto: {
+            /** @description Preview fingerprint from staging response */
+            fingerprint: string;
+            /** @description Optimistic concurrency version from preview */
+            version: number;
+        };
+        ActivateInspectionCatalogueResponseDto: {
+            /** Format: uuid */
+            catalogue_version_id: string;
+            source_version: string;
+            source_kind: string;
+            coverage: string;
+            replay: boolean;
+        };
+        CatalogueReferenceResolutionDto: {
+            position_id: string;
+            entry_id: Record<string, never> | null;
+            status: string;
+            label: Record<string, never> | null;
+            source_kind: string;
+            coverage: string;
+            catalogue_version_id: Record<string, never> | null;
+            source_version: Record<string, never> | null;
+            /** Format: date-time */
+            recheck_after: string | null;
+            currentness_stale: boolean;
+        };
+        CatalogueReferenceListResponseDto: {
+            data: components["schemas"]["CatalogueReferenceResolutionDto"][];
+        };
+        CreateInspectionFindingReferenceDto: {
+            /** Format: uuid */
+            workshop_order_id: string;
+            /** Format: uuid */
+            workshop_task_id: string;
+            position_id: string;
+            entry_id?: Record<string, never> | null;
+            human_finding_label?: Record<string, never> | null;
+        };
+        InspectionFindingReferenceResponseDto: {
+            /** Format: uuid */
+            id: string;
+            position_id: string;
+            entry_id: Record<string, never> | null;
+            label_snapshot: string;
+            source_version: string;
+            source_kind: string;
+            coverage: string;
         };
         LoanerVehicleResponseDto: {
             id: string;
@@ -14580,6 +14738,123 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["WorkshopCheckInResponseDto"];
                 };
+            };
+        };
+    };
+    InspectionCatalogController_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreviewInspectionCatalogueDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InspectionCataloguePreviewResponseDto"];
+                };
+            };
+        };
+    };
+    InspectionCatalogController_activate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                importId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActivateInspectionCatalogueDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivateInspectionCatalogueResponseDto"];
+                };
+            };
+        };
+    };
+    InspectionCatalogController_resolveReferences: {
+        parameters: {
+            query: {
+                catalogue_version_id: string;
+                codes: string;
+                entry_id: string;
+                for_current_use: string;
+                inspection_time: string;
+                position_id: string;
+                vehicle_class: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueReferenceListResponseDto"];
+                };
+            };
+        };
+    };
+    InspectionCatalogController_createFindingReference: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateInspectionFindingReferenceDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InspectionFindingReferenceResponseDto"];
+                };
+            };
+        };
+    };
+    InspectionCatalogController_listFindingReferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                inspectionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

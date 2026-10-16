@@ -6577,6 +6577,214 @@
         ]
       }
     },
+    "/api/inspection-catalogues/preview": {
+      "post": {
+        "operationId": "InspectionCatalogController_preview",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewInspectionCatalogueDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InspectionCataloguePreviewResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Stage inspection catalogue manifest for activation",
+        "tags": [
+          "workshop"
+        ]
+      }
+    },
+    "/api/inspection-catalogues/{importId}/activate": {
+      "post": {
+        "operationId": "InspectionCatalogController_activate",
+        "parameters": [
+          {
+            "name": "importId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActivateInspectionCatalogueDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivateInspectionCatalogueResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Activate staged inspection catalogue version",
+        "tags": [
+          "workshop"
+        ]
+      }
+    },
+    "/api/inspection-catalogues/references": {
+      "get": {
+        "operationId": "InspectionCatalogController_resolveReferences",
+        "parameters": [
+          {
+            "name": "catalogue_version_id",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "codes",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "entry_id",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "for_current_use",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "inspection_time",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "position_id",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "vehicle_class",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogueReferenceListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Resolve official catalogue reference codes",
+        "tags": [
+          "workshop"
+        ]
+      }
+    },
+    "/api/inspection-catalogues/finding-references": {
+      "post": {
+        "operationId": "InspectionCatalogController_createFindingReference",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInspectionFindingReferenceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InspectionFindingReferenceResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Attach immutable official catalogue reference snapshot to checklist",
+        "tags": [
+          "workshop"
+        ]
+      }
+    },
+    "/api/workshop-inspections/{inspectionId}/catalogue-references": {
+      "get": {
+        "operationId": "InspectionCatalogController_listFindingReferences",
+        "parameters": [
+          {
+            "name": "inspectionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List catalogue reference snapshots on inspection",
+        "tags": [
+          "workshop"
+        ]
+      }
+    },
     "/api/workshop/loaner-vehicles": {
       "get": {
         "operationId": "LoanerVehiclesController_list",
@@ -24898,6 +25106,260 @@
         },
         "required": [
           "expected_revision"
+        ]
+      },
+      "PreviewInspectionCatalogueDto": {
+        "type": "object",
+        "properties": {
+          "manifest_reference": {
+            "type": "string",
+            "description": "Allowlisted manifest reference (synthetic statutory subset)",
+            "example": "ACP-RIS-Anl6-258-2022-subset"
+          }
+        },
+        "required": [
+          "manifest_reference"
+        ]
+      },
+      "InspectionCataloguePreviewResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "type": "string"
+          },
+          "manifest_reference": {
+            "type": "string"
+          },
+          "fingerprint": {
+            "type": "object",
+            "nullable": true
+          },
+          "manifest_digest": {
+            "type": "object",
+            "nullable": true
+          },
+          "preview_expires_at": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "error_code": {
+            "type": "object",
+            "nullable": true
+          },
+          "version": {
+            "type": "number"
+          },
+          "source_kind": {
+            "type": "string"
+          },
+          "source_version": {
+            "type": "string"
+          },
+          "coverage": {
+            "type": "string"
+          },
+          "recheck_after": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "state",
+          "manifest_reference",
+          "fingerprint",
+          "manifest_digest",
+          "preview_expires_at",
+          "error_code",
+          "version",
+          "source_kind",
+          "source_version",
+          "coverage",
+          "recheck_after"
+        ]
+      },
+      "ActivateInspectionCatalogueDto": {
+        "type": "object",
+        "properties": {
+          "fingerprint": {
+            "type": "string",
+            "description": "Preview fingerprint from staging response"
+          },
+          "version": {
+            "type": "number",
+            "description": "Optimistic concurrency version from preview"
+          }
+        },
+        "required": [
+          "fingerprint",
+          "version"
+        ]
+      },
+      "ActivateInspectionCatalogueResponseDto": {
+        "type": "object",
+        "properties": {
+          "catalogue_version_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "source_version": {
+            "type": "string"
+          },
+          "source_kind": {
+            "type": "string"
+          },
+          "coverage": {
+            "type": "string"
+          },
+          "replay": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "catalogue_version_id",
+          "source_version",
+          "source_kind",
+          "coverage",
+          "replay"
+        ]
+      },
+      "CatalogueReferenceResolutionDto": {
+        "type": "object",
+        "properties": {
+          "position_id": {
+            "type": "string"
+          },
+          "entry_id": {
+            "type": "object",
+            "nullable": true
+          },
+          "status": {
+            "type": "string"
+          },
+          "label": {
+            "type": "object",
+            "nullable": true
+          },
+          "source_kind": {
+            "type": "string"
+          },
+          "coverage": {
+            "type": "string"
+          },
+          "catalogue_version_id": {
+            "type": "object",
+            "nullable": true
+          },
+          "source_version": {
+            "type": "object",
+            "nullable": true
+          },
+          "recheck_after": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "currentness_stale": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "position_id",
+          "entry_id",
+          "status",
+          "label",
+          "source_kind",
+          "coverage",
+          "catalogue_version_id",
+          "source_version",
+          "recheck_after",
+          "currentness_stale"
+        ]
+      },
+      "CatalogueReferenceListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogueReferenceResolutionDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "CreateInspectionFindingReferenceDto": {
+        "type": "object",
+        "properties": {
+          "workshop_order_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workshop_task_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "position_id": {
+            "type": "string"
+          },
+          "entry_id": {
+            "type": "object",
+            "nullable": true
+          },
+          "human_finding_label": {
+            "type": "object",
+            "nullable": true
+          }
+        },
+        "required": [
+          "workshop_order_id",
+          "workshop_task_id",
+          "position_id"
+        ]
+      },
+      "InspectionFindingReferenceResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "position_id": {
+            "type": "string"
+          },
+          "entry_id": {
+            "type": "object",
+            "nullable": true
+          },
+          "label_snapshot": {
+            "type": "string"
+          },
+          "source_version": {
+            "type": "string"
+          },
+          "source_kind": {
+            "type": "string"
+          },
+          "coverage": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "position_id",
+          "entry_id",
+          "label_snapshot",
+          "source_version",
+          "source_kind",
+          "coverage"
         ]
       },
       "LoanerVehicleResponseDto": {
