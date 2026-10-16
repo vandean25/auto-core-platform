@@ -1,4 +1,5 @@
 import i18next from 'eslint-plugin-i18next'
+import { i18nLiteralStringRule } from './eslint-i18n-shared.config.js'
 
 /** AUT-580: strict i18n for migrated enum/label maps (monotonic list; extend in follow-up PRs). */
 export const enumsI18nFiles = [
@@ -17,28 +18,6 @@ export const enumsI18nEslintConfig = {
     i18next,
   },
   rules: {
-    'i18next/no-literal-string': [
-      'error',
-      {
-        markupOnly: true,
-        ignoreAttribute: [
-          'className',
-          'data-testid',
-          'id',
-          'href',
-          'to',
-          'type',
-          'name',
-          'role',
-          'rel',
-          'target',
-          'autoComplete',
-          'variant',
-          'size',
-          'side',
-          'align',
-        ],
-      },
-    ],
+    'i18next/no-literal-string': i18nLiteralStringRule[1],
   },
 }

@@ -409,12 +409,18 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: apps/core-web/node_modules/.cache/eslint/
-          key: eslint-${{ runner.os }}-${{ hashFiles('package-lock.json', 'apps/core-web/eslint.config.js') }}-${{ github.run_id }}
+          key: eslint-${{ runner.os }}-${{ hashFiles('package-lock.json', 'apps/core-web/eslint.config.js', 'apps/core-web/eslint-*-i18n.config.js', 'apps/core-web/eslint-i18n-shared.config.js') }}-${{ github.run_id }}
           restore-keys: |
-            eslint-${{ runner.os }}-${{ hashFiles('package-lock.json', 'apps/core-web/eslint.config.js') }}-
+            eslint-${{ runner.os }}-${{ hashFiles('package-lock.json', 'apps/core-web/eslint.config.js', 'apps/core-web/eslint-*-i18n.config.js', 'apps/core-web/eslint-i18n-shared.config.js') }}-
 
       - name: Lint frontend
         run: npm run lint --workspace=core-web
+
+      - name: Verify DE/EN locale keys
+        run: npm run i18n:check
+
+      - name: Verify i18n key check script (unit tests)
+        run: npm run i18n:check:test
 
       - name: Build frontend
         # PR workflow uses this build for compile-time validation only.
