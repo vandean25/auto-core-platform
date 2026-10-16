@@ -346,6 +346,10 @@ describe('MechanicTaskDetailPage', () => {
 
   describe('submit finding to advisor', () => {
     it('calls submitFinding when notes exist and the task is in progress', async () => {
+      const saveMock = vi.fn().mockResolvedValue({
+        taskId: TASK_ID,
+        mechanicNotes: 'Oil leak at filter housing for pilot customer vehicle.',
+      })
       const submitMock = vi.fn().mockResolvedValue({
         proposalId: 'proposal-538',
         traceId: 'trace-538',
@@ -357,6 +361,10 @@ describe('MechanicTaskDetailPage', () => {
           mechanicNotes: 'Oil leak at filter housing for pilot customer vehicle.',
         }),
       )
+      asMock(mechanicApi.useSaveDiagnostics).mockReturnValue({
+        mutateAsync: saveMock,
+        isPending: false,
+      })
       asMock(mechanicApi.useSubmitMechanicFinding).mockReturnValue({
         mutateAsync: submitMock,
         isPending: false,
@@ -368,6 +376,7 @@ describe('MechanicTaskDetailPage', () => {
       expect(button).not.toBeDisabled()
       fireEvent.click(button)
 
+      await waitFor(() => expect(saveMock).toHaveBeenCalled())
       await waitFor(() => expect(submitMock).toHaveBeenCalled())
       expect(submitMock.mock.calls[0]?.[0]).toMatchObject({
         taskId: TASK_ID,

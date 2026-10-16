@@ -10,6 +10,12 @@ export class WorkshopMechanicFindingMediaDto {
 
   @ApiProperty({ type: String, nullable: true })
   caption!: string | null;
+
+  @ApiProperty({
+    description:
+      'Short-lived signed URL for the advisor to open the bay photo or video.',
+  })
+  read_url!: string;
 }
 
 export class WorkshopMechanicFindingDto {

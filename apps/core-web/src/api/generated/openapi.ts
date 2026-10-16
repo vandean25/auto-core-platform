@@ -6599,6 +6599,8 @@ export interface components {
             id: string;
             mime_type: string;
             caption: string | null;
+            /** @description Short-lived signed URL for the advisor to open the bay photo or video. */
+            read_url: string;
         };
         WorkshopMechanicFindingDto: {
             /** Format: uuid */

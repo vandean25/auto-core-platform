@@ -48,6 +48,7 @@ import { WorkshopKpiReportsService } from './workshop-kpi-reports.service.js';
 import { RegistrationIntakeModule } from '../registration-intake/registration-intake.module.js';
 import { LoanerVehiclesModule } from '../loaner-vehicles/loaner-vehicles.module.js';
 import { WorkshopBookingPackageService } from './workshop-booking-package.service.js';
+import { MechanicMediaStorage } from '../mechanic/mechanic-media.storage.js';
 
 @Module({
   imports: [
@@ -81,6 +82,7 @@ import { WorkshopBookingPackageService } from './workshop-booking-package.servic
     PublicEstimateApprovalRateLimiter,
     WorkshopEstimateService,
     WorkshopMechanicFindingService,
+    MechanicMediaStorage,
     WorkshopEstimateApprovalService,
     WorkshopEstimateOverrunService,
     WorkshopOverrunNoticeService,

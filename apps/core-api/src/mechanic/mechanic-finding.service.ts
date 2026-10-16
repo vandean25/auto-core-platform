@@ -27,6 +27,28 @@ type FindingMediaRef = {
   caption: string | null;
 };
 
+function isUniqueConstraintError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: unknown }).code === 'P2002'
+  );
+}
+
+function readIdempotencyFingerprint(previewJson: unknown): string | null {
+  if (previewJson === null || typeof previewJson !== 'object') {
+    return null;
+  }
+  const preview = previewJson as Record<string, unknown>;
+  const idempotency = preview.mcp_command_idempotency;
+  if (idempotency === null || typeof idempotency !== 'object') {
+    return null;
+  }
+  const fingerprint = (idempotency as Record<string, unknown>).args_fingerprint;
+  return typeof fingerprint === 'string' ? fingerprint : null;
+}
+
 @Injectable()
 export class MechanicFindingService {
   constructor(
@@ -43,13 +65,6 @@ export class MechanicFindingService {
   ): Promise<SubmitMechanicFindingResponseDto> {
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
-
-    if (dto.command_id) {
-      const replay = await this.findIdempotentProposal(tenantId, dto);
-      if (replay) {
-        return replay;
-      }
-    }
 
     const task = await this.prisma.workshopTask.findFirst({
       where: { id: taskId, tenant_id: tenantId },
@@ -125,6 +140,21 @@ export class MechanicFindingService {
       },
     };
 
+    const argsFingerprint = dto.command_id
+      ? fingerprintMcpWriteArgs(MECHANIC_FINDING_ACTION_TYPE, payload)
+      : null;
+
+    if (dto.command_id) {
+      const replay = await this.findIdempotentProposal(
+        tenantId,
+        dto.command_id,
+        argsFingerprint,
+      );
+      if (replay) {
+        return replay;
+      }
+    }
+
     const preview = {
       finding_evidence: {
         text: findingText,
@@ -139,40 +169,47 @@ export class MechanicFindingService {
         ? {
             mcp_command_idempotency: {
               command_id: dto.command_id,
-              args_fingerprint: fingerprintMcpWriteArgs(
-                MECHANIC_FINDING_ACTION_TYPE,
-                payload,
-              ),
+              args_fingerprint: argsFingerprint,
             },
           }
         : {}),
     };
 
-    const created = await this.agentProposals.persistPendingAction({
-      action_type: MECHANIC_FINDING_ACTION_TYPE,
-      payload_json: payload,
-      preview_json: preview,
-      tier: AgentPolicyTier.PROPOSE,
-      trace_id: traceId,
-      created_by_agent: 'mechanic_tablet',
-    });
+    try {
+      const created = await this.agentProposals.persistPendingAction({
+        action_type: MECHANIC_FINDING_ACTION_TYPE,
+        payload_json: payload,
+        preview_json: preview,
+        tier: AgentPolicyTier.PROPOSE,
+        trace_id: traceId,
+        created_by_agent: 'mechanic_tablet',
+      });
 
-    return {
-      proposalId: created.id,
-      traceId: created.trace_id,
-      actionType: MECHANIC_FINDING_ACTION_TYPE,
-    };
+      return {
+        proposalId: created.id,
+        traceId: created.trace_id,
+        actionType: MECHANIC_FINDING_ACTION_TYPE,
+      };
+    } catch (error) {
+      if (dto.command_id && isUniqueConstraintError(error)) {
+        const replay = await this.findIdempotentProposal(
+          tenantId,
+          dto.command_id,
+          argsFingerprint,
+        );
+        if (replay) {
+          return replay;
+        }
+      }
+      throw error;
+    }
   }
 
   private async findIdempotentProposal(
     tenantId: string,
-    dto: SubmitMechanicFindingDto,
+    commandId: string,
+    expectedFingerprint: string | null,
   ): Promise<SubmitMechanicFindingResponseDto | null> {
-    const commandId = dto.command_id;
-    if (!commandId) {
-      return null;
-    }
-
     const existing = await this.prisma.agentProposal.findFirst({
       where: {
         tenant_id: tenantId,
@@ -192,6 +229,17 @@ export class MechanicFindingService {
     if (storedCommandId && storedCommandId !== commandId) {
       throw new ConflictException(
         'This command_id was already used for a different mechanic finding',
+      );
+    }
+
+    const storedFingerprint = readIdempotencyFingerprint(existing.preview_json);
+    if (
+      expectedFingerprint &&
+      storedFingerprint &&
+      storedFingerprint !== expectedFingerprint
+    ) {
+      throw new ConflictException(
+        'This command_id was already used with different mechanic finding arguments',
       );
     }
 
@@ -257,17 +305,11 @@ export class MechanicFindingService {
     mechanicId: string,
     taskId: string,
     orderId: string,
-    mediaIds: string[],
+    requestedMediaIds: string[],
   ): Promise<FindingMediaRef[]> {
-    if (mediaIds.length === 0) {
-      return [];
-    }
-
-    const uniqueIds = [...new Set(mediaIds)];
-    const rows = await this.prisma.workshopMedia.findMany({
+    const authorizedRows = await this.prisma.workshopMedia.findMany({
       where: {
         tenant_id: tenantId,
-        id: { in: uniqueIds },
         workshop_task_id: taskId,
         workshop_order_id: orderId,
         uploaded_by_employee_id: mechanicId,
@@ -280,16 +322,31 @@ export class MechanicFindingService {
       },
     });
 
-    if (rows.length !== uniqueIds.length) {
-      throw new UnprocessableEntityException(
-        'One or more media items are not authorized for this task',
-      );
+    const authorizedById = new Map(
+      authorizedRows.map((row) => [row.id, row] as const),
+    );
+
+    const uniqueRequested = [...new Set(requestedMediaIds)];
+    for (const mediaId of uniqueRequested) {
+      if (!authorizedById.has(mediaId)) {
+        throw new UnprocessableEntityException(
+          'One or more media items are not authorized for this task',
+        );
+      }
     }
 
-    return rows.map((row) => ({
-      id: row.id,
-      mime_type: row.mime_type,
-      caption: row.caption,
-    }));
+    const includeIds =
+      uniqueRequested.length > 0
+        ? uniqueRequested
+        : authorizedRows.map((row) => row.id);
+
+    return includeIds
+      .map((id) => authorizedById.get(id))
+      .filter((row): row is (typeof authorizedRows)[number] => row !== undefined)
+      .map((row) => ({
+        id: row.id,
+        mime_type: row.mime_type,
+        caption: row.caption,
+      }));
   }
 }

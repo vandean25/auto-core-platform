@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { fetchWithAuth } from '@/api/client'
 import { workshopKeys } from '@/api/workshop'
-import { createHttpError, getErrorMessage } from '@/lib/error-utils'
+import { throwHttpError } from '@/lib/error-utils'
 
 export type WorkshopMechanicFinding = {
   proposal_id: string
@@ -11,7 +11,7 @@ export type WorkshopMechanicFinding = {
   status: string
   workshop_task_id: string
   finding_text: string
-  media: Array<{ id: string; mime_type: string; caption: string | null }>
+  media: Array<{ id: string; mime_type: string; caption: string | null; read_url: string }>
   summary: string | null
   created_at: string
 }
@@ -21,8 +21,7 @@ async function fetchMechanicFindings(orderId: string): Promise<WorkshopMechanicF
     `/api/workshop/orders/${encodeURIComponent(orderId)}/mechanic-findings`,
   )
   if (!response.ok) {
-    const message = await getErrorMessage(response, 'Failed to load mechanic findings')
-    throw createHttpError(message, response.status)
+    await throwHttpError(response, 'Failed to load mechanic findings')
   }
   const body = (await response.json()) as { data: WorkshopMechanicFinding[] }
   return body.data
@@ -67,10 +66,21 @@ export function MechanicFindingAdvisorPanel({ orderId }: MechanicFindingAdvisorP
             </div>
             <p className='text-sm whitespace-pre-wrap text-slate-700'>{finding.finding_text}</p>
             {finding.media.length > 0 && (
-              <ul className='text-xs text-slate-500 list-disc pl-4'>
+              <ul className='text-xs text-slate-500 list-disc pl-4 space-y-1'>
                 {finding.media.map((item) => (
                   <li key={item.id}>
-                    {item.mime_type}
+                    {item.read_url ? (
+                      <a
+                        href={item.read_url}
+                        target='_blank'
+                        rel='noreferrer'
+                        className='text-blue-700 underline'
+                      >
+                        Open {item.mime_type}
+                      </a>
+                    ) : (
+                      item.mime_type
+                    )}
                     {item.caption ? ` — ${item.caption}` : ''}
                   </li>
                 ))}

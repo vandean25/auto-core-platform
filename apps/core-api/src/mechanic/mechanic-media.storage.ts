@@ -152,6 +152,34 @@ export class MechanicMediaStorage {
     }
   }
 
+  /** Short-lived signed GET URL for advisor review of uploaded bay media. */
+  async generateSignedReadUrl(
+    storageBucket: string,
+    storageKey: string,
+    mimeType: string,
+    ttlSeconds = UPLOAD_POLICY_TTL_SECONDS,
+  ): Promise<string> {
+    const expiresAt = Date.now() + ttlSeconds * 1000;
+    const file = this.storage.bucket(storageBucket).file(storageKey);
+    try {
+      const [url] = await file.getSignedUrl({
+        version: 'v4',
+        action: 'read',
+        expires: expiresAt,
+        responseType: mimeType,
+      });
+      return url;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Failed to generate signed read URL for key=${storageKey}: ${message}`,
+      );
+      throw new InternalServerErrorException(
+        'Failed to generate media read URL. Please try again.',
+      );
+    }
+  }
+
   private getBucketName(): string {
     const bucket = process.env.WORKSHOP_MEDIA_BUCKET;
     if (!bucket) {

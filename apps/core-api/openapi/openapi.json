@@ -22041,12 +22041,17 @@
           "caption": {
             "type": "string",
             "nullable": true
+          },
+          "read_url": {
+            "type": "string",
+            "description": "Short-lived signed URL for the advisor to open the bay photo or video."
           }
         },
         "required": [
           "id",
           "mime_type",
-          "caption"
+          "caption",
+          "read_url"
         ]
       },
       "WorkshopMechanicFindingDto": {

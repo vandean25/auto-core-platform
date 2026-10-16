@@ -56,6 +56,7 @@ export function MechanicTaskDetailView({
     mediaIds: mediaUpload.uploadedMediaIds,
     disabled: capabilities.isDone,
     hasNotes: diagnostics.notesValue.trim().length > 0,
+    flushAndSaveNotes: diagnostics.flushAndSaveNotes,
   });
 
   const laborItems = task.lineItems.filter(

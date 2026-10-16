@@ -3,6 +3,7 @@ import { AgentProposalStatus } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { MechanicMediaStorage } from '../mechanic/mechanic-media.storage.js';
 import { MECHANIC_FINDING_ACTION_TYPE } from '../mechanic/mechanic-finding.constants.js';
 import type {
   WorkshopMechanicFindingDto,
@@ -22,6 +23,7 @@ export class WorkshopMechanicFindingService {
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
     private readonly siteContext: SiteContextService,
+    private readonly mediaStorage: MechanicMediaStorage,
   ) {}
 
   async listForOrder(
@@ -59,24 +61,59 @@ export class WorkshopMechanicFindingService {
       take: 50,
     });
 
-    const data: WorkshopMechanicFindingDto[] = [];
-    for (const proposal of proposals) {
-      const dto = this.toFindingDto(proposal);
-      if (dto) {
-        data.push(dto);
-      }
-    }
+    const mediaIds = new Set<string>();
+    const parsed = proposals
+      .map((proposal) => {
+        const dto = this.parseFindingPayload(proposal);
+        if (dto) {
+          for (const item of dto.media) {
+            mediaIds.add(item.id);
+          }
+        }
+        return dto ? { proposal, dto } : null;
+      })
+      .filter(
+        (
+          entry,
+        ): entry is {
+          proposal: (typeof proposals)[number];
+          dto: Omit<WorkshopMechanicFindingDto, 'media'> & {
+            media: Array<{
+              id: string;
+              mime_type: string;
+              caption: string | null;
+            }>;
+          };
+        } => entry !== null,
+      );
+
+    const readUrlByMediaId = await this.loadReadUrls(tenantId, [...mediaIds]);
+
+    const data: WorkshopMechanicFindingDto[] = parsed.map(({ proposal, dto }) => ({
+      proposal_id: proposal.id,
+      trace_id: proposal.trace_id,
+      status: proposal.status,
+      workshop_task_id: dto.workshop_task_id,
+      finding_text: dto.finding_text,
+      summary: dto.summary,
+      created_at: proposal.createdAt.toISOString(),
+      media: dto.media.map((item) => ({
+        ...item,
+        read_url: readUrlByMediaId.get(item.id) ?? '',
+      })),
+    }));
 
     return { data };
   }
 
-  private toFindingDto(proposal: {
-    id: string;
-    trace_id: string;
-    status: AgentProposalStatus;
+  private parseFindingPayload(proposal: {
     payload_json: unknown;
-    createdAt: Date;
-  }): WorkshopMechanicFindingDto | null {
+  }): {
+    workshop_task_id: string;
+    finding_text: string;
+    summary: string | null;
+    media: Array<{ id: string; mime_type: string; caption: string | null }>;
+  } | null {
     const payload = asRecord(proposal.payload_json);
     const finding = asRecord(payload.finding);
     const taskId =
@@ -107,14 +144,47 @@ export class WorkshopMechanicFindingService {
     }
 
     return {
-      proposal_id: proposal.id,
-      trace_id: proposal.trace_id,
-      status: proposal.status,
       workshop_task_id: taskId,
       finding_text: text,
       media,
       summary: typeof finding.summary === 'string' ? finding.summary : null,
-      created_at: proposal.createdAt.toISOString(),
     };
+  }
+
+  private async loadReadUrls(
+    tenantId: string,
+    mediaIds: string[],
+  ): Promise<Map<string, string>> {
+    const result = new Map<string, string>();
+    if (mediaIds.length === 0) {
+      return result;
+    }
+
+    const rows = await this.prisma.workshopMedia.findMany({
+      where: { tenant_id: tenantId, id: { in: mediaIds } },
+      select: {
+        id: true,
+        storage_bucket: true,
+        storage_key: true,
+        mime_type: true,
+      },
+    });
+
+    await Promise.all(
+      rows.map(async (row) => {
+        try {
+          const url = await this.mediaStorage.generateSignedReadUrl(
+            row.storage_bucket,
+            row.storage_key,
+            row.mime_type,
+          );
+          result.set(row.id, url);
+        } catch {
+          result.set(row.id, '');
+        }
+      }),
+    );
+
+    return result;
   }
 }
