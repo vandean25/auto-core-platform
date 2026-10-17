@@ -168,15 +168,12 @@ export class WorkshopOrderCompletionService {
               },
               parsed.notify_customer
                 ? async (trx, tid, sid, oid) => {
-                    outboxId = await this.readyEmail.onOrderCompletedInTx(
-                      trx,
-                      {
-                        tenantId: tid,
-                        siteId: sid,
-                        orderId: oid,
-                        occurredAt: new Date(),
-                      },
-                    );
+                    outboxId = await this.readyEmail.onOrderCompletedInTx(trx, {
+                      tenantId: tid,
+                      siteId: sid,
+                      orderId: oid,
+                      occurredAt: new Date(),
+                    });
                   }
                 : undefined,
             );
@@ -304,9 +301,7 @@ export class WorkshopOrderCompletionService {
           );
         }
         if (task.status === WorkshopTaskStatus.DONE) {
-          throw new ConflictException(
-            `Task ${taskId} is already completed`,
-          );
+          throw new ConflictException(`Task ${taskId} is already completed`);
         }
       }
       taskIdsToComplete = requestedIds;
