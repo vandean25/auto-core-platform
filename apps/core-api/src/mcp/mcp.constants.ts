@@ -93,6 +93,7 @@ export const MCP_WRITE_TOOL_NAMES = [
   'propose_purchase_order',
   'propose_workshop_order_completion',
   'propose_invoice_draft_from_order',
+  'propose_estimate_send',
   'request_workshop_media_upload',
   'propose_mechanic_finding',
 ] as const;
@@ -141,7 +142,6 @@ export const MCP_NEVER_EXPOSED_ACTIONS = [
   'tenant_member.invite',
   'consent.update',
   'consent.revoke',
-  'estimate.send_customer_message',
   'legal_entity.update',
   'tax_rate.update',
   'number_range.update',

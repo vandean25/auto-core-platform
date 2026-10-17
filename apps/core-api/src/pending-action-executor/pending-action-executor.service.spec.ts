@@ -86,6 +86,19 @@ describe('PendingActionExecutorService', () => {
       .mockResolvedValue({ site_id: 'site-1' }),
     buildPolicyContext: jest.fn().mockResolvedValue({ amount_eur: 120 }),
   };
+  const mockWorkshopEstimateSendPropose = {
+    applySend: jest.fn().mockResolvedValue({
+      id: 'ver-1',
+      entityId: 'ver-1',
+      estimate_version_id: 'ver-1',
+      estimate_number: 'KV-2026-0001',
+      status: 'SENT',
+    }),
+    buildExecutionContext: jest
+      .fn()
+      .mockResolvedValue({ site_id: 'site-1' }),
+    buildPolicyContext: jest.fn().mockResolvedValue({ amount_eur: 60 }),
+  };
   let service: PendingActionExecutorService;
 
   beforeEach(() => {
@@ -101,6 +114,7 @@ describe('PendingActionExecutorService', () => {
       mockPurchaseService as never,
       mockWorkshopOrderCompletion as never,
       mockInvoiceWorkshopDraftPropose as never,
+      mockWorkshopEstimateSendPropose as never,
       {} as never,
       {} as never,
     );
@@ -143,6 +157,22 @@ describe('PendingActionExecutorService', () => {
         context,
       );
       expect(mockInvoiceWorkshopDraftPropose.applyDraft).toHaveBeenCalled();
+    });
+  });
+
+  describe('workshop_estimate.send', () => {
+    it('binds site in execution context and delegates apply to estimate send service', async () => {
+      const executor = service.resolve('workshop_estimate.send');
+      const context = await executor.buildExecutionContext?.({});
+      expect(context).toEqual({ site_id: 'site-1' });
+      await executor.execute(
+        {
+          workshop_order_id: '00000000-0000-4000-8000-000000000001',
+          channel: 'email',
+        },
+        context,
+      );
+      expect(mockWorkshopEstimateSendPropose.applySend).toHaveBeenCalled();
     });
   });
 

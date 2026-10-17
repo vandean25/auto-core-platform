@@ -10,10 +10,10 @@ import { mcpToolOutputSchemas } from './mcp-tool-output-schemas.js';
 const names = (list: string): string[] => list.split(' ');
 
 const FORBIDDEN_ACTIONS = names(
-  'invoice.finalize invoice.cancel invoice.send credit_note.create credit_note.issue credit_note.finalize accounting_export.create accounting_export.submit customer.delete vehicle.delete workshop_order.delete tenant_member.role_change tenant_member.invite consent.update consent.revoke estimate.send_customer_message legal_entity.update tax_rate.update number_range.update payment.record fiscal_receipt.sign fiscal_receipt.cancel',
+  'invoice.finalize invoice.cancel invoice.send credit_note.create credit_note.issue credit_note.finalize accounting_export.create accounting_export.submit customer.delete vehicle.delete workshop_order.delete tenant_member.role_change tenant_member.invite consent.update consent.revoke legal_entity.update tax_rate.update number_range.update payment.record fiscal_receipt.sign fiscal_receipt.cancel',
 );
 const ALLOWED_WRITE_TOOLS = names(
-  'draft_workshop_order reserve_part release_reservation propose_line_item propose_registration_intake propose_workshop_booking propose_purchase_order propose_workshop_order_completion propose_invoice_draft_from_order request_workshop_media_upload propose_mechanic_finding',
+  'draft_workshop_order reserve_part release_reservation propose_line_item propose_registration_intake propose_workshop_booking propose_purchase_order propose_workshop_order_completion propose_invoice_draft_from_order propose_estimate_send request_workshop_media_upload propose_mechanic_finding',
 );
 const ALLOWED_READ_TOOLS = names(
   'search_customers get_customer search_vehicles get_vehicle list_workshop_orders get_workshop_order search_parts get_stock_level get_vehicle_stock_age_report get_vehicle_stock_margin_report list_invoices get_invoice list_bays list_bins list_workshop_tasks list_workshop_slots list_available_loaners whoami get_capabilities list_audit_events get_entity_history get_agent_action list_agent_actions get_vehicle_history get_vehicle_context list_documents get_document_pdf get_tenant_settings list_sites get_legal_entity list_purchase_orders get_purchase_order list_vendors list_catalog_items get_catalog_item list_price_lists list_margin_rules get_workshop_kpi_report get_revenue_report list_pickerl_due get_nova_preview',
@@ -27,8 +27,8 @@ describe('MCP Constants - Never Exposed Actions', () => {
       );
     });
 
-    it('has exactly 22 forbidden actions', () => {
-      expect(MCP_NEVER_EXPOSED_ACTIONS).toHaveLength(22);
+    it('has exactly 21 forbidden actions', () => {
+      expect(MCP_NEVER_EXPOSED_ACTIONS).toHaveLength(21);
     });
   });
 
@@ -69,9 +69,12 @@ describe('MCP Constants - Never Exposed Actions', () => {
   describe('Invoice write actions are not tools (AUT-456)', () => {
     it('registers no tool that finalizes, cancels, sends, issues, voids, or credits', () => {
       const writeVerbs = /finaliz|cancel|send|issue|void|credit/i;
-      expect(MCP_TOOL_NAMES.filter((name) => writeVerbs.test(name))).toEqual(
-        [],
-      );
+      const allowedProposeSendTools = new Set(['propose_estimate_send']);
+      expect(
+        MCP_TOOL_NAMES.filter(
+          (name) => writeVerbs.test(name) && !allowedProposeSendTools.has(name),
+        ),
+      ).toEqual([]);
     });
 
     it('registers the invoice reads as AUTO read tools only', () => {
@@ -119,8 +122,8 @@ describe('MCP tool output schemas (AUT-427)', () => {
     );
   });
 
-  it('keeps the registry at 41 read tools and 11 write tools', () => {
+  it('keeps the registry at 41 read tools and 12 write tools', () => {
     expect(MCP_READ_TOOL_NAMES).toHaveLength(41);
-    expect(MCP_WRITE_TOOL_NAMES).toHaveLength(11);
+    expect(MCP_WRITE_TOOL_NAMES).toHaveLength(12);
   });
 });

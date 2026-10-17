@@ -39,6 +39,7 @@ import { mechanicFindingProposeNoop } from '../mechanic/mechanic-finding-propose
 import { MECHANIC_FINDING_ACTION_TYPE } from '../mechanic/mechanic-finding.constants.js';
 import { WorkshopOrderCompletionService } from '../workshop/workshop-order-completion.service.js';
 import { InvoiceWorkshopDraftProposeService } from '../invoices/invoice-workshop-draft-propose.service.js';
+import { WorkshopEstimateSendProposeService } from '../workshop/workshop-estimate-send-propose.service.js';
 
 export type McpWriteToolContext = {
   agentId: string;
@@ -107,6 +108,7 @@ export class McpWritePipelineService {
   private readonly workshopBookingPackage: WorkshopBookingPackageService;
   private readonly workshopOrderCompletion: WorkshopOrderCompletionService;
   private readonly invoiceWorkshopDraftPropose: InvoiceWorkshopDraftProposeService;
+  private readonly workshopEstimateSendPropose: WorkshopEstimateSendProposeService;
   private readonly mechanicFindingPropose: MechanicFindingProposeService;
 
   // Fields are assigned in the body rather than declared as parameter properties: cohesion analysis
@@ -123,6 +125,7 @@ export class McpWritePipelineService {
     workshopBookingPackage: WorkshopBookingPackageService,
     workshopOrderCompletion: WorkshopOrderCompletionService,
     invoiceWorkshopDraftPropose: InvoiceWorkshopDraftProposeService,
+    workshopEstimateSendPropose: WorkshopEstimateSendProposeService,
     @Optional() mechanicFindingPropose?: MechanicFindingProposeService,
   ) {
     this.prisma = prisma;
@@ -136,6 +139,7 @@ export class McpWritePipelineService {
     this.workshopBookingPackage = workshopBookingPackage;
     this.workshopOrderCompletion = workshopOrderCompletion;
     this.invoiceWorkshopDraftPropose = invoiceWorkshopDraftPropose;
+    this.workshopEstimateSendPropose = workshopEstimateSendPropose;
     this.mechanicFindingPropose = (mechanicFindingPropose ??
       mechanicFindingProposeNoop) as MechanicFindingProposeService;
   }
@@ -152,6 +156,9 @@ export class McpWritePipelineService {
     }
     if (execution.toolName === 'propose_invoice_draft_from_order') {
       return this.invoiceWorkshopDraftPropose.enrichInput(input);
+    }
+    if (execution.toolName === 'propose_estimate_send') {
+      return this.workshopEstimateSendPropose.enrichInput(input);
     }
     if (execution.toolName === 'propose_mechanic_finding') {
       return this.mechanicFindingPropose.enrichInput(input);
@@ -358,6 +365,9 @@ export class McpWritePipelineService {
     let proposalPayload: unknown = call.input;
     let proposalActionType = call.execution.policyActionType;
     let proposalPreview: unknown = simulation.preview;
+    if (call.execution.toolName === 'propose_estimate_send') {
+      proposalActionType = 'workshop_estimate.send';
+    }
     if (call.execution.toolName === 'propose_mechanic_finding') {
       const built = await this.mechanicFindingPropose.buildProposalPayload(
         call.input,

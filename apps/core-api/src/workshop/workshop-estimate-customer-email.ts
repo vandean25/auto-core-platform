@@ -27,17 +27,19 @@ export interface CustomerEstimateEmail {
  * address for order communication, the address must be a plain one, and the vehicle must be named. The copy is
  * the phase 3 draft: summary and link, with no attachment.
  */
-export function buildCustomerEstimateEmail(
-  input: CustomerEstimateEmailInput,
-): CustomerEstimateEmail {
-  if (!input.customer.contact_email_ok) {
+/** Confirmed, non-empty plain customer email for estimate delivery. */
+export function resolveCustomerEstimateRecipientEmail(customer: {
+  contact_email_ok: boolean;
+  email: string | null;
+}): string {
+  if (!customer.contact_email_ok) {
     throw new UnprocessableEntityException({
       code: 'ESTIMATE_CUSTOMER_EMAIL_NOT_CONFIRMED',
       message:
         'The customer email address must be confirmed for order communication before the estimate is emailed.',
     });
   }
-  const recipientEmail = input.customer.email?.trim() ?? '';
+  const recipientEmail = customer.email?.trim() ?? '';
   if (recipientEmail === '') {
     throw new UnprocessableEntityException({
       code: 'ESTIMATE_CUSTOMER_EMAIL_MISSING',
@@ -50,6 +52,13 @@ export function buildCustomerEstimateEmail(
       message: 'The customer email address is not a plain address.',
     });
   }
+  return recipientEmail;
+}
+
+export function buildCustomerEstimateEmail(
+  input: CustomerEstimateEmailInput,
+): CustomerEstimateEmail {
+  const recipientEmail = resolveCustomerEstimateRecipientEmail(input.customer);
   const make = input.vehicle.make.trim();
   const model = input.vehicle.model.trim();
   if (make === '' || model === '') {

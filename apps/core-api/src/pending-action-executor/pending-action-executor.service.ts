@@ -39,6 +39,7 @@ import { PurchaseService } from '../purchase/purchase.service.js';
 import { proposePurchaseOrderInputSchema } from '../purchase/purchase-propose-draft.schema.js';
 import { WorkshopOrderCompletionService } from '../workshop/workshop-order-completion.service.js';
 import { InvoiceWorkshopDraftProposeService } from '../invoices/invoice-workshop-draft-propose.service.js';
+import { WorkshopEstimateSendProposeService } from '../workshop/workshop-estimate-send-propose.service.js';
 import { WorkshopMediaUploadMcpService } from '../mechanic/workshop-media-upload-mcp.service.js';
 import { MechanicFindingProposeService } from '../mechanic/mechanic-finding-propose.service.js';
 import { requestWorkshopMediaUploadInputSchema } from '../mechanic/mechanic-finding-propose.schema.js';
@@ -61,7 +62,8 @@ export type PendingActionType =
   | 'workshop_order.propose_mechanic_finding'
   | 'workshop.media_upload_slot'
   | 'workshop_order.complete'
-  | 'invoice.create_draft_from_workshop_order';
+  | 'invoice.create_draft_from_workshop_order'
+  | 'workshop_estimate.send';
 
 export type PendingActionExecutor = {
   actionType: PendingActionType;
@@ -92,6 +94,7 @@ export class PendingActionExecutorService {
     private readonly purchaseService: PurchaseService,
     private readonly workshopOrderCompletion: WorkshopOrderCompletionService,
     private readonly invoiceWorkshopDraftPropose: InvoiceWorkshopDraftProposeService,
+    private readonly workshopEstimateSendPropose: WorkshopEstimateSendProposeService,
     private readonly workshopMediaUploadMcp: WorkshopMediaUploadMcpService,
     private readonly mechanicFindingPropose: MechanicFindingProposeService,
   ) {}
@@ -370,6 +373,30 @@ export class PendingActionExecutorService {
             entityType: 'Invoice',
             entityId: (result as { invoice_id: string }).invoice_id,
             reversible: true,
+          }),
+        };
+      case 'workshop_estimate.send':
+        return {
+          actionType,
+          buildPolicyContext: (input) =>
+            this.workshopEstimateSendPropose.buildPolicyContext(input),
+          buildExecutionContext: () =>
+            this.workshopEstimateSendPropose.buildExecutionContext(),
+          execute: (input, context) =>
+            this.workshopEstimateSendPropose.applySend(input, context),
+          buildResultSummary: (result) => ({
+            estimate_version_id: (result as { estimate_version_id: string })
+              .estimate_version_id,
+            estimate_number: (result as { estimate_number: string })
+              .estimate_number,
+            status: (result as { status: string }).status,
+            totals: (result as { totals: { gross: string } }).totals,
+          }),
+          buildLogMetadata: (result) => ({
+            entityType: 'WorkshopEstimateVersion',
+            entityId: (result as { estimate_version_id: string })
+              .estimate_version_id,
+            reversible: false,
           }),
         };
       default:
