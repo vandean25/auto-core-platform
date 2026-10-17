@@ -88,12 +88,30 @@ export function CheckInSignaturePad({
     onSignatureCanvasClear?.()
   }, [onSignatureCanvasClear])
 
+  const canvasHasInk = useCallback(() => {
+    if (hasInkRef.current) {
+      return true
+    }
+    const canvas = canvasRef.current
+    const ctx = canvas?.getContext('2d')
+    if (!canvas || !ctx || canvas.width === 0 || canvas.height === 0) {
+      return false
+    }
+    const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height)
+    for (let index = 3; index < data.length; index += 4) {
+      if (data[index] > 0) {
+        return true
+      }
+    }
+    return false
+  }, [])
+
   useEffect(() => {
     padRef.current = {
-      hasInk: () => hasInkRef.current,
+      hasInk: canvasHasInk,
       toPngBlob: async () => {
         const canvas = canvasRef.current
-        if (!canvas || !hasInkRef.current) {
+        if (!canvas || !canvasHasInk()) {
           return null
         }
         return new Promise((resolve) => {
@@ -102,7 +120,7 @@ export function CheckInSignaturePad({
       },
       clear: clearCanvas,
     }
-  }, [clearCanvas, padRef])
+  }, [canvasHasInk, clearCanvas, padRef])
 
   const startStroke = (event: React.PointerEvent<HTMLCanvasElement>) => {
     if (readOnly) {

@@ -26,9 +26,7 @@ import { lockWorkshopCheckInForUpdate } from './workshop-check-in-lock.helpers.j
 import { resolveCheckInMediaUploaderEmployeeId } from './workshop-check-in-media-attribution.js';
 import { CHECK_IN_PHOTO_MAIN_LIMITS } from './workshop-check-in-photo-limits.js';
 import { CHECK_IN_SIGNATURE_MAX_BYTES } from './workshop-check-in-signature-limits.js';
-import {
-  reencodeCheckInSignaturePng,
-} from './workshop-check-in-signature-upload.js';
+import { reencodeCheckInSignaturePng } from './workshop-check-in-signature-upload.js';
 import { deleteCheckInStoredPhotoIfUnreferenced } from './workshop-check-in-media-storage-cleanup.js';
 import type {
   WorkshopCheckInMediaItemDto,
@@ -328,12 +326,7 @@ export class WorkshopCheckInMediaService {
         });
         if (duplicate) {
           if (
-            !isSameCheckInUpload(
-              duplicate,
-              locked.id,
-              orderId,
-              expectedPurpose,
-            )
+            !isSameCheckInUpload(duplicate, locked.id, orderId, expectedPurpose)
           ) {
             throw new ConflictException({
               code: CHECK_IN_ERROR_CODES.UPLOAD_ID_REUSED,

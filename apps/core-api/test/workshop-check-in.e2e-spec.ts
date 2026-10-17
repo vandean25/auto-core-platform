@@ -354,6 +354,50 @@ describe('Workshop check-in (e2e)', () => {
       });
   });
 
+  it('rejects completion when signature_media_id is a CHECK_IN photo', async () => {
+    const before = await request(app.getHttpServer())
+      .get(`/api/workshop/orders/${orderId}/check-in`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    const photoBytes = await readFile(gpsFixture);
+    const photoId = '51500000-0000-4000-8000-000000000561';
+    await request(app.getHttpServer())
+      .post(`/api/workshop/orders/${orderId}/check-in/media`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .field('client_upload_id', photoId)
+      .field('purpose', 'CHECK_IN')
+      .field('expected_revision', String(before.body.revision))
+      .attach('file', photoBytes, {
+        filename: 'photo.jpg',
+        contentType: 'image/jpeg',
+      })
+      .expect((res) => {
+        expect([200, 201]).toContain(res.status);
+      });
+
+    const afterPhoto = await request(app.getHttpServer())
+      .get(`/api/workshop/orders/${orderId}/check-in`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .post(`/api/workshop/orders/${orderId}/check-in/complete`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        expected_revision: afterPhoto.body.revision,
+        signature_media_id: photoId,
+        signed_by_name: 'Signer Example',
+        acknowledgement_version: 'check-in-signature-v1',
+        acknowledgement_locale: 'de',
+        acknowledged: true,
+      })
+      .expect(422)
+      .expect((res) => {
+        expect(res.body.code).toBe('CHECK_IN_SIGNATURE_REQUIRED');
+      });
+  });
+
   it('uploads CHECK_IN_SIGNATURE PNG and completes with evidence fields', async () => {
     const before = await request(app.getHttpServer())
       .get(`/api/workshop/orders/${orderId}/check-in`)
@@ -425,50 +469,6 @@ describe('Workshop check-in (e2e)', () => {
       },
     });
     expect(signatureRow?.id).toBe(signatureId);
-  });
-
-  it('rejects completion when signature_media_id is a CHECK_IN photo', async () => {
-    const before = await request(app.getHttpServer())
-      .get(`/api/workshop/orders/${orderId}/check-in`)
-      .set('Authorization', `Bearer ${authToken}`)
-      .expect(200);
-
-    const photoBytes = await readFile(gpsFixture);
-    const photoId = '51500000-0000-4000-8000-000000000561';
-    await request(app.getHttpServer())
-      .post(`/api/workshop/orders/${orderId}/check-in/media`)
-      .set('Authorization', `Bearer ${authToken}`)
-      .field('client_upload_id', photoId)
-      .field('purpose', 'CHECK_IN')
-      .field('expected_revision', String(before.body.revision))
-      .attach('file', photoBytes, {
-        filename: 'photo.jpg',
-        contentType: 'image/jpeg',
-      })
-      .expect((res) => {
-        expect([200, 201]).toContain(res.status);
-      });
-
-    const afterPhoto = await request(app.getHttpServer())
-      .get(`/api/workshop/orders/${orderId}/check-in`)
-      .set('Authorization', `Bearer ${authToken}`)
-      .expect(200);
-
-    await request(app.getHttpServer())
-      .post(`/api/workshop/orders/${orderId}/check-in/complete`)
-      .set('Authorization', `Bearer ${authToken}`)
-      .send({
-        expected_revision: afterPhoto.body.revision,
-        signature_media_id: photoId,
-        signed_by_name: 'Signer Example',
-        acknowledgement_version: 'check-in-signature-v1',
-        acknowledgement_locale: 'de',
-        acknowledged: true,
-      })
-      .expect(422)
-      .expect((res) => {
-        expect(res.body.code).toBe('CHECK_IN_SIGNATURE_REQUIRED');
-      });
   });
 
   it('isolates check-in reads across tenants', async () => {

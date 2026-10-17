@@ -3,7 +3,9 @@ import { createHmac, createHash } from 'node:crypto';
 function evidenceHmacSecret(): string {
   const key = process.env.SECRET_ENCRYPTION_KEY?.trim();
   if (!key) {
-    throw new Error('SECRET_ENCRYPTION_KEY is required for check-in evidence hashing');
+    throw new Error(
+      'SECRET_ENCRYPTION_KEY is required for check-in evidence hashing',
+    );
   }
   return key;
 }

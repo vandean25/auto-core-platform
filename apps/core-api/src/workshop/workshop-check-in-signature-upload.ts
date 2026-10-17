@@ -5,7 +5,9 @@ import {
   CHECK_IN_SIGNATURE_MAX_WIDTH,
 } from './workshop-check-in-signature-limits.js';
 
-const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const PNG_SIGNATURE = Buffer.from([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+]);
 
 export function assertCheckInSignaturePng(bytes: Buffer): void {
   if (bytes.length === 0 || bytes.length > CHECK_IN_SIGNATURE_MAX_BYTES) {

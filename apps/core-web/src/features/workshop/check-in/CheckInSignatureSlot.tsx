@@ -9,6 +9,7 @@ type Props = {
   onAcknowledgedChange: (value: boolean) => void
   padRef: RefObject<CheckInSignaturePadHandle | null>
   signaturePreviewUrl?: string | null
+  onSignatureCanvasClear?: () => void
 }
 
 export function CheckInSignatureSlot(props: Props) {

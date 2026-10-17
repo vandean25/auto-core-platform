@@ -329,7 +329,8 @@ export class WorkshopCheckInService {
     if (!signedByName) {
       throw new UnprocessableEntityException({
         code: CHECK_IN_ERROR_CODES.CHECK_IN_SIGNATURE_REQUIRED,
-        message: 'Customer signature evidence is required to complete check-in.',
+        message:
+          'Customer signature evidence is required to complete check-in.',
       });
     }
 
@@ -373,7 +374,8 @@ export class WorkshopCheckInService {
     if (!signatureMedia || signatureMedia.mime_type !== 'image/png') {
       throw new UnprocessableEntityException({
         code: CHECK_IN_ERROR_CODES.CHECK_IN_SIGNATURE_REQUIRED,
-        message: 'Customer signature evidence is required to complete check-in.',
+        message:
+          'Customer signature evidence is required to complete check-in.',
       });
     }
 
@@ -387,7 +389,8 @@ export class WorkshopCheckInService {
     } catch {
       throw new UnprocessableEntityException({
         code: CHECK_IN_ERROR_CODES.CHECK_IN_SIGNATURE_REQUIRED,
-        message: 'Customer signature evidence is required to complete check-in.',
+        message:
+          'Customer signature evidence is required to complete check-in.',
       });
     }
 
@@ -403,7 +406,8 @@ export class WorkshopCheckInService {
     if (dto.acknowledgement_version !== CHECK_IN_ACKNOWLEDGEMENT_VERSION) {
       throw new UnprocessableEntityException({
         code: CHECK_IN_ERROR_CODES.CHECK_IN_SIGNATURE_REQUIRED,
-        message: 'Customer signature evidence is required to complete check-in.',
+        message:
+          'Customer signature evidence is required to complete check-in.',
       });
     }
 

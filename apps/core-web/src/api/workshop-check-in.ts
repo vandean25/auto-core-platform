@@ -246,11 +246,13 @@ export function useUploadWorkshopCheckInMedia() {
       file: File
       clientUploadId: string
       expectedRevision: number
+      purpose?: 'CHECK_IN' | 'CHECK_IN_SIGNATURE'
     }) =>
       uploadWorkshopCheckInMedia(payload.orderId, {
         file: payload.file,
         clientUploadId: payload.clientUploadId,
         expectedRevision: payload.expectedRevision,
+        purpose: payload.purpose,
       }),
     onSuccess: (_data, payload) => {
       void queryClient.invalidateQueries({
