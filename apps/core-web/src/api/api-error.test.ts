@@ -18,7 +18,7 @@ describe('api-error decoder', () => {
       },
     }
     expect(translateApiError(error)).toBe(
-      'Die Annahme wurde zwischenzeitlich geändert. Bitte laden Sie neu und versuchen Sie es erneut.',
+      'Die Annahme wurde zwischenzeitlich geändert. Bitte laden Sie die Seite neu und versuchen Sie es erneut.',
     )
   })
 

@@ -19,7 +19,7 @@ describe('formatNestApiErrorMessage', () => {
         'Failed to create invoice',
       ),
     ).toBe(
-      'Rechnungen ohne Quellbeleg werden nicht unterstützt. Erstellen Sie Rechnungen aus einem berechtigten Verkaufsauftrag.',
+      'Rechnungen ohne zugrunde liegenden Auftrag sind nicht möglich. Bitte legen Sie die Rechnung aus einem Kundenauftrag an.',
     )
   })
 
@@ -55,6 +55,6 @@ describe('formatNestApiErrorMessage', () => {
         },
         'Failed to finalize invoice',
       ),
-    ).toContain('Marken-Rechnungsausstellung')
+    ).toContain('Rechnungen mit Briefpapier')
   })
 })

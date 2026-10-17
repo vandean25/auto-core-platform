@@ -46,7 +46,7 @@ describe('catalog-source-copy', () => {
     })
 
     expect(getCatalogSourceBannerCopy(emptyMetadata)).toContain('OEM ohne Treffer')
-    expect(getCatalogSourceBannerCopy(errorMetadata)).toContain('OEM nicht verfügbar')
+    expect(getCatalogSourceBannerCopy(errorMetadata)).toContain('Originalteile-Katalog nicht verfügbar')
     expect(getFallbackDialogCopy('EMPTY').title).toBe(
       i18n.t('catalog.fallbackDialog.emptyTitle', { ns: 'workshop' }),
     )

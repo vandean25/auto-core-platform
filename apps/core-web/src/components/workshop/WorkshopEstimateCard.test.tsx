@@ -318,7 +318,7 @@ describe('WorkshopEstimateCard', () => {
     expect(within(banner).getByText('Auftrag weicht vom Kostenvoranschlag ab')).toBeTruthy()
     expect(within(banner).getByText(/€\s270,00/)).toBeTruthy()
     expect(within(banner).getByText(/Grenzwert: 15 %/)).toBeTruthy()
-    expect(within(banner).getByText('2 neue Position(en) gegenüber dem freigegebenen Kostenvoranschlag.')).toBeTruthy()
+    expect(within(banner).getByText('2 neue Positionen gegenüber dem freigegebenen Kostenvoranschlag.')).toBeTruthy()
   })
 
   it('answers an overrun in one step: the revised version is created and its send dialog opens', async () => {
@@ -637,7 +637,7 @@ describe('describeEstimateOverrun', () => {
         threshold_pct: '15.00',
         new_line_count: 1,
       }),
-    ).toEqual(['1 neue Position(en) gegenüber dem freigegebenen Kostenvoranschlag.'])
+    ).toEqual(['1 neue Position gegenüber dem freigegebenen Kostenvoranschlag.'])
   })
 
   it('omits the percentage when the approved total is zero', () => {
