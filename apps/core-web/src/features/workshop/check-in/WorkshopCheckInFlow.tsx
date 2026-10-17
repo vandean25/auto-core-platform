@@ -35,7 +35,7 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
   const navigate = useNavigate()
   const orderQuery = useWorkshopOrder(orderId)
   const checkInIdRef = useRef<string | null>(null)
-  const createFailedRef = useRef(false)
+  const [createError, setCreateError] = useState<string | null>(null)
   const createCheckIn = useCreateWorkshopCheckIn()
   const completeCheckIn = useCompleteWorkshopCheckIn()
   const [step, setStep] = useState<CheckInStep>('vehicle')
@@ -81,7 +81,7 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
     if (!canStartCheckIn(orderQuery.data.status)) {
       return
     }
-    if (checkInIdRef.current || createFailedRef.current) {
+    if (checkInIdRef.current || createError) {
       return
     }
     const id = generateId()
@@ -89,13 +89,15 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
     void createCheckIn
       .mutateAsync({ orderId, checkInId: id })
       .catch(async (error: unknown) => {
-        toast.error(describeWorkshopCheckInError(error))
+        const message = describeWorkshopCheckInError(error)
+        toast.error(message)
         checkInIdRef.current = null
-        createFailedRef.current = true
         const refetched = await checkInQuery.refetch()
         if (refetched.data) {
-          createFailedRef.current = false
+          setCreateError(null)
+          return
         }
+        setCreateError(message)
       })
   }, [
     checkInQuery.data,
@@ -104,6 +106,7 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
     checkInQuery.refetch,
     createCheckIn,
     orderId,
+    createError,
     orderQuery.data,
   ])
 
@@ -161,6 +164,24 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
   }
 
   if (!checkInQuery.data || !draft) {
+    if (createError) {
+      return (
+        <div className="space-y-4" data-testid="check-in-create-error">
+          <p className="text-sm text-destructive">{createError}</p>
+          <Button
+            type="button"
+            className="min-h-11"
+            onClick={() => {
+              setCreateError(null)
+              checkInIdRef.current = null
+              void checkInQuery.refetch()
+            }}
+          >
+            {t('checkIn.actions.retry')}
+          </Button>
+        </div>
+      )
+    }
     return (
       <p className="text-sm text-muted-foreground" data-testid="check-in-loading">
         {t('checkIn.initializing')}
@@ -236,13 +257,19 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
           onPatchCondition={patchCondition}
         />
       )}
+      {step === 'condition' && mediaQuery.isError && (
+        <p className="text-sm text-destructive" role="alert">
+          {describeWorkshopCheckInError(mediaQuery.error) ||
+            t('checkIn.media.loadError')}
+        </p>
+      )}
       {step === 'condition' && (
         <CheckInConditionStep
           orderId={orderId}
           draft={draft}
           readOnly={readOnly}
           expectedRevision={checkInQuery.data.revision}
-          media={[
+          media={mediaQuery.isError ? [] : [
             ...(mediaQuery.data ?? []),
             ...sessionMedia.filter(
               (item) => !(mediaQuery.data ?? []).some((existing) => existing.id === item.id),

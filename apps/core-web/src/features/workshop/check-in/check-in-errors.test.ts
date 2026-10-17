@@ -16,6 +16,14 @@ describe('describeWorkshopCheckInError', () => {
     )
   })
 
+  it('reads CHECK_IN_CONFLICT from error.data', () => {
+    expect(
+      describeWorkshopCheckInError({
+        data: { code: 'CHECK_IN_CONFLICT' },
+      }),
+    ).toBe(deWorkshop.checkIn.errors.CHECK_IN_CONFLICT)
+  })
+
   it('maps CHECK_IN_MEDIA_INVALID from createCheckInHttpError', () => {
     const error = createCheckInHttpError(
       { status: 422 } as Response,

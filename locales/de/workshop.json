@@ -1334,6 +1334,7 @@
       "addDamageMarker": "Schaden hinzufügen"
     },
     "media": {
+      "loadError": "Fotos konnten nicht geladen werden.",
       "capture": "Foto aufnehmen",
       "uploading": "Foto wird hochgeladen…",
       "uploaded": "Foto gespeichert",
@@ -1360,10 +1361,7 @@
       "CHECK_IN_CONFLICT": "Die Annahme wurde zwischenzeitlich geändert. Bitte laden Sie neu und versuchen Sie es erneut.",
       "CHECK_IN_COMPLETED": "Diese Annahme ist bereits abgeschlossen.",
       "CHECK_IN_ORDER_STATUS": "Annahme ist nur bei Aufträgen in Annahme oder in Bearbeitung möglich.",
-      "CHECK_IN_MEDIA_INVALID": "Mindestens ein Foto ist für diese Annahme nicht gültig.",
-      "UPLOAD_ID_REUSED": "Dieser Upload wurde bereits mit anderen Daten verwendet.",
-      "CHECK_IN_NOT_COMPLETED": "Die Annahme ist noch nicht abgeschlossen.",
-      "CHECK_IN_MEDIA_PENDING": "Fotos werden noch verarbeitet. Bitte kurz warten."
+      "CHECK_IN_MEDIA_INVALID": "Mindestens ein Foto ist für diese Annahme nicht gültig."
     },
     "inspection": {
       "sectionLabel": "Annahme-Checkliste",

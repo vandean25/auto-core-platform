@@ -6,7 +6,10 @@ import {
   type WorkshopCheckIn,
 } from '@/api/workshop-check-in'
 import { useDebouncedAutoSave } from '@/hooks/useDebouncedAutoSave'
-import { describeWorkshopCheckInError } from './check-in-errors'
+import {
+  describeWorkshopCheckInError,
+  resolveWorkshopCheckInErrorCode,
+} from './check-in-errors'
 import {
   buildUpdatePayload,
   draftFromCheckIn,
@@ -33,13 +36,11 @@ export function useCheckInDraftAutosave({
   const lastSavedRef = useRef<CheckInDraftSnapshot | null>(null)
   const revisionRef = useRef(1)
   const hydrateFromServerRef = useRef(false)
-  const hasLocalDraftRef = useRef(false)
 
   const applyServerRecord = useCallback((serverRecord: WorkshopCheckIn) => {
     revisionRef.current = serverRecord.revision
     const next = draftFromCheckIn(serverRecord)
     lastSavedRef.current = next
-    hasLocalDraftRef.current = true
     setDraft(next)
   }, [])
 
@@ -55,7 +56,6 @@ export function useCheckInDraftAutosave({
       hydrateFromServerRef.current = false
       revisionRef.current = record.revision
       lastSavedRef.current = next
-      hasLocalDraftRef.current = true
       return next
     })
   }, [record])
@@ -92,14 +92,10 @@ export function useCheckInDraftAutosave({
     onError: (error) => {
       const message = describeWorkshopCheckInError(error)
       toast.error(message)
-      const code =
-        typeof error === 'object' &&
-        error !== null &&
-        'code' in error &&
-        (error as { code?: string }).code
+      const code = resolveWorkshopCheckInErrorCode(error)
       if (code === 'CHECK_IN_CONFLICT') {
+        hydrateFromServerRef.current = true
         void (async () => {
-          hydrateFromServerRef.current = true
           const fresh = await onRevisionConflict?.()
           if (fresh) {
             applyServerRecord(fresh)

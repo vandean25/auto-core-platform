@@ -145,9 +145,6 @@ export async function fetchWorkshopCheckInMedia(
   const response = await fetchWithAuth(
     `${WORKSHOP_API}/orders/${orderId}/check-in/media`,
   )
-  if (response.status === 404) {
-    return []
-  }
   if (!response.ok) {
     return parseCheckInErrorResponse(response)
   }

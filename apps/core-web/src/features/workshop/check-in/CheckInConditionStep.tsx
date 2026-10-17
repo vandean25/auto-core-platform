@@ -127,14 +127,17 @@ export function CheckInConditionStep({
           {t('checkIn.steps.condition.photosTitle')}
         </h2>
         <p className="text-sm text-muted-foreground">{t('checkIn.steps.condition.photosHint')}</p>
+        <Label htmlFor="check-in-camera-input" className="sr-only">
+          {t('checkIn.media.capture')}
+        </Label>
         <input
+          id="check-in-camera-input"
           ref={fileInputRef}
           type="file"
           accept={PHOTO_ACCEPT}
           capture="environment"
           className="sr-only"
           tabIndex={-1}
-          aria-hidden
           data-testid="check-in-camera-input"
           onChange={(event) => {
             const file = event.target.files?.[0]

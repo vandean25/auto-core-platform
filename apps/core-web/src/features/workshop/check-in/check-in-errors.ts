@@ -12,7 +12,9 @@ export const WORKSHOP_CHECK_IN_ERROR_CODES = [
 export type WorkshopCheckInErrorCode =
   (typeof WORKSHOP_CHECK_IN_ERROR_CODES)[number]
 
-function resolveCheckInErrorCode(error: unknown): WorkshopCheckInErrorCode | undefined {
+export function resolveWorkshopCheckInErrorCode(
+  error: unknown,
+): WorkshopCheckInErrorCode | undefined {
   const body = getErrorBody(error)
   const directCode =
     typeof error === 'object' &&
@@ -36,7 +38,7 @@ function messageForCode(code: WorkshopCheckInErrorCode): string {
 }
 
 export function describeWorkshopCheckInError(error: unknown): string {
-  const code = resolveCheckInErrorCode(error)
+  const code = resolveWorkshopCheckInErrorCode(error)
   if (code) {
     return messageForCode(code)
   }
