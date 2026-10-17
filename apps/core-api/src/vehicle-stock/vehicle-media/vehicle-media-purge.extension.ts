@@ -156,20 +156,18 @@ export async function runVehicleDeleteWithMediaPurge(
 }
 
 export function createVehicleMediaPurgeExtension() {
-  return Prisma.defineExtension((client) =>
-    client.$extends({
+  return Prisma.defineExtension((client) => {
+    const commitTransaction = client.$transaction.bind(client);
+    return client.$extends({
       name: 'vehicle-media-purge',
       client: {
-        async $transaction(...args: unknown[]) {
-          const context = Prisma.getExtensionContext(this) as {
-            $transaction: (...inner: unknown[]) => Promise<unknown>;
-          };
+        $transaction(...args: unknown[]) {
           if (typeof args[0] === 'function') {
             return runWithDeferredVehicleMediaPurges(() =>
-              context.$transaction(...args),
+              commitTransaction(...args),
             );
           }
-          return context.$transaction(...args);
+          return commitTransaction(...args);
         },
       },
       query: {
@@ -190,6 +188,6 @@ export function createVehicleMediaPurgeExtension() {
           },
         },
       },
-    }),
-  );
+    });
+  });
 }
