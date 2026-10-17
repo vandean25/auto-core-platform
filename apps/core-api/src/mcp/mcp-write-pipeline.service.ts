@@ -136,8 +136,8 @@ export class McpWritePipelineService {
     this.workshopBookingPackage = workshopBookingPackage;
     this.workshopOrderCompletion = workshopOrderCompletion;
     this.invoiceWorkshopDraftPropose = invoiceWorkshopDraftPropose;
-    this.mechanicFindingPropose =
-      mechanicFindingPropose ?? mechanicFindingProposeNoop;
+    this.mechanicFindingPropose = (mechanicFindingPropose ??
+      mechanicFindingProposeNoop) as MechanicFindingProposeService;
   }
 
   private async normalizeWriteInput(
