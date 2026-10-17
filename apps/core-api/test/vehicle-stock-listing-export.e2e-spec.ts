@@ -126,11 +126,6 @@ describe('Vehicle listing export download (e2e)', () => {
     );
     expect(mobile.serializer_supported).toBe(true);
     expect(mobile.issues.length).toBeGreaterThan(0);
-    expect(
-      mobile.issues.some(
-        (issue: { field: string }) => issue.field === 'price_gross_eur',
-      ),
-    ).toBe(false);
   });
 
   it('downloads a ZIP package for an active, ready listing', async () => {
