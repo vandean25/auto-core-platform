@@ -1,8 +1,72 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { execSync } from 'node:child_process'
-import { translateEnErrorToDe } from './error-message-de-translate.mjs'
 import { CANONICAL_EN_MESSAGES } from './error-canonical-en.mjs'
+import handDeCatalog from './error-de-hand-catalog.json' with { type: 'json' }
+import { deTranslationFailsQualityCheck } from './error-de-quality.mjs'
+
+const SYSTEM_WIRE_CODES = {
+  HTTP_400: {
+    en: 'The request could not be processed.',
+    de: 'Die Anfrage konnte nicht verarbeitet werden.',
+  },
+  HTTP_401: {
+    en: 'Authentication is required.',
+    de: 'Authentifizierung erforderlich.',
+  },
+  HTTP_403: {
+    en: 'You do not have permission for this action.',
+    de: 'Sie haben keine Berechtigung für diese Aktion.',
+  },
+  HTTP_404: {
+    en: 'The requested resource was not found.',
+    de: 'Die angeforderte Ressource wurde nicht gefunden.',
+  },
+  HTTP_409: {
+    en: 'The request conflicts with the current state.',
+    de: 'Die Anfrage steht im Konflikt mit dem aktuellen Zustand.',
+  },
+  HTTP_422: {
+    en: 'The request could not be processed.',
+    de: 'Die Anfrage konnte nicht verarbeitet werden.',
+  },
+  HTTP_429: {
+    en: 'Too many requests. Please try again later.',
+    de: 'Zu viele Anfragen. Bitte versuchen Sie es später erneut.',
+  },
+  HTTP_500: {
+    en: 'An unexpected server error occurred.',
+    de: 'Ein unerwarteter Serverfehler ist aufgetreten.',
+  },
+  HTTP_502: {
+    en: 'The upstream service returned an invalid response.',
+    de: 'Der vorgelagerte Dienst hat eine ungültige Antwort geliefert.',
+  },
+  HTTP_503: {
+    en: 'The service is temporarily unavailable.',
+    de: 'Der Dienst ist vorübergehend nicht verfügbar.',
+  },
+  HTTP_504: {
+    en: 'The upstream service timed out.',
+    de: 'Zeitüberschreitung beim vorgelagerten Dienst.',
+  },
+  PRISMA_P2000: {
+    en: 'The provided value is too long for one of the columns.',
+    de: 'Der angegebene Wert ist für eine der Spalten zu lang.',
+  },
+  PRISMA_P2002: {
+    en: 'A record with this value already exists.',
+    de: 'Ein Datensatz mit diesem Wert existiert bereits.',
+  },
+  PRISMA_P2003: {
+    en: 'This operation cannot be completed because of a related record.',
+    de: 'Dieser Vorgang kann wegen eines verknüpften Datensatzes nicht abgeschlossen werden.',
+  },
+  PRISMA_P2025: {
+    en: 'The requested record was not found.',
+    de: 'Der angeforderte Datensatz wurde nicht gefunden.',
+  },
+}
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..')
 const CORE_API_SRC = path.join(REPO_ROOT, 'apps/core-api/src')
@@ -332,8 +396,11 @@ export function buildRegistryModel() {
     }
   }
 
-  const harvestedDe = loadHarvestedTranslations('de')
   const harvestedEn = loadHarvestedTranslations('en')
+  for (const [code, copy] of Object.entries(SYSTEM_WIRE_CODES)) {
+    allCodes.add(code)
+    messagesEn.set(code, copy.en)
+  }
   const existingLocaleCodes = (lang) => {
     const errorsPath = path.join(LOCALES_ROOT, lang, 'errors.json')
     if (!fs.existsSync(errorsPath)) return {}
@@ -408,21 +475,19 @@ export function buildRegistryModel() {
         scannedEn,
     )
     const enText = messages.en.get(code) ?? humanizeCodeEn(code)
-    const harvestedDeText = harvestedDe.get(code)
-    const existingDeText = existingDeCodes[code]
-    const deCandidate =
-      (typeof existingDeText === 'string' &&
-      existingDeText.trim().length > 0 &&
-      existingDeText.trim() !== enText.trim()
-        ? existingDeText
-        : undefined) ??
-      (harvestedDeText &&
-      harvestedDeText.trim().length > 0 &&
-      harvestedDeText.trim() !== enText.trim()
-        ? harvestedDeText
-        : undefined) ??
-      fallbackDeMessage(code, enText)
-    messages.de.set(code, deCandidate)
+    const systemDe = SYSTEM_WIRE_CODES[code]?.de
+    const handDe = handDeCatalog[code] ?? systemDe
+    if (!handDe || typeof handDe !== 'string' || handDe.trim().length === 0) {
+      throw new Error(
+        `Missing hand-written DE translation for ${code} in tools/error-de-hand-catalog.json`,
+      )
+    }
+    if (deTranslationFailsQualityCheck(handDe, enText, code)) {
+      throw new Error(
+        `DE translation for ${code} still looks like English or equals EN`,
+      )
+    }
+    messages.de.set(code, handDe)
   }
 
   return { codes, messages }
@@ -491,10 +556,6 @@ ${paramsEntries.map(([code, meta]) => `  ${code}: ${JSON.stringify(meta.params)}
   }
 
   syncClientSafeAllowlist(model)
-  execSync('node tools/sync-error-de-translations.mjs', {
-    cwd: REPO_ROOT,
-    stdio: 'pipe',
-  })
 
   return {
     registryPath,

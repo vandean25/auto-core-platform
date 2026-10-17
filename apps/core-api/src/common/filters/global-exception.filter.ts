@@ -24,6 +24,10 @@ import {
   pickClientSafeHttpErrorStructuredDetails,
 } from '../errors/client-safe-http-error-codes.js';
 import { TenantContextStorage } from '../services/tenant-context.storage.js';
+import {
+  PRISMA_REQUEST_ERROR_CODES,
+  resolveHttpStatusFallbackCode,
+} from '../errors/http-status-error-codes.js';
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null;
@@ -149,12 +153,12 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       } else {
         this.logger.error(JSON.stringify(logPayload), exception.stack);
         message = this.serverErrorMessage(context.requestId);
-        code = undefined;
+        code = resolveHttpStatusFallbackCode(status);
       }
     }
 
-    if (!clientSafeOperational) {
-      code = undefined;
+    if (!code) {
+      code = resolveHttpStatusFallbackCode(status);
     }
 
     const details =
@@ -192,27 +196,32 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         return {
           status: HttpStatus.BAD_REQUEST,
           message: 'The provided value is too long for one of the columns.',
+          code: PRISMA_REQUEST_ERROR_CODES.P2000,
         };
       case 'P2002':
         return {
           status: HttpStatus.CONFLICT,
           message: 'A record with this value already exists.',
+          code: PRISMA_REQUEST_ERROR_CODES.P2002,
         };
       case 'P2003':
         return {
           status: HttpStatus.UNPROCESSABLE_ENTITY,
           message:
             'This operation cannot be completed because of a related record.',
+          code: PRISMA_REQUEST_ERROR_CODES.P2003,
         };
       case 'P2025':
         return {
           status: HttpStatus.NOT_FOUND,
           message: 'The requested record was not found.',
+          code: PRISMA_REQUEST_ERROR_CODES.P2025,
         };
       default:
         return {
           status: HttpStatus.INTERNAL_SERVER_ERROR,
           message: 'An unexpected database error occurred.',
+          code: resolveHttpStatusFallbackCode(HttpStatus.INTERNAL_SERVER_ERROR),
         };
     }
   }
@@ -229,7 +238,11 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     ) {
       status = HttpStatus.BAD_REQUEST;
     }
-    return { status, message: exception.message };
+    return {
+      status,
+      message: exception.message,
+      code: resolveHttpStatusFallbackCode(status),
+    };
   }
 
   private handleGenericError(
@@ -251,7 +264,11 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       process.env.NODE_ENV === 'production'
         ? this.serverErrorMessage(context.requestId)
         : exception.message;
-    return { status: HttpStatus.INTERNAL_SERVER_ERROR, message };
+    return {
+      status: HttpStatus.INTERNAL_SERVER_ERROR,
+      message,
+      code: resolveHttpStatusFallbackCode(HttpStatus.INTERNAL_SERVER_ERROR),
+    };
   }
 
   private handleUnknownError(
@@ -269,6 +286,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     return {
       status: HttpStatus.INTERNAL_SERVER_ERROR,
       message: this.serverErrorMessage(context.requestId),
+      code: resolveHttpStatusFallbackCode(HttpStatus.INTERNAL_SERVER_ERROR),
     };
   }
 

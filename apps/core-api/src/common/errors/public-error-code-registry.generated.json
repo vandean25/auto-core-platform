@@ -505,6 +505,50 @@
       "public": true,
       "params": []
     },
+    "HTTP_400": {
+      "public": true,
+      "params": []
+    },
+    "HTTP_401": {
+      "public": true,
+      "params": []
+    },
+    "HTTP_403": {
+      "public": true,
+      "params": []
+    },
+    "HTTP_404": {
+      "public": true,
+      "params": []
+    },
+    "HTTP_409": {
+      "public": true,
+      "params": []
+    },
+    "HTTP_422": {
+      "public": true,
+      "params": []
+    },
+    "HTTP_429": {
+      "public": true,
+      "params": []
+    },
+    "HTTP_500": {
+      "public": true,
+      "params": []
+    },
+    "HTTP_502": {
+      "public": true,
+      "params": []
+    },
+    "HTTP_503": {
+      "public": true,
+      "params": []
+    },
+    "HTTP_504": {
+      "public": true,
+      "params": []
+    },
     "IDEMPOTENCY_MISMATCH": {
       "public": true,
       "params": []
@@ -950,6 +994,22 @@
       "params": []
     },
     "PRICE_JUMP_EXCEEDED": {
+      "public": true,
+      "params": []
+    },
+    "PRISMA_P2000": {
+      "public": true,
+      "params": []
+    },
+    "PRISMA_P2002": {
+      "public": true,
+      "params": []
+    },
+    "PRISMA_P2003": {
+      "public": true,
+      "params": []
+    },
+    "PRISMA_P2025": {
       "public": true,
       "params": []
     },

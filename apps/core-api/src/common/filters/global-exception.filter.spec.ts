@@ -41,6 +41,22 @@ describe('GlobalExceptionFilter', () => {
     jest.restoreAllMocks();
   });
 
+  it('attaches an HTTP status fallback code for string HttpExceptions', () => {
+    const exception = new HttpException(
+      'inspected_on must be a valid date',
+      HttpStatus.BAD_REQUEST,
+    );
+    filter.catch(exception, mockHost);
+
+    expect(mockJson).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: 400,
+        code: 'HTTP_400',
+        message: 'inspected_on must be a valid date',
+      }),
+    );
+  });
+
   it('formats standard HttpException with structured response and logs context', () => {
     TenantContextStorage.run(() => {
       TenantContextStorage.setUser({
@@ -63,6 +79,7 @@ describe('GlobalExceptionFilter', () => {
         statusCode: 404,
         message: 'Resource not found',
         error: 'Not Found',
+        code: 'HTTP_404',
       });
     });
   });
@@ -121,6 +138,12 @@ describe('GlobalExceptionFilter', () => {
       filter.catch(prismaError, mockHost);
 
       expect(mockStatus).toHaveBeenCalledWith(HttpStatus.CONFLICT);
+      expect(mockJson).toHaveBeenCalledWith(
+        expect.objectContaining({
+          statusCode: 409,
+          code: 'PRISMA_P2002',
+        }),
+      );
       expect(mockLoggerError).toHaveBeenCalledTimes(1);
 
       const loggedRaw = mockLoggerError.mock.calls[0][0];
@@ -147,6 +170,7 @@ describe('GlobalExceptionFilter', () => {
         statusCode: 409,
         message: 'Order conflict',
         error: 'Conflict',
+        code: 'HTTP_409',
       }),
     );
   });
@@ -180,7 +204,7 @@ describe('GlobalExceptionFilter', () => {
           requestId: 'req-masked-1',
         }),
       );
-      expect(mockJson.mock.calls[0][0]).not.toHaveProperty('code');
+      expect(mockJson.mock.calls[0][0]).toMatchObject({ code: 'HTTP_500' });
     });
 
     it('masks production 5xx even when operational is true without an allowlisted code', () => {
@@ -200,7 +224,7 @@ describe('GlobalExceptionFilter', () => {
           message: 'Something went wrong',
         }),
       );
-      expect(mockJson.mock.calls[0][0]).not.toHaveProperty('code');
+      expect(mockJson.mock.calls[0][0]).toMatchObject({ code: 'HTTP_500' });
     });
 
     it('preserves CHECK_IN_COMPLETED in production responses', () => {
@@ -242,7 +266,7 @@ describe('GlobalExceptionFilter', () => {
     });
   });
 
-  it('does not forward code for non-allowlisted HttpException responses', () => {
+  it('uses an HTTP status fallback code for non-allowlisted HttpException responses', () => {
     const exception = new UnprocessableEntityException({
       code: 'INTERNAL_LEDGER_STATE_UNLISTED',
       message: 'Ledger state is inconsistent.',
@@ -254,9 +278,9 @@ describe('GlobalExceptionFilter', () => {
       expect.objectContaining({
         statusCode: 422,
         message: 'Ledger state is inconsistent.',
+        code: 'HTTP_422',
       }),
     );
-    expect(mockJson.mock.calls[0][0]).not.toHaveProperty('code');
   });
 
   it('forwards field_issues for listing readiness 422 responses', () => {
@@ -368,6 +392,6 @@ describe('GlobalExceptionFilter', () => {
     );
 
     expect(mockJson.mock.calls[0][0]).not.toHaveProperty('orderId');
-    expect(mockJson.mock.calls[0][0]).not.toHaveProperty('code');
+    expect(mockJson.mock.calls[0][0]).toMatchObject({ code: 'HTTP_409' });
   });
 });

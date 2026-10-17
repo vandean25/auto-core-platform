@@ -3,6 +3,7 @@ import {
   normalizeApiError,
   translateApiError,
 } from '@/api/api-error'
+import { wireCodeForHttpStatus } from '@/api/http-status-fallback-codes'
 
 /** @deprecated Use getApiErrorBody from `@/api/api-error`. */
 export type ApiErrorBody = ReturnType<typeof getApiErrorBody> extends undefined
@@ -27,39 +28,25 @@ function isObjectLike(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
-/** True when the carrier includes a Nest/axios JSON body (not a bare status on a thrown Error). */
-function hasStructuredApiBody(error: unknown): boolean {
-  if (!isObjectLike(error)) {
-    return false
-  }
-  const apiError = error as ApiErrorLike
-  return apiError.response?.data !== undefined || apiError.data !== undefined
-}
-
 /** The server's error body, from an axios-style `response.data` or a `data` field. */
 export function getErrorBody(error: unknown) {
   return getApiErrorBody(error)
 }
 
 export function getErrorCode(error: unknown): string | undefined {
-  const normalized = normalizeApiError(error)
-  return normalized?.code ?? undefined
+  return resolveWireErrorCode(error) ?? undefined
 }
 
-function readUncodedBodyMessage(
-  error: unknown,
-  body: ReturnType<typeof getApiErrorBody>,
-): string {
-  const apiError = error as ApiErrorLike
-  const raw =
-    body?.message ?? apiError.response?.data?.message ?? apiError.data?.message
-  if (typeof raw === 'string' && raw.length > 0) {
-    return raw
+export function resolveWireErrorCode(error: unknown): string | null {
+  const body = getApiErrorBody(error)
+  if (typeof body?.code === 'string' && body.code.length > 0) {
+    return body.code
   }
-  if (Array.isArray(raw) && raw.length > 0) {
-    return raw.join(', ')
+  const status = getErrorStatus(error)
+  if (status !== null) {
+    return wireCodeForHttpStatus(status)
   }
-  return ''
+  return null
 }
 
 function appendServerReference(
@@ -90,38 +77,34 @@ function appendServerReference(
   return message
 }
 
+function syntheticErrorForTranslation(error: unknown, wireCode: string) {
+  const body = getApiErrorBody(error)
+  const status = getErrorStatus(error)
+  return {
+    response: {
+      status: status ?? body?.statusCode ?? 400,
+      data: { ...body, code: wireCode },
+    },
+  }
+}
+
 export function getErrorMessage(error: unknown, fallbackMessage: string): string {
   if (!isObjectLike(error)) {
     return fallbackMessage
   }
 
-  const body = getApiErrorBody(error)
+  const wireCode = resolveWireErrorCode(error)
   const normalized = normalizeApiError(error)
 
-  if (body?.code) {
+  if (wireCode) {
     return appendServerReference(
-      translateApiError(error, 'errors:generic.unexpected'),
+      translateApiError(
+        syntheticErrorForTranslation(error, wireCode),
+        'errors:generic.unexpected',
+      ),
       normalized,
       (error as ApiErrorLike).eventId,
     )
-  }
-
-  if (hasStructuredApiBody(error)) {
-    const baseMessage = readUncodedBodyMessage(error, body) || fallbackMessage
-    return appendServerReference(
-      baseMessage,
-      normalized,
-      (error as ApiErrorLike).eventId,
-    )
-  }
-
-  if (error instanceof Error && error.message) {
-    return error.message
-  }
-
-  const looseMessage = (error as ApiErrorLike).message
-  if (typeof looseMessage === 'string' && looseMessage.length > 0) {
-    return looseMessage
   }
 
   return fallbackMessage

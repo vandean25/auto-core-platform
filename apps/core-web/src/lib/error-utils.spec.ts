@@ -8,12 +8,13 @@ describe('getErrorMessage', () => {
     await initI18n({ language: 'de' })
   })
 
-  it('surfaces backend message for API bodies without a code', () => {
+  it('uses HTTP status fallback codes when the body has no wire code', () => {
     const message = getErrorMessage(
       {
         response: {
+          status: 400,
           data: {
-            message: 'Internal server error',
+            message: 'inspected_on must be a valid date',
             eventId: 'evt_12345',
           },
         },
@@ -21,25 +22,13 @@ describe('getErrorMessage', () => {
       'fallback',
     )
 
-    expect(message).toBe('Internal server error (Error ID: evt_12345)')
-  })
-
-  it('joins Nest validation arrays without a code', () => {
-    const message = getErrorMessage(
-      {
-        response: {
-          data: {
-            message: ['name must not be empty', 'email must be an email'],
-          },
-        },
-      },
-      'fallback',
+    expect(message).toBe(
+      'Die Anfrage konnte nicht verarbeitet werden. (Error ID: evt_12345)',
     )
-
-    expect(message).toBe('name must not be empty, email must be an email')
+    expect(message).not.toContain('inspected_on')
   })
 
-  it('shows a reference id for a 5xx response, preferring the request id', () => {
+  it('uses HTTP_500 copy for 5xx responses without a domain code', () => {
     const message = getErrorMessage(
       {
         status: 500,
@@ -52,40 +41,9 @@ describe('getErrorMessage', () => {
       'fallback',
     )
 
-    expect(message).toBe('Internal server error (ref: req-1)')
-  })
-
-  it('falls back to the event id for a 5xx response without a request id', () => {
-    const message = getErrorMessage(
-      {
-        response: {
-          status: 503,
-          data: { message: 'Queue service unavailable', eventId: 'evt-9' },
-        },
-      },
-      'fallback',
+    expect(message).toBe(
+      'Ein unerwarteter Serverfehler ist aufgetreten. (ref: req-1)',
     )
-
-    expect(message).toBe('Queue service unavailable (ref: evt-9)')
-  })
-
-  it('does not repeat a reference the server already wrote into the message', () => {
-    const message = getErrorMessage(
-      {
-        status: 500,
-        data: { message: 'Something went wrong (ref: req-2)', requestId: 'req-2' },
-      },
-      'fallback',
-    )
-
-    expect(message).toBe('Something went wrong (ref: req-2)')
-  })
-
-  it('keeps local Error messages for non-HTTP errors', () => {
-    expect(getErrorMessage({ status: 500, message: 'Queue service unavailable' }, 'fallback')).toBe(
-      'Queue service unavailable',
-    )
-    expect(getErrorMessage({ status: 500 }, 'fallback')).toBe('fallback')
   })
 
   it('maps the active-order conflict code to translated copy', () => {

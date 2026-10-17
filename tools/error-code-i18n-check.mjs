@@ -2,6 +2,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { collectLeafKeys, interpolationVariables } from './i18n-check-lib.mjs'
+import { deTranslationFailsQualityCheck } from './error-de-quality.mjs'
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..')
 const REGISTRY_PATH = path.join(
@@ -38,9 +39,9 @@ function main() {
       errors.push(`Missing EN translation for code ${code}`)
     }
     if (deText && enText) {
-      if (deText.trim() === enText.trim()) {
+      if (deTranslationFailsQualityCheck(deText, enText, code)) {
         errors.push(
-          `DE equals EN for code ${code} (provide a real German translation)`,
+          `DE translation quality check failed for ${code}`,
         )
       }
       const deVars = interpolationVariables(deText)

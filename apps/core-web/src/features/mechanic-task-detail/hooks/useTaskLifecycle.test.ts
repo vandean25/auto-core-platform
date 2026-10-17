@@ -6,6 +6,7 @@ import { deWorkshop } from '@/test/de-workshop'
 import { useTaskLifecycle } from './useTaskLifecycle'
 
 const lifecycleToast = deWorkshop.mechanic.taskDetail.lifecycle.toast
+const http409 = 'Die Anfrage steht im Konflikt mit dem aktuellen Zustand.'
 
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', () => ({
@@ -99,7 +100,7 @@ describe('useTaskLifecycle', () => {
         await result.current.handleStart()
       })
 
-      expect(toast.error).toHaveBeenCalledWith('Network error')
+      expect(toast.error).toHaveBeenCalledWith(lifecycleToast.taskStartFailed)
     })
   })
 
@@ -139,7 +140,7 @@ describe('useTaskLifecycle', () => {
       })
 
       expect(mockCancelPendingSave).toHaveBeenCalled()
-      expect(toast.error).toHaveBeenCalledWith('Pause failed')
+      expect(toast.error).toHaveBeenCalledWith(lifecycleToast.taskPauseFailed)
       expect(result.current.pauseDialogOpen).toBe(false)
     })
 
@@ -158,7 +159,7 @@ describe('useTaskLifecycle', () => {
         await result.current.handlePauseConfirm()
       })
 
-      expect(toast.error).toHaveBeenCalledWith('No open labor entry found')
+      expect(toast.error).toHaveBeenCalledWith(http409)
       expect(result.current.pauseDialogOpen).toBe(false)
     })
   })
@@ -187,7 +188,7 @@ describe('useTaskLifecycle', () => {
       })
 
       expect(mockCancelPendingSave).toHaveBeenCalled()
-      expect(toast.error).toHaveBeenCalledWith('Completion failed')
+      expect(toast.error).toHaveBeenCalledWith(lifecycleToast.taskCompleteFailed)
       expect(mockNavigate).not.toHaveBeenCalled()
     })
   })
@@ -223,7 +224,7 @@ describe('useTaskLifecycle', () => {
         await result.current.handleSwitchConfirm()
       })
 
-      expect(toast.error).toHaveBeenCalledWith('Server unavailable')
+      expect(toast.error).toHaveBeenCalledWith(lifecycleToast.taskSwitchFailed)
       expect(mockStartMutateAsync).not.toHaveBeenCalled()
     })
 
@@ -279,7 +280,7 @@ describe('useTaskLifecycle', () => {
 
       expect(mockRefetch).toHaveBeenCalled()
       expect(mockStartMutateAsync).toHaveBeenCalledWith({ taskId: TASK_ID })
-      expect(toast.error).toHaveBeenCalledWith('Start failed after retry')
+      expect(toast.error).toHaveBeenCalledWith(lifecycleToast.taskStartFailed)
       expect(result.current.switchRetrying).toBe(false)
     })
   })

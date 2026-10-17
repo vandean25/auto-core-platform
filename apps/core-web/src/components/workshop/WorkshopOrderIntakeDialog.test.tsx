@@ -100,7 +100,7 @@ describe('WorkshopOrderIntakeDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: oi.createOrder }))
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('Finance settings update failed')
+      expect(toast.error).toHaveBeenCalledWith(oi.toastCreateFailed)
     })
   })
 
@@ -187,7 +187,7 @@ describe('WorkshopOrderIntakeDialog', () => {
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith(
-        'Something went wrong (ref: req-5xx-1)',
+        'Ein unerwarteter Serverfehler ist aufgetreten. (ref: req-5xx-1)',
       )
     })
   })
