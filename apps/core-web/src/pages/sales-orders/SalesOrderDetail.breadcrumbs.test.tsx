@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import SalesOrderDetail from './SalesOrderDetail'
+import { deSales } from '@/test/de-sales'
 import * as salesOrdersApi from '@/api/sales-orders'
 import {
   PageBreadcrumbsProvider,
@@ -88,6 +89,9 @@ describe('SalesOrderDetail breadcrumbs', () => {
 
     renderPage()
 
-    expect(screen.getByText('Sales order')).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByText(deSales.orders.detail.breadcrumbFallback)).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
   })
 })

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'sonner'
 import { CustomerDialog } from './CustomerDialog'
 import * as customersApi from '@/api/customers'
+import { deCustomers } from '@/test/de-customers'
 
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async () => {
@@ -48,13 +49,13 @@ describe('CustomerDialog create flow', () => {
       </MemoryRouter>,
     )
 
-    fireEvent.change(screen.getByLabelText('First Name'), { target: { value: 'Ada' } })
-    fireEvent.change(screen.getByLabelText('Last Name'), { target: { value: 'Lovelace' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Create Customer' }))
+    fireEvent.change(screen.getByLabelText(deCustomers.dialog.firstName), { target: { value: 'Ada' } })
+    fireEvent.change(screen.getByLabelText(deCustomers.dialog.lastName), { target: { value: 'Lovelace' } })
+    fireEvent.click(screen.getByRole('button', { name: deCustomers.dialog.createCustomer }))
 
     await waitFor(() => {
       expect(toast.success).toHaveBeenCalledWith(
-        'Customer created',
+        deCustomers.dialog.created,
         expect.objectContaining({ action: expect.objectContaining({ label: 'Open' }) }),
       )
     })
@@ -78,7 +79,7 @@ describe('CustomerDialog email contact confirmation', () => {
     cleanup()
   })
 
-  const CHECKBOX_LABEL = 'E-Mail-Adresse für Auftragskommunikation bestätigt'
+  const CHECKBOX_LABEL = deCustomers.dialog.contactEmailOkLabel
 
   it('sends contact_email_ok with a new customer and explains why it matters', async () => {
     const createCustomer = vi.fn().mockResolvedValue({ id: 'cust-9' })
@@ -98,15 +99,15 @@ describe('CustomerDialog email contact confirmation', () => {
     )
 
     expect(
-      screen.getByText('Ohne diese Bestätigung kann der Kostenvoranschlag nicht per E-Mail gesendet werden.'),
+      screen.getByText(deCustomers.dialog.contactEmailOkDescriptionEstimate),
     ).toBeTruthy()
     const checkbox = screen.getByRole('checkbox', { name: CHECKBOX_LABEL })
     expect(checkbox.getAttribute('aria-checked')).toBe('false')
 
-    fireEvent.change(screen.getByLabelText('First Name'), { target: { value: 'Ada' } })
-    fireEvent.change(screen.getByLabelText('Last Name'), { target: { value: 'Lovelace' } })
+    fireEvent.change(screen.getByLabelText(deCustomers.dialog.firstName), { target: { value: 'Ada' } })
+    fireEvent.change(screen.getByLabelText(deCustomers.dialog.lastName), { target: { value: 'Lovelace' } })
     fireEvent.click(checkbox)
-    fireEvent.click(screen.getByRole('button', { name: 'Create Customer' }))
+    fireEvent.click(screen.getByRole('button', { name: deCustomers.dialog.createCustomer }))
 
     await waitFor(() => expect(createCustomer).toHaveBeenCalled())
     expect(createCustomer.mock.calls[0][0]).toMatchObject({ contact_email_ok: true })
@@ -145,7 +146,7 @@ describe('CustomerDialog email contact confirmation', () => {
     const checkbox = screen.getByRole('checkbox', { name: CHECKBOX_LABEL })
     expect(checkbox.getAttribute('aria-checked')).toBe('true')
     fireEvent.click(checkbox)
-    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
+    fireEvent.click(screen.getByRole('button', { name: deCustomers.dialog.saveChanges }))
 
     await waitFor(() => expect(updateCustomer).toHaveBeenCalled())
     expect(updateCustomer.mock.calls[0][0]).toMatchObject({ id: 'cust-1', data: { contact_email_ok: false } })
@@ -185,7 +186,7 @@ describe('CustomerDialog email contact confirmation', () => {
       target: { value: 'ada@new.example.test' },
     })
     expect(screen.getByRole('checkbox', { name: CHECKBOX_LABEL }).getAttribute('aria-checked')).toBe('true')
-    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
+    fireEvent.click(screen.getByRole('button', { name: deCustomers.dialog.saveChanges }))
 
     await waitFor(() => expect(updateCustomer).toHaveBeenCalled())
     expect(updateCustomer.mock.calls[0][0]).toMatchObject({

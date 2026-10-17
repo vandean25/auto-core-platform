@@ -26,6 +26,7 @@ CI runs `npm run i18n:check` in the **Frontend Lint, Build and Unit Tests** job.
 | Migrated app shell | **error** | `apps/core-web/eslint-shell-i18n.config.js` → `shellI18nFiles` |
 | Migrated enum / label maps | **error** | `apps/core-web/eslint-enums-i18n.config.js` → `enumsI18nFiles` |
 | Migrated workshop & mechanic domain | **error** | `apps/core-web/eslint-workshop-i18n.config.js` → `workshopI18nFiles` |
+| Migrated sales, vehicles, customers & vehicle-stock pages | **error** | `apps/core-web/eslint-sales-domain-i18n.config.js` → `salesDomainI18nFiles` |
 
 Shared rule options live in `apps/core-web/eslint-i18n-shared.config.js`.
 

@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import InvoiceDetailPage from './InvoiceDetailPage'
+import { deSales } from '@/test/de-sales'
 import * as salesApi from '@/api/sales'
 import type { Invoice } from '@/api/types'
 import {
@@ -120,6 +121,9 @@ describe('InvoiceDetailPage breadcrumbs', () => {
     renderPage({ data: undefined, isLoading: true })
 
     const trail = screen.getByRole('navigation', { name: 'Breadcrumb' })
-    expect(within(trail).getByText('Invoice')).toHaveAttribute('aria-current', 'page')
+    expect(within(trail).getByText(deSales.shared.breadcrumbInvoice)).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
   })
 })

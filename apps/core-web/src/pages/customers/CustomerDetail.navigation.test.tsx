@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import CustomerDetail from './CustomerDetail'
+import { deCustomers } from '@/test/de-customers'
 import * as customersApi from '@/api/customers'
 import {
   PageBreadcrumbsProvider,
@@ -78,7 +79,7 @@ describe('CustomerDetail navigation', () => {
   it('offers New sales order pointing at the sales order form for this customer', () => {
     renderPage()
 
-    expect(screen.getByRole('link', { name: 'New sales order' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: deCustomers.detail.newSalesOrder })).toHaveAttribute(
       'href',
       '/sales-orders/new?customerId=cust-100',
     )
@@ -87,7 +88,7 @@ describe('CustomerDetail navigation', () => {
   it('explains that invoices are created from sales orders', () => {
     renderPage()
 
-    expect(screen.getByText('Invoices are created from sales orders.')).toBeVisible()
+    expect(screen.getByText(deCustomers.detail.invoiceHint)).toBeVisible()
   })
 
   it('does not offer direct invoice creation on the customer page', () => {

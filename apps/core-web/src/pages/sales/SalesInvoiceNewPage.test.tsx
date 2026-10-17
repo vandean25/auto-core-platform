@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import SalesInvoiceNewPage from './SalesInvoiceNewPage'
+import { deSales } from '@/test/de-sales'
 
 describe('SalesInvoiceNewPage', () => {
   it('explains sales-order sourcing and does not offer standalone draft creation', () => {
@@ -12,9 +13,9 @@ describe('SalesInvoiceNewPage', () => {
     )
 
     expect(
-      screen.getByRole('heading', { name: /Sales invoices need a source order/i }),
+      screen.getByRole('heading', { name: deSales.invoices.newPage.title }),
     ).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Open sales orders/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: deSales.invoices.newPage.openOrders })).toHaveAttribute(
       'href',
       '/sales-orders',
     )

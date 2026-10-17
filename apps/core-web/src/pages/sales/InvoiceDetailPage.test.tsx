@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import InvoiceDetailPage from './InvoiceDetailPage'
+import { deSales } from '@/test/de-sales'
 import * as salesApi from '@/api/sales'
 import * as invoicesApi from '@/api/invoices'
 import type { Invoice } from '@/api/types'
@@ -152,7 +153,7 @@ describe('InvoiceDetailPage download action', () => {
     })
     renderPage(invoice)
 
-    const downloadButton = screen.getByRole('button', { name: 'Download PDF' })
+    const downloadButton = screen.getByRole('button', { name: deSales.invoices.detail.downloadPdf })
     expect(downloadButton).toBeInTheDocument()
     expect(downloadButton).not.toBeDisabled()
     expect(screen.queryByRole('button', { name: /print/i })).not.toBeInTheDocument()
@@ -177,12 +178,8 @@ describe('InvoiceDetailPage download action', () => {
     expect(resolvedPostUrl).toBe('/api/invoices/inv-123/pdf')
     expect(resolvedGetUrl).toBe('/api/invoices/inv-123/pdf')
     expect(resolvedFilename).toBe('invoice_re_2026_0042.pdf')
-    expect(capturedPdfConfig?.messages?.success).toBe(
-      'Invoice PDF downloaded successfully',
-    )
-    expect(capturedPdfConfig?.messages?.errorFallback).toBe(
-      'Fehler beim Erstellen der Rechnungs-PDF',
-    )
+    expect(capturedPdfConfig?.messages?.success).toBe(deSales.invoices.detail.pdfSuccess)
+    expect(capturedPdfConfig?.messages?.errorFallback).toBe(deSales.invoices.detail.pdfError)
 
     await capturedPdfConfig?.checkGenerationFailed?.()
     expect(invoicesApi.fetchInvoicePdfGenerationError).toHaveBeenCalledWith('inv-123')
@@ -197,7 +194,9 @@ describe('InvoiceDetailPage download action', () => {
     })
     renderPage(invoice)
 
-    const generatingButton = screen.getByRole('button', { name: /generating\.\.\./i })
+    const generatingButton = screen.getByRole('button', {
+      name: new RegExp(deSales.invoices.detail.generatingPdf, 'i'),
+    })
     expect(generatingButton).toBeInTheDocument()
     expect(generatingButton).toBeDisabled()
   })

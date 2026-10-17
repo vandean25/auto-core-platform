@@ -7,6 +7,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi, beforeEach } from "vitest";
 import PickerlDueList from "./PickerlDueList";
+import { deVehicles } from "@/test/de-vehicles";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import * as vehiclesApi from "@/api/vehicles";
@@ -64,8 +65,8 @@ describe("PickerlDueList", () => {
 
   it("renders the page header", () => {
     renderList();
-    expect(screen.getByText("Pickerl fällig")).toBeInTheDocument();
-    expect(screen.getByText("Export due CSV")).toBeInTheDocument();
+    expect(screen.getByText(deVehicles.pickerlDue.title)).toBeInTheDocument();
+    expect(screen.getByText(deVehicles.pickerlDue.exportCsv)).toBeInTheDocument();
   });
 
   it("renders No results. when data is empty", () => {
@@ -125,7 +126,7 @@ describe("PickerlDueList", () => {
     renderList();
 
     fireEvent.click(
-      screen.getAllByRole("button", { name: "Export due CSV" })[0]!,
+      screen.getAllByRole("button", { name: deVehicles.pickerlDue.exportCsv })[0]!,
     );
 
     await waitFor(() => {

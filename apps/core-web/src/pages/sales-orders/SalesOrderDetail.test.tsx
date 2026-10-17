@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import SalesOrderDetail from './SalesOrderDetail'
+import { deSales } from '@/test/de-sales'
 import * as salesOrdersApi from '@/api/sales-orders'
 
 const mockNavigate = vi.fn()
@@ -79,11 +80,9 @@ describe('SalesOrderDetail create invoice', () => {
       </QueryClientProvider>,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /Create Invoice/i }))
+    fireEvent.click(screen.getByRole('button', { name: deSales.orders.detail.createInvoice }))
 
-    expect(
-      screen.getByText(/confirms the sales order and creates a draft invoice/i),
-    ).toBeInTheDocument()
+    expect(screen.getByText(deSales.orders.detail.createInvoiceDraftConfirm)).toBeInTheDocument()
   })
 
   it('navigates to the sourced draft editor after creating an invoice', async () => {
@@ -103,9 +102,11 @@ describe('SalesOrderDetail create invoice', () => {
       </QueryClientProvider>,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /Create Invoice/i }))
+    fireEvent.click(screen.getByRole('button', { name: deSales.orders.detail.createInvoice }))
     const dialog = await screen.findByRole('alertdialog')
-    fireEvent.click(within(dialog).getByRole('button', { name: /^Create Invoice$/i }))
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: deSales.orders.detail.createInvoice }),
+    )
 
     await waitFor(() => {
       expect(createInvoice).toHaveBeenCalledWith('so-1')
@@ -146,7 +147,7 @@ describe('SalesOrderDetail header navigation', () => {
       </QueryClientProvider>,
     )
 
-    expect(screen.getByRole('link', { name: 'Back to sales orders' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: deSales.orders.detail.backAria })).toHaveAttribute(
       'href',
       '/sales-orders',
     )

@@ -7,6 +7,7 @@ import * as salesOrdersApi from '@/api/sales-orders'
 import * as inventoryApi from '@/api/inventory'
 import * as customersApi from '@/api/customers'
 import type { Customer } from '@/api/types'
+import { deSales } from '@/test/de-sales'
 
 const mockNavigate = vi.fn()
 
@@ -53,7 +54,7 @@ vi.mock('@/components/sales/CustomerSearch', () => ({
           })
         }
       >
-        Select customer
+        {deSales.orders.create.selectCustomer}
       </button>
     </div>
   ),
@@ -102,7 +103,7 @@ describe('SalesOrderCreate autosave', () => {
     renderPage()
 
     expect(screen.getByTestId('customer-search-value')).toHaveTextContent('No customer')
-    fireEvent.click(screen.getByRole('button', { name: 'Select customer' }))
+    fireEvent.click(screen.getByRole('button', { name: deSales.orders.create.selectCustomer }))
     expect(screen.getByTestId('customer-search-value')).toHaveTextContent('Ada Lovelace')
     expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
   })
@@ -116,7 +117,7 @@ describe('SalesOrderCreate autosave', () => {
 
     renderPage()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Select customer' }))
+    fireEvent.click(screen.getByRole('button', { name: deSales.orders.create.selectCustomer }))
 
     await waitFor(
       () => {
@@ -144,14 +145,14 @@ describe('SalesOrderCreate autosave', () => {
     })
 
     renderPage()
-    fireEvent.click(screen.getByRole('button', { name: 'Select customer' }))
+    fireEvent.click(screen.getByRole('button', { name: deSales.orders.create.selectCustomer }))
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(100)
     })
     expect(createMutation).not.toHaveBeenCalled()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Done' }))
+    fireEvent.click(screen.getByRole('button', { name: deSales.orders.create.done }))
 
     await act(async () => {
       await Promise.resolve()
