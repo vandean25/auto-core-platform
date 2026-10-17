@@ -13,6 +13,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { MechanicShell, ShellRouter } from './App'
 import * as mechanicApi from '@/api/mechanic'
 import { MECHANIC_ROUTE_PATHS } from '@/lib/app-route-paths'
+import deWorkshop from '../../../locales/de/workshop.json'
 
 vi.mock('@/api/mechanic')
 vi.mock('@/auth/AuthProvider', () => ({
@@ -252,9 +253,14 @@ describe('role-aware shell route guards', () => {
     async (path) => {
       renderShellRouter(path, { activeRole: 'TECH' })
 
-      expect(await screen.findByRole('heading', { name: 'Office access restricted' })).toBeInTheDocument()
-      expect(screen.getByText(/don't have access to office tools/i)).toBeInTheDocument()
-      expect(screen.getByRole('link', { name: /go to mechanic queue/i })).toHaveAttribute('href', MECHANIC_ROUTE_PATHS.queue)
+      expect(
+        await screen.findByRole('heading', { name: deWorkshop.mechanic.accessDenied.title }),
+      ).toBeInTheDocument()
+      expect(screen.getByText(deWorkshop.mechanic.accessDenied.description)).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: deWorkshop.mechanic.accessDenied.backToQueue })).toHaveAttribute(
+        'href',
+        MECHANIC_ROUTE_PATHS.queue,
+      )
       expect(screen.getByText('Mechaniker')).toBeInTheDocument()
       expect(screen.queryByText('Admin dashboard')).not.toBeInTheDocument()
     },
