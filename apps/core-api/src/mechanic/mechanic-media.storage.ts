@@ -198,9 +198,7 @@ export class MechanicMediaStorage {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.logger.warn(
-        `Failed to delete object ${storageKey}: ${message}`,
-      );
+      this.logger.warn(`Failed to delete object ${storageKey}: ${message}`);
     }
   }
 

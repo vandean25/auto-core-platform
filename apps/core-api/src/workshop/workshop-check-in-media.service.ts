@@ -72,13 +72,14 @@ export class WorkshopCheckInMediaService {
       },
     });
 
-    const data = await Promise.all(
-      rows.map((row) => this.toMediaDto(row)),
-    );
+    const data = await Promise.all(rows.map((row) => this.toMediaDto(row)));
     return { data };
   }
 
-  async upload(orderId: string, input: UploadInput): Promise<WorkshopCheckInMediaItemDto> {
+  async upload(
+    orderId: string,
+    input: UploadInput,
+  ): Promise<WorkshopCheckInMediaItemDto> {
     if (!input.file?.buffer?.length) {
       throw new BadRequestException('Multipart field "file" is required.');
     }
