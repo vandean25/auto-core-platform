@@ -214,12 +214,14 @@ describe('Vehicle stock photos (e2e)', () => {
     );
   }
 
-  async function createStockVehicleWithPhoto(): Promise<{
+  async function createStockVehicleWithPhoto(
+    vinTag: string,
+  ): Promise<{
     vehicleId: string;
     purchaseId: string;
   }> {
     const created = await suite.createAndReceive({
-      vin: vin('TX-PURGE'),
+      vin: vin(vinTag),
       sellerType: 'VENDOR',
     });
     const vehicleId = created.received.vehicle_id;
@@ -246,13 +248,17 @@ describe('Vehicle stock photos (e2e)', () => {
       where: { tenant_id: suite.tenantId, id: purchaseId },
       data: { vehicle_id: null },
     });
+    await tx.vehicleLedgerEntry.deleteMany({
+      where: { tenant_id: suite.tenantId, vehicle_id: vehicleId },
+    });
     await tx.vehicle.delete({
       where: { tenant_id: suite.tenantId, id: vehicleId },
     });
   }
 
   it('defers vehicle media purge until an interactive transaction commits', async () => {
-    const { vehicleId, purchaseId } = await createStockVehicleWithPhoto();
+    const { vehicleId, purchaseId } =
+      await createStockVehicleWithPhoto('TX-PURGE-C');
     expect(mediaObjectKeysForVehicle(vehicleId).length).toBeGreaterThan(0);
 
     await suite.prisma.$transaction(async (tx) => {
@@ -264,7 +270,8 @@ describe('Vehicle stock photos (e2e)', () => {
   });
 
   it('does not purge vehicle media when an interactive transaction rolls back', async () => {
-    const { vehicleId, purchaseId } = await createStockVehicleWithPhoto();
+    const { vehicleId, purchaseId } =
+      await createStockVehicleWithPhoto('TX-PURGE-R');
     const keysBefore = mediaObjectKeysForVehicle(vehicleId);
     expect(keysBefore.length).toBeGreaterThan(0);
 
