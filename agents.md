@@ -324,6 +324,8 @@ Canonical skills live in `.agents/skills/` (Superpowers at `.agents/skills/super
   - Use it before writing or editing public Mintlify pages (`*.mdx`, `docs.json`). Enforces ACP workshop voice and the unique Mintlify design.
 - **Tracing Request IDs Skill**: `.agents/skills/tracing-request-ids/SKILL.md`
   - Use it when debugging from a request id, `x-request-id`, Sentry Error ID, or Cloud Logging `http_error` line.
+- **ACP i18n Skill**: `.agents/skills/acp-i18n/SKILL.md`
+  - Use it before adding or changing user-facing text, editing `locales/{de,en}/*.json`, or when `npm run i18n:check` or `i18next/no-literal-string` fails. German (de-AT) is the source of truth.
 
 ## Google Secret Manager (Shared Dev Secrets)
 
