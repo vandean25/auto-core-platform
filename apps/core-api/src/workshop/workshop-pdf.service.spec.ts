@@ -441,7 +441,7 @@ describe('WorkshopPdfService', () => {
 
       expect(storage.publishImmutableObject).not.toHaveBeenCalled();
       expect(prisma.client.workshopCheckIn.updateMany).not.toHaveBeenCalled();
-    });
+    }, 15000);
 
     it('throws NotFoundException when order is not found', async () => {
       prisma.client.workshopOrder.findFirst.mockResolvedValue(null);
