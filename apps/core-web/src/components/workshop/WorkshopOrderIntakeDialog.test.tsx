@@ -186,7 +186,7 @@ describe('WorkshopOrderIntakeDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: oi.createOrder }))
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('Something went wrong (ref: req-5xx-1)')
+      expect(toast.error).toHaveBeenCalledWith(`${oi.toastCreateFailed} (ref: req-5xx-1)`)
     })
   })
 

@@ -1,5 +1,6 @@
 // @vitest-environment node
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
+import { initI18n } from '@/lib/i18n'
 import { formatStatusLabel } from '@/lib/i18n/enum-labels'
 import {
   addOneYearIsoDay,
@@ -15,12 +16,25 @@ function saveError(status: number, code: string, message: string) {
 }
 
 describe('shorteningSaveErrorMessage', () => {
+  beforeAll(async () => {
+    await initI18n({ language: 'de' })
+  })
+
   it.each([
-    'GEWAEHRLEISTUNG_FIRST_REGISTRATION_REQUIRED',
-    'GEWAEHRLEISTUNG_SHORTENING_VEHICLE_TOO_NEW',
-    'GEWAEHRLEISTUNG_SHORTENING_REQUIRES_CONSUMER',
-  ])('returns the server message for %s', (code) => {
-    expect(shorteningSaveErrorMessage(saveError(422, code, 'Serverseitige Meldung'))).toBe('Serverseitige Meldung')
+    [
+      'GEWAEHRLEISTUNG_FIRST_REGISTRATION_REQUIRED',
+      'Für die Verkürzung ist das Datum der Erstzulassung erforderlich.',
+    ],
+    [
+      'GEWAEHRLEISTUNG_SHORTENING_VEHICLE_TOO_NEW',
+      'Die Erstzulassung muss mehr als ein Jahr vor der Übergabe liegen.',
+    ],
+    [
+      'GEWAEHRLEISTUNG_SHORTENING_REQUIRES_CONSUMER',
+      'Eine Verkürzung der Basisfrist setzt einen Verbraucherkauf voraus.',
+    ],
+  ])('returns translated copy for %s', (code, expected) => {
+    expect(shorteningSaveErrorMessage(saveError(422, code, 'Serverseitige Meldung'))).toBe(expected)
   })
 
   it('leaves other sale save failures to the generic feedback', () => {

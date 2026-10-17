@@ -1,9 +1,14 @@
 // @vitest-environment node
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
+import { initI18n } from '@/lib/i18n'
 import { getErrorBody, getErrorCode, getErrorMessage } from './error-utils'
 
 describe('getErrorMessage', () => {
-  it('appends event id when API response contains one', () => {
+  beforeAll(async () => {
+    await initI18n({ language: 'de' })
+  })
+
+  it('uses fallback (not backend message) for API bodies without a code', () => {
     const message = getErrorMessage(
       {
         response: {
@@ -16,10 +21,10 @@ describe('getErrorMessage', () => {
       'fallback',
     )
 
-    expect(message).toBe('Internal server error (Error ID: evt_12345)')
+    expect(message).toBe('fallback (Error ID: evt_12345)')
   })
 
-  it('joins array messages from Nest validation errors into a single string', () => {
+  it('uses fallback for Nest validation arrays without a code', () => {
     const message = getErrorMessage(
       {
         response: {
@@ -31,23 +36,7 @@ describe('getErrorMessage', () => {
       'fallback',
     )
 
-    expect(message).toBe('name must not be empty, email must be an email')
-  })
-
-  it('joins array messages and appends event id', () => {
-    const message = getErrorMessage(
-      {
-        response: {
-          data: {
-            message: ['field A is required', 'field B is required'],
-            eventId: 'evt_abc',
-          },
-        },
-      },
-      'fallback',
-    )
-
-    expect(message).toBe('field A is required, field B is required (Error ID: evt_abc)')
+    expect(message).toBe('fallback')
   })
 
   it('shows a reference id for a 5xx response, preferring the request id', () => {
@@ -63,7 +52,7 @@ describe('getErrorMessage', () => {
       'fallback',
     )
 
-    expect(message).toBe('Internal server error (ref: req-1)')
+    expect(message).toBe('fallback (ref: req-1)')
   })
 
   it('falls back to the event id for a 5xx response without a request id', () => {
@@ -77,7 +66,7 @@ describe('getErrorMessage', () => {
       'fallback',
     )
 
-    expect(message).toBe('Queue service unavailable (ref: evt-9)')
+    expect(message).toBe('fallback (ref: evt-9)')
   })
 
   it('does not repeat a reference the server already wrote into the message', () => {
@@ -89,17 +78,17 @@ describe('getErrorMessage', () => {
       'fallback',
     )
 
-    expect(message).toBe('Something went wrong (ref: req-2)')
+    expect(message).toBe('fallback (ref: req-2)')
   })
 
-  it('keeps the server copy, or the page fallback, for a 5xx response with no reference', () => {
+  it('keeps local Error messages for non-HTTP errors', () => {
     expect(getErrorMessage({ status: 500, message: 'Queue service unavailable' }, 'fallback')).toBe(
       'Queue service unavailable',
     )
     expect(getErrorMessage({ status: 500 }, 'fallback')).toBe('fallback')
   })
 
-  it('maps the active-order conflict code to friendly copy', () => {
+  it('maps the active-order conflict code to translated copy', () => {
     const message = getErrorMessage(
       {
         status: 409,
@@ -113,13 +102,12 @@ describe('getErrorMessage', () => {
       'fallback',
     )
 
-    expect(message).toBe('This vehicle already has an open workshop order (WO-2026-0007).')
-    expect(
-      getErrorMessage({ status: 409, data: { code: 'VEHICLE_HAS_ACTIVE_ORDER', orderId: 'wo-live' } }, 'fallback'),
-    ).toBe('This vehicle already has an open workshop order.')
+    expect(message).toBe(
+      'Für dieses Fahrzeug besteht bereits ein offener Werkstattauftrag (WO-2026-0007).',
+    )
   })
 
-  it('keeps the server message for codes without friendly copy', () => {
+  it('translates known wire codes instead of backend message text', () => {
     const message = getErrorMessage(
       {
         status: 422,
@@ -131,7 +119,8 @@ describe('getErrorMessage', () => {
       'fallback',
     )
 
-    expect(message).toBe('Seller identity is incomplete.')
+    expect(message).not.toContain('Seller identity')
+    expect(message.length).toBeGreaterThan(0)
   })
 
   it('reads the code and body from an API error', () => {

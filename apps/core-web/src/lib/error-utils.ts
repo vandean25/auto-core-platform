@@ -27,6 +27,15 @@ function isObjectLike(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
+/** True when the carrier includes a Nest/axios JSON body (not a bare status on a thrown Error). */
+function hasStructuredApiBody(error: unknown): boolean {
+  if (!isObjectLike(error)) {
+    return false
+  }
+  const apiError = error as ApiErrorLike
+  return apiError.response?.data !== undefined || apiError.data !== undefined
+}
+
 /** The server's error body, from an axios-style `response.data` or a `data` field. */
 export function getErrorBody(error: unknown) {
   return getApiErrorBody(error)
@@ -37,46 +46,68 @@ export function getErrorCode(error: unknown): string | undefined {
   return normalized?.code ?? undefined
 }
 
+function appendServerReference(
+  message: string,
+  normalized: ReturnType<typeof normalizeApiError>,
+  extraEventId?: string,
+): string {
+  const status = normalized?.status ?? null
+  if (status !== null && status >= 500) {
+    const reference =
+      normalized?.requestId ||
+      normalized?.eventId ||
+      extraEventId
+    if (reference && !message.includes('(ref: ')) {
+      return `${message} (ref: ${reference})`
+    }
+  }
+
+  const eventId = normalized?.eventId || extraEventId
+  if (
+    eventId &&
+    (status === null || status < 500) &&
+    !message.includes('(Error ID: ')
+  ) {
+    return `${message} (Error ID: ${eventId})`
+  }
+
+  return message
+}
+
 export function getErrorMessage(error: unknown, fallbackMessage: string): string {
   if (!isObjectLike(error)) {
     return fallbackMessage
   }
 
+  const body = getApiErrorBody(error)
   const normalized = normalizeApiError(error)
-  if (normalized?.code) {
-    const translated = translateApiError(error, 'errors:generic.unexpected')
-    if (translated) {
-      return translated
-    }
+
+  if (body?.code) {
+    return appendServerReference(
+      translateApiError(error, 'errors:generic.unexpected'),
+      normalized,
+      (error as ApiErrorLike).eventId,
+    )
   }
 
-  const apiError = error as ApiErrorLike
-  const status = getErrorStatus(error)
-  if (status !== null && status >= 500) {
-    const reference =
-      normalized?.requestId ||
-      normalized?.eventId ||
-      apiError.eventId ||
-      getErrorBody(error)?.requestId ||
-      getErrorBody(error)?.eventId
-    const baseMessage = fallbackMessage
-    if (!reference || baseMessage.includes('(ref: ')) {
-      return baseMessage
-    }
-    return `${baseMessage} (ref: ${reference})`
+  if (hasStructuredApiBody(error)) {
+    return appendServerReference(
+      fallbackMessage,
+      normalized,
+      (error as ApiErrorLike).eventId,
+    )
   }
 
-  const eventId =
-    normalized?.eventId ||
-    apiError.response?.data?.eventId ||
-    apiError.data?.eventId ||
-    apiError.eventId
-
-  if (!eventId) {
-    return fallbackMessage
+  if (error instanceof Error && error.message) {
+    return error.message
   }
 
-  return `${fallbackMessage} (Error ID: ${eventId})`
+  const looseMessage = (error as ApiErrorLike).message
+  if (typeof looseMessage === 'string' && looseMessage.length > 0) {
+    return looseMessage
+  }
+
+  return fallbackMessage
 }
 
 export function getErrorStatus(error: unknown): number | null {
@@ -127,6 +158,6 @@ export async function throwHttpError(
         | undefined,
     },
   }
-  const message = translateApiError(synthetic, 'errors:generic.unexpected') || fallback
+  const message = getErrorMessage(synthetic, fallback)
   throw createHttpError(message, response.status)
 }
