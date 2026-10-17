@@ -1,4 +1,5 @@
 import type { PatchVehicleListingDto, VehicleListingDto } from '@/api/vehicle-listing'
+import { parseListingGrossPrice } from './listing-price'
 
 export type ListingDraft = {
   description: string
@@ -55,14 +56,19 @@ export function draftToPatchPayload(
   draft: ListingDraft,
   expectedRevision: number,
 ): PatchVehicleListingDto {
-  const price = draft.price_gross_eur.trim()
-  const priceNumber = price.length > 0 ? Number.parseFloat(price.replace(',', '.')) : undefined
+  const parsedPrice = parseListingGrossPrice(draft.price_gross_eur)
+  const price_gross_eur =
+    parsedPrice.valid && parsedPrice.value === null
+      ? null
+      : parsedPrice.valid && parsedPrice.value !== null
+        ? parsedPrice.value
+        : undefined
 
   return {
     expected_revision: expectedRevision,
     description: draft.description.trim() || null,
     description_language: draft.description_language,
-    price_gross_eur: priceNumber,
+    price_gross_eur,
     vat_display: draft.vat_display || undefined,
     nova_included_confirmed: draft.nova_included_confirmed,
     mandatory_fees_included_confirmed: draft.mandatory_fees_included_confirmed,

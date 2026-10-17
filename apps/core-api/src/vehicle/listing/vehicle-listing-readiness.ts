@@ -24,7 +24,70 @@ export interface ListingActiveReadinessVehicle {
 export type ListingReadinessFieldIssue = {
   field: string;
   message: string;
+  code: string;
 };
+
+export function listListingOfferFieldReadinessIssues(
+  listing: ListingActiveReadinessListing,
+): ListingReadinessFieldIssue[] {
+  const issues: ListingReadinessFieldIssue[] = [];
+
+  if (!listing.price_gross_eur || listing.price_gross_eur.lte(0)) {
+    issues.push({
+      field: 'price_gross_eur',
+      code: 'LISTING_PRICE_REQUIRED',
+      message: 'A gross asking price greater than zero is required.',
+    });
+  }
+  if (!listing.vat_display) {
+    issues.push({
+      field: 'vat_display',
+      code: 'LISTING_VAT_DISPLAY_REQUIRED',
+      message: 'VAT display (STANDARD or MARGIN) must be confirmed.',
+    });
+  }
+  if (!listing.nova_included_confirmed) {
+    issues.push({
+      field: 'nova_included_confirmed',
+      code: 'LISTING_NOVA_CONFIRMATION_REQUIRED',
+      message: 'NoVA inclusion must be confirmed for an active offer.',
+    });
+  }
+  if (!listing.mandatory_fees_included_confirmed) {
+    issues.push({
+      field: 'mandatory_fees_included_confirmed',
+      code: 'LISTING_MANDATORY_FEES_CONFIRMATION_REQUIRED',
+      message:
+        'Mandatory fees inclusion must be confirmed for an active offer.',
+    });
+  }
+
+  return issues;
+}
+
+export function listListingVehicleActivationReadinessIssues(
+  vehicle: ListingActiveReadinessVehicle,
+): ListingReadinessFieldIssue[] {
+  const issues: ListingReadinessFieldIssue[] = [];
+
+  if (vehicle.inventory_role !== VehicleInventoryRole.USED) {
+    issues.push({
+      field: 'vehicle.inventory_role',
+      code: 'LISTING_VEHICLE_NOT_USED',
+      message: 'Vehicle must be dealer USED stock to activate a listing offer.',
+    });
+  }
+  if (vehicle.stock_status !== VehicleStockStatus.IN_STOCK) {
+    issues.push({
+      field: 'vehicle.stock_status',
+      code: 'LISTING_VEHICLE_NOT_IN_STOCK',
+      message:
+        'Vehicle stock status must be IN_STOCK to activate a listing offer.',
+    });
+  }
+
+  return issues;
+}
 
 export function listListingActiveReadinessIssues(
   desiredState: VehicleListingDesiredState,
@@ -35,48 +98,10 @@ export function listListingActiveReadinessIssues(
     return [];
   }
 
-  const issues: ListingReadinessFieldIssue[] = [];
-
-  if (vehicle.inventory_role !== VehicleInventoryRole.USED) {
-    issues.push({
-      field: 'vehicle.inventory_role',
-      message: 'Vehicle must be dealer USED stock to activate a listing offer.',
-    });
-  }
-  if (vehicle.stock_status !== VehicleStockStatus.IN_STOCK) {
-    issues.push({
-      field: 'vehicle.stock_status',
-      message:
-        'Vehicle stock status must be IN_STOCK to activate a listing offer.',
-    });
-  }
-  if (!listing.price_gross_eur || listing.price_gross_eur.lte(0)) {
-    issues.push({
-      field: 'price_gross_eur',
-      message: 'A gross asking price greater than zero is required.',
-    });
-  }
-  if (!listing.vat_display) {
-    issues.push({
-      field: 'vat_display',
-      message: 'VAT display (STANDARD or MARGIN) must be confirmed.',
-    });
-  }
-  if (!listing.nova_included_confirmed) {
-    issues.push({
-      field: 'nova_included_confirmed',
-      message: 'NoVA inclusion must be confirmed for an active offer.',
-    });
-  }
-  if (!listing.mandatory_fees_included_confirmed) {
-    issues.push({
-      field: 'mandatory_fees_included_confirmed',
-      message:
-        'Mandatory fees inclusion must be confirmed for an active offer.',
-    });
-  }
-
-  return issues;
+  return [
+    ...listListingVehicleActivationReadinessIssues(vehicle),
+    ...listListingOfferFieldReadinessIssues(listing),
+  ];
 }
 
 export function assertListingChannelActiveReadiness(

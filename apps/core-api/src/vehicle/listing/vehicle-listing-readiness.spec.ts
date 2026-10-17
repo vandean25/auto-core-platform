@@ -6,7 +6,10 @@ import {
   VehicleStockStatus,
 } from '@prisma/client';
 import { Prisma } from '@prisma/client';
-import { assertListingChannelActiveReadiness } from './vehicle-listing-readiness.js';
+import {
+  assertListingChannelActiveReadiness,
+  listListingOfferFieldReadinessIssues,
+} from './vehicle-listing-readiness.js';
 
 import Decimal = Prisma.Decimal;
 
@@ -59,6 +62,21 @@ describe('assertListingChannelActiveReadiness', () => {
         },
       ),
     ).toThrow(UnprocessableEntityException);
+  });
+
+  it('lists offer field issues even when channel is inactive', () => {
+    const issues = listListingOfferFieldReadinessIssues({
+      price_gross_eur: null,
+      vat_display: null,
+      nova_included_confirmed: false,
+      mandatory_fees_included_confirmed: false,
+    });
+    expect(issues.map((row) => row.code)).toEqual([
+      'LISTING_PRICE_REQUIRED',
+      'LISTING_VAT_DISPLAY_REQUIRED',
+      'LISTING_NOVA_CONFIRMATION_REQUIRED',
+      'LISTING_MANDATORY_FEES_CONFIRMATION_REQUIRED',
+    ]);
   });
 
   it('allows ACTIVE when all readiness checks pass', () => {

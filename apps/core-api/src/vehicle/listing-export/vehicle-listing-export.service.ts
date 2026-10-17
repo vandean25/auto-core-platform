@@ -16,7 +16,8 @@ import { SiteContextService } from '../../site/site-context.service.js';
 import { resolveCurrentReceivedStockPurchaseId } from '../equipment/vehicle-equipment-stock-cycle.js';
 import {
   assertListingChannelActiveReadiness,
-  listListingActiveReadinessIssues,
+  listListingOfferFieldReadinessIssues,
+  listListingVehicleActivationReadinessIssues,
 } from '../listing/vehicle-listing-readiness.js';
 import type { VehicleListingChannelValidationDto } from './dto/vehicle-listing-export-validation.dto.js';
 import { listingSerializers } from './listing-serializers.js';
@@ -78,16 +79,27 @@ export class VehicleListingExportService {
   private assertListingExportRoleAllowed(): void {
     const role = this.tenantContext.getAuthenticatedUser()?.role;
     if (role === 'DEMO') {
-      throw new ForbiddenException(
-        'Demo accounts cannot download listing export packages.',
-      );
+      throw new ForbiddenException({
+        code: 'LISTING_EXPORT_DEMO_DENIED',
+        message: 'Demo accounts cannot download listing export packages.',
+      });
+    }
+  }
+
+  private assertListingExportValidateAllowed(): void {
+    const role = this.tenantContext.getAuthenticatedUser()?.role;
+    if (role === 'DEMO') {
+      throw new ForbiddenException({
+        code: 'LISTING_VALIDATE_DEMO_DENIED',
+        message: 'Demo accounts cannot validate marketplace listing exports.',
+      });
     }
   }
 
   async validateListingExport(
     vehicleId: string,
   ): Promise<{ channels: VehicleListingChannelValidationDto[] }> {
-    this.assertListingExportRoleAllowed();
+    this.assertListingExportValidateAllowed();
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
 
@@ -166,14 +178,9 @@ export class VehicleListingExportService {
     for (const channel of listing.channels) {
       const issues: VehicleListingChannelValidationDto['issues'] = [];
 
+      issues.push(...listListingOfferFieldReadinessIssues(readinessListing));
       if (channel.desired_state === VehicleListingDesiredState.ACTIVE) {
-        issues.push(
-          ...listListingActiveReadinessIssues(
-            VehicleListingDesiredState.ACTIVE,
-            readinessListing,
-            vehicle,
-          ),
-        );
+        issues.push(...listListingVehicleActivationReadinessIssues(vehicle));
       }
 
       const profileCode =

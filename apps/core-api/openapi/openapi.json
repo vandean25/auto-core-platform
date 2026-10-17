@@ -32825,6 +32825,7 @@
           },
           "price_gross_eur": {
             "type": "number",
+            "nullable": true,
             "example": 18990
           },
           "vat_display": {

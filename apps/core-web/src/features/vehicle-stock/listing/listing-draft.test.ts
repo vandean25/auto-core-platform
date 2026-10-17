@@ -39,4 +39,13 @@ describe('listing-draft', () => {
     expect(patch.price_gross_eur).toBe(14990)
     expect(patch.portal_category).toBe('Car.Limousine')
   })
+
+  it('parses German gross price and clears price when input is blank', () => {
+    const draft = listingToDraft(baseListing)
+    const german = { ...draft, price_gross_eur: '14.500,50' }
+    expect(draftToPatchPayload(german, 4).price_gross_eur).toBe(14500.5)
+
+    const cleared = { ...draft, price_gross_eur: '  ' }
+    expect(draftToPatchPayload(cleared, 4).price_gross_eur).toBeNull()
+  })
 })

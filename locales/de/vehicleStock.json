@@ -18,7 +18,7 @@
     },
     "sections": {
       "photos": "Fotos für das Inserat",
-      "photosHint": "Ziehen Sie die Reihenfolge per Schaltflächen; nur ausgewählte Fotos werden exportiert.",
+      "photosHint": "Reihenfolge mit den Schaltflächen anpassen; nur ausgewählte Fotos werden exportiert.",
       "equipment": "Ausstattung",
       "equipmentHint": "Bekannte Ausstattung als vorhanden oder nicht vorhanden markieren.",
       "content": "Text und Preis",
@@ -30,8 +30,13 @@
     "fields": {
       "description": "Beschreibung",
       "descriptionLanguage": "Beschreibungssprache",
+      "languageDe": "Deutsch",
+      "languageEn": "Englisch",
       "priceGross": "Bruttopreis",
       "vatDisplay": "USt.-Ausweis",
+      "vatUnset": "Nicht gesetzt",
+      "vatStandard": "Regelbesteuerung",
+      "vatMargin": "Differenzbesteuerung",
       "consumerHint": "Preishinweis",
       "novaIncluded": "NoVA im Preis enthalten",
       "mandatoryFeesIncluded": "Pflichtgebühren im Preis enthalten",
@@ -69,13 +74,48 @@
     "preview": {
       "untitled": "Ohne Titel",
       "noDescription": "Keine Beschreibung",
-      "photoCount": "{{count}} Foto(s) im Inserat"
+      "photoCount_one": "{{count}} Foto im Inserat",
+      "photoCount_other": "{{count}} Fotos im Inserat"
+    },
+    "validation": {
+      "unknown": "Dieses Feld muss vor dem Export geprüft werden.",
+      "LISTING_PRICE_REQUIRED": "Geben Sie einen Bruttopreis größer null ein.",
+      "LISTING_VAT_DISPLAY_REQUIRED": "Wählen Sie die USt.-Darstellung (Regel- oder Differenzbesteuerung).",
+      "LISTING_NOVA_CONFIRMATION_REQUIRED": "Bestätigen Sie, dass die NoVA im Preis enthalten ist.",
+      "LISTING_MANDATORY_FEES_CONFIRMATION_REQUIRED": "Bestätigen Sie, dass Pflichtgebühren im Preis enthalten sind.",
+      "LISTING_VEHICLE_NOT_USED": "Nur Gebrauchtwagen im Händlerbestand können angeboten werden.",
+      "LISTING_VEHICLE_NOT_IN_STOCK": "Das Fahrzeug muss auf Lager sein, um ein Angebot zu aktivieren.",
+      "LISTING_PORTAL_CATEGORY_REQUIRED": "Portal-Kategorie ist für den Export erforderlich.",
+      "LISTING_EXPORT_ASSERTION_REQUIRED": "Diese Export-Angabe muss vor dem Export gesetzt werden.",
+      "LISTING_VEHICLE_MAKE_MODEL_REQUIRED": "Marke und Modell sind für den Export erforderlich.",
+      "LISTING_VEHICLE_FIRST_REGISTRATION_REQUIRED": "Erstzulassung ist für den Export erforderlich.",
+      "LISTING_VEHICLE_MILEAGE_REQUIRED": "Kilometerstand ist für den Export erforderlich.",
+      "LISTING_VEHICLE_MILEAGE_INVALID": "Der Kilometerstand muss null oder größer sein.",
+      "LISTING_IMAGES_MAX_EXCEEDED": "Zu viele Fotos für dieses Portal ausgewählt.",
+      "LISTING_FIELD_NOT_ENCODABLE": "Dieser Wert kann für den Portal-Export nicht kodiert werden."
+    },
+    "loadError": {
+      "title": "Inserat konnte nicht geladen werden",
+      "description": "Das Inserat konnte nicht geladen werden. Verbindung prüfen und erneut versuchen.",
+      "retry": "Erneut versuchen"
+    },
+    "createError": {
+      "title": "Inserat konnte nicht angelegt werden",
+      "description": "Ein neues Inserat konnte nicht angelegt werden. Bitte erneut versuchen.",
+      "retry": "Erneut versuchen"
     },
     "vehicleFieldHint": "Diese Angabe wird auf der Fahrzeugbestandsseite gepflegt.",
     "errors": {
+      "generic": "Etwas ist schiefgelaufen. Bitte erneut versuchen.",
       "saveFailed": "Inserat konnte nicht gespeichert werden",
       "channelFailed": "Portalstatus konnte nicht gespeichert werden",
-      "equipmentFailed": "Ausstattung konnte nicht gespeichert werden"
+      "equipmentFailed": "Ausstattung konnte nicht gespeichert werden",
+      "invalidPrice": "Geben Sie einen gültigen Preis ein (z. B. 14.500,50 oder 14500,50).",
+      "codes": {
+        "VEHICLE_LISTING_REVISION_CONFLICT": "Das Inserat wurde an anderer Stelle geändert. Laden Sie neu und versuchen Sie es erneut.",
+        "VEHICLE_LISTING_NOT_READY": "Das Inserat ist nicht bereit für die Aktivierung auf diesem Portal.",
+        "LISTING_VALIDATE_DEMO_DENIED": "Demo-Konten können keine Portal-Validierung ausführen."
+      }
     }
   }
 }

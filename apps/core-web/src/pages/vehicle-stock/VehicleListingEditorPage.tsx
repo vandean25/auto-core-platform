@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
+import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -20,7 +21,7 @@ import { useDebouncedAutoSave } from '@/hooks/useDebouncedAutoSave'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { formatCurrency } from '@/lib/format'
-import { getErrorMessage, getErrorStatus } from '@/lib/error-utils'
+import { getErrorCode, getErrorStatus } from '@/lib/error-utils'
 import { generateId } from '@/lib/id'
 import { useVehicleStockDetail } from '@/api/vehicle-stock'
 import {
@@ -29,6 +30,7 @@ import {
   usePatchVehicleListingChannel,
   useVehicleListing,
   useVehicleListingValidation,
+  vehicleListingKeys,
   type VehicleListingDto,
 } from '@/api/vehicle-listing'
 import {
@@ -46,6 +48,12 @@ import {
 } from '@/features/vehicle-stock/listing/listing-draft'
 import { ListingFieldErrors } from '@/features/vehicle-stock/listing/ListingFieldErrors'
 import { mergeChannelValidationIssues } from '@/features/vehicle-stock/listing/listing-field-issues'
+import { parseListingGrossPrice } from '@/features/vehicle-stock/listing/listing-price'
+import {
+  getListingFieldIssuesFromError,
+  translateListingErrorCode,
+  translateListingIssue,
+} from '@/features/vehicle-stock/listing/listing-issue-i18n'
 
 function resolveReceivedPurchaseId(
   purchases: Array<{ id: string; status: string }> | undefined,
@@ -82,6 +90,8 @@ function TriStateAssertion({
             type="button"
             size="sm"
             variant={value === true ? 'default' : 'outline'}
+            aria-pressed={value === true}
+            aria-label={`${label}: ${presentLabel}`}
             onClick={() => onChange(true)}
           >
             {presentLabel}
@@ -90,6 +100,8 @@ function TriStateAssertion({
             type="button"
             size="sm"
             variant={value === false ? 'default' : 'outline'}
+            aria-pressed={value === false}
+            aria-label={`${label}: ${absentLabel}`}
             onClick={() => onChange(false)}
           >
             {absentLabel}
@@ -98,6 +110,8 @@ function TriStateAssertion({
             type="button"
             size="sm"
             variant={value === null ? 'secondary' : 'ghost'}
+            aria-pressed={value === null}
+            aria-label={`${label}: ${unsetLabel}`}
             onClick={() => onChange(null)}
           >
             {unsetLabel}
@@ -109,9 +123,21 @@ function TriStateAssertion({
   )
 }
 
+function listingToastDescription(
+  t: ReturnType<typeof useTranslation<'vehicleStock'>>['t'],
+  error: unknown,
+): string {
+  const fieldIssues = getListingFieldIssuesFromError(error)
+  if (fieldIssues.length > 0) {
+    return fieldIssues.map((issue) => translateListingIssue(t, issue)).join(' ')
+  }
+  return translateListingErrorCode(t, getErrorCode(error))
+}
+
 export default function VehicleListingEditorPage() {
   const { vehicleId = '' } = useParams()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { t, i18n } = useTranslation('vehicleStock')
 
   React.useEffect(() => {
@@ -137,6 +163,9 @@ export default function VehicleListingEditorPage() {
   const [savedDraft, setSavedDraft] = React.useState<ListingDraft | null>(null)
   const [revisionConflict, setRevisionConflict] = React.useState(false)
   const [creatingListing, setCreatingListing] = React.useState(false)
+  const [createFailed, setCreateFailed] = React.useState(false)
+  const createAttemptedRef = React.useRef(false)
+  const pendingCreateIdRef = React.useRef<string | null>(null)
   const stockPurchaseId = resolveReceivedPurchaseId(
     vehicle?.purchases as Array<{ id: string; status: string }> | undefined,
   )
@@ -156,38 +185,52 @@ export default function VehicleListingEditorPage() {
     applyListing(listingQuery.data)
   }, [applyListing, draft, listingQuery.data])
 
+  const runCreateListing = React.useCallback(() => {
+    if (!stockPurchaseId || createListing.isPending) {
+      return
+    }
+    const createId = pendingCreateIdRef.current ?? generateId()
+    pendingCreateIdRef.current = createId
+    setCreateFailed(false)
+    setCreatingListing(true)
+    void createListing
+      .mutateAsync({
+        id: createId,
+        expected_stock_purchase_id: stockPurchaseId,
+      })
+      .then(applyListing)
+      .catch(() => {
+        setCreateFailed(true)
+        toast.error(t('listing.createError.title'), {
+          description: t('listing.createError.description'),
+        })
+      })
+      .finally(() => setCreatingListing(false))
+  }, [applyListing, createListing, stockPurchaseId, t])
+
   React.useEffect(() => {
     if (
       !vehicleId ||
       !stockPurchaseId ||
-      listingQuery.isLoading ||
-      listingQuery.data ||
+      !listingQuery.isSuccess ||
+      listingQuery.data !== null ||
+      createAttemptedRef.current ||
       creatingListing ||
-      createListing.isPending
+      createListing.isPending ||
+      createFailed
     ) {
       return
     }
-    setCreatingListing(true)
-    void createListing
-      .mutateAsync({
-        id: generateId(),
-        expected_stock_purchase_id: stockPurchaseId,
-      })
-      .then(applyListing)
-      .catch((error) => {
-        toast.error(t('listing.errors.saveFailed'), {
-          description: getErrorMessage(error, t('listing.errors.saveFailed')),
-        })
-      })
-      .finally(() => setCreatingListing(false))
+    createAttemptedRef.current = true
+    runCreateListing()
   }, [
-    applyListing,
-    createListing,
+    createFailed,
+    createListing.isPending,
     creatingListing,
     listingQuery.data,
-    listingQuery.isLoading,
+    listingQuery.isSuccess,
+    runCreateListing,
     stockPurchaseId,
-    t,
     vehicleId,
   ])
 
@@ -209,13 +252,15 @@ export default function VehicleListingEditorPage() {
       enabled: Boolean(draft) && !revisionConflict && Boolean(listingQuery.data),
       save,
       shouldSave: (snapshot) =>
-        savedDraft !== null && !draftsEqual(snapshot, savedDraft),
+        savedDraft !== null &&
+        !draftsEqual(snapshot, savedDraft) &&
+        parseListingGrossPrice(snapshot.price_gross_eur).valid,
       onError: (error) => {
         if (getErrorStatus(error) === 409) {
           setRevisionConflict(true)
         }
         toast.error(t('listing.errors.saveFailed'), {
-          description: getErrorMessage(error, t('listing.errors.saveFailed')),
+          description: listingToastDescription(t, error),
         })
       },
     })
@@ -271,7 +316,7 @@ export default function VehicleListingEditorPage() {
       })
     } catch (error) {
       toast.error(t('listing.errors.equipmentFailed'), {
-        description: getErrorMessage(error, t('listing.errors.equipmentFailed')),
+        description: listingToastDescription(t, error),
       })
     }
   }
@@ -282,6 +327,11 @@ export default function VehicleListingEditorPage() {
     return draft.photo_ids
       .map((id) => byId.get(id))
       .filter((row): row is NonNullable<typeof row> => Boolean(row))
+  }, [draft, photos])
+
+  const excludedPhotos = React.useMemo(() => {
+    if (!draft) return photos
+    return photos.filter((photo) => !draft.photo_ids.includes(photo.id))
   }, [draft, photos])
 
   const movePhoto = (mediaId: string, direction: -1 | 1) => {
@@ -306,6 +356,10 @@ export default function VehicleListingEditorPage() {
   }
 
   const toggleChannelActive = async (platform: string, active: boolean) => {
+    const localDraft = draft
+    const localSaved = savedDraft
+    clearPendingSave()
+    abortInFlightSave()
     try {
       const updated = await patchChannel.mutateAsync({
         platform,
@@ -314,12 +368,54 @@ export default function VehicleListingEditorPage() {
           desired_state: active ? 'ACTIVE' : 'INACTIVE',
         },
       })
-      applyListing(updated)
+      revisionRef.current = updated.revision
+      queryClient.setQueryData(vehicleListingKeys.detail(vehicleId), updated)
+      const serverDraft = listingToDraft(updated)
+      if (
+        localDraft &&
+        localSaved &&
+        !draftsEqual(localDraft, localSaved)
+      ) {
+        setDraft(localDraft)
+        setSavedDraft(serverDraft)
+      } else {
+        applyListing(updated)
+      }
     } catch (error) {
       toast.error(t('listing.errors.channelFailed'), {
-        description: getErrorMessage(error, t('listing.errors.channelFailed')),
+        description: listingToastDescription(t, error),
       })
     }
+  }
+
+  if (listingQuery.isError) {
+    return (
+      <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm space-y-3">
+        <h2 className="font-medium text-base">{t('listing.loadError.title')}</h2>
+        <p className="text-slate-700">{t('listing.loadError.description')}</p>
+        <Button size="sm" onClick={() => void listingQuery.refetch()}>
+          {t('listing.loadError.retry')}
+        </Button>
+      </div>
+    )
+  }
+
+  if (createFailed && !listingQuery.data) {
+    return (
+      <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm space-y-3">
+        <h2 className="font-medium text-base">{t('listing.createError.title')}</h2>
+        <p className="text-slate-700">{t('listing.createError.description')}</p>
+        <Button
+          size="sm"
+          onClick={() => {
+            createAttemptedRef.current = true
+            runCreateListing()
+          }}
+        >
+          {t('listing.createError.retry')}
+        </Button>
+      </div>
+    )
   }
 
   if (vehicleLoading || listingQuery.isLoading || creatingListing) {
@@ -335,9 +431,10 @@ export default function VehicleListingEditorPage() {
   }
 
   const listing = listingQuery.data
+  const parsedListingPrice = parseListingGrossPrice(draft.price_gross_eur)
   const pricePreview =
-    draft.price_gross_eur.trim().length > 0
-      ? formatCurrency(Number.parseFloat(draft.price_gross_eur.replace(',', '.')))
+    parsedListingPrice.valid && parsedListingPrice.value !== null
+      ? formatCurrency(parsedListingPrice.value)
       : null
 
   return (
@@ -390,19 +487,21 @@ export default function VehicleListingEditorPage() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <Label>{t('listing.fields.descriptionLanguage')}</Label>
+                <Label htmlFor="listing-description-language">
+                  {t('listing.fields.descriptionLanguage')}
+                </Label>
                 <Select
                   value={draft.description_language}
                   onValueChange={(value: 'DE' | 'EN') =>
                     updateDraft({ description_language: value })
                   }
                 >
-                  <SelectTrigger className="mt-1">
+                  <SelectTrigger id="listing-description-language" className="mt-1">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="DE">DE</SelectItem>
-                    <SelectItem value="EN">EN</SelectItem>
+                    <SelectItem value="DE">{t('listing.fields.languageDe')}</SelectItem>
+                    <SelectItem value="EN">{t('listing.fields.languageEn')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -414,12 +513,16 @@ export default function VehicleListingEditorPage() {
                   className="mt-1"
                   value={draft.price_gross_eur}
                   onChange={(event) => updateDraft({ price_gross_eur: event.target.value })}
+                  aria-invalid={!parsedListingPrice.valid}
                 />
+                {!parsedListingPrice.valid ? (
+                  <p className="mt-1 text-xs text-destructive">{t('listing.errors.invalidPrice')}</p>
+                ) : null}
                 <ListingFieldErrors issues={mobileIssues} field="price_gross_eur" />
               </div>
             </div>
             <div>
-              <Label>{t('listing.fields.vatDisplay')}</Label>
+              <Label htmlFor="listing-vat-display">{t('listing.fields.vatDisplay')}</Label>
               <Select
                 value={draft.vat_display || 'unset'}
                 onValueChange={(value) =>
@@ -428,13 +531,13 @@ export default function VehicleListingEditorPage() {
                   })
                 }
               >
-                <SelectTrigger className="mt-1">
+                <SelectTrigger id="listing-vat-display" className="mt-1">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="unset">—</SelectItem>
-                  <SelectItem value="STANDARD">STANDARD</SelectItem>
-                  <SelectItem value="MARGIN">MARGIN</SelectItem>
+                  <SelectItem value="unset">{t('listing.fields.vatUnset')}</SelectItem>
+                  <SelectItem value="STANDARD">{t('listing.fields.vatStandard')}</SelectItem>
+                  <SelectItem value="MARGIN">{t('listing.fields.vatMargin')}</SelectItem>
                 </SelectContent>
               </Select>
               <ListingFieldErrors issues={mobileIssues} field="vat_display" />
@@ -570,54 +673,74 @@ export default function VehicleListingEditorPage() {
               <p className="text-sm text-slate-500">{t('listing.photos.empty')}</p>
             ) : (
               <ul className="space-y-2">
-                {photos.map((photo) => {
-                  const included = draft.photo_ids.includes(photo.id)
-                  const position = draft.photo_ids.indexOf(photo.id)
-                  return (
-                    <li
-                      key={photo.id}
-                      className="flex flex-wrap items-center justify-between gap-2 rounded border p-2"
+                {orderedListingPhotos.map((photo, index) => (
+                  <li
+                    key={photo.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded border p-2"
+                  >
+                    <div className="text-sm">
+                      <span className="font-medium">#{index + 1}</span>
+                      <span className="text-slate-500">
+                        {' '}
+                        · {photo.width}×{photo.height}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={index <= 0}
+                        aria-label={t('listing.photos.moveUp')}
+                        onClick={() => movePhoto(photo.id, -1)}
+                      >
+                        {t('listing.photos.moveUp')}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={index >= draft.photo_ids.length - 1}
+                        aria-label={t('listing.photos.moveDown')}
+                        onClick={() => movePhoto(photo.id, 1)}
+                      >
+                        {t('listing.photos.moveDown')}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        aria-label={t('listing.photos.exclude')}
+                        onClick={() => togglePhotoIncluded(photo.id)}
+                      >
+                        {t('listing.photos.exclude')}
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+                {excludedPhotos.map((photo) => (
+                  <li
+                    key={photo.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded border border-dashed p-2 opacity-80"
+                  >
+                    <div className="text-sm text-slate-500">
+                      <span className="font-medium">—</span>
+                      <span>
+                        {' '}
+                        · {photo.width}×{photo.height}
+                      </span>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      aria-label={t('listing.photos.include')}
+                      onClick={() => togglePhotoIncluded(photo.id)}
                     >
-                      <div className="text-sm">
-                        <span className="font-medium">
-                          #{photo.sortOrder + 1}
-                        </span>
-                        <span className="text-slate-500">
-                          {' '}
-                          · {photo.width}×{photo.height}
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          disabled={!included || position <= 0}
-                          onClick={() => movePhoto(photo.id, -1)}
-                        >
-                          {t('listing.photos.moveUp')}
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          disabled={!included || position < 0 || position >= draft.photo_ids.length - 1}
-                          onClick={() => movePhoto(photo.id, 1)}
-                        >
-                          {t('listing.photos.moveDown')}
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant={included ? 'secondary' : 'outline'}
-                          onClick={() => togglePhotoIncluded(photo.id)}
-                        >
-                          {included ? t('listing.photos.exclude') : t('listing.photos.include')}
-                        </Button>
-                      </div>
-                    </li>
-                  )
-                })}
+                      {t('listing.photos.include')}
+                    </Button>
+                  </li>
+                ))}
               </ul>
             )}
           </section>
@@ -640,6 +763,8 @@ export default function VehicleListingEditorPage() {
                         type="button"
                         size="sm"
                         variant={assertion === 'PRESENT' ? 'default' : 'outline'}
+                        aria-pressed={assertion === 'PRESENT'}
+                        aria-label={`${label}: ${t('listing.equipment.present')}`}
                         onClick={() => void setEquipmentAssertion(option.id, 'PRESENT')}
                       >
                         {t('listing.equipment.present')}
@@ -648,6 +773,8 @@ export default function VehicleListingEditorPage() {
                         type="button"
                         size="sm"
                         variant={assertion === 'ABSENT' ? 'default' : 'outline'}
+                        aria-pressed={assertion === 'ABSENT'}
+                        aria-label={`${label}: ${t('listing.equipment.absent')}`}
                         onClick={() => void setEquipmentAssertion(option.id, 'ABSENT')}
                       >
                         {t('listing.equipment.absent')}
@@ -656,6 +783,8 @@ export default function VehicleListingEditorPage() {
                         type="button"
                         size="sm"
                         variant={assertion === null ? 'secondary' : 'ghost'}
+                        aria-pressed={assertion === null}
+                        aria-label={`${label}: ${t('listing.equipment.unset')}`}
                         onClick={() => void setEquipmentAssertion(option.id, null)}
                       >
                         {t('listing.equipment.unset')}
@@ -713,8 +842,8 @@ export default function VehicleListingEditorPage() {
                     ) : (
                       <ul className="space-y-1 text-sm text-destructive">
                         {channelIssues.map((issue) => (
-                          <li key={`${issue.field}-${issue.message}`}>
-                            <span className="font-mono text-xs">{issue.field}</span>: {issue.message}
+                          <li key={`${issue.field}-${issue.code ?? 'message'}`}>
+                            {translateListingIssue(t, issue)}
                           </li>
                         ))}
                       </ul>

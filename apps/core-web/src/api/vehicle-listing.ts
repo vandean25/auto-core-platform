@@ -24,11 +24,14 @@ export const vehicleListingKeys = {
 type ApiErrorBody = {
   message?: string
   code?: string
+  field_issues?: VehicleListingExportFieldIssue[]
 }
 
 async function parseError(response: Response, fallback: string) {
   const payload = (await response.json().catch(() => ({}))) as ApiErrorBody
-  throw Object.assign(new Error(payload.message || fallback), {
+  const message =
+    typeof payload.message === 'string' ? payload.message : fallback
+  throw Object.assign(new Error(message), {
     status: response.status,
     data: payload,
   })
