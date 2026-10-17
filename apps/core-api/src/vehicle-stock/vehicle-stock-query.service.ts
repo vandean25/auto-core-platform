@@ -26,6 +26,7 @@ import {
 import { costBasis } from './vehicle-cost.js';
 import { assertTenantCustomerExists } from './vehicle-stock-ref.validator.js';
 import type { PatchVehicleStockDto } from './dto/patch-vehicle-stock.dto.js';
+import { syncVehicleListingContentHashWhenStockCycleExists } from '../vehicle/listing/vehicle-listing-hash-sync.js';
 import type { GewaehrleistungDueListQueryDto } from './dto/gewaehrleistung-due-list.dto.js';
 import {
   gewaehrleistungDueWindow,
@@ -556,7 +557,7 @@ export class VehicleStockQueryService {
     const updated = isLocationChange
       ? await this.prisma.$transaction(async (tx) => {
           await lockSitesAndAssertActive(tx, tenantId, [siteId]);
-          return tx.vehicle.updateMany({
+          const result = await tx.vehicle.updateMany({
             where: {
               ...where,
               location_id: dto.expectedLocationId,
@@ -574,8 +575,26 @@ export class VehicleStockQueryService {
               site_id: siteId,
             },
           });
+          if (result.count === 1) {
+            await syncVehicleListingContentHashWhenStockCycleExists(tx, {
+              tenantId,
+              siteId,
+              vehicleId,
+            });
+          }
+          return result;
         })
-      : await this.prisma.vehicle.updateMany({ where, data });
+      : await this.prisma.$transaction(async (tx) => {
+          const result = await tx.vehicle.updateMany({ where, data });
+          if (result.count === 1) {
+            await syncVehicleListingContentHashWhenStockCycleExists(tx, {
+              tenantId,
+              siteId,
+              vehicleId,
+            });
+          }
+          return result;
+        });
 
     if (updated.count === 0) {
       throw new ConflictException(

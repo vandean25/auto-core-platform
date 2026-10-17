@@ -99,6 +99,9 @@ model Tenant {
   vehicleEquipmentOptions       VehicleEquipmentOption[]
   vehicleEquipmentSelections    VehicleEquipmentSelection[]
   vehicleEquipmentFreeTextItems VehicleEquipmentFreeTextItem[]
+  vehicleListings               VehicleListing[]
+  vehicleListingChannels        VehicleListingChannel[]
+  vehicleListingPhotos          VehicleListingPhoto[]
   salesOrders                   SalesOrder[]
   salesOrderItems               SalesOrderItem[]
   invoices                      Invoice[]
@@ -855,6 +858,7 @@ model Site {
   vehicleSales             VehicleSale[]
   vehicleValuationSnapshots VehicleValuationSnapshot[]
   vehicleMedia              VehicleMedia[]
+  vehicleListings           VehicleListing[]
   tyreSets                 TyreSet[]
   invoices                 Invoice[]
   creditNotes              CreditNote[]
@@ -1802,6 +1806,7 @@ model Vehicle {
   media                          VehicleMedia[]
   equipmentSelections            VehicleEquipmentSelection[]
   equipmentFreeTextItems         VehicleEquipmentFreeTextItem[]
+  listings                       VehicleListing[]
   tyre_sets                      TyreSet[]
   appliedRegistrationIntakes     RegistrationDocumentIntake[] @relation("RegistrationIntakeAppliedVehicle")
 
@@ -1843,6 +1848,7 @@ model VehicleMedia {
   created_by            User?    @relation("VehicleMediaCreatedBy", fields: [created_by_user_id], references: [id], onDelete: SetNull)
   createdAt             DateTime @default(now()) @map("created_at")
   updatedAt             DateTime @updatedAt @map("updated_at")
+  listingPhotos         VehicleListingPhoto[]
 
   @@unique([tenant_id, id])
   @@index([tenant_id, vehicle_id, sort_order])
@@ -1913,6 +1919,121 @@ model VehicleEquipmentFreeTextItem {
   @@unique([tenant_id, id])
   @@index([tenant_id, stock_purchase_id, sort_order])
   @@map("vehicle_equipment_free_text_items")
+}
+
+enum VehicleListingDescriptionLanguage {
+  DE
+  EN
+}
+
+enum VehicleListingVatDisplay {
+  STANDARD
+  MARGIN
+}
+
+enum VehicleListingPlatform {
+  MOBILE_DE
+  AS24
+  WILLHABEN
+}
+
+enum VehicleListingDesiredState {
+  ACTIVE
+  INACTIVE
+}
+
+enum VehicleListingExportState {
+  NEVER_EXPORTED
+  DIRTY
+  FILE_GENERATED
+  REMOVAL_REQUIRED
+  REMOVAL_ACKNOWLEDGED
+}
+
+enum VehicleListingRemoteState {
+  UNKNOWN
+  MANUALLY_REPORTED_INACTIVE
+  CONFIRMED_ACTIVE
+  CONFIRMED_INACTIVE
+}
+
+/// Marketplace listing draft for one stock purchase cycle (AUT-567).
+model VehicleListing {
+  id                                String                          @id @default(uuid())
+  tenant_id                         String
+  tenant                            Tenant                          @relation(fields: [tenant_id], references: [id])
+  site_id                           String                          @map("site_id")
+  site                              Site                            @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
+  vehicle_id                        String                          @map("vehicle_id")
+  vehicle                           Vehicle                         @relation(fields: [tenant_id, vehicle_id], references: [tenant_id, id], onDelete: Cascade, onUpdate: Cascade)
+  stock_purchase_id                 String                          @map("stock_purchase_id")
+  stockPurchase                     VehiclePurchase                 @relation(fields: [tenant_id, stock_purchase_id], references: [tenant_id, id], onDelete: Cascade, onUpdate: Cascade)
+  listing_ref                       String                          @map("listing_ref") @db.VarChar(33)
+  revision                          Int                             @default(1)
+  title                             String?                         @db.VarChar(120)
+  description                       String?                         @db.VarChar(3000)
+  description_language              VehicleListingDescriptionLanguage @default(DE) @map("description_language")
+  price_gross_eur                   Decimal?                        @map("price_gross_eur") @db.Decimal(12, 2)
+  vat_display                       VehicleListingVatDisplay?       @map("vat_display")
+  nova_included_confirmed           Boolean                         @default(false) @map("nova_included_confirmed")
+  mandatory_fees_included_confirmed Boolean                       @default(false) @map("mandatory_fees_included_confirmed")
+  equipment_free_text               String?                         @map("equipment_free_text") @db.VarChar(2000)
+  content_sha256                    String                          @map("content_sha256") @db.Char(64)
+  channels                          VehicleListingChannel[]
+  photos                            VehicleListingPhoto[]
+  createdAt                         DateTime                        @default(now()) @map("created_at")
+  updatedAt                         DateTime                        @updatedAt @map("updated_at")
+
+  @@unique([tenant_id, vehicle_id, stock_purchase_id])
+  @@unique([tenant_id, listing_ref])
+  @@unique([tenant_id, id])
+  @@index([tenant_id, site_id])
+  @@map("vehicle_listings")
+}
+
+/// Per-portal export state for a listing (AUT-567).
+model VehicleListingChannel {
+  id                         String                     @id @default(uuid())
+  tenant_id                  String
+  tenant                     Tenant                     @relation(fields: [tenant_id], references: [id])
+  listing_id                 String                     @map("listing_id")
+  listing                    VehicleListing             @relation(fields: [tenant_id, listing_id], references: [tenant_id, id], onDelete: Cascade, onUpdate: Cascade)
+  platform                   VehicleListingPlatform
+  serializer_profile         String                     @map("serializer_profile") @db.VarChar(64)
+  mapping_version            String                     @map("mapping_version") @db.VarChar(16)
+  desired_state              VehicleListingDesiredState @default(INACTIVE) @map("desired_state")
+  export_state               VehicleListingExportState  @default(NEVER_EXPORTED) @map("export_state")
+  remote_state               VehicleListingRemoteState  @default(UNKNOWN) @map("remote_state")
+  last_export_at             DateTime?                  @map("last_export_at")
+  last_export_content_sha256 String?                    @map("last_export_content_sha256") @db.Char(64)
+  external_ref               String?                    @map("external_ref") @db.VarChar(120)
+  removal_revision           Int                        @default(0) @map("removal_revision")
+  createdAt                  DateTime                   @default(now()) @map("created_at")
+  updatedAt                  DateTime                   @updatedAt @map("updated_at")
+
+  @@unique([tenant_id, listing_id, platform])
+  @@unique([tenant_id, id])
+  @@index([tenant_id, platform, export_state])
+  @@map("vehicle_listing_channels")
+}
+
+/// Ordered listing photo selection referencing stock media (AUT-567).
+model VehicleListingPhoto {
+  id         String         @id @default(uuid())
+  tenant_id  String
+  tenant     Tenant         @relation(fields: [tenant_id], references: [id])
+  listing_id String         @map("listing_id")
+  listing    VehicleListing @relation(fields: [tenant_id, listing_id], references: [tenant_id, id], onDelete: Cascade, onUpdate: Cascade)
+  media_id   String         @map("media_id")
+  media      VehicleMedia   @relation(fields: [tenant_id, media_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
+  sort_order Int            @default(0) @map("sort_order")
+  createdAt  DateTime       @default(now()) @map("created_at")
+  updatedAt  DateTime       @updatedAt @map("updated_at")
+
+  @@unique([tenant_id, listing_id, media_id])
+  @@unique([tenant_id, id])
+  @@index([tenant_id, listing_id, sort_order])
+  @@map("vehicle_listing_photos")
 }
 
 enum VehicleInventoryRole {
@@ -2008,6 +2129,7 @@ model VehiclePurchase {
   trade_in_sales              VehicleSale[]             @relation("VehicleSaleTradeIn")
   equipmentSelections         VehicleEquipmentSelection[]
   equipmentFreeTextItems      VehicleEquipmentFreeTextItem[]
+  listings                    VehicleListing[]
   createdAt                   DateTime                  @default(now())
   updatedAt                   DateTime                  @updatedAt
 

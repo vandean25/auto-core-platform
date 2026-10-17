@@ -100,6 +100,13 @@ Reorder with `{expected_revision,media_ids}` is one transaction over the full se
 
 AUT-566 starter semantic codes: `ABS`, `ESP`, `AIR_CONDITIONING`, `AUTOMATIC_CLIMATE`, `ALLOY_WHEELS`, `TOW_BAR`, `NAVIGATION`, `CRUISE_CONTROL`, `SEAT_HEATING`, `BLUETOOTH`, `PARKING_FRONT`, `PARKING_REAR`, `PARKING_CAMERA`, `ISOFIX`. Required booleans preserve unknown vs confirmed absent. Per-portal map entry is `{local_code,profile,portal_field,portal_value,verification,source,version}`; explicit negative values only from recorded assertions. In provisional profiles use local codes directly, not invented official AS24/willhaben ids. Unmapped/custom equipment appends a labelled, plain-text equipment paragraph to description; if total exceeds profile capacity, validation errors list items to edit, never truncate. Goldens cover positive/negative/unknown and overlapping climate options.
 
+### AUT-567 implementation notes (listing model and content hash)
+
+- **Data model:** `vehicle_listings` (one per tenant/vehicle/stock purchase cycle), `vehicle_listing_channels` (per `MOBILE_DE` / `AS24` / `WILLHABEN` with `desired_state`, `export_state`, `remote_state`, `last_export_at`, `last_export_content_sha256`), and `vehicle_listing_photos` (ordered `vehicle_media` selection with composite tenant FKs).
+- **API:** `GET/POST /api/vehicle-stock/:vehicleId/listing`, `PATCH` listing body, `PATCH …/listing/channels/:platform` (`MOBILE_DE`, `AS24`, `WILLHABEN`). Same active-site stock scope and JWT role rules as equipment/photos (TECH/DEMO cannot mutate).
+- **Price display:** Response `price_display` exposes gross EUR, `vat_display` (`STANDARD` | `MARGIN`), and draft de-AT consumer hints (`inkl. USt.` / optional `und NoVA`, or margin-scheme differenzbesteuert text) — not legal-approved copy.
+- **Content hash:** `content_sha256` is SHA-256 over sorted-key JSON (`schema_version` 3, listing text/price assertions, stock-cycle equipment codes/assertions and free-text lines, ordered photo digests, exported vehicle fields including `color` and `emission_class`, per-channel profile/mapping versions). `last_export_at` and export metadata are excluded from listing content hash; channel `last_export_content_sha256` snapshots the listing hash at export time (set by export runs in AUT-569+).
+
 ### AUT-566 implementation notes (taxonomy seed and extension)
 
 - **Seed:** `seedVehicleEquipmentOptions(tenantId)` upserts the starter codes above into `vehicle_equipment_options` (idempotent per `tenant_id` + `code`). Invoked from demo seed (`seedBrands`), landing-demo tenant seed, and platform tenant create.

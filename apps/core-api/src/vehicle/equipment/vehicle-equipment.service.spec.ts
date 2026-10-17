@@ -77,11 +77,17 @@ describe('VehicleEquipmentService', () => {
       },
       vehicleEquipmentSelection,
       vehicleEquipmentFreeTextItem,
+      vehicleListing: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
       $transaction: jest.fn(async (callback) =>
         callback({
           vehicle,
           vehicleEquipmentSelection,
           vehicleEquipmentFreeTextItem,
+          vehicleListing: {
+            findFirst: jest.fn().mockResolvedValue(null),
+          },
         }),
       ),
     };

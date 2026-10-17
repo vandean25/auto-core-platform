@@ -3785,6 +3785,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vehicle-stock/{vehicleId}/listing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get marketplace listing for the current stock cycle */
+        get: operations["VehicleListingController_get"];
+        put?: never;
+        /** Create marketplace listing for the current stock cycle */
+        post: operations["VehicleListingController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update marketplace listing content */
+        patch: operations["VehicleListingController_patch"];
+        trace?: never;
+    };
+    "/api/vehicle-stock/{vehicleId}/listing/channels/{platform}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update per-portal listing channel desired state */
+        patch: operations["VehicleListingController_patchChannel"];
+        trace?: never;
+    };
     "/api/employees": {
         parameters: {
             query?: never;
@@ -9596,6 +9632,93 @@ export interface components {
             selections: components["schemas"]["VehicleEquipmentSelectionWriteDto"][];
             /** @description Free-text equipment lines for the current stock cycle (unknown options stay as plain text) */
             free_text_lines: string[];
+        };
+        /** @enum {string} */
+        VehicleListingDescriptionLanguage: "DE" | "EN";
+        /** @enum {string} */
+        VehicleListingVatDisplay: "STANDARD" | "MARGIN";
+        VehicleListingPriceDisplayDto: {
+            /** @example 18990.00 */
+            price_gross_eur?: Record<string, never>;
+            vat_display?: components["schemas"]["VehicleListingVatDisplay"];
+            /** @description Draft consumer-facing hint (de-AT), not legal approval. */
+            consumer_hint_de?: Record<string, never>;
+            nova_included_confirmed: boolean;
+            mandatory_fees_included_confirmed: boolean;
+        };
+        VehicleListingPhotoDto: {
+            /** Format: uuid */
+            media_id: string;
+            sort_order: number;
+            /** @description SHA-256 of processed listing image bytes */
+            content_sha256: string;
+        };
+        /** @enum {string} */
+        VehicleListingPlatform: "MOBILE_DE" | "AS24" | "WILLHABEN";
+        /** @enum {string} */
+        VehicleListingDesiredState: "ACTIVE" | "INACTIVE";
+        /** @enum {string} */
+        VehicleListingExportState: "NEVER_EXPORTED" | "DIRTY" | "FILE_GENERATED" | "REMOVAL_REQUIRED" | "REMOVAL_ACKNOWLEDGED";
+        /** @enum {string} */
+        VehicleListingRemoteState: "UNKNOWN" | "MANUALLY_REPORTED_INACTIVE" | "CONFIRMED_ACTIVE" | "CONFIRMED_INACTIVE";
+        VehicleListingChannelDto: {
+            /** Format: uuid */
+            id: string;
+            platform: components["schemas"]["VehicleListingPlatform"];
+            serializer_profile: string;
+            mapping_version: string;
+            desired_state: components["schemas"]["VehicleListingDesiredState"];
+            export_state: components["schemas"]["VehicleListingExportState"];
+            remote_state: components["schemas"]["VehicleListingRemoteState"];
+            /** Format: date-time */
+            last_export_at?: string;
+            last_export_content_sha256?: Record<string, never>;
+            external_ref?: Record<string, never>;
+        };
+        VehicleListingDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            site_id: string;
+            /** Format: uuid */
+            vehicle_id: string;
+            /** Format: uuid */
+            stock_purchase_id: string;
+            /** @example L0123456789abcdef0123456789abcdef */
+            listing_ref: string;
+            revision: number;
+            title?: Record<string, never>;
+            description?: Record<string, never>;
+            description_language: components["schemas"]["VehicleListingDescriptionLanguage"];
+            price_display?: components["schemas"]["VehicleListingPriceDisplayDto"];
+            equipment_free_text?: Record<string, never>;
+            content_sha256: string;
+            photos: components["schemas"]["VehicleListingPhotoDto"][];
+            channels: components["schemas"]["VehicleListingChannelDto"][];
+        };
+        CreateVehicleListingDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            expected_stock_purchase_id: string;
+        };
+        PatchVehicleListingDto: {
+            expected_revision: number;
+            title?: Record<string, never>;
+            description?: Record<string, never>;
+            description_language?: components["schemas"]["VehicleListingDescriptionLanguage"];
+            /** @example 18990 */
+            price_gross_eur?: number;
+            vat_display?: components["schemas"]["VehicleListingVatDisplay"];
+            nova_included_confirmed?: boolean;
+            mandatory_fees_included_confirmed?: boolean;
+            equipment_free_text?: Record<string, never>;
+            photo_ids?: string[];
+        };
+        PatchVehicleListingChannelDto: {
+            expected_revision: number;
+            desired_state: components["schemas"]["VehicleListingDesiredState"];
+            serializer_profile?: string;
         };
         /** @enum {string} */
         EmployeeRole: "MECHANIC" | "SERVICE_ADVISOR" | "PARTS_CLERK";
@@ -18564,6 +18687,103 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VehicleEquipmentAssignmentDto"];
+                };
+            };
+        };
+    };
+    VehicleListingController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleListingDto"];
+                };
+            };
+        };
+    };
+    VehicleListingController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateVehicleListingDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleListingDto"];
+                };
+            };
+        };
+    };
+    VehicleListingController_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchVehicleListingDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleListingDto"];
+                };
+            };
+        };
+    };
+    VehicleListingController_patchChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                platform: string;
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchVehicleListingChannelDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleListingDto"];
                 };
             };
         };

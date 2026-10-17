@@ -147,6 +147,18 @@ export const TABLE_CLEANERS: TableCleaner[] = [
       }),
   },
   {
+    table: 'vehicle_listing_photos',
+    clean: (p) => p.vehicleListingPhoto.deleteMany(),
+  },
+  {
+    table: 'vehicle_listing_channels',
+    clean: (p) => p.vehicleListingChannel.deleteMany(),
+  },
+  {
+    table: 'vehicle_listings',
+    clean: (p) => p.vehicleListing.deleteMany(),
+  },
+  {
     table: 'vehicle_equipment_selections',
     clean: (p) => p.vehicleEquipmentSelection.deleteMany(),
   },

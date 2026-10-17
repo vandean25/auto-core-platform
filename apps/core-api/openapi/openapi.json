@@ -12092,6 +12092,164 @@
         ]
       }
     },
+    "/api/vehicle-stock/{vehicleId}/listing": {
+      "get": {
+        "operationId": "VehicleListingController_get",
+        "parameters": [
+          {
+            "name": "vehicleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleListingDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get marketplace listing for the current stock cycle",
+        "tags": [
+          "vehicle-stock"
+        ]
+      },
+      "post": {
+        "operationId": "VehicleListingController_create",
+        "parameters": [
+          {
+            "name": "vehicleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateVehicleListingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleListingDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create marketplace listing for the current stock cycle",
+        "tags": [
+          "vehicle-stock"
+        ]
+      },
+      "patch": {
+        "operationId": "VehicleListingController_patch",
+        "parameters": [
+          {
+            "name": "vehicleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchVehicleListingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleListingDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Update marketplace listing content",
+        "tags": [
+          "vehicle-stock"
+        ]
+      }
+    },
+    "/api/vehicle-stock/{vehicleId}/listing/channels/{platform}": {
+      "patch": {
+        "operationId": "VehicleListingController_patchChannel",
+        "parameters": [
+          {
+            "name": "platform",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "vehicleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchVehicleListingChannelDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleListingDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Update per-portal listing channel desired state",
+        "tags": [
+          "vehicle-stock"
+        ]
+      }
+    },
     "/api/employees": {
       "get": {
         "operationId": "EmployeeController_findAll",
@@ -32149,6 +32307,331 @@
         "required": [
           "selections",
           "free_text_lines"
+        ]
+      },
+      "VehicleListingDescriptionLanguage": {
+        "type": "string",
+        "enum": [
+          "DE",
+          "EN"
+        ]
+      },
+      "VehicleListingVatDisplay": {
+        "type": "string",
+        "enum": [
+          "STANDARD",
+          "MARGIN"
+        ]
+      },
+      "VehicleListingPriceDisplayDto": {
+        "type": "object",
+        "properties": {
+          "price_gross_eur": {
+            "type": "object",
+            "example": "18990.00"
+          },
+          "vat_display": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VehicleListingVatDisplay"
+              }
+            ]
+          },
+          "consumer_hint_de": {
+            "type": "object",
+            "description": "Draft consumer-facing hint (de-AT), not legal approval."
+          },
+          "nova_included_confirmed": {
+            "type": "boolean"
+          },
+          "mandatory_fees_included_confirmed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "nova_included_confirmed",
+          "mandatory_fees_included_confirmed"
+        ]
+      },
+      "VehicleListingPhotoDto": {
+        "type": "object",
+        "properties": {
+          "media_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sort_order": {
+            "type": "number"
+          },
+          "content_sha256": {
+            "type": "string",
+            "description": "SHA-256 of processed listing image bytes"
+          }
+        },
+        "required": [
+          "media_id",
+          "sort_order",
+          "content_sha256"
+        ]
+      },
+      "VehicleListingPlatform": {
+        "type": "string",
+        "enum": [
+          "MOBILE_DE",
+          "AS24",
+          "WILLHABEN"
+        ]
+      },
+      "VehicleListingDesiredState": {
+        "type": "string",
+        "enum": [
+          "ACTIVE",
+          "INACTIVE"
+        ]
+      },
+      "VehicleListingExportState": {
+        "type": "string",
+        "enum": [
+          "NEVER_EXPORTED",
+          "DIRTY",
+          "FILE_GENERATED",
+          "REMOVAL_REQUIRED",
+          "REMOVAL_ACKNOWLEDGED"
+        ]
+      },
+      "VehicleListingRemoteState": {
+        "type": "string",
+        "enum": [
+          "UNKNOWN",
+          "MANUALLY_REPORTED_INACTIVE",
+          "CONFIRMED_ACTIVE",
+          "CONFIRMED_INACTIVE"
+        ]
+      },
+      "VehicleListingChannelDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "platform": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VehicleListingPlatform"
+              }
+            ]
+          },
+          "serializer_profile": {
+            "type": "string"
+          },
+          "mapping_version": {
+            "type": "string"
+          },
+          "desired_state": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VehicleListingDesiredState"
+              }
+            ]
+          },
+          "export_state": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VehicleListingExportState"
+              }
+            ]
+          },
+          "remote_state": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VehicleListingRemoteState"
+              }
+            ]
+          },
+          "last_export_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "last_export_content_sha256": {
+            "type": "object"
+          },
+          "external_ref": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "platform",
+          "serializer_profile",
+          "mapping_version",
+          "desired_state",
+          "export_state",
+          "remote_state"
+        ]
+      },
+      "VehicleListingDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "site_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vehicle_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "stock_purchase_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "listing_ref": {
+            "type": "string",
+            "example": "L0123456789abcdef0123456789abcdef"
+          },
+          "revision": {
+            "type": "number"
+          },
+          "title": {
+            "type": "object"
+          },
+          "description": {
+            "type": "object"
+          },
+          "description_language": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VehicleListingDescriptionLanguage"
+              }
+            ]
+          },
+          "price_display": {
+            "$ref": "#/components/schemas/VehicleListingPriceDisplayDto"
+          },
+          "equipment_free_text": {
+            "type": "object"
+          },
+          "content_sha256": {
+            "type": "string"
+          },
+          "photos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VehicleListingPhotoDto"
+            }
+          },
+          "channels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VehicleListingChannelDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "site_id",
+          "vehicle_id",
+          "stock_purchase_id",
+          "listing_ref",
+          "revision",
+          "description_language",
+          "content_sha256",
+          "photos",
+          "channels"
+        ]
+      },
+      "CreateVehicleListingDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expected_stock_purchase_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "id",
+          "expected_stock_purchase_id"
+        ]
+      },
+      "PatchVehicleListingDto": {
+        "type": "object",
+        "properties": {
+          "expected_revision": {
+            "type": "number"
+          },
+          "title": {
+            "type": "object"
+          },
+          "description": {
+            "type": "object"
+          },
+          "description_language": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VehicleListingDescriptionLanguage"
+              }
+            ]
+          },
+          "price_gross_eur": {
+            "type": "number",
+            "example": 18990
+          },
+          "vat_display": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VehicleListingVatDisplay"
+              }
+            ]
+          },
+          "nova_included_confirmed": {
+            "type": "boolean"
+          },
+          "mandatory_fees_included_confirmed": {
+            "type": "boolean"
+          },
+          "equipment_free_text": {
+            "type": "object"
+          },
+          "photo_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": [
+          "expected_revision"
+        ]
+      },
+      "PatchVehicleListingChannelDto": {
+        "type": "object",
+        "properties": {
+          "expected_revision": {
+            "type": "number"
+          },
+          "desired_state": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VehicleListingDesiredState"
+              }
+            ]
+          },
+          "serializer_profile": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_revision",
+          "desired_state"
         ]
       },
       "EmployeeRole": {

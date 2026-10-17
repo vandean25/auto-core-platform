@@ -3,12 +3,12 @@ import { VehiclePurchaseStatus, type PrismaClient } from '@prisma/client';
 
 type StockCycleClient = Pick<PrismaClient, 'vehiclePurchase'>;
 
-export async function resolveCurrentReceivedStockPurchaseId(
+export async function findReceivedStockPurchaseIdForActiveSite(
   prisma: StockCycleClient,
   tenantId: string,
   vehicleId: string,
   activeSiteId: string,
-): Promise<string> {
+): Promise<string | null> {
   const purchase = await prisma.vehiclePurchase.findFirst({
     where: {
       tenant_id: tenantId,
@@ -23,7 +23,23 @@ export async function resolveCurrentReceivedStockPurchaseId(
     select: { id: true },
   });
 
-  if (!purchase) {
+  return purchase?.id ?? null;
+}
+
+export async function resolveCurrentReceivedStockPurchaseId(
+  prisma: StockCycleClient,
+  tenantId: string,
+  vehicleId: string,
+  activeSiteId: string,
+): Promise<string> {
+  const purchaseId = await findReceivedStockPurchaseIdForActiveSite(
+    prisma,
+    tenantId,
+    vehicleId,
+    activeSiteId,
+  );
+
+  if (!purchaseId) {
     throw new BadRequestException({
       code: 'VEHICLE_STOCK_PURCHASE_REQUIRED',
       message:
@@ -31,5 +47,5 @@ export async function resolveCurrentReceivedStockPurchaseId(
     });
   }
 
-  return purchase.id;
+  return purchaseId;
 }

@@ -53,6 +53,9 @@ This document defines when deletion is allowed in Auto Core Platform.
 | VehicleEquipmentOption | Deactivate preferred | Set `active = false`; do not hard-delete codes referenced by `VehicleEquipmentSelection`. Starter codes are seeded per tenant (AUT-566). |
 | VehicleEquipmentSelection | No direct delete | Replaced atomically via `PUT /vehicle-stock/:vehicleId/equipment`; removed when parent `Vehicle` is deleted (`CASCADE`). |
 | VehicleEquipmentFreeTextItem | No direct delete | Replaced atomically via `PUT /vehicle-stock/:vehicleId/equipment`; removed when parent `Vehicle` is deleted (`CASCADE`). |
+| VehicleListing | Retention (AUT-567) | One row per stock purchase cycle; retained for export/removal history once a channel has been exported. Draft unexported listings may be removed in a later lifecycle slice; no public hard-delete API in AUT-567. |
+| VehicleListingChannel | No direct delete | Managed with parent `VehicleListing`; per-portal export/removal state is historical. |
+| VehicleListingPhoto | No direct delete | Replaced atomically via listing `PATCH` (`photo_ids`); removed when parent listing is deleted (`CASCADE`). Selected media remains pinned while referenced (`VehicleMedia` `RESTRICT`). |
 | VehicleInspectionRecord | Conditional | `MANUAL` rows follow existing inspection-record rules. `EBV_IMPORTED` projections are immutable (no PATCH/DELETE API). |
 | InspectionSourceConnection | Deactivate preferred | Set `is_active = false` and `read_enabled = false`; revoke `secret_ref` independently. Hard delete only when no imports/results reference the connection. |
 | InspectionExchangeImport | Retention-bound | Unapplied previews and rejected attempts purge after 30 days unless legal hold or unresolved `CONFLICT`. Applied imports retained with their external result. |
