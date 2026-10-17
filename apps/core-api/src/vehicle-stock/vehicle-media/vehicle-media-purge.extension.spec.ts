@@ -8,7 +8,6 @@ import {
   resolveVehiclesToPurgeAfterDeleteMany,
   runVehicleDeleteManyWithMediaPurge,
   runVehicleDeleteWithMediaPurge,
-  runWithDeferredVehicleMediaPurges,
 } from './vehicle-media-purge.extension.js';
 
 describe('vehicle-media-purge extension helpers', () => {
@@ -19,6 +18,10 @@ describe('vehicle-media-purge extension helpers', () => {
     deleteObjects: async () => undefined,
     deleteVehicleMediaPrefix: jest.fn(),
     deleteTenantVehicleMediaPrefix: jest.fn(),
+  };
+  const rootVehicleDelegate = {
+    findMany: jest.fn(),
+    findFirst: jest.fn(),
   };
 
   beforeEach(() => {
@@ -37,6 +40,7 @@ describe('vehicle-media-purge extension helpers', () => {
     await expect(
       runVehicleDeleteWithMediaPurge(
         vehicleDelegate,
+        rootVehicleDelegate,
         { id: 'vehicle-1', tenant_id: 'tenant-1' },
         async () => {
           throw new Error('FK violation');
@@ -56,6 +60,7 @@ describe('vehicle-media-purge extension helpers', () => {
     };
 
     await runVehicleDeleteWithMediaPurge(
+      vehicleDelegate,
       vehicleDelegate,
       { id: 'vehicle-1', tenant_id: 'tenant-1' },
       async () => ({ id: 'vehicle-1' }),
@@ -81,6 +86,7 @@ describe('vehicle-media-purge extension helpers', () => {
             .mockResolvedValue([{ id: 'vehicle-1', tenant_id: 'tenant-1' }]),
           findFirst: jest.fn(),
         },
+        rootVehicleDelegate,
         { id: 'vehicle-1' },
         query,
       ),
@@ -100,28 +106,32 @@ describe('vehicle-media-purge extension helpers', () => {
     registerVehicleMediaPurgeStorage(purgeStorage);
   });
 
-  it('defers purge until deferred transaction scope completes', async () => {
-    await runWithDeferredVehicleMediaPurges(async () => {
-      await runVehicleDeleteWithMediaPurge(
-        {
-          findMany: jest
-            .fn()
-            .mockResolvedValue([{ id: 'vehicle-1', tenant_id: 'tenant-1' }]),
-          findFirst: jest.fn(),
-        },
-        { id: 'vehicle-1' },
-        async () => ({ id: 'vehicle-1' }),
-      );
-      expect(purgeStorage.deleteVehicleMediaPrefix).not.toHaveBeenCalled();
-    });
+  it('defers purge until after the transaction callback when using a tx delegate', async () => {
+    jest.useFakeTimers();
+    const txVehicleDelegate = {
+      findMany: jest
+        .fn()
+        .mockResolvedValue([{ id: 'vehicle-1', tenant_id: 'tenant-1' }]),
+      findFirst: jest.fn(),
+    };
 
+    await runVehicleDeleteWithMediaPurge(
+      txVehicleDelegate,
+      rootVehicleDelegate,
+      { id: 'vehicle-1' },
+      async () => ({ id: 'vehicle-1' }),
+    );
+
+    expect(purgeStorage.deleteVehicleMediaPrefix).not.toHaveBeenCalled();
+    await jest.runAllTimersAsync();
     expect(purgeStorage.deleteVehicleMediaPrefix).toHaveBeenCalledWith({
       tenantId: 'tenant-1',
       vehicleId: 'vehicle-1',
     });
+    jest.useRealTimers();
   });
 
-  it('purges inside a transaction using the same delegate after delete', async () => {
+  it('purges using the transaction delegate when deleteMany count is partial', async () => {
     const vehicleDelegate = {
       findMany: jest.fn().mockResolvedValue([
         { id: 'vehicle-1', tenant_id: 'tenant-1' },
@@ -132,13 +142,12 @@ describe('vehicle-media-purge extension helpers', () => {
       ),
     };
 
-    await runWithDeferredVehicleMediaPurges(async () => {
-      await runVehicleDeleteManyWithMediaPurge(
-        vehicleDelegate,
-        { tenant_id: 'tenant-1' },
-        async () => ({ count: 1 }),
-      );
-    });
+    await runVehicleDeleteManyWithMediaPurge(
+      vehicleDelegate,
+      vehicleDelegate,
+      { tenant_id: 'tenant-1' },
+      async () => ({ count: 1 }),
+    );
 
     expect(purgeStorage.deleteVehicleMediaPrefix).toHaveBeenCalledTimes(1);
     expect(purgeStorage.deleteVehicleMediaPrefix).toHaveBeenCalledWith({

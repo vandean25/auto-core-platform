@@ -46,7 +46,7 @@ export class PrismaService
       .$extends(createAuditExtension())
       .$extends(
         createDashboardRealtimeExtension(dashboardRealtime),
-      ) as unknown as PrismaClient;
+      ) as PrismaClient;
 
     const serviceProxy = new Proxy(this, {
       get(target, property, receiver) {
