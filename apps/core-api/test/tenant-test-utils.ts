@@ -497,6 +497,7 @@ export async function cleanupTestTenantGraph(
   await tenantPrisma.workshopEstimateApprovalToken.deleteMany({});
   await tenantPrisma.workshopEstimateVersion.deleteMany({});
   await tenantPrisma.workshopEstimate.deleteMany({});
+  await tenantPrisma.notificationOutbox.deleteMany({});
   await tenantPrisma.workshopOrder.deleteMany({});
   await tenantPrisma.bay.deleteMany({});
   await tenantPrisma.inspectionTemplateItem.deleteMany({});
