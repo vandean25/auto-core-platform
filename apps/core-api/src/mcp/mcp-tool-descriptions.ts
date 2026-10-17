@@ -90,4 +90,6 @@ export const MCP_TOOL_DESCRIPTIONS: Record<McpToolName, string> = {
     'Propose a scheduled workshop order with an optional reserved loaner booking and optional loaner_charge FEE line (never executes alone; records one pending proposal)',
   propose_purchase_order:
     'Propose a DRAFT purchase order from verified local parts requisition demand (never sends externally; records one pending proposal)',
+  propose_workshop_order_completion:
+    'Propose completing open workshop tasks on an order and moving it to a derived completed status when all tasks are done; optional ready-for-pickup email only when notify_customer is true and the action is applied (never finalizes invoices)',
 };

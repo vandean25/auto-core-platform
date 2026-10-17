@@ -101,6 +101,7 @@ The report reads (AUT-461), `get_workshop_kpi_report`, `list_pickerl_due`, and `
 | `propose_registration_intake` | Off by default; PROPOSE when enabled (hard-clamped from AUTO) | Applies a reviewed registration intake to customer/vehicle records | Not applicable |
 | `propose_workshop_booking` | Off by default; PROPOSE when enabled (hard-clamped from AUTO) | Proposes a scheduled workshop order with an optional reserved loaner booking in one package | Not applicable |
 | `propose_purchase_order` | Off by default; PROPOSE when enabled (hard-clamped from AUTO) | Proposes a DRAFT purchase order from verified local parts requisition demand; apply uses requisition PO rules and never sends externally | Not applicable |
+| `propose_workshop_order_completion` | Off by default; PROPOSE when enabled (hard-clamped from AUTO) | Proposes completing open workshop tasks on an order and deriving order status when all tasks are done; optional ready-for-pickup email on apply when `notify_customer` is true; never finalizes invoices | Not applicable |
 
 `propose_purchase_order` accepts multiple lines with the same `catalog_item_id` when each line references a different requisition reservation slice. Vendor master data has no active/inactive flag: another tenant's vendor id is rejected as not found, and there is no separate inactive-vendor check. Net unit cost for a vendor uses the supplier article row with the newest `updatedAt` (then lowest id) per catalog item, matching catalog read default-supplier semantics.
 

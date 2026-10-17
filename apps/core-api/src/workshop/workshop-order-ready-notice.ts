@@ -127,3 +127,64 @@ export function resolveReadyEmailNotice(
     message: readyEmailNoticeMessage('NOT_QUEUED'),
   };
 }
+
+/** Preview / post-completion path when no prior ready-email outbox row exists yet. */
+export function readyEmailNoticeWhenNoPriorOutbox(
+  input: Omit<ReadyEmailNoticeInput, 'latestReadyEmailStatus' | 'orderStatus'>,
+): WorkshopReadyEmailNotice | null {
+  const built = buildWorkshopOrderReadyCustomerEmail({
+    customer: input.customer,
+    vehicle: input.vehicle,
+    sellerName: input.sellerName,
+    orderNumber: 'WO-0000',
+  });
+  if (!built.ok) {
+    const code = REFUSAL_TO_NOTICE[built.code];
+    return { code, message: built.message };
+  }
+  return {
+    code: 'QUEUED',
+    message: readyEmailNoticeMessage('QUEUED'),
+  };
+}
+
+function resolveReadyEmailNoticeForCompletionPreview(
+  input: Omit<ReadyEmailNoticeInput, 'latestReadyEmailStatus' | 'orderStatus'>,
+): WorkshopReadyEmailNotice | null {
+  if (input.purpose !== 'CUSTOMER_REPAIR') {
+    return {
+      code: 'NOT_APPLICABLE',
+      message: readyEmailNoticeMessage('NOT_APPLICABLE'),
+    };
+  }
+  if (!input.sellerReady) {
+    return {
+      code: 'BLOCKED_SELLER_INCOMPLETE',
+      message: readyEmailNoticeMessage('BLOCKED_SELLER_INCOMPLETE'),
+    };
+  }
+  return readyEmailNoticeWhenNoPriorOutbox(input);
+}
+
+/** Whether a completed customer-repair order would queue a new ready email. */
+export function previewReadyEmailOnCompletion(
+  input: ReadyEmailNoticeInput & {
+    notifyCustomer: boolean;
+    willReachCompleted: boolean;
+  },
+): { will_send: boolean; notice_code: string | null } {
+  if (!input.notifyCustomer) {
+    return { will_send: false, notice_code: null };
+  }
+  if (!input.willReachCompleted) {
+    return { will_send: false, notice_code: null };
+  }
+  const notice = resolveReadyEmailNoticeForCompletionPreview(input);
+  if (!notice) {
+    return { will_send: false, notice_code: null };
+  }
+  return {
+    will_send: notice.code === 'QUEUED',
+    notice_code: notice.code,
+  };
+}

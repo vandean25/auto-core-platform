@@ -37,6 +37,7 @@ import { proposeRegistrationIntakeInputSchema } from '../mcp/mcp-tool-schemas.js
 import { WorkshopBookingPackageService } from '../workshop/workshop-booking-package.service.js';
 import { PurchaseService } from '../purchase/purchase.service.js';
 import { proposePurchaseOrderInputSchema } from '../purchase/purchase-propose-draft.schema.js';
+import { WorkshopOrderCompletionService } from '../workshop/workshop-order-completion.service.js';
 
 export type PendingActionType =
   | 'workshop_order.create'
@@ -52,7 +53,8 @@ export type PendingActionType =
   | 'decision.import_row_match'
   | 'decision.document_sort'
   | 'registration_intake.apply'
-  | 'workshop_order.mechanic_finding';
+  | 'workshop_order.mechanic_finding'
+  | 'workshop_order.complete';
 
 export type PendingActionExecutor = {
   actionType: PendingActionType;
@@ -81,6 +83,7 @@ export class PendingActionExecutorService {
     private readonly registrationIntakeApply: RegistrationIntakeApplyService,
     private readonly workshopBookingPackage: WorkshopBookingPackageService,
     private readonly purchaseService: PurchaseService,
+    private readonly workshopOrderCompletion: WorkshopOrderCompletionService,
   ) {}
 
   resolve(actionType: string): PendingActionExecutor {
@@ -281,6 +284,27 @@ export class PendingActionExecutorService {
             entityType: 'PurchaseOrder',
             entityId: (result as { purchase_order_id: string })
               .purchase_order_id,
+            reversible: true,
+          }),
+        };
+      case 'workshop_order.complete':
+        return {
+          actionType,
+          buildPolicyContext: () => Promise.resolve({}),
+          buildExecutionContext: () =>
+            this.workshopOrderCompletion.buildExecutionContext(),
+          execute: (input, context) =>
+            this.workshopOrderCompletion.applyCompletion(input, context),
+          buildResultSummary: (result) => ({
+            workshop_order_id: (result as { workshop_order_id: string })
+              .workshop_order_id,
+            order_status: (result as { order_status: unknown }).order_status,
+            ready_email: (result as { ready_email: unknown }).ready_email,
+          }),
+          buildLogMetadata: (result) => ({
+            entityType: 'WorkshopOrder',
+            entityId: (result as { workshop_order_id: string })
+              .workshop_order_id,
             reversible: true,
           }),
         };

@@ -64,6 +64,16 @@ describe('PendingActionExecutorService', () => {
       .fn()
       .mockResolvedValue({ site_id: 'site-1' }),
   };
+  const mockWorkshopOrderCompletion = {
+    applyCompletion: jest.fn().mockResolvedValue({
+      id: 'order-1',
+      entityId: 'order-1',
+      workshop_order_id: 'order-1',
+    }),
+    buildExecutionContext: jest
+      .fn()
+      .mockResolvedValue({ site_id: 'site-1' }),
+  };
 
   let service: PendingActionExecutorService;
 
@@ -78,6 +88,7 @@ describe('PendingActionExecutorService', () => {
       mockRegistrationIntakeApply as never,
       mockWorkshopBookingPackage as never,
       mockPurchaseService as never,
+      mockWorkshopOrderCompletion as never,
     );
   });
 
@@ -101,6 +112,21 @@ describe('PendingActionExecutorService', () => {
         context,
       );
       expect(mockPurchaseService.applyProposedPurchaseOrderDraft).toHaveBeenCalled();
+    });
+  });
+
+  describe('workshop_order.complete', () => {
+    it('binds site in execution context and delegates apply to completion service', async () => {
+      const executor = service.resolve('workshop_order.complete');
+      const context = await executor.buildExecutionContext?.({});
+      expect(context).toEqual({ site_id: 'site-1' });
+      await executor.execute(
+        {
+          workshop_order_id: '00000000-0000-4000-8000-000000000001',
+        },
+        context,
+      );
+      expect(mockWorkshopOrderCompletion.applyCompletion).toHaveBeenCalled();
     });
   });
 
