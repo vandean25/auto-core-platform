@@ -30,6 +30,7 @@ export const ROUTE_SECTION_TITLES: Record<RoutePattern, string> = {
   [APP_ROUTE_PATHS.vehicleStockAlias]: 'Vehicle Stock',
   [APP_ROUTE_PATHS.vehicleStock]: 'Vehicle Stock',
   [APP_ROUTE_PATHS.vehicleStockReports]: 'Vehicle Stock Reports',
+  [APP_ROUTE_PATHS.vehicleStockListing]: 'Vehicle Listing',
   [APP_ROUTE_PATHS.vehicleStockDetail]: 'Vehicle Stock',
   [APP_ROUTE_PATHS.vehicleStockPurchaseNew]: 'New Vehicle Purchase',
   [APP_ROUTE_PATHS.vehicleStockPurchaseDetail]: 'Vehicle Purchase',

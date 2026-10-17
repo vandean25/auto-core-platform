@@ -1,0 +1,81 @@
+{
+  "listing": {
+    "title": "Inserat bearbeiten",
+    "backToStock": "Zurück zum Fahrzeugbestand",
+    "loading": "Inserat wird geladen…",
+    "creating": "Inserat wird angelegt…",
+    "noStockCycle": "Für dieses Fahrzeug gibt es keinen eingebuchten Bestandszyklus. Bitte zuerst den Fahrzeugeinkauf abschließen.",
+    "saveIndicator": {
+      "idle": "Änderungen werden automatisch gespeichert",
+      "saving": "Speichern…",
+      "saved": "Gespeichert",
+      "error": "Speichern fehlgeschlagen"
+    },
+    "revisionConflict": {
+      "title": "Inserat wurde an anderer Stelle geändert",
+      "description": "Ihre lokalen Änderungen konnten nicht gespeichert werden. Laden Sie die aktuelle Version und übernehmen Sie Ihre Eingaben erneut.",
+      "refresh": "Aktuelle Version laden"
+    },
+    "sections": {
+      "photos": "Fotos für das Inserat",
+      "photosHint": "Ziehen Sie die Reihenfolge per Schaltflächen; nur ausgewählte Fotos werden exportiert.",
+      "equipment": "Ausstattung",
+      "equipmentHint": "Bekannte Ausstattung als vorhanden oder nicht vorhanden markieren.",
+      "content": "Text und Preis",
+      "exportAssertions": "Export-Angaben",
+      "portals": "Portale",
+      "preview": "Vorschau",
+      "vehicleFields": "Fahrzeugdaten"
+    },
+    "fields": {
+      "description": "Beschreibung",
+      "descriptionLanguage": "Beschreibungssprache",
+      "priceGross": "Bruttopreis",
+      "vatDisplay": "USt.-Ausweis",
+      "consumerHint": "Preishinweis",
+      "novaIncluded": "NoVA im Preis enthalten",
+      "mandatoryFeesIncluded": "Pflichtgebühren im Preis enthalten",
+      "equipmentFreeText": "Zusätzliche Ausstattung (Freitext)",
+      "portalCategory": "Portal-Kategorie",
+      "listingRef": "Inserat-Referenz"
+    },
+    "assertions": {
+      "damageFree": "Unfallfrei",
+      "metallic": "Metallic-Lack",
+      "guarantee": "Garantie",
+      "jahreswagen": "Jahreswagen",
+      "recommendation": "Empfehlung",
+      "demoVehicle": "Vorführwagen"
+    },
+    "equipment": {
+      "present": "Vorhanden",
+      "absent": "Nicht vorhanden",
+      "unset": "Unbekannt"
+    },
+    "portals": {
+      "desiredActive": "Angebot aktiv",
+      "desiredInactive": "Inaktiv",
+      "validationTitle": "Portal-Validierung",
+      "serializerUnsupported": "Für dieses Portal ist noch kein Export-Validator verfügbar.",
+      "noIssues": "Keine Validierungsmeldungen für dieses Portal."
+    },
+    "photos": {
+      "moveUp": "Nach oben",
+      "moveDown": "Nach unten",
+      "include": "Im Inserat",
+      "exclude": "Nicht im Inserat",
+      "empty": "Noch keine Fahrzeugfotos vorhanden."
+    },
+    "preview": {
+      "untitled": "Ohne Titel",
+      "noDescription": "Keine Beschreibung",
+      "photoCount": "{{count}} Foto(s) im Inserat"
+    },
+    "vehicleFieldHint": "Diese Angabe wird auf der Fahrzeugbestandsseite gepflegt.",
+    "errors": {
+      "saveFailed": "Inserat konnte nicht gespeichert werden",
+      "channelFailed": "Portalstatus konnte nicht gespeichert werden",
+      "equipmentFailed": "Ausstattung konnte nicht gespeichert werden"
+    }
+  }
+}

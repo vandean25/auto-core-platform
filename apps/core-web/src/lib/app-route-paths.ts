@@ -27,6 +27,7 @@ export const APP_ROUTE_PATHS = {
   vehicleStockPurchaseDetail: '/vehicle-stock/purchases/:id',
   vehicleStockSaleNew: '/vehicle-stock/sales/new',
   vehicleStockSaleDetail: '/vehicle-stock/sales/:id',
+  vehicleStockListing: '/vehicle-stock/:vehicleId/listing',
   vehicleStockDetail: '/vehicle-stock/:vehicleId',
   salesOrders: '/sales-orders',
   salesOrderNew: '/sales-orders/new',

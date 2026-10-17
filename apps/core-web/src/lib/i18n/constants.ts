@@ -27,6 +27,7 @@ export const LAZY_NAMESPACES = [
   'pdf',
   'email',
   'customers',
+  'vehicleStock',
 ] as const
 
 export type LazyNamespace = (typeof LAZY_NAMESPACES)[number]

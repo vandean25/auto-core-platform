@@ -1,0 +1,81 @@
+{
+  "listing": {
+    "title": "Edit listing",
+    "backToStock": "Back to vehicle stock",
+    "loading": "Loading listing…",
+    "creating": "Creating listing…",
+    "noStockCycle": "This vehicle has no received stock cycle. Complete the vehicle purchase first.",
+    "saveIndicator": {
+      "idle": "Changes save automatically",
+      "saving": "Saving…",
+      "saved": "Saved",
+      "error": "Save failed"
+    },
+    "revisionConflict": {
+      "title": "Listing changed elsewhere",
+      "description": "Your changes could not be saved. Reload the current version and re-apply your edits.",
+      "refresh": "Reload current version"
+    },
+    "sections": {
+      "photos": "Listing photos",
+      "photosHint": "Adjust order with the buttons; only selected photos are exported.",
+      "equipment": "Equipment",
+      "equipmentHint": "Mark known equipment as present or absent.",
+      "content": "Text and price",
+      "exportAssertions": "Export assertions",
+      "portals": "Portals",
+      "preview": "Preview",
+      "vehicleFields": "Vehicle data"
+    },
+    "fields": {
+      "description": "Description",
+      "descriptionLanguage": "Description language",
+      "priceGross": "Gross price",
+      "vatDisplay": "VAT display",
+      "consumerHint": "Price hint",
+      "novaIncluded": "NoVA included in price",
+      "mandatoryFeesIncluded": "Mandatory fees included in price",
+      "equipmentFreeText": "Additional equipment (free text)",
+      "portalCategory": "Portal category",
+      "listingRef": "Listing reference"
+    },
+    "assertions": {
+      "damageFree": "Accident-free",
+      "metallic": "Metallic paint",
+      "guarantee": "Warranty",
+      "jahreswagen": "Annual car",
+      "recommendation": "Recommendation",
+      "demoVehicle": "Demo vehicle"
+    },
+    "equipment": {
+      "present": "Present",
+      "absent": "Absent",
+      "unset": "Unknown"
+    },
+    "portals": {
+      "desiredActive": "Offer active",
+      "desiredInactive": "Inactive",
+      "validationTitle": "Portal validation",
+      "serializerUnsupported": "No export validator is available for this portal yet.",
+      "noIssues": "No validation messages for this portal."
+    },
+    "photos": {
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "include": "In listing",
+      "exclude": "Not in listing",
+      "empty": "No vehicle photos yet."
+    },
+    "preview": {
+      "untitled": "Untitled",
+      "noDescription": "No description",
+      "photoCount": "{{count}} photo(s) in listing"
+    },
+    "vehicleFieldHint": "Maintain this value on the vehicle stock detail page.",
+    "errors": {
+      "saveFailed": "Could not save listing",
+      "channelFailed": "Could not save portal status",
+      "equipmentFailed": "Could not save equipment"
+    }
+  }
+}
