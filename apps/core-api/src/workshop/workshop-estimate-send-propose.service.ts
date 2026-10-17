@@ -91,10 +91,6 @@ const ORDER_FOR_ESTIMATE_SEND_SELECT = {
   },
 } satisfies Prisma.WorkshopOrderSelect;
 
-type OrderForEstimateSend = Prisma.WorkshopOrderGetPayload<{
-  select: typeof ORDER_FOR_ESTIMATE_SEND_SELECT;
-}>;
-
 @Injectable()
 export class WorkshopEstimateSendProposeService {
   constructor(
@@ -436,7 +432,11 @@ export class WorkshopEstimateSendProposeService {
     }
 
     const order = await this.prisma.workshopOrder.findFirst({
-      where: { id: parsed.workshop_order_id, tenant_id: tenantId, site_id: siteId },
+      where: {
+        id: parsed.workshop_order_id,
+        tenant_id: tenantId,
+        site_id: siteId,
+      },
       select: ORDER_FOR_ESTIMATE_SEND_SELECT,
     });
     if (!order) {
@@ -451,7 +451,9 @@ export class WorkshopEstimateSendProposeService {
       });
     }
 
-    const recipientEmail = resolveCustomerEstimateRecipientEmail(order.customer);
+    const recipientEmail = resolveCustomerEstimateRecipientEmail(
+      order.customer,
+    );
     const customerId = order.customer.id;
     const recipientPin = pinCustomerEstimateRecipientEmail(
       tenantId,

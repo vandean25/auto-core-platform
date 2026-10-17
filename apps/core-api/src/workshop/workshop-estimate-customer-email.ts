@@ -34,23 +34,25 @@ export function resolveCustomerEstimateRecipientEmail(customer: {
   email: string | null;
 }): string {
   if (!customer.contact_email_ok) {
+    const code = 'ESTIMATE_CUSTOMER_EMAIL_NOT_CONFIRMED';
     throw new UnprocessableEntityException({
-      code: 'ESTIMATE_CUSTOMER_EMAIL_NOT_CONFIRMED',
-      message:
-        'The customer email address must be confirmed for order communication before the estimate is emailed.',
+      code,
+      message: `${code}: The customer email address must be confirmed for order communication before the estimate is emailed.`,
     });
   }
   const recipientEmail = customer.email?.trim() ?? '';
   if (recipientEmail === '') {
+    const code = 'ESTIMATE_CUSTOMER_EMAIL_MISSING';
     throw new UnprocessableEntityException({
-      code: 'ESTIMATE_CUSTOMER_EMAIL_MISSING',
-      message: 'The customer has no email address for the estimate.',
+      code,
+      message: `${code}: The customer has no email address for the estimate.`,
     });
   }
   if (!isPlainEmailAddress(recipientEmail)) {
+    const code = 'ESTIMATE_CUSTOMER_EMAIL_INVALID';
     throw new UnprocessableEntityException({
-      code: 'ESTIMATE_CUSTOMER_EMAIL_INVALID',
-      message: 'The customer email address is not a plain address.',
+      code,
+      message: `${code}: The customer email address is not a plain address.`,
     });
   }
   return recipientEmail;

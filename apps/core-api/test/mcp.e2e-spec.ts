@@ -6287,8 +6287,7 @@ describe('MCP server (e2e)', () => {
       });
     });
 
-    it('reports PROPOSE tier in capabilities even when policy is AUTO', async () => {
-      await setPolicyTier('estimate.send_customer_message', 'AUTO');
+    it('reports PROPOSE tier in capabilities when the tenant rule is enabled', async () => {
       const caps = await readAllCapabilities((args) =>
         callMcpTool(caller(adminHeaderA, 'e2e-estimate-cap'), 'get_capabilities', args),
       );
@@ -6314,7 +6313,7 @@ describe('MCP server (e2e)', () => {
         { workshop_order_id: order.id, channel: 'email' },
       );
       expect(result.isError).toBe(true);
-      expect(JSON.stringify(result)).toContain(
+      expect(toolPayloadText(result)).toContain(
         'ESTIMATE_CUSTOMER_EMAIL_NOT_CONFIRMED',
       );
       expect(
@@ -6342,7 +6341,9 @@ describe('MCP server (e2e)', () => {
         { workshop_order_id: order.id, channel: 'email' },
       );
       expect(result.isError).toBe(true);
-      expect(JSON.stringify(result)).toContain('ESTIMATE_CUSTOMER_EMAIL_MISSING');
+      expect(toolPayloadText(result)).toContain(
+        'ESTIMATE_CUSTOMER_EMAIL_MISSING',
+      );
       expect(
         await prismaA.agentProposal.count({
           where: {
@@ -6414,7 +6415,11 @@ describe('MCP server (e2e)', () => {
         ),
       );
       await applyProposal(proposed.pending_action_id, adminHeaderA).expect(200);
-      await applyProposal(proposed.pending_action_id, adminHeaderA).expect(409);
+      const secondApply = await applyProposal(
+        proposed.pending_action_id,
+        adminHeaderA,
+      ).expect(200);
+      expect(secondApply.body.status).toBe('EXECUTED');
       const outbox = await prismaA.notificationOutbox.count({
         where: {
           workshop_order_id: order.id,

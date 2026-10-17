@@ -118,7 +118,7 @@ describe('PendingActionExecutorService', () => {
       {} as never,
       {} as never,
       {} as never,
-      {} as never,
+      {},
     );
   });
 
