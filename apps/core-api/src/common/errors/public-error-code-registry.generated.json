@@ -181,6 +181,10 @@
       "public": true,
       "params": []
     },
+    "CHECK_IN_DAMAGE_TYPE_INVALID": {
+      "public": true,
+      "params": []
+    },
     "CHECK_IN_EXISTS": {
       "public": true,
       "params": []
@@ -198,6 +202,10 @@
       "params": []
     },
     "CHECK_IN_SIGNATURE_REQUIRED": {
+      "public": true,
+      "params": []
+    },
+    "CHECK_IN_ZONE_INVALID": {
       "public": true,
       "params": []
     },
