@@ -8,6 +8,8 @@ export type ProcessUploadImageOptions = {
   main: UploadImageResizeLimits;
   /** When set, also emit a thumbnail within these bounds. */
   thumbnail?: UploadImageResizeLimits;
+  /** Named extra variants (portal sizes), keyed by stable variant id. */
+  variants?: Record<string, UploadImageResizeLimits>;
   jpegQuality?: number;
   limitInputPixels?: number;
 };
@@ -22,4 +24,6 @@ export type ProcessedImageVariant = {
 export type ProcessUploadImageResult = {
   main: ProcessedImageVariant;
   thumbnail?: ProcessedImageVariant;
+  /** Additional named portal/listing variants (same JPEG pipeline as main). */
+  variants?: Record<string, ProcessedImageVariant>;
 };

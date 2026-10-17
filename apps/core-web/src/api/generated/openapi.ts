@@ -2580,6 +2580,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vehicle-stock/{vehicleId}/photos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List vehicle stock photos in display order */
+        get: operations["VehicleMediaController_list"];
+        put?: never;
+        /** Upload a vehicle stock photo (processed variants) */
+        post: operations["VehicleMediaController_upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vehicle-stock/{vehicleId}/photos/reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Reorder all photos for a vehicle */
+        put: operations["VehicleMediaController_reorder"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vehicle-stock/{vehicleId}/photos/{photoId}/set-cover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set the cover photo for a vehicle */
+        post: operations["VehicleMediaController_setCover"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vehicle-stock/{vehicleId}/photos/{photoId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a vehicle stock photo */
+        delete: operations["VehicleMediaController_remove"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/workshop/registration-intakes": {
         parameters: {
             query?: never;
@@ -8182,6 +8251,33 @@ export interface components {
             toSiteId: string;
             toLocationId: string;
             expectedLocationId: string;
+        };
+        VehicleMediaDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            vehicleId: string;
+            /** Format: uuid */
+            siteId: string;
+            sortOrder: number;
+            isCover: boolean;
+            contentType: string;
+            width: number;
+            height: number;
+            contentSha256: string;
+            variants: {
+                [key: string]: unknown;
+            };
+            /** Format: uuid */
+            createdByUserId: Record<string, never> | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        ReorderVehicleMediaDto: {
+            /** @description Full ordered list of photo ids belonging to this vehicle (tenant-scoped). */
+            mediaIds: string[];
         };
         HolderDto: {
             firstName: string;
@@ -16120,6 +16216,115 @@ export interface operations {
         };
         responses: {
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    VehicleMediaController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleMediaDto"][];
+                };
+            };
+        };
+    };
+    VehicleMediaController_upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleMediaDto"];
+                };
+            };
+        };
+    };
+    VehicleMediaController_reorder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReorderVehicleMediaDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleMediaDto"][];
+                };
+            };
+        };
+    };
+    VehicleMediaController_setCover: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                photoId: string;
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleMediaDto"];
+                };
+            };
+        };
+    };
+    VehicleMediaController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                photoId: string;
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
                 headers: {
                     [name: string]: unknown;
                 };

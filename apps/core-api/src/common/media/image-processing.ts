@@ -54,6 +54,13 @@ export async function processUploadImage(
   const thumbnail = options.thumbnail
     ? await toJpegVariant(oriented, options.thumbnail, jpegQuality)
     : undefined;
+  let variants: Record<string, ProcessedImageVariant> | undefined;
+  if (options.variants) {
+    variants = {};
+    for (const [name, limits] of Object.entries(options.variants)) {
+      variants[name] = await toJpegVariant(oriented, limits, jpegQuality);
+    }
+  }
 
-  return { main, thumbnail };
+  return { main, thumbnail, variants };
 }

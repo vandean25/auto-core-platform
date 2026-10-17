@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, OnModuleInit } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { InvoicesModule } from '../invoices/invoices.module.js';
 import { AuditModule } from '../audit/audit.module.js';
@@ -16,6 +16,16 @@ import { VehicleStockQueryService } from './vehicle-stock-query.service.js';
 import { VehicleStockController } from './vehicle-stock.controller.js';
 import { VehicleStockMoveService } from './vehicle-stock-move.service.js';
 import { VehicleStockReportsService } from './vehicle-stock-reports.service.js';
+import {
+  GcsVehicleMediaStorage,
+  VEHICLE_MEDIA_STORAGE,
+} from './vehicle-media/vehicle-media.storage.js';
+import { VehicleMediaService } from './vehicle-media/vehicle-media.service.js';
+import { VehicleMediaController } from './vehicle-media/vehicle-media.controller.js';
+import {
+  getVehicleMediaPurgeStorage,
+  registerVehicleMediaPurgeStorage,
+} from './vehicle-media/vehicle-media-purge.registry.js';
 
 @Module({
   imports: [
@@ -29,6 +39,7 @@ import { VehicleStockReportsService } from './vehicle-stock-reports.service.js';
     VehiclePurchaseController,
     VehicleSaleController,
     VehicleStockController,
+    VehicleMediaController,
   ],
   providers: [
     VehicleLedgerService,
@@ -40,6 +51,9 @@ import { VehicleStockReportsService } from './vehicle-stock-reports.service.js';
     VehicleStockQueryService,
     VehicleStockMoveService,
     VehicleStockReportsService,
+    GcsVehicleMediaStorage,
+    { provide: VEHICLE_MEDIA_STORAGE, useExisting: GcsVehicleMediaStorage },
+    VehicleMediaService,
   ],
   exports: [
     VehicleLedgerService,
@@ -47,4 +61,12 @@ import { VehicleStockReportsService } from './vehicle-stock-reports.service.js';
     VehicleStockReportsService,
   ],
 })
-export class VehicleStockModule {}
+export class VehicleStockModule implements OnModuleInit {
+  constructor(private readonly vehicleMediaStorage: GcsVehicleMediaStorage) {}
+
+  onModuleInit(): void {
+    if (!getVehicleMediaPurgeStorage()) {
+      registerVehicleMediaPurgeStorage(this.vehicleMediaStorage);
+    }
+  }
+}

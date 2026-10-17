@@ -70,6 +70,30 @@ describe('processUploadImage', () => {
     expect(thumbnail!.contentType).toBe('image/jpeg');
   });
 
+  it('emits named portal variants alongside the main image', async () => {
+    const source = await sharp({
+      create: {
+        width: 2400,
+        height: 1800,
+        channels: 3,
+        background: '#112233',
+      },
+    })
+      .jpeg()
+      .toBuffer();
+
+    const { variants } = await processUploadImage(source, {
+      main: { maxWidth: 2048, maxHeight: 2048 },
+      variants: {
+        portal_md: { maxWidth: 1600, maxHeight: 1600 },
+        thumbnail: { maxWidth: 320, maxHeight: 320 },
+      },
+    });
+
+    expect(variants?.portal_md.width).toBeLessThanOrEqual(1600);
+    expect(variants?.thumbnail.width).toBeLessThanOrEqual(320);
+  });
+
   it('does not enlarge images smaller than the configured bounds', async () => {
     const source = await sharp({
       create: {

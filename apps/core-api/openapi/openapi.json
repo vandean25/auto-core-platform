@@ -8321,6 +8321,184 @@
         ]
       }
     },
+    "/api/vehicle-stock/{vehicleId}/photos": {
+      "get": {
+        "operationId": "VehicleMediaController_list",
+        "parameters": [
+          {
+            "name": "vehicleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/VehicleMediaDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List vehicle stock photos in display order",
+        "tags": [
+          "vehicle-stock"
+        ]
+      },
+      "post": {
+        "operationId": "VehicleMediaController_upload",
+        "parameters": [
+          {
+            "name": "vehicleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleMediaDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Upload a vehicle stock photo (processed variants)",
+        "tags": [
+          "vehicle-stock"
+        ]
+      }
+    },
+    "/api/vehicle-stock/{vehicleId}/photos/reorder": {
+      "put": {
+        "operationId": "VehicleMediaController_reorder",
+        "parameters": [
+          {
+            "name": "vehicleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderVehicleMediaDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/VehicleMediaDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Reorder all photos for a vehicle",
+        "tags": [
+          "vehicle-stock"
+        ]
+      }
+    },
+    "/api/vehicle-stock/{vehicleId}/photos/{photoId}/set-cover": {
+      "post": {
+        "operationId": "VehicleMediaController_setCover",
+        "parameters": [
+          {
+            "name": "photoId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "vehicleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleMediaDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Set the cover photo for a vehicle",
+        "tags": [
+          "vehicle-stock"
+        ]
+      }
+    },
+    "/api/vehicle-stock/{vehicleId}/photos/{photoId}": {
+      "delete": {
+        "operationId": "VehicleMediaController_remove",
+        "parameters": [
+          {
+            "name": "photoId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "vehicleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "Delete a vehicle stock photo",
+        "tags": [
+          "vehicle-stock"
+        ]
+      }
+    },
     "/api/workshop/registration-intakes": {
       "post": {
         "operationId": "RegistrationIntakeController_create",
@@ -27489,6 +27667,88 @@
           "toSiteId",
           "toLocationId",
           "expectedLocationId"
+        ]
+      },
+      "VehicleMediaDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vehicleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "siteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sortOrder": {
+            "type": "number"
+          },
+          "isCover": {
+            "type": "boolean"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "width": {
+            "type": "number"
+          },
+          "height": {
+            "type": "number"
+          },
+          "contentSha256": {
+            "type": "string"
+          },
+          "variants": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "createdByUserId": {
+            "type": "object",
+            "format": "uuid",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "vehicleId",
+          "siteId",
+          "sortOrder",
+          "isCover",
+          "contentType",
+          "width",
+          "height",
+          "contentSha256",
+          "variants",
+          "createdByUserId",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "ReorderVehicleMediaDto": {
+        "type": "object",
+        "properties": {
+          "mediaIds": {
+            "description": "Full ordered list of photo ids belonging to this vehicle (tenant-scoped).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "mediaIds"
         ]
       },
       "HolderDto": {

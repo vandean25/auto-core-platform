@@ -1,14 +1,14 @@
 import { INestApplication } from '@nestjs/common';
+import { Test, type TestingModuleBuilder } from '@nestjs/testing';
 import request from 'supertest';
+import { AppModule } from '../../src/app.module.js';
+import { createGlobalValidationPipe } from '../../src/common/index.js';
 import { PrismaService } from '../../src/prisma/prisma.service.js';
 import { seedReadySellerAndAccountingProfile } from '../invoice-snapshot-v2-test-utils.js';
 import { teardownTestApp } from '../test-lifecycle.js';
 import { cleanupTestTenantGraph } from '../tenant-test-utils.js';
-import {
-  bootstrapE2eApp,
-  createE2eTenant,
-  deleteDocumentBrandRows,
-} from './e2e-suite.js';
+import { installFakeInvoiceArchiveStorage } from '../invoice-branding-archive-test-utils.js';
+import { createE2eTenant, deleteDocumentBrandRows } from './e2e-suite.js';
 
 // Locks every posting date this run can produce: postings use the current time, which falls in
 // the current year, so a lock at the end of next year is always ahead of it.
@@ -27,8 +27,20 @@ export function vin(tag: string) {
  * seller and buyer, a ready seller with a margin-scheme accounting profile, and the factories the
  * specs use to receive purchases and add lot sites.
  */
-export async function createVehicleStockSuite() {
-  const { app, archiveReadKeys, basePrisma } = await bootstrapE2eApp();
+export async function createVehicleStockSuite(options?: {
+  configureModule?: (builder: TestingModuleBuilder) => TestingModuleBuilder;
+}) {
+  let builder = Test.createTestingModule({ imports: [AppModule] });
+  if (options?.configureModule) {
+    builder = options.configureModule(builder);
+  }
+  const moduleFixture = await builder.compile();
+  const app = moduleFixture.createNestApplication();
+  app.setGlobalPrefix('api');
+  app.useGlobalPipes(createGlobalValidationPipe());
+  await app.init();
+  const archiveReadKeys = installFakeInvoiceArchiveStorage(app).readKeys;
+  const basePrisma = app.get<PrismaService>(PrismaService);
   const { tenantId, prisma, authToken } = await createE2eTenant(
     app,
     basePrisma,

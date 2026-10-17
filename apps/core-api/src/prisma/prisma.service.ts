@@ -13,6 +13,10 @@ import { createDashboardRealtimeExtension } from './prisma-dashboard-realtime.ex
 import { createAuditExtension } from './prisma-audit.extension.js';
 import { createTenantIsolationExtension } from './tenant-isolation.extension.js';
 import {
+  createVehicleMediaPurgeExtension,
+  createVehicleMediaPurgeTransactionExtension,
+} from '../vehicle-stock/vehicle-media/vehicle-media-purge.extension.js';
+import {
   getSharedRuntimePool,
   releaseSharedRuntimePool,
 } from './shared-pg-pool.js';
@@ -41,10 +45,12 @@ export class PrismaService
 
     this.pool = pool;
     this.client = this.$extends(createTenantIsolationExtension())
+      .$extends(createVehicleMediaPurgeExtension())
       .$extends(createAuditExtension())
+      .$extends(createDashboardRealtimeExtension(dashboardRealtime))
       .$extends(
-        createDashboardRealtimeExtension(dashboardRealtime),
-      ) as PrismaClient;
+        createVehicleMediaPurgeTransactionExtension(),
+      ) as unknown as PrismaClient;
 
     const serviceProxy = new Proxy(this, {
       get(target, property, receiver) {
