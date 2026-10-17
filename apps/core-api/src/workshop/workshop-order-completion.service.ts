@@ -170,6 +170,11 @@ export class WorkshopOrderCompletionService {
         }
         const before = plan.tasksById.get(taskId) ?? current;
         if (current.status === WorkshopTaskStatus.DONE) {
+          taskTransitions.push({
+            workshop_task_id: taskId,
+            previous_status: WorkshopTaskStatus.DONE,
+            new_status: 'DONE',
+          });
           continue;
         }
         await executeTaskUpdateTransaction({
@@ -214,10 +219,10 @@ export class WorkshopOrderCompletionService {
         });
       }
 
-      if (
-        taskTransitions.length === 0 &&
-        plan.orderStatusBefore === plan.derivedNext
-      ) {
+      const completedAnyTask = taskTransitions.some(
+        (row) => row.previous_status !== WorkshopTaskStatus.DONE,
+      );
+      if (!completedAnyTask && plan.orderStatusBefore === plan.derivedNext) {
         throw new ConflictException(
           'Selected workshop tasks are already completed and the order status would not change',
         );
