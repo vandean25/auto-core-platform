@@ -301,7 +301,7 @@ test.describe('Parts pick queue — Blueprint Validation (mocked)', () => {
 
     const confirmPickButton = page
       .locator('[data-pick-drawer-header="true"]')
-      .getByRole('button', { name: 'Confirm Pick', exact: true });
+      .getByRole('button', { name: PICK.drawer.confirm, exact: true });
 
     await confirmPickButton.click();
     await expect(
@@ -362,7 +362,7 @@ test.describe('Parts pick queue — Blueprint Validation (mocked)', () => {
 
     const confirmPickButton = page
       .locator('[data-pick-drawer-header="true"]')
-      .getByRole('button', { name: 'Confirm Pick', exact: true });
+      .getByRole('button', { name: PICK.drawer.confirm, exact: true });
 
     await confirmPickButton.click();
     await expect(confirmPickButton).toBeDisabled();

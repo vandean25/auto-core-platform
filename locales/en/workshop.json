@@ -17,6 +17,7 @@
       "description": "Add {{resource}} in Settings to start assigning workshop orders.",
       "goToSettings": "Go to Settings"
     },
+    "assignError": "Failed to assign order. Please try again.",
     "a11y": {
       "orderFallback": "Workshop order",
       "unknownColumn": "an unknown column",

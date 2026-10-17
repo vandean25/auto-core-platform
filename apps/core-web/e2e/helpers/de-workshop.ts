@@ -7,7 +7,10 @@ export const DE_WORKSHOP = {
     viewMode: deWorkshop.board.viewMode,
     unassigned: deWorkshop.board.unassigned,
     emptyResources: deWorkshop.board.emptyResources,
+    assignError: deWorkshop.board.assignError,
+    a11y: deWorkshop.board.a11y,
   },
+  orderCard: deWorkshop.orderCard,
   mechanic: {
     queue: {
       title: deWorkshop.mechanic.queue.title,
@@ -65,3 +68,30 @@ export const DE_WORKSHOP = {
     claimsPage: deWorkshop.warrantyClaimsPage,
   },
 } as const
+
+export function workshopEmptyMechanicsTitle(): string {
+  return DE_WORKSHOP.board.emptyResources.title.replace(
+    '{{resource}}',
+    DE_WORKSHOP.board.emptyResources.mechanics,
+  )
+}
+
+export function workshopOrderAssignAria(orderNumber: string): string {
+  return DE_WORKSHOP.orderCard.assignAria.replace('{{orderNumber}}', orderNumber)
+}
+
+export function workshopOrderMoveAria(orderNumber: string): string {
+  return DE_WORKSHOP.orderCard.move.replace('{{orderNumber}}', orderNumber)
+}
+
+function workshopMechanicColumnLabel(mechanicName: string): string {
+  return DE_WORKSHOP.board.a11y.resourceColumn
+    .replace('{{resource}}', DE_WORKSHOP.board.a11y.resourceNoun.mechanic)
+    .replace('{{label}}', mechanicName)
+}
+
+export function workshopBoardA11yDroppedOn(orderNumber: string, mechanicName: string): string {
+  return DE_WORKSHOP.board.a11y.droppedOn
+    .replace('{{order}}', orderNumber)
+    .replace('{{column}}', workshopMechanicColumnLabel(mechanicName))
+}

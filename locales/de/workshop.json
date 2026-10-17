@@ -17,6 +17,7 @@
       "description": "{{resource}} in den Einstellungen anlegen, um Werkstattaufträge zuzuweisen.",
       "goToSettings": "Zu den Einstellungen"
     },
+    "assignError": "Zuweisung fehlgeschlagen. Bitte erneut versuchen.",
     "a11y": {
       "orderFallback": "Werkstattauftrag",
       "unknownColumn": "eine unbekannte Spalte",

@@ -1,6 +1,12 @@
 import { test, expect } from '@playwright/test'
 import { DE_STATUS } from './helpers/de-enums'
-import { DE_WORKSHOP } from './helpers/de-workshop'
+import {
+  DE_WORKSHOP,
+  workshopBoardA11yDroppedOn,
+  workshopEmptyMechanicsTitle,
+  workshopOrderAssignAria,
+  workshopOrderMoveAria,
+} from './helpers/de-workshop'
 import { AutoCorePage } from './pom/AutoCorePage'
 import { expectNoAxeViolationsForRules } from './utils/a11y'
 import {
@@ -278,7 +284,7 @@ test.describe('Blueprint: Workshop Board', () => {
     await corePage.navigate('/workshop/board')
 
     // Empty state card
-    await expect(page.getByText(/No Mechanics configured/i)).toBeVisible()
+    await expect(page.getByText(workshopEmptyMechanicsTitle())).toBeVisible()
     await expect(page.getByRole('button', { name: new RegExp(DE_WORKSHOP.board.emptyResources.goToSettings, 'i') })).toBeVisible()
 
     // Unassigned column still visible alongside the empty state
@@ -391,7 +397,7 @@ test.describe('Blueprint: Workshop Board', () => {
         response.request().method() === 'PATCH',
     )
 
-    await card.getByRole('button', { name: 'Assign WO-2026-0002' }).click()
+    await card.getByRole('button', { name: workshopOrderAssignAria('WO-2026-0002') }).click()
     await page.getByTestId('assign-mechanic-emp-mech-001').click()
     await responsePromise
 
@@ -496,12 +502,12 @@ test.describe('Blueprint: Workshop Board', () => {
         response.request().method() === 'PATCH',
     )
 
-    await card.getByRole('button', { name: 'Assign WO-2026-0002' }).click()
+    await card.getByRole('button', { name: workshopOrderAssignAria('WO-2026-0002') }).click()
     await page.getByTestId('assign-mechanic-emp-mech-001').click()
     const response = await responsePromise
 
     expect(response.status()).toBe(422)
-    await expect(page.getByText(/Failed to assign order/i)).toBeVisible()
+    await expect(page.getByText(DE_WORKSHOP.board.assignError)).toBeVisible()
     await expect(page.getByTestId('board-column-unassigned')).toContainText('WO-2026-0002')
     await expect(page.getByTestId('board-column-emp-mech-001')).not.toContainText('WO-2026-0002')
   })
@@ -614,7 +620,7 @@ test.describe('Blueprint: Workshop Board', () => {
 
     await corePage.navigate('/workshop/board')
 
-    const assignButton = page.getByRole('button', { name: 'Assign WO-2026-0002' })
+    const assignButton = page.getByRole('button', { name: workshopOrderAssignAria('WO-2026-0002') })
     await expect(assignButton).toBeVisible()
 
     const box = await assignButton.boundingBox()
@@ -687,7 +693,7 @@ test.describe('Blueprint: Workshop Board', () => {
     // Columns run Alex Novak, Grok Bot, Unassigned, so the card moves left until it is over Alex Novak.
     const handle = page
       .getByTestId('workshop-order-card-ws-board-002')
-      .getByRole('button', { name: 'Move WO-2026-0002' })
+      .getByRole('button', { name: workshopOrderMoveAria('WO-2026-0002') })
     const liveRegion = page.locator('[id^="DndLiveRegion"]')
     await handle.focus()
     await page.keyboard.press('Space')
@@ -696,7 +702,7 @@ test.describe('Blueprint: Workshop Board', () => {
 
     for (let step = 0; step < 80; step += 1) {
       await page.keyboard.press('ArrowLeft')
-      if ((await liveRegion.textContent())?.includes('is over mechanic Alex Novak.')) break
+      if ((await liveRegion.textContent())?.includes('Mechaniker Alex Novak')) break
     }
 
     const responsePromise = page.waitForResponse(
@@ -707,7 +713,9 @@ test.describe('Blueprint: Workshop Board', () => {
     await page.keyboard.press('Space')
     await responsePromise
 
-    await expect(liveRegion).toHaveText('WO-2026-0002 was dropped on mechanic Alex Novak.')
+    await expect(liveRegion).toHaveText(
+      workshopBoardA11yDroppedOn('WO-2026-0002', 'Alex Novak'),
+    )
     await expect(liveRegion).not.toContainText(ORDER_ID_2)
     expect(assignPayload.orderId).toBe(ORDER_ID_2)
     expect(assignPayload.mechanicId).toBe(MECHANIC_ID)
