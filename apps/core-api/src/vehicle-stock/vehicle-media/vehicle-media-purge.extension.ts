@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { InternalServerErrorException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { SideEffectGuard } from '../../dry-run/side-effect-guard.js';
@@ -6,16 +7,20 @@ import type { VehicleMediaStorage } from './vehicle-media.storage.js';
 
 export type VehicleWhere = Prisma.VehicleWhereInput;
 
+export type VehiclePurgeTarget = { id: string; tenant_id: string };
+
 type VehicleFindManyDelegate = {
   findMany: (args: {
     where?: VehicleWhere;
     select: { id: true; tenant_id: true };
-  }) => Promise<Array<{ id: string; tenant_id: string }>>;
+  }) => Promise<VehiclePurgeTarget[]>;
   findFirst: (args: {
     where: { id: string; tenant_id: string };
     select: { id: true };
   }) => Promise<{ id: string } | null>;
 };
+
+const pendingVehicleMediaPurges = new AsyncLocalStorage<VehiclePurgeTarget[]>();
 
 export function requireVehicleMediaPurgeStorage(): VehicleMediaStorage {
   const storage = getVehicleMediaPurgeStorage();
@@ -28,7 +33,7 @@ export function requireVehicleMediaPurgeStorage(): VehicleMediaStorage {
 }
 
 export async function purgeVehicleMediaPrefixes(
-  vehicles: Array<{ id: string; tenant_id: string }>,
+  vehicles: VehiclePurgeTarget[],
 ): Promise<void> {
   if (vehicles.length === 0) {
     return;
@@ -42,11 +47,47 @@ export async function purgeVehicleMediaPrefixes(
   }
 }
 
+export async function runWithDeferredVehicleMediaPurges<T>(
+  work: () => Promise<T>,
+): Promise<T> {
+  const pending: VehiclePurgeTarget[] = [];
+  return pendingVehicleMediaPurges.run(pending, async () => {
+    const result = await work();
+    await flushPendingVehicleMediaPurges(pending);
+    return result;
+  });
+}
+
+export async function flushPendingVehicleMediaPurges(
+  pending: VehiclePurgeTarget[],
+): Promise<void> {
+  if (pending.length === 0) {
+    return;
+  }
+  const targets = [...pending];
+  pending.length = 0;
+  await purgeVehicleMediaPrefixes(targets);
+}
+
+export async function scheduleVehicleMediaPrefixPurges(
+  vehicles: VehiclePurgeTarget[],
+): Promise<void> {
+  if (vehicles.length === 0) {
+    return;
+  }
+  const pending = pendingVehicleMediaPurges.getStore();
+  if (pending) {
+    pending.push(...vehicles);
+    return;
+  }
+  await purgeVehicleMediaPrefixes(vehicles);
+}
+
 export async function vehiclesDeletedBySuccessfulBatchDelete(
   vehicleDelegate: VehicleFindManyDelegate,
-  candidates: Array<{ id: string; tenant_id: string }>,
-): Promise<Array<{ id: string; tenant_id: string }>> {
-  const deleted: Array<{ id: string; tenant_id: string }> = [];
+  candidates: VehiclePurgeTarget[],
+): Promise<VehiclePurgeTarget[]> {
+  const deleted: VehiclePurgeTarget[] = [];
   for (const vehicle of candidates) {
     const stillExists = await vehicleDelegate.findFirst({
       where: { id: vehicle.id, tenant_id: vehicle.tenant_id },
@@ -57,6 +98,20 @@ export async function vehiclesDeletedBySuccessfulBatchDelete(
     }
   }
   return deleted;
+}
+
+export function resolveVehiclesToPurgeAfterDeleteMany(
+  candidates: VehiclePurgeTarget[],
+  deletedCount: number,
+  vehicleDelegate: VehicleFindManyDelegate,
+): Promise<VehiclePurgeTarget[]> {
+  if (deletedCount === 0) {
+    return Promise.resolve([]);
+  }
+  if (deletedCount === candidates.length) {
+    return Promise.resolve(candidates);
+  }
+  return vehiclesDeletedBySuccessfulBatchDelete(vehicleDelegate, candidates);
 }
 
 export async function runVehicleDeleteManyWithMediaPurge(
@@ -71,15 +126,14 @@ export async function runVehicleDeleteManyWithMediaPurge(
     where: where ?? {},
     select: { id: true, tenant_id: true },
   });
+  requireVehicleMediaPurgeStorage();
   const result = await query();
-  if (result.count === 0) {
-    return result;
-  }
-  const deleted = await vehiclesDeletedBySuccessfulBatchDelete(
-    vehicleDelegate,
+  const toPurge = await resolveVehiclesToPurgeAfterDeleteMany(
     candidates,
+    result.count,
+    vehicleDelegate,
   );
-  await purgeVehicleMediaPrefixes(deleted);
+  await scheduleVehicleMediaPrefixPurges(toPurge);
   return result;
 }
 
@@ -95,12 +149,9 @@ export async function runVehicleDeleteWithMediaPurge(
     where: where ?? {},
     select: { id: true, tenant_id: true },
   });
+  requireVehicleMediaPurgeStorage();
   const result = await query();
-  const deleted = await vehiclesDeletedBySuccessfulBatchDelete(
-    vehicleDelegate,
-    candidates,
-  );
-  await purgeVehicleMediaPrefixes(deleted);
+  await scheduleVehicleMediaPrefixPurges(candidates);
   return result;
 }
 
@@ -108,18 +159,31 @@ export function createVehicleMediaPurgeExtension() {
   return Prisma.defineExtension((client) =>
     client.$extends({
       name: 'vehicle-media-purge',
+      client: {
+        async $transaction(...args: unknown[]) {
+          const context = Prisma.getExtensionContext(this) as {
+            $transaction: (...inner: unknown[]) => Promise<unknown>;
+          };
+          if (typeof args[0] === 'function') {
+            return runWithDeferredVehicleMediaPurges(() =>
+              context.$transaction(...args),
+            );
+          }
+          return context.$transaction(...args);
+        },
+      },
       query: {
         vehicle: {
           async delete({ args, query }) {
             return runVehicleDeleteWithMediaPurge(
-              client.vehicle,
+              this as unknown as VehicleFindManyDelegate,
               args.where,
               () => query(args),
             );
           },
           async deleteMany({ args, query }) {
             return runVehicleDeleteManyWithMediaPurge(
-              client.vehicle,
+              this as unknown as VehicleFindManyDelegate,
               args.where,
               () => query(args),
             );
