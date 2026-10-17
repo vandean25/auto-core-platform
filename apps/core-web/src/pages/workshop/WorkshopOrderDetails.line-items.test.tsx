@@ -4,6 +4,9 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { WorkshopOrderDetails } from './WorkshopOrderDetails'
 import * as workshopApi from '@/api/workshop'
+import { deWorkshop } from '@/test/de-workshop'
+
+const actualHoursLabel = deWorkshop.taskLineEditor.actualHoursAria
 import * as salesApi from '@/api/sales'
 import * as invoicesApi from '@/api/invoices'
 
@@ -164,8 +167,8 @@ describe('WorkshopOrderDetails line-item persistence', () => {
     )
 
     fireEvent.click(screen.getByText('Oil Change'))
-    fireEvent.change(screen.getByLabelText('Actual Hours'), { target: { value: '1.75' } })
-    fireEvent.blur(screen.getByLabelText('Actual Hours'))
+    fireEvent.change(screen.getByLabelText(actualHoursLabel), { target: { value: '1.75' } })
+    fireEvent.blur(screen.getByLabelText(actualHoursLabel))
 
     await waitFor(() => {
       expect(replaceTaskLineItemsMutateAsync).toHaveBeenCalledWith({

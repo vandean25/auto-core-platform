@@ -4,6 +4,11 @@ import { toast } from 'sonner'
 import * as catalogExternal from '@/api/catalog-external'
 import type { CatalogExternalSearchResponse } from '@/api/types'
 import { FitmentSearchModal } from './FitmentSearchModal'
+import { deWorkshop } from '@/test/de-workshop'
+
+const fm = deWorkshop.catalog.fitmentModal
+const fd = deWorkshop.catalog.fallbackDialog
+const concern = deWorkshop.catalog.concern
 
 vi.mock('@/api/catalog-external')
 vi.mock('sonner', () => ({
@@ -115,7 +120,7 @@ describe('FitmentSearchModal', () => {
     render(<FitmentSearchModal {...defaultProps} />)
 
     expect(screen.queryByRole('button', { name: /add to order/i })).not.toBeInTheDocument()
-    expect(screen.getByText(/No add-to-order in M1/i)).toBeInTheDocument()
+    expect(screen.getByText(/Kein Hinzufügen zum Auftrag in M1/i)).toBeInTheDocument()
   })
 
   it('shows stale identity banner and clears results on 409', async () => {
@@ -129,11 +134,9 @@ describe('FitmentSearchModal', () => {
     await typePartsQuery('brake')
     await flushPromises()
 
-    expect(screen.getByText(/Re-resolve now/i)).toBeInTheDocument()
+    expect(screen.getByText(fm.reResolve)).toBeInTheDocument()
     expect(screen.queryByTestId('fitment-search-parts-result')).not.toBeInTheDocument()
-    expect(toast.error).toHaveBeenCalledWith(
-      'Vehicle identity is stale. Re-resolve before searching.',
-    )
+    expect(toast.error).toHaveBeenCalledWith(fm.toastIdentityStale)
   })
 
   it('shows EMPTY fallback dialog copy', async () => {
@@ -147,7 +150,7 @@ describe('FitmentSearchModal', () => {
     await typePartsQuery('missing-part')
     await flushPromises()
 
-    expect(screen.getByText('No OEM results')).toBeInTheDocument()
+    expect(screen.getByText(fd.emptyTitle)).toBeInTheDocument()
   })
 
   it('shows ERROR fallback dialog copy', async () => {
@@ -161,7 +164,7 @@ describe('FitmentSearchModal', () => {
     await typePartsQuery('broken-oem')
     await flushPromises()
 
-    expect(screen.getByText('OEM catalog unavailable')).toBeInTheDocument()
+    expect(screen.getByText(fd.errorTitle)).toBeInTheDocument()
   })
 
   it('retries with confirmFallback=true after confirming fallback dialog', async () => {
@@ -175,10 +178,10 @@ describe('FitmentSearchModal', () => {
     await typePartsQuery('missing-part')
     await flushPromises()
 
-    expect(screen.getByText('No OEM results')).toBeInTheDocument()
+    expect(screen.getByText(fd.emptyTitle)).toBeInTheDocument()
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Search aftermarket' }))
+      fireEvent.click(screen.getByRole('button', { name: fm.searchAftermarket }))
     })
     await flushPromises()
 
@@ -238,7 +241,7 @@ describe('FitmentSearchModal', () => {
     await typePartsQuery('missing-part')
     await flushPromises()
 
-    expect(screen.getByText('No OEM results')).toBeInTheDocument()
+    expect(screen.getByText(fd.emptyTitle)).toBeInTheDocument()
     expect(screen.queryByText('Brake Pad')).not.toBeInTheDocument()
     expect(onSearchSessionUpdate).toHaveBeenCalledTimes(1)
   })
@@ -288,7 +291,7 @@ describe('FitmentSearchModal', () => {
   it('calls onRequestResolveIdentity when Re-resolve now is clicked', () => {
     render(<FitmentSearchModal {...defaultProps} isIdentityStale />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Re-resolve now' }))
+    fireEvent.click(screen.getByRole('button', { name: fm.reResolve }))
 
     expect(onRequestResolveIdentity).toHaveBeenCalledTimes(1)
   })
@@ -305,11 +308,11 @@ describe('FitmentSearchModal', () => {
     await typePartsQuery('zzz')
     await flushPromises()
 
-    expect(screen.getByText('No catalog results for this search.')).toBeInTheDocument()
+    expect(screen.getByText(fm.noResults)).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Clear search' }))
+    fireEvent.click(screen.getByRole('button', { name: fm.clearSearch }))
 
-    expect(screen.queryByText('No catalog results for this search.')).not.toBeInTheDocument()
+    expect(screen.queryByText(fm.noResults)).not.toBeInTheDocument()
     expect(screen.getByTestId('fitment-search-input-parts')).toHaveValue('')
   })
 
@@ -342,15 +345,15 @@ describe('FitmentSearchModal', () => {
 
     await typePartsQuery('zzz')
     await flushPromises()
-    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Labor' }), { button: 0 })
+    fireEvent.mouseDown(screen.getByRole('tab', { name: concern.LABOR }), { button: 0 })
     await flushPromises()
     expect(screen.getByTestId('fitment-search-labor-result')).toBeInTheDocument()
 
-    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Parts' }), { button: 0 })
+    fireEvent.mouseDown(screen.getByRole('tab', { name: concern.PARTS }), { button: 0 })
     await flushPromises()
-    fireEvent.click(screen.getByRole('button', { name: 'Clear search' }))
+    fireEvent.click(screen.getByRole('button', { name: fm.clearSearch }))
 
-    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Labor' }), { button: 0 })
+    fireEvent.mouseDown(screen.getByRole('tab', { name: concern.LABOR }), { button: 0 })
     await flushPromises()
     expect(screen.queryByTestId('fitment-search-labor-result')).not.toBeInTheDocument()
     expect(screen.getByTestId('fitment-search-input-labor')).toHaveValue('')

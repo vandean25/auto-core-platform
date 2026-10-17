@@ -3,6 +3,9 @@ import { afterEach, describe, it, vi, beforeEach } from 'vitest'
 import { StartServiceDialog } from './StartServiceDialog'
 import * as workshopApi from '@/api/workshop'
 import { expectFieldErrorLinked, expectFieldValid } from '@/test/form-a11y'
+import { deWorkshop } from '@/test/de-workshop'
+
+const ss = deWorkshop.startService
 
 vi.mock('@/api/workshop')
 vi.mock('sonner', () => ({
@@ -36,11 +39,11 @@ describe('StartServiceDialog', () => {
       />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start Service' }))
+    fireEvent.click(screen.getByRole('button', { name: ss.submit }))
 
-    await screen.findByText('Required')
-    expectFieldErrorLinked(screen.getByLabelText('Odometer (km)'), 'Required')
-    expectFieldValid(screen.getByLabelText('Fuel Level (%)'))
+    await screen.findByText(ss.required)
+    expectFieldErrorLinked(screen.getByLabelText(ss.odometer), ss.required)
+    expectFieldValid(screen.getByLabelText(ss.fuelLevel))
   })
 
   it('links the fuel level range error to its input', async () => {
@@ -54,12 +57,12 @@ describe('StartServiceDialog', () => {
       />,
     )
 
-    fireEvent.change(screen.getByLabelText('Odometer (km)'), { target: { value: '12000' } })
-    fireEvent.change(screen.getByLabelText('Fuel Level (%)'), { target: { value: '150' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Start Service' }))
+    fireEvent.change(screen.getByLabelText(ss.odometer), { target: { value: '12000' } })
+    fireEvent.change(screen.getByLabelText(ss.fuelLevel), { target: { value: '150' } })
+    fireEvent.click(screen.getByRole('button', { name: ss.submit }))
 
-    await screen.findByText('0-100 required')
-    expectFieldErrorLinked(screen.getByLabelText('Fuel Level (%)'), '0-100 required')
-    expectFieldValid(screen.getByLabelText('Odometer (km)'))
+    await screen.findByText(ss.fuelRange)
+    expectFieldErrorLinked(screen.getByLabelText(ss.fuelLevel), ss.fuelRange)
+    expectFieldValid(screen.getByLabelText(ss.odometer))
   })
 })

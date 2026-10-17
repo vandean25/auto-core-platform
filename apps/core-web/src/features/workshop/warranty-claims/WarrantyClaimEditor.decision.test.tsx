@@ -10,6 +10,8 @@ import {
   settle,
   toastMock,
   useEditorMocks,
+  wd,
+  we,
 } from "./WarrantyClaimEditor.testUtils";
 
 vi.mock("@/api/client", () => ({
@@ -37,14 +39,14 @@ describe("WarrantyClaimEditor: decisions", () => {
       }),
     );
 
-    fireEvent.change(screen.getByLabelText("Decision date"), { target: { value: "2026-10-08" } });
-    fireEvent.change(screen.getByLabelText("Decision note"), { target: { value: "80% goodwill share" } });
-    fireEvent.click(screen.getByRole("button", { name: "Record approval" }));
+    fireEvent.change(screen.getByLabelText(wd.date), { target: { value: "2026-10-08" } });
+    fireEvent.change(screen.getByLabelText(wd.note), { target: { value: "80% goodwill share" } });
+    fireEvent.click(screen.getByRole("button", { name: we.recordApproval }));
     const dialog = await screen.findByRole("dialog");
 
-    expect(within(dialog).getByLabelText("Decision date")).toHaveValue("2026-10-08");
-    expect(within(dialog).getByLabelText("Decision note")).toHaveValue("80% goodwill share");
-    fireEvent.click(within(dialog).getByRole("button", { name: "Mark approved" }));
+    expect(within(dialog).getByLabelText(wd.date)).toHaveValue("2026-10-08");
+    expect(within(dialog).getByLabelText(wd.note)).toHaveValue("80% goodwill share");
+    fireEvent.click(within(dialog).getByRole("button", { name: wd.approve }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     expect(payloadOf(fetchMock.mock.calls[1])).toEqual({
@@ -63,12 +65,12 @@ describe("WarrantyClaimEditor: decisions", () => {
       }),
     );
 
-    fireEvent.change(screen.getByLabelText("Reference at the OEM"), {
+    fireEvent.change(screen.getByLabelText(we.oemReference), {
       target: { value: "OEM-REF-9" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Record approval" }));
+    fireEvent.click(screen.getByRole("button", { name: we.recordApproval }));
     const dialog = await screen.findByRole("dialog");
-    fireEvent.click(within(dialog).getByRole("button", { name: "Mark approved" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: wd.approve }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     await settle();
@@ -95,22 +97,22 @@ describe("WarrantyClaimEditor: decisions", () => {
       }),
     );
 
-    fireEvent.change(screen.getByLabelText("Decision note"), { target: { value: "80% goodwill share" } });
-    fireEvent.click(screen.getByRole("button", { name: "Record approval" }));
+    fireEvent.change(screen.getByLabelText(wd.note), { target: { value: "80% goodwill share" } });
+    fireEvent.click(screen.getByRole("button", { name: we.recordApproval }));
     const dialog = await screen.findByRole("dialog");
-    fireEvent.click(within(dialog).getByRole("button", { name: "Mark approved" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: wd.approve }));
     await waitFor(() => expect(pendingStatus.answer).toBeDefined());
 
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.getByRole("dialog")).toBeInTheDocument();
-    expect(toastMock.message).toHaveBeenCalledWith("The decision is still being saved.");
+    expect(toastMock.message).toHaveBeenCalledWith(we.decisionSaving);
 
     pendingStatus.answer?.(jsonResponse({ message: "The claim changed." }, 409));
     const settled = await screen.findByRole("dialog");
     await waitFor(() =>
-      expect(within(settled).getByRole("button", { name: "Mark approved" })).toBeEnabled(),
+      expect(within(settled).getByRole("button", { name: wd.approve })).toBeEnabled(),
     );
-    expect(within(settled).getByLabelText("Decision note")).toHaveValue("80% goodwill share");
+    expect(within(settled).getByLabelText(wd.note)).toHaveValue("80% goodwill share");
   });
 
   it("closes the decision dialog when nothing is being saved", async () => {
@@ -121,9 +123,9 @@ describe("WarrantyClaimEditor: decisions", () => {
       }),
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Record approval" }));
+    fireEvent.click(screen.getByRole("button", { name: we.recordApproval }));
     const dialog = await screen.findByRole("dialog");
-    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: wd.cancel }));
 
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(toastMock.message).not.toHaveBeenCalled();

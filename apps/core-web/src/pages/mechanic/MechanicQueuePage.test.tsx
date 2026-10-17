@@ -8,6 +8,7 @@ import type { HrClockResponse } from '@/api/hr'
 import * as hrApi from '@/api/hr'
 import { toast } from 'sonner'
 import MechanicQueuePage from './MechanicQueuePage'
+import { changeUiLanguage } from '@/lib/i18n'
 
 vi.mock('@/api/mechanic')
 vi.mock('@/api/hr')
@@ -99,7 +100,8 @@ function renderQueuePage(initialPath = '/mechanic/queue') {
 // ─── Test Suite ───────────────────────────────────────────────────────────────
 
 describe('MechanicQueuePage', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await changeUiLanguage('en')
     vi.clearAllMocks()
   })
 

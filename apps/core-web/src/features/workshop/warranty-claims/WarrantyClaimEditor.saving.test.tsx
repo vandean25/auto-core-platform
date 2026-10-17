@@ -11,6 +11,7 @@ import {
   settle,
   toastMock,
   useEditorMocks,
+  we,
 } from "./WarrantyClaimEditor.testUtils";
 
 vi.mock("@/api/client", () => ({
@@ -39,7 +40,7 @@ describe("WarrantyClaimEditor: saving", () => {
   it("autosaves only the field that changed, after the 750 ms debounce", async () => {
     renderEditor(claimFixture());
 
-    fireEvent.change(screen.getByLabelText("Cause and correction"), {
+    fireEvent.change(screen.getByLabelText(we.cause), {
       target: { value: "Geberzylinder getauscht" },
     });
 
@@ -53,11 +54,11 @@ describe("WarrantyClaimEditor: saving", () => {
   it("does not save an amount that cannot be read", async () => {
     renderEditor(claimFixture());
 
-    fireEvent.change(screen.getByLabelText("Claimed amount (EUR, net)"), {
+    fireEvent.change(screen.getByLabelText(we.amountLabel), {
       target: { value: "12,345" },
     });
 
-    expect(screen.getByText("Enter an amount in EUR with at most two decimals.")).toBeInTheDocument();
+    expect(screen.getByText(we.amountInvalid)).toBeInTheDocument();
     await new Promise((resolve) => setTimeout(resolve, 900));
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -65,10 +66,10 @@ describe("WarrantyClaimEditor: saving", () => {
   it("keeps saving the other edits while the amount cannot be read", async () => {
     renderEditor(claimFixture());
 
-    fireEvent.change(screen.getByLabelText("Claimed amount (EUR, net)"), {
+    fireEvent.change(screen.getByLabelText(we.amountLabel), {
       target: { value: "12,345" },
     });
-    fireEvent.change(screen.getByLabelText("Complaint"), {
+    fireEvent.change(screen.getByLabelText(we.complaint), {
       target: { value: "Kupplung rutscht stark" },
     });
 
@@ -86,11 +87,11 @@ describe("WarrantyClaimEditor: saving", () => {
     );
     renderEditor(claimFixture());
 
-    fireEvent.click(screen.getByRole("button", { name: "Mark submitted" }));
+    fireEvent.click(screen.getByRole("button", { name: we.markSubmitted }));
 
-    await waitFor(() => expect(screen.getByLabelText("Complaint")).toBeDisabled());
-    expect(screen.getByLabelText("Claimed amount (EUR, net)")).toBeDisabled();
-    expect(screen.getByLabelText("Reference at the OEM")).toBeDisabled();
+    await waitFor(() => expect(screen.getByLabelText(we.complaint)).toBeDisabled());
+    expect(screen.getByLabelText(we.amountLabel)).toBeDisabled();
+    expect(screen.getByLabelText(we.oemReference)).toBeDisabled();
 
     answer(
       jsonResponse(
@@ -110,10 +111,10 @@ describe("WarrantyClaimEditor: saving", () => {
     );
     renderEditor(claimFixture());
 
-    fireEvent.change(screen.getByLabelText("Complaint"), { target: { value: "a" } });
+    fireEvent.change(screen.getByLabelText(we.complaint), { target: { value: "a" } });
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1), { timeout: 2000 });
 
-    fireEvent.change(screen.getByLabelText("Complaint"), { target: { value: "ab" } });
+    fireEvent.change(screen.getByLabelText(we.complaint), { target: { value: "ab" } });
     await new Promise((resolve) => setTimeout(resolve, 900));
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
@@ -132,11 +133,11 @@ describe("WarrantyClaimEditor: saving", () => {
       fetchMock.mock.calls.filter(([, init]) => (init as RequestInit | undefined)?.method === "PATCH");
     renderEditor(claimFixture());
 
-    fireEvent.change(screen.getByLabelText("Complaint"), { target: { value: "Kupplung rutscht stark" } });
+    fireEvent.change(screen.getByLabelText(we.complaint), { target: { value: "Kupplung rutscht stark" } });
     await waitFor(() => expect(patches()).toHaveLength(1), { timeout: 2000 });
     await waitFor(() => expect(toastMock.error).toHaveBeenCalled());
 
-    fireEvent.change(screen.getByLabelText("Cause and correction"), {
+    fireEvent.change(screen.getByLabelText(we.cause), {
       target: { value: "Geberzylinder getauscht" },
     });
     await waitFor(() => expect(patches()).toHaveLength(2), { timeout: 2000 });
@@ -151,12 +152,12 @@ describe("WarrantyClaimEditor: saving", () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ message: "Refused" }, 409));
     renderEditor(claimFixture());
 
-    fireEvent.click(screen.getByRole("button", { name: "Mark submitted" }));
+    fireEvent.click(screen.getByRole("button", { name: we.markSubmitted }));
 
     await waitFor(() => expect(toastMock.error).toHaveBeenCalled());
-    await waitFor(() => expect(screen.getByLabelText("Complaint")).toBeEnabled());
-    expect(screen.getByLabelText("Reference at the OEM")).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Mark submitted" })).toBeEnabled();
+    await waitFor(() => expect(screen.getByLabelText(we.complaint)).toBeEnabled());
+    expect(screen.getByLabelText(we.oemReference)).toBeEnabled();
+    expect(screen.getByRole("button", { name: we.markSubmitted })).toBeEnabled();
     await settle();
   });
 
@@ -169,8 +170,8 @@ describe("WarrantyClaimEditor: saving", () => {
       );
     renderEditor(claimFixture());
 
-    fireEvent.change(screen.getByLabelText("Complaint"), { target: { value: "Kupplung rutscht stark" } });
-    fireEvent.click(screen.getByRole("button", { name: "Print" }));
+    fireEvent.change(screen.getByLabelText(we.complaint), { target: { value: "Kupplung rutscht stark" } });
+    fireEvent.click(screen.getByRole("button", { name: we.print }));
 
     await waitFor(() => expect(triggerBlobDownloadMock).toHaveBeenCalledTimes(1));
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -196,9 +197,9 @@ describe("WarrantyClaimEditor: saving", () => {
     renderEditor(claimFixture({ lines: [] }));
 
     fireEvent.click(screen.getByRole("checkbox", { name: /Kupplung entlüften/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Use lines total" }));
+    fireEvent.click(screen.getByRole("button", { name: we.useLinesTotal }));
 
-    expect(screen.getByLabelText("Claimed amount (EUR, net)")).toHaveValue("250.00");
+    expect(screen.getByLabelText(we.amountLabel)).toHaveValue("250.00");
     await settle();
   });
 
@@ -210,12 +211,12 @@ describe("WarrantyClaimEditor: saving", () => {
       }),
     );
 
-    fireEvent.change(screen.getByLabelText("Reference at the OEM"), {
+    fireEvent.change(screen.getByLabelText(we.oemReference), {
       target: { value: "OEM-REF-9" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Close claim" }));
+    fireEvent.click(screen.getByRole("button", { name: we.closeClaim }));
     const dialog = await screen.findByRole("alertdialog");
-    fireEvent.click(within(dialog).getByRole("button", { name: "Close claim" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: we.closeClaim }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     expect(payloadOf(fetchMock.mock.calls[0])).toEqual({ externalReference: "OEM-REF-9" });
@@ -231,12 +232,12 @@ describe("WarrantyClaimEditor: saving", () => {
       }),
     );
 
-    fireEvent.change(screen.getByLabelText("Reference at the OEM"), {
+    fireEvent.change(screen.getByLabelText(we.oemReference), {
       target: { value: "OEM-REF-9" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Close claim" }));
+    fireEvent.click(screen.getByRole("button", { name: we.closeClaim }));
     const dialog = await screen.findByRole("alertdialog");
-    fireEvent.click(within(dialog).getByRole("button", { name: "Close claim" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: we.closeClaim }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     await settle();
@@ -248,7 +249,7 @@ describe("WarrantyClaimEditor: saving", () => {
   it("saves an edit that is still waiting for the debounce when the editor unmounts", async () => {
     const { unmount } = renderEditor(claimFixture());
 
-    fireEvent.change(screen.getByLabelText("Cause and correction"), {
+    fireEvent.change(screen.getByLabelText(we.cause), {
       target: { value: "Geberzylinder getauscht" },
     });
     unmount();
@@ -261,10 +262,10 @@ describe("WarrantyClaimEditor: saving", () => {
     failSavesWith("causeCorrection", "The cause could not be stored.");
     renderEditor(claimFixture());
 
-    fireEvent.change(screen.getByLabelText("Cause and correction"), {
+    fireEvent.change(screen.getByLabelText(we.cause), {
       target: { value: "Geberzylinder getauscht" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Mark submitted" }));
+    fireEvent.click(screen.getByRole("button", { name: we.markSubmitted }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     await settle();
@@ -281,10 +282,10 @@ describe("WarrantyClaimEditor: saving", () => {
       }),
     );
 
-    fireEvent.change(screen.getByLabelText("Reference at the OEM"), {
+    fireEvent.change(screen.getByLabelText(we.oemReference), {
       target: { value: "OEM-REF-9" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Print" }));
+    fireEvent.click(screen.getByRole("button", { name: we.print }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     await settle();
@@ -295,10 +296,10 @@ describe("WarrantyClaimEditor: saving", () => {
   it("saves the other edits when the claimed amount cannot be read and the editor unmounts", async () => {
     const { unmount } = renderEditor(claimFixture());
 
-    fireEvent.change(screen.getByLabelText("Complaint"), {
+    fireEvent.change(screen.getByLabelText(we.complaint), {
       target: { value: "Kupplung rutscht bei Kaltstart" },
     });
-    fireEvent.change(screen.getByLabelText("Claimed amount (EUR, net)"), {
+    fireEvent.change(screen.getByLabelText(we.amountLabel), {
       target: { value: "12,345" },
     });
     unmount();
@@ -306,7 +307,7 @@ describe("WarrantyClaimEditor: saving", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(payloadOf(fetchMock.mock.calls[0])).toEqual({ complaint: "Kupplung rutscht bei Kaltstart" });
     expect(toastMock.error).toHaveBeenCalledWith(
-      "The claimed amount could not be read, so it was not saved.",
+      we.amountUnreadable,
     );
   });
 

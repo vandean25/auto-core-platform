@@ -5,7 +5,14 @@ import { afterEach, beforeEach, vi } from "vitest";
 import { fetchWithAuth } from "@/api/client";
 import type { WarrantyClaim, WorkshopTask } from "@/api/types";
 import { toast } from "sonner";
+import { deWorkshop } from "@/test/de-workshop";
 import { WarrantyClaimEditor } from "./WarrantyClaimEditor";
+
+export const we = deWorkshop.warranty.editor;
+export const wd = deWorkshop.warranty.decisionDialog;
+export const wt = deWorkshop.warranty.type;
+/** Production builds line-claim labels as `${typeLabel} claim`. */
+export const kulanzLineClaimLabel = `${wt.KULANZ} claim`;
 
 export const fetchMock = vi.mocked(fetchWithAuth);
 export const toastMock = vi.mocked(toast);

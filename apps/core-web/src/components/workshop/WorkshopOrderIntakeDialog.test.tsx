@@ -4,6 +4,10 @@ import * as workshopApi from '@/api/workshop'
 import * as vehiclesApi from '@/api/vehicles'
 import { toast } from 'sonner'
 import { WorkshopOrderIntakeDialog } from './WorkshopOrderIntakeDialog'
+import { deWorkshop } from '@/test/de-workshop'
+
+const oi = deWorkshop.orderIntake
+const openWo20260007 = oi.openOrderNumber.replace('{{orderNumber}}', 'WO-2026-0007')
 
 const mockNavigate = vi.fn()
 
@@ -89,11 +93,11 @@ describe('WorkshopOrderIntakeDialog', () => {
     render(<WorkshopOrderIntakeDialog open onOpenChange={vi.fn()} />)
 
     expect(
-      screen.getByText('Search for an existing vehicle or register a new vehicle before creating the workshop order.'),
+      screen.getByText(oi.description),
     ).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /2018 Volkswagen Golf VII/i }))
-    fireEvent.click(screen.getByRole('button', { name: 'Create Order' }))
+    fireEvent.click(screen.getByRole('button', { name: oi.createOrder }))
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith('Finance settings update failed')
@@ -148,14 +152,14 @@ describe('WorkshopOrderIntakeDialog', () => {
     render(<WorkshopOrderIntakeDialog open onOpenChange={vi.fn()} />)
 
     fireEvent.click(screen.getByRole('button', { name: /2018 Volkswagen Golf VII/i }))
-    fireEvent.click(screen.getByRole('button', { name: 'Create Order' }))
+    fireEvent.click(screen.getByRole('button', { name: oi.createOrder }))
 
     expect(
       await screen.findByText(/This vehicle already has an open workshop order/),
     ).toBeInTheDocument()
     expect(toast.error).not.toHaveBeenCalled()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open WO-2026-0007' }))
+    fireEvent.click(screen.getByRole('button', { name: openWo20260007 }))
     expect(mockNavigate).toHaveBeenCalledWith('/workshop/orders/order-live')
   })
 
@@ -177,7 +181,7 @@ describe('WorkshopOrderIntakeDialog', () => {
     render(<WorkshopOrderIntakeDialog open onOpenChange={vi.fn()} />)
 
     fireEvent.click(screen.getByRole('button', { name: /2018 Volkswagen Golf VII/i }))
-    fireEvent.click(screen.getByRole('button', { name: 'Create Order' }))
+    fireEvent.click(screen.getByRole('button', { name: oi.createOrder }))
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith('Something went wrong (ref: req-5xx-1)')
@@ -227,12 +231,12 @@ describe('WorkshopOrderIntakeDialog', () => {
 
     render(<WorkshopOrderIntakeDialog open onOpenChange={vi.fn()} />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Create Order' }))
-    expect(await screen.findByRole('button', { name: 'Open WO-2026-0007' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: oi.createOrder }))
+    expect(await screen.findByRole('button', { name: openWo20260007 })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /2019 Audi A4/i }))
 
-    expect(screen.queryByRole('button', { name: 'Open WO-2026-0007' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: openWo20260007 })).not.toBeInTheDocument()
   })
 
   it('links to the existing order when a registered vehicle already has one', async () => {
@@ -275,15 +279,15 @@ describe('WorkshopOrderIntakeDialog', () => {
 
     render(<WorkshopOrderIntakeDialog open onOpenChange={vi.fn()} />)
 
-    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Create Vehicle' }), { button: 0 })
-    fireEvent.change(screen.getByPlaceholderText('VIN'), { target: { value: 'WVWZZZ1KZ9W000001' } })
-    fireEvent.change(screen.getByPlaceholderText('Plate'), { target: { value: 'W-1' } })
-    fireEvent.change(screen.getByPlaceholderText('Make'), { target: { value: 'Volkswagen' } })
-    fireEvent.change(screen.getByPlaceholderText('Model'), { target: { value: 'Golf VII' } })
+    fireEvent.mouseDown(screen.getByRole('tab', { name: oi.tabNewVehicle }), { button: 0 })
+    fireEvent.change(screen.getByPlaceholderText(oi.vinPlaceholder), { target: { value: 'WVWZZZ1KZ9W000001' } })
+    fireEvent.change(screen.getByPlaceholderText(oi.platePlaceholder), { target: { value: 'W-1' } })
+    fireEvent.change(screen.getByPlaceholderText(oi.makePlaceholder), { target: { value: 'Volkswagen' } })
+    fireEvent.change(screen.getByPlaceholderText(oi.modelPlaceholder), { target: { value: 'Golf VII' } })
     fireEvent.click(screen.getByRole('button', { name: /Max Mustermann/i }))
-    fireEvent.click(screen.getByRole('button', { name: 'Create Order' }))
+    fireEvent.click(screen.getByRole('button', { name: oi.createOrder }))
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Open WO-2026-0007' }))
+    fireEvent.click(await screen.findByRole('button', { name: openWo20260007 }))
     expect(mockNavigate).toHaveBeenCalledWith('/workshop/orders/order-live')
     expect(toast.error).not.toHaveBeenCalled()
   })
@@ -328,18 +332,18 @@ describe('WorkshopOrderIntakeDialog', () => {
 
     render(<WorkshopOrderIntakeDialog open onOpenChange={vi.fn()} />)
 
-    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Create Vehicle' }), { button: 0 })
-    fireEvent.change(screen.getByPlaceholderText('VIN'), { target: { value: 'WVWZZZ1KZ9W000001' } })
-    fireEvent.change(screen.getByPlaceholderText('Plate'), { target: { value: 'W-1' } })
-    fireEvent.change(screen.getByPlaceholderText('Make'), { target: { value: 'Volkswagen' } })
-    fireEvent.change(screen.getByPlaceholderText('Model'), { target: { value: 'Golf VII' } })
+    fireEvent.mouseDown(screen.getByRole('tab', { name: oi.tabNewVehicle }), { button: 0 })
+    fireEvent.change(screen.getByPlaceholderText(oi.vinPlaceholder), { target: { value: 'WVWZZZ1KZ9W000001' } })
+    fireEvent.change(screen.getByPlaceholderText(oi.platePlaceholder), { target: { value: 'W-1' } })
+    fireEvent.change(screen.getByPlaceholderText(oi.makePlaceholder), { target: { value: 'Volkswagen' } })
+    fireEvent.change(screen.getByPlaceholderText(oi.modelPlaceholder), { target: { value: 'Golf VII' } })
     fireEvent.click(screen.getByRole('button', { name: /Max Mustermann/i }))
-    fireEvent.click(screen.getByRole('button', { name: 'Create Order' }))
-    expect(await screen.findByRole('button', { name: 'Open WO-2026-0007' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: oi.createOrder }))
+    expect(await screen.findByRole('button', { name: openWo20260007 })).toBeInTheDocument()
 
-    fireEvent.change(screen.getByPlaceholderText('VIN'), { target: { value: 'WVWZZZ1KZ9W000002' } })
+    fireEvent.change(screen.getByPlaceholderText(oi.vinPlaceholder), { target: { value: 'WVWZZZ1KZ9W000002' } })
 
-    expect(screen.queryByRole('button', { name: 'Open WO-2026-0007' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: openWo20260007 })).not.toBeInTheDocument()
   })
 
   it('does not keep a conflict from an attempt the user cancelled', async () => {
@@ -354,8 +358,8 @@ describe('WorkshopOrderIntakeDialog', () => {
 
     render(<WorkshopOrderIntakeDialog open onOpenChange={vi.fn()} />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Create Order' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    fireEvent.click(screen.getByRole('button', { name: oi.createOrder }))
+    fireEvent.click(screen.getByRole('button', { name: oi.cancel }))
     rejectOrder(
       Object.assign(new Error('Vehicle already has active order WO-2026-0007'), {
         status: 409,
@@ -373,6 +377,6 @@ describe('WorkshopOrderIntakeDialog', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /2018 Volkswagen Golf VII/i }))
 
-    expect(screen.queryByRole('button', { name: 'Open WO-2026-0007' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: openWo20260007 })).not.toBeInTheDocument()
   })
 })

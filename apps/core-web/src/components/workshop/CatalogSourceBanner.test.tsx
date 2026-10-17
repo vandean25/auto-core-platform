@@ -1,40 +1,34 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { CatalogSourceBanner } from './CatalogSourceBanner'
-import { toCatalogSourceMetadata } from '@/features/workshop/catalog-source-copy'
+import { getCatalogSourceBannerCopy, toCatalogSourceMetadata } from '@/features/workshop/catalog-source-copy'
 
 describe('CatalogSourceBanner', () => {
   it('renders persistent OEM source copy', () => {
-    render(
-      <CatalogSourceBanner
-        metadata={toCatalogSourceMetadata('PARTS', {
-          sourceUsed: 'OEM',
-          oemStatus: 'HIT',
-          fallbackReason: null,
-        })}
-        oemConcernCode='BMW'
-      />,
-    )
+    const metadata = toCatalogSourceMetadata('PARTS', {
+      sourceUsed: 'OEM',
+      oemStatus: 'HIT',
+      fallbackReason: null,
+    })
+
+    render(<CatalogSourceBanner metadata={metadata} oemConcernCode="BMW" />)
 
     expect(screen.getByTestId('catalog-source-banner-parts')).toHaveTextContent(
-      'Parts: OEM catalog (BMW)',
+      getCatalogSourceBannerCopy(metadata, 'BMW'),
     )
   })
 
   it('renders aftermarket fallback copy after OEM error', () => {
-    render(
-      <CatalogSourceBanner
-        metadata={toCatalogSourceMetadata('LABOR', {
-          sourceUsed: 'AFTERMARKET',
-          oemStatus: 'ERROR',
-          fallbackReason: 'ERROR',
-        })}
-        compact
-      />,
-    )
+    const metadata = toCatalogSourceMetadata('LABOR', {
+      sourceUsed: 'AFTERMARKET',
+      oemStatus: 'ERROR',
+      fallbackReason: 'ERROR',
+    })
+
+    render(<CatalogSourceBanner metadata={metadata} compact />)
 
     expect(screen.getByTestId('catalog-source-banner-labor')).toHaveTextContent(
-      'Labor: OEM unavailable — showing aftermarket catalog',
+      getCatalogSourceBannerCopy(metadata),
     )
   })
 })

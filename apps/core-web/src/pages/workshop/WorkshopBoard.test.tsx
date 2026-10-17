@@ -4,6 +4,19 @@ import * as React from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import WorkshopBoard from './WorkshopBoard'
 import * as workshopApi from '@/api/workshop'
+import { deWorkshop } from '@/test/de-workshop'
+import { i18n } from '@/lib/i18n'
+
+const orderCard = deWorkshop.orderCard
+const boardA11y = deWorkshop.board.a11y
+const mechanicNoun = boardA11y.resourceNoun.mechanic
+const mechanicColumn = (name: string) =>
+  i18n.t('board.a11y.resourceColumn', {
+    ns: 'workshop',
+    resource: mechanicNoun,
+    label: name,
+  })
+const orderNo = 'WO-2026-0001'
 
 vi.mock('@/api/workshop')
 
@@ -148,8 +161,10 @@ describe('WorkshopBoard', () => {
       </QueryClientProvider>,
     )
 
-    const assignTrigger = screen.getByRole('button', { name: /Assign WO-/ })
-    expect(assignTrigger).toHaveTextContent('Assign')
+    const assignTrigger = screen.getByRole('button', {
+      name: orderCard.assignAria.replace('{{orderNumber}}', 'WO-2026-0001'),
+    })
+    expect(assignTrigger).toHaveTextContent(orderCard.assign)
 
     openAssignMenu(assignTrigger)
     expect(screen.getByRole('menu')).toBeInTheDocument()
@@ -225,24 +240,44 @@ describe('WorkshopBoard', () => {
     expect(capturedAnnouncements).not.toBeNull()
     const announcements = capturedAnnouncements as BoardAnnouncements
 
-    expect(announcements.onDragStart({ active: { id: 'order-1' } })).toBe('Picked up WO-2026-0001.')
+    expect(announcements.onDragStart({ active: { id: 'order-1' } })).toBe(
+      i18n.t('board.a11y.pickedUp', { ns: 'workshop', order: orderNo }),
+    )
     expect(
       announcements.onDragOver({ active: { id: 'order-1' }, over: { id: 'mech-2' } }),
-    ).toBe('WO-2026-0001 is over mechanic Demo Mechanic A.')
+    ).toBe(
+      i18n.t('board.a11y.overColumn', {
+        ns: 'workshop',
+        order: orderNo,
+        column: mechanicColumn('Demo Mechanic A'),
+      }),
+    )
     expect(announcements.onDragOver({ active: { id: 'order-1' }, over: null })).toBe(
-      'WO-2026-0001 is no longer over a column.',
+      i18n.t('board.a11y.notOverColumn', { ns: 'workshop', order: orderNo }),
     )
     expect(
       announcements.onDragEnd({ active: { id: 'order-1' }, over: { id: 'mech-2' } }),
-    ).toBe('WO-2026-0001 was dropped on mechanic Demo Mechanic A.')
+    ).toBe(
+      i18n.t('board.a11y.droppedOn', {
+        ns: 'workshop',
+        order: orderNo,
+        column: mechanicColumn('Demo Mechanic A'),
+      }),
+    )
     expect(
       announcements.onDragEnd({ active: { id: 'order-1' }, over: { id: '__unassigned__' } }),
-    ).toBe('WO-2026-0001 was dropped on Unassigned.')
+    ).toBe(
+      i18n.t('board.a11y.droppedOn', {
+        ns: 'workshop',
+        order: orderNo,
+        column: deWorkshop.board.unassigned,
+      }),
+    )
     expect(announcements.onDragEnd({ active: { id: 'order-1' }, over: null })).toBe(
-      'WO-2026-0001 was dropped outside a column and not moved.',
+      i18n.t('board.a11y.droppedOutside', { ns: 'workshop', order: orderNo }),
     )
     expect(announcements.onDragCancel({ active: { id: 'order-1' } })).toBe(
-      'Dragging was cancelled. WO-2026-0001 was not moved.',
+      i18n.t('board.a11y.cancelled', { ns: 'workshop', order: orderNo }),
     )
   })
 })

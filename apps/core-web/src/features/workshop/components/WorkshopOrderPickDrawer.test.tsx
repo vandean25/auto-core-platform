@@ -2,6 +2,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { WorkshopOrderPickDrawer } from './WorkshopOrderPickDrawer'
+import { deWorkshop } from '@/test/de-workshop'
+
+const qtyLabel = deWorkshop.pick.drawer.qtyAria
+  .replace('{{description}}', 'Air filter')
+  .replace('{{itemNo}}', 'PART-001')
 import * as locationsApi from '@/api/locations'
 import * as workshopApi from '@/api/workshop'
 
@@ -104,7 +109,7 @@ describe('WorkshopOrderPickDrawer', () => {
 
     vi.runAllTimers()
 
-    const quantityInput = screen.getByLabelText('Quantity for Air filter (PART-001)')
+    const quantityInput = screen.getByLabelText(qtyLabel)
     expect(quantityInput).toHaveValue(2)
     expect(screen.getByRole('combobox')).toHaveTextContent('TOTE-01 - Primary Tote')
 
@@ -137,7 +142,7 @@ describe('WorkshopOrderPickDrawer', () => {
       </QueryClientProvider>,
     )
 
-    expect(screen.getByLabelText('Quantity for Air filter (PART-001)')).toHaveValue(1)
+    expect(screen.getByLabelText(qtyLabel)).toHaveValue(1)
     expect(screen.getByRole('combobox')).toHaveTextContent('TOTE-01 - Primary Tote')
   })
 })

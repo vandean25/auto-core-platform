@@ -3,6 +3,9 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import WorkshopOrderList from './WorkshopOrderList'
 import * as workshopApi from '@/api/workshop'
+import { deWorkshop } from '@/test/de-workshop'
+
+const list = deWorkshop.orders.list
 
 vi.mock('@/api/workshop')
 vi.mock('@/components/data-table/DataTable', () => ({
@@ -39,23 +42,21 @@ describe('WorkshopOrderList parts pick queue button', () => {
   it('labels the header button "Parts pick queue" and keeps it enabled', () => {
     renderList()
 
-    expect(screen.getByRole('button', { name: 'Parts pick queue' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: list.partsPickQueue })).toBeEnabled()
   })
 
   it('shows the button description as a tooltip when the button gets keyboard focus', async () => {
     renderList()
 
-    act(() => screen.getByRole('button', { name: 'Parts pick queue' }).focus())
+    act(() => screen.getByRole('button', { name: list.partsPickQueue }).focus())
 
-    expect(await screen.findByRole('tooltip')).toHaveTextContent(
-      'Parts to pick for open workshop orders',
-    )
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(list.partsPickHint)
   })
 
   it('opens the pick list route when the button is activated', async () => {
     renderList()
 
-    act(() => screen.getByRole('button', { name: 'Parts pick queue' }).click())
+    act(() => screen.getByRole('button', { name: list.partsPickQueue }).click())
 
     expect(await screen.findByRole('heading', { name: 'Pick list route' })).toBeInTheDocument()
   })
