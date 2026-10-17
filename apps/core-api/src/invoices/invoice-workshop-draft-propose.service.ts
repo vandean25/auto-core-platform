@@ -69,19 +69,20 @@ export type InvoiceDraftProposeResult = InvoiceDraftProposePreview & {
 };
 
 function halfUpTax(net: Prisma.Decimal, rate: Prisma.Decimal): Prisma.Decimal {
-  return net.mul(rate).div(100).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+  return net
+    .mul(rate)
+    .div(100)
+    .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
 }
 
-function mapLinePreview(
-  line: {
-    description: string;
-    quantity: Prisma.Decimal | number | string;
-    unit_price?: Prisma.Decimal | number | string;
-    unitPrice?: Prisma.Decimal | number | string;
-    tax_rate?: Prisma.Decimal | number | string;
-    taxRate?: Prisma.Decimal | number | string;
-  },
-): InvoiceDraftProposeLinePreview {
+function mapLinePreview(line: {
+  description: string;
+  quantity: Prisma.Decimal | number | string;
+  unit_price?: Prisma.Decimal | number | string;
+  unitPrice?: Prisma.Decimal | number | string;
+  tax_rate?: Prisma.Decimal | number | string;
+  taxRate?: Prisma.Decimal | number | string;
+}): InvoiceDraftProposeLinePreview {
   const quantity = new Prisma.Decimal(line.quantity);
   const unitNet = new Prisma.Decimal(line.unit_price ?? line.unitPrice ?? 0);
   const taxRate = new Prisma.Decimal(line.tax_rate ?? line.taxRate ?? 20);
@@ -127,19 +128,25 @@ export class InvoiceWorkshopDraftProposeService {
     const parsed = proposeInvoiceDraftFromOrderInputSchema.parse(record);
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
-    const plan = await this.planDraft(parsed.workshop_order_id, tenantId, siteId);
+    const plan = await this.planDraft(
+      parsed.workshop_order_id,
+      tenantId,
+      siteId,
+    );
     record.pinned_workshop_order_id = parsed.workshop_order_id;
     record.pinned_billable_digest = plan.digest;
     return record;
   }
 
-  async buildPolicyContext(
-    input: unknown,
-  ): Promise<{ amount_eur: number }> {
+  async buildPolicyContext(input: unknown): Promise<{ amount_eur: number }> {
     const parsed = proposeInvoiceDraftFromOrderInputSchema.parse(input);
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
-    const plan = await this.planDraft(parsed.workshop_order_id, tenantId, siteId);
+    const plan = await this.planDraft(
+      parsed.workshop_order_id,
+      tenantId,
+      siteId,
+    );
     return { amount_eur: Number(plan.preview.totals.gross) };
   }
 
@@ -160,8 +167,7 @@ export class InvoiceWorkshopDraftProposeService {
         ? executionContext.site_id
         : await this.siteContext.getSiteId();
 
-    const orderId =
-      parsed.pinned_workshop_order_id ?? parsed.workshop_order_id;
+    const orderId = parsed.pinned_workshop_order_id ?? parsed.workshop_order_id;
     if (orderId !== parsed.workshop_order_id) {
       throw new ConflictException(
         'Workshop order id does not match the pinned proposal order',
@@ -284,9 +290,7 @@ export class InvoiceWorkshopDraftProposeService {
       type: line.type ?? null,
       catalog_item_id: line.catalog_item_id ?? line.catalogItemId ?? null,
     }));
-    return createHash('sha256')
-      .update(JSON.stringify(payload))
-      .digest('hex');
+    return createHash('sha256').update(JSON.stringify(payload)).digest('hex');
   }
 
   private mapCreatedInvoice(

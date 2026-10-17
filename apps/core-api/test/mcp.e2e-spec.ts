@@ -5965,11 +5965,15 @@ describe('MCP server (e2e)', () => {
           status: 'DONE',
         },
       });
-      await createPartLine(prismaA, task.id, {
-        item_no: 'INV-LABOR-01',
-        description: 'Synthetic service line',
-        unit_price: 100,
-        catalog_item_id: fixtures.catalogItemId,
+      await prismaA.workshopTaskLineItem.create({
+        data: {
+          workshop_task_id: task.id,
+          type: 'LABOR',
+          item_no: 'INV-LABOR-01',
+          description: 'Synthetic service line',
+          quantity: 1,
+          unit_price: 100,
+        },
       });
       return { order, task };
     }
