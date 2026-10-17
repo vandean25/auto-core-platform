@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client';
+import { SideEffectGuard } from '../../dry-run/side-effect-guard.js';
 import { getVehicleMediaPurgeStorage } from './vehicle-media-purge.registry.js';
 
 type VehicleWhere = {
@@ -19,6 +20,9 @@ async function purgeMediaForVehicleWhere(
   vehicleDelegate: VehicleFindManyDelegate,
   where: VehicleWhere | undefined,
 ): Promise<void> {
+  if (SideEffectGuard.isDryRun()) {
+    return;
+  }
   const storage = getVehicleMediaPurgeStorage();
   if (!storage) {
     return;
