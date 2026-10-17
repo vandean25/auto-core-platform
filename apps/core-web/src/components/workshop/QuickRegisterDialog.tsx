@@ -1,4 +1,5 @@
 import { useForm } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
@@ -14,6 +15,7 @@ interface QuickRegisterDialogProps {
 }
 
 export function QuickRegisterDialog({ open, onOpenChange, defaultVin }: QuickRegisterDialogProps) {
+    const { t } = useTranslation('workshop')
     const { register, handleSubmit, reset, formState: { errors } } = useForm<RegisterIntakePayload>({
         defaultValues: {
             vin: defaultVin || '',
@@ -24,17 +26,16 @@ export function QuickRegisterDialog({ open, onOpenChange, defaultVin }: QuickReg
     const mutation = useRegisterIntake()
 
     const onSubmit = (data: RegisterIntakePayload) => {
-        // Ensure year is number
         data.year = Number(data.year)
 
         mutation.mutate(data, {
             onSuccess: () => {
-                toast.success('Vehicle registered successfully')
+                toast.success(t('quickRegister.success'))
                 onOpenChange(false)
                 reset()
             },
             onError: () => {
-                toast.error('Failed to register vehicle')
+                toast.error(t('quickRegister.error'))
             }
         })
     }
@@ -43,55 +44,55 @@ export function QuickRegisterDialog({ open, onOpenChange, defaultVin }: QuickReg
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                    <DialogTitle>Quick Register Vehicle</DialogTitle>
+                    <DialogTitle>{t('quickRegister.title')}</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label htmlFor="vin">VIN</Label>
+                            <Label htmlFor="vin">{t('quickRegister.vin')}</Label>
                             <Input
                                 id="vin"
                                 aria-invalid={Boolean(errors.vin)}
                                 aria-describedby={errors.vin ? 'vin-error' : undefined}
                                 {...register('vin', { required: true })}
                             />
-                            {errors.vin && <span id="vin-error" className="text-red-500 text-xs">Required</span>}
+                            {errors.vin && <span id="vin-error" className="text-red-500 text-xs">{t('quickRegister.required')}</span>}
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="plate">Plate</Label>
+                            <Label htmlFor="plate">{t('quickRegister.plate')}</Label>
                             <Input
                                 id="plate"
                                 aria-invalid={Boolean(errors.plate)}
                                 aria-describedby={errors.plate ? 'plate-error' : undefined}
                                 {...register('plate', { required: true })}
                             />
-                            {errors.plate && <span id="plate-error" className="text-red-500 text-xs">Required</span>}
+                            {errors.plate && <span id="plate-error" className="text-red-500 text-xs">{t('quickRegister.required')}</span>}
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                          <div className="space-y-2">
-                            <Label htmlFor="make">Make</Label>
+                            <Label htmlFor="make">{t('quickRegister.make')}</Label>
                             <Input
                                 id="make"
                                 aria-invalid={Boolean(errors.make)}
                                 aria-describedby={errors.make ? 'make-error' : undefined}
                                 {...register('make', { required: true })}
                             />
-                            {errors.make && <span id="make-error" className="text-red-500 text-xs">Required</span>}
+                            {errors.make && <span id="make-error" className="text-red-500 text-xs">{t('quickRegister.required')}</span>}
                         </div>
                          <div className="space-y-2">
-                            <Label htmlFor="model">Model</Label>
+                            <Label htmlFor="model">{t('quickRegister.model')}</Label>
                             <Input
                                 id="model"
                                 aria-invalid={Boolean(errors.model)}
                                 aria-describedby={errors.model ? 'model-error' : undefined}
                                 {...register('model', { required: true })}
                             />
-                            {errors.model && <span id="model-error" className="text-red-500 text-xs">Required</span>}
+                            {errors.model && <span id="model-error" className="text-red-500 text-xs">{t('quickRegister.required')}</span>}
                         </div>
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="year">Year</Label>
+                        <Label htmlFor="year">{t('quickRegister.year')}</Label>
                         <Input
                             id="year"
                             type="number"
@@ -99,46 +100,46 @@ export function QuickRegisterDialog({ open, onOpenChange, defaultVin }: QuickReg
                             aria-describedby={errors.year ? 'year-error' : undefined}
                             {...register('year', { required: true, min: 1900 })}
                         />
-                        {errors.year && <span id="year-error" className="text-red-500 text-xs">Valid year required</span>}
+                        {errors.year && <span id="year-error" className="text-red-500 text-xs">{t('quickRegister.yearInvalid')}</span>}
                     </div>
 
                     <div className="pt-2 border-t">
-                        <h3 className="text-sm font-medium mb-2">New Customer</h3>
+                        <h3 className="text-sm font-medium mb-2">{t('quickRegister.newCustomer')}</h3>
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label htmlFor="firstName">First Name</Label>
+                                <Label htmlFor="firstName">{t('quickRegister.firstName')}</Label>
                                 <Input
                                     id="firstName"
                                     aria-invalid={Boolean(errors.firstName)}
                                     aria-describedby={errors.firstName ? 'firstName-error' : undefined}
                                     {...register('firstName', { required: true })}
                                 />
-                                {errors.firstName && <span id="firstName-error" className="text-red-500 text-xs">Required</span>}
+                                {errors.firstName && <span id="firstName-error" className="text-red-500 text-xs">{t('quickRegister.required')}</span>}
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="lastName">Last Name</Label>
+                                <Label htmlFor="lastName">{t('quickRegister.lastName')}</Label>
                                 <Input
                                     id="lastName"
                                     aria-invalid={Boolean(errors.lastName)}
                                     aria-describedby={errors.lastName ? 'lastName-error' : undefined}
                                     {...register('lastName', { required: true })}
                                 />
-                                {errors.lastName && <span id="lastName-error" className="text-red-500 text-xs">Required</span>}
+                                {errors.lastName && <span id="lastName-error" className="text-red-500 text-xs">{t('quickRegister.required')}</span>}
                             </div>
                         </div>
                          <div className="space-y-2 mt-2">
-                            <Label htmlFor="email">Email</Label>
+                            <Label htmlFor="email">{t('quickRegister.email')}</Label>
                             <Input id="email" type="email" {...register('email')} />
                         </div>
                         <div className="space-y-2 mt-2">
-                            <Label htmlFor="phone">Phone</Label>
+                            <Label htmlFor="phone">{t('quickRegister.phone')}</Label>
                             <Input id="phone" {...register('phone')} />
                         </div>
                     </div>
 
                     <div className="flex justify-end pt-4">
                         <Button type="submit" disabled={mutation.isPending}>
-                            {mutation.isPending ? 'Registering...' : 'Register'}
+                            {mutation.isPending ? t('quickRegister.registering') : t('quickRegister.register')}
                         </Button>
                     </div>
                 </form>

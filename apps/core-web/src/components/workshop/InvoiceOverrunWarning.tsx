@@ -1,4 +1,5 @@
 import { AlertTriangle } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { useAuthSession } from '@/api/auth-session'
 import { useWorkshopOrderEstimate } from '@/api/workshop-estimates'
@@ -26,6 +27,7 @@ export function InvoiceOverrunWarning({ orderId, canIssueInvoice }: InvoiceOverr
 
 /** Reads the estimate only once the gate is open, so a role that cannot read estimates never requests it. */
 function OverrunWarningAlert({ orderId }: { orderId: string }) {
+  const { t } = useTranslation('workshop')
   const { data: estimate } = useWorkshopOrderEstimate(orderId)
   const overrun = estimate?.overrun_warning
   if (!overrun?.requires_customer_notice) {
@@ -38,21 +40,24 @@ function OverrunWarningAlert({ orderId }: { orderId: string }) {
       data-testid="invoice-overrun-warning"
     >
       <AlertTriangle className="h-4 w-4" />
-      <AlertTitle as="h3">Rechnung weicht vom freigegebenen Kostenvoranschlag ab</AlertTitle>
+      <AlertTitle as="h3">{t('invoiceOverrun.title')}</AlertTitle>
       <AlertDescription>
         {overrun.notified_at ? (
           <>
-            Der Kunde wurde über {formatEstimateMoney(overrun.notified_amount_gross)} brutto informiert. Der
-            Auftragsbetrag liegt inzwischen bei {formatEstimateMoney(overrun.current_total_gross)} brutto, der Kunde muss
-            erneut informiert werden.{' '}
+            {t('invoiceOverrun.notified', {
+              notified: formatEstimateMoney(overrun.notified_amount_gross),
+              current: formatEstimateMoney(overrun.current_total_gross),
+            })}{' '}
           </>
         ) : (
           <>
-            Der Auftragsbetrag liegt bei {formatEstimateMoney(overrun.current_total_gross)} brutto, freigegeben waren{' '}
-            {formatEstimateMoney(overrun.approved_total_gross)}. Der Kunde wurde noch nicht über die Abweichung informiert.{' '}
+            {t('invoiceOverrun.notNotified', {
+              current: formatEstimateMoney(overrun.current_total_gross),
+              approved: formatEstimateMoney(overrun.approved_total_gross),
+            })}{' '}
           </>
         )}
-        Die Rechnung kann trotzdem ausgestellt werden.
+        {t('invoiceOverrun.canStillInvoice')}
       </AlertDescription>
     </Alert>
   )

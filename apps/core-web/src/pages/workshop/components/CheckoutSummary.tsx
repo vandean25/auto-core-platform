@@ -1,4 +1,5 @@
 import { Fragment, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -29,7 +30,6 @@ export interface CheckoutSummaryProps {
   isLocked: boolean
   canCreateDraftInCheckout: boolean
   canIssueInvoiceInCheckout: boolean
-  /** Shown above the invoice lines, next to the Issue Invoice button (AUT-355, the overrun warning). */
   invoiceWarning?: ReactNode
   createDraftPending: boolean
   issuePending: boolean
@@ -76,20 +76,22 @@ export function CheckoutSummary({
   onIssueInvoice,
   onReopenTask,
 }: CheckoutSummaryProps) {
+  const { t } = useTranslation('workshop')
+
   return (
     <Card className='border-primary/20'>
       <CardHeader className='pb-3'>
         <div className='flex items-center justify-between gap-3'>
           <div>
-            <CardTitle as='h3' className='text-base font-semibold'>Draft Invoice</CardTitle>
-            <p className='text-xs text-muted-foreground mt-1'>
-              Grouped by task. Use task-level discount (%) to cascade to every nested line.
-            </p>
+            <CardTitle as='h3' className='text-base font-semibold'>{t('checkoutSummary.title')}</CardTitle>
+            <p className='text-xs text-muted-foreground mt-1'>{t('checkoutSummary.hint')}</p>
           </div>
           <div className='flex items-center gap-2'>
             {activeInvoiceId && (
               <span className='text-xs text-muted-foreground'>
-                Invoice: {fetchedInvoice?.invoice_number || activeInvoiceId}
+                {t('checkoutSummary.invoiceLabel', {
+                  number: fetchedInvoice?.invoice_number || activeInvoiceId,
+                })}
               </span>
             )}
             {!activeInvoiceId && (
@@ -98,7 +100,7 @@ export function CheckoutSummary({
                 onClick={onCreateDraftInvoice}
                 disabled={!canCreateDraftInCheckout || createDraftPending}
               >
-                {createDraftPending ? 'Creating Draft...' : 'Create Draft Invoice'}
+                {createDraftPending ? t('checkoutSummary.creatingDraft') : t('checkoutSummary.createDraft')}
               </Button>
             )}
             {activeInvoiceId && fetchedInvoice?.status === 'DRAFT' && (
@@ -107,11 +109,11 @@ export function CheckoutSummary({
                 onClick={onIssueInvoice}
                 disabled={!canIssueInvoiceInCheckout || issuePending}
               >
-                {issuePending ? 'Issuing...' : 'Issue Invoice'}
+                {issuePending ? t('checkoutSummary.issuing') : t('checkoutSummary.issue')}
               </Button>
             )}
             {activeInvoiceId && isInvoiceLoading && (
-              <span className='text-xs text-muted-foreground'>Loading invoice...</span>
+              <span className='text-xs text-muted-foreground'>{t('checkoutSummary.loadingInvoice')}</span>
             )}
           </div>
         </div>
@@ -122,18 +124,18 @@ export function CheckoutSummary({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Item</TableHead>
-                <TableHead className='text-right w-[90px]'>Qty</TableHead>
-                <TableHead className='text-right w-[140px]'>Unit Price</TableHead>
-                <TableHead className='text-right w-[260px]'>Discount</TableHead>
-                <TableHead className='text-right w-[160px]'>Net</TableHead>
+                <TableHead>{t('checkoutSummary.colItem')}</TableHead>
+                <TableHead className='text-right w-[90px]'>{t('checkoutSummary.colQty')}</TableHead>
+                <TableHead className='text-right w-[140px]'>{t('checkoutSummary.colUnitPrice')}</TableHead>
+                <TableHead className='text-right w-[260px]'>{t('checkoutSummary.colDiscount')}</TableHead>
+                <TableHead className='text-right w-[160px]'>{t('checkoutSummary.colNet')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {groupedCheckoutTasks.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={5} className='text-center text-sm text-muted-foreground py-6'>
-                    No billable lines found in tasks.
+                    {t('checkoutSummary.empty')}
                   </TableCell>
                 </TableRow>
               )}
@@ -151,7 +153,11 @@ export function CheckoutSummary({
                               variant='ghost'
                               size='icon'
                               className='h-7 w-7'
-                              aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${task.title}`}
+                              aria-label={
+                                isExpanded
+                                  ? t('checkoutSummary.collapse', { task: task.title })
+                                  : t('checkoutSummary.expand', { task: task.title })
+                              }
                               onClick={() => onToggleGroup(task.id)}
                             >
                               {isExpanded ? (
@@ -175,7 +181,7 @@ export function CheckoutSummary({
                               className='h-7 px-2'
                               onClick={() => onReopenTask(task.id)}
                             >
-                              Reopen Task
+                              {t('checkoutSummary.reopenTask')}
                             </Button>
                           )}
                         </div>
@@ -183,7 +189,9 @@ export function CheckoutSummary({
                       <TableCell>
                         <div className='flex justify-end'>
                           <div className='flex items-center gap-2'>
-                            <span className='text-[11px] text-muted-foreground whitespace-nowrap'>Discount Whole Task (%)</span>
+                            <span className='text-[11px] text-muted-foreground whitespace-nowrap'>
+                              {t('checkoutSummary.taskDiscount')}
+                            </span>
                             <Input
                               value={taskDiscountPercent}
                               onChange={(e) => onTaskDiscountValueChange(task.id, e.target.value)}
@@ -220,10 +228,10 @@ export function CheckoutSummary({
                               disabled={isLocked}
                             >
                               <SelectTrigger className='h-8 w-[110px] text-xs'>
-                                <SelectValue placeholder='No discount' />
+                                <SelectValue placeholder={t('checkoutSummary.noDiscount')} />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value='NONE'>None</SelectItem>
+                                <SelectItem value='NONE'>{t('checkoutSummary.discountNone')}</SelectItem>
                                 <SelectItem value='PERCENTAGE'>%</SelectItem>
                                 <SelectItem value='FLAT_AMOUNT'>EUR</SelectItem>
                               </SelectContent>
@@ -253,23 +261,23 @@ export function CheckoutSummary({
         <div className='flex justify-end'>
           <div className='w-full max-w-md rounded-xl border bg-muted/20 p-4 space-y-2'>
             <div className='flex items-center justify-between text-sm'>
-              <span className='text-muted-foreground'>Subtotal</span>
+              <span className='text-muted-foreground'>{t('checkoutSummary.subtotal')}</span>
               <span>{formatCurrency(checkoutSubtotal)}</span>
             </div>
             <div className='flex items-center justify-between text-sm'>
-              <span className='text-muted-foreground'>Total Discounts</span>
+              <span className='text-muted-foreground'>{t('checkoutSummary.totalDiscounts')}</span>
               <span>-{formatCurrency(checkoutDiscountTotal)}</span>
             </div>
             <div className='flex items-center justify-between text-sm'>
-              <span className='text-muted-foreground'>Net</span>
+              <span className='text-muted-foreground'>{t('checkoutSummary.net')}</span>
               <span>{formatCurrency(checkoutNetTotal)}</span>
             </div>
             <div className='flex items-center justify-between text-sm'>
-              <span className='text-muted-foreground'>VAT</span>
+              <span className='text-muted-foreground'>{t('checkoutSummary.vat')}</span>
               <span>{formatCurrency(checkoutTaxTotal)}</span>
             </div>
             <div className='border-t pt-2 mt-2 flex items-center justify-between text-sm font-semibold'>
-              <span>Total</span>
+              <span>{t('checkoutSummary.total')}</span>
               <span>{formatCurrency(checkoutGrossTotal)}</span>
             </div>
           </div>

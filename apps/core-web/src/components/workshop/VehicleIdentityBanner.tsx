@@ -1,4 +1,5 @@
 import { Loader2, RefreshCw } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useCatalogProviderSettings } from '@/api/useCatalogProviderSettings'
 import { useResolveVehicleIdentity, useVehicle } from '@/api/vehicles'
@@ -22,6 +23,7 @@ export function VehicleIdentityBanner({
   vehicleId,
   onIdentityResolved,
 }: VehicleIdentityBannerProps) {
+  const { t } = useTranslation('workshop')
   const { data: vehicle, isLoading: isVehicleLoading } = useVehicle(vehicleId)
   const { data: catalogSettings } = useCatalogProviderSettings()
   const resolveIdentity = useResolveVehicleIdentity()
@@ -37,11 +39,11 @@ export function VehicleIdentityBanner({
     if (!vehicleId) return
     try {
       const resolvedVehicle = await resolveIdentity.mutateAsync(vehicleId)
-      toast.success('Vehicle identity resolved')
+      toast.success(t('vehicleIdentity.resolvedToast'))
       onIdentityResolved?.(resolvedVehicle)
     } catch (error: unknown) {
       const message =
-        error instanceof Error ? error.message : 'Failed to resolve vehicle identity'
+        error instanceof Error ? error.message : t('vehicleIdentity.resolveFailed')
       toast.error(message)
     }
   }
@@ -50,7 +52,7 @@ export function VehicleIdentityBanner({
     return (
       <div className='flex items-center gap-2 text-sm text-muted-foreground'>
         <Loader2 className='h-4 w-4 animate-spin' />
-        Loading vehicle identity...
+        {t('vehicleIdentity.loading')}
       </div>
     )
   }
@@ -67,31 +69,33 @@ export function VehicleIdentityBanner({
       <div className='flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between'>
         <div className='space-y-2 min-w-0'>
           <div className='flex flex-wrap items-center gap-2'>
-            <span className='text-sm font-medium'>Vehicle identity</span>
+            <span className='text-sm font-medium'>{t('vehicleIdentity.title')}</span>
             {identityStale ? (
-              <Badge variant='destructive'>Stale — re-resolve required</Badge>
+              <Badge variant='destructive'>{t('vehicleIdentity.staleBadge')}</Badge>
             ) : (
-              <Badge variant='secondary'>Resolved</Badge>
+              <Badge variant='secondary'>{t('vehicleIdentity.resolvedBadge')}</Badge>
             )}
             {oemConcern && (
-              <Badge variant='outline'>OEM {getOemConcernLabel(oemConcern.code)}</Badge>
+              <Badge variant='outline'>
+                {t('vehicleIdentity.oemBadge', { label: getOemConcernLabel(oemConcern.code) })}
+              </Badge>
             )}
             {vehicle.make_brand_id != null && (
               <Badge variant='outline'>{vehicle.make}</Badge>
             )}
           </div>
           <p className='text-xs text-muted-foreground break-words'>
-            Keys: {formatIdentityKeys(vehicle.identity_keys)}
+            {t('vehicleIdentity.keys', { keys: formatIdentityKeys(vehicle.identity_keys) })}
           </p>
           {vehicle.identity_resolved_at && (
             <p className='text-xs text-muted-foreground'>
-              Resolved {formatDateTime(vehicle.identity_resolved_at)}
+              {t('vehicleIdentity.resolvedAt', {
+                date: formatDateTime(vehicle.identity_resolved_at),
+              })}
             </p>
           )}
           {!vehicle.vin && (
-            <p className='text-xs text-amber-700'>
-              VIN is required before identity can be resolved.
-            </p>
+            <p className='text-xs text-amber-700'>{t('vehicleIdentity.vinRequired')}</p>
           )}
         </div>
 
@@ -109,7 +113,7 @@ export function VehicleIdentityBanner({
           ) : (
             <RefreshCw className='mr-2 h-4 w-4' />
           )}
-          {identityStale ? 'Re-resolve identity' : 'Re-resolve'}
+          {identityStale ? t('vehicleIdentity.reResolve') : t('vehicleIdentity.reResolveShort')}
         </Button>
       </div>
     </div>

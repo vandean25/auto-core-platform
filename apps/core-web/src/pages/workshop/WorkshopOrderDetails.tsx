@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
@@ -74,6 +75,7 @@ function countWaitingTasks(tasks: ReadonlyArray<{ status: string }> | null | und
 }
 
 export function WorkshopOrderDetails() {
+  const { t } = useTranslation("workshop");
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { id = "" } = useParams<{ id: string }>();
@@ -172,7 +174,7 @@ export function WorkshopOrderDetails() {
   if (isLoading) {
     return (
       <div className="p-8 text-center text-sm text-muted-foreground">
-        Loading workshop order...
+        {t("orderDetail.loading")}
       </div>
     );
   }
@@ -182,15 +184,15 @@ export function WorkshopOrderDetails() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base font-semibold">
-            Workshop order not found
+            {t("orderDetail.notFoundTitle")}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground mb-4">
-            The selected workshop order does not exist.
+            {t("orderDetail.notFoundDescription")}
           </p>
           <Button onClick={() => navigate("/workshop/orders")}>
-            Back to Workshop Orders
+            {t("orderDetail.backToOrders")}
           </Button>
         </CardContent>
       </Card>
@@ -557,16 +559,16 @@ export function WorkshopOrderDetails() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete task?</AlertDialogTitle>
+            <AlertDialogTitle>{t("orderDetail.deleteTaskTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
               {taskPendingDelete
-                ? `Delete "${taskPendingDelete.title}" from this workshop order? This also removes its parts and labor lines.`
-                : "Delete this task from the workshop order?"}
+                ? t("orderDetail.deleteTaskDescription", { title: taskPendingDelete.title })
+                : t("orderDetail.deleteTaskDescriptionGeneric")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleteTask.isPending}>
-              Cancel
+              {t("orderDetail.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -576,7 +578,7 @@ export function WorkshopOrderDetails() {
               }}
               disabled={!canDeleteTasks || deleteTask.isPending}
             >
-              {deleteTask.isPending ? "Deleting..." : "Delete Task"}
+              {deleteTask.isPending ? t("orderDetail.deleting") : t("orderDetail.deleteTask")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
