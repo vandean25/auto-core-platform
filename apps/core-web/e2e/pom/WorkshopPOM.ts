@@ -35,10 +35,15 @@ export class WorkshopPOM extends AutoCorePage {
 
   async searchCatalog(query: string) {
     const searchInput = this.page.getByPlaceholder(DE_WORKSHOP.taskLineEditor.searchPlaceholder);
+    const catalogSearchResponse = this.page.waitForResponse(
+      (response) =>
+        response.url().includes('/api/catalog/search') && response.request().method() === 'GET',
+    );
     await searchInput.fill(query);
+    await catalogSearchResponse;
 
-    // Rule: suggestions list must appear after typing
-    await expect(this.page.getByRole('listbox', { name: DE_WORKSHOP.taskLineEditor.suggestionsAria })).toBeVisible();
+    // cmdk exposes the suggestions panel as a listbox (accessible name is not localized)
+    await expect(this.page.getByRole('listbox').first()).toBeVisible();
   }
 
   /**

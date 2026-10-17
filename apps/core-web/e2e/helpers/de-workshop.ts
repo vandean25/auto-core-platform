@@ -13,6 +13,8 @@ export const DE_WORKSHOP = {
       title: deWorkshop.mechanic.queue.title,
     },
     taskDetail: {
+      diagnostics: deWorkshop.mechanic.taskDetail.diagnostics,
+      saveState: deWorkshop.mechanic.taskDetail.saveState,
       voiceNote: deWorkshop.mechanic.taskDetail.voiceNote,
     },
   },

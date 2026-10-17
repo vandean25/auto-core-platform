@@ -820,11 +820,11 @@ describe("WorkshopOrderDetails Characterization", () => {
       checkboxes.forEach((cb) => expect(cb).toBeDisabled());
     });
 
-    it('shows "Open Invoice" in the checkout footer', () => {
+    it("shows open-invoice action in the checkout footer", () => {
       renderComponent();
 
       expect(
-        screen.getByRole("button", { name: /Open Invoice/i }),
+        screen.getByRole("button", { name: checkoutCopy.openInvoice }),
       ).toBeInTheDocument();
     });
   });

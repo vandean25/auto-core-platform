@@ -147,14 +147,16 @@ test.describe('Mechanic voice-note diagnostics flow', () => {
 
     await corePage.navigate(`/mechanic/tasks/${TASK_ID}`)
 
-    const diagnosticsTextarea = page.getByPlaceholder('Record diagnostic findings, measurements, or notes here…')
+    const diagnosticsTextarea = page.getByPlaceholder(
+      DE_WORKSHOP.mechanic.taskDetail.diagnostics.placeholder,
+    )
     await expect(diagnosticsTextarea).toHaveValue('Initial typed note')
 
     await page.getByRole('button', { name: new RegExp(DE_WORKSHOP.mechanic.taskDetail.voiceNote.record, 'i') }).click()
     await expect(page.getByRole('button', { name: new RegExp(DE_WORKSHOP.mechanic.taskDetail.voiceNote.stop, 'i') })).toBeVisible()
     await page.getByRole('button', { name: new RegExp(DE_WORKSHOP.mechanic.taskDetail.voiceNote.stop, 'i') }).click()
 
-    const draftTextarea = page.getByLabel('Voice-note draft')
+    const draftTextarea = page.getByLabel(DE_WORKSHOP.mechanic.taskDetail.voiceNote.draftLabel)
     await expect(draftTextarea).toBeVisible()
     await expect(draftTextarea).toHaveValue('Voice draft from recording')
     await draftTextarea.fill('Edited from voice note')
@@ -169,7 +171,7 @@ test.describe('Mechanic voice-note diagnostics flow', () => {
     await saveResponsePromise
 
     await expect(diagnosticsTextarea).toHaveValue('Initial typed note\n\nEdited from voice note')
-    await expect(page.getByText('Saved ✓')).toBeVisible()
+    await expect(page.getByText(DE_WORKSHOP.mechanic.taskDetail.saveState.saved)).toBeVisible()
   })
 
   test('discards voice draft without persisting notes', async ({ page }) => {
@@ -216,14 +218,16 @@ test.describe('Mechanic voice-note diagnostics flow', () => {
 
     await corePage.navigate(`/mechanic/tasks/${TASK_ID}`)
 
-    const diagnosticsTextarea = page.getByPlaceholder('Record diagnostic findings, measurements, or notes here…')
+    const diagnosticsTextarea = page.getByPlaceholder(
+      DE_WORKSHOP.mechanic.taskDetail.diagnostics.placeholder,
+    )
     await expect(diagnosticsTextarea).toHaveValue('Keep this note')
 
     await page.getByRole('button', { name: new RegExp(DE_WORKSHOP.mechanic.taskDetail.voiceNote.record, 'i') }).click()
     await expect(page.getByRole('button', { name: new RegExp(DE_WORKSHOP.mechanic.taskDetail.voiceNote.stop, 'i') })).toBeVisible()
     await page.getByRole('button', { name: new RegExp(DE_WORKSHOP.mechanic.taskDetail.voiceNote.stop, 'i') }).click()
 
-    const draftTextarea = page.getByLabel('Voice-note draft')
+    const draftTextarea = page.getByLabel(DE_WORKSHOP.mechanic.taskDetail.voiceNote.draftLabel)
     await expect(draftTextarea).toBeVisible()
     await expect(draftTextarea).toHaveValue('Draft that will be discarded')
 
@@ -271,7 +275,9 @@ test.describe('Mechanic voice-note diagnostics flow', () => {
 
     await corePage.navigate(`/mechanic/tasks/${TASK_ID}`)
 
-    const diagnosticsTextarea = page.getByPlaceholder('Record diagnostic findings, measurements, or notes here…')
+    const diagnosticsTextarea = page.getByPlaceholder(
+      DE_WORKSHOP.mechanic.taskDetail.diagnostics.placeholder,
+    )
     await expect(diagnosticsTextarea).toHaveValue('Typed note before failure')
 
     await page.getByRole('button', { name: new RegExp(DE_WORKSHOP.mechanic.taskDetail.voiceNote.record, 'i') }).click()
@@ -279,16 +285,26 @@ test.describe('Mechanic voice-note diagnostics flow', () => {
     await page.getByRole('button', { name: new RegExp(DE_WORKSHOP.mechanic.taskDetail.voiceNote.stop, 'i') }).click()
 
     // Retry button must appear in the error state
-    await expect(page.getByRole('button', { name: /retry recording/i })).toBeVisible()
+    await expect(
+      page.getByRole('button', {
+        name: new RegExp(DE_WORKSHOP.mechanic.taskDetail.voiceNote.retry, 'i'),
+      }),
+    ).toBeVisible()
 
     // Typed notes must be preserved
     await expect(diagnosticsTextarea).toHaveValue('Typed note before failure')
 
     // Draft panel must not have appeared
-    await expect(page.getByLabel('Voice-note draft')).not.toBeVisible()
+    await expect(
+      page.getByLabel(DE_WORKSHOP.mechanic.taskDetail.voiceNote.draftLabel),
+    ).not.toBeVisible()
 
     // Retry must transition back to recording state
-    await page.getByRole('button', { name: /retry recording/i }).click()
+    await page
+      .getByRole('button', {
+        name: new RegExp(DE_WORKSHOP.mechanic.taskDetail.voiceNote.retry, 'i'),
+      })
+      .click()
     await expect(page.getByRole('button', { name: new RegExp(DE_WORKSHOP.mechanic.taskDetail.voiceNote.stop, 'i') })).toBeVisible()
   })
 
