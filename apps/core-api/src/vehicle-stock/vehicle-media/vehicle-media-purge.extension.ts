@@ -4,12 +4,7 @@ import { SideEffectGuard } from '../../dry-run/side-effect-guard.js';
 import { getVehicleMediaPurgeStorage } from './vehicle-media-purge.registry.js';
 import type { VehicleMediaStorage } from './vehicle-media.storage.js';
 
-export type VehicleWhere = {
-  id?: string;
-  tenant_id?: string;
-  AND?: VehicleWhere[];
-  OR?: VehicleWhere[];
-};
+export type VehicleWhere = Prisma.VehicleWhereInput;
 
 type VehicleFindManyDelegate = {
   findMany: (args: {
