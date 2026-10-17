@@ -91,7 +91,7 @@ export class VehicleListingExportService {
     if (role === 'DEMO') {
       throw new ForbiddenException({
         code: 'LISTING_VALIDATE_DEMO_DENIED',
-        message: 'Demo accounts cannot validate marketplace listing exports.',
+        message: 'Demo accounts cannot run marketplace listing export validation.',
       });
     }
   }

@@ -208,7 +208,7 @@ export class PatchVehicleListingDto {
   @IsEnum(VehicleListingDescriptionLanguage)
   description_language?: VehicleListingDescriptionLanguage;
 
-  @ApiPropertyOptional({ example: 18990, nullable: true })
+  @ApiPropertyOptional({ type: Number, example: 18990, nullable: true })
   @IsOptional()
   @ValidateIf((_, value) => value !== null)
   @IsNumber({ maxDecimalPlaces: 2 })
