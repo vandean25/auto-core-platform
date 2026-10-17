@@ -145,7 +145,6 @@ export class VehicleListingService {
           content_sha256: contentSha256,
           channels: {
             create: VEHICLE_LISTING_PLATFORM_DEFAULTS.map((defaults) => ({
-              tenant_id: tenantId,
               platform: defaults.platform,
               serializer_profile: defaults.serializer_profile,
               mapping_version: defaults.mapping_version,
@@ -198,11 +197,7 @@ export class VehicleListingService {
 
     const photoIds = dto.photo_ids;
     if (photoIds) {
-      await this.validateListingPhotoIds(
-        tenantId,
-        vehicleId,
-        photoIds,
-      );
+      await this.validateListingPhotoIds(tenantId, vehicleId, photoIds);
     }
 
     const nextData: Prisma.VehicleListingUpdateInput = {
@@ -442,7 +437,9 @@ export class VehicleListingService {
     platform: VehicleListingPlatform,
     profile: string,
   ): void {
-    getEquipmentPortalProfileConfig(profile as EquipmentListingSerializerProfile);
+    getEquipmentPortalProfileConfig(
+      profile as EquipmentListingSerializerProfile,
+    );
     const defaults = VEHICLE_LISTING_PLATFORM_DEFAULTS.find(
       (row) => row.platform === platform,
     );
@@ -484,9 +481,7 @@ export class VehicleListingService {
     }
   }
 
-  private formatPriceForHash(
-    value: Decimal | null | undefined,
-  ): string | null {
+  private formatPriceForHash(value: Decimal | null | undefined): string | null {
     if (!value) {
       return null;
     }
@@ -556,7 +551,9 @@ export class VehicleListingService {
       title: listing?.title ?? null,
       description: listing?.description ?? null,
       description_language: listing?.description_language ?? 'DE',
-      price_gross_eur: this.formatPriceForHash(listing?.price_gross_eur ?? null),
+      price_gross_eur: this.formatPriceForHash(
+        listing?.price_gross_eur ?? null,
+      ),
       vat_display: listing?.vat_display ?? null,
       nova_included_confirmed: listing?.nova_included_confirmed ?? false,
       mandatory_fees_included_confirmed:

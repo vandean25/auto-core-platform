@@ -24,7 +24,8 @@ export function toVehicleListingPriceDisplayDto(
     price_gross_eur: listing.price_gross_eur,
     vat_display: listing.vat_display,
     nova_included_confirmed: listing.nova_included_confirmed,
-    mandatory_fees_included_confirmed: listing.mandatory_fees_included_confirmed,
+    mandatory_fees_included_confirmed:
+      listing.mandatory_fees_included_confirmed,
   });
 }
 

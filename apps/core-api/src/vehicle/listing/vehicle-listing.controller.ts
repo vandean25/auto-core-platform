@@ -29,7 +29,9 @@ export class VehicleListingController {
   constructor(private readonly listings: VehicleListingService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get marketplace listing for the current stock cycle' })
+  @ApiOperation({
+    summary: 'Get marketplace listing for the current stock cycle',
+  })
   @ApiOkResponse({ type: VehicleListingDto })
   get(@Param('vehicleId', ParseUUIDPipe) vehicleId: string) {
     return this.listings.getListing(vehicleId);
@@ -37,7 +39,9 @@ export class VehicleListingController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Create marketplace listing for the current stock cycle' })
+  @ApiOperation({
+    summary: 'Create marketplace listing for the current stock cycle',
+  })
   @ApiCreatedResponse({ type: VehicleListingDto })
   create(
     @Param('vehicleId', ParseUUIDPipe) vehicleId: string,

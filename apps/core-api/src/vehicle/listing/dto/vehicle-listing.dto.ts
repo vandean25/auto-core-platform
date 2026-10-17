@@ -7,7 +7,6 @@ import {
   VehicleListingRemoteState,
   VehicleListingVatDisplay,
 } from '@prisma/client';
-import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayUnique,
@@ -23,7 +22,6 @@ import {
   MaxLength,
   Min,
   MinLength,
-  ValidateNested,
 } from 'class-validator';
 
 export class VehicleListingPriceDisplayDto {
