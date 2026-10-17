@@ -23,6 +23,7 @@ Read tools are tenant- or active-site-scoped by the server. Their tier is `AUTO`
 | `get_customer`         | Get a tenant customer: contact data, vehicles, and a compact order history (paged) | Read   | AUTO                                                  |
 | `search_vehicles`      | Search tenant vehicles                                       | Read   | AUTO                                                  |
 | `get_vehicle`          | Get a tenant vehicle                                         | Read   | AUTO                                                  |
+| `get_vehicle_listing_status` | Per-portal marketplace listing status for a vehicle at the active site (desired, export, and remote state) | Read | AUTO |
 | `get_vehicle_history` | Get a tenant vehicle: Pickerl status, recent inspections, and compact orders (paged) and the first page of documents for the active site | Read | AUTO |
 | `get_vehicle_context` | Compact vehicle work context by section (identity, open workshop orders, inspections, documents, warranty claims, Gewährleistung periods) with per-section totals and cursors | Read | AUTO |
 | `list_workshop_orders` | List workshop orders for the active site by order status, current estimate status, scheduled date, or estimate sent date | Read   | AUTO                                                  |
@@ -96,7 +97,7 @@ Policy-mode wording maps approximately as follows: `Allowed` to `AUTO`, `Ask fir
 
 Offset list and search tools accept `page` and `pageSize`; the server defaults to page 1 and 10 rows and caps `pageSize` at 25. Cursor-based tools take `pageSize` and an opaque `cursor` from `meta.next_cursor` with the same default and maximum. `get_customer` and `get_vehicle_history` page their order list with `orders_page_size` and `orders_cursor`. Offset cursors are limited to `get_capabilities`, the three stock/Pickerl report reads, and nothing else; other cursor tools use keyset positions.
 
-- `get_capabilities` pages the tool catalog by offset. Its default and maximum page size is 25. The catalog holds 54 tools, so follow `meta.next_cursor` before deciding that a write tool is unavailable.
+- `get_capabilities` pages the tool catalog by offset. Its default and maximum page size is 25. The catalog holds 55 tools, so follow `meta.next_cursor` before deciding that a write tool is unavailable.
 - `list_sites` pages with `pageSize` (default 10, max 25) and an opaque `cursor` from `meta.next_cursor`, in site code order.
 - `list_audit_events`, `get_entity_history`, `get_agent_action`, and `list_agent_actions` page with a keyset cursor. The default page size is 10 and the maximum is 25. Audit lists are newest first. `get_agent_action` log rows are oldest first.
 - `list_invoices` pages with a keyset cursor over issue date and invoice ID, with the same default and maximum. It is newest first.

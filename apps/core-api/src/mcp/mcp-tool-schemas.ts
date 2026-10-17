@@ -75,6 +75,10 @@ export const getVehicleInputSchema = z.object({
   vehicle_id: uuidSchema,
 });
 
+export const getVehicleListingStatusInputSchema = z.object({
+  vehicle_id: uuidSchema,
+});
+
 const workshopOrderStatusSchema = z.enum([
   'SCHEDULED',
   'INTAKE',
@@ -752,6 +756,7 @@ export const mcpToolInputSchemas: Record<
   get_customer: getCustomerInputSchema,
   search_vehicles: searchVehiclesInputSchema,
   get_vehicle: getVehicleInputSchema,
+  get_vehicle_listing_status: getVehicleListingStatusInputSchema,
   list_workshop_orders: listWorkshopOrdersInputSchema,
   get_workshop_order: getWorkshopOrderInputSchema,
   search_parts: searchPartsInputSchema,

@@ -28,6 +28,7 @@ import { McpCatalogReadService } from './mcp-catalog-read.service.js';
 import { McpAvailabilityReadService } from './mcp-availability-read.service.js';
 import { McpReportReadService } from './mcp-report-read.service.js';
 import { McpSettingsReadService } from './mcp-settings-read.service.js';
+import { McpListingReadService } from './mcp-listing-read.service.js';
 import { McpStockReadService } from './mcp-stock-read.service.js';
 import { McpController } from './mcp.controller.js';
 import { McpSessionService } from './mcp-session.service.js';
@@ -77,6 +78,7 @@ import { InvoicesModule } from '../invoices/invoices.module.js';
     McpReportReadService,
     McpAvailabilityReadService,
     McpSettingsReadService,
+    McpListingReadService,
     McpStockReadService,
     McpSessionService,
     McpUserLocaleService,
