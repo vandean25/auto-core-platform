@@ -7,11 +7,7 @@ import { DEFAULT_UPLOAD_IMAGE_LIMIT_INPUT_PIXELS } from '../../common/media/imag
 
 export const VEHICLE_MEDIA_MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 
-const ALLOWED_MIME_TYPES = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-]);
+const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 

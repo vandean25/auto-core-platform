@@ -64,7 +64,7 @@ describe('Vehicle stock photos (e2e)', () => {
     );
     const mainBytes = mediaStorage.objects.get(mainKey);
     expect(mainBytes).toBeDefined();
-    const after = await sharp(mainBytes!).metadata();
+    const after = await sharp(mainBytes).metadata();
     expect(after.exif).toBeUndefined();
   });
 

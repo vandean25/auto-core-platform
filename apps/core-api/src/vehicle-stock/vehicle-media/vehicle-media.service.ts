@@ -29,7 +29,10 @@ import {
   collectVehicleMediaObjectKeys,
   type VehicleMediaVariantMap,
 } from './vehicle-media.types.js';
-import { toVehicleMediaDto, type VehicleMediaDto } from './dto/vehicle-media.dto.js';
+import {
+  toVehicleMediaDto,
+  type VehicleMediaDto,
+} from './dto/vehicle-media.dto.js';
 
 @Injectable()
 export class VehicleMediaService {
@@ -153,12 +156,17 @@ export class VehicleMediaService {
     return toVehicleMediaDto(created);
   }
 
-  async reorder(vehicleId: string, mediaIds: string[]): Promise<VehicleMediaDto[]> {
+  async reorder(
+    vehicleId: string,
+    mediaIds: string[],
+  ): Promise<VehicleMediaDto[]> {
     const tenantId = await this.tenantContext.getTenantId();
     await this.assertStockVehicleAtActiveSite(tenantId, vehicleId);
 
     if (!Array.isArray(mediaIds) || mediaIds.length === 0) {
-      throw new BadRequestException('mediaIds must be a non-empty ordered list.');
+      throw new BadRequestException(
+        'mediaIds must be a non-empty ordered list.',
+      );
     }
     const unique = new Set(mediaIds);
     if (unique.size !== mediaIds.length) {

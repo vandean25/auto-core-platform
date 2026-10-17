@@ -43,10 +43,14 @@ export class VehicleMediaController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UseInterceptors(
-    FileInterceptor('file', { limits: { fileSize: VEHICLE_MEDIA_MAX_UPLOAD_BYTES } }),
+    FileInterceptor('file', {
+      limits: { fileSize: VEHICLE_MEDIA_MAX_UPLOAD_BYTES },
+    }),
   )
   @ApiConsumes('multipart/form-data')
-  @ApiOperation({ summary: 'Upload a vehicle stock photo (processed variants)' })
+  @ApiOperation({
+    summary: 'Upload a vehicle stock photo (processed variants)',
+  })
   @ApiCreatedResponse({ type: VehicleMediaDto })
   upload(
     @Param('vehicleId', ParseUUIDPipe) vehicleId: string,

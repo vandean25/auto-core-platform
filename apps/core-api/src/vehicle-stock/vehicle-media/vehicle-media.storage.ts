@@ -103,9 +103,7 @@ export class GcsVehicleMediaStorage implements VehicleMediaStorage {
     SideEffectGuard.assertAllowed('GCS_WRITE');
     const bucketName = this.resolveBucket();
     const prefix = `tenants/${params.tenantId}/vehicles/${params.vehicleId}/media/`;
-    const [files] = await this.storage
-      .bucket(bucketName)
-      .getFiles({ prefix });
+    const [files] = await this.storage.bucket(bucketName).getFiles({ prefix });
     await Promise.all(
       files.map((file) => file.delete({ ignoreNotFound: true })),
     );
@@ -118,9 +116,7 @@ export class GcsVehicleMediaStorage implements VehicleMediaStorage {
     const [files] = await this.storage
       .bucket(bucketName)
       .getFiles({ prefix: `${prefix}` });
-    const mediaFiles = files.filter((file) =>
-      file.name.includes('/media/'),
-    );
+    const mediaFiles = files.filter((file) => file.name.includes('/media/'));
     await Promise.all(
       mediaFiles.map((file) => file.delete({ ignoreNotFound: true })),
     );
