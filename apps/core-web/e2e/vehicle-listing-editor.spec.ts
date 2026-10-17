@@ -214,18 +214,12 @@ test.describe('Vehicle listing editor', () => {
         req.url().includes(`/api/vehicle-stock/${VEHICLE_ID}/listing`) &&
         req.postDataJSON()?.expected_revision === 2,
     );
-    const validationRefresh = page.waitForResponse(
-      (res) =>
-        res.url().includes(`/api/vehicle-stock/${VEHICLE_ID}/listing/export/validate`) &&
-        res.request().method() === 'GET' &&
-        res.status() === 200,
-    );
     await corePage.waitForAutoSave();
     await patchRequest;
-    await validationRefresh;
 
-    await expect(
-      page.getByText('Mileage is required for mobile.de reference export.'),
-    ).toBeVisible();
+    await page.getByRole('tab', { name: 'MOBILE.DE' }).click();
+    await expect(page.locator('ul.text-destructive li').first()).toContainText(
+      'vehicle.mileage_km',
+    );
   });
 });
