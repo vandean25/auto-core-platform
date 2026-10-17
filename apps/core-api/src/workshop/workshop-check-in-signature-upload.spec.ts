@@ -21,5 +21,8 @@ describe('reencodeCheckInSignaturePng', () => {
     const meta = await sharp(output).metadata();
     expect(meta.width).toBe(80);
     expect(meta.height).toBe(40);
+    expect(meta.exif).toBeUndefined();
+    expect(Buffer.from(output).includes(Buffer.from('tEXt'))).toBe(false);
+    expect(Buffer.from(output).includes(Buffer.from('eXIf'))).toBe(false);
   });
 });

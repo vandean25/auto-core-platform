@@ -1,12 +1,46 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { fileURLToPath } from 'node:url';
 
 import {
   buildTenantRestoreManifest,
+  buildTenantRestoreManifestFromFiles,
   parseMigrationForeignKeyActions,
   renderExportQuery,
   renderPurgeSql,
 } from './tenant-schema.mjs';
+
+const repoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+  '..',
+);
+const schemaPath = path.join(repoRoot, 'apps/core-api/prisma/schema.prisma');
+const migrationsDirectory = path.join(
+  repoRoot,
+  'apps/core-api/prisma/migrations',
+);
+
+function assertRestoreInsertOrderRespectsForeignKeys(manifest) {
+  const order = new Map(manifest.tables.map((table, index) => [table, index]));
+
+  for (const fk of manifest.foreignKeys) {
+    if (fk.childTable === fk.parentTable) {
+      continue;
+    }
+    if (!order.has(fk.childTable) || !order.has(fk.parentTable)) {
+      continue;
+    }
+    const parentIndex = order.get(fk.parentTable);
+    const childIndex = order.get(fk.childTable);
+    assert.ok(
+      parentIndex < childIndex,
+      `restore insert order violates FK ${fk.childTable}->${fk.parentTable}: parent index ${parentIndex} must be less than child index ${childIndex}`,
+    );
+  }
+}
 
 test('includes tenant tables, tenant-only children, and implicit join tables', () => {
   const schema = `
@@ -298,6 +332,15 @@ test('keeps runtime schema-check temp tables alive for the full check', () => {
   assert.ok(
     sql.indexOf('COMMIT;') < sql.lastIndexOf('BEGIN;'),
   );
+});
+
+test('live prisma schema restore order places every parent before its child', () => {
+  assert.ok(fs.existsSync(schemaPath));
+  const manifest = buildTenantRestoreManifestFromFiles(
+    schemaPath,
+    migrationsDirectory,
+  );
+  assertRestoreInsertOrderRespectsForeignKeys(manifest);
 });
 
 test('uses migration FK actions when Prisma defaults are not the live contract', () => {

@@ -25,9 +25,7 @@ VALUES
   ('agent_proposals'),
   ('audit_logs'),
   ('brands'),
-  ('catalog_items'),
   ('catalog_oem_concerns'),
-  ('catalog_provider_settings'),
   ('credit_note_sequences'),
   ('customers'),
   ('decision_shadow_logs'),
@@ -39,22 +37,16 @@ VALUES
   ('import_jobs'),
   ('import_mapping_profiles'),
   ('inspection_catalogue_versions'),
-  ('inspection_support_events'),
   ('inspection_templates'),
   ('invoice_sequences'),
   ('labor_categories'),
-  ('labor_operations'),
   ('legal_entities'),
-  ('margin_rules'),
   ('mcp_write_command_receipts'),
-  ('notification_outbox'),
   ('revenue_groups'),
   ('tenant_api_keys'),
   ('tenant_members'),
   ('tyre_storage_settings'),
   ('vehicle_equipment_options'),
-  ('vehicle_purchases'),
-  ('vehicles'),
   ('vendors'),
   ('voice_translation_settings'),
   ('workshop_command_presets'),
@@ -62,105 +54,113 @@ VALUES
   ('_VendorBrands'),
   ('accounting_exports'),
   ('attendance_events'),
+  ('catalog_items'),
   ('catalog_oem_concern_makes'),
-  ('catalog_price_histories'),
+  ('catalog_provider_settings'),
   ('customer_communication_states'),
   ('customer_consent_unsubscribe_tokens'),
-  ('customer_consents'),
   ('customer_contact_points'),
   ('document_brand_assets'),
   ('employee_leave_balances'),
-  ('employee_work_schedules'),
   ('external_id_mappings'),
   ('import_job_rows'),
   ('inspection_catalogue_entries'),
-  ('inspection_report_identities'),
   ('inspection_template_items'),
-  ('invoices'),
-  ('labor_fitments'),
+  ('labor_operations'),
   ('leave_requests'),
   ('legal_entity_accounting_profiles'),
+  ('margin_rules'),
   ('parts_requisitions'),
   ('purchase_invoices'),
-  ('purchase_orders'),
-  ('sales_orders'),
   ('sites'),
-  ('vehicle_equipment_free_text_items'),
-  ('vehicle_equipment_selections'),
-  ('vehicle_inspection_records'),
-  ('vehicle_ledger_entries'),
   ('vehicle_make_aliases'),
-  ('vehicle_sales'),
-  ('vehicle_valuation_snapshots'),
-  ('vendor_articles'),
   ('voice_note_rate_limits'),
-  ('workshop_orders'),
   ('bays'),
-  ('credit_notes'),
+  ('catalog_price_histories'),
+  ('customer_consents'),
   ('document_brand_extractions'),
   ('domain_events'),
-  ('employee_work_schedule_days'),
+  ('employee_work_schedules'),
   ('fiscal_registers'),
   ('inspection_catalogue_imports'),
   ('inspection_device_sources'),
   ('inspection_source_connections'),
+  ('inspection_support_events'),
   ('inspector_evidence_revisions'),
-  ('invoice_brand_asset_references'),
-  ('invoice_items'),
-  ('loaner_vehicles'),
+  ('labor_fitments'),
   ('parts_requisition_lines'),
-  ('payments'),
-  ('purchase_invoice_lines'),
-  ('purchase_order_items'),
-  ('registration_document_intakes'),
-  ('sales_order_items'),
+  ('purchase_orders'),
   ('site_memberships'),
   ('stock_transfers'),
   ('storage_locations'),
   ('tenant_inspection_catalogue_activations'),
-  ('vehicle_listings'),
-  ('vehicle_media'),
-  ('warranty_claims'),
-  ('workshop_check_ins'),
-  ('workshop_estimates'),
+  ('vendor_articles'),
   ('workshop_holidays'),
-  ('workshop_inspections'),
-  ('workshop_media'),
   ('workshop_opening_hours'),
-  ('workshop_tasks'),
-  ('credit_note_items'),
   ('document_brand_profiles'),
   ('domain_event_consumer_deliveries'),
-  ('fiscal_receipts'),
+  ('employee_work_schedule_days'),
   ('inspection_device_evidence'),
-  ('inspection_exchange_imports'),
-  ('inspection_finding_references'),
-  ('inspection_measurement_identities'),
-  ('inspection_measurement_imports'),
   ('inventory_stocks'),
-  ('inventory_transactions'),
-  ('labor_entries'),
-  ('loaner_bookings'),
-  ('registration_intake_byte_purges'),
+  ('purchase_order_items'),
   ('stock_transfer_commands'),
   ('stock_transfer_lines'),
+  ('vehicles'),
+  ('inspection_exchange_imports'),
+  ('inspection_report_identities'),
+  ('loaner_vehicles'),
+  ('purchase_invoice_lines'),
+  ('sales_orders'),
   ('tyre_sets'),
+  ('vehicle_media'),
+  ('vehicle_purchases'),
+  ('vehicle_valuation_snapshots'),
+  ('workshop_orders'),
+  ('external_inspection_results'),
+  ('inspection_exchange_events'),
+  ('inspection_measurement_identities'),
+  ('loaner_bookings'),
+  ('notification_outbox'),
+  ('registration_document_intakes'),
+  ('sales_order_items'),
+  ('tyre_set_events'),
+  ('vehicle_equipment_free_text_items'),
+  ('vehicle_equipment_selections'),
+  ('vehicle_listings'),
+  ('vehicle_sales'),
+  ('warranty_claims'),
+  ('workshop_estimates'),
+  ('workshop_tasks'),
+  ('inspection_measurement_imports'),
+  ('invoices'),
+  ('labor_entries'),
+  ('registration_intake_byte_purges'),
+  ('vehicle_inspection_records'),
+  ('vehicle_ledger_entries'),
   ('vehicle_listing_channels'),
   ('vehicle_listing_photos'),
   ('workshop_estimate_versions'),
-  ('workshop_inspection_items'),
+  ('workshop_inspections'),
   ('workshop_task_line_items'),
   ('workshop_voice_note_drafts'),
-  ('external_inspection_results'),
-  ('inspection_exchange_events'),
+  ('credit_notes'),
+  ('inspection_finding_references'),
   ('inspection_measurements'),
+  ('invoice_brand_asset_references'),
+  ('invoice_items'),
   ('parts_reservations'),
-  ('tyre_set_events'),
+  ('payments'),
   ('warranty_claim_lines'),
+  ('workshop_check_ins'),
   ('workshop_estimate_approval_tokens'),
-  ('workshop_estimate_approvals'),
   ('workshop_estimate_brand_asset_references'),
-  ('workshop_estimate_overruns');
+  ('workshop_estimate_overruns'),
+  ('workshop_inspection_items'),
+  ('credit_note_items'),
+  ('fiscal_receipts'),
+  ('inventory_transactions'),
+  ('workshop_estimate_approvals'),
+  ('workshop_media');
 
 CREATE TEMP TABLE tenant_restore_allowed_global_tables (
   table_name text PRIMARY KEY
@@ -168,98 +168,7 @@ CREATE TEMP TABLE tenant_restore_allowed_global_tables (
 
 INSERT INTO tenant_restore_allowed_global_tables (table_name)
 VALUES
-  ('users'),
-  ('payments'),
-  ('fiscal_receipts'),
-  ('document_brand_extractions'),
-  ('document_brand_profiles'),
-  ('catalog_provider_settings'),
-  ('catalog_items'),
-  ('catalog_items'),
-  ('catalog_items'),
-  ('inventory_transactions'),
-  ('inventory_transactions'),
-  ('stock_transfers'),
-  ('stock_transfers'),
-  ('stock_transfers'),
-  ('agent_action_logs'),
-  ('tenant_api_keys'),
-  ('tenant_api_keys'),
-  ('purchase_orders'),
-  ('customer_consents'),
-  ('vehicles'),
-  ('vehicles'),
-  ('vehicles'),
-  ('vehicles'),
-  ('vehicle_media'),
-  ('vehicle_purchases'),
-  ('vehicle_purchases'),
-  ('vehicle_purchases'),
-  ('vehicle_purchases'),
-  ('vehicle_sales'),
-  ('vehicle_sales'),
-  ('vehicle_ledger_entries'),
-  ('vehicle_ledger_entries'),
-  ('vehicle_ledger_entries'),
-  ('vehicle_inspection_records'),
-  ('inspection_catalogue_imports'),
-  ('inspection_support_events'),
-  ('inspector_evidence_revisions'),
-  ('inspection_measurement_imports'),
-  ('vehicle_valuation_snapshots'),
-  ('sales_orders'),
-  ('sales_orders'),
-  ('sales_order_items'),
-  ('invoices'),
-  ('invoices'),
-  ('invoices'),
-  ('invoices'),
-  ('invoices'),
-  ('invoices'),
-  ('invoice_items'),
-  ('purchase_invoice_lines'),
-  ('registration_document_intakes'),
-  ('registration_document_intakes'),
-  ('registration_document_intakes'),
-  ('employees'),
-  ('employee_work_schedules'),
-  ('workshop_orders'),
-  ('workshop_orders'),
-  ('workshop_orders'),
-  ('workshop_orders'),
-  ('workshop_orders'),
-  ('workshop_estimate_versions'),
-  ('workshop_estimate_approvals'),
-  ('workshop_estimate_approvals'),
-  ('workshop_estimate_overruns'),
-  ('notification_outbox'),
-  ('loaner_bookings'),
-  ('loaner_bookings'),
-  ('tyre_sets'),
-  ('tyre_set_events'),
-  ('tyre_set_events'),
-  ('tyre_set_events'),
-  ('tyre_set_events'),
-  ('workshop_tasks'),
-  ('workshop_tasks'),
-  ('workshop_task_line_items'),
-  ('workshop_task_line_items'),
-  ('workshop_task_line_items'),
-  ('parts_reservations'),
-  ('parts_reservations'),
-  ('parts_reservations'),
-  ('workshop_inspections'),
-  ('workshop_inspections'),
-  ('workshop_inspection_items'),
-  ('workshop_check_ins'),
-  ('workshop_media'),
-  ('workshop_media'),
-  ('workshop_voice_note_drafts'),
-  ('labor_categories'),
-  ('labor_operations'),
-  ('margin_rules'),
-  ('margin_rules'),
-  ('catalog_price_histories');
+  ('users');
 
 CREATE TEMP TABLE tenant_restore_expected_foreign_keys (
   child_table text NOT NULL,
@@ -867,279 +776,6 @@ BEGIN;
 UPDATE public."users"
 SET "active_tenant_id" = NULL
 WHERE "active_tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."payments"
-SET "recorded_by_user_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."fiscal_receipts"
-SET "original_fiscal_receipt_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."document_brand_extractions"
-SET "requested_by_user_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."document_brand_profiles"
-SET "confirmed_by_user_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."catalog_provider_settings"
-SET "default_labor_category_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."catalog_items"
-SET "superseded_by_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."catalog_items"
-SET "revenue_group_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."catalog_items"
-SET "brand_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."inventory_transactions"
-SET "parts_reservation_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."inventory_transactions"
-SET "stock_transfer_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."stock_transfers"
-SET "approved_by_user_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."stock_transfers"
-SET "shipped_by_user_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."stock_transfers"
-SET "received_by_user_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."agent_action_logs"
-SET "reverted_by_log_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."tenant_api_keys"
-SET "created_by_user_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."tenant_api_keys"
-SET "revoked_by_user_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."purchase_orders"
-SET "site_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."customer_consents"
-SET "contact_point_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."vehicles"
-SET "make_brand_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."vehicles"
-SET "customer_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."vehicles"
-SET "site_id" = NULL, "location_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."vehicles"
-SET "reserved_for_customer_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."vehicle_media"
-SET "created_by_user_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."vehicle_purchases"
-SET "site_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."vehicle_purchases"
-SET "vendor_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."vehicle_purchases"
-SET "customer_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."vehicle_purchases"
-SET "vehicle_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."vehicle_sales"
-SET "site_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."vehicle_sales"
-SET "trade_in_purchase_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."vehicle_ledger_entries"
-SET "vehicle_purchase_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."vehicle_ledger_entries"
-SET "vehicle_sale_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."vehicle_ledger_entries"
-SET "workshop_order_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."vehicle_inspection_records"
-SET "external_inspection_result_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."inspection_catalogue_imports"
-SET "staged_version_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."inspection_support_events"
-SET "site_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."inspector_evidence_revisions"
-SET "predecessor_revision_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."inspection_measurement_imports"
-SET "measurement_identity_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."vehicle_valuation_snapshots"
-SET "site_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."sales_orders"
-SET "site_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."sales_orders"
-SET "vehicle_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."sales_order_items"
-SET "catalog_item_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."invoices"
-SET "vehicle_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."invoices"
-SET "sales_order_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."invoices"
-SET "workshop_order_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."invoices"
-SET "vehicle_sale_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."invoices"
-SET "site_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."invoices"
-SET "legal_entity_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."invoice_items"
-SET "catalog_item_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."purchase_invoice_lines"
-SET "purchase_order_item_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."registration_document_intakes"
-SET "applied_customer_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."registration_document_intakes"
-SET "applied_vehicle_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."registration_document_intakes"
-SET "applied_workshop_order_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."employees"
-SET "user_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."employee_work_schedules"
-SET "site_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."workshop_orders"
-SET "site_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."workshop_orders"
-SET "customer_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."workshop_orders"
-SET "staging_location_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."workshop_orders"
-SET "mechanic_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."workshop_orders"
-SET "bay_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."workshop_estimate_versions"
-SET "legal_entity_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."workshop_estimate_approvals"
-SET "approval_token_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."workshop_estimate_approvals"
-SET "recorded_by_user_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."workshop_estimate_overruns"
-SET "notified_by_user_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."notification_outbox"
-SET "workshop_order_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."loaner_bookings"
-SET "workshop_order_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."loaner_bookings"
-SET "licence_checked_by_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."tyre_sets"
-SET "vehicle_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."tyre_set_events"
-SET "workshop_order_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."tyre_set_events"
-SET "from_location_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."tyre_set_events"
-SET "to_location_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."tyre_set_events"
-SET "employee_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."workshop_tasks"
-SET "mechanic_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."workshop_tasks"
-SET "bay_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."workshop_task_line_items"
-SET "catalog_item_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."workshop_task_line_items"
-SET "labor_category_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."workshop_task_line_items"
-SET "labor_operation_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."parts_reservations"
-SET "location_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."parts_reservations"
-SET "requisition_line_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."parts_reservations"
-SET "purchase_order_item_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."workshop_inspections"
-SET "workshop_task_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."workshop_inspections"
-SET "inspection_template_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."workshop_inspection_items"
-SET "inspection_template_item_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."workshop_check_ins"
-SET "inspection_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."workshop_media"
-SET "workshop_task_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."workshop_media"
-SET "check_in_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."workshop_voice_note_drafts"
-SET "accepted_by_employee_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."labor_categories"
-SET "parent_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."labor_operations"
-SET "category_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."margin_rules"
-SET "brand_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."margin_rules"
-SET "revenue_group_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-UPDATE public."catalog_price_histories"
-SET "import_job_id" = NULL
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
 
 UPDATE public."fiscal_receipts"
 SET "original_fiscal_receipt_id" = NULL
@@ -1163,31 +799,47 @@ UPDATE public."labor_categories"
 SET "parent_id" = NULL
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 
+DELETE FROM public."workshop_media"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."workshop_estimate_approvals"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."inventory_transactions"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."fiscal_receipts"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."credit_note_items"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."workshop_inspection_items"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_estimate_overruns"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_estimate_brand_asset_references"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."workshop_estimate_approvals"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_estimate_approval_tokens"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."workshop_check_ins"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."warranty_claim_lines"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."tyre_set_events"
+DELETE FROM public."payments"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."parts_reservations"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."invoice_items"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."invoice_brand_asset_references"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inspection_measurements"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."inspection_exchange_events"
+DELETE FROM public."inspection_finding_references"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."external_inspection_results"
+DELETE FROM public."credit_notes"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_voice_note_drafts"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_task_line_items"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."workshop_inspection_items"
+DELETE FROM public."workshop_inspections"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_estimate_versions"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
@@ -1195,59 +847,91 @@ DELETE FROM public."vehicle_listing_photos"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."vehicle_listing_channels"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."vehicle_ledger_entries"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."vehicle_inspection_records"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."registration_intake_byte_purges"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."labor_entries"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."invoices"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."inspection_measurement_imports"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."workshop_tasks"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."workshop_estimates"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."warranty_claims"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."vehicle_sales"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."vehicle_listings"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."vehicle_equipment_selections"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."vehicle_equipment_free_text_items"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."tyre_set_events"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."sales_order_items"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."registration_document_intakes"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."notification_outbox"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."loaner_bookings"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."inspection_measurement_identities"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."inspection_exchange_events"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."external_inspection_results"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."workshop_orders"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."vehicle_valuation_snapshots"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."vehicle_purchases"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."vehicle_media"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."tyre_sets"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."sales_orders"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."purchase_invoice_lines"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."loaner_vehicles"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."inspection_report_identities"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."inspection_exchange_imports"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."vehicles"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."stock_transfer_lines"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."stock_transfer_commands"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."registration_intake_byte_purges"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."loaner_bookings"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."labor_entries"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."inventory_transactions"
+DELETE FROM public."purchase_order_items"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inventory_stocks"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."inspection_measurement_imports"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."inspection_measurement_identities"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."inspection_finding_references"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."inspection_exchange_imports"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inspection_device_evidence"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."fiscal_receipts"
+DELETE FROM public."employee_work_schedule_days"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."domain_event_consumer_deliveries"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."document_brand_profiles"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."credit_note_items"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."workshop_tasks"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_opening_hours"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."workshop_media"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."workshop_inspections"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_holidays"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."workshop_estimates"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."workshop_check_ins"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."warranty_claims"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."vehicle_media"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."vehicle_listings"
+DELETE FROM public."vendor_articles"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."tenant_inspection_catalogue_activations"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
@@ -1257,25 +941,15 @@ DELETE FROM public."stock_transfers"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."site_memberships"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."sales_order_items"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."registration_document_intakes"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."purchase_order_items"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."purchase_invoice_lines"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."payments"
+DELETE FROM public."purchase_orders"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."parts_requisition_lines"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."loaner_vehicles"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."invoice_items"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."invoice_brand_asset_references"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."labor_fitments" AS child
+WHERE EXISTS (SELECT 1 FROM public."labor_operations" AS parent_0 WHERE parent_0."id" = child."labor_operation_id" AND parent_0."tenant_id" = current_setting('app.target_tenant_id'));
 DELETE FROM public."inspector_evidence_revisions"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."inspection_support_events"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inspection_source_connections"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
@@ -1285,57 +959,37 @@ DELETE FROM public."inspection_catalogue_imports"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."fiscal_registers"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."employee_work_schedule_days"
+DELETE FROM public."employee_work_schedules"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."domain_events"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."document_brand_extractions"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."credit_notes"
+DELETE FROM public."customer_consents"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."catalog_price_histories"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."bays"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."workshop_orders"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."voice_note_rate_limits"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."vendor_articles"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."vehicle_valuation_snapshots"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."vehicle_sales"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."vehicle_make_aliases"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."vehicle_ledger_entries"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."vehicle_inspection_records"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."vehicle_equipment_selections"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."vehicle_equipment_free_text_items"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."sites"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."sales_orders"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."purchase_orders"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."purchase_invoices"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."parts_requisitions"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."margin_rules"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."legal_entity_accounting_profiles"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."leave_requests"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."labor_fitments" AS child
-WHERE EXISTS (SELECT 1 FROM public."labor_operations" AS parent_0 WHERE parent_0."id" = child."labor_operation_id" AND parent_0."tenant_id" = current_setting('app.target_tenant_id'));
-DELETE FROM public."invoices"
+DELETE FROM public."labor_operations"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inspection_template_items"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."inspection_report_identities"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inspection_catalogue_entries"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
@@ -1343,23 +997,21 @@ DELETE FROM public."import_job_rows"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."external_id_mappings"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."employee_work_schedules"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."employee_leave_balances"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."document_brand_assets"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."customer_contact_points"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."customer_consents"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."customer_consent_unsubscribe_tokens"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."customer_communication_states"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."catalog_price_histories"
+DELETE FROM public."catalog_provider_settings"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."catalog_oem_concern_makes"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."catalog_items"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."attendance_events"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
@@ -1376,10 +1028,6 @@ DELETE FROM public."voice_translation_settings"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."vendors"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."vehicles"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."vehicle_purchases"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."vehicle_equipment_options"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."tyre_storage_settings"
@@ -1390,23 +1038,15 @@ DELETE FROM public."tenant_api_keys"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."revenue_groups"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."notification_outbox"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."mcp_write_command_receipts"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."margin_rules"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."legal_entities"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."labor_operations"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."labor_categories"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."invoice_sequences"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inspection_templates"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."inspection_support_events"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inspection_catalogue_versions"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
@@ -1430,11 +1070,7 @@ DELETE FROM public."customers"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."credit_note_sequences"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."catalog_provider_settings"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."catalog_oem_concerns"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."catalog_items"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."brands"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');

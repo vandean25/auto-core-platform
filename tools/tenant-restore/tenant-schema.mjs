@@ -140,7 +140,6 @@ function explicitRelations(models) {
           targetTable: targetModel?.table,
           columns: dbFields(model, relation.fields),
           parentColumns: dbFields(targetModel, relation.references),
-          optionalRelation,
           onDelete:
             relation.onDelete ?? (optionalRelation ? 'SET NULL' : 'RESTRICT'),
           onUpdate: relation.onUpdate ?? 'CASCADE',
@@ -320,44 +319,22 @@ function selfReferences(models, selectedModels) {
     .filter((reference) => reference.columns.length > 0);
 }
 
-function optionalForeignKeyPrePurgeMutations(models, selectedModels) {
+function prePurgeMutations(models) {
+  const userModel = models.find((model) => model.table === 'users');
+  if (!userModel) return [];
+
   return explicitRelations(models)
     .filter(
       (relation) =>
-        relation.optionalRelation && selectedModels.has(relation.model),
+        relation.table === 'users' &&
+        relation.targetModel === 'Tenant' &&
+        relation.columns.includes('active_tenant_id'),
     )
-    .map((relation) => {
-      const model = models.find((candidate) => candidate.name === relation.model);
-      const linkFields = relation.fields.filter(
-        (field) => model.fields.get(field)?.dbField !== 'tenant_id',
-      );
-      return {
-        table: relation.table,
-        columns: dbFields(model, linkFields),
-        condition: 'tenant_id',
-      };
-    });
-}
-
-function prePurgeMutations(models, selectedModels) {
-  const userModel = models.find((model) => model.table === 'users');
-  const userMutations =
-    userModel === undefined
-      ? []
-      : explicitRelations(models)
-          .filter(
-            (relation) =>
-              relation.table === 'users' &&
-              relation.targetModel === 'Tenant' &&
-              relation.columns.includes('active_tenant_id'),
-          )
-          .map((relation) => ({
-            table: 'users',
-            columns: relation.columns,
-            condition: relation.columns[0],
-          }));
-
-  return [...userMutations, ...optionalForeignKeyPrePurgeMutations(models, selectedModels)];
+    .map((relation) => ({
+      table: 'users',
+      columns: relation.columns,
+      condition: relation.columns[0],
+    }));
 }
 
 function foreignKeySignatures(
@@ -822,14 +799,11 @@ COMMIT;
 
 export function renderPurgeSql(manifest) {
   const prePurge = manifest.prePurgeMutations
-    .map((mutation) => {
-      const nullAssignments = mutation.columns
-        .map((column) => `${quoteIdentifier(column)} = NULL`)
-        .join(', ');
-      return `UPDATE ${publicTable(mutation.table)}
-SET ${nullAssignments}
-WHERE ${quoteIdentifier(mutation.condition)} = current_setting('app.target_tenant_id');`;
-    })
+    .map(
+      (mutation) => `UPDATE ${publicTable(mutation.table)}
+SET ${quoteIdentifier(mutation.columns[0])} = NULL
+WHERE ${quoteIdentifier(mutation.condition)} = current_setting('app.target_tenant_id');`,
+    )
     .join('\n');
   const deletes = [...manifest.definitions]
     .reverse()
@@ -892,9 +866,7 @@ export function buildTenantRestoreManifest(
     return {
       table: model.table,
       kind: directModels.has(modelName) ? 'tenant' : 'dependent',
-      dependencies: modelRelations
-        .filter((relation) => !relation.optionalRelation)
-        .map((relation) => relation.targetTable),
+      dependencies: modelRelations.map((relation) => relation.targetTable),
       scopeRelations: directModels.has(modelName)
         ? []
         : modelRelations.map((relation) => ({
@@ -918,7 +890,7 @@ export function buildTenantRestoreManifest(
         modelByTable.get(definition.table)?.name ?? null,
       ]),
     ),
-    prePurgeMutations: prePurgeMutations(models, selectedModels),
+    prePurgeMutations: prePurgeMutations(models),
     selfReferences: selfReferences(models, selectedModels),
     foreignKeys: foreignKeySignatures(
       relations,
