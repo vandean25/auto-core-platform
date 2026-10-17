@@ -6022,10 +6022,22 @@ describe('MCP server (e2e)', () => {
       );
       expect(proposed.proposal.preview.finalize_note).toContain('DRAFT');
 
+      const previewInvoiceId = proposed.proposal.preview.invoice_id;
+      expect(previewInvoiceId).toBeTruthy();
+
+      const sequenceBeforePropose = await prismaA.invoiceSequence.findMany({
+        where: { tenant_id: tenantA },
+      });
       const invoicesBefore = await prismaA.invoice.count({
         where: { workshop_order_id: order.id },
       });
       expect(invoicesBefore).toBe(0);
+      expect(
+        await prismaA.invoice.findFirst({ where: { id: previewInvoiceId } }),
+      ).toBeNull();
+      expect(await prismaA.invoiceSequence.findMany({
+        where: { tenant_id: tenantA },
+      })).toEqual(sequenceBeforePropose);
 
       const applied = await applyProposal(
         proposed.pending_action_id,
@@ -6033,13 +6045,29 @@ describe('MCP server (e2e)', () => {
       ).expect(200);
       expect(applied.body.status).toBe('EXECUTED');
 
-      const invoice = await prismaA.invoice.findFirstOrThrow({
+      const invoices = await prismaA.invoice.findMany({
         where: { workshop_order_id: order.id },
       });
+      expect(invoices).toHaveLength(1);
+      const invoice = invoices[0];
       expect(invoice.status).toBe('DRAFT');
+      expect(invoice.id).not.toBe(previewInvoiceId);
+      expect(invoice.invoice_number).toBeNull();
+      expect(invoice.total_net.toFixed(2)).toBe(
+        proposed.proposal.preview.totals.net,
+      );
+      expect(invoice.total_tax.toFixed(2)).toBe(
+        proposed.proposal.preview.totals.vat,
+      );
       expect(invoice.total_gross.toFixed(2)).toBe(
         proposed.proposal.preview.totals.gross,
       );
+      expect(
+        await prismaA.invoice.findFirst({ where: { id: previewInvoiceId } }),
+      ).toBeNull();
+      expect(await prismaA.invoiceSequence.findMany({
+        where: { tenant_id: tenantA },
+      })).toEqual(sequenceBeforePropose);
 
       await expectActionLogRow(traceId, 'mcp.propose_invoice_draft_from_order', {
         status: 'PROPOSED',
