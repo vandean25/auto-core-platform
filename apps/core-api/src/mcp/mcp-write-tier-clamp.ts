@@ -9,5 +9,6 @@ export const MCP_WRITE_TIER_PROPOSE_CLAMP_TOOLS: ReadonlySet<McpWriteToolName> =
     'propose_purchase_order',
     'propose_workshop_order_completion',
     'propose_invoice_draft_from_order',
+    'propose_estimate_send',
     'propose_mechanic_finding',
   ]);

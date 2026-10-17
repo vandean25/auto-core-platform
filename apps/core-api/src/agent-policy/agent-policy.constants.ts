@@ -24,6 +24,7 @@ export const MCP_WRITE_POLICY_ACTION_TYPES = {
   propose_purchase_order: 'purchase_order.propose_draft',
   propose_workshop_order_completion: 'workshop_order.complete',
   propose_invoice_draft_from_order: 'invoice.create_draft_from_workshop_order',
+  propose_estimate_send: 'estimate.send_customer_message',
 } as const;
 
 export type McpWritePolicyActionType =

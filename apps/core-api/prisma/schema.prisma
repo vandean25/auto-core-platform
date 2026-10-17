@@ -1978,6 +1978,13 @@ model VehicleListing {
   nova_included_confirmed           Boolean                         @default(false) @map("nova_included_confirmed")
   mandatory_fees_included_confirmed Boolean                       @default(false) @map("mandatory_fees_included_confirmed")
   equipment_free_text               String?                         @map("equipment_free_text") @db.VarChar(2000)
+  portal_category                   String?                         @map("portal_category") @db.VarChar(64)
+  export_assertion_damage_free      Boolean?                        @map("export_assertion_damage_free")
+  export_assertion_metallic         Boolean?                        @map("export_assertion_metallic")
+  export_assertion_guarantee        Boolean?                        @map("export_assertion_guarantee")
+  export_assertion_jahreswagen      Boolean?                        @map("export_assertion_jahreswagen")
+  export_assertion_recommendation   Boolean?                        @map("export_assertion_recommendation")
+  export_assertion_demo_vehicle     Boolean?                        @map("export_assertion_demo_vehicle")
   content_sha256                    String                          @map("content_sha256") @db.Char(64)
   channels                          VehicleListingChannel[]
   photos                            VehicleListingPhoto[]

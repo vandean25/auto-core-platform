@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto';
 import { UnprocessableEntityException } from '@nestjs/common';
 import { isPlainEmailAddress } from '../notifications/email/email-address.js';
 import type { EmailDraft } from '../notifications/notification-outbox.email-columns.js';
@@ -27,29 +28,72 @@ export interface CustomerEstimateEmail {
  * address for order communication, the address must be a plain one, and the vehicle must be named. The copy is
  * the phase 3 draft: summary and link, with no attachment.
  */
-export function buildCustomerEstimateEmail(
-  input: CustomerEstimateEmailInput,
-): CustomerEstimateEmail {
-  if (!input.customer.contact_email_ok) {
+/** Confirmed, non-empty plain customer email for estimate delivery. */
+export function resolveCustomerEstimateRecipientEmail(customer: {
+  contact_email_ok: boolean;
+  email: string | null;
+}): string {
+  if (!customer.contact_email_ok) {
+    const code = 'ESTIMATE_CUSTOMER_EMAIL_NOT_CONFIRMED';
     throw new UnprocessableEntityException({
-      code: 'ESTIMATE_CUSTOMER_EMAIL_NOT_CONFIRMED',
-      message:
-        'The customer email address must be confirmed for order communication before the estimate is emailed.',
+      code,
+      message: `${code}: The customer email address must be confirmed for order communication before the estimate is emailed.`,
     });
   }
-  const recipientEmail = input.customer.email?.trim() ?? '';
+  const recipientEmail = customer.email?.trim() ?? '';
   if (recipientEmail === '') {
+    const code = 'ESTIMATE_CUSTOMER_EMAIL_MISSING';
     throw new UnprocessableEntityException({
-      code: 'ESTIMATE_CUSTOMER_EMAIL_MISSING',
-      message: 'The customer has no email address for the estimate.',
+      code,
+      message: `${code}: The customer has no email address for the estimate.`,
     });
   }
   if (!isPlainEmailAddress(recipientEmail)) {
+    const code = 'ESTIMATE_CUSTOMER_EMAIL_INVALID';
     throw new UnprocessableEntityException({
-      code: 'ESTIMATE_CUSTOMER_EMAIL_INVALID',
-      message: 'The customer email address is not a plain address.',
+      code,
+      message: `${code}: The customer email address is not a plain address.`,
     });
   }
+  return recipientEmail;
+}
+
+function estimateRecipientPinSecret(): string {
+  const dedicated = process.env.ESTIMATE_RECIPIENT_PIN_SECRET?.trim();
+  if (dedicated) {
+    return dedicated;
+  }
+  const fallback = process.env.SECRET_ENCRYPTION_KEY?.trim();
+  if (fallback) {
+    return fallback;
+  }
+  if (process.env.NODE_ENV === 'test') {
+    return 'test-estimate-recipient-pin-secret';
+  }
+  throw new Error(
+    'ESTIMATE_RECIPIENT_PIN_SECRET or SECRET_ENCRYPTION_KEY is required to pin estimate recipients',
+  );
+}
+
+/**
+ * HMAC pin for the customer email at propose time (tenant + customer id + normalized address).
+ * Stored on proposals instead of the raw address.
+ */
+export function pinCustomerEstimateRecipientEmail(
+  tenantId: string,
+  customerId: string,
+  email: string,
+): string {
+  const normalized = email.trim().toLowerCase();
+  return createHmac('sha256', estimateRecipientPinSecret())
+    .update(`${tenantId}:${customerId}:${normalized}`)
+    .digest('hex');
+}
+
+export function buildCustomerEstimateEmail(
+  input: CustomerEstimateEmailInput,
+): CustomerEstimateEmail {
+  const recipientEmail = resolveCustomerEstimateRecipientEmail(input.customer);
   const make = input.vehicle.make.trim();
   const model = input.vehicle.model.trim();
   if (make === '' || model === '') {

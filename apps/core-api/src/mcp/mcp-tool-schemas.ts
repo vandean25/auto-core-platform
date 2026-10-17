@@ -46,6 +46,7 @@ import { proposePurchaseOrderInputSchema } from '../purchase/purchase-propose-dr
 import { generateWeeklyReportPdfInputSchema } from '../reports/weekly-report/weekly-report-mcp.schema.js';
 import { proposeWorkshopOrderCompletionInputSchema } from '../workshop/workshop-order-completion.schema.js';
 import { proposeInvoiceDraftFromOrderInputSchema } from '../invoices/invoice-workshop-draft-propose.schema.js';
+import { proposeEstimateSendInputSchema } from '../workshop/workshop-estimate-send-propose.schema.js';
 
 const pageSchema = z.number().int().min(1).optional();
 const uuidSchema = z.string().uuid();
@@ -919,6 +920,7 @@ export const mcpWriteToolInputSchemas: Record<
   propose_purchase_order: proposePurchaseOrderInputSchema,
   propose_workshop_order_completion: proposeWorkshopOrderCompletionInputSchema,
   propose_invoice_draft_from_order: proposeInvoiceDraftFromOrderInputSchema,
+  propose_estimate_send: proposeEstimateSendInputSchema,
   request_workshop_media_upload: requestWorkshopMediaUploadInputSchema,
   propose_mechanic_finding: proposeMechanicFindingInputSchema,
   generate_weekly_report_pdf: generateWeeklyReportPdfInputSchema,

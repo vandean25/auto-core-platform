@@ -1,6 +1,7 @@
 import { UnprocessableEntityException } from '@nestjs/common';
 import {
   buildCustomerEstimateEmail,
+  pinCustomerEstimateRecipientEmail,
   type CustomerEstimateEmailInput,
 } from './workshop-estimate-customer-email.js';
 
@@ -28,6 +29,37 @@ function refusalCode(input: CustomerEstimateEmailInput): unknown {
   expect(error).toBeInstanceOf(UnprocessableEntityException);
   return (error as UnprocessableEntityException).getResponse();
 }
+
+describe('pinCustomerEstimateRecipientEmail', () => {
+  it('is stable for tenant, customer, and normalized email', () => {
+    const first = pinCustomerEstimateRecipientEmail(
+      'tenant-1',
+      'customer-1',
+      ' User@Example.COM ',
+    );
+    const second = pinCustomerEstimateRecipientEmail(
+      'tenant-1',
+      'customer-1',
+      'user@example.com',
+    );
+    expect(first).toMatch(/^[a-f0-9]{64}$/);
+    expect(first).toBe(second);
+  });
+
+  it('changes when the customer id or email changes', () => {
+    const base = pinCustomerEstimateRecipientEmail(
+      'tenant-1',
+      'customer-1',
+      'user@example.com',
+    );
+    expect(
+      pinCustomerEstimateRecipientEmail('tenant-1', 'customer-2', 'user@example.com'),
+    ).not.toBe(base);
+    expect(
+      pinCustomerEstimateRecipientEmail('tenant-1', 'customer-1', 'other@example.com'),
+    ).not.toBe(base);
+  });
+});
 
 describe('buildCustomerEstimateEmail (ADR-0025 §5, §6, §8)', () => {
   it('writes the estimate email to the customer with the approval link and no attachment', () => {

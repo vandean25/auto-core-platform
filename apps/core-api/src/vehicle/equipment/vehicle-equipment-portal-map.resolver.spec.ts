@@ -28,16 +28,19 @@ describe('resolveVehicleEquipmentForProfile', () => {
     expect(resolved.mappedFields).toEqual([
       {
         localCode: 'ABS',
-        portalField: '31',
+        portalField: '33',
+        portalValue: '1',
+        verification: 'UNVERIFIED',
+      },
+      {
+        localCode: 'PARKING_CAMERA',
+        portalField: '201',
         portalValue: '1',
         verification: 'UNVERIFIED',
       },
     ]);
     expect(resolved.equipmentCodes).toEqual([]);
-    expect(resolved.equipmentFreeTextLines).toEqual([
-      'PARKING_CAMERA: Rückfahrkamera',
-      'Panoramic roof',
-    ]);
+    expect(resolved.equipmentFreeTextLines).toEqual(['Panoramic roof']);
     expect(resolved.profileVerification).toBe('UNVERIFIED');
   });
 
@@ -50,6 +53,35 @@ describe('resolveVehicleEquipmentForProfile', () => {
     expect(resolved.equipmentCodes).toEqual(['ABS', 'PARKING_CAMERA']);
     expect(resolved.mappedFields).toEqual([]);
     expect(resolved.equipmentFreeTextLines).toEqual([]);
+  });
+
+  it('does not let confirmed-absent climate overwrite present air conditioning on the same column', () => {
+    const resolved = resolveVehicleEquipmentForProfile('MOBILE_DE_REFERENCE_V1', {
+      selections: [
+        {
+          code: 'AIR_CONDITIONING',
+          label_de: 'Klimaanlage',
+          label_en: 'Air conditioning',
+          assertion: 'PRESENT',
+        },
+        {
+          code: 'AUTOMATIC_CLIMATE',
+          label_de: 'Klimaautomatik',
+          label_en: 'Automatic climate',
+          assertion: 'ABSENT',
+        },
+      ],
+      freeTextLines: [],
+    });
+
+    expect(resolved.mappedFields).toEqual([
+      {
+        localCode: 'AIR_CONDITIONING',
+        portalField: '17',
+        portalValue: '1',
+        verification: 'UNVERIFIED',
+      },
+    ]);
   });
 
   it('emits explicit negative portal values only for confirmed absent options', () => {
@@ -68,7 +100,7 @@ describe('resolveVehicleEquipmentForProfile', () => {
     expect(resolved.mappedFields).toEqual([
       {
         localCode: 'ABS',
-        portalField: '31',
+        portalField: '33',
         portalValue: '0',
         verification: 'UNVERIFIED',
       },
@@ -89,10 +121,15 @@ describe('resolveVehicleEquipmentForProfile', () => {
       freeTextLines: [],
     });
 
-    expect(resolved.mappedFields).toEqual([]);
-    expect(resolved.equipmentFreeTextLines).toEqual([
-      'PARKING_CAMERA: Rückfahrkamera (not fitted)',
+    expect(resolved.mappedFields).toEqual([
+      {
+        localCode: 'PARKING_CAMERA',
+        portalField: '201',
+        portalValue: '0',
+        verification: 'UNVERIFIED',
+      },
     ]);
+    expect(resolved.equipmentFreeTextLines).toEqual([]);
   });
 
   it('appends confirmed absence as free text on provisional AutoScout24 profile', () => {

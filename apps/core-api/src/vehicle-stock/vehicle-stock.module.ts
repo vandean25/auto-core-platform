@@ -59,6 +59,7 @@ import {
     VehicleLedgerService,
     VehicleSaleService,
     VehicleStockReportsService,
+    VEHICLE_MEDIA_STORAGE,
   ],
 })
 export class VehicleStockModule implements OnModuleInit {

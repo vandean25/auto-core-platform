@@ -69,6 +69,13 @@ export function toVehicleListingDto(
     description_language: listing.description_language,
     price_display: toVehicleListingPriceDisplayDto(listing),
     equipment_free_text: listing.equipment_free_text,
+    portal_category: listing.portal_category,
+    export_assertion_damage_free: listing.export_assertion_damage_free,
+    export_assertion_metallic: listing.export_assertion_metallic,
+    export_assertion_guarantee: listing.export_assertion_guarantee,
+    export_assertion_jahreswagen: listing.export_assertion_jahreswagen,
+    export_assertion_recommendation: listing.export_assertion_recommendation,
+    export_assertion_demo_vehicle: listing.export_assertion_demo_vehicle,
     content_sha256: listing.content_sha256,
     photos: listing.photos
       .slice()

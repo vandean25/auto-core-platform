@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import type { VehicleListingVatDisplay } from '@prisma/client';
 import { VEHICLE_LISTING_PLATFORM_DEFAULTS } from './vehicle-listing-platform.defaults.js';
 
-export const VEHICLE_LISTING_CONTENT_HASH_SCHEMA_VERSION = 3;
+export const VEHICLE_LISTING_CONTENT_HASH_SCHEMA_VERSION = 4;
 
 export interface VehicleListingContentHashEquipmentRow {
   code: string;
@@ -40,6 +40,15 @@ export interface VehicleListingContentHashVehicleRow {
   emission_class: string | null;
 }
 
+export interface VehicleListingContentHashExportAssertions {
+  damage_free: boolean | null;
+  metallic: boolean | null;
+  guarantee: boolean | null;
+  jahreswagen: boolean | null;
+  recommendation: boolean | null;
+  demo_vehicle: boolean | null;
+}
+
 export interface VehicleListingContentHashInput {
   listing_ref: string;
   title: string | null;
@@ -50,6 +59,8 @@ export interface VehicleListingContentHashInput {
   nova_included_confirmed: boolean;
   mandatory_fees_included_confirmed: boolean;
   equipment_free_text: string | null;
+  portal_category: string | null;
+  export_assertions: VehicleListingContentHashExportAssertions;
   equipment: VehicleListingContentHashEquipmentRow[];
   equipment_free_text_lines: VehicleListingContentHashEquipmentFreeTextRow[];
   photos: VehicleListingContentHashPhotoRow[];
@@ -110,6 +121,8 @@ export function buildVehicleListingContentHashPayload(
     nova_included_confirmed: input.nova_included_confirmed,
     mandatory_fees_included_confirmed: input.mandatory_fees_included_confirmed,
     equipment_free_text: input.equipment_free_text,
+    portal_category: input.portal_category,
+    export_assertions: sortJsonValue(input.export_assertions),
     equipment: sortedEquipment(input.equipment),
     equipment_free_text_lines: sortedEquipmentFreeText(
       input.equipment_free_text_lines,
@@ -143,6 +156,15 @@ export function emptyVehicleListingContentSha256(
     nova_included_confirmed: false,
     mandatory_fees_included_confirmed: false,
     equipment_free_text: null,
+    portal_category: null,
+    export_assertions: {
+      damage_free: null,
+      metallic: null,
+      guarantee: null,
+      jahreswagen: null,
+      recommendation: null,
+      demo_vehicle: null,
+    },
     equipment: [],
     equipment_free_text_lines: [],
     photos: [],

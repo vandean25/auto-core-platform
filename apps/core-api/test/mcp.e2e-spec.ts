@@ -6124,6 +6124,343 @@ describe('MCP server (e2e)', () => {
     });
   });
 
+  describe('AUT-597 propose_estimate_send', () => {
+    const estimateRecipientEmail = 'kva.recipient@example.com';
+    let previousSendFlag: string | undefined;
+    let previousApprovalBaseUrl: string | undefined;
+
+    async function seedEstimateSendOrder() {
+      await prismaA.customer.update({
+        where: { id: fixtures.customerId },
+        data: {
+          email: estimateRecipientEmail,
+          contact_email_ok: true,
+        },
+      });
+      const order = await prismaA.workshopOrder.create({
+        data: {
+          order_number: `WO-KVA-${Date.now()}`,
+          customer_id: fixtures.customerId,
+          vehicle_id: fixtures.vehicleId,
+          site_id: fixtures.siteId,
+          odometer: 2200,
+          fuel_level: 50,
+          status: 'IN_PROGRESS',
+        },
+      });
+      const task = await prismaA.workshopTask.create({
+        data: {
+          tenant_id: tenantA,
+          workshop_order_id: order.id,
+          title: 'MCP estimate send task',
+          status: 'IN_PROGRESS',
+        },
+      });
+      await prismaA.workshopTaskLineItem.create({
+        data: {
+          workshop_task_id: task.id,
+          type: 'LABOR',
+          item_no: 'KVA-LABOR-01',
+          description: 'Synthetic labor line',
+          quantity: 1,
+          unit_price: 50,
+        },
+      });
+      return { order, task };
+    }
+
+    beforeEach(async () => {
+      previousSendFlag = process.env.CUSTOMER_ESTIMATE_SEND_ENABLED;
+      previousApprovalBaseUrl = process.env.ESTIMATE_APPROVAL_BASE_URL;
+      process.env.CUSTOMER_ESTIMATE_SEND_ENABLED = 'true';
+      process.env.ESTIMATE_APPROVAL_BASE_URL = 'https://portal.example.at';
+      await setPolicyTier('estimate.send_customer_message', 'PROPOSE');
+      await seedReadySellerAndAccountingProfile(prismaA, tenantA);
+    });
+
+    afterEach(() => {
+      if (previousSendFlag === undefined) {
+        delete process.env.CUSTOMER_ESTIMATE_SEND_ENABLED;
+      } else {
+        process.env.CUSTOMER_ESTIMATE_SEND_ENABLED = previousSendFlag;
+      }
+      if (previousApprovalBaseUrl === undefined) {
+        delete process.env.ESTIMATE_APPROVAL_BASE_URL;
+      } else {
+        process.env.ESTIMATE_APPROVAL_BASE_URL = previousApprovalBaseUrl;
+      }
+    });
+
+    it('PROPOSE: previews totals and apply sends one SENT version with outbox row', async () => {
+      const { order } = await seedEstimateSendOrder();
+      const traceId = '00000000-0000-4000-8000-000000000607';
+      const commandId = '00000000-0000-4000-8000-000000000608';
+      const result = await callMcpTool(
+        caller(adminHeaderA, 'e2e-estimate-send'),
+        'propose_estimate_send',
+        {
+          workshop_order_id: order.id,
+          channel: 'email',
+          command_id: commandId,
+        },
+        traceId,
+      );
+      const proposed = parsePayload<{
+        status: string;
+        tier: string;
+        pending_action_id: string;
+        proposal: {
+          provisional: boolean;
+          preview: {
+            estimate_number: string;
+            totals: { net: string; vat: string; gross: string };
+            recipient_email_masked: string;
+            lines: Array<{ gross: string }>;
+          };
+        };
+      }>(result);
+      expect(proposed.status).toBe('needs_approval');
+      expect(proposed.tier).toBe('PROPOSE');
+      expect(proposed.proposal.provisional).toBe(true);
+      expect(proposed.proposal.preview.totals).toEqual({
+        net: '50.00',
+        vat: '10.00',
+        gross: '60.00',
+      });
+      expect(proposed.proposal.preview.lines[0]?.gross).toBe('60.00');
+      expect(proposed.proposal.preview.recipient_email_masked).toContain('@');
+      const proposedJson = JSON.stringify(proposed);
+      expect(proposedJson).not.toContain(estimateRecipientEmail);
+
+      const proposalRow = await prismaA.agentProposal.findFirstOrThrow({
+        where: { id: proposed.pending_action_id },
+      });
+      expect(proposalRow.action_type).toBe('estimate.send_customer_message');
+      expect(JSON.stringify(proposalRow.payload_json)).not.toContain(
+        estimateRecipientEmail,
+      );
+
+      const actionLog = await prismaA.agentActionLog.findFirstOrThrow({
+        where: { trace_id: traceId, action_type: 'mcp.propose_estimate_send' },
+      });
+      expect(JSON.stringify(actionLog.result_summary_json)).not.toContain(
+        estimateRecipientEmail,
+      );
+      expect(JSON.stringify(actionLog.input_summary_json)).not.toContain(
+        estimateRecipientEmail,
+      );
+
+      const versionsBefore = await prismaA.workshopEstimateVersion.count({
+        where: {
+          estimate: { workshop_order_id: order.id },
+          status: 'SENT',
+        },
+      });
+      expect(versionsBefore).toBe(0);
+
+      const applied = await applyProposal(
+        proposed.pending_action_id,
+        adminHeaderA,
+      ).expect(200);
+      expect(applied.body.status).toBe('EXECUTED');
+
+      const sentVersions = await prismaA.workshopEstimateVersion.findMany({
+        where: {
+          estimate: { workshop_order_id: order.id },
+          status: 'SENT',
+        },
+      });
+      expect(sentVersions).toHaveLength(1);
+      expect(sentVersions[0]?.total_gross?.toFixed(2)).toBe('60.00');
+
+      const outbox = await prismaA.notificationOutbox.count({
+        where: {
+          workshop_order_id: order.id,
+          event_type: 'CUSTOMER_ESTIMATE_SENT',
+        },
+      });
+      expect(outbox).toBe(1);
+
+      await expectActionLogRow(traceId, 'mcp.propose_estimate_send', {
+        status: 'PROPOSED',
+        tier: 'PROPOSE',
+      });
+    });
+
+    it('reports PROPOSE tier in capabilities when the tenant rule is enabled', async () => {
+      const caps = await readAllCapabilities((args) =>
+        callMcpTool(caller(adminHeaderA, 'e2e-estimate-cap'), 'get_capabilities', args),
+      );
+      const entry = caps.data.find((row) => row.tool === 'propose_estimate_send');
+      expect(entry).toMatchObject({ tier: 'PROPOSE', enabled: true });
+      expect(caps.human_only_actions).not.toContain(
+        'estimate.send_customer_message',
+      );
+    });
+
+    it('rejects unconfirmed customer email before creating a proposal', async () => {
+      const { order } = await seedEstimateSendOrder();
+      await prismaA.customer.update({
+        where: { id: fixtures.customerId },
+        data: {
+          email: estimateRecipientEmail,
+          contact_email_ok: false,
+        },
+      });
+      const result = await callMcpTool(
+        caller(adminHeaderA, 'e2e-estimate-email-not-confirmed'),
+        'propose_estimate_send',
+        { workshop_order_id: order.id, channel: 'email' },
+      );
+      expect(result.isError).toBe(true);
+      expect(toolPayloadText(result)).toContain(
+        'ESTIMATE_CUSTOMER_EMAIL_NOT_CONFIRMED',
+      );
+      expect(
+        await prismaA.agentProposal.count({
+          where: {
+            action_type: 'estimate.send_customer_message',
+            payload_json: {
+              path: ['workshop_order_id'],
+              equals: order.id,
+            },
+          },
+        }),
+      ).toBe(0);
+    });
+
+    it('rejects missing customer email before creating a proposal', async () => {
+      const { order } = await seedEstimateSendOrder();
+      await prismaA.customer.update({
+        where: { id: fixtures.customerId },
+        data: { email: null, contact_email_ok: true },
+      });
+      const result = await callMcpTool(
+        caller(adminHeaderA, 'e2e-estimate-no-email'),
+        'propose_estimate_send',
+        { workshop_order_id: order.id, channel: 'email' },
+      );
+      expect(result.isError).toBe(true);
+      expect(toolPayloadText(result)).toContain(
+        'ESTIMATE_CUSTOMER_EMAIL_MISSING',
+      );
+      expect(
+        await prismaA.agentProposal.count({
+          where: {
+            action_type: 'estimate.send_customer_message',
+            payload_json: {
+              path: ['workshop_order_id'],
+              equals: order.id,
+            },
+          },
+        }),
+      ).toBe(0);
+    });
+
+    it('refuses propose when estimate.send_customer_message is disabled', async () => {
+      const { order } = await seedEstimateSendOrder();
+      await putPolicyRule('estimate.send_customer_message', {
+        tier: 'PROPOSE',
+        enabled: false,
+      });
+      const result = await callMcpTool(
+        caller(adminHeaderA, 'e2e-estimate-policy-off'),
+        'propose_estimate_send',
+        { workshop_order_id: order.id, channel: 'email' },
+      );
+      expect(result.isError).toBe(true);
+      expect(
+        await prismaA.agentProposal.count({
+          where: {
+            action_type: 'estimate.send_customer_message',
+            payload_json: {
+              path: ['workshop_order_id'],
+              equals: order.id,
+            },
+          },
+        }),
+      ).toBe(0);
+      await setPolicyTier('estimate.send_customer_message', 'PROPOSE');
+    });
+
+    it('conflicts on apply when workshop lines changed after propose', async () => {
+      const { order, task } = await seedEstimateSendOrder();
+      const proposed = parsePayload<{ pending_action_id: string }>(
+        await callMcpTool(
+          caller(adminHeaderA, 'e2e-estimate-stale'),
+          'propose_estimate_send',
+          { workshop_order_id: order.id, channel: 'email' },
+        ),
+      );
+      await prismaA.workshopTaskLineItem.create({
+        data: {
+          workshop_task_id: task.id,
+          type: 'LABOR',
+          item_no: 'KVA-LABOR-02',
+          description: 'Extra line after propose',
+          quantity: 1,
+          unit_price: 10,
+        },
+      });
+      await applyProposal(proposed.pending_action_id, adminHeaderA).expect(409);
+    });
+
+    it('double apply sends only one customer email', async () => {
+      const { order } = await seedEstimateSendOrder();
+      const proposed = parsePayload<{ pending_action_id: string }>(
+        await callMcpTool(
+          caller(adminHeaderA, 'e2e-estimate-double-apply'),
+          'propose_estimate_send',
+          { workshop_order_id: order.id, channel: 'email' },
+        ),
+      );
+      await applyProposal(proposed.pending_action_id, adminHeaderA).expect(200);
+      const secondApply = await applyProposal(
+        proposed.pending_action_id,
+        adminHeaderA,
+      ).expect(200);
+      expect(secondApply.body.status).toBe('EXECUTED');
+      const outbox = await prismaA.notificationOutbox.count({
+        where: {
+          workshop_order_id: order.id,
+          event_type: 'CUSTOMER_ESTIMATE_SENT',
+        },
+      });
+      expect(outbox).toBe(1);
+    });
+
+    it('replays with the same command_id', async () => {
+      const { order } = await seedEstimateSendOrder();
+      const commandId = '00000000-0000-4000-8000-000000000609';
+      const first = parsePayload<{ pending_action_id: string }>(
+        await callMcpTool(
+          caller(adminHeaderA, 'e2e-estimate-send-replay'),
+          'propose_estimate_send',
+          { workshop_order_id: order.id, channel: 'email', command_id: commandId },
+        ),
+      );
+      const second = parsePayload<{ pending_action_id: string; replayed?: boolean }>(
+        await callMcpTool(
+          caller(adminHeaderA, 'e2e-estimate-send-replay'),
+          'propose_estimate_send',
+          { workshop_order_id: order.id, channel: 'email', command_id: commandId },
+        ),
+      );
+      expect(second.pending_action_id).toBe(first.pending_action_id);
+      expect(second.replayed).toBe(true);
+    });
+
+    it('does not propose for a workshop order in another tenant', async () => {
+      const { order } = await seedEstimateSendOrder();
+      const result = await callMcpTool(
+        caller(adminHeaderB, 'e2e-estimate-tenant-b'),
+        'propose_estimate_send',
+        { workshop_order_id: order.id, channel: 'email' },
+      );
+      expect(result.isError).toBe(true);
+    });
+  });
+
   describe('AUT-598 mechanic finding media MCP tools', () => {
     let advisorEmployeeId = '';
     let findingTaskId: string;

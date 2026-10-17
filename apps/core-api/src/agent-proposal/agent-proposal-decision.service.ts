@@ -346,6 +346,8 @@ export class AgentProposalDecisionService {
       proposal.action_type !== 'purchase_order.propose_draft' &&
       proposal.action_type !== 'workshop_order.complete' &&
       proposal.action_type !== 'invoice.create_draft_from_workshop_order' &&
+      proposal.action_type !== 'workshop_estimate.send' &&
+      proposal.action_type !== 'estimate.send_customer_message' &&
       proposal.action_type !== 'workshop_order.mechanic_finding'
     ) {
       return;
@@ -425,6 +427,8 @@ export class AgentProposalDecisionService {
                   proposal.action_type === 'workshop_order.complete' ||
                   proposal.action_type ===
                     'invoice.create_draft_from_workshop_order' ||
+                  proposal.action_type === 'workshop_estimate.send' ||
+                  proposal.action_type === 'estimate.send_customer_message' ||
                   proposal.action_type === 'workshop_order.mechanic_finding'
                   ? { site_id: readExecutionSiteId(proposal.preview_json) }
                   : undefined,
