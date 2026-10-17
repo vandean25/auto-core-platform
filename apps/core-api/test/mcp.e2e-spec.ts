@@ -6124,7 +6124,7 @@ describe('MCP server (e2e)', () => {
   });
 
   describe('AUT-598 mechanic finding media MCP tools', () => {
-    const employeeId = '51500000-0000-4000-8000-000000000598';
+    let advisorEmployeeId = '51500000-0000-4000-8000-000000000598';
     let findingTaskId: string;
     let findingOrderId: string;
     let uploadedMediaId: string;
@@ -6136,6 +6136,7 @@ describe('MCP server (e2e)', () => {
           select: { id: true },
         });
         if (linked) {
+          advisorEmployeeId = linked.id;
           await prismaA.employee.update({
             where: { id: linked.id },
             data: { is_active: true },
@@ -6143,7 +6144,7 @@ describe('MCP server (e2e)', () => {
         } else {
           await prismaA.employee.create({
             data: {
-              id: employeeId,
+              id: advisorEmployeeId,
               tenant_id: tenantA,
               user_id: tenantAUserId,
               name: 'MCP Advisor Employee',
@@ -6257,7 +6258,7 @@ describe('MCP server (e2e)', () => {
                 tenant_id: tenantA,
                 workshop_order_id: findingOrderId,
                 workshop_task_id: findingTaskId,
-                uploaded_by_employee_id: employeeId,
+                uploaded_by_employee_id: advisorEmployeeId,
                 purpose: WorkshopMediaPurpose.GENERAL,
                 storage_bucket: 'test-workshop-media-bucket',
                 storage_key: `tenants/${tenantA}/orders/${findingOrderId}/tasks/${findingTaskId}/fixture.jpg`,
