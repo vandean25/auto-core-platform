@@ -11,6 +11,7 @@ import type {
   ListingSerializerResult,
 } from './listing-serializer.types.js';
 import {
+  WILLHABEN_GENERIC_CSV_BOM,
   WILLHABEN_GENERIC_CSV_FILENAME,
   WILLHABEN_GENERIC_MAX_IMAGES,
   WILLHABEN_GENERIC_PROFILE_CODE,
@@ -18,15 +19,18 @@ import {
 } from './willhaben-generic-format.constants.js';
 import {
   buildWillhabenGenericHeaderRow,
-  formatWillhabenGenericBoolean,
+  formatWillhabenDamageStatus,
   formatWillhabenGenericPriceGross,
   willhabenGenericColumnIndex,
+  WILLHABEN_GENERIC_ACTION,
+  WILLHABEN_GENERIC_CURRENCY,
   WILLHABEN_GENERIC_FIELD_COUNT,
   type WillhabenGenericCsvColumn,
 } from './willhaben-generic-layout.manifest.js';
 import {
   encodeWillhabenCsv,
   joinWillhabenRow,
+  sanitizeWillhabenCsvFieldValue,
 } from './willhaben-generic-csv.util.js';
 
 function emptyRow(): string[] {
@@ -38,7 +42,8 @@ function setCell(
   column: WillhabenGenericCsvColumn,
   value: string,
 ): void {
-  row[willhabenGenericColumnIndex(column)] = value;
+  row[willhabenGenericColumnIndex(column)] =
+    value === '' ? '' : sanitizeWillhabenCsvFieldValue(value);
 }
 
 function optionalText(value: string | null): string {
@@ -52,10 +57,24 @@ function optionalInteger(value: number | null, minimum: number): string {
   return String(value);
 }
 
+/** Joins list values with `|`; a literal `|` inside a value is rejected. */
+function joinWillhabenPipeList(values: string[]): string {
+  for (const value of values) {
+    if (value.includes('|')) {
+      throw new Error(
+        `Value contains the willhaben generic list separator '|': ${value}`,
+      );
+    }
+  }
+  return values.join('|');
+}
+
 /**
- * Builds the generic willhaben CSV rows (header + one data row).
- * Generic UNVERIFIED layout: every listing field is exported as-is and an
- * empty cell means the value is not available.
+ * Builds the generic willhaben CSV rows (header + one data row) for the
+ * pinned ACP provisional contract. Columns without a snapshot input today
+ * (body_type, transmission, doors, seats, roadworthy, nova_included,
+ * description_language, seller_*) stay empty; an empty cell means the value
+ * is not available.
  */
 export function buildWillhabenGenericCsvRows(
   input: ListingSerializerInput,
@@ -64,15 +83,8 @@ export function buildWillhabenGenericCsvRows(
   const assertions = input.exportAssertions;
 
   setCell(dataRow, 'listing_ref', input.listingRef.trim());
+  setCell(dataRow, 'action', WILLHABEN_GENERIC_ACTION);
   setCell(dataRow, 'title', optionalText(input.listing.title));
-  setCell(dataRow, 'description', input.listing.description ?? '');
-  setCell(dataRow, 'category', input.listing.category.trim());
-  setCell(
-    dataRow,
-    'price_gross_eur',
-    formatWillhabenGenericPriceGross(input.listing.price_gross_eur),
-  );
-  setCell(dataRow, 'vat_display', input.listing.vat_display);
   setCell(dataRow, 'make', input.vehicle.make.trim());
   setCell(dataRow, 'model', input.vehicle.model.trim());
   setCell(dataRow, 'model_year', optionalInteger(input.vehicle.model_year, 1));
@@ -85,6 +97,18 @@ export function buildWillhabenGenericCsvRows(
   setCell(dataRow, 'fuel', optionalText(input.vehicle.fuel));
   setCell(dataRow, 'power_kw', optionalInteger(input.vehicle.power_kw, 1));
   setCell(dataRow, 'color', optionalText(input.vehicle.color));
+  setCell(
+    dataRow,
+    'damage_status',
+    formatWillhabenDamageStatus(assertions?.damage_free ?? null),
+  );
+  setCell(
+    dataRow,
+    'price_gross_eur',
+    formatWillhabenGenericPriceGross(input.listing.price_gross_eur),
+  );
+  setCell(dataRow, 'currency', WILLHABEN_GENERIC_CURRENCY);
+  setCell(dataRow, 'vat_display', input.listing.vat_display);
   setCell(
     dataRow,
     'co2_wltp_g_km',
@@ -100,47 +124,21 @@ export function buildWillhabenGenericCsvRows(
     'emission_class',
     optionalText(input.vehicle.emission_class),
   );
+  setCell(dataRow, 'description', input.listing.description ?? '');
   setCell(
     dataRow,
-    'damage_free',
-    formatWillhabenGenericBoolean(assertions?.damage_free ?? null),
+    'equipment_codes',
+    joinWillhabenPipeList(input.equipment.equipmentCodes),
   );
-  setCell(
-    dataRow,
-    'metallic',
-    formatWillhabenGenericBoolean(assertions?.metallic ?? null),
-  );
-  setCell(
-    dataRow,
-    'guarantee',
-    formatWillhabenGenericBoolean(assertions?.guarantee ?? null),
-  );
-  setCell(
-    dataRow,
-    'jahreswagen',
-    formatWillhabenGenericBoolean(assertions?.jahreswagen ?? null),
-  );
-  setCell(
-    dataRow,
-    'recommendation',
-    formatWillhabenGenericBoolean(assertions?.recommendation ?? null),
-  );
-  setCell(
-    dataRow,
-    'demo_vehicle',
-    formatWillhabenGenericBoolean(assertions?.demo_vehicle ?? null),
-  );
-  setCell(dataRow, 'equipment_codes', input.equipment.equipmentCodes.join(','));
   setCell(
     dataRow,
     'equipment_free_text',
-    input.equipment.equipmentFreeTextLines.join('\n'),
+    input.equipment.equipmentFreeTextLines.join('; '),
   );
-  setCell(dataRow, 'image_count', String(input.images.length));
   setCell(
     dataRow,
-    'image_filenames',
-    input.images.map((image) => image.filename).join(','),
+    'image_files',
+    joinWillhabenPipeList(input.images.map((image) => image.filename)),
   );
 
   return [buildWillhabenGenericHeaderRow(), dataRow];
@@ -150,7 +148,7 @@ export function serializeWillhabenGenericListing(
   input: ListingSerializerInput,
 ): ListingSerializerResult {
   const rows = buildWillhabenGenericCsvRows(input);
-  const csvText = `${rows
+  const csvText = `${WILLHABEN_GENERIC_CSV_BOM}${rows
     .map((row) => joinWillhabenRow(row))
     .join(
       WILLHABEN_GENERIC_ROW_TERMINATOR,
@@ -164,7 +162,7 @@ export function serializeWillhabenGenericListing(
     layout: 'GENERIC_PROVISIONAL',
     generated_at: input.generatedAt.toISOString(),
     listing_ref: input.listingRef,
-    encoding: 'UTF-8',
+    encoding: 'UTF-8 with BOM',
     external_import_semantics: 'UNVERIFIED',
     files: [
       {
@@ -255,6 +253,24 @@ function validateWillhabenGenericListing(
         'Gross price must be a positive number for willhaben generic export.',
     });
   }
+  for (const code of input.equipment.equipmentCodes) {
+    if (code.includes('|')) {
+      issues.push({
+        field: 'equipment_codes',
+        code: 'LISTING_FIELD_INVALID',
+        message: `Equipment code must not contain '|': ${code}`,
+      });
+    }
+  }
+  for (const image of input.images) {
+    if (image.filename.includes('|')) {
+      issues.push({
+        field: 'image_files',
+        code: 'LISTING_FIELD_INVALID',
+        message: `Image filename must not contain '|': ${image.filename}`,
+      });
+    }
+  }
   if (input.images.length > WILLHABEN_GENERIC_MAX_IMAGES) {
     issues.push({
       field: 'images',
@@ -267,9 +283,9 @@ function validateWillhabenGenericListing(
 }
 
 /**
- * Generic willhaben listing export serializer.
- * UNVERIFIED provisional layout; will be replaced once the real willhaben
- * import format is known (AUT-571).
+ * Generic willhaben listing export serializer (ACP provisional contract).
+ * UNVERIFIED layout; will be replaced once the real willhaben import format
+ * is known (AUT-571).
  */
 export const willhabenGenericListingSerializer: ListingSerializerPort = {
   profileCode: WILLHABEN_GENERIC_PROFILE_CODE,
