@@ -81,17 +81,7 @@ export class GcsVehicleMediaStorage implements VehicleMediaStorage {
     const unique = [...new Set(keys)];
     await Promise.all(
       unique.map((key) =>
-        this.storage
-          .bucket(bucket)
-          .file(key)
-          .delete({ ignoreNotFound: true })
-          .catch((error) => {
-            this.logger.warn(
-              `Failed to delete vehicle media object ${key}: ${
-                error instanceof Error ? error.message : String(error)
-              }`,
-            );
-          }),
+        this.storage.bucket(bucket).file(key).delete({ ignoreNotFound: true }),
       ),
     );
   }
@@ -104,9 +94,7 @@ export class GcsVehicleMediaStorage implements VehicleMediaStorage {
     const bucketName = this.resolveBucket();
     const prefix = `tenants/${params.tenantId}/vehicles/${params.vehicleId}/media/`;
     const [files] = await this.storage.bucket(bucketName).getFiles({ prefix });
-    await Promise.all(
-      files.map((file) => file.delete({ ignoreNotFound: true })),
-    );
+    await this.deleteObjectFiles(files);
   }
 
   async deleteTenantVehicleMediaPrefix(tenantId: string): Promise<void> {
@@ -117,8 +105,14 @@ export class GcsVehicleMediaStorage implements VehicleMediaStorage {
       .bucket(bucketName)
       .getFiles({ prefix: `${prefix}` });
     const mediaFiles = files.filter((file) => file.name.includes('/media/'));
+    await this.deleteObjectFiles(mediaFiles);
+  }
+
+  private async deleteObjectFiles(
+    files: Array<{ delete: (options: { ignoreNotFound: boolean }) => Promise<unknown> }>,
+  ): Promise<void> {
     await Promise.all(
-      mediaFiles.map((file) => file.delete({ ignoreNotFound: true })),
+      files.map((file) => file.delete({ ignoreNotFound: true })),
     );
   }
 }

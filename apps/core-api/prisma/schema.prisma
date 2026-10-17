@@ -1813,6 +1813,8 @@ model Vehicle {
   @@map("vehicles")
 }
 
+/// Stock vehicle photos. Partial unique index `vehicle_media_one_cover_per_vehicle`
+/// (one `is_cover` per vehicle) is defined in migration SQL only — do not drop via Prisma drift.
 model VehicleMedia {
   id                    String   @id @default(uuid())
   tenant_id             String

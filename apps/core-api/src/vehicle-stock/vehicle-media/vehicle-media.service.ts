@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { createHash, randomUUID } from 'node:crypto';
@@ -36,6 +37,8 @@ import {
 
 @Injectable()
 export class VehicleMediaService {
+  private readonly logger = new Logger(VehicleMediaService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
@@ -77,6 +80,12 @@ export class VehicleMediaService {
       });
     }
 
+    const actor = await requireActiveCurrentUser(
+      this.prisma,
+      this.tenantContext,
+      tenantId,
+    );
+
     const portalVariants = resolveVehicleMediaPortalVariants();
     const processed = await processUploadImage(bytes, {
       main: DEFAULT_VEHICLE_MEDIA_MAIN_LIMITS,
@@ -86,74 +95,78 @@ export class VehicleMediaService {
 
     const mediaId = randomUUID();
     const bucket = this.storage.resolveBucket();
-    const processedKey = await this.storage.storeProcessedObject({
-      tenantId,
-      vehicleId,
-      mediaId,
-      variantName: 'processed',
-      bytes: processed.main.bytes,
-      contentType: processed.main.contentType,
-    });
+    const writtenKeys: string[] = [];
 
-    const variantMap: VehicleMediaVariantMap = {};
-    for (const [name, variant] of Object.entries(processed.variants ?? {})) {
-      const storageKey = await this.storage.storeProcessedObject({
+    try {
+      const processedKey = await this.storage.storeProcessedObject({
         tenantId,
         vehicleId,
         mediaId,
-        variantName: name,
-        bytes: variant.bytes,
-        contentType: variant.contentType,
+        variantName: 'processed',
+        bytes: processed.main.bytes,
+        contentType: processed.main.contentType,
       });
-      variantMap[name] = {
-        storage_key: storageKey,
-        width: variant.width,
-        height: variant.height,
-        content_type: variant.contentType,
-      };
+      writtenKeys.push(processedKey);
+
+      const variantMap: VehicleMediaVariantMap = {};
+      for (const [name, variant] of Object.entries(processed.variants ?? {})) {
+        const storageKey = await this.storage.storeProcessedObject({
+          tenantId,
+          vehicleId,
+          mediaId,
+          variantName: name,
+          bytes: variant.bytes,
+          contentType: variant.contentType,
+        });
+        writtenKeys.push(storageKey);
+        variantMap[name] = {
+          storage_key: storageKey,
+          width: variant.width,
+          height: variant.height,
+          content_type: variant.contentType,
+        };
+      }
+
+      const contentSha256 = createHash('sha256')
+        .update(processed.main.bytes)
+        .digest('hex');
+
+      const created = await this.prisma.$transaction(async (tx) => {
+        const maxOrder = await tx.vehicleMedia.aggregate({
+          where: { tenant_id: tenantId, vehicle_id: vehicleId },
+          _max: { sort_order: true },
+        });
+        const nextOrder = (maxOrder._max.sort_order ?? -1) + 1;
+        const existingCount = await tx.vehicleMedia.count({
+          where: { tenant_id: tenantId, vehicle_id: vehicleId },
+        });
+        const isFirst = existingCount === 0;
+
+        return tx.vehicleMedia.create({
+          data: {
+            id: mediaId,
+            tenant_id: tenantId,
+            vehicle_id: vehicleId,
+            site_id: siteId,
+            sort_order: nextOrder,
+            is_cover: isFirst,
+            storage_bucket: bucket,
+            processed_storage_key: processedKey,
+            variant_storage_keys: variantMap,
+            content_type: processed.main.contentType,
+            width: processed.main.width,
+            height: processed.main.height,
+            content_sha256: contentSha256,
+            created_by_user_id: actor.id,
+          },
+        });
+      });
+
+      return toVehicleMediaDto(created);
+    } catch (error) {
+      await this.bestEffortDeleteWrittenObjects(bucket, writtenKeys);
+      throw error;
     }
-
-    const contentSha256 = createHash('sha256')
-      .update(processed.main.bytes)
-      .digest('hex');
-    const actor = await requireActiveCurrentUser(
-      this.prisma,
-      this.tenantContext,
-      tenantId,
-    );
-
-    const created = await this.prisma.$transaction(async (tx) => {
-      const maxOrder = await tx.vehicleMedia.aggregate({
-        where: { tenant_id: tenantId, vehicle_id: vehicleId },
-        _max: { sort_order: true },
-      });
-      const nextOrder = (maxOrder._max.sort_order ?? -1) + 1;
-      const existingCount = await tx.vehicleMedia.count({
-        where: { tenant_id: tenantId, vehicle_id: vehicleId },
-      });
-      const isFirst = existingCount === 0;
-
-      return tx.vehicleMedia.create({
-        data: {
-          id: mediaId,
-          tenant_id: tenantId,
-          vehicle_id: vehicleId,
-          site_id: siteId,
-          sort_order: nextOrder,
-          is_cover: isFirst,
-          storage_bucket: bucket,
-          processed_storage_key: processedKey,
-          variant_storage_keys: variantMap,
-          content_type: processed.main.contentType,
-          width: processed.main.width,
-          height: processed.main.height,
-          content_sha256: contentSha256,
-          created_by_user_id: actor.id,
-        },
-      });
-    });
-
-    return toVehicleMediaDto(created);
   }
 
   async reorder(
@@ -265,10 +278,21 @@ export class VehicleMediaService {
     await this.storage.deleteObjects(row.storage_bucket, keys);
 
     await this.prisma.$transaction(async (tx) => {
+      const current = await tx.vehicleMedia.findFirst({
+        where: {
+          tenant_id: tenantId,
+          vehicle_id: vehicleId,
+          id: mediaId,
+        },
+      });
+      if (!current) {
+        throw new NotFoundException('Vehicle photo not found.');
+      }
+      const wasCover = current.is_cover;
       await tx.vehicleMedia.delete({
         where: { tenant_id: tenantId, id: mediaId },
       });
-      if (row.is_cover) {
+      if (wasCover) {
         const replacement = await tx.vehicleMedia.findFirst({
           where: { tenant_id: tenantId, vehicle_id: vehicleId },
           orderBy: { sort_order: 'asc' },
@@ -288,6 +312,28 @@ export class VehicleMediaService {
     vehicleId: string,
   ): Promise<void> {
     await this.storage.deleteVehicleMediaPrefix({ tenantId, vehicleId });
+  }
+
+  async purgeStoredObjectsForTenant(tenantId: string): Promise<void> {
+    await this.storage.deleteTenantVehicleMediaPrefix(tenantId);
+  }
+
+  private async bestEffortDeleteWrittenObjects(
+    bucket: string,
+    keys: string[],
+  ): Promise<void> {
+    if (keys.length === 0) {
+      return;
+    }
+    try {
+      await this.storage.deleteObjects(bucket, keys);
+    } catch (error) {
+      this.logger.warn(
+        `Best-effort cleanup of failed vehicle photo upload objects failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
   }
 
   private async assertStockVehicleAtActiveSite(

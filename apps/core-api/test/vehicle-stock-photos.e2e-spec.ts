@@ -58,14 +58,20 @@ describe('Vehicle stock photos (e2e)', () => {
       },
     });
 
-    const mainKey = uploadRes.body.variants.portal_md.storageKey.replace(
-      '/portal_md.jpg',
-      '/processed.jpg',
-    );
-    const mainBytes = mediaStorage.objects.get(mainKey);
-    expect(mainBytes).toBeDefined();
-    const after = await sharp(mainBytes).metadata();
-    expect(after.exif).toBeUndefined();
+    const keysToCheck = [
+      uploadRes.body.variants.portal_md.storageKey.replace(
+        '/portal_md.jpg',
+        '/processed.jpg',
+      ),
+      uploadRes.body.variants.portal_md.storageKey,
+      uploadRes.body.variants.thumbnail.storageKey,
+    ];
+    for (const key of keysToCheck) {
+      const bytes = mediaStorage.objects.get(key);
+      expect(bytes).toBeDefined();
+      const after = await sharp(bytes).metadata();
+      expect(after.exif).toBeUndefined();
+    }
   });
 
   it('reorders photos and rejects foreign tenant access', async () => {
@@ -161,5 +167,37 @@ describe('Vehicle stock photos (e2e)', () => {
       .set('Authorization', `Bearer ${suite.authToken}`)
       .expect(204);
     expect(mediaStorage.objects.size).toBeLessThan(keysBefore);
+  });
+
+  it('purges stored photo objects when the vehicle row is deleted', async () => {
+    const created = await suite.createAndReceive({
+      vin: vin('PHOTO-PURGE'),
+      sellerType: 'VENDOR',
+    });
+    const vehicleId = created.received.vehicle_id;
+    const png = await sharp({
+      create: { width: 32, height: 24, channels: 3, background: '#aabbcc' },
+    })
+      .png()
+      .toBuffer();
+
+    await request(suite.app.getHttpServer())
+      .post(`/api/vehicle-stock/${vehicleId}/photos`)
+      .set('Authorization', `Bearer ${suite.authToken}`)
+      .attach('file', png, 'purge.png')
+      .expect(201);
+
+    const prefix = `tenants/${suite.tenantId}/vehicles/${vehicleId}/media/`;
+    expect(
+      [...mediaStorage.objects.keys()].some((key) => key.startsWith(prefix)),
+    ).toBe(true);
+
+    await suite.prisma.vehicle.deleteMany({
+      where: { id: vehicleId, tenant_id: suite.tenantId },
+    });
+
+    expect(
+      [...mediaStorage.objects.keys()].filter((key) => key.startsWith(prefix)),
+    ).toHaveLength(0);
   });
 });

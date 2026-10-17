@@ -25,6 +25,7 @@ CREATE UNIQUE INDEX "vehicle_media_tenant_id_id_key" ON "vehicle_media"("tenant_
 
 CREATE INDEX "vehicle_media_tenant_id_vehicle_id_sort_order_idx" ON "vehicle_media"("tenant_id", "vehicle_id", "sort_order");
 
+-- Intentional partial unique index (not representable in Prisma schema). Do not drop in drift migrations.
 CREATE UNIQUE INDEX "vehicle_media_one_cover_per_vehicle" ON "vehicle_media"("tenant_id", "vehicle_id") WHERE "is_cover" = true;
 
 ALTER TABLE "vehicle_media" ADD CONSTRAINT "vehicle_media_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

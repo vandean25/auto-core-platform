@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, OnModuleInit } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { InvoicesModule } from '../invoices/invoices.module.js';
 import { AuditModule } from '../audit/audit.module.js';
@@ -22,6 +22,7 @@ import {
 } from './vehicle-media/vehicle-media.storage.js';
 import { VehicleMediaService } from './vehicle-media/vehicle-media.service.js';
 import { VehicleMediaController } from './vehicle-media/vehicle-media.controller.js';
+import { registerVehicleMediaPurgeStorage } from './vehicle-media/vehicle-media-purge.registry.js';
 
 @Module({
   imports: [
@@ -57,4 +58,10 @@ import { VehicleMediaController } from './vehicle-media/vehicle-media.controller
     VehicleStockReportsService,
   ],
 })
-export class VehicleStockModule {}
+export class VehicleStockModule implements OnModuleInit {
+  constructor(private readonly vehicleMediaStorage: GcsVehicleMediaStorage) {}
+
+  onModuleInit(): void {
+    registerVehicleMediaPurgeStorage(this.vehicleMediaStorage);
+  }
+}

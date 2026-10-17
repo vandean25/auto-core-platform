@@ -167,13 +167,87 @@ describe('VehicleMediaService', () => {
     const dto = await service.upload(vehicleId, file);
     expect(dto.contentType).toBe('image/jpeg');
     expect(storage.storeProcessedObject).toHaveBeenCalled();
-    const mainCall = storage.storeProcessedObject.mock.calls.find(
-      (call) => call[0].variantName === 'processed',
+    for (const call of storage.storeProcessedObject.mock.calls) {
+      const storedBytes = call[0].bytes as Buffer;
+      const after = await sharp(storedBytes).metadata();
+      expect(after.exif).toBeUndefined();
+    }
+  });
+
+  it('does not delete the row when object storage delete fails', async () => {
+    const row = {
+      id: 'photo-1',
+      tenant_id: tenantId,
+      vehicle_id: vehicleId,
+      storage_bucket: 'test-bucket',
+      processed_storage_key: 'key/processed.jpg',
+      variant_storage_keys: { portal_md: { storage_key: 'key/portal_md.jpg' } },
+      is_cover: false,
+    };
+    prisma.vehicleMedia.findFirst.mockResolvedValue(row);
+    storage.deleteObjects.mockRejectedValue(new Error('simulated GCS failure'));
+
+    await expect(service.remove(vehicleId, 'photo-1')).rejects.toThrow(
+      'simulated GCS failure',
     );
-    expect(mainCall).toBeDefined();
-    const storedBytes = mainCall![0].bytes as Buffer;
-    const after = await sharp(storedBytes).metadata();
-    expect(after.exif).toBeUndefined();
+
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(prisma.vehicleMedia.delete).not.toHaveBeenCalled();
+  });
+
+  it('best-effort deletes uploaded objects when the DB insert fails', async () => {
+    const source = await readFile(gpsFixture);
+    prisma.vehicleMedia.aggregate.mockResolvedValue({ _max: { sort_order: 0 } });
+    prisma.vehicleMedia.count.mockResolvedValue(0);
+    prisma.$transaction.mockRejectedValue(new Error('unique cover conflict'));
+
+    const file = {
+      buffer: source,
+      size: source.byteLength,
+    } as Express.Multer.File;
+
+    await expect(service.upload(vehicleId, file)).rejects.toThrow(
+      'unique cover conflict',
+    );
+
+    expect(storage.deleteObjects).toHaveBeenCalledWith(
+      'test-bucket',
+      expect.arrayContaining([
+        expect.stringMatching(/processed\.jpg$/),
+        expect.stringMatching(/portal_md\.jpg$/),
+        expect.stringMatching(/thumbnail\.jpg$/),
+      ]),
+    );
+  });
+
+  it('promotes the next photo to cover inside the delete transaction', async () => {
+    const row = {
+      id: 'cover-photo',
+      tenant_id: tenantId,
+      vehicle_id: vehicleId,
+      storage_bucket: 'test-bucket',
+      processed_storage_key: 'key/processed.jpg',
+      variant_storage_keys: {},
+      is_cover: true,
+    };
+    prisma.vehicleMedia.findFirst
+      .mockResolvedValueOnce(row)
+      .mockResolvedValueOnce({ ...row, is_cover: true })
+      .mockResolvedValueOnce({ id: 'next-photo', sort_order: 1 });
+    storage.deleteObjects.mockResolvedValue(undefined);
+    prisma.vehicleMedia.delete.mockResolvedValue(row);
+    prisma.vehicleMedia.update.mockResolvedValue({
+      id: 'next-photo',
+      is_cover: true,
+    });
+
+    await service.remove(vehicleId, 'cover-photo');
+
+    expect(prisma.$transaction).toHaveBeenCalled();
+    expect(prisma.vehicleMedia.update).toHaveBeenCalledWith({
+      where: { tenant_id: tenantId, id: 'next-photo' },
+      data: { is_cover: true },
+    });
   });
 
   it('returns 404 for photos on another vehicle', async () => {
