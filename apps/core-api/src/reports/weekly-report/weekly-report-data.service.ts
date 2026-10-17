@@ -11,6 +11,9 @@ import { TenantContextService } from '../../common/services/tenant-context.servi
 import { WorkshopKpiReportsService } from '../../workshop/workshop-kpi-reports.service.js';
 import { localDateStartUtc } from '../../workshop/workshop-kpi-reports.math.js';
 import type { WeeklyReportPeriod } from './weekly-report-period.util.js';
+import { isWorkshopOrderStatusCompletionTransition } from './weekly-report-completion-audit.util.js';
+
+const AUDIT_LOG_PAGE_SIZE = 500;
 
 export type WeeklyReportOpenEstimateRow = {
   order_number: string;
@@ -144,7 +147,7 @@ export class WeeklyReportDataService {
           order_number: row.order_number,
           estimate_number: estimate.estimate_number,
           sent_at: version.sent_at.toISOString(),
-          valid_until: version.valid_until?.toISOString().slice(0, 10) ?? null,
+          valid_until: version.valid_until?.toISOString() ?? null,
           total_gross: version.total_gross
             ? decimalToString(version.total_gross)
             : '0.00',
@@ -161,31 +164,38 @@ export class WeeklyReportDataService {
   ) {
     const rangeStart = localDateStartUtc(period.from, timeZone);
     const rangeEnd = localDateStartUtc(addIsoDay(period.to, 1), timeZone);
-    const completionLogs = await this.prisma.auditLog.findMany({
-      where: {
-        tenant_id: tenantId,
-        entity_type: 'WorkshopOrder',
-        action: AuditLogAction.UPDATE,
-        occurred_at: { gte: rangeStart, lt: rangeEnd },
-      },
-      select: {
-        entity_id: true,
-        occurred_at: true,
-        after: true,
-        diff: true,
-      },
-      orderBy: { occurred_at: 'desc' },
-      take: 200,
-    });
-
     const completedByOrderId = new Map<string, Date>();
-    for (const log of completionLogs) {
-      if (!isWorkshopOrderCompletedAudit(log)) {
-        continue;
+    let skip = 0;
+    while (true) {
+      const completionLogs = await this.prisma.auditLog.findMany({
+        where: {
+          tenant_id: tenantId,
+          entity_type: 'WorkshopOrder',
+          action: AuditLogAction.UPDATE,
+          occurred_at: { gte: rangeStart, lt: rangeEnd },
+        },
+        select: {
+          entity_id: true,
+          occurred_at: true,
+          diff: true,
+        },
+        orderBy: { occurred_at: 'asc' },
+        skip,
+        take: AUDIT_LOG_PAGE_SIZE,
+      });
+      if (completionLogs.length === 0) {
+        break;
       }
-      if (!completedByOrderId.has(log.entity_id)) {
+      for (const log of completionLogs) {
+        if (!isWorkshopOrderStatusCompletionTransition(log.diff)) {
+          continue;
+        }
         completedByOrderId.set(log.entity_id, log.occurred_at);
       }
+      if (completionLogs.length < AUDIT_LOG_PAGE_SIZE) {
+        break;
+      }
+      skip += completionLogs.length;
     }
 
     if (completedByOrderId.size === 0) {
@@ -226,34 +236,6 @@ export class WeeklyReportDataService {
       )
       .slice(0, 100);
   }
-}
-
-function isWorkshopOrderCompletedAudit(log: {
-  after: unknown;
-  diff: unknown;
-}): boolean {
-  const after = asAuditRecord(log.after);
-  if (after?.status === WorkshopOrderStatus.COMPLETED) {
-    return true;
-  }
-  const diff = asAuditRecord(log.diff);
-  const statusChange = diff?.status;
-  if (
-    statusChange &&
-    typeof statusChange === 'object' &&
-    'after' in statusChange &&
-    (statusChange as { after?: string }).after === WorkshopOrderStatus.COMPLETED
-  ) {
-    return true;
-  }
-  return false;
-}
-
-function asAuditRecord(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== 'object') {
-    return null;
-  }
-  return value as Record<string, unknown>;
 }
 
 function decimalToString(value: Prisma.Decimal): string {

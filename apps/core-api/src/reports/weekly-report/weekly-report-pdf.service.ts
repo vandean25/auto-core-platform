@@ -119,6 +119,7 @@ export class WeeklyReportPdfService {
       tenantId,
       objectId,
       body: pdfBuffer,
+      uploadedAt,
       objectExpiresAt,
       sha256,
     });

@@ -6,7 +6,6 @@ import {
   formatPercent,
 } from './weekly-report-format.util.js';
 import {
-  formatSiteLocalDate,
   formatSiteLocalDateTime,
   periodLabelForPdf,
 } from './weekly-report-period.util.js';
@@ -54,7 +53,7 @@ export function buildWeeklyReportHtmlDocument(
         <td>${escapeHtml(row.order_number)}</td>
         <td>${escapeHtml(row.estimate_number)}</td>
         <td>${escapeHtml(formatSiteLocalDateTime(new Date(row.sent_at), site.timezone))}</td>
-        <td>${escapeHtml(row.valid_until ? formatSiteLocalDate(row.valid_until, site.timezone) : '–')}</td>
+        <td>${escapeHtml(row.valid_until ? formatSiteLocalDateTime(new Date(row.valid_until), site.timezone) : '–')}</td>
         <td class="num">${escapeHtml(formatDecimalString(row.total_gross))}</td>
       </tr>`,
     )

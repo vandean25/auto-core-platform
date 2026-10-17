@@ -405,6 +405,7 @@ export class PdfStorage {
     tenantId: string;
     objectId: string;
     body: Buffer;
+    uploadedAt: Date;
     objectExpiresAt: Date;
     sha256: string;
   }): Promise<{ bucket: string; key: string }> {
@@ -418,7 +419,7 @@ export class PdfStorage {
         resumable: false,
         metadata: {
           cacheControl: 'private, no-store',
-          customTime: params.objectExpiresAt.toISOString(),
+          customTime: params.uploadedAt.toISOString(),
           metadata: {
             tenant_id: params.tenantId,
             weekly_report_object_id: params.objectId,

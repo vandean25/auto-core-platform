@@ -14,4 +14,11 @@ describe('site-local datetime formatting (late evening UTC)', () => {
     const label = formatSiteLocalDateTime(instant, 'Europe/Vienna');
     expect(label).toMatch(/16\.10\.2026/);
   });
+
+  it('formats Gültig bis expiry in Vienna, not UTC calendar date', () => {
+    const expiry = new Date('2026-07-29T22:30:00.000Z');
+    const label = formatSiteLocalDateTime(expiry, 'Europe/Vienna');
+    expect(label).toMatch(/30\.07\.2026/);
+    expect(label).toMatch(/00:30/);
+  });
 });

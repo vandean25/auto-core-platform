@@ -1,4 +1,5 @@
-import { AgentPolicyTier } from '@prisma/client';
+import { createHash } from 'node:crypto';
+import { AgentPolicyTier, Prisma } from '@prisma/client';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AgentActionLogService } from '../agent-action-log/agent-action-log.service.js';
 import { AgentPolicyService } from '../agent-policy/agent-policy.service.js';
@@ -19,6 +20,7 @@ import { InvoiceWorkshopDraftProposeService } from '../invoices/invoice-workshop
 import { MechanicFindingProposeService } from '../mechanic/mechanic-finding-propose.service.js';
 import { mcpToolOutputSchemas } from './mcp-tool-output-schemas.js';
 import { toMcpJsonObject } from './mcp-output.util.js';
+import { WeeklyReportPdfService } from '../reports/weekly-report/weekly-report-pdf.service.js';
 
 describe('McpWritePipelineService generate_weekly_report_pdf', () => {
   let service: McpWritePipelineService;
@@ -26,48 +28,113 @@ describe('McpWritePipelineService generate_weekly_report_pdf', () => {
   let mockAgentPolicy: jest.Mocked<AgentPolicyService>;
   let mockAgentActionLog: jest.Mocked<AgentActionLogService>;
   let mockPrisma: { $transaction: jest.Mock };
-  let executeFn: jest.Mock;
-  let previewFn: jest.Mock;
+  let weeklyReportPdf: WeeklyReportPdfService;
+  let storage: {
+    deleteExpiredEphemeralWeeklyReports: jest.Mock;
+    uploadEphemeralWeeklyReportPdf: jest.Mock;
+    createSignedReadUrl: jest.Mock;
+  };
+  let rateLimit: { assertAllowed: jest.Mock };
+  let renderer: { render: jest.Mock };
 
   const mockContext: McpWriteToolContext = {
     agentId: 'agent-1',
     onBehalfOfUserId: 'user-1',
   };
 
-  const executedPayload = {
-    id: 'report-uuid',
-    site_id: 'site-1',
-    url: 'https://storage.example/report.pdf',
-    expires_at: '2026-10-17T13:00:00.000Z',
-    sha256: 'a'.repeat(64),
-    page_count: 2,
-    period: {
-      from: '2026-10-12',
-      to: '2026-10-18',
-      timezone: 'Europe/Vienna',
-      iso_week: '2026-W42',
-    },
-    storage_bucket: 'pdf-bucket',
-    storage_key: 'ephemeral/weekly-reports/tenant-1/report-uuid.pdf',
-    object_expires_at: '2026-10-18T13:00:00.000Z',
-  };
+  const pdfBuffer = Buffer.from(
+    '%PDF-1.4\n1 0 obj\n/Type /Page\n2 0 obj\n/Type /Page\n',
+  );
+  const expectedSha256 = createHash('sha256').update(pdfBuffer).digest('hex');
+  const signedUrl = 'https://storage.example/ephemeral-report.pdf';
+  const signedExpiresAt = new Date('2026-10-17T13:15:00.000Z');
 
   const execution = (): McpWriteExecution => ({
     toolName: 'generate_weekly_report_pdf',
     policyActionType: 'report.generate_weekly_pdf',
     buildPolicyContext: () => Promise.resolve({}),
-    preview: previewFn,
-    execute: executeFn,
+    preview: (input) => weeklyReportPdf.preview(input),
+    execute: (input) => weeklyReportPdf.execute(input),
     executeOutsideTransaction: true,
     buildResultSummary: (result) => result,
   });
 
   beforeEach(async () => {
-    previewFn = jest.fn().mockResolvedValue({
-      site_id: 'site-1',
-      period: executedPayload.period,
-    });
-    executeFn = jest.fn().mockResolvedValue(executedPayload);
+    storage = {
+      deleteExpiredEphemeralWeeklyReports: jest.fn().mockResolvedValue(0),
+      uploadEphemeralWeeklyReportPdf: jest
+        .fn()
+        .mockResolvedValue({ bucket: 'pdf-bucket', key: 'ephemeral/k.pdf' }),
+      createSignedReadUrl: jest.fn().mockResolvedValue({
+        url: signedUrl,
+        expiresAt: signedExpiresAt,
+      }),
+    };
+    rateLimit = { assertAllowed: jest.fn().mockResolvedValue(undefined) };
+    renderer = { render: jest.fn().mockResolvedValue(pdfBuffer) };
+
+    const tenantContext = {
+      getTenantId: jest.fn().mockResolvedValue('tenant-1'),
+      getAuthenticatedUser: jest.fn().mockReturnValue({ role: 'ADMIN' }),
+    };
+    const siteContext = {
+      getSiteId: jest.fn().mockResolvedValue('site-1'),
+      listAuthorizedSiteIds: jest.fn().mockResolvedValue(['site-1']),
+    };
+    const prisma = {
+      site: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'site-1',
+          timezone: 'Europe/Vienna',
+        }),
+      },
+    };
+    const data = {
+      load: jest.fn().mockResolvedValue({
+        period: {
+          from: '2026-10-12',
+          to: '2026-10-18',
+          iso_week: '2026-W42',
+          timezone: 'Europe/Vienna',
+        },
+        site: {
+          id: 'site-1',
+          name: 'Nord Werkstatt',
+          timezone: 'Europe/Vienna',
+        },
+        revenue: {
+          totals: {
+            net: new Prisma.Decimal('0'),
+            vat: new Prisma.Decimal('0'),
+            gross: new Prisma.Decimal('0'),
+          },
+          by_source: [],
+          by_revenue_group: [],
+          invoice_count: 0,
+        },
+        workshop_kpis: {
+          totals: {
+            utilisation_percent: '0',
+            productivity_percent: '0',
+            average_net_revenue_per_order: '0',
+            closed_orders: 0,
+          },
+          parts_turnover: { turnover: '1.00' },
+        },
+        open_estimates: [],
+        completed_orders: [],
+      }),
+    };
+
+    weeklyReportPdf = new WeeklyReportPdfService(
+      prisma as never,
+      tenantContext as never,
+      siteContext as never,
+      data as never,
+      renderer as never,
+      storage as never,
+      rateLimit as never,
+    );
 
     mockAgentPolicy = {
       evaluateAction: jest.fn(),
@@ -111,28 +178,39 @@ describe('McpWritePipelineService generate_weekly_report_pdf', () => {
       tier: AgentPolicyTier.AUTO,
       reasons: [],
     });
-    mockAgentActionLog.recordInTransaction.mockResolvedValue({
-      traceId: 'trace-weekly',
-      workResult: executedPayload,
-    });
+    mockAgentActionLog.recordInTransaction.mockImplementation(
+      async (_input, _tx, work) => {
+        const workResult = work ? await work() : undefined;
+        return { traceId: 'trace-weekly', workResult };
+      },
+    );
   });
 
-  it('runs preview without dry-run execute and executes outside the log transaction', async () => {
+  it('returns execute-derived url, sha256, and page_count through the pipeline', async () => {
     const result = await service.run(
       execution(),
       { iso_week: '2026-W42' },
       mockContext,
     );
 
-    expect(previewFn).toHaveBeenCalledTimes(1);
     expect(mockDryRun.executeInRollbackTransaction).not.toHaveBeenCalled();
-    expect(executeFn).toHaveBeenCalledTimes(1);
+    expect(rateLimit.assertAllowed).toHaveBeenCalledTimes(1);
+    expect(renderer.render).toHaveBeenCalledTimes(1);
+    expect(storage.uploadEphemeralWeeklyReportPdf).toHaveBeenCalledTimes(1);
+    expect(storage.deleteExpiredEphemeralWeeklyReports).toHaveBeenCalledTimes(1);
+
     expect(result.status).toBe('executed');
     expect(result.result).toMatchObject({
-      url: executedPayload.url,
-      sha256: executedPayload.sha256,
-      page_count: executedPayload.page_count,
-      period: executedPayload.period,
+      url: signedUrl,
+      expires_at: signedExpiresAt.toISOString(),
+      sha256: expectedSha256,
+      page_count: 2,
+      period: {
+        from: '2026-10-12',
+        to: '2026-10-18',
+        timezone: 'Europe/Vienna',
+        iso_week: '2026-W42',
+      },
     });
 
     const parsed = mcpToolOutputSchemas.generate_weekly_report_pdf.safeParse(

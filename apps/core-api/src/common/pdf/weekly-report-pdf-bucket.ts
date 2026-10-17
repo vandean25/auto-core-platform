@@ -18,9 +18,8 @@ export function resolveWeeklyReportPdfBucket(
 export const WEEKLY_REPORT_EPHEMERAL_PREFIX = 'ephemeral/weekly-reports';
 
 /**
- * Infra should add a bucket lifecycle rule (not applied by apply-gcs-lifecycle.ts today):
- * Delete objects under `ephemeral/weekly-reports/` when customTime is older than now
- * (objects set customTime on upload; app also deletes expired metadata in-code).
+ * GCS deletes objects under `ephemeral/weekly-reports/` one day after upload `customTime`
+ * (upload instant). App metadata `object_expires_at` + in-code delete is a backstop.
  */
 export const WEEKLY_REPORT_EPHEMERAL_GCS_LIFECYCLE_RULE = {
   action: { type: 'Delete' as const },
