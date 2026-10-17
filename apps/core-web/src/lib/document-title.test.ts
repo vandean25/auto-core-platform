@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { i18n } from '@/lib/i18n'
 import { APP_ROUTE_PATHS, LOGIN_PATH, MECHANIC_ROUTE_PATHS } from '@/lib/app-route-paths'
 import {
   APP_DOCUMENT_TITLE,
@@ -46,15 +47,23 @@ describe('route title table', () => {
     expect(Object.keys(ROUTE_SECTION_TITLES).sort()).toEqual([...routePatterns].sort())
   })
 
-  it.each(Object.entries(ROUTE_SECTION_TITLES))(
-    'resolves %s to itself and titles it "%s"',
-    (pattern, title) => {
-      const pathname = samplePathFor(pattern)
+  it.each(
+    Object.entries(ROUTE_SECTION_TITLES).filter(
+      ([pattern]) => pattern !== APP_ROUTE_PATHS.workshopOrderCheckIn,
+    ),
+  )('resolves %s to itself and titles it "%s"', (pattern, title) => {
+    const pathname = samplePathFor(pattern)
 
-      expect(matchRoutePattern(pathname)).toBe(pattern)
-      expect(getRouteSectionTitle(pathname)).toBe(title)
-    },
-  )
+    expect(matchRoutePattern(pathname)).toBe(pattern)
+    expect(getRouteSectionTitle(pathname)).toBe(title)
+  })
+
+  it('resolves check-in route section title from workshop i18n', () => {
+    const pathname = samplePathFor(APP_ROUTE_PATHS.workshopOrderCheckIn)
+    expect(getRouteSectionTitle(pathname)).toBe(
+      i18n.t('checkIn.pageTitleFallback', { ns: 'workshop' }),
+    )
+  })
 
   it('prefers a static route over a dynamic route with the same shape', () => {
     expect(getRouteSectionTitle('/vehicles/pickerl-due')).toBe('Pickerl fällig')

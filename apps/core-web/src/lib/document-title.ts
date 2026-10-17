@@ -1,5 +1,6 @@
 import { matchRoutes, type RouteObject } from 'react-router-dom'
 import { APP_ROUTE_PATHS, LOGIN_PATH, MECHANIC_ROUTE_PATHS } from '@/lib/app-route-paths'
+import { i18n } from '@/lib/i18n'
 
 export const APP_DOCUMENT_TITLE = 'Auto Core'
 export const NOT_FOUND_SECTION_TITLE = 'Page not found'
@@ -98,7 +99,13 @@ export function matchRoutePattern(pathname: string): RoutePattern | null {
 /** Section title for `pathname`. Unknown paths get the not-found title. */
 export function getRouteSectionTitle(pathname: string): string {
   const pattern = matchRoutePattern(pathname)
-  return pattern ? ROUTE_SECTION_TITLES[pattern] : NOT_FOUND_SECTION_TITLE
+  if (!pattern) {
+    return NOT_FOUND_SECTION_TITLE
+  }
+  if (pattern === APP_ROUTE_PATHS.workshopOrderCheckIn) {
+    return i18n.t('checkIn.pageTitleFallback', { ns: 'workshop' })
+  }
+  return ROUTE_SECTION_TITLES[pattern]
 }
 
 /** Joins the non-blank parts with the app name, e.g. `['WO-1', 'Workshop Orders']` → `WO-1 - Workshop Orders - Auto Core`. */
