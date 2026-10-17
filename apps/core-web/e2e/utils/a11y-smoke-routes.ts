@@ -35,8 +35,9 @@ export interface A11ySmokeRoute {
   ready: (page: Page) => Promise<void>;
 }
 
-async function mockApi(page: Page, path: string, body: unknown, status = 200) {
-  await page.route(AutoCorePage.apiRouteMatcher(path), async (route) => {
+async function mockApi(page: Page, path: string | RegExp, body: unknown, status = 200) {
+  const matcher = typeof path === 'string' ? AutoCorePage.apiRouteMatcher(path) : path;
+  await page.route(matcher, async (route) => {
     await route.fulfill({
       status,
       contentType: 'application/json',

@@ -230,15 +230,15 @@ export default function CustomerDetail() {
 
   return (
     <div className='space-y-6'>
-      <div className='flex items-center justify-between mb-8'>
-        <div className='flex items-center gap-4'>
+      <div className='mb-8 flex flex-wrap items-start justify-between gap-4'>
+        <div className='flex min-w-0 items-center gap-4'>
           <Button variant='ghost' size='icon' asChild>
             <Link to='/customers' aria-label={t('detail.backAria')}>
               <ArrowLeft className='h-4 w-4' />
             </Link>
           </Button>
-          <div>
-            <h1 className='text-2xl font-semibold tracking-tight'>
+          <div className='min-w-0'>
+            <h1 className='text-2xl font-semibold tracking-tight break-words'>
               {getCustomerDisplayName(customer)}
             </h1>
             <div className='flex items-center gap-2 text-slate-500 text-sm'>
@@ -247,8 +247,8 @@ export default function CustomerDetail() {
             </div>
           </div>
         </div>
-        <div className='flex flex-col items-end gap-2'>
-          <div className='flex flex-wrap justify-end gap-2'>
+        <div className='flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:items-end'>
+          <div className='flex flex-wrap justify-start gap-2 sm:justify-end'>
             <Button asChild>
               <Link to={`/sales-orders/new?customerId=${customer.id}`}>
                 <Package className='mr-2 h-4 w-4' /> {t('detail.newSalesOrder')}
