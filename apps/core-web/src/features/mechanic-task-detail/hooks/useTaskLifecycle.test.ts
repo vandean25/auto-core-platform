@@ -279,7 +279,7 @@ describe('useTaskLifecycle', () => {
 
       expect(mockRefetch).toHaveBeenCalled()
       expect(mockStartMutateAsync).toHaveBeenCalledWith({ taskId: TASK_ID })
-      expect(toast.error).toHaveBeenCalledWith('Start failed after retry')
+      expect(toast.error).toHaveBeenCalledWith(lifecycleToast.taskStartFailed)
       expect(result.current.switchRetrying).toBe(false)
     })
   })

@@ -309,8 +309,9 @@ export function pickClientSafeHttpErrorParams(
       params[key] = topLevel;
       continue;
     }
-    const nested =
-      isRecord(responseBody.params) ? responseBody.params[key] : undefined;
+    const nested = isRecord(responseBody.params)
+      ? responseBody.params[key]
+      : undefined;
     if (typeof nested === 'string') {
       params[key] = nested;
     }

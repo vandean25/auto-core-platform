@@ -1,6 +1,4 @@
-import registryJson from './public-error-code-registry.generated.json' with {
-  type: 'json',
-};
+import registryJson from './public-error-code-registry.generated.json' with { type: 'json' };
 
 export type PublicErrorCodeRegistryEntry = {
   public: boolean;
