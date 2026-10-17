@@ -7,12 +7,14 @@ import { LoanerVehiclesModule } from '../loaner-vehicles/loaner-vehicles.module.
 import { RegistrationIntakeModule } from '../registration-intake/registration-intake.module.js';
 import { PurchaseModule } from '../purchase/purchase.module.js';
 import { InvoicesModule } from '../invoices/invoices.module.js';
+import { MechanicMcpModule } from '../mechanic/mechanic-mcp.module.js';
 import { PendingActionExecutorService } from './pending-action-executor.service.js';
 
 @Module({
   imports: [
     PrismaModule,
     SiteModule,
+    MechanicMcpModule,
     WorkshopModule,
     LoanerVehiclesModule,
     PartsRequisitionModule,
@@ -21,6 +23,6 @@ import { PendingActionExecutorService } from './pending-action-executor.service.
     InvoicesModule,
   ],
   providers: [PendingActionExecutorService],
-  exports: [PendingActionExecutorService],
+  exports: [PendingActionExecutorService, MechanicMcpModule],
 })
 export class PendingActionExecutorModule {}

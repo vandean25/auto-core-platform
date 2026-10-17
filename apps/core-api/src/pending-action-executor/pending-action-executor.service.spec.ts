@@ -86,7 +86,6 @@ describe('PendingActionExecutorService', () => {
       .mockResolvedValue({ site_id: 'site-1' }),
     buildPolicyContext: jest.fn().mockResolvedValue({ amount_eur: 120 }),
   };
-
   let service: PendingActionExecutorService;
 
   beforeEach(() => {
@@ -102,6 +101,8 @@ describe('PendingActionExecutorService', () => {
       mockPurchaseService as never,
       mockWorkshopOrderCompletion as never,
       mockInvoiceWorkshopDraftPropose as never,
+      {} as never,
+      {} as never,
     );
   });
 

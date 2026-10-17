@@ -145,6 +145,7 @@ import { InspectionMeasurementModule } from '../inspection-measurement/inspectio
     WorkshopPlannerService,
     WorkshopOrderReadyEmailService,
     WorkshopEstimateDecisionTriageService,
+    WorkshopMechanicFindingService,
   ],
 })
 export class WorkshopModule {}

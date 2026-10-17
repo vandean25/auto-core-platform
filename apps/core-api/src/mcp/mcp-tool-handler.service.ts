@@ -165,6 +165,8 @@ export class McpToolHandlerService {
       propose_workshop_order_completion: 'workshop_order.complete',
       propose_invoice_draft_from_order:
         'invoice.create_draft_from_workshop_order',
+      request_workshop_media_upload: 'workshop.media_upload_slot',
+      propose_mechanic_finding: 'workshop_order.propose_mechanic_finding',
     };
     const executor = this.pendingActionExecutors.resolve(
       actionTypeByTool[toolName],
@@ -196,6 +198,8 @@ const MCP_WRITE_TOOL_NAME_SET = new Set<string>([
   'propose_purchase_order',
   'propose_workshop_order_completion',
   'propose_invoice_draft_from_order',
+  'request_workshop_media_upload',
+  'propose_mechanic_finding',
 ]);
 
 function isWriteTool(toolName: McpToolName): toolName is McpWriteToolName {

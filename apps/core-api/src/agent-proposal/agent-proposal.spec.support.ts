@@ -143,6 +143,17 @@ export function createAgentProposalSpecHarness() {
     buildPolicyContext: jest.fn().mockResolvedValue({ amount_eur: 120 }),
     enrichInput: jest.fn(async (input: unknown) => input),
   };
+  const mockWorkshopMediaUploadMcp = {
+    createUploadSlot: jest.fn(),
+  };
+  const mockMechanicFindingPropose = {
+    enrichInput: jest.fn(async (input: unknown) => input),
+    buildExecutionContext: jest
+      .fn()
+      .mockResolvedValue({ site_id: 'site-1' }),
+    buildPreview: jest.fn(),
+    applyAcknowledgment: jest.fn(),
+  };
   const mockPendingActionExecutors = new PendingActionExecutorService(
     mockPrisma,
     mockTenantContext,
@@ -154,6 +165,8 @@ export function createAgentProposalSpecHarness() {
     mockPurchaseService as never,
     mockWorkshopOrderCompletion as never,
     mockInvoiceWorkshopDraftPropose as never,
+    mockWorkshopMediaUploadMcp as never,
+    mockMechanicFindingPropose as never,
   );
 
   const policyEvaluator = new AgentProposalPolicyEvaluator(mockAgentPolicyService);
@@ -182,6 +195,7 @@ export function createAgentProposalSpecHarness() {
     mockWorkshopBookingPackage,
     mockWorkshopOrderCompletion as never,
     mockInvoiceWorkshopDraftPropose as never,
+    mockMechanicFindingPropose as never,
   );
   const service = new AgentProposalService(
     mockTenantContext,

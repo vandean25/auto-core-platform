@@ -94,4 +94,8 @@ export const MCP_TOOL_DESCRIPTIONS: Record<McpToolName, string> = {
     'Propose completing open workshop tasks on an order and moving it to a derived completed status when all tasks are done; optional ready-for-pickup email only when notify_customer is true and the action is applied (never finalizes invoices)',
   propose_invoice_draft_from_order:
     'Propose a DRAFT invoice from a COMPLETED workshop order (never finalizes, sends, or records payment; records one pending proposal)',
+  request_workshop_media_upload:
+    'Reserve a short-lived direct upload slot for workshop task media (jpeg, png, heic, or webp). Does not change workshop business state until a finding or other flow references the returned media_id',
+  propose_mechanic_finding:
+    'Propose an additional mechanic finding with photos for advisor review (never sends customer messages; records one pending proposal)',
 };

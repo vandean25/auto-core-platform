@@ -25,6 +25,8 @@ import {
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
 import { PdfStorage } from '../src/common/pdf/pdf-storage.js';
+import { MechanicMediaStorage } from '../src/mechanic/mechanic-media.storage.js';
+import { WorkshopMediaPurpose } from '@prisma/client';
 import { createInMemoryPdfArchive } from './support/in-memory-pdf-archive.js';
 import { PURCHASE_PROPOSE_DISCLAIMER } from '../src/purchase/purchase-propose-draft.service.js';
 import { seedReadySellerAndAccountingProfile } from './invoice-snapshot-v2-test-utils.js';
@@ -131,6 +133,11 @@ describe('MCP server (e2e)', () => {
   let fixtures: TenantFixtures;
   let workshopBayId: string;
   let pdfArchive: ReturnType<typeof createInMemoryPdfArchive>;
+  const mockMechanicMediaStorage: Partial<MechanicMediaStorage> & {
+    generateUploadPolicy: jest.Mock;
+  } = {
+    generateUploadPolicy: jest.fn(),
+  };
 
   const mcpBaseUrl = () =>
     `http://127.0.0.1:${(app.getHttpServer().address() as { port: number }).port}/api/mcp`;
@@ -814,6 +821,7 @@ describe('MCP server (e2e)', () => {
     jest.setTimeout(120000);
     previousMcpFlag = process.env.MCP_SERVER_ENABLED;
     process.env.MCP_SERVER_ENABLED = 'true';
+    process.env.WORKSHOP_MEDIA_BUCKET = 'test-workshop-media-bucket';
 
     // Read links are signed by an in-memory store, so the suite needs no GCS credentials.
     pdfArchive = createInMemoryPdfArchive();
@@ -822,6 +830,8 @@ describe('MCP server (e2e)', () => {
     })
       .overrideProvider(PdfStorage)
       .useValue(pdfArchive)
+      .overrideProvider(MechanicMediaStorage)
+      .useValue(mockMechanicMediaStorage)
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -6110,6 +6120,189 @@ describe('MCP server (e2e)', () => {
       );
       expect(second.pending_action_id).toBe(first.pending_action_id);
       expect(second.replayed).toBe(true);
+    });
+  });
+
+  describe('AUT-598 mechanic finding media MCP tools', () => {
+    const employeeId = '51500000-0000-4000-8000-000000000598';
+    let findingTaskId: string;
+    let findingOrderId: string;
+    let uploadedMediaId: string;
+
+    beforeAll(async () => {
+      await inTenant(tenantA, async () => {
+        await prismaA.employee.upsert({
+          where: {
+            tenant_id_user_id: { tenant_id: tenantA, user_id: tenantAUserId },
+          },
+          create: {
+            id: employeeId,
+            tenant_id: tenantA,
+            user_id: tenantAUserId,
+            name: 'MCP Advisor Employee',
+            role: 'SERVICE_ADVISOR',
+            is_active: true,
+          },
+          update: { is_active: true },
+        });
+      });
+      const order = await prismaA.workshopOrder.create({
+        data: {
+          order_number: `WO-FIND-${Date.now()}`,
+          customer_id: fixtures.customerId,
+          vehicle_id: fixtures.vehicleId,
+          site_id: fixtures.siteId,
+          odometer: 2200,
+          fuel_level: 50,
+          status: 'IN_PROGRESS',
+        },
+      });
+      findingOrderId = order.id;
+      const task = await prismaA.workshopTask.create({
+        data: {
+          tenant_id: tenantA,
+          workshop_order_id: order.id,
+          title: 'MCP finding task',
+          status: 'IN_PROGRESS',
+        },
+      });
+      findingTaskId = task.id;
+    });
+
+    beforeEach(async () => {
+      await setPolicyTier('workshop.media_upload_slot', 'AUTO');
+      await setPolicyTier('workshop_order.propose_mechanic_finding', 'PROPOSE');
+      mockMechanicMediaStorage.generateUploadPolicy.mockResolvedValue({
+        uploadUrl: 'https://storage.example/upload',
+        formFields: { key: 'tenants/t/object.jpg', policy: 'sig' },
+        storageBucket: 'test-workshop-media-bucket',
+        storageKey: `tenants/${tenantA}/orders/${findingOrderId}/tasks/${findingTaskId}/object.jpg`,
+        expiresAt: new Date(Date.now() + 900_000),
+      });
+    });
+
+    it('request_workshop_media_upload rejects unsupported mime_type', async () => {
+      const result = await callMcpTool(
+        caller(adminHeaderA, 'e2e-media-upload-bad-mime'),
+        'request_workshop_media_upload',
+        {
+          workshop_task_id: findingTaskId,
+          mime_type: 'video/mp4',
+          size_bytes: 1024,
+          purpose: 'MECHANIC_FINDING',
+        },
+      );
+      expect(result.isError).toBe(true);
+    });
+
+    it('request_workshop_media_upload AUTO returns media_id and upload fields without bucket secrets', async () => {
+      const result = await callMcpTool(
+        caller(adminHeaderA, 'e2e-media-upload-slot'),
+        'request_workshop_media_upload',
+        {
+          workshop_task_id: findingTaskId,
+          mime_type: 'image/jpeg',
+          size_bytes: 2048,
+          purpose: 'MECHANIC_FINDING',
+        },
+      );
+      const payload = parsePayload<{
+        status: string;
+        result: {
+          id: string;
+          media_id: string;
+          upload_url: string;
+          fields: Record<string, string>;
+          expires_at: string;
+        };
+      }>(result);
+      expect(payload.status).toBe('executed');
+      expect(payload.result.media_id).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+      );
+      expect(payload.result.upload_url).toContain('https://');
+      expect(payload.result.fields).toBeDefined();
+      expect(payload.result).not.toHaveProperty('storageBucket');
+      uploadedMediaId = payload.result.media_id;
+    });
+
+    it('propose_mechanic_finding PROPOSE rejects foreign media_ids', async () => {
+      const result = await callMcpTool(
+        caller(adminHeaderA, 'e2e-finding-bad-media'),
+        'propose_mechanic_finding',
+        {
+          workshop_order_id: findingOrderId,
+          workshop_task_id: findingTaskId,
+          description: 'pilot customer additional wear observed',
+          media_ids: ['51500000-0000-4000-8000-000000000599'],
+        },
+      );
+      expect(result.isError).toBe(true);
+    });
+
+    it('propose_mechanic_finding PROPOSE then apply stores advisor finding', async () => {
+      const mediaId =
+        uploadedMediaId ??
+        (
+          await inTenant(tenantA, () =>
+            prismaA.workshopMedia.create({
+              data: {
+                tenant_id: tenantA,
+                workshop_order_id: findingOrderId,
+                workshop_task_id: findingTaskId,
+                uploaded_by_employee_id: employeeId,
+                purpose: WorkshopMediaPurpose.GENERAL,
+                storage_bucket: 'test-workshop-media-bucket',
+                storage_key: `tenants/${tenantA}/orders/${findingOrderId}/tasks/${findingTaskId}/fixture.jpg`,
+                url_strategy: 'SIGNED',
+                mime_type: 'image/jpeg',
+                size_bytes: 1024,
+              },
+            }),
+          )
+        ).id;
+
+      const proposed = parsePayload<{
+        status: string;
+        pending_action_id: string;
+        proposal: { provisional: boolean };
+      }>(
+        await callMcpTool(
+          caller(adminHeaderA, 'e2e-finding-propose'),
+          'propose_mechanic_finding',
+          {
+            workshop_order_id: findingOrderId,
+            workshop_task_id: findingTaskId,
+            description: 'pilot customer additional wear observed',
+            media_ids: [mediaId],
+          },
+        ),
+      );
+      expect(proposed.status).toBe('needs_approval');
+      expect(proposed.proposal.provisional).toBe(true);
+
+      await applyProposal(proposed.pending_action_id, adminHeaderA).expect(200);
+
+      const proposalRow = await prismaA.agentProposal.findFirstOrThrow({
+        where: { id: proposed.pending_action_id },
+      });
+      expect(proposalRow.action_type).toBe('workshop_order.mechanic_finding');
+      expect(proposalRow.status).toBe('EXECUTED');
+
+      const orderRead = parsePayload<{
+        mechanic_findings: Array<{ finding_text: string; media: Array<{ id: string }> }>;
+      }>(
+        await callMcpTool(
+          caller(adminHeaderA, 'e2e-finding-read-order'),
+          'get_workshop_order',
+          { workshop_order_id: findingOrderId },
+        ),
+      );
+      expect(orderRead.mechanic_findings.length).toBeGreaterThan(0);
+      expect(orderRead.mechanic_findings[0]?.finding_text).toContain(
+        'pilot customer',
+      );
+      expect(orderRead.mechanic_findings[0]?.media[0]?.id).toBe(mediaId);
     });
   });
 

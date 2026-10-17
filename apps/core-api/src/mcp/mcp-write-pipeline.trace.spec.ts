@@ -115,6 +115,14 @@ function buildService(tier: AgentPolicyTier) {
   const invoiceWorkshopDraftPropose = {
     enrichInput: async (input: unknown) => input,
   };
+  const mechanicFindingPropose = {
+    enrichInput: async (input: unknown) => input,
+    buildProposalPayload: async () => ({
+      action_type: 'workshop_order.mechanic_finding',
+      payload_json: {},
+      preview_json: {},
+    }),
+  };
   return new McpWritePipelineService(
     prisma as never,
     agentPolicy as never,
@@ -127,6 +135,7 @@ function buildService(tier: AgentPolicyTier) {
     workshopBookingPackage as never,
     workshopOrderCompletion as never,
     invoiceWorkshopDraftPropose as never,
+    mechanicFindingPropose as never,
   );
 }
 

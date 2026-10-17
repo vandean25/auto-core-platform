@@ -36,6 +36,7 @@ import { McpWritePipelineService } from './mcp-write-pipeline.service.js';
 import { McpWriteCommandIdempotencyService } from './mcp-write-command-idempotency.service.js';
 import { SiteModule } from '../site/site.module.js';
 import { InvoicesModule } from '../invoices/invoices.module.js';
+import { MechanicMcpModule } from '../mechanic/mechanic-mcp.module.js';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { InvoicesModule } from '../invoices/invoices.module.js';
     PendingActionExecutorModule,
     SiteModule,
     InvoicesModule,
+    MechanicMcpModule,
   ],
   controllers: [McpController],
   providers: [

@@ -14,6 +14,7 @@ import { McpWritePipelineService } from './mcp-write-pipeline.service.js';
 import { WorkshopBookingPackageService } from '../workshop/workshop-booking-package.service.js';
 import { WorkshopOrderCompletionService } from '../workshop/workshop-order-completion.service.js';
 import { InvoiceWorkshopDraftProposeService } from '../invoices/invoice-workshop-draft-propose.service.js';
+import { MechanicFindingProposeService } from '../mechanic/mechanic-finding-propose.service.js';
 import type { McpWriteExecution, McpWriteToolContext } from './mcp-write-pipeline.service.js';
 import { toMcpJsonObject } from './mcp-output.util.js';
 import { mcpToolOutputSchemas } from './mcp-tool-output-schemas.js';
@@ -136,6 +137,17 @@ describe('McpWritePipelineService', () => {
         {
           provide: InvoiceWorkshopDraftProposeService,
           useValue: { enrichInput: async (input: unknown) => input },
+        },
+        {
+          provide: MechanicFindingProposeService,
+          useValue: {
+            enrichInput: async (input: unknown) => input,
+            buildProposalPayload: async () => ({
+              action_type: 'workshop_order.mechanic_finding',
+              payload_json: {},
+              preview_json: {},
+            }),
+          },
         },
       ],
     }).compile();

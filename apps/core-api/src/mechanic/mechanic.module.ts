@@ -9,10 +9,10 @@ import { WorkshopInspectionService } from '../workshop/workshop-inspection.servi
 import { AgentProposalModule } from '../agent-proposal/agent-proposal.module.js';
 import { WorkshopModule } from '../workshop/workshop.module.js';
 import { MechanicFindingService } from './mechanic-finding.service.js';
+import { MechanicMcpModule } from './mechanic-mcp.module.js';
 import { MechanicExecutionService } from './mechanic-execution.service.js';
 import { MechanicIdentityService } from './mechanic-identity.service.js';
 import { MechanicMediaService } from './mechanic-media.service.js';
-import { MechanicMediaStorage } from './mechanic-media.storage.js';
 import { MechanicSchedulerService } from './mechanic-scheduler.service.js';
 import { MechanicVoiceNoteService } from './mechanic-voice-note.service.js';
 import { MechanicController } from './mechanic.controller.js';
@@ -29,6 +29,7 @@ import { RateLimitStore } from './rate-limit/rate-limit.store.js';
     NotificationsModule,
     AgentProposalModule,
     WorkshopModule,
+    MechanicMcpModule,
   ],
   controllers: [MechanicController],
   providers: [
@@ -39,11 +40,11 @@ import { RateLimitStore } from './rate-limit/rate-limit.store.js';
     WorkshopInspectionService,
     MechanicSchedulerService,
     MechanicFindingService,
-    MechanicMediaStorage,
     {
       provide: RateLimitStore,
       useClass: PrismaRateLimitStore,
     },
   ],
+  exports: [MechanicMcpModule],
 })
 export class MechanicModule {}

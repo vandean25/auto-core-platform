@@ -83,10 +83,17 @@ const TENANT_A_RULES: Record<string, ResolvedAgentPolicyRule | null> = {
     'invoice.create_draft_from_workshop_order',
     { enabled: false },
   ),
+  'workshop.media_upload_slot': policyRule('workshop.media_upload_slot', {
+    enabled: false,
+  }),
+  'workshop_order.propose_mechanic_finding': policyRule(
+    'workshop_order.propose_mechanic_finding',
+    { enabled: false },
+  ),
 };
 
-// Visible tools: every read tool plus 8 write tools (release_reservation is HUMAN_ONLY).
-const VISIBLE_TOOL_COUNT = MCP_READ_TOOL_NAMES.length + 8;
+// Visible tools: every read tool plus 10 write tools (release_reservation is HUMAN_ONLY).
+const VISIBLE_TOOL_COUNT = MCP_READ_TOOL_NAMES.length + 10;
 
 function createService() {
   const authenticated: { user?: SessionUser } = { user: AGENT_USER };
@@ -274,6 +281,8 @@ describe('McpCapabilitiesService.getCapabilities', () => {
       'propose_purchase_order',
       'propose_workshop_order_completion',
       'propose_invoice_draft_from_order',
+      'request_workshop_media_upload',
+      'propose_mechanic_finding',
     ]);
     expect(page.meta).toEqual({
       total: VISIBLE_TOOL_COUNT,
