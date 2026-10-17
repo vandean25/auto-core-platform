@@ -24,6 +24,13 @@ describe('WorkshopCheckInService', () => {
     mockPrisma.workshopOrder.findFirst.mockReset();
     mockPrisma.workshopCheckIn.findFirst.mockReset();
     mockPrisma.workshopCheckIn.create.mockReset();
+    mockPrisma.inspectionTemplate.findFirst.mockReset();
+    mockPrisma.workshopInspection.findFirst.mockReset();
+    mockPrisma.workshopInspection.create.mockReset();
+    mockPrisma.workshopInspectionItem.findMany.mockReset();
+    mockPrisma.inspectionTemplate.findFirst.mockResolvedValue(null);
+    mockPrisma.workshopInspection.findFirst.mockResolvedValue(null);
+    mockPrisma.workshopInspectionItem.findMany.mockResolvedValue([]);
     mockPrisma.workshopCheckIn.updateMany.mockReset();
     mockPrisma.workshopMedia.findMany.mockReset();
     mockPrisma.workshopCheckIn.findFirst.mockReset();
@@ -125,6 +132,7 @@ describe('WorkshopCheckInService', () => {
       id: CHECK_IN_ID,
       tenant_id: TENANT_ID,
       workshop_order_id: ORDER_ID,
+      inspection_id: null,
       status: WorkshopCheckInStatus.DRAFT,
       revision: 1,
       condition_json: {},

@@ -2,7 +2,7 @@ import type { Prisma, WorkshopMediaPurpose } from '@prisma/client';
 import { hashCanonicalJson } from '../invoices/invoice-snapshot-hash.js';
 import { WORKSHOP_CHECK_IN_MEDIA_PURPOSES } from './workshop-media-purpose.helpers.js';
 
-export const WORKSHOP_CHECK_IN_EVIDENCE_SCHEMA_VERSION = 1;
+export const WORKSHOP_CHECK_IN_EVIDENCE_SCHEMA_VERSION = 2;
 
 export type WorkshopCheckInEvidenceSnapshot = {
   schema_version: typeof WORKSHOP_CHECK_IN_EVIDENCE_SCHEMA_VERSION;
@@ -37,6 +37,12 @@ export type WorkshopCheckInEvidenceSnapshot = {
   }>;
   completed_at: string;
   completed_by_user_id: string | null;
+  checklist: Array<{
+    id: string;
+    label_snapshot: string;
+    passed: boolean | null;
+    notes: string | null;
+  }> | null;
 };
 
 type CheckInRowForEvidence = {
@@ -49,6 +55,14 @@ type CheckInRowForEvidence = {
   warning_lights: string[];
   odometer: number;
   fuel_level: number;
+};
+
+type CheckInInspectionItemForEvidence = {
+  id: string;
+  label_snapshot: string;
+  passed: boolean | null;
+  notes: string | null;
+  sort_order: number;
 };
 
 type CheckInMediaForEvidence = {
@@ -140,6 +154,34 @@ export function normalizeCheckInWarningLights(values: string[]): string[] {
   return [...new Set(values)].sort(compareCheckInEvidenceStrings);
 }
 
+export function normalizeCheckInChecklistForEvidence(
+  items: CheckInInspectionItemForEvidence[],
+): WorkshopCheckInEvidenceSnapshot['checklist'] {
+  if (items.length === 0) {
+    return null;
+  }
+  return items
+    .map((item) => ({
+      id: item.id,
+      label_snapshot: item.label_snapshot,
+      passed: item.passed,
+      notes: item.notes,
+      sort_order: item.sort_order,
+    }))
+    .sort((left, right) => {
+      if (left.sort_order !== right.sort_order) {
+        return left.sort_order - right.sort_order;
+      }
+      return compareCheckInEvidenceStrings(left.id, right.id);
+    })
+    .map(({ id, label_snapshot, passed, notes }) => ({
+      id,
+      label_snapshot,
+      passed,
+      notes,
+    }));
+}
+
 export function normalizeCheckInMediaForEvidence(
   media: CheckInMediaForEvidence[],
 ): WorkshopCheckInEvidenceSnapshot['media'] {
@@ -160,6 +202,7 @@ export function normalizeCheckInMediaForEvidence(
 export function buildWorkshopCheckInEvidenceSnapshot(input: {
   row: CheckInRowForEvidence;
   media: CheckInMediaForEvidence[];
+  checklistItems: CheckInInspectionItemForEvidence[];
   completedAt: Date;
   completedByUserId: string | null;
 }): WorkshopCheckInEvidenceSnapshot {
@@ -179,6 +222,7 @@ export function buildWorkshopCheckInEvidenceSnapshot(input: {
     media: normalizeCheckInMediaForEvidence(input.media),
     completed_at: input.completedAt.toISOString(),
     completed_by_user_id: input.completedByUserId,
+    checklist: normalizeCheckInChecklistForEvidence(input.checklistItems),
   };
 }
 
