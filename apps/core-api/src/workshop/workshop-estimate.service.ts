@@ -45,7 +45,10 @@ import {
   collectEstimateCustomerSendBlockers,
   collectEstimateSourceLines,
 } from './workshop-estimate-lines.helpers.js';
-import { documentLocaleFrozenForCurrentRenderers } from '../common/i18n/rendered-document-locale.js';
+import {
+  loadTenantDefaultLocale,
+  resolveCustomerDocumentLanguage,
+} from '../common/i18n/customer-document-language.js';
 import {
   buildWorkshopEstimateSnapshot,
   buildWorkshopEstimateValidityWindow,
@@ -545,7 +548,14 @@ export class WorkshopEstimateService {
           { lockLogo: true },
         );
         const totals = buildWorkshopEstimateTotals(lines);
-        const documentLocale = documentLocaleFrozenForCurrentRenderers();
+        const tenantDefaultLocale = await loadTenantDefaultLocale(
+          tx,
+          scope.tenantId,
+        );
+        const documentLocale = resolveCustomerDocumentLanguage(
+          order.customer,
+          tenantDefaultLocale,
+        );
         const snapshot = buildWorkshopEstimateSnapshot({
           estimateNumber: version.estimate.estimate_number,
           version: version.version,

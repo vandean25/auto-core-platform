@@ -1,4 +1,5 @@
 import { WorkshopMediaPurpose, type DisplayLanguage } from '@prisma/client';
+import type { PdfRenderMode } from '../common/i18n/pdf-render-mode.js';
 import type { EscapeHtml } from '../common/pdf/pdf-layout.js';
 import type { WorkshopCheckInEvidenceSnapshot } from './workshop-check-in-evidence-snapshot.js';
 import { getWorkshopCheckInPdfCopy } from './workshop-pdf-check-in-copy.js';
@@ -47,8 +48,9 @@ export function buildWorkshopCheckInSection(
   embedded: WorkshopCheckInPdfEmbeddedMedia,
   escape: EscapeHtml,
   documentLocale: DisplayLanguage,
+  renderMode: PdfRenderMode = 'legacy',
 ): string {
-  const copy = getWorkshopCheckInPdfCopy(documentLocale);
+  const copy = getWorkshopCheckInPdfCopy(documentLocale, renderMode);
   const warningLights =
     snapshot.warning_lights.length > 0
       ? snapshot.warning_lights.join(', ')

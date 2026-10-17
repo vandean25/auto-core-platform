@@ -16,6 +16,8 @@ import {
   type WorkshopEstimateSnapshot,
 } from './workshop-estimate-snapshot.js';
 import type { WorkshopEstimateLine } from './workshop-estimate-lines.helpers.js';
+import { buildAuthoritativeGermanLegalNoticeHtml } from '../common/i18n/pdf-legal-notice.js';
+import { resolveDocumentLanguage } from '../common/i18n/locale-resolution.js';
 
 const DEFAULT_COLOR = '#111827';
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
@@ -321,8 +323,11 @@ export function buildWorkshopEstimateHtmlDocument(
   escape: EscapeHtml,
 ): string {
   const primary = safeColor(snapshot.branding.tokens.primary_color);
+  const documentLocale = resolveDocumentLanguage(snapshot);
+  const legalNotice = buildAuthoritativeGermanLegalNoticeHtml(documentLocale);
+  const htmlLang = documentLocale === 'en' ? 'en' : 'de-AT';
   return `<!doctype html>
-<html lang="de-AT">
+<html lang="${htmlLang}">
 <head>
 <meta charset="utf-8" />
 <style>
@@ -338,6 +343,7 @@ ${buildPartiesSection(snapshot, escape)}
 ${buildLinesSection(snapshot, escape)}
 ${buildTotalsSection(snapshot, escape)}
 ${buildTaxBreakdownSection(snapshot, escape)}
+${legalNotice}
 ${buildLegalSection(snapshot, escape)}
 </body>
 </html>`;

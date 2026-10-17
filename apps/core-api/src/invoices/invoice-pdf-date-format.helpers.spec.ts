@@ -68,31 +68,50 @@ const createDachSnapshot = (): InvoiceSnapshot => ({
 
 describe('formatInvoicePdfDate', () => {
   it('formats date strings as ISO yyyy-mm-dd outside the DACH layout', () => {
-    expect(formatInvoicePdfDate('2026-04-07T12:00:00.000Z', false)).toBe(
-      '2026-04-07',
-    );
+    expect(
+      formatInvoicePdfDate('2026-04-07T12:00:00.000Z', createSnapshot()),
+    ).toBe('2026-04-07');
   });
 
   it('formats Date instances as ISO yyyy-mm-dd outside the DACH layout', () => {
     expect(
-      formatInvoicePdfDate(new Date('2026-04-07T12:00:00.000Z'), false),
+      formatInvoicePdfDate(
+        new Date('2026-04-07T12:00:00.000Z'),
+        createSnapshot(),
+      ),
     ).toBe('2026-04-07');
   });
 
   it('formats dates as dd.mm.yyyy inside the DACH layout', () => {
     // Built from local calendar fields so the expectation holds in any runner timezone.
-    expect(formatInvoicePdfDate(new Date(2026, 3, 7, 12), true)).toBe(
-      '07.04.2026',
-    );
+    expect(
+      formatInvoicePdfDate(new Date(2026, 3, 7, 12), createDachSnapshot()),
+    ).toBe('07.04.2026');
   });
 
   it('echoes values that are not parseable dates', () => {
-    expect(formatInvoicePdfDate('not-a-date', false)).toBe('not-a-date');
-    expect(formatInvoicePdfDate('not-a-date', true)).toBe('not-a-date');
+    expect(formatInvoicePdfDate('not-a-date', createSnapshot())).toBe(
+      'not-a-date',
+    );
+    expect(formatInvoicePdfDate('not-a-date', createDachSnapshot())).toBe(
+      'not-a-date',
+    );
   });
 });
 
 describe('createInvoicePdfDateFormatter', () => {
+  const localizedSnapshot = (): InvoiceSnapshot => ({
+    ...createDachSnapshot(),
+    document_locale: 'en',
+    format_locale: 'de-AT',
+    translation_bundle_version: 'test',
+    legal_text_version: null,
+  });
+
+  it('uses de-AT dates for localized snapshots regardless of schema', () => {
+    const formatDate = createInvoicePdfDateFormatter(localizedSnapshot());
+    expect(formatDate(new Date(2026, 3, 7, 12))).toBe('07.04.2026');
+  });
   it('uses ISO dates for standard invoices', () => {
     const formatDate = createInvoicePdfDateFormatter(createSnapshot());
 

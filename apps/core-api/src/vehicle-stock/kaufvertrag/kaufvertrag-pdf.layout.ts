@@ -1,4 +1,7 @@
 import { escapeHtml } from '../../common/pdf/pdf-layout.js';
+import { buildAuthoritativeGermanLegalNoticeHtml } from '../../common/i18n/pdf-legal-notice.js';
+import { resolveDocumentLanguage } from '../../common/i18n/locale-resolution.js';
+import { createPdfTranslator } from '../../common/i18n/pdf-i18n.js';
 import type { KaufvertragSnapshot } from './kaufvertrag-snapshot.js';
 
 const DEFAULT_PRIMARY = '#1d4ed8';
@@ -153,9 +156,16 @@ export function buildKaufvertragHtmlDocument(
       : '–';
   const typeCodes =
     [vehicle.hsn, vehicle.tsn].filter(Boolean).join(' / ') || '–';
+  const documentLocale = resolveDocumentLanguage(snapshot);
+  const legalNotice = buildAuthoritativeGermanLegalNoticeHtml(documentLocale);
+  const title =
+    documentLocale === 'en'
+      ? createPdfTranslator('en')('kaufvertrag.title')
+      : 'Kaufvertrag über ein gebrauchtes Kraftfahrzeug';
+  const htmlLang = documentLocale === 'en' ? 'en' : 'de-AT';
 
   return `<!doctype html>
-<html lang="de-AT">
+<html lang="${htmlLang}">
 <head>
   <meta charset="utf-8">
   <style>
@@ -183,7 +193,8 @@ export function buildKaufvertragHtmlDocument(
   </style>
 </head>
 <body>
-  <h1>Kaufvertrag über ein gebrauchtes Kraftfahrzeug</h1>
+  ${legalNotice}
+  <h1>${escapeHtml(title)}</h1>
   <p class="meta">
     Vertragsnummer ${escapeHtml(sale.sale_number)} · Vertragsdatum ${formatDeDay(sale.contract_concluded_at)} · Übergabe ${formatDeDay(sale.handed_over_at)}
   </p>

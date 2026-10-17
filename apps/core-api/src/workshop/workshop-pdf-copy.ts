@@ -1,4 +1,5 @@
 import type { DisplayLanguage } from '@prisma/client';
+import { buildWorkshopPdfCopyFromI18n } from '../common/i18n/workshop-pdf-i18n-copy.js';
 
 export type WorkshopPdfCopy = {
   htmlLang: string;
@@ -83,6 +84,10 @@ const WORKSHOP_PDF_COPY: Record<DisplayLanguage, WorkshopPdfCopy> = {
 
 export function getWorkshopPdfCopy(
   documentLocale: DisplayLanguage,
+  mode: 'legacy' | 'localized' = 'legacy',
 ): WorkshopPdfCopy {
-  return WORKSHOP_PDF_COPY[documentLocale];
+  if (mode === 'legacy') {
+    return WORKSHOP_PDF_COPY.de;
+  }
+  return buildWorkshopPdfCopyFromI18n(documentLocale);
 }

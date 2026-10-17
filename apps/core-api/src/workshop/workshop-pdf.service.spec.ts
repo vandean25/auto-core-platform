@@ -366,7 +366,7 @@ describe('WorkshopPdfService', () => {
           id: workshopOrderId,
           check_in: null,
         }),
-        { documentLocale: 'de' },
+        { documentLocale: 'de', renderMode: 'localized' },
       );
       expect(storage.uploadPdf).toHaveBeenCalledWith({
         key: `workshop-orders/${workshopOrderId}.pdf`,
@@ -387,7 +387,7 @@ describe('WorkshopPdfService', () => {
       });
     });
 
-    it('stores de on pdf_render_input when customer prefers en until PDF templates are translated', async () => {
+    it('stores en on pdf_render_input and renders localized copy when customer prefers en', async () => {
       prisma.client.workshopOrder.findFirst.mockResolvedValue({
         ...generationOrderRow,
         customer: {
@@ -403,13 +403,13 @@ describe('WorkshopPdfService', () => {
           customer: expect.objectContaining({ preferred_language: 'en' }),
           check_in: null,
         }),
-        { documentLocale: 'de' },
+        { documentLocale: 'en', renderMode: 'localized' },
       );
       expect(prisma.client.workshopOrder.updateMany).toHaveBeenCalledWith({
         where: { id: workshopOrderId, tenant_id: tenantId },
         data: expect.objectContaining({
           pdf_render_input: expect.objectContaining({
-            document_locale: 'de',
+            document_locale: 'en',
           }),
         }),
       });
