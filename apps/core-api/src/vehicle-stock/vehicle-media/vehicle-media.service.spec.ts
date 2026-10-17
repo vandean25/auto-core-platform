@@ -46,6 +46,12 @@ describe('VehicleMediaService', () => {
   beforeEach(async () => {
     prisma = {
       vehicle: { findFirst: jest.fn() },
+      user: {
+        findUnique: jest.fn().mockResolvedValue({ id: 'user-1' }),
+      },
+      tenantMember: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'member-1' }),
+      },
       vehicleMedia: {
         findMany: jest.fn(),
         findFirst: jest.fn(),
@@ -79,7 +85,12 @@ describe('VehicleMediaService', () => {
           provide: TenantContextService,
           useValue: {
             getTenantId: async () => tenantId,
-            getAuthenticatedUser: () => ({ userId: 'user-1' }),
+            getAuthenticatedUser: () => ({
+              userId: 'firebase-user-1',
+              email: 'test@test.local',
+              tenantId,
+              role: 'ADMIN',
+            }),
           },
         },
         {

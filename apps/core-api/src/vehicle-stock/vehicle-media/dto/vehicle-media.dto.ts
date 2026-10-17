@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { ArrayNotEmpty, IsArray, IsUUID } from 'class-validator';
+import { ArrayNotEmpty, IsArray, IsObject, IsUUID } from 'class-validator';
 import type { VehicleMediaVariantMap } from '../vehicle-media.types.js';
 
 export class VehicleMediaVariantDto {
@@ -44,19 +44,8 @@ export class VehicleMediaDto {
   @ApiProperty()
   contentSha256!: string;
 
-  @ApiProperty({
-    type: 'object',
-    additionalProperties: {
-      type: 'object',
-      properties: {
-        storageKey: { type: 'string' },
-        width: { type: 'integer' },
-        height: { type: 'integer' },
-        contentType: { type: 'string' },
-      },
-      required: ['storageKey', 'width', 'height', 'contentType'],
-    },
-  })
+  @ApiProperty({ type: 'object', additionalProperties: true })
+  @IsObject()
   variants!: Record<string, VehicleMediaVariantDto>;
 
   @ApiProperty({ format: 'uuid', nullable: true })
