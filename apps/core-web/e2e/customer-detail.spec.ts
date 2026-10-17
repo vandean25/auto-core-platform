@@ -24,6 +24,16 @@ import { DE_CUSTOMERS } from './helpers/de-customers';
 const CUSTOMER_ID = 'cust-detail-001';
 
 test.describe('Blueprint: Customer Detail Page', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route(AutoCorePage.apiRouteMatcher(/\/api\/tyre-sets\/by-customer\/.*/), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([]),
+      });
+    });
+  });
+
   test('renders customer header with name, type badge, and contact info card', async ({
     page,
   }) => {
