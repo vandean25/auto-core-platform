@@ -206,7 +206,8 @@
       "mediaToast": {
         "unsupportedType": "Dateityp nicht unterstützt. JPEG, PNG, WebP, MP4 oder MOV verwenden.",
         "uploaded": "Medien erfolgreich hochgeladen",
-        "uploadFailed": "Upload fehlgeschlagen"
+        "uploadFailed": "Upload fehlgeschlagen",
+        "storageFailed": "Upload in den Speicher fehlgeschlagen. Bitte erneut versuchen."
       }
     }
   },
@@ -637,6 +638,11 @@
       "overbooked": "Überbucht um {{hours}}",
       "fullyBooked": "Voll belegt",
       "free": "{{hours}} frei"
+    },
+    "chip": {
+      "starts": "Beginnt {{time}}",
+      "onFloor": "Bereits in der Halle",
+      "noPlate": "Kein Kennzeichen"
     },
     "page": {
       "title": "Werkstattkapazität",
@@ -1167,6 +1173,8 @@
     "toastSelectCustomer": "Bestehenden Kunden wählen.",
     "toastNoCustomerLinked": "Fahrzeug erstellt, aber kein Kunde verknüpft.",
     "toastCreateFailed": "Werkstattauftrag konnte nicht erstellt werden",
+    "activeOrderConflict": "Für dieses Fahrzeug existiert bereits ein offener Werkstattauftrag ({{orderNumber}}).",
+    "activeOrderConflictNoNumber": "Für dieses Fahrzeug existiert bereits ein offener Werkstattauftrag.",
     "na": "k. A."
   },
   "registrationIntake": {

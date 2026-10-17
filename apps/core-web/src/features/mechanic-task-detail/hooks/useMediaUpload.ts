@@ -47,9 +47,14 @@ export function useMediaUpload(taskId: string) {
       formData.append('file', file)
       const uploadRes = await fetch(policy.uploadUrl, { method: 'POST', body: formData })
       if (!uploadRes.ok) {
-        throw new Error(
-          `Upload to storage failed: ${uploadRes.status.toString()} ${uploadRes.statusText}`,
+        console.error(
+          '[MechanicTaskDetail] Storage upload failed:',
+          uploadRes.status,
+          uploadRes.statusText,
         )
+        setUploadState('error')
+        toast.error(t('mechanic.taskDetail.mediaToast.storageFailed'))
+        return
       }
 
       const saved = await saveMediaMeta.mutateAsync({

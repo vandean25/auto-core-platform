@@ -206,7 +206,8 @@
       "mediaToast": {
         "unsupportedType": "Unsupported file type. Use JPEG, PNG, WebP, MP4, or MOV.",
         "uploaded": "Media uploaded successfully",
-        "uploadFailed": "Upload failed"
+        "uploadFailed": "Upload failed",
+        "storageFailed": "Upload to storage failed. Please retry."
       }
     }
   },
@@ -637,6 +638,11 @@
       "overbooked": "Overbooked by {{hours}}",
       "fullyBooked": "Fully booked",
       "free": "{{hours}} free"
+    },
+    "chip": {
+      "starts": "Starts {{time}}",
+      "onFloor": "Already on the floor",
+      "noPlate": "No plate"
     },
     "page": {
       "title": "Workshop Capacity",
@@ -1167,6 +1173,8 @@
     "toastSelectCustomer": "Select an existing customer.",
     "toastNoCustomerLinked": "Vehicle was created but no customer was linked.",
     "toastCreateFailed": "Failed to create workshop order",
+    "activeOrderConflict": "This vehicle already has an open workshop order ({{orderNumber}}).",
+    "activeOrderConflictNoNumber": "This vehicle already has an open workshop order.",
     "na": "N/A"
   },
   "registrationIntake": {

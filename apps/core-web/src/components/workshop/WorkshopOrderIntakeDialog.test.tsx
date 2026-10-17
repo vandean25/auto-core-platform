@@ -155,7 +155,9 @@ describe('WorkshopOrderIntakeDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: oi.createOrder }))
 
     expect(
-      await screen.findByText(/This vehicle already has an open workshop order/),
+      await screen.findByText(
+        oi.activeOrderConflict.replace('{{orderNumber}}', 'WO-2026-0007'),
+      ),
     ).toBeInTheDocument()
     expect(toast.error).not.toHaveBeenCalled()
 

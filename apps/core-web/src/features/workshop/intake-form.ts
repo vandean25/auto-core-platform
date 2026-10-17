@@ -1,11 +1,13 @@
 import type { RegisterIntakePayload } from '@/api/types'
 import { i18n } from '@/lib/i18n'
-import {
-  getErrorBody,
-  getErrorCode,
-  getErrorMessage,
-  VEHICLE_HAS_ACTIVE_ORDER_CODE,
-} from '@/lib/error-utils'
+import { getErrorBody, getErrorCode, VEHICLE_HAS_ACTIVE_ORDER_CODE } from '@/lib/error-utils'
+
+function activeOrderConflictMessage(orderNumber?: string): string {
+  if (orderNumber) {
+    return i18n.t('orderIntake.activeOrderConflict', { ns: 'workshop', orderNumber })
+  }
+  return i18n.t('orderIntake.activeOrderConflictNoNumber', { ns: 'workshop' })
+}
 
 export type IntakeTab = 'existing' | 'new-vehicle' | 'registration-document'
 export type IntakeCustomerMode = 'existing' | 'new'
@@ -106,7 +108,7 @@ export function conflictFromError(
     return null
   }
   return {
-    message: getErrorMessage(error, i18n.t('intake.conflictFallback', { ns: 'workshop' })),
+    message: activeOrderConflictMessage(body.orderNumber),
     orderId: body.orderId,
     orderNumber: body.orderNumber,
     vehicleId: attempt.vehicleId,
