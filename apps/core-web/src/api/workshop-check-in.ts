@@ -17,22 +17,26 @@ export const workshopCheckInKeys = {
     [...workshopCheckInKeys.all, 'inspection', orderId] as const,
 }
 
+export async function fetchWorkshopCheckInRecord(
+  orderId: string,
+): Promise<WorkshopCheckIn | null> {
+  const response = await fetchWithAuth(
+    `${WORKSHOP_API}/orders/${orderId}/check-in`,
+  )
+  if (response.status === 404) {
+    return null
+  }
+  if (!response.ok) {
+    throw new Error('Failed to load workshop check-in')
+  }
+  return response.json() as Promise<WorkshopCheckIn>
+}
+
 export function useWorkshopCheckIn(orderId: string, enabled = true) {
   return useQuery<WorkshopCheckIn | null>({
     queryKey: workshopCheckInKeys.record(orderId),
     enabled,
-    queryFn: async () => {
-      const response = await fetchWithAuth(
-        `${WORKSHOP_API}/orders/${orderId}/check-in`,
-      )
-      if (response.status === 404) {
-        return null
-      }
-      if (!response.ok) {
-        throw new Error('Failed to load workshop check-in')
-      }
-      return response.json() as Promise<WorkshopCheckIn>
-    },
+    queryFn: () => fetchWorkshopCheckInRecord(orderId),
   })
 }
 
@@ -75,8 +79,9 @@ export function useUpdateWorkshopCheckInInspection() {
         throw new Error('Failed to update check-in inspection')
       }
       const inspection = (await response.json()) as WorkshopCheckInInspection
-      await queryClient.refetchQueries({
+      await queryClient.fetchQuery({
         queryKey: workshopCheckInKeys.record(payload.orderId),
+        queryFn: () => fetchWorkshopCheckInRecord(payload.orderId),
       })
       return inspection
     },

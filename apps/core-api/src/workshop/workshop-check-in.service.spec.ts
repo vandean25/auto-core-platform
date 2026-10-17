@@ -37,9 +37,23 @@ describe('WorkshopCheckInService', () => {
     mockPrisma.$transaction.mockImplementation((cb: (tx: unknown) => unknown) =>
       cb(mockPrisma),
     );
-    mockPrisma.$queryRaw.mockResolvedValue([
-      { id: 'site-1', is_active: true },
-    ]);
+    mockPrisma.$queryRaw.mockImplementation(async (query: unknown) => {
+      const sql = String(query);
+      if (sql.includes('workshop_check_ins')) {
+        return [
+          {
+            id: CHECK_IN_ID,
+            workshop_order_id: ORDER_ID,
+            status: WorkshopCheckInStatus.DRAFT,
+            inspection_id: null,
+          },
+        ];
+      }
+      if (sql.includes('workshop_orders')) {
+        return [{ id: ORDER_ID }];
+      }
+      return [{ id: 'site-1', is_active: true }];
+    });
     mockTenantContext.getAuthenticatedUser.mockReturnValue({
       role: 'ADMIN',
       userId: 'u-1',

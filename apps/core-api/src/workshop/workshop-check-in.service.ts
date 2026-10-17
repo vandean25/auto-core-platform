@@ -32,6 +32,10 @@ import {
   hashWorkshopCheckInEvidenceSnapshot,
 } from './workshop-check-in-evidence-snapshot.js';
 import { ensureAnnahmeInspectionForOrder } from './workshop-check-in-annahme.helpers.js';
+import {
+  lockWorkshopCheckInForUpdate,
+  lockWorkshopOrderForUpdate,
+} from './workshop-check-in-lock.helpers.js';
 import type { CompleteWorkshopCheckInDto } from './dto/workshop-check-in.dto.js';
 
 export type WorkshopCheckInCreateResult = {
@@ -71,11 +75,10 @@ export class WorkshopCheckInService {
     });
     if (existingByOrder) {
       if (existingByOrder.id === dto.id) {
-        const linked = await this.ensureInspectionLinked(tenantId, orderId, {
-          id: existingByOrder.id,
-          inspection_id: existingByOrder.inspection_id,
-          status: existingByOrder.status,
-        });
+        const linked = await this.ensureInspectionLinked(
+          tenantId,
+          existingByOrder.id,
+        );
         if (!linked) {
           throw new NotFoundException('Workshop check-in not found');
         }
@@ -104,6 +107,7 @@ export class WorkshopCheckInService {
     try {
       const created = await this.prisma.$transaction(async (tx) => {
         await lockSitesAndAssertActive(tx, tenantId, [siteId]);
+        await lockWorkshopOrderForUpdate(tx, tenantId, orderId);
         const order = await tx.workshopOrder.findFirst({
           where: { id: orderId, tenant_id: tenantId, site_id: siteId },
           select: { id: true, status: true, odometer: true, fuel_level: true },
@@ -442,49 +446,72 @@ export class WorkshopCheckInService {
     });
   }
 
-  private async ensureInspectionLinked(
-    tenantId: string,
-    orderId: string,
-    row: {
-      id: string;
-      inspection_id: string | null;
-      status: WorkshopCheckInStatus;
-    },
-  ) {
-    if (row.inspection_id || row.status !== WorkshopCheckInStatus.DRAFT) {
-      return this.prisma.workshopCheckIn.findFirst({
-        where: { tenant_id: tenantId, id: row.id },
-      });
+  private async ensureInspectionLinked(tenantId: string, checkInId: string) {
+    const snapshot = await this.prisma.workshopCheckIn.findFirst({
+      where: { tenant_id: tenantId, id: checkInId },
+    });
+    if (!snapshot) {
+      return null;
+    }
+    if (
+      snapshot.inspection_id ||
+      snapshot.status !== WorkshopCheckInStatus.DRAFT
+    ) {
+      return snapshot;
     }
 
     return this.prisma.$transaction(async (tx) => {
+      const locked = await lockWorkshopCheckInForUpdate(
+        tx,
+        tenantId,
+        checkInId,
+      );
+      if (!locked) {
+        return null;
+      }
+      if (
+        locked.inspection_id ||
+        locked.status !== WorkshopCheckInStatus.DRAFT
+      ) {
+        return tx.workshopCheckIn.findFirst({
+          where: { tenant_id: tenantId, id: checkInId },
+        });
+      }
+
+      await lockWorkshopOrderForUpdate(tx, tenantId, locked.workshop_order_id);
       const inspectionId = await ensureAnnahmeInspectionForOrder(
         tx,
         tenantId,
-        orderId,
+        locked.workshop_order_id,
       );
       if (!inspectionId) {
         return tx.workshopCheckIn.findFirst({
-          where: { tenant_id: tenantId, id: row.id },
+          where: { tenant_id: tenantId, id: checkInId },
         });
       }
       const { count } = await tx.workshopCheckIn.updateMany({
         where: {
           tenant_id: tenantId,
-          id: row.id,
+          id: checkInId,
           status: WorkshopCheckInStatus.DRAFT,
           inspection_id: null,
         },
         data: { inspection_id: inspectionId },
       });
       if (count === 0) {
+        const current = await tx.workshopCheckIn.findFirst({
+          where: { tenant_id: tenantId, id: checkInId },
+        });
+        if (current?.inspection_id) {
+          return current;
+        }
         throw new ConflictException({
           code: CHECK_IN_ERROR_CODES.CHECK_IN_CONFLICT,
           message: 'Check-in changed while linking the reception checklist.',
         });
       }
       return tx.workshopCheckIn.findFirst({
-        where: { tenant_id: tenantId, id: row.id },
+        where: { tenant_id: tenantId, id: checkInId },
       });
     });
   }
@@ -498,11 +525,10 @@ export class WorkshopCheckInService {
       where: { tenant_id: tenantId, workshop_order_id: orderId },
     });
     if (existingByOrder?.id === requestedId) {
-      const linked = await this.ensureInspectionLinked(tenantId, orderId, {
-        id: existingByOrder.id,
-        inspection_id: existingByOrder.inspection_id,
-        status: existingByOrder.status,
-      });
+      const linked = await this.ensureInspectionLinked(
+        tenantId,
+        existingByOrder.id,
+      );
       if (!linked) {
         throw new NotFoundException('Workshop check-in not found');
       }

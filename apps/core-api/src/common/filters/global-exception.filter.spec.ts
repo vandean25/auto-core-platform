@@ -203,6 +203,22 @@ describe('GlobalExceptionFilter', () => {
       expect(mockJson.mock.calls[0][0]).not.toHaveProperty('code');
     });
 
+    it('preserves CHECK_IN_COMPLETED in production responses', () => {
+      process.env.NODE_ENV = 'production';
+      const exception = new ConflictException({
+        code: 'CHECK_IN_COMPLETED',
+        message: 'Completed check-in cannot be changed.',
+      });
+      filter.catch(exception, mockHost);
+
+      expect(mockJson).toHaveBeenCalledWith(
+        expect.objectContaining({
+          statusCode: 409,
+          code: 'CHECK_IN_COMPLETED',
+        }),
+      );
+    });
+
     it('preserves client-safe operational 503 codes and messages in production', () => {
       process.env.NODE_ENV = 'production';
       const exception = new ServiceUnavailableException({
