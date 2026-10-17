@@ -113,25 +113,28 @@ export class WorkshopCheckInController {
   }
 
   @Post('media')
-  @HttpCode(HttpStatus.CREATED)
   @UseInterceptors(
     FileInterceptor('file', { limits: { fileSize: MAX_IMAGE_BYTES } }),
   )
   @ApiConsumes('multipart/form-data')
   @ApiCreatedResponse({ type: WorkshopCheckInMediaItemDto })
-  uploadMedia(
+  @ApiOkResponse({ type: WorkshopCheckInMediaItemDto })
+  async uploadMedia(
     @Param('orderId', ParseUUIDPipe) orderId: string,
     @UploadedFile() file: Express.Multer.File | undefined,
     @Body('client_upload_id') clientUploadId: string,
     @Body('purpose') purpose: string,
     @Body('expected_revision', ParseIntPipe) expectedRevision: number,
+    @Res({ passthrough: true }) res: Response,
   ): Promise<WorkshopCheckInMediaItemDto> {
-    return this.checkInMedia.upload(orderId, {
+    const result = await this.checkInMedia.upload(orderId, {
       file,
       clientUploadId,
       purpose,
       expectedRevision,
     });
+    res.status(result.created ? HttpStatus.CREATED : HttpStatus.OK);
+    return result.item;
   }
 
   @Post('complete')

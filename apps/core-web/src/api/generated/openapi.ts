@@ -15537,6 +15537,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopCheckInMediaItemDto"];
+                };
+            };
             201: {
                 headers: {
                     [name: string]: unknown;

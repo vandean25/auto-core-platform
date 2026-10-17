@@ -105,4 +105,68 @@ describe('useCheckInDraftAutosave', () => {
     expect(payload.odometer).toBe(89000)
     expect(payload.expected_revision).toBe(3)
   })
+
+  it('advances revisionRef on benign refetch without replacing the draft', async () => {
+    mutateAsync.mockImplementation(async () => ({
+      ...baseRecord,
+      revision: 2,
+      odometer: 88100,
+    }))
+
+    const { result, rerender } = renderHook(
+      ({ record }) =>
+        useCheckInDraftAutosave({
+          orderId: 'order-1',
+          record,
+          readOnly: false,
+        }),
+      { initialProps: { record: baseRecord } },
+    )
+
+    await waitFor(() => {
+      expect(result.current.draft?.odometer).toBe(88000)
+    })
+
+    act(() => {
+      result.current.patchDraft({ odometer: 88100 })
+    })
+
+    await waitFor(() => {
+      expect(result.current.saveStatus).toBe('saved')
+    })
+
+    mutateAsync.mockClear()
+
+    rerender({
+      record: { ...baseRecord, revision: 3, odometer: 88000 },
+    })
+
+    await waitFor(() => {
+      expect(result.current.draft?.odometer).toBe(88100)
+    })
+
+    let flushedRevision = 0
+    await act(async () => {
+      flushedRevision = await result.current.flushBeforeNavigate()
+    })
+    expect(flushedRevision).toBe(3)
+    expect(mutateAsync).not.toHaveBeenCalled()
+
+    mutateAsync.mockClear()
+    mutateAsync.mockResolvedValueOnce({
+      ...baseRecord,
+      revision: 4,
+      odometer: 88100,
+    })
+
+    act(() => {
+      result.current.patchDraft({ key_count: 1 })
+    })
+
+    await waitFor(() => {
+      expect(mutateAsync).toHaveBeenCalled()
+    })
+
+    expect(mutateAsync.mock.calls[0][0].body.expected_revision).toBe(3)
+  })
 })

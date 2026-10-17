@@ -50,11 +50,11 @@ export function useCheckInDraftAutosave({
     }
     const next = draftFromCheckIn(record)
     setDraft((current) => {
+      revisionRef.current = record.revision
       if (current && lastSavedRef.current && !hydrateFromServerRef.current) {
         return current
       }
       hydrateFromServerRef.current = false
-      revisionRef.current = record.revision
       lastSavedRef.current = next
       return next
     })

@@ -7,6 +7,8 @@ export const WORKSHOP_CHECK_IN_ERROR_CODES = [
   'CHECK_IN_COMPLETED',
   'CHECK_IN_ORDER_STATUS',
   'CHECK_IN_MEDIA_INVALID',
+  'CHECK_IN_MEDIA_UPLOADER_REQUIRED',
+  'UPLOAD_ID_REUSED',
 ] as const
 
 export type WorkshopCheckInErrorCode =

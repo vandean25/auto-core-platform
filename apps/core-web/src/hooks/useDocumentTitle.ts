@@ -11,10 +11,22 @@ import { formatDocumentTitle, getRouteSectionTitle } from '@/lib/document-title'
  * outgoing page mounted during its exit animation, and that page keeps its own route this way,
  * so it cannot overwrite the title of the route that replaced it.
  */
-export function useDocumentTitle(entity?: string | null) {
+type UseDocumentTitleOptions = {
+  /** When false, only `entity` and the app name are used (no route section suffix). */
+  includeRouteSection?: boolean
+}
+
+export function useDocumentTitle(
+  entity?: string | null,
+  options?: UseDocumentTitleOptions,
+) {
   const { pathname } = useLocation()
+  const includeRouteSection = options?.includeRouteSection ?? true
 
   useEffect(() => {
-    document.title = formatDocumentTitle([entity, getRouteSectionTitle(pathname)])
-  }, [entity, pathname])
+    const parts = includeRouteSection
+      ? [entity, getRouteSectionTitle(pathname)]
+      : [entity]
+    document.title = formatDocumentTitle(parts)
+  }, [entity, includeRouteSection, pathname])
 }

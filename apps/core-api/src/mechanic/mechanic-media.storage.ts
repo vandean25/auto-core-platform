@@ -159,15 +159,17 @@ export class MechanicMediaStorage {
     bytes: Buffer;
     mimeType: string;
     filename?: string;
+    /** Stable object id for idempotent retries (e.g. client upload id). */
+    objectId?: string;
   }): Promise<{ storageBucket: string; storageKey: string }> {
-    if (!IMAGE_MIME_TYPES.has(params.mimeType)) {
+    if (params.mimeType !== 'image/jpeg') {
       throw new BadRequestException(
-        `Unsupported MIME type for check-in photo: ${params.mimeType}`,
+        `Check-in photos must be stored as image/jpeg (got ${params.mimeType}).`,
       );
     }
     const bucketName = this.getBucketName();
-    const ext = this.getExtension(params.mimeType, params.filename);
-    const objectId = crypto.randomUUID();
+    const ext = '.jpg';
+    const objectId = params.objectId ?? crypto.randomUUID();
     const storageKey = `tenants/${params.tenantId}/orders/${params.orderId}/check-in/${params.checkInId}/${objectId}${ext}`;
     const file = this.storage.bucket(bucketName).file(storageKey);
     try {

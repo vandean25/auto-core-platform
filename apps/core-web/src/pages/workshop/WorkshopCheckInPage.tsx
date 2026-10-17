@@ -12,6 +12,7 @@ export function WorkshopCheckInPage() {
     order?.order_number
       ? t('checkIn.pageTitle', { orderNumber: order.order_number })
       : t('checkIn.pageTitleFallback'),
+    { includeRouteSection: false },
   )
 
   return <WorkshopCheckInFlow orderId={id} />

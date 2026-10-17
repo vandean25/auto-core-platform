@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import sharp from 'sharp';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
@@ -35,10 +36,14 @@ describe('Workshop check-in (e2e)', () => {
   let orderId: string;
   let otherOrderId: string;
   const checkInId = '51500000-0000-4000-8000-000000000555';
+  let lastUploadedCheckInBytes: Buffer | undefined;
   const mockMediaStorage: Partial<MechanicMediaStorage> = {
-    uploadCheckInPhoto: jest.fn().mockResolvedValue({
-      storageBucket: 'test-workshop-media-bucket',
-      storageKey: 'tenants/t/check-in/photo.jpg',
+    uploadCheckInPhoto: jest.fn().mockImplementation(async (params) => {
+      lastUploadedCheckInBytes = params.bytes;
+      return {
+        storageBucket: 'test-workshop-media-bucket',
+        storageKey: `tenants/t/check-in/${params.objectId ?? 'photo'}.jpg`,
+      };
     }),
     generateSignedReadUrl: jest
       .fn()
@@ -135,11 +140,19 @@ describe('Workshop check-in (e2e)', () => {
     });
     otherOrderId = otherOrder.id;
 
+    const authUser = await basePrisma.user.findUnique({
+      where: { firebaseUid: tenantA.firebaseUid },
+      select: { id: true },
+    });
+    if (!authUser) {
+      throw new Error('Expected test auth user to exist');
+    }
     await runWithTenantContext(tenantId, () =>
       seedTestEmployee(basePrisma, {
         tenantId,
         name: 'Advisor Upload',
         role: 'SERVICE_ADVISOR',
+        userId: authUser.id,
       }),
     );
   });
@@ -241,6 +254,28 @@ describe('Workshop check-in (e2e)', () => {
 
     expect(listRes.body.data).toHaveLength(1);
     expect(listRes.body.data[0].id).toBe(uploadRes.body.id);
+    expect(uploadRes.body.mime_type).toBe('image/jpeg');
+    expect(lastUploadedCheckInBytes).toBeDefined();
+    const storedMeta = await sharp(lastUploadedCheckInBytes!).metadata();
+    expect(storedMeta.exif).toBeUndefined();
+
+    const retryRes = await request(app.getHttpServer())
+      .post(`/api/workshop/orders/${orderId}/check-in/media`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .field('client_upload_id', '51500000-0000-4000-8000-000000000558')
+      .field('purpose', 'CHECK_IN')
+      .field('expected_revision', String(after.body.revision))
+      .attach('file', bytes, 'check-in.jpg')
+      .expect(200);
+
+    expect(retryRes.body.id).toBe(uploadRes.body.id);
+
+    const afterRetry = await request(app.getHttpServer())
+      .get(`/api/workshop/orders/${orderId}/check-in`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    expect(afterRetry.body.revision).toBe(after.body.revision);
   });
 
   it('isolates check-in reads across tenants', async () => {

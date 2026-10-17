@@ -130,7 +130,10 @@ test.describe('AUT-557: workshop check-in tablet flow', () => {
         }
         if (route.request().method() === 'POST') {
           const postData = route.request().postData() ?? ''
-          uploadPurpose = postData.includes('name="purpose"') ? 'CHECK_IN' : undefined
+          const purposeMatch = postData.match(
+            /name="purpose"\r?\n\r?\n(CHECK_IN|[^\r\n]+)/,
+          )
+          uploadPurpose = purposeMatch?.[1]
           const mediaId = 'media-check-in-1'
           revision += 1
           checkIn = { ...checkIn, revision }
