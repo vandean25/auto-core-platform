@@ -69,7 +69,7 @@ export function draftToPatchPayload(
     description: draft.description.trim() || null,
     description_language: draft.description_language,
     price_gross_eur,
-    vat_display: draft.vat_display || undefined,
+    vat_display: draft.vat_display === '' ? null : draft.vat_display || undefined,
     nova_included_confirmed: draft.nova_included_confirmed,
     mandatory_fees_included_confirmed: draft.mandatory_fees_included_confirmed,
     equipment_free_text: draft.equipment_free_text.trim() || null,

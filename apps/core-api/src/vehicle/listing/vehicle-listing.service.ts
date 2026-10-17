@@ -248,7 +248,10 @@ export class VehicleListingService {
               ? null
               : new Decimal(dto.price_gross_eur)
             : current.price_gross_eur,
-        vat_display: dto.vat_display ?? current.vat_display,
+        vat_display:
+          dto.vat_display !== undefined
+            ? dto.vat_display
+            : current.vat_display,
         nova_included_confirmed:
           dto.nova_included_confirmed ?? current.nova_included_confirmed,
         mandatory_fees_included_confirmed:

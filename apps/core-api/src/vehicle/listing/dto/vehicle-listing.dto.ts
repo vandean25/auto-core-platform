@@ -219,10 +219,12 @@ export class PatchVehicleListingDto {
   @ApiPropertyOptional({
     enum: VehicleListingVatDisplay,
     enumName: 'VehicleListingVatDisplay',
+    nullable: true,
   })
   @IsOptional()
+  @ValidateIf((_, value) => value !== null)
   @IsEnum(VehicleListingVatDisplay)
-  vat_display?: VehicleListingVatDisplay;
+  vat_display?: VehicleListingVatDisplay | null;
 
   @ApiPropertyOptional()
   @IsOptional()

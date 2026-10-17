@@ -179,9 +179,7 @@ export class VehicleListingExportService {
       const issues: VehicleListingChannelValidationDto['issues'] = [];
 
       issues.push(...listListingOfferFieldReadinessIssues(readinessListing));
-      if (channel.desired_state === VehicleListingDesiredState.ACTIVE) {
-        issues.push(...listListingVehicleActivationReadinessIssues(vehicle));
-      }
+      issues.push(...listListingVehicleActivationReadinessIssues(vehicle));
 
       const profileCode =
         channel.serializer_profile as EquipmentListingSerializerProfile;

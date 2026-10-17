@@ -9796,7 +9796,7 @@ export interface components {
             description_language?: components["schemas"]["VehicleListingDescriptionLanguage"];
             /** @example 18990 */
             price_gross_eur?: number | null;
-            vat_display?: components["schemas"]["VehicleListingVatDisplay"];
+            vat_display?: components["schemas"]["VehicleListingVatDisplay"] | null;
             nova_included_confirmed?: boolean;
             mandatory_fees_included_confirmed?: boolean;
             equipment_free_text?: Record<string, never>;

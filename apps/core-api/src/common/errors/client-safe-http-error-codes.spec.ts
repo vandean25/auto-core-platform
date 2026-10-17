@@ -2,6 +2,7 @@ import { WARRANTY_CLAIM_ERROR_CODES } from '../../warranty-claim/warranty-claim.
 import {
   CLIENT_SAFE_HTTP_ERROR_CODES,
   pickClientSafeHttpErrorDetails,
+  pickClientSafeHttpErrorStructuredDetails,
 } from './client-safe-http-error-codes.js';
 
 describe('client-safe HTTP error codes', () => {
@@ -58,5 +59,23 @@ describe('client-safe HTTP error codes', () => {
     expect(
       pickClientSafeHttpErrorDetails({ code: 'SOMETHING_ELSE', orderId: 'wo-live' }),
     ).toEqual({});
+  });
+
+  it('forwards sanitized field_issues for listing readiness errors', () => {
+    expect(
+      pickClientSafeHttpErrorStructuredDetails({
+        code: 'VEHICLE_LISTING_NOT_READY',
+        field_issues: [
+          {
+            field: 'price_gross_eur',
+            code: 'LISTING_PRICE_REQUIRED',
+            message: 'internal copy',
+          },
+          { field: 123 },
+        ],
+      }),
+    ).toEqual({
+      field_issues: [{ field: 'price_gross_eur', code: 'LISTING_PRICE_REQUIRED' }],
+    });
   });
 });

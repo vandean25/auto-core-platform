@@ -47,5 +47,8 @@ describe('listing-draft', () => {
 
     const cleared = { ...draft, price_gross_eur: '  ' }
     expect(draftToPatchPayload(cleared, 4).price_gross_eur).toBeNull()
+
+    const vatCleared = { ...draft, vat_display: '' as const }
+    expect(draftToPatchPayload(vatCleared, 4).vat_display).toBeNull()
   })
 })

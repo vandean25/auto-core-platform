@@ -115,7 +115,48 @@ export const CLIENT_SAFE_HTTP_ERROR_CODES = new Set<string>([
   'VEHICLE_LISTING_NOT_READY',
   'VEHICLE_LISTING_NOT_FOUND',
   'VEHICLE_LISTING_CHANNEL_NOT_FOUND',
+  'LISTING_VALIDATE_DEMO_DENIED',
+  'LISTING_EXPORT_DEMO_DENIED',
 ]);
+
+export type ClientSafeHttpFieldIssue = {
+  field: string;
+  code?: string;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function sanitizeClientSafeFieldIssues(
+  value: unknown,
+): ClientSafeHttpFieldIssue[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const issues: ClientSafeHttpFieldIssue[] = [];
+  for (const row of value) {
+    if (!isRecord(row) || typeof row.field !== 'string') {
+      continue;
+    }
+    const issue: ClientSafeHttpFieldIssue = { field: row.field };
+    if (typeof row.code === 'string') {
+      issue.code = row.code;
+    }
+    issues.push(issue);
+  }
+  return issues.length > 0 ? issues : undefined;
+}
+
+/**
+ * Structured response fragments forwarded for specific client-safe codes. Values are validated before
+ * inclusion so operational gates can return field-level guidance without exposing arbitrary internals.
+ */
+export const CLIENT_SAFE_HTTP_ERROR_STRUCTURED_DETAIL_KEYS: Partial<
+  Record<string, readonly string[]>
+> = {
+  VEHICLE_LISTING_NOT_READY: ['field_issues'],
+};
 
 /**
  * Body fields, beyond `code` and `message`, that the global filter forwards for a client-safe code. Only IDs and
@@ -148,4 +189,24 @@ export function pickClientSafeHttpErrorDetails(
     if (typeof value === 'string') details[key] = value;
   }
   return details;
+}
+
+export function pickClientSafeHttpErrorStructuredDetails(
+  responseBody: Record<string, unknown>,
+): Record<string, unknown> {
+  const code = responseBody.code;
+  if (typeof code !== 'string' || !CLIENT_SAFE_HTTP_ERROR_CODES.has(code)) {
+    return {};
+  }
+
+  const structured: Record<string, unknown> = {};
+  for (const key of CLIENT_SAFE_HTTP_ERROR_STRUCTURED_DETAIL_KEYS[code] ?? []) {
+    if (key === 'field_issues') {
+      const fieldIssues = sanitizeClientSafeFieldIssues(responseBody.field_issues);
+      if (fieldIssues) {
+        structured.field_issues = fieldIssues;
+      }
+    }
+  }
+  return structured;
 }

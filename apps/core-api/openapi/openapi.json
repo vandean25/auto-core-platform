@@ -32829,6 +32829,7 @@
             "nullable": true
           },
           "vat_display": {
+            "nullable": true,
             "allOf": [
               {
                 "$ref": "#/components/schemas/VehicleListingVatDisplay"

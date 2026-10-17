@@ -62,11 +62,14 @@
       "desiredInactive": "Inactive",
       "validationTitle": "Portal validation",
       "serializerUnsupported": "No export validator is available for this portal yet.",
-      "noIssues": "No validation messages for this portal."
+      "noIssues": "No validation messages for this portal.",
+      "validationLoadError": "Portal validation could not be loaded. Try again."
     },
     "photos": {
       "moveUp": "Move up",
       "moveDown": "Move down",
+      "moveUpA11y": "Move photo {{position}} up",
+      "moveDownA11y": "Move photo {{position}} down",
       "include": "In listing",
       "exclude": "Not in listing",
       "empty": "No vehicle photos yet."
@@ -110,11 +113,12 @@
       "saveFailed": "Could not save listing",
       "channelFailed": "Could not save portal status",
       "equipmentFailed": "Could not save equipment",
-      "invalidPrice": "Enter a valid price (for example 14,500.50 or 14500,50).",
+      "invalidPrice": "Enter a valid price (for example 14500.50 or 14.500,50).",
       "codes": {
         "VEHICLE_LISTING_REVISION_CONFLICT": "The listing was changed elsewhere. Reload and try again.",
         "VEHICLE_LISTING_NOT_READY": "The listing is not ready to activate on this portal.",
-        "LISTING_VALIDATE_DEMO_DENIED": "Demo accounts cannot run portal validation."
+        "LISTING_VALIDATE_DEMO_DENIED": "Demo accounts cannot run portal validation.",
+        "LISTING_EXPORT_DEMO_DENIED": "Demo accounts cannot download listing export packages."
       }
     }
   }

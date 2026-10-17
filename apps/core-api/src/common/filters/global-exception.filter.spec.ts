@@ -259,6 +259,31 @@ describe('GlobalExceptionFilter', () => {
     expect(mockJson.mock.calls[0][0]).not.toHaveProperty('code');
   });
 
+  it('forwards field_issues for listing readiness 422 responses', () => {
+    const exception = new UnprocessableEntityException({
+      code: 'VEHICLE_LISTING_NOT_READY',
+      message: 'Listing is not ready for an active marketplace offer.',
+      field_issues: [
+        {
+          field: 'vat_display',
+          code: 'LISTING_VAT_DISPLAY_REQUIRED',
+          message: 'VAT display (STANDARD or MARGIN) must be confirmed.',
+        },
+      ],
+    });
+    filter.catch(exception, mockHost);
+
+    expect(mockJson).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: 422,
+        code: 'VEHICLE_LISTING_NOT_READY',
+        field_issues: [
+          { field: 'vat_display', code: 'LISTING_VAT_DISPLAY_REQUIRED' },
+        ],
+      }),
+    );
+  });
+
   it('adds the request id to 5xx bodies so the user can quote it', () => {
     TenantContextStorage.run(() => {
       TenantContextStorage.setRequestMeta({

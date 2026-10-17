@@ -229,6 +229,119 @@ test.describe('Vehicle listing editor', () => {
     );
   });
 
+  test('shows revision conflict banner when auto-save returns 409', async ({ page }) => {
+    const corePage = new AutoCorePage(page, 'Vehicle');
+    const stockRow = createMockVehicleStockRow({ id: 'listing-vehicle-409' });
+
+    await page.route(AutoCorePage.apiRouteMatcher('/api/me/sites'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          {
+            id: 'site-1',
+            code: 'MAIN',
+            name: 'Main site',
+            legalEntityId: 'entity-1',
+            legalEntityName: 'Synthetic Motors GmbH',
+          },
+        ]),
+      });
+    });
+
+    await page.route(AutoCorePage.apiRouteMatcher('/api/vehicle-stock'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(createMockListResponse([stockRow])),
+      });
+    });
+
+    await page.route(AutoCorePage.apiRouteMatcher('/api/vehicle-stock/listing-vehicle-409'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ...stockRow,
+          purchases: [{ id: PURCHASE_ID, purchase_number: 'VP-100', status: 'RECEIVED' }],
+          sales: [],
+          workshop_orders: [],
+        }),
+      });
+    });
+
+    await page.route(
+      AutoCorePage.apiRouteMatcher('/api/vehicle-stock/listing-vehicle-409/listing'),
+      async (route) => {
+        if (route.request().method() === 'GET') {
+          return route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify(mockListing({ vehicle_id: 'listing-vehicle-409' })),
+          });
+        }
+        if (route.request().method() === 'PATCH') {
+          return route.fulfill({
+            status: 409,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              code: 'VEHICLE_LISTING_REVISION_CONFLICT',
+              message: 'Listing was modified by another request.',
+            }),
+          });
+        }
+        return route.fallback();
+      },
+    );
+
+    await page.route(
+      AutoCorePage.apiRouteMatcher('/api/vehicle-stock/listing-vehicle-409/listing/export/validate'),
+      async (route) => {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ channels: [] }) });
+      },
+    );
+
+    await page.route(
+      AutoCorePage.apiRouteMatcher('/api/vehicle-stock/listing-vehicle-409/photos'),
+      async (route) => {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+      },
+    );
+
+    await page.route(AutoCorePage.apiRouteMatcher('/api/vehicle-equipment-options'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: [] }),
+      });
+    });
+
+    await page.route(
+      AutoCorePage.apiRouteMatcher('/api/vehicle-stock/listing-vehicle-409/equipment'),
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ stock_purchase_id: PURCHASE_ID, selections: [], free_text_items: [] }),
+        });
+      },
+    );
+
+    await corePage.navigate('/vehicle-stock/listing-vehicle-409/listing');
+    const conflictResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'PATCH' &&
+        response.url().includes('/api/vehicle-stock/listing-vehicle-409/listing') &&
+        response.status() === 409,
+    );
+    await page.locator('#listing-description').fill('Conflict while saving.');
+    await conflictResponse;
+
+    await expect(
+      page.getByRole('button', { name: /Reload current version|Aktuelle Version laden/i }),
+    ).toBeVisible();
+  });
+
   test('creates listing after 404 and does not create when GET fails', async ({ page }) => {
     const corePage = new AutoCorePage(page, 'Vehicle');
     const stockRow = createMockVehicleStockRow({ id: VEHICLE_ID });

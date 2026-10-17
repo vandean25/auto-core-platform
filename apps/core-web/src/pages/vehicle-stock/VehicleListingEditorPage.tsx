@@ -378,6 +378,7 @@ export default function VehicleListingEditorPage() {
       ) {
         setDraft(localDraft)
         setSavedDraft(serverDraft)
+        void triggerAutoSave(localDraft)
       } else {
         applyListing(updated)
       }
@@ -431,6 +432,11 @@ export default function VehicleListingEditorPage() {
   }
 
   const listing = listingQuery.data
+  const hasUnsavedDraftEdits =
+    savedDraft !== null && draft !== null && !draftsEqual(draft, savedDraft)
+  const displaySaveStatus =
+    hasUnsavedDraftEdits && saveStatus === 'saved' ? 'idle' : saveStatus
+
   const parsedListingPrice = parseListingGrossPrice(draft.price_gross_eur)
   const pricePreview =
     parsedListingPrice.valid && parsedListingPrice.value !== null
@@ -456,7 +462,7 @@ export default function VehicleListingEditorPage() {
             </p>
           </div>
         </div>
-        <DocumentSaveIndicator status={saveStatus} />
+        <DocumentSaveIndicator status={displaySaveStatus} />
       </div>
 
       {revisionConflict ? (
@@ -691,7 +697,7 @@ export default function VehicleListingEditorPage() {
                         size="sm"
                         variant="outline"
                         disabled={index <= 0}
-                        aria-label={t('listing.photos.moveUp')}
+                        aria-label={t('listing.photos.moveUpA11y', { position: index + 1 })}
                         onClick={() => movePhoto(photo.id, -1)}
                       >
                         {t('listing.photos.moveUp')}
@@ -701,7 +707,7 @@ export default function VehicleListingEditorPage() {
                         size="sm"
                         variant="outline"
                         disabled={index >= draft.photo_ids.length - 1}
-                        aria-label={t('listing.photos.moveDown')}
+                        aria-label={t('listing.photos.moveDownA11y', { position: index + 1 })}
                         onClick={() => movePhoto(photo.id, 1)}
                       >
                         {t('listing.photos.moveDown')}
@@ -800,6 +806,19 @@ export default function VehicleListingEditorPage() {
             <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
               {t('listing.sections.portals')}
             </h2>
+            {validationQuery.isError ? (
+              <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm space-y-2">
+                <p className="text-destructive">{t('listing.portals.validationLoadError')}</p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void validationQuery.refetch()}
+                >
+                  {t('listing.loadError.retry')}
+                </Button>
+              </div>
+            ) : null}
             <Tabs defaultValue={listing.channels[0]?.platform ?? 'MOBILE_DE'}>
               <TabsList>
                 {listing.channels.map((channel) => (
@@ -837,7 +856,7 @@ export default function VehicleListingEditorPage() {
                         {t('listing.portals.serializerUnsupported')}
                       </p>
                     ) : null}
-                    {channelIssues.length === 0 ? (
+                    {validationQuery.isError ? null : channelIssues.length === 0 ? (
                       <p className="text-sm text-slate-600">{t('listing.portals.noIssues')}</p>
                     ) : (
                       <ul className="space-y-1 text-sm text-destructive">
@@ -861,6 +880,8 @@ export default function VehicleListingEditorPage() {
             <ListingFieldErrors issues={mobileIssues} field="vehicle.mileage_km" />
             <ListingFieldErrors issues={mobileIssues} field="vehicle.first_registration" />
             <ListingFieldErrors issues={mobileIssues} field="vehicle.make_model" />
+            <ListingFieldErrors issues={mobileIssues} field="vehicle.stock_status" />
+            <ListingFieldErrors issues={mobileIssues} field="vehicle.inventory_role" />
             <p className="text-xs text-slate-500">{t('listing.vehicleFieldHint')}</p>
             <Link
               className="text-sm text-primary underline"
