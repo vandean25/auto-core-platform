@@ -202,7 +202,9 @@ export function pickClientSafeHttpErrorStructuredDetails(
   const structured: Record<string, unknown> = {};
   for (const key of CLIENT_SAFE_HTTP_ERROR_STRUCTURED_DETAIL_KEYS[code] ?? []) {
     if (key === 'field_issues') {
-      const fieldIssues = sanitizeClientSafeFieldIssues(responseBody.field_issues);
+      const fieldIssues = sanitizeClientSafeFieldIssues(
+        responseBody.field_issues,
+      );
       if (fieldIssues) {
         structured.field_issues = fieldIssues;
       }
