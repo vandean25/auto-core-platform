@@ -114,7 +114,11 @@ describe('LeaveBookingSheet', () => {
     })
   })
 
-  it.each([400, 409] as const)('keeps the sheet open and displays a backend validation message for HTTP %s', async (status) => {
+  it.each([400, 409] as const)('keeps the sheet open and displays a translated status message for HTTP %s', async (status) => {
+    const expectedMessage =
+      status === 409
+        ? 'Die Anfrage steht im Konflikt mit dem aktuellen Zustand.'
+        : 'Die Anfrage konnte nicht verarbeitet werden.'
     const conflict = Object.assign(new Error('Leave overlaps an existing booking'), { status })
     const createLeave = vi.fn().mockRejectedValue(conflict)
     apiMocks.useCreateLeave.mockReturnValue({ mutateAsync: createLeave, isPending: false })
@@ -135,7 +139,7 @@ describe('LeaveBookingSheet', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '+ Leave' }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Leave overlaps an existing booking')
+    expect(await screen.findByRole('alert')).toHaveTextContent(expectedMessage)
     expect(onOpenChange).not.toHaveBeenCalledWith(false)
   })
 })

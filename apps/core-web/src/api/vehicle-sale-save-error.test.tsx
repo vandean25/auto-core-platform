@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, renderHook } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { initI18n } from '@/lib/i18n'
 import { fetchWithAuth } from './client'
 import { useUpdateVehicleSale } from './vehicle-stock'
 import { getErrorCode, getErrorMessage, getErrorStatus } from '@/lib/error-utils'
@@ -18,6 +19,10 @@ function createWrapper() {
 }
 
 describe('useUpdateVehicleSale errors', () => {
+  beforeAll(async () => {
+    await initI18n({ language: 'de' })
+  })
+
   afterEach(() => vi.clearAllMocks())
 
   it('keeps the HTTP status and stable code of a refused sale save', async () => {

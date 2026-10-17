@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { components } from './generated/openapi'
 import { fetchWithAuth } from './client'
+import { throwHttpError } from '@/lib/error-utils'
 
 export type TenantApiKey = components['schemas']['TenantApiKeyResponseDto']
 export type TenantApiKeyCreated = components['schemas']['TenantApiKeyCreatedResponseDto']
@@ -21,22 +22,13 @@ export const tenantApiKeyKeys = {
   list: () => [...tenantApiKeyKeys.all, 'list'] as const,
 }
 
-async function getErrorMessage(response: Response, fallbackMessage: string) {
-  const payload = (await response.json().catch(() => undefined)) as { message?: string | string[] } | undefined
-  const message = payload?.message
-  if (Array.isArray(message)) {
-    return message.join(', ') || fallbackMessage
-  }
-  return message || fallbackMessage
-}
-
 export function useTenantApiKeys() {
   return useQuery<TenantApiKeyList>({
     queryKey: tenantApiKeyKeys.list(),
     queryFn: async () => {
       const response = await fetchWithAuth('/api/tenant-api-keys')
       if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to load API keys'))
+        await throwHttpError(response, 'Failed to load API keys')
       }
       return response.json()
     },
@@ -55,7 +47,7 @@ export function useCreateTenantApiKey() {
       })
 
       if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to create API key'))
+        await throwHttpError(response, 'Failed to create API key')
       }
 
       return response.json() as Promise<TenantApiKeyCreated>
@@ -74,7 +66,7 @@ export function useRevokeTenantApiKey() {
       const response = await fetchWithAuth(`/api/tenant-api-keys/${id}/revoke`, { method: 'POST' })
 
       if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to revoke API key'))
+        await throwHttpError(response, 'Failed to revoke API key')
       }
 
       return response.json() as Promise<TenantApiKey>

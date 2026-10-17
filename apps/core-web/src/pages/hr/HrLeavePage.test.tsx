@@ -266,7 +266,7 @@ describe('HrLeavePage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
 
-    expect(toast.error).toHaveBeenCalledWith('Cancellation failed')
+    expect(toast.error).toHaveBeenCalledWith('Failed to cancel leave booking')
   })
 
   it('lets OWNER book from the team grid but keeps SALES read-only', () => {

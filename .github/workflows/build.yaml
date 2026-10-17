@@ -422,6 +422,12 @@ jobs:
       - name: Verify i18n key check script (unit tests)
         run: npm run i18n:check:test
 
+      - name: Verify public error code i18n coverage
+        run: npm run error-codes:check
+
+      - name: Verify public error code check script (unit tests)
+        run: npm run error-codes:check:test
+
       - name: Build frontend
         # PR workflow uses this build for compile-time validation only.
         # It intentionally does not inject production VITE_* runtime values.

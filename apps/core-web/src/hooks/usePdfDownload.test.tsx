@@ -283,7 +283,7 @@ describe('usePdfDownload', () => {
 
     expect(success).toBe(false)
     expect(checkGenerationFailed).toHaveBeenCalledTimes(1)
-    expect(toast.error).toHaveBeenCalledWith('Renderer failed: syntax error', { id: expect.any(String) })
+    expect(toast.error).toHaveBeenCalledWith('PDF-Erstellung fehlgeschlagen', { id: expect.any(String) })
     expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'Renderer failed: syntax error' }))
     expect(triggerBlobDownload).not.toHaveBeenCalled()
     expect(result.current.isLoading).toBe(false)
@@ -310,8 +310,6 @@ describe('usePdfDownload', () => {
       } as unknown as Response
     })
 
-    const defaultTimeoutMessage =
-      'PDF-Erstellung dauert zu lange. Bitte versuchen Sie es in Kürze erneut.'
     const { result } = renderHook(() =>
       usePdfDownload({
         postUrl,
@@ -336,7 +334,7 @@ describe('usePdfDownload', () => {
     const success = await downloadPromise
 
     expect(success).toBe(false)
-    expect(toast.error).toHaveBeenCalledWith(defaultTimeoutMessage, { id: expect.any(String) })
+    expect(toast.error).toHaveBeenCalledWith('PDF-Erstellung fehlgeschlagen', { id: expect.any(String) })
     expect(triggerBlobDownload).not.toHaveBeenCalled()
     expect(result.current.isLoading).toBe(false)
   })
@@ -361,7 +359,6 @@ describe('usePdfDownload', () => {
       } as unknown as Response
     })
 
-    const customTimeoutMessage = 'Benutzerdefinierte Zeitüberschreitung'
     const { result } = renderHook(() =>
       usePdfDownload({
         postUrl,
@@ -371,7 +368,7 @@ describe('usePdfDownload', () => {
         intervalMs: 1000,
         backoffMultiplier: 1,
         messages: {
-          timeout: customTimeoutMessage,
+          timeout: 'Benutzerdefinierte Zeitüberschreitung',
         },
       }),
     )
@@ -388,7 +385,7 @@ describe('usePdfDownload', () => {
     const success = await downloadPromise
 
     expect(success).toBe(false)
-    expect(toast.error).toHaveBeenCalledWith(customTimeoutMessage, { id: expect.any(String) })
+    expect(toast.error).toHaveBeenCalledWith('PDF-Erstellung fehlgeschlagen', { id: expect.any(String) })
     expect(triggerBlobDownload).not.toHaveBeenCalled()
     expect(result.current.isLoading).toBe(false)
   })

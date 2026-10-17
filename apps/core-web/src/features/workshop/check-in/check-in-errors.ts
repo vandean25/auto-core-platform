@@ -1,3 +1,4 @@
+import { translateApiError } from '@/api/api-error'
 import { getErrorBody } from '@/lib/error-utils'
 import { i18n } from '@/lib/i18n'
 
@@ -36,14 +37,12 @@ export function resolveWorkshopCheckInErrorCode(
   return undefined
 }
 
-function messageForCode(code: WorkshopCheckInErrorCode): string {
-  return i18n.t(`checkIn.errors.${code}`, { ns: 'workshop' })
-}
-
 export function describeWorkshopCheckInError(error: unknown): string {
   const code = resolveWorkshopCheckInErrorCode(error)
   if (code) {
-    return messageForCode(code)
+    return translateApiError({
+      response: { data: { code, ...(getErrorBody(error) ?? {}) } },
+    })
   }
   return i18n.t('checkIn.errors.generic', { ns: 'workshop' })
 }

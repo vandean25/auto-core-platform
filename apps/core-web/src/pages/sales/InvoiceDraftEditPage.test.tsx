@@ -364,9 +364,15 @@ describe('InvoiceDraftEditPage autosave', () => {
   })
 
   it('surfaces the branding writer gate message when finalize is blocked', async () => {
-    const brandingGateMessage = deSales.errors.codes.INVOICE_BRANDING_WRITER_DISABLED
+    const brandingGateMessage =
+      'Marken-Rechnungsausstellung ist in dieser Umgebung deaktiviert. Finalisieren funktioniert, sobald der Rechnungs-Branding-Writer freigeschaltet ist.'
     const updateMutation = vi.fn().mockResolvedValue(mockInvoice)
-    const finalizeMutation = vi.fn().mockRejectedValue(new Error(brandingGateMessage))
+    const finalizeMutation = vi.fn().mockRejectedValue(
+      Object.assign(new Error('api'), {
+        status: 503,
+        data: { statusCode: 503, code: 'INVOICE_BRANDING_WRITER_DISABLED' },
+      }),
+    )
     asMock(salesApi.useUpdateInvoice).mockReturnValue({
       mutateAsync: updateMutation,
       isPending: false,
@@ -390,9 +396,12 @@ describe('InvoiceDraftEditPage autosave', () => {
 
   it('surfaces Nest API errors when finalize fails and does not navigate', async () => {
     const updateMutation = vi.fn().mockResolvedValue(mockInvoice)
-    const finalizeMutation = vi
-      .fn()
-      .mockRejectedValue(new Error('ACCOUNTING_MAPPING_INCOMPLETE: Accounting mapping is incomplete'))
+    const finalizeMutation = vi.fn().mockRejectedValue(
+      Object.assign(new Error('api'), {
+        status: 422,
+        data: { statusCode: 422, code: 'ACCOUNTING_MAPPING_INCOMPLETE' },
+      }),
+    )
     asMock(salesApi.useUpdateInvoice).mockReturnValue({
       mutateAsync: updateMutation,
       isPending: false,
@@ -409,17 +418,20 @@ describe('InvoiceDraftEditPage autosave', () => {
 
     await waitFor(() => {
       expect(finalizeMutation).toHaveBeenCalledWith('inv-1')
-      expect(toast.error).toHaveBeenCalledWith(deSales.errors.codes.ACCOUNTING_MAPPING_INCOMPLETE)
-      expect(screen.getByText(deSales.errors.codes.ACCOUNTING_MAPPING_INCOMPLETE)).toBeInTheDocument()
+      expect(toast.error).toHaveBeenCalledWith('Die Buchhaltungszuordnung ist unvollständig.')
+      expect(screen.getByText('Die Buchhaltungszuordnung ist unvollständig.')).toBeInTheDocument()
       expect(mockNavigate).not.toHaveBeenCalled()
     })
   })
 
   it('shows ATP 409 finalize errors inside the confirm dialog', async () => {
-    const atpMessage =
-      'Insufficient ATP for item OF-1031-BMW - Oil Filter - BMW model 31 (Req: 1, Available: 0)'
     const updateMutation = vi.fn().mockResolvedValue(mockInvoice)
-    const finalizeMutation = vi.fn().mockRejectedValue(new Error(atpMessage))
+    const finalizeMutation = vi.fn().mockRejectedValue(
+      Object.assign(new Error('api'), {
+        status: 409,
+        data: { statusCode: 409, code: 'HTTP_409' },
+      }),
+    )
     asMock(salesApi.useUpdateInvoice).mockReturnValue({
       mutateAsync: updateMutation,
       isPending: false,
@@ -434,14 +446,11 @@ describe('InvoiceDraftEditPage autosave', () => {
     openFinalizeDialog()
     confirmFinalize()
 
-    const atpTranslated = deSales.errors.insufficientAtp
-      .replace('{{item}}', 'OF-1031-BMW - Oil Filter - BMW model 31')
-      .replace('{{required}}', '1')
-      .replace('{{available}}', '0')
+    const conflictMessage = 'Die Anfrage steht im Konflikt mit dem aktuellen Zustand.'
 
     await waitFor(() => {
-      expect(screen.getByText(/OF-1031-BMW/i)).toBeInTheDocument()
-      expect(toast.error).toHaveBeenCalledWith(atpTranslated)
+      expect(screen.getByText(conflictMessage)).toBeInTheDocument()
+      expect(toast.error).toHaveBeenCalledWith(conflictMessage)
     })
 
     expect(screen.getByText(/Finalize invoice\?/i)).toBeInTheDocument()
@@ -449,9 +458,10 @@ describe('InvoiceDraftEditPage autosave', () => {
 
   it('surfaces API message when autosave fails', async () => {
     const updateMutation = vi.fn().mockRejectedValue(
-      new Error(
-        'Direct source-less invoice creation is not supported. Create invoices from an eligible sales order.',
-      ),
+      Object.assign(new Error('api'), {
+        status: 400,
+        data: { statusCode: 400, code: 'SOURCE_DOCUMENT_REQUIRED' },
+      }),
     )
     asMock(salesApi.useUpdateInvoice).mockReturnValue({
       mutateAsync: updateMutation,
@@ -467,7 +477,8 @@ describe('InvoiceDraftEditPage autosave', () => {
     await waitFor(
       () => {
         expect(toast.error).toHaveBeenCalledWith('Auto-save failed', {
-          description: expect.stringContaining('Direct source-less invoice creation is not supported'),
+          description:
+            'Rechnungen ohne Quellbeleg werden nicht unterstützt. Erstellen Sie Rechnungen aus einem berechtigten Verkaufsauftrag.',
         })
       },
       { timeout: 3000 },

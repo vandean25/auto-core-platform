@@ -1,0 +1,1488 @@
+{
+  "version": 1,
+  "codes": {
+    "ACCOUNTING_MAPPING_INCOMPLETE": {
+      "public": false,
+      "params": []
+    },
+    "ACTIVE_SITE_REQUIRED": {
+      "public": true,
+      "params": []
+    },
+    "AGENT_POLICY_LOOSER_THAN_PLATFORM": {
+      "public": true,
+      "params": []
+    },
+    "AGENT_POLICY_UNKNOWN_ACTION_TYPE": {
+      "public": true,
+      "params": []
+    },
+    "AGENT_POLICY_VERSION_CONFLICT": {
+      "public": true,
+      "params": []
+    },
+    "AIR_CONDITIONING": {
+      "public": false,
+      "params": []
+    },
+    "ALLOY_WHEELS": {
+      "public": false,
+      "params": []
+    },
+    "ANNAHME_CHECK": {
+      "public": false,
+      "params": []
+    },
+    "API_KEYS_NOT_CONFIGURED": {
+      "public": true,
+      "params": []
+    },
+    "AT_RECIPIENT_UID_REQUIRED": {
+      "public": false,
+      "params": []
+    },
+    "AUSTAUSCHPLAKETTE_NOT_TRACKED": {
+      "public": false,
+      "params": []
+    },
+    "AUTOMATIC_CLIMATE": {
+      "public": false,
+      "params": []
+    },
+    "BLOCKED_SELLER_INCOMPLETE": {
+      "public": false,
+      "params": []
+    },
+    "BRAND_ASSET_NOT_ATTACHABLE": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_ASSET_NOT_READY": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_ASSET_PREVIEW_UNAVAILABLE": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_COLOR_CONTRAST": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_DRAFT_REQUIRED": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_EXTRACTION_ATTEMPT_TIMEOUT": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_EXTRACTION_BUSY": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_EXTRACTION_CHANGED": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_EXTRACTION_FAILED": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_EXTRACTION_OUTPUT_INVALID": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_EXTRACTION_PROVIDER_RATE_LIMIT": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_EXTRACTION_QUOTA_EXCEEDED": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_EXTRACTION_STALE": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_EXTRACTION_UNAVAILABLE": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_FILE_TYPE_UNSUPPORTED": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_IDEMPOTENCY_CONFLICT": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_IDEMPOTENCY_KEY_INVALID": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_PREVIEW_ASSET_UNAVAILABLE": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_PREVIEW_QUOTA_EXCEEDED": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_PREVIEW_TOO_LARGE": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_RENDER_INPUT_UNAVAILABLE": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_REVISION_CONFLICT": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_SOURCE_EXPIRED": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_THEME_COLOR_INVALID": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_THEME_INVALID": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_THEME_TEXT_TOO_LONG": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_UPLOAD_QUOTA_EXCEEDED": {
+      "public": true,
+      "params": []
+    },
+    "BRAND_UPLOAD_TOO_LARGE": {
+      "public": true,
+      "params": []
+    },
+    "CANCELLATION_ALREADY_OPEN": {
+      "public": true,
+      "params": []
+    },
+    "CANCELLED_DOCUMENT": {
+      "public": false,
+      "params": []
+    },
+    "CHECK_IN_COMPLETED": {
+      "public": true,
+      "params": []
+    },
+    "CHECK_IN_CONFLICT": {
+      "public": true,
+      "params": []
+    },
+    "CHECK_IN_EXISTS": {
+      "public": true,
+      "params": []
+    },
+    "CHECK_IN_MEDIA_INVALID": {
+      "public": true,
+      "params": []
+    },
+    "CHECK_IN_MEDIA_UPLOADER_REQUIRED": {
+      "public": true,
+      "params": []
+    },
+    "CHECK_IN_ORDER_STATUS": {
+      "public": true,
+      "params": []
+    },
+    "CHECK_IN_SIGNATURE_REQUIRED": {
+      "public": true,
+      "params": []
+    },
+    "CLAIMED_FITMENT": {
+      "public": false,
+      "params": []
+    },
+    "COMMUNICATION_CONTROLLER_REQUIRED": {
+      "public": false,
+      "params": []
+    },
+    "CREDIT_LIMIT_EXCEEDED": {
+      "public": false,
+      "params": []
+    },
+    "CRUISE_CONTROL": {
+      "public": false,
+      "params": []
+    },
+    "CURRENCY_UNSUPPORTED": {
+      "public": true,
+      "params": []
+    },
+    "CUSTOMER_IDENTITY_INCOMPLETE": {
+      "public": false,
+      "params": []
+    },
+    "CUSTOMER_VAT_ID_INVALID": {
+      "public": false,
+      "params": []
+    },
+    "DEVICE_BINDING_MISMATCH": {
+      "public": true,
+      "params": []
+    },
+    "DRY_RUN_NOT_SUPPORTED": {
+      "public": true,
+      "params": []
+    },
+    "EQUIPMENT_PORTAL_MAP_UNSUPPORTED": {
+      "public": false,
+      "params": []
+    },
+    "EQUIPMENT_PORTAL_PROFILE_UNSUPPORTED": {
+      "public": false,
+      "params": []
+    },
+    "ESTIMATE_ALREADY_EXISTS": {
+      "public": true,
+      "params": []
+    },
+    "ESTIMATE_AMOUNT_MISMATCH": {
+      "public": true,
+      "params": []
+    },
+    "ESTIMATE_APPROVAL_CONFIRMATION_INCOMPLETE": {
+      "public": true,
+      "params": []
+    },
+    "ESTIMATE_APPROVAL_LINK_UNAVAILABLE": {
+      "public": true,
+      "params": []
+    },
+    "ESTIMATE_APPROVAL_NOT_FOUND": {
+      "public": true,
+      "params": []
+    },
+    "ESTIMATE_APPROVAL_RATE_LIMITED": {
+      "public": true,
+      "params": []
+    },
+    "ESTIMATE_APPROVAL_UNAVAILABLE": {
+      "public": true,
+      "params": []
+    },
+    "ESTIMATE_CONFLICT": {
+      "public": true,
+      "params": []
+    },
+    "ESTIMATE_CUSTOMER_EMAIL_INVALID": {
+      "public": true,
+      "params": []
+    },
+    "ESTIMATE_CUSTOMER_EMAIL_MISSING": {
+      "public": true,
+      "params": []
+    },
+    "ESTIMATE_CUSTOMER_EMAIL_NOT_CONFIRMED": {
+      "public": true,
+      "params": []
+    },
+    "ESTIMATE_CUSTOMER_INCOMPLETE": {
+      "public": true,
+      "params": []
+    },
+    "ESTIMATE_CUSTOMER_REQUIRED": {
+      "public": true,
+      "params": []
+    },
+    "ESTIMATE_CUSTOMER_SEND_BLOCKED": {
+      "public": true,
+      "params": []
+    },
+    "ESTIMATE_DECISION_CONFLICT": {
+      "public": true,
+      "params": []
+    },
+    "ESTIMATE_DECISION_TIME_INVALID": {
+      "public": true,
+      "params": []
+    },
+    "ESTIMATE_DRAFT_OPEN": {
+      "public": true,
+      "params": []
+    },
+    "ESTIMATE_EMAIL_INCOMPLETE": {
+      "public": true,
+      "params": []
+    },
+    "ESTIMATE_NOT_DECIDABLE": {
+      "public": true,
+      "params": []
+    },
+    "ESTIMATE_NOT_DRAFT": {
+      "public": true,
+      "params": []
+    },
+    "ESTIMATE_NO_LINES": {
+      "public": true,
+      "params": []
+    },
+    "ESTIMATE_PDF_NOT_SENT": {
+      "public": true,
+      "params": []
+    },
+    "ESTIMATE_PDF_NOT_STORED": {
+      "public": true,
+      "params": []
+    },
+    "ESTIMATE_REACTION_MISMATCH": {
+      "public": true,
+      "params": []
+    },
+    "ESTIMATE_ROLE_FORBIDDEN": {
+      "public": true,
+      "params": []
+    },
+    "ESTIMATE_SEND_CHANNEL_UNSUPPORTED": {
+      "public": true,
+      "params": []
+    },
+    "ESTIMATE_SEND_DISABLED": {
+      "public": true,
+      "params": []
+    },
+    "ESTIMATE_VALID_UNTIL_INVALID": {
+      "public": true,
+      "params": []
+    },
+    "ESTIMATE_VEHICLE_INCOMPLETE": {
+      "public": true,
+      "params": []
+    },
+    "ESTIMATE_VERSION_ALREADY_DECIDED": {
+      "public": true,
+      "params": []
+    },
+    "ESTIMATE_VERSION_EXPIRED": {
+      "public": true,
+      "params": []
+    },
+    "ESTIMATE_VERSION_MISSING": {
+      "public": true,
+      "params": []
+    },
+    "ESTIMATE_VERSION_NOT_DECIDABLE": {
+      "public": true,
+      "params": []
+    },
+    "ESTIMATE_VERSION_NOT_SENT": {
+      "public": true,
+      "params": []
+    },
+    "ESTIMATE_VERSION_SUPERSEDED": {
+      "public": true,
+      "params": []
+    },
+    "EXCHANGE_NOT_CONFIGURED": {
+      "public": false,
+      "params": []
+    },
+    "EXHAUST_LEAKS": {
+      "public": false,
+      "params": []
+    },
+    "EXPORT_BLOCKED": {
+      "public": false,
+      "params": []
+    },
+    "EXPORT_EMPTY_PERIOD": {
+      "public": false,
+      "params": []
+    },
+    "EXPORT_IDEMPOTENCY_CONFLICT": {
+      "public": false,
+      "params": []
+    },
+    "EXPORT_INVALID_RANGE": {
+      "public": false,
+      "params": []
+    },
+    "EXPORT_OVERLAP_NOT_ACKNOWLEDGED": {
+      "public": false,
+      "params": []
+    },
+    "EXPORT_PERIOD_NOT_CLOSED": {
+      "public": false,
+      "params": []
+    },
+    "EXPORT_PREVIEW_STALE": {
+      "public": false,
+      "params": []
+    },
+    "EXPORT_PROFILE_DISABLED": {
+      "public": false,
+      "params": []
+    },
+    "EXPORT_PROFILE_NOT_READY": {
+      "public": false,
+      "params": []
+    },
+    "EXPORT_RANGE_TOO_LARGE": {
+      "public": false,
+      "params": []
+    },
+    "EXPORT_SCOPE_INCOMPLETE": {
+      "public": false,
+      "params": []
+    },
+    "EXPORT_SERIALIZER_UNSUPPORTED": {
+      "public": false,
+      "params": []
+    },
+    "EXTERNAL_RESULT_CONFLICT": {
+      "public": false,
+      "params": []
+    },
+    "EXTERNAL_RESULT_REQUIRES_REVIEW": {
+      "public": false,
+      "params": []
+    },
+    "E_FAILED_SCHEMA_VALIDATION": {
+      "public": false,
+      "params": []
+    },
+    "E_RECEIPT_NOT_FOUND": {
+      "public": false,
+      "params": []
+    },
+    "FIRST_AID_KIT": {
+      "public": false,
+      "params": []
+    },
+    "FISCAL_PATH_DISABLED": {
+      "public": true,
+      "params": []
+    },
+    "FISCAL_PERIOD_LOCKED": {
+      "public": true,
+      "params": []
+    },
+    "FISCAL_RECEIPT_ENV_MISMATCH": {
+      "public": true,
+      "params": []
+    },
+    "FISCAL_RECEIPT_UNKNOWN": {
+      "public": true,
+      "params": []
+    },
+    "FISCAL_REGISTER_LEGAL_ENTITY_MISMATCH": {
+      "public": true,
+      "params": []
+    },
+    "FISCAL_REGISTER_MISSING": {
+      "public": true,
+      "params": []
+    },
+    "FLOOR_MATS": {
+      "public": false,
+      "params": []
+    },
+    "GEWAEHRLEISTUNG_FIRST_REGISTRATION_REQUIRED": {
+      "public": true,
+      "params": []
+    },
+    "GEWAEHRLEISTUNG_RULE_NOT_AVAILABLE": {
+      "public": true,
+      "params": []
+    },
+    "GEWAEHRLEISTUNG_SHORTENING_REQUIRES_CONSUMER": {
+      "public": true,
+      "params": []
+    },
+    "GEWAEHRLEISTUNG_SHORTENING_VEHICLE_TOO_NEW": {
+      "public": true,
+      "params": []
+    },
+    "HTTP_400": {
+      "public": true,
+      "params": []
+    },
+    "HTTP_401": {
+      "public": true,
+      "params": []
+    },
+    "HTTP_403": {
+      "public": true,
+      "params": []
+    },
+    "HTTP_404": {
+      "public": true,
+      "params": []
+    },
+    "HTTP_409": {
+      "public": true,
+      "params": []
+    },
+    "HTTP_413": {
+      "public": true,
+      "params": []
+    },
+    "HTTP_415": {
+      "public": true,
+      "params": []
+    },
+    "HTTP_422": {
+      "public": true,
+      "params": []
+    },
+    "HTTP_429": {
+      "public": true,
+      "params": []
+    },
+    "HTTP_4XX": {
+      "public": true,
+      "params": []
+    },
+    "HTTP_500": {
+      "public": true,
+      "params": []
+    },
+    "HTTP_502": {
+      "public": true,
+      "params": []
+    },
+    "HTTP_503": {
+      "public": true,
+      "params": []
+    },
+    "HTTP_504": {
+      "public": true,
+      "params": []
+    },
+    "IDEMPOTENCY_MISMATCH": {
+      "public": true,
+      "params": []
+    },
+    "IMPLAUSIBLE_MEASUREMENT": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_AMBIGUOUS_VENDOR": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_APPLY_FAILED": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_APPLY_IN_PROGRESS": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_ARTICLE_NOT_FOUND": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_CONSENT_COLUMN_IGNORED": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_DESCRIPTION_REQUIRED": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_DUPLICATE_ARTICLE_NO_IN_FILE": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_DUPLICATE_EMAIL_IN_FILE": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_DUPLICATE_EXTERNAL_ID_IN_FILE": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_DUPLICATE_VIN_IN_FILE": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_EMPTY_FILE": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_EXISTING_NOT_UPDATED": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_EXTERNAL_ID_REQUIRED": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_FILE_TOO_LARGE": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_INVALID_COST_PRICE": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_INVALID_ENCODING": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_INVALID_ENTITY_TYPE": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_INVALID_MAPPING": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_JOB_ALREADY_APPLIED": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_JOB_NOT_FOUND": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_JOB_STALE": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_MAKE_REQUIRED": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_MAPPING_PROFILE_EXISTS": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_MATCHED_BY_PLATE": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_MODEL_REQUIRED": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_POSSIBLE_DUPLICATE": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_PRICE_JUMP_REQUIRES_ACCEPTANCE": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_ROW_LIMIT_EXCEEDED": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_ROW_STALE": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_SUPPLIER_ARTICLE_NO_REQUIRED": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_SUPPLIER_VENDOR_REQUIRED": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_UNKNOWN_OWNER": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_VIN_CHECK_DIGIT": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_VIN_INVALID": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_VIN_REQUIRED": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_YEAR_INVALID": {
+      "public": true,
+      "params": []
+    },
+    "INACTIVE_SITE_BLOCKED": {
+      "public": false,
+      "params": []
+    },
+    "INSUFFICIENT_STOCK": {
+      "public": false,
+      "params": []
+    },
+    "INVALID_ASSESSMENT_TIMESTAMP": {
+      "public": false,
+      "params": []
+    },
+    "INVALID_CATALOG_MANIFEST": {
+      "public": false,
+      "params": []
+    },
+    "INVALID_CODES_JSON": {
+      "public": false,
+      "params": []
+    },
+    "INVALID_DOCUMENT_REFERENCE": {
+      "public": false,
+      "params": []
+    },
+    "INVALID_EVIDENCE_PAYLOAD": {
+      "public": false,
+      "params": []
+    },
+    "INVALID_INSPECTION_PAYLOAD": {
+      "public": false,
+      "params": []
+    },
+    "INVALID_MEASUREMENT_PAYLOAD": {
+      "public": true,
+      "params": []
+    },
+    "INVALID_PAGINATION": {
+      "public": false,
+      "params": []
+    },
+    "INVOICE_BRANDING_WRITER_DISABLED": {
+      "public": true,
+      "params": []
+    },
+    "INVOICE_SOURCE_OWNERSHIP_CHANGED": {
+      "public": false,
+      "params": []
+    },
+    "KEYS_COMPLETE": {
+      "public": false,
+      "params": []
+    },
+    "LABOR_NOT_AVAILABLE": {
+      "public": false,
+      "params": []
+    },
+    "LANDING_DEMO_ACCOUNT_CONFLICT": {
+      "public": false,
+      "params": []
+    },
+    "LANDING_DEMO_CAPTCHA_FAILED": {
+      "public": false,
+      "params": []
+    },
+    "LANDING_DEMO_INVALID_REQUEST": {
+      "public": false,
+      "params": []
+    },
+    "LANDING_DEMO_RATE_LIMITED": {
+      "public": false,
+      "params": []
+    },
+    "LANDING_DEMO_SIGN_IN_GRANT_INVALID": {
+      "public": true,
+      "params": []
+    },
+    "LEASE_EXPIRED": {
+      "public": false,
+      "params": []
+    },
+    "LEGACY_DOCUMENT_UNSUPPORTED": {
+      "public": false,
+      "params": []
+    },
+    "LEGACY_SNAPSHOT_UNAVAILABLE": {
+      "public": false,
+      "params": []
+    },
+    "LEGAL_ENTITY_INACTIVE": {
+      "public": false,
+      "params": []
+    },
+    "LISTING_EXPORT_ASSERTION_REQUIRED": {
+      "public": true,
+      "params": []
+    },
+    "LISTING_EXPORT_DEMO_DENIED": {
+      "public": true,
+      "params": []
+    },
+    "LISTING_EXPORT_TOO_LARGE": {
+      "public": true,
+      "params": []
+    },
+    "LISTING_EXPORT_VALIDATION_FAILED": {
+      "public": true,
+      "params": []
+    },
+    "LISTING_FIELD_NOT_ENCODABLE": {
+      "public": true,
+      "params": []
+    },
+    "LISTING_IMAGES_MAX_EXCEEDED": {
+      "public": true,
+      "params": []
+    },
+    "LISTING_MANDATORY_FEES_CONFIRMATION_REQUIRED": {
+      "public": true,
+      "params": []
+    },
+    "LISTING_NOVA_CONFIRMATION_REQUIRED": {
+      "public": true,
+      "params": []
+    },
+    "LISTING_PORTAL_CATEGORY_REQUIRED": {
+      "public": true,
+      "params": []
+    },
+    "LISTING_PRICE_REQUIRED": {
+      "public": true,
+      "params": []
+    },
+    "LISTING_SERIALIZER_PROFILE_MISMATCH": {
+      "public": true,
+      "params": []
+    },
+    "LISTING_SERIALIZER_PROFILE_MISSING": {
+      "public": true,
+      "params": []
+    },
+    "LISTING_SERIALIZER_UNSUPPORTED": {
+      "public": true,
+      "params": []
+    },
+    "LISTING_VALIDATE_DEMO_DENIED": {
+      "public": true,
+      "params": []
+    },
+    "LISTING_VAT_DISPLAY_REQUIRED": {
+      "public": true,
+      "params": []
+    },
+    "LISTING_VEHICLE_FIRST_REGISTRATION_REQUIRED": {
+      "public": true,
+      "params": []
+    },
+    "LISTING_VEHICLE_MAKE_MODEL_REQUIRED": {
+      "public": true,
+      "params": []
+    },
+    "LISTING_VEHICLE_MILEAGE_INVALID": {
+      "public": true,
+      "params": []
+    },
+    "LISTING_VEHICLE_MILEAGE_REQUIRED": {
+      "public": true,
+      "params": []
+    },
+    "LISTING_VEHICLE_NOT_IN_STOCK": {
+      "public": true,
+      "params": []
+    },
+    "LISTING_VEHICLE_NOT_USED": {
+      "public": true,
+      "params": []
+    },
+    "MANUAL_EXPIRY_AMBIGUITY": {
+      "public": false,
+      "params": []
+    },
+    "MARGIN_SCHEME_SELLER_COUNTRY_UNSUPPORTED": {
+      "public": false,
+      "params": []
+    },
+    "MAX_ATTEMPTS_EXCEEDED": {
+      "public": false,
+      "params": []
+    },
+    "MCP_COMMAND_IN_FLIGHT": {
+      "public": false,
+      "params": []
+    },
+    "MEASUREMENT_CONFLICT": {
+      "public": true,
+      "params": []
+    },
+    "MESSAGE_INCOMPLETE": {
+      "public": false,
+      "params": []
+    },
+    "MESSAGE_INVALID": {
+      "public": false,
+      "params": []
+    },
+    "MISSING_LABOR_REFERENCE": {
+      "public": false,
+      "params": []
+    },
+    "MISSING_OWNERSHIP_EVIDENCE": {
+      "public": false,
+      "params": []
+    },
+    "MISSING_PART_REFERENCE": {
+      "public": false,
+      "params": []
+    },
+    "MOBILE_DE_REFERENCE_V1": {
+      "public": false,
+      "params": []
+    },
+    "NEGATIVE_LINE_CREDIT_UNSUPPORTED": {
+      "public": false,
+      "params": []
+    },
+    "NOT_APPLICABLE": {
+      "public": false,
+      "params": []
+    },
+    "NOT_A_CATALOG_LINE": {
+      "public": true,
+      "params": []
+    },
+    "NOT_CONFIGURED": {
+      "public": true,
+      "params": []
+    },
+    "NOT_QUEUED": {
+      "public": false,
+      "params": []
+    },
+    "NO_INSPECTION_RECORDS": {
+      "public": false,
+      "params": []
+    },
+    "OUT_OF_SCOPE": {
+      "public": false,
+      "params": []
+    },
+    "OVERRUN_ALREADY_NOTIFIED": {
+      "public": false,
+      "params": []
+    },
+    "OVERRUN_AMOUNT_MISMATCH": {
+      "public": false,
+      "params": []
+    },
+    "OVERRUN_NOT_DETECTED": {
+      "public": false,
+      "params": []
+    },
+    "OVERRUN_NO_BASELINE": {
+      "public": false,
+      "params": []
+    },
+    "PARKING_CAMERA": {
+      "public": false,
+      "params": []
+    },
+    "PARKING_FRONT": {
+      "public": false,
+      "params": []
+    },
+    "PARKING_REAR": {
+      "public": false,
+      "params": []
+    },
+    "PART_NOT_AVAILABLE": {
+      "public": false,
+      "params": []
+    },
+    "PERSONAL_ITEMS": {
+      "public": false,
+      "params": []
+    },
+    "PICKERL_57A_PREP": {
+      "public": false,
+      "params": []
+    },
+    "PLATE_READABLE": {
+      "public": false,
+      "params": []
+    },
+    "PRICE_JUMP_EXCEEDED": {
+      "public": true,
+      "params": []
+    },
+    "PRISMA_P2000": {
+      "public": true,
+      "params": []
+    },
+    "PRISMA_P2002": {
+      "public": true,
+      "params": []
+    },
+    "PRISMA_P2003": {
+      "public": true,
+      "params": []
+    },
+    "PRISMA_P2025": {
+      "public": true,
+      "params": []
+    },
+    "PROVIDER_READ_FAILED": {
+      "public": false,
+      "params": []
+    },
+    "READY_EMAIL_BLOCKED": {
+      "public": false,
+      "params": []
+    },
+    "READY_EMAIL_INCOMPLETE": {
+      "public": false,
+      "params": []
+    },
+    "READY_EMAIL_INVALID": {
+      "public": false,
+      "params": []
+    },
+    "READY_EMAIL_MISSING": {
+      "public": false,
+      "params": []
+    },
+    "READY_EMAIL_NOT_APPLICABLE": {
+      "public": false,
+      "params": []
+    },
+    "READY_EMAIL_NOT_CONFIRMED": {
+      "public": false,
+      "params": []
+    },
+    "READY_EMAIL_NO_CUSTOMER": {
+      "public": false,
+      "params": []
+    },
+    "RECIPIENT_INVALID": {
+      "public": false,
+      "params": []
+    },
+    "RECIPIENT_MISSING": {
+      "public": false,
+      "params": []
+    },
+    "REGISTRATION_DOC": {
+      "public": false,
+      "params": []
+    },
+    "REGISTRATION_EXTRACTION_UNAVAILABLE": {
+      "public": true,
+      "params": []
+    },
+    "REGISTRATION_INTAKE_AMBIGUOUS_MATCH": {
+      "public": true,
+      "params": []
+    },
+    "REGISTRATION_INTAKE_APPLIED": {
+      "public": true,
+      "params": []
+    },
+    "REGISTRATION_INTAKE_BYTES_REMAIN": {
+      "public": true,
+      "params": []
+    },
+    "REGISTRATION_INTAKE_CONFIRMATION_MISMATCH": {
+      "public": true,
+      "params": []
+    },
+    "REGISTRATION_INTAKE_CONFLICTING_VIN": {
+      "public": true,
+      "params": []
+    },
+    "REGISTRATION_INTAKE_EXTRACT_FAILED": {
+      "public": true,
+      "params": []
+    },
+    "REGISTRATION_INTAKE_FIELD_CONFLICT": {
+      "public": true,
+      "params": []
+    },
+    "REGISTRATION_INTAKE_FILE_TOO_LARGE": {
+      "public": true,
+      "params": []
+    },
+    "REGISTRATION_INTAKE_IDEMPOTENCY_CONFLICT": {
+      "public": true,
+      "params": []
+    },
+    "REGISTRATION_INTAKE_IDEMPOTENCY_KEY_INVALID": {
+      "public": true,
+      "params": []
+    },
+    "REGISTRATION_INTAKE_ID_MISMATCH": {
+      "public": true,
+      "params": []
+    },
+    "REGISTRATION_INTAKE_ILLEGIBLE": {
+      "public": true,
+      "params": []
+    },
+    "REGISTRATION_INTAKE_INVALID_VIN": {
+      "public": true,
+      "params": []
+    },
+    "REGISTRATION_INTAKE_IN_PROGRESS": {
+      "public": true,
+      "params": []
+    },
+    "REGISTRATION_INTAKE_LOW_CONFIDENCE": {
+      "public": true,
+      "params": []
+    },
+    "REGISTRATION_INTAKE_NATIONALCODE_LOOKS_LIKE_VIN": {
+      "public": true,
+      "params": []
+    },
+    "REGISTRATION_INTAKE_OWNERSHIP_CONFLICT": {
+      "public": true,
+      "params": []
+    },
+    "REGISTRATION_INTAKE_STATE_CHANGED": {
+      "public": true,
+      "params": []
+    },
+    "REGISTRATION_INTAKE_STORE_FAILED": {
+      "public": true,
+      "params": []
+    },
+    "REGISTRATION_INTAKE_TOO_MANY_FILES": {
+      "public": true,
+      "params": []
+    },
+    "REGISTRATION_INTAKE_UNSUPPORTED_FILE": {
+      "public": true,
+      "params": []
+    },
+    "REGISTRATION_INTAKE_VEHICLE_IDENTITY_INCOMPLETE": {
+      "public": true,
+      "params": []
+    },
+    "REGISTRATION_INTAKE_WRONG_DOCUMENT": {
+      "public": true,
+      "params": []
+    },
+    "RESULT_UNCONFIRMED": {
+      "public": false,
+      "params": []
+    },
+    "REVIEW_REQUIRED": {
+      "public": true,
+      "params": []
+    },
+    "RRP_MISSING_FOR_MARGIN_RULE": {
+      "public": true,
+      "params": []
+    },
+    "SAFETY_VEST": {
+      "public": false,
+      "params": []
+    },
+    "SEAT_BELTS": {
+      "public": false,
+      "params": []
+    },
+    "SEAT_HEATING": {
+      "public": false,
+      "params": []
+    },
+    "SELLER_IDENTITY_INCOMPLETE": {
+      "public": true,
+      "params": []
+    },
+    "SENDER_NOT_CONFIGURED": {
+      "public": false,
+      "params": []
+    },
+    "SERVICE_BOOK": {
+      "public": false,
+      "params": []
+    },
+    "SETTLEMENT_AMOUNT_MISMATCH": {
+      "public": true,
+      "params": []
+    },
+    "SETTLEMENT_NOT_IN_SLICE": {
+      "public": true,
+      "params": []
+    },
+    "SOURCE_CONFLICT": {
+      "public": false,
+      "params": []
+    },
+    "SOURCE_DOCUMENT_REQUIRED": {
+      "public": false,
+      "params": []
+    },
+    "STALE_CATALOG": {
+      "public": false,
+      "params": []
+    },
+    "STALE_UNSENT": {
+      "public": false,
+      "params": []
+    },
+    "STATION_MISMATCH": {
+      "public": false,
+      "params": []
+    },
+    "TRANSITION_2027_TOLERANCE": {
+      "public": false,
+      "params": []
+    },
+    "UNEXPECTED_ERROR": {
+      "public": false,
+      "params": []
+    },
+    "UNKNOWN_CODE": {
+      "public": false,
+      "params": []
+    },
+    "UNSUPPORTED_CHANNEL": {
+      "public": false,
+      "params": []
+    },
+    "UNSUPPORTED_EXPORT_COUNTRY": {
+      "public": false,
+      "params": []
+    },
+    "UNSUPPORTED_EXPORT_TAX_MODE": {
+      "public": false,
+      "params": []
+    },
+    "UNSUPPORTED_SCHEMA_VERSION": {
+      "public": true,
+      "params": []
+    },
+    "UNSUPPORTED_SERVICE": {
+      "public": false,
+      "params": []
+    },
+    "UNSUPPORTED_TAX_PROFILE": {
+      "public": false,
+      "params": []
+    },
+    "UNSUPPORTED_UNIT": {
+      "public": true,
+      "params": []
+    },
+    "UPLOAD_ID_REUSED": {
+      "public": true,
+      "params": []
+    },
+    "VALIDATION_RETRIES_EXHAUSTED": {
+      "public": false,
+      "params": []
+    },
+    "VALUATION_CURRENCY_UNSUPPORTED": {
+      "public": false,
+      "params": []
+    },
+    "VALUATION_IDEMPOTENCY_KEY_INVALID": {
+      "public": false,
+      "params": []
+    },
+    "VALUATION_MARKET_UNSUPPORTED": {
+      "public": false,
+      "params": []
+    },
+    "VALUATION_PROVIDER_UNAVAILABLE": {
+      "public": false,
+      "params": []
+    },
+    "VALUATION_SITE_REQUIRED": {
+      "public": false,
+      "params": []
+    },
+    "VALUATION_TYPE_UNSUPPORTED": {
+      "public": false,
+      "params": []
+    },
+    "VAT_CONTAINER_UNSUPPORTED": {
+      "public": true,
+      "params": []
+    },
+    "VEHICLE_CLASS_ASSUMED_M1": {
+      "public": false,
+      "params": []
+    },
+    "VEHICLE_CO2_NEDC_OUT_OF_RANGE": {
+      "public": false,
+      "params": []
+    },
+    "VEHICLE_CO2_WLTP_OUT_OF_RANGE": {
+      "public": false,
+      "params": []
+    },
+    "VEHICLE_EQUIPMENT_OPTION_INVALID": {
+      "public": false,
+      "params": []
+    },
+    "VEHICLE_FIRST_REGISTRATION_DATE_FUTURE": {
+      "public": false,
+      "params": []
+    },
+    "VEHICLE_FIRST_REGISTRATION_DATE_INVALID": {
+      "public": false,
+      "params": []
+    },
+    "VEHICLE_HAS_ACTIVE_ORDER": {
+      "public": true,
+      "params": [
+        "orderId",
+        "orderNumber"
+      ]
+    },
+    "VEHICLE_IDENTITY_MISMATCH": {
+      "public": true,
+      "params": []
+    },
+    "VEHICLE_LISTING_CHANNEL_NOT_FOUND": {
+      "public": true,
+      "params": []
+    },
+    "VEHICLE_LISTING_ID_CONFLICT": {
+      "public": true,
+      "params": []
+    },
+    "VEHICLE_LISTING_NOT_FOUND": {
+      "public": true,
+      "params": []
+    },
+    "VEHICLE_LISTING_NOT_READY": {
+      "public": true,
+      "params": []
+    },
+    "VEHICLE_LISTING_PHOTO_INVALID": {
+      "public": true,
+      "params": []
+    },
+    "VEHICLE_LISTING_PLATFORM_INVALID": {
+      "public": true,
+      "params": []
+    },
+    "VEHICLE_LISTING_REVISION_CONFLICT": {
+      "public": true,
+      "params": []
+    },
+    "VEHICLE_LISTING_SERIALIZER_PROFILE_INVALID": {
+      "public": true,
+      "params": []
+    },
+    "VEHICLE_LISTING_STOCK_CYCLE_MISMATCH": {
+      "public": true,
+      "params": []
+    },
+    "VEHICLE_NOVA_CLASS_INVALID": {
+      "public": false,
+      "params": []
+    },
+    "VEHICLE_PHOTO_TOO_LARGE": {
+      "public": true,
+      "params": []
+    },
+    "VEHICLE_PHOTO_TOO_MANY_PIXELS": {
+      "public": true,
+      "params": []
+    },
+    "VEHICLE_PHOTO_TYPE_UNSUPPORTED": {
+      "public": true,
+      "params": []
+    },
+    "VEHICLE_STOCK_PURCHASE_REQUIRED": {
+      "public": false,
+      "params": []
+    },
+    "VIN_READABLE": {
+      "public": false,
+      "params": []
+    },
+    "WARNING_TRIANGLE": {
+      "public": false,
+      "params": []
+    },
+    "WARRANTY_CLAIM_CLOSED": {
+      "public": true,
+      "params": []
+    },
+    "WARRANTY_CLAIM_DECISION_DATE_REQUIRED": {
+      "public": true,
+      "params": []
+    },
+    "WARRANTY_CLAIM_INVALID_TRANSITION": {
+      "public": true,
+      "params": []
+    },
+    "WARRANTY_CLAIM_LINE_ALREADY_CLAIMED": {
+      "public": true,
+      "params": []
+    },
+    "WARRANTY_CLAIM_LINE_CANCELLED": {
+      "public": true,
+      "params": []
+    },
+    "WARRANTY_CLAIM_LINE_NOT_ON_ORDER": {
+      "public": true,
+      "params": []
+    },
+    "WARRANTY_CLAIM_LOCKED": {
+      "public": true,
+      "params": []
+    },
+    "WARRANTY_CLAIM_ORDER_NOT_CHECKED_IN": {
+      "public": true,
+      "params": []
+    },
+    "WARRANTY_CLAIM_STATE_CHANGED": {
+      "public": true,
+      "params": []
+    },
+    "WARRANTY_CLAIM_SUBMISSION_INCOMPLETE": {
+      "public": true,
+      "params": []
+    },
+    "WEEKLY_REPORT_RATE_LIMIT": {
+      "public": false,
+      "params": []
+    },
+    "WIPERS_WASHER": {
+      "public": false,
+      "params": []
+    },
+    "WKO_GUIDANCE_NOT_RIS_VERIFIED": {
+      "public": false,
+      "params": []
+    },
+    "WORKSHOP_ORDER_CLOSED": {
+      "public": false,
+      "params": []
+    },
+    "WORKSHOP_ORDER_NOT_COMPLETED": {
+      "public": false,
+      "params": []
+    },
+    "WORKSHOP_ORDER_NOT_ESTIMATABLE": {
+      "public": true,
+      "params": []
+    },
+    "WORKSHOP_ORDER_NOT_OPEN": {
+      "public": false,
+      "params": []
+    },
+    "WORKSHOP_ROLE_FORBIDDEN": {
+      "public": false,
+      "params": []
+    },
+    "WORKSHOP_TASK_CHANGED": {
+      "public": false,
+      "params": []
+    },
+    "ZERO_UNIT_PRICE": {
+      "public": false,
+      "params": []
+    }
+  }
+}

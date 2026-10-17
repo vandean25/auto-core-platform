@@ -6,6 +6,7 @@ import {
 } from '@/lib/async-pdf'
 import { fetchWithAuth } from './client'
 import { invoiceKeys } from './sales'
+import { throwHttpError } from '@/lib/error-utils'
 
 export type CreditNoteResponseDto = components['schemas']['CreditNoteResponseDto']
 export type CreditNoteStatus = components['schemas']['CreditNoteStatus']
@@ -45,8 +46,7 @@ export interface CreditNotesListResponse {
 }
 
 async function parseError(response: Response, fallback: string) {
-  const payload = await response.json().catch(() => ({ message: fallback }))
-  throw new Error(payload.message || fallback)
+  await throwHttpError(response, fallback)
 }
 
 export function useCreditNotes(params: CreditNotesListParams = {}) {
