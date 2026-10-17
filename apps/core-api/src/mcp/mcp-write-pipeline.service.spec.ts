@@ -13,6 +13,7 @@ import { McpWriteCommandIdempotencyService } from './mcp-write-command-idempoten
 import { McpWritePipelineService } from './mcp-write-pipeline.service.js';
 import { WorkshopBookingPackageService } from '../workshop/workshop-booking-package.service.js';
 import { WorkshopOrderCompletionService } from '../workshop/workshop-order-completion.service.js';
+import { InvoiceWorkshopDraftProposeService } from '../invoices/invoice-workshop-draft-propose.service.js';
 import type { McpWriteExecution, McpWriteToolContext } from './mcp-write-pipeline.service.js';
 import { toMcpJsonObject } from './mcp-output.util.js';
 import { mcpToolOutputSchemas } from './mcp-tool-output-schemas.js';
@@ -130,6 +131,10 @@ describe('McpWritePipelineService', () => {
         },
         {
           provide: WorkshopOrderCompletionService,
+          useValue: { enrichInput: async (input: unknown) => input },
+        },
+        {
+          provide: InvoiceWorkshopDraftProposeService,
           useValue: { enrichInput: async (input: unknown) => input },
         },
       ],

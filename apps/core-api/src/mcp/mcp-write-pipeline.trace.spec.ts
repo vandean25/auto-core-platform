@@ -109,6 +109,12 @@ function buildService(tier: AgentPolicyTier) {
   const workshopBookingPackage = {
     enrichInput: async (input: unknown) => input,
   };
+  const workshopOrderCompletion = {
+    enrichInput: async (input: unknown) => input,
+  };
+  const invoiceWorkshopDraftPropose = {
+    enrichInput: async (input: unknown) => input,
+  };
   return new McpWritePipelineService(
     prisma as never,
     agentPolicy as never,
@@ -119,6 +125,8 @@ function buildService(tier: AgentPolicyTier) {
     requestContext as never,
     tenantContext as never,
     workshopBookingPackage as never,
+    workshopOrderCompletion as never,
+    invoiceWorkshopDraftPropose as never,
   );
 }
 

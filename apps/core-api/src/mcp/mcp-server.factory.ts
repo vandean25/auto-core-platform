@@ -73,6 +73,8 @@ export const MCP_REGISTERED_TOOL_INPUT_SCHEMAS: Record<
     schemas.mcpWriteToolInputSchemas.propose_purchase_order,
   propose_workshop_order_completion:
     schemas.mcpWriteToolInputSchemas.propose_workshop_order_completion,
+  propose_invoice_draft_from_order:
+    schemas.mcpWriteToolInputSchemas.propose_invoice_draft_from_order,
 };
 
 export type McpServerSessionContext = {

@@ -74,6 +74,18 @@ describe('PendingActionExecutorService', () => {
       .fn()
       .mockResolvedValue({ site_id: 'site-1' }),
   };
+  const mockInvoiceWorkshopDraftPropose = {
+    applyDraft: jest.fn().mockResolvedValue({
+      id: 'inv-1',
+      entityId: 'inv-1',
+      invoice_id: 'inv-1',
+      status: 'DRAFT',
+    }),
+    buildExecutionContext: jest
+      .fn()
+      .mockResolvedValue({ site_id: 'site-1' }),
+    buildPolicyContext: jest.fn().mockResolvedValue({ amount_eur: 120 }),
+  };
 
   let service: PendingActionExecutorService;
 
@@ -89,6 +101,7 @@ describe('PendingActionExecutorService', () => {
       mockWorkshopBookingPackage as never,
       mockPurchaseService as never,
       mockWorkshopOrderCompletion as never,
+      mockInvoiceWorkshopDraftPropose as never,
     );
   });
 
@@ -112,6 +125,23 @@ describe('PendingActionExecutorService', () => {
         context,
       );
       expect(mockPurchaseService.applyProposedPurchaseOrderDraft).toHaveBeenCalled();
+    });
+  });
+
+  describe('invoice.create_draft_from_workshop_order', () => {
+    it('binds site in execution context and delegates apply to invoice draft service', async () => {
+      const executor = service.resolve(
+        'invoice.create_draft_from_workshop_order',
+      );
+      const context = await executor.buildExecutionContext?.({});
+      expect(context).toEqual({ site_id: 'site-1' });
+      await executor.execute(
+        {
+          workshop_order_id: '00000000-0000-4000-8000-000000000001',
+        },
+        context,
+      );
+      expect(mockInvoiceWorkshopDraftPropose.applyDraft).toHaveBeenCalled();
     });
   });
 

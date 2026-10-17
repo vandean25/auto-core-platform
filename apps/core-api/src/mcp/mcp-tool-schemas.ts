@@ -40,6 +40,7 @@ import {
 import { proposeWorkshopBookingInputSchema } from '../workshop/workshop-booking-package.schema.js';
 import { proposePurchaseOrderInputSchema } from '../purchase/purchase-propose-draft.schema.js';
 import { proposeWorkshopOrderCompletionInputSchema } from '../workshop/workshop-order-completion.schema.js';
+import { proposeInvoiceDraftFromOrderInputSchema } from '../invoices/invoice-workshop-draft-propose.schema.js';
 
 const pageSchema = z.number().int().min(1).optional();
 const uuidSchema = z.string().uuid();
@@ -912,4 +913,5 @@ export const mcpWriteToolInputSchemas: Record<
   propose_workshop_booking: proposeWorkshopBookingInputSchema,
   propose_purchase_order: proposePurchaseOrderInputSchema,
   propose_workshop_order_completion: proposeWorkshopOrderCompletionInputSchema,
+  propose_invoice_draft_from_order: proposeInvoiceDraftFromOrderInputSchema,
 };

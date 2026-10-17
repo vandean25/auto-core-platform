@@ -6,6 +6,7 @@ import { WorkshopModule } from '../workshop/workshop.module.js';
 import { LoanerVehiclesModule } from '../loaner-vehicles/loaner-vehicles.module.js';
 import { RegistrationIntakeModule } from '../registration-intake/registration-intake.module.js';
 import { PurchaseModule } from '../purchase/purchase.module.js';
+import { InvoicesModule } from '../invoices/invoices.module.js';
 import { PendingActionExecutorService } from './pending-action-executor.service.js';
 
 @Module({
@@ -17,6 +18,7 @@ import { PendingActionExecutorService } from './pending-action-executor.service.
     PartsRequisitionModule,
     RegistrationIntakeModule,
     PurchaseModule,
+    InvoicesModule,
   ],
   providers: [PendingActionExecutorService],
   exports: [PendingActionExecutorService],

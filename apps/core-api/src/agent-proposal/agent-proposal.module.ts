@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AgentActionLogModule } from '../agent-action-log/agent-action-log.module.js';
 import { WorkshopModule } from '../workshop/workshop.module.js';
+import { InvoicesModule } from '../invoices/invoices.module.js';
 import { AgentPolicyModule } from '../agent-policy/agent-policy.module.js';
 import { CommonModule } from '../common/common.module.js';
 import { DryRunModule } from '../dry-run/dry-run.module.js';
@@ -23,6 +24,7 @@ import { AgentProposalSubmissionService } from './agent-proposal-submission.serv
     AgentPolicyModule,
     AgentActionLogModule,
     WorkshopModule,
+    InvoicesModule,
   ],
   controllers: [AgentProposalController],
   providers: [
