@@ -34,6 +34,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import { WorkshopBookingPackageService } from '../workshop/workshop-booking-package.service.js';
 import { WorkshopOrderCompletionService } from '../workshop/workshop-order-completion.service.js';
+import { InvoiceWorkshopDraftProposeService } from '../invoices/invoice-workshop-draft-propose.service.js';
 
 export type McpWriteToolContext = {
   agentId: string;
@@ -101,6 +102,7 @@ export class McpWritePipelineService {
   private readonly tenantContext: TenantContextService;
   private readonly workshopBookingPackage: WorkshopBookingPackageService;
   private readonly workshopOrderCompletion: WorkshopOrderCompletionService;
+  private readonly invoiceWorkshopDraftPropose: InvoiceWorkshopDraftProposeService;
 
   // Fields are assigned in the body rather than declared as parameter properties: cohesion analysis
   // otherwise counts the constructor as a separate component and flags the whole class as low-cohesion.
@@ -115,6 +117,7 @@ export class McpWritePipelineService {
     tenantContext: TenantContextService,
     workshopBookingPackage: WorkshopBookingPackageService,
     workshopOrderCompletion: WorkshopOrderCompletionService,
+    invoiceWorkshopDraftPropose: InvoiceWorkshopDraftProposeService,
   ) {
     this.prisma = prisma;
     this.agentPolicy = agentPolicy;
@@ -126,6 +129,7 @@ export class McpWritePipelineService {
     this.tenantContext = tenantContext;
     this.workshopBookingPackage = workshopBookingPackage;
     this.workshopOrderCompletion = workshopOrderCompletion;
+    this.invoiceWorkshopDraftPropose = invoiceWorkshopDraftPropose;
   }
 
   private async normalizeWriteInput(
@@ -137,6 +141,9 @@ export class McpWritePipelineService {
     }
     if (execution.toolName === 'propose_workshop_order_completion') {
       return this.workshopOrderCompletion.enrichInput(input);
+    }
+    if (execution.toolName === 'propose_invoice_draft_from_order') {
+      return this.invoiceWorkshopDraftPropose.enrichInput(input);
     }
     return input;
   }

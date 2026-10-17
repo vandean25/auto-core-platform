@@ -5935,5 +5935,183 @@ describe('MCP server (e2e)', () => {
     });
   });
 
+  describe('AUT-600 propose_invoice_draft_from_order', () => {
+    async function seedInvoiceableWorkshopOrder() {
+      await prismaA.customer.update({
+        where: { id: fixtures.customerId },
+        data: {
+          address_street: 'Musterstraße 1',
+          address_city: 'Wien',
+          address_zip: '1010',
+          address_country: 'AT',
+        },
+      });
+      const order = await prismaA.workshopOrder.create({
+        data: {
+          order_number: `WO-INV-DRAFT-${Date.now()}`,
+          customer_id: fixtures.customerId,
+          vehicle_id: fixtures.vehicleId,
+          site_id: fixtures.siteId,
+          odometer: 1500,
+          fuel_level: 50,
+          status: 'COMPLETED',
+        },
+      });
+      const task = await prismaA.workshopTask.create({
+        data: {
+          tenant_id: tenantA,
+          workshop_order_id: order.id,
+          title: 'MCP invoice draft task',
+          status: 'DONE',
+        },
+      });
+      await prismaA.workshopTaskLineItem.create({
+        data: {
+          workshop_task_id: task.id,
+          type: 'LABOR',
+          item_no: 'INV-LABOR-01',
+          description: 'Synthetic service line',
+          quantity: 1,
+          unit_price: 100,
+        },
+      });
+      return { order, task };
+    }
+
+    beforeEach(async () => {
+      await setPolicyTier('invoice.create_draft_from_workshop_order', 'PROPOSE');
+      await seedReadySellerAndAccountingProfile(prismaA, tenantA);
+    });
+
+    it('PROPOSE: previews totals and apply commits one DRAFT invoice', async () => {
+      const { order } = await seedInvoiceableWorkshopOrder();
+      const traceId = '00000000-0000-4000-8000-000000000604';
+      const commandId = '00000000-0000-4000-8000-000000000605';
+      const result = await callMcpTool(
+        caller(adminHeaderA, 'e2e-invoice-draft'),
+        'propose_invoice_draft_from_order',
+        { workshop_order_id: order.id, command_id: commandId },
+        traceId,
+      );
+      const proposed = parsePayload<{
+        status: string;
+        pending_action_id: string;
+        proposal: {
+          provisional: boolean;
+          preview: {
+            status: string;
+            invoice_id: string;
+            totals: { net: string; vat: string; gross: string };
+            lines: Array<{ description: string; gross: string }>;
+            recipient: { customer_id: string; name: string };
+            finalize_note: string;
+          };
+        };
+      }>(result);
+      expect(proposed.status).toBe('needs_approval');
+      expect(proposed.proposal.provisional).toBe(true);
+      expect(proposed.proposal.preview.status).toBe('DRAFT');
+      expect(proposed.proposal.preview.totals).toEqual({
+        net: '100.00',
+        vat: '20.00',
+        gross: '120.00',
+      });
+      expect(proposed.proposal.preview.lines[0]?.gross).toBe('120.00');
+      expect(proposed.proposal.preview.recipient.customer_id).toBe(
+        fixtures.customerId,
+      );
+      expect(proposed.proposal.preview.finalize_note).toContain('DRAFT');
+
+      const previewInvoiceId = proposed.proposal.preview.invoice_id;
+      expect(previewInvoiceId).toBeTruthy();
+
+      const sequenceBeforePropose = await prismaA.invoiceSequence.findMany({
+        where: { tenant_id: tenantA },
+      });
+      const invoicesBefore = await prismaA.invoice.count({
+        where: { workshop_order_id: order.id },
+      });
+      expect(invoicesBefore).toBe(0);
+      expect(
+        await prismaA.invoice.findFirst({ where: { id: previewInvoiceId } }),
+      ).toBeNull();
+      expect(await prismaA.invoiceSequence.findMany({
+        where: { tenant_id: tenantA },
+      })).toEqual(sequenceBeforePropose);
+
+      const applied = await applyProposal(
+        proposed.pending_action_id,
+        adminHeaderA,
+      ).expect(200);
+      expect(applied.body.status).toBe('EXECUTED');
+
+      const invoices = await prismaA.invoice.findMany({
+        where: { workshop_order_id: order.id },
+      });
+      expect(invoices).toHaveLength(1);
+      const invoice = invoices[0];
+      expect(invoice.status).toBe('DRAFT');
+      expect(invoice.id).not.toBe(previewInvoiceId);
+      expect(invoice.invoice_number).toBeNull();
+      expect(invoice.total_net.toFixed(2)).toBe(
+        proposed.proposal.preview.totals.net,
+      );
+      expect(invoice.total_tax.toFixed(2)).toBe(
+        proposed.proposal.preview.totals.vat,
+      );
+      expect(invoice.total_gross.toFixed(2)).toBe(
+        proposed.proposal.preview.totals.gross,
+      );
+      expect(
+        await prismaA.invoice.findFirst({ where: { id: previewInvoiceId } }),
+      ).toBeNull();
+      expect(await prismaA.invoiceSequence.findMany({
+        where: { tenant_id: tenantA },
+      })).toEqual(sequenceBeforePropose);
+
+      await expectActionLogRow(traceId, 'mcp.propose_invoice_draft_from_order', {
+        status: 'PROPOSED',
+        tier: 'PROPOSE',
+      });
+    });
+
+    it('conflicts when the workshop order is already invoiced', async () => {
+      const { order } = await seedInvoiceableWorkshopOrder();
+      await createDraftInvoice({
+        customerId: fixtures.customerId,
+        siteId: fixtures.siteId,
+        description: 'Existing draft',
+        workshopOrderId: order.id,
+      });
+      const result = await callMcpTool(
+        caller(adminHeaderA, 'e2e-invoice-draft-conflict'),
+        'propose_invoice_draft_from_order',
+        { workshop_order_id: order.id },
+      );
+      expect(result.isError).toBe(true);
+    });
+
+    it('replays with the same command_id', async () => {
+      const { order } = await seedInvoiceableWorkshopOrder();
+      const commandId = '00000000-0000-4000-8000-000000000606';
+      const first = parsePayload<{ pending_action_id: string }>(
+        await callMcpTool(
+          caller(adminHeaderA, 'e2e-invoice-draft-replay'),
+          'propose_invoice_draft_from_order',
+          { workshop_order_id: order.id, command_id: commandId },
+        ),
+      );
+      const second = parsePayload<{ pending_action_id: string; replayed?: boolean }>(
+        await callMcpTool(
+          caller(adminHeaderA, 'e2e-invoice-draft-replay'),
+          'propose_invoice_draft_from_order',
+          { workshop_order_id: order.id, command_id: commandId },
+        ),
+      );
+      expect(second.pending_action_id).toBe(first.pending_action_id);
+      expect(second.replayed).toBe(true);
+    });
+  });
+
   // Note: MCP_SERVER_ENABLED=false → 404 is already tested above
 });

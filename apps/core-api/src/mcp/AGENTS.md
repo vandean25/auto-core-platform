@@ -68,8 +68,9 @@ Read tools are tenant- or active-site-scoped by the server. Their tier is `AUTO`
 | `propose_workshop_booking` | Propose a scheduled workshop order with an optional reserved loaner booking and optional `loaner_charge` FEE line | Write | Off by default; PROPOSE when enabled (clamped from AUTO) |
 | `propose_purchase_order` | Propose a DRAFT purchase order from verified local parts requisition demand | Write | Off by default; PROPOSE when enabled (clamped from AUTO) |
 | `propose_workshop_order_completion` | Propose completing open workshop tasks on an order and deriving order status when all tasks are done; optional ready-for-pickup email on apply when `notify_customer` is true | Write | Off by default; PROPOSE when enabled (clamped from AUTO) |
+| `propose_invoice_draft_from_order` | Propose a DRAFT invoice from a COMPLETED workshop order (never finalizes, sends, or records payment) | Write | Off by default; PROPOSE when enabled (clamped from AUTO) |
 
-Write tools start Off (`enabled: false`) in the platform policy table. A tenant admin must enable a tool through the policy table before it can run; the admin cannot loosen the platform tier or conditions. `propose_line_item`, `propose_registration_intake`, `propose_workshop_booking`, `propose_purchase_order`, and `propose_workshop_order_completion` are clamped to `PROPOSE`. The server evaluates every write call, so never infer permission from this table alone.
+Write tools start Off (`enabled: false`) in the platform policy table. A tenant admin must enable a tool through the policy table before it can run; the admin cannot loosen the platform tier or conditions. `propose_line_item`, `propose_registration_intake`, `propose_workshop_booking`, `propose_purchase_order`, `propose_workshop_order_completion`, and `propose_invoice_draft_from_order` are clamped to `PROPOSE`. The server evaluates every write call, so never infer permission from this table alone.
 
 ### Reservation rules
 
@@ -91,7 +92,7 @@ Policy-mode wording maps approximately as follows: `Allowed` to `AUTO`, `Ask fir
 
 Offset list and search tools accept `page` and `pageSize`; the server defaults to page 1 and 10 rows and caps `pageSize` at 25. Cursor-based tools take `pageSize` and an opaque `cursor` from `meta.next_cursor` with the same default and maximum. `get_customer` and `get_vehicle_history` page their order list with `orders_page_size` and `orders_cursor`. Offset cursors are limited to `get_capabilities`, the three stock/Pickerl report reads, and nothing else; other cursor tools use keyset positions.
 
-- `get_capabilities` pages the tool catalog by offset. Its default and maximum page size is 25. The catalog holds 48 tools, so follow `meta.next_cursor` before deciding that a write tool is unavailable.
+- `get_capabilities` pages the tool catalog by offset. Its default and maximum page size is 25. The catalog holds 49 tools, so follow `meta.next_cursor` before deciding that a write tool is unavailable.
 - `list_sites` pages with `pageSize` (default 10, max 25) and an opaque `cursor` from `meta.next_cursor`, in site code order.
 - `list_audit_events`, `get_entity_history`, `get_agent_action`, and `list_agent_actions` page with a keyset cursor. The default page size is 10 and the maximum is 25. Audit lists are newest first. `get_agent_action` log rows are oldest first.
 - `list_invoices` pages with a keyset cursor over issue date and invoice ID, with the same default and maximum. It is newest first.
@@ -303,4 +304,9 @@ All names and records below are fictional German examples.
 
 1. Use `get_vehicle` and, if needed, `get_customer` to verify the relevant record (AUTO).
 2. To mark workshop work complete and optionally queue the vehicle-ready email on human approval, a tenant admin must enable `propose_workshop_order_completion`; when enabled it is PROPOSE, previews task completion and derived order status, and sends the ready email only when `notify_customer` is true and a person applies the pending action. It never finalizes invoices.
-3. There is no other customer-message tool. Ad-hoc customer messages remain `HUMAN_ONLY`. Expected tier: AUTO for reads; PROPOSE for completion when enabled.
+3. There is no customer-message tool. Sending a customer message is `HUMAN_ONLY` and never exposed as an MCP tool. Do not send through another route. Expected tier: AUTO for reads; PROPOSE for completion when enabled.
+
+### Workshop invoice draft
+
+1. Read the workshop order with `get_workshop_order` (AUTO) and confirm it is `COMPLETED` with billable lines.
+2. To create an invoice draft, a tenant admin must enable `propose_invoice_draft_from_order`; when enabled it is PROPOSE, previews line items with net/VAT/gross totals and the invoice recipient, and creates only a DRAFT invoice when a person applies the pending action. Finalizing, sending, and recording payment stay human-only.

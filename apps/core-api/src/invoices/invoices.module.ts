@@ -7,6 +7,7 @@ import { InvoicePdfService } from './invoice-pdf.service.js';
 import { InvoicePdfRenderer } from './invoice-pdf.renderer.js';
 import { InvoiceSnapshotCommitService } from './invoice-snapshot-commit.service.js';
 import { DocumentBrandingModule } from '../document-branding/document-branding.module.js';
+import { InvoiceWorkshopDraftProposeService } from './invoice-workshop-draft-propose.service.js';
 
 @Module({
   imports: [PrismaModule, CommonModule, DocumentBrandingModule],
@@ -16,7 +17,12 @@ import { DocumentBrandingModule } from '../document-branding/document-branding.m
     InvoicePdfService,
     InvoicePdfRenderer,
     InvoiceSnapshotCommitService,
+    InvoiceWorkshopDraftProposeService,
   ],
-  exports: [InvoicesService, InvoiceSnapshotCommitService],
+  exports: [
+    InvoicesService,
+    InvoiceSnapshotCommitService,
+    InvoiceWorkshopDraftProposeService,
+  ],
 })
 export class InvoicesModule {}

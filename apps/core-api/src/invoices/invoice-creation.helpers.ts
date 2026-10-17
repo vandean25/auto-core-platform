@@ -215,7 +215,7 @@ export function calculateInvoiceTotals(
   };
 }
 
-async function findWorkshopOrderForDraftInvoice(
+export async function findWorkshopOrderForDraftInvoice(
   tx: Prisma.TransactionClient,
   tenantId: string,
   siteId: string,
@@ -246,6 +246,7 @@ async function findWorkshopOrderForDraftInvoice(
         },
       },
       invoice: { select: { id: true, invoice_number: true } },
+      customer: true,
     },
   });
 }

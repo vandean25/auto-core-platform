@@ -23,6 +23,7 @@ export const MCP_WRITE_POLICY_ACTION_TYPES = {
   propose_workshop_booking: 'workshop.booking_package',
   propose_purchase_order: 'purchase_order.propose_draft',
   propose_workshop_order_completion: 'workshop_order.complete',
+  propose_invoice_draft_from_order: 'invoice.create_draft_from_workshop_order',
 } as const;
 
 export type McpWritePolicyActionType =

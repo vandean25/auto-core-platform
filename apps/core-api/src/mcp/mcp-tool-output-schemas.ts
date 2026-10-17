@@ -1371,6 +1371,9 @@ export const mcpToolOutputSchemas = {
   propose_workshop_order_completion: writeResultOf(
     'propose_workshop_order_completion',
   ),
+  propose_invoice_draft_from_order: writeResultOf(
+    'propose_invoice_draft_from_order',
+  ),
 } satisfies Record<McpToolName, z.ZodType>;
 
 export type McpToolOutputSchemas = typeof mcpToolOutputSchemas;

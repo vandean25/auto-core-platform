@@ -38,6 +38,7 @@ import { WorkshopBookingPackageService } from '../workshop/workshop-booking-pack
 import { PurchaseService } from '../purchase/purchase.service.js';
 import { proposePurchaseOrderInputSchema } from '../purchase/purchase-propose-draft.schema.js';
 import { WorkshopOrderCompletionService } from '../workshop/workshop-order-completion.service.js';
+import { InvoiceWorkshopDraftProposeService } from '../invoices/invoice-workshop-draft-propose.service.js';
 
 export type PendingActionType =
   | 'workshop_order.create'
@@ -54,7 +55,8 @@ export type PendingActionType =
   | 'decision.document_sort'
   | 'registration_intake.apply'
   | 'workshop_order.mechanic_finding'
-  | 'workshop_order.complete';
+  | 'workshop_order.complete'
+  | 'invoice.create_draft_from_workshop_order';
 
 export type PendingActionExecutor = {
   actionType: PendingActionType;
@@ -84,6 +86,7 @@ export class PendingActionExecutorService {
     private readonly workshopBookingPackage: WorkshopBookingPackageService,
     private readonly purchaseService: PurchaseService,
     private readonly workshopOrderCompletion: WorkshopOrderCompletionService,
+    private readonly invoiceWorkshopDraftPropose: InvoiceWorkshopDraftProposeService,
   ) {}
 
   resolve(actionType: string): PendingActionExecutor {
@@ -305,6 +308,27 @@ export class PendingActionExecutorService {
             entityType: 'WorkshopOrder',
             entityId: (result as { workshop_order_id: string })
               .workshop_order_id,
+            reversible: true,
+          }),
+        };
+      case 'invoice.create_draft_from_workshop_order':
+        return {
+          actionType,
+          buildPolicyContext: (input) =>
+            this.invoiceWorkshopDraftPropose.buildPolicyContext(input),
+          buildExecutionContext: () =>
+            this.invoiceWorkshopDraftPropose.buildExecutionContext(),
+          execute: (input, context) =>
+            this.invoiceWorkshopDraftPropose.applyDraft(input, context),
+          buildResultSummary: (result) => ({
+            invoice_id: (result as { invoice_id: string }).invoice_id,
+            status: (result as { status: string }).status,
+            totals: (result as { totals: { gross: string } }).totals,
+            finalize_note: (result as { finalize_note: string }).finalize_note,
+          }),
+          buildLogMetadata: (result) => ({
+            entityType: 'Invoice',
+            entityId: (result as { invoice_id: string }).invoice_id,
             reversible: true,
           }),
         };

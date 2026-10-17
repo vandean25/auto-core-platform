@@ -79,10 +79,14 @@ const TENANT_A_RULES: Record<string, ResolvedAgentPolicyRule | null> = {
   'workshop_order.complete': policyRule('workshop_order.complete', {
     enabled: false,
   }),
+  'invoice.create_draft_from_workshop_order': policyRule(
+    'invoice.create_draft_from_workshop_order',
+    { enabled: false },
+  ),
 };
 
-// Visible tools: every read tool plus 7 write tools (release_reservation is HUMAN_ONLY).
-const VISIBLE_TOOL_COUNT = MCP_READ_TOOL_NAMES.length + 7;
+// Visible tools: every read tool plus 8 write tools (release_reservation is HUMAN_ONLY).
+const VISIBLE_TOOL_COUNT = MCP_READ_TOOL_NAMES.length + 8;
 
 function createService() {
   const authenticated: { user?: SessionUser } = { user: AGENT_USER };
@@ -269,6 +273,7 @@ describe('McpCapabilitiesService.getCapabilities', () => {
       'propose_workshop_booking',
       'propose_purchase_order',
       'propose_workshop_order_completion',
+      'propose_invoice_draft_from_order',
     ]);
     expect(page.meta).toEqual({
       total: VISIBLE_TOOL_COUNT,
@@ -386,6 +391,20 @@ describe('McpCapabilitiesService.getCapabilities', () => {
     expect(agentPolicy.getEffectiveRule).toHaveBeenCalledWith(
       'workshop_order.propose_line',
     );
+  });
+
+  it('keeps invoice finalize, send, and payment.record human-only without MCP tools', async () => {
+    const { service } = createService();
+    const page = await allCapabilityPages(service);
+    const toolNames = page.data.map((entry) => entry.tool);
+    for (const action of [
+      'invoice.finalize',
+      'invoice.send',
+      'payment.record',
+    ]) {
+      expect(toolNames).not.toContain(action);
+      expect(page.human_only_actions).toContain(action);
+    }
   });
 
   it('never lists a HUMAN_ONLY write action as a tool and names it in human_only_actions', async () => {

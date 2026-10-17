@@ -92,4 +92,6 @@ export const MCP_TOOL_DESCRIPTIONS: Record<McpToolName, string> = {
     'Propose a DRAFT purchase order from verified local parts requisition demand (never sends externally; records one pending proposal)',
   propose_workshop_order_completion:
     'Propose completing open workshop tasks on an order and moving it to a derived completed status when all tasks are done; optional ready-for-pickup email only when notify_customer is true and the action is applied (never finalizes invoices)',
+  propose_invoice_draft_from_order:
+    'Propose a DRAFT invoice from a COMPLETED workshop order (never finalizes, sends, or records payment; records one pending proposal)',
 };
