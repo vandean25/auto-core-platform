@@ -54,9 +54,7 @@ export class WorkshopMediaUploadMcpService {
           OR: [
             { firebaseUid: authUser.userId },
             { id: authUser.userId },
-            ...(authUser.email
-              ? [{ email: authUser.email }]
-              : []),
+            ...(authUser.email ? [{ email: authUser.email }] : []),
           ],
         },
       },
