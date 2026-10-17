@@ -71,8 +71,15 @@ export function buildWorkshopCheckInSection(
     })
     .join('');
 
+  const markerPhotoIds = new Set(
+    snapshot.damage_markers.flatMap((marker) => marker.media_ids),
+  );
   const unattachedPhotos = snapshot.media
-    .filter((item) => item.purpose === WorkshopMediaPurpose.CHECK_IN)
+    .filter(
+      (item) =>
+        item.purpose === WorkshopMediaPurpose.CHECK_IN &&
+        !markerPhotoIds.has(item.id),
+    )
     .map((item) => embedded.photoDataUrls[item.id])
     .filter(Boolean)
     .map((url) => `<img class="check-in-photo" src="${url}" alt="" />`)

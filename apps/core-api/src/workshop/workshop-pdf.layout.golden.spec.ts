@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { escapeHtml } from '../common/pdf/pdf-layout.js';
 import { buildWorkshopHtmlDocument } from './workshop-pdf.layout.js';
 import {
+  CHECK_IN_PHOTO_DATA_URL,
   CHECK_IN_SIGNATURE_DATA_URL,
   buildWorkshopPdfFixtureOrder,
   buildWorkshopPdfFixtureOrderWithCheckIn,
@@ -42,5 +43,6 @@ describe('workshop-pdf.layout golden HTML', () => {
     expect(html).toContain('check-in-section');
     expect(html).toContain('Fahrzeugannahme');
     expect(html).toContain(CHECK_IN_SIGNATURE_DATA_URL);
+    expect(html.split(CHECK_IN_PHOTO_DATA_URL).length - 1).toBe(1);
   });
 });

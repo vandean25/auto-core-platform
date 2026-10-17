@@ -35,20 +35,19 @@ function metadataMatches(
   );
 }
 
-export async function publishWorkshopCheckInEvidencePdfArchive(params: {
+/** GCS create-only upload; must run outside a DB transaction. */
+export async function uploadWorkshopCheckInEvidencePdfArchiveObject(params: {
   storage: Pick<
     PdfStorage,
     'publishImmutableObject' | 'readImmutableObjectByKey'
   >;
-  prisma: Prisma.TransactionClient;
   tenantId: string;
   checkInId: string;
   workshopOrderId: string;
   contentSha256: string;
   pdfBytes: Buffer;
-  generatedAt: Date;
   bucket: string;
-}): Promise<string | null> {
+}): Promise<{ key: string; sha256: string }> {
   const key = buildWorkshopCheckInEvidencePdfKey(
     params.tenantId,
     params.checkInId,
@@ -61,7 +60,6 @@ export async function publishWorkshopCheckInEvidencePdfArchive(params: {
     contentSha256: params.contentSha256,
   });
 
-  let archiveSha256: string;
   try {
     const archive = await params.storage.publishImmutableObject({
       key,
@@ -69,7 +67,7 @@ export async function publishWorkshopCheckInEvidencePdfArchive(params: {
       contentType: 'application/pdf',
       customMetadata: identity,
     });
-    archiveSha256 = archive.sha256;
+    return { key, sha256: archive.sha256 };
   } catch (error) {
     if (getErrorCode(error) !== 412) {
       throw error;
@@ -79,20 +77,41 @@ export async function publishWorkshopCheckInEvidencePdfArchive(params: {
       key,
       validateMetadata: (metadata) => metadataMatches(metadata, identity),
     });
-    archiveSha256 = existing.sha256;
+    return { key, sha256: existing.sha256 };
+  }
+}
+
+/** Compare-and-set the check-in PDF pointer; fails when evidence is still unset. */
+export async function persistWorkshopCheckInEvidencePdfArchiveRecord(
+  tx: Prisma.TransactionClient,
+  input: {
+    tenantId: string;
+    checkInId: string;
+    storageBucket: string;
+    storageKey: string;
+    pdfSha256: string;
+    generatedAt: Date;
+  },
+): Promise<void> {
+  const published = await publishWorkshopCheckInPdfArchiveIfUnset(tx, {
+    tenantId: input.tenantId,
+    checkInId: input.checkInId,
+    storageBucket: input.storageBucket,
+    storageKey: input.storageKey,
+    pdfSha256: input.pdfSha256,
+    generatedAt: input.generatedAt,
+  });
+  if (published) {
+    return;
   }
 
-  const published = await publishWorkshopCheckInPdfArchiveIfUnset(
-    params.prisma,
-    {
-      tenantId: params.tenantId,
-      checkInId: params.checkInId,
-      storageBucket: params.bucket,
-      storageKey: key,
-      pdfSha256: archiveSha256,
-      generatedAt: params.generatedAt,
-    },
-  );
+  const current = await tx.workshopCheckIn.findFirst({
+    where: { tenant_id: input.tenantId, id: input.checkInId },
+    select: { pdf_sha256: true },
+  });
+  if (current?.pdf_sha256) {
+    return;
+  }
 
-  return published ? archiveSha256 : null;
+  throw new Error('Check-in evidence PDF could not be stored');
 }

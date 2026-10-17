@@ -1,7 +1,8 @@
+import { createHash } from 'node:crypto';
 import { WorkshopMediaPurpose } from '@prisma/client';
 import { CHECK_IN_ACKNOWLEDGEMENT_TEXT_DE } from './workshop-check-in-acknowledgement.js';
 import {
-  WORKSHOP_CHECK_IN_EVIDENCE_SCHEMA_VERSION,
+  buildWorkshopCheckInEvidenceSnapshot,
   type WorkshopCheckInEvidenceSnapshot,
 } from './workshop-check-in-evidence-snapshot.js';
 import type { WorkshopOrderForPdf } from './workshop-pdf.types.js';
@@ -62,31 +63,39 @@ const CHECK_IN_SIGNATURE_BYTES = Buffer.from('signature-png-fixture');
 export const CHECK_IN_PHOTO_DATA_URL = `data:image/jpeg;base64,${CHECK_IN_PHOTO_BYTES.toString('base64')}`;
 export const CHECK_IN_SIGNATURE_DATA_URL = `data:image/png;base64,${CHECK_IN_SIGNATURE_BYTES.toString('base64')}`;
 
+export const CHECK_IN_FIXTURE_SIGNATURE_SHA256 = createHash('sha256')
+  .update(CHECK_IN_SIGNATURE_BYTES)
+  .digest('hex');
+
+const CHECK_IN_FIXTURE_COMPLETED_AT = new Date('2026-10-17T12:00:00.000Z');
+
+/** Same shape as completion: signature media is not part of `snapshot.media`. */
 export function buildWorkshopPdfFixtureCheckInSnapshot(): WorkshopCheckInEvidenceSnapshot {
-  return {
-    schema_version: WORKSHOP_CHECK_IN_EVIDENCE_SCHEMA_VERSION,
-    check_in_id: 'check-in-pdf-fixture',
-    workshop_order_id: 'order-pdf-fixture',
-    condition: {
-      schema_version: 1,
-      tyre_season: 'WINTER',
-      exterior_notes: 'Minor scuff on rear bumper',
-      interior_notes: '',
-    },
-    damage_markers: [
-      {
-        id: 'marker-1',
-        zone_id: 'REAR_BUMPER',
-        type: 'SCRATCH',
-        note: 'Light scratch',
-        media_ids: ['photo-1'],
+  return buildWorkshopCheckInEvidenceSnapshot({
+    row: {
+      id: 'check-in-pdf-fixture',
+      workshop_order_id: 'order-pdf-fixture',
+      condition_json: {
+        schema_version: 1,
+        tyre_season: 'WINTER',
+        exterior_notes: 'Minor scuff on rear bumper',
+        interior_notes: '',
       },
-    ],
-    items_left: 'Umbrella',
-    key_count: 2,
-    warning_lights: ['ABS'],
-    odometer: 45120,
-    fuel_level: 55,
+      damage_markers_json: [
+        {
+          id: 'marker-1',
+          zone_id: 'REAR_BUMPER',
+          type: 'SCRATCH',
+          note: 'Light scratch',
+          media_ids: ['photo-1'],
+        },
+      ],
+      items_left: 'Umbrella',
+      key_count: 2,
+      warning_lights: ['ABS'],
+      odometer: 45120,
+      fuel_level: 55,
+    },
     media: [
       {
         id: 'photo-1',
@@ -107,25 +116,26 @@ export function buildWorkshopPdfFixtureCheckInSnapshot(): WorkshopCheckInEvidenc
         caption: null,
       },
     ],
-    completed_at: '2026-10-17T12:00:00.000Z',
-    completed_by_user_id: 'user-fixture',
-    signature: {
-      media_id: 'sig-1',
-      content_sha256: 'b'.repeat(64),
-      signed_by_name: 'Test Signer',
-      signed_at: '2026-10-17T12:00:00.000Z',
-      acknowledgement_version: 'check-in-signature-v1',
-      acknowledgement_text: CHECK_IN_ACKNOWLEDGEMENT_TEXT_DE,
-    },
-    checklist: [
+    checklistItems: [
       {
         id: 'item-1',
         label_snapshot: 'Warning triangle present',
         passed: true,
         notes: null,
+        sort_order: 0,
       },
     ],
-  };
+    completedAt: CHECK_IN_FIXTURE_COMPLETED_AT,
+    completedByUserId: 'user-fixture',
+    signature: {
+      media_id: 'sig-1',
+      content_sha256: CHECK_IN_FIXTURE_SIGNATURE_SHA256,
+      signed_by_name: 'Test Signer',
+      signed_at: CHECK_IN_FIXTURE_COMPLETED_AT,
+      acknowledgement_version: 'check-in-signature-v1',
+      acknowledgement_text: CHECK_IN_ACKNOWLEDGEMENT_TEXT_DE,
+    },
+  });
 }
 
 export function buildWorkshopPdfFixtureOrderWithCheckIn(): WorkshopOrderForPdf {

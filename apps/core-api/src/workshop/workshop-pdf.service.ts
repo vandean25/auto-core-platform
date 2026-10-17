@@ -18,7 +18,10 @@ import { documentLocaleFrozenForCurrentRenderers } from '../common/i18n/rendered
 import { buildWorkshopOrderPdfRenderInput } from './workshop-order-pdf-render-input.js';
 import type { WorkshopCheckInEvidenceSnapshot } from './workshop-check-in-evidence-snapshot.js';
 import { embedWorkshopCheckInPdfMedia } from './workshop-pdf-check-in.assets.js';
-import { publishWorkshopCheckInEvidencePdfArchive } from './workshop-pdf-check-in-archive.js';
+import {
+  persistWorkshopCheckInEvidencePdfArchiveRecord,
+  uploadWorkshopCheckInEvidencePdfArchiveObject,
+} from './workshop-pdf-check-in-archive.js';
 
 export type WorkshopPdfRequestGenerationResponse = {
   mode: 'cached' | 'enqueued' | 'generated';
@@ -250,11 +253,12 @@ export class WorkshopPdfService {
       throw new NotFoundException('Workshop order not found');
     }
 
-    return this.prepareOrderForPdfRender(order);
+    return this.prepareOrderForPdfRender(order, tenantId);
   }
 
   private async prepareOrderForPdfRender(
     order: OrderRowForPdfGeneration,
+    tenantId: string,
   ): Promise<WorkshopOrderForPdf> {
     const base: WorkshopOrderForPdf = {
       id: order.id,
@@ -282,7 +286,12 @@ export class WorkshopPdfService {
 
     const snapshot = checkIn.snapshot_json as WorkshopCheckInEvidenceSnapshot;
     const embedded = await embedWorkshopCheckInPdfMedia(
-      this.mediaStorage,
+      {
+        mediaStorage: this.mediaStorage,
+        prisma: this.prisma.client,
+        tenantId,
+        checkInId: checkIn.id,
+      },
       snapshot,
     );
 
@@ -328,6 +337,30 @@ export class WorkshopPdfService {
         documentLocale,
         checkInContentSha256: order.check_in?.content_sha256 ?? null,
       });
+
+      const needsCheckInArchive = order.check_in && !order.check_in.pdf_sha256;
+      if (needsCheckInArchive) {
+        const archive = await uploadWorkshopCheckInEvidencePdfArchiveObject({
+          storage: this.storage,
+          tenantId,
+          checkInId: order.check_in!.id,
+          workshopOrderId: order.id,
+          contentSha256: order.check_in!.content_sha256,
+          pdfBytes: finalPdfBytes,
+          bucket: upload.bucket,
+        });
+        await this.prisma.client.$transaction(async (tx) => {
+          await persistWorkshopCheckInEvidencePdfArchiveRecord(tx, {
+            tenantId,
+            checkInId: order.check_in!.id,
+            storageBucket: upload.bucket,
+            storageKey: archive.key,
+            pdfSha256: archive.sha256,
+            generatedAt,
+          });
+        });
+      }
+
       await this.persistGeneratedPdf(
         order.id,
         tenantId,
@@ -335,22 +368,6 @@ export class WorkshopPdfService {
         generatedAt,
         renderInput,
       );
-
-      if (order.check_in && !order.check_in.pdf_sha256) {
-        await this.prisma.client.$transaction(async (tx) => {
-          await publishWorkshopCheckInEvidencePdfArchive({
-            storage: this.storage,
-            prisma: tx,
-            tenantId,
-            checkInId: order.check_in!.id,
-            workshopOrderId: order.id,
-            contentSha256: order.check_in!.content_sha256,
-            pdfBytes: finalPdfBytes,
-            generatedAt,
-            bucket: upload.bucket,
-          });
-        });
-      }
 
       return {
         workshopOrderId: order.id,

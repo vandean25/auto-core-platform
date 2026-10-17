@@ -14,6 +14,32 @@ import { WorkshopPdfService } from './workshop-pdf.service.js';
 import type { WorkshopPdfRenderer } from './workshop-pdf.renderer.js';
 import { buildWorkshopPdfFixtureCheckInSnapshot } from './workshop-pdf.fixture.js';
 
+function stubCheckInPdfMediaLoading(
+  mediaStorage: jest.Mocked<Pick<MechanicMediaStorage, 'readObjectBytes'>>,
+  prisma: {
+    client: {
+      workshopMedia: { findFirst: jest.Mock };
+    };
+  },
+) {
+  prisma.client.workshopMedia = {
+    findFirst: jest.fn().mockResolvedValue({
+      storage_bucket: 'media-bucket',
+      storage_key: 'sig-1.png',
+      mime_type: 'image/png',
+    }),
+  };
+  mediaStorage.readObjectBytes.mockImplementation(async (_bucket, key) => {
+    if (key === 'photo-1.jpg') {
+      return Buffer.from('jpeg-photo-fixture');
+    }
+    if (key === 'sig-1.png') {
+      return Buffer.from('signature-png-fixture');
+    }
+    return Buffer.from('media-bytes');
+  });
+}
+
 describe('WorkshopPdfService', () => {
   const tenantId = 'tenant-1';
   const workshopOrderId = 'workshop-1';
@@ -391,6 +417,7 @@ describe('WorkshopPdfService', () => {
 
     it('publishes the immutable check-in PDF hash only after the final render', async () => {
       const snapshot = buildWorkshopPdfFixtureCheckInSnapshot();
+      stubCheckInPdfMediaLoading(mediaStorage, prisma);
       prisma.client.workshopOrder.findFirst.mockResolvedValue({
         ...generationOrderRow,
         check_in: {
@@ -419,10 +446,51 @@ describe('WorkshopPdfService', () => {
           }),
         }),
       );
+      const checkInPersistOrder =
+        prisma.client.workshopCheckIn.updateMany.mock.invocationCallOrder[0];
+      const orderPdfPersistCallIndex =
+        prisma.client.workshopOrder.updateMany.mock.calls.findIndex(
+          (call) => call[0]?.data?.pdf_storage_key,
+        );
+      expect(orderPdfPersistCallIndex).toBeGreaterThanOrEqual(0);
+      const orderPersistOrder =
+        prisma.client.workshopOrder.updateMany.mock.invocationCallOrder[
+          orderPdfPersistCallIndex
+        ];
+      expect(checkInPersistOrder).toBeLessThan(orderPersistOrder);
+    });
+
+    it('does not persist the mutable order PDF when check-in archive upload fails', async () => {
+      const snapshot = buildWorkshopPdfFixtureCheckInSnapshot();
+      stubCheckInPdfMediaLoading(mediaStorage, prisma);
+      prisma.client.workshopOrder.findFirst.mockResolvedValue({
+        ...generationOrderRow,
+        check_in: {
+          id: snapshot.check_in_id,
+          status: WorkshopCheckInStatus.COMPLETED,
+          snapshot_json: snapshot,
+          content_sha256: 'c'.repeat(64),
+          pdf_sha256: null,
+        },
+      });
+      storage.publishImmutableObject.mockRejectedValue(
+        new Error('GCS unavailable'),
+      );
+
+      await expect(service.generateNow(workshopOrderId)).rejects.toThrow(
+        'GCS unavailable',
+      );
+
+      const persistPdfCalls = prisma.client.workshopOrder.updateMany.mock.calls.filter(
+        (call) => call[0]?.data?.pdf_storage_key,
+      );
+      expect(persistPdfCalls).toHaveLength(0);
+      expect(prisma.client.workshopCheckIn.updateMany).not.toHaveBeenCalled();
     });
 
     it('does not publish a check-in archive hash when rendering fails', async () => {
       const snapshot = buildWorkshopPdfFixtureCheckInSnapshot();
+      stubCheckInPdfMediaLoading(mediaStorage, prisma);
       prisma.client.workshopOrder.findFirst.mockResolvedValue({
         ...generationOrderRow,
         check_in: {
