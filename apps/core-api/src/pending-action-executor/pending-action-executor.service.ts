@@ -39,6 +39,9 @@ import { PurchaseService } from '../purchase/purchase.service.js';
 import { proposePurchaseOrderInputSchema } from '../purchase/purchase-propose-draft.schema.js';
 import { WorkshopOrderCompletionService } from '../workshop/workshop-order-completion.service.js';
 import { InvoiceWorkshopDraftProposeService } from '../invoices/invoice-workshop-draft-propose.service.js';
+import { WorkshopMediaUploadMcpService } from '../mechanic/workshop-media-upload-mcp.service.js';
+import { MechanicFindingProposeService } from '../mechanic/mechanic-finding-propose.service.js';
+import { requestWorkshopMediaUploadInputSchema } from '../mechanic/mechanic-finding-propose.schema.js';
 
 export type PendingActionType =
   | 'workshop_order.create'
@@ -55,6 +58,8 @@ export type PendingActionType =
   | 'decision.document_sort'
   | 'registration_intake.apply'
   | 'workshop_order.mechanic_finding'
+  | 'workshop_order.propose_mechanic_finding'
+  | 'workshop.media_upload_slot'
   | 'workshop_order.complete'
   | 'invoice.create_draft_from_workshop_order';
 
@@ -87,6 +92,8 @@ export class PendingActionExecutorService {
     private readonly purchaseService: PurchaseService,
     private readonly workshopOrderCompletion: WorkshopOrderCompletionService,
     private readonly invoiceWorkshopDraftPropose: InvoiceWorkshopDraftProposeService,
+    private readonly workshopMediaUploadMcp: WorkshopMediaUploadMcpService,
+    private readonly mechanicFindingPropose: MechanicFindingProposeService,
   ) {}
 
   resolve(actionType: string): PendingActionExecutor {
@@ -160,12 +167,45 @@ export class PendingActionExecutorService {
                 : await this.siteContext.getSiteId();
             return { site_id: siteId };
           },
-          execute: (input) => this.acknowledgeMechanicFinding(input),
+          execute: (input, executionContext) =>
+            this.mechanicFindingPropose.applyAcknowledgment(
+              input,
+              executionContext,
+            ),
           buildResultSummary: (result) => ({
             workshop_task_id: (result as { workshop_task_id: string })
               .workshop_task_id,
             workshop_order_id: (result as { workshop_order_id: string })
               .workshop_order_id,
+          }),
+        };
+      case 'workshop_order.propose_mechanic_finding':
+        return {
+          actionType,
+          buildPolicyContext: () => Promise.resolve({}),
+          buildExecutionContext: () =>
+            this.mechanicFindingPropose.buildExecutionContext(),
+          execute: (input) => this.mechanicFindingPropose.buildPreview(input),
+          buildResultSummary: (result) => ({
+            workshop_task_id: (result as { workshop_task_id: string })
+              .workshop_task_id,
+            workshop_order_id: (result as { workshop_order_id: string })
+              .workshop_order_id,
+          }),
+        };
+      case 'workshop.media_upload_slot':
+        return {
+          actionType,
+          buildPolicyContext: () => Promise.resolve({}),
+          execute: (input) => this.createWorkshopMediaUploadSlot(input),
+          buildResultSummary: (result) => ({
+            media_id: (result as { media_id: string }).media_id,
+            expires_at: (result as { expires_at: string }).expires_at,
+          }),
+          buildLogMetadata: (result) => ({
+            entityType: 'WorkshopMedia',
+            entityId: (result as { media_id: string }).media_id,
+            reversible: true,
           }),
         };
       case 'workshop_order.add_line':
@@ -661,58 +701,11 @@ export class PendingActionExecutorService {
     return { id: created.id, entityId: created.id };
   }
 
-  /** Advisor acknowledgment of a mechanic finding. Does not add estimate lines. */
-  private async acknowledgeMechanicFinding(input: unknown): Promise<unknown> {
-    const record = this.asRecord(input);
-    const orderId =
-      typeof record.workshop_order_id === 'string'
-        ? record.workshop_order_id
-        : '';
-    const taskId =
-      typeof record.workshop_task_id === 'string'
-        ? record.workshop_task_id
-        : '';
-    if (!orderId || !taskId) {
-      throw new BadRequestException(
-        'Mechanic finding payload requires workshop_order_id and workshop_task_id',
-      );
-    }
-    const [tenantId, siteId] = await Promise.all([
-      this.tenantContext.getTenantId(),
-      this.siteContext.getSiteId(),
-    ]);
-    const payloadSiteId =
-      typeof record.site_id === 'string' ? record.site_id : null;
-    if (payloadSiteId && payloadSiteId !== siteId) {
-      throw new BadRequestException(
-        `Action payload site (${payloadSiteId}) does not match caller authorized site (${siteId})`,
-      );
-    }
-    const order = await this.prisma.workshopOrder.findFirst({
-      where: { id: orderId, tenant_id: tenantId, site_id: siteId },
-      select: { id: true, status: true, purpose: true },
-    });
-    if (!order) {
-      throw new NotFoundException(`Workshop order ${orderId} not found`);
-    }
-    assertOrderEditable(order);
-    const task = await this.prisma.workshopTask.findFirst({
-      where: {
-        id: taskId,
-        tenant_id: tenantId,
-        workshop_order_id: orderId,
-        workshop_order: { site_id: siteId },
-      },
-      select: { id: true },
-    });
-    if (!task) {
-      throw new NotFoundException(`Workshop task ${taskId} not found`);
-    }
-    return {
-      workshop_order_id: orderId,
-      workshop_task_id: taskId,
-      entityId: taskId,
-    };
+  private async createWorkshopMediaUploadSlot(
+    input: unknown,
+  ): Promise<unknown> {
+    const parsed = requestWorkshopMediaUploadInputSchema.parse(input);
+    return this.workshopMediaUploadMcp.createUploadSlot(parsed);
   }
 
   /**

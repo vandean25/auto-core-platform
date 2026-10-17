@@ -9,6 +9,7 @@ import { McpOrderHistoryReadService } from './mcp-order-history-read.service.js'
 import { McpVehicleContextReadService } from './mcp-vehicle-context-read.service.js';
 import { McpPurchasingReadService } from './mcp-purchasing-read.service.js';
 import { McpRecordReadService } from './mcp-record-read.service.js';
+import { McpWorkshopOrderDetailReadService } from './mcp-workshop-order-detail.read.service.js';
 import { McpAvailabilityReadService } from './mcp-availability-read.service.js';
 import { McpReportReadService } from './mcp-report-read.service.js';
 import { McpSettingsReadService } from './mcp-settings-read.service.js';
@@ -76,6 +77,7 @@ export class McpReadToolService {
   private readonly catalogReads: McpCatalogReadService;
   private readonly reportReads: McpReportReadService;
   private readonly availabilityReads: McpAvailabilityReadService;
+  private readonly workshopOrderDetailReads: McpWorkshopOrderDetailReadService;
 
   // Fields are assigned in the body rather than declared as parameter properties, for the same
   // cohesion reason as the tool handler.
@@ -93,6 +95,7 @@ export class McpReadToolService {
     catalogReads: McpCatalogReadService,
     reportReads: McpReportReadService,
     availabilityReads: McpAvailabilityReadService,
+    workshopOrderDetailReads: McpWorkshopOrderDetailReadService,
   ) {
     this.capabilities = capabilities;
     this.auditReads = auditReads;
@@ -107,6 +110,7 @@ export class McpReadToolService {
     this.catalogReads = catalogReads;
     this.reportReads = reportReads;
     this.availabilityReads = availabilityReads;
+    this.workshopOrderDetailReads = workshopOrderDetailReads;
   }
 
   async run(
@@ -178,7 +182,7 @@ export class McpReadToolService {
           listWorkshopOrdersInputSchema.parse(parsed),
         );
       case 'get_workshop_order':
-        return this.recordReads.getWorkshopOrder(
+        return this.workshopOrderDetailReads.getWorkshopOrder(
           getWorkshopOrderInputSchema.parse(parsed),
         );
       case 'search_parts':

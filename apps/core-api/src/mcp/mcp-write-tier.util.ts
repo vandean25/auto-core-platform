@@ -1,5 +1,6 @@
 import { AgentPolicyTier } from '@prisma/client';
 import type { McpWriteToolName } from './mcp.constants.js';
+import { MCP_WRITE_TIER_PROPOSE_CLAMP_TOOLS } from './mcp-write-tier-clamp.js';
 
 /**
  * Server-side tier clamp for MCP writes. propose_line_item never executes on
@@ -11,12 +12,7 @@ export function effectiveMcpWriteTier(
   tier: AgentPolicyTier,
 ): AgentPolicyTier {
   if (
-    (toolName === 'propose_line_item' ||
-      toolName === 'propose_registration_intake' ||
-      toolName === 'propose_workshop_booking' ||
-      toolName === 'propose_purchase_order' ||
-      toolName === 'propose_workshop_order_completion' ||
-      toolName === 'propose_invoice_draft_from_order') &&
+    MCP_WRITE_TIER_PROPOSE_CLAMP_TOOLS.has(toolName) &&
     tier === AgentPolicyTier.AUTO
   ) {
     return AgentPolicyTier.PROPOSE;

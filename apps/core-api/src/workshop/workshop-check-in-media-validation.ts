@@ -3,6 +3,15 @@ import { Prisma, WorkshopMediaPurpose } from '@prisma/client';
 import type { CheckInDamageMarkerDto } from './dto/workshop-check-in.dto.js';
 import { CHECK_IN_ERROR_CODES } from './workshop-check-in.rules.js';
 
+export {
+  assertMcpWorkshopMediaUploadDeclared,
+  MCP_WORKSHOP_MEDIA_UPLOAD_MIME_TYPES,
+  MCP_WORKSHOP_MEDIA_UPLOAD_PURPOSES,
+  resolveMcpWorkshopMediaPurpose,
+  type McpWorkshopMediaUploadMimeType,
+  type McpWorkshopMediaUploadPurpose,
+} from './workshop-mcp-media-validation.js';
+
 type CheckInDb = Pick<Prisma.TransactionClient, 'workshopMedia'>;
 
 export async function assertCheckInDamageMarkerMediaIds(

@@ -38,6 +38,10 @@ import {
   MCP_VEHICLE_CONTEXT_SECTIONS,
 } from './mcp-vehicle-context.mapper.js';
 import { proposeWorkshopBookingInputSchema } from '../workshop/workshop-booking-package.schema.js';
+import {
+  proposeMechanicFindingInputSchema,
+  requestWorkshopMediaUploadInputSchema,
+} from '../mechanic/mechanic-finding-propose.schema.js';
 import { proposePurchaseOrderInputSchema } from '../purchase/purchase-propose-draft.schema.js';
 import { proposeWorkshopOrderCompletionInputSchema } from '../workshop/workshop-order-completion.schema.js';
 import { proposeInvoiceDraftFromOrderInputSchema } from '../invoices/invoice-workshop-draft-propose.schema.js';
@@ -914,4 +918,6 @@ export const mcpWriteToolInputSchemas: Record<
   propose_purchase_order: proposePurchaseOrderInputSchema,
   propose_workshop_order_completion: proposeWorkshopOrderCompletionInputSchema,
   propose_invoice_draft_from_order: proposeInvoiceDraftFromOrderInputSchema,
+  request_workshop_media_upload: requestWorkshopMediaUploadInputSchema,
+  propose_mechanic_finding: proposeMechanicFindingInputSchema,
 };

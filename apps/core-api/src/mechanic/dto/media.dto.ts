@@ -18,6 +18,7 @@ import {
 export const ALLOWED_MEDIA_MIME_TYPES = [
   'image/jpeg',
   'image/png',
+  'image/heic',
   'image/webp',
   'video/mp4',
   'video/quicktime',

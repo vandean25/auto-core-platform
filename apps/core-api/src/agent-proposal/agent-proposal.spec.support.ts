@@ -143,6 +143,18 @@ export function createAgentProposalSpecHarness() {
     buildPolicyContext: jest.fn().mockResolvedValue({ amount_eur: 120 }),
     enrichInput: jest.fn(async (input: unknown) => input),
   };
+  const mockWorkshopMediaUploadMcp = {
+    createUploadSlot: jest.fn(),
+  };
+  const mockMechanicFindingPropose = {
+    enrichInput: jest.fn(async (input: unknown) => input),
+    normalizeSubmitPayload: jest.fn(async (input: unknown) => input),
+    buildExecutionContext: jest
+      .fn()
+      .mockResolvedValue({ site_id: 'site-1' }),
+    buildPreview: jest.fn(),
+    applyAcknowledgment: jest.fn(),
+  };
   const mockPendingActionExecutors = new PendingActionExecutorService(
     mockPrisma,
     mockTenantContext,
@@ -154,6 +166,8 @@ export function createAgentProposalSpecHarness() {
     mockPurchaseService as never,
     mockWorkshopOrderCompletion as never,
     mockInvoiceWorkshopDraftPropose as never,
+    mockWorkshopMediaUploadMcp as never,
+    mockMechanicFindingPropose as never,
   );
 
   const policyEvaluator = new AgentProposalPolicyEvaluator(mockAgentPolicyService);
@@ -171,6 +185,14 @@ export function createAgentProposalSpecHarness() {
     policyEvaluator,
     reads,
   );
+  const submitPayloadNormalizer = {
+    normalize: jest.fn(async (actionType: string, payload: unknown) => {
+      if (actionType === 'workshop_order.mechanic_finding') {
+        return mockMechanicFindingPropose.normalizeSubmitPayload(payload);
+      }
+      return payload;
+    }),
+  };
   const submissions = new AgentProposalSubmissionService(
     mockPrisma,
     mockTenantContext,
@@ -179,9 +201,7 @@ export function createAgentProposalSpecHarness() {
     mockDryRun,
     mockPendingActionExecutors,
     policyEvaluator,
-    mockWorkshopBookingPackage,
-    mockWorkshopOrderCompletion as never,
-    mockInvoiceWorkshopDraftPropose as never,
+    submitPayloadNormalizer as never,
   );
   const service = new AgentProposalService(
     mockTenantContext,
@@ -206,6 +226,8 @@ export function createAgentProposalSpecHarness() {
     mockWorkshopIntake,
     mockPartsRequisition,
     mockWorkshopBookingPackage,
+    mockMechanicFindingPropose,
+    mockSubmitPayloadNormalizer: submitPayloadNormalizer,
   };
 }
 

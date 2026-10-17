@@ -28454,6 +28454,7 @@
             "enum": [
               "image/jpeg",
               "image/png",
+              "image/heic",
               "image/webp",
               "video/mp4",
               "video/quicktime"
@@ -28526,6 +28527,7 @@
             "enum": [
               "image/jpeg",
               "image/png",
+              "image/heic",
               "image/webp",
               "video/mp4",
               "video/quicktime"

@@ -20,6 +20,12 @@ describe('effectiveMcpWriteTier', () => {
     ).toBe(AgentPolicyTier.PROPOSE);
   });
 
+  it('holds propose_mechanic_finding at PROPOSE when policy says AUTO', () => {
+    expect(
+      effectiveMcpWriteTier('propose_mechanic_finding', AgentPolicyTier.AUTO),
+    ).toBe(AgentPolicyTier.PROPOSE);
+  });
+
   it('holds propose_invoice_draft_from_order at PROPOSE when policy says AUTO', () => {
     expect(
       effectiveMcpWriteTier('propose_invoice_draft_from_order', AgentPolicyTier.AUTO),

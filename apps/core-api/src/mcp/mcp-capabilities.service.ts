@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { AgentPolicyTier } from '@prisma/client';
 import { MCP_WRITE_POLICY_ACTION_TYPES } from '../agent-policy/agent-policy.constants.js';
+import { MCP_WRITE_POLICY_ACTION_TYPES_AUT598 } from './mcp-write-policy-action-types.aut598.js';
 import { evaluateAgentPolicy } from '../agent-policy/agent-policy.evaluator.js';
 import { AgentPolicyService } from '../agent-policy/agent-policy.service.js';
 import { SiteContextService } from '../common/services/site-context.service.js';
@@ -211,7 +212,14 @@ export class McpCapabilitiesService {
   private async describeWriteTool(
     tool: McpWriteToolName,
   ): Promise<WriteToolDescription> {
-    const actionType = MCP_WRITE_POLICY_ACTION_TYPES[tool];
+    const actionType =
+      tool in MCP_WRITE_POLICY_ACTION_TYPES_AUT598
+        ? MCP_WRITE_POLICY_ACTION_TYPES_AUT598[
+            tool as keyof typeof MCP_WRITE_POLICY_ACTION_TYPES_AUT598
+          ]
+        : MCP_WRITE_POLICY_ACTION_TYPES[
+            tool as keyof typeof MCP_WRITE_POLICY_ACTION_TYPES
+          ];
     const rule = await this.agentPolicy.getEffectiveRule(actionType);
     if (!rule) {
       return { kind: 'human_only', actionType };
