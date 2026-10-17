@@ -1369,19 +1369,24 @@ export const mcpToolOutputSchemas = {
   }),
   get_vehicle_listing_status: resultOf({
     vehicle_id: idString,
-    listing_id: idString,
-    listing_ref: nonEmptyString,
-    stock_purchase_id: idString,
-    revision: count,
-    channels: z.array(
+    listings: z.array(
       z.object({
-        platform: z.enum(VehicleListingPlatform),
-        desired_state: z.enum(VehicleListingDesiredState),
-        export_state: z.enum(VehicleListingExportState),
-        remote_state: z.enum(VehicleListingRemoteState),
-        serializer_profile: nonEmptyString,
-        last_export_at: nullableIsoDateTime,
-        removal_revision: count,
+        listing_id: idString,
+        listing_ref: nonEmptyString,
+        stock_purchase_id: idString,
+        site_id: idString,
+        revision: count,
+        channels: z.array(
+          z.object({
+            platform: z.enum(VehicleListingPlatform),
+            desired_state: z.enum(VehicleListingDesiredState),
+            export_state: z.enum(VehicleListingExportState),
+            remote_state: z.enum(VehicleListingRemoteState),
+            serializer_profile: nonEmptyString,
+            last_export_at: nullableIsoDateTime,
+            removal_revision: count,
+          }),
+        ),
       }),
     ),
   }),

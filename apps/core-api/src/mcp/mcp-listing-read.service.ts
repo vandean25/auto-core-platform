@@ -1,8 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { VehicleListingExportState } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
-import { toMcpVehicleListingStatus } from './mcp-listing-read.mapper.js';
+import { findReceivedStockPurchaseIdForActiveSite } from '../vehicle/equipment/vehicle-equipment-stock-cycle.js';
+import {
+  toMcpVehicleListingStatus,
+  type VehicleListingWithChannels,
+} from './mcp-listing-read.mapper.js';
 import type { getVehicleListingStatusInputSchema } from './mcp-tool-schemas.js';
 import type { z } from 'zod';
 
@@ -28,16 +33,50 @@ export class McpListingReadService {
       throw new NotFoundException(`Vehicle ${input.vehicle_id} not found`);
     }
 
-    const listing = await this.prisma.vehicleListing.findFirst({
+    const stockPurchaseId = await findReceivedStockPurchaseIdForActiveSite(
+      this.prisma,
+      tenantId,
+      input.vehicle_id,
+      siteId,
+    );
+
+    const listingsById = new Map<string, VehicleListingWithChannels>();
+
+    if (stockPurchaseId) {
+      const current = await this.prisma.vehicleListing.findFirst({
+        where: {
+          tenant_id: tenantId,
+          vehicle_id: input.vehicle_id,
+          stock_purchase_id: stockPurchaseId,
+        },
+        include: { channels: true },
+      });
+      if (current) {
+        listingsById.set(current.id, current);
+      }
+    }
+
+    const pendingRemoval = await this.prisma.vehicleListing.findMany({
       where: {
         tenant_id: tenantId,
-        site_id: siteId,
         vehicle_id: input.vehicle_id,
+        channels: {
+          some: { export_state: VehicleListingExportState.REMOVAL_REQUIRED },
+        },
+        ...(listingsById.size > 0
+          ? { id: { notIn: [...listingsById.keys()] } }
+          : {}),
       },
       orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
       include: { channels: true },
     });
-    if (!listing) {
+
+    for (const listing of pendingRemoval) {
+      listingsById.set(listing.id, listing);
+    }
+
+    const listings = [...listingsById.values()];
+    if (listings.length === 0) {
       throw new NotFoundException({
         code: 'VEHICLE_LISTING_NOT_FOUND',
         message:
@@ -45,6 +84,21 @@ export class McpListingReadService {
       });
     }
 
-    return toMcpVehicleListingStatus(input.vehicle_id, listing);
+    listings.sort((a, b) => {
+      const aCurrent =
+        stockPurchaseId !== null && a.stock_purchase_id === stockPurchaseId
+          ? 0
+          : 1;
+      const bCurrent =
+        stockPurchaseId !== null && b.stock_purchase_id === stockPurchaseId
+          ? 0
+          : 1;
+      if (aCurrent !== bCurrent) {
+        return aCurrent - bCurrent;
+      }
+      return b.updatedAt.getTime() - a.updatedAt.getTime();
+    });
+
+    return toMcpVehicleListingStatus(input.vehicle_id, listings);
   }
 }

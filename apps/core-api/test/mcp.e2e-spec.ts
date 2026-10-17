@@ -463,6 +463,18 @@ describe('MCP server (e2e)', () => {
         },
       },
     });
+    const vehicleLot = await prismaA.storageLocation.findFirstOrThrow({
+      where: { tenant_id: tenantA, site_id: siteId, type: 'vehicle_lot' },
+    });
+    await prismaA.vehicle.update({
+      where: { id: vehicle.id },
+      data: {
+        inventory_role: 'USED',
+        stock_status: 'IN_STOCK',
+        stock_received_at: stockPurchase.received_at,
+        location_id: vehicleLot.id,
+      },
+    });
     const workshopOrder = await prismaA.workshopOrder.create({
       data: {
         order_number: `WO-${searchToken}`,

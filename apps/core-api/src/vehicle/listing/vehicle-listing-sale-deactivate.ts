@@ -2,8 +2,8 @@ import {
   Prisma,
   VehicleListingDesiredState,
   VehicleListingExportState,
-  VehiclePurchaseStatus,
 } from '@prisma/client';
+import { findReceivedStockPurchaseIdForActiveSite } from '../equipment/vehicle-equipment-stock-cycle.js';
 
 export type ListingChannelExportTransition = {
   export_state: VehicleListingExportState;
@@ -56,18 +56,12 @@ export async function deactivateVehicleListingsOnSale(
 ): Promise<void> {
   const stockPurchaseId =
     input.stockPurchaseId ??
-    (
-      await tx.vehiclePurchase.findFirst({
-        where: {
-          tenant_id: input.tenantId,
-          vehicle_id: input.vehicleId,
-          site_id: input.siteId,
-          status: VehiclePurchaseStatus.RECEIVED,
-        },
-        orderBy: [{ received_at: 'desc' }, { createdAt: 'desc' }],
-        select: { id: true },
-      })
-    )?.id;
+    (await findReceivedStockPurchaseIdForActiveSite(
+      tx,
+      input.tenantId,
+      input.vehicleId,
+      input.siteId,
+    ));
 
   if (!stockPurchaseId) {
     return;
@@ -76,7 +70,6 @@ export async function deactivateVehicleListingsOnSale(
   const listing = await tx.vehicleListing.findFirst({
     where: {
       tenant_id: input.tenantId,
-      site_id: input.siteId,
       vehicle_id: input.vehicleId,
       stock_purchase_id: stockPurchaseId,
     },

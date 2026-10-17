@@ -56,22 +56,27 @@ describe('deactivateVehicleListingsOnSale', () => {
     desired_state?: VehicleListingDesiredState;
   }[]) => {
     const channelUpdates: unknown[] = [];
+    const listingFindFirst = jest.fn().mockResolvedValue(
+      channels.length === 0
+        ? null
+        : {
+            id: listingId,
+            channels: channels.map((row) => ({
+              id: row.id,
+              platform: VehicleListingPlatform.MOBILE_DE,
+              desired_state:
+                row.desired_state ?? VehicleListingDesiredState.ACTIVE,
+              export_state: row.export_state,
+            })),
+          },
+    );
     return {
       channelUpdates,
       vehiclePurchase: {
         findFirst: jest.fn().mockResolvedValue({ id: stockPurchaseId }),
       },
       vehicleListing: {
-        findFirst: jest.fn().mockResolvedValue({
-          id: listingId,
-          channels: channels.map((row) => ({
-            id: row.id,
-            platform: VehicleListingPlatform.MOBILE_DE,
-            desired_state:
-              row.desired_state ?? VehicleListingDesiredState.ACTIVE,
-            export_state: row.export_state,
-          })),
-        }),
+        findFirst: listingFindFirst,
       },
       vehicleListingChannel: {
         update: jest.fn().mockImplementation(async ({ data }) => {
@@ -125,9 +130,28 @@ describe('deactivateVehicleListingsOnSale', () => {
     });
   });
 
+  it('resolves the listing without filtering by sale-time site id', async () => {
+    const tx = makeTx([
+      { id: 'ch-1', export_state: VehicleListingExportState.DIRTY },
+    ]);
+    await deactivateVehicleListingsOnSale(tx as never, {
+      tenantId,
+      siteId: 'site-after-move',
+      vehicleId,
+      stockPurchaseId,
+    });
+    expect(tx.vehicleListing.findFirst).toHaveBeenCalledWith({
+      where: {
+        tenant_id: tenantId,
+        vehicle_id: vehicleId,
+        stock_purchase_id: stockPurchaseId,
+      },
+      include: { channels: true },
+    });
+  });
+
   it('skips work when no listing exists for the stock cycle', async () => {
     const tx = makeTx([]);
-    tx.vehicleListing.findFirst.mockResolvedValue(null);
     await deactivateVehicleListingsOnSale(tx as never, {
       tenantId,
       siteId,
