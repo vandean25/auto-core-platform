@@ -2,12 +2,28 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { components } from '@/api/generated/openapi'
 import { fetchWithAuth } from '@/api/client'
 import { workshopKeys } from '@/api/workshop'
+import { createCheckInHttpError } from '@/features/workshop/check-in/check-in-errors'
 
 const WORKSHOP_API = '/api/workshop'
 
 export type WorkshopCheckIn = components['schemas']['WorkshopCheckInResponseDto']
 export type WorkshopCheckInInspection =
   components['schemas']['WorkshopInspectionResponseDto']
+export type CheckInDamageMarker =
+  components['schemas']['CheckInDamageMarkerDto']
+export type CheckInCondition = components['schemas']['CheckInConditionDto']
+export type UpdateWorkshopCheckInPayload =
+  components['schemas']['UpdateWorkshopCheckInDto']
+
+/** Media row returned by check-in upload routes (not yet in OpenAPI). */
+export type WorkshopCheckInMedia = {
+  id: string
+  purpose: 'CHECK_IN' | 'CHECK_IN_SIGNATURE'
+  mime_type: string
+  size_bytes: number
+  preview_url?: string | null
+  processing_status?: 'PENDING' | 'READY' | 'FAILED'
+}
 
 export const workshopCheckInKeys = {
   all: [...workshopKeys.all, 'checkIn'] as const,
@@ -15,6 +31,16 @@ export const workshopCheckInKeys = {
     [...workshopCheckInKeys.all, 'record', orderId] as const,
   inspection: (orderId: string) =>
     [...workshopCheckInKeys.all, 'inspection', orderId] as const,
+  media: (orderId: string) =>
+    [...workshopCheckInKeys.all, 'media', orderId] as const,
+}
+
+async function parseCheckInErrorResponse(response: Response): Promise<never> {
+  const body = (await response.json().catch(() => ({}))) as {
+    message?: string | string[]
+    code?: string
+  }
+  throw createCheckInHttpError(response, body)
 }
 
 export async function fetchWorkshopCheckInRecord(
@@ -27,9 +53,103 @@ export async function fetchWorkshopCheckInRecord(
     return null
   }
   if (!response.ok) {
-    throw new Error('Failed to load workshop check-in')
+    return parseCheckInErrorResponse(response)
   }
   return response.json() as Promise<WorkshopCheckIn>
+}
+
+export async function createWorkshopCheckInRecord(
+  orderId: string,
+  checkInId: string,
+): Promise<WorkshopCheckIn> {
+  const response = await fetchWithAuth(
+    `${WORKSHOP_API}/orders/${orderId}/check-in`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: checkInId }),
+    },
+  )
+  if (!response.ok) {
+    return parseCheckInErrorResponse(response)
+  }
+  return response.json() as Promise<WorkshopCheckIn>
+}
+
+export async function updateWorkshopCheckInDraft(
+  orderId: string,
+  payload: UpdateWorkshopCheckInPayload,
+): Promise<WorkshopCheckIn> {
+  const response = await fetchWithAuth(
+    `${WORKSHOP_API}/orders/${orderId}/check-in`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+  )
+  if (!response.ok) {
+    return parseCheckInErrorResponse(response)
+  }
+  return response.json() as Promise<WorkshopCheckIn>
+}
+
+export async function completeWorkshopCheckIn(
+  orderId: string,
+  expectedRevision: number,
+): Promise<WorkshopCheckIn> {
+  const response = await fetchWithAuth(
+    `${WORKSHOP_API}/orders/${orderId}/check-in/complete`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ expected_revision: expectedRevision }),
+    },
+  )
+  if (!response.ok) {
+    return parseCheckInErrorResponse(response)
+  }
+  return response.json() as Promise<WorkshopCheckIn>
+}
+
+export async function uploadWorkshopCheckInMedia(
+  orderId: string,
+  input: {
+    file: File
+    clientUploadId: string
+    expectedRevision: number
+  },
+): Promise<WorkshopCheckInMedia> {
+  const form = new FormData()
+  form.append('file', input.file)
+  form.append('client_upload_id', input.clientUploadId)
+  form.append('purpose', 'CHECK_IN')
+  form.append('expected_revision', String(input.expectedRevision))
+
+  const response = await fetchWithAuth(
+    `${WORKSHOP_API}/orders/${orderId}/check-in/media`,
+    {
+      method: 'POST',
+      body: form,
+    },
+  )
+  if (!response.ok) {
+    return parseCheckInErrorResponse(response)
+  }
+  return response.json() as Promise<WorkshopCheckInMedia>
+}
+
+export async function fetchWorkshopCheckInMedia(
+  orderId: string,
+): Promise<WorkshopCheckInMedia[]> {
+  const response = await fetchWithAuth(
+    `${WORKSHOP_API}/orders/${orderId}/check-in/media`,
+  )
+  if (!response.ok) {
+    return parseCheckInErrorResponse(response)
+  }
+  const json = (await response.json()) as { data?: WorkshopCheckInMedia[] }
+  return json.data ?? []
 }
 
 export function useWorkshopCheckIn(orderId: string, enabled = true) {
@@ -53,6 +173,74 @@ export function useWorkshopCheckInInspection(orderId: string, enabled = true) {
       }
       return response.json() as Promise<WorkshopCheckInInspection>
     },
+  })
+}
+
+export function useCreateWorkshopCheckIn() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: { orderId: string; checkInId: string }) =>
+      createWorkshopCheckInRecord(payload.orderId, payload.checkInId),
+    onSuccess: (data, payload) => {
+      queryClient.setQueryData(workshopCheckInKeys.record(payload.orderId), data)
+    },
+  })
+}
+
+export function useUpdateWorkshopCheckInDraft() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: {
+      orderId: string
+      body: UpdateWorkshopCheckInPayload
+    }) => updateWorkshopCheckInDraft(payload.orderId, payload.body),
+    onSuccess: (data, payload) => {
+      queryClient.setQueryData(workshopCheckInKeys.record(payload.orderId), data)
+    },
+  })
+}
+
+export function useCompleteWorkshopCheckIn() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: { orderId: string; expectedRevision: number }) =>
+      completeWorkshopCheckIn(payload.orderId, payload.expectedRevision),
+    onSuccess: (data, payload) => {
+      queryClient.setQueryData(workshopCheckInKeys.record(payload.orderId), data)
+    },
+  })
+}
+
+export function useUploadWorkshopCheckInMedia() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: {
+      orderId: string
+      file: File
+      clientUploadId: string
+      expectedRevision: number
+    }) =>
+      uploadWorkshopCheckInMedia(payload.orderId, {
+        file: payload.file,
+        clientUploadId: payload.clientUploadId,
+        expectedRevision: payload.expectedRevision,
+      }),
+    onSuccess: (_data, payload) => {
+      void queryClient.invalidateQueries({
+        queryKey: workshopCheckInKeys.media(payload.orderId),
+      })
+      void queryClient.invalidateQueries({
+        queryKey: workshopCheckInKeys.record(payload.orderId),
+      })
+    },
+  })
+}
+
+export function useWorkshopCheckInMedia(orderId: string, enabled = true) {
+  return useQuery({
+    queryKey: workshopCheckInKeys.media(orderId),
+    enabled,
+    queryFn: () => fetchWorkshopCheckInMedia(orderId),
   })
 }
 

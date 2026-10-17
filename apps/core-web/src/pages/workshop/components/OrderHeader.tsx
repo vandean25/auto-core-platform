@@ -45,6 +45,7 @@ export interface OrderTopBarProps {
   catalogSearchSession?: CatalogSearchSession
   oemConcernCode?: CatalogProviderOemConcern['code'] | null
   onPrint: () => void
+  checkInHref?: string | null
 }
 
 export function OrderTopBar({
@@ -54,6 +55,7 @@ export function OrderTopBar({
   catalogSearchSession,
   oemConcernCode,
   onPrint,
+  checkInHref,
 }: OrderTopBarProps) {
   const { t } = useTranslation('workshop')
   const customerName = getCustomerName(order, t('orderHeader.dealerStock'))
@@ -116,10 +118,19 @@ export function OrderTopBar({
               )}
             </div>
 
-            <Button variant='outline' onClick={onPrint}>
-              <Printer className='h-4 w-4 mr-2' />
-              {t('orderHeader.printJobCard')}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              {checkInHref ? (
+                <Button variant="default" className="min-h-11" asChild>
+                  <Link to={checkInHref} data-testid="workshop-order-check-in-link">
+                    {t('orderHeader.startCheckIn')}
+                  </Link>
+                </Button>
+              ) : null}
+              <Button variant='outline' className="min-h-11" onClick={onPrint}>
+                <Printer className='h-4 w-4 mr-2' />
+                {t('orderHeader.printJobCard')}
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>

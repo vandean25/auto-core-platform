@@ -65,6 +65,7 @@ export function WorkshopCheckInInspectionChecklist({ orderId }: Props) {
       checklist={inspectionQuery.data}
       labels={checklistLabels}
       readOnly={readOnly}
+      touchFriendly
       saving={updateInspection.isPending}
       onSave={async (itemId, values) => {
         const cached = queryClient.getQueryData<WorkshopCheckIn | null>(

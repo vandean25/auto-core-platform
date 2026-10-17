@@ -6645,6 +6645,84 @@
         ]
       }
     },
+    "/api/workshop/orders/{orderId}/check-in/media": {
+      "get": {
+        "operationId": "WorkshopCheckInController_listMedia",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopCheckInMediaListDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      },
+      "post": {
+        "operationId": "WorkshopCheckInController_uploadMedia",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadWorkshopCheckInMediaBodyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopCheckInMediaItemDto"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopCheckInMediaItemDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
     "/api/workshop/orders/{orderId}/check-in/complete": {
       "post": {
         "operationId": "WorkshopCheckInController_complete",
@@ -26173,6 +26251,88 @@
         },
         "required": [
           "items",
+          "expected_revision"
+        ]
+      },
+      "WorkshopCheckInMediaItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "CHECK_IN",
+              "CHECK_IN_SIGNATURE"
+            ]
+          },
+          "mime_type": {
+            "type": "string"
+          },
+          "size_bytes": {
+            "type": "number"
+          },
+          "preview_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "processing_status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "READY",
+              "FAILED"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "purpose",
+          "mime_type",
+          "size_bytes"
+        ]
+      },
+      "WorkshopCheckInMediaListDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopCheckInMediaItemDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "UploadWorkshopCheckInMediaBodyDto": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary"
+          },
+          "client_upload_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "CHECK_IN"
+            ]
+          },
+          "expected_revision": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "file",
+          "client_upload_id",
+          "purpose",
           "expected_revision"
         ]
       },

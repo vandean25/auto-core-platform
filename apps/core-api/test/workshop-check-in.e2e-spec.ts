@@ -1,9 +1,12 @@
+import { readFile } from 'node:fs/promises';
+import sharp from 'sharp';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
 import { createGlobalValidationPipe } from '../src/common/index.js';
 import { AuthService } from '../src/auth/auth.service.js';
+import { MechanicMediaStorage } from '../src/mechanic/mechanic-media.storage.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
   cleanupTestTenantGraph,
@@ -11,8 +14,15 @@ import {
   createTestAuthToken,
   createTestTenant,
   resolveTestMainSiteId,
+  runWithTenantContext,
+  seedTestEmployee,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
+
+const gpsFixture = new URL(
+  '../src/common/media/fixtures/gps-oriented.jpg',
+  import.meta.url,
+);
 
 jest.setTimeout(30000);
 
@@ -26,11 +36,29 @@ describe('Workshop check-in (e2e)', () => {
   let orderId: string;
   let otherOrderId: string;
   const checkInId = '51500000-0000-4000-8000-000000000555';
+  let lastUploadedCheckInBytes: Buffer | undefined;
+  const mockMediaStorage: Partial<MechanicMediaStorage> = {
+    uploadCheckInPhoto: jest.fn().mockImplementation(async (params) => {
+      lastUploadedCheckInBytes = params.bytes;
+      return {
+        storageBucket: 'test-workshop-media-bucket',
+        storageKey: `tenants/t/check-in/${params.objectId ?? 'photo'}.jpg`,
+      };
+    }),
+    generateSignedReadUrl: jest
+      .fn()
+      .mockResolvedValue('https://example.test/photo.jpg'),
+    deleteObjectIfExists: jest.fn().mockResolvedValue(undefined),
+  };
 
   beforeAll(async () => {
+    process.env.WORKSHOP_MEDIA_BUCKET = 'test-workshop-media-bucket';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(MechanicMediaStorage)
+      .useValue(mockMediaStorage)
+      .compile();
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
@@ -111,6 +139,22 @@ describe('Workshop check-in (e2e)', () => {
       },
     });
     otherOrderId = otherOrder.id;
+
+    const authUser = await basePrisma.user.findUnique({
+      where: { firebaseUid: tenantA.firebaseUid },
+      select: { id: true },
+    });
+    if (!authUser) {
+      throw new Error('Expected test auth user to exist');
+    }
+    await runWithTenantContext(tenantId, () =>
+      seedTestEmployee(basePrisma, {
+        tenantId,
+        name: 'Advisor Upload',
+        role: 'SERVICE_ADVISOR',
+        userId: authUser.id,
+      }),
+    );
   });
 
   afterAll(async () => {
@@ -176,6 +220,100 @@ describe('Workshop check-in (e2e)', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .send({ id: checkInId })
       .expect(200);
+  });
+
+  it('uploads CHECK_IN media and bumps revision', async () => {
+    const before = await request(app.getHttpServer())
+      .get(`/api/workshop/orders/${orderId}/check-in`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    const bytes = await readFile(gpsFixture);
+    const uploadRes = await request(app.getHttpServer())
+      .post(`/api/workshop/orders/${orderId}/check-in/media`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .field('client_upload_id', '51500000-0000-4000-8000-000000000558')
+      .field('purpose', 'CHECK_IN')
+      .field('expected_revision', String(before.body.revision))
+      .attach('file', bytes, 'check-in.jpg')
+      .expect(201);
+
+    expect(uploadRes.body.purpose).toBe('CHECK_IN');
+
+    const after = await request(app.getHttpServer())
+      .get(`/api/workshop/orders/${orderId}/check-in`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    expect(after.body.revision).toBe(before.body.revision + 1);
+
+    const listRes = await request(app.getHttpServer())
+      .get(`/api/workshop/orders/${orderId}/check-in/media`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    expect(listRes.body.data).toHaveLength(1);
+    expect(listRes.body.data[0].id).toBe(uploadRes.body.id);
+    expect(uploadRes.body.mime_type).toBe('image/jpeg');
+    if (!lastUploadedCheckInBytes) {
+      throw new Error('Expected check-in photo bytes to be stored');
+    }
+    const storedMeta = await sharp(lastUploadedCheckInBytes).metadata();
+    expect(storedMeta.exif).toBeUndefined();
+
+    const retryRes = await request(app.getHttpServer())
+      .post(`/api/workshop/orders/${orderId}/check-in/media`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .field('client_upload_id', '51500000-0000-4000-8000-000000000558')
+      .field('purpose', 'CHECK_IN')
+      .field('expected_revision', String(after.body.revision))
+      .attach('file', bytes, 'check-in.jpg')
+      .expect(200);
+
+    expect(retryRes.body.id).toBe(uploadRes.body.id);
+
+    const afterRetry = await request(app.getHttpServer())
+      .get(`/api/workshop/orders/${orderId}/check-in`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    expect(afterRetry.body.revision).toBe(after.body.revision);
+  });
+
+  it('keeps one media row and does not delete storage on overlapping uploads', async () => {
+    const deleteSpy = mockMediaStorage.deleteObjectIfExists as jest.Mock;
+    deleteSpy.mockClear();
+
+    const clientUploadId = '51500000-0000-4000-8000-000000000559';
+    const before = await request(app.getHttpServer())
+      .get(`/api/workshop/orders/${orderId}/check-in`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    const bytes = await readFile(gpsFixture);
+    const postUpload = () =>
+      request(app.getHttpServer())
+        .post(`/api/workshop/orders/${orderId}/check-in/media`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .field('client_upload_id', clientUploadId)
+        .field('purpose', 'CHECK_IN')
+        .field('expected_revision', String(before.body.revision))
+        .attach('file', bytes, 'check-in-overlap.jpg');
+
+    const [first, second] = await Promise.all([postUpload(), postUpload()]);
+    const statuses = [first.status, second.status];
+    expect(statuses.some((status) => status === 200 || status === 201)).toBe(
+      true,
+    );
+    expect(statuses.every((status) => [200, 201, 409].includes(status))).toBe(
+      true,
+    );
+
+    const mediaRows = await prisma.workshopMedia.findMany({
+      where: { tenant_id: tenantId, id: clientUploadId },
+    });
+    expect(mediaRows).toHaveLength(1);
+    expect(deleteSpy).not.toHaveBeenCalled();
   });
 
   it('isolates check-in reads across tenants', async () => {

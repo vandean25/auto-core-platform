@@ -441,6 +441,7 @@
     "unassigned": "Nicht zugewiesen",
     "loanerUntil": "Ersatzwagen: {{label}} bis {{date}}",
     "printJobCard": "Jobkarte drucken",
+    "startCheckIn": "Fahrzeugannahme",
     "orderInfo": "Auftragsinfo",
     "assignedTech": "Zugewiesener Mechaniker",
     "bayLocation": "Hebebühne / Standort",
@@ -1245,6 +1246,125 @@
     "emDash": "—"
   },
   "checkIn": {
+    "flowLabel": "Fahrzeugannahme",
+    "pageTitle": "Annahme {{orderNumber}}",
+    "pageTitleFallback": "Fahrzeugannahme",
+    "loading": "Annahme wird geladen…",
+    "initializing": "Annahme wird vorbereitet…",
+    "orderMissing": "Werkstattauftrag nicht gefunden.",
+    "completedBanner": "Diese Annahme ist abgeschlossen und kann nicht mehr bearbeitet werden.",
+    "stepNavAria": "Annahme-Schritte",
+    "damageListAria": "Schadensmarkierungen",
+    "damageEmpty": "Noch keine Schäden markiert.",
+    "save": {
+      "saving": "Speichern…",
+      "saved": "Gespeichert",
+      "error": "Speichern fehlgeschlagen"
+    },
+    "fields": {
+      "odometer": "Kilometerstand",
+      "fuelLevel": "Tankfüllung (%)",
+      "itemsLeft": "Gegenstände im Fahrzeug",
+      "keyCount": "Schlüsselanzahl",
+      "warningLights": "Warnleuchten",
+      "warningLightsPlaceholder": "z. B. ABS, Motoröl (kommagetrennt)",
+      "tyreSeason": "Bereifung",
+      "damageZone": "Fahrzeugbereich",
+      "damageType": "Schadenart",
+      "damageNote": "Notiz zum Schaden"
+    },
+    "tyreSeason": {
+      "SUMMER": "Sommer",
+      "WINTER": "Winter",
+      "ALL_SEASON": "Ganzjahres",
+      "UNKNOWN": "Unbekannt"
+    },
+    "zones": {
+      "FRONT_BUMPER": "Frontstoßstange",
+      "BONNET": "Motorhaube",
+      "WINDSCREEN": "Frontscheibe",
+      "ROOF": "Dach",
+      "REAR_WINDOW": "Heckscheibe",
+      "BOOT": "Kofferraumdeckel",
+      "REAR_BUMPER": "Heckstoßstange",
+      "LEFT_FRONT_WING": "Linker Kotflügel vorn",
+      "LEFT_FRONT_DOOR": "Linke Tür vorn",
+      "LEFT_REAR_DOOR": "Linke Tür hinten",
+      "LEFT_REAR_WING": "Linker Kotflügel hinten",
+      "RIGHT_FRONT_WING": "Rechter Kotflügel vorn",
+      "RIGHT_FRONT_DOOR": "Rechte Tür vorn",
+      "RIGHT_REAR_DOOR": "Rechte Tür hinten",
+      "RIGHT_REAR_WING": "Rechter Kotflügel hinten",
+      "LEFT_FRONT_WHEEL": "Linkes Rad vorn",
+      "LEFT_REAR_WHEEL": "Linkes Rad hinten",
+      "RIGHT_FRONT_WHEEL": "Rechtes Rad vorn",
+      "RIGHT_REAR_WHEEL": "Rechtes Rad hinten",
+      "OTHER": "Sonstiges"
+    },
+    "damageTypes": {
+      "SCRATCH": "Kratzer",
+      "DENT": "Delle",
+      "CRACK": "Riss",
+      "OTHER": "Sonstiges"
+    },
+    "steps": {
+      "vehicle": {
+        "nav": "1 · Fahrzeug",
+        "mileageTitle": "Kilometerstand & Tank",
+        "belongingsTitle": "Übergabe & Warnleuchten"
+      },
+      "condition": {
+        "nav": "2 · Zustand",
+        "photosTitle": "Fotos",
+        "photosHint": "Schäden fotografieren. Fotos können einer Markierung zugeordnet werden.",
+        "damageTitle": "Schäden markieren"
+      },
+      "review": {
+        "nav": "3 · Prüfen",
+        "title": "Zusammenfassung",
+        "subtitle": "Auftrag {{orderNumber}} · {{vehicle}}"
+      }
+    },
+    "actions": {
+      "next": "Weiter",
+      "back": "Zurück",
+      "exit": "Zurück zum Auftrag",
+      "backToOrder": "Zum Auftrag",
+      "retry": "Erneut versuchen",
+      "addDamageMarker": "Schaden hinzufügen"
+    },
+    "media": {
+      "loadError": "Fotos konnten nicht geladen werden.",
+      "capture": "Foto aufnehmen",
+      "uploading": "Foto wird hochgeladen…",
+      "uploaded": "Foto gespeichert",
+      "galleryAria": "Aufnahmen dieser Annahme",
+      "selectPhoto": "Foto {{id}} auswählen",
+      "pending": "Wird verarbeitet…"
+    },
+    "complete": {
+      "action": "Annahme abschließen",
+      "pending": "Wird abgeschlossen…",
+      "success": "Annahme abgeschlossen"
+    },
+    "review": {
+      "none": "Keine",
+      "signatureSectionAria": "Unterschrift (folgt)",
+      "signatureTitle": "Unterschrift",
+      "signaturePlaceholder": "Die digitale Unterschrift wird in einem nächsten Schritt ergänzt.",
+      "signatureCanvasPlaceholder": "Unterschriftsfeld (Platzhalter)",
+      "completedAt": "Abgeschlossen am {{date}}"
+    },
+    "errors": {
+      "generic": "Annahme konnte nicht gespeichert werden. Bitte erneut versuchen.",
+      "CHECK_IN_EXISTS": "Für diesen Auftrag existiert bereits eine Annahme.",
+      "CHECK_IN_CONFLICT": "Die Annahme wurde zwischenzeitlich geändert. Bitte laden Sie neu und versuchen Sie es erneut.",
+      "CHECK_IN_COMPLETED": "Diese Annahme ist bereits abgeschlossen.",
+      "CHECK_IN_ORDER_STATUS": "Annahme ist nur bei Aufträgen in Annahme oder in Bearbeitung möglich.",
+      "CHECK_IN_MEDIA_INVALID": "Mindestens ein Foto ist für diese Annahme nicht gültig.",
+      "CHECK_IN_MEDIA_UPLOADER_REQUIRED": "Für Foto-Uploads muss Ihr Benutzer mit einem aktiven Mitarbeiter verknüpft sein.",
+      "UPLOAD_ID_REUSED": "Diese Upload-ID wurde bereits für andere Check-in-Medien verwendet."
+    },
     "inspection": {
       "sectionLabel": "Annahme-Checkliste",
       "description": "Sichtprüfung bei der Fahrzeugannahme.",

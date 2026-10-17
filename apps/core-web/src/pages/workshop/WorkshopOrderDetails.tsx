@@ -52,6 +52,7 @@ import { CheckoutFooter } from "./components/CheckoutFooter";
 import { useWorkshopCheckout } from "./hooks/useWorkshopCheckout";
 import { useWorkshopTaskLineItems } from "./hooks/useWorkshopTaskLineItems";
 import { triggerBlobDownload } from "@/lib/download";
+import { APP_ROUTE_PATHS } from "@/lib/app-route-paths";
 import { getErrorMessage } from "./utils/error";
 import {
   RecordPickerlDialog,
@@ -108,6 +109,11 @@ export function WorkshopOrderDetails() {
   const promptedPickerlTaskIds = useRef(new Set<string>());
 
   const isLocked = order?.status === "INVOICED";
+  const checkInHref =
+    order &&
+    (order.status === "INTAKE" || order.status === "IN_PROGRESS")
+      ? APP_ROUTE_PATHS.workshopOrderCheckIn.replace(":id", order.id)
+      : null;
 
   const {
     taskLineItemOverrides,
@@ -419,6 +425,7 @@ export function WorkshopOrderDetails() {
           catalogSearchSession={catalogSearchSession}
           oemConcernCode={oemConcern?.code ?? null}
           onPrint={handlePrint}
+          checkInHref={checkInHref}
         />
 
         <VehicleIdentityBanner vehicleId={order.vehicle.id} />

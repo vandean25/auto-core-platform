@@ -5,13 +5,24 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseIntPipe,
   ParseUUIDPipe,
   Patch,
   Post,
   Res,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiCreatedResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  ApiBody,
+  ApiConsumes,
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import type { Response } from 'express';
+import { MAX_IMAGE_BYTES } from '../mechanic/dto/media.dto.js';
 import {
   CompleteWorkshopCheckInDto,
   CreateWorkshopCheckInDto,
@@ -21,6 +32,12 @@ import {
 } from './dto/workshop-check-in.dto.js';
 import { WorkshopInspectionResponseDto } from './dto/workshop-inspection-response.dto.js';
 import { WorkshopCheckInService } from './workshop-check-in.service.js';
+import { WorkshopCheckInMediaService } from './workshop-check-in-media.service.js';
+import {
+  UploadWorkshopCheckInMediaBodyDto,
+  WorkshopCheckInMediaItemDto,
+  WorkshopCheckInMediaListDto,
+} from './dto/workshop-check-in-media.dto.js';
 import { WorkshopInspectionService } from './workshop-inspection.service.js';
 
 @ApiTags('Workshop')
@@ -28,6 +45,7 @@ import { WorkshopInspectionService } from './workshop-inspection.service.js';
 export class WorkshopCheckInController {
   constructor(
     private readonly checkIns: WorkshopCheckInService,
+    private readonly checkInMedia: WorkshopCheckInMediaService,
     private readonly inspections: WorkshopInspectionService,
   ) {}
 
@@ -86,6 +104,40 @@ export class WorkshopCheckInController {
         items,
       },
     );
+  }
+
+  @Get('media')
+  @ApiOkResponse({ type: WorkshopCheckInMediaListDto })
+  listMedia(
+    @Param('orderId', ParseUUIDPipe) orderId: string,
+  ): Promise<WorkshopCheckInMediaListDto> {
+    return this.checkInMedia.list(orderId);
+  }
+
+  @Post('media')
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: MAX_IMAGE_BYTES } }),
+  )
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({ type: UploadWorkshopCheckInMediaBodyDto })
+  @ApiCreatedResponse({ type: WorkshopCheckInMediaItemDto })
+  @ApiOkResponse({ type: WorkshopCheckInMediaItemDto })
+  async uploadMedia(
+    @Param('orderId', ParseUUIDPipe) orderId: string,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Body('client_upload_id') clientUploadId: string,
+    @Body('purpose') purpose: string,
+    @Body('expected_revision', ParseIntPipe) expectedRevision: number,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<WorkshopCheckInMediaItemDto> {
+    const result = await this.checkInMedia.upload(orderId, {
+      file,
+      clientUploadId,
+      purpose,
+      expectedRevision,
+    });
+    res.status(result.created ? HttpStatus.CREATED : HttpStatus.OK);
+    return result.item;
   }
 
   @Post('complete')
