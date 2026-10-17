@@ -7,6 +7,7 @@ import * as salesApi from '@/api/sales'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import InvoiceListPage from './InvoiceListPage'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
+import { deSales } from '@/test/de-sales'
 
 const mockNavigate = vi.fn()
 
@@ -79,7 +80,7 @@ describe('InvoiceListPage', () => {
   it('renders the invoice list DataTable (AUT-311)', () => {
     renderPage()
 
-    expect(screen.getByRole('heading', { name: 'Sales Invoices' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: deSales.invoices.list.title })).toBeInTheDocument()
     expect(screen.getByText('RE-2026-0001')).toBeInTheDocument()
     expect(screen.getByText('Ada Lovelace')).toBeInTheDocument()
   })
@@ -104,7 +105,9 @@ describe('InvoiceListPage', () => {
 
     renderPage()
 
-    fireEvent.click(screen.getByText('Draft inv-draf'))
+    fireEvent.click(
+      screen.getByText(deSales.shared.draftLabel.replace('{{id}}', 'inv-draf')),
+    )
     expect(mockNavigate).toHaveBeenCalledWith(
       APP_ROUTE_PATHS.salesInvoiceEdit.replace(':id', 'inv-draft-so'),
     )

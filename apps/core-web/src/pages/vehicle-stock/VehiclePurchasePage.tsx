@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -71,6 +73,10 @@ function toPayload(form: PurchaseForm): CreateVehiclePurchaseInput | null {
 }
 
 export default function VehiclePurchasePage() {
+  const { t } = useTranslation('vehicleStock')
+  useEffect(() => {
+    void ensureNamespaceLoaded('vehicleStock')
+  }, [])
   const { id = 'new' } = useParams()
   const navigate = useNavigate()
   const isNew = id === 'new'
@@ -138,7 +144,7 @@ export default function VehiclePurchasePage() {
           setSaveStatus('saved')
         } catch (error) {
           setSaveStatus('error')
-          toast.error(getErrorMessage(error, 'Failed to save purchase'))
+          toast.error(getErrorMessage(error, t('purchase.saveFailed')))
         }
       })()
     }, AUTO_SAVE_DEBOUNCE_MS)
@@ -149,12 +155,12 @@ export default function VehiclePurchasePage() {
     if (!purchaseId) return
     try {
       const received = await receivePurchase.mutateAsync(purchaseId)
-      toast.success('Vehicle received into stock')
+      toast.success(t('purchase.receivedSuccess'))
       if (received.vehicle_id) {
         navigate(`/vehicle-stock/${received.vehicle_id}`)
       }
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to receive vehicle'))
+      toast.error(getErrorMessage(error, t('purchase.receiveFailed')))
     }
   }
 
@@ -164,28 +170,28 @@ export default function VehiclePurchasePage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" aria-label="Back to vehicle stock" onClick={() => navigate('/vehicle-stock')}>
+          <Button variant="ghost" size="icon" aria-label={t('purchase.backAria')} onClick={() => navigate('/vehicle-stock')}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Vehicle purchase</h1>
-            <p className="text-slate-500">Buy a used car from a vendor or a private seller.</p>
+            <h1 className="text-2xl font-semibold tracking-tight">{t('purchase.title')}</h1>
+            <p className="text-slate-500">{t('purchase.description')}</p>
           </div>
           {existing ? <StatusBadge status={existing.status} /> : null}
         </div>
         <div className="flex items-center gap-3">
-          {saveStatus === 'saving' && <span className="text-sm text-slate-500">Saving...</span>}
-          {saveStatus === 'saved' && <span className="text-sm text-emerald-600">Saved</span>}
-          {saveStatus === 'error' && <span className="text-sm text-rose-600">Save failed</span>}
+          {saveStatus === 'saving' && <span className="text-sm text-slate-500">{t('shared.saving')}</span>}
+          {saveStatus === 'saved' && <span className="text-sm text-emerald-600">{t('shared.saved')}</span>}
+          {saveStatus === 'error' && <span className="text-sm text-rose-600">{t('shared.saveFailed')}</span>}
           <Button disabled={!purchaseId || !isDraft} onClick={() => void receive()}>
-            Receive
+            {t('purchase.receive')}
           </Button>
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <label className="space-y-1 text-sm">
-          <span className="text-slate-500">Seller type</span>
+          <span className="text-slate-500">{t('purchase.sellerType')}</span>
           <select
             className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
             disabled={!isDraft}
@@ -197,13 +203,13 @@ export default function VehiclePurchasePage() {
               }))
             }
           >
-            <option value="VENDOR">Vendor</option>
-            <option value="CUSTOMER">Private seller</option>
+            <option value="VENDOR">{t('purchase.sellerVendor')}</option>
+            <option value="CUSTOMER">{t('purchase.sellerCustomer')}</option>
           </select>
         </label>
         {form.seller_type === 'VENDOR' ? (
           <label className="space-y-1 text-sm">
-            <span className="text-slate-500">Vendor</span>
+            <span className="text-slate-500">{t('purchase.vendor')}</span>
             <select
               className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
               disabled={!isDraft}
@@ -212,7 +218,7 @@ export default function VehiclePurchasePage() {
                 setForm((current) => ({ ...current, vendor_id: event.target.value }))
               }
             >
-              <option value="">Select vendor...</option>
+              <option value="">{t('purchase.selectVendor')}</option>
               {vendors.map((vendor) => (
                 <option key={vendor.id} value={vendor.id}>
                   {vendor.name}
@@ -222,7 +228,7 @@ export default function VehiclePurchasePage() {
           </label>
         ) : (
           <div className="space-y-1 text-sm">
-            <span className="text-slate-500">Private seller</span>
+            <span className="text-slate-500">{t('purchase.privateSeller')}</span>
             <CustomerSearch
               value={customer}
               onChange={(next) => {
@@ -233,7 +239,7 @@ export default function VehiclePurchasePage() {
           </div>
         )}
         <label className="space-y-1 text-sm">
-          <span className="text-slate-500">VIN</span>
+          <span className="text-slate-500">{t('purchase.vin')}</span>
           <Input
             disabled={!isDraft}
             value={form.vin}
@@ -241,7 +247,7 @@ export default function VehiclePurchasePage() {
           />
         </label>
         <label className="space-y-1 text-sm">
-          <span className="text-slate-500">Make</span>
+          <span className="text-slate-500">{t('purchase.make')}</span>
           <Input
             disabled={!isDraft}
             value={form.make}
@@ -249,7 +255,7 @@ export default function VehiclePurchasePage() {
           />
         </label>
         <label className="space-y-1 text-sm">
-          <span className="text-slate-500">Model</span>
+          <span className="text-slate-500">{t('purchase.model')}</span>
           <Input
             disabled={!isDraft}
             value={form.model}
@@ -257,7 +263,7 @@ export default function VehiclePurchasePage() {
           />
         </label>
         <label className="space-y-1 text-sm">
-          <span className="text-slate-500">Year</span>
+          <span className="text-slate-500">{t('purchase.year')}</span>
           <Input
             disabled={!isDraft}
             type="number"
@@ -266,7 +272,7 @@ export default function VehiclePurchasePage() {
           />
         </label>
         <label className="space-y-1 text-sm">
-          <span className="text-slate-500">Plate</span>
+          <span className="text-slate-500">{t('purchase.plate')}</span>
           <Input
             disabled={!isDraft}
             value={form.plate}
@@ -274,7 +280,7 @@ export default function VehiclePurchasePage() {
           />
         </label>
         <label className="space-y-1 text-sm">
-          <span className="text-slate-500">Color</span>
+          <span className="text-slate-500">{t('purchase.color')}</span>
           <Input
             disabled={!isDraft}
             value={form.color}
@@ -282,7 +288,7 @@ export default function VehiclePurchasePage() {
           />
         </label>
         <label className="space-y-1 text-sm">
-          <span className="text-slate-500">Mileage</span>
+          <span className="text-slate-500">{t('purchase.mileage')}</span>
           <Input
             disabled={!isDraft}
             type="number"
@@ -291,7 +297,7 @@ export default function VehiclePurchasePage() {
           />
         </label>
         <label className="space-y-1 text-sm">
-          <span className="text-slate-500">Purchase price</span>
+          <span className="text-slate-500">{t('purchase.purchasePrice')}</span>
           <Input
             disabled={!isDraft}
             type="number"

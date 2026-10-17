@@ -5,6 +5,8 @@ import type errors from '../../../../../locales/de/errors.json'
 import type glossary from '../../../../../locales/de/glossary.json'
 import type enums from '../../../../../locales/de/enums.json'
 import type customers from '../../../../../locales/de/customers.json'
+import type sales from '../../../../../locales/de/sales.json'
+import type vehicles from '../../../../../locales/de/vehicles.json'
 import type workshop from '../../../../../locales/de/workshop.json'
 import type vehicleStock from '../../../../../locales/de/vehicleStock.json'
 
@@ -18,6 +20,8 @@ declare module 'i18next' {
       glossary: typeof glossary
       enums: typeof enums
       customers: typeof customers
+      sales: typeof sales
+      vehicles: typeof vehicles
       workshop: typeof workshop
       vehicleStock: typeof vehicleStock
     }

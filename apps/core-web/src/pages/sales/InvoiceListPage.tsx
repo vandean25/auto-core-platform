@@ -1,5 +1,6 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { type LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { Plus } from 'lucide-react'
 import { useInvoices } from '@/api/sales'
@@ -12,6 +13,7 @@ import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { formatDateShort } from '@/lib/format'
 import { formatCurrency } from '@/lib/utils'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 
 const formatDate = (value: string) => formatDateShort(value)
 
@@ -35,6 +37,10 @@ function matchesSearch(invoice: Invoice, search: string) {
 }
 
 export default function InvoiceListPage() {
+  const { t } = useTranslation('sales')
+  useEffect(() => {
+    void ensureNamespaceLoaded('sales')
+  }, [])
   const navigate = useNavigate()
   const { queryParams, ...tableState } = useDataTableQuery({
     defaultPageSize: 10,
@@ -90,18 +96,19 @@ export default function InvoiceListPage() {
     {
       accessorKey: 'invoice_number',
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Invoice #" />
+        <DataTableColumnHeader column={column} title={t('invoices.list.columns.invoiceNumber')} />
       ),
       cell: ({ row }) => (
         <div className="font-medium">
-          {row.original.invoice_number ?? `Draft ${row.original.id.slice(0, 8)}`}
+          {row.original.invoice_number ??
+            t('shared.draftLabel', { id: row.original.id.slice(0, 8) })}
         </div>
       ),
     },
     {
       accessorKey: 'date',
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Date" />
+        <DataTableColumnHeader column={column} title={t('invoices.list.columns.date')} />
       ),
       cell: ({ row }) => <div>{formatDate(row.original.date)}</div>,
     },
@@ -109,21 +116,21 @@ export default function InvoiceListPage() {
       id: 'customer',
       accessorFn: (row) => formatCustomerName(row),
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Customer" />
+        <DataTableColumnHeader column={column} title={t('invoices.list.columns.customer')} />
       ),
       cell: ({ row }) => <div>{formatCustomerName(row.original)}</div>,
     },
     {
       accessorKey: 'status',
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Status" />
+        <DataTableColumnHeader column={column} title={t('invoices.list.columns.status')} />
       ),
       cell: ({ row }) => <StatusBadge status={row.original.status} />,
     },
     {
       accessorKey: 'total_gross',
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Total" />
+        <DataTableColumnHeader column={column} title={t('invoices.list.columns.total')} />
       ),
       cell: ({ row }) => (
         <div className="text-right font-medium">
@@ -137,14 +144,12 @@ export default function InvoiceListPage() {
     <>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Sales Invoices</h1>
-          <p className="text-slate-500">
-            Finalized and draft customer invoices across sales channels.
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight">{t('invoices.list.title')}</h1>
+          <p className="text-slate-500">{t('invoices.list.description')}</p>
         </div>
         <Button asChild>
           <Link to={APP_ROUTE_PATHS.salesInvoiceNew}>
-            <Plus className="mr-2 h-4 w-4" /> Invoice
+            <Plus className="mr-2 h-4 w-4" /> {t('invoices.list.newInvoice')}
           </Link>
         </Button>
       </div>
@@ -155,7 +160,7 @@ export default function InvoiceListPage() {
         pageCount={pageCount}
         isLoading={isLoading}
         searchColumn="invoice_number"
-        searchPlaceholder="Search invoices..."
+        searchPlaceholder={t('invoices.list.searchPlaceholder')}
         onRowClick={(row) => {
           const path =
             row.status === 'DRAFT' && row.sales_order_id

@@ -1,5 +1,6 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { Car, Plus } from 'lucide-react'
 import { toast } from 'sonner'
@@ -14,6 +15,7 @@ import {
 } from '@/api/vehicle-stock'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { getErrorMessage } from '@/lib/error-utils'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 
 function stockRowPath(row: VehicleStockRow) {
   return row.draft_purchase_id
@@ -22,20 +24,26 @@ function stockRowPath(row: VehicleStockRow) {
 }
 
 export default function VehicleStockList() {
+  const { t } = useTranslation('vehicleStock')
+  useEffect(() => {
+    void ensureNamespaceLoaded('vehicleStock')
+  }, [])
   const navigate = useNavigate()
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
   const { data: responseData, isLoading } = useVehicleStock(queryParams)
   const deletePurchase = useDeleteVehiclePurchase()
 
   const rows = useMemo(() => responseData?.data ?? [], [responseData])
+  const na = t('shared.notAvailable')
+  const emDash = t('shared.emDash')
 
   const handleDeleteDraft = async (purchaseId: string) => {
-    if (!confirm('Delete this draft purchase?')) return
+    if (!confirm(t('stockList.deleteDraftConfirm'))) return
     try {
       await deletePurchase.mutateAsync(purchaseId)
-      toast.success('Draft purchase deleted')
+      toast.success(t('stockList.draftDeleted'))
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, 'Failed to delete draft purchase'))
+      toast.error(getErrorMessage(error, t('stockList.deleteDraftFailed')))
     }
   }
 
@@ -56,7 +64,9 @@ export default function VehicleStockList() {
       },
       {
         accessorKey: 'make',
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Make" />,
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title={t('stockList.columns.make')} />
+        ),
         cell: ({ row }) => (
           <span className="font-medium">
             {row.original.make} {row.original.model}
@@ -65,48 +75,60 @@ export default function VehicleStockList() {
       },
       {
         accessorKey: 'year',
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Year" />,
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title={t('stockList.columns.year')} />
+        ),
       },
       {
         accessorKey: 'vin',
-        header: ({ column }) => <DataTableColumnHeader column={column} title="VIN" />,
-        cell: ({ row }) => <span className="text-xs">{row.original.vin || 'N/A'}</span>,
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title={t('stockList.columns.vin')} />
+        ),
+        cell: ({ row }) => <span className="text-xs">{row.original.vin || na}</span>,
       },
       {
         accessorKey: 'plate',
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Plate" />,
-        cell: ({ row }) => row.original.plate || 'N/A',
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title={t('stockList.columns.plate')} />
+        ),
+        cell: ({ row }) => row.original.plate || na,
       },
       {
         accessorKey: 'color',
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Color" />,
-        cell: ({ row }) => row.original.color || '—',
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title={t('stockList.columns.color')} />
+        ),
+        cell: ({ row }) => row.original.color || emDash,
       },
       {
         accessorKey: 'stock_status',
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title={t('stockList.columns.status')} />
+        ),
         cell: ({ row }) =>
           row.original.stock_status ? (
             <StatusBadge status={row.original.stock_status} />
           ) : (
-            '—'
+            emDash
           ),
       },
     ],
-    [],
+    [emDash, na, t],
   )
 
   return (
     <>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Vehicle Stock</h1>
-          <p className="text-slate-500">Used vehicles in dealer stock, plus draft purchases still on order.</p>
+          <h1 className="text-2xl font-semibold tracking-tight">{t('stockList.title')}</h1>
+          <p className="text-slate-500">{t('stockList.description')}</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => navigate('/vehicle-stock/reports')}>Reports</Button>
+          <Button variant="outline" onClick={() => navigate('/vehicle-stock/reports')}>
+            {t('stockList.reports')}
+          </Button>
           <Button onClick={() => navigate('/vehicle-stock/purchases/new')}>
-            <Plus className="mr-2 h-4 w-4" /> Vehicle
+            <Plus className="mr-2 h-4 w-4" /> {t('stockList.addVehicle')}
           </Button>
         </div>
       </div>
@@ -114,17 +136,17 @@ export default function VehicleStockList() {
       <DataTable
         columns={columns}
         data={rows}
-        saveViewTitle="Vehicle Stock"
+        saveViewTitle={t('stockList.saveViewTitle')}
         pageCount={responseData?.meta?.pageCount ?? 1}
         isLoading={isLoading}
-        searchPlaceholder="Search VIN, plate, make, model, color..."
+        searchPlaceholder={t('stockList.searchPlaceholder')}
         onRowClick={(row) => navigate(stockRowPath(row))}
         getRowContextActions={(row) => {
           const draftPurchaseId = row.draft_purchase_id
           if (!draftPurchaseId) return []
           return [
             {
-              label: 'Delete',
+              label: t('shared.delete'),
               onClick: () => void handleDeleteDraft(draftPurchaseId),
               destructive: true,
             },

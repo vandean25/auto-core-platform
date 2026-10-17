@@ -26,5 +26,133 @@
     "confirmGrant": "Confirm and record",
     "confirmRevoke": "Confirm withdrawal",
     "cancel": "Cancel"
+  },
+  "list": {
+    "title": "Customers",
+    "description": "Manage your customer database and CRM.",
+    "addCustomer": "Customer",
+    "searchPlaceholder": "Search customers...",
+    "saveViewTitle": "Customers",
+    "deleteConfirm": "Are you sure you want to delete this customer?",
+    "deleted": "Customer deleted",
+    "deleteFailed": "Failed to delete customer",
+    "columns": {
+      "name": "Name",
+      "contact": "Contact",
+      "location": "Location"
+    },
+    "delete": "Delete"
+  },
+  "detail": {
+    "loading": "Loading customer details...",
+    "loadFailed": "Failed to load customer: {{message}}",
+    "notFound": "Customer not found.",
+    "breadcrumbFallback": "Customer",
+    "backAria": "Back to customers",
+    "companyBadge": "Company",
+    "updated": "Customer updated",
+    "updateFailed": "Failed to update customer",
+    "noVehicleForService": "No vehicle found. Add a vehicle first to create a workshop order.",
+    "tabs": {
+      "overview": "Overview",
+      "orders": "Orders",
+      "vehicles": "Vehicles",
+      "consent": "Contact preferences"
+    },
+    "contact": "Contact",
+    "address": "Address",
+    "startService": "Service Order",
+    "newSalesOrder": "Sales Order",
+    "activeOrders": "Active Orders",
+    "orderHistory": "Order History",
+    "vehicles": "Vehicles",
+    "noVehicles": "No linked vehicles",
+    "pickVehicle": "Pick a vehicle for service order",
+    "fields": {
+      "companyName": "Company name",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "email": "Email",
+      "phone": "Phone",
+      "street": "Street and house number",
+      "zip": "ZIP code",
+      "city": "City",
+      "country": "Country"
+    },
+    "placeholders": {
+      "companyName": "Company name",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "street": "Street and house number",
+      "zip": "ZIP code",
+      "city": "City"
+    },
+    "empty": {
+      "companyName": "Add company name",
+      "firstName": "Add first name",
+      "lastName": "Add last name",
+      "email": "Add email",
+      "phone": "Add phone",
+      "street": "Add street address",
+      "zip": "Add ZIP",
+      "city": "Add city"
+    },
+    "aria": {
+      "companyName": "Company name",
+      "contactFirstName": "Business contact first name",
+      "contactLastName": "Business contact last name",
+      "firstName": "Customer first name",
+      "lastName": "Customer last name",
+      "email": "Customer email",
+      "phone": "Customer phone",
+      "street": "Customer street address",
+      "zip": "Customer ZIP code",
+      "city": "Customer city"
+    },
+    "orderTypes": {
+      "sales": "Sales",
+      "service": "Service"
+    },
+    "tables": {
+      "orderNumber": "Order #",
+      "type": "Type",
+      "date": "Date",
+      "status": "Status",
+      "total": "Total",
+      "invoiceNumber": "Invoice #",
+      "noActiveOrders": "No active orders",
+      "noOrders": "No orders",
+      "noInvoices": "No invoices"
+    }
+  },
+  "dialog": {
+    "editTitle": "Edit Customer",
+    "addTitle": "Add Customer",
+    "updated": "Customer updated",
+    "created": "Customer created",
+    "saveFailed": "Failed to save customer",
+    "type": "Type",
+    "selectType": "Select type",
+    "private": "Private",
+    "company": "Company",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "companyName": "Company name",
+    "email": "Email",
+    "contactEmailOk": "Contact email confirmed",
+    "contactEmailOkLabel": "Email address confirmed for order communication",
+    "contactEmailOkDescription": "The customer confirmed this email may be used for order communication.",
+    "contactEmailOkDescriptionEstimate": "Without this confirmation, estimates cannot be sent by email.",
+    "addressSection": "Address",
+    "saveChanges": "Save Changes",
+    "createCustomer": "Create Customer",
+    "phone": "Phone",
+    "vatId": "VAT ID",
+    "street": "Street",
+    "city": "City",
+    "zip": "ZIP",
+    "country": "Country",
+    "cancel": "Cancel",
+    "save": "Save"
   }
 }

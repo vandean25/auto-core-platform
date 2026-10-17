@@ -1,0 +1,149 @@
+{
+  "shared": {
+    "notAvailable": "N/A",
+    "emDash": "—",
+    "unassigned": "Unassigned",
+    "draft": "Draft",
+    "goBack": "Go back",
+    "unknownError": "Unknown error"
+  },
+  "list": {
+    "title": "Vehicles",
+    "description": "Browse all vehicles and open full vehicle context.",
+    "addVehicle": "Vehicle",
+    "searchPlaceholder": "Search vehicles...",
+    "saveViewTitle": "Vehicles",
+    "rowAria": "Vehicle {{vehicle}}",
+    "columns": {
+      "makeModel": "Make & Model",
+      "year": "Year",
+      "vin": "VIN",
+      "plate": "Plate",
+      "customer": "Customer"
+    }
+  },
+  "detail": {
+    "loading": "Loading vehicle details...",
+    "loadFailed": "Failed to load vehicle: {{message}}",
+    "notFound": "Vehicle not found.",
+    "updated": "Vehicle updated",
+    "updateFailed": "Failed to update vehicle",
+    "invalidYear": "Year must be a valid number between 1900 and 2100.",
+    "customerUpdated": "Vehicle customer updated",
+    "customerUpdateFailed": "Failed to update vehicle customer",
+    "serviceOrderNeedsCustomer": "Assign a customer to this vehicle before creating a service order.",
+    "editVehicle": "Edit Vehicle",
+    "serviceOrder": "Service Order",
+    "vehicleInfo": "Vehicle Info",
+    "year": "Year",
+    "engine": "Engine",
+    "make": "Make",
+    "model": "Model",
+    "vin": "VIN",
+    "plate": "Plate",
+    "placeholders": {
+      "year": "Year",
+      "engineCode": "Engine code",
+      "make": "Make",
+      "model": "Model",
+      "vin": "VIN",
+      "plate": "Plate number"
+    },
+    "empty": {
+      "engineCode": "Add engine code",
+      "vin": "Add VIN",
+      "plate": "Add plate"
+    },
+    "aria": {
+      "year": "Vehicle year",
+      "engineCode": "Vehicle engine code",
+      "make": "Vehicle make",
+      "model": "Vehicle model",
+      "vin": "Vehicle VIN",
+      "plate": "Vehicle plate",
+      "goBack": "Go back",
+      "openSalesOrder": "Open Sales order {{number}}",
+      "openServiceOrder": "Open Service order {{number}}",
+      "openInvoice": "Open invoice {{number}}"
+    },
+    "customer": "Customer",
+    "changeCustomer": "Change Customer",
+    "tabs": {
+      "activeOrders": "Active Orders",
+      "invoiceHistory": "Invoice History",
+      "serviceOrders": "Service Orders"
+    },
+    "tables": {
+      "orderNumber": "Order #",
+      "type": "Type",
+      "date": "Date",
+      "status": "Status",
+      "total": "Total",
+      "invoiceNumber": "Invoice #",
+      "noActiveOrders": "No active orders",
+      "noInvoices": "No invoices",
+      "noServiceOrders": "No service orders"
+    },
+    "orderTypes": {
+      "sales": "Sales",
+      "service": "Service"
+    },
+    "changeCustomerDialog": {
+      "title": "Change vehicle customer",
+      "save": "Save",
+      "cancel": "Cancel"
+    },
+    "idLabel": "ID: {{id}}"
+  },
+  "pickerlDue": {
+    "title": "Pickerl fällig",
+    "description": "Work list of vehicles whose §57a Pickerl is due.",
+    "exportCsv": "Export due CSV",
+    "exportFailed": "CSV export failed",
+    "windowAria": "Fenster",
+    "windowPlaceholder": "Fenster",
+    "windowAll": "Alle Fenster",
+    "windowDays": "{{count}} days",
+    "statusAria": "Status",
+    "statusPlaceholder": "Status",
+    "statusAll": "All statuses",
+    "statusAll": "All statuses",
+    "searchPlaceholder": "Search plate, vehicle, customer, phone, or email…",
+    "recordPickerl": "Pickerl erfasst",
+    "openOrder": "§57a-Auftrag öffnen",
+    "createOrder": "§57a-Auftrag anlegen",
+    "statusOk": "OK",
+    "statusDueSoon": "Due soon",
+    "statusOverdue": "Overdue",
+    "statusUnknown": "Unknown",
+    "searchLoadedRows": "Search loaded rows…",
+    "vehicleRowAria": "Vehicle {{plate}}",
+    "columns": {
+      "plate": "Kennzeichen",
+      "vehicle": "Fahrzeug",
+      "customer": "Kunde",
+      "dueMonth": "Fällig im Monat",
+      "status": "Status",
+      "lastInspection": "Letzte Überprüfung",
+      "phone": "Telefon",
+      "email": "Email"
+    }
+  },
+  "gewaehrleistungDue": {
+    "title": "Gewährleistung fällig",
+    "description": "Vehicle sales with warranty periods ending soon.",
+    "windowLabel": "Zeitraum",
+    "windowAria": "Zeitraum",
+    "windowDays": "{{count}} days",
+    "loadError": "Could not load warranty due list.",
+    "empty": "No due vehicles in the selected window.",
+    "searchPlaceholder": "Search vehicle, customer, or deadline …",
+    "columns": {
+      "vehicle": "Fahrzeug",
+      "customer": "Kunde",
+      "handover": "Übergabe",
+      "warrantyEnds": "Basisfrist bis",
+      "presumptionEnds": "Vermutungsfrist bis"
+    }
+  }
+}

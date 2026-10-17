@@ -1,5 +1,6 @@
 import * as React from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { format } from "date-fns"
 import { Loader2, ArrowLeft } from "lucide-react"
 import { toast } from "sonner"
@@ -8,10 +9,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { useInvoiceEditor } from "@/hooks/useInvoiceEditor"
 import { invoiceKeys, useFinalizeInvoice, useInvoice, useUpdateInvoice } from "@/api/sales"
 import { useSalesOrder } from "@/api/sales-orders"
-import {
-  isSalesOrderFinalizeBlocked,
-  SALES_ORDER_FINALIZE_BLOCKED_MESSAGE,
-} from "@/lib/sales-order-invoice-eligibility"
+import { isSalesOrderFinalizeBlocked } from "@/lib/sales-order-invoice-eligibility"
 import { useInventory } from "@/api/inventory"
 import { CustomerSearch } from "@/components/sales/CustomerSearch"
 import { DocumentSaveIndicator } from "@/components/document-save/DocumentSaveIndicator"
@@ -21,13 +19,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import type { InventoryItem } from "@/api/types"
 import { StatusBadge } from "@/components/status/StatusBadge"
-import { getErrorMessage } from "@/lib/error-utils"
+import { ensureNamespaceLoaded } from "@/lib/i18n"
+import { translateSalesApiError } from "@/features/sales/sales-api-error-i18n"
+import { formatCurrency } from "@/lib/utils"
 import { toastSuccessWithOpen } from "@/lib/toast-actions"
-import {
-  assertFinalizedInvoice,
-  FINALIZE_MISSING_CUSTOMER_MESSAGE,
-  getInvoiceFinalizeBlockMessage,
-} from "@/lib/invoice-finalize"
+import { assertFinalizedInvoice } from "@/lib/invoice-finalize"
 import { InvoiceFinalizeDialog } from "@/components/sales/InvoiceFinalizeDialog"
 import { InvoiceLineItemsTable } from "@/components/sales/InvoiceLineItemsTable"
 import { InvoicePartSearchDialog } from "@/components/sales/InvoicePartSearchDialog"
@@ -36,6 +32,10 @@ import { APP_ROUTE_PATHS } from "@/lib/app-route-paths"
 const DEFAULT_TAX_RATE = 20
 
 export default function InvoiceDraftEditPage() {
+  const { t } = useTranslation("sales")
+  React.useEffect(() => {
+    void ensureNamespaceLoaded("sales")
+  }, [])
   const { id: invoiceId } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -169,14 +169,17 @@ export default function InvoiceDraftEditPage() {
     if (isFinalizingRef.current) return
 
     if (!invoiceId) {
-      toast.error(FINALIZE_MISSING_CUSTOMER_MESSAGE)
+      toast.error(t("finalize.missingCustomer"))
       return
     }
 
-    const blockMessage = getInvoiceFinalizeBlockMessage({
-      hasCustomer: Boolean(editor.customer),
-      saveStatus,
-    })
+    const blockMessage = !editor.customer
+      ? t("finalize.missingCustomer")
+      : saveStatus === "saving"
+        ? t("finalize.saving")
+        : saveStatus === "error"
+          ? t("finalize.autosaveError")
+          : null
     if (blockMessage) {
       toast.error(blockMessage)
       return
@@ -184,7 +187,7 @@ export default function InvoiceDraftEditPage() {
 
     const payload = buildPayload()
     if (!payload) {
-      toast.error("Invoice draft is incomplete. Add a customer and line items before finalizing.")
+      toast.error(t("invoices.draft.incompleteDraft"))
       return
     }
 
@@ -205,11 +208,11 @@ export default function InvoiceDraftEditPage() {
 
       queryClient.setQueryData(invoiceKeys.detail(invoiceId), finalized)
       const detailPath = APP_ROUTE_PATHS.salesInvoiceDetail.replace(":id", invoiceId)
-      toastSuccessWithOpen("Invoice finalized and number generated!", () => navigate(detailPath))
+      toastSuccessWithOpen(t("invoices.draft.finalizedSuccess"), () => navigate(detailPath))
       setFinalizeOpen(false)
       navigate(detailPath)
     } catch (finalizeError) {
-      const message = getErrorMessage(finalizeError, "Failed to finalize invoice")
+      const message = translateSalesApiError(t, finalizeError, "errors.generic")
       setFinalizeErrorMessage(message)
       toast.error(message)
     } finally {
@@ -237,17 +240,17 @@ export default function InvoiceDraftEditPage() {
   }
 
   if (!invoiceId) {
-    return <div className="p-8 text-center">Invoice not found</div>
+    return <div className="p-8 text-center">{t("invoices.draft.notFound")}</div>
   }
 
   if (isLoading) {
-    return <div className="p-8 text-center">Loading invoice draft...</div>
+    return <div className="p-8 text-center">{t("invoices.draft.loading")}</div>
   }
 
   if (error || !invoice) {
     return (
       <div className="p-8 text-center text-muted-foreground">
-        {getErrorMessage(error, "Failed to load invoice")}
+        {translateSalesApiError(t, error, "errors.loadFailed")}
       </div>
     )
   }
@@ -255,13 +258,10 @@ export default function InvoiceDraftEditPage() {
   if (!invoice.sales_order_id) {
     return (
       <div className="max-w-xl mx-auto space-y-4 p-8">
-        <h1 className="text-2xl font-semibold tracking-tight">Unsupported draft</h1>
-        <p className="text-slate-500">
-          This invoice was not created from a sales order. Edit workshop or vehicle-sale invoices from
-          their source workflows instead.
-        </p>
+        <h1 className="text-2xl font-semibold tracking-tight">{t("invoices.draft.unsupportedTitle")}</h1>
+        <p className="text-slate-500">{t("invoices.draft.unsupportedDescription")}</p>
         <Button asChild variant="outline">
-          <Link to={`/sales/invoices/${invoice.id}`}>View invoice</Link>
+          <Link to={`/sales/invoices/${invoice.id}`}>{t("invoices.draft.viewInvoice")}</Link>
         </Button>
       </div>
     )
@@ -277,10 +277,10 @@ export default function InvoiceDraftEditPage() {
   if (invoice.status !== "DRAFT") {
     return (
       <div className="max-w-xl mx-auto space-y-4 p-8">
-        <h1 className="text-2xl font-semibold tracking-tight">Invoice is not editable</h1>
-        <p className="text-slate-500">Only draft invoices can be edited here.</p>
+        <h1 className="text-2xl font-semibold tracking-tight">{t("invoices.draft.notEditableTitle")}</h1>
+        <p className="text-slate-500">{t("invoices.draft.notEditableDescription")}</p>
         <Button asChild variant="outline">
-          <Link to={`/sales/invoices/${invoice.id}`}>View invoice</Link>
+          <Link to={`/sales/invoices/${invoice.id}`}>{t("invoices.draft.viewInvoice")}</Link>
         </Button>
       </div>
     )
@@ -291,18 +291,18 @@ export default function InvoiceDraftEditPage() {
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" asChild>
-            <Link to={`/sales-orders/${invoice.sales_order_id}`} aria-label="Back to sales order">
+            <Link to={`/sales-orders/${invoice.sales_order_id}`} aria-label={t("invoices.draft.backToOrderAria")}>
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
-          <h1 className="text-2xl font-semibold tracking-tight">Edit Invoice Draft</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{t("invoices.draft.title")}</h1>
           <StatusBadge status="DRAFT" />
         </div>
         <div className="flex gap-4 items-center">
           <DocumentSaveIndicator status={saveStatus} />
           {salesOrderBlocksFinalize && linkedSalesOrder?.status === 'INVOICED' && (
             <p className="text-sm text-muted-foreground max-w-sm text-right">
-              {SALES_ORDER_FINALIZE_BLOCKED_MESSAGE}
+              {t("finalize.salesOrderBlocked")}
             </p>
           )}
           <Button
@@ -320,14 +320,14 @@ export default function InvoiceDraftEditPage() {
             }
             title={
               linkedSalesOrder?.status === 'INVOICED'
-                ? SALES_ORDER_FINALIZE_BLOCKED_MESSAGE
+                ? t("finalize.salesOrderBlocked")
                 : undefined
             }
           >
             {(isFinalizing || finalizeInvoiceMutation.isPending) && (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             )}
-            Finalize
+            {t("invoices.draft.finalize")}
           </Button>
         </div>
       </div>
@@ -336,16 +336,16 @@ export default function InvoiceDraftEditPage() {
         <div className="grid grid-cols-2 gap-12 mb-12">
           <div className="space-y-4">
             <Label className="text-muted-foreground uppercase text-xs font-bold tracking-wider">
-              Bill To
+              {t("invoices.draft.billTo")}
             </Label>
             <CustomerSearch value={editor.customer} onChange={editor.setCustomer} />
 
             {editor.customer && (
               <div className="text-sm text-gray-600 mt-2 pl-1 border-l-2 border-gray-100">
-                <p>{editor.customer.address_street || "No street provided"}</p>
+                <p>{editor.customer.address_street || t("invoices.draft.noStreet")}</p>
                 <p>{editor.customer.address_zip} {editor.customer.address_city}</p>
                 <p>{editor.customer.address_country}</p>
-                <p className="mt-1">Email: {editor.customer.email}</p>
+                <p className="mt-1">{t("invoices.draft.emailLabel", { email: editor.customer.email })}</p>
               </div>
             )}
           </div>
@@ -353,7 +353,7 @@ export default function InvoiceDraftEditPage() {
           <div className="space-y-4 text-right">
             <div className="flex flex-col items-end gap-2">
               <Label className="text-muted-foreground uppercase text-xs font-bold tracking-wider">
-                Invoice Date
+                {t("invoices.draft.invoiceDate")}
               </Label>
               <Input
                 type="date"
@@ -364,7 +364,7 @@ export default function InvoiceDraftEditPage() {
             </div>
             <div className="flex flex-col items-end gap-2">
               <Label className="text-muted-foreground uppercase text-xs font-bold tracking-wider">
-                Due Date
+                {t("invoices.draft.dueDate")}
               </Label>
               <Input
                 type="date"
@@ -387,16 +387,16 @@ export default function InvoiceDraftEditPage() {
         <div className="flex justify-end border-t pt-8">
           <div className="w-64 space-y-3">
             <div className="flex justify-between text-sm text-muted-foreground">
-              <span>Subtotal</span>
-              <span>€{editor.totals.subtotal.toFixed(2)}</span>
+              <span>{t("invoices.draft.subtotal")}</span>
+              <span>{formatCurrency(editor.totals.subtotal)}</span>
             </div>
             <div className="flex justify-between text-sm text-muted-foreground">
-              <span>Tax (VAT)</span>
-              <span>€{editor.totals.taxTotal.toFixed(2)}</span>
+              <span>{t("invoices.draft.taxVat")}</span>
+              <span>{formatCurrency(editor.totals.taxTotal)}</span>
             </div>
             <div className="flex justify-between text-xl font-bold pt-3 border-t">
-              <span>Total</span>
-              <span>€{editor.totals.total.toFixed(2)}</span>
+              <span>{t("invoices.draft.total")}</span>
+              <span>{formatCurrency(editor.totals.total)}</span>
             </div>
           </div>
         </div>

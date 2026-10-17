@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,344 +15,349 @@ import { useCustomer } from '@/api/customers'
 import { useDebouncedAutoSave } from '@/hooks/useDebouncedAutoSave'
 import { Trash2, Plus, ArrowLeft } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 import {
-    Command,
-    CommandEmpty,
-    CommandGroup,
-    CommandInput,
-    CommandItem,
-    CommandList,
-} from "@/components/ui/command"
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from "@/components/ui/popover"
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import type { Customer, InventoryItem } from '@/api/types'
 
 interface SalesOrderItemForm {
-    catalog_item_id?: string
-    description: string
-    quantity: number
-    unit_price: number
-    tax_rate: number
+  catalog_item_id?: string
+  description: string
+  quantity: number
+  unit_price: number
+  tax_rate: number
 }
 
 interface SalesOrderForm {
-    customer_id: string
-    notes: string
-    items: SalesOrderItemForm[]
+  customer_id: string
+  notes: string
+  items: SalesOrderItemForm[]
 }
 
 function toSalesOrderPayload(data: SalesOrderForm) {
-    return {
-        customer_id: data.customer_id,
-        notes: data.notes,
-        items: data.items.map((item) => ({
-            ...item,
-            quantity: Number(item.quantity),
-            unit_price: Number(item.unit_price),
-            tax_rate: Number(item.tax_rate),
-        })),
-    }
+  return {
+    customer_id: data.customer_id,
+    notes: data.notes,
+    items: data.items.map((item) => ({
+      ...item,
+      quantity: Number(item.quantity),
+      unit_price: Number(item.unit_price),
+      tax_rate: Number(item.tax_rate),
+    })),
+  }
 }
 
 export default function SalesOrderCreate() {
-    const navigate = useNavigate()
-    const [searchParams] = useSearchParams()
-    const preselectedCustomerId = searchParams.get('customerId')
-    const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
-    const createMutation = useCreateSalesOrder()
-    const updateMutation = useUpdateSalesOrder()
-    const orderIdRef = useRef<string | null>(null)
-    const lastSavedRef = useRef<string | null>(null)
-    const createMutationRef = useRef(createMutation)
-    const updateMutationRef = useRef(updateMutation)
+  const { t } = useTranslation('sales')
+  useEffect(() => {
+    void ensureNamespaceLoaded('sales')
+  }, [])
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const preselectedCustomerId = searchParams.get('customerId')
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
+  const createMutation = useCreateSalesOrder()
+  const updateMutation = useUpdateSalesOrder()
+  const orderIdRef = useRef<string | null>(null)
+  const lastSavedRef = useRef<string | null>(null)
+  const createMutationRef = useRef(createMutation)
+  const updateMutationRef = useRef(updateMutation)
 
-    useEffect(() => {
-        createMutationRef.current = createMutation
-        updateMutationRef.current = updateMutation
-    })
+  useEffect(() => {
+    createMutationRef.current = createMutation
+    updateMutationRef.current = updateMutation
+  })
 
-    // Fetch customer if ID is in URL
-    const { data: preselectedCustomer } = useCustomer(preselectedCustomerId || '')
+  const { data: preselectedCustomer } = useCustomer(preselectedCustomerId || '')
 
-    const form = useForm<SalesOrderForm>({
-        defaultValues: {
-            customer_id: '',
-            notes: '',
-            items: [],
-        },
-    })
+  const form = useForm<SalesOrderForm>({
+    defaultValues: {
+      customer_id: '',
+      notes: '',
+      items: [],
+    },
+  })
 
-    const { fields, append, remove } = useFieldArray({
-        control: form.control,
-        name: 'items',
-    })
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: 'items',
+  })
 
-    const customerId = form.watch('customer_id')
-    const notes = form.watch('notes')
-    const items = form.watch('items')
+  const customerId = form.watch('customer_id')
+  const notes = form.watch('notes')
+  const items = form.watch('items')
 
-    const saveDraft = useCallback(async (snapshot: SalesOrderForm, signal: AbortSignal) => {
-        const payload = toSalesOrderPayload(snapshot)
-        const serialized = JSON.stringify(payload)
-        if (serialized === lastSavedRef.current) return
+  const saveDraft = useCallback(async (snapshot: SalesOrderForm, signal: AbortSignal) => {
+    const payload = toSalesOrderPayload(snapshot)
+    const serialized = JSON.stringify(payload)
+    if (serialized === lastSavedRef.current) return
 
-        if (orderIdRef.current) {
-            await updateMutationRef.current.mutateAsync({
-                id: orderIdRef.current,
-                data: payload,
-                signal,
-            })
-        } else {
-            const created = await createMutationRef.current.mutateAsync({ ...payload, signal })
-            orderIdRef.current = created.id
-        }
-        lastSavedRef.current = serialized
-    }, [])
-
-    const { saveStatus, triggerAutoSave } = useDebouncedAutoSave<SalesOrderForm>({
-        save: saveDraft,
-        shouldSave: (snapshot) => Boolean(snapshot.customer_id),
-    })
-
-    useEffect(() => {
-        if (!form.formState.isDirty) return
-        triggerAutoSave({
-            customer_id: customerId,
-            notes,
-            items,
-        })
-    }, [customerId, notes, items, form.formState.isDirty, triggerAutoSave])
-
-    // Set customer if loaded from URL query
-    useEffect(() => {
-        if (preselectedCustomer) {
-            setSelectedCustomer(preselectedCustomer)
-            form.setValue('customer_id', preselectedCustomer.id, { shouldDirty: true })
-        }
-    }, [preselectedCustomer, form])
-
-    const handleDone = async () => {
-        await triggerAutoSave(
-            {
-                customer_id: customerId,
-                notes,
-                items,
-            },
-            { immediate: true },
-        )
-        if (orderIdRef.current) {
-            navigate(`/sales-orders/${orderIdRef.current}`)
-            return
-        }
-        navigate('/sales-orders')
+    if (orderIdRef.current) {
+      await updateMutationRef.current.mutateAsync({
+        id: orderIdRef.current,
+        data: payload,
+        signal,
+      })
+    } else {
+      const created = await createMutationRef.current.mutateAsync({ ...payload, signal })
+      orderIdRef.current = created.id
     }
+    lastSavedRef.current = serialized
+  }, [])
 
-    // Item Search Logic
-    const [itemSearchOpen, setItemSearchOpen] = useState(false)
-    const [itemSearchQuery, setItemSearchQuery] = useState('')
-    const { data: inventory } = useInventory({ search: itemSearchQuery, pageSize: 10 })
+  const { saveStatus, triggerAutoSave } = useDebouncedAutoSave<SalesOrderForm>({
+    save: saveDraft,
+    shouldSave: (snapshot) => Boolean(snapshot.customer_id),
+  })
 
-    const handleAddItem = (item: InventoryItem) => {
-        append({
-            catalog_item_id: item.id,
-            description: `${item.sku} - ${item.name}`,
-            quantity: 1,
-            unit_price: Number(item.price),
-            tax_rate: 20 // Default tax
-        })
-        setItemSearchOpen(false)
+  useEffect(() => {
+    if (!form.formState.isDirty) return
+    triggerAutoSave({
+      customer_id: customerId,
+      notes,
+      items,
+    })
+  }, [customerId, notes, items, form.formState.isDirty, triggerAutoSave])
+
+  useEffect(() => {
+    if (preselectedCustomer) {
+      setSelectedCustomer(preselectedCustomer)
+      form.setValue('customer_id', preselectedCustomer.id, { shouldDirty: true })
     }
+  }, [preselectedCustomer, form])
 
-    const lineName = (index: number) => {
-        const description = String(form.watch(`items.${index}.description`) ?? '').trim()
-        return description ? `${description} (line ${index + 1})` : `line ${index + 1}`
-    }
-
-    const calculateTotal = (items: SalesOrderItemForm[]) => {
-        return items.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unit_price)), 0)
-    }
-
-    const currentTotal = calculateTotal(form.watch('items'))
-
-    return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between mb-8">
-                <div className="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" asChild>
-                        <button aria-label="Go back" onClick={() => navigate(-1)}>
-                            <ArrowLeft className="h-4 w-4" />
-                        </button>
-                    </Button>
-                    <div>
-                        <h1 className="text-2xl font-semibold tracking-tight">New Sales Order</h1>
-                        <p className="text-slate-500">Create a draft order for a customer.</p>
-                    </div>
-                </div>
-                <DocumentSaveIndicator status={saveStatus} />
-            </div>
-
-            <Form {...form}>
-                <form onSubmit={(event) => event.preventDefault()} className="space-y-6">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Customer Details</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <FormField
-                                control={form.control}
-                                name="customer_id"
-                                render={({ field }) => (
-                                    <FormItem className="flex flex-col">
-                                        <FormLabel>Customer</FormLabel>
-                                        <FormControl>
-                                            <CustomerSearch
-                                                value={selectedCustomer}
-                                                onChange={(customer) => {
-                                                    setSelectedCustomer(customer)
-                                                    field.onChange(customer?.id ?? '')
-                                                }}
-                                            />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <div className="mt-4">
-                                <FormField
-                                    control={form.control}
-                                    name="notes"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Internal Notes</FormLabel>
-                                            <FormControl>
-                                                <Input {...field} placeholder="Order notes..." />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between">
-                            <CardTitle>Order Items</CardTitle>
-                            <Popover open={itemSearchOpen} onOpenChange={setItemSearchOpen}>
-                                <PopoverTrigger asChild>
-                                    <Button variant="outline">
-                                        <Plus className="mr-2 h-4 w-4" /> Add Item
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-[400px] p-0" align="end">
-                                    <Command shouldFilter={false}>
-                                        <CommandInput placeholder="Search parts by SKU or Name..." value={itemSearchQuery} onValueChange={setItemSearchQuery} />
-                                        <CommandList>
-                                            <CommandEmpty>No parts found.</CommandEmpty>
-                                            <CommandGroup>
-                                                {inventory?.data.map((item) => (
-                                                    <CommandItem
-                                                        key={item.id}
-                                                        onSelect={() => handleAddItem(item)}
-                                                    >
-                                                        <div className="flex flex-col">
-                                                            <span className="font-medium">{item.sku}</span>
-                                                            <span className="text-xs text-muted-foreground">{item.name}</span>
-                                                        </div>
-                                                        <div className="ml-auto font-medium">
-                                                            {formatCurrency(item.price)}
-                                                        </div>
-                                                    </CommandItem>
-                                                ))}
-                                            </CommandGroup>
-                                        </CommandList>
-                                    </Command>
-                                </PopoverContent>
-                            </Popover>
-                        </CardHeader>
-                        <CardContent className="p-0">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="w-[50px]">#</TableHead>
-                                        <TableHead className="w-[40%]">Description</TableHead>
-                                        <TableHead className="w-[15%]">Qty</TableHead>
-                                        <TableHead className="w-[15%]">Price</TableHead>
-                                        <TableHead className="w-[15%]">Total</TableHead>
-                                        <TableHead className="w-[50px]"></TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {fields.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                                                No items added. Click "Add Item" to start.
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : (
-                                        fields.map((item, index) => (
-                                            <TableRow key={item.id}>
-                                                <TableCell className="text-muted-foreground">{index + 1}</TableCell>
-                                                <TableCell>
-                                                    <FormField
-                                                        control={form.control}
-                                                        name={`items.${index}.description`}
-                                                        render={({ field }) => (
-                                                            <Input {...field} />
-                                                        )}
-                                                    />
-                                                </TableCell>
-                                                <TableCell>
-                                                    <FormField
-                                                        control={form.control}
-                                                        name={`items.${index}.quantity`}
-                                                        render={({ field }) => (
-                                                            <Input type="number" min="1" {...field} />
-                                                        )}
-                                                    />
-                                                </TableCell>
-                                                <TableCell>
-                                                    <FormField
-                                                        control={form.control}
-                                                        name={`items.${index}.unit_price`}
-                                                        render={({ field }) => (
-                                                            <Input type="number" step="0.01" {...field} />
-                                                        )}
-                                                    />
-                                                </TableCell>
-                                                <TableCell className="font-medium">
-                                                    {formatCurrency(Number(form.watch(`items.${index}.quantity`)) * Number(form.watch(`items.${index}.unit_price`)))}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Button variant="ghost" size="icon" className="text-destructive" aria-label={`Remove ${lineName(index)}`} onClick={() => remove(index)}>
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))
-                                    )}
-                                </TableBody>
-                            </Table>
-                            <div className="p-4 flex justify-end items-center gap-4 border-t bg-slate-50">
-                                <span className="text-muted-foreground font-medium">Total Amount:</span>
-                                <span className="text-2xl font-bold">{formatCurrency(currentTotal)}</span>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <div className="flex justify-end gap-4">
-                        <Button type="button" variant="outline" onClick={() => navigate('/sales-orders')}>
-                            Cancel
-                        </Button>
-                        <Button type="button" size="lg" onClick={handleDone}>
-                            Done
-                        </Button>
-                    </div>
-                </form>
-            </Form>
-        </div>
+  const handleDone = async () => {
+    await triggerAutoSave(
+      {
+        customer_id: customerId,
+        notes,
+        items,
+      },
+      { immediate: true },
     )
+    if (orderIdRef.current) {
+      navigate(`/sales-orders/${orderIdRef.current}`)
+      return
+    }
+    navigate('/sales-orders')
+  }
+
+  const [itemSearchOpen, setItemSearchOpen] = useState(false)
+  const [itemSearchQuery, setItemSearchQuery] = useState('')
+  const { data: inventory } = useInventory({ search: itemSearchQuery, pageSize: 10 })
+
+  const handleAddItem = (item: InventoryItem) => {
+    append({
+      catalog_item_id: item.id,
+      description: `${item.sku} - ${item.name}`,
+      quantity: 1,
+      unit_price: Number(item.price),
+      tax_rate: 20,
+    })
+    setItemSearchOpen(false)
+  }
+
+  const lineName = (index: number) => {
+    const description = String(form.watch(`items.${index}.description`) ?? '').trim()
+    return description
+      ? t('orders.create.lineNamed', { description, index: index + 1 })
+      : t('orders.create.lineLabel', { index: index + 1 })
+  }
+
+  const calculateTotal = (orderItems: SalesOrderItemForm[]) => {
+    return orderItems.reduce(
+      (sum, item) => sum + Number(item.quantity) * Number(item.unit_price),
+      0,
+    )
+  }
+
+  const currentTotal = calculateTotal(form.watch('items'))
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" asChild>
+            <button aria-label={t('orders.create.backAria')} onClick={() => navigate(-1)}>
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+          </Button>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">{t('orders.create.title')}</h1>
+            <p className="text-slate-500">{t('orders.create.description')}</p>
+          </div>
+        </div>
+        <DocumentSaveIndicator status={saveStatus} />
+      </div>
+
+      <Form {...form}>
+        <form onSubmit={(event) => event.preventDefault()} className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('orders.create.customerDetails')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <FormField
+                control={form.control}
+                name="customer_id"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>{t('orders.create.selectCustomer')}</FormLabel>
+                    <FormControl>
+                      <CustomerSearch
+                        value={selectedCustomer}
+                        onChange={(customer) => {
+                          setSelectedCustomer(customer)
+                          field.onChange(customer?.id ?? '')
+                        }}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="mt-4">
+                <FormField
+                  control={form.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('orders.create.internalNotes')}</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder={t('orders.detail.notesPlaceholder')} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>{t('orders.create.lineItems')}</CardTitle>
+              <Popover open={itemSearchOpen} onOpenChange={setItemSearchOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline">
+                    <Plus className="mr-2 h-4 w-4" /> {t('orders.create.addLine')}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[400px] p-0" align="end">
+                  <Command shouldFilter={false}>
+                    <CommandInput
+                      placeholder={t('orders.create.searchPartsBySku')}
+                      value={itemSearchQuery}
+                      onValueChange={setItemSearchQuery}
+                    />
+                    <CommandList>
+                      <CommandEmpty>{t('orders.create.noParts')}</CommandEmpty>
+                      <CommandGroup>
+                        {inventory?.data.map((item) => (
+                          <CommandItem key={item.id} onSelect={() => handleAddItem(item)}>
+                            <div className="flex flex-col">
+                              <span className="font-medium">{item.sku}</span>
+                              <span className="text-xs text-muted-foreground">{item.name}</span>
+                            </div>
+                            <div className="ml-auto font-medium">{formatCurrency(item.price)}</div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[50px]">{t('orders.create.rowNumber')}</TableHead>
+                    <TableHead className="w-[40%]">{t('orders.create.columns.description')}</TableHead>
+                    <TableHead className="w-[15%]">{t('orders.create.columns.qty')}</TableHead>
+                    <TableHead className="w-[15%]">{t('orders.create.columns.price')}</TableHead>
+                    <TableHead className="w-[15%]">{t('orders.create.columns.total')}</TableHead>
+                    <TableHead className="w-[50px]" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {fields.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                        {t('orders.create.noItemsAddItem')}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    fields.map((item, index) => (
+                      <TableRow key={item.id}>
+                        <TableCell className="text-muted-foreground">{index + 1}</TableCell>
+                        <TableCell>
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.description`}
+                            render={({ field }) => <Input {...field} />}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.quantity`}
+                            render={({ field }) => <Input type="number" min="1" {...field} />}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.unit_price`}
+                            render={({ field }) => <Input type="number" step="0.01" {...field} />}
+                          />
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {formatCurrency(
+                            Number(form.watch(`items.${index}.quantity`)) *
+                              Number(form.watch(`items.${index}.unit_price`)),
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive"
+                            aria-label={t('orders.create.removeLineAria', { label: lineName(index) })}
+                            onClick={() => remove(index)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+              <div className="p-4 flex justify-end items-center gap-4 border-t bg-slate-50">
+                <span className="text-muted-foreground font-medium">{t('orders.create.totalAmount')}</span>
+                <span className="text-2xl font-bold">{formatCurrency(currentTotal)}</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="flex justify-end gap-4">
+            <Button type="button" variant="outline" onClick={() => navigate('/sales-orders')}>
+              {t('shared.cancel')}
+            </Button>
+            <Button type="button" size="lg" onClick={handleDone}>
+              {t('orders.create.done')}
+            </Button>
+          </div>
+        </form>
+      </Form>
+    </div>
+  )
 }

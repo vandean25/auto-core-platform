@@ -26,5 +26,133 @@
     "confirmGrant": "Bestätigen und speichern",
     "confirmRevoke": "Widerruf bestätigen",
     "cancel": "Abbrechen"
+  },
+  "list": {
+    "title": "Kunden",
+    "description": "Kundenstamm und CRM verwalten.",
+    "addCustomer": "Kunde",
+    "searchPlaceholder": "Kunden durchsuchen…",
+    "saveViewTitle": "Kunden",
+    "deleteConfirm": "Diesen Kunden wirklich löschen?",
+    "deleted": "Kunde gelöscht",
+    "deleteFailed": "Kunde konnte nicht gelöscht werden",
+    "columns": {
+      "name": "Name",
+      "contact": "Kontakt",
+      "location": "Standort"
+    },
+    "delete": "Löschen"
+  },
+  "detail": {
+    "loading": "Kundendetails werden geladen…",
+    "loadFailed": "Kunde konnte nicht geladen werden: {{message}}",
+    "notFound": "Kunde nicht gefunden.",
+    "breadcrumbFallback": "Kunde",
+    "backAria": "Zurück zur Kundenliste",
+    "companyBadge": "Unternehmen",
+    "updated": "Kunde aktualisiert",
+    "updateFailed": "Kunde konnte nicht aktualisiert werden",
+    "noVehicleForService": "Kein Fahrzeug vorhanden. Zuerst ein Fahrzeug anlegen, um einen Werkstattauftrag zu erstellen.",
+    "tabs": {
+      "overview": "Übersicht",
+      "orders": "Aufträge",
+      "vehicles": "Fahrzeuge",
+      "consent": "Kontaktpräferenzen"
+    },
+    "contact": "Kontakt",
+    "address": "Adresse",
+    "startService": "Werkstattauftrag",
+    "newSalesOrder": "Verkaufsauftrag",
+    "activeOrders": "Aktive Aufträge",
+    "orderHistory": "Auftragshistorie",
+    "vehicles": "Fahrzeuge",
+    "noVehicles": "Keine Fahrzeuge verknüpft",
+    "pickVehicle": "Fahrzeug für Werkstattauftrag wählen",
+    "fields": {
+      "companyName": "Firmenname",
+      "firstName": "Vorname",
+      "lastName": "Nachname",
+      "email": "E-Mail",
+      "phone": "Telefon",
+      "street": "Straße und Hausnummer",
+      "zip": "PLZ",
+      "city": "Ort",
+      "country": "Land"
+    },
+    "placeholders": {
+      "companyName": "Firmenname",
+      "firstName": "Vorname",
+      "lastName": "Nachname",
+      "street": "Straße und Hausnummer",
+      "zip": "PLZ",
+      "city": "Ort"
+    },
+    "empty": {
+      "companyName": "Firmenname hinzufügen",
+      "firstName": "Vorname hinzufügen",
+      "lastName": "Nachname hinzufügen",
+      "email": "E-Mail hinzufügen",
+      "phone": "Telefon hinzufügen",
+      "street": "Straße hinzufügen",
+      "zip": "PLZ hinzufügen",
+      "city": "Ort hinzufügen"
+    },
+    "aria": {
+      "companyName": "Firmenname",
+      "contactFirstName": "Ansprechpartner Vorname",
+      "contactLastName": "Ansprechpartner Nachname",
+      "firstName": "Kunde Vorname",
+      "lastName": "Kunde Nachname",
+      "email": "Kunden-E-Mail",
+      "phone": "Kundentelefon",
+      "street": "Kundenstraße",
+      "zip": "Kunden-PLZ",
+      "city": "Kundenort"
+    },
+    "orderTypes": {
+      "sales": "Verkauf",
+      "service": "Werkstatt"
+    },
+    "tables": {
+      "orderNumber": "Auftrag Nr.",
+      "type": "Typ",
+      "date": "Datum",
+      "status": "Status",
+      "total": "Summe",
+      "invoiceNumber": "Rechnung Nr.",
+      "noActiveOrders": "Keine aktiven Aufträge",
+      "noOrders": "Keine Aufträge",
+      "noInvoices": "Keine Rechnungen"
+    }
+  },
+  "dialog": {
+    "editTitle": "Kunde bearbeiten",
+    "addTitle": "Kunde hinzufügen",
+    "updated": "Kunde aktualisiert",
+    "created": "Kunde angelegt",
+    "saveFailed": "Kunde konnte nicht gespeichert werden",
+    "type": "Typ",
+    "selectType": "Typ wählen",
+    "private": "Privat",
+    "company": "Unternehmen",
+    "firstName": "Vorname",
+    "lastName": "Nachname",
+    "companyName": "Firmenname",
+    "email": "E-Mail",
+    "contactEmailOk": "Kontakt-E-Mail bestätigt",
+    "contactEmailOkLabel": "E-Mail-Adresse für Auftragskommunikation bestätigt",
+    "contactEmailOkDescription": "Der Kunde hat die Nutzung dieser E-Mail für Auftragskommunikation bestätigt.",
+    "contactEmailOkDescriptionEstimate": "Ohne diese Bestätigung kann der Kostenvoranschlag nicht per E-Mail gesendet werden.",
+    "addressSection": "Adresse",
+    "saveChanges": "Änderungen speichern",
+    "createCustomer": "Kunde anlegen",
+    "phone": "Telefon",
+    "vatId": "UID",
+    "street": "Straße",
+    "city": "Ort",
+    "zip": "PLZ",
+    "country": "Land",
+    "cancel": "Abbrechen",
+    "save": "Speichern"
   }
 }

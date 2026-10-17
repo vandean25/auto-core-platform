@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
 import {
     Dialog,
@@ -49,6 +51,10 @@ const DEFAULT_CUSTOMER: Partial<Customer> = {
 }
 
 export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpenChange }: CustomerDialogProps) {
+    const { t } = useTranslation('customers')
+    useEffect(() => {
+        void ensureNamespaceLoaded('customers')
+    }, [])
     const [open, setOpen] = useState(false)
     const isEdit = !!customer
     const createMutation = useCreateCustomer()
@@ -66,15 +72,15 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                 const emailChanged = (data.email ?? '') !== (customer.email ?? '')
                 const payload = emailChanged ? { ...data, contact_email_ok: false } : data
                 await updateMutation.mutateAsync({ id: customer.id, data: payload })
-                toast.success('Customer updated')
+                toast.success(t('dialog.updated'))
             } else {
                 const created = await createMutation.mutateAsync(data)
-                toastSuccessWithOpen('Customer created', () => navigate(`/customers/${created.id}`))
+                toastSuccessWithOpen(t('dialog.created'), () => navigate(`/customers/${created.id}`))
             }
             handleOpenChange(false)
             form.reset()
         } catch (error) {
-            toast.error('Failed to save customer')
+            toast.error(t('dialog.saveFailed'))
         }
     }
 
@@ -101,7 +107,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
             {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
             <DialogContent className="sm:max-w-[600px]">
                 <DialogHeader>
-                    <DialogTitle>{isEdit ? 'Edit Customer' : 'Add Customer'}</DialogTitle>
+                    <DialogTitle>{isEdit ? t('dialog.editTitle') : t('dialog.addTitle')}</DialogTitle>
                 </DialogHeader>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -110,16 +116,16 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                             name="type"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Type</FormLabel>
+                                    <FormLabel>{t('dialog.type')}</FormLabel>
                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                                         <FormControl>
                                             <SelectTrigger>
-                                                <SelectValue placeholder="Select type" />
+                                                <SelectValue placeholder={t('dialog.selectType')} />
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
-                                            <SelectItem value="PRIVATE">Private</SelectItem>
-                                            <SelectItem value="COMPANY">Company</SelectItem>
+                                            <SelectItem value="PRIVATE">{t('dialog.private')}</SelectItem>
+                                            <SelectItem value="COMPANY">{t('dialog.company')}</SelectItem>
                                         </SelectContent>
                                     </Select>
                                     <FormMessage />
@@ -134,7 +140,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                                     name="company_name"
                                     render={({ field }) => (
                                         <FormItem className="col-span-2">
-                                            <FormLabel>Company Name</FormLabel>
+                                            <FormLabel>{t('dialog.companyName')}</FormLabel>
                                             <FormControl>
                                                 <Input {...field} value={field.value ?? ''} />
                                             </FormControl>
@@ -147,7 +153,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                                     name="vat_id"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>VAT ID</FormLabel>
+                                            <FormLabel>{t('dialog.vatId')}</FormLabel>
                                             <FormControl>
                                                 <Input {...field} value={field.value ?? ''} />
                                             </FormControl>
@@ -164,7 +170,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                                 name="first_name"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>First Name</FormLabel>
+                                        <FormLabel>{t('dialog.firstName')}</FormLabel>
                                         <FormControl>
                                             <Input {...field} value={field.value ?? ''} />
                                         </FormControl>
@@ -177,7 +183,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                                 name="last_name"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Last Name</FormLabel>
+                                        <FormLabel>{t('dialog.lastName')}</FormLabel>
                                         <FormControl>
                                             <Input {...field} value={field.value ?? ''} />
                                         </FormControl>
@@ -193,7 +199,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                                 name="email"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Email</FormLabel>
+                                        <FormLabel>{t('dialog.email')}</FormLabel>
                                         <FormControl>
                                             <Input type="email" {...field} value={field.value ?? ''} />
                                         </FormControl>
@@ -206,7 +212,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                                 name="phone"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Phone</FormLabel>
+                                        <FormLabel>{t('dialog.phone')}</FormLabel>
                                         <FormControl>
                                             <Input {...field} value={field.value ?? ''} />
                                         </FormControl>
@@ -229,11 +235,11 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                                             />
                                         </FormControl>
                                         <FormLabel className="font-normal leading-snug">
-                                            E-Mail-Adresse für Auftragskommunikation bestätigt
+                                            {t('dialog.contactEmailOkLabel')}
                                         </FormLabel>
                                     </div>
                                     <FormDescription>
-                                        Ohne diese Bestätigung kann der Kostenvoranschlag nicht per E-Mail gesendet werden.
+                                        {t('dialog.contactEmailOkDescriptionEstimate')}
                                     </FormDescription>
                                     <FormMessage />
                                 </FormItem>
@@ -241,13 +247,13 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                         />
 
                         <div className="space-y-4">
-                            <h4 className="font-medium">Address</h4>
+                            <h4 className="font-medium">{t('dialog.addressSection')}</h4>
                             <FormField
                                 control={form.control}
                                 name="address_street"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Street</FormLabel>
+                                        <FormLabel>{t('dialog.street')}</FormLabel>
                                         <FormControl>
                                             <Input {...field} value={field.value ?? ''} />
                                         </FormControl>
@@ -261,7 +267,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                                     name="address_zip"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>ZIP</FormLabel>
+                                            <FormLabel>{t('dialog.zip')}</FormLabel>
                                             <FormControl>
                                                 <Input {...field} value={field.value ?? ''} />
                                             </FormControl>
@@ -274,7 +280,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                                     name="address_city"
                                     render={({ field }) => (
                                         <FormItem className="col-span-2">
-                                            <FormLabel>City</FormLabel>
+                                            <FormLabel>{t('dialog.city')}</FormLabel>
                                             <FormControl>
                                                 <Input {...field} value={field.value ?? ''} />
                                             </FormControl>
@@ -288,7 +294,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                                 name="address_country"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Country</FormLabel>
+                                        <FormLabel>{t('dialog.country')}</FormLabel>
                                         <FormControl>
                                             <Input {...field} value={field.value ?? ''} />
                                         </FormControl>
@@ -300,10 +306,10 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
 
                         <div className="flex justify-end gap-2">
                             <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
-                                Cancel
+                                {t('dialog.cancel')}
                             </Button>
                             <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                                {isEdit ? 'Save Changes' : 'Create Customer'}
+                                {isEdit ? t('dialog.saveChanges') : t('dialog.createCustomer')}
                             </Button>
                         </div>
                     </form>

@@ -1,6 +1,8 @@
 import type { components } from "@/api/generated/openapi";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import { ensureNamespaceLoaded } from "@/lib/i18n";
 import type { LegacyColumnDef as ColumnDef } from "@tanstack/react-table/legacy";
 import type { ColumnFiltersState } from "@tanstack/react-table";
 import { format } from "date-fns";
@@ -67,7 +69,12 @@ function matchesClientSearch(row: PickerlDueRow, term: string): boolean {
 }
 
 export default function PickerlDueList() {
+  const { t } = useTranslation("vehicles");
+  useEffect(() => {
+    void ensureNamespaceLoaded("vehicles");
+  }, []);
   const navigate = useNavigate();
+  const emDash = t("shared.emDash");
   const sessionQuery = useAuthSession();
   const canManagePickerl = canRecordVehicleInspection(
     sessionQuery.data?.activeRole,
@@ -128,7 +135,7 @@ export default function PickerlDueList() {
         plate: v.plate || "",
         vehicle: `${v.make} ${v.model}`,
         customer: customerName,
-        dueMonth: dueMonthRaw ? String(dueMonthRaw) : "—",
+        dueMonth: dueMonthRaw ? String(dueMonthRaw) : emDash,
         status:
           ((pickerlDue as Record<string, unknown>).status as string) ||
           "UNKNOWN",
@@ -138,7 +145,7 @@ export default function PickerlDueList() {
         openPickerlOrder: v.open_pickerl_order ?? null,
       };
     });
-  }, [responseData?.data]);
+  }, [emDash, responseData?.data]);
 
   const filteredRows = useMemo(() => {
     const term = globalFilter.trim().toLowerCase();
@@ -157,7 +164,7 @@ export default function PickerlDueList() {
       `/api/vehicles/pickerl-due/export?${searchParams.toString()}`,
     );
     if (!response.ok) {
-      toast.error("CSV export failed");
+      toast.error(t("pickerlDue.exportFailed"));
       return;
     }
     const text = await response.text();
@@ -171,35 +178,35 @@ export default function PickerlDueList() {
         accessorKey: "plate",
         enableSorting: false,
         header: ({ column }) => (
-          <DataTableColumnHeader column={column} title="Kennzeichen" />
+          <DataTableColumnHeader column={column} title={t("pickerlDue.columns.plate")} />
         ),
       },
       {
         accessorKey: "vehicle",
         enableSorting: false,
         header: ({ column }) => (
-          <DataTableColumnHeader column={column} title="Fahrzeug" />
+          <DataTableColumnHeader column={column} title={t("pickerlDue.columns.vehicle")} />
         ),
       },
       {
         accessorKey: "customer",
         enableSorting: false,
         header: ({ column }) => (
-          <DataTableColumnHeader column={column} title="Kunde" />
+          <DataTableColumnHeader column={column} title={t("pickerlDue.columns.customer")} />
         ),
       },
       {
         accessorKey: "dueMonth",
         enableSorting: false,
         header: ({ column }) => (
-          <DataTableColumnHeader column={column} title="Fällig im Monat" />
+          <DataTableColumnHeader column={column} title={t("pickerlDue.columns.dueMonth")} />
         ),
       },
       {
         accessorKey: "status",
         enableSorting: false,
         header: ({ column }) => (
-          <DataTableColumnHeader column={column} title="Status" />
+          <DataTableColumnHeader column={column} title={t("pickerlDue.columns.status")} />
         ),
         cell: ({ row }) => (
           <StatusBadge
@@ -213,22 +220,22 @@ export default function PickerlDueList() {
         accessorKey: "lastInspection",
         enableSorting: false,
         header: ({ column }) => (
-          <DataTableColumnHeader column={column} title="Letzte Überprüfung" />
+          <DataTableColumnHeader column={column} title={t("pickerlDue.columns.lastInspection")} />
         ),
-        cell: ({ row }) => row.original.lastInspection ?? "—",
+        cell: ({ row }) => row.original.lastInspection ?? emDash,
       },
       {
         accessorKey: "phone",
         enableSorting: false,
         header: ({ column }) => (
-          <DataTableColumnHeader column={column} title="Telefon" />
+          <DataTableColumnHeader column={column} title={t("pickerlDue.columns.phone")} />
         ),
       },
       {
         accessorKey: "email",
         enableSorting: false,
         header: ({ column }) => (
-          <DataTableColumnHeader column={column} title="Email" />
+          <DataTableColumnHeader column={column} title={t("pickerlDue.columns.email")} />
         ),
       },
       {
@@ -249,7 +256,7 @@ export default function PickerlDueList() {
                     size="sm"
                     onClick={() => setRecordPickerlVehicleId(row.original.id)}
                   >
-                    Pickerl erfasst
+                    {t("pickerlDue.recordPickerl")}
                   </Button>
                   {row.original.openPickerlOrder ? (
                     <Button
@@ -261,7 +268,7 @@ export default function PickerlDueList() {
                         )
                       }
                     >
-                      §57a-Auftrag öffnen
+                      {t("pickerlDue.openOrder")}
                     </Button>
                   ) : (
                     <Button
@@ -269,7 +276,7 @@ export default function PickerlDueList() {
                       size="sm"
                       onClick={() => setIntakeVehicleId(row.original.id)}
                     >
-                      §57a-Auftrag anlegen
+                      {t("pickerlDue.createOrder")}
                     </Button>
                   )}
                 </>
@@ -279,18 +286,16 @@ export default function PickerlDueList() {
         },
       },
     ];
-  }, [canManagePickerl, navigate]);
+  }, [canManagePickerl, emDash, navigate, t]);
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
-            Pickerl fällig
+            {t("pickerlDue.title")}
           </h1>
-          <p className="text-slate-500">
-            Work list of vehicles whose §57a Pickerl is due.
-          </p>
+          <p className="text-slate-500">{t("pickerlDue.description")}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button
@@ -300,7 +305,7 @@ export default function PickerlDueList() {
             onClick={() => void exportDueCsv()}
           >
             <Download className="mr-2 h-4 w-4" />
-            Export due CSV
+            {t("pickerlDue.exportCsv")}
           </Button>
         </div>
       </div>
@@ -319,14 +324,14 @@ export default function PickerlDueList() {
             setPagination((current) => ({ ...current, pageIndex: 0 }));
           }}
         >
-          <SelectTrigger aria-label="Fenster" className="w-[180px]">
-            <SelectValue placeholder="Fenster" />
+          <SelectTrigger aria-label={t("pickerlDue.windowAria")} className="w-[180px]">
+            <SelectValue placeholder={t("pickerlDue.windowPlaceholder")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={WINDOW_ALL}>Alle Fenster</SelectItem>
-            <SelectItem value="30">30 Tage</SelectItem>
-            <SelectItem value="60">60 Tage</SelectItem>
-            <SelectItem value="90">90 Tage</SelectItem>
+            <SelectItem value={WINDOW_ALL}>{t("pickerlDue.windowAll")}</SelectItem>
+            <SelectItem value="30">{t("pickerlDue.windowDays", { count: 30 })}</SelectItem>
+            <SelectItem value="60">{t("pickerlDue.windowDays", { count: 60 })}</SelectItem>
+            <SelectItem value="90">{t("pickerlDue.windowDays", { count: 90 })}</SelectItem>
           </SelectContent>
         </Select>
 
@@ -343,15 +348,15 @@ export default function PickerlDueList() {
             setPagination((current) => ({ ...current, pageIndex: 0 }));
           }}
         >
-          <SelectTrigger aria-label="Status" className="w-[180px]">
-            <SelectValue placeholder="Status" />
+          <SelectTrigger aria-label={t("pickerlDue.statusAria")} className="w-[180px]">
+            <SelectValue placeholder={t("pickerlDue.statusPlaceholder")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={STATUS_ALL}>Alle Status</SelectItem>
-            <SelectItem value="OK">OK</SelectItem>
-            <SelectItem value="DUE_SOON">Bald fällig</SelectItem>
-            <SelectItem value="OVERDUE">Überfällig</SelectItem>
-            <SelectItem value="UNKNOWN">Unbekannt</SelectItem>
+            <SelectItem value={STATUS_ALL}>{t("pickerlDue.statusAll")}</SelectItem>
+            <SelectItem value="OK">{t("pickerlDue.statusOk")}</SelectItem>
+            <SelectItem value="DUE_SOON">{t("pickerlDue.statusDueSoon")}</SelectItem>
+            <SelectItem value="OVERDUE">{t("pickerlDue.statusOverdue")}</SelectItem>
+            <SelectItem value="UNKNOWN">{t("pickerlDue.statusUnknown")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -362,14 +367,14 @@ export default function PickerlDueList() {
         isLoading={isLoading}
         pageCount={responseData?.meta.pageCount ?? 0}
         enableCsvExport={false}
-        getRowAccessibleName={(row) => `Vehicle ${row.plate}`}
+        getRowAccessibleName={(row) => t("pickerlDue.vehicleRowAria", { plate: row.plate })}
         onRowClick={(row) => navigate(`/vehicles/${row.id}`)}
         columnFilters={columnFilters}
         setColumnFilters={setColumnFilters}
         setPagination={setPagination}
         globalFilter={globalFilter}
         setGlobalFilter={setGlobalFilter}
-        searchPlaceholder="Suche in geladenen Zeilen…"
+        searchPlaceholder={t("pickerlDue.searchLoadedRows")}
         {...tableState}
       />
 
