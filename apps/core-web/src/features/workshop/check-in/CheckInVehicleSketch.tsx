@@ -95,6 +95,8 @@ export function CheckInVehicleSketch({
         ref={sketchRef}
         className="check-in-vehicle-sketch relative mx-auto max-w-xs rounded-md border bg-white p-2"
         data-testid="check-in-vehicle-sketch"
+        role="group"
+        tabIndex={disabled ? -1 : 0}
         onPointerDown={handlePointer}
         onKeyDown={handleKeyDown}
       >

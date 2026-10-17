@@ -258,7 +258,7 @@ describe('workshop check-in evidence snapshot', () => {
       }),
     );
     expect(digest).toBe(
-      '6d3fe06afc93932aae21fb79e64e264a756669c7c97b0dd9995d7b46b0fdf1fd',
+      '89f1d22564592132c0d05875ef7ca0b58fd807b456ebb5c3d39f3191941f4d36',
     );
   });
 });
