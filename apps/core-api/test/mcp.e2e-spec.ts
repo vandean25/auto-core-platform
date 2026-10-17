@@ -6031,21 +6031,15 @@ describe('MCP server (e2e)', () => {
         proposed.pending_action_id,
         adminHeaderA,
       ).expect(200);
-      const executed = applied.body.result as {
-        invoice_id: string;
-        status: string;
-        totals: { gross: string };
-      };
-      expect(executed.status).toBe('DRAFT');
-      expect(executed.totals.gross).toBe(
-        proposed.proposal.preview.totals.gross,
-      );
+      expect(applied.body.status).toBe('EXECUTED');
 
       const invoice = await prismaA.invoice.findFirstOrThrow({
         where: { workshop_order_id: order.id },
       });
       expect(invoice.status).toBe('DRAFT');
-      expect(invoice.id).toBe(executed.invoice_id);
+      expect(invoice.total_gross.toFixed(2)).toBe(
+        proposed.proposal.preview.totals.gross,
+      );
 
       await expectActionLogRow(traceId, 'mcp.propose_invoice_draft_from_order', {
         status: 'PROPOSED',
