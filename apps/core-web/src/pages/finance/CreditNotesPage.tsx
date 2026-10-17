@@ -1,4 +1,6 @@
+import { useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { type LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { useCreditNotes } from '@/api/useCreditNotes'
 import type { CreditNoteResponseDto } from '@/api/useCreditNotes'
@@ -10,10 +12,16 @@ import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { formatDateShort } from '@/lib/format'
 import { formatCurrency } from '@/lib/utils'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 
 const formatDate = (value: string) => formatDateShort(value)
 
 export default function CreditNotesPage() {
+  const { t } = useTranslation('finance')
+  useEffect(() => {
+    void ensureNamespaceLoaded('finance')
+  }, [])
+
   const navigate = useNavigate()
   const { queryParams, ...tableState } = useDataTableQuery({
     defaultPageSize: 10,
@@ -29,68 +37,70 @@ export default function CreditNotesPage() {
   const data = responseData?.data ?? []
   const pageCount = responseData?.meta?.pageCount ?? 1
 
-  const columns: ColumnDef<CreditNoteResponseDto>[] = [
-    {
-      accessorKey: 'creditNumber',
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Credit #" />
-      ),
-      cell: ({ row }) => (
-        <div className="font-medium">
-          {row.original.creditNumber ?? `Draft ${row.original.id.slice(0, 8)}`}
-        </div>
-      ),
-    },
-    {
-      accessorKey: 'date',
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Date" />
-      ),
-      cell: ({ row }) => <div>{formatDate(row.original.date)}</div>,
-    },
-    {
-      accessorKey: 'reason',
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Reason" />
-      ),
-      cell: ({ row }) => (
-        <div className="max-w-[320px] truncate">{row.original.reason}</div>
-      ),
-    },
-    {
-      accessorKey: 'totalGross',
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Total" />
-      ),
-      cell: ({ row }) => (
-        <div className="text-right font-medium">
-          {formatCurrency(Number(row.original.totalGross))}
-        </div>
-      ),
-    },
-    {
-      accessorKey: 'status',
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Status" />
-      ),
-      cell: ({ row }) => <StatusBadge status={row.original.status} />,
-    },
-  ]
+  const columns: ColumnDef<CreditNoteResponseDto>[] = useMemo(
+    () => [
+      {
+        accessorKey: 'creditNumber',
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title={t('columns.creditNumber')} />
+        ),
+        cell: ({ row }) => (
+          <div className="font-medium">
+            {row.original.creditNumber ??
+              t('shared.draftLabel', { id: row.original.id.slice(0, 8) })}
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'date',
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title={t('columns.date')} />
+        ),
+        cell: ({ row }) => <div>{formatDate(row.original.date)}</div>,
+      },
+      {
+        accessorKey: 'reason',
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title={t('columns.reason')} />
+        ),
+        cell: ({ row }) => (
+          <div className="max-w-[320px] truncate">{row.original.reason}</div>
+        ),
+      },
+      {
+        accessorKey: 'totalGross',
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title={t('columns.total')} />
+        ),
+        cell: ({ row }) => (
+          <div className="text-right font-medium">
+            {formatCurrency(Number(row.original.totalGross))}
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'status',
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title={t('columns.status')} />
+        ),
+        cell: ({ row }) => <StatusBadge status={row.original.status} />,
+      },
+    ],
+    [t],
+  )
 
   return (
     <>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Credit Notes</h1>
-          <p className="text-slate-500">
-            Commercial corrections and storno documents for finalized invoices
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight">{t('creditNotes.list.title')}</h1>
+          <p className="text-slate-500">{t('creditNotes.list.subtitle')}</p>
         </div>
         <Button
           variant="outline"
           onClick={() => navigate(APP_ROUTE_PATHS.salesInvoices)}
         >
-          Open Sales Invoices
+          {t('creditNotes.list.openSalesInvoices')}
         </Button>
       </div>
 

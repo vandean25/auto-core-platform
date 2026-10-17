@@ -6,7 +6,9 @@
     "enums:importEntityType.",
     "enums:importField.",
     "enums:dataTableColumn.",
-    "common:landingDemo.errors."
+    "common:landingDemo.errors.",
+    "finance:accountingExportReadiness.blockers.",
+    "finance:accountingExportReadiness.documentKind."
   ],
   "usedKeys": []
 }

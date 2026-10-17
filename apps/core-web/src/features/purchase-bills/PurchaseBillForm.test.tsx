@@ -1,5 +1,9 @@
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import deFinance from '../../../../../locales/de/finance.json'
+import { registerGermanUiForTests } from '@/test/german-ui'
 import { vi, describe, it, expect, beforeEach } from 'vitest'
+
+registerGermanUiForTests()
 import { PurchaseBillForm } from './PurchaseBillForm'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import * as purchaseApi from '@/api/usePurchaseInvoices'
@@ -69,7 +73,7 @@ describe('PurchaseBillForm Characterization', () => {
     
     renderComponent()
 
-    const input = screen.getByLabelText('Vendor Bill #')
+    const input = screen.getByLabelText(deFinance.purchaseBills.form.vendorBillNumber)
     fireEvent.change(input, { target: { value: 'INV-UPDATED' } })
 
     await waitFor(() => {
@@ -90,9 +94,9 @@ describe('PurchaseBillForm Characterization', () => {
         .map((element) => element.closest('div')?.parentElement)
         .find((element): element is HTMLElement => element instanceof HTMLElement)
 
-    const itemsCard = findSummaryCard('Items')
-    const taxCard = findSummaryCard('Tax')
-    const totalCard = findSummaryCard('Total')
+    const itemsCard = findSummaryCard(deFinance.purchaseBills.form.summaryItems)
+    const taxCard = findSummaryCard(deFinance.purchaseBills.form.summaryTax)
+    const totalCard = findSummaryCard(deFinance.purchaseBills.form.summaryTotal)
 
     expect(itemsCard).not.toBeNull()
     expect(taxCard).not.toBeNull()

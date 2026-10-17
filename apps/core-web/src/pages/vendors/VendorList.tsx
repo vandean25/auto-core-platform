@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { type LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useDeleteVendor, useVendors } from '@/api/vendors'
 import { Button } from '@/components/ui/button'
 import { VendorDialog } from './VendorDialog'
@@ -13,8 +14,14 @@ import type { Vendor } from '@/api/types'
 import { toast } from 'sonner'
 import { DASHBOARD_WIDGET_SOURCE_VENDORS } from '@/features/dashboard-widgets/sources'
 import { getErrorMessage } from '@/lib/error-utils'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 
 export default function VendorList() {
+    const { t } = useTranslation('finance')
+    useEffect(() => {
+        void ensureNamespaceLoaded('finance')
+    }, [])
+
     const navigate = useNavigate()
     const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
     const { data: responseData, isLoading } = useVendors(queryParams)
@@ -25,32 +32,32 @@ export default function VendorList() {
     const pageCount = Array.isArray(responseData) ? 1 : responseData?.meta?.pageCount ?? 1
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Are you sure you want to delete this vendor?')) return
+        if (!confirm(t('vendors.list.deleteConfirm'))) return
         try {
             await deleteMutation.mutateAsync(id)
-            toast.success('Vendor deleted')
+            toast.success(t('vendors.list.deleted'))
         } catch (error: unknown) {
-            toast.error(getErrorMessage(error, 'Failed to delete vendor'))
+            toast.error(getErrorMessage(error, t('vendors.list.deleteFailed')))
         }
     }
 
-    const columns: ColumnDef<Vendor>[] = [
+    const columns: ColumnDef<Vendor>[] = useMemo(() => [
         {
             accessorKey: 'name',
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Name" />,
+            header: ({ column }) => <DataTableColumnHeader column={column} title={t('columns.name')} />,
             cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
         },
         {
             accessorKey: 'email',
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Email" />,
+            header: ({ column }) => <DataTableColumnHeader column={column} title={t('columns.email')} />,
         },
         {
             accessorKey: 'account_number',
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Account #" />,
+            header: ({ column }) => <DataTableColumnHeader column={column} title={t('columns.accountNumber')} />,
         },
         {
             accessorKey: 'supportedBrands',
-            header: 'Supported Brands',
+            header: t('columns.supportedBrands'),
             enableSorting: false,
             cell: ({ row }) => (
                 <div className="flex flex-wrap gap-1">
@@ -62,33 +69,33 @@ export default function VendorList() {
                 </div>
             ),
         },
-    ]
+    ], [t])
 
     return (
         <>
             <div className="flex items-center justify-between mb-8">
                 <div>
-                    <h1 className="text-2xl font-semibold tracking-tight">Vendors</h1>
-                    <p className="text-slate-500">Manage your suppliers and service providers.</p>
+                    <h1 className="text-2xl font-semibold tracking-tight">{t('vendors.list.title')}</h1>
+                    <p className="text-slate-500">{t('vendors.list.subtitle')}</p>
                 </div>
                 <Button onClick={() => setIsDialogOpen(true)}>
-                    <Plus className="mr-2 h-4 w-4" /> Vendor
+                    <Plus className="mr-2 h-4 w-4" /> {t('vendors.list.create')}
                 </Button>
             </div>
 
             <DataTable
                 columns={columns}
                 data={data}
-                saveViewTitle="Vendors"
+                saveViewTitle={t('vendors.list.saveViewTitle')}
                 dashboardSource={DASHBOARD_WIDGET_SOURCE_VENDORS}
                 pageCount={pageCount}
                 isLoading={isLoading}
                 searchColumn="name"
-                searchPlaceholder="Search vendors..."
+                searchPlaceholder={t('vendors.list.searchPlaceholder')}
                 onRowClick={(row) => navigate(`/vendors/${row.id}`)}
                 getRowContextActions={(row) => [
                     {
-                        label: 'Delete',
+                        label: t('actions.delete'),
                         onClick: () => void handleDelete(row.id),
                         destructive: true,
                     },

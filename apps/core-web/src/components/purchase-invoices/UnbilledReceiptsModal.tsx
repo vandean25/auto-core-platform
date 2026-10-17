@@ -1,4 +1,6 @@
 import * as React from "react"
+import { useEffect } from "react"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -18,6 +20,8 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import type { UnbilledReceiptItem } from "@/api/types"
+import { formatCurrency } from "@/lib/format"
+import { ensureNamespaceLoaded } from "@/lib/i18n"
 
 interface UnbilledReceiptsModalProps {
     open: boolean
@@ -28,10 +32,14 @@ interface UnbilledReceiptsModalProps {
 }
 
 export function UnbilledReceiptsModal({ open, onOpenChange, items, onAdd, preSelectPoId }: UnbilledReceiptsModalProps) {
+    const { t } = useTranslation('finance')
+    useEffect(() => {
+        void ensureNamespaceLoaded('finance')
+    }, [])
+
     const [selected, setSelected] = React.useState<Record<string, boolean>>({})
     const [quantities, setQuantities] = React.useState<Record<string, number>>({})
 
-    // Reset state when opening
     React.useEffect(() => {
         if (open) {
             const initialSelected: Record<string, boolean> = {}
@@ -86,7 +94,7 @@ export function UnbilledReceiptsModal({ open, onOpenChange, items, onAdd, preSel
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
                 <DialogHeader>
-                    <DialogTitle>Import Unbilled Receipts</DialogTitle>
+                    <DialogTitle>{t('purchaseInvoices.unbilledModal.title')}</DialogTitle>
                 </DialogHeader>
                 
                 <div className="flex-1 overflow-auto py-4">
@@ -99,11 +107,11 @@ export function UnbilledReceiptsModal({ open, onOpenChange, items, onAdd, preSel
                                         onCheckedChange={(c) => handleSelectAll(!!c)} 
                                     />
                                 </TableHead>
-                                <TableHead>PO #</TableHead>
-                                <TableHead>Item</TableHead>
-                                <TableHead className="text-right">Pending</TableHead>
-                                <TableHead className="text-right">Unit Cost</TableHead>
-                                <TableHead className="w-[100px]">Bill Qty</TableHead>
+                                <TableHead>{t('columns.poNumber')}</TableHead>
+                                <TableHead>{t('columns.item')}</TableHead>
+                                <TableHead className="text-right">{t('columns.pending')}</TableHead>
+                                <TableHead className="text-right">{t('columns.unitCost')}</TableHead>
+                                <TableHead className="w-[100px]">{t('columns.billQty')}</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -120,7 +128,7 @@ export function UnbilledReceiptsModal({ open, onOpenChange, items, onAdd, preSel
                                         <div className="font-medium">{item.catalogItemName}</div>
                                     </TableCell>
                                     <TableCell className="text-right">{item.quantityPending}</TableCell>
-                                    <TableCell className="text-right">${item.lastUnitCost.toFixed(2)}</TableCell>
+                                    <TableCell className="text-right">{formatCurrency(item.lastUnitCost)}</TableCell>
                                     <TableCell>
                                         <Input 
                                             type="number"
@@ -137,9 +145,9 @@ export function UnbilledReceiptsModal({ open, onOpenChange, items, onAdd, preSel
                 </div>
 
                 <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>{t('actions.cancel')}</Button>
                     <Button onClick={handleAdd} disabled={items.filter(i => selected[i.purchaseOrderItemId]).length === 0}>
-                        Add Selected to Bill
+                        {t('purchaseInvoices.unbilledModal.addSelected')}
                     </Button>
                 </DialogFooter>
             </DialogContent>

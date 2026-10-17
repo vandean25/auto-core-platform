@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useVendors } from '@/api/vendors'
 import { useCreatePO } from '@/api/purchase-orders'
 import { useBrands } from '@/api/brands'
@@ -10,25 +11,28 @@ import { toast } from "sonner"
 import { cn } from '@/lib/utils'
 import { Loader2 } from 'lucide-react'
 import type { Brand, Vendor } from '@/api/types'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 
 type PurchaseOrderDraftSnapshot = {
     vendorId: string
 }
 
 export default function PurchaseOrderCreate() {
+    const { t } = useTranslation('finance')
+    useEffect(() => {
+        void ensureNamespaceLoaded('finance')
+    }, [])
+
     const navigate = useNavigate()
     const [searchParams] = useSearchParams()
     const [step, setStep] = useState(1)
 
-    // Step 1: Brand
     const { data: brands, isLoading: isLoadingBrands } = useBrands()
     const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null)
 
-    // Step 2: Vendor
     const { data: vendorsResponse } = useVendors()
     const vendors: Vendor[] = vendorsResponse?.data ?? []
 
-    // Compute valid vendor ID based on params, brand, and available vendors
     const computeValidVendorId = () => {
         const vendorIdFromParams = searchParams.get('vendorId') ?? ''
         if (!vendorIdFromParams) return ''
@@ -67,7 +71,7 @@ export default function PurchaseOrderCreate() {
         save: saveDraft,
         shouldSave: (snapshot) => Boolean(snapshot.vendorId),
         onError: (error) => {
-            toast.error("Failed to create PO", {
+            toast.error(t('purchaseOrders.create.createFailed'), {
                 description: error instanceof Error ? error.message : undefined,
             })
         },
@@ -93,12 +97,11 @@ export default function PurchaseOrderCreate() {
         <div className="space-y-8">
             <div className="flex items-center justify-between mb-8">
                 <div>
-                    <h1 className="text-2xl font-semibold tracking-tight">Create Purchase Order</h1>
+                    <h1 className="text-2xl font-semibold tracking-tight">{t('purchaseOrders.create.title')}</h1>
                 </div>
                 <DocumentSaveIndicator status={saveStatus} />
             </div>
 
-            {/* Steps Indicator */}
             <div className="flex space-x-4 mb-8">
                 {[1, 2].map(s => (
                     <div key={s} className={cn("h-2 flex-1 rounded-full", s <= step ? "bg-primary" : "bg-muted")} />
@@ -107,7 +110,7 @@ export default function PurchaseOrderCreate() {
 
             {step === 1 && (
                 <div className="space-y-4">
-                    <h2 className="text-xl font-semibold">Step 1: Select Brand</h2>
+                    <h2 className="text-xl font-semibold">{t('purchaseOrders.create.stepBrand')}</h2>
                     {isLoadingBrands ? (
                         <div className="flex justify-center py-12">
                             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -136,12 +139,14 @@ export default function PurchaseOrderCreate() {
 
             {step === 2 && (
                 <div className="space-y-4">
-                    <h2 className="text-xl font-semibold">Step 2: Select Vendor</h2>
-                    <p className="text-muted-foreground">Showing vendors for <strong>{selectedBrand?.name}</strong></p>
+                    <h2 className="text-xl font-semibold">{t('purchaseOrders.create.stepVendor')}</h2>
+                    <p className="text-muted-foreground">
+                        {t('purchaseOrders.create.vendorsForBrand', { brand: selectedBrand?.name ?? '' })}
+                    </p>
 
                     <div className="grid gap-4">
                         {filteredVendors?.length === 0 ? (
-                            <div className="text-red-500">No vendors found for this brand.</div>
+                            <div className="text-red-500">{t('purchaseOrders.create.noVendorsForBrand')}</div>
                         ) : (
                             <div className="grid grid-cols-1 gap-2">
                                 {filteredVendors?.map((vendor: Vendor) => (
@@ -167,12 +172,12 @@ export default function PurchaseOrderCreate() {
                         <Button variant="outline" onClick={() => {
                             clearPendingSave()
                             setStep(1)
-                        }}>Back</Button>
+                        }}>{t('actions.back')}</Button>
                         <Button 
                             onClick={handleCreatePO} 
                             disabled={!selectedVendorId || createPO.isPending}
                         >
-                            {createPO.isPending ? 'Creating...' : 'Create Purchase Order'}
+                            {createPO.isPending ? t('shared.creating') : t('purchaseOrders.create.createButton')}
                         </Button>
                     </div>
                 </div>
