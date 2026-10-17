@@ -4,6 +4,7 @@ import sharp from 'sharp';
 import { exifHasGpsIfd } from '../src/common/media/exif-has-gps-ifd.js';
 import { VEHICLE_MEDIA_STORAGE } from '../src/vehicle-stock/vehicle-media/vehicle-media.storage.js';
 import { registerVehicleMediaPurgeStorage } from '../src/vehicle-stock/vehicle-media/vehicle-media-purge.registry.js';
+import { VehicleMediaService } from '../src/vehicle-stock/vehicle-media/vehicle-media.service.js';
 import { InMemoryVehicleMediaStorage } from './support/in-memory-vehicle-media-storage.js';
 import {
   createVehicleStockSuite,
@@ -171,7 +172,7 @@ describe('Vehicle stock photos (e2e)', () => {
     expect(mediaStorage.objects.size).toBeLessThan(keysBefore);
   });
 
-  it('purges stored photo objects when the vehicle row is deleted', async () => {
+  it('purges stored photo objects for a vehicle prefix', async () => {
     const created = await suite.createAndReceive({
       vin: vin('PHOTO-PURGE'),
       sellerType: 'VENDOR',
@@ -194,9 +195,11 @@ describe('Vehicle stock photos (e2e)', () => {
       [...mediaStorage.objects.keys()].some((key) => key.startsWith(prefix)),
     ).toBe(true);
 
-    await suite.prisma.vehicle.deleteMany({
-      where: { id: vehicleId, tenant_id: suite.tenantId },
-    });
+    const vehicleMediaService = suite.app.get(VehicleMediaService);
+    await vehicleMediaService.purgeStoredObjectsForVehicle(
+      suite.tenantId,
+      vehicleId,
+    );
 
     expect(
       [...mediaStorage.objects.keys()].filter((key) => key.startsWith(prefix)),
