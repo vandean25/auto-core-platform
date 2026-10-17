@@ -167,7 +167,11 @@ export class PendingActionExecutorService {
                 : await this.siteContext.getSiteId();
             return { site_id: siteId };
           },
-          execute: (input) => this.acknowledgeMechanicFinding(input),
+          execute: (input, executionContext) =>
+            this.mechanicFindingPropose.applyAcknowledgment(
+              input,
+              executionContext,
+            ),
           buildResultSummary: (result) => ({
             workshop_task_id: (result as { workshop_task_id: string })
               .workshop_task_id,
@@ -704,59 +708,6 @@ export class PendingActionExecutorService {
     return this.workshopMediaUploadMcp.createUploadSlot(parsed);
   }
 
-  /** Advisor acknowledgment of a mechanic finding. Does not add estimate lines. */
-  private async acknowledgeMechanicFinding(input: unknown): Promise<unknown> {
-    const record = this.asRecord(input);
-    const orderId =
-      typeof record.workshop_order_id === 'string'
-        ? record.workshop_order_id
-        : '';
-    const taskId =
-      typeof record.workshop_task_id === 'string'
-        ? record.workshop_task_id
-        : '';
-    if (!orderId || !taskId) {
-      throw new BadRequestException(
-        'Mechanic finding payload requires workshop_order_id and workshop_task_id',
-      );
-    }
-    const [tenantId, siteId] = await Promise.all([
-      this.tenantContext.getTenantId(),
-      this.siteContext.getSiteId(),
-    ]);
-    const payloadSiteId =
-      typeof record.site_id === 'string' ? record.site_id : null;
-    if (payloadSiteId && payloadSiteId !== siteId) {
-      throw new BadRequestException(
-        `Action payload site (${payloadSiteId}) does not match caller authorized site (${siteId})`,
-      );
-    }
-    const order = await this.prisma.workshopOrder.findFirst({
-      where: { id: orderId, tenant_id: tenantId, site_id: siteId },
-      select: { id: true, status: true, purpose: true },
-    });
-    if (!order) {
-      throw new NotFoundException(`Workshop order ${orderId} not found`);
-    }
-    assertOrderEditable(order);
-    const task = await this.prisma.workshopTask.findFirst({
-      where: {
-        id: taskId,
-        tenant_id: tenantId,
-        workshop_order_id: orderId,
-        workshop_order: { site_id: siteId },
-      },
-      select: { id: true },
-    });
-    if (!task) {
-      throw new NotFoundException(`Workshop task ${taskId} not found`);
-    }
-    return {
-      workshop_order_id: orderId,
-      workshop_task_id: taskId,
-      entityId: taskId,
-    };
-  }
 
   /**
    * AUT-413 approval of a PROPOSE import match. Same write as live AUTO, scoped

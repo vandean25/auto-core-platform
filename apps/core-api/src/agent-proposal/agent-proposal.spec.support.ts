@@ -148,6 +148,7 @@ export function createAgentProposalSpecHarness() {
   };
   const mockMechanicFindingPropose = {
     enrichInput: jest.fn(async (input: unknown) => input),
+    normalizeSubmitPayload: jest.fn(async (input: unknown) => input),
     buildExecutionContext: jest
       .fn()
       .mockResolvedValue({ site_id: 'site-1' }),
@@ -187,7 +188,7 @@ export function createAgentProposalSpecHarness() {
   const submitPayloadNormalizer = {
     normalize: jest.fn(async (actionType: string, payload: unknown) => {
       if (actionType === 'workshop_order.mechanic_finding') {
-        return mockMechanicFindingPropose.enrichInput(payload);
+        return mockMechanicFindingPropose.normalizeSubmitPayload(payload);
       }
       return payload;
     }),

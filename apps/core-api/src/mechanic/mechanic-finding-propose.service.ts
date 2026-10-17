@@ -15,6 +15,11 @@ import {
   proposeMechanicFindingInputSchema,
   type ProposeMechanicFindingInput,
 } from './mechanic-finding-propose.schema.js';
+import {
+  coerceMechanicFindingApplyInput,
+  extractMechanicFindingMcpInput,
+  readMechanicFindingSubmitAgentId,
+} from './mechanic-finding-payload.util.js';
 
 export const MECHANIC_FINDING_MCP_PROPOSE_ACTION_TYPE =
   'workshop_order.propose_mechanic_finding';
@@ -77,6 +82,16 @@ export class MechanicFindingProposeService {
     return record;
   }
 
+  /** Supervisor submit: validate media and store the same payload shape as MCP propose. */
+  async normalizeSubmitPayload(
+    payload: unknown,
+  ): Promise<Record<string, unknown>> {
+    const mcpInput = extractMechanicFindingMcpInput(payload);
+    const agentId = readMechanicFindingSubmitAgentId(payload);
+    const built = await this.buildProposalPayload(mcpInput, agentId);
+    return built.payload_json;
+  }
+
   async buildProposalPayload(
     input: unknown,
     agentId: string,
@@ -131,7 +146,7 @@ export class MechanicFindingProposeService {
     input: unknown,
     executionContext?: Record<string, unknown>,
   ): Promise<MechanicFindingProposeApplyResult> {
-    const parsed = proposeMechanicFindingInputSchema.parse(input);
+    const parsed = coerceMechanicFindingApplyInput(input);
     const tenantId = await this.tenantContext.getTenantId();
     const expectedSiteId =
       typeof executionContext?.site_id === 'string'

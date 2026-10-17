@@ -3,6 +3,12 @@ import type { MechanicFindingProposeService } from './mechanic-finding-propose.s
 /** Stand-in when MechanicFindingProposeService is not injected (trace unit tests). */
 export const mechanicFindingProposeNoop = {
   enrichInput: (input: unknown) => Promise.resolve(input),
+  normalizeSubmitPayload: (input: unknown) =>
+    Promise.resolve(
+      input !== null && typeof input === 'object' && !Array.isArray(input)
+        ? (input as Record<string, unknown>)
+        : {},
+    ),
   buildProposalPayload: () =>
     Promise.resolve({
       action_type: 'workshop_order.mechanic_finding',
@@ -11,5 +17,5 @@ export const mechanicFindingProposeNoop = {
     }),
 } satisfies Pick<
   MechanicFindingProposeService,
-  'enrichInput' | 'buildProposalPayload'
+  'enrichInput' | 'normalizeSubmitPayload' | 'buildProposalPayload'
 >;
