@@ -3750,6 +3750,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vehicle-equipment-options/{optionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Activate or deactivate a tenant equipment option */
+        patch: operations["VehicleEquipmentController_patchOption"];
+        trace?: never;
+    };
     "/api/vehicle-stock/{vehicleId}/equipment": {
         parameters: {
             query?: never;
@@ -3757,9 +3774,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get equipment assigned to a stock vehicle */
+        /** Get equipment for the current stock cycle of a stock vehicle */
         get: operations["VehicleEquipmentController_getAssignment"];
-        /** Replace equipment assigned to a stock vehicle */
+        /** Replace equipment for the current stock cycle of a stock vehicle */
         put: operations["VehicleEquipmentController_replaceAssignment"];
         post?: never;
         delete?: never;
@@ -9549,6 +9566,15 @@ export interface components {
             data: components["schemas"]["VehicleEquipmentOptionDto"][];
             meta: components["schemas"]["PaginationMetaDto"];
         };
+        PatchVehicleEquipmentOptionDto: {
+            active: boolean;
+        };
+        /** @enum {string} */
+        VehicleEquipmentAssertion: "PRESENT" | "ABSENT";
+        VehicleEquipmentSelectionDto: {
+            option: components["schemas"]["VehicleEquipmentOptionDto"];
+            assertion: components["schemas"]["VehicleEquipmentAssertion"];
+        };
         VehicleEquipmentFreeTextItemDto: {
             /** Format: uuid */
             id: string;
@@ -9556,14 +9582,20 @@ export interface components {
             sort_order: number;
         };
         VehicleEquipmentAssignmentDto: {
-            options: components["schemas"]["VehicleEquipmentOptionDto"][];
+            /** Format: uuid */
+            stock_purchase_id: string;
+            selections: components["schemas"]["VehicleEquipmentSelectionDto"][];
             free_text_items: components["schemas"]["VehicleEquipmentFreeTextItemDto"][];
         };
+        VehicleEquipmentSelectionWriteDto: {
+            /** Format: uuid */
+            option_id: string;
+            assertion: components["schemas"]["VehicleEquipmentAssertion"];
+        };
         ReplaceVehicleEquipmentDto: {
-            /** @description VehicleEquipmentOption ids for this tenant */
-            option_ids?: string[];
-            /** @description Free-text equipment lines (unknown options stay as plain text) */
-            free_text_lines?: string[];
+            selections: components["schemas"]["VehicleEquipmentSelectionWriteDto"][];
+            /** @description Free-text equipment lines for the current stock cycle (unknown options stay as plain text) */
+            free_text_lines: string[];
         };
         /** @enum {string} */
         EmployeeRole: "MECHANIC" | "SERVICE_ADVISOR" | "PARTS_CLERK";
@@ -18461,6 +18493,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VehicleEquipmentOptionListResponseDto"];
+                };
+            };
+        };
+    };
+    VehicleEquipmentController_patchOption: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                optionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchVehicleEquipmentOptionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleEquipmentOptionDto"];
                 };
             };
         };
