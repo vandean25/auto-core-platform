@@ -36,27 +36,27 @@ async function purgeMediaForVehicleWhere(
 }
 
 export function createVehicleMediaPurgeExtension() {
-  return Prisma.defineExtension({
-    name: 'vehicle-media-purge',
-    query: {
-      vehicle: {
-        async delete({ args, query }) {
-          const vehicleDelegate = this as VehicleFindManyDelegate;
-          await purgeMediaForVehicleWhere(
-            vehicleDelegate,
-            args.where as VehicleWhere,
-          );
-          return query(args);
-        },
-        async deleteMany({ args, query }) {
-          const vehicleDelegate = this as VehicleFindManyDelegate;
-          await purgeMediaForVehicleWhere(
-            vehicleDelegate,
-            args.where as VehicleWhere,
-          );
-          return query(args);
+  return Prisma.defineExtension((client) =>
+    client.$extends({
+      name: 'vehicle-media-purge',
+      query: {
+        vehicle: {
+          async delete({ args, query }) {
+            await purgeMediaForVehicleWhere(
+              client.vehicle,
+              args.where as VehicleWhere,
+            );
+            return query(args);
+          },
+          async deleteMany({ args, query }) {
+            await purgeMediaForVehicleWhere(
+              client.vehicle,
+              args.where as VehicleWhere,
+            );
+            return query(args);
+          },
         },
       },
-    },
-  });
+    }),
+  );
 }
