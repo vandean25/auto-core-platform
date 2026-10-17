@@ -16,6 +16,7 @@ import {
   encodeMobileDeCsv,
   joinMobileDeRow,
   normalizeMobileDeMultilineText,
+  sanitizeMobileDeCsvFieldValue,
 } from './mobile-de-csv.util.js';
 import {
   MOBILE_DE_CSV_FILENAME,
@@ -41,7 +42,7 @@ function setCell(row: string[], index: number, value: string): void {
   if (index < 0 || index >= MOBILE_DE_FIELD_COUNT) {
     throw new Error(`mobile.de column index out of range: ${index}`);
   }
-  row[index] = value;
+  row[index] = value === '' ? '' : sanitizeMobileDeCsvFieldValue(value);
 }
 
 function validateEncoding(
@@ -69,7 +70,7 @@ function buildDescription(input: ListingSerializerInput): string {
     input.equipment.equipmentFreeTextLines,
   );
   if (equipmentParagraph) {
-    parts.push(equipmentParagraph);
+    parts.push(normalizeMobileDeMultilineText(equipmentParagraph));
   }
   return parts.join(MOBILE_DE_DESCRIPTION_LINE_BREAK);
 }
@@ -211,7 +212,7 @@ export function serializeMobileDeReferenceListing(
       ...input.images.map((image) => ({
         name: image.filename,
         bytes: image.bytes,
-        sha256: image.content_sha256,
+        sha256: sha256Buffer(image.bytes),
       })),
       {
         name: 'manifest.json',

@@ -4,8 +4,18 @@ import {
   MOBILE_DE_DESCRIPTION_LINE_BREAK,
 } from './mobile-de-format.constants.js';
 
+/** Ensures a CSV cell cannot introduce a physical line break in the export file. */
+export function sanitizeMobileDeCsvFieldValue(value: string): string {
+  return value.replace(/\r\n|\r|\n/g, MOBILE_DE_DESCRIPTION_LINE_BREAK);
+}
+
+export function containsRawLineBreak(value: string): boolean {
+  return /[\r\n]/.test(value);
+}
+
 export function quoteMobileDeField(value: string): string {
-  return `"${value.replace(/"/g, '""')}"`;
+  const sanitized = sanitizeMobileDeCsvFieldValue(value);
+  return `"${sanitized.replace(/"/g, '""')}"`;
 }
 
 export function joinMobileDeRow(fields: string[]): string {
@@ -32,5 +42,5 @@ export function assertMobileDeEncodable(value: string, field: string): void {
 
 /** Map advisor newlines to mobile.de in-field line breaks (CSV row stays one physical line). */
 export function normalizeMobileDeMultilineText(value: string): string {
-  return value.replace(/\r\n|\r|\n/g, MOBILE_DE_DESCRIPTION_LINE_BREAK).trim();
+  return sanitizeMobileDeCsvFieldValue(value).trim();
 }

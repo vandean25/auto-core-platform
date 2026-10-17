@@ -1,4 +1,5 @@
 import { mobileDeReferenceGoldenInput } from './fixtures/mobile-de-reference-golden.fixture.js';
+import { sha256Buffer } from './listing-export-zip.js';
 import { decodeMobileDeCsv } from './mobile-de-csv.util.js';
 import { MOBILE_DE_CSV_FILENAME, MOBILE_DE_FIELD_COUNT } from './mobile-de-format.constants.js';
 import {
@@ -62,6 +63,37 @@ describe('mobile-de-reference golden export', () => {
     expect(result.sha256).toBe(
       'e81cd346ad4360ef6e42f58363ffbf994a634337cac24a009a67eb8b1a7d322f',
     );
+  });
+
+  it('emits one physical CSV line when non-description fields contain newlines', () => {
+    const input = {
+      ...mobileDeReferenceGoldenInput,
+      vehicle: {
+        ...mobileDeReferenceGoldenInput.vehicle,
+        make: 'Synthetic\nMotors',
+        model: 'Reference\r\n1.6',
+        color: 'Grau\nmetallic',
+      },
+      listing: {
+        ...mobileDeReferenceGoldenInput.listing,
+        category: 'Car.Limousine',
+      },
+      equipment: {
+        ...mobileDeReferenceGoldenInput.equipment,
+        equipmentFreeTextLines: ['Rear\nsensor'],
+      },
+    };
+
+    const result = serializeMobileDeReferenceListing(input);
+    const csvText = decodeMobileDeCsv(result.csvBytes);
+    expect(csvText.split('\n').filter((line) => line.length > 0)).toHaveLength(
+      1,
+    );
+    expect(csvText).toContain('Synthetic\\\\Motors');
+    expect(csvText).toContain('Grau\\\\metallic');
+    expect(csvText).toContain('Rear\\\\sensor');
+    expect(result.files[1].sha256).toBe(sha256Buffer(input.images[0].bytes));
+    expect(result.files[1].sha256).not.toBe(input.images[0].content_sha256);
   });
 
   it('orders ZIP entries CSV, images by sequence, then manifest', () => {
