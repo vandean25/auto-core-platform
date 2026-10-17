@@ -141,6 +141,14 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
     return `${vehicle.year} ${vehicle.make} ${vehicle.model}`
   }, [orderQuery.data?.vehicle])
 
+  const signaturePreviewUrl = useMemo(() => {
+    if (!signatureMediaId) {
+      return null
+    }
+    const fromQuery = (mediaQuery.data ?? []).find((item) => item.id === signatureMediaId)
+    return fromQuery?.preview_url ?? null
+  }, [mediaQuery.data, signatureMediaId])
+
   if (checkInQuery.isError) {
     return (
       <div className="space-y-4">
@@ -215,14 +223,6 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
     await flushBeforeNavigate()
     setStep(next)
   }
-
-  const signaturePreviewUrl = useMemo(() => {
-    if (!signatureMediaId) {
-      return null
-    }
-    const fromQuery = (mediaQuery.data ?? []).find((item) => item.id === signatureMediaId)
-    return fromQuery?.preview_url ?? null
-  }, [mediaQuery.data, signatureMediaId])
 
   const handleComplete = async () => {
     const trimmedName = signedByName.trim()

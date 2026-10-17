@@ -66,6 +66,7 @@ describe('Workshop check-in (e2e)', () => {
   };
 
   beforeAll(async () => {
+    process.env.SECRET_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64');
     process.env.WORKSHOP_MEDIA_BUCKET = 'test-workshop-media-bucket';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],

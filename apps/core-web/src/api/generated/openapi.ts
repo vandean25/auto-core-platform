@@ -7904,6 +7904,7 @@ export interface components {
             /** Format: uuid */
             signature_media_id: string;
             signed_by_name: string;
+            /** @example check-in-signature-v1 */
             acknowledgement_version: string;
             acknowledged: boolean;
         };
