@@ -9,6 +9,7 @@ import {
   seedInventory,
   seedLabor,
   seedPickerlInspectionTemplate,
+  seedAnnahmeCheckInspectionTemplate,
 } from '../src/prisma/fixtures/index.js';
 import { DEFAULT_WORKSHOP_DEMO_SELLER_FIELDS } from '../src/prisma/fixtures/demo-legal-entity-seller.fixture.js';
 
@@ -142,6 +143,7 @@ async function main() {
 
   const finance = await seedFinance(prisma, tenant.id);
   await seedPickerlInspectionTemplate(prisma, tenant.id);
+  await seedAnnahmeCheckInspectionTemplate(prisma, tenant.id);
 
   const foundation = {
     defaultTenant: tenant,

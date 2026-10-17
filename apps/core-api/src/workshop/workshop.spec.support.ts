@@ -142,6 +142,16 @@ export const mockPrisma = {
     update: jest.fn(),
     updateMany: jest.fn(),
   },
+  inspectionTemplate: {
+    findFirst: jest.fn(),
+  },
+  workshopInspection: {
+    findFirst: jest.fn(),
+    create: jest.fn(),
+  },
+  workshopInspectionItem: {
+    findMany: jest.fn(),
+  },
   workshopMedia: {
     findMany: jest.fn(),
   },

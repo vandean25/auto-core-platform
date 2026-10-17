@@ -6577,6 +6577,114 @@
         ]
       }
     },
+    "/api/workshop/orders/{orderId}/check-in/inspection": {
+      "get": {
+        "operationId": "WorkshopCheckInController_getInspection",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopInspectionResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      },
+      "patch": {
+        "operationId": "WorkshopCheckInController_updateInspection",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWorkshopCheckInInspectionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopInspectionResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
+    "/api/workshop/orders/{orderId}/check-in/complete": {
+      "post": {
+        "operationId": "WorkshopCheckInController_complete",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteWorkshopCheckInDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopCheckInResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
     "/api/inspection-catalogues/preview": {
       "post": {
         "operationId": "InspectionCatalogController_preview",
@@ -25821,6 +25929,24 @@
           "fuel_level": {
             "type": "number"
           },
+          "inspection_id": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "content_sha256": {
+            "type": "string",
+            "nullable": true
+          },
+          "completed_at": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "pdf_sha256": {
+            "type": "string",
+            "nullable": true
+          },
           "created_at": {
             "type": "string"
           },
@@ -25961,6 +26087,37 @@
             "minimum": 0,
             "maximum": 100,
             "nullable": false
+          }
+        },
+        "required": [
+          "expected_revision"
+        ]
+      },
+      "UpdateWorkshopCheckInInspectionDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UpdateWorkshopInspectionItemDto"
+            }
+          },
+          "expected_revision": {
+            "type": "number",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "items",
+          "expected_revision"
+        ]
+      },
+      "CompleteWorkshopCheckInDto": {
+        "type": "object",
+        "properties": {
+          "expected_revision": {
+            "type": "number",
+            "minimum": 1
           }
         },
         "required": [

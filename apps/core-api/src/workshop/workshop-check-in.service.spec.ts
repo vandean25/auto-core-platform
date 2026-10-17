@@ -24,14 +24,36 @@ describe('WorkshopCheckInService', () => {
     mockPrisma.workshopOrder.findFirst.mockReset();
     mockPrisma.workshopCheckIn.findFirst.mockReset();
     mockPrisma.workshopCheckIn.create.mockReset();
+    mockPrisma.inspectionTemplate.findFirst.mockReset();
+    mockPrisma.workshopInspection.findFirst.mockReset();
+    mockPrisma.workshopInspection.create.mockReset();
+    mockPrisma.workshopInspectionItem.findMany.mockReset();
+    mockPrisma.inspectionTemplate.findFirst.mockResolvedValue(null);
+    mockPrisma.workshopInspection.findFirst.mockResolvedValue(null);
+    mockPrisma.workshopInspectionItem.findMany.mockResolvedValue([]);
     mockPrisma.workshopCheckIn.updateMany.mockReset();
     mockPrisma.workshopMedia.findMany.mockReset();
+    mockPrisma.workshopCheckIn.findFirst.mockReset();
     mockPrisma.$transaction.mockImplementation((cb: (tx: unknown) => unknown) =>
       cb(mockPrisma),
     );
-    mockPrisma.$queryRaw.mockResolvedValue([
-      { id: 'site-1', is_active: true },
-    ]);
+    mockPrisma.$queryRaw.mockImplementation(async (query: unknown) => {
+      const sql = String(query);
+      if (sql.includes('workshop_check_ins')) {
+        return [
+          {
+            id: CHECK_IN_ID,
+            workshop_order_id: ORDER_ID,
+            status: WorkshopCheckInStatus.DRAFT,
+            inspection_id: null,
+          },
+        ];
+      }
+      if (sql.includes('workshop_orders')) {
+        return [{ id: ORDER_ID }];
+      }
+      return [{ id: 'site-1', is_active: true }];
+    });
     mockTenantContext.getAuthenticatedUser.mockReturnValue({
       role: 'ADMIN',
       userId: 'u-1',
@@ -113,6 +135,39 @@ describe('WorkshopCheckInService', () => {
     });
   });
 
+  it('does not link an inspection on idempotent create when check-in is completed', async () => {
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+      id: ORDER_ID,
+      status: WorkshopOrderStatus.IN_PROGRESS,
+      odometer: 1,
+      fuel_level: 1,
+    });
+    mockPrisma.workshopCheckIn.findFirst.mockResolvedValue({
+      id: CHECK_IN_ID,
+      tenant_id: TENANT_ID,
+      workshop_order_id: ORDER_ID,
+      inspection_id: null,
+      status: WorkshopCheckInStatus.COMPLETED,
+      revision: 3,
+      condition_json: {},
+      damage_markers_json: [],
+      items_left: '',
+      key_count: 0,
+      warning_lights: [],
+      odometer: 1,
+      fuel_level: 1,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const result = await service.create(ORDER_ID, { id: CHECK_IN_ID });
+
+    expect(result.created).toBe(false);
+    expect(result.body.inspection_id).toBeNull();
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    expect(mockPrisma.workshopInspection.create).not.toHaveBeenCalled();
+  });
+
   it('returns created false on idempotent create retry', async () => {
     mockPrisma.workshopOrder.findFirst.mockResolvedValue({
       id: ORDER_ID,
@@ -124,6 +179,7 @@ describe('WorkshopCheckInService', () => {
       id: CHECK_IN_ID,
       tenant_id: TENANT_ID,
       workshop_order_id: ORDER_ID,
+      inspection_id: null,
       status: WorkshopCheckInStatus.DRAFT,
       revision: 1,
       condition_json: {},
@@ -254,6 +310,197 @@ describe('WorkshopCheckInService', () => {
     ).rejects.toMatchObject({
       response: { code: 'CHECK_IN_COMPLETED' },
     });
+  });
+
+  it('completes a draft atomically and leaves pdf_sha256 unset', async () => {
+    const completedAt = new Date('2026-10-17T12:00:00.000Z');
+    jest.useFakeTimers();
+    jest.setSystemTime(completedAt);
+
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+      id: ORDER_ID,
+      status: WorkshopOrderStatus.IN_PROGRESS,
+      odometer: 1,
+      fuel_level: 1,
+    });
+    mockPrisma.workshopCheckIn.findFirst
+      .mockResolvedValueOnce({
+        id: CHECK_IN_ID,
+        tenant_id: TENANT_ID,
+        workshop_order_id: ORDER_ID,
+        status: WorkshopCheckInStatus.DRAFT,
+        revision: 2,
+        condition_json: {
+          schema_version: 1,
+          tyre_season: 'WINTER',
+          exterior_notes: '',
+          interior_notes: '',
+        },
+        damage_markers_json: [],
+        items_left: 'umbrella',
+        key_count: 1,
+        warning_lights: ['ABS'],
+        odometer: 125010,
+        fuel_level: 38,
+      })
+      .mockResolvedValueOnce({
+        id: CHECK_IN_ID,
+        tenant_id: TENANT_ID,
+        workshop_order_id: ORDER_ID,
+        status: WorkshopCheckInStatus.COMPLETED,
+        revision: 3,
+        condition_json: {
+          schema_version: 1,
+          tyre_season: 'WINTER',
+          exterior_notes: '',
+          interior_notes: '',
+        },
+        damage_markers_json: [],
+        items_left: 'umbrella',
+        key_count: 1,
+        warning_lights: ['ABS'],
+        odometer: 125010,
+        fuel_level: 38,
+        content_sha256: 'b'.repeat(64),
+        completed_at: completedAt,
+        completed_by_user_id: 'u-1',
+        pdf_sha256: null,
+        createdAt: new Date('2026-10-16T10:00:00.000Z'),
+        updatedAt: completedAt,
+      });
+    mockPrisma.workshopMedia.findMany.mockResolvedValue([]);
+    mockPrisma.workshopCheckIn.updateMany.mockResolvedValue({ count: 1 });
+
+    const result = await service.complete(ORDER_ID, { expected_revision: 2 });
+
+    expect(result.status).toBe(WorkshopCheckInStatus.COMPLETED);
+    expect(result.revision).toBe(3);
+    expect(result.content_sha256).toHaveLength(64);
+    expect(result.pdf_sha256).toBeNull();
+    const updateCall = mockPrisma.workshopCheckIn.updateMany.mock.calls[0]?.[0];
+    expect(updateCall?.where).toMatchObject({
+      status: WorkshopCheckInStatus.DRAFT,
+      revision: 2,
+    });
+    expect(updateCall?.data).toMatchObject({
+      status: WorkshopCheckInStatus.COMPLETED,
+      revision: 3,
+    });
+    expect(updateCall?.data).not.toHaveProperty('pdf_sha256');
+
+    jest.useRealTimers();
+  });
+
+  it('rejects completion when the order left intake or in progress inside the transaction', async () => {
+    mockPrisma.workshopOrder.findFirst
+      .mockResolvedValueOnce({
+        id: ORDER_ID,
+        status: WorkshopOrderStatus.IN_PROGRESS,
+        odometer: 1,
+        fuel_level: 1,
+      })
+      .mockResolvedValueOnce({
+        id: ORDER_ID,
+        status: WorkshopOrderStatus.INVOICED,
+      });
+    mockPrisma.workshopCheckIn.findFirst.mockResolvedValue({
+      id: CHECK_IN_ID,
+      status: WorkshopCheckInStatus.DRAFT,
+      revision: 2,
+    });
+
+    await expect(
+      service.complete(ORDER_ID, { expected_revision: 2 }),
+    ).rejects.toMatchObject({
+      response: { code: 'CHECK_IN_ORDER_STATUS' },
+    });
+    expect(mockPrisma.workshopCheckIn.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('returns the winner frozen record when completion loses the race', async () => {
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+      id: ORDER_ID,
+      status: WorkshopOrderStatus.IN_PROGRESS,
+      odometer: 1,
+      fuel_level: 1,
+    });
+    mockPrisma.workshopCheckIn.findFirst
+      .mockResolvedValueOnce({
+        id: CHECK_IN_ID,
+        tenant_id: TENANT_ID,
+        workshop_order_id: ORDER_ID,
+        status: WorkshopCheckInStatus.DRAFT,
+        revision: 2,
+        condition_json: {},
+        damage_markers_json: [],
+        items_left: '',
+        key_count: 0,
+        warning_lights: [],
+        odometer: 1,
+        fuel_level: 1,
+      })
+      .mockResolvedValueOnce({
+        id: CHECK_IN_ID,
+        tenant_id: TENANT_ID,
+        workshop_order_id: ORDER_ID,
+        status: WorkshopCheckInStatus.COMPLETED,
+        revision: 3,
+        condition_json: {},
+        damage_markers_json: [],
+        items_left: '',
+        key_count: 0,
+        warning_lights: [],
+        odometer: 1,
+        fuel_level: 1,
+        content_sha256: 'd'.repeat(64),
+        completed_at: new Date('2026-10-17T12:00:00.000Z'),
+        completed_by_user_id: 'u-1',
+        pdf_sha256: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    mockPrisma.workshopMedia.findMany.mockResolvedValue([]);
+    mockPrisma.workshopCheckIn.updateMany.mockResolvedValue({ count: 0 });
+
+    const result = await service.complete(ORDER_ID, { expected_revision: 2 });
+
+    expect(result.status).toBe(WorkshopCheckInStatus.COMPLETED);
+    expect(result.content_sha256).toBe('d'.repeat(64));
+    expect(mockPrisma.workshopCheckIn.updateMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns the frozen record on idempotent completion retry', async () => {
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+      id: ORDER_ID,
+      status: WorkshopOrderStatus.IN_PROGRESS,
+      odometer: 1,
+      fuel_level: 1,
+    });
+    mockPrisma.workshopCheckIn.findFirst.mockResolvedValue({
+      id: CHECK_IN_ID,
+      tenant_id: TENANT_ID,
+      workshop_order_id: ORDER_ID,
+      status: WorkshopCheckInStatus.COMPLETED,
+      revision: 3,
+      condition_json: {},
+      damage_markers_json: [],
+      items_left: '',
+      key_count: 0,
+      warning_lights: [],
+      odometer: 1,
+      fuel_level: 1,
+      content_sha256: 'c'.repeat(64),
+      completed_at: new Date('2026-10-17T12:00:00.000Z'),
+      completed_by_user_id: 'u-1',
+      pdf_sha256: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const result = await service.complete(ORDER_ID, { expected_revision: 99 });
+
+    expect(result.content_sha256).toBe('c'.repeat(64));
+    expect(mockPrisma.workshopCheckIn.updateMany).not.toHaveBeenCalled();
   });
 
   it('returns 404 when check-in is missing', async () => {

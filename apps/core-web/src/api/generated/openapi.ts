@@ -1988,6 +1988,38 @@ export interface paths {
         patch: operations["WorkshopCheckInController_updateDraft"];
         trace?: never;
     };
+    "/api/workshop/orders/{orderId}/check-in/inspection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["WorkshopCheckInController_getInspection"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["WorkshopCheckInController_updateInspection"];
+        trace?: never;
+    };
+    "/api/workshop/orders/{orderId}/check-in/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["WorkshopCheckInController_complete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/inspection-catalogues/preview": {
         parameters: {
             query?: never;
@@ -7751,6 +7783,12 @@ export interface components {
             warning_lights: string[];
             odometer: number;
             fuel_level: number;
+            /** Format: uuid */
+            inspection_id?: string | null;
+            content_sha256?: string | null;
+            /** Format: date-time */
+            completed_at?: string | null;
+            pdf_sha256?: string | null;
             created_at: string;
             updated_at: string;
         };
@@ -7778,6 +7816,13 @@ export interface components {
             warning_lights?: string[];
             odometer?: number;
             fuel_level?: number;
+        };
+        UpdateWorkshopCheckInInspectionDto: {
+            items: components["schemas"]["UpdateWorkshopInspectionItemDto"][];
+            expected_revision: number;
+        };
+        CompleteWorkshopCheckInDto: {
+            expected_revision: number;
         };
         PreviewInspectionCatalogueDto: {
             /**
@@ -15338,6 +15383,77 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["UpdateWorkshopCheckInDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopCheckInResponseDto"];
+                };
+            };
+        };
+    };
+    WorkshopCheckInController_getInspection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopInspectionResponseDto"];
+                };
+            };
+        };
+    };
+    WorkshopCheckInController_updateInspection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateWorkshopCheckInInspectionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopInspectionResponseDto"];
+                };
+            };
+        };
+    };
+    WorkshopCheckInController_complete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompleteWorkshopCheckInDto"];
             };
         };
         responses: {

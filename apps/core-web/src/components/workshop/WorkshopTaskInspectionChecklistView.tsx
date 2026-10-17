@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,10 +13,22 @@ export type InspectionChecklistData = {
   }>;
 };
 
+export type InspectionChecklistViewLabels = {
+  sectionAriaLabel: string;
+  description: string;
+  passButton: string;
+  failButton: string;
+  passAriaLabel: (itemLabel: string) => string;
+  failAriaLabel: (itemLabel: string) => string;
+  noteAriaLabel: (itemLabel: string) => string;
+  notePlaceholder?: string;
+};
+
 type Props = {
   checklist: InspectionChecklistData;
   readOnly?: boolean;
   saving: boolean;
+  labels?: InspectionChecklistViewLabels;
   onSave: (
     itemId: string,
     values: { passed?: boolean; notes?: string },
@@ -27,21 +39,39 @@ export function WorkshopTaskInspectionChecklistView({
   checklist,
   readOnly = false,
   saving,
+  labels,
   onSave,
 }: Props) {
   const { t } = useTranslation("workshop");
   const [notesByItem, setNotesByItem] = useState<Record<string, string>>({});
 
+  const defaultLabels = useMemo<InspectionChecklistViewLabels>(
+    () => ({
+      sectionAriaLabel: t("inspection.checklist.aria"),
+      description: t("inspection.checklist.hint"),
+      passButton: t("inspection.checklist.ok"),
+      failButton: t("inspection.checklist.defect"),
+      passAriaLabel: (itemLabel) =>
+        t("inspection.checklist.okAria", { label: itemLabel }),
+      failAriaLabel: (itemLabel) =>
+        t("inspection.checklist.defectAria", { label: itemLabel }),
+      noteAriaLabel: (itemLabel) =>
+        t("inspection.checklist.noteAria", { label: itemLabel }),
+      notePlaceholder: t("inspection.checklist.notePlaceholder"),
+    }),
+    [t],
+  );
+
+  const resolvedLabels = labels ?? defaultLabels;
+
   return (
     <section
-      aria-label={t("inspection.checklist.aria")}
+      aria-label={resolvedLabels.sectionAriaLabel}
       className="space-y-3 rounded-md border p-3"
     >
       <div>
         <h3 className="text-sm font-semibold">{checklist.title}</h3>
-        <p className="text-xs text-muted-foreground">
-          {t("inspection.checklist.hint")}
-        </p>
+        <p className="text-xs text-muted-foreground">{resolvedLabels.description}</p>
       </div>
       <ul className="space-y-2">
         {checklist.items.map((item) => {
@@ -57,27 +87,27 @@ export function WorkshopTaskInspectionChecklistView({
                   type="button"
                   size="sm"
                   variant={item.passed === true ? "default" : "outline"}
-                  aria-label={t("inspection.checklist.okAria", { label: item.label_snapshot })}
+                  aria-label={resolvedLabels.passAriaLabel(item.label_snapshot)}
                   disabled={readOnly || saving}
                   onClick={() => void onSave(item.id, { passed: true })}
                 >
-                  {t("inspection.checklist.ok")}
+                  {resolvedLabels.passButton}
                 </Button>
                 <Button
                   type="button"
                   size="sm"
                   variant={item.passed === false ? "destructive" : "outline"}
-                  aria-label={t("inspection.checklist.defectAria", { label: item.label_snapshot })}
+                  aria-label={resolvedLabels.failAriaLabel(item.label_snapshot)}
                   disabled={readOnly || saving}
                   onClick={() => void onSave(item.id, { passed: false })}
                 >
-                  {t("inspection.checklist.defect")}
+                  {resolvedLabels.failButton}
                 </Button>
               </div>
               <Input
                 className="sm:col-span-2"
-                aria-label={t("inspection.checklist.noteAria", { label: item.label_snapshot })}
-                placeholder={t("inspection.checklist.notePlaceholder")}
+                aria-label={resolvedLabels.noteAriaLabel(item.label_snapshot)}
+                placeholder={resolvedLabels.notePlaceholder}
                 value={itemNotes}
                 disabled={readOnly || saving}
                 onChange={(event) =>
