@@ -6686,6 +6686,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadWorkshopCheckInMediaBodyDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "",
@@ -26234,7 +26244,7 @@
             "type": "number"
           },
           "preview_url": {
-            "type": "object",
+            "type": "string",
             "nullable": true
           },
           "processing_status": {
@@ -26265,6 +26275,34 @@
         },
         "required": [
           "data"
+        ]
+      },
+      "UploadWorkshopCheckInMediaBodyDto": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary"
+          },
+          "client_upload_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "CHECK_IN"
+            ]
+          },
+          "expected_revision": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "file",
+          "client_upload_id",
+          "purpose",
+          "expected_revision"
         ]
       },
       "CompleteWorkshopCheckInDto": {

@@ -14,7 +14,7 @@ export class WorkshopCheckInMediaItemDto {
   @ApiProperty()
   size_bytes!: number;
 
-  @ApiProperty({ nullable: true, required: false })
+  @ApiProperty({ type: String, nullable: true, required: false })
   preview_url?: string | null;
 
   @ApiProperty({
@@ -27,4 +27,19 @@ export class WorkshopCheckInMediaItemDto {
 export class WorkshopCheckInMediaListDto {
   @ApiProperty({ type: [WorkshopCheckInMediaItemDto] })
   data!: WorkshopCheckInMediaItemDto[];
+}
+
+/** OpenAPI-only schema for multipart check-in media upload. */
+export class UploadWorkshopCheckInMediaBodyDto {
+  @ApiProperty({ type: 'string', format: 'binary' })
+  file!: unknown;
+
+  @ApiProperty({ format: 'uuid' })
+  client_upload_id!: string;
+
+  @ApiProperty({ enum: ['CHECK_IN'] })
+  purpose!: 'CHECK_IN';
+
+  @ApiProperty({ type: 'integer' })
+  expected_revision!: number;
 }

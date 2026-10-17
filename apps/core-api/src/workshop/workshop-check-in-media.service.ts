@@ -6,6 +6,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import {
+  Prisma,
   WorkshopCheckInStatus,
   WorkshopMediaPurpose,
   WorkshopMediaUrlStrategy,
@@ -24,6 +25,7 @@ import {
 import { lockWorkshopCheckInForUpdate } from './workshop-check-in-lock.helpers.js';
 import { resolveCheckInMediaUploaderEmployeeId } from './workshop-check-in-media-attribution.js';
 import { CHECK_IN_PHOTO_MAIN_LIMITS } from './workshop-check-in-photo-limits.js';
+import { deleteCheckInStoredPhotoIfUnreferenced } from './workshop-check-in-media-storage-cleanup.js';
 import type {
   WorkshopCheckInMediaItemDto,
   WorkshopCheckInMediaListDto,
@@ -31,6 +33,28 @@ import type {
 
 const CLIENT_UPLOAD_ID_UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const checkInMediaRowSelect = {
+  id: true,
+  purpose: true,
+  check_in_id: true,
+  workshop_order_id: true,
+  mime_type: true,
+  size_bytes: true,
+  storage_bucket: true,
+  storage_key: true,
+};
+
+type CheckInMediaRow = {
+  id: string;
+  purpose: WorkshopMediaPurpose;
+  check_in_id: string | null;
+  workshop_order_id: string;
+  mime_type: string;
+  size_bytes: number;
+  storage_bucket: string;
+  storage_key: string;
+};
 
 type UploadInput = {
   file: Express.Multer.File | undefined;
@@ -103,9 +127,7 @@ export class WorkshopCheckInMediaService {
       throw new BadRequestException('client_upload_id is required.');
     }
     if (!CLIENT_UPLOAD_ID_UUID_RE.test(clientUploadId)) {
-      throw new BadRequestException(
-        'client_upload_id must be a valid UUID.',
-      );
+      throw new BadRequestException('client_upload_id must be a valid UUID.');
     }
 
     const declaredMime = input.file.mimetype || 'application/octet-stream';
@@ -210,17 +232,13 @@ export class WorkshopCheckInMediaService {
       objectId: clientUploadId,
     });
 
-    let createdRow: {
-      id: string;
-      purpose: WorkshopMediaPurpose;
-      mime_type: string;
-      size_bytes: number;
-      storage_bucket: string;
-      storage_key: string;
+    let uploadOutcome: {
+      created: boolean;
+      row: CheckInMediaRow;
     };
 
     try {
-      createdRow = await this.prisma.$transaction(async (tx) => {
+      uploadOutcome = await this.prisma.$transaction(async (tx) => {
         const locked = await lockWorkshopCheckInForUpdate(
           tx,
           tenantId,
@@ -254,42 +272,55 @@ export class WorkshopCheckInMediaService {
 
         const duplicate = await tx.workshopMedia.findFirst({
           where: { tenant_id: tenantId, id: clientUploadId },
-          select: { id: true },
+          select: checkInMediaRowSelect,
         });
         if (duplicate) {
-          throw new ConflictException({
-            code: CHECK_IN_ERROR_CODES.UPLOAD_ID_REUSED,
-            message:
-              'client_upload_id was already used for different check-in media.',
-          });
+          if (!isSameCheckInUpload(duplicate, locked.id, orderId)) {
+            throw new ConflictException({
+              code: CHECK_IN_ERROR_CODES.UPLOAD_ID_REUSED,
+              message:
+                'client_upload_id was already used for different check-in media.',
+            });
+          }
+          return { created: false, row: duplicate };
         }
 
         const nextRevision = current.revision + 1;
 
-        const row = await tx.workshopMedia.create({
-          data: {
-            id: clientUploadId,
-            tenant_id: tenantId,
-            workshop_order_id: orderId,
-            workshop_task_id: null,
-            check_in_id: locked.id,
-            uploaded_by_employee_id: uploadedByEmployeeId,
-            purpose: WorkshopMediaPurpose.CHECK_IN,
-            storage_bucket: stored.storageBucket,
-            storage_key: stored.storageKey,
-            url_strategy: WorkshopMediaUrlStrategy.SIGNED,
-            mime_type: mimeType,
-            size_bytes: sizeBytes,
-          },
-          select: {
-            id: true,
-            purpose: true,
-            mime_type: true,
-            size_bytes: true,
-            storage_bucket: true,
-            storage_key: true,
-          },
-        });
+        let row: CheckInMediaRow;
+        try {
+          row = await tx.workshopMedia.create({
+            data: {
+              id: clientUploadId,
+              tenant_id: tenantId,
+              workshop_order_id: orderId,
+              workshop_task_id: null,
+              check_in_id: locked.id,
+              uploaded_by_employee_id: uploadedByEmployeeId,
+              purpose: WorkshopMediaPurpose.CHECK_IN,
+              storage_bucket: stored.storageBucket,
+              storage_key: stored.storageKey,
+              url_strategy: WorkshopMediaUrlStrategy.SIGNED,
+              mime_type: mimeType,
+              size_bytes: sizeBytes,
+            },
+            select: checkInMediaRowSelect,
+          });
+        } catch (error) {
+          if (
+            error instanceof Prisma.PrismaClientKnownRequestError &&
+            error.code === 'P2002'
+          ) {
+            const raced = await tx.workshopMedia.findFirst({
+              where: { tenant_id: tenantId, id: clientUploadId },
+              select: checkInMediaRowSelect,
+            });
+            if (raced && isSameCheckInUpload(raced, locked.id, orderId)) {
+              return { created: false, row: raced };
+            }
+          }
+          throw error;
+        }
 
         const { count } = await tx.workshopCheckIn.updateMany({
           where: {
@@ -307,30 +338,34 @@ export class WorkshopCheckInMediaService {
           });
         }
 
-        return row;
+        return { created: true, row };
       });
     } catch (error) {
-      await this.mediaStorage
-        .deleteObjectIfExists(stored.storageBucket, stored.storageKey)
-        .catch(() => undefined);
+      await deleteCheckInStoredPhotoIfUnreferenced(
+        this.prisma,
+        this.mediaStorage,
+        tenantId,
+        stored.storageBucket,
+        stored.storageKey,
+      );
       throw error;
     }
 
     const preview_url = await this.mediaStorage
       .generateSignedReadUrl(
-        createdRow.storage_bucket,
-        createdRow.storage_key,
-        createdRow.mime_type,
+        uploadOutcome.row.storage_bucket,
+        uploadOutcome.row.storage_key,
+        uploadOutcome.row.mime_type,
       )
       .catch(() => null);
 
     return {
-      created: true,
+      created: uploadOutcome.created,
       item: {
-        id: createdRow.id,
-        purpose: createdRow.purpose,
-        mime_type: createdRow.mime_type,
-        size_bytes: createdRow.size_bytes,
+        id: uploadOutcome.row.id,
+        purpose: uploadOutcome.row.purpose,
+        mime_type: uploadOutcome.row.mime_type,
+        size_bytes: uploadOutcome.row.size_bytes,
         preview_url,
         processing_status: 'READY',
       },
@@ -375,4 +410,20 @@ export class WorkshopCheckInMediaService {
       processing_status: 'READY',
     };
   }
+}
+
+function isSameCheckInUpload(
+  row: {
+    purpose: WorkshopMediaPurpose;
+    check_in_id: string | null;
+    workshop_order_id: string;
+  },
+  checkInId: string,
+  orderId: string,
+): boolean {
+  return (
+    row.purpose === WorkshopMediaPurpose.CHECK_IN &&
+    row.check_in_id === checkInId &&
+    row.workshop_order_id === orderId
+  );
 }

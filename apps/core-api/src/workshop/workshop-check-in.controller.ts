@@ -15,6 +15,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
+  ApiBody,
   ApiConsumes,
   ApiCreatedResponse,
   ApiOkResponse,
@@ -33,6 +34,7 @@ import { WorkshopInspectionResponseDto } from './dto/workshop-inspection-respons
 import { WorkshopCheckInService } from './workshop-check-in.service.js';
 import { WorkshopCheckInMediaService } from './workshop-check-in-media.service.js';
 import {
+  UploadWorkshopCheckInMediaBodyDto,
   WorkshopCheckInMediaItemDto,
   WorkshopCheckInMediaListDto,
 } from './dto/workshop-check-in-media.dto.js';
@@ -117,6 +119,7 @@ export class WorkshopCheckInController {
     FileInterceptor('file', { limits: { fileSize: MAX_IMAGE_BYTES } }),
   )
   @ApiConsumes('multipart/form-data')
+  @ApiBody({ type: UploadWorkshopCheckInMediaBodyDto })
   @ApiCreatedResponse({ type: WorkshopCheckInMediaItemDto })
   @ApiOkResponse({ type: WorkshopCheckInMediaItemDto })
   async uploadMedia(

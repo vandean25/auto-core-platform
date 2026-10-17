@@ -255,8 +255,10 @@ describe('Workshop check-in (e2e)', () => {
     expect(listRes.body.data).toHaveLength(1);
     expect(listRes.body.data[0].id).toBe(uploadRes.body.id);
     expect(uploadRes.body.mime_type).toBe('image/jpeg');
-    expect(lastUploadedCheckInBytes).toBeDefined();
-    const storedMeta = await sharp(lastUploadedCheckInBytes!).metadata();
+    if (!lastUploadedCheckInBytes) {
+      throw new Error('Expected check-in photo bytes to be stored');
+    }
+    const storedMeta = await sharp(lastUploadedCheckInBytes).metadata();
     expect(storedMeta.exif).toBeUndefined();
 
     const retryRes = await request(app.getHttpServer())
