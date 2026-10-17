@@ -64,15 +64,14 @@ export function resolveVehicleEquipmentForProfile(
     const entry = entryByCode.get(selection.code);
 
     if (selection.assertion === 'ABSENT') {
-      const emittedPortalAbsent =
-        entry &&
-        entry.absent_portal_value !== undefined &&
-        !profileConfig.export_local_codes;
-      if (emittedPortalAbsent) {
+      const absentPortalValue = entry?.absent_portal_value;
+      const emitPortalAbsent =
+        absentPortalValue !== undefined && !profileConfig.export_local_codes;
+      if (emitPortalAbsent && entry) {
         mappedFields.push({
           localCode: selection.code,
           portalField: entry.portal_field,
-          portalValue: entry.absent_portal_value,
+          portalValue: absentPortalValue,
           verification: entry.verification,
         });
       } else {
