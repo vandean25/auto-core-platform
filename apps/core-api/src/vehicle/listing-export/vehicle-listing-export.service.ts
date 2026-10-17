@@ -192,6 +192,7 @@ export class VehicleListingExportService {
           equipmentFreeTextLines,
           imageBytesByMediaId: new Map(),
           allowMissingImageBytes: true,
+          allowIncompleteListing: true,
         });
         issues.push(...serializer.validate(validationSnapshot));
       }

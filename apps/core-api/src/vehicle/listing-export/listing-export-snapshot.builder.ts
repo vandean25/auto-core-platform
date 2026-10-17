@@ -48,6 +48,8 @@ export function buildListingSerializerInput(params: {
   imageBytesByMediaId: Map<string, Buffer>;
   /** When true, missing image bytes use an empty buffer (validation-only snapshot). */
   allowMissingImageBytes?: boolean;
+  /** When true, missing price/VAT use placeholders so serializer validation can run. */
+  allowIncompleteListing?: boolean;
 }): ListingSerializerInput {
   const listingFreeTextLines =
     params.listing.equipment_free_text
@@ -92,8 +94,11 @@ export function buildListingSerializerInput(params: {
     });
 
   const price = params.listing.price_gross_eur;
-  if (!price || !params.listing.vat_display) {
-    throw new Error('Listing price and VAT display are required for export.');
+  const vatDisplay = params.listing.vat_display;
+  if (!price || !vatDisplay) {
+    if (!params.allowIncompleteListing) {
+      throw new Error('Listing price and VAT display are required for export.');
+    }
   }
 
   return {
@@ -119,8 +124,8 @@ export function buildListingSerializerInput(params: {
     listing: {
       title: params.listing.title,
       description: params.listing.description,
-      price_gross_eur: price.toFixed(2),
-      vat_display: params.listing.vat_display,
+      price_gross_eur: price ? price.toFixed(2) : '0.01',
+      vat_display: vatDisplay ?? 'STANDARD',
       category: params.listing.portal_category?.trim() ?? '',
     },
     exportAssertions: {
