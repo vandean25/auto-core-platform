@@ -8,6 +8,8 @@ import {
   resolveVehiclesToPurgeAfterDeleteMany,
   runVehicleDeleteManyWithMediaPurge,
   runVehicleDeleteWithMediaPurge,
+  runWithDeferredVehicleMediaPurges,
+  scheduleVehicleMediaPrefixPurges,
 } from './vehicle-media-purge.extension.js';
 
 describe('vehicle-media-purge extension helpers', () => {
@@ -19,11 +21,6 @@ describe('vehicle-media-purge extension helpers', () => {
     deleteVehicleMediaPrefix: jest.fn(),
     deleteTenantVehicleMediaPrefix: jest.fn(),
   };
-  const rootVehicleDelegate = {
-    findMany: jest.fn(),
-    findFirst: jest.fn(),
-  };
-
   beforeEach(() => {
     registerVehicleMediaPurgeStorage(purgeStorage);
     jest.clearAllMocks();
@@ -40,7 +37,6 @@ describe('vehicle-media-purge extension helpers', () => {
     await expect(
       runVehicleDeleteWithMediaPurge(
         vehicleDelegate,
-        rootVehicleDelegate,
         { id: 'vehicle-1', tenant_id: 'tenant-1' },
         async () => {
           throw new Error('FK violation');
@@ -60,7 +56,6 @@ describe('vehicle-media-purge extension helpers', () => {
     };
 
     await runVehicleDeleteWithMediaPurge(
-      vehicleDelegate,
       vehicleDelegate,
       { id: 'vehicle-1', tenant_id: 'tenant-1' },
       async () => ({ id: 'vehicle-1' }),
@@ -86,7 +81,6 @@ describe('vehicle-media-purge extension helpers', () => {
             .mockResolvedValue([{ id: 'vehicle-1', tenant_id: 'tenant-1' }]),
           findFirst: jest.fn(),
         },
-        rootVehicleDelegate,
         { id: 'vehicle-1' },
         query,
       ),
@@ -106,29 +100,45 @@ describe('vehicle-media-purge extension helpers', () => {
     registerVehicleMediaPurgeStorage(purgeStorage);
   });
 
-  it('defers purge until after the transaction callback when using a tx delegate', async () => {
-    jest.useFakeTimers();
-    const txVehicleDelegate = {
-      findMany: jest
-        .fn()
-        .mockResolvedValue([{ id: 'vehicle-1', tenant_id: 'tenant-1' }]),
-      findFirst: jest.fn(),
-    };
+  it('enqueues purge during a deferred transaction and flushes after commit', async () => {
+    await runWithDeferredVehicleMediaPurges(async () => {
+      await scheduleVehicleMediaPrefixPurges([
+        { id: 'vehicle-1', tenant_id: 'tenant-1' },
+      ]);
+      expect(purgeStorage.deleteVehicleMediaPrefix).not.toHaveBeenCalled();
+    });
 
-    await runVehicleDeleteWithMediaPurge(
-      txVehicleDelegate,
-      rootVehicleDelegate,
-      { id: 'vehicle-1' },
-      async () => ({ id: 'vehicle-1' }),
-    );
-
-    expect(purgeStorage.deleteVehicleMediaPrefix).not.toHaveBeenCalled();
-    await jest.runAllTimersAsync();
     expect(purgeStorage.deleteVehicleMediaPrefix).toHaveBeenCalledWith({
       tenantId: 'tenant-1',
       vehicleId: 'vehicle-1',
     });
-    jest.useRealTimers();
+  });
+
+  it('discards enqueued purges when deferred work rejects', async () => {
+    await expect(
+      runWithDeferredVehicleMediaPurges(async () => {
+        await scheduleVehicleMediaPrefixPurges([
+          { id: 'vehicle-1', tenant_id: 'tenant-1' },
+        ]);
+        throw new Error('rolled back');
+      }),
+    ).rejects.toThrow('rolled back');
+
+    expect(purgeStorage.deleteVehicleMediaPrefix).not.toHaveBeenCalled();
+  });
+
+  it('rejects when post-commit purge fails', async () => {
+    purgeStorage.deleteVehicleMediaPrefix.mockRejectedValueOnce(
+      new Error('storage down'),
+    );
+
+    await expect(
+      runWithDeferredVehicleMediaPurges(async () => {
+        await scheduleVehicleMediaPrefixPurges([
+          { id: 'vehicle-1', tenant_id: 'tenant-1' },
+        ]);
+      }),
+    ).rejects.toThrow('storage down');
   });
 
   it('purges using the transaction delegate when deleteMany count is partial', async () => {
@@ -143,7 +153,6 @@ describe('vehicle-media-purge extension helpers', () => {
     };
 
     await runVehicleDeleteManyWithMediaPurge(
-      vehicleDelegate,
       vehicleDelegate,
       { tenant_id: 'tenant-1' },
       async () => ({ count: 1 }),

@@ -50,11 +50,20 @@ export async function purgeVehicleMediaPrefixes(
 export async function runWithDeferredVehicleMediaPurges<T>(
   work: () => Promise<T>,
 ): Promise<T> {
+  const parentPending = pendingVehicleMediaPurges.getStore();
+  if (parentPending) {
+    return work();
+  }
   const pending: VehiclePurgeTarget[] = [];
   return pendingVehicleMediaPurges.run(pending, async () => {
-    const result = await work();
-    await flushPendingVehicleMediaPurges(pending);
-    return result;
+    try {
+      const result = await work();
+      await flushPendingVehicleMediaPurges(pending);
+      return result;
+    } catch (error) {
+      pending.length = 0;
+      throw error;
+    }
   });
 }
 
@@ -62,6 +71,10 @@ export async function flushPendingVehicleMediaPurges(
   pending: VehiclePurgeTarget[],
 ): Promise<void> {
   if (pending.length === 0) {
+    return;
+  }
+  if (SideEffectGuard.isDryRun()) {
+    pending.length = 0;
     return;
   }
   const targets = [...pending];
@@ -114,32 +127,8 @@ export function resolveVehiclesToPurgeAfterDeleteMany(
   return vehiclesDeletedBySuccessfulBatchDelete(vehicleDelegate, candidates);
 }
 
-function shouldDeferPurgeUntilAfterTransaction(
-  vehicleDelegate: VehicleFindManyDelegate,
-  rootVehicleDelegate: VehicleFindManyDelegate,
-): boolean {
-  return vehicleDelegate !== rootVehicleDelegate;
-}
-
-async function purgeAfterVehicleDelete(
-  vehicles: VehiclePurgeTarget[],
-  deferUntilAfterTransaction: boolean,
-): Promise<void> {
-  if (vehicles.length === 0) {
-    return;
-  }
-  if (deferUntilAfterTransaction) {
-    setImmediate(() => {
-      void purgeVehicleMediaPrefixes(vehicles);
-    });
-    return;
-  }
-  await scheduleVehicleMediaPrefixPurges(vehicles);
-}
-
 export async function runVehicleDeleteManyWithMediaPurge(
   vehicleDelegate: VehicleFindManyDelegate,
-  rootVehicleDelegate: VehicleFindManyDelegate,
   where: VehicleWhere | undefined,
   query: () => Promise<{ count: number }>,
 ): Promise<{ count: number }> {
@@ -157,16 +146,12 @@ export async function runVehicleDeleteManyWithMediaPurge(
     result.count,
     vehicleDelegate,
   );
-  await purgeAfterVehicleDelete(
-    toPurge,
-    shouldDeferPurgeUntilAfterTransaction(vehicleDelegate, rootVehicleDelegate),
-  );
+  await scheduleVehicleMediaPrefixPurges(toPurge);
   return result;
 }
 
 export async function runVehicleDeleteWithMediaPurge(
   vehicleDelegate: VehicleFindManyDelegate,
-  rootVehicleDelegate: VehicleFindManyDelegate,
   where: VehicleWhere | undefined,
   query: () => Promise<unknown>,
 ): Promise<unknown> {
@@ -179,10 +164,7 @@ export async function runVehicleDeleteWithMediaPurge(
   });
   requireVehicleMediaPurgeStorage();
   const result = await query();
-  await purgeAfterVehicleDelete(
-    candidates,
-    shouldDeferPurgeUntilAfterTransaction(vehicleDelegate, rootVehicleDelegate),
-  );
+  await scheduleVehicleMediaPrefixPurges(candidates);
   return result;
 }
 
@@ -207,17 +189,59 @@ function resolveVehicleDelegate(
   return rootClient.vehicle;
 }
 
+type InteractiveTransactionFn = (
+  client: Prisma.TransactionClient,
+) => Promise<unknown>;
+
+function runInteractiveTransactionWithDeferredPurges(
+  baseClient: {
+    $transaction: (
+      fn: InteractiveTransactionFn,
+      options?: unknown,
+    ) => Promise<unknown>;
+  },
+  fn: InteractiveTransactionFn,
+  options?: unknown,
+): Promise<unknown> {
+  const parentPending = pendingVehicleMediaPurges.getStore();
+  if (parentPending) {
+    return baseClient.$transaction(fn, options);
+  }
+  const pending: VehiclePurgeTarget[] = [];
+  return pendingVehicleMediaPurges.run(pending, async () => {
+    try {
+      const result = await baseClient.$transaction(fn, options);
+      await flushPendingVehicleMediaPurges(pending);
+      return result;
+    } catch (error) {
+      pending.length = 0;
+      throw error;
+    }
+  });
+}
+
 export function createVehicleMediaPurgeExtension() {
   return Prisma.defineExtension((client) =>
     client.$extends({
       name: 'vehicle-media-purge',
+      client: {
+        $transaction(arg: unknown, options?: unknown): Promise<unknown> {
+          if (typeof arg === 'function') {
+            return runInteractiveTransactionWithDeferredPurges(
+              client,
+              arg as InteractiveTransactionFn,
+              options,
+            );
+          }
+          return client.$transaction(arg as never, options as never);
+        },
+      },
       query: {
         vehicle: {
           async delete({ args, query }) {
             const vehicleDelegate = resolveVehicleDelegate(this, client);
             return runVehicleDeleteWithMediaPurge(
               vehicleDelegate,
-              client.vehicle,
               args.where,
               () => query(args),
             );
@@ -226,7 +250,6 @@ export function createVehicleMediaPurgeExtension() {
             const vehicleDelegate = resolveVehicleDelegate(this, client);
             return runVehicleDeleteManyWithMediaPurge(
               vehicleDelegate,
-              client.vehicle,
               args.where,
               () => query(args),
             );

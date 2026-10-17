@@ -205,4 +205,69 @@ describe('Vehicle stock photos (e2e)', () => {
       [...mediaStorage.objects.keys()].filter((key) => key.startsWith(prefix)),
     ).toHaveLength(0);
   });
+
+  function mediaObjectKeysForVehicle(vehicleId: string): string[] {
+    const prefix = `tenants/${suite.tenantId}/vehicles/${vehicleId}/media/`;
+    return [...mediaStorage.objects.keys()].filter((key) =>
+      key.startsWith(prefix),
+    );
+  }
+
+  async function createCustomerVehicleWithPhoto(): Promise<string> {
+    const vehicle = await suite.prisma.vehicle.create({
+      data: {
+        tenant_id: suite.tenantId,
+        make: 'PurgeTx',
+        model: 'E2E',
+        year: 2022,
+        inventory_role: 'CUSTOMER',
+      },
+    });
+    const png = await sharp({
+      create: { width: 24, height: 18, channels: 3, background: '#112233' },
+    })
+      .png()
+      .toBuffer();
+    await request(suite.app.getHttpServer())
+      .post(`/api/vehicle-stock/${vehicle.id}/photos`)
+      .set('Authorization', `Bearer ${suite.authToken}`)
+      .attach('file', png, 'tx.png')
+      .expect(201);
+    return vehicle.id;
+  }
+
+  it('defers vehicle media purge until an interactive transaction commits', async () => {
+    const vehicleId = await createCustomerVehicleWithPhoto();
+    expect(mediaObjectKeysForVehicle(vehicleId).length).toBeGreaterThan(0);
+
+    await suite.prisma.$transaction(async (tx) => {
+      await tx.vehicle.delete({
+        where: { tenant_id: suite.tenantId, id: vehicleId },
+      });
+      expect(mediaObjectKeysForVehicle(vehicleId).length).toBeGreaterThan(0);
+    });
+
+    expect(mediaObjectKeysForVehicle(vehicleId)).toHaveLength(0);
+  });
+
+  it('does not purge vehicle media when an interactive transaction rolls back', async () => {
+    const vehicleId = await createCustomerVehicleWithPhoto();
+    const keysBefore = mediaObjectKeysForVehicle(vehicleId);
+    expect(keysBefore.length).toBeGreaterThan(0);
+
+    await expect(
+      suite.prisma.$transaction(async (tx) => {
+        await tx.vehicle.delete({
+          where: { tenant_id: suite.tenantId, id: vehicleId },
+        });
+        throw new Error('rollback');
+      }),
+    ).rejects.toThrow('rollback');
+
+    const stillThere = await suite.prisma.vehicle.findFirst({
+      where: { tenant_id: suite.tenantId, id: vehicleId },
+    });
+    expect(stillThere).not.toBeNull();
+    expect(mediaObjectKeysForVehicle(vehicleId)).toEqual(keysBefore);
+  });
 });
