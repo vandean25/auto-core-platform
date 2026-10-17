@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as workshopApi from '@/api/workshop'
 import * as laborApi from '@/api/labor'
 import { changeUiLanguage, initI18n, i18n } from '@/lib/i18n'
+import { formatNumber } from '@/lib/format'
 import { deWorkshop } from '@/test/de-workshop'
 
 const tle = deWorkshop.taskLineEditor
@@ -108,12 +109,24 @@ describe('TaskLineItemEditor labor metadata', () => {
       />,
     )
 
+    const hoursFormatted = formatNumber(1.5, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
+    const ratioFormatted = formatNumber(0.75, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
     expect(
-      screen.getByText(i18n.t('taskLineEditor.standardAw', { ns: 'workshop', hours: '1.50' })),
+      screen.getByText(
+        i18n.t('taskLineEditor.standardAw', { ns: 'workshop', hours: hoursFormatted }),
+      ),
     ).toBeInTheDocument()
     expect(screen.getByLabelText(tle.actualHoursAria)).toBeInTheDocument()
     expect(
-      screen.getByText(i18n.t('taskLineEditor.efficiency', { ns: 'workshop', ratio: '0.75' })),
+      screen.getByText(
+        i18n.t('taskLineEditor.efficiency', { ns: 'workshop', ratio: ratioFormatted }),
+      ),
     ).toBeInTheDocument()
   })
 
