@@ -9,9 +9,9 @@ describe('UpdateWorkshopCheckInDto', () => {
       damage_markers: [
         {
           id: '51500000-0000-4000-8000-000000000556',
-          zone_id: 'rear_bumper',
+          zone_id: 'REAR_BUMPER',
           type: 'SCRATCH',
-          note: 'pilot customer scratch',
+          note: 'Light scratch',
           media_ids: ['51500000-0000-4000-8000-000000000557'],
         },
       ],
@@ -38,6 +38,26 @@ describe('UpdateWorkshopCheckInDto', () => {
 
     const errors = await validate(dto);
     expect(errors.some((error) => error.property === 'warning_lights')).toBe(
+      true,
+    );
+  });
+
+  it('rejects unknown zone_id values', async () => {
+    const dto = plainToInstance(UpdateWorkshopCheckInDto, {
+      expected_revision: 1,
+      damage_markers: [
+        {
+          id: '51500000-0000-4000-8000-000000000556',
+          zone_id: 'rear_bumper',
+          type: 'SCRATCH',
+          note: '',
+          media_ids: [],
+        },
+      ],
+    });
+
+    const errors = await validate(dto);
+    expect(errors.some((error) => error.property === 'damage_markers')).toBe(
       true,
     );
   });

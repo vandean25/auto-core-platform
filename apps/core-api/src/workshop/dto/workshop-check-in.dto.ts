@@ -37,6 +37,7 @@ import {
   CHECK_IN_TYRE_SEASONS,
 } from '../workshop-check-in.rules.js';
 import { CHECK_IN_ACKNOWLEDGEMENT_VERSION } from '../workshop-check-in-acknowledgement.js';
+import { CHECK_IN_ZONE_IDS } from '../workshop-check-in-zones.js';
 
 export class CheckInConditionDto {
   @ApiProperty({ enum: ['SUMMER', 'WINTER', 'ALL_SEASON', 'UNKNOWN'] })
@@ -60,8 +61,9 @@ export class CheckInDamageMarkerDto {
   @IsUUID()
   id!: string;
 
-  @ApiProperty()
+  @ApiProperty({ enum: [...CHECK_IN_ZONE_IDS] })
   @IsString()
+  @IsIn([...CHECK_IN_ZONE_IDS])
   zone_id!: string;
 
   @ApiProperty({ enum: ['SCRATCH', 'DENT', 'CRACK', 'OTHER'] })

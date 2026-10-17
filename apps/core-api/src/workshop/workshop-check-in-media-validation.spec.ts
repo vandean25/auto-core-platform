@@ -24,9 +24,9 @@ describe('assertCheckInDamageMarkerMediaIds', () => {
       [
         {
           id: '51500000-0000-4000-8000-000000000600',
-          zone_id: 'hood',
+          zone_id: 'BONNET',
           type: 'SCRATCH',
-          note: 'pilot customer mark',
+          note: 'Paint chip',
           media_ids: ['51500000-0000-4000-8000-000000000601'],
         },
       ],
@@ -42,9 +42,9 @@ describe('assertCheckInDamageMarkerMediaIds', () => {
       assertCheckInDamageMarkerMediaIds(db as never, 'tenant-1', 'check-in-1', [
         {
           id: '51500000-0000-4000-8000-000000000600',
-          zone_id: 'hood',
+          zone_id: 'BONNET',
           type: 'SCRATCH',
-          note: 'pilot customer mark',
+          note: 'Paint chip',
           media_ids: ['51500000-0000-4000-8000-000000000602'],
         },
       ]),

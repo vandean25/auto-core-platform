@@ -1256,6 +1256,11 @@
     "stepNavAria": "Annahme-Schritte",
     "damageListAria": "Schadensmarkierungen",
     "damageEmpty": "Noch keine Schäden markiert.",
+    "sketch": {
+      "aria": "Fahrzeugskizze — Bereich für Schadensmarkierung wählen",
+      "hint": "Tippen Sie auf einen Bereich in der Skizze oder wählen Sie aus der Liste.",
+      "hasMarker": "Schaden markiert"
+    },
     "save": {
       "saving": "Speichern…",
       "saved": "Gespeichert",
