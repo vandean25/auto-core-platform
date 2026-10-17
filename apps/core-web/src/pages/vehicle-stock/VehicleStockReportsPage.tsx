@@ -9,8 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useVehicleStockAgeReport, useVehicleStockMarginReport, type VehicleStockAgeBucket, type VehicleStockAgeReportRow, type VehicleStockMarginReportRow } from '@/api/vehicle-stock'
 import { downloadCsv, serializeCsv } from '@/lib/csv'
 import { formatDate } from '@/lib/format'
+import type { TFunction } from 'i18next'
 
 type ReportTab = 'age' | 'margin'
+
+type ReportsTranslate = TFunction<'vehicleStock'>
 
 const AGE_BUCKET_KEYS = ['0_30', '31_60', '61_90', '91_180', 'over_180', 'over_90'] as const
 
@@ -18,38 +21,60 @@ function csvAmount(value: string | null): string {
   return value ? value.replace('.', ',') : ''
 }
 
-export function serializeStockAgeCsv(rows: VehicleStockAgeReportRow[]): string {
-  const header = ['Marke', 'Modell', 'Baujahr', 'FIN', 'Kennzeichen', 'Bestandsrolle', 'Status', 'Standzeit (Tage)', 'Kostenbasis (EUR)', 'Angebotspreis (EUR)', 'Standort']
+function inventoryRoleLabel(role: string, t: ReportsTranslate) {
+  if (role === 'USED' || role === 'NEW' || role === 'DEMO') {
+    return t(`reports.roles.${role}`)
+  }
+  return role
+}
+
+function marginTaxLabel(marginTaxed: boolean, t: ReportsTranslate) {
+  return marginTaxed ? t('reports.taxMode.margin') : t('reports.taxMode.standard')
+}
+
+export function serializeStockAgeCsv(rows: VehicleStockAgeReportRow[], t: ReportsTranslate): string {
+  const header = [
+    t('reports.csvAge.make'),
+    t('reports.csvAge.model'),
+    t('reports.csvAge.year'),
+    t('reports.csvAge.vin'),
+    t('reports.csvAge.plate'),
+    t('reports.csvAge.role'),
+    t('reports.csvAge.status'),
+    t('reports.csvAge.daysInStock'),
+    t('reports.csvAge.costBasisEur'),
+    t('reports.csvAge.askingPriceEur'),
+    t('reports.csvAge.location'),
+  ]
   const body = rows.map((row) => [
-    row.make, row.model, String(row.year), row.vin ?? '', row.plate ?? '', csvRoleLabel(row.inventory_role),
+    row.make, row.model, String(row.year), row.vin ?? '', row.plate ?? '', inventoryRoleLabel(row.inventory_role, t),
     row.stock_status ?? '', row.days_in_stock === null ? '' : String(row.days_in_stock),
     csvAmount(row.cost_basis), csvAmount(row.asking_price), row.location ?? '',
   ])
   return serializeCsv([header, ...body])
 }
 
-const CSV_ROLE_LABELS: Record<string, string> = {
-  USED: 'Gebraucht',
-  NEW: 'Neu',
-  DEMO: 'Vorführwagen',
-}
-
-function csvRoleLabel(role: string) {
-  return CSV_ROLE_LABELS[role] ?? role
-}
-
-function csvTaxModeLabel(marginTaxed: boolean) {
-  return marginTaxed ? 'Marge' : 'Standard'
-}
-
-export function serializeMarginCsv(rows: VehicleStockMarginReportRow[]): string {
-  const header = ['Rechnungsdatum', 'Verkaufsnummer', 'Marke', 'Modell', 'Baujahr', 'Bestandsrolle', 'Nettoverkaufspreis (EUR)', 'Kostenbasis (EUR)', 'Rohertrag (EUR)', 'Rohertrag (%)', 'Standzeit bis Verkauf (Tage)', 'Margenbesteuerung']
+export function serializeMarginCsv(rows: VehicleStockMarginReportRow[], t: ReportsTranslate): string {
+  const header = [
+    t('reports.csvMargin.invoiceDate'),
+    t('reports.csvMargin.saleNumber'),
+    t('reports.csvMargin.make'),
+    t('reports.csvMargin.model'),
+    t('reports.csvMargin.year'),
+    t('reports.csvMargin.role'),
+    t('reports.csvMargin.netSaleEur'),
+    t('reports.csvMargin.costBasisEur'),
+    t('reports.csvMargin.grossMarginEur'),
+    t('reports.csvMargin.grossMarginPercent'),
+    t('reports.csvMargin.daysToSell'),
+    t('reports.csvMargin.marginTaxation'),
+  ]
   const body = rows.map((row) => [
     formatDate(row.invoice_date), row.sale_number, row.make, row.model,
-    String(row.year), csvRoleLabel(row.inventory_role), csvAmount(row.sale_price),
+    String(row.year), inventoryRoleLabel(row.inventory_role, t), csvAmount(row.sale_price),
     csvAmount(row.cost_basis_snapshot), csvAmount(row.gross_margin_eur),
     csvAmount(row.gross_margin_percent), row.days_to_sell === null ? '' : String(row.days_to_sell),
-    csvTaxModeLabel(row.margin_taxed),
+    marginTaxLabel(row.margin_taxed, t),
   ])
   return serializeCsv([header, ...body])
 }
@@ -155,7 +180,7 @@ export default function VehicleStockReportsPage() {
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => navigate('/vehicle-stock')}>{t('reports.stock')}</Button>
           <Button onClick={() => downloadCsv(
-            tab === 'age' ? serializeStockAgeCsv(stockAgeTableRows) : serializeMarginCsv(marginTableRows),
+            tab === 'age' ? serializeStockAgeCsv(stockAgeTableRows, t) : serializeMarginCsv(marginTableRows, t),
             tab === 'age' ? t('reports.csvAgeFilename') : t('reports.csvMarginFilename'),
           )}>
             <Download className="mr-2 h-4 w-4" /> {t('reports.exportCsv')}

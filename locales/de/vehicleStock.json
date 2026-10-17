@@ -203,7 +203,34 @@
       "taxation": "Besteuerung"
     },
     "csvAgeFilename": "fahrzeugbestand-standzeit.csv",
-    "csvMarginFilename": "fahrzeugbestand-rohertrag.csv"
+    "csvMarginFilename": "fahrzeugbestand-rohertrag.csv",
+    "csvAge": {
+      "make": "Marke",
+      "model": "Modell",
+      "year": "Baujahr",
+      "vin": "FIN",
+      "plate": "Kennzeichen",
+      "role": "Bestandsrolle",
+      "status": "Status",
+      "daysInStock": "Standzeit (Tage)",
+      "costBasisEur": "Kostenbasis (EUR)",
+      "askingPriceEur": "Angebotspreis (EUR)",
+      "location": "Standort"
+    },
+    "csvMargin": {
+      "invoiceDate": "Rechnungsdatum",
+      "saleNumber": "Verkaufsnummer",
+      "make": "Marke",
+      "model": "Modell",
+      "year": "Baujahr",
+      "role": "Bestandsrolle",
+      "netSaleEur": "Nettoverkaufspreis (EUR)",
+      "costBasisEur": "Kostenbasis (EUR)",
+      "grossMarginEur": "Rohertrag (EUR)",
+      "grossMarginPercent": "Rohertrag (%)",
+      "daysToSell": "Standzeit bis Verkauf (Tage)",
+      "marginTaxation": "Margenbesteuerung"
+    }
   },
   "listing": {
     "title": "Inserat bearbeiten",

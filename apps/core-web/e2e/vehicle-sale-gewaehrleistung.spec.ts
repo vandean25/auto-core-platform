@@ -23,7 +23,7 @@ function createSale(overrides: Record<string, unknown> = {}) {
     garantie_months: null,
     garantie_terms: null,
     trade_in_purchase: null,
-    customer: { id: 'buyer-1', type: 'PRIVATE', first_name: 'Pilot', last_name: 'Customer', email: null },
+    customer: { id: 'buyer-1', type: 'PRIVATE', first_name: 'Test', last_name: 'Customer', email: null },
     ...overrides,
   };
 }
