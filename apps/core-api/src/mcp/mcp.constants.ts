@@ -91,6 +91,7 @@ export const MCP_WRITE_TOOL_NAMES = [
   'propose_registration_intake',
   'propose_workshop_booking',
   'propose_purchase_order',
+  'propose_workshop_order_completion',
 ] as const;
 
 export type McpWriteToolName = (typeof MCP_WRITE_TOOL_NAMES)[number];

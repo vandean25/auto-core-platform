@@ -39,6 +39,7 @@ import {
 } from './mcp-vehicle-context.mapper.js';
 import { proposeWorkshopBookingInputSchema } from '../workshop/workshop-booking-package.schema.js';
 import { proposePurchaseOrderInputSchema } from '../purchase/purchase-propose-draft.schema.js';
+import { proposeWorkshopOrderCompletionInputSchema } from '../workshop/workshop-order-completion.schema.js';
 
 const pageSchema = z.number().int().min(1).optional();
 const uuidSchema = z.string().uuid();
@@ -910,4 +911,5 @@ export const mcpWriteToolInputSchemas: Record<
   propose_registration_intake: proposeRegistrationIntakeInputSchema,
   propose_workshop_booking: proposeWorkshopBookingInputSchema,
   propose_purchase_order: proposePurchaseOrderInputSchema,
+  propose_workshop_order_completion: proposeWorkshopOrderCompletionInputSchema,
 };

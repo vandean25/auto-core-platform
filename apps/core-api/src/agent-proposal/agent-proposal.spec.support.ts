@@ -128,6 +128,12 @@ export function createAgentProposalSpecHarness() {
       .fn()
       .mockResolvedValue({ site_id: 'site-1' }),
   };
+  const mockWorkshopOrderCompletion = {
+    applyCompletion: jest.fn(),
+    buildExecutionContext: jest
+      .fn()
+      .mockResolvedValue({ site_id: 'site-1' }),
+  };
   const mockPendingActionExecutors = new PendingActionExecutorService(
     mockPrisma,
     mockTenantContext,
@@ -137,6 +143,7 @@ export function createAgentProposalSpecHarness() {
     mockRegistrationIntakeApply,
     mockWorkshopBookingPackage,
     mockPurchaseService as never,
+    mockWorkshopOrderCompletion as never,
   );
 
   const policyEvaluator = new AgentProposalPolicyEvaluator(mockAgentPolicyService);

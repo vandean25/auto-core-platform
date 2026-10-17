@@ -5682,5 +5682,145 @@ describe('MCP server (e2e)', () => {
     expect(secondPayload.replayed).toBe(true);
   });
 
+  describe('AUT-599 propose_workshop_order_completion', () => {
+    async function seedCompletionOrder() {
+      const order = await prismaA.workshopOrder.create({
+        data: {
+          order_number: `WO-COMPLETE-${Date.now()}`,
+          customer_id: fixtures.customerId,
+          vehicle_id: fixtures.vehicleId,
+          site_id: fixtures.siteId,
+          odometer: 1200,
+          fuel_level: 40,
+          status: 'IN_PROGRESS',
+        },
+      });
+      const task = await prismaA.workshopTask.create({
+        data: {
+          tenant_id: tenantA,
+          workshop_order_id: order.id,
+          title: 'MCP completion task',
+          status: 'IN_PROGRESS',
+        },
+      });
+      return { order, task };
+    }
+
+    beforeEach(async () => {
+      await setPolicyTier('workshop_order.complete', 'PROPOSE');
+    });
+
+    it('PROPOSE: previews task completion and apply commits DONE + COMPLETED', async () => {
+      const { order, task } = await seedCompletionOrder();
+      const traceId = '00000000-0000-4000-8000-000000000603';
+      const result = await callMcpTool(
+        caller(adminHeaderA, 'e2e-order-completion'),
+        'propose_workshop_order_completion',
+        { workshop_order_id: order.id },
+        traceId,
+      );
+      const proposed = parsePayload<{
+        status: string;
+        pending_action_id: string;
+        proposal: {
+          provisional: boolean;
+          preview: {
+            tasks: Array<{ new_status: string }>;
+            order_status: { new: string };
+            ready_email: { notify_customer: boolean; will_send: boolean };
+          };
+        };
+      }>(result);
+      expect(proposed.status).toBe('needs_approval');
+      expect(proposed.proposal.provisional).toBe(true);
+      expect(proposed.proposal.preview.tasks[0]?.new_status).toBe('DONE');
+      expect(proposed.proposal.preview.order_status.new).toBe('COMPLETED');
+      expect(proposed.proposal.preview.ready_email).toEqual({
+        notify_customer: false,
+        will_send: false,
+        notice_code: null,
+      });
+
+      const taskBeforeApply = await prismaA.workshopTask.findFirstOrThrow({
+        where: { id: task.id },
+      });
+      expect(taskBeforeApply.status).toBe('IN_PROGRESS');
+
+      await applyProposal(proposed.pending_action_id, adminHeaderA).expect(200);
+
+      const taskAfter = await prismaA.workshopTask.findFirstOrThrow({
+        where: { id: task.id },
+      });
+      const orderAfter = await prismaA.workshopOrder.findFirstOrThrow({
+        where: { id: order.id },
+      });
+      expect(taskAfter.status).toBe('DONE');
+      expect(orderAfter.status).toBe('COMPLETED');
+
+      await expectActionLogRow(traceId, 'mcp.propose_workshop_order_completion', {
+        status: 'PROPOSED',
+        tier: 'PROPOSE',
+      });
+    });
+
+    it('returns not found for a workshop order in another tenant', async () => {
+      const siteB = await resolveTestMainSiteId(prisma, tenantB);
+      const foreignOrderId = await inTenant(tenantB, async () => {
+        const customer = await prisma.customer.create({
+          data: {
+            tenant_id: tenantB,
+            first_name: 'Foreign',
+            last_name: 'Order',
+            email: `foreign-${Date.now()}@example.com`,
+          },
+        });
+        const vehicle = await prisma.vehicle.create({
+          data: {
+            tenant_id: tenantB,
+            make: 'Test',
+            model: 'Foreign',
+            year: 2020,
+            vin: `VIN-F-${Date.now()}`,
+            customer_id: customer.id,
+          },
+        });
+        const order = await prisma.workshopOrder.create({
+          data: {
+            tenant_id: tenantB,
+            order_number: `WO-B-${Date.now()}`,
+            customer_id: customer.id,
+            vehicle_id: vehicle.id,
+            site_id: siteB,
+            odometer: 500,
+            fuel_level: 50,
+            status: 'IN_PROGRESS',
+          },
+        });
+        return order.id;
+      });
+      const result = await callMcpTool(
+        caller(adminHeaderA, 'e2e-order-completion-foreign'),
+        'propose_workshop_order_completion',
+        { workshop_order_id: foreignOrderId },
+      );
+      expect(result.isError).toBe(true);
+    });
+
+    it('rejects policy-disabled calls with not_permitted', async () => {
+      await putPolicyRule('workshop_order.complete', {
+        tier: 'PROPOSE',
+        enabled: false,
+      });
+      const { order } = await seedCompletionOrder();
+      const result = await callMcpTool(
+        caller(adminHeaderA, 'e2e-order-completion-off'),
+        'propose_workshop_order_completion',
+        { workshop_order_id: order.id },
+      );
+      expect(result.isError).toBe(true);
+      expect(JSON.stringify(result)).toContain('not_permitted');
+    });
+  });
+
   // Note: MCP_SERVER_ENABLED=false → 404 is already tested above
 });

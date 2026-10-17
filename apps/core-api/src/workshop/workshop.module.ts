@@ -52,6 +52,7 @@ import { WorkshopKpiReportsService } from './workshop-kpi-reports.service.js';
 import { RegistrationIntakeModule } from '../registration-intake/registration-intake.module.js';
 import { LoanerVehiclesModule } from '../loaner-vehicles/loaner-vehicles.module.js';
 import { WorkshopBookingPackageService } from './workshop-booking-package.service.js';
+import { WorkshopOrderCompletionService } from './workshop-order-completion.service.js';
 import { WorkshopPositionPlanService } from './workshop-position-plan.service.js';
 import { MechanicMediaStorage } from '../mechanic/mechanic-media.storage.js';
 import { InspectionCatalogModule } from '../inspection-catalog/inspection-catalog.module.js';
@@ -118,6 +119,7 @@ import { InspectionMeasurementModule } from '../inspection-measurement/inspectio
     WorkshopScheduleService,
     WorkshopKpiReportsService,
     WorkshopBookingPackageService,
+    WorkshopOrderCompletionService,
     WorkshopPositionPlanService,
     { provide: OPENHOLIDAYS_FETCH, useValue: fetch },
   ],
@@ -125,6 +127,7 @@ import { InspectionMeasurementModule } from '../inspection-measurement/inspectio
     WorkshopSettingsService,
     WorkshopIntakeService,
     WorkshopBookingPackageService,
+    WorkshopOrderCompletionService,
     WorkshopPositionPlanService,
     WorkshopTaskService,
     WorkshopBoardService,

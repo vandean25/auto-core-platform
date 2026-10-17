@@ -67,8 +67,9 @@ Read tools are tenant- or active-site-scoped by the server. Their tier is `AUTO`
 | `propose_registration_intake` | Apply a reviewed registration document intake to customer/vehicle records | Write | Off by default; PROPOSE when enabled (clamped from AUTO) |
 | `propose_workshop_booking` | Propose a scheduled workshop order with an optional reserved loaner booking and optional `loaner_charge` FEE line | Write | Off by default; PROPOSE when enabled (clamped from AUTO) |
 | `propose_purchase_order` | Propose a DRAFT purchase order from verified local parts requisition demand | Write | Off by default; PROPOSE when enabled (clamped from AUTO) |
+| `propose_workshop_order_completion` | Propose completing open workshop tasks on an order and deriving order status when all tasks are done; optional ready-for-pickup email on apply when `notify_customer` is true | Write | Off by default; PROPOSE when enabled (clamped from AUTO) |
 
-Write tools start Off (`enabled: false`) in the platform policy table. A tenant admin must enable a tool through the policy table before it can run; the admin cannot loosen the platform tier or conditions. `propose_line_item`, `propose_registration_intake`, `propose_workshop_booking`, and `propose_purchase_order` are clamped to `PROPOSE`. The server evaluates every write call, so never infer permission from this table alone.
+Write tools start Off (`enabled: false`) in the platform policy table. A tenant admin must enable a tool through the policy table before it can run; the admin cannot loosen the platform tier or conditions. `propose_line_item`, `propose_registration_intake`, `propose_workshop_booking`, `propose_purchase_order`, and `propose_workshop_order_completion` are clamped to `PROPOSE`. The server evaluates every write call, so never infer permission from this table alone.
 
 ### Reservation rules
 
@@ -301,4 +302,5 @@ All names and records below are fictional German examples.
 ### Ready notice / Pickerl reminder
 
 1. Use `get_vehicle` and, if needed, `get_customer` to verify the relevant record (AUTO).
-2. There is no customer-message tool. Sending a customer message is `HUMAN_ONLY` and never exposed as an MCP tool. Do not send through another route. Expected tier: AUTO for reads; sending requires a person.
+2. To mark workshop work complete and optionally queue the vehicle-ready email on human approval, a tenant admin must enable `propose_workshop_order_completion`; when enabled it is PROPOSE, previews task completion and derived order status, and sends the ready email only when `notify_customer` is true and a person applies the pending action. It never finalizes invoices.
+3. There is no other customer-message tool. Ad-hoc customer messages remain `HUMAN_ONLY`. Expected tier: AUTO for reads; PROPOSE for completion when enabled.
