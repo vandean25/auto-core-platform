@@ -25704,15 +25704,16 @@
             "type": "number"
           },
           "content_sha256": {
-            "type": "object",
+            "type": "string",
             "nullable": true
           },
           "completed_at": {
-            "type": "object",
-            "nullable": true
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
           },
           "pdf_sha256": {
-            "type": "object",
+            "type": "string",
             "nullable": true
           },
           "created_at": {

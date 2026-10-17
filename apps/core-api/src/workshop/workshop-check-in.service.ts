@@ -288,6 +288,22 @@ export class WorkshopCheckInService {
     return this.prisma.$transaction(async (tx) => {
       await lockSitesAndAssertActive(tx, tenantId, [siteId]);
 
+      const order = await tx.workshopOrder.findFirst({
+        where: { id: orderId, tenant_id: tenantId, site_id: siteId },
+        select: { id: true, status: true },
+      });
+      if (!order) {
+        throw new NotFoundException('Workshop order not found');
+      }
+      if (!CHECK_IN_ALLOWED_ORDER_STATUSES.has(order.status)) {
+        throw new UnprocessableEntityException({
+          code: CHECK_IN_ERROR_CODES.CHECK_IN_ORDER_STATUS,
+          message:
+            'Check-in is only available while the order is in intake or in progress.',
+          order_status: order.status,
+        });
+      }
+
       const existing = await tx.workshopCheckIn.findFirst({
         where: { tenant_id: tenantId, workshop_order_id: orderId },
       });
@@ -308,7 +324,15 @@ export class WorkshopCheckInService {
 
       const media = await tx.workshopMedia.findMany({
         where: { tenant_id: tenantId, check_in_id: existing.id },
-        select: { id: true, purpose: true },
+        select: {
+          id: true,
+          purpose: true,
+          mime_type: true,
+          size_bytes: true,
+          storage_bucket: true,
+          storage_key: true,
+          caption: true,
+        },
         orderBy: { id: 'asc' },
       });
 

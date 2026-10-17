@@ -29,7 +29,11 @@ export type WorkshopCheckInEvidenceSnapshot = {
   media: Array<{
     id: string;
     purpose: WorkshopMediaPurpose;
-    content_sha256: string | null;
+    mime_type: string;
+    size_bytes: number;
+    storage_bucket: string;
+    storage_key: string;
+    caption: string | null;
   }>;
   completed_at: string;
   completed_by_user_id: string | null;
@@ -50,7 +54,26 @@ type CheckInRowForEvidence = {
 type CheckInMediaForEvidence = {
   id: string;
   purpose: WorkshopMediaPurpose;
+  mime_type: string;
+  size_bytes: number;
+  storage_bucket: string;
+  storage_key: string;
+  caption: string | null;
 };
+
+/** Lexicographic order by UTF-16 code units (locale-independent). */
+export function compareCheckInEvidenceStrings(
+  left: string,
+  right: string,
+): number {
+  if (left < right) {
+    return -1;
+  }
+  if (left > right) {
+    return 1;
+  }
+  return 0;
+}
 
 export function normalizeCheckInCondition(
   conditionJson: Prisma.JsonValue,
@@ -103,16 +126,18 @@ export function normalizeCheckInDamageMarkers(
         zone_id: zoneId,
         type,
         note,
-        media_ids: [...new Set(mediaIds)].sort(),
+        media_ids: [...new Set(mediaIds)].sort(compareCheckInEvidenceStrings),
       };
     })
     .filter((marker): marker is NonNullable<typeof marker> => marker !== null);
 
-  return markers.sort((left, right) => left.id.localeCompare(right.id));
+  return markers.sort((left, right) =>
+    compareCheckInEvidenceStrings(left.id, right.id),
+  );
 }
 
 export function normalizeCheckInWarningLights(values: string[]): string[] {
-  return [...new Set(values)].sort((left, right) => left.localeCompare(right));
+  return [...new Set(values)].sort(compareCheckInEvidenceStrings);
 }
 
 export function normalizeCheckInMediaForEvidence(
@@ -123,9 +148,13 @@ export function normalizeCheckInMediaForEvidence(
     .map((row) => ({
       id: row.id,
       purpose: row.purpose,
-      content_sha256: null,
+      mime_type: row.mime_type,
+      size_bytes: row.size_bytes,
+      storage_bucket: row.storage_bucket,
+      storage_key: row.storage_key,
+      caption: row.caption,
     }))
-    .sort((left, right) => left.id.localeCompare(right.id));
+    .sort((left, right) => compareCheckInEvidenceStrings(left.id, right.id));
 }
 
 export function buildWorkshopCheckInEvidenceSnapshot(input: {

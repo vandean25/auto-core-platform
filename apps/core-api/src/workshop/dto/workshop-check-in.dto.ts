@@ -202,13 +202,17 @@ export class WorkshopCheckInResponseDto {
   @ApiProperty()
   fuel_level!: number;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ type: String, nullable: true })
   content_sha256!: string | null;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    format: 'date-time',
+  })
   completed_at!: string | null;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ type: String, nullable: true })
   pdf_sha256!: string | null;
 
   @ApiProperty()

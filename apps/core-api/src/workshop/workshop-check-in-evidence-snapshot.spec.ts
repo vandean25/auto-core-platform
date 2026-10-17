@@ -1,12 +1,36 @@
 import { WorkshopMediaPurpose } from '@prisma/client';
 import {
   buildWorkshopCheckInEvidenceSnapshot,
+  compareCheckInEvidenceStrings,
   hashWorkshopCheckInEvidenceSnapshot,
   normalizeCheckInDamageMarkers,
   normalizeCheckInWarningLights,
 } from './workshop-check-in-evidence-snapshot.js';
 
 const COMPLETED_AT = new Date('2026-10-17T12:00:00.000Z');
+
+function checkInMedia(
+  overrides: Partial<{
+    id: string;
+    purpose: WorkshopMediaPurpose;
+    mime_type: string;
+    size_bytes: number;
+    storage_bucket: string;
+    storage_key: string;
+    caption: string | null;
+  }> = {},
+) {
+  return {
+    id: 'media-1',
+    purpose: WorkshopMediaPurpose.CHECK_IN,
+    mime_type: 'image/jpeg',
+    size_bytes: 1024,
+    storage_bucket: 'workshop-media',
+    storage_key: 'tenant/check-in/photo.jpg',
+    caption: null,
+    ...overrides,
+  };
+}
 
 function baseRow() {
   return {
@@ -66,12 +90,19 @@ describe('workshop check-in evidence snapshot', () => {
     ]);
   });
 
+  it('sorts strings by UTF-16 code units regardless of locale', () => {
+    const sorted = normalizeCheckInWarningLights(['ö', 'z']);
+    expect(sorted).toEqual(['z', 'ö']);
+    expect(compareCheckInEvidenceStrings('z', 'ö')).toBeLessThan(0);
+    expect(compareCheckInEvidenceStrings('ö', 'z')).toBeGreaterThan(0);
+  });
+
   it('hashes identical canonical content to the same digest', () => {
     const left = buildWorkshopCheckInEvidenceSnapshot({
       row: baseRow(),
       media: [
-        { id: 'media-2', purpose: WorkshopMediaPurpose.CHECK_IN },
-        { id: 'media-1', purpose: WorkshopMediaPurpose.CHECK_IN },
+        checkInMedia({ id: 'media-2' }),
+        checkInMedia({ id: 'media-1' }),
       ],
       completedAt: COMPLETED_AT,
       completedByUserId: 'user-1',
@@ -97,7 +128,7 @@ describe('workshop check-in evidence snapshot', () => {
           },
         ],
       },
-      media: [{ id: 'media-1', purpose: WorkshopMediaPurpose.CHECK_IN }, { id: 'media-2', purpose: WorkshopMediaPurpose.CHECK_IN }],
+      media: [checkInMedia({ id: 'media-1' }), checkInMedia({ id: 'media-2' })],
       completedAt: COMPLETED_AT,
       completedByUserId: 'user-1',
     });
@@ -127,7 +158,15 @@ describe('workshop check-in evidence snapshot', () => {
     const changedMedia = hashWorkshopCheckInEvidenceSnapshot(
       buildWorkshopCheckInEvidenceSnapshot({
         row: baseRow(),
-        media: [{ id: 'media-9', purpose: WorkshopMediaPurpose.CHECK_IN }],
+        media: [checkInMedia({ id: 'media-9' })],
+        completedAt: COMPLETED_AT,
+        completedByUserId: 'user-1',
+      }),
+    );
+    const changedMediaCaption = hashWorkshopCheckInEvidenceSnapshot(
+      buildWorkshopCheckInEvidenceSnapshot({
+        row: baseRow(),
+        media: [checkInMedia({ id: 'media-9', caption: 'rear scratch' })],
         completedAt: COMPLETED_AT,
         completedByUserId: 'user-1',
       }),
@@ -135,5 +174,6 @@ describe('workshop check-in evidence snapshot', () => {
 
     expect(changedItems).not.toBe(baseline);
     expect(changedMedia).not.toBe(baseline);
+    expect(changedMediaCaption).not.toBe(changedMedia);
   });
 });

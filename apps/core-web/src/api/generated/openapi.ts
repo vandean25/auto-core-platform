@@ -7731,9 +7731,10 @@ export interface components {
             warning_lights: string[];
             odometer: number;
             fuel_level: number;
-            content_sha256?: Record<string, never> | null;
-            completed_at?: Record<string, never> | null;
-            pdf_sha256?: Record<string, never> | null;
+            content_sha256?: string | null;
+            /** Format: date-time */
+            completed_at?: string | null;
+            pdf_sha256?: string | null;
             created_at: string;
             updated_at: string;
         };
