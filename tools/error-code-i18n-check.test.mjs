@@ -8,6 +8,7 @@ import {
   buildRegistryModel,
   extractCodeMessagePairs,
 } from './public-error-registry-lib.mjs'
+import { deTranslationFailsQualityCheck } from './error-de-quality.mjs'
 
 describe('error-code i18n check', () => {
   it('passes on generated registry and locale files', () => {
@@ -27,6 +28,30 @@ describe('error-code i18n check', () => {
     assert.equal(model.codes.ACTIVE_SITE_REQUIRED.public, true)
     assert.ok(model.messages.de.get('CHECK_IN_EXISTS'))
     assert.ok(model.messages.en.get('CHECK_IN_EXISTS'))
+  })
+
+  it('rejects English-looking German brand extraction copy', () => {
+    const de = JSON.parse(
+      fs.readFileSync(
+        path.join(import.meta.dirname, '../locales/de/errors.json'),
+        'utf8',
+      ),
+    ).codes
+    const en = JSON.parse(
+      fs.readFileSync(
+        path.join(import.meta.dirname, '../locales/en/errors.json'),
+        'utf8',
+      ),
+    ).codes
+    assert.equal(de.BRAND_EXTRACTION_FAILED, 'Briefkopf-Extraktion fehlgeschlagen.')
+    assert.equal(
+      deTranslationFailsQualityCheck(
+        de.BRAND_EXTRACTION_FAILED,
+        en.BRAND_EXTRACTION_FAILED,
+        'BRAND_EXTRACTION_FAILED',
+      ),
+      false,
+    )
   })
 
   it('pairs code and message inside the same HttpException object', () => {
