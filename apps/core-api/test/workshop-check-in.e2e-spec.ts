@@ -13,6 +13,7 @@ import {
   createTestAuthToken,
   createTestTenant,
   resolveTestMainSiteId,
+  runWithTenantContext,
   seedTestEmployee,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
@@ -134,11 +135,13 @@ describe('Workshop check-in (e2e)', () => {
     });
     otherOrderId = otherOrder.id;
 
-    await seedTestEmployee(basePrisma, {
-      tenantId,
-      name: 'Advisor Upload',
-      role: 'SERVICE_ADVISOR',
-    });
+    await runWithTenantContext(tenantId, () =>
+      seedTestEmployee(basePrisma, {
+        tenantId,
+        name: 'Advisor Upload',
+        role: 'SERVICE_ADVISOR',
+      }),
+    );
   });
 
   afterAll(async () => {

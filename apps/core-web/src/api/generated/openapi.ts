@@ -2004,6 +2004,22 @@ export interface paths {
         patch: operations["WorkshopCheckInController_updateInspection"];
         trace?: never;
     };
+    "/api/workshop/orders/{orderId}/check-in/media": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["WorkshopCheckInController_listMedia"];
+        put?: never;
+        post: operations["WorkshopCheckInController_uploadMedia"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/workshop/orders/{orderId}/check-in/complete": {
         parameters: {
             query?: never;
@@ -7837,6 +7853,20 @@ export interface components {
         UpdateWorkshopCheckInInspectionDto: {
             items: components["schemas"]["UpdateWorkshopInspectionItemDto"][];
             expected_revision: number;
+        };
+        WorkshopCheckInMediaItemDto: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            purpose: "CHECK_IN" | "CHECK_IN_SIGNATURE";
+            mime_type: string;
+            size_bytes: number;
+            preview_url?: Record<string, never> | null;
+            /** @enum {string} */
+            processing_status?: "PENDING" | "READY" | "FAILED";
+        };
+        WorkshopCheckInMediaListDto: {
+            data: components["schemas"]["WorkshopCheckInMediaItemDto"][];
         };
         CompleteWorkshopCheckInDto: {
             expected_revision: number;
@@ -15471,6 +15501,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkshopInspectionResponseDto"];
+                };
+            };
+        };
+    };
+    WorkshopCheckInController_listMedia: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopCheckInMediaListDto"];
+                };
+            };
+        };
+    };
+    WorkshopCheckInController_uploadMedia: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopCheckInMediaItemDto"];
                 };
             };
         };

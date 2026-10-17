@@ -16,14 +16,14 @@ vi.mock('sonner', () => ({
   toast: { error: vi.fn() },
 }))
 
-const baseRecord: WorkshopCheckIn = {
+const baseRecord = {
   id: 'check-in-1',
   workshop_order_id: 'order-1',
-  status: 'DRAFT',
+  status: 'DRAFT' as const,
   revision: 1,
   condition_json: {
     schema_version: 1,
-    tyre_season: 'UNKNOWN',
+    tyre_season: 'UNKNOWN' as const,
     exterior_notes: '',
     interior_notes: '',
   },
@@ -39,7 +39,7 @@ const baseRecord: WorkshopCheckIn = {
   pdf_sha256: null,
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
-}
+} as unknown as WorkshopCheckIn
 
 describe('useCheckInDraftAutosave', () => {
   it('replaces local draft with server values after CHECK_IN_CONFLICT', async () => {
