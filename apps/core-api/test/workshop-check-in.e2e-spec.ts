@@ -280,6 +280,38 @@ describe('Workshop check-in (e2e)', () => {
     expect(afterRetry.body.revision).toBe(after.body.revision);
   });
 
+  it('keeps one media row and does not delete storage on overlapping uploads', async () => {
+    const deleteSpy = mockMediaStorage.deleteObjectIfExists as jest.Mock;
+    deleteSpy.mockClear();
+
+    const clientUploadId = '51500000-0000-4000-8000-000000000559';
+    const before = await request(app.getHttpServer())
+      .get(`/api/workshop/orders/${orderId}/check-in`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    const bytes = await readFile(gpsFixture);
+    const postUpload = () =>
+      request(app.getHttpServer())
+        .post(`/api/workshop/orders/${orderId}/check-in/media`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .field('client_upload_id', clientUploadId)
+        .field('purpose', 'CHECK_IN')
+        .field('expected_revision', String(before.body.revision))
+        .attach('file', bytes, 'check-in-overlap.jpg');
+
+    const [first, second] = await Promise.all([postUpload(), postUpload()]);
+    const okStatuses = new Set([200, 201]);
+    expect(okStatuses.has(first.status)).toBe(true);
+    expect(okStatuses.has(second.status)).toBe(true);
+
+    const mediaRows = await prisma.workshopMedia.findMany({
+      where: { tenant_id: tenantId, id: clientUploadId },
+    });
+    expect(mediaRows).toHaveLength(1);
+    expect(deleteSpy).not.toHaveBeenCalled();
+  });
+
   it('isolates check-in reads across tenants', async () => {
     await request(app.getHttpServer())
       .get(`/api/workshop/orders/${orderId}/check-in`)
