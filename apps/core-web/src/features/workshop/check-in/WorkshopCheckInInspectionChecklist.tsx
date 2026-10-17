@@ -1,12 +1,18 @@
 import { useTranslation } from 'react-i18next'
-import { WorkshopTaskInspectionChecklistView } from '@/components/workshop/WorkshopTaskInspectionChecklistView'
+import { useQueryClient } from '@tanstack/react-query'
+import {
+  WorkshopTaskInspectionChecklistView,
+  type InspectionChecklistViewLabels,
+} from '@/components/workshop/WorkshopTaskInspectionChecklistView'
 import {
   useUpdateWorkshopCheckInInspection,
   useWorkshopCheckIn,
   useWorkshopCheckInInspection,
+  workshopCheckInKeys,
+  type WorkshopCheckIn,
 } from '@/api/workshop-check-in'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 
 type Props = {
   orderId: string
@@ -14,9 +20,23 @@ type Props = {
 
 export function WorkshopCheckInInspectionChecklist({ orderId }: Props) {
   const { t } = useTranslation('workshop')
+  const queryClient = useQueryClient()
   useEffect(() => {
     void ensureNamespaceLoaded('workshop')
   }, [])
+
+  const checklistLabels = useMemo<InspectionChecklistViewLabels>(
+    () => ({
+      sectionAriaLabel: t('checkIn.inspection.sectionLabel'),
+      description: t('checkIn.inspection.description'),
+      passButton: t('checkIn.inspection.pass'),
+      failButton: t('checkIn.inspection.fail'),
+      passAriaLabel: (label) => t('checkIn.inspection.passAria', { label }),
+      failAriaLabel: (label) => t('checkIn.inspection.failAria', { label }),
+      noteAriaLabel: (label) => t('checkIn.inspection.noteFor', { label }),
+    }),
+    [t],
+  )
 
   const checkInQuery = useWorkshopCheckIn(orderId)
   const inspectionQuery = useWorkshopCheckInInspection(
@@ -33,22 +53,28 @@ export function WorkshopCheckInInspectionChecklist({ orderId }: Props) {
     )
   }
 
-  if (!checkInQuery.data?.inspection_id || !inspectionQuery.data) {
+  const checkIn = checkInQuery.data
+  if (!checkIn?.inspection_id || !inspectionQuery.data) {
     return null
   }
 
-  const readOnly = checkInQuery.data.status === 'COMPLETED'
+  const readOnly = checkIn.status === 'COMPLETED'
 
   return (
     <WorkshopTaskInspectionChecklistView
       checklist={inspectionQuery.data}
+      labels={checklistLabels}
       readOnly={readOnly}
       saving={updateInspection.isPending}
       onSave={async (itemId, values) => {
+        const cached = queryClient.getQueryData<WorkshopCheckIn | null>(
+          workshopCheckInKeys.record(orderId),
+        )
+        const revision = cached?.revision ?? checkIn.revision
         try {
           await updateInspection.mutateAsync({
             orderId,
-            expectedRevision: checkInQuery.data.revision,
+            expectedRevision: revision,
             items: [
               {
                 id: itemId,

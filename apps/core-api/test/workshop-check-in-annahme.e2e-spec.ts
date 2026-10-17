@@ -2,7 +2,11 @@ import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
-import { createGlobalValidationPipe } from '../src/common/index.js';
+import {
+  createGlobalValidationPipe,
+  GlobalExceptionFilter,
+} from '../src/common/index.js';
+import { WorkshopCheckInStatus } from '@prisma/client';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
@@ -36,6 +40,7 @@ describe('Workshop check-in Annahme checklist (e2e)', () => {
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
     app.useGlobalPipes(createGlobalValidationPipe());
+    app.useGlobalFilters(new GlobalExceptionFilter());
     await app.init();
 
     const basePrisma = app.get<PrismaService>(PrismaService);
@@ -196,6 +201,73 @@ describe('Workshop check-in Annahme checklist (e2e)', () => {
       .expect((res) => {
         expect(res.body.code).toBe('CHECK_IN_COMPLETED');
       });
+  });
+
+  it('does not attach an inspection when retrying create on a legacy completed check-in', async () => {
+    const legacyCheckInId = '52500000-0000-4000-8000-000000000564';
+    const anchorOrder = await prisma.workshopOrder.findFirst({
+      where: { id: orderId, tenant_id: tenantId },
+      select: { site_id: true, customer_id: true, vehicle_id: true },
+    });
+    if (!anchorOrder) {
+      throw new Error('Missing anchor workshop order');
+    }
+    const legacyOrder = await prisma.workshopOrder.create({
+      data: {
+        order_number: `WO-AUT563-LEGACY-${Date.now()}`,
+        site_id: anchorOrder.site_id,
+        customer_id: anchorOrder.customer_id,
+        vehicle_id: anchorOrder.vehicle_id,
+        odometer: 1,
+        fuel_level: 1,
+        status: 'IN_PROGRESS',
+      },
+    });
+    await prisma.workshopCheckIn.create({
+      data: {
+        id: legacyCheckInId,
+        tenant_id: tenantId,
+        workshop_order_id: legacyOrder.id,
+        status: WorkshopCheckInStatus.COMPLETED,
+        revision: 2,
+        inspection_id: null,
+        condition_json: {},
+        damage_markers_json: [],
+        items_left: '',
+        key_count: 0,
+        warning_lights: [],
+        odometer: 1,
+        fuel_level: 1,
+        content_sha256: 'a'.repeat(64),
+        completed_at: new Date('2026-10-16T10:00:00.000Z'),
+      },
+    });
+
+    const inspectionsBefore = await prisma.workshopInspection.count({
+      where: {
+        tenant_id: tenantId,
+        workshop_order_id: legacyOrder.id,
+        workshop_task_id: null,
+      },
+    });
+
+    const retry = await request(app.getHttpServer())
+      .post(`/api/workshop/orders/${legacyOrder.id}/check-in`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ id: legacyCheckInId })
+      .expect(200);
+
+    expect(retry.body.inspection_id).toBeNull();
+    expect(retry.body.status).toBe(WorkshopCheckInStatus.COMPLETED);
+
+    const inspectionsAfter = await prisma.workshopInspection.count({
+      where: {
+        tenant_id: tenantId,
+        workshop_order_id: legacyOrder.id,
+        workshop_task_id: null,
+      },
+    });
+    expect(inspectionsAfter).toBe(inspectionsBefore);
   });
 
   it('keeps mechanic task inspections scoped to their task', async () => {

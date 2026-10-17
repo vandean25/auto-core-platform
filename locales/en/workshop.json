@@ -6,6 +6,8 @@
       "pass": "OK",
       "fail": "Issue",
       "noteFor": "Note: {{label}}",
+      "passAria": "OK: {{label}}",
+      "failAria": "Issue: {{label}}",
       "loadError": "Could not load the intake checklist.",
       "saveError": "Could not save the intake checklist."
     }

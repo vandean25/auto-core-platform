@@ -71,11 +71,11 @@ export class WorkshopCheckInService {
     });
     if (existingByOrder) {
       if (existingByOrder.id === dto.id) {
-        const linked = await this.ensureInspectionLinked(
-          tenantId,
-          orderId,
-          existingByOrder,
-        );
+        const linked = await this.ensureInspectionLinked(tenantId, orderId, {
+          id: existingByOrder.id,
+          inspection_id: existingByOrder.inspection_id,
+          status: existingByOrder.status,
+        });
         if (!linked) {
           throw new NotFoundException('Workshop check-in not found');
         }
@@ -445,9 +445,13 @@ export class WorkshopCheckInService {
   private async ensureInspectionLinked(
     tenantId: string,
     orderId: string,
-    row: { id: string; inspection_id: string | null },
+    row: {
+      id: string;
+      inspection_id: string | null;
+      status: WorkshopCheckInStatus;
+    },
   ) {
-    if (row.inspection_id) {
+    if (row.inspection_id || row.status !== WorkshopCheckInStatus.DRAFT) {
       return this.prisma.workshopCheckIn.findFirst({
         where: { tenant_id: tenantId, id: row.id },
       });
@@ -464,14 +468,21 @@ export class WorkshopCheckInService {
           where: { tenant_id: tenantId, id: row.id },
         });
       }
-      await tx.workshopCheckIn.updateMany({
+      const { count } = await tx.workshopCheckIn.updateMany({
         where: {
           tenant_id: tenantId,
           id: row.id,
+          status: WorkshopCheckInStatus.DRAFT,
           inspection_id: null,
         },
         data: { inspection_id: inspectionId },
       });
+      if (count === 0) {
+        throw new ConflictException({
+          code: CHECK_IN_ERROR_CODES.CHECK_IN_CONFLICT,
+          message: 'Check-in changed while linking the reception checklist.',
+        });
+      }
       return tx.workshopCheckIn.findFirst({
         where: { tenant_id: tenantId, id: row.id },
       });
@@ -487,11 +498,11 @@ export class WorkshopCheckInService {
       where: { tenant_id: tenantId, workshop_order_id: orderId },
     });
     if (existingByOrder?.id === requestedId) {
-      const linked = await this.ensureInspectionLinked(
-        tenantId,
-        orderId,
-        existingByOrder,
-      );
+      const linked = await this.ensureInspectionLinked(tenantId, orderId, {
+        id: existingByOrder.id,
+        inspection_id: existingByOrder.inspection_id,
+        status: existingByOrder.status,
+      });
       if (!linked) {
         throw new NotFoundException('Workshop check-in not found');
       }

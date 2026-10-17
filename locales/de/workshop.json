@@ -6,6 +6,8 @@
       "pass": "OK",
       "fail": "Mangel",
       "noteFor": "Notiz: {{label}}",
+      "passAria": "OK: {{label}}",
+      "failAria": "Mangel: {{label}}",
       "loadError": "Annahme-Checkliste konnte nicht geladen werden.",
       "saveError": "Annahme-Checkliste konnte nicht gespeichert werden."
     }
