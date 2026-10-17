@@ -56,14 +56,14 @@ function baseRow() {
     damage_markers_json: [
       {
         id: 'b-marker',
-        zone_id: 'rear_bumper',
+        zone_id: 'REAR_BUMPER',
         type: 'SCRATCH',
         note: 'scratch',
         media_ids: ['media-2', 'media-1'],
       },
       {
         id: 'a-marker',
-        zone_id: 'front_bumper',
+        zone_id: 'FRONT_BUMPER',
         type: 'DENT',
         note: '',
         media_ids: [],
@@ -82,14 +82,14 @@ describe('workshop check-in evidence snapshot', () => {
     expect(normalizeCheckInDamageMarkers(baseRow().damage_markers_json)).toEqual([
       {
         id: 'a-marker',
-        zone_id: 'front_bumper',
+        zone_id: 'FRONT_BUMPER',
         type: 'DENT',
         note: '',
         media_ids: [],
       },
       {
         id: 'b-marker',
-        zone_id: 'rear_bumper',
+        zone_id: 'REAR_BUMPER',
         type: 'SCRATCH',
         note: 'scratch',
         media_ids: ['media-1', 'media-2'],
@@ -127,14 +127,14 @@ describe('workshop check-in evidence snapshot', () => {
         damage_markers_json: [
           {
             id: 'b-marker',
-            zone_id: 'rear_bumper',
+            zone_id: 'REAR_BUMPER',
             type: 'SCRATCH',
             note: 'scratch',
             media_ids: ['media-1', 'media-2'],
           },
           {
             id: 'a-marker',
-            zone_id: 'front_bumper',
+            zone_id: 'FRONT_BUMPER',
             type: 'DENT',
             note: '',
             media_ids: [],
@@ -258,7 +258,7 @@ describe('workshop check-in evidence snapshot', () => {
       }),
     );
     expect(digest).toBe(
-      '6d3fe06afc93932aae21fb79e64e264a756669c7c97b0dd9995d7b46b0fdf1fd',
+      '89f1d22564592132c0d05875ef7ca0b58fd807b456ebb5c3d39f3191941f4d36',
     );
   });
 });

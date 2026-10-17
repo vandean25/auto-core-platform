@@ -202,7 +202,7 @@ describe('Workshop check-in (e2e)', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .send({
         expected_revision: 1,
-        items_left: 'pilot customer umbrella',
+        items_left: 'Umbrella in boot',
         key_count: 2,
         warning_lights: ['ABS'],
         odometer: 125010,
@@ -215,9 +215,9 @@ describe('Workshop check-in (e2e)', () => {
         damage_markers: [
           {
             id: '51500000-0000-4000-8000-000000000556',
-            zone_id: 'rear_bumper',
+            zone_id: 'REAR_BUMPER',
             type: 'SCRATCH',
-            note: 'pilot customer scratch',
+            note: 'Light scratch',
             media_ids: [],
           },
         ],
@@ -225,8 +225,60 @@ describe('Workshop check-in (e2e)', () => {
       .expect(200);
 
     expect(patchRes.body.revision).toBe(2);
-    expect(patchRes.body.items_left).toBe('pilot customer umbrella');
+    expect(patchRes.body.items_left).toBe('Umbrella in boot');
     expect(patchRes.body.odometer).toBe(125010);
+  });
+
+  it('rejects unknown damage zone_id with CHECK_IN_ZONE_INVALID', async () => {
+    const current = await request(app.getHttpServer())
+      .get(`/api/workshop/orders/${orderId}/check-in`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    const response = await request(app.getHttpServer())
+      .patch(`/api/workshop/orders/${orderId}/check-in`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        expected_revision: current.body.revision,
+        damage_markers: [
+          {
+            id: '51500000-0000-4000-8000-000000000559',
+            zone_id: 'hood',
+            type: 'SCRATCH',
+            note: '',
+            media_ids: [],
+          },
+        ],
+      })
+      .expect(400);
+
+    expect(response.body.code).toBe('CHECK_IN_ZONE_INVALID');
+  });
+
+  it('rejects unknown damage type with CHECK_IN_DAMAGE_TYPE_INVALID', async () => {
+    const current = await request(app.getHttpServer())
+      .get(`/api/workshop/orders/${orderId}/check-in`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    const response = await request(app.getHttpServer())
+      .patch(`/api/workshop/orders/${orderId}/check-in`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        expected_revision: current.body.revision,
+        damage_markers: [
+          {
+            id: '51500000-0000-4000-8000-000000000560',
+            zone_id: 'BONNET',
+            type: 'RUST',
+            note: '',
+            media_ids: [],
+          },
+        ],
+      })
+      .expect(400);
+
+    expect(response.body.code).toBe('CHECK_IN_DAMAGE_TYPE_INVALID');
   });
 
   it('returns 200 on idempotent create retry with the same id', async () => {

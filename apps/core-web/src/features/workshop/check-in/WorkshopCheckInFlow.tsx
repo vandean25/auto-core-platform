@@ -386,6 +386,15 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
           signaturePadRef={signaturePadRef}
           signaturePreviewUrl={signaturePreviewUrl}
           onSignatureCanvasClear={() => setSignatureMediaId(null)}
+          media={mediaQuery.isError ? [] : [
+            ...(mediaQuery.data ?? []).filter((item) => item.purpose === 'CHECK_IN'),
+            ...sessionMedia.filter(
+              (item) =>
+                item.purpose === 'CHECK_IN' &&
+                !(mediaQuery.data ?? []).some((existing) => existing.id === item.id),
+            ),
+          ]}
+          localPreviewUrls={localPreviewUrls}
         />
       )}
 

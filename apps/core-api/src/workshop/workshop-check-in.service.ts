@@ -22,6 +22,7 @@ import {
   DEFAULT_CHECK_IN_CONDITION_JSON,
   EMPTY_DAMAGE_MARKERS_JSON,
 } from './workshop-check-in.defaults.js';
+import { assertCheckInDamageMarkerContract } from './workshop-check-in-damage-marker-validation.js';
 import { serializeCheckInDamageMarkers } from './workshop-check-in-damage-markers.js';
 import { assertCheckInDamageMarkerMediaIds } from './workshop-check-in-media-validation.js';
 import { toWorkshopCheckInResponse } from './workshop-check-in.mapper.js';
@@ -217,6 +218,7 @@ export class WorkshopCheckInService {
     }
 
     if (dto.damage_markers !== undefined) {
+      assertCheckInDamageMarkerContract(dto.damage_markers);
       await assertCheckInDamageMarkerMediaIds(
         this.prisma,
         tenantId,
