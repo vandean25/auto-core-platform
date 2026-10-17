@@ -195,11 +195,13 @@ export class VehicleEquipmentService {
     }
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`
-        SELECT "id" FROM "vehicles"
-        WHERE "tenant_id" = ${tenantId} AND "id" = ${vehicleId}
-        FOR UPDATE
-      `;
+      const locked = await tx.vehicle.updateMany({
+        where: { tenant_id: tenantId, id: vehicleId },
+        data: { updatedAt: new Date() },
+      });
+      if (locked.count !== 1) {
+        throw new NotFoundException(`Vehicle ${vehicleId} not found`);
+      }
 
       await tx.vehicleEquipmentSelection.deleteMany({
         where: { tenant_id: tenantId, stock_purchase_id: stockPurchaseId },
