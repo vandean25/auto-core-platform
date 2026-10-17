@@ -1,4 +1,14 @@
 import type { Prisma } from '@prisma/client';
+import type { WorkshopCheckInEvidenceSnapshot } from './workshop-check-in-evidence-snapshot.js';
+import type { WorkshopCheckInPdfEmbeddedMedia } from './workshop-pdf-check-in.assets.js';
+
+export type WorkshopCheckInForPdf = {
+  id: string;
+  content_sha256: string;
+  pdf_sha256: string | null;
+  snapshot: WorkshopCheckInEvidenceSnapshot;
+  embedded: WorkshopCheckInPdfEmbeddedMedia;
+};
 
 /**
  * Typed shape of a WorkshopOrder with relations, as loaded for PDF rendering.
@@ -40,4 +50,5 @@ export type WorkshopOrderForPdf = {
       quantity: Prisma.Decimal | string | number;
     }>;
   }>;
+  check_in?: WorkshopCheckInForPdf | null;
 };

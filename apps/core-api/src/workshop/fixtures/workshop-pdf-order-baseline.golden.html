@@ -1,0 +1,182 @@
+
+    <!DOCTYPE html>
+    <html lang="de">
+    <head>
+      <style>
+        
+  
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+    font-size: 12px;
+    color: #111827;
+    line-height: 1.45;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .section { margin-bottom: 18px; }
+  .section-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #374151;
+    border-bottom: 1px solid #e5e7eb;
+    padding-bottom: 6px;
+    margin-bottom: 10px;
+  }
+  
+  table { width: 100%; border-collapse: collapse; }
+  thead { display: table-header-group; }
+  tr { break-inside: avoid; }
+  th { text-align: left; border-bottom: 1px solid #d1d5db; }
+  td { border-bottom: 1px solid #f3f4f6; }
+
+
+  
+  .check-in-section { margin-top: 28px; padding-top: 20px; border-top: 2px solid #e5e7eb; page-break-inside: avoid; }
+  .check-in-subtitle { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #374151; margin: 16px 0 8px; }
+  .check-in-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; margin-bottom: 12px; }
+  .check-in-marker { border: 1px solid #e5e7eb; border-radius: 6px; padding: 10px; margin-bottom: 8px; font-size: 11px; }
+  .check-in-photos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .check-in-photo { width: 96px; height: 96px; object-fit: cover; border-radius: 6px; border: 1px solid #d1d5db; }
+  .check-in-signature { max-width: 280px; max-height: 120px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; }
+  .check-in-checklist table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .check-in-checklist th, .check-in-checklist td { border: 1px solid #e5e7eb; padding: 6px 8px; text-align: left; }
+  .check-in-ack { font-size: 10px; color: #4b5563; white-space: pre-wrap; margin-top: 8px; padding: 10px; background: #f9fafb; border-radius: 6px; }
+
+
+  h1 { font-size: 24px; margin: 0; letter-spacing: 0.2px; }
+
+  .header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 24px; border-bottom: 2px solid #e5e7eb; padding-bottom: 16px; }
+  .badge-jobcard { background: #1e40af; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+
+  .vehicle-stats { display: flex; gap: 16px; margin-top: 8px; }
+  .stat-box { background: #f3f4f6; padding: 8px 12px; border-radius: 6px; flex: 1; }
+  .stat-label { font-size: 10px; color: #6b7280; text-transform: uppercase; }
+  .stat-value { font-size: 14px; font-weight: 600; margin-top: 2px; }
+
+  .task-card { border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 16px; padding: 16px; page-break-inside: avoid; }
+  .task-header { display: flex; justify-content: space-between; margin-bottom: 12px; }
+  .task-title { font-size: 14px; font-weight: 600; }
+  .task-notes { background: #fffbeb; color: #92400e; padding: 10px; border-radius: 6px; margin-bottom: 12px; border-left: 4px solid #f59e0b; }
+
+  table.line-items { margin-top: 8px; }
+  table.line-items th { padding: 6px 8px; font-size: 10px; color: #6b7280; text-transform: uppercase; }
+  table.line-items td { padding: 8px; font-size: 11px; }
+  
+  .badge { background: #e5e7eb; color: #374151; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 600; }
+
+  .issue-box { background: #fee2e2; border: 1px solid #fca5a5; padding: 16px; border-radius: 8px; margin-bottom: 24px; color: #991b1b; }
+  .issue-title { font-weight: 700; margin-bottom: 4px; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
+
+  .footer-notes { margin-top: 32px; padding-top: 16px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #6b7280; }
+
+      </style>
+    </head>
+    <body>
+      
+  <div class="header">
+    <div>
+      <h1>Arbeitskarte</h1>
+      <div style="color: #6b7280; margin-top: 4px;">Auftrag: WO-PDF-42</div>
+    </div>
+    <div>
+      <span class="badge-jobcard">Internes Dokument</span>
+    </div>
+  </div>
+
+
+      <div class="info-grid">
+        
+    <div class="section">
+      <div class="section-title">Kunde</div>
+      <div style="font-weight: 600;">Test Driver</div>
+      <div>1010 Wien</div>
+      <div>Telefon: +431234567</div>
+      <div>E-Mail: driver@example.com</div>
+    </div>
+  
+        
+    <div class="section">
+      <div class="section-title">Fahrzeug</div>
+      <div style="font-weight: 600; font-size: 14px;">VW Golf (2020)</div>
+      <div>FIN: <span style="font-family: monospace;">VIN-FIXTURE-001</span></div>
+      <div>Kennzeichen: <strong>W-4242</strong></div>
+      
+      <div class="vehicle-stats">
+        <div class="stat-box">
+          <div class="stat-label">Kilometerstand</div>
+          <div class="stat-value">45000 km</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Tankfüllung</div>
+          <div class="stat-value">80%</div>
+        </div>
+      </div>
+    </div>
+  
+      </div>
+
+      
+    <div class="issue-box">
+      <div class="issue-title">Gemeldetes Problem / Kundenbeanstandung</div>
+      <div style="white-space: pre-wrap;">Squeaking brakes</div>
+    </div>
+  
+      
+    <div class="section">
+      <div class="section-title" style="font-size: 14px;">Aufgaben & Arbeiten</div>
+      
+        <div class="task-card">
+          <div class="task-header">
+            <div class="task-title">Brake inspection</div>
+          </div>
+          <div class="task-notes">
+                  <strong>Mechanikernotizen:</strong><br/>
+                  Check pads
+                </div>
+          
+          <table class="line-items">
+            <thead>
+              <tr>
+                <th style="width: 50px;">Typ</th>
+                <th style="width: 80px;">Art.-Nr.</th>
+                <th>Beschreibung</th>
+                <th style="text-align: right; width: 60px;">Menge</th>
+              </tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td><span class="badge">PART</span></td>
+                  <td>PAD-01</td>
+                  <td>Brake pad set</td>
+                  <td style="text-align: right">1</td>
+                </tr>
+              
+            </tbody>
+          </table>
+        
+        </div>
+      
+    </div>
+  
+      
+      
+    <div class="section">
+      <div class="section-title">Interne Notizen</div>
+      <div style="white-space: pre-wrap;">Internal note</div>
+    </div>
+  
+      
+  <div class="footer-notes">
+    Unterschrift Mechaniker: ___________________________ &nbsp;&nbsp;&nbsp;&nbsp; Datum: ________________
+  </div>
+
+    </body>
+    </html>
+  

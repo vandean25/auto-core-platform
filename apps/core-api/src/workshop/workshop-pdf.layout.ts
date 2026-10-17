@@ -9,9 +9,14 @@ import {
   type WorkshopPdfCopy,
 } from './workshop-pdf-copy.js';
 import type { WorkshopOrderForPdf } from './workshop-pdf.types.js';
+import {
+  buildWorkshopCheckInSection,
+  buildWorkshopCheckInSectionStyles,
+} from './workshop-pdf-check-in.layout.js';
 
 export const buildWorkshopDocumentStyles = (): string => `
   ${buildBasePdfStyles()}
+  ${buildWorkshopCheckInSectionStyles()}
 
   h1 { font-size: 24px; margin: 0; letter-spacing: 0.2px; }
 
@@ -272,6 +277,16 @@ export const buildWorkshopHtmlDocument = (
 
       ${buildWorkshopReportedIssueSection(order.reported_issue, escape, copy)}
       ${buildWorkshopTasksSection(order.tasks, escape, copy)}
+      ${
+        order.check_in
+          ? buildWorkshopCheckInSection(
+              order.check_in.snapshot,
+              order.check_in.embedded,
+              escape,
+              documentLocale,
+            )
+          : ''
+      }
       ${buildWorkshopInternalNotesSection(order.notes, escape, copy)}
       ${buildWorkshopFooterNotes(copy)}
     </body>

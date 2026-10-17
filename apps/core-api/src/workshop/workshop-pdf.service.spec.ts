@@ -2,40 +2,87 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { WorkshopPdfService } from './workshop-pdf.service.js';
+import { WorkshopCheckInStatus } from '@prisma/client';
+import { createHash } from 'node:crypto';
+import { Readable } from 'node:stream';
 import type { CloudTasksService } from '../common/services/cloud-tasks.service.js';
+import type { PdfStorage } from '../common/pdf/pdf-storage.js';
 import type { TenantContextService } from '../common/services/tenant-context.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
+import type { MechanicMediaStorage } from '../mechanic/mechanic-media.storage.js';
+import { WorkshopPdfService } from './workshop-pdf.service.js';
 import type { WorkshopPdfRenderer } from './workshop-pdf.renderer.js';
-import type { PdfStorage } from '../common/pdf/pdf-storage.js';
-import { Readable } from 'node:stream';
+import { buildWorkshopPdfFixtureCheckInSnapshot } from './workshop-pdf.fixture.js';
 
 describe('WorkshopPdfService', () => {
   const tenantId = 'tenant-1';
   const workshopOrderId = 'workshop-1';
   const targetBaseUrl = 'https://worker.example.com/api';
 
-  const orderRow = {
+  const requestOrderRow = {
     id: workshopOrderId,
     tenant_id: tenantId,
     order_number: 'WO-1',
     pdf_storage_bucket: null,
     pdf_storage_key: null,
     pdf_generated_at: null,
+    pdf_render_input: null,
     updatedAt: new Date('2026-04-01T00:00:00.000Z'),
-    customer: { preferred_language: null as 'de' | 'en' | null },
+    check_in: null,
   };
+
+  const generationOrderRow = {
+    id: workshopOrderId,
+    order_number: 'WO-1',
+    status: 'INTAKE',
+    odometer: 1000,
+    fuel_level: 50,
+    reported_issue: null,
+    notes: null,
+    customer: {
+      type: 'PRIVATE',
+      first_name: 'Test',
+      last_name: 'Driver',
+      company_name: null,
+      phone: null,
+      email: null,
+      address_zip: null,
+      address_city: null,
+      preferred_language: null as 'de' | 'en' | null,
+    },
+    vehicle: {
+      make: 'VW',
+      model: 'Golf',
+      year: 2020,
+      vin: null,
+      plate: null,
+    },
+    tasks: [],
+    check_in: null,
+  };
+
+  const pdfBytes = Buffer.from('pdf-data');
 
   let service: WorkshopPdfService;
   let cloudTasks: jest.Mocked<
     Pick<CloudTasksService, 'isEnabled' | 'enqueuePdfGeneration'>
   >;
   let renderer: jest.Mocked<Pick<WorkshopPdfRenderer, 'render'>>;
-  let storage: jest.Mocked<Pick<PdfStorage, 'uploadPdf' | 'getPdfStream'>>;
+  let storage: jest.Mocked<
+    Pick<
+      PdfStorage,
+      'uploadPdf' | 'getPdfStream' | 'publishImmutableObject' | 'readImmutableObjectByKey'
+    >
+  >;
+  let mediaStorage: jest.Mocked<Pick<MechanicMediaStorage, 'readObjectBytes'>>;
   let prisma: {
     client: {
       workshopOrder: {
         findFirst: jest.Mock;
+        updateMany: jest.Mock;
+      };
+      $transaction: jest.Mock;
+      workshopCheckIn: {
         updateMany: jest.Mock;
       };
     };
@@ -48,7 +95,7 @@ describe('WorkshopPdfService', () => {
     };
 
     renderer = {
-      render: jest.fn().mockResolvedValue(Buffer.from('pdf-data')),
+      render: jest.fn().mockResolvedValue(pdfBytes),
     };
 
     storage = {
@@ -62,12 +109,32 @@ describe('WorkshopPdfService', () => {
         contentType: 'application/pdf',
         contentLength: 11,
       }),
+      publishImmutableObject: jest.fn().mockResolvedValue({
+        bucket: 'test-bucket',
+        key: 'workshop-check-ins/archive.pdf',
+        generation: '1',
+        sha256: createHash('sha256').update(pdfBytes).digest('hex'),
+        customMetadata: {},
+      }),
+      readImmutableObjectByKey: jest.fn(),
+    };
+
+    mediaStorage = {
+      readObjectBytes: jest.fn().mockResolvedValue(Buffer.from('media-bytes')),
     };
 
     prisma = {
       client: {
         workshopOrder: {
-          findFirst: jest.fn().mockResolvedValue(orderRow),
+          findFirst: jest.fn().mockImplementation(async (args) => {
+            if (args?.select?.pdf_storage_key !== undefined) {
+              return requestOrderRow;
+            }
+            return generationOrderRow;
+          }),
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+        workshopCheckIn: {
           updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         },
         tenant: {
@@ -75,6 +142,7 @@ describe('WorkshopPdfService', () => {
             .fn()
             .mockResolvedValue({ default_locale: 'de' as const }),
         },
+        $transaction: jest.fn(async (fn) => fn(prisma.client)),
       },
     };
 
@@ -86,6 +154,7 @@ describe('WorkshopPdfService', () => {
       {
         getTenantId: jest.fn().mockResolvedValue(tenantId),
       } as unknown as TenantContextService,
+      mediaStorage,
     );
   });
 
@@ -106,11 +175,16 @@ describe('WorkshopPdfService', () => {
     it('returns cached metadata if valid PDF exists', async () => {
       const generatedAt = new Date('2026-04-01T10:00:00.000Z');
       prisma.client.workshopOrder.findFirst.mockResolvedValue({
-        ...orderRow,
+        ...requestOrderRow,
         pdf_storage_bucket: 'cached-bucket',
         pdf_storage_key: 'cached-key.pdf',
         pdf_generated_at: generatedAt,
+        pdf_render_input: {
+          schema_version: 2,
+          check_in_content_sha256: null,
+        },
         updatedAt: new Date('2026-04-01T09:00:00.000Z'),
+        check_in: null,
       });
 
       const result = await service.requestGeneration(workshopOrderId, {
@@ -125,6 +199,38 @@ describe('WorkshopPdfService', () => {
         generatedAt,
       });
       expect(cloudTasks.enqueuePdfGeneration).not.toHaveBeenCalled();
+    });
+
+    it('regenerates when a completed check-in was recorded after the cached PDF', async () => {
+      const generatedAt = new Date('2026-04-01T10:00:00.000Z');
+      prisma.client.workshopOrder.findFirst.mockResolvedValue({
+        ...requestOrderRow,
+        pdf_storage_bucket: 'cached-bucket',
+        pdf_storage_key: 'cached-key.pdf',
+        pdf_generated_at: generatedAt,
+        pdf_render_input: {
+          schema_version: 2,
+          check_in_content_sha256: null,
+        },
+        updatedAt: new Date('2026-04-01T09:00:00.000Z'),
+        check_in: {
+          status: WorkshopCheckInStatus.COMPLETED,
+          content_sha256: 'a'.repeat(64),
+          completed_at: new Date('2026-04-01T11:00:00.000Z'),
+        },
+      });
+      process.env.NODE_ENV = 'test';
+      cloudTasks.isEnabled.mockReturnValue(false);
+      jest.spyOn(service, 'generateNow').mockResolvedValue({
+        workshopOrderId,
+        bucket: 'bucket',
+        key: 'workshop-orders/workshop-1.pdf',
+        generatedAt: new Date(),
+      });
+
+      await expect(
+        service.requestGeneration(workshopOrderId, { targetBaseUrl: '' }),
+      ).resolves.toMatchObject({ mode: 'generated' });
     });
 
     it('throws in production without Cloud Tasks config and does not generate inline', async () => {
@@ -229,36 +335,50 @@ describe('WorkshopPdfService', () => {
       expect(result.key).toBe(`workshop-orders/${workshopOrderId}.pdf`);
       expect(result.generatedAt).toBeInstanceOf(Date);
 
-      expect(renderer.render).toHaveBeenCalledWith(orderRow, {
-        documentLocale: 'de',
-      });
+      expect(renderer.render).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: workshopOrderId,
+          check_in: null,
+        }),
+        { documentLocale: 'de' },
+      );
       expect(storage.uploadPdf).toHaveBeenCalledWith({
         key: `workshop-orders/${workshopOrderId}.pdf`,
-        body: Buffer.from('pdf-data'),
+        body: pdfBytes,
         contentType: 'application/pdf',
       });
+      expect(storage.publishImmutableObject).not.toHaveBeenCalled();
       expect(prisma.client.workshopOrder.updateMany).toHaveBeenCalledWith({
         where: { id: workshopOrderId, tenant_id: tenantId },
         data: expect.objectContaining({
           pdf_storage_bucket: 'test-bucket',
           pdf_storage_key: `workshop-orders/${workshopOrderId}.pdf`,
           pdf_generation_error: null,
+          pdf_render_input: expect.objectContaining({
+            check_in_content_sha256: null,
+          }),
         }),
       });
     });
 
     it('stores de on pdf_render_input when customer prefers en until PDF templates are translated', async () => {
-      const englishOrder = {
-        ...orderRow,
-        customer: { preferred_language: 'en' as const },
-      };
-      prisma.client.workshopOrder.findFirst.mockResolvedValue(englishOrder);
+      prisma.client.workshopOrder.findFirst.mockResolvedValue({
+        ...generationOrderRow,
+        customer: {
+          ...generationOrderRow.customer,
+          preferred_language: 'en' as const,
+        },
+      });
 
       await service.generateNow(workshopOrderId);
 
-      expect(renderer.render).toHaveBeenCalledWith(englishOrder, {
-        documentLocale: 'de',
-      });
+      expect(renderer.render).toHaveBeenCalledWith(
+        expect.objectContaining({
+          customer: expect.objectContaining({ preferred_language: 'en' }),
+          check_in: null,
+        }),
+        { documentLocale: 'de' },
+      );
       expect(prisma.client.workshopOrder.updateMany).toHaveBeenCalledWith({
         where: { id: workshopOrderId, tenant_id: tenantId },
         data: expect.objectContaining({
@@ -267,6 +387,60 @@ describe('WorkshopPdfService', () => {
           }),
         }),
       });
+    });
+
+    it('publishes the immutable check-in PDF hash only after the final render', async () => {
+      const snapshot = buildWorkshopPdfFixtureCheckInSnapshot();
+      prisma.client.workshopOrder.findFirst.mockResolvedValue({
+        ...generationOrderRow,
+        check_in: {
+          id: snapshot.check_in_id,
+          status: WorkshopCheckInStatus.COMPLETED,
+          snapshot_json: snapshot,
+          content_sha256: 'c'.repeat(64),
+          pdf_sha256: null,
+        },
+      });
+
+      await service.generateNow(workshopOrderId);
+
+      expect(renderer.render).toHaveBeenCalled();
+      expect(storage.uploadPdf).toHaveBeenCalled();
+      expect(storage.publishImmutableObject).toHaveBeenCalledWith(
+        expect.objectContaining({
+          body: pdfBytes,
+        }),
+      );
+      expect(prisma.client.workshopCheckIn.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            pdf_sha256: null,
+            status: WorkshopCheckInStatus.COMPLETED,
+          }),
+        }),
+      );
+    });
+
+    it('does not publish a check-in archive hash when rendering fails', async () => {
+      const snapshot = buildWorkshopPdfFixtureCheckInSnapshot();
+      prisma.client.workshopOrder.findFirst.mockResolvedValue({
+        ...generationOrderRow,
+        check_in: {
+          id: snapshot.check_in_id,
+          status: WorkshopCheckInStatus.COMPLETED,
+          snapshot_json: snapshot,
+          content_sha256: 'c'.repeat(64),
+          pdf_sha256: null,
+        },
+      });
+      renderer.render.mockRejectedValue(new Error('Browser crashed'));
+
+      await expect(service.generateNow(workshopOrderId)).rejects.toThrow(
+        'Browser crashed',
+      );
+
+      expect(storage.publishImmutableObject).not.toHaveBeenCalled();
+      expect(prisma.client.workshopCheckIn.updateMany).not.toHaveBeenCalled();
     });
 
     it('throws NotFoundException when order is not found', async () => {
