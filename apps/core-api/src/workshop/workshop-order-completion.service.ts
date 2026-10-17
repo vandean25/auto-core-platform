@@ -20,7 +20,7 @@ import { VehicleLedgerService } from '../vehicle-stock/vehicle-ledger.service.js
 import { assertBackOfficeRole } from './workshop-estimate-scope.js';
 import { wakeUpAfterCommit } from './workshop-estimate-email-queue.js';
 import { WorkshopOrderReadyEmailService } from './workshop-order-ready-email.service.js';
-import { resolveReadyEmailNotice } from './workshop-order-ready-notice.js';
+import { previewReadyEmailOnCompletion } from './workshop-order-ready-notice.js';
 import { computeSellerReadiness } from '../site/legal-entity-readiness.js';
 import {
   assertOrderEditable,
@@ -98,6 +98,19 @@ export class WorkshopOrderCompletionService {
     return { site_id: siteId };
   }
 
+  async enrichInput(input: unknown): Promise<unknown> {
+    if (!input || typeof input !== 'object' || Array.isArray(input)) {
+      return input;
+    }
+    const record = { ...(input as Record<string, unknown>) };
+    const parsed = proposeWorkshopOrderCompletionInputSchema.parse(record);
+    const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
+    const plan = await this.planCompletion(parsed, tenantId, siteId);
+    record.pinned_workshop_task_ids = plan.taskIdsToComplete;
+    return record;
+  }
+
   async applyCompletion(
     input: unknown,
     executionContext?: Record<string, unknown>,
@@ -116,24 +129,18 @@ export class WorkshopOrderCompletionService {
         : await this.siteContext.getSiteId();
 
     const plan = await this.planCompletion(parsed, tenantId, expectedSiteId);
+    const taskIdsToComplete = plan.taskIdsToComplete;
 
     let queuedOutboxId: string | null = null;
     const completion = await this.prisma.$transaction(async (tx) => {
-      if (parsed.odometer_out !== undefined || parsed.notes !== undefined) {
-        const orderUpdate: Prisma.WorkshopOrderUpdateManyMutationInput = {};
-        if (parsed.odometer_out !== undefined) {
-          orderUpdate.odometer = parsed.odometer_out;
-        }
-        if (parsed.notes !== undefined) {
-          orderUpdate.notes = parsed.notes;
-        }
+      if (parsed.notes !== undefined) {
         const updated = await tx.workshopOrder.updateMany({
           where: {
             id: parsed.workshop_order_id,
             tenant_id: tenantId,
             site_id: expectedSiteId,
           },
-          data: orderUpdate,
+          data: { notes: parsed.notes },
         });
         if (updated.count === 0) {
           throw new NotFoundException(
@@ -142,10 +149,27 @@ export class WorkshopOrderCompletionService {
         }
       }
 
+      const lockedTasks = await tx.workshopTask.findMany({
+        where: {
+          tenant_id: tenantId,
+          workshop_order_id: parsed.workshop_order_id,
+          workshop_order: { site_id: expectedSiteId },
+          id: { in: taskIdsToComplete },
+        },
+        select: { id: true, status: true },
+      });
+      const lockedById = new Map(lockedTasks.map((task) => [task.id, task]));
+
       const taskTransitions: WorkshopOrderCompletionTaskTransition[] = [];
-      for (const taskId of plan.taskIdsToComplete) {
-        const before = plan.tasksById.get(taskId);
-        if (!before || before.status === WorkshopTaskStatus.DONE) {
+      for (const taskId of taskIdsToComplete) {
+        const current = lockedById.get(taskId);
+        if (!current) {
+          throw new ConflictException(
+            `Task ${taskId} is no longer on this workshop order`,
+          );
+        }
+        const before = plan.tasksById.get(taskId) ?? current;
+        if (current.status === WorkshopTaskStatus.DONE) {
           continue;
         }
         await executeTaskUpdateTransaction({
@@ -190,6 +214,15 @@ export class WorkshopOrderCompletionService {
         });
       }
 
+      if (
+        taskTransitions.length === 0 &&
+        plan.orderStatusBefore === plan.derivedNext
+      ) {
+        throw new ConflictException(
+          'Selected workshop tasks are already completed and the order status would not change',
+        );
+      }
+
       const order = await tx.workshopOrder.findFirstOrThrow({
         where: {
           id: parsed.workshop_order_id,
@@ -225,6 +258,8 @@ export class WorkshopOrderCompletionService {
         expectedSiteId,
         order,
         parsed.notify_customer,
+        plan.derivedNext,
+        Boolean(queuedOutboxId),
       );
 
       const warnings = [...plan.warnings];
@@ -285,8 +320,24 @@ export class WorkshopOrderCompletionService {
       (task) => task.status !== WorkshopTaskStatus.DONE,
     );
     const requestedIds = parsed.workshop_task_ids;
+    const pinnedIds = parsed.pinned_workshop_task_ids;
     let taskIdsToComplete: string[];
-    if (requestedIds) {
+    if (pinnedIds?.length) {
+      const unique = new Set(pinnedIds);
+      if (unique.size !== pinnedIds.length) {
+        throw new UnprocessableEntityException(
+          'Duplicate workshop_task_id in pinned_workshop_task_ids',
+        );
+      }
+      for (const taskId of pinnedIds) {
+        if (!tasksById.has(taskId)) {
+          throw new ConflictException(
+            `Task ${taskId} is no longer on this workshop order`,
+          );
+        }
+      }
+      taskIdsToComplete = [...pinnedIds];
+    } else if (requestedIds) {
       const unique = new Set(requestedIds);
       if (unique.size !== requestedIds.length) {
         throw new UnprocessableEntityException(
@@ -333,12 +384,10 @@ export class WorkshopOrderCompletionService {
         : task.status,
     );
     const derivedNext = deriveOrderStatus(simulatedStatuses);
-    if (
-      derivedNext === order.status &&
-      taskIdsToComplete.every(
-        (id) => tasksById.get(id)?.status === WorkshopTaskStatus.DONE,
-      )
-    ) {
+    const wouldCompleteAnyTask = taskIdsToComplete.some(
+      (id) => tasksById.get(id)?.status !== WorkshopTaskStatus.DONE,
+    );
+    if (!wouldCompleteAnyTask && derivedNext === order.status) {
       throw new ConflictException(
         'Selected workshop tasks are already completed and the order status would not change.',
       );
@@ -400,6 +449,8 @@ export class WorkshopOrderCompletionService {
       vehicle: { make: string; model: string };
     },
     notifyCustomer: boolean,
+    derivedNext: WorkshopOrderStatus,
+    queuedThisRun: boolean,
   ): Promise<WorkshopOrderCompletionReadyEmailPreview> {
     if (!notifyCustomer) {
       return {
@@ -408,11 +459,11 @@ export class WorkshopOrderCompletionService {
         notice_code: null,
       };
     }
-    if (order.status !== WorkshopOrderStatus.COMPLETED) {
+    if (queuedThisRun) {
       return {
         notify_customer: true,
-        will_send: false,
-        notice_code: null,
+        will_send: true,
+        notice_code: 'QUEUED',
       };
     }
     const site = await tx.site.findFirst({
@@ -422,7 +473,11 @@ export class WorkshopOrderCompletionService {
     const sellerReady = site
       ? computeSellerReadiness(site.legal_entity).isReady
       : false;
-    const notice = resolveReadyEmailNotice({
+    const preview = previewReadyEmailOnCompletion({
+      notifyCustomer: true,
+      willReachCompleted:
+        order.status === WorkshopOrderStatus.COMPLETED ||
+        derivedNext === WorkshopOrderStatus.COMPLETED,
       orderStatus: 'COMPLETED',
       purpose: order.purpose,
       customer: order.customer,
@@ -431,11 +486,10 @@ export class WorkshopOrderCompletionService {
       sellerReady,
       latestReadyEmailStatus: null,
     });
-    const willSend = notice?.code === 'QUEUED';
     return {
       notify_customer: true,
-      will_send: willSend,
-      notice_code: notice?.code ?? null,
+      will_send: preview.will_send,
+      notice_code: preview.notice_code,
     };
   }
 }

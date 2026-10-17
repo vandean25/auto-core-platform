@@ -17,6 +17,7 @@ import type {
 } from './dto/agent-proposal.dto.js';
 import { fingerprintMcpWriteArgs } from '../mcp/mcp-write-command-idempotency.util.js';
 import { WorkshopBookingPackageService } from '../workshop/workshop-booking-package.service.js';
+import { WorkshopOrderCompletionService } from '../workshop/workshop-order-completion.service.js';
 
 /** Creates pending proposals: direct creation, persisted pending actions, and simulated submissions. */
 @Injectable()
@@ -30,6 +31,7 @@ export class AgentProposalSubmissionService {
     private readonly pendingActionExecutors: PendingActionExecutorService,
     private readonly policyEvaluator: AgentProposalPolicyEvaluator,
     private readonly workshopBookingPackage: WorkshopBookingPackageService,
+    private readonly workshopOrderCompletion: WorkshopOrderCompletionService,
   ) {}
 
   private async normalizeSubmitPayload(
@@ -38,6 +40,9 @@ export class AgentProposalSubmissionService {
   ): Promise<unknown> {
     if (actionType === 'workshop.booking_package') {
       return this.workshopBookingPackage.enrichInput(payload);
+    }
+    if (actionType === 'workshop_order.complete') {
+      return this.workshopOrderCompletion.enrichInput(payload);
     }
     return payload;
   }

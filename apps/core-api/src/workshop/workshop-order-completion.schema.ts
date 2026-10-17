@@ -14,7 +14,8 @@ export const proposeWorkshopOrderCompletionInputSchema = z
   .object({
     workshop_order_id: uuidSchema,
     workshop_task_ids: z.array(uuidSchema).min(1).max(50).optional(),
-    odometer_out: z.number().int().min(0).max(9_999_999).optional(),
+    /** Set by the server during PROPOSE enrichment; apply completes only these tasks. */
+    pinned_workshop_task_ids: z.array(uuidSchema).min(1).max(50).optional(),
     notes: z.string().max(4000).optional(),
     notify_customer: z.boolean().optional().default(false),
     ...optionalMcpCommandIdSchema,

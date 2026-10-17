@@ -12,6 +12,7 @@ import { TenantContextService } from '../common/services/tenant-context.service.
 import { McpWriteCommandIdempotencyService } from './mcp-write-command-idempotency.service.js';
 import { McpWritePipelineService } from './mcp-write-pipeline.service.js';
 import { WorkshopBookingPackageService } from '../workshop/workshop-booking-package.service.js';
+import { WorkshopOrderCompletionService } from '../workshop/workshop-order-completion.service.js';
 import type { McpWriteExecution, McpWriteToolContext } from './mcp-write-pipeline.service.js';
 import { toMcpJsonObject } from './mcp-output.util.js';
 import { mcpToolOutputSchemas } from './mcp-tool-output-schemas.js';
@@ -125,6 +126,10 @@ describe('McpWritePipelineService', () => {
         { provide: TenantContextService, useValue: mockTenantContext },
         {
           provide: WorkshopBookingPackageService,
+          useValue: { enrichInput: async (input: unknown) => input },
+        },
+        {
+          provide: WorkshopOrderCompletionService,
           useValue: { enrichInput: async (input: unknown) => input },
         },
       ],

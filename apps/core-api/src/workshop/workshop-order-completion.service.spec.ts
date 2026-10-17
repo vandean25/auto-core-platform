@@ -12,6 +12,15 @@ describe('proposeWorkshopOrderCompletionInputSchema', () => {
       }).notify_customer,
     ).toBe(false);
   });
+
+  it('rejects odometer_out (not supported on workshop orders)', () => {
+    expect(() =>
+      proposeWorkshopOrderCompletionInputSchema.parse({
+        workshop_order_id: ORDER_ID,
+        odometer_out: 1000,
+      }),
+    ).toThrow();
+  });
 });
 
 describe('WorkshopOrderCompletionService', () => {
@@ -19,6 +28,7 @@ describe('WorkshopOrderCompletionService', () => {
   const siteId = 'site-1';
   const orderId = '00000000-0000-4000-8000-000000000010';
   const taskId = '00000000-0000-4000-8000-000000000011';
+  const pinnedTaskId = '00000000-0000-4000-8000-000000000012';
 
   const mockTenantContext = {
     getTenantId: jest.fn().mockResolvedValue(tenantId),
@@ -32,7 +42,10 @@ describe('WorkshopOrderCompletionService', () => {
   };
   const mockPrisma = {
     site: {
-      findFirst: jest.fn().mockResolvedValue({ id: siteId }),
+      findFirst: jest.fn().mockResolvedValue({
+        id: siteId,
+        legal_entity: { name: 'Pilot', is_ready: true },
+      }),
     },
     user: {
       findUnique: jest.fn().mockResolvedValue({ id: 'user-1' }),
@@ -63,7 +76,10 @@ describe('WorkshopOrderCompletionService', () => {
       id: orderId,
       status: 'IN_PROGRESS',
       purpose: 'CUSTOMER_REPAIR',
-      tasks: [{ id: taskId, status: 'IN_PROGRESS' }],
+      tasks: [
+        { id: taskId, status: 'IN_PROGRESS' },
+        { id: pinnedTaskId, status: 'NOT_STARTED' },
+      ],
       invoice: null,
     });
   });
@@ -91,5 +107,16 @@ describe('WorkshopOrderCompletionService', () => {
         workshop_task_ids: [taskId],
       }),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('enrichInput pins open task ids onto the payload', async () => {
+    const service = createService();
+    const enriched = await service.enrichInput({
+      workshop_order_id: orderId,
+    });
+    expect(enriched).toMatchObject({
+      workshop_order_id: orderId,
+      pinned_workshop_task_ids: [taskId, pinnedTaskId],
+    });
   });
 });

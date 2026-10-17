@@ -27,6 +27,7 @@ import { teardownTestApp } from './test-lifecycle.js';
 import { PdfStorage } from '../src/common/pdf/pdf-storage.js';
 import { createInMemoryPdfArchive } from './support/in-memory-pdf-archive.js';
 import { PURCHASE_PROPOSE_DISCLAIMER } from '../src/purchase/purchase-propose-draft.service.js';
+import { seedReadySellerAndAccountingProfile } from './invoice-snapshot-v2-test-utils.js';
 
 type ReadToolName = (typeof MCP_READ_TOOL_NAMES)[number];
 
@@ -5708,6 +5709,7 @@ describe('MCP server (e2e)', () => {
 
     beforeEach(async () => {
       await setPolicyTier('workshop_order.complete', 'PROPOSE');
+      await seedReadySellerAndAccountingProfile(prismaA, tenantA);
     });
 
     it('PROPOSE: previews task completion and apply commits DONE + COMPLETED', async () => {
@@ -5761,6 +5763,117 @@ describe('MCP server (e2e)', () => {
         status: 'PROPOSED',
         tier: 'PROPOSE',
       });
+    });
+
+    it('apply completes only tasks pinned at propose time', async () => {
+      const { order, task } = await seedCompletionOrder();
+      const proposed = parsePayload<{ pending_action_id: string }>(
+        await callMcpTool(
+          caller(adminHeaderA, 'e2e-order-completion-pin'),
+          'propose_workshop_order_completion',
+          { workshop_order_id: order.id },
+        ),
+      );
+      const extraTask = await prismaA.workshopTask.create({
+        data: {
+          tenant_id: tenantA,
+          workshop_order_id: order.id,
+          title: 'Added after proposal',
+          status: 'IN_PROGRESS',
+        },
+      });
+      await applyProposal(proposed.pending_action_id, adminHeaderA).expect(200);
+      const pinnedTask = await prismaA.workshopTask.findFirstOrThrow({
+        where: { id: task.id },
+      });
+      const lateTask = await prismaA.workshopTask.findFirstOrThrow({
+        where: { id: extraTask.id },
+      });
+      expect(pinnedTask.status).toBe('DONE');
+      expect(lateTask.status).toBe('IN_PROGRESS');
+    });
+
+    it('PROPOSE with notify_customer true previews ready_email.will_send when order will complete', async () => {
+      await prismaA.customer.update({
+        where: { id: fixtures.customerId },
+        data: {
+          email: 'ready-mcp@example.at',
+          contact_email_ok: true,
+        },
+      });
+      const { order } = await seedCompletionOrder();
+      const outboxBefore = await prismaA.notificationOutbox.count({
+        where: { tenant_id: tenantA },
+      });
+      const result = await callMcpTool(
+        caller(adminHeaderA, 'e2e-order-completion-notify'),
+        'propose_workshop_order_completion',
+        { workshop_order_id: order.id, notify_customer: true },
+      );
+      const proposed = parsePayload<{
+        proposal: {
+          preview: {
+            ready_email: {
+              notify_customer: boolean;
+              will_send: boolean;
+              notice_code: string | null;
+            };
+          };
+        };
+      }>(result);
+      expect(proposed.proposal.preview.ready_email).toMatchObject({
+        notify_customer: true,
+        will_send: true,
+        notice_code: 'QUEUED',
+      });
+      const outboxAfterPropose = await prismaA.notificationOutbox.count({
+        where: { tenant_id: tenantA },
+      });
+      expect(outboxAfterPropose).toBe(outboxBefore);
+    });
+
+    it('returns not found for a workshop order at another site in the same tenant', async () => {
+      const mainSite = await prismaA.site.findFirstOrThrow({
+        where: { id: fixtures.siteId },
+        select: { legal_entity_id: true },
+      });
+      const otherSite = await prismaA.site.create({
+        data: {
+          legal_entity_id: mainSite.legal_entity_id,
+          code: `MCP-COMPLETE-OTHER-${Date.now()}`,
+          name: 'MCP completion other site',
+          timezone: 'Europe/Vienna',
+          slot_minutes: 30,
+          holiday_country_iso: 'AT',
+        },
+      });
+      const foreignOrderId = await prismaA.workshopOrder
+        .create({
+          data: {
+            order_number: `WO-OTHER-SITE-${Date.now()}`,
+            customer_id: fixtures.customerId,
+            vehicle_id: fixtures.vehicleId,
+            site_id: otherSite.id,
+            odometer: 900,
+            fuel_level: 40,
+            status: 'IN_PROGRESS',
+          },
+        })
+        .then((row) => row.id);
+      await prismaA.workshopTask.create({
+        data: {
+          tenant_id: tenantA,
+          workshop_order_id: foreignOrderId,
+          title: 'Other site task',
+          status: 'IN_PROGRESS',
+        },
+      });
+      const result = await callMcpTool(
+        caller(adminHeaderA, 'e2e-order-completion-site'),
+        'propose_workshop_order_completion',
+        { workshop_order_id: foreignOrderId },
+      );
+      expect(result.isError).toBe(true);
     });
 
     it('returns not found for a workshop order in another tenant', async () => {
