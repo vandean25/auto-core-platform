@@ -186,6 +186,9 @@ export function createVehicleMediaPurgeExtension() {
       client: {
         $transaction(...args: unknown[]) {
           if (typeof args[0] === 'function') {
+            if (SideEffectGuard.isDryRun()) {
+              return commitTransaction(...args);
+            }
             return runWithDeferredVehicleMediaPurges(() =>
               commitTransaction(...args),
             );
