@@ -46,6 +46,7 @@ export class McpListingReadService {
       const current = await this.prisma.vehicleListing.findFirst({
         where: {
           tenant_id: tenantId,
+          site_id: siteId,
           vehicle_id: input.vehicle_id,
           stock_purchase_id: stockPurchaseId,
         },
@@ -74,6 +75,7 @@ export class McpListingReadService {
     const pendingRemoval = await this.prisma.vehicleListing.findMany({
       where: {
         tenant_id: tenantId,
+        site_id: siteId,
         vehicle_id: input.vehicle_id,
         channels: {
           some: { export_state: VehicleListingExportState.REMOVAL_REQUIRED },

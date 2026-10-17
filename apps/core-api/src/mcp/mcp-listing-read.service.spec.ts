@@ -45,7 +45,7 @@ describe('McpListingReadService', () => {
         id: 'listing-old',
         listing_ref: 'Lold',
         stock_purchase_id: 'purchase-1',
-        site_id: 'site-orig',
+        site_id: siteId,
         revision: 5,
         updatedAt: new Date('2026-09-01'),
         channels: [
@@ -73,9 +73,37 @@ describe('McpListingReadService', () => {
       expect.objectContaining({
         where: {
           tenant_id: tenantId,
+          site_id: siteId,
           vehicle_id: vehicleId,
           stock_purchase_id: 'purchase-2',
         },
+      }),
+    );
+    expect(prisma.vehicleListing.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tenant_id: tenantId,
+          site_id: siteId,
+          vehicle_id: vehicleId,
+        }),
+      }),
+    );
+  });
+
+  it('does not load pending removal listings from another site', async () => {
+    const { service, prisma } = makeService();
+    prisma.vehicle.findFirst.mockResolvedValue({ id: vehicleId });
+    prisma.vehiclePurchase.findFirst.mockResolvedValue(null);
+    prisma.vehicleListing.findFirst.mockResolvedValue(null);
+    prisma.vehicleListing.findMany.mockResolvedValue([]);
+
+    await expect(
+      service.getVehicleListingStatus({ vehicle_id: vehicleId }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    expect(prisma.vehicleListing.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ site_id: siteId }),
       }),
     );
   });
