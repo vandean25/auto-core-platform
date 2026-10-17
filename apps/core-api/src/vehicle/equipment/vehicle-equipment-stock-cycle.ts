@@ -7,12 +7,17 @@ export async function resolveCurrentReceivedStockPurchaseId(
   prisma: StockCycleClient,
   tenantId: string,
   vehicleId: string,
+  activeSiteId: string,
 ): Promise<string> {
   const purchase = await prisma.vehiclePurchase.findFirst({
     where: {
       tenant_id: tenantId,
       vehicle_id: vehicleId,
       status: VehiclePurchaseStatus.RECEIVED,
+      vehicle: {
+        tenant_id: tenantId,
+        location: { site_id: activeSiteId },
+      },
     },
     orderBy: [{ received_at: 'desc' }, { createdAt: 'desc' }],
     select: { id: true },

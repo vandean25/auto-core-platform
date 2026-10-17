@@ -124,10 +124,12 @@ export class VehicleEquipmentService {
   ): Promise<VehicleEquipmentAssignmentDto> {
     const tenantId = await this.tenantContext.getTenantId();
     await this.assertStockVehicleAtActiveSite(tenantId, vehicleId);
+    const siteId = await this.siteContext.getSiteId();
     const stockPurchaseId = await resolveCurrentReceivedStockPurchaseId(
       this.prisma,
       tenantId,
       vehicleId,
+      siteId,
     );
 
     const [selections, freeTextItems] = await Promise.all([
@@ -164,10 +166,12 @@ export class VehicleEquipmentService {
   ): Promise<VehicleEquipmentAssignmentDto> {
     const tenantId = await this.tenantContext.getTenantId();
     await this.assertStockVehicleAtActiveSite(tenantId, vehicleId);
+    const siteId = await this.siteContext.getSiteId();
     const stockPurchaseId = await resolveCurrentReceivedStockPurchaseId(
       this.prisma,
       tenantId,
       vehicleId,
+      siteId,
     );
 
     const selectionRows = dto.selections ?? [];
