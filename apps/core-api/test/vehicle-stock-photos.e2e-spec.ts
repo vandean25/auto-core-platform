@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import type { Prisma } from '@prisma/client';
+import type { Prisma, PrismaClient } from '@prisma/client';
 import request from 'supertest';
 import sharp from 'sharp';
 import { exifHasGpsIfd } from '../src/common/media/exif-has-gps-ifd.js';
@@ -12,6 +12,7 @@ import {
   disposeVehicleStockSuite,
   vin,
 } from './helpers/vehicle-stock-suite.js';
+import { runWithTenantContext } from './tenant-test-utils.js';
 
 const gpsFixture = new URL(
   '../src/common/media/fixtures/gps-oriented.jpg',
@@ -256,19 +257,37 @@ describe('Vehicle stock photos (e2e)', () => {
     });
   }
 
-  function batchDeleteVehiclePromises(vehicleId: string, purchaseId: string) {
+  function batchDeleteVehiclePromises(
+    db: PrismaClient,
+    vehicleId: string,
+    purchaseId: string,
+  ) {
     return [
-      suite.prisma.vehiclePurchase.update({
+      db.vehiclePurchase.update({
         where: { tenant_id: suite.tenantId, id: purchaseId },
         data: { vehicle_id: null },
       }),
-      suite.prisma.vehicleLedgerEntry.deleteMany({
+      db.vehicleLedgerEntry.deleteMany({
         where: { tenant_id: suite.tenantId, vehicle_id: vehicleId },
       }),
-      suite.prisma.vehicle.delete({
+      db.vehicle.delete({
         where: { tenant_id: suite.tenantId, id: vehicleId },
       }),
     ];
+  }
+
+  async function runBatchVehicleDeleteTransaction(
+    vehicleId: string,
+    purchaseId: string,
+    extraSteps: Prisma.PrismaPromise<unknown>[] = [],
+  ): Promise<unknown> {
+    return runWithTenantContext(suite.tenantId, () => {
+      const db = suite.basePrisma.client;
+      return db.$transaction([
+        ...batchDeleteVehiclePromises(db, vehicleId, purchaseId),
+        ...extraSteps,
+      ]);
+    });
   }
 
   it('defers vehicle media purge until an interactive transaction commits', async () => {
@@ -309,9 +328,7 @@ describe('Vehicle stock photos (e2e)', () => {
       await createStockVehicleWithPhoto('TX-PURGE-BATCH');
     expect(mediaObjectKeysForVehicle(vehicleId).length).toBeGreaterThan(0);
 
-    await suite.prisma.$transaction(
-      batchDeleteVehiclePromises(vehicleId, purchaseId),
-    );
+    await runBatchVehicleDeleteTransaction(vehicleId, purchaseId);
 
     expect(mediaObjectKeysForVehicle(vehicleId)).toHaveLength(0);
   });
@@ -322,10 +339,10 @@ describe('Vehicle stock photos (e2e)', () => {
     const keysBefore = mediaObjectKeysForVehicle(vehicleId);
     expect(keysBefore.length).toBeGreaterThan(0);
 
+    const db = suite.basePrisma.client;
     await expect(
-      suite.prisma.$transaction([
-        ...batchDeleteVehiclePromises(vehicleId, purchaseId),
-        suite.prisma.$executeRaw`SELECT (1 / 0)`,
+      runBatchVehicleDeleteTransaction(vehicleId, purchaseId, [
+        db.$executeRaw`SELECT (1 / 0)`,
       ]),
     ).rejects.toThrow();
 
