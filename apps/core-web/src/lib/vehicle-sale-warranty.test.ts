@@ -31,7 +31,7 @@ describe('shorteningSaveErrorMessage', () => {
     ],
     [
       'GEWAEHRLEISTUNG_SHORTENING_REQUIRES_CONSUMER',
-      'Eine Verkürzung der Basisfrist setzt einen Verbraucherkauf voraus.',
+      'Eine Verkürzung der gesetzlichen Gewährleistungsfrist setzt einen Verbraucherkauf voraus.',
     ],
   ])('returns translated copy for %s', (code, expected) => {
     expect(shorteningSaveErrorMessage(saveError(422, code, 'Serverseitige Meldung'))).toBe(expected)

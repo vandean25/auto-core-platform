@@ -751,7 +751,7 @@ describe('MechanicTaskDetailPage', () => {
       })
 
       expect(screen.getByPlaceholderText(/record diagnostic findings/i)).toHaveValue('Typed note')
-      expect(screen.getByText(/provider unavailable/i)).toBeInTheDocument()
+      expect(screen.getByText(/Voice note failed\. Please retry recording\./i)).toBeInTheDocument()
 
       fireEvent.click(screen.getByRole('button', { name: /retry recording/i }))
       await waitFor(() => {

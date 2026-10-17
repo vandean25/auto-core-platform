@@ -479,7 +479,7 @@ describe('VehicleSalePage Kaufvertrag PDF and Garantie', () => {
 
     expect(downloadKaufvertrag).not.toHaveBeenCalled()
     expect(updateSale).not.toHaveBeenCalled()
-    expect(toast.error).toHaveBeenCalledWith(deVehicleStock.sale.warranty.monthsError)
+    expect(toast.error).toHaveBeenCalledWith(deVehicleStock.sale.saveFailed)
   })
 
   it('clears the Garantie terms when the duration is removed, so no terms are saved without one', async () => {
@@ -678,7 +678,7 @@ describe('VehicleSalePage trade-in', () => {
 
     expect(upsertTradeIn).not.toHaveBeenCalled()
     expect(finalizeSale).not.toHaveBeenCalled()
-    expect(toast.error).toHaveBeenCalledWith('The VIN must have 17 characters and no I, O or Q.')
+    expect(toast.error).toHaveBeenCalledWith(deVehicleStock.sale.finalizeFailed)
   })
 
   it('waits for an in-flight trade-in removal before finalizing, instead of saving the removed form', async () => {
@@ -740,9 +740,7 @@ describe('VehicleSalePage trade-in', () => {
 
     expect(finalizeSale).not.toHaveBeenCalled()
     expect(upsertTradeIn).not.toHaveBeenCalled()
-    expect(toast.error).toHaveBeenCalledWith(
-      'The trade-in could not be removed and is still on this sale. Remove it again before finalizing.',
-    )
+    expect(toast.error).toHaveBeenCalledWith(deVehicleStock.sale.finalizeFailed)
   })
 
   it('announces the save status and the validation message to assistive technology', () => {

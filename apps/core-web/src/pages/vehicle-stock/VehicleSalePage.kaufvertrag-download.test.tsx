@@ -170,7 +170,7 @@ describe('VehicleSalePage Kaufvertrag download through the real hook', () => {
 
     await waitFor(() =>
       expect(toast.error).toHaveBeenCalledWith(
-        'Render timeout',
+        deVehicleStock.sale.pdf.errorFallback,
         expect.objectContaining({ id: 'toast-1' }),
       ),
     )

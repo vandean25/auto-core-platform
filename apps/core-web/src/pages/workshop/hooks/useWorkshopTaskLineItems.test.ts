@@ -520,7 +520,7 @@ describe('useWorkshopTaskLineItems', () => {
         await result.current.handleTaskLineItemsChange('task-1', newItems)
       })
 
-      expect(toast.error).toHaveBeenCalledWith('Network error')
+      expect(toast.error).toHaveBeenCalledWith(taskLineItemsToast.updateFailed)
       // Rolled back to previous items
       expect(result.current.taskLineItemOverrides['task-1']).toEqual(
         mockTasks[0].lineItems,

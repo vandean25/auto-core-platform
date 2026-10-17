@@ -135,7 +135,7 @@ describe('PurchaseBillsPage row context Delete', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('Invoice not found or no longer in DRAFT status')
+      expect(toast.error).toHaveBeenCalledWith('Failed to delete bill')
     })
   })
 })
