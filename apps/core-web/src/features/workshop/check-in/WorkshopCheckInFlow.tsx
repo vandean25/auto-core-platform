@@ -57,7 +57,6 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
     patchCondition,
     saveStatus,
     flushBeforeNavigate,
-    refreshRevision,
   } = useCheckInDraftAutosave({
     orderId,
     record: checkInQuery.data,
@@ -90,12 +89,6 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
     orderId,
     orderQuery.data,
   ])
-
-  useEffect(() => {
-    if (checkInQuery.data?.revision) {
-      refreshRevision(checkInQuery.data.revision)
-    }
-  }, [checkInQuery.data?.revision, refreshRevision])
 
   const stepIndex = STEPS.indexOf(step)
   const vehicleLabel = useMemo(() => {
@@ -183,7 +176,7 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
       )}
 
       <nav aria-label={t('checkIn.stepNavAria')} className="flex flex-wrap gap-2">
-        {STEPS.map((id, index) => (
+        {STEPS.map((id) => (
           <Button
             key={id}
             type="button"

@@ -152,10 +152,6 @@ export function useCheckInDraftAutosave({
     patchCondition,
     saveStatus,
     flushBeforeNavigate,
-    revision: revisionRef.current,
-    refreshRevision: (value: number) => {
-      revisionRef.current = value
-    },
     reloadFromServer,
     readOnlyMessage: readOnly ? t('checkIn.completedBanner') : null,
   }

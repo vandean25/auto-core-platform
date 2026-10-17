@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { formatOdometerKm } from '@/lib/format'
+import { formatDateTime, formatOdometerKm } from '@/lib/format'
 import type { WorkshopCheckIn } from '@/api/workshop-check-in'
 import { WorkshopCheckInInspectionChecklist } from './WorkshopCheckInInspectionChecklist'
 import { CheckInSignatureSlot } from './CheckInSignatureSlot'
@@ -69,7 +69,7 @@ export function CheckInReviewStep({
         {record.status === 'COMPLETED' && record.completed_at && (
           <p className="mt-4 text-sm text-green-700" data-testid="check-in-completed-banner">
             {t('checkIn.review.completedAt', {
-              date: new Date(record.completed_at).toLocaleString(),
+              date: formatDateTime(record.completed_at),
             })}
           </p>
         )}
