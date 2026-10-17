@@ -28,7 +28,7 @@ test.describe("Blueprint: Purchase Order Detail", () => {
 
     const mockVendor = createMockVendor({
       id: VENDOR_ID,
-      name: "Bosch Automotive",
+      name: "Nordstern Ersatzteile GmbH",
     });
     const mockPO = createMockPurchaseOrder({
       id: PO_ID,
@@ -119,7 +119,7 @@ test.describe("Blueprint: Purchase Order Detail", () => {
     ).toBeVisible();
     await expect(
       page.getByText(
-        DE_FINANCE.shared.vendorLabel.replace('{{name}}', 'Bosch Automotive'),
+        DE_FINANCE.shared.vendorLabel.replace('{{name}}', 'Nordstern Ersatzteile GmbH'),
       ),
     ).toBeVisible();
     await expect(page.getByText(DE_STATUS.DRAFT, { exact: true })).toBeVisible();
@@ -135,7 +135,7 @@ test.describe("Blueprint: Purchase Order Detail", () => {
     const corePage = new AutoCorePage(page, DE_FINANCE.purchaseOrders.list.create);
     const mockVendor = createMockVendor({
       id: VENDOR_ID,
-      name: "Bosch Automotive",
+      name: "Nordstern Ersatzteile GmbH",
     });
     let currentPO = createMockPurchaseOrder({
       id: PO_ID,
@@ -229,7 +229,7 @@ test.describe("Blueprint: Purchase Order Detail", () => {
     const corePage = new AutoCorePage(page, DE_FINANCE.purchaseOrders.list.create);
     const mockVendor = createMockVendor({
       id: VENDOR_ID,
-      name: "Bosch Automotive",
+      name: "Nordstern Ersatzteile GmbH",
     });
     const mockPO = createMockPurchaseOrder({
       id: PO_ID,

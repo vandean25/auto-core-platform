@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef } from 'react'
+import { getApiErrorBody } from '@/api/api-error'
 import { generateId } from '@/lib/id'
+import { createHttpError, getErrorMessage } from '@/lib/error-utils'
 import { invoiceKeys } from '@/api/sales'
 
 export type SettlementMutationErrorKey =
@@ -17,6 +19,31 @@ export class SettlementMutationError extends Error {
     this.name = 'SettlementMutationError'
     this.i18nKey = i18nKey
   }
+}
+
+const SETTLEMENT_HTTP_FALLBACK: Record<SettlementMutationErrorKey, string> = {
+  'settlement.errors.recordFailed': 'Settlement failed',
+  'settlement.errors.reconcileFailed': 'Reconciliation failed',
+  'settlement.errors.cancellationFailed': 'Cancellation failed',
+  'settlement.errors.missingIdempotencyKey': 'Missing settlement idempotency key',
+}
+
+/** Throws with `response.data.code` preserved for `getErrorMessage`, or a finance fallback key. */
+export function throwIfSettlementResponseNotOk(
+  response: Response,
+  body: unknown,
+  fallbackKey: SettlementMutationErrorKey,
+): void {
+  if (response.ok) {
+    return
+  }
+  const data = getApiErrorBody({ response: { status: response.status, data: body } })
+  if (typeof data?.code === 'string' && data.code.length > 0) {
+    const synthetic = { response: { status: response.status, data } }
+    const message = getErrorMessage(synthetic, SETTLEMENT_HTTP_FALLBACK[fallbackKey])
+    throw createHttpError(message, response.status, data)
+  }
+  throw new SettlementMutationError(fallbackKey)
 }
 
 export type FiscalReceiptSummary = {
@@ -124,12 +151,7 @@ export function useRecordSettlement(invoiceId: string) {
       const body = (await response.json().catch(() => ({}))) as SettlementResponse & {
         message?: string
       }
-      if (!response.ok) {
-        if (typeof body.message === 'string' && body.message.trim()) {
-          throw new Error(body.message)
-        }
-        throw new SettlementMutationError('settlement.errors.recordFailed')
-      }
+      throwIfSettlementResponseNotOk(response, body, 'settlement.errors.recordFailed')
       return body
     },
     onSuccess: (result) => {
@@ -156,12 +178,7 @@ export function useReconcileSettlement(invoiceId: string, idempotencyKey: string
       const body = (await response.json().catch(() => ({}))) as SettlementResponse & {
         message?: string
       }
-      if (!response.ok) {
-        if (typeof body.message === 'string' && body.message.trim()) {
-          throw new Error(body.message)
-        }
-        throw new SettlementMutationError('settlement.errors.reconcileFailed')
-      }
+      throwIfSettlementResponseNotOk(response, body, 'settlement.errors.reconcileFailed')
       return body
     },
     onSuccess: () => {
@@ -186,12 +203,7 @@ export function useCancelFiscalReceipt(invoiceId: string) {
       const body = (await response.json().catch(() => ({}))) as SettlementResponse & {
         message?: string
       }
-      if (!response.ok) {
-        if (typeof body.message === 'string' && body.message.trim()) {
-          throw new Error(body.message)
-        }
-        throw new SettlementMutationError('settlement.errors.cancellationFailed')
-      }
+      throwIfSettlementResponseNotOk(response, body, 'settlement.errors.cancellationFailed')
       return body
     },
     onSuccess: () => {

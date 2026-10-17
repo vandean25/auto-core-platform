@@ -141,7 +141,7 @@
       "tax": "USt",
       "gross": "Brutto",
       "creditedLines": "Gutgeschriebene Positionen",
-      "draftEditHint": "Nur Eigentümer oder Administrator können diesen Gutschrift-Entwurf bearbeiten oder ungültig stellen.",
+      "draftEditHint": "Nur Eigentümer oder Administratoren können diesen Gutschrift-Entwurf bearbeiten oder ungültig stellen.",
       "finalizedHint": "Abgeschlossene Gutschriften können hier nicht geändert werden. Wenden Sie sich an Support und Ihre Buchhaltung, wenn der Beleg irrtümlich ausgestellt wurde.",
       "finalizeDialog": {
         "title": "Gutschrift abschließen?",
@@ -215,7 +215,7 @@
       "recordFailed": "Die Abrechnung konnte nicht erfasst werden.",
       "reconcileFailed": "Der Abgleich ist fehlgeschlagen.",
       "cancellationFailed": "Die Stornierung konnte nicht eingereicht werden.",
-      "missingIdempotencyKey": "Abrechnung kann nicht abgeglichen werden (fehlender Idempotenzschlüssel)."
+      "missingIdempotencyKey": "Bitte laden Sie die Seite neu, bevor Sie die Abrechnung abgleichen können."
     },
     "toast": {
       "externalFieldsRequired": "Externe Belegnummer und Datum sind erforderlich.",

@@ -215,7 +215,7 @@
       "recordFailed": "Could not record the settlement.",
       "reconcileFailed": "Reconciliation failed.",
       "cancellationFailed": "Could not submit the cancellation.",
-      "missingIdempotencyKey": "Cannot reconcile settlement (missing idempotency key)."
+      "missingIdempotencyKey": "Please reload the page before you can reconcile this settlement."
     },
     "toast": {
       "externalFieldsRequired": "External receipt number and date are required.",
