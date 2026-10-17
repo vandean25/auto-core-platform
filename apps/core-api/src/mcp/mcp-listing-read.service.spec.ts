@@ -80,6 +80,29 @@ describe('McpListingReadService', () => {
     );
   });
 
+  it('falls back to the newest listing at the active site without a stock cycle', async () => {
+    const { service, prisma } = makeService();
+    prisma.vehicle.findFirst.mockResolvedValue({ id: vehicleId });
+    prisma.vehiclePurchase.findFirst.mockResolvedValue(null);
+    prisma.vehicleListing.findMany.mockResolvedValue([]);
+    prisma.vehicleListing.findFirst.mockResolvedValue({
+      id: 'listing-site',
+      listing_ref: 'Lsite',
+      stock_purchase_id: 'purchase-1',
+      site_id: siteId,
+      revision: 1,
+      updatedAt: new Date(),
+      channels: [],
+    });
+
+    const result = await service.getVehicleListingStatus({
+      vehicle_id: vehicleId,
+    });
+
+    expect(result.listings).toHaveLength(1);
+    expect(result.listings[0].listing_id).toBe('listing-site');
+  });
+
   it('throws when the vehicle is unknown in the tenant', async () => {
     const { service, prisma } = makeService();
     prisma.vehicle.findFirst.mockResolvedValue(null);

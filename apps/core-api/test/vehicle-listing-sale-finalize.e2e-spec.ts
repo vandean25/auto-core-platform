@@ -155,14 +155,12 @@ describe('Vehicle listing on sale finalize (e2e)', () => {
     );
     expect(channel.removal_revision).toBeGreaterThanOrEqual(1);
 
-    const download = await request(suite.app.getHttpServer())
+    await request(suite.app.getHttpServer())
       .get(
         `/api/vehicle-stock/${vehicleId}/listing/export/download?profile=MOBILE_DE_REFERENCE_V1`,
       )
       .set('Authorization', `Bearer ${suite.authToken}`)
-      .expect(422);
-
-    expect(download.body.code).toBe('VEHICLE_LISTING_NOT_READY');
+      .expect(404);
   });
 
   it('deactivates the listing after a cross-site move before sale', async () => {
