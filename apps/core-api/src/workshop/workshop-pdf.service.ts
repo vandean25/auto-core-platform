@@ -318,6 +318,7 @@ export class WorkshopPdfService {
       if (!renderedPdf) {
         throw new Error('Workshop PDF render did not produce bytes');
       }
+      const finalPdfBytes = renderedPdf;
 
       const generatedAt = new Date();
       const renderInput = buildWorkshopOrderPdfRenderInput({
@@ -344,7 +345,7 @@ export class WorkshopPdfService {
             checkInId: order.check_in!.id,
             workshopOrderId: order.id,
             contentSha256: order.check_in!.content_sha256,
-            pdfBytes: renderedPdf,
+            pdfBytes: finalPdfBytes,
             generatedAt,
             bucket: upload.bucket,
           });

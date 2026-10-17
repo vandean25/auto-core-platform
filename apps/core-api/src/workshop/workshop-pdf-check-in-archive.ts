@@ -40,7 +40,7 @@ export async function publishWorkshopCheckInEvidencePdfArchive(params: {
     PdfStorage,
     'publishImmutableObject' | 'readImmutableObjectByKey'
   >;
-  prisma: Pick<Prisma.TransactionClient, 'workshopCheckIn'>;
+  prisma: Prisma.TransactionClient;
   tenantId: string;
   checkInId: string;
   workshopOrderId: string;
