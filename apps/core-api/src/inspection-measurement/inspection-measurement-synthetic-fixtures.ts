@@ -1,5 +1,10 @@
 import type { CanonicalBrakeMeasurement } from './inspection-measurement.types.js';
 
+function syntheticMeasuredAtIso(): string {
+  const measured = new Date(Date.now() - 30 * 60 * 1000);
+  return measured.toISOString().replace(/\.\d{3}Z$/, '+00:00');
+}
+
 export const SYNTHETIC_BRAKE_MEASUREMENT: CanonicalBrakeMeasurement = {
   schema_version: 'acp-brake-measurement/1',
   native_schema_version: 'TEST_ONLY/1',
@@ -14,8 +19,8 @@ export const SYNTHETIC_BRAKE_MEASUREMENT: CanonicalBrakeMeasurement = {
   vehicle_vin: 'WVWZZZ1JZXW000001',
   workshop_order_ref: 'SYNTH-ORDER-1',
   session_ref: 'SYNTH-SESSION-1',
-  measured_at: '2026-10-16T11:15:00+02:00',
-  received_at: '2026-10-16T09:16:00Z',
+  measured_at: syntheticMeasuredAtIso(),
+  received_at: new Date().toISOString(),
   finality: 'FINAL',
   test_kind: 'SERVICE_BRAKE',
   wheels: [
