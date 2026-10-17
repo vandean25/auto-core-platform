@@ -104,6 +104,7 @@ const TENANT_B_PROBE_ARGUMENTS: Partial<
 const DETAIL_TOOLS_HIDDEN_FROM_OTHER_TENANT = [
   'get_customer',
   'get_vehicle',
+  'get_vehicle_listing_status',
   'get_workshop_order',
   'get_stock_level',
   'get_invoice',
@@ -428,6 +429,41 @@ describe('MCP server (e2e)', () => {
         co2_wltp_g_km: 120,
       },
     });
+    const stockPurchase = await prismaA.vehiclePurchase.create({
+      data: {
+        tenant_id: tenantA,
+        site_id: siteId,
+        purchase_number: `VP-${searchToken}`,
+        status: 'RECEIVED',
+        seller_type: 'VENDOR',
+        vehicle_id: vehicle.id,
+        make: vehicle.make,
+        model: vehicle.model,
+        year: vehicle.year,
+        purchase_price: 5000,
+        received_at: new Date('2026-10-01T00:00:00.000Z'),
+      },
+    });
+    await prismaA.vehicleListing.create({
+      data: {
+        tenant_id: tenantA,
+        site_id: siteId,
+        vehicle_id: vehicle.id,
+        stock_purchase_id: stockPurchase.id,
+        listing_ref: `L${'a'.repeat(32)}`,
+        content_sha256: 'b'.repeat(64),
+        channels: {
+          create: [
+            {
+              tenant_id: tenantA,
+              platform: 'MOBILE_DE',
+              serializer_profile: 'MOBILE_DE_REFERENCE_V1',
+              mapping_version: '1',
+            },
+          ],
+        },
+      },
+    });
     const workshopOrder = await prismaA.workshopOrder.create({
       data: {
         order_number: `WO-${searchToken}`,
@@ -711,6 +747,10 @@ describe('MCP server (e2e)', () => {
       { name: 'get_customer', arguments: { customer_id: fixtures.customerId } },
       { name: 'search_vehicles', arguments: { search: fixtures.searchToken } },
       { name: 'get_vehicle', arguments: { vehicle_id: fixtures.vehicleId } },
+      {
+        name: 'get_vehicle_listing_status',
+        arguments: { vehicle_id: fixtures.vehicleId },
+      },
       {
         name: 'list_workshop_orders',
         arguments: { customer_id: fixtures.customerId },
