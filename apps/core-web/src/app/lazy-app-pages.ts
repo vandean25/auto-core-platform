@@ -30,6 +30,7 @@ export const IntakeDashboard = lazyWithRetry(() =>
   import('@/pages/workshop/IntakeDashboard').then((m) => ({ default: m.IntakeDashboard })),
 )
 export const WorkshopOrderDetails = lazyWithRetry(() => import('@/pages/workshop/WorkshopOrderDetails'))
+export const WorkshopCheckInPage = lazyWithRetry(() => import('@/pages/workshop/WorkshopCheckInPage'))
 export const WorkshopOrderLayout = lazyWithRetry(() => import('@/pages/workshop/WorkshopOrderLayout'))
 export const WorkshopOrderWarrantyClaims = lazyWithRetry(() => import('@/pages/workshop/WorkshopOrderWarrantyClaims'))
 export const WorkshopOrderList = lazyWithRetry(() => import('@/pages/workshop/WorkshopOrderList'))

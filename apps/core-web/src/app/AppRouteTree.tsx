@@ -103,6 +103,10 @@ export function AppRoutes() {
                 <Route path={APP_ROUTE_PATHS.workshopCapacity} element={<Lazy.WorkshopCapacityPage />} />
                 <Route path={APP_ROUTE_PATHS.workshopLoanerVehicles} element={<Lazy.LoanerVehiclesPage />} />
                 <Route path={APP_ROUTE_PATHS.workshopLoanerBookingPrint} element={<Lazy.LoanerBookingPrintPage />} />
+                <Route
+                  path={APP_ROUTE_PATHS.workshopOrderCheckIn}
+                  element={<Lazy.WorkshopCheckInPage />}
+                />
                 <Route path={APP_ROUTE_PATHS.workshopOrderDetail} element={<Lazy.WorkshopOrderLayout />}>
                   <Route index element={<Lazy.WorkshopOrderDetails />} />
                   <Route path="garantie-kulanz" element={<Lazy.WorkshopOrderWarrantyClaims />} />
