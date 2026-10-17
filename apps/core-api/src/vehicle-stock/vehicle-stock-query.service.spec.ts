@@ -30,7 +30,12 @@ describe('VehicleStockQueryService', () => {
       findFirst: jest.Mock;
       updateMany: jest.Mock;
     };
-    vehiclePurchase: { count: jest.Mock; findMany: jest.Mock };
+    vehiclePurchase: {
+      count: jest.Mock;
+      findMany: jest.Mock;
+      findFirst: jest.Mock;
+    };
+    vehicleListing: { findFirst: jest.Mock };
     storageLocation: { findFirst: jest.Mock };
     customer: { findFirst: jest.Mock };
   };
@@ -55,6 +60,10 @@ describe('VehicleStockQueryService', () => {
       vehiclePurchase: {
         count: jest.fn(),
         findMany: jest.fn(),
+        findFirst: jest.fn().mockResolvedValue({ id: 'purchase-1' }),
+      },
+      vehicleListing: {
+        findFirst: jest.fn().mockResolvedValue(null),
       },
       storageLocation: {
         findFirst: jest.fn().mockResolvedValue({ id: 'loc-1' }),
