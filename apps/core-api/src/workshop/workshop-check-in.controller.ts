@@ -77,9 +77,13 @@ export class WorkshopCheckInController {
     @Body() dto: UpdateWorkshopCheckInInspectionDto,
   ): Promise<WorkshopInspectionResponseDto> {
     const { expected_revision, items } = dto;
-    return this.inspections.updateOrderCheckInChecklist(orderId, expected_revision, {
-      items,
-    });
+    return this.inspections.updateOrderCheckInChecklist(
+      orderId,
+      expected_revision,
+      {
+        items,
+      },
+    );
   }
 
   @Post('complete')

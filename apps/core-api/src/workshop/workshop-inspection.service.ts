@@ -247,13 +247,12 @@ export class WorkshopInspectionService {
     };
 
     if ('$transaction' in prisma && typeof prisma.$transaction === 'function') {
-      await prisma.$transaction(
-        async (tx) => runUpdates(tx),
-        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-      );
+      await prisma.$transaction(async (tx) => runUpdates(tx), {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      });
       return;
     }
 
-    await runUpdates(prisma as Prisma.TransactionClient);
+    await runUpdates(prisma);
   }
 }

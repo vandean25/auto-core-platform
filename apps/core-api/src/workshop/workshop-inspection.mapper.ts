@@ -1,4 +1,7 @@
-import type { WorkshopInspection, WorkshopInspectionItem } from '@prisma/client';
+import type {
+  WorkshopInspection,
+  WorkshopInspectionItem,
+} from '@prisma/client';
 import type { WorkshopInspectionResponseDto } from './dto/workshop-inspection-response.dto.js';
 
 type InspectionWithItems = WorkshopInspection & {
