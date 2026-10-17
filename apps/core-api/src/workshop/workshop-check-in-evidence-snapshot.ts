@@ -56,13 +56,16 @@ export function normalizeCheckInCondition(
   conditionJson: Prisma.JsonValue,
 ): WorkshopCheckInEvidenceSnapshot['condition'] {
   const raw =
-    conditionJson && typeof conditionJson === 'object' && !Array.isArray(conditionJson)
+    conditionJson &&
+    typeof conditionJson === 'object' &&
+    !Array.isArray(conditionJson)
       ? (conditionJson as Record<string, unknown>)
       : {};
   return {
     schema_version:
       typeof raw.schema_version === 'number' ? raw.schema_version : 1,
-    tyre_season: typeof raw.tyre_season === 'string' ? raw.tyre_season : 'UNKNOWN',
+    tyre_season:
+      typeof raw.tyre_season === 'string' ? raw.tyre_season : 'UNKNOWN',
     exterior_notes:
       typeof raw.exterior_notes === 'string' ? raw.exterior_notes : '',
     interior_notes:
@@ -88,7 +91,9 @@ export function normalizeCheckInDamageMarkers(
       const type = typeof marker.type === 'string' ? marker.type : '';
       const note = typeof marker.note === 'string' ? marker.note : '';
       const mediaIds = Array.isArray(marker.media_ids)
-        ? marker.media_ids.filter((value): value is string => typeof value === 'string')
+        ? marker.media_ids.filter(
+            (value): value is string => typeof value === 'string',
+          )
         : [];
       if (!id || !zoneId || !type) {
         return null;
@@ -134,7 +139,9 @@ export function buildWorkshopCheckInEvidenceSnapshot(input: {
     check_in_id: input.row.id,
     workshop_order_id: input.row.workshop_order_id,
     condition: normalizeCheckInCondition(input.row.condition_json),
-    damage_markers: normalizeCheckInDamageMarkers(input.row.damage_markers_json),
+    damage_markers: normalizeCheckInDamageMarkers(
+      input.row.damage_markers_json,
+    ),
     items_left: input.row.items_left,
     key_count: input.row.key_count,
     warning_lights: normalizeCheckInWarningLights(input.row.warning_lights),

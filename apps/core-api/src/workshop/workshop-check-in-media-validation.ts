@@ -1,4 +1,7 @@
-import { NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import {
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { Prisma, WorkshopMediaPurpose } from '@prisma/client';
 import type { CheckInDamageMarkerDto } from './dto/workshop-check-in.dto.js';
 import { CHECK_IN_ERROR_CODES } from './workshop-check-in.rules.js';

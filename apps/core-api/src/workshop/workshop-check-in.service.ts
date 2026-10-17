@@ -333,7 +333,7 @@ export class WorkshopCheckInService {
         data: {
           status: WorkshopCheckInStatus.COMPLETED,
           revision: nextRevision,
-          snapshot_json: snapshot as Prisma.InputJsonValue,
+          snapshot_json: snapshot,
           content_sha256: contentSha256,
           completed_at: completedAt,
           completed_by_user_id: completedByUserId,
