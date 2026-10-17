@@ -7,6 +7,7 @@ import {
   createMockSalesOrder,
   createMockVendor,
 } from './utils/mock-factories';
+import { DE_FINANCE } from './helpers/de-finance';
 
 /**
  * Auto-Save Hardening Suite
@@ -26,7 +27,7 @@ test.describe('Blueprint: Auto-Save Hardening', () => {
   const VENDOR_ID = 'vendor-auto-save-123';
 
   test('should auto-save a Purchase Bill field change after the debounce', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Bill');
+    const corePage = new AutoCorePage(page, DE_FINANCE.purchaseBills.list.create);
 
     const initialBill = createMockPurchaseBill({
       id: BILL_ID,
@@ -105,7 +106,7 @@ test.describe('Blueprint: Auto-Save Hardening', () => {
     await corePage.navigate(`/purchase-bills/${BILL_ID}`);
 
     // ── Step 3: Confirm the form loaded with the initial value ──────────────
-    const input = page.getByLabel('Vendor Bill #');
+    const input = page.getByLabel(DE_FINANCE.purchaseBills.form.vendorBillNumber);
     await expect(input).toBeVisible();
     await expect(input).toHaveValue('B-OLD-123');
 

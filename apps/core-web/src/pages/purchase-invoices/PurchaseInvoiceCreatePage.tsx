@@ -1,5 +1,7 @@
 import * as React from "react"
+import { useEffect } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { format } from "date-fns"
 import { Trash2, Plus, Loader2, Package } from "lucide-react"
 import { toast } from "sonner"
@@ -22,6 +24,8 @@ import {
 import { VendorCombobox } from "@/components/purchase-invoices/VendorCombobox"
 import { UnbilledReceiptsModal } from "@/components/purchase-invoices/UnbilledReceiptsModal"
 import type { UnbilledReceiptItem } from "@/api/types"
+import { formatCurrency } from "@/lib/format"
+import { ensureNamespaceLoaded } from "@/lib/i18n"
 
 interface InvoiceLine {
     tempId: string
@@ -32,6 +36,11 @@ interface InvoiceLine {
 }
 
 export default function PurchaseInvoiceCreatePage() {
+    const { t } = useTranslation('finance')
+    useEffect(() => {
+        void ensureNamespaceLoaded('finance')
+    }, [])
+
     const navigate = useNavigate()
     const [searchParams] = useSearchParams()
     const initialVendorId = searchParams.get('vendorId')
@@ -52,7 +61,6 @@ export default function PurchaseInvoiceCreatePage() {
     const { data: unbilledItems = [] } = useUnbilledReceipts(vendorId)
     const createInvoiceMutation = useCreatePurchaseInvoice()
 
-    // Auto-open modal if poId is present
     React.useEffect(() => {
         if (poId && unbilledItems.length > 0) {
             setIsImportModalOpen(true)
@@ -61,7 +69,7 @@ export default function PurchaseInvoiceCreatePage() {
 
     const handleVendorChange = (newVendorId: string) => {
         if (lines.length > 0) {
-            if (!confirm("Changing vendor will clear existing lines. Continue?")) return
+            if (!confirm(t('purchaseInvoices.create.changeVendorConfirm'))) return
         }
         setVendorId(newVendorId)
         setLines([])
@@ -95,7 +103,7 @@ export default function PurchaseInvoiceCreatePage() {
             }
 
             if (skippedDuplicates > 0) {
-                toast.info(`${skippedDuplicates} receipt line(s) already existed and were not added again`)
+                toast.info(t('purchaseInvoices.create.toast.duplicatesSkipped', { count: skippedDuplicates }))
             }
 
             return next
@@ -126,9 +134,9 @@ export default function PurchaseInvoiceCreatePage() {
     const totalAmount = lines.reduce((sum, line) => sum + (line.quantity * line.unitPrice), 0)
 
     const handleSave = async () => {
-        if (!vendorId) return toast.error("Vendor is required")
-        if (!vendorInvoiceNumber) return toast.error("Vendor Invoice Number is required")
-        if (lines.length === 0) return toast.error("Add at least one line")
+        if (!vendorId) return toast.error(t('purchaseInvoices.create.toast.vendorRequired'))
+        if (!vendorInvoiceNumber) return toast.error(t('purchaseInvoices.create.toast.vendorInvRequired'))
+        if (lines.length === 0) return toast.error(t('purchaseInvoices.create.toast.atLeastOneLine'))
 
         try {
             await createInvoiceMutation.mutateAsync({
@@ -143,10 +151,10 @@ export default function PurchaseInvoiceCreatePage() {
                     unitPrice: line.unitPrice
                 }))
             })
-            toast.success("Purchase Invoice created")
-            navigate("/purchase-invoices") // Assuming we have a list page
-        } catch (error) {
-            toast.error("Failed to create invoice")
+            toast.success(t('purchaseInvoices.create.toast.created'))
+            navigate("/purchase-invoices")
+        } catch {
+            toast.error(t('purchaseInvoices.create.toast.createFailed'))
         }
     }
 
@@ -154,44 +162,42 @@ export default function PurchaseInvoiceCreatePage() {
         <>
             <div className="flex items-center justify-between mb-8">
                 <div>
-                    <h1 className="text-2xl font-semibold tracking-tight">Create Purchase Invoice</h1>
+                    <h1 className="text-2xl font-semibold tracking-tight">{t('purchaseInvoices.create.title')}</h1>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => navigate(-1)}>Cancel</Button>
+                    <Button variant="outline" onClick={() => navigate(-1)}>{t('actions.cancel')}</Button>
                     <Button onClick={handleSave} disabled={createInvoiceMutation.isPending}>
                         {createInvoiceMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Save as Draft
+                        {t('actions.saveAsDraft')}
                     </Button>
                 </div>
             </div>
 
             <div className="bg-white shadow-sm border rounded-lg p-8 max-w-5xl mx-auto space-y-8">
-                {/* Header Fields */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                     <div className="space-y-2">
-                        <Label>Vendor</Label>
+                        <Label>{t('purchaseInvoices.create.vendor')}</Label>
                         <VendorCombobox value={vendorId} onChange={handleVendorChange} />
                     </div>
                     <div className="space-y-2">
-                        <Label>Vendor Inv #</Label>
-                        <Input value={vendorInvoiceNumber} onChange={e => setVendorInvoiceNumber(e.target.value)} placeholder="VND-2026-..." />
+                        <Label>{t('purchaseInvoices.create.vendorInvNumber')}</Label>
+                        <Input value={vendorInvoiceNumber} onChange={e => setVendorInvoiceNumber(e.target.value)} placeholder={t('purchaseInvoices.create.vendorInvPlaceholder')} />
                     </div>
                     <div className="space-y-2">
-                        <Label>Invoice Date</Label>
+                        <Label>{t('purchaseInvoices.create.invoiceDate')}</Label>
                         <Input type="date" value={invoiceDate} onChange={e => setInvoiceDate(e.target.value)} />
                     </div>
                     <div className="space-y-2">
-                        <Label>Due Date</Label>
+                        <Label>{t('purchaseInvoices.create.dueDate')}</Label>
                         <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
                     </div>
                 </div>
 
-                {/* Import Action */}
                 {vendorId && (
                     <div className="bg-slate-50 border rounded-md p-4 flex items-center justify-between">
                         <div className="flex items-center gap-2 text-sm text-slate-600">
                             <Package className="h-4 w-4" />
-                            <span>{unbilledItems.length} unbilled receipts available for this vendor</span>
+                            <span>{t('purchaseInvoices.create.unbilledAvailable', { count: unbilledItems.length })}</span>
                         </div>
                         <Button
                             variant="secondary"
@@ -199,21 +205,20 @@ export default function PurchaseInvoiceCreatePage() {
                             disabled={unbilledItems.length === 0}
                             onClick={() => setIsImportModalOpen(true)}
                         >
-                            Import Unbilled Receipts
+                            {t('purchaseInvoices.create.importUnbilled')}
                         </Button>
                     </div>
                 )}
 
-                {/* Lines Table */}
                 <div className="border rounded-md">
                     <Table>
                         <TableHeader>
                             <TableRow>
                                 <TableHead className="w-[50px]">#</TableHead>
-                                <TableHead className="w-[40%]">Description</TableHead>
-                                <TableHead className="w-[100px]">Qty</TableHead>
-                                <TableHead className="w-[120px]">Unit Price</TableHead>
-                                <TableHead className="text-right">Total</TableHead>
+                                <TableHead className="w-[40%]">{t('columns.description')}</TableHead>
+                                <TableHead className="w-[100px]">{t('columns.qty')}</TableHead>
+                                <TableHead className="w-[120px]">{t('columns.unitPrice')}</TableHead>
+                                <TableHead className="text-right">{t('columns.total')}</TableHead>
                                 <TableHead className="w-[50px]"></TableHead>
                             </TableRow>
                         </TableHeader>
@@ -227,7 +232,7 @@ export default function PurchaseInvoiceCreatePage() {
                                             onChange={e => updateLine(index, { description: e.target.value })}
                                         />
                                         {line.purchaseOrderItemId && (
-                                            <Badge variant="outline" className="mt-1 text-xs">Linked to PO</Badge>
+                                            <Badge variant="outline" className="mt-1 text-xs">{t('purchaseInvoices.create.linkedToPo')}</Badge>
                                         )}
                                     </TableCell>
                                     <TableCell>
@@ -245,10 +250,10 @@ export default function PurchaseInvoiceCreatePage() {
                                         />
                                     </TableCell>
                                     <TableCell className="text-right font-medium">
-                                        ${(line.quantity * line.unitPrice).toFixed(2)}
+                                        {formatCurrency(line.quantity * line.unitPrice)}
                                     </TableCell>
                                     <TableCell>
-                                        <Button variant="ghost" size="icon" aria-label={`Remove line ${index + 1}`} onClick={() => removeLine(index)}>
+                                        <Button variant="ghost" size="icon" aria-label={t('purchaseInvoices.create.removeLineAria', { index: index + 1 })} onClick={() => removeLine(index)}>
                                             <Trash2 className="h-4 w-4 text-destructive opacity-50 hover:opacity-100" />
                                         </Button>
                                     </TableCell>
@@ -257,7 +262,7 @@ export default function PurchaseInvoiceCreatePage() {
                             {lines.length === 0 && (
                                 <TableRow>
                                     <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                                        No lines added. Import receipts or add manually.
+                                        {t('purchaseInvoices.create.noLines')}
                                     </TableCell>
                                 </TableRow>
                             )}
@@ -267,10 +272,10 @@ export default function PurchaseInvoiceCreatePage() {
 
                 <div className="flex items-center justify-between">
                     <Button variant="outline" onClick={addManualLine}>
-                        <Plus className="mr-2 h-4 w-4" /> Add Line
+                        <Plus className="mr-2 h-4 w-4" /> {t('actions.addLine')}
                     </Button>
                     <div className="text-xl font-bold">
-                        Subtotal: ${totalAmount.toFixed(2)}
+                        {t('purchaseInvoices.create.subtotal', { amount: formatCurrency(totalAmount) })}
                     </div>
                 </div>
             </div>

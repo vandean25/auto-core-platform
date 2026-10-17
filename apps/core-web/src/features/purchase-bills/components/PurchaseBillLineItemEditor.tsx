@@ -1,7 +1,9 @@
 import { useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import {
   Command,
   CommandEmpty,
@@ -9,7 +11,6 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command'
-import { Input } from '@/components/ui/input'
 import {
   Table,
   TableBody,
@@ -19,37 +20,38 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { formatCurrency } from '@/lib/utils'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { parseNumber } from '../bill-utils'
 import type { PurchaseBillFormModel } from '../form-model'
 
 export function PurchaseBillLineItemEditor({ form }: { form: PurchaseBillFormModel }) {
-  const { setShowSuggestions } = form
-  const quickEntryRef = useRef<HTMLDivElement | null>(null)
+  const { t } = useTranslation('finance')
+  useEffect(() => {
+    void ensureNamespaceLoaded('finance')
+  }, [])
+
   const itemInputRef = useRef<HTMLInputElement | null>(null)
   const qtyInputRef = useRef<HTMLInputElement | null>(null)
+  const quickEntryRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     const handlePointerDown = (event: MouseEvent) => {
-      if (!quickEntryRef.current) return
-      const target = event.target as Node | null
-      if (target && !quickEntryRef.current.contains(target)) {
-        setShowSuggestions(false)
+      if (!quickEntryRef.current?.contains(event.target as Node)) {
+        form.setShowSuggestions(false)
       }
     }
-
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setShowSuggestions(false)
+        form.setShowSuggestions(false)
       }
     }
-
     document.addEventListener('mousedown', handlePointerDown)
     document.addEventListener('keydown', handleEscape)
     return () => {
       document.removeEventListener('mousedown', handlePointerDown)
       document.removeEventListener('keydown', handleEscape)
     }
-  }, [setShowSuggestions])
+  }, [form])
 
   return (
     <div className="space-y-3">
@@ -58,25 +60,32 @@ export function PurchaseBillLineItemEditor({ form }: { form: PurchaseBillFormMod
           <div className="relative">
             <Input
               ref={itemInputRef}
+              disabled={!form.vendorId}
               value={form.searchQuery}
               onChange={(event) => {
-                if (form.stagedItem) form.setStagedItem(null)
+                if (form.stagedItem) {
+                  form.setStagedItem(null)
+                }
                 form.setSearchQuery(event.target.value)
+                form.setShowSuggestions(true)
               }}
               onFocus={() => form.setShowSuggestions(true)}
-              placeholder={form.vendorId ? 'Search part number or name...' : 'Select a vendor first'}
+              placeholder={
+                form.vendorId
+                  ? t('purchaseBills.form.searchPartsPlaceholder')
+                  : t('purchaseBills.form.selectVendorFirst')
+              }
               className="h-8 text-xs"
-              disabled={!form.vendorId}
             />
             {form.showSuggestions && form.debouncedSearchQuery && (
               <div className="absolute left-0 right-0 top-full z-[5] mt-1 rounded-md border bg-popover shadow-md">
                 <Command shouldFilter={false}>
                   <CommandList className="max-h-64">
                     {form.filteredInventory.length === 0 && (
-                      <CommandEmpty>No matching items.</CommandEmpty>
+                      <CommandEmpty>{t('purchaseBills.form.noMatchingItems')}</CommandEmpty>
                     )}
                     {form.filteredInventory.length > 0 && (
-                      <CommandGroup heading="Parts">
+                      <CommandGroup heading={t('purchaseOrders.detail.partsGroup')}>
                         {form.filteredInventory.map((item) => (
                           <CommandItem
                             key={item.id}
@@ -95,7 +104,7 @@ export function PurchaseBillLineItemEditor({ form }: { form: PurchaseBillFormMod
                               </div>
                               <div className="shrink-0 text-right text-xs text-muted-foreground">
                                 <div>{formatCurrency(item.price)}</div>
-                                <div>Stock: {item.quantity_available}</div>
+                                <div>{t('shared.stock', { count: item.quantity_available })}</div>
                               </div>
                             </div>
                           </CommandItem>
@@ -111,7 +120,7 @@ export function PurchaseBillLineItemEditor({ form }: { form: PurchaseBillFormMod
             ref={qtyInputRef}
             value={form.newQty}
             onChange={(event) => form.setNewQty(event.target.value)}
-            placeholder="Qty"
+            placeholder={t('purchaseOrders.detail.qtyPlaceholder')}
             className="h-8 text-xs text-right"
             disabled={!form.stagedItem}
           />
@@ -128,7 +137,7 @@ export function PurchaseBillLineItemEditor({ form }: { form: PurchaseBillFormMod
             }}
             disabled={!form.stagedItem}
           >
-            + Add
+            {t('purchaseOrders.detail.addButton')}
           </Button>
         </div>
       </div>
@@ -138,11 +147,11 @@ export function PurchaseBillLineItemEditor({ form }: { form: PurchaseBillFormMod
           <TableHeader>
             <TableRow>
               <TableHead className="w-[48px]">#</TableHead>
-              <TableHead className="w-[38%]">Description</TableHead>
-              <TableHead className="w-[90px]">Qty</TableHead>
-              <TableHead className="w-[110px]">Unit Cost</TableHead>
-              <TableHead className="w-[90px]">Tax (%)</TableHead>
-              <TableHead className="text-right">Line Total</TableHead>
+              <TableHead className="w-[38%]">{t('columns.description')}</TableHead>
+              <TableHead className="w-[90px]">{t('columns.qty')}</TableHead>
+              <TableHead className="w-[110px]">{t('columns.unitCost')}</TableHead>
+              <TableHead className="w-[90px]">{t('columns.taxPercent')}</TableHead>
+              <TableHead className="text-right">{t('columns.lineTotal')}</TableHead>
               <TableHead className="w-[48px]" />
             </TableRow>
           </TableHeader>
@@ -163,7 +172,9 @@ export function PurchaseBillLineItemEditor({ form }: { form: PurchaseBillFormMod
                         }
                       />
                       {line.source === 'receipt' && line.receiptNumber && (
-                        <Badge variant="outline">Imported from {line.receiptNumber}</Badge>
+                        <Badge variant="outline">
+                          {t('purchaseBills.form.importedFrom', { number: line.receiptNumber })}
+                        </Badge>
                       )}
                     </div>
                   </TableCell>
@@ -200,7 +211,7 @@ export function PurchaseBillLineItemEditor({ form }: { form: PurchaseBillFormMod
                       type="button"
                       variant="ghost"
                       size="icon"
-                      aria-label={`Remove line ${index + 1}`}
+                      aria-label={t('purchaseInvoices.create.removeLineAria', { index: index + 1 })}
                       onClick={() => void form.removeLine(line.tempId)}
                     >
                       <Trash2 className="h-4 w-4 text-destructive opacity-60 hover:opacity-100" />

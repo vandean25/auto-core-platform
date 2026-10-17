@@ -13,6 +13,7 @@ beforeAll(async () => {
   await ensureNamespaceLoaded('vehicles')
   await ensureNamespaceLoaded('customers')
   await ensureNamespaceLoaded('vehicleStock')
+  await ensureNamespaceLoaded('finance')
 })
 
 afterEach(async () => {
