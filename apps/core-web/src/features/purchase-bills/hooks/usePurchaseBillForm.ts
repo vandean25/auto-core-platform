@@ -13,6 +13,7 @@ import {
 } from '@/api/usePurchaseInvoices'
 import { useVendor } from '@/api/vendors'
 import { getErrorMessage } from '@/lib/error-utils'
+import { i18n } from '@/lib/i18n'
 import {
   applyBillLineUpdates,
   buildInvoiceItems,
@@ -41,19 +42,24 @@ function formatDateField(value: string | undefined, fallback: () => string) {
   return value ? format(new Date(value), 'yyyy-MM-dd') : fallback()
 }
 
+export type PurchaseBillFormErrorKey =
+  | 'purchaseBills.form.vendorRequired'
+  | 'purchaseBills.form.vendorInvoiceNumberRequired'
+  | 'purchaseBills.form.atLeastOneLine'
+
 export function validatePurchaseBillForm(
   vendorId: string,
   vendorInvoiceNumber: string,
   linesCount: number,
-): { valid: boolean; error?: string } {
+): { valid: boolean; errorKey?: PurchaseBillFormErrorKey } {
   if (!vendorId) {
-    return { valid: false, error: 'Vendor is required' }
+    return { valid: false, errorKey: 'purchaseBills.form.vendorRequired' }
   }
   if (!vendorInvoiceNumber.trim()) {
-    return { valid: false, error: 'Vendor invoice number is required' }
+    return { valid: false, errorKey: 'purchaseBills.form.vendorInvoiceNumberRequired' }
   }
   if (linesCount === 0) {
-    return { valid: false, error: 'Add at least one bill line' }
+    return { valid: false, errorKey: 'purchaseBills.form.atLeastOneLine' }
   }
   return { valid: true }
 }
@@ -216,13 +222,13 @@ export async function executeCreatePurchaseBillDraft(params: {
   onSuccess: (invoice: PurchaseInvoice) => void
   setIsCreating: (val: boolean) => void
 }) {
-  const { valid, error } = validatePurchaseBillForm(
+  const { valid, errorKey } = validatePurchaseBillForm(
     params.vendorId,
     params.vendorInvoiceNumber,
     params.lines.length,
   )
-  if (!valid && error) {
-    toast.error(error)
+  if (!valid && errorKey) {
+    toast.error(i18n.t(errorKey, { ns: 'finance' }))
     return
   }
 
@@ -237,11 +243,14 @@ export async function executeCreatePurchaseBillDraft(params: {
         params.lines,
       ),
     )
-    toast.success('Bill created')
+    toast.success(i18n.t('purchaseBills.form.toast.billCreated', { ns: 'finance' }))
     params.onSuccess(result)
   } catch (error: unknown) {
-    toast.error('Failed to create bill', {
-      description: getErrorMessage(error, 'Please check your input and try again'),
+    toast.error(i18n.t('purchaseBills.form.toast.createFailed', { ns: 'finance' }), {
+      description: getErrorMessage(
+        error,
+        i18n.t('purchaseBills.form.toast.createFailedHint', { ns: 'finance' }),
+      ),
     })
   } finally {
     params.setIsCreating(false)
@@ -262,13 +271,13 @@ export async function executePostPurchaseBill(params: {
   onSuccess: (invoice: PurchaseInvoice) => void
   setIsPosting: (val: boolean) => void
 }) {
-  const { valid, error } = validatePurchaseBillForm(
+  const { valid, errorKey } = validatePurchaseBillForm(
     params.vendorId,
     params.vendorInvoiceNumber,
     params.lines.length,
   )
-  if (!valid && error) {
-    toast.error(error)
+  if (!valid && errorKey) {
+    toast.error(i18n.t(errorKey, { ns: 'finance' }))
     return
   }
 
@@ -287,11 +296,14 @@ export async function executePostPurchaseBill(params: {
       ),
     })
     const posted = await params.postMutation.mutateAsync(params.initialId)
-    toast.success('Bill posted successfully')
+    toast.success(i18n.t('purchaseBills.form.toast.billPosted', { ns: 'finance' }))
     params.onSuccess(posted)
   } catch (error: unknown) {
-    toast.error('Failed to post bill', {
-      description: getErrorMessage(error, 'Please check your input and try again'),
+    toast.error(i18n.t('purchaseBills.form.toast.postFailed', { ns: 'finance' }), {
+      description: getErrorMessage(
+        error,
+        i18n.t('purchaseBills.form.toast.createFailedHint', { ns: 'finance' }),
+      ),
     })
   } finally {
     params.setIsPosting(false)
@@ -418,7 +430,9 @@ export function usePurchaseBillLines(params: {
     if (!stagedItem) return false
     const qty = Number(newQty)
     if (!Number.isFinite(qty) || qty <= 0) {
-      toast.error('Invalid quantity', { description: 'Please enter a positive number' })
+      toast.error(i18n.t('purchaseBills.form.toast.invalidQuantity', { ns: 'finance' }), {
+        description: i18n.t('purchaseBills.form.toast.positiveQuantity', { ns: 'finance' }),
+      })
       return false
     }
 
@@ -428,7 +442,7 @@ export function usePurchaseBillLines(params: {
       return next
     })
 
-    toast.success('Item added to bill')
+    toast.success(i18n.t('purchaseBills.form.toast.itemAdded', { ns: 'finance' }))
     onClearQuickEntry()
     return true
   }
@@ -450,9 +464,9 @@ export function usePurchaseBillLines(params: {
     if (isPersisted && isEdit && initialDataId) {
       try {
         await deleteLineMutation.mutateAsync({ id: initialDataId, lineId })
-        toast.success('Line removed')
+        toast.success(i18n.t('purchaseBills.form.toast.lineRemoved', { ns: 'finance' }))
       } catch {
-        toast.error('Failed to remove line')
+        toast.error(i18n.t('purchaseBills.form.toast.lineRemoveFailed', { ns: 'finance' }))
         return
       }
     }
@@ -563,7 +577,7 @@ export function usePurchaseBillForm({ initialData, onSuccess, onCancel }: Purcha
     if (nextVendorId === vendorId) return
     if (linesManager.lines.length > 0) {
       const proceed = window.confirm(
-        'Changing vendor will clear selected receipts and bill lines. Continue?',
+        i18n.t('purchaseBills.form.changeVendorConfirm', { ns: 'finance' }),
       )
       if (!proceed) return
     }

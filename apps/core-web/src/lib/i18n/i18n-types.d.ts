@@ -9,6 +9,7 @@ import type sales from '../../../../../locales/de/sales.json'
 import type vehicles from '../../../../../locales/de/vehicles.json'
 import type workshop from '../../../../../locales/de/workshop.json'
 import type vehicleStock from '../../../../../locales/de/vehicleStock.json'
+import type finance from '../../../../../locales/de/finance.json'
 
 declare module 'i18next' {
   interface CustomTypeOptions {
@@ -24,6 +25,7 @@ declare module 'i18next' {
       vehicles: typeof vehicles
       workshop: typeof workshop
       vehicleStock: typeof vehicleStock
+      finance: typeof finance
     }
   }
 }

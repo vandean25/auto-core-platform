@@ -2,7 +2,11 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import deFinance from '../../../../../locales/de/finance.json'
+import { registerGermanUiForTests } from '@/test/german-ui'
 import PurchaseOrderDetail from './PurchaseOrderDetail'
+
+registerGermanUiForTests()
 import * as purchaseOrderApi from '@/api/purchase-orders'
 import * as inventoryApi from '@/api/inventory'
 import * as purchaseInvoiceApi from '@/api/usePurchaseInvoices'
@@ -132,7 +136,7 @@ describe('PurchaseOrderDetail autosave', () => {
     })
     expect(updateItem).not.toHaveBeenCalled()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Mark as Sent' }))
+    fireEvent.click(screen.getByRole('button', { name: deFinance.actions.markAsSent }))
 
     await act(async () => {
       await Promise.resolve()
