@@ -12,27 +12,12 @@ import {
   runWithTenantContext,
   seedTestTenantMember,
 } from './tenant-test-utils.js';
+import { pickerlDueFixturesForToday } from '../src/vehicle/pickerl/pickerl-due-window-fixtures.js';
 import { teardownTestApp } from './test-lifecycle.js';
 
 const FIXTURE_FIRST_REGISTRATION = new Date('2019-06-01T00:00:00.000Z');
-
-/** Sticker month whose end-of-month falls near `daysFromToday` (stable vs window=30/60/90 filters). */
-function plaketteMonthDaysFromToday(
-  today: Date,
-  daysFromToday: number,
-): { year: number; month: number } {
-  const target = new Date(
-    Date.UTC(
-      today.getUTCFullYear(),
-      today.getUTCMonth(),
-      today.getUTCDate() + daysFromToday,
-    ),
-  );
-  return {
-    year: target.getUTCFullYear(),
-    month: target.getUTCMonth() + 1,
-  };
-}
+/** Stable reference day so window buckets always exist (see pickerl-due-window-fixtures). */
+const PICKERL_E2E_REFERENCE_DAY = new Date('2026-06-15T12:00:00.000Z');
 
 describe('Pickerl Due (e2e)', () => {
   let app: INestApplication;
@@ -43,6 +28,9 @@ describe('Pickerl Due (e2e)', () => {
   let techToken: string;
 
   beforeAll(async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(PICKERL_E2E_REFERENCE_DAY);
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -111,7 +99,7 @@ describe('Pickerl Due (e2e)', () => {
 
       const today = new Date();
       const todayYear = today.getUTCFullYear();
-      const todayMonth = today.getUTCMonth() + 1;
+      const pickerlWindows = pickerlDueFixturesForToday(today);
 
       // 1. OVERDUE
       const v1 = await basePrisma.vehicle.create({
@@ -128,8 +116,8 @@ describe('Pickerl Due (e2e)', () => {
         },
       });
 
-      // 2. DUE_SOON inside 30d (end of sticker month must be <= today + 30)
-      const future30 = plaketteMonthDaysFromToday(today, 5);
+      // 2. DUE_SOON inside the 30-day window (month-end rule)
+      const future30 = pickerlWindows.due30;
       const v2 = await basePrisma.vehicle.create({
         data: {
           tenant_id: tenantId, customer_id: customer.id,
@@ -146,7 +134,7 @@ describe('Pickerl Due (e2e)', () => {
       });
 
       // 3. due inside 60d but outside 30d
-      const future60 = plaketteMonthDaysFromToday(today, 35);
+      const future60 = pickerlWindows.due60;
       const v3 = await basePrisma.vehicle.create({
         data: {
           tenant_id: tenantId, customer_id: customer.id,
@@ -163,7 +151,7 @@ describe('Pickerl Due (e2e)', () => {
       });
 
       // 4. due inside 90d but outside 60d
-      const future90 = plaketteMonthDaysFromToday(today, 65);
+      const future90 = pickerlWindows.due90;
       const v4 = await basePrisma.vehicle.create({
         data: {
           tenant_id: tenantId, customer_id: customer.id,
@@ -180,7 +168,7 @@ describe('Pickerl Due (e2e)', () => {
       });
 
       // 5. beyond 90 (OK)
-      const future120 = new Date(Date.UTC(todayYear, todayMonth - 1, today.getUTCDate() + 120));
+      const future120 = pickerlWindows.ok;
       const v5 = await basePrisma.vehicle.create({
         data: {
           tenant_id: tenantId, customer_id: customer.id,
@@ -191,7 +179,8 @@ describe('Pickerl Due (e2e)', () => {
       await basePrisma.vehicleInspectionRecord.create({
         data: {
           tenant_id: tenantId, vehicle_id: v5.id, inspection_type: 'PICKERL_57A', inspected_on: new Date('2020-01-01'),
-          plaketten_valid_until_year: future120.getUTCFullYear(), plaketten_valid_until_month: future120.getUTCMonth() + 1,
+          plaketten_valid_until_year: future120.year,
+          plaketten_valid_until_month: future120.month,
         },
       });
 
@@ -247,6 +236,7 @@ describe('Pickerl Due (e2e)', () => {
     await cleanupTestTenantGraph(basePrisma, tenantId);
     await cleanupTestTenantGraph(basePrisma, otherTenantId);
     await teardownTestApp(app);
+    jest.useRealTimers();
   });
 
 
