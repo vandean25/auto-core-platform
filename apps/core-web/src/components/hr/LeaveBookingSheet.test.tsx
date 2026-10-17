@@ -117,7 +117,7 @@ describe('LeaveBookingSheet', () => {
   it.each([400, 409] as const)('keeps the sheet open and displays a translated status message for HTTP %s', async (status) => {
     const expectedMessage =
       status === 409
-        ? 'Die Anfrage steht im Konflikt mit dem aktuellen Zustand.'
+        ? 'Der Eintrag wurde inzwischen geändert. Bitte laden Sie die Seite neu.'
         : 'Die Anfrage konnte nicht verarbeitet werden.'
     const conflict = Object.assign(new Error('Leave overlaps an existing booking'), { status })
     const createLeave = vi.fn().mockRejectedValue(conflict)
