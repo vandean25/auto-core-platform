@@ -829,6 +829,10 @@
       "public": true,
       "params": []
     },
+    "LISTING_FIELD_INVALID": {
+      "public": true,
+      "params": []
+    },
     "LISTING_FIELD_NOT_ENCODABLE": {
       "public": true,
       "params": []
@@ -849,7 +853,15 @@
       "public": true,
       "params": []
     },
+    "LISTING_PRICE_GROSS_INVALID": {
+      "public": true,
+      "params": []
+    },
     "LISTING_PRICE_REQUIRED": {
+      "public": true,
+      "params": []
+    },
+    "LISTING_REF_REQUIRED": {
       "public": true,
       "params": []
     },
