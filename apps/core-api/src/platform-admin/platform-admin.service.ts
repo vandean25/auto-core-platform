@@ -8,6 +8,7 @@ import {
 } from './dto/platform-tenant.dto.js';
 import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import { seedPickerlInspectionTemplate } from '../prisma/fixtures/pickerl-inspection-template.fixture.js';
+import { seedVehicleEquipmentOptions } from '../vehicle/equipment/seed-vehicle-equipment-options.js';
 
 type PlatformTenantRecord = PrismaTypes.TenantGetPayload<{
   include: {
@@ -73,6 +74,7 @@ export class PlatformAdminService {
           data: this.buildDefaultFinanceSettings(createdTenant.id),
         });
         await seedPickerlInspectionTemplate(tx, createdTenant.id);
+        await seedVehicleEquipmentOptions(tx, createdTenant.id);
 
         return createdTenant;
       });

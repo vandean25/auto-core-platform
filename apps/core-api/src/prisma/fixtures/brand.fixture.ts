@@ -1,5 +1,6 @@
 import { normalizeVehicleMakeAlias } from '../../catalog/vehicle-make-alias.util.js';
 import { seedVehicleCatalogProviders } from '../seed-vehicle-catalog-providers.js';
+import { seedVehicleEquipmentOptions } from '../../vehicle/equipment/seed-vehicle-equipment-options.js';
 import type { SeedPrismaClient, BrandContext } from './types.js';
 
 export const DUAL_BRANDS = [
@@ -97,6 +98,14 @@ export async function seedBrands(
       `${catalogSeedSummary.aliasesUpserted} aliases, ` +
       `${catalogSeedSummary.concernsUpserted} concerns, ` +
       `${catalogSeedSummary.concernMakesUpserted} concern-make links`,
+  );
+
+  const equipmentSeedSummary = await seedVehicleEquipmentOptions(
+    prisma,
+    tenantId,
+  );
+  console.log(
+    `Vehicle equipment seed: ${equipmentSeedSummary.optionsUpserted} taxonomy options`,
   );
 
   return {

@@ -21,7 +21,7 @@ Calling it on a tenant model (for example `systemPrisma.customer`) silently bypa
 | `tenant`, `user`, `platformAdmin` | Global identity (no `tenant_id`) |
 | `tenantMember` | Membership join table for session + tenant-admin invites |
 | `laborEntry` | Mechanic scheduler nightly cross-tenant close only |
-| `financeSettings`, `inspectionTemplate`, `inspectionTemplateItem` | Platform-admin new-tenant bootstrap only; writes use the new tenant ID |
+| `financeSettings`, `inspectionTemplate`, `inspectionTemplateItem`, `vehicleEquipmentOption` | Platform-admin new-tenant bootstrap only; writes use the new tenant ID |
 | `attendanceEvent` | HR attendance scheduler nightly close only |
 | `agentPolicyRule` | Agent policy platform-default rows (`tenant_id` null) only |
 | `workshopEstimateApprovalToken` | Public estimate approval link (ADR-0025 §7): one `findFirst` by the SHA-256 of the raw token before any tenant context exists. The token row names its tenant. Every later query runs through `PrismaService`. |
@@ -40,7 +40,7 @@ Any new Prisma model is forbidden until it is added to `SYSTEM_PRISMA_MODEL_DELE
 |---|---|
 | `AuthSessionService` | `user` |
 | `TenantMemberService` | `user`, `tenantMember` |
-| `PlatformAdminService` | `tenant`, `financeSettings`, `inspectionTemplate`, `inspectionTemplateItem` (create-tenant transaction) |
+| `PlatformAdminService` | `tenant`, `financeSettings`, `inspectionTemplate`, `inspectionTemplateItem`, `vehicleEquipmentOption` (create-tenant transaction) |
 | `MechanicSchedulerService` | `laborEntry` |
 | `HrAttendanceSchedulerService` | `attendanceEvent` |
 | `AgentPolicyService` | `agentPolicyRule` (read platform defaults only) |

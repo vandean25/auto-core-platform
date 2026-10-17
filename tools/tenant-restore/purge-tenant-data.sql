@@ -46,6 +46,7 @@ VALUES
   ('tenant_api_keys'),
   ('tenant_members'),
   ('tyre_storage_settings'),
+  ('vehicle_equipment_options'),
   ('vendors'),
   ('voice_translation_settings'),
   ('workshop_command_presets'),
@@ -123,6 +124,8 @@ VALUES
   ('registration_document_intakes'),
   ('sales_order_items'),
   ('tyre_set_events'),
+  ('vehicle_equipment_free_text_items'),
+  ('vehicle_equipment_selections'),
   ('vehicle_sales'),
   ('warranty_claims'),
   ('workshop_check_ins'),
@@ -482,6 +485,14 @@ VALUES
   ('tyre_sets', 'vehicles', 'vehicle_id', 'id', 'SET NULL', 'CASCADE'),
   ('tyre_storage_settings', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('users', 'tenants', 'active_tenant_id', 'id', 'SET NULL', 'CASCADE'),
+  ('vehicle_equipment_free_text_items', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('vehicle_equipment_free_text_items', 'vehicle_purchases', 'tenant_id,stock_purchase_id', 'tenant_id,id', 'CASCADE', 'CASCADE'),
+  ('vehicle_equipment_free_text_items', 'vehicles', 'tenant_id,vehicle_id', 'tenant_id,id', 'CASCADE', 'CASCADE'),
+  ('vehicle_equipment_options', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('vehicle_equipment_selections', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('vehicle_equipment_selections', 'vehicle_equipment_options', 'tenant_id,option_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('vehicle_equipment_selections', 'vehicle_purchases', 'tenant_id,stock_purchase_id', 'tenant_id,id', 'CASCADE', 'CASCADE'),
+  ('vehicle_equipment_selections', 'vehicles', 'tenant_id,vehicle_id', 'tenant_id,id', 'CASCADE', 'CASCADE'),
   ('vehicle_inspection_records', 'external_inspection_results', 'tenant_id,external_inspection_result_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('vehicle_inspection_records', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('vehicle_inspection_records', 'vehicles', 'vehicle_id', 'id', 'RESTRICT', 'CASCADE'),
@@ -839,6 +850,10 @@ DELETE FROM public."warranty_claims"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."vehicle_sales"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."vehicle_equipment_selections"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."vehicle_equipment_free_text_items"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."tyre_set_events"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."sales_order_items"
@@ -993,6 +1008,8 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."voice_translation_settings"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."vendors"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."vehicle_equipment_options"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."tyre_storage_settings"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');

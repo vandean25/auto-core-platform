@@ -3733,6 +3733,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vehicle-equipment-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List active tenant equipment taxonomy options */
+        get: operations["VehicleEquipmentController_listOptions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vehicle-equipment-options/{optionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Activate or deactivate a tenant equipment option */
+        patch: operations["VehicleEquipmentController_patchOption"];
+        trace?: never;
+    };
+    "/api/vehicle-stock/{vehicleId}/equipment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get equipment for the current stock cycle of a stock vehicle */
+        get: operations["VehicleEquipmentController_getAssignment"];
+        /** Replace equipment for the current stock cycle of a stock vehicle */
+        put: operations["VehicleEquipmentController_replaceAssignment"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/employees": {
         parameters: {
             query?: never;
@@ -9498,6 +9550,52 @@ export interface components {
             version: number;
             /** Format: date-time */
             createdAt: string;
+        };
+        VehicleEquipmentOptionDto: {
+            /** Format: uuid */
+            id: string;
+            /** @example ABS */
+            code: string;
+            label_de: string;
+            label_en: string;
+            /** @example SAFETY */
+            category: string;
+            active: boolean;
+        };
+        VehicleEquipmentOptionListResponseDto: {
+            data: components["schemas"]["VehicleEquipmentOptionDto"][];
+            meta: components["schemas"]["PaginationMetaDto"];
+        };
+        PatchVehicleEquipmentOptionDto: {
+            active: boolean;
+        };
+        /** @enum {string} */
+        VehicleEquipmentAssertion: "PRESENT" | "ABSENT";
+        VehicleEquipmentSelectionDto: {
+            option: components["schemas"]["VehicleEquipmentOptionDto"];
+            assertion: components["schemas"]["VehicleEquipmentAssertion"];
+        };
+        VehicleEquipmentFreeTextItemDto: {
+            /** Format: uuid */
+            id: string;
+            text: string;
+            sort_order: number;
+        };
+        VehicleEquipmentAssignmentDto: {
+            /** Format: uuid */
+            stock_purchase_id: string;
+            selections: components["schemas"]["VehicleEquipmentSelectionDto"][];
+            free_text_items: components["schemas"]["VehicleEquipmentFreeTextItemDto"][];
+        };
+        VehicleEquipmentSelectionWriteDto: {
+            /** Format: uuid */
+            option_id: string;
+            assertion: components["schemas"]["VehicleEquipmentAssertion"];
+        };
+        ReplaceVehicleEquipmentDto: {
+            selections: components["schemas"]["VehicleEquipmentSelectionWriteDto"][];
+            /** @description Free-text equipment lines for the current stock cycle (unknown options stay as plain text) */
+            free_text_lines: string[];
         };
         /** @enum {string} */
         EmployeeRole: "MECHANIC" | "SERVICE_ADVISOR" | "PARTS_CLERK";
@@ -18372,6 +18470,100 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ExternalInspectionResultSummaryDto"];
+                };
+            };
+        };
+    };
+    VehicleEquipmentController_listOptions: {
+        parameters: {
+            query?: {
+                limit?: number;
+                page?: number;
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleEquipmentOptionListResponseDto"];
+                };
+            };
+        };
+    };
+    VehicleEquipmentController_patchOption: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                optionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchVehicleEquipmentOptionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleEquipmentOptionDto"];
+                };
+            };
+        };
+    };
+    VehicleEquipmentController_getAssignment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleEquipmentAssignmentDto"];
+                };
+            };
+        };
+    };
+    VehicleEquipmentController_replaceAssignment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplaceVehicleEquipmentDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleEquipmentAssignmentDto"];
                 };
             };
         };
