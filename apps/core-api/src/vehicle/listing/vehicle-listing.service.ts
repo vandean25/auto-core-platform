@@ -135,7 +135,11 @@ export class VehicleListingService {
         listingRef,
         listing: null,
         photoMediaIds: [],
-        channels: VEHICLE_LISTING_PLATFORM_DEFAULTS,
+        channels: VEHICLE_LISTING_PLATFORM_DEFAULTS.map((row) => ({
+          platform: row.platform,
+          serializer_profile: row.serializer_profile,
+          mapping_version: row.mapping_version,
+        })),
       });
 
       const row = await tx.vehicleListing.create({
