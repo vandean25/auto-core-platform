@@ -7861,12 +7861,21 @@ export interface components {
             purpose: "CHECK_IN" | "CHECK_IN_SIGNATURE";
             mime_type: string;
             size_bytes: number;
-            preview_url?: Record<string, never> | null;
+            preview_url?: string | null;
             /** @enum {string} */
             processing_status?: "PENDING" | "READY" | "FAILED";
         };
         WorkshopCheckInMediaListDto: {
             data: components["schemas"]["WorkshopCheckInMediaItemDto"][];
+        };
+        UploadWorkshopCheckInMediaBodyDto: {
+            /** Format: binary */
+            file: string;
+            /** Format: uuid */
+            client_upload_id: string;
+            /** @enum {string} */
+            purpose: "CHECK_IN";
+            expected_revision: number;
         };
         CompleteWorkshopCheckInDto: {
             expected_revision: number;
@@ -15535,7 +15544,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["UploadWorkshopCheckInMediaBodyDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {
