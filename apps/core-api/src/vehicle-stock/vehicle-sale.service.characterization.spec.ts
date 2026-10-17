@@ -46,6 +46,8 @@ describe('VehicleSaleService characterization', () => {
     },
     vehicle: { findFirst: jest.fn(), updateMany: jest.fn() },
     vehiclePurchase: { findFirst: jest.fn() },
+    vehicleListing: { findFirst: jest.fn().mockResolvedValue(null) },
+    vehicleListingChannel: { update: jest.fn() },
     customer: { findFirst: jest.fn() },
     workshopOrder: { count: jest.fn() },
     vehicleLedgerEntry: { findMany: jest.fn() },
