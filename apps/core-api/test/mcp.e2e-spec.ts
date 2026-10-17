@@ -6131,19 +6131,19 @@ describe('MCP server (e2e)', () => {
     let uploadedMediaId: string;
 
     beforeAll(async () => {
-      await inTenant(tenantA, async () => {
-        const linked = await prismaA.employee.findFirst({
+      await runWithTenantContext(tenantA, async () => {
+        const linked = await prisma.employee.findFirst({
           where: { tenant_id: tenantA, user_id: tenantAUserId },
           select: { id: true },
         });
         if (linked) {
           advisorEmployeeId = linked.id;
-          await prismaA.employee.update({
+          await prisma.employee.update({
             where: { id: linked.id },
             data: { is_active: true, user_id: tenantAUserId },
           });
         } else {
-          const created = await seedTestEmployee(prismaA, {
+          const created = await seedTestEmployee(prisma, {
             tenantId: tenantA,
             userId: tenantAUserId,
             name: 'MCP Advisor Employee',
