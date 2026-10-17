@@ -4,6 +4,7 @@ import type { WorkshopCheckIn } from '@/api/workshop-check-in'
 import { WorkshopCheckInInspectionChecklist } from './WorkshopCheckInInspectionChecklist'
 import { CheckInSignatureSlot } from './CheckInSignatureSlot'
 import type { CheckInDraftSnapshot } from './check-in-draft'
+import type { CheckInZoneId } from './check-in-zones'
 
 type Props = {
   orderId: string
@@ -61,7 +62,8 @@ export function CheckInReviewStep({
           <ul className="mt-4 space-y-1 text-sm" aria-label={t('checkIn.damageListAria')}>
             {draft.damage_markers.map((marker) => (
               <li key={marker.id}>
-                {t(`checkIn.zones.${marker.zone_id}`)} — {t(`checkIn.damageTypes.${marker.type}`)}
+                {t(`checkIn.zones.${marker.zone_id as CheckInZoneId}`)} —{' '}
+                {t(`checkIn.damageTypes.${marker.type}`)}
               </li>
             ))}
           </ul>

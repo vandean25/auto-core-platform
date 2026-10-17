@@ -140,11 +140,15 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
   }
 
   const handleComplete = async () => {
+    const revision = checkInQuery.data?.revision
+    if (revision === undefined) {
+      return
+    }
     await flushBeforeNavigate()
     try {
       await completeCheckIn.mutateAsync({
         orderId,
-        expectedRevision: checkInQuery.data.revision,
+        expectedRevision: revision,
       })
       toast.success(t('checkIn.complete.success'))
       await checkInQuery.refetch()

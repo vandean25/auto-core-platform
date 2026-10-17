@@ -75,6 +75,7 @@ export const ROUTE_SECTION_TITLES: Record<RoutePattern, string> = {
   [APP_ROUTE_PATHS.workshopLoanerVehicles]: 'Ersatzfahrzeuge',
   [APP_ROUTE_PATHS.workshopLoanerBookingPrint]: 'Ersatzwagen Protokoll',
   [APP_ROUTE_PATHS.workshopOrderDetail]: 'Workshop Orders',
+  [APP_ROUTE_PATHS.workshopOrderCheckIn]: 'Vehicle check-in',
   [APP_ROUTE_PATHS.workshopOrderWarrantyClaims]: 'Garantie/Kulanz',
   [APP_ROUTE_PATHS.tyreStorage]: 'Reifenlager',
   [APP_ROUTE_PATHS.tyreStorageDetail]: 'Reifenlager',

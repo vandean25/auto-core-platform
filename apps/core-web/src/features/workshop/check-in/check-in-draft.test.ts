@@ -1,19 +1,19 @@
 import { describe, expect, it } from 'vitest'
+import type { WorkshopCheckIn } from '@/api/workshop-check-in'
 import { buildUpdatePayload, draftFromCheckIn } from './check-in-draft'
 
 describe('check-in draft helpers', () => {
   it('builds patch payload with expected revision', () => {
-    const record = {
+    const record: WorkshopCheckIn = {
       id: 'ci-1',
       workshop_order_id: 'order-1',
       status: 'DRAFT' as const,
       revision: 2,
       condition_json: {
-        schema_version: 1,
         tyre_season: 'WINTER',
         exterior_notes: 'a',
         interior_notes: 'b',
-      },
+      } as unknown as WorkshopCheckIn['condition_json'],
       damage_markers_json: [],
       items_left: 'umbrella',
       key_count: 1,

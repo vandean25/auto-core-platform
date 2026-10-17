@@ -40,7 +40,8 @@ export function draftFromCheckIn(record: WorkshopCheckIn): CheckInDraftSnapshot 
       exterior_notes: typeof raw.exterior_notes === 'string' ? raw.exterior_notes : '',
       interior_notes: typeof raw.interior_notes === 'string' ? raw.interior_notes : '',
     },
-    damage_markers: (record.damage_markers_json as CheckInDamageMarker[]) ?? [],
+    damage_markers:
+      (record.damage_markers_json as unknown as CheckInDamageMarker[]) ?? [],
   }
 }
 
