@@ -22,6 +22,7 @@ import {
   type CheckInDamageType,
   type CheckInZoneId,
 } from './check-in-zones'
+import { CheckInVehicleSketch } from './CheckInVehicleSketch'
 
 const PHOTO_ACCEPT = 'image/jpeg,image/png,image/webp'
 
@@ -119,6 +120,7 @@ export function CheckInConditionStep({
   }
 
   const allMedia = media
+  const markedZoneIds = new Set(draft.damage_markers.map((marker) => marker.zone_id))
 
   return (
     <div className="space-y-8" data-testid="check-in-step-condition">
@@ -191,7 +193,13 @@ export function CheckInConditionStep({
         <h2 id="check-in-damage-heading" className="text-xl font-semibold">
           {t('checkIn.steps.condition.damageTitle')}
         </h2>
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-6 lg:grid-cols-2">
+          <CheckInVehicleSketch
+            selectedZoneId={zoneId}
+            markedZoneIds={markedZoneIds}
+            disabled={readOnly}
+            onZoneSelect={setZoneId}
+          />
           <div className="space-y-3">
             <Label htmlFor="check-in-zone">{t('checkIn.fields.damageZone')}</Label>
             <Select

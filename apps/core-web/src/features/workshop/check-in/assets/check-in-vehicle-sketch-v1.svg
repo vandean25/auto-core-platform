@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- sketch_version:1 - zone ids must match workshop-check-in-zones.ts -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 300">
+  <rect x="12" y="8" width="116" height="284" rx="18" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5"/>
+  <g id="FRONT_BUMPER" fill="#e2e8f0" stroke="#64748b" stroke-width="1">
+    <path d="M36 12 H104 Q116 12 116 24 V38 H24 V24 Q24 12 36 12 Z"/>
+    <rect x="20" y="8" width="100" height="36" fill="transparent" stroke="none"/>
+  </g>
+  <g id="BONNET" fill="#e2e8f0" stroke="#64748b" stroke-width="1">
+    <rect x="32" y="40" width="76" height="34" rx="4"/>
+    <rect x="28" y="36" width="84" height="42" fill="transparent" stroke="none"/>
+  </g>
+  <g id="WINDSCREEN" fill="#cbd5e1" stroke="#64748b" stroke-width="1">
+    <path d="M38 76 L102 76 L96 104 H44 Z"/>
+    <rect x="34" y="72" width="76" height="36" fill="transparent" stroke="none"/>
+  </g>
+  <g id="ROOF" fill="#e2e8f0" stroke="#64748b" stroke-width="1">
+    <rect x="40" y="106" width="60" height="58" rx="3"/>
+    <rect x="36" y="102" width="68" height="66" fill="transparent" stroke="none"/>
+  </g>
+  <g id="REAR_WINDOW" fill="#cbd5e1" stroke="#64748b" stroke-width="1">
+    <path d="M44 166 L96 166 L102 194 H38 Z"/>
+    <rect x="34" y="162" width="76" height="36" fill="transparent" stroke="none"/>
+  </g>
+  <g id="BOOT" fill="#e2e8f0" stroke="#64748b" stroke-width="1">
+    <rect x="32" y="196" width="76" height="34" rx="4"/>
+    <rect x="28" y="192" width="84" height="42" fill="transparent" stroke="none"/>
+  </g>
+  <g id="REAR_BUMPER" fill="#e2e8f0" stroke="#64748b" stroke-width="1">
+    <path d="M24 232 H116 V268 Q116 280 104 280 H36 Q24 280 24 268 Z"/>
+    <rect x="20" y="228" width="100" height="56" fill="transparent" stroke="none"/>
+  </g>
+  <g id="LEFT_FRONT_WING" fill="#e2e8f0" stroke="#64748b" stroke-width="1">
+    <rect x="14" y="38" width="20" height="44" rx="2"/>
+    <rect x="22" y="32" width="22" height="56" fill="transparent" stroke="none"/>
+  </g>
+  <g id="LEFT_FRONT_DOOR" fill="#e2e8f0" stroke="#64748b" stroke-width="1">
+    <rect x="14" y="84" width="20" height="48" rx="2"/>
+    <rect x="22" y="78" width="22" height="60" fill="transparent" stroke="none"/>
+  </g>
+  <g id="LEFT_REAR_DOOR" fill="#e2e8f0" stroke="#64748b" stroke-width="1">
+    <rect x="14" y="134" width="20" height="48" rx="2"/>
+    <rect x="22" y="128" width="22" height="60" fill="transparent" stroke="none"/>
+  </g>
+  <g id="LEFT_REAR_WING" fill="#e2e8f0" stroke="#64748b" stroke-width="1">
+    <rect x="14" y="184" width="20" height="52" rx="2"/>
+    <rect x="22" y="178" width="22" height="64" fill="transparent" stroke="none"/>
+  </g>
+  <g id="RIGHT_FRONT_WING" fill="#e2e8f0" stroke="#64748b" stroke-width="1">
+    <rect x="106" y="38" width="20" height="44" rx="2"/>
+    <rect x="96" y="32" width="22" height="56" fill="transparent" stroke="none"/>
+  </g>
+  <g id="RIGHT_FRONT_DOOR" fill="#e2e8f0" stroke="#64748b" stroke-width="1">
+    <rect x="106" y="84" width="20" height="48" rx="2"/>
+    <rect x="96" y="78" width="22" height="60" fill="transparent" stroke="none"/>
+  </g>
+  <g id="RIGHT_REAR_DOOR" fill="#e2e8f0" stroke="#64748b" stroke-width="1">
+    <rect x="106" y="134" width="20" height="48" rx="2"/>
+    <rect x="96" y="128" width="22" height="60" fill="transparent" stroke="none"/>
+  </g>
+  <g id="RIGHT_REAR_WING" fill="#e2e8f0" stroke="#64748b" stroke-width="1">
+    <rect x="106" y="184" width="20" height="52" rx="2"/>
+    <rect x="96" y="178" width="22" height="64" fill="transparent" stroke="none"/>
+  </g>
+  <g id="LEFT_FRONT_WHEEL" fill="#475569" stroke="#1e293b" stroke-width="1">
+    <ellipse cx="10" cy="62" rx="8" ry="12"/>
+    <rect x="0" y="48" width="22" height="28" fill="transparent" stroke="none"/>
+  </g>
+  <g id="LEFT_REAR_WHEEL" fill="#475569" stroke="#1e293b" stroke-width="1">
+    <ellipse cx="10" cy="238" rx="8" ry="12"/>
+    <rect x="0" y="224" width="22" height="28" fill="transparent" stroke="none"/>
+  </g>
+  <g id="RIGHT_FRONT_WHEEL" fill="#475569" stroke="#1e293b" stroke-width="1">
+    <ellipse cx="130" cy="62" rx="8" ry="12"/>
+    <rect x="118" y="48" width="22" height="28" fill="transparent" stroke="none"/>
+  </g>
+  <g id="RIGHT_REAR_WHEEL" fill="#475569" stroke="#1e293b" stroke-width="1">
+    <ellipse cx="130" cy="238" rx="8" ry="12"/>
+    <rect x="118" y="224" width="22" height="28" fill="transparent" stroke="none"/>
+  </g>
+</svg>

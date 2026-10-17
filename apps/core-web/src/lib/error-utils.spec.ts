@@ -1,14 +1,20 @@
 // @vitest-environment node
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
+import { initI18n } from '@/lib/i18n'
 import { getErrorBody, getErrorCode, getErrorMessage } from './error-utils'
 
 describe('getErrorMessage', () => {
-  it('appends event id when API response contains one', () => {
+  beforeAll(async () => {
+    await initI18n({ language: 'de' })
+  })
+
+  it('uses HTTP status fallback codes when the body has no wire code', () => {
     const message = getErrorMessage(
       {
         response: {
+          status: 400,
           data: {
-            message: 'Internal server error',
+            message: 'inspected_on must be a valid date',
             eventId: 'evt_12345',
           },
         },
@@ -16,41 +22,13 @@ describe('getErrorMessage', () => {
       'fallback',
     )
 
-    expect(message).toBe('Internal server error (Error ID: evt_12345)')
-  })
-
-  it('joins array messages from Nest validation errors into a single string', () => {
-    const message = getErrorMessage(
-      {
-        response: {
-          data: {
-            message: ['name must not be empty', 'email must be an email'],
-          },
-        },
-      },
-      'fallback',
+    expect(message).toBe(
+      'Die Anfrage konnte nicht verarbeitet werden. (Error ID: evt_12345)',
     )
-
-    expect(message).toBe('name must not be empty, email must be an email')
+    expect(message).not.toContain('inspected_on')
   })
 
-  it('joins array messages and appends event id', () => {
-    const message = getErrorMessage(
-      {
-        response: {
-          data: {
-            message: ['field A is required', 'field B is required'],
-            eventId: 'evt_abc',
-          },
-        },
-      },
-      'fallback',
-    )
-
-    expect(message).toBe('field A is required, field B is required (Error ID: evt_abc)')
-  })
-
-  it('shows a reference id for a 5xx response, preferring the request id', () => {
+  it('uses HTTP_500 copy for 5xx responses without a domain code', () => {
     const message = getErrorMessage(
       {
         status: 500,
@@ -63,43 +41,12 @@ describe('getErrorMessage', () => {
       'fallback',
     )
 
-    expect(message).toBe('Internal server error (ref: req-1)')
-  })
-
-  it('falls back to the event id for a 5xx response without a request id', () => {
-    const message = getErrorMessage(
-      {
-        response: {
-          status: 503,
-          data: { message: 'Queue service unavailable', eventId: 'evt-9' },
-        },
-      },
-      'fallback',
+    expect(message).toBe(
+      'Ein unerwarteter Serverfehler ist aufgetreten. (ref: req-1)',
     )
-
-    expect(message).toBe('Queue service unavailable (ref: evt-9)')
   })
 
-  it('does not repeat a reference the server already wrote into the message', () => {
-    const message = getErrorMessage(
-      {
-        status: 500,
-        data: { message: 'Something went wrong (ref: req-2)', requestId: 'req-2' },
-      },
-      'fallback',
-    )
-
-    expect(message).toBe('Something went wrong (ref: req-2)')
-  })
-
-  it('keeps the server copy, or the page fallback, for a 5xx response with no reference', () => {
-    expect(getErrorMessage({ status: 500, message: 'Queue service unavailable' }, 'fallback')).toBe(
-      'Queue service unavailable',
-    )
-    expect(getErrorMessage({ status: 500 }, 'fallback')).toBe('fallback')
-  })
-
-  it('maps the active-order conflict code to friendly copy', () => {
+  it('maps the active-order conflict code to translated copy', () => {
     const message = getErrorMessage(
       {
         status: 409,
@@ -113,13 +60,12 @@ describe('getErrorMessage', () => {
       'fallback',
     )
 
-    expect(message).toBe('This vehicle already has an open workshop order (WO-2026-0007).')
-    expect(
-      getErrorMessage({ status: 409, data: { code: 'VEHICLE_HAS_ACTIVE_ORDER', orderId: 'wo-live' } }, 'fallback'),
-    ).toBe('This vehicle already has an open workshop order.')
+    expect(message).toBe(
+      'Für dieses Fahrzeug besteht bereits ein offener Werkstattauftrag (WO-2026-0007).',
+    )
   })
 
-  it('keeps the server message for codes without friendly copy', () => {
+  it('translates known wire codes instead of backend message text', () => {
     const message = getErrorMessage(
       {
         status: 422,
@@ -131,7 +77,9 @@ describe('getErrorMessage', () => {
       'fallback',
     )
 
-    expect(message).toBe('Seller identity is incomplete.')
+    expect(message).toBe(
+      'Die Angaben zum Betrieb sind für den Versand unvollständig. Bitte ergänzen Sie sie.',
+    )
   })
 
   it('reads the code and body from an API error', () => {
@@ -149,5 +97,58 @@ describe('getErrorMessage', () => {
     expect(getErrorMessage(null, 'fallback')).toBe('fallback')
     expect(getErrorMessage(undefined, 'fallback')).toBe('fallback')
     expect(getErrorMessage('string error', 'fallback')).toBe('fallback')
+  })
+
+  it('shows German copy for vehicle photo upload size errors', () => {
+    const message = getErrorMessage(
+      {
+        response: {
+          status: 413,
+          data: {
+            code: 'VEHICLE_PHOTO_TOO_LARGE',
+            message: 'Vehicle photo exceeds the 10 MiB upload limit.',
+          },
+        },
+      },
+      'fallback',
+    )
+
+    expect(message).toBe(
+      'Fahrzeugfoto überschreitet das Upload-Limit von 10 MiB.',
+    )
+  })
+
+  it('uses HTTP_413 fallback when a 413 response has no domain code', () => {
+    const message = getErrorMessage(
+      {
+        response: {
+          status: 413,
+          data: { message: 'Payload Too Large' },
+        },
+      },
+      'fallback',
+    )
+
+    expect(message).toBe('Die Anfrage ist zu groß.')
+  })
+
+  it('re-resolves wire codes from errors thrown by throwHttpError', async () => {
+    const { throwHttpError } = await import('./error-utils')
+    const response = new Response(
+      JSON.stringify({
+        code: 'FISCAL_PERIOD_LOCKED',
+        message: 'Fiscal period is locked for the selected date.',
+      }),
+      { status: 422 },
+    )
+
+    let thrown: unknown
+    try {
+      await throwHttpError(response, 'fallback')
+    } catch (error) {
+      thrown = error
+    }
+
+    expect(getErrorMessage(thrown, 'fallback')).toBe('Fiskalperiode ist gesperrt.')
   })
 })

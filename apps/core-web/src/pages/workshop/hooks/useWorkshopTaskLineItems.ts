@@ -174,10 +174,7 @@ export function useWorkshopTaskLineItems({
           removeTaskLineItemOverride(taskId)
           await queryClient.invalidateQueries({ queryKey: workshopKeys.order(orderId) })
           toast.error(
-            getErrorMessage(
-              error,
-              i18n.t('taskLineItems.toast.conflictStale', { ns: 'workshop' }),
-            ),
+            i18n.t('taskLineItems.toast.conflictStale', { ns: 'workshop' }),
           )
           throw error
         }

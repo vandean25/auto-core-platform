@@ -1,5 +1,5 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import type { DisplayLanguage } from '@prisma/client';
+import { WorkshopCheckInStatus, type DisplayLanguage } from '@prisma/client';
 import type { Readable } from 'node:stream';
 import * as Sentry from '@sentry/node';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -11,10 +11,17 @@ import {
   type PdfUploadResult,
 } from '../common/pdf/pdf-render-upload.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { MechanicMediaStorage } from '../mechanic/mechanic-media.storage.js';
 import { readCachedWorkshopPdfMetadata } from './workshop-pdf.generation.js';
 import type { WorkshopOrderForPdf } from './workshop-pdf.types.js';
 import { documentLocaleFrozenForCurrentRenderers } from '../common/i18n/rendered-document-locale.js';
 import { buildWorkshopOrderPdfRenderInput } from './workshop-order-pdf-render-input.js';
+import type { WorkshopCheckInEvidenceSnapshot } from './workshop-check-in-evidence-snapshot.js';
+import { embedWorkshopCheckInPdfMedia } from './workshop-pdf-check-in.assets.js';
+import {
+  persistWorkshopCheckInEvidencePdfArchiveRecord,
+  uploadWorkshopCheckInEvidencePdfArchiveObject,
+} from './workshop-pdf-check-in-archive.js';
 
 export type WorkshopPdfRequestGenerationResponse = {
   mode: 'cached' | 'enqueued' | 'generated';
@@ -32,6 +39,26 @@ export type WorkshopPdfGeneratedResult = {
   generatedAt: Date;
 };
 
+type OrderRowForPdfGeneration = {
+  id: string;
+  order_number: string;
+  status: string;
+  odometer: number;
+  fuel_level: number;
+  reported_issue: string | null;
+  notes: string | null;
+  customer: WorkshopOrderForPdf['customer'];
+  vehicle: WorkshopOrderForPdf['vehicle'];
+  tasks: WorkshopOrderForPdf['tasks'];
+  check_in: {
+    id: string;
+    status: WorkshopCheckInStatus;
+    snapshot_json: unknown;
+    content_sha256: string | null;
+    pdf_sha256: string | null;
+  } | null;
+};
+
 @Injectable()
 export class WorkshopPdfService {
   private readonly logger = new Logger(WorkshopPdfService.name);
@@ -42,6 +69,7 @@ export class WorkshopPdfService {
     private storage: PdfStorage,
     private cloudTasks: CloudTasksService,
     private tenantContext: TenantContextService,
+    private mediaStorage: MechanicMediaStorage,
   ) {}
 
   async requestGeneration(
@@ -57,7 +85,15 @@ export class WorkshopPdfService {
         pdf_storage_bucket: true,
         pdf_storage_key: true,
         pdf_generated_at: true,
+        pdf_render_input: true,
         updatedAt: true,
+        check_in: {
+          select: {
+            status: true,
+            content_sha256: true,
+            completed_at: true,
+          },
+        },
       },
     });
 
@@ -65,7 +101,8 @@ export class WorkshopPdfService {
       throw new NotFoundException('Workshop order not found');
     }
 
-    const cached = readCachedWorkshopPdfMetadata(order);
+    const cacheContext = this.buildPdfCacheContext(order.check_in);
+    const cached = readCachedWorkshopPdfMetadata(order, cacheContext);
     if (cached) {
       return {
         mode: 'cached',
@@ -164,6 +201,28 @@ export class WorkshopPdfService {
     };
   }
 
+  private buildPdfCacheContext(
+    checkIn:
+      | {
+          status: WorkshopCheckInStatus;
+          content_sha256: string | null;
+          completed_at: Date | null;
+        }
+      | null
+      | undefined,
+  ) {
+    if (!checkIn || checkIn.status !== WorkshopCheckInStatus.COMPLETED) {
+      return {
+        checkInContentSha256: null,
+        checkInCompletedAt: null,
+      };
+    }
+    return {
+      checkInContentSha256: checkIn.content_sha256,
+      checkInCompletedAt: checkIn.completed_at,
+    };
+  }
+
   private async loadOrderForGeneration(
     workshopOrderId: string,
     tenantId: string,
@@ -178,6 +237,15 @@ export class WorkshopPdfService {
             line_items: true,
           },
         },
+        check_in: {
+          select: {
+            id: true,
+            status: true,
+            snapshot_json: true,
+            content_sha256: true,
+            pdf_sha256: true,
+          },
+        },
       },
     });
 
@@ -185,7 +253,58 @@ export class WorkshopPdfService {
       throw new NotFoundException('Workshop order not found');
     }
 
-    return order;
+    return this.prepareOrderForPdfRender(order, tenantId);
+  }
+
+  private async prepareOrderForPdfRender(
+    order: OrderRowForPdfGeneration,
+    tenantId: string,
+  ): Promise<WorkshopOrderForPdf> {
+    const base: WorkshopOrderForPdf = {
+      id: order.id,
+      order_number: order.order_number,
+      status: order.status,
+      odometer: order.odometer,
+      fuel_level: order.fuel_level,
+      reported_issue: order.reported_issue,
+      notes: order.notes,
+      customer: order.customer,
+      vehicle: order.vehicle,
+      tasks: order.tasks,
+      check_in: null,
+    };
+
+    const checkIn = order.check_in;
+    if (
+      !checkIn ||
+      checkIn.status !== WorkshopCheckInStatus.COMPLETED ||
+      !checkIn.snapshot_json ||
+      !checkIn.content_sha256
+    ) {
+      return base;
+    }
+
+    const snapshot = checkIn.snapshot_json as WorkshopCheckInEvidenceSnapshot;
+    const embedded = await embedWorkshopCheckInPdfMedia(
+      {
+        mediaStorage: this.mediaStorage,
+        prisma: this.prisma.client,
+        tenantId,
+        checkInId: checkIn.id,
+      },
+      snapshot,
+    );
+
+    return {
+      ...base,
+      check_in: {
+        id: checkIn.id,
+        content_sha256: checkIn.content_sha256,
+        pdf_sha256: checkIn.pdf_sha256,
+        snapshot,
+        embedded,
+      },
+    };
   }
 
   private async executeGeneration(
@@ -196,14 +315,52 @@ export class WorkshopPdfService {
 
     try {
       const documentLocale = documentLocaleFrozenForCurrentRenderers();
-      const upload = await this.uploadRenderedPdf(order, key, documentLocale);
+      let renderedPdf: Buffer | null = null;
+      const upload = await this.uploadRenderedPdf(
+        order,
+        key,
+        documentLocale,
+        (pdf) => {
+          renderedPdf = pdf;
+        },
+      );
+      if (!renderedPdf) {
+        throw new Error('Workshop PDF render did not produce bytes');
+      }
+      const finalPdfBytes = renderedPdf;
+
       const generatedAt = new Date();
       const renderInput = buildWorkshopOrderPdfRenderInput({
         workshopOrderId: order.id,
         orderNumber: order.order_number,
         frozenAt: generatedAt,
         documentLocale,
+        checkInContentSha256: order.check_in?.content_sha256 ?? null,
       });
+
+      const needsCheckInArchive = order.check_in && !order.check_in.pdf_sha256;
+      if (needsCheckInArchive) {
+        const archive = await uploadWorkshopCheckInEvidencePdfArchiveObject({
+          storage: this.storage,
+          tenantId,
+          checkInId: order.check_in!.id,
+          workshopOrderId: order.id,
+          contentSha256: order.check_in!.content_sha256,
+          pdfBytes: finalPdfBytes,
+          bucket: upload.bucket,
+        });
+        await this.prisma.client.$transaction(async (tx) => {
+          await persistWorkshopCheckInEvidencePdfArchiveRecord(tx, {
+            tenantId,
+            checkInId: order.check_in!.id,
+            storageBucket: upload.bucket,
+            storageKey: archive.key,
+            pdfSha256: archive.sha256,
+            generatedAt,
+          });
+        });
+      }
+
       await this.persistGeneratedPdf(
         order.id,
         tenantId,
@@ -228,15 +385,18 @@ export class WorkshopPdfService {
     order: WorkshopOrderForPdf,
     key: string,
     documentLocale: DisplayLanguage,
+    onRendered?: (pdf: Buffer) => void,
   ): Promise<PdfUploadResult> {
     return renderAndUploadPdf({
       render: () => this.renderer.render(order, { documentLocale }),
-      upload: (pdf) =>
-        this.storage.uploadPdf({
+      upload: (pdf) => {
+        onRendered?.(pdf);
+        return this.storage.uploadPdf({
           key,
           body: pdf,
           contentType: 'application/pdf',
-        }),
+        });
+      },
       onRetry: (error, attempt) => {
         const message = error instanceof Error ? error.message : String(error);
         this.logger.warn(

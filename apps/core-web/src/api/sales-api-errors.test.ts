@@ -1,9 +1,14 @@
 // @vitest-environment node
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
+import { initI18n } from '@/lib/i18n'
 import { formatNestApiErrorMessage } from './sales-api-errors'
 
 describe('formatNestApiErrorMessage', () => {
-  it('formats Nest object bodies that include code', () => {
+  beforeAll(async () => {
+    await initI18n({ language: 'de' })
+  })
+
+  it('translates structured Nest bodies by code without backend message text', () => {
     expect(
       formatNestApiErrorMessage(
         {
@@ -14,11 +19,11 @@ describe('formatNestApiErrorMessage', () => {
         'Failed to create invoice',
       ),
     ).toBe(
-      'SOURCE_DOCUMENT_REQUIRED: Direct source-less invoice creation is not supported. Create invoices from an eligible sales order.',
+      'Rechnungen ohne Quellbeleg werden nicht unterstützt. Erstellen Sie Rechnungen aus einem berechtigten Verkaufsauftrag.',
     )
   })
 
-  it('uses message from GlobalExceptionFilter JSON (no code field)', () => {
+  it('uses the caller fallback when no code is present', () => {
     expect(
       formatNestApiErrorMessage(
         {
@@ -29,9 +34,7 @@ describe('formatNestApiErrorMessage', () => {
         },
         'Failed to create invoice',
       ),
-    ).toBe(
-      'Direct source-less invoice creation is not supported. Create invoices from an eligible sales order.',
-    )
+    ).toBe('Failed to create invoice')
   })
 
   it('falls back when payload is empty', () => {
@@ -40,7 +43,7 @@ describe('formatNestApiErrorMessage', () => {
     )
   })
 
-  it('uses a friendly message for the branding writer gate', () => {
+  it('translates the branding writer gate by code', () => {
     expect(
       formatNestApiErrorMessage(
         {
@@ -52,8 +55,6 @@ describe('formatNestApiErrorMessage', () => {
         },
         'Failed to finalize invoice',
       ),
-    ).toBe(
-      'Branded invoice issuance is disabled in this environment. Finalize will work after operations enable the invoice branding writer.',
-    )
+    ).toContain('Marken-Rechnungsausstellung')
   })
 })

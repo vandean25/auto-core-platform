@@ -34,6 +34,7 @@ import { McpSessionService } from './mcp-session.service.js';
 import { McpToolHandlerService } from './mcp-tool-handler.service.js';
 import { McpWritePipelineService } from './mcp-write-pipeline.service.js';
 import { McpWriteCommandIdempotencyService } from './mcp-write-command-idempotency.service.js';
+import { McpUserLocaleService } from './mcp-user-locale.service.js';
 import { SiteModule } from '../site/site.module.js';
 import { InvoicesModule } from '../invoices/invoices.module.js';
 
@@ -78,6 +79,7 @@ import { InvoicesModule } from '../invoices/invoices.module.js';
     McpSettingsReadService,
     McpStockReadService,
     McpSessionService,
+    McpUserLocaleService,
   ],
 })
 export class McpModule {}

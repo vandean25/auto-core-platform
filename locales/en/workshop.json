@@ -1256,6 +1256,11 @@
     "stepNavAria": "Check-in steps",
     "damageListAria": "Damage markers",
     "damageEmpty": "No damage marked yet.",
+    "sketch": {
+      "aria": "Vehicle sketch — select an area to mark damage",
+      "hint": "Tap a vehicle area on the sketch or choose from the list.",
+      "hasMarker": "damage marked"
+    },
     "save": {
       "saving": "Saving…",
       "saved": "Saved",
@@ -1348,6 +1353,9 @@
       "success": "Check-in completed"
     },
     "review": {
+      "markerPhotosAria": "Photos linked to this damage marker",
+      "markerPhotoAlt": "Damage photo",
+      "markerPhotoAttached": "Photo attached",
       "none": "None",
       "signatureSectionAria": "Customer signature",
       "signatureTitle": "Customer signature",

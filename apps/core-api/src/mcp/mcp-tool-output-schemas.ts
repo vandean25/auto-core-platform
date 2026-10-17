@@ -961,6 +961,8 @@ export const mcpToolOutputSchemas = {
     tenant: z.object({ id: idString, name: z.string() }),
     site: z.object({ id: idString, name: z.string() }).nullable(),
     mode: z.enum(DECISION_APPLY_MODES),
+    user_locale: z.enum(['de', 'en']),
+    response_language_instruction: z.string(),
   }),
   get_capabilities: resultOf({
     data: z.array(capabilityRow),

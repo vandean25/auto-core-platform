@@ -9,9 +9,9 @@ describe('UpdateWorkshopCheckInDto', () => {
       damage_markers: [
         {
           id: '51500000-0000-4000-8000-000000000556',
-          zone_id: 'rear_bumper',
+          zone_id: 'REAR_BUMPER',
           type: 'SCRATCH',
-          note: 'pilot customer scratch',
+          note: 'Light scratch',
           media_ids: ['51500000-0000-4000-8000-000000000557'],
         },
       ],
@@ -40,6 +40,23 @@ describe('UpdateWorkshopCheckInDto', () => {
     expect(errors.some((error) => error.property === 'warning_lights')).toBe(
       true,
     );
+  });
+
+  it('accepts zone_id strings for service-level contract validation', async () => {
+    const dto = plainToInstance(UpdateWorkshopCheckInDto, {
+      expected_revision: 1,
+      damage_markers: [
+        {
+          id: '51500000-0000-4000-8000-000000000556',
+          zone_id: 'hood',
+          type: 'SCRATCH',
+          note: '',
+          media_ids: [],
+        },
+      ],
+    });
+
+    await expect(validate(dto)).resolves.toEqual([]);
   });
 
   it('rejects legacy single media_id field', async () => {

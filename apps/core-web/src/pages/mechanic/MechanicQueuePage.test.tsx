@@ -189,7 +189,7 @@ describe('MechanicQueuePage', () => {
       renderQueuePage()
 
       expect(screen.getByText('Could not load your queue')).toBeInTheDocument()
-      expect(screen.getByText('Queue service unavailable')).toBeInTheDocument()
+      expect(screen.getByText('An unexpected server error occurred.')).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
     })
 
@@ -366,7 +366,7 @@ describe('MechanicQueuePage', () => {
 
       expect(screen.getByText('Oil Change')).toBeInTheDocument()
       await waitFor(() => {
-        expect(toast.error).toHaveBeenCalledWith('Clock service unavailable')
+        expect(toast.error).toHaveBeenCalledWith('An unexpected server error occurred.')
       })
     })
 
@@ -389,7 +389,7 @@ describe('MechanicQueuePage', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Come to work' }))
 
       await waitFor(() => {
-        expect(toast.error).toHaveBeenCalledWith('Attendance punch failed')
+        expect(toast.error).toHaveBeenCalledWith('Failed to punch attendance clock')
       })
     })
   })

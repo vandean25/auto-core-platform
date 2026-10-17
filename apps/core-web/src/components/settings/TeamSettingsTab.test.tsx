@@ -110,7 +110,7 @@ describe('TeamSettingsTab', () => {
     })
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('Role update failed')
+      expect(toast.error).toHaveBeenCalledWith('Failed to update member role')
     })
   })
 })

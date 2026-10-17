@@ -9,6 +9,9 @@ import {
 import * as workshopApi from '@/api/workshop'
 import { toast } from 'sonner'
 import type { WorkshopOrder, WorkshopTask } from '@/api/types'
+import { deWorkshop } from '@/test/de-workshop'
+
+const taskLineItemsToast = deWorkshop.taskLineItems.toast
 
 function createUpdatedOrder(lineItemsVersion: number): WorkshopOrder {
   return {
@@ -485,7 +488,7 @@ describe('useWorkshopTaskLineItems', () => {
         ])
       })
 
-      expect(toast.error).toHaveBeenCalledWith('Line items version conflict')
+      expect(toast.error).toHaveBeenCalledWith(taskLineItemsToast.conflictStale)
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
         queryKey: ['workshop', 'order', 'order-1'],
       })
@@ -517,7 +520,7 @@ describe('useWorkshopTaskLineItems', () => {
         await result.current.handleTaskLineItemsChange('task-1', newItems)
       })
 
-      expect(toast.error).toHaveBeenCalledWith('Network error')
+      expect(toast.error).toHaveBeenCalledWith(taskLineItemsToast.updateFailed)
       // Rolled back to previous items
       expect(result.current.taskLineItemOverrides['task-1']).toEqual(
         mockTasks[0].lineItems,

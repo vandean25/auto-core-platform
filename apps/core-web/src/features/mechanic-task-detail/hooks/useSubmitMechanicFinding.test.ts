@@ -68,7 +68,7 @@ describe('useSubmitMechanicFinding', () => {
       await result.current.submitFinding()
     })
 
-    expect(toast.error).toHaveBeenCalledWith('save failed')
+    expect(toast.error).toHaveBeenCalledWith('Diagnose-Notizen konnten nicht gespeichert werden')
     expect(mutateAsync).not.toHaveBeenCalled()
   })
 
@@ -86,7 +86,7 @@ describe('useSubmitMechanicFinding', () => {
     await act(async () => {
       await result.current.submitFinding()
     })
-    expect(toast.error).toHaveBeenCalledWith('post failed')
+    expect(toast.error).toHaveBeenCalledWith('Feststellung konnte nicht gesendet werden')
 
     mutateAsync.mockResolvedValueOnce({
       proposalId: 'p1',

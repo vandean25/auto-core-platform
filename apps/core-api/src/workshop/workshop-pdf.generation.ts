@@ -1,3 +1,5 @@
+import { readStoredCheckInContentSha256 } from './workshop-order-pdf-render-input.js';
+
 export type CachedPdfMetadata = {
   bucket: string;
   key: string;
@@ -9,10 +11,20 @@ export type WorkshopPdfCacheFields = {
   pdf_storage_key: string | null;
   pdf_generated_at: Date | null;
   updatedAt: Date;
+  pdf_render_input?: unknown;
+};
+
+export type WorkshopPdfCacheContext = {
+  checkInContentSha256: string | null;
+  checkInCompletedAt: Date | null;
 };
 
 export const readCachedWorkshopPdfMetadata = (
   order: WorkshopPdfCacheFields,
+  context: WorkshopPdfCacheContext = {
+    checkInContentSha256: null,
+    checkInCompletedAt: null,
+  },
 ): CachedPdfMetadata | null => {
   if (
     !order.pdf_storage_key ||
@@ -26,6 +38,20 @@ export const readCachedWorkshopPdfMetadata = (
     order.pdf_generated_at > new Date(order.updatedAt.getTime() - 2000);
 
   if (!isCacheValid) {
+    return null;
+  }
+
+  if (
+    context.checkInCompletedAt &&
+    order.pdf_generated_at < context.checkInCompletedAt
+  ) {
+    return null;
+  }
+
+  const storedCheckInSha = readStoredCheckInContentSha256(
+    order.pdf_render_input,
+  );
+  if (storedCheckInSha !== context.checkInContentSha256) {
     return null;
   }
 

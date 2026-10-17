@@ -2,6 +2,7 @@ import { expectNoCriticalA11yViolations } from "./utils/a11y";
 import { test, expect } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
 import { DE_SALES } from './helpers/de-sales';
+import { deErrorCode } from './helpers/de-errors';
 import {
   createMockCreditNote,
   createMockInvoiceCreditContext,
@@ -194,7 +195,7 @@ test.describe('Credit notes UI', () => {
     await page.getByRole('button', { name: DE_SALES.invoices.detail.creditNote }).click();
     await page.getByLabel('Reason').fill('Locked period attempt');
     await page.getByRole('button', { name: 'Create Draft' }).click();
-    await expect(page.getByText(/Fiscal period is locked/i)).toBeVisible();
+    await expect(page.getByText(deErrorCode('FISCAL_PERIOD_LOCKED'))).toBeVisible();
   });
 
   test('blocked: over-credit finalize conflict surfaces error', async ({ page }) => {
@@ -244,7 +245,7 @@ test.describe('Credit notes UI', () => {
     await page.goto(`/finance/credit-notes/${CREDIT_NOTE_ID}`);
     await page.getByRole('button', { name: 'Finalize' }).click();
     await page.getByRole('button', { name: 'Finalize credit note' }).click();
-    await expect(page.getByText(/exceeds remaining balance/i)).toBeVisible();
+    await expect(page.getByText(deErrorCode('CREDIT_LIMIT_EXCEEDED'))).toBeVisible();
   });
 
   test('blocked: margin invoice only allows full credit in dialog', async ({ page }) => {

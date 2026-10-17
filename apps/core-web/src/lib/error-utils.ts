@@ -1,146 +1,179 @@
-/** The JSON body of an API error. `code`, `orderId` and `orderNumber` appear only for the codes the API forwards. */
-export type ApiErrorBody = {
-    message?: string | string[]
-    code?: string
-    orderId?: string
-    orderNumber?: string
-    eventId?: string
-    requestId?: string
-}
+import {
+  getApiErrorBody,
+  normalizeApiError,
+  translateApiError,
+} from '@/api/api-error'
+import { wireCodeForHttpStatus } from '@/api/http-status-fallback-codes'
+
+/** @deprecated Use getApiErrorBody from `@/api/api-error`. */
+export type ApiErrorBody = ReturnType<typeof getApiErrorBody> extends undefined
+  ? never
+  : NonNullable<ReturnType<typeof getApiErrorBody>>
 
 export const VEHICLE_HAS_ACTIVE_ORDER_CODE = 'VEHICLE_HAS_ACTIVE_ORDER'
 
-/**
- * Friendly copy for structured error codes. The copy keeps the order number, so callers without a
- * next-step action (such as the stock prep toast) still say which order is open. A code without an entry keeps the server message.
- */
-const KNOWN_ERROR_CODE_MESSAGES: Partial<Record<string, (body: ApiErrorBody) => string>> = {
-    [VEHICLE_HAS_ACTIVE_ORDER_CODE]: (body) =>
-        body.orderNumber
-            ? `This vehicle already has an open workshop order (${body.orderNumber}).`
-            : 'This vehicle already has an open workshop order.',
-}
-
 type ApiErrorLike = {
-    message?: string | string[]
-    name?: string
+  message?: string | string[]
+  name?: string
+  status?: number
+  eventId?: string
+  data?: ReturnType<typeof getApiErrorBody>
+  response?: {
     status?: number
-    eventId?: string
-    data?: ApiErrorBody
-    response?: {
-        status?: number
-        data?: ApiErrorBody
-    }
+    data?: ReturnType<typeof getApiErrorBody>
+  }
 }
 
 function isObjectLike(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null
+  return typeof value === 'object' && value !== null
 }
 
 /** The server's error body, from an axios-style `response.data` or a `data` field. */
-export function getErrorBody(error: unknown): ApiErrorBody | undefined {
-    if (!isObjectLike(error)) {
-        return undefined
-    }
-
-    const apiError = error as ApiErrorLike
-    return apiError.response?.data ?? apiError.data
+export function getErrorBody(error: unknown) {
+  return getApiErrorBody(error)
 }
 
 export function getErrorCode(error: unknown): string | undefined {
-    return getErrorBody(error)?.code
+  return resolveWireErrorCode(error) ?? undefined
+}
+
+export function resolveWireErrorCode(error: unknown): string | null {
+  const body = getApiErrorBody(error)
+  if (typeof body?.code === 'string' && body.code.length > 0) {
+    return body.code
+  }
+  const status = getErrorStatus(error)
+  if (status !== null) {
+    return wireCodeForHttpStatus(status)
+  }
+  return null
+}
+
+function appendServerReference(
+  message: string,
+  normalized: ReturnType<typeof normalizeApiError>,
+  extraEventId?: string,
+): string {
+  const status = normalized?.status ?? null
+  if (status !== null && status >= 500) {
+    const reference =
+      normalized?.requestId ||
+      normalized?.eventId ||
+      extraEventId
+    if (reference && !message.includes('(ref: ')) {
+      return `${message} (ref: ${reference})`
+    }
+  }
+
+  const eventId = normalized?.eventId || extraEventId
+  if (
+    eventId &&
+    (status === null || status < 500) &&
+    !message.includes('(Error ID: ')
+  ) {
+    return `${message} (Error ID: ${eventId})`
+  }
+
+  return message
+}
+
+function syntheticErrorForTranslation(error: unknown, wireCode: string) {
+  const body = getApiErrorBody(error)
+  const status = getErrorStatus(error)
+  return {
+    response: {
+      status: status ?? body?.statusCode ?? 400,
+      data: { ...body, code: wireCode },
+    },
+  }
 }
 
 export function getErrorMessage(error: unknown, fallbackMessage: string): string {
-    if (!isObjectLike(error)) {
-        return fallbackMessage
-    }
+  if (!isObjectLike(error)) {
+    return fallbackMessage
+  }
 
-    const apiError = error as ApiErrorLike
-    const body = getErrorBody(error)
-    const knownMessage = body?.code ? KNOWN_ERROR_CODE_MESSAGES[body.code]?.(body) : undefined
-    if (knownMessage) {
-        return knownMessage
-    }
+  const wireCode = resolveWireErrorCode(error)
+  const normalized = normalizeApiError(error)
 
-    const rawMessage = (
-        apiError.response?.data?.message ||
-        apiError.data?.message ||
-        apiError.message ||
-        fallbackMessage
+  if (wireCode) {
+    return appendServerReference(
+      translateApiError(
+        syntheticErrorForTranslation(error, wireCode),
+        'errors:generic.unexpected',
+      ),
+      normalized,
+      (error as ApiErrorLike).eventId,
     )
-    const baseMessage = Array.isArray(rawMessage) ? rawMessage.join(', ') : rawMessage
+  }
 
-    const status = getErrorStatus(error)
-    if (status !== null && status >= 500) {
-        // Keep the server's copy, or the page's fallback, and add the id the user can quote to support.
-        // The global filter already writes the id into masked 5xx messages, so it is not repeated.
-        const body = getErrorBody(error)
-        const reference = body?.requestId || body?.eventId || apiError.eventId
-        if (!reference || baseMessage.includes('(ref: ')) {
-            return baseMessage
-        }
-        return `${baseMessage} (ref: ${reference})`
-    }
-
-    const eventId =
-        apiError.response?.data?.eventId ||
-        apiError.data?.eventId ||
-        apiError.eventId
-
-    if (!eventId) {
-        return baseMessage
-    }
-
-    return `${baseMessage} (Error ID: ${eventId})`
+  return fallbackMessage
 }
 
 export function getErrorStatus(error: unknown): number | null {
-    if (!isObjectLike(error)) {
-        return null
-    }
+  if (!isObjectLike(error)) {
+    return null
+  }
 
-    const apiError = error as ApiErrorLike
-    return apiError.response?.status ?? apiError.status ?? null
+  const apiError = error as ApiErrorLike
+  const normalized = normalizeApiError(error)
+  return (
+    normalized?.status ??
+    apiError.response?.status ??
+    apiError.status ??
+    null
+  )
 }
 
 export function isAbortError(error: unknown): boolean {
-    if (!isObjectLike(error)) {
-        return false
-    }
+  if (!isObjectLike(error)) {
+    return false
+  }
 
-    const apiError = error as ApiErrorLike
-    return apiError.name === 'AbortError'
+  const apiError = error as ApiErrorLike
+  return apiError.name === 'AbortError'
 }
 
 /**
  * Creates an Error instance with an attached `.status` property so callers
  * can detect specific HTTP error codes (e.g. 409 Conflict) without parsing
  * the message string.
- *
- * Usage:
- *   throw createHttpError('Task already locked', 409)
  */
-export function createHttpError(message: string, status: number): Error & { status: number } {
-    const err = new Error(message) as Error & { status: number }
-    err.status = status
-    return err
+export type HttpError = Error & {
+  status: number
+  response?: {
+    status: number
+    data?: ReturnType<typeof getApiErrorBody>
+  }
 }
 
-/** Reads the API error message and throws an Error with `.status` attached. */
+export function createHttpError(
+  message: string,
+  status: number,
+  body?: ReturnType<typeof getApiErrorBody>,
+): HttpError {
+  const err = new Error(message) as HttpError
+  err.status = status
+  if (body !== undefined) {
+    err.response = { status, data: body }
+  }
+  return err
+}
+
+/** Reads structured API errors and throws with `.status` attached (no backend message text). */
 export async function throwHttpError(
-    response: Response,
-    fallback: string,
+  response: Response,
+  fallback: string,
 ): Promise<never> {
-    const payload = (await response.json().catch(() => undefined)) as
-        | { message?: string | string[] }
-        | undefined
-    const raw = payload?.message
-    const message =
-        typeof raw === 'string'
-            ? raw
-            : Array.isArray(raw)
-              ? raw.join(', ')
-              : fallback
-    throw createHttpError(message, response.status)
+  const data = (await response.json().catch(() => undefined)) as
+    | ReturnType<typeof getApiErrorBody>
+    | undefined
+  const synthetic = {
+    response: {
+      status: response.status,
+      data,
+    },
+  }
+  const message = getErrorMessage(synthetic, fallback)
+  throw createHttpError(message, response.status, data)
 }
