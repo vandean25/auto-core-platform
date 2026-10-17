@@ -3,11 +3,16 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { VehicleEquipmentOption } from '@prisma/client';
+import {
+  VehicleEquipmentAssertion,
+  type VehicleEquipmentOption,
+} from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { TenantContextService } from '../../common/services/tenant-context.service.js';
 import { SiteContextService } from '../../site/site-context.service.js';
+import { assertTenantAdmin } from '../../site/site.authorization.js';
 import {
+  type PatchVehicleEquipmentOptionDto,
   type ReplaceVehicleEquipmentDto,
   type VehicleEquipmentAssignmentDto,
   type VehicleEquipmentFreeTextItemDto,
@@ -20,6 +25,7 @@ import type {
   EquipmentListingSerializerProfile,
   ResolvedVehicleEquipmentExport,
 } from './vehicle-equipment-portal-map.types.js';
+import { resolveCurrentReceivedStockPurchaseId } from './vehicle-equipment-stock-cycle.js';
 
 function toOptionDto(row: VehicleEquipmentOption): VehicleEquipmentOptionDto {
   return {
@@ -99,26 +105,49 @@ export class VehicleEquipmentService {
     };
   }
 
+  async patchOption(
+    optionId: string,
+    dto: PatchVehicleEquipmentOptionDto,
+  ): Promise<VehicleEquipmentOptionDto> {
+    const tenantId = await this.tenantContext.getTenantId();
+    assertTenantAdmin(this.tenantContext);
+
+    const updated = await this.prisma.vehicleEquipmentOption.update({
+      where: { tenant_id: tenantId, id: optionId },
+      data: { active: dto.active },
+    });
+    return toOptionDto(updated);
+  }
+
   async getVehicleEquipment(
     vehicleId: string,
   ): Promise<VehicleEquipmentAssignmentDto> {
     const tenantId = await this.tenantContext.getTenantId();
     await this.assertStockVehicleAtActiveSite(tenantId, vehicleId);
+    const stockPurchaseId = await resolveCurrentReceivedStockPurchaseId(
+      this.prisma,
+      tenantId,
+      vehicleId,
+    );
 
     const [selections, freeTextItems] = await Promise.all([
       this.prisma.vehicleEquipmentSelection.findMany({
-        where: { tenant_id: tenantId, vehicle_id: vehicleId },
+        where: { tenant_id: tenantId, stock_purchase_id: stockPurchaseId },
         include: { option: true },
         orderBy: { option: { code: 'asc' } },
       }),
       this.prisma.vehicleEquipmentFreeTextItem.findMany({
-        where: { tenant_id: tenantId, vehicle_id: vehicleId },
+        where: { tenant_id: tenantId, stock_purchase_id: stockPurchaseId },
         orderBy: { sort_order: 'asc' },
       }),
     ]);
 
     return {
-      options: selections.map((row) => toOptionDto(row.option)),
+      stock_purchase_id: stockPurchaseId,
+      selections: selections.map((row) => ({
+        option: toOptionDto(row.option),
+        assertion: row.assertion,
+      })),
       free_text_items: freeTextItems.map(
         (row): VehicleEquipmentFreeTextItemDto => ({
           id: row.id,
@@ -135,8 +164,14 @@ export class VehicleEquipmentService {
   ): Promise<VehicleEquipmentAssignmentDto> {
     const tenantId = await this.tenantContext.getTenantId();
     await this.assertStockVehicleAtActiveSite(tenantId, vehicleId);
+    const stockPurchaseId = await resolveCurrentReceivedStockPurchaseId(
+      this.prisma,
+      tenantId,
+      vehicleId,
+    );
 
-    const optionIds = dto.option_ids ?? [];
+    const selectionRows = dto.selections ?? [];
+    const optionIds = selectionRows.map((row) => row.option_id);
     const freeTextLines = (dto.free_text_lines ?? [])
       .map((line) => line.trim())
       .filter(Boolean);
@@ -160,19 +195,27 @@ export class VehicleEquipmentService {
     }
 
     await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`
+        SELECT "id" FROM "vehicles"
+        WHERE "tenant_id" = ${tenantId} AND "id" = ${vehicleId}
+        FOR UPDATE
+      `;
+
       await tx.vehicleEquipmentSelection.deleteMany({
-        where: { tenant_id: tenantId, vehicle_id: vehicleId },
+        where: { tenant_id: tenantId, stock_purchase_id: stockPurchaseId },
       });
       await tx.vehicleEquipmentFreeTextItem.deleteMany({
-        where: { tenant_id: tenantId, vehicle_id: vehicleId },
+        where: { tenant_id: tenantId, stock_purchase_id: stockPurchaseId },
       });
 
-      if (options.length > 0) {
+      if (selectionRows.length > 0) {
         await tx.vehicleEquipmentSelection.createMany({
-          data: options.map((option) => ({
+          data: selectionRows.map((row) => ({
             tenant_id: tenantId,
             vehicle_id: vehicleId,
-            option_id: option.id,
+            stock_purchase_id: stockPurchaseId,
+            option_id: row.option_id,
+            assertion: row.assertion,
           })),
         });
       }
@@ -182,6 +225,7 @@ export class VehicleEquipmentService {
           data: freeTextLines.map((text, index) => ({
             tenant_id: tenantId,
             vehicle_id: vehicleId,
+            stock_purchase_id: stockPurchaseId,
             text,
             sort_order: index,
           })),
@@ -198,11 +242,15 @@ export class VehicleEquipmentService {
     extraPassThroughFreeText: string[] = [],
   ): Promise<ResolvedVehicleEquipmentExport> {
     const assignment = await this.getVehicleEquipment(vehicleId);
+    const presentSelections = assignment.selections.filter(
+      (row) => row.assertion === VehicleEquipmentAssertion.PRESENT,
+    );
     return resolveVehicleEquipmentForProfile(profile, {
-      selections: assignment.options.map((option) => ({
-        code: option.code,
-        label_de: option.label_de,
-        label_en: option.label_en,
+      selections: presentSelections.map((row) => ({
+        code: row.option.code,
+        label_de: row.option.label_de,
+        label_en: row.option.label_en,
+        assertion: 'PRESENT',
       })),
       freeTextLines: assignment.free_text_items.map((item) => item.text),
       passThroughFreeText: extraPassThroughFreeText,

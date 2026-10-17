@@ -55,6 +55,10 @@ export function resolveVehicleEquipmentForProfile(
   );
 
   for (const selection of sortedSelections) {
+    if (selection.assertion === 'ABSENT') {
+      continue;
+    }
+
     const entry = entryByCode.get(selection.code);
     if (profileConfig.export_local_codes) {
       equipmentCodes.push(selection.code);

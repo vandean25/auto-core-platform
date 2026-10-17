@@ -30,10 +30,13 @@ export interface EquipmentPortalMapDocument {
   >;
 }
 
+export type VehicleEquipmentAssertionState = 'PRESENT' | 'ABSENT';
+
 export interface VehicleEquipmentSelectionInput {
   code: string;
   label_de: string;
   label_en: string;
+  assertion: VehicleEquipmentAssertionState;
 }
 
 export interface ResolvedPortalEquipmentField {

@@ -11981,6 +11981,47 @@
         ]
       }
     },
+    "/api/vehicle-equipment-options/{optionId}": {
+      "patch": {
+        "operationId": "VehicleEquipmentController_patchOption",
+        "parameters": [
+          {
+            "name": "optionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchVehicleEquipmentOptionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleEquipmentOptionDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Activate or deactivate a tenant equipment option",
+        "tags": [
+          "vehicle-equipment"
+        ]
+      }
+    },
     "/api/vehicle-stock/{vehicleId}/equipment": {
       "get": {
         "operationId": "VehicleEquipmentController_getAssignment",
@@ -12006,7 +12047,7 @@
             }
           }
         },
-        "summary": "Get equipment assigned to a stock vehicle",
+        "summary": "Get equipment for the current stock cycle of a stock vehicle",
         "tags": [
           "vehicle-equipment"
         ]
@@ -12045,7 +12086,7 @@
             }
           }
         },
-        "summary": "Replace equipment assigned to a stock vehicle",
+        "summary": "Replace equipment for the current stock cycle of a stock vehicle",
         "tags": [
           "vehicle-equipment"
         ]
@@ -31985,6 +32026,43 @@
           "meta"
         ]
       },
+      "PatchVehicleEquipmentOptionDto": {
+        "type": "object",
+        "properties": {
+          "active": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "active"
+        ]
+      },
+      "VehicleEquipmentAssertion": {
+        "type": "string",
+        "enum": [
+          "PRESENT",
+          "ABSENT"
+        ]
+      },
+      "VehicleEquipmentSelectionDto": {
+        "type": "object",
+        "properties": {
+          "option": {
+            "$ref": "#/components/schemas/VehicleEquipmentOptionDto"
+          },
+          "assertion": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VehicleEquipmentAssertion"
+              }
+            ]
+          }
+        },
+        "required": [
+          "option",
+          "assertion"
+        ]
+      },
       "VehicleEquipmentFreeTextItemDto": {
         "type": "object",
         "properties": {
@@ -32008,10 +32086,14 @@
       "VehicleEquipmentAssignmentDto": {
         "type": "object",
         "properties": {
-          "options": {
+          "stock_purchase_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "selections": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/VehicleEquipmentOptionDto"
+              "$ref": "#/components/schemas/VehicleEquipmentSelectionDto"
             }
           },
           "free_text_items": {
@@ -32022,28 +32104,52 @@
           }
         },
         "required": [
-          "options",
+          "stock_purchase_id",
+          "selections",
           "free_text_items"
+        ]
+      },
+      "VehicleEquipmentSelectionWriteDto": {
+        "type": "object",
+        "properties": {
+          "option_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "assertion": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VehicleEquipmentAssertion"
+              }
+            ]
+          }
+        },
+        "required": [
+          "option_id",
+          "assertion"
         ]
       },
       "ReplaceVehicleEquipmentDto": {
         "type": "object",
         "properties": {
-          "option_ids": {
-            "description": "VehicleEquipmentOption ids for this tenant",
+          "selections": {
             "type": "array",
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/VehicleEquipmentSelectionWriteDto"
             }
           },
           "free_text_lines": {
-            "description": "Free-text equipment lines (unknown options stay as plain text)",
+            "description": "Free-text equipment lines for the current stock cycle (unknown options stay as plain text)",
             "type": "array",
             "items": {
               "type": "string"
             }
           }
-        }
+        },
+        "required": [
+          "selections",
+          "free_text_lines"
+        ]
       },
       "EmployeeRole": {
         "type": "string",

@@ -9,11 +9,13 @@ describe('resolveVehicleEquipmentForProfile', () => {
       code: 'ABS',
       label_de: 'ABS',
       label_en: 'ABS',
+      assertion: 'PRESENT' as const,
     },
     {
       code: 'PARKING_CAMERA',
       label_de: 'Rückfahrkamera',
       label_en: 'Rear view camera',
+      assertion: 'PRESENT' as const,
     },
   ];
 
@@ -50,9 +52,28 @@ describe('resolveVehicleEquipmentForProfile', () => {
     expect(resolved.equipmentFreeTextLines).toEqual([]);
   });
 
+  it('does not emit mapped portal fields for confirmed absent options', () => {
+    const resolved = resolveVehicleEquipmentForProfile('MOBILE_DE_REFERENCE_V1', {
+      selections: [
+        {
+          code: 'ABS',
+          label_de: 'ABS',
+          label_en: 'ABS',
+          assertion: 'ABSENT',
+        },
+      ],
+      freeTextLines: [],
+    });
+
+    expect(resolved.mappedFields).toEqual([]);
+    expect(resolved.equipmentFreeTextLines).toEqual([]);
+  });
+
   it('exports local taxonomy codes for generic willhaben profile', () => {
     const resolved = resolveVehicleEquipmentForProfile('WILLHABEN_GENERIC_V1', {
-      selections: [{ code: 'ESP', label_de: 'ESP', label_en: 'ESP' }],
+      selections: [
+        { code: 'ESP', label_de: 'ESP', label_en: 'ESP', assertion: 'PRESENT' },
+      ],
       freeTextLines: ['Custom line'],
       passThroughFreeText: ['UNKNOWN_OPTION'],
     });

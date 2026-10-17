@@ -24,7 +24,6 @@ export async function seedVehicleEquipmentOptions(
         label_de: definition.label_de,
         label_en: definition.label_en,
         category: definition.category,
-        active: true,
       },
       create: {
         tenant_id: tenantId,

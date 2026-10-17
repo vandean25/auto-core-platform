@@ -1,12 +1,16 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty } from '@nestjs/swagger';
+import { VehicleEquipmentAssertion } from '@prisma/client';
+import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayUnique,
   IsArray,
-  IsOptional,
+  IsBoolean,
+  IsEnum,
   IsString,
   IsUUID,
   MaxLength,
+  ValidateNested,
 } from 'class-validator';
 import { PaginationMetaDto } from '../../../common/dto/paginated-response.dto.js';
 
@@ -38,6 +42,12 @@ export class VehicleEquipmentOptionListResponseDto {
   meta!: PaginationMetaDto;
 }
 
+export class PatchVehicleEquipmentOptionDto {
+  @ApiProperty()
+  @IsBoolean()
+  active!: boolean;
+}
+
 export class VehicleEquipmentFreeTextItemDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
@@ -49,34 +59,58 @@ export class VehicleEquipmentFreeTextItemDto {
   sort_order!: number;
 }
 
+export class VehicleEquipmentSelectionDto {
+  @ApiProperty({ type: VehicleEquipmentOptionDto })
+  option!: VehicleEquipmentOptionDto;
+
+  @ApiProperty({
+    enum: VehicleEquipmentAssertion,
+    enumName: 'VehicleEquipmentAssertion',
+  })
+  assertion!: VehicleEquipmentAssertion;
+}
+
 export class VehicleEquipmentAssignmentDto {
-  @ApiProperty({ type: [VehicleEquipmentOptionDto] })
-  options!: VehicleEquipmentOptionDto[];
+  @ApiProperty({ format: 'uuid' })
+  stock_purchase_id!: string;
+
+  @ApiProperty({ type: [VehicleEquipmentSelectionDto] })
+  selections!: VehicleEquipmentSelectionDto[];
 
   @ApiProperty({ type: [VehicleEquipmentFreeTextItemDto] })
   free_text_items!: VehicleEquipmentFreeTextItemDto[];
 }
 
-export class ReplaceVehicleEquipmentDto {
-  @ApiPropertyOptional({
-    type: [String],
-    description: 'VehicleEquipmentOption ids for this tenant',
-  })
-  @IsOptional()
-  @IsArray()
-  @ArrayUnique()
-  @IsUUID('4', { each: true })
-  option_ids?: string[];
+export class VehicleEquipmentSelectionWriteDto {
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  option_id!: string;
 
-  @ApiPropertyOptional({
+  @ApiProperty({
+    enum: VehicleEquipmentAssertion,
+    enumName: 'VehicleEquipmentAssertion',
+  })
+  @IsEnum(VehicleEquipmentAssertion)
+  assertion!: VehicleEquipmentAssertion;
+}
+
+export class ReplaceVehicleEquipmentDto {
+  @ApiProperty({ type: [VehicleEquipmentSelectionWriteDto] })
+  @IsArray()
+  @ArrayMaxSize(100)
+  @ArrayUnique((row: VehicleEquipmentSelectionWriteDto) => row.option_id)
+  @ValidateNested({ each: true })
+  @Type(() => VehicleEquipmentSelectionWriteDto)
+  selections!: VehicleEquipmentSelectionWriteDto[];
+
+  @ApiProperty({
     type: [String],
     description:
-      'Free-text equipment lines (unknown options stay as plain text)',
+      'Free-text equipment lines for the current stock cycle (unknown options stay as plain text)',
   })
-  @IsOptional()
   @IsArray()
   @ArrayMaxSize(50)
   @IsString({ each: true })
   @MaxLength(200, { each: true })
-  free_text_lines?: string[];
+  free_text_lines!: string[];
 }

@@ -103,7 +103,8 @@ AUT-566 starter semantic codes: `ABS`, `ESP`, `AIR_CONDITIONING`, `AUTOMATIC_CLI
 ### AUT-566 implementation notes (taxonomy seed and extension)
 
 - **Seed:** `seedVehicleEquipmentOptions(tenantId)` upserts the starter codes above into `vehicle_equipment_options` (idempotent per `tenant_id` + `code`). Invoked from demo seed (`seedBrands`), landing-demo tenant seed, and platform tenant create.
-- **Vehicle assignment:** `PUT /api/vehicle-stock/:vehicleId/equipment` replaces `vehicle_equipment_selections` and `vehicle_equipment_free_text_items` for the stock vehicle at the active site.
+- **Vehicle assignment:** `PUT /api/vehicle-stock/:vehicleId/equipment` replaces selections and free-text rows for the **current received stock purchase** (not the CRM vehicle alone). Each selection carries `assertion: PRESENT | ABSENT` (no row = unknown). Free text does not survive a new stock cycle on re-purchase.
+- **Tenant backfill:** migration `20261018080000_aut566_equipment_assertions_cycle` seeds starter options for all existing tenants (`ON CONFLICT DO NOTHING`).
 - **Portal maps:** `apps/core-api/src/vehicle/equipment/vehicle-equipment-portal-maps.v1.ts` (version `1`). `MOBILE_DE_REFERENCE_V1` column indices are **UNVERIFIED** until AUT-569 pins the 212-position manifest; `AS24_PROVISIONAL_V1` and `WILLHABEN_GENERIC_V1` export local taxonomy codes in `equipment_codes`. Extend by appending map entries (or a new document version) and registering it in `vehicle-equipment-portal-map.registry.ts`.
 - **Resolver:** `resolveVehicleEquipmentForProfile(profile, { selections, freeTextLines, passThroughFreeText })` never drops unknown or unmapped items — they are returned in `equipmentFreeTextLines` for description append.
 

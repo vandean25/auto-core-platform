@@ -1869,38 +1869,49 @@ model VehicleEquipmentOption {
   @@map("vehicle_equipment_options")
 }
 
-/// Selected taxonomy option on a vehicle (tenant-scoped).
-model VehicleEquipmentSelection {
-  id         String                 @id @default(uuid())
-  tenant_id  String
-  tenant     Tenant                 @relation(fields: [tenant_id], references: [id])
-  vehicle_id String                 @map("vehicle_id")
-  vehicle    Vehicle                @relation(fields: [tenant_id, vehicle_id], references: [tenant_id, id], onDelete: Cascade, onUpdate: Cascade)
-  option_id  String                 @map("option_id")
-  option     VehicleEquipmentOption @relation(fields: [tenant_id, option_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
-  createdAt  DateTime               @default(now()) @map("created_at")
-  updatedAt  DateTime               @updatedAt @map("updated_at")
+enum VehicleEquipmentAssertion {
+  PRESENT
+  ABSENT
+}
 
-  @@unique([tenant_id, vehicle_id, option_id])
+/// Selected taxonomy option for a stock purchase cycle (tenant-scoped).
+model VehicleEquipmentSelection {
+  id                String                    @id @default(uuid())
+  tenant_id         String
+  tenant            Tenant                    @relation(fields: [tenant_id], references: [id])
+  vehicle_id        String                    @map("vehicle_id")
+  vehicle           Vehicle                   @relation(fields: [tenant_id, vehicle_id], references: [tenant_id, id], onDelete: Cascade, onUpdate: Cascade)
+  stock_purchase_id String                    @map("stock_purchase_id")
+  stockPurchase     VehiclePurchase           @relation(fields: [tenant_id, stock_purchase_id], references: [tenant_id, id], onDelete: Cascade, onUpdate: Cascade)
+  option_id         String                    @map("option_id")
+  option            VehicleEquipmentOption    @relation(fields: [tenant_id, option_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
+  assertion         VehicleEquipmentAssertion
+  createdAt         DateTime                  @default(now()) @map("created_at")
+  updatedAt         DateTime                  @updatedAt @map("updated_at")
+
+  @@unique([tenant_id, stock_purchase_id, option_id])
   @@unique([tenant_id, id])
   @@index([tenant_id, vehicle_id])
+  @@index([tenant_id, stock_purchase_id])
   @@map("vehicle_equipment_selections")
 }
 
-/// Advisor-entered equipment lines not in the taxonomy (AUT-566).
+/// Advisor-entered equipment lines for a stock purchase cycle (AUT-566).
 model VehicleEquipmentFreeTextItem {
-  id         String   @id @default(uuid())
-  tenant_id  String
-  tenant     Tenant   @relation(fields: [tenant_id], references: [id])
-  vehicle_id String   @map("vehicle_id")
-  vehicle    Vehicle  @relation(fields: [tenant_id, vehicle_id], references: [tenant_id, id], onDelete: Cascade, onUpdate: Cascade)
-  text       String   @db.VarChar(200)
-  sort_order Int      @default(0) @map("sort_order")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  id                String          @id @default(uuid())
+  tenant_id         String
+  tenant            Tenant          @relation(fields: [tenant_id], references: [id])
+  vehicle_id        String          @map("vehicle_id")
+  vehicle           Vehicle         @relation(fields: [tenant_id, vehicle_id], references: [tenant_id, id], onDelete: Cascade, onUpdate: Cascade)
+  stock_purchase_id String          @map("stock_purchase_id")
+  stockPurchase     VehiclePurchase @relation(fields: [tenant_id, stock_purchase_id], references: [tenant_id, id], onDelete: Cascade, onUpdate: Cascade)
+  text              String          @db.VarChar(200)
+  sort_order        Int             @default(0) @map("sort_order")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
 
   @@unique([tenant_id, id])
-  @@index([tenant_id, vehicle_id, sort_order])
+  @@index([tenant_id, stock_purchase_id, sort_order])
   @@map("vehicle_equipment_free_text_items")
 }
 
@@ -1995,6 +2006,8 @@ model VehiclePurchase {
   received_at                 DateTime?
   ledger_entries              VehicleLedgerEntry[]
   trade_in_sales              VehicleSale[]             @relation("VehicleSaleTradeIn")
+  equipmentSelections         VehicleEquipmentSelection[]
+  equipmentFreeTextItems      VehicleEquipmentFreeTextItem[]
   createdAt                   DateTime                  @default(now())
   updatedAt                   DateTime                  @updatedAt
 
