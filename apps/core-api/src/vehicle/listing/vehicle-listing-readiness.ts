@@ -40,8 +40,7 @@ export function listListingActiveReadinessIssues(
   if (vehicle.inventory_role !== VehicleInventoryRole.USED) {
     issues.push({
       field: 'vehicle.inventory_role',
-      message:
-        'Vehicle must be dealer USED stock to activate a listing offer.',
+      message: 'Vehicle must be dealer USED stock to activate a listing offer.',
     });
   }
   if (vehicle.stock_status !== VehicleStockStatus.IN_STOCK) {
