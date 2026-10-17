@@ -455,7 +455,6 @@ describe('MCP server (e2e)', () => {
         channels: {
           create: [
             {
-              tenant_id: tenantA,
               platform: 'MOBILE_DE',
               serializer_profile: 'MOBILE_DE_REFERENCE_V1',
               mapping_version: '1',
