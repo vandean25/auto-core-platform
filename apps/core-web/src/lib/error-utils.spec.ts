@@ -8,7 +8,7 @@ describe('getErrorMessage', () => {
     await initI18n({ language: 'de' })
   })
 
-  it('uses fallback (not backend message) for API bodies without a code', () => {
+  it('surfaces backend message for API bodies without a code', () => {
     const message = getErrorMessage(
       {
         response: {
@@ -21,10 +21,10 @@ describe('getErrorMessage', () => {
       'fallback',
     )
 
-    expect(message).toBe('fallback (Error ID: evt_12345)')
+    expect(message).toBe('Internal server error (Error ID: evt_12345)')
   })
 
-  it('uses fallback for Nest validation arrays without a code', () => {
+  it('joins Nest validation arrays without a code', () => {
     const message = getErrorMessage(
       {
         response: {
@@ -36,7 +36,7 @@ describe('getErrorMessage', () => {
       'fallback',
     )
 
-    expect(message).toBe('fallback')
+    expect(message).toBe('name must not be empty, email must be an email')
   })
 
   it('shows a reference id for a 5xx response, preferring the request id', () => {
@@ -52,7 +52,7 @@ describe('getErrorMessage', () => {
       'fallback',
     )
 
-    expect(message).toBe('fallback (ref: req-1)')
+    expect(message).toBe('Internal server error (ref: req-1)')
   })
 
   it('falls back to the event id for a 5xx response without a request id', () => {
@@ -66,7 +66,7 @@ describe('getErrorMessage', () => {
       'fallback',
     )
 
-    expect(message).toBe('fallback (ref: evt-9)')
+    expect(message).toBe('Queue service unavailable (ref: evt-9)')
   })
 
   it('does not repeat a reference the server already wrote into the message', () => {
@@ -78,7 +78,7 @@ describe('getErrorMessage', () => {
       'fallback',
     )
 
-    expect(message).toBe('fallback (ref: req-2)')
+    expect(message).toBe('Something went wrong (ref: req-2)')
   })
 
   it('keeps local Error messages for non-HTTP errors', () => {
@@ -119,8 +119,9 @@ describe('getErrorMessage', () => {
       'fallback',
     )
 
-    expect(message).not.toContain('Seller identity')
-    expect(message.length).toBeGreaterThan(0)
+    expect(message).toBe(
+      'Die Angaben zum Betrieb sind für den Versand unvollständig. Bitte ergänzen Sie sie.',
+    )
   })
 
   it('reads the code and body from an API error', () => {

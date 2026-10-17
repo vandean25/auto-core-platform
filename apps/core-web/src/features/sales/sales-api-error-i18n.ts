@@ -1,5 +1,6 @@
 import type { TFunction } from 'i18next'
-import { normalizeApiError, translateApiError } from '@/api/api-error'
+import { i18n } from '@/lib/i18n'
+import { normalizeApiError } from '@/api/api-error'
 import {
   getErrorBody,
   getErrorCode,
@@ -22,29 +23,30 @@ function appendReference(message: string, error: unknown): string {
   return message
 }
 
-function rawApiMessage(error: unknown): string | undefined {
-  if (error instanceof Error && error.message) {
-    return error.message
-  }
-  const body = getErrorBody(error)
-  const raw = body?.message
-  if (typeof raw === 'string' && raw.length > 0) {
-    return raw
-  }
-  if (Array.isArray(raw) && raw.length > 0) {
-    return raw.join(', ')
-  }
-  return undefined
-}
-
 function translateBySalesCode(t: TFunction<'sales'>, code: string): string | undefined {
   const message = t(`errors.codes.${code}`, { defaultValue: '' })
   return message || undefined
 }
 
+function translateGlobalWireCode(error: unknown, code: string): string | undefined {
+  const normalized = normalizeApiError(error)
+  const translated = i18n.t(`errors:codes.${code}`, {
+    defaultValue: '',
+    ...(normalized?.params ?? {}),
+  })
+  return translated || undefined
+}
+
+function rawErrorMessage(error: unknown): string | undefined {
+  if (error instanceof Error && error.message) {
+    return error.message
+  }
+  return undefined
+}
+
 /**
  * Maps sales API errors to translated copy. Structured wire codes use the global
- * `errors:codes.*` registry; legacy message shapes keep sales-namespace fallbacks.
+ * `errors:codes.*` registry; legacy shapes use sales-namespace or generic fallbacks.
  */
 export function translateSalesApiError(
   t: TFunction<'sales'>,
@@ -53,17 +55,18 @@ export function translateSalesApiError(
 ): string {
   const wireCode = getErrorCode(error) ?? normalizeApiError(error)?.code
   if (wireCode) {
-    const translated = translateApiError(error)
-    if (translated) {
-      return appendReference(translated, error)
+    const fromGlobal = translateGlobalWireCode(error, wireCode)
+    if (fromGlobal) {
+      return appendReference(fromGlobal, error)
     }
     const bySalesCode = translateBySalesCode(t, wireCode)
     if (bySalesCode) {
       return appendReference(bySalesCode, error)
     }
+    return appendReference(t(fallbackKey), error)
   }
 
-  const message = rawApiMessage(error)
+  const message = rawErrorMessage(error)
   if (message) {
     const atpMatch = INSUFFICIENT_ATP_PATTERN.exec(message)
     if (atpMatch) {
@@ -79,9 +82,9 @@ export function translateSalesApiError(
       const synthetic = {
         response: { status: getErrorStatus(error) ?? 400, data: { code: codePrefix[1] } },
       }
-      const byWire = translateApiError(synthetic)
+      const fromGlobal = translateGlobalWireCode(synthetic, codePrefix[1])
       const bySalesCode = translateBySalesCode(t, codePrefix[1])
-      const resolved = bySalesCode ?? byWire
+      const resolved = bySalesCode ?? fromGlobal
       if (resolved) {
         return appendReference(resolved, error)
       }
@@ -93,8 +96,6 @@ export function translateSalesApiError(
         return appendReference(branding, error)
       }
     }
-
-    return appendReference(message, error)
   }
 
   const fallback = t(fallbackKey)

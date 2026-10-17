@@ -46,6 +46,22 @@ export function getErrorCode(error: unknown): string | undefined {
   return normalized?.code ?? undefined
 }
 
+function readUncodedBodyMessage(
+  error: unknown,
+  body: ReturnType<typeof getApiErrorBody>,
+): string {
+  const apiError = error as ApiErrorLike
+  const raw =
+    body?.message ?? apiError.response?.data?.message ?? apiError.data?.message
+  if (typeof raw === 'string' && raw.length > 0) {
+    return raw
+  }
+  if (Array.isArray(raw) && raw.length > 0) {
+    return raw.join(', ')
+  }
+  return ''
+}
+
 function appendServerReference(
   message: string,
   normalized: ReturnType<typeof normalizeApiError>,
@@ -91,8 +107,9 @@ export function getErrorMessage(error: unknown, fallbackMessage: string): string
   }
 
   if (hasStructuredApiBody(error)) {
+    const baseMessage = readUncodedBodyMessage(error, body) || fallbackMessage
     return appendServerReference(
-      fallbackMessage,
+      baseMessage,
       normalized,
       (error as ApiErrorLike).eventId,
     )

@@ -38,6 +38,11 @@ function main() {
       errors.push(`Missing EN translation for code ${code}`)
     }
     if (deText && enText) {
+      if (deText.trim() === enText.trim()) {
+        errors.push(
+          `DE equals EN for code ${code} (provide a real German translation)`,
+        )
+      }
       const deVars = interpolationVariables(deText)
       const enVars = interpolationVariables(enText)
       if (deVars.join(',') !== enVars.join(',')) {

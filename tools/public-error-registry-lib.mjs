@@ -1,6 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { execSync } from 'node:child_process'
+import { translateEnErrorToDe } from './error-message-de-translate.mjs'
+import { CANONICAL_EN_MESSAGES } from './error-canonical-en.mjs'
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..')
 const CORE_API_SRC = path.join(REPO_ROOT, 'apps/core-api/src')
@@ -152,18 +154,60 @@ function extractErrorCodeObjectValues(src) {
  * @param {string} src
  * @returns {Map<string, string>}
  */
-function extractCodeMessagePairs(src) {
+const CODE_MESSAGE_GAP = 200
+
+/**
+ * @param {string} block
+ * @returns {{ code: string, message: string } | null}
+ */
+function readCodeMessageFromObjectBlock(block) {
+  const codeMatch = block.match(
+    /code:\s*(?:[A-Z0-9_]+\.)?['"]([A-Z][A-Z0-9_]+)['"]/,
+  )
+  const messageMatch = block.match(/message:\s*['"]([^'"]+)['"]/)
+  if (!codeMatch || !messageMatch) {
+    return null
+  }
+  return { code: codeMatch[1], message: messageMatch[1] }
+}
+
+/**
+ * Pair wire codes with messages only inside the same object literal (no cross-object scan).
+ * @param {string} src
+ * @returns {Map<string, string>}
+ */
+export function extractCodeMessagePairs(src) {
   const pairs = new Map()
-  const re =
-    /code:\s*(?:[A-Z0-9_]+\.)?['"]([A-Z][A-Z0-9_]+)['"][\s\S]{0,500}?message:\s*['"]([^'"]+)['"]/g
-  for (const m of src.matchAll(re)) {
-    pairs.set(m[1], m[2])
+
+  for (const m of src.matchAll(
+    /\{\s*code:\s*(?:[A-Z0-9_]+\.)?['"]([A-Z][A-Z0-9_]+)['"]\s*,\s*message:\s*['"]([^'"]+)['"]\s*\}/g,
+  )) {
+    if (!pairs.has(m[1])) pairs.set(m[1], m[2])
   }
-  const re2 =
-    /message:\s*['"]([^'"]+)['"][\s\S]{0,500}?code:\s*(?:[A-Z0-9_]+\.)?['"]([A-Z][A-Z0-9_]+)['"]/g
-  for (const m of src.matchAll(re2)) {
-    pairs.set(m[2], m[1])
+  for (const m of src.matchAll(
+    /\{\s*message:\s*['"]([^'"]+)['"]\s*,\s*code:\s*(?:[A-Z0-9_]+\.)?['"]([A-Z][A-Z0-9_]+)['"]\s*\}/g,
+  )) {
+    if (!pairs.has(m[2])) pairs.set(m[2], m[1])
   }
+
+  for (const m of src.matchAll(/throw\s+new\s+\w*Exception\(\s*\{([\s\S]*?)\}\s*,/g)) {
+    const parsed = readCodeMessageFromObjectBlock(m[1])
+    if (parsed && !pairs.has(parsed.code)) {
+      pairs.set(parsed.code, parsed.message)
+    }
+  }
+
+  const forwardCode =
+    /code:\s*(?:[A-Z0-9_]+\.)?['"]([A-Z][A-Z0-9_]+)['"][\s\S]{0,200}?message:\s*['"]([^'"]+)['"]/g
+  for (const m of src.matchAll(forwardCode)) {
+    if (!pairs.has(m[1])) pairs.set(m[1], m[2])
+  }
+  const forwardMessage =
+    /message:\s*['"]([^'"]+)['"][\s\S]{0,200}?code:\s*(?:[A-Z0-9_]+\.)?['"]([A-Z][A-Z0-9_]+)['"]/g
+  for (const m of src.matchAll(forwardMessage)) {
+    if (!pairs.has(m[2])) pairs.set(m[2], m[1])
+  }
+
   return pairs
 }
 
@@ -206,6 +250,7 @@ export function loadHarvestedTranslations(lang) {
   const dir = path.join(LOCALES_ROOT, lang)
   for (const file of fs.readdirSync(dir)) {
     if (!file.endsWith('.json')) continue
+    if (file === 'errors.json') continue
     const json = JSON.parse(fs.readFileSync(path.join(dir, file), 'utf8'))
     for (const [code, text] of harvestLocaleCodes(json)) {
       merged.set(code, text)
@@ -254,11 +299,8 @@ const DE_TOKEN_MAP = new Map([
  * @param {string} [enFallback]
  */
 export function fallbackDeMessage(code, enFallback) {
-  if (enFallback && enFallback.length > 0) {
-    return enFallback
-  }
-  const parts = code.split('_').map((p) => DE_TOKEN_MAP.get(p.toLowerCase()) ?? p)
-  return `${parts.join(' ')}.`
+  const en = enFallback && enFallback.length > 0 ? enFallback : humanizeCodeEn(code)
+  return translateEnErrorToDe(en, code)
 }
 
 /**
@@ -292,6 +334,13 @@ export function buildRegistryModel() {
 
   const harvestedDe = loadHarvestedTranslations('de')
   const harvestedEn = loadHarvestedTranslations('en')
+  const existingLocaleCodes = (lang) => {
+    const errorsPath = path.join(LOCALES_ROOT, lang, 'errors.json')
+    if (!fs.existsSync(errorsPath)) return {}
+    return JSON.parse(fs.readFileSync(errorsPath, 'utf8')).codes ?? {}
+  }
+  const existingDeCodes = existingLocaleCodes('de')
+  const existingEnCodes = existingLocaleCodes('en')
 
   const publicExtra = new Set([
     ...parseErrorCodeValuesFromImport(),
@@ -328,6 +377,17 @@ export function buildRegistryModel() {
         harvestedEn.get(code) ?? humanizeCodeEn(code),
       )
     }
+    const params = detailKeys[code] ?? []
+    if (params.length > 0) {
+      const preservedEn = existingEnCodes[code]
+      if (typeof preservedEn === 'string' && preservedEn.includes('{{')) {
+        messagesEn.set(code, preservedEn)
+      }
+      const preservedDe = existingDeCodes[code]
+      if (typeof preservedDe === 'string' && preservedDe.includes('{{')) {
+        // applied in de loop below via existingDeCodes
+      }
+    }
   }
 
   const messages = {
@@ -335,15 +395,34 @@ export function buildRegistryModel() {
     de: new Map(),
   }
   for (const code of Object.keys(codes)) {
+    const scannedEn = messagesEn.get(code) ?? humanizeCodeEn(code)
+    const harvestedEnText = harvestedEn.get(code)
+    const preservedEn = existingEnCodes[code]
     messages.en.set(
       code,
-      harvestedEn.get(code) ?? messagesEn.get(code) ?? humanizeCodeEn(code),
+      CANONICAL_EN_MESSAGES[code] ??
+        (typeof preservedEn === 'string' && preservedEn.trim().length > 0
+          ? preservedEn
+          : undefined) ??
+        harvestedEnText ??
+        scannedEn,
     )
-    messages.de.set(
-      code,
-      harvestedDe.get(code) ??
-        fallbackDeMessage(code, messages.en.get(code)),
-    )
+    const enText = messages.en.get(code) ?? humanizeCodeEn(code)
+    const harvestedDeText = harvestedDe.get(code)
+    const existingDeText = existingDeCodes[code]
+    const deCandidate =
+      (typeof existingDeText === 'string' &&
+      existingDeText.trim().length > 0 &&
+      existingDeText.trim() !== enText.trim()
+        ? existingDeText
+        : undefined) ??
+      (harvestedDeText &&
+      harvestedDeText.trim().length > 0 &&
+      harvestedDeText.trim() !== enText.trim()
+        ? harvestedDeText
+        : undefined) ??
+      fallbackDeMessage(code, enText)
+    messages.de.set(code, deCandidate)
   }
 
   return { codes, messages }
@@ -412,6 +491,10 @@ ${paramsEntries.map(([code, meta]) => `  ${code}: ${JSON.stringify(meta.params)}
   }
 
   syncClientSafeAllowlist(model)
+  execSync('node tools/sync-error-de-translations.mjs', {
+    cwd: REPO_ROOT,
+    stdio: 'pipe',
+  })
 
   return {
     registryPath,
