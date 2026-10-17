@@ -167,6 +167,7 @@ export class McpToolHandlerService {
         'invoice.create_draft_from_workshop_order',
       request_workshop_media_upload: 'workshop.media_upload_slot',
       propose_mechanic_finding: 'workshop_order.propose_mechanic_finding',
+      generate_weekly_report_pdf: 'report.generate_weekly_pdf',
     };
     const executor = this.pendingActionExecutors.resolve(
       actionTypeByTool[toolName],
@@ -178,8 +179,16 @@ export class McpToolHandlerService {
       buildExecutionContext: executor.buildExecutionContext
         ? (input) => executor.buildExecutionContext!(input)
         : undefined,
+      preview: executor.preview
+        ? (input, executionContext) =>
+            executor.preview!(input, executionContext)
+        : undefined,
       execute: (input, executionContext) =>
         executor.execute(input, executionContext),
+      executeOutsideTransaction: executor.executeOutsideTransaction ?? false,
+      refreshReplayResult: executor.refreshReplayResult
+        ? (result) => executor.refreshReplayResult!(result)
+        : undefined,
       buildResultSummary: (result) => executor.buildResultSummary(result),
       buildLogMetadata: executor.buildLogMetadata
         ? (result) => executor.buildLogMetadata!(result)
@@ -200,6 +209,7 @@ const MCP_WRITE_TOOL_NAME_SET = new Set<string>([
   'propose_invoice_draft_from_order',
   'request_workshop_media_upload',
   'propose_mechanic_finding',
+  'generate_weekly_report_pdf',
 ]);
 
 function isWriteTool(toolName: McpToolName): toolName is McpWriteToolName {

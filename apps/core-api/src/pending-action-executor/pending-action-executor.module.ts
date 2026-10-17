@@ -7,6 +7,7 @@ import { LoanerVehiclesModule } from '../loaner-vehicles/loaner-vehicles.module.
 import { RegistrationIntakeModule } from '../registration-intake/registration-intake.module.js';
 import { PurchaseModule } from '../purchase/purchase.module.js';
 import { InvoicesModule } from '../invoices/invoices.module.js';
+import { WeeklyReportModule } from '../reports/weekly-report/weekly-report.module.js';
 import { PendingActionExecutorService } from './pending-action-executor.service.js';
 
 @Module({
@@ -19,6 +20,7 @@ import { PendingActionExecutorService } from './pending-action-executor.service.
     RegistrationIntakeModule,
     PurchaseModule,
     InvoicesModule,
+    WeeklyReportModule,
   ],
   providers: [PendingActionExecutorService],
   exports: [PendingActionExecutorService],

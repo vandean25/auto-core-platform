@@ -103,6 +103,7 @@ describe('PendingActionExecutorService', () => {
       mockInvoiceWorkshopDraftPropose as never,
       {} as never,
       {} as never,
+      {} as never,
     );
   });
 

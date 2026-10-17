@@ -10,9 +10,8 @@ jest.unstable_mockModule('@google-cloud/storage', () => ({
   Storage: mockStorage,
 }));
 
-const { applyGcsLifecycle, LIFECYCLE_RULES } = await import(
-  './apply-gcs-lifecycle.js'
-);
+const { applyGcsLifecycle, LIFECYCLE_RULES, EPHEMERAL_WEEKLY_REPORT_LIFECYCLE_RULE } =
+  await import('./apply-gcs-lifecycle.js');
 
 describe('applyGcsLifecycle', () => {
   const originalEnv = process.env;
@@ -69,7 +68,7 @@ describe('applyGcsLifecycle', () => {
     ];
     const { rule } = calledMetadata.lifecycle;
 
-    expect(rule).toHaveLength(2);
+    expect(rule).toHaveLength(3);
 
     expect(rule[0]).toMatchObject({
       action: { type: 'SetStorageClass', storageClass: 'COLDLINE' },
@@ -79,6 +78,11 @@ describe('applyGcsLifecycle', () => {
     expect(rule[1]).toMatchObject({
       action: { type: 'Delete' },
       condition: { age: 2555 },
+    });
+
+    expect(rule[2]).toEqual(EPHEMERAL_WEEKLY_REPORT_LIFECYCLE_RULE);
+    expect(rule[2]).toMatchObject({
+      condition: { matchesPrefix: ['ephemeral/weekly-reports/'] },
     });
   });
 

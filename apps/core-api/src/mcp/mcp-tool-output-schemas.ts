@@ -1376,6 +1376,62 @@ export const mcpToolOutputSchemas = {
   ),
   request_workshop_media_upload: writeResultOf('request_workshop_media_upload'),
   propose_mechanic_finding: writeResultOf('propose_mechanic_finding'),
+  generate_weekly_report_pdf: z
+    .object({
+      ...optionalShape({
+        tool: z.literal('generate_weekly_report_pdf'),
+        tier: z.enum(['AUTO', 'PROPOSE']),
+        status: z.enum(['executed', 'needs_approval']),
+        would_change: z.array(wouldChangeItem),
+        result: z.object({
+          id: idString,
+          url: z.string().url(),
+          expires_at: z.string().datetime(),
+          sha256: z.string().length(64),
+          page_count: z.number().int().positive(),
+          period: z.object({
+            from: z.string(),
+            to: z.string(),
+            timezone: z.string(),
+            iso_week: z.string().nullable(),
+          }),
+        }),
+        proposal: writeProposal,
+        pending_action_id: idString,
+        trace_id: idString,
+        replayed: z.literal(true).optional(),
+      }),
+      ...optionalShape(truncatedMarkerShape),
+    })
+    .superRefine((value, ctx) => {
+      if (value.__truncated__ === true) {
+        return;
+      }
+      if (value.status === 'executed') {
+        for (const key of [
+          'tool',
+          'tier',
+          'would_change',
+          'result',
+          'trace_id',
+        ] as const) {
+          if ((value as Record<string, unknown>)[key] === undefined) {
+            ctx.addIssue({
+              code: 'custom',
+              path: [key],
+              message: `${key} is required for executed weekly report PDF`,
+            });
+          }
+        }
+        if (value.tier !== 'AUTO') {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['tier'],
+            message: 'tier must be AUTO for executed weekly report PDF',
+          });
+        }
+      }
+    }),
 } satisfies Record<McpToolName, z.ZodType>;
 
 export type McpToolOutputSchemas = typeof mcpToolOutputSchemas;
