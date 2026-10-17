@@ -8,6 +8,8 @@ export interface EquipmentPortalMapEntry {
   profile: EquipmentListingSerializerProfile;
   portal_field: string;
   portal_value: string;
+  /** Emitted only for a recorded ABSENT assertion (never invented for unknown). */
+  absent_portal_value?: string;
   verification: EquipmentPortalVerification;
   source: string;
   version: string;

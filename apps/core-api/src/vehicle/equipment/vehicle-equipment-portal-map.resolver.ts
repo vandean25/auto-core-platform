@@ -55,11 +55,24 @@ export function resolveVehicleEquipmentForProfile(
   );
 
   for (const selection of sortedSelections) {
+    const entry = entryByCode.get(selection.code);
+
     if (selection.assertion === 'ABSENT') {
+      if (
+        entry &&
+        entry.absent_portal_value !== undefined &&
+        !profileConfig.export_local_codes
+      ) {
+        mappedFields.push({
+          localCode: selection.code,
+          portalField: entry.portal_field,
+          portalValue: entry.absent_portal_value,
+          verification: entry.verification,
+        });
+      }
       continue;
     }
 
-    const entry = entryByCode.get(selection.code);
     if (profileConfig.export_local_codes) {
       equipmentCodes.push(selection.code);
       continue;

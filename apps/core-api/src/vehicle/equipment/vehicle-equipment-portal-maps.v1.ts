@@ -17,6 +17,7 @@ export const VEHICLE_EQUIPMENT_PORTAL_MAPS_V1: EquipmentPortalMapDocument = {
           profile: 'MOBILE_DE_REFERENCE_V1',
           portal_field: '31',
           portal_value: '1',
+          absent_portal_value: '0',
           verification: 'UNVERIFIED',
           source:
             'https://services.mobile.de/manual/upload-interface-csv_de.html',
@@ -27,6 +28,7 @@ export const VEHICLE_EQUIPMENT_PORTAL_MAPS_V1: EquipmentPortalMapDocument = {
           profile: 'MOBILE_DE_REFERENCE_V1',
           portal_field: '32',
           portal_value: '1',
+          absent_portal_value: '0',
           verification: 'UNVERIFIED',
           source:
             'https://services.mobile.de/manual/upload-interface-csv_de.html',
@@ -37,6 +39,7 @@ export const VEHICLE_EQUIPMENT_PORTAL_MAPS_V1: EquipmentPortalMapDocument = {
           profile: 'MOBILE_DE_REFERENCE_V1',
           portal_field: '33',
           portal_value: '1',
+          absent_portal_value: '0',
           verification: 'UNVERIFIED',
           source:
             'https://services.mobile.de/manual/upload-interface-csv_de.html',
@@ -47,6 +50,7 @@ export const VEHICLE_EQUIPMENT_PORTAL_MAPS_V1: EquipmentPortalMapDocument = {
           profile: 'MOBILE_DE_REFERENCE_V1',
           portal_field: '34',
           portal_value: '1',
+          absent_portal_value: '0',
           verification: 'UNVERIFIED',
           source:
             'https://services.mobile.de/manual/upload-interface-csv_de.html',
@@ -57,6 +61,7 @@ export const VEHICLE_EQUIPMENT_PORTAL_MAPS_V1: EquipmentPortalMapDocument = {
           profile: 'MOBILE_DE_REFERENCE_V1',
           portal_field: '35',
           portal_value: '1',
+          absent_portal_value: '0',
           verification: 'UNVERIFIED',
           source:
             'https://services.mobile.de/manual/upload-interface-csv_de.html',
@@ -67,6 +72,7 @@ export const VEHICLE_EQUIPMENT_PORTAL_MAPS_V1: EquipmentPortalMapDocument = {
           profile: 'MOBILE_DE_REFERENCE_V1',
           portal_field: '36',
           portal_value: '1',
+          absent_portal_value: '0',
           verification: 'UNVERIFIED',
           source:
             'https://services.mobile.de/manual/upload-interface-csv_de.html',
@@ -77,6 +83,7 @@ export const VEHICLE_EQUIPMENT_PORTAL_MAPS_V1: EquipmentPortalMapDocument = {
           profile: 'MOBILE_DE_REFERENCE_V1',
           portal_field: '37',
           portal_value: '1',
+          absent_portal_value: '0',
           verification: 'UNVERIFIED',
           source:
             'https://services.mobile.de/manual/upload-interface-csv_de.html',

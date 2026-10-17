@@ -101,5 +101,11 @@ describe('Vehicle stock equipment (e2e)', () => {
       .set('Authorization', `Bearer ${techToken}`)
       .send({ selections: [], free_text_lines: [] })
       .expect(403);
+
+    await request(suite.app.getHttpServer())
+      .put(`/api/vehicle-stock/${local.received.vehicle_id}/equipment`)
+      .set('Authorization', `Bearer ${suite.authToken}`)
+      .send({})
+      .expect(400);
   });
 });

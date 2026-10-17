@@ -52,13 +52,37 @@ describe('resolveVehicleEquipmentForProfile', () => {
     expect(resolved.equipmentFreeTextLines).toEqual([]);
   });
 
-  it('does not emit mapped portal fields for confirmed absent options', () => {
+  it('emits explicit negative portal values only for confirmed absent options', () => {
     const resolved = resolveVehicleEquipmentForProfile('MOBILE_DE_REFERENCE_V1', {
       selections: [
         {
           code: 'ABS',
           label_de: 'ABS',
           label_en: 'ABS',
+          assertion: 'ABSENT',
+        },
+      ],
+      freeTextLines: [],
+    });
+
+    expect(resolved.mappedFields).toEqual([
+      {
+        localCode: 'ABS',
+        portalField: '31',
+        portalValue: '0',
+        verification: 'UNVERIFIED',
+      },
+    ]);
+    expect(resolved.equipmentFreeTextLines).toEqual([]);
+  });
+
+  it('does not invent negative portal values for unmapped absent options', () => {
+    const resolved = resolveVehicleEquipmentForProfile('MOBILE_DE_REFERENCE_V1', {
+      selections: [
+        {
+          code: 'PARKING_CAMERA',
+          label_de: 'Rückfahrkamera',
+          label_en: 'Rear view camera',
           assertion: 'ABSENT',
         },
       ],

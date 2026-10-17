@@ -6,6 +6,7 @@ import {
   ArrayUnique,
   IsArray,
   IsBoolean,
+  IsDefined,
   IsEnum,
   IsString,
   IsUUID,
@@ -96,6 +97,7 @@ export class VehicleEquipmentSelectionWriteDto {
 
 export class ReplaceVehicleEquipmentDto {
   @ApiProperty({ type: [VehicleEquipmentSelectionWriteDto] })
+  @IsDefined()
   @IsArray()
   @ArrayMaxSize(100)
   @ArrayUnique((row: VehicleEquipmentSelectionWriteDto) => row.option_id)
@@ -108,6 +110,7 @@ export class ReplaceVehicleEquipmentDto {
     description:
       'Free-text equipment lines for the current stock cycle (unknown options stay as plain text)',
   })
+  @IsDefined()
   @IsArray()
   @ArrayMaxSize(50)
   @IsString({ each: true })

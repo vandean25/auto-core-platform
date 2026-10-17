@@ -3,10 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import {
-  VehicleEquipmentAssertion,
-  type VehicleEquipmentOption,
-} from '@prisma/client';
+import type { VehicleEquipmentOption } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { TenantContextService } from '../../common/services/tenant-context.service.js';
 import { SiteContextService } from '../../site/site-context.service.js';
@@ -26,6 +23,7 @@ import type {
   ResolvedVehicleEquipmentExport,
 } from './vehicle-equipment-portal-map.types.js';
 import { resolveCurrentReceivedStockPurchaseId } from './vehicle-equipment-stock-cycle.js';
+import { seedVehicleEquipmentOptions } from './seed-vehicle-equipment-options.js';
 
 function toOptionDto(row: VehicleEquipmentOption): VehicleEquipmentOptionDto {
   return {
@@ -52,6 +50,12 @@ export class VehicleEquipmentService {
     search?: string,
   ): Promise<VehicleEquipmentOptionListResponseDto> {
     const tenantId = await this.tenantContext.getTenantId();
+    const optionCount = await this.prisma.vehicleEquipmentOption.count({
+      where: { tenant_id: tenantId },
+    });
+    if (optionCount === 0) {
+      await seedVehicleEquipmentOptions(this.prisma, tenantId);
+    }
     const safePage = Math.max(1, page);
     const safeLimit = Math.min(200, Math.max(1, limit));
     const skip = (safePage - 1) * safeLimit;
@@ -248,15 +252,12 @@ export class VehicleEquipmentService {
     extraPassThroughFreeText: string[] = [],
   ): Promise<ResolvedVehicleEquipmentExport> {
     const assignment = await this.getVehicleEquipment(vehicleId);
-    const presentSelections = assignment.selections.filter(
-      (row) => row.assertion === VehicleEquipmentAssertion.PRESENT,
-    );
     return resolveVehicleEquipmentForProfile(profile, {
-      selections: presentSelections.map((row) => ({
+      selections: assignment.selections.map((row) => ({
         code: row.option.code,
         label_de: row.option.label_de,
         label_en: row.option.label_en,
-        assertion: 'PRESENT',
+        assertion: row.assertion,
       })),
       freeTextLines: assignment.free_text_items.map((item) => item.text),
       passThroughFreeText: extraPassThroughFreeText,
