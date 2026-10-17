@@ -58,8 +58,6 @@ describe('Vehicle stock listing (e2e)', () => {
     expect(patchRes.body.price_display.consumer_hint_de).toBe(
       'inkl. USt. und NoVA',
     );
-    const hashAfterPatch = patchRes.body.content_sha256;
-
     const channelRes = await request(suite.app.getHttpServer())
       .patch(`/api/vehicle-stock/${vehicleId}/listing/channels/MOBILE_DE`)
       .set('Authorization', `Bearer ${suite.authToken}`)
@@ -69,10 +67,13 @@ describe('Vehicle stock listing (e2e)', () => {
       })
       .expect(200);
 
-    expect(channelRes.body.channels.find(
-      (row: { platform: string }) => row.platform === 'MOBILE_DE',
-    )?.desired_state).toBe('ACTIVE');
-    expect(channelRes.body.content_sha256).not.toBe(hashAfterPatch);
+    expect(
+      channelRes.body.channels.find(
+        (row: { platform: string }) => row.platform === 'MOBILE_DE',
+      )?.desired_state,
+    ).toBe('ACTIVE');
+    expect(channelRes.body.revision).toBe(3);
+    expect(channelRes.body.content_sha256).toBe(patchRes.body.content_sha256);
 
     await request(suite.app.getHttpServer())
       .get(`/api/vehicle-stock/${vehicleId}/listing`)
