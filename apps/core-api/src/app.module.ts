@@ -39,6 +39,7 @@ import { LaborModule } from './labor/labor.module.js';
 import { CatalogModule } from './catalog/catalog.module.js';
 import { VehicleModule } from './vehicle/vehicle.module.js';
 import { VehicleStockModule } from './vehicle-stock/vehicle-stock.module.js';
+import { VehicleEquipmentModule } from './vehicle/equipment/vehicle-equipment.module.js';
 import { DashboardRealtimeModule } from './dashboard-realtime/dashboard-realtime.module.js';
 import { EmployeeModule } from './employee/employee.module.js';
 import { BayModule } from './bay/bay.module.js';
@@ -103,6 +104,7 @@ import { SettlementModule } from './settlement/settlement.module.js';
     CatalogModule,
     VehicleModule,
     VehicleStockModule,
+    VehicleEquipmentModule,
     DashboardRealtimeModule,
     EmployeeModule,
     BayModule,

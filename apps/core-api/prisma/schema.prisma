@@ -96,6 +96,9 @@ model Tenant {
   inspectionMeasurements        InspectionMeasurement[]
   vehicleValuationSnapshots     VehicleValuationSnapshot[]
   vehicleMedia                  VehicleMedia[]
+  vehicleEquipmentOptions       VehicleEquipmentOption[]
+  vehicleEquipmentSelections    VehicleEquipmentSelection[]
+  vehicleEquipmentFreeTextItems VehicleEquipmentFreeTextItem[]
   salesOrders                   SalesOrder[]
   salesOrderItems               SalesOrderItem[]
   invoices                      Invoice[]
@@ -1797,6 +1800,8 @@ model Vehicle {
   inspectionMeasurements         InspectionMeasurement[]
   valuation_snapshots            VehicleValuationSnapshot[]
   media                          VehicleMedia[]
+  equipmentSelections            VehicleEquipmentSelection[]
+  equipmentFreeTextItems         VehicleEquipmentFreeTextItem[]
   tyre_sets                      TyreSet[]
   appliedRegistrationIntakes     RegistrationDocumentIntake[] @relation("RegistrationIntakeAppliedVehicle")
 
@@ -1842,6 +1847,61 @@ model VehicleMedia {
   @@unique([tenant_id, id])
   @@index([tenant_id, vehicle_id, sort_order])
   @@map("vehicle_media")
+}
+
+/// Tenant-owned marketplace equipment taxonomy option (AUT-566).
+model VehicleEquipmentOption {
+  id         String   @id @default(uuid())
+  tenant_id  String
+  tenant     Tenant   @relation(fields: [tenant_id], references: [id])
+  code       String   @db.VarChar(64)
+  label_de   String   @map("label_de") @db.VarChar(120)
+  label_en   String   @map("label_en") @db.VarChar(120)
+  category   String   @db.VarChar(32)
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  selections VehicleEquipmentSelection[]
+
+  @@unique([tenant_id, code])
+  @@unique([tenant_id, id])
+  @@index([tenant_id, active, category])
+  @@map("vehicle_equipment_options")
+}
+
+/// Selected taxonomy option on a vehicle (tenant-scoped).
+model VehicleEquipmentSelection {
+  id         String                 @id @default(uuid())
+  tenant_id  String
+  tenant     Tenant                 @relation(fields: [tenant_id], references: [id])
+  vehicle_id String                 @map("vehicle_id")
+  vehicle    Vehicle                @relation(fields: [tenant_id, vehicle_id], references: [tenant_id, id], onDelete: Cascade, onUpdate: Cascade)
+  option_id  String                 @map("option_id")
+  option     VehicleEquipmentOption @relation(fields: [tenant_id, option_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
+  createdAt  DateTime               @default(now()) @map("created_at")
+  updatedAt  DateTime               @updatedAt @map("updated_at")
+
+  @@unique([tenant_id, vehicle_id, option_id])
+  @@unique([tenant_id, id])
+  @@index([tenant_id, vehicle_id])
+  @@map("vehicle_equipment_selections")
+}
+
+/// Advisor-entered equipment lines not in the taxonomy (AUT-566).
+model VehicleEquipmentFreeTextItem {
+  id         String   @id @default(uuid())
+  tenant_id  String
+  tenant     Tenant   @relation(fields: [tenant_id], references: [id])
+  vehicle_id String   @map("vehicle_id")
+  vehicle    Vehicle  @relation(fields: [tenant_id, vehicle_id], references: [tenant_id, id], onDelete: Cascade, onUpdate: Cascade)
+  text       String   @db.VarChar(200)
+  sort_order Int      @default(0) @map("sort_order")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@unique([tenant_id, id])
+  @@index([tenant_id, vehicle_id, sort_order])
+  @@map("vehicle_equipment_free_text_items")
 }
 
 enum VehicleInventoryRole {

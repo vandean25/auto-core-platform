@@ -9,6 +9,15 @@ jest.unstable_mockModule('../seed-vehicle-catalog-providers.js', () => ({
   }),
 }));
 
+jest.unstable_mockModule(
+  '../../vehicle/equipment/seed-vehicle-equipment-options.js',
+  () => ({
+    seedVehicleEquipmentOptions: jest
+      .fn()
+      .mockResolvedValue({ optionsUpserted: 14 }),
+  }),
+);
+
 const { seedBrands, seedVendors } = await import('./brand.fixture.js');
 
 describe('brand.fixture', () => {

@@ -24,7 +24,7 @@ import {
  * Allowed callers:
  * - AuthSessionService — User
  * - TenantMemberService — User, TenantMember
- * - PlatformAdminService — Tenant, FinanceSettings, InspectionTemplate, InspectionTemplateItem (new-tenant bootstrap only)
+ * - PlatformAdminService — Tenant, FinanceSettings, InspectionTemplate, InspectionTemplateItem, VehicleEquipmentOption (new-tenant bootstrap only)
  * - MechanicSchedulerService — LaborEntry (nightly cross-tenant close only)
  * - HrAttendanceSchedulerService — AttendanceEvent (nightly close only)
  * - ApiKeyLookupService — TenantApiKey (findUnique by key id, before tenant context exists; ADR-0026)
@@ -85,6 +85,10 @@ export class SystemPrismaService
 
   get inspectionTemplateItem(): PrismaClient['inspectionTemplateItem'] {
     return this.prisma.inspectionTemplateItem;
+  }
+
+  get vehicleEquipmentOption(): PrismaClient['vehicleEquipmentOption'] {
+    return this.prisma.vehicleEquipmentOption;
   }
 
   get attendanceEvent(): PrismaClient['attendanceEvent'] {

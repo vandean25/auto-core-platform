@@ -11934,6 +11934,123 @@
         ]
       }
     },
+    "/api/vehicle-equipment-options": {
+      "get": {
+        "operationId": "VehicleEquipmentController_listOptions",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleEquipmentOptionListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List active tenant equipment taxonomy options",
+        "tags": [
+          "vehicle-equipment"
+        ]
+      }
+    },
+    "/api/vehicle-stock/{vehicleId}/equipment": {
+      "get": {
+        "operationId": "VehicleEquipmentController_getAssignment",
+        "parameters": [
+          {
+            "name": "vehicleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleEquipmentAssignmentDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get equipment assigned to a stock vehicle",
+        "tags": [
+          "vehicle-equipment"
+        ]
+      },
+      "put": {
+        "operationId": "VehicleEquipmentController_replaceAssignment",
+        "parameters": [
+          {
+            "name": "vehicleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplaceVehicleEquipmentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleEquipmentAssignmentDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Replace equipment assigned to a stock vehicle",
+        "tags": [
+          "vehicle-equipment"
+        ]
+      }
+    },
     "/api/employees": {
       "get": {
         "operationId": "EmployeeController_findAll",
@@ -31815,6 +31932,118 @@
           "version",
           "createdAt"
         ]
+      },
+      "VehicleEquipmentOptionDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "example": "ABS"
+          },
+          "label_de": {
+            "type": "string"
+          },
+          "label_en": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "example": "SAFETY"
+          },
+          "active": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "label_de",
+          "label_en",
+          "category",
+          "active"
+        ]
+      },
+      "VehicleEquipmentOptionListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VehicleEquipmentOptionDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PaginationMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "VehicleEquipmentFreeTextItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "text": {
+            "type": "string"
+          },
+          "sort_order": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "text",
+          "sort_order"
+        ]
+      },
+      "VehicleEquipmentAssignmentDto": {
+        "type": "object",
+        "properties": {
+          "options": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VehicleEquipmentOptionDto"
+            }
+          },
+          "free_text_items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VehicleEquipmentFreeTextItemDto"
+            }
+          }
+        },
+        "required": [
+          "options",
+          "free_text_items"
+        ]
+      },
+      "ReplaceVehicleEquipmentDto": {
+        "type": "object",
+        "properties": {
+          "option_ids": {
+            "description": "VehicleEquipmentOption ids for this tenant",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "free_text_lines": {
+            "description": "Free-text equipment lines (unknown options stay as plain text)",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
       },
       "EmployeeRole": {
         "type": "string",

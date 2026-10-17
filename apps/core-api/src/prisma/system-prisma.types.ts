@@ -7,7 +7,7 @@ import type { Prisma, PrismaClient } from '@prisma/client';
  * - tenant, user, platformAdmin: global identity (no tenant_id)
  * - tenantMember: membership join table for auth / tenant-admin invites
  * - laborEntry: MechanicSchedulerService nightly cross-tenant close only
- * - financeSettings, inspectionTemplate, inspectionTemplateItem: PlatformAdminService tenant-provisioning bootstrap only; writes use the new tenant ID
+ * - financeSettings, inspectionTemplate, inspectionTemplateItem, vehicleEquipmentOption: PlatformAdminService tenant-provisioning bootstrap only; writes use the new tenant ID
  * - attendanceEvent: HrAttendanceSchedulerService nightly close only
  * - agentPolicyRule: AgentPolicyService platform-default rows (tenant_id null)
  * - tenantApiKey: ApiKeyLookupService, one findUnique by key id before any tenant context exists (ADR-0026).
@@ -29,6 +29,7 @@ export const SYSTEM_PRISMA_MODEL_DELEGATES = [
   'financeSettings',
   'inspectionTemplate',
   'inspectionTemplateItem',
+  'vehicleEquipmentOption',
   'attendanceEvent',
   'agentPolicyRule',
   'tenantApiKey',
@@ -95,6 +96,7 @@ export function createSystemPrismaTransactionClient(
     financeSettings: client.financeSettings,
     inspectionTemplate: client.inspectionTemplate,
     inspectionTemplateItem: client.inspectionTemplateItem,
+    vehicleEquipmentOption: client.vehicleEquipmentOption,
     attendanceEvent: client.attendanceEvent,
     agentPolicyRule: client.agentPolicyRule,
     tenantApiKey: client.tenantApiKey,
