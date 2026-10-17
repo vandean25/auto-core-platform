@@ -10,7 +10,9 @@ const PERCENT_FORMATTER = new Intl.NumberFormat('de-AT', {
   maximumFractionDigits: 1,
 });
 
-export function formatEurAmount(value: Prisma.Decimal | string | number): string {
+export function formatEurAmount(
+  value: Prisma.Decimal | string | number,
+): string {
   const numeric =
     value instanceof Prisma.Decimal ? value.toNumber() : Number(value);
   return EUR_FORMATTER.format(numeric);

@@ -56,7 +56,10 @@ export class WeeklyReportPdfService {
     const tenantId = await this.tenantContext.getTenantId();
     await this.rateLimit.assertAllowed(tenantId);
 
-    const { siteId, timezone } = await this.resolveSite(tenantId, input.site_id);
+    const { siteId, timezone } = await this.resolveSite(
+      tenantId,
+      input.site_id,
+    );
     const period = resolveWeeklyReportPeriod({
       iso_week: input.iso_week,
       from: input.from,

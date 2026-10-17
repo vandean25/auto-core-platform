@@ -9,7 +9,10 @@ export type WeeklyReportPeriod = {
   iso_week: string | null;
 };
 
-export function parseIsoWeekLabel(isoWeek: string): { year: number; week: number } {
+export function parseIsoWeekLabel(isoWeek: string): {
+  year: number;
+  week: number;
+} {
   const match = ISO_WEEK_PATTERN.exec(isoWeek);
   if (!match) {
     throw new BadRequestException(
@@ -59,7 +62,9 @@ function weekdayInTimeZone(date: string, timeZone: string): number {
   };
   const day = map[label];
   if (!day) {
-    throw new BadRequestException('Could not resolve weekday for report period');
+    throw new BadRequestException(
+      'Could not resolve weekday for report period',
+    );
   }
   return day;
 }
@@ -126,7 +131,10 @@ function assertIsoWeekRange(params: {
   }
 }
 
-export function periodLabelForPdf(period: WeeklyReportPeriod, timeZone: string) {
+export function periodLabelForPdf(
+  period: WeeklyReportPeriod,
+  timeZone: string,
+) {
   const fromLabel = formatSiteLocalDate(period.from, timeZone);
   const toLabel = formatSiteLocalDate(period.to, timeZone);
   const weekSuffix = period.iso_week ? ` (${period.iso_week})` : '';
@@ -143,10 +151,7 @@ export function formatSiteLocalDate(date: string, timeZone: string): string {
   }).format(instant);
 }
 
-export function formatSiteLocalDateTime(
-  value: Date,
-  timeZone: string,
-): string {
+export function formatSiteLocalDateTime(value: Date, timeZone: string): string {
   return new Intl.DateTimeFormat('de-AT', {
     timeZone,
     day: '2-digit',

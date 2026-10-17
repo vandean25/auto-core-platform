@@ -1,8 +1,4 @@
-import {
-  HttpException,
-  HttpStatus,
-  Injectable,
-} from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { PublicRateLimitStore } from '../../landing-demo-access/public-rate-limit.store.js';
 
 const RATE_LIMIT_SCOPE = 'mcp_weekly_report_pdf';

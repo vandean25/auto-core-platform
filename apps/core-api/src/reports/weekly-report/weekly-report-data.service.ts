@@ -159,10 +159,7 @@ export class WeeklyReportDataService {
     timeZone: string,
   ) {
     const rangeStart = localDateStartUtc(period.from, timeZone);
-    const rangeEnd = localDateStartUtc(
-      addIsoDay(period.to, 1),
-      timeZone,
-    );
+    const rangeEnd = localDateStartUtc(addIsoDay(period.to, 1), timeZone);
     const rows = await this.prisma.workshopOrder.findMany({
       where: {
         tenant_id: tenantId,

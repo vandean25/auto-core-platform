@@ -18,11 +18,9 @@ export class WeeklyReportPdfRenderer {
 
   constructor(private readonly browserService: PlaywrightBrowserService) {}
 
-  async render(
-    data: WeeklyReportData,
-    logoPng?: Buffer,
-  ): Promise<Buffer> {
-    const fontFaceCss = (await loadBundledBrandFontCss(this.assetDirectory)) ?? '';
+  async render(data: WeeklyReportData, logoPng?: Buffer): Promise<Buffer> {
+    const fontFaceCss =
+      (await loadBundledBrandFontCss(this.assetDirectory)) ?? '';
     const logoDataUrl = logoPng
       ? `data:image/png;base64,${logoPng.toString('base64')}`
       : null;
@@ -44,7 +42,12 @@ export class WeeklyReportPdfRenderer {
           return await this.browserService.withTimeout(
             page.pdf({
               format: 'A4',
-              margin: { top: '16mm', right: '14mm', bottom: '16mm', left: '14mm' },
+              margin: {
+                top: '16mm',
+                right: '14mm',
+                bottom: '16mm',
+                left: '14mm',
+              },
               printBackground: true,
             }),
             30_000,
@@ -52,7 +55,9 @@ export class WeeklyReportPdfRenderer {
           );
         } finally {
           await page.close().catch((error) => {
-            this.logger.warn(`Failed to close weekly report PDF page: ${error}`);
+            this.logger.warn(
+              `Failed to close weekly report PDF page: ${error}`,
+            );
           });
         }
       },
