@@ -180,6 +180,8 @@ export default function GewaehrleistungDueList() {
         isLoading={isLoading}
         emptyStateMessage={t('gewaehrleistungDue.empty')}
         searchPlaceholder={t('gewaehrleistungDue.searchPlaceholder')}
+        getRowHref={(row) => `/vehicles/${row.vehicleId}`}
+        getRowAccessibleName={(row) => t('list.rowAria', { vehicle: row.vehicle })}
         onRowClick={(row) => navigate(`/vehicles/${row.vehicleId}`)}
         {...tableState}
       />

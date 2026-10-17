@@ -7,7 +7,11 @@ export const DE_CUSTOMERS = {
     addCustomer: customersDe.list.addCustomer,
   },
   detail: {
+    contactInformation: customersDe.detail.contactInformation,
     newSalesOrder: customersDe.detail.newSalesOrder,
     invoiceHint: customersDe.detail.invoiceHint,
+  },
+  dialog: {
+    addTitle: customersDe.dialog.addTitle,
   },
 } as const

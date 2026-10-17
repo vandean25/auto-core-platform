@@ -1,10 +1,11 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
+import { DE_VEHICLE_STOCK } from './helpers/de-vehicle-stock';
 
 const SALE_ID = 'sale-1';
 const VEHICLE_ID = 'vehicle-1';
 const SHORTENING_MESSAGE = 'Für die Verkürzung ist das Datum der Erstzulassung erforderlich.';
-const SHORTENING_CHECKBOX = 'Verkürzung wurde ausdrücklich vereinbart';
+const SHORTENING_CHECKBOX = DE_VEHICLE_STOCK.sale.warranty.shorteningNegotiated;
 
 function createSale(overrides: Record<string, unknown> = {}) {
   return {
@@ -66,7 +67,7 @@ async function mockSalePage(page: Page, sale: ReturnType<typeof createSale>, onP
 
 test.describe('Vehicle sale Gewährleistung save feedback', () => {
   test('shows a refused shortening inline on the Verkürzung checkbox', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Vehicle');
+    const corePage = new AutoCorePage(page, DE_VEHICLE_STOCK.stockList.addVehicle);
     await mockSalePage(page, createSale({ handed_over_at: null, contract_concluded_at: null }), (route) =>
       fulfillJson(route, { statusCode: 422, message: SHORTENING_MESSAGE, error: 'Unprocessable Entity', code: 'GEWAEHRLEISTUNG_FIRST_REGISTRATION_REQUIRED' }, 422),
     );
@@ -81,12 +82,12 @@ test.describe('Vehicle sale Gewährleistung save feedback', () => {
     await expect(page.getByRole('alert')).toHaveText(SHORTENING_MESSAGE);
     await expect(checkbox).toHaveAttribute('aria-invalid', 'true');
     await expect(checkbox).toHaveAccessibleDescription(SHORTENING_MESSAGE);
-    await expect(page.getByText('Save failed')).toBeVisible();
-    await expect(page.getByText('Saving...')).toHaveCount(0);
+    await expect(page.getByText(DE_VEHICLE_STOCK.sale.saveStatus.error)).toBeVisible();
+    await expect(page.getByText(DE_VEHICLE_STOCK.sale.saveStatus.saving)).toHaveCount(0);
   });
 
   test('reopening an unchanged sale does not send a save', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Vehicle');
+    const corePage = new AutoCorePage(page, DE_VEHICLE_STOCK.stockList.addVehicle);
     let patchCount = 0;
     await mockSalePage(page, createSale(), async (route) => {
       patchCount += 1;
@@ -94,10 +95,10 @@ test.describe('Vehicle sale Gewährleistung save feedback', () => {
     });
 
     await corePage.navigate(`/vehicle-stock/sales/${SALE_ID}`);
-    await expect(page.getByRole('heading', { name: 'Gewährleistung' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: DE_VEHICLE_STOCK.sale.gewaehrleistung })).toBeVisible();
     await page.waitForTimeout(1500);
 
     expect(patchCount).toBe(0);
-    await expect(page.getByText('Saving...')).toHaveCount(0);
+    await expect(page.getByText(DE_VEHICLE_STOCK.sale.saveStatus.saving)).toHaveCount(0);
   });
 });

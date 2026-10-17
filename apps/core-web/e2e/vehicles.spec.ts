@@ -2,13 +2,14 @@ import { expectNoCriticalA11yViolations } from "./utils/a11y";
 import { test, expect } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
 import { createMockCustomer, createMockListResponse, createMockVehicleListItem } from './utils/mock-factories';
+import { DE_VEHICLES, deVehicleListRowAria } from './helpers/de-vehicles';
 
 /**
  * Blueprint Validation Suite — Vehicles Module
  */
 test.describe('Blueprint: Vehicles Module', () => {
   test('row link on the vehicle list keeps a 24px minimum hit area', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Vehicle');
+    const corePage = new AutoCorePage(page, DE_VEHICLES.list.addVehicle);
 
     await page.route(AutoCorePage.apiRouteMatcher('/api/vehicles'), async (route) => {
       await route.fulfill({
@@ -25,13 +26,13 @@ test.describe('Blueprint: Vehicles Module', () => {
     await corePage.navigate('/vehicles');
     await expect(corePage.dataTable).toBeVisible();
 
-    const rowLink = page.getByRole('link', { name: 'Vehicle Honda Civic' });
+    const rowLink = page.getByRole('link', { name: deVehicleListRowAria('Honda Civic') });
     const box = await rowLink.boundingBox();
     expect(box?.height ?? 0).toBeGreaterThanOrEqual(24);
   });
 
   test('row link on the Gewährleistung list keeps a 24px minimum hit area', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Vehicle');
+    const corePage = new AutoCorePage(page, DE_VEHICLES.list.addVehicle);
 
     await page.route(AutoCorePage.apiRouteMatcher('/api/vehicle-stock/gewaehrleistung-due'), async (route) => {
       await route.fulfill({
@@ -54,15 +55,15 @@ test.describe('Blueprint: Vehicles Module', () => {
     });
 
     await corePage.navigate('/vehicles/gewaehrleistung-due');
-    await expect(page.getByRole('heading', { name: 'Gewährleistung fällig' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: DE_VEHICLES.gewaehrleistungDue.title })).toBeVisible();
 
-    const rowLink = page.getByRole('link', { name: 'Fahrzeug GW-2020-OCT · 2020' });
+    const rowLink = page.getByRole('link', { name: deVehicleListRowAria('GW-2020-OCT · 2020') });
     const box = await rowLink.boundingBox();
     expect(box?.height ?? 0).toBeGreaterThanOrEqual(24);
   });
 
   test('list page renders and follows golden rules', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Vehicle');
+    const corePage = new AutoCorePage(page, DE_VEHICLES.list.addVehicle);
 
     await page.route(AutoCorePage.apiRouteMatcher('/api/vehicles'), async (route) => {
       await route.fulfill({
@@ -79,7 +80,7 @@ test.describe('Blueprint: Vehicles Module', () => {
     await corePage.navigate('/vehicles');
 
     // Verify header and create button
-    await corePage.verifyHeaderConsistency('Vehicles');
+    await corePage.verifyHeaderConsistency(DE_VEHICLES.list.title);
 
     // Verify data table exists
     await expect(corePage.dataTable).toBeVisible();
@@ -116,7 +117,7 @@ test.describe('Blueprint: Vehicles Module', () => {
     await expect(page.getByText('FD-5678').first()).toBeVisible();
 
     // Verify Vehicle Info Card
-    await expect(page.getByText('Vehicle Info')).toBeVisible();
+    await expect(page.getByText(DE_VEHICLES.detail.vehicleInfo)).toBeVisible();
     await expect(
       page.getByText('Registration & emissions / Zulassung & Emissionen'),
     ).toBeVisible();
@@ -130,7 +131,7 @@ test.describe('Blueprint: Vehicles Module', () => {
   });
 
   test('create vehicle dialog sends regulatory fields in POST body', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Vehicle');
+    const corePage = new AutoCorePage(page, DE_VEHICLES.list.addVehicle);
     let postBody: Record<string, unknown> | undefined;
 
     await page.route(AutoCorePage.apiRouteMatcher('/api/vehicles'), async (route) => {
@@ -199,7 +200,7 @@ test.describe('Blueprint: Vehicles Module', () => {
     await page.goto(`/vehicles/${mockVehicle.id}`);
     await page.waitForLoadState('networkidle');
 
-    await page.getByRole('button', { name: 'Edit Vehicle' }).click();
+    await page.getByRole('button', { name: DE_VEHICLES.detail.editVehicle }).click();
     const dialog = page.getByRole('dialog', { name: 'Edit Vehicle' });
     await expect(dialog).toBeVisible();
 
