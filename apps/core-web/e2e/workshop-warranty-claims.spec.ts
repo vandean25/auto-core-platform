@@ -77,11 +77,11 @@ test.describe('Garantie/Kulanz claims on a workshop order', () => {
     )
 
     await corePage.navigate(`/workshop/orders/${ORDER_ID}`)
-    await page.getByRole('link', { name: 'Garantie/Kulanz' }).click()
+    await page.getByRole('link', { name: W.claimsPage.title }).click()
 
     await page.waitForURL(`/workshop/orders/${ORDER_ID}/garantie-kulanz`)
-    await expect(page.getByRole('heading', { name: 'Garantie/Kulanz' })).toBeVisible()
-    await expect(page.getByRole('list', { name: 'Warranty claims' })).toContainText('Kulanz')
+    await expect(page.getByRole('heading', { name: W.claimsPage.title })).toBeVisible()
+    await expect(page.getByRole('list', { name: W.list.aria })).toContainText(W.type.KULANZ)
     await expect(
       page.getByRole('heading', {
         name: W.editor.heading.replace('{{type}}', W.type.KULANZ),
