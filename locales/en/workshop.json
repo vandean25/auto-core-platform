@@ -914,18 +914,12 @@
     "markComplete": "Mark task \"{{title}}\" complete",
     "markIncomplete": "Mark task \"{{title}}\" incomplete",
     "taskSummary": "{{parts}} · {{fees}} · {{labor}} · Parts {{partsTotal}}{{feesSegment}} · Labor {{laborTotal}} · Std {{stdHours}}h · Actual {{actualHours}}h",
-    "parts": {
-      "one": "{{count}} part",
-      "other": "{{count}} parts"
-    },
-    "fees": {
-      "one": "{{count}} fee",
-      "other": "{{count}} fees"
-    },
-    "labor": {
-      "one": "{{count}} labor line",
-      "other": "{{count}} labor lines"
-    },
+    "parts_one": "{{count}} part",
+    "parts_other": "{{count}} parts",
+    "fees_one": "{{count}} fee",
+    "fees_other": "{{count}} fees",
+    "labor_one": "{{count}} labor line",
+    "labor_other": "{{count}} labor lines",
     "feesSegment": " · Fees {{amount}}",
     "taskDetails": "Task details and estimate lines",
     "fitmentSearch": "Fitment search",

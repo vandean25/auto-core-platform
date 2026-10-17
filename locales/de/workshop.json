@@ -914,18 +914,12 @@
     "markComplete": "Aufgabe „{{title}}“ als erledigt markieren",
     "markIncomplete": "Aufgabe „{{title}}“ als offen markieren",
     "taskSummary": "{{parts}} · {{fees}} · {{labor}} · Teile {{partsTotal}}{{feesSegment}} · Arbeit {{laborTotal}} · Soll {{stdHours}}h · Ist {{actualHours}}h",
-    "parts": {
-      "one": "{{count}} Teil",
-      "other": "{{count}} Teile"
-    },
-    "fees": {
-      "one": "{{count}} Gebühr",
-      "other": "{{count}} Gebühren"
-    },
-    "labor": {
-      "one": "{{count}} Arbeitszeile",
-      "other": "{{count}} Arbeitszeilen"
-    },
+    "parts_one": "{{count}} Teil",
+    "parts_other": "{{count}} Teile",
+    "fees_one": "{{count}} Gebühr",
+    "fees_other": "{{count}} Gebühren",
+    "labor_one": "{{count}} Arbeitszeile",
+    "labor_other": "{{count}} Arbeitszeilen",
     "feesSegment": " · Gebühren {{amount}}",
     "taskDetails": "Aufgabendetails und KVA-Zeilen",
     "fitmentSearch": "Fitment-Suche",

@@ -2,6 +2,7 @@ import { test, expect, type Page, type Locator } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
 import { expectNoCriticalA11yViolations } from './utils/a11y'
 import { createMockBay, createMockEmployee } from './utils/mock-factories'
+import { DE_WORKSHOP } from './helpers/de-workshop'
 
 const MECHANIC_IDS = ['emp-mech-001', 'emp-mech-002', 'emp-mech-003']
 const BAY_ID = 'bay-001'
@@ -100,10 +101,10 @@ async function openBoardAtViewport(page: Page, width: number, height: number) {
     window.localStorage.setItem('acp:sidebar-collapsed', 'true')
     window.localStorage.removeItem('workshop-board-view-mode')
   })
-  const corePage = new AutoCorePage(page, 'Workshop Board')
+  const corePage = new AutoCorePage(page, DE_WORKSHOP.board.title)
   await setupTabletBoard(page)
   await corePage.navigate('/workshop/board')
-  await expect(page.getByRole('heading', { name: 'Workshop Board' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: DE_WORKSHOP.board.title })).toBeVisible()
 }
 
 const COLUMN_TEST_IDS = [
@@ -228,7 +229,7 @@ async function exerciseAssignWithTouch(page: Page) {
 async function reloadBoard(page: Page) {
   await setupTabletBoard(page)
   await page.reload()
-  await expect(page.getByRole('heading', { name: 'Workshop Board' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: DE_WORKSHOP.board.title })).toBeVisible()
 }
 
 test.describe('AUT-489: Workshop board at 768px tablet', () => {

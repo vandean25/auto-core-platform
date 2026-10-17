@@ -73,14 +73,20 @@ export function WarrantyClaimEditor({
   const updateClaim = useUpdateWarrantyClaim();
 
   const statusChangeLabel = (status: Exclude<WarrantyClaimStatus, "DRAFT">) => {
-    const key: Record<Exclude<WarrantyClaimStatus, "DRAFT">, string> = {
-      SUBMITTED_EXTERNALLY: "warranty.editor.statusSubmitted",
-      APPROVED: "warranty.editor.statusApproved",
-      REJECTED: "warranty.editor.statusRejected",
-      CLOSED: "warranty.editor.statusClosed",
-    };
-    return t(key[status]);
-  };
+    const key: Record<
+      Exclude<WarrantyClaimStatus, "DRAFT">,
+      | 'warranty.editor.statusSubmitted'
+      | 'warranty.editor.statusApproved'
+      | 'warranty.editor.statusRejected'
+      | 'warranty.editor.statusClosed'
+    > = {
+      SUBMITTED_EXTERNALLY: 'warranty.editor.statusSubmitted',
+      APPROVED: 'warranty.editor.statusApproved',
+      REJECTED: 'warranty.editor.statusRejected',
+      CLOSED: 'warranty.editor.statusClosed',
+    }
+    return t(key[status])
+  }
   const initialDraft = draftFromClaim(claim);
   // Last draft the API acknowledged. Saves send only what differs from it.
   const savedDraftRef = useRef<WarrantyClaimDraft>(initialDraft);

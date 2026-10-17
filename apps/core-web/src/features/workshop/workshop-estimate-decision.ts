@@ -2,6 +2,10 @@ import type { WorkshopEstimateStatus, WorkshopEstimateVersionSummary } from '@/a
 import { formatCurrency } from '@/lib/format'
 import { i18n } from '@/lib/i18n'
 
+function workshopT(key: string, options?: Record<string, unknown>): string {
+  return String(i18n.t(key as never, { ns: 'workshop', ...options }))
+}
+
 type EstimateApprovalSummary = NonNullable<WorkshopEstimateVersionSummary['approval']>
 
 /**
@@ -77,7 +81,7 @@ export function describeApproval(approval: EstimateApprovalSummary): string {
   const channelPhraseKey = `estimateDecision.approval.channelPhrase.${approval.channel}`
   const viaPhrase =
     approval.channel && i18n.exists(channelPhraseKey, { ns: 'workshop' })
-      ? i18n.t(channelPhraseKey, { ns: 'workshop' })
+      ? workshopT(channelPhraseKey)
       : ''
   const via = viaPhrase ? ` ${viaPhrase}` : ''
   return i18n.t(`estimateDecision.approval.advisorRecorded.${outcomeKey}`, {
@@ -127,7 +131,7 @@ const OVERRUN_NOTICE_ERROR_CODES = [
 
 function buildErrorTable(codes: readonly string[], prefix: string): Readonly<Record<string, string>> {
   return Object.fromEntries(
-    codes.map((code) => [code, i18n.t(`${prefix}.${code}`, { ns: 'workshop' })]),
+    codes.map((code) => [code, workshopT(`${prefix}.${code}`)]),
   )
 }
 

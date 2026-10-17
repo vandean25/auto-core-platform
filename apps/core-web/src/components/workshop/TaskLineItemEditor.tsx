@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { motion } from 'framer-motion'
 import { CircleDollarSign, Clock3, Package, Receipt, Trash2 } from 'lucide-react'
+import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { useLaborOperation } from '@/api/labor'
@@ -68,7 +69,7 @@ const SEARCH_DEBOUNCE_MS = 300
 const MERGE_FLASH_DURATION_MS = 500
 const QUANTITY_POP_DURATION_MS = 240
 
-function lineTypeBadgeLabel(type: WorkshopLineItemType, t: (key: string) => string): string {
+function lineTypeBadgeLabel(type: WorkshopLineItemType, t: TFunction<'workshop'>): string {
   return t(`taskLineEditor.type.${type}`)
 }
 

@@ -54,8 +54,8 @@ type DescribedOverrun = Pick<
 
 export { formatEstimateMoney }
 
-function formatEstimateDateTime(value: string | null | undefined, t: TFunction<'workshop'>): string {
-  return value ? `${formatDateTime(value)}${t('estimateCard.dateTimeSuffix')}` : '—'
+function formatEstimateDateTime(value: string | null | undefined): string {
+  return value ? formatDateTime(value) : '—'
 }
 
 function statusLabel(status: WorkshopEstimateStatus, t: TFunction<'workshop'>): string {
@@ -229,7 +229,7 @@ function OverrunNoticeLine({ overrun }: { overrun: WorkshopEstimateOverrunWarnin
   return (
     <p className='mt-2 text-xs' data-testid='estimate-overrun-notice'>
       {t('estimateCard.overrunNoticeLine', {
-        date: formatEstimateDateTime(overrun.notified_at, t),
+        date: formatEstimateDateTime(overrun.notified_at),
         channel,
         reaction,
         note,
@@ -296,8 +296,8 @@ function versionSubline(version: WorkshopEstimateVersionSummary, t: TFunction<'w
     return t('estimateCard.versionDraftSubline')
   }
   return t('estimateCard.versionSentSubline', {
-    sent: formatEstimateDateTime(version.sent_at, t),
-    validUntil: formatEstimateDateTime(version.valid_until, t),
+    sent: formatEstimateDateTime(version.sent_at),
+    validUntil: formatEstimateDateTime(version.valid_until),
   })
 }
 

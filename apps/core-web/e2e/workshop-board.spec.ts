@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { DE_STATUS } from './helpers/de-enums'
+import { DE_WORKSHOP } from './helpers/de-workshop'
 import { AutoCorePage } from './pom/AutoCorePage'
 import { expectNoAxeViolationsForRules } from './utils/a11y'
 import {
@@ -146,21 +147,21 @@ test.describe('Blueprint: Workshop Board', () => {
   }
 
   test('Board renders with page header and view toggle', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Workshop Board')
+    const corePage = new AutoCorePage(page, DE_WORKSHOP.board.title)
 
     await setupBoardRoutes(page)
     await corePage.navigate('/workshop/board')
 
     // Header title (top-left)
-    await expect(page.getByRole('heading', { name: 'Workshop Board', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: DE_WORKSHOP.board.title, exact: true })).toBeVisible()
 
     // View toggle top-right
-    await expect(page.getByRole('radio', { name: /By Mechanic/i })).toBeVisible()
-    await expect(page.getByRole('radio', { name: /By Bay/i })).toBeVisible()
+    await expect(page.getByRole('radio', { name: DE_WORKSHOP.board.viewMode.byMechanic })).toBeVisible()
+    await expect(page.getByRole('radio', { name: DE_WORKSHOP.board.viewMode.byBay })).toBeVisible()
   })
 
   test('Board renders mechanic swimlane columns with order cards', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Workshop Board')
+    const corePage = new AutoCorePage(page, DE_WORKSHOP.board.title)
 
     await setupBoardRoutes(page)
 
@@ -188,7 +189,7 @@ test.describe('Blueprint: Workshop Board', () => {
   })
 
   test('Board renders bay swimlane columns when switching to Bay view', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Workshop Board')
+    const corePage = new AutoCorePage(page, DE_WORKSHOP.board.title)
 
     await setupBoardRoutes(page)
 
@@ -199,7 +200,7 @@ test.describe('Blueprint: Workshop Board', () => {
     await corePage.navigate('/workshop/board')
 
     // Switch to bay view
-    await page.getByRole('radio', { name: /By Bay/i }).click()
+    await page.getByRole('radio', { name: DE_WORKSHOP.board.viewMode.byBay }).click()
 
     // Bay column "Bay 01" should appear
     await expect(page.getByTestId('board-column-bay-001')).toBeVisible()
@@ -209,7 +210,7 @@ test.describe('Blueprint: Workshop Board', () => {
   })
 
   test('View mode persists across page refreshes via localStorage', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Workshop Board')
+    const corePage = new AutoCorePage(page, DE_WORKSHOP.board.title)
 
     await setupBoardRoutes(page)
 
@@ -226,7 +227,7 @@ test.describe('Blueprint: Workshop Board', () => {
   })
 
   test('Cards show parts status badge (READY and NO_PARTS)', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Workshop Board')
+    const corePage = new AutoCorePage(page, DE_WORKSHOP.board.title)
 
     await setupBoardRoutes(page)
 
@@ -246,7 +247,7 @@ test.describe('Blueprint: Workshop Board', () => {
   })
 
   test('Empty state card renders when no mechanic resources exist', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Workshop Board')
+    const corePage = new AutoCorePage(page, DE_WORKSHOP.board.title)
 
     // Override resources with empty mechanics
     await page.route(
@@ -278,14 +279,14 @@ test.describe('Blueprint: Workshop Board', () => {
 
     // Empty state card
     await expect(page.getByText(/No Mechanics configured/i)).toBeVisible()
-    await expect(page.getByRole('button', { name: /Go to Settings/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: new RegExp(DE_WORKSHOP.board.emptyResources.goToSettings, 'i') })).toBeVisible()
 
     // Unassigned column still visible alongside the empty state
-    await expect(page.getByText('Unassigned')).toBeVisible()
+    await expect(page.getByText(DE_WORKSHOP.board.unassigned)).toBeVisible()
   })
 
   test('Empty state "Go to Settings" routes to Settings employees tab', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Workshop Board')
+    const corePage = new AutoCorePage(page, DE_WORKSHOP.board.title)
 
     await page.route(
       AutoCorePage.apiRouteMatcher('/api/workshop/resources'),
@@ -323,14 +324,14 @@ test.describe('Blueprint: Workshop Board', () => {
 
     await corePage.navigate('/workshop/board')
 
-    await page.getByRole('button', { name: /Go to Settings/i }).click()
+    await page.getByRole('button', { name: new RegExp(DE_WORKSHOP.board.emptyResources.goToSettings, 'i') }).click()
 
     // Should navigate to /settings?tab=employees
     await expect(page).toHaveURL(/\/settings.*tab=employees/)
   })
 
   test('Quick assign button calls PATCH /api/workshop/board/assign and moves the card', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Workshop Board')
+    const corePage = new AutoCorePage(page, DE_WORKSHOP.board.title)
 
     let assignCalled = false
     let assignPayload: Record<string, unknown> = {}
@@ -403,7 +404,7 @@ test.describe('Blueprint: Workshop Board', () => {
   })
 
   test('Shows horizontal scroll cues when mechanic columns overflow', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Workshop Board')
+    const corePage = new AutoCorePage(page, DE_WORKSHOP.board.title)
 
     const manyMechanics = Array.from({ length: 8 }, (_, index) =>
       createMockEmployee({
@@ -453,7 +454,7 @@ test.describe('Blueprint: Workshop Board', () => {
   })
 
   test('Rolls back optimistic update if assign API call fails', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Workshop Board')
+    const corePage = new AutoCorePage(page, DE_WORKSHOP.board.title)
 
     await page.route(
       AutoCorePage.apiRouteMatcher('/api/workshop/resources'),
@@ -506,7 +507,7 @@ test.describe('Blueprint: Workshop Board', () => {
   })
 
   test('Drag-and-drop assigns an unassigned card to the column under the cursor', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Workshop Board')
+    const corePage = new AutoCorePage(page, DE_WORKSHOP.board.title)
     const MECHANIC_ID_2 = 'emp-mech-002'
     const mockMechanic2 = createMockEmployee({
       id: MECHANIC_ID_2,
@@ -603,7 +604,7 @@ test.describe('Blueprint: Workshop Board', () => {
   })
 
   test('Assign button is a visible target of at least 24px and passes axe target-size', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Workshop Board')
+    const corePage = new AutoCorePage(page, DE_WORKSHOP.board.title)
 
     await setupBoardRoutes(page)
 
@@ -624,7 +625,7 @@ test.describe('Blueprint: Workshop Board', () => {
   })
 
   test('Keyboard drag announces the order number and column, not the order id', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Workshop Board')
+    const corePage = new AutoCorePage(page, DE_WORKSHOP.board.title)
     const MECHANIC_ID_2 = 'emp-mech-002'
     const mockMechanic2 = createMockEmployee({
       id: MECHANIC_ID_2,

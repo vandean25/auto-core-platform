@@ -34,7 +34,7 @@ export function describeSendError(error: unknown): string {
   if (code) {
     const key = `estimateSend.errors.${code}`
     if (i18n.exists(key, { ns: 'workshop' })) {
-      return i18n.t(key, { ns: 'workshop' })
+      return String(i18n.t(key as never, { ns: 'workshop' }))
     }
   }
   return i18n.t('estimateSend.genericError', { ns: 'workshop' })

@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
+import { DE_WORKSHOP } from './helpers/de-workshop'
 
 const TASK_ID = '8229abb5-16d5-43a0-b5f5-9ce3a5fdc96b'
 
@@ -71,9 +72,9 @@ test.describe('Mechanic queue card navigation', () => {
 
     await corePage.navigate('/mechanic/queue')
 
-    await expect(page.getByRole('heading', { name: 'My Queue' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: DE_WORKSHOP.mechanic.queue.title })).toBeVisible()
     await expect(page.getByText('QA Labor Test Task')).toBeVisible()
-    await expect(page.getByText('Task 1')).toBeVisible()
+    await expect(page.getByText('Aufgabe 1')).toBeVisible()
     await expect(page.getByText('WO-2026-0004')).toBeVisible()
     await expect(page.getByText('W-12345AB')).toBeVisible()
 
