@@ -1,6 +1,6 @@
 import deWorkshop from '../../../../locales/de/workshop.json' with { type: 'json' }
 
-/** German workshop UI strings for e2e (default locale). */
+/** German workshop UI strings for Playwright (default locale `de`). */
 export const DE_WORKSHOP = {
   board: {
     title: deWorkshop.board.title,
