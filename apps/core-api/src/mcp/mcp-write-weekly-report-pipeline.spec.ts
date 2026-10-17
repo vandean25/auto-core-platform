@@ -2,7 +2,6 @@ import { AgentPolicyTier } from '@prisma/client';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AgentActionLogService } from '../agent-action-log/agent-action-log.service.js';
 import { AgentPolicyService } from '../agent-policy/agent-policy.service.js';
-import type { AgentPolicyEvaluationResult } from '../agent-policy/agent-policy.types.js';
 import { DryRunService } from '../dry-run/dry-run.service.js';
 import { AgentProposalService } from '../agent-proposal/agent-proposal.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -111,11 +110,11 @@ describe('McpWritePipelineService generate_weekly_report_pdf', () => {
     mockAgentPolicy.evaluateAction.mockResolvedValue({
       tier: AgentPolicyTier.AUTO,
       reasons: [],
-    } as AgentPolicyEvaluationResult);
+    });
     mockAgentActionLog.recordInTransaction.mockResolvedValue({
       traceId: 'trace-weekly',
       workResult: executedPayload,
-    } as never);
+    });
   });
 
   it('runs preview without dry-run execute and executes outside the log transaction', async () => {

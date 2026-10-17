@@ -236,7 +236,8 @@ export class PendingActionExecutorService {
             page_count: (result as { page_count: number }).page_count,
             sha256: (result as { sha256: string }).sha256,
             period: (result as { period: unknown }).period,
-            storage_bucket: (result as { storage_bucket: string }).storage_bucket,
+            storage_bucket: (result as { storage_bucket: string })
+              .storage_bucket,
             storage_key: (result as { storage_key: string }).storage_key,
             object_expires_at: (result as { object_expires_at: string })
               .object_expires_at,

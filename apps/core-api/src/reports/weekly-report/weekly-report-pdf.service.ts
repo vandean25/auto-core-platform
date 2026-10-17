@@ -150,6 +150,7 @@ export class WeeklyReportPdfService {
     stored: Pick<
       GenerateWeeklyReportPdfResult,
       | 'id'
+      | 'site_id'
       | 'sha256'
       | 'page_count'
       | 'period'
@@ -173,6 +174,7 @@ export class WeeklyReportPdfService {
       });
       return {
         ...stored,
+        site_id: stored.site_id,
         url: link.url,
         expires_at: link.expiresAt.toISOString(),
       };
