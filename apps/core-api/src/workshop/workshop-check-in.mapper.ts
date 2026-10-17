@@ -16,6 +16,9 @@ export function toWorkshopCheckInResponse(
     warning_lights: row.warning_lights,
     odometer: row.odometer,
     fuel_level: row.fuel_level,
+    content_sha256: row.content_sha256,
+    completed_at: row.completed_at?.toISOString() ?? null,
+    pdf_sha256: row.pdf_sha256,
     created_at: row.createdAt.toISOString(),
     updated_at: row.updatedAt.toISOString(),
   };

@@ -11,6 +11,7 @@ import {
 import { ApiCreatedResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import {
+  CompleteWorkshopCheckInDto,
   CreateWorkshopCheckInDto,
   UpdateWorkshopCheckInDto,
   WorkshopCheckInResponseDto,
@@ -53,5 +54,14 @@ export class WorkshopCheckInController {
     @Body() dto: UpdateWorkshopCheckInDto,
   ): Promise<WorkshopCheckInResponseDto> {
     return this.checkIns.updateDraft(orderId, dto);
+  }
+
+  @Post('complete')
+  @ApiOkResponse({ type: WorkshopCheckInResponseDto })
+  complete(
+    @Param('orderId', ParseUUIDPipe) orderId: string,
+    @Body() dto: CompleteWorkshopCheckInDto,
+  ): Promise<WorkshopCheckInResponseDto> {
+    return this.checkIns.complete(orderId, dto);
   }
 }

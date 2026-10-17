@@ -4490,7 +4490,14 @@ model WorkshopCheckIn {
   warning_lights      String[]              @default([])
   odometer            Int
   fuel_level          Int
-  /// AUT-576 frozen customer-language evidence bundle at completion (render input + locale metadata).
+  snapshot_json       Json?
+  content_sha256      String?               @db.Char(64)
+  completed_at        DateTime?
+  completed_by_user_id String?
+  pdf_storage_bucket  String?
+  pdf_storage_key     String?
+  pdf_sha256          String?               @db.Char(64)
+  pdf_generated_at    DateTime?
   media               WorkshopMedia[]
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
