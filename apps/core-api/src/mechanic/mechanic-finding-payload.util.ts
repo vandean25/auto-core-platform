@@ -29,7 +29,10 @@ export function extractMechanicFindingMcpInput(
   const record = asRecord(payload);
   const workshopOrderId = record.workshop_order_id;
   const workshopTaskId = record.workshop_task_id;
-  if (typeof workshopOrderId !== 'string' || typeof workshopTaskId !== 'string') {
+  if (
+    typeof workshopOrderId !== 'string' ||
+    typeof workshopTaskId !== 'string'
+  ) {
     throw new BadRequestException(
       'Mechanic finding payload requires workshop_order_id and workshop_task_id',
     );
@@ -89,8 +92,7 @@ export function coerceMechanicFindingApplyInput(
 
   const base = extractMechanicFindingMcpInput(payload);
   const mediaIds = mediaIdsFromFinding(finding);
-  const pinnedMedia =
-    mediaIds.length > 0 ? mediaIds : (base.media_ids ?? []);
+  const pinnedMedia = mediaIds.length > 0 ? mediaIds : (base.media_ids ?? []);
 
   const pinnedVersion =
     typeof finding.line_items_version === 'number'

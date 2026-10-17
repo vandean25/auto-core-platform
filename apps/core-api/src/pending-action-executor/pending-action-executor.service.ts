@@ -708,7 +708,6 @@ export class PendingActionExecutorService {
     return this.workshopMediaUploadMcp.createUploadSlot(parsed);
   }
 
-
   /**
    * AUT-413 approval of a PROPOSE import match. Same write as live AUTO, scoped
    * to the approver's tenant. Only a dry-run job still awaiting confirmation can
