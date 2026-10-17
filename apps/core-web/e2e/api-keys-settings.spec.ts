@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { DE_STATUS } from "./helpers/de-enums";
 import { AutoCorePage } from "./pom/AutoCorePage";
+import { deErrorCode } from "./helpers/de-errors";
 import { createMockFinanceSettings, createMockListResponse } from "./utils/mock-factories";
 
 /**
@@ -223,9 +224,7 @@ test.describe("Blueprint: API keys settings", () => {
     const corePage = new AutoCorePage(page, "Settings");
     await corePage.navigate("/settings?tab=api-keys");
 
-    await expect(
-      page.getByText("Only tenant owners and admins can manage API keys.", { exact: true }),
-    ).toBeVisible();
+    await expect(page.getByText(deErrorCode("HTTP_403"), { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Retry" })).toBeVisible();
   });
 });

@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
 import { createMockListResponse } from './utils/mock-factories'
+import { deErrorCode } from './helpers/de-errors'
 
 const mockTyreSet = {
   id: 'tyre-set-1',
@@ -125,6 +126,6 @@ test.describe('Reifenlager', () => {
     await page.getByRole('combobox').click()
     await page.getByRole('option', { name: 'RACK-A' }).click()
     await page.getByRole('button', { name: 'Confirm' }).click()
-    await expect(page.getByText('Tyre set status changed concurrently')).toBeVisible()
+    await expect(page.getByText(deErrorCode('HTTP_409'))).toBeVisible()
   })
 })
