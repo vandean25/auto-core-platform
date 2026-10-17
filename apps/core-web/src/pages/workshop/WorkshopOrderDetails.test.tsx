@@ -24,6 +24,7 @@ const taskListCopy = deWorkshop.taskList;
 const checkoutCopy = deWorkshop.checkout;
 const checkoutSummaryCopy = deWorkshop.checkoutSummary;
 const orderHeaderCopy = deWorkshop.orderHeader;
+const orderDetailToast = deWorkshop.orderDetail.toast;
 
 vi.mock("@/api/workshop", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/api/workshop")>();
@@ -558,7 +559,7 @@ describe("WorkshopOrderDetails Characterization", () => {
           mechanicId: "mech-1",
         });
       });
-      expect(toast.success).toHaveBeenCalledWith("Technician assigned");
+      expect(toast.success).toHaveBeenCalledWith(orderDetailToast.technicianAssigned);
     });
 
     it("disables assigned tech select when the order is invoiced", () => {
@@ -644,7 +645,7 @@ describe("WorkshopOrderDetails Characterization", () => {
           mechanicId: null,
         });
       });
-      expect(toast.success).toHaveBeenCalledWith("Technician unassigned");
+      expect(toast.success).toHaveBeenCalledWith(orderDetailToast.technicianUnassigned);
     });
 
     it("shows an error toast when technician assignment fails", async () => {
@@ -856,7 +857,7 @@ describe("WorkshopOrderDetails Characterization", () => {
           title: "Tire Rotation",
         });
       });
-      expect(toast.success).toHaveBeenCalledWith("Task created");
+      expect(toast.success).toHaveBeenCalledWith(orderDetailToast.taskCreated);
     });
 
     it("does not create task when input is empty or whitespace", async () => {
@@ -1162,7 +1163,10 @@ describe("WorkshopOrderDetails Characterization", () => {
         expect(mockCreate).toHaveBeenCalledWith("order-1");
       });
       expect(toast.success).toHaveBeenCalledWith(
-        "Draft invoice created (RE-2026-0099)",
+        deWorkshop.checkout.toast.draftInvoiceCreated.replace(
+          "{{number}}",
+          "RE-2026-0099",
+        ),
       );
     });
 
@@ -1344,7 +1348,10 @@ describe("WorkshopOrderDetails Characterization", () => {
         expect(mockIssue).toHaveBeenCalledWith("inv-draft-1");
       });
       expect(toast.success).toHaveBeenCalledWith(
-        "Invoice issued (RE-2026-0001)",
+        deWorkshop.checkout.toast.invoiceIssued.replace(
+          "{{number}}",
+          "RE-2026-0001",
+        ),
       );
     });
 

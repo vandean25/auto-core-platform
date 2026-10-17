@@ -13,6 +13,7 @@ import type {
   WorkshopTaskLineItem,
 } from '@/api/types'
 import { getErrorMessage, getErrorStatus } from '@/lib/error-utils'
+import { i18n } from '@/lib/i18n'
 
 export interface TaskLineItemInput {
   id?: string
@@ -175,7 +176,7 @@ export function useWorkshopTaskLineItems({
           toast.error(
             getErrorMessage(
               error,
-              'This order was updated by another user. Data was refreshed — please review and try again.',
+              i18n.t('taskLineItems.toast.conflictStale', { ns: 'workshop' }),
             ),
           )
           throw error
@@ -190,8 +191,8 @@ export function useWorkshopTaskLineItems({
 
         const fallbackMessage =
           status === 400
-            ? 'Invalid line items. Check quantities and try again.'
-            : 'Failed to update task line items'
+            ? i18n.t('taskLineItems.toast.invalidLineItems', { ns: 'workshop' })
+            : i18n.t('taskLineItems.toast.updateFailed', { ns: 'workshop' })
 
         toast.error(getErrorMessage(error, fallbackMessage))
       }

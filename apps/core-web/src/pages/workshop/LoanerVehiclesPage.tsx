@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
-import { format } from 'date-fns'
+import { formatDateTime } from '@/lib/format'
 import { Plus, Printer } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -380,8 +380,8 @@ export default function LoanerVehiclesPage() {
                         <div className='flex flex-wrap items-center gap-2'>
                           <StatusBadge status={booking.status} />
                           <span className='text-sm text-muted-foreground'>
-                            {format(new Date(booking.plannedFrom), 'PPp')} –{' '}
-                            {format(new Date(booking.plannedTo), 'PPp')}
+                            {formatDateTime(booking.plannedFrom)} –{' '}
+                            {formatDateTime(booking.plannedTo)}
                           </span>
                         </div>
                         <p className='font-medium'>{getLoanerBookingCustomerLabel(booking)}</p>
@@ -460,7 +460,7 @@ export default function LoanerVehiclesPage() {
                 <span>
                   {t('loaner.overdueUntil', {
                     customer: getLoanerBookingCustomerLabel(booking),
-                    date: format(new Date(booking.plannedTo), 'PPp'),
+                    date: formatDateTime(booking.plannedTo),
                   })}
                 </span>
                 <Button size='sm' variant='outline' onClick={() => openReturnDialog(booking)}>

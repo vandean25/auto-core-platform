@@ -213,7 +213,11 @@ export function CheckoutSummary({
                         <TableCell>
                           <div className='text-sm font-medium'>{line.lineItem.description}</div>
                           <div className='text-xs text-muted-foreground'>
-                            {line.lineItem.type} • {line.lineItem.itemNo || 'N/A'}
+                            {t('checkoutSummary.lineMeta', {
+                              type: t(`taskLineEditor.type.${line.lineItem.type}`),
+                              itemNo:
+                                line.lineItem.itemNo || t('checkoutSummary.missingItemNo'),
+                            })}
                           </div>
                         </TableCell>
                         <TableCell className='text-right'>{line.lineItem.qty}</TableCell>

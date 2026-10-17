@@ -1,4 +1,4 @@
-import { format } from 'date-fns'
+import { formatDateShort } from '@/lib/format'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { StatusBadge } from '@/components/status/StatusBadge'
@@ -42,7 +42,9 @@ export function MechanicQueueCard({ item }: MechanicQueueCardProps) {
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-500 md:shrink-0 md:justify-end">
             {item.bay ? <span>{t('mechanic.queue.bay', { name: item.bay.name })}</span> : null}
             {item.scheduledDate ? (
-              <span>{t('mechanic.queue.scheduled', { date: format(new Date(item.scheduledDate), 'PP') })}</span>
+              <span>
+                {t('mechanic.queue.scheduled', { date: formatDateShort(item.scheduledDate) })}
+              </span>
             ) : null}
           </div>
         </div>

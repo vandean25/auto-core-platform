@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
-import { format } from 'date-fns'
+import { formatDate, formatNumber } from '@/lib/format'
 import { ArrowRight, ListChecks } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DataTable } from '@/components/data-table/DataTable'
@@ -30,7 +30,10 @@ interface WorkshopPickQueueRow {
 }
 
 function formatQuantity(value: number) {
-  return Number.isInteger(value) ? String(Math.trunc(value)) : value.toFixed(2)
+  return formatNumber(value, {
+    maximumFractionDigits: Number.isInteger(value) ? 0 : 2,
+    minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
+  })
 }
 
 export default function WorkshopPickList() {
@@ -51,7 +54,7 @@ export default function WorkshopPickList() {
         orderNo: order.order_number ?? order.id,
         customer: getWorkshopCustomerDisplayName(order),
         vehicle: `${order.vehicle.year} ${order.vehicle.make} ${order.vehicle.model}`,
-        openedAt: format(new Date(order.createdAt), 'PPP'),
+        openedAt: formatDate(order.createdAt),
         status: order.status,
         partLines: requiredPartLines.length,
         requiredQty: getTotalRequiredQuantity(requiredPartLines),

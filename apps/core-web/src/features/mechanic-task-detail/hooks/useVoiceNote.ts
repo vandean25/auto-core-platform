@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useUploadVoiceNote } from '@/api/mechanic'
 import { getErrorMessage } from '@/lib/error-utils'
 import { mergeVoiceDraftIntoNotes } from '../notes'
 import type { VoiceNoteState } from '../types'
 import { isVoiceNoteSupported, selectVoiceRecorderMimeType } from '../voice-recorder'
 
-const NO_MICROPHONE_MESSAGE = 'No microphone found. Check device permissions.'
 const MICROPHONE_ACCESS_ERROR_NAMES = new Set([
   'NotFoundError',
   'DevicesNotFoundError',
@@ -20,19 +20,25 @@ type UseVoiceNoteOptions = {
   onAcceptDraft: (mergedNotes: string) => void
 }
 
-function getMicrophoneAccessErrorMessage(error: unknown): string {
-  const errorName =
-    typeof error === 'object' && error !== null && 'name' in error ? String(error.name) : ''
-
-  if (MICROPHONE_ACCESS_ERROR_NAMES.has(errorName)) {
-    return NO_MICROPHONE_MESSAGE
-  }
-
-  return 'Unable to access microphone.'
-}
-
 export function useVoiceNote({ taskId, notesValue, onAcceptDraft }: UseVoiceNoteOptions) {
+  const { t } = useTranslation('workshop')
   const uploadVoiceNote = useUploadVoiceNote()
+
+  const getMicrophoneAccessErrorMessage = useCallback(
+    (error: unknown): string => {
+      const errorName =
+        typeof error === 'object' && error !== null && 'name' in error
+          ? String(error.name)
+          : ''
+
+      if (MICROPHONE_ACCESS_ERROR_NAMES.has(errorName)) {
+        return t('mechanic.taskDetail.voiceNote.noMicrophone')
+      }
+
+      return t('mechanic.taskDetail.voiceNote.microphoneAccessFailed')
+    },
+    [t],
+  )
   const voiceSupported = isVoiceNoteSupported()
   const [voiceNoteState, setVoiceNoteState] = useState<VoiceNoteState>(
     voiceSupported ? 'idle' : 'unsupported',
@@ -113,7 +119,7 @@ export function useVoiceNote({ taskId, notesValue, onAcceptDraft }: UseVoiceNote
       recorder.onerror = () => {
         stopMediaCapture()
         setVoiceNoteState('error')
-        setVoiceNoteError('Voice note failed. Please retry recording.')
+        setVoiceNoteError(t('mechanic.taskDetail.voiceNote.errorFallback'))
       }
       recorder.onstop = () => {
         stopMediaCapture()
@@ -121,7 +127,7 @@ export function useVoiceNote({ taskId, notesValue, onAcceptDraft }: UseVoiceNote
         voiceChunksRef.current = []
         if (chunks.length === 0) {
           setVoiceNoteState('error')
-          setVoiceNoteError('No audio captured. Please retry recording.')
+          setVoiceNoteError(t('mechanic.taskDetail.voiceNote.noAudioCaptured'))
           return
         }
 
@@ -138,7 +144,9 @@ export function useVoiceNote({ taskId, notesValue, onAcceptDraft }: UseVoiceNote
           .catch((error: unknown) => {
             console.error('[MechanicTaskDetail] Voice-note upload failed:', error)
             setVoiceNoteState('error')
-            setVoiceNoteError(getErrorMessage(error, 'Voice note failed. Please retry recording.'))
+            setVoiceNoteError(
+              getErrorMessage(error, t('mechanic.taskDetail.voiceNote.errorFallback')),
+            )
           })
       }
       recorder.start()

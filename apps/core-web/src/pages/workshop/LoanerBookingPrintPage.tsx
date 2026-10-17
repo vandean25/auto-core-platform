@@ -1,5 +1,5 @@
 import { useParams } from 'react-router-dom'
-import { format } from 'date-fns'
+import { formatDateTime } from '@/lib/format'
 import { useTranslation } from 'react-i18next'
 import { useLoanerBooking, getLoanerBookingCustomerLabel } from '@/api/loaner-vehicles'
 import { StatusBadge } from '@/components/status/StatusBadge'
@@ -48,8 +48,7 @@ export default function LoanerBookingPrintPage() {
           <div className='flex flex-wrap items-center gap-2'>
             <StatusBadge status={booking.status} />
             <span className='text-sm'>
-              {format(new Date(booking.plannedFrom), 'PPp')} –{' '}
-              {format(new Date(booking.plannedTo), 'PPp')}
+              {formatDateTime(booking.plannedFrom)} – {formatDateTime(booking.plannedTo)}
             </span>
           </div>
         </header>
@@ -77,7 +76,7 @@ export default function LoanerBookingPrintPage() {
                 <dt className='text-muted-foreground'>{t('loanerPrint.time')}</dt>
                 <dd>
                   {booking.handedOverAt
-                    ? format(new Date(booking.handedOverAt), 'PPp')
+                    ? formatDateTime(booking.handedOverAt)
                     : emDash}
                 </dd>
               </div>
@@ -110,7 +109,7 @@ export default function LoanerBookingPrintPage() {
               <div className='flex justify-between gap-4'>
                 <dt className='text-muted-foreground'>{t('loanerPrint.time')}</dt>
                 <dd>
-                  {booking.returnedAt ? format(new Date(booking.returnedAt), 'PPp') : emDash}
+                  {booking.returnedAt ? formatDateTime(booking.returnedAt) : emDash}
                 </dd>
               </div>
               <div className='flex justify-between gap-4'>

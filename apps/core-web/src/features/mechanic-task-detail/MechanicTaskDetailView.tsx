@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { MechanicTaskDetail } from "@/api/mechanic";
+import { PICKERL_TASK_TITLE } from "@/features/workshop/pickerl.constants";
 import { DiagnosticsSection } from "./components/DiagnosticsSection";
 import { LaborItemsCard } from "./components/LaborItemsCard";
 import { MediaSection } from "./components/MediaSection";
@@ -93,7 +94,7 @@ export function MechanicTaskDetailView({
 
       <VehicleInfoCard task={task} />
 
-      {task.taskTitle === "§57a Begutachtung" && (
+      {task.taskTitle === PICKERL_TASK_TITLE && (
         <MechanicTaskInspectionChecklist
           taskId={task.taskId}
           readOnly={capabilities.isDone}

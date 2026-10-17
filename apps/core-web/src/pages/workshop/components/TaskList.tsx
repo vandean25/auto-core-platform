@@ -7,7 +7,9 @@ import { Input } from '@/components/ui/input'
 import { InlineEdit } from '@/components/inline-edit/InlineEdit'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { Badge } from '@/components/ui/badge'
+import { formatNumber } from '@/lib/format'
 import { formatCurrency } from '@/lib/utils'
+import { PICKERL_TASK_TITLE } from '@/features/workshop/pickerl.constants'
 import type { WorkshopOrder, WorkshopTask } from '@/api/types'
 import { TaskLineItemEditor } from '@/components/workshop/TaskLineItemEditor'
 import type { TaskLineItem } from '@/components/workshop/TaskLineItemEditor'
@@ -271,8 +273,14 @@ function TaskAccordionRow({
               partsTotal: formatCurrency(taskTotals.parts),
               feesSegment,
               laborTotal: formatCurrency(taskTotals.labor),
-              stdHours: taskTotals.laborStandardHours.toFixed(2),
-              actualHours: taskTotals.laborActualHours.toFixed(2),
+              stdHours: formatNumber(taskTotals.laborStandardHours, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              }),
+              actualHours: formatNumber(taskTotals.laborActualHours, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              }),
             })}
           </span>
         </button>
@@ -313,7 +321,7 @@ function TaskAccordionRow({
             </div>
           </div>
 
-          {task.title === '§57a Begutachtung' ? (
+          {task.title === PICKERL_TASK_TITLE ? (
             <WorkshopTaskInspectionChecklist
               orderId={workshopOrderId}
               taskId={task.id}

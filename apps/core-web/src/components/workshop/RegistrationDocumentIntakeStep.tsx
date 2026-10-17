@@ -59,7 +59,7 @@ export function RegistrationDocumentIntakeStep({
       })
       setIntakeId(created.id)
       if (created.state === 'FAILED') {
-        toast.error(created.failureCode ?? 'Extraction failed')
+        toast.error(created.failureCode ?? t('registrationIntake.extractionFailedFallback'))
       }
     } catch (err) {
       toast.error(getErrorMessage(err, t('registrationIntake.uploadFailed')))

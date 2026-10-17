@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { format } from 'date-fns'
+import { formatDateShort } from '@/lib/format'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { MechanicTaskDetail } from '@/api/mechanic'
 import { formatOdometerKm } from '@/lib/format'
@@ -45,7 +45,7 @@ export function VehicleInfoCard({ task }: { task: MechanicTaskDetail }) {
         {scheduledDate && (
           <div>
             <p className="text-xs text-slate-500 uppercase tracking-wide">{t('mechanic.taskDetail.vehicle.scheduled')}</p>
-            <p className="font-medium">{format(new Date(scheduledDate), 'PP')}</p>
+            <p className="font-medium">{formatDateShort(scheduledDate)}</p>
           </div>
         )}
       </CardContent>

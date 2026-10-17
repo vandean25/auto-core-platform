@@ -1,9 +1,8 @@
 import { Link } from 'react-router-dom'
-import { format } from 'date-fns'
 import { useTranslation } from 'react-i18next'
 import { Phone, Clock, Key, MapPin, User, Printer } from 'lucide-react'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
-import { formatOdometerKm } from '@/lib/format'
+import { formatDateShort, formatOdometerKm } from '@/lib/format'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -91,7 +90,7 @@ export function OrderTopBar({
                   <span>
                     {t('orderHeader.loanerUntil', {
                       label: order.loanerBooking.vehiclePlate ?? order.loanerBooking.displayName,
-                      date: format(new Date(order.loanerBooking.plannedTo), 'PP'),
+                      date: formatDateShort(order.loanerBooking.plannedTo),
                     })}
                   </span>
                   <StatusBadge status={order.loanerBooking.status} />

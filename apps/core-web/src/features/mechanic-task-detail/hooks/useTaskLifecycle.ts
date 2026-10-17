@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useCompleteTask, usePauseTask, useStartTask, useSwitchTask } from '@/api/mechanic'
 import { getErrorMessage, getErrorStatus } from '@/lib/error-utils'
+import { i18n } from '@/lib/i18n'
+
+const tw = (key: string) => i18n.t(key, { ns: 'workshop' })
 import type { PauseReason, SwitchReason } from '../types'
 
 export type UseTaskLifecycleOptions = {
@@ -19,9 +22,9 @@ export interface ExecuteTaskStartParams {
 export async function executeTaskStart({ taskId, startTask }: ExecuteTaskStartParams): Promise<void> {
   try {
     await startTask.mutateAsync({ taskId })
-    toast.success('Task started — punch-in recorded')
+    toast.success(tw('mechanic.taskDetail.lifecycle.toast.taskStarted'))
   } catch (error: unknown) {
-    toast.error(getErrorMessage(error, 'Failed to start task'))
+    toast.error(getErrorMessage(error, tw('mechanic.taskDetail.lifecycle.toast.taskStartFailed')))
   }
 }
 
@@ -46,10 +49,10 @@ export async function executeTaskPause({
       taskId,
       payload: { pauseReason: reason },
     })
-    toast.success('Task paused')
+    toast.success(tw('mechanic.taskDetail.lifecycle.toast.taskPaused'))
     onSuccess()
   } catch (error: unknown) {
-    toast.error(getErrorMessage(error, 'Failed to pause task'))
+    toast.error(getErrorMessage(error, tw('mechanic.taskDetail.lifecycle.toast.taskPauseFailed')))
     onSuccess()
   }
 }
@@ -70,10 +73,10 @@ export async function executeTaskComplete({
   cancelPendingSave()
   try {
     await completeTask.mutateAsync({ taskId })
-    toast.success('Task marked as complete')
+    toast.success(tw('mechanic.taskDetail.lifecycle.toast.taskCompleted'))
     onSuccess()
   } catch (error: unknown) {
-    toast.error(getErrorMessage(error, 'Failed to complete task'))
+    toast.error(getErrorMessage(error, tw('mechanic.taskDetail.lifecycle.toast.taskCompleteFailed')))
   }
 }
 
@@ -96,14 +99,16 @@ async function retrySwitchAsStart({
   try {
     await refetch()
     await startTask.mutateAsync({ taskId })
-    toast.success('Task started — punch-in recorded')
+    toast.success(tw('mechanic.taskDetail.lifecycle.toast.taskStarted'))
     onSuccess()
   } catch (startError: unknown) {
     if (getErrorStatus(startError) === 409) {
-      toast.error('This task is already being worked on. Please refresh.')
+      toast.error(tw('mechanic.taskDetail.lifecycle.toast.taskAlreadyInProgress'))
       return
     }
-    toast.error(getErrorMessage(startError, 'Failed to start task'))
+    toast.error(
+      getErrorMessage(startError, tw('mechanic.taskDetail.lifecycle.toast.taskStartFailed')),
+    )
   } finally {
     setSwitchRetrying(false)
   }
@@ -138,7 +143,7 @@ export async function executeTaskSwitch({
       taskId,
       payload: { previousPauseReason: reason },
     })
-    toast.success('Switched to task — punch-in recorded')
+    toast.success(tw('mechanic.taskDetail.lifecycle.toast.taskSwitched'))
     onSuccess()
   } catch (error: unknown) {
     if (getErrorStatus(error) === 409) {
@@ -152,7 +157,7 @@ export async function executeTaskSwitch({
       return
     }
 
-    toast.error(getErrorMessage(error, 'Failed to switch task'))
+    toast.error(getErrorMessage(error, tw('mechanic.taskDetail.lifecycle.toast.taskSwitchFailed')))
   }
 }
 

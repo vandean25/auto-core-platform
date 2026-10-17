@@ -135,6 +135,9 @@
         "draftReady": "Entwurf bereit. Vor Übernahme in die Diagnose prüfen und bearbeiten.",
         "accepted": "Entwurf in Diagnose-Notizen übernommen.",
         "errorFallback": "Sprachnotiz fehlgeschlagen. Bitte erneut aufnehmen.",
+        "noMicrophone": "Kein Mikrofon gefunden. Geräteberechtigungen prüfen.",
+        "microphoneAccessFailed": "Mikrofonzugriff nicht möglich.",
+        "noAudioCaptured": "Keine Aufnahme erfasst. Bitte erneut aufnehmen.",
         "stop": "Aufnahme stoppen",
         "record": "Sprachnotiz aufnehmen",
         "retry": "Erneut aufnehmen",
@@ -168,6 +171,42 @@
       "checklist": {
         "loadError": "Checkliste konnte nicht gespeichert werden",
         "loading": "Checkliste wird geladen…"
+      },
+      "lifecycle": {
+        "toast": {
+          "taskStarted": "Aufgabe gestartet — Stempelung erfasst",
+          "taskStartFailed": "Aufgabe konnte nicht gestartet werden",
+          "taskPaused": "Aufgabe pausiert",
+          "taskPauseFailed": "Aufgabe konnte nicht pausiert werden",
+          "taskCompleted": "Aufgabe als erledigt markiert",
+          "taskCompleteFailed": "Aufgabe konnte nicht abgeschlossen werden",
+          "taskSwitched": "Zu Aufgabe gewechselt — Stempelung erfasst",
+          "taskSwitchFailed": "Wechsel zur Aufgabe fehlgeschlagen",
+          "taskAlreadyInProgress": "An dieser Aufgabe wird bereits gearbeitet. Bitte aktualisieren."
+        }
+      },
+      "partRequest": {
+        "validation": {
+          "itemNoRequired": "Teilenummer ist erforderlich.",
+          "descriptionRequired": "Beschreibung ist erforderlich.",
+          "quantityMin": "Menge muss mindestens 0,01 sein."
+        },
+        "toast": {
+          "submitted": "Teileanfrage gesendet",
+          "failed": "Teileanfrage fehlgeschlagen"
+        }
+      },
+      "finding": {
+        "toast": {
+          "notesSaveFailed": "Diagnose-Notizen konnten nicht gespeichert werden",
+          "sentToAdvisor": "Feststellung an Serviceberater gesendet",
+          "sendFailed": "Feststellung konnte nicht gesendet werden"
+        }
+      },
+      "mediaToast": {
+        "unsupportedType": "Dateityp nicht unterstützt. JPEG, PNG, WebP, MP4 oder MOV verwenden.",
+        "uploaded": "Medien erfolgreich hochgeladen",
+        "uploadFailed": "Upload fehlgeschlagen"
       }
     }
   },
@@ -431,7 +470,28 @@
     "deleteTaskDescriptionGeneric": "Diese Aufgabe aus dem Werkstattauftrag löschen?",
     "cancel": "Abbrechen",
     "deleteTask": "Aufgabe löschen",
-    "deleting": "Wird gelöscht…"
+    "deleting": "Wird gelöscht…",
+    "toast": {
+      "notesSaved": "Interne Notizen gespeichert",
+      "notesSaveFailed": "Notizen konnten nicht gespeichert werden",
+      "reportedIssueSaved": "Gemeldetes Problem gespeichert",
+      "reportedIssueSaveFailed": "Gemeldetes Problem konnte nicht gespeichert werden",
+      "taskCreated": "Aufgabe erstellt",
+      "taskCreateFailed": "Aufgabe konnte nicht erstellt werden",
+      "taskStatusUpdateFailed": "Aufgabenstatus konnte nicht aktualisiert werden",
+      "mechanicNotesUpdateFailed": "Mechanikernotizen konnten nicht aktualisiert werden",
+      "taskDeleted": "Aufgabe gelöscht",
+      "taskDeleteFailed": "Aufgabe konnte nicht gelöscht werden",
+      "jobCardPdfGenerating": "Job-Card-PDF wird erstellt…",
+      "jobCardPdfQueued": "Die Job-Card-PDF-Erstellung wurde in die Warteschlange gestellt und steht in Kürze bereit.",
+      "jobCardPdfDownloaded": "Job-Card-PDF erfolgreich heruntergeladen",
+      "jobCardPdfFailed": "PDF konnte nicht erstellt werden",
+      "technicianAssigned": "Techniker zugewiesen",
+      "technicianUnassigned": "Technikerzuweisung entfernt",
+      "technicianAssignFailed": "Techniker konnte nicht zugewiesen werden",
+      "vehicleIdentityResolved": "Fahrzeugidentität aktualisiert",
+      "vehicleIdentityResolveFailed": "Fahrzeugidentität konnte nicht aktualisiert werden"
+    }
   },
   "estimateSend": {
     "title": "Version {{version}} an Kunden senden?",
@@ -518,6 +578,16 @@
       "positionId": "Positions-ID",
       "attach": "Referenz übernehmen",
       "toastSaved": "Katalogreferenz gespeichert",
+      "errors": {
+        "NOT_CONFIGURED": "Der offizielle Katalog ist für diesen Mandanten noch nicht freigeschaltet.",
+        "UNKNOWN_CODE": "Der gewählte Katalogcode ist unbekannt.",
+        "STALE_CATALOG": "Die Katalogversion ist veraltet und muss erneut geprüft werden.",
+        "OUT_OF_SCOPE": "Für dieses Fahrzeug liegt kein nachgewiesener Anwendungsbereich vor.",
+        "SOURCE_CONFLICT": "Mehrere Katalogversionen überschneiden sich. Manuelle Klärung erforderlich.",
+        "REVIEW_REQUIRED": "Die Vorschau ist abgelaufen oder hat sich geändert. Bitte erneut prüfen.",
+        "UNSUPPORTED_SCHEMA_VERSION": "Das Katalogformat wird nicht unterstützt.",
+        "generic": "Die Katalogreferenz konnte nicht verarbeitet werden. Bitte erneut versuchen."
+      },
       "resolution": {
         "RESOLVED": "Aufgelöst",
         "UNKNOWN_CODE": "Unbekannter Code",
@@ -689,7 +759,16 @@
     "totalDiscounts": "Rabatte gesamt",
     "net": "Netto",
     "vat": "USt.",
-    "total": "Gesamt"
+    "total": "Gesamt",
+    "lineMeta": "{{type}} • {{itemNo}}",
+    "missingItemNo": "k. A."
+  },
+  "taskLineItems": {
+    "toast": {
+      "conflictStale": "Dieser Auftrag wurde von einer anderen Person geändert. Daten wurden aktualisiert — bitte prüfen und erneut versuchen.",
+      "invalidLineItems": "Ungültige Positionen. Mengen prüfen und erneut versuchen.",
+      "updateFailed": "Aufgabenpositionen konnten nicht gespeichert werden"
+    }
   },
   "estimateDecision": {
     "advisorChannel": {
@@ -1029,7 +1108,13 @@
     "description": "Rabatte prüfen und Rechnung stellen, ohne den Auftrag zu verlassen.",
     "close": "Abrechnung schließen",
     "openInvoice": "Rechnung öffnen",
-    "primaryAction": "Abrechnung"
+    "primaryAction": "Abrechnung",
+    "toast": {
+      "draftInvoiceCreated": "Rechnungsentwurf erstellt ({{number}})",
+      "draftInvoiceFailed": "Rechnungsentwurf konnte nicht erstellt werden",
+      "invoiceIssued": "Rechnung ausgestellt ({{number}})",
+      "invoiceIssueFailed": "Rechnung konnte nicht ausgestellt werden"
+    }
   },
   "orderIntake": {
     "title": "Werkstattauftrag anlegen",
@@ -1074,6 +1159,7 @@
     "cancel": "Abbrechen",
     "creating": "Wird erstellt…",
     "createPickerl": "§57a-Auftrag anlegen",
+    "pickerlNotesDefault": "§57a Begutachtung",
     "createOrder": "Auftrag anlegen",
     "toastSelectVehicle": "Fahrzeug mit verknüpftem Kunden wählen.",
     "toastPickerlOpened": "§57a-Werkstattauftrag geöffnet",
@@ -1094,7 +1180,8 @@
     "toastOrderCreated": "Werkstattauftrag erstellt",
     "extractionFailed": "Extraktion fehlgeschlagen ({{code}}). Löschen und mit neuem Upload erneut versuchen.",
     "unknown": "unbekannt",
-    "uploadFailed": "Upload fehlgeschlagen"
+    "uploadFailed": "Upload fehlgeschlagen",
+    "extractionFailedFallback": "Auslesen fehlgeschlagen"
   },
   "registrationReview": {
     "actionFailed": "Aktion fehlgeschlagen",

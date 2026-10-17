@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useRequestPart } from '@/api/mechanic'
 import { getErrorMessage } from '@/lib/error-utils'
@@ -7,6 +8,7 @@ import { validatePartRequest } from '../part-request'
 import type { PartRequestForm } from '../types'
 
 export function useRequestPartForm(taskId: string) {
+  const { t } = useTranslation('workshop')
   const requestPart = useRequestPart()
   const [requestPartOpen, setRequestPartOpen] = useState(false)
   const [partForm, setPartForm] = useState<PartRequestForm>(EMPTY_PART_REQUEST_FORM)
@@ -21,7 +23,9 @@ export function useRequestPartForm(taskId: string) {
   const handleRequestPartSubmit = async () => {
     const validationError = validatePartRequest(partForm)
     if (validationError) {
-      setPartFormError(validationError)
+      setPartFormError(
+        t(`mechanic.taskDetail.partRequest.validation.${validationError}`),
+      )
       return
     }
     setPartFormError('')
@@ -34,11 +38,13 @@ export function useRequestPartForm(taskId: string) {
           qty: parseFloat(partForm.qty),
         },
       })
-      toast.success('Part request submitted')
+      toast.success(t('mechanic.taskDetail.partRequest.toast.submitted'))
       setPartForm(EMPTY_PART_REQUEST_FORM)
       setRequestPartOpen(false)
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, 'Failed to request part'))
+      toast.error(
+        getErrorMessage(error, t('mechanic.taskDetail.partRequest.toast.failed')),
+      )
     }
   }
 

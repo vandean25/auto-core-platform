@@ -19,6 +19,7 @@ export const DE_WORKSHOP = {
       diagnostics: deWorkshop.mechanic.taskDetail.diagnostics,
       saveState: deWorkshop.mechanic.taskDetail.saveState,
       voiceNote: deWorkshop.mechanic.taskDetail.voiceNote,
+      voiceNoteNoMicrophone: deWorkshop.mechanic.taskDetail.voiceNote.noMicrophone,
     },
   },
   orderHeader: {

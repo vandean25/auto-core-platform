@@ -12,6 +12,7 @@ import type {
   LaborOperationSearchItem,
   WorkshopLineItemType,
 } from '@/api/types'
+import { formatNumber } from '@/lib/format'
 import { formatCurrency } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -75,7 +76,7 @@ function lineTypeBadgeLabel(type: WorkshopLineItemType, t: TFunction<'workshop'>
 
 function formatHours(value: number | null | undefined) {
   if (value == null) return '—'
-  return value.toFixed(2)
+  return formatNumber(value, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 function calculateEfficiencyRatio(
@@ -577,7 +578,12 @@ export function TaskLineItemEditor({
                                 variant='outline'
                                 className={`text-[10px] ${getEfficiencyBadgeClass(efficiencyRatio)}`}
                               >
-                                {tw('taskLineEditor.efficiency', { ratio: efficiencyRatio.toFixed(2) })}
+                                {tw('taskLineEditor.efficiency', {
+                                  ratio: formatNumber(efficiencyRatio, {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  }),
+                                })}
                               </Badge>
                             )}
                           </div>

@@ -167,10 +167,17 @@ export async function executeCreateDraftInvoice(
 ): Promise<string | null> {
   try {
     const invoice = await createDraftInvoice.mutateAsync(orderId)
-    toast.success(`Draft invoice created (${invoice.invoice_number || invoice.id})`)
+    toast.success(
+      i18n.t('checkout.toast.draftInvoiceCreated', {
+        ns: 'workshop',
+        number: invoice.invoice_number || invoice.id,
+      }),
+    )
     return invoice.id
   } catch (error: unknown) {
-    toast.error(getErrorMessage(error, 'Failed to create draft invoice'))
+    toast.error(
+      getErrorMessage(error, i18n.t('checkout.toast.draftInvoiceFailed', { ns: 'workshop' })),
+    )
     return null
   }
 }
@@ -213,9 +220,16 @@ export async function executeIssueInvoiceWithDiscounts(params: {
     }
 
     const invoice = await issueInvoice.mutateAsync(activeInvoiceId)
-    toast.success(`Invoice issued (${invoice.invoice_number || invoice.id})`)
+    toast.success(
+      i18n.t('checkout.toast.invoiceIssued', {
+        ns: 'workshop',
+        number: invoice.invoice_number || invoice.id,
+      }),
+    )
   } catch (error: unknown) {
-    toast.error(getErrorMessage(error, 'Failed to issue invoice'))
+    toast.error(
+      getErrorMessage(error, i18n.t('checkout.toast.invoiceIssueFailed', { ns: 'workshop' })),
+    )
   }
 }
 

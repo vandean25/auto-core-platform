@@ -88,8 +88,8 @@ export function WorkshopOrderIntakeDialog({
     setActiveTab('existing')
     setSelectedVehicle(initialVehicleQuery.data)
     setSearch(initialVehicleQuery.data.plate ?? '')
-    setNotes(pickerlMode ? '§57a Begutachtung' : '')
-  }, [open, initialVehicleQuery.data, pickerlMode])
+    setNotes(pickerlMode ? t('orderIntake.pickerlNotesDefault') : '')
+  }, [open, initialVehicleQuery.data, pickerlMode, t])
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 250)

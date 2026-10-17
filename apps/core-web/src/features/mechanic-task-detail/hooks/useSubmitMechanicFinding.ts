@@ -1,4 +1,5 @@
 import { useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useSubmitMechanicFinding as useSubmitMechanicFindingMutation } from '@/api/mechanic'
 import { generateId } from '@/lib/id'
@@ -17,6 +18,7 @@ export function useSubmitMechanicFinding({
   hasNotes,
   flushAndSaveNotes,
 }: UseSubmitMechanicFindingOptions) {
+  const { t } = useTranslation('workshop')
   const mutation = useSubmitMechanicFindingMutation()
   const commandIdRef = useRef<string | null>(null)
 
@@ -27,7 +29,9 @@ export function useSubmitMechanicFinding({
     try {
       await flushAndSaveNotes()
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Could not save diagnostic notes'))
+      toast.error(
+        getErrorMessage(error, t('mechanic.taskDetail.finding.toast.notesSaveFailed')),
+      )
       return
     }
 
@@ -43,9 +47,11 @@ export function useSubmitMechanicFinding({
         },
       })
       commandIdRef.current = null
-      toast.success('Finding sent to the service advisor')
+      toast.success(t('mechanic.taskDetail.finding.toast.sentToAdvisor'))
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Could not send finding to the advisor'))
+      toast.error(
+        getErrorMessage(error, t('mechanic.taskDetail.finding.toast.sendFailed')),
+      )
     }
   }
 

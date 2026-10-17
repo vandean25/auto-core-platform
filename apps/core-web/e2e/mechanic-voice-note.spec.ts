@@ -338,7 +338,9 @@ test.describe('Mechanic voice-note diagnostics flow', () => {
     await corePage.navigate(`/mechanic/tasks/${TASK_ID}`)
 
     await page.getByRole('button', { name: new RegExp(DE_WORKSHOP.mechanic.taskDetail.voiceNote.record, 'i') }).click()
-    await expect(page.getByText('No microphone found. Check device permissions.')).toBeVisible()
+    await expect(
+      page.getByText(DE_WORKSHOP.mechanic.taskDetail.voiceNote.noMicrophone),
+    ).toBeVisible()
     await expect(page.getByText('Requested device not found')).not.toBeVisible()
   })
 
@@ -372,7 +374,9 @@ test.describe('Mechanic voice-note diagnostics flow', () => {
     await corePage.navigate(`/mechanic/tasks/${TASK_ID}`)
 
     await page.getByRole('button', { name: new RegExp(DE_WORKSHOP.mechanic.taskDetail.voiceNote.record, 'i') }).click()
-    await expect(page.getByText('No microphone found. Check device permissions.')).toBeVisible()
+    await expect(
+      page.getByText(DE_WORKSHOP.mechanic.taskDetail.voiceNote.noMicrophone),
+    ).toBeVisible()
     await expect(page.getByText('Permission denied')).not.toBeVisible()
   })
 })

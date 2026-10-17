@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import {
   useCreateMediaUploadPolicy,
@@ -10,6 +11,7 @@ import { ALLOWED_MEDIA_TYPES, MEDIA_UPLOAD_DONE_RESET_MS } from '../constants'
 import type { UploadState } from '../types'
 
 export function useMediaUpload(taskId: string) {
+  const { t } = useTranslation('workshop')
   const createUploadPolicy = useCreateMediaUploadPolicy()
   const saveMediaMeta = useSaveMediaMetadata()
   const [uploadState, setUploadState] = useState<UploadState>('idle')
@@ -27,7 +29,7 @@ export function useMediaUpload(taskId: string) {
 
   const handleFileSelected = async (file: File) => {
     if (!ALLOWED_MEDIA_TYPES.has(file.type)) {
-      toast.error('Unsupported file type. Use JPEG, PNG, WebP, MP4, or MOV.')
+      toast.error(t('mechanic.taskDetail.mediaToast.unsupportedType'))
       return
     }
     setUploadState('uploading')
@@ -64,7 +66,7 @@ export function useMediaUpload(taskId: string) {
       )
 
       setUploadState('done')
-      toast.success('Media uploaded successfully')
+      toast.success(t('mechanic.taskDetail.mediaToast.uploaded'))
       if (uploadDoneTimerRef.current !== null) {
         clearTimeout(uploadDoneTimerRef.current)
       }
@@ -74,7 +76,7 @@ export function useMediaUpload(taskId: string) {
       }, MEDIA_UPLOAD_DONE_RESET_MS)
     } catch (error: unknown) {
       setUploadState('error')
-      toast.error(getErrorMessage(error, 'Upload failed'))
+      toast.error(getErrorMessage(error, t('mechanic.taskDetail.mediaToast.uploadFailed')))
     }
   }
 

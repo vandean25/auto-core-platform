@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
-import { format } from 'date-fns'
+import { formatDate } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { TooltipHint } from '@/components/ui/tooltip'
 import { Plus } from 'lucide-react'
@@ -39,7 +39,7 @@ export default function WorkshopOrderList() {
       orderNo: order.order_number ?? order.id,
       customer: getWorkshopCustomerDisplayName(order),
       vehicle: `${order.vehicle.year} ${order.vehicle.make} ${order.vehicle.model}`,
-      openedAt: format(new Date(order.createdAt), 'PPP'),
+      openedAt: formatDate(order.createdAt),
       status: order.status,
     }))
   }, [responseData])

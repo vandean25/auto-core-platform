@@ -135,6 +135,9 @@
         "draftReady": "Draft ready. Review and edit before accepting into diagnostics.",
         "accepted": "Draft accepted into diagnostics notes.",
         "errorFallback": "Voice note failed. Please retry recording.",
+        "noMicrophone": "No microphone found. Check device permissions.",
+        "microphoneAccessFailed": "Unable to access microphone.",
+        "noAudioCaptured": "No audio captured. Please retry recording.",
         "stop": "Stop Recording",
         "record": "Record Voice Note",
         "retry": "Retry recording",
@@ -168,6 +171,42 @@
       "checklist": {
         "loadError": "Could not save checklist",
         "loading": "Loading checklist…"
+      },
+      "lifecycle": {
+        "toast": {
+          "taskStarted": "Task started — punch-in recorded",
+          "taskStartFailed": "Failed to start task",
+          "taskPaused": "Task paused",
+          "taskPauseFailed": "Failed to pause task",
+          "taskCompleted": "Task marked as complete",
+          "taskCompleteFailed": "Failed to complete task",
+          "taskSwitched": "Switched to task — punch-in recorded",
+          "taskSwitchFailed": "Failed to switch task",
+          "taskAlreadyInProgress": "This task is already being worked on. Please refresh."
+        }
+      },
+      "partRequest": {
+        "validation": {
+          "itemNoRequired": "Part number is required.",
+          "descriptionRequired": "Description is required.",
+          "quantityMin": "Quantity must be at least 0.01."
+        },
+        "toast": {
+          "submitted": "Part request submitted",
+          "failed": "Failed to request part"
+        }
+      },
+      "finding": {
+        "toast": {
+          "notesSaveFailed": "Could not save diagnostic notes",
+          "sentToAdvisor": "Finding sent to the service advisor",
+          "sendFailed": "Could not send finding to the advisor"
+        }
+      },
+      "mediaToast": {
+        "unsupportedType": "Unsupported file type. Use JPEG, PNG, WebP, MP4, or MOV.",
+        "uploaded": "Media uploaded successfully",
+        "uploadFailed": "Upload failed"
       }
     }
   },
@@ -431,7 +470,28 @@
     "deleteTaskDescriptionGeneric": "Delete this task from the workshop order?",
     "cancel": "Cancel",
     "deleteTask": "Delete task",
-    "deleting": "Deleting..."
+    "deleting": "Deleting...",
+    "toast": {
+      "notesSaved": "Internal notes saved",
+      "notesSaveFailed": "Failed to save notes",
+      "reportedIssueSaved": "Reported issue saved",
+      "reportedIssueSaveFailed": "Failed to save reported issue",
+      "taskCreated": "Task created",
+      "taskCreateFailed": "Failed to create task",
+      "taskStatusUpdateFailed": "Failed to update task status",
+      "mechanicNotesUpdateFailed": "Failed to update mechanic notes",
+      "taskDeleted": "Task deleted",
+      "taskDeleteFailed": "Failed to delete task",
+      "jobCardPdfGenerating": "Generating Job Card PDF...",
+      "jobCardPdfQueued": "Job Card PDF generation has been queued in the background. It will be available shortly.",
+      "jobCardPdfDownloaded": "Job Card PDF downloaded successfully",
+      "jobCardPdfFailed": "Failed to generate PDF",
+      "technicianAssigned": "Technician assigned",
+      "technicianUnassigned": "Technician unassigned",
+      "technicianAssignFailed": "Failed to assign technician",
+      "vehicleIdentityResolved": "Vehicle identity resolved",
+      "vehicleIdentityResolveFailed": "Failed to resolve vehicle identity"
+    }
   },
   "estimateSend": {
     "title": "Send version {{version}} to customer?",
@@ -518,6 +578,16 @@
       "positionId": "Position ID",
       "attach": "Attach reference",
       "toastSaved": "Catalogue reference saved",
+      "errors": {
+        "NOT_CONFIGURED": "The official catalogue is not enabled for this tenant yet.",
+        "UNKNOWN_CODE": "The selected catalogue code is unknown.",
+        "STALE_CATALOG": "The catalogue version is outdated and must be reviewed again.",
+        "OUT_OF_SCOPE": "No verified application scope exists for this vehicle.",
+        "SOURCE_CONFLICT": "Multiple catalogue versions overlap. Manual clarification required.",
+        "REVIEW_REQUIRED": "The preview expired or changed. Please review again.",
+        "UNSUPPORTED_SCHEMA_VERSION": "This catalogue format is not supported.",
+        "generic": "The catalogue reference could not be processed. Please try again."
+      },
       "resolution": {
         "RESOLVED": "Resolved",
         "UNKNOWN_CODE": "Unknown code",
@@ -689,7 +759,16 @@
     "totalDiscounts": "Total discounts",
     "net": "Net",
     "vat": "VAT",
-    "total": "Total"
+    "total": "Total",
+    "lineMeta": "{{type}} • {{itemNo}}",
+    "missingItemNo": "N/A"
+  },
+  "taskLineItems": {
+    "toast": {
+      "conflictStale": "This order was updated by another user. Data was refreshed — please review and try again.",
+      "invalidLineItems": "Invalid line items. Check quantities and try again.",
+      "updateFailed": "Failed to update task line items"
+    }
   },
   "estimateDecision": {
     "advisorChannel": {
@@ -1029,7 +1108,13 @@
     "description": "Review discounts and issue the invoice without leaving this job.",
     "close": "Close Checkout",
     "openInvoice": "Open invoice",
-    "primaryAction": "Checkout"
+    "primaryAction": "Checkout",
+    "toast": {
+      "draftInvoiceCreated": "Draft invoice created ({{number}})",
+      "draftInvoiceFailed": "Failed to create draft invoice",
+      "invoiceIssued": "Invoice issued ({{number}})",
+      "invoiceIssueFailed": "Failed to issue invoice"
+    }
   },
   "orderIntake": {
     "title": "Create Workshop Order",
@@ -1073,7 +1158,8 @@
     "openOrderNumber": "Open {{orderNumber}}",
     "cancel": "Cancel",
     "creating": "Creating...",
-    "createPickerl": "§57a-Auftrag anlegen",
+    "createPickerl": "Create §57a order",
+    "pickerlNotesDefault": "§57a inspection",
     "createOrder": "Create Order",
     "toastSelectVehicle": "Select a vehicle linked to a customer.",
     "toastPickerlOpened": "§57a workshop order opened",
@@ -1094,7 +1180,8 @@
     "toastOrderCreated": "Workshop order created",
     "extractionFailed": "Extraction failed ({{code}}). Delete and try again with a new upload.",
     "unknown": "unknown",
-    "uploadFailed": "Upload failed"
+    "uploadFailed": "Upload failed",
+    "extractionFailedFallback": "Extraction failed"
   },
   "registrationReview": {
     "actionFailed": "Action failed",
