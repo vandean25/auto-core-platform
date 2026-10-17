@@ -3,6 +3,9 @@ import { describe, it, vi, beforeEach } from 'vitest'
 import { QuickRegisterDialog } from './QuickRegisterDialog'
 import * as workshopApi from '@/api/workshop'
 import { expectFieldErrorLinked, expectFieldValid } from '@/test/form-a11y'
+import { deWorkshop } from '@/test/de-workshop'
+
+const qr = deWorkshop.quickRegister
 
 vi.mock('@/api/workshop')
 vi.mock('sonner', () => ({
@@ -24,12 +27,12 @@ describe('QuickRegisterDialog', () => {
   it('links each required-field error to the input it describes', async () => {
     render(<QuickRegisterDialog open onOpenChange={vi.fn()} />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Register' }))
+    fireEvent.click(screen.getByRole('button', { name: qr.register }))
 
-    await screen.findAllByText('Required')
-    for (const label of ['VIN', 'Plate', 'Make', 'Model', 'First Name', 'Last Name']) {
-      expectFieldErrorLinked(screen.getByLabelText(label), 'Required')
+    await screen.findAllByText(qr.required)
+    for (const label of [qr.vin, qr.plate, qr.make, qr.model, qr.firstName, qr.lastName]) {
+      expectFieldErrorLinked(screen.getByLabelText(label), qr.required)
     }
-    expectFieldValid(screen.getByLabelText('Year'))
+    expectFieldValid(screen.getByLabelText(qr.year))
   })
 })

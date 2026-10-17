@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import WorkshopBoard from './WorkshopBoard'
 import { fetchWithAuth } from '@/api/client'
+import { deWorkshop } from '@/test/de-workshop'
 
 vi.mock('@/api/client', () => ({
   fetchWithAuth: vi.fn(),
@@ -104,7 +105,9 @@ describe('WorkshopBoard integration', () => {
       </QueryClientProvider>,
     )
 
-    const assignTrigger = await screen.findByRole('button', { name: 'Assign WO-2026-0001' })
+    const assignTrigger = await screen.findByRole('button', {
+      name: deWorkshop.orderCard.assignAria.replace('{{orderNumber}}', 'WO-2026-0001'),
+    })
     fireEvent.keyDown(assignTrigger, { key: 'Enter' })
     fireEvent.click(await screen.findByTestId('assign-mechanic-mech-2'))
 

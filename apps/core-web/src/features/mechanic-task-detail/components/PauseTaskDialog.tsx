@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -9,7 +10,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { PAUSE_REASON_LABELS } from '../constants'
+import { PAUSE_REASONS } from '../constants'
 import type { PauseReason } from '../types'
 
 type PauseTaskDialogProps = {
@@ -29,16 +30,19 @@ export function PauseTaskDialog({
   onSelectReason,
   onConfirm,
 }: PauseTaskDialogProps) {
+  const { t } = useTranslation('workshop')
+  const reasonLabel = (reason: PauseReason) => t(`mechanic.taskDetail.pause.reasons.${reason}`)
+
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Pause Task</AlertDialogTitle>
-          <AlertDialogDescription>Select a reason for pausing this task.</AlertDialogDescription>
+          <AlertDialogTitle>{t('mechanic.taskDetail.pause.title')}</AlertDialogTitle>
+          <AlertDialogDescription>{t('mechanic.taskDetail.pause.description')}</AlertDialogDescription>
         </AlertDialogHeader>
 
         <div className="flex flex-col gap-2 py-2">
-          {(Object.entries(PAUSE_REASON_LABELS) as [PauseReason, string][]).map(([value, label]) => (
+          {PAUSE_REASONS.map((value) => (
             <button
               key={value}
               type="button"
@@ -49,21 +53,21 @@ export function PauseTaskDialog({
                   : 'border-slate-200 bg-white hover:bg-slate-50'
               }`}
             >
-              {label}
+              {reasonLabel(value)}
             </button>
           ))}
         </div>
 
         <div className="flex items-center gap-2 mt-1">
           <Badge variant="outline" className="text-xs text-slate-500">
-            Selected: {PAUSE_REASON_LABELS[selectedReason]}
+            {t('mechanic.taskDetail.pause.selected', { label: reasonLabel(selectedReason) })}
           </Badge>
         </div>
 
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel>{t('actions.cancel')}</AlertDialogCancel>
           <Button onClick={onConfirm} disabled={pending}>
-            Confirm Pause
+            {t('mechanic.taskDetail.pause.confirm')}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

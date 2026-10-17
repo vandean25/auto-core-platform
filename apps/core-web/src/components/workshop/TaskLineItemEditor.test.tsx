@@ -2,7 +2,11 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as workshopApi from '@/api/workshop'
 import * as laborApi from '@/api/labor'
-import { changeUiLanguage, initI18n } from '@/lib/i18n'
+import { changeUiLanguage, initI18n, i18n } from '@/lib/i18n'
+import { formatNumber } from '@/lib/format'
+import { deWorkshop } from '@/test/de-workshop'
+
+const tle = deWorkshop.taskLineEditor
 import { TaskLineItemEditor } from './TaskLineItemEditor'
 
 vi.mock('@/api/workshop')
@@ -70,7 +74,7 @@ describe('TaskLineItemEditor labor metadata', () => {
       />,
     )
 
-    const searchInput = screen.getByPlaceholderText('Search labor or part number...')
+    const searchInput = screen.getByPlaceholderText(tle.searchPlaceholder)
     fireEvent.change(searchInput, { target: { value: 'oil' } })
 
     act(() => {
@@ -105,9 +109,25 @@ describe('TaskLineItemEditor labor metadata', () => {
       />,
     )
 
-    expect(screen.getByText(/Standard AW\s+1\.50/i)).toBeInTheDocument()
-    expect(screen.getByLabelText('Actual Hours')).toBeInTheDocument()
-    expect(screen.getByText(/Efficiency\s+0\.75x/i)).toBeInTheDocument()
+    const hoursFormatted = formatNumber(1.5, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
+    const ratioFormatted = formatNumber(0.75, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
+    expect(
+      screen.getByText(
+        i18n.t('taskLineEditor.standardAw', { ns: 'workshop', hours: hoursFormatted }),
+      ),
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText(tle.actualHoursAria)).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        i18n.t('taskLineEditor.efficiency', { ns: 'workshop', ratio: ratioFormatted }),
+      ),
+    ).toBeInTheDocument()
   })
 
   it('includes FEE lines in the task total footer', async () => {

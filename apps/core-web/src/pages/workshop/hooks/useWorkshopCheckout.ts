@@ -22,6 +22,7 @@ import {
 } from './useWorkshopCalculations'
 import type { DiscountState } from './useWorkshopCalculations'
 import type { CheckoutFooterProps } from '../components/CheckoutFooter'
+import { i18n } from '@/lib/i18n'
 import { getErrorMessage } from '../utils/error'
 
 export interface CheckoutLineRow {
@@ -94,8 +95,8 @@ export function getCheckoutCapabilities(params: {
   const isInvoicedWithLinkedInvoice =
     params.orderStatus === 'INVOICED' && !!params.activeInvoiceId
   const primaryCheckoutActionLabel = isInvoicedWithLinkedInvoice
-    ? 'Open Invoice'
-    : 'Checkout'
+    ? i18n.t('checkout.openInvoice', { ns: 'workshop' })
+    : i18n.t('checkout.primaryAction', { ns: 'workshop' })
 
   return {
     canCreateDraftInCheckout,
@@ -166,10 +167,17 @@ export async function executeCreateDraftInvoice(
 ): Promise<string | null> {
   try {
     const invoice = await createDraftInvoice.mutateAsync(orderId)
-    toast.success(`Draft invoice created (${invoice.invoice_number || invoice.id})`)
+    toast.success(
+      i18n.t('checkout.toast.draftInvoiceCreated', {
+        ns: 'workshop',
+        number: invoice.invoice_number || invoice.id,
+      }),
+    )
     return invoice.id
   } catch (error: unknown) {
-    toast.error(getErrorMessage(error, 'Failed to create draft invoice'))
+    toast.error(
+      getErrorMessage(error, i18n.t('checkout.toast.draftInvoiceFailed', { ns: 'workshop' })),
+    )
     return null
   }
 }
@@ -212,9 +220,16 @@ export async function executeIssueInvoiceWithDiscounts(params: {
     }
 
     const invoice = await issueInvoice.mutateAsync(activeInvoiceId)
-    toast.success(`Invoice issued (${invoice.invoice_number || invoice.id})`)
+    toast.success(
+      i18n.t('checkout.toast.invoiceIssued', {
+        ns: 'workshop',
+        number: invoice.invoice_number || invoice.id,
+      }),
+    )
   } catch (error: unknown) {
-    toast.error(getErrorMessage(error, 'Failed to issue invoice'))
+    toast.error(
+      getErrorMessage(error, i18n.t('checkout.toast.invoiceIssueFailed', { ns: 'workshop' })),
+    )
   }
 }
 

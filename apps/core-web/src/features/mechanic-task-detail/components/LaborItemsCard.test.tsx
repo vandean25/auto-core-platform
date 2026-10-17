@@ -1,9 +1,12 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import type { MechanicTaskDetail } from '@/api/mechanic'
+import { deWorkshop } from '@/test/de-workshop'
 import { LaborItemsCard } from './LaborItemsCard'
 
 type LaborLine = MechanicTaskDetail['lineItems'][number]
+
+const labor = deWorkshop.mechanic.taskDetail.labor
 
 describe('LaborItemsCard', () => {
   it('uses the canonical Labor heading', () => {
@@ -19,9 +22,9 @@ describe('LaborItemsCard', () => {
 
     render(<LaborItemsCard laborItems={laborItems} />)
 
-    expect(screen.getByText('Labor', { selector: 'h2' })).toBeInTheDocument()
+    expect(screen.getByText(labor.title, { selector: 'h2' })).toBeInTheDocument()
     expect(screen.getByText('ENG-001 · Engine diagnostic')).toBeInTheDocument()
-    expect(screen.getByText('1 hr')).toBeInTheDocument()
+    expect(screen.getByText(labor.hours_one.replace('{{count}}', '1'))).toBeInTheDocument()
     expect(screen.queryByText('Labour', { selector: 'h2' })).not.toBeInTheDocument()
   })
 
@@ -39,6 +42,6 @@ describe('LaborItemsCard', () => {
     render(<LaborItemsCard laborItems={laborItems} />)
 
     expect(screen.getByText('General labor')).toBeInTheDocument()
-    expect(screen.getByText('2 hrs')).toBeInTheDocument()
+    expect(screen.getByText(labor.hours_other.replace('{{count}}', '2'))).toBeInTheDocument()
   })
 })

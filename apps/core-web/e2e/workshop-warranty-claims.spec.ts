@@ -1,7 +1,10 @@
 import { expect, test } from '@playwright/test'
 import { expectNoCriticalA11yViolations } from './utils/a11y'
 import { AutoCorePage } from './pom/AutoCorePage'
+import { DE_WORKSHOP } from './helpers/de-workshop'
 import { createMockWorkshopOrder } from './utils/mock-factories'
+
+const W = DE_WORKSHOP.warranty
 
 const ORDER_ID = 'ws-warranty-claims-1'
 
@@ -74,14 +77,18 @@ test.describe('Garantie/Kulanz claims on a workshop order', () => {
     )
 
     await corePage.navigate(`/workshop/orders/${ORDER_ID}`)
-    await page.getByRole('link', { name: 'Garantie/Kulanz' }).click()
+    await page.getByRole('link', { name: W.claimsPage.title }).click()
 
     await page.waitForURL(`/workshop/orders/${ORDER_ID}/garantie-kulanz`)
-    await expect(page.getByRole('heading', { name: 'Garantie/Kulanz' })).toBeVisible()
-    await expect(page.getByRole('list', { name: 'Warranty claims' })).toContainText('Kulanz')
-    await expect(page.getByRole('heading', { name: 'Kulanz claim' })).toBeVisible()
-    await expect(page.getByLabel('Complaint')).toBeDisabled()
-    await expect(page.getByLabel('Reference at the OEM')).toHaveValue('OEM-REF-0042')
+    await expect(page.getByRole('heading', { name: W.claimsPage.title })).toBeVisible()
+    await expect(page.getByRole('list', { name: W.list.aria })).toContainText(W.type.KULANZ)
+    await expect(
+      page.getByRole('heading', {
+        name: W.editor.heading.replace('{{type}}', W.type.KULANZ),
+      }),
+    ).toBeVisible()
+    await expect(page.getByLabel(W.editor.complaint)).toBeDisabled()
+    await expect(page.getByLabel(W.editor.oemReference)).toHaveValue('OEM-REF-0042')
     await expectNoCriticalA11yViolations(page)
   })
 
@@ -127,12 +134,16 @@ test.describe('Garantie/Kulanz claims on a workshop order', () => {
     )
 
     await corePage.navigate(`/workshop/orders/${ORDER_ID}/garantie-kulanz`)
-    await expect(page.getByText('No warranty or goodwill claims on this order yet.')).toBeVisible()
-    await page.getByRole('button', { name: 'Warranty Claim' }).click()
+    await expect(page.getByText(W.list.empty)).toBeVisible()
+    await page.getByRole('button', { name: W.claimsPage.create }).click()
 
-    await expect(page.getByRole('heading', { name: 'Garantie claim' })).toBeVisible()
+    await expect(
+      page.getByRole('heading', {
+        name: W.editor.heading.replace('{{type}}', W.type.GARANTIE),
+      }),
+    ).toBeVisible()
     expect(posted).toEqual({ type: 'GARANTIE' })
-    await expect(page.getByLabel('Complaint')).toBeEnabled()
+    await expect(page.getByLabel(W.editor.complaint)).toBeEnabled()
     await expectNoCriticalA11yViolations(page)
   })
 })

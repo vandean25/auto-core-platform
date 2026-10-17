@@ -1,5 +1,8 @@
 import { test, expect, type Page } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
+import { DE_WORKSHOP } from './helpers/de-workshop';
+
+const PICK = DE_WORKSHOP.pick;
 import {
   createMockListResponse,
   createMockStorageLocation,
@@ -151,19 +154,19 @@ test.describe('Parts pick queue — Smoke Tests (seed-based)', () => {
     await corePage.navigate('/workshop/pick-list');
 
     await expect(
-      page.getByRole('heading', { name: 'Parts pick queue', exact: true }),
+      page.getByRole('heading', { name: PICK.queue.title, exact: true }),
     ).toBeVisible();
 
-    const searchInput = page.getByPlaceholder('Search parts pick queue...');
+    const searchInput = page.getByPlaceholder(PICK.queue.searchPlaceholder);
     await searchInput.fill(seededOrder.orderNumber);
 
     await corePage.openRowDetails(seededOrder.orderNumber);
 
-    await expect(page.getByRole('heading', { name: 'Pick Parts', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: PICK.drawer.title, exact: true })).toBeVisible();
     await expect(
       page
         .locator('[data-pick-drawer-header="true"]')
-        .getByRole('button', { name: 'Confirm Pick', exact: true }),
+        .getByRole('button', { name: PICK.drawer.confirm, exact: true }),
     ).toBeVisible();
   });
 });
@@ -176,15 +179,15 @@ test.describe('Parts pick queue — Entry From Workshop Orders (mocked)', () => 
 
     await page.goto('/workshop/orders');
     await page.waitForLoadState('networkidle');
-    const pickQueueButton = page.getByRole('button', { name: 'Parts pick queue', exact: true });
+    const pickQueueButton = page.getByRole('button', { name: PICK.queue.title, exact: true });
     await pickQueueButton.focus();
-    await expect(page.getByRole('tooltip')).toHaveText('Parts to pick for open workshop orders');
+    await expect(page.getByRole('tooltip')).toHaveText(DE_WORKSHOP.orders.list.partsPickHint);
 
     await page.keyboard.press('Enter');
 
     await expect(page).toHaveURL(/\/workshop\/pick-list$/);
-    await expect(page.getByRole('heading', { name: 'Parts pick queue', exact: true })).toBeVisible();
-    await expect(page.getByPlaceholder('Search parts pick queue...')).toBeVisible();
+    await expect(page.getByRole('heading', { name: PICK.queue.title, exact: true })).toBeVisible();
+    await expect(page.getByPlaceholder(PICK.queue.searchPlaceholder)).toBeVisible();
   });
 });
 
@@ -226,17 +229,19 @@ test.describe('Parts pick queue — Blueprint Validation (mocked)', () => {
     await expect(page.getByRole('cell', { name: mockedOrder.order_number }).first()).toBeVisible();
     await page.getByRole('cell', { name: mockedOrder.order_number }).first().click();
 
-    const quantityInput = page.getByLabel('Quantity for Oil Filter (06J-115-403-Q)');
+    const quantityInput = page.getByLabel(
+      PICK.drawer.qtyAria.replace('{{description}}', 'Oil Filter').replace('{{itemNo}}', '06J-115-403-Q'),
+    );
     await expect(quantityInput).toHaveValue('2');
 
     await quantityInput.fill('1');
-    await page.getByRole('button', { name: 'Pick All', exact: true }).click();
+    await page.getByRole('button', { name: PICK.drawer.pickAll, exact: true }).click();
     await expect(quantityInput).toHaveValue('2');
 
     await expect(
       page
         .locator('[data-pick-drawer-header="true"]')
-        .getByRole('button', { name: 'Confirm Pick', exact: true }),
+        .getByRole('button', { name: PICK.drawer.confirm, exact: true }),
     ).toBeVisible();
   });
 
@@ -291,23 +296,27 @@ test.describe('Parts pick queue — Blueprint Validation (mocked)', () => {
 
     await page.getByRole('cell', { name: mockedOrder.order_number }).first().click();
 
-    await page.getByRole('dialog', { name: 'Pick Parts' }).locator('[role="combobox"]').click();
+    await page.getByRole('dialog', { name: PICK.drawer.title }).locator('[role="combobox"]').click();
     await page.getByRole('option', { name: /TOTE-001 - Staging Tote 001/i }).click();
 
     const confirmPickButton = page
       .locator('[data-pick-drawer-header="true"]')
-      .getByRole('button', { name: 'Confirm Pick', exact: true });
+      .getByRole('button', { name: PICK.drawer.confirm, exact: true });
 
     await confirmPickButton.click();
     await expect(
-      page.getByText('This order was updated by another user. Data was refreshed.'),
+      page.getByText(PICK.drawer.conflict),
     ).toBeVisible();
 
     // Keep the user-entered values after conflict for correction/retry.
-    await expect(page.getByLabel('Quantity for Oil Filter (06J-115-403-Q)')).toHaveValue('2');
+    await expect(
+      page.getByLabel(
+        PICK.drawer.qtyAria.replace('{{description}}', 'Oil Filter').replace('{{itemNo}}', '06J-115-403-Q'),
+      ),
+    ).toHaveValue('2');
 
     await confirmPickButton.click();
-    await expect(page.getByText('Parts picked and staged successfully.')).toBeVisible();
+    await expect(page.getByText(PICK.drawer.success)).toBeVisible();
 
     await expect(requestCount).toBe(2);
     expect(requestBodies[0]).toEqual({
@@ -348,17 +357,17 @@ test.describe('Parts pick queue — Blueprint Validation (mocked)', () => {
     await page.waitForLoadState('networkidle');
 
     await page.getByRole('cell', { name: mockedOrder.order_number }).first().click();
-    await page.getByRole('dialog', { name: 'Pick Parts' }).locator('[role="combobox"]').click();
+    await page.getByRole('dialog', { name: PICK.drawer.title }).locator('[role="combobox"]').click();
     await page.getByRole('option', { name: /TOTE-001 - Staging Tote 001/i }).click();
 
     const confirmPickButton = page
       .locator('[data-pick-drawer-header="true"]')
-      .getByRole('button', { name: 'Confirm Pick', exact: true });
+      .getByRole('button', { name: PICK.drawer.confirm, exact: true });
 
     await confirmPickButton.click();
     await expect(confirmPickButton).toBeDisabled();
 
-    await expect(page.getByText('Parts picked and staged successfully.')).toBeVisible();
+    await expect(page.getByText(PICK.drawer.success)).toBeVisible();
     expect(requestCount).toBe(1);
   });
 });

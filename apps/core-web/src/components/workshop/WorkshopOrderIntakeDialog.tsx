@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { Customer, Vehicle, WorkshopSearchResponse } from '@/api/types'
 import { useCreateWorkshopOrder, useRegisterIntake, useWorkshopSearch } from '@/api/workshop'
 import { useVehicle } from '@/api/vehicles'
@@ -31,6 +32,8 @@ import type {
   NewVehicleForm,
 } from '@/features/workshop/intake-form'
 import { getErrorMessage } from '@/lib/error-utils'
+import { ensureNamespaceLoaded, i18n } from '@/lib/i18n'
+import { PageLoader } from '@/components/ui/PageLoader'
 import { RegistrationDocumentIntakeStep } from './RegistrationDocumentIntakeStep'
 
 type ExistingVehicle = Vehicle & { customer: Customer | null }
@@ -49,6 +52,10 @@ export function WorkshopOrderIntakeDialog({
   initialVehicleId,
   pickerlMode = false,
 }: WorkshopOrderIntakeDialogProps) {
+  const { t } = useTranslation('workshop')
+  const [workshopNamespaceReady, setWorkshopNamespaceReady] = useState(() =>
+    i18n.hasResourceBundle(i18n.language, 'workshop'),
+  )
   const navigate = useNavigate()
   const createOrder = useCreateWorkshopOrder()
   const registerIntake = useRegisterIntake()
@@ -72,12 +79,17 @@ export function WorkshopOrderIntakeDialog({
   const initialVehicleQuery = useVehicle<ExistingVehicle>(initialVehicleId ?? '')
 
   useEffect(() => {
+    if (!open || workshopNamespaceReady) return
+    void ensureNamespaceLoaded('workshop').then(() => setWorkshopNamespaceReady(true))
+  }, [open, workshopNamespaceReady])
+
+  useEffect(() => {
     if (!open || !initialVehicleQuery.data) return
     setActiveTab('existing')
     setSelectedVehicle(initialVehicleQuery.data)
     setSearch(initialVehicleQuery.data.plate ?? '')
-    setNotes(pickerlMode ? '§57a Begutachtung' : '')
-  }, [open, initialVehicleQuery.data, pickerlMode])
+    setNotes(pickerlMode ? t('orderIntake.pickerlNotesDefault') : '')
+  }, [open, initialVehicleQuery.data, pickerlMode, t])
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 250)
@@ -130,7 +142,7 @@ export function WorkshopOrderIntakeDialog({
     try {
       if (activeTab === 'existing') {
         if (!selectedVehicle?.customer?.id) {
-          toast.error('Select a vehicle linked to a customer.')
+          toast.error(t('orderIntake.toastSelectVehicle'))
           return
         }
 
@@ -143,18 +155,21 @@ export function WorkshopOrderIntakeDialog({
           reportedIssue: notes || undefined,
           ...(pickerlMode ? { createPickerlTask: true } : {}),
         })
-        openCreatedOrder(order.id, pickerlMode ? '§57a workshop order opened' : 'Workshop order created')
+        openCreatedOrder(
+          order.id,
+          pickerlMode ? t('orderIntake.toastPickerlOpened') : t('orderIntake.toastOrderCreated'),
+        )
         return
       }
 
       if (customerMode === 'existing' && !selectedCustomer?.id) {
-        toast.error('Select an existing customer.')
+        toast.error(t('orderIntake.toastSelectCustomer'))
         return
       }
       const registerPayload = buildRegisterPayload(newVehicle, newCustomer, customerMode, selectedCustomer?.id)
       const vehicle = (await registerIntake.mutateAsync(registerPayload)) as ExistingVehicle
       if (!vehicle.customer?.id) {
-        toast.error('Vehicle was created but no customer was linked.')
+        toast.error(t('orderIntake.toastNoCustomerLinked'))
         return
       }
 
@@ -166,14 +181,14 @@ export function WorkshopOrderIntakeDialog({
         fuelLevel: Number(fuelLevel),
         reportedIssue: notes || undefined,
       })
-      openCreatedOrder(order.id, 'Workshop order created')
+      openCreatedOrder(order.id, t('orderIntake.toastOrderCreated'))
     } catch (error) {
       const conflict = conflictFromError(error, { vehicleId: orderVehicleId, tab: activeTab, formSignature })
       if (conflict && attempt === attemptRef.current) {
         setExistingOrderConflict(conflict)
         return
       }
-      toast.error(getErrorMessage(error, 'Failed to create workshop order'))
+      toast.error(getErrorMessage(error, t('orderIntake.toastCreateFailed')))
     }
   }
 
@@ -197,12 +212,14 @@ export function WorkshopOrderIntakeDialog({
   return (
     <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogContent className="sm:max-w-4xl">
+        {open && !workshopNamespaceReady ? (
+          <PageLoader />
+        ) : (
+          <>
         <DialogHeader>
-          <DialogTitle>Create Workshop Order</DialogTitle>
+          <DialogTitle>{t('orderIntake.title')}</DialogTitle>
           <DialogDescription>
-            {pickerlMode
-              ? 'Create a §57a workshop order for the selected vehicle.'
-              : 'Search for an existing vehicle or register a new vehicle before creating the workshop order.'}
+            {pickerlMode ? t('orderIntake.descriptionPickerl') : t('orderIntake.description')}
           </DialogDescription>
         </DialogHeader>
 
@@ -210,9 +227,9 @@ export function WorkshopOrderIntakeDialog({
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as IntakeTab)}>
             {!pickerlMode ? (
               <TabsList>
-                <TabsTrigger value="existing">Search Existing</TabsTrigger>
-                <TabsTrigger value="new-vehicle">Create Vehicle</TabsTrigger>
-                <TabsTrigger value="registration-document">Zulassungsschein</TabsTrigger>
+                <TabsTrigger value="existing">{t('orderIntake.tabExisting')}</TabsTrigger>
+                <TabsTrigger value="new-vehicle">{t('orderIntake.tabNewVehicle')}</TabsTrigger>
+                <TabsTrigger value="registration-document">{t('orderIntake.tabRegistration')}</TabsTrigger>
               </TabsList>
             ) : null}
 
@@ -220,16 +237,16 @@ export function WorkshopOrderIntakeDialog({
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search VIN, plate, customer name, phone..."
+                placeholder={t('orderIntake.searchPlaceholder')}
               />
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div className="border rounded-lg">
-                  <div className="px-3 py-2 border-b text-sm font-medium">Vehicles</div>
+                  <div className="px-3 py-2 border-b text-sm font-medium">{t('orderIntake.vehicles')}</div>
                   <div className="max-h-56 overflow-auto">
-                    {isLoading && <div className="p-3 text-sm text-muted-foreground">Searching...</div>}
+                    {isLoading && <div className="p-3 text-sm text-muted-foreground">{t('orderIntake.searching')}</div>}
                     {!isLoading && vehicles.length === 0 && (
-                      <div className="p-3 text-sm text-muted-foreground">No vehicles found.</div>
+                      <div className="p-3 text-sm text-muted-foreground">{t('orderIntake.noVehicles')}</div>
                     )}
                     {vehicles.map((vehicle) => (
                       <button
@@ -244,10 +261,17 @@ export function WorkshopOrderIntakeDialog({
                           {vehicle.year} {vehicle.make} {vehicle.model}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          VIN: {vehicle.vin || 'N/A'} · Plate: {vehicle.plate || 'N/A'}
+                          {t('orderIntake.vehicleMeta', {
+                            vin: vehicle.vin || t('orderIntake.na'),
+                            plate: vehicle.plate || t('orderIntake.na'),
+                          })}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          Customer: {vehicle.customer ? `${vehicle.customer.first_name} ${vehicle.customer.last_name}` : 'Unassigned'}
+                          {t('orderIntake.customerLabel', {
+                            name: vehicle.customer
+                              ? `${vehicle.customer.first_name} ${vehicle.customer.last_name}`
+                              : t('orderIntake.unassigned'),
+                          })}
                         </div>
                       </button>
                     ))}
@@ -255,24 +279,28 @@ export function WorkshopOrderIntakeDialog({
                 </div>
 
                 <div className="border rounded-lg p-3 space-y-2">
-                  <div className="text-sm font-medium">Selected Vehicle</div>
+                  <div className="text-sm font-medium">{t('orderIntake.selectedVehicle')}</div>
                   {selectedVehicle ? (
                     <>
                       <div className="text-sm">
                         {selectedVehicle.year} {selectedVehicle.make} {selectedVehicle.model}
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        VIN: {selectedVehicle.vin || 'N/A'} · Plate: {selectedVehicle.plate || 'N/A'}
+                        {t('orderIntake.vehicleMeta', {
+                          vin: selectedVehicle.vin || t('orderIntake.na'),
+                          plate: selectedVehicle.plate || t('orderIntake.na'),
+                        })}
                       </div>
                       <div className="text-sm">
-                        Customer:{' '}
-                        {selectedVehicle.customer
-                          ? `${selectedVehicle.customer.first_name} ${selectedVehicle.customer.last_name}`
-                          : 'No linked customer'}
+                        {t('orderIntake.customerLabel', {
+                          name: selectedVehicle.customer
+                            ? `${selectedVehicle.customer.first_name} ${selectedVehicle.customer.last_name}`
+                            : t('orderIntake.noLinkedCustomer'),
+                        })}
                       </div>
                     </>
                   ) : (
-                    <div className="text-sm text-muted-foreground">Pick a vehicle from the list.</div>
+                    <div className="text-sm text-muted-foreground">{t('orderIntake.pickVehicle')}</div>
                   )}
                 </div>
               </div>
@@ -281,27 +309,27 @@ export function WorkshopOrderIntakeDialog({
             <TabsContent value="new-vehicle" className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <Input
-                  placeholder="VIN"
+                  placeholder={t('orderIntake.vinPlaceholder')}
                   value={newVehicle.vin}
                   onChange={(e) => setNewVehicle((v) => ({ ...v, vin: e.target.value }))}
                 />
                 <Input
-                  placeholder="Plate"
+                  placeholder={t('orderIntake.platePlaceholder')}
                   value={newVehicle.plate}
                   onChange={(e) => setNewVehicle((v) => ({ ...v, plate: e.target.value }))}
                 />
                 <Input
-                  placeholder="Make"
+                  placeholder={t('orderIntake.makePlaceholder')}
                   value={newVehicle.make}
                   onChange={(e) => setNewVehicle((v) => ({ ...v, make: e.target.value }))}
                 />
                 <Input
-                  placeholder="Model"
+                  placeholder={t('orderIntake.modelPlaceholder')}
                   value={newVehicle.model}
                   onChange={(e) => setNewVehicle((v) => ({ ...v, model: e.target.value }))}
                 />
                 <Input
-                  placeholder="Year"
+                  placeholder={t('orderIntake.yearPlaceholder')}
                   type="number"
                   value={newVehicle.year}
                   onChange={(e) => setNewVehicle((v) => ({ ...v, year: e.target.value }))}
@@ -309,7 +337,7 @@ export function WorkshopOrderIntakeDialog({
               </div>
 
               <div className="border rounded-lg p-3 space-y-3">
-                <div className="text-sm font-medium">Customer</div>
+                <div className="text-sm font-medium">{t('orderIntake.customerSection')}</div>
                 <div className="flex gap-2">
                   <Button
                     type="button"
@@ -317,7 +345,7 @@ export function WorkshopOrderIntakeDialog({
                     size="sm"
                     onClick={() => setCustomerMode('existing')}
                   >
-                    Select Existing
+                    {t('orderIntake.selectExisting')}
                   </Button>
                   <Button
                     type="button"
@@ -325,7 +353,7 @@ export function WorkshopOrderIntakeDialog({
                     size="sm"
                     onClick={() => setCustomerMode('new')}
                   >
-                    Create New
+                    {t('orderIntake.createNew')}
                   </Button>
                 </div>
 
@@ -334,11 +362,11 @@ export function WorkshopOrderIntakeDialog({
                     <Input
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
-                      placeholder="Search customers by name, phone..."
+                      placeholder={t('orderIntake.searchCustomersPlaceholder')}
                     />
                     <div className="border rounded-md max-h-44 overflow-auto">
                       {customers.length === 0 && (
-                        <div className="p-3 text-sm text-muted-foreground">No customers found.</div>
+                        <div className="p-3 text-sm text-muted-foreground">{t('orderIntake.noCustomers')}</div>
                       )}
                       {customers.map((customer) => (
                         <button
@@ -353,7 +381,7 @@ export function WorkshopOrderIntakeDialog({
                             {customer.first_name} {customer.last_name}
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            {customer.email || 'No email'} · {customer.phone || 'No phone'}
+                            {customer.email || t('orderIntake.noEmail')} · {customer.phone || t('orderIntake.noPhone')}
                           </div>
                         </button>
                       ))}
@@ -362,23 +390,23 @@ export function WorkshopOrderIntakeDialog({
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <Input
-                      placeholder="First Name"
+                      placeholder={t('orderIntake.firstName')}
                       value={newCustomer.firstName}
                       onChange={(e) => setNewCustomer((v) => ({ ...v, firstName: e.target.value }))}
                     />
                     <Input
-                      placeholder="Last Name"
+                      placeholder={t('orderIntake.lastName')}
                       value={newCustomer.lastName}
                       onChange={(e) => setNewCustomer((v) => ({ ...v, lastName: e.target.value }))}
                     />
                     <Input
-                      placeholder="Email"
+                      placeholder={t('orderIntake.email')}
                       type="email"
                       value={newCustomer.email}
                       onChange={(e) => setNewCustomer((v) => ({ ...v, email: e.target.value }))}
                     />
                     <Input
-                      placeholder="Phone"
+                      placeholder={t('orderIntake.phone')}
                       value={newCustomer.phone}
                       onChange={(e) => setNewCustomer((v) => ({ ...v, phone: e.target.value }))}
                     />
@@ -388,10 +416,7 @@ export function WorkshopOrderIntakeDialog({
             </TabsContent>
 
             <TabsContent value="registration-document" className="space-y-3">
-              <p className="text-sm text-muted-foreground">
-                Upload an Austrian Zulassungsschein (front and optional back). Review extracted
-                fields, confirm identity, then create the workshop order on the captured site.
-              </p>
+              <p className="text-sm text-muted-foreground">{t('orderIntake.registrationHint')}</p>
               <RegistrationDocumentIntakeStep
                 odometer={odometer}
                 fuelLevel={fuelLevel}
@@ -405,16 +430,16 @@ export function WorkshopOrderIntakeDialog({
           </Tabs>
 
           <div className="border rounded-lg p-3 space-y-3">
-            <div className="text-sm font-medium">Order Intake</div>
+            <div className="text-sm font-medium">{t('orderIntake.orderIntakeSection')}</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Input
-                placeholder="Odometer (km)"
+                placeholder={t('orderIntake.odometerPlaceholder')}
                 type="number"
                 value={odometer}
                 onChange={(e) => setOdometer(e.target.value)}
               />
               <Input
-                placeholder="Fuel Level (%)"
+                placeholder={t('orderIntake.fuelPlaceholder')}
                 type="number"
                 value={fuelLevel}
                 onChange={(e) => setFuelLevel(e.target.value)}
@@ -422,7 +447,7 @@ export function WorkshopOrderIntakeDialog({
             </div>
             <textarea
               className="w-full min-h-20 rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              placeholder="Issue notes..."
+              placeholder={t('orderIntake.notesPlaceholder')}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />
@@ -438,7 +463,9 @@ export function WorkshopOrderIntakeDialog({
                   className="h-auto p-0"
                   onClick={() => handleOpenExistingOrder(activeConflict.orderId)}
                 >
-                  {activeConflict.orderNumber ? `Open ${activeConflict.orderNumber}` : 'Open existing order'}
+                  {activeConflict.orderNumber
+                    ? t('orderIntake.openOrderNumber', { orderNumber: activeConflict.orderNumber })
+                    : t('orderIntake.openExistingOrder')}
                 </Button>
               </AlertDescription>
             </Alert>
@@ -446,7 +473,7 @@ export function WorkshopOrderIntakeDialog({
 
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => handleDialogOpenChange(false)}>
-              Cancel
+              {t('orderIntake.cancel')}
             </Button>
             <Button
               type="button"
@@ -459,13 +486,15 @@ export function WorkshopOrderIntakeDialog({
               }
             >
               {createOrder.isPending || registerIntake.isPending
-                ? 'Creating...'
+                ? t('orderIntake.creating')
                 : pickerlMode
-                  ? '§57a-Auftrag anlegen'
-                  : 'Create Order'}
+                  ? t('orderIntake.createPickerl')
+                  : t('orderIntake.createOrder')}
             </Button>
           </div>
         </div>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   )

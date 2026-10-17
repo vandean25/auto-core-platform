@@ -8,32 +8,36 @@ import type {
   WorkshopTask,
 } from '@/api/types'
 import { formatCurrency } from '@/lib/format'
+import { i18n } from '@/lib/i18n'
 
-export const WARRANTY_CLAIM_TYPE_OPTIONS: ReadonlyArray<{ value: WarrantyClaimType; label: string }> = [
-  { value: 'GARANTIE', label: 'Garantie' },
-  { value: 'KULANZ', label: 'Kulanz' },
-  { value: 'GEWAEHRLEISTUNG', label: 'Gewährleistung' },
+export const WARRANTY_CLAIM_TYPES: WarrantyClaimType[] = ['GARANTIE', 'KULANZ', 'GEWAEHRLEISTUNG']
+
+export const WARRANTY_CLAIM_STATUS_FILTER_VALUES: ReadonlyArray<WarrantyClaimStatus | 'all'> = [
+  'all',
+  'DRAFT',
+  'SUBMITTED_EXTERNALLY',
+  'APPROVED',
+  'REJECTED',
+  'CLOSED',
 ]
 
-export const WARRANTY_CLAIM_STATUS_FILTER_OPTIONS: ReadonlyArray<{
-  value: WarrantyClaimStatus | 'all'
-  label: string
-}> = [
-  { value: 'all', label: 'All statuses' },
-  { value: 'DRAFT', label: 'Draft' },
-  { value: 'SUBMITTED_EXTERNALLY', label: 'Submitted externally' },
-  { value: 'APPROVED', label: 'Approved' },
-  { value: 'REJECTED', label: 'Rejected' },
-  { value: 'CLOSED', label: 'Closed' },
-]
+export function warrantyClaimTypeOptions() {
+  return WARRANTY_CLAIM_TYPES.map((value) => ({
+    value,
+    label: i18n.t(`warranty.type.${value}`, { ns: 'workshop' }),
+  }))
+}
+
+export function warrantyClaimStatusFilterOptions() {
+  return WARRANTY_CLAIM_STATUS_FILTER_VALUES.map((value) => ({
+    value,
+    label: i18n.t(`warranty.statusFilter.${value}`, { ns: 'workshop' }),
+  }))
+}
 
 /** Same look as the other multi-line inputs in the workshop UI. */
 export const TEXTAREA_CLASS_NAME =
   'flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50'
-
-const TYPE_LABELS: Record<WarrantyClaimType, string> = Object.fromEntries(
-  WARRANTY_CLAIM_TYPE_OPTIONS.map((option) => [option.value, option.label]),
-) as Record<WarrantyClaimType, string>
 
 const TYPE_FILE_SLUGS: Record<WarrantyClaimType, string> = {
   GARANTIE: 'garantie',
@@ -59,7 +63,7 @@ export function availableStatusChanges(
 }
 
 export function warrantyClaimTypeLabel(type: WarrantyClaimType): string {
-  return TYPE_LABELS[type]
+  return i18n.t(`warranty.type.${type}`, { ns: 'workshop' })
 }
 
 /** Only DRAFT content is editable. Reference and decision fields stay editable until CLOSED. */

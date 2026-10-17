@@ -1,5 +1,6 @@
 import { ArrowLeft, Plus } from "lucide-react";
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import type { WarrantyClaimStatus } from "@/api/types";
@@ -11,7 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { WarrantyClaimEditor } from "@/features/workshop/warranty-claims/WarrantyClaimEditor";
 import { WarrantyClaimList } from "@/features/workshop/warranty-claims/WarrantyClaimList";
 import {
-  WARRANTY_CLAIM_STATUS_FILTER_OPTIONS,
+  WARRANTY_CLAIM_STATUS_FILTER_VALUES,
+  warrantyClaimStatusFilterOptions,
   linesClaimedElsewhere,
 } from "@/features/workshop/warranty-claims/warranty-claim-form";
 import { getErrorMessage } from "@/lib/error-utils";
@@ -20,6 +22,7 @@ const STATUS_PARAM = "status";
 const CLAIM_PARAM = "claim";
 
 export function WorkshopOrderWarrantyClaims() {
+  const { t } = useTranslation("workshop");
   const { id = "" } = useParams<{ id: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const orderQuery = useWorkshopOrder(id);
@@ -28,8 +31,9 @@ export function WorkshopOrderWarrantyClaims() {
   const createClaim = useCreateWarrantyClaim();
 
   const statusParam = searchParams.get(STATUS_PARAM);
-  const statusFilter: WarrantyClaimStatus | "all" = WARRANTY_CLAIM_STATUS_FILTER_OPTIONS.some(
-    (option) => option.value === statusParam,
+  const statusFilterOptions = warrantyClaimStatusFilterOptions();
+  const statusFilter: WarrantyClaimStatus | "all" = WARRANTY_CLAIM_STATUS_FILTER_VALUES.some(
+    (value) => value === statusParam,
   )
     ? (statusParam as WarrantyClaimStatus | "all")
     : "all";
@@ -42,7 +46,6 @@ export function WorkshopOrderWarrantyClaims() {
     visibleClaims.find((claim) => claim.id === requestedClaimId)?.id ?? visibleClaims[0]?.id ?? null;
   const activeClaimQuery = useWarrantyClaim(id, activeClaimId);
 
-  // A line can sit on one open claim at a time. Other open claims mark their lines as taken.
   const lineClaimedElsewhere = linesClaimedElsewhere(allClaims, activeClaimId);
 
   const updateSearchParams = (updates: Record<string, string | null>) => {
@@ -59,7 +62,6 @@ export function WorkshopOrderWarrantyClaims() {
     );
   };
 
-  // A create can finish after the advisor has left this page. Then it must not pull them back to it.
   const isMounted = useRef(true);
   useEffect(() => {
     isMounted.current = true;
@@ -71,30 +73,29 @@ export function WorkshopOrderWarrantyClaims() {
   const handleCreate = async () => {
     try {
       const created = await createClaim.mutateAsync({ orderId: id, payload: { type: "GARANTIE" } });
-      // Clears the status filter too, so the new draft is visible in the list.
       if (isMounted.current) {
         updateSearchParams({ [STATUS_PARAM]: null, [CLAIM_PARAM]: created.id });
       }
-      toast.success("Warranty claim created");
+      toast.success(t("warrantyClaimsPage.created"));
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, "Failed to create the warranty claim"));
+      toast.error(getErrorMessage(error, t("warrantyClaimsPage.createFailed")));
     }
   };
 
   if (orderQuery.isLoading) {
-    return <div className="p-8 text-center text-sm text-muted-foreground">Loading workshop order...</div>;
+    return <div className="p-8 text-center text-sm text-muted-foreground">{t("orderDetail.loading")}</div>;
   }
 
   if (!order) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base font-semibold">Workshop order not found</CardTitle>
+          <CardTitle className="text-base font-semibold">{t("orderDetail.notFoundTitle")}</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="mb-4 text-sm text-muted-foreground">The selected workshop order does not exist.</p>
+          <p className="mb-4 text-sm text-muted-foreground">{t("orderDetail.notFoundDescription")}</p>
           <Button asChild>
-            <Link to="/workshop/orders">Back to Workshop Orders</Link>
+            <Link to="/workshop/orders">{t("orderDetail.backToOrders")}</Link>
           </Button>
         </CardContent>
       </Card>
@@ -112,18 +113,20 @@ export function WorkshopOrderWarrantyClaims() {
             className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden />
-            Back to order
+            {t("warrantyClaimsPage.backToOrder")}
           </Link>
-          <h1 className="text-2xl font-semibold tracking-tight">Garantie/Kulanz</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{t("warrantyClaimsPage.title")}</h1>
           <p className="text-slate-500">
-            Order {order.order_number}
-            {vehicleName ? ` · ${vehicleName}` : ""}
+            {t("warrantyClaimsPage.orderMeta", {
+              orderNumber: order.order_number,
+              vehicle: vehicleName ? ` · ${vehicleName}` : "",
+            })}
           </p>
         </div>
         <div className="flex gap-2">
           <Button onClick={() => void handleCreate()} disabled={createClaim.isPending}>
             <Plus className="h-4 w-4" aria-hidden />
-            Warranty Claim
+            {t("warrantyClaimsPage.create")}
           </Button>
         </div>
       </div>
@@ -139,11 +142,11 @@ export function WorkshopOrderWarrantyClaims() {
               })
             }
           >
-            <SelectTrigger aria-label="Filter claims by status">
+            <SelectTrigger aria-label={t("warrantyClaimsPage.filterAria")}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {WARRANTY_CLAIM_STATUS_FILTER_OPTIONS.map((option) => (
+              {statusFilterOptions.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
                   {option.label}
                 </SelectItem>
@@ -153,10 +156,10 @@ export function WorkshopOrderWarrantyClaims() {
 
           {claimsQuery.isError ? (
             <p role="alert" className="text-sm text-red-600">
-              {getErrorMessage(claimsQuery.error, "Failed to load warranty claims")}
+              {getErrorMessage(claimsQuery.error, t("warrantyClaimsPage.loadError"))}
             </p>
           ) : claimsQuery.isLoading ? (
-            <p className="text-sm text-slate-500">Loading claims...</p>
+            <p className="text-sm text-slate-500">{t("warrantyClaimsPage.loading")}</p>
           ) : (
             <WarrantyClaimList
               claims={visibleClaims}
@@ -178,12 +181,12 @@ export function WorkshopOrderWarrantyClaims() {
             />
           ) : activeClaimQuery.isError ? (
             <p role="alert" className="text-sm text-red-600">
-              {getErrorMessage(activeClaimQuery.error, "Failed to load the warranty claim")}
+              {getErrorMessage(activeClaimQuery.error, t("warrantyClaimsPage.claimLoadError"))}
             </p>
           ) : (
             <Card>
               <CardContent className="p-6 text-sm text-slate-500">
-                Select a claim, or create one for this order.
+                {t("warrantyClaimsPage.selectOrCreate")}
               </CardContent>
             </Card>
           )}

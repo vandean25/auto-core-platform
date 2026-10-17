@@ -7,6 +7,7 @@ import * as mechanicApi from '@/api/mechanic'
 import { toast } from 'sonner'
 import { formatOdometerKm } from '@/lib/format'
 import MechanicTaskDetailPage from './MechanicTaskDetailPage'
+import { changeUiLanguage } from '@/lib/i18n'
 
 vi.mock('@/api/mechanic')
 vi.mock('sonner', () => ({
@@ -179,7 +180,8 @@ function renderDetailPage(
 // ─── Test Suite ───────────────────────────────────────────────────────────────
 
 describe('MechanicTaskDetailPage', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await changeUiLanguage('en')
     vi.clearAllMocks()
     asMock(mechanicApi.useUploadVoiceNote).mockReturnValue(createMutationMock())
   })

@@ -3,6 +3,7 @@ import type {
   CatalogSearchConcern,
   Vehicle,
 } from '@/api/types'
+import { i18n } from '@/lib/i18n'
 
 export interface CatalogSourceMetadata {
   concern: CatalogSearchConcern
@@ -37,12 +38,13 @@ export function toCatalogSourceMetadata(
 }
 
 export function getConcernLabel(concern: CatalogSearchConcern): string {
-  return concern === 'PARTS' ? 'Parts' : 'Labor'
+  return i18n.t(`catalog.concern.${concern}`, { ns: 'workshop' })
 }
 
 export function getOemConcernLabel(code: CatalogProviderOemConcern['code']): string {
-  if (code === 'STELLANTIS') return 'Stellantis'
-  if (code === 'MERCEDES') return 'Mercedes-Benz'
+  const key = `catalog.oem.${code}` as const
+  const translated = i18n.t(key, { ns: 'workshop', defaultValue: '' })
+  if (translated) return translated
   return code
 }
 
@@ -66,9 +68,9 @@ export function isVehicleIdentityStale(vehicle: Vehicle | undefined): boolean {
 }
 
 export function formatIdentityKeys(keys: Record<string, unknown> | null | undefined): string {
-  if (!keys) return 'No identity keys'
+  if (!keys) return i18n.t('catalog.identity.noKeys', { ns: 'workshop' })
   const entries = Object.entries(keys)
-  if (entries.length === 0) return 'No identity keys'
+  if (entries.length === 0) return i18n.t('catalog.identity.noKeys', { ns: 'workshop' })
   return entries
     .slice(0, 4)
     .map(([key, value]) => `${key}: ${String(value)}`)
@@ -83,24 +85,27 @@ export function getCatalogSourceBannerCopy(
 
   if (metadata.sourceUsed === 'OEM') {
     const concernSuffix = oemConcernCode
-      ? ` (${getOemConcernLabel(oemConcernCode)})`
+      ? i18n.t('catalog.banner.oemSuffix', {
+          ns: 'workshop',
+          label: getOemConcernLabel(oemConcernCode),
+        })
       : ''
-    return `${concernLabel}: OEM catalog${concernSuffix}`
+    return i18n.t('catalog.banner.oem', { ns: 'workshop', concern: concernLabel, suffix: concernSuffix })
   }
 
   if (metadata.fallbackReason === 'EMPTY') {
-    return `${concernLabel}: OEM returned no results — showing aftermarket catalog`
+    return i18n.t('catalog.banner.fallbackEmpty', { ns: 'workshop', concern: concernLabel })
   }
 
   if (metadata.fallbackReason === 'ERROR') {
-    return `${concernLabel}: OEM unavailable — showing aftermarket catalog`
+    return i18n.t('catalog.banner.fallbackError', { ns: 'workshop', concern: concernLabel })
   }
 
   if (metadata.oemStatus === 'NOT_CONFIGURED') {
-    return `${concernLabel}: No OEM catalog configured — showing aftermarket`
+    return i18n.t('catalog.banner.notConfigured', { ns: 'workshop', concern: concernLabel })
   }
 
-  return `${concernLabel}: Aftermarket catalog`
+  return i18n.t('catalog.banner.aftermarket', { ns: 'workshop', concern: concernLabel })
 }
 
 export function getFallbackDialogCopy(fallbackReason: 'EMPTY' | 'ERROR'): {
@@ -109,15 +114,13 @@ export function getFallbackDialogCopy(fallbackReason: 'EMPTY' | 'ERROR'): {
 } {
   if (fallbackReason === 'EMPTY') {
     return {
-      title: 'No OEM results',
-      description:
-        'The OEM catalog returned no matching parts or labor for this vehicle. Search aftermarket catalog instead?',
+      title: i18n.t('catalog.fallbackDialog.emptyTitle', { ns: 'workshop' }),
+      description: i18n.t('catalog.fallbackDialog.emptyDescription', { ns: 'workshop' }),
     }
   }
 
   return {
-    title: 'OEM catalog unavailable',
-    description:
-      'The OEM catalog is currently unavailable for this vehicle. Search aftermarket catalog instead?',
+    title: i18n.t('catalog.fallbackDialog.errorTitle', { ns: 'workshop' }),
+    description: i18n.t('catalog.fallbackDialog.errorDescription', { ns: 'workshop' }),
   }
 }

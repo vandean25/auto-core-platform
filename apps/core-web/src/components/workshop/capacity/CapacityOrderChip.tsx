@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import type { WorkshopCapacityOrder } from '@/api/workshop'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { formatChipTime, formatHours } from '@/features/workshop/capacity/capacity-format'
@@ -9,8 +10,11 @@ type CapacityOrderChipProps = {
 }
 
 export function CapacityOrderChip({ order, timezone }: CapacityOrderChipProps) {
+  const { t } = useTranslation('workshop')
   const startsAt = formatChipTime(order.scheduledStartAt, timezone)
-  const title = startsAt ? `Starts ${startsAt}` : 'Already on the floor'
+  const title = startsAt
+    ? t('capacity.chip.starts', { time: startsAt })
+    : t('capacity.chip.onFloor')
 
   return (
     <Link
@@ -20,7 +24,7 @@ export function CapacityOrderChip({ order, timezone }: CapacityOrderChipProps) {
     >
       <span className="truncate font-medium text-slate-900">{order.orderNumber}</span>
       <span className="flex items-center justify-between gap-2 text-slate-600">
-        <span className="truncate">{order.plate ?? 'No plate'}</span>
+        <span className="truncate">{order.plate ?? t('capacity.chip.noPlate')}</span>
         <span className="shrink-0 tabular-nums text-slate-500">
           {formatHours(order.plannedLaborHours)}
         </span>

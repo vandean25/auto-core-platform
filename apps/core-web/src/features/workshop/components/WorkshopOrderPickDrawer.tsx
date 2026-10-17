@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
 import { Check, ChevronsUpDown, Loader2, MapPin, Package } from 'lucide-react'
 import { toast } from 'sonner'
@@ -67,6 +68,7 @@ function WorkshopOrderPickDrawerBody({
   locations,
   order,
 }: WorkshopOrderPickDrawerBodyProps) {
+  const { t } = useTranslation('workshop')
   const queryClient = useQueryClient()
   const pickPartsMutation = usePickWorkshopParts()
   const toteTriggerRef = useRef<HTMLButtonElement | null>(null)
@@ -135,7 +137,7 @@ function WorkshopOrderPickDrawerBody({
       if (!Number.isFinite(parsedQuantity) || parsedQuantity < 0 || !Number.isInteger(parsedQuantity)) {
         return {
           items: [],
-          error: `Quantity for ${line.itemNo} must be a whole number greater than or equal to zero.`,
+          error: t('pick.drawer.qtyInvalid', { itemNo: line.itemNo }),
         }
       }
 
@@ -167,14 +169,14 @@ function WorkshopOrderPickDrawerBody({
     setFormError(null)
 
     if (!isPickEligible) {
-      const message = 'This workshop order is no longer eligible for picking.'
+      const message = t('pick.drawer.notEligibleAnymore')
       setFormError(message)
       toast.error(message)
       return
     }
 
     if (!selectedStagingLocationId) {
-      const message = 'Select a staging tote before confirming the pick.'
+      const message = t('pick.drawer.selectToteFirst')
       setFormError(message)
       return
     }
@@ -186,7 +188,7 @@ function WorkshopOrderPickDrawerBody({
     }
 
     if (items.length === 0) {
-      const message = 'Enter at least one pick quantity greater than zero.'
+      const message = t('pick.drawer.qtyRequired')
       setFormError(message)
       return
     }
@@ -199,24 +201,24 @@ function WorkshopOrderPickDrawerBody({
           items,
         },
       })
-      toast.success('Parts picked and staged successfully.')
+      toast.success(t('pick.drawer.success'))
       onOpenChange(false)
     } catch (error) {
       const mutationError = error as { status?: number; message?: string }
       if (mutationError.status === 409) {
-        toast.error('This order was updated by another user. Data was refreshed.')
+        toast.error(t('pick.drawer.conflict'))
         queryClient.invalidateQueries({ queryKey: workshopKeys.detail(orderId) })
         queryClient.invalidateQueries({ queryKey: workshopKeys.pickList() })
         return
       }
 
       if (mutationError.status === 404) {
-        toast.error(mutationError.message || 'Order data was not found. The drawer was closed.')
+        toast.error(mutationError.message || t('pick.drawer.notFound'))
         onOpenChange(false)
         return
       }
 
-      toast.error(mutationError.message || 'Failed to pick parts')
+      toast.error(mutationError.message || t('pick.drawer.failed'))
     }
   }
 
@@ -240,10 +242,10 @@ function WorkshopOrderPickDrawerBody({
           <div className='min-w-0'>
             <SheetTitle className='text-lg font-semibold flex items-center gap-2'>
               <Package className='h-4 w-4' />
-              Pick Parts
+              {t('pick.drawer.title')}
             </SheetTitle>
             <SheetDescription className='text-sm text-muted-foreground'>
-              Assign parts to a staging tote for this workshop order.
+              {t('pick.drawer.description')}
             </SheetDescription>
             <div className='mt-2 flex flex-wrap items-center gap-2'>
               {order ? (
@@ -257,7 +259,7 @@ function WorkshopOrderPickDrawerBody({
                 </Badge>
               ) : null}
               <Badge variant='secondary'>
-                {requiredLineCount} lines
+                {t('pick.drawer.linesBadge', { count: requiredLineCount })}
               </Badge>
             </div>
           </div>
@@ -269,13 +271,13 @@ function WorkshopOrderPickDrawerBody({
               onClick={() => onOpenChange(false)}
               disabled={pickPartsMutation.isPending}
             >
-              Cancel
+              {t('pick.drawer.cancel')}
             </Button>
             <Button type='submit' disabled={isConfirmDisabled}>
               {pickPartsMutation.isPending ? (
                 <Loader2 className='mr-2 h-4 w-4 animate-spin' />
               ) : null}
-              Confirm Pick
+              {t('pick.drawer.confirm')}
             </Button>
           </div>
         </div>
@@ -284,7 +286,7 @@ function WorkshopOrderPickDrawerBody({
       <div className='px-6 py-4 space-y-4 flex-1 min-h-0'>
         <div className='space-y-2'>
           <div className='text-sm font-medium text-foreground'>
-            Destination Tote
+            {t('pick.drawer.destinationTote')}
           </div>
           {areLocationsLoading && stagingTotes.length === 0 ? (
             <div className='space-y-2'>
@@ -306,16 +308,19 @@ function WorkshopOrderPickDrawerBody({
                   <span className='truncate'>
                     {selectedTote
                       ? `${selectedTote.code} - ${selectedTote.name}`
-                      : 'Select staging tote...'}
+                      : t('pick.drawer.selectTote')}
                   </span>
                   <ChevronsUpDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
                 </Button>
               </PopoverTrigger>
               <PopoverContent className='w-[var(--radix-popover-trigger-width)] p-0' align='start'>
                 <Command>
-                  <CommandInput placeholder='Search tote...' aria-label='Search tote' />
+                  <CommandInput
+                    placeholder={t('pick.drawer.searchTote')}
+                    aria-label={t('pick.drawer.searchToteAria')}
+                  />
                   <CommandList>
-                    <CommandEmpty>No staging tote found.</CommandEmpty>
+                    <CommandEmpty>{t('pick.drawer.noTote')}</CommandEmpty>
                     <CommandGroup>
                       {stagingTotes.map((location) => (
                         <CommandItem
@@ -344,17 +349,19 @@ function WorkshopOrderPickDrawerBody({
           )}
           <p className='text-xs text-muted-foreground'>
             {selectedTote
-              ? `Selected tote ${selectedTote.code}`
-              : 'Choose one staging tote for this transfer.'}
+              ? t('pick.drawer.selectedTote', { code: selectedTote.code })
+              : t('pick.drawer.chooseTote')}
           </p>
         </div>
 
         <Separator />
 
         <div className='flex items-center justify-between gap-3'>
-          <div className='text-sm font-medium'>Required Parts</div>
+          <div className='text-sm font-medium'>{t('pick.drawer.requiredParts')}</div>
           <div className='flex items-center gap-2'>
-            <Badge variant='outline'>Total Qty {formatQuantity(totalRequiredQuantity)}</Badge>
+            <Badge variant='outline'>
+              {t('pick.drawer.totalQty', { qty: formatQuantity(totalRequiredQuantity) })}
+            </Badge>
             <Button
               type='button'
               variant='ghost'
@@ -362,7 +369,7 @@ function WorkshopOrderPickDrawerBody({
               onClick={handlePickAll}
               disabled={requiredPartLines.length === 0 || pickPartsMutation.isPending}
             >
-              Pick All
+              {t('pick.drawer.pickAll')}
             </Button>
           </div>
         </div>
@@ -376,16 +383,16 @@ function WorkshopOrderPickDrawerBody({
             </div>
           ) : requiredPartLines.length === 0 ? (
             <div className='rounded-md border border-dashed p-6 text-sm text-muted-foreground'>
-              No pickable parts were found for this workshop order.
+              {t('pick.drawer.noParts')}
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Part</TableHead>
-                  <TableHead>Task</TableHead>
-                  <TableHead className='text-right'>Required</TableHead>
-                  <TableHead className='w-[150px] text-right'>Pick Qty</TableHead>
+                  <TableHead>{t('pick.drawer.colPart')}</TableHead>
+                  <TableHead>{t('pick.drawer.colTask')}</TableHead>
+                  <TableHead className='text-right'>{t('pick.drawer.colRequired')}</TableHead>
+                  <TableHead className='w-[150px] text-right'>{t('pick.drawer.colPickQty')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -413,7 +420,10 @@ function WorkshopOrderPickDrawerBody({
                           setFormError(null)
                         }}
                         className='h-8 text-right'
-                        aria-label={`Quantity for ${line.description} (${line.itemNo})`}
+                        aria-label={t('pick.drawer.qtyAria', {
+                          description: line.description,
+                          itemNo: line.itemNo,
+                        })}
                         disabled={!isPickEligible || pickPartsMutation.isPending}
                       />
                     </TableCell>
@@ -427,7 +437,7 @@ function WorkshopOrderPickDrawerBody({
         {!isPickEligible ? (
           <div className='rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 flex items-start gap-2'>
             <MapPin className='h-4 w-4 mt-0.5 shrink-0' />
-            This workshop order is not in a pick-eligible state.
+            {t('pick.drawer.notEligible')}
           </div>
         ) : null}
 

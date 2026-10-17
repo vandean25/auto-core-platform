@@ -1,4 +1,1249 @@
 {
+  "board": {
+    "title": "Workshop Board",
+    "description": "Drag & drop orders to assign mechanics and bays.",
+    "loading": "Loading board…",
+    "columnsAriaLabel": "Workshop board columns",
+    "viewMode": {
+      "byMechanic": "By Mechanic",
+      "byBay": "By Bay"
+    },
+    "unassigned": "Unassigned",
+    "emptyColumn": "No orders",
+    "emptyResources": {
+      "mechanics": "Mechanics",
+      "bays": "Bays",
+      "title": "No {{resource}} configured",
+      "description": "Add {{resource}} in Settings to start assigning workshop orders.",
+      "goToSettings": "Go to Settings"
+    },
+    "assignError": "Failed to assign order. Please try again.",
+    "a11y": {
+      "orderFallback": "Workshop order",
+      "unknownColumn": "an unknown column",
+      "resourceNoun": {
+        "mechanic": "mechanic",
+        "bay": "bay"
+      },
+      "resourceColumn": "{{resource}} {{label}}",
+      "pickedUp": "Picked up {{order}}.",
+      "overColumn": "{{order}} is over {{column}}.",
+      "notOverColumn": "{{order}} is no longer over a column.",
+      "droppedOn": "{{order}} was dropped on {{column}}.",
+      "droppedOutside": "{{order}} was dropped outside a column and not moved.",
+      "cancelled": "Dragging was cancelled. {{order}} was not moved."
+    }
+  },
+  "mechanic": {
+    "accessDenied": {
+      "title": "Office access restricted",
+      "description": "You don't have access to office tools from a mechanic account.",
+      "backToQueue": "Go to mechanic queue"
+    },
+    "queue": {
+      "title": "My Queue",
+      "description": "Your active work orders — tap a task to open it.",
+      "refreshAria": "Refresh queue",
+      "searchPlaceholder": "Search tasks, plates, WO…",
+      "searchAria": "Search mechanic queue",
+      "loading": "Loading tasks…",
+      "identityErrorTitle": "Mechanic profile not linked",
+      "identityErrorDescription": "Your login is not linked to an active mechanic employee in this tenant. Ask an admin to link your HR employee record, or re-run the UAT tenant-member seed for this account.",
+      "loadErrorTitle": "Could not load your queue",
+      "loadErrorFallback": "Failed to load mechanic queue",
+      "tryAgain": "Try again",
+      "noResults": "No results.",
+      "emptyTitle": "No tasks assigned",
+      "emptyDescription": "Jobs you are assigned appear here.",
+      "clockLoadError": "Failed to load attendance clock",
+      "punchError": "Failed to punch attendance clock",
+      "taskSequence": "Task {{sequence}}",
+      "noPlate": "No plate",
+      "bay": "Bay: {{name}}",
+      "scheduled": "Scheduled: {{date}}"
+    },
+    "taskDetail": {
+      "loading": "Loading task…",
+      "notFound": "Task not found or access denied.",
+      "backToQueue": "Back to Queue",
+      "saveState": {
+        "saving": "Saving…",
+        "saved": "Saved ✓",
+        "error": "Error — not saved"
+      },
+      "labor": {
+        "title": "Labor",
+        "hours_one": "{{count}} hr",
+        "hours_other": "{{count}} hrs"
+      },
+      "diagnostics": {
+        "title": "Diagnostics & Notes",
+        "placeholder": "Record diagnostic findings, measurements, or notes here…",
+        "sending": "Sending…",
+        "sendFinding": "Send finding to advisor"
+      },
+      "complaint": {
+        "title": "Customer Complaint"
+      },
+      "refreshTask": "Refresh task",
+      "header": {
+        "backAria": "Back to queue",
+        "order": "Order {{orderNumber}}",
+        "start": "Start",
+        "resume": "Resume",
+        "switchHere": "Switch Here",
+        "switchTitle": "Switch from another task to this one",
+        "pause": "Pause",
+        "complete": "Complete"
+      },
+      "vehicle": {
+        "title": "Vehicle",
+        "makeModel": "Make / Model",
+        "plate": "Plate",
+        "vin": "VIN",
+        "odometer": "Odometer",
+        "bay": "Bay",
+        "scheduled": "Scheduled"
+      },
+      "parts": {
+        "title": "Parts",
+        "request": "Request Part",
+        "empty": "No parts requested yet.",
+        "qty": "qty {{qty}}"
+      },
+      "media": {
+        "title": "Media",
+        "uploading": "Uploading…",
+        "upload": "Upload Photo / Video",
+        "uploaded": "Uploaded ✓",
+        "failed": "Upload failed — please retry",
+        "acceptedTypes": "Accepted: JPEG, PNG, WebP, MP4, MOV"
+      },
+      "requestPart": {
+        "title": "Request a Part",
+        "itemNo": "Part Number / SKU",
+        "itemNoPlaceholder": "e.g. OIL-FILTER-01",
+        "description": "Description",
+        "descriptionPlaceholder": "e.g. Oil filter — 2.0 TDI",
+        "quantity": "Quantity",
+        "submit": "Submit Request"
+      },
+      "voiceNote": {
+        "unsupported": "Voice note recording is unavailable on this browser.",
+        "idleHint": "Tap record to dictate a voice note. Review and edit the translated draft before acceptance.",
+        "recording": "Recording…",
+        "draftReady": "Draft ready. Review and edit before accepting into diagnostics.",
+        "accepted": "Draft accepted into diagnostics notes.",
+        "errorFallback": "Voice note failed. Please retry recording.",
+        "noMicrophone": "No microphone found. Check device permissions.",
+        "microphoneAccessFailed": "Unable to access microphone.",
+        "noAudioCaptured": "No audio captured. Please retry recording.",
+        "stop": "Stop Recording",
+        "record": "Record Voice Note",
+        "retry": "Retry recording",
+        "processing": "Processing voice note…",
+        "draftLabel": "Voice-note draft",
+        "discardDraft": "Discard Draft",
+        "acceptDraft": "Accept Draft"
+      },
+      "pause": {
+        "title": "Pause Task",
+        "description": "Select a reason for pausing this task.",
+        "selected": "Selected: {{label}}",
+        "confirm": "Confirm Pause",
+        "reasons": {
+          "WAITING_PARTS": "Waiting for Parts",
+          "WAITING_CUSTOMER": "Waiting for Customer",
+          "OTHER": "Other"
+        }
+      },
+      "switch": {
+        "title": "Switch to This Task",
+        "description": "What is the status of the task you are leaving?",
+        "retrying": "No active task to switch from — trying start instead…",
+        "confirm": "Confirm Switch",
+        "reasons": {
+          "WAITING_PARTS": "Previous task — Waiting for Parts",
+          "WAITING_CUSTOMER": "Previous task — Waiting for Customer",
+          "SWITCHED_TO_HIGHER_PRIORITY": "Switched to Higher Priority"
+        }
+      },
+      "checklist": {
+        "loadError": "Could not save checklist",
+        "loading": "Loading checklist…"
+      },
+      "lifecycle": {
+        "toast": {
+          "taskStarted": "Task started — punch-in recorded",
+          "taskStartFailed": "Failed to start task",
+          "taskPaused": "Task paused",
+          "taskPauseFailed": "Failed to pause task",
+          "taskCompleted": "Task marked as complete",
+          "taskCompleteFailed": "Failed to complete task",
+          "taskSwitched": "Switched to task — punch-in recorded",
+          "taskSwitchFailed": "Failed to switch task",
+          "taskAlreadyInProgress": "This task is already being worked on. Please refresh."
+        }
+      },
+      "partRequest": {
+        "validation": {
+          "itemNoRequired": "Part number is required.",
+          "descriptionRequired": "Description is required.",
+          "quantityMin": "Quantity must be at least 0.01."
+        },
+        "toast": {
+          "submitted": "Part request submitted",
+          "failed": "Failed to request part"
+        }
+      },
+      "finding": {
+        "toast": {
+          "notesSaveFailed": "Could not save diagnostic notes",
+          "sentToAdvisor": "Finding sent to the service advisor",
+          "sendFailed": "Could not send finding to the advisor"
+        }
+      },
+      "mediaToast": {
+        "unsupportedType": "Unsupported file type. Use JPEG, PNG, WebP, MP4, or MOV.",
+        "uploaded": "Media uploaded successfully",
+        "uploadFailed": "Upload failed",
+        "storageFailed": "Upload to storage failed. Please retry."
+      }
+    }
+  },
+  "actions": {
+    "cancel": "Cancel",
+    "save": "Save"
+  },
+  "orderCard": {
+    "move": "Move {{orderNumber}}",
+    "assign": "Assign",
+    "assignAria": "Assign {{orderNumber}}",
+    "assignTo": "Assign to",
+    "dealerStock": "Dealer stock"
+  },
+  "planner": {
+    "viewMode": {
+      "day": "Day",
+      "week": "Week"
+    },
+    "grid": {
+      "closed": "Closed",
+      "closedWithHoliday": "Closed — {{name}}",
+      "bay": "Bay",
+      "bookSlot": "Book {{label}}",
+      "bookSlotAria": "Book slot"
+    },
+    "page": {
+      "title": "Workshop Planner",
+      "previous": "Previous",
+      "next": "Next",
+      "createOrder": "+ Workshop Order",
+      "noBaysTitle": "No bays configured",
+      "noBaysDescription": "Add bays in Settings to start scheduling workshop orders.",
+      "goToSettings": "Go to Settings",
+      "closedTitle": "Workshop closed",
+      "closedDescription": "Adjust opening hours or holidays in Settings.",
+      "rescheduleFailed": "Failed to reschedule workshop order"
+    },
+    "createSheet": {
+      "title": "Schedule workshop order",
+      "description": "Search for a customer vehicle and book a bay slot.",
+      "createButton": "+ Workshop Order",
+      "searchLabel": "Search vehicle or customer",
+      "searchPlaceholder": "VIN, plate, or customer name",
+      "searching": "Searching…",
+      "bay": "Bay",
+      "selectBay": "Select bay",
+      "mechanicOptional": "Mechanic (optional)",
+      "unassigned": "Unassigned",
+      "start": "Start",
+      "end": "End",
+      "reportedIssue": "Reported issue",
+      "optional": "Optional",
+      "outsideHoursTitle": "Outside workshop hours",
+      "outsideHoursDescription": "This slot is outside effective opening hours. Booking is still allowed.",
+      "mechanicDoubleBookedTitle": "Mechanic double-booked",
+      "mechanicDoubleBookedDescription": "This mechanic already has {{orderNumber}} in this window. You can still schedule.",
+      "bayOccupiedTitle": "Bay occupied",
+      "bayOccupiedDescription": "This bay overlaps with {{orderNumber}}. Choose another slot.",
+      "toastSelectVehicle": "Select a vehicle linked to a customer.",
+      "toastScheduled": "Workshop order scheduled.",
+      "toastCreateFailed": "Failed to create workshop order"
+    }
+  },
+  "resumeWaitingTasks": {
+    "description": "{{count}} task(s) are waiting on the customer. Approval does not resume them automatically.",
+    "button": "Resume waiting tasks",
+    "success": "Resumed {{count}} task(s)",
+    "error": "Could not resume waiting tasks."
+  },
+  "pick": {
+    "dealerStock": "Dealer stock",
+    "queue": {
+      "title": "Parts pick queue",
+      "description": "Select an order row to open the pick drawer and stage required parts.",
+      "workshopOrders": "Workshop Orders",
+      "intake": "Intake",
+      "saveViewTitle": "Parts pick queue",
+      "searchPlaceholder": "Search parts pick queue...",
+      "columns": {
+        "orderNo": "Order No.",
+        "customer": "Customer",
+        "vehicle": "Vehicle",
+        "partLines": "Part Lines",
+        "totalQty": "Total Qty",
+        "opened": "Opened",
+        "status": "Status"
+      }
+    },
+    "drawer": {
+      "title": "Pick Parts",
+      "description": "Assign parts to a staging tote for this workshop order.",
+      "linesBadge": "{{count}} lines",
+      "cancel": "Cancel",
+      "confirm": "Confirm Pick",
+      "destinationTote": "Destination Tote",
+      "selectTote": "Select staging tote...",
+      "searchTote": "Search tote...",
+      "searchToteAria": "Search tote",
+      "noTote": "No staging tote found.",
+      "selectedTote": "Selected tote {{code}}",
+      "chooseTote": "Choose one staging tote for this transfer.",
+      "requiredParts": "Required Parts",
+      "totalQty": "Total Qty {{qty}}",
+      "pickAll": "Pick All",
+      "colPart": "Part",
+      "colTask": "Task",
+      "colRequired": "Required",
+      "colPickQty": "Pick Qty",
+      "qtyAria": "Quantity for {{description}} ({{itemNo}})",
+      "noParts": "No pickable parts were found for this workshop order.",
+      "notEligible": "This workshop order is not in a pick-eligible state.",
+      "qtyInvalid": "Quantity for {{itemNo}} must be a whole number greater than or equal to zero.",
+      "notEligibleAnymore": "This workshop order is no longer eligible for picking.",
+      "selectToteFirst": "Select a staging tote before confirming the pick.",
+      "qtyRequired": "Enter at least one pick quantity greater than zero.",
+      "success": "Parts picked and staged successfully.",
+      "conflict": "This order was updated by another user. Data was refreshed.",
+      "notFound": "Order data was not found. The drawer was closed.",
+      "failed": "Failed to pick parts"
+    }
+  },
+  "orders": {
+    "list": {
+      "title": "Workshop Orders",
+      "description": "Open a work order to view full job details and task drawer.",
+      "partsPickQueue": "Parts pick queue",
+      "partsPickHint": "Parts to pick for open workshop orders",
+      "newOrder": "Order",
+      "saveViewTitle": "Workshop Orders",
+      "searchPlaceholder": "Search workshop orders...",
+      "rowAria": "Workshop order {{orderNo}}",
+      "columns": {
+        "orderNo": "Order No.",
+        "customer": "Customer",
+        "vehicle": "Vehicle",
+        "opened": "Opened",
+        "status": "Status"
+      }
+    }
+  },
+  "warranty": {
+    "list": {
+      "empty": "No warranty or goodwill claims on this order yet.",
+      "aria": "Warranty claims",
+      "updated": "Updated {{date}}"
+    },
+    "type": {
+      "GARANTIE": "Warranty",
+      "KULANZ": "Goodwill",
+      "GEWAEHRLEISTUNG": "Statutory warranty"
+    },
+    "statusFilter": {
+      "all": "All statuses",
+      "DRAFT": "Draft",
+      "SUBMITTED_EXTERNALLY": "Submitted externally",
+      "APPROVED": "Approved",
+      "REJECTED": "Rejected",
+      "CLOSED": "Closed"
+    },
+    "decisionDialog": {
+      "approveTitle": "Record approval",
+      "rejectTitle": "Record rejection",
+      "description": "Enter the decision date from the OEM. The date is required for both outcomes.",
+      "date": "Decision date",
+      "note": "Decision note",
+      "approvePlaceholder": "For example: 80% goodwill share",
+      "rejectPlaceholder": "Reason given by the OEM",
+      "cancel": "Cancel",
+      "approve": "Mark approved",
+      "reject": "Mark rejected"
+    },
+    "editor": {
+      "statusSubmitted": "submitted externally",
+      "statusApproved": "approved",
+      "statusRejected": "rejected",
+      "statusClosed": "closed",
+      "statusChanged": "Claim {{status}}",
+      "saveFailed": "Failed to save the claim",
+      "fixAmount": "Fix the claimed amount before continuing.",
+      "amountUnreadable": "The claimed amount could not be read, so it was not saved.",
+      "updateStatusFailed": "Failed to update the claim status",
+      "pdfLoading": "Generating claim PDF...",
+      "pdfDownloaded": "Claim PDF downloaded",
+      "pdfFailed": "Failed to generate the claim PDF",
+      "closedReadOnly": "This claim is closed and read-only.",
+      "lockedAfterSubmit": "The claim content is locked after submission. The external reference and the decision can still change.",
+      "heading": "{{type}} claim",
+      "orderMeta": "Order {{orderNumber}}",
+      "submitted": " · Submitted {{date}}",
+      "closed": " · Closed {{date}}",
+      "print": "Print",
+      "markSubmitted": "Mark submitted",
+      "removeCancelledLine": "Remove the cancelled line from the claim first",
+      "submitRequirements": "Needs a complaint, a claimed amount above zero and at least one line",
+      "recordApproval": "Record approval",
+      "recordRejection": "Record rejection",
+      "closeClaim": "Close claim",
+      "claimType": "Claim type",
+      "claimTypeAria": "Claim type",
+      "complaint": "Complaint",
+      "complaintPlaceholder": "Customer complaint in the words of the workshop",
+      "cause": "Cause and correction",
+      "causePlaceholder": "Diagnosed cause and the repair that was carried out",
+      "amountLabel": "Claimed amount (EUR, net)",
+      "amountPlaceholder": "0.00",
+      "useLinesTotal": "Use lines total",
+      "amountInvalid": "Enter an amount in EUR with at most two decimals.",
+      "affectedLines": "Affected labor and parts",
+      "noLines": "No labor or part lines on this order yet. Add lines to a task first.",
+      "lineTypeLabor": "Labor",
+      "lineTypePart": "Part",
+      "cancelledOnOrder": "Cancelled on the order. Uncheck to remove it from the claim.",
+      "alreadyOn": "Already on {{claim}}",
+      "selectedLinesNet": "Selected lines (net):",
+      "oemReference": "Reference at the OEM",
+      "oemReferencePlaceholder": "Claim number from the OEM portal",
+      "decisionDate": "Decision date",
+      "decisionNote": "Decision note",
+      "decisionSaving": "The decision is still being saved.",
+      "closeTitle": "Close this claim?",
+      "closeDescription": "A closed claim is read-only. To file the claim again, create a new one.",
+      "cancel": "Cancel"
+    }
+  },
+  "orderHeader": {
+    "dealerStock": "Dealer stock",
+    "noPlate": "N/A",
+    "promisedMeta": "Promised time: {{promised}} · Tech: {{tech}} · Bay: {{bay}}",
+    "notSet": "Not set",
+    "unassigned": "Unassigned",
+    "loanerUntil": "Loaner: {{label}} until {{date}}",
+    "printJobCard": "Print job card",
+    "orderInfo": "Order info",
+    "assignedTech": "Assigned tech",
+    "bayLocation": "Bay / location",
+    "promisedTime": "Promised time",
+    "keyTag": "Key tag",
+    "customerInfo": "Customer info",
+    "phone": "Phone",
+    "callCustomer": "Call customer",
+    "vehicleInfo": "Vehicle info",
+    "vin": "VIN",
+    "plate": "Plate",
+    "mileage": "Mileage",
+    "fuel": "Fuel"
+  },
+  "orderDetail": {
+    "breadcrumbFallback": "Workshop order",
+    "tabsNavAria": "Workshop order sections",
+    "tabs": {
+      "order": "Order",
+      "warranty": "Warranty / goodwill"
+    },
+    "loading": "Loading workshop order...",
+    "notFoundTitle": "Workshop order not found",
+    "notFoundDescription": "The selected workshop order does not exist.",
+    "backToOrders": "Back to workshop orders",
+    "deleteTaskTitle": "Delete task?",
+    "deleteTaskDescription": "Delete \"{{title}}\" from this workshop order? This also removes its parts and labor lines.",
+    "deleteTaskDescriptionGeneric": "Delete this task from the workshop order?",
+    "cancel": "Cancel",
+    "deleteTask": "Delete task",
+    "deleting": "Deleting...",
+    "toast": {
+      "notesSaved": "Internal notes saved",
+      "notesSaveFailed": "Failed to save notes",
+      "reportedIssueSaved": "Reported issue saved",
+      "reportedIssueSaveFailed": "Failed to save reported issue",
+      "taskCreated": "Task created",
+      "taskCreateFailed": "Failed to create task",
+      "taskStatusUpdateFailed": "Failed to update task status",
+      "mechanicNotesUpdateFailed": "Failed to update mechanic notes",
+      "taskDeleted": "Task deleted",
+      "taskDeleteFailed": "Failed to delete task",
+      "jobCardPdfGenerating": "Generating Job Card PDF...",
+      "jobCardPdfQueued": "Job Card PDF generation has been queued in the background. It will be available shortly.",
+      "jobCardPdfDownloaded": "Job Card PDF downloaded successfully",
+      "jobCardPdfFailed": "Failed to generate PDF",
+      "technicianAssigned": "Technician assigned",
+      "technicianUnassigned": "Technician unassigned",
+      "technicianAssignFailed": "Failed to assign technician",
+      "vehicleIdentityResolved": "Vehicle identity resolved",
+      "vehicleIdentityResolveFailed": "Failed to resolve vehicle identity"
+    }
+  },
+  "estimateSend": {
+    "title": "Send version {{version}} to customer?",
+    "description": "Sending freezes the job as a snapshot. Later job changes apply only after a new version.",
+    "recipient": "Recipient:",
+    "validity": "Validity:",
+    "validityValue": "valid 14 days from send",
+    "notifyEmail": "Send by email to customer",
+    "emailMissing": "Customer email is missing for email send.",
+    "recordOnly": "Send is recorded on the job only. No email is sent.",
+    "emailConfirmed": "The customer provided this email for job communication.",
+    "cancel": "Cancel",
+    "sending": "Sending…",
+    "send": "Send",
+    "genericError": "Could not send estimate.",
+    "errors": {
+      "ESTIMATE_CUSTOMER_EMAIL_NOT_CONFIRMED": "Customer email is not confirmed for job communication.",
+      "ESTIMATE_CUSTOMER_EMAIL_MISSING": "Customer email is missing for email send.",
+      "ESTIMATE_CUSTOMER_EMAIL_INVALID": "Customer email is invalid.",
+      "ESTIMATE_VEHICLE_INCOMPLETE": "Vehicle data is incomplete. Complete it before sending.",
+      "ESTIMATE_EMAIL_INCOMPLETE": "Email details are incomplete. Check customer and vehicle.",
+      "ESTIMATE_APPROVAL_LINK_UNAVAILABLE": "Approval link cannot be created right now. Try again later.",
+      "ESTIMATE_SEND_DISABLED": "Customer send is currently disabled.",
+      "ESTIMATE_NOT_DRAFT": "This version is no longer a draft and cannot be sent.",
+      "ESTIMATE_NO_LINES": "The estimate needs at least one labor or parts line.",
+      "ESTIMATE_CUSTOMER_REQUIRED": "This job has no customer yet.",
+      "ESTIMATE_CUSTOMER_INCOMPLETE": "Customer data is incomplete for send. Complete it.",
+      "SELLER_IDENTITY_INCOMPLETE": "Business details are incomplete for send. Complete them.",
+      "WORKSHOP_ORDER_NOT_ESTIMATABLE": "This job is no longer open. Estimates are sent only for open jobs.",
+      "ESTIMATE_ROLE_FORBIDDEN": "You do not have permission for this action."
+    }
+  },
+  "kpi": {
+    "title": "Workshop this month",
+    "loading": "Loading …",
+    "utilisation": "Utilisation",
+    "productivity": "Productivity",
+    "previousMonth": "(prev. month {{value}})",
+    "empty": "No workshop data for this month yet.",
+    "reportLink": "Open workshop report"
+  },
+  "quickRegister": {
+    "title": "Quick register vehicle",
+    "vin": "VIN",
+    "plate": "Plate",
+    "make": "Make",
+    "model": "Model",
+    "year": "Year",
+    "newCustomer": "New customer",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "email": "Email",
+    "phone": "Phone",
+    "required": "Required",
+    "yearInvalid": "Valid year required",
+    "registering": "Registering...",
+    "register": "Register",
+    "success": "Vehicle registered successfully",
+    "error": "Failed to register vehicle"
+  },
+  "startService": {
+    "title": "Start service",
+    "forVehicle": "For {{vehicle}}",
+    "odometer": "Odometer (km)",
+    "fuelLevel": "Fuel level (%)",
+    "notes": "Intake notes",
+    "notesPlaceholder": "Customer description of issue",
+    "required": "Required",
+    "fuelRange": "0–100 required",
+    "creating": "Creating order...",
+    "submit": "Start service",
+    "success": "Service started",
+    "error": "Failed to start service"
+  },
+  "inspection": {
+    "catalogueRef": {
+      "aria": "Catalogue reference",
+      "title": "Catalogue reference (§57a)",
+      "description": "Official position reference with source, version, and freshness — separate from the prep checklist.",
+      "source": "Source",
+      "version": "Version",
+      "coverage": "Coverage",
+      "status": "Status",
+      "positionId": "Position ID",
+      "attach": "Attach reference",
+      "toastSaved": "Catalogue reference saved",
+      "errors": {
+        "NOT_CONFIGURED": "The official catalogue is not enabled for this tenant yet.",
+        "UNKNOWN_CODE": "The selected catalogue code is unknown.",
+        "STALE_CATALOG": "The catalogue version is outdated and must be reviewed again.",
+        "OUT_OF_SCOPE": "No verified application scope exists for this vehicle.",
+        "SOURCE_CONFLICT": "Multiple catalogue versions overlap. Manual clarification required.",
+        "REVIEW_REQUIRED": "The preview expired or changed. Please review again.",
+        "UNSUPPORTED_SCHEMA_VERSION": "This catalogue format is not supported.",
+        "generic": "The catalogue reference could not be processed. Please try again."
+      },
+      "resolution": {
+        "RESOLVED": "Resolved",
+        "UNKNOWN_CODE": "Unknown code",
+        "STALE_CATALOG": "Stale catalogue",
+        "OUT_OF_SCOPE": "Out of scope",
+        "NOT_CONFIGURED": "Not configured",
+        "SOURCE_CONFLICT": "Source conflict",
+        "unknown": "Unknown"
+      }
+    },
+    "checklist": {
+      "saveError": "Could not save checklist",
+      "loading": "Loading checklist…",
+      "loadFailed": "Could not load checklist.",
+      "aria": "§57a preparation",
+      "hint": "Editable starter checklist, not a legal checklist.",
+      "ok": "OK",
+      "defect": "Defect",
+      "okAria": "OK: {{label}}",
+      "defectAria": "Defect: {{label}}",
+      "noteAria": "Note: {{label}}",
+      "notePlaceholder": "Note…"
+    }
+  },
+  "readyEmail": {
+    "title": "Ready-for-pickup email notice",
+    "resendSuccess": "Pickup notification queued again.",
+    "resendError": "Could not resend pickup notification.",
+    "resending": "Sending…",
+    "resend": "Resend",
+    "queued": "Sending in progress…",
+    "sent": "Delivered or queued with the provider."
+  },
+  "mechanicFinding": {
+    "title": "Mechanic findings",
+    "description": "Evidence from the bay. Map local labor and parts lines, then apply through approvals.",
+    "openMedia": "Open {{mimeType}}"
+  },
+  "capacity": {
+    "weekGrid": {
+      "caption": "Planned labour per bay and day for the selected week",
+      "bay": "Bay",
+      "today": "Today"
+    },
+    "cell": {
+      "closed": "Closed",
+      "overbooked": "Overbooked by {{hours}}",
+      "fullyBooked": "Fully booked",
+      "free": "{{hours}} free"
+    },
+    "chip": {
+      "starts": "Starts {{time}}",
+      "onFloor": "Already on the floor",
+      "noPlate": "No plate"
+    },
+    "page": {
+      "title": "Workshop Capacity",
+      "description": "Planned labour per bay and day, and the free hours left in each working day.",
+      "switchSite": "Switch site",
+      "selectSite": "Select site",
+      "previousWeek": "Previous week",
+      "nextWeek": "Next week",
+      "thisWeek": "This week",
+      "overbookedHint": "Red cells are overbooked: planned labour is more than the bay's open hours.",
+      "loadError": "Could not load the capacity week.",
+      "tryAgain": "Try again",
+      "noBays": "No active bays for this site yet.",
+      "openBaySettings": "Open bay settings"
+    }
+  },
+  "catalog": {
+    "concern": {
+      "PARTS": "Parts",
+      "LABOR": "Labor"
+    },
+    "oem": {
+      "STELLANTIS": "Stellantis",
+      "MERCEDES": "Mercedes-Benz"
+    },
+    "identity": {
+      "noKeys": "No identity keys"
+    },
+    "banner": {
+      "oem": "{{concern}}: OEM catalog{{suffix}}",
+      "oemSuffix": " ({{label}})",
+      "fallbackEmpty": "{{concern}}: OEM returned no results — showing aftermarket catalog",
+      "fallbackError": "{{concern}}: OEM unavailable — showing aftermarket catalog",
+      "notConfigured": "{{concern}}: No OEM catalog configured — showing aftermarket",
+      "aftermarket": "{{concern}}: Aftermarket catalog"
+    },
+    "fallbackDialog": {
+      "emptyTitle": "No OEM results",
+      "emptyDescription": "The OEM catalog returned no matching parts or labor for this vehicle. Search aftermarket catalog instead?",
+      "errorTitle": "OEM catalog unavailable",
+      "errorDescription": "The OEM catalog is currently unavailable for this vehicle. Search aftermarket catalog instead?"
+    },
+    "fitmentModal": {
+      "title": "Fitment catalog search",
+      "description": "Search OEM and aftermarket catalogs for this vehicle. Results are preview-only in M1.",
+      "searchOtherSource": "Search other source",
+      "identityStale": "Vehicle identity is stale or missing. Re-resolve the VIN before searching fitment catalogs.",
+      "reResolve": "Re-resolve now",
+      "footer": "Task {{taskId}} · Vehicle {{vehicleId}} · No add-to-order in M1",
+      "searchAftermarket": "Search aftermarket",
+      "assemblyGroups": "Assembly groups",
+      "loadingGroups": "Loading groups...",
+      "noAssemblyGroups": "No assembly groups available.",
+      "searchPartsPlaceholder": "Search parts by number or description...",
+      "searchLaborPlaceholder": "Search labor by number or description...",
+      "searching": "Searching catalog...",
+      "noResults": "No catalog results for this search.",
+      "clearSearch": "Clear search",
+      "oemPrefix": "OEM",
+      "laborBadge": "Labor",
+      "awBadge": "{{aw}} AW",
+      "toastIdentityStale": "Vehicle identity is stale. Re-resolve before searching.",
+      "toastSearchFailed": "Failed to search catalog"
+    }
+  },
+  "intake": {
+    "conflictFallback": "Failed to create workshop order"
+  },
+  "intakeDashboard": {
+    "title": "Workshop intake",
+    "quickRegister": "Quick register",
+    "searchTitle": "Intake search",
+    "searchPlaceholder": "Search VIN, plate, or customer name...",
+    "searching": "Searching...",
+    "vehicleMeta": "VIN: {{vin}} | Plate: {{plate}}",
+    "vehicles": "Vehicles",
+    "owner": "Owner: {{name}}",
+    "startService": "Start service",
+    "customers": "Customers",
+    "vehiclesLabel": "Vehicles:",
+    "service": "Service",
+    "noResults": "No results found.",
+    "registerNew": "Register new vehicle"
+  },
+  "warrantyClaimsPage": {
+    "backToOrder": "Back to order",
+    "title": "Warranty / goodwill",
+    "orderMeta": "Order {{orderNumber}}{{vehicle}}",
+    "create": "Warranty claim",
+    "filterAria": "Filter claims by status",
+    "loadError": "Failed to load warranty claims",
+    "loading": "Loading claims...",
+    "claimLoadError": "Failed to load the warranty claim",
+    "selectOrCreate": "Select a claim, or create one for this order.",
+    "created": "Warranty claim created",
+    "createFailed": "Failed to create the warranty claim"
+  },
+  "checkoutSummary": {
+    "title": "Draft invoice",
+    "hint": "Grouped by task. Task-level discount (%) cascades to every nested line.",
+    "invoiceLabel": "Invoice: {{number}}",
+    "creatingDraft": "Creating draft...",
+    "createDraft": "Create draft invoice",
+    "issuing": "Issuing...",
+    "issue": "Issue invoice",
+    "loadingInvoice": "Loading invoice...",
+    "colItem": "Item",
+    "colQty": "Qty",
+    "colUnitPrice": "Unit price",
+    "colDiscount": "Discount",
+    "colNet": "Net",
+    "empty": "No billable lines found in tasks.",
+    "expand": "Expand {{task}}",
+    "collapse": "Collapse {{task}}",
+    "reopenTask": "Reopen task",
+    "taskDiscount": "Discount whole task (%)",
+    "noDiscount": "No discount",
+    "discountNone": "None",
+    "subtotal": "Subtotal",
+    "totalDiscounts": "Total discounts",
+    "net": "Net",
+    "vat": "VAT",
+    "total": "Total",
+    "lineMeta": "{{type}} • {{itemNo}}",
+    "missingItemNo": "N/A"
+  },
+  "taskLineItems": {
+    "toast": {
+      "conflictStale": "This order was updated by another user. Data was refreshed — please review and try again.",
+      "invalidLineItems": "Invalid line items. Check quantities and try again.",
+      "updateFailed": "Failed to update task line items"
+    }
+  },
+  "estimateDecision": {
+    "advisorChannel": {
+      "PHONE": "Phone",
+      "IN_PERSON": "In person",
+      "EMAIL": "Email"
+    },
+    "customerReaction": {
+      "AGREED": "Agreed",
+      "DECLINED": "Declined",
+      "QUESTIONED": "Asked a question",
+      "CALLBACK_REQUESTED": "Requested callback",
+      "NO_RESPONSE": "No response"
+    },
+    "badge": {
+      "DRAFT": "Draft",
+      "SENT": "Awaiting customer",
+      "APPROVED": "Approved",
+      "DECLINED": "Declined",
+      "EXPIRED": "Expired",
+      "SUPERSEDED": "Superseded"
+    },
+    "approval": {
+      "linkApproved": "Electronically confirmed via customer link",
+      "linkDeclined": "Declined via customer link",
+      "channelPhrase": {
+        "PHONE": "by phone",
+        "IN_PERSON": "in person",
+        "EMAIL": "by email"
+      },
+      "advisorRecorded": {
+        "approved": "Recorded by advisor: approval{{via}}",
+        "declined": "Recorded by advisor: decline{{via}}"
+      }
+    },
+    "errors": {
+      "record": {
+        "ESTIMATE_VERSION_NOT_SENT": "Only a sent estimate can be confirmed.",
+        "ESTIMATE_VERSION_SUPERSEDED": "This version was replaced by a newer one. Confirm the current version.",
+        "ESTIMATE_VERSION_EXPIRED": "This estimate has expired.",
+        "ESTIMATE_VERSION_ALREADY_DECIDED": "A decision already exists for this estimate.",
+        "ESTIMATE_VERSION_NOT_DECIDABLE": "This version is not fully sent yet and cannot be confirmed.",
+        "ESTIMATE_REACTION_MISMATCH": "The customer reaction does not match the selected decision.",
+        "ESTIMATE_AMOUNT_MISMATCH": "The amount does not match the estimate total.",
+        "ESTIMATE_DECISION_TIME_INVALID": "Decision time must be after send and not in the future.",
+        "ESTIMATE_DECISION_CONFLICT": "The estimate changed just now. Reload and try again.",
+        "ESTIMATE_ROLE_FORBIDDEN": "You do not have permission for this action."
+      },
+      "overrun": {
+        "OVERRUN_NOT_DETECTED": "The job does not currently exceed the estimate.",
+        "OVERRUN_ALREADY_NOTIFIED": "The customer was already notified about this overrun.",
+        "OVERRUN_NO_BASELINE": "There is no approved estimate to compare against yet.",
+        "OVERRUN_AMOUNT_MISMATCH": "The amount does not match the current job total.",
+        "WORKSHOP_ORDER_CLOSED": "A closed job does not need another notice.",
+        "ESTIMATE_ROLE_FORBIDDEN": "You do not have permission for this action."
+      }
+    },
+    "record": {
+      "title": "Record confirmation",
+      "description": "Version {{version}} · gross total {{total}}. The customer responded by phone, in person, or email.",
+      "decision": "Decision",
+      "decisionApproved": "Approved",
+      "decisionDeclined": "Declined",
+      "channel": "Channel",
+      "channelPlaceholder": "Select channel",
+      "amount": "Gross amount (EUR)",
+      "amountHint": "Must match the version total.",
+      "reaction": "Customer reaction (optional)",
+      "reactionPlaceholder": "Not specified",
+      "decidedAt": "Decision time (optional)",
+      "decidedAtHint": "Leave empty if the decision was just now.",
+      "note": "Note (required)",
+      "notePlaceholder": "What the customer said, e.g. appointment or questions",
+      "cancel": "Cancel",
+      "submit": "Save confirmation",
+      "submitFailed": "Could not record confirmation."
+    },
+    "overrun": {
+      "title": "Customer notified about overrun",
+      "description": "Current job total is {{current}} gross; approved amount was {{approved}}.",
+      "channel": "Channel",
+      "channelPlaceholder": "Select channel",
+      "reaction": "Customer reaction",
+      "reactionPlaceholder": "Select reaction",
+      "amount": "Gross amount (EUR)",
+      "amountHint": "Must match the current job total.",
+      "note": "Note (required)",
+      "notePlaceholder": "What the customer was told and how they reacted",
+      "cancel": "Cancel",
+      "submit": "Save notice",
+      "submitFailed": "Could not record customer notice."
+    }
+  },
+  "vehicleIdentity": {
+    "resolvedToast": "Vehicle identity resolved",
+    "resolveFailed": "Failed to resolve vehicle identity",
+    "loading": "Loading vehicle identity...",
+    "title": "Vehicle identity",
+    "staleBadge": "Stale — re-resolve required",
+    "resolvedBadge": "Resolved",
+    "oemBadge": "OEM {{label}}",
+    "keys": "Keys: {{keys}}",
+    "resolvedAt": "Resolved {{date}}",
+    "vinRequired": "VIN is required before identity can be resolved.",
+    "reResolve": "Re-resolve identity",
+    "reResolveShort": "Re-resolve"
+  },
+  "communicationTimeline": {
+    "title": "Customer communication",
+    "loading": "Loading communication …",
+    "loadErrorTitle": "Could not load communication.",
+    "retry": "Try again",
+    "empty": "No customer communication yet.",
+    "channelSuffix": " ({{label}})",
+    "estimateVersionSuffix": " (Version {{version}})",
+    "readyEmail": {
+      "QUEUED": "Pickup notification is being sent by email",
+      "SENT": "Pickup notification was sent by email",
+      "FAILED": "Pickup notification could not be sent by email",
+      "SUPPRESSED": "Pickup notification was not sent by email",
+      "default": "Pickup notification by email"
+    },
+    "estimateEmail": {
+      "QUEUED": "{{nominative}} is being sent by email",
+      "SENT": "{{nominative}} was sent by email",
+      "FAILED": "The email with {{dative}} could not be sent",
+      "SUPPRESSED": "The email with {{dative}} was not sent",
+      "default": "{{nominative}} by email"
+    },
+    "approval": {
+      "linkApproved": "Customer approved {{accusative}} via link",
+      "linkDeclined": "Customer declined {{accusative}} via link",
+      "advisorApproved": "Approval of {{genitive}} recorded by advisor{{channel}}",
+      "advisorDeclined": "Decline of {{genitive}} recorded by advisor{{channel}}"
+    },
+    "overrunDetected": "Overrun vs {{dative}} detected",
+    "overrunNotice": "Customer notified about overrun vs {{dative}}{{channel}}",
+    "estimateNoun": {
+      "nominative": "The estimate{{suffix}}",
+      "accusative": "the estimate{{suffix}}",
+      "dative": "the estimate{{suffix}}",
+      "genitive": "the estimate{{suffix}}"
+    },
+    "channel": {
+      "PHONE": "Phone",
+      "IN_PERSON": "in person",
+      "EMAIL": "Email"
+    }
+  },
+  "loaner": {
+    "title": "Loaner vehicles",
+    "description": "Manage fleet, schedule bookings, and document handover and return.",
+    "overdueBadge": "{{count}} overdue",
+    "addVehicle": "Loaner vehicle",
+    "searchPlaceholder": "Search loaner vehicles…",
+    "rowAria": "Loaner vehicle {{name}}",
+    "columns": {
+      "name": "Name",
+      "vehicle": "Vehicle",
+      "status": "Status"
+    },
+    "bookingsTitle": "Bookings · {{name}}",
+    "booking": "Booking",
+    "noBookings": "No bookings for this vehicle.",
+    "workshopOrder": "Workshop order: {{id}}",
+    "handOver": "Hand over",
+    "return": "Return",
+    "protocol": "Protocol",
+    "cancelBooking": "Cancel",
+    "overdueTitle": "Overdue returns",
+    "overdueUntil": "{{customer}} · until {{date}}",
+    "addDialogTitle": "Add loaner vehicle",
+    "searchVehicle": "Search vehicle",
+    "searchVehiclePlaceholder": "Plate, VIN, model…",
+    "selected": "Selected: {{label}}",
+    "displayName": "Display name",
+    "displayNamePlaceholder": "e.g. Golf loaner",
+    "newBookingTitle": "New booking",
+    "customer": "Customer",
+    "workshopOrderOptional": "Workshop order (optional)",
+    "selectOrder": "Select order",
+    "noOrder": "No order",
+    "noOpenOrders": "No open workshop orders for this customer.",
+    "plannedFrom": "Planned from",
+    "plannedTo": "Planned to",
+    "createBooking": "Create booking",
+    "handOverTitle": "Log handover",
+    "returnTitle": "Log return",
+    "odometer": "Odometer",
+    "fuel": "Fuel level (%)",
+    "licenceChecked": "Driver licence checked",
+    "damageOut": "Damage / notes (out)",
+    "damageIn": "Damage / notes (return)",
+    "saveHandOver": "Save handover",
+    "saveReturn": "Save return",
+    "toast": {
+      "vehicleRequired": "Vehicle and display name are required",
+      "vehicleAdded": "Loaner vehicle added",
+      "saveFailed": "Save failed",
+      "selectVehicleFirst": "Please select a loaner vehicle first",
+      "customerRequired": "Customer is required",
+      "bookingCreated": "Booking created",
+      "bookingFailed": "Booking failed",
+      "odometerRequired": "Valid odometer reading required",
+      "fuelRange": "Fuel level must be between 0 and 100%",
+      "licenceRequired": "Driver licence must be confirmed",
+      "handOverSuccess": "Handover logged",
+      "handOverFailed": "Handover failed",
+      "returnSuccess": "Return logged",
+      "returnFailed": "Return failed",
+      "bookingCancelled": "Booking cancelled",
+      "cancelFailed": "Cancellation failed"
+    }
+  },
+  "taskList": {
+    "reportedIssue": "Reported issue",
+    "highPriority": "High priority",
+    "reportedIssuePlaceholder": "Customer reported issue...",
+    "reportedIssueEmpty": "Add reported issue",
+    "reportedIssueAria": "Workshop order reported issue",
+    "repairTasks": "Repair tasks",
+    "newTaskPlaceholder": "New task title...",
+    "addTask": "Task",
+    "noTasks": "No tasks yet. Add the first task to begin work.",
+    "internalNotes": "Internal notes",
+    "internalNotesPlaceholder": "Notes visible to service advisors and mechanics...",
+    "internalNotesEmpty": "Add internal notes",
+    "internalNotesAria": "Workshop internal notes",
+    "markComplete": "Mark task \"{{title}}\" complete",
+    "markIncomplete": "Mark task \"{{title}}\" incomplete",
+    "taskSummary": "{{parts}} · {{fees}} · {{labor}} · Parts {{partsTotal}}{{feesSegment}} · Labor {{laborTotal}} · Std {{stdHours}}h · Actual {{actualHours}}h",
+    "parts_one": "{{count}} part",
+    "parts_other": "{{count}} parts",
+    "fees_one": "{{count}} fee",
+    "fees_other": "{{count}} fees",
+    "labor_one": "{{count}} labor line",
+    "labor_other": "{{count}} labor lines",
+    "feesSegment": " · Fees {{amount}}",
+    "taskDetails": "Task details and estimate lines",
+    "fitmentSearch": "Fitment search",
+    "deleteTask": "Delete task",
+    "mechanicNotes": "Mechanic notes",
+    "mechanicNotesPlaceholder": "Mechanic observations, measurements, and service notes...",
+    "mechanicNotesEmpty": "Add mechanic notes",
+    "mechanicNotesAria": "Mechanic notes"
+  },
+  "taskLineEditor": {
+    "searchPlaceholder": "Search labor or part number...",
+    "suggestionsAria": "Suggestions",
+    "noResults": "No compatible catalog items found.",
+    "laborGroup": "Labor",
+    "partsGroup": "Parts",
+    "stock": "Stock: {{qty}}",
+    "searching": "Searching...",
+    "qtyPlaceholder": "Qty",
+    "add": "+ Add",
+    "loadingLaborMeta": "Loading labor metadata...",
+    "colType": "Type",
+    "colItemNo": "Item No.",
+    "colDescription": "Description",
+    "colQty": "Qty",
+    "colUnitPrice": "Unit Price",
+    "empty": "No parts or labor lines yet.",
+    "type": {
+      "PART": "Part",
+      "LABOR": "Labor",
+      "FEE": "Fee"
+    },
+    "standardAw": "Standard AW {{hours}}",
+    "actualHours": "Actual Hours",
+    "actualHoursAria": "Actual Hours",
+    "efficiency": "Efficiency {{ratio}}x",
+    "quantityAria": "Quantity {{itemNo}}",
+    "unitPriceAria": "Unit Price {{itemNo}}",
+    "deleteLineAria": "Delete line {{itemNo}}"
+  },
+  "estimateCard": {
+    "title": "Estimate",
+    "create": "Create estimate",
+    "newVersion": "Create new version",
+    "loading": "Loading…",
+    "loadErrorTitle": "Estimate unavailable",
+    "loadErrorFallback": "Could not load estimate.",
+    "emptyEditable": "No estimate for this job yet.",
+    "emptyReadonly": "No estimate was created for this job.",
+    "overrunNoticeLine": "Customer notified {{date}} · {{channel}} · Reaction: {{reaction}}{{note}}",
+    "overrunNoticeNote": " · Note: {{note}}",
+    "overrunBannerTitle": "Job exceeds approved estimate",
+    "notifyCustomer": "Customer notified",
+    "reviseAndSend": "Send revised estimate",
+    "versionDraftSubline": "Draft · not sent yet",
+    "versionSentSubline": "Sent {{sent}} · valid until {{validUntil}}",
+    "gross": "Gross {{amount}}",
+    "preview": "(preview)",
+    "sendDisabledTitle": "Customer send is not available right now",
+    "sendToCustomer": "Send to customer",
+    "pdfGenerating": "Generating PDF…",
+    "pdfDownload": "Download PDF",
+    "versionLabel": "Version {{version}}",
+    "approvalNote": " · Note: {{note}}",
+    "recordDecision": "Record confirmation",
+    "sendDisabledLegal": "Customer send is disabled until legal text is approved. You can still review the draft.",
+    "status": {
+      "DRAFT": "Draft",
+      "SENT": "Sent",
+      "APPROVED": "Approved",
+      "DECLINED": "Declined",
+      "EXPIRED": "Expired",
+      "SUPERSEDED": "Superseded"
+    },
+    "overrunTotalLine": "Gross total {{current}} exceeds approved {{approved}}{{percentText}}. Threshold: {{threshold}}.",
+    "overrunNewLines": "{{count}} new line(s) compared to the approved estimate.",
+    "toast": {
+      "created": "Estimate created",
+      "createFailed": "Could not create estimate.",
+      "revised": "New version created as draft",
+      "reviseFailed": "Could not create new version.",
+      "decisionRecorded": "Confirmation recorded for version {{version}}",
+      "noticeRecorded": "Customer notice recorded",
+      "sentWithEmail": "Version {{version}} sent; customer email is being sent",
+      "sent": "Version {{version}} sent",
+      "pdfDownloaded": "Estimate PDF downloaded",
+      "pdfFailed": "PDF generation failed"
+    },
+    "sendBlocked_one": "Customer send is blocked until zero-price lines and claimed fitment are resolved ({{count}} line).",
+    "sendBlocked_other": "Customer send is blocked until zero-price lines and claimed fitment are resolved ({{count}} lines)."
+  },
+  "invoiceOverrun": {
+    "title": "Invoice exceeds approved estimate",
+    "notified": "Customer was notified about {{notified}} gross. Job total is now {{current}} gross; notify the customer again.",
+    "notNotified": "Job total is {{current}} gross; approved was {{approved}}. Customer has not been notified about the overrun.",
+    "canStillInvoice": "You can still issue the invoice."
+  },
+  "checkout": {
+    "grandTotal": "Grand total",
+    "title": "Checkout",
+    "description": "Review discounts and issue the invoice without leaving this job.",
+    "close": "Close Checkout",
+    "openInvoice": "Open invoice",
+    "primaryAction": "Checkout",
+    "toast": {
+      "draftInvoiceCreated": "Draft invoice created ({{number}})",
+      "draftInvoiceFailed": "Failed to create draft invoice",
+      "invoiceIssued": "Invoice issued ({{number}})",
+      "invoiceIssueFailed": "Failed to issue invoice"
+    }
+  },
+  "orderIntake": {
+    "title": "Create Workshop Order",
+    "description": "Search for an existing vehicle or register a new vehicle before creating the workshop order.",
+    "descriptionPickerl": "Create a §57a workshop order for the selected vehicle.",
+    "tabExisting": "Search Existing",
+    "tabNewVehicle": "Create Vehicle",
+    "tabRegistration": "Zulassungsschein",
+    "searchPlaceholder": "Search VIN, plate, customer name, phone...",
+    "vehicles": "Vehicles",
+    "searching": "Searching...",
+    "noVehicles": "No vehicles found.",
+    "vehicleMeta": "VIN: {{vin}} · Plate: {{plate}}",
+    "customerLabel": "Customer: {{name}}",
+    "unassigned": "Unassigned",
+    "selectedVehicle": "Selected Vehicle",
+    "noLinkedCustomer": "No linked customer",
+    "pickVehicle": "Pick a vehicle from the list.",
+    "vinPlaceholder": "VIN",
+    "platePlaceholder": "Plate",
+    "makePlaceholder": "Make",
+    "modelPlaceholder": "Model",
+    "yearPlaceholder": "Year",
+    "customerSection": "Customer",
+    "selectExisting": "Select Existing",
+    "createNew": "Create New",
+    "searchCustomersPlaceholder": "Search customers by name, phone...",
+    "noCustomers": "No customers found.",
+    "noEmail": "No email",
+    "noPhone": "No phone",
+    "firstName": "First Name",
+    "lastName": "Last Name",
+    "email": "Email",
+    "phone": "Phone",
+    "registrationHint": "Upload an Austrian Zulassungsschein (front and optional back). Review extracted fields, confirm identity, then create the workshop order on the captured site.",
+    "orderIntakeSection": "Order Intake",
+    "odometerPlaceholder": "Odometer (km)",
+    "fuelPlaceholder": "Fuel Level (%)",
+    "notesPlaceholder": "Issue notes...",
+    "openExistingOrder": "Open existing order",
+    "openOrderNumber": "Open {{orderNumber}}",
+    "cancel": "Cancel",
+    "creating": "Creating...",
+    "createPickerl": "Create §57a order",
+    "pickerlNotesDefault": "§57a inspection",
+    "createOrder": "Create Order",
+    "toastSelectVehicle": "Select a vehicle linked to a customer.",
+    "toastPickerlOpened": "§57a workshop order opened",
+    "toastOrderCreated": "Workshop order created",
+    "toastSelectCustomer": "Select an existing customer.",
+    "toastNoCustomerLinked": "Vehicle was created but no customer was linked.",
+    "toastCreateFailed": "Failed to create workshop order",
+    "activeOrderConflict": "This vehicle already has an open workshop order ({{orderNumber}}).",
+    "activeOrderConflictNoNumber": "This vehicle already has an open workshop order.",
+    "na": "N/A"
+  },
+  "registrationIntake": {
+    "frontLabel": "Front (required)",
+    "backLabel": "Back (optional)",
+    "reading": "Reading document…",
+    "uploadReview": "Upload and review",
+    "toastFrontRequired": "Upload the front of the Zulassungsschein.",
+    "toastConfirmed": "Customer and vehicle confirmed",
+    "toastOdometerRequired": "Enter a valid odometer reading before creating the order.",
+    "toastOrderCreated": "Workshop order created",
+    "extractionFailed": "Extraction failed ({{code}}). Delete and try again with a new upload.",
+    "unknown": "unknown",
+    "uploadFailed": "Upload failed",
+    "extractionFailedFallback": "Extraction failed"
+  },
+  "registrationReview": {
+    "actionFailed": "Action failed",
+    "selectCustomer": "Select customer",
+    "selectVehicle": "Select vehicle",
+    "ownershipConfirm": "Reassign vehicle to the matched holder on this document",
+    "lowConfidence": " (low confidence)",
+    "confirmIdentity": "Confirm identity",
+    "createOrder": "Create workshop order",
+    "abort": "Abort",
+    "delete": "Delete"
+  },
+  "measurementsSection": {
+    "title": "Brake device results",
+    "description": "Review external brake measurement and apply as evidence.",
+    "import": "Import measurement",
+    "empty": "No brake measurements for this order yet.",
+    "device": "Device: {{serial}}",
+    "axleWheel": "Axle {{axle}} {{side}}: {{force}} {{unit}}",
+    "back": "Back",
+    "forward": "Next",
+    "page": "Page {{page}} / {{total}}",
+    "dialogTitle": "Import brake measurement",
+    "dialogDescription": "Source reference from the workshop network — values are read-only.",
+    "deviceLabel": "Device",
+    "referenceLabel": "Measurement reference",
+    "status": "Status:",
+    "preview": "Preview",
+    "apply": "Apply"
+  },
+  "loanerPrint": {
+    "loading": "Loading protocol…",
+    "notFound": "Booking not found.",
+    "back": "Back",
+    "print": "Print",
+    "title": "Loaner vehicle protocol",
+    "bookingMeta": "Booking {{id}}",
+    "loanerSection": "Loaner vehicle",
+    "customerSection": "Customer",
+    "workshopOrder": "Workshop order: {{id}}",
+    "handover": "Handover",
+    "return": "Return",
+    "time": "Time",
+    "odometer": "Odometer",
+    "fuel": "Fuel (%)",
+    "licenceChecked": "Driver licence checked",
+    "damageNotes": "Damage / notes",
+    "signatureHandover": "Customer signature (handover)",
+    "signatureReturn": "Customer signature (return)",
+    "bookingNotes": "Booking notes",
+    "yes": "Yes",
+    "no": "No",
+    "emDash": "—"
+  },
   "checkIn": {
     "inspection": {
       "sectionLabel": "Intake checklist",

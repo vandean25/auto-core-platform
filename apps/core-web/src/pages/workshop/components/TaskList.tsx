@@ -1,4 +1,5 @@
 import { Plus, Search, Trash2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -6,7 +7,9 @@ import { Input } from '@/components/ui/input'
 import { InlineEdit } from '@/components/inline-edit/InlineEdit'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { Badge } from '@/components/ui/badge'
+import { formatNumber } from '@/lib/format'
 import { formatCurrency } from '@/lib/utils'
+import { PICKERL_TASK_TITLE } from '@/features/workshop/pickerl.constants'
 import type { WorkshopOrder, WorkshopTask } from '@/api/types'
 import { TaskLineItemEditor } from '@/components/workshop/TaskLineItemEditor'
 import type { TaskLineItem } from '@/components/workshop/TaskLineItemEditor'
@@ -56,15 +59,17 @@ export function TaskList({
   onSaveNotes,
   onOpenFitmentSearch,
 }: TaskListProps) {
+  const { t } = useTranslation('workshop')
+
   return (
     <>
       <Card>
         <CardHeader className='pb-3'>
           <div className='flex items-center justify-between'>
-            <CardTitle className='text-base font-semibold'>Reported Issue</CardTitle>
+            <CardTitle className='text-base font-semibold'>{t('taskList.reportedIssue')}</CardTitle>
             {order.status !== 'COMPLETED' && (
               <Badge className='border-rose-200 bg-rose-100 text-rose-800 hover:bg-rose-100'>
-                High Priority
+                {t('taskList.highPriority')}
               </Badge>
             )}
           </div>
@@ -73,12 +78,12 @@ export function TaskList({
           <InlineEdit
             mode='textarea'
             rows={4}
-            placeholder='Customer reported issue...'
+            placeholder={t('taskList.reportedIssuePlaceholder')}
             value={order.reportedIssue || order.reported_issue || ''}
             readOnly={isLocked}
             onSave={onSaveReportedIssue}
-            emptyText='Add reported issue'
-            ariaLabel='Workshop order reported issue'
+            emptyText={t('taskList.reportedIssueEmpty')}
+            ariaLabel={t('taskList.reportedIssueAria')}
           />
         </CardContent>
       </Card>
@@ -86,7 +91,7 @@ export function TaskList({
       <Card>
         <CardHeader className='pb-3'>
           <div className='flex items-center justify-between gap-3'>
-            <CardTitle className='text-base font-semibold'>Repair Tasks</CardTitle>
+            <CardTitle className='text-base font-semibold'>{t('taskList.repairTasks')}</CardTitle>
             <div className='flex items-center gap-2 w-full max-w-md'>
               <Input
                 value={newTaskTitle}
@@ -97,7 +102,7 @@ export function TaskList({
                     onAddTask()
                   }
                 }}
-                placeholder='New task title...'
+                placeholder={t('taskList.newTaskPlaceholder')}
                 className='h-8'
                 disabled={isLocked}
               />
@@ -109,14 +114,14 @@ export function TaskList({
                 disabled={isLocked}
               >
                 <Plus className='h-3.5 w-3.5 mr-1' />
-                Task
+                {t('taskList.addTask')}
               </Button>
             </div>
           </div>
         </CardHeader>
         <CardContent className='space-y-2'>
           {tasks.length === 0 && (
-            <div className='text-sm text-muted-foreground'>No tasks yet. Add the first task to begin work.</div>
+            <div className='text-sm text-muted-foreground'>{t('taskList.noTasks')}</div>
           )}
           {tasks.map((task) => (
             <TaskAccordionRow
@@ -143,18 +148,18 @@ export function TaskList({
 
       <Card>
         <CardHeader className='pb-3'>
-          <CardTitle className='text-base font-semibold'>Internal Notes</CardTitle>
+          <CardTitle className='text-base font-semibold'>{t('taskList.internalNotes')}</CardTitle>
         </CardHeader>
         <CardContent>
           <InlineEdit
             mode='textarea'
             rows={5}
-            placeholder='Notes visible to service advisors and mechanics...'
+            placeholder={t('taskList.internalNotesPlaceholder')}
             value={order.notes || ''}
             readOnly={isLocked}
             onSave={onSaveNotes}
-            emptyText='Add internal notes'
-            ariaLabel='Workshop internal notes'
+            emptyText={t('taskList.internalNotesEmpty')}
+            ariaLabel={t('taskList.internalNotesAria')}
           />
         </CardContent>
       </Card>
@@ -193,6 +198,7 @@ function TaskAccordionRow({
   isDeletingTask,
   onOpenFitmentSearch,
 }: TaskAccordionRowProps) {
+  const { t } = useTranslation('workshop')
   const lineItems: TaskLineItem[] = (task.lineItems ?? []).map((item, index) => ({
     id: item.id ?? `tmp-${task.id}-${index}`,
     type: item.type,
@@ -219,6 +225,14 @@ function TaskAccordionRow({
     hasLaborCostData: false,
   }
 
+  const partsLabel = t('taskList.parts', { count: partsCount })
+  const feesLabel = t('taskList.fees', { count: feesCount })
+  const laborLabel = t('taskList.labor', { count: laborCount })
+  const feesSegment =
+    taskTotals.fees > 0
+      ? t('taskList.feesSegment', { amount: formatCurrency(taskTotals.fees) })
+      : ''
+
   return (
     <div
       data-workshop-task-row='true'
@@ -230,7 +244,11 @@ function TaskAccordionRow({
           onCheckedChange={(checked) => onToggleTask(task.id, checked === true)}
           disabled={isLocked}
           onClick={(event) => event.stopPropagation()}
-          aria-label={task.done ? `Mark task "${task.title}" incomplete` : `Mark task "${task.title}" complete`}
+          aria-label={
+            task.done
+              ? t('taskList.markIncomplete', { title: task.title })
+              : t('taskList.markComplete', { title: task.title })
+          }
         />
         <button
           type='button'
@@ -248,30 +266,32 @@ function TaskAccordionRow({
             </span>
           </span>
           <span className='w-full text-xs text-muted-foreground'>
-            {partsCount} {partsCount === 1 ? 'part' : 'parts'}
-            {feesCount > 0
-              ? ` · ${feesCount} ${feesCount === 1 ? 'fee' : 'fees'}`
-              : ''}{' '}
-            · {laborCount} {laborCount === 1 ? 'labor line' : 'labor lines'} · Parts{' '}
-            {formatCurrency(taskTotals.parts)}
-            {taskTotals.fees > 0
-              ? ` · Fees ${formatCurrency(taskTotals.fees)}`
-              : ''}{' '}
-            · Labor {formatCurrency(taskTotals.labor)} · Std{' '}
-            {taskTotals.laborStandardHours.toFixed(2)}h · Actual{' '}
-            {taskTotals.laborActualHours.toFixed(2)}h
+            {t('taskList.taskSummary', {
+              parts: partsLabel,
+              fees: feesLabel,
+              labor: laborLabel,
+              partsTotal: formatCurrency(taskTotals.parts),
+              feesSegment,
+              laborTotal: formatCurrency(taskTotals.labor),
+              stdHours: formatNumber(taskTotals.laborStandardHours, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              }),
+              actualHours: formatNumber(taskTotals.laborActualHours, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              }),
+            })}
           </span>
         </button>
       </div>
 
       {isExpanded && (
-        <div
-          className='space-y-4 border-t px-3 py-4'
-        >
+        <div className='space-y-4 border-t px-3 py-4'>
           <div className='flex items-center justify-between gap-3'>
             <div>
               <div className='text-sm font-semibold'>{task.title}</div>
-              <div className='mt-1 text-xs text-muted-foreground'>Task details and estimate lines</div>
+              <div className='mt-1 text-xs text-muted-foreground'>{t('taskList.taskDetails')}</div>
             </div>
             <div className='flex items-center gap-2'>
               {!isLocked && onOpenFitmentSearch && (
@@ -284,7 +304,7 @@ function TaskAccordionRow({
                   data-testid='open-fitment-search-button'
                 >
                   <Search className='mr-1.5 h-3.5 w-3.5' />
-                  Fitment search
+                  {t('taskList.fitmentSearch')}
                 </Button>
               )}
               <Button
@@ -296,12 +316,12 @@ function TaskAccordionRow({
                 disabled={!canDeleteTask || isDeletingTask}
               >
                 <Trash2 className='mr-1.5 h-3.5 w-3.5' />
-                Delete task
+                {t('taskList.deleteTask')}
               </Button>
             </div>
           </div>
 
-          {task.title === '§57a Begutachtung' ? (
+          {task.title === PICKERL_TASK_TITLE ? (
             <WorkshopTaskInspectionChecklist
               orderId={workshopOrderId}
               taskId={task.id}
@@ -318,16 +338,16 @@ function TaskAccordionRow({
           />
 
           <div className='space-y-2'>
-            <div className='text-sm font-semibold'>Mechanic Notes</div>
+            <div className='text-sm font-semibold'>{t('taskList.mechanicNotes')}</div>
             <InlineEdit
               mode='textarea'
               rows={4}
-              placeholder='Mechanic observations, measurements, and service notes...'
+              placeholder={t('taskList.mechanicNotesPlaceholder')}
               value={task.mechanicNotes ?? ''}
               readOnly={isLocked}
               onSave={(notes) => onTaskMechanicNotesChange(task.id, notes)}
-              emptyText='Add mechanic notes'
-              ariaLabel='Mechanic notes'
+              emptyText={t('taskList.mechanicNotesEmpty')}
+              ariaLabel={t('taskList.mechanicNotesAria')}
             />
           </div>
         </div>

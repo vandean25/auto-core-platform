@@ -8,6 +8,10 @@ import * as workshopApi from '@/api/workshop'
 import type { WorkshopCapacityBay, WorkshopCapacityWeek } from '@/api/workshop'
 import * as authSessionApi from '@/api/auth-session'
 import * as sitesApi from '@/api/sites'
+import { deWorkshop } from '@/test/de-workshop'
+import { i18n } from '@/lib/i18n'
+
+const cap = deWorkshop.capacity
 
 vi.mock('@/api/workshop')
 vi.mock('@/api/auth-session', () => ({ useAuthSession: vi.fn() }))
@@ -169,7 +173,7 @@ describe('WorkshopCapacityPage', () => {
   it('renders bays as rows and the six working days as columns', () => {
     renderPage()
 
-    expect(screen.getByRole('heading', { name: 'Workshop Capacity' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: cap.page.title })).toBeInTheDocument()
     expect(screen.getAllByRole('rowheader').map((header) => header.textContent)).toEqual([
       'Bay 1',
       'Bay 2',
@@ -180,7 +184,7 @@ describe('WorkshopCapacityPage', () => {
   it('shows the free hours per cell and links each order chip to the order', () => {
     renderPage()
 
-    expect(screen.getByText('3 h free')).toBeInTheDocument()
+    expect(screen.getByText(i18n.t('capacity.cell.free', { ns: 'workshop', hours: '3 h' }))).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /WO-CAP-1/ })).toHaveAttribute(
       'href',
       '/workshop/orders/order-1',
@@ -190,9 +194,13 @@ describe('WorkshopCapacityPage', () => {
   it('highlights cells where planned hours exceed the working day', () => {
     renderPage()
 
-    const overbooked = screen.getByText(`Overbooked by ${formattedHours(0.5)}`).closest('[data-overbooked]')
+    const overbooked = screen
+      .getByText(i18n.t('capacity.cell.overbooked', { ns: 'workshop', hours: formattedHours(0.5) }))
+      .closest('[data-overbooked]')
     expect(overbooked).toHaveAttribute('data-overbooked', 'true')
-    expect(screen.getByText('3 h free').closest('[data-overbooked]')).toHaveAttribute(
+    expect(
+      screen.getByText(i18n.t('capacity.cell.free', { ns: 'workshop', hours: '3 h' })).closest('[data-overbooked]'),
+    ).toHaveAttribute(
       'data-overbooked',
       'false',
     )
@@ -201,27 +209,27 @@ describe('WorkshopCapacityPage', () => {
   it('moves one week at a time from the shown week and returns to the current week', () => {
     renderPage()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Next week' }))
+    fireEvent.click(screen.getByRole('button', { name: cap.page.nextWeek }))
     expect(workshopApi.useWorkshopCapacityWeek).toHaveBeenLastCalledWith('2026-10-19')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Previous week' }))
+    fireEvent.click(screen.getByRole('button', { name: cap.page.previousWeek }))
     expect(workshopApi.useWorkshopCapacityWeek).toHaveBeenLastCalledWith('2026-10-12')
 
-    fireEvent.click(screen.getByRole('button', { name: 'This week' }))
+    fireEvent.click(screen.getByRole('button', { name: cap.page.thisWeek }))
     expect(workshopApi.useWorkshopCapacityWeek).toHaveBeenLastCalledWith(undefined)
   })
 
   it('offers a site selector for the sites the user can access', () => {
     renderPage()
 
-    expect(screen.getByRole('combobox', { name: 'Switch site' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: cap.page.switchSite })).toBeInTheDocument()
   })
 
   it('explains when the active site has no bays yet', () => {
     mockCapacity({ data: buildWeek([]) })
     renderPage()
 
-    expect(screen.getByText(/no active bays/i)).toBeInTheDocument()
+    expect(screen.getByText(cap.page.noBays)).toBeInTheDocument()
   })
 
   it('lets the user retry when the week cannot be loaded', () => {
@@ -229,7 +237,7 @@ describe('WorkshopCapacityPage', () => {
     mockCapacity({ data: undefined, isError: true, refetch })
     renderPage()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    fireEvent.click(screen.getByRole('button', { name: cap.page.tryAgain }))
     expect(refetch).toHaveBeenCalledTimes(1)
   })
 
@@ -237,7 +245,7 @@ describe('WorkshopCapacityPage', () => {
     mockCapacity({ isPlaceholderData: true })
     renderPage()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Next week' }))
+    fireEvent.click(screen.getByRole('button', { name: cap.page.nextWeek }))
 
     expect(document.body.textContent).toContain('Mo., 12. Okt. 2026')
     expect(document.body.textContent).not.toContain('Mo., 19. Okt. 2026')

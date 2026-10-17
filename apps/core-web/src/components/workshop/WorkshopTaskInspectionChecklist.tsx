@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
   useUpdateWorkshopTaskChecklist,
@@ -13,6 +14,7 @@ export function WorkshopTaskInspectionChecklist({
   taskId,
   readOnly = false,
 }: Props) {
+  const { t } = useTranslation("workshop");
   const checklistQuery = useWorkshopTaskChecklist(orderId, taskId);
   const updateChecklist = useUpdateWorkshopTaskChecklist();
 
@@ -30,19 +32,19 @@ export function WorkshopTaskInspectionChecklist({
       toast.error(
         error instanceof Error
           ? error.message
-          : "Checkliste konnte nicht gespeichert werden",
+          : t("inspection.checklist.saveError"),
       );
     }
   }
 
   if (checklistQuery.isLoading)
     return (
-      <p className="text-sm text-muted-foreground">Checkliste wird geladen…</p>
+      <p className="text-sm text-muted-foreground">{t("inspection.checklist.loading")}</p>
     );
   if (checklistQuery.isError || !checklistQuery.data)
     return (
       <p className="text-sm text-destructive">
-        Checkliste konnte nicht geladen werden.
+        {t("inspection.checklist.loadFailed")}
       </p>
     );
   return (

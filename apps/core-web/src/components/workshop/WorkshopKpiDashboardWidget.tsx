@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuthSession } from '@/api/auth-session'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useMySites } from '@/api/sites'
@@ -20,6 +21,7 @@ function percentage(value: string | null | undefined) {
 }
 
 export function WorkshopKpiDashboardWidget() {
+  const { t } = useTranslation('workshop')
   const sites = useMySites()
   const session = useAuthSession()
   const siteId = session.data?.activeSiteId ?? sites.data?.[0]?.id ?? ''
@@ -29,11 +31,45 @@ export function WorkshopKpiDashboardWidget() {
 
   if (!canReadReport) return null
 
-  return <Card><CardHeader><CardTitle>Workshop diesen Monat</CardTitle></CardHeader><CardContent>
-    {current.isLoading ? <p className="text-sm text-slate-500">Wird geladen …</p> : current.data ? <div className="grid grid-cols-2 gap-3 text-sm">
-      <div><p className="text-slate-500">Auslastung</p><p className="font-semibold">{percentage(current.data.totals.utilisation_percent)} <span className="text-xs font-normal text-slate-500">(Vormonat {percentage(previous.data?.totals.utilisation_percent)})</span></p></div>
-      <div><p className="text-slate-500">Leistungsgrad</p><p className="font-semibold">{percentage(current.data.totals.productivity_percent)} <span className="text-xs font-normal text-slate-500">(Vormonat {percentage(previous.data?.totals.productivity_percent)})</span></p></div>
-    </div> : <p className="text-sm text-slate-500">Noch keine Workshop-Daten für diesen Monat.</p>}
-    <Link to="/workshop/reports/kpis" className="mt-4 inline-block text-sm font-medium text-primary underline-offset-4 hover:underline">Zum Workshop-Bericht</Link>
-  </CardContent></Card>
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t('kpi.title')}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {current.isLoading ? (
+          <p className="text-sm text-slate-500">{t('kpi.loading')}</p>
+        ) : current.data ? (
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <p className="text-slate-500">{t('kpi.utilisation')}</p>
+              <p className="font-semibold">
+                {percentage(current.data.totals.utilisation_percent)}{' '}
+                <span className="text-xs font-normal text-slate-500">
+                  {t('kpi.previousMonth', { value: percentage(previous.data?.totals.utilisation_percent) })}
+                </span>
+              </p>
+            </div>
+            <div>
+              <p className="text-slate-500">{t('kpi.productivity')}</p>
+              <p className="font-semibold">
+                {percentage(current.data.totals.productivity_percent)}{' '}
+                <span className="text-xs font-normal text-slate-500">
+                  {t('kpi.previousMonth', { value: percentage(previous.data?.totals.productivity_percent) })}
+                </span>
+              </p>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-slate-500">{t('kpi.empty')}</p>
+        )}
+        <Link
+          to="/workshop/reports/kpis"
+          className="mt-4 inline-block text-sm font-medium text-primary underline-offset-4 hover:underline"
+        >
+          {t('kpi.reportLink')}
+        </Link>
+      </CardContent>
+    </Card>
+  )
 }

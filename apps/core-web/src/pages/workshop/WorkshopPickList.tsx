@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
-import { format } from 'date-fns'
+import { formatDate, formatNumber } from '@/lib/format'
 import { ArrowRight, ListChecks } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DataTable } from '@/components/data-table/DataTable'
@@ -29,10 +30,14 @@ interface WorkshopPickQueueRow {
 }
 
 function formatQuantity(value: number) {
-  return Number.isInteger(value) ? String(Math.trunc(value)) : value.toFixed(2)
+  return formatNumber(value, {
+    maximumFractionDigits: Number.isInteger(value) ? 0 : 2,
+    minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
+  })
 }
 
 export default function WorkshopPickList() {
+  const { t } = useTranslation('workshop')
   const navigate = useNavigate()
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
@@ -49,7 +54,7 @@ export default function WorkshopPickList() {
         orderNo: order.order_number ?? order.id,
         customer: getWorkshopCustomerDisplayName(order),
         vehicle: `${order.vehicle.year} ${order.vehicle.make} ${order.vehicle.model}`,
-        openedAt: format(new Date(order.createdAt), 'PPP'),
+        openedAt: formatDate(order.createdAt),
         status: order.status,
         partLines: requiredPartLines.length,
         requiredQty: getTotalRequiredQuantity(requiredPartLines),
@@ -60,35 +65,49 @@ export default function WorkshopPickList() {
   const columns: ColumnDef<WorkshopPickQueueRow>[] = [
     {
       accessorKey: 'orderNo',
-      header: ({ column }) => <DataTableColumnHeader column={column} title='Order No.' />,
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title={t('pick.queue.columns.orderNo')} />
+      ),
       cell: ({ row }) => <span className='font-medium'>{row.original.orderNo}</span>,
     },
     {
       accessorKey: 'customer',
-      header: ({ column }) => <DataTableColumnHeader column={column} title='Customer' />,
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title={t('pick.queue.columns.customer')} />
+      ),
     },
     {
       accessorKey: 'vehicle',
-      header: ({ column }) => <DataTableColumnHeader column={column} title='Vehicle' />,
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title={t('pick.queue.columns.vehicle')} />
+      ),
     },
     {
       accessorKey: 'partLines',
-      header: ({ column }) => <DataTableColumnHeader column={column} title='Part Lines' />,
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title={t('pick.queue.columns.partLines')} />
+      ),
       cell: ({ row }) => <span className='tabular-nums'>{row.original.partLines}</span>,
     },
     {
       accessorKey: 'requiredQty',
-      header: ({ column }) => <DataTableColumnHeader column={column} title='Total Qty' />,
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title={t('pick.queue.columns.totalQty')} />
+      ),
       cell: ({ row }) => <span className='tabular-nums'>{formatQuantity(row.original.requiredQty)}</span>,
     },
     {
       accessorKey: 'openedAt',
-      header: ({ column }) => <DataTableColumnHeader column={column} title='Opened' />,
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title={t('pick.queue.columns.opened')} />
+      ),
       cell: ({ row }) => <span className='text-muted-foreground'>{row.original.openedAt}</span>,
     },
     {
       accessorKey: 'status',
-      header: ({ column }) => <DataTableColumnHeader column={column} title='Status' />,
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title={t('pick.queue.columns.status')} />
+      ),
       cell: ({ row }) => <StatusBadge status={row.original.status} />,
     },
   ]
@@ -97,16 +116,16 @@ export default function WorkshopPickList() {
     <div className='space-y-6'>
       <div className='flex items-center justify-between mb-8'>
         <div>
-          <h1 className='text-2xl font-semibold tracking-tight'>Parts pick queue</h1>
-          <p className='text-slate-500'>Select an order row to open the pick drawer and stage required parts.</p>
+          <h1 className='text-2xl font-semibold tracking-tight'>{t('pick.queue.title')}</h1>
+          <p className='text-slate-500'>{t('pick.queue.description')}</p>
         </div>
         <div className='flex items-center gap-2'>
           <Button variant='outline' onClick={() => navigate('/workshop/orders')}>
             <ListChecks className='h-4 w-4 mr-2' />
-            Workshop Orders
+            {t('pick.queue.workshopOrders')}
           </Button>
           <Button variant='outline' onClick={() => navigate('/workshop/intake')}>
-            Intake
+            {t('pick.queue.intake')}
             <ArrowRight className='h-4 w-4 ml-2' />
           </Button>
         </div>
@@ -115,10 +134,10 @@ export default function WorkshopPickList() {
       <DataTable
         columns={columns}
         data={rows}
-        saveViewTitle='Parts pick queue'
+        saveViewTitle={t('pick.queue.saveViewTitle')}
         pageCount={responseData?.meta?.pageCount ?? 1}
         isLoading={isLoading}
-        searchPlaceholder='Search parts pick queue...'
+        searchPlaceholder={t('pick.queue.searchPlaceholder')}
         onRowClick={(row) => {
           setActiveOrderId(row.id)
           setIsDrawerOpen(true)

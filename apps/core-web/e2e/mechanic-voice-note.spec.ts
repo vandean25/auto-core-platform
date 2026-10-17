@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
+import { DE_WORKSHOP } from './helpers/de-workshop'
 
 /**
  * Injects a synchronous MockMediaRecorder into the page context so that
@@ -146,14 +147,16 @@ test.describe('Mechanic voice-note diagnostics flow', () => {
 
     await corePage.navigate(`/mechanic/tasks/${TASK_ID}`)
 
-    const diagnosticsTextarea = page.getByPlaceholder('Record diagnostic findings, measurements, or notes here…')
+    const diagnosticsTextarea = page.getByPlaceholder(
+      DE_WORKSHOP.mechanic.taskDetail.diagnostics.placeholder,
+    )
     await expect(diagnosticsTextarea).toHaveValue('Initial typed note')
 
-    await page.getByRole('button', { name: /record voice note/i }).click()
-    await expect(page.getByRole('button', { name: /stop recording/i })).toBeVisible()
-    await page.getByRole('button', { name: /stop recording/i }).click()
+    await page.getByRole('button', { name: new RegExp(DE_WORKSHOP.mechanic.taskDetail.voiceNote.record, 'i') }).click()
+    await expect(page.getByRole('button', { name: new RegExp(DE_WORKSHOP.mechanic.taskDetail.voiceNote.stop, 'i') })).toBeVisible()
+    await page.getByRole('button', { name: new RegExp(DE_WORKSHOP.mechanic.taskDetail.voiceNote.stop, 'i') }).click()
 
-    const draftTextarea = page.getByLabel('Voice-note draft')
+    const draftTextarea = page.getByLabel(DE_WORKSHOP.mechanic.taskDetail.voiceNote.draftLabel)
     await expect(draftTextarea).toBeVisible()
     await expect(draftTextarea).toHaveValue('Voice draft from recording')
     await draftTextarea.fill('Edited from voice note')
@@ -164,11 +167,11 @@ test.describe('Mechanic voice-note diagnostics flow', () => {
         response.request().method() === 'PATCH',
     )
 
-    await page.getByRole('button', { name: /accept draft/i }).click()
+    await page.getByRole('button', { name: new RegExp(DE_WORKSHOP.mechanic.taskDetail.voiceNote.acceptDraft, 'i') }).click()
     await saveResponsePromise
 
     await expect(diagnosticsTextarea).toHaveValue('Initial typed note\n\nEdited from voice note')
-    await expect(page.getByText('Saved ✓')).toBeVisible()
+    await expect(page.getByText(DE_WORKSHOP.mechanic.taskDetail.saveState.saved)).toBeVisible()
   })
 
   test('discards voice draft without persisting notes', async ({ page }) => {
@@ -215,18 +218,20 @@ test.describe('Mechanic voice-note diagnostics flow', () => {
 
     await corePage.navigate(`/mechanic/tasks/${TASK_ID}`)
 
-    const diagnosticsTextarea = page.getByPlaceholder('Record diagnostic findings, measurements, or notes here…')
+    const diagnosticsTextarea = page.getByPlaceholder(
+      DE_WORKSHOP.mechanic.taskDetail.diagnostics.placeholder,
+    )
     await expect(diagnosticsTextarea).toHaveValue('Keep this note')
 
-    await page.getByRole('button', { name: /record voice note/i }).click()
-    await expect(page.getByRole('button', { name: /stop recording/i })).toBeVisible()
-    await page.getByRole('button', { name: /stop recording/i }).click()
+    await page.getByRole('button', { name: new RegExp(DE_WORKSHOP.mechanic.taskDetail.voiceNote.record, 'i') }).click()
+    await expect(page.getByRole('button', { name: new RegExp(DE_WORKSHOP.mechanic.taskDetail.voiceNote.stop, 'i') })).toBeVisible()
+    await page.getByRole('button', { name: new RegExp(DE_WORKSHOP.mechanic.taskDetail.voiceNote.stop, 'i') }).click()
 
-    const draftTextarea = page.getByLabel('Voice-note draft')
+    const draftTextarea = page.getByLabel(DE_WORKSHOP.mechanic.taskDetail.voiceNote.draftLabel)
     await expect(draftTextarea).toBeVisible()
     await expect(draftTextarea).toHaveValue('Draft that will be discarded')
 
-    await page.getByRole('button', { name: /discard draft/i }).click()
+    await page.getByRole('button', { name: new RegExp(DE_WORKSHOP.mechanic.taskDetail.voiceNote.discardDraft, 'i') }).click()
 
     // Draft panel must disappear
     await expect(draftTextarea).not.toBeVisible()
@@ -238,7 +243,7 @@ test.describe('Mechanic voice-note diagnostics flow', () => {
     expect(diagnosticsSaveCalled).toBe(false)
 
     // Voice-note record button must be available again for a new attempt
-    await expect(page.getByRole('button', { name: /record voice note/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: new RegExp(DE_WORKSHOP.mechanic.taskDetail.voiceNote.record, 'i') })).toBeVisible()
   })
 
   test('shows error state when the provider fails and leaves typed notes intact', async ({ page }) => {
@@ -270,25 +275,37 @@ test.describe('Mechanic voice-note diagnostics flow', () => {
 
     await corePage.navigate(`/mechanic/tasks/${TASK_ID}`)
 
-    const diagnosticsTextarea = page.getByPlaceholder('Record diagnostic findings, measurements, or notes here…')
+    const diagnosticsTextarea = page.getByPlaceholder(
+      DE_WORKSHOP.mechanic.taskDetail.diagnostics.placeholder,
+    )
     await expect(diagnosticsTextarea).toHaveValue('Typed note before failure')
 
-    await page.getByRole('button', { name: /record voice note/i }).click()
-    await expect(page.getByRole('button', { name: /stop recording/i })).toBeVisible()
-    await page.getByRole('button', { name: /stop recording/i }).click()
+    await page.getByRole('button', { name: new RegExp(DE_WORKSHOP.mechanic.taskDetail.voiceNote.record, 'i') }).click()
+    await expect(page.getByRole('button', { name: new RegExp(DE_WORKSHOP.mechanic.taskDetail.voiceNote.stop, 'i') })).toBeVisible()
+    await page.getByRole('button', { name: new RegExp(DE_WORKSHOP.mechanic.taskDetail.voiceNote.stop, 'i') }).click()
 
     // Retry button must appear in the error state
-    await expect(page.getByRole('button', { name: /retry recording/i })).toBeVisible()
+    await expect(
+      page.getByRole('button', {
+        name: new RegExp(DE_WORKSHOP.mechanic.taskDetail.voiceNote.retry, 'i'),
+      }),
+    ).toBeVisible()
 
     // Typed notes must be preserved
     await expect(diagnosticsTextarea).toHaveValue('Typed note before failure')
 
     // Draft panel must not have appeared
-    await expect(page.getByLabel('Voice-note draft')).not.toBeVisible()
+    await expect(
+      page.getByLabel(DE_WORKSHOP.mechanic.taskDetail.voiceNote.draftLabel),
+    ).not.toBeVisible()
 
     // Retry must transition back to recording state
-    await page.getByRole('button', { name: /retry recording/i }).click()
-    await expect(page.getByRole('button', { name: /stop recording/i })).toBeVisible()
+    await page
+      .getByRole('button', {
+        name: new RegExp(DE_WORKSHOP.mechanic.taskDetail.voiceNote.retry, 'i'),
+      })
+      .click()
+    await expect(page.getByRole('button', { name: new RegExp(DE_WORKSHOP.mechanic.taskDetail.voiceNote.stop, 'i') })).toBeVisible()
   })
 
   test('shows friendly guidance when the microphone is missing', async ({ page }) => {
@@ -320,8 +337,10 @@ test.describe('Mechanic voice-note diagnostics flow', () => {
 
     await corePage.navigate(`/mechanic/tasks/${TASK_ID}`)
 
-    await page.getByRole('button', { name: /record voice note/i }).click()
-    await expect(page.getByText('No microphone found. Check device permissions.')).toBeVisible()
+    await page.getByRole('button', { name: new RegExp(DE_WORKSHOP.mechanic.taskDetail.voiceNote.record, 'i') }).click()
+    await expect(
+      page.getByText(DE_WORKSHOP.mechanic.taskDetail.voiceNote.noMicrophone),
+    ).toBeVisible()
     await expect(page.getByText('Requested device not found')).not.toBeVisible()
   })
 
@@ -354,8 +373,10 @@ test.describe('Mechanic voice-note diagnostics flow', () => {
 
     await corePage.navigate(`/mechanic/tasks/${TASK_ID}`)
 
-    await page.getByRole('button', { name: /record voice note/i }).click()
-    await expect(page.getByText('No microphone found. Check device permissions.')).toBeVisible()
+    await page.getByRole('button', { name: new RegExp(DE_WORKSHOP.mechanic.taskDetail.voiceNote.record, 'i') }).click()
+    await expect(
+      page.getByText(DE_WORKSHOP.mechanic.taskDetail.voiceNote.noMicrophone),
+    ).toBeVisible()
     await expect(page.getByText('Permission denied')).not.toBeVisible()
   })
 })

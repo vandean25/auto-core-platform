@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
 import type { BoardViewMode } from '@/components/workshop/BoardViewToggle'
@@ -10,6 +11,7 @@ import {
 } from '@/api/workshop'
 
 export function useWorkshopBoardAssignment(viewMode: BoardViewMode) {
+  const { t } = useTranslation('workshop')
   const queryClient = useQueryClient()
   const assignBoard = useAssignBoard()
 
@@ -50,13 +52,13 @@ export function useWorkshopBoardAssignment(viewMode: BoardViewMode) {
       assignBoard.mutate(payload, {
         onError: () => {
           queryClient.setQueryData(workshopKeys.boardActive(), previousData)
-          toast.error('Failed to assign order. Please try again.')
+          toast.error(t('board.assignError'))
         },
         onSettled: () => {
           void queryClient.invalidateQueries({ queryKey: workshopKeys.boardActive() })
         },
       })
     },
-    [assignBoard, queryClient, viewMode],
+    [assignBoard, queryClient, t, viewMode],
   )
 }

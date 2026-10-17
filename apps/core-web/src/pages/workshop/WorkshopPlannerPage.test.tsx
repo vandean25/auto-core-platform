@@ -5,6 +5,9 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import WorkshopPlannerPage from './WorkshopPlannerPage'
 import * as workshopApi from '@/api/workshop'
+import { deWorkshop } from '@/test/de-workshop'
+
+const planner = deWorkshop.planner
 
 vi.mock('@/api/workshop')
 
@@ -171,10 +174,10 @@ describe('WorkshopPlannerPage', () => {
       </QueryClientProvider>,
     )
 
-    expect(screen.getByRole('heading', { name: 'Workshop Planner' })).toBeVisible()
-    expect(screen.getByRole('radio', { name: /Day/i })).toBeVisible()
-    expect(screen.getByRole('radio', { name: /Week/i })).toBeVisible()
-    expect(screen.getByRole('button', { name: '+ Workshop Order' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: planner.page.title })).toBeVisible()
+    expect(screen.getByRole('radio', { name: planner.viewMode.day })).toBeVisible()
+    expect(screen.getByRole('radio', { name: planner.viewMode.week })).toBeVisible()
+    expect(screen.getByRole('button', { name: planner.page.createOrder })).toBeVisible()
   })
 
   it('shows no bays empty state', () => {
@@ -192,7 +195,7 @@ describe('WorkshopPlannerPage', () => {
       </QueryClientProvider>,
     )
 
-    expect(screen.getByText('No bays configured')).toBeVisible()
+    expect(screen.getByText(planner.page.noBaysTitle)).toBeVisible()
   })
 
   it('persists day/week toggle in localStorage', () => {
@@ -205,7 +208,7 @@ describe('WorkshopPlannerPage', () => {
       </QueryClientProvider>,
     )
 
-    fireEvent.click(screen.getByRole('radio', { name: /Week/i }))
+    fireEvent.click(screen.getByRole('radio', { name: planner.viewMode.week }))
     expect(window.localStorage.getItem('workshop-planner-view')).toBe('week')
   })
 
@@ -219,8 +222,8 @@ describe('WorkshopPlannerPage', () => {
       </QueryClientProvider>,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: '+ Workshop Order' }))
-    expect(screen.getByText('Schedule workshop order')).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: planner.page.createOrder }))
+    expect(screen.getByText(planner.createSheet.title)).toBeVisible()
   })
 
   it('calls reschedule PATCH when dragging a SCHEDULED booking', () => {

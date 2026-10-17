@@ -7,6 +7,7 @@ import {
   PageBreadcrumbsProvider,
   PageContainerWithBreadcrumbs,
 } from '@/components/layout/PageBreadcrumbs'
+import deWorkshop from '../../../../../locales/de/workshop.json'
 
 vi.mock('@/api/workshop')
 vi.mock('./components/OrderDetailTabs', () => ({
@@ -62,6 +63,6 @@ describe('WorkshopOrderLayout breadcrumbs', () => {
 
     renderLayout()
 
-    expect(screen.getByText('Workshop order')).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByText(deWorkshop.orderDetail.breadcrumbFallback)).toHaveAttribute('aria-current', 'page')
   })
 })

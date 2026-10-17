@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 import { useDroppable } from '@dnd-kit/core'
 import type { components } from '@/api/generated/openapi'
 import type { PlannerBooking } from '@/api/workshop'
@@ -40,6 +41,7 @@ function WeekDayCell({
   bookings: PlannerBooking[]
   onDayClick: (bayId: string, date: string, startIso: string) => void
 }) {
+  const { t } = useTranslation('workshop')
   const droppableId = `planner-week-slot-${bayId}__${date}`
   const { isOver, setNodeRef } = useDroppable({ id: droppableId })
   const dayWindow = buildDayWindow(hours, timezone, date)
@@ -55,14 +57,16 @@ function WeekDayCell({
     >
       {hours.isClosed && (
         <p className="text-[10px] text-slate-400 px-1">
-          {hours.holidayName ? `Closed — ${hours.holidayName}` : 'Closed'}
+          {hours.holidayName
+            ? t('planner.grid.closedWithHoliday', { name: hours.holidayName })
+            : t('planner.grid.closed')}
         </p>
       )}
       <button
         type="button"
         className="absolute inset-0 z-0"
         onClick={() => onDayClick(bayId, date, startIso)}
-        aria-label="Book slot"
+        aria-label={t('planner.grid.bookSlotAria')}
       />
       {bookings.map((booking) => {
         const start = new Date(booking.scheduledStartAt)
@@ -93,6 +97,7 @@ export function PlannerWeekGrid({
   bookings,
   onDayClick,
 }: PlannerWeekGridProps) {
+  const { t } = useTranslation('workshop')
   const hoursByDate = React.useMemo(() => {
     const map = new Map<string, EffectiveHours>()
     for (const date of dates) {
@@ -108,7 +113,7 @@ export function PlannerWeekGrid({
         style={{ gridTemplateColumns: `140px repeat(${dates.length}, minmax(120px, 1fr))` }}
       >
         <div className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500">
-          Bay
+          {t('planner.grid.bay')}
         </div>
         {dates.map((date) => (
           <div

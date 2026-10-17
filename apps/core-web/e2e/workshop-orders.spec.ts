@@ -2,6 +2,11 @@ import { expectNoCriticalA11yViolations } from "./utils/a11y";
 import { test, expect } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
 import { createMockListResponse, createMockWorkshopOrder } from './utils/mock-factories'
+import { DE_WORKSHOP } from './helpers/de-workshop'
+
+function workshopOrderRowLinkName(orderNo: string) {
+  return DE_WORKSHOP.orders.list.rowAria.replace('{{orderNo}}', orderNo)
+}
 
 test.describe('Workshop Orders list', () => {
   test('row link keeps a 24px minimum hit area', async ({ page }) => {
@@ -22,7 +27,7 @@ test.describe('Workshop Orders list', () => {
     await corePage.navigate('/workshop/orders')
     await expect(corePage.dataTable).toBeVisible()
 
-    const rowLink = page.getByRole('link', { name: 'Workshop order WO-2026-0310' })
+    const rowLink = page.getByRole('link', { name: workshopOrderRowLinkName('WO-2026-0310') })
     const box = await rowLink.boundingBox()
     expect(box?.height ?? 0).toBeGreaterThanOrEqual(24)
   })
@@ -88,7 +93,7 @@ test.describe('Workshop Orders list', () => {
 
     await corePage.navigate('/workshop/orders')
 
-    const orderLink = page.getByRole('link', { name: 'Workshop order WO-2026-0295' })
+    const orderLink = page.getByRole('link', { name: workshopOrderRowLinkName('WO-2026-0295') })
     await expect(orderLink).toBeVisible()
     await orderLink.focus()
     await page.keyboard.press('Enter')

@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useAuthSession } from '@/api/auth-session'
@@ -17,6 +18,7 @@ import { CapacityWeekGrid } from '@/components/workshop/capacity/CapacityWeekGri
 import { addLocalDays, formatDateLabel } from '@/features/workshop/planner/planner-time'
 
 export default function WorkshopCapacityPage() {
+  const { t } = useTranslation('workshop')
   const navigate = useNavigate()
   const [anchorWeek, setAnchorWeek] = React.useState<string | undefined>(undefined)
   const capacity = useWorkshopCapacityWeek(anchorWeek)
@@ -38,10 +40,8 @@ export default function WorkshopCapacityPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Workshop Capacity</h1>
-          <p className="text-slate-500">
-            Planned labour per bay and day, and the free hours left in each working day.
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight">{t('capacity.page.title')}</h1>
+          <p className="text-slate-500">{t('capacity.page.description')}</p>
         </div>
         {siteList.length > 1 ? (
           <Select
@@ -49,8 +49,8 @@ export default function WorkshopCapacityPage() {
             onValueChange={(siteId) => switchSite.mutate(siteId)}
             disabled={switchSite.isPending}
           >
-            <SelectTrigger aria-label="Switch site" className="w-56">
-              <SelectValue placeholder="Select site" />
+            <SelectTrigger aria-label={t('capacity.page.switchSite')} className="w-56">
+              <SelectValue placeholder={t('capacity.page.selectSite')} />
             </SelectTrigger>
             <SelectContent>
               {siteList.map((site) => (
@@ -70,19 +70,19 @@ export default function WorkshopCapacityPage() {
           <Button
             variant="outline"
             size="icon"
-            aria-label="Previous week"
+            aria-label={t('capacity.page.previousWeek')}
             disabled={!shownWeekStart}
             onClick={() => shiftWeek(-7)}
           >
             <ChevronLeft />
           </Button>
           <Button variant="outline" onClick={() => setAnchorWeek(undefined)}>
-            This week
+            {t('capacity.page.thisWeek')}
           </Button>
           <Button
             variant="outline"
             size="icon"
-            aria-label="Next week"
+            aria-label={t('capacity.page.nextWeek')}
             disabled={!shownWeekStart}
             onClick={() => shiftWeek(7)}
           >
@@ -95,25 +95,23 @@ export default function WorkshopCapacityPage() {
             </p>
           ) : null}
         </div>
-        <p className="text-xs text-slate-500">
-          Red cells are overbooked: planned labour is more than the bay&apos;s open hours.
-        </p>
+        <p className="text-xs text-slate-500">{t('capacity.page.overbookedHint')}</p>
       </div>
 
       {capacity.isError && !week ? (
         <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-800">
-          <p>Could not load the capacity week.</p>
+          <p>{t('capacity.page.loadError')}</p>
           <Button variant="outline" size="sm" className="mt-3" onClick={() => capacity.refetch()}>
-            Try again
+            {t('capacity.page.tryAgain')}
           </Button>
         </div>
       ) : !week ? (
         <Skeleton className="h-96 w-full rounded-xl" />
       ) : week.bays.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-600">
-          <p>No active bays for this site yet.</p>
+          <p>{t('capacity.page.noBays')}</p>
           <Button variant="outline" size="sm" className="mt-3" onClick={() => navigate('/settings?tab=bays')}>
-            Open bay settings
+            {t('capacity.page.openBaySettings')}
           </Button>
         </div>
       ) : (

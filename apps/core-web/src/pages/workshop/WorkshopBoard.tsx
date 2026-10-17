@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   DndContext,
   DragOverlay,
@@ -25,6 +26,7 @@ import {
 import { useWorkshopBoardAssignment } from './useWorkshopBoardAssignment'
 
 export default function WorkshopBoard() {
+  const { t } = useTranslation('workshop')
   const [viewMode, setViewMode] = React.useState<BoardViewMode>(readWorkshopBoardViewMode)
   const [activeId, setActiveId] = React.useState<string | null>(null)
 
@@ -62,13 +64,13 @@ export default function WorkshopBoard() {
   const orders = React.useMemo(() => boardData?.data ?? [], [boardData])
 
   const columns = React.useMemo(
-    () => buildWorkshopBoardColumns(viewMode, resources, orders),
-    [resources, orders, viewMode],
+    () => buildWorkshopBoardColumns(viewMode, resources, orders, t('board.unassigned')),
+    [resources, orders, viewMode, t],
   )
 
   const accessibility = React.useMemo(
-    () => ({ announcements: createWorkshopBoardAnnouncements(orders, columns, viewMode) }),
-    [orders, columns, viewMode],
+    () => ({ announcements: createWorkshopBoardAnnouncements(orders, columns, viewMode, t) }),
+    [orders, columns, viewMode, t],
   )
 
   const activeOrder = activeId ? orders.find((order) => order.id === activeId) ?? null : null
@@ -84,15 +86,15 @@ export default function WorkshopBoard() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">Workshop Board</h1>
-          <p className="text-slate-500">Drag &amp; drop orders to assign mechanics and bays.</p>
+          <h1 className="text-2xl font-semibold tracking-tight">{t('board.title')}</h1>
+          <p className="text-slate-500">{t('board.description')}</p>
         </div>
         <BoardViewToggle value={viewMode} onChange={setViewMode} />
       </div>
 
       {isLoading ? (
         <div className="flex items-center justify-center h-64 text-slate-400 text-sm">
-          Loading board…
+          {t('board.loading')}
         </div>
       ) : (
         <>
@@ -107,7 +109,7 @@ export default function WorkshopBoard() {
             <HorizontalScrollArea
               layout="workshop-board"
               contentClassName="gap-4"
-              ariaLabel="Workshop board columns"
+              ariaLabel={t('board.columnsAriaLabel')}
             >
               {columns.map((col) => (
                 <WorkshopBoardColumn

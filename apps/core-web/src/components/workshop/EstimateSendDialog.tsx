@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -16,39 +17,27 @@ import type { components } from '@/api/generated/openapi'
 import type { WorkshopEstimateVersionSummary } from '@/api/workshop-estimates'
 import type { Customer } from '@/api/types'
 import { getErrorBody } from '@/lib/error-utils'
+import { i18n } from '@/lib/i18n'
 
 export type EstimateSendCustomer = components['schemas']['WorkshopCustomerSummaryDto']
 
-export const ESTIMATE_EMAIL_MISSING_MESSAGE = 'Für den E-Mail-Versand fehlt die E-Mail-Adresse des Kunden.'
-
-/**
- * Short German copy per send error code. The dialog shows this copy and never the server's message text. A code the
- * server does not register arrives without its code, and gets the generic text.
- */
-const SEND_ERROR_MESSAGES: Record<string, string> = {
-  ESTIMATE_CUSTOMER_EMAIL_NOT_CONFIRMED:
-    'Die E-Mail-Adresse des Kunden ist noch nicht für die Auftragskommunikation bestätigt.',
-  ESTIMATE_CUSTOMER_EMAIL_MISSING: ESTIMATE_EMAIL_MISSING_MESSAGE,
-  ESTIMATE_CUSTOMER_EMAIL_INVALID: 'Die E-Mail-Adresse des Kunden ist ungültig.',
-  ESTIMATE_VEHICLE_INCOMPLETE: 'Die Fahrzeugdaten sind unvollständig. Bitte ergänzen Sie sie vor dem Versand.',
-  ESTIMATE_EMAIL_INCOMPLETE: 'Die Angaben für die E-Mail sind unvollständig. Bitte prüfen Sie Kunde und Fahrzeug.',
-  ESTIMATE_APPROVAL_LINK_UNAVAILABLE:
-    'Der Freigabe-Link kann derzeit nicht erstellt werden. Bitte versuchen Sie es später erneut.',
-  ESTIMATE_SEND_DISABLED: 'Der Versand an Kunden ist derzeit deaktiviert.',
-  ESTIMATE_NOT_DRAFT: 'Diese Version ist kein Entwurf mehr und kann nicht gesendet werden.',
-  ESTIMATE_NO_LINES: 'Der Kostenvoranschlag braucht mindestens eine Arbeits- oder Teilezeile.',
-  ESTIMATE_CUSTOMER_REQUIRED: 'Dem Auftrag ist noch kein Kunde zugeordnet.',
-  ESTIMATE_CUSTOMER_INCOMPLETE: 'Die Kundendaten sind für den Versand unvollständig. Bitte ergänzen Sie sie.',
-  SELLER_IDENTITY_INCOMPLETE: 'Die Angaben zum Betrieb sind für den Versand unvollständig. Bitte ergänzen Sie sie.',
-  WORKSHOP_ORDER_NOT_ESTIMATABLE:
-    'Dieser Auftrag ist nicht mehr offen. Kostenvoranschläge werden nur für offene Aufträge gesendet.',
-  ESTIMATE_ROLE_FORBIDDEN: 'Für diese Aktion fehlt Ihnen die Berechtigung.',
+export function estimateEmailMissingMessage(): string {
+  return i18n.t('estimateSend.emailMissing', { ns: 'workshop' })
 }
+
+/** @deprecated use estimateEmailMissingMessage */
+export const ESTIMATE_EMAIL_MISSING_MESSAGE = estimateEmailMissingMessage()
 
 export function describeSendError(error: unknown): string {
   const body = getErrorBody(error)
-  const mapped = body?.code ? SEND_ERROR_MESSAGES[body.code] : undefined
-  return mapped ?? 'Kostenvoranschlag konnte nicht gesendet werden.'
+  const code = body?.code
+  if (code) {
+    const key = `estimateSend.errors.${code}`
+    if (i18n.exists(key, { ns: 'workshop' })) {
+      return String(i18n.t(key as never, { ns: 'workshop' }))
+    }
+  }
+  return i18n.t('estimateSend.genericError', { ns: 'workshop' })
 }
 
 interface EstimateSendDialogProps {
@@ -65,6 +54,7 @@ interface BodyProps extends Omit<EstimateSendDialogProps, 'version'> {
 }
 
 function EstimateSendDialogBody({ version, customer, isSending, onSend, onClose }: BodyProps) {
+  const { t } = useTranslation('workshop')
   const customerQuery = useCustomer<Customer>(customer?.id ?? '')
   const updateCustomer = useUpdateCustomer()
   const [notifyOverride, setNotifyOverride] = useState<boolean | null>(null)
@@ -98,22 +88,19 @@ function EstimateSendDialogBody({ version, customer, isSending, onSend, onClose 
   return (
     <DialogContent>
       <DialogHeader>
-        <DialogTitle>{`Version ${version.version} an Kunden senden?`}</DialogTitle>
-        <DialogDescription>
-          Mit dem Versand wird der Stand des Auftrags als Momentaufnahme festgeschrieben. Spätere Änderungen am Auftrag
-          wirken erst nach einer neuen Version.
-        </DialogDescription>
+        <DialogTitle>{t('estimateSend.title', { version: version.version })}</DialogTitle>
+        <DialogDescription>{t('estimateSend.description')}</DialogDescription>
       </DialogHeader>
 
       <div className='space-y-4 text-sm'>
         <dl className='space-y-1'>
           <div className='flex gap-2'>
-            <dt className='text-slate-500'>Empfänger:</dt>
+            <dt className='text-slate-500'>{t('estimateSend.recipient')}</dt>
             <dd className='min-w-0 break-words font-medium'>{hasEmail ? email : '—'}</dd>
           </div>
           <div className='flex gap-2'>
-            <dt className='text-slate-500'>Gültigkeit:</dt>
-            <dd className='font-medium'>gültig 14 Tage ab Versand</dd>
+            <dt className='text-slate-500'>{t('estimateSend.validity')}</dt>
+            <dd className='font-medium'>{t('estimateSend.validityValue')}</dd>
           </div>
         </dl>
 
@@ -125,12 +112,12 @@ function EstimateSendDialogBody({ version, customer, isSending, onSend, onClose 
             onCheckedChange={(checked) => setNotifyOverride(checked === true)}
           />
           <Label htmlFor='estimate-send-notify' className='leading-snug'>
-            Per E-Mail an den Kunden senden
+            {t('estimateSend.notifyEmail')}
           </Label>
         </div>
 
-        {!hasEmail && <p className='text-slate-600'>{ESTIMATE_EMAIL_MISSING_MESSAGE}</p>}
-        {!notify && <p className='text-slate-600'>Der Versand wird nur im Auftrag erfasst. Es wird keine E-Mail gesendet.</p>}
+        {!hasEmail && <p className='text-slate-600'>{t('estimateSend.emailMissing')}</p>}
+        {!notify && <p className='text-slate-600'>{t('estimateSend.recordOnly')}</p>}
 
         {needsConfirmation && (
           <div className='flex items-start gap-2'>
@@ -141,7 +128,7 @@ function EstimateSendDialogBody({ version, customer, isSending, onSend, onClose 
               onCheckedChange={(checked) => setEmailConfirmed(checked === true)}
             />
             <Label htmlFor='estimate-send-email-confirmed' className='font-normal leading-snug'>
-              Der Kunde hat mir diese E-Mail-Adresse für die Auftragskommunikation mitgeteilt.
+              {t('estimateSend.emailConfirmed')}
             </Label>
           </div>
         )}
@@ -155,10 +142,10 @@ function EstimateSendDialogBody({ version, customer, isSending, onSend, onClose 
 
       <DialogFooter>
         <Button variant='outline' onClick={onClose} disabled={busy}>
-          Abbrechen
+          {t('estimateSend.cancel')}
         </Button>
         <Button onClick={() => void handleSend()} disabled={!canSend}>
-          {busy ? 'Wird gesendet…' : 'Senden'}
+          {busy ? t('estimateSend.sending') : t('estimateSend.send')}
         </Button>
       </DialogFooter>
     </DialogContent>

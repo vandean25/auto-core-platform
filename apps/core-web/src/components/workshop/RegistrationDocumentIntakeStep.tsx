@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -28,6 +29,7 @@ export function RegistrationDocumentIntakeStep({
   notes,
   onOrderCreated,
 }: Props) {
+  const { t } = useTranslation('workshop')
   const [intakeId, setIntakeId] = useState<string | null>(null)
   const [frontFile, setFrontFile] = useState<File | null>(null)
   const [backFile, setBackFile] = useState<File | null>(null)
@@ -44,7 +46,7 @@ export function RegistrationDocumentIntakeStep({
 
   async function handleUpload() {
     if (!frontFile) {
-      toast.error('Upload the front of the Zulassungsschein.')
+      toast.error(t('registrationIntake.toastFrontRequired'))
       return
     }
     const files = backFile ? [frontFile, backFile] : [frontFile]
@@ -57,10 +59,10 @@ export function RegistrationDocumentIntakeStep({
       })
       setIntakeId(created.id)
       if (created.state === 'FAILED') {
-        toast.error(created.failureCode ?? 'Extraction failed')
+        toast.error(created.failureCode ?? t('registrationIntake.extractionFailedFallback'))
       }
     } catch (err) {
-      toast.error(getErrorMessage(err, 'Upload failed'))
+      toast.error(getErrorMessage(err, t('registrationIntake.uploadFailed')))
     }
   }
 
@@ -70,7 +72,7 @@ export function RegistrationDocumentIntakeStep({
         <div className="space-y-3 border rounded-lg p-3">
           <div className="grid gap-2">
             <label className="text-sm font-medium" htmlFor="registration-intake-front">
-              Front (required)
+              {t('registrationIntake.frontLabel')}
             </label>
             <Input
               id="registration-intake-front"
@@ -81,7 +83,7 @@ export function RegistrationDocumentIntakeStep({
           </div>
           <div className="grid gap-2">
             <label className="text-sm font-medium" htmlFor="registration-intake-back">
-              Back (optional)
+              {t('registrationIntake.backLabel')}
             </label>
             <Input
               id="registration-intake-back"
@@ -95,7 +97,7 @@ export function RegistrationDocumentIntakeStep({
             disabled={createIntake.isPending || !frontFile}
             onClick={() => void handleUpload()}
           >
-            {createIntake.isPending ? 'Reading document…' : 'Upload and review'}
+            {createIntake.isPending ? t('registrationIntake.reading') : t('registrationIntake.uploadReview')}
           </Button>
         </div>
       ) : null}
@@ -105,13 +107,13 @@ export function RegistrationDocumentIntakeStep({
           intake={intake}
           onApply={async (body) => {
             await applyIntake.mutateAsync({ id: intake.id, body })
-            toast.success('Customer and vehicle confirmed')
+            toast.success(t('registrationIntake.toastConfirmed'))
           }}
           onCreateOrder={async () => {
             const odometerValue = Number.parseInt(odometer, 10)
             const fuelValue = Number.parseInt(fuelLevel, 10)
             if (!Number.isFinite(odometerValue) || odometerValue < 0) {
-              toast.error('Enter a valid odometer reading before creating the order.')
+              toast.error(t('registrationIntake.toastOdometerRequired'))
               return
             }
             const result = await createOrder.mutateAsync({
@@ -121,7 +123,7 @@ export function RegistrationDocumentIntakeStep({
               notes: notes || undefined,
             })
             if (result.workshopOrderId) {
-              toast.success('Workshop order created')
+              toast.success(t('registrationIntake.toastOrderCreated'))
               onOrderCreated(result.workshopOrderId)
             }
           }}
@@ -140,8 +142,9 @@ export function RegistrationDocumentIntakeStep({
 
       {intake?.state === 'FAILED' ? (
         <p className="text-sm text-destructive">
-          Extraction failed ({intake.failureCode ?? 'unknown'}). Delete and try again with a new
-          upload.
+          {t('registrationIntake.extractionFailed', {
+            code: intake.failureCode ?? t('registrationIntake.unknown'),
+          })}
         </p>
       ) : null}
     </div>

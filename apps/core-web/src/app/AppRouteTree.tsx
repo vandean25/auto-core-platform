@@ -5,6 +5,7 @@ import { APP_ROUTE_PATHS, MECHANIC_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { isAgentSupervisionEnabled } from '@/lib/runtime-flags'
 import { PageLoader } from '@/components/ui/PageLoader'
 import * as Lazy from './lazy-app-pages'
+import { WorkshopNamespaceLayout } from '@/features/workshop/WorkshopNamespaceLayout'
 
 export function AppRoutes() {
   const location = useLocation()
@@ -89,21 +90,23 @@ export function AppRoutes() {
                 <Route path="leave" element={<Lazy.HrLeavePage />} />
               </Route>
               <Route path={APP_ROUTE_PATHS.platformTenants} element={<Lazy.PlatformTenantsPage />} />
-              <Route path={APP_ROUTE_PATHS.workshopIntake} element={<Lazy.IntakeDashboard />} />
-              <Route path={APP_ROUTE_PATHS.workshopOrders} element={<Lazy.WorkshopOrderList />} />
-              <Route
-                path={APP_ROUTE_PATHS.workshopPick}
-                element={<Navigate to={APP_ROUTE_PATHS.workshopPickList} replace />}
-              />
-              <Route path={APP_ROUTE_PATHS.workshopPickList} element={<Lazy.WorkshopPickList />} />
-              <Route path={APP_ROUTE_PATHS.workshopBoard} element={<Lazy.WorkshopBoard />} />
-              <Route path={APP_ROUTE_PATHS.workshopPlanner} element={<Lazy.WorkshopPlannerPage />} />
-              <Route path={APP_ROUTE_PATHS.workshopCapacity} element={<Lazy.WorkshopCapacityPage />} />
-              <Route path={APP_ROUTE_PATHS.workshopLoanerVehicles} element={<Lazy.LoanerVehiclesPage />} />
-              <Route path={APP_ROUTE_PATHS.workshopLoanerBookingPrint} element={<Lazy.LoanerBookingPrintPage />} />
-              <Route path={APP_ROUTE_PATHS.workshopOrderDetail} element={<Lazy.WorkshopOrderLayout />}>
-                <Route index element={<Lazy.WorkshopOrderDetails />} />
-                <Route path="garantie-kulanz" element={<Lazy.WorkshopOrderWarrantyClaims />} />
+              <Route element={<WorkshopNamespaceLayout />}>
+                <Route path={APP_ROUTE_PATHS.workshopIntake} element={<Lazy.IntakeDashboard />} />
+                <Route path={APP_ROUTE_PATHS.workshopOrders} element={<Lazy.WorkshopOrderList />} />
+                <Route
+                  path={APP_ROUTE_PATHS.workshopPick}
+                  element={<Navigate to={APP_ROUTE_PATHS.workshopPickList} replace />}
+                />
+                <Route path={APP_ROUTE_PATHS.workshopPickList} element={<Lazy.WorkshopPickList />} />
+                <Route path={APP_ROUTE_PATHS.workshopBoard} element={<Lazy.WorkshopBoard />} />
+                <Route path={APP_ROUTE_PATHS.workshopPlanner} element={<Lazy.WorkshopPlannerPage />} />
+                <Route path={APP_ROUTE_PATHS.workshopCapacity} element={<Lazy.WorkshopCapacityPage />} />
+                <Route path={APP_ROUTE_PATHS.workshopLoanerVehicles} element={<Lazy.LoanerVehiclesPage />} />
+                <Route path={APP_ROUTE_PATHS.workshopLoanerBookingPrint} element={<Lazy.LoanerBookingPrintPage />} />
+                <Route path={APP_ROUTE_PATHS.workshopOrderDetail} element={<Lazy.WorkshopOrderLayout />}>
+                  <Route index element={<Lazy.WorkshopOrderDetails />} />
+                  <Route path="garantie-kulanz" element={<Lazy.WorkshopOrderWarrantyClaims />} />
+                </Route>
               </Route>
               <Route path={APP_ROUTE_PATHS.tyreStorage} element={<Lazy.TyreStorageListPage />} />
               <Route path={APP_ROUTE_PATHS.tyreStorageDetail} element={<Lazy.TyreSetDetailPage />} />
@@ -128,9 +131,11 @@ export function MechanicRoutes() {
             exit={{ opacity: 0, transition: { duration: 0.16, ease: 'easeIn' } }}
           >
             <Routes location={location}>
-              <Route path={MECHANIC_ROUTE_PATHS.queue} element={<Lazy.MechanicQueuePage />} />
-              <Route path={MECHANIC_ROUTE_PATHS.taskDetail} element={<Lazy.MechanicTaskDetailPage />} />
-              <Route path={MECHANIC_ROUTE_PATHS.root} element={<Navigate to={MECHANIC_ROUTE_PATHS.queue} replace />} />
+              <Route element={<WorkshopNamespaceLayout />}>
+                <Route path={MECHANIC_ROUTE_PATHS.queue} element={<Lazy.MechanicQueuePage />} />
+                <Route path={MECHANIC_ROUTE_PATHS.taskDetail} element={<Lazy.MechanicTaskDetailPage />} />
+                <Route path={MECHANIC_ROUTE_PATHS.root} element={<Navigate to={MECHANIC_ROUTE_PATHS.queue} replace />} />
+              </Route>
               <Route path="*" element={<Lazy.NotFoundPage />} />
             </Routes>
           </motion.div>

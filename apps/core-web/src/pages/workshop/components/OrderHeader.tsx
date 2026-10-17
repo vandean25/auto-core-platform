@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom'
-import { format } from 'date-fns'
+import { useTranslation } from 'react-i18next'
 import { Phone, Clock, Key, MapPin, User, Printer } from 'lucide-react'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
-import { formatOdometerKm } from '@/lib/format'
+import { formatDateShort, formatOdometerKm } from '@/lib/format'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -26,8 +26,8 @@ function normalizePhone(phone: string) {
   return phone.replace(/[^\d+]/g, '')
 }
 
-function getCustomerName(order: WorkshopOrder) {
-  if (!order.customer) return 'Dealer stock'
+function getCustomerName(order: WorkshopOrder, dealerStockLabel: string) {
+  if (!order.customer) return dealerStockLabel
   if (order.customer.type === 'COMPANY' && order.customer.company_name) {
     return order.customer.company_name
   }
@@ -55,9 +55,12 @@ export function OrderTopBar({
   oemConcernCode,
   onPrint,
 }: OrderTopBarProps) {
-  const customerName = getCustomerName(order)
+  const { t } = useTranslation('workshop')
+  const customerName = getCustomerName(order, t('orderHeader.dealerStock'))
   const vehicleLabel = getVehicleLabel(order)
-  const plate = order.vehicle.plate || 'N/A'
+  const plate = order.vehicle.plate || t('orderHeader.noPlate')
+  const unassigned = t('orderHeader.unassigned')
+  const notSet = t('orderHeader.notSet')
 
   return (
     <header>
@@ -73,7 +76,11 @@ export function OrderTopBar({
                 {customerName} · {vehicleLabel} · {plate}
               </p>
               <p className='text-sm text-slate-500'>
-                Promised time: Not set · Tech: {assignedTechName ?? 'Unassigned'} · Bay: {bayName ?? 'Unassigned'}
+                {t('orderHeader.promisedMeta', {
+                  promised: notSet,
+                  tech: assignedTechName ?? unassigned,
+                  bay: bayName ?? unassigned,
+                })}
               </p>
               {order.loanerBooking ? (
                 <Link
@@ -81,9 +88,10 @@ export function OrderTopBar({
                   className='inline-flex items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-800 hover:bg-sky-100'
                 >
                   <span>
-                    Ersatzwagen:{' '}
-                    {order.loanerBooking.vehiclePlate ?? order.loanerBooking.displayName} bis{' '}
-                    {format(new Date(order.loanerBooking.plannedTo), 'PP')}
+                    {t('orderHeader.loanerUntil', {
+                      label: order.loanerBooking.vehiclePlate ?? order.loanerBooking.displayName,
+                      date: formatDateShort(order.loanerBooking.plannedTo),
+                    })}
                   </span>
                   <StatusBadge status={order.loanerBooking.status} />
                 </Link>
@@ -110,7 +118,7 @@ export function OrderTopBar({
 
             <Button variant='outline' onClick={onPrint}>
               <Printer className='h-4 w-4 mr-2' />
-              Print Job Card
+              {t('orderHeader.printJobCard')}
             </Button>
           </div>
         </CardContent>
@@ -138,19 +146,23 @@ export function CustomerVehicleInfo({
   isAssigningTech?: boolean
   onAssignedTechChange?: (mechanicId: string | null) => void
 }) {
-  const customerName = getCustomerName(order)
+  const { t } = useTranslation('workshop')
+  const customerName = getCustomerName(order, t('orderHeader.dealerStock'))
   const customerPhone = order.customer?.phone ?? ''
+  const unassigned = t('orderHeader.unassigned')
+  const notSet = t('orderHeader.notSet')
+  const na = t('orderHeader.noPlate')
 
   return (
     <>
       <Card>
         <CardHeader className='pb-3'>
-          <CardTitle className='text-base font-semibold'>Order Info</CardTitle>
+          <CardTitle className='text-base font-semibold'>{t('orderHeader.orderInfo')}</CardTitle>
         </CardHeader>
         <CardContent className='space-y-4 text-sm'>
           <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
             <div>
-              <div className='text-muted-foreground mb-1'>Assigned Tech</div>
+              <div className='text-muted-foreground mb-1'>{t('orderHeader.assignedTech')}</div>
               {onAssignedTechChange ? (
                 <Select
                   value={assignedTechId ?? 'unassigned'}
@@ -162,15 +174,15 @@ export function CustomerVehicleInfo({
                   <SelectTrigger
                     className='h-9 font-medium'
                     data-testid='assigned-tech-select'
-                    aria-label='Assigned Tech'
+                    aria-label={t('orderHeader.assignedTech')}
                   >
                     <div className='flex items-center'>
                       <User className='w-4 h-4 mr-1.5 text-slate-500' />
-                      <SelectValue placeholder='Unassigned' />
+                      <SelectValue placeholder={unassigned} />
                     </div>
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value='unassigned'>Unassigned</SelectItem>
+                    <SelectItem value='unassigned'>{unassigned}</SelectItem>
                     {mechanics.map((mechanic) => (
                       <SelectItem key={mechanic.id} value={mechanic.id}>
                         {mechanic.name}
@@ -181,29 +193,29 @@ export function CustomerVehicleInfo({
               ) : (
                 <div className='font-medium flex items-center'>
                   <User className='w-4 h-4 mr-1.5 text-slate-500' />
-                  {assignedTechName ?? 'Unassigned'}
+                  {assignedTechName ?? unassigned}
                 </div>
               )}
             </div>
             <div>
-              <div className='text-muted-foreground mb-1'>Bay / Location</div>
+              <div className='text-muted-foreground mb-1'>{t('orderHeader.bayLocation')}</div>
               <div className='font-medium flex items-center'>
                 <MapPin className='w-4 h-4 mr-1.5 text-slate-500' />
-                {bayName ?? 'Unassigned'}
+                {bayName ?? unassigned}
               </div>
             </div>
             <div>
-              <div className='text-muted-foreground mb-1'>Promised Time</div>
+              <div className='text-muted-foreground mb-1'>{t('orderHeader.promisedTime')}</div>
               <div className='font-medium flex items-center'>
                 <Clock className='w-4 h-4 mr-1.5 text-slate-500' />
-                Not set
+                {notSet}
               </div>
             </div>
             <div>
-              <div className='text-muted-foreground mb-1'>Key Tag</div>
+              <div className='text-muted-foreground mb-1'>{t('orderHeader.keyTag')}</div>
               <div className='font-medium flex items-center'>
                 <Key className='w-4 h-4 mr-1.5 text-slate-500' />
-                Not set
+                {notSet}
               </div>
             </div>
           </div>
@@ -212,7 +224,7 @@ export function CustomerVehicleInfo({
 
       <Card>
         <CardHeader className='pb-3'>
-          <CardTitle className='text-base font-semibold'>Customer Info</CardTitle>
+          <CardTitle className='text-base font-semibold'>{t('orderHeader.customerInfo')}</CardTitle>
         </CardHeader>
         <CardContent className='space-y-3 text-sm'>
           <div>
@@ -220,14 +232,14 @@ export function CustomerVehicleInfo({
             <div className='text-muted-foreground'>{order.customer?.email}</div>
           </div>
           <div>
-            <div className='text-muted-foreground'>Phone</div>
-            <div className='font-medium'>{customerPhone || 'N/A'}</div>
+            <div className='text-muted-foreground'>{t('orderHeader.phone')}</div>
+            <div className='font-medium'>{customerPhone || na}</div>
           </div>
           {customerPhone && (
             <Button variant='outline' size='sm' className='h-8' asChild>
               <a href={`tel:${normalizePhone(customerPhone)}`}>
                 <Phone className='h-3.5 w-3.5 mr-1.5' />
-                Call Customer
+                {t('orderHeader.callCustomer')}
               </a>
             </Button>
           )}
@@ -236,27 +248,27 @@ export function CustomerVehicleInfo({
 
       <Card>
         <CardHeader className='pb-3'>
-          <CardTitle className='text-base font-semibold'>Vehicle Info</CardTitle>
+          <CardTitle className='text-base font-semibold'>{t('orderHeader.vehicleInfo')}</CardTitle>
         </CardHeader>
         <CardContent className='space-y-3 text-sm'>
           <div className='font-medium'>{getVehicleLabel(order)}</div>
           <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
             <div>
-              <div className='text-muted-foreground'>VIN</div>
-              <div className='font-medium'>{order.vehicle.vin || 'N/A'}</div>
+              <div className='text-muted-foreground'>{t('orderHeader.vin')}</div>
+              <div className='font-medium'>{order.vehicle.vin || na}</div>
             </div>
             <div>
-              <div className='text-muted-foreground'>Plate</div>
-              <div className='font-medium'>{order.vehicle.plate || 'N/A'}</div>
+              <div className='text-muted-foreground'>{t('orderHeader.plate')}</div>
+              <div className='font-medium'>{order.vehicle.plate || na}</div>
             </div>
             <div>
-              <div className='text-muted-foreground'>Mileage</div>
+              <div className='text-muted-foreground'>{t('orderHeader.mileage')}</div>
               <div className='font-medium'>
                 {typeof order.odometer === 'number' ? formatOdometerKm(order.odometer) : '-'}
               </div>
             </div>
             <div>
-              <div className='text-muted-foreground'>Fuel</div>
+              <div className='text-muted-foreground'>{t('orderHeader.fuel')}</div>
               <div className='font-medium'>
                 {typeof order.fuel_level === 'number' ? `${order.fuel_level}%` : '-'}
               </div>

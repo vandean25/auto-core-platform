@@ -1,5 +1,6 @@
 // @vitest-environment node
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
+import { ensureNamespaceLoaded } from "@/lib/i18n";
 import type { WorkshopOrder } from "@/api/types";
 import {
   PICK_ELIGIBLE_WORKSHOP_ORDER_STATUSES,
@@ -40,6 +41,10 @@ function createWorkshopOrder(
 }
 
 describe("pick-utils", () => {
+  beforeAll(async () => {
+    await ensureNamespaceLoaded("workshop");
+  });
+
   it("formats workshop customer names consistently", () => {
     expect(
       getWorkshopCustomerDisplayName(

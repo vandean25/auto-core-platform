@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -20,16 +21,7 @@ export type InspectionChecklistViewLabels = {
   passAriaLabel: (itemLabel: string) => string;
   failAriaLabel: (itemLabel: string) => string;
   noteAriaLabel: (itemLabel: string) => string;
-};
-
-const MECHANIC_CHECKLIST_LABELS: InspectionChecklistViewLabels = {
-  sectionAriaLabel: "§57a Vorbereitung",
-  description: "Editierbare Start-Checkliste, keine Rechtsliste.",
-  passButton: "OK",
-  failButton: "Mangel",
-  passAriaLabel: (itemLabel) => `OK: ${itemLabel}`,
-  failAriaLabel: (itemLabel) => `Mangel: ${itemLabel}`,
-  noteAriaLabel: (itemLabel) => `Notiz: ${itemLabel}`,
+  notePlaceholder?: string;
 };
 
 type Props = {
@@ -47,19 +39,39 @@ export function WorkshopTaskInspectionChecklistView({
   checklist,
   readOnly = false,
   saving,
-  labels = MECHANIC_CHECKLIST_LABELS,
+  labels,
   onSave,
 }: Props) {
+  const { t } = useTranslation("workshop");
   const [notesByItem, setNotesByItem] = useState<Record<string, string>>({});
+
+  const defaultLabels = useMemo<InspectionChecklistViewLabels>(
+    () => ({
+      sectionAriaLabel: t("inspection.checklist.aria"),
+      description: t("inspection.checklist.hint"),
+      passButton: t("inspection.checklist.ok"),
+      failButton: t("inspection.checklist.defect"),
+      passAriaLabel: (itemLabel) =>
+        t("inspection.checklist.okAria", { label: itemLabel }),
+      failAriaLabel: (itemLabel) =>
+        t("inspection.checklist.defectAria", { label: itemLabel }),
+      noteAriaLabel: (itemLabel) =>
+        t("inspection.checklist.noteAria", { label: itemLabel }),
+      notePlaceholder: t("inspection.checklist.notePlaceholder"),
+    }),
+    [t],
+  );
+
+  const resolvedLabels = labels ?? defaultLabels;
 
   return (
     <section
-      aria-label={labels.sectionAriaLabel}
+      aria-label={resolvedLabels.sectionAriaLabel}
       className="space-y-3 rounded-md border p-3"
     >
       <div>
         <h3 className="text-sm font-semibold">{checklist.title}</h3>
-        <p className="text-xs text-muted-foreground">{labels.description}</p>
+        <p className="text-xs text-muted-foreground">{resolvedLabels.description}</p>
       </div>
       <ul className="space-y-2">
         {checklist.items.map((item) => {
@@ -75,26 +87,27 @@ export function WorkshopTaskInspectionChecklistView({
                   type="button"
                   size="sm"
                   variant={item.passed === true ? "default" : "outline"}
-                  aria-label={labels.passAriaLabel(item.label_snapshot)}
+                  aria-label={resolvedLabels.passAriaLabel(item.label_snapshot)}
                   disabled={readOnly || saving}
                   onClick={() => void onSave(item.id, { passed: true })}
                 >
-                  {labels.passButton}
+                  {resolvedLabels.passButton}
                 </Button>
                 <Button
                   type="button"
                   size="sm"
                   variant={item.passed === false ? "destructive" : "outline"}
-                  aria-label={labels.failAriaLabel(item.label_snapshot)}
+                  aria-label={resolvedLabels.failAriaLabel(item.label_snapshot)}
                   disabled={readOnly || saving}
                   onClick={() => void onSave(item.id, { passed: false })}
                 >
-                  {labels.failButton}
+                  {resolvedLabels.failButton}
                 </Button>
               </div>
               <Input
                 className="sm:col-span-2"
-                aria-label={labels.noteAriaLabel(item.label_snapshot)}
+                aria-label={resolvedLabels.noteAriaLabel(item.label_snapshot)}
+                placeholder={resolvedLabels.notePlaceholder}
                 value={itemNotes}
                 disabled={readOnly || saving}
                 onChange={(event) =>

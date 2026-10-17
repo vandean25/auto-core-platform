@@ -1,8 +1,10 @@
 import { RefreshCw } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { MechanicTaskDetail } from "@/api/mechanic";
+import { PICKERL_TASK_TITLE } from "@/features/workshop/pickerl.constants";
 import { DiagnosticsSection } from "./components/DiagnosticsSection";
 import { LaborItemsCard } from "./components/LaborItemsCard";
 import { MediaSection } from "./components/MediaSection";
@@ -30,6 +32,7 @@ export function MechanicTaskDetailView({
   task,
   refetch,
 }: MechanicTaskDetailViewProps) {
+  const { t } = useTranslation("workshop");
   const navigate = useNavigate();
   const capabilities = getTaskCapabilities({
     taskStatus: task.taskStatus,
@@ -91,7 +94,7 @@ export function MechanicTaskDetailView({
 
       <VehicleInfoCard task={task} />
 
-      {task.taskTitle === "§57a Begutachtung" && (
+      {task.taskTitle === PICKERL_TASK_TITLE && (
         <MechanicTaskInspectionChecklist
           taskId={task.taskId}
           readOnly={capabilities.isDone}
@@ -101,7 +104,7 @@ export function MechanicTaskDetailView({
       {task.reportedComplaint && (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Customer Complaint</CardTitle>
+            <CardTitle className="text-base">{t("mechanic.taskDetail.complaint.title")}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-sm leading-relaxed">{task.reportedComplaint}</p>
@@ -155,7 +158,7 @@ export function MechanicTaskDetailView({
           className="gap-2 text-slate-500"
         >
           <RefreshCw className="h-3.5 w-3.5" />
-          Refresh task
+          {t("mechanic.taskDetail.refreshTask")}
         </Button>
       </div>
 

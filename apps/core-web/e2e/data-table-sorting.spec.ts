@@ -1,6 +1,7 @@
 import { expect, test, type Page, type Request } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { AutoCorePage } from './pom/AutoCorePage';
+import { DE_WORKSHOP } from './helpers/de-workshop';
 import {
   createMockInventoryItem,
   createMockListResponse,
@@ -134,8 +135,9 @@ test.describe('Workshop orders — DataTable click-to-sort', () => {
     await corePage.navigate('/workshop/orders');
     await expect(corePage.dataTable).toBeVisible();
 
-    const header = page.getByRole('columnheader', { name: /^Order No\./ });
-    const sortButton = page.getByRole('button', { name: 'Order No.', exact: true });
+    const orderNoLabel = DE_WORKSHOP.orders.list.orderNo;
+    const header = page.getByRole('columnheader', { name: new RegExp(`^${orderNoLabel}`) });
+    const sortButton = page.getByRole('button', { name: orderNoLabel, exact: true });
     await expect(header).toHaveAttribute('aria-sort', 'none');
 
     let sortedRequest = page.waitForRequest(sortRequest('/api/workshop/orders', 'orderNo', 'asc'));

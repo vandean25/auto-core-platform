@@ -3,9 +3,12 @@ import { describe, expect, it, vi } from "vitest";
 import type { WorkshopTask } from "@/api/types";
 import {
   claimFixture,
+  kulanzLineClaimLabel,
   renderEditor,
   tasks,
   useEditorMocks,
+  we,
+  wt,
 } from "./WarrantyClaimEditor.testUtils";
 
 vi.mock("@/api/client", () => ({
@@ -22,27 +25,30 @@ vi.mock("sonner", () => ({
   },
 }));
 
+const garantieHeading = we.heading.replace("{{type}}", wt.GARANTIE);
+const alreadyOnKulanz = we.alreadyOn.replace("{{claim}}", kulanzLineClaimLabel);
+
 describe("WarrantyClaimEditor: claim view", () => {
   useEditorMocks();
 
   it("shows the claim status and lets the advisor submit a complete draft", () => {
     renderEditor(claimFixture());
 
-    expect(screen.getByRole("heading", { name: /Garantie claim/ })).toBeInTheDocument();
-    expect(screen.getByLabelText("Complaint")).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Mark submitted" })).toBeEnabled();
+    expect(screen.getByRole("heading", { name: garantieHeading })).toBeInTheDocument();
+    expect(screen.getByLabelText(we.complaint)).toBeEnabled();
+    expect(screen.getByRole("button", { name: we.markSubmitted })).toBeEnabled();
   });
 
   it("keeps the submit button off until the claim is complete", () => {
     renderEditor(claimFixture({ complaint: null, lines: [] }));
 
-    expect(screen.getByRole("button", { name: "Mark submitted" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: we.markSubmitted })).toBeDisabled();
   });
 
   it("names the group of affected lines for assistive technology", () => {
     renderEditor(claimFixture());
 
-    expect(screen.getByRole("group", { name: "Affected labor and parts" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: we.affectedLines })).toBeInTheDocument();
   });
 
   it("locks the content once submitted, but keeps the OEM reference editable", () => {
@@ -53,29 +59,29 @@ describe("WarrantyClaimEditor: claim view", () => {
       }),
     );
 
-    expect(screen.getByLabelText("Complaint")).toBeDisabled();
-    expect(screen.getByLabelText("Claimed amount (EUR, net)")).toBeDisabled();
-    expect(screen.getByLabelText("Reference at the OEM")).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Record approval" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Record rejection" })).toBeEnabled();
-    expect(screen.queryByRole("button", { name: "Mark submitted" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText(we.complaint)).toBeDisabled();
+    expect(screen.getByLabelText(we.amountLabel)).toBeDisabled();
+    expect(screen.getByLabelText(we.oemReference)).toBeEnabled();
+    expect(screen.getByRole("button", { name: we.recordApproval })).toBeEnabled();
+    expect(screen.getByRole("button", { name: we.recordRejection })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: we.markSubmitted })).not.toBeInTheDocument();
   });
 
   it("is read-only once closed and offers no further status change", () => {
     renderEditor(claimFixture({ status: "CLOSED", closedAt: "2026-10-11T09:00:00.000Z" }));
 
-    expect(screen.getByText("This claim is closed and read-only.")).toBeInTheDocument();
-    expect(screen.getByLabelText("Reference at the OEM")).toBeDisabled();
-    expect(screen.getByLabelText("Decision date")).toBeDisabled();
-    expect(screen.queryByRole("button", { name: "Close claim" })).not.toBeInTheDocument();
+    expect(screen.getByText(we.closedReadOnly)).toBeInTheDocument();
+    expect(screen.getByLabelText(we.oemReference)).toBeDisabled();
+    expect(screen.getByLabelText(we.decisionDate)).toBeDisabled();
+    expect(screen.queryByRole("button", { name: we.closeClaim })).not.toBeInTheDocument();
   });
 
   it("does not let a line be picked when another open claim already covers it", () => {
     renderEditor(claimFixture({ lines: [] }), {
-      lineClaimedElsewhere: new Map([["item-part", "Kulanz claim"]]),
+      lineClaimedElsewhere: new Map([["item-part", kulanzLineClaimLabel]]),
     });
 
-    expect(screen.getByText("Already on Kulanz claim")).toBeInTheDocument();
+    expect(screen.getByText(alreadyOnKulanz)).toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: /Geberzylinder/ })).toBeDisabled();
     expect(screen.getByRole("checkbox", { name: /Kupplung entlüften/ })).toBeEnabled();
   });
@@ -117,19 +123,19 @@ describe("WarrantyClaimEditor: claim view", () => {
       { orderTasks },
     );
 
-    expect(screen.getByText(/Cancelled on the order/)).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(we.cancelledOnOrder.slice(0, 20)))).toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: /Dichtsatz/ })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Mark submitted" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: we.markSubmitted })).toBeDisabled();
   });
 
   it("names each line with its quantity, price and reason for assistive technology", () => {
     renderEditor(claimFixture({ lines: [] }), {
-      lineClaimedElsewhere: new Map([["item-part", "Kulanz claim"]]),
+      lineClaimedElsewhere: new Map([["item-part", kulanzLineClaimLabel]]),
     });
 
     expect(screen.getByRole("checkbox", { name: /Kupplung entlüften.*2\.5 ×/ })).toBeEnabled();
     expect(
-      screen.getByRole("checkbox", { name: /Geberzylinder.*Already on Kulanz claim/ }),
+      screen.getByRole("checkbox", { name: new RegExp(`Geberzylinder.*${alreadyOnKulanz}`) }),
     ).toBeDisabled();
   });
 });

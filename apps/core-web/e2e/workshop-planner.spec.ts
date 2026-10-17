@@ -1,6 +1,9 @@
 import { test, expect } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
+import { DE_WORKSHOP } from './helpers/de-workshop'
 import { createMockBay } from './utils/mock-factories'
+
+const P = DE_WORKSHOP.planner
 
 test.describe('Blueprint: Workshop Planner', () => {
   const BAY_ID = 'bay-planner-001'
@@ -101,18 +104,18 @@ test.describe('Blueprint: Workshop Planner', () => {
   }
 
   test('Planner renders header, toggle, and create action', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Workshop Planner')
+    const corePage = new AutoCorePage(page, P.page.title)
     await setupPlannerRoutes(page)
     await corePage.navigate('/workshop/planner?date=2026-08-21')
 
-    await expect(page.getByRole('heading', { name: 'Workshop Planner', exact: true })).toBeVisible()
-    await expect(page.getByRole('radio', { name: /Day/i })).toBeVisible()
-    await expect(page.getByRole('radio', { name: /Week/i })).toBeVisible()
-    await expect(page.getByRole('button', { name: '+ Workshop Order' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: P.page.title, exact: true })).toBeVisible()
+    await expect(page.getByRole('radio', { name: P.viewMode.day })).toBeVisible()
+    await expect(page.getByRole('radio', { name: P.viewMode.week })).toBeVisible()
+    await expect(page.getByRole('button', { name: P.page.createOrder })).toBeVisible()
   })
 
   test('Creates booking from empty day slot', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Workshop Planner')
+    const corePage = new AutoCorePage(page, P.page.title)
     await setupPlannerRoutes(page)
 
     await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/orders'), async (route) => {
@@ -147,27 +150,27 @@ test.describe('Blueprint: Workshop Planner', () => {
     })
 
     await corePage.navigate('/workshop/planner?date=2026-08-21')
-    await page.getByRole('button', { name: 'Book 09:30' }).click()
-    await page.getByPlaceholder('VIN, plate, or customer name').fill('W-12345')
+    await page.getByRole('button', { name: P.grid.bookSlot.replace('{{label}}', '09:30') }).click()
+    await page.getByPlaceholder(P.createSheet.searchPlaceholder).fill('W-12345')
     await page.getByText('2020 VW Golf').click()
-    await page.getByRole('button', { name: '+ Workshop Order' }).click()
+    await page.getByRole('button', { name: P.page.createOrder }).click()
 
-    await expect(page.getByText('Workshop order scheduled.')).toBeVisible()
+    await expect(page.getByText(P.createSheet.toastScheduled)).toBeVisible()
     // The order page also repeats the number in its breadcrumb trail (AUT-475), so assert the heading.
     await expect(page.getByRole('heading', { name: 'WO-2026-0200' })).toBeVisible()
   })
 
   test('Shows no bays empty state', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Workshop Planner')
+    const corePage = new AutoCorePage(page, P.page.title)
     await setupPlannerRoutes(page, { ...mockPlanner, bays: [] })
     await corePage.navigate('/workshop/planner')
 
-    await expect(page.getByText('No bays configured')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Go to Settings' })).toBeVisible()
+    await expect(page.getByText(P.page.noBaysTitle)).toBeVisible()
+    await expect(page.getByRole('button', { name: P.page.goToSettings })).toBeVisible()
   })
 
   test('Create booking shows collision toast on 409', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Workshop Planner')
+    const corePage = new AutoCorePage(page, P.page.title)
     await setupPlannerRoutes(page)
 
     await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/orders'), async (route) => {
@@ -183,20 +186,20 @@ test.describe('Blueprint: Workshop Planner', () => {
     })
 
     await corePage.navigate('/workshop/planner?date=2026-08-21')
-    await page.getByRole('button', { name: '+ Workshop Order' }).click()
-    await page.getByPlaceholder('VIN, plate, or customer name').fill('W-12345')
+    await page.getByRole('button', { name: P.page.createOrder }).click()
+    await page.getByPlaceholder(P.createSheet.searchPlaceholder).fill('W-12345')
     await page.getByText('2020 VW Golf').click()
     await page.getByRole('combobox').first().click()
     await page.getByRole('option', { name: 'Planner Bay 01' }).click()
     await page.locator('#planner-start').fill('2026-08-21T09:00')
     await page.locator('#planner-end').fill('2026-08-21T10:00')
-    await page.getByRole('button', { name: '+ Workshop Order' }).click()
+    await page.getByRole('button', { name: P.page.createOrder }).click()
 
     await expect(page.getByText('Bay is already occupied by WO-2026-0099')).toBeVisible()
   })
 
   test('Closed weekday empty state copy', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Workshop Planner')
+    const corePage = new AutoCorePage(page, P.page.title)
     const closedPlanner = {
       ...mockPlanner,
       openings: mockPlanner.openings.map((row) => ({ ...row, isClosed: true })),
@@ -208,24 +211,26 @@ test.describe('Blueprint: Workshop Planner', () => {
     })
 
     await corePage.navigate('/workshop/planner?date=2026-08-21')
-    await expect(page.getByText('Workshop closed')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Go to Settings' })).toBeVisible()
+    await expect(page.getByText(P.page.closedTitle)).toBeVisible()
+    await expect(page.getByRole('button', { name: P.page.goToSettings })).toBeVisible()
   })
 
   test('Closed holiday empty state copy', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Workshop Planner')
+    const corePage = new AutoCorePage(page, P.page.title)
     await setupPlannerRoutes(page)
     await page.addInitScript(() => {
       window.localStorage.setItem('workshop-planner-view', 'day')
     })
 
     await corePage.navigate('/workshop/planner?date=2026-12-24')
-    await expect(page.getByText('Closed — Nationalfeiertag')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Go to Settings' })).toBeVisible()
+    await expect(
+      page.getByText(P.grid.closedWithHoliday.replace('{{name}}', 'Nationalfeiertag')),
+    ).toBeVisible()
+    await expect(page.getByRole('button', { name: P.page.goToSettings })).toBeVisible()
   })
 
   test('Short holiday uses shortened slot labels', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Workshop Planner')
+    const corePage = new AutoCorePage(page, P.page.title)
     const shortHolidayPlanner = {
       ...mockPlanner,
       holidays: [
@@ -242,8 +247,14 @@ test.describe('Blueprint: Workshop Planner', () => {
     await setupPlannerRoutes(page, shortHolidayPlanner)
     await corePage.navigate('/workshop/planner?date=2026-08-21')
 
-    await expect(page.getByRole('button', { name: 'Book 10:00' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Book 11:00' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Book 07:30' })).toHaveCount(0)
+    await expect(
+      page.getByRole('button', { name: P.grid.bookSlot.replace('{{label}}', '10:00') }),
+    ).toBeVisible()
+    await expect(
+      page.getByRole('button', { name: P.grid.bookSlot.replace('{{label}}', '11:00') }),
+    ).toBeVisible()
+    await expect(
+      page.getByRole('button', { name: P.grid.bookSlot.replace('{{label}}', '07:30') }),
+    ).toHaveCount(0)
   })
 })

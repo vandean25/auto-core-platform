@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -48,24 +49,23 @@ export function WarrantyClaimDecisionDialog({
   onOpenChange,
   onConfirm,
 }: WarrantyClaimDecisionDialogProps) {
+  const { t } = useTranslation("workshop");
   const [decisionDate, setDecisionDate] = useState(() => initialDecisionDate || todayIsoDay());
   const [decisionNote, setDecisionNote] = useState(initialDecisionNote);
 
   const isApproval = outcome === "APPROVED";
-  const title = isApproval ? "Record approval" : "Record rejection";
+  const title = isApproval ? t("warranty.decisionDialog.approveTitle") : t("warranty.decisionDialog.rejectTitle");
 
   return (
     <Dialog open={outcome !== null} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>
-            Enter the decision date from the OEM. The date is required for both outcomes.
-          </DialogDescription>
+          <DialogDescription>{t("warranty.decisionDialog.description")}</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="warranty-decision-date">Decision date</Label>
+            <Label htmlFor="warranty-decision-date">{t("warranty.decisionDialog.date")}</Label>
             <Input
               id="warranty-decision-date"
               type="date"
@@ -75,20 +75,24 @@ export function WarrantyClaimDecisionDialog({
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="warranty-decision-note">Decision note</Label>
+            <Label htmlFor="warranty-decision-note">{t("warranty.decisionDialog.note")}</Label>
             <textarea
               id="warranty-decision-note"
               className={TEXTAREA_CLASS_NAME}
               value={decisionNote}
               maxLength={2000}
               onChange={(event) => setDecisionNote(event.target.value)}
-              placeholder={isApproval ? "For example: 80% goodwill share" : "Reason given by the OEM"}
+              placeholder={
+                isApproval
+                  ? t("warranty.decisionDialog.approvePlaceholder")
+                  : t("warranty.decisionDialog.rejectPlaceholder")
+              }
             />
           </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
-            Cancel
+            {t("warranty.decisionDialog.cancel")}
           </Button>
           <Button
             onClick={() =>
@@ -99,7 +103,7 @@ export function WarrantyClaimDecisionDialog({
             }
             disabled={isSubmitting || decisionDate === ""}
           >
-            {isApproval ? "Mark approved" : "Mark rejected"}
+            {isApproval ? t("warranty.decisionDialog.approve") : t("warranty.decisionDialog.reject")}
           </Button>
         </DialogFooter>
       </DialogContent>

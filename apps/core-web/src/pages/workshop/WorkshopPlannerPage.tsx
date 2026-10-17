@@ -45,6 +45,7 @@ import { PlannerDayGrid, parsePlannerSlotId } from '@/components/workshop/planne
 import { PlannerWeekGrid, parsePlannerWeekSlotId } from '@/components/workshop/planner/PlannerWeekGrid'
 import { PlannerViewToggle, type PlannerViewMode } from '@/components/workshop/planner/PlannerViewToggle'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 const VIEW_MODE_KEY = 'workshop-planner-view'
 
@@ -67,6 +68,7 @@ function ClosedStateCard({
   description: string
   onGoToSettings: () => void
 }) {
+  const { t } = useTranslation('workshop')
   return (
     <Card className="max-w-sm mx-auto my-6">
       <CardHeader className="items-center pb-2">
@@ -78,7 +80,7 @@ function ClosedStateCard({
       </CardHeader>
       <CardContent className="flex justify-center pt-0">
         <Button variant="outline" size="sm" onClick={onGoToSettings}>
-          Go to Settings
+          {t('planner.page.goToSettings')}
         </Button>
       </CardContent>
     </Card>
@@ -86,20 +88,21 @@ function ClosedStateCard({
 }
 
 function NoBaysCard({ onGoToSettings }: { onGoToSettings: () => void }) {
+  const { t } = useTranslation('workshop')
   return (
     <Card className="max-w-sm mx-auto mt-8">
       <CardHeader className="items-center pb-2">
         <div className="rounded-full bg-slate-100 p-3 mb-2">
           <Wrench className="h-6 w-6 text-slate-400" />
         </div>
-        <CardTitle className="text-base text-center">No bays configured</CardTitle>
+        <CardTitle className="text-base text-center">{t('planner.page.noBaysTitle')}</CardTitle>
         <CardDescription className="text-center">
-          Add bays in Settings to start scheduling workshop orders.
+          {t('planner.page.noBaysDescription')}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex justify-center pt-0">
         <Button variant="outline" size="sm" onClick={onGoToSettings}>
-          Go to Settings
+          {t('planner.page.goToSettings')}
         </Button>
       </CardContent>
     </Card>
@@ -107,6 +110,7 @@ function NoBaysCard({ onGoToSettings }: { onGoToSettings: () => void }) {
 }
 
 export default function WorkshopPlannerPage() {
+  const { t } = useTranslation('workshop')
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const queryClient = useQueryClient()
@@ -264,7 +268,7 @@ export default function WorkshopPlannerPage() {
         onError: (error) => {
           queryClient.setQueryData(plannerKey, previousData)
           const message =
-            error instanceof Error ? error.message : 'Failed to reschedule workshop order'
+            error instanceof Error ? error.message : t('planner.page.rescheduleFailed')
           toast.error(message)
         },
         onSettled: () => {
@@ -328,7 +332,7 @@ export default function WorkshopPlannerPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Workshop Planner</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{t('planner.page.title')}</h1>
           <p className="text-slate-500">{subtitle}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -336,7 +340,7 @@ export default function WorkshopPlannerPage() {
             variant="outline"
             size="icon"
             onClick={() => shiftAnchor(viewMode === 'day' ? -1 : -7)}
-            aria-label="Previous"
+            aria-label={t('planner.page.previous')}
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -344,7 +348,7 @@ export default function WorkshopPlannerPage() {
             variant="outline"
             size="icon"
             onClick={() => shiftAnchor(viewMode === 'day' ? 1 : 7)}
-            aria-label="Next"
+            aria-label={t('planner.page.next')}
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
@@ -355,7 +359,7 @@ export default function WorkshopPlannerPage() {
               setCreateOpen(true)
             }}
           >
-            + Workshop Order
+            {t('planner.page.createOrder')}
           </Button>
         </div>
       </div>
@@ -377,10 +381,10 @@ export default function WorkshopPlannerPage() {
             <ClosedStateCard
               title={
                 dayHours?.holidayName
-                  ? `Closed — ${dayHours.holidayName}`
-                  : 'Workshop closed'
+                  ? t('planner.grid.closedWithHoliday', { name: dayHours.holidayName })
+                  : t('planner.page.closedTitle')
               }
-              description="Adjust opening hours or holidays in Settings."
+              description={t('planner.page.closedDescription')}
               onGoToSettings={() => navigate('/settings?tab=hours')}
             />
           )}

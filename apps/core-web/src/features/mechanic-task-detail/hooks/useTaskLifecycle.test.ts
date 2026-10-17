@@ -2,7 +2,10 @@ import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'sonner'
 import * as mechanicApi from '@/api/mechanic'
+import { deWorkshop } from '@/test/de-workshop'
 import { useTaskLifecycle } from './useTaskLifecycle'
+
+const lifecycleToast = deWorkshop.mechanic.taskDetail.lifecycle.toast
 
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', () => ({
@@ -85,7 +88,7 @@ describe('useTaskLifecycle', () => {
       })
 
       expect(mockStartMutateAsync).toHaveBeenCalledWith({ taskId: TASK_ID })
-      expect(toast.success).toHaveBeenCalledWith('Task started — punch-in recorded')
+      expect(toast.success).toHaveBeenCalledWith(lifecycleToast.taskStarted)
     })
 
     it('displays error toast when start fails', async () => {
@@ -119,7 +122,7 @@ describe('useTaskLifecycle', () => {
         taskId: TASK_ID,
         payload: { pauseReason: 'OTHER' },
       })
-      expect(toast.success).toHaveBeenCalledWith('Task paused')
+      expect(toast.success).toHaveBeenCalledWith(lifecycleToast.taskPaused)
       expect(result.current.pauseDialogOpen).toBe(false)
     })
 
@@ -171,7 +174,7 @@ describe('useTaskLifecycle', () => {
 
       expect(mockCancelPendingSave).toHaveBeenCalled()
       expect(mockCompleteMutateAsync).toHaveBeenCalledWith({ taskId: TASK_ID })
-      expect(toast.success).toHaveBeenCalledWith('Task marked as complete')
+      expect(toast.success).toHaveBeenCalledWith(lifecycleToast.taskCompleted)
       expect(mockNavigate).toHaveBeenCalledWith('/mechanic/queue')
     })
 
@@ -208,7 +211,7 @@ describe('useTaskLifecycle', () => {
         taskId: TASK_ID,
         payload: { previousPauseReason: 'WAITING_PARTS' },
       })
-      expect(toast.success).toHaveBeenCalledWith('Switched to task — punch-in recorded')
+      expect(toast.success).toHaveBeenCalledWith(lifecycleToast.taskSwitched)
       expect(result.current.switchDialogOpen).toBe(false)
     })
 
@@ -241,7 +244,7 @@ describe('useTaskLifecycle', () => {
 
       expect(mockRefetch).toHaveBeenCalled()
       expect(mockStartMutateAsync).toHaveBeenCalledWith({ taskId: TASK_ID })
-      expect(toast.success).toHaveBeenCalledWith('Task started — punch-in recorded')
+      expect(toast.success).toHaveBeenCalledWith(lifecycleToast.taskStarted)
       expect(result.current.switchDialogOpen).toBe(false)
       expect(result.current.switchRetrying).toBe(false)
     })
@@ -259,7 +262,7 @@ describe('useTaskLifecycle', () => {
 
       expect(mockRefetch).toHaveBeenCalled()
       expect(mockStartMutateAsync).toHaveBeenCalledWith({ taskId: TASK_ID })
-      expect(toast.error).toHaveBeenCalledWith('This task is already being worked on. Please refresh.')
+      expect(toast.error).toHaveBeenCalledWith(lifecycleToast.taskAlreadyInProgress)
       expect(result.current.switchRetrying).toBe(false)
     })
 

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { motion } from 'framer-motion'
 import { CircleDollarSign, Clock3, Package, Receipt, Trash2 } from 'lucide-react'
+import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { useLaborOperation } from '@/api/labor'
@@ -11,6 +12,7 @@ import type {
   LaborOperationSearchItem,
   WorkshopLineItemType,
 } from '@/api/types'
+import { formatNumber } from '@/lib/format'
 import { formatCurrency } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -68,15 +70,13 @@ const SEARCH_DEBOUNCE_MS = 300
 const MERGE_FLASH_DURATION_MS = 500
 const QUANTITY_POP_DURATION_MS = 240
 
-function lineTypeBadgeLabel(type: WorkshopLineItemType): string {
-  if (type === 'LABOR') return 'Labor'
-  if (type === 'FEE') return 'Fee'
-  return 'Part'
+function lineTypeBadgeLabel(type: WorkshopLineItemType, t: TFunction<'workshop'>): string {
+  return t(`taskLineEditor.type.${type}`)
 }
 
 function formatHours(value: number | null | undefined) {
   if (value == null) return '—'
-  return value.toFixed(2)
+  return formatNumber(value, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 function calculateEfficiencyRatio(
@@ -102,8 +102,10 @@ export function TaskLineItemEditor({
   onLineItemsChange,
 }: TaskLineItemEditorProps) {
   const { t } = useTranslation('glossary')
+  const { t: tw } = useTranslation('workshop')
   useEffect(() => {
     void ensureNamespaceLoaded('glossary')
+    void ensureNamespaceLoaded('workshop')
   }, [])
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
@@ -378,18 +380,18 @@ export function TaskLineItemEditor({
                   setSearchQuery(event.target.value)
                 }}
                 onKeyDown={handleSearchKeyDown}
-                placeholder='Search labor or part number...'
+                placeholder={tw('taskLineEditor.searchPlaceholder')}
                 className='h-8 text-xs'
               />
               {showSuggestions && (
                 <div className='absolute left-0 right-0 top-full z-20 mt-1 rounded-md border bg-popover shadow-md'>
                   <Command shouldFilter={false}>
-                    <CommandList className='max-h-64' aria-label='Suggestions'>
+                    <CommandList className='max-h-64' aria-label={tw('taskLineEditor.suggestionsAria')}>
                       {!isSearchingCatalog && !hasResults && (
-                        <CommandEmpty>No compatible catalog items found.</CommandEmpty>
+                        <CommandEmpty>{tw('taskLineEditor.noResults')}</CommandEmpty>
                       )}
                       {laborSuggestions.length > 0 && (
-                        <CommandGroup heading='Labor'>
+                        <CommandGroup heading={tw('taskLineEditor.laborGroup')}>
                           {laborSuggestions.map((operation) => (
                             <CommandItem
                               key={operation.id}
@@ -411,7 +413,7 @@ export function TaskLineItemEditor({
                         </CommandGroup>
                       )}
                       {partSuggestions.length > 0 && (
-                        <CommandGroup heading='Parts'>
+                        <CommandGroup heading={tw('taskLineEditor.partsGroup')}>
                           {partSuggestions.map((part) => (
                             <CommandItem
                               key={part.id}
@@ -429,7 +431,7 @@ export function TaskLineItemEditor({
                                 </div>
                                 <div className='shrink-0 text-right text-xs text-muted-foreground'>
                                   <div>{formatCurrency(part.retailPrice ?? 0)}</div>
-                                  <div>Stock: {part.quantityOnHand}</div>
+                                  <div>{tw('taskLineEditor.stock', { qty: part.quantityOnHand })}</div>
                                 </div>
                               </div>
                             </CommandItem>
@@ -437,7 +439,7 @@ export function TaskLineItemEditor({
                         </CommandGroup>
                       )}
                       {isSearchingCatalog && (
-                        <div className='px-2 py-2 text-xs text-muted-foreground'>Searching...</div>
+                        <div className='px-2 py-2 text-xs text-muted-foreground'>{tw('taskLineEditor.searching')}</div>
                       )}
                     </CommandList>
                   </Command>
@@ -449,7 +451,7 @@ export function TaskLineItemEditor({
               value={newQty}
               onChange={(event) => setNewQty(event.target.value)}
               onKeyDown={handleQtyKeyDown}
-              placeholder='Qty'
+              placeholder={tw('taskLineEditor.qtyPlaceholder')}
               className='h-8 text-xs text-right'
               disabled={!stagedLineItem}
             />
@@ -460,11 +462,11 @@ export function TaskLineItemEditor({
               onClick={confirmStagedItem}
               disabled={!stagedLineItem || isStagedLaborMetadataLoading}
             >
-              + Add
+              {tw('taskLineEditor.add')}
             </Button>
           </div>
           {isStagedLaborMetadataLoading && (
-            <p className='mt-1 text-[11px] text-muted-foreground'>Loading labor metadata...</p>
+            <p className='mt-1 text-[11px] text-muted-foreground'>{tw('taskLineEditor.loadingLaborMeta')}</p>
           )}
           {stagedLineItem && (
             <p className='mt-1 truncate text-[11px] text-muted-foreground'>
@@ -479,11 +481,11 @@ export function TaskLineItemEditor({
           <Table>
             <TableHeader className='sticky top-0 bg-background z-10'>
               <TableRow className='hover:bg-transparent'>
-                <TableHead className='w-[84px] text-xs'>Type</TableHead>
-                <TableHead className='text-xs'>Item No.</TableHead>
-                <TableHead className='text-xs'>Description</TableHead>
-                <TableHead className='w-[80px] text-xs'>Qty</TableHead>
-                <TableHead className='w-[112px] text-xs'>Unit Price</TableHead>
+                <TableHead className='w-[84px] text-xs'>{tw('taskLineEditor.colType')}</TableHead>
+                <TableHead className='text-xs'>{tw('taskLineEditor.colItemNo')}</TableHead>
+                <TableHead className='text-xs'>{tw('taskLineEditor.colDescription')}</TableHead>
+                <TableHead className='w-[80px] text-xs'>{tw('taskLineEditor.colQty')}</TableHead>
+                <TableHead className='w-[112px] text-xs'>{tw('taskLineEditor.colUnitPrice')}</TableHead>
                 {!readOnly && <TableHead className='w-[48px] text-xs' />}
               </TableRow>
             </TableHeader>
@@ -494,7 +496,7 @@ export function TaskLineItemEditor({
                     colSpan={readOnly ? 5 : 6}
                     className='py-6 text-center text-sm text-muted-foreground'
                   >
-                    No parts or labor lines yet.
+                    {tw('taskLineEditor.empty')}
                   </TableCell>
                 </TableRow>
               )}
@@ -517,7 +519,7 @@ export function TaskLineItemEditor({
                       <Badge
                         variant={item.type === 'LABOR' ? 'secondary' : 'outline'}
                       >
-                        {lineTypeBadgeLabel(item.type)}
+                        {lineTypeBadgeLabel(item.type, tw)}
                       </Badge>
                     </TableCell>
                     <TableCell className='font-medium'>{item.itemNo}</TableCell>
@@ -527,20 +529,20 @@ export function TaskLineItemEditor({
                         {item.type === 'LABOR' && (
                           <div className='flex flex-wrap items-center gap-2'>
                             <Badge variant='outline' className='text-[10px]'>
-                              Standard AW {formatHours(item.standardAw)}
+                              {tw('taskLineEditor.standardAw', { hours: formatHours(item.standardAw) })}
                             </Badge>
                             {readOnly ? (
                               <Badge variant='outline' className='text-[10px]'>
-                                Actual Hours {formatHours(item.actualHours)}
+                                {tw('taskLineEditor.actualHours')} {formatHours(item.actualHours)}
                               </Badge>
                             ) : (
                               <div className='flex items-center gap-1'>
                                 <span className='text-[10px] text-muted-foreground'>
-                                  Actual Hours
+                                  {tw('taskLineEditor.actualHours')}
                                 </span>
                                 <Input
                                   key={`${item.id}-${item.actualHours ?? 'none'}`}
-                                  aria-label='Actual Hours'
+                                  aria-label={tw('taskLineEditor.actualHoursAria')}
                                   defaultValue={
                                     item.actualHours != null ? String(item.actualHours) : ''
                                   }
@@ -576,7 +578,12 @@ export function TaskLineItemEditor({
                                 variant='outline'
                                 className={`text-[10px] ${getEfficiencyBadgeClass(efficiencyRatio)}`}
                               >
-                                Efficiency {efficiencyRatio.toFixed(2)}x
+                                {tw('taskLineEditor.efficiency', {
+                                  ratio: formatNumber(efficiencyRatio, {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  }),
+                                })}
                               </Badge>
                             )}
                           </div>
@@ -598,7 +605,7 @@ export function TaskLineItemEditor({
                         >
                           <Input
                             key={`${item.id}-${item.qty}`}
-                            aria-label={`Quantity ${item.itemNo}`}
+                            aria-label={tw('taskLineEditor.quantityAria', { itemNo: item.itemNo })}
                             defaultValue={String(item.qty)}
                             inputMode='decimal'
                             className='h-7 w-16 text-right text-xs'
@@ -626,7 +633,7 @@ export function TaskLineItemEditor({
                       ) : (
                         <Input
                           key={`${item.id}-${item.unitPrice}`}
-                          aria-label={`Unit Price ${item.itemNo}`}
+                          aria-label={tw('taskLineEditor.unitPriceAria', { itemNo: item.itemNo })}
                           defaultValue={String(item.unitPrice)}
                           inputMode='decimal'
                           className='h-7 w-24 text-right text-xs'
@@ -654,7 +661,7 @@ export function TaskLineItemEditor({
                           variant='ghost'
                           size='icon'
                           className='h-7 w-7 text-destructive hover:text-destructive'
-                          aria-label={`Delete line ${item.itemNo}`}
+                          aria-label={tw('taskLineEditor.deleteLineAria', { itemNo: item.itemNo })}
                           onClick={() => removeLineItem(item.id)}
                         >
                           <Trash2 className='h-3.5 w-3.5' />

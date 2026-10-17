@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
@@ -17,8 +18,8 @@ import type {
   WorkshopEstimateVersionSummary,
 } from '@/api/workshop-estimates'
 import {
-  ADVISOR_CHANNEL_OPTIONS,
-  RECORD_DECISION_ERROR_MESSAGES,
+  advisorChannelOptions,
+  recordDecisionErrorMessages,
   formatEstimateMoney,
   reactionOptionsFor,
   type AdvisorChannel,
@@ -60,6 +61,7 @@ function DecisionForm({
   onSubmit: (body: RecordWorkshopEstimateDecisionBody) => Promise<void>
   onClose: () => void
 }) {
+  const { t } = useTranslation('workshop')
   const [decision, setDecision] = useState<EstimateDecision>('APPROVED')
   const [channel, setChannel] = useState<AdvisorChannel | ''>('')
   const [amount, setAmount] = useState(version.total_gross ?? '')
@@ -96,9 +98,9 @@ function DecisionForm({
     } catch (caught: unknown) {
       setError(
         messageForErrorCode(
-          RECORD_DECISION_ERROR_MESSAGES,
+          recordDecisionErrorMessages(),
           getErrorCode(caught),
-          'Bestätigung konnte nicht erfasst werden.',
+          t('estimateDecision.record.submitFailed'),
         ),
       )
     } finally {
@@ -115,35 +117,37 @@ function DecisionForm({
       }}
     >
       <DialogHeader>
-        <DialogTitle>Bestätigung erfassen</DialogTitle>
+        <DialogTitle>{t('estimateDecision.record.title')}</DialogTitle>
         <DialogDescription>
-          Version {version.version} · Gesamtbetrag brutto {formatEstimateMoney(version.total_gross)}. Der Kunde hat dem
-          Kostenvoranschlag per Telefon, persönlich oder per E-Mail geantwortet.
+          {t('estimateDecision.record.description', {
+            version: version.version,
+            total: formatEstimateMoney(version.total_gross),
+          })}
         </DialogDescription>
       </DialogHeader>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="decision-kind">Entscheidung</Label>
+          <Label htmlFor="decision-kind">{t('estimateDecision.record.decision')}</Label>
           <Select value={decision} onValueChange={(value) => changeDecision(value as EstimateDecision)}>
-            <SelectTrigger id="decision-kind" aria-label="Entscheidung">
+            <SelectTrigger id="decision-kind" aria-label={t('estimateDecision.record.decision')}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="APPROVED">Angenommen</SelectItem>
-              <SelectItem value="DECLINED">Abgelehnt</SelectItem>
+              <SelectItem value="APPROVED">{t('estimateDecision.record.decisionApproved')}</SelectItem>
+              <SelectItem value="DECLINED">{t('estimateDecision.record.decisionDeclined')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="decision-channel">Kanal</Label>
+          <Label htmlFor="decision-channel">{t('estimateDecision.record.channel')}</Label>
           <Select value={channel} onValueChange={(value) => setChannel(value as AdvisorChannel)}>
-            <SelectTrigger id="decision-channel" aria-label="Kanal">
-              <SelectValue placeholder="Kanal wählen" />
+            <SelectTrigger id="decision-channel" aria-label={t('estimateDecision.record.channel')}>
+              <SelectValue placeholder={t('estimateDecision.record.channelPlaceholder')} />
             </SelectTrigger>
             <SelectContent>
-              {ADVISOR_CHANNEL_OPTIONS.map((option) => (
+              {advisorChannelOptions().map((option) => (
                 <SelectItem key={option.value} value={option.value}>
                   {option.label}
                 </SelectItem>
@@ -153,7 +157,7 @@ function DecisionForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="decision-amount">Betrag brutto (EUR)</Label>
+          <Label htmlFor="decision-amount">{t('estimateDecision.record.amount')}</Label>
           <Input
             id="decision-amount"
             inputMode="decimal"
@@ -161,14 +165,14 @@ function DecisionForm({
             onChange={(event) => setAmount(event.target.value)}
             aria-invalid={amount !== '' && !amountMatches}
           />
-          <p className="text-xs text-slate-500">Muss dem Gesamtbetrag der Version entsprechen.</p>
+          <p className="text-xs text-slate-500">{t('estimateDecision.record.amountHint')}</p>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="decision-reaction">Reaktion des Kunden (optional)</Label>
+          <Label htmlFor="decision-reaction">{t('estimateDecision.record.reaction')}</Label>
           <Select value={reaction} onValueChange={(value) => setReaction(value as CustomerReaction)}>
-            <SelectTrigger id="decision-reaction" aria-label="Reaktion des Kunden">
-              <SelectValue placeholder="Keine Angabe" />
+            <SelectTrigger id="decision-reaction" aria-label={t('estimateDecision.record.reaction')}>
+              <SelectValue placeholder={t('estimateDecision.record.reactionPlaceholder')} />
             </SelectTrigger>
             <SelectContent>
               {reactionOptions.map((option) => (
@@ -182,24 +186,24 @@ function DecisionForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="decision-at">Zeitpunkt der Entscheidung (optional)</Label>
+        <Label htmlFor="decision-at">{t('estimateDecision.record.decidedAt')}</Label>
         <Input
           id="decision-at"
           type="datetime-local"
           value={decidedAt}
           onChange={(event) => setDecidedAt(event.target.value)}
         />
-        <p className="text-xs text-slate-500">Leer lassen, wenn die Entscheidung gerade eben gefallen ist.</p>
+        <p className="text-xs text-slate-500">{t('estimateDecision.record.decidedAtHint')}</p>
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="decision-note">Notiz (Pflicht)</Label>
+        <Label htmlFor="decision-note">{t('estimateDecision.record.note')}</Label>
         <textarea
           id="decision-note"
           className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           value={note}
           onChange={(event) => setNote(event.target.value)}
-          placeholder="Was der Kunde gesagt hat, zum Beispiel Termin oder Rückfragen"
+          placeholder={t('estimateDecision.record.notePlaceholder')}
         />
       </div>
 
@@ -211,10 +215,10 @@ function DecisionForm({
 
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
-          Abbrechen
+          {t('estimateDecision.record.cancel')}
         </Button>
         <Button type="submit" disabled={!canSubmit}>
-          Bestätigung speichern
+          {t('estimateDecision.record.submit')}
         </Button>
       </DialogFooter>
     </form>

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { StatusBadge } from '@/components/status/StatusBadge'
@@ -32,6 +33,7 @@ type MechanicFindingAdvisorPanelProps = {
 }
 
 export function MechanicFindingAdvisorPanel({ orderId }: MechanicFindingAdvisorPanelProps) {
+  const { t } = useTranslation('workshop')
   const query = useQuery({
     queryKey: [...workshopKeys.detail(orderId), 'mechanic-findings'],
     queryFn: () => fetchMechanicFindings(orderId),
@@ -46,10 +48,8 @@ export function MechanicFindingAdvisorPanel({ orderId }: MechanicFindingAdvisorP
   return (
     <Card data-testid='mechanic-finding-advisor-panel'>
       <CardHeader className='pb-3'>
-        <CardTitle className='text-base'>Mechanic findings</CardTitle>
-        <p className='text-sm text-slate-500'>
-          Evidence from the bay. Map local labor and parts lines, then apply through approvals.
-        </p>
+        <CardTitle className='text-base'>{t('mechanicFinding.title')}</CardTitle>
+        <p className='text-sm text-slate-500'>{t('mechanicFinding.description')}</p>
       </CardHeader>
       <CardContent className='space-y-4'>
         {findings.map((finding) => (
@@ -76,7 +76,7 @@ export function MechanicFindingAdvisorPanel({ orderId }: MechanicFindingAdvisorP
                         rel='noreferrer'
                         className='text-blue-700 underline'
                       >
-                        Open {item.mime_type}
+                        {t('mechanicFinding.openMedia', { mimeType: item.mime_type })}
                       </a>
                     ) : (
                       item.mime_type

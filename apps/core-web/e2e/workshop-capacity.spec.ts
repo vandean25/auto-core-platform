@@ -1,5 +1,8 @@
 import { test, expect, type Page } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
+import { DE_WORKSHOP } from './helpers/de-workshop'
+
+const C = DE_WORKSHOP.capacity
 
 type DemoOrder = {
   id: string
@@ -119,14 +122,16 @@ test.describe('Workshop capacity week board', () => {
   test('shows bays as rows with free hours and highlights overbooked cells', async ({ page }, testInfo) => {
     const requested: string[] = []
     await setupCapacityRoutes(page, requested)
-    const corePage = new AutoCorePage(page, 'Workshop Capacity')
+    const corePage = new AutoCorePage(page, C.page.title)
     await corePage.navigate('/workshop/capacity')
 
-    await expect(page.getByRole('heading', { name: 'Workshop Capacity', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: C.page.title, exact: true })).toBeVisible()
     await expect(page.getByRole('rowheader')).toHaveText(['Bay 1', 'Bay 2', 'Bay 3'])
-    await expect(page.getByText('3 h free', { exact: true })).toBeVisible()
-    await expect(page.getByText('Fully booked', { exact: true })).toBeVisible()
-    await expect(page.getByText('Overbooked by 1 h', { exact: true })).toBeVisible()
+    await expect(page.getByText(C.cell.free.replace('{{hours}}', '3 h'), { exact: true })).toBeVisible()
+    await expect(page.getByText(C.cell.fullyBooked, { exact: true })).toBeVisible()
+    await expect(
+      page.getByText(C.cell.overbooked.replace('{{hours}}', '1 h'), { exact: true }),
+    ).toBeVisible()
     await expect(page.locator('[data-overbooked="true"]')).toHaveCount(1)
 
     const chip = page.getByRole('link', { name: /WO-DEMO-101/ })
@@ -141,10 +146,10 @@ test.describe('Workshop capacity week board', () => {
   test('moves to the next week and sends weekStart to the API', async ({ page }) => {
     const requested: string[] = []
     await setupCapacityRoutes(page, requested)
-    const corePage = new AutoCorePage(page, 'Workshop Capacity')
+    const corePage = new AutoCorePage(page, C.page.title)
     await corePage.navigate('/workshop/capacity')
 
-    await page.getByRole('button', { name: 'Next week' }).click()
+    await page.getByRole('button', { name: C.page.nextWeek }).click()
 
     await expect.poll(() => requested.some((search) => search.includes('weekStart=2026-10-19'))).toBe(true)
   })

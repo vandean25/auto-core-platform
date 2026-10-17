@@ -4,6 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useCreateWarrantyClaim, useWarrantyClaim, useWarrantyClaims } from "@/api/warranty-claims";
 import { useWorkshopOrder } from "@/api/workshop";
 import { WorkshopOrderWarrantyClaims } from "./WorkshopOrderWarrantyClaims";
+import { deWorkshop } from "@/test/de-workshop";
+
+const createClaimLabel = deWorkshop.warrantyClaimsPage.create;
 
 vi.mock("@/api/workshop", () => ({ useWorkshopOrder: vi.fn() }));
 vi.mock("@/api/warranty-claims", () => ({
@@ -73,7 +76,7 @@ describe("WorkshopOrderWarrantyClaims: create", () => {
     givenCreate(async () => ({ id: "claim-new" }));
     render(pageTree());
 
-    fireEvent.click(screen.getByRole("button", { name: "Warranty Claim" }));
+    fireEvent.click(screen.getByRole("button", { name: createClaimLabel }));
 
     await waitFor(() => expect(setSearchParams).toHaveBeenCalledTimes(1));
     const updater = setSearchParams.mock.calls[0][0] as (previous: URLSearchParams) => URLSearchParams;
@@ -92,7 +95,7 @@ describe("WorkshopOrderWarrantyClaims: create", () => {
     );
     const { unmount } = render(pageTree());
 
-    fireEvent.click(screen.getByRole("button", { name: "Warranty Claim" }));
+    fireEvent.click(screen.getByRole("button", { name: createClaimLabel }));
     unmount();
     await act(async () => {
       finishCreate({ id: "claim-new" });

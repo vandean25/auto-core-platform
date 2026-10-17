@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 import * as communicationsApi from '@/api/workshop-communications'
 import type { WorkshopOrderCommunication } from '@/api/workshop-communications'
 import { WorkshopCommunicationTimeline, describeCommunication } from './WorkshopCommunicationTimeline'
@@ -10,6 +11,10 @@ vi.mock('@/api/workshop-communications', async () => {
 })
 
 const useCommunications = vi.mocked(communicationsApi.useWorkshopOrderCommunications)
+
+beforeAll(async () => {
+  await ensureNamespaceLoaded('workshop')
+})
 
 function entry(overrides: Partial<WorkshopOrderCommunication> = {}): WorkshopOrderCommunication {
   return {

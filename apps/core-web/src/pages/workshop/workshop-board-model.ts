@@ -28,6 +28,7 @@ export function buildWorkshopBoardColumns(
   viewMode: BoardViewMode,
   resourceList: Array<{ id: string; name: string }>,
   orders: BoardOrder[],
+  unassignedLabel: string,
 ): WorkshopBoardColumnModel[] {
   const resourceCols = resourceList.map((resource) => ({
     id: resource.id,
@@ -43,6 +44,6 @@ export function buildWorkshopBoardColumns(
 
   return [
     ...resourceCols,
-    { id: WORKSHOP_BOARD_UNASSIGNED_COLUMN_ID, label: 'Unassigned', orders: unassignedOrders },
+    { id: WORKSHOP_BOARD_UNASSIGNED_COLUMN_ID, label: unassignedLabel, orders: unassignedOrders },
   ]
 }

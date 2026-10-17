@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, beforeAll } from 'vitest'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 import {
   describeApproval,
   estimateBadgeLabel,
@@ -6,8 +7,8 @@ import {
   isSameGrossAmount,
   messageForErrorCode,
   normalizeGrossAmount,
-  OVERRUN_NOTICE_ERROR_MESSAGES,
-  RECORD_DECISION_ERROR_MESSAGES,
+  overrunNoticeErrorMessages,
+  recordDecisionErrorMessages,
   reactionOptionsFor,
 } from './workshop-estimate-decision'
 
@@ -21,6 +22,10 @@ const approval = (overrides: Partial<Parameters<typeof describeApproval>[0]>) =>
   note: null,
   recorded_by_user_id: 'user-1',
   ...overrides,
+})
+
+beforeAll(async () => {
+  await ensureNamespaceLoaded('workshop')
 })
 
 describe('normalizeGrossAmount', () => {
@@ -93,17 +98,19 @@ describe('reactionOptionsFor', () => {
 
 describe('messageForErrorCode', () => {
   it('maps the codes of an unsendable version and of a reaction that does not fit the decision', () => {
-    expect(messageForErrorCode(RECORD_DECISION_ERROR_MESSAGES, 'ESTIMATE_REACTION_MISMATCH', 'x')).toContain('Reaktion')
-    expect(messageForErrorCode(RECORD_DECISION_ERROR_MESSAGES, 'ESTIMATE_VERSION_NOT_DECIDABLE', 'x')).toContain(
+    expect(messageForErrorCode(recordDecisionErrorMessages(), 'ESTIMATE_REACTION_MISMATCH', 'x')).toContain(
+      'Reaktion',
+    )
+    expect(messageForErrorCode(recordDecisionErrorMessages(), 'ESTIMATE_VERSION_NOT_DECIDABLE', 'x')).toContain(
       'nicht vollständig gesendet',
     )
   })
 
   it('uses the safe German text for a known code and the fallback otherwise', () => {
-    expect(messageForErrorCode(RECORD_DECISION_ERROR_MESSAGES, 'ESTIMATE_VERSION_SUPERSEDED', 'x')).toContain(
+    expect(messageForErrorCode(recordDecisionErrorMessages(), 'ESTIMATE_VERSION_SUPERSEDED', 'x')).toContain(
       'durch eine neuere ersetzt',
     )
-    expect(messageForErrorCode(OVERRUN_NOTICE_ERROR_MESSAGES, 'UNKNOWN', 'Fallback')).toBe('Fallback')
-    expect(messageForErrorCode(OVERRUN_NOTICE_ERROR_MESSAGES, undefined, 'Fallback')).toBe('Fallback')
+    expect(messageForErrorCode(overrunNoticeErrorMessages(), 'UNKNOWN', 'Fallback')).toBe('Fallback')
+    expect(messageForErrorCode(overrunNoticeErrorMessages(), undefined, 'Fallback')).toBe('Fallback')
   })
 })

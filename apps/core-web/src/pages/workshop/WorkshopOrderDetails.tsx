@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
@@ -59,6 +60,7 @@ import {
 import { useAuthSession } from "@/api/auth-session";
 import { useVehicleInspectionRecords } from "@/api/vehicle-inspection-records";
 import { canRecordVehicleInspection } from "@/components/vehicles/vehicle-pickerl-permissions";
+import { PICKERL_TASK_TITLE } from "@/features/workshop/pickerl.constants";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import {
   createEmptyCatalogSearchSession,
@@ -74,6 +76,7 @@ function countWaitingTasks(tasks: ReadonlyArray<{ status: string }> | null | und
 }
 
 export function WorkshopOrderDetails() {
+  const { t } = useTranslation("workshop");
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { id = "" } = useParams<{ id: string }>();
@@ -131,7 +134,7 @@ export function WorkshopOrderDetails() {
     sessionQuery.data?.activeRole,
   );
   const completedPickerlTask = checkout.tasks.find(
-    (task) => task.title === "§57a Begutachtung" && task.status === "DONE",
+    (task) => task.title === PICKERL_TASK_TITLE && task.status === "DONE",
   );
   useEffect(() => {
     if (
@@ -172,7 +175,7 @@ export function WorkshopOrderDetails() {
   if (isLoading) {
     return (
       <div className="p-8 text-center text-sm text-muted-foreground">
-        Loading workshop order...
+        {t("orderDetail.loading")}
       </div>
     );
   }
@@ -182,15 +185,15 @@ export function WorkshopOrderDetails() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base font-semibold">
-            Workshop order not found
+            {t("orderDetail.notFoundTitle")}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground mb-4">
-            The selected workshop order does not exist.
+            {t("orderDetail.notFoundDescription")}
           </p>
           <Button onClick={() => navigate("/workshop/orders")}>
-            Back to Workshop Orders
+            {t("orderDetail.backToOrders")}
           </Button>
         </CardContent>
       </Card>
@@ -210,9 +213,9 @@ export function WorkshopOrderDetails() {
     if (nextNotes === (order.notes ?? "")) return;
     try {
       await updateOrder.mutateAsync({ id: order.id, notes: nextNotes });
-      toast.success("Internal notes saved");
+      toast.success(t("orderDetail.toast.notesSaved"));
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, "Failed to save notes"));
+      toast.error(getErrorMessage(error, t("orderDetail.toast.notesSaveFailed")));
     }
   };
 
@@ -225,9 +228,9 @@ export function WorkshopOrderDetails() {
         id: order.id,
         reportedIssue: nextIssue,
       });
-      toast.success("Reported issue saved");
+      toast.success(t("orderDetail.toast.reportedIssueSaved"));
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, "Failed to save reported issue"));
+      toast.error(getErrorMessage(error, t("orderDetail.toast.reportedIssueSaveFailed")));
     }
   };
 
@@ -243,9 +246,9 @@ export function WorkshopOrderDetails() {
       });
       setNewTaskTitle("");
       setExpandedTaskId(created.id);
-      toast.success("Task created");
+      toast.success(t("orderDetail.toast.taskCreated"));
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, "Failed to create task"));
+      toast.error(getErrorMessage(error, t("orderDetail.toast.taskCreateFailed")));
     }
   };
 
@@ -259,14 +262,14 @@ export function WorkshopOrderDetails() {
       const task = checkout.tasks.find((candidate) => candidate.id === taskId);
       if (
         status === "DONE" &&
-        task?.title === "§57a Begutachtung" &&
+        task?.title === PICKERL_TASK_TITLE &&
         canManagePickerl
       ) {
         setRecordPickerlInspectedOn(formatLocalDateInput(new Date()));
         setRecordPickerlOpen(true);
       }
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, "Failed to update task status"));
+      toast.error(getErrorMessage(error, t("orderDetail.toast.taskStatusUpdateFailed")));
     }
   };
 
@@ -282,7 +285,7 @@ export function WorkshopOrderDetails() {
         mechanicNotes: notes,
       });
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, "Failed to update mechanic notes"));
+      toast.error(getErrorMessage(error, t("orderDetail.toast.mechanicNotesUpdateFailed")));
     }
   };
 
@@ -303,21 +306,18 @@ export function WorkshopOrderDetails() {
       }
       clearTaskLineItemOverrides(taskPendingDelete.id);
       setTaskPendingDelete(null);
-      toast.success("Task deleted");
+      toast.success(t("orderDetail.toast.taskDeleted"));
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, "Failed to delete task"));
+      toast.error(getErrorMessage(error, t("orderDetail.toast.taskDeleteFailed")));
     }
   };
 
   const handlePrint = async () => {
-    const toastId = toast.loading("Generating Job Card PDF...");
+    const toastId = toast.loading(t("orderDetail.toast.jobCardPdfGenerating"));
     try {
       const res = await generateWorkshopPdf.mutateAsync(order.id);
       if (res.enqueued) {
-        toast.success(
-          "Job Card PDF generation has been queued in the background. It will be available shortly.",
-          { id: toastId },
-        );
+        toast.success(t("orderDetail.toast.jobCardPdfQueued"), { id: toastId });
         return;
       }
 
@@ -327,9 +327,9 @@ export function WorkshopOrderDetails() {
         .toLowerCase();
 
       triggerBlobDownload(blob, `${fileName}.pdf`);
-      toast.success("Job Card PDF downloaded successfully", { id: toastId });
+      toast.success(t("orderDetail.toast.jobCardPdfDownloaded"), { id: toastId });
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, "Failed to generate PDF"), {
+      toast.error(getErrorMessage(error, t("orderDetail.toast.jobCardPdfFailed")), {
         id: toastId,
       });
     }
@@ -368,13 +368,15 @@ export function WorkshopOrderDetails() {
     try {
       await assignBoard.mutateAsync({ orderId: order.id, mechanicId });
       toast.success(
-        mechanicId ? "Technician assigned" : "Technician unassigned",
+        mechanicId
+          ? t("orderDetail.toast.technicianAssigned")
+          : t("orderDetail.toast.technicianUnassigned"),
       );
     } catch (error: unknown) {
       if (previousOrder) {
         queryClient.setQueryData(workshopKeys.detail(order.id), previousOrder);
       }
-      toast.error(getErrorMessage(error, "Failed to assign technician"));
+      toast.error(getErrorMessage(error, t("orderDetail.toast.technicianAssignFailed")));
     }
   };
 
@@ -398,11 +400,11 @@ export function WorkshopOrderDetails() {
     void resolveIdentity
       .mutateAsync(vehicleId)
       .then(() => {
-        toast.success("Vehicle identity resolved");
+        toast.success(t("orderDetail.toast.vehicleIdentityResolved"));
       })
       .catch((error: unknown) => {
         toast.error(
-          getErrorMessage(error, "Failed to resolve vehicle identity"),
+          getErrorMessage(error, t("orderDetail.toast.vehicleIdentityResolveFailed")),
         );
       });
   };
@@ -557,16 +559,16 @@ export function WorkshopOrderDetails() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete task?</AlertDialogTitle>
+            <AlertDialogTitle>{t("orderDetail.deleteTaskTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
               {taskPendingDelete
-                ? `Delete "${taskPendingDelete.title}" from this workshop order? This also removes its parts and labor lines.`
-                : "Delete this task from the workshop order?"}
+                ? t("orderDetail.deleteTaskDescription", { title: taskPendingDelete.title })
+                : t("orderDetail.deleteTaskDescriptionGeneric")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleteTask.isPending}>
-              Cancel
+              {t("orderDetail.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -576,7 +578,7 @@ export function WorkshopOrderDetails() {
               }}
               disabled={!canDeleteTasks || deleteTask.isPending}
             >
-              {deleteTask.isPending ? "Deleting..." : "Delete Task"}
+              {deleteTask.isPending ? t("orderDetail.deleting") : t("orderDetail.deleteTask")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

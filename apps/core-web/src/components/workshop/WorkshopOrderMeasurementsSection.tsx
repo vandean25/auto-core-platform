@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   useApplyWorkshopMeasurement,
   useInspectionDeviceSources,
@@ -32,6 +33,7 @@ type WorkshopOrderMeasurementsSectionProps = {
 export function WorkshopOrderMeasurementsSection({
   orderId,
 }: WorkshopOrderMeasurementsSectionProps) {
+  const { t } = useTranslation('workshop')
   const [page, setPage] = useState(1)
   const measurementsQuery = useWorkshopMeasurements(orderId, page)
   const deviceSourcesQuery = useInspectionDeviceSources()
@@ -60,10 +62,8 @@ export function WorkshopOrderMeasurementsSection({
     <Card className='min-w-0 overflow-hidden'>
       <CardHeader className='flex flex-col gap-3 space-y-0 sm:flex-row sm:items-center sm:justify-between'>
         <div className='min-w-0'>
-          <CardTitle>Geräteergebnis Bremsen</CardTitle>
-          <p className='text-sm text-muted-foreground'>
-            Externe Bremsmessung prüfen und als Nachweis übernehmen.
-          </p>
+          <CardTitle>{t('measurementsSection.title')}</CardTitle>
+          <p className='text-sm text-muted-foreground'>{t('measurementsSection.description')}</p>
         </div>
         <Button
           variant='outline'
@@ -73,13 +73,13 @@ export function WorkshopOrderMeasurementsSection({
             setDialogOpen(true)
           }}
         >
-          Messung importieren
+          {t('measurementsSection.import')}
         </Button>
       </CardHeader>
       <CardContent className='space-y-2'>
         {(measurementsQuery.data?.data ?? []).length === 0 ? (
           <p className='text-sm text-muted-foreground'>
-            Noch keine Bremsmessungen für diesen Auftrag.
+            {t('measurementsSection.empty')}
           </p>
         ) : (
           <ul className='space-y-2 text-sm'>
@@ -108,15 +108,22 @@ export function WorkshopOrderMeasurementsSection({
                 {row.applied_measurement ? (
                   <div className='text-muted-foreground'>
                     {row.applied_measurement.device_serial ? (
-                      <p>Gerät: {row.applied_measurement.device_serial}</p>
+                      <p>
+                        {t('measurementsSection.device', {
+                          serial: row.applied_measurement.device_serial,
+                        })}
+                      </p>
                     ) : null}
                     <ul className='grid grid-cols-2 gap-1'>
                       {row.applied_measurement.wheels.map((wheel) => (
                         <li key={`${row.id}-${wheel.axle}-${wheel.side}`}>
-                          Achse {wheel.axle}{' '}
-                          {MEASUREMENT_WHEEL_SIDE_LABELS[wheel.side] ??
-                            wheel.side}
-                          : {wheel.force} {wheel.unit}
+                          {t('measurementsSection.axleWheel', {
+                            axle: wheel.axle,
+                            side:
+                              MEASUREMENT_WHEEL_SIDE_LABELS[wheel.side] ?? wheel.side,
+                            force: wheel.force,
+                            unit: wheel.unit,
+                          })}
                         </li>
                       ))}
                     </ul>
@@ -135,10 +142,10 @@ export function WorkshopOrderMeasurementsSection({
               disabled={page <= 1}
               onClick={() => setPage((current) => Math.max(1, current - 1))}
             >
-              Zurück
+              {t('measurementsSection.back')}
             </Button>
             <span className='text-xs text-muted-foreground'>
-              Seite {page} / {totalPages}
+              {t('measurementsSection.page', { page, total: totalPages })}
             </span>
             <Button
               type='button'
@@ -149,7 +156,7 @@ export function WorkshopOrderMeasurementsSection({
                 setPage((current) => Math.min(totalPages, current + 1))
               }
             >
-              Weiter
+              {t('measurementsSection.forward')}
             </Button>
           </div>
         ) : null}
@@ -164,16 +171,14 @@ export function WorkshopOrderMeasurementsSection({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Bremsmessung importieren</DialogTitle>
-            <DialogDescription>
-              Quellenreferenz aus dem Werkstattnetz — Werte sind schreibgeschützt.
-            </DialogDescription>
+            <DialogTitle>{t('measurementsSection.dialogTitle')}</DialogTitle>
+            <DialogDescription>{t('measurementsSection.dialogDescription')}</DialogDescription>
           </DialogHeader>
 
           {!preview ? (
             <div className='space-y-3'>
               <div className='space-y-1'>
-                <Label htmlFor='device-source'>Messgerät</Label>
+                <Label htmlFor='device-source'>{t('measurementsSection.deviceLabel')}</Label>
                 <select
                   id='device-source'
                   className='w-full rounded-md border px-2 py-2 text-sm'
@@ -188,7 +193,7 @@ export function WorkshopOrderMeasurementsSection({
                 </select>
               </div>
               <div className='space-y-1'>
-                <Label htmlFor='measurement-ref'>Messreferenz</Label>
+                <Label htmlFor='measurement-ref'>{t('measurementsSection.referenceLabel')}</Label>
                 <Input
                   id='measurement-ref'
                   value={reference}
@@ -204,7 +209,7 @@ export function WorkshopOrderMeasurementsSection({
           ) : (
             <div className='space-y-2 text-sm'>
               <div className='flex items-center gap-2'>
-                <span className='text-muted-foreground'>Status:</span>
+                <span className='text-muted-foreground'>{t('measurementsSection.status')}</span>
                 <StatusBadge
                   status={preview.state}
                   label={
@@ -214,7 +219,9 @@ export function WorkshopOrderMeasurementsSection({
                 />
               </div>
               <p className='text-muted-foreground'>
-                Gerät: {preview.reviewed_fields.device_serial}
+                {t('measurementsSection.device', {
+                  serial: preview.reviewed_fields.device_serial,
+                })}
               </p>
               {preview.reviewed_fields.quarantine_reason ? (
                 <p className='text-amber-700'>
@@ -226,9 +233,12 @@ export function WorkshopOrderMeasurementsSection({
               <ul className='grid grid-cols-2 gap-1'>
                 {preview.reviewed_fields.wheels.map((wheel) => (
                   <li key={`${wheel.axle}-${wheel.side}`}>
-                    Achse {wheel.axle}{' '}
-                    {MEASUREMENT_WHEEL_SIDE_LABELS[wheel.side] ?? wheel.side}:{' '}
-                    {wheel.force} {wheel.unit}
+                    {t('measurementsSection.axleWheel', {
+                      axle: wheel.axle,
+                      side: MEASUREMENT_WHEEL_SIDE_LABELS[wheel.side] ?? wheel.side,
+                      force: wheel.force,
+                      unit: wheel.unit,
+                    })}
                   </li>
                 ))}
               </ul>
@@ -256,7 +266,7 @@ export function WorkshopOrderMeasurementsSection({
                   setPreview(result)
                 }}
               >
-                Vorschau
+                {t('measurementsSection.preview')}
               </Button>
             ) : (
               <Button
@@ -276,7 +286,7 @@ export function WorkshopOrderMeasurementsSection({
                   resetDialog()
                 }}
               >
-                Übernehmen
+                {t('measurementsSection.apply')}
               </Button>
             )}
           </DialogFooter>

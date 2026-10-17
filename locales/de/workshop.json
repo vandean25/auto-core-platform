@@ -1,4 +1,1249 @@
 {
+  "board": {
+    "title": "Werkstattboard",
+    "description": "Aufträge per Drag & Drop Mechanikern und Hebebühnen zuweisen.",
+    "loading": "Board wird geladen…",
+    "columnsAriaLabel": "Werkstattboard-Spalten",
+    "viewMode": {
+      "byMechanic": "Nach Mechaniker",
+      "byBay": "Nach Hebebühne"
+    },
+    "unassigned": "Nicht zugewiesen",
+    "emptyColumn": "Keine Aufträge",
+    "emptyResources": {
+      "mechanics": "Mechaniker",
+      "bays": "Hebebühnen",
+      "title": "Keine {{resource}} konfiguriert",
+      "description": "{{resource}} in den Einstellungen anlegen, um Werkstattaufträge zuzuweisen.",
+      "goToSettings": "Zu den Einstellungen"
+    },
+    "assignError": "Zuweisung fehlgeschlagen. Bitte erneut versuchen.",
+    "a11y": {
+      "orderFallback": "Werkstattauftrag",
+      "unknownColumn": "eine unbekannte Spalte",
+      "resourceNoun": {
+        "mechanic": "Mechaniker",
+        "bay": "Hebebühne"
+      },
+      "resourceColumn": "{{resource}} {{label}}",
+      "pickedUp": "{{order}} aufgenommen.",
+      "overColumn": "{{order}} befindet sich über {{column}}.",
+      "notOverColumn": "{{order}} befindet sich nicht mehr über einer Spalte.",
+      "droppedOn": "{{order}} wurde auf {{column}} abgelegt.",
+      "droppedOutside": "{{order}} wurde außerhalb einer Spalte abgelegt und nicht verschoben.",
+      "cancelled": "Ziehen abgebrochen. {{order}} wurde nicht verschoben."
+    }
+  },
+  "mechanic": {
+    "accessDenied": {
+      "title": "Bürozugang eingeschränkt",
+      "description": "Mit einem Mechaniker-Konto haben Sie keinen Zugriff auf Bürowerkzeuge.",
+      "backToQueue": "Zur Mechaniker-Warteschlange"
+    },
+    "queue": {
+      "title": "Meine Warteschlange",
+      "description": "Ihre aktiven Aufträge — Aufgabe antippen zum Öffnen.",
+      "refreshAria": "Warteschlange aktualisieren",
+      "searchPlaceholder": "Aufgaben, Kennzeichen, WA…",
+      "searchAria": "Mechaniker-Warteschlange durchsuchen",
+      "loading": "Aufgaben werden geladen…",
+      "identityErrorTitle": "Mechaniker-Profil nicht verknüpft",
+      "identityErrorDescription": "Ihr Login ist in diesem Mandanten mit keinem aktiven Mechaniker-Mitarbeiter verknüpft. Bitte einen Administrator, Ihren HR-Datensatz zu verknüpfen, oder das UAT-Seed für dieses Konto erneut ausführen.",
+      "loadErrorTitle": "Warteschlange konnte nicht geladen werden",
+      "loadErrorFallback": "Mechaniker-Warteschlange konnte nicht geladen werden",
+      "tryAgain": "Erneut versuchen",
+      "noResults": "Keine Treffer.",
+      "emptyTitle": "Keine zugewiesenen Aufgaben",
+      "emptyDescription": "Zugewiesene Arbeiten erscheinen hier.",
+      "clockLoadError": "Anwesenheitsuhr konnte nicht geladen werden",
+      "punchError": "Stempeln fehlgeschlagen",
+      "taskSequence": "Aufgabe {{sequence}}",
+      "noPlate": "Kein Kennzeichen",
+      "bay": "Hebebühne: {{name}}",
+      "scheduled": "Geplant: {{date}}"
+    },
+    "taskDetail": {
+      "loading": "Aufgabe wird geladen…",
+      "notFound": "Aufgabe nicht gefunden oder Zugriff verweigert.",
+      "backToQueue": "Zurück zur Warteschlange",
+      "saveState": {
+        "saving": "Speichern…",
+        "saved": "Gespeichert ✓",
+        "error": "Fehler — nicht gespeichert"
+      },
+      "labor": {
+        "title": "Arbeit",
+        "hours_one": "{{count}} Std.",
+        "hours_other": "{{count}} Std."
+      },
+      "diagnostics": {
+        "title": "Diagnose & Notizen",
+        "placeholder": "Befunde, Messwerte oder Notizen hier festhalten…",
+        "sending": "Wird gesendet …",
+        "sendFinding": "Befund an Berater senden"
+      },
+      "complaint": {
+        "title": "Kundenanliegen"
+      },
+      "refreshTask": "Aufgabe aktualisieren",
+      "header": {
+        "backAria": "Zurück zur Warteschlange",
+        "order": "Auftrag {{orderNumber}}",
+        "start": "Starten",
+        "resume": "Fortsetzen",
+        "switchHere": "Hier weitermachen",
+        "switchTitle": "Von einer anderen Aufgabe zu dieser wechseln",
+        "pause": "Pausieren",
+        "complete": "Abschließen"
+      },
+      "vehicle": {
+        "title": "Fahrzeug",
+        "makeModel": "Marke / Modell",
+        "plate": "Kennzeichen",
+        "vin": "FIN",
+        "odometer": "Kilometerstand",
+        "bay": "Hebebühne",
+        "scheduled": "Geplant"
+      },
+      "parts": {
+        "title": "Teile",
+        "request": "Teil anfordern",
+        "empty": "Noch keine Teile angefordert.",
+        "qty": "Menge {{qty}}"
+      },
+      "media": {
+        "title": "Medien",
+        "uploading": "Wird hochgeladen…",
+        "upload": "Foto / Video hochladen",
+        "uploaded": "Hochgeladen ✓",
+        "failed": "Upload fehlgeschlagen — bitte erneut versuchen",
+        "acceptedTypes": "Erlaubt: JPEG, PNG, WebP, MP4, MOV"
+      },
+      "requestPart": {
+        "title": "Teil anfordern",
+        "itemNo": "Teilenummer / SKU",
+        "itemNoPlaceholder": "z. B. OIL-FILTER-01",
+        "description": "Beschreibung",
+        "descriptionPlaceholder": "z. B. Ölfilter — 2.0 TDI",
+        "quantity": "Menge",
+        "submit": "Anfrage senden"
+      },
+      "voiceNote": {
+        "unsupported": "Sprachnotizen sind in diesem Browser nicht verfügbar.",
+        "idleHint": "Aufnahme starten, um eine Sprachnotiz zu diktieren. Entwurf prüfen und bearbeiten, bevor er übernommen wird.",
+        "recording": "Aufnahme läuft…",
+        "draftReady": "Entwurf bereit. Vor Übernahme in die Diagnose prüfen und bearbeiten.",
+        "accepted": "Entwurf in Diagnose-Notizen übernommen.",
+        "errorFallback": "Sprachnotiz fehlgeschlagen. Bitte erneut aufnehmen.",
+        "noMicrophone": "Kein Mikrofon gefunden. Geräteberechtigungen prüfen.",
+        "microphoneAccessFailed": "Mikrofonzugriff nicht möglich.",
+        "noAudioCaptured": "Keine Aufnahme erfasst. Bitte erneut aufnehmen.",
+        "stop": "Aufnahme stoppen",
+        "record": "Sprachnotiz aufnehmen",
+        "retry": "Erneut aufnehmen",
+        "processing": "Sprachnotiz wird verarbeitet…",
+        "draftLabel": "Sprachnotiz-Entwurf",
+        "discardDraft": "Entwurf verwerfen",
+        "acceptDraft": "Entwurf übernehmen"
+      },
+      "pause": {
+        "title": "Aufgabe pausieren",
+        "description": "Grund für die Pause wählen.",
+        "selected": "Ausgewählt: {{label}}",
+        "confirm": "Pause bestätigen",
+        "reasons": {
+          "WAITING_PARTS": "Wartet auf Teile",
+          "WAITING_CUSTOMER": "Wartet auf Kunde",
+          "OTHER": "Sonstiges"
+        }
+      },
+      "switch": {
+        "title": "Zu dieser Aufgabe wechseln",
+        "description": "Wie ist der Status der Aufgabe, die Sie verlassen?",
+        "retrying": "Keine aktive Aufgabe zum Wechseln — Start wird versucht…",
+        "confirm": "Wechsel bestätigen",
+        "reasons": {
+          "WAITING_PARTS": "Vorherige Aufgabe — Wartet auf Teile",
+          "WAITING_CUSTOMER": "Vorherige Aufgabe — Wartet auf Kunde",
+          "SWITCHED_TO_HIGHER_PRIORITY": "Zu höherer Priorität gewechselt"
+        }
+      },
+      "checklist": {
+        "loadError": "Checkliste konnte nicht gespeichert werden",
+        "loading": "Checkliste wird geladen…"
+      },
+      "lifecycle": {
+        "toast": {
+          "taskStarted": "Aufgabe gestartet — Stempelung erfasst",
+          "taskStartFailed": "Aufgabe konnte nicht gestartet werden",
+          "taskPaused": "Aufgabe pausiert",
+          "taskPauseFailed": "Aufgabe konnte nicht pausiert werden",
+          "taskCompleted": "Aufgabe als erledigt markiert",
+          "taskCompleteFailed": "Aufgabe konnte nicht abgeschlossen werden",
+          "taskSwitched": "Zu Aufgabe gewechselt — Stempelung erfasst",
+          "taskSwitchFailed": "Wechsel zur Aufgabe fehlgeschlagen",
+          "taskAlreadyInProgress": "An dieser Aufgabe wird bereits gearbeitet. Bitte aktualisieren."
+        }
+      },
+      "partRequest": {
+        "validation": {
+          "itemNoRequired": "Teilenummer ist erforderlich.",
+          "descriptionRequired": "Beschreibung ist erforderlich.",
+          "quantityMin": "Menge muss mindestens 0,01 sein."
+        },
+        "toast": {
+          "submitted": "Teileanfrage gesendet",
+          "failed": "Teileanfrage fehlgeschlagen"
+        }
+      },
+      "finding": {
+        "toast": {
+          "notesSaveFailed": "Diagnose-Notizen konnten nicht gespeichert werden",
+          "sentToAdvisor": "Feststellung an Serviceberater gesendet",
+          "sendFailed": "Feststellung konnte nicht gesendet werden"
+        }
+      },
+      "mediaToast": {
+        "unsupportedType": "Dateityp nicht unterstützt. JPEG, PNG, WebP, MP4 oder MOV verwenden.",
+        "uploaded": "Medien erfolgreich hochgeladen",
+        "uploadFailed": "Upload fehlgeschlagen",
+        "storageFailed": "Upload in den Speicher fehlgeschlagen. Bitte erneut versuchen."
+      }
+    }
+  },
+  "actions": {
+    "cancel": "Abbrechen",
+    "save": "Speichern"
+  },
+  "orderCard": {
+    "move": "Auftrag {{orderNumber}} verschieben",
+    "assign": "Zuweisen",
+    "assignAria": "Auftrag {{orderNumber}} zuweisen",
+    "assignTo": "Zuweisen an",
+    "dealerStock": "Händlerbestand"
+  },
+  "planner": {
+    "viewMode": {
+      "day": "Tag",
+      "week": "Woche"
+    },
+    "grid": {
+      "closed": "Geschlossen",
+      "closedWithHoliday": "Geschlossen — {{name}}",
+      "bay": "Hebebühne",
+      "bookSlot": "{{label}} buchen",
+      "bookSlotAria": "Slot buchen"
+    },
+    "page": {
+      "title": "Werkstattplaner",
+      "previous": "Zurück",
+      "next": "Weiter",
+      "createOrder": "+ Werkstattauftrag",
+      "noBaysTitle": "Keine Hebebühnen konfiguriert",
+      "noBaysDescription": "Hebebühnen in den Einstellungen anlegen, um Aufträge zu planen.",
+      "goToSettings": "Zu den Einstellungen",
+      "closedTitle": "Werkstatt geschlossen",
+      "closedDescription": "Öffnungszeiten oder Feiertage in den Einstellungen anpassen.",
+      "rescheduleFailed": "Werkstattauftrag konnte nicht verschoben werden"
+    },
+    "createSheet": {
+      "title": "Werkstattauftrag planen",
+      "description": "Fahrzeug suchen und einen Hebebühne-Slot buchen.",
+      "createButton": "+ Werkstattauftrag",
+      "searchLabel": "Fahrzeug oder Kunde suchen",
+      "searchPlaceholder": "FIN, Kennzeichen oder Kundenname",
+      "searching": "Suche…",
+      "bay": "Hebebühne",
+      "selectBay": "Hebebühne wählen",
+      "mechanicOptional": "Mechaniker (optional)",
+      "unassigned": "Nicht zugewiesen",
+      "start": "Beginn",
+      "end": "Ende",
+      "reportedIssue": "Gemeldetes Problem",
+      "optional": "Optional",
+      "outsideHoursTitle": "Außerhalb der Öffnungszeiten",
+      "outsideHoursDescription": "Dieser Slot liegt außerhalb der effektiven Öffnungszeiten. Buchung ist trotzdem möglich.",
+      "mechanicDoubleBookedTitle": "Mechaniker doppelt gebucht",
+      "mechanicDoubleBookedDescription": "Dieser Mechaniker hat {{orderNumber}} in diesem Fenster. Sie können trotzdem planen.",
+      "bayOccupiedTitle": "Hebebühne belegt",
+      "bayOccupiedDescription": "Überlappung mit {{orderNumber}}. Anderen Slot wählen.",
+      "toastSelectVehicle": "Fahrzeug mit verknüpftem Kunden wählen.",
+      "toastScheduled": "Werkstattauftrag geplant.",
+      "toastCreateFailed": "Werkstattauftrag konnte nicht erstellt werden"
+    }
+  },
+  "resumeWaitingTasks": {
+    "description": "{{count}} Aufgabe(n) warten auf den Kunden. Die Freigabe setzt sie nicht automatisch fort.",
+    "button": "Wartende Aufgaben fortsetzen",
+    "success": "{{count}} Aufgabe(n) fortgesetzt",
+    "error": "Wartende Aufgaben konnten nicht fortgesetzt werden."
+  },
+  "pick": {
+    "dealerStock": "Händlerbestand",
+    "queue": {
+      "title": "Teile-Kommissionierung",
+      "description": "Auftragszeile wählen, um die Kommissionierung zu öffnen und Teile bereitzustellen.",
+      "workshopOrders": "Werkstattaufträge",
+      "intake": "Annahme",
+      "saveViewTitle": "Teile-Kommissionierung",
+      "searchPlaceholder": "Kommissionierung durchsuchen…",
+      "columns": {
+        "orderNo": "Auftragsnr.",
+        "customer": "Kunde",
+        "vehicle": "Fahrzeug",
+        "partLines": "Teilepositionen",
+        "totalQty": "Gesamtmenge",
+        "opened": "Eröffnet",
+        "status": "Status"
+      }
+    },
+    "drawer": {
+      "title": "Teile kommissionieren",
+      "description": "Teile einem Bereitstellungsbehälter für diesen Werkstattauftrag zuweisen.",
+      "linesBadge": "{{count}} Positionen",
+      "cancel": "Abbrechen",
+      "confirm": "Kommissionierung bestätigen",
+      "destinationTote": "Zielbehälter",
+      "selectTote": "Bereitstellungsbehälter wählen…",
+      "searchTote": "Behälter suchen…",
+      "searchToteAria": "Behälter suchen",
+      "noTote": "Kein Bereitstellungsbehälter gefunden.",
+      "selectedTote": "Gewählter Behälter {{code}}",
+      "chooseTote": "Einen Bereitstellungsbehälter für diesen Transfer wählen.",
+      "requiredParts": "Benötigte Teile",
+      "totalQty": "Gesamtmenge {{qty}}",
+      "pickAll": "Alles kommissionieren",
+      "colPart": "Teil",
+      "colTask": "Aufgabe",
+      "colRequired": "Benötigt",
+      "colPickQty": "Komm.-Menge",
+      "qtyAria": "Menge für {{description}} ({{itemNo}})",
+      "noParts": "Keine kommissionierbaren Teile für diesen Auftrag.",
+      "notEligible": "Dieser Auftrag ist nicht für Kommissionierung freigegeben.",
+      "qtyInvalid": "Menge für {{itemNo}} muss eine ganze Zahl ≥ 0 sein.",
+      "notEligibleAnymore": "Dieser Auftrag ist nicht mehr für Kommissionierung geeignet.",
+      "selectToteFirst": "Vor der Bestätigung einen Bereitstellungsbehälter wählen.",
+      "qtyRequired": "Mindestens eine Kommissionsmenge > 0 eingeben.",
+      "success": "Teile kommissioniert und bereitgestellt.",
+      "conflict": "Auftrag wurde von einem anderen Benutzer aktualisiert. Daten wurden aktualisiert.",
+      "notFound": "Auftragsdaten nicht gefunden. Schublade wurde geschlossen.",
+      "failed": "Kommissionierung fehlgeschlagen"
+    }
+  },
+  "orders": {
+    "list": {
+      "title": "Werkstattaufträge",
+      "description": "Auftrag öffnen für Details und Aufgaben.",
+      "partsPickQueue": "Teile-Kommissionierung",
+      "partsPickHint": "Zu kommissionierende Teile für offene Aufträge",
+      "newOrder": "Auftrag",
+      "saveViewTitle": "Werkstattaufträge",
+      "searchPlaceholder": "Werkstattaufträge suchen…",
+      "rowAria": "Werkstattauftrag {{orderNo}}",
+      "columns": {
+        "orderNo": "Auftragsnr.",
+        "customer": "Kunde",
+        "vehicle": "Fahrzeug",
+        "opened": "Eröffnet",
+        "status": "Status"
+      }
+    }
+  },
+  "warranty": {
+    "list": {
+      "empty": "Für diesen Auftrag gibt es noch keine Garantie- oder Kulanzanträge.",
+      "aria": "Garantieanträge",
+      "updated": "Aktualisiert {{date}}"
+    },
+    "type": {
+      "GARANTIE": "Garantie",
+      "KULANZ": "Kulanz",
+      "GEWAEHRLEISTUNG": "Gewährleistung"
+    },
+    "statusFilter": {
+      "all": "Alle Status",
+      "DRAFT": "Entwurf",
+      "SUBMITTED_EXTERNALLY": "Extern eingereicht",
+      "APPROVED": "Freigegeben",
+      "REJECTED": "Abgelehnt",
+      "CLOSED": "Geschlossen"
+    },
+    "decisionDialog": {
+      "approveTitle": "Freigabe erfassen",
+      "rejectTitle": "Ablehnung erfassen",
+      "description": "Entscheidungsdatum vom OEM eingeben. Das Datum ist für beide Ergebnisse erforderlich.",
+      "date": "Entscheidungsdatum",
+      "note": "Entscheidungsnotiz",
+      "approvePlaceholder": "Zum Beispiel: 80 % Kulanzanteil",
+      "rejectPlaceholder": "Vom OEM genannte Begründung",
+      "cancel": "Abbrechen",
+      "approve": "Als freigegeben markieren",
+      "reject": "Als abgelehnt markieren"
+    },
+    "editor": {
+      "statusSubmitted": "extern eingereicht",
+      "statusApproved": "genehmigt",
+      "statusRejected": "abgelehnt",
+      "statusClosed": "geschlossen",
+      "statusChanged": "Antrag {{status}}",
+      "saveFailed": "Antrag konnte nicht gespeichert werden",
+      "fixAmount": "Beantragten Betrag korrigieren, um fortzufahren.",
+      "amountUnreadable": "Beantragter Betrag konnte nicht gelesen werden und wurde nicht gespeichert.",
+      "updateStatusFailed": "Antragsstatus konnte nicht aktualisiert werden",
+      "pdfLoading": "Antrags-PDF wird erstellt…",
+      "pdfDownloaded": "Antrags-PDF heruntergeladen",
+      "pdfFailed": "Antrags-PDF konnte nicht erstellt werden",
+      "closedReadOnly": "Dieser Antrag ist geschlossen und nur lesbar.",
+      "lockedAfterSubmit": "Antragsinhalt ist nach Einreichung gesperrt. Externe Referenz und Entscheidung können noch geändert werden.",
+      "heading": "{{type}}-Antrag",
+      "orderMeta": "Auftrag {{orderNumber}}",
+      "submitted": " · Eingereicht {{date}}",
+      "closed": " · Geschlossen {{date}}",
+      "print": "Drucken",
+      "markSubmitted": "Als eingereicht markieren",
+      "removeCancelledLine": "Stornierte Position zuerst aus dem Antrag entfernen",
+      "submitRequirements": "Beanstandung, Betrag > 0 und mindestens eine Position erforderlich",
+      "recordApproval": "Genehmigung erfassen",
+      "recordRejection": "Ablehnung erfassen",
+      "closeClaim": "Antrag schließen",
+      "claimType": "Antragstyp",
+      "claimTypeAria": "Antragstyp",
+      "complaint": "Beanstandung",
+      "complaintPlaceholder": "Kundenbeanstandung in Worten der Werkstatt",
+      "cause": "Ursache und Abhilfe",
+      "causePlaceholder": "Diagnostizierte Ursache und durchgeführte Reparatur",
+      "amountLabel": "Beantragter Betrag (EUR, netto)",
+      "amountPlaceholder": "0,00",
+      "useLinesTotal": "Summe der Positionen",
+      "amountInvalid": "Betrag in EUR mit höchstens zwei Nachkommastellen eingeben.",
+      "affectedLines": "Betroffene Arbeit und Teile",
+      "noLines": "Noch keine Arbeits- oder Teilepositionen. Zuerst Positionen in einer Aufgabe anlegen.",
+      "lineTypeLabor": "Arbeit",
+      "lineTypePart": "Teil",
+      "cancelledOnOrder": "Im Auftrag storniert. Abwählen, um aus dem Antrag zu entfernen.",
+      "alreadyOn": "Bereits auf {{claim}}",
+      "selectedLinesNet": "Gewählte Positionen (netto):",
+      "oemReference": "Referenz beim OEM",
+      "oemReferencePlaceholder": "Antragsnummer aus dem OEM-Portal",
+      "decisionDate": "Entscheidungsdatum",
+      "decisionNote": "Entscheidungsnotiz",
+      "decisionSaving": "Entscheidung wird noch gespeichert.",
+      "closeTitle": "Diesen Antrag schließen?",
+      "closeDescription": "Ein geschlossener Antrag ist nur lesbar. Für einen neuen Antrag einen neuen anlegen.",
+      "cancel": "Abbrechen"
+    }
+  },
+  "orderHeader": {
+    "dealerStock": "Händlerbestand",
+    "noPlate": "k. A.",
+    "promisedMeta": "Zugesagter Termin: {{promised}} · Mechaniker: {{tech}} · Hebebühne: {{bay}}",
+    "notSet": "Nicht gesetzt",
+    "unassigned": "Nicht zugewiesen",
+    "loanerUntil": "Ersatzwagen: {{label}} bis {{date}}",
+    "printJobCard": "Jobkarte drucken",
+    "orderInfo": "Auftragsinfo",
+    "assignedTech": "Zugewiesener Mechaniker",
+    "bayLocation": "Hebebühne / Standort",
+    "promisedTime": "Zugesagter Termin",
+    "keyTag": "Schlüsselanhänger",
+    "customerInfo": "Kundeninfo",
+    "phone": "Telefon",
+    "callCustomer": "Kunde anrufen",
+    "vehicleInfo": "Fahrzeuginfo",
+    "vin": "VIN",
+    "plate": "Kennzeichen",
+    "mileage": "Kilometerstand",
+    "fuel": "Tankfüllung"
+  },
+  "orderDetail": {
+    "breadcrumbFallback": "Werkstattauftrag",
+    "tabsNavAria": "Werkstattauftrag-Bereiche",
+    "tabs": {
+      "order": "Auftrag",
+      "warranty": "Garantie/Kulanz"
+    },
+    "loading": "Werkstattauftrag wird geladen…",
+    "notFoundTitle": "Werkstattauftrag nicht gefunden",
+    "notFoundDescription": "Der gewählte Werkstattauftrag existiert nicht.",
+    "backToOrders": "Zurück zu Werkstattaufträgen",
+    "deleteTaskTitle": "Aufgabe löschen?",
+    "deleteTaskDescription": "„{{title}}“ aus diesem Werkstattauftrag löschen? Teile- und Arbeitszeilen werden ebenfalls entfernt.",
+    "deleteTaskDescriptionGeneric": "Diese Aufgabe aus dem Werkstattauftrag löschen?",
+    "cancel": "Abbrechen",
+    "deleteTask": "Aufgabe löschen",
+    "deleting": "Wird gelöscht…",
+    "toast": {
+      "notesSaved": "Interne Notizen gespeichert",
+      "notesSaveFailed": "Notizen konnten nicht gespeichert werden",
+      "reportedIssueSaved": "Gemeldetes Problem gespeichert",
+      "reportedIssueSaveFailed": "Gemeldetes Problem konnte nicht gespeichert werden",
+      "taskCreated": "Aufgabe erstellt",
+      "taskCreateFailed": "Aufgabe konnte nicht erstellt werden",
+      "taskStatusUpdateFailed": "Aufgabenstatus konnte nicht aktualisiert werden",
+      "mechanicNotesUpdateFailed": "Mechanikernotizen konnten nicht aktualisiert werden",
+      "taskDeleted": "Aufgabe gelöscht",
+      "taskDeleteFailed": "Aufgabe konnte nicht gelöscht werden",
+      "jobCardPdfGenerating": "Job-Card-PDF wird erstellt…",
+      "jobCardPdfQueued": "Die Job-Card-PDF-Erstellung wurde in die Warteschlange gestellt und steht in Kürze bereit.",
+      "jobCardPdfDownloaded": "Job-Card-PDF erfolgreich heruntergeladen",
+      "jobCardPdfFailed": "PDF konnte nicht erstellt werden",
+      "technicianAssigned": "Techniker zugewiesen",
+      "technicianUnassigned": "Technikerzuweisung entfernt",
+      "technicianAssignFailed": "Techniker konnte nicht zugewiesen werden",
+      "vehicleIdentityResolved": "Fahrzeugidentität aktualisiert",
+      "vehicleIdentityResolveFailed": "Fahrzeugidentität konnte nicht aktualisiert werden"
+    }
+  },
+  "estimateSend": {
+    "title": "Version {{version}} an Kunden senden?",
+    "description": "Mit dem Versand wird der Stand des Auftrags als Momentaufnahme festgeschrieben. Spätere Änderungen am Auftrag wirken erst nach einer neuen Version.",
+    "recipient": "Empfänger:",
+    "validity": "Gültigkeit:",
+    "validityValue": "gültig 14 Tage ab Versand",
+    "notifyEmail": "Per E-Mail an den Kunden senden",
+    "emailMissing": "Für den E-Mail-Versand fehlt die E-Mail-Adresse des Kunden.",
+    "recordOnly": "Der Versand wird nur im Auftrag erfasst. Es wird keine E-Mail gesendet.",
+    "emailConfirmed": "Der Kunde hat mir diese E-Mail-Adresse für die Auftragskommunikation mitgeteilt.",
+    "cancel": "Abbrechen",
+    "sending": "Wird gesendet…",
+    "send": "Senden",
+    "genericError": "Kostenvoranschlag konnte nicht gesendet werden.",
+    "errors": {
+      "ESTIMATE_CUSTOMER_EMAIL_NOT_CONFIRMED": "Die E-Mail-Adresse des Kunden ist noch nicht für die Auftragskommunikation bestätigt.",
+      "ESTIMATE_CUSTOMER_EMAIL_MISSING": "Für den E-Mail-Versand fehlt die E-Mail-Adresse des Kunden.",
+      "ESTIMATE_CUSTOMER_EMAIL_INVALID": "Die E-Mail-Adresse des Kunden ist ungültig.",
+      "ESTIMATE_VEHICLE_INCOMPLETE": "Die Fahrzeugdaten sind unvollständig. Bitte ergänzen Sie sie vor dem Versand.",
+      "ESTIMATE_EMAIL_INCOMPLETE": "Die Angaben für die E-Mail sind unvollständig. Bitte prüfen Sie Kunde und Fahrzeug.",
+      "ESTIMATE_APPROVAL_LINK_UNAVAILABLE": "Der Freigabe-Link kann derzeit nicht erstellt werden. Bitte versuchen Sie es später erneut.",
+      "ESTIMATE_SEND_DISABLED": "Der Versand an Kunden ist derzeit deaktiviert.",
+      "ESTIMATE_NOT_DRAFT": "Diese Version ist kein Entwurf mehr und kann nicht gesendet werden.",
+      "ESTIMATE_NO_LINES": "Der Kostenvoranschlag braucht mindestens eine Arbeits- oder Teilezeile.",
+      "ESTIMATE_CUSTOMER_REQUIRED": "Dem Auftrag ist noch kein Kunde zugeordnet.",
+      "ESTIMATE_CUSTOMER_INCOMPLETE": "Die Kundendaten sind für den Versand unvollständig. Bitte ergänzen Sie sie.",
+      "SELLER_IDENTITY_INCOMPLETE": "Die Angaben zum Betrieb sind für den Versand unvollständig. Bitte ergänzen Sie sie.",
+      "WORKSHOP_ORDER_NOT_ESTIMATABLE": "Dieser Auftrag ist nicht mehr offen. Kostenvoranschläge werden nur für offene Aufträge gesendet.",
+      "ESTIMATE_ROLE_FORBIDDEN": "Für diese Aktion fehlt Ihnen die Berechtigung."
+    }
+  },
+  "kpi": {
+    "title": "Werkstatt diesen Monat",
+    "loading": "Wird geladen …",
+    "utilisation": "Auslastung",
+    "productivity": "Leistungsgrad",
+    "previousMonth": "(Vormonat {{value}})",
+    "empty": "Noch keine Workshop-Daten für diesen Monat.",
+    "reportLink": "Zum Workshop-Bericht"
+  },
+  "quickRegister": {
+    "title": "Fahrzeug schnell anlegen",
+    "vin": "VIN",
+    "plate": "Kennzeichen",
+    "make": "Marke",
+    "model": "Modell",
+    "year": "Baujahr",
+    "newCustomer": "Neuer Kunde",
+    "firstName": "Vorname",
+    "lastName": "Nachname",
+    "email": "E-Mail",
+    "phone": "Telefon",
+    "required": "Pflichtfeld",
+    "yearInvalid": "Gültiges Baujahr erforderlich",
+    "registering": "Wird registriert…",
+    "register": "Registrieren",
+    "success": "Fahrzeug erfolgreich registriert",
+    "error": "Fahrzeug konnte nicht registriert werden"
+  },
+  "startService": {
+    "title": "Service starten",
+    "forVehicle": "Für {{vehicle}}",
+    "odometer": "Kilometerstand (km)",
+    "fuelLevel": "Tankfüllung (%)",
+    "notes": "Annahmenotizen",
+    "notesPlaceholder": "Kundenbeschreibung des Problems",
+    "required": "Pflichtfeld",
+    "fuelRange": "0–100 erforderlich",
+    "creating": "Auftrag wird erstellt…",
+    "submit": "Service starten",
+    "success": "Service gestartet",
+    "error": "Service konnte nicht gestartet werden"
+  },
+  "inspection": {
+    "catalogueRef": {
+      "aria": "Katalogreferenz",
+      "title": "Katalogreferenz (§57a)",
+      "description": "Offizielle Positionsreferenz mit Quelle, Version und Aktualität — unabhängig von der Vorbereitungs-Checkliste.",
+      "source": "Quelle",
+      "version": "Version",
+      "coverage": "Abdeckung",
+      "status": "Status",
+      "positionId": "Positions-ID",
+      "attach": "Referenz übernehmen",
+      "toastSaved": "Katalogreferenz gespeichert",
+      "errors": {
+        "NOT_CONFIGURED": "Der offizielle Katalog ist für diesen Mandanten noch nicht freigeschaltet.",
+        "UNKNOWN_CODE": "Der gewählte Katalogcode ist unbekannt.",
+        "STALE_CATALOG": "Die Katalogversion ist veraltet und muss erneut geprüft werden.",
+        "OUT_OF_SCOPE": "Für dieses Fahrzeug liegt kein nachgewiesener Anwendungsbereich vor.",
+        "SOURCE_CONFLICT": "Mehrere Katalogversionen überschneiden sich. Manuelle Klärung erforderlich.",
+        "REVIEW_REQUIRED": "Die Vorschau ist abgelaufen oder hat sich geändert. Bitte erneut prüfen.",
+        "UNSUPPORTED_SCHEMA_VERSION": "Das Katalogformat wird nicht unterstützt.",
+        "generic": "Die Katalogreferenz konnte nicht verarbeitet werden. Bitte erneut versuchen."
+      },
+      "resolution": {
+        "RESOLVED": "Aufgelöst",
+        "UNKNOWN_CODE": "Unbekannter Code",
+        "STALE_CATALOG": "Veralteter Katalog",
+        "OUT_OF_SCOPE": "Außerhalb des Geltungsbereichs",
+        "NOT_CONFIGURED": "Nicht konfiguriert",
+        "SOURCE_CONFLICT": "Quellenkonflikt",
+        "unknown": "Unbekannt"
+      }
+    },
+    "checklist": {
+      "saveError": "Checkliste konnte nicht gespeichert werden",
+      "loading": "Checkliste wird geladen…",
+      "loadFailed": "Checkliste konnte nicht geladen werden.",
+      "aria": "§57a Vorbereitung",
+      "hint": "Editierbare Start-Checkliste, keine Rechtsliste.",
+      "ok": "OK",
+      "defect": "Mangel",
+      "okAria": "OK: {{label}}",
+      "defectAria": "Mangel: {{label}}",
+      "noteAria": "Notiz: {{label}}",
+      "notePlaceholder": "Notiz …"
+    }
+  },
+  "readyEmail": {
+    "title": "Abholbenachrichtigung per E-Mail",
+    "resendSuccess": "Abholbenachrichtigung erneut in die Warteschlange gestellt.",
+    "resendError": "Abholbenachrichtigung konnte nicht erneut gesendet werden.",
+    "resending": "Wird gesendet …",
+    "resend": "Erneut senden",
+    "queued": "Versand läuft …",
+    "sent": "Zugestellt oder in der Warteschlange beim Provider."
+  },
+  "mechanicFinding": {
+    "title": "Mechaniker-Befunde",
+    "description": "Nachweise aus der Werkstatt. Lokale Arbeits- und Teilepositionen zuordnen und über Freigaben anwenden.",
+    "openMedia": "{{mimeType}} öffnen"
+  },
+  "capacity": {
+    "weekGrid": {
+      "caption": "Geplante Arbeit pro Hebebühne und Tag in der gewählten Woche",
+      "bay": "Hebebühne",
+      "today": "Heute"
+    },
+    "cell": {
+      "closed": "Geschlossen",
+      "overbooked": "Überbucht um {{hours}}",
+      "fullyBooked": "Voll belegt",
+      "free": "{{hours}} frei"
+    },
+    "chip": {
+      "starts": "Beginnt {{time}}",
+      "onFloor": "Bereits in der Halle",
+      "noPlate": "Kein Kennzeichen"
+    },
+    "page": {
+      "title": "Werkstattkapazität",
+      "description": "Geplante Arbeitszeit pro Hebebühne und Tag sowie freie Stunden pro Arbeitstag.",
+      "switchSite": "Standort wechseln",
+      "selectSite": "Standort wählen",
+      "previousWeek": "Vorherige Woche",
+      "nextWeek": "Nächste Woche",
+      "thisWeek": "Diese Woche",
+      "overbookedHint": "Rote Zellen sind überbucht: geplante Arbeit übersteigt die Öffnungszeiten der Hebebühne.",
+      "loadError": "Kapazitätswoche konnte nicht geladen werden.",
+      "tryAgain": "Erneut versuchen",
+      "noBays": "Für diesen Standort sind noch keine aktiven Hebebühnen vorhanden.",
+      "openBaySettings": "Hebebühnen-Einstellungen öffnen"
+    }
+  },
+  "catalog": {
+    "concern": {
+      "PARTS": "Teile",
+      "LABOR": "Arbeit"
+    },
+    "oem": {
+      "STELLANTIS": "Stellantis",
+      "MERCEDES": "Mercedes-Benz"
+    },
+    "identity": {
+      "noKeys": "Keine Identitätsschlüssel"
+    },
+    "banner": {
+      "oem": "{{concern}}: OEM-Katalog{{suffix}}",
+      "oemSuffix": " ({{label}})",
+      "fallbackEmpty": "{{concern}}: OEM ohne Treffer — Aftermarket-Katalog wird angezeigt",
+      "fallbackError": "{{concern}}: OEM nicht verfügbar — Aftermarket-Katalog wird angezeigt",
+      "notConfigured": "{{concern}}: Kein OEM-Katalog konfiguriert — Aftermarket wird angezeigt",
+      "aftermarket": "{{concern}}: Aftermarket-Katalog"
+    },
+    "fallbackDialog": {
+      "emptyTitle": "Keine OEM-Treffer",
+      "emptyDescription": "Der OEM-Katalog lieferte keine passenden Teile oder Arbeiten für dieses Fahrzeug. Stattdessen Aftermarket-Katalog durchsuchen?",
+      "errorTitle": "OEM-Katalog nicht verfügbar",
+      "errorDescription": "Der OEM-Katalog ist für dieses Fahrzeug derzeit nicht verfügbar. Stattdessen Aftermarket-Katalog durchsuchen?"
+    },
+    "fitmentModal": {
+      "title": "Ersatzteil-Katalogsuche",
+      "description": "OEM- und Aftermarket-Kataloge für dieses Fahrzeug durchsuchen. Ergebnisse sind in M1 nur Vorschau.",
+      "searchOtherSource": "Andere Quelle suchen",
+      "identityStale": "Fahrzeugidentität veraltet oder fehlt. FIN vor der Suche neu auflösen.",
+      "reResolve": "Jetzt neu auflösen",
+      "footer": "Aufgabe {{taskId}} · Fahrzeug {{vehicleId}} · Kein Hinzufügen zum Auftrag in M1",
+      "searchAftermarket": "Aftermarket suchen",
+      "assemblyGroups": "Baugruppen",
+      "loadingGroups": "Gruppen werden geladen…",
+      "noAssemblyGroups": "Keine Baugruppen verfügbar.",
+      "searchPartsPlaceholder": "Teile nach Nummer oder Bezeichnung suchen…",
+      "searchLaborPlaceholder": "Arbeit nach Nummer oder Bezeichnung suchen…",
+      "searching": "Katalog wird durchsucht…",
+      "noResults": "Keine Katalogtreffer für diese Suche.",
+      "clearSearch": "Suche löschen",
+      "oemPrefix": "OEM",
+      "laborBadge": "Arbeit",
+      "awBadge": "{{aw}} AW",
+      "toastIdentityStale": "Fahrzeugidentität veraltet. Vor der Suche neu auflösen.",
+      "toastSearchFailed": "Katalogsuche fehlgeschlagen"
+    }
+  },
+  "intake": {
+    "conflictFallback": "Werkstattauftrag konnte nicht erstellt werden"
+  },
+  "intakeDashboard": {
+    "title": "Werkstatt-Annahme",
+    "quickRegister": "Schnellanlage",
+    "searchTitle": "Annahme-Suche",
+    "searchPlaceholder": "VIN, Kennzeichen oder Kundenname suchen…",
+    "searching": "Suche…",
+    "vehicleMeta": "VIN: {{vin}} | Kennzeichen: {{plate}}",
+    "vehicles": "Fahrzeuge",
+    "owner": "Halter: {{name}}",
+    "startService": "Service starten",
+    "customers": "Kunden",
+    "vehiclesLabel": "Fahrzeuge:",
+    "service": "Service",
+    "noResults": "Keine Treffer.",
+    "registerNew": "Neues Fahrzeug anlegen"
+  },
+  "warrantyClaimsPage": {
+    "backToOrder": "Zurück zum Auftrag",
+    "title": "Garantie/Kulanz",
+    "orderMeta": "Auftrag {{orderNumber}}{{vehicle}}",
+    "create": "Garantieantrag",
+    "filterAria": "Anträge nach Status filtern",
+    "loadError": "Garantieanträge konnten nicht geladen werden",
+    "loading": "Anträge werden geladen…",
+    "claimLoadError": "Garantieantrag konnte nicht geladen werden",
+    "selectOrCreate": "Antrag wählen oder für diesen Auftrag einen neuen anlegen.",
+    "created": "Garantieantrag angelegt",
+    "createFailed": "Garantieantrag konnte nicht angelegt werden"
+  },
+  "checkoutSummary": {
+    "title": "Rechnungsentwurf",
+    "hint": "Nach Aufgaben gruppiert. Aufgabenrabatt (%) wirkt auf alle Unterzeilen.",
+    "invoiceLabel": "Rechnung: {{number}}",
+    "creatingDraft": "Entwurf wird erstellt…",
+    "createDraft": "Rechnungsentwurf anlegen",
+    "issuing": "Wird ausgestellt…",
+    "issue": "Rechnung ausstellen",
+    "loadingInvoice": "Rechnung wird geladen…",
+    "colItem": "Position",
+    "colQty": "Menge",
+    "colUnitPrice": "Einzelpreis",
+    "colDiscount": "Rabatt",
+    "colNet": "Netto",
+    "empty": "Keine abrechenbaren Zeilen in den Aufgaben.",
+    "expand": "{{task}} aufklappen",
+    "collapse": "{{task}} zuklappen",
+    "reopenTask": "Aufgabe wieder öffnen",
+    "taskDiscount": "Gesamtrabatt Aufgabe (%)",
+    "noDiscount": "Kein Rabatt",
+    "discountNone": "Keiner",
+    "subtotal": "Zwischensumme",
+    "totalDiscounts": "Rabatte gesamt",
+    "net": "Netto",
+    "vat": "USt.",
+    "total": "Gesamt",
+    "lineMeta": "{{type}} • {{itemNo}}",
+    "missingItemNo": "k. A."
+  },
+  "taskLineItems": {
+    "toast": {
+      "conflictStale": "Dieser Auftrag wurde von einer anderen Person geändert. Daten wurden aktualisiert — bitte prüfen und erneut versuchen.",
+      "invalidLineItems": "Ungültige Positionen. Mengen prüfen und erneut versuchen.",
+      "updateFailed": "Aufgabenpositionen konnten nicht gespeichert werden"
+    }
+  },
+  "estimateDecision": {
+    "advisorChannel": {
+      "PHONE": "Telefon",
+      "IN_PERSON": "Persönlich",
+      "EMAIL": "E-Mail"
+    },
+    "customerReaction": {
+      "AGREED": "Zugestimmt",
+      "DECLINED": "Abgelehnt",
+      "QUESTIONED": "Rückfrage gestellt",
+      "CALLBACK_REQUESTED": "Rückruf erbeten",
+      "NO_RESPONSE": "Keine Reaktion"
+    },
+    "badge": {
+      "DRAFT": "Entwurf",
+      "SENT": "Kunde ausstehend",
+      "APPROVED": "Freigegeben",
+      "DECLINED": "Abgelehnt",
+      "EXPIRED": "Abgelaufen",
+      "SUPERSEDED": "Ersetzt"
+    },
+    "approval": {
+      "linkApproved": "Elektronisch bestätigt über den Kundenlink",
+      "linkDeclined": "Über den Kundenlink abgelehnt",
+      "channelPhrase": {
+        "PHONE": "telefonisch",
+        "IN_PERSON": "persönlich",
+        "EMAIL": "per E-Mail"
+      },
+      "advisorRecorded": {
+        "approved": "Vom Berater erfasst: Freigabe{{via}}",
+        "declined": "Vom Berater erfasst: Ablehnung{{via}}"
+      }
+    },
+    "errors": {
+      "record": {
+        "ESTIMATE_VERSION_NOT_SENT": "Nur ein gesendeter Kostenvoranschlag kann bestätigt werden.",
+        "ESTIMATE_VERSION_SUPERSEDED": "Diese Version wurde durch eine neuere ersetzt. Die Bestätigung gehört zur aktuellen Version.",
+        "ESTIMATE_VERSION_EXPIRED": "Die Gültigkeit dieses Kostenvoranschlags ist abgelaufen.",
+        "ESTIMATE_VERSION_ALREADY_DECIDED": "Zu diesem Kostenvoranschlag liegt bereits eine Entscheidung vor.",
+        "ESTIMATE_VERSION_NOT_DECIDABLE": "Diese Version ist noch nicht vollständig gesendet und kann nicht bestätigt werden.",
+        "ESTIMATE_REACTION_MISMATCH": "Die Reaktion des Kunden passt nicht zur gewählten Entscheidung.",
+        "ESTIMATE_AMOUNT_MISMATCH": "Der Betrag stimmt nicht mit dem Gesamtbetrag des Kostenvoranschlags überein.",
+        "ESTIMATE_DECISION_TIME_INVALID": "Der Zeitpunkt der Entscheidung muss nach dem Versand liegen und darf nicht in der Zukunft liegen.",
+        "ESTIMATE_DECISION_CONFLICT": "Der Kostenvoranschlag wurde gerade geändert. Bitte neu laden und erneut versuchen.",
+        "ESTIMATE_ROLE_FORBIDDEN": "Für diese Aktion fehlt die Berechtigung."
+      },
+      "overrun": {
+        "OVERRUN_NOT_DETECTED": "Der Auftrag weicht derzeit nicht vom Kostenvoranschlag ab.",
+        "OVERRUN_ALREADY_NOTIFIED": "Der Kunde wurde zu dieser Abweichung bereits informiert.",
+        "OVERRUN_NO_BASELINE": "Es gibt noch keinen freigegebenen Kostenvoranschlag als Vergleich.",
+        "OVERRUN_AMOUNT_MISMATCH": "Der Betrag stimmt nicht mit dem aktuellen Auftragsbetrag überein.",
+        "WORKSHOP_ORDER_CLOSED": "Ein abgerechneter Auftrag braucht keine Mitteilung mehr.",
+        "ESTIMATE_ROLE_FORBIDDEN": "Für diese Aktion fehlt die Berechtigung."
+      }
+    },
+    "record": {
+      "title": "Bestätigung erfassen",
+      "description": "Version {{version}} · Gesamtbetrag brutto {{total}}. Der Kunde hat dem Kostenvoranschlag per Telefon, persönlich oder per E-Mail geantwortet.",
+      "decision": "Entscheidung",
+      "decisionApproved": "Angenommen",
+      "decisionDeclined": "Abgelehnt",
+      "channel": "Kanal",
+      "channelPlaceholder": "Kanal wählen",
+      "amount": "Betrag brutto (EUR)",
+      "amountHint": "Muss dem Gesamtbetrag der Version entsprechen.",
+      "reaction": "Reaktion des Kunden (optional)",
+      "reactionPlaceholder": "Keine Angabe",
+      "decidedAt": "Zeitpunkt der Entscheidung (optional)",
+      "decidedAtHint": "Leer lassen, wenn die Entscheidung gerade eben gefallen ist.",
+      "note": "Notiz (Pflicht)",
+      "notePlaceholder": "Was der Kunde gesagt hat, zum Beispiel Termin oder Rückfragen",
+      "cancel": "Abbrechen",
+      "submit": "Bestätigung speichern",
+      "submitFailed": "Bestätigung konnte nicht erfasst werden."
+    },
+    "overrun": {
+      "title": "Kunden über Mehrbedarf informiert",
+      "description": "Der aktuelle Auftragsbetrag liegt bei {{current}} brutto, freigegeben waren {{approved}}.",
+      "channel": "Kanal",
+      "channelPlaceholder": "Kanal wählen",
+      "reaction": "Reaktion des Kunden",
+      "reactionPlaceholder": "Reaktion wählen",
+      "amount": "Betrag brutto (EUR)",
+      "amountHint": "Muss dem aktuellen Auftragsbetrag entsprechen.",
+      "note": "Notiz (Pflicht)",
+      "notePlaceholder": "Was dem Kunden mitgeteilt wurde und wie er reagiert hat",
+      "cancel": "Abbrechen",
+      "submit": "Mitteilung speichern",
+      "submitFailed": "Mitteilung an den Kunden konnte nicht erfasst werden."
+    }
+  },
+  "vehicleIdentity": {
+    "resolvedToast": "Fahrzeugidentität aufgelöst",
+    "resolveFailed": "Fahrzeugidentität konnte nicht aufgelöst werden",
+    "loading": "Fahrzeugidentität wird geladen…",
+    "title": "Fahrzeugidentität",
+    "staleBadge": "Veraltet — erneute Auflösung erforderlich",
+    "resolvedBadge": "Aufgelöst",
+    "oemBadge": "OEM {{label}}",
+    "keys": "Schlüssel: {{keys}}",
+    "resolvedAt": "Aufgelöst {{date}}",
+    "vinRequired": "VIN ist erforderlich, bevor die Identität aufgelöst werden kann.",
+    "reResolve": "Identität erneut auflösen",
+    "reResolveShort": "Erneut auflösen"
+  },
+  "communicationTimeline": {
+    "title": "Kommunikation mit dem Kunden",
+    "loading": "Kommunikation wird geladen …",
+    "loadErrorTitle": "Kommunikation konnte nicht geladen werden.",
+    "retry": "Erneut versuchen",
+    "empty": "Noch keine Kommunikation mit dem Kunden.",
+    "channelSuffix": " ({{label}})",
+    "estimateVersionSuffix": " (Version {{version}})",
+    "readyEmail": {
+      "QUEUED": "Die Abholbenachrichtigung wird per E-Mail versendet",
+      "SENT": "Die Abholbenachrichtigung wurde per E-Mail gesendet",
+      "FAILED": "Die Abholbenachrichtigung konnte nicht per E-Mail gesendet werden",
+      "SUPPRESSED": "Die Abholbenachrichtigung wurde nicht per E-Mail gesendet",
+      "default": "Abholbenachrichtigung per E-Mail"
+    },
+    "estimateEmail": {
+      "QUEUED": "{{nominative}} wird per E-Mail versendet",
+      "SENT": "{{nominative}} wurde per E-Mail gesendet",
+      "FAILED": "Die E-Mail mit {{dative}} konnte nicht gesendet werden",
+      "SUPPRESSED": "Die E-Mail mit {{dative}} wurde nicht gesendet",
+      "default": "{{nominative}} per E-Mail"
+    },
+    "approval": {
+      "linkApproved": "Der Kunde hat {{accusative}} über den Link freigegeben",
+      "linkDeclined": "Der Kunde hat {{accusative}} über den Link abgelehnt",
+      "advisorApproved": "Die Freigabe {{genitive}} wurde vom Berater erfasst{{channel}}",
+      "advisorDeclined": "Die Ablehnung {{genitive}} wurde vom Berater erfasst{{channel}}"
+    },
+    "overrunDetected": "Mehrbedarf gegenüber {{dative}} festgestellt",
+    "overrunNotice": "Der Kunde wurde über den Mehrbedarf gegenüber {{dative}} informiert{{channel}}",
+    "estimateNoun": {
+      "nominative": "Der Kostenvoranschlag{{suffix}}",
+      "accusative": "den Kostenvoranschlag{{suffix}}",
+      "dative": "dem Kostenvoranschlag{{suffix}}",
+      "genitive": "des Kostenvoranschlags{{suffix}}"
+    },
+    "channel": {
+      "PHONE": "Telefon",
+      "IN_PERSON": "persönlich",
+      "EMAIL": "E-Mail"
+    }
+  },
+  "loaner": {
+    "title": "Ersatzfahrzeuge",
+    "description": "Flotte verwalten, Buchungen planen und Übergabe/Rückgabe dokumentieren.",
+    "overdueBadge": "{{count}} überfällig",
+    "addVehicle": "Ersatzfahrzeug",
+    "searchPlaceholder": "Ersatzfahrzeuge suchen…",
+    "rowAria": "Ersatzfahrzeug {{name}}",
+    "columns": {
+      "name": "Name",
+      "vehicle": "Fahrzeug",
+      "status": "Status"
+    },
+    "bookingsTitle": "Buchungen · {{name}}",
+    "booking": "Buchung",
+    "noBookings": "Keine Buchungen für dieses Fahrzeug.",
+    "workshopOrder": "Werkstattauftrag: {{id}}",
+    "handOver": "Übergabe",
+    "return": "Rückgabe",
+    "protocol": "Protokoll",
+    "cancelBooking": "Stornieren",
+    "overdueTitle": "Überfällige Rückgaben",
+    "overdueUntil": "{{customer}} · bis {{date}}",
+    "addDialogTitle": "Ersatzfahrzeug hinzufügen",
+    "searchVehicle": "Fahrzeug suchen",
+    "searchVehiclePlaceholder": "Kennzeichen, VIN, Modell…",
+    "selected": "Ausgewählt: {{label}}",
+    "displayName": "Anzeigename",
+    "displayNamePlaceholder": "z. B. Golf Ersatzwagen",
+    "newBookingTitle": "Neue Buchung",
+    "customer": "Kunde",
+    "workshopOrderOptional": "Werkstattauftrag (optional)",
+    "selectOrder": "Auftrag wählen",
+    "noOrder": "Kein Auftrag",
+    "noOpenOrders": "Keine offenen Werkstattaufträge für diesen Kunden.",
+    "plannedFrom": "Geplant von",
+    "plannedTo": "Geplant bis",
+    "createBooking": "Buchung anlegen",
+    "handOverTitle": "Übergabe protokollieren",
+    "returnTitle": "Rückgabe protokollieren",
+    "odometer": "Kilometerstand",
+    "fuel": "Tankfüllung (%)",
+    "licenceChecked": "Führerschein geprüft",
+    "damageOut": "Schäden / Notizen (Ausgabe)",
+    "damageIn": "Schäden / Notizen (Rückgabe)",
+    "saveHandOver": "Übergabe speichern",
+    "saveReturn": "Rückgabe speichern",
+    "toast": {
+      "vehicleRequired": "Fahrzeug und Anzeigename sind erforderlich",
+      "vehicleAdded": "Ersatzfahrzeug hinzugefügt",
+      "saveFailed": "Speichern fehlgeschlagen",
+      "selectVehicleFirst": "Bitte zuerst ein Ersatzfahrzeug auswählen",
+      "customerRequired": "Kunde ist erforderlich",
+      "bookingCreated": "Buchung angelegt",
+      "bookingFailed": "Buchung fehlgeschlagen",
+      "odometerRequired": "Gültiger Kilometerstand erforderlich",
+      "fuelRange": "Tankfüllung muss zwischen 0 und 100 % liegen",
+      "licenceRequired": "Führerschein muss bestätigt werden",
+      "handOverSuccess": "Übergabe protokolliert",
+      "handOverFailed": "Übergabe fehlgeschlagen",
+      "returnSuccess": "Rückgabe protokolliert",
+      "returnFailed": "Rückgabe fehlgeschlagen",
+      "bookingCancelled": "Buchung storniert",
+      "cancelFailed": "Storno fehlgeschlagen"
+    }
+  },
+  "taskList": {
+    "reportedIssue": "Gemeldetes Problem",
+    "highPriority": "Hohe Priorität",
+    "reportedIssuePlaceholder": "Vom Kunden gemeldetes Problem…",
+    "reportedIssueEmpty": "Gemeldetes Problem hinzufügen",
+    "reportedIssueAria": "Gemeldetes Problem des Werkstattauftrags",
+    "repairTasks": "Reparaturaufgaben",
+    "newTaskPlaceholder": "Neue Aufgabe…",
+    "addTask": "Aufgabe",
+    "noTasks": "Noch keine Aufgaben. Fügen Sie die erste Aufgabe hinzu.",
+    "internalNotes": "Interne Notizen",
+    "internalNotesPlaceholder": "Notizen für Serviceberater und Mechaniker…",
+    "internalNotesEmpty": "Interne Notizen hinzufügen",
+    "internalNotesAria": "Interne Werkstattnotizen",
+    "markComplete": "Aufgabe „{{title}}“ als erledigt markieren",
+    "markIncomplete": "Aufgabe „{{title}}“ als offen markieren",
+    "taskSummary": "{{parts}} · {{fees}} · {{labor}} · Teile {{partsTotal}}{{feesSegment}} · Arbeit {{laborTotal}} · Soll {{stdHours}}h · Ist {{actualHours}}h",
+    "parts_one": "{{count}} Teil",
+    "parts_other": "{{count}} Teile",
+    "fees_one": "{{count}} Gebühr",
+    "fees_other": "{{count}} Gebühren",
+    "labor_one": "{{count}} Arbeitszeile",
+    "labor_other": "{{count}} Arbeitszeilen",
+    "feesSegment": " · Gebühren {{amount}}",
+    "taskDetails": "Aufgabendetails und KVA-Zeilen",
+    "fitmentSearch": "Fitment-Suche",
+    "deleteTask": "Aufgabe löschen",
+    "mechanicNotes": "Mechaniker-Notizen",
+    "mechanicNotesPlaceholder": "Beobachtungen, Messwerte und Servicenotizen…",
+    "mechanicNotesEmpty": "Mechaniker-Notizen hinzufügen",
+    "mechanicNotesAria": "Mechaniker-Notizen"
+  },
+  "taskLineEditor": {
+    "searchPlaceholder": "Arbeit oder Teilenummer suchen…",
+    "suggestionsAria": "Vorschläge",
+    "noResults": "Keine passenden Katalogpositionen gefunden.",
+    "laborGroup": "Arbeit",
+    "partsGroup": "Teile",
+    "stock": "Bestand: {{qty}}",
+    "searching": "Suche…",
+    "qtyPlaceholder": "Menge",
+    "add": "+ Hinzufügen",
+    "loadingLaborMeta": "Arbeitsmetadaten werden geladen…",
+    "colType": "Typ",
+    "colItemNo": "Pos.-Nr.",
+    "colDescription": "Beschreibung",
+    "colQty": "Menge",
+    "colUnitPrice": "Einzelpreis",
+    "empty": "Noch keine Teile- oder Arbeitszeilen.",
+    "type": {
+      "PART": "Teil",
+      "LABOR": "Arbeit",
+      "FEE": "Gebühr"
+    },
+    "standardAw": "Standard-AW {{hours}}",
+    "actualHours": "Ist-Stunden",
+    "actualHoursAria": "Ist-Stunden",
+    "efficiency": "Effizienz {{ratio}}x",
+    "quantityAria": "Menge {{itemNo}}",
+    "unitPriceAria": "Einzelpreis {{itemNo}}",
+    "deleteLineAria": "Zeile löschen {{itemNo}}"
+  },
+  "estimateCard": {
+    "title": "Kostenvoranschlag",
+    "create": "Kostenvoranschlag erstellen",
+    "newVersion": "Neue Version erstellen",
+    "loading": "Wird geladen…",
+    "loadErrorTitle": "Kostenvoranschlag nicht verfügbar",
+    "loadErrorFallback": "Kostenvoranschlag konnte nicht geladen werden.",
+    "emptyEditable": "Noch kein Kostenvoranschlag für diesen Auftrag.",
+    "emptyReadonly": "Für diesen Auftrag wurde kein Kostenvoranschlag erstellt.",
+    "overrunNoticeLine": "Kunde informiert am {{date}} · {{channel}} · Reaktion: {{reaction}}{{note}}",
+    "overrunNoticeNote": " · Notiz: {{note}}",
+    "overrunBannerTitle": "Auftrag weicht vom Kostenvoranschlag ab",
+    "notifyCustomer": "Kunden informiert",
+    "reviseAndSend": "Überarbeiteten Kostenvoranschlag senden",
+    "versionDraftSubline": "Entwurf · noch nicht gesendet",
+    "versionSentSubline": "Gesendet {{sent}} · gültig bis {{validUntil}}",
+    "gross": "Brutto {{amount}}",
+    "preview": "(Vorschau)",
+    "sendDisabledTitle": "Versand an Kunden derzeit nicht verfügbar",
+    "sendToCustomer": "An Kunden senden",
+    "pdfGenerating": "PDF wird erstellt…",
+    "pdfDownload": "PDF herunterladen",
+    "versionLabel": "Version {{version}}",
+    "approvalNote": " · Notiz: {{note}}",
+    "recordDecision": "Bestätigung erfassen",
+    "sendDisabledLegal": "Der Versand an Kunden ist derzeit deaktiviert, bis die rechtlichen Texte freigegeben sind. Der Entwurf kann bis dahin geprüft werden.",
+    "status": {
+      "DRAFT": "Entwurf",
+      "SENT": "Gesendet",
+      "APPROVED": "Freigegeben",
+      "DECLINED": "Abgelehnt",
+      "EXPIRED": "Abgelaufen",
+      "SUPERSEDED": "Ersetzt"
+    },
+    "overrunTotalLine": "Gesamtbetrag brutto {{current}} liegt über dem freigegebenen Betrag {{approved}}{{percentText}}. Grenzwert: {{threshold}}.",
+    "overrunNewLines": "{{count}} neue Position(en) gegenüber dem freigegebenen Kostenvoranschlag.",
+    "toast": {
+      "created": "Kostenvoranschlag erstellt",
+      "createFailed": "Kostenvoranschlag konnte nicht erstellt werden.",
+      "revised": "Neue Version als Entwurf erstellt",
+      "reviseFailed": "Neue Version konnte nicht erstellt werden.",
+      "decisionRecorded": "Bestätigung zu Version {{version}} erfasst",
+      "noticeRecorded": "Mitteilung an den Kunden erfasst",
+      "sentWithEmail": "Version {{version}} gesendet, die E-Mail an den Kunden wird versendet",
+      "sent": "Version {{version}} gesendet",
+      "pdfDownloaded": "Kostenvoranschlag-PDF heruntergeladen",
+      "pdfFailed": "PDF-Erstellung fehlgeschlagen"
+    },
+    "sendBlocked_one": "Kundenversand ist gesperrt, bis Nullpreis-Positionen und beanspruchte Passgenauigkeit geklärt sind ({{count}} Position).",
+    "sendBlocked_other": "Kundenversand ist gesperrt, bis Nullpreis-Positionen und beanspruchte Passgenauigkeit geklärt sind ({{count}} Positionen)."
+  },
+  "invoiceOverrun": {
+    "title": "Rechnung weicht vom freigegebenen Kostenvoranschlag ab",
+    "notified": "Der Kunde wurde über {{notified}} brutto informiert. Der Auftragsbetrag liegt inzwischen bei {{current}} brutto, der Kunde muss erneut informiert werden.",
+    "notNotified": "Der Auftragsbetrag liegt bei {{current}} brutto, freigegeben waren {{approved}}. Der Kunde wurde noch nicht über die Abweichung informiert.",
+    "canStillInvoice": "Die Rechnung kann trotzdem ausgestellt werden."
+  },
+  "checkout": {
+    "grandTotal": "Gesamtsumme",
+    "title": "Abrechnung",
+    "description": "Rabatte prüfen und Rechnung stellen, ohne den Auftrag zu verlassen.",
+    "close": "Abrechnung schließen",
+    "openInvoice": "Rechnung öffnen",
+    "primaryAction": "Abrechnung",
+    "toast": {
+      "draftInvoiceCreated": "Rechnungsentwurf erstellt ({{number}})",
+      "draftInvoiceFailed": "Rechnungsentwurf konnte nicht erstellt werden",
+      "invoiceIssued": "Rechnung ausgestellt ({{number}})",
+      "invoiceIssueFailed": "Rechnung konnte nicht ausgestellt werden"
+    }
+  },
+  "orderIntake": {
+    "title": "Werkstattauftrag anlegen",
+    "description": "Bestehendes Fahrzeug suchen oder neues Fahrzeug registrieren, dann den Auftrag anlegen.",
+    "descriptionPickerl": "§57a-Werkstattauftrag für das gewählte Fahrzeug anlegen.",
+    "tabExisting": "Bestand suchen",
+    "tabNewVehicle": "Fahrzeug anlegen",
+    "tabRegistration": "Zulassungsschein",
+    "searchPlaceholder": "FIN, Kennzeichen, Kundenname, Telefon…",
+    "vehicles": "Fahrzeuge",
+    "searching": "Suche…",
+    "noVehicles": "Keine Fahrzeuge gefunden.",
+    "vehicleMeta": "FIN: {{vin}} · Kennzeichen: {{plate}}",
+    "customerLabel": "Kunde: {{name}}",
+    "unassigned": "Nicht zugewiesen",
+    "selectedVehicle": "Gewähltes Fahrzeug",
+    "noLinkedCustomer": "Kein verknüpfter Kunde",
+    "pickVehicle": "Fahrzeug aus der Liste wählen.",
+    "vinPlaceholder": "FIN",
+    "platePlaceholder": "Kennzeichen",
+    "makePlaceholder": "Marke",
+    "modelPlaceholder": "Modell",
+    "yearPlaceholder": "Baujahr",
+    "customerSection": "Kunde",
+    "selectExisting": "Bestand wählen",
+    "createNew": "Neu anlegen",
+    "searchCustomersPlaceholder": "Kunden nach Name, Telefon…",
+    "noCustomers": "Keine Kunden gefunden.",
+    "noEmail": "Keine E-Mail",
+    "noPhone": "Kein Telefon",
+    "firstName": "Vorname",
+    "lastName": "Nachname",
+    "email": "E-Mail",
+    "phone": "Telefon",
+    "registrationHint": "Österreichischen Zulassungsschein hochladen (Vorderseite, optional Rückseite). Felder prüfen, Identität bestätigen, dann Auftrag am Standort anlegen.",
+    "orderIntakeSection": "Auftragsannahme",
+    "odometerPlaceholder": "Kilometerstand (km)",
+    "fuelPlaceholder": "Tankfüllung (%)",
+    "notesPlaceholder": "Hinweise zum Problem…",
+    "openExistingOrder": "Bestehenden Auftrag öffnen",
+    "openOrderNumber": "{{orderNumber}} öffnen",
+    "cancel": "Abbrechen",
+    "creating": "Wird erstellt…",
+    "createPickerl": "§57a-Auftrag anlegen",
+    "pickerlNotesDefault": "§57a Begutachtung",
+    "createOrder": "Auftrag anlegen",
+    "toastSelectVehicle": "Fahrzeug mit verknüpftem Kunden wählen.",
+    "toastPickerlOpened": "§57a-Werkstattauftrag geöffnet",
+    "toastOrderCreated": "Werkstattauftrag erstellt",
+    "toastSelectCustomer": "Bestehenden Kunden wählen.",
+    "toastNoCustomerLinked": "Fahrzeug erstellt, aber kein Kunde verknüpft.",
+    "toastCreateFailed": "Werkstattauftrag konnte nicht erstellt werden",
+    "activeOrderConflict": "Für dieses Fahrzeug existiert bereits ein offener Werkstattauftrag ({{orderNumber}}).",
+    "activeOrderConflictNoNumber": "Für dieses Fahrzeug existiert bereits ein offener Werkstattauftrag.",
+    "na": "k. A."
+  },
+  "registrationIntake": {
+    "frontLabel": "Vorderseite (Pflicht)",
+    "backLabel": "Rückseite (optional)",
+    "reading": "Dokument wird gelesen…",
+    "uploadReview": "Hochladen und prüfen",
+    "toastFrontRequired": "Vorderseite des Zulassungsscheins hochladen.",
+    "toastConfirmed": "Kunde und Fahrzeug bestätigt",
+    "toastOdometerRequired": "Gültigen Kilometerstand eingeben, bevor der Auftrag erstellt wird.",
+    "toastOrderCreated": "Werkstattauftrag erstellt",
+    "extractionFailed": "Extraktion fehlgeschlagen ({{code}}). Löschen und mit neuem Upload erneut versuchen.",
+    "unknown": "unbekannt",
+    "uploadFailed": "Upload fehlgeschlagen",
+    "extractionFailedFallback": "Auslesen fehlgeschlagen"
+  },
+  "registrationReview": {
+    "actionFailed": "Aktion fehlgeschlagen",
+    "selectCustomer": "Kunde wählen",
+    "selectVehicle": "Fahrzeug wählen",
+    "ownershipConfirm": "Fahrzeug dem Halter auf diesem Dokument zuweisen",
+    "lowConfidence": " (niedrige Konfidenz)",
+    "confirmIdentity": "Identität bestätigen",
+    "createOrder": "Werkstattauftrag anlegen",
+    "abort": "Abbrechen",
+    "delete": "Löschen"
+  },
+  "measurementsSection": {
+    "title": "Geräteergebnis Bremsen",
+    "description": "Externe Bremsmessung prüfen und als Nachweis übernehmen.",
+    "import": "Messung importieren",
+    "empty": "Noch keine Bremsmessungen für diesen Auftrag.",
+    "device": "Gerät: {{serial}}",
+    "axleWheel": "Achse {{axle}} {{side}}: {{force}} {{unit}}",
+    "back": "Zurück",
+    "forward": "Weiter",
+    "page": "Seite {{page}} / {{total}}",
+    "dialogTitle": "Bremsmessung importieren",
+    "dialogDescription": "Quellenreferenz aus dem Werkstattnetz — Werte sind schreibgeschützt.",
+    "deviceLabel": "Messgerät",
+    "referenceLabel": "Messreferenz",
+    "status": "Status:",
+    "preview": "Vorschau",
+    "apply": "Übernehmen"
+  },
+  "loanerPrint": {
+    "loading": "Protokoll wird geladen…",
+    "notFound": "Buchung nicht gefunden.",
+    "back": "Zurück",
+    "print": "Drucken",
+    "title": "Ersatzfahrzeug Protokoll",
+    "bookingMeta": "Buchung {{id}}",
+    "loanerSection": "Ersatzfahrzeug",
+    "customerSection": "Kunde",
+    "workshopOrder": "Werkstattauftrag: {{id}}",
+    "handover": "Übergabe",
+    "return": "Rückgabe",
+    "time": "Zeitpunkt",
+    "odometer": "Kilometerstand",
+    "fuel": "Tank (%)",
+    "licenceChecked": "Führerschein geprüft",
+    "damageNotes": "Schäden / Notizen",
+    "signatureHandover": "Unterschrift Kunde (Übergabe)",
+    "signatureReturn": "Unterschrift Kunde (Rückgabe)",
+    "bookingNotes": "Buchungsnotizen",
+    "yes": "Ja",
+    "no": "Nein",
+    "emDash": "—"
+  },
   "checkIn": {
     "inspection": {
       "sectionLabel": "Annahme-Checkliste",

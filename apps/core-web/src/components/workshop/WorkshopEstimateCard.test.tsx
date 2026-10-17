@@ -280,7 +280,7 @@ describe('WorkshopEstimateCard', () => {
     const send = screen.getByRole('button', { name: 'An Kunden senden' }) as HTMLButtonElement
     expect(send.disabled).toBe(true)
     expect(screen.getByTestId('estimate-customer-send-blockers')).toHaveTextContent(
-      /zero-price lines and claimed fitment/i,
+      /Nullpreis-Positionen und beanspruchte Passgenauigkeit/i,
     )
   })
 

@@ -18,6 +18,13 @@ import * as authSessionApi from "@/api/auth-session";
 import * as estimateApi from "@/api/workshop-estimates";
 import { toast } from "sonner";
 import { formattedCurrencyPattern } from "@/test/format-assertions";
+import { deWorkshop } from "@/test/de-workshop";
+
+const taskListCopy = deWorkshop.taskList;
+const checkoutCopy = deWorkshop.checkout;
+const checkoutSummaryCopy = deWorkshop.checkoutSummary;
+const orderHeaderCopy = deWorkshop.orderHeader;
+const orderDetailToast = deWorkshop.orderDetail.toast;
 
 vi.mock("@/api/workshop", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/api/workshop")>();
@@ -354,7 +361,7 @@ describe("WorkshopOrderDetails Characterization", () => {
 
       renderComponent();
 
-      expect(screen.getByText("Loading workshop order...")).toBeInTheDocument();
+      expect(screen.getByText("Werkstattauftrag wird geladen…")).toBeInTheDocument();
     });
 
     it("renders not-found card when order is null", () => {
@@ -365,11 +372,11 @@ describe("WorkshopOrderDetails Characterization", () => {
 
       renderComponent();
 
-      expect(screen.getByText("Workshop order not found")).toBeInTheDocument();
+      expect(screen.getByText("Werkstattauftrag nicht gefunden")).toBeInTheDocument();
       expect(
-        screen.getByText("The selected workshop order does not exist."),
+        screen.getByText("Der gewählte Werkstattauftrag existiert nicht."),
       ).toBeInTheDocument();
-      expect(screen.getByText("Back to Workshop Orders")).toBeInTheDocument();
+      expect(screen.getByText("Zurück zu Werkstattaufträgen")).toBeInTheDocument();
     });
   });
 
@@ -405,7 +412,7 @@ describe("WorkshopOrderDetails Characterization", () => {
       const header = screen.getByRole("banner");
 
       expect(
-        within(header).getByText(/Promised time: Not set/),
+        within(header).getByText(/Zugesagter Termin: Nicht gesetzt/),
       ).toBeInTheDocument();
       expect(screen.queryByText("Waiter")).not.toBeInTheDocument();
       expect(screen.queryByText("Total Parts")).not.toBeInTheDocument();
@@ -442,13 +449,13 @@ describe("WorkshopOrderDetails Characterization", () => {
       );
     });
 
-    it("puts Print Job Card in the header and keeps invoice actions out of it", () => {
+    it("puts Jobkarte drucken in the header and keeps invoice actions out of it", () => {
       renderComponent();
 
       const header = screen.getByRole("banner");
 
       expect(
-        within(header).getByRole("button", { name: /Print Job Card/i }),
+        within(header).getByRole("button", { name: /Jobkarte drucken/i }),
       ).toBeInTheDocument();
       expect(
         within(header).queryByRole("button", { name: /Generate Invoice/i }),
@@ -510,7 +517,7 @@ describe("WorkshopOrderDetails Characterization", () => {
       expect(screen.getByTestId("assigned-tech-select")).toBeInTheDocument();
       fireEvent.click(screen.getByTestId("assigned-tech-select"));
       expect(
-        screen.getByRole("option", { name: "Unassigned" }),
+        screen.getByRole("option", { name: "Nicht zugewiesen" }),
       ).toBeInTheDocument();
       expect(
         screen.getByRole("option", { name: "Alex Tech" }),
@@ -552,7 +559,7 @@ describe("WorkshopOrderDetails Characterization", () => {
           mechanicId: "mech-1",
         });
       });
-      expect(toast.success).toHaveBeenCalledWith("Technician assigned");
+      expect(toast.success).toHaveBeenCalledWith(orderDetailToast.technicianAssigned);
     });
 
     it("disables assigned tech select when the order is invoiced", () => {
@@ -630,7 +637,7 @@ describe("WorkshopOrderDetails Characterization", () => {
       renderComponent();
 
       fireEvent.click(screen.getByTestId("assigned-tech-select"));
-      fireEvent.click(screen.getByRole("option", { name: "Unassigned" }));
+      fireEvent.click(screen.getByRole("option", { name: "Nicht zugewiesen" }));
 
       await waitFor(() => {
         expect(assignBoardMutateAsync).toHaveBeenCalledWith({
@@ -638,7 +645,7 @@ describe("WorkshopOrderDetails Characterization", () => {
           mechanicId: null,
         });
       });
-      expect(toast.success).toHaveBeenCalledWith("Technician unassigned");
+      expect(toast.success).toHaveBeenCalledWith(orderDetailToast.technicianUnassigned);
     });
 
     it("shows an error toast when technician assignment fails", async () => {
@@ -706,7 +713,7 @@ describe("WorkshopOrderDetails Characterization", () => {
       });
       renderComponent();
 
-      const naElements = screen.getAllByText("N/A");
+      const naElements = screen.getAllByText(orderHeaderCopy.noPlate);
       expect(naElements.length).toBeGreaterThanOrEqual(2);
     });
 
@@ -722,7 +729,7 @@ describe("WorkshopOrderDetails Characterization", () => {
     it("renders task list with title, total, and status", () => {
       renderComponent();
 
-      expect(screen.getAllByText("Repair Tasks")[0]).toBeInTheDocument();
+      expect(screen.getAllByText("Reparaturaufgaben")[0]).toBeInTheDocument();
       expect(screen.getAllByText("Oil Change")[0]).toBeInTheDocument();
     });
 
@@ -732,14 +739,14 @@ describe("WorkshopOrderDetails Characterization", () => {
 
       fireEvent.click(screen.getByText("Oil Change"));
       expect(
-        screen.getByRole("button", { name: "Add mechanic notes" }),
+        screen.getByRole("button", { name: taskListCopy.mechanicNotesEmpty }),
       ).toBeInTheDocument();
 
       fireEvent.click(screen.getByText("Brake Inspection"));
 
       expect(screen.getByText("Pads at 30%")).toBeInTheDocument();
       expect(
-        screen.queryByRole("button", { name: "Add mechanic notes" }),
+        screen.queryByRole("button", { name: taskListCopy.mechanicNotesEmpty }),
       ).not.toBeInTheDocument();
     });
 
@@ -756,23 +763,23 @@ describe("WorkshopOrderDetails Characterization", () => {
       renderComponent();
 
       expect(
-        screen.getByText("No tasks yet. Add the first task to begin work."),
+        screen.getByText(taskListCopy.noTasks),
       ).toBeInTheDocument();
     });
 
     it("renders reported issue and internal notes cards", () => {
       renderComponent();
 
-      expect(screen.getAllByText("Reported Issue")[0]).toBeInTheDocument();
-      expect(screen.getAllByText("Internal Notes")[0]).toBeInTheDocument();
+      expect(screen.getAllByText("Gemeldetes Problem")[0]).toBeInTheDocument();
+      expect(screen.getAllByText("Interne Notizen")[0]).toBeInTheDocument();
     });
 
     it("renders call customer button when phone is present", () => {
       renderComponent();
 
-      const callButtons = screen.getAllByText("Call Customer");
+      const callButtons = screen.getAllByText("Kunde anrufen");
       expect(callButtons.length).toBeGreaterThan(0);
-      const callLinks = screen.getAllByRole("link", { name: /Call Customer/i });
+      const callLinks = screen.getAllByRole("link", { name: /Kunde anrufen/i });
       expect(callLinks[0]).toHaveAttribute("href", "tel:123456789");
     });
 
@@ -783,7 +790,7 @@ describe("WorkshopOrderDetails Characterization", () => {
       });
       renderComponent();
 
-      expect(screen.queryByText("Call Customer")).not.toBeInTheDocument();
+      expect(screen.queryByText("Kunde anrufen")).not.toBeInTheDocument();
     });
   });
 
@@ -803,7 +810,7 @@ describe("WorkshopOrderDetails Characterization", () => {
     it("disables the new task input and add button", () => {
       renderComponent();
 
-      const taskInputs = screen.getAllByPlaceholderText("New task title...");
+      const taskInputs = screen.getAllByPlaceholderText(taskListCopy.newTaskPlaceholder);
       taskInputs.forEach((input) => expect(input).toBeDisabled());
     });
 
@@ -814,11 +821,11 @@ describe("WorkshopOrderDetails Characterization", () => {
       checkboxes.forEach((cb) => expect(cb).toBeDisabled());
     });
 
-    it('shows "Open Invoice" in the checkout footer', () => {
+    it("shows open-invoice action in the checkout footer", () => {
       renderComponent();
 
       expect(
-        screen.getByRole("button", { name: /Open Invoice/i }),
+        screen.getByRole("button", { name: checkoutCopy.openInvoice }),
       ).toBeInTheDocument();
     });
   });
@@ -838,10 +845,10 @@ describe("WorkshopOrderDetails Characterization", () => {
 
       renderComponent();
 
-      const inputs = screen.getAllByPlaceholderText("New task title...");
+      const inputs = screen.getAllByPlaceholderText(taskListCopy.newTaskPlaceholder);
       fireEvent.change(inputs[0], { target: { value: "Tire Rotation" } });
 
-      const addButtons = screen.getAllByRole("button", { name: /Task/i });
+      const addButtons = screen.getAllByRole("button", { name: taskListCopy.addTask });
       fireEvent.click(addButtons[0]);
 
       await waitFor(() => {
@@ -850,7 +857,7 @@ describe("WorkshopOrderDetails Characterization", () => {
           title: "Tire Rotation",
         });
       });
-      expect(toast.success).toHaveBeenCalledWith("Task created");
+      expect(toast.success).toHaveBeenCalledWith(orderDetailToast.taskCreated);
     });
 
     it("does not create task when input is empty or whitespace", async () => {
@@ -864,7 +871,7 @@ describe("WorkshopOrderDetails Characterization", () => {
       renderComponent();
 
       // Leave input empty, click add
-      const addButtons = screen.getAllByRole("button", { name: /Task/i });
+      const addButtons = screen.getAllByRole("button", { name: taskListCopy.addTask });
       fireEvent.click(addButtons[0]);
 
       expect(mockMutateAsync).not.toHaveBeenCalled();
@@ -880,11 +887,11 @@ describe("WorkshopOrderDetails Characterization", () => {
 
       renderComponent();
 
-      const inputs = screen.getAllByPlaceholderText("New task title...");
+      const inputs = screen.getAllByPlaceholderText(taskListCopy.newTaskPlaceholder);
       // Set up value and fire change first
       fireEvent.change(inputs[0], { target: { value: "Alignment" } });
       // Use click on add button to verify the value is in state
-      const addButtons = screen.getAllByRole("button", { name: /Task/i });
+      const addButtons = screen.getAllByRole("button", { name: taskListCopy.addTask });
       fireEvent.click(addButtons[0]);
 
       await waitFor(() => {
@@ -907,10 +914,10 @@ describe("WorkshopOrderDetails Characterization", () => {
 
       renderComponent();
 
-      const inputs = screen.getAllByPlaceholderText("New task title...");
+      const inputs = screen.getAllByPlaceholderText(taskListCopy.newTaskPlaceholder);
       fireEvent.change(inputs[0], { target: { value: "Failing task" } });
 
-      const addButtons = screen.getAllByRole("button", { name: /Task/i });
+      const addButtons = screen.getAllByRole("button", { name: taskListCopy.addTask });
       fireEvent.click(addButtons[0]);
 
       await waitFor(() => {
@@ -927,7 +934,7 @@ describe("WorkshopOrderDetails Characterization", () => {
 
       renderComponent();
 
-      const inputs = screen.getAllByPlaceholderText("New task title...");
+      const inputs = screen.getAllByPlaceholderText(taskListCopy.newTaskPlaceholder);
       inputs.forEach((input) => expect(input).toBeDisabled());
     });
   });
@@ -1076,10 +1083,10 @@ describe("WorkshopOrderDetails Characterization", () => {
     it("shows grand total and Checkout in the footer while order is IN_PROGRESS", () => {
       renderComponent();
 
-      expect(screen.getByText("Grand total")).toBeInTheDocument();
+      expect(screen.getByText("Gesamtsumme")).toBeInTheDocument();
       expect(screen.getAllByText(formattedCurrencyPattern(55)).length).toBeGreaterThan(0);
       expect(
-        screen.getByRole("button", { name: /^Checkout$/i }),
+        screen.getByRole("button", { name: checkoutCopy.primaryAction }),
       ).toBeInTheDocument();
     });
 
@@ -1087,9 +1094,9 @@ describe("WorkshopOrderDetails Characterization", () => {
       setupDefaultMocks(completedOrder);
       renderComponent();
 
-      fireEvent.click(screen.getByRole("button", { name: /^Checkout$/i }));
+      fireEvent.click(screen.getByRole("button", { name: checkoutCopy.primaryAction }));
 
-      expect(screen.getByText("Draft Invoice")).toBeInTheDocument();
+      expect(screen.getByText(checkoutSummaryCopy.title)).toBeInTheDocument();
       expect(screen.getAllByText("Oil Change").length).toBeGreaterThan(0);
     });
 
@@ -1097,7 +1104,7 @@ describe("WorkshopOrderDetails Characterization", () => {
       setupDefaultMocks(completedOrder);
       renderComponent();
 
-      fireEvent.click(screen.getByRole("button", { name: /^Checkout$/i }));
+      fireEvent.click(screen.getByRole("button", { name: checkoutCopy.primaryAction }));
       expect(screen.queryByText("Return to Tasks")).not.toBeInTheDocument();
     });
 
@@ -1105,31 +1112,31 @@ describe("WorkshopOrderDetails Characterization", () => {
       setupDefaultMocks(completedOrder);
       renderComponent();
 
-      fireEvent.click(screen.getByRole("button", { name: /^Checkout$/i }));
-      expect(screen.getByText("Draft Invoice")).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: checkoutCopy.primaryAction }));
+      expect(screen.getByText(checkoutSummaryCopy.title)).toBeInTheDocument();
 
-      fireEvent.click(screen.getByRole("button", { name: /Close Checkout/i }));
-      expect(screen.queryByText("Draft Invoice")).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: checkoutCopy.close }));
+      expect(screen.queryByText(checkoutSummaryCopy.title)).not.toBeInTheDocument();
     });
 
     it("shows Create Draft Invoice button when no invoice linked", () => {
       setupDefaultMocks(completedOrder);
       renderComponent();
 
-      fireEvent.click(screen.getByRole("button", { name: /^Checkout$/i }));
+      fireEvent.click(screen.getByRole("button", { name: checkoutCopy.primaryAction }));
 
       expect(
-        screen.getByRole("button", { name: /Create Draft Invoice/i }),
+        screen.getByRole("button", { name: checkoutSummaryCopy.createDraft }),
       ).toBeInTheDocument();
     });
 
     it("disables Create Draft Invoice until the order is COMPLETED", () => {
       renderComponent();
 
-      fireEvent.click(screen.getByRole("button", { name: /^Checkout$/i }));
+      fireEvent.click(screen.getByRole("button", { name: checkoutCopy.primaryAction }));
 
       expect(
-        screen.getByRole("button", { name: /Create Draft Invoice/i }),
+        screen.getByRole("button", { name: checkoutSummaryCopy.createDraft }),
       ).toBeDisabled();
     });
 
@@ -1147,16 +1154,19 @@ describe("WorkshopOrderDetails Characterization", () => {
 
       renderComponent();
 
-      fireEvent.click(screen.getByRole("button", { name: /^Checkout$/i }));
+      fireEvent.click(screen.getByRole("button", { name: checkoutCopy.primaryAction }));
       fireEvent.click(
-        screen.getByRole("button", { name: /Create Draft Invoice/i }),
+        screen.getByRole("button", { name: checkoutSummaryCopy.createDraft }),
       );
 
       await waitFor(() => {
         expect(mockCreate).toHaveBeenCalledWith("order-1");
       });
       expect(toast.success).toHaveBeenCalledWith(
-        "Draft invoice created (RE-2026-0099)",
+        deWorkshop.checkout.toast.draftInvoiceCreated.replace(
+          "{{number}}",
+          "RE-2026-0099",
+        ),
       );
     });
 
@@ -1164,7 +1174,7 @@ describe("WorkshopOrderDetails Characterization", () => {
       setupDefaultMocks(completedOrder);
       renderComponent();
 
-      fireEvent.click(screen.getByRole("button", { name: /^Checkout$/i }));
+      fireEvent.click(screen.getByRole("button", { name: checkoutCopy.primaryAction }));
 
       // Net: 15 + 40 = 55.00
       expect(screen.getAllByText(formattedCurrencyPattern(55)).length).toBeGreaterThan(0);
@@ -1177,12 +1187,12 @@ describe("WorkshopOrderDetails Characterization", () => {
       });
       renderComponent();
 
-      fireEvent.click(screen.getByRole("button", { name: /^Checkout$/i }));
+      fireEvent.click(screen.getByRole("button", { name: checkoutCopy.primaryAction }));
 
       // When groupedCheckoutTasks is empty, the table renders a "no lines" message
       const allCells = document.querySelectorAll("td");
       const emptyCell = Array.from(allCells).find((cell) =>
-        cell.textContent?.includes("No billable lines"),
+        cell.textContent?.includes(checkoutSummaryCopy.empty),
       );
       expect(emptyCell).toBeTruthy();
     });
@@ -1197,7 +1207,7 @@ describe("WorkshopOrderDetails Characterization", () => {
       setupDefaultMocks(completedOrder);
       renderComponent();
 
-      fireEvent.click(screen.getByRole("button", { name: /^Checkout$/i }));
+      fireEvent.click(screen.getByRole("button", { name: checkoutCopy.primaryAction }));
 
       // Find the task discount input
       const inputs = screen.getAllByPlaceholderText("0");
@@ -1214,7 +1224,7 @@ describe("WorkshopOrderDetails Characterization", () => {
       setupDefaultMocks(completedOrder);
       renderComponent();
 
-      fireEvent.click(screen.getByRole("button", { name: /^Checkout$/i }));
+      fireEvent.click(screen.getByRole("button", { name: checkoutCopy.primaryAction }));
 
       // Click task group header to expand
       const taskHeaders = screen.getAllByText("Oil Change");
@@ -1244,7 +1254,7 @@ describe("WorkshopOrderDetails Characterization", () => {
 
       renderComponent();
 
-      fireEvent.click(screen.getByRole("button", { name: /^Checkout$/i }));
+      fireEvent.click(screen.getByRole("button", { name: checkoutCopy.primaryAction }));
 
       // Net: 15 + 40 + 100 = 155.00
       // VAT: 3.15 + 0 + 10 = 13.15
@@ -1279,7 +1289,7 @@ describe("WorkshopOrderDetails Characterization", () => {
 
       renderComponent();
 
-      expect(screen.getByText("Grand total")).toBeInTheDocument();
+      expect(screen.getByText("Gesamtsumme")).toBeInTheDocument();
       expect(screen.getByText(formattedCurrencyPattern(58.15))).toBeInTheDocument();
     });
 
@@ -1300,9 +1310,9 @@ describe("WorkshopOrderDetails Characterization", () => {
 
       renderComponent();
 
-      fireEvent.click(screen.getByRole("button", { name: /^Checkout$/i }));
+      fireEvent.click(screen.getByRole("button", { name: checkoutCopy.primaryAction }));
 
-      expect(screen.getAllByText("Issue Invoice")[0]).toBeInTheDocument();
+      expect(screen.getAllByText(checkoutSummaryCopy.issue)[0]).toBeInTheDocument();
     });
 
     it("issues invoice and shows success toast", async () => {
@@ -1331,14 +1341,17 @@ describe("WorkshopOrderDetails Characterization", () => {
 
       renderComponent();
 
-      fireEvent.click(screen.getByRole("button", { name: /^Checkout$/i }));
-      fireEvent.click(screen.getAllByText("Issue Invoice")[0]);
+      fireEvent.click(screen.getByRole("button", { name: checkoutCopy.primaryAction }));
+      fireEvent.click(screen.getAllByText(checkoutSummaryCopy.issue)[0]);
 
       await waitFor(() => {
         expect(mockIssue).toHaveBeenCalledWith("inv-draft-1");
       });
       expect(toast.success).toHaveBeenCalledWith(
-        "Invoice issued (RE-2026-0001)",
+        deWorkshop.checkout.toast.invoiceIssued.replace(
+          "{{number}}",
+          "RE-2026-0001",
+        ),
       );
     });
 
@@ -1379,14 +1392,14 @@ describe("WorkshopOrderDetails Characterization", () => {
 
       renderComponent();
 
-      fireEvent.click(screen.getByRole("button", { name: /^Checkout$/i }));
+      fireEvent.click(screen.getByRole("button", { name: checkoutCopy.primaryAction }));
 
       // Apply a task-level discount to populate lineDiscountOverrides
       const inputs = screen.getAllByPlaceholderText("0");
       fireEvent.change(inputs[0], { target: { value: "5" } });
 
       // Issue invoice
-      fireEvent.click(screen.getAllByText("Issue Invoice")[0]);
+      fireEvent.click(screen.getAllByText(checkoutSummaryCopy.issue)[0]);
 
       await waitFor(() => {
         expect(mockUpdateDiscount).toHaveBeenCalledWith(
@@ -1420,7 +1433,7 @@ describe("WorkshopOrderDetails Characterization", () => {
 
       renderComponent();
 
-      const printButtons = screen.getAllByText("Print Job Card");
+      const printButtons = screen.getAllByText("Jobkarte drucken");
       fireEvent.click(printButtons[0]);
 
       await waitFor(() => {
@@ -1441,7 +1454,7 @@ describe("WorkshopOrderDetails Characterization", () => {
       renderComponent();
 
       expect(
-        screen.getByText("No tasks yet. Add the first task to begin work."),
+        screen.getByText(taskListCopy.noTasks),
       ).toBeInTheDocument();
     });
 
@@ -1471,21 +1484,21 @@ describe("WorkshopOrderDetails Characterization", () => {
       });
       renderComponent();
 
-      const callLinks = screen.getAllByRole("link", { name: /Call Customer/i });
+      const callLinks = screen.getAllByRole("link", { name: /Kunde anrufen/i });
       expect(callLinks[0]).toHaveAttribute("href", "tel:+31612345678");
     });
 
-    it("renders High Priority badge when order is not COMPLETED", () => {
+    it("renders Hohe Priorität badge when order is not COMPLETED", () => {
       renderComponent();
 
-      expect(screen.getAllByText("High Priority")[0]).toBeInTheDocument();
+      expect(screen.getAllByText("Hohe Priorität")[0]).toBeInTheDocument();
     });
 
-    it("does not render High Priority badge when order is COMPLETED", () => {
+    it("does not render Hohe Priorität badge when order is COMPLETED", () => {
       setupDefaultMocks(completedOrder);
       renderComponent();
 
-      expect(screen.queryByText("High Priority")).not.toBeInTheDocument();
+      expect(screen.queryByText("Hohe Priorität")).not.toBeInTheDocument();
     });
 
     it("offers estimate creation to SALES on an open order", async () => {

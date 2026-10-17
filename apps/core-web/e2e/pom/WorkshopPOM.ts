@@ -1,5 +1,6 @@
 import { Page, expect } from '@playwright/test';
 import { AutoCorePage } from './AutoCorePage';
+import { DE_WORKSHOP } from '../helpers/de-workshop';
 
 /**
  * WorkshopPOM extends AutoCorePage with Workshop-domain interactions.
@@ -28,16 +29,21 @@ export class WorkshopPOM extends AutoCorePage {
     await taskRow.click();
 
     await expect(
-      this.page.getByPlaceholder('Search labor or part number...'),
+      this.page.getByPlaceholder(DE_WORKSHOP.taskLineEditor.searchPlaceholder),
     ).toBeVisible();
   }
 
   async searchCatalog(query: string) {
-    const searchInput = this.page.getByPlaceholder('Search labor or part number...');
+    const searchInput = this.page.getByPlaceholder(DE_WORKSHOP.taskLineEditor.searchPlaceholder);
+    const catalogSearchResponse = this.page.waitForResponse(
+      (response) =>
+        response.url().includes('/api/catalog/search') && response.request().method() === 'GET',
+    );
     await searchInput.fill(query);
+    await catalogSearchResponse;
 
-    // Rule: suggestions list must appear after typing
-    await expect(this.page.getByRole('listbox', { name: 'Suggestions' })).toBeVisible();
+    // cmdk exposes the suggestions panel as a listbox (accessible name is not localized)
+    await expect(this.page.getByRole('listbox').first()).toBeVisible();
   }
 
   /**

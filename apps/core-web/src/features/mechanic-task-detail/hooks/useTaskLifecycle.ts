@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useCompleteTask, usePauseTask, useStartTask, useSwitchTask } from '@/api/mechanic'
 import { getErrorMessage, getErrorStatus } from '@/lib/error-utils'
+import { i18n } from '@/lib/i18n'
 import type { PauseReason, SwitchReason } from '../types'
 
 export type UseTaskLifecycleOptions = {
@@ -19,9 +20,14 @@ export interface ExecuteTaskStartParams {
 export async function executeTaskStart({ taskId, startTask }: ExecuteTaskStartParams): Promise<void> {
   try {
     await startTask.mutateAsync({ taskId })
-    toast.success('Task started — punch-in recorded')
+    toast.success(i18n.t('mechanic.taskDetail.lifecycle.toast.taskStarted', { ns: 'workshop' }))
   } catch (error: unknown) {
-    toast.error(getErrorMessage(error, 'Failed to start task'))
+    toast.error(
+      getErrorMessage(
+        error,
+        i18n.t('mechanic.taskDetail.lifecycle.toast.taskStartFailed', { ns: 'workshop' }),
+      ),
+    )
   }
 }
 
@@ -46,10 +52,15 @@ export async function executeTaskPause({
       taskId,
       payload: { pauseReason: reason },
     })
-    toast.success('Task paused')
+    toast.success(i18n.t('mechanic.taskDetail.lifecycle.toast.taskPaused', { ns: 'workshop' }))
     onSuccess()
   } catch (error: unknown) {
-    toast.error(getErrorMessage(error, 'Failed to pause task'))
+    toast.error(
+      getErrorMessage(
+        error,
+        i18n.t('mechanic.taskDetail.lifecycle.toast.taskPauseFailed', { ns: 'workshop' }),
+      ),
+    )
     onSuccess()
   }
 }
@@ -70,10 +81,15 @@ export async function executeTaskComplete({
   cancelPendingSave()
   try {
     await completeTask.mutateAsync({ taskId })
-    toast.success('Task marked as complete')
+    toast.success(i18n.t('mechanic.taskDetail.lifecycle.toast.taskCompleted', { ns: 'workshop' }))
     onSuccess()
   } catch (error: unknown) {
-    toast.error(getErrorMessage(error, 'Failed to complete task'))
+    toast.error(
+      getErrorMessage(
+        error,
+        i18n.t('mechanic.taskDetail.lifecycle.toast.taskCompleteFailed', { ns: 'workshop' }),
+      ),
+    )
   }
 }
 
@@ -96,14 +112,21 @@ async function retrySwitchAsStart({
   try {
     await refetch()
     await startTask.mutateAsync({ taskId })
-    toast.success('Task started — punch-in recorded')
+    toast.success(i18n.t('mechanic.taskDetail.lifecycle.toast.taskStarted', { ns: 'workshop' }))
     onSuccess()
   } catch (startError: unknown) {
     if (getErrorStatus(startError) === 409) {
-      toast.error('This task is already being worked on. Please refresh.')
+      toast.error(
+        i18n.t('mechanic.taskDetail.lifecycle.toast.taskAlreadyInProgress', { ns: 'workshop' }),
+      )
       return
     }
-    toast.error(getErrorMessage(startError, 'Failed to start task'))
+    toast.error(
+      getErrorMessage(
+        startError,
+        i18n.t('mechanic.taskDetail.lifecycle.toast.taskStartFailed', { ns: 'workshop' }),
+      ),
+    )
   } finally {
     setSwitchRetrying(false)
   }
@@ -138,7 +161,7 @@ export async function executeTaskSwitch({
       taskId,
       payload: { previousPauseReason: reason },
     })
-    toast.success('Switched to task — punch-in recorded')
+    toast.success(i18n.t('mechanic.taskDetail.lifecycle.toast.taskSwitched', { ns: 'workshop' }))
     onSuccess()
   } catch (error: unknown) {
     if (getErrorStatus(error) === 409) {
@@ -152,7 +175,12 @@ export async function executeTaskSwitch({
       return
     }
 
-    toast.error(getErrorMessage(error, 'Failed to switch task'))
+    toast.error(
+      getErrorMessage(
+        error,
+        i18n.t('mechanic.taskDetail.lifecycle.toast.taskSwitchFailed', { ns: 'workshop' }),
+      ),
+    )
   }
 }
 

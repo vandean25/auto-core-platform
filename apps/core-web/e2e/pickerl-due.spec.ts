@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { DE_STATUS } from './helpers/de-enums'
 import { AutoCorePage } from './pom/AutoCorePage'
+import { DE_WORKSHOP } from './helpers/de-workshop'
 import { createMockListResponse } from './utils/mock-factories'
 
 test.describe('Pickerl due list and dashboard widgets', () => {
@@ -99,7 +100,7 @@ test.describe('Pickerl due list and dashboard widgets', () => {
     await page.goto('/vehicles/pickerl-due')
     await page.waitForLoadState('networkidle')
     await page.getByRole('button', { name: '§57a-Auftrag anlegen' }).first().click()
-    await expect(page.getByRole('heading', { name: 'Create Workshop Order' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: DE_WORKSHOP.orderIntake.title })).toBeVisible()
     await page.getByRole('button', { name: '§57a-Auftrag anlegen' }).last().click()
 
     await expect.poll(() => postedPayload).toMatchObject({
