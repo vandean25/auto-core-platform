@@ -297,8 +297,7 @@ export const buildWorkshopHtmlDocument = (
           : ''
       }
       ${buildWorkshopInternalNotesSection(order.notes, escape, copy)}
-      ${legalNotice}
-      ${buildWorkshopFooterNotes(copy)}
+      ${legalNotice}${buildWorkshopFooterNotes(copy)}
     </body>
     </html>
   `;

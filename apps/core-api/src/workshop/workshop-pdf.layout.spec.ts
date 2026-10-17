@@ -16,7 +16,7 @@ import type { WorkshopOrderForPdf } from './workshop-pdf.types.js';
 
 describe('workshop-pdf.layout', () => {
   const deCopy = getWorkshopPdfCopy('de');
-  const enCopy = getWorkshopPdfCopy('en');
+  const enCopy = getWorkshopPdfCopy('en', 'localized');
   const createBaseOrder = (): WorkshopOrderForPdf => ({
     id: 'order-123',
     tenant_id: 'tenant-1',
@@ -257,7 +257,12 @@ describe('workshop-pdf.layout', () => {
     });
 
     it('renders footer template for Playwright with safe order number', () => {
-      const template = buildWorkshopFooterTemplate('WO-100', escapeHtml, 'en');
+      const template = buildWorkshopFooterTemplate(
+        'WO-100',
+        escapeHtml,
+        'en',
+        'localized',
+      );
       expect(template).toContain('Job Card WO-100');
       expect(template).toContain('class="pageNumber"');
       expect(template).toContain('class="totalPages"');
@@ -267,7 +272,13 @@ describe('workshop-pdf.layout', () => {
   describe('buildWorkshopHtmlDocument', () => {
     it('assembles the full HTML document correctly', () => {
       const order = createBaseOrder();
-      const html = buildWorkshopHtmlDocument(order, 'WO-100', escapeHtml, 'en');
+      const html = buildWorkshopHtmlDocument(
+        order,
+        'WO-100',
+        escapeHtml,
+        'en',
+        'localized',
+      );
       expect(html).toContain('<!DOCTYPE html>');
       expect(html).toContain('lang="en"');
       expect(html).toContain('Job Card');
