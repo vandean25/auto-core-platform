@@ -1,6 +1,9 @@
 import { useTranslation } from 'react-i18next'
 import { formatDateTime, formatOdometerKm, formatPercent } from '@/lib/format'
-import type { WorkshopCheckIn } from '@/api/workshop-check-in'
+import type {
+  WorkshopCheckIn,
+  WorkshopCheckInMedia,
+} from '@/api/workshop-check-in'
 import { WorkshopCheckInInspectionChecklist } from './WorkshopCheckInInspectionChecklist'
 import { CheckInSignatureSlot } from './CheckInSignatureSlot'
 import type { CheckInSignaturePadHandle } from './CheckInSignaturePad'
@@ -22,6 +25,8 @@ type Props = {
   signaturePadRef: RefObject<CheckInSignaturePadHandle | null>
   signaturePreviewUrl?: string | null
   onSignatureCanvasClear?: () => void
+  media: WorkshopCheckInMedia[]
+  localPreviewUrls: Record<string, string>
 }
 
 export function CheckInReviewStep({
@@ -38,6 +43,8 @@ export function CheckInReviewStep({
   signaturePadRef,
   signaturePreviewUrl,
   onSignatureCanvasClear,
+  media,
+  localPreviewUrls,
 }: Props) {
   const { t } = useTranslation('workshop')
 
@@ -79,13 +86,40 @@ export function CheckInReviewStep({
           </div>
         </dl>
         {draft.damage_markers.length > 0 && (
-          <ul className="mt-4 space-y-1 text-sm" aria-label={t('checkIn.damageListAria')}>
-            {draft.damage_markers.map((marker) => (
-              <li key={marker.id}>
-                {t(`checkIn.zones.${marker.zone_id as CheckInZoneId}`)} —{' '}
-                {t(`checkIn.damageTypes.${marker.type}`)}
-              </li>
-            ))}
+          <ul className="mt-4 space-y-3 text-sm" aria-label={t('checkIn.damageListAria')}>
+            {draft.damage_markers.map((marker) => {
+              const previewIds = marker.media_ids.filter((mediaId) => {
+                const item = media.find((entry) => entry.id === mediaId)
+                const src = localPreviewUrls[mediaId] ?? item?.preview_url
+                return Boolean(src)
+              })
+              return (
+                <li key={marker.id} className="space-y-1">
+                  <div>
+                    {t(`checkIn.zones.${marker.zone_id as CheckInZoneId}`)} —{' '}
+                    {t(`checkIn.damageTypes.${marker.type}`)}
+                    {marker.note ? ` — ${marker.note}` : ''}
+                  </div>
+                  {previewIds.length > 0 && (
+                    <ul className="flex flex-wrap gap-2" aria-label={t('checkIn.review.markerPhotosAria')}>
+                      {previewIds.map((mediaId) => {
+                        const item = media.find((entry) => entry.id === mediaId)
+                        const src = localPreviewUrls[mediaId] ?? item?.preview_url ?? undefined
+                        return (
+                          <li key={mediaId}>
+                            <img
+                              src={src}
+                              alt={t('checkIn.review.markerPhotoAlt')}
+                              className="h-16 w-16 rounded-md border object-cover"
+                            />
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  )}
+                </li>
+              )
+            })}
           </ul>
         )}
         {record.status === 'COMPLETED' && record.completed_at && (

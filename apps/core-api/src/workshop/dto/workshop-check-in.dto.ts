@@ -22,7 +22,6 @@ import {
 } from 'class-validator';
 import { UpdateWorkshopInspectionDto } from './update-workshop-inspection.dto.js';
 import {
-  CHECK_IN_DAMAGE_TYPES,
   CHECK_IN_MAX_DAMAGE_MARKER_NOTE_LENGTH,
   CHECK_IN_MAX_DAMAGE_MARKERS,
   CHECK_IN_MAX_MEDIA_IDS_PER_DAMAGE_MARKER,
@@ -63,12 +62,10 @@ export class CheckInDamageMarkerDto {
 
   @ApiProperty({ enum: [...CHECK_IN_ZONE_IDS] })
   @IsString()
-  @IsIn([...CHECK_IN_ZONE_IDS])
   zone_id!: string;
 
   @ApiProperty({ enum: ['SCRATCH', 'DENT', 'CRACK', 'OTHER'] })
   @IsString()
-  @IsIn([...CHECK_IN_DAMAGE_TYPES])
   type!: string;
 
   @ApiProperty({ maxLength: CHECK_IN_MAX_DAMAGE_MARKER_NOTE_LENGTH })

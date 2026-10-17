@@ -38,7 +38,7 @@ export function CheckInVehicleSketch({
     const cleanups: Array<() => void> = []
 
     for (const zoneId of SKETCH_ZONE_IDS) {
-      const zone = root.querySelector<SVGGElement>(`#${zoneId}`)
+      const zone = root.querySelector<SVGGElement>(`#${CSS.escape(zoneId)}`)
       if (!zone) {
         continue
       }
@@ -62,7 +62,8 @@ export function CheckInVehicleSketch({
         zone.removeAttribute('data-marked')
       }
 
-      const handleClick = () => {
+      const handleClick = (event: MouseEvent) => {
+        event.stopPropagation()
         if (!disabled) {
           onZoneSelectRef.current(zoneId)
         }
@@ -95,14 +96,14 @@ export function CheckInVehicleSketch({
       <p className="text-sm text-muted-foreground">{t('checkIn.sketch.hint')}</p>
       <div
         ref={sketchRef}
-        className="check-in-vehicle-sketch relative mx-auto max-w-xs rounded-md border bg-white p-2"
+        className="check-in-vehicle-sketch relative mx-auto min-w-80 max-w-sm rounded-md border bg-white p-2"
         data-testid="check-in-vehicle-sketch"
+        role="group"
+        aria-label={t('checkIn.sketch.aria')}
       >
         <div
-          className="[&_svg]:mx-auto [&_svg]:h-auto [&_svg]:w-full [&_svg]:max-h-[min(52vh,420px)] [&_g[id]]:cursor-pointer [&_g[id]]:outline-none [&_g[id]]:transition [&_g[id]]:duration-150 [&_g[id]:focus-visible]:ring-2 [&_g[id]:focus-visible]:ring-primary [&_g[id]:hover]:opacity-80 [&_g[id][data-selected=true]_*]:fill-primary/30 [&_g[id][data-marked=true]_*]:stroke-primary"
+          className="[&_svg]:mx-auto [&_svg]:h-auto [&_svg]:w-full [&_g[id]]:cursor-pointer [&_g[id]]:outline-none [&_g[id]]:transition [&_g[id]]:duration-150 [&_g[id]:focus-visible]:ring-2 [&_g[id]:focus-visible]:ring-primary [&_g[id]:hover]:opacity-80 [&_g[id][data-selected=true]_*]:fill-primary/30 [&_g[id][data-marked=true]_*]:stroke-primary"
           dangerouslySetInnerHTML={{ __html: sketchSvg }}
-          aria-label={t('checkIn.sketch.aria')}
-          role="img"
         />
       </div>
     </div>

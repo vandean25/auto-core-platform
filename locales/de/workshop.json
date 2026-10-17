@@ -1353,6 +1353,8 @@
       "success": "Annahme abgeschlossen"
     },
     "review": {
+      "markerPhotosAria": "Fotos zu dieser Schadensmarkierung",
+      "markerPhotoAlt": "Schadensfoto",
       "none": "Keine",
       "signatureSectionAria": "Kundenunterschrift",
       "signatureTitle": "Kundenunterschrift",

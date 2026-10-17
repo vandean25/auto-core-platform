@@ -24,11 +24,13 @@ describe('CheckInVehicleSketch', () => {
 
     const sketch = screen.getByTestId('check-in-vehicle-sketch')
     await waitFor(() => {
-      expect(sketch.querySelector('#REAR_BUMPER')).toBeTruthy()
+      expect(sketch.querySelector('#LEFT_FRONT_WING')).toBeTruthy()
     })
-    const rearBumper = sketch.querySelector('#REAR_BUMPER') as Element
+    const frontWing = sketch.querySelector('#LEFT_FRONT_WING') as Element
+    const hitTarget =
+      frontWing.querySelector('rect[fill="transparent"]') ?? frontWing
 
-    fireEvent.click(rearBumper)
-    expect(onZoneSelect).toHaveBeenCalledWith('REAR_BUMPER')
+    fireEvent.click(hitTarget)
+    expect(onZoneSelect).toHaveBeenCalledWith('LEFT_FRONT_WING')
   })
 })

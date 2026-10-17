@@ -1353,6 +1353,8 @@
       "success": "Check-in completed"
     },
     "review": {
+      "markerPhotosAria": "Photos linked to this damage marker",
+      "markerPhotoAlt": "Damage photo",
       "none": "None",
       "signatureSectionAria": "Customer signature",
       "signatureTitle": "Customer signature",
