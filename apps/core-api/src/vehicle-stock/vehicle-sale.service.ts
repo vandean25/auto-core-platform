@@ -61,6 +61,7 @@ import {
   toGewaehrleistungReadFields,
 } from './vehicle-sale.warranty.js';
 import { viennaIsoDay } from './gewaehrleistung/gewaehrleistung-status.js';
+import { deactivateVehicleListingsOnSale } from '../vehicle/listing/vehicle-listing-sale-deactivate.js';
 import {
   DEFAULT_VAT_RATE,
   assignInvoiceNumber,
@@ -474,6 +475,12 @@ export class VehicleSaleService {
             invoiceDate,
           ),
         },
+      });
+
+      await deactivateVehicleListingsOnSale(tx, {
+        tenantId,
+        siteId: persistedSiteId,
+        vehicleId: posted.vehicle_id,
       });
 
       await this.releaseStockAndPostLedger(tx, tenantId, posted, {

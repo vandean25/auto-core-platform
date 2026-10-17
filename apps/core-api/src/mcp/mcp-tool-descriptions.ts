@@ -6,6 +6,8 @@ export const MCP_TOOL_DESCRIPTIONS: Record<McpToolName, string> = {
     'Get a customer by id: contact data, vehicles, and a compact order history (orders newest first, max 25 per page, paged with orders_cursor; invoices via list_invoices)',
   search_vehicles: 'Search vehicles (tenant-scoped, paged)',
   get_vehicle: 'Get a vehicle by id',
+  get_vehicle_listing_status:
+    'Per-portal marketplace listing status for a vehicle at the active site (desired, export, and remote state)',
   list_workshop_orders:
     'List workshop orders for the active site by order status, current estimate status, scheduled date, or estimate sent date (site-local YYYY-MM-DD), with optional search and customer_id (paged, pageSize max 25)',
   get_workshop_order: 'Get a workshop order by id (active site)',
