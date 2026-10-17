@@ -3853,6 +3853,23 @@ export interface paths {
         patch: operations["VehicleListingController_patchChannel"];
         trace?: never;
     };
+    "/api/vehicle-stock/{vehicleId}/listing/export/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download a reference listing export package (CSV + images ZIP) for the active stock cycle */
+        get: operations["VehicleListingExportController_download"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/employees": {
         parameters: {
             query?: never;
@@ -9737,6 +9754,14 @@ export interface components {
             description_language: components["schemas"]["VehicleListingDescriptionLanguage"];
             price_display?: components["schemas"]["VehicleListingPriceDisplayDto"];
             equipment_free_text?: Record<string, never>;
+            /** @example Car.Limousine */
+            portal_category?: Record<string, never>;
+            export_assertion_damage_free?: Record<string, never>;
+            export_assertion_metallic?: Record<string, never>;
+            export_assertion_guarantee?: Record<string, never>;
+            export_assertion_jahreswagen?: Record<string, never>;
+            export_assertion_recommendation?: Record<string, never>;
+            export_assertion_demo_vehicle?: Record<string, never>;
             content_sha256: string;
             photos: components["schemas"]["VehicleListingPhotoDto"][];
             channels: components["schemas"]["VehicleListingChannelDto"][];
@@ -9759,6 +9784,14 @@ export interface components {
             mandatory_fees_included_confirmed?: boolean;
             equipment_free_text?: Record<string, never>;
             photo_ids?: string[];
+            /** @example Car.Limousine */
+            portal_category?: Record<string, never>;
+            export_assertion_damage_free?: Record<string, never>;
+            export_assertion_metallic?: Record<string, never>;
+            export_assertion_guarantee?: Record<string, never>;
+            export_assertion_jahreswagen?: Record<string, never>;
+            export_assertion_recommendation?: Record<string, never>;
+            export_assertion_demo_vehicle?: Record<string, never>;
         };
         PatchVehicleListingChannelDto: {
             expected_revision: number;
@@ -18901,6 +18934,28 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["VehicleListingDto"];
                 };
+            };
+        };
+    };
+    VehicleListingExportController_download: {
+        parameters: {
+            query: {
+                /** @description Listing serializer profile code (e.g. MOBILE_DE_REFERENCE_V1) */
+                profile: string;
+            };
+            header?: never;
+            path: {
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

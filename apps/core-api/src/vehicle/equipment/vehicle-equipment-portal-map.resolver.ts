@@ -55,6 +55,7 @@ export function resolveVehicleEquipmentForProfile(
   const mappedFields: ResolvedVehicleEquipmentExport['mappedFields'] = [];
   const equipmentCodes: string[] = [];
   const equipmentFreeTextLines: string[] = [];
+  const presentPortalFields = new Set<string>();
 
   const sortedSelections = [...input.selections].sort((a, b) =>
     a.code.localeCompare(b.code),
@@ -67,14 +68,18 @@ export function resolveVehicleEquipmentForProfile(
       const absentPortalValue = entry?.absent_portal_value;
       const emitPortalAbsent =
         absentPortalValue !== undefined && !profileConfig.export_local_codes;
-      if (emitPortalAbsent && entry) {
+      if (
+        emitPortalAbsent &&
+        entry &&
+        !presentPortalFields.has(entry.portal_field)
+      ) {
         mappedFields.push({
           localCode: selection.code,
           portalField: entry.portal_field,
           portalValue: absentPortalValue,
           verification: entry.verification,
         });
-      } else {
+      } else if (!emitPortalAbsent || !entry) {
         equipmentFreeTextLines.push(formatConfirmedAbsentLine(selection));
       }
       continue;
@@ -85,6 +90,7 @@ export function resolveVehicleEquipmentForProfile(
       continue;
     }
     if (entry) {
+      presentPortalFields.add(entry.portal_field);
       mappedFields.push({
         localCode: selection.code,
         portalField: entry.portal_field,

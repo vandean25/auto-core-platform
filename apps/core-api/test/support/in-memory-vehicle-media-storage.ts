@@ -7,6 +7,14 @@ export class InMemoryVehicleMediaStorage implements VehicleMediaStorage {
     return 'in-memory-vehicle-media';
   }
 
+  async readObject(params: { bucket: string; key: string }): Promise<Buffer> {
+    const bytes = this.objects.get(params.key);
+    if (!bytes) {
+      throw new Error(`Missing in-memory object: ${params.key}`);
+    }
+    return Buffer.from(bytes);
+  }
+
   objectPrefix(tenantId: string, vehicleId: string, mediaId: string): string {
     return `tenants/${tenantId}/vehicles/${vehicleId}/media/${mediaId}/`;
   }

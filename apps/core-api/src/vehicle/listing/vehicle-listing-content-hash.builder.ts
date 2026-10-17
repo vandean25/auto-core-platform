@@ -91,6 +91,13 @@ export async function buildVehicleListingContentHashInput(
       | 'nova_included_confirmed'
       | 'mandatory_fees_included_confirmed'
       | 'equipment_free_text'
+      | 'portal_category'
+      | 'export_assertion_damage_free'
+      | 'export_assertion_metallic'
+      | 'export_assertion_guarantee'
+      | 'export_assertion_jahreswagen'
+      | 'export_assertion_recommendation'
+      | 'export_assertion_demo_vehicle'
     > | null;
     photoMediaIds: string[];
     channels: Pick<
@@ -178,6 +185,15 @@ export async function buildVehicleListingContentHashInput(
     mandatory_fees_included_confirmed:
       listing?.mandatory_fees_included_confirmed ?? false,
     equipment_free_text: listing?.equipment_free_text ?? null,
+    portal_category: listing?.portal_category ?? null,
+    export_assertions: {
+      damage_free: listing?.export_assertion_damage_free ?? null,
+      metallic: listing?.export_assertion_metallic ?? null,
+      guarantee: listing?.export_assertion_guarantee ?? null,
+      jahreswagen: listing?.export_assertion_jahreswagen ?? null,
+      recommendation: listing?.export_assertion_recommendation ?? null,
+      demo_vehicle: listing?.export_assertion_demo_vehicle ?? null,
+    },
     equipment: selections.map((row) => ({
       code: row.option.code,
       assertion: row.assertion,
@@ -214,6 +230,13 @@ export async function computeListingContentSha256FromDb(
       | 'nova_included_confirmed'
       | 'mandatory_fees_included_confirmed'
       | 'equipment_free_text'
+      | 'portal_category'
+      | 'export_assertion_damage_free'
+      | 'export_assertion_metallic'
+      | 'export_assertion_guarantee'
+      | 'export_assertion_jahreswagen'
+      | 'export_assertion_recommendation'
+      | 'export_assertion_demo_vehicle'
     > | null;
     photoMediaIds: string[];
     channels: Pick<
