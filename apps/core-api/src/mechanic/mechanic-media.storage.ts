@@ -152,6 +152,58 @@ export class MechanicMediaStorage {
     }
   }
 
+  async uploadCheckInPhoto(params: {
+    tenantId: string;
+    orderId: string;
+    checkInId: string;
+    bytes: Buffer;
+    mimeType: string;
+    filename?: string;
+  }): Promise<{ storageBucket: string; storageKey: string }> {
+    if (!IMAGE_MIME_TYPES.has(params.mimeType)) {
+      throw new BadRequestException(
+        `Unsupported MIME type for check-in photo: ${params.mimeType}`,
+      );
+    }
+    const bucketName = this.getBucketName();
+    const ext = this.getExtension(params.mimeType, params.filename);
+    const objectId = crypto.randomUUID();
+    const storageKey = `tenants/${params.tenantId}/orders/${params.orderId}/check-in/${params.checkInId}/${objectId}${ext}`;
+    const file = this.storage.bucket(bucketName).file(storageKey);
+    try {
+      await file.save(params.bytes, {
+        resumable: false,
+        contentType: params.mimeType,
+        metadata: { cacheControl: 'private, max-age=0' },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Failed to store check-in photo key=${storageKey}: ${message}`,
+      );
+      throw new InternalServerErrorException(
+        'Failed to store check-in photo. Please try again.',
+      );
+    }
+    return { storageBucket: bucketName, storageKey };
+  }
+
+  async deleteObjectIfExists(
+    storageBucket: string,
+    storageKey: string,
+  ): Promise<void> {
+    try {
+      await this.storage.bucket(storageBucket).file(storageKey).delete({
+        ignoreNotFound: true,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Failed to delete object ${storageKey}: ${message}`,
+      );
+    }
+  }
+
   /** Short-lived signed GET URL for advisor review of uploaded bay media. */
   async generateSignedReadUrl(
     storageBucket: string,

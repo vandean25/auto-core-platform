@@ -18,7 +18,7 @@ type Options = {
   orderId: string
   record: WorkshopCheckIn | null | undefined
   readOnly: boolean
-  onRevisionConflict?: () => void
+  onRevisionConflict?: () => Promise<WorkshopCheckIn | null | undefined>
 }
 
 export function useCheckInDraftAutosave({
@@ -32,12 +32,16 @@ export function useCheckInDraftAutosave({
   const [draft, setDraft] = useState<CheckInDraftSnapshot | null>(null)
   const lastSavedRef = useRef<CheckInDraftSnapshot | null>(null)
   const revisionRef = useRef(1)
+  const hydrateFromServerRef = useRef(false)
+  const hasLocalDraftRef = useRef(false)
 
-  useEffect(() => {
-    if (record?.revision) {
-      revisionRef.current = record.revision
-    }
-  }, [record?.revision])
+  const applyServerRecord = useCallback((serverRecord: WorkshopCheckIn) => {
+    revisionRef.current = serverRecord.revision
+    const next = draftFromCheckIn(serverRecord)
+    lastSavedRef.current = next
+    hasLocalDraftRef.current = true
+    setDraft(next)
+  }, [])
 
   useEffect(() => {
     if (!record) {
@@ -45,22 +49,15 @@ export function useCheckInDraftAutosave({
     }
     const next = draftFromCheckIn(record)
     setDraft((current) => {
-      if (current && lastSavedRef.current) {
+      if (current && lastSavedRef.current && !hydrateFromServerRef.current) {
         return current
       }
+      hydrateFromServerRef.current = false
+      revisionRef.current = record.revision
       lastSavedRef.current = next
+      hasLocalDraftRef.current = true
       return next
     })
-  }, [record])
-
-  const reloadFromServer = useCallback(() => {
-    if (!record) {
-      return
-    }
-    revisionRef.current = record.revision
-    const next = draftFromCheckIn(record)
-    lastSavedRef.current = next
-    setDraft(next)
   }, [record])
 
   const save = useCallback(
@@ -95,14 +92,22 @@ export function useCheckInDraftAutosave({
     onError: (error) => {
       const message = describeWorkshopCheckInError(error)
       toast.error(message)
-      if (
+      const code =
         typeof error === 'object' &&
         error !== null &&
         'code' in error &&
-        (error as { code?: string }).code === 'CHECK_IN_CONFLICT'
-      ) {
-        reloadFromServer()
-        onRevisionConflict?.()
+        (error as { code?: string }).code
+      if (code === 'CHECK_IN_CONFLICT') {
+        void (async () => {
+          hydrateFromServerRef.current = true
+          const fresh = await onRevisionConflict?.()
+          if (fresh) {
+            applyServerRecord(fresh)
+          }
+        })()
+      }
+      if (code === 'CHECK_IN_COMPLETED') {
+        void onRevisionConflict?.()
       }
     },
   })
@@ -140,9 +145,10 @@ export function useCheckInDraftAutosave({
 
   const flushBeforeNavigate = useCallback(async () => {
     if (!draft || readOnly) {
-      return
+      return revisionRef.current
     }
     await triggerAutoSave(draft, { immediate: true })
+    return revisionRef.current
   }, [draft, readOnly, triggerAutoSave])
 
   return {
@@ -152,7 +158,6 @@ export function useCheckInDraftAutosave({
     patchCondition,
     saveStatus,
     flushBeforeNavigate,
-    reloadFromServer,
     readOnlyMessage: readOnly ? t('checkIn.completedBanner') : null,
   }
 }

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -57,6 +57,16 @@ export function CheckInConditionStep({
   const [damageType, setDamageType] = useState<CheckInDamageType>('SCRATCH')
   const [note, setNote] = useState('')
   const [selectedMediaIds, setSelectedMediaIds] = useState<string[]>([])
+  const previewUrlsRef = useRef<Set<string>>(new Set())
+
+  useEffect(() => {
+    return () => {
+      for (const url of previewUrlsRef.current) {
+        URL.revokeObjectURL(url)
+      }
+      previewUrlsRef.current.clear()
+    }
+  }, [])
 
   const handleCapture = async (file: File) => {
     if (readOnly) {
@@ -73,6 +83,7 @@ export function CheckInConditionStep({
       onMediaUploaded(uploaded)
       onRevisionBump()
       const preview = URL.createObjectURL(file)
+      previewUrlsRef.current.add(preview)
       onRegisterPreview(uploaded.id, preview)
       setSelectedMediaIds((previous) =>
         previous.includes(uploaded.id) ? previous : [...previous, uploaded.id],
@@ -122,6 +133,8 @@ export function CheckInConditionStep({
           accept={PHOTO_ACCEPT}
           capture="environment"
           className="sr-only"
+          tabIndex={-1}
+          aria-hidden
           data-testid="check-in-camera-input"
           onChange={(event) => {
             const file = event.target.files?.[0]

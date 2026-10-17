@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -28,6 +29,21 @@ export function CheckInVehicleStep({
   onPatchCondition,
 }: Props) {
   const { t } = useTranslation('workshop')
+  const [warningLightsInput, setWarningLightsInput] = useState(
+    draft.warning_lights.join(', '),
+  )
+
+  useEffect(() => {
+    setWarningLightsInput(draft.warning_lights.join(', '))
+  }, [draft.warning_lights])
+
+  const commitWarningLights = () => {
+    const parts = warningLightsInput
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean)
+    onPatch({ warning_lights: parts })
+  }
 
   return (
     <div className="space-y-8" data-testid="check-in-step-vehicle">
@@ -116,14 +132,9 @@ export function CheckInVehicleStep({
             className="min-h-11"
             disabled={readOnly}
             placeholder={t('checkIn.fields.warningLightsPlaceholder')}
-            value={draft.warning_lights.join(', ')}
-            onChange={(event) => {
-              const parts = event.target.value
-                .split(',')
-                .map((part) => part.trim())
-                .filter(Boolean)
-              onPatch({ warning_lights: parts })
-            }}
+            value={warningLightsInput}
+            onChange={(event) => setWarningLightsInput(event.target.value)}
+            onBlur={commitWarningLights}
           />
         </div>
         <div className="space-y-2">

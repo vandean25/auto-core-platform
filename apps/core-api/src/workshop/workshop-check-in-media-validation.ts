@@ -23,8 +23,7 @@ type CheckInDb = Pick<
 
 /**
  * Call at the start of every transaction that attaches or updates check-in media
- * (`check_in_id` set, purpose CHECK_IN / CHECK_IN_SIGNATURE). No such write routes
- * exist in core-api yet; wire this in when they land (AUT-557+).
+ * (`check_in_id` set, purpose CHECK_IN / CHECK_IN_SIGNATURE).
  */
 export async function assertCheckInAllowsMediaMutation(
   db: CheckInDb,

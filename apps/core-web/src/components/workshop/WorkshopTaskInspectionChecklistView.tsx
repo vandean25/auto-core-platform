@@ -28,6 +28,8 @@ type Props = {
   checklist: InspectionChecklistData;
   readOnly?: boolean;
   saving: boolean;
+  /** When true, pass/fail and note controls meet the 44px tablet touch target. */
+  touchFriendly?: boolean;
   labels?: InspectionChecklistViewLabels;
   onSave: (
     itemId: string,
@@ -39,6 +41,7 @@ export function WorkshopTaskInspectionChecklistView({
   checklist,
   readOnly = false,
   saving,
+  touchFriendly = false,
   labels,
   onSave,
 }: Props) {
@@ -85,7 +88,8 @@ export function WorkshopTaskInspectionChecklistView({
               <div className="flex gap-2">
                 <Button
                   type="button"
-                  size="sm"
+                  size={touchFriendly ? "default" : "sm"}
+                  className={touchFriendly ? "min-h-11" : undefined}
                   variant={item.passed === true ? "default" : "outline"}
                   aria-label={resolvedLabels.passAriaLabel(item.label_snapshot)}
                   disabled={readOnly || saving}
@@ -95,7 +99,8 @@ export function WorkshopTaskInspectionChecklistView({
                 </Button>
                 <Button
                   type="button"
-                  size="sm"
+                  size={touchFriendly ? "default" : "sm"}
+                  className={touchFriendly ? "min-h-11" : undefined}
                   variant={item.passed === false ? "destructive" : "outline"}
                   aria-label={resolvedLabels.failAriaLabel(item.label_snapshot)}
                   disabled={readOnly || saving}
@@ -105,7 +110,7 @@ export function WorkshopTaskInspectionChecklistView({
                 </Button>
               </div>
               <Input
-                className="sm:col-span-2"
+                className={touchFriendly ? "sm:col-span-2 min-h-11" : "sm:col-span-2"}
                 aria-label={resolvedLabels.noteAriaLabel(item.label_snapshot)}
                 placeholder={resolvedLabels.notePlaceholder}
                 value={itemNotes}

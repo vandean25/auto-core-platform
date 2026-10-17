@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { formatDateTime, formatOdometerKm } from '@/lib/format'
+import { formatDateTime, formatOdometerKm, formatPercent } from '@/lib/format'
 import type { WorkshopCheckIn } from '@/api/workshop-check-in'
 import { WorkshopCheckInInspectionChecklist } from './WorkshopCheckInInspectionChecklist'
 import { CheckInSignatureSlot } from './CheckInSignatureSlot'
@@ -39,7 +39,9 @@ export function CheckInReviewStep({
           </div>
           <div>
             <dt className="text-sm text-muted-foreground">{t('checkIn.fields.fuelLevel')}</dt>
-            <dd className="text-base font-medium">{draft.fuel_level}%</dd>
+            <dd className="text-base font-medium">
+              {formatPercent(draft.fuel_level)}
+            </dd>
           </div>
           <div className="sm:col-span-2">
             <dt className="text-sm text-muted-foreground">{t('checkIn.fields.itemsLeft')}</dt>

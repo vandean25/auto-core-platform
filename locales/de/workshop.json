@@ -1330,6 +1330,7 @@
       "back": "Zurück",
       "exit": "Zurück zum Auftrag",
       "backToOrder": "Zum Auftrag",
+      "retry": "Erneut versuchen",
       "addDamageMarker": "Schaden hinzufügen"
     },
     "media": {

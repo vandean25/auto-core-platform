@@ -7,9 +7,6 @@ export const WORKSHOP_CHECK_IN_ERROR_CODES = [
   'CHECK_IN_COMPLETED',
   'CHECK_IN_ORDER_STATUS',
   'CHECK_IN_MEDIA_INVALID',
-  'UPLOAD_ID_REUSED',
-  'CHECK_IN_NOT_COMPLETED',
-  'CHECK_IN_MEDIA_PENDING',
 ] as const
 
 export type WorkshopCheckInErrorCode =
@@ -17,7 +14,14 @@ export type WorkshopCheckInErrorCode =
 
 function resolveCheckInErrorCode(error: unknown): WorkshopCheckInErrorCode | undefined {
   const body = getErrorBody(error)
-  const code = body?.code
+  const directCode =
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    typeof (error as { code?: unknown }).code === 'string'
+      ? (error as { code: string }).code
+      : undefined
+  const code = body?.code ?? directCode
   if (
     code &&
     WORKSHOP_CHECK_IN_ERROR_CODES.includes(code as WorkshopCheckInErrorCode)
@@ -42,7 +46,7 @@ export function describeWorkshopCheckInError(error: unknown): string {
 export function createCheckInHttpError(
   response: Response,
   body: { message?: string | string[]; code?: string },
-): Error & { status: number; code?: string } {
+): Error & { status: number; code?: string; data?: { code?: string } } {
   const raw = body.message
   const message =
     typeof raw === 'string'
@@ -50,10 +54,15 @@ export function createCheckInHttpError(
       : Array.isArray(raw)
         ? raw.join(', ')
         : 'Request failed'
-  const err = new Error(message) as Error & { status: number; code?: string }
+  const err = new Error(message) as Error & {
+    status: number
+    code?: string
+    data?: { code?: string }
+  }
   err.status = response.status
   if (body.code) {
     err.code = body.code
+    err.data = { code: body.code }
   }
   return err
 }

@@ -35,6 +35,7 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
   const navigate = useNavigate()
   const orderQuery = useWorkshopOrder(orderId)
   const checkInIdRef = useRef<string | null>(null)
+  const createFailedRef = useRef(false)
   const createCheckIn = useCreateWorkshopCheckIn()
   const completeCheckIn = useCompleteWorkshopCheckIn()
   const [step, setStep] = useState<CheckInStep>('vehicle')
@@ -61,30 +62,46 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
     orderId,
     record: checkInQuery.data,
     readOnly,
-    onRevisionConflict: () => {
-      void checkInQuery.refetch()
-      toast.error(t('checkIn.errors.CHECK_IN_CONFLICT'))
+    onRevisionConflict: async () => {
+      const result = await checkInQuery.refetch()
+      return result.data ?? null
     },
   })
 
   useEffect(() => {
-    if (!orderQuery.data || checkInQuery.isLoading || checkInQuery.data) {
+    if (!orderQuery.data || checkInQuery.isLoading) {
+      return
+    }
+    if (checkInQuery.isError) {
+      return
+    }
+    if (checkInQuery.data) {
       return
     }
     if (!canStartCheckIn(orderQuery.data.status)) {
       return
     }
-    if (checkInIdRef.current) {
+    if (checkInIdRef.current || createFailedRef.current) {
       return
     }
     const id = generateId()
     checkInIdRef.current = id
-    void createCheckIn.mutateAsync({ orderId, checkInId: id }).catch((error: unknown) => {
-      toast.error(describeWorkshopCheckInError(error))
-    })
+    void createCheckIn
+      .mutateAsync({ orderId, checkInId: id })
+      .catch(async (error: unknown) => {
+        toast.error(describeWorkshopCheckInError(error))
+        checkInIdRef.current = null
+        createFailedRef.current = true
+        const refetched = await checkInQuery.refetch()
+        if (refetched.data) {
+          createFailedRef.current = false
+        }
+      })
   }, [
     checkInQuery.data,
+    checkInQuery.isError,
     checkInQuery.isLoading,
+    checkInQuery.refetch,
     createCheckIn,
     orderId,
     orderQuery.data,
@@ -98,6 +115,23 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
     }
     return `${vehicle.year} ${vehicle.make} ${vehicle.model}`
   }, [orderQuery.data?.vehicle])
+
+  if (checkInQuery.isError) {
+    return (
+      <div className="space-y-4">
+        <p className="text-sm text-destructive">
+          {describeWorkshopCheckInError(checkInQuery.error)}
+        </p>
+        <Button
+          type="button"
+          className="min-h-11"
+          onClick={() => void checkInQuery.refetch()}
+        >
+          {t('checkIn.actions.retry')}
+        </Button>
+      </div>
+    )
+  }
 
   if (orderQuery.isLoading || checkInQuery.isLoading) {
     return (
@@ -140,11 +174,10 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
   }
 
   const handleComplete = async () => {
-    const revision = checkInQuery.data?.revision
+    const revision = await flushBeforeNavigate()
     if (revision === undefined) {
       return
     }
-    await flushBeforeNavigate()
     try {
       await completeCheckIn.mutateAsync({
         orderId,

@@ -1,9 +1,11 @@
+import { readFile } from 'node:fs/promises';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
 import { createGlobalValidationPipe } from '../src/common/index.js';
 import { AuthService } from '../src/auth/auth.service.js';
+import { MechanicMediaStorage } from '../src/mechanic/mechanic-media.storage.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
   cleanupTestTenantGraph,
@@ -11,8 +13,14 @@ import {
   createTestAuthToken,
   createTestTenant,
   resolveTestMainSiteId,
+  seedTestEmployee,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
+
+const gpsFixture = new URL(
+  '../src/common/media/fixtures/gps-oriented.jpg',
+  import.meta.url,
+);
 
 jest.setTimeout(30000);
 
@@ -26,11 +34,25 @@ describe('Workshop check-in (e2e)', () => {
   let orderId: string;
   let otherOrderId: string;
   const checkInId = '51500000-0000-4000-8000-000000000555';
+  const mockMediaStorage: Partial<MechanicMediaStorage> = {
+    uploadCheckInPhoto: jest.fn().mockResolvedValue({
+      storageBucket: 'test-workshop-media-bucket',
+      storageKey: 'tenants/t/check-in/photo.jpg',
+    }),
+    generateSignedReadUrl: jest
+      .fn()
+      .mockResolvedValue('https://example.test/photo.jpg'),
+    deleteObjectIfExists: jest.fn().mockResolvedValue(undefined),
+  };
 
   beforeAll(async () => {
+    process.env.WORKSHOP_MEDIA_BUCKET = 'test-workshop-media-bucket';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(MechanicMediaStorage)
+      .useValue(mockMediaStorage)
+      .compile();
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
@@ -111,6 +133,12 @@ describe('Workshop check-in (e2e)', () => {
       },
     });
     otherOrderId = otherOrder.id;
+
+    await seedTestEmployee(basePrisma, {
+      tenantId,
+      name: 'Advisor Upload',
+      role: 'SERVICE_ADVISOR',
+    });
   });
 
   afterAll(async () => {
@@ -176,6 +204,40 @@ describe('Workshop check-in (e2e)', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .send({ id: checkInId })
       .expect(200);
+  });
+
+  it('uploads CHECK_IN media and bumps revision', async () => {
+    const before = await request(app.getHttpServer())
+      .get(`/api/workshop/orders/${orderId}/check-in`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    const bytes = await readFile(gpsFixture);
+    const uploadRes = await request(app.getHttpServer())
+      .post(`/api/workshop/orders/${orderId}/check-in/media`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .field('client_upload_id', '51500000-0000-4000-8000-000000000558')
+      .field('purpose', 'CHECK_IN')
+      .field('expected_revision', String(before.body.revision))
+      .attach('file', bytes, 'check-in.jpg')
+      .expect(201);
+
+    expect(uploadRes.body.purpose).toBe('CHECK_IN');
+
+    const after = await request(app.getHttpServer())
+      .get(`/api/workshop/orders/${orderId}/check-in`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    expect(after.body.revision).toBe(before.body.revision + 1);
+
+    const listRes = await request(app.getHttpServer())
+      .get(`/api/workshop/orders/${orderId}/check-in/media`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    expect(listRes.body.data).toHaveLength(1);
+    expect(listRes.body.data[0].id).toBe(uploadRes.body.id);
   });
 
   it('isolates check-in reads across tenants', async () => {
