@@ -7,7 +7,11 @@ import type { PurchaseInvoice } from '@/api/types'
 import * as purchaseApi from '@/api/usePurchaseInvoices'
 import { DashboardWidgetsProvider } from '@/features/dashboard-widgets/DashboardWidgetsProvider'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
+import deFinance from '../../../../../locales/de/finance.json'
+import { registerGermanUiForTests } from '@/test/german-ui'
 import PurchaseBillsPage from './PurchaseBillsPage'
+
+registerGermanUiForTests()
 
 vi.mock('@/api/usePurchaseInvoices')
 vi.mock('sonner', () => ({
@@ -88,7 +92,7 @@ describe('PurchaseBillsPage row context Delete', () => {
     renderPage()
     fireEvent.contextMenu(screen.getByText('VB-001'))
 
-    expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: deFinance.actions.delete })).toBeInTheDocument()
   })
 
   it('hides Delete for posted bills', () => {
@@ -103,7 +107,7 @@ describe('PurchaseBillsPage row context Delete', () => {
     renderPage()
     fireEvent.contextMenu(screen.getByText('VB-002'))
 
-    expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: deFinance.actions.delete })).not.toBeInTheDocument()
   })
 
   it('deletes a draft bill after confirmation', async () => {
@@ -115,12 +119,12 @@ describe('PurchaseBillsPage row context Delete', () => {
 
     renderPage()
     fireEvent.contextMenu(screen.getByText('VB-001'))
-    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    fireEvent.click(screen.getByRole('button', { name: deFinance.actions.delete }))
 
     await waitFor(() => {
       expect(mutateAsync).toHaveBeenCalledWith('bill-draft')
     })
-    expect(toast.success).toHaveBeenCalledWith('Bill deleted')
+    expect(toast.success).toHaveBeenCalledWith(deFinance.purchaseBills.list.deleted)
   })
 
   it('toasts the backend error when delete is rejected', async () => {
@@ -132,10 +136,10 @@ describe('PurchaseBillsPage row context Delete', () => {
 
     renderPage()
     fireEvent.contextMenu(screen.getByText('VB-001'))
-    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    fireEvent.click(screen.getByRole('button', { name: deFinance.actions.delete }))
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('Failed to delete bill')
+      expect(toast.error).toHaveBeenCalledWith(deFinance.purchaseBills.list.deleteFailed)
     })
   })
 })

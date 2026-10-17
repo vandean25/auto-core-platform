@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Loader2, Printer, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useInvoice } from '@/api/sales'
@@ -42,7 +43,9 @@ import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import {
   canManageCreditNotes,
   validateCreditQuantity,
+  type CreditQuantityValidation,
 } from '@/lib/credit-note-quantity'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { getErrorMessage } from '@/lib/error-utils'
 import { formatDateShort } from '@/lib/format'
 import { formatCurrency } from '@/lib/utils'
@@ -58,6 +61,11 @@ type DraftLineState = {
 }
 
 export default function CreditNoteDetailPage() {
+  const { t } = useTranslation('finance')
+  React.useEffect(() => {
+    void ensureNamespaceLoaded('finance')
+  }, [])
+
   const { id = '' } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const sessionQuery = useAuthSession()
@@ -84,8 +92,8 @@ export default function CreditNoteDetailPage() {
     checkGenerationFailed: () =>
       creditNote ? fetchCreditNotePdfGenerationError(creditNote.id) : Promise.resolve(null),
     messages: {
-      success: 'Credit note PDF downloaded successfully',
-      errorFallback: 'Fehler beim Erstellen der Gutschrift-PDF',
+      success: t('creditNotes.detail.toast.pdfSuccess'),
+      errorFallback: t('creditNotes.detail.toast.pdfFailed'),
     },
   })
   const lastSavedRef = React.useRef<string | null>(null)
@@ -122,7 +130,7 @@ export default function CreditNoteDetailPage() {
   )
 
   const lineValidationErrors = React.useMemo(() => {
-    const errors = new Map<string, string>()
+    const errors = new Map<string, CreditQuantityValidation>()
     lines.forEach((line) => {
       const remaining = remainingByItemId.get(line.originalItemId)
       const error = validateCreditQuantity(
@@ -210,22 +218,22 @@ export default function CreditNoteDetailPage() {
     if (!creditNote) return
 
     if (saveStatus === 'saving') {
-      toast.error('Please wait for the draft to finish saving before finalizing.')
+      toast.error(t('creditNotes.detail.toast.waitForSave'))
       return
     }
 
     if (saveStatus === 'error') {
-      toast.error('Resolve the autosave error before finalizing this credit note.')
+      toast.error(t('creditNotes.detail.toast.resolveAutosave'))
       return
     }
 
     if (!reason.trim()) {
-      toast.error('Please enter a reason before finalizing.')
+      toast.error(t('creditNotes.detail.toast.reasonRequired'))
       return
     }
 
     if (hasInvalidLines) {
-      toast.error('Fix invalid credited quantities before finalizing.')
+      toast.error(t('creditNotes.detail.toast.fixQuantities'))
       return
     }
 
@@ -245,10 +253,10 @@ export default function CreditNoteDetailPage() {
           idempotencyKey: generateId(),
         },
       })
-      toast.success('Credit note finalized')
+      toast.success(t('creditNotes.detail.toast.finalized'))
       setFinalizeOpen(false)
     } catch (finalizeError: unknown) {
-      toast.error(getErrorMessage(finalizeError, 'Failed to finalize credit note'))
+      toast.error(getErrorMessage(finalizeError, t('creditNotes.detail.toast.finalizeFailed')))
     }
   }
 
@@ -259,22 +267,22 @@ export default function CreditNoteDetailPage() {
         id: creditNote.id,
         payload: { expectedVersion: version },
       })
-      toast.success('Draft credit note voided')
+      toast.success(t('creditNotes.detail.toast.voided'))
       setVoidOpen(false)
       navigate(APP_ROUTE_PATHS.salesInvoiceDetail.replace(':id', creditNote.originalInvoiceId))
     } catch (voidError: unknown) {
-      toast.error(getErrorMessage(voidError, 'Failed to void credit note'))
+      toast.error(getErrorMessage(voidError, t('creditNotes.detail.toast.voidFailed')))
     }
   }
 
   if (isLoading) {
-    return <div className="p-8 text-center text-sm text-muted-foreground">Loading credit note...</div>
+    return <div className="p-8 text-center text-sm text-muted-foreground">{t('creditNotes.detail.loading')}</div>
   }
 
   if (isError || !creditNote) {
     return (
       <div className="p-8 text-center text-sm text-muted-foreground">
-        {getErrorMessage(error, 'Credit note not found')}
+        {getErrorMessage(error, t('creditNotes.detail.notFound'))}
       </div>
     )
   }
@@ -292,7 +300,8 @@ export default function CreditNoteDetailPage() {
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-semibold tracking-tight">
-            {creditNote.creditNumber ?? `Credit Note ${creditNote.id.slice(0, 8)}`}
+            {creditNote.creditNumber ??
+              t('shared.creditNoteTitle', { id: creditNote.id.slice(0, 8) })}
           </h1>
           <StatusBadge status={creditNote.status} />
         </div>
@@ -302,7 +311,7 @@ export default function CreditNoteDetailPage() {
             <>
               <Button variant="outline" onClick={() => setVoidOpen(true)}>
                 <Trash2 className="mr-2 h-4 w-4" />
-                Void
+                {t('actions.void')}
               </Button>
               <Button
                 onClick={() => setFinalizeOpen(true)}
@@ -313,7 +322,7 @@ export default function CreditNoteDetailPage() {
                   finalizeCreditNote.isPending
                 }
               >
-                Finalize
+                {t('actions.finalize')}
               </Button>
             </>
           ) : null}
@@ -324,7 +333,7 @@ export default function CreditNoteDetailPage() {
               ) : (
                 <Printer className="mr-2 h-4 w-4" />
               )}
-              {isPrinting ? 'Generating...' : 'Print'}
+              {isPrinting ? t('shared.generating') : t('actions.print')}
             </Button>
           ) : null}
         </div>
@@ -334,11 +343,11 @@ export default function CreditNoteDetailPage() {
         <div className="space-y-6 lg:col-span-1">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base font-semibold">Credit Info</CardTitle>
+              <CardTitle className="text-base font-semibold">{t('creditNotes.detail.creditInfo')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 text-sm">
               <div>
-                <div className="text-muted-foreground">Original invoice</div>
+                <div className="text-muted-foreground">{t('creditNotes.detail.originalInvoice')}</div>
                 <Link
                   to={APP_ROUTE_PATHS.salesInvoiceDetail.replace(
                     ':id',
@@ -350,7 +359,7 @@ export default function CreditNoteDetailPage() {
                 </Link>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="credit-note-date">Date</Label>
+                <Label htmlFor="credit-note-date">{t('columns.date')}</Label>
                 {canEditDraft ? (
                   <Input
                     id="credit-note-date"
@@ -366,7 +375,7 @@ export default function CreditNoteDetailPage() {
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="credit-note-reason">Reason</Label>
+                <Label htmlFor="credit-note-reason">{t('columns.reason')}</Label>
                 {canEditDraft ? (
                   <Input
                     id="credit-note-reason"
@@ -382,14 +391,12 @@ export default function CreditNoteDetailPage() {
               </div>
               {isDraft && !canManageCreditNote ? (
                 <p className="text-xs text-slate-500">
-                  Only OWNER or ADMIN can edit or void this draft credit note.
+                  {t('creditNotes.detail.draftEditHint')}
                 </p>
               ) : null}
               {creditNote.status === 'FINALIZED' ? (
                 <p className="text-xs text-slate-500">
-                  Finalized credits cannot be changed here. Contact support and your
-                  accountant for external corrective handling if this document was
-                  issued in error.
+                  {t('creditNotes.detail.finalizedHint')}
                 </p>
               ) : null}
             </CardContent>
@@ -397,19 +404,19 @@ export default function CreditNoteDetailPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base font-semibold">Totals</CardTitle>
+              <CardTitle className="text-base font-semibold">{t('creditNotes.detail.totals')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Net</span>
+                <span className="text-muted-foreground">{t('creditNotes.detail.net')}</span>
                 <span>{formatCurrency(Number(creditNote.totalNet))}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Tax</span>
+                <span className="text-muted-foreground">{t('creditNotes.detail.tax')}</span>
                 <span>{formatCurrency(Number(creditNote.totalTax))}</span>
               </div>
               <div className="flex justify-between border-t pt-2 font-semibold">
-                <span>Gross</span>
+                <span>{t('creditNotes.detail.gross')}</span>
                 <span>{formatCurrency(Number(creditNote.totalGross))}</span>
               </div>
             </CardContent>
@@ -419,15 +426,15 @@ export default function CreditNoteDetailPage() {
         <div className="lg:col-span-2 space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base font-semibold">Credited Lines</CardTitle>
+              <CardTitle className="text-base font-semibold">{t('creditNotes.detail.creditedLines')}</CardTitle>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Description</TableHead>
-                    <TableHead className="text-right">Qty</TableHead>
-                    <TableHead className="text-right">Remaining</TableHead>
+                    <TableHead>{t('columns.description')}</TableHead>
+                    <TableHead className="text-right">{t('columns.qty')}</TableHead>
+                    <TableHead className="text-right">{t('columns.remaining')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -464,7 +471,9 @@ export default function CreditNoteDetailPage() {
                                 }}
                               />
                               {lineError ? (
-                                <p id={`credit-line-quantity-${item.originalInvoiceItemId}-error`} role="alert" className="mt-1 text-xs text-destructive">{lineError}</p>
+                                <p id={`credit-line-quantity-${item.originalInvoiceItemId}-error`} role="alert" className="mt-1 text-xs text-destructive">{'params' in lineError
+                                  ? t(lineError.key, lineError.params)
+                                  : t(lineError.key)}</p>
                               ) : null}
                             </div>
                           ) : (
@@ -472,7 +481,7 @@ export default function CreditNoteDetailPage() {
                           )}
                         </TableCell>
                         <TableCell className="text-right text-muted-foreground">
-                          {remaining?.remainingQuantity ?? '—'}
+                          {remaining?.remainingQuantity ?? t('placeholders.missing', { ns: 'common' })}
                         </TableCell>
                       </TableRow>
                     )
@@ -487,17 +496,15 @@ export default function CreditNoteDetailPage() {
       <AlertDialog open={finalizeOpen} onOpenChange={setFinalizeOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Finalize credit note?</AlertDialogTitle>
+            <AlertDialogTitle>{t('creditNotes.detail.finalizeDialog.title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              This assigns a permanent CN number and freezes the correction snapshot.
-              No stock will be returned and no refund will be issued. The original
-              invoice remains unchanged.
+              {t('creditNotes.detail.finalizeDialog.description')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('actions.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={() => void handleFinalize()}>
-              Finalize credit note
+              {t('creditNotes.detail.finalizeDialog.confirm')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -506,16 +513,15 @@ export default function CreditNoteDetailPage() {
       <AlertDialog open={voidOpen} onOpenChange={setVoidOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Void draft credit note?</AlertDialogTitle>
+            <AlertDialogTitle>{t('creditNotes.detail.voidDialog.title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently voids the unnumbered draft. Use this only while the
-              document is still in draft status.
+              {t('creditNotes.detail.voidDialog.description')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('actions.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={() => void handleVoid()}>
-              Void draft
+              {t('creditNotes.detail.voidDialog.confirm')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

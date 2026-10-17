@@ -6,6 +6,7 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import { enumsI18nEslintConfig } from './eslint-enums-i18n.config.js'
 import { i18nLiteralStringWarningRule } from './eslint-i18n-shared.config.js'
 import { shellI18nEslintConfig } from './eslint-shell-i18n.config.js'
+import { financePurchasingI18nEslintConfig } from './eslint-finance-purchasing-i18n.config.js'
 import { salesDomainI18nEslintConfig } from './eslint-sales-domain-i18n.config.js'
 import { workshopI18nEslintConfig } from './eslint-workshop-i18n.config.js'
 import reactRefresh from 'eslint-plugin-react-refresh'
@@ -95,4 +96,5 @@ export default defineConfig([
   enumsI18nEslintConfig,
   workshopI18nEslintConfig,
   salesDomainI18nEslintConfig,
+  financePurchasingI18nEslintConfig,
 ])

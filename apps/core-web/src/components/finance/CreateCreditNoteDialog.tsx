@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Invoice } from '@/api/types'
@@ -36,7 +37,9 @@ import { getErrorMessage } from '@/lib/error-utils'
 import {
   parseCreditQuantity,
   validateCreditQuantity,
+  type CreditQuantityValidation,
 } from '@/lib/credit-note-quantity'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 
 type CreateCreditNoteDialogProps = {
   invoice: Invoice
@@ -58,6 +61,11 @@ export function CreateCreditNoteDialog({
   onOpenChange,
   onCreated,
 }: CreateCreditNoteDialogProps) {
+  const { t } = useTranslation('finance')
+  React.useEffect(() => {
+    void ensureNamespaceLoaded('finance')
+  }, [])
+
   const createMutation = useCreateCreditNote()
   const { data: creditContext, isLoading: isCreditContextLoading } =
     useInvoiceCreditContext(open ? invoice.id : '')
@@ -102,9 +110,9 @@ export function CreateCreditNoteDialog({
   }, [creditContext, invoice.items, mode, open])
 
   const partialLineErrors = React.useMemo(() => {
-    if (mode !== 'PARTIAL') return new Map<string, string>()
+    if (mode !== 'PARTIAL') return new Map<string, CreditQuantityValidation>()
 
-    const errors = new Map<string, string>()
+    const errors = new Map<string, CreditQuantityValidation>()
     partialLines.forEach((line) => {
       if (!line.quantity.trim()) return
       const error = validateCreditQuantity(line.quantity, line.remainingQuantity)
@@ -124,18 +132,18 @@ export function CreateCreditNoteDialog({
 
   const handleCreate = async () => {
     if (!reason.trim()) {
-      toast.error('Please enter a reason for the credit note.')
+      toast.error(t('creditNotes.createDialog.toast.reasonRequired'))
       return
     }
 
     if (mode === 'PARTIAL') {
       if (selectedPartialLines.length === 0) {
-        toast.error('Enter at least one credited quantity for a partial credit.')
+        toast.error(t('creditNotes.createDialog.toast.partialRequired'))
         return
       }
 
       if (partialLineErrors.size > 0) {
-        toast.error('Fix invalid credited quantities before creating the draft.')
+        toast.error(t('creditNotes.createDialog.toast.fixQuantities'))
         return
       }
     }
@@ -156,11 +164,11 @@ export function CreateCreditNoteDialog({
               : undefined,
         },
       })
-      toast.success('Credit note draft created')
+      toast.success(t('creditNotes.createDialog.toast.created'))
       onOpenChange(false)
       onCreated(creditNote.id)
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, 'Failed to create credit note'))
+      toast.error(getErrorMessage(error, t('creditNotes.createDialog.toast.createFailed')))
     }
   }
 
@@ -168,17 +176,17 @@ export function CreateCreditNoteDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Credit Note</DialogTitle>
+          <DialogTitle>{t('creditNotes.createDialog.title')}</DialogTitle>
           <DialogDescription>
-            Create a commercial correction for invoice{' '}
-            {invoice.invoice_number ?? invoice.id.slice(0, 8)}. This does not
-            return stock or issue a refund.
+            {t('creditNotes.createDialog.description', {
+              invoiceNumber: invoice.invoice_number ?? invoice.id.slice(0, 8),
+            })}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
           <div className="space-y-2">
-            <Label htmlFor="credit-date">Credit date</Label>
+            <Label htmlFor="credit-date">{t('creditNotes.createDialog.creditDate')}</Label>
             <Input
               id="credit-date"
               type="date"
@@ -188,17 +196,17 @@ export function CreateCreditNoteDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="credit-reason">Reason</Label>
+            <Label htmlFor="credit-reason">{t('columns.reason')}</Label>
             <Input
               id="credit-reason"
               value={reason}
               onChange={(event) => setReason(event.target.value)}
-              placeholder="Describe why this correction is needed"
+              placeholder={t('creditNotes.createDialog.reasonPlaceholder')}
             />
           </div>
 
           <div className="space-y-2">
-            <Label>Correction type</Label>
+            <Label>{t('creditNotes.createDialog.correctionType')}</Label>
             <Select
               value={mode}
               onValueChange={(value: 'FULL' | 'PARTIAL') => setMode(value)}
@@ -208,33 +216,33 @@ export function CreateCreditNoteDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="FULL">Full credit (remaining lines)</SelectItem>
-                <SelectItem value="PARTIAL">Partial credit (choose quantities)</SelectItem>
+                <SelectItem value="FULL">{t('creditNotes.createDialog.modeFull')}</SelectItem>
+                <SelectItem value="PARTIAL">{t('creditNotes.createDialog.modePartial')}</SelectItem>
               </SelectContent>
             </Select>
             {isMarginScheme && (
               <p className="text-xs text-slate-500">
-                Margin-scheme invoices only support full-document credits.
+                {t('creditNotes.createDialog.marginSchemeHint')}
               </p>
             )}
           </div>
 
           {mode === 'PARTIAL' ? (
             <div className="space-y-2">
-              <Label>Credited quantities</Label>
+              <Label>{t('creditNotes.createDialog.creditedQuantities')}</Label>
               {isCreditContextLoading ? (
-                <p className="text-sm text-muted-foreground">Loading remaining lines...</p>
+                <p className="text-sm text-muted-foreground">{t('creditNotes.createDialog.loadingRemaining')}</p>
               ) : partialLines.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No remaining invoice lines are available for partial credit.
+                  {t('creditNotes.createDialog.noPartialLines')}
                 </p>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Description</TableHead>
-                      <TableHead className="text-right">Remaining</TableHead>
-                      <TableHead className="text-right">Credit qty</TableHead>
+                      <TableHead>{t('columns.description')}</TableHead>
+                      <TableHead className="text-right">{t('columns.remaining')}</TableHead>
+                      <TableHead className="text-right">{t('columns.creditQty')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -265,7 +273,9 @@ export function CreateCreditNoteDialog({
                               }}
                             />
                             {lineError ? (
-                              <p id={`credit-line-quantity-${line.originalItemId}-error`} role="alert" className="mt-1 text-xs text-destructive">{lineError}</p>
+                              <p id={`credit-line-quantity-${line.originalItemId}-error`} role="alert" className="mt-1 text-xs text-destructive">{'params' in lineError
+                                ? t(lineError.key, lineError.params)
+                                : t(lineError.key)}</p>
                             ) : null}
                           </TableCell>
                         </TableRow>
@@ -280,13 +290,13 @@ export function CreateCreditNoteDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t('actions.cancel')}
           </Button>
           <Button onClick={() => void handleCreate()} disabled={createMutation.isPending}>
             {createMutation.isPending ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : null}
-            Create Draft
+            {t('actions.createDraft')}
           </Button>
         </DialogFooter>
       </DialogContent>

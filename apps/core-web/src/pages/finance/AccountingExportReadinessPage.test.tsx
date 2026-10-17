@@ -5,7 +5,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import * as readinessApi from '@/api/useAccountingExportReadiness'
 import * as siteAdminApi from '@/api/site-admin'
+import deFinance from '../../../../../locales/de/finance.json'
+import { registerGermanUiForTests } from '@/test/german-ui'
 import AccountingExportReadinessPage from './AccountingExportReadinessPage'
+
+registerGermanUiForTests()
 
 vi.mock('@/api/useAccountingExportReadiness')
 vi.mock('@/api/site-admin')
@@ -124,11 +128,17 @@ describe('AccountingExportReadinessPage', () => {
   it('shows exportable and blocked counts with the reasons behind the blocks', () => {
     renderPage()
 
-    const summary = screen.getByRole('region', { name: 'Readiness summary' })
-    expect(summary).toHaveTextContent(/Exportable\s*3/)
-    expect(summary).toHaveTextContent(/Blocked\s*2/)
-    for (const reason of [/Legacy document/, /Outside DE export/]) {
-      expect(screen.getByRole('button', { name: reason })).toBeInTheDocument()
+    const summary = screen.getByRole('region', {
+      name: deFinance.accountingExportReadiness.summaryRegion,
+    })
+    expect(summary).toHaveTextContent(new RegExp(`${deFinance.accountingExportReadiness.exportable}\\s*3`))
+    expect(summary).toHaveTextContent(new RegExp(`${deFinance.accountingExportReadiness.blocked}\\s*2`))
+    for (const reason of [
+      deFinance.accountingExportReadiness.blockers.LEGACY_DOCUMENT_UNSUPPORTED,
+      deFinance.accountingExportReadiness.blockers.UNSUPPORTED_EXPORT_COUNTRY,
+    ]) {
+      const escaped = reason.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      expect(screen.getByRole('button', { name: new RegExp(escaped) })).toBeInTheDocument()
     }
     expect(
       screen.getByText('Document ownership or numbering evidence is incomplete.'),
@@ -138,7 +148,9 @@ describe('AccountingExportReadinessPage', () => {
   it('filters the document list by a reason chosen from the breakdown', () => {
     renderPage()
 
-    const chip = screen.getByRole('button', { name: /Outside DE export/ })
+    const chip = screen.getByRole('button', {
+      name: new RegExp(deFinance.accountingExportReadiness.blockers.UNSUPPORTED_EXPORT_COUNTRY),
+    })
     fireEvent.click(chip)
 
     expect(chip).toHaveAttribute('aria-pressed', 'true')
@@ -167,7 +179,7 @@ describe('AccountingExportReadinessPage', () => {
     renderPage()
 
     expect(
-      screen.getByText('Choose a legal entity to see its export readiness.'),
+      screen.getByText(deFinance.accountingExportReadiness.chooseLegalEntityHint),
     ).toBeInTheDocument()
     expect(readinessApi.useAccountingExportReadiness).toHaveBeenLastCalledWith(null)
   })
@@ -182,11 +194,11 @@ describe('AccountingExportReadinessPage', () => {
     ).toBeInTheDocument()
     // A refused request has no data, so no cards, reasons, or document rows show.
     expect(
-      screen.queryByRole('region', { name: 'Readiness summary' }),
+      screen.queryByRole('region', { name: deFinance.accountingExportReadiness.summaryRegion }),
     ).not.toBeInTheDocument()
     expect(screen.queryByText('RE-2026-0002')).not.toBeInTheDocument()
     expect(
-      screen.queryByText('No documents match these filters.'),
+      screen.queryByText(deFinance.accountingExportReadiness.emptyState),
     ).not.toBeInTheDocument()
   })
 
@@ -205,7 +217,11 @@ describe('AccountingExportReadinessPage', () => {
       expect.objectContaining({ page: 3 }),
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /Outside DE export/ }))
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: new RegExp(deFinance.accountingExportReadiness.blockers.UNSUPPORTED_EXPORT_COUNTRY),
+      }),
+    )
 
     expect(readinessApi.useAccountingExportReadiness).toHaveBeenLastCalledWith(
       expect.objectContaining({
@@ -241,6 +257,8 @@ describe('AccountingExportReadinessPage', () => {
 
     renderPage()
 
-    expect(screen.getByText(/has no accounting export profile/)).toBeInTheDocument()
+    expect(
+      screen.getByText(deFinance.accountingExportReadiness.exportProfileMissing),
+    ).toBeInTheDocument()
   })
 })
