@@ -104,11 +104,19 @@ function pickPlaketteMonthForOkStatus(today: Date): PlaketteMonth {
   throw new Error('No plakette month yields OK status');
 }
 
+function pickDue60Month(today: Date): PlaketteMonth {
+  if (hasStrictDue60Bucket(today)) {
+    return pickPlaketteMonthInWindow(today, 30, 60);
+  }
+  return pickPlaketteMonthInWindow(today, 60, 90);
+}
+
 export function pickerlDueFixturesForToday(today: Date) {
+  const due90 = pickPlaketteMonthInWindow(today, 60, 90);
   return {
     due30: pickPlaketteMonthInWindow(today, null, 30),
-    due60: pickPlaketteMonthInWindow(today, 30, 60),
-    due90: pickPlaketteMonthInWindow(today, 60, 90),
+    due60: pickDue60Month(today),
+    due90,
     ok: pickPlaketteMonthForOkStatus(today),
   };
 }

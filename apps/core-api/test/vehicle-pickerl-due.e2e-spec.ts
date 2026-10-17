@@ -16,8 +16,6 @@ import { pickerlDueFixturesForToday } from '../src/vehicle/pickerl/pickerl-due-w
 import { teardownTestApp } from './test-lifecycle.js';
 
 const FIXTURE_FIRST_REGISTRATION = new Date('2019-06-01T00:00:00.000Z');
-/** Stable reference day so window buckets always exist (see pickerl-due-window-fixtures). */
-const PICKERL_E2E_REFERENCE_DAY = new Date('2026-06-15T12:00:00.000Z');
 
 describe('Pickerl Due (e2e)', () => {
   let app: INestApplication;
@@ -28,9 +26,6 @@ describe('Pickerl Due (e2e)', () => {
   let techToken: string;
 
   beforeAll(async () => {
-    jest.useFakeTimers();
-    jest.setSystemTime(PICKERL_E2E_REFERENCE_DAY);
-
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -236,7 +231,6 @@ describe('Pickerl Due (e2e)', () => {
     await cleanupTestTenantGraph(basePrisma, tenantId);
     await cleanupTestTenantGraph(basePrisma, otherTenantId);
     await teardownTestApp(app);
-    jest.useRealTimers();
   });
 
 

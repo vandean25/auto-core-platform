@@ -52,6 +52,9 @@ describe('pickerl due window fixtures', () => {
     expect(dueSoonWithinWindow(pickPlaketteMonthInWindow(today, null, 30), today, 30)).toBe(
       true,
     );
+    const fixtures = pickerlDueFixturesForToday(today);
+    expect(dueSoonWithinWindow(fixtures.due60, today, 60)).toBe(true);
+    expect(dueSoonWithinWindow(fixtures.due60, today, 30)).toBe(false);
   });
 
   it.each(sampleDays)(
