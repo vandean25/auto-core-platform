@@ -6131,20 +6131,27 @@ describe('MCP server (e2e)', () => {
 
     beforeAll(async () => {
       await inTenant(tenantA, async () => {
-        await prismaA.employee.upsert({
-          where: {
-            tenant_id_user_id: { tenant_id: tenantA, user_id: tenantAUserId },
-          },
-          create: {
-            id: employeeId,
-            tenant_id: tenantA,
-            user_id: tenantAUserId,
-            name: 'MCP Advisor Employee',
-            role: 'SERVICE_ADVISOR',
-            is_active: true,
-          },
-          update: { is_active: true },
+        const linked = await prismaA.employee.findFirst({
+          where: { tenant_id: tenantA, user_id: tenantAUserId },
+          select: { id: true },
         });
+        if (linked) {
+          await prismaA.employee.update({
+            where: { id: linked.id },
+            data: { is_active: true },
+          });
+        } else {
+          await prismaA.employee.create({
+            data: {
+              id: employeeId,
+              tenant_id: tenantA,
+              user_id: tenantAUserId,
+              name: 'MCP Advisor Employee',
+              role: 'SERVICE_ADVISOR',
+              is_active: true,
+            },
+          });
+        }
       });
       const order = await prismaA.workshopOrder.create({
         data: {
