@@ -27704,29 +27704,7 @@
           },
           "variants": {
             "type": "object",
-            "additionalProperties": {
-              "type": "object",
-              "properties": {
-                "storageKey": {
-                  "type": "string"
-                },
-                "width": {
-                  "type": "integer"
-                },
-                "height": {
-                  "type": "integer"
-                },
-                "contentType": {
-                  "type": "string"
-                }
-              },
-              "required": [
-                "storageKey",
-                "width",
-                "height",
-                "contentType"
-              ]
-            }
+            "additionalProperties": true
           },
           "createdByUserId": {
             "type": "object",

@@ -8266,12 +8266,7 @@ export interface components {
             height: number;
             contentSha256: string;
             variants: {
-                [key: string]: {
-                    storageKey: string;
-                    width: number;
-                    height: number;
-                    contentType: string;
-                };
+                [key: string]: unknown;
             };
             /** Format: uuid */
             createdByUserId: Record<string, never> | null;
