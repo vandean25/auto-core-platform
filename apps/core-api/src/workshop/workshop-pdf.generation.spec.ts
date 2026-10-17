@@ -79,4 +79,46 @@ describe('readCachedWorkshopPdfMetadata', () => {
       generatedAt,
     });
   });
+
+  it('returns null when a completed check-in was recorded after the cached PDF', () => {
+    expect(
+      readCachedWorkshopPdfMetadata(
+        {
+          pdf_storage_bucket: 'bucket',
+          pdf_storage_key: 'workshop-orders/123.pdf',
+          pdf_generated_at: generatedAt,
+          updatedAt: freshUpdatedAt,
+          pdf_render_input: {
+            schema_version: 2,
+            check_in_content_sha256: null,
+          },
+        },
+        {
+          checkInContentSha256: 'a'.repeat(64),
+          checkInCompletedAt: new Date('2026-04-01T12:30:00.000Z'),
+        },
+      ),
+    ).toBeNull();
+  });
+
+  it('returns null when the stored render input check-in hash does not match', () => {
+    expect(
+      readCachedWorkshopPdfMetadata(
+        {
+          pdf_storage_bucket: 'bucket',
+          pdf_storage_key: 'workshop-orders/123.pdf',
+          pdf_generated_at: generatedAt,
+          updatedAt: freshUpdatedAt,
+          pdf_render_input: {
+            schema_version: 2,
+            check_in_content_sha256: 'old-hash',
+          },
+        },
+        {
+          checkInContentSha256: 'new-hash',
+          checkInCompletedAt: new Date('2026-04-01T11:00:00.000Z'),
+        },
+      ),
+    ).toBeNull();
+  });
 });
