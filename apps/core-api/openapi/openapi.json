@@ -12358,6 +12358,39 @@
         ]
       }
     },
+    "/api/vehicle-stock/{vehicleId}/listing/export/download": {
+      "get": {
+        "operationId": "VehicleListingExportController_download",
+        "parameters": [
+          {
+            "name": "profile",
+            "required": true,
+            "in": "query",
+            "description": "Listing serializer profile code (e.g. MOBILE_DE_REFERENCE_V1)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "vehicleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Download a reference listing export package (CSV + images ZIP) for the active stock cycle",
+        "tags": [
+          "vehicle-stock"
+        ]
+      }
+    },
     "/api/employees": {
       "get": {
         "operationId": "EmployeeController_findAll",

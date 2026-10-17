@@ -10,6 +10,7 @@ export const VEHICLE_MEDIA_STORAGE = Symbol('VEHICLE_MEDIA_STORAGE');
 
 export interface VehicleMediaStorage {
   resolveBucket(): string;
+  readObject(params: { bucket: string; key: string }): Promise<Buffer>;
   objectPrefix(tenantId: string, vehicleId: string, mediaId: string): string;
   storeProcessedObject(params: {
     tenantId: string;
@@ -42,6 +43,12 @@ export class GcsVehicleMediaStorage implements VehicleMediaStorage {
       );
     }
     return bucket;
+  }
+
+  async readObject(params: { bucket: string; key: string }): Promise<Buffer> {
+    const file = this.storage.bucket(params.bucket).file(params.key);
+    const [bytes] = await file.download();
+    return Buffer.from(bytes);
   }
 
   objectPrefix(tenantId: string, vehicleId: string, mediaId: string): string {

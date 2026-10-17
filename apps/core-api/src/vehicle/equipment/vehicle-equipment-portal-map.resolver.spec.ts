@@ -28,16 +28,19 @@ describe('resolveVehicleEquipmentForProfile', () => {
     expect(resolved.mappedFields).toEqual([
       {
         localCode: 'ABS',
-        portalField: '31',
+        portalField: '33',
+        portalValue: '1',
+        verification: 'UNVERIFIED',
+      },
+      {
+        localCode: 'PARKING_CAMERA',
+        portalField: '201',
         portalValue: '1',
         verification: 'UNVERIFIED',
       },
     ]);
     expect(resolved.equipmentCodes).toEqual([]);
-    expect(resolved.equipmentFreeTextLines).toEqual([
-      'PARKING_CAMERA: Rückfahrkamera',
-      'Panoramic roof',
-    ]);
+    expect(resolved.equipmentFreeTextLines).toEqual(['Panoramic roof']);
     expect(resolved.profileVerification).toBe('UNVERIFIED');
   });
 
@@ -68,7 +71,7 @@ describe('resolveVehicleEquipmentForProfile', () => {
     expect(resolved.mappedFields).toEqual([
       {
         localCode: 'ABS',
-        portalField: '31',
+        portalField: '33',
         portalValue: '0',
         verification: 'UNVERIFIED',
       },
@@ -89,10 +92,15 @@ describe('resolveVehicleEquipmentForProfile', () => {
       freeTextLines: [],
     });
 
-    expect(resolved.mappedFields).toEqual([]);
-    expect(resolved.equipmentFreeTextLines).toEqual([
-      'PARKING_CAMERA: Rückfahrkamera (not fitted)',
+    expect(resolved.mappedFields).toEqual([
+      {
+        localCode: 'PARKING_CAMERA',
+        portalField: '201',
+        portalValue: '0',
+        verification: 'UNVERIFIED',
+      },
     ]);
+    expect(resolved.equipmentFreeTextLines).toEqual([]);
   });
 
   it('appends confirmed absence as free text on provisional AutoScout24 profile', () => {
