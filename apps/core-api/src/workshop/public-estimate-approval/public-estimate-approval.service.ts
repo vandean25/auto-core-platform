@@ -17,11 +17,13 @@ import {
 } from '@prisma/client';
 import { AuditService } from '../../audit/audit.service.js';
 import { TenantContextService } from '../../common/services/tenant-context.service.js';
-import { NotificationOutboxService } from '../../notifications/notification-outbox.service.js';
 import { DomainEventStoreService } from '../../domain-event-store/domain-event-store.service.js';
+import { DomainEventConsumerCloudTasksService } from '../../domain-event-consumer/domain-event-consumer-cloud-tasks.service.js';
 import { RequestContextService } from '../../common/services/request-context.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import { enqueueEstimateDecisionEvent } from '../workshop-estimate-decision.helpers.js';
+import { appendEstimateDecisionDomainEvent } from '../workshop-estimate-decision.helpers.js';
+import { runEstimateDecidedConsumerAfterCommit } from '../wake-estimate-decided-consumer.js';
+import { WorkshopEstimateDecidedConsumerService } from '../workshop-estimate-decided-consumer.service.js';
 import { hashApprovalToken } from '../workshop-estimate-approval-token.helpers.js';
 import type { WorkshopEstimateSnapshot } from '../workshop-estimate-snapshot.js';
 import {
@@ -77,9 +79,10 @@ export class PublicEstimateApprovalService {
     private readonly prisma: PrismaService,
     private readonly limiter: PublicEstimateApprovalRateLimiter,
     private readonly audit: AuditService,
-    private readonly outbox: NotificationOutboxService,
     private readonly domainEventStore: DomainEventStoreService,
     private readonly requestContext: RequestContextService,
+    private readonly estimateDecidedConsumer: WorkshopEstimateDecidedConsumerService,
+    private readonly estimateDecidedConsumerWakeUps: DomainEventConsumerCloudTasksService,
   ) {}
 
   async read(rawToken: string, now = new Date()): Promise<PublicEstimateView> {
@@ -122,6 +125,12 @@ export class PublicEstimateApprovalService {
     const version = await this.loadDecidableVersion(approval);
     await this.prisma.$transaction((tx) =>
       this.recordDecision(tx, approval, version, input, request, now),
+    );
+    await runEstimateDecidedConsumerAfterCommit(
+      this.estimateDecidedConsumer,
+      this.estimateDecidedConsumerWakeUps,
+      approval.tenantId,
+      now,
     );
     return {
       decision: input.approve ? 'APPROVED' : 'DECLINED',
@@ -304,14 +313,13 @@ export class PublicEstimateApprovalService {
       },
       tx,
     );
-    await enqueueEstimateDecisionEvent(tx, this.outbox, {
+    await appendEstimateDecisionDomainEvent(tx, {
       tenantId: approval.tenantId,
       siteId: version.site_id,
       approvalId,
       versionId: approval.versionId,
       workshopOrderId: version.workshop_order_id,
       decision,
-      channel: EstimateApprovalChannel.LINK,
       decidedAt: now,
       traceId: this.requestContext.getTraceId() ?? approvalId,
       domainEventStore: this.domainEventStore,

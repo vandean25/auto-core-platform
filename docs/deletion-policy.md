@@ -161,6 +161,12 @@ Retention and tenant-purge exceptions require a separate approved policy; this b
 - The agent feed orders rows by monotonic `sequence`, not `occurred_at` alone. Cursors are versioned and tenant-scoped.
 - Rows are retained for orchestration replay and audit; they follow tenant purge (SQL generator includes the table). No message bodies or customer tokens are stored in the envelope.
 
+## AUT-544 — Domain event consumers (estimate decided internal notice)
+
+- `domain_event_consumer_progress` and `domain_event_consumer_deliveries` have no delete endpoint. Progress and delivery rows follow tenant purge (SQL generator includes both tables).
+- `domain_event_consumer_deliveries` is unique per `(tenant_id, consumer_key, domain_event_id)` so a replay cannot create a second internal notice for the same committed event.
+- Delivery rows reference `domain_events` with `ON DELETE RESTRICT`; consumer progress is reset only through tenant purge, not through ordinary APIs.
+
 ## ADR-0025 / AUT-356 — Notification outbox
 
 - `notification_outbox` has no delete endpoint. Each row is written in the same transaction as the state change it announces, and its foreign key to `workshop_orders` is `ON DELETE RESTRICT`, so an order with notifications cannot be hard-deleted.

@@ -193,6 +193,7 @@ export function ApprovalsTab({
   const triageStatusForItem = (item: AgentSupervisionTriageItem) => {
     if (item.kind === 'OVERDUE_LOANER') return 'OUT_OF_STOCK'
     if (item.kind === 'CUSTOMER_WAITING') return 'WAITING_CUSTOMER'
+    if (item.kind === 'CUSTOMER_DECISION') return 'IN_PROGRESS'
     return 'PENDING'
   }
 

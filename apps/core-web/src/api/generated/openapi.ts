@@ -10609,7 +10609,7 @@ export interface components {
         };
         AgentSupervisionTriageItemDto: {
             /** @enum {string} */
-            kind: "PENDING_APPROVAL" | "CUSTOMER_WAITING" | "OVERDUE_LOANER";
+            kind: "PENDING_APPROVAL" | "CUSTOMER_WAITING" | "CUSTOMER_DECISION" | "OVERDUE_LOANER";
             entity_id: string;
             /** @description Authorized site that owns this inbox item. */
             site_id: string;

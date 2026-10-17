@@ -6,17 +6,12 @@ import {
   EstimateApprovalChannel,
   EstimateApprovalDecision,
   type EstimateCustomerReaction,
-  NotificationChannel,
-  NotificationEventType,
-  NotificationRecipientKind,
   Prisma,
   WorkshopEstimateStatus,
 } from '@prisma/client';
-import type {
-  NotificationOutboxService,
-  NotificationOutboxTxClient,
-} from '../notifications/notification-outbox.service.js';
 import type { DomainEventStoreService } from '../domain-event-store/domain-event-store.service.js';
+import type { AppendedDomainEvent } from '../domain-event-store/domain-event-store.service.js';
+import type { DomainEventTxClient } from '../domain-event-store/domain-event.rows.js';
 import { appendWorkshopEstimateDecidedDomainEvent } from './workshop-domain-event.helpers.js';
 
 /** Channels an advisor may record. LINK is the customer's own link, and ADVISOR_RECORDED is legacy. */
@@ -243,12 +238,11 @@ export function buildAdvisorApprovalData(
 }
 
 /**
- * Domain event for a decision, written in the caller's transaction. It is an internal in-app row, accepted at
- * write time, so nothing is sent to the customer and no request handler calls a provider (ADR-0025 §6).
+ * Commits the estimate-decided domain event in the caller's transaction (AUT-536). The internal
+ * in-app notice is written asynchronously by the bounded consumer (AUT-544).
  */
-export async function enqueueEstimateDecisionEvent(
-  tx: NotificationOutboxTxClient,
-  outbox: NotificationOutboxService,
+export async function appendEstimateDecisionDomainEvent(
+  tx: DomainEventTxClient,
   input: {
     tenantId: string;
     siteId: string;
@@ -256,25 +250,12 @@ export async function enqueueEstimateDecisionEvent(
     versionId: string;
     workshopOrderId: string;
     decision: EstimateApprovalDecision;
-    channel: EstimateApprovalChannel;
     decidedAt: Date;
     traceId: string;
     domainEventStore: DomainEventStoreService;
   },
-): Promise<void> {
-  await outbox.enqueueInTx(tx, {
-    tenantId: input.tenantId,
-    eventType: NotificationEventType.CUSTOMER_ESTIMATE_DECIDED,
-    occurrenceId: input.approvalId,
-    channel: NotificationChannel.IN_APP,
-    recipientKind: NotificationRecipientKind.INTERNAL_TEAM,
-    recipientKey: ESTIMATE_DECISION_RECIPIENT_KEY,
-    workshopOrderId: input.workshopOrderId,
-    sourceEntityType: 'WorkshopEstimateVersion',
-    sourceEntityId: input.versionId,
-    payload: { decision: input.decision, channel: input.channel },
-  });
-  await appendWorkshopEstimateDecidedDomainEvent(tx, input.domainEventStore, {
+): Promise<AppendedDomainEvent | null> {
+  return appendWorkshopEstimateDecidedDomainEvent(tx, input.domainEventStore, {
     tenantId: input.tenantId,
     siteId: input.siteId,
     workshopOrderId: input.workshopOrderId,

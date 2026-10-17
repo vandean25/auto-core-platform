@@ -1,5 +1,8 @@
 import type { EstimateApprovalDecision } from '@prisma/client';
-import type { DomainEventStoreService } from '../domain-event-store/domain-event-store.service.js';
+import type {
+  AppendedDomainEvent,
+  DomainEventStoreService,
+} from '../domain-event-store/domain-event-store.service.js';
 import { DOMAIN_EVENT_TYPES } from '../domain-event-store/domain-event.constants.js';
 import {
   buildWorkshopEstimateDecidedPayload,
@@ -47,8 +50,8 @@ export async function appendWorkshopEstimateDecidedDomainEvent(
     occurredAt: Date;
     traceId: string;
   },
-): Promise<void> {
-  await store.appendInTx(tx, {
+): Promise<AppendedDomainEvent | null> {
+  return store.appendInTx(tx, {
     tenantId: input.tenantId,
     siteId: input.siteId,
     entityId: input.workshopOrderId,
