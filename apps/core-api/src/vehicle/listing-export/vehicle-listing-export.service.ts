@@ -7,13 +7,11 @@ import {
 import {
   VehicleListingDesiredState,
   VehicleListingExportState,
-  VehicleListingPlatform,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { TenantContextService } from '../../common/services/tenant-context.service.js';
 import { SiteContextService } from '../../site/site-context.service.js';
 import { resolveCurrentReceivedStockPurchaseId } from '../equipment/vehicle-equipment-stock-cycle.js';
-import type { EquipmentListingSerializerProfile } from '../equipment/vehicle-equipment-portal-map.types.js';
 import { assertListingChannelActiveReadiness } from '../listing/vehicle-listing-readiness.js';
 import {
   VEHICLE_MEDIA_STORAGE,
@@ -173,7 +171,7 @@ export class VehicleListingExportService {
     ]);
 
     const snapshot = buildListingSerializerInput({
-      profileCode: serializer.profileCode as EquipmentListingSerializerProfile,
+      profileCode: serializer.profileCode,
       mappingVersion: channel.mapping_version,
       generatedAt,
       listing,

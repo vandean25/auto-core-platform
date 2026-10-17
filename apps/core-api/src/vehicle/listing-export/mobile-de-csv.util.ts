@@ -17,10 +17,7 @@ export function decodeMobileDeCsv(bytes: Buffer): string {
   return iconv.decode(bytes, MOBILE_DE_CSV_ENCODING);
 }
 
-export function assertMobileDeEncodable(
-  value: string,
-  field: string,
-): void {
+export function assertMobileDeEncodable(value: string, field: string): void {
   const encoded = iconv.encode(value, MOBILE_DE_CSV_ENCODING);
   const roundTrip = iconv.decode(encoded, MOBILE_DE_CSV_ENCODING);
   if (roundTrip !== value) {
@@ -32,5 +29,8 @@ export function assertMobileDeEncodable(
 
 /** Collapse CR/LF inside description fields before export (ACP reference rule). */
 export function normalizeMobileDeMultilineText(value: string): string {
-  return value.replace(/\r\n|\r|\n/g, ' ').replace(/\s+/g, ' ').trim();
+  return value
+    .replace(/\r\n|\r|\n/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }

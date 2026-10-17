@@ -3,12 +3,10 @@ import { listingSerializers } from './listing-serializers.js';
 import type { ListingSerializerPort } from './listing-serializer.types.js';
 
 const serializersByProfileCode = new Map(
-  listingSerializers.map(
-    (serializer): [string, ListingSerializerPort] => [
-      serializer.profileCode,
-      serializer,
-    ],
-  ),
+  listingSerializers.map((serializer): [string, ListingSerializerPort] => [
+    serializer.profileCode,
+    serializer,
+  ]),
 );
 
 export function resolveListingSerializer(

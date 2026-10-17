@@ -48,7 +48,9 @@ function writeUint16LE(value: number): Buffer {
  * Builds a deterministic ZIP (stored, no compression) for listing exports.
  * Entry order follows the caller-provided sorted list; timestamps come from modifiedAt.
  */
-export function buildListingExportZip(entries: ListingExportZipEntry[]): Buffer {
+export function buildListingExportZip(
+  entries: ListingExportZipEntry[],
+): Buffer {
   const localParts: Buffer[] = [];
   const centralParts: Buffer[] = [];
   let offset = 0;

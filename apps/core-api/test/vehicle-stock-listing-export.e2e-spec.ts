@@ -97,9 +97,10 @@ describe('Vehicle listing export download (e2e)', () => {
 
     expect(download.headers['content-type']).toContain('application/zip');
     expect(download.headers['x-checksum-sha256']).toMatch(/^[a-f0-9]{64}$/);
-    expect((download.body as Buffer).subarray(0, 2).toString('ascii')).toBe(
-      'PK',
-    );
+    const zipBytes = Buffer.isBuffer(download.body)
+      ? download.body
+      : Buffer.from(download.body);
+    expect(zipBytes.subarray(0, 2).toString('ascii')).toBe('PK');
   });
 
   it('returns 422 for unsupported serializer profile', async () => {

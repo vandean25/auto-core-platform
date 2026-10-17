@@ -24,7 +24,10 @@ export const MOBILE_DE_LISTING_REF_MAX_LENGTH = 40;
 const INTERNAL_NUMBER_PATTERN = /^[A-Za-z0-9_-]+$/;
 
 export function assertMobileDeInternalNumber(listingRef: string): void {
-  if (listingRef.length === 0 || listingRef.length > MOBILE_DE_LISTING_REF_MAX_LENGTH) {
+  if (
+    listingRef.length === 0 ||
+    listingRef.length > MOBILE_DE_LISTING_REF_MAX_LENGTH
+  ) {
     throw new Error('mobile.de interne_nummer must be 1..40 characters.');
   }
   if (!INTERNAL_NUMBER_PATTERN.test(listingRef)) {
@@ -62,7 +65,8 @@ export function mapMobileDeFuelCode(fuel: string | null): string {
     return '8';
   }
   if (normalized.includes('ethanol')) return '9';
-  if (normalized.includes('benzin') || normalized.includes('petrol')) return '1';
+  if (normalized.includes('benzin') || normalized.includes('petrol'))
+    return '1';
   return '0';
 }
 
