@@ -4,7 +4,7 @@ import { createPdfTranslator } from './pdf-i18n.js';
 
 export function buildAuthoritativeGermanLegalNoticeHtml(
   documentLocale: DisplayLanguage,
-  escapeHtml: EscapeHtml = (value) => value,
+  escapeHtml: EscapeHtml = (value) => String(value),
 ): string {
   if (documentLocale === 'de') {
     return '';

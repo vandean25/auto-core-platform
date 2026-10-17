@@ -34,7 +34,7 @@ export function ensurePdfI18nInitialized(): void {
   for (const language of DISPLAY_LANGUAGES) {
     resources[language] = { pdf: readPdfBundle(language) };
   }
-  i18next.init({
+  void i18next.init({
     lng: DEFAULT_DISPLAY_LANGUAGE,
     fallbackLng: DEFAULT_DISPLAY_LANGUAGE,
     supportedLngs: [...DISPLAY_LANGUAGES],

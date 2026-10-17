@@ -14,7 +14,6 @@ export type ResolvedPdfRenderMode = {
  */
 export function resolvePdfRenderMode(
   snapshot: { document_locale?: DisplayLanguage | null } | null | undefined,
-  fallbackLocale: DisplayLanguage,
 ): ResolvedPdfRenderMode {
   const frozen = readDocumentSnapshotLocaleFields(snapshot ?? undefined);
   if (!frozen) {

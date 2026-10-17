@@ -17,7 +17,10 @@ export function formatInvoicePdfDate(
 ): string {
   const frozen = readDocumentSnapshotLocaleFields(snapshot);
   if (frozen) {
-    return formatDocumentDate(value, frozen.format_locale ?? DEFAULT_FORMAT_LOCALE);
+    return formatDocumentDate(
+      value,
+      frozen.format_locale ?? DEFAULT_FORMAT_LOCALE,
+    );
   }
 
   const date = typeof value === 'string' ? new Date(value) : value;

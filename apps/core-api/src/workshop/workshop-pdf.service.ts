@@ -417,8 +417,7 @@ export class WorkshopPdfService {
     onRendered?: (pdf: Buffer) => void,
   ): Promise<PdfUploadResult> {
     return renderAndUploadPdf({
-      render: () =>
-        this.renderer.render(order, { documentLocale, renderMode }),
+      render: () => this.renderer.render(order, { documentLocale, renderMode }),
       upload: (pdf) => {
         onRendered?.(pdf);
         return this.storage.uploadPdf({
