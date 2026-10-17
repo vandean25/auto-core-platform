@@ -54,10 +54,12 @@ describe('VehicleEquipmentService', () => {
         { id: 'ft-1', text: 'Sunroof', sort_order: 0 },
       ]),
     };
+    const vehicle = {
+      findFirst: jest.fn().mockResolvedValue({ id: vehicleId }),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+    };
     const prisma = {
-      vehicle: {
-        findFirst: jest.fn().mockResolvedValue({ id: vehicleId }),
-      },
+      vehicle,
       vehiclePurchase: {
         findFirst: jest.fn().mockResolvedValue({ id: stockPurchaseId }),
       },
@@ -77,7 +79,7 @@ describe('VehicleEquipmentService', () => {
       vehicleEquipmentFreeTextItem,
       $transaction: jest.fn(async (callback) =>
         callback({
-          $queryRaw: jest.fn().mockResolvedValue([]),
+          vehicle,
           vehicleEquipmentSelection,
           vehicleEquipmentFreeTextItem,
         }),
