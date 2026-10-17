@@ -1,5 +1,4 @@
 import { Prisma } from '@prisma/client';
-import type { PrismaService } from '../../prisma/prisma.service.js';
 import { getVehicleMediaPurgeStorage } from './vehicle-media-purge.registry.js';
 
 type VehicleWhere = {
@@ -9,15 +8,22 @@ type VehicleWhere = {
   OR?: VehicleWhere[];
 };
 
+type VehicleFindManyDelegate = {
+  findMany: (args: {
+    where?: VehicleWhere;
+    select: { id: true; tenant_id: true };
+  }) => Promise<Array<{ id: string; tenant_id: string }>>;
+};
+
 async function purgeMediaForVehicleWhere(
-  client: Pick<PrismaService, 'vehicle'>,
+  vehicleDelegate: VehicleFindManyDelegate,
   where: VehicleWhere | undefined,
 ): Promise<void> {
   const storage = getVehicleMediaPurgeStorage();
   if (!storage) {
     return;
   }
-  const vehicles = await client.vehicle.findMany({
+  const vehicles = await vehicleDelegate.findMany({
     where: where ?? {},
     select: { id: true, tenant_id: true },
   });
@@ -35,19 +41,19 @@ export function createVehicleMediaPurgeExtension() {
     query: {
       vehicle: {
         async delete({ args, query }) {
-          const client = Prisma.getExtensionContext(this) as Pick<
-            PrismaService,
-            'vehicle'
-          >;
-          await purgeMediaForVehicleWhere(client, args.where as VehicleWhere);
+          const vehicleDelegate = this as VehicleFindManyDelegate;
+          await purgeMediaForVehicleWhere(
+            vehicleDelegate,
+            args.where as VehicleWhere,
+          );
           return query(args);
         },
         async deleteMany({ args, query }) {
-          const client = Prisma.getExtensionContext(this) as Pick<
-            PrismaService,
-            'vehicle'
-          >;
-          await purgeMediaForVehicleWhere(client, args.where as VehicleWhere);
+          const vehicleDelegate = this as VehicleFindManyDelegate;
+          await purgeMediaForVehicleWhere(
+            vehicleDelegate,
+            args.where as VehicleWhere,
+          );
           return query(args);
         },
       },

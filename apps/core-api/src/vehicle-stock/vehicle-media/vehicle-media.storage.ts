@@ -109,7 +109,9 @@ export class GcsVehicleMediaStorage implements VehicleMediaStorage {
   }
 
   private async deleteObjectFiles(
-    files: Array<{ delete: (options: { ignoreNotFound: boolean }) => Promise<unknown> }>,
+    files: Array<{
+      delete: (options: { ignoreNotFound: boolean }) => Promise<unknown>;
+    }>,
   ): Promise<void> {
     await Promise.all(
       files.map((file) => file.delete({ ignoreNotFound: true })),
