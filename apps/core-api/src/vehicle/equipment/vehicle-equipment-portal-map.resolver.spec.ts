@@ -55,6 +55,35 @@ describe('resolveVehicleEquipmentForProfile', () => {
     expect(resolved.equipmentFreeTextLines).toEqual([]);
   });
 
+  it('does not let confirmed-absent climate overwrite present air conditioning on the same column', () => {
+    const resolved = resolveVehicleEquipmentForProfile('MOBILE_DE_REFERENCE_V1', {
+      selections: [
+        {
+          code: 'AIR_CONDITIONING',
+          label_de: 'Klimaanlage',
+          label_en: 'Air conditioning',
+          assertion: 'PRESENT',
+        },
+        {
+          code: 'AUTOMATIC_CLIMATE',
+          label_de: 'Klimaautomatik',
+          label_en: 'Automatic climate',
+          assertion: 'ABSENT',
+        },
+      ],
+      freeTextLines: [],
+    });
+
+    expect(resolved.mappedFields).toEqual([
+      {
+        localCode: 'AIR_CONDITIONING',
+        portalField: '17',
+        portalValue: '1',
+        verification: 'UNVERIFIED',
+      },
+    ]);
+  });
+
   it('emits explicit negative portal values only for confirmed absent options', () => {
     const resolved = resolveVehicleEquipmentForProfile('MOBILE_DE_REFERENCE_V1', {
       selections: [

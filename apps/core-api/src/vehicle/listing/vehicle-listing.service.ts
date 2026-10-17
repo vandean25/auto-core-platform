@@ -256,6 +256,34 @@ export class VehicleListingService {
           dto.equipment_free_text !== undefined
             ? dto.equipment_free_text
             : current.equipment_free_text,
+        portal_category:
+          dto.portal_category !== undefined
+            ? dto.portal_category
+            : current.portal_category,
+        export_assertion_damage_free:
+          dto.export_assertion_damage_free !== undefined
+            ? dto.export_assertion_damage_free
+            : current.export_assertion_damage_free,
+        export_assertion_metallic:
+          dto.export_assertion_metallic !== undefined
+            ? dto.export_assertion_metallic
+            : current.export_assertion_metallic,
+        export_assertion_guarantee:
+          dto.export_assertion_guarantee !== undefined
+            ? dto.export_assertion_guarantee
+            : current.export_assertion_guarantee,
+        export_assertion_jahreswagen:
+          dto.export_assertion_jahreswagen !== undefined
+            ? dto.export_assertion_jahreswagen
+            : current.export_assertion_jahreswagen,
+        export_assertion_recommendation:
+          dto.export_assertion_recommendation !== undefined
+            ? dto.export_assertion_recommendation
+            : current.export_assertion_recommendation,
+        export_assertion_demo_vehicle:
+          dto.export_assertion_demo_vehicle !== undefined
+            ? dto.export_assertion_demo_vehicle
+            : current.export_assertion_demo_vehicle,
       };
 
       const nextPhotoIds = photoIds ?? photoMediaIdsForListing(current);
@@ -301,6 +329,28 @@ export class VehicleListingService {
       }
       if (dto.equipment_free_text !== undefined) {
         patchData.equipment_free_text = dto.equipment_free_text;
+      }
+      if (dto.portal_category !== undefined) {
+        patchData.portal_category = dto.portal_category;
+      }
+      if (dto.export_assertion_damage_free !== undefined) {
+        patchData.export_assertion_damage_free = dto.export_assertion_damage_free;
+      }
+      if (dto.export_assertion_metallic !== undefined) {
+        patchData.export_assertion_metallic = dto.export_assertion_metallic;
+      }
+      if (dto.export_assertion_guarantee !== undefined) {
+        patchData.export_assertion_guarantee = dto.export_assertion_guarantee;
+      }
+      if (dto.export_assertion_jahreswagen !== undefined) {
+        patchData.export_assertion_jahreswagen = dto.export_assertion_jahreswagen;
+      }
+      if (dto.export_assertion_recommendation !== undefined) {
+        patchData.export_assertion_recommendation =
+          dto.export_assertion_recommendation;
+      }
+      if (dto.export_assertion_demo_vehicle !== undefined) {
+        patchData.export_assertion_demo_vehicle = dto.export_assertion_demo_vehicle;
       }
 
       const guarded = await tx.vehicleListing.updateMany({

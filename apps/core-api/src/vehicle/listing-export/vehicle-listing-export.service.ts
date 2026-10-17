@@ -1,7 +1,9 @@
 import {
+  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
+  PayloadTooLargeException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import {
@@ -19,6 +21,7 @@ import {
 } from '../../vehicle-stock/vehicle-media/vehicle-media.storage.js';
 import type { VehicleMediaVariantMap } from '../../vehicle-stock/vehicle-media/vehicle-media.types.js';
 import { buildListingSerializerInput } from './listing-export-snapshot.builder.js';
+import { formatListingExportValidationMessage } from './listing-export-validation.util.js';
 import { resolveListingSerializer } from './listing-serializer.registry.js';
 
 const listingInclude = {
@@ -44,6 +47,15 @@ export class VehicleListingExportService {
     private readonly mediaStorage: VehicleMediaStorage,
   ) {}
 
+  private assertListingExportRoleAllowed(): void {
+    const role = this.tenantContext.getAuthenticatedUser()?.role;
+    if (role === 'DEMO') {
+      throw new ForbiddenException(
+        'Demo accounts cannot download listing export packages.',
+      );
+    }
+  }
+
   async downloadListingPackage(
     vehicleId: string,
     profileCode: string,
@@ -53,6 +65,7 @@ export class VehicleListingExportService {
     sha256: string;
     byteLength: number;
   }> {
+    this.assertListingExportRoleAllowed();
     const serializer = resolveListingSerializer(profileCode);
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
@@ -144,13 +157,19 @@ export class VehicleListingExportService {
       vehicle,
     );
 
-    const generatedAt = new Date();
-    const imageBytesByMediaId = new Map<string, Buffer>();
-    const bucket = this.mediaStorage.resolveBucket();
-    for (const photo of listing.photos) {
-      const key = resolvePortalImageStorageKey(photo.media);
-      const bytes = await this.mediaStorage.readObject({ bucket, key });
-      imageBytesByMediaId.set(photo.media_id, bytes);
+    const sortedPhotos = listing.photos
+      .slice()
+      .sort((a, b) => a.sort_order - b.sort_order);
+    if (sortedPhotos.length > serializer.limits.maxImagesPerListing) {
+      throw new UnprocessableEntityException({
+        code: 'LISTING_EXPORT_VALIDATION_FAILED',
+        message: formatListingExportValidationMessage([
+          {
+            field: 'images',
+            message: `mobile.de reference export allows at most ${serializer.limits.maxImagesPerListing} images.`,
+          },
+        ]),
+      });
     }
 
     const [selections, freeTextItems] = await Promise.all([
@@ -169,6 +188,25 @@ export class VehicleListingExportService {
         orderBy: { sort_order: 'asc' },
       }),
     ]);
+
+    const generatedAt = new Date();
+    const imageBytesByMediaId = new Map<string, Buffer>();
+    const bucket = this.mediaStorage.resolveBucket();
+    let accumulatedImageBytes = 0;
+    for (const photo of sortedPhotos) {
+      const key = resolvePortalImageStorageKey(photo.media);
+      const bytes = await this.mediaStorage.readObject({ bucket, key });
+      accumulatedImageBytes += bytes.length;
+      const projectedZipBytes =
+        accumulatedImageBytes + serializer.limits.maxCsvBytes;
+      if (projectedZipBytes > serializer.limits.maxZipBytes) {
+        throw new PayloadTooLargeException({
+          code: 'LISTING_EXPORT_TOO_LARGE',
+          message: 'Listing export package exceeds the allowed size.',
+        });
+      }
+      imageBytesByMediaId.set(photo.media_id, bytes);
+    }
 
     const snapshot = buildListingSerializerInput({
       profileCode: serializer.profileCode,
@@ -190,14 +228,14 @@ export class VehicleListingExportService {
     if (issues.length > 0) {
       throw new UnprocessableEntityException({
         code: 'LISTING_EXPORT_VALIDATION_FAILED',
-        message: 'Listing export validation failed.',
+        message: formatListingExportValidationMessage(issues),
         issues,
       });
     }
 
     const result = serializer.serialize(snapshot);
     if (result.byteLength > serializer.limits.maxZipBytes) {
-      throw new UnprocessableEntityException({
+      throw new PayloadTooLargeException({
         code: 'LISTING_EXPORT_TOO_LARGE',
         message: 'Listing export package exceeds the allowed size.',
       });

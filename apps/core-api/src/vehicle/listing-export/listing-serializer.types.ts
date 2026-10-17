@@ -18,11 +18,20 @@ export type ListingSerializerImageInput = {
   content_sha256: string;
 };
 
+export type ListingExportAssertions = {
+  damage_free: boolean | null;
+  metallic: boolean | null;
+  guarantee: boolean | null;
+  jahreswagen: boolean | null;
+  recommendation: boolean | null;
+  demo_vehicle: boolean | null;
+};
+
 export type ListingSerializerVehicleSnapshot = {
   make: string;
   model: string;
   model_year: number;
-  mileage_km: number;
+  mileage_km: number | null;
   fuel: string | null;
   power_kw: number | null;
   first_registration: string | null;
@@ -47,6 +56,7 @@ export type ListingSerializerInput = {
   listingRef: string;
   vehicle: ListingSerializerVehicleSnapshot;
   listing: ListingSerializerListingSnapshot;
+  exportAssertions: ListingExportAssertions | null;
   equipment: ResolvedVehicleEquipmentExport;
   images: ListingSerializerImageInput[];
 };

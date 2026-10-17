@@ -32705,6 +32705,28 @@
           "equipment_free_text": {
             "type": "object"
           },
+          "portal_category": {
+            "type": "object",
+            "example": "Car.Limousine"
+          },
+          "export_assertion_damage_free": {
+            "type": "object"
+          },
+          "export_assertion_metallic": {
+            "type": "object"
+          },
+          "export_assertion_guarantee": {
+            "type": "object"
+          },
+          "export_assertion_jahreswagen": {
+            "type": "object"
+          },
+          "export_assertion_recommendation": {
+            "type": "object"
+          },
+          "export_assertion_demo_vehicle": {
+            "type": "object"
+          },
           "content_sha256": {
             "type": "string"
           },
@@ -32796,6 +32818,28 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          "portal_category": {
+            "type": "object",
+            "example": "Car.Limousine"
+          },
+          "export_assertion_damage_free": {
+            "type": "object"
+          },
+          "export_assertion_metallic": {
+            "type": "object"
+          },
+          "export_assertion_guarantee": {
+            "type": "object"
+          },
+          "export_assertion_jahreswagen": {
+            "type": "object"
+          },
+          "export_assertion_recommendation": {
+            "type": "object"
+          },
+          "export_assertion_demo_vehicle": {
+            "type": "object"
           }
         },
         "required": [

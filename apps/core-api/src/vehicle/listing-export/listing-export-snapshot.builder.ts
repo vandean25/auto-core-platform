@@ -15,8 +15,6 @@ import type {
   ListingSerializerInput,
 } from './listing-serializer.types.js';
 
-export const MOBILE_DE_REFERENCE_DEFAULT_CATEGORY = 'Car.Limousine';
-
 type ListingWithRelations = VehicleListing & {
   photos: (VehicleListingPhoto & { media: VehicleMedia })[];
   channels: VehicleListingChannel[];
@@ -48,13 +46,19 @@ export function buildListingSerializerInput(params: {
   }>;
   equipmentFreeTextLines: string[];
   imageBytesByMediaId: Map<string, Buffer>;
-  category?: string;
 }): ListingSerializerInput {
+  const listingFreeTextLines =
+    params.listing.equipment_free_text
+      ?.split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0) ?? [];
+
   const equipment = resolveVehicleEquipmentForProfile(
     params.profileCode,
     {
       selections: params.equipmentSelections,
       freeTextLines: params.equipmentFreeTextLines,
+      passThroughFreeText: listingFreeTextLines,
     },
     params.mappingVersion,
   );
@@ -63,7 +67,6 @@ export function buildListingSerializerInput(params: {
   const images: ListingSerializerImageInput[] = params.listing.photos
     .slice()
     .sort((a, b) => a.sort_order - b.sort_order)
-    .slice(0, 15)
     .map((photo, index) => {
       const sequence = index + 1;
       const bytes = params.imageBytesByMediaId.get(photo.media_id);
@@ -92,7 +95,7 @@ export function buildListingSerializerInput(params: {
       make: params.vehicle.make,
       model: params.vehicle.model,
       model_year: params.vehicle.year,
-      mileage_km: params.vehicle.mileage ?? 0,
+      mileage_km: params.vehicle.mileage,
       fuel: params.vehicle.fuel_type,
       power_kw: params.vehicle.power_kw,
       first_registration:
@@ -108,7 +111,15 @@ export function buildListingSerializerInput(params: {
       description: params.listing.description,
       price_gross_eur: price.toFixed(2),
       vat_display: params.listing.vat_display,
-      category: params.category ?? MOBILE_DE_REFERENCE_DEFAULT_CATEGORY,
+      category: params.listing.portal_category?.trim() ?? '',
+    },
+    exportAssertions: {
+      damage_free: params.listing.export_assertion_damage_free,
+      metallic: params.listing.export_assertion_metallic,
+      guarantee: params.listing.export_assertion_guarantee,
+      jahreswagen: params.listing.export_assertion_jahreswagen,
+      recommendation: params.listing.export_assertion_recommendation,
+      demo_vehicle: params.listing.export_assertion_demo_vehicle,
     },
     equipment,
     images,

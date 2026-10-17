@@ -70,7 +70,7 @@ function buildDescription(input: ListingSerializerInput): string {
   if (equipmentParagraph) {
     parts.push(equipmentParagraph);
   }
-  return parts.join('\n\n');
+  return parts.join(' ');
 }
 
 export function buildMobileDeReferenceCsvRow(
@@ -95,7 +95,9 @@ export function buildMobileDeReferenceCsvRow(
   if (input.vehicle.first_registration) {
     setCell(row, 8, formatMobileDeMonthYear(input.vehicle.first_registration));
   }
-  setCell(row, 9, String(input.vehicle.mileage_km));
+  if (input.vehicle.mileage_km != null) {
+    setCell(row, 9, String(input.vehicle.mileage_km));
+  }
   setCell(row, 10, formatMobileDePriceGross(input.listing.price_gross_eur));
   setCell(row, 11, mapMobileDeVatIndicator(input.listing.vat_display));
   if (input.vehicle.color?.trim()) {
@@ -118,6 +120,24 @@ export function buildMobileDeReferenceCsvRow(
     input.vehicle.co2_wltp_g_km ?? input.vehicle.co2_nedc_g_km ?? null;
   if (co2 != null && co2 > 0) {
     setCell(row, 99, String(Math.round(co2)));
+  }
+
+  const assertions = input.exportAssertions;
+  if (
+    assertions &&
+    assertions.damage_free !== null &&
+    assertions.metallic !== null &&
+    assertions.guarantee !== null &&
+    assertions.jahreswagen !== null &&
+    assertions.recommendation !== null &&
+    assertions.demo_vehicle !== null
+  ) {
+    setCell(row, 15, assertions.damage_free ? '0' : '1');
+    setCell(row, 20, assertions.jahreswagen ? '1' : '0');
+    setCell(row, 22, assertions.recommendation ? '1' : '0');
+    setCell(row, 27, assertions.metallic ? '1' : '0');
+    setCell(row, 30, assertions.guarantee ? '1' : '0');
+    setCell(row, 50, assertions.demo_vehicle ? '1' : '0');
   }
 
   for (const mapped of input.equipment.mappedFields) {
@@ -153,7 +173,7 @@ export function serializeMobileDeReferenceListing(
       },
       ...input.images.map((image) => ({
         name: image.filename,
-        sha256: image.content_sha256,
+        sha256: sha256Buffer(image.bytes),
       })),
     ],
   };
@@ -206,6 +226,16 @@ export function serializeMobileDeReferenceListing(
   };
 }
 
+function pushMissingAssertionIssue(
+  issues: ListingSerializerFieldIssue[],
+  field: string,
+): void {
+  issues.push({
+    field,
+    message: `Advisor export assertion ${field} is required for mobile.de reference export.`,
+  });
+}
+
 function validateMobileDeReferenceListing(
   input: ListingSerializerInput,
 ): ListingSerializerFieldIssue[] {
@@ -213,9 +243,33 @@ function validateMobileDeReferenceListing(
 
   if (!input.listing.category.trim()) {
     issues.push({
-      field: 'category',
+      field: 'portal_category',
       message: 'Portal category is required for mobile.de reference export.',
     });
+  }
+
+  const assertions = input.exportAssertions;
+  if (!assertions) {
+    pushMissingAssertionIssue(issues, 'export_assertions');
+  } else {
+    if (assertions.damage_free === null) {
+      pushMissingAssertionIssue(issues, 'export_assertion_damage_free');
+    }
+    if (assertions.metallic === null) {
+      pushMissingAssertionIssue(issues, 'export_assertion_metallic');
+    }
+    if (assertions.guarantee === null) {
+      pushMissingAssertionIssue(issues, 'export_assertion_guarantee');
+    }
+    if (assertions.jahreswagen === null) {
+      pushMissingAssertionIssue(issues, 'export_assertion_jahreswagen');
+    }
+    if (assertions.recommendation === null) {
+      pushMissingAssertionIssue(issues, 'export_assertion_recommendation');
+    }
+    if (assertions.demo_vehicle === null) {
+      pushMissingAssertionIssue(issues, 'export_assertion_demo_vehicle');
+    }
   }
   if (!input.vehicle.make.trim() || !input.vehicle.model.trim()) {
     issues.push({
@@ -229,7 +283,12 @@ function validateMobileDeReferenceListing(
       message: 'First registration date is required for mobile.de export.',
     });
   }
-  if (input.vehicle.mileage_km < 0) {
+  if (input.vehicle.mileage_km == null) {
+    issues.push({
+      field: 'vehicle.mileage_km',
+      message: 'Mileage is required for mobile.de reference export.',
+    });
+  } else if (input.vehicle.mileage_km < 0) {
     issues.push({
       field: 'vehicle.mileage_km',
       message: 'Mileage must be a non-negative integer.',
@@ -254,6 +313,17 @@ function validateMobileDeReferenceListing(
   }
   for (const line of input.equipment.equipmentFreeTextLines) {
     validateEncoding(issues, 'equipment_free_text', line);
+  }
+
+  if (issues.length === 0) {
+    const row = buildMobileDeReferenceCsvRow(input);
+    for (let index = 0; index < row.length; index += 1) {
+      const value = row[index];
+      if (!value) {
+        continue;
+      }
+      validateEncoding(issues, `mobile_de_column_${index}`, value);
+    }
   }
 
   return issues;

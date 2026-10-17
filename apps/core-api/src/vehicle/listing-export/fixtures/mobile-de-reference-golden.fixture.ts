@@ -28,6 +28,14 @@ export const mobileDeReferenceGoldenInput: ListingSerializerInput = {
     vat_display: 'STANDARD',
     category: 'Car.Limousine',
   },
+  exportAssertions: {
+    damage_free: true,
+    metallic: true,
+    guarantee: false,
+    jahreswagen: false,
+    recommendation: false,
+    demo_vehicle: false,
+  },
   equipment: {
     profile: 'MOBILE_DE_REFERENCE_V1',
     mappingVersion: '1',

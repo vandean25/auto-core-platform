@@ -9754,6 +9754,14 @@ export interface components {
             description_language: components["schemas"]["VehicleListingDescriptionLanguage"];
             price_display?: components["schemas"]["VehicleListingPriceDisplayDto"];
             equipment_free_text?: Record<string, never>;
+            /** @example Car.Limousine */
+            portal_category?: Record<string, never>;
+            export_assertion_damage_free?: Record<string, never>;
+            export_assertion_metallic?: Record<string, never>;
+            export_assertion_guarantee?: Record<string, never>;
+            export_assertion_jahreswagen?: Record<string, never>;
+            export_assertion_recommendation?: Record<string, never>;
+            export_assertion_demo_vehicle?: Record<string, never>;
             content_sha256: string;
             photos: components["schemas"]["VehicleListingPhotoDto"][];
             channels: components["schemas"]["VehicleListingChannelDto"][];
@@ -9776,6 +9784,14 @@ export interface components {
             mandatory_fees_included_confirmed?: boolean;
             equipment_free_text?: Record<string, never>;
             photo_ids?: string[];
+            /** @example Car.Limousine */
+            portal_category?: Record<string, never>;
+            export_assertion_damage_free?: Record<string, never>;
+            export_assertion_metallic?: Record<string, never>;
+            export_assertion_guarantee?: Record<string, never>;
+            export_assertion_jahreswagen?: Record<string, never>;
+            export_assertion_recommendation?: Record<string, never>;
+            export_assertion_demo_vehicle?: Record<string, never>;
         };
         PatchVehicleListingChannelDto: {
             expected_revision: number;

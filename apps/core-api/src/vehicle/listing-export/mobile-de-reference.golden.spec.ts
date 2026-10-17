@@ -48,15 +48,16 @@ describe('mobile-de-reference golden export', () => {
 
     const result = serializeMobileDeReferenceListing(mobileDeReferenceGoldenInput);
     const csvText = decodeMobileDeCsv(result.csvBytes);
+    expect(csvText.split('\n').filter((line) => line.length > 0)).toHaveLength(1);
     expect(csvText).toContain('17"" Felgen');
     expect(csvText).toContain('Größe');
     expect(csvText).toContain('Semicolon; test');
     expect(csvText.endsWith('\n')).toBe(true);
     expect(result.files[0].sha256).toBe(
-      '0006236c82636b0be15190269b1e6bcc14321d2ae1ac9d2ce4f892eefebf354e',
+      'a62f586e39dc26e630fd95e320f0aa38fa8967e839b649bca73c7bc54f3113f4',
     );
     expect(result.sha256).toBe(
-      'e7e817c17f7891c02559ccf2c6216e6a9f1d7637039b843fea3c883275de9fa9',
+      '13395778f87653a5c60e29b4f0389709680696c55eb51290516ab30dd81e7bdb',
     );
   });
 

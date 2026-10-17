@@ -5,18 +5,11 @@
 
 export const MOBILE_DE_REFERENCE_LAYOUT_VERSION = '1';
 
-/** Reference defaults for used passenger cars when ACP has no explicit advisor assertion yet. */
+/** Used-stock export always sets neufahrzeug=0 (route requires inventory_role=USED). */
 export const MOBILE_DE_REFERENCE_USED_CAR_DEFAULTS: Readonly<
   Record<number, string>
 > = {
-  13: '0', // oldtimer
-  15: '0', // beschaedigtes_fahrzeug
-  20: '0', // jahreswagen
   21: '0', // neufahrzeug
-  22: '0', // unsere empfehlung
-  27: '0', // metallic
-  30: '0', // garantie
-  50: '0', // vorfuehrfahrzeug
 };
 
 export const MOBILE_DE_LISTING_REF_MAX_LENGTH = 40;

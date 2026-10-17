@@ -28,6 +28,26 @@ describe('Vehicle listing export download (e2e)', () => {
     await disposeVehicleStockSuite(suite);
   });
 
+  const exportReadyListingPatch = {
+    portal_category: 'Car.Limousine',
+    export_assertion_damage_free: true,
+    export_assertion_metallic: false,
+    export_assertion_guarantee: false,
+    export_assertion_jahreswagen: false,
+    export_assertion_recommendation: false,
+    export_assertion_demo_vehicle: false,
+  };
+
+  async function setActiveSiteId(siteId: string) {
+    const user = await suite.basePrisma.user.findFirstOrThrow({
+      where: { firebaseUid: `e2e-user-${suite.tenantId}` },
+    });
+    await suite.basePrisma.user.update({
+      where: { id: user.id },
+      data: { active_site_id: siteId },
+    });
+  }
+
   async function prepareActiveListing(vehicleId: string, stockPurchaseId: string) {
     const listingId = randomUUID();
     await request(suite.app.getHttpServer())
@@ -70,6 +90,7 @@ describe('Vehicle listing export download (e2e)', () => {
         nova_included_confirmed: true,
         mandatory_fees_included_confirmed: true,
         photo_ids: [photo.body.id],
+        ...exportReadyListingPatch,
       })
       .expect(200);
 
@@ -122,6 +143,34 @@ describe('Vehicle listing export download (e2e)', () => {
       .expect(422);
 
     expect(res.body.code).toBe('LISTING_SERIALIZER_UNSUPPORTED');
+  });
+
+  it('returns 404 when the listing exists on another site in the same tenant', async () => {
+    const created = await suite.createAndReceive({
+      vin: vin('LST-SITE'),
+      sellerType: 'VENDOR',
+    });
+    await prepareActiveListing(created.received.vehicle_id, created.received.id);
+
+    const otherSite = await suite.createAdditionalLotSite({
+      code: 'LOT-B',
+      grantMembership: true,
+    });
+    await setActiveSiteId(otherSite.site.id);
+
+    const res = await request(suite.app.getHttpServer())
+      .get(
+        `/api/vehicle-stock/${created.received.vehicle_id}/listing/export/download?profile=MOBILE_DE_REFERENCE_V1`,
+      )
+      .set('Authorization', `Bearer ${suite.authToken}`)
+      .expect(404);
+
+    expect(res.body.code ?? res.body.message).toBeTruthy();
+
+    const mainSite = await suite.prisma.site.findFirstOrThrow({
+      where: { tenant_id: suite.tenantId, code: 'MAIN' },
+    });
+    await setActiveSiteId(mainSite.id);
   });
 
   it('returns 404 for foreign tenant download', async () => {

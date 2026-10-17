@@ -138,6 +138,27 @@ export class VehicleListingDto {
   @ApiPropertyOptional()
   equipment_free_text!: string | null;
 
+  @ApiPropertyOptional({ example: 'Car.Limousine' })
+  portal_category!: string | null;
+
+  @ApiPropertyOptional()
+  export_assertion_damage_free!: boolean | null;
+
+  @ApiPropertyOptional()
+  export_assertion_metallic!: boolean | null;
+
+  @ApiPropertyOptional()
+  export_assertion_guarantee!: boolean | null;
+
+  @ApiPropertyOptional()
+  export_assertion_jahreswagen!: boolean | null;
+
+  @ApiPropertyOptional()
+  export_assertion_recommendation!: boolean | null;
+
+  @ApiPropertyOptional()
+  export_assertion_demo_vehicle!: boolean | null;
+
   @ApiProperty()
   content_sha256!: string;
 
@@ -224,6 +245,43 @@ export class PatchVehicleListingDto {
   @ArrayMaxSize(30)
   @IsUUID('4', { each: true })
   photo_ids?: string[];
+
+  @ApiPropertyOptional({ example: 'Car.Limousine' })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(64)
+  portal_category?: string | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  export_assertion_damage_free?: boolean | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  export_assertion_metallic?: boolean | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  export_assertion_guarantee?: boolean | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  export_assertion_jahreswagen?: boolean | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  export_assertion_recommendation?: boolean | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  export_assertion_demo_vehicle?: boolean | null;
 }
 
 export class PatchVehicleListingChannelDto {
