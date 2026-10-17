@@ -43,6 +43,7 @@ import {
   requestWorkshopMediaUploadInputSchema,
 } from '../mechanic/mechanic-finding-propose.schema.js';
 import { proposePurchaseOrderInputSchema } from '../purchase/purchase-propose-draft.schema.js';
+import { generateWeeklyReportPdfInputSchema } from '../reports/weekly-report/weekly-report-mcp.schema.js';
 import { proposeWorkshopOrderCompletionInputSchema } from '../workshop/workshop-order-completion.schema.js';
 import { proposeInvoiceDraftFromOrderInputSchema } from '../invoices/invoice-workshop-draft-propose.schema.js';
 
@@ -920,4 +921,5 @@ export const mcpWriteToolInputSchemas: Record<
   propose_invoice_draft_from_order: proposeInvoiceDraftFromOrderInputSchema,
   request_workshop_media_upload: requestWorkshopMediaUploadInputSchema,
   propose_mechanic_finding: proposeMechanicFindingInputSchema,
+  generate_weekly_report_pdf: generateWeeklyReportPdfInputSchema,
 };

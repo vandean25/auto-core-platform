@@ -168,6 +168,7 @@ export function createAgentProposalSpecHarness() {
     mockInvoiceWorkshopDraftPropose as never,
     mockWorkshopMediaUploadMcp as never,
     mockMechanicFindingPropose as never,
+    {} as never,
   );
 
   const policyEvaluator = new AgentProposalPolicyEvaluator(mockAgentPolicyService);

@@ -1376,6 +1376,7 @@ export const mcpToolOutputSchemas = {
   ),
   request_workshop_media_upload: writeResultOf('request_workshop_media_upload'),
   propose_mechanic_finding: writeResultOf('propose_mechanic_finding'),
+  generate_weekly_report_pdf: writeResultOf('generate_weekly_report_pdf'),
 } satisfies Record<McpToolName, z.ZodType>;
 
 export type McpToolOutputSchemas = typeof mcpToolOutputSchemas;

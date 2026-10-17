@@ -42,6 +42,8 @@ import { InvoiceWorkshopDraftProposeService } from '../invoices/invoice-workshop
 import { WorkshopMediaUploadMcpService } from '../mechanic/workshop-media-upload-mcp.service.js';
 import { MechanicFindingProposeService } from '../mechanic/mechanic-finding-propose.service.js';
 import { requestWorkshopMediaUploadInputSchema } from '../mechanic/mechanic-finding-propose.schema.js';
+import { WeeklyReportMcpService } from '../reports/weekly-report/weekly-report-mcp.service.js';
+import { generateWeeklyReportPdfInputSchema } from '../reports/weekly-report/weekly-report-mcp.schema.js';
 
 export type PendingActionType =
   | 'workshop_order.create'
@@ -61,7 +63,8 @@ export type PendingActionType =
   | 'workshop_order.propose_mechanic_finding'
   | 'workshop.media_upload_slot'
   | 'workshop_order.complete'
-  | 'invoice.create_draft_from_workshop_order';
+  | 'invoice.create_draft_from_workshop_order'
+  | 'report.generate_weekly_pdf';
 
 export type PendingActionExecutor = {
   actionType: PendingActionType;
@@ -94,6 +97,7 @@ export class PendingActionExecutorService {
     private readonly invoiceWorkshopDraftPropose: InvoiceWorkshopDraftProposeService,
     private readonly workshopMediaUploadMcp: WorkshopMediaUploadMcpService,
     private readonly mechanicFindingPropose: MechanicFindingProposeService,
+    private readonly weeklyReportMcp: WeeklyReportMcpService,
   ) {}
 
   resolve(actionType: string): PendingActionExecutor {
@@ -206,6 +210,19 @@ export class PendingActionExecutorService {
             entityType: 'WorkshopMedia',
             entityId: (result as { media_id: string }).media_id,
             reversible: true,
+          }),
+        };
+      case 'report.generate_weekly_pdf':
+        return {
+          actionType,
+          buildPolicyContext: () => Promise.resolve({}),
+          execute: (input) => this.generateWeeklyReportPdf(input),
+          buildResultSummary: (result) => ({
+            id: (result as { id: string }).id,
+            expires_at: (result as { expires_at: string }).expires_at,
+            page_count: (result as { page_count: number }).page_count,
+            sha256: (result as { sha256: string }).sha256,
+            period: (result as { period: unknown }).period,
           }),
         };
       case 'workshop_order.add_line':
@@ -706,6 +723,11 @@ export class PendingActionExecutorService {
   ): Promise<unknown> {
     const parsed = requestWorkshopMediaUploadInputSchema.parse(input);
     return this.workshopMediaUploadMcp.createUploadSlot(parsed);
+  }
+
+  private async generateWeeklyReportPdf(input: unknown): Promise<unknown> {
+    const parsed = generateWeeklyReportPdfInputSchema.parse(input);
+    return this.weeklyReportMcp.generate(parsed);
   }
 
   /**
