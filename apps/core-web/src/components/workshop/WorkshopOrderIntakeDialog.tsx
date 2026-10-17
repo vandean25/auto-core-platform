@@ -32,6 +32,7 @@ import type {
   NewVehicleForm,
 } from '@/features/workshop/intake-form'
 import { getErrorMessage } from '@/lib/error-utils'
+import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { ensureNamespaceLoaded, i18n } from '@/lib/i18n'
 import { PageLoader } from '@/components/ui/PageLoader'
 import { RegistrationDocumentIntakeStep } from './RegistrationDocumentIntakeStep'
@@ -423,7 +424,9 @@ export function WorkshopOrderIntakeDialog({
                 notes={notes}
                 onOrderCreated={(orderId) => {
                   handleDialogOpenChange(false)
-                  navigate(`/workshop/${orderId}`)
+                  navigate(
+                    APP_ROUTE_PATHS.workshopOrderCheckIn.replace(':id', orderId),
+                  )
                 }}
               />
             </TabsContent>

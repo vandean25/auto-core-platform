@@ -203,6 +203,14 @@ describe('Registration document intake (e2e)', () => {
       .send({ odometer: 12000, fuelLevel: 40, notes: 'Snap intake' })
       .expect(200);
     expect(order.body.workshopOrderId).toBeTruthy();
+
+    const repeatOrder = await request(app.getHttpServer())
+      .post(`/api/workshop/registration-intakes/${create.body.id}/order`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ odometer: 99999, fuelLevel: 10, notes: 'Should not create another order' })
+      .expect(200);
+    expect(repeatOrder.body.workshopOrderId).toBe(order.body.workshopOrderId);
+    expect(await tenantPrisma.workshopOrder.count()).toBe(1);
   });
 
   it('rejects unsupported file type before storing bytes', async () => {
