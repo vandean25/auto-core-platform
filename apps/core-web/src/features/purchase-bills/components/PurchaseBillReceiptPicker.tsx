@@ -1,10 +1,18 @@
+import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ReceiptText } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { formatCurrency } from '@/lib/utils'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 import type { PurchaseBillFormModel } from '../form-model'
 
 export function PurchaseBillReceiptPicker({ form }: { form: PurchaseBillFormModel }) {
+  const { t } = useTranslation('finance')
+  useEffect(() => {
+    void ensureNamespaceLoaded('finance')
+  }, [])
+
   if (!form.vendorId) return null
 
   return (
@@ -12,12 +20,12 @@ export function PurchaseBillReceiptPicker({ form }: { form: PurchaseBillFormMode
       <div className="flex items-center gap-2 text-sm font-medium">
         <ReceiptText className="h-4 w-4" />
         {form.receiptSummaries.length > 0
-          ? `${form.receiptSummaries.length} Unbilled Receipts Found`
-          : 'No Unbilled Receipts Found'}
+          ? t('purchaseBills.form.receiptsFound', { count: form.receiptSummaries.length })
+          : t('purchaseBills.form.receiptsNone')}
       </div>
 
       {form.isUnbilledLoading && (
-        <p className="text-sm text-slate-500">Checking unbilled receipts...</p>
+        <p className="text-sm text-slate-500">{t('purchaseBills.form.checkingReceipts')}</p>
       )}
 
       {!form.isUnbilledLoading && form.receiptSummaries.length > 0 && (
@@ -25,7 +33,7 @@ export function PurchaseBillReceiptPicker({ form }: { form: PurchaseBillFormMode
           <Input
             value={form.receiptFilter}
             onChange={(event) => form.setReceiptFilter(event.target.value)}
-            placeholder="Filter by receipt #"
+            placeholder={t('purchaseBills.form.filterReceipts')}
           />
 
           {form.filteredReceiptSummaries.map((receipt) => {
@@ -45,7 +53,10 @@ export function PurchaseBillReceiptPicker({ form }: { form: PurchaseBillFormMode
                   <div className="flex flex-col">
                     <span className="font-medium">{receipt.number}</span>
                     <span className="text-xs text-slate-500">
-                      {receipt.lineCount} line(s), {receipt.pendingQuantity} qty pending
+                      {t('shared.lineCountPending', {
+                        lines: receipt.lineCount,
+                        qty: receipt.pendingQuantity,
+                      })}
                     </span>
                   </div>
                 </div>

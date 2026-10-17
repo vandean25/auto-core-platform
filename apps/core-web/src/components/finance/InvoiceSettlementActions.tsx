@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import {
-  settlementSuccessToastMessage,
+  settlementSuccessToastMessageKey,
   useCancelFiscalReceipt,
   useInvoiceSettlement,
   useRecordSettlement,
@@ -17,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 
 type Props = {
   invoiceId: string
@@ -29,6 +31,11 @@ export function InvoiceSettlementActions({
   invoiceStatus,
   canManage,
 }: Props) {
+  const { t } = useTranslation('finance')
+  useEffect(() => {
+    void ensureNamespaceLoaded('finance')
+  }, [])
+
   const { data } = useInvoiceSettlement(invoiceId)
   const record = useRecordSettlement(invoiceId)
   const cancel = useCancelFiscalReceipt(invoiceId)
@@ -58,7 +65,7 @@ export function InvoiceSettlementActions({
   if (rksvMode === 'OFF' || rksvMode === 'UNKNOWN') {
     return (
       <p className="max-w-sm text-right text-xs text-slate-500">
-        Fiscal settlement is off for this legal entity.
+        {t('settlement.fiscalOff')}
       </p>
     )
   }
@@ -92,7 +99,7 @@ export function InvoiceSettlementActions({
   const handleRecord = () => {
     if (rksvMode === 'REQUIRED_EXTERNAL_KASSE') {
       if (!externalNumber.trim() || !externalDate) {
-        toast.error('External receipt number and date are required.')
+        toast.error(t('settlement.toast.externalFieldsRequired'))
         return
       }
     }
@@ -106,13 +113,13 @@ export function InvoiceSettlementActions({
       },
       {
         onSuccess: (result) => {
-          const message = settlementSuccessToastMessage(result.payment?.status)
-          if (message) toast.success(message)
+          const messageKey = settlementSuccessToastMessageKey(result.payment?.status)
+          if (messageKey) toast.success(t(messageKey))
           else if (
             result.payment?.status === 'PENDING' ||
             result.payment?.status === 'UNKNOWN'
           ) {
-            toast.message('Settlement attempt is still open — reconcile if needed.')
+            toast.message(t('settlement.toast.settlementOpen'))
           }
         },
         onError: (error) => toast.error(error.message),
@@ -125,7 +132,7 @@ export function InvoiceSettlementActions({
       {rksvMode === 'REQUIRED_EXTERNAL_KASSE' && showRecord ? (
         <div className="flex flex-wrap items-end justify-end gap-2">
           <div className="space-y-1">
-            <Label className="text-xs">External receipt no.</Label>
+            <Label className="text-xs">{t('settlement.externalReceiptNo')}</Label>
             <Input
               className="h-9 w-36"
               maxLength={40}
@@ -134,7 +141,7 @@ export function InvoiceSettlementActions({
             />
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Receipt date</Label>
+            <Label className="text-xs">{t('settlement.receiptDate')}</Label>
             <Input
               className="h-9 w-36"
               type="date"
@@ -152,12 +159,12 @@ export function InvoiceSettlementActions({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="CASH">Cash</SelectItem>
-                <SelectItem value="CARD">Card</SelectItem>
+                <SelectItem value="CASH">{t('settlement.methodCash')}</SelectItem>
+                <SelectItem value="CARD">{t('settlement.methodCard')}</SelectItem>
               </SelectContent>
             </Select>
             <Button size="sm" onClick={handleRecord} disabled={record.isPending}>
-              Record settlement
+              {t('actions.recordSettlement')}
             </Button>
           </>
         ) : null}
@@ -169,15 +176,15 @@ export function InvoiceSettlementActions({
             onClick={() => {
               reconcile.mutate(undefined, {
                 onSuccess: (result) => {
-                  const message = settlementSuccessToastMessage(result.payment?.status)
-                  if (message) toast.success(message)
-                  else toast.message('Reconcile finished — check payment status.')
+                  const messageKey = settlementSuccessToastMessageKey(result.payment?.status)
+                  if (messageKey) toast.success(t(messageKey))
+                  else toast.message(t('settlement.toast.reconcileFinished'))
                 },
                 onError: (error) => toast.error(error.message),
               })
             }}
           >
-            Reconcile
+            {t('actions.reconcile')}
           </Button>
         ) : null}
         {showCancel && signedNormal ? (
@@ -187,12 +194,12 @@ export function InvoiceSettlementActions({
             disabled={cancel.isPending}
             onClick={() => {
               cancel.mutate(signedNormal.id, {
-                onSuccess: () => toast.message('Cancellation submitted — reconcile if needed.'),
+                onSuccess: () => toast.message(t('settlement.toast.cancellationSubmitted')),
                 onError: (error) => toast.error(error.message),
               })
             }}
           >
-            Cancel fiscal receipt
+            {t('settlement.cancelFiscalReceipt')}
           </Button>
         ) : null}
       </div>

@@ -1,8 +1,10 @@
-import * as React from "react"
-import { Check, ChevronsUpDown } from "lucide-react"
+import * as React from 'react'
+import { useEffect } from 'react'
+import { Check, ChevronsUpDown } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 import {
   Command,
   CommandEmpty,
@@ -10,14 +12,15 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from "@/components/ui/command"
+} from '@/components/ui/command'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover"
-import { useVendors } from "@/api/vendors"
-import type { Vendor } from "@/api/types"
+} from '@/components/ui/popover'
+import { useVendors } from '@/api/vendors'
+import type { Vendor } from '@/api/types'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 
 interface VendorComboboxProps {
     value?: string
@@ -25,6 +28,11 @@ interface VendorComboboxProps {
 }
 
 export function VendorCombobox({ value, onChange }: VendorComboboxProps) {
+  const { t } = useTranslation('finance')
+  useEffect(() => {
+    void ensureNamespaceLoaded('finance')
+  }, [])
+
   const [open, setOpen] = React.useState(false)
   const { data: responseData } = useVendors()
   
@@ -41,15 +49,15 @@ export function VendorCombobox({ value, onChange }: VendorComboboxProps) {
           aria-expanded={open}
           className="w-full justify-between"
         >
-          {selectedVendor ? selectedVendor.name : "Select vendor..."}
+          {selectedVendor ? selectedVendor.name : t('purchaseInvoices.vendorCombobox.placeholder')}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[300px] p-0">
         <Command>
-          <CommandInput placeholder="Search vendor..." />
+          <CommandInput placeholder={t('purchaseInvoices.vendorCombobox.searchPlaceholder')} />
           <CommandList>
-            <CommandEmpty>No vendor found.</CommandEmpty>
+            <CommandEmpty>{t('purchaseInvoices.vendorCombobox.empty')}</CommandEmpty>
             <CommandGroup>
               {vendors?.map((vendor) => (
                 <CommandItem

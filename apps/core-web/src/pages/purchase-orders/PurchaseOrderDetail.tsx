@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -45,6 +46,7 @@ import {
 } from "@/components/ui/command";
 import type { PurchaseOrder, PurchaseOrderItem } from "@/api/types";
 import { Receipt, Trash2 } from "lucide-react";
+import { ensureNamespaceLoaded } from "@/lib/i18n";
 
 interface InventoryItem {
   id: string;
@@ -63,6 +65,11 @@ interface StagedPOItem {
 }
 
 export default function PurchaseOrderDetail() {
+  const { t } = useTranslation("finance");
+  useEffect(() => {
+    void ensureNamespaceLoaded("finance");
+  }, []);
+
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const markAsSent = useMarkPOSent();
@@ -217,8 +224,8 @@ export default function PurchaseOrderDetail() {
     const qty = Number(newQty);
 
     if (!Number.isFinite(qty) || qty <= 0) {
-      toast.error("Invalid quantity", {
-        description: "Please enter a positive number",
+      toast.error(t("purchaseOrders.detail.toast.invalidQuantity"), {
+        description: t("purchaseOrders.detail.toast.positiveQuantity"),
       });
       return;
     }
@@ -237,12 +244,12 @@ export default function PurchaseOrderDetail() {
         },
         {
           onSuccess: () => {
-            toast.success(`Quantity updated to ${newTotalQty}`);
+            toast.success(t("purchaseOrders.detail.toast.quantityUpdated", { qty: newTotalQty }));
             triggerMergeFeedback(existingItem.id);
             clearQuickEntry();
           },
           onError: (error) => {
-            toast.error("Failed to update item", {
+            toast.error(t("purchaseOrders.detail.toast.updateItemFailed"), {
               description: error.message,
             });
           },
@@ -262,11 +269,11 @@ export default function PurchaseOrderDetail() {
         },
         {
           onSuccess: () => {
-            toast.success("Item added to PO");
+            toast.success(t("purchaseOrders.detail.toast.itemAdded"));
             clearQuickEntry();
           },
           onError: (error) => {
-            toast.error("Failed to add item", { description: error.message });
+            toast.error(t("purchaseOrders.detail.toast.addItemFailed"), { description: error.message });
           },
         },
       );
@@ -283,8 +290,10 @@ export default function PurchaseOrderDetail() {
     if (!item) return;
 
     if (qty < item.quantity_received) {
-      toast.error("Invalid quantity", {
-        description: `Cannot reduce quantity below ${item.quantity_received} already received`,
+      toast.error(t("purchaseOrders.detail.toast.invalidQuantity"), {
+        description: t("purchaseOrders.detail.toast.cannotReduceBelowReceived", {
+          received: item.quantity_received,
+        }),
       });
       setEditingItemId(null);
       setEditingQty("");
@@ -299,7 +308,7 @@ export default function PurchaseOrderDetail() {
 
   const handleDeleteItem = (itemId: string) => {
     if (!id) return;
-    if (confirm("Are you sure you want to delete this item?")) {
+    if (confirm(t("purchaseOrders.detail.deleteItemConfirm"))) {
       deleteItem.mutate(
         {
           orderId: id,
@@ -307,10 +316,10 @@ export default function PurchaseOrderDetail() {
         },
         {
           onSuccess: () => {
-            toast.success("Item deleted");
+            toast.success(t("purchaseOrders.detail.toast.itemDeleted"));
           },
           onError: (error) => {
-            toast.error("Failed to delete item", {
+            toast.error(t("purchaseOrders.detail.toast.deleteItemFailed"), {
               description: error.message,
             });
           },
@@ -319,9 +328,9 @@ export default function PurchaseOrderDetail() {
     }
   };
 
-  if (isLoading) return <div>Loading order...</div>;
-  if (error) return <div>Error loading order</div>;
-  if (!po) return <div>Order not found</div>;
+  if (isLoading) return <div>{t("shared.loading")}</div>;
+  if (error) return <div>{t("purchaseOrders.detail.loadError")}</div>;
+  if (!po) return <div>{t("purchaseOrders.detail.notFound")}</div>;
 
   const handleMarkAsSent = async () => {
     if (editingItemId) {
@@ -334,9 +343,9 @@ export default function PurchaseOrderDetail() {
       }
     }
     toast.promise(markAsSent.mutateAsync(po.id), {
-      loading: "Marking as sent...",
-      success: "Purchase order marked as sent",
-      error: "Failed to mark as sent",
+      loading: t("purchaseOrders.detail.toast.markingSent"),
+      success: t("purchaseOrders.detail.toast.markedSent"),
+      error: t("purchaseOrders.detail.toast.markSentFailed"),
     });
   };
 
@@ -347,7 +356,7 @@ export default function PurchaseOrderDetail() {
           <h1 className="text-2xl font-semibold tracking-tight">
             {po.order_number}
           </h1>
-          <p className="text-slate-500">Vendor: {po.vendor?.name}</p>
+          <p className="text-slate-500">{t("shared.vendorLabel", { name: po.vendor?.name ?? "" })}</p>
         </div>
         <div className="flex items-center space-x-4">
           {po.status === "DRAFT" && <DocumentSaveIndicator status={saveStatus} />}
@@ -359,7 +368,7 @@ export default function PurchaseOrderDetail() {
               onClick={handleMarkAsSent}
               disabled={markAsSent.isPending}
             >
-              Mark as Sent
+              {t("actions.markAsSent")}
             </Button>
           )}
 
@@ -373,12 +382,12 @@ export default function PurchaseOrderDetail() {
             }
           >
             <Receipt className="mr-2 h-4 w-4" />
-            Create Bill ({poUnbilledCount} items)
+            {t("purchaseOrders.detail.createBill", { count: poUnbilledCount })}
           </Button>
 
           {po.status !== "COMPLETED" && (
             <Button onClick={() => setIsReceiveDialogOpen(true)}>
-              Receive Goods
+              {t("actions.receiveGoods")}
             </Button>
           )}
         </div>
@@ -389,34 +398,34 @@ export default function PurchaseOrderDetail() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base font-semibold">
-                Purchase Order
+                {t("purchaseOrders.detail.purchaseOrder")}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 text-sm">
               <div>
-                <div className="text-muted-foreground">Order #</div>
+                <div className="text-muted-foreground">{t("purchaseOrders.detail.orderNumber")}</div>
                 <div className="font-medium">{po.order_number}</div>
               </div>
               <div>
-                <div className="text-muted-foreground">Created</div>
+                <div className="text-muted-foreground">{t("purchaseOrders.detail.created")}</div>
                 <div className="font-medium">
                   {formatDate(po.createdAt)}
                 </div>
               </div>
               <div>
-                <div className="text-muted-foreground">Items</div>
+                <div className="text-muted-foreground">{t("columns.items")}</div>
                 <div className="font-medium">{po.items.length}</div>
               </div>
               <div>
-                <div className="text-muted-foreground">Unbilled Receipts</div>
-                <div className="font-medium">{poUnbilledCount} items</div>
+                <div className="text-muted-foreground">{t("purchaseOrders.detail.unbilledReceipts")}</div>
+                <div className="font-medium">{t("shared.itemsCount", { count: poUnbilledCount })}</div>
               </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base font-semibold">Vendor</CardTitle>
+              <CardTitle className="text-base font-semibold">{t("purchaseOrders.detail.vendorCard")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               <div className="font-medium">{po.vendor?.name}</div>
@@ -425,7 +434,7 @@ export default function PurchaseOrderDetail() {
               )}
               {po.vendor?.account_number && (
                 <div className="text-muted-foreground">
-                  Account: {po.vendor.account_number}
+                  {t("purchaseOrders.detail.account", { number: po.vendor.account_number })}
                 </div>
               )}
             </CardContent>
@@ -436,7 +445,7 @@ export default function PurchaseOrderDetail() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base font-semibold">
-                Line Items
+                {t("purchaseOrders.detail.lineItems")}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 p-3">
@@ -454,7 +463,7 @@ export default function PurchaseOrderDetail() {
                       }}
                       onKeyDown={handleSearchKeyDown}
                       onFocus={() => setShowSuggestions(true)}
-                      placeholder="Search part number or name..."
+                      placeholder={t("purchaseOrders.detail.searchPartsPlaceholder")}
                       className="h-8 text-xs"
                     />
                     {showSuggestions && debouncedSearchQuery && (
@@ -464,12 +473,12 @@ export default function PurchaseOrderDetail() {
                             {filteredInventory.length === 0 && (
                               <CommandEmpty>
                                 {vendorBrandNames.length === 0
-                                  ? "No vendor brands configured."
-                                  : "No parts found for this vendor's brands."}
+                                  ? t("purchaseOrders.detail.noVendorBrands")
+                                  : t("purchaseOrders.detail.noPartsForBrands")}
                               </CommandEmpty>
                             )}
                             {filteredInventory.length > 0 && (
-                              <CommandGroup heading="Parts">
+                              <CommandGroup heading={t("purchaseOrders.detail.partsGroup")}>
                                 {filteredInventory.map((item: InventoryItem) => {
                                   return (
                                     <CommandItem
@@ -488,7 +497,7 @@ export default function PurchaseOrderDetail() {
                                         </div>
                                         <div className="shrink-0 text-right text-xs text-muted-foreground">
                                           <div>{formatCurrency(item.price)}</div>
-                                          <div>Stock: {item.quantity_available}</div>
+                                          <div>{t("shared.stock", { count: item.quantity_available })}</div>
                                         </div>
                                       </div>
                                     </CommandItem>
@@ -507,7 +516,7 @@ export default function PurchaseOrderDetail() {
                     value={newQty}
                     onChange={(e) => setNewQty(e.target.value)}
                     onKeyDown={handleQtyKeyDown}
-                    placeholder="Qty"
+                    placeholder={t("purchaseOrders.detail.qtyPlaceholder")}
                     className="h-8 text-xs text-right"
                     disabled={!stagedItem}
                   />
@@ -518,7 +527,7 @@ export default function PurchaseOrderDetail() {
                     onClick={confirmAddItem}
                     disabled={!stagedItem || addItems.isPending}
                   >
-                    {addItems.isPending ? "..." : "+ Add"}
+                    {addItems.isPending ? "..." : t("purchaseOrders.detail.addButton")}
                   </Button>
                 </div>
               </div>
@@ -527,12 +536,12 @@ export default function PurchaseOrderDetail() {
                 <Table className="min-w-[700px]">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>SKU</TableHead>
-                      <TableHead>Item</TableHead>
-                      <TableHead className="text-right">Ordered</TableHead>
-                      <TableHead className="text-right">Received</TableHead>
-                      <TableHead className="text-right">Remaining</TableHead>
-                      <TableHead className="text-right">Cost</TableHead>
+                      <TableHead>{t("columns.sku")}</TableHead>
+                      <TableHead>{t("columns.item")}</TableHead>
+                      <TableHead className="text-right">{t("columns.ordered")}</TableHead>
+                      <TableHead className="text-right">{t("columns.received")}</TableHead>
+                      <TableHead className="text-right">{t("columns.remaining")}</TableHead>
+                      <TableHead className="text-right">{t("columns.cost")}</TableHead>
                       <TableHead className="w-[100px]"></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -546,9 +555,9 @@ export default function PurchaseOrderDetail() {
                             : ""
                         }`}
                       >
-                        <TableCell>{item.catalog_item?.sku || "N/A"}</TableCell>
+                        <TableCell>{item.catalog_item?.sku || t("shared.notAvailable")}</TableCell>
                         <TableCell>
-                          {item.catalog_item?.name || "Unknown Item"}
+                          {item.catalog_item?.name || t("shared.unknownItem")}
                         </TableCell>
                         <TableCell className="text-right">
                           {editingItemId === item.id ? (
@@ -627,20 +636,20 @@ export default function PurchaseOrderDetail() {
                         <TableCell className="text-right">
                           {item.unit_cost === null ||
                           item.unit_cost === undefined
-                            ? "—"
+                            ? t("common:placeholders.missing", { ns: "common" })
                             : formatCurrency(item.unit_cost)}
                         </TableCell>
                         <TableCell className="text-right">
                           <Button
                             size="icon"
                             variant="ghost"
-                            aria-label={`Delete item ${item.catalog_item?.sku || "N/A"} ${item.catalog_item?.name || "Unknown Item"}`}
+                            aria-label={`${t("purchaseOrders.detail.deleteItem")} ${item.catalog_item?.sku || t("shared.notAvailable")} ${item.catalog_item?.name || t("shared.unknownItem")}`}
                             onClick={() => handleDeleteItem(item.id)}
                             disabled={item.quantity_received > 0}
                             title={
                               item.quantity_received > 0
-                                ? "Cannot delete items that have been received"
-                                : "Delete item"
+                                ? t("purchaseOrders.detail.cannotDeleteReceived")
+                                : t("purchaseOrders.detail.deleteItem")
                             }
                           >
                             <Trash2 className="h-4 w-4 text-red-500" />
@@ -674,6 +683,7 @@ function ReceiveGoodsDialog({
   onOpenChange: (o: boolean) => void;
   po: PurchaseOrder;
 }) {
+  const { t } = useTranslation("finance");
   const [receiveQuantities, setReceiveQuantities] = useState<
     Record<string, number>
   >({});
@@ -698,7 +708,7 @@ function ReceiveGoodsDialog({
           setReceiveQuantities({});
         },
         onError: (error) => {
-          toast.error("Failed to receive goods", {
+          toast.error(t("purchaseOrders.detail.toast.receiveFailed"), {
             description: error.message,
           });
         },
@@ -710,17 +720,17 @@ function ReceiveGoodsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Receive Goods for {po.order_number}</DialogTitle>
+          <DialogTitle>{t("purchaseOrders.detail.receiveDialog.title", { orderNumber: po.order_number })}</DialogTitle>
         </DialogHeader>
 
         <div className="py-4">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Item</TableHead>
-                <TableHead className="text-right">Remaining</TableHead>
+                <TableHead>{t("columns.item")}</TableHead>
+                <TableHead className="text-right">{t("columns.remaining")}</TableHead>
                 <TableHead className="w-[150px] text-right">
-                  Receive Now
+                  {t("purchaseOrders.detail.receiveDialog.receiveNow")}
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -764,10 +774,10 @@ function ReceiveGoodsDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t("actions.cancel")}
           </Button>
           <Button onClick={handleSubmit} disabled={receiveGoods.isPending}>
-            {receiveGoods.isPending ? "Processing..." : "Confirm Receipt"}
+            {receiveGoods.isPending ? t("shared.processing") : t("actions.confirmReceipt")}
           </Button>
         </DialogFooter>
       </DialogContent>

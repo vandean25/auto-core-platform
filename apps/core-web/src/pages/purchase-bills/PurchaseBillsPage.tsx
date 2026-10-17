@@ -1,4 +1,6 @@
+import { useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { type LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { useDeletePurchaseInvoice, usePurchaseInvoices } from '@/api/usePurchaseInvoices'
 import type { PurchaseInvoice } from '@/api/types'
@@ -13,8 +15,14 @@ import { parseLocalDate } from '@/lib/date-utils'
 import { DASHBOARD_WIDGET_SOURCE_PURCHASE_BILLS } from '@/features/dashboard-widgets/sources'
 import { getErrorMessage } from '@/lib/error-utils'
 import { formatCurrency, formatDate } from '@/lib/format'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 
 export default function PurchaseBillsPage() {
+    const { t } = useTranslation('finance')
+    useEffect(() => {
+        void ensureNamespaceLoaded('finance')
+    }, [])
+
     const navigate = useNavigate()
     const { queryParams, ...tableState } = useDataTableQuery({ 
         defaultPageSize: 10,
@@ -28,20 +36,20 @@ export default function PurchaseBillsPage() {
     const pageCount = Array.isArray(responseData) ? 1 : responseData?.meta?.pageCount ?? 1
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Are you sure you want to delete this bill?')) return
+        if (!confirm(t('purchaseBills.list.deleteConfirm'))) return
         try {
             await deleteMutation.mutateAsync(id)
-            toast.success('Bill deleted')
+            toast.success(t('purchaseBills.list.deleted'))
         } catch (error: unknown) {
-            toast.error(getErrorMessage(error, 'Failed to delete bill'))
+            toast.error(getErrorMessage(error, t('purchaseBills.list.deleteFailed')))
         }
     }
 
-    const columns: ColumnDef<PurchaseInvoice>[] = [
+    const columns: ColumnDef<PurchaseInvoice>[] = useMemo(() => [
         {
             accessorKey: 'vendor_invoice_number',
             header: ({ column }) => (
-                <DataTableColumnHeader column={column} title="Bill #" />
+                <DataTableColumnHeader column={column} title={t('columns.billNumber')} />
             ),
             cell: ({ row }) => (
                 <div className="font-medium">{row.original.vendor_invoice_number}</div>
@@ -50,38 +58,38 @@ export default function PurchaseBillsPage() {
         {
             accessorKey: 'vendor.name',
             header: ({ column }) => (
-                <DataTableColumnHeader column={column} title="Vendor" />
+                <DataTableColumnHeader column={column} title={t('columns.vendor')} />
             ),
             cell: ({ row }) => (
-                <div>{row.original.vendor?.name || '-'}</div>
+                <div>{row.original.vendor?.name ?? t('common:placeholders.missing', { ns: 'common' })}</div>
             ),
         },
         {
             accessorKey: 'invoice_date',
             header: ({ column }) => (
-                <DataTableColumnHeader column={column} title="Issue Date" />
+                <DataTableColumnHeader column={column} title={t('columns.issueDate')} />
             ),
             cell: ({ row }) => {
                 const date = parseLocalDate(row.original.invoice_date)
-                if (!date) return <div>-</div>
+                if (!date) return <div>{t('common:placeholders.missing', { ns: 'common' })}</div>
                 return <div>{formatDate(date)}</div>
             },
         },
         {
             accessorKey: 'due_date',
             header: ({ column }) => (
-                <DataTableColumnHeader column={column} title="Due Date" />
+                <DataTableColumnHeader column={column} title={t('columns.dueDate')} />
             ),
             cell: ({ row }) => {
                 const date = parseLocalDate(row.original.due_date)
-                if (!date) return <div>-</div>
+                if (!date) return <div>{t('common:placeholders.missing', { ns: 'common' })}</div>
                 return <div>{formatDate(date)}</div>
             },
         },
         {
             accessorKey: 'total_amount',
             header: ({ column }) => (
-                <DataTableColumnHeader column={column} title="Total Amount" />
+                <DataTableColumnHeader column={column} title={t('columns.totalAmount')} />
             ),
             cell: ({ row }) => {
                 const amount = parseFloat(row.original.total_amount)
@@ -95,13 +103,21 @@ export default function PurchaseBillsPage() {
         {
             accessorKey: 'status',
             header: ({ column }) => (
-                <DataTableColumnHeader column={column} title="Status" />
+                <DataTableColumnHeader column={column} title={t('columns.status')} />
             ),
             cell: ({ row }) => {
-                return <StatusBadge status={row.original.status} label={row.original.status === 'POSTED' ? 'Unpaid' : row.original.status} />
+                if (row.original.status === 'POSTED') {
+                    return (
+                        <StatusBadge
+                            status={row.original.status}
+                            label={t('purchaseBills.list.statusUnpaid')}
+                        />
+                    )
+                }
+                return <StatusBadge status={row.original.status} />
             },
         },
-    ]
+    ], [t])
 
     const handleRowClick = (invoice: PurchaseInvoice) => {
         navigate(`/purchase-bills/${invoice.id}`)
@@ -111,18 +127,18 @@ export default function PurchaseBillsPage() {
         <>
             <div className="flex items-center justify-between mb-8">
                 <div>
-                    <h1 className="text-2xl font-semibold tracking-tight">Purchase Bills</h1>
-                    <p className="text-slate-500">Manage incoming vendor invoices and payment tracking</p>
+                    <h1 className="text-2xl font-semibold tracking-tight">{t('purchaseBills.list.title')}</h1>
+                    <p className="text-slate-500">{t('purchaseBills.list.subtitle')}</p>
                 </div>
                 <Button onClick={() => navigate('/purchase-bills/new')}>
-                    <Plus className="mr-2 h-4 w-4" /> Bill
+                    <Plus className="mr-2 h-4 w-4" /> {t('purchaseBills.list.create')}
                 </Button>
             </div>
 
             <DataTable
                 columns={columns}
                 data={data}
-                saveViewTitle="Purchase Bills"
+                saveViewTitle={t('purchaseBills.list.saveViewTitle')}
                 dashboardSource={DASHBOARD_WIDGET_SOURCE_PURCHASE_BILLS}
                 isLoading={isLoading}
                 pageCount={pageCount}
@@ -131,7 +147,7 @@ export default function PurchaseBillsPage() {
                     row.status === 'DRAFT'
                         ? [
                               {
-                                  label: 'Delete',
+                                  label: t('actions.delete'),
                                   onClick: () => void handleDelete(row.id),
                                   destructive: true,
                               },
