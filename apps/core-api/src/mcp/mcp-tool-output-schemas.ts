@@ -1374,6 +1374,7 @@ export const mcpToolOutputSchemas = {
   propose_invoice_draft_from_order: writeResultOf(
     'propose_invoice_draft_from_order',
   ),
+  propose_estimate_send: writeResultOf('propose_estimate_send'),
   request_workshop_media_upload: writeResultOf('request_workshop_media_upload'),
   propose_mechanic_finding: writeResultOf('propose_mechanic_finding'),
   generate_weekly_report_pdf: z

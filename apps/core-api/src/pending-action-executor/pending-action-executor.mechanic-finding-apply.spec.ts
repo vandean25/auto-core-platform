@@ -26,6 +26,7 @@ describe('PendingActionExecutorService workshop_order.mechanic_finding apply', (
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
       mockMechanicFindingPropose as never,
       {} as never,
     );

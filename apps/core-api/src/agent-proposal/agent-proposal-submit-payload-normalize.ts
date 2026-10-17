@@ -1,4 +1,5 @@
 import type { InvoiceWorkshopDraftProposeService } from '../invoices/invoice-workshop-draft-propose.service.js';
+import type { WorkshopEstimateSendProposeService } from '../workshop/workshop-estimate-send-propose.service.js';
 import type { MechanicFindingProposeService } from '../mechanic/mechanic-finding-propose.service.js';
 import type { WorkshopBookingPackageService } from '../workshop/workshop-booking-package.service.js';
 import type { WorkshopOrderCompletionService } from '../workshop/workshop-order-completion.service.js';
@@ -8,6 +9,7 @@ export type AgentProposalSubmitPayloadNormalizeDeps = {
   workshopBookingPackage: WorkshopBookingPackageService;
   workshopOrderCompletion: WorkshopOrderCompletionService;
   invoiceWorkshopDraftPropose: InvoiceWorkshopDraftProposeService;
+  workshopEstimateSendPropose: WorkshopEstimateSendProposeService;
   mechanicFindingPropose: MechanicFindingProposeService;
 };
 
@@ -24,6 +26,12 @@ export async function normalizeAgentProposalSubmitPayload(
   }
   if (actionType === 'invoice.create_draft_from_workshop_order') {
     return deps.invoiceWorkshopDraftPropose.enrichInput(payload);
+  }
+  if (
+    actionType === 'workshop_estimate.send' ||
+    actionType === 'estimate.send_customer_message'
+  ) {
+    return deps.workshopEstimateSendPropose.enrichInput(payload);
   }
   if (
     actionType === 'workshop_order.propose_mechanic_finding' ||

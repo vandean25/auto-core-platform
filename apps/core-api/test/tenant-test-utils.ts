@@ -491,6 +491,17 @@ export async function cleanupTestTenantGraph(
   await tenantPrisma.workshopTask.deleteMany({});
   await tenantPrisma.loanerBooking.deleteMany({});
   await tenantPrisma.loanerVehicle.deleteMany({});
+  await tenantPrisma.workshopEstimateApproval.deleteMany({});
+  await tenantPrisma.workshopEstimateOverrun.deleteMany({});
+  await tenantPrisma.workshopEstimateBrandAssetReference.deleteMany({});
+  await tenantPrisma.workshopEstimateApprovalToken.deleteMany({});
+  await tenantPrisma.workshopEstimateVersion.deleteMany({});
+  await tenantPrisma.workshopEstimate.deleteMany({});
+  await tenantPrisma.workshopEstimateSequence.deleteMany({});
+  await prisma.$executeRawUnsafe(
+    `DELETE FROM notification_outbox WHERE tenant_id = $1`,
+    tenantId,
+  );
   await tenantPrisma.workshopOrder.deleteMany({});
   await tenantPrisma.bay.deleteMany({});
   await tenantPrisma.inspectionTemplateItem.deleteMany({});
@@ -576,6 +587,10 @@ export async function cleanupTestTenantGraph(
   );
   await prisma.$executeRawUnsafe(
     `DELETE FROM tenant_api_keys WHERE tenant_id = $1`,
+    tenantId,
+  );
+  await prisma.$executeRawUnsafe(
+    `DELETE FROM workshop_estimate_sequences WHERE tenant_id = $1`,
     tenantId,
   );
   await prisma.tenant.deleteMany({ where: { id: tenantId } });

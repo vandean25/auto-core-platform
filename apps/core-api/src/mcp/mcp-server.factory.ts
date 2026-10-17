@@ -75,6 +75,7 @@ export const MCP_REGISTERED_TOOL_INPUT_SCHEMAS: Record<
     schemas.mcpWriteToolInputSchemas.propose_workshop_order_completion,
   propose_invoice_draft_from_order:
     schemas.mcpWriteToolInputSchemas.propose_invoice_draft_from_order,
+  propose_estimate_send: schemas.mcpWriteToolInputSchemas.propose_estimate_send,
   request_workshop_media_upload:
     schemas.mcpWriteToolInputSchemas.request_workshop_media_upload,
   propose_mechanic_finding:

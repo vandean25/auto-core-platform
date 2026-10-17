@@ -165,6 +165,7 @@ export class McpToolHandlerService {
       propose_workshop_order_completion: 'workshop_order.complete',
       propose_invoice_draft_from_order:
         'invoice.create_draft_from_workshop_order',
+      propose_estimate_send: 'workshop_estimate.send',
       request_workshop_media_upload: 'workshop.media_upload_slot',
       propose_mechanic_finding: 'workshop_order.propose_mechanic_finding',
       generate_weekly_report_pdf: 'report.generate_weekly_pdf',
@@ -172,9 +173,13 @@ export class McpToolHandlerService {
     const executor = this.pendingActionExecutors.resolve(
       actionTypeByTool[toolName],
     );
+    const policyActionType =
+      toolName === 'propose_estimate_send'
+        ? 'estimate.send_customer_message'
+        : executor.actionType;
     return {
       toolName,
-      policyActionType: executor.actionType,
+      policyActionType,
       buildPolicyContext: (input) => executor.buildPolicyContext(input),
       buildExecutionContext: executor.buildExecutionContext
         ? (input) => executor.buildExecutionContext!(input)
@@ -207,6 +212,7 @@ const MCP_WRITE_TOOL_NAME_SET = new Set<string>([
   'propose_purchase_order',
   'propose_workshop_order_completion',
   'propose_invoice_draft_from_order',
+  'propose_estimate_send',
   'request_workshop_media_upload',
   'propose_mechanic_finding',
   'generate_weekly_report_pdf',

@@ -32,6 +32,12 @@ describe('effectiveMcpWriteTier', () => {
     ).toBe(AgentPolicyTier.PROPOSE);
   });
 
+  it('holds propose_estimate_send at PROPOSE when policy says AUTO', () => {
+    expect(
+      effectiveMcpWriteTier('propose_estimate_send', AgentPolicyTier.AUTO),
+    ).toBe(AgentPolicyTier.PROPOSE);
+  });
+
   it('holds propose_workshop_order_completion at PROPOSE when policy says AUTO', () => {
     expect(
       effectiveMcpWriteTier(

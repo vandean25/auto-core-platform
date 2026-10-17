@@ -91,6 +91,8 @@ const DEFAULT_OVERRUN_THRESHOLD_PCT = '15';
 /** Whether the send also emails the approval link to the customer (ADR-0025 §5 to §8). */
 export interface EstimateSendOptions {
   notifyCustomerByEmail: boolean;
+  /** When set, overrides the default 14-day validity end (must be after valid_from). */
+  validUntilOverride?: Date;
 }
 
 const ORDER_FOR_ESTIMATE_SELECT = {
@@ -526,8 +528,15 @@ export class WorkshopEstimateService {
         }
 
         const issuedAt = new Date();
-        const { validFrom, validUntil } =
+        const { validFrom, validUntil: defaultValidUntil } =
           buildWorkshopEstimateValidityWindow(issuedAt);
+        const validUntil = options.validUntilOverride ?? defaultValidUntil;
+        if (validUntil.getTime() <= validFrom.getTime()) {
+          throw new UnprocessableEntityException({
+            code: 'ESTIMATE_VALID_UNTIL_INVALID',
+            message: 'The estimate validity end must be after the issue time.',
+          });
+        }
         const branding = await resolveBrandingSnapshot(
           tx,
           scope.tenantId,

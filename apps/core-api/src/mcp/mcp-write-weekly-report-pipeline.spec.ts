@@ -17,6 +17,7 @@ import {
 import { WorkshopBookingPackageService } from '../workshop/workshop-booking-package.service.js';
 import { WorkshopOrderCompletionService } from '../workshop/workshop-order-completion.service.js';
 import { InvoiceWorkshopDraftProposeService } from '../invoices/invoice-workshop-draft-propose.service.js';
+import { WorkshopEstimateSendProposeService } from '../workshop/workshop-estimate-send-propose.service.js';
 import { MechanicFindingProposeService } from '../mechanic/mechanic-finding-propose.service.js';
 import { mcpToolOutputSchemas } from './mcp-tool-output-schemas.js';
 import { toMcpJsonObject } from './mcp-output.util.js';
@@ -169,6 +170,7 @@ describe('McpWritePipelineService generate_weekly_report_pdf', () => {
         { provide: WorkshopBookingPackageService, useValue: {} },
         { provide: WorkshopOrderCompletionService, useValue: {} },
         { provide: InvoiceWorkshopDraftProposeService, useValue: {} },
+        { provide: WorkshopEstimateSendProposeService, useValue: {} },
         { provide: MechanicFindingProposeService, useValue: {} },
       ],
     }).compile();
