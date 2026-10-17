@@ -1,4 +1,5 @@
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useAuthSession } from '@/api/auth-session'
 import { useInvoice } from '@/api/sales'
@@ -13,7 +14,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { calculateDiscountAmount, parseDiscountValue } from '@/lib/discount'
-import { getErrorMessage, getErrorStatus } from '@/lib/error-utils'
+import { getErrorStatus } from '@/lib/error-utils'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { translateSalesApiError } from '@/features/sales/sales-api-error-i18n'
 import { formatCurrency } from '@/lib/utils'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { canManageCreditNotes } from '@/lib/credit-note-quantity'
@@ -63,6 +66,7 @@ function formatDiscountPercent(value: number) {
 function buildTaskGroups(
   tasks: WorkshopTask[],
   lineSummaries: InvoiceLineSummary[],
+  additionalItemsTitle: string,
 ): TaskRenderGroup[] {
   const remainingBySignature = new Map<string, InvoiceLineSummary[]>()
   lineSummaries.forEach((line) => {
@@ -114,7 +118,7 @@ function buildTaskGroups(
   if (leftovers.length > 0) {
     groups.push({
       key: 'additional-items',
-      title: 'Additional Items',
+      title: additionalItemsTitle,
       lines: leftovers,
     })
   }
@@ -135,6 +139,10 @@ function formatLineDiscount(summary: InvoiceLineSummary) {
 const CREDIT_ELIGIBLE_STATUSES = new Set(['FINALIZED', 'ISSUED', 'PAID'])
 
 export default function InvoiceDetailPage() {
+  const { t } = useTranslation('sales')
+  useEffect(() => {
+    void ensureNamespaceLoaded('sales')
+  }, [])
   const { id = '' } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const sessionQuery = useAuthSession()
@@ -142,7 +150,10 @@ export default function InvoiceDetailPage() {
   const { data: invoice, isLoading, isError, error } = useInvoice(id)
   const { data: settlement } = useInvoiceSettlement(id || undefined)
   useDocumentTitle(invoice?.invoice_number)
-  usePageBreadcrumbs({ listPath: APP_ROUTE_PATHS.salesInvoices, currentLabel: invoice?.invoice_number ?? 'Invoice' })
+  usePageBreadcrumbs({
+    listPath: APP_ROUTE_PATHS.salesInvoices,
+    currentLabel: invoice?.invoice_number ?? t('shared.breadcrumbInvoice'),
+  })
   const { data: creditContext } = useInvoiceCreditContext(
     canManageCreditNote ? id : '',
   )
@@ -157,8 +168,8 @@ export default function InvoiceDetailPage() {
     checkGenerationFailed: () =>
       invoice ? fetchInvoicePdfGenerationError(invoice.id) : Promise.resolve(null),
     messages: {
-      success: 'Invoice PDF downloaded successfully',
-      errorFallback: 'Fehler beim Erstellen der Rechnungs-PDF',
+      success: t('invoices.detail.pdfSuccess'),
+      errorFallback: t('invoices.detail.pdfError'),
     },
   })
   
@@ -216,7 +227,7 @@ export default function InvoiceDetailPage() {
 
     const groupsFromTasks =
       workshopOrder?.tasks && workshopOrder.tasks.length > 0
-        ? buildTaskGroups(workshopOrder.tasks, lineSummaries)
+        ? buildTaskGroups(workshopOrder.tasks, lineSummaries, t('invoices.detail.additionalItems'))
         : []
 
     if (groupsFromTasks.length > 0) {
@@ -227,7 +238,7 @@ export default function InvoiceDetailPage() {
       ? [
           {
             key: 'workshop-fallback',
-            title: 'Workshop Tasks',
+            title: t('invoices.detail.workshopTasks'),
             lines: lineSummaries,
           },
         ]
@@ -235,23 +246,23 @@ export default function InvoiceDetailPage() {
   }, [invoice, isWorkshopInvoice, isWorkshopOrderLoading, lineSummaries, workshopOrder, workshopOrderError])
 
   if (isLoading) {
-    return <div className="p-8 text-center text-sm text-muted-foreground">Loading invoice...</div>
+    return <div className="p-8 text-center text-sm text-muted-foreground">{t('invoices.detail.loading')}</div>
   }
 
   if (isError) {
     const status = getErrorStatus(error)
     if (status === 404) {
-      return <div className="p-8 text-center text-sm text-muted-foreground">Invoice not found.</div>
+      return <div className="p-8 text-center text-sm text-muted-foreground">{t('invoices.detail.notFound')}</div>
     }
     return (
       <div className="p-8 text-center text-sm text-muted-foreground">
-        {getErrorMessage(error, 'Failed to load invoice')}
+        {translateSalesApiError(t, error, 'errors.loadFailed')}
       </div>
     )
   }
 
   if (!invoice) {
-    return <div className="p-8 text-center text-sm text-muted-foreground">Invoice not found.</div>
+    return <div className="p-8 text-center text-sm text-muted-foreground">{t('invoices.detail.notFound')}</div>
   }
 
   if (invoice.status === 'DRAFT' && invoice.sales_order_id) {
@@ -279,9 +290,9 @@ export default function InvoiceDetailPage() {
   )
   const coverageLabel =
     creditContext?.coverageStatus === 'FULLY_CREDITED'
-      ? 'Fully credited'
+      ? t('invoices.detail.creditFully')
       : creditContext?.coverageStatus === 'PARTIALLY_CREDITED'
-        ? 'Partially credited'
+        ? t('invoices.detail.creditPartially')
         : null
 
   const renderLine = (summary: InvoiceLineSummary) => {
@@ -306,7 +317,8 @@ export default function InvoiceDetailPage() {
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-semibold tracking-tight">
-            {invoice.invoice_number ?? `Invoice ${invoice.id.slice(0, 8)}`}
+            {invoice.invoice_number ??
+              t('shared.invoiceFallback', { id: invoice.id.slice(0, 8) })}
           </h1>
           <StatusBadge status={invoice.status} />
           {coverageLabel ? (
@@ -316,7 +328,7 @@ export default function InvoiceDetailPage() {
         <div className="flex flex-col items-end gap-2">
           {showCreditNoteGuidance ? (
             <p className="max-w-sm text-right text-xs text-slate-500">
-              Credit notes can only be issued by OWNER or ADMIN.
+              {t('invoices.detail.creditNoteGuidance')}
             </p>
           ) : null}
           <div className="flex flex-wrap items-start justify-end gap-2">
@@ -331,7 +343,7 @@ export default function InvoiceDetailPage() {
           {canCreateCreditNote ? (
             <Button variant="outline" onClick={() => setCreditDialogOpen(true)}>
               <Plus className="w-4 h-4 mr-2" />
-              Credit Note
+              {t('invoices.detail.creditNote')}
             </Button>
           ) : null}
           <Button onClick={() => void handleDownloadPdf()} disabled={isDownloadingPdf}>
@@ -340,7 +352,7 @@ export default function InvoiceDetailPage() {
             ) : (
               <Download className="w-4 h-4 mr-2" />
             )}
-            {isDownloadingPdf ? 'Generating...' : 'Download PDF'}
+            {isDownloadingPdf ? t('invoices.detail.generatingPdf') : t('invoices.detail.downloadPdf')}
           </Button>
           </div>
         </div>
@@ -359,7 +371,7 @@ export default function InvoiceDetailPage() {
       {creditContext && creditContext.creditNotes.length > 0 ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base font-semibold">Related Credit Notes</CardTitle>
+            <CardTitle className="text-base font-semibold">{t('invoices.detail.relatedCreditNotes')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {creditContext.creditNotes.map((creditNote) => (
@@ -372,7 +384,8 @@ export default function InvoiceDetailPage() {
                     to={APP_ROUTE_PATHS.creditNoteDetail.replace(':id', creditNote.id)}
                     className="font-medium text-primary hover:underline"
                   >
-                    {creditNote.creditNumber ?? `Draft ${creditNote.id.slice(0, 8)}`}
+                    {creditNote.creditNumber ??
+                      t('shared.creditDraftLabel', { id: creditNote.id.slice(0, 8) })}
                   </Link>
                   <div className="text-sm text-muted-foreground">{creditNote.reason}</div>
                 </div>
@@ -403,19 +416,19 @@ export default function InvoiceDetailPage() {
         <div className="space-y-6 lg:col-span-1">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base font-semibold">Invoice Info</CardTitle>
+              <CardTitle className="text-base font-semibold">{t('invoices.detail.invoiceInfo')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 text-sm">
               <div>
-                <div className="text-muted-foreground">Customer</div>
+                <div className="text-muted-foreground">{t('invoices.detail.customer')}</div>
                 <div className="font-medium">{customerName}</div>
               </div>
               <div>
-                <div className="text-muted-foreground">Date</div>
+                <div className="text-muted-foreground">{t('invoices.detail.date')}</div>
                 <div className="font-medium">{formatDate(invoice.date)}</div>
               </div>
               <div>
-                <div className="text-muted-foreground">Due Date</div>
+                <div className="text-muted-foreground">{t('invoices.detail.dueDate')}</div>
                 <div className="font-medium">{formatDate(invoice.due_date)}</div>
               </div>
             </CardContent>
@@ -425,39 +438,39 @@ export default function InvoiceDetailPage() {
         <div className="lg:col-span-2">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base font-semibold">Line Items</CardTitle>
+              <CardTitle className="text-base font-semibold">{t('invoices.detail.lineItems')}</CardTitle>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Description</TableHead>
-                    <TableHead className="text-right">Qty</TableHead>
-                    <TableHead className="text-right">Remaining</TableHead>
-                    <TableHead className="text-right">Unit Price</TableHead>
-                    <TableHead className="text-right">Discount</TableHead>
-                    <TableHead className="text-right">Tax</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead>{t('invoices.detail.columns.description')}</TableHead>
+                    <TableHead className="text-right">{t('invoices.detail.columns.qty')}</TableHead>
+                    <TableHead className="text-right">{t('invoices.detail.columns.remaining')}</TableHead>
+                    <TableHead className="text-right">{t('invoices.detail.columns.unitPrice')}</TableHead>
+                    <TableHead className="text-right">{t('invoices.detail.columns.discount')}</TableHead>
+                    <TableHead className="text-right">{t('invoices.detail.columns.tax')}</TableHead>
+                    <TableHead className="text-right">{t('invoices.detail.columns.total')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {invoice.items.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={7} className="py-6 text-center text-muted-foreground">
-                        No line items.
+                        {t('invoices.detail.noLineItems')}
                       </TableCell>
                     </TableRow>
                   ) : isWorkshopInvoice && isWorkshopOrderLoading ? (
                     <TableRow>
                       <TableCell colSpan={7} className="py-6 text-center text-muted-foreground">
-                        Loading task groups...
+                        {t('invoices.detail.loadingTaskGroups')}
                       </TableCell>
                     </TableRow>
                   ) : isWorkshopInvoice && workshopOrderError ? (
                     <>
                       <TableRow>
                         <TableCell colSpan={7} className="py-3 text-center text-muted-foreground">
-                          Failed to load workshop task groups. Showing ungrouped line items.
+                          {t('invoices.detail.taskGroupsFailed')}
                         </TableCell>
                       </TableRow>
                       {lineSummaries.map((summary) => renderLine(summary))}
@@ -469,13 +482,13 @@ export default function InvoiceDetailPage() {
                         <Fragment key={group.key}>
                           <TableRow className="bg-slate-100/80 hover:bg-slate-100/80">
                             <TableCell colSpan={7} className="font-semibold text-slate-700">
-                              Task: {group.title}
+                              {t('invoices.detail.taskGroupTitle', { title: group.title })}
                             </TableCell>
                           </TableRow>
                           {group.lines.map((line) => renderLine(line))}
                           <TableRow className="bg-slate-50/60 hover:bg-slate-50/60">
                             <TableCell colSpan={6} className="text-right text-xs uppercase tracking-wide text-slate-500 font-semibold">
-                              Task Subtotal
+                              {t('invoices.detail.taskSubtotal')}
                             </TableCell>
                             <TableCell className="text-right font-semibold">
                               {formatCurrency(taskSubtotal)}
@@ -494,7 +507,7 @@ export default function InvoiceDetailPage() {
                 {invoice.tax_mode === 'MARGIN_SCHEME' ? (
                   <>
                     <div className="flex justify-between border-t pt-2 font-semibold">
-                      <span>Total</span>
+                      <span>{t('invoices.detail.totals.total')}</span>
                       <span>{formatCurrency(Number(invoice.total_gross))}</span>
                     </div>
                     {invoice.margin_scheme_legal_note ? (
@@ -506,21 +519,21 @@ export default function InvoiceDetailPage() {
                 ) : (
                   <>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Net</span>
+                      <span className="text-muted-foreground">{t('invoices.detail.totals.net')}</span>
                       <span>{formatCurrency(Number(invoice.total_net))}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Tax</span>
+                      <span className="text-muted-foreground">{t('invoices.detail.totals.tax')}</span>
                       <span>{formatCurrency(Number(invoice.total_tax))}</span>
                     </div>
                     {totalSavings > 0 && (
                       <div className="flex justify-between">
-                        <span className="font-semibold text-emerald-700">Total Savings</span>
+                        <span className="font-semibold text-emerald-700">{t('invoices.detail.totals.totalSavings')}</span>
                         <span className="font-semibold text-emerald-700">-{formatCurrency(totalSavings)}</span>
                       </div>
                     )}
                     <div className="flex justify-between border-t pt-2 font-semibold">
-                      <span>Total</span>
+                      <span>{t('invoices.detail.totals.total')}</span>
                       <span>{formatCurrency(Number(invoice.total_gross))}</span>
                     </div>
                   </>

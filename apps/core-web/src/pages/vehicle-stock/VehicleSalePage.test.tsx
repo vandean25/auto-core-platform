@@ -7,6 +7,7 @@ import { expectFieldErrorLinked, expectFieldValid } from '@/test/form-a11y'
 import { formatStatusLabel } from '@/lib/i18n/enum-labels'
 import { formattedCurrencyPattern } from '@/test/format-assertions'
 import { toast } from 'sonner'
+import { deVehicleStock } from '@/test/de-vehicleStock'
 
 const {
   createSale,
@@ -117,7 +118,7 @@ describe('VehicleSalePage NoVA preview boundary', () => {
       netPriceEuro: 9999,
     })
 
-    fireEvent.change(screen.getByLabelText('Sale price (gross)'), {
+    fireEvent.change(screen.getByLabelText(deVehicleStock.sale.salePriceGross), {
       target: { value: '14500' },
     })
     await act(async () => {
@@ -153,10 +154,10 @@ describe('VehicleSalePage NoVA preview boundary', () => {
       </MemoryRouter>,
     )
 
-    fireEvent.change(screen.getByLabelText('Übergabedatum'), {
+    fireEvent.change(screen.getByLabelText(deVehicleStock.sale.handoverDate), {
       target: { value: '2026-10-08' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Finalize invoice' }))
+    fireEvent.click(screen.getByRole('button', { name: deVehicleStock.sale.finalizeInvoice }))
 
     await act(async () => {
       await Promise.resolve()
@@ -193,9 +194,9 @@ describe('VehicleSalePage NoVA preview boundary', () => {
       </MemoryRouter>,
     )
 
-    fireEvent.change(screen.getByLabelText('Sale price (gross)'), { target: { value: '14500' } })
+    fireEvent.change(screen.getByLabelText(deVehicleStock.sale.salePriceGross), { target: { value: '14500' } })
     await act(async () => { await vi.advanceTimersByTimeAsync(750) })
-    fireEvent.change(screen.getByLabelText('Vertragsdatum'), { target: { value: '2026-09-01' } })
+    fireEvent.change(screen.getByLabelText(deVehicleStock.sale.contractDate), { target: { value: '2026-09-01' } })
     renderedSale = { ...renderedSale, sale_price: 14500 }
     rerender(
       <MemoryRouter initialEntries={['/vehicle-stock/sales/sale-1']}>
@@ -205,7 +206,7 @@ describe('VehicleSalePage NoVA preview boundary', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByLabelText('Vertragsdatum')).toHaveValue('2026-09-01')
+    expect(screen.getByLabelText(deVehicleStock.sale.contractDate)).toHaveValue('2026-09-01')
 
     await act(async () => {
       resolveUpdate?.()
@@ -234,11 +235,11 @@ describe('VehicleSalePage NoVA preview boundary', () => {
       </MemoryRouter>,
     )
 
-    fireEvent.change(screen.getByLabelText('Sale price (gross)'), { target: { value: '14500' } })
+    fireEvent.change(screen.getByLabelText(deVehicleStock.sale.salePriceGross), { target: { value: '14500' } })
     await act(async () => { await vi.advanceTimersByTimeAsync(750) })
-    fireEvent.change(screen.getByLabelText('Vertragsdatum'), { target: { value: '2026-09-01' } })
+    fireEvent.change(screen.getByLabelText(deVehicleStock.sale.contractDate), { target: { value: '2026-09-01' } })
     await act(async () => { await vi.advanceTimersByTimeAsync(750) })
-    const finalizeButton = screen.getByRole('button', { name: 'Finalize invoice' })
+    const finalizeButton = screen.getByRole('button', { name: deVehicleStock.sale.finalizeInvoice })
     fireEvent.click(finalizeButton)
 
     expect(updateSale).toHaveBeenCalledTimes(1)
@@ -283,7 +284,7 @@ describe('VehicleSalePage NoVA preview boundary', () => {
     )
 
     const consumerCheckbox = screen.getByRole('checkbox', { name: 'Käufer:in ist Verbraucher:in' })
-    const shorteningCheckbox = screen.getByRole('checkbox', { name: 'Verkürzung wurde ausdrücklich vereinbart' })
+    const shorteningCheckbox = screen.getByRole('checkbox', { name: deVehicleStock.sale.warranty.shorteningNegotiated })
     expect(consumerCheckbox).toBeChecked()
     expect(shorteningCheckbox).not.toBeChecked()
     expect(screen.getByText('Verlängerungen durch Reparaturen werden nicht erfasst.')).toBeInTheDocument()
@@ -307,7 +308,7 @@ describe('VehicleSalePage NoVA preview boundary', () => {
     )
     await act(async () => { await Promise.resolve() })
     expect(screen.getByRole('checkbox', { name: 'Käufer:in ist Verbraucher:in' })).not.toBeChecked()
-    expect(screen.getByRole('checkbox', { name: 'Verkürzung wurde ausdrücklich vereinbart' })).toBeDisabled()
+    expect(screen.getByRole('checkbox', { name: deVehicleStock.sale.warranty.shorteningNegotiated })).toBeDisabled()
   })
 
   it('preserves the stored buyer classification when reopening an existing sale', () => {
@@ -325,7 +326,7 @@ describe('VehicleSalePage NoVA preview boundary', () => {
     )
 
     expect(screen.getByRole('checkbox', { name: 'Käufer:in ist Verbraucher:in' })).not.toBeChecked()
-    expect(screen.getByRole('checkbox', { name: 'Verkürzung wurde ausdrücklich vereinbart' })).toBeDisabled()
+    expect(screen.getByRole('checkbox', { name: deVehicleStock.sale.warranty.shorteningNegotiated })).toBeDisabled()
   })
 })
 
@@ -361,10 +362,10 @@ describe('VehicleSalePage Kaufvertrag PDF and Garantie', () => {
   it('saves the Garantie duration and terms with the sale', async () => {
     renderSalePage()
 
-    fireEvent.change(screen.getByLabelText('Garantiedauer in Monaten'), {
+    fireEvent.change(screen.getByLabelText(deVehicleStock.sale.warranty.monthsAria), {
       target: { value: '12' },
     })
-    fireEvent.change(screen.getByLabelText('Garantiebedingungen'), {
+    fireEvent.change(screen.getByLabelText(deVehicleStock.sale.warranty.terms), {
       target: { value: 'Motorschaden ausgenommen' },
     })
     await act(async () => {
@@ -382,7 +383,7 @@ describe('VehicleSalePage Kaufvertrag PDF and Garantie', () => {
   it('does not save an out-of-range Garantie duration and says which range applies', async () => {
     renderSalePage()
 
-    fireEvent.change(screen.getByLabelText('Garantiedauer in Monaten'), {
+    fireEvent.change(screen.getByLabelText(deVehicleStock.sale.warranty.monthsAria), {
       target: { value: '0' },
     })
     await act(async () => {
@@ -390,18 +391,18 @@ describe('VehicleSalePage Kaufvertrag PDF and Garantie', () => {
     })
 
     expect(updateSale).not.toHaveBeenCalled()
-    expect(screen.getByText('Bitte eine Dauer zwischen 1 und 120 Monaten angeben.')).toBeTruthy()
+    expect(screen.getByText(deVehicleStock.sale.warranty.monthsError)).toBeTruthy()
   })
 
   it('links the Garantie duration error to its input', () => {
     renderSalePage()
-    const input = screen.getByLabelText('Garantiedauer in Monaten')
+    const input = screen.getByLabelText(deVehicleStock.sale.warranty.monthsAria)
     expectFieldValid(input)
 
     fireEvent.change(input, { target: { value: '0' } })
 
-    expectFieldErrorLinked(input, 'Bitte eine Dauer zwischen 1 und 120 Monaten angeben.')
-    expect(screen.getByText('Bitte eine Dauer zwischen 1 und 120 Monaten angeben.')).toHaveAttribute('role', 'alert')
+    expectFieldErrorLinked(input, deVehicleStock.sale.warranty.monthsError)
+    expect(screen.getByText(deVehicleStock.sale.warranty.monthsError)).toHaveAttribute('role', 'alert')
   })
 
   it('blocks the negotiated one-year period in the UI when the vehicle is too new for the handover date', () => {
@@ -414,14 +415,14 @@ describe('VehicleSalePage Kaufvertrag PDF and Garantie', () => {
 
     renderSalePage()
 
-    expect(screen.getByLabelText('Verkürzung wurde ausdrücklich vereinbart')).toBeDisabled()
+    expect(screen.getByLabelText(deVehicleStock.sale.warranty.shorteningNegotiated)).toBeDisabled()
     expect(
       screen.getByText('Die Erstzulassung muss mehr als ein Jahr vor der Übergabe liegen.'),
     ).toBeTruthy()
-    expect(screen.getByLabelText('Verkürzung wurde ausdrücklich vereinbart')).toHaveAccessibleDescription(
+    expect(screen.getByLabelText(deVehicleStock.sale.warranty.shorteningNegotiated)).toHaveAccessibleDescription(
       'Die Erstzulassung muss mehr als ein Jahr vor der Übergabe liegen.',
     )
-    expect(screen.getByLabelText('Verkürzung wurde ausdrücklich vereinbart')).toHaveAttribute('aria-invalid', 'false')
+    expect(screen.getByLabelText(deVehicleStock.sale.warranty.shorteningNegotiated)).toHaveAttribute('aria-invalid', 'false')
   })
 
   it('marks the shortening checkbox invalid when it is ticked and its reason applies', () => {
@@ -439,7 +440,7 @@ describe('VehicleSalePage Kaufvertrag PDF and Garantie', () => {
 
     renderSalePage()
 
-    const checkbox = screen.getByLabelText('Verkürzung wurde ausdrücklich vereinbart')
+    const checkbox = screen.getByLabelText(deVehicleStock.sale.warranty.shorteningNegotiated)
     expect(checkbox).toBeChecked()
     expect(checkbox).toBeEnabled()
     expect(checkbox).toHaveAttribute('aria-invalid', 'true')
@@ -449,7 +450,7 @@ describe('VehicleSalePage Kaufvertrag PDF and Garantie', () => {
   it('generates and downloads the Kaufvertrag PDF through the shared download hook', async () => {
     renderSalePage()
 
-    const button = screen.getByRole('button', { name: 'Kaufvertrag PDF' })
+    const button = screen.getByRole('button', { name: deVehicleStock.sale.downloadKaufvertrag })
     expect(button).toBeEnabled()
     fireEvent.click(button)
     await act(async () => {
@@ -468,26 +469,26 @@ describe('VehicleSalePage Kaufvertrag PDF and Garantie', () => {
   it('does not download the Kaufvertrag PDF while the Garantie duration is out of range', async () => {
     renderSalePage()
 
-    fireEvent.change(screen.getByLabelText('Garantiedauer in Monaten'), {
+    fireEvent.change(screen.getByLabelText(deVehicleStock.sale.warranty.monthsAria), {
       target: { value: '0' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Kaufvertrag PDF' }))
+    fireEvent.click(screen.getByRole('button', { name: deVehicleStock.sale.downloadKaufvertrag }))
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0)
     })
 
     expect(downloadKaufvertrag).not.toHaveBeenCalled()
     expect(updateSale).not.toHaveBeenCalled()
-    expect(toast.error).toHaveBeenCalledWith('Bitte eine Dauer zwischen 1 und 120 Monaten angeben.')
+    expect(toast.error).toHaveBeenCalledWith(deVehicleStock.sale.warranty.monthsError)
   })
 
   it('clears the Garantie terms when the duration is removed, so no terms are saved without one', async () => {
     renderSalePage()
 
-    fireEvent.change(screen.getByLabelText('Garantiedauer in Monaten'), {
+    fireEvent.change(screen.getByLabelText(deVehicleStock.sale.warranty.monthsAria), {
       target: { value: '12' },
     })
-    fireEvent.change(screen.getByLabelText('Garantiebedingungen'), {
+    fireEvent.change(screen.getByLabelText(deVehicleStock.sale.warranty.terms), {
       target: { value: 'Motorschaden ausgenommen' },
     })
     await act(async () => {
@@ -500,10 +501,10 @@ describe('VehicleSalePage Kaufvertrag PDF and Garantie', () => {
       }),
     }))
 
-    fireEvent.change(screen.getByLabelText('Garantiedauer in Monaten'), {
+    fireEvent.change(screen.getByLabelText(deVehicleStock.sale.warranty.monthsAria), {
       target: { value: '' },
     })
-    expect(screen.getByLabelText('Garantiebedingungen')).toBeDisabled()
+    expect(screen.getByLabelText(deVehicleStock.sale.warranty.terms)).toBeDisabled()
     await act(async () => {
       await vi.advanceTimersByTimeAsync(750)
     })
@@ -518,7 +519,7 @@ describe('VehicleSalePage Kaufvertrag PDF and Garantie', () => {
 
     renderSalePage('/vehicle-stock/sales/new?vehicleId=vehicle-1')
 
-    expect(screen.getByRole('button', { name: 'Kaufvertrag PDF' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: deVehicleStock.sale.downloadKaufvertrag })).toBeDisabled()
   })
 })
 
@@ -652,7 +653,7 @@ describe('VehicleSalePage trade-in', () => {
     fireEvent.change(screen.getByLabelText('Model year'), { target: { value: '2016' } })
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Finalize invoice' }))
+      fireEvent.click(screen.getByRole('button', { name: deVehicleStock.sale.finalizeInvoice }))
       await vi.advanceTimersByTimeAsync(0)
     })
 
@@ -671,7 +672,7 @@ describe('VehicleSalePage trade-in', () => {
     fireEvent.change(screen.getByLabelText('Allowance (EUR)'), { target: { value: '5000' } })
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Finalize invoice' }))
+      fireEvent.click(screen.getByRole('button', { name: deVehicleStock.sale.finalizeInvoice }))
       await vi.advanceTimersByTimeAsync(0)
     })
 
@@ -697,7 +698,7 @@ describe('VehicleSalePage trade-in', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Remove trade-in' }))
     })
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Finalize invoice' }))
+      fireEvent.click(screen.getByRole('button', { name: deVehicleStock.sale.finalizeInvoice }))
       await vi.advanceTimersByTimeAsync(0)
     })
     expect(finalizeSale).not.toHaveBeenCalled()
@@ -729,7 +730,7 @@ describe('VehicleSalePage trade-in', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Remove trade-in' }))
     })
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Finalize invoice' }))
+      fireEvent.click(screen.getByRole('button', { name: deVehicleStock.sale.finalizeInvoice }))
       await vi.advanceTimersByTimeAsync(0)
     })
     await act(async () => {
@@ -865,7 +866,7 @@ describe('VehicleSalePage Gewährleistung after invoicing', () => {
 
 describe('VehicleSalePage Gewährleistung save feedback', () => {
   const shorteningMessage = 'Für die Verkürzung ist das Datum der Erstzulassung erforderlich.'
-  const shorteningCheckboxName = 'Verkürzung wurde ausdrücklich vereinbart'
+  const shorteningCheckboxName = deVehicleStock.sale.warranty.shorteningNegotiated
 
   function saveError(status: number, code: string, message: string) {
     return Object.assign(new Error(message), { status, data: { statusCode: status, message, code } })
@@ -931,7 +932,7 @@ describe('VehicleSalePage Gewährleistung save feedback', () => {
     const checkbox = screen.getByRole('checkbox', { name: shorteningCheckboxName })
     expectFieldErrorLinked(checkbox, shorteningMessage)
     expect(screen.getByRole('alert')).toHaveTextContent(shorteningMessage)
-    expect(screen.getByText('Save failed')).toBeInTheDocument()
+    expect(screen.getByText(deVehicleStock.sale.saveStatus.error)).toBeInTheDocument()
     expect(screen.queryByText('Saving...')).not.toBeInTheDocument()
   })
 
@@ -965,13 +966,13 @@ describe('VehicleSalePage Gewährleistung save feedback', () => {
     })
     expect(screen.getByText('Die Erstzulassung muss mehr als ein Jahr vor der Übergabe liegen.')).toBeInTheDocument()
 
-    fireEvent.change(screen.getByLabelText('Notiz zur Gewährleistung'), { target: { value: 'Gebrauchtwagen' } })
+    fireEvent.change(screen.getByLabelText(deVehicleStock.sale.warranty.note), { target: { value: 'Gebrauchtwagen' } })
     await act(async () => {
       await vi.advanceTimersByTimeAsync(750)
     })
 
     expect(screen.queryByText('Die Erstzulassung muss mehr als ein Jahr vor der Übergabe liegen.')).not.toBeInTheDocument()
-    expect(screen.getByText('Saved')).toBeInTheDocument()
+    expect(screen.getByText(deVehicleStock.sale.saveStatus.saved)).toBeInTheDocument()
   })
 
   it('shows a shortening refusal from finalizing on the checkbox too', async () => {
@@ -984,7 +985,7 @@ describe('VehicleSalePage Gewährleistung save feedback', () => {
     renderSalePage()
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Finalize invoice' }))
+      fireEvent.click(screen.getByRole('button', { name: deVehicleStock.sale.finalizeInvoice }))
       await vi.advanceTimersByTimeAsync(0)
     })
 
@@ -998,13 +999,13 @@ describe('VehicleSalePage Gewährleistung save feedback', () => {
     )
     renderSalePage()
 
-    fireEvent.change(screen.getByLabelText('Sale price (gross)'), { target: { value: '14500' } })
+    fireEvent.change(screen.getByLabelText(deVehicleStock.sale.salePriceGross), { target: { value: '14500' } })
     await act(async () => {
       await vi.advanceTimersByTimeAsync(750)
     })
 
     expect(toast.error).toHaveBeenCalledWith('Für Verträge vor dem 01.01.2022 ist keine Regel hinterlegt.')
     expectFieldValid(screen.getByRole('checkbox', { name: shorteningCheckboxName }))
-    expect(screen.getByText('Save failed')).toBeInTheDocument()
+    expect(screen.getByText(deVehicleStock.sale.saveStatus.error)).toBeInTheDocument()
   })
 })

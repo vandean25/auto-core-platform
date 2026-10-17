@@ -9,6 +9,10 @@ expect.extend(matchers)
 beforeAll(async () => {
   await initI18n({ language: 'de' })
   await ensureNamespaceLoaded('workshop')
+  await ensureNamespaceLoaded('sales')
+  await ensureNamespaceLoaded('vehicles')
+  await ensureNamespaceLoaded('customers')
+  await ensureNamespaceLoaded('vehicleStock')
 })
 
 afterEach(async () => {

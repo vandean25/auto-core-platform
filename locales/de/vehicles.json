@@ -1,0 +1,150 @@
+{
+  "shared": {
+    "notAvailable": "k. A.",
+    "emDash": "—",
+    "unassigned": "Nicht zugewiesen",
+    "draft": "Entwurf",
+    "goBack": "Zurück",
+    "unknownError": "Unbekannter Fehler"
+  },
+  "list": {
+    "title": "Fahrzeuge",
+    "description": "Alle Fahrzeuge durchsuchen und den vollständigen Fahrzeugkontext öffnen.",
+    "addVehicle": "Fahrzeug",
+    "searchPlaceholder": "Fahrzeuge durchsuchen…",
+    "saveViewTitle": "Fahrzeuge",
+    "rowAria": "Fahrzeug {{vehicle}}",
+    "columns": {
+      "makeModel": "Marke & Modell",
+      "year": "Baujahr",
+      "vin": "FIN",
+      "plate": "Kennzeichen",
+      "customer": "Kunde"
+    }
+  },
+  "detail": {
+    "loading": "Fahrzeugdetails werden geladen…",
+    "loadFailed": "Fahrzeug konnte nicht geladen werden: {{message}}",
+    "notFound": "Fahrzeug nicht gefunden.",
+    "updated": "Fahrzeug aktualisiert",
+    "updateFailed": "Fahrzeug konnte nicht aktualisiert werden",
+    "invalidYear": "Baujahr muss zwischen 1900 und 2100 liegen.",
+    "customerUpdated": "Fahrzeugkunde aktualisiert",
+    "customerUpdateFailed": "Fahrzeugkunde konnte nicht aktualisiert werden",
+    "serviceOrderNeedsCustomer": "Weisen Sie diesem Fahrzeug einen Kunden zu, bevor Sie einen Werkstattauftrag anlegen.",
+    "editVehicle": "Fahrzeug bearbeiten",
+    "serviceOrder": "Werkstattauftrag",
+    "vehicleInfo": "Fahrzeugdaten",
+    "year": "Baujahr",
+    "engine": "Motor",
+    "make": "Marke",
+    "model": "Modell",
+    "vin": "FIN",
+    "plate": "Kennzeichen",
+    "placeholders": {
+      "year": "Baujahr",
+      "engineCode": "Motorcode",
+      "make": "Marke",
+      "model": "Modell",
+      "vin": "FIN",
+      "plate": "Kennzeichen"
+    },
+    "empty": {
+      "engineCode": "Motorcode hinzufügen",
+      "vin": "FIN hinzufügen",
+      "plate": "Kennzeichen hinzufügen"
+    },
+    "aria": {
+      "year": "Fahrzeug-Baujahr",
+      "engineCode": "Fahrzeug-Motorcode",
+      "make": "Fahrzeug-Marke",
+      "model": "Fahrzeug-Modell",
+      "vin": "Fahrzeug-FIN",
+      "plate": "Fahrzeug-Kennzeichen",
+      "goBack": "Zurück",
+      "openSalesOrder": "Verkaufsauftrag {{number}} öffnen",
+      "openServiceOrder": "Werkstattauftrag {{number}} öffnen",
+      "openInvoice": "Rechnung {{number}} öffnen"
+    },
+    "customer": "Kunde",
+    "changeCustomer": "Kunde ändern",
+    "tabs": {
+      "activeOrders": "Aktive Aufträge",
+      "invoiceHistory": "Rechnungsverlauf",
+      "serviceOrders": "Werkstattaufträge"
+    },
+    "tables": {
+      "orderNumber": "Auftrag Nr.",
+      "type": "Typ",
+      "date": "Datum",
+      "status": "Status",
+      "total": "Summe",
+      "invoiceNumber": "Rechnung Nr.",
+      "noActiveOrders": "Keine aktiven Aufträge",
+      "noInvoices": "Keine Rechnungen",
+      "noServiceOrders": "Keine Werkstattaufträge",
+      "serviceOrderNumber": "Werkstattauftrag Nr."
+    },
+    "orderTypes": {
+      "sales": "Verkauf",
+      "service": "Werkstatt"
+    },
+    "changeCustomerDialog": {
+      "title": "Fahrzeugkunde ändern",
+      "save": "Speichern",
+      "cancel": "Abbrechen",
+      "unassign": "Zuweisung aufheben"
+    },
+    "idLabel": "ID: {{id}}"
+  },
+  "pickerlDue": {
+    "title": "Pickerl fällig",
+    "description": "Arbeitsliste für Fahrzeuge mit fälligem §57a-Pickerl.",
+    "exportCsv": "Fällige als CSV exportieren",
+    "exportFailed": "CSV-Export fehlgeschlagen",
+    "windowAria": "Fenster",
+    "windowPlaceholder": "Fenster",
+    "windowAll": "Alle Fenster",
+    "windowDays": "{{count}} Tage",
+    "statusAria": "Status",
+    "statusPlaceholder": "Status",
+    "statusAll": "Alle Status",
+    "searchPlaceholder": "Kennzeichen, Fahrzeug, Kunde, Telefon oder E-Mail suchen…",
+    "recordPickerl": "Pickerl erfasst",
+    "openOrder": "§57a-Auftrag öffnen",
+    "createOrder": "§57a-Auftrag anlegen",
+    "statusOk": "OK",
+    "statusDueSoon": "Bald fällig",
+    "statusOverdue": "Überfällig",
+    "statusUnknown": "Unbekannt",
+    "searchLoadedRows": "Suche in geladenen Zeilen…",
+    "vehicleRowAria": "Fahrzeug {{plate}}",
+    "columns": {
+      "plate": "Kennzeichen",
+      "vehicle": "Fahrzeug",
+      "customer": "Kunde",
+      "dueMonth": "Fällig im Monat",
+      "status": "Status",
+      "lastInspection": "Letzte Überprüfung",
+      "phone": "Telefon",
+      "email": "E-Mail"
+    }
+  },
+  "gewaehrleistungDue": {
+    "title": "Gewährleistung fällig",
+    "description": "Fahrzeugverkäufe mit bald endender Gewährleistungsfrist.",
+    "windowLabel": "Zeitraum",
+    "windowAria": "Zeitraum",
+    "windowDays": "{{count}} Tage",
+    "loadError": "Gewährleistungsfälligkeiten konnten nicht geladen werden.",
+    "empty": "Keine fälligen Fahrzeuge im gewählten Zeitraum.",
+    "searchPlaceholder": "Fahrzeug, Kunde oder Frist suchen …",
+    "columns": {
+      "vehicle": "Fahrzeug",
+      "customer": "Kunde",
+      "handover": "Übergabe",
+      "warrantyEnds": "Basisfrist bis",
+      "presumptionEnds": "Vermutungsfrist bis"
+    }
+  }
+}

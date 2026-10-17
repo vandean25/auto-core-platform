@@ -2,6 +2,7 @@ import { expectNoCriticalA11yViolations } from "./utils/a11y";
 import { test, expect } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
 import { createMockCustomer, createMockListResponse } from './utils/mock-factories';
+import { DE_CUSTOMERS } from './helpers/de-customers';
 
 /**
  * AUT-220: Clicking a customer row must open that customer's detail page.
@@ -60,7 +61,7 @@ test.describe('Customers list row navigation (AUT-220)', () => {
   }
 
   test('each row opens the matching customer detail URL', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Customer');
+    const corePage = new AutoCorePage(page, DE_CUSTOMERS.list.addCustomer);
     await corePage.navigate('/customers');
     await expectNoCriticalA11yViolations(page);
 
@@ -73,7 +74,7 @@ test.describe('Customers list row navigation (AUT-220)', () => {
 
   test('row clicks stay correct after scrolling a short viewport (AUT-220)', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 520 });
-    const corePage = new AutoCorePage(page, 'Customer');
+    const corePage = new AutoCorePage(page, DE_CUSTOMERS.list.addCustomer);
     await corePage.navigate('/customers');
 
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
@@ -81,7 +82,7 @@ test.describe('Customers list row navigation (AUT-220)', () => {
   });
 
   test('mouse click at row center opens the matching customer (AUT-220)', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Customer');
+    const corePage = new AutoCorePage(page, DE_CUSTOMERS.list.addCustomer);
     await corePage.navigate('/customers');
 
     const row = page.locator('[data-table-row="true"]').filter({ hasText: 'Anna Alpin' }).first();

@@ -35,8 +35,9 @@ export interface A11ySmokeRoute {
   ready: (page: Page) => Promise<void>;
 }
 
-async function mockApi(page: Page, path: string, body: unknown, status = 200) {
-  await page.route(AutoCorePage.apiRouteMatcher(path), async (route) => {
+async function mockApi(page: Page, path: string | RegExp, body: unknown, status = 200) {
+  const matcher = typeof path === 'string' ? AutoCorePage.apiRouteMatcher(path) : path;
+  await page.route(matcher, async (route) => {
     await route.fulfill({
       status,
       contentType: 'application/json',
@@ -143,6 +144,7 @@ export const A11Y_SMOKE_ROUTES: A11ySmokeRoute[] = [
         data: [],
         meta: { total: 0, page: 1, pageSize: 25, pageCount: 1 },
       });
+      await mockApi(page, /\/api\/tyre-sets\/by-customer\/.*/, []);
     },
     ready: titleReady('Jane Smith'),
   },
@@ -254,10 +256,12 @@ export const A11Y_SMOKE_ROUTES: A11ySmokeRoute[] = [
       await mockApi(page, '/api/customers', createMockListResponse([]));
     },
     open: async (page) => {
-      await new AutoCorePage(page, 'Customer').createButton.click();
+      const { DE_CUSTOMERS } = await import('../helpers/de-customers');
+      await new AutoCorePage(page, DE_CUSTOMERS.list.addCustomer).createButton.click();
     },
     ready: async (page) => {
-      await expect(page.getByRole('dialog', { name: 'Add Customer' })).toBeVisible();
+      const { DE_CUSTOMERS } = await import('../helpers/de-customers');
+      await expect(page.getByRole('dialog', { name: DE_CUSTOMERS.dialog.addTitle })).toBeVisible();
     },
   },
   {

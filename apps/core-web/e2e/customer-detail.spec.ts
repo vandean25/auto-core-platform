@@ -4,6 +4,7 @@ import {
   createMockVehicle,
   createMockCustomerDetailResponse,
 } from './utils/mock-factories';
+import { DE_CUSTOMERS } from './helpers/de-customers';
 
 /**
  * Blueprint Validation Suite — Customer Detail Page
@@ -23,6 +24,16 @@ import {
 const CUSTOMER_ID = 'cust-detail-001';
 
 test.describe('Blueprint: Customer Detail Page', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route(AutoCorePage.apiRouteMatcher(/\/api\/tyre-sets\/by-customer\/.*/), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([]),
+      });
+    });
+  });
+
   test('renders customer header with name, type badge, and contact info card', async ({
     page,
   }) => {
@@ -50,7 +61,7 @@ test.describe('Blueprint: Customer Detail Page', () => {
     await expect(page.getByRole('heading', { name: 'Jane Smith' })).toBeVisible();
 
     // Contact Information card is visible
-    await expect(page.getByText('Contact Information')).toBeVisible();
+    await expect(page.getByText(DE_CUSTOMERS.detail.contactInformation)).toBeVisible();
 
     // Email and phone rendered
     await expect(page.getByText('jane.smith@example.com')).toBeVisible();
@@ -81,7 +92,7 @@ test.describe('Blueprint: Customer Detail Page', () => {
     await expect(page.getByRole('heading', { name: 'Acme Motors GmbH' })).toBeVisible();
 
     // Company badge visible (exact match to avoid hitting "Company Name" label)
-    await expect(page.getByText('Company', { exact: true })).toBeVisible();
+    await expect(page.getByText(DE_CUSTOMERS.detail.companyBadge, { exact: true })).toBeVisible();
   });
 
   test('renders Active Orders tab with sales and workshop orders', async ({ page }) => {
@@ -129,8 +140,8 @@ test.describe('Blueprint: Customer Detail Page', () => {
     await expect(page.getByText('WO-2026-0015')).toBeVisible();
 
     // Type column shows Sales and Service
-    await expect(page.getByRole('cell', { name: 'Sales' })).toBeVisible();
-    await expect(page.getByRole('cell', { name: 'Service' })).toBeVisible();
+    await expect(page.getByRole('cell', { name: DE_CUSTOMERS.detail.orderTypes.sales })).toBeVisible();
+    await expect(page.getByRole('cell', { name: DE_CUSTOMERS.detail.orderTypes.service })).toBeVisible();
   });
 
   test('renders Invoice History tab with invoice rows', async ({ page }) => {
@@ -161,7 +172,7 @@ test.describe('Blueprint: Customer Detail Page', () => {
     await page.waitForLoadState('networkidle');
 
     // Switch to Invoice History tab
-    await page.getByRole('tab', { name: 'Invoice History' }).click();
+    await page.getByRole('tab', { name: DE_CUSTOMERS.detail.tabs.invoices }).click();
 
     // Invoice row visible
     await expect(page.getByText('RE-2026-0008')).toBeVisible();
@@ -195,7 +206,7 @@ test.describe('Blueprint: Customer Detail Page', () => {
     await page.waitForLoadState('networkidle');
 
     // Switch to Vehicles tab
-    await page.getByRole('tab', { name: 'Vehicles' }).click();
+    await page.getByRole('tab', { name: DE_CUSTOMERS.detail.tabs.vehicles }).click();
 
     // Vehicle data visible
     await expect(page.getByText('Volkswagen')).toBeVisible();
@@ -229,15 +240,15 @@ test.describe('Blueprint: Customer Detail Page', () => {
     await page.waitForLoadState('networkidle');
 
     // Active Orders tab — empty state
-    await expect(page.getByText('No active orders')).toBeVisible();
+    await expect(page.getByText(DE_CUSTOMERS.detail.tables.noActiveOrders)).toBeVisible();
 
     // Invoice History tab — empty state
-    await page.getByRole('tab', { name: 'Invoice History' }).click();
-    await expect(page.getByText('No recent invoices')).toBeVisible();
+    await page.getByRole('tab', { name: DE_CUSTOMERS.detail.tabs.invoices }).click();
+    await expect(page.getByText(DE_CUSTOMERS.detail.tables.noRecentInvoices)).toBeVisible();
 
     // Vehicles tab — empty state
-    await page.getByRole('tab', { name: 'Vehicles' }).click();
-    await expect(page.getByText('No vehicles registered')).toBeVisible();
+    await page.getByRole('tab', { name: DE_CUSTOMERS.detail.tabs.vehicles }).click();
+    await expect(page.getByText(DE_CUSTOMERS.detail.tables.noVehiclesRegistered)).toBeVisible();
   });
 
   test('inline edit triggers PATCH to /api/customers/:id on blur', async ({ page }) => {
@@ -280,7 +291,7 @@ test.describe('Blueprint: Customer Detail Page', () => {
     await page.getByText('old@example.com').click();
 
     // The InlineEdit now shows an <Input> with aria-label="Customer email"
-    const input = page.getByLabel('Customer email');
+    const input = page.getByLabel(DE_CUSTOMERS.detail.aria.email);
     await expect(input).toBeVisible();
     // InlineEdit focuses the input and places the caret in a requestAnimationFrame after it mounts.
     // Wait for that focus: otherwise the deferred caret placement can collapse fill()'s selection and

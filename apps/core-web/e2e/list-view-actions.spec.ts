@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { DE_SHELL } from './helpers/de-shell';
+import { DE_CUSTOMERS } from './helpers/de-customers';
 import { AutoCorePage } from './pom/AutoCorePage';
 import { expectNoCriticalA11yViolations } from './utils/a11y';
 import { createMockCustomer, createMockListResponse } from './utils/mock-factories';
@@ -8,7 +9,7 @@ import { createMockCustomer, createMockListResponse } from './utils/mock-factori
  * AUT-488: The list-view buttons carry clear labels and a one-line tooltip that opens on
  * focus and hover and closes with Escape. The empty sidebar Favorites copy names the new label.
  */
-const SAVE_NAME = 'Save as sidebar view for Customers';
+const SAVE_NAME = `Save as sidebar view for ${DE_CUSTOMERS.list.saveViewTitle}`;
 const ADD_NAME = 'Add to dashboard';
 const SAVE_TOOLTIP = 'Saves these filters as a shortcut in the sidebar';
 const ADD_TOOLTIP = 'Shows this result as a widget on your dashboard';
@@ -34,7 +35,7 @@ test.describe('List view actions: labels and tooltips (AUT-488)', () => {
   });
 
   test('empty sidebar Favorites copy names the new Save button', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Customer');
+    const corePage = new AutoCorePage(page, DE_CUSTOMERS.list.addCustomer);
     await corePage.navigate('/customers');
 
     await expect(
@@ -43,7 +44,7 @@ test.describe('List view actions: labels and tooltips (AUT-488)', () => {
   });
 
   test('save button shows its tooltip on keyboard focus and hides it on Escape', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Customer');
+    const corePage = new AutoCorePage(page, DE_CUSTOMERS.list.addCustomer);
     await corePage.navigate('/customers?search=klaus');
 
     await page.getByRole('button', { name: SAVE_NAME }).focus();
@@ -54,7 +55,7 @@ test.describe('List view actions: labels and tooltips (AUT-488)', () => {
   });
 
   test('add button shows its tooltip on hover and hides it on Escape', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Customer');
+    const corePage = new AutoCorePage(page, DE_CUSTOMERS.list.addCustomer);
     await corePage.navigate('/customers?search=klaus');
 
     await page.getByRole('button', { name: ADD_NAME, exact: true }).hover();
@@ -65,7 +66,7 @@ test.describe('List view actions: labels and tooltips (AUT-488)', () => {
   });
 
   test('list toolbar passes the critical accessibility scan with a tooltip open', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Customer');
+    const corePage = new AutoCorePage(page, DE_CUSTOMERS.list.addCustomer);
     await corePage.navigate('/customers?search=klaus');
 
     await page.getByRole('button', { name: ADD_NAME, exact: true }).focus();

@@ -121,19 +121,31 @@ export default function CustomerDetail() {
   const [vehiclePickerOpen, setVehiclePickerOpen] = useState(false)
   const [selectedWorkshopVehicle, setSelectedWorkshopVehicle] = useState<Vehicle | null>(null)
   const customerName = customer ? getCustomerDisplayName(customer) : undefined
-  usePageBreadcrumbs({ listPath: APP_ROUTE_PATHS.customers, currentLabel: customerName || 'Customer' })
+  usePageBreadcrumbs({
+    listPath: APP_ROUTE_PATHS.customers,
+    currentLabel: customerName || t('detail.breadcrumbFallback'),
+  })
+
+  const notAvailable = t('detail.notAvailable')
 
   if (isLoading) {
-    return <div className='p-8 text-center'>Loading customer details...</div>
+    return <div className='p-8 text-center'>{t('detail.loading')}</div>
   }
 
   if (error) {
-    return <div className='p-8 text-center'>Failed to load customer: {(error as Error).message}</div>
+    return (
+      <div className='p-8 text-center'>
+        {t('detail.loadFailed', { message: (error as Error).message })}
+      </div>
+    )
   }
 
   if (!customer) {
-    return <div className='p-8 text-center'>Customer not found.</div>
+    return <div className='p-8 text-center'>{t('detail.notFound')}</div>
   }
+
+  const orderTypeLabel = (type: ActiveOrderRow['type']) =>
+    t(type === 'Sales' ? 'detail.orderTypes.sales' : 'detail.orderTypes.service')
 
   const salesActive: ActiveOrderRow[] = (customer.sales_orders ?? [])
     .filter((order) => order.status !== 'INVOICED')
@@ -184,12 +196,12 @@ export default function CustomerDetail() {
           [field]: nextValue,
         },
       })
-      toast.success('Customer updated')
+      toast.success(t('detail.updated'))
     } catch (error: unknown) {
       if (error instanceof Error) {
         toast.error(error.message)
       } else {
-        toast.error('Failed to update customer')
+        toast.error(t('detail.updateFailed'))
       }
       throw error
     }
@@ -204,7 +216,7 @@ export default function CustomerDetail() {
 
   const handleCreateWorkshopOrder = () => {
     if (customerVehicles.length === 0) {
-      toast.error('No vehicle found. Add a vehicle first to create a workshop order.')
+      toast.error(t('detail.noVehicleForService'))
       return
     }
 
@@ -218,75 +230,75 @@ export default function CustomerDetail() {
 
   return (
     <div className='space-y-6'>
-      <div className='flex items-center justify-between mb-8'>
-        <div className='flex items-center gap-4'>
+      <div className='mb-8 flex flex-wrap items-start justify-between gap-4'>
+        <div className='flex min-w-0 items-center gap-4'>
           <Button variant='ghost' size='icon' asChild>
-            <Link to='/customers' aria-label='Back to customers'>
+            <Link to='/customers' aria-label={t('detail.backAria')}>
               <ArrowLeft className='h-4 w-4' />
             </Link>
           </Button>
-          <div>
-            <h1 className='text-2xl font-semibold tracking-tight'>
+          <div className='min-w-0'>
+            <h1 className='text-2xl font-semibold tracking-tight break-words'>
               {getCustomerDisplayName(customer)}
             </h1>
             <div className='flex items-center gap-2 text-slate-500 text-sm'>
-              {customer.type === 'COMPANY' && <Badge variant='outline'>Company</Badge>}
-              <span>ID: {customer.id.substring(0, 8)}</span>
+              {customer.type === 'COMPANY' && <Badge variant='outline'>{t('detail.companyBadge')}</Badge>}
+              <span>{t('detail.idLabel', { id: customer.id.substring(0, 8) })}</span>
             </div>
           </div>
         </div>
-        <div className='flex flex-col items-end gap-2'>
-          <div className='flex flex-wrap justify-end gap-2'>
+        <div className='flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:items-end'>
+          <div className='flex flex-wrap justify-start gap-2 sm:justify-end'>
             <Button asChild>
               <Link to={`/sales-orders/new?customerId=${customer.id}`}>
-                <Package className='mr-2 h-4 w-4' /> New sales order
+                <Package className='mr-2 h-4 w-4' /> {t('detail.newSalesOrder')}
               </Link>
             </Button>
             <Button variant='outline' onClick={handleCreateWorkshopOrder}>
-              <Wrench className='mr-2 h-4 w-4' /> Workshop Order
+              <Wrench className='mr-2 h-4 w-4' /> {t('detail.startService')}
             </Button>
           </div>
-          <p className='text-xs text-slate-500'>Invoices are created from sales orders.</p>
+          <p className='text-xs text-slate-500'>{t('detail.invoiceHint')}</p>
         </div>
       </div>
 
       <div className='grid grid-cols-1 lg:grid-cols-3 gap-6 items-start'>
         <Card className='lg:col-span-1'>
           <CardHeader>
-            <CardTitle className='text-base font-semibold'>Contact Information</CardTitle>
+            <CardTitle className='text-base font-semibold'>{t('detail.contactInformation')}</CardTitle>
           </CardHeader>
           <CardContent className='space-y-4'>
             {customer.type === 'COMPANY' ? (
               <div className='space-y-2'>
                 <div>
-                  <div className='text-xs text-muted-foreground mb-1'>Company Name</div>
+                  <div className='text-xs text-muted-foreground mb-1'>{t('detail.fields.companyName')}</div>
                   <InlineEdit
                     value={customer.company_name}
                     onSave={(nextValue) => handleSaveCustomerField('company_name', nextValue)}
-                    placeholder='Company name'
-                    emptyText='Add company name'
-                    ariaLabel='Company name'
+                    placeholder={t('detail.placeholders.companyName')}
+                    emptyText={t('detail.empty.companyName')}
+                    ariaLabel={t('detail.aria.companyName')}
                   />
                 </div>
                 <div className='grid grid-cols-1 sm:grid-cols-2 gap-2'>
                   <div>
-                    <div className='text-xs text-muted-foreground mb-1'>Contact First Name</div>
+                    <div className='text-xs text-muted-foreground mb-1'>{t('detail.fields.contactFirstName')}</div>
                     <InlineEdit
                       value={customer.first_name}
                       onSave={(nextValue) => handleSaveCustomerField('first_name', nextValue)}
-                      placeholder='First name'
-                      emptyText='Add first name'
-                      ariaLabel='Business contact first name'
+                      placeholder={t('detail.placeholders.firstName')}
+                      emptyText={t('detail.empty.firstName')}
+                      ariaLabel={t('detail.aria.contactFirstName')}
                     />
                   </div>
                   <div>
-                    <div className='text-xs text-muted-foreground mb-1'>Contact Last Name</div>
+                    <div className='text-xs text-muted-foreground mb-1'>{t('detail.fields.contactLastName')}</div>
                     <InlineEdit
                       value={customer.last_name}
                       onSave={(nextValue) => handleSaveCustomerField('last_name', nextValue)}
-                      placeholder='Last name'
-                      emptyText='Add last name'
-                      ariaLabel='Business contact last name'
+                      placeholder={t('detail.placeholders.lastName')}
+                      emptyText={t('detail.empty.lastName')}
+                      ariaLabel={t('detail.aria.contactLastName')}
                     />
                   </div>
                 </div>
@@ -294,23 +306,23 @@ export default function CustomerDetail() {
             ) : (
               <div className='grid grid-cols-1 sm:grid-cols-2 gap-2'>
                 <div>
-                  <div className='text-xs text-muted-foreground mb-1'>First Name</div>
+                  <div className='text-xs text-muted-foreground mb-1'>{t('detail.fields.firstName')}</div>
                   <InlineEdit
                     value={customer.first_name}
                     onSave={(nextValue) => handleSaveCustomerField('first_name', nextValue)}
-                    placeholder='First name'
-                    emptyText='Add first name'
-                    ariaLabel='Customer first name'
+                    placeholder={t('detail.placeholders.firstName')}
+                    emptyText={t('detail.empty.firstName')}
+                    ariaLabel={t('detail.aria.firstName')}
                   />
                 </div>
                 <div>
-                  <div className='text-xs text-muted-foreground mb-1'>Last Name</div>
+                  <div className='text-xs text-muted-foreground mb-1'>{t('detail.fields.lastName')}</div>
                   <InlineEdit
                     value={customer.last_name}
                     onSave={(nextValue) => handleSaveCustomerField('last_name', nextValue)}
-                    placeholder='Last name'
-                    emptyText='Add last name'
-                    ariaLabel='Customer last name'
+                    placeholder={t('detail.placeholders.lastName')}
+                    emptyText={t('detail.empty.lastName')}
+                    ariaLabel={t('detail.aria.lastName')}
                   />
                 </div>
               </div>
@@ -321,9 +333,9 @@ export default function CustomerDetail() {
               <InlineEdit
                 value={customer.email}
                 onSave={(nextValue) => handleSaveCustomerField('email', nextValue)}
-                placeholder='name@example.com'
-                emptyText='Add email'
-                ariaLabel='Customer email'
+                placeholder={t('detail.placeholders.email')}
+                emptyText={t('detail.empty.email')}
+                ariaLabel={t('detail.aria.email')}
               />
             </div>
             <div className='flex items-center gap-2'>
@@ -331,9 +343,9 @@ export default function CustomerDetail() {
               <InlineEdit
                 value={customer.phone}
                 onSave={(nextValue) => handleSaveCustomerField('phone', nextValue)}
-                placeholder='+43 ...'
-                emptyText='Add phone'
-                ariaLabel='Customer phone'
+                placeholder={t('detail.placeholders.phone')}
+                emptyText={t('detail.empty.phone')}
+                ariaLabel={t('detail.aria.phone')}
               />
             </div>
             <TyreSetsSummary customerId={customer.id} />
@@ -345,44 +357,44 @@ export default function CustomerDetail() {
                   rows={3}
                   value={customer.address_street}
                   onSave={(nextValue) => handleSaveCustomerField('address_street', nextValue)}
-                  placeholder='Street and house number'
-                  emptyText='Add street address'
-                  ariaLabel='Customer street address'
+                  placeholder={t('detail.placeholders.street')}
+                  emptyText={t('detail.empty.street')}
+                  ariaLabel={t('detail.aria.street')}
                 />
                 <div className='grid grid-cols-1 sm:grid-cols-2 gap-2'>
                   <InlineEdit
                     value={customer.address_zip}
                     onSave={(nextValue) => handleSaveCustomerField('address_zip', nextValue)}
-                    placeholder='ZIP code'
-                    emptyText='Add ZIP'
-                    ariaLabel='Customer ZIP code'
+                    placeholder={t('detail.placeholders.zip')}
+                    emptyText={t('detail.empty.zip')}
+                    ariaLabel={t('detail.aria.zip')}
                   />
                   <InlineEdit
                     value={customer.address_city}
                     onSave={(nextValue) => handleSaveCustomerField('address_city', nextValue)}
-                    placeholder='City'
-                    emptyText='Add city'
-                    ariaLabel='Customer city'
+                    placeholder={t('detail.placeholders.city')}
+                    emptyText={t('detail.empty.city')}
+                    ariaLabel={t('detail.aria.city')}
                   />
                 </div>
                 <InlineEdit
                   value={customer.address_country}
                   onSave={(nextValue) => handleSaveCustomerField('address_country', nextValue)}
-                  placeholder='Country'
-                  emptyText='Add country'
-                  ariaLabel='Customer country'
+                  placeholder={t('detail.placeholders.country')}
+                  emptyText={t('detail.empty.country')}
+                  ariaLabel={t('detail.aria.country')}
                 />
               </div>
             </div>
             <div className='pt-2 border-t'>
-              <span className='text-sm font-medium'>VAT ID:</span>
+              <span className='text-sm font-medium'>{t('detail.fields.vatId')}:</span>
               <div className='mt-1'>
                 <InlineEdit
                   value={customer.vat_id}
                   onSave={(nextValue) => handleSaveCustomerField('vat_id', nextValue)}
-                  placeholder='VAT ID'
-                  emptyText='Add VAT ID'
-                  ariaLabel='Customer VAT ID'
+                  placeholder={t('detail.placeholders.vatId')}
+                  emptyText={t('detail.empty.vatId')}
+                  ariaLabel={t('detail.aria.vatId')}
                 />
               </div>
             </div>
@@ -392,9 +404,9 @@ export default function CustomerDetail() {
         <div className='lg:col-span-2'>
           <Tabs defaultValue='orders'>
             <TabsList className='flex h-auto min-h-9 w-full flex-wrap gap-1'>
-              <TabsTrigger value='orders'>Active Orders</TabsTrigger>
-              <TabsTrigger value='invoices'>Invoice History</TabsTrigger>
-              <TabsTrigger value='vehicles'>Vehicles</TabsTrigger>
+              <TabsTrigger value='orders'>{t('detail.tabs.activeOrders')}</TabsTrigger>
+              <TabsTrigger value='invoices'>{t('detail.tabs.invoices')}</TabsTrigger>
+              <TabsTrigger value='vehicles'>{t('detail.tabs.vehicles')}</TabsTrigger>
               <TabsTrigger value='consent'>{t('consent.tab')}</TabsTrigger>
             </TabsList>
 
@@ -404,11 +416,11 @@ export default function CustomerDetail() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Order #</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className='text-right'>Total</TableHead>
+                        <TableHead>{t('detail.tables.orderNumber')}</TableHead>
+                        <TableHead>{t('detail.tables.type')}</TableHead>
+                        <TableHead>{t('detail.tables.date')}</TableHead>
+                        <TableHead>{t('detail.tables.status')}</TableHead>
+                        <TableHead className='text-right'>{t('detail.tables.total')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -421,7 +433,11 @@ export default function CustomerDetail() {
                           }
                           tabIndex={0}
                           role='button'
-                          aria-label={`Open ${order.type} order ${order.number}`}
+                          aria-label={
+                            order.type === 'Service'
+                              ? t('detail.aria.openServiceOrder', { number: order.number })
+                              : t('detail.aria.openSalesOrder', { number: order.number })
+                          }
                           onKeyDown={(event) => {
                             if (event.key === 'Enter' || event.key === ' ') {
                               event.preventDefault()
@@ -430,7 +446,7 @@ export default function CustomerDetail() {
                           }}
                         >
                           <TableCell className='font-medium'>{order.number}</TableCell>
-                          <TableCell>{order.type}</TableCell>
+                          <TableCell>{orderTypeLabel(order.type)}</TableCell>
                           <TableCell>{formatDate(order.createdAt)}</TableCell>
                           <TableCell><StatusBadge status={order.status} /></TableCell>
                           <TableCell className='text-right'>{formatCurrency(order.total)}</TableCell>
@@ -438,7 +454,7 @@ export default function CustomerDetail() {
                       ))}
                       {activeOrders.length === 0 && (
                         <TableRow>
-                          <TableCell colSpan={5} className='text-center py-4 text-muted-foreground'>No active orders</TableCell>
+                          <TableCell colSpan={5} className='text-center py-4 text-muted-foreground'>{t('detail.tables.noActiveOrders')}</TableCell>
                         </TableRow>
                       )}
                     </TableBody>
@@ -453,10 +469,10 @@ export default function CustomerDetail() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Invoice #</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className='text-right'>Total</TableHead>
+                        <TableHead>{t('detail.tables.invoiceNumber')}</TableHead>
+                        <TableHead>{t('detail.tables.date')}</TableHead>
+                        <TableHead>{t('detail.tables.status')}</TableHead>
+                        <TableHead className='text-right'>{t('detail.tables.total')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -467,7 +483,9 @@ export default function CustomerDetail() {
                           onClick={() => navigate(`/sales/invoices/${invoice.id}`)}
                           tabIndex={0}
                           role='button'
-                          aria-label={`Open invoice ${invoice.invoice_number || invoice.id}`}
+                          aria-label={t('detail.aria.openInvoice', {
+                            number: invoice.invoice_number || invoice.id,
+                          })}
                           onKeyDown={(event) => {
                             if (event.key === 'Enter' || event.key === ' ') {
                               event.preventDefault()
@@ -475,7 +493,7 @@ export default function CustomerDetail() {
                             }
                           }}
                         >
-                          <TableCell className='font-medium'>{invoice.invoice_number || 'Draft'}</TableCell>
+                          <TableCell className='font-medium'>{invoice.invoice_number || t('detail.tables.invoiceDraft')}</TableCell>
                           <TableCell>{formatDate(invoice.date)}</TableCell>
                           <TableCell><StatusBadge status={invoice.status} /></TableCell>
                           <TableCell className='text-right'>{formatCurrency(toNumber(invoice.total_gross))}</TableCell>
@@ -483,7 +501,7 @@ export default function CustomerDetail() {
                       ))}
                       {(customer.invoices ?? []).length === 0 && (
                         <TableRow>
-                          <TableCell colSpan={4} className='text-center py-4 text-muted-foreground'>No recent invoices</TableCell>
+                          <TableCell colSpan={4} className='text-center py-4 text-muted-foreground'>{t('detail.tables.noRecentInvoices')}</TableCell>
                         </TableRow>
                       )}
                     </TableBody>
@@ -498,10 +516,10 @@ export default function CustomerDetail() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Make/Model</TableHead>
-                        <TableHead>Year</TableHead>
-                        <TableHead>VIN</TableHead>
-                        <TableHead>Plate</TableHead>
+                        <TableHead>{t('detail.tables.makeModel')}</TableHead>
+                        <TableHead>{t('detail.tables.year')}</TableHead>
+                        <TableHead>{t('detail.tables.vin')}</TableHead>
+                        <TableHead>{t('detail.tables.plate')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -512,7 +530,10 @@ export default function CustomerDetail() {
                           onClick={() => navigate(`/vehicles/${vehicle.id}`)}
                           tabIndex={0}
                           role='button'
-                          aria-label={`Open vehicle ${vehicle.make} ${vehicle.model}`}
+                          aria-label={t('detail.aria.openVehicle', {
+                            make: vehicle.make,
+                            model: vehicle.model,
+                          })}
                           onKeyDown={(event) => {
                             if (event.key === 'Enter' || event.key === ' ') {
                               event.preventDefault()
@@ -522,13 +543,13 @@ export default function CustomerDetail() {
                         >
                           <TableCell className='font-medium'>{vehicle.make} {vehicle.model}</TableCell>
                           <TableCell>{vehicle.year}</TableCell>
-                          <TableCell>{vehicle.vin || 'N/A'}</TableCell>
-                          <TableCell>{vehicle.plate || 'N/A'}</TableCell>
+                          <TableCell>{vehicle.vin || notAvailable}</TableCell>
+                          <TableCell>{vehicle.plate || notAvailable}</TableCell>
                         </TableRow>
                       ))}
                       {(customer.vehicles ?? []).length === 0 && (
                         <TableRow>
-                          <TableCell colSpan={4} className='text-center py-4 text-muted-foreground'>No vehicles registered</TableCell>
+                          <TableCell colSpan={4} className='text-center py-4 text-muted-foreground'>{t('detail.tables.noVehiclesRegistered')}</TableCell>
                         </TableRow>
                       )}
                     </TableBody>
@@ -547,7 +568,7 @@ export default function CustomerDetail() {
       <Dialog open={vehiclePickerOpen} onOpenChange={setVehiclePickerOpen}>
         <DialogContent className='sm:max-w-lg'>
           <DialogHeader>
-            <DialogTitle>Select Vehicle</DialogTitle>
+            <DialogTitle>{t('detail.selectVehicleTitle')}</DialogTitle>
           </DialogHeader>
           <div className='space-y-2 max-h-80 overflow-auto'>
             {customerVehicles.map((vehicle) => (
@@ -555,7 +576,11 @@ export default function CustomerDetail() {
                 key={vehicle.id}
                 type='button'
                 className='w-full rounded-lg border px-3 py-2 text-left hover:bg-accent'
-                aria-label={`Select vehicle ${vehicle.year} ${vehicle.make} ${vehicle.model}, VIN ${vehicle.vin || 'not available'}, plate ${vehicle.plate || 'not available'}`}
+                aria-label={t('detail.aria.selectVehicle', {
+                  description: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
+                  vin: vehicle.vin || notAvailable,
+                  plate: vehicle.plate || notAvailable,
+                })}
                 onClick={() => {
                   setVehiclePickerOpen(false)
                   setSelectedWorkshopVehicle(vehicle)
@@ -565,7 +590,10 @@ export default function CustomerDetail() {
                   {vehicle.year} {vehicle.make} {vehicle.model}
                 </div>
                 <div className='text-xs text-muted-foreground'>
-                  VIN: {vehicle.vin || 'N/A'} | Plate: {vehicle.plate || 'N/A'}
+                  {t('detail.vehicleSummary', {
+                    vin: vehicle.vin || notAvailable,
+                    plate: vehicle.plate || notAvailable,
+                  })}
                 </div>
               </button>
             ))}

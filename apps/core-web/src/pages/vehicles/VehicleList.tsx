@@ -1,5 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { CarFront, Plus } from 'lucide-react'
 import { DataTable } from '@/components/data-table/DataTable'
@@ -9,6 +11,7 @@ import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { DASHBOARD_WIDGET_SOURCE_VEHICLES } from '@/features/dashboard-widgets/sources'
 import { Button } from '@/components/ui/button'
 import { VehicleDialog } from '@/components/vehicles/VehicleDialog'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 
 type VehicleRow = {
   id: string
@@ -19,18 +22,25 @@ type VehicleRow = {
   customer: string
 }
 
-function getCustomerLabel(customer?: {
-  type: 'PRIVATE' | 'COMPANY'
-  first_name: string
-  last_name: string
-  company_name?: string
-} | null) {
-  if (!customer) return 'Unassigned'
+function getCustomerLabel(
+  t: TFunction<'vehicles'>,
+  customer?: {
+    type: 'PRIVATE' | 'COMPANY'
+    first_name: string
+    last_name: string
+    company_name?: string
+  } | null,
+) {
+  if (!customer) return t('shared.unassigned')
   if (customer.type === 'COMPANY' && customer.company_name) return customer.company_name
   return `${customer.first_name} ${customer.last_name}`.trim()
 }
 
 export default function VehicleList() {
+  const { t } = useTranslation('vehicles')
+  useEffect(() => {
+    void ensureNamespaceLoaded('vehicles')
+  }, [])
   const navigate = useNavigate()
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
   const { data: responseData, isLoading } = useVehicles(queryParams)
@@ -41,60 +51,73 @@ export default function VehicleList() {
       id: vehicle.id,
       vehicle: `${vehicle.make} ${vehicle.model}`,
       year: vehicle.year,
-      vin: vehicle.vin || 'N/A',
-      plate: vehicle.plate || 'N/A',
-      customer: getCustomerLabel(vehicle.customer),
+      vin: vehicle.vin || t('shared.notAvailable'),
+      plate: vehicle.plate || t('shared.notAvailable'),
+      customer: getCustomerLabel(t, vehicle.customer),
     }))
-  }, [responseData])
+  }, [responseData, t])
 
-  const columns = useMemo<ColumnDef<VehicleRow>[]>(() => [
-    {
-      id: 'icon',
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title='' className='w-[50px]' />
-      ),
-      cell: () => (
-        <div className='w-[50px]'>
-          <CarFront className='h-4 w-4 text-muted-foreground' />
-        </div>
-      ),
-      enableSorting: false,
-      enableHiding: false,
-    },
-    {
-      accessorKey: 'vehicle',
-      meta: { rowLink: true },
-      header: ({ column }) => <DataTableColumnHeader column={column} title='Make & Model' />,
-      cell: ({ row }) => row.original.vehicle,
-    },
-    {
-      accessorKey: 'year',
-      header: ({ column }) => <DataTableColumnHeader column={column} title='Year' />,
-    },
-    {
-      accessorKey: 'vin',
-      header: ({ column }) => <DataTableColumnHeader column={column} title='VIN' />,
-      cell: ({ row }) => <span className='text-xs'>{row.original.vin}</span>,
-    },
-    {
-      accessorKey: 'plate',
-      header: ({ column }) => <DataTableColumnHeader column={column} title='Plate' />,
-    },
-    {
-      accessorKey: 'customer',
-      header: ({ column }) => <DataTableColumnHeader column={column} title='Customer' />,
-    },
-  ], [])
+  const columns = useMemo<ColumnDef<VehicleRow>[]>(
+    () => [
+      {
+        id: 'icon',
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="" className="w-[50px]" />
+        ),
+        cell: () => (
+          <div className="w-[50px]">
+            <CarFront className="h-4 w-4 text-muted-foreground" />
+          </div>
+        ),
+        enableSorting: false,
+        enableHiding: false,
+      },
+      {
+        accessorKey: 'vehicle',
+        meta: { rowLink: true },
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title={t('list.columns.makeModel')} />
+        ),
+        cell: ({ row }) => row.original.vehicle,
+      },
+      {
+        accessorKey: 'year',
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title={t('list.columns.year')} />
+        ),
+      },
+      {
+        accessorKey: 'vin',
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title={t('list.columns.vin')} />
+        ),
+        cell: ({ row }) => <span className="text-xs">{row.original.vin}</span>,
+      },
+      {
+        accessorKey: 'plate',
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title={t('list.columns.plate')} />
+        ),
+      },
+      {
+        accessorKey: 'customer',
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title={t('list.columns.customer')} />
+        ),
+      },
+    ],
+    [t],
+  )
 
   return (
     <>
-      <div className='flex items-center justify-between mb-8'>
+      <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className='text-2xl font-semibold tracking-tight'>Vehicles</h1>
-          <p className='text-slate-500'>Browse all vehicles and open full vehicle context.</p>
+          <h1 className="text-2xl font-semibold tracking-tight">{t('list.title')}</h1>
+          <p className="text-slate-500">{t('list.description')}</p>
         </div>
         <Button onClick={() => setCreateDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" /> Vehicle
+          <Plus className="mr-2 h-4 w-4" /> {t('list.addVehicle')}
         </Button>
       </div>
 
@@ -103,13 +126,13 @@ export default function VehicleList() {
       <DataTable
         columns={columns}
         data={rows}
-        saveViewTitle='Vehicles'
+        saveViewTitle={t('list.saveViewTitle')}
         dashboardSource={DASHBOARD_WIDGET_SOURCE_VEHICLES}
         pageCount={responseData?.meta?.pageCount ?? 1}
         isLoading={isLoading}
-        searchPlaceholder='Search vehicles...'
+        searchPlaceholder={t('list.searchPlaceholder')}
         getRowHref={(row) => `/vehicles/${row.id}`}
-        getRowAccessibleName={(row) => `Vehicle ${row.vehicle}`}
+        getRowAccessibleName={(row) => t('list.rowAria', { vehicle: row.vehicle })}
         onRowClick={(row) => navigate(`/vehicles/${row.id}`)}
         {...tableState}
       />

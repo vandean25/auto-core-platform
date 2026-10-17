@@ -133,7 +133,10 @@ export class AutoCorePage {
    * Example: apiRouteMatcher('/api/inventory') matches
    *   `/api/inventory`, `/api/inventory?page=1&limit=10`, etc.
    */
-  static apiRouteMatcher(path: string): RegExp {
+  static apiRouteMatcher(path: string | RegExp): RegExp {
+    if (path instanceof RegExp) {
+      return path;
+    }
     const escaped = AutoCorePage.escapeRegex(path);
     return new RegExp(`.*${escaped}(\\?.*)?$`);
   }

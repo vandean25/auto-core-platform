@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import CustomerDetail from './CustomerDetail'
 import * as customersApi from '@/api/customers'
+import { deCustomers } from '@/test/de-customers'
 
 const mockNavigate = vi.fn()
 
@@ -107,7 +108,7 @@ describe('CustomerDetail', () => {
       </QueryClientProvider>,
     )
 
-    expect(screen.getByText(/Loading customer details.../i)).toBeInTheDocument()
+    expect(screen.getByText(deCustomers.detail.loading)).toBeInTheDocument()
   })
 
   it('renders error state when fetch fails', () => {
@@ -127,7 +128,9 @@ describe('CustomerDetail', () => {
       </QueryClientProvider>,
     )
 
-    expect(screen.getByText(/Failed to load customer: Network timeout/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(deCustomers.detail.loadFailed.replace('{{message}}', 'Network timeout')),
+    ).toBeInTheDocument()
   })
 
   it('renders not found when customer data is null', () => {
@@ -147,7 +150,7 @@ describe('CustomerDetail', () => {
       </QueryClientProvider>,
     )
 
-    expect(screen.getByText(/Customer not found/i)).toBeInTheDocument()
+    expect(screen.getByText(deCustomers.detail.notFound)).toBeInTheDocument()
   })
 
   it('renders customer details, active orders, and vehicles tab', () => {

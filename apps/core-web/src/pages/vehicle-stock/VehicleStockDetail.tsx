@@ -41,7 +41,7 @@ export default function VehicleStockDetail() {
   const createPrep = useCreateWorkshopOrder()
 
   if (isLoading || !vehicle) {
-    return <p className="text-slate-500">Loading stock vehicle...</p>
+    return <p className="text-slate-500">{t('stockDetail.loading')}</p>
   }
 
   const canSell =
@@ -62,9 +62,9 @@ export default function VehicleStockDetail() {
   const saveField = async (patch: Parameters<typeof patchStock.mutateAsync>[0]) => {
     try {
       await patchStock.mutateAsync(patch)
-      toast.success('Saved')
+      toast.success(t('shared.saved'))
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to save'))
+      toast.error(getErrorMessage(error, t('stockDetail.saveFailed')))
     }
   }
 
@@ -82,7 +82,7 @@ export default function VehicleStockDetail() {
       })
       navigate(`/workshop/orders/${order.id}`)
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to start stock prep'))
+      toast.error(getErrorMessage(error, t('stockDetail.prepFailed')))
     }
   }
 
@@ -90,14 +90,14 @@ export default function VehicleStockDetail() {
     <div className="space-y-6">
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" aria-label="Back to vehicle stock" onClick={() => navigate('/vehicle-stock')}>
+          <Button variant="ghost" size="icon" aria-label={t('stockDetail.backAria')} onClick={() => navigate('/vehicle-stock')}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">
               {vehicle.year} {vehicle.make} {vehicle.model}
             </h1>
-            <p className="text-slate-500">{vehicle.vin || 'No VIN'}</p>
+            <p className="text-slate-500">{vehicle.vin || t('stockDetail.noVin')}</p>
           </div>
           {vehicle.stock_status ? <StatusBadge status={vehicle.stock_status} /> : null}
         </div>
@@ -111,45 +111,45 @@ export default function VehicleStockDetail() {
             {t('listing.title')}
           </Button>
           <Button variant="outline" disabled={!canPrep} onClick={() => void startPrep()}>
-            Stock prep
+            {t('stockDetail.stockPrep')}
           </Button>
           <Button
             disabled={!canSell}
             onClick={() => navigate(`/vehicle-stock/sales/new?vehicleId=${vehicleId}`)}
           >
-            Sell
+            {t('stockDetail.sell')}
           </Button>
         </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
         <div className="rounded-lg border p-4 space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Details</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">{t('stockDetail.details')}</h2>
           <div>
-            <div className="text-xs text-slate-500">Cost basis</div>
+            <div className="text-xs text-slate-500">{t('stockDetail.costBasis')}</div>
             <div className="font-medium">{formatCurrency(vehicle.cost_basis)}</div>
           </div>
           <div>
-            <div className="text-xs text-slate-500">Mileage</div>
+            <div className="text-xs text-slate-500">{t('stockDetail.mileage')}</div>
             <InlineEdit
               value={vehicle.mileage != null ? String(vehicle.mileage) : ''}
-              placeholder="Mileage"
+              placeholder={t('stockDetail.mileage')}
               onSave={(next) => saveField({ mileage: Number(next) || 0 })}
             />
           </div>
           <div>
-            <div className="text-xs text-slate-500">Color</div>
+            <div className="text-xs text-slate-500">{t('stockDetail.color')}</div>
             <InlineEdit
               value={vehicle.color}
-              placeholder="Color"
+              placeholder={t('stockDetail.color')}
               onSave={(next) => saveField({ color: next })}
             />
           </div>
           <div>
-            <div className="text-xs text-slate-500">Key number</div>
+            <div className="text-xs text-slate-500">{t('stockDetail.keyNumber')}</div>
             <InlineEdit
               value={vehicle.key_number}
-              placeholder="Key number"
+              placeholder={t('stockDetail.keyNumber')}
               onSave={(next) => saveField({ key_number: next })}
             />
           </div>
@@ -162,7 +162,7 @@ export default function VehicleStockDetail() {
             </p>
             <InlineEdit
               value={vehicle.registration_certificate_no}
-              placeholder="Certificate no."
+              placeholder={t('stockDetail.certificatePlaceholder')}
               onSave={(next) => saveField({ registration_certificate_no: next })}
             />
           </div>
@@ -188,7 +188,7 @@ export default function VehicleStockDetail() {
             )}
           />
           <div>
-            <div className="text-xs text-slate-500 mb-1">Reserved for</div>
+            <div className="text-xs text-slate-500 mb-1">{t('stockDetail.reservedFor')}</div>
             <CustomerSearch
               value={reservedCustomer}
               onChange={(customer) => {
@@ -199,15 +199,15 @@ export default function VehicleStockDetail() {
         </div>
 
         <div className="rounded-lg border p-4 space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Ledger</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">{t('stockDetail.ledger')}</h2>
           {vehicle.ledger_entries.length === 0 ? (
-            <p className="text-slate-500 text-sm">No ledger entries yet.</p>
+            <p className="text-slate-500 text-sm">{t('stockDetail.noLedger')}</p>
           ) : (
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-slate-500">
-                  <th className="py-1">Type</th>
-                  <th className="py-1 text-right">Amount</th>
+                  <th className="py-1">{t('stockDetail.ledgerType')}</th>
+                  <th className="py-1 text-right">{t('stockDetail.ledgerAmount')}</th>
                 </tr>
               </thead>
               <tbody>

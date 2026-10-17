@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import InvoiceDraftEditPage from './InvoiceDraftEditPage'
+import { deSales } from '@/test/de-sales'
 import { invoiceKeys } from '@/api/sales'
 import * as salesApi from '@/api/sales'
 import * as salesOrdersApi from '@/api/sales-orders'
@@ -135,7 +136,7 @@ describe('InvoiceDraftEditPage autosave', () => {
     )
 
   const openFinalizeDialog = () => {
-    fireEvent.click(screen.getByRole('button', { name: 'Finalize' }))
+    fireEvent.click(screen.getByRole('button', { name: deSales.invoices.draft.finalize }))
   }
 
   const confirmFinalize = () => {
@@ -271,7 +272,7 @@ describe('InvoiceDraftEditPage autosave', () => {
 
     renderPage()
 
-    const finalizeButton = await screen.findByRole('button', { name: 'Finalize' })
+    const finalizeButton = await screen.findByRole('button', { name: deSales.invoices.draft.finalize })
     expect(finalizeButton).not.toBeDisabled()
     fireEvent.click(finalizeButton)
     expect(await screen.findByText(/Finalize invoice\?/i)).toBeInTheDocument()
@@ -307,7 +308,7 @@ describe('InvoiceDraftEditPage autosave', () => {
       expect(finalizeMutation).toHaveBeenCalledWith('inv-1')
       expect(mockNavigate).toHaveBeenCalledWith('/sales/invoices/inv-1')
       expect(toast.success).toHaveBeenCalledWith(
-        'Invoice finalized and number generated!',
+        deSales.invoices.draft.finalizedSuccess,
         expect.objectContaining({ action: expect.objectContaining({ label: 'Open' }) }),
       )
     })
@@ -352,7 +353,7 @@ describe('InvoiceDraftEditPage autosave', () => {
 
     renderPage()
 
-    expect(await screen.findByRole('button', { name: 'Finalize' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: deSales.invoices.draft.finalize })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /print/i })).not.toBeInTheDocument()
 
     openFinalizeDialog()
@@ -363,8 +364,7 @@ describe('InvoiceDraftEditPage autosave', () => {
   })
 
   it('surfaces the branding writer gate message when finalize is blocked', async () => {
-    const brandingGateMessage =
-      'Branded invoice issuance is disabled in this environment. Finalize will work after operations enable the invoice branding writer.'
+    const brandingGateMessage = deSales.errors.codes.INVOICE_BRANDING_WRITER_DISABLED
     const updateMutation = vi.fn().mockResolvedValue(mockInvoice)
     const finalizeMutation = vi.fn().mockRejectedValue(new Error(brandingGateMessage))
     asMock(salesApi.useUpdateInvoice).mockReturnValue({
@@ -409,12 +409,8 @@ describe('InvoiceDraftEditPage autosave', () => {
 
     await waitFor(() => {
       expect(finalizeMutation).toHaveBeenCalledWith('inv-1')
-      expect(toast.error).toHaveBeenCalledWith(
-        'ACCOUNTING_MAPPING_INCOMPLETE: Accounting mapping is incomplete',
-      )
-      expect(
-        screen.getByText(/ACCOUNTING_MAPPING_INCOMPLETE: Accounting mapping is incomplete/i),
-      ).toBeInTheDocument()
+      expect(toast.error).toHaveBeenCalledWith(deSales.errors.codes.ACCOUNTING_MAPPING_INCOMPLETE)
+      expect(screen.getByText(deSales.errors.codes.ACCOUNTING_MAPPING_INCOMPLETE)).toBeInTheDocument()
       expect(mockNavigate).not.toHaveBeenCalled()
     })
   })
@@ -438,9 +434,14 @@ describe('InvoiceDraftEditPage autosave', () => {
     openFinalizeDialog()
     confirmFinalize()
 
+    const atpTranslated = deSales.errors.insufficientAtp
+      .replace('{{item}}', 'OF-1031-BMW - Oil Filter - BMW model 31')
+      .replace('{{required}}', '1')
+      .replace('{{available}}', '0')
+
     await waitFor(() => {
-      expect(screen.getByText(/Insufficient ATP for item OF-1031-BMW/i)).toBeInTheDocument()
-      expect(toast.error).toHaveBeenCalledWith(atpMessage)
+      expect(screen.getByText(/OF-1031-BMW/i)).toBeInTheDocument()
+      expect(toast.error).toHaveBeenCalledWith(atpTranslated)
     })
 
     expect(screen.getByText(/Finalize invoice\?/i)).toBeInTheDocument()

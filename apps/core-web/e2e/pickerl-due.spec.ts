@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test'
 import { DE_STATUS } from './helpers/de-enums'
 import { AutoCorePage } from './pom/AutoCorePage'
 import { DE_WORKSHOP } from './helpers/de-workshop'
+import { DE_VEHICLES } from './helpers/de-vehicles'
 import { createMockListResponse } from './utils/mock-factories'
 
 test.describe('Pickerl due list and dashboard widgets', () => {
@@ -131,7 +132,7 @@ test.describe('Pickerl due list and dashboard widgets', () => {
     await page.goto('/vehicles/pickerl-due')
     await page.waitForLoadState('networkidle')
 
-    await page.getByRole('button', { name: 'Export due CSV' }).first().click()
+    await page.getByRole('button', { name: DE_VEHICLES.pickerlDue.exportCsv }).first().click()
     await expect.poll(() => exportRequested, { timeout: 15_000 }).toBe(true)
   })
 

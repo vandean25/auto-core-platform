@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Wrench } from 'lucide-react'
 import { TyreSetsSummary } from '@/features/tyre-storage/TyreSetsSummary'
@@ -126,6 +128,10 @@ function getWorkshopOrderTotal(order: VehicleWorkshopOrderSummary) {
 }
 
 export default function VehicleDetail() {
+  const { t } = useTranslation('vehicles')
+  useEffect(() => {
+    void ensureNamespaceLoaded('vehicles')
+  }, [])
   const navigate = useNavigate()
   const { id = '' } = useParams<{ id: string }>()
   const { data: vehicle, isLoading, isError, error } = useVehicle<VehicleDetailResponse>(id)
@@ -136,16 +142,25 @@ export default function VehicleDetail() {
   const [editDialogOpen, setEditDialogOpen] = useState(false)
 
   if (isLoading) {
-    return <div className='p-8 text-center'>Loading vehicle details...</div>
+    return <div className='p-8 text-center'>{t('detail.loading')}</div>
   }
 
   if (isError) {
-    return <div className='p-8 text-center'>Failed to load vehicle: {(error as Error)?.message || 'Unknown error'}</div>
+    return (
+      <div className='p-8 text-center'>
+        {t('detail.loadFailed', {
+          message: (error as Error)?.message || t('shared.unknownError'),
+        })}
+      </div>
+    )
   }
 
   if (!vehicle) {
-    return <div className='p-8 text-center'>Vehicle not found.</div>
+    return <div className='p-8 text-center'>{t('detail.notFound')}</div>
   }
+
+  const orderTypeLabel = (type: ActiveOrderRow['type']) =>
+    t(type === 'Sales' ? 'detail.orderTypes.sales' : 'detail.orderTypes.service')
 
   const activeSalesOrders: ActiveOrderRow[] = (vehicle.sales_orders ?? [])
     .filter((order) => order.status !== 'INVOICED')
@@ -187,9 +202,9 @@ export default function VehicleDetail() {
         id: vehicle.id,
         data: patch,
       })
-      toast.success('Vehicle updated')
+      toast.success(t('detail.updated'))
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, 'Failed to update vehicle'))
+      toast.error(getErrorMessage(error, t('detail.updateFailed')))
       throw error
     }
   }
@@ -203,7 +218,7 @@ export default function VehicleDetail() {
     if (field === 'year') {
       const parsedYear = Number(nextValue)
       if (!Number.isInteger(parsedYear) || parsedYear < 1900 || parsedYear > 2100) {
-        toast.error('Year must be a valid number between 1900 and 2100')
+        toast.error(t('detail.invalidYear'))
         throw new Error('Invalid year')
       }
       payload.year = parsedYear
@@ -216,9 +231,9 @@ export default function VehicleDetail() {
         id: vehicle.id,
         data: payload,
       })
-      toast.success('Vehicle updated')
+      toast.success(t('detail.updated'))
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, 'Failed to update vehicle'))
+      toast.error(getErrorMessage(error, t('detail.updateFailed')))
       throw error
     }
   }
@@ -239,10 +254,10 @@ export default function VehicleDetail() {
         id: vehicle.id,
         data: { customer_id: selectedCustomer?.id ?? null },
       })
-      toast.success('Vehicle customer updated')
+      toast.success(t('detail.customerUpdated'))
       setCustomerDialogOpen(false)
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, 'Failed to update vehicle customer'))
+      toast.error(getErrorMessage(error, t('detail.customerUpdateFailed')))
     }
   }
 
@@ -253,7 +268,7 @@ export default function VehicleDetail() {
 
   const handleCreateServiceOrder = () => {
     if (!vehicle.customer?.id) {
-      toast.error('Assign a customer to this vehicle before creating a service order.')
+      toast.error(t('detail.serviceOrderNeedsCustomer'))
       return
     }
     setStartServiceOpen(true)
@@ -267,7 +282,7 @@ export default function VehicleDetail() {
             variant='ghost'
             size='icon'
             onClick={() => navigate(-1)}
-            aria-label='Go back'
+            aria-label={t('detail.aria.goBack')}
           >
             <ArrowLeft className='h-4 w-4' />
           </Button>
@@ -276,17 +291,17 @@ export default function VehicleDetail() {
               {vehicle.year} {vehicle.make} {vehicle.model}
             </h1>
             <div className='flex items-center gap-2 text-slate-500 text-sm'>
-              <span>ID: {vehicle.id.substring(0, 8)}</span>
+              <span>{t('detail.idLabel', { id: vehicle.id.substring(0, 8) })}</span>
               {vehicle.plate && <Badge variant='outline'>{vehicle.plate}</Badge>}
             </div>
           </div>
         </div>
         <div className='flex gap-2'>
           <Button variant='outline' onClick={() => setEditDialogOpen(true)}>
-            Edit Vehicle
+            {t('detail.editVehicle')}
           </Button>
           <Button variant='outline' onClick={handleCreateServiceOrder}>
-            <Wrench className='mr-2 h-4 w-4' /> Service Order
+            <Wrench className='mr-2 h-4 w-4' /> {t('detail.serviceOrder')}
           </Button>
         </div>
       </div>
@@ -300,7 +315,7 @@ export default function VehicleDetail() {
       <div className='grid grid-cols-1 lg:grid-cols-3 gap-6 items-start'>
         <Card className='lg:col-span-1'>
           <CardHeader>
-            <CardTitle className='text-base font-semibold'>Vehicle Info</CardTitle>
+            <CardTitle className='text-base font-semibold'>{t('detail.vehicleInfo')}</CardTitle>
           </CardHeader>
           <CardContent className='space-y-3 text-sm'>
             {vehicle.customer?.id ? (
@@ -308,60 +323,60 @@ export default function VehicleDetail() {
             ) : null}
             <div className='grid grid-cols-2 gap-3'>
               <div>
-                <div className='text-muted-foreground'>Year</div>
+                <div className='text-muted-foreground'>{t('detail.year')}</div>
                 <InlineEdit
                   value={String(vehicle.year)}
                   onSave={(nextValue) => handleSaveVehicleField('year', nextValue)}
-                  placeholder='Year'
-                  ariaLabel='Vehicle year'
+                  placeholder={t('detail.placeholders.year')}
+                  ariaLabel={t('detail.aria.year')}
                 />
               </div>
               <div>
-                <div className='text-muted-foreground'>Engine</div>
+                <div className='text-muted-foreground'>{t('detail.engine')}</div>
                 <InlineEdit
                   value={vehicle.engine_code}
                   onSave={(nextValue) => handleSaveVehicleField('engine_code', nextValue)}
-                  placeholder='Engine code'
-                  emptyText='Add engine code'
-                  ariaLabel='Vehicle engine code'
+                  placeholder={t('detail.placeholders.engineCode')}
+                  emptyText={t('detail.empty.engineCode')}
+                  ariaLabel={t('detail.aria.engineCode')}
                 />
               </div>
               <div>
-                <div className='text-muted-foreground'>Make</div>
+                <div className='text-muted-foreground'>{t('detail.make')}</div>
                 <InlineEdit
                   value={vehicle.make}
                   onSave={(nextValue) => handleSaveVehicleField('make', nextValue)}
-                  placeholder='Make'
-                  ariaLabel='Vehicle make'
+                  placeholder={t('detail.placeholders.make')}
+                  ariaLabel={t('detail.aria.make')}
                 />
               </div>
               <div>
-                <div className='text-muted-foreground'>Model</div>
+                <div className='text-muted-foreground'>{t('detail.model')}</div>
                 <InlineEdit
                   value={vehicle.model}
                   onSave={(nextValue) => handleSaveVehicleField('model', nextValue)}
-                  placeholder='Model'
-                  ariaLabel='Vehicle model'
+                  placeholder={t('detail.placeholders.model')}
+                  ariaLabel={t('detail.aria.model')}
                 />
               </div>
               <div className='col-span-2'>
-                <div className='text-muted-foreground'>VIN</div>
+                <div className='text-muted-foreground'>{t('detail.vin')}</div>
                 <InlineEdit
                   value={vehicle.vin}
                   onSave={(nextValue) => handleSaveVehicleField('vin', nextValue)}
-                  placeholder='VIN'
-                  emptyText='Add VIN'
-                  ariaLabel='Vehicle VIN'
+                  placeholder={t('detail.placeholders.vin')}
+                  emptyText={t('detail.empty.vin')}
+                  ariaLabel={t('detail.aria.vin')}
                 />
               </div>
               <div className='col-span-2'>
-                <div className='text-muted-foreground'>Plate</div>
+                <div className='text-muted-foreground'>{t('detail.plate')}</div>
                 <InlineEdit
                   value={vehicle.plate}
                   onSave={(nextValue) => handleSaveVehicleField('plate', nextValue)}
-                  placeholder='Plate number'
-                  emptyText='Add plate'
-                  ariaLabel='Vehicle plate'
+                  placeholder={t('detail.placeholders.plate')}
+                  emptyText={t('detail.empty.plate')}
+                  ariaLabel={t('detail.aria.plate')}
                 />
               </div>
             </div>
@@ -414,14 +429,14 @@ export default function VehicleDetail() {
 
             <div className='pt-3 border-t'>
               <div className='flex items-center justify-between gap-2 mb-1'>
-                <div className='text-muted-foreground'>Customer</div>
+                <div className='text-muted-foreground'>{t('detail.customer')}</div>
                 <Button
                   variant='outline'
                   size='sm'
                   className='h-7 px-2'
                   onClick={openCustomerDialog}
                 >
-                  Change Customer
+                  {t('detail.changeCustomer')}
                 </Button>
               </div>
               {vehicle.customer ? (
@@ -429,7 +444,7 @@ export default function VehicleDetail() {
                   {getCustomerName(vehicle.customer)}
                 </Link>
               ) : (
-                <span className='font-medium'>Unassigned</span>
+                <span className='font-medium'>{t('shared.unassigned')}</span>
               )}
             </div>
           </CardContent>
@@ -438,9 +453,9 @@ export default function VehicleDetail() {
         <div className='lg:col-span-2'>
           <Tabs defaultValue='orders'>
             <TabsList>
-              <TabsTrigger value='orders'>Active Orders</TabsTrigger>
-              <TabsTrigger value='invoices'>Invoice History</TabsTrigger>
-              <TabsTrigger value='service'>Service Orders</TabsTrigger>
+              <TabsTrigger value='orders'>{t('detail.tabs.activeOrders')}</TabsTrigger>
+              <TabsTrigger value='invoices'>{t('detail.tabs.invoiceHistory')}</TabsTrigger>
+              <TabsTrigger value='service'>{t('detail.tabs.serviceOrders')}</TabsTrigger>
             </TabsList>
 
             <TabsContent value='orders' className='mt-4'>
@@ -449,11 +464,11 @@ export default function VehicleDetail() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Order #</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className='text-right'>Total</TableHead>
+                        <TableHead>{t('detail.tables.orderNumber')}</TableHead>
+                        <TableHead>{t('detail.tables.type')}</TableHead>
+                        <TableHead>{t('detail.tables.date')}</TableHead>
+                        <TableHead>{t('detail.tables.status')}</TableHead>
+                        <TableHead className='text-right'>{t('detail.tables.total')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -466,7 +481,11 @@ export default function VehicleDetail() {
                           }
                           tabIndex={0}
                           role='button'
-                          aria-label={`Open ${order.type} order ${order.number}`}
+                          aria-label={
+                            order.type === 'Service'
+                              ? t('detail.aria.openServiceOrder', { number: order.number })
+                              : t('detail.aria.openSalesOrder', { number: order.number })
+                          }
                           onKeyDown={(event) => {
                             if (event.key === 'Enter' || event.key === ' ') {
                               event.preventDefault()
@@ -475,7 +494,7 @@ export default function VehicleDetail() {
                           }}
                         >
                           <TableCell className='font-medium'>{order.number}</TableCell>
-                          <TableCell>{order.type}</TableCell>
+                          <TableCell>{orderTypeLabel(order.type)}</TableCell>
                           <TableCell>{formatDate(order.createdAt)}</TableCell>
                           <TableCell><StatusBadge status={order.status} /></TableCell>
                           <TableCell className='text-right'>{formatCurrency(order.total)}</TableCell>
@@ -483,7 +502,7 @@ export default function VehicleDetail() {
                       ))}
                       {activeOrders.length === 0 && (
                         <TableRow>
-                          <TableCell colSpan={5} className='text-center py-4 text-muted-foreground'>No active orders</TableCell>
+                          <TableCell colSpan={5} className='text-center py-4 text-muted-foreground'>{t('detail.tables.noActiveOrders')}</TableCell>
                         </TableRow>
                       )}
                     </TableBody>
@@ -498,10 +517,10 @@ export default function VehicleDetail() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Invoice #</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className='text-right'>Total</TableHead>
+                        <TableHead>{t('detail.tables.invoiceNumber')}</TableHead>
+                        <TableHead>{t('detail.tables.date')}</TableHead>
+                        <TableHead>{t('detail.tables.status')}</TableHead>
+                        <TableHead className='text-right'>{t('detail.tables.total')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -512,7 +531,9 @@ export default function VehicleDetail() {
                           onClick={() => navigate(`/sales/invoices/${invoice.id}`)}
                           tabIndex={0}
                           role='button'
-                          aria-label={`Open invoice ${invoice.invoice_number || invoice.id}`}
+                          aria-label={t('detail.aria.openInvoice', {
+                            number: invoice.invoice_number || invoice.id,
+                          })}
                           onKeyDown={(event) => {
                             if (event.key === 'Enter' || event.key === ' ') {
                               event.preventDefault()
@@ -520,7 +541,7 @@ export default function VehicleDetail() {
                             }
                           }}
                         >
-                          <TableCell className='font-medium'>{invoice.invoice_number || 'Draft'}</TableCell>
+                          <TableCell className='font-medium'>{invoice.invoice_number || t('shared.draft')}</TableCell>
                           <TableCell>{formatDate(invoice.date)}</TableCell>
                           <TableCell><StatusBadge status={invoice.status} /></TableCell>
                           <TableCell className='text-right'>{formatCurrency(toNumber(invoice.total_gross))}</TableCell>
@@ -528,7 +549,7 @@ export default function VehicleDetail() {
                       ))}
                       {(vehicle.invoices ?? []).length === 0 && (
                         <TableRow>
-                          <TableCell colSpan={4} className='text-center py-4 text-muted-foreground'>No invoices</TableCell>
+                          <TableCell colSpan={4} className='text-center py-4 text-muted-foreground'>{t('detail.tables.noInvoices')}</TableCell>
                         </TableRow>
                       )}
                     </TableBody>
@@ -543,10 +564,10 @@ export default function VehicleDetail() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Service Order #</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className='text-right'>Total</TableHead>
+                        <TableHead>{t('detail.tables.serviceOrderNumber')}</TableHead>
+                        <TableHead>{t('detail.tables.date')}</TableHead>
+                        <TableHead>{t('detail.tables.status')}</TableHead>
+                        <TableHead className='text-right'>{t('detail.tables.total')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -557,7 +578,9 @@ export default function VehicleDetail() {
                           onClick={() => navigate(`/workshop/orders/${order.id}`)}
                           tabIndex={0}
                           role='button'
-                          aria-label={`Open service order ${order.order_number ?? order.id}`}
+                          aria-label={t('detail.aria.openServiceOrder', {
+                            number: order.order_number ?? order.id,
+                          })}
                           onKeyDown={(event) => {
                             if (event.key === 'Enter' || event.key === ' ') {
                               event.preventDefault()
@@ -573,7 +596,7 @@ export default function VehicleDetail() {
                       ))}
                       {(vehicle.workshop_orders ?? []).length === 0 && (
                         <TableRow>
-                          <TableCell colSpan={4} className='text-center py-4 text-muted-foreground'>No service orders</TableCell>
+                          <TableCell colSpan={4} className='text-center py-4 text-muted-foreground'>{t('detail.tables.noServiceOrders')}</TableCell>
                         </TableRow>
                       )}
                     </TableBody>
@@ -588,7 +611,7 @@ export default function VehicleDetail() {
       <Dialog open={customerDialogOpen} onOpenChange={setCustomerDialogOpen}>
         <DialogContent className='sm:max-w-md'>
           <DialogHeader>
-            <DialogTitle>Change Vehicle Customer</DialogTitle>
+            <DialogTitle>{t('detail.changeCustomerDialog.title')}</DialogTitle>
           </DialogHeader>
           <div className='space-y-4'>
             <CustomerSearch
@@ -601,15 +624,15 @@ export default function VehicleDetail() {
                 onClick={() => setSelectedCustomer(null)}
                 disabled={!selectedCustomer}
               >
-                Unassign
+                {t('detail.changeCustomerDialog.unassign')}
               </Button>
               <Button
                 variant='outline'
                 onClick={() => setCustomerDialogOpen(false)}
               >
-                Cancel
+                {t('detail.changeCustomerDialog.cancel')}
               </Button>
-              <Button onClick={() => void handleSaveCustomer()}>Save</Button>
+              <Button onClick={() => void handleSaveCustomer()}>{t('detail.changeCustomerDialog.save')}</Button>
             </div>
           </div>
         </DialogContent>

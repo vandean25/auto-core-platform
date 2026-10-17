@@ -11,6 +11,10 @@ import {
   createMockVehicleListItem,
   createMockVehicleStockRow,
 } from './utils/mock-factories';
+import { DE_CUSTOMERS } from './helpers/de-customers';
+import { DE_SALES } from './helpers/de-sales';
+import { DE_VEHICLES } from './helpers/de-vehicles';
+import { DE_VEHICLE_STOCK } from './helpers/de-vehicle-stock';
 
 /**
  * Blueprint Validation Suite — Core Management Workflows
@@ -65,9 +69,9 @@ const modules: ModuleConfig[] = [
     apiPath: '/api/vendors',
   },
   {
-    name: 'Customers',
+    name: DE_CUSTOMERS.list.title,
     path: '/customers',
-    entity: 'Customer',
+    entity: DE_CUSTOMERS.list.addCustomer,
     seed: 'John',
     mockFactory: () => createMockCustomer({ first_name: 'John', last_name: 'Doe' }),
     apiPath: '/api/customers',
@@ -81,9 +85,9 @@ const modules: ModuleConfig[] = [
     apiPath: '/api/purchase-orders',
   },
   {
-    name: 'Sales Orders',
+    name: DE_SALES.orders.list.title,
     path: '/sales-orders',
-    entity: 'New order',
+    entity: DE_SALES.orders.list.newOrder,
     seed: 'SO-2026-0001',
     mockFactory: () => createMockSalesOrder({ order_number: 'SO-2026-0001' }),
     apiPath: '/api/sales-orders',
@@ -97,17 +101,17 @@ const modules: ModuleConfig[] = [
     apiPath: '/api/purchase-invoices',
   },
   {
-    name: 'Vehicles',
+    name: DE_VEHICLES.list.title,
     path: '/vehicles',
-    entity: 'Vehicle',
+    entity: DE_VEHICLES.list.addVehicle,
     seed: 'Toyota Corolla',
     mockFactory: () => createMockVehicleListItem({ make: 'Toyota', model: 'Corolla' }),
     apiPath: '/api/vehicles',
   },
   {
-    name: 'Vehicle Stock',
+    name: DE_VEHICLE_STOCK.stockList.title,
     path: '/vehicle-stock',
-    entity: 'Vehicle',
+    entity: DE_VEHICLE_STOCK.stockList.addVehicle,
     seed: 'Volkswagen Golf',
     mockFactory: () => createMockVehicleStockRow(),
     apiPath: '/api/vehicle-stock',

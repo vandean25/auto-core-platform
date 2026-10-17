@@ -8,6 +8,7 @@ import {
   createMockWorkshopOrder,
 } from './utils/mock-factories';
 import { DE_SHELL } from './helpers/de-shell';
+import { DE_CUSTOMERS } from './helpers/de-customers';
 
 /**
  * AUT-475: navigation on the detail pages. The sidebar lists Invoices next to Sales Orders, the
@@ -146,11 +147,11 @@ test.describe('AUT-475: navigation and breadcrumbs', () => {
 
     await page.goto(`/customers/${CUSTOMER_ID}`);
 
-    await expect(page.getByRole('link', { name: 'New sales order' })).toHaveAttribute(
+    await expect(page.getByRole('link', { name: DE_CUSTOMERS.detail.newSalesOrder })).toHaveAttribute(
       'href',
       `/sales-orders/new?customerId=${CUSTOMER_ID}`,
     );
-    await expect(page.getByText('Invoices are created from sales orders.')).toBeVisible();
+    await expect(page.getByText(DE_CUSTOMERS.detail.invoiceHint)).toBeVisible();
     await expect(breadcrumbTrail(page).getByText('Jane Smith')).toHaveAttribute(
       'aria-current',
       'page',
