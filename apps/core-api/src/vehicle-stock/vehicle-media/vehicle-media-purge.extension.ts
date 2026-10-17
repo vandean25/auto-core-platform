@@ -193,6 +193,8 @@ type InteractiveTransactionFn = (
   client: Prisma.TransactionClient,
 ) => Promise<unknown>;
 
+const skipVehicleMediaPurgeDeferral = Symbol('skipVehicleMediaPurgeDeferral');
+
 /** Apply after audit/realtime extensions so interactive tx clients keep their hooks. */
 export function createVehicleMediaPurgeTransactionExtension() {
   return Prisma.defineExtension((client) => {
@@ -201,6 +203,16 @@ export function createVehicleMediaPurgeTransactionExtension() {
       name: 'vehicle-media-purge-transaction',
       client: {
         $transaction(arg: unknown, options?: unknown): Promise<unknown> {
+          const transactionOptions =
+            options && typeof options === 'object'
+              ? (options as Record<string | symbol, unknown>)
+              : {};
+          if (transactionOptions[skipVehicleMediaPurgeDeferral]) {
+            return runTransaction(arg as never, options as never);
+          }
+          const extendedClient = Prisma.getExtensionContext(this) as {
+            $transaction: typeof runTransaction;
+          };
           if (typeof arg === 'function') {
             return runWithDeferredVehicleMediaPurges(() =>
               runTransaction(arg as InteractiveTransactionFn, options),
@@ -208,7 +220,10 @@ export function createVehicleMediaPurgeTransactionExtension() {
           }
           if (Array.isArray(arg)) {
             return runWithDeferredVehicleMediaPurges(() =>
-              runTransaction(arg, options),
+              extendedClient.$transaction(arg, {
+                ...transactionOptions,
+                [skipVehicleMediaPurgeDeferral]: true,
+              }),
             );
           }
           return runTransaction(arg as never, options as never);
