@@ -56,6 +56,21 @@ export class McpListingReadService {
       }
     }
 
+    if (listingsById.size === 0) {
+      const atActiveSite = await this.prisma.vehicleListing.findFirst({
+        where: {
+          tenant_id: tenantId,
+          site_id: siteId,
+          vehicle_id: input.vehicle_id,
+        },
+        orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+        include: { channels: true },
+      });
+      if (atActiveSite) {
+        listingsById.set(atActiveSite.id, atActiveSite);
+      }
+    }
+
     const pendingRemoval = await this.prisma.vehicleListing.findMany({
       where: {
         tenant_id: tenantId,
