@@ -56,10 +56,15 @@ describe('WeeklyReportPdfService', () => {
     }),
   };
   const renderer = {
-    render: jest.fn().mockResolvedValue(Buffer.from('%PDF-1.4\n1 0 obj\n/Type /Page\n')),
+    render: jest
+      .fn()
+      .mockResolvedValue(Buffer.from('%PDF-1.4\n1 0 obj\n/Type /Page\n')),
   };
   const storage = {
-    uploadPdf: jest.fn().mockResolvedValue({ bucket: 'b', key: 'k', etag: null }),
+    deleteExpiredEphemeralWeeklyReports: jest.fn().mockResolvedValue(0),
+    uploadEphemeralWeeklyReportPdf: jest
+      .fn()
+      .mockResolvedValue({ bucket: 'pdf-bucket', key: 'ephemeral/k.pdf' }),
     createSignedReadUrl: jest.fn().mockResolvedValue({
       url: 'https://storage.example/report.pdf',
       expiresAt: new Date('2026-10-17T13:00:00.000Z'),
@@ -82,18 +87,41 @@ describe('WeeklyReportPdfService', () => {
     );
   });
 
-  it('generates, uploads, and returns a signed link without logging the URL in summaries', async () => {
-    const result = await service.generate({ iso_week: '2026-W42' });
+  it('preview validates period and site without side effects', async () => {
+    const preview = await service.preview({ iso_week: '2026-W42' });
+    expect(rateLimit.assertAllowed).not.toHaveBeenCalled();
+    expect(renderer.render).not.toHaveBeenCalled();
+    expect(storage.uploadEphemeralWeeklyReportPdf).not.toHaveBeenCalled();
+    expect(preview.site_id).toBe('site-1');
+    expect(preview.period.iso_week).toBe('2026-W42');
+  });
+
+  it('execute generates, uploads, and returns a signed link', async () => {
+    const result = await service.execute({ iso_week: '2026-W42' });
     expect(rateLimit.assertAllowed).toHaveBeenCalledWith('tenant-1');
-    expect(storage.uploadPdf).toHaveBeenCalled();
+    expect(storage.deleteExpiredEphemeralWeeklyReports).toHaveBeenCalled();
+    expect(storage.uploadEphemeralWeeklyReportPdf).toHaveBeenCalled();
     expect(result.url).toContain('https://');
     expect(result.page_count).toBeGreaterThan(0);
     expect(result.period.iso_week).toBe('2026-W42');
+    expect(result.storage_bucket).toBe('pdf-bucket');
+  });
+
+  it('refreshSignedUrl returns a new expires_at for replay', async () => {
+    const stored = await service.execute({ iso_week: '2026-W42' });
+    storage.createSignedReadUrl.mockResolvedValueOnce({
+      url: 'https://storage.example/refreshed.pdf',
+      expiresAt: new Date('2026-10-17T14:00:00.000Z'),
+    });
+    const refreshed = await service.refreshSignedUrl(stored);
+    expect(refreshed.url).toContain('refreshed');
+    expect(refreshed.expires_at).toBe('2026-10-17T14:00:00.000Z');
+    expect(renderer.render).toHaveBeenCalledTimes(1);
   });
 
   it('rejects callers without report roles', async () => {
     tenantContext.getAuthenticatedUser.mockReturnValueOnce({ role: 'MECHANIC' });
-    await expect(service.generate({ iso_week: '2026-W42' })).rejects.toBeInstanceOf(
+    await expect(service.preview({ iso_week: '2026-W42' })).rejects.toBeInstanceOf(
       ForbiddenException,
     );
   });
@@ -101,7 +129,7 @@ describe('WeeklyReportPdfService', () => {
   it('treats unauthorized site_id as not found', async () => {
     siteContext.listAuthorizedSiteIds.mockResolvedValueOnce(['other-site']);
     await expect(
-      service.generate({ iso_week: '2026-W42', site_id: 'site-1' }),
+      service.preview({ iso_week: '2026-W42', site_id: 'site-1' }),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 });

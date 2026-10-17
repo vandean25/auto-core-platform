@@ -1,5 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
-import { localDateStartUtc } from '../../workshop/workshop-kpi-reports.math.js';
+import {
+  localDateStartUtc,
+  reportPeriodKey,
+} from '../../workshop/workshop-kpi-reports.math.js';
 
 const ISO_WEEK_PATTERN = /^(\d{4})-W(\d{2})$/;
 
@@ -78,6 +81,12 @@ export function resolveWeeklyReportPeriod(input: {
   if (input.iso_week !== undefined) {
     const { year, week } = parseIsoWeekLabel(input.iso_week);
     const from = isoWeekMondayUtc(year, week);
+    const canonicalWeek = reportPeriodKey(from, 'week');
+    if (canonicalWeek !== input.iso_week) {
+      throw new BadRequestException(
+        `iso_week ${input.iso_week} does not exist in the ISO calendar`,
+      );
+    }
     const to = addCalendarDaysIso(from, 6);
     assertIsoWeekRange({ from, to, timeZone: input.timeZone });
     return { from, to, iso_week: input.iso_week };

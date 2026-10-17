@@ -53,4 +53,35 @@ describe('weekly-report-period.util', () => {
       }),
     ).toThrow(BadRequestException);
   });
+
+  it('rejects iso_week labels that do not exist', () => {
+    expect(() =>
+      resolveWeeklyReportPeriod({
+        iso_week: '2025-W53',
+        timeZone: 'Europe/Vienna',
+      }),
+    ).toThrow(BadRequestException);
+    expect(() =>
+      resolveWeeklyReportPeriod({
+        iso_week: '2021-W53',
+        timeZone: 'Europe/Vienna',
+      }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('accepts valid ISO week 53 years and W01 spanning the year boundary', () => {
+    const w53 = resolveWeeklyReportPeriod({
+      iso_week: '2026-W53',
+      timeZone: 'Europe/Vienna',
+    });
+    expect(w53.from).toBe('2026-12-28');
+    expect(w53.to).toBe('2027-01-03');
+
+    const w01 = resolveWeeklyReportPeriod({
+      iso_week: '2027-W01',
+      timeZone: 'Europe/Vienna',
+    });
+    expect(w01.from).toBe('2027-01-04');
+    expect(w01.to).toBe('2027-01-10');
+  });
 });

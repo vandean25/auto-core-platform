@@ -32,11 +32,28 @@ export function formatPercent(
   return `${PERCENT_FORMATTER.format(numeric)} %`;
 }
 
+const NUMBER_FORMATTER = new Intl.NumberFormat('de-AT', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
 export function formatDecimalString(value: string | null | undefined): string {
   if (!value) {
     return '–';
   }
   return formatEurAmount(value);
+}
+
+/** Plain numeric ratio or quantity (not a currency amount). */
+export function formatNumberString(value: string | null | undefined): string {
+  if (!value) {
+    return '–';
+  }
+  const numeric = Number(value);
+  if (Number.isNaN(numeric)) {
+    return '–';
+  }
+  return NUMBER_FORMATTER.format(numeric);
 }
 
 export function countPdfPages(buffer: Buffer): number {

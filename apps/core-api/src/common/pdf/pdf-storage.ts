@@ -9,6 +9,10 @@ import { Storage } from '@google-cloud/storage';
 import { Readable } from 'node:stream';
 import * as Sentry from '@sentry/node';
 import { resolvePdfStorageBucket } from './pdf-bucket.js';
+import {
+  resolveWeeklyReportPdfBucket,
+  WEEKLY_REPORT_EPHEMERAL_PREFIX,
+} from './weekly-report-pdf-bucket.js';
 import { SideEffectGuard } from '../../dry-run/side-effect-guard.js';
 
 export type PdfArchiveIdentityMetadata = {
@@ -397,6 +401,85 @@ export class PdfStorage {
    * have already scoped to the tenant, and must never log the returned URL.
    * The TTL is clamped to PDF_READ_LINK_MAX_TTL_SECONDS.
    */
+  async uploadEphemeralWeeklyReportPdf(params: {
+    tenantId: string;
+    objectId: string;
+    body: Buffer;
+    objectExpiresAt: Date;
+    sha256: string;
+  }): Promise<{ bucket: string; key: string }> {
+    SideEffectGuard.assertAllowed('GCS_WRITE');
+    const bucketName = resolveWeeklyReportPdfBucket();
+    const key = `${WEEKLY_REPORT_EPHEMERAL_PREFIX}/${params.tenantId}/${params.objectId}.pdf`;
+    const file = this.storage.bucket(bucketName).file(key);
+    try {
+      await file.save(params.body, {
+        contentType: 'application/pdf',
+        resumable: false,
+        metadata: {
+          cacheControl: 'private, no-store',
+          customTime: params.objectExpiresAt.toISOString(),
+          metadata: {
+            tenant_id: params.tenantId,
+            weekly_report_object_id: params.objectId,
+            pdf_sha256: params.sha256,
+            object_expires_at: params.objectExpiresAt.toISOString(),
+            ephemeral: 'weekly_report',
+          },
+        },
+      });
+      return { bucket: bucketName, key };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Failed to upload ephemeral weekly report PDF (bucket=${bucketName}, key=${key}): ${message}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw new InternalServerErrorException(
+        'Failed to upload weekly report PDF to storage',
+      );
+    }
+  }
+
+  async deleteExpiredEphemeralWeeklyReports(params?: {
+    now?: Date;
+    tenantId?: string;
+  }): Promise<number> {
+    SideEffectGuard.assertAllowed('GCS_WRITE');
+    const bucketName = resolveWeeklyReportPdfBucket();
+    const now = params?.now ?? new Date();
+    const prefix = params?.tenantId
+      ? `${WEEKLY_REPORT_EPHEMERAL_PREFIX}/${params.tenantId}/`
+      : `${WEEKLY_REPORT_EPHEMERAL_PREFIX}/`;
+    const bucket = this.storage.bucket(bucketName);
+    const [files] = await bucket.getFiles({ prefix });
+    let deleted = 0;
+    for (const file of files) {
+      try {
+        const [metadata] = await file.getMetadata();
+        const custom = metadata.metadata as Record<string, string> | undefined;
+        const expiresRaw =
+          custom?.object_expires_at ?? metadata.customTime ?? null;
+        if (!expiresRaw) {
+          continue;
+        }
+        const expiresAt = new Date(expiresRaw);
+        if (Number.isNaN(expiresAt.getTime()) || expiresAt > now) {
+          continue;
+        }
+        await file.delete({ ignoreNotFound: true });
+        deleted += 1;
+      } catch (error) {
+        this.logger.warn(
+          `Skipped ephemeral weekly report cleanup for ${file.name}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
+    return deleted;
+  }
+
   async createSignedReadUrl(params: {
     bucket?: string | null;
     key: string;

@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { createHash, randomUUID } from 'node:crypto';
 import { PdfStorage } from '../../common/pdf/pdf-storage.js';
+import { weeklyReportObjectExpiresAt } from '../../common/pdf/weekly-report-pdf-bucket.js';
 import { TenantContextService } from '../../common/services/tenant-context.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { SiteContextService } from '../../site/site-context.service.js';
@@ -21,21 +22,32 @@ export type GenerateWeeklyReportPdfInput = {
   site_id?: string;
 };
 
+export type WeeklyReportPdfPeriod = {
+  from: string;
+  to: string;
+  timezone: string;
+  iso_week: string | null;
+};
+
+export type WeeklyReportPdfPreview = {
+  period: WeeklyReportPdfPeriod;
+  site_id: string;
+};
+
 export type GenerateWeeklyReportPdfResult = {
   id: string;
+  site_id: string;
   url: string;
   expires_at: string;
   sha256: string;
   page_count: number;
-  period: {
-    from: string;
-    to: string;
-    timezone: string;
-    iso_week: string | null;
-  };
+  period: WeeklyReportPdfPeriod;
+  storage_bucket: string;
+  storage_key: string;
+  object_expires_at: string;
 };
 
-const EPHEMERAL_KEY_PREFIX = 'ephemeral/weekly-reports';
+const READ_LINK_TTL_SECONDS = 15 * 60;
 
 @Injectable()
 export class WeeklyReportPdfService {
@@ -49,13 +61,12 @@ export class WeeklyReportPdfService {
     private readonly rateLimit: WeeklyReportRateLimitService,
   ) {}
 
-  async generate(
+  /** Side-effect free validation for MCP dry-run preview (no render, upload, or rate limit). */
+  async preview(
     input: GenerateWeeklyReportPdfInput,
-  ): Promise<GenerateWeeklyReportPdfResult> {
+  ): Promise<WeeklyReportPdfPreview> {
     this.assertReportRole();
     const tenantId = await this.tenantContext.getTenantId();
-    await this.rateLimit.assertAllowed(tenantId);
-
     const { siteId, timezone } = await this.resolveSite(
       tenantId,
       input.site_id,
@@ -66,38 +77,8 @@ export class WeeklyReportPdfService {
       to: input.to,
       timeZone: timezone,
     });
-
-    const reportData = await this.data.load({
-      siteId,
-      timeZone: timezone,
-      period,
-    });
-
-    const pdfBuffer = await this.renderer.render(reportData);
-    const sha256 = createHash('sha256').update(pdfBuffer).digest('hex');
-    const page_count = countPdfPages(pdfBuffer);
-    const objectId = randomUUID();
-    const key = `${EPHEMERAL_KEY_PREFIX}/${tenantId}/${objectId}.pdf`;
-
-    await this.storage.uploadPdf({
-      key,
-      body: pdfBuffer,
-      contentType: 'application/pdf',
-    });
-
-    const filename = `Wochenbericht-${period.from}_${period.to}.pdf`;
-    const link = await this.storage.createSignedReadUrl({
-      key,
-      filename,
-      ttlSeconds: 15 * 60,
-    });
-
     return {
-      id: objectId,
-      url: link.url,
-      expires_at: link.expiresAt.toISOString(),
-      sha256,
-      page_count,
+      site_id: siteId,
       period: {
         from: period.from,
         to: period.to,
@@ -105,6 +86,121 @@ export class WeeklyReportPdfService {
         iso_week: period.iso_week,
       },
     };
+  }
+
+  async execute(
+    input: GenerateWeeklyReportPdfInput,
+  ): Promise<GenerateWeeklyReportPdfResult> {
+    this.assertReportRole();
+    const tenantId = await this.tenantContext.getTenantId();
+    await this.rateLimit.assertAllowed(tenantId);
+
+    const preview = await this.preview(input);
+    await this.storage.deleteExpiredEphemeralWeeklyReports({ tenantId });
+
+    const reportData = await this.data.load({
+      siteId: preview.site_id,
+      timeZone: preview.period.timezone,
+      period: {
+        from: preview.period.from,
+        to: preview.period.to,
+        iso_week: preview.period.iso_week,
+      },
+    });
+
+    const pdfBuffer = await this.renderer.render(reportData);
+    const sha256 = createHash('sha256').update(pdfBuffer).digest('hex');
+    const page_count = countPdfPages(pdfBuffer);
+    const objectId = randomUUID();
+    const uploadedAt = new Date();
+    const objectExpiresAt = weeklyReportObjectExpiresAt(uploadedAt);
+
+    const { bucket, key } = await this.storage.uploadEphemeralWeeklyReportPdf({
+      tenantId,
+      objectId,
+      body: pdfBuffer,
+      objectExpiresAt,
+      sha256,
+    });
+
+    const filename = `Wochenbericht-${preview.period.from}_${preview.period.to}.pdf`;
+    const link = await this.storage.createSignedReadUrl({
+      bucket,
+      key,
+      filename,
+      ttlSeconds: READ_LINK_TTL_SECONDS,
+    });
+
+    return {
+      id: objectId,
+      site_id: preview.site_id,
+      url: link.url,
+      expires_at: link.expiresAt.toISOString(),
+      sha256,
+      page_count,
+      period: preview.period,
+      storage_bucket: bucket,
+      storage_key: key,
+      object_expires_at: objectExpiresAt.toISOString(),
+    };
+  }
+
+  /** Re-sign a stored artifact for command_id replay (never return an expired bearer URL). */
+  async refreshSignedUrl(
+    stored: Pick<
+      GenerateWeeklyReportPdfResult,
+      | 'id'
+      | 'sha256'
+      | 'page_count'
+      | 'period'
+      | 'storage_bucket'
+      | 'storage_key'
+      | 'object_expires_at'
+    >,
+  ): Promise<GenerateWeeklyReportPdfResult> {
+    const objectExpiresAt = new Date(stored.object_expires_at);
+    if (objectExpiresAt.getTime() <= Date.now()) {
+      return this.regenerateFromStoredMetadata(stored);
+    }
+
+    const filename = `Wochenbericht-${stored.period.from}_${stored.period.to}.pdf`;
+    try {
+      const link = await this.storage.createSignedReadUrl({
+        bucket: stored.storage_bucket,
+        key: stored.storage_key,
+        filename,
+        ttlSeconds: READ_LINK_TTL_SECONDS,
+      });
+      return {
+        ...stored,
+        url: link.url,
+        expires_at: link.expiresAt.toISOString(),
+      };
+    } catch {
+      return this.regenerateFromStoredMetadata(stored);
+    }
+  }
+
+  private async regenerateFromStoredMetadata(
+    stored: Pick<
+      GenerateWeeklyReportPdfResult,
+      'id' | 'period' | 'storage_bucket' | 'storage_key'
+    >,
+  ): Promise<GenerateWeeklyReportPdfResult> {
+    const tenantId = await this.tenantContext.getTenantId();
+    await this.rateLimit.assertAllowed(tenantId);
+    const siteId =
+      'site_id' in stored && typeof stored.site_id === 'string'
+        ? stored.site_id
+        : undefined;
+    const input: GenerateWeeklyReportPdfInput = stored.period.iso_week
+      ? { iso_week: stored.period.iso_week, site_id: siteId }
+      : {
+          from: stored.period.from,
+          to: stored.period.to,
+          site_id: siteId,
+        };
+    return this.execute(input);
   }
 
   private assertReportRole(): void {

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import {
+  AuditLogAction,
   Prisma,
   WorkshopEstimateStatus,
   WorkshopOrderStatus,
@@ -160,28 +161,99 @@ export class WeeklyReportDataService {
   ) {
     const rangeStart = localDateStartUtc(period.from, timeZone);
     const rangeEnd = localDateStartUtc(addIsoDay(period.to, 1), timeZone);
+    const completionLogs = await this.prisma.auditLog.findMany({
+      where: {
+        tenant_id: tenantId,
+        entity_type: 'WorkshopOrder',
+        action: AuditLogAction.UPDATE,
+        occurred_at: { gte: rangeStart, lt: rangeEnd },
+      },
+      select: {
+        entity_id: true,
+        occurred_at: true,
+        after: true,
+        diff: true,
+      },
+      orderBy: { occurred_at: 'desc' },
+      take: 200,
+    });
+
+    const completedByOrderId = new Map<string, Date>();
+    for (const log of completionLogs) {
+      if (!isWorkshopOrderCompletedAudit(log)) {
+        continue;
+      }
+      if (!completedByOrderId.has(log.entity_id)) {
+        completedByOrderId.set(log.entity_id, log.occurred_at);
+      }
+    }
+
+    if (completedByOrderId.size === 0) {
+      return [];
+    }
+
+    const orderIds = [...completedByOrderId.keys()];
     const rows = await this.prisma.workshopOrder.findMany({
       where: {
         tenant_id: tenantId,
         site_id: siteId,
+        id: { in: orderIds },
         status: WorkshopOrderStatus.COMPLETED,
-        updatedAt: { gte: rangeStart, lt: rangeEnd },
       },
       select: {
+        id: true,
         order_number: true,
-        updatedAt: true,
         vehicle: { select: { make: true, model: true, plate: true } },
       },
-      orderBy: { updatedAt: 'desc' },
-      take: 100,
     });
 
-    return rows.map((row) => ({
-      order_number: row.order_number,
-      completed_at: row.updatedAt.toISOString(),
-      vehicle_label: formatVehicleLabel(row.vehicle),
-    }));
+    return rows
+      .map((row) => {
+        const completedAt = completedByOrderId.get(row.id);
+        if (!completedAt) {
+          return null;
+        }
+        return {
+          order_number: row.order_number,
+          completed_at: completedAt.toISOString(),
+          vehicle_label: formatVehicleLabel(row.vehicle),
+        };
+      })
+      .filter((row): row is WeeklyReportCompletedOrderRow => row !== null)
+      .sort(
+        (left, right) =>
+          Date.parse(right.completed_at) - Date.parse(left.completed_at),
+      )
+      .slice(0, 100);
   }
+}
+
+function isWorkshopOrderCompletedAudit(log: {
+  after: unknown;
+  diff: unknown;
+}): boolean {
+  const after = asAuditRecord(log.after);
+  if (after?.status === WorkshopOrderStatus.COMPLETED) {
+    return true;
+  }
+  const diff = asAuditRecord(log.diff);
+  const statusChange = diff?.status;
+  if (
+    statusChange &&
+    typeof statusChange === 'object' &&
+    'after' in statusChange &&
+    (statusChange as { after?: string }).after === WorkshopOrderStatus.COMPLETED
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function asAuditRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  return value as Record<string, unknown>;
 }
 
 function decimalToString(value: Prisma.Decimal): string {

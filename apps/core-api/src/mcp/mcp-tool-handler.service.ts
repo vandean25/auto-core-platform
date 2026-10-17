@@ -179,8 +179,16 @@ export class McpToolHandlerService {
       buildExecutionContext: executor.buildExecutionContext
         ? (input) => executor.buildExecutionContext!(input)
         : undefined,
+      preview: executor.preview
+        ? (input, executionContext) =>
+            executor.preview!(input, executionContext)
+        : undefined,
       execute: (input, executionContext) =>
         executor.execute(input, executionContext),
+      executeOutsideTransaction: executor.executeOutsideTransaction ?? false,
+      refreshReplayResult: executor.refreshReplayResult
+        ? (result) => executor.refreshReplayResult!(result)
+        : undefined,
       buildResultSummary: (result) => executor.buildResultSummary(result),
       buildLogMetadata: executor.buildLogMetadata
         ? (result) => executor.buildLogMetadata!(result)

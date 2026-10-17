@@ -2,6 +2,7 @@ import type { WeeklyReportData } from './weekly-report-data.service.js';
 import {
   formatDecimalString,
   formatEurAmount,
+  formatNumberString,
   formatPercent,
 } from './weekly-report-format.util.js';
 import {
@@ -52,7 +53,7 @@ export function buildWeeklyReportHtmlDocument(
       <tr>
         <td>${escapeHtml(row.order_number)}</td>
         <td>${escapeHtml(row.estimate_number)}</td>
-        <td>${escapeHtml(formatSiteLocalDate(row.sent_at.slice(0, 10), site.timezone))}</td>
+        <td>${escapeHtml(formatSiteLocalDateTime(new Date(row.sent_at), site.timezone))}</td>
         <td>${escapeHtml(row.valid_until ? formatSiteLocalDate(row.valid_until, site.timezone) : '–')}</td>
         <td class="num">${escapeHtml(formatDecimalString(row.total_gross))}</td>
       </tr>`,
@@ -143,7 +144,7 @@ export function buildWeeklyReportHtmlDocument(
     <div class="kpi"><span>Leistungsgrad</span><strong>${escapeHtml(formatPercent(totals.productivity_percent))}</strong></div>
     <div class="kpi"><span>Ø Netto-Umsatz pro Auftrag</span><strong>${escapeHtml(formatDecimalString(totals.average_net_revenue_per_order))}</strong></div>
     <div class="kpi"><span>Abgeschlossene Aufträge (KPI)</span><strong>${totals.closed_orders}</strong></div>
-    <div class="kpi"><span>Teileumschlag</span><strong>${escapeHtml(formatDecimalString(data.workshop_kpis.parts_turnover.turnover))}</strong></div>
+    <div class="kpi"><span>Teileumschlag</span><strong>${escapeHtml(formatNumberString(data.workshop_kpis.parts_turnover.turnover))}</strong></div>
   </div>
 
   <h2>Offene Kostenvoranschläge (KVA)</h2>
