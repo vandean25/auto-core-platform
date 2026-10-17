@@ -186,12 +186,18 @@ export function createVehicleMediaPurgeExtension() {
       client: {
         $transaction(...args: unknown[]) {
           if (typeof args[0] === 'function') {
-            if (SideEffectGuard.isDryRun()) {
-              return commitTransaction(...args);
-            }
-            return runWithDeferredVehicleMediaPurges(() =>
-              commitTransaction(...args),
-            );
+            const original = args[0] as (tx: unknown) => Promise<unknown>;
+            const wrapped = async (tx: unknown) => {
+              const pending: VehiclePurgeTarget[] = [];
+              try {
+                return await pendingVehicleMediaPurges.run(pending, () =>
+                  original(tx),
+                );
+              } finally {
+                await flushPendingVehicleMediaPurges(pending);
+              }
+            };
+            return commitTransaction(wrapped, ...args.slice(1));
           }
           return commitTransaction(...args);
         },
