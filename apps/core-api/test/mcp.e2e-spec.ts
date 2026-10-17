@@ -6178,7 +6178,7 @@ describe('MCP server (e2e)', () => {
       await seedReadySellerAndAccountingProfile(prismaA, tenantA);
     });
 
-    afterEach(() => {
+    afterEach(async () => {
       if (previousSendFlag === undefined) {
         delete process.env.CUSTOMER_ESTIMATE_SEND_ENABLED;
       } else {
@@ -6189,6 +6189,35 @@ describe('MCP server (e2e)', () => {
       } else {
         process.env.ESTIMATE_APPROVAL_BASE_URL = previousApprovalBaseUrl;
       }
+      const kvaOrders = await prismaA.workshopOrder.findMany({
+        where: { order_number: { startsWith: 'WO-KVA-' } },
+        select: { id: true },
+      });
+      const orderIds = kvaOrders.map((order) => order.id);
+      if (orderIds.length === 0) {
+        return;
+      }
+      await prismaA.notificationOutbox.deleteMany({
+        where: { workshop_order_id: { in: orderIds } },
+      });
+      await prismaA.workshopEstimateVersion.deleteMany({
+        where: { estimate: { workshop_order_id: { in: orderIds } } },
+      });
+      await prismaA.workshopEstimate.deleteMany({
+        where: { workshop_order_id: { in: orderIds } },
+      });
+      await prismaA.agentProposal.deleteMany({
+        where: {
+          tenant_id: tenantA,
+          action_type: 'estimate.send_customer_message',
+        },
+      });
+      await prismaA.workshopTask.deleteMany({
+        where: { workshop_order_id: { in: orderIds } },
+      });
+      await prismaA.workshopOrder.deleteMany({
+        where: { id: { in: orderIds } },
+      });
     });
 
     it('PROPOSE: previews totals and apply sends one SENT version with outbox row', async () => {
