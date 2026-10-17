@@ -146,7 +146,19 @@ export const TABLE_CLEANERS: TableCleaner[] = [
         },
       }),
   },
+  {
+    table: 'vehicle_equipment_selections',
+    clean: (p) => p.vehicleEquipmentSelection.deleteMany(),
+  },
+  {
+    table: 'vehicle_equipment_free_text_items',
+    clean: (p) => p.vehicleEquipmentFreeTextItem.deleteMany(),
+  },
   { table: 'vehicles', clean: (p) => p.vehicle.deleteMany() },
+  {
+    table: 'vehicle_equipment_options',
+    clean: (p) => p.vehicleEquipmentOption.deleteMany(),
+  },
   {
     table: 'catalog_oem_concern_makes',
     clean: (p) => p.catalogOemConcernMake.deleteMany(),

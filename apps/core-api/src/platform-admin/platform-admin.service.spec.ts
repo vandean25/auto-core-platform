@@ -87,6 +87,7 @@ describe('PlatformAdminService', () => {
       id: 'template-2',
     });
     const inspectionTemplateItemUpsert = jest.fn().mockResolvedValue(undefined);
+    const vehicleEquipmentOptionUpsert = jest.fn().mockResolvedValue(undefined);
 
     mockSystemPrisma.$transaction.mockImplementation(async (callback) =>
       callback({
@@ -94,6 +95,7 @@ describe('PlatformAdminService', () => {
         financeSettings: { create: financeSettingsCreate },
         inspectionTemplate: { upsert: inspectionTemplateUpsert },
         inspectionTemplateItem: { upsert: inspectionTemplateItemUpsert },
+        vehicleEquipmentOption: { upsert: vehicleEquipmentOptionUpsert },
       }),
     );
 

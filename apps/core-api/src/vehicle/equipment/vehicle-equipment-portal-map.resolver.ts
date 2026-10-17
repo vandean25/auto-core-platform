@@ -40,7 +40,10 @@ export function resolveVehicleEquipmentForProfile(
   },
   mappingVersion = VEHICLE_EQUIPMENT_PORTAL_MAPS_V1.version,
 ): ResolvedVehicleEquipmentExport {
-  const profileConfig = getEquipmentPortalProfileConfig(profile, mappingVersion);
+  const profileConfig = getEquipmentPortalProfileConfig(
+    profile,
+    mappingVersion,
+  );
   const entryByCode = indexEntriesByLocalCode(profileConfig.entries);
 
   const mappedFields: ResolvedVehicleEquipmentExport['mappedFields'] = [];

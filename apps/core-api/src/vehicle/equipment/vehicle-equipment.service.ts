@@ -57,9 +57,21 @@ export class VehicleEquipmentService {
       ...(trimmedSearch
         ? {
             OR: [
-              { code: { contains: trimmedSearch, mode: 'insensitive' as const } },
-              { label_de: { contains: trimmedSearch, mode: 'insensitive' as const } },
-              { label_en: { contains: trimmedSearch, mode: 'insensitive' as const } },
+              {
+                code: { contains: trimmedSearch, mode: 'insensitive' as const },
+              },
+              {
+                label_de: {
+                  contains: trimmedSearch,
+                  mode: 'insensitive' as const,
+                },
+              },
+              {
+                label_en: {
+                  contains: trimmedSearch,
+                  mode: 'insensitive' as const,
+                },
+              },
             ],
           }
         : {}),

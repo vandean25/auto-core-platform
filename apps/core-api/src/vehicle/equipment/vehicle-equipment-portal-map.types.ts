@@ -1,9 +1,7 @@
 export type EquipmentPortalVerification = 'VERIFIED' | 'UNVERIFIED';
 
 export type EquipmentListingSerializerProfile =
-  | 'MOBILE_DE_REFERENCE_V1'
-  | 'AS24_PROVISIONAL_V1'
-  | 'WILLHABEN_GENERIC_V1';
+  'MOBILE_DE_REFERENCE_V1' | 'AS24_PROVISIONAL_V1' | 'WILLHABEN_GENERIC_V1';
 
 export interface EquipmentPortalMapEntry {
   local_code: string;
@@ -26,7 +24,10 @@ export interface EquipmentPortalProfileConfig {
 
 export interface EquipmentPortalMapDocument {
   version: string;
-  profiles: Record<EquipmentListingSerializerProfile, EquipmentPortalProfileConfig>;
+  profiles: Record<
+    EquipmentListingSerializerProfile,
+    EquipmentPortalProfileConfig
+  >;
 }
 
 export interface VehicleEquipmentSelectionInput {

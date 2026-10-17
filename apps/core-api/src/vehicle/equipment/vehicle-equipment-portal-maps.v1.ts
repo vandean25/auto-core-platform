@@ -9,8 +9,7 @@ export const VEHICLE_EQUIPMENT_PORTAL_MAPS_V1: EquipmentPortalMapDocument = {
   profiles: {
     MOBILE_DE_REFERENCE_V1: {
       verification: 'UNVERIFIED',
-      source:
-        'https://services.mobile.de/manual/upload-interface-csv_de.html',
+      source: 'https://services.mobile.de/manual/upload-interface-csv_de.html',
       version: '1',
       entries: [
         {
@@ -87,8 +86,7 @@ export const VEHICLE_EQUIPMENT_PORTAL_MAPS_V1: EquipmentPortalMapDocument = {
     },
     AS24_PROVISIONAL_V1: {
       verification: 'UNVERIFIED',
-      source:
-        'https://www.autoscout24.at/partner-infoportal/faq/',
+      source: 'https://www.autoscout24.at/partner-infoportal/faq/',
       version: '1',
       export_local_codes: true,
       entries: [],

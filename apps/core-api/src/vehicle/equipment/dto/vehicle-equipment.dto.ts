@@ -70,7 +70,8 @@ export class ReplaceVehicleEquipmentDto {
 
   @ApiPropertyOptional({
     type: [String],
-    description: 'Free-text equipment lines (unknown options stay as plain text)',
+    description:
+      'Free-text equipment lines (unknown options stay as plain text)',
   })
   @IsOptional()
   @IsArray()

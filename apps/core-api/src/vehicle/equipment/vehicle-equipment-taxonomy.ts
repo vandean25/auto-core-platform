@@ -16,10 +16,7 @@ export type VehicleEquipmentStarterCode =
   | 'ISOFIX';
 
 export type VehicleEquipmentCategory =
-  | 'SAFETY'
-  | 'COMFORT'
-  | 'EXTERIOR'
-  | 'PARKING';
+  'SAFETY' | 'COMFORT' | 'EXTERIOR' | 'PARKING';
 
 export interface VehicleEquipmentStarterDefinition {
   code: VehicleEquipmentStarterCode;
