@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import type { Prisma } from '@prisma/client';
 import request from 'supertest';
 import sharp from 'sharp';
 import { exifHasGpsIfd } from '../src/common/media/exif-has-gps-ifd.js';
@@ -213,37 +214,49 @@ describe('Vehicle stock photos (e2e)', () => {
     );
   }
 
-  async function createCustomerVehicleWithPhoto(): Promise<string> {
-    const vehicle = await suite.prisma.vehicle.create({
-      data: {
-        tenant_id: suite.tenantId,
-        make: 'PurgeTx',
-        model: 'E2E',
-        year: 2022,
-        inventory_role: 'CUSTOMER',
-      },
+  async function createStockVehicleWithPhoto(): Promise<{
+    vehicleId: string;
+    purchaseId: string;
+  }> {
+    const created = await suite.createAndReceive({
+      vin: vin('TX-PURGE'),
+      sellerType: 'VENDOR',
     });
+    const vehicleId = created.received.vehicle_id;
+    const purchaseId = created.purchase.id as string;
     const png = await sharp({
       create: { width: 24, height: 18, channels: 3, background: '#112233' },
     })
       .png()
       .toBuffer();
     await request(suite.app.getHttpServer())
-      .post(`/api/vehicle-stock/${vehicle.id}/photos`)
+      .post(`/api/vehicle-stock/${vehicleId}/photos`)
       .set('Authorization', `Bearer ${suite.authToken}`)
       .attach('file', png, 'tx.png')
       .expect(201);
-    return vehicle.id;
+    return { vehicleId, purchaseId };
+  }
+
+  async function unlinkPurchaseAndDeleteVehicleInTx(
+    tx: Prisma.TransactionClient,
+    vehicleId: string,
+    purchaseId: string,
+  ): Promise<void> {
+    await tx.vehiclePurchase.update({
+      where: { tenant_id: suite.tenantId, id: purchaseId },
+      data: { vehicle_id: null },
+    });
+    await tx.vehicle.delete({
+      where: { tenant_id: suite.tenantId, id: vehicleId },
+    });
   }
 
   it('defers vehicle media purge until an interactive transaction commits', async () => {
-    const vehicleId = await createCustomerVehicleWithPhoto();
+    const { vehicleId, purchaseId } = await createStockVehicleWithPhoto();
     expect(mediaObjectKeysForVehicle(vehicleId).length).toBeGreaterThan(0);
 
     await suite.prisma.$transaction(async (tx) => {
-      await tx.vehicle.delete({
-        where: { tenant_id: suite.tenantId, id: vehicleId },
-      });
+      await unlinkPurchaseAndDeleteVehicleInTx(tx, vehicleId, purchaseId);
       expect(mediaObjectKeysForVehicle(vehicleId).length).toBeGreaterThan(0);
     });
 
@@ -251,15 +264,13 @@ describe('Vehicle stock photos (e2e)', () => {
   });
 
   it('does not purge vehicle media when an interactive transaction rolls back', async () => {
-    const vehicleId = await createCustomerVehicleWithPhoto();
+    const { vehicleId, purchaseId } = await createStockVehicleWithPhoto();
     const keysBefore = mediaObjectKeysForVehicle(vehicleId);
     expect(keysBefore.length).toBeGreaterThan(0);
 
     await expect(
       suite.prisma.$transaction(async (tx) => {
-        await tx.vehicle.delete({
-          where: { tenant_id: suite.tenantId, id: vehicleId },
-        });
+        await unlinkPurchaseAndDeleteVehicleInTx(tx, vehicleId, purchaseId);
         throw new Error('rollback');
       }),
     ).rejects.toThrow('rollback');

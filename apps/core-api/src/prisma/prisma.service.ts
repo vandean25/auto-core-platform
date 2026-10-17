@@ -48,7 +48,9 @@ export class PrismaService
       .$extends(createVehicleMediaPurgeExtension())
       .$extends(createAuditExtension())
       .$extends(createDashboardRealtimeExtension(dashboardRealtime))
-      .$extends(createVehicleMediaPurgeTransactionExtension()) as unknown as PrismaClient;
+      .$extends(
+        createVehicleMediaPurgeTransactionExtension(),
+      ) as unknown as PrismaClient;
 
     const serviceProxy = new Proxy(this, {
       get(target, property, receiver) {
