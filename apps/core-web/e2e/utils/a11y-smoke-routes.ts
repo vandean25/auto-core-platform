@@ -143,6 +143,7 @@ export const A11Y_SMOKE_ROUTES: A11ySmokeRoute[] = [
         data: [],
         meta: { total: 0, page: 1, pageSize: 25, pageCount: 1 },
       });
+      await mockApi(page, /\/api\/tyre-sets\/by-customer\/.*/, []);
     },
     ready: titleReady('Jane Smith'),
   },
