@@ -8,8 +8,6 @@ import {
 
 const SKETCH_ZONE_IDS = CHECK_IN_ZONE_IDS.filter((id) => id !== 'OTHER')
 
-type SketchZoneId = (typeof SKETCH_ZONE_IDS)[number]
-
 type Props = {
   selectedZoneId: CheckInZoneId
   markedZoneIds: ReadonlySet<string>
@@ -26,7 +24,10 @@ export function CheckInVehicleSketch({
   const { t } = useTranslation('workshop')
   const sketchRef = useRef<HTMLDivElement>(null)
   const onZoneSelectRef = useRef(onZoneSelect)
-  onZoneSelectRef.current = onZoneSelect
+
+  useEffect(() => {
+    onZoneSelectRef.current = onZoneSelect
+  }, [onZoneSelect])
 
   useEffect(() => {
     const root = sketchRef.current
