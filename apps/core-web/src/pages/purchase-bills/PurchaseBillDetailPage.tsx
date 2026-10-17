@@ -103,7 +103,7 @@ export default function PurchaseBillDetailPage() {
                         <p className="text-base font-medium">
                             {(() => {
                                 const date = parseLocalDate(invoice.invoice_date)
-                                return date ? formatDate(date) : t('common:placeholders.missing', { ns: 'common' })
+                                return date ? formatDate(date) : t('placeholders.missing', { ns: 'common' })
                             })()}
                         </p>
                     </div>
@@ -112,7 +112,7 @@ export default function PurchaseBillDetailPage() {
                         <p className="text-base font-medium">
                             {(() => {
                                 const date = parseLocalDate(invoice.due_date)
-                                return date ? formatDate(date) : t('common:placeholders.missing', { ns: 'common' })
+                                return date ? formatDate(date) : t('placeholders.missing', { ns: 'common' })
                             })()}
                         </p>
                     </div>

@@ -61,7 +61,7 @@ export default function PurchaseBillsPage() {
                 <DataTableColumnHeader column={column} title={t('columns.vendor')} />
             ),
             cell: ({ row }) => (
-                <div>{row.original.vendor?.name ?? t('common:placeholders.missing', { ns: 'common' })}</div>
+                <div>{row.original.vendor?.name ?? t('placeholders.missing', { ns: 'common' })}</div>
             ),
         },
         {
@@ -71,7 +71,7 @@ export default function PurchaseBillsPage() {
             ),
             cell: ({ row }) => {
                 const date = parseLocalDate(row.original.invoice_date)
-                if (!date) return <div>{t('common:placeholders.missing', { ns: 'common' })}</div>
+                if (!date) return <div>{t('placeholders.missing', { ns: 'common' })}</div>
                 return <div>{formatDate(date)}</div>
             },
         },
@@ -82,7 +82,7 @@ export default function PurchaseBillsPage() {
             ),
             cell: ({ row }) => {
                 const date = parseLocalDate(row.original.due_date)
-                if (!date) return <div>{t('common:placeholders.missing', { ns: 'common' })}</div>
+                if (!date) return <div>{t('placeholders.missing', { ns: 'common' })}</div>
                 return <div>{formatDate(date)}</div>
             },
         },

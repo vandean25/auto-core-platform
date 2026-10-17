@@ -471,7 +471,9 @@ export default function CreditNoteDetailPage() {
                                 }}
                               />
                               {lineError ? (
-                                <p id={`credit-line-quantity-${item.originalInvoiceItemId}-error`} role="alert" className="mt-1 text-xs text-destructive">{t(lineError.key, lineError.params)}</p>
+                                <p id={`credit-line-quantity-${item.originalInvoiceItemId}-error`} role="alert" className="mt-1 text-xs text-destructive">{'params' in lineError
+                                  ? t(lineError.key, lineError.params)
+                                  : t(lineError.key)}</p>
                               ) : null}
                             </div>
                           ) : (
@@ -479,7 +481,7 @@ export default function CreditNoteDetailPage() {
                           )}
                         </TableCell>
                         <TableCell className="text-right text-muted-foreground">
-                          {remaining?.remainingQuantity ?? t('common:placeholders.missing', { ns: 'common' })}
+                          {remaining?.remainingQuantity ?? t('placeholders.missing', { ns: 'common' })}
                         </TableCell>
                       </TableRow>
                     )

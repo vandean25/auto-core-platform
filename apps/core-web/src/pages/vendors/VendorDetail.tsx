@@ -288,7 +288,7 @@ export default function VendorDetail() {
                           <TableCell className='font-medium'>{order.order_number}</TableCell>
                           <TableCell>{(() => {
                             const date = parseLocalDate(order.createdAt)
-                            return date ? formatDate(date) : t('common:placeholders.missing', { ns: 'common' })
+                            return date ? formatDate(date) : t('placeholders.missing', { ns: 'common' })
                           })()}</TableCell>
                           <TableCell><StatusBadge status={order.status} /></TableCell>
                           <TableCell className='text-right'>{formatCurrency(getPurchaseOrderTotal(order))}</TableCell>
@@ -325,7 +325,7 @@ export default function VendorDetail() {
                           </TableCell>
                           <TableCell>{(() => {
                             const date = parseLocalDate(invoice.invoice_date)
-                            return date ? formatDate(date) : t('common:placeholders.missing', { ns: 'common' })
+                            return date ? formatDate(date) : t('placeholders.missing', { ns: 'common' })
                           })()}</TableCell>
                           <TableCell><StatusBadge status={invoice.status} /></TableCell>
                           <TableCell className='text-right'>{formatCurrency(toNumber(invoice.total_amount))}</TableCell>
@@ -404,14 +404,14 @@ export default function VendorDetail() {
                                   </span>
                                 </div>
                               ) : (
-                                t('common:placeholders.missing', { ns: 'common' })
+                                t('placeholders.missing', { ns: 'common' })
                               )}
                             </TableCell>
                             <TableCell className='text-right'>
-                              {art.last_cost != null ? formatCurrency(toNumber(art.last_cost)) : t('common:placeholders.missing', { ns: 'common' })}
+                              {art.last_cost != null ? formatCurrency(toNumber(art.last_cost)) : t('placeholders.missing', { ns: 'common' })}
                             </TableCell>
                             <TableCell className='text-right'>
-                              {art.last_rrp != null ? formatCurrency(toNumber(art.last_rrp)) : t('common:placeholders.missing', { ns: 'common' })}
+                              {art.last_rrp != null ? formatCurrency(toNumber(art.last_rrp)) : t('placeholders.missing', { ns: 'common' })}
                             </TableCell>
                           </TableRow>
                         ))

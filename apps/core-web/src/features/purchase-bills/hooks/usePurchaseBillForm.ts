@@ -42,11 +42,16 @@ function formatDateField(value: string | undefined, fallback: () => string) {
   return value ? format(new Date(value), 'yyyy-MM-dd') : fallback()
 }
 
+export type PurchaseBillFormErrorKey =
+  | 'purchaseBills.form.vendorRequired'
+  | 'purchaseBills.form.vendorInvoiceNumberRequired'
+  | 'purchaseBills.form.atLeastOneLine'
+
 export function validatePurchaseBillForm(
   vendorId: string,
   vendorInvoiceNumber: string,
   linesCount: number,
-): { valid: boolean; errorKey?: string } {
+): { valid: boolean; errorKey?: PurchaseBillFormErrorKey } {
   if (!vendorId) {
     return { valid: false, errorKey: 'purchaseBills.form.vendorRequired' }
   }

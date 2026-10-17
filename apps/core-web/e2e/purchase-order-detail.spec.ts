@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { DE_STATUS } from "./helpers/de-enums";
+import { DE_FINANCE } from "./helpers/de-finance";
 import { AutoCorePage } from "./pom/AutoCorePage";
 import {
   createMockPurchaseOrder,
@@ -23,7 +24,7 @@ test.describe("Blueprint: Purchase Order Detail", () => {
   const MOCK_AVAILABLE_QUANTITY = 25;
 
   test("Purchase Order Detail - rendering and items", async ({ page }) => {
-    const corePage = new AutoCorePage(page, "Purchase Order");
+    const corePage = new AutoCorePage(page, DE_FINANCE.purchaseOrders.list.create);
 
     const mockVendor = createMockVendor({
       id: VENDOR_ID,
@@ -116,7 +117,9 @@ test.describe("Blueprint: Purchase Order Detail", () => {
     await expect(
       page.getByRole("heading", { name: "PO-2026-0001", exact: true }),
     ).toBeVisible();
-    await expect(page.getByText("Vendor: Bosch Automotive")).toBeVisible();
+    await expect(
+      page.getByText(`Lieferant: Bosch Automotive`),
+    ).toBeVisible();
     await expect(page.getByText(DE_STATUS.DRAFT, { exact: true })).toBeVisible();
 
     // exact: the row's delete action is named "Delete item TEST-SKU-1 Test Part" (AUT-471), so substring matches on either value also resolve to the actions cell.
@@ -127,7 +130,7 @@ test.describe("Blueprint: Purchase Order Detail", () => {
   test("Purchase Order Detail - status workflow: Mark as Sent", async ({
     page,
   }) => {
-    const corePage = new AutoCorePage(page, "Purchase Order");
+    const corePage = new AutoCorePage(page, DE_FINANCE.purchaseOrders.list.create);
     const mockVendor = createMockVendor({
       id: VENDOR_ID,
       name: "Bosch Automotive",
@@ -210,7 +213,9 @@ test.describe("Blueprint: Purchase Order Detail", () => {
 
     await corePage.navigate(`/purchase-orders/${PO_ID}`);
 
-    const sendButton = page.getByRole("button", { name: /Mark as Sent/i });
+    const sendButton = page.getByRole("button", {
+      name: DE_FINANCE.actions.markAsSent,
+    });
     await expect(sendButton).toBeVisible();
     await sendButton.click();
     await expect(page.getByText(DE_STATUS.SENT, { exact: true })).toBeVisible();
@@ -219,7 +224,7 @@ test.describe("Blueprint: Purchase Order Detail", () => {
   test.fixme("Purchase Order Detail - auto-save on field change", async ({
     page,
   }) => {
-    const corePage = new AutoCorePage(page, "Purchase Order");
+    const corePage = new AutoCorePage(page, DE_FINANCE.purchaseOrders.list.create);
     const mockVendor = createMockVendor({
       id: VENDOR_ID,
       name: "Bosch Automotive",

@@ -95,7 +95,7 @@ function SummaryCard({
             tone === 'negative' && 'text-rose-600',
           )}
         >
-          {value ?? t('common:placeholders.missing', { ns: 'common' })}
+          {value ?? t('placeholders.missing', { ns: 'common' })}
         </p>
       </CardContent>
     </Card>
@@ -215,7 +215,7 @@ export default function AccountingExportReadinessPage() {
           <DataTableColumnHeader column={column} title={t('columns.site')} />
         ),
         cell: ({ row }) => (
-          <div>{row.original.site?.code ?? t('common:placeholders.missing', { ns: 'common' })}</div>
+          <div>{row.original.site?.code ?? t('placeholders.missing', { ns: 'common' })}</div>
         ),
       },
       {
@@ -238,7 +238,7 @@ export default function AccountingExportReadinessPage() {
               .map((blocker) =>
                 t(`accountingExportReadiness.blockers.${blocker.code}`),
               )
-              .join(', ') || t('common:placeholders.missing', { ns: 'common' })}
+              .join(', ') || t('placeholders.missing', { ns: 'common' })}
           </div>
         ),
       },

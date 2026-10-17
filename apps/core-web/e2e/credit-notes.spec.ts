@@ -2,6 +2,7 @@ import { expectNoCriticalA11yViolations } from "./utils/a11y";
 import { test, expect } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
 import { DE_SALES } from './helpers/de-sales';
+import { DE_FINANCE } from './helpers/de-finance';
 import { deErrorCode } from './helpers/de-errors';
 import {
   createMockCreditNote,
@@ -119,13 +120,13 @@ test.describe('Credit notes UI', () => {
     await expect(page.getByRole('button', { name: DE_SALES.invoices.detail.creditNote })).toBeVisible();
     await expectNoCriticalA11yViolations(page);
     await page.getByRole('button', { name: DE_SALES.invoices.detail.creditNote }).click();
-    await page.getByLabel('Reason').fill('Wrong quantity billed');
-    await page.getByRole('button', { name: 'Create Draft' }).click();
+    await page.getByLabel(DE_FINANCE.columns.reason).fill('Wrong quantity billed');
+    await page.getByRole('button', { name: DE_FINANCE.actions.createDraft }).click();
 
     await expect(page).toHaveURL(`/finance/credit-notes/${CREDIT_NOTE_ID}`);
     const corePage = new AutoCorePage(page, 'Credit Note');
     const autoSavePromise = corePage.waitForAutoSave('/api/credit-notes');
-    await page.getByLabel('Reason').fill('Updated correction reason');
+    await page.getByLabel(DE_FINANCE.columns.reason).fill('Updated correction reason');
     await autoSavePromise;
   });
 
@@ -193,8 +194,8 @@ test.describe('Credit notes UI', () => {
 
     await page.goto(`/sales/invoices/${INVOICE_ID}`);
     await page.getByRole('button', { name: DE_SALES.invoices.detail.creditNote }).click();
-    await page.getByLabel('Reason').fill('Locked period attempt');
-    await page.getByRole('button', { name: 'Create Draft' }).click();
+    await page.getByLabel(DE_FINANCE.columns.reason).fill('Locked period attempt');
+    await page.getByRole('button', { name: DE_FINANCE.actions.createDraft }).click();
     await expect(page.getByText(deErrorCode('FISCAL_PERIOD_LOCKED'))).toBeVisible();
   });
 
@@ -243,8 +244,10 @@ test.describe('Credit notes UI', () => {
     );
 
     await page.goto(`/finance/credit-notes/${CREDIT_NOTE_ID}`);
-    await page.getByRole('button', { name: 'Finalize' }).click();
-    await page.getByRole('button', { name: 'Finalize credit note' }).click();
+    await page.getByRole('button', { name: DE_FINANCE.actions.finalize }).click();
+    await page
+      .getByRole('button', { name: DE_FINANCE.creditNotes.detail.finalizeDialog.confirm })
+      .click();
     await expect(page.getByText(deErrorCode('CREDIT_LIMIT_EXCEEDED'))).toBeVisible();
   });
 
@@ -339,10 +342,12 @@ test.describe('Credit notes UI', () => {
     await page.goto(`/sales/invoices/${INVOICE_ID}`);
     await page.getByRole('button', { name: DE_SALES.invoices.detail.creditNote }).click();
     await page.getByRole('combobox').click();
-    await page.getByRole('option', { name: /Partial credit/i }).click();
+    await page
+      .getByRole('option', { name: DE_FINANCE.creditNotes.createDialog.modePartial })
+      .click();
     await page.locator('table input').fill('1');
-    await page.getByLabel('Reason').fill('Partial correction');
-    await page.getByRole('button', { name: 'Create Draft' }).click();
+    await page.getByLabel(DE_FINANCE.columns.reason).fill('Partial correction');
+    await page.getByRole('button', { name: DE_FINANCE.actions.createDraft }).click();
     await expect(page).toHaveURL(`/finance/credit-notes/${CREDIT_NOTE_ID}`);
   });
 
@@ -430,13 +435,17 @@ test.describe('Credit notes UI', () => {
     );
 
     await page.goto(`/finance/credit-notes/${CREDIT_NOTE_ID}`);
-    await page.getByRole('button', { name: 'Finalize' }).click();
-    await page.getByRole('button', { name: 'Finalize credit note' }).click();
+    await page.getByRole('button', { name: DE_FINANCE.actions.finalize }).click();
+    await page
+      .getByRole('button', { name: DE_FINANCE.creditNotes.detail.finalizeDialog.confirm })
+      .click();
     await expect(page.getByText(/Credit note finalized/i)).toBeVisible();
 
-    await expect(page.getByRole('button', { name: 'Print' })).toBeVisible();
-    await page.getByRole('button', { name: 'Print' }).click();
-    await expect(page.getByText(/PDF downloaded successfully/i)).toBeVisible();
+    await expect(page.getByRole('button', { name: DE_FINANCE.actions.print })).toBeVisible();
+    await page.getByRole('button', { name: DE_FINANCE.actions.print }).click();
+    await expect(
+      page.getByText(DE_FINANCE.creditNotes.detail.toast.pdfSuccess),
+    ).toBeVisible();
     await expect(
       page.getByText(/Contact support and your accountant/i),
     ).toBeVisible();
@@ -514,8 +523,10 @@ test.describe('Credit notes UI', () => {
     );
 
     await page.goto(`/finance/credit-notes/${CREDIT_NOTE_ID}`);
-    await page.getByRole('button', { name: 'Print' }).click();
-    await expect(page.getByText(/PDF downloaded successfully/i)).toBeVisible({
+    await page.getByRole('button', { name: DE_FINANCE.actions.print }).click();
+    await expect(
+      page.getByText(DE_FINANCE.creditNotes.detail.toast.pdfSuccess),
+    ).toBeVisible({
       timeout: 15_000,
     });
   });
@@ -607,21 +618,21 @@ test.describe('Credit notes UI', () => {
 
     await page.goto(`/finance/credit-notes/${CREDIT_NOTE_ID}`);
 
-    const printButton = page.getByRole('button', { name: 'Print' });
+    const printButton = page.getByRole('button', { name: DE_FINANCE.actions.print });
     await expect(printButton).toBeVisible();
     await expect(printButton).toBeEnabled();
 
     await printButton.click();
 
     // 5. Button is disabled with loading spinner while in flight
-    const generatingButton = page.getByRole('button', { name: /Generating/i });
+    const generatingButton = page.getByRole('button', { name: /Wird erstellt/i });
     await expect(generatingButton).toBeVisible();
     await expect(generatingButton).toBeDisabled();
     await expect(generatingButton.locator('.animate-spin')).toBeVisible();
 
     // 4. UI displays success toast `Credit note PDF downloaded successfully`
     await expect(
-      page.getByText('Credit note PDF downloaded successfully'),
+      page.getByText(DE_FINANCE.creditNotes.detail.toast.pdfSuccess),
     ).toBeVisible({
       timeout: 15_000,
     });
@@ -677,9 +688,11 @@ test.describe('Credit notes UI', () => {
     );
 
     await page.goto(`/finance/credit-notes/${CREDIT_NOTE_ID}`);
-    await page.getByLabel('Reason').fill('Trigger autosave failure');
+    await page.getByLabel(DE_FINANCE.columns.reason).fill('Trigger autosave failure');
     await expect(page.getByText(/Auto-save failed/i)).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Finalize' })).toBeDisabled();
+    await expect(
+      page.getByRole('button', { name: DE_FINANCE.actions.finalize }),
+    ).toBeDisabled();
   });
 
   test('non-admin users cannot create credit notes from invoice detail', async ({
@@ -763,11 +776,13 @@ test.describe('Credit notes UI', () => {
 
     await page.goto(`/finance/credit-notes/${CREDIT_NOTE_ID}`);
     await expect(
-      page.getByText(/Only OWNER or ADMIN can edit or void this draft credit note/i),
+      page.getByText(DE_FINANCE.creditNotes.detail.draftEditHint),
     ).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Finalize' })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Void' })).toHaveCount(0);
-    await expect(page.getByLabel('Reason')).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: DE_FINANCE.actions.finalize }),
+    ).toHaveCount(0);
+    await expect(page.getByRole('button', { name: DE_FINANCE.actions.void })).toHaveCount(0);
+    await expect(page.getByLabel(DE_FINANCE.columns.reason)).toHaveCount(0);
     await page.getByText('Wrong quantity billed').click();
     await page.waitForTimeout(1000);
     expect(patchRequestCount).toBe(0);
@@ -801,7 +816,7 @@ test.describe('Credit notes UI', () => {
 
     await corePage.navigate('/finance/credit-notes');
     await expect(
-      page.getByRole('heading', { name: 'Credit Notes', exact: true }),
+      page.getByRole('heading', { name: DE_FINANCE.creditNotes.list.title, exact: true }),
     ).toBeVisible();
     await corePage.openRowDetails('CN-2026-0001');
     await expect(page).toHaveURL(`/finance/credit-notes/${creditNote.id}`);

@@ -636,7 +636,7 @@ export default function PurchaseOrderDetail() {
                         <TableCell className="text-right">
                           {item.unit_cost === null ||
                           item.unit_cost === undefined
-                            ? t("common:placeholders.missing", { ns: "common" })
+                            ? t('placeholders.missing', { ns: 'common' })
                             : formatCurrency(item.unit_cost)}
                         </TableCell>
                         <TableCell className="text-right">

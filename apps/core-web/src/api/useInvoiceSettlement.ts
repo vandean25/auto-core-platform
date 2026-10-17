@@ -185,7 +185,7 @@ export function useCancelFiscalReceipt(invoiceId: string) {
 
 export function settlementSuccessToastMessageKey(
   paymentStatus: string | undefined,
-): string | null {
+): 'settlement.toast.recorded' | null {
   if (paymentStatus === 'SETTLED' || paymentStatus === 'SETTLED_EXTERNAL') {
     return 'settlement.toast.recorded'
   }

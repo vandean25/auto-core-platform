@@ -273,7 +273,9 @@ export function CreateCreditNoteDialog({
                               }}
                             />
                             {lineError ? (
-                              <p id={`credit-line-quantity-${line.originalItemId}-error`} role="alert" className="mt-1 text-xs text-destructive">{t(lineError.key, lineError.params)}</p>
+                              <p id={`credit-line-quantity-${line.originalItemId}-error`} role="alert" className="mt-1 text-xs text-destructive">{'params' in lineError
+                                ? t(lineError.key, lineError.params)
+                                : t(lineError.key)}</p>
                             ) : null}
                           </TableCell>
                         </TableRow>
