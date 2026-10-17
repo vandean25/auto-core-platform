@@ -194,23 +194,21 @@ type InteractiveTransactionFn = (
 ) => Promise<unknown>;
 
 function runInteractiveTransactionWithDeferredPurges(
-  baseClient: {
-    $transaction: (
-      fn: InteractiveTransactionFn,
-      options?: unknown,
-    ) => Promise<unknown>;
-  },
+  runTransaction: (
+    fn: InteractiveTransactionFn,
+    options?: unknown,
+  ) => Promise<unknown>,
   fn: InteractiveTransactionFn,
   options?: unknown,
 ): Promise<unknown> {
   const parentPending = pendingVehicleMediaPurges.getStore();
   if (parentPending) {
-    return baseClient.$transaction(fn, options);
+    return runTransaction(fn, options);
   }
   const pending: VehiclePurgeTarget[] = [];
   return pendingVehicleMediaPurges.run(pending, async () => {
     try {
-      const result = await baseClient.$transaction(fn, options);
+      const result = await runTransaction(fn, options);
       await flushPendingVehicleMediaPurges(pending);
       return result;
     } catch (error) {
@@ -220,15 +218,20 @@ function runInteractiveTransactionWithDeferredPurges(
   });
 }
 
-export function createVehicleMediaPurgeExtension() {
-  return Prisma.defineExtension((client) =>
-    client.$extends({
-      name: 'vehicle-media-purge',
+/** Apply after audit/realtime extensions so interactive tx clients keep their hooks. */
+export function createVehicleMediaPurgeTransactionExtension() {
+  return Prisma.defineExtension((client) => {
+    const runTransaction = client.$transaction.bind(client) as (
+      fn: InteractiveTransactionFn,
+      options?: unknown,
+    ) => Promise<unknown>;
+    return client.$extends({
+      name: 'vehicle-media-purge-transaction',
       client: {
         $transaction(arg: unknown, options?: unknown): Promise<unknown> {
           if (typeof arg === 'function') {
             return runInteractiveTransactionWithDeferredPurges(
-              client,
+              runTransaction,
               arg as InteractiveTransactionFn,
               options,
             );
@@ -236,6 +239,14 @@ export function createVehicleMediaPurgeExtension() {
           return client.$transaction(arg as never, options as never);
         },
       },
+    });
+  });
+}
+
+export function createVehicleMediaPurgeExtension() {
+  return Prisma.defineExtension((client) =>
+    client.$extends({
+      name: 'vehicle-media-purge',
       query: {
         vehicle: {
           async delete({ args, query }) {
