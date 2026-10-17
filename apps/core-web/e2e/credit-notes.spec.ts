@@ -280,7 +280,7 @@ test.describe('Credit notes UI', () => {
     await page.goto(`/sales/invoices/${INVOICE_ID}`);
     await page.getByRole('button', { name: DE_SALES.invoices.detail.creditNote }).click();
     await expect(
-      page.getByText(/Margin-scheme invoices only support full-document credits/i),
+      page.getByText(DE_FINANCE.creditNotes.createDialog.marginSchemeHint),
     ).toBeVisible();
   });
 
@@ -439,7 +439,9 @@ test.describe('Credit notes UI', () => {
     await page
       .getByRole('button', { name: DE_FINANCE.creditNotes.detail.finalizeDialog.confirm })
       .click();
-    await expect(page.getByText(/Credit note finalized/i)).toBeVisible();
+    await expect(
+      page.getByText(DE_FINANCE.creditNotes.detail.toast.finalized),
+    ).toBeVisible();
 
     await expect(page.getByRole('button', { name: DE_FINANCE.actions.print })).toBeVisible();
     await page.getByRole('button', { name: DE_FINANCE.actions.print }).click();
@@ -447,7 +449,7 @@ test.describe('Credit notes UI', () => {
       page.getByText(DE_FINANCE.creditNotes.detail.toast.pdfSuccess),
     ).toBeVisible();
     await expect(
-      page.getByText(/Contact support and your accountant/i),
+      page.getByText(DE_FINANCE.creditNotes.detail.finalizedHint),
     ).toBeVisible();
   });
 
