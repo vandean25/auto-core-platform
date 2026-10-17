@@ -4,8 +4,6 @@ import { toast } from 'sonner'
 import { useCompleteTask, usePauseTask, useStartTask, useSwitchTask } from '@/api/mechanic'
 import { getErrorMessage, getErrorStatus } from '@/lib/error-utils'
 import { i18n } from '@/lib/i18n'
-
-const tw = (key: string) => i18n.t(key, { ns: 'workshop' })
 import type { PauseReason, SwitchReason } from '../types'
 
 export type UseTaskLifecycleOptions = {
@@ -22,9 +20,14 @@ export interface ExecuteTaskStartParams {
 export async function executeTaskStart({ taskId, startTask }: ExecuteTaskStartParams): Promise<void> {
   try {
     await startTask.mutateAsync({ taskId })
-    toast.success(tw('mechanic.taskDetail.lifecycle.toast.taskStarted'))
+    toast.success(i18n.t('mechanic.taskDetail.lifecycle.toast.taskStarted', { ns: 'workshop' }))
   } catch (error: unknown) {
-    toast.error(getErrorMessage(error, tw('mechanic.taskDetail.lifecycle.toast.taskStartFailed')))
+    toast.error(
+      getErrorMessage(
+        error,
+        i18n.t('mechanic.taskDetail.lifecycle.toast.taskStartFailed', { ns: 'workshop' }),
+      ),
+    )
   }
 }
 
@@ -49,10 +52,15 @@ export async function executeTaskPause({
       taskId,
       payload: { pauseReason: reason },
     })
-    toast.success(tw('mechanic.taskDetail.lifecycle.toast.taskPaused'))
+    toast.success(i18n.t('mechanic.taskDetail.lifecycle.toast.taskPaused', { ns: 'workshop' }))
     onSuccess()
   } catch (error: unknown) {
-    toast.error(getErrorMessage(error, tw('mechanic.taskDetail.lifecycle.toast.taskPauseFailed')))
+    toast.error(
+      getErrorMessage(
+        error,
+        i18n.t('mechanic.taskDetail.lifecycle.toast.taskPauseFailed', { ns: 'workshop' }),
+      ),
+    )
     onSuccess()
   }
 }
@@ -73,10 +81,15 @@ export async function executeTaskComplete({
   cancelPendingSave()
   try {
     await completeTask.mutateAsync({ taskId })
-    toast.success(tw('mechanic.taskDetail.lifecycle.toast.taskCompleted'))
+    toast.success(i18n.t('mechanic.taskDetail.lifecycle.toast.taskCompleted', { ns: 'workshop' }))
     onSuccess()
   } catch (error: unknown) {
-    toast.error(getErrorMessage(error, tw('mechanic.taskDetail.lifecycle.toast.taskCompleteFailed')))
+    toast.error(
+      getErrorMessage(
+        error,
+        i18n.t('mechanic.taskDetail.lifecycle.toast.taskCompleteFailed', { ns: 'workshop' }),
+      ),
+    )
   }
 }
 
@@ -99,15 +112,20 @@ async function retrySwitchAsStart({
   try {
     await refetch()
     await startTask.mutateAsync({ taskId })
-    toast.success(tw('mechanic.taskDetail.lifecycle.toast.taskStarted'))
+    toast.success(i18n.t('mechanic.taskDetail.lifecycle.toast.taskStarted', { ns: 'workshop' }))
     onSuccess()
   } catch (startError: unknown) {
     if (getErrorStatus(startError) === 409) {
-      toast.error(tw('mechanic.taskDetail.lifecycle.toast.taskAlreadyInProgress'))
+      toast.error(
+        i18n.t('mechanic.taskDetail.lifecycle.toast.taskAlreadyInProgress', { ns: 'workshop' }),
+      )
       return
     }
     toast.error(
-      getErrorMessage(startError, tw('mechanic.taskDetail.lifecycle.toast.taskStartFailed')),
+      getErrorMessage(
+        startError,
+        i18n.t('mechanic.taskDetail.lifecycle.toast.taskStartFailed', { ns: 'workshop' }),
+      ),
     )
   } finally {
     setSwitchRetrying(false)
@@ -143,7 +161,7 @@ export async function executeTaskSwitch({
       taskId,
       payload: { previousPauseReason: reason },
     })
-    toast.success(tw('mechanic.taskDetail.lifecycle.toast.taskSwitched'))
+    toast.success(i18n.t('mechanic.taskDetail.lifecycle.toast.taskSwitched', { ns: 'workshop' }))
     onSuccess()
   } catch (error: unknown) {
     if (getErrorStatus(error) === 409) {
@@ -157,7 +175,12 @@ export async function executeTaskSwitch({
       return
     }
 
-    toast.error(getErrorMessage(error, tw('mechanic.taskDetail.lifecycle.toast.taskSwitchFailed')))
+    toast.error(
+      getErrorMessage(
+        error,
+        i18n.t('mechanic.taskDetail.lifecycle.toast.taskSwitchFailed', { ns: 'workshop' }),
+      ),
+    )
   }
 }
 
