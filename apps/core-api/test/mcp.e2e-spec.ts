@@ -450,8 +450,8 @@ describe('MCP server (e2e)', () => {
         site_id: siteId,
         vehicle_id: vehicle.id,
         stock_purchase_id: stockPurchase.id,
-        listing_ref: `L${'a'.repeat(32)}`,
-        content_sha256: 'b'.repeat(64),
+        listing_ref: `L${randomUUID().replace(/-/g, '')}`,
+        content_sha256: randomUUID().replace(/-/g, ''),
         channels: {
           create: [
             {
