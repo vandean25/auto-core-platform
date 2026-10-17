@@ -85,6 +85,13 @@ export class CreateWorkshopCheckInDto {
   id!: string;
 }
 
+export class CompleteWorkshopCheckInDto {
+  @ApiProperty({ minimum: 1 })
+  @IsInt()
+  @Min(1)
+  expected_revision!: number;
+}
+
 export class UpdateWorkshopCheckInDto {
   @ApiProperty({ minimum: 1 })
   @IsInt()
@@ -194,6 +201,15 @@ export class WorkshopCheckInResponseDto {
 
   @ApiProperty()
   fuel_level!: number;
+
+  @ApiPropertyOptional({ nullable: true })
+  content_sha256!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  completed_at!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  pdf_sha256!: string | null;
 
   @ApiProperty()
   created_at!: string;

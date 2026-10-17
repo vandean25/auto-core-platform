@@ -1,7 +1,8 @@
-import { UnprocessableEntityException } from '@nestjs/common';
+import { NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { Prisma, WorkshopMediaPurpose } from '@prisma/client';
 import type { CheckInDamageMarkerDto } from './dto/workshop-check-in.dto.js';
 import { CHECK_IN_ERROR_CODES } from './workshop-check-in.rules.js';
+import { assertCheckInDraftForMutation } from './workshop-check-in-immutability.js';
 
 export {
   assertMcpWorkshopMediaUploadDeclared,
@@ -12,7 +13,33 @@ export {
   type McpWorkshopMediaUploadPurpose,
 } from './workshop-mcp-media-validation.js';
 
-type CheckInDb = Pick<Prisma.TransactionClient, 'workshopMedia'>;
+type CheckInDb = Pick<
+  Prisma.TransactionClient,
+  'workshopMedia' | 'workshopCheckIn'
+>;
+
+export async function assertCheckInAllowsMediaMutation(
+  db: CheckInDb,
+  tenantId: string,
+  checkInId: string,
+): Promise<void> {
+  const row = await db.workshopCheckIn.findFirst({
+    where: { tenant_id: tenantId, id: checkInId },
+    select: { status: true },
+  });
+  if (!row) {
+    throw new NotFoundException('Workshop check-in not found');
+  }
+  assertCheckInDraftForMutation(row.status);
+}
+
+export async function assertCheckInAllowsMediaDetach(
+  db: CheckInDb,
+  tenantId: string,
+  checkInId: string,
+): Promise<void> {
+  await assertCheckInAllowsMediaMutation(db, tenantId, checkInId);
+}
 
 export async function assertCheckInDamageMarkerMediaIds(
   db: CheckInDb,

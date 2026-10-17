@@ -1988,6 +1988,22 @@ export interface paths {
         patch: operations["WorkshopCheckInController_updateDraft"];
         trace?: never;
     };
+    "/api/workshop/orders/{orderId}/check-in/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["WorkshopCheckInController_complete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/inspection-catalogues/preview": {
         parameters: {
             query?: never;
@@ -7715,6 +7731,9 @@ export interface components {
             warning_lights: string[];
             odometer: number;
             fuel_level: number;
+            content_sha256?: Record<string, never> | null;
+            completed_at?: Record<string, never> | null;
+            pdf_sha256?: Record<string, never> | null;
             created_at: string;
             updated_at: string;
         };
@@ -7742,6 +7761,9 @@ export interface components {
             warning_lights?: string[];
             odometer?: number;
             fuel_level?: number;
+        };
+        CompleteWorkshopCheckInDto: {
+            expected_revision: number;
         };
         PreviewInspectionCatalogueDto: {
             /**
@@ -15215,6 +15237,31 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["UpdateWorkshopCheckInDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopCheckInResponseDto"];
+                };
+            };
+        };
+    };
+    WorkshopCheckInController_complete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompleteWorkshopCheckInDto"];
             };
         };
         responses: {

@@ -26,6 +26,7 @@ describe('WorkshopCheckInService', () => {
     mockPrisma.workshopCheckIn.create.mockReset();
     mockPrisma.workshopCheckIn.updateMany.mockReset();
     mockPrisma.workshopMedia.findMany.mockReset();
+    mockPrisma.workshopCheckIn.findFirst.mockReset();
     mockPrisma.$transaction.mockImplementation((cb: (tx: unknown) => unknown) =>
       cb(mockPrisma),
     );
@@ -254,6 +255,119 @@ describe('WorkshopCheckInService', () => {
     ).rejects.toMatchObject({
       response: { code: 'CHECK_IN_COMPLETED' },
     });
+  });
+
+  it('completes a draft atomically and leaves pdf_sha256 unset', async () => {
+    const completedAt = new Date('2026-10-17T12:00:00.000Z');
+    jest.useFakeTimers();
+    jest.setSystemTime(completedAt);
+
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+      id: ORDER_ID,
+      status: WorkshopOrderStatus.IN_PROGRESS,
+      odometer: 1,
+      fuel_level: 1,
+    });
+    mockPrisma.workshopCheckIn.findFirst
+      .mockResolvedValueOnce({
+        id: CHECK_IN_ID,
+        tenant_id: TENANT_ID,
+        workshop_order_id: ORDER_ID,
+        status: WorkshopCheckInStatus.DRAFT,
+        revision: 2,
+        condition_json: {
+          schema_version: 1,
+          tyre_season: 'WINTER',
+          exterior_notes: '',
+          interior_notes: '',
+        },
+        damage_markers_json: [],
+        items_left: 'umbrella',
+        key_count: 1,
+        warning_lights: ['ABS'],
+        odometer: 125010,
+        fuel_level: 38,
+      })
+      .mockResolvedValueOnce({
+        id: CHECK_IN_ID,
+        tenant_id: TENANT_ID,
+        workshop_order_id: ORDER_ID,
+        status: WorkshopCheckInStatus.COMPLETED,
+        revision: 3,
+        condition_json: {
+          schema_version: 1,
+          tyre_season: 'WINTER',
+          exterior_notes: '',
+          interior_notes: '',
+        },
+        damage_markers_json: [],
+        items_left: 'umbrella',
+        key_count: 1,
+        warning_lights: ['ABS'],
+        odometer: 125010,
+        fuel_level: 38,
+        content_sha256: 'b'.repeat(64),
+        completed_at: completedAt,
+        completed_by_user_id: 'u-1',
+        pdf_sha256: null,
+        createdAt: new Date('2026-10-16T10:00:00.000Z'),
+        updatedAt: completedAt,
+      });
+    mockPrisma.workshopMedia.findMany.mockResolvedValue([]);
+    mockPrisma.workshopCheckIn.updateMany.mockResolvedValue({ count: 1 });
+
+    const result = await service.complete(ORDER_ID, { expected_revision: 2 });
+
+    expect(result.status).toBe(WorkshopCheckInStatus.COMPLETED);
+    expect(result.revision).toBe(3);
+    expect(result.content_sha256).toHaveLength(64);
+    expect(result.pdf_sha256).toBeNull();
+    const updateCall = mockPrisma.workshopCheckIn.updateMany.mock.calls[0]?.[0];
+    expect(updateCall?.where).toMatchObject({
+      status: WorkshopCheckInStatus.DRAFT,
+      revision: 2,
+    });
+    expect(updateCall?.data).toMatchObject({
+      status: WorkshopCheckInStatus.COMPLETED,
+      revision: 3,
+    });
+    expect(updateCall?.data).not.toHaveProperty('pdf_sha256');
+
+    jest.useRealTimers();
+  });
+
+  it('returns the frozen record on idempotent completion retry', async () => {
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+      id: ORDER_ID,
+      status: WorkshopOrderStatus.IN_PROGRESS,
+      odometer: 1,
+      fuel_level: 1,
+    });
+    mockPrisma.workshopCheckIn.findFirst.mockResolvedValue({
+      id: CHECK_IN_ID,
+      tenant_id: TENANT_ID,
+      workshop_order_id: ORDER_ID,
+      status: WorkshopCheckInStatus.COMPLETED,
+      revision: 3,
+      condition_json: {},
+      damage_markers_json: [],
+      items_left: '',
+      key_count: 0,
+      warning_lights: [],
+      odometer: 1,
+      fuel_level: 1,
+      content_sha256: 'c'.repeat(64),
+      completed_at: new Date('2026-10-17T12:00:00.000Z'),
+      completed_by_user_id: 'u-1',
+      pdf_sha256: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const result = await service.complete(ORDER_ID, { expected_revision: 99 });
+
+    expect(result.content_sha256).toBe('c'.repeat(64));
+    expect(mockPrisma.workshopCheckIn.updateMany).not.toHaveBeenCalled();
   });
 
   it('returns 404 when check-in is missing', async () => {

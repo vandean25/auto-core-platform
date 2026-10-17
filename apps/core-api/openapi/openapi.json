@@ -6577,6 +6577,46 @@
         ]
       }
     },
+    "/api/workshop/orders/{orderId}/check-in/complete": {
+      "post": {
+        "operationId": "WorkshopCheckInController_complete",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteWorkshopCheckInDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopCheckInResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
     "/api/inspection-catalogues/preview": {
       "post": {
         "operationId": "InspectionCatalogController_preview",
@@ -25663,6 +25703,18 @@
           "fuel_level": {
             "type": "number"
           },
+          "content_sha256": {
+            "type": "object",
+            "nullable": true
+          },
+          "completed_at": {
+            "type": "object",
+            "nullable": true
+          },
+          "pdf_sha256": {
+            "type": "object",
+            "nullable": true
+          },
           "created_at": {
             "type": "string"
           },
@@ -25803,6 +25855,18 @@
             "minimum": 0,
             "maximum": 100,
             "nullable": false
+          }
+        },
+        "required": [
+          "expected_revision"
+        ]
+      },
+      "CompleteWorkshopCheckInDto": {
+        "type": "object",
+        "properties": {
+          "expected_revision": {
+            "type": "number",
+            "minimum": 1
           }
         },
         "required": [
