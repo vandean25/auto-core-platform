@@ -7,6 +7,7 @@ import {
   createMockListResponse,
   createMockRevenueGroup,
 } from './utils/mock-factories';
+import { DE_SALES } from './helpers/de-sales';
 
 /**
  * AUT-471: icon-only buttons and links must expose an accessible name.
@@ -58,7 +59,7 @@ test.describe('Icon-only controls have accessible names (AUT-471)', () => {
     const corePage = new AutoCorePage(page, 'Sales Order');
     await corePage.navigate('/sales-orders/so-1');
 
-    await expect(page.getByRole('link', { name: 'Back to sales orders' })).toBeVisible();
+    await expect(page.getByRole('link', { name: DE_SALES.orders.detail.backAria })).toBeVisible();
     await expectNamedControls(page);
   });
 

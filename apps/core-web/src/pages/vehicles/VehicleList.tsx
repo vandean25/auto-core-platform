@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { CarFront, Plus } from 'lucide-react'
 import { DataTable } from '@/components/data-table/DataTable'
@@ -22,7 +23,7 @@ type VehicleRow = {
 }
 
 function getCustomerLabel(
-  t: (key: string) => string,
+  t: TFunction<'vehicles'>,
   customer?: {
     type: 'PRIVATE' | 'COMPANY'
     first_name: string

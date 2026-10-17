@@ -254,7 +254,8 @@ export const A11Y_SMOKE_ROUTES: A11ySmokeRoute[] = [
       await mockApi(page, '/api/customers', createMockListResponse([]));
     },
     open: async (page) => {
-      await new AutoCorePage(page, 'Customer').createButton.click();
+      const { DE_CUSTOMERS } = await import('../helpers/de-customers');
+      await new AutoCorePage(page, DE_CUSTOMERS.list.addCustomer).createButton.click();
     },
     ready: async (page) => {
       await expect(page.getByRole('dialog', { name: 'Add Customer' })).toBeVisible();

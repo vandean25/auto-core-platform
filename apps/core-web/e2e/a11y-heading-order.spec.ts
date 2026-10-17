@@ -7,6 +7,7 @@ import {
   createMockWorkshopOrder,
 } from './utils/mock-factories'
 import { DE_WORKSHOP } from './helpers/de-workshop'
+import { DE_SALES } from './helpers/de-sales'
 
 /**
  * AUT-472: heading levels on the detail pages. A card directly under the page h1 is an h2 (the
@@ -56,7 +57,9 @@ test.describe('Heading order on detail pages', () => {
     await page.waitForLoadState('networkidle')
 
     await expect(page.getByRole('heading', { level: 1, name: order.order_number })).toBeVisible()
-    await expect(page.getByRole('heading', { level: 2, name: 'Customer', exact: true })).toBeVisible()
+    await expect(
+      page.getByRole('heading', { level: 2, name: DE_SALES.orders.detail.customerSection, exact: true }),
+    ).toBeVisible()
     await expectNoHeadingOrderViolations(page)
   })
 
