@@ -164,7 +164,19 @@ export class VehicleMediaService {
 
       return toVehicleMediaDto(created);
     } catch (error) {
-      await this.bestEffortDeleteWrittenObjects(bucket, writtenKeys);
+      const cleanupError = await this.bestEffortDeleteWrittenObjects(
+        bucket,
+        writtenKeys,
+      );
+      if (cleanupError) {
+        const primary =
+          error instanceof Error ? error : new Error(String(error));
+        throw new AggregateError(
+          [primary, cleanupError],
+          `${primary.message}; vehicle photo object cleanup also failed`,
+          { cause: error },
+        );
+      }
       throw error;
     }
   }
@@ -321,18 +333,20 @@ export class VehicleMediaService {
   private async bestEffortDeleteWrittenObjects(
     bucket: string,
     keys: string[],
-  ): Promise<void> {
+  ): Promise<Error | undefined> {
     if (keys.length === 0) {
-      return;
+      return undefined;
     }
     try {
       await this.storage.deleteObjects(bucket, keys);
+      return undefined;
     } catch (error) {
+      const cleanupError =
+        error instanceof Error ? error : new Error(String(error));
       this.logger.warn(
-        `Best-effort cleanup of failed vehicle photo upload objects failed: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+        `Best-effort cleanup of failed vehicle photo upload objects failed: ${cleanupError.message}`,
       );
+      return cleanupError;
     }
   }
 

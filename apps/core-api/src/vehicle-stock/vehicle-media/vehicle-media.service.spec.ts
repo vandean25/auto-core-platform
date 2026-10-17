@@ -220,6 +220,24 @@ describe('VehicleMediaService', () => {
     );
   });
 
+  it('surfaces upload and cleanup failures together when both fail', async () => {
+    const source = await readFile(gpsFixture);
+    prisma.vehicleMedia.aggregate.mockResolvedValue({ _max: { sort_order: 0 } });
+    prisma.vehicleMedia.count.mockResolvedValue(0);
+    prisma.$transaction.mockRejectedValue(new Error('unique cover conflict'));
+    storage.deleteObjects.mockRejectedValue(new Error('cleanup failed'));
+
+    const file = {
+      buffer: source,
+      size: source.byteLength,
+    } as Express.Multer.File;
+
+    await expect(service.upload(vehicleId, file)).rejects.toMatchObject({
+      name: 'AggregateError',
+      message: expect.stringContaining('unique cover conflict'),
+    });
+  });
+
   it('promotes the next photo to cover inside the delete transaction', async () => {
     const row = {
       id: 'cover-photo',
