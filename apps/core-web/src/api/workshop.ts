@@ -974,6 +974,7 @@ export type RegistrationIntakeDetail = {
       customerId: string | null
     }[]
   }
+  appliedWorkshopOrderId?: string | null
 }
 
 export const registrationIntakeKeys = {
@@ -1088,7 +1089,14 @@ export function useRegistrationIntakeOrder() {
       }
       return response.json()
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: (data, variables) => {
+      queryClient.setQueryData(
+        registrationIntakeKeys.detail(variables.id),
+        (prev: RegistrationIntakeDetail | undefined) =>
+          prev
+            ? { ...prev, appliedWorkshopOrderId: data.workshopOrderId as string }
+            : prev,
+      )
       queryClient.invalidateQueries({ queryKey: registrationIntakeKeys.detail(variables.id) })
       queryClient.invalidateQueries({ queryKey: workshopKeys.orders() })
     },

@@ -1187,6 +1187,7 @@
     "toastConfirmed": "Customer and vehicle confirmed",
     "toastOdometerRequired": "Enter a valid odometer reading before creating the order.",
     "toastOrderCreated": "Workshop order created",
+    "toastCheckInReady": "Workshop order created — start vehicle check-in",
     "extractionFailed": "Extraction failed ({{code}}). Delete and try again with a new upload.",
     "unknown": "unknown",
     "uploadFailed": "Upload failed",
@@ -1200,6 +1201,8 @@
     "lowConfidence": " (low confidence)",
     "confirmIdentity": "Confirm identity",
     "createOrder": "Create workshop order",
+    "startCheckIn": "Start vehicle check-in",
+    "continueCheckIn": "Continue vehicle check-in",
     "abort": "Abort",
     "delete": "Delete"
   },

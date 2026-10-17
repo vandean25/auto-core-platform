@@ -109,7 +109,7 @@ export function RegistrationDocumentIntakeStep({
             await applyIntake.mutateAsync({ id: intake.id, body })
             toast.success(t('registrationIntake.toastConfirmed'))
           }}
-          onCreateOrder={async () => {
+          onStartCheckIn={async () => {
             const odometerValue = Number.parseInt(odometer, 10)
             const fuelValue = Number.parseInt(fuelLevel, 10)
             if (!Number.isFinite(odometerValue) || odometerValue < 0) {
@@ -123,9 +123,12 @@ export function RegistrationDocumentIntakeStep({
               notes: notes || undefined,
             })
             if (result.workshopOrderId) {
-              toast.success(t('registrationIntake.toastOrderCreated'))
+              toast.success(t('registrationIntake.toastCheckInReady'))
               onOrderCreated(result.workshopOrderId)
             }
+          }}
+          onContinueCheckIn={(workshopOrderId) => {
+            onOrderCreated(workshopOrderId)
           }}
           onAbort={async () => {
             await abortIntake.mutateAsync(intake.id)
