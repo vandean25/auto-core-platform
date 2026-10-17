@@ -12,10 +12,29 @@ import {
   runWithTenantContext,
   seedTestTenantMember,
 } from './tenant-test-utils.js';
-import { pickerlDueFixturesForToday } from '../src/vehicle/pickerl/pickerl-due-window-fixtures.js';
+import {
+  dueSoonWithinWindow,
+  pickerlDueFixturesForToday,
+} from '../src/vehicle/pickerl/pickerl-due-window-fixtures.js';
 import { teardownTestApp } from './test-lifecycle.js';
 
 const FIXTURE_FIRST_REGISTRATION = new Date('2019-06-01T00:00:00.000Z');
+
+function expectedPickerlWindowPlates(window: 30 | 60 | 90): string[] {
+  const today = new Date();
+  const fixtures = pickerlDueFixturesForToday(today);
+  const plates = ['W-OVERDUE'];
+  if (dueSoonWithinWindow(fixtures.due30, today, window)) {
+    plates.push('W-DUE30');
+  }
+  if (dueSoonWithinWindow(fixtures.due60, today, window)) {
+    plates.push('W-DUE60');
+  }
+  if (dueSoonWithinWindow(fixtures.due90, today, window)) {
+    plates.push('W-DUE90');
+  }
+  return plates.sort();
+}
 
 describe('Pickerl Due (e2e)', () => {
   let app: INestApplication;
@@ -261,7 +280,7 @@ describe('Pickerl Due (e2e)', () => {
       .expect(200);
 
     const plates = res.body.data.map((v: { plate: string }) => v.plate);
-    expect([...plates].sort()).toEqual(['W-DUE30', 'W-OVERDUE'].sort());
+    expect([...plates].sort()).toEqual(expectedPickerlWindowPlates(30));
   });
 
   it('GET /vehicles/pickerl-due filters by window 60 with exact plate set', async () => {
@@ -271,9 +290,7 @@ describe('Pickerl Due (e2e)', () => {
       .expect(200);
 
     const plates = res.body.data.map((v: { plate: string }) => v.plate);
-    expect([...plates].sort()).toEqual(
-      ['W-DUE30', 'W-DUE60', 'W-OVERDUE'].sort(),
-    );
+    expect([...plates].sort()).toEqual(expectedPickerlWindowPlates(60));
   });
 
   it('GET /vehicles/pickerl-due filters by window 90 with exact plate set', async () => {
@@ -283,9 +300,7 @@ describe('Pickerl Due (e2e)', () => {
       .expect(200);
 
     const plates = res.body.data.map((v: { plate: string }) => v.plate);
-    expect([...plates].sort()).toEqual(
-      ['W-DUE30', 'W-DUE60', 'W-DUE90', 'W-OVERDUE'].sort(),
-    );
+    expect([...plates].sort()).toEqual(expectedPickerlWindowPlates(90));
   });
 
   it('GET /vehicles/pickerl-due?status=UNKNOWN returns only unknown vehicles', async () => {

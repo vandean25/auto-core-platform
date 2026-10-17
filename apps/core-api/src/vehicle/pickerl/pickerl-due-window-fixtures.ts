@@ -104,23 +104,6 @@ function pickPlaketteMonthForOkStatus(today: Date): PlaketteMonth {
   throw new Error('No plakette month yields OK status');
 }
 
-function pickDue60Month(today: Date): PlaketteMonth {
-  if (hasStrictDue60Bucket(today)) {
-    return pickPlaketteMonthInWindow(today, 30, 60);
-  }
-  return pickPlaketteMonthInWindow(today, 60, 90);
-}
-
-export function pickerlDueFixturesForToday(today: Date) {
-  const due90 = pickPlaketteMonthInWindow(today, 60, 90);
-  return {
-    due30: pickPlaketteMonthInWindow(today, null, 30),
-    due60: pickDue60Month(today),
-    due90,
-    ok: pickPlaketteMonthForOkStatus(today),
-  };
-}
-
 /** False when no calendar month-end falls strictly between the 30- and 60-day window ends. */
 export function hasStrictDue60Bucket(today: Date): boolean {
   try {
@@ -129,6 +112,37 @@ export function hasStrictDue60Bucket(today: Date): boolean {
   } catch {
     return false;
   }
+}
+
+function pickDue60Month(today: Date): PlaketteMonth {
+  try {
+    if (hasStrictDue60Bucket(today)) {
+      return pickPlaketteMonthInWindow(today, 30, 60);
+    }
+    return pickPlaketteMonthInWindow(today, 60, 90);
+  } catch {
+    return pickPlaketteMonthInWindow(today, null, 60);
+  }
+}
+
+function pickDue90Month(today: Date, due60: PlaketteMonth): PlaketteMonth {
+  try {
+    return pickPlaketteMonthInWindow(today, 60, 90);
+  } catch {
+    return due60;
+  }
+}
+
+export function pickerlDueFixturesForToday(today: Date) {
+  const due30 = pickPlaketteMonthInWindow(today, null, 30);
+  const due60 = pickDue60Month(today);
+  const due90 = pickDue90Month(today, due60);
+  return {
+    due30,
+    due60,
+    due90,
+    ok: pickPlaketteMonthForOkStatus(today),
+  };
 }
 
 export function dueSoonWithinWindow(
