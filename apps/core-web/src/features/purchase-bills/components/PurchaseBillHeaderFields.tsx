@@ -41,7 +41,7 @@ export function PurchaseBillHeaderFields({ form }: { form: PurchaseBillFormModel
             value={form.invoiceDate}
             onChange={(event) => {
               form.setInvoiceDate(event.target.value)
-              form.queueSave({ invoiceDate: event.target.value })
+              form.queueSave({ invoiceDate: event.target.value }, true)
             }}
           />
         </div>
@@ -53,7 +53,7 @@ export function PurchaseBillHeaderFields({ form }: { form: PurchaseBillFormModel
             value={form.dueDate}
             onChange={(event) => {
               form.setDueDate(event.target.value)
-              form.queueSave({ dueDate: event.target.value })
+              form.queueSave({ dueDate: event.target.value }, true)
             }}
           />
         </div>

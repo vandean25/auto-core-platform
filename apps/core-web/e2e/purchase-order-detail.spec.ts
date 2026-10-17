@@ -118,7 +118,9 @@ test.describe("Blueprint: Purchase Order Detail", () => {
       page.getByRole("heading", { name: "PO-2026-0001", exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByText(`Lieferant: Bosch Automotive`),
+      page.getByText(
+        DE_FINANCE.shared.vendorLabel.replace('{{name}}', 'Bosch Automotive'),
+      ),
     ).toBeVisible();
     await expect(page.getByText(DE_STATUS.DRAFT, { exact: true })).toBeVisible();
 

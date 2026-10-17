@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Plus } from 'lucide-react'
-import { format } from 'date-fns'
+import { formatDate } from '@/lib/format'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { DataTable } from '@/components/data-table/DataTable'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
@@ -63,7 +63,7 @@ export default function PurchaseOrderList() {
         {
             accessorKey: 'createdAt',
             header: ({ column }) => <DataTableColumnHeader column={column} title={t('columns.date')} />,
-            cell: ({ row }) => format(new Date(row.original.createdAt), 'PPP'),
+            cell: ({ row }) => formatDate(row.original.createdAt),
         },
         {
             accessorKey: 'items',

@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import {
+  SettlementMutationError,
   settlementSuccessToastMessageKey,
   useCancelFiscalReceipt,
   useInvoiceSettlement,
   useRecordSettlement,
   useReconcileSettlement,
 } from '@/api/useInvoiceSettlement'
+import { getErrorMessage } from '@/lib/error-utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -57,6 +59,14 @@ export function InvoiceSettlementActions({
     invoiceId,
     hasOpenReceipt ? payment?.idempotencyKey : undefined,
   )
+
+  const toastSettlementError = (error: unknown) => {
+    if (error instanceof SettlementMutationError) {
+      toast.error(t(error.i18nKey))
+      return
+    }
+    toast.error(getErrorMessage(error, t('settlement.errors.generic')))
+  }
 
   if (!canManage) {
     return null
@@ -122,7 +132,7 @@ export function InvoiceSettlementActions({
             toast.message(t('settlement.toast.settlementOpen'))
           }
         },
-        onError: (error) => toast.error(error.message),
+        onError: toastSettlementError,
       },
     )
   }
@@ -180,7 +190,7 @@ export function InvoiceSettlementActions({
                   if (messageKey) toast.success(t(messageKey))
                   else toast.message(t('settlement.toast.reconcileFinished'))
                 },
-                onError: (error) => toast.error(error.message),
+                onError: toastSettlementError,
               })
             }}
           >
@@ -195,7 +205,7 @@ export function InvoiceSettlementActions({
             onClick={() => {
               cancel.mutate(signedNormal.id, {
                 onSuccess: () => toast.message(t('settlement.toast.cancellationSubmitted')),
-                onError: (error) => toast.error(error.message),
+                onError: toastSettlementError,
               })
             }}
           >

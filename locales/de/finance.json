@@ -30,7 +30,8 @@
     "itemsCount": "{{count}} Positionen",
     "itemsCount_one": "{{count}} Position",
     "itemsCount_other": "{{count}} Positionen",
-    "lineCountPending": "{{lines}} Position(en), {{qty}} Menge offen",
+    "lineCountPending_one": "{{count}} Position, {{qty}} Menge offen",
+    "lineCountPending_other": "{{count}} Positionen, {{qty}} Menge offen",
     "stock": "Bestand: {{count}}",
     "notAvailable": "k. A.",
     "unknownItem": "Unbekannte Position",
@@ -111,7 +112,7 @@
     "tenantWideIssue_one": "Ein Problem betrifft jeden Export in diesem Zeitraum.",
     "tenantWideIssue_other": "{{count}} Probleme betreffen jeden Export in diesem Zeitraum.",
     "blockers": {
-      "LEGACY_DOCUMENT_UNSUPPORTED": "Legacy-Beleg",
+      "LEGACY_DOCUMENT_UNSUPPORTED": "Älterer Beleg (nicht exportierbar)",
       "UNSUPPORTED_EXPORT_TAX_MODE": "Nicht unterstützter Steuermodus",
       "UNSUPPORTED_EXPORT_COUNTRY": "Export außerhalb DE",
       "ACCOUNTING_MAPPING_INCOMPLETE": "Kontenzuordnung unvollständig",
@@ -140,11 +141,11 @@
       "tax": "USt",
       "gross": "Brutto",
       "creditedLines": "Gutgeschriebene Positionen",
-      "draftEditHint": "Nur OWNER oder ADMIN können diesen Gutschrift-Entwurf bearbeiten oder ungültig stellen.",
+      "draftEditHint": "Nur Eigentümer oder Administrator können diesen Gutschrift-Entwurf bearbeiten oder ungültig stellen.",
       "finalizedHint": "Abgeschlossene Gutschriften können hier nicht geändert werden. Wenden Sie sich an Support und Ihre Buchhaltung, wenn der Beleg irrtümlich ausgestellt wurde.",
       "finalizeDialog": {
         "title": "Gutschrift abschließen?",
-        "description": "Dies vergibt eine permanente Gutschrift-Nummer und friert den Korrektur-Snapshot ein. Es erfolgt kein Lager-Rücklauf und keine Erstattung. Die Ursprungsrechnung bleibt unverändert.",
+        "description": "Dies vergibt eine permanente Gutschrift-Nummer und friert den Stand der Korrektur ein. Es erfolgt kein Lager-Rücklauf und keine Erstattung. Die Ursprungsrechnung bleibt unverändert.",
         "confirm": "Gutschrift abschließen"
       },
       "voidDialog": {
@@ -154,7 +155,7 @@
       },
       "toast": {
         "waitForSave": "Bitte warten Sie, bis der Entwurf gespeichert ist, bevor Sie abschließen.",
-        "resolveAutosave": "Beheben Sie den Autosave-Fehler, bevor Sie diese Gutschrift abschließen.",
+        "resolveAutosave": "Beheben Sie den Speicherfehler, bevor Sie diese Gutschrift abschließen.",
         "reasonRequired": "Bitte geben Sie einen Grund ein, bevor Sie abschließen.",
         "fixQuantities": "Korrigieren Sie ungültige gutgeschriebene Mengen, bevor Sie abschließen.",
         "finalized": "Gutschrift abgeschlossen",
@@ -209,6 +210,13 @@
     "externalReceiptNo": "Externe Belegnr.",
     "receiptDate": "Belegdatum",
     "cancelFiscalReceipt": "Fiskalbeleg stornieren",
+    "errors": {
+      "generic": "Die Abrechnung ist fehlgeschlagen. Bitte versuchen Sie es erneut.",
+      "recordFailed": "Die Abrechnung konnte nicht erfasst werden.",
+      "reconcileFailed": "Der Abgleich ist fehlgeschlagen.",
+      "cancellationFailed": "Die Stornierung konnte nicht eingereicht werden.",
+      "missingIdempotencyKey": "Abrechnung kann nicht abgeglichen werden (fehlender Idempotenzschlüssel)."
+    },
     "toast": {
       "externalFieldsRequired": "Externe Belegnummer und Datum sind erforderlich.",
       "settlementOpen": "Abrechnungsversuch ist noch offen — ggf. abgleichen.",
@@ -253,7 +261,8 @@
       "partsGroup": "Teile",
       "qtyPlaceholder": "Menge",
       "addButton": "+ Hinzufügen",
-      "createBill": "Eingangsrechnung anlegen ({{count}} Positionen)",
+      "createBill_one": "Eingangsrechnung anlegen ({{count}} Position)",
+      "createBill_other": "Eingangsrechnung anlegen ({{count}} Positionen)",
       "cannotDeleteReceived": "Empfangene Positionen können nicht gelöscht werden",
       "deleteItem": "Position löschen",
       "deleteItemConfirm": "Diese Position wirklich löschen?",
@@ -269,7 +278,7 @@
         "deleteItemFailed": "Position konnte nicht gelöscht werden",
         "markingSent": "Wird als gesendet markiert…",
         "markedSent": "Bestellung als gesendet markiert",
-        "markSentFailed": "Als gesendet markieren fehlgeschlagen",
+        "markSentFailed": "Senden fehlgeschlagen",
         "receiveFailed": "Wareneingang fehlgeschlagen"
       },
       "receiveDialog": {

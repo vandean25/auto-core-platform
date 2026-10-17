@@ -6,6 +6,7 @@ import type { FiscalReceiptSummary, SettlementPaymentSummary } from '@/api/useIn
 import { SettlementReceiptQr } from '@/components/finance/SettlementReceiptQr'
 import { formatCurrency, formatIsoDateTimeInZone } from '@/lib/format'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { formatStatusLabel } from '@/lib/i18n/enum-labels'
 
 function formatRksvTimestamp(
   timeSignature: number | null,
@@ -91,10 +92,20 @@ export function InvoiceSettlementPanel({
         <CardTitle className="text-base font-semibold">{t('settlement.title')}</CardTitle>
         <div className="flex flex-wrap gap-2">
           {payment ? (
-            <StatusBadge status={payment.status} />
+            <StatusBadge
+              status={payment.status}
+              label={t('settlement.paymentBadge', {
+                status: formatStatusLabel(payment.status),
+              })}
+            />
           ) : null}
           {openReceipt ? (
-            <StatusBadge status={openReceipt.state} />
+            <StatusBadge
+              status={openReceipt.state}
+              label={t('settlement.receiptBadge', {
+                status: formatStatusLabel(openReceipt.state),
+              })}
+            />
           ) : null}
         </div>
       </CardHeader>

@@ -3,6 +3,22 @@ import { useEffect, useRef } from 'react'
 import { generateId } from '@/lib/id'
 import { invoiceKeys } from '@/api/sales'
 
+export type SettlementMutationErrorKey =
+  | 'settlement.errors.recordFailed'
+  | 'settlement.errors.reconcileFailed'
+  | 'settlement.errors.cancellationFailed'
+  | 'settlement.errors.missingIdempotencyKey'
+
+export class SettlementMutationError extends Error {
+  readonly i18nKey: SettlementMutationErrorKey
+
+  constructor(i18nKey: SettlementMutationErrorKey) {
+    super(i18nKey)
+    this.name = 'SettlementMutationError'
+    this.i18nKey = i18nKey
+  }
+}
+
 export type FiscalReceiptSummary = {
   id: string
   providerReceiptId: string
@@ -109,9 +125,10 @@ export function useRecordSettlement(invoiceId: string) {
         message?: string
       }
       if (!response.ok) {
-        throw new Error(
-          typeof body.message === 'string' ? body.message : 'Settlement failed',
-        )
+        if (typeof body.message === 'string' && body.message.trim()) {
+          throw new Error(body.message)
+        }
+        throw new SettlementMutationError('settlement.errors.recordFailed')
       }
       return body
     },
@@ -128,7 +145,7 @@ export function useReconcileSettlement(invoiceId: string, idempotencyKey: string
   return useMutation({
     mutationFn: async () => {
       if (!idempotencyKey) {
-        throw new Error('Missing settlement idempotency key')
+        throw new SettlementMutationError('settlement.errors.missingIdempotencyKey')
       }
       const response = await fetch(`/api/invoices/${invoiceId}/settlement/reconcile`, {
         method: 'POST',
@@ -140,9 +157,10 @@ export function useReconcileSettlement(invoiceId: string, idempotencyKey: string
         message?: string
       }
       if (!response.ok) {
-        throw new Error(
-          typeof body.message === 'string' ? body.message : 'Reconcile failed',
-        )
+        if (typeof body.message === 'string' && body.message.trim()) {
+          throw new Error(body.message)
+        }
+        throw new SettlementMutationError('settlement.errors.reconcileFailed')
       }
       return body
     },
@@ -169,9 +187,10 @@ export function useCancelFiscalReceipt(invoiceId: string) {
         message?: string
       }
       if (!response.ok) {
-        throw new Error(
-          typeof body.message === 'string' ? body.message : 'Cancellation failed',
-        )
+        if (typeof body.message === 'string' && body.message.trim()) {
+          throw new Error(body.message)
+        }
+        throw new SettlementMutationError('settlement.errors.cancellationFailed')
       }
       return body
     },

@@ -30,7 +30,8 @@
     "itemsCount": "{{count}} items",
     "itemsCount_one": "{{count}} item",
     "itemsCount_other": "{{count}} items",
-    "lineCountPending": "{{lines}} line(s), {{qty}} qty pending",
+    "lineCountPending_one": "{{count}} line, {{qty}} qty pending",
+    "lineCountPending_other": "{{count}} lines, {{qty}} qty pending",
     "stock": "Stock: {{count}}",
     "notAvailable": "N/A",
     "unknownItem": "Unknown item",
@@ -111,7 +112,7 @@
     "tenantWideIssue_one": "One issue applies to every export in this period.",
     "tenantWideIssue_other": "{{count}} issues apply to every export in this period.",
     "blockers": {
-      "LEGACY_DOCUMENT_UNSUPPORTED": "Legacy document",
+      "LEGACY_DOCUMENT_UNSUPPORTED": "Older document (not exportable)",
       "UNSUPPORTED_EXPORT_TAX_MODE": "Unsupported tax mode",
       "UNSUPPORTED_EXPORT_COUNTRY": "Outside DE export",
       "ACCOUNTING_MAPPING_INCOMPLETE": "Mapping incomplete",
@@ -140,7 +141,7 @@
       "tax": "Tax",
       "gross": "Gross",
       "creditedLines": "Credited lines",
-      "draftEditHint": "Only OWNER or ADMIN can edit or void this draft credit note.",
+      "draftEditHint": "Only owners or administrators can edit or void this draft credit note.",
       "finalizedHint": "Finalized credits cannot be changed here. Contact support and your accountant for external corrective handling if this document was issued in error.",
       "finalizeDialog": {
         "title": "Finalize credit note?",
@@ -154,7 +155,7 @@
       },
       "toast": {
         "waitForSave": "Please wait for the draft to finish saving before finalizing.",
-        "resolveAutosave": "Resolve the autosave error before finalizing this credit note.",
+        "resolveAutosave": "Resolve the save error before finalizing this credit note.",
         "reasonRequired": "Please enter a reason before finalizing.",
         "fixQuantities": "Fix invalid credited quantities before finalizing.",
         "finalized": "Credit note finalized",
@@ -209,6 +210,13 @@
     "externalReceiptNo": "External receipt no.",
     "receiptDate": "Receipt date",
     "cancelFiscalReceipt": "Cancel fiscal receipt",
+    "errors": {
+      "generic": "Settlement failed. Please try again.",
+      "recordFailed": "Could not record the settlement.",
+      "reconcileFailed": "Reconciliation failed.",
+      "cancellationFailed": "Could not submit the cancellation.",
+      "missingIdempotencyKey": "Cannot reconcile settlement (missing idempotency key)."
+    },
     "toast": {
       "externalFieldsRequired": "External receipt number and date are required.",
       "settlementOpen": "Settlement attempt is still open — reconcile if needed.",
@@ -253,7 +261,8 @@
       "partsGroup": "Parts",
       "qtyPlaceholder": "Qty",
       "addButton": "+ Add",
-      "createBill": "Create bill ({{count}} items)",
+      "createBill_one": "Create bill ({{count}} item)",
+      "createBill_other": "Create bill ({{count}} items)",
       "cannotDeleteReceived": "Cannot delete items that have been received",
       "deleteItem": "Delete item",
       "deleteItemConfirm": "Are you sure you want to delete this item?",

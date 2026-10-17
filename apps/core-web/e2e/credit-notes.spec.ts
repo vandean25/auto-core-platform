@@ -627,7 +627,9 @@ test.describe('Credit notes UI', () => {
     await printButton.click();
 
     // 5. Button is disabled with loading spinner while in flight
-    const generatingButton = page.getByRole('button', { name: /Wird erstellt/i });
+    const generatingButton = page.getByRole('button', {
+      name: DE_FINANCE.shared.generating,
+    });
     await expect(generatingButton).toBeVisible();
     await expect(generatingButton).toBeDisabled();
     await expect(generatingButton.locator('.animate-spin')).toBeVisible();

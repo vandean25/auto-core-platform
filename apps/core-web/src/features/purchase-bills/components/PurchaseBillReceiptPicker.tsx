@@ -54,7 +54,7 @@ export function PurchaseBillReceiptPicker({ form }: { form: PurchaseBillFormMode
                     <span className="font-medium">{receipt.number}</span>
                     <span className="text-xs text-slate-500">
                       {t('shared.lineCountPending', {
-                        lines: receipt.lineCount,
+                        count: receipt.lineCount,
                         qty: receipt.pendingQuantity,
                       })}
                     </span>

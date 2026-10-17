@@ -137,7 +137,8 @@ describe('AccountingExportReadinessPage', () => {
       deFinance.accountingExportReadiness.blockers.LEGACY_DOCUMENT_UNSUPPORTED,
       deFinance.accountingExportReadiness.blockers.UNSUPPORTED_EXPORT_COUNTRY,
     ]) {
-      expect(screen.getByRole('button', { name: new RegExp(reason) })).toBeInTheDocument()
+      const escaped = reason.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      expect(screen.getByRole('button', { name: new RegExp(escaped) })).toBeInTheDocument()
     }
     expect(
       screen.getByText('Document ownership or numbering evidence is incomplete.'),

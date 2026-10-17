@@ -60,6 +60,7 @@ export function PurchaseBillLineItemEditor({ form }: { form: PurchaseBillFormMod
           <div className="relative">
             <Input
               ref={itemInputRef}
+              disabled={!form.vendorId}
               value={form.searchQuery}
               onChange={(event) => {
                 if (form.stagedItem) {
