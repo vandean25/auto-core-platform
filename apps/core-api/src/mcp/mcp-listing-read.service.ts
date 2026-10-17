@@ -40,7 +40,8 @@ export class McpListingReadService {
     if (!listing) {
       throw new NotFoundException({
         code: 'VEHICLE_LISTING_NOT_FOUND',
-        message: 'No marketplace listing exists for this vehicle at the active site.',
+        message:
+          'No marketplace listing exists for this vehicle at the active site.',
       });
     }
 

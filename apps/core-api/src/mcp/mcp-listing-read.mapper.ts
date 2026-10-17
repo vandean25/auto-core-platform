@@ -1,7 +1,4 @@
-import type {
-  VehicleListing,
-  VehicleListingChannel,
-} from '@prisma/client';
+import type { VehicleListing, VehicleListingChannel } from '@prisma/client';
 
 export type VehicleListingWithChannels = VehicleListing & {
   channels: VehicleListingChannel[];
