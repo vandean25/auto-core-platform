@@ -195,10 +195,7 @@ type InteractiveTransactionFn = (
 
 const skipVehicleMediaPurgeDeferral = Symbol('skipVehicleMediaPurgeDeferral');
 
-type TransactionRunner = (
-  arg: unknown,
-  options?: unknown,
-) => Promise<unknown>;
+type TransactionRunner = (arg: unknown, options?: unknown) => Promise<unknown>;
 
 /** Apply after audit/realtime extensions so interactive tx clients keep their hooks. */
 export function createVehicleMediaPurgeTransactionExtension() {
@@ -206,7 +203,10 @@ export function createVehicleMediaPurgeTransactionExtension() {
     const runParentTransaction = client.$transaction.bind(
       client,
     ) as TransactionRunner;
-    let runExtendedTransaction: TransactionRunner;
+    const batchTxRunners: {
+      runBatchTransaction?: TransactionRunner;
+      runExtendedTransaction?: TransactionRunner;
+    } = {};
 
     const extension = client.$extends({
       name: 'vehicle-media-purge-transaction',
@@ -218,8 +218,12 @@ export function createVehicleMediaPurgeTransactionExtension() {
               : {};
           if (transactionOptions[skipVehicleMediaPurgeDeferral]) {
             if (Array.isArray(arg)) {
-              const extendedClient = Prisma.getExtensionContext(this);
-              return runParentTransaction.call(extendedClient, arg, options);
+              if (!batchTxRunners.runBatchTransaction) {
+                throw new Error(
+                  'Vehicle media purge batch transaction is not ready.',
+                );
+              }
+              return batchTxRunners.runBatchTransaction(arg, options);
             }
             return runParentTransaction(arg, options);
           }
@@ -229,19 +233,30 @@ export function createVehicleMediaPurgeTransactionExtension() {
             );
           }
           if (Array.isArray(arg)) {
-            return runWithDeferredVehicleMediaPurges(() =>
-              runExtendedTransaction(arg, {
+            return runWithDeferredVehicleMediaPurges(() => {
+              if (!batchTxRunners.runExtendedTransaction) {
+                throw new Error(
+                  'Vehicle media purge batch transaction is not ready.',
+                );
+              }
+              return batchTxRunners.runExtendedTransaction(arg, {
                 ...transactionOptions,
                 [skipVehicleMediaPurgeDeferral]: true,
-              }),
-            );
+              });
+            });
           }
           return runParentTransaction(arg, options);
         },
       },
     });
 
-    runExtendedTransaction = extension.$transaction.bind(extension);
+    batchTxRunners.runBatchTransaction = runParentTransaction.bind(
+      extension,
+    ) as TransactionRunner;
+    batchTxRunners.runExtendedTransaction = extension.$transaction.bind(
+      extension,
+    ) as TransactionRunner;
+
     return extension;
   });
 }

@@ -325,12 +325,7 @@ describe('Vehicle stock photos (e2e)', () => {
     await expect(
       suite.prisma.$transaction([
         ...batchDeleteVehiclePromises(vehicleId, purchaseId),
-        suite.prisma.vehicle.delete({
-          where: {
-            tenant_id: suite.tenantId,
-            id: '00000000-0000-0000-0000-000000000099',
-          },
-        }),
+        suite.prisma.$executeRaw`SELECT (1 / 0)`,
       ]),
     ).rejects.toThrow();
 
