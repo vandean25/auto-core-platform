@@ -12358,6 +12358,37 @@
         ]
       }
     },
+    "/api/vehicle-stock/{vehicleId}/listing/export/validate": {
+      "get": {
+        "operationId": "VehicleListingExportController_validate",
+        "parameters": [
+          {
+            "name": "vehicleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleListingExportValidationResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Validate listing export readiness and serializer rules per portal channel",
+        "tags": [
+          "vehicle-stock"
+        ]
+      }
+    },
     "/api/vehicle-stock/{vehicleId}/listing/export/download": {
       "get": {
         "operationId": "VehicleListingExportController_download",
@@ -32866,6 +32897,70 @@
         "required": [
           "expected_revision",
           "desired_state"
+        ]
+      },
+      "VehicleListingExportFieldIssueDto": {
+        "type": "object",
+        "properties": {
+          "field": {
+            "type": "string",
+            "example": "price_gross_eur"
+          },
+          "message": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "message"
+        ]
+      },
+      "VehicleListingChannelValidationDto": {
+        "type": "object",
+        "properties": {
+          "platform": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VehicleListingPlatform"
+              }
+            ]
+          },
+          "serializer_profile": {
+            "type": "string"
+          },
+          "serializer_supported": {
+            "type": "boolean",
+            "description": "False when no export serializer is registered for this channel profile."
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VehicleListingExportFieldIssueDto"
+            }
+          }
+        },
+        "required": [
+          "platform",
+          "serializer_profile",
+          "serializer_supported",
+          "issues"
+        ]
+      },
+      "VehicleListingExportValidationResponseDto": {
+        "type": "object",
+        "properties": {
+          "channels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VehicleListingChannelValidationDto"
+            }
+          }
+        },
+        "required": [
+          "channels"
         ]
       },
       "EmployeeRole": {

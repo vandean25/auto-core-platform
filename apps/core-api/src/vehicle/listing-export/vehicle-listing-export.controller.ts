@@ -9,13 +9,30 @@ import {
   StreamableFile,
 } from '@nestjs/common';
 import type { Response } from 'express';
-import { ApiOperation, ApiProduces, ApiQuery, ApiTags } from '@nestjs/swagger';
+import {
+  ApiOkResponse,
+  ApiOperation,
+  ApiProduces,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
 import { VehicleListingExportService } from './vehicle-listing-export.service.js';
+import { VehicleListingExportValidationResponseDto } from './dto/vehicle-listing-export-validation.dto.js';
 
 @ApiTags('vehicle-stock')
 @Controller('vehicle-stock/:vehicleId/listing/export')
 export class VehicleListingExportController {
   constructor(private readonly listingExports: VehicleListingExportService) {}
+
+  @Get('validate')
+  @ApiOperation({
+    summary:
+      'Validate listing export readiness and serializer rules per portal channel',
+  })
+  @ApiOkResponse({ type: VehicleListingExportValidationResponseDto })
+  validate(@Param('vehicleId', ParseUUIDPipe) vehicleId: string) {
+    return this.listingExports.validateListingExport(vehicleId);
+  }
 
   @Get('download')
   @ApiOperation({

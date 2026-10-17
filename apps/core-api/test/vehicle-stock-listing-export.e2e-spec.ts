@@ -101,6 +101,38 @@ describe('Vehicle listing export download (e2e)', () => {
       .expect(200);
   }
 
+  it('returns per-portal validation issues without downloading a package', async () => {
+    const created = await suite.createAndReceive({
+      vin: vin('LST-VAL'),
+      sellerType: 'VENDOR',
+    });
+    const vehicleId = created.received.vehicle_id;
+    const listingId = randomUUID();
+
+    await request(suite.app.getHttpServer())
+      .post(`/api/vehicle-stock/${vehicleId}/listing`)
+      .set('Authorization', `Bearer ${suite.authToken}`)
+      .send({ id: listingId, expected_stock_purchase_id: created.received.id })
+      .expect(201);
+
+    const validation = await request(suite.app.getHttpServer())
+      .get(`/api/vehicle-stock/${vehicleId}/listing/export/validate`)
+      .set('Authorization', `Bearer ${suite.authToken}`)
+      .expect(200);
+
+    expect(validation.body.channels).toHaveLength(3);
+    const mobile = validation.body.channels.find(
+      (row: { platform: string }) => row.platform === 'MOBILE_DE',
+    );
+    expect(mobile.serializer_supported).toBe(true);
+    expect(mobile.issues.length).toBeGreaterThan(0);
+    expect(
+      mobile.issues.some(
+        (issue: { field: string }) => issue.field === 'price_gross_eur',
+      ),
+    ).toBe(false);
+  });
+
   it('downloads a ZIP package for an active, ready listing', async () => {
     const created = await suite.createAndReceive({
       vin: vin('LST-EXP'),
