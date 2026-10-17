@@ -9,6 +9,9 @@ import * as invoicesApi from '@/api/invoices'
 import { toast } from 'sonner'
 import type { Invoice, WorkshopOrder } from '@/api/types'
 import type { DiscountState } from './useWorkshopCalculations'
+import { deWorkshop } from '@/test/de-workshop'
+
+const checkoutToast = deWorkshop.checkout.toast
 
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', () => ({
@@ -256,7 +259,7 @@ describe('useWorkshopCheckout', () => {
       expect(mockCreateDraft).toHaveBeenCalledWith('order-1')
       expect(result.current.activeInvoiceId).toBe('inv-new')
       expect(toast.success).toHaveBeenCalledWith(
-        'Draft invoice created (INV-001)',
+        checkoutToast.draftInvoiceCreated.replace('{{number}}', 'INV-001'),
       )
     })
 
@@ -323,7 +326,9 @@ describe('useWorkshopCheckout', () => {
         },
       })
       expect(mockIssueInvoice).toHaveBeenCalledWith('inv-draft-1')
-      expect(toast.success).toHaveBeenCalledWith('Invoice issued (INV-FINAL)')
+      expect(toast.success).toHaveBeenCalledWith(
+        checkoutToast.invoiceIssued.replace('{{number}}', 'INV-FINAL'),
+      )
     })
 
     it('closes checkout and calls onReopenTask when reopen requested', () => {
