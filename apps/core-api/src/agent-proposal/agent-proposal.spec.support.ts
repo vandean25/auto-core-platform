@@ -184,6 +184,14 @@ export function createAgentProposalSpecHarness() {
     policyEvaluator,
     reads,
   );
+  const submitPayloadNormalizer = {
+    normalize: jest.fn(async (actionType: string, payload: unknown) => {
+      if (actionType === 'workshop_order.mechanic_finding') {
+        return mockMechanicFindingPropose.enrichInput(payload);
+      }
+      return payload;
+    }),
+  };
   const submissions = new AgentProposalSubmissionService(
     mockPrisma,
     mockTenantContext,
@@ -192,10 +200,7 @@ export function createAgentProposalSpecHarness() {
     mockDryRun,
     mockPendingActionExecutors,
     policyEvaluator,
-    mockWorkshopBookingPackage,
-    mockWorkshopOrderCompletion as never,
-    mockInvoiceWorkshopDraftPropose as never,
-    mockMechanicFindingPropose as never,
+    submitPayloadNormalizer as never,
   );
   const service = new AgentProposalService(
     mockTenantContext,
@@ -220,6 +225,8 @@ export function createAgentProposalSpecHarness() {
     mockWorkshopIntake,
     mockPartsRequisition,
     mockWorkshopBookingPackage,
+    mockMechanicFindingPropose,
+    mockSubmitPayloadNormalizer: submitPayloadNormalizer,
   };
 }
 

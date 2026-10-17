@@ -36,7 +36,6 @@ export interface UploadPolicyResult {
 export const IMAGE_MIME_TYPES = new Set<string>([
   'image/jpeg',
   'image/png',
-  'image/heic',
   'image/webp',
 ]);
 
@@ -195,7 +194,6 @@ export class MechanicMediaStorage {
     'image/jpeg': ['.jpg', '.jpeg'],
     'image/png': ['.png'],
     'image/webp': ['.webp'],
-    'image/heic': ['.heic'],
     'video/mp4': ['.mp4'],
     'video/quicktime': ['.mov'],
   };

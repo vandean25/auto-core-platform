@@ -38,7 +38,7 @@ describe('PendingActionExecutorService workshop_order.propose_mechanic_finding',
       {
         workshop_order_id: '00000000-0000-4000-8000-000000000001',
         workshop_task_id: '00000000-0000-4000-8000-000000000006',
-        description: 'pilot customer finding',
+        description: 'brake pads worn below limit',
         media_ids: [],
       },
       context,

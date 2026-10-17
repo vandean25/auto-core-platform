@@ -125,6 +125,38 @@ describe('AgentProposalSubmissionService', () => {
     expect(h.mockPrisma.agentProposal.create).not.toHaveBeenCalled();
   });
 
+  it('enriches workshop_order.mechanic_finding before simulating', async () => {
+    h.mockDryRun.executeInRollbackTransaction.mockResolvedValue({
+      result: { workshop_task_id: 'task-1', workshop_order_id: 'order-1' },
+      wouldChange: [],
+    });
+    h.mockPrisma.agentProposal.create.mockResolvedValue(createMockProposal());
+    h.mockSubmitPayloadNormalizer.normalize.mockImplementation(
+      async (_actionType: string, input: unknown) => ({
+        ...(input as object),
+        pinned_media_ids: [],
+      }),
+    );
+
+    await h.submissions.submitPendingAction({
+      action_type: 'workshop_order.mechanic_finding',
+      payload_json: {
+        workshop_order_id: '51500000-0000-4000-8000-000000000601',
+        workshop_task_id: '51500000-0000-4000-8000-000000000602',
+        description: 'brake pads worn below limit',
+        media_ids: [],
+      },
+    });
+
+    expect(h.mockSubmitPayloadNormalizer.normalize).toHaveBeenCalledWith(
+      'workshop_order.mechanic_finding',
+      expect.objectContaining({
+        description: 'brake pads worn below limit',
+      }),
+    );
+    expect(h.mockDryRun.executeInRollbackTransaction).toHaveBeenCalled();
+  });
+
   it('rejects actions without an executor before simulating them', async () => {
     await expect(
       h.submissions.submitPendingAction({

@@ -60,6 +60,8 @@ import { WorkshopBookingPackageService } from './workshop-booking-package.servic
 import { WorkshopOrderCompletionService } from './workshop-order-completion.service.js';
 import { WorkshopPositionPlanService } from './workshop-position-plan.service.js';
 import { MechanicMediaStorage } from '../mechanic/mechanic-media.storage.js';
+import { MechanicMcpModule } from '../mechanic/mechanic-mcp.module.js';
+import { McpWorkshopOrderDetailReadService } from '../mcp/mcp-workshop-order-detail.read.service.js';
 import { InspectionCatalogModule } from '../inspection-catalog/inspection-catalog.module.js';
 import { InspectionMeasurementModule } from '../inspection-measurement/inspection-measurement.module.js';
 
@@ -80,6 +82,7 @@ import { InspectionMeasurementModule } from '../inspection-measurement/inspectio
     PartsRequisitionModule,
     AuditModule,
     forwardRef(() => RegistrationIntakeModule),
+    MechanicMcpModule,
   ],
   controllers: [
     PublicEstimateApprovalController,
@@ -131,6 +134,7 @@ import { InspectionMeasurementModule } from '../inspection-measurement/inspectio
     WorkshopBookingPackageService,
     WorkshopOrderCompletionService,
     WorkshopPositionPlanService,
+    McpWorkshopOrderDetailReadService,
     { provide: OPENHOLIDAYS_FETCH, useValue: fetch },
   ],
   exports: [
@@ -146,6 +150,8 @@ import { InspectionMeasurementModule } from '../inspection-measurement/inspectio
     WorkshopOrderReadyEmailService,
     WorkshopEstimateDecisionTriageService,
     WorkshopMechanicFindingService,
+    MechanicMcpModule,
+    McpWorkshopOrderDetailReadService,
   ],
 })
 export class WorkshopModule {}

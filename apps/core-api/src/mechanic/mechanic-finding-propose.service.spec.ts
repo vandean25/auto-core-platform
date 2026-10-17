@@ -44,7 +44,7 @@ describe('MechanicFindingProposeService', () => {
       service.buildPreview({
         workshop_order_id: ORDER_ID,
         workshop_task_id: TASK_ID,
-        description: 'pilot customer brake wear',
+        description: 'brake pads worn below limit',
         media_ids: [FOREIGN_MEDIA_ID],
       }),
     ).rejects.toBeInstanceOf(UnprocessableEntityException);
@@ -57,7 +57,7 @@ describe('MechanicFindingProposeService', () => {
       service.buildPreview({
         workshop_order_id: ORDER_ID,
         workshop_task_id: TASK_ID,
-        description: 'pilot customer brake wear',
+        description: 'brake pads worn below limit',
         media_ids: [],
       }),
     ).rejects.toBeInstanceOf(NotFoundException);

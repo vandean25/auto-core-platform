@@ -5,7 +5,6 @@ import { VehicleService } from '../vehicle/vehicle.service.js';
 import { WorkshopBoardService } from '../workshop/workshop-board.service.js';
 import { WorkshopIntakeService } from '../workshop/workshop-intake.service.js';
 import { WorkshopTaskService } from '../workshop/workshop-task.service.js';
-import { WorkshopMechanicFindingService } from '../workshop/workshop-mechanic-finding.service.js';
 import { clampMcpPage, clampMcpPageSize } from './mcp-output.util.js';
 import { McpWorkshopOrderReadService } from './mcp-workshop-order-read.service.js';
 import type { listWorkshopOrdersInputSchema } from './mcp-tool-schemas.js';
@@ -21,7 +20,6 @@ export class McpRecordReadService {
   private readonly workshopBoardService: WorkshopBoardService;
   private readonly workshopTaskService: WorkshopTaskService;
   private readonly workshopOrderReads: McpWorkshopOrderReadService;
-  private readonly mechanicFindings: WorkshopMechanicFindingService;
 
   // Fields are assigned in the body rather than declared as parameter properties: cohesion analysis
   // otherwise counts the constructor as a separate component and flags the whole class as low-cohesion.
@@ -33,7 +31,6 @@ export class McpRecordReadService {
     workshopBoardService: WorkshopBoardService,
     workshopTaskService: WorkshopTaskService,
     workshopOrderReads: McpWorkshopOrderReadService,
-    mechanicFindings: WorkshopMechanicFindingService,
   ) {
     this.customerService = customerService;
     this.vehicleService = vehicleService;
@@ -42,7 +39,6 @@ export class McpRecordReadService {
     this.workshopBoardService = workshopBoardService;
     this.workshopTaskService = workshopTaskService;
     this.workshopOrderReads = workshopOrderReads;
-    this.mechanicFindings = mechanicFindings;
   }
 
   async listBays(input: { page?: number; pageSize?: number }) {
@@ -136,15 +132,6 @@ export class McpRecordReadService {
   }
 
   async getWorkshopOrder(input: { workshop_order_id: string }) {
-    const order = await this.workshopIntakeService.findOne(
-      input.workshop_order_id,
-    );
-    const findings = await this.mechanicFindings.listForOrder(
-      input.workshop_order_id,
-    );
-    return {
-      ...order,
-      mechanic_findings: findings.data,
-    };
+    return this.workshopIntakeService.findOne(input.workshop_order_id);
   }
 }

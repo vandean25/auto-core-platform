@@ -6233,7 +6233,7 @@ describe('MCP server (e2e)', () => {
         {
           workshop_order_id: findingOrderId,
           workshop_task_id: findingTaskId,
-          description: 'pilot customer additional wear observed',
+          description: 'brake pads worn below limit',
           media_ids: ['51500000-0000-4000-8000-000000000599'],
         },
       );
@@ -6273,7 +6273,7 @@ describe('MCP server (e2e)', () => {
           {
             workshop_order_id: findingOrderId,
             workshop_task_id: findingTaskId,
-            description: 'pilot customer additional wear observed',
+            description: 'brake pads worn below limit',
             media_ids: [mediaId],
           },
         ),
@@ -6300,7 +6300,7 @@ describe('MCP server (e2e)', () => {
       );
       expect(orderRead.mechanic_findings.length).toBeGreaterThan(0);
       expect(orderRead.mechanic_findings[0]?.finding_text).toContain(
-        'pilot customer',
+        'brake pads worn',
       );
       expect(orderRead.mechanic_findings[0]?.media[0]?.id).toBe(mediaId);
     });

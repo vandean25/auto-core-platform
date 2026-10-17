@@ -7,6 +7,7 @@
     "apps/core-api/src/document-branding/document-branding-upload-worker.service.ts": 5.49,
     "apps/core-api/src/loaner-vehicles/loaner-vehicles.service.ts": 5.65,
     "apps/core-api/src/mcp/mcp-output.util.ts": 5.94,
+    "apps/core-api/src/mcp/mcp-read-tool.service.ts": 5.3,
     "apps/core-api/src/mcp/mcp-server.factory.ts": 5.9,
     "apps/core-api/src/mcp/mcp-tool-descriptions.ts": 5.9,
     "apps/core-api/src/mcp/mcp-tool-handler.service.ts": 5.9,

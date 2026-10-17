@@ -8475,7 +8475,7 @@ export interface components {
              * @description MIME type of the file to upload.
              * @enum {string}
              */
-            mimeType: "image/jpeg" | "image/png" | "image/webp" | "video/mp4" | "video/quicktime";
+            mimeType: "image/jpeg" | "image/png" | "image/heic" | "image/webp" | "video/mp4" | "video/quicktime";
             /** @description Declared file size in bytes (used for content-length-range constraint). */
             sizeBytes: number;
             /** @description Optional original filename hint (used to derive the storage object extension). */
@@ -8504,7 +8504,7 @@ export interface components {
              * @description MIME type of the uploaded file.
              * @enum {string}
              */
-            mimeType: "image/jpeg" | "image/png" | "image/webp" | "video/mp4" | "video/quicktime";
+            mimeType: "image/jpeg" | "image/png" | "image/heic" | "image/webp" | "video/mp4" | "video/quicktime";
             /** @description File size in bytes. */
             sizeBytes: number;
             /** @description Optional caption for the media. */

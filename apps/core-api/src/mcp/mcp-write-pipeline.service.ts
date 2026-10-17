@@ -2,6 +2,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Optional,
 } from '@nestjs/common';
 import { AgentPolicyTier, AgentProposalStatus, Prisma } from '@prisma/client';
 import { AgentActionLogService } from '../agent-action-log/agent-action-log.service.js';
@@ -34,6 +35,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import { WorkshopBookingPackageService } from '../workshop/workshop-booking-package.service.js';
 import { MechanicFindingProposeService } from '../mechanic/mechanic-finding-propose.service.js';
+import { mechanicFindingProposeNoop } from '../mechanic/mechanic-finding-propose.noop.js';
 import { MECHANIC_FINDING_ACTION_TYPE } from '../mechanic/mechanic-finding.constants.js';
 import { WorkshopOrderCompletionService } from '../workshop/workshop-order-completion.service.js';
 import { InvoiceWorkshopDraftProposeService } from '../invoices/invoice-workshop-draft-propose.service.js';
@@ -121,7 +123,7 @@ export class McpWritePipelineService {
     workshopBookingPackage: WorkshopBookingPackageService,
     workshopOrderCompletion: WorkshopOrderCompletionService,
     invoiceWorkshopDraftPropose: InvoiceWorkshopDraftProposeService,
-    mechanicFindingPropose: MechanicFindingProposeService,
+    @Optional() mechanicFindingPropose?: MechanicFindingProposeService,
   ) {
     this.prisma = prisma;
     this.agentPolicy = agentPolicy;
@@ -134,7 +136,8 @@ export class McpWritePipelineService {
     this.workshopBookingPackage = workshopBookingPackage;
     this.workshopOrderCompletion = workshopOrderCompletion;
     this.invoiceWorkshopDraftPropose = invoiceWorkshopDraftPropose;
-    this.mechanicFindingPropose = mechanicFindingPropose;
+    this.mechanicFindingPropose =
+      mechanicFindingPropose ?? mechanicFindingProposeNoop;
   }
 
   private async normalizeWriteInput(
