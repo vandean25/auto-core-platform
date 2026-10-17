@@ -32,7 +32,5 @@ export function assertMobileDeEncodable(value: string, field: string): void {
 
 /** Map advisor newlines to mobile.de in-field line breaks (CSV row stays one physical line). */
 export function normalizeMobileDeMultilineText(value: string): string {
-  return value
-    .replace(/\r\n|\r|\n/g, MOBILE_DE_DESCRIPTION_LINE_BREAK)
-    .trim();
+  return value.replace(/\r\n|\r|\n/g, MOBILE_DE_DESCRIPTION_LINE_BREAK).trim();
 }

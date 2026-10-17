@@ -334,7 +334,8 @@ export class VehicleListingService {
         patchData.portal_category = dto.portal_category;
       }
       if (dto.export_assertion_damage_free !== undefined) {
-        patchData.export_assertion_damage_free = dto.export_assertion_damage_free;
+        patchData.export_assertion_damage_free =
+          dto.export_assertion_damage_free;
       }
       if (dto.export_assertion_metallic !== undefined) {
         patchData.export_assertion_metallic = dto.export_assertion_metallic;
@@ -343,14 +344,16 @@ export class VehicleListingService {
         patchData.export_assertion_guarantee = dto.export_assertion_guarantee;
       }
       if (dto.export_assertion_jahreswagen !== undefined) {
-        patchData.export_assertion_jahreswagen = dto.export_assertion_jahreswagen;
+        patchData.export_assertion_jahreswagen =
+          dto.export_assertion_jahreswagen;
       }
       if (dto.export_assertion_recommendation !== undefined) {
         patchData.export_assertion_recommendation =
           dto.export_assertion_recommendation;
       }
       if (dto.export_assertion_demo_vehicle !== undefined) {
-        patchData.export_assertion_demo_vehicle = dto.export_assertion_demo_vehicle;
+        patchData.export_assertion_demo_vehicle =
+          dto.export_assertion_demo_vehicle;
       }
 
       const guarded = await tx.vehicleListing.updateMany({
