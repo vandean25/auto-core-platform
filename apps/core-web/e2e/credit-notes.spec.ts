@@ -712,9 +712,7 @@ test.describe('Credit notes UI', () => {
 
     await page.goto(`/sales/invoices/${INVOICE_ID}`);
     await expect(page.getByRole('button', { name: DE_SALES.invoices.detail.creditNote })).toHaveCount(0);
-    await expect(
-      page.getByText(/Credit notes can only be issued by OWNER or ADMIN/i),
-    ).toBeVisible();
+    await expect(page.getByText(DE_SALES.invoices.detail.creditNoteGuidance)).toBeVisible();
   });
 
   test('non-admin users see read-only draft credit note detail', async ({ page }) => {

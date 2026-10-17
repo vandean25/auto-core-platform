@@ -59,7 +59,7 @@ test.describe('Heading order on detail pages', () => {
 
     await expect(page.getByRole('heading', { level: 1, name: order.order_number })).toBeVisible()
     await expect(
-      page.getByRole('heading', { level: 2, name: DE_SALES.orders.detail.customerSection, exact: true }),
+      page.getByRole('heading', { level: 2, name: DE_SALES.orders.detail.customer, exact: true }),
     ).toBeVisible()
     await expectNoHeadingOrderViolations(page)
   })
