@@ -3,6 +3,7 @@ import request from 'supertest';
 import sharp from 'sharp';
 import { exifHasGpsIfd } from '../src/common/media/exif-has-gps-ifd.js';
 import { VEHICLE_MEDIA_STORAGE } from '../src/vehicle-stock/vehicle-media/vehicle-media.storage.js';
+import { registerVehicleMediaPurgeStorage } from '../src/vehicle-stock/vehicle-media/vehicle-media-purge.registry.js';
 import { InMemoryVehicleMediaStorage } from './support/in-memory-vehicle-media-storage.js';
 import {
   createVehicleStockSuite,
@@ -20,6 +21,7 @@ describe('Vehicle stock photos (e2e)', () => {
   let suite: Awaited<ReturnType<typeof createVehicleStockSuite>>;
 
   beforeAll(async () => {
+    registerVehicleMediaPurgeStorage(mediaStorage);
     suite = await createVehicleStockSuite({
       configureModule: (builder) =>
         builder

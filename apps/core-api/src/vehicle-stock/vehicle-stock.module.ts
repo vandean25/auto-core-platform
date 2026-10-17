@@ -22,7 +22,10 @@ import {
 } from './vehicle-media/vehicle-media.storage.js';
 import { VehicleMediaService } from './vehicle-media/vehicle-media.service.js';
 import { VehicleMediaController } from './vehicle-media/vehicle-media.controller.js';
-import { registerVehicleMediaPurgeStorage } from './vehicle-media/vehicle-media-purge.registry.js';
+import {
+  getVehicleMediaPurgeStorage,
+  registerVehicleMediaPurgeStorage,
+} from './vehicle-media/vehicle-media-purge.registry.js';
 
 @Module({
   imports: [
@@ -62,6 +65,8 @@ export class VehicleStockModule implements OnModuleInit {
   constructor(private readonly vehicleMediaStorage: GcsVehicleMediaStorage) {}
 
   onModuleInit(): void {
-    registerVehicleMediaPurgeStorage(this.vehicleMediaStorage);
+    if (!getVehicleMediaPurgeStorage()) {
+      registerVehicleMediaPurgeStorage(this.vehicleMediaStorage);
+    }
   }
 }
