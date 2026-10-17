@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { DE_SHELL } from './helpers/de-shell';
+import { DE_CUSTOMERS } from './helpers/de-customers';
 import { AutoCorePage } from './pom/AutoCorePage';
 import { expectNoAxeViolationsForRules } from './utils/a11y';
 import { createMockListResponse, createMockSalesOrder } from './utils/mock-factories';
@@ -107,7 +108,7 @@ test.describe('Per-route document title (AUT-473)', () => {
 
     // The list page mounts only after the outgoing page's exit animation has finished, so once its
     // heading is visible any stale write from the outgoing page has already happened.
-    await expect(page.getByRole('heading', { name: 'Customers', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: DE_CUSTOMERS.list.title, exact: true })).toBeVisible();
     await expect(page).toHaveTitle('Customers - Auto Core');
   });
 });

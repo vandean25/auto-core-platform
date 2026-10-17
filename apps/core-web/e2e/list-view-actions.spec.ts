@@ -9,7 +9,7 @@ import { createMockCustomer, createMockListResponse } from './utils/mock-factori
  * AUT-488: The list-view buttons carry clear labels and a one-line tooltip that opens on
  * focus and hover and closes with Escape. The empty sidebar Favorites copy names the new label.
  */
-const SAVE_NAME = 'Save as sidebar view for Customers';
+const SAVE_NAME = `Save as sidebar view for ${DE_CUSTOMERS.list.saveViewTitle}`;
 const ADD_NAME = 'Add to dashboard';
 const SAVE_TOOLTIP = 'Saves these filters as a shortcut in the sidebar';
 const ADD_TOOLTIP = 'Shows this result as a widget on your dashboard';
