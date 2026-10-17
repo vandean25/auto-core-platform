@@ -99,6 +99,39 @@ describe('getErrorMessage', () => {
     expect(getErrorMessage('string error', 'fallback')).toBe('fallback')
   })
 
+  it('shows German copy for vehicle photo upload size errors', () => {
+    const message = getErrorMessage(
+      {
+        response: {
+          status: 413,
+          data: {
+            code: 'VEHICLE_PHOTO_TOO_LARGE',
+            message: 'Vehicle photo exceeds the 10 MiB upload limit.',
+          },
+        },
+      },
+      'fallback',
+    )
+
+    expect(message).toBe(
+      'Fahrzeugfoto überschreitet das Upload-Limit von 10 MiB.',
+    )
+  })
+
+  it('uses HTTP_413 fallback when a 413 response has no domain code', () => {
+    const message = getErrorMessage(
+      {
+        response: {
+          status: 413,
+          data: { message: 'Payload Too Large' },
+        },
+      },
+      'fallback',
+    )
+
+    expect(message).toBe('Die Anfrage ist zu groß.')
+  })
+
   it('re-resolves wire codes from errors thrown by throwHttpError', async () => {
     const { throwHttpError } = await import('./error-utils')
     const response = new Response(

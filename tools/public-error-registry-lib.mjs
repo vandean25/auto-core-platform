@@ -26,6 +26,18 @@ const SYSTEM_WIRE_CODES = {
     en: 'The request conflicts with the current state.',
     de: 'Die Anfrage steht im Konflikt mit dem aktuellen Zustand.',
   },
+  HTTP_413: {
+    en: 'The request payload is too large.',
+    de: 'Die Anfrage ist zu groß.',
+  },
+  HTTP_415: {
+    en: 'This media type is not supported.',
+    de: 'Dieser Medientyp wird nicht unterstützt.',
+  },
+  HTTP_4XX: {
+    en: 'The request could not be completed.',
+    de: 'Die Anfrage konnte nicht abgeschlossen werden.',
+  },
   HTTP_422: {
     en: 'The request could not be processed.',
     de: 'Die Anfrage konnte nicht verarbeitet werden.',

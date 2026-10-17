@@ -13,6 +13,9 @@ export const CLIENT_SAFE_HTTP_ERROR_CODES = new Set<string>([
   'HTTP_403',
   'HTTP_404',
   'HTTP_409',
+  'HTTP_413',
+  'HTTP_415',
+  'HTTP_4XX',
   'HTTP_422',
   'HTTP_429',
   'HTTP_500',
@@ -44,6 +47,9 @@ export const CLIENT_SAFE_HTTP_ERROR_CODES = new Set<string>([
   'GEWAEHRLEISTUNG_SHORTENING_REQUIRES_CONSUMER',
   // A 409 the workshop intake dialog turns into an "Open <order>" link. The filter drops `code` without this entry.
   'VEHICLE_HAS_ACTIVE_ORDER',
+  'VEHICLE_PHOTO_TOO_LARGE',
+  'VEHICLE_PHOTO_TOO_MANY_PIXELS',
+  'VEHICLE_PHOTO_TYPE_UNSUPPORTED',
   // Public estimate approval link (ADR-0025 §7). The page maps these codes to German copy.
   'ESTIMATE_APPROVAL_NOT_FOUND',
   'ESTIMATE_APPROVAL_UNAVAILABLE',

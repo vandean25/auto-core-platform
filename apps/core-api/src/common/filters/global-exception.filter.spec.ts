@@ -3,7 +3,9 @@ import {
   ConflictException,
   HttpException,
   HttpStatus,
+  PayloadTooLargeException,
   ServiceUnavailableException,
+  UnsupportedMediaTypeException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
@@ -379,6 +381,64 @@ describe('GlobalExceptionFilter', () => {
       error: 'Unprocessable Entity',
       code: 'GEWAEHRLEISTUNG_FIRST_REGISTRATION_REQUIRED',
     });
+  });
+
+  it('forwards VEHICLE_PHOTO_TOO_LARGE on 413 responses', () => {
+    const exception = new PayloadTooLargeException({
+      code: 'VEHICLE_PHOTO_TOO_LARGE',
+      message: 'Vehicle photo exceeds the 10 MiB upload limit.',
+    });
+    filter.catch(exception, mockHost);
+
+    expect(mockStatus).toHaveBeenCalledWith(HttpStatus.PAYLOAD_TOO_LARGE);
+    expect(mockJson).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: 413,
+        code: 'VEHICLE_PHOTO_TOO_LARGE',
+        message: 'Vehicle photo exceeds the 10 MiB upload limit.',
+      }),
+    );
+  });
+
+  it('forwards VEHICLE_PHOTO_TYPE_UNSUPPORTED on 415 responses', () => {
+    const exception = new UnsupportedMediaTypeException({
+      code: 'VEHICLE_PHOTO_TYPE_UNSUPPORTED',
+      message: 'Vehicle photos must be JPEG, PNG, or WebP.',
+    });
+    filter.catch(exception, mockHost);
+
+    expect(mockStatus).toHaveBeenCalledWith(HttpStatus.UNSUPPORTED_MEDIA_TYPE);
+    expect(mockJson).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: 415,
+        code: 'VEHICLE_PHOTO_TYPE_UNSUPPORTED',
+        message: 'Vehicle photos must be JPEG, PNG, or WebP.',
+      }),
+    );
+  });
+
+  it('uses HTTP_413 when a 413 response has no domain code', () => {
+    const exception = new PayloadTooLargeException('Payload too large');
+    filter.catch(exception, mockHost);
+
+    expect(mockJson).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: 413,
+        code: 'HTTP_413',
+      }),
+    );
+  });
+
+  it('uses HTTP_4XX for unmapped 4xx statuses', () => {
+    const exception = new HttpException('Gone', HttpStatus.GONE);
+    filter.catch(exception, mockHost);
+
+    expect(mockJson).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: 410,
+        code: 'HTTP_4XX',
+      }),
+    );
   });
 
   it('does not forward order fields for codes outside the allowlist', () => {

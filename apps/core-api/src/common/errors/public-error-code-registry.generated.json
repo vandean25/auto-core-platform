@@ -525,11 +525,23 @@
       "public": true,
       "params": []
     },
+    "HTTP_413": {
+      "public": true,
+      "params": []
+    },
+    "HTTP_415": {
+      "public": true,
+      "params": []
+    },
     "HTTP_422": {
       "public": true,
       "params": []
     },
     "HTTP_429": {
+      "public": true,
+      "params": []
+    },
+    "HTTP_4XX": {
       "public": true,
       "params": []
     },
@@ -1369,15 +1381,15 @@
       "params": []
     },
     "VEHICLE_PHOTO_TOO_LARGE": {
-      "public": false,
+      "public": true,
       "params": []
     },
     "VEHICLE_PHOTO_TOO_MANY_PIXELS": {
-      "public": false,
+      "public": true,
       "params": []
     },
     "VEHICLE_PHOTO_TYPE_UNSUPPORTED": {
-      "public": false,
+      "public": true,
       "params": []
     },
     "VEHICLE_STOCK_PURCHASE_REQUIRED": {
