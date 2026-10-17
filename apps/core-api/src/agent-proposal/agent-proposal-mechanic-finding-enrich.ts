@@ -5,7 +5,9 @@ function isTabletMechanicFindingPayload(payload: unknown): boolean {
     return false;
   }
   const finding = (payload as Record<string, unknown>).finding;
-  return finding !== null && typeof finding === 'object' && !Array.isArray(finding);
+  return (
+    finding !== null && typeof finding === 'object' && !Array.isArray(finding)
+  );
 }
 
 export async function enrichMechanicFindingSubmitPayload(

@@ -98,7 +98,9 @@ export class MechanicFindingProposeService {
       agent_id: agentId,
       finding: {
         text: description,
-        text_sha256: createHash('sha256').update(description, 'utf8').digest('hex'),
+        text_sha256: createHash('sha256')
+          .update(description, 'utf8')
+          .digest('hex'),
         summary: null,
         media: plan.mediaRefs,
         voice_note_draft_id: null,
@@ -184,9 +186,7 @@ export class MechanicFindingProposeService {
     };
   }
 
-  async buildPreview(
-    input: unknown,
-  ): Promise<MechanicFindingProposePreview> {
+  async buildPreview(input: unknown): Promise<MechanicFindingProposePreview> {
     const parsed = proposeMechanicFindingInputSchema.parse(input);
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();

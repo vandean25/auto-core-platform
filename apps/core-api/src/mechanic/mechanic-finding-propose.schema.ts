@@ -35,7 +35,10 @@ export const proposeMechanicFindingInputSchema = z
     workshop_task_id: uuidSchema,
     description: z.string().min(1).max(8000),
     media_ids: z.array(uuidSchema).max(20).default([]),
-    proposed_line_items: z.array(proposedFindingLineItemSchema).max(10).optional(),
+    proposed_line_items: z
+      .array(proposedFindingLineItemSchema)
+      .max(10)
+      .optional(),
     /** Set by the server during PROPOSE enrichment. */
     pinned_media_ids: z.array(uuidSchema).max(20).optional(),
     pinned_line_items_version: z.number().int().min(0).optional(),
@@ -54,12 +57,7 @@ export type ProposeMechanicFindingInput = z.infer<
 export const requestWorkshopMediaUploadInputSchema = z
   .object({
     workshop_task_id: uuidSchema,
-    mime_type: z.enum([
-      'image/jpeg',
-      'image/png',
-      'image/heic',
-      'image/webp',
-    ]),
+    mime_type: z.enum(['image/jpeg', 'image/png', 'image/heic', 'image/webp']),
     size_bytes: z.number().int().min(1),
     purpose: z.enum(['MECHANIC_FINDING', 'CHECK_IN']),
     ...optionalMcpCommandIdSchema,
