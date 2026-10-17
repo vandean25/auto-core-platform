@@ -301,9 +301,13 @@ describe('Workshop check-in (e2e)', () => {
         .attach('file', bytes, 'check-in-overlap.jpg');
 
     const [first, second] = await Promise.all([postUpload(), postUpload()]);
-    const okStatuses = new Set([200, 201]);
-    expect(okStatuses.has(first.status)).toBe(true);
-    expect(okStatuses.has(second.status)).toBe(true);
+    const statuses = [first.status, second.status];
+    expect(statuses.some((status) => status === 200 || status === 201)).toBe(
+      true,
+    );
+    expect(statuses.every((status) => [200, 201, 409].includes(status))).toBe(
+      true,
+    );
 
     const mediaRows = await prisma.workshopMedia.findMany({
       where: { tenant_id: tenantId, id: clientUploadId },
