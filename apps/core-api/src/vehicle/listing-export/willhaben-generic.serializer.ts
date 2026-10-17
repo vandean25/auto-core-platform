@@ -14,7 +14,7 @@ import {
   WILLHABEN_GENERIC_CSV_BOM,
   WILLHABEN_GENERIC_CSV_FILENAME,
   WILLHABEN_GENERIC_MAX_IMAGES,
-  WILLHABEN_GENERIC_PROFILE_CODE,
+  WILLHABEN_GENERIC_PROFILE,
   WILLHABEN_GENERIC_ROW_TERMINATOR,
 } from './willhaben-generic-format.constants.js';
 import {
@@ -156,7 +156,7 @@ export function serializeWillhabenGenericListing(
   const csvBytes = encodeWillhabenCsv(csvText);
 
   const manifest = {
-    profile: WILLHABEN_GENERIC_PROFILE_CODE,
+    profile: WILLHABEN_GENERIC_PROFILE,
     layout_version: input.mappingVersion,
     verification: 'UNVERIFIED',
     layout: 'GENERIC_PROVISIONAL',
@@ -288,7 +288,7 @@ function validateWillhabenGenericListing(
  * is known (AUT-571).
  */
 export const willhabenGenericListingSerializer: ListingSerializerPort = {
-  profileCode: WILLHABEN_GENERIC_PROFILE_CODE,
+  profileCode: WILLHABEN_GENERIC_PROFILE,
   platform: 'WILLHABEN',
   verification: 'UNVERIFIED',
   limits: {

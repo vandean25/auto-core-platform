@@ -5,7 +5,11 @@
  * generic, provisional export of all listing fields and is UNVERIFIED against
  * any real willhaben import; it must be replaced once the real format is known.
  */
-export const WILLHABEN_GENERIC_PROFILE_CODE = 'WILLHABEN_GENERIC_V1';
+/**
+ * Serializer profile code (not an API error code — the `_CODE` suffix is
+ * avoided so the error-code registry scan does not pick it up).
+ */
+export const WILLHABEN_GENERIC_PROFILE = 'WILLHABEN_GENERIC_V1';
 
 export const WILLHABEN_GENERIC_CSV_FILENAME = 'willhaben-generic.csv';
 
