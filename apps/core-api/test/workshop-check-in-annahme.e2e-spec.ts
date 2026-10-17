@@ -66,6 +66,15 @@ describe('Workshop check-in Annahme checklist (e2e)', () => {
         customer_id: customer.id,
       },
     });
+    const pickerlVehicle = await prisma.vehicle.create({
+      data: {
+        make: 'Skoda',
+        model: 'Fabia',
+        year: 2020,
+        vin: `VIN-AUT563-PICKERL-${Date.now()}`,
+        customer_id: customer.id,
+      },
+    });
     const order = await prisma.workshopOrder.create({
       data: {
         order_number: `WO-AUT563-${Date.now()}`,
@@ -84,7 +93,7 @@ describe('Workshop check-in Annahme checklist (e2e)', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .send({
         customerId: customer.id,
-        vehicleId: vehicle.id,
+        vehicleId: pickerlVehicle.id,
         odometer: 88000,
         fuelLevel: 60,
         createPickerlTask: true,
