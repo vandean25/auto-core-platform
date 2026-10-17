@@ -1349,10 +1349,18 @@
     },
     "review": {
       "none": "Keine",
-      "signatureSectionAria": "Unterschrift (folgt)",
-      "signatureTitle": "Unterschrift",
-      "signaturePlaceholder": "Die digitale Unterschrift wird in einem nächsten Schritt ergänzt.",
-      "signatureCanvasPlaceholder": "Unterschriftsfeld (Platzhalter)",
+      "signatureSectionAria": "Kundenunterschrift",
+      "signatureTitle": "Kundenunterschrift",
+      "signatureSimpleEsignNotice": "Einfache elektronische Signatur nur als Nachweis — keine qualifizierte elektronische Signatur (QES).",
+      "signatureAcknowledgementLegal": "TODO(legal-review): Platzhalter-Bestätigungstext. Vor Kundenfreigabe durch Rechtsberatung freigeben.",
+      "signatureAcknowledgementLabel": "Ich bestätige, dass die oben dokumentierten Angaben zum Fahrzeugzustand und zu den übergebenen Gegenständen gemeinsam aufgenommen wurden. Dies ist keine Freigabe von Reparaturen oder eines Kostenvoranschlags.",
+      "signatureAcknowledgementAria": "Bestätigungsfeld",
+      "signedByName": "Name der unterzeichnenden Person",
+      "signatureDrawLabel": "Unterschrift zeichnen",
+      "signatureClear": "Unterschrift löschen",
+      "signatureCanvasAria": "Unterschriftsfeld",
+      "signatureCanvasHint": "Bitte mit Finger oder Stift im Feld unterschreiben.",
+      "signatureImageAlt": "Erfasste Unterschrift",
       "completedAt": "Abgeschlossen am {{date}}"
     },
     "errors": {
@@ -1363,6 +1371,7 @@
       "CHECK_IN_ORDER_STATUS": "Annahme ist nur bei Aufträgen in Annahme oder in Bearbeitung möglich.",
       "CHECK_IN_MEDIA_INVALID": "Mindestens ein Foto ist für diese Annahme nicht gültig.",
       "CHECK_IN_MEDIA_UPLOADER_REQUIRED": "Für Foto-Uploads muss Ihr Benutzer mit einem aktiven Mitarbeiter verknüpft sein.",
+      "CHECK_IN_SIGNATURE_REQUIRED": "Bitte Name eintragen, Bestätigung aktivieren und eine Unterschrift zeichnen, bevor Sie abschließen.",
       "UPLOAD_ID_REUSED": "Diese Upload-ID wurde bereits für andere Check-in-Medien verwendet."
     },
     "inspection": {

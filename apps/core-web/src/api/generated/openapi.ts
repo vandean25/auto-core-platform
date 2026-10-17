@@ -7839,6 +7839,11 @@ export interface components {
             /** Format: date-time */
             completed_at?: string | null;
             pdf_sha256?: string | null;
+            signed_by_name?: string | null;
+            /** Format: date-time */
+            signed_at?: string | null;
+            /** Format: uuid */
+            signature_media_id?: string | null;
             created_at: string;
             updated_at: string;
         };
@@ -7896,6 +7901,11 @@ export interface components {
         };
         CompleteWorkshopCheckInDto: {
             expected_revision: number;
+            /** Format: uuid */
+            signature_media_id: string;
+            signed_by_name: string;
+            acknowledgement_version: string;
+            acknowledged: boolean;
         };
         PreviewInspectionCatalogueDto: {
             /**

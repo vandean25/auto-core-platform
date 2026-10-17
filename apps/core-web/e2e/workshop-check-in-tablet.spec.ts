@@ -199,5 +199,106 @@ test.describe('AUT-557: workshop check-in tablet flow', () => {
     await page.getByTestId('check-in-next').click()
     await expect(page.getByTestId('check-in-step-review')).toBeVisible()
     await expect(page.getByTestId('check-in-signature-slot')).toBeVisible()
+
+    const signatureMediaId = 'media-signature-1'
+    await page.route(
+      AutoCorePage.apiRouteMatcher(`/api/workshop/orders/${ORDER_ID}/check-in/complete`),
+      async (route) => {
+        const body = route.request().postDataJSON() as {
+          signature_media_id: string
+          signed_by_name: string
+        }
+        expect(body.signature_media_id).toBe(signatureMediaId)
+        expect(body.signed_by_name).toBe('Signer Example')
+        checkIn = {
+          ...checkIn,
+          status: 'COMPLETED',
+          revision: revision + 1,
+          signed_by_name: body.signed_by_name,
+          signature_media_id: body.signature_media_id,
+          signed_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+        }
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(checkIn),
+        })
+      },
+    )
+
+    await page.getByTestId('check-in-signed-by-name').fill('Signer Example')
+    await page.getByRole('checkbox', { name: deWorkshop.checkIn.review.signatureAcknowledgementAria }).check()
+
+    await page.getByTestId('check-in-signature-canvas').evaluate((canvas) => {
+      const element = canvas as HTMLCanvasElement
+      const ctx = element.getContext('2d')
+      if (!ctx) {
+        return
+      }
+      element.width = 320
+      element.height = 160
+      ctx.strokeStyle = '#000'
+      ctx.lineWidth = 3
+      ctx.beginPath()
+      ctx.moveTo(20, 80)
+      ctx.lineTo(140, 40)
+      ctx.lineTo(260, 90)
+      ctx.stroke()
+    })
+
+    await page.route(
+      AutoCorePage.apiRouteMatcher(`/api/workshop/orders/${ORDER_ID}/check-in/media`),
+      async (route) => {
+        if (route.request().method() === 'POST') {
+          const postData = route.request().postData() ?? ''
+          const purposeMatch = postData.match(
+            /name="purpose"\r?\n\r?\n(CHECK_IN_SIGNATURE|CHECK_IN)/,
+          )
+          uploadPurpose = purposeMatch?.[1]
+          revision += 1
+          checkIn = { ...checkIn, revision }
+          await route.fulfill({
+            status: 201,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              id: signatureMediaId,
+              purpose: 'CHECK_IN_SIGNATURE',
+              mime_type: 'image/png',
+              size_bytes: 2048,
+              preview_url: null,
+              processing_status: 'READY',
+            }),
+          })
+          return
+        }
+        if (route.request().method() === 'GET') {
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              data: [
+                {
+                  id: 'media-check-in-1',
+                  purpose: 'CHECK_IN',
+                  mime_type: 'image/jpeg',
+                  size_bytes: 1024,
+                  preview_url: null,
+                  processing_status: 'READY',
+                },
+              ],
+            }),
+          })
+          return
+        }
+        await route.continue()
+      },
+    )
+
+    await page.getByTestId('check-in-complete').click()
+    await expect(page.getByText(deWorkshop.checkIn.complete.success)).toBeVisible({
+      timeout: 5000,
+    })
+    expect(uploadPurpose).toBe('CHECK_IN_SIGNATURE')
   })
 })

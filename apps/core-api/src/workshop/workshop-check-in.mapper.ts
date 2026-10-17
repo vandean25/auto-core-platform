@@ -20,6 +20,9 @@ export function toWorkshopCheckInResponse(
     content_sha256: row.content_sha256,
     completed_at: row.completed_at?.toISOString() ?? null,
     pdf_sha256: row.pdf_sha256,
+    signed_by_name: row.signed_by_name,
+    signed_at: row.signed_at?.toISOString() ?? null,
+    signature_media_id: row.signature_media_id,
     created_at: row.createdAt.toISOString(),
     updated_at: row.updatedAt.toISOString(),
   };

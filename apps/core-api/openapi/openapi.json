@@ -26089,6 +26089,20 @@
             "type": "string",
             "nullable": true
           },
+          "signed_by_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "signed_at": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "signature_media_id": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
           "created_at": {
             "type": "string"
           },
@@ -26342,10 +26356,30 @@
           "expected_revision": {
             "type": "number",
             "minimum": 1
+          },
+          "signature_media_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "signed_by_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "acknowledgement_version": {
+            "type": "string",
+            "example": "check-in-signature-v1"
+          },
+          "acknowledged": {
+            "type": "boolean"
           }
         },
         "required": [
-          "expected_revision"
+          "expected_revision",
+          "signature_media_id",
+          "signed_by_name",
+          "acknowledgement_version",
+          "acknowledged"
         ]
       },
       "PreviewInspectionCatalogueDto": {

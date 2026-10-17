@@ -1,8 +1,6 @@
-import type { Prisma, WorkshopMediaPurpose } from '@prisma/client';
+import { WorkshopMediaPurpose, type Prisma } from '@prisma/client';
 import { hashCanonicalJson } from '../invoices/invoice-snapshot-hash.js';
-import { WORKSHOP_CHECK_IN_MEDIA_PURPOSES } from './workshop-media-purpose.helpers.js';
-
-export const WORKSHOP_CHECK_IN_EVIDENCE_SCHEMA_VERSION = 2;
+export const WORKSHOP_CHECK_IN_EVIDENCE_SCHEMA_VERSION = 3;
 
 export type WorkshopCheckInEvidenceSnapshot = {
   schema_version: typeof WORKSHOP_CHECK_IN_EVIDENCE_SCHEMA_VERSION;
@@ -37,6 +35,15 @@ export type WorkshopCheckInEvidenceSnapshot = {
   }>;
   completed_at: string;
   completed_by_user_id: string | null;
+  signature: {
+    media_id: string;
+    content_sha256: string;
+    signed_by_name: string;
+    signed_at: string;
+    acknowledgement_version: string;
+    acknowledgement_text: string;
+    device_hash: string;
+  };
   checklist: Array<{
     id: string;
     label_snapshot: string;
@@ -73,6 +80,16 @@ type CheckInMediaForEvidence = {
   storage_bucket: string;
   storage_key: string;
   caption: string | null;
+};
+
+export type CheckInSignatureEvidenceInput = {
+  media_id: string;
+  content_sha256: string;
+  signed_by_name: string;
+  signed_at: Date;
+  acknowledgement_version: string;
+  acknowledgement_text: string;
+  device_hash: string;
 };
 
 /** Lexicographic order by UTF-16 code units (locale-independent). */
@@ -186,7 +203,7 @@ export function normalizeCheckInMediaForEvidence(
   media: CheckInMediaForEvidence[],
 ): WorkshopCheckInEvidenceSnapshot['media'] {
   return media
-    .filter((row) => WORKSHOP_CHECK_IN_MEDIA_PURPOSES.has(row.purpose))
+    .filter((row) => row.purpose === WorkshopMediaPurpose.CHECK_IN)
     .map((row) => ({
       id: row.id,
       purpose: row.purpose,
@@ -199,12 +216,27 @@ export function normalizeCheckInMediaForEvidence(
     .sort((left, right) => compareCheckInEvidenceStrings(left.id, right.id));
 }
 
+export function normalizeCheckInSignatureForEvidence(
+  input: CheckInSignatureEvidenceInput,
+): WorkshopCheckInEvidenceSnapshot['signature'] {
+  return {
+    media_id: input.media_id,
+    content_sha256: input.content_sha256,
+    signed_by_name: input.signed_by_name,
+    signed_at: input.signed_at.toISOString(),
+    acknowledgement_version: input.acknowledgement_version,
+    acknowledgement_text: input.acknowledgement_text,
+    device_hash: input.device_hash,
+  };
+}
+
 export function buildWorkshopCheckInEvidenceSnapshot(input: {
   row: CheckInRowForEvidence;
   media: CheckInMediaForEvidence[];
   checklistItems: CheckInInspectionItemForEvidence[];
   completedAt: Date;
   completedByUserId: string | null;
+  signature: CheckInSignatureEvidenceInput;
 }): WorkshopCheckInEvidenceSnapshot {
   return {
     schema_version: WORKSHOP_CHECK_IN_EVIDENCE_SCHEMA_VERSION,
@@ -222,6 +254,7 @@ export function buildWorkshopCheckInEvidenceSnapshot(input: {
     media: normalizeCheckInMediaForEvidence(input.media),
     completed_at: input.completedAt.toISOString(),
     completed_by_user_id: input.completedByUserId,
+    signature: normalizeCheckInSignatureForEvidence(input.signature),
     checklist: normalizeCheckInChecklistForEvidence(input.checklistItems),
   };
 }

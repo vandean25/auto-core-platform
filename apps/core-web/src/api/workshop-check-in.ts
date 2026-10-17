@@ -3,6 +3,7 @@ import type { components } from '@/api/generated/openapi'
 import { fetchWithAuth } from '@/api/client'
 import { workshopKeys } from '@/api/workshop'
 import { createCheckInHttpError } from '@/features/workshop/check-in/check-in-errors'
+import { CHECK_IN_ACKNOWLEDGEMENT_VERSION } from '@/features/workshop/check-in/check-in-signature'
 
 const WORKSHOP_API = '/api/workshop'
 
@@ -94,16 +95,28 @@ export async function updateWorkshopCheckInDraft(
   return response.json() as Promise<WorkshopCheckIn>
 }
 
+export type CompleteWorkshopCheckInPayload = {
+  expectedRevision: number
+  signatureMediaId: string
+  signedByName: string
+}
+
 export async function completeWorkshopCheckIn(
   orderId: string,
-  expectedRevision: number,
+  payload: CompleteWorkshopCheckInPayload,
 ): Promise<WorkshopCheckIn> {
   const response = await fetchWithAuth(
     `${WORKSHOP_API}/orders/${orderId}/check-in/complete`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ expected_revision: expectedRevision }),
+      body: JSON.stringify({
+        expected_revision: payload.expectedRevision,
+        signature_media_id: payload.signatureMediaId,
+        signed_by_name: payload.signedByName,
+        acknowledgement_version: CHECK_IN_ACKNOWLEDGEMENT_VERSION,
+        acknowledged: true,
+      }),
     },
   )
   if (!response.ok) {
@@ -118,12 +131,13 @@ export async function uploadWorkshopCheckInMedia(
     file: File
     clientUploadId: string
     expectedRevision: number
+    purpose?: 'CHECK_IN' | 'CHECK_IN_SIGNATURE'
   },
 ): Promise<WorkshopCheckInMedia> {
   const form = new FormData()
   form.append('file', input.file)
   form.append('client_upload_id', input.clientUploadId)
-  form.append('purpose', 'CHECK_IN')
+  form.append('purpose', input.purpose ?? 'CHECK_IN')
   form.append('expected_revision', String(input.expectedRevision))
 
   const response = await fetchWithAuth(
@@ -203,8 +217,17 @@ export function useUpdateWorkshopCheckInDraft() {
 export function useCompleteWorkshopCheckIn() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (payload: { orderId: string; expectedRevision: number }) =>
-      completeWorkshopCheckIn(payload.orderId, payload.expectedRevision),
+    mutationFn: (payload: {
+      orderId: string
+      expectedRevision: number
+      signatureMediaId: string
+      signedByName: string
+    }) =>
+      completeWorkshopCheckIn(payload.orderId, {
+        expectedRevision: payload.expectedRevision,
+        signatureMediaId: payload.signatureMediaId,
+        signedByName: payload.signedByName,
+      }),
     onSuccess: (data, payload) => {
       queryClient.setQueryData(workshopCheckInKeys.record(payload.orderId), data)
     },

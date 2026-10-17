@@ -4508,6 +4508,14 @@ model WorkshopCheckIn {
   pdf_generated_at    DateTime?
   inspection_id       String?
   inspection          WorkshopInspection?   @relation(fields: [tenant_id, inspection_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
+  signed_by_name          String?               @db.VarChar(200)
+  signed_at               DateTime?
+  signature_media_id      String?
+  signature_media         WorkshopMedia?        @relation("WorkshopCheckInSignatureMedia", fields: [tenant_id, signature_media_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
+  acknowledgement_version String?               @db.VarChar(64)
+  acknowledgement_text    String?               @db.Text
+  device_hash             String?               @db.Char(64)
+  ip_hash                 String?               @db.Char(64)
   media               WorkshopMedia[]
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
@@ -4515,8 +4523,10 @@ model WorkshopCheckIn {
   @@unique([tenant_id, id])
   @@unique([tenant_id, workshop_order_id])
   @@unique([tenant_id, inspection_id])
+  @@unique([tenant_id, signature_media_id])
   @@index([tenant_id])
   @@index([tenant_id, inspection_id], map: "idx_workshop_check_ins_inspection")
+  @@index([tenant_id, signature_media_id], map: "idx_workshop_check_ins_signature_media")
   @@map("workshop_check_ins")
 }
 
@@ -4530,6 +4540,7 @@ model WorkshopMedia {
   workshop_task           WorkshopTask?            @relation(fields: [tenant_id, workshop_task_id], references: [tenant_id, id], onDelete: SetNull, onUpdate: Cascade)
   check_in_id             String?
   check_in                WorkshopCheckIn?         @relation(fields: [tenant_id, check_in_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
+  check_in_signature_for  WorkshopCheckIn?         @relation("WorkshopCheckInSignatureMedia")
   purpose                 WorkshopMediaPurpose     @default(GENERAL)
   uploaded_by_employee_id String
   uploaded_by_employee    Employee                 @relation("WorkshopMediaUploadedByEmployee", fields: [tenant_id, uploaded_by_employee_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)

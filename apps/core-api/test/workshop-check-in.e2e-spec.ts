@@ -37,6 +37,7 @@ describe('Workshop check-in (e2e)', () => {
   let otherOrderId: string;
   const checkInId = '51500000-0000-4000-8000-000000000555';
   let lastUploadedCheckInBytes: Buffer | undefined;
+  let lastSignatureBytes: Buffer | undefined;
   const mockMediaStorage: Partial<MechanicMediaStorage> = {
     uploadCheckInPhoto: jest.fn().mockImplementation(async (params) => {
       lastUploadedCheckInBytes = params.bytes;
@@ -44,6 +45,19 @@ describe('Workshop check-in (e2e)', () => {
         storageBucket: 'test-workshop-media-bucket',
         storageKey: `tenants/t/check-in/${params.objectId ?? 'photo'}.jpg`,
       };
+    }),
+    uploadCheckInSignature: jest.fn().mockImplementation(async (params) => {
+      lastSignatureBytes = params.bytes;
+      return {
+        storageBucket: 'test-workshop-media-bucket',
+        storageKey: `tenants/t/check-in/${params.objectId ?? 'signature'}.png`,
+      };
+    }),
+    readObjectBytes: jest.fn().mockImplementation(async () => {
+      if (lastSignatureBytes) {
+        return lastSignatureBytes;
+      }
+      return Buffer.from('signature-png');
     }),
     generateSignedReadUrl: jest
       .fn()
@@ -314,6 +328,91 @@ describe('Workshop check-in (e2e)', () => {
     });
     expect(mediaRows).toHaveLength(1);
     expect(deleteSpy).not.toHaveBeenCalled();
+  });
+
+  it('rejects completion without signature evidence', async () => {
+    const before = await request(app.getHttpServer())
+      .get(`/api/workshop/orders/${orderId}/check-in`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .post(`/api/workshop/orders/${orderId}/check-in/complete`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        expected_revision: before.body.revision,
+        signature_media_id: '51500000-0000-4000-8000-000000000560',
+        signed_by_name: 'Signer Example',
+        acknowledgement_version: 'check-in-signature-v1',
+        acknowledged: true,
+      })
+      .expect(422)
+      .expect((res) => {
+        expect(res.body.code).toBe('CHECK_IN_SIGNATURE_REQUIRED');
+      });
+  });
+
+  it('uploads CHECK_IN_SIGNATURE PNG and completes with evidence fields', async () => {
+    const before = await request(app.getHttpServer())
+      .get(`/api/workshop/orders/${orderId}/check-in`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    const signatureBytes = await sharp({
+      create: {
+        width: 120,
+        height: 60,
+        channels: 4,
+        background: { r: 255, g: 255, b: 255, alpha: 0 },
+      },
+    })
+      .png()
+      .toBuffer();
+
+    const signatureId = '51500000-0000-4000-8000-000000000560';
+    const uploadRes = await request(app.getHttpServer())
+      .post(`/api/workshop/orders/${orderId}/check-in/media`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .field('client_upload_id', signatureId)
+      .field('purpose', 'CHECK_IN_SIGNATURE')
+      .field('expected_revision', String(before.body.revision))
+      .attach('file', signatureBytes, {
+        filename: 'signature.png',
+        contentType: 'image/png',
+      })
+      .expect(201);
+
+    expect(uploadRes.body.purpose).toBe('CHECK_IN_SIGNATURE');
+    expect(uploadRes.body.mime_type).toBe('image/png');
+
+    const afterUpload = await request(app.getHttpServer())
+      .get(`/api/workshop/orders/${orderId}/check-in`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    const completeRes = await request(app.getHttpServer())
+      .post(`/api/workshop/orders/${orderId}/check-in/complete`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        expected_revision: afterUpload.body.revision,
+        signature_media_id: signatureId,
+        signed_by_name: 'Signer Example',
+        acknowledgement_version: 'check-in-signature-v1',
+        acknowledged: true,
+      })
+      .expect(200);
+
+    expect(completeRes.body.status).toBe('COMPLETED');
+    expect(completeRes.body.signed_by_name).toBe('Signer Example');
+    expect(completeRes.body.signature_media_id).toBe(signatureId);
+    expect(completeRes.body.signed_at).toBeTruthy();
+    expect(completeRes.body.content_sha256).toHaveLength(64);
+
+    const row = await prisma.workshopCheckIn.findFirst({
+      where: { tenant_id: tenantId, workshop_order_id: orderId },
+    });
+    expect(row?.device_hash).toHaveLength(64);
+    expect(row?.signature_media_id).toBe(signatureId);
   });
 
   it('isolates check-in reads across tenants', async () => {

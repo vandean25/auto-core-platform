@@ -4,7 +4,9 @@ import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayUnique,
+  Equals,
   IsArray,
+  IsBoolean,
   IsIn,
   IsInt,
   IsObject,
@@ -30,8 +32,11 @@ import {
   CHECK_IN_MAX_ODOMETER,
   CHECK_IN_MAX_WARNING_LIGHT_LENGTH,
   CHECK_IN_MAX_WARNING_LIGHTS,
+  CHECK_IN_MAX_SIGNED_BY_NAME_LENGTH,
+  CHECK_IN_MIN_SIGNED_BY_NAME_LENGTH,
   CHECK_IN_TYRE_SEASONS,
 } from '../workshop-check-in.rules.js';
+import { CHECK_IN_ACKNOWLEDGEMENT_VERSION } from '../workshop-check-in-acknowledgement.js';
 
 export class CheckInConditionDto {
   @ApiProperty({ enum: ['SUMMER', 'WINTER', 'ALL_SEASON', 'UNKNOWN'] })
@@ -98,6 +103,29 @@ export class CompleteWorkshopCheckInDto {
   @IsInt()
   @Min(1)
   expected_revision!: number;
+
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  signature_media_id!: string;
+
+  @ApiProperty({
+    minLength: CHECK_IN_MIN_SIGNED_BY_NAME_LENGTH,
+    maxLength: CHECK_IN_MAX_SIGNED_BY_NAME_LENGTH,
+  })
+  @IsString()
+  @MinLength(CHECK_IN_MIN_SIGNED_BY_NAME_LENGTH)
+  @MaxLength(CHECK_IN_MAX_SIGNED_BY_NAME_LENGTH)
+  signed_by_name!: string;
+
+  @ApiProperty({ example: CHECK_IN_ACKNOWLEDGEMENT_VERSION })
+  @IsString()
+  @Equals(CHECK_IN_ACKNOWLEDGEMENT_VERSION)
+  acknowledgement_version!: string;
+
+  @ApiProperty()
+  @IsBoolean()
+  @Equals(true)
+  acknowledged!: boolean;
 }
 
 export class UpdateWorkshopCheckInDto {
@@ -225,6 +253,19 @@ export class WorkshopCheckInResponseDto {
 
   @ApiPropertyOptional({ type: String, nullable: true })
   pdf_sha256!: string | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true })
+  signed_by_name!: string | null;
+
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    format: 'date-time',
+  })
+  signed_at!: string | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true, format: 'uuid' })
+  signature_media_id!: string | null;
 
   @ApiProperty()
   created_at!: string;

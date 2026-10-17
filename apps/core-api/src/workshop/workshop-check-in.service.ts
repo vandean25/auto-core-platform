@@ -4,7 +4,8 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { Prisma, WorkshopCheckInStatus } from '@prisma/client';
+import { Prisma, WorkshopCheckInStatus, WorkshopMediaPurpose } from '@prisma/client';
+import { MechanicMediaStorage } from '../mechanic/mechanic-media.storage.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SiteContextService } from '../common/services/site-context.service.js';
 import { lockSitesAndAssertActive } from '../site/document-retarget.helpers.js';
@@ -37,6 +38,15 @@ import {
   lockWorkshopOrderForUpdate,
 } from './workshop-check-in-lock.helpers.js';
 import type { CompleteWorkshopCheckInDto } from './dto/workshop-check-in.dto.js';
+import {
+  CHECK_IN_ACKNOWLEDGEMENT_VERSION,
+  resolveCheckInAcknowledgementText,
+} from './workshop-check-in-acknowledgement.js';
+import {
+  hashCheckInDeviceEvidence,
+  hashCheckInIpEvidence,
+  sha256Buffer,
+} from './workshop-check-in-request-evidence.js';
 
 export type WorkshopCheckInCreateResult = {
   body: WorkshopCheckInResponseDto;
@@ -56,6 +66,7 @@ export class WorkshopCheckInService {
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
     private readonly siteContext: SiteContextService,
+    private readonly mediaStorage: MechanicMediaStorage,
   ) {}
 
   async create(
@@ -294,6 +305,11 @@ export class WorkshopCheckInService {
   async complete(
     orderId: string,
     dto: CompleteWorkshopCheckInDto,
+    requestEvidence: {
+      userAgent?: string;
+      ip?: string;
+      acceptLanguage?: string;
+    } = {},
   ): Promise<WorkshopCheckInResponseDto> {
     const { tenantId, siteId } = await resolveEstimateScope({
       prisma: this.prisma,
@@ -304,6 +320,83 @@ export class WorkshopCheckInService {
 
     const completedByUserId =
       this.tenantContext.getAuthenticatedUser()?.userId ?? null;
+
+    const signedByName = dto.signed_by_name.trim();
+    if (!signedByName) {
+      throw new UnprocessableEntityException({
+        code: CHECK_IN_ERROR_CODES.CHECK_IN_SIGNATURE_REQUIRED,
+        message: 'Customer signature evidence is required to complete check-in.',
+      });
+    }
+
+    const draftForSignature = await this.prisma.workshopCheckIn.findFirst({
+      where: { tenant_id: tenantId, workshop_order_id: orderId },
+      select: { id: true, status: true },
+    });
+    if (!draftForSignature) {
+      throw new NotFoundException('Workshop check-in not found');
+    }
+    if (draftForSignature.status === WorkshopCheckInStatus.COMPLETED) {
+      const completed = await this.prisma.workshopCheckIn.findFirst({
+        where: { tenant_id: tenantId, workshop_order_id: orderId },
+      });
+      if (!completed) {
+        throw new NotFoundException('Workshop check-in not found');
+      }
+      return toWorkshopCheckInResponse(completed);
+    }
+
+    const signatureMedia = await this.prisma.workshopMedia.findFirst({
+      where: {
+        tenant_id: tenantId,
+        id: dto.signature_media_id,
+        check_in_id: draftForSignature.id,
+        workshop_order_id: orderId,
+        purpose: WorkshopMediaPurpose.CHECK_IN_SIGNATURE,
+      },
+      select: {
+        id: true,
+        storage_bucket: true,
+        storage_key: true,
+        mime_type: true,
+      },
+    });
+    if (!signatureMedia || signatureMedia.mime_type !== 'image/png') {
+      throw new UnprocessableEntityException({
+        code: CHECK_IN_ERROR_CODES.CHECK_IN_SIGNATURE_REQUIRED,
+        message: 'Customer signature evidence is required to complete check-in.',
+      });
+    }
+
+    let signatureContentSha256: string;
+    try {
+      const bytes = await this.mediaStorage.readObjectBytes(
+        signatureMedia.storage_bucket,
+        signatureMedia.storage_key,
+      );
+      signatureContentSha256 = sha256Buffer(bytes);
+    } catch {
+      throw new UnprocessableEntityException({
+        code: CHECK_IN_ERROR_CODES.CHECK_IN_SIGNATURE_REQUIRED,
+        message: 'Customer signature evidence is required to complete check-in.',
+      });
+    }
+
+    const signedAt = new Date();
+    const deviceHash = hashCheckInDeviceEvidence(
+      tenantId,
+      requestEvidence.userAgent,
+    );
+    const ipHash = hashCheckInIpEvidence(tenantId, requestEvidence.ip);
+    const acknowledgementText = resolveCheckInAcknowledgementText(
+      requestEvidence.acceptLanguage,
+    );
+    if (dto.acknowledgement_version !== CHECK_IN_ACKNOWLEDGEMENT_VERSION) {
+      throw new UnprocessableEntityException({
+        code: CHECK_IN_ERROR_CODES.CHECK_IN_SIGNATURE_REQUIRED,
+        message: 'Customer signature evidence is required to complete check-in.',
+      });
+    }
 
     return this.prisma.$transaction(async (tx) => {
       await lockSitesAndAssertActive(tx, tenantId, [siteId]);
@@ -376,7 +469,7 @@ export class WorkshopCheckInService {
           })
         : [];
 
-      const completedAt = new Date();
+      const completedAt = signedAt;
       const snapshot = buildWorkshopCheckInEvidenceSnapshot({
         row: existing,
         media,
@@ -389,6 +482,15 @@ export class WorkshopCheckInService {
         })),
         completedAt,
         completedByUserId,
+        signature: {
+          media_id: signatureMedia.id,
+          content_sha256: signatureContentSha256,
+          signed_by_name: signedByName,
+          signed_at: signedAt,
+          acknowledgement_version: CHECK_IN_ACKNOWLEDGEMENT_VERSION,
+          acknowledgement_text: acknowledgementText,
+          device_hash: deviceHash,
+        },
       });
       const contentSha256 = hashWorkshopCheckInEvidenceSnapshot(snapshot);
       const nextRevision = existing.revision + 1;
@@ -408,6 +510,13 @@ export class WorkshopCheckInService {
           content_sha256: contentSha256,
           completed_at: completedAt,
           completed_by_user_id: completedByUserId,
+          signed_by_name: signedByName,
+          signed_at: signedAt,
+          signature_media_id: signatureMedia.id,
+          acknowledgement_version: CHECK_IN_ACKNOWLEDGEMENT_VERSION,
+          acknowledgement_text: acknowledgementText,
+          device_hash: deviceHash,
+          ip_hash: ipHash,
         },
       });
 

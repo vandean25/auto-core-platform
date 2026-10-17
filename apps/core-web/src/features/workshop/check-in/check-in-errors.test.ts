@@ -24,6 +24,16 @@ describe('describeWorkshopCheckInError', () => {
     ).toBe(deWorkshop.checkIn.errors.CHECK_IN_CONFLICT)
   })
 
+  it('maps CHECK_IN_SIGNATURE_REQUIRED from createCheckInHttpError', () => {
+    const error = createCheckInHttpError(
+      { status: 422 } as Response,
+      { code: 'CHECK_IN_SIGNATURE_REQUIRED', message: 'signature' },
+    )
+    expect(describeWorkshopCheckInError(error)).toBe(
+      deWorkshop.checkIn.errors.CHECK_IN_SIGNATURE_REQUIRED,
+    )
+  })
+
   it('maps CHECK_IN_MEDIA_INVALID from createCheckInHttpError', () => {
     const error = createCheckInHttpError(
       { status: 422 } as Response,

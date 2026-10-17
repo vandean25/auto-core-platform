@@ -9,6 +9,18 @@ import {
 
 const COMPLETED_AT = new Date('2026-10-17T12:00:00.000Z');
 
+function sampleSignature() {
+  return {
+    media_id: 'sig-media-1',
+    content_sha256: 'a'.repeat(64),
+    signed_by_name: 'Signer Example',
+    signed_at: COMPLETED_AT,
+    acknowledgement_version: 'check-in-signature-v1',
+    acknowledgement_text: 'acknowledgement text',
+    device_hash: 'b'.repeat(64),
+  };
+}
+
 function checkInMedia(
   overrides: Partial<{
     id: string;
@@ -107,6 +119,7 @@ describe('workshop check-in evidence snapshot', () => {
       checklistItems: [],
       completedAt: COMPLETED_AT,
       completedByUserId: 'user-1',
+      signature: sampleSignature(),
     });
     const right = buildWorkshopCheckInEvidenceSnapshot({
       row: {
@@ -133,6 +146,7 @@ describe('workshop check-in evidence snapshot', () => {
       checklistItems: [],
       completedAt: COMPLETED_AT,
       completedByUserId: 'user-1',
+      signature: sampleSignature(),
     });
 
     expect(hashWorkshopCheckInEvidenceSnapshot(left)).toBe(
@@ -148,6 +162,7 @@ describe('workshop check-in evidence snapshot', () => {
         checklistItems: [],
         completedAt: COMPLETED_AT,
         completedByUserId: 'user-1',
+        signature: sampleSignature(),
       }),
     );
     const changedItems = hashWorkshopCheckInEvidenceSnapshot(
@@ -157,6 +172,7 @@ describe('workshop check-in evidence snapshot', () => {
         checklistItems: [],
         completedAt: COMPLETED_AT,
         completedByUserId: 'user-1',
+        signature: sampleSignature(),
       }),
     );
     const changedMedia = hashWorkshopCheckInEvidenceSnapshot(
@@ -166,6 +182,7 @@ describe('workshop check-in evidence snapshot', () => {
         checklistItems: [],
         completedAt: COMPLETED_AT,
         completedByUserId: 'user-1',
+        signature: sampleSignature(),
       }),
     );
     const changedMediaCaption = hashWorkshopCheckInEvidenceSnapshot(
@@ -175,6 +192,7 @@ describe('workshop check-in evidence snapshot', () => {
         checklistItems: [],
         completedAt: COMPLETED_AT,
         completedByUserId: 'user-1',
+        signature: sampleSignature(),
       }),
     );
     const changedChecklist = hashWorkshopCheckInEvidenceSnapshot(
@@ -192,6 +210,7 @@ describe('workshop check-in evidence snapshot', () => {
         ],
         completedAt: COMPLETED_AT,
         completedByUserId: 'user-1',
+        signature: sampleSignature(),
       }),
     );
 

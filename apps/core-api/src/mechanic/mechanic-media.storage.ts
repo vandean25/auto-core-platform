@@ -190,6 +190,48 @@ export class MechanicMediaStorage {
     return { storageBucket: bucketName, storageKey };
   }
 
+  async uploadCheckInSignature(params: {
+    tenantId: string;
+    orderId: string;
+    checkInId: string;
+    bytes: Buffer;
+    filename?: string;
+    objectId?: string;
+  }): Promise<{ storageBucket: string; storageKey: string }> {
+    if (params.bytes.length === 0) {
+      throw new BadRequestException('Signature upload is empty.');
+    }
+    const bucketName = this.getBucketName();
+    const objectId = params.objectId ?? crypto.randomUUID();
+    const storageKey = `tenants/${params.tenantId}/orders/${params.orderId}/check-in/${params.checkInId}/${objectId}.png`;
+    const file = this.storage.bucket(bucketName).file(storageKey);
+    try {
+      await file.save(params.bytes, {
+        resumable: false,
+        contentType: 'image/png',
+        metadata: { cacheControl: 'private, max-age=0' },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Failed to store check-in signature key=${storageKey}: ${message}`,
+      );
+      throw new InternalServerErrorException(
+        'Failed to store check-in signature. Please try again.',
+      );
+    }
+    return { storageBucket: bucketName, storageKey };
+  }
+
+  async readObjectBytes(
+    storageBucket: string,
+    storageKey: string,
+  ): Promise<Buffer> {
+    const file = this.storage.bucket(storageBucket).file(storageKey);
+    const [bytes] = await file.download();
+    return bytes;
+  }
+
   async deleteObjectIfExists(
     storageBucket: string,
     storageKey: string,
