@@ -16,6 +16,24 @@ import { teardownTestApp } from './test-lifecycle.js';
 
 const FIXTURE_FIRST_REGISTRATION = new Date('2019-06-01T00:00:00.000Z');
 
+/** Sticker month whose end-of-month falls near `daysFromToday` (stable vs window=30/60/90 filters). */
+function plaketteMonthDaysFromToday(
+  today: Date,
+  daysFromToday: number,
+): { year: number; month: number } {
+  const target = new Date(
+    Date.UTC(
+      today.getUTCFullYear(),
+      today.getUTCMonth(),
+      today.getUTCDate() + daysFromToday,
+    ),
+  );
+  return {
+    year: target.getUTCFullYear(),
+    month: target.getUTCMonth() + 1,
+  };
+}
+
 describe('Pickerl Due (e2e)', () => {
   let app: INestApplication;
   let basePrisma: PrismaService;
@@ -110,8 +128,8 @@ describe('Pickerl Due (e2e)', () => {
         },
       });
 
-      // 2. DUE_SOON inside 30d
-      const future30 = new Date(Date.UTC(todayYear, todayMonth - 1, today.getUTCDate() + 15));
+      // 2. DUE_SOON inside 30d (end of sticker month must be <= today + 30)
+      const future30 = plaketteMonthDaysFromToday(today, 5);
       const v2 = await basePrisma.vehicle.create({
         data: {
           tenant_id: tenantId, customer_id: customer.id,
@@ -122,12 +140,13 @@ describe('Pickerl Due (e2e)', () => {
       await basePrisma.vehicleInspectionRecord.create({
         data: {
           tenant_id: tenantId, vehicle_id: v2.id, inspection_type: 'PICKERL_57A', inspected_on: new Date('2020-01-01'),
-          plaketten_valid_until_year: future30.getUTCFullYear(), plaketten_valid_until_month: future30.getUTCMonth() + 1,
+          plaketten_valid_until_year: future30.year,
+          plaketten_valid_until_month: future30.month,
         },
       });
 
-      // 3. due 31-60
-      const future60 = new Date(Date.UTC(todayYear, todayMonth - 1, today.getUTCDate() + 45));
+      // 3. due inside 60d but outside 30d
+      const future60 = plaketteMonthDaysFromToday(today, 35);
       const v3 = await basePrisma.vehicle.create({
         data: {
           tenant_id: tenantId, customer_id: customer.id,
@@ -138,12 +157,13 @@ describe('Pickerl Due (e2e)', () => {
       await basePrisma.vehicleInspectionRecord.create({
         data: {
           tenant_id: tenantId, vehicle_id: v3.id, inspection_type: 'PICKERL_57A', inspected_on: new Date('2020-01-01'),
-          plaketten_valid_until_year: future60.getUTCFullYear(), plaketten_valid_until_month: future60.getUTCMonth() + 1,
+          plaketten_valid_until_year: future60.year,
+          plaketten_valid_until_month: future60.month,
         },
       });
 
-      // 4. due 61-90
-      const future90 = new Date(Date.UTC(todayYear, todayMonth - 1, today.getUTCDate() + 75));
+      // 4. due inside 90d but outside 60d
+      const future90 = plaketteMonthDaysFromToday(today, 65);
       const v4 = await basePrisma.vehicle.create({
         data: {
           tenant_id: tenantId, customer_id: customer.id,
@@ -154,7 +174,8 @@ describe('Pickerl Due (e2e)', () => {
       await basePrisma.vehicleInspectionRecord.create({
         data: {
           tenant_id: tenantId, vehicle_id: v4.id, inspection_type: 'PICKERL_57A', inspected_on: new Date('2020-01-01'),
-          plaketten_valid_until_year: future90.getUTCFullYear(), plaketten_valid_until_month: future90.getUTCMonth() + 1,
+          plaketten_valid_until_year: future90.year,
+          plaketten_valid_until_month: future90.month,
         },
       });
 
