@@ -1,8 +1,22 @@
 import { VehicleListingVatDisplay } from '@prisma/client';
 import {
+  buildVehicleListingContentHashPayload,
   computeVehicleListingContentSha256,
+  sortJsonValue,
   type VehicleListingContentHashInput,
 } from './vehicle-listing-content-hash.js';
+
+const baseVehicle = {
+  make: 'VW',
+  model: 'Golf',
+  model_year: 2020,
+  mileage_km: 45000,
+  fuel: 'PETROL',
+  power_kw: 85,
+  first_registration: '2020-03-15',
+  co2_wltp_g_km: 120,
+  co2_nedc_g_km: null,
+};
 
 function baseInput(
   overrides: Partial<VehicleListingContentHashInput> = {},
@@ -18,6 +32,7 @@ function baseInput(
     mandatory_fees_included_confirmed: true,
     equipment_free_text: null,
     equipment: [{ code: 'ABS', assertion: 'PRESENT' }],
+    equipment_free_text_lines: [{ sort_order: 0, text: 'Panoramic roof' }],
     photos: [
       {
         media_id: 'photo-1',
@@ -37,6 +52,7 @@ function baseInput(
         mapping_version: '1',
       },
     ],
+    vehicle: baseVehicle,
     ...overrides,
   };
 }
@@ -68,6 +84,34 @@ describe('computeVehicleListingContentSha256', () => {
     expect(after).not.toBe(before);
   });
 
+  it('changes when equipment free-text line changes', () => {
+    const before = computeVehicleListingContentSha256(baseInput());
+    const after = computeVehicleListingContentSha256(
+      baseInput({
+        equipment_free_text_lines: [{ sort_order: 0, text: 'Tow bar fitted' }],
+      }),
+    );
+    expect(after).not.toBe(before);
+  });
+
+  it('changes when price changes', () => {
+    const before = computeVehicleListingContentSha256(baseInput());
+    const after = computeVehicleListingContentSha256(
+      baseInput({ price_gross_eur: '15001.00' }),
+    );
+    expect(after).not.toBe(before);
+  });
+
+  it('changes when vehicle mileage changes', () => {
+    const before = computeVehicleListingContentSha256(baseInput());
+    const after = computeVehicleListingContentSha256(
+      baseInput({
+        vehicle: { ...baseVehicle, mileage_km: 45001 },
+      }),
+    );
+    expect(after).not.toBe(before);
+  });
+
   it('changes when photo digest changes', () => {
     const before = computeVehicleListingContentSha256(baseInput());
     const after = computeVehicleListingContentSha256(
@@ -84,15 +128,47 @@ describe('computeVehicleListingContentSha256', () => {
     expect(after).not.toBe(before);
   });
 
-  it('does not incorporate last_export_at (irrelevant metadata)', () => {
-    const hash = computeVehicleListingContentSha256(baseInput());
-    const hashAgain = computeVehicleListingContentSha256(
+  it('does not include last_export_at or desired_state in the payload keys', () => {
+    const payload = buildVehicleListingContentHashPayload(baseInput());
+    expect(Object.keys(payload).sort()).toEqual(
+      [
+        'channels',
+        'description',
+        'description_language',
+        'equipment',
+        'equipment_free_text',
+        'equipment_free_text_lines',
+        'listing_ref',
+        'mandatory_fees_included_confirmed',
+        'nova_included_confirmed',
+        'photos',
+        'price_gross_eur',
+        'schema_version',
+        'title',
+        'vat_display',
+        'vehicle',
+      ].sort(),
+    );
+  });
+
+  it('sorts object keys so property order does not change the digest', () => {
+    const ordered = computeVehicleListingContentSha256(
       baseInput({
-        // last_export_at is not part of VehicleListingContentHashInput
-        description: 'Well maintained sedan.',
+        equipment: [
+          { code: 'ESP', assertion: 'PRESENT' },
+          { code: 'ABS', assertion: 'PRESENT' },
+        ],
       }),
     );
-    expect(hashAgain).toBe(hash);
+    const reversed = computeVehicleListingContentSha256(
+      baseInput({
+        equipment: [
+          { assertion: 'PRESENT', code: 'ABS' },
+          { assertion: 'PRESENT', code: 'ESP' },
+        ],
+      }),
+    );
+    expect(ordered).toBe(reversed);
   });
 
   it('sorts equipment and channels deterministically', () => {
@@ -147,5 +223,13 @@ describe('computeVehicleListingContentSha256', () => {
       }),
     );
     expect(unsorted).toBe(sorted);
+  });
+});
+
+describe('sortJsonValue', () => {
+  it('recursively sorts object keys', () => {
+    expect(
+      sortJsonValue({ b: 1, a: { d: 2, c: 3 } }),
+    ).toEqual({ a: { c: 3, d: 2 }, b: 1 });
   });
 });

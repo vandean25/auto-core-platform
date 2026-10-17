@@ -81,6 +81,44 @@ describe('Vehicle stock listing (e2e)', () => {
       .expect(200);
   });
 
+  it('rejects ACTIVE channel when listing readiness is incomplete', async () => {
+    const created = await suite.createAndReceive({
+      vin: vin('LST-NR'),
+      sellerType: 'VENDOR',
+    });
+    const vehicleId = created.received.vehicle_id;
+    const listingId = randomUUID();
+
+    await request(suite.app.getHttpServer())
+      .post(`/api/vehicle-stock/${vehicleId}/listing`)
+      .set('Authorization', `Bearer ${suite.authToken}`)
+      .send({
+        id: listingId,
+        expected_stock_purchase_id: created.received.id,
+      })
+      .expect(201);
+
+    await request(suite.app.getHttpServer())
+      .patch(`/api/vehicle-stock/${vehicleId}/listing`)
+      .set('Authorization', `Bearer ${suite.authToken}`)
+      .send({
+        expected_revision: 1,
+        description: 'Draft without price or VAT confirmations.',
+      })
+      .expect(200);
+
+    const notReady = await request(suite.app.getHttpServer())
+      .patch(`/api/vehicle-stock/${vehicleId}/listing/channels/MOBILE_DE`)
+      .set('Authorization', `Bearer ${suite.authToken}`)
+      .send({
+        expected_revision: 2,
+        desired_state: 'ACTIVE',
+      })
+      .expect(422);
+
+    expect(notReady.body.code).toBe('VEHICLE_LISTING_NOT_READY');
+  });
+
   it('returns 404 for foreign tenant and 403 for TECH POST', async () => {
     const local = await suite.createAndReceive({
       vin: vin('LST-2'),

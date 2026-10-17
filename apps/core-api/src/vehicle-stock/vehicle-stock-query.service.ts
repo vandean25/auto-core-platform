@@ -26,6 +26,8 @@ import {
 import { costBasis } from './vehicle-cost.js';
 import { assertTenantCustomerExists } from './vehicle-stock-ref.validator.js';
 import type { PatchVehicleStockDto } from './dto/patch-vehicle-stock.dto.js';
+import { resolveCurrentReceivedStockPurchaseId } from '../vehicle/equipment/vehicle-equipment-stock-cycle.js';
+import { syncVehicleListingContentHash } from '../vehicle/listing/vehicle-listing-hash-sync.js';
 import type { GewaehrleistungDueListQueryDto } from './dto/gewaehrleistung-due-list.dto.js';
 import {
   gewaehrleistungDueWindow,
@@ -556,7 +558,7 @@ export class VehicleStockQueryService {
     const updated = isLocationChange
       ? await this.prisma.$transaction(async (tx) => {
           await lockSitesAndAssertActive(tx, tenantId, [siteId]);
-          return tx.vehicle.updateMany({
+          const result = await tx.vehicle.updateMany({
             where: {
               ...where,
               location_id: dto.expectedLocationId,
@@ -574,8 +576,45 @@ export class VehicleStockQueryService {
               site_id: siteId,
             },
           });
+          if (result.count === 1) {
+            const stockPurchaseId = await resolveCurrentReceivedStockPurchaseId(
+              tx,
+              tenantId,
+              vehicleId,
+              siteId,
+            );
+            await syncVehicleListingContentHash(tx, {
+              tenantId,
+              siteId,
+              vehicleId,
+              stockPurchaseId,
+            });
+          }
+          return result;
         })
-      : await this.prisma.vehicle.updateMany({ where, data });
+      : await this.prisma.$transaction(async (tx) => {
+          const result = await tx.vehicle.updateMany({ where, data });
+          if (result.count === 1) {
+            try {
+              const stockPurchaseId =
+                await resolveCurrentReceivedStockPurchaseId(
+                  tx,
+                  tenantId,
+                  vehicleId,
+                  siteId,
+                );
+              await syncVehicleListingContentHash(tx, {
+                tenantId,
+                siteId,
+                vehicleId,
+                stockPurchaseId,
+              });
+            } catch {
+              // No received purchase for this cycle; listing hash sync is not applicable.
+            }
+          }
+          return result;
+        });
 
     if (updated.count === 0) {
       throw new ConflictException(

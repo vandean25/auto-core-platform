@@ -2,11 +2,16 @@ import { createHash } from 'node:crypto';
 import type { VehicleListingVatDisplay } from '@prisma/client';
 import { VEHICLE_LISTING_PLATFORM_DEFAULTS } from './vehicle-listing-platform.defaults.js';
 
-export const VEHICLE_LISTING_CONTENT_HASH_SCHEMA_VERSION = 1;
+export const VEHICLE_LISTING_CONTENT_HASH_SCHEMA_VERSION = 2;
 
 export interface VehicleListingContentHashEquipmentRow {
   code: string;
   assertion: 'PRESENT' | 'ABSENT';
+}
+
+export interface VehicleListingContentHashEquipmentFreeTextRow {
+  sort_order: number;
+  text: string;
 }
 
 export interface VehicleListingContentHashPhotoRow {
@@ -21,6 +26,18 @@ export interface VehicleListingContentHashChannelRow {
   mapping_version: string;
 }
 
+export interface VehicleListingContentHashVehicleRow {
+  make: string;
+  model: string;
+  model_year: number;
+  mileage_km: number | null;
+  fuel: string | null;
+  power_kw: number | null;
+  first_registration: string | null;
+  co2_wltp_g_km: number | null;
+  co2_nedc_g_km: number | null;
+}
+
 export interface VehicleListingContentHashInput {
   listing_ref: string;
   title: string | null;
@@ -32,14 +49,22 @@ export interface VehicleListingContentHashInput {
   mandatory_fees_included_confirmed: boolean;
   equipment_free_text: string | null;
   equipment: VehicleListingContentHashEquipmentRow[];
+  equipment_free_text_lines: VehicleListingContentHashEquipmentFreeTextRow[];
   photos: VehicleListingContentHashPhotoRow[];
   channels: VehicleListingContentHashChannelRow[];
+  vehicle: VehicleListingContentHashVehicleRow;
 }
 
 function sortedEquipment(
   rows: VehicleListingContentHashEquipmentRow[],
 ): VehicleListingContentHashEquipmentRow[] {
   return [...rows].sort((a, b) => a.code.localeCompare(b.code));
+}
+
+function sortedEquipmentFreeText(
+  rows: VehicleListingContentHashEquipmentFreeTextRow[],
+): VehicleListingContentHashEquipmentFreeTextRow[] {
+  return [...rows].sort((a, b) => a.sort_order - b.sort_order);
 }
 
 function sortedPhotos(
@@ -54,10 +79,25 @@ function sortedChannels(
   return [...rows].sort((a, b) => a.platform.localeCompare(b.platform));
 }
 
+export function sortJsonValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((entry) => sortJsonValue(entry));
+  }
+  if (value !== null && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    const sorted: Record<string, unknown> = {};
+    for (const key of Object.keys(record).sort()) {
+      sorted[key] = sortJsonValue(record[key]);
+    }
+    return sorted;
+  }
+  return value;
+}
+
 export function buildVehicleListingContentHashPayload(
   input: VehicleListingContentHashInput,
 ): Record<string, unknown> {
-  return {
+  return sortJsonValue({
     schema_version: VEHICLE_LISTING_CONTENT_HASH_SCHEMA_VERSION,
     listing_ref: input.listing_ref,
     title: input.title,
@@ -69,9 +109,13 @@ export function buildVehicleListingContentHashPayload(
     mandatory_fees_included_confirmed: input.mandatory_fees_included_confirmed,
     equipment_free_text: input.equipment_free_text,
     equipment: sortedEquipment(input.equipment),
+    equipment_free_text_lines: sortedEquipmentFreeText(
+      input.equipment_free_text_lines,
+    ),
     photos: sortedPhotos(input.photos),
     channels: sortedChannels(input.channels),
-  };
+    vehicle: input.vehicle,
+  }) as Record<string, unknown>;
 }
 
 export function computeVehicleListingContentSha256(
@@ -83,7 +127,10 @@ export function computeVehicleListingContentSha256(
 }
 
 /** Empty listing cycle defaults (used on create before advisor input). */
-export function emptyVehicleListingContentSha256(listingRef: string): string {
+export function emptyVehicleListingContentSha256(
+  listingRef: string,
+  vehicle: VehicleListingContentHashVehicleRow,
+): string {
   return computeVehicleListingContentSha256({
     listing_ref: listingRef,
     title: null,
@@ -95,11 +142,13 @@ export function emptyVehicleListingContentSha256(listingRef: string): string {
     mandatory_fees_included_confirmed: false,
     equipment_free_text: null,
     equipment: [],
+    equipment_free_text_lines: [],
     photos: [],
     channels: VEHICLE_LISTING_PLATFORM_DEFAULTS.map((row) => ({
       platform: row.platform,
       serializer_profile: row.serializer_profile,
       mapping_version: row.mapping_version,
     })),
+    vehicle,
   });
 }

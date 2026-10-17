@@ -24,6 +24,7 @@ import type {
 } from './vehicle-equipment-portal-map.types.js';
 import { resolveCurrentReceivedStockPurchaseId } from './vehicle-equipment-stock-cycle.js';
 import { seedVehicleEquipmentOptions } from './seed-vehicle-equipment-options.js';
+import { syncVehicleListingContentHash } from '../listing/vehicle-listing-hash-sync.js';
 
 function toOptionDto(row: VehicleEquipmentOption): VehicleEquipmentOptionDto {
   return {
@@ -241,6 +242,13 @@ export class VehicleEquipmentService {
           })),
         });
       }
+
+      await syncVehicleListingContentHash(tx, {
+        tenantId,
+        siteId,
+        vehicleId,
+        stockPurchaseId,
+      });
     });
 
     return this.getVehicleEquipment(vehicleId);

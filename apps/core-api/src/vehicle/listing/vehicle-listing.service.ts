@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import {
   Prisma,
+  VehicleInventoryRole,
   VehicleListingExportState,
   VehicleListingPlatform,
   VehicleListingVatDisplay,
@@ -26,11 +27,14 @@ import {
   type VehicleListingDto,
 } from './dto/vehicle-listing.dto.js';
 import {
-  computeVehicleListingContentSha256,
-  type VehicleListingContentHashInput,
-} from './vehicle-listing-content-hash.js';
+  computeListingContentSha256FromDb,
+  photoMediaIdsForListing,
+  vehicleRowForContentHash,
+} from './vehicle-listing-content-hash.builder.js';
+import { emptyVehicleListingContentSha256 } from './vehicle-listing-content-hash.js';
 import { generateVehicleListingRef } from './vehicle-listing-ref.js';
 import { VEHICLE_LISTING_PLATFORM_DEFAULTS } from './vehicle-listing-platform.defaults.js';
+import { assertListingChannelActiveReadiness } from './vehicle-listing-readiness.js';
 import { toVehicleListingDto } from './vehicle-listing.mapper.js';
 
 const listingInclude = {
@@ -49,7 +53,7 @@ export class VehicleListingService {
   async getListing(vehicleId: string): Promise<VehicleListingDto> {
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
-    await this.assertStockVehicleAtActiveSite(tenantId, vehicleId, siteId);
+    await this.assertUsedStockVehicleAtActiveSite(tenantId, vehicleId, siteId);
     const stockPurchaseId = await resolveCurrentReceivedStockPurchaseId(
       this.prisma,
       tenantId,
@@ -81,7 +85,11 @@ export class VehicleListingService {
   ): Promise<VehicleListingDto> {
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
-    await this.assertStockVehicleAtActiveSite(tenantId, vehicleId, siteId);
+    const vehicle = await this.assertUsedStockVehicleAtActiveSite(
+      tenantId,
+      vehicleId,
+      siteId,
+    );
     const stockPurchaseId = await resolveCurrentReceivedStockPurchaseId(
       this.prisma,
       tenantId,
@@ -113,24 +121,19 @@ export class VehicleListingService {
           message: 'Listing id is already used for a different stock cycle.',
         });
       }
+      if (existing.site_id !== siteId) {
+        throw new NotFoundException({
+          code: 'VEHICLE_LISTING_NOT_FOUND',
+          message: 'No marketplace listing exists for this stock cycle.',
+        });
+      }
       return toVehicleListingDto(existing);
     }
 
     const listingRef = generateVehicleListingRef();
-    const contentSha256 = computeVehicleListingContentSha256(
-      await this.buildHashInput({
-        tenantId,
-        listingRef,
-        vehicleId,
-        stockPurchaseId,
-        listing: null,
-        photoMediaIds: [],
-        channels: VEHICLE_LISTING_PLATFORM_DEFAULTS.map((row) => ({
-          platform: row.platform,
-          serializer_profile: row.serializer_profile,
-          mapping_version: row.mapping_version,
-        })),
-      }),
+    const contentSha256 = emptyVehicleListingContentSha256(
+      listingRef,
+      vehicleRowForContentHash(vehicle),
     );
 
     const created = await this.prisma.$transaction(async (tx) => {
@@ -165,7 +168,7 @@ export class VehicleListingService {
   ): Promise<VehicleListingDto> {
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
-    await this.assertStockVehicleAtActiveSite(tenantId, vehicleId, siteId);
+    await this.assertUsedStockVehicleAtActiveSite(tenantId, vehicleId, siteId);
     const stockPurchaseId = await resolveCurrentReceivedStockPurchaseId(
       this.prisma,
       tenantId,
@@ -188,47 +191,49 @@ export class VehicleListingService {
         message: 'No marketplace listing exists for this stock cycle.',
       });
     }
-    if (listing.revision !== dto.expected_revision) {
-      throw new ConflictException({
-        code: 'VEHICLE_LISTING_REVISION_CONFLICT',
-        message: 'Listing was modified by another request.',
-      });
-    }
 
     const photoIds = dto.photo_ids;
     if (photoIds) {
-      await this.validateListingPhotoIds(tenantId, vehicleId, photoIds);
+      await this.validateListingPhotoIds(tenantId, siteId, vehicleId, photoIds);
     }
 
-    const nextData: Prisma.VehicleListingUpdateInput = {
-      revision: { increment: 1 },
+    const merged = {
+      ...listing,
+      title: dto.title !== undefined ? dto.title : listing.title,
+      description:
+        dto.description !== undefined ? dto.description : listing.description,
+      description_language:
+        dto.description_language ?? listing.description_language,
+      price_gross_eur:
+        dto.price_gross_eur !== undefined
+          ? new Decimal(dto.price_gross_eur)
+          : listing.price_gross_eur,
+      vat_display: dto.vat_display ?? listing.vat_display,
+      nova_included_confirmed:
+        dto.nova_included_confirmed ?? listing.nova_included_confirmed,
+      mandatory_fees_included_confirmed:
+        dto.mandatory_fees_included_confirmed ??
+        listing.mandatory_fees_included_confirmed,
+      equipment_free_text:
+        dto.equipment_free_text !== undefined
+          ? dto.equipment_free_text
+          : listing.equipment_free_text,
     };
 
-    if (dto.title !== undefined) {
-      nextData.title = dto.title;
-    }
-    if (dto.description !== undefined) {
-      nextData.description = dto.description;
-    }
-    if (dto.description_language !== undefined) {
-      nextData.description_language = dto.description_language;
-    }
-    if (dto.price_gross_eur !== undefined) {
-      nextData.price_gross_eur = new Decimal(dto.price_gross_eur);
-    }
-    if (dto.vat_display !== undefined) {
-      nextData.vat_display = dto.vat_display;
-    }
-    if (dto.nova_included_confirmed !== undefined) {
-      nextData.nova_included_confirmed = dto.nova_included_confirmed;
-    }
-    if (dto.mandatory_fees_included_confirmed !== undefined) {
-      nextData.mandatory_fees_included_confirmed =
-        dto.mandatory_fees_included_confirmed;
-    }
-    if (dto.equipment_free_text !== undefined) {
-      nextData.equipment_free_text = dto.equipment_free_text;
-    }
+    const nextPhotoIds = photoIds ?? photoMediaIdsForListing(listing);
+
+    const contentSha256 = await computeListingContentSha256FromDb(this.prisma, {
+      tenantId,
+      siteId,
+      vehicleId,
+      stockPurchaseId,
+      listingRef: listing.listing_ref,
+      listing: merged,
+      photoMediaIds: nextPhotoIds,
+      channels: listing.channels,
+    });
+
+    const hashChanged = contentSha256 !== listing.content_sha256;
 
     const updated = await this.prisma.$transaction(async (tx) => {
       if (photoIds) {
@@ -247,13 +252,58 @@ export class VehicleListingService {
         }
       }
 
-      const dirtyChannels =
+      const patchData: Prisma.VehicleListingUpdateManyMutationInput = {
+        revision: { increment: 1 },
+        content_sha256: contentSha256,
+      };
+      if (dto.title !== undefined) {
+        patchData.title = dto.title;
+      }
+      if (dto.description !== undefined) {
+        patchData.description = dto.description;
+      }
+      if (dto.description_language !== undefined) {
+        patchData.description_language = dto.description_language;
+      }
+      if (dto.price_gross_eur !== undefined) {
+        patchData.price_gross_eur = new Decimal(dto.price_gross_eur);
+      }
+      if (dto.vat_display !== undefined) {
+        patchData.vat_display = dto.vat_display;
+      }
+      if (dto.nova_included_confirmed !== undefined) {
+        patchData.nova_included_confirmed = dto.nova_included_confirmed;
+      }
+      if (dto.mandatory_fees_included_confirmed !== undefined) {
+        patchData.mandatory_fees_included_confirmed =
+          dto.mandatory_fees_included_confirmed;
+      }
+      if (dto.equipment_free_text !== undefined) {
+        patchData.equipment_free_text = dto.equipment_free_text;
+      }
+
+      const guarded = await tx.vehicleListing.updateMany({
+        where: {
+          tenant_id: tenantId,
+          id: listing.id,
+          revision: dto.expected_revision,
+        },
+        data: patchData,
+      });
+      if (guarded.count !== 1) {
+        throw new ConflictException({
+          code: 'VEHICLE_LISTING_REVISION_CONFLICT',
+          message: 'Listing was modified by another request.',
+        });
+      }
+
+      if (
+        hashChanged &&
         listing.channels.some(
           (channel) =>
             channel.export_state === VehicleListingExportState.FILE_GENERATED,
-        ) || photoIds !== undefined;
-
-      if (dirtyChannels) {
+        )
+      ) {
         await tx.vehicleListingChannel.updateMany({
           where: {
             tenant_id: tenantId,
@@ -264,53 +314,17 @@ export class VehicleListingService {
         });
       }
 
-      const merged = {
-        ...listing,
-        title: dto.title !== undefined ? dto.title : listing.title,
-        description:
-          dto.description !== undefined ? dto.description : listing.description,
-        description_language:
-          dto.description_language ?? listing.description_language,
-        price_gross_eur:
-          dto.price_gross_eur !== undefined
-            ? new Decimal(dto.price_gross_eur)
-            : listing.price_gross_eur,
-        vat_display: dto.vat_display ?? listing.vat_display,
-        nova_included_confirmed:
-          dto.nova_included_confirmed ?? listing.nova_included_confirmed,
-        mandatory_fees_included_confirmed:
-          dto.mandatory_fees_included_confirmed ??
-          listing.mandatory_fees_included_confirmed,
-        equipment_free_text:
-          dto.equipment_free_text !== undefined
-            ? dto.equipment_free_text
-            : listing.equipment_free_text,
-      };
-
-      const contentSha256 = computeVehicleListingContentSha256(
-        await this.buildHashInput({
-          tenantId,
-          listingRef: listing.listing_ref,
-          vehicleId,
-          stockPurchaseId,
-          listing: merged,
-          photoMediaIds: photoIds ?? listing.photos.map((row) => row.media_id),
-          channels: listing.channels.map((channel) => ({
-            platform: channel.platform,
-            serializer_profile: channel.serializer_profile,
-            mapping_version: channel.mapping_version,
-          })),
-        }),
-      );
-
-      return tx.vehicleListing.update({
+      const row = await tx.vehicleListing.findFirst({
         where: { tenant_id: tenantId, id: listing.id },
-        data: {
-          ...nextData,
-          content_sha256: contentSha256,
-        },
         include: listingInclude,
       });
+      if (!row) {
+        throw new NotFoundException({
+          code: 'VEHICLE_LISTING_NOT_FOUND',
+          message: 'No marketplace listing exists for this stock cycle.',
+        });
+      }
+      return row;
     });
 
     return toVehicleListingDto(updated);
@@ -324,7 +338,11 @@ export class VehicleListingService {
     const platform = this.parsePlatform(platformParam);
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
-    await this.assertStockVehicleAtActiveSite(tenantId, vehicleId, siteId);
+    const vehicle = await this.assertUsedStockVehicleAtActiveSite(
+      tenantId,
+      vehicleId,
+      siteId,
+    );
     const stockPurchaseId = await resolveCurrentReceivedStockPurchaseId(
       this.prisma,
       tenantId,
@@ -347,12 +365,6 @@ export class VehicleListingService {
         message: 'No marketplace listing exists for this stock cycle.',
       });
     }
-    if (listing.revision !== dto.expected_revision) {
-      throw new ConflictException({
-        code: 'VEHICLE_LISTING_REVISION_CONFLICT',
-        message: 'Listing was modified by another request.',
-      });
-    }
 
     const channel = listing.channels.find((row) => row.platform === platform);
     if (!channel) {
@@ -366,33 +378,20 @@ export class VehicleListingService {
       dto.serializer_profile ?? channel.serializer_profile;
     this.assertProfileAllowedForPlatform(platform, serializerProfile);
 
+    const mergedListing = {
+      price_gross_eur: listing.price_gross_eur,
+      vat_display: listing.vat_display,
+      nova_included_confirmed: listing.nova_included_confirmed,
+      mandatory_fees_included_confirmed:
+        listing.mandatory_fees_included_confirmed,
+    };
+    assertListingChannelActiveReadiness(
+      dto.desired_state,
+      mergedListing,
+      vehicle,
+    );
+
     const updated = await this.prisma.$transaction(async (tx) => {
-      const nextChannels = listing.channels.map((row) =>
-        row.platform === platform
-          ? {
-              ...row,
-              desired_state: dto.desired_state,
-              serializer_profile: serializerProfile,
-            }
-          : row,
-      );
-
-      const contentSha256 = computeVehicleListingContentSha256(
-        await this.buildHashInput({
-          tenantId,
-          listingRef: listing.listing_ref,
-          vehicleId,
-          stockPurchaseId,
-          listing,
-          photoMediaIds: listing.photos.map((row) => row.media_id),
-          channels: nextChannels.map((row) => ({
-            platform: row.platform,
-            serializer_profile: row.serializer_profile,
-            mapping_version: row.mapping_version,
-          })),
-        }),
-      );
-
       await tx.vehicleListingChannel.update({
         where: { tenant_id: tenantId, id: channel.id },
         data: {
@@ -405,14 +404,32 @@ export class VehicleListingService {
         },
       });
 
-      return tx.vehicleListing.update({
-        where: { tenant_id: tenantId, id: listing.id },
-        data: {
-          revision: { increment: 1 },
-          content_sha256: contentSha256,
+      const guarded = await tx.vehicleListing.updateMany({
+        where: {
+          tenant_id: tenantId,
+          id: listing.id,
+          revision: dto.expected_revision,
         },
+        data: { revision: { increment: 1 } },
+      });
+      if (guarded.count !== 1) {
+        throw new ConflictException({
+          code: 'VEHICLE_LISTING_REVISION_CONFLICT',
+          message: 'Listing was modified by another request.',
+        });
+      }
+
+      const row = await tx.vehicleListing.findFirst({
+        where: { tenant_id: tenantId, id: listing.id },
         include: listingInclude,
       });
+      if (!row) {
+        throw new NotFoundException({
+          code: 'VEHICLE_LISTING_NOT_FOUND',
+          message: 'No marketplace listing exists for this stock cycle.',
+        });
+      }
+      return row;
     });
 
     return toVehicleListingDto(updated);
@@ -459,6 +476,7 @@ export class VehicleListingService {
 
   private async validateListingPhotoIds(
     tenantId: string,
+    siteId: string,
     vehicleId: string,
     mediaIds: string[],
   ): Promise<void> {
@@ -468,6 +486,7 @@ export class VehicleListingService {
     const rows = await this.prisma.vehicleMedia.findMany({
       where: {
         tenant_id: tenantId,
+        site_id: siteId,
         vehicle_id: vehicleId,
         id: { in: mediaIds },
       },
@@ -476,99 +495,13 @@ export class VehicleListingService {
     if (rows.length !== mediaIds.length) {
       throw new BadRequestException({
         code: 'VEHICLE_LISTING_PHOTO_INVALID',
-        message: 'One or more listing photos are unknown for this vehicle.',
+        message:
+          'One or more listing photos are unknown for this vehicle at the active site.',
       });
     }
   }
 
-  private formatPriceForHash(value: Decimal | null | undefined): string | null {
-    if (!value) {
-      return null;
-    }
-    return value.toFixed(2);
-  }
-
-  private async buildHashInput(params: {
-    tenantId: string;
-    listingRef: string;
-    vehicleId: string;
-    stockPurchaseId: string;
-    listing: {
-      title: string | null;
-      description: string | null;
-      description_language: string;
-      price_gross_eur: Decimal | null;
-      vat_display: VehicleListingVatDisplay | null;
-      nova_included_confirmed: boolean;
-      mandatory_fees_included_confirmed: boolean;
-      equipment_free_text: string | null;
-    } | null;
-    photoMediaIds: string[];
-    channels: {
-      platform: string;
-      serializer_profile: string;
-      mapping_version: string;
-    }[];
-  }): Promise<VehicleListingContentHashInput> {
-    const selections = await this.prisma.vehicleEquipmentSelection.findMany({
-      where: {
-        tenant_id: params.tenantId,
-        stock_purchase_id: params.stockPurchaseId,
-      },
-      include: { option: true },
-    });
-
-    const mediaRows =
-      params.photoMediaIds.length === 0
-        ? []
-        : await this.prisma.vehicleMedia.findMany({
-            where: {
-              tenant_id: params.tenantId,
-              vehicle_id: params.vehicleId,
-              id: { in: params.photoMediaIds },
-            },
-          });
-
-    const mediaById = new Map(mediaRows.map((row) => [row.id, row]));
-    const photos = params.photoMediaIds
-      .map((mediaId, index) => {
-        const media = mediaById.get(mediaId);
-        if (!media) {
-          return null;
-        }
-        return {
-          media_id: mediaId,
-          content_sha256: media.content_sha256,
-          sort_order: index,
-        };
-      })
-      .filter((row): row is NonNullable<typeof row> => row !== null);
-
-    const listing = params.listing;
-
-    return {
-      listing_ref: params.listingRef,
-      title: listing?.title ?? null,
-      description: listing?.description ?? null,
-      description_language: listing?.description_language ?? 'DE',
-      price_gross_eur: this.formatPriceForHash(
-        listing?.price_gross_eur ?? null,
-      ),
-      vat_display: listing?.vat_display ?? null,
-      nova_included_confirmed: listing?.nova_included_confirmed ?? false,
-      mandatory_fees_included_confirmed:
-        listing?.mandatory_fees_included_confirmed ?? false,
-      equipment_free_text: listing?.equipment_free_text ?? null,
-      equipment: selections.map((row) => ({
-        code: row.option.code,
-        assertion: row.assertion,
-      })),
-      photos,
-      channels: params.channels,
-    };
-  }
-
-  private async assertStockVehicleAtActiveSite(
+  private async assertUsedStockVehicleAtActiveSite(
     tenantId: string,
     vehicleId: string,
     siteId: string,
@@ -577,9 +510,24 @@ export class VehicleListingService {
       where: {
         id: vehicleId,
         tenant_id: tenantId,
+        inventory_role: VehicleInventoryRole.USED,
         location: { site_id: siteId },
       },
-      select: { id: true, tax_scheme: true },
+      select: {
+        id: true,
+        tax_scheme: true,
+        inventory_role: true,
+        stock_status: true,
+        make: true,
+        model: true,
+        year: true,
+        mileage: true,
+        fuel_type: true,
+        power_kw: true,
+        first_registration_date: true,
+        co2_wltp_g_km: true,
+        co2_nedc_g_km: true,
+      },
     });
     if (!vehicle) {
       throw new NotFoundException(`Vehicle ${vehicleId} not found`);
