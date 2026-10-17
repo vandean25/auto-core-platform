@@ -193,50 +193,25 @@ type InteractiveTransactionFn = (
   client: Prisma.TransactionClient,
 ) => Promise<unknown>;
 
-function runInteractiveTransactionWithDeferredPurges(
-  runTransaction: (
-    fn: InteractiveTransactionFn,
-    options?: unknown,
-  ) => Promise<unknown>,
-  fn: InteractiveTransactionFn,
-  options?: unknown,
-): Promise<unknown> {
-  const parentPending = pendingVehicleMediaPurges.getStore();
-  if (parentPending) {
-    return runTransaction(fn, options);
-  }
-  const pending: VehiclePurgeTarget[] = [];
-  return pendingVehicleMediaPurges.run(pending, async () => {
-    try {
-      const result = await runTransaction(fn, options);
-      await flushPendingVehicleMediaPurges(pending);
-      return result;
-    } catch (error) {
-      pending.length = 0;
-      throw error;
-    }
-  });
-}
-
 /** Apply after audit/realtime extensions so interactive tx clients keep their hooks. */
 export function createVehicleMediaPurgeTransactionExtension() {
   return Prisma.defineExtension((client) => {
-    const runTransaction = client.$transaction.bind(client) as (
-      fn: InteractiveTransactionFn,
-      options?: unknown,
-    ) => Promise<unknown>;
+    const runTransaction = client.$transaction.bind(client);
     return client.$extends({
       name: 'vehicle-media-purge-transaction',
       client: {
         $transaction(arg: unknown, options?: unknown): Promise<unknown> {
           if (typeof arg === 'function') {
-            return runInteractiveTransactionWithDeferredPurges(
-              runTransaction,
-              arg as InteractiveTransactionFn,
-              options,
+            return runWithDeferredVehicleMediaPurges(() =>
+              runTransaction(arg as InteractiveTransactionFn, options),
             );
           }
-          return client.$transaction(arg as never, options as never);
+          if (Array.isArray(arg)) {
+            return runWithDeferredVehicleMediaPurges(() =>
+              runTransaction(arg, options),
+            );
+          }
+          return runTransaction(arg as never, options as never);
         },
       },
     });

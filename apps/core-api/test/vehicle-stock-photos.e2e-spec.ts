@@ -256,6 +256,21 @@ describe('Vehicle stock photos (e2e)', () => {
     });
   }
 
+  function batchDeleteVehiclePromises(vehicleId: string, purchaseId: string) {
+    return [
+      suite.prisma.vehiclePurchase.update({
+        where: { tenant_id: suite.tenantId, id: purchaseId },
+        data: { vehicle_id: null },
+      }),
+      suite.prisma.vehicleLedgerEntry.deleteMany({
+        where: { tenant_id: suite.tenantId, vehicle_id: vehicleId },
+      }),
+      suite.prisma.vehicle.delete({
+        where: { tenant_id: suite.tenantId, id: vehicleId },
+      }),
+    ];
+  }
+
   it('defers vehicle media purge until an interactive transaction commits', async () => {
     const { vehicleId, purchaseId } =
       await createStockVehicleWithPhoto('TX-PURGE-C');
@@ -281,6 +296,41 @@ describe('Vehicle stock photos (e2e)', () => {
         throw new Error('rollback');
       }),
     ).rejects.toThrow('rollback');
+
+    const stillThere = await suite.prisma.vehicle.findFirst({
+      where: { tenant_id: suite.tenantId, id: vehicleId },
+    });
+    expect(stillThere).not.toBeNull();
+    expect(mediaObjectKeysForVehicle(vehicleId)).toEqual(keysBefore);
+  });
+
+  it('defers vehicle media purge until a batch transaction commits', async () => {
+    const { vehicleId, purchaseId } =
+      await createStockVehicleWithPhoto('TX-PURGE-BATCH');
+    expect(mediaObjectKeysForVehicle(vehicleId).length).toBeGreaterThan(0);
+
+    await suite.prisma.$transaction(batchDeleteVehiclePromises(vehicleId, purchaseId));
+
+    expect(mediaObjectKeysForVehicle(vehicleId)).toHaveLength(0);
+  });
+
+  it('does not purge vehicle media when a batch transaction fails after delete', async () => {
+    const { vehicleId, purchaseId } =
+      await createStockVehicleWithPhoto('TX-PURGE-BF');
+    const keysBefore = mediaObjectKeysForVehicle(vehicleId);
+    expect(keysBefore.length).toBeGreaterThan(0);
+
+    await expect(
+      suite.prisma.$transaction([
+        ...batchDeleteVehiclePromises(vehicleId, purchaseId),
+        suite.prisma.vehicle.delete({
+          where: {
+            tenant_id: suite.tenantId,
+            id: '00000000-0000-0000-0000-000000000099',
+          },
+        }),
+      ]),
+    ).rejects.toMatchObject({ code: 'P2025' });
 
     const stillThere = await suite.prisma.vehicle.findFirst({
       where: { tenant_id: suite.tenantId, id: vehicleId },
