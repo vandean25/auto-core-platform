@@ -2,6 +2,8 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -87,6 +89,7 @@ export class WorkshopCheckInController {
   }
 
   @Post('complete')
+  @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: WorkshopCheckInResponseDto })
   complete(
     @Param('orderId', ParseUUIDPipe) orderId: string,
