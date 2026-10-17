@@ -5,6 +5,8 @@ import { DocumentBrandingModule } from '../document-branding/document-branding.m
 import { InvoicesModule } from '../invoices/invoices.module.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
 import { DomainEventStoreModule } from '../domain-event-store/domain-event-store.module.js';
+import { DomainEventConsumerModule } from '../domain-event-consumer/domain-event-consumer.module.js';
+import { DomainEventConsumerRecoveryService } from '../domain-event-consumer/domain-event-consumer-recovery.service.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { VehicleStockModule } from '../vehicle-stock/vehicle-stock.module.js';
 import { PartsRequisitionModule } from '../parts-requisition/parts-requisition.module.js';
@@ -26,6 +28,9 @@ import { WorkshopMechanicFindingService } from './workshop-mechanic-finding.serv
 import { WorkshopCheckInController } from './workshop-check-in.controller.js';
 import { WorkshopCheckInService } from './workshop-check-in.service.js';
 import { WorkshopEstimateApprovalService } from './workshop-estimate-approval.service.js';
+import { WorkshopEstimateDecidedConsumerService } from './workshop-estimate-decided-consumer.service.js';
+import { WorkshopEstimateDecidedConsumerWorkerController } from './workshop-estimate-decided-consumer.worker.controller.js';
+import { WorkshopEstimateDecisionTriageService } from './workshop-estimate-decision-triage.service.js';
 import { WorkshopEstimateOverrunService } from './workshop-estimate-overrun.service.js';
 import { WorkshopOverrunNoticeService } from './workshop-overrun-notice.service.js';
 import { WorkshopWaitingTasksService } from './workshop-waiting-tasks.service.js';
@@ -65,6 +70,7 @@ import { InspectionMeasurementModule } from '../inspection-measurement/inspectio
     LoanerVehiclesModule,
     NotificationsModule,
     DomainEventStoreModule,
+    DomainEventConsumerModule,
     DocumentBrandingModule,
     InvoicesModule,
     InventoryModule,
@@ -86,6 +92,7 @@ import { InspectionMeasurementModule } from '../inspection-measurement/inspectio
     WorkshopWaitingTasksController,
     WorkshopOrderReadyEmailController,
     WorkshopCheckInController,
+    WorkshopEstimateDecidedConsumerWorkerController,
   ],
   providers: [
     PublicEstimateApprovalService,
@@ -96,6 +103,9 @@ import { InspectionMeasurementModule } from '../inspection-measurement/inspectio
     WorkshopCheckInService,
     MechanicMediaStorage,
     WorkshopEstimateApprovalService,
+    WorkshopEstimateDecidedConsumerService,
+    WorkshopEstimateDecisionTriageService,
+    DomainEventConsumerRecoveryService,
     WorkshopEstimateOverrunService,
     WorkshopOverrunNoticeService,
     WorkshopWaitingTasksService,
@@ -131,6 +141,7 @@ import { InspectionMeasurementModule } from '../inspection-measurement/inspectio
     WorkshopKpiReportsService,
     WorkshopPlannerService,
     WorkshopOrderReadyEmailService,
+    WorkshopEstimateDecisionTriageService,
   ],
 })
 export class WorkshopModule {}

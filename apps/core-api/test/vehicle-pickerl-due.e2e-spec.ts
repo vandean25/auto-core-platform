@@ -12,9 +12,29 @@ import {
   runWithTenantContext,
   seedTestTenantMember,
 } from './tenant-test-utils.js';
+import {
+  dueSoonWithinWindow,
+  pickerlDueFixturesForToday,
+} from '../src/vehicle/pickerl/pickerl-due-window-fixtures.js';
 import { teardownTestApp } from './test-lifecycle.js';
 
 const FIXTURE_FIRST_REGISTRATION = new Date('2019-06-01T00:00:00.000Z');
+
+function expectedPickerlWindowPlates(window: 30 | 60 | 90): string[] {
+  const today = new Date();
+  const fixtures = pickerlDueFixturesForToday(today);
+  const plates = ['W-OVERDUE'];
+  if (dueSoonWithinWindow(fixtures.due30, today, window)) {
+    plates.push('W-DUE30');
+  }
+  if (dueSoonWithinWindow(fixtures.due60, today, window)) {
+    plates.push('W-DUE60');
+  }
+  if (dueSoonWithinWindow(fixtures.due90, today, window)) {
+    plates.push('W-DUE90');
+  }
+  return plates.sort();
+}
 
 describe('Pickerl Due (e2e)', () => {
   let app: INestApplication;
@@ -93,7 +113,7 @@ describe('Pickerl Due (e2e)', () => {
 
       const today = new Date();
       const todayYear = today.getUTCFullYear();
-      const todayMonth = today.getUTCMonth() + 1;
+      const pickerlWindows = pickerlDueFixturesForToday(today);
 
       // 1. OVERDUE
       const v1 = await basePrisma.vehicle.create({
@@ -110,8 +130,8 @@ describe('Pickerl Due (e2e)', () => {
         },
       });
 
-      // 2. DUE_SOON inside 30d
-      const future30 = new Date(Date.UTC(todayYear, todayMonth - 1, today.getUTCDate() + 15));
+      // 2. DUE_SOON inside the 30-day window (month-end rule)
+      const future30 = pickerlWindows.due30;
       const v2 = await basePrisma.vehicle.create({
         data: {
           tenant_id: tenantId, customer_id: customer.id,
@@ -122,12 +142,13 @@ describe('Pickerl Due (e2e)', () => {
       await basePrisma.vehicleInspectionRecord.create({
         data: {
           tenant_id: tenantId, vehicle_id: v2.id, inspection_type: 'PICKERL_57A', inspected_on: new Date('2020-01-01'),
-          plaketten_valid_until_year: future30.getUTCFullYear(), plaketten_valid_until_month: future30.getUTCMonth() + 1,
+          plaketten_valid_until_year: future30.year,
+          plaketten_valid_until_month: future30.month,
         },
       });
 
-      // 3. due 31-60
-      const future60 = new Date(Date.UTC(todayYear, todayMonth - 1, today.getUTCDate() + 45));
+      // 3. due inside 60d but outside 30d
+      const future60 = pickerlWindows.due60;
       const v3 = await basePrisma.vehicle.create({
         data: {
           tenant_id: tenantId, customer_id: customer.id,
@@ -138,12 +159,13 @@ describe('Pickerl Due (e2e)', () => {
       await basePrisma.vehicleInspectionRecord.create({
         data: {
           tenant_id: tenantId, vehicle_id: v3.id, inspection_type: 'PICKERL_57A', inspected_on: new Date('2020-01-01'),
-          plaketten_valid_until_year: future60.getUTCFullYear(), plaketten_valid_until_month: future60.getUTCMonth() + 1,
+          plaketten_valid_until_year: future60.year,
+          plaketten_valid_until_month: future60.month,
         },
       });
 
-      // 4. due 61-90
-      const future90 = new Date(Date.UTC(todayYear, todayMonth - 1, today.getUTCDate() + 75));
+      // 4. due inside 90d but outside 60d
+      const future90 = pickerlWindows.due90;
       const v4 = await basePrisma.vehicle.create({
         data: {
           tenant_id: tenantId, customer_id: customer.id,
@@ -154,12 +176,13 @@ describe('Pickerl Due (e2e)', () => {
       await basePrisma.vehicleInspectionRecord.create({
         data: {
           tenant_id: tenantId, vehicle_id: v4.id, inspection_type: 'PICKERL_57A', inspected_on: new Date('2020-01-01'),
-          plaketten_valid_until_year: future90.getUTCFullYear(), plaketten_valid_until_month: future90.getUTCMonth() + 1,
+          plaketten_valid_until_year: future90.year,
+          plaketten_valid_until_month: future90.month,
         },
       });
 
       // 5. beyond 90 (OK)
-      const future120 = new Date(Date.UTC(todayYear, todayMonth - 1, today.getUTCDate() + 120));
+      const future120 = pickerlWindows.ok;
       const v5 = await basePrisma.vehicle.create({
         data: {
           tenant_id: tenantId, customer_id: customer.id,
@@ -170,7 +193,8 @@ describe('Pickerl Due (e2e)', () => {
       await basePrisma.vehicleInspectionRecord.create({
         data: {
           tenant_id: tenantId, vehicle_id: v5.id, inspection_type: 'PICKERL_57A', inspected_on: new Date('2020-01-01'),
-          plaketten_valid_until_year: future120.getUTCFullYear(), plaketten_valid_until_month: future120.getUTCMonth() + 1,
+          plaketten_valid_until_year: future120.year,
+          plaketten_valid_until_month: future120.month,
         },
       });
 
@@ -256,7 +280,7 @@ describe('Pickerl Due (e2e)', () => {
       .expect(200);
 
     const plates = res.body.data.map((v: { plate: string }) => v.plate);
-    expect([...plates].sort()).toEqual(['W-DUE30', 'W-OVERDUE'].sort());
+    expect([...plates].sort()).toEqual(expectedPickerlWindowPlates(30));
   });
 
   it('GET /vehicles/pickerl-due filters by window 60 with exact plate set', async () => {
@@ -266,9 +290,7 @@ describe('Pickerl Due (e2e)', () => {
       .expect(200);
 
     const plates = res.body.data.map((v: { plate: string }) => v.plate);
-    expect([...plates].sort()).toEqual(
-      ['W-DUE30', 'W-DUE60', 'W-OVERDUE'].sort(),
-    );
+    expect([...plates].sort()).toEqual(expectedPickerlWindowPlates(60));
   });
 
   it('GET /vehicles/pickerl-due filters by window 90 with exact plate set', async () => {
@@ -278,9 +300,7 @@ describe('Pickerl Due (e2e)', () => {
       .expect(200);
 
     const plates = res.body.data.map((v: { plate: string }) => v.plate);
-    expect([...plates].sort()).toEqual(
-      ['W-DUE30', 'W-DUE60', 'W-DUE90', 'W-OVERDUE'].sort(),
-    );
+    expect([...plates].sort()).toEqual(expectedPickerlWindowPlates(90));
   });
 
   it('GET /vehicles/pickerl-due?status=UNKNOWN returns only unknown vehicles', async () => {

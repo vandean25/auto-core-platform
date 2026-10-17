@@ -35160,6 +35160,7 @@
             "enum": [
               "PENDING_APPROVAL",
               "CUSTOMER_WAITING",
+              "CUSTOMER_DECISION",
               "OVERDUE_LOANER"
             ]
           },

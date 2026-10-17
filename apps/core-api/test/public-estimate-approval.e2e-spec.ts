@@ -18,6 +18,8 @@ import {
 import { seedReadySellerAndAccountingProfile } from './invoice-snapshot-v2-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
 import { DOMAIN_EVENT_TYPES } from '../src/domain-event-store/domain-event.constants.js';
+import { WORKSHOP_ESTIMATE_DECIDED_INTERNAL_NOTICE_CONSUMER } from '../src/domain-event-consumer/domain-event-consumer.constants.js';
+import { WorkshopEstimateDecidedConsumerService } from '../src/workshop/workshop-estimate-decided-consumer.service.js';
 import { assertDomainEventHasNoToken } from './domain-event-assertions.js';
 
 const SEND_FLAG = 'CUSTOMER_ESTIMATE_SEND_ENABLED';
@@ -270,7 +272,7 @@ describe('Public estimate approval (e2e, ADR-0025 §7)', () => {
   });
 
   it('approves once: records the evidence, moves the version and answers gone afterwards', async () => {
-    const { versionId, rawToken } = await estimateSentByEmail();
+    const { orderId, versionId, rawToken } = await estimateSentByEmail();
 
     const decided = await publicDecide(rawToken, APPROVE).expect(200);
 
@@ -323,6 +325,90 @@ describe('Public estimate approval (e2e, ADR-0025 §7)', () => {
         where: { workshop_estimate_version_id: versionId },
       }),
     ).toBe(1);
+
+    const notices = await prisma.notificationOutbox.findMany({
+      where: {
+        tenant_id: tenantId,
+        event_type: 'CUSTOMER_ESTIMATE_DECIDED',
+        source_entity_id: versionId,
+      },
+    });
+    expect(notices).toHaveLength(1);
+    expect(notices[0]).toMatchObject({
+      channel: 'IN_APP',
+      status: 'ACCEPTED',
+    });
+    expect(notices[0].idempotency_key).toContain(domainEvent.id);
+    expect(notices[0].payload).toMatchObject({
+      decision: 'APPROVED',
+      estimate_version_id: versionId,
+      needs_human_review: false,
+    });
+
+    const consumer = app.get(WorkshopEstimateDecidedConsumerService);
+    await consumer.processTenantBatch(tenantId);
+    expect(
+      await prisma.notificationOutbox.count({
+        where: {
+          tenant_id: tenantId,
+          event_type: 'CUSTOMER_ESTIMATE_DECIDED',
+          source_entity_id: versionId,
+        },
+      }),
+    ).toBe(1);
+
+    await prisma.domainEventConsumerDelivery.deleteMany({
+      where: {
+        tenant_id: tenantId,
+        consumer_key: WORKSHOP_ESTIMATE_DECIDED_INTERNAL_NOTICE_CONSUMER,
+        domain_event_id: domainEvent.id,
+      },
+    });
+    await prisma.domainEventConsumerProgress.updateMany({
+      where: {
+        tenant_id: tenantId,
+        consumer_key: WORKSHOP_ESTIMATE_DECIDED_INTERNAL_NOTICE_CONSUMER,
+      },
+      data: { cursor_sequence: BigInt(0), cursor_event_id: null },
+    });
+    await consumer.processTenantBatch(tenantId);
+    expect(
+      await prisma.notificationOutbox.count({
+        where: {
+          tenant_id: tenantId,
+          event_type: 'CUSTOMER_ESTIMATE_DECIDED',
+          source_entity_id: versionId,
+        },
+      }),
+    ).toBe(1);
+
+    const triage = await api()
+      .get('/api/agent-supervision/triage')
+      .set(adminAuth())
+      .expect(200);
+    expect(triage.body.data).toContainEqual(
+      expect.objectContaining({
+        kind: 'CUSTOMER_DECISION',
+        entity_id: notices[0].id,
+        reason: 'CUSTOMER_ESTIMATE_APPROVED',
+      }),
+    );
+
+    await prisma.workshopOrder.update({
+      where: { id: orderId },
+      data: { status: 'INVOICED' },
+    });
+    const triageAfterInvoice = await api()
+      .get('/api/agent-supervision/triage')
+      .set(adminAuth())
+      .expect(200);
+    expect(triageAfterInvoice.body.data).not.toContainEqual(
+      expect.objectContaining({
+        kind: 'CUSTOMER_DECISION',
+        entity_id: notices[0].id,
+      }),
+    );
+    void orderId;
   });
 
   it('declines without confirmations and records the decision', async () => {

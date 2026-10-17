@@ -11,8 +11,8 @@ import {
   WorkshopEstimateStatus,
 } from '@prisma/client';
 import { AuditService } from '../audit/audit.service.js';
-import { NotificationOutboxService } from '../notifications/notification-outbox.service.js';
 import { DomainEventStoreService } from '../domain-event-store/domain-event-store.service.js';
+import { DomainEventConsumerCloudTasksService } from '../domain-event-consumer/domain-event-consumer-cloud-tasks.service.js';
 import { RequestContextService } from '../common/services/request-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SiteContextService } from '../common/services/site-context.service.js';
@@ -25,9 +25,11 @@ import {
   assertVersionDecidable,
   buildAdvisorApprovalData,
   decisionToVersionStatus,
-  enqueueEstimateDecisionEvent,
+  appendEstimateDecisionDomainEvent,
   resolveAdvisorDecidedAt,
 } from './workshop-estimate-decision.helpers.js';
+import { runEstimateDecidedConsumerAfterCommit } from './wake-estimate-decided-consumer.js';
+import { WorkshopEstimateDecidedConsumerService } from './workshop-estimate-decided-consumer.service.js';
 import {
   resolveActorUserId,
   resolveEstimateScope,
@@ -65,10 +67,12 @@ export class WorkshopEstimateApprovalService {
     private readonly tenantContext: TenantContextService,
     @Inject(SiteContextService)
     private readonly siteContext: SiteContextService,
-    @Inject(NotificationOutboxService)
-    private readonly outbox: NotificationOutboxService,
     @Inject(DomainEventStoreService)
     private readonly domainEventStore: DomainEventStoreService,
+    @Inject(WorkshopEstimateDecidedConsumerService)
+    private readonly estimateDecidedConsumer: WorkshopEstimateDecidedConsumerService,
+    @Inject(DomainEventConsumerCloudTasksService)
+    private readonly estimateDecidedConsumerWakeUps: DomainEventConsumerCloudTasksService,
     @Inject(RequestContextService)
     private readonly requestContext: RequestContextService,
     @Inject(AuditService) private readonly audit: AuditService,
@@ -93,6 +97,12 @@ export class WorkshopEstimateApprovalService {
         await this.writeDecision(tx, scope, versionId, dto, actorUserId);
       })
       .catch(mapDecisionWriteError);
+
+    await runEstimateDecidedConsumerAfterCommit(
+      this.estimateDecidedConsumer,
+      this.estimateDecidedConsumerWakeUps,
+      scope.tenantId,
+    );
 
     return this.estimates.getVersion(versionId);
   }
@@ -154,14 +164,13 @@ export class WorkshopEstimateApprovalService {
       },
       tx,
     );
-    await enqueueEstimateDecisionEvent(tx, this.outbox, {
+    await appendEstimateDecisionDomainEvent(tx, {
       tenantId: scope.tenantId,
       siteId: scope.siteId,
       approvalId: approval.id,
       versionId,
       workshopOrderId: version.estimate.workshop_order_id,
       decision,
-      channel,
       decidedAt,
       traceId: this.requestContext.getTraceId() ?? approval.id,
       domainEventStore: this.domainEventStore,

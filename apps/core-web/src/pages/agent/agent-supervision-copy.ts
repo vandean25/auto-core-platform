@@ -286,6 +286,26 @@ export const SUPERVISION_COPY = {
         en: 'Estimate (KVA) awaiting customer answer',
         de: 'Kostenvoranschlag wartet auf Kundenantwort',
       },
+      CUSTOMER_ESTIMATE_APPROVED: {
+        en: 'Customer approved the estimate (KVA)',
+        de: 'Kunde hat den Kostenvoranschlag bestätigt',
+      },
+      CUSTOMER_ESTIMATE_DECLINED: {
+        en: 'Customer declined the estimate (KVA)',
+        de: 'Kunde hat den Kostenvoranschlag abgelehnt',
+      },
+      CUSTOMER_ESTIMATE_APPROVED_REVIEW_WAITING_TASKS: {
+        en: 'Estimate approved — review waiting tasks before resuming work',
+        de: 'KVA bestätigt — wartende Aufgaben prüfen, bevor die Arbeit fortgesetzt wird',
+      },
+      CUSTOMER_ESTIMATE_DECLINED_REVIEW_WAITING_TASKS: {
+        en: 'Estimate declined — review waiting tasks on the order',
+        de: 'KVA abgelehnt — wartende Aufgaben am Auftrag prüfen',
+      },
+      CUSTOMER_ESTIMATE_DECIDED: {
+        en: 'Customer estimate decision recorded',
+        de: 'Kundenantwort zum Kostenvoranschlag erfasst',
+      },
       AGENT_PROPOSAL_PENDING: {
         en: 'Agent proposal pending approval',
         de: 'Agenten-Vorschlag wartet auf Freigabe',
