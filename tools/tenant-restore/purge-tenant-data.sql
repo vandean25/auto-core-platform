@@ -126,6 +126,7 @@ VALUES
   ('tyre_set_events'),
   ('vehicle_equipment_free_text_items'),
   ('vehicle_equipment_selections'),
+  ('vehicle_listings'),
   ('vehicle_sales'),
   ('warranty_claims'),
   ('workshop_check_ins'),
@@ -137,6 +138,8 @@ VALUES
   ('registration_intake_byte_purges'),
   ('vehicle_inspection_records'),
   ('vehicle_ledger_entries'),
+  ('vehicle_listing_channels'),
+  ('vehicle_listing_photos'),
   ('workshop_estimate_versions'),
   ('workshop_inspections'),
   ('workshop_media'),
@@ -501,6 +504,15 @@ VALUES
   ('vehicle_ledger_entries', 'vehicle_sales', 'vehicle_sale_id', 'id', 'SET NULL', 'CASCADE'),
   ('vehicle_ledger_entries', 'vehicles', 'vehicle_id', 'id', 'RESTRICT', 'CASCADE'),
   ('vehicle_ledger_entries', 'workshop_orders', 'workshop_order_id', 'id', 'SET NULL', 'CASCADE'),
+  ('vehicle_listing_channels', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('vehicle_listing_channels', 'vehicle_listings', 'tenant_id,listing_id', 'tenant_id,id', 'CASCADE', 'CASCADE'),
+  ('vehicle_listing_photos', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('vehicle_listing_photos', 'vehicle_listings', 'tenant_id,listing_id', 'tenant_id,id', 'CASCADE', 'CASCADE'),
+  ('vehicle_listing_photos', 'vehicle_media', 'tenant_id,media_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('vehicle_listings', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('vehicle_listings', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('vehicle_listings', 'vehicle_purchases', 'tenant_id,stock_purchase_id', 'tenant_id,id', 'CASCADE', 'CASCADE'),
+  ('vehicle_listings', 'vehicles', 'tenant_id,vehicle_id', 'tenant_id,id', 'CASCADE', 'CASCADE'),
   ('vehicle_make_aliases', 'brands', 'brand_id', 'id', 'RESTRICT', 'CASCADE'),
   ('vehicle_make_aliases', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('vehicle_media', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
@@ -828,6 +840,10 @@ DELETE FROM public."workshop_inspections"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_estimate_versions"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."vehicle_listing_photos"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."vehicle_listing_channels"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."vehicle_ledger_entries"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."vehicle_inspection_records"
@@ -849,6 +865,8 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."warranty_claims"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."vehicle_sales"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."vehicle_listings"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."vehicle_equipment_selections"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
