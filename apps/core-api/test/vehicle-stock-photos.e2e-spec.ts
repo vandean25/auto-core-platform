@@ -1,0 +1,165 @@
+import { readFile } from 'node:fs/promises';
+import request from 'supertest';
+import sharp from 'sharp';
+import { exifHasGpsIfd } from '../src/common/media/exif-has-gps-ifd.js';
+import { VEHICLE_MEDIA_STORAGE } from '../src/vehicle-stock/vehicle-media/vehicle-media.storage.js';
+import { InMemoryVehicleMediaStorage } from './support/in-memory-vehicle-media-storage.js';
+import {
+  createVehicleStockSuite,
+  disposeVehicleStockSuite,
+  vin,
+} from './helpers/vehicle-stock-suite.js';
+
+const gpsFixture = new URL(
+  '../src/common/media/fixtures/gps-oriented.jpg',
+  import.meta.url,
+);
+
+describe('Vehicle stock photos (e2e)', () => {
+  const mediaStorage = new InMemoryVehicleMediaStorage();
+  let suite: Awaited<ReturnType<typeof createVehicleStockSuite>>;
+
+  beforeAll(async () => {
+    suite = await createVehicleStockSuite({
+      configureModule: (builder) =>
+        builder
+          .overrideProvider(VEHICLE_MEDIA_STORAGE)
+          .useValue(mediaStorage),
+    });
+  });
+
+  afterAll(async () => {
+    await disposeVehicleStockSuite(suite);
+  });
+
+  it('uploads a photo with portal variants and strips EXIF/GPS', async () => {
+    const created = await suite.createAndReceive({
+      vin: vin('PHOTO-1'),
+      sellerType: 'VENDOR',
+    });
+    const vehicleId = created.received.vehicle_id;
+    const source = await readFile(gpsFixture);
+    const before = await sharp(source).metadata();
+    expect(exifHasGpsIfd(before.exif!)).toBe(true);
+
+    const uploadRes = await request(suite.app.getHttpServer())
+      .post(`/api/vehicle-stock/${vehicleId}/photos`)
+      .set('Authorization', `Bearer ${suite.authToken}`)
+      .attach('file', source, 'photo.jpg')
+      .expect(201);
+
+    expect(uploadRes.body).toMatchObject({
+      vehicleId,
+      isCover: true,
+      contentType: 'image/jpeg',
+      variants: {
+        portal_md: expect.objectContaining({ width: expect.any(Number) }),
+        thumbnail: expect.objectContaining({ width: expect.any(Number) }),
+      },
+    });
+
+    const mainKey = uploadRes.body.variants.portal_md.storageKey.replace(
+      '/portal_md.jpg',
+      '/processed.jpg',
+    );
+    const mainBytes = mediaStorage.objects.get(mainKey);
+    expect(mainBytes).toBeDefined();
+    const after = await sharp(mainBytes!).metadata();
+    expect(after.exif).toBeUndefined();
+  });
+
+  it('reorders photos and rejects foreign tenant access', async () => {
+    const created = await suite.createAndReceive({
+      vin: vin('PHOTO-2A'),
+      sellerType: 'VENDOR',
+    });
+    const vehicleId = created.received.vehicle_id;
+    const png = await sharp({
+      create: { width: 40, height: 30, channels: 3, background: '#445566' },
+    })
+      .png()
+      .toBuffer();
+
+    const first = await request(suite.app.getHttpServer())
+      .post(`/api/vehicle-stock/${vehicleId}/photos`)
+      .set('Authorization', `Bearer ${suite.authToken}`)
+      .attach('file', png, 'a.png')
+      .expect(201);
+    const second = await request(suite.app.getHttpServer())
+      .post(`/api/vehicle-stock/${vehicleId}/photos`)
+      .set('Authorization', `Bearer ${suite.authToken}`)
+      .attach('file', png, 'b.png')
+      .expect(201);
+
+    const reorderRes = await request(suite.app.getHttpServer())
+      .put(`/api/vehicle-stock/${vehicleId}/photos/reorder`)
+      .set('Authorization', `Bearer ${suite.authToken}`)
+      .send({ mediaIds: [second.body.id, first.body.id] })
+      .expect(200);
+
+    expect(reorderRes.body.map((row: { id: string }) => row.id)).toEqual([
+      second.body.id,
+      first.body.id,
+    ]);
+
+    await request(suite.app.getHttpServer())
+      .put(`/api/vehicle-stock/${vehicleId}/photos/reorder`)
+      .set('Authorization', `Bearer ${suite.authToken}`)
+      .send({ mediaIds: [second.body.id, first.body.id, first.body.id] })
+      .expect(400);
+
+    await request(suite.app.getHttpServer())
+      .get(`/api/vehicle-stock/${vehicleId}/photos`)
+      .set('Authorization', `Bearer ${suite.otherAuthToken}`)
+      .expect(404);
+  });
+
+  it('keeps a single cover photo and deletes stored objects', async () => {
+    const created = await suite.createAndReceive({
+      vin: vin('PHOTO-3'),
+      sellerType: 'VENDOR',
+    });
+    const vehicleId = created.received.vehicle_id;
+    const png = await sharp({
+      create: { width: 50, height: 40, channels: 3, background: '#778899' },
+    })
+      .png()
+      .toBuffer();
+
+    const cover = await request(suite.app.getHttpServer())
+      .post(`/api/vehicle-stock/${vehicleId}/photos`)
+      .set('Authorization', `Bearer ${suite.authToken}`)
+      .attach('file', png, 'cover.png')
+      .expect(201);
+    const other = await request(suite.app.getHttpServer())
+      .post(`/api/vehicle-stock/${vehicleId}/photos`)
+      .set('Authorization', `Bearer ${suite.authToken}`)
+      .attach('file', png, 'other.png')
+      .expect(201);
+
+    const setCoverRes = await request(suite.app.getHttpServer())
+      .post(
+        `/api/vehicle-stock/${vehicleId}/photos/${other.body.id}/set-cover`,
+      )
+      .set('Authorization', `Bearer ${suite.authToken}`)
+      .expect(200);
+    expect(setCoverRes.body.isCover).toBe(true);
+
+    const listed = await request(suite.app.getHttpServer())
+      .get(`/api/vehicle-stock/${vehicleId}/photos`)
+      .set('Authorization', `Bearer ${suite.authToken}`)
+      .expect(200);
+    const covers = listed.body.filter(
+      (row: { isCover: boolean }) => row.isCover,
+    );
+    expect(covers).toHaveLength(1);
+    expect(covers[0].id).toBe(other.body.id);
+
+    const keysBefore = mediaStorage.objects.size;
+    await request(suite.app.getHttpServer())
+      .delete(`/api/vehicle-stock/${vehicleId}/photos/${cover.body.id}`)
+      .set('Authorization', `Bearer ${suite.authToken}`)
+      .expect(204);
+    expect(mediaStorage.objects.size).toBeLessThan(keysBefore);
+  });
+});

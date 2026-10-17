@@ -16,6 +16,12 @@ import { VehicleStockQueryService } from './vehicle-stock-query.service.js';
 import { VehicleStockController } from './vehicle-stock.controller.js';
 import { VehicleStockMoveService } from './vehicle-stock-move.service.js';
 import { VehicleStockReportsService } from './vehicle-stock-reports.service.js';
+import {
+  GcsVehicleMediaStorage,
+  VEHICLE_MEDIA_STORAGE,
+} from './vehicle-media/vehicle-media.storage.js';
+import { VehicleMediaService } from './vehicle-media/vehicle-media.service.js';
+import { VehicleMediaController } from './vehicle-media/vehicle-media.controller.js';
 
 @Module({
   imports: [
@@ -29,6 +35,7 @@ import { VehicleStockReportsService } from './vehicle-stock-reports.service.js';
     VehiclePurchaseController,
     VehicleSaleController,
     VehicleStockController,
+    VehicleMediaController,
   ],
   providers: [
     VehicleLedgerService,
@@ -40,6 +47,9 @@ import { VehicleStockReportsService } from './vehicle-stock-reports.service.js';
     VehicleStockQueryService,
     VehicleStockMoveService,
     VehicleStockReportsService,
+    GcsVehicleMediaStorage,
+    { provide: VEHICLE_MEDIA_STORAGE, useExisting: GcsVehicleMediaStorage },
+    VehicleMediaService,
   ],
   exports: [
     VehicleLedgerService,

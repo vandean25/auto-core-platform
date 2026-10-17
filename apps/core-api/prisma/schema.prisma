@@ -95,6 +95,7 @@ model Tenant {
   inspectionMeasurementImports  InspectionMeasurementImport[]
   inspectionMeasurements        InspectionMeasurement[]
   vehicleValuationSnapshots     VehicleValuationSnapshot[]
+  vehicleMedia                  VehicleMedia[]
   salesOrders                   SalesOrder[]
   salesOrderItems               SalesOrderItem[]
   invoices                      Invoice[]
@@ -303,6 +304,7 @@ model User {
   revokedTenantApiKeys              TenantApiKey[]            @relation("TenantApiKeyRevokedBy")
   workshopEstimateApprovalsRecorded WorkshopEstimateApproval[] @relation("WorkshopEstimateApprovalRecordedBy")
   workshopEstimateOverrunsNotified  WorkshopEstimateOverrun[]  @relation("WorkshopEstimateOverrunNotifiedBy")
+  vehicleMediaCreated               VehicleMedia[]             @relation("VehicleMediaCreatedBy")
   paymentsRecorded                  Payment[]                 @relation("PaymentRecordedBy")
   landingDemoSignInGrants           LandingDemoSignInGrant[]
   createdAt                         DateTime                  @default(now())
@@ -847,6 +849,7 @@ model Site {
   vehiclePurchases         VehiclePurchase[]
   vehicleSales             VehicleSale[]
   vehicleValuationSnapshots VehicleValuationSnapshot[]
+  vehicleMedia              VehicleMedia[]
   tyreSets                 TyreSet[]
   invoices                 Invoice[]
   creditNotes              CreditNote[]
@@ -1791,6 +1794,7 @@ model Vehicle {
   inspectionMeasurementImports   InspectionMeasurementImport[]
   inspectionMeasurements         InspectionMeasurement[]
   valuation_snapshots            VehicleValuationSnapshot[]
+  media                          VehicleMedia[]
   tyre_sets                      TyreSet[]
   appliedRegistrationIntakes     RegistrationDocumentIntake[] @relation("RegistrationIntakeAppliedVehicle")
 
@@ -1807,6 +1811,33 @@ model Vehicle {
   @@index([make_brand_id])
   @@index([tenant_id, vin])
   @@map("vehicles")
+}
+
+model VehicleMedia {
+  id                    String   @id @default(uuid())
+  tenant_id             String
+  tenant                Tenant   @relation(fields: [tenant_id], references: [id])
+  vehicle_id            String
+  vehicle               Vehicle  @relation(fields: [tenant_id, vehicle_id], references: [tenant_id, id], onDelete: Cascade, onUpdate: Cascade)
+  site_id               String
+  site                  Site     @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
+  sort_order            Int      @default(0) @map("sort_order")
+  is_cover              Boolean  @default(false) @map("is_cover")
+  storage_bucket        String   @map("storage_bucket")
+  processed_storage_key String   @map("processed_storage_key")
+  variant_storage_keys  Json     @map("variant_storage_keys")
+  content_type          String   @map("content_type")
+  width                 Int
+  height                Int
+  content_sha256        String   @map("content_sha256") @db.Char(64)
+  created_by_user_id    String?  @map("created_by_user_id")
+  created_by            User?    @relation("VehicleMediaCreatedBy", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@unique([tenant_id, id])
+  @@index([tenant_id, vehicle_id, sort_order])
+  @@map("vehicle_media")
 }
 
 enum VehicleInventoryRole {
