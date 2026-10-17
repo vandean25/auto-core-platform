@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { ArrowLeft, CheckCircle, Pause, Play, Zap } from 'lucide-react'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { Button } from '@/components/ui/button'
@@ -40,6 +41,8 @@ export function TaskHeader({
   onOpenPause,
   onComplete,
 }: TaskHeaderProps) {
+  const { t } = useTranslation('workshop')
+
   return (
     <div className="flex items-start justify-between gap-4">
       <div className="flex items-start gap-3">
@@ -48,7 +51,7 @@ export function TaskHeader({
           size="sm"
           className="mt-0.5 shrink-0"
           onClick={onBack}
-          aria-label="Back to queue"
+          aria-label={t('mechanic.taskDetail.header.backAria')}
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -57,7 +60,9 @@ export function TaskHeader({
             <h1 className="text-2xl font-semibold tracking-tight">{task.taskTitle}</h1>
             <StatusBadge status={task.taskStatus} />
           </div>
-          <p className="text-slate-500 text-sm mt-0.5">Order {task.orderNumber}</p>
+          <p className="text-slate-500 text-sm mt-0.5">
+            {t('mechanic.taskDetail.header.order', { orderNumber: task.orderNumber })}
+          </p>
         </div>
       </div>
 
@@ -70,7 +75,7 @@ export function TaskHeader({
               className="min-h-[44px] min-w-[96px] gap-2"
             >
               <Play className="h-4 w-4" />
-              {isNotStarted ? 'Start' : 'Resume'}
+              {isNotStarted ? t('mechanic.taskDetail.header.start') : t('mechanic.taskDetail.header.resume')}
             </Button>
           )}
           {canSwitch && (
@@ -79,10 +84,10 @@ export function TaskHeader({
               onClick={onOpenSwitch}
               disabled={switchPending || startPending}
               className="min-h-[44px] gap-2"
-              title="Switch from another task to this one"
+              title={t('mechanic.taskDetail.header.switchTitle')}
             >
               <Zap className="h-4 w-4" />
-              Switch Here
+              {t('mechanic.taskDetail.header.switchHere')}
             </Button>
           )}
           {canPause && (
@@ -93,7 +98,7 @@ export function TaskHeader({
               className="min-h-[44px] gap-2"
             >
               <Pause className="h-4 w-4" />
-              Pause
+              {t('mechanic.taskDetail.header.pause')}
             </Button>
           )}
           {canComplete && (
@@ -104,7 +109,7 @@ export function TaskHeader({
               className="min-h-[44px] gap-2 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
             >
               <CheckCircle className="h-4 w-4" />
-              Complete
+              {t('mechanic.taskDetail.header.complete')}
             </Button>
           )}
         </div>

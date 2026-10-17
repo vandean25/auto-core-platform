@@ -1,5 +1,6 @@
 // @vitest-environment node
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
+import { ensureNamespaceLoaded, i18n } from '@/lib/i18n'
 import {
   getCatalogSourceBannerCopy,
   getFallbackDialogCopy,
@@ -9,6 +10,10 @@ import {
 } from './catalog-source-copy'
 
 describe('catalog-source-copy', () => {
+  beforeAll(async () => {
+    await ensureNamespaceLoaded('workshop')
+  })
+
   it('maps OEM hit metadata to banner copy', () => {
     const metadata = toCatalogSourceMetadata('PARTS', {
       sourceUsed: 'OEM',
@@ -17,7 +22,14 @@ describe('catalog-source-copy', () => {
     })
 
     expect(getCatalogSourceBannerCopy(metadata, 'STELLANTIS')).toBe(
-      'Parts: OEM catalog (Stellantis)',
+      i18n.t('catalog.banner.oem', {
+        ns: 'workshop',
+        concern: i18n.t('catalog.concern.PARTS', { ns: 'workshop' }),
+        suffix: i18n.t('catalog.banner.oemSuffix', {
+          ns: 'workshop',
+          label: i18n.t('catalog.oem.STELLANTIS', { ns: 'workshop' }),
+        }),
+      }),
     )
   })
 
@@ -33,10 +45,14 @@ describe('catalog-source-copy', () => {
       fallbackReason: 'ERROR',
     })
 
-    expect(getCatalogSourceBannerCopy(emptyMetadata)).toContain('no results')
-    expect(getCatalogSourceBannerCopy(errorMetadata)).toContain('unavailable')
-    expect(getFallbackDialogCopy('EMPTY').title).toBe('No OEM results')
-    expect(getFallbackDialogCopy('ERROR').title).toBe('OEM catalog unavailable')
+    expect(getCatalogSourceBannerCopy(emptyMetadata)).toContain('OEM ohne Treffer')
+    expect(getCatalogSourceBannerCopy(errorMetadata)).toContain('OEM nicht verfügbar')
+    expect(getFallbackDialogCopy('EMPTY').title).toBe(
+      i18n.t('catalog.fallbackDialog.emptyTitle', { ns: 'workshop' }),
+    )
+    expect(getFallbackDialogCopy('ERROR').title).toBe(
+      i18n.t('catalog.fallbackDialog.errorTitle', { ns: 'workshop' }),
+    )
   })
 
   it('finds OEM concern by make brand id', () => {

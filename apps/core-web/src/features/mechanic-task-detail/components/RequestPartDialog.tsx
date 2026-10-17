@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -24,35 +25,37 @@ export function RequestPartDialog({
   onFormChange,
   onSubmit,
 }: RequestPartDialogProps) {
+  const { t } = useTranslation('workshop')
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Request a Part</DialogTitle>
+          <DialogTitle>{t('mechanic.taskDetail.requestPart.title')}</DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-4 pt-2">
           <div>
-            <Label htmlFor="part-item-no">Part Number / SKU</Label>
+            <Label htmlFor="part-item-no">{t('mechanic.taskDetail.requestPart.itemNo')}</Label>
             <Input
               id="part-item-no"
               value={partForm.itemNo}
               onChange={(event) => onFormChange({ itemNo: event.target.value })}
-              placeholder="e.g. OIL-FILTER-01"
+              placeholder={t('mechanic.taskDetail.requestPart.itemNoPlaceholder')}
               className="mt-1 min-h-[44px]"
             />
           </div>
           <div>
-            <Label htmlFor="part-description">Description</Label>
+            <Label htmlFor="part-description">{t('mechanic.taskDetail.requestPart.description')}</Label>
             <Input
               id="part-description"
               value={partForm.description}
               onChange={(event) => onFormChange({ description: event.target.value })}
-              placeholder="e.g. Oil filter — 2.0 TDI"
+              placeholder={t('mechanic.taskDetail.requestPart.descriptionPlaceholder')}
               className="mt-1 min-h-[44px]"
             />
           </div>
           <div>
-            <Label htmlFor="part-qty">Quantity</Label>
+            <Label htmlFor="part-qty">{t('mechanic.taskDetail.requestPart.quantity')}</Label>
             <Input
               id="part-qty"
               type="number"
@@ -66,11 +69,11 @@ export function RequestPartDialog({
           {partFormError && <p className="text-sm text-red-500">{partFormError}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
+              {t('actions.cancel')}
             </Button>
             <Button onClick={onSubmit} disabled={pending}>
               {pending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-              Submit Request
+              {t('mechanic.taskDetail.requestPart.submit')}
             </Button>
           </div>
         </div>

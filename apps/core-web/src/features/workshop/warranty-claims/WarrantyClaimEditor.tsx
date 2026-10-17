@@ -31,7 +31,7 @@ import { getErrorMessage } from "@/lib/error-utils";
 import { formatDate } from "@/lib/format";
 import {
   TEXTAREA_CLASS_NAME,
-  WARRANTY_CLAIM_TYPE_OPTIONS,
+  warrantyClaimTypeOptions,
   availableStatusChanges,
   buildClaimLineRows,
   buildClaimPatch,
@@ -294,7 +294,7 @@ export function WarrantyClaimEditor({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {WARRANTY_CLAIM_TYPE_OPTIONS.map((option) => (
+                {warrantyClaimTypeOptions().map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>

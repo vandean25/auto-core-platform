@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { WarrantyClaim } from "@/api/types";
 import { StatusBadge } from "@/components/status/StatusBadge";
 import { formatDate } from "@/lib/format";
@@ -15,16 +16,18 @@ function formatDay(iso: string): string {
 }
 
 export function WarrantyClaimList({ claims, activeClaimId, onSelect }: WarrantyClaimListProps) {
+  const { t } = useTranslation('workshop')
+
   if (claims.length === 0) {
     return (
       <p className="rounded-lg border border-dashed p-4 text-sm text-slate-500">
-        No warranty or goodwill claims on this order yet.
+        {t('warranty.list.empty')}
       </p>
     );
   }
 
   return (
-    <ul aria-label="Warranty claims" className="divide-y rounded-lg border bg-white">
+    <ul aria-label={t('warranty.list.aria')} className="divide-y rounded-lg border bg-white">
       {claims.map((claim) => {
         const isActive = claim.id === activeClaimId;
         return (
@@ -44,7 +47,7 @@ export function WarrantyClaimList({ claims, activeClaimId, onSelect }: WarrantyC
               </span>
               <span className="flex items-center justify-between gap-2 text-sm text-slate-500">
                 <span className="tabular-nums">{formatEur(claim.claimedAmountNet)}</span>
-                <span>Updated {formatDay(claim.updatedAt)}</span>
+                <span>{t('warranty.list.updated', { date: formatDay(claim.updatedAt) })}</span>
               </span>
             </button>
           </li>

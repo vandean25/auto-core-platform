@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -9,7 +10,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { SWITCH_REASON_LABELS } from '../constants'
+import { SWITCH_REASONS } from '../constants'
 import type { SwitchReason } from '../types'
 
 type SwitchTaskDialogProps = {
@@ -31,47 +32,46 @@ export function SwitchTaskDialog({
   onSelectReason,
   onConfirm,
 }: SwitchTaskDialogProps) {
+  const { t } = useTranslation('workshop')
+  const reasonLabel = (reason: SwitchReason) => t(`mechanic.taskDetail.switch.reasons.${reason}`)
+
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Switch to This Task</AlertDialogTitle>
-          <AlertDialogDescription>
-            What is the status of the task you are leaving?
-          </AlertDialogDescription>
+          <AlertDialogTitle>{t('mechanic.taskDetail.switch.title')}</AlertDialogTitle>
+          <AlertDialogDescription>{t('mechanic.taskDetail.switch.description')}</AlertDialogDescription>
         </AlertDialogHeader>
 
         <div className="flex flex-col gap-2 py-2">
-          {(Object.entries(SWITCH_REASON_LABELS) as [SwitchReason, string][]).map(
-            ([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => onSelectReason(value)}
-                className={`flex min-h-[48px] items-center rounded-lg border px-4 py-3 text-sm font-medium text-left transition-colors ${
-                  selectedReason === value
-                    ? 'border-slate-800 bg-slate-900 text-white'
-                    : 'border-slate-200 bg-white hover:bg-slate-50'
-                }`}
-              >
-                {label}
-              </button>
-            ),
-          )}
+          {SWITCH_REASONS.map((value) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => onSelectReason(value)}
+              className={`flex min-h-[48px] items-center rounded-lg border px-4 py-3 text-sm font-medium text-left transition-colors ${
+                selectedReason === value
+                  ? 'border-slate-800 bg-slate-900 text-white'
+                  : 'border-slate-200 bg-white hover:bg-slate-50'
+              }`}
+            >
+              {reasonLabel(value)}
+            </button>
+          ))}
         </div>
 
         {retrying && (
           <p className="text-xs text-slate-500 flex items-center gap-1">
             <Loader2 className="h-3 w-3 animate-spin" />
-            No active task to switch from — trying start instead…
+            {t('mechanic.taskDetail.switch.retrying')}
           </p>
         )}
 
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={pending}>{t('actions.cancel')}</AlertDialogCancel>
           <Button onClick={onConfirm} disabled={pending}>
             {pending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-            Confirm Switch
+            {t('mechanic.taskDetail.switch.confirm')}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

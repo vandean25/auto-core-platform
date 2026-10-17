@@ -40,6 +40,22 @@
       "backToQueue": "Zur Mechaniker-Warteschlange"
     },
     "queue": {
+      "title": "Meine Warteschlange",
+      "description": "Ihre aktiven Aufträge — Aufgabe antippen zum Öffnen.",
+      "refreshAria": "Warteschlange aktualisieren",
+      "searchPlaceholder": "Aufgaben, Kennzeichen, WA…",
+      "searchAria": "Mechaniker-Warteschlange durchsuchen",
+      "loading": "Aufgaben werden geladen…",
+      "identityErrorTitle": "Mechaniker-Profil nicht verknüpft",
+      "identityErrorDescription": "Ihr Login ist in diesem Mandanten mit keinem aktiven Mechaniker-Mitarbeiter verknüpft. Bitte einen Administrator, Ihren HR-Datensatz zu verknüpfen, oder das UAT-Seed für dieses Konto erneut ausführen.",
+      "loadErrorTitle": "Warteschlange konnte nicht geladen werden",
+      "loadErrorFallback": "Mechaniker-Warteschlange konnte nicht geladen werden",
+      "tryAgain": "Erneut versuchen",
+      "noResults": "Keine Treffer.",
+      "emptyTitle": "Keine zugewiesenen Aufgaben",
+      "emptyDescription": "Zugewiesene Arbeiten erscheinen hier.",
+      "clockLoadError": "Anwesenheitsuhr konnte nicht geladen werden",
+      "punchError": "Stempeln fehlgeschlagen",
       "taskSequence": "Aufgabe {{sequence}}",
       "noPlate": "Kein Kennzeichen",
       "bay": "Hebebühne: {{name}}",
@@ -60,7 +76,97 @@
         "hours_other": "{{count}} Std."
       },
       "diagnostics": {
-        "title": "Diagnose"
+        "title": "Diagnose & Notizen",
+        "placeholder": "Befunde, Messwerte oder Notizen hier festhalten…",
+        "sending": "Wird gesendet …",
+        "sendFinding": "Befund an Berater senden"
+      },
+      "complaint": {
+        "title": "Kundenanliegen"
+      },
+      "refreshTask": "Aufgabe aktualisieren",
+      "header": {
+        "backAria": "Zurück zur Warteschlange",
+        "order": "Auftrag {{orderNumber}}",
+        "start": "Starten",
+        "resume": "Fortsetzen",
+        "switchHere": "Hier weitermachen",
+        "switchTitle": "Von einer anderen Aufgabe zu dieser wechseln",
+        "pause": "Pausieren",
+        "complete": "Abschließen"
+      },
+      "vehicle": {
+        "title": "Fahrzeug",
+        "makeModel": "Marke / Modell",
+        "plate": "Kennzeichen",
+        "vin": "FIN",
+        "odometer": "Kilometerstand",
+        "bay": "Hebebühne",
+        "scheduled": "Geplant"
+      },
+      "parts": {
+        "title": "Teile",
+        "request": "Teil anfordern",
+        "empty": "Noch keine Teile angefordert.",
+        "qty": "Menge {{qty}}"
+      },
+      "media": {
+        "title": "Medien",
+        "uploading": "Wird hochgeladen…",
+        "upload": "Foto / Video hochladen",
+        "uploaded": "Hochgeladen ✓",
+        "failed": "Upload fehlgeschlagen — bitte erneut versuchen",
+        "acceptedTypes": "Erlaubt: JPEG, PNG, WebP, MP4, MOV"
+      },
+      "requestPart": {
+        "title": "Teil anfordern",
+        "itemNo": "Teilenummer / SKU",
+        "itemNoPlaceholder": "z. B. OIL-FILTER-01",
+        "description": "Beschreibung",
+        "descriptionPlaceholder": "z. B. Ölfilter — 2.0 TDI",
+        "quantity": "Menge",
+        "submit": "Anfrage senden"
+      },
+      "voiceNote": {
+        "unsupported": "Sprachnotizen sind in diesem Browser nicht verfügbar.",
+        "idleHint": "Aufnahme starten, um eine Sprachnotiz zu diktieren. Entwurf prüfen und bearbeiten, bevor er übernommen wird.",
+        "recording": "Aufnahme läuft…",
+        "draftReady": "Entwurf bereit. Vor Übernahme in die Diagnose prüfen und bearbeiten.",
+        "accepted": "Entwurf in Diagnose-Notizen übernommen.",
+        "errorFallback": "Sprachnotiz fehlgeschlagen. Bitte erneut aufnehmen.",
+        "stop": "Aufnahme stoppen",
+        "record": "Sprachnotiz aufnehmen",
+        "retry": "Erneut aufnehmen",
+        "processing": "Sprachnotiz wird verarbeitet…",
+        "draftLabel": "Sprachnotiz-Entwurf",
+        "discardDraft": "Entwurf verwerfen",
+        "acceptDraft": "Entwurf übernehmen"
+      },
+      "pause": {
+        "title": "Aufgabe pausieren",
+        "description": "Grund für die Pause wählen.",
+        "selected": "Ausgewählt: {{label}}",
+        "confirm": "Pause bestätigen",
+        "reasons": {
+          "WAITING_PARTS": "Wartet auf Teile",
+          "WAITING_CUSTOMER": "Wartet auf Kunde",
+          "OTHER": "Sonstiges"
+        }
+      },
+      "switch": {
+        "title": "Zu dieser Aufgabe wechseln",
+        "description": "Wie ist der Status der Aufgabe, die Sie verlassen?",
+        "retrying": "Keine aktive Aufgabe zum Wechseln — Start wird versucht…",
+        "confirm": "Wechsel bestätigen",
+        "reasons": {
+          "WAITING_PARTS": "Vorherige Aufgabe — Wartet auf Teile",
+          "WAITING_CUSTOMER": "Vorherige Aufgabe — Wartet auf Kunde",
+          "SWITCHED_TO_HIGHER_PRIORITY": "Zu höherer Priorität gewechselt"
+        }
+      },
+      "checklist": {
+        "loadError": "Checkliste konnte nicht gespeichert werden",
+        "loading": "Checkliste wird geladen…"
       }
     }
   },
@@ -91,6 +197,201 @@
     "error": "Wartende Aufgaben konnten nicht fortgesetzt werden."
   },
   "pick": {
-    "dealerStock": "Händlerbestand"
+    "dealerStock": "Händlerbestand",
+    "queue": {
+      "title": "Teile-Kommissionierung",
+      "description": "Auftragszeile wählen, um die Kommissionierung zu öffnen und Teile bereitzustellen.",
+      "workshopOrders": "Werkstattaufträge",
+      "intake": "Annahme",
+      "saveViewTitle": "Teile-Kommissionierung",
+      "searchPlaceholder": "Kommissionierung durchsuchen…",
+      "columns": {
+        "orderNo": "Auftragsnr.",
+        "customer": "Kunde",
+        "vehicle": "Fahrzeug",
+        "partLines": "Teilepositionen",
+        "totalQty": "Gesamtmenge",
+        "opened": "Eröffnet",
+        "status": "Status"
+      }
+    }
+  },
+  "orders": {
+    "list": {
+      "title": "Werkstattaufträge",
+      "description": "Auftrag öffnen für Details und Aufgaben.",
+      "partsPickQueue": "Teile-Kommissionierung",
+      "partsPickHint": "Zu kommissionierende Teile für offene Aufträge",
+      "newOrder": "Auftrag",
+      "saveViewTitle": "Werkstattaufträge",
+      "searchPlaceholder": "Werkstattaufträge suchen…",
+      "rowAria": "Werkstattauftrag {{orderNo}}",
+      "columns": {
+        "orderNo": "Auftragsnr.",
+        "customer": "Kunde",
+        "vehicle": "Fahrzeug",
+        "opened": "Eröffnet",
+        "status": "Status"
+      }
+    }
+  },
+  "warranty": {
+    "list": {
+      "empty": "Für diesen Auftrag gibt es noch keine Garantie- oder Kulanzanträge.",
+      "aria": "Garantieanträge",
+      "updated": "Aktualisiert {{date}}"
+    },
+    "type": {
+      "GARANTIE": "Garantie",
+      "KULANZ": "Kulanz",
+      "GEWAEHRLEISTUNG": "Gewährleistung"
+    },
+    "statusFilter": {
+      "all": "Alle Status",
+      "DRAFT": "Entwurf",
+      "SUBMITTED_EXTERNALLY": "Extern eingereicht",
+      "APPROVED": "Freigegeben",
+      "REJECTED": "Abgelehnt",
+      "CLOSED": "Geschlossen"
+    }
+  },
+  "inspection": {
+    "checklist": {
+      "saveError": "Checkliste konnte nicht gespeichert werden",
+      "loading": "Checkliste wird geladen…",
+      "loadFailed": "Checkliste konnte nicht geladen werden.",
+      "aria": "§57a Vorbereitung",
+      "hint": "Editierbare Start-Checkliste, keine Rechtsliste.",
+      "ok": "OK",
+      "defect": "Mangel",
+      "okAria": "OK: {{label}}",
+      "defectAria": "Mangel: {{label}}",
+      "noteAria": "Notiz: {{label}}",
+      "notePlaceholder": "Notiz …"
+    }
+  },
+  "readyEmail": {
+    "title": "Abholbenachrichtigung per E-Mail",
+    "resendSuccess": "Abholbenachrichtigung erneut in die Warteschlange gestellt.",
+    "resendError": "Abholbenachrichtigung konnte nicht erneut gesendet werden.",
+    "resending": "Wird gesendet …",
+    "resend": "Erneut senden",
+    "queued": "Versand läuft …",
+    "sent": "Zugestellt oder in der Warteschlange beim Provider."
+  },
+  "mechanicFinding": {
+    "title": "Mechaniker-Befunde",
+    "description": "Nachweise aus der Werkstatt. Lokale Arbeits- und Teilepositionen zuordnen und über Freigaben anwenden.",
+    "openMedia": "{{mimeType}} öffnen"
+  },
+  "capacity": {
+    "weekGrid": {
+      "caption": "Geplante Arbeit pro Hebebühne und Tag in der gewählten Woche",
+      "bay": "Hebebühne",
+      "today": "Heute"
+    },
+    "cell": {
+      "closed": "Geschlossen",
+      "overbooked": "Überbucht um {{hours}}",
+      "fullyBooked": "Voll belegt",
+      "free": "{{hours}} frei"
+    }
+  },
+  "catalog": {
+    "concern": {
+      "PARTS": "Teile",
+      "LABOR": "Arbeit"
+    },
+    "oem": {
+      "STELLANTIS": "Stellantis",
+      "MERCEDES": "Mercedes-Benz"
+    },
+    "identity": {
+      "noKeys": "Keine Identitätsschlüssel"
+    },
+    "banner": {
+      "oem": "{{concern}}: OEM-Katalog{{suffix}}",
+      "oemSuffix": " ({{label}})",
+      "fallbackEmpty": "{{concern}}: OEM ohne Treffer — Aftermarket-Katalog wird angezeigt",
+      "fallbackError": "{{concern}}: OEM nicht verfügbar — Aftermarket-Katalog wird angezeigt",
+      "notConfigured": "{{concern}}: Kein OEM-Katalog konfiguriert — Aftermarket wird angezeigt",
+      "aftermarket": "{{concern}}: Aftermarket-Katalog"
+    },
+    "fallbackDialog": {
+      "emptyTitle": "Keine OEM-Treffer",
+      "emptyDescription": "Der OEM-Katalog lieferte keine passenden Teile oder Arbeiten für dieses Fahrzeug. Stattdessen Aftermarket-Katalog durchsuchen?",
+      "errorTitle": "OEM-Katalog nicht verfügbar",
+      "errorDescription": "Der OEM-Katalog ist für dieses Fahrzeug derzeit nicht verfügbar. Stattdessen Aftermarket-Katalog durchsuchen?"
+    }
+  },
+  "intake": {
+    "conflictFallback": "Werkstattauftrag konnte nicht erstellt werden"
+  },
+  "loaner": {
+    "title": "Ersatzfahrzeuge",
+    "description": "Flotte verwalten, Buchungen planen und Übergabe/Rückgabe dokumentieren.",
+    "overdueBadge": "{{count}} überfällig",
+    "addVehicle": "Ersatzfahrzeug",
+    "searchPlaceholder": "Ersatzfahrzeuge suchen…",
+    "rowAria": "Ersatzfahrzeug {{name}}",
+    "columns": { "name": "Name", "vehicle": "Fahrzeug", "status": "Status" },
+    "bookingsTitle": "Buchungen · {{name}}",
+    "booking": "Buchung",
+    "noBookings": "Keine Buchungen für dieses Fahrzeug.",
+    "workshopOrder": "Werkstattauftrag: {{id}}",
+    "handOver": "Übergabe",
+    "return": "Rückgabe",
+    "protocol": "Protokoll",
+    "cancelBooking": "Stornieren",
+    "overdueTitle": "Überfällige Rückgaben",
+    "overdueUntil": "{{customer}} · bis {{date}}",
+    "addDialogTitle": "Ersatzfahrzeug hinzufügen",
+    "searchVehicle": "Fahrzeug suchen",
+    "searchVehiclePlaceholder": "Kennzeichen, VIN, Modell…",
+    "selected": "Ausgewählt: {{label}}",
+    "displayName": "Anzeigename",
+    "displayNamePlaceholder": "z. B. Golf Ersatzwagen",
+    "newBookingTitle": "Neue Buchung",
+    "customer": "Kunde",
+    "workshopOrderOptional": "Werkstattauftrag (optional)",
+    "selectOrder": "Auftrag wählen",
+    "noOrder": "Kein Auftrag",
+    "noOpenOrders": "Keine offenen Werkstattaufträge für diesen Kunden.",
+    "plannedFrom": "Geplant von",
+    "plannedTo": "Geplant bis",
+    "createBooking": "Buchung anlegen",
+    "handOverTitle": "Übergabe protokollieren",
+    "returnTitle": "Rückgabe protokollieren",
+    "odometer": "Kilometerstand",
+    "fuel": "Tankfüllung (%)",
+    "licenceChecked": "Führerschein geprüft",
+    "damageOut": "Schäden / Notizen (Ausgabe)",
+    "damageIn": "Schäden / Notizen (Rückgabe)",
+    "saveHandOver": "Übergabe speichern",
+    "saveReturn": "Rückgabe speichern",
+    "toast": {
+      "vehicleRequired": "Fahrzeug und Anzeigename sind erforderlich",
+      "vehicleAdded": "Ersatzfahrzeug hinzugefügt",
+      "saveFailed": "Speichern fehlgeschlagen",
+      "selectVehicleFirst": "Bitte zuerst ein Ersatzfahrzeug auswählen",
+      "customerRequired": "Kunde ist erforderlich",
+      "bookingCreated": "Buchung angelegt",
+      "bookingFailed": "Buchung fehlgeschlagen",
+      "odometerRequired": "Gültiger Kilometerstand erforderlich",
+      "fuelRange": "Tankfüllung muss zwischen 0 und 100 % liegen",
+      "licenceRequired": "Führerschein muss bestätigt werden",
+      "handOverSuccess": "Übergabe protokolliert",
+      "handOverFailed": "Übergabe fehlgeschlagen",
+      "returnSuccess": "Rückgabe protokolliert",
+      "returnFailed": "Rückgabe fehlgeschlagen",
+      "bookingCancelled": "Buchung storniert",
+      "cancelFailed": "Storno fehlgeschlagen"
+    }
+  },
+  "checkout": {
+    "grandTotal": "Gesamtsumme",
+    "title": "Abrechnung",
+    "description": "Rabatte prüfen und Rechnung stellen, ohne den Auftrag zu verlassen.",
+    "close": "Abrechnung schließen"
   }
 }

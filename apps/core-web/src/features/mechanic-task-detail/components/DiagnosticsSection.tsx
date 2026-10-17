@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import type { SaveState, VoiceNoteState } from '../types'
@@ -39,11 +40,13 @@ export function DiagnosticsSection({
   submitFindingPending = false,
   onSubmitFinding,
 }: DiagnosticsSectionProps) {
+  const { t } = useTranslation('workshop')
+
   return (
     <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base">Diagnostics &amp; Notes</CardTitle>
+          <CardTitle className="text-base">{t('mechanic.taskDetail.diagnostics.title')}</CardTitle>
           <SaveStateIndicator state={saveState} />
         </div>
       </CardHeader>
@@ -62,7 +65,7 @@ export function DiagnosticsSection({
         <textarea
           value={notesValue}
           onChange={(event) => onNotesChange(event.target.value)}
-          placeholder="Record diagnostic findings, measurements, or notes here…"
+          placeholder={t('mechanic.taskDetail.diagnostics.placeholder')}
           rows={5}
           className="w-full resize-y rounded-md border border-slate-200 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 disabled:opacity-50"
           disabled={disabled}
@@ -75,7 +78,9 @@ export function DiagnosticsSection({
               disabled={!canSubmitFinding || submitFindingPending}
               onClick={onSubmitFinding}
             >
-              {submitFindingPending ? 'Sending…' : 'Send finding to advisor'}
+              {submitFindingPending
+                ? t('mechanic.taskDetail.diagnostics.sending')
+                : t('mechanic.taskDetail.diagnostics.sendFinding')}
             </Button>
           </div>
         )}

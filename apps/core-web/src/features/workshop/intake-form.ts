@@ -1,4 +1,5 @@
 import type { RegisterIntakePayload } from '@/api/types'
+import { i18n } from '@/lib/i18n'
 import {
   getErrorBody,
   getErrorCode,
@@ -105,7 +106,7 @@ export function conflictFromError(
     return null
   }
   return {
-    message: getErrorMessage(error, 'Failed to create workshop order'),
+    message: getErrorMessage(error, i18n.t('intake.conflictFallback', { ns: 'workshop' })),
     orderId: body.orderId,
     orderNumber: body.orderNumber,
     vehicleId: attempt.vehicleId,

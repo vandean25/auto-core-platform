@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -28,17 +29,18 @@ export function WorkshopTaskInspectionChecklistView({
   saving,
   onSave,
 }: Props) {
+  const { t } = useTranslation("workshop");
   const [notesByItem, setNotesByItem] = useState<Record<string, string>>({});
 
   return (
     <section
-      aria-label="§57a Vorbereitung"
+      aria-label={t("inspection.checklist.aria")}
       className="space-y-3 rounded-md border p-3"
     >
       <div>
         <h3 className="text-sm font-semibold">{checklist.title}</h3>
         <p className="text-xs text-muted-foreground">
-          Editierbare Start-Checkliste, keine Rechtsliste.
+          {t("inspection.checklist.hint")}
         </p>
       </div>
       <ul className="space-y-2">
@@ -55,26 +57,27 @@ export function WorkshopTaskInspectionChecklistView({
                   type="button"
                   size="sm"
                   variant={item.passed === true ? "default" : "outline"}
-                  aria-label={`OK: ${item.label_snapshot}`}
+                  aria-label={t("inspection.checklist.okAria", { label: item.label_snapshot })}
                   disabled={readOnly || saving}
                   onClick={() => void onSave(item.id, { passed: true })}
                 >
-                  OK
+                  {t("inspection.checklist.ok")}
                 </Button>
                 <Button
                   type="button"
                   size="sm"
                   variant={item.passed === false ? "destructive" : "outline"}
-                  aria-label={`Mangel: ${item.label_snapshot}`}
+                  aria-label={t("inspection.checklist.defectAria", { label: item.label_snapshot })}
                   disabled={readOnly || saving}
                   onClick={() => void onSave(item.id, { passed: false })}
                 >
-                  Mangel
+                  {t("inspection.checklist.defect")}
                 </Button>
               </div>
               <Input
                 className="sm:col-span-2"
-                aria-label={`Notiz: ${item.label_snapshot}`}
+                aria-label={t("inspection.checklist.noteAria", { label: item.label_snapshot })}
+                placeholder={t("inspection.checklist.notePlaceholder")}
                 value={itemNotes}
                 disabled={readOnly || saving}
                 onChange={(event) =>

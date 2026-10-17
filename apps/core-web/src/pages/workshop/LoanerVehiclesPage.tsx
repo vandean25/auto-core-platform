@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { format } from 'date-fns'
@@ -79,6 +80,7 @@ function vehicleSearchLabel(vehicle: Vehicle) {
 }
 
 export default function LoanerVehiclesPage() {
+  const { t } = useTranslation('workshop')
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { ...tableState } = useDataTableQuery({
@@ -174,22 +176,22 @@ export default function LoanerVehiclesPage() {
   const columns: ColumnDef<FleetRow>[] = [
     {
       accessorKey: 'displayName',
-      header: ({ column }) => <DataTableColumnHeader column={column} title='Name' />,
+      header: ({ column }) => <DataTableColumnHeader column={column} title={t('loaner.columns.name')} />,
     },
     {
       accessorKey: 'vehicleLabel',
-      header: ({ column }) => <DataTableColumnHeader column={column} title='Fahrzeug' />,
+      header: ({ column }) => <DataTableColumnHeader column={column} title={t('loaner.columns.vehicle')} />,
     },
     {
       accessorKey: 'status',
-      header: ({ column }) => <DataTableColumnHeader column={column} title='Status' />,
+      header: ({ column }) => <DataTableColumnHeader column={column} title={t('loaner.columns.status')} />,
       cell: ({ row }) => <StatusBadge status={row.original.status} />,
     },
   ]
 
   async function handleCreateVehicle() {
     if (!selectedPoolVehicle?.id || !newDisplayName.trim()) {
-      toast.error('Fahrzeug und Anzeigename sind erforderlich')
+      toast.error(t('loaner.toast.vehicleRequired'))
       return
     }
     try {
@@ -197,23 +199,23 @@ export default function LoanerVehiclesPage() {
         vehicleId: selectedPoolVehicle.id,
         displayName: newDisplayName.trim(),
       })
-      toast.success('Ersatzfahrzeug hinzugefügt')
+      toast.success(t('loaner.toast.vehicleAdded'))
       setAddVehicleOpen(false)
       setSelectedPoolVehicle(null)
       setVehicleSearch('')
       setNewDisplayName('')
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Speichern fehlgeschlagen')
+      toast.error(error instanceof Error ? error.message : t('loaner.toast.saveFailed'))
     }
   }
 
   async function handleCreateBooking() {
     if (!selectedVehicleId) {
-      toast.error('Bitte zuerst ein Ersatzfahrzeug auswählen')
+      toast.error(t('loaner.toast.selectVehicleFirst'))
       return
     }
     if (!bookingCustomer?.id) {
-      toast.error('Kunde ist erforderlich')
+      toast.error(t('loaner.toast.customerRequired'))
       return
     }
     try {
@@ -224,12 +226,12 @@ export default function LoanerVehiclesPage() {
         plannedFrom: new Date(bookingPlannedFrom).toISOString(),
         plannedTo: new Date(bookingPlannedTo).toISOString(),
       })
-      toast.success('Buchung angelegt')
+      toast.success(t('loaner.toast.bookingCreated'))
       setBookingDialogOpen(false)
       setBookingCustomer(null)
       setBookingWorkshopOrderId('')
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Buchung fehlgeschlagen')
+      toast.error(error instanceof Error ? error.message : t('loaner.toast.bookingFailed'))
     }
   }
 
@@ -237,15 +239,15 @@ export default function LoanerVehiclesPage() {
     const odometer = Number(handOverOdometer)
     const fuel = Number(handOverFuel)
     if (!Number.isFinite(odometer) || odometer < 0) {
-      toast.error('Gültiger Kilometerstand erforderlich')
+      toast.error(t('loaner.toast.odometerRequired'))
       return false
     }
     if (!Number.isFinite(fuel) || fuel < 0 || fuel > 100) {
-      toast.error('Tankfüllung muss zwischen 0 und 100 % liegen')
+      toast.error(t('loaner.toast.fuelRange'))
       return false
     }
     if (!handOverLicenceChecked) {
-      toast.error('Führerschein muss bestätigt werden')
+      toast.error(t('loaner.toast.licenceRequired'))
       return false
     }
     return true
@@ -263,10 +265,10 @@ export default function LoanerVehiclesPage() {
           damageNotesOut: handOverDamageNotes.trim() || undefined,
         },
       })
-      toast.success('Übergabe protokolliert')
+      toast.success(t('loaner.toast.handOverSuccess'))
       setHandOverBooking(null)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Übergabe fehlgeschlagen')
+      toast.error(error instanceof Error ? error.message : t('loaner.toast.handOverFailed'))
     }
   }
 
@@ -274,11 +276,11 @@ export default function LoanerVehiclesPage() {
     const odometer = Number(returnOdometer)
     const fuel = Number(returnFuel)
     if (!Number.isFinite(odometer) || odometer < 0) {
-      toast.error('Gültiger Kilometerstand erforderlich')
+      toast.error(t('loaner.toast.odometerRequired'))
       return false
     }
     if (!Number.isFinite(fuel) || fuel < 0 || fuel > 100) {
-      toast.error('Tankfüllung muss zwischen 0 und 100 % liegen')
+      toast.error(t('loaner.toast.fuelRange'))
       return false
     }
     return true
@@ -295,10 +297,10 @@ export default function LoanerVehiclesPage() {
           damageNotesIn: returnDamageNotes.trim() || undefined,
         },
       })
-      toast.success('Rückgabe protokolliert')
+      toast.success(t('loaner.toast.returnSuccess'))
       setReturnBooking(null)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Rückgabe fehlgeschlagen')
+      toast.error(error instanceof Error ? error.message : t('loaner.toast.returnFailed'))
     }
   }
 
@@ -324,20 +326,18 @@ export default function LoanerVehiclesPage() {
       <div className='mb-8 flex items-center justify-between'>
         <div>
           <div className='flex items-center gap-3'>
-            <h1 className='text-2xl font-semibold tracking-tight'>Ersatzfahrzeuge</h1>
+            <h1 className='text-2xl font-semibold tracking-tight'>{t('loaner.title')}</h1>
             {overdueCount > 0 ? (
               <Badge variant='destructive' className='tabular-nums'>
-                {overdueCount} überfällig
+                {t('loaner.overdueBadge', { count: overdueCount })}
               </Badge>
             ) : null}
           </div>
-          <p className='text-slate-500'>
-            Flotte verwalten, Buchungen planen und Übergabe/Rückgabe dokumentieren.
-          </p>
+          <p className='text-slate-500'>{t('loaner.description')}</p>
         </div>
         <Button onClick={() => setAddVehicleOpen(true)}>
           <Plus className='mr-2 h-4 w-4' />
-          Ersatzfahrzeug
+          {t('loaner.addVehicle')}
         </Button>
       </div>
 
@@ -347,8 +347,8 @@ export default function LoanerVehiclesPage() {
         isLoading={fleetLoading}
         pageCount={1}
         pageSizeOptions={[]}
-        searchPlaceholder='Ersatzfahrzeuge suchen…'
-        getRowAccessibleName={(row) => `Ersatzfahrzeug ${row.displayName}`}
+        searchPlaceholder={t('loaner.searchPlaceholder')}
+        getRowAccessibleName={(row) => t('loaner.rowAria', { name: row.displayName })}
         onRowClick={(row) =>
           setSelectedVehicleId((current) => (current === row.id ? null : row.id))
         }
@@ -359,17 +359,17 @@ export default function LoanerVehiclesPage() {
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0'>
             <div>
-              <CardTitle>Buchungen · {selectedVehicle.displayName}</CardTitle>
+              <CardTitle>{t('loaner.bookingsTitle', { name: selectedVehicle.displayName })}</CardTitle>
               <p className='text-sm text-muted-foreground'>{fleetVehicleLabel(selectedVehicle)}</p>
             </div>
             <Button variant='outline' onClick={() => setBookingDialogOpen(true)}>
               <Plus className='mr-2 h-4 w-4' />
-              Buchung
+              {t('loaner.booking')}
             </Button>
           </CardHeader>
           <CardContent>
             {vehicleBookings.length === 0 ? (
-              <p className='text-sm text-muted-foreground'>Keine Buchungen für dieses Fahrzeug.</p>
+              <p className='text-sm text-muted-foreground'>{t('loaner.noBookings')}</p>
             ) : (
               <ol className='relative space-y-6 border-l border-slate-200 pl-6'>
                 {vehicleBookings.map((booking) => (
@@ -387,19 +387,19 @@ export default function LoanerVehiclesPage() {
                         <p className='font-medium'>{getLoanerBookingCustomerLabel(booking)}</p>
                         {booking.workshopOrderId ? (
                           <p className='text-xs text-muted-foreground'>
-                            Werkstattauftrag: {booking.workshopOrderId}
+                            {t('loaner.workshopOrder', { id: booking.workshopOrderId })}
                           </p>
                         ) : null}
                       </div>
                       <div className='flex flex-wrap gap-2'>
                         {booking.status === 'RESERVED' ? (
                           <Button size='sm' onClick={() => openHandOverDialog(booking)}>
-                            Übergabe
+                            {t('loaner.handOver')}
                           </Button>
                         ) : null}
                         {booking.status === 'HANDED_OVER' ? (
                           <Button size='sm' onClick={() => openReturnDialog(booking)}>
-                            Rückgabe
+                            {t('loaner.return')}
                           </Button>
                         ) : null}
                         {(booking.status === 'HANDED_OVER' || booking.status === 'RETURNED') && (
@@ -416,7 +416,7 @@ export default function LoanerVehiclesPage() {
                             }
                           >
                             <Printer className='mr-2 h-4 w-4' />
-                            Protokoll
+                            {t('loaner.protocol')}
                           </Button>
                         )}
                         {booking.status === 'RESERVED' ? (
@@ -425,15 +425,15 @@ export default function LoanerVehiclesPage() {
                             variant='ghost'
                             onClick={() =>
                               cancelBooking.mutate(booking.id, {
-                                onSuccess: () => toast.success('Buchung storniert'),
+                                onSuccess: () => toast.success(t('loaner.toast.bookingCancelled')),
                                 onError: (error) =>
                                   toast.error(
-                                    error instanceof Error ? error.message : 'Storno fehlgeschlagen',
+                                    error instanceof Error ? error.message : t('loaner.toast.cancelFailed'),
                                   ),
                               })
                             }
                           >
-                            Stornieren
+                            {t('loaner.cancelBooking')}
                           </Button>
                         ) : null}
                       </div>
@@ -449,7 +449,7 @@ export default function LoanerVehiclesPage() {
       {overdueCount > 0 ? (
         <Card className='border-rose-200 bg-rose-50/40'>
           <CardHeader>
-            <CardTitle className='text-rose-900'>Überfällige Rückgaben</CardTitle>
+            <CardTitle className='text-rose-900'>{t('loaner.overdueTitle')}</CardTitle>
           </CardHeader>
           <CardContent className='space-y-2'>
             {(overdueData?.data ?? []).map((booking) => (
@@ -458,11 +458,13 @@ export default function LoanerVehiclesPage() {
                 className='flex flex-wrap items-center justify-between gap-2 rounded-md border border-rose-100 bg-white px-3 py-2 text-sm'
               >
                 <span>
-                  {getLoanerBookingCustomerLabel(booking)} · bis{' '}
-                  {format(new Date(booking.plannedTo), 'PPp')}
+                  {t('loaner.overdueUntil', {
+                    customer: getLoanerBookingCustomerLabel(booking),
+                    date: format(new Date(booking.plannedTo), 'PPp'),
+                  })}
                 </span>
                 <Button size='sm' variant='outline' onClick={() => openReturnDialog(booking)}>
-                  Rückgabe
+                  {t('loaner.return')}
                 </Button>
               </div>
             ))}
@@ -473,16 +475,16 @@ export default function LoanerVehiclesPage() {
       <Dialog open={addVehicleOpen} onOpenChange={setAddVehicleOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Ersatzfahrzeug hinzufügen</DialogTitle>
+            <DialogTitle>{t('loaner.addDialogTitle')}</DialogTitle>
           </DialogHeader>
           <div className='space-y-4'>
             <div className='space-y-2'>
-              <Label htmlFor='loaner-vehicle-search'>Fahrzeug suchen</Label>
+              <Label htmlFor='loaner-vehicle-search'>{t('loaner.searchVehicle')}</Label>
               <Input
                 id='loaner-vehicle-search'
                 value={vehicleSearch}
                 onChange={(event) => setVehicleSearch(event.target.value)}
-                placeholder='Kennzeichen, VIN, Modell…'
+                placeholder={t('loaner.searchVehiclePlaceholder')}
               />
               {vehicleSearchResults.length > 0 ? (
                 <ul className='max-h-40 overflow-y-auto rounded-md border border-slate-200 text-sm'>
@@ -507,26 +509,26 @@ export default function LoanerVehiclesPage() {
               ) : null}
               {selectedPoolVehicle ? (
                 <p className='text-sm text-muted-foreground'>
-                  Ausgewählt: {vehicleSearchLabel(selectedPoolVehicle)}
+                  {t('loaner.selected', { label: vehicleSearchLabel(selectedPoolVehicle) })}
                 </p>
               ) : null}
             </div>
             <div className='space-y-2'>
-              <Label htmlFor='loaner-display-name'>Anzeigename</Label>
+              <Label htmlFor='loaner-display-name'>{t('loaner.displayName')}</Label>
               <Input
                 id='loaner-display-name'
                 value={newDisplayName}
                 onChange={(event) => setNewDisplayName(event.target.value)}
-                placeholder='z. B. Golf Ersatzwagen'
+                placeholder={t('loaner.displayNamePlaceholder')}
               />
             </div>
           </div>
           <DialogFooter>
             <Button variant='outline' onClick={() => setAddVehicleOpen(false)}>
-              Abbrechen
+              {t('actions.cancel')}
             </Button>
             <Button onClick={handleCreateVehicle} disabled={createVehicle.isPending}>
-              Speichern
+              {t('actions.save')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -535,15 +537,15 @@ export default function LoanerVehiclesPage() {
       <Dialog open={bookingDialogOpen} onOpenChange={setBookingDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Neue Buchung</DialogTitle>
+            <DialogTitle>{t('loaner.newBookingTitle')}</DialogTitle>
           </DialogHeader>
           <div className='space-y-4'>
             <div className='space-y-2'>
-              <Label>Kunde</Label>
+              <Label>{t('loaner.customer')}</Label>
               <CustomerSearch value={bookingCustomer} onChange={setBookingCustomer} />
             </div>
             <div className='space-y-2'>
-              <Label htmlFor='booking-order-id'>Werkstattauftrag (optional)</Label>
+              <Label htmlFor='booking-order-id'>{t('loaner.workshopOrderOptional')}</Label>
               <Select
                 value={bookingWorkshopOrderId || 'none'}
                 onValueChange={(value) =>
@@ -552,10 +554,10 @@ export default function LoanerVehiclesPage() {
                 disabled={!bookingCustomer}
               >
                 <SelectTrigger id='booking-order-id'>
-                  <SelectValue placeholder='Auftrag wählen' />
+                  <SelectValue placeholder={t('loaner.selectOrder')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value='none'>Kein Auftrag</SelectItem>
+                  <SelectItem value='none'>{t('loaner.noOrder')}</SelectItem>
                   {customerWorkshopOrders.map((order) => (
                     <SelectItem key={order.id} value={order.id}>
                       {order.order_number ?? order.id}
@@ -565,13 +567,13 @@ export default function LoanerVehiclesPage() {
               </Select>
               {bookingCustomer && !workshopOrdersLoading && customerWorkshopOrders.length === 0 ? (
                 <p className='text-xs text-muted-foreground'>
-                  Keine offenen Werkstattaufträge für diesen Kunden.
+                  {t('loaner.noOpenOrders')}
                 </p>
               ) : null}
             </div>
             <div className='grid gap-4 sm:grid-cols-2'>
               <div className='space-y-2'>
-                <Label htmlFor='booking-from'>Geplant von</Label>
+                <Label htmlFor='booking-from'>{t('loaner.plannedFrom')}</Label>
                 <Input
                   id='booking-from'
                   type='datetime-local'
@@ -580,7 +582,7 @@ export default function LoanerVehiclesPage() {
                 />
               </div>
               <div className='space-y-2'>
-                <Label htmlFor='booking-to'>Geplant bis</Label>
+                <Label htmlFor='booking-to'>{t('loaner.plannedTo')}</Label>
                 <Input
                   id='booking-to'
                   type='datetime-local'
@@ -592,10 +594,10 @@ export default function LoanerVehiclesPage() {
           </div>
           <DialogFooter>
             <Button variant='outline' onClick={() => setBookingDialogOpen(false)}>
-              Abbrechen
+              {t('actions.cancel')}
             </Button>
             <Button onClick={handleCreateBooking} disabled={createBooking.isPending}>
-              Buchung anlegen
+              {t('loaner.createBooking')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -604,11 +606,11 @@ export default function LoanerVehiclesPage() {
       <Dialog open={Boolean(handOverBooking)} onOpenChange={(open) => !open && setHandOverBooking(null)}>
         <DialogContent className='max-w-lg'>
           <DialogHeader>
-            <DialogTitle>Übergabe protokollieren</DialogTitle>
+            <DialogTitle>{t('loaner.handOverTitle')}</DialogTitle>
           </DialogHeader>
           <div className='space-y-4'>
             <div className='space-y-2'>
-              <Label htmlFor='handover-odometer'>Kilometerstand</Label>
+              <Label htmlFor='handover-odometer'>{t('loaner.odometer')}</Label>
               <Input
                 id='handover-odometer'
                 type='number'
@@ -618,7 +620,7 @@ export default function LoanerVehiclesPage() {
               />
             </div>
             <div className='space-y-2'>
-              <Label htmlFor='handover-fuel'>Tankfüllung (%)</Label>
+              <Label htmlFor='handover-fuel'>{t('loaner.fuel')}</Label>
               <Input
                 id='handover-fuel'
                 type='number'
@@ -634,11 +636,11 @@ export default function LoanerVehiclesPage() {
                 onCheckedChange={(checked) => setHandOverLicenceChecked(checked === true)}
               />
               <Label htmlFor='handover-licence' className='text-base'>
-                Führerschein geprüft
+                {t('loaner.licenceChecked')}
               </Label>
             </div>
             <div className='space-y-2'>
-              <Label htmlFor='handover-damage'>Schäden / Notizen (Ausgabe)</Label>
+              <Label htmlFor='handover-damage'>{t('loaner.damageOut')}</Label>
               <textarea
                 id='handover-damage'
                 className='flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
@@ -649,10 +651,10 @@ export default function LoanerVehiclesPage() {
           </div>
           <DialogFooter className='gap-2 sm:gap-0'>
             <Button variant='outline' onClick={() => setHandOverBooking(null)}>
-              Abbrechen
+              {t('actions.cancel')}
             </Button>
             <Button className='h-11 px-6 text-base' onClick={handleHandOver} disabled={handOver.isPending}>
-              Übergabe speichern
+              {t('loaner.saveHandOver')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -661,11 +663,11 @@ export default function LoanerVehiclesPage() {
       <Dialog open={Boolean(returnBooking)} onOpenChange={(open) => !open && setReturnBooking(null)}>
         <DialogContent className='max-w-lg'>
           <DialogHeader>
-            <DialogTitle>Rückgabe protokollieren</DialogTitle>
+            <DialogTitle>{t('loaner.returnTitle')}</DialogTitle>
           </DialogHeader>
           <div className='space-y-4'>
             <div className='space-y-2'>
-              <Label htmlFor='return-odometer'>Kilometerstand</Label>
+              <Label htmlFor='return-odometer'>{t('loaner.odometer')}</Label>
               <Input
                 id='return-odometer'
                 type='number'
@@ -675,7 +677,7 @@ export default function LoanerVehiclesPage() {
               />
             </div>
             <div className='space-y-2'>
-              <Label htmlFor='return-fuel'>Tankfüllung (%)</Label>
+              <Label htmlFor='return-fuel'>{t('loaner.fuel')}</Label>
               <Input
                 id='return-fuel'
                 type='number'
@@ -685,7 +687,7 @@ export default function LoanerVehiclesPage() {
               />
             </div>
             <div className='space-y-2'>
-              <Label htmlFor='return-damage'>Schäden / Notizen (Rückgabe)</Label>
+              <Label htmlFor='return-damage'>{t('loaner.damageIn')}</Label>
               <textarea
                 id='return-damage'
                 className='flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
@@ -696,10 +698,10 @@ export default function LoanerVehiclesPage() {
           </div>
           <DialogFooter className='gap-2 sm:gap-0'>
             <Button variant='outline' onClick={() => setReturnBooking(null)}>
-              Abbrechen
+              {t('actions.cancel')}
             </Button>
             <Button className='h-11 px-6 text-base' onClick={handleReturn} disabled={returnLoaner.isPending}>
-              Rückgabe speichern
+              {t('loaner.saveReturn')}
             </Button>
           </DialogFooter>
         </DialogContent>

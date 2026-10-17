@@ -11,7 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { WarrantyClaimEditor } from "@/features/workshop/warranty-claims/WarrantyClaimEditor";
 import { WarrantyClaimList } from "@/features/workshop/warranty-claims/WarrantyClaimList";
 import {
-  WARRANTY_CLAIM_STATUS_FILTER_OPTIONS,
+  WARRANTY_CLAIM_STATUS_FILTER_VALUES,
+  warrantyClaimStatusFilterOptions,
   linesClaimedElsewhere,
 } from "@/features/workshop/warranty-claims/warranty-claim-form";
 import { getErrorMessage } from "@/lib/error-utils";
@@ -28,8 +29,9 @@ export function WorkshopOrderWarrantyClaims() {
   const createClaim = useCreateWarrantyClaim();
 
   const statusParam = searchParams.get(STATUS_PARAM);
-  const statusFilter: WarrantyClaimStatus | "all" = WARRANTY_CLAIM_STATUS_FILTER_OPTIONS.some(
-    (option) => option.value === statusParam,
+  const statusFilterOptions = warrantyClaimStatusFilterOptions();
+  const statusFilter: WarrantyClaimStatus | "all" = WARRANTY_CLAIM_STATUS_FILTER_VALUES.some(
+    (value) => value === statusParam,
   )
     ? (statusParam as WarrantyClaimStatus | "all")
     : "all";
@@ -143,7 +145,7 @@ export function WorkshopOrderWarrantyClaims() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {WARRANTY_CLAIM_STATUS_FILTER_OPTIONS.map((option) => (
+              {statusFilterOptions.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
                   {option.label}
                 </SelectItem>

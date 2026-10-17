@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, Loader2, Mail } from 'lucide-react'
 import { toast } from 'sonner'
@@ -24,16 +25,17 @@ export function WorkshopReadyEmailNotice({
   orderId: string
   notice: WorkshopReadyEmailNotice | null | undefined
 }) {
+  const { t } = useTranslation('workshop')
   const queryClient = useQueryClient()
   const resend = useMutation({
     mutationFn: () => resendWorkshopReadyEmail(orderId),
     onSuccess: async () => {
-      toast.success('Abholbenachrichtigung erneut in die Warteschlange gestellt.')
+      toast.success(t('readyEmail.resendSuccess'))
       await queryClient.invalidateQueries({ queryKey: workshopCommunicationKeys.order(orderId) })
       await queryClient.invalidateQueries({ queryKey: ['workshop', 'orders', orderId] })
     },
     onError: () => {
-      toast.error('Abholbenachrichtigung konnte nicht erneut gesendet werden.')
+      toast.error(t('readyEmail.resendError'))
     },
   })
 
@@ -46,7 +48,7 @@ export function WorkshopReadyEmailNotice({
   return (
     <Alert variant={showResend ? 'destructive' : 'default'}>
       <Mail className="h-4 w-4" />
-      <AlertTitle as="h3">Abholbenachrichtigung per E-Mail</AlertTitle>
+      <AlertTitle as="h3">{t('readyEmail.title')}</AlertTitle>
       <AlertDescription className="space-y-2">
         <p>{notice.message}</p>
         {showResend ? (
@@ -60,23 +62,23 @@ export function WorkshopReadyEmailNotice({
             {resend.isPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-                Wird gesendet …
+                {t('readyEmail.resending')}
               </>
             ) : (
-              'Erneut senden'
+              t('readyEmail.resend')
             )}
           </Button>
         ) : null}
         {notice.code === 'QUEUED' ? (
           <p className="flex items-center gap-2 text-xs text-muted-foreground">
             <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
-            Versand läuft …
+            {t('readyEmail.queued')}
           </p>
         ) : null}
         {notice.code === 'SENT' ? (
           <p className="flex items-center gap-2 text-xs text-emerald-700">
             <AlertTriangle className="h-3 w-3 opacity-0" aria-hidden="true" />
-            Zugestellt oder in der Warteschlange beim Provider.
+            {t('readyEmail.sent')}
           </p>
         ) : null}
       </AlertDescription>

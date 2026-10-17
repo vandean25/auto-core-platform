@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { format } from 'date-fns'
@@ -25,6 +26,7 @@ interface WorkshopOrderRow {
 }
 
 export default function WorkshopOrderList() {
+  const { t } = useTranslation('workshop')
   const navigate = useNavigate()
   const [createOpen, setCreateOpen] = useState(false)
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
@@ -45,30 +47,40 @@ export default function WorkshopOrderList() {
   const columns: ColumnDef<WorkshopOrderRow>[] = [
     {
       accessorKey: 'orderNo',
-      meta: { rowLink: true, label: 'Order no.' },
-      header: ({ column }) => <DataTableColumnHeader column={column} title='Order No.' />,
+      meta: { rowLink: true, label: t('orders.list.columns.orderNo') },
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title={t('orders.list.columns.orderNo')} />
+      ),
       cell: ({ row }) => row.original.orderNo,
     },
     {
       accessorKey: 'customer',
-      meta: { label: 'Customer' },
-      header: ({ column }) => <DataTableColumnHeader column={column} title='Customer' />,
+      meta: { label: t('orders.list.columns.customer') },
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title={t('orders.list.columns.customer')} />
+      ),
     },
     {
       accessorKey: 'vehicle',
-      meta: { label: 'Vehicle' },
-      header: ({ column }) => <DataTableColumnHeader column={column} title='Vehicle' />,
+      meta: { label: t('orders.list.columns.vehicle') },
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title={t('orders.list.columns.vehicle')} />
+      ),
     },
     {
       accessorKey: 'openedAt',
-      meta: { label: 'Opened' },
-      header: ({ column }) => <DataTableColumnHeader column={column} title='Opened' />,
+      meta: { label: t('orders.list.columns.opened') },
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title={t('orders.list.columns.opened')} />
+      ),
       cell: ({ row }) => <span className='text-muted-foreground'>{row.original.openedAt}</span>,
     },
     {
       accessorKey: 'status',
-      meta: { label: 'Status' },
-      header: ({ column }) => <DataTableColumnHeader column={column} title='Status' />,
+      meta: { label: t('orders.list.columns.status') },
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title={t('orders.list.columns.status')} />
+      ),
       cell: ({ row }) => <StatusBadge status={row.original.status} />,
     },
   ]
@@ -77,18 +89,18 @@ export default function WorkshopOrderList() {
     <div className='space-y-6'>
       <div className='flex items-center justify-between mb-8'>
         <div>
-          <h1 className='text-2xl font-semibold tracking-tight'>Workshop Orders</h1>
-          <p className='text-slate-500'>Open a work order to view full job details and task drawer.</p>
+          <h1 className='text-2xl font-semibold tracking-tight'>{t('orders.list.title')}</h1>
+          <p className='text-slate-500'>{t('orders.list.description')}</p>
         </div>
         <div className='flex items-center gap-2'>
-          <TooltipHint hint='Parts to pick for open workshop orders'>
+          <TooltipHint hint={t('orders.list.partsPickHint')}>
             <Button variant='outline' onClick={() => navigate('/workshop/pick-list')}>
-              Parts pick queue
+              {t('orders.list.partsPickQueue')}
             </Button>
           </TooltipHint>
           <Button onClick={() => setCreateOpen(true)}>
             <Plus className='h-4 w-4 mr-2' />
-            Order
+            {t('orders.list.newOrder')}
           </Button>
         </div>
       </div>
@@ -96,13 +108,13 @@ export default function WorkshopOrderList() {
       <DataTable
         columns={columns}
         data={rows}
-        saveViewTitle='Workshop Orders'
+        saveViewTitle={t('orders.list.saveViewTitle')}
         dashboardSource={DASHBOARD_WIDGET_SOURCE_WORKSHOP_ORDERS}
         pageCount={responseData?.meta?.pageCount ?? 1}
         isLoading={isLoading}
-        searchPlaceholder='Search workshop orders...'
+        searchPlaceholder={t('orders.list.searchPlaceholder')}
         getRowHref={(row) => `/workshop/orders/${row.id}`}
-        getRowAccessibleName={(row) => `Workshop order ${row.orderNo}`}
+        getRowAccessibleName={(row) => t('orders.list.rowAria', { orderNo: row.orderNo })}
         onRowClick={(row) => navigate(`/workshop/orders/${row.id}`)}
         {...tableState}
       />

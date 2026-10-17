@@ -40,6 +40,22 @@
       "backToQueue": "Go to mechanic queue"
     },
     "queue": {
+      "title": "My Queue",
+      "description": "Your active work orders — tap a task to open it.",
+      "refreshAria": "Refresh queue",
+      "searchPlaceholder": "Search tasks, plates, WO…",
+      "searchAria": "Search mechanic queue",
+      "loading": "Loading tasks…",
+      "identityErrorTitle": "Mechanic profile not linked",
+      "identityErrorDescription": "Your login is not linked to an active mechanic employee in this tenant. Ask an admin to link your HR employee record, or re-run the UAT tenant-member seed for this account.",
+      "loadErrorTitle": "Could not load your queue",
+      "loadErrorFallback": "Failed to load mechanic queue",
+      "tryAgain": "Try again",
+      "noResults": "No results.",
+      "emptyTitle": "No tasks assigned",
+      "emptyDescription": "Jobs you are assigned appear here.",
+      "clockLoadError": "Failed to load attendance clock",
+      "punchError": "Failed to punch attendance clock",
       "taskSequence": "Task {{sequence}}",
       "noPlate": "No plate",
       "bay": "Bay: {{name}}",
@@ -60,7 +76,97 @@
         "hours_other": "{{count}} hrs"
       },
       "diagnostics": {
-        "title": "Diagnostics"
+        "title": "Diagnostics & Notes",
+        "placeholder": "Record diagnostic findings, measurements, or notes here…",
+        "sending": "Sending…",
+        "sendFinding": "Send finding to advisor"
+      },
+      "complaint": {
+        "title": "Customer Complaint"
+      },
+      "refreshTask": "Refresh task",
+      "header": {
+        "backAria": "Back to queue",
+        "order": "Order {{orderNumber}}",
+        "start": "Start",
+        "resume": "Resume",
+        "switchHere": "Switch Here",
+        "switchTitle": "Switch from another task to this one",
+        "pause": "Pause",
+        "complete": "Complete"
+      },
+      "vehicle": {
+        "title": "Vehicle",
+        "makeModel": "Make / Model",
+        "plate": "Plate",
+        "vin": "VIN",
+        "odometer": "Odometer",
+        "bay": "Bay",
+        "scheduled": "Scheduled"
+      },
+      "parts": {
+        "title": "Parts",
+        "request": "Request Part",
+        "empty": "No parts requested yet.",
+        "qty": "qty {{qty}}"
+      },
+      "media": {
+        "title": "Media",
+        "uploading": "Uploading…",
+        "upload": "Upload Photo / Video",
+        "uploaded": "Uploaded ✓",
+        "failed": "Upload failed — please retry",
+        "acceptedTypes": "Accepted: JPEG, PNG, WebP, MP4, MOV"
+      },
+      "requestPart": {
+        "title": "Request a Part",
+        "itemNo": "Part Number / SKU",
+        "itemNoPlaceholder": "e.g. OIL-FILTER-01",
+        "description": "Description",
+        "descriptionPlaceholder": "e.g. Oil filter — 2.0 TDI",
+        "quantity": "Quantity",
+        "submit": "Submit Request"
+      },
+      "voiceNote": {
+        "unsupported": "Voice note recording is unavailable on this browser.",
+        "idleHint": "Tap record to dictate a voice note. Review and edit the translated draft before acceptance.",
+        "recording": "Recording…",
+        "draftReady": "Draft ready. Review and edit before accepting into diagnostics.",
+        "accepted": "Draft accepted into diagnostics notes.",
+        "errorFallback": "Voice note failed. Please retry recording.",
+        "stop": "Stop Recording",
+        "record": "Record Voice Note",
+        "retry": "Retry recording",
+        "processing": "Processing voice note…",
+        "draftLabel": "Voice-note draft",
+        "discardDraft": "Discard Draft",
+        "acceptDraft": "Accept Draft"
+      },
+      "pause": {
+        "title": "Pause Task",
+        "description": "Select a reason for pausing this task.",
+        "selected": "Selected: {{label}}",
+        "confirm": "Confirm Pause",
+        "reasons": {
+          "WAITING_PARTS": "Waiting for Parts",
+          "WAITING_CUSTOMER": "Waiting for Customer",
+          "OTHER": "Other"
+        }
+      },
+      "switch": {
+        "title": "Switch to This Task",
+        "description": "What is the status of the task you are leaving?",
+        "retrying": "No active task to switch from — trying start instead…",
+        "confirm": "Confirm Switch",
+        "reasons": {
+          "WAITING_PARTS": "Previous task — Waiting for Parts",
+          "WAITING_CUSTOMER": "Previous task — Waiting for Customer",
+          "SWITCHED_TO_HIGHER_PRIORITY": "Switched to Higher Priority"
+        }
+      },
+      "checklist": {
+        "loadError": "Could not save checklist",
+        "loading": "Loading checklist…"
       }
     }
   },
@@ -91,6 +197,201 @@
     "error": "Could not resume waiting tasks."
   },
   "pick": {
-    "dealerStock": "Dealer stock"
+    "dealerStock": "Dealer stock",
+    "queue": {
+      "title": "Parts pick queue",
+      "description": "Select an order row to open the pick drawer and stage required parts.",
+      "workshopOrders": "Workshop Orders",
+      "intake": "Intake",
+      "saveViewTitle": "Parts pick queue",
+      "searchPlaceholder": "Search parts pick queue...",
+      "columns": {
+        "orderNo": "Order No.",
+        "customer": "Customer",
+        "vehicle": "Vehicle",
+        "partLines": "Part Lines",
+        "totalQty": "Total Qty",
+        "opened": "Opened",
+        "status": "Status"
+      }
+    }
+  },
+  "orders": {
+    "list": {
+      "title": "Workshop Orders",
+      "description": "Open a work order to view full job details and task drawer.",
+      "partsPickQueue": "Parts pick queue",
+      "partsPickHint": "Parts to pick for open workshop orders",
+      "newOrder": "Order",
+      "saveViewTitle": "Workshop Orders",
+      "searchPlaceholder": "Search workshop orders...",
+      "rowAria": "Workshop order {{orderNo}}",
+      "columns": {
+        "orderNo": "Order No.",
+        "customer": "Customer",
+        "vehicle": "Vehicle",
+        "opened": "Opened",
+        "status": "Status"
+      }
+    }
+  },
+  "warranty": {
+    "list": {
+      "empty": "No warranty or goodwill claims on this order yet.",
+      "aria": "Warranty claims",
+      "updated": "Updated {{date}}"
+    },
+    "type": {
+      "GARANTIE": "Warranty",
+      "KULANZ": "Goodwill",
+      "GEWAEHRLEISTUNG": "Statutory warranty"
+    },
+    "statusFilter": {
+      "all": "All statuses",
+      "DRAFT": "Draft",
+      "SUBMITTED_EXTERNALLY": "Submitted externally",
+      "APPROVED": "Approved",
+      "REJECTED": "Rejected",
+      "CLOSED": "Closed"
+    }
+  },
+  "inspection": {
+    "checklist": {
+      "saveError": "Could not save checklist",
+      "loading": "Loading checklist…",
+      "loadFailed": "Could not load checklist.",
+      "aria": "§57a preparation",
+      "hint": "Editable starter checklist, not a legal checklist.",
+      "ok": "OK",
+      "defect": "Defect",
+      "okAria": "OK: {{label}}",
+      "defectAria": "Defect: {{label}}",
+      "noteAria": "Note: {{label}}",
+      "notePlaceholder": "Note…"
+    }
+  },
+  "readyEmail": {
+    "title": "Ready-for-pickup email notice",
+    "resendSuccess": "Pickup notification queued again.",
+    "resendError": "Could not resend pickup notification.",
+    "resending": "Sending…",
+    "resend": "Resend",
+    "queued": "Sending in progress…",
+    "sent": "Delivered or queued with the provider."
+  },
+  "mechanicFinding": {
+    "title": "Mechanic findings",
+    "description": "Evidence from the bay. Map local labor and parts lines, then apply through approvals.",
+    "openMedia": "Open {{mimeType}}"
+  },
+  "capacity": {
+    "weekGrid": {
+      "caption": "Planned labour per bay and day for the selected week",
+      "bay": "Bay",
+      "today": "Today"
+    },
+    "cell": {
+      "closed": "Closed",
+      "overbooked": "Overbooked by {{hours}}",
+      "fullyBooked": "Fully booked",
+      "free": "{{hours}} free"
+    }
+  },
+  "catalog": {
+    "concern": {
+      "PARTS": "Parts",
+      "LABOR": "Labor"
+    },
+    "oem": {
+      "STELLANTIS": "Stellantis",
+      "MERCEDES": "Mercedes-Benz"
+    },
+    "identity": {
+      "noKeys": "No identity keys"
+    },
+    "banner": {
+      "oem": "{{concern}}: OEM catalog{{suffix}}",
+      "oemSuffix": " ({{label}})",
+      "fallbackEmpty": "{{concern}}: OEM returned no results — showing aftermarket catalog",
+      "fallbackError": "{{concern}}: OEM unavailable — showing aftermarket catalog",
+      "notConfigured": "{{concern}}: No OEM catalog configured — showing aftermarket",
+      "aftermarket": "{{concern}}: Aftermarket catalog"
+    },
+    "fallbackDialog": {
+      "emptyTitle": "No OEM results",
+      "emptyDescription": "The OEM catalog returned no matching parts or labor for this vehicle. Search aftermarket catalog instead?",
+      "errorTitle": "OEM catalog unavailable",
+      "errorDescription": "The OEM catalog is currently unavailable for this vehicle. Search aftermarket catalog instead?"
+    }
+  },
+  "intake": {
+    "conflictFallback": "Failed to create workshop order"
+  },
+  "loaner": {
+    "title": "Loaner vehicles",
+    "description": "Manage fleet, schedule bookings, and document handover and return.",
+    "overdueBadge": "{{count}} overdue",
+    "addVehicle": "Loaner vehicle",
+    "searchPlaceholder": "Search loaner vehicles…",
+    "rowAria": "Loaner vehicle {{name}}",
+    "columns": { "name": "Name", "vehicle": "Vehicle", "status": "Status" },
+    "bookingsTitle": "Bookings · {{name}}",
+    "booking": "Booking",
+    "noBookings": "No bookings for this vehicle.",
+    "workshopOrder": "Workshop order: {{id}}",
+    "handOver": "Hand over",
+    "return": "Return",
+    "protocol": "Protocol",
+    "cancelBooking": "Cancel",
+    "overdueTitle": "Overdue returns",
+    "overdueUntil": "{{customer}} · until {{date}}",
+    "addDialogTitle": "Add loaner vehicle",
+    "searchVehicle": "Search vehicle",
+    "searchVehiclePlaceholder": "Plate, VIN, model…",
+    "selected": "Selected: {{label}}",
+    "displayName": "Display name",
+    "displayNamePlaceholder": "e.g. Golf loaner",
+    "newBookingTitle": "New booking",
+    "customer": "Customer",
+    "workshopOrderOptional": "Workshop order (optional)",
+    "selectOrder": "Select order",
+    "noOrder": "No order",
+    "noOpenOrders": "No open workshop orders for this customer.",
+    "plannedFrom": "Planned from",
+    "plannedTo": "Planned to",
+    "createBooking": "Create booking",
+    "handOverTitle": "Log handover",
+    "returnTitle": "Log return",
+    "odometer": "Odometer",
+    "fuel": "Fuel level (%)",
+    "licenceChecked": "Driver licence checked",
+    "damageOut": "Damage / notes (out)",
+    "damageIn": "Damage / notes (return)",
+    "saveHandOver": "Save handover",
+    "saveReturn": "Save return",
+    "toast": {
+      "vehicleRequired": "Vehicle and display name are required",
+      "vehicleAdded": "Loaner vehicle added",
+      "saveFailed": "Save failed",
+      "selectVehicleFirst": "Please select a loaner vehicle first",
+      "customerRequired": "Customer is required",
+      "bookingCreated": "Booking created",
+      "bookingFailed": "Booking failed",
+      "odometerRequired": "Valid odometer reading required",
+      "fuelRange": "Fuel level must be between 0 and 100%",
+      "licenceRequired": "Driver licence must be confirmed",
+      "handOverSuccess": "Handover logged",
+      "handOverFailed": "Handover failed",
+      "returnSuccess": "Return logged",
+      "returnFailed": "Return failed",
+      "bookingCancelled": "Booking cancelled",
+      "cancelFailed": "Cancellation failed"
+    }
+  },
+  "checkout": {
+    "grandTotal": "Grand total",
+    "title": "Checkout",
+    "description": "Review discounts and issue the invoice without leaving this job.",
+    "close": "Close Checkout"
   }
 }

@@ -12,6 +12,7 @@ export const workshopI18nFiles = [
 
 export const workshopI18nEslintConfig = {
   files: workshopI18nFiles,
+  ignores: ['**/*.{test,spec}.{ts,tsx}', '**/*testUtils*'],
   plugins: {
     i18next,
   },
