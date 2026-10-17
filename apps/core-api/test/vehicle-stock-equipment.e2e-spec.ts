@@ -30,6 +30,11 @@ describe('Vehicle stock equipment (e2e)', () => {
     });
     const vehicleId = created.received.vehicle_id;
 
+    await request(suite.app.getHttpServer())
+      .get('/api/vehicle-equipment-options?page=10abc')
+      .set('Authorization', `Bearer ${suite.authToken}`)
+      .expect(400);
+
     const optionsRes = await request(suite.app.getHttpServer())
       .get('/api/vehicle-equipment-options')
       .set('Authorization', `Bearer ${suite.authToken}`)

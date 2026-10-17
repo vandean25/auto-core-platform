@@ -32,6 +32,12 @@ function parsePositiveIntQuery(
   if (value === undefined || value === '') {
     return fallback;
   }
+  if (!/^\d+$/.test(value)) {
+    throw new BadRequestException({
+      code: 'INVALID_PAGINATION',
+      message: `${field} must be a positive integer.`,
+    });
+  }
   const parsed = Number.parseInt(value, 10);
   if (!Number.isFinite(parsed) || parsed < 1) {
     throw new BadRequestException({

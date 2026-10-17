@@ -76,7 +76,7 @@ describe('resolveVehicleEquipmentForProfile', () => {
     expect(resolved.equipmentFreeTextLines).toEqual([]);
   });
 
-  it('does not invent negative portal values for unmapped absent options', () => {
+  it('appends confirmed absence as free text when the map has no portal negative', () => {
     const resolved = resolveVehicleEquipmentForProfile('MOBILE_DE_REFERENCE_V1', {
       selections: [
         {
@@ -90,7 +90,27 @@ describe('resolveVehicleEquipmentForProfile', () => {
     });
 
     expect(resolved.mappedFields).toEqual([]);
-    expect(resolved.equipmentFreeTextLines).toEqual([]);
+    expect(resolved.equipmentFreeTextLines).toEqual([
+      'PARKING_CAMERA: Rückfahrkamera (not fitted)',
+    ]);
+  });
+
+  it('appends confirmed absence as free text on provisional AutoScout24 profile', () => {
+    const resolved = resolveVehicleEquipmentForProfile('AS24_PROVISIONAL_V1', {
+      selections: [
+        {
+          code: 'ABS',
+          label_de: 'ABS',
+          label_en: 'ABS',
+          assertion: 'ABSENT',
+        },
+      ],
+      freeTextLines: [],
+    });
+
+    expect(resolved.equipmentCodes).toEqual([]);
+    expect(resolved.mappedFields).toEqual([]);
+    expect(resolved.equipmentFreeTextLines).toEqual(['ABS (not fitted)']);
   });
 
   it('exports local taxonomy codes for generic willhaben profile', () => {

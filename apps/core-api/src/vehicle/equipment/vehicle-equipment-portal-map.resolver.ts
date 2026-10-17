@@ -17,6 +17,12 @@ function formatUnmappedLine(selection: VehicleEquipmentSelectionInput): string {
   return selection.code;
 }
 
+function formatConfirmedAbsentLine(
+  selection: VehicleEquipmentSelectionInput,
+): string {
+  return `${formatUnmappedLine(selection)} (not fitted)`;
+}
+
 function indexEntriesByLocalCode(
   entries: EquipmentPortalMapEntry[],
 ): Map<string, EquipmentPortalMapEntry> {
@@ -58,17 +64,19 @@ export function resolveVehicleEquipmentForProfile(
     const entry = entryByCode.get(selection.code);
 
     if (selection.assertion === 'ABSENT') {
-      if (
+      const emittedPortalAbsent =
         entry &&
         entry.absent_portal_value !== undefined &&
-        !profileConfig.export_local_codes
-      ) {
+        !profileConfig.export_local_codes;
+      if (emittedPortalAbsent) {
         mappedFields.push({
           localCode: selection.code,
           portalField: entry.portal_field,
           portalValue: entry.absent_portal_value,
           verification: entry.verification,
         });
+      } else {
+        equipmentFreeTextLines.push(formatConfirmedAbsentLine(selection));
       }
       continue;
     }

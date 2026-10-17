@@ -23,6 +23,8 @@ CREATE INDEX "vehicle_equipment_selections_tenant_id_stock_purchase_id_idx" ON "
 
 CREATE INDEX "vehicle_equipment_free_text_items_tenant_id_stock_purchase_id_sort_order_idx" ON "vehicle_equipment_free_text_items"("tenant_id", "stock_purchase_id", "sort_order");
 
+DROP INDEX IF EXISTS "vehicle_equipment_free_text_items_tenant_id_vehicle_id_sort_order_idx";
+
 ALTER TABLE "vehicle_equipment_selections" ADD CONSTRAINT "vehicle_equipment_selections_tenant_id_stock_purchase_id_fkey" FOREIGN KEY ("tenant_id", "stock_purchase_id") REFERENCES "vehicle_purchases"("tenant_id", "id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE "vehicle_equipment_free_text_items" ADD CONSTRAINT "vehicle_equipment_free_text_items_tenant_id_stock_purchase_id_fkey" FOREIGN KEY ("tenant_id", "stock_purchase_id") REFERENCES "vehicle_purchases"("tenant_id", "id") ON DELETE CASCADE ON UPDATE CASCADE;
