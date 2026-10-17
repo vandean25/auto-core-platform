@@ -41,13 +41,25 @@ export class WorkshopMediaUploadMcpService {
 
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
-    const userId = this.tenantContext.getAuthenticatedUser()?.userId;
-    if (!userId) {
+    const authUser = this.tenantContext.getAuthenticatedUser();
+    if (!authUser?.userId) {
       throw new UnprocessableEntityException('Authenticated user is required');
     }
 
     const employee = await this.prisma.employee.findFirst({
-      where: { tenant_id: tenantId, user_id: userId, is_active: true },
+      where: {
+        tenant_id: tenantId,
+        is_active: true,
+        user: {
+          OR: [
+            { firebaseUid: authUser.userId },
+            { id: authUser.userId },
+            ...(authUser.email
+              ? [{ email: authUser.email }]
+              : []),
+          ],
+        },
+      },
       select: { id: true },
     });
     if (!employee) {
