@@ -1026,7 +1026,9 @@
     "grandTotal": "Gesamtsumme",
     "title": "Abrechnung",
     "description": "Rabatte prüfen und Rechnung stellen, ohne den Auftrag zu verlassen.",
-    "close": "Abrechnung schließen"
+    "close": "Abrechnung schließen",
+    "openInvoice": "Rechnung öffnen",
+    "primaryAction": "Abrechnung"
   },
   "orderIntake": {
     "title": "Werkstattauftrag anlegen",

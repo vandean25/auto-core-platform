@@ -22,6 +22,7 @@ import {
 } from './useWorkshopCalculations'
 import type { DiscountState } from './useWorkshopCalculations'
 import type { CheckoutFooterProps } from '../components/CheckoutFooter'
+import { i18n } from '@/lib/i18n'
 import { getErrorMessage } from '../utils/error'
 
 export interface CheckoutLineRow {
@@ -94,8 +95,8 @@ export function getCheckoutCapabilities(params: {
   const isInvoicedWithLinkedInvoice =
     params.orderStatus === 'INVOICED' && !!params.activeInvoiceId
   const primaryCheckoutActionLabel = isInvoicedWithLinkedInvoice
-    ? 'Open Invoice'
-    : 'Checkout'
+    ? i18n.t('checkout.openInvoice', { ns: 'workshop' })
+    : i18n.t('checkout.primaryAction', { ns: 'workshop' })
 
   return {
     canCreateDraftInCheckout,

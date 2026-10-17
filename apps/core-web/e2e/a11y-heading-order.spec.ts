@@ -114,11 +114,13 @@ test.describe('Heading order on detail pages', () => {
     await page.goto(`/workshop/orders/${order.id}`)
     await page.waitForLoadState('networkidle')
 
-    await page.getByRole('button', { name: 'Checkout', exact: true }).click()
+    await page.getByRole('button', { name: DE_WORKSHOP.checkout.primaryAction, exact: true }).click()
 
     // The checkout section sits under its own h2, so the draft invoice card is h3 beneath it.
-    await expect(page.getByRole('heading', { level: 2, name: 'Checkout', exact: true })).toBeVisible()
-    await expect(page.getByRole('heading', { level: 3, name: 'Draft Invoice', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 2, name: DE_WORKSHOP.checkout.title, exact: true })).toBeVisible()
+    await expect(
+      page.getByRole('heading', { level: 3, name: DE_WORKSHOP.checkoutSummary.title, exact: true }),
+    ).toBeVisible()
     await expectNoHeadingOrderViolations(page)
   })
 })

@@ -1085,7 +1085,7 @@ describe("WorkshopOrderDetails Characterization", () => {
       expect(screen.getByText("Gesamtsumme")).toBeInTheDocument();
       expect(screen.getAllByText(formattedCurrencyPattern(55)).length).toBeGreaterThan(0);
       expect(
-        screen.getByRole("button", { name: /^Checkout$/i }),
+        screen.getByRole("button", { name: checkoutCopy.primaryAction }),
       ).toBeInTheDocument();
     });
 
@@ -1093,7 +1093,7 @@ describe("WorkshopOrderDetails Characterization", () => {
       setupDefaultMocks(completedOrder);
       renderComponent();
 
-      fireEvent.click(screen.getByRole("button", { name: /^Checkout$/i }));
+      fireEvent.click(screen.getByRole("button", { name: checkoutCopy.primaryAction }));
 
       expect(screen.getByText(checkoutSummaryCopy.title)).toBeInTheDocument();
       expect(screen.getAllByText("Oil Change").length).toBeGreaterThan(0);
@@ -1103,7 +1103,7 @@ describe("WorkshopOrderDetails Characterization", () => {
       setupDefaultMocks(completedOrder);
       renderComponent();
 
-      fireEvent.click(screen.getByRole("button", { name: /^Checkout$/i }));
+      fireEvent.click(screen.getByRole("button", { name: checkoutCopy.primaryAction }));
       expect(screen.queryByText("Return to Tasks")).not.toBeInTheDocument();
     });
 
@@ -1111,7 +1111,7 @@ describe("WorkshopOrderDetails Characterization", () => {
       setupDefaultMocks(completedOrder);
       renderComponent();
 
-      fireEvent.click(screen.getByRole("button", { name: /^Checkout$/i }));
+      fireEvent.click(screen.getByRole("button", { name: checkoutCopy.primaryAction }));
       expect(screen.getByText(checkoutSummaryCopy.title)).toBeInTheDocument();
 
       fireEvent.click(screen.getByRole("button", { name: checkoutCopy.close }));
@@ -1122,7 +1122,7 @@ describe("WorkshopOrderDetails Characterization", () => {
       setupDefaultMocks(completedOrder);
       renderComponent();
 
-      fireEvent.click(screen.getByRole("button", { name: /^Checkout$/i }));
+      fireEvent.click(screen.getByRole("button", { name: checkoutCopy.primaryAction }));
 
       expect(
         screen.getByRole("button", { name: checkoutSummaryCopy.createDraft }),
@@ -1132,7 +1132,7 @@ describe("WorkshopOrderDetails Characterization", () => {
     it("disables Create Draft Invoice until the order is COMPLETED", () => {
       renderComponent();
 
-      fireEvent.click(screen.getByRole("button", { name: /^Checkout$/i }));
+      fireEvent.click(screen.getByRole("button", { name: checkoutCopy.primaryAction }));
 
       expect(
         screen.getByRole("button", { name: checkoutSummaryCopy.createDraft }),
@@ -1153,7 +1153,7 @@ describe("WorkshopOrderDetails Characterization", () => {
 
       renderComponent();
 
-      fireEvent.click(screen.getByRole("button", { name: /^Checkout$/i }));
+      fireEvent.click(screen.getByRole("button", { name: checkoutCopy.primaryAction }));
       fireEvent.click(
         screen.getByRole("button", { name: checkoutSummaryCopy.createDraft }),
       );
@@ -1170,7 +1170,7 @@ describe("WorkshopOrderDetails Characterization", () => {
       setupDefaultMocks(completedOrder);
       renderComponent();
 
-      fireEvent.click(screen.getByRole("button", { name: /^Checkout$/i }));
+      fireEvent.click(screen.getByRole("button", { name: checkoutCopy.primaryAction }));
 
       // Net: 15 + 40 = 55.00
       expect(screen.getAllByText(formattedCurrencyPattern(55)).length).toBeGreaterThan(0);
@@ -1183,7 +1183,7 @@ describe("WorkshopOrderDetails Characterization", () => {
       });
       renderComponent();
 
-      fireEvent.click(screen.getByRole("button", { name: /^Checkout$/i }));
+      fireEvent.click(screen.getByRole("button", { name: checkoutCopy.primaryAction }));
 
       // When groupedCheckoutTasks is empty, the table renders a "no lines" message
       const allCells = document.querySelectorAll("td");
@@ -1203,7 +1203,7 @@ describe("WorkshopOrderDetails Characterization", () => {
       setupDefaultMocks(completedOrder);
       renderComponent();
 
-      fireEvent.click(screen.getByRole("button", { name: /^Checkout$/i }));
+      fireEvent.click(screen.getByRole("button", { name: checkoutCopy.primaryAction }));
 
       // Find the task discount input
       const inputs = screen.getAllByPlaceholderText("0");
@@ -1220,7 +1220,7 @@ describe("WorkshopOrderDetails Characterization", () => {
       setupDefaultMocks(completedOrder);
       renderComponent();
 
-      fireEvent.click(screen.getByRole("button", { name: /^Checkout$/i }));
+      fireEvent.click(screen.getByRole("button", { name: checkoutCopy.primaryAction }));
 
       // Click task group header to expand
       const taskHeaders = screen.getAllByText("Oil Change");
@@ -1250,7 +1250,7 @@ describe("WorkshopOrderDetails Characterization", () => {
 
       renderComponent();
 
-      fireEvent.click(screen.getByRole("button", { name: /^Checkout$/i }));
+      fireEvent.click(screen.getByRole("button", { name: checkoutCopy.primaryAction }));
 
       // Net: 15 + 40 + 100 = 155.00
       // VAT: 3.15 + 0 + 10 = 13.15
@@ -1306,7 +1306,7 @@ describe("WorkshopOrderDetails Characterization", () => {
 
       renderComponent();
 
-      fireEvent.click(screen.getByRole("button", { name: /^Checkout$/i }));
+      fireEvent.click(screen.getByRole("button", { name: checkoutCopy.primaryAction }));
 
       expect(screen.getAllByText(checkoutSummaryCopy.issue)[0]).toBeInTheDocument();
     });
@@ -1337,7 +1337,7 @@ describe("WorkshopOrderDetails Characterization", () => {
 
       renderComponent();
 
-      fireEvent.click(screen.getByRole("button", { name: /^Checkout$/i }));
+      fireEvent.click(screen.getByRole("button", { name: checkoutCopy.primaryAction }));
       fireEvent.click(screen.getAllByText(checkoutSummaryCopy.issue)[0]);
 
       await waitFor(() => {
@@ -1385,7 +1385,7 @@ describe("WorkshopOrderDetails Characterization", () => {
 
       renderComponent();
 
-      fireEvent.click(screen.getByRole("button", { name: /^Checkout$/i }));
+      fireEvent.click(screen.getByRole("button", { name: checkoutCopy.primaryAction }));
 
       // Apply a task-level discount to populate lineDiscountOverrides
       const inputs = screen.getAllByPlaceholderText("0");

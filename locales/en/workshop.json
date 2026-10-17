@@ -1026,7 +1026,9 @@
     "grandTotal": "Grand total",
     "title": "Checkout",
     "description": "Review discounts and issue the invoice without leaving this job.",
-    "close": "Close Checkout"
+    "close": "Close Checkout",
+    "openInvoice": "Open invoice",
+    "primaryAction": "Checkout"
   },
   "orderIntake": {
     "title": "Create Workshop Order",

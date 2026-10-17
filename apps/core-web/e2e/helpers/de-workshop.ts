@@ -48,6 +48,10 @@ export const DE_WORKSHOP = {
   orderIntake: {
     title: deWorkshop.orderIntake.title,
   },
+  checkout: deWorkshop.checkout,
+  checkoutSummary: {
+    title: deWorkshop.checkoutSummary.title,
+  },
   pick: {
     queue: deWorkshop.pick.queue,
     drawer: deWorkshop.pick.drawer,
