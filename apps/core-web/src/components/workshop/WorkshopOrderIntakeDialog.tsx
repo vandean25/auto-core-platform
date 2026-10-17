@@ -32,6 +32,8 @@ import type {
   NewVehicleForm,
 } from '@/features/workshop/intake-form'
 import { getErrorMessage } from '@/lib/error-utils'
+import { ensureNamespaceLoaded, i18n } from '@/lib/i18n'
+import { PageLoader } from '@/components/ui/PageLoader'
 import { RegistrationDocumentIntakeStep } from './RegistrationDocumentIntakeStep'
 
 type ExistingVehicle = Vehicle & { customer: Customer | null }
@@ -51,6 +53,9 @@ export function WorkshopOrderIntakeDialog({
   pickerlMode = false,
 }: WorkshopOrderIntakeDialogProps) {
   const { t } = useTranslation('workshop')
+  const [workshopNamespaceReady, setWorkshopNamespaceReady] = useState(() =>
+    i18n.hasResourceBundle(i18n.language, 'workshop'),
+  )
   const navigate = useNavigate()
   const createOrder = useCreateWorkshopOrder()
   const registerIntake = useRegisterIntake()
@@ -72,6 +77,11 @@ export function WorkshopOrderIntakeDialog({
   // Counts attempts and resets, so a request that finishes after the dialog was reset cannot store its conflict.
   const attemptRef = useRef(0)
   const initialVehicleQuery = useVehicle<ExistingVehicle>(initialVehicleId ?? '')
+
+  useEffect(() => {
+    if (!open || workshopNamespaceReady) return
+    void ensureNamespaceLoaded('workshop').then(() => setWorkshopNamespaceReady(true))
+  }, [open, workshopNamespaceReady])
 
   useEffect(() => {
     if (!open || !initialVehicleQuery.data) return
@@ -202,6 +212,10 @@ export function WorkshopOrderIntakeDialog({
   return (
     <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogContent className="sm:max-w-4xl">
+        {open && !workshopNamespaceReady ? (
+          <PageLoader />
+        ) : (
+          <>
         <DialogHeader>
           <DialogTitle>{t('orderIntake.title')}</DialogTitle>
           <DialogDescription>
@@ -479,6 +493,8 @@ export function WorkshopOrderIntakeDialog({
             </Button>
           </div>
         </div>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   )
