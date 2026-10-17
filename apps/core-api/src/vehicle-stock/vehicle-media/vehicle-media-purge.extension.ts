@@ -155,9 +155,32 @@ export async function runVehicleDeleteWithMediaPurge(
   return result;
 }
 
+function resolveVehicleDelegate(
+  extensionThis: unknown,
+  rootClient: { vehicle: VehicleFindManyDelegate },
+): VehicleFindManyDelegate {
+  const extensionContext = Prisma.getExtensionContext(
+    extensionThis,
+  ) as unknown as Record<string, unknown>;
+  if (typeof extensionContext.findMany === 'function') {
+    return extensionContext as VehicleFindManyDelegate;
+  }
+  const nestedVehicle = extensionContext.vehicle;
+  if (
+    nestedVehicle &&
+    typeof nestedVehicle === 'object' &&
+    typeof (nestedVehicle as VehicleFindManyDelegate).findMany === 'function'
+  ) {
+    return nestedVehicle as VehicleFindManyDelegate;
+  }
+  return rootClient.vehicle;
+}
+
 export function createVehicleMediaPurgeExtension() {
   return Prisma.defineExtension((client) => {
-    const commitTransaction = client.$transaction.bind(client);
+    const commitTransaction = client.$transaction.bind(client) as (
+      ...args: unknown[]
+    ) => Promise<unknown>;
     return client.$extends({
       name: 'vehicle-media-purge',
       client: {
@@ -174,14 +197,14 @@ export function createVehicleMediaPurgeExtension() {
         vehicle: {
           async delete({ args, query }) {
             return runVehicleDeleteWithMediaPurge(
-              this as unknown as VehicleFindManyDelegate,
+              resolveVehicleDelegate(this, client),
               args.where,
               () => query(args),
             );
           },
           async deleteMany({ args, query }) {
             return runVehicleDeleteManyWithMediaPurge(
-              this as unknown as VehicleFindManyDelegate,
+              resolveVehicleDelegate(this, client),
               args.where,
               () => query(args),
             );
