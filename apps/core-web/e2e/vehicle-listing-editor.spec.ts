@@ -80,6 +80,22 @@ test.describe('Vehicle listing editor', () => {
     const corePage = new AutoCorePage(page, 'Vehicle');
     const stockRow = createMockVehicleStockRow({ id: VEHICLE_ID });
 
+    await page.route(AutoCorePage.apiRouteMatcher('/api/me/sites'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          {
+            id: 'site-1',
+            code: 'MAIN',
+            name: 'Main site',
+            legalEntityId: 'entity-1',
+            legalEntityName: 'Synthetic Motors GmbH',
+          },
+        ]),
+      });
+    });
+
     await page.route(AutoCorePage.apiRouteMatcher('/api/vehicle-stock'), async (route) => {
       await route.fulfill({
         status: 200,
@@ -188,7 +204,7 @@ test.describe('Vehicle listing editor', () => {
 
     await corePage.navigate(`/vehicle-stock/${VEHICLE_ID}/listing`);
 
-    await expect(page.getByRole('heading', { name: /listing|Inserat/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Edit listing|Inserat bearbeiten/i })).toBeVisible();
     const description = page.getByLabel(/description|Beschreibung/i);
     await description.fill('Updated synthetic listing copy.');
 
@@ -198,9 +214,18 @@ test.describe('Vehicle listing editor', () => {
         req.url().includes(`/api/vehicle-stock/${VEHICLE_ID}/listing`) &&
         req.postDataJSON()?.expected_revision === 2,
     );
+    const validationRefresh = page.waitForResponse(
+      (res) =>
+        res.url().includes(`/api/vehicle-stock/${VEHICLE_ID}/listing/export/validate`) &&
+        res.request().method() === 'GET' &&
+        res.status() === 200,
+    );
     await corePage.waitForAutoSave();
     await patchRequest;
+    await validationRefresh;
 
-    await expect(page.getByText('Mileage is required for mobile.de reference export.')).toBeVisible();
+    await expect(
+      page.getByText('Mileage is required for mobile.de reference export.'),
+    ).toBeVisible();
   });
 });
