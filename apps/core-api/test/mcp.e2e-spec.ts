@@ -6200,6 +6200,12 @@ describe('MCP server (e2e)', () => {
       await prismaA.notificationOutbox.deleteMany({
         where: { workshop_order_id: { in: orderIds } },
       });
+      await prismaA.workshopEstimateApproval.deleteMany({
+        where: { version: { estimate: { workshop_order_id: { in: orderIds } } } },
+      });
+      await prismaA.workshopEstimateApprovalToken.deleteMany({
+        where: { version: { estimate: { workshop_order_id: { in: orderIds } } } },
+      });
       await prismaA.workshopEstimateVersion.deleteMany({
         where: { estimate: { workshop_order_id: { in: orderIds } } },
       });
@@ -6211,6 +6217,9 @@ describe('MCP server (e2e)', () => {
           tenant_id: tenantA,
           action_type: 'estimate.send_customer_message',
         },
+      });
+      await prismaA.workshopTaskLineItem.deleteMany({
+        where: { task: { workshop_order_id: { in: orderIds } } },
       });
       await prismaA.workshopTask.deleteMany({
         where: { workshop_order_id: { in: orderIds } },
