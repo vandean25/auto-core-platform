@@ -8,6 +8,8 @@ import {
   Prisma,
   VehicleAcquisitionKind,
   VehicleInventoryRole,
+  VehicleListingDesiredState,
+  VehicleListingExportState,
   VehiclePurchaseSellerType,
   VehiclePurchaseStatus,
   VehicleSaleStatus,
@@ -46,6 +48,8 @@ describe('VehicleSaleService characterization', () => {
     },
     vehicle: { findFirst: jest.fn(), updateMany: jest.fn() },
     vehiclePurchase: { findFirst: jest.fn() },
+    vehicleListing: { findFirst: jest.fn().mockResolvedValue(null) },
+    vehicleListingChannel: { update: jest.fn() },
     customer: { findFirst: jest.fn() },
     workshopOrder: { count: jest.fn() },
     vehicleLedgerEntry: { findMany: jest.fn() },
@@ -416,6 +420,32 @@ describe('VehicleSaleService characterization', () => {
           'Vehicle sale state or site changed concurrently. Please refresh.',
       });
       expect(prisma.invoice.create).not.toHaveBeenCalled();
+    });
+
+    it('deactivates marketplace listing channels when finalizing', async () => {
+      const sale = saleFixture();
+      primeFinalize(sale);
+      prisma.vehiclePurchase.findFirst.mockResolvedValue({ id: 'purchase-1' });
+      prisma.vehicleListing.findFirst.mockResolvedValue({
+        id: 'listing-1',
+        channels: [
+          {
+            id: 'channel-1',
+            export_state: VehicleListingExportState.FILE_GENERATED,
+          },
+        ],
+      });
+
+      await service.finalize(saleId);
+
+      expect(prisma.vehicleListingChannel.update).toHaveBeenCalledWith({
+        where: { tenant_id: tenantId, id: 'channel-1' },
+        data: {
+          desired_state: VehicleListingDesiredState.INACTIVE,
+          export_state: VehicleListingExportState.REMOVAL_REQUIRED,
+          removal_revision: { increment: 1 },
+        },
+      });
     });
 
     it('finalizes to INVOICED with the next RE number and retires the vehicle from stock', async () => {

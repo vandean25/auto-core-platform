@@ -6,10 +6,7 @@ import {
   PayloadTooLargeException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import {
-  VehicleListingDesiredState,
-  VehicleListingExportState,
-} from '@prisma/client';
+import { VehicleListingDesiredState } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { TenantContextService } from '../../common/services/tenant-context.service.js';
 import { SiteContextService } from '../../site/site-context.service.js';
@@ -30,6 +27,7 @@ import type { VehicleMediaVariantMap } from '../../vehicle-stock/vehicle-media/v
 import { buildListingSerializerInput } from './listing-export-snapshot.builder.js';
 import { formatListingExportValidationMessage } from './listing-export-validation.util.js';
 import { resolveListingSerializer } from './listing-serializer.registry.js';
+import { commitListingChannelGeneratedExport } from './vehicle-listing-export-channel-commit.js';
 
 const listingInclude = {
   photos: { include: { media: true }, orderBy: { sort_order: 'asc' } },
@@ -398,13 +396,11 @@ export class VehicleListingExportService {
       });
     }
 
-    await this.prisma.vehicleListingChannel.update({
-      where: { tenant_id: tenantId, id: channel.id },
-      data: {
-        export_state: VehicleListingExportState.FILE_GENERATED,
-        last_export_at: generatedAt,
-        last_export_content_sha256: listing.content_sha256,
-      },
+    await commitListingChannelGeneratedExport(this.prisma, {
+      tenantId,
+      channelId: channel.id,
+      generatedAt,
+      contentSha256: listing.content_sha256,
     });
 
     return {
