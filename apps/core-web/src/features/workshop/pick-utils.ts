@@ -2,6 +2,7 @@ import type {
   WorkshopOrder,
   WorkshopOrderStatus,
 } from '@/api/types'
+import { i18n } from '@/lib/i18n'
 
 export const PICK_ELIGIBLE_WORKSHOP_ORDER_STATUSES = new Set<WorkshopOrderStatus>([
   'INTAKE',
@@ -9,7 +10,7 @@ export const PICK_ELIGIBLE_WORKSHOP_ORDER_STATUSES = new Set<WorkshopOrderStatus
 ])
 
 export function getWorkshopCustomerDisplayName(order: WorkshopOrder) {
-  if (!order.customer) return 'Dealer stock'
+  if (!order.customer) return i18n.t('pick.dealerStock', { ns: 'workshop' })
   if (order.customer.type === 'COMPANY' && order.customer.company_name) {
     return order.customer.company_name
   }

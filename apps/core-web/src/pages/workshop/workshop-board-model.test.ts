@@ -33,6 +33,7 @@ describe('workshop-board-model', () => {
       'mechanic',
       [{ id: 'm1', name: 'Alex' }],
       [order, { ...order, id: 'o2', mechanicId: null }],
+      'Nicht zugewiesen',
     )
     expect(columns).toHaveLength(2)
     expect(columns[0].orders).toHaveLength(1)

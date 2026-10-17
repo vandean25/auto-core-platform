@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Loader2, PlayCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -17,6 +18,7 @@ export interface ResumeWaitingTasksPanelProps {
  * advisor decides here when the work continues. The backend checks the role and the open-order rule as well.
  */
 export function ResumeWaitingTasksPanel({ orderId, waitingCount, orderStatus }: ResumeWaitingTasksPanelProps) {
+  const { t } = useTranslation('workshop')
   const resume = useResumeWaitingTasks()
   if (waitingCount === 0 || !isWorkshopEstimateOrderOpen(orderStatus)) {
     return null
@@ -25,9 +27,9 @@ export function ResumeWaitingTasksPanel({ orderId, waitingCount, orderStatus }: 
   const handleResume = async () => {
     try {
       const result = await resume.mutateAsync(orderId)
-      toast.success(`${result.resumed_task_ids.length} Aufgabe(n) fortgesetzt`)
+      toast.success(t('resumeWaitingTasks.success', { count: result.resumed_task_ids.length }))
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, 'Wartende Aufgaben konnten nicht fortgesetzt werden.'))
+      toast.error(getErrorMessage(error, t('resumeWaitingTasks.error')))
     }
   }
 
@@ -37,11 +39,11 @@ export function ResumeWaitingTasksPanel({ orderId, waitingCount, orderStatus }: 
       data-testid="resume-waiting-tasks-panel"
     >
       <p className="text-sm text-sky-900">
-        {waitingCount} Aufgabe(n) warten auf den Kunden. Die Freigabe setzt sie nicht automatisch fort.
+        {t('resumeWaitingTasks.description', { count: waitingCount })}
       </p>
       <Button size="sm" onClick={() => void handleResume()} disabled={resume.isPending}>
         {resume.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlayCircle className="mr-2 h-4 w-4" />}
-        Wartende Aufgaben fortsetzen
+        {t('resumeWaitingTasks.button')}
       </Button>
     </div>
   )

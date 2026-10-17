@@ -1,4 +1,5 @@
 import { useDraggable } from '@dnd-kit/core'
+import { useTranslation } from 'react-i18next'
 import { GripVertical } from 'lucide-react'
 import type { SyntheticEvent } from 'react'
 import { StatusBadge, formatStatusLabel } from '@/components/status/StatusBadge'
@@ -35,8 +36,8 @@ const partsStatusBorder: Record<PartsStatus, string> = {
   NO_PARTS: 'border-l-slate-300',
 }
 
-function getCustomerName(order: BoardOrder): string {
-  if (!order.customer) return 'Dealer stock'
+function getCustomerName(order: BoardOrder, dealerStockLabel: string): string {
+  if (!order.customer) return dealerStockLabel
   if (order.customer.type === 'COMPANY' && order.customer.companyName) {
     return order.customer.companyName
   }
@@ -59,6 +60,7 @@ export function WorkshopOrderCardContent({
   dragAttributes,
   dragListeners,
 }: WorkshopOrderCardContentProps) {
+  const { t } = useTranslation('workshop')
   const borderColor = partsStatusBorder[order.partsStatus]
 
   return (
@@ -77,7 +79,7 @@ export function WorkshopOrderCardContent({
         <button
           ref={setActivatorNodeRef}
           type="button"
-          aria-label={`Move ${order.orderNumber}`}
+          aria-label={t('orderCard.move', { orderNumber: order.orderNumber })}
           className="absolute top-1 right-1 flex h-11 w-11 min-h-[24px] min-w-[24px] items-center justify-center rounded-sm text-slate-400 cursor-grab hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           {...dragAttributes}
         >
@@ -94,7 +96,7 @@ export function WorkshopOrderCardContent({
 
       {/* Customer */}
       <p className="text-sm font-semibold text-slate-900 pr-12 leading-snug break-words">
-        {getCustomerName(order)}
+        {getCustomerName(order, t('orderCard.dealerStock'))}
       </p>
 
       {/* Vehicle */}
@@ -119,12 +121,12 @@ export function WorkshopOrderCardContent({
                 type="button"
                 variant="outline"
                 size="sm"
-                aria-label={`Assign ${order.orderNumber}`}
+                aria-label={t('orderCard.assignAria', { orderNumber: order.orderNumber })}
                 className="ml-auto min-h-11 min-w-11 px-3"
                 onPointerDown={stopEventFromStartingDrag}
                 onTouchStart={stopEventFromStartingDrag}
               >
-                Assign
+                {t('orderCard.assign')}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
@@ -132,7 +134,7 @@ export function WorkshopOrderCardContent({
               onPointerDown={stopEventFromStartingDrag}
               onTouchStart={stopEventFromStartingDrag}
             >
-              <DropdownMenuLabel>Assign to</DropdownMenuLabel>
+              <DropdownMenuLabel>{t('orderCard.assignTo')}</DropdownMenuLabel>
               {quickAssignTargets.map((target) => (
                 <DropdownMenuItem
                   key={`${target.kind}-${target.id}`}

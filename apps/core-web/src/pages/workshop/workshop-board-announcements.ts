@@ -1,4 +1,5 @@
 import type { Announcements, UniqueIdentifier } from '@dnd-kit/core'
+import type { TFunction } from 'i18next'
 import type { BoardViewMode } from '@/components/workshop/BoardViewToggle'
 import type { BoardOrder } from '@/api/workshop'
 
@@ -12,28 +13,33 @@ export function createWorkshopBoardAnnouncements(
   orders: BoardOrder[],
   columns: Array<{ id: string; label: string }>,
   viewMode: BoardViewMode,
+  t: TFunction<'workshop'>,
 ): Announcements {
-  const resourceNoun = viewMode === 'mechanic' ? 'mechanic' : 'bay'
+  const resourceNoun =
+    viewMode === 'mechanic'
+      ? t('board.a11y.resourceNoun.mechanic')
+      : t('board.a11y.resourceNoun.bay')
   const orderLabel = (id: UniqueIdentifier) =>
-    orders.find((order) => order.id === String(id))?.orderNumber ?? 'Workshop order'
+    orders.find((order) => order.id === String(id))?.orderNumber ?? t('board.a11y.orderFallback')
   const columnLabel = (id: UniqueIdentifier) => {
     const column = columns.find((candidate) => candidate.id === String(id))
-    if (!column) return 'an unknown column'
+    if (!column) return t('board.a11y.unknownColumn')
     return column.id === WORKSHOP_BOARD_UNASSIGNED_COLUMN_ID
-      ? 'Unassigned'
-      : `${resourceNoun} ${column.label}`
+      ? t('board.unassigned')
+      : t('board.a11y.resourceColumn', { resource: resourceNoun, label: column.label })
   }
 
   return {
-    onDragStart: ({ active }) => `Picked up ${orderLabel(active.id)}.`,
+    onDragStart: ({ active }) => t('board.a11y.pickedUp', { order: orderLabel(active.id) }),
     onDragOver: ({ active, over }) =>
       over
-        ? `${orderLabel(active.id)} is over ${columnLabel(over.id)}.`
-        : `${orderLabel(active.id)} is no longer over a column.`,
+        ? t('board.a11y.overColumn', { order: orderLabel(active.id), column: columnLabel(over.id) })
+        : t('board.a11y.notOverColumn', { order: orderLabel(active.id) }),
     onDragEnd: ({ active, over }) =>
       over
-        ? `${orderLabel(active.id)} was dropped on ${columnLabel(over.id)}.`
-        : `${orderLabel(active.id)} was dropped outside a column and not moved.`,
-    onDragCancel: ({ active }) => `Dragging was cancelled. ${orderLabel(active.id)} was not moved.`,
+        ? t('board.a11y.droppedOn', { order: orderLabel(active.id), column: columnLabel(over.id) })
+        : t('board.a11y.droppedOutside', { order: orderLabel(active.id) }),
+    onDragCancel: ({ active }) =>
+      t('board.a11y.cancelled', { order: orderLabel(active.id) }),
   }
 }

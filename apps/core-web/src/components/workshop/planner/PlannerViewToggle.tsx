@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Calendar, CalendarDays } from 'lucide-react'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
@@ -9,6 +10,7 @@ interface PlannerViewToggleProps {
 }
 
 export function PlannerViewToggle({ value, onChange }: PlannerViewToggleProps) {
+  const { t } = useTranslation('workshop')
   return (
     <ToggleGroup
       type="single"
@@ -23,14 +25,14 @@ export function PlannerViewToggle({ value, onChange }: PlannerViewToggleProps) {
         className="rounded-sm px-3 py-1.5 text-sm gap-1.5 data-[state=on]:bg-slate-900 data-[state=on]:text-white"
       >
         <Calendar className="h-3.5 w-3.5" />
-        Day
+        {t('planner.viewMode.day')}
       </ToggleGroupItem>
       <ToggleGroupItem
         value="week"
         className="rounded-sm px-3 py-1.5 text-sm gap-1.5 data-[state=on]:bg-slate-900 data-[state=on]:text-white"
       >
         <CalendarDays className="h-3.5 w-3.5" />
-        Week
+        {t('planner.viewMode.week')}
       </ToggleGroupItem>
     </ToggleGroup>
   )

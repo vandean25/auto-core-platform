@@ -1,4 +1,5 @@
 import { format } from 'date-fns'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { Card } from '@/components/ui/card'
@@ -13,6 +14,7 @@ function formatVehicle(item: MechanicQueueItem) {
 }
 
 export function MechanicQueueCard({ item }: MechanicQueueCardProps) {
+  const { t } = useTranslation('workshop')
   return (
     <Link
       to={`/mechanic/tasks/${item.taskId}`}
@@ -24,7 +26,7 @@ export function MechanicQueueCard({ item }: MechanicQueueCardProps) {
             <div className="flex flex-wrap items-center gap-2">
               {item.sequence > 0 ? (
                 <span className="font-mono text-sm font-semibold text-slate-500">
-                  Task {item.sequence}
+                  {t('mechanic.queue.taskSequence', { sequence: item.sequence })}
                 </span>
               ) : null}
               <h2 className="truncate font-semibold text-slate-900">{item.taskTitle}</h2>
@@ -32,14 +34,16 @@ export function MechanicQueueCard({ item }: MechanicQueueCardProps) {
             </div>
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600">
               <span>{item.orderNumber}</span>
-              <span>{item.vehicle.plate ?? 'No plate'}</span>
+              <span>{item.vehicle.plate ?? t('mechanic.queue.noPlate')}</span>
               <span>{formatVehicle(item)}</span>
             </div>
           </div>
 
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-500 md:shrink-0 md:justify-end">
-            {item.bay ? <span>Bay: {item.bay.name}</span> : null}
-            {item.scheduledDate ? <span>Scheduled: {format(new Date(item.scheduledDate), 'PP')}</span> : null}
+            {item.bay ? <span>{t('mechanic.queue.bay', { name: item.bay.name })}</span> : null}
+            {item.scheduledDate ? (
+              <span>{t('mechanic.queue.scheduled', { date: format(new Date(item.scheduledDate), 'PP') })}</span>
+            ) : null}
           </div>
         </div>
       </Card>

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Wrench, Construction } from 'lucide-react'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
@@ -9,6 +10,7 @@ interface BoardViewToggleProps {
 }
 
 export function BoardViewToggle({ value, onChange }: BoardViewToggleProps) {
+  const { t } = useTranslation('workshop')
   return (
     <ToggleGroup
       type="single"
@@ -23,14 +25,14 @@ export function BoardViewToggle({ value, onChange }: BoardViewToggleProps) {
         className="rounded-sm px-3 py-1.5 text-sm gap-1.5 data-[state=on]:bg-slate-900 data-[state=on]:text-white"
       >
         <Wrench className="h-3.5 w-3.5" />
-        By Mechanic
+        {t('board.viewMode.byMechanic')}
       </ToggleGroupItem>
       <ToggleGroupItem
         value="bay"
         className="rounded-sm px-3 py-1.5 text-sm gap-1.5 data-[state=on]:bg-slate-900 data-[state=on]:text-white"
       >
         <Construction className="h-3.5 w-3.5" />
-        By Bay
+        {t('board.viewMode.byBay')}
       </ToggleGroupItem>
     </ToggleGroup>
   )

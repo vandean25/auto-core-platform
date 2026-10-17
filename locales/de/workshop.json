@@ -1,0 +1,96 @@
+{
+  "board": {
+    "title": "Werkstattboard",
+    "description": "Aufträge per Drag & Drop Mechanikern und Hebebühnen zuweisen.",
+    "loading": "Board wird geladen…",
+    "columnsAriaLabel": "Werkstattboard-Spalten",
+    "viewMode": {
+      "byMechanic": "Nach Mechaniker",
+      "byBay": "Nach Hebebühne"
+    },
+    "unassigned": "Nicht zugewiesen",
+    "emptyColumn": "Keine Aufträge",
+    "emptyResources": {
+      "mechanics": "Mechaniker",
+      "bays": "Hebebühnen",
+      "title": "Keine {{resource}} konfiguriert",
+      "description": "{{resource}} in den Einstellungen anlegen, um Werkstattaufträge zuzuweisen.",
+      "goToSettings": "Zu den Einstellungen"
+    },
+    "a11y": {
+      "orderFallback": "Werkstattauftrag",
+      "unknownColumn": "eine unbekannte Spalte",
+      "resourceNoun": {
+        "mechanic": "Mechaniker",
+        "bay": "Hebebühne"
+      },
+      "resourceColumn": "{{resource}} {{label}}",
+      "pickedUp": "{{order}} aufgenommen.",
+      "overColumn": "{{order}} befindet sich über {{column}}.",
+      "notOverColumn": "{{order}} befindet sich nicht mehr über einer Spalte.",
+      "droppedOn": "{{order}} wurde auf {{column}} abgelegt.",
+      "droppedOutside": "{{order}} wurde außerhalb einer Spalte abgelegt und nicht verschoben.",
+      "cancelled": "Ziehen abgebrochen. {{order}} wurde nicht verschoben."
+    }
+  },
+  "mechanic": {
+    "accessDenied": {
+      "title": "Bürozugang eingeschränkt",
+      "description": "Mit einem Mechaniker-Konto haben Sie keinen Zugriff auf Bürowerkzeuge.",
+      "backToQueue": "Zur Mechaniker-Warteschlange"
+    },
+    "queue": {
+      "taskSequence": "Aufgabe {{sequence}}",
+      "noPlate": "Kein Kennzeichen",
+      "bay": "Hebebühne: {{name}}",
+      "scheduled": "Geplant: {{date}}"
+    },
+    "taskDetail": {
+      "loading": "Aufgabe wird geladen…",
+      "notFound": "Aufgabe nicht gefunden oder Zugriff verweigert.",
+      "backToQueue": "Zurück zur Warteschlange",
+      "saveState": {
+        "saving": "Speichern…",
+        "saved": "Gespeichert ✓",
+        "error": "Fehler — nicht gespeichert"
+      },
+      "labor": {
+        "title": "Arbeit",
+        "hours_one": "{{count}} Std.",
+        "hours_other": "{{count}} Std."
+      },
+      "diagnostics": {
+        "title": "Diagnose"
+      }
+    }
+  },
+  "actions": {
+    "cancel": "Abbrechen",
+    "save": "Speichern"
+  },
+  "orderCard": {
+    "move": "Auftrag {{orderNumber}} verschieben",
+    "assign": "Zuweisen",
+    "assignAria": "Auftrag {{orderNumber}} zuweisen",
+    "assignTo": "Zuweisen an",
+    "dealerStock": "Händlerbestand"
+  },
+  "planner": {
+    "viewMode": {
+      "day": "Tag",
+      "week": "Woche"
+    },
+    "grid": {
+      "closed": "Geschlossen"
+    }
+  },
+  "resumeWaitingTasks": {
+    "description": "{{count}} Aufgabe(n) warten auf den Kunden. Die Freigabe setzt sie nicht automatisch fort.",
+    "button": "Wartende Aufgaben fortsetzen",
+    "success": "{{count}} Aufgabe(n) fortgesetzt",
+    "error": "Wartende Aufgaben konnten nicht fortgesetzt werden."
+  },
+  "pick": {
+    "dealerStock": "Händlerbestand"
+  }
+}

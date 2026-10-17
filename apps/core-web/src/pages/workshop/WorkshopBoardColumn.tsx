@@ -1,4 +1,5 @@
 import { useDroppable } from '@dnd-kit/core'
+import { useTranslation } from 'react-i18next'
 import { WorkshopOrderCard } from '@/components/workshop/WorkshopOrderCard'
 import type { BoardAssignmentTarget, BoardOrder } from '@/api/workshop'
 import { WORKSHOP_BOARD_UNASSIGNED_COLUMN_ID } from './workshop-board-announcements'
@@ -19,6 +20,7 @@ export function WorkshopBoardColumn({
   quickAssignTargets: BoardAssignmentTarget[]
   onQuickAssign: (orderId: string, target: BoardAssignmentTarget) => void
 }) {
+  const { t } = useTranslation('workshop')
   const { isOver, setNodeRef } = useDroppable({ id })
 
   const visibleOrders = orders.filter((order) => order.id !== activeId)
@@ -48,7 +50,7 @@ export function WorkshopBoardColumn({
           />
         ))}
         {visibleOrders.length === 0 && (
-          <p className="text-xs text-slate-500 text-center mt-4">No orders</p>
+          <p className="text-xs text-slate-500 text-center mt-4">{t('board.emptyColumn')}</p>
         )}
       </div>
     </div>

@@ -1,0 +1,96 @@
+{
+  "board": {
+    "title": "Workshop Board",
+    "description": "Drag & drop orders to assign mechanics and bays.",
+    "loading": "Loading board…",
+    "columnsAriaLabel": "Workshop board columns",
+    "viewMode": {
+      "byMechanic": "By Mechanic",
+      "byBay": "By Bay"
+    },
+    "unassigned": "Unassigned",
+    "emptyColumn": "No orders",
+    "emptyResources": {
+      "mechanics": "Mechanics",
+      "bays": "Bays",
+      "title": "No {{resource}} configured",
+      "description": "Add {{resource}} in Settings to start assigning workshop orders.",
+      "goToSettings": "Go to Settings"
+    },
+    "a11y": {
+      "orderFallback": "Workshop order",
+      "unknownColumn": "an unknown column",
+      "resourceNoun": {
+        "mechanic": "mechanic",
+        "bay": "bay"
+      },
+      "resourceColumn": "{{resource}} {{label}}",
+      "pickedUp": "Picked up {{order}}.",
+      "overColumn": "{{order}} is over {{column}}.",
+      "notOverColumn": "{{order}} is no longer over a column.",
+      "droppedOn": "{{order}} was dropped on {{column}}.",
+      "droppedOutside": "{{order}} was dropped outside a column and not moved.",
+      "cancelled": "Dragging was cancelled. {{order}} was not moved."
+    }
+  },
+  "mechanic": {
+    "accessDenied": {
+      "title": "Office access restricted",
+      "description": "You don't have access to office tools from a mechanic account.",
+      "backToQueue": "Go to mechanic queue"
+    },
+    "queue": {
+      "taskSequence": "Task {{sequence}}",
+      "noPlate": "No plate",
+      "bay": "Bay: {{name}}",
+      "scheduled": "Scheduled: {{date}}"
+    },
+    "taskDetail": {
+      "loading": "Loading task…",
+      "notFound": "Task not found or access denied.",
+      "backToQueue": "Back to Queue",
+      "saveState": {
+        "saving": "Saving…",
+        "saved": "Saved ✓",
+        "error": "Error — not saved"
+      },
+      "labor": {
+        "title": "Labor",
+        "hours_one": "{{count}} hr",
+        "hours_other": "{{count}} hrs"
+      },
+      "diagnostics": {
+        "title": "Diagnostics"
+      }
+    }
+  },
+  "actions": {
+    "cancel": "Cancel",
+    "save": "Save"
+  },
+  "orderCard": {
+    "move": "Move {{orderNumber}}",
+    "assign": "Assign",
+    "assignAria": "Assign {{orderNumber}}",
+    "assignTo": "Assign to",
+    "dealerStock": "Dealer stock"
+  },
+  "planner": {
+    "viewMode": {
+      "day": "Day",
+      "week": "Week"
+    },
+    "grid": {
+      "closed": "Closed"
+    }
+  },
+  "resumeWaitingTasks": {
+    "description": "{{count}} task(s) are waiting on the customer. Approval does not resume them automatically.",
+    "button": "Resume waiting tasks",
+    "success": "Resumed {{count}} task(s)",
+    "error": "Could not resume waiting tasks."
+  },
+  "pick": {
+    "dealerStock": "Dealer stock"
+  }
+}
