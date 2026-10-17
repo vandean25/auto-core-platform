@@ -52,12 +52,15 @@ describe('mobile-de-reference golden export', () => {
     expect(csvText).toContain('17"" Felgen');
     expect(csvText).toContain('Größe');
     expect(csvText).toContain('Semicolon; test');
+    expect(csvText).toContain(
+      'Semicolon; test.\\\\Ausstattung: PARKING_CAMERA: Rear sensor (not fitted)',
+    );
     expect(csvText.endsWith('\n')).toBe(true);
     expect(result.files[0].sha256).toBe(
-      'a62f586e39dc26e630fd95e320f0aa38fa8967e839b649bca73c7bc54f3113f4',
+      'fa97dbb0654251572e32870cbcf9820de9b39f26b7bc9f2f2fb99c9944621c67',
     );
     expect(result.sha256).toBe(
-      '13395778f87653a5c60e29b4f0389709680696c55eb51290516ab30dd81e7bdb',
+      'e81cd346ad4360ef6e42f58363ffbf994a634337cac24a009a67eb8b1a7d322f',
     );
   });
 

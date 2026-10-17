@@ -20,6 +20,7 @@ import {
 import {
   MOBILE_DE_CSV_FILENAME,
   MOBILE_DE_FIELD_COUNT,
+  MOBILE_DE_DESCRIPTION_LINE_BREAK,
   MOBILE_DE_MAX_IMAGES,
   MOBILE_DE_REFERENCE_PROFILE_CODE,
 } from './mobile-de-format.constants.js';
@@ -70,7 +71,7 @@ function buildDescription(input: ListingSerializerInput): string {
   if (equipmentParagraph) {
     parts.push(equipmentParagraph);
   }
-  return parts.join(' ');
+  return parts.join(MOBILE_DE_DESCRIPTION_LINE_BREAK);
 }
 
 export function buildMobileDeReferenceCsvRow(

@@ -13,3 +13,9 @@ export const MOBILE_DE_CSV_ENCODING = 'ISO-8859-15';
 export const MOBILE_DE_CSV_FILENAME = 'mobile-de-reference.csv';
 
 export const MOBILE_DE_MAX_IMAGES = 15;
+
+/**
+ * In-field line break for bemerkung (column 25) per mobile.de formatting syntax.
+ * @see https://services.mobile.de/manual/formatting-syntax.html
+ */
+export const MOBILE_DE_DESCRIPTION_LINE_BREAK = '\\\\';

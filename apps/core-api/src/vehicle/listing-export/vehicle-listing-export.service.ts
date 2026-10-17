@@ -190,6 +190,35 @@ export class VehicleListingExportService {
     ]);
 
     const generatedAt = new Date();
+    const equipmentSelections = selections.map((row) => ({
+      code: row.option.code,
+      label_de: row.option.label_de,
+      label_en: row.option.label_en,
+      assertion: row.assertion,
+    }));
+    const equipmentFreeTextLines = freeTextItems.map((row) => row.text);
+
+    const validationSnapshot = buildListingSerializerInput({
+      profileCode: serializer.profileCode,
+      mappingVersion: channel.mapping_version,
+      generatedAt,
+      listing,
+      vehicle,
+      equipmentSelections,
+      equipmentFreeTextLines,
+      imageBytesByMediaId: new Map(),
+      allowMissingImageBytes: true,
+    });
+
+    const issues = serializer.validate(validationSnapshot);
+    if (issues.length > 0) {
+      throw new UnprocessableEntityException({
+        code: 'LISTING_EXPORT_VALIDATION_FAILED',
+        message: formatListingExportValidationMessage(issues),
+        issues,
+      });
+    }
+
     const imageBytesByMediaId = new Map<string, Buffer>();
     const bucket = this.mediaStorage.resolveBucket();
     let accumulatedImageBytes = 0;
@@ -214,24 +243,10 @@ export class VehicleListingExportService {
       generatedAt,
       listing,
       vehicle,
-      equipmentSelections: selections.map((row) => ({
-        code: row.option.code,
-        label_de: row.option.label_de,
-        label_en: row.option.label_en,
-        assertion: row.assertion,
-      })),
-      equipmentFreeTextLines: freeTextItems.map((row) => row.text),
+      equipmentSelections,
+      equipmentFreeTextLines,
       imageBytesByMediaId,
     });
-
-    const issues = serializer.validate(snapshot);
-    if (issues.length > 0) {
-      throw new UnprocessableEntityException({
-        code: 'LISTING_EXPORT_VALIDATION_FAILED',
-        message: formatListingExportValidationMessage(issues),
-        issues,
-      });
-    }
 
     const result = serializer.serialize(snapshot);
     if (result.byteLength > serializer.limits.maxZipBytes) {

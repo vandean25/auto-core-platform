@@ -1,5 +1,8 @@
 import iconv from 'iconv-lite';
-import { MOBILE_DE_CSV_ENCODING } from './mobile-de-format.constants.js';
+import {
+  MOBILE_DE_CSV_ENCODING,
+  MOBILE_DE_DESCRIPTION_LINE_BREAK,
+} from './mobile-de-format.constants.js';
 
 export function quoteMobileDeField(value: string): string {
   return `"${value.replace(/"/g, '""')}"`;
@@ -27,10 +30,9 @@ export function assertMobileDeEncodable(value: string, field: string): void {
   }
 }
 
-/** Collapse CR/LF inside description fields before export (ACP reference rule). */
+/** Map advisor newlines to mobile.de in-field line breaks (CSV row stays one physical line). */
 export function normalizeMobileDeMultilineText(value: string): string {
   return value
-    .replace(/\r\n|\r|\n/g, ' ')
-    .replace(/\s+/g, ' ')
+    .replace(/\r\n|\r|\n/g, MOBILE_DE_DESCRIPTION_LINE_BREAK)
     .trim();
 }

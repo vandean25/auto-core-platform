@@ -46,6 +46,8 @@ export function buildListingSerializerInput(params: {
   }>;
   equipmentFreeTextLines: string[];
   imageBytesByMediaId: Map<string, Buffer>;
+  /** When true, missing image bytes use an empty buffer (validation-only snapshot). */
+  allowMissingImageBytes?: boolean;
 }): ListingSerializerInput {
   const listingFreeTextLines =
     params.listing.equipment_free_text
@@ -71,6 +73,14 @@ export function buildListingSerializerInput(params: {
       const sequence = index + 1;
       const bytes = params.imageBytesByMediaId.get(photo.media_id);
       if (!bytes) {
+        if (params.allowMissingImageBytes) {
+          return {
+            sequence,
+            filename: mobileDeImageFilename(imageId, sequence),
+            bytes: Buffer.alloc(0),
+            content_sha256: photo.media.content_sha256,
+          };
+        }
         throw new Error(`Missing image bytes for media ${photo.media_id}`);
       }
       return {
