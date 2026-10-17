@@ -56,9 +56,17 @@
     "tabs": {
       "overview": "Overview",
       "orders": "Orders",
+      "activeOrders": "Active Orders",
+      "invoices": "Invoice History",
       "vehicles": "Vehicles",
       "consent": "Contact preferences"
     },
+    "contactInformation": "Contact Information",
+    "invoiceHint": "Invoices are created from sales orders.",
+    "idLabel": "ID: {{id}}",
+    "notAvailable": "N/A",
+    "selectVehicleTitle": "Select Vehicle",
+    "vehicleSummary": "VIN: {{vin}} | Plate: {{plate}}",
     "contact": "Contact",
     "address": "Address",
     "startService": "Service Order",
@@ -70,6 +78,8 @@
     "pickVehicle": "Pick a vehicle for service order",
     "fields": {
       "companyName": "Company name",
+      "contactFirstName": "Contact First Name",
+      "contactLastName": "Contact Last Name",
       "firstName": "First name",
       "lastName": "Last name",
       "email": "Email",
@@ -77,15 +87,20 @@
       "street": "Street and house number",
       "zip": "ZIP code",
       "city": "City",
-      "country": "Country"
+      "country": "Country",
+      "vatId": "VAT ID"
     },
     "placeholders": {
       "companyName": "Company name",
       "firstName": "First name",
       "lastName": "Last name",
+      "email": "name@example.com",
+      "phone": "+43 ...",
       "street": "Street and house number",
       "zip": "ZIP code",
-      "city": "City"
+      "city": "City",
+      "country": "Country",
+      "vatId": "VAT ID"
     },
     "empty": {
       "companyName": "Add company name",
@@ -95,7 +110,9 @@
       "phone": "Add phone",
       "street": "Add street address",
       "zip": "Add ZIP",
-      "city": "Add city"
+      "city": "Add city",
+      "country": "Add country",
+      "vatId": "Add VAT ID"
     },
     "aria": {
       "companyName": "Company name",
@@ -107,7 +124,14 @@
       "phone": "Customer phone",
       "street": "Customer street address",
       "zip": "Customer ZIP code",
-      "city": "Customer city"
+      "city": "Customer city",
+      "country": "Customer country",
+      "vatId": "Customer VAT ID",
+      "openSalesOrder": "Open sales order {{number}}",
+      "openServiceOrder": "Open service order {{number}}",
+      "openInvoice": "Open invoice {{number}}",
+      "openVehicle": "Open vehicle {{make}} {{model}}",
+      "selectVehicle": "Select vehicle {{description}}, VIN {{vin}}, plate {{plate}}"
     },
     "orderTypes": {
       "sales": "Sales",
@@ -122,7 +146,14 @@
       "invoiceNumber": "Invoice #",
       "noActiveOrders": "No active orders",
       "noOrders": "No orders",
-      "noInvoices": "No invoices"
+      "noInvoices": "No invoices",
+      "noRecentInvoices": "No recent invoices",
+      "makeModel": "Make/Model",
+      "year": "Year",
+      "vin": "VIN",
+      "plate": "Plate",
+      "noVehiclesRegistered": "No vehicles registered",
+      "invoiceDraft": "Draft"
     }
   },
   "dialog": {

@@ -73,17 +73,57 @@
   "sale": {
     "title": "Vehicle sale",
     "backAria": "Back to vehicle stock",
+    "backToVehicleAria": "Back to vehicle",
     "viewStock": "View stock",
     "buyer": "Buyer",
     "salePriceGross": "Sale price (gross)",
-    "gewaehrleistung": "Gewährleistung",
-    "contractDate": "Vertragsdatum",
-    "handoverDate": "Übergabedatum",
+    "gewaehrleistung": "Warranty",
+    "contractDate": "Contract date",
+    "handoverDate": "Handover date",
     "finalize": "Finalize",
-    "downloadKaufvertrag": "Kaufvertrag PDF",
+    "finalizeInvoice": "Finalize invoice",
+    "downloadKaufvertrag": "Purchase contract PDF",
     "kaufvertragIncomplete": "Enter sale price and buyer before generating the PDF.",
     "finalizeFailed": "Failed to finalize sale",
-    "saveFailed": "Failed to save"
+    "saveFailed": "Failed to save",
+    "invoicedSuccess": "Sale invoiced",
+    "subtitleMargin": "Margin scheme",
+    "subtitleFallback": "Sell a used stock vehicle on the margin scheme.",
+    "vehicleSummary": "{{year}} {{make}} {{model}} · {{taxMode}}",
+    "invoiceLink": "Invoice {{number}}",
+    "openInvoice": "Open invoice",
+    "saveStatus": {
+      "saving": "Saving...",
+      "saved": "Saved",
+      "error": "Save failed"
+    },
+    "pdf": {
+      "success": "Purchase contract PDF downloaded",
+      "errorFallback": "Failed to generate purchase contract PDF"
+    },
+    "warranty": {
+      "consumerBuyer": "Buyer is a consumer",
+      "shorteningNegotiated": "Shortening was explicitly agreed",
+      "note": "Warranty note",
+      "optionalTitle": "Voluntary guarantee (optional)",
+      "months": "Guarantee duration (months)",
+      "monthsAria": "Guarantee duration in months",
+      "monthsError": "Enter a duration between 1 and 120 months.",
+      "terms": "Guarantee terms",
+      "termsHint": "Without a duration, no guarantee block appears on the contract. The guarantee applies in addition to statutory warranty.",
+      "repairsNote": "Extensions through repairs are not recorded."
+    },
+    "preview": {
+      "costBasis": "Cost basis",
+      "marginVat": "Margin VAT",
+      "taxMode": "Tax mode",
+      "taxModeMarginScheme": "Margin scheme"
+    },
+    "tradeIn": {
+      "vehicle": "Trade-in vehicle",
+      "allowance": "Trade-in allowance",
+      "amountDue": "Amount due after trade-in"
+    }
   },
   "reports": {
     "title": "Fahrzeugbestand Berichte",
@@ -116,7 +156,54 @@
       "91_180": "91–180 days",
       "over_180": "Over 180 days",
       "over_90": "Over 90 days"
-    }
+    },
+    "stockStatus": {
+      "IN_STOCK": "In stock",
+      "RESERVED": "Reserved",
+      "IN_PREP": "In prep"
+    },
+    "inventoryRolePlaceholder": "Inventory role",
+    "stockStatusPlaceholder": "Stock status",
+    "ageFilterAria": "Stock age filters",
+    "loadingRow": "Loading…",
+    "loadingSr": "Loading report",
+    "empty": "No vehicles for this selection.",
+    "paginationPrev": "Previous",
+    "paginationNext": "Next",
+    "pageSummary": "Page {{page}} of {{total}}",
+    "daysUnit": "{{count}} days",
+    "dateMissing": "Date missing",
+    "over90Summary": "Over 90 days: {{count}} vehicles · cost basis {{cost}}",
+    "marginTotals": {
+      "sales": "Sales",
+      "grossTotal": "Total gross margin ({{known}}/{{total}} known)",
+      "grossAverage": "Avg. gross margin"
+    },
+    "ageTable": {
+      "vehicle": "Vehicle",
+      "vin": "VIN",
+      "plate": "Plate",
+      "role": "Role",
+      "status": "Status",
+      "age": "Days in stock",
+      "costBasis": "Cost basis",
+      "askingPrice": "Asking price",
+      "location": "Location"
+    },
+    "marginTable": {
+      "invoiceDate": "Invoice date",
+      "saleNumber": "Sale number",
+      "vehicle": "Vehicle",
+      "role": "Role",
+      "netSale": "Net sale",
+      "costBasis": "Cost basis",
+      "grossMargin": "Gross margin",
+      "grossMarginPercent": "Gross margin %",
+      "daysToSell": "Days to sell",
+      "taxation": "Taxation"
+    },
+    "csvAgeFilename": "vehicle-stock-age.csv",
+    "csvMarginFilename": "vehicle-stock-margin.csv"
   },
   "listing": {
     "title": "Edit listing",

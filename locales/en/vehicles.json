@@ -82,7 +82,8 @@
       "invoiceNumber": "Invoice #",
       "noActiveOrders": "No active orders",
       "noInvoices": "No invoices",
-      "noServiceOrders": "No service orders"
+      "noServiceOrders": "No service orders",
+      "serviceOrderNumber": "Service Order #"
     },
     "orderTypes": {
       "sales": "Sales",
@@ -91,7 +92,8 @@
     "changeCustomerDialog": {
       "title": "Change vehicle customer",
       "save": "Save",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "unassign": "Unassign"
     },
     "idLabel": "ID: {{id}}"
   },

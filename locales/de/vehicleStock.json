@@ -73,6 +73,7 @@
   "sale": {
     "title": "Fahrzeugverkauf",
     "backAria": "Zurück zum Fahrzeugbestand",
+    "backToVehicleAria": "Zurück zum Fahrzeug",
     "viewStock": "Bestand anzeigen",
     "buyer": "Käufer",
     "salePriceGross": "Verkaufspreis (brutto)",
@@ -80,10 +81,49 @@
     "contractDate": "Vertragsdatum",
     "handoverDate": "Übergabedatum",
     "finalize": "Finalisieren",
+    "finalizeInvoice": "Rechnung finalisieren",
     "downloadKaufvertrag": "Kaufvertrag PDF",
     "kaufvertragIncomplete": "Bitte Kaufpreis und Käufer angeben, bevor das PDF erstellt wird.",
     "finalizeFailed": "Verkauf konnte nicht finalisiert werden",
-    "saveFailed": "Speichern fehlgeschlagen"
+    "saveFailed": "Speichern fehlgeschlagen",
+    "invoicedSuccess": "Verkauf abgerechnet",
+    "subtitleMargin": "Differenzbesteuerung",
+    "subtitleFallback": "Gebrauchtwagen im Bestand auf Margenbesteuerung verkaufen.",
+    "vehicleSummary": "{{year}} {{make}} {{model}} · {{taxMode}}",
+    "invoiceLink": "Rechnung {{number}}",
+    "openInvoice": "Rechnung öffnen",
+    "saveStatus": {
+      "saving": "Speichern…",
+      "saved": "Gespeichert",
+      "error": "Speichern fehlgeschlagen"
+    },
+    "pdf": {
+      "success": "Kaufvertrag-PDF heruntergeladen",
+      "errorFallback": "Fehler beim Erstellen des Kaufvertrag-PDFs"
+    },
+    "warranty": {
+      "consumerBuyer": "Käufer:in ist Verbraucher:in",
+      "shorteningNegotiated": "Verkürzung wurde ausdrücklich vereinbart",
+      "note": "Notiz zur Gewährleistung",
+      "optionalTitle": "Freiwillige Garantie (optional)",
+      "months": "Garantiedauer (Monate)",
+      "monthsAria": "Garantiedauer in Monaten",
+      "monthsError": "Bitte eine Dauer zwischen 1 und 120 Monaten angeben.",
+      "terms": "Garantiebedingungen",
+      "termsHint": "Ohne Dauer erscheint im Kaufvertrag kein Garantieblock. Die Garantie gilt zusätzlich zur gesetzlichen Gewährleistung.",
+      "repairsNote": "Verlängerungen durch Reparaturen werden nicht erfasst."
+    },
+    "preview": {
+      "costBasis": "Kostenbasis",
+      "marginVat": "Margen-USt.",
+      "taxMode": "Besteuerungsart",
+      "taxModeMarginScheme": "Margenbesteuerung"
+    },
+    "tradeIn": {
+      "vehicle": "Inzahlungnahme",
+      "allowance": "Inzahlungnahme-Betrag",
+      "amountDue": "Fälliger Betrag nach Inzahlungnahme"
+    }
   },
   "reports": {
     "title": "Fahrzeugbestand Berichte",
@@ -116,7 +156,54 @@
       "91_180": "91–180 Tage",
       "over_180": "Über 180 Tage",
       "over_90": "Über 90 Tage"
-    }
+    },
+    "stockStatus": {
+      "IN_STOCK": "Auf Lager",
+      "RESERVED": "Reserviert",
+      "IN_PREP": "In Aufbereitung"
+    },
+    "inventoryRolePlaceholder": "Bestandsrolle",
+    "stockStatusPlaceholder": "Bestandsstatus",
+    "ageFilterAria": "Standzeitfilter",
+    "loadingRow": "Lädt …",
+    "loadingSr": "Bericht wird geladen",
+    "empty": "Keine Fahrzeuge für diese Auswahl.",
+    "paginationPrev": "Zurück",
+    "paginationNext": "Weiter",
+    "pageSummary": "Seite {{page}} von {{total}}",
+    "daysUnit": "{{count}} Tage",
+    "dateMissing": "Datum fehlt",
+    "over90Summary": "Über 90 Tage: {{count}} Fahrzeuge · Kostenbasis {{cost}}",
+    "marginTotals": {
+      "sales": "Verkäufe",
+      "grossTotal": "Rohertrag gesamt ({{known}}/{{total}} bekannt)",
+      "grossAverage": "Rohertrag Ø"
+    },
+    "ageTable": {
+      "vehicle": "Fahrzeug",
+      "vin": "FIN",
+      "plate": "Kennzeichen",
+      "role": "Rolle",
+      "status": "Status",
+      "age": "Standzeit",
+      "costBasis": "Kostenbasis",
+      "askingPrice": "Angebotspreis",
+      "location": "Standort"
+    },
+    "marginTable": {
+      "invoiceDate": "Rechnungsdatum",
+      "saleNumber": "Verkaufsnummer",
+      "vehicle": "Fahrzeug",
+      "role": "Rolle",
+      "netSale": "Nettoverkauf",
+      "costBasis": "Kostenbasis",
+      "grossMargin": "Rohertrag",
+      "grossMarginPercent": "Rohertrag %",
+      "daysToSell": "Standzeit",
+      "taxation": "Besteuerung"
+    },
+    "csvAgeFilename": "fahrzeugbestand-standzeit.csv",
+    "csvMarginFilename": "fahrzeugbestand-rohertrag.csv"
   },
   "listing": {
     "title": "Inserat bearbeiten",

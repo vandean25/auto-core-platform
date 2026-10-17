@@ -3,6 +3,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'sonner'
 import VehicleSalePage from './VehicleSalePage'
+import { deVehicleStock } from '@/test/de-vehicleStock'
 import * as vehicleStockApi from '@/api/vehicle-stock'
 import { fetchWithAuth } from '@/api/client'
 import { triggerBlobDownload } from '@/lib/download'
@@ -140,7 +141,7 @@ describe('VehicleSalePage Kaufvertrag download through the real hook', () => {
     ])
     renderSalePage()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Kaufvertrag PDF' }))
+    fireEvent.click(screen.getByRole('button', { name: deVehicleStock.sale.downloadKaufvertrag }))
 
     await waitFor(() => expect(pdfRequests()).toHaveLength(2))
     expect(triggerBlobDownload).not.toHaveBeenCalled()
@@ -153,7 +154,7 @@ describe('VehicleSalePage Kaufvertrag download through the real hook', () => {
     expect(filename).toBe('kaufvertrag-vs_2026_0001.pdf')
     expect(pdfRequests()).toEqual([`POST ${PDF_URL}`, `GET ${PDF_URL}`, `GET ${PDF_URL}`])
     expect(toast.success).toHaveBeenCalledWith(
-      'Kaufvertrag-PDF heruntergeladen',
+      deVehicleStock.sale.pdf.success,
       expect.objectContaining({ id: 'toast-1' }),
     )
   }, 15_000)
@@ -165,7 +166,7 @@ describe('VehicleSalePage Kaufvertrag download through the real hook', () => {
     mockPdfRequests([pdfResponse])
     renderSalePage()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Kaufvertrag PDF' }))
+    fireEvent.click(screen.getByRole('button', { name: deVehicleStock.sale.downloadKaufvertrag }))
 
     await waitFor(() =>
       expect(toast.error).toHaveBeenCalledWith(

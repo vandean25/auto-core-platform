@@ -82,7 +82,8 @@
       "invoiceNumber": "Rechnung Nr.",
       "noActiveOrders": "Keine aktiven Aufträge",
       "noInvoices": "Keine Rechnungen",
-      "noServiceOrders": "Keine Werkstattaufträge"
+      "noServiceOrders": "Keine Werkstattaufträge",
+      "serviceOrderNumber": "Werkstattauftrag Nr."
     },
     "orderTypes": {
       "sales": "Verkauf",
@@ -91,7 +92,8 @@
     "changeCustomerDialog": {
       "title": "Fahrzeugkunde ändern",
       "save": "Speichern",
-      "cancel": "Abbrechen"
+      "cancel": "Abbrechen",
+      "unassign": "Zuweisung aufheben"
     },
     "idLabel": "ID: {{id}}"
   },

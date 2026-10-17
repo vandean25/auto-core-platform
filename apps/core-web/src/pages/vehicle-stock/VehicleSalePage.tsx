@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Download } from 'lucide-react'
 import { toast } from 'sonner'
@@ -24,7 +26,6 @@ import type { Customer } from '@/api/types'
 import { formatCurrency } from '@/lib/utils'
 import { getErrorMessage } from '@/lib/error-utils'
 import {
-  GARANTIE_MONTHS_MESSAGE,
   gewaehrleistungStatusBadge,
   negotiatedShorteningBlockReason,
   parseGarantieMonths,
@@ -76,10 +77,11 @@ function buildVehicleSaleDraftFacts(input: {
   }
 }
 
-const KAUFVERTRAG_FACTS_INCOMPLETE_MESSAGE =
-  'Bitte Kaufpreis und Käufer angeben, bevor das PDF erstellt wird.'
-
 export default function VehicleSalePage() {
+  const { t } = useTranslation('vehicleStock')
+  useEffect(() => {
+    void ensureNamespaceLoaded('vehicleStock')
+  }, [])
   const { id = 'new' } = useParams()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
@@ -120,8 +122,8 @@ export default function VehicleSalePage() {
       `kaufvertrag-${(existing?.sale_number ?? saleIdRef.current).replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`,
     checkGenerationFailed: () => fetchVehicleSaleKaufvertragGenerationError(saleIdRef.current),
     messages: {
-      success: 'Kaufvertrag-PDF heruntergeladen',
-      errorFallback: 'Fehler beim Erstellen des Kaufvertrag-PDFs',
+      success: t('sale.pdf.success'),
+      errorFallback: t('sale.pdf.errorFallback'),
     },
   })
   const persistSaleFacts = useCallback(async (
@@ -262,7 +264,7 @@ export default function VehicleSalePage() {
       const saveRequest = persistSaleFacts(saleFacts, serialized)
       pendingSave.current = saveRequest
       void saveRequest
-        .catch((error) => toast.error(getErrorMessage(error, 'Failed to save sale')))
+        .catch((error) => toast.error(getErrorMessage(error, t('sale.saveFailed'))))
         .finally(() => {
           if (pendingSave.current === saveRequest) pendingSave.current = null
         })
@@ -303,7 +305,7 @@ export default function VehicleSalePage() {
       // A trade-in typed inside the autosave window must be saved first, or the invoice would bill the full price.
       await tradeInRef.current?.flush()
       const result = await finalizeSale.mutateAsync(saleId)
-      toast.success('Sale invoiced')
+      toast.success(t('sale.invoicedSuccess'))
       if (result.invoice?.id) {
         navigate(`/sales/invoices/${result.invoice.id}`)
       } else {
@@ -311,7 +313,7 @@ export default function VehicleSalePage() {
       }
     } catch (error) {
       setShorteningSaveError(shorteningSaveErrorMessage(error))
-      toast.error(getErrorMessage(error, 'Failed to finalize sale'))
+      toast.error(getErrorMessage(error, t('sale.finalizeFailed')))
     } finally {
       finalizing.current = false
       setIsFinalizing(false)
@@ -329,9 +331,9 @@ export default function VehicleSalePage() {
     }
     if (pendingSave.current) await pendingSave.current
     if (!isDraft) return
-    if (!garantie.valid) throw new Error(GARANTIE_MONTHS_MESSAGE)
+    if (!garantie.valid) throw new Error(t('sale.warranty.monthsError'))
     if (!vehicleId || !customerId || !priceNumber) {
-      throw new Error(KAUFVERTRAG_FACTS_INCOMPLETE_MESSAGE)
+      throw new Error(t('sale.kaufvertragIncomplete'))
     }
     const currentFacts = buildVehicleSaleDraftFacts({
       vehicleId,
@@ -356,12 +358,13 @@ export default function VehicleSalePage() {
     try {
       await persistCurrentFactsIfChanged()
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to save sale'))
+      toast.error(getErrorMessage(error, t('sale.saveFailed')))
       return
     }
     await downloadKaufvertrag()
   }
 
+  const emDash = t('shared.emDash')
   const vatPreview = existing?.margin_vat_preview
   const costPreview = existing?.cost_basis_preview ?? vehicle?.cost_basis
   const warrantyBadge = existing?.gewaehrleistung_status
@@ -375,17 +378,22 @@ export default function VehicleSalePage() {
           <Button
             variant="ghost"
             size="icon"
-            aria-label={vehicleId ? 'Back to vehicle' : 'Back to vehicle stock'}
+            aria-label={vehicleId ? t('sale.backToVehicleAria') : t('sale.backAria')}
             onClick={() => navigate(vehicleId ? `/vehicle-stock/${vehicleId}` : '/vehicle-stock')}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Vehicle sale</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">{t('sale.title')}</h1>
             <p className="text-slate-500">
               {vehicle
-                ? `${vehicle.year} ${vehicle.make} ${vehicle.model} · Differenzbesteuerung`
-                : 'Sell a used stock vehicle on the margin scheme.'}
+                ? t('sale.vehicleSummary', {
+                    year: vehicle.year,
+                    make: vehicle.make,
+                    model: vehicle.model,
+                    taxMode: t('sale.subtitleMargin'),
+                  })
+                : t('sale.subtitleFallback')}
             </p>
           </div>
           {existing ? <StatusBadge status={existing.status} /> : null}
@@ -394,14 +402,16 @@ export default function VehicleSalePage() {
               to={`/sales/invoices/${existing.invoice.id}`}
               className="text-sm font-medium text-slate-700 underline-offset-4 hover:underline"
             >
-              {existing.invoice.invoice_number ? `Rechnung ${existing.invoice.invoice_number}` : 'Rechnung öffnen'}
+              {existing.invoice.invoice_number
+                ? t('sale.invoiceLink', { number: existing.invoice.invoice_number })
+                : t('sale.openInvoice')}
             </Link>
           ) : null}
         </div>
         <div className="flex items-center gap-3">
-          {saveStatus === 'saving' && <span className="text-sm text-slate-500">Saving...</span>}
-          {saveStatus === 'saved' && <span className="text-sm text-emerald-600">Saved</span>}
-          {saveStatus === 'error' && <span className="text-sm text-rose-600">Save failed</span>}
+          {saveStatus === 'saving' && <span className="text-sm text-slate-500">{t('sale.saveStatus.saving')}</span>}
+          {saveStatus === 'saved' && <span className="text-sm text-emerald-600">{t('sale.saveStatus.saved')}</span>}
+          {saveStatus === 'error' && <span className="text-sm text-rose-600">{t('sale.saveStatus.error')}</span>}
           <Button
             variant="outline"
             disabled={
@@ -414,13 +424,13 @@ export default function VehicleSalePage() {
             onClick={() => void downloadKaufvertragPdf()}
           >
             <Download className="mr-2 h-4 w-4" />
-            Kaufvertrag PDF
+            {t('sale.downloadKaufvertrag')}
           </Button>
           <Button
             disabled={!saleId || !isDraft || isFinalizing || saveStatus === 'saving'}
             onClick={() => void finalize()}
           >
-            Finalize invoice
+            {t('sale.finalizeInvoice')}
           </Button>
         </div>
       </div>
@@ -428,7 +438,7 @@ export default function VehicleSalePage() {
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-4">
           <div className="space-y-1 text-sm">
-            <span className="text-slate-500">Buyer</span>
+            <span className="text-slate-500">{t('sale.buyer')}</span>
             <CustomerSearch value={customer} onChange={handleCustomerChange} />
           </div>
           <VehicleSaleTradeInSection
@@ -441,7 +451,7 @@ export default function VehicleSalePage() {
         </div>
         <div className="space-y-4">
           <label className="space-y-1 text-sm">
-            <span className="text-slate-500">Sale price (gross)</span>
+            <span className="text-slate-500">{t('sale.salePriceGross')}</span>
             <Input
               disabled={!isDraft || isFinalizing}
               type="number"
@@ -451,14 +461,14 @@ export default function VehicleSalePage() {
           </label>
           <section aria-labelledby="gewaehrleistung-form-title" className="space-y-3 rounded-lg border p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 id="gewaehrleistung-form-title" className="font-medium">Gewährleistung</h2>
+              <h2 id="gewaehrleistung-form-title" className="font-medium">{t('sale.gewaehrleistung')}</h2>
               {warrantyBadge ? <StatusBadge status={warrantyBadge.status} label={warrantyBadge.label} /> : null}
             </div>
             {existing?.gewaehrleistung_ends_on ? <GewaehrleistungFristen sale={existing} /> : null}
             <label className="block space-y-1 text-sm">
-              <span className="text-slate-500">Vertragsdatum</span>
+              <span className="text-slate-500">{t('sale.contractDate')}</span>
               <Input
-                aria-label="Vertragsdatum"
+                aria-label={t('sale.contractDate')}
                 type="date"
                 disabled={!isDraft || isFinalizing}
                 value={contractDate}
@@ -466,9 +476,9 @@ export default function VehicleSalePage() {
               />
             </label>
             <label className="block space-y-1 text-sm">
-              <span className="text-slate-500">Übergabedatum</span>
+              <span className="text-slate-500">{t('sale.handoverDate')}</span>
               <Input
-                aria-label="Übergabedatum"
+                aria-label={t('sale.handoverDate')}
                 type="date"
                 disabled={!isDraft || isFinalizing}
                 value={handoverDate}
@@ -485,7 +495,7 @@ export default function VehicleSalePage() {
                   if (!event.target.checked) setShorteningNegotiated(false)
                 }}
               />
-              Käufer:in ist Verbraucher:in
+              {t('sale.warranty.consumerBuyer')}
             </label>
             <label className="flex items-center gap-2 text-sm">
               <input
@@ -504,7 +514,7 @@ export default function VehicleSalePage() {
                   setShorteningNegotiated(event.target.checked)
                 }}
               />
-              Verkürzung wurde ausdrücklich vereinbart
+              {t('sale.warranty.shorteningNegotiated')}
             </label>
             {shorteningMessage ? (
               <p
@@ -516,9 +526,9 @@ export default function VehicleSalePage() {
               </p>
             ) : null}
             <label className="block space-y-1 text-sm">
-              <span className="text-slate-500">Notiz zur Gewährleistung</span>
+              <span className="text-slate-500">{t('sale.warranty.note')}</span>
               <textarea
-                aria-label="Notiz zur Gewährleistung"
+                aria-label={t('sale.warranty.note')}
                 disabled={!isDraft || isFinalizing}
                 className="min-h-20 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 value={warrantyNote}
@@ -526,11 +536,11 @@ export default function VehicleSalePage() {
               />
             </label>
             <div className="space-y-2 border-t pt-3">
-              <h3 className="text-sm font-medium">Freiwillige Garantie (optional)</h3>
+              <h3 className="text-sm font-medium">{t('sale.warranty.optionalTitle')}</h3>
               <label className="block space-y-1 text-sm">
-                <span className="text-slate-500">Garantiedauer (Monate)</span>
+                <span className="text-slate-500">{t('sale.warranty.months')}</span>
                 <Input
-                  aria-label="Garantiedauer in Monaten"
+                  aria-label={t('sale.warranty.monthsAria')}
                   type="number"
                   min={1}
                   max={120}
@@ -547,12 +557,12 @@ export default function VehicleSalePage() {
                 />
               </label>
               {garantie.valid ? null : (
-                <p id="garantie-months-error" role="alert" className="text-xs text-rose-600">{GARANTIE_MONTHS_MESSAGE}</p>
+                <p id="garantie-months-error" role="alert" className="text-xs text-rose-600">{t('sale.warranty.monthsError')}</p>
               )}
               <label className="block space-y-1 text-sm">
-                <span className="text-slate-500">Garantiebedingungen</span>
+                <span className="text-slate-500">{t('sale.warranty.terms')}</span>
                 <textarea
-                  aria-label="Garantiebedingungen"
+                  aria-label={t('sale.warranty.terms')}
                   maxLength={2000}
                   disabled={!isDraft || isFinalizing || garantie.value === null}
                   className="min-h-20 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -561,10 +571,10 @@ export default function VehicleSalePage() {
                 />
               </label>
               <p className="text-xs text-slate-500">
-                Ohne Dauer erscheint im Kaufvertrag kein Garantieblock. Die Garantie gilt zusätzlich zur gesetzlichen Gewährleistung.
+                {t('sale.warranty.termsHint')}
               </p>
             </div>
-            <p className="text-xs text-slate-500">Verlängerungen durch Reparaturen werden nicht erfasst.</p>
+            <p className="text-xs text-slate-500">{t('sale.warranty.repairsNote')}</p>
           </section>
           {vehicle ? (
             <NovaPreviewPanel
@@ -581,39 +591,39 @@ export default function VehicleSalePage() {
 
       <div className="rounded-lg border p-4 grid gap-3 md:grid-cols-3">
         <div>
-          <div className="text-xs text-slate-500">Cost basis</div>
+          <div className="text-xs text-slate-500">{t('sale.preview.costBasis')}</div>
           <div className="font-medium">
-            {costPreview != null ? formatCurrency(costPreview) : '—'}
+            {costPreview != null ? formatCurrency(costPreview) : emDash}
           </div>
         </div>
         <div>
-          <div className="text-xs text-slate-500">Margin VAT</div>
+          <div className="text-xs text-slate-500">{t('sale.preview.marginVat')}</div>
           <div className="font-medium">
-            {vatPreview != null ? formatCurrency(vatPreview) : '—'}
+            {vatPreview != null ? formatCurrency(vatPreview) : emDash}
           </div>
         </div>
         <div>
-          <div className="text-xs text-slate-500">Tax mode</div>
-          <div className="font-medium">MARGIN_SCHEME</div>
+          <div className="text-xs text-slate-500">{t('sale.preview.taxMode')}</div>
+          <div className="font-medium">{t('sale.preview.taxModeMarginScheme')}</div>
         </div>
       </div>
 
       {existing?.trade_in_purchase ? (
         <div className="rounded-lg border p-4 grid gap-3 md:grid-cols-3">
           <div>
-            <div className="text-xs text-slate-500">Trade-in vehicle</div>
+            <div className="text-xs text-slate-500">{t('sale.tradeIn.vehicle')}</div>
             <div className="font-medium">
               {`${existing.trade_in_purchase.year} ${existing.trade_in_purchase.make} ${existing.trade_in_purchase.model}`}
             </div>
           </div>
           <div>
-            <div className="text-xs text-slate-500">Trade-in allowance</div>
+            <div className="text-xs text-slate-500">{t('sale.tradeIn.allowance')}</div>
             <div className="font-medium">{formatCurrency(existing.trade_in_purchase.purchase_price)}</div>
           </div>
           <div>
-            <div className="text-xs text-slate-500">Amount due after trade-in</div>
+            <div className="text-xs text-slate-500">{t('sale.tradeIn.amountDue')}</div>
             <div className="font-medium">
-              {existing.amount_due_preview != null ? formatCurrency(existing.amount_due_preview) : '—'}
+              {existing.amount_due_preview != null ? formatCurrency(existing.amount_due_preview) : emDash}
             </div>
           </div>
         </div>
