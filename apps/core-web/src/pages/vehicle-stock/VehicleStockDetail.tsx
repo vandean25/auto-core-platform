@@ -1,4 +1,8 @@
+import { useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -27,6 +31,11 @@ import {
 export default function VehicleStockDetail() {
   const { vehicleId = '' } = useParams()
   const navigate = useNavigate()
+  const { t } = useTranslation('vehicleStock')
+
+  useEffect(() => {
+    void ensureNamespaceLoaded('vehicleStock')
+  }, [])
   const { data: vehicle, isLoading } = useVehicleStockDetail(vehicleId)
   const patchStock = usePatchVehicleStock(vehicleId)
   const createPrep = useCreateWorkshopOrder()
@@ -93,6 +102,14 @@ export default function VehicleStockDetail() {
           {vehicle.stock_status ? <StatusBadge status={vehicle.stock_status} /> : null}
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() =>
+              navigate(APP_ROUTE_PATHS.vehicleStockListing.replace(':vehicleId', vehicleId))
+            }
+          >
+            {t('listing.title')}
+          </Button>
           <Button variant="outline" disabled={!canPrep} onClick={() => void startPrep()}>
             Stock prep
           </Button>

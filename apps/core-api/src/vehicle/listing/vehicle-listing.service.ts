@@ -244,9 +244,12 @@ export class VehicleListingService {
           dto.description_language ?? current.description_language,
         price_gross_eur:
           dto.price_gross_eur !== undefined
-            ? new Decimal(dto.price_gross_eur)
+            ? dto.price_gross_eur === null
+              ? null
+              : new Decimal(dto.price_gross_eur)
             : current.price_gross_eur,
-        vat_display: dto.vat_display ?? current.vat_display,
+        vat_display:
+          dto.vat_display !== undefined ? dto.vat_display : current.vat_display,
         nova_included_confirmed:
           dto.nova_included_confirmed ?? current.nova_included_confirmed,
         mandatory_fees_included_confirmed:
@@ -315,7 +318,10 @@ export class VehicleListingService {
         patchData.description_language = dto.description_language;
       }
       if (dto.price_gross_eur !== undefined) {
-        patchData.price_gross_eur = new Decimal(dto.price_gross_eur);
+        patchData.price_gross_eur =
+          dto.price_gross_eur === null
+            ? null
+            : new Decimal(dto.price_gross_eur);
       }
       if (dto.vat_display !== undefined) {
         patchData.vat_display = dto.vat_display;

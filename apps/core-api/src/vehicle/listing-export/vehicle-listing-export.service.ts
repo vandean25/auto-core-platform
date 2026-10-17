@@ -14,7 +14,14 @@ import { PrismaService } from '../../prisma/prisma.service.js';
 import { TenantContextService } from '../../common/services/tenant-context.service.js';
 import { SiteContextService } from '../../site/site-context.service.js';
 import { resolveCurrentReceivedStockPurchaseId } from '../equipment/vehicle-equipment-stock-cycle.js';
-import { assertListingChannelActiveReadiness } from '../listing/vehicle-listing-readiness.js';
+import {
+  assertListingChannelActiveReadiness,
+  listListingOfferFieldReadinessIssues,
+  listListingVehicleActivationReadinessIssues,
+} from '../listing/vehicle-listing-readiness.js';
+import type { VehicleListingChannelValidationDto } from './dto/vehicle-listing-export-validation.dto.js';
+import { listingSerializers } from './listing-serializers.js';
+import type { EquipmentListingSerializerProfile } from '../equipment/vehicle-equipment-portal-map.types.js';
 import {
   VEHICLE_MEDIA_STORAGE,
   type VehicleMediaStorage,
@@ -27,6 +34,28 @@ import { resolveListingSerializer } from './listing-serializer.registry.js';
 const listingInclude = {
   photos: { include: { media: true }, orderBy: { sort_order: 'asc' } },
   channels: true,
+} as const;
+
+const supportedSerializerProfiles = new Set(
+  listingSerializers.map((serializer) => serializer.profileCode),
+);
+
+const vehicleExportSelect = {
+  id: true,
+  make: true,
+  model: true,
+  year: true,
+  mileage: true,
+  fuel_type: true,
+  power_kw: true,
+  first_registration_date: true,
+  co2_wltp_g_km: true,
+  co2_nedc_g_km: true,
+  color: true,
+  emission_class: true,
+  inventory_role: true,
+  stock_status: true,
+  tax_scheme: true,
 } as const;
 
 function resolvePortalImageStorageKey(media: {
@@ -50,10 +79,139 @@ export class VehicleListingExportService {
   private assertListingExportRoleAllowed(): void {
     const role = this.tenantContext.getAuthenticatedUser()?.role;
     if (role === 'DEMO') {
-      throw new ForbiddenException(
-        'Demo accounts cannot download listing export packages.',
-      );
+      throw new ForbiddenException({
+        code: 'LISTING_EXPORT_DEMO_DENIED',
+        message: 'Demo accounts cannot download listing export packages.',
+      });
     }
+  }
+
+  private assertListingExportValidateAllowed(): void {
+    const role = this.tenantContext.getAuthenticatedUser()?.role;
+    if (role === 'DEMO') {
+      throw new ForbiddenException({
+        code: 'LISTING_VALIDATE_DEMO_DENIED',
+        message:
+          'Demo accounts cannot run marketplace listing export validation.',
+      });
+    }
+  }
+
+  async validateListingExport(
+    vehicleId: string,
+  ): Promise<{ channels: VehicleListingChannelValidationDto[] }> {
+    this.assertListingExportValidateAllowed();
+    const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
+
+    const vehicle = await this.prisma.vehicle.findFirst({
+      where: {
+        id: vehicleId,
+        tenant_id: tenantId,
+        inventory_role: 'USED',
+        location: { site_id: siteId },
+      },
+      select: vehicleExportSelect,
+    });
+    if (!vehicle) {
+      throw new NotFoundException(`Vehicle ${vehicleId} not found`);
+    }
+
+    const stockPurchaseId = await resolveCurrentReceivedStockPurchaseId(
+      this.prisma,
+      tenantId,
+      vehicleId,
+      siteId,
+    );
+
+    const listing = await this.prisma.vehicleListing.findFirst({
+      where: {
+        tenant_id: tenantId,
+        vehicle_id: vehicleId,
+        stock_purchase_id: stockPurchaseId,
+        site_id: siteId,
+      },
+      include: listingInclude,
+    });
+    if (!listing) {
+      throw new NotFoundException({
+        code: 'VEHICLE_LISTING_NOT_FOUND',
+        message: 'No marketplace listing exists for this stock cycle.',
+      });
+    }
+
+    const [selections, freeTextItems] = await Promise.all([
+      this.prisma.vehicleEquipmentSelection.findMany({
+        where: {
+          tenant_id: tenantId,
+          stock_purchase_id: stockPurchaseId,
+        },
+        include: { option: true },
+      }),
+      this.prisma.vehicleEquipmentFreeTextItem.findMany({
+        where: {
+          tenant_id: tenantId,
+          stock_purchase_id: stockPurchaseId,
+        },
+        orderBy: { sort_order: 'asc' },
+      }),
+    ]);
+
+    const generatedAt = new Date();
+    const equipmentSelections = selections.map((row) => ({
+      code: row.option.code,
+      label_de: row.option.label_de,
+      label_en: row.option.label_en,
+      assertion: row.assertion,
+    }));
+    const equipmentFreeTextLines = freeTextItems.map((row) => row.text);
+
+    const readinessListing = {
+      price_gross_eur: listing.price_gross_eur,
+      vat_display: listing.vat_display,
+      nova_included_confirmed: listing.nova_included_confirmed,
+      mandatory_fees_included_confirmed:
+        listing.mandatory_fees_included_confirmed,
+    };
+
+    const channels: VehicleListingChannelValidationDto[] = [];
+
+    for (const channel of listing.channels) {
+      const issues: VehicleListingChannelValidationDto['issues'] = [];
+
+      issues.push(...listListingOfferFieldReadinessIssues(readinessListing));
+      issues.push(...listListingVehicleActivationReadinessIssues(vehicle));
+
+      const profileCode =
+        channel.serializer_profile as EquipmentListingSerializerProfile;
+      const serializerSupported = supportedSerializerProfiles.has(profileCode);
+
+      if (serializerSupported) {
+        const serializer = resolveListingSerializer(profileCode);
+        const validationSnapshot = buildListingSerializerInput({
+          profileCode: serializer.profileCode,
+          mappingVersion: channel.mapping_version,
+          generatedAt,
+          listing,
+          vehicle,
+          equipmentSelections,
+          equipmentFreeTextLines,
+          imageBytesByMediaId: new Map(),
+          allowMissingImageBytes: true,
+          allowIncompleteListing: true,
+        });
+        issues.push(...serializer.validate(validationSnapshot));
+      }
+
+      channels.push({
+        platform: channel.platform,
+        serializer_profile: channel.serializer_profile,
+        serializer_supported: serializerSupported,
+        issues,
+      });
+    }
+
+    return { channels };
   }
 
   async downloadListingPackage(
@@ -77,23 +235,7 @@ export class VehicleListingExportService {
         inventory_role: 'USED',
         location: { site_id: siteId },
       },
-      select: {
-        id: true,
-        make: true,
-        model: true,
-        year: true,
-        mileage: true,
-        fuel_type: true,
-        power_kw: true,
-        first_registration_date: true,
-        co2_wltp_g_km: true,
-        co2_nedc_g_km: true,
-        color: true,
-        emission_class: true,
-        inventory_role: true,
-        stock_status: true,
-        tax_scheme: true,
-      },
+      select: vehicleExportSelect,
     });
     if (!vehicle) {
       throw new NotFoundException(`Vehicle ${vehicleId} not found`);

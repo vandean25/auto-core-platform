@@ -1,0 +1,125 @@
+{
+  "listing": {
+    "title": "Edit listing",
+    "backToStock": "Back to vehicle stock",
+    "loading": "Loading listing…",
+    "creating": "Creating listing…",
+    "noStockCycle": "This vehicle has no received stock cycle. Complete the vehicle purchase first.",
+    "saveIndicator": {
+      "idle": "Changes save automatically",
+      "saving": "Saving…",
+      "saved": "Saved",
+      "error": "Save failed"
+    },
+    "revisionConflict": {
+      "title": "Listing changed elsewhere",
+      "description": "Your changes could not be saved. Reload the current version and re-apply your edits.",
+      "refresh": "Reload current version"
+    },
+    "sections": {
+      "photos": "Listing photos",
+      "photosHint": "Use the buttons to change order; only selected photos are exported.",
+      "equipment": "Equipment",
+      "equipmentHint": "Mark known equipment as present or absent.",
+      "content": "Text and price",
+      "exportAssertions": "Export assertions",
+      "portals": "Portals",
+      "preview": "Preview",
+      "vehicleFields": "Vehicle data"
+    },
+    "fields": {
+      "description": "Description",
+      "descriptionLanguage": "Description language",
+      "languageDe": "German",
+      "languageEn": "English",
+      "priceGross": "Gross price",
+      "vatDisplay": "VAT display",
+      "vatUnset": "Not set",
+      "vatStandard": "Standard VAT",
+      "vatMargin": "Margin scheme",
+      "consumerHint": "Price hint",
+      "novaIncluded": "NoVA included in price",
+      "mandatoryFeesIncluded": "Mandatory fees included in price",
+      "equipmentFreeText": "Additional equipment (free text)",
+      "portalCategory": "Portal category",
+      "listingRef": "Listing reference"
+    },
+    "assertions": {
+      "damageFree": "Accident-free",
+      "metallic": "Metallic paint",
+      "guarantee": "Warranty",
+      "jahreswagen": "Annual car",
+      "recommendation": "Recommendation",
+      "demoVehicle": "Demo vehicle"
+    },
+    "equipment": {
+      "present": "Present",
+      "absent": "Absent",
+      "unset": "Unknown"
+    },
+    "portals": {
+      "desiredActive": "Offer active",
+      "desiredInactive": "Inactive",
+      "validationTitle": "Portal validation",
+      "serializerUnsupported": "No export validator is available for this portal yet.",
+      "noIssues": "No validation messages for this portal.",
+      "validationLoadError": "Portal validation could not be loaded. Try again."
+    },
+    "photos": {
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "moveUpA11y": "Move photo {{position}} up",
+      "moveDownA11y": "Move photo {{position}} down",
+      "include": "In listing",
+      "exclude": "Not in listing",
+      "empty": "No vehicle photos yet."
+    },
+    "preview": {
+      "untitled": "Untitled",
+      "noDescription": "No description",
+      "photoCount_one": "{{count}} photo in listing",
+      "photoCount_other": "{{count}} photos in listing"
+    },
+    "validation": {
+      "unknown": "This field needs attention before export.",
+      "LISTING_PRICE_REQUIRED": "Enter a gross asking price greater than zero.",
+      "LISTING_VAT_DISPLAY_REQUIRED": "Choose how VAT is shown (standard or margin scheme).",
+      "LISTING_NOVA_CONFIRMATION_REQUIRED": "Confirm that NoVA is included in the price.",
+      "LISTING_MANDATORY_FEES_CONFIRMATION_REQUIRED": "Confirm that mandatory fees are included in the price.",
+      "LISTING_VEHICLE_NOT_USED": "Only dealer used stock can be offered on marketplaces.",
+      "LISTING_VEHICLE_NOT_IN_STOCK": "The vehicle must be in stock to activate an offer.",
+      "LISTING_PORTAL_CATEGORY_REQUIRED": "Portal category is required for export.",
+      "LISTING_EXPORT_ASSERTION_REQUIRED": "This export assertion must be set before export.",
+      "LISTING_VEHICLE_MAKE_MODEL_REQUIRED": "Make and model are required for export.",
+      "LISTING_VEHICLE_FIRST_REGISTRATION_REQUIRED": "First registration date is required for export.",
+      "LISTING_VEHICLE_MILEAGE_REQUIRED": "Mileage is required for export.",
+      "LISTING_VEHICLE_MILEAGE_INVALID": "Mileage must be zero or greater.",
+      "LISTING_IMAGES_MAX_EXCEEDED": "Too many photos selected for this portal.",
+      "LISTING_FIELD_NOT_ENCODABLE": "This value cannot be encoded for the portal export."
+    },
+    "loadError": {
+      "title": "Could not load listing",
+      "description": "The listing could not be loaded. Check your connection and try again.",
+      "retry": "Try again"
+    },
+    "createError": {
+      "title": "Could not create listing",
+      "description": "A new listing could not be created. Try again without losing your place on this vehicle.",
+      "retry": "Try again"
+    },
+    "vehicleFieldHint": "Maintain this value on the vehicle stock detail page.",
+    "errors": {
+      "generic": "Something went wrong. Try again.",
+      "saveFailed": "Could not save listing",
+      "channelFailed": "Could not save portal status",
+      "equipmentFailed": "Could not save equipment",
+      "invalidPrice": "Enter a valid price (for example 14500.50 or 14.500,50).",
+      "codes": {
+        "VEHICLE_LISTING_REVISION_CONFLICT": "The listing was changed elsewhere. Reload and try again.",
+        "VEHICLE_LISTING_NOT_READY": "The listing is not ready to activate on this portal.",
+        "LISTING_VALIDATE_DEMO_DENIED": "Demo accounts cannot run portal validation.",
+        "LISTING_EXPORT_DEMO_DENIED": "Demo accounts cannot download listing export packages."
+      }
+    }
+  }
+}

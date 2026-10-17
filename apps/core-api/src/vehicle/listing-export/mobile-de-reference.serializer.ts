@@ -234,6 +234,7 @@ function pushMissingAssertionIssue(
 ): void {
   issues.push({
     field,
+    code: 'LISTING_EXPORT_ASSERTION_REQUIRED',
     message: `Advisor export assertion ${field} is required for mobile.de reference export.`,
   });
 }
@@ -246,6 +247,7 @@ function validateMobileDeReferenceListing(
   if (!input.listing.category.trim()) {
     issues.push({
       field: 'portal_category',
+      code: 'LISTING_PORTAL_CATEGORY_REQUIRED',
       message: 'Portal category is required for mobile.de reference export.',
     });
   }
@@ -276,29 +278,34 @@ function validateMobileDeReferenceListing(
   if (!input.vehicle.make.trim() || !input.vehicle.model.trim()) {
     issues.push({
       field: 'vehicle.make_model',
+      code: 'LISTING_VEHICLE_MAKE_MODEL_REQUIRED',
       message: 'Make and model are required for mobile.de reference export.',
     });
   }
   if (!input.vehicle.first_registration) {
     issues.push({
       field: 'vehicle.first_registration',
+      code: 'LISTING_VEHICLE_FIRST_REGISTRATION_REQUIRED',
       message: 'First registration date is required for mobile.de export.',
     });
   }
   if (input.vehicle.mileage_km == null) {
     issues.push({
       field: 'vehicle.mileage_km',
+      code: 'LISTING_VEHICLE_MILEAGE_REQUIRED',
       message: 'Mileage is required for mobile.de reference export.',
     });
   } else if (input.vehicle.mileage_km < 0) {
     issues.push({
       field: 'vehicle.mileage_km',
+      code: 'LISTING_VEHICLE_MILEAGE_INVALID',
       message: 'Mileage must be a non-negative integer.',
     });
   }
   if (input.images.length > MOBILE_DE_MAX_IMAGES) {
     issues.push({
       field: 'images',
+      code: 'LISTING_IMAGES_MAX_EXCEEDED',
       message: `mobile.de reference export allows at most ${MOBILE_DE_MAX_IMAGES} images.`,
     });
   }

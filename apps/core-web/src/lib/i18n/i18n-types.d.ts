@@ -6,6 +6,7 @@ import type glossary from '../../../../../locales/de/glossary.json'
 import type enums from '../../../../../locales/de/enums.json'
 import type customers from '../../../../../locales/de/customers.json'
 import type workshop from '../../../../../locales/de/workshop.json'
+import type vehicleStock from '../../../../../locales/de/vehicleStock.json'
 
 declare module 'i18next' {
   interface CustomTypeOptions {
@@ -18,6 +19,7 @@ declare module 'i18next' {
       enums: typeof enums
       customers: typeof customers
       workshop: typeof workshop
+      vehicleStock: typeof vehicleStock
     }
   }
 }

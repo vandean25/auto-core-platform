@@ -22,6 +22,7 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 
 export class VehicleListingPriceDisplayDto {
@@ -207,20 +208,23 @@ export class PatchVehicleListingDto {
   @IsEnum(VehicleListingDescriptionLanguage)
   description_language?: VehicleListingDescriptionLanguage;
 
-  @ApiPropertyOptional({ example: 18990 })
+  @ApiPropertyOptional({ type: Number, example: 18990, nullable: true })
   @IsOptional()
+  @ValidateIf((_, value) => value !== null)
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0.01)
   @Max(9999999999.99)
-  price_gross_eur?: number;
+  price_gross_eur?: number | null;
 
   @ApiPropertyOptional({
     enum: VehicleListingVatDisplay,
     enumName: 'VehicleListingVatDisplay',
+    nullable: true,
   })
   @IsOptional()
+  @ValidateIf((_, value) => value !== null)
   @IsEnum(VehicleListingVatDisplay)
-  vat_display?: VehicleListingVatDisplay;
+  vat_display?: VehicleListingVatDisplay | null;
 
   @ApiPropertyOptional()
   @IsOptional()

@@ -3853,6 +3853,23 @@ export interface paths {
         patch: operations["VehicleListingController_patchChannel"];
         trace?: never;
     };
+    "/api/vehicle-stock/{vehicleId}/listing/export/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Validate listing export readiness and serializer rules per portal channel */
+        get: operations["VehicleListingExportController_validate"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vehicle-stock/{vehicleId}/listing/export/download": {
         parameters: {
             query?: never;
@@ -9778,8 +9795,8 @@ export interface components {
             description?: Record<string, never>;
             description_language?: components["schemas"]["VehicleListingDescriptionLanguage"];
             /** @example 18990 */
-            price_gross_eur?: number;
-            vat_display?: components["schemas"]["VehicleListingVatDisplay"];
+            price_gross_eur?: number | null;
+            vat_display?: components["schemas"]["VehicleListingVatDisplay"] | null;
             nova_included_confirmed?: boolean;
             mandatory_fees_included_confirmed?: boolean;
             equipment_free_text?: Record<string, never>;
@@ -9797,6 +9814,22 @@ export interface components {
             expected_revision: number;
             desired_state: components["schemas"]["VehicleListingDesiredState"];
             serializer_profile?: string;
+        };
+        VehicleListingExportFieldIssueDto: {
+            /** @example price_gross_eur */
+            field: string;
+            message: string;
+            code?: string;
+        };
+        VehicleListingChannelValidationDto: {
+            platform: components["schemas"]["VehicleListingPlatform"];
+            serializer_profile: string;
+            /** @description False when no export serializer is registered for this channel profile. */
+            serializer_supported: boolean;
+            issues: components["schemas"]["VehicleListingExportFieldIssueDto"][];
+        };
+        VehicleListingExportValidationResponseDto: {
+            channels: components["schemas"]["VehicleListingChannelValidationDto"][];
         };
         /** @enum {string} */
         EmployeeRole: "MECHANIC" | "SERVICE_ADVISOR" | "PARTS_CLERK";
@@ -18933,6 +18966,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VehicleListingDto"];
+                };
+            };
+        };
+    };
+    VehicleListingExportController_validate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleListingExportValidationResponseDto"];
                 };
             };
         };
