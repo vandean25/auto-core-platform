@@ -95,18 +95,6 @@ describe('Pickerl Due (e2e)', () => {
       const todayYear = today.getUTCFullYear();
       const todayMonth = today.getUTCMonth() + 1;
 
-      const monthEndDue = (year: number, month: number) => ({
-        plaketten_valid_until_year: year,
-        plaketten_valid_until_month: month,
-      });
-      const addCalendarMonths = (year: number, month: number, delta: number) => {
-        const zeroBased = month - 1 + delta;
-        return {
-          year: year + Math.floor(zeroBased / 12),
-          month: ((zeroBased % 12) + 12) % 12 + 1,
-        };
-      };
-
       // 1. OVERDUE
       const v1 = await basePrisma.vehicle.create({
         data: {
@@ -122,8 +110,8 @@ describe('Pickerl Due (e2e)', () => {
         },
       });
 
-      // 2. DUE_SOON inside 30d (sticker ends this calendar month)
-      const due30 = monthEndDue(todayYear, todayMonth);
+      // 2. DUE_SOON inside 30d
+      const future30 = new Date(Date.UTC(todayYear, todayMonth - 1, today.getUTCDate() + 15));
       const v2 = await basePrisma.vehicle.create({
         data: {
           tenant_id: tenantId, customer_id: customer.id,
@@ -134,14 +122,12 @@ describe('Pickerl Due (e2e)', () => {
       await basePrisma.vehicleInspectionRecord.create({
         data: {
           tenant_id: tenantId, vehicle_id: v2.id, inspection_type: 'PICKERL_57A', inspected_on: new Date('2020-01-01'),
-          ...due30,
+          plaketten_valid_until_year: future30.getUTCFullYear(), plaketten_valid_until_month: future30.getUTCMonth() + 1,
         },
       });
 
-      // 3. due 31-60 (sticker ends next calendar month)
-      const due60 = monthEndDue(
-        ...Object.values(addCalendarMonths(todayYear, todayMonth, 1)),
-      );
+      // 3. due 31-60
+      const future60 = new Date(Date.UTC(todayYear, todayMonth - 1, today.getUTCDate() + 45));
       const v3 = await basePrisma.vehicle.create({
         data: {
           tenant_id: tenantId, customer_id: customer.id,
@@ -152,14 +138,12 @@ describe('Pickerl Due (e2e)', () => {
       await basePrisma.vehicleInspectionRecord.create({
         data: {
           tenant_id: tenantId, vehicle_id: v3.id, inspection_type: 'PICKERL_57A', inspected_on: new Date('2020-01-01'),
-          ...due60,
+          plaketten_valid_until_year: future60.getUTCFullYear(), plaketten_valid_until_month: future60.getUTCMonth() + 1,
         },
       });
 
-      // 4. due 61-90 (sticker ends two calendar months ahead)
-      const due90 = monthEndDue(
-        ...Object.values(addCalendarMonths(todayYear, todayMonth, 2)),
-      );
+      // 4. due 61-90
+      const future90 = new Date(Date.UTC(todayYear, todayMonth - 1, today.getUTCDate() + 75));
       const v4 = await basePrisma.vehicle.create({
         data: {
           tenant_id: tenantId, customer_id: customer.id,
@@ -170,14 +154,12 @@ describe('Pickerl Due (e2e)', () => {
       await basePrisma.vehicleInspectionRecord.create({
         data: {
           tenant_id: tenantId, vehicle_id: v4.id, inspection_type: 'PICKERL_57A', inspected_on: new Date('2020-01-01'),
-          ...due90,
+          plaketten_valid_until_year: future90.getUTCFullYear(), plaketten_valid_until_month: future90.getUTCMonth() + 1,
         },
       });
 
-      // 5. beyond 90 (OK) — sticker ends four calendar months ahead
-      const dueBeyond90 = monthEndDue(
-        ...Object.values(addCalendarMonths(todayYear, todayMonth, 4)),
-      );
+      // 5. beyond 90 (OK)
+      const future120 = new Date(Date.UTC(todayYear, todayMonth - 1, today.getUTCDate() + 120));
       const v5 = await basePrisma.vehicle.create({
         data: {
           tenant_id: tenantId, customer_id: customer.id,
@@ -188,7 +170,7 @@ describe('Pickerl Due (e2e)', () => {
       await basePrisma.vehicleInspectionRecord.create({
         data: {
           tenant_id: tenantId, vehicle_id: v5.id, inspection_type: 'PICKERL_57A', inspected_on: new Date('2020-01-01'),
-          ...dueBeyond90,
+          plaketten_valid_until_year: future120.getUTCFullYear(), plaketten_valid_until_month: future120.getUTCMonth() + 1,
         },
       });
 
