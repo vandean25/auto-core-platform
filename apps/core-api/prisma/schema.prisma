@@ -4440,6 +4440,7 @@ model WorkshopInspection {
   title                  String
   items                  WorkshopInspectionItem[]
   catalogueFindingReferences InspectionFindingReference[]
+  check_in               WorkshopCheckIn?
   createdAt              DateTime                 @default(now())
   updatedAt              DateTime                 @updatedAt
 
@@ -4498,13 +4499,17 @@ model WorkshopCheckIn {
   pdf_storage_key     String?
   pdf_sha256          String?               @db.Char(64)
   pdf_generated_at    DateTime?
+  inspection_id       String?
+  inspection          WorkshopInspection?   @relation(fields: [tenant_id, inspection_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
   media               WorkshopMedia[]
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
 
   @@unique([tenant_id, id])
   @@unique([tenant_id, workshop_order_id])
+  @@unique([tenant_id, inspection_id])
   @@index([tenant_id])
+  @@index([tenant_id, inspection_id], map: "idx_workshop_check_ins_inspection")
   @@map("workshop_check_ins")
 }
 

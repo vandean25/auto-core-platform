@@ -129,7 +129,6 @@ VALUES
   ('vehicle_listings'),
   ('vehicle_sales'),
   ('warranty_claims'),
-  ('workshop_check_ins'),
   ('workshop_estimates'),
   ('workshop_tasks'),
   ('inspection_measurement_imports'),
@@ -142,7 +141,6 @@ VALUES
   ('vehicle_listing_photos'),
   ('workshop_estimate_versions'),
   ('workshop_inspections'),
-  ('workshop_media'),
   ('workshop_task_line_items'),
   ('workshop_voice_note_drafts'),
   ('credit_notes'),
@@ -153,6 +151,7 @@ VALUES
   ('parts_reservations'),
   ('payments'),
   ('warranty_claim_lines'),
+  ('workshop_check_ins'),
   ('workshop_estimate_approval_tokens'),
   ('workshop_estimate_brand_asset_references'),
   ('workshop_estimate_overruns'),
@@ -160,7 +159,8 @@ VALUES
   ('credit_note_items'),
   ('fiscal_receipts'),
   ('inventory_transactions'),
-  ('workshop_estimate_approvals');
+  ('workshop_estimate_approvals'),
+  ('workshop_media');
 
 CREATE TEMP TABLE tenant_restore_allowed_global_tables (
   table_name text PRIMARY KEY
@@ -550,6 +550,7 @@ VALUES
   ('warranty_claims', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('warranty_claims', 'workshop_orders', 'tenant_id,workshop_order_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('workshop_check_ins', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('workshop_check_ins', 'workshop_inspections', 'tenant_id,inspection_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('workshop_check_ins', 'workshop_orders', 'tenant_id,workshop_order_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('workshop_command_presets', 'tenants', 'tenant_id', 'id', 'CASCADE', 'CASCADE'),
   ('workshop_estimate_approval_tokens', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
@@ -798,6 +799,8 @@ UPDATE public."labor_categories"
 SET "parent_id" = NULL
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 
+DELETE FROM public."workshop_media"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_estimate_approvals"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inventory_transactions"
@@ -813,6 +816,8 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_estimate_brand_asset_references"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_estimate_approval_tokens"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."workshop_check_ins"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."warranty_claim_lines"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
@@ -833,8 +838,6 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_voice_note_drafts"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_task_line_items"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."workshop_media"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_inspections"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
@@ -859,8 +862,6 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_tasks"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_estimates"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."workshop_check_ins"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."warranty_claims"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');

@@ -104,6 +104,7 @@ describe('workshop check-in evidence snapshot', () => {
         checkInMedia({ id: 'media-2' }),
         checkInMedia({ id: 'media-1' }),
       ],
+      checklistItems: [],
       completedAt: COMPLETED_AT,
       completedByUserId: 'user-1',
     });
@@ -129,6 +130,7 @@ describe('workshop check-in evidence snapshot', () => {
         ],
       },
       media: [checkInMedia({ id: 'media-1' }), checkInMedia({ id: 'media-2' })],
+      checklistItems: [],
       completedAt: COMPLETED_AT,
       completedByUserId: 'user-1',
     });
@@ -143,6 +145,7 @@ describe('workshop check-in evidence snapshot', () => {
       buildWorkshopCheckInEvidenceSnapshot({
         row: baseRow(),
         media: [],
+        checklistItems: [],
         completedAt: COMPLETED_AT,
         completedByUserId: 'user-1',
       }),
@@ -151,6 +154,7 @@ describe('workshop check-in evidence snapshot', () => {
       buildWorkshopCheckInEvidenceSnapshot({
         row: { ...baseRow(), items_left: 'jacket' },
         media: [],
+        checklistItems: [],
         completedAt: COMPLETED_AT,
         completedByUserId: 'user-1',
       }),
@@ -159,6 +163,7 @@ describe('workshop check-in evidence snapshot', () => {
       buildWorkshopCheckInEvidenceSnapshot({
         row: baseRow(),
         media: [checkInMedia({ id: 'media-9' })],
+        checklistItems: [],
         completedAt: COMPLETED_AT,
         completedByUserId: 'user-1',
       }),
@@ -167,6 +172,24 @@ describe('workshop check-in evidence snapshot', () => {
       buildWorkshopCheckInEvidenceSnapshot({
         row: baseRow(),
         media: [checkInMedia({ id: 'media-9', caption: 'rear scratch' })],
+        checklistItems: [],
+        completedAt: COMPLETED_AT,
+        completedByUserId: 'user-1',
+      }),
+    );
+    const changedChecklist = hashWorkshopCheckInEvidenceSnapshot(
+      buildWorkshopCheckInEvidenceSnapshot({
+        row: baseRow(),
+        media: [],
+        checklistItems: [
+          {
+            id: 'item-1',
+            label_snapshot: 'Warndreieck',
+            passed: true,
+            notes: null,
+            sort_order: 1,
+          },
+        ],
         completedAt: COMPLETED_AT,
         completedByUserId: 'user-1',
       }),
@@ -175,5 +198,6 @@ describe('workshop check-in evidence snapshot', () => {
     expect(changedItems).not.toBe(baseline);
     expect(changedMedia).not.toBe(baseline);
     expect(changedMediaCaption).not.toBe(changedMedia);
+    expect(changedChecklist).not.toBe(baseline);
   });
 });

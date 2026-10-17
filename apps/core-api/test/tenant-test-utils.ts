@@ -478,10 +478,10 @@ export async function cleanupTestTenantGraph(
   await tenantPrisma.inventoryStock.deleteMany({});
   await tenantPrisma.purchaseOrderItem.deleteMany({});
   await tenantPrisma.purchaseOrder.deleteMany({});
-  await tenantPrisma.workshopInspectionItem.deleteMany({});
-  await tenantPrisma.workshopInspection.deleteMany({});
   await tenantPrisma.workshopMedia.deleteMany({});
   await tenantPrisma.workshopCheckIn.deleteMany({});
+  await tenantPrisma.workshopInspectionItem.deleteMany({});
+  await tenantPrisma.workshopInspection.deleteMany({});
   await tenantPrisma.warrantyClaimLine.deleteMany({});
   await tenantPrisma.warrantyClaim.deleteMany({});
   await tenantPrisma.workshopTaskLineItem.deleteMany({});

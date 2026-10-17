@@ -108,6 +108,51 @@ describe('WorkshopInspectionService', () => {
     expect(updateMany).not.toHaveBeenCalled();
   });
 
+  it('loads order check-in checklist only when linked to a null-task inspection', async () => {
+    const expected = {
+      id: 'inspection-order',
+      title: 'Annahme-Check',
+      items: [{ id: 'item-1', label_snapshot: 'Warndreieck', passed: null, notes: null, unit: null }],
+    };
+    const prisma = {
+      workshopCheckIn: {
+        findFirst: jest.fn().mockResolvedValue({ inspection_id: 'inspection-order' }),
+      },
+      workshopInspection: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'inspection-order',
+          title: 'Annahme-Check',
+          items: [
+            {
+              id: 'item-1',
+              label_snapshot: 'Warndreieck',
+              passed: null,
+              notes: null,
+              unit: null,
+            },
+          ],
+        }),
+      },
+    } as any;
+    const service = new WorkshopInspectionService(
+      prisma,
+      { getTenantId: jest.fn().mockResolvedValue('tenant-1') } as any,
+      { getSiteId: jest.fn().mockResolvedValue('site-1') } as any,
+    );
+
+    await expect(service.getOrderCheckInChecklist('order-1')).resolves.toEqual(
+      expected,
+    );
+    expect(prisma.workshopInspection.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          workshop_task_id: null,
+          workshop_order_id: 'order-1',
+        }),
+      }),
+    );
+  });
+
   it('rejects checklist items outside the scoped inspection', async () => {
     const prisma = {
       workshopInspection: {

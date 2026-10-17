@@ -24,15 +24,36 @@ describe('WorkshopCheckInService', () => {
     mockPrisma.workshopOrder.findFirst.mockReset();
     mockPrisma.workshopCheckIn.findFirst.mockReset();
     mockPrisma.workshopCheckIn.create.mockReset();
+    mockPrisma.inspectionTemplate.findFirst.mockReset();
+    mockPrisma.workshopInspection.findFirst.mockReset();
+    mockPrisma.workshopInspection.create.mockReset();
+    mockPrisma.workshopInspectionItem.findMany.mockReset();
+    mockPrisma.inspectionTemplate.findFirst.mockResolvedValue(null);
+    mockPrisma.workshopInspection.findFirst.mockResolvedValue(null);
+    mockPrisma.workshopInspectionItem.findMany.mockResolvedValue([]);
     mockPrisma.workshopCheckIn.updateMany.mockReset();
     mockPrisma.workshopMedia.findMany.mockReset();
     mockPrisma.workshopCheckIn.findFirst.mockReset();
     mockPrisma.$transaction.mockImplementation((cb: (tx: unknown) => unknown) =>
       cb(mockPrisma),
     );
-    mockPrisma.$queryRaw.mockResolvedValue([
-      { id: 'site-1', is_active: true },
-    ]);
+    mockPrisma.$queryRaw.mockImplementation(async (query: unknown) => {
+      const sql = String(query);
+      if (sql.includes('workshop_check_ins')) {
+        return [
+          {
+            id: CHECK_IN_ID,
+            workshop_order_id: ORDER_ID,
+            status: WorkshopCheckInStatus.DRAFT,
+            inspection_id: null,
+          },
+        ];
+      }
+      if (sql.includes('workshop_orders')) {
+        return [{ id: ORDER_ID }];
+      }
+      return [{ id: 'site-1', is_active: true }];
+    });
     mockTenantContext.getAuthenticatedUser.mockReturnValue({
       role: 'ADMIN',
       userId: 'u-1',
@@ -114,6 +135,39 @@ describe('WorkshopCheckInService', () => {
     });
   });
 
+  it('does not link an inspection on idempotent create when check-in is completed', async () => {
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+      id: ORDER_ID,
+      status: WorkshopOrderStatus.IN_PROGRESS,
+      odometer: 1,
+      fuel_level: 1,
+    });
+    mockPrisma.workshopCheckIn.findFirst.mockResolvedValue({
+      id: CHECK_IN_ID,
+      tenant_id: TENANT_ID,
+      workshop_order_id: ORDER_ID,
+      inspection_id: null,
+      status: WorkshopCheckInStatus.COMPLETED,
+      revision: 3,
+      condition_json: {},
+      damage_markers_json: [],
+      items_left: '',
+      key_count: 0,
+      warning_lights: [],
+      odometer: 1,
+      fuel_level: 1,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const result = await service.create(ORDER_ID, { id: CHECK_IN_ID });
+
+    expect(result.created).toBe(false);
+    expect(result.body.inspection_id).toBeNull();
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    expect(mockPrisma.workshopInspection.create).not.toHaveBeenCalled();
+  });
+
   it('returns created false on idempotent create retry', async () => {
     mockPrisma.workshopOrder.findFirst.mockResolvedValue({
       id: ORDER_ID,
@@ -125,6 +179,7 @@ describe('WorkshopCheckInService', () => {
       id: CHECK_IN_ID,
       tenant_id: TENANT_ID,
       workshop_order_id: ORDER_ID,
+      inspection_id: null,
       status: WorkshopCheckInStatus.DRAFT,
       revision: 1,
       condition_json: {},

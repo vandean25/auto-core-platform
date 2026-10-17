@@ -18,6 +18,7 @@ import {
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
+import { UpdateWorkshopInspectionDto } from './update-workshop-inspection.dto.js';
 import {
   CHECK_IN_DAMAGE_TYPES,
   CHECK_IN_MAX_DAMAGE_MARKER_NOTE_LENGTH,
@@ -83,6 +84,13 @@ export class CreateWorkshopCheckInDto {
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
   id!: string;
+}
+
+export class UpdateWorkshopCheckInInspectionDto extends UpdateWorkshopInspectionDto {
+  @ApiProperty({ minimum: 1 })
+  @IsInt()
+  @Min(1)
+  expected_revision!: number;
 }
 
 export class CompleteWorkshopCheckInDto {
@@ -201,6 +209,9 @@ export class WorkshopCheckInResponseDto {
 
   @ApiProperty()
   fuel_level!: number;
+
+  @ApiPropertyOptional({ type: String, nullable: true, format: 'uuid' })
+  inspection_id!: string | null;
 
   @ApiPropertyOptional({ type: String, nullable: true })
   content_sha256!: string | null;

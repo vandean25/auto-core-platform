@@ -12,10 +12,31 @@ export type InspectionChecklistData = {
   }>;
 };
 
+export type InspectionChecklistViewLabels = {
+  sectionAriaLabel: string;
+  description: string;
+  passButton: string;
+  failButton: string;
+  passAriaLabel: (itemLabel: string) => string;
+  failAriaLabel: (itemLabel: string) => string;
+  noteAriaLabel: (itemLabel: string) => string;
+};
+
+const MECHANIC_CHECKLIST_LABELS: InspectionChecklistViewLabels = {
+  sectionAriaLabel: "§57a Vorbereitung",
+  description: "Editierbare Start-Checkliste, keine Rechtsliste.",
+  passButton: "OK",
+  failButton: "Mangel",
+  passAriaLabel: (itemLabel) => `OK: ${itemLabel}`,
+  failAriaLabel: (itemLabel) => `Mangel: ${itemLabel}`,
+  noteAriaLabel: (itemLabel) => `Notiz: ${itemLabel}`,
+};
+
 type Props = {
   checklist: InspectionChecklistData;
   readOnly?: boolean;
   saving: boolean;
+  labels?: InspectionChecklistViewLabels;
   onSave: (
     itemId: string,
     values: { passed?: boolean; notes?: string },
@@ -26,20 +47,19 @@ export function WorkshopTaskInspectionChecklistView({
   checklist,
   readOnly = false,
   saving,
+  labels = MECHANIC_CHECKLIST_LABELS,
   onSave,
 }: Props) {
   const [notesByItem, setNotesByItem] = useState<Record<string, string>>({});
 
   return (
     <section
-      aria-label="§57a Vorbereitung"
+      aria-label={labels.sectionAriaLabel}
       className="space-y-3 rounded-md border p-3"
     >
       <div>
         <h3 className="text-sm font-semibold">{checklist.title}</h3>
-        <p className="text-xs text-muted-foreground">
-          Editierbare Start-Checkliste, keine Rechtsliste.
-        </p>
+        <p className="text-xs text-muted-foreground">{labels.description}</p>
       </div>
       <ul className="space-y-2">
         {checklist.items.map((item) => {
@@ -55,26 +75,26 @@ export function WorkshopTaskInspectionChecklistView({
                   type="button"
                   size="sm"
                   variant={item.passed === true ? "default" : "outline"}
-                  aria-label={`OK: ${item.label_snapshot}`}
+                  aria-label={labels.passAriaLabel(item.label_snapshot)}
                   disabled={readOnly || saving}
                   onClick={() => void onSave(item.id, { passed: true })}
                 >
-                  OK
+                  {labels.passButton}
                 </Button>
                 <Button
                   type="button"
                   size="sm"
                   variant={item.passed === false ? "destructive" : "outline"}
-                  aria-label={`Mangel: ${item.label_snapshot}`}
+                  aria-label={labels.failAriaLabel(item.label_snapshot)}
                   disabled={readOnly || saving}
                   onClick={() => void onSave(item.id, { passed: false })}
                 >
-                  Mangel
+                  {labels.failButton}
                 </Button>
               </div>
               <Input
                 className="sm:col-span-2"
-                aria-label={`Notiz: ${item.label_snapshot}`}
+                aria-label={labels.noteAriaLabel(item.label_snapshot)}
                 value={itemNotes}
                 disabled={readOnly || saving}
                 onChange={(event) =>
