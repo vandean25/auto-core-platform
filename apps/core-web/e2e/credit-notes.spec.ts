@@ -1,6 +1,7 @@
 import { expectNoCriticalA11yViolations } from "./utils/a11y";
 import { test, expect } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
+import { DE_SALES } from './helpers/de-sales';
 import {
   createMockCreditNote,
   createMockInvoiceCreditContext,
@@ -114,9 +115,9 @@ test.describe('Credit notes UI', () => {
     );
 
     await page.goto(`/sales/invoices/${INVOICE_ID}`);
-    await expect(page.getByRole('button', { name: /Credit Note/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: DE_SALES.invoices.detail.creditNote })).toBeVisible();
     await expectNoCriticalA11yViolations(page);
-    await page.getByRole('button', { name: /Credit Note/i }).click();
+    await page.getByRole('button', { name: DE_SALES.invoices.detail.creditNote }).click();
     await page.getByLabel('Reason').fill('Wrong quantity billed');
     await page.getByRole('button', { name: 'Create Draft' }).click();
 
@@ -151,7 +152,7 @@ test.describe('Credit notes UI', () => {
     );
 
     await page.goto(`/sales/invoices/${INVOICE_ID}`);
-    await expect(page.getByRole('button', { name: /Credit Note/i })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: DE_SALES.invoices.detail.creditNote })).toHaveCount(0);
   });
 
   test('blocked: locked fiscal date returns actionable error on create', async ({ page }) => {
@@ -190,7 +191,7 @@ test.describe('Credit notes UI', () => {
     );
 
     await page.goto(`/sales/invoices/${INVOICE_ID}`);
-    await page.getByRole('button', { name: /Credit Note/i }).click();
+    await page.getByRole('button', { name: DE_SALES.invoices.detail.creditNote }).click();
     await page.getByLabel('Reason').fill('Locked period attempt');
     await page.getByRole('button', { name: 'Create Draft' }).click();
     await expect(page.getByText(/Fiscal period is locked/i)).toBeVisible();
@@ -273,7 +274,7 @@ test.describe('Credit notes UI', () => {
     );
 
     await page.goto(`/sales/invoices/${INVOICE_ID}`);
-    await page.getByRole('button', { name: /Credit Note/i }).click();
+    await page.getByRole('button', { name: DE_SALES.invoices.detail.creditNote }).click();
     await expect(
       page.getByText(/Margin-scheme invoices only support full-document credits/i),
     ).toBeVisible();
@@ -335,7 +336,7 @@ test.describe('Credit notes UI', () => {
     );
 
     await page.goto(`/sales/invoices/${INVOICE_ID}`);
-    await page.getByRole('button', { name: /Credit Note/i }).click();
+    await page.getByRole('button', { name: DE_SALES.invoices.detail.creditNote }).click();
     await page.getByRole('combobox').click();
     await page.getByRole('option', { name: /Partial credit/i }).click();
     await page.locator('table input').fill('1');
@@ -710,7 +711,7 @@ test.describe('Credit notes UI', () => {
     );
 
     await page.goto(`/sales/invoices/${INVOICE_ID}`);
-    await expect(page.getByRole('button', { name: /Credit Note/i })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: DE_SALES.invoices.detail.creditNote })).toHaveCount(0);
     await expect(
       page.getByText(/Credit notes can only be issued by OWNER or ADMIN/i),
     ).toBeVisible();
