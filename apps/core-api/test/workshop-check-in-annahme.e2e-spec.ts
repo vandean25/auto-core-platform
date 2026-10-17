@@ -330,6 +330,7 @@ describe('Workshop check-in Annahme checklist (e2e)', () => {
         signature_media_id: signatureMediaId,
         signed_by_name: 'Signer Example',
         acknowledgement_version: 'check-in-signature-v1',
+        acknowledgement_locale: 'de',
         acknowledged: true,
       })
       .expect(200);

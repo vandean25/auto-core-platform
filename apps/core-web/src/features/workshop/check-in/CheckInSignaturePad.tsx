@@ -19,6 +19,7 @@ type Props = {
   onAcknowledgedChange: (value: boolean) => void
   padRef: React.RefObject<CheckInSignaturePadHandle | null>
   signaturePreviewUrl?: string | null
+  onSignatureCanvasClear?: () => void
 }
 
 function clientPoint(
@@ -42,6 +43,7 @@ export function CheckInSignaturePad({
   onAcknowledgedChange,
   padRef,
   signaturePreviewUrl,
+  onSignatureCanvasClear,
 }: Props) {
   const { t } = useTranslation('workshop')
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -83,7 +85,8 @@ export function CheckInSignaturePad({
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     hasInkRef.current = false
     setHasInk(false)
-  }, [])
+    onSignatureCanvasClear?.()
+  }, [onSignatureCanvasClear])
 
   useEffect(() => {
     padRef.current = {

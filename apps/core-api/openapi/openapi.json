@@ -26370,6 +26370,13 @@
             "type": "string",
             "example": "check-in-signature-v1"
           },
+          "acknowledgement_locale": {
+            "type": "string",
+            "enum": [
+              "de",
+              "en"
+            ]
+          },
           "acknowledged": {
             "type": "boolean"
           }
@@ -26379,6 +26386,7 @@
           "signature_media_id",
           "signed_by_name",
           "acknowledgement_version",
+          "acknowledgement_locale",
           "acknowledged"
         ]
       },

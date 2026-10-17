@@ -152,7 +152,6 @@ export class WorkshopCheckInController {
     return this.checkIns.complete(orderId, dto, {
       userAgent: req.headers['user-agent'],
       ip: req.ip,
-      acceptLanguage: req.headers['accept-language'],
     });
   }
 }

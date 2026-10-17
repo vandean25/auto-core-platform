@@ -42,7 +42,6 @@ export type WorkshopCheckInEvidenceSnapshot = {
     signed_at: string;
     acknowledgement_version: string;
     acknowledgement_text: string;
-    device_hash: string;
   };
   checklist: Array<{
     id: string;
@@ -89,7 +88,6 @@ export type CheckInSignatureEvidenceInput = {
   signed_at: Date;
   acknowledgement_version: string;
   acknowledgement_text: string;
-  device_hash: string;
 };
 
 /** Lexicographic order by UTF-16 code units (locale-independent). */
@@ -226,7 +224,6 @@ export function normalizeCheckInSignatureForEvidence(
     signed_at: input.signed_at.toISOString(),
     acknowledgement_version: input.acknowledgement_version,
     acknowledgement_text: input.acknowledgement_text,
-    device_hash: input.device_hash,
   };
 }
 

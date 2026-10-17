@@ -3,6 +3,7 @@ import type { WorkshopCheckInResponseDto } from './dto/workshop-check-in.dto.js'
 
 export function toWorkshopCheckInResponse(
   row: WorkshopCheckIn,
+  signatureMediaId: string | null = null,
 ): WorkshopCheckInResponseDto {
   return {
     id: row.id,
@@ -22,7 +23,7 @@ export function toWorkshopCheckInResponse(
     pdf_sha256: row.pdf_sha256,
     signed_by_name: row.signed_by_name,
     signed_at: row.signed_at?.toISOString() ?? null,
-    signature_media_id: row.signature_media_id,
+    signature_media_id: signatureMediaId,
     created_at: row.createdAt.toISOString(),
     updated_at: row.updatedAt.toISOString(),
   };

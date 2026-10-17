@@ -99,6 +99,7 @@ export type CompleteWorkshopCheckInPayload = {
   expectedRevision: number
   signatureMediaId: string
   signedByName: string
+  acknowledgementLocale: 'de' | 'en'
 }
 
 export async function completeWorkshopCheckIn(
@@ -115,6 +116,7 @@ export async function completeWorkshopCheckIn(
         signature_media_id: payload.signatureMediaId,
         signed_by_name: payload.signedByName,
         acknowledgement_version: CHECK_IN_ACKNOWLEDGEMENT_VERSION,
+        acknowledgement_locale: payload.acknowledgementLocale,
         acknowledged: true,
       }),
     },
@@ -222,11 +224,13 @@ export function useCompleteWorkshopCheckIn() {
       expectedRevision: number
       signatureMediaId: string
       signedByName: string
+      acknowledgementLocale: 'de' | 'en'
     }) =>
       completeWorkshopCheckIn(payload.orderId, {
         expectedRevision: payload.expectedRevision,
         signatureMediaId: payload.signatureMediaId,
         signedByName: payload.signedByName,
+        acknowledgementLocale: payload.acknowledgementLocale,
       }),
     onSuccess: (data, payload) => {
       queryClient.setQueryData(workshopCheckInKeys.record(payload.orderId), data)

@@ -17,7 +17,6 @@ function sampleSignature() {
     signed_at: COMPLETED_AT,
     acknowledgement_version: 'check-in-signature-v1',
     acknowledgement_text: 'acknowledgement text',
-    device_hash: 'b'.repeat(64),
   };
 }
 
@@ -218,5 +217,48 @@ describe('workshop check-in evidence snapshot', () => {
     expect(changedMedia).not.toBe(baseline);
     expect(changedMediaCaption).not.toBe(changedMedia);
     expect(changedChecklist).not.toBe(baseline);
+  });
+
+  it('changes the digest when signature acknowledgement text changes', () => {
+    const baseline = hashWorkshopCheckInEvidenceSnapshot(
+      buildWorkshopCheckInEvidenceSnapshot({
+        row: baseRow(),
+        media: [],
+        checklistItems: [],
+        completedAt: COMPLETED_AT,
+        completedByUserId: 'user-1',
+        signature: sampleSignature(),
+      }),
+    );
+    const changedAck = hashWorkshopCheckInEvidenceSnapshot(
+      buildWorkshopCheckInEvidenceSnapshot({
+        row: baseRow(),
+        media: [],
+        checklistItems: [],
+        completedAt: COMPLETED_AT,
+        completedByUserId: 'user-1',
+        signature: {
+          ...sampleSignature(),
+          acknowledgement_text: 'different acknowledgement',
+        },
+      }),
+    );
+    expect(changedAck).not.toBe(baseline);
+  });
+
+  it('locks the v3 evidence digest for a minimal fixture', () => {
+    const digest = hashWorkshopCheckInEvidenceSnapshot(
+      buildWorkshopCheckInEvidenceSnapshot({
+        row: baseRow(),
+        media: [],
+        checklistItems: [],
+        completedAt: COMPLETED_AT,
+        completedByUserId: null,
+        signature: sampleSignature(),
+      }),
+    );
+    expect(digest).toBe(
+      '6d3fe06afc93932aae21fb79e64e264a756669c7c97b0dd9995d7b46b0fdf1fd',
+    );
   });
 });

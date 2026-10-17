@@ -4,7 +4,12 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { Prisma, WorkshopCheckInStatus, WorkshopMediaPurpose } from '@prisma/client';
+import {
+  Prisma,
+  WorkshopCheckIn,
+  WorkshopCheckInStatus,
+  WorkshopMediaPurpose,
+} from '@prisma/client';
 import { MechanicMediaStorage } from '../mechanic/mechanic-media.storage.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SiteContextService } from '../common/services/site-context.service.js';
@@ -94,7 +99,7 @@ export class WorkshopCheckInService {
           throw new NotFoundException('Workshop check-in not found');
         }
         return {
-          body: toWorkshopCheckInResponse(linked),
+          body: await this.toResponse(linked),
           created: false,
         };
       }
@@ -160,7 +165,7 @@ export class WorkshopCheckInService {
         });
       });
 
-      return { body: toWorkshopCheckInResponse(created), created: true };
+      return { body: await this.toResponse(created), created: true };
     } catch (error) {
       if (!isCheckInUniqueViolation(error)) {
         throw error;
@@ -189,7 +194,7 @@ export class WorkshopCheckInService {
       throw new NotFoundException('Workshop check-in not found');
     }
 
-    return toWorkshopCheckInResponse(row);
+    return this.toResponse(row);
   }
 
   async updateDraft(
@@ -298,7 +303,7 @@ export class WorkshopCheckInService {
         });
       }
 
-      return toWorkshopCheckInResponse(updated);
+      return this.toResponse(updated);
     });
   }
 
@@ -308,7 +313,6 @@ export class WorkshopCheckInService {
     requestEvidence: {
       userAgent?: string;
       ip?: string;
-      acceptLanguage?: string;
     } = {},
   ): Promise<WorkshopCheckInResponseDto> {
     const { tenantId, siteId } = await resolveEstimateScope({
@@ -343,7 +347,12 @@ export class WorkshopCheckInService {
       if (!completed) {
         throw new NotFoundException('Workshop check-in not found');
       }
-      return toWorkshopCheckInResponse(completed);
+      return this.assertCompletedSignatureMatches(
+        tenantId,
+        draftForSignature.id,
+        completed,
+        dto,
+      );
     }
 
     const signatureMedia = await this.prisma.workshopMedia.findFirst({
@@ -389,7 +398,7 @@ export class WorkshopCheckInService {
     );
     const ipHash = hashCheckInIpEvidence(tenantId, requestEvidence.ip);
     const acknowledgementText = resolveCheckInAcknowledgementText(
-      requestEvidence.acceptLanguage,
+      dto.acknowledgement_locale,
     );
     if (dto.acknowledgement_version !== CHECK_IN_ACKNOWLEDGEMENT_VERSION) {
       throw new UnprocessableEntityException({
@@ -425,7 +434,12 @@ export class WorkshopCheckInService {
       }
 
       if (existing.status === WorkshopCheckInStatus.COMPLETED) {
-        return toWorkshopCheckInResponse(existing);
+        return this.assertCompletedSignatureMatches(
+          tenantId,
+          existing.id,
+          existing,
+          dto,
+        );
       }
 
       if (existing.revision !== dto.expected_revision) {
@@ -489,7 +503,6 @@ export class WorkshopCheckInService {
           signed_at: signedAt,
           acknowledgement_version: CHECK_IN_ACKNOWLEDGEMENT_VERSION,
           acknowledgement_text: acknowledgementText,
-          device_hash: deviceHash,
         },
       });
       const contentSha256 = hashWorkshopCheckInEvidenceSnapshot(snapshot);
@@ -512,7 +525,6 @@ export class WorkshopCheckInService {
           completed_by_user_id: completedByUserId,
           signed_by_name: signedByName,
           signed_at: signedAt,
-          signature_media_id: signatureMedia.id,
           acknowledgement_version: CHECK_IN_ACKNOWLEDGEMENT_VERSION,
           acknowledgement_text: acknowledgementText,
           device_hash: deviceHash,
@@ -528,7 +540,12 @@ export class WorkshopCheckInService {
           throw new NotFoundException('Workshop check-in not found');
         }
         if (latest.status === WorkshopCheckInStatus.COMPLETED) {
-          return toWorkshopCheckInResponse(latest);
+          return this.assertCompletedSignatureMatches(
+            tenantId,
+            latest.id,
+            latest,
+            dto,
+          );
         }
         throw new ConflictException({
           code: CHECK_IN_ERROR_CODES.CHECK_IN_CONFLICT,
@@ -551,8 +568,53 @@ export class WorkshopCheckInService {
         });
       }
 
-      return toWorkshopCheckInResponse(completed);
+      return this.toResponse(completed);
     });
+  }
+
+  private async findSignatureMediaId(
+    tenantId: string,
+    checkInId: string,
+  ): Promise<string | null> {
+    const row = await this.prisma.workshopMedia.findFirst({
+      where: {
+        tenant_id: tenantId,
+        check_in_id: checkInId,
+        purpose: WorkshopMediaPurpose.CHECK_IN_SIGNATURE,
+      },
+      select: { id: true },
+    });
+    return row?.id ?? null;
+  }
+
+  private async toResponse(
+    row: WorkshopCheckIn,
+  ): Promise<WorkshopCheckInResponseDto> {
+    const signatureMediaId = await this.findSignatureMediaId(
+      row.tenant_id,
+      row.id,
+    );
+    return toWorkshopCheckInResponse(row, signatureMediaId);
+  }
+
+  private async assertCompletedSignatureMatches(
+    tenantId: string,
+    checkInId: string,
+    existing: WorkshopCheckIn,
+    dto: CompleteWorkshopCheckInDto,
+  ): Promise<WorkshopCheckInResponseDto> {
+    const storedMediaId = await this.findSignatureMediaId(tenantId, checkInId);
+    const nameMatches =
+      (existing.signed_by_name?.trim() ?? '') === dto.signed_by_name.trim();
+    const mediaMatches = storedMediaId === dto.signature_media_id;
+    if (!nameMatches || !mediaMatches) {
+      throw new ConflictException({
+        code: CHECK_IN_ERROR_CODES.CHECK_IN_CONFLICT,
+        message:
+          'Check-in was already completed with different signature evidence.',
+      });
+    }
+    return toWorkshopCheckInResponse(existing, storedMediaId);
   }
 
   private async ensureInspectionLinked(tenantId: string, checkInId: string) {
@@ -641,7 +703,7 @@ export class WorkshopCheckInService {
       if (!linked) {
         throw new NotFoundException('Workshop check-in not found');
       }
-      return toWorkshopCheckInResponse(linked);
+      return this.toResponse(linked);
     }
 
     throw new ConflictException({

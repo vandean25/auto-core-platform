@@ -7906,6 +7906,8 @@ export interface components {
             signed_by_name: string;
             /** @example check-in-signature-v1 */
             acknowledgement_version: string;
+            /** @enum {string} */
+            acknowledgement_locale: "de" | "en";
             acknowledged: boolean;
         };
         PreviewInspectionCatalogueDto: {

@@ -122,6 +122,10 @@ export class CompleteWorkshopCheckInDto {
   @Equals(CHECK_IN_ACKNOWLEDGEMENT_VERSION)
   acknowledgement_version!: string;
 
+  @ApiProperty({ enum: ['de', 'en'] })
+  @IsIn(['de', 'en'])
+  acknowledgement_locale!: 'de' | 'en';
+
   @ApiProperty()
   @IsBoolean()
   @Equals(true)

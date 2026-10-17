@@ -21,6 +21,7 @@ type Props = {
   onAcknowledgedChange: (value: boolean) => void
   signaturePadRef: RefObject<CheckInSignaturePadHandle | null>
   signaturePreviewUrl?: string | null
+  onSignatureCanvasClear?: () => void
 }
 
 export function CheckInReviewStep({
@@ -36,6 +37,7 @@ export function CheckInReviewStep({
   onAcknowledgedChange,
   signaturePadRef,
   signaturePreviewUrl,
+  onSignatureCanvasClear,
 }: Props) {
   const { t } = useTranslation('workshop')
 
@@ -104,6 +106,7 @@ export function CheckInReviewStep({
         onAcknowledgedChange={onAcknowledgedChange}
         padRef={signaturePadRef}
         signaturePreviewUrl={signaturePreviewUrl}
+        onSignatureCanvasClear={onSignatureCanvasClear}
       />
     </div>
   )

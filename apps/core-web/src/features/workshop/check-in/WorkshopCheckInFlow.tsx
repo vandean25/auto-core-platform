@@ -33,7 +33,7 @@ function canStartCheckIn(status: string | undefined) {
 }
 
 export function WorkshopCheckInFlow({ orderId }: Props) {
-  const { t } = useTranslation('workshop')
+  const { t, i18n } = useTranslation('workshop')
   const navigate = useNavigate()
   const orderQuery = useWorkshopOrder(orderId)
   const checkInIdRef = useRef<string | null>(null)
@@ -241,8 +241,9 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
     }
 
     try {
+      const hasInk = signaturePadRef.current?.hasInk() ?? false
       let mediaId = signatureMediaId
-      if (!mediaId) {
+      if (hasInk) {
         const blob = await signaturePadRef.current?.toPngBlob()
         if (!blob) {
           toast.error(t('checkIn.errors.CHECK_IN_SIGNATURE_REQUIRED'))
@@ -259,16 +260,26 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
         })
         mediaId = uploaded.id
         setSignatureMediaId(mediaId)
+      } else if (!mediaId) {
+        toast.error(t('checkIn.errors.CHECK_IN_SIGNATURE_REQUIRED'))
+        return
       }
 
       const latestRevision =
         (await checkInQuery.refetch()).data?.revision ?? revision
+
+      const acknowledgementLocale = i18n.language
+        .toLowerCase()
+        .startsWith('en')
+        ? 'en'
+        : 'de'
 
       await completeCheckIn.mutateAsync({
         orderId,
         expectedRevision: latestRevision,
         signatureMediaId: mediaId,
         signedByName: trimmedName,
+        acknowledgementLocale,
       })
       toast.success(t('checkIn.complete.success'))
       await checkInQuery.refetch()
@@ -336,9 +347,11 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
           readOnly={readOnly}
           expectedRevision={checkInQuery.data.revision}
           media={mediaQuery.isError ? [] : [
-            ...(mediaQuery.data ?? []),
+            ...(mediaQuery.data ?? []).filter((item) => item.purpose === 'CHECK_IN'),
             ...sessionMedia.filter(
-              (item) => !(mediaQuery.data ?? []).some((existing) => existing.id === item.id),
+              (item) =>
+                item.purpose === 'CHECK_IN' &&
+                !(mediaQuery.data ?? []).some((existing) => existing.id === item.id),
             ),
           ]}
           localPreviewUrls={localPreviewUrls}
@@ -372,6 +385,7 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
           onAcknowledgedChange={setAcknowledged}
           signaturePadRef={signaturePadRef}
           signaturePreviewUrl={signaturePreviewUrl}
+          onSignatureCanvasClear={() => setSignatureMediaId(null)}
         />
       )}
 

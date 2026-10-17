@@ -31,3 +31,19 @@ export async function validateCheckInSignaturePngDimensions(
     throw new Error('CHECK_IN_SIGNATURE_DIMENSIONS');
   }
 }
+
+/** Lossless PNG re-encode drops ancillary metadata (EXIF, text chunks). */
+export async function reencodeCheckInSignaturePng(
+  bytes: Buffer,
+): Promise<Buffer> {
+  assertCheckInSignaturePng(bytes);
+  await validateCheckInSignaturePngDimensions(bytes);
+  const output = await sharp(bytes, { failOn: 'error' })
+    .png({ compressionLevel: 9, adaptiveFiltering: true, force: true })
+    .toBuffer();
+  assertCheckInSignaturePng(output);
+  if (output.length > CHECK_IN_SIGNATURE_MAX_BYTES) {
+    throw new Error('CHECK_IN_SIGNATURE_SIZE');
+  }
+  return output;
+}
