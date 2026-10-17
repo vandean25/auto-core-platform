@@ -22,11 +22,12 @@ import {
   createTestTenant,
   resolveTestMainSiteId,
   runWithTenantContext,
+  seedTestEmployee,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
 import { PdfStorage } from '../src/common/pdf/pdf-storage.js';
 import { MechanicMediaStorage } from '../src/mechanic/mechanic-media.storage.js';
-import { WorkshopMediaPurpose } from '@prisma/client';
+import { EmployeeRole, WorkshopMediaPurpose } from '@prisma/client';
 import { createInMemoryPdfArchive } from './support/in-memory-pdf-archive.js';
 import { PURCHASE_PROPOSE_DISCLAIMER } from '../src/purchase/purchase-propose-draft.service.js';
 import { seedReadySellerAndAccountingProfile } from './invoice-snapshot-v2-test-utils.js';
@@ -6124,7 +6125,7 @@ describe('MCP server (e2e)', () => {
   });
 
   describe('AUT-598 mechanic finding media MCP tools', () => {
-    let advisorEmployeeId = '51500000-0000-4000-8000-000000000598';
+    let advisorEmployeeId = '';
     let findingTaskId: string;
     let findingOrderId: string;
     let uploadedMediaId: string;
@@ -6139,19 +6140,16 @@ describe('MCP server (e2e)', () => {
           advisorEmployeeId = linked.id;
           await prismaA.employee.update({
             where: { id: linked.id },
-            data: { is_active: true },
+            data: { is_active: true, user_id: tenantAUserId },
           });
         } else {
-          await prismaA.employee.create({
-            data: {
-              id: advisorEmployeeId,
-              tenant_id: tenantA,
-              user_id: tenantAUserId,
-              name: 'MCP Advisor Employee',
-              role: 'SERVICE_ADVISOR',
-              is_active: true,
-            },
+          const created = await seedTestEmployee(prismaA, {
+            tenantId: tenantA,
+            userId: tenantAUserId,
+            name: 'MCP Advisor Employee',
+            role: EmployeeRole.SERVICE_ADVISOR,
           });
+          advisorEmployeeId = created.id;
         }
       });
       const order = await prismaA.workshopOrder.create({
