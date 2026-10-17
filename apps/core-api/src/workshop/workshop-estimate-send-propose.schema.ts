@@ -20,8 +20,10 @@ export const proposeEstimateSendInputSchema = z
     pinned_workshop_order_id: uuidSchema.optional(),
     /** Digest of billable workshop lines at propose time. */
     pinned_lines_digest: z.string().min(1).max(128).optional(),
-    /** SHA-256 of the normalized recipient email at propose time. */
-    pinned_recipient_email_sha256: z
+    /** Customer record pinned at propose time. */
+    pinned_customer_id: uuidSchema.optional(),
+    /** HMAC pin for the recipient email at propose time (no raw address in payload). */
+    pinned_recipient_pin: z
       .string()
       .regex(/^[a-f0-9]{64}$/)
       .optional(),

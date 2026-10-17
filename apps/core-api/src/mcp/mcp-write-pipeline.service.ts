@@ -382,7 +382,7 @@ export class McpWritePipelineService {
     let proposalActionType = call.execution.policyActionType;
     let proposalPreview: unknown = simulation.preview;
     if (call.execution.toolName === 'propose_estimate_send') {
-      proposalActionType = 'workshop_estimate.send';
+      proposalActionType = 'estimate.send_customer_message';
     }
     if (call.execution.toolName === 'propose_mechanic_finding') {
       const built = await this.mechanicFindingPropose.buildProposalPayload(

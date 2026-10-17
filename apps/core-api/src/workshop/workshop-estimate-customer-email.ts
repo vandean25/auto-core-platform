@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHmac } from 'node:crypto';
 import { UnprocessableEntityException } from '@nestjs/common';
 import { isPlainEmailAddress } from '../notifications/email/email-address.js';
 import type { EmailDraft } from '../notifications/notification-outbox.email-columns.js';
@@ -56,10 +56,36 @@ export function resolveCustomerEstimateRecipientEmail(customer: {
   return recipientEmail;
 }
 
-/** SHA-256 of the normalized recipient address for proposal pinning (no PII in logs). */
-export function hashCustomerEstimateRecipientEmail(email: string): string {
+function estimateRecipientPinSecret(): string {
+  const dedicated = process.env.ESTIMATE_RECIPIENT_PIN_SECRET?.trim();
+  if (dedicated) {
+    return dedicated;
+  }
+  const fallback = process.env.SECRET_ENCRYPTION_KEY?.trim();
+  if (fallback) {
+    return fallback;
+  }
+  if (process.env.NODE_ENV === 'test') {
+    return 'test-estimate-recipient-pin-secret';
+  }
+  throw new Error(
+    'ESTIMATE_RECIPIENT_PIN_SECRET or SECRET_ENCRYPTION_KEY is required to pin estimate recipients',
+  );
+}
+
+/**
+ * HMAC pin for the customer email at propose time (tenant + customer id + normalized address).
+ * Stored on proposals instead of the raw address.
+ */
+export function pinCustomerEstimateRecipientEmail(
+  tenantId: string,
+  customerId: string,
+  email: string,
+): string {
   const normalized = email.trim().toLowerCase();
-  return createHash('sha256').update(normalized).digest('hex');
+  return createHmac('sha256', estimateRecipientPinSecret())
+    .update(`${tenantId}:${customerId}:${normalized}`)
+    .digest('hex');
 }
 
 export function buildCustomerEstimateEmail(

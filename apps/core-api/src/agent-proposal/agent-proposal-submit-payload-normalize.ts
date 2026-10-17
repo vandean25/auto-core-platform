@@ -27,7 +27,10 @@ export async function normalizeAgentProposalSubmitPayload(
   if (actionType === 'invoice.create_draft_from_workshop_order') {
     return deps.invoiceWorkshopDraftPropose.enrichInput(payload);
   }
-  if (actionType === 'workshop_estimate.send') {
+  if (
+    actionType === 'workshop_estimate.send' ||
+    actionType === 'estimate.send_customer_message'
+  ) {
     return deps.workshopEstimateSendPropose.enrichInput(payload);
   }
   if (

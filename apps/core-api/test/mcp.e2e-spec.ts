@@ -6125,6 +6125,7 @@ describe('MCP server (e2e)', () => {
   });
 
   describe('AUT-597 propose_estimate_send', () => {
+    const estimateRecipientEmail = 'kva.recipient@example.com';
     let previousSendFlag: string | undefined;
     let previousApprovalBaseUrl: string | undefined;
 
@@ -6132,7 +6133,7 @@ describe('MCP server (e2e)', () => {
       await prismaA.customer.update({
         where: { id: fixtures.customerId },
         data: {
-          email: 'kva.recipient@example.com',
+          email: estimateRecipientEmail,
           contact_email_ok: true,
         },
       });
@@ -6228,6 +6229,26 @@ describe('MCP server (e2e)', () => {
       });
       expect(proposed.proposal.preview.lines[0]?.gross).toBe('60.00');
       expect(proposed.proposal.preview.recipient_email_masked).toContain('@');
+      const proposedJson = JSON.stringify(proposed);
+      expect(proposedJson).not.toContain(estimateRecipientEmail);
+
+      const proposalRow = await prismaA.agentProposal.findFirstOrThrow({
+        where: { id: proposed.pending_action_id },
+      });
+      expect(proposalRow.action_type).toBe('estimate.send_customer_message');
+      expect(JSON.stringify(proposalRow.payload_json)).not.toContain(
+        estimateRecipientEmail,
+      );
+
+      const actionLog = await prismaA.agentActionLog.findFirstOrThrow({
+        where: { trace_id: traceId, action_type: 'mcp.propose_estimate_send' },
+      });
+      expect(JSON.stringify(actionLog.result_summary_json)).not.toContain(
+        estimateRecipientEmail,
+      );
+      expect(JSON.stringify(actionLog.input_summary_json)).not.toContain(
+        estimateRecipientEmail,
+      );
 
       const versionsBefore = await prismaA.workshopEstimateVersion.count({
         where: {
@@ -6283,7 +6304,7 @@ describe('MCP server (e2e)', () => {
       await prismaA.customer.update({
         where: { id: fixtures.customerId },
         data: {
-          email: 'kva.recipient@example.com',
+          email: estimateRecipientEmail,
           contact_email_ok: false,
         },
       });
@@ -6299,7 +6320,7 @@ describe('MCP server (e2e)', () => {
       expect(
         await prismaA.agentProposal.count({
           where: {
-            action_type: 'workshop_estimate.send',
+            action_type: 'estimate.send_customer_message',
             payload_json: {
               path: ['workshop_order_id'],
               equals: order.id,
@@ -6325,7 +6346,7 @@ describe('MCP server (e2e)', () => {
       expect(
         await prismaA.agentProposal.count({
           where: {
-            action_type: 'workshop_estimate.send',
+            action_type: 'estimate.send_customer_message',
             payload_json: {
               path: ['workshop_order_id'],
               equals: order.id,
@@ -6333,6 +6354,32 @@ describe('MCP server (e2e)', () => {
           },
         }),
       ).toBe(0);
+    });
+
+    it('refuses propose when estimate.send_customer_message is disabled', async () => {
+      const { order } = await seedEstimateSendOrder();
+      await putPolicyRule('estimate.send_customer_message', {
+        tier: 'PROPOSE',
+        enabled: false,
+      });
+      const result = await callMcpTool(
+        caller(adminHeaderA, 'e2e-estimate-policy-off'),
+        'propose_estimate_send',
+        { workshop_order_id: order.id, channel: 'email' },
+      );
+      expect(result.isError).toBe(true);
+      expect(
+        await prismaA.agentProposal.count({
+          where: {
+            action_type: 'estimate.send_customer_message',
+            payload_json: {
+              path: ['workshop_order_id'],
+              equals: order.id,
+            },
+          },
+        }),
+      ).toBe(0);
+      await setPolicyTier('estimate.send_customer_message', 'PROPOSE');
     });
 
     it('conflicts on apply when workshop lines changed after propose', async () => {

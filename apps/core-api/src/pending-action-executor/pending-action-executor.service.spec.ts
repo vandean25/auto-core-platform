@@ -162,6 +162,22 @@ describe('PendingActionExecutorService', () => {
     });
   });
 
+  describe('estimate.send_customer_message', () => {
+    it('binds site and delegates apply like workshop_estimate.send', async () => {
+      const executor = service.resolve('estimate.send_customer_message');
+      const context = await executor.buildExecutionContext?.({});
+      expect(context).toEqual({ site_id: 'site-1' });
+      await executor.execute(
+        {
+          workshop_order_id: '00000000-0000-4000-8000-000000000001',
+          channel: 'email',
+        },
+        context,
+      );
+      expect(mockWorkshopEstimateSendPropose.applySend).toHaveBeenCalled();
+    });
+  });
+
   describe('workshop_estimate.send', () => {
     it('binds site in execution context and delegates apply to estimate send service', async () => {
       const executor = service.resolve('workshop_estimate.send');

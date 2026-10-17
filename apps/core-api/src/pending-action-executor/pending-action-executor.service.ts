@@ -67,6 +67,7 @@ export type PendingActionType =
   | 'workshop_order.complete'
   | 'invoice.create_draft_from_workshop_order'
   | 'workshop_estimate.send'
+  | 'estimate.send_customer_message'
   | 'report.generate_weekly_pdf';
 
 export type PendingActionExecutor = {
@@ -411,6 +412,7 @@ export class PendingActionExecutorService {
           }),
         };
       case 'workshop_estimate.send':
+      case 'estimate.send_customer_message':
         return {
           actionType,
           buildPolicyContext: (input) =>

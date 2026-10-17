@@ -22,7 +22,7 @@ import {
   collectEstimateSourceLines,
 } from './workshop-estimate-lines.helpers.js';
 import {
-  hashCustomerEstimateRecipientEmail,
+  pinCustomerEstimateRecipientEmail,
   resolveCustomerEstimateRecipientEmail,
 } from './workshop-estimate-customer-email.js';
 import { WorkshopEstimateService } from './workshop-estimate.service.js';
@@ -128,7 +128,8 @@ export class WorkshopEstimateSendProposeService {
     const plan = await this.planSend(parsed, tenantId, siteId);
     record.pinned_workshop_order_id = parsed.workshop_order_id;
     record.pinned_lines_digest = plan.digest;
-    record.pinned_recipient_email_sha256 = plan.recipientEmailSha256;
+    record.pinned_customer_id = plan.customerId;
+    record.pinned_recipient_pin = plan.recipientPin;
     record.pinned_needs_create_estimate = plan.needsCreateEstimate;
     record.pinned_needs_revision = plan.needsRevision;
     if (plan.draftVersionId) {
@@ -281,14 +282,19 @@ export class WorkshopEstimateSendProposeService {
     parsed: ProposeEstimateSendInput,
     plan: {
       digest: string;
-      recipientEmailSha256: string;
+      customerId: string;
+      recipientPin: string;
       draftVersionId: string | null;
       needsCreateEstimate: boolean;
       needsRevision: boolean;
       validUntilIso: string | null;
     },
   ): void {
-    if (!parsed.pinned_lines_digest || !parsed.pinned_recipient_email_sha256) {
+    if (
+      !parsed.pinned_lines_digest ||
+      !parsed.pinned_customer_id ||
+      !parsed.pinned_recipient_pin
+    ) {
       throw new ConflictException(
         'Proposal payload is missing required estimate send pins',
       );
@@ -298,7 +304,12 @@ export class WorkshopEstimateSendProposeService {
         'Workshop order lines changed since this proposal was created',
       );
     }
-    if (parsed.pinned_recipient_email_sha256 !== plan.recipientEmailSha256) {
+    if (parsed.pinned_customer_id !== plan.customerId) {
+      throw new ConflictException(
+        'The workshop order customer changed since this proposal was created',
+      );
+    }
+    if (parsed.pinned_recipient_pin !== plan.recipientPin) {
       throw new ConflictException(
         'The customer email changed since this proposal was created',
       );
@@ -441,8 +452,12 @@ export class WorkshopEstimateSendProposeService {
     }
 
     const recipientEmail = resolveCustomerEstimateRecipientEmail(order.customer);
-    const recipientEmailSha256 =
-      hashCustomerEstimateRecipientEmail(recipientEmail);
+    const customerId = order.customer.id;
+    const recipientPin = pinCustomerEstimateRecipientEmail(
+      tenantId,
+      customerId,
+      recipientEmail,
+    );
     const sourceLines = collectEstimateSourceLines(order.tasks);
     const sendBlockers = collectEstimateCustomerSendBlockers(sourceLines);
     if (sendBlockers.length > 0) {
@@ -500,7 +515,8 @@ export class WorkshopEstimateSendProposeService {
       preview,
       digest,
       recipientEmail,
-      recipientEmailSha256,
+      customerId,
+      recipientPin,
       draftVersionId: draftPlan.draftVersionId,
       needsCreateEstimate: draftPlan.needsCreateEstimate,
       needsRevision: draftPlan.needsRevision,
