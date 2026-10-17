@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import type { Customer, Vehicle, WorkshopSearchResponse } from '@/api/types'
@@ -71,6 +72,7 @@ export function PlannerCreateSheet({
   bookings,
   employeesAway,
 }: PlannerCreateSheetProps) {
+  const { t } = useTranslation('workshop')
   const navigate = useNavigate()
   const createOrder = useCreateWorkshopOrder()
   const { data: resources } = useWorkshopResources()
@@ -189,7 +191,7 @@ export function PlannerCreateSheet({
 
   async function handleCreate() {
     if (!selectedVehicle?.customer?.id) {
-      toast.error('Select a vehicle linked to a customer.')
+      toast.error(t('planner.createSheet.toastSelectVehicle'))
       return
     }
 
@@ -204,11 +206,12 @@ export function PlannerCreateSheet({
         scheduledEndAt: endAt,
         reportedIssue: reportedIssue || undefined,
       })
-      toast.success('Workshop order scheduled.')
+      toast.success(t('planner.createSheet.toastScheduled'))
       handleOpenChange(false)
       navigate(`/workshop/orders/${order.id}`)
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to create workshop order'
+      const message =
+        error instanceof Error ? error.message : t('planner.createSheet.toastCreateFailed')
       toast.error(message)
     }
   }
@@ -220,26 +223,24 @@ export function PlannerCreateSheet({
       <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
         <SheetHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
           <div>
-            <SheetTitle>Schedule workshop order</SheetTitle>
-            <SheetDescription>
-              Search for a customer vehicle and book a bay slot.
-            </SheetDescription>
+            <SheetTitle>{t('planner.createSheet.title')}</SheetTitle>
+            <SheetDescription>{t('planner.createSheet.description')}</SheetDescription>
           </div>
           <Button onClick={handleCreate} disabled={!canSubmit}>
-            + Workshop Order
+            {t('planner.createSheet.createButton')}
           </Button>
         </SheetHeader>
 
         <div className="mt-6 space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="planner-search">Search vehicle or customer</Label>
+            <Label htmlFor="planner-search">{t('planner.createSheet.searchLabel')}</Label>
             <Input
               id="planner-search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="VIN, plate, or customer name"
+              placeholder={t('planner.createSheet.searchPlaceholder')}
             />
-            {searchLoading && <p className="text-xs text-slate-500">Searching…</p>}
+            {searchLoading && <p className="text-xs text-slate-500">{t('planner.createSheet.searching')}</p>}
             {vehicles.length > 0 && (
               <ul className="rounded-md border border-slate-200 divide-y max-h-40 overflow-y-auto">
                 {vehicles.map((vehicle) => (
@@ -271,10 +272,10 @@ export function PlannerCreateSheet({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>Bay</Label>
+              <Label>{t('planner.createSheet.bay')}</Label>
               <Select value={bayId} onValueChange={setBayId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select bay" />
+                  <SelectValue placeholder={t('planner.createSheet.selectBay')} />
                 </SelectTrigger>
                 <SelectContent>
                   {bays.map((bay) => (
@@ -284,16 +285,16 @@ export function PlannerCreateSheet({
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Mechanic (optional)</Label>
+              <Label>{t('planner.createSheet.mechanicOptional')}</Label>
               <Select
                 value={mechanicId ?? 'none'}
                 onValueChange={(value) => setMechanicId(value === 'none' ? null : value)}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Unassigned" />
+                  <SelectValue placeholder={t('planner.createSheet.unassigned')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Unassigned</SelectItem>
+                  <SelectItem value="none">{t('planner.createSheet.unassigned')}</SelectItem>
                   {mechanics.map((mechanic) => (
                     <SelectItem key={mechanic.id} value={mechanic.id}>
                       {mechanic.name}
@@ -306,7 +307,7 @@ export function PlannerCreateSheet({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label htmlFor="planner-start">Start</Label>
+              <Label htmlFor="planner-start">{t('planner.createSheet.start')}</Label>
               <Input
                 id="planner-start"
                 type="datetime-local"
@@ -317,7 +318,7 @@ export function PlannerCreateSheet({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="planner-end">End</Label>
+              <Label htmlFor="planner-end">{t('planner.createSheet.end')}</Label>
               <Input
                 id="planner-end"
                 type="datetime-local"
@@ -330,21 +331,19 @@ export function PlannerCreateSheet({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="planner-issue">Reported issue</Label>
+            <Label htmlFor="planner-issue">{t('planner.createSheet.reportedIssue')}</Label>
             <Input
               id="planner-issue"
               value={reportedIssue}
               onChange={(event) => setReportedIssue(event.target.value)}
-              placeholder="Optional"
+              placeholder={t('planner.createSheet.optional')}
             />
           </div>
 
           {outsideHours && (
             <Alert className="border-amber-200 bg-amber-50 text-amber-900">
-              <AlertTitle>Outside workshop hours</AlertTitle>
-              <AlertDescription>
-                This slot is outside effective opening hours. Booking is still allowed.
-              </AlertDescription>
+              <AlertTitle>{t('planner.createSheet.outsideHoursTitle')}</AlertTitle>
+              <AlertDescription>{t('planner.createSheet.outsideHoursDescription')}</AlertDescription>
             </Alert>
           )}
 
@@ -355,18 +354,20 @@ export function PlannerCreateSheet({
 
           {mechanicOverlap && (
             <Alert className="border-amber-200 bg-amber-50 text-amber-900">
-              <AlertTitle>Mechanic double-booked</AlertTitle>
+              <AlertTitle>{t('planner.createSheet.mechanicDoubleBookedTitle')}</AlertTitle>
               <AlertDescription>
-                This mechanic already has {mechanicOverlap} in this window. You can still schedule.
+                {t('planner.createSheet.mechanicDoubleBookedDescription', {
+                  orderNumber: mechanicOverlap,
+                })}
               </AlertDescription>
             </Alert>
           )}
 
           {bayCollision && (
             <Alert variant="destructive">
-              <AlertTitle>Bay occupied</AlertTitle>
+              <AlertTitle>{t('planner.createSheet.bayOccupiedTitle')}</AlertTitle>
               <AlertDescription>
-                This bay overlaps with {bayCollision}. Choose another slot.
+                {t('planner.createSheet.bayOccupiedDescription', { orderNumber: bayCollision })}
               </AlertDescription>
             </Alert>
           )}

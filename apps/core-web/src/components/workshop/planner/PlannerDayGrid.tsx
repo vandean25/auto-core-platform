@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 import { useDroppable } from '@dnd-kit/core'
 import type { PlannerBooking } from '@/api/workshop'
 import type { EffectiveHours, PlannerSlot } from '@/features/workshop/planner/planner-hours'
@@ -28,6 +29,7 @@ function DroppableSlot({
   slot: PlannerSlot
   onSlotClick: (bayId: string, startIso: string) => void
 }) {
+  const { t } = useTranslation('workshop')
   const startIso = slot.start.toISOString()
   const droppableId = slotDroppableId(bayId, startIso)
   const { isOver, setNodeRef } = useDroppable({ id: droppableId })
@@ -41,7 +43,7 @@ function DroppableSlot({
         isOver ? 'bg-slate-200' : 'bg-white hover:bg-slate-50'
       }`}
       onClick={() => onSlotClick(bayId, startIso)}
-      aria-label={`Book ${slot.label}`}
+      aria-label={t('planner.grid.bookSlot', { label: slot.label })}
     />
   )
 }
@@ -55,6 +57,7 @@ export function PlannerDayGrid({
   bookings,
   onSlotClick,
 }: PlannerDayGridProps) {
+  const { t } = useTranslation('workshop')
   const dayWindow = buildDayWindow(hours, timezone, date)
   const totalMs = dayWindow.end.getTime() - dayWindow.start.getTime()
 
@@ -109,7 +112,7 @@ export function PlannerDayGrid({
         style={{ gridTemplateColumns: `140px repeat(${slots.length}, minmax(48px, 1fr))` }}
       >
         <div className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500">
-          Bay
+          {t('planner.grid.bay')}
         </div>
         {slots.map((slot) => (
           <div

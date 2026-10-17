@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Loader2, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -92,6 +93,7 @@ export function FitmentSearchModal({
   onSearchSessionUpdate,
   onRequestResolveIdentity,
 }: FitmentSearchModalProps) {
+  const { t } = useTranslation('workshop')
   const [activeConcern, setActiveConcern] = useState<CatalogSearchConcern>('PARTS')
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
@@ -202,17 +204,17 @@ export function FitmentSearchModal({
         if (apiError.status === 409) {
           clearConcernResult(params.concern)
           setIdentityConflict(true)
-          toast.error('Vehicle identity is stale. Re-resolve before searching.')
+          toast.error(t('catalog.fitmentModal.toastIdentityStale'))
           return
         }
-        toast.error(apiError.message || 'Failed to search catalog')
+        toast.error(apiError.message || t('catalog.fitmentModal.toastSearchFailed'))
       } finally {
         if (generation === searchGenerationRef.current) {
           setIsSearching(false)
         }
       }
     },
-    [applySearchResult, clearConcernResult, isIdentityStale, taskId, workshopOrderId],
+    [applySearchResult, clearConcernResult, isIdentityStale, taskId, t, workshopOrderId],
   )
 
   useEffect(() => {
@@ -270,10 +272,8 @@ export function FitmentSearchModal({
           <DialogHeader className='space-y-3 border-b px-6 py-4'>
             <div className='flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between'>
               <div className='space-y-1 pr-8'>
-                <DialogTitle>Fitment catalog search</DialogTitle>
-                <DialogDescription>
-                  Search OEM and aftermarket catalogs for this vehicle. Results are preview-only in M1.
-                </DialogDescription>
+                <DialogTitle>{t('catalog.fitmentModal.title')}</DialogTitle>
+                <DialogDescription>{t('catalog.fitmentModal.description')}</DialogDescription>
               </div>
               <div className='flex shrink-0 items-center gap-2'>
                 {canSearchOtherSource && (
@@ -284,7 +284,7 @@ export function FitmentSearchModal({
                     onClick={() => void handleSearchOtherSource()}
                     data-testid='search-other-source-button'
                   >
-                    Search other source
+                    {t('catalog.fitmentModal.searchOtherSource')}
                   </Button>
                 )}
               </div>
@@ -299,14 +299,14 @@ export function FitmentSearchModal({
 
           {(isIdentityStale || identityConflict) && (
             <div className='border-b bg-amber-50 px-6 py-3 text-sm text-amber-900'>
-              Vehicle identity is stale or missing. Re-resolve the VIN before searching fitment catalogs.
+              {t('catalog.fitmentModal.identityStale')}
               <Button
                 type='button'
                 variant='link'
                 className='h-auto px-2 text-amber-900'
                 onClick={onRequestResolveIdentity}
               >
-                Re-resolve now
+                {t('catalog.fitmentModal.reResolve')}
               </Button>
             </div>
           )}
@@ -318,8 +318,8 @@ export function FitmentSearchModal({
           >
             <div className='border-b px-6 pt-4'>
               <TabsList>
-                <TabsTrigger value='PARTS'>Parts</TabsTrigger>
-                <TabsTrigger value='LABOR'>Labor</TabsTrigger>
+                <TabsTrigger value='PARTS'>{t('catalog.concern.PARTS')}</TabsTrigger>
+                <TabsTrigger value='LABOR'>{t('catalog.concern.LABOR')}</TabsTrigger>
               </TabsList>
             </div>
 
@@ -350,7 +350,10 @@ export function FitmentSearchModal({
           </Tabs>
 
           <div className='border-t px-6 py-3 text-xs text-muted-foreground'>
-            Task {taskId.slice(0, 8)} · Vehicle {vehicleId.slice(0, 8)} · No add-to-order in M1
+            {t('catalog.fitmentModal.footer', {
+              taskId: taskId.slice(0, 8),
+              vehicleId: vehicleId.slice(0, 8),
+            })}
           </div>
         </DialogContent>
       </Dialog>
@@ -367,9 +370,9 @@ export function FitmentSearchModal({
             <AlertDialogDescription>{fallbackDialogCopy?.description}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('actions.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={() => void handleConfirmFallback()}>
-              Search aftermarket
+              {t('catalog.fitmentModal.searchAftermarket')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -401,6 +404,7 @@ function FitmentSearchPanel({
   onAssemblyGroupSelect,
   onClearSearch,
 }: FitmentSearchPanelProps) {
+  const { t } = useTranslation('workshop')
   const showAssemblyGroups = concern === 'PARTS'
 
   return (
@@ -408,18 +412,20 @@ function FitmentSearchPanel({
       {showAssemblyGroups && (
         <div className='border-b lg:w-56 lg:border-b-0 lg:border-r'>
           <div className='px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground'>
-            Assembly groups
+            {t('catalog.fitmentModal.assemblyGroups')}
           </div>
           <ScrollArea className='h-48 lg:h-[360px]'>
             <div className='space-y-1 px-2 pb-3'>
               {isLoadingAssemblyGroups && (
                 <div className='flex items-center gap-2 px-2 py-2 text-xs text-muted-foreground'>
                   <Loader2 className='h-3.5 w-3.5 animate-spin' />
-                  Loading groups...
+                  {t('catalog.fitmentModal.loadingGroups')}
                 </div>
               )}
               {!isLoadingAssemblyGroups && assemblyGroups.length === 0 && (
-                <p className='px-2 py-2 text-xs text-muted-foreground'>No assembly groups available.</p>
+                <p className='px-2 py-2 text-xs text-muted-foreground'>
+                  {t('catalog.fitmentModal.noAssemblyGroups')}
+                </p>
               )}
               {assemblyGroups.map((group) => (
                 <button
@@ -444,7 +450,11 @@ function FitmentSearchPanel({
             <Input
               value={searchQuery}
               onChange={(event) => onSearchQueryChange(event.target.value)}
-              placeholder={`Search ${concern === 'PARTS' ? 'parts' : 'labor'} by number or description...`}
+              placeholder={
+                concern === 'PARTS'
+                  ? t('catalog.fitmentModal.searchPartsPlaceholder')
+                  : t('catalog.fitmentModal.searchLaborPlaceholder')
+              }
               className='pl-8'
               data-testid={`fitment-search-input-${concern.toLowerCase()}`}
             />
@@ -456,16 +466,16 @@ function FitmentSearchPanel({
             {isSearching && (
               <div className='flex items-center gap-2 text-sm text-muted-foreground'>
                 <Loader2 className='h-4 w-4 animate-spin' />
-                Searching catalog...
+                {t('catalog.fitmentModal.searching')}
               </div>
             )}
 
             {!isSearching && result && result.items.length === 0 && (
               <div className='flex flex-wrap items-center gap-3'>
-                <p className='text-sm text-muted-foreground'>No catalog results for this search.</p>
+                <p className='text-sm text-muted-foreground'>{t('catalog.fitmentModal.noResults')}</p>
                 {onClearSearch && (
                   <Button type='button' variant='outline' size='sm' onClick={onClearSearch}>
-                    Clear search
+                    {t('catalog.fitmentModal.clearSearch')}
                   </Button>
                 )}
               </div>
@@ -487,7 +497,7 @@ function FitmentSearchPanel({
                         </div>
                         {item.oemNumbers && item.oemNumbers.length > 0 && (
                           <div className='mt-1 text-xs text-muted-foreground'>
-                            OEM {item.oemNumbers.join(', ')}
+                            {t('catalog.fitmentModal.oemPrefix')} {item.oemNumbers.join(', ')}
                           </div>
                         )}
                       </div>
@@ -510,7 +520,9 @@ function FitmentSearchPanel({
                         </div>
                       </div>
                       <Badge variant='outline'>
-                        {item.standardAw != null ? `${item.standardAw} AW` : 'Labor'}
+                        {item.standardAw != null
+                          ? t('catalog.fitmentModal.awBadge', { aw: item.standardAw })
+                          : t('catalog.fitmentModal.laborBadge')}
                       </Badge>
                     </div>
                   </div>

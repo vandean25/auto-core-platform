@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -56,6 +57,7 @@ export function RegistrationDocumentReview({
   onAbort,
   onDelete,
 }: Props) {
+  const { t } = useTranslation('workshop')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const cases = intake.matchSnapshot?.cases ?? []
@@ -154,7 +156,7 @@ export function RegistrationDocumentReview({
     try {
       await action()
     } catch (err) {
-      setError(getErrorMessage(err, 'Action failed'))
+      setError(getErrorMessage(err, t('registrationReview.actionFailed')))
     } finally {
       setBusy(false)
     }
@@ -175,7 +177,7 @@ export function RegistrationDocumentReview({
       )}
       {customers.length > 1 && (
         <div className="space-y-2 text-sm">
-          <p className="font-medium">Select customer</p>
+          <p className="font-medium">{t('registrationReview.selectCustomer')}</p>
           {customers.map((c) => (
             <label key={c.id} className="flex items-center gap-2">
               <input
@@ -191,7 +193,7 @@ export function RegistrationDocumentReview({
       )}
       {vehicles.length > 1 && (
         <div className="space-y-2 text-sm">
-          <p className="font-medium">Select vehicle</p>
+          <p className="font-medium">{t('registrationReview.selectVehicle')}</p>
           {vehicles.map((v) => (
             <label key={v.id} className="flex items-center gap-2">
               <input
@@ -212,7 +214,7 @@ export function RegistrationDocumentReview({
             checked={ownershipConfirmed}
             onChange={(e) => setOwnershipConfirmed(e.target.checked)}
           />
-          Reassign vehicle to the matched holder on this document
+          {t('registrationReview.ownershipConfirm')}
         </label>
       )}
       <dl className="grid grid-cols-2 gap-2 text-sm">
@@ -224,7 +226,7 @@ export function RegistrationDocumentReview({
                 ? `${value.normalized?.firstName ?? ''} ${value.normalized?.lastName ?? ''}`
                 : String(value.normalized ?? '—')}
               {value.uncertainty != null && value.uncertainty > LOW_CONFIDENCE && (
-                <span className="text-amber-600"> (low confidence)</span>
+                <span className="text-amber-600">{t('registrationReview.lowConfidence')}</span>
               )}
             </dd>
           </div>
@@ -233,7 +235,7 @@ export function RegistrationDocumentReview({
       <div className="flex flex-wrap gap-2">
         {canApply && (
           <Button disabled={busy} onClick={() => run(() => onApply(buildApplyBody()))}>
-            Confirm identity
+            {t('registrationReview.confirmIdentity')}
           </Button>
         )}
         {intake.state === 'APPLIED' && (
@@ -242,16 +244,16 @@ export function RegistrationDocumentReview({
             disabled={busy}
             onClick={() => run(() => onCreateOrder({ odometer: 0, fuelLevel: 50 }))}
           >
-            Create workshop order
+            {t('registrationReview.createOrder')}
           </Button>
         )}
         {intake.state !== 'APPLIED' && (
           <>
             <Button variant="outline" disabled={busy} onClick={() => run(onAbort)}>
-              Abort
+              {t('registrationReview.abort')}
             </Button>
             <Button variant="ghost" disabled={busy} onClick={() => run(onDelete)}>
-              Delete
+              {t('registrationReview.delete')}
             </Button>
           </>
         )}

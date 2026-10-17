@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { downloadWarrantyClaimPdf, useUpdateWarrantyClaim } from "@/api/warranty-claims";
 import type {
@@ -52,13 +53,6 @@ import {
   type WarrantyClaimDecisionValues,
 } from "./WarrantyClaimDecisionDialog";
 
-const STATUS_CHANGE_LABELS: Record<Exclude<WarrantyClaimStatus, "DRAFT">, string> = {
-  SUBMITTED_EXTERNALLY: "submitted externally",
-  APPROVED: "approved",
-  REJECTED: "rejected",
-  CLOSED: "closed",
-};
-
 type WarrantyClaimEditorProps = {
   orderId: string;
   orderNumber: string;
@@ -75,7 +69,18 @@ export function WarrantyClaimEditor({
   tasks,
   lineClaimedElsewhere,
 }: WarrantyClaimEditorProps) {
+  const { t } = useTranslation("workshop");
   const updateClaim = useUpdateWarrantyClaim();
+
+  const statusChangeLabel = (status: Exclude<WarrantyClaimStatus, "DRAFT">) => {
+    const key: Record<Exclude<WarrantyClaimStatus, "DRAFT">, string> = {
+      SUBMITTED_EXTERNALLY: "warranty.editor.statusSubmitted",
+      APPROVED: "warranty.editor.statusApproved",
+      REJECTED: "warranty.editor.statusRejected",
+      CLOSED: "warranty.editor.statusClosed",
+    };
+    return t(key[status]);
+  };
   const initialDraft = draftFromClaim(claim);
   // Last draft the API acknowledged. Saves send only what differs from it.
   const savedDraftRef = useRef<WarrantyClaimDraft>(initialDraft);
@@ -122,7 +127,7 @@ export function WarrantyClaimEditor({
 
   const { saveStatus, triggerAutoSave, clearPendingSave } = useDebouncedAutoSave<WarrantyClaimDraft>({
     save: persistDraft,
-    onError: (error) => toast.error(getErrorMessage(error, "Failed to save the claim")),
+    onError: (error) => toast.error(getErrorMessage(error, t("warranty.editor.saveFailed"))),
   });
 
   const updateDraft = (patch: Partial<WarrantyClaimDraft>) => {
@@ -140,14 +145,14 @@ export function WarrantyClaimEditor({
     clearPendingSave();
     const snapshot = latestDraftRef.current;
     if (!parseClaimedAmount(snapshot.claimedAmount).valid) {
-      toast.error("Fix the claimed amount before continuing.");
+      toast.error(t("warranty.editor.fixAmount"));
       return false;
     }
     try {
       await persistDraft(snapshot);
       return true;
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, "Failed to save the claim"));
+      toast.error(getErrorMessage(error, t("warranty.editor.saveFailed")));
       return false;
     }
   };
@@ -161,10 +166,10 @@ export function WarrantyClaimEditor({
       // The save leaves an amount that cannot be read out, so the other edits still go through. The
       // advisor is told, because this editor is gone and cannot show the field error any more.
       if (!parseClaimedAmount(snapshot.claimedAmount).valid) {
-        toast.error("The claimed amount could not be read, so it was not saved.");
+        toast.error(t("warranty.editor.amountUnreadable"));
       }
       persistDraft(snapshot).catch((error: unknown) => {
-        toast.error(getErrorMessage(error, "Failed to save the claim"));
+        toast.error(getErrorMessage(error, t("warranty.editor.saveFailed")));
       });
     };
   });
@@ -184,10 +189,10 @@ export function WarrantyClaimEditor({
       const saved = await flushPendingChanges();
       if (!saved) return false;
       await updateClaim.mutateAsync({ orderId, claimId: claim.id, payload: { status, ...extra } });
-      toast.success(`Claim ${STATUS_CHANGE_LABELS[status]}`);
+      toast.success(t("warranty.editor.statusChanged", { status: statusChangeLabel(status) }));
       return true;
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, "Failed to update the claim status"));
+      toast.error(getErrorMessage(error, t("warranty.editor.updateStatusFailed")));
       return false;
     } finally {
       setBusyAction(null);
@@ -202,7 +207,7 @@ export function WarrantyClaimEditor({
 
   const handlePrint = async () => {
     setBusyAction("PDF");
-    const toastId = toast.loading("Generating claim PDF...");
+    const toastId = toast.loading(t("warranty.editor.pdfLoading"));
     try {
       const saved = await flushPendingChanges();
       if (!saved) {
@@ -211,9 +216,9 @@ export function WarrantyClaimEditor({
       }
       const blob = await downloadWarrantyClaimPdf(orderId, claim.id);
       triggerBlobDownload(blob, warrantyClaimPdfFileName(claim, orderNumber));
-      toast.success("Claim PDF downloaded", { id: toastId });
+      toast.success(t("warranty.editor.pdfDownloaded"), { id: toastId });
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, "Failed to generate the claim PDF"), { id: toastId });
+      toast.error(getErrorMessage(error, t("warranty.editor.pdfFailed")), { id: toastId });
     } finally {
       setBusyAction(null);
     }
@@ -221,8 +226,8 @@ export function WarrantyClaimEditor({
 
   const statusNotice = !contentEditable
     ? claim.status === "CLOSED"
-      ? "This claim is closed and read-only."
-      : "The claim content is locked after submission. The external reference and the decision can still change."
+      ? t("warranty.editor.closedReadOnly")
+      : t("warranty.editor.lockedAfterSubmit")
     : null;
 
   return (
@@ -231,20 +236,22 @@ export function WarrantyClaimEditor({
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <h2 id="warranty-claim-heading" className="text-lg font-semibold tracking-tight">
-              {warrantyClaimTypeLabel(claim.type)} claim
+              {t("warranty.editor.heading", { type: warrantyClaimTypeLabel(claim.type) })}
             </h2>
             <StatusBadge status={claim.status} />
           </div>
           <p className="text-sm text-slate-500">
-            Order {orderNumber}
-            {claim.submittedAt ? ` · Submitted ${formatDate(claim.submittedAt)}` : ""}
-            {claim.closedAt ? ` · Closed ${formatDate(claim.closedAt)}` : ""}
+            {t("warranty.editor.orderMeta", { orderNumber })}
+            {claim.submittedAt
+              ? t("warranty.editor.submitted", { date: formatDate(claim.submittedAt) })
+              : ""}
+            {claim.closedAt ? t("warranty.editor.closed", { date: formatDate(claim.closedAt) }) : ""}
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
           <DocumentSaveIndicator status={contentEditable || metadataEditable ? saveStatus : "idle"} />
           <Button variant="outline" onClick={() => void handlePrint()} disabled={isBusy}>
-            Print
+            {t("warranty.editor.print")}
           </Button>
           {statusChanges.includes("SUBMITTED_EXTERNALLY") && (
             <Button
@@ -252,28 +259,28 @@ export function WarrantyClaimEditor({
               disabled={isBusy || !canSubmitClaim(draft) || hasCancelledLine}
               title={
                 hasCancelledLine
-                  ? "Remove the cancelled line from the claim first"
+                  ? t("warranty.editor.removeCancelledLine")
                   : canSubmitClaim(draft)
                     ? undefined
-                    : "Needs a complaint, a claimed amount above zero and at least one line"
+                    : t("warranty.editor.submitRequirements")
               }
             >
-              Mark submitted
+              {t("warranty.editor.markSubmitted")}
             </Button>
           )}
           {statusChanges.includes("APPROVED") && (
             <Button variant="outline" onClick={() => setDecisionOutcome("APPROVED")} disabled={isBusy}>
-              Record approval
+              {t("warranty.editor.recordApproval")}
             </Button>
           )}
           {statusChanges.includes("REJECTED") && (
             <Button variant="outline" onClick={() => setDecisionOutcome("REJECTED")} disabled={isBusy}>
-              Record rejection
+              {t("warranty.editor.recordRejection")}
             </Button>
           )}
           {statusChanges.includes("CLOSED") && (
             <Button variant="outline" onClick={() => setCloseConfirmOpen(true)} disabled={isBusy}>
-              Close claim
+              {t("warranty.editor.closeClaim")}
             </Button>
           )}
         </div>
@@ -284,13 +291,13 @@ export function WarrantyClaimEditor({
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-5">
           <div className="space-y-1.5">
-            <Label htmlFor="warranty-claim-type">Claim type</Label>
+            <Label htmlFor="warranty-claim-type">{t("warranty.editor.claimType")}</Label>
             <Select
               value={draft.type}
               onValueChange={(value) => updateDraft({ type: value as WarrantyClaimType })}
               disabled={contentLocked}
             >
-              <SelectTrigger id="warranty-claim-type" aria-label="Claim type">
+              <SelectTrigger id="warranty-claim-type" aria-label={t("warranty.editor.claimTypeAria")}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -304,7 +311,7 @@ export function WarrantyClaimEditor({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="warranty-claim-complaint">Complaint</Label>
+            <Label htmlFor="warranty-claim-complaint">{t("warranty.editor.complaint")}</Label>
             <textarea
               id="warranty-claim-complaint"
               className={TEXTAREA_CLASS_NAME}
@@ -312,12 +319,12 @@ export function WarrantyClaimEditor({
               maxLength={4000}
               disabled={contentLocked}
               onChange={(event) => updateDraft({ complaint: event.target.value })}
-              placeholder="Customer complaint in the words of the workshop"
+              placeholder={t("warranty.editor.complaintPlaceholder")}
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="warranty-claim-cause">Cause and correction</Label>
+            <Label htmlFor="warranty-claim-cause">{t("warranty.editor.cause")}</Label>
             <textarea
               id="warranty-claim-cause"
               className={TEXTAREA_CLASS_NAME}
@@ -325,12 +332,12 @@ export function WarrantyClaimEditor({
               maxLength={4000}
               disabled={contentLocked}
               onChange={(event) => updateDraft({ causeCorrection: event.target.value })}
-              placeholder="Diagnosed cause and the repair that was carried out"
+              placeholder={t("warranty.editor.causePlaceholder")}
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="warranty-claim-amount">Claimed amount (EUR, net)</Label>
+            <Label htmlFor="warranty-claim-amount">{t("warranty.editor.amountLabel")}</Label>
             <div className="flex items-center gap-2">
               <Input
                 id="warranty-claim-amount"
@@ -341,7 +348,7 @@ export function WarrantyClaimEditor({
                 aria-invalid={!amount.valid}
                 aria-describedby={amount.valid ? undefined : "warranty-claim-amount-error"}
                 onChange={(event) => updateDraft({ claimedAmount: event.target.value })}
-                placeholder="0,00"
+                placeholder={t("warranty.editor.amountPlaceholder")}
               />
               <Button
                 variant="ghost"
@@ -349,12 +356,12 @@ export function WarrantyClaimEditor({
                 onClick={() => updateDraft({ claimedAmount: (selectedCents / 100).toFixed(2) })}
                 disabled={contentLocked || draft.lineItemIds.length === 0}
               >
-                Use lines total
+                {t("warranty.editor.useLinesTotal")}
               </Button>
             </div>
             {!amount.valid && (
               <p id="warranty-claim-amount-error" role="alert" className="text-sm text-red-600">
-                Enter an amount in EUR with at most two decimals.
+                {t("warranty.editor.amountInvalid")}
               </p>
             )}
           </div>
@@ -362,10 +369,10 @@ export function WarrantyClaimEditor({
 
         <div className="space-y-5">
           <fieldset className="space-y-1.5">
-            <legend className="text-sm font-medium leading-none">Affected labor and parts</legend>
+            <legend className="text-sm font-medium leading-none">{t("warranty.editor.affectedLines")}</legend>
             {rows.length === 0 ? (
               <p className="rounded-md border border-dashed p-4 text-sm text-slate-500">
-                No labor or part lines on this order yet. Add lines to a task first.
+                {t("warranty.editor.noLines")}
               </p>
             ) : (
               <ul className="max-h-72 divide-y overflow-y-auto rounded-md border">
@@ -388,17 +395,21 @@ export function WarrantyClaimEditor({
                           {row.itemNo} · {row.description}
                         </span>
                         <span className="block text-slate-500">
-                          {row.type === "LABOR" ? "Labor" : "Part"}
+                          {row.type === "LABOR"
+                            ? t("warranty.editor.lineTypeLabor")
+                            : t("warranty.editor.lineTypePart")}
                           {row.taskTitle ? ` · ${row.taskTitle}` : ""} · {row.quantity} ×{" "}
                           {formatEur(row.unitPrice)} = {formatEur(row.netCents / 100)}
                         </span>
                         {row.cancelledOnOrder && (
                           <span className="block text-xs text-red-700">
-                            Cancelled on the order. Uncheck to remove it from the claim.
+                            {t("warranty.editor.cancelledOnOrder")}
                           </span>
                         )}
                         {claimedBy && !checked && (
-                          <span className="block text-xs text-amber-700">Already on {claimedBy}</span>
+                          <span className="block text-xs text-amber-700">
+                            {t("warranty.editor.alreadyOn", { claim: claimedBy })}
+                          </span>
                         )}
                       </label>
                     </li>
@@ -407,25 +418,26 @@ export function WarrantyClaimEditor({
               </ul>
             )}
             <p className="text-sm text-slate-600">
-              Selected lines (net): <span className="font-medium tabular-nums">{formatEur(selectedCents / 100)}</span>
+              {t("warranty.editor.selectedLinesNet")}{" "}
+              <span className="font-medium tabular-nums">{formatEur(selectedCents / 100)}</span>
             </p>
           </fieldset>
 
           <div className="space-y-1.5">
-            <Label htmlFor="warranty-claim-reference">Reference at the OEM</Label>
+            <Label htmlFor="warranty-claim-reference">{t("warranty.editor.oemReference")}</Label>
             <Input
               id="warranty-claim-reference"
               value={draft.externalReference}
               maxLength={120}
               disabled={metadataLocked}
               onChange={(event) => updateDraft({ externalReference: event.target.value })}
-              placeholder="Claim number from the OEM portal"
+              placeholder={t("warranty.editor.oemReferencePlaceholder")}
             />
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="warranty-claim-decision-date">Decision date</Label>
+              <Label htmlFor="warranty-claim-decision-date">{t("warranty.editor.decisionDate")}</Label>
               <Input
                 id="warranty-claim-decision-date"
                 type="date"
@@ -435,7 +447,7 @@ export function WarrantyClaimEditor({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="warranty-claim-decision-note">Decision note</Label>
+              <Label htmlFor="warranty-claim-decision-note">{t("warranty.editor.decisionNote")}</Label>
               <Input
                 id="warranty-claim-decision-note"
                 value={draft.decisionNote}
@@ -458,7 +470,7 @@ export function WarrantyClaimEditor({
           if (open) return;
           // Closing mid-save would drop the entries, so the close is refused and the advisor is told why.
           if (isSavingDecision) {
-            toast.message("The decision is still being saved.");
+            toast.message(t("warranty.editor.decisionSaving"));
             return;
           }
           setDecisionOutcome(null);
@@ -469,13 +481,13 @@ export function WarrantyClaimEditor({
       <AlertDialog open={closeConfirmOpen} onOpenChange={setCloseConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Close this claim?</AlertDialogTitle>
-            <AlertDialogDescription>
-              A closed claim is read-only. To file the claim again, create a new one.
-            </AlertDialogDescription>
+            <AlertDialogTitle>{t("warranty.editor.closeTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("warranty.editor.closeDescription")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={busyAction === "CLOSED"}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={busyAction === "CLOSED"}>
+              {t("warranty.editor.cancel")}
+            </AlertDialogCancel>
             <AlertDialogAction
               disabled={busyAction === "CLOSED"}
               onClick={(event) => {
@@ -485,7 +497,7 @@ export function WarrantyClaimEditor({
                 });
               }}
             >
-              Close claim
+              {t("warranty.editor.closeClaim")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

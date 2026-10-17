@@ -461,13 +461,7 @@ function EstimateVersions({
       )}
       {latestIsDraft && sendFeatureEnabled && customerSendBlockerCount > 0 && (
         <p className='text-sm text-amber-800' data-testid='estimate-customer-send-blockers'>
-          {t('estimateCard.sendBlocked', {
-            count: customerSendBlockerCount,
-            suffix:
-              customerSendBlockerCount === 1
-                ? t('estimateCard.sendBlockedSuffixOne')
-                : t('estimateCard.sendBlockedSuffixOther'),
-          })}
+          {t('estimateCard.sendBlocked', { count: customerSendBlockerCount })}
         </p>
       )}
 
