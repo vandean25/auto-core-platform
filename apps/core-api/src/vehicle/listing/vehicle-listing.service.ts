@@ -29,9 +29,7 @@ import {
 import {
   computeListingContentSha256FromDb,
   photoMediaIdsForListing,
-  vehicleRowForContentHash,
 } from './vehicle-listing-content-hash.builder.js';
-import { emptyVehicleListingContentSha256 } from './vehicle-listing-content-hash.js';
 import { generateVehicleListingRef } from './vehicle-listing-ref.js';
 import { VEHICLE_LISTING_PLATFORM_DEFAULTS } from './vehicle-listing-platform.defaults.js';
 import { assertListingChannelActiveReadiness } from './vehicle-listing-readiness.js';
@@ -85,11 +83,7 @@ export class VehicleListingService {
   ): Promise<VehicleListingDto> {
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
-    const vehicle = await this.assertUsedStockVehicleAtActiveSite(
-      tenantId,
-      vehicleId,
-      siteId,
-    );
+    await this.assertUsedStockVehicleAtActiveSite(tenantId, vehicleId, siteId);
     const stockPurchaseId = await resolveCurrentReceivedStockPurchaseId(
       this.prisma,
       tenantId,
@@ -131,12 +125,19 @@ export class VehicleListingService {
     }
 
     const listingRef = generateVehicleListingRef();
-    const contentSha256 = emptyVehicleListingContentSha256(
-      listingRef,
-      vehicleRowForContentHash(vehicle),
-    );
 
     const created = await this.prisma.$transaction(async (tx) => {
+      const contentSha256 = await computeListingContentSha256FromDb(tx, {
+        tenantId,
+        siteId,
+        vehicleId,
+        stockPurchaseId,
+        listingRef,
+        listing: null,
+        photoMediaIds: [],
+        channels: VEHICLE_LISTING_PLATFORM_DEFAULTS,
+      });
+
       const row = await tx.vehicleListing.create({
         data: {
           id: dto.id,
@@ -197,60 +198,76 @@ export class VehicleListingService {
       await this.validateListingPhotoIds(tenantId, siteId, vehicleId, photoIds);
     }
 
-    const merged = {
-      ...listing,
-      title: dto.title !== undefined ? dto.title : listing.title,
-      description:
-        dto.description !== undefined ? dto.description : listing.description,
-      description_language:
-        dto.description_language ?? listing.description_language,
-      price_gross_eur:
-        dto.price_gross_eur !== undefined
-          ? new Decimal(dto.price_gross_eur)
-          : listing.price_gross_eur,
-      vat_display: dto.vat_display ?? listing.vat_display,
-      nova_included_confirmed:
-        dto.nova_included_confirmed ?? listing.nova_included_confirmed,
-      mandatory_fees_included_confirmed:
-        dto.mandatory_fees_included_confirmed ??
-        listing.mandatory_fees_included_confirmed,
-      equipment_free_text:
-        dto.equipment_free_text !== undefined
-          ? dto.equipment_free_text
-          : listing.equipment_free_text,
-    };
-
-    const nextPhotoIds = photoIds ?? photoMediaIdsForListing(listing);
-
-    const contentSha256 = await computeListingContentSha256FromDb(this.prisma, {
-      tenantId,
-      siteId,
-      vehicleId,
-      stockPurchaseId,
-      listingRef: listing.listing_ref,
-      listing: merged,
-      photoMediaIds: nextPhotoIds,
-      channels: listing.channels,
-    });
-
-    const hashChanged = contentSha256 !== listing.content_sha256;
-
     const updated = await this.prisma.$transaction(async (tx) => {
+      const current = await tx.vehicleListing.findFirst({
+        where: {
+          tenant_id: tenantId,
+          vehicle_id: vehicleId,
+          stock_purchase_id: stockPurchaseId,
+          site_id: siteId,
+        },
+        include: listingInclude,
+      });
+      if (!current) {
+        throw new NotFoundException({
+          code: 'VEHICLE_LISTING_NOT_FOUND',
+          message: 'No marketplace listing exists for this stock cycle.',
+        });
+      }
+
       if (photoIds) {
         await tx.vehicleListingPhoto.deleteMany({
-          where: { tenant_id: tenantId, listing_id: listing.id },
+          where: { tenant_id: tenantId, listing_id: current.id },
         });
         if (photoIds.length > 0) {
           await tx.vehicleListingPhoto.createMany({
             data: photoIds.map((mediaId, index) => ({
               tenant_id: tenantId,
-              listing_id: listing.id,
+              listing_id: current.id,
               media_id: mediaId,
               sort_order: index,
             })),
           });
         }
       }
+
+      const merged = {
+        ...current,
+        title: dto.title !== undefined ? dto.title : current.title,
+        description:
+          dto.description !== undefined ? dto.description : current.description,
+        description_language:
+          dto.description_language ?? current.description_language,
+        price_gross_eur:
+          dto.price_gross_eur !== undefined
+            ? new Decimal(dto.price_gross_eur)
+            : current.price_gross_eur,
+        vat_display: dto.vat_display ?? current.vat_display,
+        nova_included_confirmed:
+          dto.nova_included_confirmed ?? current.nova_included_confirmed,
+        mandatory_fees_included_confirmed:
+          dto.mandatory_fees_included_confirmed ??
+          current.mandatory_fees_included_confirmed,
+        equipment_free_text:
+          dto.equipment_free_text !== undefined
+            ? dto.equipment_free_text
+            : current.equipment_free_text,
+      };
+
+      const nextPhotoIds = photoIds ?? photoMediaIdsForListing(current);
+
+      const contentSha256 = await computeListingContentSha256FromDb(tx, {
+        tenantId,
+        siteId,
+        vehicleId,
+        stockPurchaseId,
+        listingRef: current.listing_ref,
+        listing: merged,
+        photoMediaIds: nextPhotoIds,
+        channels: current.channels,
+      });
+
+      const hashChanged = contentSha256 !== current.content_sha256;
 
       const patchData: Prisma.VehicleListingUpdateManyMutationInput = {
         revision: { increment: 1 },
@@ -285,7 +302,7 @@ export class VehicleListingService {
       const guarded = await tx.vehicleListing.updateMany({
         where: {
           tenant_id: tenantId,
-          id: listing.id,
+          id: current.id,
           revision: dto.expected_revision,
         },
         data: patchData,
@@ -299,7 +316,7 @@ export class VehicleListingService {
 
       if (
         hashChanged &&
-        listing.channels.some(
+        current.channels.some(
           (channel) =>
             channel.export_state === VehicleListingExportState.FILE_GENERATED,
         )
@@ -307,7 +324,7 @@ export class VehicleListingService {
         await tx.vehicleListingChannel.updateMany({
           where: {
             tenant_id: tenantId,
-            listing_id: listing.id,
+            listing_id: current.id,
             export_state: VehicleListingExportState.FILE_GENERATED,
           },
           data: { export_state: VehicleListingExportState.DIRTY },
@@ -315,7 +332,7 @@ export class VehicleListingService {
       }
 
       const row = await tx.vehicleListing.findFirst({
-        where: { tenant_id: tenantId, id: listing.id },
+        where: { tenant_id: tenantId, id: current.id },
         include: listingInclude,
       });
       if (!row) {
@@ -527,6 +544,8 @@ export class VehicleListingService {
         first_registration_date: true,
         co2_wltp_g_km: true,
         co2_nedc_g_km: true,
+        color: true,
+        emission_class: true,
       },
     });
     if (!vehicle) {

@@ -16,6 +16,8 @@ const baseVehicle = {
   first_registration: '2020-03-15',
   co2_wltp_g_km: 120,
   co2_nedc_g_km: null,
+  color: 'Black',
+  emission_class: 'EURO6',
 };
 
 function baseInput(
@@ -98,6 +100,16 @@ describe('computeVehicleListingContentSha256', () => {
     const before = computeVehicleListingContentSha256(baseInput());
     const after = computeVehicleListingContentSha256(
       baseInput({ price_gross_eur: '15001.00' }),
+    );
+    expect(after).not.toBe(before);
+  });
+
+  it('changes when vehicle color changes', () => {
+    const before = computeVehicleListingContentSha256(baseInput());
+    const after = computeVehicleListingContentSha256(
+      baseInput({
+        vehicle: { ...baseVehicle, color: 'White' },
+      }),
     );
     expect(after).not.toBe(before);
   });

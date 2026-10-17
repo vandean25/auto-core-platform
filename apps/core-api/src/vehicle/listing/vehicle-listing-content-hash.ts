@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import type { VehicleListingVatDisplay } from '@prisma/client';
 import { VEHICLE_LISTING_PLATFORM_DEFAULTS } from './vehicle-listing-platform.defaults.js';
 
-export const VEHICLE_LISTING_CONTENT_HASH_SCHEMA_VERSION = 2;
+export const VEHICLE_LISTING_CONTENT_HASH_SCHEMA_VERSION = 3;
 
 export interface VehicleListingContentHashEquipmentRow {
   code: string;
@@ -36,6 +36,8 @@ export interface VehicleListingContentHashVehicleRow {
   first_registration: string | null;
   co2_wltp_g_km: number | null;
   co2_nedc_g_km: number | null;
+  color: string | null;
+  emission_class: string | null;
 }
 
 export interface VehicleListingContentHashInput {

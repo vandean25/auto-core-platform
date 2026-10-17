@@ -26,8 +26,7 @@ import {
 import { costBasis } from './vehicle-cost.js';
 import { assertTenantCustomerExists } from './vehicle-stock-ref.validator.js';
 import type { PatchVehicleStockDto } from './dto/patch-vehicle-stock.dto.js';
-import { resolveCurrentReceivedStockPurchaseId } from '../vehicle/equipment/vehicle-equipment-stock-cycle.js';
-import { syncVehicleListingContentHash } from '../vehicle/listing/vehicle-listing-hash-sync.js';
+import { syncVehicleListingContentHashWhenStockCycleExists } from '../vehicle/listing/vehicle-listing-hash-sync.js';
 import type { GewaehrleistungDueListQueryDto } from './dto/gewaehrleistung-due-list.dto.js';
 import {
   gewaehrleistungDueWindow,
@@ -577,17 +576,10 @@ export class VehicleStockQueryService {
             },
           });
           if (result.count === 1) {
-            const stockPurchaseId = await resolveCurrentReceivedStockPurchaseId(
-              tx,
-              tenantId,
-              vehicleId,
-              siteId,
-            );
-            await syncVehicleListingContentHash(tx, {
+            await syncVehicleListingContentHashWhenStockCycleExists(tx, {
               tenantId,
               siteId,
               vehicleId,
-              stockPurchaseId,
             });
           }
           return result;
@@ -595,23 +587,11 @@ export class VehicleStockQueryService {
       : await this.prisma.$transaction(async (tx) => {
           const result = await tx.vehicle.updateMany({ where, data });
           if (result.count === 1) {
-            try {
-              const stockPurchaseId =
-                await resolveCurrentReceivedStockPurchaseId(
-                  tx,
-                  tenantId,
-                  vehicleId,
-                  siteId,
-                );
-              await syncVehicleListingContentHash(tx, {
-                tenantId,
-                siteId,
-                vehicleId,
-                stockPurchaseId,
-              });
-            } catch {
-              // No received purchase for this cycle; listing hash sync is not applicable.
-            }
+            await syncVehicleListingContentHashWhenStockCycleExists(tx, {
+              tenantId,
+              siteId,
+              vehicleId,
+            });
           }
           return result;
         });

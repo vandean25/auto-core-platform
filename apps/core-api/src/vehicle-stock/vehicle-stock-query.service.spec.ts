@@ -299,6 +299,33 @@ describe('VehicleStockQueryService', () => {
       );
     });
 
+    it('commits a same-site lot move when no received stock purchase exists', async () => {
+      prisma.vehicle.findFirst
+        .mockResolvedValueOnce({
+          id: 'vehicle-1',
+          inventory_role: VehicleInventoryRole.NEW,
+          stock_status: VehicleStockStatus.IN_STOCK,
+          location_id: 'lot-current',
+          location: { id: 'lot-current', site_id: 'site-1' },
+        })
+        .mockResolvedValueOnce({
+          id: 'vehicle-1',
+          ledger_entries: [],
+          sales: [],
+        });
+      prisma.storageLocation.findFirst.mockResolvedValue({ id: 'lot-next' });
+      prisma.vehiclePurchase.findFirst.mockResolvedValue(null);
+      prisma.vehicle.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.patch('vehicle-1', {
+        location_id: 'lot-next',
+        expectedLocationId: 'lot-current',
+      });
+
+      expect(prisma.vehicle.updateMany).toHaveBeenCalled();
+      expect(prisma.vehicleListing.findFirst).not.toHaveBeenCalled();
+    });
+
     it('rejects a null vehicle lot update', async () => {
       prisma.vehicle.findFirst.mockResolvedValue({
         id: 'vehicle-1',

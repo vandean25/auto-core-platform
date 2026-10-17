@@ -1,4 +1,5 @@
 import { VehicleListingExportState, type Prisma } from '@prisma/client';
+import { findReceivedStockPurchaseIdForActiveSite } from '../equipment/vehicle-equipment-stock-cycle.js';
 import {
   computeListingContentSha256FromDb,
   photoMediaIdsForListing,
@@ -18,7 +19,31 @@ type SyncClient = Pick<
   | 'vehicleEquipmentFreeTextItem'
   | 'vehicleMedia'
   | 'vehicle'
+  | 'vehiclePurchase'
 >;
+
+export async function syncVehicleListingContentHashWhenStockCycleExists(
+  prisma: SyncClient,
+  params: {
+    tenantId: string;
+    siteId: string;
+    vehicleId: string;
+  },
+): Promise<boolean> {
+  const stockPurchaseId = await findReceivedStockPurchaseIdForActiveSite(
+    prisma,
+    params.tenantId,
+    params.vehicleId,
+    params.siteId,
+  );
+  if (!stockPurchaseId) {
+    return false;
+  }
+  return syncVehicleListingContentHash(prisma, {
+    ...params,
+    stockPurchaseId,
+  });
+}
 
 export async function syncVehicleListingContentHash(
   prisma: SyncClient,
@@ -65,13 +90,20 @@ export async function applyListingContentHashUpdate(
     return false;
   }
 
-  await prisma.vehicleListing.update({
-    where: { tenant_id: listing.tenant_id, id: listing.id },
+  const guarded = await prisma.vehicleListing.updateMany({
+    where: {
+      tenant_id: listing.tenant_id,
+      id: listing.id,
+      revision: listing.revision,
+    },
     data: {
       content_sha256: nextHash,
       revision: { increment: 1 },
     },
   });
+  if (guarded.count !== 1) {
+    return false;
+  }
 
   await prisma.vehicleListingChannel.updateMany({
     where: {

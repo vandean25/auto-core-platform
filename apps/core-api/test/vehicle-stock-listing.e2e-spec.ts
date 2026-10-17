@@ -210,6 +210,93 @@ describe('Vehicle stock listing (e2e)', () => {
     expect(conflict.body.code).toBe('VEHICLE_LISTING_REVISION_CONFLICT');
   });
 
+  it('includes equipment saved before create in the initial content_sha256', async () => {
+    const created = await suite.createAndReceive({
+      vin: vin('LST-PRE'),
+      sellerType: 'VENDOR',
+    });
+    const vehicleId = created.received.vehicle_id;
+
+    const optionsRes = await request(suite.app.getHttpServer())
+      .get('/api/vehicle-equipment-options')
+      .set('Authorization', `Bearer ${suite.authToken}`)
+      .expect(200);
+    const abs = optionsRes.body.data.find(
+      (row: { code: string }) => row.code === 'ABS',
+    );
+
+    await request(suite.app.getHttpServer())
+      .put(`/api/vehicle-stock/${vehicleId}/equipment`)
+      .set('Authorization', `Bearer ${suite.authToken}`)
+      .send({
+        selections: [{ option_id: abs.id, assertion: 'ABSENT' }],
+        free_text_lines: ['Tow bar'],
+      })
+      .expect(200);
+
+    const withEquipment = await request(suite.app.getHttpServer())
+      .post(`/api/vehicle-stock/${vehicleId}/listing`)
+      .set('Authorization', `Bearer ${suite.authToken}`)
+      .send({
+        id: randomUUID(),
+        expected_stock_purchase_id: created.received.id,
+      })
+      .expect(201);
+
+    const bare = await suite.createAndReceive({
+      vin: vin('LST-BARE'),
+      sellerType: 'VENDOR',
+    });
+    const bareListing = await request(suite.app.getHttpServer())
+      .post(`/api/vehicle-stock/${bare.received.vehicle_id}/listing`)
+      .set('Authorization', `Bearer ${suite.authToken}`)
+      .send({
+        id: randomUUID(),
+        expected_stock_purchase_id: bare.received.id,
+      })
+      .expect(201);
+
+    expect(withEquipment.body.content_sha256).not.toBe(
+      bareListing.body.content_sha256,
+    );
+  });
+
+  it('recomputes content_sha256 when vehicle color changes on stock patch', async () => {
+    const created = await suite.createAndReceive({
+      vin: vin('LST-COL'),
+      sellerType: 'VENDOR',
+    });
+    const vehicleId = created.received.vehicle_id;
+
+    await request(suite.app.getHttpServer())
+      .post(`/api/vehicle-stock/${vehicleId}/listing`)
+      .set('Authorization', `Bearer ${suite.authToken}`)
+      .send({
+        id: randomUUID(),
+        expected_stock_purchase_id: created.received.id,
+      })
+      .expect(201);
+
+    const before = await request(suite.app.getHttpServer())
+      .get(`/api/vehicle-stock/${vehicleId}/listing`)
+      .set('Authorization', `Bearer ${suite.authToken}`)
+      .expect(200);
+
+    await request(suite.app.getHttpServer())
+      .patch(`/api/vehicle-stock/${vehicleId}`)
+      .set('Authorization', `Bearer ${suite.authToken}`)
+      .send({ color: 'Alpine White' })
+      .expect(200);
+
+    const after = await request(suite.app.getHttpServer())
+      .get(`/api/vehicle-stock/${vehicleId}/listing`)
+      .set('Authorization', `Bearer ${suite.authToken}`)
+      .expect(200);
+
+    expect(after.body.content_sha256).not.toBe(before.body.content_sha256);
+    expect(after.body.revision).toBeGreaterThan(before.body.revision);
+  });
+
   it('recomputes content_sha256 when equipment changes on the stock cycle', async () => {
     const created = await suite.createAndReceive({
       vin: vin('LST-EQ'),

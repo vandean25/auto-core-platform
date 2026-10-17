@@ -52,6 +52,8 @@ export function vehicleRowForContentHash(
     | 'first_registration_date'
     | 'co2_wltp_g_km'
     | 'co2_nedc_g_km'
+    | 'color'
+    | 'emission_class'
   >,
 ): VehicleListingContentHashVehicleRow {
   return {
@@ -66,6 +68,8 @@ export function vehicleRowForContentHash(
     ),
     co2_wltp_g_km: vehicle.co2_wltp_g_km,
     co2_nedc_g_km: vehicle.co2_nedc_g_km,
+    color: vehicle.color,
+    emission_class: vehicle.emission_class,
   };
 }
 
@@ -108,6 +112,8 @@ export async function buildVehicleListingContentHashInput(
         first_registration_date: true,
         co2_wltp_g_km: true,
         co2_nedc_g_km: true,
+        color: true,
+        emission_class: true,
       },
     }),
     prisma.vehicleEquipmentSelection.findMany({
