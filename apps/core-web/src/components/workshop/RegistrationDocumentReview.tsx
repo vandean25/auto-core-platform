@@ -18,6 +18,7 @@ type MatchVehicle = { id: string; customerId?: string | null }
 type RegistrationIntakeDetail = {
   id: string
   state: string
+  appliedWorkshopOrderId?: string | null
   failureCode?: string | null
   evidence?: {
     documentKind: string
@@ -34,7 +35,8 @@ type RegistrationIntakeDetail = {
 type Props = {
   intake: RegistrationIntakeDetail
   onApply: (body: Record<string, unknown>) => Promise<void>
-  onCreateOrder: (body: Record<string, unknown>) => Promise<void>
+  onStartCheckIn: () => Promise<void>
+  onContinueCheckIn: (workshopOrderId: string) => void
   onAbort: () => Promise<void>
   onDelete: () => Promise<void>
 }
@@ -53,7 +55,8 @@ const BLOCKING_CASES = [
 export function RegistrationDocumentReview({
   intake,
   onApply,
-  onCreateOrder,
+  onStartCheckIn,
+  onContinueCheckIn,
   onAbort,
   onDelete,
 }: Props) {
@@ -238,15 +241,24 @@ export function RegistrationDocumentReview({
             {t('registrationReview.confirmIdentity')}
           </Button>
         )}
-        {intake.state === 'APPLIED' && (
+        {intake.state === 'APPLIED' && intake.appliedWorkshopOrderId ? (
           <Button
             variant="secondary"
             disabled={busy}
-            onClick={() => run(() => onCreateOrder({ odometer: 0, fuelLevel: 50 }))}
+            onClick={() => onContinueCheckIn(intake.appliedWorkshopOrderId!)}
           >
-            {t('registrationReview.createOrder')}
+            {t('registrationReview.continueCheckIn')}
           </Button>
-        )}
+        ) : null}
+        {intake.state === 'APPLIED' && !intake.appliedWorkshopOrderId ? (
+          <Button
+            variant="secondary"
+            disabled={busy}
+            onClick={() => run(() => onStartCheckIn())}
+          >
+            {t('registrationReview.startCheckIn')}
+          </Button>
+        ) : null}
         {intake.state !== 'APPLIED' && (
           <>
             <Button variant="outline" disabled={busy} onClick={() => run(onAbort)}>

@@ -1187,6 +1187,7 @@
     "toastConfirmed": "Kunde und Fahrzeug bestätigt",
     "toastOdometerRequired": "Gültigen Kilometerstand eingeben, bevor der Auftrag erstellt wird.",
     "toastOrderCreated": "Werkstattauftrag erstellt",
+    "toastCheckInReady": "Werkstattauftrag angelegt — Fahrzeugannahme starten",
     "extractionFailed": "Extraktion fehlgeschlagen ({{code}}). Löschen und mit neuem Upload erneut versuchen.",
     "unknown": "unbekannt",
     "uploadFailed": "Upload fehlgeschlagen",
@@ -1200,6 +1201,8 @@
     "lowConfidence": " (niedrige Konfidenz)",
     "confirmIdentity": "Identität bestätigen",
     "createOrder": "Werkstattauftrag anlegen",
+    "startCheckIn": "Fahrzeugannahme starten",
+    "continueCheckIn": "Fahrzeugannahme fortsetzen",
     "abort": "Abbrechen",
     "delete": "Löschen"
   },
