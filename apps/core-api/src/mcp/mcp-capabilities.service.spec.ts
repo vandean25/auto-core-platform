@@ -16,6 +16,7 @@ import {
   type McpCapabilitiesPage,
   type McpCapability,
 } from './mcp-capabilities.service.js';
+import type { McpUserLocaleService } from './mcp-user-locale.service.js';
 import { decodeMcpCursor } from './mcp-output.util.js';
 
 const TENANT_A = { id: 'tenant-a', name: 'Tenant Alpha' };
@@ -139,6 +140,9 @@ function createService() {
       async (actionType: string) => TENANT_A_RULES[actionType] ?? null,
     ),
   };
+  const mcpUserLocale = {
+    resolveEffectiveLocaleForSession: jest.fn().mockResolvedValue('de'),
+  };
   const service = new McpCapabilitiesService(
     agentPolicy as unknown as AgentPolicyService,
     decisionLiveApply as unknown as DecisionLiveApplyService,
@@ -146,6 +150,7 @@ function createService() {
     siteContext as unknown as SiteContextService,
     systemPrisma as unknown as SystemPrismaService,
     tenantContext as unknown as TenantContextService,
+    mcpUserLocale as unknown as McpUserLocaleService,
   );
   return {
     service,
@@ -155,6 +160,7 @@ function createService() {
     prisma,
     siteContext,
     systemPrisma,
+    mcpUserLocale,
   };
 }
 
@@ -163,6 +169,16 @@ function byTool(data: McpCapability[]): Map<string, McpCapability> {
 }
 
 describe('McpCapabilitiesService.whoami', () => {
+  it('includes the effective user locale and response-language instruction for agents', async () => {
+    const { service, mcpUserLocale } = createService();
+    mcpUserLocale.resolveEffectiveLocaleForSession.mockResolvedValue('en');
+
+    const result = await service.whoami({ agentId: 'mcp:cursor' });
+
+    expect(result.user_locale).toBe('en');
+    expect(result.response_language_instruction).toMatch(/English/i);
+  });
+
   it('reports the agent as caller with the on-behalf role, tenant, site, and mode', async () => {
     const { service, decisionLiveApply } = createService();
     decisionLiveApply.resolveEffectiveMode.mockResolvedValue('live');
@@ -175,6 +191,8 @@ describe('McpCapabilitiesService.whoami', () => {
       tenant: TENANT_A,
       site: { id: 'site-a1', name: 'Main site' },
       mode: 'live',
+      user_locale: 'de',
+      response_language_instruction: expect.stringContaining('Deutsch'),
     });
     expect(decisionLiveApply.resolveEffectiveMode).toHaveBeenCalledWith(
       TENANT_A.id,

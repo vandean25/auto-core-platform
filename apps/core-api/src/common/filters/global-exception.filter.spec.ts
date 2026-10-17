@@ -332,6 +332,10 @@ describe('GlobalExceptionFilter', () => {
       code: 'VEHICLE_HAS_ACTIVE_ORDER',
       orderId: 'wo-live',
       orderNumber: 'WO-2026-0007',
+      params: {
+        orderId: 'wo-live',
+        orderNumber: 'WO-2026-0007',
+      },
     });
   });
 

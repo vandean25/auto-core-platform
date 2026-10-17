@@ -20,6 +20,7 @@ import {
 import {
   isClientSafeOperationalHttpError,
   pickClientSafeHttpErrorDetails,
+  pickClientSafeHttpErrorParams,
   pickClientSafeHttpErrorStructuredDetails,
 } from '../errors/client-safe-http-error-codes.js';
 import { TenantContextStorage } from '../services/tenant-context.storage.js';
@@ -34,6 +35,7 @@ type ResolvedError = {
   error?: string;
   code?: string;
   details?: Record<string, string>;
+  params?: Record<string, string>;
   structuredDetails?: Record<string, unknown>;
 };
 
@@ -71,6 +73,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       error: resolved.error || this.getHttpStatusName(resolved.status),
       ...(resolved.code ? { code: resolved.code } : {}),
       ...(resolved.details ?? {}),
+      ...(resolved.params && Object.keys(resolved.params).length > 0
+        ? { params: resolved.params }
+        : {}),
       ...(resolved.structuredDetails ?? {}),
       ...(eventId ? { eventId } : {}),
       // The x-request-id the request was logged under, so a user can quote it to support.
@@ -156,12 +161,16 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       isRecord(responseBody) && clientSafeOperational
         ? pickClientSafeHttpErrorDetails(responseBody)
         : {};
+    const params =
+      isRecord(responseBody) && clientSafeOperational
+        ? pickClientSafeHttpErrorParams(responseBody)
+        : {};
     const structuredDetails =
       isRecord(responseBody) && clientSafeOperational
         ? pickClientSafeHttpErrorStructuredDetails(responseBody)
         : {};
 
-    return { status, message, error, code, details, structuredDetails };
+    return { status, message, error, code, details, params, structuredDetails };
   }
 
   private handlePrismaError(

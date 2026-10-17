@@ -1,6 +1,7 @@
 {
   "treatNamespaceAsUsed": ["enums", "errors"],
   "usedKeyPrefixes": [
+    "errors:codes.",
     "enums:status.",
     "enums:importEntityType.",
     "enums:importField.",

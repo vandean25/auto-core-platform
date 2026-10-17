@@ -29,6 +29,8 @@ import { resolveMcpAgentName } from './mcp-agent-id.util.js';
 import { decodeMcpCursor, encodeMcpCursor } from './mcp-output.util.js';
 import { MCP_TOOL_DESCRIPTIONS } from './mcp-tool-descriptions.js';
 import { effectiveMcpWriteTier } from './mcp-write-tier.util.js';
+import { buildAgentResponseLanguageInstruction } from './mcp-agent-response-language.js';
+import { McpUserLocaleService } from './mcp-user-locale.service.js';
 
 export type McpCallerType = 'agent' | 'human_on_behalf';
 
@@ -38,6 +40,8 @@ export type McpWhoami = {
   tenant: { id: string; name: string };
   site: { id: string; name: string } | null;
   mode: DecisionApplyMode;
+  user_locale: 'de' | 'en';
+  response_language_instruction: string;
 };
 
 /** Base tier from policy. A call can still escalate AUTO to PROPOSE from its own context. */
@@ -71,6 +75,7 @@ export class McpCapabilitiesService {
     private readonly siteContext: SiteContextService,
     private readonly systemPrisma: SystemPrismaService,
     private readonly tenantContext: TenantContextService,
+    private readonly mcpUserLocale: McpUserLocaleService,
   ) {}
 
   /**
@@ -84,13 +89,23 @@ export class McpCapabilitiesService {
       throw new ForbiddenException('MCP requires an active tenant membership');
     }
     const tenantId = user.tenantId;
-    const [caller, tenant, site, mode] = await Promise.all([
+    const [caller, tenant, site, mode, userLocale] = await Promise.all([
       this.resolveCaller(session.agentId, user.userId),
       this.loadTenant(tenantId),
       this.loadActiveSite(tenantId),
       this.decisionLiveApply.resolveEffectiveMode(tenantId),
+      this.mcpUserLocale.resolveEffectiveLocaleForSession(),
     ]);
-    return { caller, role: user.role ?? null, tenant, site, mode };
+    return {
+      caller,
+      role: user.role ?? null,
+      tenant,
+      site,
+      mode,
+      user_locale: userLocale,
+      response_language_instruction:
+        buildAgentResponseLanguageInstruction(userLocale),
+    };
   }
 
   /**
