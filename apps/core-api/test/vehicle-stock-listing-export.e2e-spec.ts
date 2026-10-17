@@ -94,6 +94,11 @@ describe('Vehicle listing export download (e2e)', () => {
       )
       .set('Authorization', `Bearer ${suite.authToken}`)
       .buffer(true)
+      .parse((response, callback) => {
+        const chunks: Buffer[] = [];
+        response.on('data', (chunk: Buffer) => chunks.push(chunk));
+        response.on('end', () => callback(null, Buffer.concat(chunks)));
+      })
       .expect(200);
 
     expect(download.headers['content-type']).toContain('application/zip');
