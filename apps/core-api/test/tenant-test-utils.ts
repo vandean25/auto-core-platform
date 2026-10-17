@@ -516,7 +516,11 @@ export async function cleanupTestTenantGraph(
   await tenantPrisma.customerConsentUnsubscribeToken.deleteMany({});
   await tenantPrisma.customerCommunicationState.deleteMany({});
   await tenantPrisma.customerContactPoint.deleteMany({});
+  await tenantPrisma.vehicleEquipmentSelection.deleteMany({});
+  await tenantPrisma.vehicleEquipmentFreeTextItem.deleteMany({});
+  await tenantPrisma.vehicleMedia.deleteMany({});
   await tenantPrisma.vehicle.deleteMany({});
+  await tenantPrisma.vehicleEquipmentOption.deleteMany({});
   await tenantPrisma.catalogOemConcernMake.deleteMany({});
   await tenantPrisma.catalogOemConcern.deleteMany({});
   await tenantPrisma.vehicleMakeAlias.deleteMany({});
