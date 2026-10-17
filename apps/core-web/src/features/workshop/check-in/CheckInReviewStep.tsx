@@ -3,8 +3,10 @@ import { formatDateTime, formatOdometerKm, formatPercent } from '@/lib/format'
 import type { WorkshopCheckIn } from '@/api/workshop-check-in'
 import { WorkshopCheckInInspectionChecklist } from './WorkshopCheckInInspectionChecklist'
 import { CheckInSignatureSlot } from './CheckInSignatureSlot'
+import type { CheckInSignaturePadHandle } from './CheckInSignaturePad'
 import type { CheckInDraftSnapshot } from './check-in-draft'
 import type { CheckInZoneId } from './check-in-zones'
+import type { RefObject } from 'react'
 
 type Props = {
   orderId: string
@@ -12,6 +14,14 @@ type Props = {
   vehicleLabel: string
   draft: CheckInDraftSnapshot
   record: WorkshopCheckIn
+  readOnly: boolean
+  signedByName: string
+  onSignedByNameChange: (value: string) => void
+  acknowledged: boolean
+  onAcknowledgedChange: (value: boolean) => void
+  signaturePadRef: RefObject<CheckInSignaturePadHandle | null>
+  signaturePreviewUrl?: string | null
+  onSignatureCanvasClear?: () => void
 }
 
 export function CheckInReviewStep({
@@ -20,6 +30,14 @@ export function CheckInReviewStep({
   vehicleLabel,
   draft,
   record,
+  readOnly,
+  signedByName,
+  onSignedByNameChange,
+  acknowledged,
+  onAcknowledgedChange,
+  signaturePadRef,
+  signaturePreviewUrl,
+  onSignatureCanvasClear,
 }: Props) {
   const { t } = useTranslation('workshop')
 
@@ -80,7 +98,16 @@ export function CheckInReviewStep({
       </section>
 
       <WorkshopCheckInInspectionChecklist orderId={orderId} />
-      <CheckInSignatureSlot />
+      <CheckInSignatureSlot
+        readOnly={readOnly}
+        signedByName={signedByName}
+        onSignedByNameChange={onSignedByNameChange}
+        acknowledged={acknowledged}
+        onAcknowledgedChange={onAcknowledgedChange}
+        padRef={signaturePadRef}
+        signaturePreviewUrl={signaturePreviewUrl}
+        onSignatureCanvasClear={onSignatureCanvasClear}
+      />
     </div>
   )
 }

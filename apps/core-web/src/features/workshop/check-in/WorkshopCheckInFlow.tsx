@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import type { CheckInSignaturePadHandle } from './CheckInSignaturePad'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -9,6 +10,7 @@ import { useWorkshopOrder } from '@/api/workshop'
 import {
   useCompleteWorkshopCheckIn,
   useCreateWorkshopCheckIn,
+  useUploadWorkshopCheckInMedia,
   useWorkshopCheckIn,
   useWorkshopCheckInMedia,
 } from '@/api/workshop-check-in'
@@ -31,13 +33,18 @@ function canStartCheckIn(status: string | undefined) {
 }
 
 export function WorkshopCheckInFlow({ orderId }: Props) {
-  const { t } = useTranslation('workshop')
+  const { t, i18n } = useTranslation('workshop')
   const navigate = useNavigate()
   const orderQuery = useWorkshopOrder(orderId)
   const checkInIdRef = useRef<string | null>(null)
   const [createError, setCreateError] = useState<string | null>(null)
   const createCheckIn = useCreateWorkshopCheckIn()
   const completeCheckIn = useCompleteWorkshopCheckIn()
+  const uploadCheckInMedia = useUploadWorkshopCheckInMedia()
+  const signaturePadRef = useRef<CheckInSignaturePadHandle | null>(null)
+  const [signedByName, setSignedByName] = useState('')
+  const [acknowledged, setAcknowledged] = useState(false)
+  const [signatureMediaId, setSignatureMediaId] = useState<string | null>(null)
   const [step, setStep] = useState<CheckInStep>('vehicle')
   const [localPreviewUrls, setLocalPreviewUrls] = useState<Record<string, string>>({})
   const [sessionMedia, setSessionMedia] = useState<
@@ -51,6 +58,21 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
   )
 
   const readOnly = checkInQuery.data?.status === 'COMPLETED'
+
+  useEffect(() => {
+    if (!checkInQuery.data) {
+      return
+    }
+    if (checkInQuery.data.signed_by_name) {
+      setSignedByName(checkInQuery.data.signed_by_name)
+    }
+    if (checkInQuery.data.signature_media_id) {
+      setSignatureMediaId(checkInQuery.data.signature_media_id)
+    }
+    if (checkInQuery.data.status === 'COMPLETED') {
+      setAcknowledged(true)
+    }
+  }, [checkInQuery.data])
 
   const {
     draft,
@@ -118,6 +140,14 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
     }
     return `${vehicle.year} ${vehicle.make} ${vehicle.model}`
   }, [orderQuery.data?.vehicle])
+
+  const signaturePreviewUrl = useMemo(() => {
+    if (!signatureMediaId) {
+      return null
+    }
+    const fromQuery = (mediaQuery.data ?? []).find((item) => item.id === signatureMediaId)
+    return fromQuery?.preview_url ?? null
+  }, [mediaQuery.data, signatureMediaId])
 
   if (checkInQuery.isError) {
     return (
@@ -195,14 +225,61 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
   }
 
   const handleComplete = async () => {
+    const trimmedName = signedByName.trim()
+    if (!acknowledged || !trimmedName) {
+      toast.error(t('checkIn.errors.CHECK_IN_SIGNATURE_REQUIRED'))
+      return
+    }
+    if (!signaturePadRef.current?.hasInk() && !signatureMediaId) {
+      toast.error(t('checkIn.errors.CHECK_IN_SIGNATURE_REQUIRED'))
+      return
+    }
+
     const revision = await flushBeforeNavigate()
     if (revision === undefined) {
       return
     }
+
     try {
+      const hasInk = signaturePadRef.current?.hasInk() ?? false
+      let mediaId = signatureMediaId
+      if (hasInk) {
+        const blob = await signaturePadRef.current?.toPngBlob()
+        if (!blob) {
+          toast.error(t('checkIn.errors.CHECK_IN_SIGNATURE_REQUIRED'))
+          return
+        }
+        const uploadId = generateId()
+        const file = new File([blob], 'signature.png', { type: 'image/png' })
+        const uploaded = await uploadCheckInMedia.mutateAsync({
+          orderId,
+          file,
+          clientUploadId: uploadId,
+          expectedRevision: revision,
+          purpose: 'CHECK_IN_SIGNATURE',
+        })
+        mediaId = uploaded.id
+        setSignatureMediaId(mediaId)
+      } else if (!mediaId) {
+        toast.error(t('checkIn.errors.CHECK_IN_SIGNATURE_REQUIRED'))
+        return
+      }
+
+      const latestRevision =
+        (await checkInQuery.refetch()).data?.revision ?? revision
+
+      const acknowledgementLocale = i18n.language
+        .toLowerCase()
+        .startsWith('en')
+        ? 'en'
+        : 'de'
+
       await completeCheckIn.mutateAsync({
         orderId,
-        expectedRevision: revision,
+        expectedRevision: latestRevision,
+        signatureMediaId: mediaId,
+        signedByName: trimmedName,
+        acknowledgementLocale,
       })
       toast.success(t('checkIn.complete.success'))
       await checkInQuery.refetch()
@@ -270,9 +347,11 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
           readOnly={readOnly}
           expectedRevision={checkInQuery.data.revision}
           media={mediaQuery.isError ? [] : [
-            ...(mediaQuery.data ?? []),
+            ...(mediaQuery.data ?? []).filter((item) => item.purpose === 'CHECK_IN'),
             ...sessionMedia.filter(
-              (item) => !(mediaQuery.data ?? []).some((existing) => existing.id === item.id),
+              (item) =>
+                item.purpose === 'CHECK_IN' &&
+                !(mediaQuery.data ?? []).some((existing) => existing.id === item.id),
             ),
           ]}
           localPreviewUrls={localPreviewUrls}
@@ -299,6 +378,14 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
           vehicleLabel={vehicleLabel}
           draft={draft}
           record={checkInQuery.data}
+          readOnly={readOnly}
+          signedByName={signedByName}
+          onSignedByNameChange={setSignedByName}
+          acknowledged={acknowledged}
+          onAcknowledgedChange={setAcknowledged}
+          signaturePadRef={signaturePadRef}
+          signaturePreviewUrl={signaturePreviewUrl}
+          onSignatureCanvasClear={() => setSignatureMediaId(null)}
         />
       )}
 

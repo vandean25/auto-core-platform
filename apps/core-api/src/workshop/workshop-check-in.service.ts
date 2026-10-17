@@ -4,7 +4,13 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { Prisma, WorkshopCheckInStatus } from '@prisma/client';
+import {
+  Prisma,
+  WorkshopCheckIn,
+  WorkshopCheckInStatus,
+  WorkshopMediaPurpose,
+} from '@prisma/client';
+import { MechanicMediaStorage } from '../mechanic/mechanic-media.storage.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SiteContextService } from '../common/services/site-context.service.js';
 import { lockSitesAndAssertActive } from '../site/document-retarget.helpers.js';
@@ -37,6 +43,15 @@ import {
   lockWorkshopOrderForUpdate,
 } from './workshop-check-in-lock.helpers.js';
 import type { CompleteWorkshopCheckInDto } from './dto/workshop-check-in.dto.js';
+import {
+  CHECK_IN_ACKNOWLEDGEMENT_VERSION,
+  resolveCheckInAcknowledgementText,
+} from './workshop-check-in-acknowledgement.js';
+import {
+  hashCheckInDeviceEvidence,
+  hashCheckInIpEvidence,
+  sha256Buffer,
+} from './workshop-check-in-request-evidence.js';
 
 export type WorkshopCheckInCreateResult = {
   body: WorkshopCheckInResponseDto;
@@ -56,6 +71,7 @@ export class WorkshopCheckInService {
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
     private readonly siteContext: SiteContextService,
+    private readonly mediaStorage: MechanicMediaStorage,
   ) {}
 
   async create(
@@ -83,7 +99,7 @@ export class WorkshopCheckInService {
           throw new NotFoundException('Workshop check-in not found');
         }
         return {
-          body: toWorkshopCheckInResponse(linked),
+          body: await this.toResponse(linked),
           created: false,
         };
       }
@@ -149,7 +165,7 @@ export class WorkshopCheckInService {
         });
       });
 
-      return { body: toWorkshopCheckInResponse(created), created: true };
+      return { body: await this.toResponse(created), created: true };
     } catch (error) {
       if (!isCheckInUniqueViolation(error)) {
         throw error;
@@ -178,7 +194,7 @@ export class WorkshopCheckInService {
       throw new NotFoundException('Workshop check-in not found');
     }
 
-    return toWorkshopCheckInResponse(row);
+    return this.toResponse(row);
   }
 
   async updateDraft(
@@ -287,13 +303,17 @@ export class WorkshopCheckInService {
         });
       }
 
-      return toWorkshopCheckInResponse(updated);
+      return this.toResponse(updated);
     });
   }
 
   async complete(
     orderId: string,
     dto: CompleteWorkshopCheckInDto,
+    requestEvidence: {
+      userAgent?: string;
+      ip?: string;
+    } = {},
   ): Promise<WorkshopCheckInResponseDto> {
     const { tenantId, siteId } = await resolveEstimateScope({
       prisma: this.prisma,
@@ -304,6 +324,92 @@ export class WorkshopCheckInService {
 
     const completedByUserId =
       this.tenantContext.getAuthenticatedUser()?.userId ?? null;
+
+    const signedByName = dto.signed_by_name.trim();
+    if (!signedByName) {
+      throw new UnprocessableEntityException({
+        code: CHECK_IN_ERROR_CODES.CHECK_IN_SIGNATURE_REQUIRED,
+        message:
+          'Customer signature evidence is required to complete check-in.',
+      });
+    }
+
+    const draftForSignature = await this.prisma.workshopCheckIn.findFirst({
+      where: { tenant_id: tenantId, workshop_order_id: orderId },
+      select: { id: true, status: true },
+    });
+    if (!draftForSignature) {
+      throw new NotFoundException('Workshop check-in not found');
+    }
+    if (draftForSignature.status === WorkshopCheckInStatus.COMPLETED) {
+      const completed = await this.prisma.workshopCheckIn.findFirst({
+        where: { tenant_id: tenantId, workshop_order_id: orderId },
+      });
+      if (!completed) {
+        throw new NotFoundException('Workshop check-in not found');
+      }
+      return this.assertCompletedSignatureMatches(
+        tenantId,
+        draftForSignature.id,
+        completed,
+        dto,
+      );
+    }
+
+    const signatureMedia = await this.prisma.workshopMedia.findFirst({
+      where: {
+        tenant_id: tenantId,
+        id: dto.signature_media_id,
+        check_in_id: draftForSignature.id,
+        workshop_order_id: orderId,
+        purpose: WorkshopMediaPurpose.CHECK_IN_SIGNATURE,
+      },
+      select: {
+        id: true,
+        storage_bucket: true,
+        storage_key: true,
+        mime_type: true,
+      },
+    });
+    if (!signatureMedia || signatureMedia.mime_type !== 'image/png') {
+      throw new UnprocessableEntityException({
+        code: CHECK_IN_ERROR_CODES.CHECK_IN_SIGNATURE_REQUIRED,
+        message:
+          'Customer signature evidence is required to complete check-in.',
+      });
+    }
+
+    let signatureContentSha256: string;
+    try {
+      const bytes = await this.mediaStorage.readObjectBytes(
+        signatureMedia.storage_bucket,
+        signatureMedia.storage_key,
+      );
+      signatureContentSha256 = sha256Buffer(bytes);
+    } catch {
+      throw new UnprocessableEntityException({
+        code: CHECK_IN_ERROR_CODES.CHECK_IN_SIGNATURE_REQUIRED,
+        message:
+          'Customer signature evidence is required to complete check-in.',
+      });
+    }
+
+    const signedAt = new Date();
+    const deviceHash = hashCheckInDeviceEvidence(
+      tenantId,
+      requestEvidence.userAgent,
+    );
+    const ipHash = hashCheckInIpEvidence(tenantId, requestEvidence.ip);
+    const acknowledgementText = resolveCheckInAcknowledgementText(
+      dto.acknowledgement_locale,
+    );
+    if (dto.acknowledgement_version !== CHECK_IN_ACKNOWLEDGEMENT_VERSION) {
+      throw new UnprocessableEntityException({
+        code: CHECK_IN_ERROR_CODES.CHECK_IN_SIGNATURE_REQUIRED,
+        message:
+          'Customer signature evidence is required to complete check-in.',
+      });
+    }
 
     return this.prisma.$transaction(async (tx) => {
       await lockSitesAndAssertActive(tx, tenantId, [siteId]);
@@ -332,7 +438,12 @@ export class WorkshopCheckInService {
       }
 
       if (existing.status === WorkshopCheckInStatus.COMPLETED) {
-        return toWorkshopCheckInResponse(existing);
+        return this.assertCompletedSignatureMatches(
+          tenantId,
+          existing.id,
+          existing,
+          dto,
+        );
       }
 
       if (existing.revision !== dto.expected_revision) {
@@ -376,7 +487,7 @@ export class WorkshopCheckInService {
           })
         : [];
 
-      const completedAt = new Date();
+      const completedAt = signedAt;
       const snapshot = buildWorkshopCheckInEvidenceSnapshot({
         row: existing,
         media,
@@ -389,6 +500,14 @@ export class WorkshopCheckInService {
         })),
         completedAt,
         completedByUserId,
+        signature: {
+          media_id: signatureMedia.id,
+          content_sha256: signatureContentSha256,
+          signed_by_name: signedByName,
+          signed_at: signedAt,
+          acknowledgement_version: CHECK_IN_ACKNOWLEDGEMENT_VERSION,
+          acknowledgement_text: acknowledgementText,
+        },
       });
       const contentSha256 = hashWorkshopCheckInEvidenceSnapshot(snapshot);
       const nextRevision = existing.revision + 1;
@@ -408,6 +527,12 @@ export class WorkshopCheckInService {
           content_sha256: contentSha256,
           completed_at: completedAt,
           completed_by_user_id: completedByUserId,
+          signed_by_name: signedByName,
+          signed_at: signedAt,
+          acknowledgement_version: CHECK_IN_ACKNOWLEDGEMENT_VERSION,
+          acknowledgement_text: acknowledgementText,
+          device_hash: deviceHash,
+          ip_hash: ipHash,
         },
       });
 
@@ -419,7 +544,12 @@ export class WorkshopCheckInService {
           throw new NotFoundException('Workshop check-in not found');
         }
         if (latest.status === WorkshopCheckInStatus.COMPLETED) {
-          return toWorkshopCheckInResponse(latest);
+          return this.assertCompletedSignatureMatches(
+            tenantId,
+            latest.id,
+            latest,
+            dto,
+          );
         }
         throw new ConflictException({
           code: CHECK_IN_ERROR_CODES.CHECK_IN_CONFLICT,
@@ -442,8 +572,53 @@ export class WorkshopCheckInService {
         });
       }
 
-      return toWorkshopCheckInResponse(completed);
+      return this.toResponse(completed);
     });
+  }
+
+  private async findSignatureMediaId(
+    tenantId: string,
+    checkInId: string,
+  ): Promise<string | null> {
+    const row = await this.prisma.workshopMedia.findFirst({
+      where: {
+        tenant_id: tenantId,
+        check_in_id: checkInId,
+        purpose: WorkshopMediaPurpose.CHECK_IN_SIGNATURE,
+      },
+      select: { id: true },
+    });
+    return row?.id ?? null;
+  }
+
+  private async toResponse(
+    row: WorkshopCheckIn,
+  ): Promise<WorkshopCheckInResponseDto> {
+    const signatureMediaId = await this.findSignatureMediaId(
+      row.tenant_id,
+      row.id,
+    );
+    return toWorkshopCheckInResponse(row, signatureMediaId);
+  }
+
+  private async assertCompletedSignatureMatches(
+    tenantId: string,
+    checkInId: string,
+    existing: WorkshopCheckIn,
+    dto: CompleteWorkshopCheckInDto,
+  ): Promise<WorkshopCheckInResponseDto> {
+    const storedMediaId = await this.findSignatureMediaId(tenantId, checkInId);
+    const nameMatches =
+      (existing.signed_by_name?.trim() ?? '') === dto.signed_by_name.trim();
+    const mediaMatches = storedMediaId === dto.signature_media_id;
+    if (!nameMatches || !mediaMatches) {
+      throw new ConflictException({
+        code: CHECK_IN_ERROR_CODES.CHECK_IN_CONFLICT,
+        message:
+          'Check-in was already completed with different signature evidence.',
+      });
+    }
+    return toWorkshopCheckInResponse(existing, storedMediaId);
   }
 
   private async ensureInspectionLinked(tenantId: string, checkInId: string) {
@@ -532,7 +707,7 @@ export class WorkshopCheckInService {
       if (!linked) {
         throw new NotFoundException('Workshop check-in not found');
       }
-      return toWorkshopCheckInResponse(linked);
+      return this.toResponse(linked);
     }
 
     throw new ConflictException({

@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Req,
   HttpCode,
   HttpStatus,
   Param,
@@ -21,7 +22,7 @@ import {
   ApiOkResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { MAX_IMAGE_BYTES } from '../mechanic/dto/media.dto.js';
 import {
   CompleteWorkshopCheckInDto,
@@ -146,7 +147,11 @@ export class WorkshopCheckInController {
   complete(
     @Param('orderId', ParseUUIDPipe) orderId: string,
     @Body() dto: CompleteWorkshopCheckInDto,
+    @Req() req: Request,
   ): Promise<WorkshopCheckInResponseDto> {
-    return this.checkIns.complete(orderId, dto);
+    return this.checkIns.complete(orderId, dto, {
+      userAgent: req.headers['user-agent'],
+      ip: req.ip,
+    });
   }
 }

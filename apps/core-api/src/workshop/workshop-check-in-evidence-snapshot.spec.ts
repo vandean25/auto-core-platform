@@ -9,6 +9,17 @@ import {
 
 const COMPLETED_AT = new Date('2026-10-17T12:00:00.000Z');
 
+function sampleSignature() {
+  return {
+    media_id: 'sig-media-1',
+    content_sha256: 'a'.repeat(64),
+    signed_by_name: 'Signer Example',
+    signed_at: COMPLETED_AT,
+    acknowledgement_version: 'check-in-signature-v1',
+    acknowledgement_text: 'acknowledgement text',
+  };
+}
+
 function checkInMedia(
   overrides: Partial<{
     id: string;
@@ -107,6 +118,7 @@ describe('workshop check-in evidence snapshot', () => {
       checklistItems: [],
       completedAt: COMPLETED_AT,
       completedByUserId: 'user-1',
+      signature: sampleSignature(),
     });
     const right = buildWorkshopCheckInEvidenceSnapshot({
       row: {
@@ -133,6 +145,7 @@ describe('workshop check-in evidence snapshot', () => {
       checklistItems: [],
       completedAt: COMPLETED_AT,
       completedByUserId: 'user-1',
+      signature: sampleSignature(),
     });
 
     expect(hashWorkshopCheckInEvidenceSnapshot(left)).toBe(
@@ -148,6 +161,7 @@ describe('workshop check-in evidence snapshot', () => {
         checklistItems: [],
         completedAt: COMPLETED_AT,
         completedByUserId: 'user-1',
+        signature: sampleSignature(),
       }),
     );
     const changedItems = hashWorkshopCheckInEvidenceSnapshot(
@@ -157,6 +171,7 @@ describe('workshop check-in evidence snapshot', () => {
         checklistItems: [],
         completedAt: COMPLETED_AT,
         completedByUserId: 'user-1',
+        signature: sampleSignature(),
       }),
     );
     const changedMedia = hashWorkshopCheckInEvidenceSnapshot(
@@ -166,6 +181,7 @@ describe('workshop check-in evidence snapshot', () => {
         checklistItems: [],
         completedAt: COMPLETED_AT,
         completedByUserId: 'user-1',
+        signature: sampleSignature(),
       }),
     );
     const changedMediaCaption = hashWorkshopCheckInEvidenceSnapshot(
@@ -175,6 +191,7 @@ describe('workshop check-in evidence snapshot', () => {
         checklistItems: [],
         completedAt: COMPLETED_AT,
         completedByUserId: 'user-1',
+        signature: sampleSignature(),
       }),
     );
     const changedChecklist = hashWorkshopCheckInEvidenceSnapshot(
@@ -192,6 +209,7 @@ describe('workshop check-in evidence snapshot', () => {
         ],
         completedAt: COMPLETED_AT,
         completedByUserId: 'user-1',
+        signature: sampleSignature(),
       }),
     );
 
@@ -199,5 +217,48 @@ describe('workshop check-in evidence snapshot', () => {
     expect(changedMedia).not.toBe(baseline);
     expect(changedMediaCaption).not.toBe(changedMedia);
     expect(changedChecklist).not.toBe(baseline);
+  });
+
+  it('changes the digest when signature acknowledgement text changes', () => {
+    const baseline = hashWorkshopCheckInEvidenceSnapshot(
+      buildWorkshopCheckInEvidenceSnapshot({
+        row: baseRow(),
+        media: [],
+        checklistItems: [],
+        completedAt: COMPLETED_AT,
+        completedByUserId: 'user-1',
+        signature: sampleSignature(),
+      }),
+    );
+    const changedAck = hashWorkshopCheckInEvidenceSnapshot(
+      buildWorkshopCheckInEvidenceSnapshot({
+        row: baseRow(),
+        media: [],
+        checklistItems: [],
+        completedAt: COMPLETED_AT,
+        completedByUserId: 'user-1',
+        signature: {
+          ...sampleSignature(),
+          acknowledgement_text: 'different acknowledgement',
+        },
+      }),
+    );
+    expect(changedAck).not.toBe(baseline);
+  });
+
+  it('locks the v3 evidence digest for a minimal fixture', () => {
+    const digest = hashWorkshopCheckInEvidenceSnapshot(
+      buildWorkshopCheckInEvidenceSnapshot({
+        row: baseRow(),
+        media: [],
+        checklistItems: [],
+        completedAt: COMPLETED_AT,
+        completedByUserId: null,
+        signature: sampleSignature(),
+      }),
+    );
+    expect(digest).toBe(
+      '6d3fe06afc93932aae21fb79e64e264a756669c7c97b0dd9995d7b46b0fdf1fd',
+    );
   });
 });

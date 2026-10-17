@@ -4508,6 +4508,12 @@ model WorkshopCheckIn {
   pdf_generated_at    DateTime?
   inspection_id       String?
   inspection          WorkshopInspection?   @relation(fields: [tenant_id, inspection_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
+  signed_by_name          String?               @db.VarChar(200)
+  signed_at               DateTime?
+  acknowledgement_version String?               @db.VarChar(64)
+  acknowledgement_text    String?               @db.Text
+  device_hash             String?               @db.Char(64)
+  ip_hash                 String?               @db.Char(64)
   media               WorkshopMedia[]
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt

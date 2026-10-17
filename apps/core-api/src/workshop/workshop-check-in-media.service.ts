@@ -25,6 +25,8 @@ import {
 import { lockWorkshopCheckInForUpdate } from './workshop-check-in-lock.helpers.js';
 import { resolveCheckInMediaUploaderEmployeeId } from './workshop-check-in-media-attribution.js';
 import { CHECK_IN_PHOTO_MAIN_LIMITS } from './workshop-check-in-photo-limits.js';
+import { CHECK_IN_SIGNATURE_MAX_BYTES } from './workshop-check-in-signature-limits.js';
+import { reencodeCheckInSignaturePng } from './workshop-check-in-signature-upload.js';
 import { deleteCheckInStoredPhotoIfUnreferenced } from './workshop-check-in-media-storage-cleanup.js';
 import type {
   WorkshopCheckInMediaItemDto,
@@ -93,7 +95,12 @@ export class WorkshopCheckInMediaService {
       where: {
         tenant_id: tenantId,
         check_in_id: checkIn.id,
-        purpose: WorkshopMediaPurpose.CHECK_IN,
+        purpose: {
+          in: [
+            WorkshopMediaPurpose.CHECK_IN,
+            WorkshopMediaPurpose.CHECK_IN_SIGNATURE,
+          ],
+        },
       },
       orderBy: { createdAt: 'asc' },
       select: {
@@ -117,11 +124,15 @@ export class WorkshopCheckInMediaService {
     if (!input.file?.buffer?.length) {
       throw new BadRequestException('Multipart field "file" is required.');
     }
-    if (input.purpose !== 'CHECK_IN') {
+    if (
+      input.purpose !== 'CHECK_IN' &&
+      input.purpose !== 'CHECK_IN_SIGNATURE'
+    ) {
       throw new BadRequestException(
-        'Only CHECK_IN purpose is supported on this route.',
+        'purpose must be CHECK_IN or CHECK_IN_SIGNATURE.',
       );
     }
+    const isSignature = input.purpose === 'CHECK_IN_SIGNATURE';
     const clientUploadId = input.clientUploadId?.trim();
     if (!clientUploadId) {
       throw new BadRequestException('client_upload_id is required.');
@@ -134,20 +145,45 @@ export class WorkshopCheckInMediaService {
     assertMcpWorkshopMediaUploadDeclared(declaredMime, input.file.size);
 
     let processedBytes: Buffer;
-    try {
-      const processed = await processUploadImage(input.file.buffer, {
-        main: CHECK_IN_PHOTO_MAIN_LIMITS,
-      });
-      processedBytes = processed.main.bytes;
-    } catch {
-      throw new UnprocessableEntityException({
-        code: CHECK_IN_ERROR_CODES.CHECK_IN_MEDIA_INVALID,
-        message: 'Check-in photo could not be processed.',
-      });
+    let mimeType: string;
+    if (isSignature) {
+      if (declaredMime !== 'image/png') {
+        throw new UnprocessableEntityException({
+          code: CHECK_IN_ERROR_CODES.CHECK_IN_MEDIA_INVALID,
+          message: 'Check-in signature must be a PNG image.',
+        });
+      }
+      try {
+        processedBytes = await reencodeCheckInSignaturePng(input.file.buffer);
+      } catch {
+        throw new UnprocessableEntityException({
+          code: CHECK_IN_ERROR_CODES.CHECK_IN_MEDIA_INVALID,
+          message: 'Check-in signature could not be processed.',
+        });
+      }
+      mimeType = 'image/png';
+    } else {
+      try {
+        const processed = await processUploadImage(input.file.buffer, {
+          main: CHECK_IN_PHOTO_MAIN_LIMITS,
+        });
+        processedBytes = processed.main.bytes;
+      } catch {
+        throw new UnprocessableEntityException({
+          code: CHECK_IN_ERROR_CODES.CHECK_IN_MEDIA_INVALID,
+          message: 'Check-in photo could not be processed.',
+        });
+      }
+      mimeType = 'image/jpeg';
     }
 
-    const mimeType = 'image/jpeg';
     const sizeBytes = processedBytes.length;
+    if (isSignature && sizeBytes > CHECK_IN_SIGNATURE_MAX_BYTES) {
+      throw new UnprocessableEntityException({
+        code: CHECK_IN_ERROR_CODES.CHECK_IN_MEDIA_INVALID,
+        message: 'Check-in signature could not be processed.',
+      });
+    }
 
     const { tenantId, siteId } = await resolveEstimateScope({
       prisma: this.prisma,
@@ -190,9 +226,13 @@ export class WorkshopCheckInMediaService {
         storage_key: true,
       },
     });
+    const expectedPurpose = isSignature
+      ? WorkshopMediaPurpose.CHECK_IN_SIGNATURE
+      : WorkshopMediaPurpose.CHECK_IN;
+
     if (existingMedia) {
       if (
-        existingMedia.purpose !== WorkshopMediaPurpose.CHECK_IN ||
+        existingMedia.purpose !== expectedPurpose ||
         existingMedia.check_in_id !== checkInRow.id ||
         existingMedia.workshop_order_id !== orderId
       ) {
@@ -222,19 +262,29 @@ export class WorkshopCheckInMediaService {
       };
     }
 
-    const stored = await this.mediaStorage.uploadCheckInPhoto({
-      tenantId,
-      orderId,
-      checkInId: checkInRow.id,
-      bytes: processedBytes,
-      mimeType,
-      filename: input.file.originalname,
-      objectId: clientUploadId,
-    });
+    const stored = isSignature
+      ? await this.mediaStorage.uploadCheckInSignature({
+          tenantId,
+          orderId,
+          checkInId: checkInRow.id,
+          bytes: processedBytes,
+          filename: input.file.originalname,
+          objectId: clientUploadId,
+        })
+      : await this.mediaStorage.uploadCheckInPhoto({
+          tenantId,
+          orderId,
+          checkInId: checkInRow.id,
+          bytes: processedBytes,
+          mimeType,
+          filename: input.file.originalname,
+          objectId: clientUploadId,
+        });
 
     let uploadOutcome: {
       created: boolean;
       row: CheckInMediaRow;
+      replacedSignatureRows: CheckInMediaRow[];
     };
 
     try {
@@ -275,17 +325,42 @@ export class WorkshopCheckInMediaService {
           select: checkInMediaRowSelect,
         });
         if (duplicate) {
-          if (!isSameCheckInUpload(duplicate, locked.id, orderId)) {
+          if (
+            !isSameCheckInUpload(duplicate, locked.id, orderId, expectedPurpose)
+          ) {
             throw new ConflictException({
               code: CHECK_IN_ERROR_CODES.UPLOAD_ID_REUSED,
               message:
                 'client_upload_id was already used for different check-in media.',
             });
           }
-          return { created: false, row: duplicate };
+          return {
+            created: false,
+            row: duplicate,
+            replacedSignatureRows: [],
+          };
         }
 
         const nextRevision = current.revision + 1;
+
+        const replacedSignatureRows: CheckInMediaRow[] = [];
+        if (isSignature) {
+          const priorSignatures = await tx.workshopMedia.findMany({
+            where: {
+              tenant_id: tenantId,
+              check_in_id: locked.id,
+              purpose: WorkshopMediaPurpose.CHECK_IN_SIGNATURE,
+              id: { not: clientUploadId },
+            },
+            select: checkInMediaRowSelect,
+          });
+          for (const prior of priorSignatures) {
+            await tx.workshopMedia.delete({
+              where: { tenant_id: tenantId, id: prior.id },
+            });
+            replacedSignatureRows.push(prior);
+          }
+        }
 
         let row: CheckInMediaRow;
         try {
@@ -297,7 +372,7 @@ export class WorkshopCheckInMediaService {
               workshop_task_id: null,
               check_in_id: locked.id,
               uploaded_by_employee_id: uploadedByEmployeeId,
-              purpose: WorkshopMediaPurpose.CHECK_IN,
+              purpose: expectedPurpose,
               storage_bucket: stored.storageBucket,
               storage_key: stored.storageKey,
               url_strategy: WorkshopMediaUrlStrategy.SIGNED,
@@ -315,8 +390,15 @@ export class WorkshopCheckInMediaService {
               where: { tenant_id: tenantId, id: clientUploadId },
               select: checkInMediaRowSelect,
             });
-            if (raced && isSameCheckInUpload(raced, locked.id, orderId)) {
-              return { created: false, row: raced };
+            if (
+              raced &&
+              isSameCheckInUpload(raced, locked.id, orderId, expectedPurpose)
+            ) {
+              return {
+                created: false,
+                row: raced,
+                replacedSignatureRows: [],
+              };
             }
           }
           throw error;
@@ -338,7 +420,7 @@ export class WorkshopCheckInMediaService {
           });
         }
 
-        return { created: true, row };
+        return { created: true, row, replacedSignatureRows };
       });
     } catch (error) {
       await deleteCheckInStoredPhotoIfUnreferenced(
@@ -349,6 +431,16 @@ export class WorkshopCheckInMediaService {
         stored.storageKey,
       );
       throw error;
+    }
+
+    for (const prior of uploadOutcome.replacedSignatureRows ?? []) {
+      await deleteCheckInStoredPhotoIfUnreferenced(
+        this.prisma,
+        this.mediaStorage,
+        tenantId,
+        prior.storage_bucket,
+        prior.storage_key,
+      );
     }
 
     const preview_url = await this.mediaStorage
@@ -420,9 +512,10 @@ function isSameCheckInUpload(
   },
   checkInId: string,
   orderId: string,
+  purpose: WorkshopMediaPurpose,
 ): boolean {
   return (
-    row.purpose === WorkshopMediaPurpose.CHECK_IN &&
+    row.purpose === purpose &&
     row.check_in_id === checkInId &&
     row.workshop_order_id === orderId
   );

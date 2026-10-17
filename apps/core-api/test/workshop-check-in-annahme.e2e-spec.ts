@@ -1,6 +1,8 @@
+import sharp from 'sharp';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
+import { MechanicMediaStorage } from '../src/mechanic/mechanic-media.storage.js';
 import { AppModule } from '../src/app.module.js';
 import {
   createGlobalValidationPipe,
@@ -15,6 +17,8 @@ import {
   createTestAuthToken,
   createTestTenant,
   resolveTestMainSiteId,
+  runWithTenantContext,
+  seedTestEmployee,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
 import { seedAnnahmeCheckInspectionTemplate } from '../src/prisma/fixtures/annahme-check-inspection-template.fixture.js';
@@ -31,11 +35,40 @@ describe('Workshop check-in Annahme checklist (e2e)', () => {
   let pickerlOrderId: string;
   let pickerlTaskId: string;
   const checkInId = '52500000-0000-4000-8000-000000000563';
+  const signatureMediaId = '52500000-0000-4000-8000-000000000564';
+  let lastSignatureBytes: Buffer | undefined;
 
   beforeAll(async () => {
+    process.env.SECRET_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64');
+    process.env.WORKSHOP_MEDIA_BUCKET = 'test-workshop-media-bucket';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(MechanicMediaStorage)
+      .useValue({
+        uploadCheckInPhoto: jest.fn().mockResolvedValue({
+          storageBucket: 'test-workshop-media-bucket',
+          storageKey: 'photo.jpg',
+        }),
+        uploadCheckInSignature: jest.fn().mockImplementation(async (params) => {
+          lastSignatureBytes = params.bytes;
+          return {
+            storageBucket: 'test-workshop-media-bucket',
+            storageKey: 'signature.png',
+          };
+        }),
+        readObjectBytes: jest.fn().mockImplementation(async () => {
+          if (lastSignatureBytes) {
+            return lastSignatureBytes;
+          }
+          return Buffer.from('signature-png');
+        }),
+        generateSignedReadUrl: jest
+          .fn()
+          .mockResolvedValue('https://example.test/media'),
+        deleteObjectIfExists: jest.fn().mockResolvedValue(undefined),
+      })
+      .compile();
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
@@ -48,6 +81,22 @@ describe('Workshop check-in Annahme checklist (e2e)', () => {
     const tenant = await createTestTenant(basePrisma, 'aut563');
     tenantId = tenant.tenantId;
     authToken = createTestAuthToken(authService, tenant);
+
+    const authUser = await basePrisma.user.findUnique({
+      where: { firebaseUid: tenant.firebaseUid },
+      select: { id: true },
+    });
+    if (!authUser) {
+      throw new Error('Expected test auth user to exist');
+    }
+    await runWithTenantContext(tenantId, () =>
+      seedTestEmployee(basePrisma, {
+        tenantId,
+        name: 'Advisor Upload',
+        role: 'SERVICE_ADVISOR',
+        userId: authUser.id,
+      }),
+    );
 
     prisma = createTenantAwarePrisma(basePrisma, tenantId);
     await seedAnnahmeCheckInspectionTemplate(prisma, tenantId);
@@ -245,10 +294,45 @@ describe('Workshop check-in Annahme checklist (e2e)', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
+    const signatureBytes = await sharp({
+      create: {
+        width: 80,
+        height: 40,
+        channels: 4,
+        background: { r: 255, g: 255, b: 255, alpha: 0 },
+      },
+    })
+      .png()
+      .toBuffer();
+
+    await request(app.getHttpServer())
+      .post(`/api/workshop/orders/${orderId}/check-in/media`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .field('client_upload_id', signatureMediaId)
+      .field('purpose', 'CHECK_IN_SIGNATURE')
+      .field('expected_revision', String(checkIn.body.revision))
+      .attach('file', signatureBytes, {
+        filename: 'signature.png',
+        contentType: 'image/png',
+      })
+      .expect(201);
+
+    const afterSignature = await request(app.getHttpServer())
+      .get(`/api/workshop/orders/${orderId}/check-in`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
     await request(app.getHttpServer())
       .post(`/api/workshop/orders/${orderId}/check-in/complete`)
       .set('Authorization', `Bearer ${authToken}`)
-      .send({ expected_revision: checkIn.body.revision })
+      .send({
+        expected_revision: afterSignature.body.revision,
+        signature_media_id: signatureMediaId,
+        signed_by_name: 'Signer Example',
+        acknowledgement_version: 'check-in-signature-v1',
+        acknowledgement_locale: 'de',
+        acknowledged: true,
+      })
       .expect(200);
 
     const inspection = await request(app.getHttpServer())

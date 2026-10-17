@@ -3,7 +3,13 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { Prisma, WorkshopCheckInStatus, WorkshopOrderStatus } from '@prisma/client';
+import {
+  Prisma,
+  WorkshopCheckInStatus,
+  WorkshopMediaPurpose,
+  WorkshopOrderStatus,
+} from '@prisma/client';
+import { CHECK_IN_ACKNOWLEDGEMENT_VERSION } from './workshop-check-in-acknowledgement.js';
 import { WorkshopCheckInService } from './workshop-check-in.service.js';
 import {
   mockPrisma,
@@ -15,12 +21,28 @@ const ORDER_ID = '550e8400-e29b-41d4-a716-446655440010';
 const CHECK_IN_ID = '550e8400-e29b-41d4-a716-446655440011';
 const MARKER_ID = '550e8400-e29b-41d4-a716-446655440012';
 const TENANT_ID = '00000000-0000-0000-0000-000000000001';
+const SIGNATURE_MEDIA_ID = '550e8400-e29b-41d4-a716-446655440099';
+
+function completePayload(expectedRevision: number) {
+  return {
+    expected_revision: expectedRevision,
+    signature_media_id: SIGNATURE_MEDIA_ID,
+    signed_by_name: 'Signer Example',
+    acknowledgement_version: CHECK_IN_ACKNOWLEDGEMENT_VERSION,
+    acknowledgement_locale: 'de' as const,
+    acknowledged: true as const,
+  };
+}
 
 describe('WorkshopCheckInService', () => {
   let service: WorkshopCheckInService;
+  const mockMediaStorage = {
+    readObjectBytes: jest.fn().mockResolvedValue(Buffer.from('signature-png')),
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
+    process.env.SECRET_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64');
     mockPrisma.workshopOrder.findFirst.mockReset();
     mockPrisma.workshopCheckIn.findFirst.mockReset();
     mockPrisma.workshopCheckIn.create.mockReset();
@@ -33,6 +55,7 @@ describe('WorkshopCheckInService', () => {
     mockPrisma.workshopInspectionItem.findMany.mockResolvedValue([]);
     mockPrisma.workshopCheckIn.updateMany.mockReset();
     mockPrisma.workshopMedia.findMany.mockReset();
+    mockPrisma.workshopMedia.findFirst.mockReset();
     mockPrisma.workshopCheckIn.findFirst.mockReset();
     mockPrisma.$transaction.mockImplementation((cb: (tx: unknown) => unknown) =>
       cb(mockPrisma),
@@ -58,10 +81,23 @@ describe('WorkshopCheckInService', () => {
       role: 'ADMIN',
       userId: 'u-1',
     });
+    mockMediaStorage.readObjectBytes.mockResolvedValue(
+      Buffer.from('signature-png'),
+    );
+    mockPrisma.workshopMedia.findFirst.mockResolvedValue({
+      id: SIGNATURE_MEDIA_ID,
+      storage_bucket: 'bucket',
+      storage_key: 'key.png',
+      mime_type: 'image/png',
+      purpose: WorkshopMediaPurpose.CHECK_IN_SIGNATURE,
+      check_in_id: CHECK_IN_ID,
+      workshop_order_id: ORDER_ID,
+    });
     service = new WorkshopCheckInService(
       mockPrisma as never,
       mockTenantContext as never,
       mockSiteContext as never,
+      mockMediaStorage as never,
     );
   });
 
@@ -312,10 +348,32 @@ describe('WorkshopCheckInService', () => {
     });
   });
 
+  it('rejects completion when signature media is missing', async () => {
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+      id: ORDER_ID,
+      status: WorkshopOrderStatus.IN_PROGRESS,
+      odometer: 1,
+      fuel_level: 1,
+    });
+    mockPrisma.workshopCheckIn.findFirst.mockResolvedValue({
+      id: CHECK_IN_ID,
+      status: WorkshopCheckInStatus.DRAFT,
+      revision: 2,
+    });
+    mockPrisma.workshopMedia.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.complete(ORDER_ID, completePayload(2)),
+    ).rejects.toMatchObject({
+      response: { code: 'CHECK_IN_SIGNATURE_REQUIRED' },
+    });
+  });
+
   it('completes a draft atomically and leaves pdf_sha256 unset', async () => {
     const completedAt = new Date('2026-10-17T12:00:00.000Z');
     jest.useFakeTimers();
     jest.setSystemTime(completedAt);
+    process.env.SECRET_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64');
 
     mockPrisma.workshopOrder.findFirst.mockResolvedValue({
       id: ORDER_ID,
@@ -324,6 +382,10 @@ describe('WorkshopCheckInService', () => {
       fuel_level: 1,
     });
     mockPrisma.workshopCheckIn.findFirst
+      .mockResolvedValueOnce({
+        id: CHECK_IN_ID,
+        status: WorkshopCheckInStatus.DRAFT,
+      })
       .mockResolvedValueOnce({
         id: CHECK_IN_ID,
         tenant_id: TENANT_ID,
@@ -371,7 +433,10 @@ describe('WorkshopCheckInService', () => {
     mockPrisma.workshopMedia.findMany.mockResolvedValue([]);
     mockPrisma.workshopCheckIn.updateMany.mockResolvedValue({ count: 1 });
 
-    const result = await service.complete(ORDER_ID, { expected_revision: 2 });
+    const result = await service.complete(
+      ORDER_ID,
+      completePayload(2),
+    );
 
     expect(result.status).toBe(WorkshopCheckInStatus.COMPLETED);
     expect(result.revision).toBe(3);
@@ -403,14 +468,19 @@ describe('WorkshopCheckInService', () => {
         id: ORDER_ID,
         status: WorkshopOrderStatus.INVOICED,
       });
-    mockPrisma.workshopCheckIn.findFirst.mockResolvedValue({
-      id: CHECK_IN_ID,
-      status: WorkshopCheckInStatus.DRAFT,
-      revision: 2,
-    });
+    mockPrisma.workshopCheckIn.findFirst
+      .mockResolvedValueOnce({
+        id: CHECK_IN_ID,
+        status: WorkshopCheckInStatus.DRAFT,
+      })
+      .mockResolvedValueOnce({
+        id: CHECK_IN_ID,
+        status: WorkshopCheckInStatus.DRAFT,
+        revision: 2,
+      });
 
     await expect(
-      service.complete(ORDER_ID, { expected_revision: 2 }),
+      service.complete(ORDER_ID, completePayload(2)),
     ).rejects.toMatchObject({
       response: { code: 'CHECK_IN_ORDER_STATUS' },
     });
@@ -425,6 +495,10 @@ describe('WorkshopCheckInService', () => {
       fuel_level: 1,
     });
     mockPrisma.workshopCheckIn.findFirst
+      .mockResolvedValueOnce({
+        id: CHECK_IN_ID,
+        status: WorkshopCheckInStatus.DRAFT,
+      })
       .mockResolvedValueOnce({
         id: CHECK_IN_ID,
         tenant_id: TENANT_ID,
@@ -455,6 +529,7 @@ describe('WorkshopCheckInService', () => {
         content_sha256: 'd'.repeat(64),
         completed_at: new Date('2026-10-17T12:00:00.000Z'),
         completed_by_user_id: 'u-1',
+        signed_by_name: 'Signer Example',
         pdf_sha256: null,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -462,7 +537,10 @@ describe('WorkshopCheckInService', () => {
     mockPrisma.workshopMedia.findMany.mockResolvedValue([]);
     mockPrisma.workshopCheckIn.updateMany.mockResolvedValue({ count: 0 });
 
-    const result = await service.complete(ORDER_ID, { expected_revision: 2 });
+    const result = await service.complete(
+      ORDER_ID,
+      completePayload(2),
+    );
 
     expect(result.status).toBe(WorkshopCheckInStatus.COMPLETED);
     expect(result.content_sha256).toBe('d'.repeat(64));
@@ -492,15 +570,77 @@ describe('WorkshopCheckInService', () => {
       content_sha256: 'c'.repeat(64),
       completed_at: new Date('2026-10-17T12:00:00.000Z'),
       completed_by_user_id: 'u-1',
+      signed_by_name: 'Signer Example',
       pdf_sha256: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
 
-    const result = await service.complete(ORDER_ID, { expected_revision: 99 });
+    const result = await service.complete(ORDER_ID, completePayload(99));
 
     expect(result.content_sha256).toBe('c'.repeat(64));
     expect(mockPrisma.workshopCheckIn.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('rejects idempotent completion when signature evidence differs', async () => {
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+      id: ORDER_ID,
+      status: WorkshopOrderStatus.IN_PROGRESS,
+      odometer: 1,
+      fuel_level: 1,
+    });
+    mockPrisma.workshopCheckIn.findFirst.mockResolvedValue({
+      id: CHECK_IN_ID,
+      status: WorkshopCheckInStatus.COMPLETED,
+      signed_by_name: 'Signer Example',
+    });
+    mockPrisma.workshopMedia.findFirst.mockResolvedValue({
+      id: 'other-media-id',
+      mime_type: 'image/png',
+    });
+
+    await expect(
+      service.complete(ORDER_ID, completePayload(3)),
+    ).rejects.toMatchObject({
+      response: { code: 'CHECK_IN_CONFLICT' },
+    });
+  });
+
+  it('scopes signature media lookup to CHECK_IN_SIGNATURE purpose', async () => {
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+      id: ORDER_ID,
+      status: WorkshopOrderStatus.IN_PROGRESS,
+      odometer: 1,
+      fuel_level: 1,
+    });
+    mockPrisma.workshopCheckIn.findFirst.mockResolvedValue({
+      id: CHECK_IN_ID,
+      status: WorkshopCheckInStatus.DRAFT,
+      revision: 2,
+    });
+    mockPrisma.workshopMedia.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.complete(ORDER_ID, completePayload(2)),
+    ).rejects.toMatchObject({
+      response: { code: 'CHECK_IN_SIGNATURE_REQUIRED' },
+    });
+
+    expect(mockPrisma.workshopMedia.findFirst).toHaveBeenCalledWith({
+      where: {
+        tenant_id: TENANT_ID,
+        id: SIGNATURE_MEDIA_ID,
+        check_in_id: CHECK_IN_ID,
+        workshop_order_id: ORDER_ID,
+        purpose: WorkshopMediaPurpose.CHECK_IN_SIGNATURE,
+      },
+      select: {
+        id: true,
+        storage_bucket: true,
+        storage_key: true,
+        mime_type: true,
+      },
+    });
   });
 
   it('returns 404 when check-in is missing', async () => {
