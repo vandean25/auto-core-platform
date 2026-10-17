@@ -87,39 +87,40 @@ export function CheckInReviewStep({
         </dl>
         {draft.damage_markers.length > 0 && (
           <ul className="mt-4 space-y-3 text-sm" aria-label={t('checkIn.damageListAria')}>
-            {draft.damage_markers.map((marker) => {
-              const previewIds = marker.media_ids.filter((mediaId) => {
-                const item = media.find((entry) => entry.id === mediaId)
-                const src = localPreviewUrls[mediaId] ?? item?.preview_url
-                return Boolean(src)
-              })
-              return (
+            {draft.damage_markers.map((marker) => (
                 <li key={marker.id} className="space-y-1">
                   <div>
                     {t(`checkIn.zones.${marker.zone_id as CheckInZoneId}`)} —{' '}
                     {t(`checkIn.damageTypes.${marker.type}`)}
                     {marker.note ? ` — ${marker.note}` : ''}
                   </div>
-                  {previewIds.length > 0 && (
+                  {marker.media_ids.length > 0 && (
                     <ul className="flex flex-wrap gap-2" aria-label={t('checkIn.review.markerPhotosAria')}>
-                      {previewIds.map((mediaId) => {
+                      {marker.media_ids.map((mediaId) => {
                         const item = media.find((entry) => entry.id === mediaId)
                         const src = localPreviewUrls[mediaId] ?? item?.preview_url ?? undefined
                         return (
                           <li key={mediaId}>
-                            <img
-                              src={src}
-                              alt={t('checkIn.review.markerPhotoAlt')}
-                              className="h-16 w-16 rounded-md border object-cover"
-                            />
+                            {src ? (
+                              <img
+                                src={src}
+                                alt={t('checkIn.review.markerPhotoAlt')}
+                                className="h-16 w-16 rounded-md border object-cover"
+                              />
+                            ) : (
+                              <span
+                                className="flex h-16 w-16 items-center justify-center rounded-md border bg-muted px-1 text-center text-xs text-muted-foreground"
+                              >
+                                {t('checkIn.review.markerPhotoAttached')}
+                              </span>
+                            )}
                           </li>
                         )
                       })}
                     </ul>
                   )}
                 </li>
-              )
-            })}
+            ))}
           </ul>
         )}
         {record.status === 'COMPLETED' && record.completed_at && (

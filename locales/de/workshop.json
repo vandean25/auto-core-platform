@@ -1355,6 +1355,7 @@
     "review": {
       "markerPhotosAria": "Fotos zu dieser Schadensmarkierung",
       "markerPhotoAlt": "Schadensfoto",
+      "markerPhotoAttached": "Foto vorhanden",
       "none": "Keine",
       "signatureSectionAria": "Kundenunterschrift",
       "signatureTitle": "Kundenunterschrift",

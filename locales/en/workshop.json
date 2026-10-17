@@ -1355,6 +1355,7 @@
     "review": {
       "markerPhotosAria": "Photos linked to this damage marker",
       "markerPhotoAlt": "Damage photo",
+      "markerPhotoAttached": "Photo attached",
       "none": "None",
       "signatureSectionAria": "Customer signature",
       "signatureTitle": "Customer signature",
