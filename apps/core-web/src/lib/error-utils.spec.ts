@@ -98,4 +98,24 @@ describe('getErrorMessage', () => {
     expect(getErrorMessage(undefined, 'fallback')).toBe('fallback')
     expect(getErrorMessage('string error', 'fallback')).toBe('fallback')
   })
+
+  it('re-resolves wire codes from errors thrown by throwHttpError', async () => {
+    const { throwHttpError } = await import('./error-utils')
+    const response = new Response(
+      JSON.stringify({
+        code: 'FISCAL_PERIOD_LOCKED',
+        message: 'Fiscal period is locked for the selected date.',
+      }),
+      { status: 422 },
+    )
+
+    let thrown: unknown
+    try {
+      await throwHttpError(response, 'fallback')
+    } catch (error) {
+      thrown = error
+    }
+
+    expect(getErrorMessage(thrown, 'fallback')).toBe('Fiskalperiode ist gesperrt.')
+  })
 })

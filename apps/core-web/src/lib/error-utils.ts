@@ -139,9 +139,24 @@ export function isAbortError(error: unknown): boolean {
  * can detect specific HTTP error codes (e.g. 409 Conflict) without parsing
  * the message string.
  */
-export function createHttpError(message: string, status: number): Error & { status: number } {
-  const err = new Error(message) as Error & { status: number }
+export type HttpError = Error & {
+  status: number
+  response?: {
+    status: number
+    data?: ReturnType<typeof getApiErrorBody>
+  }
+}
+
+export function createHttpError(
+  message: string,
+  status: number,
+  body?: ReturnType<typeof getApiErrorBody>,
+): HttpError {
+  const err = new Error(message) as HttpError
   err.status = status
+  if (body !== undefined) {
+    err.response = { status, data: body }
+  }
   return err
 }
 
@@ -150,14 +165,15 @@ export async function throwHttpError(
   response: Response,
   fallback: string,
 ): Promise<never> {
+  const data = (await response.json().catch(() => undefined)) as
+    | ReturnType<typeof getApiErrorBody>
+    | undefined
   const synthetic = {
     response: {
       status: response.status,
-      data: (await response.json().catch(() => undefined)) as
-        | ReturnType<typeof getApiErrorBody>
-        | undefined,
+      data,
     },
   }
   const message = getErrorMessage(synthetic, fallback)
-  throw createHttpError(message, response.status)
+  throw createHttpError(message, response.status, data)
 }
