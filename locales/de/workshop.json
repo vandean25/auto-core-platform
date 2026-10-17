@@ -415,6 +415,12 @@
     "fuel": "Tankfüllung"
   },
   "orderDetail": {
+    "breadcrumbFallback": "Werkstattauftrag",
+    "tabsNavAria": "Werkstattauftrag-Bereiche",
+    "tabs": {
+      "order": "Auftrag",
+      "warranty": "Garantie/Kulanz"
+    },
     "loading": "Werkstattauftrag wird geladen…",
     "notFoundTitle": "Werkstattauftrag nicht gefunden",
     "notFoundDescription": "Der gewählte Werkstattauftrag existiert nicht.",

@@ -415,6 +415,12 @@
     "fuel": "Fuel"
   },
   "orderDetail": {
+    "breadcrumbFallback": "Workshop order",
+    "tabsNavAria": "Workshop order sections",
+    "tabs": {
+      "order": "Order",
+      "warranty": "Warranty / goodwill"
+    },
     "loading": "Loading workshop order...",
     "notFoundTitle": "Workshop order not found",
     "notFoundDescription": "The selected workshop order does not exist.",

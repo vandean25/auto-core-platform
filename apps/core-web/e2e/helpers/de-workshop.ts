@@ -25,6 +25,7 @@ export const DE_WORKSHOP = {
       partsPickHint: deWorkshop.orders.list.partsPickHint,
       partsPickQueue: deWorkshop.orders.list.partsPickQueue,
       orderNo: deWorkshop.orders.list.columns.orderNo,
+      rowAria: deWorkshop.orders.list.rowAria,
     },
   },
   taskLineEditor: {
@@ -43,6 +44,9 @@ export const DE_WORKSHOP = {
   capacity: {
     page: deWorkshop.capacity.page,
     cell: deWorkshop.capacity.cell,
+  },
+  orderIntake: {
+    title: deWorkshop.orderIntake.title,
   },
   pick: {
     queue: deWorkshop.pick.queue,

@@ -5,6 +5,7 @@ export const DE_SHELL = {
     customers: 'Kunden',
     salesOrders: 'Kundenaufträge',
     salesInvoices: 'Rechnungen',
+    workshopOrders: 'Werkstattaufträge',
   },
   favorites: {
     empty:
