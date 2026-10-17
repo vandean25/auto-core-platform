@@ -322,8 +322,12 @@ export class AgentProposalDecisionService {
     proposal: AgentProposal,
     executor: PendingActionExecutor,
   ): Promise<void> {
+    const policyActionType =
+      proposal.action_type === 'workshop_estimate.send'
+        ? 'estimate.send_customer_message'
+        : proposal.action_type;
     const evaluation = await this.policyEvaluator.evaluate(
-      proposal.action_type,
+      policyActionType,
       proposal.payload_json,
       executor,
     );

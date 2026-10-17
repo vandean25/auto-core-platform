@@ -61,6 +61,14 @@ export type McpWriteExecution = {
   buildLogMetadata?: (
     result: unknown,
   ) => Pick<AgentActionRecordInput, 'entityType' | 'entityId' | 'reversible'>;
+  preview?: (
+    input: unknown,
+    executionContext?: Record<string, unknown>,
+  ) => Promise<unknown>;
+  executeOutsideTransaction?: boolean;
+  refreshReplayResult?: (
+    result: McpWriteToolResult,
+  ) => Promise<McpWriteToolResult>;
 };
 
 export type McpWriteToolResult = {
@@ -199,6 +207,9 @@ export class McpWritePipelineService {
         originalTraceId,
       });
       if (gate.kind === 'replay') {
+        if (execution.refreshReplayResult) {
+          return execution.refreshReplayResult(gate.result);
+        }
         return gate.result;
       }
       claim = gate.claim;
@@ -324,9 +335,14 @@ export class McpWritePipelineService {
         call.tier === AgentPolicyTier.PROPOSE
           ? await call.execution.buildExecutionContext?.(call.input)
           : undefined;
-      const previewResult = await this.dryRun.executeInRollbackTransaction(() =>
-        call.execution.execute(call.input, executionContext),
-      );
+      const previewResult = call.execution.preview
+        ? {
+            result: await call.execution.preview(call.input, executionContext),
+            wouldChange: [] as WouldChangeItem[],
+          }
+        : await this.dryRun.executeInRollbackTransaction(() =>
+            call.execution.execute(call.input, executionContext),
+          );
       if (executionContext?.site_id !== undefined) {
         await this.assertActiveSiteUnchanged(call, executionContext);
       }
@@ -454,6 +470,9 @@ export class McpWritePipelineService {
     claim?: McpWriteCommandClaim,
   ): Promise<McpWriteToolResult> {
     try {
+      const workResult = call.execution.executeOutsideTransaction
+        ? await call.execution.execute(call.input)
+        : undefined;
       return await this.prisma.$transaction(async (tx) => {
         const record = await this.agentActionLog.recordInTransaction(
           {
@@ -468,10 +487,12 @@ export class McpWritePipelineService {
               call.execution.buildResultSummary(result),
           },
           tx,
-          () =>
-            DryRunStorage.run({ isDryRun: false, tx }, () =>
-              call.execution.execute(call.input),
-            ),
+          workResult !== undefined
+            ? () => Promise.resolve(workResult)
+            : () =>
+                DryRunStorage.run({ isDryRun: false, tx }, () =>
+                  call.execution.execute(call.input),
+                ),
           call.execution.buildLogMetadata,
         );
         const result: McpWriteToolResult = {

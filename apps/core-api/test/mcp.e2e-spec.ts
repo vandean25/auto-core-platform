@@ -6174,7 +6174,6 @@ describe('MCP server (e2e)', () => {
       process.env.CUSTOMER_ESTIMATE_SEND_ENABLED = 'true';
       process.env.ESTIMATE_APPROVAL_BASE_URL = 'https://portal.example.at';
       await setPolicyTier('estimate.send_customer_message', 'PROPOSE');
-      await setPolicyTier('workshop_estimate.send', 'PROPOSE');
       await seedReadySellerAndAccountingProfile(prismaA, tenantA);
     });
 
@@ -6279,11 +6278,42 @@ describe('MCP server (e2e)', () => {
       );
     });
 
+    it('rejects unconfirmed customer email before creating a proposal', async () => {
+      const { order } = await seedEstimateSendOrder();
+      await prismaA.customer.update({
+        where: { id: fixtures.customerId },
+        data: {
+          email: 'kva.recipient@example.com',
+          contact_email_ok: false,
+        },
+      });
+      const result = await callMcpTool(
+        caller(adminHeaderA, 'e2e-estimate-email-not-confirmed'),
+        'propose_estimate_send',
+        { workshop_order_id: order.id, channel: 'email' },
+      );
+      expect(result.isError).toBe(true);
+      expect(JSON.stringify(result)).toContain(
+        'ESTIMATE_CUSTOMER_EMAIL_NOT_CONFIRMED',
+      );
+      expect(
+        await prismaA.agentProposal.count({
+          where: {
+            action_type: 'workshop_estimate.send',
+            payload_json: {
+              path: ['workshop_order_id'],
+              equals: order.id,
+            },
+          },
+        }),
+      ).toBe(0);
+    });
+
     it('rejects missing customer email before creating a proposal', async () => {
       const { order } = await seedEstimateSendOrder();
       await prismaA.customer.update({
         where: { id: fixtures.customerId },
-        data: { email: null, contact_email_ok: false },
+        data: { email: null, contact_email_ok: true },
       });
       const result = await callMcpTool(
         caller(adminHeaderA, 'e2e-estimate-no-email'),
@@ -6291,7 +6321,18 @@ describe('MCP server (e2e)', () => {
         { workshop_order_id: order.id, channel: 'email' },
       );
       expect(result.isError).toBe(true);
-      expect(JSON.stringify(result)).toContain('ESTIMATE_CUSTOMER_EMAIL');
+      expect(JSON.stringify(result)).toContain('ESTIMATE_CUSTOMER_EMAIL_MISSING');
+      expect(
+        await prismaA.agentProposal.count({
+          where: {
+            action_type: 'workshop_estimate.send',
+            payload_json: {
+              path: ['workshop_order_id'],
+              equals: order.id,
+            },
+          },
+        }),
+      ).toBe(0);
     });
 
     it('conflicts on apply when workshop lines changed after propose', async () => {

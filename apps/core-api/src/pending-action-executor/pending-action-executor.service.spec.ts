@@ -117,6 +117,8 @@ describe('PendingActionExecutorService', () => {
       mockWorkshopEstimateSendPropose as never,
       {} as never,
       {} as never,
+      {} as never,
+      {} as never,
     );
   });
 

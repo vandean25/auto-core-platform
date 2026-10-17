@@ -26,7 +26,9 @@ describe('PendingActionExecutorService workshop.media_upload_slot', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
       mockWorkshopMediaUploadMcp as never,
+      {} as never,
       {} as never,
     );
   });

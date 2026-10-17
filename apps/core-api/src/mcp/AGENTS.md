@@ -70,6 +70,7 @@ Read tools are tenant- or active-site-scoped by the server. Their tier is `AUTO`
 | `propose_workshop_order_completion` | Propose completing open workshop tasks on an order and deriving order status when all tasks are done; optional ready-for-pickup email on apply when `notify_customer` is true | Write | Off by default; PROPOSE when enabled (clamped from AUTO) |
 | `propose_invoice_draft_from_order` | Propose a DRAFT invoice from a COMPLETED workshop order (never finalizes, sends, or records payment) | Write | Off by default; PROPOSE when enabled (clamped from AUTO) |
 | `propose_estimate_send` | Propose creating or revising a workshop estimate (KVA) and emailing the customer an online approval link | Write | Off by default; PROPOSE when enabled (clamped from AUTO) |
+| `generate_weekly_report_pdf` | Render the internal weekly report PDF for one ISO week (Monday–Sunday in the site timezone) and return a short-lived read link; never archives the PDF or sends anything | Write | Off by default; AUTO when enabled |
 | `request_workshop_media_upload` | Reserve a short-lived direct upload slot for workshop task photos (jpeg, png, heic, or webp); returns `media_id` and presigned POST fields only | Write | Off by default; AUTO when enabled |
 | `propose_mechanic_finding` | Propose an additional mechanic finding with photos for internal advisor review; never sends customer messages | Write | Off by default; PROPOSE when enabled (clamped from AUTO) |
 
@@ -95,7 +96,7 @@ Policy-mode wording maps approximately as follows: `Allowed` to `AUTO`, `Ask fir
 
 Offset list and search tools accept `page` and `pageSize`; the server defaults to page 1 and 10 rows and caps `pageSize` at 25. Cursor-based tools take `pageSize` and an opaque `cursor` from `meta.next_cursor` with the same default and maximum. `get_customer` and `get_vehicle_history` page their order list with `orders_page_size` and `orders_cursor`. Offset cursors are limited to `get_capabilities`, the three stock/Pickerl report reads, and nothing else; other cursor tools use keyset positions.
 
-- `get_capabilities` pages the tool catalog by offset. Its default and maximum page size is 25. The catalog holds 52 tools, so follow `meta.next_cursor` before deciding that a write tool is unavailable.
+- `get_capabilities` pages the tool catalog by offset. Its default and maximum page size is 25. The catalog holds 53 tools, so follow `meta.next_cursor` before deciding that a write tool is unavailable.
 - `list_sites` pages with `pageSize` (default 10, max 25) and an opaque `cursor` from `meta.next_cursor`, in site code order.
 - `list_audit_events`, `get_entity_history`, `get_agent_action`, and `list_agent_actions` page with a keyset cursor. The default page size is 10 and the maximum is 25. Audit lists are newest first. `get_agent_action` log rows are oldest first.
 - `list_invoices` pages with a keyset cursor over issue date and invoice ID, with the same default and maximum. It is newest first.

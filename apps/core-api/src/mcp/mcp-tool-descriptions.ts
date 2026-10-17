@@ -100,4 +100,6 @@ export const MCP_TOOL_DESCRIPTIONS: Record<McpToolName, string> = {
     'Reserve a short-lived direct upload slot for workshop task media (jpeg, png, heic, or webp). Does not change workshop business state until a finding or other flow references the returned media_id',
   propose_mechanic_finding:
     'Propose an additional mechanic finding with photos for advisor review (never sends customer messages; records one pending proposal)',
+  generate_weekly_report_pdf:
+    'Render the internal weekly report PDF for one ISO calendar week (Monday through Sunday in the site timezone) and return a short-lived read link. Does not archive the PDF or send anything externally',
 };

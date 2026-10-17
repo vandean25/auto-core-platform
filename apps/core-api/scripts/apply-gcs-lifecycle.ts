@@ -13,6 +13,8 @@
 import { Storage } from '@google-cloud/storage';
 import { isDirectRun } from './is-direct-run.mjs';
 
+import { WEEKLY_REPORT_EPHEMERAL_GCS_LIFECYCLE_RULE } from '../src/common/pdf/weekly-report-pdf-bucket.js';
+
 export const LIFECYCLE_RULES = [
   {
     action: { type: 'SetStorageClass' as const, storageClass: 'COLDLINE' },
@@ -22,7 +24,12 @@ export const LIFECYCLE_RULES = [
     action: { type: 'Delete' as const },
     condition: { age: 2555 },
   },
+  WEEKLY_REPORT_EPHEMERAL_GCS_LIFECYCLE_RULE,
 ];
+
+/** Re-export for callers that reference the ephemeral rule directly. */
+export const EPHEMERAL_WEEKLY_REPORT_LIFECYCLE_RULE =
+  WEEKLY_REPORT_EPHEMERAL_GCS_LIFECYCLE_RULE;
 
 export async function applyGcsLifecycle(): Promise<void> {
   const bucketName = process.env.INVOICE_PDF_BUCKET;

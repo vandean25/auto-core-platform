@@ -86,9 +86,6 @@ const TENANT_A_RULES: Record<string, ResolvedAgentPolicyRule | null> = {
   'estimate.send_customer_message': policyRule('estimate.send_customer_message', {
     enabled: false,
   }),
-  'workshop_estimate.send': policyRule('workshop_estimate.send', {
-    enabled: false,
-  }),
   'workshop.media_upload_slot': policyRule('workshop.media_upload_slot', {
     enabled: false,
   }),
@@ -96,10 +93,13 @@ const TENANT_A_RULES: Record<string, ResolvedAgentPolicyRule | null> = {
     'workshop_order.propose_mechanic_finding',
     { enabled: false },
   ),
+  'report.generate_weekly_pdf': policyRule('report.generate_weekly_pdf', {
+    enabled: false,
+  }),
 };
 
-// Visible tools: every read tool plus 11 write tools (release_reservation is HUMAN_ONLY).
-const VISIBLE_TOOL_COUNT = MCP_READ_TOOL_NAMES.length + 11;
+// Visible tools: every read tool plus 12 write tools (release_reservation is HUMAN_ONLY).
+const VISIBLE_TOOL_COUNT = MCP_READ_TOOL_NAMES.length + 12;
 
 function createService() {
   const authenticated: { user?: SessionUser } = { user: AGENT_USER };
@@ -290,6 +290,7 @@ describe('McpCapabilitiesService.getCapabilities', () => {
       'propose_estimate_send',
       'request_workshop_media_upload',
       'propose_mechanic_finding',
+      'generate_weekly_report_pdf',
     ]);
     expect(page.meta).toEqual({
       total: VISIBLE_TOOL_COUNT,

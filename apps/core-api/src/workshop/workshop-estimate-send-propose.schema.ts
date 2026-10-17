@@ -20,8 +20,11 @@ export const proposeEstimateSendInputSchema = z
     pinned_workshop_order_id: uuidSchema.optional(),
     /** Digest of billable workshop lines at propose time. */
     pinned_lines_digest: z.string().min(1).max(128).optional(),
-    /** Normalized recipient email at propose time. */
-    pinned_recipient_email: z.string().min(1).max(320).optional(),
+    /** SHA-256 of the normalized recipient email at propose time. */
+    pinned_recipient_email_sha256: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/)
+      .optional(),
     /** When set, apply must send this existing draft version id. */
     pinned_draft_version_id: uuidSchema.optional(),
     pinned_needs_create_estimate: z.boolean().optional(),

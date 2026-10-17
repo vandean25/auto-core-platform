@@ -143,6 +143,14 @@ export function createAgentProposalSpecHarness() {
     buildPolicyContext: jest.fn().mockResolvedValue({ amount_eur: 120 }),
     enrichInput: jest.fn(async (input: unknown) => input),
   };
+  const mockWorkshopEstimateSendPropose = {
+    applySend: jest.fn(),
+    buildExecutionContext: jest
+      .fn()
+      .mockResolvedValue({ site_id: 'site-1' }),
+    buildPolicyContext: jest.fn().mockResolvedValue({ amount_eur: 60 }),
+    enrichInput: jest.fn(async (input: unknown) => input),
+  };
   const mockWorkshopMediaUploadMcp = {
     createUploadSlot: jest.fn(),
   };
@@ -166,8 +174,10 @@ export function createAgentProposalSpecHarness() {
     mockPurchaseService as never,
     mockWorkshopOrderCompletion as never,
     mockInvoiceWorkshopDraftPropose as never,
+    mockWorkshopEstimateSendPropose as never,
     mockWorkshopMediaUploadMcp as never,
     mockMechanicFindingPropose as never,
+    {} as never,
   );
 
   const policyEvaluator = new AgentProposalPolicyEvaluator(mockAgentPolicyService);

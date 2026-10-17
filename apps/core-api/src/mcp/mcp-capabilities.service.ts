@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { AgentPolicyTier } from '@prisma/client';
 import { MCP_WRITE_POLICY_ACTION_TYPES } from '../agent-policy/agent-policy.constants.js';
+import { MCP_WRITE_POLICY_ACTION_TYPES_AUT596 } from './mcp-write-policy-action-types.aut596.js';
 import { MCP_WRITE_POLICY_ACTION_TYPES_AUT598 } from './mcp-write-policy-action-types.aut598.js';
 import { evaluateAgentPolicy } from '../agent-policy/agent-policy.evaluator.js';
 import { AgentPolicyService } from '../agent-policy/agent-policy.service.js';
@@ -212,14 +213,7 @@ export class McpCapabilitiesService {
   private async describeWriteTool(
     tool: McpWriteToolName,
   ): Promise<WriteToolDescription> {
-    const actionType =
-      tool in MCP_WRITE_POLICY_ACTION_TYPES_AUT598
-        ? MCP_WRITE_POLICY_ACTION_TYPES_AUT598[
-            tool as keyof typeof MCP_WRITE_POLICY_ACTION_TYPES_AUT598
-          ]
-        : MCP_WRITE_POLICY_ACTION_TYPES[
-            tool as keyof typeof MCP_WRITE_POLICY_ACTION_TYPES
-          ];
+    const actionType = resolveMcpWritePolicyActionType(tool);
     const rule = await this.agentPolicy.getEffectiveRule(actionType);
     if (!rule) {
       return { kind: 'human_only', actionType };
@@ -244,4 +238,20 @@ export class McpCapabilitiesService {
       : { ...base, enabled: false, disabled_reason: 'policy_disabled' };
     return { kind: 'tool', capability };
   }
+}
+
+function resolveMcpWritePolicyActionType(tool: McpWriteToolName): string {
+  if (tool in MCP_WRITE_POLICY_ACTION_TYPES_AUT598) {
+    return MCP_WRITE_POLICY_ACTION_TYPES_AUT598[
+      tool as keyof typeof MCP_WRITE_POLICY_ACTION_TYPES_AUT598
+    ];
+  }
+  if (tool in MCP_WRITE_POLICY_ACTION_TYPES_AUT596) {
+    return MCP_WRITE_POLICY_ACTION_TYPES_AUT596[
+      tool as keyof typeof MCP_WRITE_POLICY_ACTION_TYPES_AUT596
+    ];
+  }
+  return MCP_WRITE_POLICY_ACTION_TYPES[
+    tool as keyof typeof MCP_WRITE_POLICY_ACTION_TYPES
+  ];
 }

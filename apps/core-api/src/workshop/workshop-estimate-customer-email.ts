@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { UnprocessableEntityException } from '@nestjs/common';
 import { isPlainEmailAddress } from '../notifications/email/email-address.js';
 import type { EmailDraft } from '../notifications/notification-outbox.email-columns.js';
@@ -53,6 +54,12 @@ export function resolveCustomerEstimateRecipientEmail(customer: {
     });
   }
   return recipientEmail;
+}
+
+/** SHA-256 of the normalized recipient address for proposal pinning (no PII in logs). */
+export function hashCustomerEstimateRecipientEmail(email: string): string {
+  const normalized = email.trim().toLowerCase();
+  return createHash('sha256').update(normalized).digest('hex');
 }
 
 export function buildCustomerEstimateEmail(

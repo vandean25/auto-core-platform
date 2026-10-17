@@ -21,7 +21,10 @@ import {
   collectEstimateCustomerSendBlockers,
   collectEstimateSourceLines,
 } from './workshop-estimate-lines.helpers.js';
-import { resolveCustomerEstimateRecipientEmail } from './workshop-estimate-customer-email.js';
+import {
+  hashCustomerEstimateRecipientEmail,
+  resolveCustomerEstimateRecipientEmail,
+} from './workshop-estimate-customer-email.js';
 import { WorkshopEstimateService } from './workshop-estimate.service.js';
 import { assertBackOfficeRole } from './workshop-estimate-scope.js';
 import {
@@ -125,7 +128,7 @@ export class WorkshopEstimateSendProposeService {
     const plan = await this.planSend(parsed, tenantId, siteId);
     record.pinned_workshop_order_id = parsed.workshop_order_id;
     record.pinned_lines_digest = plan.digest;
-    record.pinned_recipient_email = plan.recipientEmail;
+    record.pinned_recipient_email_sha256 = plan.recipientEmailSha256;
     record.pinned_needs_create_estimate = plan.needsCreateEstimate;
     record.pinned_needs_revision = plan.needsRevision;
     if (plan.draftVersionId) {
@@ -278,33 +281,66 @@ export class WorkshopEstimateSendProposeService {
     parsed: ProposeEstimateSendInput,
     plan: {
       digest: string;
-      recipientEmail: string;
+      recipientEmailSha256: string;
       draftVersionId: string | null;
+      needsCreateEstimate: boolean;
+      needsRevision: boolean;
       validUntilIso: string | null;
     },
   ): void {
-    if (
-      parsed.pinned_lines_digest &&
-      parsed.pinned_lines_digest !== plan.digest
-    ) {
+    if (!parsed.pinned_lines_digest || !parsed.pinned_recipient_email_sha256) {
+      throw new ConflictException(
+        'Proposal payload is missing required estimate send pins',
+      );
+    }
+    if (parsed.pinned_lines_digest !== plan.digest) {
       throw new ConflictException(
         'Workshop order lines changed since this proposal was created',
       );
     }
-    if (
-      parsed.pinned_recipient_email &&
-      parsed.pinned_recipient_email !== plan.recipientEmail
-    ) {
+    if (parsed.pinned_recipient_email_sha256 !== plan.recipientEmailSha256) {
       throw new ConflictException(
         'The customer email changed since this proposal was created',
       );
     }
-    if (parsed.pinned_draft_version_id && plan.draftVersionId) {
-      if (parsed.pinned_draft_version_id !== plan.draftVersionId) {
+    if (parsed.pinned_needs_create_estimate === true) {
+      if (!plan.needsCreateEstimate) {
         throw new ConflictException(
-          'The estimate draft version changed since this proposal was created',
+          'The estimate draft plan changed since this proposal was created',
         );
       }
+      if (
+        parsed.pinned_needs_revision === true ||
+        parsed.pinned_draft_version_id
+      ) {
+        throw new ConflictException(
+          'Proposal estimate version pins are inconsistent',
+        );
+      }
+      return;
+    }
+    if (parsed.pinned_needs_revision === true) {
+      if (!plan.needsRevision) {
+        throw new ConflictException(
+          'The estimate draft plan changed since this proposal was created',
+        );
+      }
+      if (parsed.pinned_draft_version_id) {
+        throw new ConflictException(
+          'Proposal estimate version pins are inconsistent',
+        );
+      }
+      return;
+    }
+    if (!parsed.pinned_draft_version_id) {
+      throw new ConflictException(
+        'Proposal payload is missing required estimate version pins',
+      );
+    }
+    if (plan.draftVersionId !== parsed.pinned_draft_version_id) {
+      throw new ConflictException(
+        'The estimate draft version changed since this proposal was created',
+      );
     }
     if (parsed.pinned_valid_until && plan.validUntilIso) {
       if (parsed.pinned_valid_until !== plan.validUntilIso) {
@@ -405,6 +441,8 @@ export class WorkshopEstimateSendProposeService {
     }
 
     const recipientEmail = resolveCustomerEstimateRecipientEmail(order.customer);
+    const recipientEmailSha256 =
+      hashCustomerEstimateRecipientEmail(recipientEmail);
     const sourceLines = collectEstimateSourceLines(order.tasks);
     const sendBlockers = collectEstimateCustomerSendBlockers(sourceLines);
     if (sendBlockers.length > 0) {
@@ -462,6 +500,7 @@ export class WorkshopEstimateSendProposeService {
       preview,
       digest,
       recipientEmail,
+      recipientEmailSha256,
       draftVersionId: draftPlan.draftVersionId,
       needsCreateEstimate: draftPlan.needsCreateEstimate,
       needsRevision: draftPlan.needsRevision,
