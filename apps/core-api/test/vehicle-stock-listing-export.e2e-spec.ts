@@ -93,14 +93,14 @@ describe('Vehicle listing export download (e2e)', () => {
         `/api/vehicle-stock/${vehicleId}/listing/export/download?profile=MOBILE_DE_REFERENCE_V1`,
       )
       .set('Authorization', `Bearer ${suite.authToken}`)
+      .buffer(true)
       .expect(200);
 
     expect(download.headers['content-type']).toContain('application/zip');
     expect(download.headers['x-checksum-sha256']).toMatch(/^[a-f0-9]{64}$/);
-    const zipBytes = Buffer.isBuffer(download.body)
-      ? download.body
-      : Buffer.from(download.body);
-    expect(zipBytes.subarray(0, 2).toString('ascii')).toBe('PK');
+    expect((download.body as Buffer).subarray(0, 2).toString('ascii')).toBe(
+      'PK',
+    );
   });
 
   it('returns 422 for unsupported serializer profile', async () => {

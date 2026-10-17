@@ -3853,6 +3853,23 @@ export interface paths {
         patch: operations["VehicleListingController_patchChannel"];
         trace?: never;
     };
+    "/api/vehicle-stock/{vehicleId}/listing/export/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download a reference listing export package (CSV + images ZIP) for the active stock cycle */
+        get: operations["VehicleListingExportController_download"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/employees": {
         parameters: {
             query?: never;
@@ -18901,6 +18918,28 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["VehicleListingDto"];
                 };
+            };
+        };
+    };
+    VehicleListingExportController_download: {
+        parameters: {
+            query: {
+                /** @description Listing serializer profile code (e.g. MOBILE_DE_REFERENCE_V1) */
+                profile: string;
+            };
+            header?: never;
+            path: {
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
