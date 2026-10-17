@@ -195,11 +195,20 @@ type InteractiveTransactionFn = (
 
 const skipVehicleMediaPurgeDeferral = Symbol('skipVehicleMediaPurgeDeferral');
 
+type TransactionRunner = (
+  arg: unknown,
+  options?: unknown,
+) => Promise<unknown>;
+
 /** Apply after audit/realtime extensions so interactive tx clients keep their hooks. */
 export function createVehicleMediaPurgeTransactionExtension() {
   return Prisma.defineExtension((client) => {
-    const runTransaction = client.$transaction.bind(client);
-    return client.$extends({
+    const runParentTransaction = client.$transaction.bind(
+      client,
+    ) as TransactionRunner;
+    let runExtendedTransaction: TransactionRunner;
+
+    const extension = client.$extends({
       name: 'vehicle-media-purge-transaction',
       client: {
         $transaction(arg: unknown, options?: unknown): Promise<unknown> {
@@ -208,28 +217,32 @@ export function createVehicleMediaPurgeTransactionExtension() {
               ? (options as Record<string | symbol, unknown>)
               : {};
           if (transactionOptions[skipVehicleMediaPurgeDeferral]) {
-            return runTransaction(arg as never, options as never);
+            if (Array.isArray(arg)) {
+              const extendedClient = Prisma.getExtensionContext(this);
+              return runParentTransaction.call(extendedClient, arg, options);
+            }
+            return runParentTransaction(arg, options);
           }
-          const extendedClient = Prisma.getExtensionContext(this) as {
-            $transaction: typeof runTransaction;
-          };
           if (typeof arg === 'function') {
             return runWithDeferredVehicleMediaPurges(() =>
-              runTransaction(arg as InteractiveTransactionFn, options),
+              runParentTransaction(arg as InteractiveTransactionFn, options),
             );
           }
           if (Array.isArray(arg)) {
             return runWithDeferredVehicleMediaPurges(() =>
-              extendedClient.$transaction(arg, {
+              runExtendedTransaction(arg, {
                 ...transactionOptions,
                 [skipVehicleMediaPurgeDeferral]: true,
               }),
             );
           }
-          return runTransaction(arg as never, options as never);
+          return runParentTransaction(arg, options);
         },
       },
     });
+
+    runExtendedTransaction = extension.$transaction.bind(extension);
+    return extension;
   });
 }
 
