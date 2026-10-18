@@ -52,7 +52,6 @@ export function requiresOutboxContactCheck(
 export async function resolveControllerLegalEntityIdInTx(
   tx: Prisma.TransactionClient,
   tenantId: string,
-  workshopOrderId: string | null | undefined,
   explicitId?: string,
 ): Promise<string | null> {
   if (explicitId) {
@@ -61,16 +60,6 @@ export async function resolveControllerLegalEntityIdInTx(
       select: { id: true },
     });
     return entity?.id ?? null;
-  }
-  if (workshopOrderId) {
-    const order = await tx.workshopOrder.findFirst({
-      where: { tenant_id: tenantId, id: workshopOrderId },
-      select: { site: { select: { legal_entity_id: true } } },
-    });
-    const fromOrder = order?.site?.legal_entity_id;
-    if (fromOrder) {
-      return fromOrder;
-    }
   }
   const active = await tx.legalEntity.findMany({
     where: { tenant_id: tenantId, is_active: true },
@@ -130,7 +119,6 @@ export async function evaluateOutboxContactPermission(
   const controllerId = await resolveControllerLegalEntityIdInTx(
     tx,
     input.tenantId,
-    input.workshopOrderId,
     input.controllerLegalEntityId,
   );
   if (!controllerId) {

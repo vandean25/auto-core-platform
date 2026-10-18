@@ -19,6 +19,7 @@ export interface EstimateEmailInput {
   tenantId: string;
   versionId: string;
   workshopOrderId: string;
+  controllerLegalEntityId: string;
   vehicle: { make: string; model: string };
   customer: Customer;
   sellerName: string;
@@ -75,6 +76,7 @@ export async function queueEstimateEmailInTx(
       sourceEntityType: 'WorkshopEstimateVersion',
       sourceEntityId: input.versionId,
       consentPurpose: 'ORDER_COMMUNICATION',
+      controllerLegalEntityId: input.controllerLegalEntityId,
       email: email.draft,
       // The customer the message is for, so a refusal of the address can clear that customer's confirmation.
       payload: { customer_id: input.customer.id },
