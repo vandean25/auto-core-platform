@@ -4555,6 +4555,7 @@ model WorkshopMedia {
   @@index([tenant_id, workshop_task_id], map: "idx_workshop_media_task")
   @@index([tenant_id, uploaded_by_employee_id], map: "idx_workshop_media_employee")
   @@index([tenant_id, check_in_id], map: "idx_workshop_media_check_in")
+  @@index([tenant_id, createdAt], map: "idx_workshop_media_check_in_orphan_candidates")
   @@map("workshop_media")
 }
 
