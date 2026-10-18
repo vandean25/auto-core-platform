@@ -26,11 +26,11 @@ describe('toMcpGewaehrleistungDueRow', () => {
         type: 'PRIVATE',
         company_name: 'Stale GmbH',
         first_name: 'Anna',
-        last_name: 'Pilot',
+        last_name: 'Muster',
       },
     });
 
-    expect(row.customer_name).toBe('Anna Pilot');
+    expect(row.customer_name).toBe('Anna Muster');
   });
 });
 
