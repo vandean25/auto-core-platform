@@ -1,7 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { batchE2eSuitesWithIsolated } from './run-e2e-isolated-suites.mjs';
 
 const batchSize = 12;
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -76,7 +75,7 @@ export async function discoverE2eBatches(size = batchSize, shard = null) {
     throw new Error(`Jest did not discover any backend E2E suites${scope}.`);
   }
 
-  return batchE2eSuitesWithIsolated(testFiles, size, chunkItems);
+  return chunkItems(testFiles, size);
 }
 
 async function runBatchedE2e() {

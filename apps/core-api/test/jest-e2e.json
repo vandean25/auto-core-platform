@@ -4,7 +4,10 @@
   "testEnvironment": "node",
   "testRegex": "test/.*\\.e2e-spec\\.ts$",
   "setupFiles": ["dotenv/config"],
-  "setupFilesAfterEnv": ["<rootDir>/test/jest-esm-setup.ts"],
+  "setupFilesAfterEnv": [
+    "<rootDir>/test/jest-esm-setup.ts",
+    "<rootDir>/test/mcp-e2e-legacy-env.aut605.ts"
+  ],
   "transform": {
     "^.+\\.(t|j)s$": ["ts-jest", { "useESM": true, "tsconfig": "tsconfig.e2e.json" }]
   },
