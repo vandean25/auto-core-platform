@@ -24,7 +24,8 @@
       "vin": "FIN",
       "plate": "Kennzeichen",
       "color": "Farbe",
-      "status": "Status"
+      "status": "Status",
+      "rowIndicator": "Fahrzeug"
     }
   },
   "stockDetail": {

@@ -407,7 +407,7 @@ export function AccountingExportSettingsTab({
         <div className="flex items-start gap-3 text-slate-700">
           <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-500" />
           <div>
-            <h3 className="text-lg font-medium">{t('accountingExport.noAccess.title')}</h3>
+            <h2 className="text-lg font-medium">{t('accountingExport.noAccess.title')}</h2>
             <p className="mt-1 text-sm text-slate-600">
               {t('accountingExport.noAccess.description')}
             </p>
@@ -447,7 +447,7 @@ export function AccountingExportSettingsTab({
     <div className="space-y-6">
       <div className="flex flex-col gap-4 rounded-lg border bg-white p-6 shadow-sm lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-1">
-          <h3 className="text-lg font-medium">{t('accountingExport.header.title')}</h3>
+          <h2 className="text-lg font-medium">{t('accountingExport.header.title')}</h2>
           <p className="max-w-2xl text-sm text-slate-600">
             <Trans
               t={t}

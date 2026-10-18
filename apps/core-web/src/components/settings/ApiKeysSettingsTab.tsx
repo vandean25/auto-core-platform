@@ -251,7 +251,7 @@ export function ApiKeysSettingsTab() {
     <div className='space-y-6'>
       <div className='flex items-start justify-between gap-4'>
         <div>
-          <h3 className='text-lg font-medium'>{t('apiKeys.title')}</h3>
+          <h2 className='text-lg font-medium'>{t('apiKeys.title')}</h2>
           <p className='text-sm text-slate-500'>
             {t('apiKeys.description')}
           </p>

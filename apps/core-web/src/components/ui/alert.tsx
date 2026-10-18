@@ -35,12 +35,14 @@ const Alert = React.forwardRef<HTMLDivElement, AlertProps>(
 )
 Alert.displayName = "Alert"
 
-interface AlertTitleProps extends React.HTMLAttributes<HTMLHeadingElement> {
-  /** Heading level. Defaults to h5; pass the level that fits the outline, e.g. `as="h3"` under a card title. */
-  as?: "h1" | "h2" | "h3" | "h4" | "h5" | "h6"
+type AlertTitleElement = "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "div" | "p"
+
+interface AlertTitleProps extends React.HTMLAttributes<HTMLElement> {
+  /** Heading level, or a non-heading element when the title is not a document section. */
+  as?: AlertTitleElement
 }
 
-const AlertTitle = React.forwardRef<HTMLHeadingElement, AlertTitleProps>(
+const AlertTitle = React.forwardRef<HTMLElement, AlertTitleProps>(
   ({ as: Heading = "h5", className, children, ...props }, ref) => (
     <Heading
       ref={ref}

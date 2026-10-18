@@ -212,7 +212,7 @@ export function TeamSettingsTab() {
     <div className='space-y-6'>
       <div className='flex items-center justify-between'>
         <div>
-          <h3 className='text-lg font-medium'>{t('team.title')}</h3>
+          <h2 className='text-lg font-medium'>{t('team.title')}</h2>
           <p className='text-sm text-slate-500'>{t('team.description')}</p>
         </div>
         <Button onClick={() => setInviteOpen(true)}>

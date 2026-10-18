@@ -550,9 +550,9 @@ export function DocumentBrandingSettings({
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 id="document-branding-title" className="text-lg font-medium">
+          <h2 id="document-branding-title" className="text-lg font-medium">
             {t("documentBranding.title")}
-          </h3>
+          </h2>
           <p className="text-sm text-slate-500">
             {t("documentBranding.subtitle")}
           </p>

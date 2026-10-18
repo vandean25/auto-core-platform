@@ -10,6 +10,14 @@ import { DE_WORKSHOP } from './helpers/de-workshop'
 import { DE_SALES } from './helpers/de-sales'
 import { DE_CUSTOMERS } from './helpers/de-customers'
 import { DE_INVENTORY } from './helpers/de-inventory'
+import { DE_SETTINGS } from './helpers/de-settings'
+import {
+  createMockBrand,
+  createMockFinanceSettings,
+  createMockListResponse,
+  createMockRevenueGroup,
+  createMockStorageLocation,
+} from './utils/mock-factories'
 
 /**
  * AUT-472: heading levels on the detail pages. A card directly under the page h1 is an h2 (the
@@ -112,6 +120,65 @@ test.describe('Heading order on detail pages', () => {
     ).toBeVisible()
     await expect(
       page.getByRole('heading', { level: 3, name: 'Kostenvoranschlag nicht verfügbar', exact: true }),
+    ).toBeVisible()
+    await expectNoHeadingOrderViolations(page)
+  })
+
+  test('settings finance tab has no heading-order violations', async ({ page }) => {
+    await page.route(AutoCorePage.apiRouteMatcher('/api/finance/settings'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(createMockFinanceSettings()),
+      })
+    })
+    await page.route(AutoCorePage.apiRouteMatcher('/api/finance/revenue-groups'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([createMockRevenueGroup({ name: 'Parts Revenue' })]),
+      })
+    })
+
+    await page.goto('/settings')
+    await page.waitForLoadState('networkidle')
+
+    await expect(page.getByRole('heading', { level: 1, name: DE_SETTINGS.page.title })).toBeVisible()
+    await expect(
+      page.getByRole('heading', { level: 2, name: DE_SETTINGS.finance.fiscal.title, exact: true }),
+    ).toBeVisible()
+    await expectNoHeadingOrderViolations(page)
+  })
+
+  test('settings brands tab has no heading-order violations', async ({ page }) => {
+    await page.route(AutoCorePage.apiRouteMatcher('/api/finance/settings'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(createMockFinanceSettings()),
+      })
+    })
+    await page.route(AutoCorePage.apiRouteMatcher('/api/finance/revenue-groups'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([]),
+      })
+    })
+    await page.route(AutoCorePage.apiRouteMatcher('/api/brands'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(createMockListResponse([createMockBrand({ name: 'Stellantis' })])),
+      })
+    })
+
+    await page.goto('/settings?tab=brands')
+    await page.waitForLoadState('networkidle')
+
+    await expect(page.getByRole('heading', { level: 1, name: DE_SETTINGS.page.title })).toBeVisible()
+    await expect(
+      page.getByRole('heading', { level: 2, name: DE_SETTINGS.brands.title, exact: true }),
     ).toBeVisible()
     await expectNoHeadingOrderViolations(page)
   })

@@ -311,7 +311,7 @@ export function WorkshopHoursSettingsTab() {
       <form onSubmit={handleSaveSettings} className='space-y-6'>
         <div className='p-6 bg-white border rounded-lg shadow-sm space-y-6'>
           <div>
-            <h3 className='text-lg font-medium'>{t('workshopHours.title')}</h3>
+            <h2 className='text-lg font-medium'>{t('workshopHours.title')}</h2>
             <p className='text-sm text-muted-foreground'>
               {t('workshopHours.description')}
             </p>
@@ -459,7 +459,7 @@ export function WorkshopHoursSettingsTab() {
       <div className='p-6 bg-white border rounded-lg shadow-sm space-y-4'>
         <div className='flex items-center justify-between gap-4'>
           <div>
-            <h3 className='text-lg font-medium'>{t('workshopHours.holidays.title')}</h3>
+            <h2 className='text-lg font-medium'>{t('workshopHours.holidays.title')}</h2>
             <p className='text-sm text-muted-foreground'>
               {t('workshopHours.holidays.description')}
             </p>

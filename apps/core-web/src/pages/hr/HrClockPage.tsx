@@ -84,7 +84,7 @@ function compareEvents(left: AttendanceEvent, right: AttendanceEvent): number {
 function MissingEmployeeState({ t }: { t: TFunction<'hr'> }) {
   return (
     <Alert>
-      <AlertTitle>{t('clock.missingEmployee.title')}</AlertTitle>
+      <AlertTitle as="div">{t('clock.missingEmployee.title')}</AlertTitle>
       <AlertDescription className='flex flex-col items-start gap-2'>
         <span>{t('clock.missingEmployee.description')}</span>
         <Link className='font-medium underline underline-offset-4' to='/hr/employees'>
@@ -255,7 +255,7 @@ function ManagerAttendanceSection({
 
       {attendanceError ? (
         <Alert variant='destructive'>
-          <AlertTitle>{t('clock.attendanceUnavailable')}</AlertTitle>
+          <AlertTitle as="div">{t('clock.attendanceUnavailable')}</AlertTitle>
           <AlertDescription>{getErrorMessage(attendanceError, t('clock.toast.loadAttendanceFailed'))}</AlertDescription>
         </Alert>
       ) : null}
@@ -422,7 +422,7 @@ export default function HrClockPage() {
         <ClockPageSkeleton />
       ) : !canManageAttendance && (meQuery.error || clockQuery.error || !meQuery.data || !clockResponse) ? (
         <Alert variant='destructive'>
-          <AlertTitle>{t('clock.attendanceUnavailable')}</AlertTitle>
+          <AlertTitle as="div">{t('clock.attendanceUnavailable')}</AlertTitle>
           <AlertDescription>
             {getErrorMessage(meQuery.error ?? clockQuery.error, t('clock.toast.loadTimeClockFailed'))}
           </AlertDescription>

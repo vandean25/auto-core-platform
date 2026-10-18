@@ -29,7 +29,7 @@ export function MechanicAwayAlert({ employeeAway, mechanicName }: MechanicAwayAl
   return (
     <Alert className='border-amber-200 bg-amber-50 text-amber-900 [&>svg]:text-amber-600'>
       <AlertTriangle aria-hidden='true' />
-      <AlertTitle>{t('mechanicAway.title', { name: displayName })}</AlertTitle>
+      <AlertTitle as="div">{t('mechanicAway.title', { name: displayName })}</AlertTitle>
       <AlertDescription>
         {t('mechanicAway.description', {
           name: displayName,

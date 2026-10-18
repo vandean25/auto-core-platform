@@ -178,7 +178,7 @@ function StorageLocationsTab() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="md:col-span-2 space-y-4">
                 <div>
-                    <h3 className="text-lg font-medium">{t('storageLocations.title')}</h3>
+                    <h2 className="text-lg font-medium">{t('storageLocations.title')}</h2>
                     <p className="text-sm text-muted-foreground">{t('storageLocations.description')}</p>
                 </div>
 
@@ -206,7 +206,7 @@ function StorageLocationsTab() {
             <div>
                 <Card>
                     <CardHeader>
-                        <CardTitle as="h4">{t('storageLocations.add.title')}</CardTitle>
+                        <CardTitle as="h3">{t('storageLocations.add.title')}</CardTitle>
                         <CardDescription>{t('storageLocations.add.description')}</CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -363,14 +363,6 @@ export default function SettingsPage() {
         return <PageLoader />
     }
 
-    if (isLoading) {
-        return (
-            <div className="flex items-center justify-center min-h-[400px]">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-        )
-    }
-
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between mb-8">
@@ -380,6 +372,11 @@ export default function SettingsPage() {
                 </div>
             </div>
 
+            {isLoading ? (
+                <div className="flex items-center justify-center min-h-[400px]">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+            ) : (
             <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
                 <TabsList className="flex h-auto w-full max-w-[1300px] justify-start gap-1 overflow-x-auto">
                     <TabsTrigger className="shrink-0" value="finance">{t('tabs.finance')}</TabsTrigger>
@@ -414,7 +411,7 @@ export default function SettingsPage() {
                     <form onSubmit={handleSaveRequest} className="space-y-8">
                         <div className="grid gap-6 p-6 bg-white border rounded-lg shadow-sm">
                             <div className="space-y-4">
-                                <h3 className="text-lg font-medium">{t('finance.fiscal.title')}</h3>
+                                <h2 className="text-lg font-medium">{t('finance.fiscal.title')}</h2>
                                 <div className="grid gap-2 max-w-sm">
                                     <Label htmlFor="lock_date">{t('finance.fiscal.lockDate')}</Label>
                                     <Input
@@ -432,7 +429,7 @@ export default function SettingsPage() {
                             <hr />
 
                             <div className="space-y-4">
-                                <h3 className="text-lg font-medium">{t('finance.invoicing.title')}</h3>
+                                <h2 className="text-lg font-medium">{t('finance.invoicing.title')}</h2>
                                 <div className="grid grid-cols-2 gap-4 max-w-md">
                                     <div className="grid gap-2">
                                         <Label htmlFor="prefix">{t('finance.invoicing.prefix')}</Label>
@@ -480,7 +477,7 @@ export default function SettingsPage() {
                     <div className="p-6 bg-white border rounded-lg shadow-sm">
                         <div className="flex items-center justify-between mb-6">
                             <div>
-                                <h3 className="text-lg font-medium">{t('revenueGroups.title')}</h3>
+                                <h2 className="text-lg font-medium">{t('revenueGroups.title')}</h2>
                                 <p className="text-sm text-muted-foreground">
                                     {t('revenueGroups.description')}
                                 </p>
@@ -502,7 +499,7 @@ export default function SettingsPage() {
                     <div className="p-6 bg-white border rounded-lg shadow-sm">
                         <div className="flex items-center justify-between mb-6">
                             <div>
-                                <h3 className="text-lg font-medium">{t('brands.title')}</h3>
+                                <h2 className="text-lg font-medium">{t('brands.title')}</h2>
                                 <p className="text-sm text-muted-foreground">
                                     {t('brands.description')}
                                 </p>
@@ -594,6 +591,7 @@ export default function SettingsPage() {
                     </div>
                 </TabsContent>
             </Tabs>
+            )}
 
             {/* Lock Date Alert Dialog */}
             <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>

@@ -212,7 +212,7 @@ export function VehicleDataSettingsTab() {
     <form onSubmit={handleSave} className='space-y-8'>
       <div className='p-6 bg-white border rounded-lg shadow-sm space-y-6'>
         <div>
-          <h3 className='text-lg font-medium'>{t('vehicleData.catalog.title')}</h3>
+          <h2 className='text-lg font-medium'>{t('vehicleData.catalog.title')}</h2>
           <p className='text-sm text-muted-foreground'>
             {t('vehicleData.catalog.description')}
           </p>
@@ -323,7 +323,7 @@ export function VehicleDataSettingsTab() {
 
       <div className='p-6 bg-white border rounded-lg shadow-sm space-y-6'>
         <div>
-          <h3 className='text-lg font-medium'>{t('vehicleData.oemConcerns.title')}</h3>
+          <h2 className='text-lg font-medium'>{t('vehicleData.oemConcerns.title')}</h2>
           <p className='text-sm text-muted-foreground'>
             {t('vehicleData.oemConcerns.description')}
           </p>
