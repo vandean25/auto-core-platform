@@ -663,6 +663,11 @@ describe('ImportService job lifecycle (characterization)', () => {
         'Lieferanten-Artikelnummer;EAN;Beschreibung;Marke;Einkaufspreis;UVP;Einheit\n',
         7,
       ],
+      [
+        ImportEntityType.LABOR_OPERATION,
+        'Arbeitswert-Nr;AW-Code;Beschreibung;AW;Stundensatz;Interner Kostensatz;Kategorie;Marke;Modell;Baujahr von;Baujahr bis;Motorcode\n',
+        12,
+      ],
     ])(
       'returns the %s template header, fields and CSV',
       (entityType, csv, fieldCount) => {

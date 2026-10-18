@@ -593,6 +593,10 @@
       "public": true,
       "params": []
     },
+    "IMPORT_DUPLICATE_CODE_IN_FILE": {
+      "public": true,
+      "params": []
+    },
     "IMPORT_DUPLICATE_EMAIL_IN_FILE": {
       "public": true,
       "params": []
@@ -633,7 +637,19 @@
       "public": true,
       "params": []
     },
+    "IMPORT_INVALID_HOURLY_RATE": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_INVALID_INTERNAL_COST": {
+      "public": true,
+      "params": []
+    },
     "IMPORT_INVALID_MAPPING": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_INVALID_STANDARD_AW": {
       "public": true,
       "params": []
     },
@@ -646,6 +662,22 @@
       "params": []
     },
     "IMPORT_JOB_STALE": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_LABOR_CODE_CONFLICT": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_LABOR_CODE_REQUIRED": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_LABOR_DESCRIPTION_REQUIRED": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_LABOR_FITMENT_MAKE_MODEL_REQUIRED": {
       "public": true,
       "params": []
     },
@@ -754,6 +786,10 @@
       "params": []
     },
     "INVOICE_SOURCE_OWNERSHIP_CHANGED": {
+      "public": false,
+      "params": []
+    },
+    "LABOR_CATEGORY_UNKNOWN": {
       "public": false,
       "params": []
     },

@@ -64,7 +64,12 @@ export class ImportController {
         file: { type: 'string', format: 'binary' },
         entityType: {
           type: 'string',
-          enum: ['CUSTOMER', 'VEHICLE', 'SUPPLIER_PRICE_LIST'],
+          enum: [
+            'CUSTOMER',
+            'VEHICLE',
+            'SUPPLIER_PRICE_LIST',
+            'LABOR_OPERATION',
+          ],
         },
         sourceSystem: { type: 'string', example: 'incadea' },
         mapping: {
@@ -207,6 +212,9 @@ export class ImportController {
     }
     if (normalized === ImportEntityType.SUPPLIER_PRICE_LIST) {
       return ImportEntityType.SUPPLIER_PRICE_LIST;
+    }
+    if (normalized === ImportEntityType.LABOR_OPERATION) {
+      return ImportEntityType.LABOR_OPERATION;
     }
     throw new BadRequestException({
       code: IMPORT_ERROR_CODES.INVALID_ENTITY_TYPE,
