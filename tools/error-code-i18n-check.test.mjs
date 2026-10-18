@@ -43,13 +43,32 @@ describe('error-code i18n check', () => {
         'utf8',
       ),
     ).codes
-    assert.equal(de.BRAND_EXTRACTION_FAILED, 'Briefkopf-Extraktion fehlgeschlagen.')
+    assert.equal(de.BRAND_EXTRACTION_FAILED, 'Das Briefpapier konnte nicht ausgelesen werden.')
     assert.equal(
       deTranslationFailsQualityCheck(
         de.BRAND_EXTRACTION_FAILED,
         en.BRAND_EXTRACTION_FAILED,
         'BRAND_EXTRACTION_FAILED',
       ),
+      false,
+    )
+  })
+
+  it('rejects technical text in German copy', () => {
+    const en = 'Some message.'
+    for (const de of [
+      'REGISTRATION_INTAKE_APPLIED: Ein Zulassungsschein kann nicht gelöscht werden.',
+      'Rufen Sie GET /api/me/sites auf.',
+      'external_id ist erforderlich.',
+      'Ein gültiger Idempotency-Key-Header ist erforderlich.',
+      'Der Anbieter ist rate-limitiert.',
+      'Die VIN passt nicht zum Fahrzeug.',
+      'Synthetische Illustration.',
+    ]) {
+      assert.equal(deTranslationFailsQualityCheck(de, en, 'X_CODE'), true, de)
+    }
+    assert.equal(
+      deTranslationFailsQualityCheck('Die FIN passt nicht zum Fahrzeug.', en, 'X_CODE'),
       false,
     )
   })
