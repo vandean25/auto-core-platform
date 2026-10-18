@@ -655,8 +655,8 @@ describe('ImportService job lifecycle (characterization)', () => {
       ],
       [
         ImportEntityType.VEHICLE,
-        'Fahrzeug-Nr;FIN;Kennzeichen;Marke;Modell;Baujahr;Kilometerstand;Farbe;Kunden-Nr;Schlüsselnummer\n',
-        10,
+        'Fahrzeug-Nr;FIN;Kennzeichen;Marke;Modell;Baujahr;Erstzulassung;Kilometerstand;Farbe;Kunden-Nr;Schlüsselnummer\n',
+        11,
       ],
       [
         ImportEntityType.SUPPLIER_PRICE_LIST,
