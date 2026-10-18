@@ -79,8 +79,9 @@ export class HttpAutoscout24DmsListingPublisherAdapter implements Autoscout24Dms
   ): Promise<Autoscout24DmsDeactivateResult> {
     const credentials = await this.requireCredentials();
     const baseUrl = this.requireBaseUrl();
-    const externalId =
-      existingExternalListingId ?? encodeURIComponent(payload.sellerListingRef);
+    const externalId = encodeURIComponent(
+      existingExternalListingId ?? payload.sellerListingRef,
+    );
     const response = await this.request(
       baseUrl,
       `/api/v1/listings/${externalId}`,
@@ -190,6 +191,13 @@ export class HttpAutoscout24DmsListingPublisherAdapter implements Autoscout24Dms
         }
       }
 
+      if (response.status === 429) {
+        throw new Autoscout24DmsAdapterError(
+          'rate_limit',
+          'AutoScout24 DMS API rate limit exceeded.',
+          response.status,
+        );
+      }
       if (response.status >= 500) {
         throw new Autoscout24DmsAdapterError(
           'server_error',

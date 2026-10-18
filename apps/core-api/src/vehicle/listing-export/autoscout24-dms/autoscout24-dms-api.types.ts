@@ -22,6 +22,7 @@ export type Autoscout24DmsDeactivateResult = {
 export type Autoscout24DmsAdapterErrorCode =
   | 'client_error'
   | 'server_error'
+  | 'rate_limit'
   | 'timeout'
   | 'network_error'
   | 'unconfigured';

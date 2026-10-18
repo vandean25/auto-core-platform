@@ -55,19 +55,25 @@ describe('AutoScout24 DMS fake adapter contract', () => {
     adapter.contract.configure('reject400');
     await expect(
       adapter.upsertListing('key-400', payload, null),
-    ).rejects.toMatchObject({ status: 400 });
+    ).rejects.toMatchObject({ code: 'client_error', httpStatus: 400 });
 
     adapter.contract.reset();
     adapter.contract.configure('reject500');
     await expect(
       adapter.upsertListing('key-500', payload, null),
-    ).rejects.toMatchObject({ status: 500 });
+    ).rejects.toMatchObject({ code: 'server_error', httpStatus: 500 });
 
     adapter.contract.reset();
     adapter.contract.configure('timeout');
     await expect(adapter.upsertListing('key-timeout', payload, null)).rejects.toThrow(
       'FAKE_TIMEOUT',
     );
+
+    adapter.contract.reset();
+    adapter.contract.configure('reject429');
+    await expect(
+      adapter.upsertListing('key-429', payload, null),
+    ).rejects.toMatchObject({ code: 'rate_limit', httpStatus: 429 });
   });
 });
 
@@ -90,6 +96,30 @@ describe('AutoScout24 DMS HTTP adapter error mapping', () => {
     await expect(
       adapter.upsertListing('http-key', payload, null),
     ).rejects.toThrow(Autoscout24DmsAdapterError);
+
+    delete process.env.AUTOSCOUT24_DMS_API_BASE_URL;
+    delete process.env.AUTOSCOUT24_DMS_API_CREDENTIALS_SECRET_REF;
+  });
+
+  it('maps HTTP 429 to rate_limit', async () => {
+    const fetchImpl = async () =>
+      ({
+        status: 429,
+        text: async () => 'too many requests',
+      }) as Response;
+
+    const adapter = new HttpAutoscout24DmsListingPublisherAdapter(
+      async () => ({ clientId: 'id', clientSecret: 'secret' }),
+      fetchImpl,
+    );
+
+    process.env.AUTOSCOUT24_DMS_API_BASE_URL = 'https://dms.example.test';
+    process.env.AUTOSCOUT24_DMS_API_CREDENTIALS_SECRET_REF = 'gsm-ref';
+
+    await expect(adapter.upsertListing('http-429', payload, null)).rejects.toMatchObject({
+      code: 'rate_limit',
+      httpStatus: 429,
+    });
 
     delete process.env.AUTOSCOUT24_DMS_API_BASE_URL;
     delete process.env.AUTOSCOUT24_DMS_API_CREDENTIALS_SECRET_REF;

@@ -2063,6 +2063,7 @@ model VehicleListingChannelDmsSync {
   last_sync_at          DateTime?                   @map("last_sync_at")
   last_sync_error_code  String?                     @map("last_sync_error_code") @db.VarChar(64)
   last_idempotency_key  String?                     @map("last_idempotency_key") @db.VarChar(128)
+  last_sync_payload_digest String?                  @map("last_sync_payload_digest") @db.Char(64)
   createdAt             DateTime                    @default(now()) @map("created_at")
   updatedAt             DateTime                    @updatedAt @map("updated_at")
 

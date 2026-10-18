@@ -4,6 +4,7 @@ import { InvoicesModule } from '../invoices/invoices.module.js';
 import { AuditModule } from '../audit/audit.module.js';
 import { CommonModule } from '../common/index.js';
 import { DocumentBrandingModule } from '../document-branding/document-branding.module.js';
+import { Autoscout24DmsModule } from '../vehicle/listing-export/autoscout24-dms.module.js';
 import { KaufvertragPdfRenderer } from './kaufvertrag/kaufvertrag-pdf.renderer.js';
 import { VehicleSaleKaufvertragPdfService } from './kaufvertrag/kaufvertrag-pdf.service.js';
 import { VehicleLedgerService } from './vehicle-ledger.service.js';
@@ -34,6 +35,7 @@ import {
     AuditModule,
     CommonModule,
     DocumentBrandingModule,
+    Autoscout24DmsModule,
   ],
   controllers: [
     VehiclePurchaseController,

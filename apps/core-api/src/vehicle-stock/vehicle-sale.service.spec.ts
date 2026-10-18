@@ -18,6 +18,7 @@ import { VehicleSaleService } from './vehicle-sale.service.js';
 import { AuditLogAction } from '@prisma/client';
 import { AuditService } from '../audit/audit.service.js';
 import { RequestContextService } from '../common/services/request-context.service.js';
+import { Autoscout24DmsListingPushService } from '../vehicle/listing-export/autoscout24-dms/autoscout24-dms-listing-push.service.js';
 
 describe('VehicleSaleService', () => {
   const tenantId = 'tenant-1';
@@ -63,6 +64,7 @@ describe('VehicleSaleService', () => {
   };
   let auditService: { recordTenantMutation: jest.Mock };
   let requestContext: { getSource: jest.Mock };
+  let autoscout24DmsPush: { deactivateAfterVehicleSale: jest.Mock };
 
   beforeEach(() => {
     prisma = {
@@ -128,6 +130,9 @@ describe('VehicleSaleService', () => {
     };
     auditService = { recordTenantMutation: jest.fn() };
     requestContext = { getSource: jest.fn().mockReturnValue('API') };
+    autoscout24DmsPush = {
+      deactivateAfterVehicleSale: jest.fn().mockResolvedValue(undefined),
+    };
     service = new VehicleSaleService(
       prisma as unknown as PrismaService,
       tenantContext as unknown as TenantContextService,
@@ -136,6 +141,7 @@ describe('VehicleSaleService', () => {
       snapshotCommit as unknown as InvoiceSnapshotCommitService,
       auditService as unknown as AuditService,
       requestContext as unknown as RequestContextService,
+      autoscout24DmsPush as unknown as Autoscout24DmsListingPushService,
     );
   });
 

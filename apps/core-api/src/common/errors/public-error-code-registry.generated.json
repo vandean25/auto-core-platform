@@ -853,7 +853,15 @@
       "public": true,
       "params": []
     },
+    "LISTING_PUSH_IDEMPOTENCY_CONFLICT": {
+      "public": true,
+      "params": []
+    },
     "LISTING_PUSH_PROVIDER_ERROR": {
+      "public": true,
+      "params": []
+    },
+    "LISTING_PUSH_RATE_LIMIT": {
       "public": true,
       "params": []
     },
