@@ -37,10 +37,7 @@ export class StockTransferService {
       ledgerService,
       realtimeService,
     );
-    return new StockTransferService(
-      wired.queryService,
-      wired.mutationService,
-    );
+    return new StockTransferService(wired.queryService, wired.mutationService);
   }
 
   list(): Promise<SerializedStockTransfer[]> {
