@@ -25,7 +25,7 @@ const baseCustomerEmailInput: EnqueueNotificationInput = {
   consentPurpose: 'ORDER_COMMUNICATION',
   controllerLegalEntityId: CONTROLLER,
   email: {
-    recipientEmail: 'pilot@example.at',
+    recipientEmail: 'consent-test@example.at',
     subject: 'Test',
     text: 'Hello',
     senderName: 'Shop',
@@ -76,6 +76,19 @@ describe('requiresOutboxContactCheck', () => {
 
   it('requires check for customer email rows', () => {
     expect(requiresOutboxContactCheck(baseCustomerEmailInput)).toBe(true);
+  });
+
+  it('skips consent for landing-demo magic link recipient keys', () => {
+    expect(
+      requiresOutboxContactCheck({
+        tenantId: TENANT,
+        eventType: NotificationEventType.LANDING_DEMO_MAGIC_LINK,
+        occurrenceId: 'grant-1',
+        channel: NotificationChannel.EMAIL,
+        recipientKind: NotificationRecipientKind.CUSTOMER,
+        recipientKey: 'landing-demo:consent-test@example.at',
+      }),
+    ).toBe(false);
   });
 });
 

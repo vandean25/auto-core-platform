@@ -17,7 +17,7 @@ const customerEmailInput: EnqueueNotificationInput = {
   consentPurpose: 'ORDER_COMMUNICATION',
   controllerLegalEntityId: 'controller-1',
   email: {
-    recipientEmail: 'pilot@example.at',
+    recipientEmail: 'consent-test@example.at',
     subject: 'Ready',
     text: 'Your vehicle is ready.',
     senderName: 'Shop',

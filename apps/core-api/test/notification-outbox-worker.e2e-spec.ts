@@ -48,7 +48,7 @@ describe('Notification outbox sender worker (e2e)', () => {
     }
   }
 
-  async function ensurePilotCustomer(tenantId: string): Promise<string> {
+  async function ensureConsentTestCustomer(tenantId: string): Promise<string> {
     const existing = customerIds.get(tenantId);
     if (existing) {
       return existing;
@@ -57,9 +57,9 @@ describe('Notification outbox sender worker (e2e)', () => {
       data: {
         tenant_id: tenantId,
         type: 'PRIVATE',
-        first_name: 'Pilot',
-        last_name: 'Customer',
-        email: `pilot-${tenantId}@example.at`,
+        first_name: 'Test',
+        last_name: 'Kunde',
+        email: `consent-test-${tenantId}@example.at`,
         contact_email_ok: true,
       },
       select: { id: true },
@@ -69,7 +69,7 @@ describe('Notification outbox sender worker (e2e)', () => {
   }
 
   async function emailInput(tenantId: string, recipient = 'kunde@example.at') {
-    const customerId = await ensurePilotCustomer(tenantId);
+    const customerId = await ensureConsentTestCustomer(tenantId);
     return {
       tenantId,
       eventType: 'WORKSHOP_TASK_WAITING_CUSTOMER' as const,

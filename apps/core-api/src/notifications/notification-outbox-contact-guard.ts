@@ -36,7 +36,11 @@ export function parseCustomerIdFromRecipientKey(
   return match?.[1] ?? null;
 }
 
-/** Customer EMAIL rows that name a workshop customer id require a consent check before enqueue. */
+/**
+ * Customer EMAIL rows that name a workshop customer id require a consent check before enqueue.
+ * Landing-demo magic link mail is CUSTOMER + EMAIL but uses recipientKey `landing-demo:<email>`,
+ * so it intentionally bypasses canContact (no workshop customer id in the key).
+ */
 export function requiresOutboxContactCheck(
   input: EnqueueNotificationInput,
 ): boolean {
