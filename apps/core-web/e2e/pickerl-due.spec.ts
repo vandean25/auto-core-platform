@@ -158,7 +158,9 @@ test.describe('Pickerl due list and dashboard widgets', () => {
     await expect(page.getByText('7')).toBeVisible()
     await expect(page.getByText('11')).toBeVisible()
 
-    await page.getByText('Pickerl due in 30 days').click()
+    await page
+      .getByText(DE_VEHICLES.dashboardWidgets.pickerlDueTitle.replace('{{count}}', '30'))
+      .click()
     await expect(page).toHaveURL(/\/vehicles\/pickerl-due\?filter_window=30/)
   })
 })
