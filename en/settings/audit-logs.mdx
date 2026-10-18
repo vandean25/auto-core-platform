@@ -65,7 +65,7 @@ ACP writes one audit row per affected business record on **update** and **delete
     Customers, vendors, vehicles, catalog items, brands, storage locations, employees, bays, labor categories and rates, finance settings, revenue groups, purchase orders and bills, sales orders, invoices, workshop orders, tasks, line items, media, and labor entries.
   </Accordion>
   <Accordion title="What you will not see">
-    New creates (the created row *is* the first state). Stock quantity history still lives in the inventory ledger, not here. Server errors and API latency live in [runtime diagnostics](/operations/runtime-diagnostics), not in this table. Other tenants' data never appears.
+    New creates (the created row *is* the first state). Stock quantity history still lives in the inventory ledger, not here. Server errors and API latency live in [runtime diagnostics](/en/operations/runtime-diagnostics), not in this table. Other tenants' data never appears.
   </Accordion>
   <Accordion title="Secrets">
     Known secret fields are replaced before snapshots are saved. If a record shows a redaction banner, those fields were present on the row and stripped on purpose.
