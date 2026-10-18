@@ -152,6 +152,47 @@ describe('autoscout24-provisional golden export', () => {
     );
   });
 
+  it('keeps image_files cell references identical to ZIP JPEG entry names', () => {
+    const result = serializeAutoscout24ProvisionalListing(
+      autoscout24ProvisionalGoldenInput,
+    );
+    const rows = buildAutoscout24ProvisionalCsvRows(
+      autoscout24ProvisionalGoldenInput,
+    );
+    const imageFilesCell = cell(rows[1], 'image_files');
+    const csvImageNames = imageFilesCell.split('|');
+    const zipImageNames = listZipEntryNames(result.zipBytes).filter((name) =>
+      name.endsWith('.jpg'),
+    );
+    expect(csvImageNames).toEqual(zipImageNames);
+    expect(csvImageNames).toEqual(
+      autoscout24ProvisionalGoldenInput.images.map((image) => image.filename),
+    );
+  });
+
+  it('rejects image filenames that would change under CSV sanitisation', () => {
+    const issues = autoscout24ProvisionalListingSerializer.validate({
+      ...autoscout24ProvisionalGoldenInput,
+      images: [
+        {
+          sequence: 1,
+          filename: '=unsafe.jpg',
+          bytes: Buffer.from('synthetic-as24-jpeg-bytes-1'),
+          content_sha256:
+            'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
+        },
+      ],
+    });
+    expect(issues).toEqual([
+      {
+        field: 'image_files',
+        code: 'LISTING_FIELD_INVALID',
+        message:
+          'Image filename must not require CSV sanitisation (must match ZIP member name): =unsafe.jpg',
+      },
+    ]);
+  });
+
   it('prefixes formula-leading text with an apostrophe', () => {
     const input = {
       ...autoscout24ProvisionalGoldenInput,
@@ -270,6 +311,17 @@ describe('autoscout24-provisional golden export', () => {
         message: 'AutoScout24 provisional export allows at most 30 images.',
       },
     ]);
+  });
+
+  it('exports zero WLTP CO₂ when present on the vehicle snapshot', () => {
+    const rows = buildAutoscout24ProvisionalCsvRows({
+      ...autoscout24ProvisionalGoldenInput,
+      vehicle: {
+        ...autoscout24ProvisionalGoldenInput.vehicle,
+        co2_wltp_g_km: 0,
+      },
+    });
+    expect(cell(rows[1], 'co2_wltp_g_km')).toBe('0');
   });
 
   it('does not require export assertions (unknown damage stays UNKNOWN)', () => {

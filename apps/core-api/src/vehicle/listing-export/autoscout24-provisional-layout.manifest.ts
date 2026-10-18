@@ -1,19 +1,21 @@
 /**
  * Pinned provisional AutoScout24 layout for AS24_PROVISIONAL_V1.
  *
- * Transport semantics (UTF-8 BOM, semicolon CSV, quoted cells, CRLF rows, flat
- * image ZIP members matching CSV references) are **VERIFIED** from the public
- * partner FAQ. Individual column names and portal acceptance are **UNVERIFIED**
- * until `Mustertabelle_AS24.xls` is pinned — see
- * `autoscout24-provisional-fields.md` for per-field verification.
+ * The public partner FAQ only verifies CSV export from `Mustertabelle_AS24.xls`
+ * (“CSV (Trennzeichen getrennt)”) and a ZIP whose image file names match the
+ * CSV. UTF-8 BOM, delimiter, quoting, CRLF, and column names are **UNVERIFIED**
+ * against Mustertabelle until the workbook is pinned — see
+ * `autoscout24-provisional-fields.md`.
  *
- * Encoding rules match the generic spreadsheet-oriented export profiles:
+ * Encoding rules match the generic spreadsheet-oriented export profiles (ACP):
  * - UTF-8 with BOM, `;` delimiter, every cell double-quoted with doubled
  *   quotes, CRLF rows, header + one physical line per listing.
  * - CR, LF and other control characters in any cell are replaced with a
  *   space; formula-leading text (`= + - @`, including leading
  *   whitespace/control characters) is prefixed with an apostrophe.
- * - `action` is `UPSERT` for active offers; removals travel separately.
+ * - `action` is `UPSERT` for rows included in download (ACTIVE channels only).
+ *   Inactive / removal-pending channels are excluded by the export service, not
+ *   by a companion removal file in this slice.
  * - Numbers use a decimal point without grouping; ISO first-registration
  *   day; EUR currency.
  * - Nullable boolean columns are lowercase `true`/`false` or empty; every

@@ -109,12 +109,12 @@ export function buildAutoscout24ProvisionalCsvRows(
   setCell(
     dataRow,
     'co2_wltp_g_km',
-    optionalInteger(input.vehicle.co2_wltp_g_km, 1),
+    optionalInteger(input.vehicle.co2_wltp_g_km, 0),
   );
   setCell(
     dataRow,
     'co2_nedc_g_km',
-    optionalInteger(input.vehicle.co2_nedc_g_km, 1),
+    optionalInteger(input.vehicle.co2_nedc_g_km, 0),
   );
   setCell(
     dataRow,
@@ -267,6 +267,15 @@ function validateAutoscout24ProvisionalListing(
         field: 'image_files',
         code: 'LISTING_FIELD_INVALID',
         message: `Image filename must not contain '|': ${image.filename}`,
+      });
+    }
+    const sanitizedFilename = sanitizeWillhabenCsvFieldValue(image.filename);
+    if (sanitizedFilename !== image.filename) {
+      issues.push({
+        field: 'image_files',
+        code: 'LISTING_FIELD_INVALID',
+        message:
+          `Image filename must not require CSV sanitisation (must match ZIP member name): ${image.filename}`,
       });
     }
   }
