@@ -1,36 +1,116 @@
 ---
-title: "Introduction"
-description: "ACP is the workshop ERP for parts, jobs, invoices, and the people who change them."
+title: "Welcome"
+description: "Find the right guide for your job in the workshop, on the counter, or in the back office."
 ---
 
-ACP keeps a workshop running as one system: stock on the shelf, jobs on the board, bills from vendors, and invoices to customers.
+Auto Core Platform is a workshop and dealer management system built for Austria and the wider DACH region. It keeps customers, vehicles, jobs, parts, purchases, and invoices in one place — with a change history you can trust when someone asks *who changed this?*
 
-Every business change is treated like a ledger entry. You can later answer *who changed this, when, and what it looked like before*.
+Pick your role below. Each card links to the guides that match that workday.
+
+## Service advisor
 
 <CardGroup cols={2}>
-  <Card title="Live demo" icon="play" href="https://auto-core-platform-vande.web.app/">
-    Open the workshop tenant in your browser — sign in and try counter, bay, and shelf flows.
+  <Card title="Sign in" icon="log-in" href="/workflows/sign-in">
+    Open the app, switch sites, and use the live demo when you need a sandbox.
   </Card>
-  <Card title="GitHub" icon="github" href="https://github.com/vandean25/auto-core-platform">
-    Source code, issues, and AGPL license for Auto Core Platform.
+  <Card title="Dashboard" icon="layout-dashboard" href="/workflows/dashboard">
+    Search, pinned views, and widgets for what needs attention today.
+  </Card>
+  <Card title="Customers" icon="users" href="/workflows/customers">
+    Customer records, contact details, and sales history.
+  </Card>
+  <Card title="Vehicles" icon="car" href="/workflows/vehicles">
+    Vehicle files, registration data, and compliance fields.
+  </Card>
+  <Card title="Workshop intake" icon="clipboard-list" href="/workflows/workshop-intake">
+    Turn a visit into a workshop order with the right customer and vehicle.
+  </Card>
+  <Card title="Workshop orders" icon="wrench" href="/workflows/workshop-orders">
+    Status, lines, customer messages, and checkout through to invoice.
   </Card>
 </CardGroup>
 
+## Mechanic
+
 <CardGroup cols={2}>
-  <Card title="Workflows" icon="list-checks" href="/workflows">
-    Counter, bay, shelf, and vendor — one guide per job.
+  <Card title="Mechanic view" icon="hard-hat" href="/workflows/mechanic">
+    Your assigned jobs, time, and tasks without the full office menu.
   </Card>
-  <Card title="Settings" icon="settings" href="/settings">
-    Finance, bays, brands, team, and the audit trail.
+  <Card title="Workshop board" icon="columns-3" href="/workflows/workshop-board">
+    Drag jobs across bays and see what is waiting on the floor.
   </Card>
-  <Card title="Inventory" icon="package" href="/workflows/inventory">
-    Parts, bins, and the quantity ledger.
+  <Card title="Parts pick queue" icon="package-search" href="/workflows/workshop-pick">
+    Parts to pull for open jobs, sorted for the shelf walk.
   </Card>
-  <Card title="Workshop" icon="wrench" href="/workflows/workshop-orders">
-    Intake, tasks, parts pick queue, board, checkout invoice.
+  <Card title="Workshop orders" icon="file-text" href="/workflows/workshop-orders">
+    Open the order you are working on — tasks, parts, and notes.
+  </Card>
+  <Card title="Planner" icon="calendar-days" href="/workflows/workshop-planner">
+    Bookings, bay capacity, and opening hours.
+  </Card>
+</CardGroup>
+
+## Accounting and back office
+
+<CardGroup cols={2}>
+  <Card title="Invoices" icon="receipt" href="/workflows/invoices">
+    Draft, finalize, and download customer invoices.
+  </Card>
+  <Card title="Purchase bills" icon="file-input" href="/workflows/purchase-bills">
+    Record vendor bills and tie them to stock or costs.
+  </Card>
+  <Card title="Purchase orders" icon="shopping-cart" href="/workflows/purchase-orders">
+    Order parts from vendors and track what is still open.
+  </Card>
+  <Card title="Finance settings" icon="calculator" href="/settings/finance">
+    Tax, numbering, and accounting export options.
+  </Card>
+  <Card title="Legal entities" icon="building-2" href="/settings/legal-entities">
+    Companies on letterhead, tax IDs, and seller identity on invoices.
+  </Card>
+  <Card title="Time and leave" icon="clock" href="/hr">
+    Clock in, time off, and HR records for your team.
+  </Card>
+</CardGroup>
+
+## Admin and owner
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    First login, roles, and how the main areas fit together.
+  </Card>
+  <Card title="All settings" icon="settings" href="/settings">
+    Map of every settings tab before you change production data.
+  </Card>
+  <Card title="Team and access" icon="shield" href="/settings/team">
+    Who can sign in and what each role may do.
+  </Card>
+  <Card title="Bays and workshop" icon="warehouse" href="/settings/bays">
+    Bays, labour rates, and workshop hours.
+  </Card>
+  <Card title="Audit logs" icon="scroll-text" href="/settings/audit-logs">
+    Who changed business records — separate from server logs.
+  </Card>
+  <Card title="Platform tenants" icon="layers" href="/workflows/platform-tenants">
+    For operators managing multiple workshop tenants.
+  </Card>
+</CardGroup>
+
+## What's new
+
+<Card title="Changelog" icon="sparkles" href="/changelog">
+  User-visible improvements from the last eight weeks — invoices, workshop, compliance, and more.
+</Card>
+
+<CardGroup cols={2}>
+  <Card title="Live demo" icon="play" href="https://auto-core-platform-vande.web.app/">
+    Try the workshop tenant in your browser.
+  </Card>
+  <Card title="All workflows" icon="list-checks" href="/workflows">
+    Full list of day-to-day guides when you are not sure where to start.
   </Card>
 </CardGroup>
 
 <Tip>
-Audit history lives in **Settings → Audit Logs**. Runtime server logs are a different system, used by operators during incidents. They are not the same thing.
+Audit history lives in **Settings → Audit Logs**. Runtime server logs are a different system, used by operators during incidents.
 </Tip>

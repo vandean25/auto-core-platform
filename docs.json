@@ -2,6 +2,28 @@
   "$schema": "https://mintlify.com/docs.json",
   "name": "Auto Core Platform",
   "theme": "willow",
+  "logo": {
+    "light": "/images/logo-light.svg",
+    "dark": "/images/logo-dark.svg",
+    "href": "/introduction"
+  },
+  "favicon": "/images/favicon.svg",
+  "seo": {
+    "metatags": {
+      "description": "Guides for Auto Core Platform — workshop and dealer software for Austria and DACH: jobs, parts, invoices, and settings.",
+      "og:title": "Auto Core Platform documentation",
+      "og:description": "Role-based help for service advisors, mechanics, accounting, and owners using Auto Core Platform.",
+      "og:site_name": "Auto Core Platform",
+      "twitter:card": "summary",
+      "twitter:title": "Auto Core Platform documentation",
+      "twitter:description": "Workshop and dealer DMS guides for Austria and DACH."
+    }
+  },
+  "integrations": {
+    "telemetry": {
+      "enabled": true
+    }
+  },
   "colors": {
     "primary": "#0F172A",
     "light": "#38BDF8",
@@ -84,7 +106,7 @@
         "groups": [
           {
             "group": "Getting started",
-            "pages": ["introduction", "quickstart", "workflows"]
+            "pages": ["introduction", "changelog", "quickstart", "workflows"]
           },
           {
             "group": "Daily work",
