@@ -222,7 +222,7 @@ describe('StockTransferService', () => {
     );
     realtimeService.emitStockTransferUpdated.mockReturnValue(undefined);
 
-    service = new StockTransferService(
+    service = StockTransferService.forUnitTest(
       prisma,
       tenantContext,
       ledgerService as never,

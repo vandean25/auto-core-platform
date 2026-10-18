@@ -19,28 +19,28 @@ import { StockTransferQueryService } from './stock-transfer-query.service.js';
 
 @Injectable()
 export class StockTransferService {
-  private readonly queryService: StockTransferQueryService;
-  private readonly mutationService: StockTransferMutationService;
-
   constructor(
-    queryOrPrisma: StockTransferQueryService | PrismaService,
-    mutationOrTenant: StockTransferMutationService | TenantContextService,
-    ledgerService?: LedgerService,
-    realtimeService?: DashboardRealtimeService,
-  ) {
-    if (ledgerService !== undefined && realtimeService !== undefined) {
-      const wired = wireStockTransferServiceForUnitTest(
-        queryOrPrisma as PrismaService,
-        mutationOrTenant as TenantContextService,
-        ledgerService,
-        realtimeService,
-      );
-      this.queryService = wired.queryService;
-      this.mutationService = wired.mutationService;
-      return;
-    }
-    this.queryService = queryOrPrisma as StockTransferQueryService;
-    this.mutationService = mutationOrTenant as StockTransferMutationService;
+    private readonly queryService: StockTransferQueryService,
+    private readonly mutationService: StockTransferMutationService,
+  ) {}
+
+  /** Unit tests only — mirrors the pre-split four-dependency constructor. */
+  static forUnitTest(
+    prisma: PrismaService,
+    tenantContext: TenantContextService,
+    ledgerService: LedgerService,
+    realtimeService: DashboardRealtimeService,
+  ): StockTransferService {
+    const wired = wireStockTransferServiceForUnitTest(
+      prisma,
+      tenantContext,
+      ledgerService,
+      realtimeService,
+    );
+    return new StockTransferService(
+      wired.queryService,
+      wired.mutationService,
+    );
   }
 
   list(): Promise<SerializedStockTransfer[]> {
