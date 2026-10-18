@@ -16,12 +16,19 @@ import {
   snapshotsEqual,
   type CheckInDraftSnapshot,
 } from './check-in-draft'
+import { isQuotaExceededError } from './check-in-offline-quota'
 
 type Options = {
   orderId: string
   record: WorkshopCheckIn | null | undefined
   readOnly: boolean
   onRevisionConflict?: () => Promise<WorkshopCheckIn | null | undefined>
+  persistDraftLocally?: (
+    snapshot: CheckInDraftSnapshot,
+    dirty: boolean,
+    announce?: boolean,
+  ) => Promise<void>
+  onServerDraftSaved?: (snapshot: CheckInDraftSnapshot) => Promise<void>
 }
 
 export function useCheckInDraftAutosave({
@@ -29,20 +36,37 @@ export function useCheckInDraftAutosave({
   record,
   readOnly,
   onRevisionConflict,
+  persistDraftLocally,
+  onServerDraftSaved,
 }: Options) {
   const { t } = useTranslation('workshop')
   const updateDraft = useUpdateWorkshopCheckInDraft()
+  const updateDraftRef = useRef(updateDraft)
+  const onServerDraftSavedRef = useRef(onServerDraftSaved)
+  const persistDraftLocallyRef = useRef(persistDraftLocally)
+  const readOnlyRef = useRef(readOnly)
   const [draft, setDraft] = useState<CheckInDraftSnapshot | null>(null)
   const lastSavedRef = useRef<CheckInDraftSnapshot | null>(null)
   const revisionRef = useRef(1)
   const hydrateFromServerRef = useRef(false)
+  const recordRef = useRef(record)
+  const onRevisionConflictRef = useRef(onRevisionConflict)
 
-  const applyServerRecord = useCallback((serverRecord: WorkshopCheckIn) => {
-    revisionRef.current = serverRecord.revision
-    const next = draftFromCheckIn(serverRecord)
-    lastSavedRef.current = next
-    setDraft(next)
-  }, [])
+  useEffect(() => {
+    updateDraftRef.current = updateDraft
+    onServerDraftSavedRef.current = onServerDraftSaved
+    persistDraftLocallyRef.current = persistDraftLocally
+    readOnlyRef.current = readOnly
+    recordRef.current = record
+    onRevisionConflictRef.current = onRevisionConflict
+  }, [
+    onRevisionConflict,
+    onServerDraftSaved,
+    persistDraftLocally,
+    readOnly,
+    record,
+    updateDraft,
+  ])
 
   useEffect(() => {
     if (!record) {
@@ -62,7 +86,8 @@ export function useCheckInDraftAutosave({
 
   const save = useCallback(
     async (snapshot: CheckInDraftSnapshot, signal: AbortSignal) => {
-      if (readOnly || !record) {
+      const currentRecord = recordRef.current
+      if (readOnlyRef.current || !currentRecord) {
         return
       }
       if (
@@ -71,42 +96,96 @@ export function useCheckInDraftAutosave({
       ) {
         return
       }
-      const result = await updateDraft.mutateAsync({
-        orderId,
-        body: buildUpdatePayload(revisionRef.current, snapshot),
-      })
-      if (signal.aborted) {
-        return
+      if (persistDraftLocallyRef.current) {
+        try {
+          await persistDraftLocallyRef.current(snapshot, true, false)
+        } catch (persistError: unknown) {
+          if (isQuotaExceededError(persistError)) {
+            throw Object.assign(new Error('quota_exceeded'), {
+              code: 'CHECK_IN_OFFLINE_QUOTA',
+            })
+          }
+          throw persistError
+        }
       }
-      revisionRef.current = result.revision
-      lastSavedRef.current = snapshot
+      try {
+        const result = await updateDraftRef.current.mutateAsync({
+          orderId,
+          body: buildUpdatePayload(revisionRef.current, snapshot),
+        })
+        if (signal.aborted) {
+          return
+        }
+        revisionRef.current = result.revision
+        lastSavedRef.current = snapshot
+        await onServerDraftSavedRef.current?.(snapshot)
+      } catch (error: unknown) {
+        if (persistDraftLocallyRef.current) {
+          try {
+            await persistDraftLocallyRef.current(snapshot, true, true)
+          } catch {
+            // Keep the original server/network error for conflict handling.
+          }
+        }
+        throw error
+      }
     },
-    [orderId, readOnly, record, updateDraft],
+    [orderId],
   )
 
-  const { saveStatus, triggerAutoSave } = useDebouncedAutoSave({
-    enabled: Boolean(record) && !readOnly,
-    save,
-    shouldSave: (snapshot) =>
-      !lastSavedRef.current || !snapshotsEqual(lastSavedRef.current, snapshot),
-    onError: (error) => {
+  const debouncedSaveHelpersRef = useRef({
+    clearPendingSave: () => {},
+    abortInFlightSave: () => {},
+  })
+
+  const shouldSaveSnapshot = useCallback((snapshot: CheckInDraftSnapshot) => {
+    return (
+      !lastSavedRef.current || !snapshotsEqual(lastSavedRef.current, snapshot)
+    )
+  }, [])
+
+  const handleSaveError = useCallback(
+    (error: unknown) => {
+      const offlineQuotaCode =
+        (error &&
+          typeof error === 'object' &&
+          'code' in error &&
+          (error as { code?: string }).code === 'CHECK_IN_OFFLINE_QUOTA') ||
+        isQuotaExceededError(error)
+      if (offlineQuotaCode) {
+        toast.error(t('checkIn.offline.quotaExceeded'))
+        return
+      }
       const message = describeWorkshopCheckInError(error)
       toast.error(message)
       const code = resolveWorkshopCheckInErrorCode(error)
       if (code === 'CHECK_IN_CONFLICT') {
+        debouncedSaveHelpersRef.current.clearPendingSave()
+        debouncedSaveHelpersRef.current.abortInFlightSave()
         hydrateFromServerRef.current = true
-        void (async () => {
-          const fresh = await onRevisionConflict?.()
-          if (fresh) {
-            applyServerRecord(fresh)
-          }
-        })()
+        void onRevisionConflictRef.current?.()
       }
       if (code === 'CHECK_IN_COMPLETED') {
-        void onRevisionConflict?.()
+        void onRevisionConflictRef.current?.()
       }
     },
-  })
+    [t],
+  )
+
+  const { saveStatus, triggerAutoSave, clearPendingSave, abortInFlightSave } =
+    useDebouncedAutoSave({
+      enabled: Boolean(record) && !readOnly,
+      save,
+      shouldSave: shouldSaveSnapshot,
+      onError: handleSaveError,
+    })
+
+  useEffect(() => {
+    debouncedSaveHelpersRef.current = {
+      clearPendingSave,
+      abortInFlightSave,
+    }
+  }, [abortInFlightSave, clearPendingSave])
 
   const patchDraft = useCallback(
     (patch: Partial<CheckInDraftSnapshot>) => {
@@ -115,6 +194,7 @@ export function useCheckInDraftAutosave({
           return current
         }
         const next = { ...current, ...patch }
+        void persistDraftLocallyRef.current?.(next, true, false)
         triggerAutoSave(next)
         return next
       })
@@ -132,6 +212,7 @@ export function useCheckInDraftAutosave({
           ...current,
           condition: { ...current.condition, ...patch },
         }
+        void persistDraftLocallyRef.current?.(next, true, false)
         triggerAutoSave(next)
         return next
       })
@@ -147,9 +228,21 @@ export function useCheckInDraftAutosave({
     return revisionRef.current
   }, [draft, readOnly, triggerAutoSave])
 
+  const replaceDraft = useCallback(
+    (snapshot: CheckInDraftSnapshot, revision?: number) => {
+      if (typeof revision === 'number') {
+        revisionRef.current = revision
+      }
+      lastSavedRef.current = snapshot
+      setDraft(snapshot)
+    },
+    [],
+  )
+
   return {
     draft,
     setDraft,
+    replaceDraft,
     patchDraft,
     patchCondition,
     saveStatus,
