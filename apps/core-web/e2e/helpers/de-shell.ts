@@ -9,7 +9,7 @@ export const DE_SHELL = {
   },
   favorites: {
     empty:
-      'Noch keine gespeicherten Ansichten. Filter in einer Tabelle setzen und „Als Seitenleistenansicht speichern“ wählen.',
+      'Noch keine gespeicherten Ansichten. Setzen Sie Filter in einer Tabelle und wählen Sie „Als Seitenleistenansicht speichern“.',
   },
   footer: {
     helpDocs: 'Hilfe / Dokumentation',

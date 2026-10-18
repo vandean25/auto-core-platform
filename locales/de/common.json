@@ -157,9 +157,9 @@
   },
   "errorBoundary": {
     "chunkTitle": "Aktualisierung erforderlich",
-    "chunkDescription": "Die Anwendung wurde aktualisiert oder die Verbindung wurde unterbrochen. Bitte neu laden.",
+    "chunkDescription": "Die Anwendung wurde aktualisiert oder die Verbindung wurde unterbrochen. Bitte laden Sie die Seite neu.",
     "unexpectedTitle": "Unerwarteter Fehler",
-    "unexpectedDescription": "Ein unerwarteter Fehler ist aufgetreten. Bitte neu laden.",
+    "unexpectedDescription": "Ein unerwarteter Fehler ist aufgetreten. Bitte laden Sie die Seite neu.",
     "unknownError": "Unbekannter Fehler",
     "reload": "Anwendung neu laden"
   },
@@ -194,12 +194,12 @@
     },
     "errors": {
       "loginFailed": "Anmeldung fehlgeschlagen. E-Mail und Passwort prüfen und erneut versuchen.",
-      "googleFailed": "Google-Anmeldung fehlgeschlagen. Bitte erneut versuchen."
+      "googleFailed": "Google-Anmeldung fehlgeschlagen. Bitte versuchen Sie es erneut."
     },
     "toast": {
-      "resetEmailRequired": "E-Mail für Passwort-Reset eingeben.",
-      "resetSent": "E-Mail mit Reset-Link wurde gesendet.",
-      "resetFailed": "Reset-E-Mail konnte nicht gesendet werden. Adresse prüfen und erneut versuchen."
+      "resetEmailRequired": "E-Mail-Adresse zum Zurücksetzen des Passworts eingeben.",
+      "resetSent": "Wir haben Ihnen einen Link zum Zurücksetzen des Passworts gesendet.",
+      "resetFailed": "Die E-Mail zum Zurücksetzen konnte nicht gesendet werden. Bitte prüfen Sie die Adresse und versuchen Sie es erneut."
     }
   },
   "landingDemo": {
@@ -213,7 +213,7 @@
     "errors": {
       "grantInvalid": "Dieser Anmeldelink ist abgelaufen oder wurde bereits verwendet.",
       "invalidEmail": "Bitte geben Sie die E-Mail-Adresse ein, mit der Sie die Demo angefordert haben.",
-      "retry": "Die Anmeldung konnte nicht abgeschlossen werden. Bitte erneut versuchen.",
+      "retry": "Die Anmeldung konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.",
       "unknown": "Die Anmeldung konnte nicht abgeschlossen werden.",
       "invalidConfiguration": "Dieser Anmeldelink ist ungültig oder die Anmeldung ist nicht konfiguriert."
     },

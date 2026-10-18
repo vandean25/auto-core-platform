@@ -370,7 +370,7 @@ describe('InvoiceDraftEditPage autosave', () => {
 
   it('surfaces the branding writer gate message when finalize is blocked', async () => {
     const brandingGateMessage =
-      'Marken-Rechnungsausstellung ist in dieser Umgebung deaktiviert. Finalisieren funktioniert, sobald der Rechnungs-Branding-Writer freigeschaltet ist.'
+      'Rechnungen mit Briefpapier sind in dieser Umgebung noch nicht aktiviert. Das Ausstellen ist möglich, sobald die Funktion freigeschaltet ist.'
     const updateMutation = vi.fn().mockResolvedValue(mockInvoice)
     const finalizeMutation = vi.fn().mockRejectedValue(
       Object.assign(new Error('api'), {
@@ -451,7 +451,7 @@ describe('InvoiceDraftEditPage autosave', () => {
     openFinalizeDialog()
     confirmFinalize()
 
-    const conflictMessage = 'Die Anfrage steht im Konflikt mit dem aktuellen Zustand.'
+    const conflictMessage = 'Die Anfrage steht im Konflikt mit dem aktuellen Stand.'
 
     await waitFor(() => {
       expect(screen.getByText(conflictMessage)).toBeInTheDocument()
@@ -483,7 +483,7 @@ describe('InvoiceDraftEditPage autosave', () => {
       () => {
         expect(toast.error).toHaveBeenCalledWith('Auto-save failed', {
           description:
-            'Rechnungen ohne Quellbeleg werden nicht unterstützt. Erstellen Sie Rechnungen aus einem berechtigten Verkaufsauftrag.',
+            'Rechnungen ohne zugrunde liegenden Auftrag sind nicht möglich. Bitte legen Sie die Rechnung aus einem Kundenauftrag an.',
         })
       },
       { timeout: 3000 },

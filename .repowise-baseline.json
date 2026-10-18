@@ -18,7 +18,6 @@
     "apps/core-api/src/mcp/mcp.constants.ts": 5.9,
     "apps/core-api/src/mechanic/mechanic.module.ts": 5.9,
     "apps/core-api/src/pending-action-executor/pending-action-executor.service.spec.ts": 5.9,
-    "apps/core-api/src/pending-action-executor/pending-action-executor.service.ts": 1.9,
     "apps/core-api/src/stock-transfer/stock-transfer.service.ts": 5.65,
     "apps/core-api/src/tyre-storage/tyre-storage.service.ts": 5.65,
     "apps/core-api/src/vehicle/vehicle.controller.ts": 5.98,

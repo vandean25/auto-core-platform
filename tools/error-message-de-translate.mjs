@@ -6,16 +6,16 @@
 const EXACT = new Map(
   Object.entries({
     'No active site is set for this session. Use GET /api/me/sites then PATCH /api/me/active-site to select a site.':
-      'Für diese Sitzung ist kein aktiver Standort gesetzt. Rufen Sie GET /api/me/sites auf und wählen Sie mit PATCH /api/me/active-site einen Standort.',
+      'Für diese Sitzung ist kein Standort ausgewählt. Bitte wählen Sie oben einen Standort aus.',
     'Agent policy looser than platform.':
       'Die Agenten-Richtlinie ist lockerer als die Plattformvorgabe.',
     'Agent policy unknown action type.':
       'Unbekannter Aktionstyp in der Agenten-Richtlinie.',
     'Agent policy version conflict.': 'Konflikt der Agenten-Richtlinien-Version.',
-    'Letterhead extraction failed.': 'Briefkopf-Extraktion fehlgeschlagen.',
-    'Letterhead extraction timed out.': 'Zeitüberschreitung bei der Briefkopf-Extraktion.',
+    'Letterhead extraction failed.': 'Das Briefpapier konnte nicht ausgelesen werden.',
+    'Letterhead extraction timed out.': 'Das Auslesen des Briefpapiers hat zu lange gedauert. Bitte versuchen Sie es erneut.',
     'The letterhead extraction provider is rate limited.':
-      'Der Anbieter für Briefkopf-Extraktion ist rate-limitiert.',
+      'Das Briefpapier kann gerade nicht ausgelesen werden. Bitte versuchen Sie es in einigen Minuten erneut.',
     'Seller identity is incomplete for invoice issuance.':
       'Die Angaben zum Betrieb sind für die Rechnungsstellung unvollständig.',
     'Seller identity is incomplete for the estimate.':
@@ -105,8 +105,8 @@ function translatePrefixedCodeMessage(text) {
     return null
   }
   const [, code, rest] = match
-  const deRest = translateEnErrorToDe(rest, code)
-  return `${code}: ${deRest}`
+  // Never keep the wire code in user-facing DE copy; the code travels separately.
+  return translateEnErrorToDe(rest, code)
 }
 
 /**

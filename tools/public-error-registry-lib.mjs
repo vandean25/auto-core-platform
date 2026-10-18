@@ -12,7 +12,7 @@ const SYSTEM_WIRE_CODES = {
   },
   HTTP_401: {
     en: 'Authentication is required.',
-    de: 'Authentifizierung erforderlich.',
+    de: 'Bitte melden Sie sich an.',
   },
   HTTP_403: {
     en: 'You do not have permission for this action.',
@@ -20,11 +20,11 @@ const SYSTEM_WIRE_CODES = {
   },
   HTTP_404: {
     en: 'The requested resource was not found.',
-    de: 'Die angeforderte Ressource wurde nicht gefunden.',
+    de: 'Der Eintrag wurde nicht gefunden.',
   },
   HTTP_409: {
     en: 'The request conflicts with the current state.',
-    de: 'Die Anfrage steht im Konflikt mit dem aktuellen Zustand.',
+    de: 'Die Anfrage steht im Konflikt mit dem aktuellen Stand.',
   },
   HTTP_413: {
     en: 'The request payload is too large.',
@@ -32,7 +32,7 @@ const SYSTEM_WIRE_CODES = {
   },
   HTTP_415: {
     en: 'This media type is not supported.',
-    de: 'Dieser Medientyp wird nicht unterstützt.',
+    de: 'Dieser Dateityp wird nicht unterstützt.',
   },
   HTTP_4XX: {
     en: 'The request could not be completed.',
@@ -48,11 +48,11 @@ const SYSTEM_WIRE_CODES = {
   },
   HTTP_500: {
     en: 'An unexpected server error occurred.',
-    de: 'Ein unerwarteter Serverfehler ist aufgetreten.',
+    de: 'Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es erneut.',
   },
   HTTP_502: {
     en: 'The upstream service returned an invalid response.',
-    de: 'Der vorgelagerte Dienst hat eine ungültige Antwort geliefert.',
+    de: 'Ein verbundener Dienst hat nicht korrekt geantwortet. Bitte versuchen Sie es erneut.',
   },
   HTTP_503: {
     en: 'The service is temporarily unavailable.',
@@ -60,23 +60,23 @@ const SYSTEM_WIRE_CODES = {
   },
   HTTP_504: {
     en: 'The upstream service timed out.',
-    de: 'Zeitüberschreitung beim vorgelagerten Dienst.',
+    de: 'Ein verbundener Dienst antwortet nicht. Bitte versuchen Sie es erneut.',
   },
   PRISMA_P2000: {
     en: 'The provided value is too long for one of the columns.',
-    de: 'Der angegebene Wert ist für eine der Spalten zu lang.',
+    de: 'Ein eingegebener Wert ist zu lang.',
   },
   PRISMA_P2002: {
     en: 'A record with this value already exists.',
-    de: 'Ein Datensatz mit diesem Wert existiert bereits.',
+    de: 'Ein Eintrag mit diesem Wert existiert bereits.',
   },
   PRISMA_P2003: {
     en: 'This operation cannot be completed because of a related record.',
-    de: 'Dieser Vorgang kann wegen eines verknüpften Datensatzes nicht abgeschlossen werden.',
+    de: 'Dieser Vorgang ist nicht möglich, weil noch verknüpfte Einträge bestehen.',
   },
   PRISMA_P2025: {
     en: 'The requested record was not found.',
-    de: 'Der angeforderte Datensatz wurde nicht gefunden.',
+    de: 'Der Eintrag wurde nicht gefunden.',
   },
 }
 
