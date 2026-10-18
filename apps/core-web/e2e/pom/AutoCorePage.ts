@@ -167,8 +167,10 @@ export class AutoCorePage {
           res.request().method() === "POST"),
     );
 
-    const savingLocator = this.page.getByText(/saving/i)
-    const savedLocator = this.page.getByText(/^(all changes saved|saved(?: ✓)?)$/i)
+    const savingLocator = this.page.getByText(/saving|speichern/i)
+    const savedLocator = this.page.getByText(
+      /all changes saved|alle änderungen gespeichert|^saved(?: ✓)?$|^gespeichert$/i,
+    )
 
     // Some pages transition from "Saving…" to "Saved" too quickly for a strict
     // visible assertion, so observe the transient state only if it appears
