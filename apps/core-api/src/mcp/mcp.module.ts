@@ -28,8 +28,6 @@ import { McpInvoiceReadService } from './mcp-invoice-read.service.js';
 import { McpOrderHistoryReadService } from './mcp-order-history-read.service.js';
 import { McpVehicleContextReadService } from './mcp-vehicle-context-read.service.js';
 import { McpPurchasingReadService } from './mcp-purchasing-read.service.js';
-import { McpReadToolService } from './mcp-read-tool.service.js';
-import { McpReadToolServiceAut605 } from './mcp-read-tool.service.aut605.js';
 import { McpToolHandlerComplianceWrapper } from './mcp-tool-handler.compliance-wrapper.js';
 import { McpRecordReadService } from './mcp-record-read.service.js';
 import { McpWorkshopOrderReadService } from './mcp-workshop-order-read.service.js';
@@ -40,8 +38,7 @@ import { McpSettingsReadService } from './mcp-settings-read.service.js';
 import { McpListingReadService } from './mcp-listing-read.service.js';
 import { McpStockReadService } from './mcp-stock-read.service.js';
 import { McpController } from './mcp.controller.js';
-import { McpSessionService } from './mcp-session.service.js';
-import { McpSessionServiceAut605 } from './mcp-session.service.aut605.js';
+import { MCP_STACK_PROVIDERS_AUT605 } from './mcp-stack.providers.aut605.js';
 import { McpToolHandlerService } from './mcp-tool-handler.service.js';
 import { McpWritePipelineService } from './mcp-write-pipeline.service.js';
 import { McpWriteCommandIdempotencyService } from './mcp-write-command-idempotency.service.js';
@@ -86,7 +83,7 @@ import { InvoicesModule } from '../invoices/invoices.module.js';
     McpOrderHistoryReadService,
     McpVehicleContextReadService,
     McpPurchasingReadService,
-    { provide: McpReadToolService, useClass: McpReadToolServiceAut605 },
+    ...MCP_STACK_PROVIDERS_AUT605,
     McpRecordReadService,
     McpWorkshopOrderReadService,
     McpCatalogReadService,
@@ -98,7 +95,6 @@ import { InvoicesModule } from '../invoices/invoices.module.js';
     McpComplianceReadService,
     McpComplianceReadListsService,
     McpComplianceReadFacade,
-    { provide: McpSessionService, useClass: McpSessionServiceAut605 },
     McpUserLocaleService,
   ],
 })

@@ -15,8 +15,6 @@ import {
   MCP_TOOL_NAMES,
   MCP_NEVER_EXPOSED_ACTIONS,
 } from '../src/mcp/mcp.constants.js';
-import { McpReadToolService } from '../src/mcp/mcp-read-tool.service.js';
-import { McpSessionService } from '../src/mcp/mcp-session.service.js';
 import {
   cleanupTestTenantGraph,
   createTenantAwarePrisma,
@@ -874,10 +872,6 @@ describe('MCP server (e2e)', () => {
       .useValue(pdfArchive)
       .overrideProvider(MechanicMediaStorage)
       .useValue(mockMechanicMediaStorage)
-      .overrideProvider(McpSessionService)
-      .useClass(McpSessionService)
-      .overrideProvider(McpReadToolService)
-      .useClass(McpReadToolService)
       .compile();
 
     app = moduleFixture.createNestApplication();
