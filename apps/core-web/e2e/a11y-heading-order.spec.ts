@@ -16,7 +16,6 @@ import {
   createMockFinanceSettings,
   createMockListResponse,
   createMockRevenueGroup,
-  createMockStorageLocation,
 } from './utils/mock-factories'
 
 /**
