@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { parseISO } from 'date-fns'
@@ -79,7 +80,7 @@ function compareEvents(left: AttendanceEvent, right: AttendanceEvent): number {
   return parseISO(left.occurredAt).getTime() - parseISO(right.occurredAt).getTime()
 }
 
-function MissingEmployeeState({ t }: { t: (k: string) => string }) {
+function MissingEmployeeState({ t }: { t: TFunction<'hr'> }) {
   return (
     <Alert>
       <AlertTitle>{t('clock.missingEmployee.title')}</AlertTitle>
@@ -102,7 +103,7 @@ function ClockPageSkeleton() {
   )
 }
 
-function TodayTimeline({ events, timezone, t }: { events: readonly AttendanceEvent[]; timezone: string; t: (key: string) => string }) {
+function TodayTimeline({ events, timezone, t }: { events: readonly AttendanceEvent[]; timezone: string; t: TFunction<'hr'> }) {
   const orderedEvents = useMemo(() => [...events].sort(compareEvents), [events])
 
   if (orderedEvents.length === 0) {
@@ -138,7 +139,7 @@ function ManagerAttendanceSection({
   selectedEmployeeId,
   today,
   timezone,
-}: ManagerAttendanceSectionProps & { t: (key: string) => string }) {
+}: ManagerAttendanceSectionProps & { t: TFunction<'hr'> }) {
   const [selectedDay, setSelectedDay] = useState(today)
   const { queryParams, setPagination, ...tableState } = useDataTableQuery({ defaultPageSize: 25 })
   const { data: attendanceEvents = [], isLoading: isAttendanceLoading, error: attendanceError } =

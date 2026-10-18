@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 
 import type { Employee } from '@/api/employees'
@@ -26,7 +27,10 @@ import { getErrorMessage } from '@/lib/error-utils'
 import { formatLocalDateInZone } from '@/lib/format'
 import { ensureNamespaceLoaded, i18n } from '@/lib/i18n'
 
-const hrT = (key: string) => i18n.t(`hr:${key}`)
+function hrT(key: string): string {
+  const t = i18n.getFixedT(i18n.language, 'hr') as (k: string) => string
+  return t(key)
+}
 
 type TenantMemberRole = components['schemas']['TenantMemberRole']
 type LeaveEmployee = Pick<Employee, 'id' | 'name' | 'role'>
@@ -86,7 +90,7 @@ function getBookingEmployeeName(booking: LeaveRequest, employees: LeaveEmployee[
   return booking.employee?.name ?? employees.find((employee) => employee.id === booking.employeeId)?.name ?? hrT('leave.bookingSheet.employeeFallback')
 }
 
-function LeaveBookingDetails({ booking, employeeName, t }: { booking: LeaveRequest; employeeName: string; t: (k: string) => string }) {
+function LeaveBookingDetails({ booking, employeeName, t }: { booking: LeaveRequest; employeeName: string; t: TFunction<'hr'> }) {
   return (
     <div className='space-y-5' data-testid='leave-booking-details'>
       <div className='space-y-1'>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -39,7 +40,7 @@ function ScheduleDayRow({
   day: ScheduleDayFormState
   canEdit: boolean
   onChange: (weekday: number, patch: Partial<ScheduleDayFormState>) => void
-  t: (key: string, options?: Record<string, unknown>) => string
+  t: TFunction<'hr'>
 }) {
   const dayName = weekdayLabel(day.weekday)
   if (!canEdit) {
@@ -121,7 +122,7 @@ function ScheduleDaysTable({
   days: ScheduleDayFormState[]
   canEdit: boolean
   onChange: (weekday: number, patch: Partial<ScheduleDayFormState>) => void
-  t: (key: string, options?: Record<string, unknown>) => string
+  t: TFunction<'hr'>
 }) {
   return (
     <div className='overflow-hidden rounded-md border'>

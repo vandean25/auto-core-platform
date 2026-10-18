@@ -1,4 +1,5 @@
 import * as React from 'react'
+import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { Pencil } from 'lucide-react'
@@ -71,15 +72,16 @@ type EditableFieldProps = {
   onSave: (value: string) => Promise<void>
 }
 
-function formatRoleLabel(role: EmployeeRole, t: (key: string) => string) {
-  return t(`employees.roles.${role}`)
+function formatRoleLabel(role: EmployeeRole, t: TFunction<'hr'>) {
+  const roleKey = `employees.roles.${role}` as 'employees.roles.MECHANIC'
+  return t(roleKey)
 }
 
 function normalizeSearch(value: string) {
   return value.trim().toLowerCase()
 }
 
-function getLanguageLabel(code: string | null | undefined, t: (key: string) => string) {
+function getLanguageLabel(code: string | null | undefined, t: TFunction<'hr'>) {
   if (!code) return t('employees.languageDefault')
   const option = SOURCE_LANGUAGE_OPTIONS.find((item) => item.value === code)
   return option ? option.label : code
@@ -89,7 +91,7 @@ function canEditHrFields(activeRole?: TenantMemberRole | null) {
   return activeRole === 'OWNER' || activeRole === 'ADMIN'
 }
 
-function matchesEmployeeSearch(employee: Employee, term: string, t: (key: string) => string) {
+function matchesEmployeeSearch(employee: Employee, term: string, t: TFunction<'hr'>) {
   if (!term) return true
 
   const haystack = [
@@ -218,6 +220,7 @@ function EditableDateField({ ariaLabel, canEdit, initialValue, onSave }: Editabl
 }
 
 function EditableLeaveMinutesField({ ariaLabel, canEdit, initialValue, onSave }: EditableFieldProps) {
+  const { t } = useTranslation('hr')
   const [value, setValue] = React.useState(initialValue)
   const [isSaving, setIsSaving] = React.useState(false)
 
@@ -439,7 +442,7 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
               }}
             >
               <SelectTrigger className='h-8 w-[250px]'>
-                <SelectValue>{getLanguageLabel(row.original.motherLanguageCode)}</SelectValue>
+                <SelectValue>{getLanguageLabel(row.original.motherLanguageCode, t)}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value='__DEFAULT__'>{t('employees.languageDefault')}</SelectItem>

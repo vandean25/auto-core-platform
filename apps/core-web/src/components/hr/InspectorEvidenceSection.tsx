@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -16,7 +17,7 @@ type InspectorEvidenceSectionProps = {
 
 function supportStatusLabel(
   status: string,
-  t: (key: string) => string,
+  t: TFunction<'hr'>,
 ): string {
   switch (status) {
     case 'QUALIFICATION_CURRENT':

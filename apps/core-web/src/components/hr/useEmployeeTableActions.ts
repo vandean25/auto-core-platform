@@ -15,7 +15,10 @@ import { i18n } from '@/lib/i18n'
 
 export const MIN_LEAVE_MINUTES = 0
 
-const hrT = (key: string, options?: Record<string, unknown>) => i18n.t(`hr:${key}`, options)
+function hrT(key: string, options?: Record<string, unknown>): string {
+  const t = i18n.getFixedT(i18n.language, 'hr') as (k: string, o?: Record<string, unknown>) => string
+  return t(key, options)
+}
 
 export type EmployeeFormState = {
   name: string

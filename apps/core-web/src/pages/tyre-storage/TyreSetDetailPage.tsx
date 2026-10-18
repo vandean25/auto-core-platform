@@ -40,7 +40,14 @@ export default function TyreSetDetailPage() {
     return <p className="text-slate-500">{t('tyreStorage.detail.loading')}</p>
   }
 
-  const field = (labelKey: string, value: string | null | undefined) =>
+  type DetailFieldKey =
+    | 'tyreStorage.detail.bin'
+    | 'tyreStorage.detail.location'
+    | 'tyreStorage.detail.storedSince'
+    | 'tyreStorage.detail.plannedSwap'
+    | 'tyreStorage.detail.dimension'
+
+  const field = (labelKey: DetailFieldKey, value: string | null | undefined) =>
     t(labelKey, { value: value ?? emDash })
 
   return (

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { Link } from 'react-router-dom'
@@ -109,7 +110,7 @@ function isFutureOrToday(date: string, today: string): boolean {
   return date >= today
 }
 
-function MissingEmployeeState({ t }: { t: (k: string) => string }) {
+function MissingEmployeeState({ t }: { t: TFunction<'hr'> }) {
   return (
     <Alert>
       <AlertTitle>{t('leave.missingEmployee.title')}</AlertTitle>

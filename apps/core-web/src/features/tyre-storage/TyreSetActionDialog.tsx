@@ -34,7 +34,13 @@ type Props = {
   currentLocationId?: string | null
 }
 
-const titleKeyByAction: Record<ActionKind, string> = {
+type ActionTitleKey =
+  | 'tyreStorage.actionDialog.checkIn'
+  | 'tyreStorage.actionDialog.checkOut'
+  | 'tyreStorage.actionDialog.move'
+  | 'tyreStorage.actionDialog.dispose'
+
+const titleKeyByAction: Record<ActionKind, ActionTitleKey> = {
   'check-in': 'tyreStorage.actionDialog.checkIn',
   'check-out': 'tyreStorage.actionDialog.checkOut',
   move: 'tyreStorage.actionDialog.move',

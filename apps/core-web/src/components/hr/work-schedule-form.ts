@@ -3,8 +3,28 @@ import { i18n } from '@/lib/i18n'
 
 export const ISO_WEEKDAYS = [1, 2, 3, 4, 5, 6, 7] as const
 
+type WeekdayLabelKey =
+  | 'workSchedule.weekdays.1'
+  | 'workSchedule.weekdays.2'
+  | 'workSchedule.weekdays.3'
+  | 'workSchedule.weekdays.4'
+  | 'workSchedule.weekdays.5'
+  | 'workSchedule.weekdays.6'
+  | 'workSchedule.weekdays.7'
+
+const WEEKDAY_LABEL_KEY: Record<(typeof ISO_WEEKDAYS)[number], WeekdayLabelKey> = {
+  1: 'workSchedule.weekdays.1',
+  2: 'workSchedule.weekdays.2',
+  3: 'workSchedule.weekdays.3',
+  4: 'workSchedule.weekdays.4',
+  5: 'workSchedule.weekdays.5',
+  6: 'workSchedule.weekdays.6',
+  7: 'workSchedule.weekdays.7',
+}
+
 export function weekdayLabel(weekday: number): string {
-  return i18n.t(`hr:workSchedule.weekdays.${weekday}`)
+  const key = WEEKDAY_LABEL_KEY[weekday as (typeof ISO_WEEKDAYS)[number]]
+  return key ? i18n.t(key, { ns: 'hr' }) : String(weekday)
 }
 
 export const DEFAULT_WORKING_DAY: Omit<EmployeeWorkScheduleDay, 'weekday'> = {
