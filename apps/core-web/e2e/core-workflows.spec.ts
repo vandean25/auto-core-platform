@@ -60,7 +60,7 @@ const modules: ModuleConfig[] = [
     mockFactory: () => createMockInventoryItem({ sku: 'TEST-SKU-1', name: 'Oil Filter' }),
     apiPath: '/api/inventory',
     // InventoryList also calls /api/brands for the brand filter dropdown
-    secondaryApiMocks: ['/api/brands'],
+    secondaryApiMocks: ['/api/brands', '/api/inventory/locations'],
   },
   {
     name: DE_FINANCE.vendors.list.title,

@@ -284,7 +284,7 @@ test.describe('Accounting export settings', () => {
 
     const downloadPromise = page.waitForEvent('download', { timeout: 1500 }).catch(() => null);
     await page.getByRole('button', { name: DE_SETTINGS.accountingExport.actions.downloadLatest }).click();
-    await expect(page.getByText(DE_SETTINGS.accountingExport.toast.checksumMismatchDescription)).toBeVisible();
+    await expect(page.getByText(DE_SETTINGS.accountingExport.toast.checksumMismatch)).toBeVisible();
     expect(await downloadPromise).toBeNull();
   });
 

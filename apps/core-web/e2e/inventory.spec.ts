@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
-import { DE_COMMON } from './helpers/de-common';
 import { DE_INVENTORY } from './helpers/de-inventory';
 import { createMockInventoryItem, createMockListResponse } from './utils/mock-factories';
 

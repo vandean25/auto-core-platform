@@ -48,6 +48,11 @@ async function mockApi(page: Page, path: string | RegExp, body: unknown, status 
   });
 }
 
+/** Layout shell calls these on most pages; mock them so smoke tests stay offline. */
+async function mockShellApis(page: Page) {
+  await mockApi(page, '/api/me/sites', []);
+}
+
 /**
  * The page has rendered once its title (`h1`) is visible; pass the title to pin it. The match is
  * not exact because a detail title can carry a status badge (`SO-2026-0901Draft`).
@@ -222,10 +227,16 @@ export const A11Y_SMOKE_ROUTES: A11ySmokeRoute[] = [
     name: 'settings: brands tab',
     path: '/settings?tab=brands',
     mock: async (page) => {
+      await mockShellApis(page);
       await mockApi(page, '/api/finance/settings', createMockFinanceSettings());
+      await mockApi(page, '/api/finance/revenue-groups', []);
       await mockApi(page, '/api/brands', createMockListResponse([createMockBrand({ name: 'Stellantis' })]));
     },
-    ready: titleReady(DE_SETTINGS.page.title),
+    ready: async (page) => {
+      await expect(page.getByRole('heading', { level: 1, name: DE_SETTINGS.page.title })).toBeVisible({
+        timeout: 15_000,
+      });
+    },
   },
   {
     name: 'settings: storage locations tab',
@@ -289,10 +300,16 @@ export const A11Y_SMOKE_ROUTES: A11ySmokeRoute[] = [
     name: 'inventory list',
     path: '/inventory',
     mock: async (page) => {
+      await mockShellApis(page);
       await mockApi(page, '/api/inventory', createMockListResponse([createMockInventoryItem()]));
       await mockApi(page, '/api/brands', createMockListResponse([]));
+      await mockApi(page, '/api/inventory/locations', []);
     },
-    ready: titleReady(inventoryDe.partsList.title),
+    ready: async (page) => {
+      await expect(
+        page.getByRole('heading', { level: 1, name: inventoryDe.partsList.title }),
+      ).toBeVisible({ timeout: 15_000 });
+    },
   },
   {
     name: 'vehicle stock list',

@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { DE_COMMON } from './helpers/de-common'
 import { DE_SHELL } from './helpers/de-shell'
+import { AutoCorePage } from './pom/AutoCorePage'
 
 // The suite runs against the production bundle (vite preview), so the lazy route chunk is a hashed asset.
 const dashboardModulePattern = /DashboardPage-[\w-]+\.js$/
@@ -16,6 +17,19 @@ async function expectRecoveredUi(page: import('@playwright/test').Page) {
 }
 
 test.describe('Stale chunk recovery', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route(AutoCorePage.apiRouteMatcher('/api/auth/session'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          user: { id: 'test-user', email: 'test@example.com' },
+          tenant: { id: 'test-tenant', name: 'Test Tenant' },
+        }),
+      })
+    })
+  })
+
   test('recovers from a 404 lazy chunk via reload or fallback UI', async ({ page }) => {
     let chunkAttempts = 0
 
