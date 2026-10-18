@@ -164,8 +164,7 @@ export async function evaluateOutboxContactPermission(
     purpose,
     channel,
     events: mapLedgerRows(events),
-    processingRestricted:
-      state != null && state.processing_status !== 'ACTIVE',
+    processingRestricted: state != null && state.processing_status !== 'ACTIVE',
     transactionalProjection: {
       orderEmailConfirmed: customer.contact_email_ok,
     },
