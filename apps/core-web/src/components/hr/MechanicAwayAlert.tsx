@@ -4,6 +4,7 @@ import { AlertTriangle } from 'lucide-react'
 
 import type { components } from '@/api/generated/openapi'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { formatIsoDateOnly } from '@/lib/format'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
 
 type PlannerEmployeeAway = components['schemas']['PlannerEmployeeAwayDto']
@@ -32,8 +33,8 @@ export function MechanicAwayAlert({ employeeAway, mechanicName }: MechanicAwayAl
       <AlertDescription>
         {t('mechanicAway.description', {
           name: displayName,
-          start: employeeAway.startOn,
-          end: employeeAway.endOn,
+          start: formatIsoDateOnly(employeeAway.startOn),
+          end: formatIsoDateOnly(employeeAway.endOn),
         })}
       </AlertDescription>
     </Alert>

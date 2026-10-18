@@ -49,8 +49,8 @@ describe('MechanicAwayAlert', () => {
   it('renders the inclusive away date range', () => {
     render(<MechanicAwayAlert employeeAway={awayRecord} />)
 
-    expect(screen.getByRole('alert')).toHaveTextContent('2026-08-24')
-    expect(screen.getByRole('alert')).toHaveTextContent('2026-08-25')
+    expect(screen.getByRole('alert')).toHaveTextContent('24.08.2026')
+    expect(screen.getByRole('alert')).toHaveTextContent('25.08.2026')
     expect(screen.getByRole('alert')).toHaveTextContent('einschließlich')
   })
 

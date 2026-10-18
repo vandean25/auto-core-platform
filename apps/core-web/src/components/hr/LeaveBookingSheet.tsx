@@ -23,8 +23,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { formatIsoDateOnly, formatLocalDateInZone } from '@/lib/format'
 import { getErrorMessage } from '@/lib/error-utils'
-import { formatLocalDateInZone } from '@/lib/format'
 import { ensureNamespaceLoaded, i18n } from '@/lib/i18n'
 
 function hrT(key: string): string {
@@ -100,11 +100,11 @@ function LeaveBookingDetails({ booking, employeeName, t }: { booking: LeaveReque
       <dl className='grid gap-4 sm:grid-cols-2'>
         <div>
           <dt className='text-sm font-medium text-slate-500'>{t('leave.bookingSheet.start')}</dt>
-          <dd className='text-sm'>{booking.startOn}</dd>
+          <dd className='text-sm'>{formatIsoDateOnly(booking.startOn)}</dd>
         </div>
         <div>
           <dt className='text-sm font-medium text-slate-500'>{t('leave.bookingSheet.end')}</dt>
-          <dd className='text-sm'>{booking.endOn}</dd>
+          <dd className='text-sm'>{formatIsoDateOnly(booking.endOn)}</dd>
         </div>
         <div>
           <dt className='text-sm font-medium text-slate-500'>{t('leave.bookingSheet.chargedMin')}</dt>
@@ -112,7 +112,7 @@ function LeaveBookingDetails({ booking, employeeName, t }: { booking: LeaveReque
         </div>
         <div>
           <dt className='text-sm font-medium text-slate-500'>{t('leave.bookingSheet.note')}</dt>
-          <dd className='text-sm'>{booking.note || t('employees.notSet')}</dd>
+          <dd className='text-sm'>{booking.note || i18n.t('common:placeholders.missing')}</dd>
         </div>
       </dl>
     </div>

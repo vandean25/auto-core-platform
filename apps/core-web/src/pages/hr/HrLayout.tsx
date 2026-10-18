@@ -24,7 +24,7 @@ export default function HrLayout() {
         <p className='text-slate-500'>{t('layout.description')}</p>
       </div>
 
-      <nav aria-label='HR sections' className='flex gap-1 border-b border-slate-200'>
+      <nav aria-label={t('layout.sectionsAria')} className='flex gap-1 border-b border-slate-200'>
         {hrTabKeys.map((tab) => (
           <NavLink
             key={tab.to}

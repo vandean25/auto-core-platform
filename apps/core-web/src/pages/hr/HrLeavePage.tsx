@@ -26,6 +26,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { getErrorMessage, getErrorStatus } from '@/lib/error-utils'
+import { formatIsoDateOnly } from '@/lib/format'
+import { i18n } from '@/lib/i18n'
 import {
   averageExpectedMinutesPerWorkday,
   FALLBACK_AVG_WORKDAY_MINUTES,
@@ -204,7 +206,8 @@ export default function HrLeavePage() {
       {
         accessorKey: 'startOn',
         header: ({ column }) => <DataTableColumnHeader column={column} title={t('leave.columns.dateRange')} />,
-        cell: ({ row }) => `${row.original.startOn} – ${row.original.endOn}`,
+        cell: ({ row }) =>
+          `${formatIsoDateOnly(row.original.startOn)} – ${formatIsoDateOnly(row.original.endOn)}`,
       },
       {
         accessorKey: 'minutesCharged',
@@ -219,10 +222,10 @@ export default function HrLeavePage() {
       {
         accessorKey: 'note',
         header: ({ column }) => <DataTableColumnHeader column={column} title={t('leave.columns.note')} />,
-        cell: ({ row }) => row.original.note || t('employees.notSet'),
+        cell: ({ row }) => row.original.note || i18n.t('common:placeholders.missing'),
       },
     ],
-    [],
+    [t],
   )
 
   const selectedEmployee =

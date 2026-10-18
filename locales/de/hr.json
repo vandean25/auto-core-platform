@@ -2,6 +2,7 @@
   "layout": {
     "title": "Personal",
     "description": "Mitarbeiter, Zeiterfassung und Urlaub verwalten.",
+    "sectionsAria": "Personalbereiche",
     "tabs": {
       "employees": "Mitarbeiter",
       "clock": "Zeiterfassung",

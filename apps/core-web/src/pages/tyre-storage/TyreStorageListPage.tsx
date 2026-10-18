@@ -26,6 +26,7 @@ import { TyreSetFormDialog } from '@/features/tyre-storage/TyreSetFormDialog'
 import { CustomerSearch } from '@/components/sales/CustomerSearch'
 import type { Customer } from '@/api/types'
 import { toast } from 'sonner'
+import { formatIsoDateOnly } from '@/lib/format'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
 
 const ALL = '__all__'
@@ -140,7 +141,8 @@ export default function TyreStorageListPage() {
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title={t('tyreStorage.list.columns.swapDue')} />
         ),
-        cell: ({ row }) => row.original.plannedSwapOn ?? emDash,
+        cell: ({ row }) =>
+          row.original.plannedSwapOn ? formatIsoDateOnly(row.original.plannedSwapOn) : emDash,
       },
     )
     return base

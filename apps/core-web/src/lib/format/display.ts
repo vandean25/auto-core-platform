@@ -52,6 +52,19 @@ export function formatPercent(
   return `${formatted} %`
 }
 
+/** Calendar ISO date (`YYYY-MM-DD`) without local timezone day shift. */
+export function formatIsoDateOnly(
+  value: string | null | undefined,
+  options?: { timeZone?: string },
+): string {
+  if (!value) {
+    return missingPlaceholder()
+  }
+  const { year, month, day } = parseIsoDateOnly(value.slice(0, 10))
+  const utc = Date.UTC(year, month - 1, day, 12, 0, 0)
+  return formatDate(new Date(utc), options)
+}
+
 export function formatDate(
   value: Date | string | null | undefined,
   options?: { timeZone?: string },

@@ -28,6 +28,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { getErrorMessage, getErrorStatus } from '@/lib/error-utils'
+import { i18n } from '@/lib/i18n'
 import {
   formatLocalDateInZone,
   formatTimeInZone,
@@ -148,7 +149,7 @@ function ManagerAttendanceSection({
   useEffect(() => {
     if (!attendanceError) return
     toast.error(getErrorMessage(attendanceError, t('clock.toast.loadAttendanceFailed')))
-  }, [attendanceError])
+  }, [attendanceError, t])
 
   const selectedEmployeeEvents = useMemo(
     () => attendanceEvents.filter((event) => event.employeeId === selectedEmployeeId),
@@ -222,10 +223,14 @@ function ManagerAttendanceSection({
       {
         accessorKey: 'note',
         header: ({ column }) => <DataTableColumnHeader column={column} title={t('clock.columns.note')} />,
-        cell: ({ row }) => <span className='text-slate-600'>{row.original.note || '—'}</span>,
+        cell: ({ row }) => (
+          <span className='text-slate-600'>
+            {row.original.note || i18n.t('common:placeholders.missing')}
+          </span>
+        ),
       },
     ],
-    [],
+    [t],
   )
 
   return (
@@ -251,7 +256,7 @@ function ManagerAttendanceSection({
       {attendanceError ? (
         <Alert variant='destructive'>
           <AlertTitle>{t('clock.attendanceUnavailable')}</AlertTitle>
-          <AlertDescription>{getErrorMessage(attendanceError, 'Failed to load attendance')}</AlertDescription>
+          <AlertDescription>{getErrorMessage(attendanceError, t('clock.toast.loadAttendanceFailed'))}</AlertDescription>
         </Alert>
       ) : null}
 

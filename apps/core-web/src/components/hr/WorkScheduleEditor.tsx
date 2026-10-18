@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { getErrorMessage } from '@/lib/error-utils'
+import { formatIsoDateOnly } from '@/lib/format'
 import {
   buildDefaultDays,
   daysFromVersion,
@@ -306,7 +307,9 @@ export function WorkScheduleEditor({
         <h4 className='text-sm font-semibold text-slate-900'>{t('workSchedule.title')}</h4>
         <p className='text-sm text-slate-500'>{t('workSchedule.description')}</p>
         {currentVersion ? (
-          <p className='text-xs text-slate-500'>{t('workSchedule.currentFrom', { date: currentVersion.effectiveFrom })}</p>
+          <p className='text-xs text-slate-500'>
+            {t('workSchedule.currentFrom', { date: formatIsoDateOnly(currentVersion.effectiveFrom) })}
+          </p>
         ) : (
           <p className='text-xs text-slate-500'>{t('workSchedule.noVersion')}</p>
         )}
@@ -429,7 +432,7 @@ export function WorkScheduleEditor({
           <p className='text-sm font-medium text-slate-700'>{t('workSchedule.previousVersions')}</p>
           <ul className='space-y-1 text-sm text-slate-600'>
             {history.map((version) => (
-              <li key={version.id}>{t('workSchedule.fromDate', { date: version.effectiveFrom })}</li>
+              <li key={version.id}>{t('workSchedule.fromDate', { date: formatIsoDateOnly(version.effectiveFrom) })}</li>
             ))}
           </ul>
         </div>

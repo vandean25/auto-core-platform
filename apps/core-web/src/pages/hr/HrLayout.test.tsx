@@ -38,6 +38,7 @@ describe('HrLayout', () => {
     renderHrRoutes('/hr/employees')
 
     expect(screen.getByRole('heading', { name: deHr.layout.title })).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: deHr.layout.sectionsAria })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: deHr.layout.tabs.employees })).toHaveAttribute('href', '/hr/employees')
     expect(screen.getByRole('link', { name: deHr.layout.tabs.clock })).toHaveAttribute('href', '/hr/clock')
     expect(screen.getByRole('link', { name: deHr.layout.tabs.leave })).toHaveAttribute('href', '/hr/leave')

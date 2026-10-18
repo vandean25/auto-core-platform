@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useTyreSet } from '@/api/tyre-storage'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
-import { formatDateTime } from '@/lib/format'
+import { formatDateTime, formatIsoDateOnly } from '@/lib/format'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { TyreSetActionDialog } from '@/features/tyre-storage/TyreSetActionDialog'
 import { TyreSetFormDialog } from '@/features/tyre-storage/TyreSetFormDialog'
@@ -49,6 +49,11 @@ export default function TyreSetDetailPage() {
 
   const field = (labelKey: DetailFieldKey, value: string | null | undefined) =>
     t(labelKey, { value: value ?? emDash })
+
+  const fieldDate = (
+    labelKey: 'tyreStorage.detail.storedSince' | 'tyreStorage.detail.plannedSwap',
+    value: string | null | undefined,
+  ) => t(labelKey, { value: value ? formatIsoDateOnly(value) : emDash })
 
   return (
     <div className="space-y-6 tyre-set-detail">
@@ -140,8 +145,8 @@ export default function TyreSetDetailPage() {
           <CardContent className="space-y-2 text-sm">
             <p>{field('tyreStorage.detail.bin', tyreSet.binLabel)}</p>
             <p>{field('tyreStorage.detail.location', tyreSet.locationCode ?? tyreSet.locationId)}</p>
-            <p>{field('tyreStorage.detail.storedSince', tyreSet.storedSince)}</p>
-            <p>{field('tyreStorage.detail.plannedSwap', tyreSet.plannedSwapOn)}</p>
+            <p>{fieldDate('tyreStorage.detail.storedSince', tyreSet.storedSince)}</p>
+            <p>{fieldDate('tyreStorage.detail.plannedSwap', tyreSet.plannedSwapOn)}</p>
             <p>{field('tyreStorage.detail.dimension', tyreSet.dimension)}</p>
           </CardContent>
         </Card>
