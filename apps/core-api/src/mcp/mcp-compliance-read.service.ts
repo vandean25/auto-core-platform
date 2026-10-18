@@ -95,31 +95,9 @@ export class McpComplianceReadService {
     const pageSize = clampMcpPageSize(input.pageSize);
     const offset = offsetFromCursor(input.cursor);
 
-    if (!input.due_for_swap && !(input.vehicle_id && !input.customer_id)) {
-      const page = Math.floor(offset / pageSize) + 1;
-      const listed = await this.tyreStorage.list({
-        customerId: input.customer_id,
-        status: input.status,
-        page,
-        pageSize,
-      });
-      return {
-        data: listed.data.map(toMcpTyreSetRow),
-        meta: {
-          total: listed.meta.total,
-          page_size: pageSize,
-          next_cursor:
-            listed.meta.page < listed.meta.pageCount
-              ? encodeMcpCursor(offset + pageSize)
-              : null,
-        },
-      };
-    }
-
-    let rows: TyreSetResponseDto[];
     if (input.due_for_swap) {
       const due = await this.tyreStorage.listDueForSwap();
-      rows = due.data;
+      let rows: TyreSetResponseDto[] = due.data;
       if (input.customer_id) {
         rows = rows.filter((row) => row.customerId === input.customer_id);
       }
@@ -129,22 +107,29 @@ export class McpComplianceReadService {
       if (input.status) {
         rows = rows.filter((row) => row.status === input.status);
       }
-    } else {
-      const vehicleId = input.vehicle_id;
-      if (!vehicleId) {
-        return { data: [], meta: toMcpPageMeta(0, { offset, pageSize }) };
-      }
-      const byVehicle = await this.tyreStorage.findByVehicle(vehicleId);
-      rows = byVehicle.data;
-      if (input.status) {
-        rows = rows.filter((row) => row.status === input.status);
-      }
+      const pageRows = rows.slice(offset, offset + pageSize);
+      return {
+        data: pageRows.map(toMcpTyreSetRow),
+        meta: toMcpPageMeta(rows.length, { offset, pageSize }),
+      };
     }
 
-    const pageRows = rows.slice(offset, offset + pageSize);
+    const listed = await this.tyreStorage.list({
+      customerId: input.customer_id,
+      vehicleId: input.vehicle_id,
+      status: input.status,
+      skip: offset,
+      pageSize: pageSize + 1,
+    });
+    const hasMore = listed.data.length > pageSize;
+    const pageRows = listed.data.slice(0, pageSize);
     return {
       data: pageRows.map(toMcpTyreSetRow),
-      meta: toMcpPageMeta(rows.length, { offset, pageSize }),
+      meta: {
+        total: listed.meta.total,
+        page_size: pageSize,
+        next_cursor: hasMore ? encodeMcpCursor(offset + pageSize) : null,
+      },
     };
   }
 

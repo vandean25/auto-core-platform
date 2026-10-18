@@ -6,6 +6,7 @@ import type { TyreStorageService } from '../tyre-storage/tyre-storage.service.js
 import type { VehicleStockQueryService } from '../vehicle-stock/vehicle-stock-query.service.js';
 import type { WarrantyClaimService } from '../warranty-claim/warranty-claim.service.js';
 import { McpComplianceReadService } from './mcp-compliance-read.service.js';
+import { encodeMcpCursor } from './mcp-output.util.js';
 
 const TENANT_A = '00000000-0000-4000-8000-00000000000a';
 const CUSTOMER_ID = '00000000-0000-4000-8000-0000000000c1';
@@ -147,6 +148,8 @@ describe('McpComplianceReadService.listGewaehrleistungDue', () => {
 });
 
 describe('McpComplianceReadService.listTyreSets', () => {
+  const VEHICLE_ID = '00000000-0000-4000-8000-0000000000v1';
+
   it('uses listDueForSwap when due_for_swap is true', async () => {
     const { service, tyreStorage } = build({});
 
@@ -154,6 +157,45 @@ describe('McpComplianceReadService.listTyreSets', () => {
 
     expect(tyreStorage.listDueForSwap).toHaveBeenCalled();
     expect(tyreStorage.list).not.toHaveBeenCalled();
+  });
+
+  it('passes vehicle_id to list when customer_id is also set', async () => {
+    const { service, tyreStorage } = build({});
+
+    await service.listTyreSets({
+      customer_id: CUSTOMER_ID,
+      vehicle_id: VEHICLE_ID,
+      pageSize: 10,
+    });
+
+    expect(tyreStorage.list).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customerId: CUSTOMER_ID,
+        vehicleId: VEHICLE_ID,
+      }),
+    );
+    expect(tyreStorage.findByVehicle).not.toHaveBeenCalled();
+  });
+
+  it('pages with a row offset cursor instead of a page index', async () => {
+    const { service, tyreStorage } = build({});
+    tyreStorage.list.mockResolvedValueOnce({
+      data: [{ id: 'row-2' }, { id: 'row-3' }, { id: 'row-4' }],
+      meta: { total: 5, page: 1, pageSize: 3, pageCount: 2 },
+    });
+
+    await service.listTyreSets({
+      cursor: encodeMcpCursor(2),
+      pageSize: 2,
+    });
+
+    expect(tyreStorage.list).toHaveBeenCalledWith({
+      skip: 2,
+      pageSize: 3,
+      customerId: undefined,
+      vehicleId: undefined,
+      status: undefined,
+    });
   });
 });
 
