@@ -56,17 +56,70 @@ const lineItemDeps = (deps: PendingActionRegistryDeps) => ({
   siteContext: deps.siteContext,
 });
 
+function buildExecutor(
+  deps: PendingActionRegistryDeps,
+  actionType: PendingActionType,
+): PendingActionExecutor {
+  const factory = EXECUTOR_FACTORIES[actionType];
+  if (!factory) {
+    throw new Error(`Missing executor factory for ${actionType}`);
+  }
+  return factory(deps, actionType);
+}
+
+/** Resolves a pending action without dynamic property access on user input (CodeQL). */
 export function resolvePendingActionExecutor(
   deps: PendingActionRegistryDeps,
   actionType: string,
 ): PendingActionExecutor {
-  const resolved = EXECUTOR_FACTORIES[actionType as PendingActionType];
-  if (!resolved) {
-    throw new BadRequestException(
-      `Unsupported action type for automatic execution: ${actionType}`,
-    );
+  switch (actionType) {
+    case 'workshop_order.create':
+      return buildExecutor(deps, 'workshop_order.create');
+    case 'workshop_task.reserve_part':
+      return buildExecutor(deps, 'workshop_task.reserve_part');
+    case 'inventory.part_reserve':
+      return buildExecutor(deps, 'inventory.part_reserve');
+    case 'workshop_task.release_reservation':
+      return buildExecutor(deps, 'workshop_task.release_reservation');
+    case 'inventory.part_release':
+      return buildExecutor(deps, 'inventory.part_release');
+    case 'workshop_order.propose_line':
+      return buildExecutor(deps, 'workshop_order.propose_line');
+    case 'workshop_order.mechanic_finding':
+      return buildExecutor(deps, 'workshop_order.mechanic_finding');
+    case 'workshop_order.propose_mechanic_finding':
+      return buildExecutor(deps, 'workshop_order.propose_mechanic_finding');
+    case 'workshop.media_upload_slot':
+      return buildExecutor(deps, 'workshop.media_upload_slot');
+    case 'report.generate_weekly_pdf':
+      return buildExecutor(deps, 'report.generate_weekly_pdf');
+    case 'workshop_order.add_line':
+      return buildExecutor(deps, 'workshop_order.add_line');
+    case 'customer.update':
+      return buildExecutor(deps, 'customer.update');
+    case 'decision.import_row_match':
+      return buildExecutor(deps, 'decision.import_row_match');
+    case 'decision.document_sort':
+      return buildExecutor(deps, 'decision.document_sort');
+    case 'registration_intake.apply':
+      return buildExecutor(deps, 'registration_intake.apply');
+    case 'workshop.booking_package':
+      return buildExecutor(deps, 'workshop.booking_package');
+    case 'purchase_order.propose_draft':
+      return buildExecutor(deps, 'purchase_order.propose_draft');
+    case 'workshop_order.complete':
+      return buildExecutor(deps, 'workshop_order.complete');
+    case 'invoice.create_draft_from_workshop_order':
+      return buildExecutor(deps, 'invoice.create_draft_from_workshop_order');
+    case 'workshop_estimate.send':
+      return buildExecutor(deps, 'workshop_estimate.send');
+    case 'estimate.send_customer_message':
+      return buildExecutor(deps, 'estimate.send_customer_message');
+    default:
+      throw new BadRequestException(
+        `Unsupported action type for automatic execution: ${actionType}`,
+      );
   }
-  return resolved(deps, actionType as PendingActionType);
 }
 
 type ExecutorFactory = (
