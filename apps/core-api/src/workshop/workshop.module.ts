@@ -20,10 +20,7 @@ import { WorkshopBoardService } from './workshop-board.service.js';
 import { WorkshopHolidayService } from './workshop-holiday.service.js';
 import { WorkshopIntakeService } from './workshop-intake.service.js';
 import { WorkshopInvoiceService } from './workshop-invoice.service.js';
-import {
-  WorkshopEstimateOrderController,
-  WorkshopEstimateVersionController,
-} from './workshop-estimate.controller.js';
+import { WorkshopEstimateController } from './workshop-estimate.controller.js';
 import { WorkshopEstimatePdfRenderer } from './workshop-estimate-pdf.renderer.js';
 import { WorkshopEstimatePdfService } from './workshop-estimate-pdf.service.js';
 import { WorkshopEstimateService } from './workshop-estimate.service.js';
@@ -98,8 +95,7 @@ import { InspectionMeasurementModule } from '../inspection-measurement/inspectio
     WorkshopCapacityController,
     WorkshopController,
     WorkshopKpiReportsController,
-    WorkshopEstimateOrderController,
-    WorkshopEstimateVersionController,
+    WorkshopEstimateController,
     WorkshopWaitingTasksController,
     WorkshopOrderReadyEmailController,
     WorkshopCheckInController,
