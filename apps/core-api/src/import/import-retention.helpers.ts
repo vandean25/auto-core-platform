@@ -23,38 +23,19 @@ export type ImportJobRowPurgeOptions = {
   rowBatchSize?: number;
 };
 
-/** Terminal import jobs use appliedAt when present; dry-run-only jobs use createdAt. */
-export function importJobFinishedAt(job: {
-  status: ImportJobStatus;
-  appliedAt: Date | null;
-  createdAt: Date;
-}): Date | null {
-  if (job.status === ImportJobStatus.APPLYING) {
-    return null;
-  }
-  if (job.status === ImportJobStatus.APPLIED) {
-    return job.appliedAt ?? job.createdAt;
-  }
-  if (
-    job.status === ImportJobStatus.FAILED ||
-    job.status === ImportJobStatus.CANCELLED ||
-    job.status === ImportJobStatus.DRY_RUN_DONE
-  ) {
-    return job.createdAt;
-  }
-  return null;
-}
-
+/** Only applied jobs with a recorded apply timestamp are eligible for row purge. */
 export function isImportJobEligibleForRowPurge(
   job: {
     status: ImportJobStatus;
     appliedAt: Date | null;
-    createdAt: Date;
   },
   cutoff: Date,
 ): boolean {
-  const finishedAt = importJobFinishedAt(job);
-  return finishedAt !== null && finishedAt < cutoff;
+  return (
+    job.status === ImportJobStatus.APPLIED &&
+    job.appliedAt !== null &&
+    job.appliedAt < cutoff
+  );
 }
 
 export function importJobRowRetentionCutoff(
@@ -70,27 +51,9 @@ export function eligibleImportJobsForRowPurgeWhere(
 ): Prisma.ImportJobWhereInput {
   return {
     tenant_id: tenantId,
-    status: { not: ImportJobStatus.APPLYING },
+    status: ImportJobStatus.APPLIED,
+    appliedAt: { lt: cutoff },
     rows: { some: {} },
-    OR: [
-      {
-        status: ImportJobStatus.APPLIED,
-        OR: [
-          { appliedAt: { lt: cutoff } },
-          { appliedAt: null, createdAt: { lt: cutoff } },
-        ],
-      },
-      {
-        status: {
-          in: [
-            ImportJobStatus.FAILED,
-            ImportJobStatus.CANCELLED,
-            ImportJobStatus.DRY_RUN_DONE,
-          ],
-        },
-        createdAt: { lt: cutoff },
-      },
-    ],
   };
 }
 
