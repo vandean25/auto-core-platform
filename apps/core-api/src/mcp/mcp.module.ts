@@ -17,6 +17,8 @@ import { TyreStorageModule } from '../tyre-storage/tyre-storage.module.js';
 import { VehicleStockModule } from '../vehicle-stock/vehicle-stock.module.js';
 import { VehicleStockQueryModule } from '../vehicle-stock/vehicle-stock-query.module.js';
 import { WarrantyClaimModule } from '../warranty-claim/warranty-claim.module.js';
+import { McpComplianceReadFacade } from './mcp-compliance-read.facade.js';
+import { McpComplianceReadListsService } from './mcp-compliance-read-lists.service.js';
 import { McpComplianceReadService } from './mcp-compliance-read.service.js';
 import { LoanerVehiclesModule } from '../loaner-vehicles/loaner-vehicles.module.js';
 import { McpAuditReadService } from './mcp-audit-read.service.js';
@@ -90,6 +92,8 @@ import { InvoicesModule } from '../invoices/invoices.module.js';
     McpListingReadService,
     McpStockReadService,
     McpComplianceReadService,
+    McpComplianceReadListsService,
+    McpComplianceReadFacade,
     McpSessionService,
     McpUserLocaleService,
   ],

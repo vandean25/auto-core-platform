@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import type { WarrantyClaimStatus } from '@prisma/client';
 import type { z } from 'zod';
 import {
   assertConsentLedgerAccess,
@@ -8,40 +7,9 @@ import {
 import { CustomerConsentService } from '../customer-consent/customer-consent.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { TyreSetListReadService } from '../tyre-storage/tyre-set-list-read.service.js';
-import { TyreStorageService } from '../tyre-storage/tyre-storage.service.js';
-import type { TyreSetResponseDto } from '../tyre-storage/dto/tyre-set.dto.js';
-import { VehicleStockQueryService } from '../vehicle-stock/vehicle-stock-query.service.js';
-import { WarrantyClaimSiteListService } from '../warranty-claim/warranty-claim-site-list.service.js';
-import { assertWarrantyClaimAccess } from '../warranty-claim/warranty-claim.rules.js';
-import { offsetFromCursor, toMcpPageMeta } from './mcp-report-read.mapper.js';
-import {
-  toMcpGewaehrleistungDueRow,
-  toMcpTyreSetRow,
-  toMcpWarrantyClaimListRow,
-  warrantyClaimKeysetCursorOf,
-} from './mcp-compliance-read.mapper.js';
-import {
-  clampMcpPageSize,
-  decodeMcpKeysetCursor,
-  encodeMcpCursor,
-  encodeMcpKeysetCursor,
-} from './mcp-output.util.js';
-import type {
-  checkContactPermissionInputSchema,
-  listGewaehrleistungDueInputSchema,
-  listTyreSetsInputSchema,
-  listWarrantyClaimsInputSchema,
-} from './mcp-tool-schemas.js';
+import type { checkContactPermissionInputSchema } from './mcp-tool-schemas.js';
 
 type CheckContactInput = z.infer<typeof checkContactPermissionInputSchema>;
-type GewaehrleistungDueInput = z.infer<
-  typeof listGewaehrleistungDueInputSchema
->;
-type TyreSetsInput = z.infer<typeof listTyreSetsInputSchema>;
-type WarrantyClaimsInput = z.infer<typeof listWarrantyClaimsInputSchema>;
-
-const DEFAULT_GEWAEHRLEISTUNG_WITHIN_DAYS = 30;
 
 @Injectable()
 export class McpComplianceReadService {
@@ -49,10 +17,6 @@ export class McpComplianceReadService {
     private readonly tenantContext: TenantContextService,
     private readonly prisma: PrismaService,
     private readonly customerConsent: CustomerConsentService,
-    private readonly vehicleStock: VehicleStockQueryService,
-    private readonly tyreStorage: TyreStorageService,
-    private readonly tyreSetListRead: TyreSetListReadService,
-    private readonly warrantyClaimSiteList: WarrantyClaimSiteListService,
   ) {}
 
   async checkContactPermission(input: CheckContactInput) {
@@ -71,104 +35,6 @@ export class McpComplianceReadService {
       channel: input.channel,
       allowed: decision.allowed,
       reason: decision.reason,
-    };
-  }
-
-  async listGewaehrleistungDue(input: GewaehrleistungDueInput) {
-    const withinDays = input.within_days ?? DEFAULT_GEWAEHRLEISTUNG_WITHIN_DAYS;
-    const scope = {
-      offset: offsetFromCursor(input.cursor),
-      pageSize: clampMcpPageSize(input.pageSize),
-    };
-    const report = await this.vehicleStock.listGewaehrleistungDue({
-      endsWithinDays: withinDays,
-    });
-    const rows = report.data;
-    return {
-      within_days: withinDays,
-      data: rows
-        .slice(scope.offset, scope.offset + scope.pageSize)
-        .map(toMcpGewaehrleistungDueRow),
-      meta: toMcpPageMeta(rows.length, scope),
-    };
-  }
-
-  async listTyreSets(input: TyreSetsInput) {
-    const pageSize = clampMcpPageSize(input.pageSize);
-    const offset = offsetFromCursor(input.cursor);
-
-    if (input.due_for_swap) {
-      const due = await this.tyreStorage.listDueForSwap();
-      let rows: TyreSetResponseDto[] = due.data;
-      if (input.customer_id) {
-        rows = rows.filter((row) => row.customerId === input.customer_id);
-      }
-      if (input.vehicle_id) {
-        rows = rows.filter((row) => row.vehicleId === input.vehicle_id);
-      }
-      if (input.status) {
-        rows = rows.filter((row) => row.status === input.status);
-      }
-      const pageRows = rows.slice(offset, offset + pageSize);
-      return {
-        data: pageRows.map(toMcpTyreSetRow),
-        meta: toMcpPageMeta(rows.length, { offset, pageSize }),
-      };
-    }
-
-    const listed = await this.tyreSetListRead.list({
-      customerId: input.customer_id,
-      vehicleId: input.vehicle_id,
-      status: input.status,
-      skip: offset,
-      pageSize: pageSize + 1,
-    });
-    const hasMore = listed.data.length > pageSize;
-    const pageRows = listed.data.slice(0, pageSize);
-    return {
-      data: pageRows.map(toMcpTyreSetRow),
-      meta: {
-        total: listed.meta.total,
-        page_size: pageSize,
-        next_cursor: hasMore ? encodeMcpCursor(offset + pageSize) : null,
-      },
-    };
-  }
-
-  async listWarrantyClaims(input: WarrantyClaimsInput) {
-    assertWarrantyClaimAccess(this.tenantContext);
-    const pageSize = clampMcpPageSize(input.pageSize);
-    const cursor = input.cursor
-      ? decodeMcpKeysetCursor(input.cursor)
-      : undefined;
-    const statuses: WarrantyClaimStatus[] | undefined = input.status
-      ? [input.status]
-      : undefined;
-
-    const { rows, total } = await this.warrantyClaimSiteList.listAtActiveSite({
-      workshopOrderId: input.order_id,
-      statuses,
-      type: input.type,
-      pageSize,
-      cursorCreatedAt: cursor ? new Date(cursor.at) : undefined,
-      cursorId: cursor?.id,
-    });
-
-    const hasMore = rows.length > pageSize;
-    const page = rows.slice(0, pageSize).map(toMcpWarrantyClaimListRow);
-    const last = page[page.length - 1];
-    return {
-      data: page,
-      meta: {
-        total,
-        page_size: pageSize,
-        next_cursor:
-          hasMore && last
-            ? encodeMcpKeysetCursor(
-                warrantyClaimKeysetCursorOf(last.created_at, last.id),
-              )
-            : null,
-      },
     };
   }
 }

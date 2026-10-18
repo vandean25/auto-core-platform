@@ -2,7 +2,7 @@ import type { McpAuditReadService } from './mcp-audit-read.service.js';
 import type { McpAvailabilityReadService } from './mcp-availability-read.service.js';
 import type { McpCapabilitiesService } from './mcp-capabilities.service.js';
 import type { McpCatalogReadService } from './mcp-catalog-read.service.js';
-import type { McpComplianceReadService } from './mcp-compliance-read.service.js';
+import type { McpComplianceReadFacade } from './mcp-compliance-read.facade.js';
 import type { McpDocumentReadService } from './mcp-document-read.service.js';
 import type { McpInvoiceReadService } from './mcp-invoice-read.service.js';
 import type { McpListingReadService } from './mcp-listing-read.service.js';
@@ -34,7 +34,7 @@ export type McpReadToolServiceTestDeps = {
   reportReads?: McpReportReadService;
   availabilityReads?: McpAvailabilityReadService;
   workshopOrderDetailReads?: McpWorkshopOrderDetailReadService;
-  complianceReads?: McpComplianceReadService;
+  complianceReads?: McpComplianceReadFacade;
 };
 
 /** Builds {@link McpReadToolService} for handler specs without repeating sixteen constructor args. */

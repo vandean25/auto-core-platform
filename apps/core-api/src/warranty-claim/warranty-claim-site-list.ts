@@ -1,4 +1,8 @@
-import type { Prisma, WarrantyClaimStatus, WarrantyClaimType } from '@prisma/client';
+import type {
+  Prisma,
+  WarrantyClaimStatus,
+  WarrantyClaimType,
+} from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import {
   toWarrantyClaimResponse,

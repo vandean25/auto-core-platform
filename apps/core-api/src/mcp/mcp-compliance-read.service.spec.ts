@@ -2,20 +2,12 @@ import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import type { TenantContextService } from '../common/services/tenant-context.service.js';
 import type { CustomerConsentService } from '../customer-consent/customer-consent.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
-import type { TyreSetListReadService } from '../tyre-storage/tyre-set-list-read.service.js';
-import type { TyreStorageService } from '../tyre-storage/tyre-storage.service.js';
-import type { VehicleStockQueryService } from '../vehicle-stock/vehicle-stock-query.service.js';
-import type { WarrantyClaimSiteListService } from '../warranty-claim/warranty-claim-site-list.service.js';
 import { McpComplianceReadService } from './mcp-compliance-read.service.js';
-import { encodeMcpCursor } from './mcp-output.util.js';
 
 const TENANT_A = '00000000-0000-4000-8000-00000000000a';
 const CUSTOMER_ID = '00000000-0000-4000-8000-0000000000c1';
 
-function build(options: {
-  role?: string;
-  customerExists?: boolean;
-}) {
+function buildContact(options: { role?: string; customerExists?: boolean }) {
   const tenantContext = {
     getTenantId: jest.fn().mockResolvedValue(TENANT_A),
     getAuthenticatedUser: jest.fn().mockReturnValue({
@@ -26,9 +18,11 @@ function build(options: {
   };
   const prisma = {
     customer: {
-      findFirst: jest.fn().mockResolvedValue(
-        options.customerExists === false ? null : { id: CUSTOMER_ID },
-      ),
+      findFirst: jest
+        .fn()
+        .mockResolvedValue(
+          options.customerExists === false ? null : { id: CUSTOMER_ID },
+        ),
     },
   };
   const customerConsent = {
@@ -37,51 +31,19 @@ function build(options: {
       reason: 'MARKETING_PERMISSION_MISSING',
     }),
   };
-  const vehicleStock = {
-    listGewaehrleistungDue: jest.fn().mockResolvedValue({
-      data: [],
-      meta: { total: 0, page: 1, pageSize: 0, pageCount: 0 },
-    }),
-  };
-  const tyreStorage = {
-    listDueForSwap: jest.fn().mockResolvedValue({ data: [] }),
-    findByVehicle: jest.fn().mockResolvedValue({ data: [] }),
-  };
-  const tyreSetListRead = {
-    list: jest.fn().mockResolvedValue({
-      data: [],
-      meta: { total: 0, page: 1, pageSize: 10, pageCount: 0 },
-    }),
-  };
-  const warrantyClaimSiteList = {
-    listAtActiveSite: jest.fn().mockResolvedValue({ rows: [], total: 0 }),
-  };
 
   const service = new McpComplianceReadService(
     tenantContext as unknown as TenantContextService,
     prisma as unknown as PrismaService,
     customerConsent as unknown as CustomerConsentService,
-    vehicleStock as unknown as VehicleStockQueryService,
-    tyreStorage as unknown as TyreStorageService,
-    tyreSetListRead as unknown as TyreSetListReadService,
-    warrantyClaimSiteList as unknown as WarrantyClaimSiteListService,
   );
 
-  return {
-    service,
-    tenantContext,
-    prisma,
-    customerConsent,
-    vehicleStock,
-    tyreStorage,
-    tyreSetListRead,
-    warrantyClaimSiteList,
-  };
+  return { service, customerConsent };
 }
 
 describe('McpComplianceReadService.checkContactPermission', () => {
   it('returns allowed and reason without ledger fields', async () => {
-    const { service, customerConsent } = build({});
+    const { service, customerConsent } = buildContact({});
 
     const result = await service.checkContactPermission({
       customer_id: CUSTOMER_ID,
@@ -106,7 +68,7 @@ describe('McpComplianceReadService.checkContactPermission', () => {
   });
 
   it('rejects TECH callers like the consent ledger REST API', async () => {
-    const { service } = build({ role: 'TECH' });
+    const { service } = buildContact({ role: 'TECH' });
 
     await expect(
       service.checkContactPermission({
@@ -118,7 +80,7 @@ describe('McpComplianceReadService.checkContactPermission', () => {
   });
 
   it('returns not found when the customer is outside the tenant', async () => {
-    const { service } = build({ customerExists: false });
+    const { service } = buildContact({ customerExists: false });
 
     await expect(
       service.checkContactPermission({
@@ -127,102 +89,5 @@ describe('McpComplianceReadService.checkContactPermission', () => {
         channel: 'EMAIL',
       }),
     ).rejects.toBeInstanceOf(NotFoundException);
-  });
-});
-
-describe('McpComplianceReadService.listGewaehrleistungDue', () => {
-  it('passes endsWithinDays to the stock query service', async () => {
-    const { service, vehicleStock } = build({});
-
-    await service.listGewaehrleistungDue({ within_days: 90, pageSize: 5 });
-
-    expect(vehicleStock.listGewaehrleistungDue).toHaveBeenCalledWith({
-      endsWithinDays: 90,
-    });
-  });
-
-  it('returns an empty page when nothing is due', async () => {
-    const { service } = build({});
-
-    const result = await service.listGewaehrleistungDue({});
-
-    expect(result.data).toEqual([]);
-    expect(result.meta.total).toBe(0);
-    expect(result.meta.next_cursor).toBeNull();
-  });
-});
-
-describe('McpComplianceReadService.listTyreSets', () => {
-  const VEHICLE_ID = '00000000-0000-4000-8000-0000000000v1';
-
-  it('uses listDueForSwap when due_for_swap is true', async () => {
-    const { service, tyreStorage, tyreSetListRead } = build({});
-
-    await service.listTyreSets({ due_for_swap: true });
-
-    expect(tyreStorage.listDueForSwap).toHaveBeenCalled();
-    expect(tyreSetListRead.list).not.toHaveBeenCalled();
-  });
-
-  it('passes vehicle_id to list when customer_id is also set', async () => {
-    const { service, tyreSetListRead } = build({});
-
-    await service.listTyreSets({
-      customer_id: CUSTOMER_ID,
-      vehicle_id: VEHICLE_ID,
-      pageSize: 10,
-    });
-
-    expect(tyreSetListRead.list).toHaveBeenCalledWith(
-      expect.objectContaining({
-        customerId: CUSTOMER_ID,
-        vehicleId: VEHICLE_ID,
-      }),
-    );
-  });
-
-  it('pages with a row offset cursor instead of a page index', async () => {
-    const { service, tyreSetListRead } = build({});
-    tyreSetListRead.list.mockResolvedValueOnce({
-      data: [{ id: 'row-2' }, { id: 'row-3' }, { id: 'row-4' }],
-      meta: { total: 5, page: 1, pageSize: 3, pageCount: 2 },
-    });
-
-    await service.listTyreSets({
-      cursor: encodeMcpCursor(2),
-      pageSize: 2,
-    });
-
-    expect(tyreSetListRead.list).toHaveBeenCalledWith({
-      skip: 2,
-      pageSize: 3,
-      customerId: undefined,
-      vehicleId: undefined,
-      status: undefined,
-    });
-  });
-});
-
-describe('McpComplianceReadService.listWarrantyClaims', () => {
-  it('scopes through the warranty claim service', async () => {
-    const { service, warrantyClaimSiteList } = build({});
-
-    await service.listWarrantyClaims({ status: 'DRAFT', pageSize: 10 });
-
-    expect(warrantyClaimSiteList.listAtActiveSite).toHaveBeenCalledWith(
-      expect.objectContaining({
-        statuses: ['DRAFT'],
-        pageSize: 10,
-      }),
-    );
-  });
-
-  it('rejects TECH callers', async () => {
-    const { service, warrantyClaimSiteList } = build({ role: 'TECH' });
-
-    await expect(service.listWarrantyClaims({})).rejects.toBeInstanceOf(
-      ForbiddenException,
-    );
-    expect(warrantyClaimSiteList.listAtActiveSite).not.toHaveBeenCalled();
   });
 });

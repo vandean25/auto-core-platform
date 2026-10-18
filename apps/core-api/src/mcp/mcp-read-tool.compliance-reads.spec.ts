@@ -1,7 +1,7 @@
 import { ForbiddenException } from '@nestjs/common';
 import { ZodError } from 'zod';
 import type { AgentActionLogService } from '../agent-action-log/agent-action-log.service.js';
-import type { McpComplianceReadService } from './mcp-compliance-read.service.js';
+import type { McpComplianceReadFacade } from './mcp-compliance-read.facade.js';
 import { createMcpReadToolServiceForTest } from './mcp-read-tool.service.spec.support.js';
 import {
   HANDLER_SPEC_CONTEXT,
@@ -52,7 +52,7 @@ describe('McpToolHandlerService AUT-605 compliance reads', () => {
 
     const readTools = createMcpReadToolServiceForTest({
       complianceReads:
-        complianceReads as unknown as McpComplianceReadService,
+        complianceReads as unknown as McpComplianceReadFacade,
     });
     handler = new McpToolHandlerService(
       agentActionLog as unknown as AgentActionLogService,
