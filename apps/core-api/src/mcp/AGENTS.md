@@ -50,6 +50,10 @@ Read tools are tenant- or active-site-scoped by the server. Their tier is `AUTO`
 | `get_revenue_report` | Revenue for a period at the active site or a given site: net, VAT, and gross split by workshop, vehicle sales, and other, plus revenue groups; optional prior-period comparison | Read | AUTO |
 | `list_pickerl_due` | Vehicles with a Pickerl due within 30, 60, or 90 days, overdue vehicles always included: vehicle, customer name, and due date | Read | AUTO |
 | `get_nova_preview` | A calculation preview of NoVA for a vehicle at a net EUR price, which saves nothing; the Steuerberater must still confirm while an unconfirmed rule applies | Read | AUTO |
+| `check_contact_permission` | Whether the tenant may contact a customer for a purpose and channel (`allowed` and `reason` only; no consent ledger text) | Read | AUTO |
+| `list_gewaehrleistung_due` | Consumer vehicle sales at the active site whose base Gewährleistung period ends within 30, 60, or 90 days | Read | AUTO |
+| `list_tyre_sets` | Tyre storage sets at the active site by customer, vehicle, status, or due-for-swap | Read | AUTO |
+| `list_warranty_claims` | Garantie, Kulanz, and Gewährleistung claims at the active site, optionally for one workshop order (no complaint text) | Read | AUTO |
 | `list_bays` | List active bays for the active site | Read | AUTO |
 | `list_bins` | List bin storage locations for the active site | Read | AUTO |
 | `list_workshop_tasks` | List tasks visible to the caller with line IDs for MCP actions | Read | AUTO |
@@ -97,13 +101,14 @@ Policy-mode wording maps approximately as follows: `Allowed` to `AUTO`, `Ask fir
 
 Offset list and search tools accept `page` and `pageSize`; the server defaults to page 1 and 10 rows and caps `pageSize` at 25. Cursor-based tools take `pageSize` and an opaque `cursor` from `meta.next_cursor` with the same default and maximum. `get_customer` and `get_vehicle_history` page their order list with `orders_page_size` and `orders_cursor`. Offset cursors are limited to `get_capabilities`, the three stock/Pickerl report reads, and nothing else; other cursor tools use keyset positions.
 
-- `get_capabilities` pages the tool catalog by offset. Its default and maximum page size is 25. The catalog holds 55 tools, so follow `meta.next_cursor` before deciding that a write tool is unavailable.
+- `get_capabilities` pages the tool catalog by offset. Its default and maximum page size is 25. The catalog holds 59 tools, so follow `meta.next_cursor` before deciding that a write tool is unavailable.
 - `list_sites` pages with `pageSize` (default 10, max 25) and an opaque `cursor` from `meta.next_cursor`, in site code order.
 - `list_audit_events`, `get_entity_history`, `get_agent_action`, and `list_agent_actions` page with a keyset cursor. The default page size is 10 and the maximum is 25. Audit lists are newest first. `get_agent_action` log rows are oldest first.
 - `list_invoices` pages with a keyset cursor over issue date and invoice ID, with the same default and maximum. It is newest first.
 - `list_documents` pages with `pageSize` and a keyset `cursor` over generation time and record ID, with the same default and maximum. It is newest first. The order lists of `get_customer` and `get_vehicle_history` page with `orders_page_size` and `orders_cursor`, newest first, with the same default and maximum.
 - `list_purchase_orders` and `list_vendors` page the same way: `pageSize` and a keyset `cursor`, newest first, with the same default and maximum.
-- `get_vehicle_stock_age_report`, `get_vehicle_stock_margin_report`, and `list_pickerl_due` take `pageSize` (default 10, max 25) and an opaque `cursor` from `meta.next_cursor`. Their cursor is an offset over the report's rows, so the next page starts after the last row returned.
+- `get_vehicle_stock_age_report`, `get_vehicle_stock_margin_report`, `list_pickerl_due`, `list_gewaehrleistung_due`, and `list_tyre_sets` take `pageSize` (default 10, max 25) and an opaque `cursor` from `meta.next_cursor`. Their cursor is an offset over the report's rows, so the next page starts after the last row returned.
+- `list_warranty_claims` pages with `pageSize` and a keyset `cursor` over `created_at` then claim `id`, newest first, with the same default and maximum.
 - `list_workshop_slots` pages with `pageSize` and a keyset `cursor` over `start_at` then `bay_id`, ascending. Rows are sorted that way before paging, so pages stay stable when the underlying slot list does not change between calls.
 - `list_available_loaners` pages with `pageSize` and a keyset `cursor` over `loaner_vehicle_id`, ascending. Treat availability as a snapshot: re-check before booking if you page across calls.
 

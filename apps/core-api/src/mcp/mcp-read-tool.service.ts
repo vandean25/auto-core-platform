@@ -11,6 +11,7 @@ import { McpPurchasingReadService } from './mcp-purchasing-read.service.js';
 import { McpRecordReadService } from './mcp-record-read.service.js';
 import { McpWorkshopOrderDetailReadService } from './mcp-workshop-order-detail.read.service.js';
 import { McpAvailabilityReadService } from './mcp-availability-read.service.js';
+import { McpComplianceReadService } from './mcp-compliance-read.service.js';
 import { McpReportReadService } from './mcp-report-read.service.js';
 import { McpSettingsReadService } from './mcp-settings-read.service.js';
 import { McpListingReadService } from './mcp-listing-read.service.js';
@@ -47,6 +48,10 @@ import {
   listMarginRulesInputSchema,
   listPriceListsInputSchema,
   listPickerlDueInputSchema,
+  checkContactPermissionInputSchema,
+  listGewaehrleistungDueInputSchema,
+  listTyreSetsInputSchema,
+  listWarrantyClaimsInputSchema,
   listSitesInputSchema,
   listPurchaseOrdersInputSchema,
   listVendorsInputSchema,
@@ -81,6 +86,7 @@ export class McpReadToolService {
   private readonly reportReads: McpReportReadService;
   private readonly availabilityReads: McpAvailabilityReadService;
   private readonly workshopOrderDetailReads: McpWorkshopOrderDetailReadService;
+  private readonly complianceReads: McpComplianceReadService;
 
   // Fields are assigned in the body rather than declared as parameter properties, for the same
   // cohesion reason as the tool handler.
@@ -100,6 +106,7 @@ export class McpReadToolService {
     reportReads: McpReportReadService,
     availabilityReads: McpAvailabilityReadService,
     workshopOrderDetailReads: McpWorkshopOrderDetailReadService,
+    complianceReads: McpComplianceReadService,
   ) {
     this.capabilities = capabilities;
     this.auditReads = auditReads;
@@ -116,6 +123,7 @@ export class McpReadToolService {
     this.reportReads = reportReads;
     this.availabilityReads = availabilityReads;
     this.workshopOrderDetailReads = workshopOrderDetailReads;
+    this.complianceReads = complianceReads;
   }
 
   async run(
@@ -185,6 +193,22 @@ export class McpReadToolService {
       case 'get_nova_preview':
         return this.reportReads.getNovaPreview(
           getNovaPreviewInputSchema.parse(parsed),
+        );
+      case 'check_contact_permission':
+        return this.complianceReads.checkContactPermission(
+          checkContactPermissionInputSchema.parse(parsed),
+        );
+      case 'list_gewaehrleistung_due':
+        return this.complianceReads.listGewaehrleistungDue(
+          listGewaehrleistungDueInputSchema.parse(parsed),
+        );
+      case 'list_tyre_sets':
+        return this.complianceReads.listTyreSets(
+          listTyreSetsInputSchema.parse(parsed),
+        );
+      case 'list_warranty_claims':
+        return this.complianceReads.listWarrantyClaims(
+          listWarrantyClaimsInputSchema.parse(parsed),
         );
       case 'list_workshop_orders':
         return this.recordReads.listWorkshopOrders(
