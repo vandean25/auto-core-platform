@@ -1,0 +1,98 @@
+---
+title: "Werkstattplaner"
+description: "Hebebühnen-Verfügbarkeit im Tages- oder Wochenraster prüfen, Termine buchen und Werkstattzeiten pflegen."
+---
+
+**Werkstattplaner** (`/workshop/planner`) ist Ihr Buchungskalender. Während das [Werkstattboard](/workflows/workshop-board) zeigt, wer gerade welche Hebebühne in der Halle hat, zeigt der Planer, welche Hebebühnen heute oder in dieser Woche frei sind.
+
+## Planer vs. Board
+
+| Oberfläche | Beantwortet die Frage | Was Sie dort tun |
+| --- | --- | --- |
+| **Werkstattplaner** | Wann ist eine Hebebühne frei? | Freie Slots prüfen, eingehende Aufträge buchen, per Drag & Drop verschieben |
+| **Werkstattboard** | Wer hat die Hebebühne gerade? | Aktive Hallenaufträge auf Mechaniker und Hebebühnen legen |
+
+## Kalender lesen
+
+Oben rechts wechseln Sie zwischen **Tag**- und **Wochen**ansicht, blättern mit Zurück/Weiter durch den Zeitraum und öffnen **+ Werkstattauftrag**.
+
+- **Tagesansicht**: Hebebühnen als Zeilen, Zeitspalten nach Ihrer Slot-Größe (15, 30 oder 60 Minuten).
+- **Wochenansicht**: Hebebühnen als Zeilen, Montag bis Sonntag in den Spalten.
+- **Belegte Hebebühnen**: Farbige Karten mit Auftragsnummer, Fahrzeug, Kennzeichen und Kunde.
+- **Geschlossene Tage**: An Wochenenden oder Feiertagen zeigt das Raster einen Hinweis mit Link, um die Zeiten in den Einstellungen anzupassen.
+
+## Termin buchen
+
+Klicken Sie auf eine freie Zelle im Raster, um Hebebühne und Zeitfenster zu reservieren.
+
+<Steps>
+  <Step title="Slot wählen">
+    Freie Stelle unter der gewünschten Hebebühne anklicken. Das Anlege-Panel öffnet sich mit vorausgefüllter Hebebühne und Startzeit.
+  </Step>
+  <Step title="Fahrzeug finden">
+    Nach Kundenname, Kennzeichen oder FIN suchen. Fahrzeug wählen, um den Kunden zu verknüpfen.
+  </Step>
+  <Step title="Dauer und Details">
+    Start- und Endzeit standardmäßig 60 Minuten (begrenzt auf Werkstatt-Schluss). Optional Mechaniker, wenn bereits feststeht, wer den Auftrag übernimmt, und bei Bedarf ein gemeldetes Problem.
+  </Step>
+  <Step title="Buchung speichern">
+    Im Panel **+ Werkstattauftrag** wählen. Der Auftrag wird mit Status **Geplant** angelegt und reserviert die Hebebühne.
+  </Step>
+</Steps>
+
+<Warning>
+**Hebebühnen-Kollisionen sind hart blockiert.** Zwei Fahrzeuge können nicht dieselbe physische Hebebühne zur gleichen Zeit belegen. Das Panel deaktiviert die Anlage-Schaltfläche und warnt, wenn ein anderer Auftrag den Slot bereits beansprucht.
+</Warning>
+
+<Tip>
+Termine außerhalb der Öffnungszeiten oder Doppelbuchungen eines Mechanikers zeigen eine gelbe Warnung — für Eilaufträge oder geteilte Hände ist das trotzdem erlaubt.
+</Tip>
+
+<Check>
+Kommt das Fahrzeug vor Ort an, öffnen Sie die [Werkstatt-Annahme](/workflows/workshop-intake). **Service starten** für dieses Fahrzeug übernimmt automatisch die geplante Buchung und setzt sie auf **Annahme** — ohne doppelte Auftragsnummer.
+</Check>
+
+## Buchung verschieben
+
+Termine können Sie direkt im Raster verschieben:
+
+- **Drag & Drop**: Einen Block mit Status **Geplant** auf einen anderen freien Slot oder eine andere Hebebühne ziehen. Ist der neue Platz belegt, wird die Verschiebung mit Hinweis zurückgesetzt.
+- **Aktive Aufträge**: Aufträge in **Annahme** oder **In Bearbeitung** belegen die Hebebühne für heute, damit Plätze nicht leer wirken, solange ein Fahrzeug in der Halle steht — aktive Fahrzeuge können im Planer nicht gezogen werden. Zuweisen Sie sie im [Werkstattboard](/workflows/workshop-board) oder auf der Auftragsseite.
+
+## Öffnungszeiten und Feiertage
+
+Das Planer-Raster folgt Ihren Zeiten und dem Feiertagskalender unter **Einstellungen → Öffnungszeiten**.
+
+<Steps>
+  <Step title="Einstellungen öffnen">
+    **Zahnrad** in der Kopfzeile und Tab **Öffnungszeiten** wählen.
+  </Step>
+  <Step title="Zeitzone und Slot-Größe">
+    Zeitzone der Werkstatt und gewünschtes Rasterintervall (15, 30 oder 60 Minuten) festlegen.
+  </Step>
+  <Step title="Wochentage konfigurieren">
+    Öffnungs- und Schließzeiten pro Wochentag oder **Geschlossen** (z. B. Sonntag). **Zeiten speichern** wählen.
+  </Step>
+  <Step title="Feiertage anlegen oder importieren">
+    Mit **+ Feiertag** manuelle Daten (Betriebsurlaub, verkürzte Tage wie Heiligabend). Oder **Gesetzliche Feiertage importieren** für landesweite Feiertage.
+  </Step>
+</Steps>
+
+## Häufige Fragen
+
+<AccordionGroup>
+  <Accordion title="Was passiert, wenn der Kunde in der Werkstatt ankommt?">
+    **Werkstatt-Annahme** (`/workshop/intake`) öffnen und Fahrzeug oder Kennzeichen suchen. Beim Servicestart erkennt das System den geplanten Termin, setzt den Auftrag von **Geplant** auf **Annahme** und lässt Kilometerstand und Tankfüllung erfassen. Die Auftragsnummer (`WO-…`) bleibt unverändert.
+  </Accordion>
+  <Accordion title="Kann ich außerhalb der Öffnungszeiten oder an Feiertagen buchen?">
+    Ja. Das Anlege-Panel zeigt einen Hinweis („Außerhalb der Öffnungszeiten“), Sie können den Auftrag trotzdem anlegen. Der Block erscheint im Kalender, damit Nacharbeit nicht verloren geht.
+  </Accordion>
+  <Accordion title="Wie storniere ich einen geplanten Termin?">
+    Auftrag aus dem Kalender oder aus **Werkstattaufträge** öffnen. Solange der Status **Geplant** ist, können Sie den Auftrag löschen, wenn der Kunde absagt oder nicht kommt.
+  </Accordion>
+  <Accordion title="Warum ist eine Hebebühne blockiert, obwohl heute kein Termin steht?">
+    Ein Fahrzeug in **Annahme** oder **In Bearbeitung** mit zugewiesener Hebebühne reserviert den Platz für den Tag — der Planer bildet die reale Belegung ab.
+  </Accordion>
+</AccordionGroup>
+
+Verwandt: [Annahme](/workflows/workshop-intake), [Aufträge](/workflows/workshop-orders), [Board](/workflows/workshop-board), [Hebebühnen](/settings/bays).
