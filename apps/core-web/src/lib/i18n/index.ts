@@ -1,3 +1,7 @@
+import { ensureCustomerSearchI18n } from '@/components/sales/customer-search-i18n'
+
+void ensureCustomerSearchI18n()
+
 export * from './constants'
 export { I18nProvider } from './I18nProvider'
 export { initI18n, changeUiLanguage, ensureNamespaceLoaded, i18n } from './init-i18n'
