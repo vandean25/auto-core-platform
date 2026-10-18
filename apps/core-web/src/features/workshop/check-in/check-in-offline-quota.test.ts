@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import deWorkshop from '../../../../../../locales/de/workshop.json'
+import enWorkshop from '../../../../../../locales/en/workshop.json'
 import {
   CHECK_IN_OFFLINE_MAX_PHOTO_BYTES,
   CHECK_IN_OFFLINE_MAX_QUEUED_PHOTOS,
@@ -30,6 +31,11 @@ describe('check-in-offline-quota', () => {
   it('exposes a clear German quota message without data loss wording', () => {
     const message = deWorkshop.checkIn.offline.quotaExceeded
     expect(message).toContain('Entwurf bleibt erhalten')
+  })
+
+  it('exposes a clear English quota message without data loss wording', () => {
+    const message = enWorkshop.checkIn.offline.quotaExceeded
+    expect(message.toLowerCase()).toContain('draft is kept')
   })
 
   it('rejects an oversized photo without changing the evaluated queue count', () => {

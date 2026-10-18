@@ -86,7 +86,7 @@ test.describe('AUT-558: check-in offline draft', () => {
 
     const odometer = page.getByRole('spinbutton', { name: deWorkshop.checkIn.fields.odometer })
     await odometer.fill('120500')
-    await page.waitForTimeout(2_000)
+    await page.waitForTimeout(500)
 
     await page.reload()
     await expect(page.getByTestId('check-in-step-vehicle')).toBeVisible()

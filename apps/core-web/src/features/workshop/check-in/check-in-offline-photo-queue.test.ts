@@ -94,4 +94,49 @@ describe('processCheckInPhotoQueue', () => {
     )
     expect(revision).toBe(6)
   })
+
+  it('resets stale uploading rows before processing', async () => {
+    listQueuedPhotosForScope.mockResolvedValueOnce([]).mockResolvedValueOnce([])
+    await processCheckInPhotoQueue({
+      scope,
+      getExpectedRevision: () => 1,
+      onRevisionChange: vi.fn(),
+      onUploaded: vi.fn(),
+      isPaused: () => false,
+    })
+    expect(resetStaleUploadingPhotos).toHaveBeenCalledWith(scope)
+  })
+
+  it('pauses the queue on 401 responses', async () => {
+    const photo = {
+      clientUploadId: 'photo-a',
+      scopeKey: 'scope',
+      orderId: 'order-1',
+      fileName: 'a.jpg',
+      mimeType: 'image/jpeg',
+      sizeBytes: 10,
+      blob: new Blob(['a']),
+      status: 'queued' as const,
+      attempts: 0,
+      nextRetryAt: null,
+      createdAt: 1,
+      lastErrorCode: null,
+    }
+    listQueuedPhotosForScope
+      .mockResolvedValueOnce([photo])
+      .mockResolvedValueOnce([{ ...photo, status: 'failed' as const }])
+    uploadWorkshopCheckInMedia.mockRejectedValueOnce(
+      Object.assign(new Error('unauthorized'), { status: 401 }),
+    )
+    const onAuthError = vi.fn()
+    await processCheckInPhotoQueue({
+      scope,
+      getExpectedRevision: () => 2,
+      onRevisionChange: vi.fn(),
+      onUploaded: vi.fn(),
+      isPaused: () => false,
+      onAuthError,
+    })
+    expect(onAuthError).toHaveBeenCalled()
+  })
 })

@@ -67,13 +67,6 @@ export function useCheckInDraftAutosave({
     updateDraft,
   ])
 
-  const applyServerRecord = useCallback((serverRecord: WorkshopCheckIn) => {
-    revisionRef.current = serverRecord.revision
-    const next = draftFromCheckIn(serverRecord)
-    lastSavedRef.current = next
-    setDraft(next)
-  }, [])
-
   useEffect(() => {
     if (!record) {
       return

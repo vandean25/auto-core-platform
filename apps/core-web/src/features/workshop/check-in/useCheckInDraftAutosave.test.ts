@@ -106,6 +106,44 @@ describe('useCheckInDraftAutosave', () => {
     expect(payload.expected_revision).toBe(3)
   })
 
+  it('persists locally before the server autosave request', async () => {
+    let serverStarted = false
+    const persistDraftLocally = vi.fn(async () => {
+      expect(serverStarted).toBe(false)
+    })
+    mutateAsync.mockImplementation(async () => {
+      serverStarted = true
+      return { ...baseRecord, revision: 2, odometer: 88100 }
+    })
+
+    const { result } = renderHook(() =>
+      useCheckInDraftAutosave({
+        orderId: 'order-1',
+        record: baseRecord,
+        readOnly: false,
+        persistDraftLocally,
+      }),
+    )
+
+    await waitFor(() => {
+      expect(result.current.draft?.odometer).toBe(88000)
+    })
+
+    act(() => {
+      result.current.patchDraft({ odometer: 88100 })
+    })
+
+    persistDraftLocally.mockClear()
+    serverStarted = false
+
+    await act(async () => {
+      await result.current.flushBeforeNavigate()
+    })
+
+    expect(mutateAsync).toHaveBeenCalled()
+    expect(persistDraftLocally).toHaveBeenCalled()
+  })
+
   it('advances revisionRef on benign refetch without replacing the draft', async () => {
     mutateAsync.mockImplementation(async () => ({
       ...baseRecord,
