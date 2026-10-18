@@ -7,6 +7,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DataTable } from './DataTable'
 import { DataTableColumnHeader } from './data-table-column-header'
 import { triggerBlobDownload } from '@/lib/download'
+import deCommon from '../../../../../locales/de/common.json'
+
+const dt = deCommon.dataTable
+const columnOptionsLabel = (title: string) => dt.columnOptions.replace('{{title}}', title)
 
 vi.mock('@/lib/download', () => ({ triggerBlobDownload: vi.fn() }))
 
@@ -517,7 +521,7 @@ function ColumnPickerHarness({ columns = partColumns }: { columns?: ColumnDef<Pa
 }
 
 function openColumnsMenu() {
-  fireEvent.keyDown(screen.getByRole('button', { name: 'Columns' }), { key: 'Enter' })
+  fireEvent.keyDown(screen.getByRole('button', { name: dt.columns }), { key: 'Enter' })
 }
 
 // Radix marks the page aria-hidden while a menu is open, so close it before asserting on the table.
@@ -541,7 +545,7 @@ describe('DataTable column picker and sorting', () => {
   it('keeps the Columns picker visible at every breakpoint', () => {
     render(<ColumnPickerHarness />)
 
-    const trigger = screen.getByRole('button', { name: 'Columns' })
+    const trigger = screen.getByRole('button', { name: dt.columns })
     expect(trigger).not.toHaveClass('hidden')
     expect(trigger).not.toHaveClass('lg:flex')
     expect(screen.queryByRole('button', { name: 'View' })).not.toBeInTheDocument()
@@ -556,7 +560,7 @@ describe('DataTable column picker and sorting', () => {
     expect(screen.queryByRole('columnheader', { name: /Storage Location/ })).not.toBeInTheDocument()
 
     openColumnsMenu()
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Show all' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: dt.showAll }))
     closeOpenMenu()
     expect(screen.getByRole('columnheader', { name: /Storage Location/ })).toBeInTheDocument()
   })
@@ -570,7 +574,7 @@ describe('DataTable column picker and sorting', () => {
     expect(screen.queryByRole('columnheader', { name: /Customer/ })).not.toBeInTheDocument()
 
     openColumnsMenu()
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Reset' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: dt.reset }))
     closeOpenMenu()
     expect(screen.getByRole('columnheader', { name: /Customer/ })).toBeInTheDocument()
   })
@@ -599,8 +603,8 @@ describe('DataTable column picker and sorting', () => {
   it('keeps Hide in the column header menu', () => {
     render(<ColumnPickerHarness />)
 
-    fireEvent.keyDown(screen.getByRole('button', { name: 'Part column options' }), { key: 'Enter' })
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Hide' }))
+    fireEvent.keyDown(screen.getByRole('button', { name: columnOptionsLabel('Part') }), { key: 'Enter' })
+    fireEvent.click(screen.getByRole('menuitem', { name: dt.hide }))
 
     expect(screen.queryByRole('columnheader', { name: /Part/ })).not.toBeInTheDocument()
   })
@@ -670,7 +674,7 @@ function renderedRowCount() {
 }
 
 function openPageSizeMenu() {
-  fireEvent.click(screen.getByRole('combobox', { name: 'Rows per page' }))
+  fireEvent.click(screen.getByRole('combobox', { name: dt.rowsPerPageAria }))
 }
 
 function pageSizeOptionLabels() {
@@ -678,7 +682,7 @@ function pageSizeOptionLabels() {
 }
 
 function clickExportCsv() {
-  fireEvent.click(screen.getByRole('button', { name: 'Export CSV' }))
+  fireEvent.click(screen.getByRole('button', { name: dt.exportCsv }))
 }
 
 async function downloadedCsv(): Promise<string> {
@@ -699,7 +703,7 @@ describe('DataTable page size selector', () => {
 
   it('renders the chosen number of rows and returns to the first page', () => {
     render(<PagedPartHarness rowCount={120} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    fireEvent.click(screen.getByRole('button', { name: dt.next }))
     expect(screen.getByTestId('pagination')).toHaveTextContent('"pageIndex":1')
 
     openPageSizeMenu()
@@ -712,7 +716,7 @@ describe('DataTable page size selector', () => {
   it('keeps a non-standard starting size, such as the audit log default, selectable', () => {
     render(<PagedPartHarness rowCount={120} initialPageSize={20} />)
 
-    expect(screen.getByRole('combobox', { name: 'Rows per page' })).toHaveTextContent('20')
+    expect(screen.getByRole('combobox', { name: dt.rowsPerPageAria })).toHaveTextContent('20')
     openPageSizeMenu()
 
     expect(pageSizeOptionLabels()).toEqual(['10', '20', '25', '50', '100'])
@@ -720,12 +724,12 @@ describe('DataTable page size selector', () => {
 
   it('hides the selector only when pageSizeOptions is empty', () => {
     const { unmount } = render(<PagedPartHarness rowCount={3} />)
-    expect(screen.getByRole('combobox', { name: 'Rows per page' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: dt.rowsPerPageAria })).toBeInTheDocument()
     unmount()
 
     render(<PagedPartHarness rowCount={3} pageSizeOptions={[]} />)
 
-    expect(screen.queryByRole('combobox', { name: 'Rows per page' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: dt.rowsPerPageAria })).not.toBeInTheDocument()
   })
 })
 
@@ -780,17 +784,17 @@ describe('DataTable Export CSV', () => {
   it('disables Export CSV when there are no rows to export', () => {
     render(<PagedPartHarness rowCount={0} />)
 
-    expect(screen.getByRole('button', { name: 'Export CSV' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: dt.exportCsv })).toBeDisabled()
   })
 
   it('omits Export CSV for tables that already have a dedicated server export', () => {
     const { unmount } = render(<PagedPartHarness rowCount={1} />)
-    expect(screen.getByRole('button', { name: 'Export CSV' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: dt.exportCsv })).toBeInTheDocument()
     unmount()
 
     render(<PagedPartHarness rowCount={1} enableCsvExport={false} />)
 
-    expect(screen.queryByRole('button', { name: 'Export CSV' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: dt.exportCsv })).not.toBeInTheDocument()
   })
 
   it('disables Export CSV when every data column is hidden', () => {
@@ -801,7 +805,7 @@ describe('DataTable Export CSV', () => {
     }
     closeOpenMenu()
 
-    expect(screen.getByRole('button', { name: 'Export CSV' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: dt.exportCsv })).toBeDisabled()
   })
 
   it('exports the column titles shown in the headers', async () => {
@@ -867,13 +871,13 @@ describe('DataTable Export CSV', () => {
       { id: 'icon', header: '', enableHiding: false, cell: () => <svg aria-hidden="true" /> },
     ]
     render(<OrderTable columns={iconColumns} rows={[{ id: 'order-1', orderNumber: 'SO-1' }]} />)
-    expect(screen.getByRole('button', { name: 'Export CSV' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: dt.exportCsv })).toBeEnabled()
 
     openColumnsMenu()
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Order' }))
     closeOpenMenu()
 
-    expect(screen.getByRole('button', { name: 'Export CSV' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: dt.exportCsv })).toBeDisabled()
   })
 
   it('exports the value of a text-like form field that is the only carrier of the cell value', async () => {

@@ -62,7 +62,7 @@ export function getDefaultSupervisionChanges(
 function entityLabel(entity: string): string {
   const key = `changePreview.entities.${entity}`
   if (i18n.exists(key, { ns: NS })) {
-    return i18n.t(key, { ns: NS })
+    return String(i18n.t(key as never, { ns: NS }))
   }
   return entity.replace(/([a-z])([A-Z])/g, '$1 $2')
 }
@@ -70,7 +70,7 @@ function entityLabel(entity: string): string {
 export function formatDefaultSupervisionChangeLabel(
   change: ProposalWouldChange,
 ): string {
-  const verb = i18n.t(`changePreview.ops.${change.op}`, { ns: NS })
+  const verb = String(i18n.t(`changePreview.ops.${change.op}` as never, { ns: NS }))
   return `${entityLabel(change.entity)} — ${verb}`
 }
 

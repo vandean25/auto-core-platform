@@ -49,8 +49,8 @@ export function InspectionImportDialog({
   }
 
   function stateLabel(state: string): string {
-    const key = `inspectionImport.states.${state}` as const
-    const translated = t(key)
+    const key = `inspectionImport.states.${state}`
+    const translated = String(t(key as never))
     return translated === key ? state : translated
   }
 
