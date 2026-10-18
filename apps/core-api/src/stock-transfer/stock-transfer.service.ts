@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import type { TenantContextService } from '../common/services/tenant-context.service.js';
+import { Inject, Injectable } from '@nestjs/common';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service.js';
 import { LedgerService } from '../inventory/ledger.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -19,25 +19,23 @@ import { StockTransferQueryService } from './stock-transfer-query.service.js';
 
 @Injectable()
 export class StockTransferService {
-  constructor(
-    private readonly queryService: StockTransferQueryService,
-    private readonly mutationService: StockTransferMutationService,
-  ) {}
+  private readonly queryService: StockTransferQueryService;
+  private readonly mutationService: StockTransferMutationService;
 
-  /** Unit tests only — mirrors the pre-split four-dependency constructor. */
-  static forUnitTest(
-    prisma: PrismaService,
-    tenantContext: TenantContextService,
-    ledgerService: LedgerService,
+  constructor(
+    @Inject(PrismaService) prisma: PrismaService,
+    @Inject(TenantContextService) tenantContext: TenantContextService,
+    @Inject(LedgerService) ledgerService: LedgerService,
     realtimeService: DashboardRealtimeService,
-  ): StockTransferService {
+  ) {
     const wired = wireStockTransferServiceForUnitTest(
       prisma,
       tenantContext,
       ledgerService,
       realtimeService,
     );
-    return new StockTransferService(wired.queryService, wired.mutationService);
+    this.queryService = wired.queryService;
+    this.mutationService = wired.mutationService;
   }
 
   list(): Promise<SerializedStockTransfer[]> {

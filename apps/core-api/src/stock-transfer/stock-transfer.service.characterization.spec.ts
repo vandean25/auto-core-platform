@@ -78,7 +78,7 @@ describe('StockTransferService characterization', () => {
     });
     tx.stockTransfer.create.mockResolvedValue(buildTransfer());
 
-    service = StockTransferService.forUnitTest(
+    service = new StockTransferService(
       prisma,
       tenantContext,
       ledgerService as never,
