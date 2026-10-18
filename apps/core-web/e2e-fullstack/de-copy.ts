@@ -27,6 +27,7 @@ export const DE_FULLSTACK_FINANCE = {
 
 export const DE_FULLSTACK_CUSTOMERS = {
   selectCustomer: customersDe.search.selectPlaceholder,
+  searchPlaceholder: customersDe.search.searchPlaceholder,
 } as const
 
 export const DE_FULLSTACK_VEHICLE_STOCK = {

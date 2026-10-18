@@ -1,9 +1,10 @@
 import { test, expect } from '@playwright/test'
 import { loadE2eFullstackFixture } from './fixture.ts'
 import { gotoWithReadySession } from './harness.ts'
-import { DE_FULLSTACK_VEHICLE_STOCK } from './de-copy.ts'
+import { DE_FULLSTACK_CUSTOMERS, DE_FULLSTACK_VEHICLE_STOCK } from './de-copy.ts'
 import {
   E2E_FULLSTACK_API_PORT,
+  E2E_FULLSTACK_VEHICLE_BUYER_FIRST,
   E2E_FULLSTACK_VEHICLE_PURCHASE_PRICE,
   E2E_FULLSTACK_VEHICLE_SALE_PRICE,
   E2E_FULLSTACK_VEHICLE_VIN,
@@ -30,7 +31,12 @@ test.describe('Full-stack margin-scheme vehicle sale flow', () => {
       .getByLabel(DE_FULLSTACK_VEHICLE_STOCK.purchase.purchasePrice)
       .fill(String(E2E_FULLSTACK_VEHICLE_PURCHASE_PRICE))
 
-    await page.locator('select').nth(1).selectOption(fixture.vendorId)
+    await page
+      .locator('select')
+      .filter({
+        has: page.getByRole('option', { name: DE_FULLSTACK_VEHICLE_STOCK.purchase.selectVendor }),
+      })
+      .selectOption(fixture.vendorId)
 
     await expect(page.getByText(DE_FULLSTACK_VEHICLE_STOCK.shared.saved)).toBeVisible({
       timeout: 30_000,
@@ -45,6 +51,21 @@ test.describe('Full-stack margin-scheme vehicle sale flow', () => {
     expect(vehicleId).toBeTruthy()
 
     const today = new Date().toISOString().slice(0, 10)
+
+    const buyerCombobox = page
+      .getByRole('combobox')
+      .filter({ hasText: DE_FULLSTACK_CUSTOMERS.selectCustomer })
+    await expect(buyerCombobox).toBeVisible()
+    await expect(buyerCombobox).not.toContainText('search.selectPlaceholder')
+    await buyerCombobox.click()
+    await page
+      .getByPlaceholder(DE_FULLSTACK_CUSTOMERS.searchPlaceholder)
+      .fill(E2E_FULLSTACK_VEHICLE_BUYER_FIRST)
+    await expect(
+      page.getByRole('dialog').getByRole('option', { name: fixture.vehicleBuyerLabel }),
+    ).toBeVisible({ timeout: 15_000 })
+    await page.keyboard.press('Escape')
+
     const saleResponse = await request.post(`${apiBase}/vehicle-sales`, {
       headers: authHeaders,
       data: {
@@ -59,6 +80,7 @@ test.describe('Full-stack margin-scheme vehicle sale flow', () => {
     const sale = await saleResponse.json()
 
     await page.goto(`/vehicle-stock/sales/${sale.id}`)
+
     await expect(
       page.getByRole('button', { name: DE_FULLSTACK_VEHICLE_STOCK.sale.finalizeInvoice }),
     ).toBeEnabled()
