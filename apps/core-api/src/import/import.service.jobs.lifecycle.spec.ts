@@ -1,3 +1,4 @@
+/** ImportService job lifecycle characterization (split for repowise). */
 import { createHash } from 'node:crypto';
 import {
   AuditActorType,
@@ -27,21 +28,11 @@ import {
   jobRowRecord,
   setupImportHarness,
 } from './import.service.spec.support.js';
-
-const CUSTOMER_CSV = 'Kunden-Nr;Vorname;Nachname\nK-1;Anna;Berger\n';
-const CUSTOMER_MAPPING = {
-  external_id: 'Kunden-Nr',
-  first_name: 'Vorname',
-  last_name: 'Nachname',
-};
-const DRY_RUN_CREATE_TOTALS = {
-  rows: 1,
-  create: 1,
-  update: 0,
-  skip: 0,
-  error: 0,
-  flagged_jumps: 0,
-};
+import {
+  JOBS_CHARACTERIZATION_CUSTOMER_CSV as CUSTOMER_CSV,
+  JOBS_CHARACTERIZATION_CUSTOMER_MAPPING as CUSTOMER_MAPPING,
+  JOBS_CHARACTERIZATION_DRY_RUN_CREATE_TOTALS as DRY_RUN_CREATE_TOTALS,
+} from './import.service.jobs.characterization.support.js';
 
 describe('ImportService job lifecycle (characterization)', () => {
   const h = setupImportHarness();
@@ -643,51 +634,6 @@ describe('ImportService job lifecycle (characterization)', () => {
         response: { code: IMPORT_ERROR_CODES.JOB_NOT_FOUND },
       });
       expect(h.prisma.importJobRow.findMany).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('getTemplate', () => {
-    it.each([
-      [
-        ImportEntityType.CUSTOMER,
-        'Kunden-Nr;Typ;Firmenname;Vorname;Nachname;E-Mail;Telefon;UID;Straße;PLZ;Ort;Land\n',
-        12,
-      ],
-      [
-        ImportEntityType.VEHICLE,
-        'Fahrzeug-Nr;FIN;Kennzeichen;Marke;Modell;Baujahr;Erstzulassung;Kilometerstand;Farbe;Kunden-Nr;Schlüsselnummer\n',
-        11,
-      ],
-      [
-        ImportEntityType.SUPPLIER_PRICE_LIST,
-        'Lieferanten-Artikelnummer;EAN;Beschreibung;Marke;Einkaufspreis;UVP;Einheit\n',
-        7,
-      ],
-      [
-        ImportEntityType.LABOR_OPERATION,
-        'Arbeitswert-Nr;AW-Code;Beschreibung;AW;Stundensatz;Interner Kostensatz;Kategorie;Marke;Modell;Baujahr von;Baujahr bis;Motorcode\n',
-        12,
-      ],
-    ])(
-      'returns the %s template header, fields and CSV',
-      (entityType, csv, fieldCount) => {
-        const template = h.service.getTemplate(entityType);
-
-        expect(template.entity_type).toBe(entityType);
-        expect(template.fields).toHaveLength(fieldCount);
-        expect(template.csv).toBe(csv);
-      },
-    );
-
-    it('rejects non-admin callers', () => {
-      h.tenantContext.getAuthenticatedUser.mockReturnValue({
-        userId: ACTOR_AUTH_UID,
-        role: 'TECH',
-      });
-
-      expect(() => h.service.getTemplate(ImportEntityType.CUSTOMER)).toThrow(
-        'Tenant admin access is required.',
-      );
     });
   });
 

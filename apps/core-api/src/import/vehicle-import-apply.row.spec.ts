@@ -73,11 +73,30 @@ describe('vehicle-import-apply.row (Erstzulassung)', () => {
     });
   });
 
-  it('audits first_registration_date in the vehicle CREATE snapshot', async () => {
+  it('audits first_registration_date when a date is stored on create', async () => {
+    h.prisma.vehicle.create.mockResolvedValue({
+      id: 'veh-new',
+      make: 'VW',
+      model: 'Golf',
+      year: 2019,
+      vin: VIN,
+      plate: 'W12AB',
+      mileage: 120000,
+      color: 'Blau',
+      key_number: 'S-7',
+      customer_id: 'cust-1',
+      first_registration_date: new Date('2020-03-15T00:00:00.000Z'),
+    });
+
     arrangeApply(
       h,
       importJobRecord({ entity_type: ImportEntityType.VEHICLE }),
-      [createRow(1, 'V-1', plannedFields)],
+      [
+        createRow(1, 'V-1', {
+          ...plannedFields,
+          first_registration_date: '2020-03-15',
+        }),
+      ],
     );
 
     await h.service.applyJob(JOB_ID);
@@ -85,7 +104,7 @@ describe('vehicle-import-apply.row (Erstzulassung)', () => {
     expect(h.prisma.auditLog.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         after: expect.objectContaining({
-          first_registration_date: null,
+          first_registration_date: '2020-03-15',
           importJobId: JOB_ID,
         }),
         action: AuditLogAction.CREATE,

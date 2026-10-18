@@ -88,6 +88,9 @@ async function createVehicle(
   externalId: string,
   payload: Record<string, unknown>,
 ): Promise<void> {
+  const registrationDate = Object.hasOwn(payload, 'first_registration_date')
+    ? toImportFirstRegistrationDate(payload.first_registration_date)
+    : undefined;
   const created = await tx.vehicle.create({
     data: {
       tenant_id: ctx.tenantId,
@@ -100,8 +103,9 @@ async function createVehicle(
       color: payload.color as string | null,
       key_number: payload.key_number as string | null,
       customer_id: payload.customer_id as string | null,
-      first_registration_date:
-        toImportFirstRegistrationDate(payload.first_registration_date) ?? null,
+      ...(registrationDate !== undefined
+        ? { first_registration_date: registrationDate ?? null }
+        : {}),
     },
   });
   await createExternalMapping(

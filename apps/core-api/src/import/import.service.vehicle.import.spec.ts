@@ -1,3 +1,4 @@
+/** Vehicle import ImportService characterization (split for repowise). */
 import {
   AuditLogAction,
   ImportEntityType,
@@ -408,7 +409,6 @@ describe('ImportService vehicle import (characterization)', () => {
         color: 'Blau',
         key_number: 'S-7',
         customer_id: 'cust-1',
-        first_registration_date: null,
       });
     });
 
@@ -433,7 +433,6 @@ describe('ImportService vehicle import (characterization)', () => {
           color: 'Blau',
           key_number: 'S-7',
           customer_id: 'cust-1',
-          first_registration_date: null,
         },
       });
       expect(h.prisma.externalIdMapping.create).toHaveBeenCalledWith({
@@ -479,7 +478,6 @@ describe('ImportService vehicle import (characterization)', () => {
             color: 'Blau',
             key_number: 'S-7',
             customer_id: 'cust-1',
-            first_registration_date: null,
             importJobId: JOB_ID,
           },
           diff: Prisma.JsonNull,

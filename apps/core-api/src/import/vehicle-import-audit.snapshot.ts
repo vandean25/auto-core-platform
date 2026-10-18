@@ -21,8 +21,12 @@ export function pickVehicleImportAuditSnapshot(vehicle: {
     color: vehicle.color,
     key_number: vehicle.key_number,
     customer_id: vehicle.customer_id,
-    first_registration_date: vehicle.first_registration_date
-      ? vehicle.first_registration_date.toISOString().slice(0, 10)
-      : null,
+    ...(vehicle.first_registration_date != null
+      ? {
+          first_registration_date: vehicle.first_registration_date
+            .toISOString()
+            .slice(0, 10),
+        }
+      : {}),
   };
 }
