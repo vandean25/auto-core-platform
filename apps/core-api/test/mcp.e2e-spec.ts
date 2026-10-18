@@ -119,6 +119,8 @@ const DETAIL_TOOLS_HIDDEN_FROM_OTHER_TENANT = [
   'get_purchase_order',
   'get_catalog_item',
   'get_nova_preview',
+  'check_contact_permission',
+  'list_warranty_claims',
 ];
 
 describe('MCP server (e2e)', () => {
