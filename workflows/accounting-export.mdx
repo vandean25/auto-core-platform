@@ -1,53 +1,53 @@
 ---
-title: "Accounting export"
-description: "Close a period, clear export blockers, and download DATEV, RZL, or BMD CSV runs."
+title: "Buchhaltungsexport"
+description: "Zeitraum abschließen, Export-Blocker beseitigen und DATEV-, RZL- oder BMD-CSV-Läufe herunterladen."
 ---
 
-Accounting export turns finalized invoices and credit notes into immutable CSV files for your accountant system. The product supports three profile codes on the legal entity: **DATEV** (`ACP-DATEV-DE-EUR-1`, Germany), **RZL** (`ACP-RZL-AT-EUR-1`, Austria), and **BMD** (`ACP-BMD-AT-EUR-1`, Austria). RZL and BMD may stay disabled until your platform operator releases them in that environment.
+Der Buchhaltungsexport macht aus abgeschlossenen Rechnungen und Gutschriften unveränderliche CSV-Dateien für Ihr Buchhaltungssystem. Das Produkt unterstützt drei Profil-Codes am Rechtsträger: **DATEV** (`ACP-DATEV-DE-EUR-1`, Deutschland), **RZL** (`ACP-RZL-AT-EUR-1`, Österreich) und **BMD** (`ACP-BMD-AT-EUR-1`, Österreich). RZL und BMD können deaktiviert bleiben, bis Ihr Plattform-Betreiber sie in dieser Umgebung freischaltet.
 
-Only **OWNER** and **ADMIN** members with complete site access can preview or generate exports.
+Nur **OWNER**- und **ADMIN**-Mitglieder mit vollständigem Standortzugriff können Vorschau oder Export erzeugen.
 
 <CardGroup cols={2}>
-  <Card title="Export Readiness" icon="clipboard-check" href="/settings/finance#export-readiness">
-    See blocked documents before you generate a file.
+  <Card title="Exportbereitschaft" icon="clipboard-check" href="/settings/finance#export-readiness">
+    Blockierte Belege sehen, bevor Sie eine Datei erzeugen.
   </Card>
-  <Card title="Legal entity profile" icon="building-2" href="/settings/legal-entities">
-    DATEV, RZL, or BMD mapping and enable toggles per entity.
+  <Card title="Rechtsträger-Profil" icon="building-2" href="/settings/legal-entities">
+    DATEV-, RZL- oder BMD-Zuordnung und Freigabe-Schalter pro Rechtsträger.
   </Card>
 </CardGroup>
 
 <Steps>
-  <Step title="Clear Export Readiness">
-    Open **Export Readiness** in the sidebar. Pick the legal entity and period. Fix every blocked invoice or credit note.
+  <Step title="Exportbereitschaft prüfen">
+    **Exportbereitschaft** in der Seitenleiste öffnen. Rechtsträger und Zeitraum wählen. Jede blockierte Rechnung oder Gutschrift bereinigen.
   </Step>
-  <Step title="Open Accounting export">
-    **Settings** (gear) → **Finance** → sub-tab **Accounting export**.
+  <Step title="Buchhaltungsexport öffnen">
+    **Einstellungen** (Zahnrad) → **Finanzen** → Unter-Tab **Buchhaltungsexport**.
   </Step>
-  <Step title="Preview">
-    Choose the legal entity, **Date from**, and **Date to**. Click **Preview**. Resolve any **Blocking issues** the preview lists.
+  <Step title="Vorschau">
+    Rechtsträger, **Datum von** und **Datum bis** wählen. **Vorschau** klicken. Alle in der Vorschau genannten **Blockierungen** beheben.
   </Step>
-  <Step title="Generate and download">
-    Click **Generate**, then **Download** or **Download latest** from the run history. Downloads are audit-logged; they do not confirm import into DATEV, RZL, or BMD.
+  <Step title="Erzeugen und herunterladen">
+    **Erzeugen** klicken, dann in der Lauf-Historie **Herunterladen** oder **Letzten Download**. Downloads werden audit-protokolliert; sie bestätigen keinen Import in DATEV, RZL oder BMD.
   </Step>
 </Steps>
 
 <Tip>
-The on-screen copy references DATEV Buchungsstapel CSV because that is the default profile in the demo UI. Austrian entities with **RZL export enabled** or **BMD** profile `ACP-BMD-AT-EUR-1` (when released) use the same preview and generate flow; the downloaded filename and column layout follow the entity profile code.
+Der Text auf dem Bildschirm nennt DATEV Buchungsstapel-CSV, weil das das Standardprofil in der Demo-Oberfläche ist. Österreichische Rechtsträger mit **RZL-Export aktiviert** oder BMD-Profil `ACP-BMD-AT-EUR-1` (wenn freigegeben) nutzen denselben Vorschau- und Erzeugen-Flow; Dateiname und Spaltenlayout folgen dem Profil-Code des Rechtsträgers.
 </Tip>
 
 <Warning>
-Importing overlapping CSV files into your accounting system can duplicate bookings. The export screen warns when a period overlaps prior runs. Acknowledge the risk before **Generate anyway**.
+Überlappende CSV-Dateien in Ihr Buchhaltungssystem zu importieren kann Buchungen duplizieren. Der Export-Bildschirm warnt bei Überlappung mit früheren Läufen. Risiko bestätigen, bevor Sie **Trotzdem erzeugen** wählen.
 </Warning>
 
 <AccordionGroup>
-  <Accordion title="BMD vs RZL vs DATEV">
-    | Profile | Typical use | UI configuration |
+  <Accordion title="BMD vs. RZL vs. DATEV">
+    | Profil | Typischer Einsatz | Konfiguration in der UI |
     | --- | --- | --- |
-    | `ACP-DATEV-DE-EUR-1` | German DATEV Buchungsstapel | **DATEV export enabled** toggle on the DE legal entity |
-    | `ACP-RZL-AT-EUR-1` | Austrian RZL Fibu import | **RZL export configuration** (firm number, Steuercodes) on the AT legal entity |
-    | `ACP-BMD-AT-EUR-1` | Austrian BMD NTCS import | Profile code on the accounting profile; CSV generation is gated until the operator enables BMD in that environment |
+    | `ACP-DATEV-DE-EUR-1` | Deutscher DATEV Buchungsstapel | Schalter **DATEV-Export aktiviert** am DE-Rechtsträger |
+    | `ACP-RZL-AT-EUR-1` | Österreichischer RZL-Fibu-Import | **RZL-Export-Konfiguration** (Firmennummer, Steuercodes) am AT-Rechtsträger |
+    | `ACP-BMD-AT-EUR-1` | Österreichischer BMD-NTCS-Import | Profil-Code im Buchhaltungsprofil; CSV-Erzeugung ist gesperrt, bis der Betreiber BMD in dieser Umgebung aktiviert |
   </Accordion>
-  <Accordion title="Export refused">
-    If preview shows a scope refusal instead of document totals, your account lacks active membership on a site that holds documents in the period. An owner or admin must fix **Settings → Sites** and team site access.
+  <Accordion title="Export abgelehnt">
+    Zeigt die Vorschau eine Bereichs-Verweigerung statt Belegsummen, fehlt Ihrem Konto eine aktive Mitgliedschaft an einem Standort mit Belegen im Zeitraum. Ein Inhaber oder Admin muss **Einstellungen → Standorte** und Team-Standortzugriff korrigieren.
   </Accordion>
 </AccordionGroup>

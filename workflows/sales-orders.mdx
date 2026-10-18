@@ -1,29 +1,29 @@
 ---
-title: "Sales orders"
-description: "Sell parts over the counter: pick a customer, add lines, then review and finalize its invoice draft."
+title: "Kundenaufträge"
+description: "Teile über die Theke verkaufen: Kunde wählen, Positionen hinzufügen, Rechnungsentwurf prüfen und abschließen."
 ---
 
-**Sales Orders** is the counter pipeline. List subtitle: manage your sales pipeline and job cards. Top-right: **+ New order**. Click the row. Right-click **Delete** only while status is **DRAFT**.
+**Kundenaufträge** ist die Theken-Pipeline. Listen-Untertitel: Verkaufspipeline und Jobkarten verwalten. Oben rechts: **+ Neuer Auftrag**. Zeile anklicken. Rechtsklick **Löschen** nur, solange der Status **ENTWURF** ist.
 
-Status badges include **DRAFT**, **CONFIRMED**, **IN_PROGRESS**, **COMPLETED**, **INVOICED**. The header action you use every day is **Create Invoice**. It starts a linked invoice draft; it does not issue the tax invoice immediately.
+Status-Badges u. a. **ENTWURF**, **BESTÄTIGT**, **IN BEARBEITUNG**, **ABGESCHLOSSEN**, **FAKTURIERT**. Die Kopfzeilen-Aktion für den Alltag ist **Rechnung erstellen**. Sie startet einen verknüpften Rechnungsentwurf; die Steuerrechnung wird damit noch nicht ausgestellt.
 
 <Steps>
-  <Step title="New order">
-    **+ New order** opens `/sales-orders/new`. Search the customer. Add at least one line from inventory (description, qty, unit price, tax). Save fails with **Please add at least one item** if the grid is empty.
+  <Step title="Neuer Auftrag">
+    **+ Neuer Auftrag** öffnet `/sales-orders/new`. Kunden suchen. Mindestens eine Position aus dem Lager (Beschreibung, Menge, Einzelpreis, Steuer). Speichern schlägt mit **Bitte mindestens eine Position hinzufügen** fehl, wenn die Tabelle leer ist.
   </Step>
-  <Step title="Work the draft">
-    Detail shows customer card and lines. Auto-save applies on complex documents. You cannot edit after **INVOICED**.
+  <Step title="Entwurf bearbeiten">
+    Detail zeigt Kundenkarte und Positionen. Bei komplexen Belegen greift Auto-Speichern. Nach **FAKTURIERT** ist keine Bearbeitung mehr möglich.
   </Step>
-  <Step title="Create the invoice draft">
-    Top-right **Create Invoice**, then confirm. From **DRAFT**, this confirms the sales order and creates a linked draft. From later statuses, it creates the linked draft without issuing it. The draft editor opens at `/sales/invoices/:id/edit`.
+  <Step title="Rechnungsentwurf anlegen">
+    Oben rechts **Rechnung erstellen**, dann bestätigen. Aus **ENTWURF** wird der Kundenauftrag bestätigt und ein verknüpfter Entwurf erzeugt. Aus späteren Status entsteht der verknüpfte Entwurf ohne Ausstellung. Der Entwurfs-Editor öffnet unter `/sales/invoices/:id/edit`.
   </Step>
-  <Step title="Review and finalize">
-    Review the linked draft and let its changes save. **Finalize** issues the official invoice number. Finalizing does not download a PDF. Open the invoice and use **Download PDF** when you need a copy. Finalization moves the sales order to **INVOICED**, after which the order cannot be edited.
+  <Step title="Prüfen und abschließen">
+    Verknüpften Entwurf prüfen und Speichern abwarten. **Abschließen** vergibt die offizielle Rechnungsnummer. Abschließen lädt kein PDF herunter. Rechnung öffnen und **PDF herunterladen**, wenn Sie eine Kopie brauchen. Abschließen setzt den Kundenauftrag auf **FAKTURIERT**; danach ist der Auftrag nicht mehr bearbeitbar.
   </Step>
 </Steps>
 
 <Warning>
-A locked [fiscal lock date](/settings/finance) blocks backdated invoices. Stock for catalog lines comes off the shelf when the invoice is finalized, through the inventory ledger — not a silent quantity edit.
+Ein gesetztes [Fiskalsperrdatum](/settings/finance) blockiert rückdatierte Rechnungen. Bestand für Katalogpositionen geht beim Rechnungsabschluss über das Lagerjournal vom Regal — keine stille Mengenkorrektur.
 </Warning>
 
-Continue on [Invoices](/workflows/invoices) to download the PDF.
+Weiter unter [Rechnungen](/workflows/invoices) zum PDF-Download.
