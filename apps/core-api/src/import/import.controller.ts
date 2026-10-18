@@ -64,7 +64,12 @@ export class ImportController {
         file: { type: 'string', format: 'binary' },
         entityType: {
           type: 'string',
-          enum: ['CUSTOMER', 'VEHICLE', 'SUPPLIER_PRICE_LIST'],
+          enum: [
+            'CUSTOMER',
+            'VEHICLE',
+            'SUPPLIER_PRICE_LIST',
+            'LABOR_OPERATION',
+          ],
         },
         sourceSystem: { type: 'string', example: 'incadea' },
         mapping: {

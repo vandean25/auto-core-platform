@@ -20435,7 +20435,7 @@ export interface operations {
                     /** Format: binary */
                     file: string;
                     /** @enum {string} */
-                    entityType: "CUSTOMER" | "VEHICLE" | "SUPPLIER_PRICE_LIST";
+                    entityType: "CUSTOMER" | "VEHICLE" | "SUPPLIER_PRICE_LIST" | "LABOR_OPERATION";
                     /** @example incadea */
                     sourceSystem: string;
                     /** @description JSON object mapping logical fields to CSV headers */

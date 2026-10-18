@@ -52,6 +52,26 @@ function parseYear(raw: string): number | null {
   return parsed;
 }
 
+function parseFitmentYear(
+  raw: string,
+  field: string,
+  warnings: ImportRowIssue[],
+): number | null | undefined {
+  if (!raw.trim()) {
+    return undefined;
+  }
+  const parsed = parseYear(raw);
+  if (parsed === null) {
+    warnings.push({
+      code: 'IMPORT_YEAR_INVALID',
+      message: `${field} must be a valid model year`,
+      field,
+    });
+    return undefined;
+  }
+  return parsed;
+}
+
 function parseRequiredDecimal(
   raw: string,
   field: string,
@@ -74,6 +94,7 @@ function normalizeFitment(
 ): {
   fitment: NormalizedLaborFitmentRow | null;
   issues: ImportRowIssue[];
+  warnings: ImportRowIssue[];
 } {
   const make = cellValue(record, mapping, 'fitment_make');
   const model = cellValue(record, mapping, 'fitment_model');
@@ -89,16 +110,17 @@ function normalizeFitment(
     Boolean(mapping.fitment_engine_code);
 
   if (!hasAnyFitmentColumn) {
-    return { fitment: null, issues: [] };
+    return { fitment: null, issues: [], warnings: [] };
   }
 
   if (!make && !model && !yearFromRaw && !yearToRaw && !engineCode) {
-    return { fitment: null, issues: [] };
+    return { fitment: null, issues: [], warnings: [] };
   }
 
   if (!make || !model) {
     return {
       fitment: null,
+      warnings: [],
       issues: [
         {
           code: IMPORT_ERROR_CODES.LABOR_FITMENT_MAKE_MODEL_REQUIRED,
@@ -110,16 +132,41 @@ function normalizeFitment(
     };
   }
 
-  return {
-    fitment: {
-      make,
-      model,
-      year_from: parseYear(yearFromRaw),
-      year_to: parseYear(yearToRaw),
-      engine_code: engineCode,
-    },
-    issues: [],
+  const warnings: ImportRowIssue[] = [];
+  const yearFrom = parseFitmentYear(
+    yearFromRaw,
+    'fitment_year_from',
+    warnings,
+  );
+  const yearTo = parseFitmentYear(yearToRaw, 'fitment_year_to', warnings);
+
+  const fitment: NormalizedLaborFitmentRow = {
+    make,
+    model,
+    engine_code: engineCode,
   };
+  if (yearFrom !== undefined) {
+    fitment.year_from = yearFrom;
+  }
+  if (yearTo !== undefined) {
+    fitment.year_to = yearTo;
+  }
+
+  return {
+    fitment,
+    issues: [],
+    warnings,
+  };
+}
+
+function fitmentYearValue(
+  fitment: NormalizedLaborFitmentRow,
+  field: 'year_from' | 'year_to',
+): number | null | undefined {
+  if (!(field in fitment)) {
+    return undefined;
+  }
+  return fitment[field] ?? null;
 }
 
 export function resolveLaborCategoryId(
@@ -154,9 +201,6 @@ export function laborComparableForUpdate(
     internal_cost: payload.internal_cost,
     category_id: payload.category_id,
   };
-  if (payload.fitment) {
-    comparable.fitment = payload.fitment;
-  }
   return Object.fromEntries(
     Object.entries(comparable).filter(
       ([, value]) => value !== null && value !== '',
@@ -194,19 +238,36 @@ function fitmentsEqual(
   if (!match) {
     return false;
   }
+  const desiredYearFrom = fitmentYearValue(desired, 'year_from');
+  const desiredYearTo = fitmentYearValue(desired, 'year_to');
+  const desiredEngine =
+    'engine_code' in desired ? (desired.engine_code ?? null) : undefined;
+
   if (fillEmptyOnly) {
-    return (
-      (match.year_from !== null || desired.year_from === null) &&
-      (match.year_to !== null || desired.year_to === null) &&
-      (match.engine_code !== null || desired.engine_code === null)
-    );
+    const yearFromOk =
+      desiredYearFrom === undefined ||
+      match.year_from !== null ||
+      desiredYearFrom === null;
+    const yearToOk =
+      desiredYearTo === undefined ||
+      match.year_to !== null ||
+      desiredYearTo === null;
+    const engineOk =
+      desiredEngine === undefined ||
+      match.engine_code !== null ||
+      desiredEngine === null;
+    return yearFromOk && yearToOk && engineOk;
   }
-  return (
-    match.year_from === desired.year_from &&
-    match.year_to === desired.year_to &&
+
+  const yearFromOk =
+    desiredYearFrom === undefined || match.year_from === desiredYearFrom;
+  const yearToOk =
+    desiredYearTo === undefined || match.year_to === desiredYearTo;
+  const engineOk =
+    desiredEngine === undefined ||
     (match.engine_code ?? '').toLowerCase() ===
-      (desired.engine_code ?? '').toLowerCase()
-  );
+      (desiredEngine ?? '').toLowerCase();
+  return yearFromOk && yearToOk && engineOk;
 }
 
 export function laborRecordsEqual(
@@ -214,6 +275,7 @@ export function laborRecordsEqual(
   desired: Record<string, unknown>,
   fillEmptyOnly: boolean,
 ): boolean {
+  const scalarDesired = laborComparableForUpdate(desired);
   const baseEqual = recordsEqual(
     {
       code: existing.code,
@@ -223,7 +285,7 @@ export function laborRecordsEqual(
       internal_cost: existing.internal_cost,
       category_id: existing.category_id,
     },
-    desired,
+    scalarDesired,
     fillEmptyOnly,
   );
   if (!baseEqual) {
@@ -308,6 +370,7 @@ export function normalizeLaborOperationRow(
 
   const fitmentResult = normalizeFitment(record, mapping);
   issues.push(...fitmentResult.issues);
+  warnings.push(...fitmentResult.warnings);
 
   if (issues.length > 0) {
     return { row: null, issues, warnings };
@@ -421,7 +484,6 @@ export function planLaborOperationDryRunRow(
 
   const entityId = mappingEntityId ?? codeEntityId;
   const updateExisting = options.update_existing === true;
-  const comparablePayload = laborComparableForUpdate(payload);
 
   if (!entityId) {
     return {
@@ -437,7 +499,7 @@ export function planLaborOperationDryRunRow(
 
   const existing = context.operationById.get(entityId);
   if (!updateExisting) {
-    if (existing && !laborRecordsEqual(existing, comparablePayload, false)) {
+    if (existing && !laborRecordsEqual(existing, payload, false)) {
       warnings.push({
         code: 'IMPORT_EXISTING_NOT_UPDATED',
         message:
@@ -458,7 +520,7 @@ export function planLaborOperationDryRunRow(
   if (existing) {
     const unchanged = laborRecordsEqual(
       existing,
-      comparablePayload,
+      payload,
       options.fill_empty_only === true,
     );
     if (unchanged) {

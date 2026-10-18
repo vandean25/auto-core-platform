@@ -61,9 +61,9 @@ export type NormalizedVehicleRow = {
 export type NormalizedLaborFitmentRow = {
   make: string;
   model: string;
-  year_from: number | null;
-  year_to: number | null;
-  engine_code: string | null;
+  year_from?: number | null;
+  year_to?: number | null;
+  engine_code?: string | null;
 };
 
 export type NormalizedLaborOperationRow = {

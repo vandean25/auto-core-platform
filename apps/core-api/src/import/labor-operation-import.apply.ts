@@ -53,20 +53,24 @@ function readFitment(
   if (!make || !model) {
     return null;
   }
-  return {
-    make,
-    model,
-    year_from:
+  const normalized: NormalizedLaborFitmentRow = { make, model };
+  if ('year_from' in record) {
+    normalized.year_from =
       record.year_from === null || record.year_from === undefined
         ? null
-        : Number(record.year_from),
-    year_to:
+        : Number(record.year_from);
+  }
+  if ('year_to' in record) {
+    normalized.year_to =
       record.year_to === null || record.year_to === undefined
         ? null
-        : Number(record.year_to),
-    engine_code:
-      typeof record.engine_code === 'string' ? record.engine_code : null,
-  };
+        : Number(record.year_to);
+  }
+  if ('engine_code' in record) {
+    normalized.engine_code =
+      typeof record.engine_code === 'string' ? record.engine_code : null;
+  }
+  return normalized;
 }
 
 async function ensureFitment(
@@ -88,9 +92,9 @@ async function ensureFitment(
         labor_operation_id: laborOperationId,
         make: fitment.make,
         model: fitment.model,
-        year_from: fitment.year_from,
-        year_to: fitment.year_to,
-        engine_code: fitment.engine_code,
+        year_from: fitment.year_from ?? null,
+        year_to: fitment.year_to ?? null,
+        engine_code: fitment.engine_code ?? null,
       },
     });
     return;
@@ -108,9 +112,15 @@ async function ensureFitment(
       updateData.engine_code = fitment.engine_code;
     }
   } else {
-    updateData.year_from = fitment.year_from;
-    updateData.year_to = fitment.year_to;
-    updateData.engine_code = fitment.engine_code;
+    if (fitment.year_from !== undefined) {
+      updateData.year_from = fitment.year_from;
+    }
+    if (fitment.year_to !== undefined) {
+      updateData.year_to = fitment.year_to;
+    }
+    if (fitment.engine_code !== undefined) {
+      updateData.engine_code = fitment.engine_code;
+    }
   }
 
   if (Object.keys(updateData).length > 0) {
@@ -149,21 +159,6 @@ function buildLaborUpdateData(
   );
 }
 
-async function loadLaborSnapshot(
-  tx: Prisma.TransactionClient,
-  tenantId: string,
-  laborOperationId: string,
-) {
-  const operation = await tx.laborOperation.findFirst({
-    where: { tenant_id: tenantId, id: laborOperationId },
-    include: { fitments: true },
-  });
-  if (!operation) {
-    throw new ApplyRowStaleError();
-  }
-  return pickLaborAuditSnapshot(operation);
-}
-
 async function createLaborOperation(
   tx: Prisma.TransactionClient,
   ctx: LaborApplyContext,
@@ -186,9 +181,9 @@ async function createLaborOperation(
               {
                 make: fitment.make,
                 model: fitment.model,
-                year_from: fitment.year_from,
-                year_to: fitment.year_to,
-                engine_code: fitment.engine_code,
+                year_from: fitment.year_from ?? null,
+                year_to: fitment.year_to ?? null,
+                engine_code: fitment.engine_code ?? null,
               },
             ],
           }
@@ -242,9 +237,9 @@ async function updateLaborOperation(
   if (fitment) {
     await ensureFitment(tx, entityId, fitment, options);
   }
-  const refreshed = await loadLaborSnapshot(tx, ctx.tenantId, entityId);
   const after = await tx.laborOperation.findFirst({
     where: { tenant_id: ctx.tenantId, id: entityId },
+    include: { fitments: true },
   });
   if (!after) {
     throw new ApplyRowStaleError();
@@ -267,7 +262,7 @@ async function updateLaborOperation(
     after.id,
     AuditLogAction.UPDATE,
     pickLaborAuditSnapshot(before),
-    refreshed,
+    pickLaborAuditSnapshot(after),
   );
 }
 
