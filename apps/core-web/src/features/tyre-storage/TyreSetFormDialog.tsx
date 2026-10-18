@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import type { components } from '@/api/generated/openapi'
 import { useLocations } from '@/api/locations'
@@ -21,6 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { getErrorMessage } from '@/lib/error-utils'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 
 type Props = {
   open: boolean
@@ -37,6 +39,11 @@ export function TyreSetFormDialog({
   vehicleId,
   existing,
 }: Props) {
+  const { t } = useTranslation(['inventory', 'common'])
+  useEffect(() => {
+    void ensureNamespaceLoaded('inventory')
+  }, [])
+
   const { data: locations } = useLocations()
   const createTyreSet = useCreateTyreSet()
   const updateTyreSet = useUpdateTyreSet()
@@ -86,10 +93,10 @@ export function TyreSetFormDialog({
       } else {
         await createTyreSet.mutateAsync(body)
       }
-      toast.success('Tyre set saved')
+      toast.success(t('inventory:tyreStorage.form.success'))
       onOpenChange(false)
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, 'Failed to save tyre set'))
+      toast.error(getErrorMessage(error, t('inventory:tyreStorage.form.failed')))
     }
   }
 
@@ -97,37 +104,39 @@ export function TyreSetFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>{existing ? 'Edit tyre set' : '+ Tyre set'}</DialogTitle>
+          <DialogTitle>
+            {existing ? t('inventory:tyreStorage.form.editTitle') : t('inventory:tyreStorage.form.createTitle')}
+          </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="space-y-2">
-            <Label>Label</Label>
+            <Label>{t('inventory:tyreStorage.form.label')}</Label>
             <Input className="min-h-11" value={label} onChange={(e) => setLabel(e.target.value)} />
           </div>
           <div className="space-y-2">
-            <Label>Season</Label>
+            <Label>{t('inventory:tyreStorage.form.season')}</Label>
             <Select value={season} onValueChange={(v) => setSeason(v as typeof season)}>
               <SelectTrigger className="min-h-11">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="WINTER">Winter</SelectItem>
-                <SelectItem value="SUMMER">Summer</SelectItem>
-                <SelectItem value="ALL_SEASON">All season</SelectItem>
+                <SelectItem value="WINTER">{t('inventory:tyreStorage.list.filters.winter')}</SelectItem>
+                <SelectItem value="SUMMER">{t('inventory:tyreStorage.list.filters.summer')}</SelectItem>
+                <SelectItem value="ALL_SEASON">{t('inventory:tyreStorage.list.filters.allSeason')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           {!existing ? (
             <div className="space-y-2">
-              <Label>Storage location</Label>
+              <Label>{t('inventory:tyreStorage.form.storageLocation')}</Label>
               <Select value={locationId} onValueChange={setLocationId}>
                 <SelectTrigger className="min-h-11">
-                  <SelectValue placeholder="Optional on create" />
+                  <SelectValue placeholder={t('inventory:tyreStorage.form.optionalOnCreate')} />
                 </SelectTrigger>
                 <SelectContent>
                   {storageLocations.map((loc) => (
                     <SelectItem key={loc.id} value={loc.id}>
-                      {loc.code} — {loc.name}
+                      {t('inventory:shared.locationCodeName', { code: loc.code, name: loc.name })}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -135,14 +144,14 @@ export function TyreSetFormDialog({
             </div>
           ) : null}
           <div className="space-y-2">
-            <Label>Bin label</Label>
+            <Label>{t('inventory:tyreStorage.form.binLabel')}</Label>
             <Input className="min-h-11" value={binLabel} onChange={(e) => setBinLabel(e.target.value)} />
           </div>
           <div className="space-y-2">
-            <Label>Dimension</Label>
+            <Label>{t('inventory:tyreStorage.form.dimension')}</Label>
             <Input
               className="min-h-11"
-              placeholder="245/45 R18"
+              placeholder={t('inventory:tyreStorage.form.dimensionPlaceholder')}
               value={dimension}
               onChange={(e) => setDimension(e.target.value)}
             />
@@ -150,7 +159,7 @@ export function TyreSetFormDialog({
         </div>
         <DialogFooter>
           <Button className="min-h-11" onClick={() => void submit()} disabled={!label.trim()}>
-            Save
+            {t('common:actions.save')}
           </Button>
         </DialogFooter>
       </DialogContent>

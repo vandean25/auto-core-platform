@@ -8,7 +8,12 @@
     "enums:dataTableColumn.",
     "common:landingDemo.errors.",
     "finance:accountingExportReadiness.blockers.",
-    "finance:accountingExportReadiness.documentKind."
+    "finance:accountingExportReadiness.documentKind.",
+    "enums:inventoryTransactionType.",
+    "enums:attendanceEventType.",
+    "enums:attendanceSource.",
+    "hr:workSchedule.weekdays.",
+    "hr:employees.roles."
   ],
   "usedKeys": []
 }

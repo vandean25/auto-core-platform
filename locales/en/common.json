@@ -6,6 +6,11 @@
     "switchPending": "Switching language…",
     "switchError": "Could not save language."
   },
+  "actions": {
+    "cancel": "Cancel",
+    "save": "Save",
+    "confirm": "Confirm"
+  },
   "placeholders": {
     "missing": "—",
     "unknown": "Unknown"

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useAuthSession } from '@/api/auth-session'
 import { useInventory } from '@/api/inventory'
@@ -24,6 +25,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { getErrorMessage } from '@/lib/error-utils'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 import {
   buildMemberSiteIdSet,
   canSuggestSourceBin,
@@ -46,6 +48,11 @@ export function StockTransferCreateDialog({
   open,
   onOpenChange,
 }: StockTransferCreateDialogProps) {
+  const { t } = useTranslation(['inventory', 'common'])
+  useEffect(() => {
+    void ensureNamespaceLoaded('inventory')
+  }, [])
+
   const navigate = useNavigate()
   const sessionQuery = useAuthSession()
   const { data: mySites = [] } = useMySites(open)
@@ -99,7 +106,7 @@ export function StockTransferCreateDialog({
 
   const addLine = (item: { id: string; sku: string; name: string }) => {
     if (lines.some((line) => line.catalogItemId === item.id)) {
-      toast.error('Part already added to this transfer request')
+      toast.error(t('inventory:stockTransfers.create.partAlreadyAdded'))
       return
     }
 
@@ -117,17 +124,17 @@ export function StockTransferCreateDialog({
 
   const handleSubmit = async () => {
     if (!fromSiteId || !toSiteId) {
-      toast.error('Select both from and to sites')
+      toast.error(t('inventory:stockTransfers.create.selectBothSites'))
       return
     }
 
     if (fromSiteId === toSiteId) {
-      toast.error('From and to sites must differ')
+      toast.error(t('inventory:stockTransfers.create.sitesMustDiffer'))
       return
     }
 
     if (lines.length === 0) {
-      toast.error('Add at least one line')
+      toast.error(t('inventory:stockTransfers.create.addAtLeastOneLine'))
       return
     }
 
@@ -135,7 +142,7 @@ export function StockTransferCreateDialog({
       const payloadLines = lines.map((line) => {
         const requestedQty = Number(line.requestedQty)
         if (!Number.isFinite(requestedQty) || requestedQty <= 0) {
-          throw new Error(`Invalid quantity for ${line.sku}`)
+          throw new Error(t('inventory:stockTransfers.create.invalidQuantityForSku', { sku: line.sku }))
         }
 
         return {
@@ -152,11 +159,11 @@ export function StockTransferCreateDialog({
         toSiteId,
         lines: payloadLines,
       })
-      toast.success('Transfer request created')
+      toast.success(t('inventory:stockTransfers.create.success'))
       handleClose(false)
       navigate(`/stock-transfers/${transfer.id}`)
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, 'Failed to create transfer request'))
+      toast.error(getErrorMessage(error, t('inventory:stockTransfers.create.failed')))
     }
   }
 
@@ -166,15 +173,15 @@ export function StockTransferCreateDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Request Stock Transfer</DialogTitle>
+          <DialogTitle>{t('inventory:stockTransfers.create.title')}</DialogTitle>
         </DialogHeader>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="transfer-from-site">From site</Label>
+            <Label htmlFor="transfer-from-site">{t('inventory:stockTransfers.create.fromSite')}</Label>
             <Select value={fromSiteId} onValueChange={setFromSiteId}>
               <SelectTrigger id="transfer-from-site">
-                <SelectValue placeholder="Select source site" />
+                <SelectValue placeholder={t('inventory:stockTransfers.create.selectSourceSite')} />
               </SelectTrigger>
               <SelectContent>
                 {availableFromSites.map((site) => (
@@ -187,10 +194,10 @@ export function StockTransferCreateDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="transfer-to-site">To site</Label>
+            <Label htmlFor="transfer-to-site">{t('inventory:stockTransfers.create.toSite')}</Label>
             <Select value={toSiteId} onValueChange={setToSiteId}>
               <SelectTrigger id="transfer-to-site">
-                <SelectValue placeholder="Select destination site" />
+                <SelectValue placeholder={t('inventory:stockTransfers.create.selectDestSite')} />
               </SelectTrigger>
               <SelectContent>
                 {availableToSites.map((site) => (
@@ -204,19 +211,21 @@ export function StockTransferCreateDialog({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="transfer-part-search">Add parts</Label>
+          <Label htmlFor="transfer-part-search">{t('inventory:stockTransfers.create.addParts')}</Label>
           <Input
             id="transfer-part-search"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search by SKU or name…"
+            placeholder={t('inventory:stockTransfers.create.searchPartsPlaceholder')}
           />
           {searchQuery.trim().length > 0 ? (
             <div className="max-h-40 overflow-y-auto rounded-md border border-slate-200">
               {isSearchingInventory ? (
-                <p className="px-3 py-2 text-sm text-slate-500">Searching…</p>
+                <p className="px-3 py-2 text-sm text-slate-500">{t('inventory:shared.searching')}</p>
               ) : inventoryResults.length === 0 ? (
-                <p className="px-3 py-2 text-sm text-slate-500">No matching parts.</p>
+                <p className="px-3 py-2 text-sm text-slate-500">
+                  {t('inventory:stockTransfers.create.noMatchingParts')}
+                </p>
               ) : (
                 inventoryResults.map((item) => (
                   <button
@@ -257,7 +266,7 @@ export function StockTransferCreateDialog({
                         ),
                       )
                     }
-                    aria-label={`Requested quantity for ${line.sku}`}
+                    aria-label={t('inventory:stockTransfers.create.requestedQtyAria', { sku: line.sku })}
                   />
                   {showSourceBin ? (
                     <Select
@@ -272,13 +281,18 @@ export function StockTransferCreateDialog({
                         )
                       }
                     >
-                      <SelectTrigger aria-label={`Source bin for ${line.sku}`}>
-                        <SelectValue placeholder="Source bin (optional)" />
+                      <SelectTrigger
+                        aria-label={t('inventory:stockTransfers.create.sourceBinAria', { sku: line.sku })}
+                      >
+                        <SelectValue placeholder={t('inventory:stockTransfers.create.sourceBinOptional')} />
                       </SelectTrigger>
                       <SelectContent>
                         {sourceBins.map((location) => (
                           <SelectItem key={location.id} value={location.id}>
-                            {location.code} — {location.name}
+                            {t('inventory:shared.locationCodeName', {
+                              code: location.code,
+                              name: location.name,
+                            })}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -292,10 +306,12 @@ export function StockTransferCreateDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => handleClose(false)}>
-            Cancel
+            {t('common:actions.cancel')}
           </Button>
           <Button onClick={() => void handleSubmit()} disabled={createTransfer.isPending}>
-            {createTransfer.isPending ? 'Submitting…' : 'Submit request'}
+            {createTransfer.isPending
+              ? t('inventory:actions.submitting')
+              : t('inventory:actions.submitRequest')}
           </Button>
         </DialogFooter>
       </DialogContent>

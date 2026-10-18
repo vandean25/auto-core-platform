@@ -1,23 +1,31 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { ArrowLeft, LogIn, LogOut, MoveRight, Pencil, Printer, Trash2 } from 'lucide-react'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useTyreSet } from '@/api/tyre-storage'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
-import { formatDateTime } from '@/lib/format'
+import { formatDateTime, formatIsoDateOnly } from '@/lib/format'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { TyreSetActionDialog } from '@/features/tyre-storage/TyreSetActionDialog'
 import { TyreSetFormDialog } from '@/features/tyre-storage/TyreSetFormDialog'
 
 type ActionKind = 'check-in' | 'check-out' | 'move' | 'dispose'
 
 export default function TyreSetDetailPage() {
+  const { t } = useTranslation('inventory')
+  useEffect(() => {
+    void ensureNamespaceLoaded('inventory')
+  }, [])
+
   const { id } = useParams<{ id: string }>()
   const { data: tyreSet, isLoading } = useTyreSet(id)
   const printRef = useRef<HTMLDivElement>(null)
   const [action, setAction] = useState<ActionKind | null>(null)
   const [editOpen, setEditOpen] = useState(false)
+  const emDash = t('shared.emDash')
 
   const canMove = useMemo(
     () => tyreSet?.status === 'IN_STORAGE' && Boolean(tyreSet.locationId),
@@ -29,8 +37,23 @@ export default function TyreSetDetailPage() {
   }
 
   if (isLoading || !tyreSet) {
-    return <p className="text-slate-500">Loading tyre set…</p>
+    return <p className="text-slate-500">{t('tyreStorage.detail.loading')}</p>
   }
+
+  type DetailFieldKey =
+    | 'tyreStorage.detail.bin'
+    | 'tyreStorage.detail.location'
+    | 'tyreStorage.detail.storedSince'
+    | 'tyreStorage.detail.plannedSwap'
+    | 'tyreStorage.detail.dimension'
+
+  const field = (labelKey: DetailFieldKey, value: string | null | undefined) =>
+    t(labelKey, { value: value ?? emDash })
+
+  const fieldDate = (
+    labelKey: 'tyreStorage.detail.storedSince' | 'tyreStorage.detail.plannedSwap',
+    value: string | null | undefined,
+  ) => t(labelKey, { value: value ? formatIsoDateOnly(value) : emDash })
 
   return (
     <div className="space-y-6 tyre-set-detail">
@@ -54,14 +77,14 @@ export default function TyreSetDetailPage() {
       <div className="no-print flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="flex items-start gap-3">
           <Button variant="ghost" size="icon" asChild className="mt-1">
-            <Link to={APP_ROUTE_PATHS.tyreStorage} aria-label="Back to tyre storage">
+            <Link to={APP_ROUTE_PATHS.tyreStorage} aria-label={t('tyreStorage.detail.backAriaLabel')}>
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">{tyreSet.label}</h1>
             <p className="text-slate-500">
-              {String(tyreSet.customerName ?? '')} · {tyreSet.vehiclePlate ?? 'No vehicle'}
+              {String(tyreSet.customerName ?? '')} · {tyreSet.vehiclePlate ?? t('shared.noVehicle')}
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
               <StatusBadge status={tyreSet.status} />
@@ -72,18 +95,18 @@ export default function TyreSetDetailPage() {
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" className="min-h-11" onClick={() => setEditOpen(true)}>
             <Pencil className="mr-2 h-4 w-4" />
-            Edit
+            {t('actions.edit')}
           </Button>
           <Button variant="outline" className="min-h-11" onClick={printLabel}>
             <Printer className="mr-2 h-4 w-4" />
-            Print tag
+            {t('actions.printTag')}
           </Button>
           {tyreSet.status !== 'DISPOSED' ? (
             tyreSet.status === 'IN_STORAGE' ? (
               <>
                 <Button className="min-h-11" onClick={() => setAction('check-out')}>
                   <LogOut className="mr-2 h-4 w-4" />
-                  Check out
+                  {t('actions.checkOut')}
                 </Button>
                 {canMove ? (
                   <Button
@@ -92,7 +115,7 @@ export default function TyreSetDetailPage() {
                     onClick={() => setAction('move')}
                   >
                     <MoveRight className="mr-2 h-4 w-4" />
-                    Move
+                    {t('actions.move')}
                   </Button>
                 ) : null}
                 <Button
@@ -101,13 +124,13 @@ export default function TyreSetDetailPage() {
                   onClick={() => setAction('dispose')}
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
-                  Dispose
+                  {t('actions.dispose')}
                 </Button>
               </>
             ) : (
               <Button className="min-h-11" onClick={() => setAction('check-in')}>
                 <LogIn className="mr-2 h-4 w-4" />
-                Check in
+                {t('actions.checkIn')}
               </Button>
             )
           ) : null}
@@ -117,19 +140,19 @@ export default function TyreSetDetailPage() {
       <div className="no-print grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Storage</CardTitle>
+            <CardTitle>{t('tyreStorage.detail.storageTitle')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <p>Bin: {tyreSet.binLabel ?? '—'}</p>
-            <p>Location: {tyreSet.locationCode ?? tyreSet.locationId ?? '—'}</p>
-            <p>Stored since: {tyreSet.storedSince ?? '—'}</p>
-            <p>Planned swap: {tyreSet.plannedSwapOn ?? '—'}</p>
-            <p>Dimension: {tyreSet.dimension ?? '—'}</p>
+            <p>{field('tyreStorage.detail.bin', tyreSet.binLabel)}</p>
+            <p>{field('tyreStorage.detail.location', tyreSet.locationCode ?? tyreSet.locationId)}</p>
+            <p>{fieldDate('tyreStorage.detail.storedSince', tyreSet.storedSince)}</p>
+            <p>{fieldDate('tyreStorage.detail.plannedSwap', tyreSet.plannedSwapOn)}</p>
+            <p>{field('tyreStorage.detail.dimension', tyreSet.dimension)}</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Event timeline</CardTitle>
+            <CardTitle>{t('tyreStorage.detail.eventTimeline')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {(tyreSet.events ?? []).map((event) => (

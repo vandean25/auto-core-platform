@@ -6,6 +6,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
+import deHr from '../../../locales/de/hr.json'
 import App from './App'
 
 const mockUseAuth = vi.fn()
@@ -124,7 +125,7 @@ describe('App authenticated unknown routes (AUT-222)', () => {
     renderAtPath('/hr')
 
     expect(
-      await screen.findByRole('heading', { name: 'Employees' }, { timeout: 5000 }),
+      await screen.findByRole('heading', { name: deHr.employees.pageTitle }, { timeout: 5000 }),
     ).toBeInTheDocument()
     expect(screen.getByText('ACP')).toBeInTheDocument()
   })

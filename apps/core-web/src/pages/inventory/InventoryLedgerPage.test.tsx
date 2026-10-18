@@ -2,7 +2,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
+import deInventory from '../../../../../locales/de/inventory.json'
+import { registerGermanUiForTests } from '@/test/german-ui'
 import InventoryLedgerPage from './InventoryLedgerPage'
+
+registerGermanUiForTests()
 
 vi.mock('@/api/auth-session', () => ({
   useAuthSession: () => ({
@@ -52,8 +56,8 @@ function renderPage() {
 describe('InventoryLedgerPage', () => {
   it('shows Receive, Adjust, and Edit for admins', () => {
     renderPage()
-    expect(screen.getByRole('button', { name: 'Receive' })).toBeVisible()
-    expect(screen.getByRole('button', { name: 'Adjust' })).toBeVisible()
-    expect(screen.getByRole('button', { name: 'Edit' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: deInventory.actions.receive })).toBeVisible()
+    expect(screen.getByRole('button', { name: deInventory.actions.adjust })).toBeVisible()
+    expect(screen.getByRole('button', { name: deInventory.actions.edit })).toBeEnabled()
   })
 })

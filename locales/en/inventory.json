@@ -1,0 +1,277 @@
+{
+  "actions": {
+    "receive": "Receive",
+    "adjust": "Adjust",
+    "edit": "Edit",
+    "applyAdjustment": "Apply adjustment",
+    "saveChanges": "Save changes",
+    "confirm": "Confirm",
+    "submitRequest": "Submit request",
+    "submitting": "Submitting…",
+    "ship": "Ship",
+    "approve": "Approve",
+    "reject": "Reject",
+    "cancelTransfer": "Cancel transfer",
+    "keepRequest": "Keep request",
+    "keepTransfer": "Keep transfer",
+    "receiveStock": "Receive",
+    "returnUnreceived": "Return unreceived",
+    "printTag": "Print tag",
+    "checkIn": "Check in",
+    "checkOut": "Check out",
+    "move": "Move",
+    "dispose": "Dispose",
+    "exportDueCsv": "Export due CSV",
+    "tyreSet": "Tyre set",
+    "addSet": "Add set",
+    "allSets": "All sets",
+    "dueForSwap": "Due for swap"
+  },
+  "shared": {
+    "loading": "Loading…",
+    "searching": "Searching…",
+    "units": "{{count}} units",
+    "noVehicle": "No vehicle",
+    "locationCodeName": "{{code}} — {{name}}",
+    "emDash": "—"
+  },
+  "ledger": {
+    "backToInventory": "Back to Inventory",
+    "itemInfoTitle": "Item Info",
+    "loadingItemDetails": "Loading item details…",
+    "itemDetailsUnavailable": "Item details unavailable.",
+    "stockLedgerTitle": "Stock Ledger",
+    "columns": {
+      "date": "Date",
+      "type": "Type",
+      "reference": "Reference",
+      "location": "Location",
+      "qty": "Qty",
+      "cost": "Cost"
+    },
+    "loadingLedger": "Loading ledger…",
+    "loadLedgerFailed": "Failed to load ledger.",
+    "noLedgerActivity": "No ledger activity yet."
+  },
+  "itemInfoCard": {
+    "title": "Item Info",
+    "idLabel": "ID: {{id}}",
+    "skuLockedHint": "SKU is locked to preserve traceability across documents.",
+    "brand": "Brand",
+    "selectBrand": "Select brand",
+    "noBrand": "No brand",
+    "name": "Name",
+    "price": "Price",
+    "availability": "Availability",
+    "availabilityReadOnlyHint": "Availability is ledger-derived and read-only.",
+    "category": "Category",
+    "location": "Location",
+    "transferWorkflowHint": "Use a stock transfer workflow to move quantity and create ledger entries.",
+    "notAvailable": "N/A"
+  },
+  "dialogs": {
+    "adjustStock": {
+      "title": "Adjust stock",
+      "storageBin": "Storage bin",
+      "selectBin": "Select bin",
+      "signedQuantity": "Signed quantity",
+      "signedQuantityHint": "Use a negative value to remove stock. Resulting on-hand quantity cannot go below zero.",
+      "reason": "Reason",
+      "validationRequired": "Bin, non-zero quantity, and reason are required.",
+      "success": "Stock adjusted",
+      "failed": "Failed to adjust stock"
+    },
+    "receiveStock": {
+      "title": "Receive stock",
+      "storageBin": "Storage bin",
+      "selectBin": "Select bin",
+      "quantity": "Quantity",
+      "validationRequired": "Choose a bin and enter a positive quantity.",
+      "success": "Stock received",
+      "failed": "Failed to receive stock",
+      "submit": "Receive"
+    },
+    "editItem": {
+      "title": "Edit item",
+      "sku": "SKU",
+      "brand": "Brand",
+      "name": "Name",
+      "costPrice": "Cost price (€)",
+      "retailPrice": "Retail price (€)",
+      "success": "Item updated",
+      "failed": "Failed to update item"
+    }
+  },
+  "stockTransfers": {
+    "list": {
+      "title": "Transfers",
+      "description": "Request and track same-GmbH stock moves between sites.",
+      "newTransfer": "New transfer",
+      "saveViewTitle": "Transfers",
+      "searchPlaceholder": "Search transfers…",
+      "columns": {
+        "transferNumber": "Transfer #",
+        "from": "From",
+        "to": "To",
+        "status": "Status",
+        "requested": "Requested",
+        "lines": "Lines"
+      }
+    },
+    "detail": {
+      "loading": "Loading transfer…",
+      "notFound": "Transfer not found",
+      "backAriaLabel": "Back to stock transfers",
+      "requestedAt": "Requested {{date}}",
+      "routeTitle": "Route",
+      "from": "From",
+      "to": "To",
+      "rejectReason": "Reject reason",
+      "cancelReason": "Cancel reason",
+      "linesTitle": "Lines",
+      "columns": {
+        "part": "Part",
+        "requested": "Requested",
+        "approved": "Approved",
+        "shipped": "Shipped",
+        "received": "Received",
+        "returned": "Returned",
+        "sourceBin": "Source bin",
+        "destBin": "Dest bin"
+      },
+      "confirmSourceBin": "Confirm source bin",
+      "receiveQtyPlaceholder": "Receive qty",
+      "destinationBin": "Destination bin",
+      "returnQtyPlaceholder": "Return qty",
+      "switchToSourceSite": "Switch your active site to {{site}} to pick source bins and ship.",
+      "switchToSourceSiteFallback": "the source site",
+      "switchToDestSite": "Switch your active site to {{site}} to receive stock.",
+      "switchToDestSiteFallback": "the destination site",
+      "rejectDialog": {
+        "title": "Reject transfer request?",
+        "description": "The destination site will be notified that this request was rejected.",
+        "reasonOptional": "Reason (optional)"
+      },
+      "cancelDialog": {
+        "title": "Cancel transfer?",
+        "description": "This stops the transfer before any stock has shipped.",
+        "reasonOptional": "Reason (optional)"
+      },
+      "toast": {
+        "approved": "Transfer approved",
+        "rejected": "Transfer rejected",
+        "cancelled": "Transfer cancelled",
+        "shipped": "Transfer shipped",
+        "received": "Stock received",
+        "returned": "Unreceived stock returned",
+        "actionFailed": "Action failed",
+        "switchSiteBeforeShip": "Switch your active site to the source site before shipping",
+        "selectSourceBins": "Select a source bin for every approved line before shipping",
+        "switchSiteBeforeReceive": "Switch your active site to the destination site before receiving",
+        "enterReceiveQty": "Enter receive quantity and destination bin for at least one line",
+        "enterReturnQty": "Enter return quantity for at least one line"
+      }
+    },
+    "create": {
+      "title": "Request Stock Transfer",
+      "fromSite": "From site",
+      "toSite": "To site",
+      "selectSourceSite": "Select source site",
+      "selectDestSite": "Select destination site",
+      "addParts": "Add parts",
+      "searchPartsPlaceholder": "Search by SKU or name…",
+      "noMatchingParts": "No matching parts.",
+      "partAlreadyAdded": "Part already added to this transfer request",
+      "selectBothSites": "Select both from and to sites",
+      "sitesMustDiffer": "From and to sites must differ",
+      "addAtLeastOneLine": "Add at least one line",
+      "invalidQuantityForSku": "Invalid quantity for {{sku}}",
+      "success": "Transfer request created",
+      "failed": "Failed to create transfer request",
+      "sourceBinOptional": "Source bin (optional)",
+      "requestedQtyAria": "Requested quantity for {{sku}}",
+      "sourceBinAria": "Source bin for {{sku}}"
+    }
+  },
+  "tyreStorage": {
+    "list": {
+      "title": "Tyre storage",
+      "description": "Customer tyre sets, storage locations, and seasonal swap planning (manual outreach only).",
+      "selectCustomerToCreate": "Select a customer in filters to create a set from this page",
+      "filters": {
+        "plateVin": "Plate / VIN",
+        "searchPlateVin": "Search plate or VIN…",
+        "customer": "Customer",
+        "season": "Season",
+        "status": "Status",
+        "location": "Location",
+        "dueFrom": "Due from",
+        "dueTo": "Due to",
+        "all": "All",
+        "winter": "Winter",
+        "summer": "Summer",
+        "allSeason": "All season",
+        "inStorage": "In storage",
+        "returned": "Returned",
+        "disposed": "Disposed"
+      },
+      "columns": {
+        "label": "Label",
+        "customer": "Customer",
+        "phone": "Phone",
+        "email": "Email",
+        "plate": "Plate",
+        "season": "Season",
+        "status": "Status",
+        "bin": "Bin",
+        "swapDue": "Swap due"
+      },
+      "exportFailed": "CSV export failed",
+      "dueCount": "Due for swap ({{count}})"
+    },
+    "detail": {
+      "loading": "Loading tyre set…",
+      "backAriaLabel": "Back to tyre storage",
+      "storageTitle": "Storage",
+      "bin": "Bin: {{value}}",
+      "location": "Location: {{value}}",
+      "storedSince": "Stored since: {{value}}",
+      "plannedSwap": "Planned swap: {{value}}",
+      "dimension": "Dimension: {{value}}",
+      "eventTimeline": "Event timeline"
+    },
+    "form": {
+      "editTitle": "Edit tyre set",
+      "createTitle": "+ Tyre set",
+      "label": "Label",
+      "season": "Season",
+      "storageLocation": "Storage location",
+      "optionalOnCreate": "Optional on create",
+      "binLabel": "Bin label",
+      "dimension": "Dimension",
+      "dimensionPlaceholder": "245/45 R18",
+      "success": "Tyre set saved",
+      "failed": "Failed to save tyre set"
+    },
+    "actionDialog": {
+      "checkIn": "Check in",
+      "checkOut": "Check out",
+      "move": "Move",
+      "dispose": "Dispose",
+      "location": "Location",
+      "selectRack": "Select rack",
+      "odometer": "Odometer",
+      "note": "Note",
+      "workshopOrderId": "Workshop order id",
+      "success": "Updated",
+      "failed": "Action failed"
+    },
+    "summary": {
+      "title": "Tyre storage",
+      "loading": "Loading tyre sets…",
+      "empty": "No stored tyre sets.",
+      "addSet": "Add set",
+      "edit": "Edit"
+    }
+  }
+}

@@ -1,7 +1,11 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
+import deHr from '../../../../../locales/de/hr.json'
+import { registerGermanUiForTests } from '@/test/german-ui'
 import { InspectorEvidenceSection } from './InspectorEvidenceSection'
+
+registerGermanUiForTests()
 
 vi.mock('@/api/inspector-evidence', () => ({
   useInspectorEvidenceList: () => ({
@@ -31,7 +35,7 @@ describe('InspectorEvidenceSection', () => {
   it('renders support status badges for management view', () => {
     render(<InspectorEvidenceSection employeeId='emp-1' />)
     expect(screen.getByTestId('inspector-evidence-section')).toBeInTheDocument()
-    expect(screen.getByText('Support current')).toBeInTheDocument()
+    expect(screen.getByText(deHr.inspectorEvidence.supportCurrent)).toBeInTheDocument()
     expect(screen.getByText('SYNTH-DOC-1')).toBeInTheDocument()
   })
 })

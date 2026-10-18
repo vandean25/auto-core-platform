@@ -1,0 +1,277 @@
+{
+  "actions": {
+    "receive": "Einbuchen",
+    "adjust": "Korrigieren",
+    "edit": "Bearbeiten",
+    "applyAdjustment": "Korrektur buchen",
+    "saveChanges": "Änderungen speichern",
+    "confirm": "Bestätigen",
+    "submitRequest": "Anfrage senden",
+    "submitting": "Wird gesendet…",
+    "ship": "Versenden",
+    "approve": "Freigeben",
+    "reject": "Ablehnen",
+    "cancelTransfer": "Umlagerung stornieren",
+    "keepRequest": "Anfrage behalten",
+    "keepTransfer": "Umlagerung behalten",
+    "receiveStock": "Empfangen",
+    "returnUnreceived": "Nicht empfangene zurückbuchen",
+    "printTag": "Etikett drucken",
+    "checkIn": "Einlagern",
+    "checkOut": "Auslagern",
+    "move": "Umlagern",
+    "dispose": "Entsorgen",
+    "exportDueCsv": "Fällige als CSV exportieren",
+    "tyreSet": "Reifensatz",
+    "addSet": "Satz hinzufügen",
+    "allSets": "Alle Sätze",
+    "dueForSwap": "Fällig zum Wechsel"
+  },
+  "shared": {
+    "loading": "Laden…",
+    "searching": "Suche…",
+    "units": "{{count}} Stk.",
+    "noVehicle": "Kein Fahrzeug",
+    "locationCodeName": "{{code}} — {{name}}",
+    "emDash": "—"
+  },
+  "ledger": {
+    "backToInventory": "Zurück zum Lager",
+    "itemInfoTitle": "Artikelinfo",
+    "loadingItemDetails": "Artikeldetails werden geladen…",
+    "itemDetailsUnavailable": "Artikeldetails nicht verfügbar.",
+    "stockLedgerTitle": "Bestandsbuch",
+    "columns": {
+      "date": "Datum",
+      "type": "Typ",
+      "reference": "Referenz",
+      "location": "Lagerort",
+      "qty": "Menge",
+      "cost": "Kosten"
+    },
+    "loadingLedger": "Bestandsbuch wird geladen…",
+    "loadLedgerFailed": "Bestandsbuch konnte nicht geladen werden.",
+    "noLedgerActivity": "Noch keine Buchungen im Bestandsbuch."
+  },
+  "itemInfoCard": {
+    "title": "Artikelinfo",
+    "idLabel": "ID: {{id}}",
+    "skuLockedHint": "Die SKU bleibt aus Nachverfolgbarkeitsgründen gesperrt.",
+    "brand": "Marke",
+    "selectBrand": "Marke wählen",
+    "noBrand": "Keine Marke",
+    "name": "Bezeichnung",
+    "price": "Preis",
+    "availability": "Verfügbarkeit",
+    "availabilityReadOnlyHint": "Die Verfügbarkeit wird aus dem Bestandsbuch abgeleitet und ist nur lesbar.",
+    "category": "Kategorie",
+    "location": "Lagerort",
+    "transferWorkflowHint": "Verwenden Sie eine Umlagerung, um Mengen zu verschieben und Buchungen zu erzeugen.",
+    "notAvailable": "k. A."
+  },
+  "dialogs": {
+    "adjustStock": {
+      "title": "Bestand korrigieren",
+      "storageBin": "Lagerplatz",
+      "selectBin": "Lagerplatz wählen",
+      "signedQuantity": "Menge (mit Vorzeichen)",
+      "signedQuantityHint": "Negative Werte entfernen Bestand. Der Bestand darf nicht unter null fallen.",
+      "reason": "Grund",
+      "validationRequired": "Lagerplatz, von Null abweichende Menge und Grund sind erforderlich.",
+      "success": "Bestand korrigiert",
+      "failed": "Bestand konnte nicht korrigiert werden"
+    },
+    "receiveStock": {
+      "title": "Wareneingang buchen",
+      "storageBin": "Lagerplatz",
+      "selectBin": "Lagerplatz wählen",
+      "quantity": "Menge",
+      "validationRequired": "Bitte wählen Sie einen Lagerplatz und geben Sie eine positive Menge ein.",
+      "success": "Wareneingang gebucht",
+      "failed": "Wareneingang konnte nicht gebucht werden",
+      "submit": "Einbuchen"
+    },
+    "editItem": {
+      "title": "Artikel bearbeiten",
+      "sku": "SKU",
+      "brand": "Marke",
+      "name": "Bezeichnung",
+      "costPrice": "Einkaufspreis (€)",
+      "retailPrice": "Verkaufspreis (€)",
+      "success": "Artikel aktualisiert",
+      "failed": "Artikel konnte nicht aktualisiert werden"
+    }
+  },
+  "stockTransfers": {
+    "list": {
+      "title": "Umlagerungen",
+      "description": "Umlagerungen innerhalb derselben GmbH zwischen Standorten anfordern und verfolgen.",
+      "newTransfer": "Neue Umlagerung",
+      "saveViewTitle": "Umlagerungen",
+      "searchPlaceholder": "Umlagerungen suchen…",
+      "columns": {
+        "transferNumber": "Umlagerung #",
+        "from": "Von",
+        "to": "Nach",
+        "status": "Status",
+        "requested": "Angefragt",
+        "lines": "Positionen"
+      }
+    },
+    "detail": {
+      "loading": "Umlagerung wird geladen…",
+      "notFound": "Umlagerung nicht gefunden",
+      "backAriaLabel": "Zurück zu Umlagerungen",
+      "requestedAt": "Angefragt am {{date}}",
+      "routeTitle": "Route",
+      "from": "Von",
+      "to": "Nach",
+      "rejectReason": "Ablehnungsgrund",
+      "cancelReason": "Stornierungsgrund",
+      "linesTitle": "Positionen",
+      "columns": {
+        "part": "Teil",
+        "requested": "Angefragt",
+        "approved": "Freigegeben",
+        "shipped": "Versendet",
+        "received": "Empfangen",
+        "returned": "Zurückgebucht",
+        "sourceBin": "Quell-Lagerplatz",
+        "destBin": "Ziel-Lagerplatz"
+      },
+      "confirmSourceBin": "Quell-Lagerplatz bestätigen",
+      "receiveQtyPlaceholder": "Empfangsmenge",
+      "destinationBin": "Ziel-Lagerplatz",
+      "returnQtyPlaceholder": "Rückbuchungsmenge",
+      "switchToSourceSite": "Wechseln Sie den aktiven Standort zu {{site}}, um Quell-Lagerplätze zu wählen und zu versenden.",
+      "switchToSourceSiteFallback": "dem Quellstandort",
+      "switchToDestSite": "Wechseln Sie den aktiven Standort zu {{site}}, um Ware zu empfangen.",
+      "switchToDestSiteFallback": "dem Zielstandort",
+      "rejectDialog": {
+        "title": "Umlagerungsanfrage ablehnen?",
+        "description": "Der Zielstandort wird informiert, dass diese Anfrage abgelehnt wurde.",
+        "reasonOptional": "Grund (optional)"
+      },
+      "cancelDialog": {
+        "title": "Umlagerung stornieren?",
+        "description": "Die Umlagerung wird gestoppt, bevor Ware versendet wurde.",
+        "reasonOptional": "Grund (optional)"
+      },
+      "toast": {
+        "approved": "Umlagerung freigegeben",
+        "rejected": "Umlagerung abgelehnt",
+        "cancelled": "Umlagerung storniert",
+        "shipped": "Umlagerung versendet",
+        "received": "Ware empfangen",
+        "returned": "Nicht empfangene Ware zurückgebucht",
+        "actionFailed": "Aktion fehlgeschlagen",
+        "switchSiteBeforeShip": "Wechseln Sie zum Quellstandort, bevor Sie versenden",
+        "selectSourceBins": "Wählen Sie für jede freigegebene Position einen Quell-Lagerplatz",
+        "switchSiteBeforeReceive": "Wechseln Sie zum Zielstandort, bevor Sie empfangen",
+        "enterReceiveQty": "Geben Sie Empfangsmenge und Ziel-Lagerplatz für mindestens eine Position ein",
+        "enterReturnQty": "Geben Sie eine Rückbuchungsmenge für mindestens eine Position ein"
+      }
+    },
+    "create": {
+      "title": "Umlagerung anfordern",
+      "fromSite": "Von Standort",
+      "toSite": "Nach Standort",
+      "selectSourceSite": "Quellstandort wählen",
+      "selectDestSite": "Zielstandort wählen",
+      "addParts": "Teile hinzufügen",
+      "searchPartsPlaceholder": "Nach SKU oder Bezeichnung suchen…",
+      "noMatchingParts": "Keine passenden Teile.",
+      "partAlreadyAdded": "Teil ist bereits in dieser Anfrage",
+      "selectBothSites": "Bitte wählen Sie Quell- und Zielstandort",
+      "sitesMustDiffer": "Quell- und Zielstandort müssen unterschiedlich sein",
+      "addAtLeastOneLine": "Fügen Sie mindestens eine Position hinzu",
+      "invalidQuantityForSku": "Ungültige Menge für {{sku}}",
+      "success": "Umlagerungsanfrage erstellt",
+      "failed": "Umlagerungsanfrage konnte nicht erstellt werden",
+      "sourceBinOptional": "Quell-Lagerplatz (optional)",
+      "requestedQtyAria": "Angefragte Menge für {{sku}}",
+      "sourceBinAria": "Quell-Lagerplatz für {{sku}}"
+    }
+  },
+  "tyreStorage": {
+    "list": {
+      "title": "Reifenlager",
+      "description": "Kundenreifensätze, Lagerorte und saisonale Wechselplanung (nur manuelle Kontaktaufnahme).",
+      "selectCustomerToCreate": "Wählen Sie in den Filtern einen Kunden, um hier einen Satz anzulegen",
+      "filters": {
+        "plateVin": "Kennzeichen / FIN",
+        "searchPlateVin": "Kennzeichen oder FIN suchen…",
+        "customer": "Kunde",
+        "season": "Saison",
+        "status": "Status",
+        "location": "Lagerort",
+        "dueFrom": "Fällig ab",
+        "dueTo": "Fällig bis",
+        "all": "Alle",
+        "winter": "Winter",
+        "summer": "Sommer",
+        "allSeason": "Ganzjahres",
+        "inStorage": "Eingelagert",
+        "returned": "Zurückgegeben",
+        "disposed": "Entsorgt"
+      },
+      "columns": {
+        "label": "Bezeichnung",
+        "customer": "Kunde",
+        "phone": "Telefon",
+        "email": "E-Mail",
+        "plate": "Kennzeichen",
+        "season": "Saison",
+        "status": "Status",
+        "bin": "Lagerplatz",
+        "swapDue": "Wechsel fällig"
+      },
+      "exportFailed": "CSV-Export fehlgeschlagen",
+      "dueCount": "Fällig zum Wechsel ({{count}})"
+    },
+    "detail": {
+      "loading": "Reifensatz wird geladen…",
+      "backAriaLabel": "Zurück zum Reifenlager",
+      "storageTitle": "Lagerung",
+      "bin": "Lagerplatz: {{value}}",
+      "location": "Lagerort: {{value}}",
+      "storedSince": "Eingelagert seit: {{value}}",
+      "plannedSwap": "Geplanter Wechsel: {{value}}",
+      "dimension": "Dimension: {{value}}",
+      "eventTimeline": "Ereignisverlauf"
+    },
+    "form": {
+      "editTitle": "Reifensatz bearbeiten",
+      "createTitle": "+ Reifensatz",
+      "label": "Bezeichnung",
+      "season": "Saison",
+      "storageLocation": "Lagerort",
+      "optionalOnCreate": "Beim Anlegen optional",
+      "binLabel": "Lagerplatz-Bezeichnung",
+      "dimension": "Dimension",
+      "dimensionPlaceholder": "245/45 R18",
+      "success": "Reifensatz gespeichert",
+      "failed": "Reifensatz konnte nicht gespeichert werden"
+    },
+    "actionDialog": {
+      "checkIn": "Einlagern",
+      "checkOut": "Auslagern",
+      "move": "Umlagern",
+      "dispose": "Entsorgen",
+      "location": "Lagerort",
+      "selectRack": "Regal wählen",
+      "odometer": "Kilometerstand",
+      "note": "Notiz",
+      "workshopOrderId": "Werkstattauftrag-ID",
+      "success": "Aktualisiert",
+      "failed": "Aktion fehlgeschlagen"
+    },
+    "summary": {
+      "title": "Reifenlager",
+      "loading": "Reifensätze werden geladen…",
+      "empty": "Keine eingelagerten Reifensätze.",
+      "addSet": "Satz hinzufügen",
+      "edit": "Bearbeiten"
+    }
+  }
+}

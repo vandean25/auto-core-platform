@@ -9,6 +9,7 @@ import {
 import { DE_WORKSHOP } from './helpers/de-workshop'
 import { DE_SALES } from './helpers/de-sales'
 import { DE_CUSTOMERS } from './helpers/de-customers'
+import { DE_INVENTORY } from './helpers/de-inventory'
 
 /**
  * AUT-472: heading levels on the detail pages. A card directly under the page h1 is an h2 (the
@@ -88,7 +89,9 @@ test.describe('Heading order on detail pages', () => {
       page.getByRole('heading', { level: 2, name: DE_CUSTOMERS.detail.contactInformation, exact: true }),
     ).toBeVisible()
     // Tyre storage sits inside the Contact Information card, so it nests as h3.
-    await expect(page.getByRole('heading', { level: 3, name: 'Tyre storage', exact: true })).toBeVisible()
+    await expect(
+      page.getByRole('heading', { level: 3, name: DE_INVENTORY.tyreStorage.summary.title, exact: true }),
+    ).toBeVisible()
     await expectNoHeadingOrderViolations(page)
   })
 
@@ -101,7 +104,9 @@ test.describe('Heading order on detail pages', () => {
 
     await expect(page.getByRole('heading', { level: 1, name: order.order_number })).toBeVisible()
     // Tyre storage is a top-level section under the page h1, so it is h2 on this page.
-    await expect(page.getByRole('heading', { level: 2, name: 'Tyre storage', exact: true })).toBeVisible()
+    await expect(
+      page.getByRole('heading', { level: 2, name: DE_INVENTORY.tyreStorage.summary.title, exact: true }),
+    ).toBeVisible()
     await expect(
       page.getByRole('heading', { level: 2, name: DE_WORKSHOP.orderHeader.orderInfo, exact: true }),
     ).toBeVisible()

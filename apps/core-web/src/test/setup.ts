@@ -14,6 +14,8 @@ beforeAll(async () => {
   await ensureNamespaceLoaded('customers')
   await ensureNamespaceLoaded('vehicleStock')
   await ensureNamespaceLoaded('finance')
+  await ensureNamespaceLoaded('inventory')
+  await ensureNamespaceLoaded('hr')
 })
 
 afterEach(async () => {

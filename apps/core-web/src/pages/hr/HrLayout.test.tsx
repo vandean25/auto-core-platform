@@ -4,7 +4,11 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import { AppSidebar } from '@/components/navigation/AppSidebar'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
+import deHr from '../../../../../locales/de/hr.json'
+import { registerGermanUiForTests } from '@/test/german-ui'
 import HrLayout from './HrLayout'
+
+registerGermanUiForTests()
 
 afterEach(cleanup)
 
@@ -33,12 +37,13 @@ describe('HrLayout', () => {
   it('renders HR tabs with their route targets and nested content', () => {
     renderHrRoutes('/hr/employees')
 
-    expect(screen.getByRole('heading', { name: 'HR' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Employees' })).toHaveAttribute('href', '/hr/employees')
-    expect(screen.getByRole('link', { name: 'Time Clock' })).toHaveAttribute('href', '/hr/clock')
-    expect(screen.getByRole('link', { name: 'Leave' })).toHaveAttribute('href', '/hr/leave')
-    expect(screen.getByRole('link', { name: 'Employees' })).toHaveAttribute('aria-current', 'page')
-    expect(screen.getByRole('link', { name: 'Time Clock' })).not.toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('heading', { name: deHr.layout.title })).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: deHr.layout.sectionsAria })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: deHr.layout.tabs.employees })).toHaveAttribute('href', '/hr/employees')
+    expect(screen.getByRole('link', { name: deHr.layout.tabs.clock })).toHaveAttribute('href', '/hr/clock')
+    expect(screen.getByRole('link', { name: deHr.layout.tabs.leave })).toHaveAttribute('href', '/hr/leave')
+    expect(screen.getByRole('link', { name: deHr.layout.tabs.employees })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('link', { name: deHr.layout.tabs.clock })).not.toHaveAttribute('aria-current', 'page')
     expect(screen.getByText('Employees route content')).toBeInTheDocument()
   })
 

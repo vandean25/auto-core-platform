@@ -3,6 +3,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { useEmployees } from '@/api/employees'
 import { useAuthSession } from '@/api/auth-session'
+import deHr from '../../../../../locales/de/hr.json'
 import { EmployeeSettingsTab } from './EmployeeSettingsTab'
 
 vi.mock('@/api/employees', () => ({
@@ -42,7 +43,7 @@ describe('EmployeeSettingsTab', () => {
     expect(screen.getByText('Employees')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '+ Employee' })).toBeInTheDocument()
     expect(screen.getByTestId('employee-table')).toBeInTheDocument()
-    expect(screen.getByText('Hire date')).toBeInTheDocument()
+    expect(screen.getByText(deHr.employees.columns.hireDate)).toBeInTheDocument()
     expect(vi.mocked(useEmployees)).toHaveBeenCalledWith({
       includeInactive: true,
       limit: 100,

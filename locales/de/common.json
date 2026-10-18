@@ -6,6 +6,11 @@
     "switchPending": "Sprache wird gewechselt…",
     "switchError": "Sprache konnte nicht gespeichert werden."
   },
+  "actions": {
+    "cancel": "Abbrechen",
+    "save": "Speichern",
+    "confirm": "Bestätigen"
+  },
   "placeholders": {
     "missing": "—",
     "unknown": "Unbekannt"

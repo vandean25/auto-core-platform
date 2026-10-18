@@ -1,28 +1,42 @@
+import { useEffect } from 'react'
+import type { TFunction } from 'i18next'
+import { useTranslation } from 'react-i18next'
+
 import {
   useInspectorEvidenceAssessment,
   useInspectorEvidenceList,
 } from '@/api/inspector-evidence'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { Label } from '@/components/ui/label'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { formatStatusLabel } from '@/lib/i18n/enum-labels'
 
 type InspectorEvidenceSectionProps = {
   employeeId: string
 }
 
-function supportStatusLabel(status: string) {
+function supportStatusLabel(
+  status: string,
+  t: TFunction<'hr'>,
+): string {
   switch (status) {
     case 'QUALIFICATION_CURRENT':
-      return 'Support current'
+      return t('inspectorEvidence.supportCurrent')
     case 'QUALIFICATION_EXPIRED':
-      return 'Support expired'
+      return t('inspectorEvidence.supportExpired')
     case 'QUALIFICATION_UNKNOWN':
-      return 'Support unknown'
+      return t('inspectorEvidence.supportUnknown')
     default:
-      return status
+      return formatStatusLabel(status)
   }
 }
 
 export function InspectorEvidenceSection({ employeeId }: InspectorEvidenceSectionProps) {
+  const { t } = useTranslation('hr')
+  useEffect(() => {
+    void ensureNamespaceLoaded('hr')
+  }, [])
+
   const listQuery = useInspectorEvidenceList(employeeId, true)
   const latestRevision = listQuery.data?.data[0]
   const stationRef = latestRevision?.station_ref ?? ''
@@ -41,30 +55,30 @@ export function InspectorEvidenceSection({ employeeId }: InspectorEvidenceSectio
   return (
     <section className='space-y-3 rounded-lg border border-slate-200 p-4' data-testid='inspector-evidence-section'>
       <div>
-        <h3 className='text-sm font-semibold text-slate-900'>Inspector evidence</h3>
-        <p className='text-xs text-slate-500'>
-          Restricted HR document review and support status — not an official qualification.
-        </p>
+        <h3 className='text-sm font-semibold text-slate-900'>{t('inspectorEvidence.title')}</h3>
+        <p className='text-xs text-slate-500'>{t('inspectorEvidence.description')}</p>
       </div>
 
       {assessment ? (
         <div className='flex flex-wrap items-center gap-2'>
           <StatusBadge
             status={assessment.qualification_support_status}
-            label={supportStatusLabel(assessment.qualification_support_status)}
+            label={supportStatusLabel(assessment.qualification_support_status, t)}
           />
           <StatusBadge status={assessment.evidence_review} />
           <StatusBadge
             status={assessment.inspection_time_temporal_scope}
-            label={`Scope: ${assessment.inspection_time_temporal_scope}`}
+            label={t('inspectorEvidence.scope', {
+              scope: formatStatusLabel(assessment.inspection_time_temporal_scope),
+            })}
           />
         </div>
       ) : null}
 
       <div className='space-y-2'>
-        <Label>Evidence revisions</Label>
+        <Label>{t('inspectorEvidence.revisions')}</Label>
         {listQuery.isLoading ? (
-          <p className='text-sm text-slate-500'>Loading…</p>
+          <p className='text-sm text-slate-500'>{t('inspectorEvidence.loading')}</p>
         ) : listQuery.data?.data.length ? (
           <ul className='space-y-2 text-sm'>
             {listQuery.data.data.map((row) => (
@@ -78,14 +92,12 @@ export function InspectorEvidenceSection({ employeeId }: InspectorEvidenceSectio
             ))}
           </ul>
         ) : (
-          <p className='text-sm text-slate-500'>No evidence recorded.</p>
+          <p className='text-sm text-slate-500'>{t('inspectorEvidence.empty')}</p>
         )}
       </div>
 
       {latest?.document_ref ? (
-        <p className='text-xs text-muted-foreground'>
-          Latest document reference is stored in authorized storage only (not downloadable here).
-        </p>
+        <p className='text-xs text-muted-foreground'>{t('inspectorEvidence.latestDocHint')}</p>
       ) : null}
     </section>
   )

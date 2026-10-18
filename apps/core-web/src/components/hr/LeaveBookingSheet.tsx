@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import type { TFunction } from 'i18next'
+import { useTranslation } from 'react-i18next'
 
 import type { Employee } from '@/api/employees'
 import {
@@ -21,8 +23,14 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { formatIsoDateOnly, formatLocalDateInZone } from '@/lib/format'
 import { getErrorMessage } from '@/lib/error-utils'
-import { formatLocalDateInZone } from '@/lib/format'
+import { ensureNamespaceLoaded, i18n } from '@/lib/i18n'
+
+function hrT(key: string): string {
+  const t = i18n.getFixedT(i18n.language, 'hr') as (k: string) => string
+  return t(key)
+}
 
 type TenantMemberRole = components['schemas']['TenantMemberRole']
 type LeaveEmployee = Pick<Employee, 'id' | 'name' | 'role'>
@@ -79,10 +87,10 @@ function getNotePayload(note: string): Pick<CreateLeavePayload, 'note'> {
 }
 
 function getBookingEmployeeName(booking: LeaveRequest, employees: LeaveEmployee[]): string {
-  return booking.employee?.name ?? employees.find((employee) => employee.id === booking.employeeId)?.name ?? 'Employee'
+  return booking.employee?.name ?? employees.find((employee) => employee.id === booking.employeeId)?.name ?? hrT('leave.bookingSheet.employeeFallback')
 }
 
-function LeaveBookingDetails({ booking, employeeName }: { booking: LeaveRequest; employeeName: string }) {
+function LeaveBookingDetails({ booking, employeeName, t }: { booking: LeaveRequest; employeeName: string; t: TFunction<'hr'> }) {
   return (
     <div className='space-y-5' data-testid='leave-booking-details'>
       <div className='space-y-1'>
@@ -91,20 +99,20 @@ function LeaveBookingDetails({ booking, employeeName }: { booking: LeaveRequest;
       </div>
       <dl className='grid gap-4 sm:grid-cols-2'>
         <div>
-          <dt className='text-sm font-medium text-slate-500'>Start</dt>
-          <dd className='text-sm'>{booking.startOn}</dd>
+          <dt className='text-sm font-medium text-slate-500'>{t('leave.bookingSheet.start')}</dt>
+          <dd className='text-sm'>{formatIsoDateOnly(booking.startOn)}</dd>
         </div>
         <div>
-          <dt className='text-sm font-medium text-slate-500'>End</dt>
-          <dd className='text-sm'>{booking.endOn}</dd>
+          <dt className='text-sm font-medium text-slate-500'>{t('leave.bookingSheet.end')}</dt>
+          <dd className='text-sm'>{formatIsoDateOnly(booking.endOn)}</dd>
         </div>
         <div>
-          <dt className='text-sm font-medium text-slate-500'>Charged (min)</dt>
+          <dt className='text-sm font-medium text-slate-500'>{t('leave.bookingSheet.chargedMin')}</dt>
           <dd className='text-sm'>{booking.minutesCharged}</dd>
         </div>
         <div>
-          <dt className='text-sm font-medium text-slate-500'>Note</dt>
-          <dd className='text-sm'>{booking.note || '—'}</dd>
+          <dt className='text-sm font-medium text-slate-500'>{t('leave.bookingSheet.note')}</dt>
+          <dd className='text-sm'>{booking.note || i18n.t('common:placeholders.missing')}</dd>
         </div>
       </dl>
     </div>
@@ -123,6 +131,9 @@ export function LeaveBookingSheet({
   timezone = DEFAULT_TIMEZONE,
   booking,
 }: LeaveBookingSheetProps) {
+  const { t } = useTranslation('hr')
+  useEffect(() => { void ensureNamespaceLoaded('hr') }, [])
+
   const isManager = canManageLeave(activeRole)
   const createLeave = useCreateLeave()
   const createEmployeeLeave = useCreateEmployeeLeave()
@@ -162,7 +173,7 @@ export function LeaveBookingSheet({
       }
       onOpenChange(false)
     } catch (error) {
-      const message = getErrorMessage(error, 'Failed to create leave booking')
+      const message = getErrorMessage(error, t('leave.bookingSheet.createFailed'))
       setErrorMessage(message)
     }
   }
@@ -172,24 +183,24 @@ export function LeaveBookingSheet({
       <SheetContent side='right' className='w-full overflow-y-auto sm:max-w-xl'>
         <SheetHeader className='mb-6 flex-row items-start justify-between pr-10 text-left'>
           <div className='space-y-2'>
-            <SheetTitle>{booking ? 'Leave booking' : 'Book leave'}</SheetTitle>
+            <SheetTitle>{booking ? t('leave.bookingSheet.viewTitle') : t('leave.bookingSheet.bookTitle')}</SheetTitle>
             <SheetDescription>
-              {booking ? 'Review the selected leave booking.' : 'Book leave for an employee.'}
+              {booking ? t('leave.bookingSheet.viewDescription') : t('leave.bookingSheet.bookDescription')}
             </SheetDescription>
           </div>
           {!booking ? (
             <Button type='submit' form='leave-booking-form' disabled={isPending}>
-              {isPending ? 'Saving...' : '+ Leave'}
+              {isPending ? t('leave.bookingSheet.saving') : t('leave.bookLeave')}
             </Button>
           ) : null}
         </SheetHeader>
 
         {booking ? (
-          <LeaveBookingDetails booking={booking} employeeName={getBookingEmployeeName(booking, employees)} />
+          <LeaveBookingDetails booking={booking} employeeName={getBookingEmployeeName(booking, employees)} t={t} />
         ) : (
           <form id='leave-booking-form' onSubmit={handleSubmit} className='space-y-5'>
             <div className='space-y-2'>
-              <Label htmlFor='leave-employee'>Employee</Label>
+              <Label htmlFor='leave-employee'>{t('leave.bookingSheet.employee')}</Label>
               {isManager ? (
                 <select
                   id='leave-employee'
@@ -212,7 +223,7 @@ export function LeaveBookingSheet({
 
             <div className='grid gap-4 sm:grid-cols-2'>
               <div className='space-y-2'>
-                <Label htmlFor='leave-start'>Start</Label>
+                <Label htmlFor='leave-start'>{t('leave.bookingSheet.start')}</Label>
                 <Input
                   id='leave-start'
                   type='date'
@@ -224,7 +235,7 @@ export function LeaveBookingSheet({
                 />
               </div>
               <div className='space-y-2'>
-                <Label htmlFor='leave-end'>End</Label>
+                <Label htmlFor='leave-end'>{t('leave.bookingSheet.end')}</Label>
                 <Input
                   id='leave-end'
                   type='date'
@@ -238,7 +249,7 @@ export function LeaveBookingSheet({
             </div>
 
             <div className='space-y-2'>
-              <Label htmlFor='leave-note'>Note</Label>
+              <Label htmlFor='leave-note'>{t('leave.bookingSheet.note')}</Label>
               <textarea
                 id='leave-note'
                 value={formState.note}
@@ -246,7 +257,7 @@ export function LeaveBookingSheet({
                   setFormState((current) => ({ ...current, note: event.target.value }))
                 }}
                 className='min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring'
-                placeholder='Optional note'
+                placeholder={t('leave.bookingSheet.notePlaceholder')}
               />
             </div>
 

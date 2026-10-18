@@ -1,4 +1,6 @@
 import { test, expect } from '@playwright/test'
+import { DE_INVENTORY_TRANSACTION } from './helpers/de-enums'
+import { DE_INVENTORY } from './helpers/de-inventory'
 import { AutoCorePage } from './pom/AutoCorePage'
 import { createMockInventoryItem, createMockListResponse } from './utils/mock-factories'
 
@@ -99,13 +101,13 @@ test.describe('Inventory item detail — receive flow (mocked)', () => {
     await page.goto(`/inventory/${ITEM_ID}/ledger?sku=${encodeURIComponent(item.sku)}`)
     await page.waitForLoadState('networkidle')
 
-    await page.getByRole('button', { name: 'Receive' }).click()
+    await page.getByRole('button', { name: DE_INVENTORY.actions.receive }).click()
     await page.getByRole('combobox').click()
     await page.getByRole('option', { name: 'Demo bin A1' }).click()
-    await page.getByLabel('Quantity').fill('2')
-    await page.getByRole('button', { name: 'Receive', exact: true }).click()
+    await page.getByRole('spinbutton', { name: DE_INVENTORY.dialogs.receiveStock.quantity }).fill('2')
+    await page.getByRole('button', { name: DE_INVENTORY.dialogs.receiveStock.submit, exact: true }).click()
 
-    await expect(page.getByRole('cell', { name: 'Purchase Receipt' })).toBeVisible()
+    await expect(page.getByRole('cell', { name: DE_INVENTORY_TRANSACTION.PURCHASE_RECEIPT })).toBeVisible()
     await expect(page.getByRole('cell', { name: '+2' })).toBeVisible()
   })
 })

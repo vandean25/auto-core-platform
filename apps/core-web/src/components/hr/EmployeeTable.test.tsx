@@ -5,7 +5,11 @@ import { MemoryRouter } from 'react-router-dom'
 import type { Employee } from '@/api/employees'
 import { useCreateEmployee, useDeleteEmployee, useEmployees, useUpdateEmployee } from '@/api/employees'
 import { usePatchLeaveBalance, useEmployeeWorkSchedule } from '@/api/hr'
+import deHr from '../../../../../locales/de/hr.json'
+import { registerGermanUiForTests } from '@/test/german-ui'
 import { EmployeeTable } from './EmployeeTable'
+
+registerGermanUiForTests()
 
 // Matches apps/core-api/test/tenant-test-utils.ts
 const HR_TEST_ANNUAL_LEAVE_MINUTES = 12875
@@ -14,6 +18,10 @@ const HR_TEST_CARRYOVER_3_MINUTES = 1545
 const HR_TEST_CARRYOVER_4_MINUTES = 2060
 const HR_TEST_REMAINING_22_MINUTES = 11330
 const HR_TEST_AVG_WORKDAY_MINUTES = 515
+
+const hireDateAria = (name: string) => `${deHr.employees.columns.hireDate} ${name}`
+const leaveMinAria = (name: string) => `${deHr.employees.columns.leaveMin} ${name}`
+const remainingChip = deHr.employees.minSuffix.replace('{{count}}', String(HR_TEST_REMAINING_22_MINUTES))
 
 const scheduleDays = [1, 2, 3, 4, 5, 6, 7].map((weekday) => ({
   weekday,
@@ -157,12 +165,12 @@ describe('EmployeeTable', () => {
   it('renders the extended employee roster columns and values', () => {
     renderEmployeeTable('OWNER')
 
-    expect(screen.getByText('Hire date')).toBeInTheDocument()
-    expect(screen.getByText('Leave (min)')).toBeInTheDocument()
-    expect(screen.getByText('Remaining (min)')).toBeInTheDocument()
-    expect(screen.getByText('Login')).toBeInTheDocument()
-    expect(screen.getByLabelText('Hire date for Ada Lovelace')).toHaveValue('2024-03-01')
-    expect(screen.getByLabelText('Annual leave minutes for Ada Lovelace')).toHaveValue(HR_TEST_ANNUAL_LEAVE_MINUTES)
+    expect(screen.getByText(deHr.employees.columns.hireDate)).toBeInTheDocument()
+    expect(screen.getByText(deHr.employees.columns.leaveMin)).toBeInTheDocument()
+    expect(screen.getByText(deHr.employees.columns.remainingMin)).toBeInTheDocument()
+    expect(screen.getByText(deHr.employees.columns.login)).toBeInTheDocument()
+    expect(screen.getByLabelText(hireDateAria('Ada Lovelace'))).toHaveValue('2024-03-01')
+    expect(screen.getByLabelText(leaveMinAria('Ada Lovelace'))).toHaveValue(HR_TEST_ANNUAL_LEAVE_MINUTES)
     expect(screen.getByText(/11330/)).toBeInTheDocument()
     expect(screen.getByText('user-uuid-1')).toBeInTheDocument()
   })
@@ -170,16 +178,16 @@ describe('EmployeeTable', () => {
   it.each(['OWNER', 'ADMIN'] as const)('%s can edit hire date and allowance', (activeRole) => {
     renderEmployeeTable(activeRole)
 
-    expect(screen.getByLabelText('Hire date for Ada Lovelace')).toBeEnabled()
-    expect(screen.getByLabelText('Annual leave minutes for Ada Lovelace')).toBeEnabled()
-    expect(screen.getByLabelText('Annual leave minutes for Ada Lovelace')).toHaveAttribute('min', '0')
+    expect(screen.getByLabelText(hireDateAria('Ada Lovelace'))).toBeEnabled()
+    expect(screen.getByLabelText(leaveMinAria('Ada Lovelace'))).toBeEnabled()
+    expect(screen.getByLabelText(leaveMinAria('Ada Lovelace'))).toHaveAttribute('min', '0')
   })
 
   it('SALES sees hire date and allowance as read-only values', () => {
     renderEmployeeTable('SALES')
 
-    expect(screen.queryByLabelText('Hire date for Ada Lovelace')).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('Annual leave minutes for Ada Lovelace')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(hireDateAria('Ada Lovelace'))).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(leaveMinAria('Ada Lovelace'))).not.toBeInTheDocument()
     expect(screen.getByText('2024-03-01')).toBeInTheDocument()
     expect(screen.getByText(String(HR_TEST_ANNUAL_LEAVE_MINUTES))).toBeInTheDocument()
   })
@@ -195,18 +203,18 @@ describe('EmployeeTable', () => {
 
     renderEmployeeTable(activeRole)
 
-    expect(screen.getByText('Not set')).toBeInTheDocument()
-    expect(screen.queryByLabelText('Hire date for Grace Hopper')).not.toBeInTheDocument()
+    expect(screen.getByText(deHr.employees.notSet)).toBeInTheDocument()
+    expect(screen.queryByLabelText(hireDateAria('Grace Hopper'))).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Not set' }))
+    fireEvent.click(screen.getByRole('button', { name: deHr.employees.notSet }))
 
-    expect(screen.getByLabelText('Hire date for Grace Hopper')).toBeEnabled()
+    expect(screen.getByLabelText(hireDateAria('Grace Hopper'))).toBeEnabled()
   })
 
   it('OWNER saves hire date on blur', async () => {
     renderEmployeeTable('OWNER')
 
-    const input = screen.getByLabelText('Hire date for Ada Lovelace')
+    const input = screen.getByLabelText(hireDateAria('Ada Lovelace'))
     fireEvent.change(input, { target: { value: '2026-02-03' } })
     fireEvent.blur(input)
 
@@ -221,7 +229,7 @@ describe('EmployeeTable', () => {
   it('ADMIN saves allowance on blur', async () => {
     renderEmployeeTable('ADMIN')
 
-    const input = screen.getByLabelText('Annual leave minutes for Ada Lovelace')
+    const input = screen.getByLabelText(leaveMinAria('Ada Lovelace'))
     fireEvent.change(input, { target: { value: String(HR_TEST_ALLOWANCE_30_MINUTES) } })
     fireEvent.blur(input)
 
@@ -236,10 +244,10 @@ describe('EmployeeTable', () => {
   it.each(['OWNER', 'ADMIN'] as const)('%s can save current-year carryover from the employee sheet', async (activeRole) => {
     renderEmployeeTable(activeRole)
 
-    fireEvent.click(screen.getByText('11330 min'))
-    const carryoverInput = await screen.findByLabelText('Carryover this year')
+    fireEvent.click(screen.getByText(remainingChip))
+    const carryoverInput = await screen.findByLabelText(deHr.employees.detailSheet.carryoverAria)
     fireEvent.change(carryoverInput, { target: { value: String(HR_TEST_CARRYOVER_4_MINUTES) } })
-    fireEvent.click(screen.getByRole('button', { name: 'Save leave balance' }))
+    fireEvent.click(screen.getByRole('button', { name: deHr.employees.detailSheet.saveLeaveBalance }))
 
     await waitFor(() => {
       expect(patchLeaveBalance).toHaveBeenCalledWith({
@@ -255,11 +263,11 @@ describe('EmployeeTable', () => {
   it('does not reset existing carryover when the employee sheet is saved unchanged', async () => {
     renderEmployeeTable('OWNER')
 
-    fireEvent.click(screen.getByText('11330 min'))
-    const carryoverInput = await screen.findByLabelText('Carryover this year')
+    fireEvent.click(screen.getByText(remainingChip))
+    const carryoverInput = await screen.findByLabelText(deHr.employees.detailSheet.carryoverAria)
     expect(carryoverInput).toHaveValue(HR_TEST_CARRYOVER_3_MINUTES)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Save leave balance' }))
+    fireEvent.click(screen.getByRole('button', { name: deHr.employees.detailSheet.saveLeaveBalance }))
 
     expect(patchLeaveBalance).not.toHaveBeenCalled()
   })
@@ -267,14 +275,14 @@ describe('EmployeeTable', () => {
   it('allows carryover to be changed back after a successful save', async () => {
     renderEmployeeTable('OWNER')
 
-    fireEvent.click(screen.getByText('11330 min'))
-    const carryoverInput = await screen.findByLabelText('Carryover this year')
+    fireEvent.click(screen.getByText(remainingChip))
+    const carryoverInput = await screen.findByLabelText(deHr.employees.detailSheet.carryoverAria)
     const detailSheet = screen.getByTestId('employee-detail-sheet')
 
     expect(within(detailSheet).getByText(/11330/)).toBeInTheDocument()
 
     fireEvent.change(carryoverInput, { target: { value: String(HR_TEST_CARRYOVER_4_MINUTES) } })
-    fireEvent.click(screen.getByRole('button', { name: 'Save leave balance' }))
+    fireEvent.click(screen.getByRole('button', { name: deHr.employees.detailSheet.saveLeaveBalance }))
 
     await waitFor(() => {
       expect(patchLeaveBalance).toHaveBeenCalledTimes(1)
@@ -282,7 +290,7 @@ describe('EmployeeTable', () => {
     })
 
     fireEvent.change(carryoverInput, { target: { value: String(HR_TEST_CARRYOVER_3_MINUTES) } })
-    fireEvent.click(screen.getByRole('button', { name: 'Save leave balance' }))
+    fireEvent.click(screen.getByRole('button', { name: deHr.employees.detailSheet.saveLeaveBalance }))
 
     await waitFor(() => {
       expect(patchLeaveBalance).toHaveBeenCalledTimes(2)
@@ -308,9 +316,9 @@ describe('EmployeeTable', () => {
 
     renderEmployeeTable('OWNER')
 
-    fireEvent.click(screen.getByText('11330 min'))
+    fireEvent.click(screen.getByText(remainingChip))
 
-    expect(await screen.findByLabelText('Carryover this year')).toHaveValue(0)
+    expect(await screen.findByLabelText(deHr.employees.detailSheet.carryoverAria)).toHaveValue(0)
   })
 
   it('searches missing hire dates as Not set', () => {
@@ -324,21 +332,21 @@ describe('EmployeeTable', () => {
 
     renderEmployeeTable('SALES')
 
-    fireEvent.change(screen.getByPlaceholderText('Search employees...'), {
-      target: { value: 'Not set' },
+    fireEvent.change(screen.getByPlaceholderText(deHr.employees.searchPlaceholder), {
+      target: { value: deHr.employees.notSet },
     })
 
     expect(screen.getByText('Grace Hopper')).toBeInTheDocument()
-    expect(screen.getByText('Not set')).toBeInTheDocument()
+    expect(screen.getByText(deHr.employees.notSet)).toBeInTheDocument()
   })
 
   it('SALES sees carryover as read-only in the employee sheet', async () => {
     renderEmployeeTable('SALES')
 
-    fireEvent.click(screen.getByText('11330 min'))
+    fireEvent.click(screen.getByText(remainingChip))
 
-    expect(await screen.findByLabelText('Carryover this year')).toBeDisabled()
-    expect(screen.queryByRole('button', { name: 'Save leave balance' })).not.toBeInTheDocument()
+    expect(await screen.findByLabelText(deHr.employees.detailSheet.carryoverAria)).toBeDisabled()
+    expect(screen.queryByRole('button', { name: deHr.employees.detailSheet.saveLeaveBalance })).not.toBeInTheDocument()
   })
 
   it('omits annualLeaveMinutes on create when the field is left blank', async () => {
@@ -359,8 +367,8 @@ describe('EmployeeTable', () => {
       </MemoryRouter>,
     )
 
-    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'New Hire' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Create' }))
+    fireEvent.change(screen.getByLabelText(deHr.employees.createDialog.name), { target: { value: 'New Hire' } })
+    fireEvent.click(screen.getByRole('button', { name: deHr.employees.createDialog.create }))
 
     await waitFor(() => {
       expect(createEmployee).toHaveBeenCalledWith({
@@ -394,8 +402,8 @@ describe('EmployeeTable', () => {
     )
 
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'New Hire' } })
-    fireEvent.change(screen.getByLabelText('Leave (days)'), { target: { value: '25' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Create' }))
+    fireEvent.change(screen.getByLabelText(deHr.employees.createDialog.leaveDays), { target: { value: '25' } })
+    fireEvent.click(screen.getByRole('button', { name: deHr.employees.createDialog.create }))
 
     await waitFor(() => {
       expect(createEmployee).toHaveBeenCalledWith(
@@ -410,11 +418,11 @@ describe('EmployeeTable', () => {
   it('converts allowance days to minutes from the employee sheet', async () => {
     renderEmployeeTable('OWNER')
 
-    fireEvent.click(screen.getByText('11330 min'))
-    fireEvent.change(await screen.findByLabelText('Leave allowance (days)'), {
+    fireEvent.click(screen.getByText(remainingChip))
+    fireEvent.change(await screen.findByLabelText(deHr.employees.detailSheet.allowanceDays), {
       target: { value: '30' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Save allowance' }))
+    fireEvent.click(screen.getByRole('button', { name: deHr.employees.detailSheet.saveAllowance }))
 
     await waitFor(() => {
       expect(updateEmployee).toHaveBeenCalledWith({

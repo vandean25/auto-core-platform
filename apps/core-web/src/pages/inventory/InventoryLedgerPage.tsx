@@ -1,8 +1,9 @@
 import * as React from 'react'
+import { useEffect } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { ArrowLeft } from 'lucide-react'
 import { motion } from 'framer-motion'
-import type { TransactionType } from '@/api/types'
 import { useInventoryHistory, useInventoryItem, useInventoryItemBySku } from '@/api/inventory'
 import { useAuthSession } from '@/api/auth-session'
 import { AdjustInventoryStockDialog } from '@/components/inventory/AdjustInventoryStockDialog'
@@ -15,20 +16,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { formatDateTime } from '@/lib/format'
 import { formatCurrency } from '@/lib/utils'
-
-const transactionLabels: Record<TransactionType, string> = {
-  PURCHASE_RECEIPT: 'Purchase Receipt',
-  SALE_ISSUE: 'Sale Issue',
-  ADJUSTMENT: 'Adjustment',
-  TRANSFER_IN: 'Transfer In',
-  TRANSFER_OUT: 'Transfer Out',
-  INITIAL_BALANCE: 'Initial Balance',
-  WORKSHOP_CONSUMPTION: 'Workshop Consumption',
-}
+import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { formatInventoryTransactionType } from '@/lib/i18n/enum-labels'
 
 const formatLedgerDate = (dateString: string) => formatDateTime(dateString)
 
 export default function InventoryLedgerPage() {
+  const { t } = useTranslation('inventory')
+  useEffect(() => {
+    void ensureNamespaceLoaded('inventory')
+  }, [])
+
   const { itemId = '' } = useParams<{ itemId: string }>()
   const [searchParams] = useSearchParams()
   const sku = searchParams.get('sku') ?? undefined
@@ -44,6 +42,7 @@ export default function InventoryLedgerPage() {
 
   const { data: transactions, isLoading: isLedgerLoading, error: ledgerError } = useInventoryHistory(itemId)
   const isItemLoading = isDetailLoading || isListItemLoading
+  const emDash = t('shared.emDash')
 
   return (
     <div className="space-y-6">
@@ -55,23 +54,23 @@ export default function InventoryLedgerPage() {
         <Button variant="ghost" size="sm" asChild>
           <Link to="/inventory">
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Inventory
+            {t('ledger.backToInventory')}
           </Link>
         </Button>
         {canManage && item ? (
           <div className="flex flex-wrap items-center justify-end gap-2">
             <Button variant="outline" size="sm" onClick={() => setReceiveOpen(true)}>
-              Receive
+              {t('actions.receive')}
             </Button>
             <Button variant="outline" size="sm" onClick={() => setAdjustOpen(true)}>
-              Adjust
+              {t('actions.adjust')}
             </Button>
             <Button
               size="sm"
               disabled={!detailItem || isDetailLoading}
               onClick={() => setEditOpen(true)}
             >
-              Edit
+              {t('actions.edit')}
             </Button>
           </div>
         ) : null}
@@ -91,10 +90,10 @@ export default function InventoryLedgerPage() {
           ) : (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base font-semibold">Item Info</CardTitle>
+                <CardTitle className="text-base font-semibold">{t('ledger.itemInfoTitle')}</CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground">
-                {isItemLoading ? 'Loading item details...' : 'Item details unavailable.'}
+                {isItemLoading ? t('ledger.loadingItemDetails') : t('ledger.itemDetailsUnavailable')}
               </CardContent>
             </Card>
           )}
@@ -108,37 +107,37 @@ export default function InventoryLedgerPage() {
           >
             <Card className="h-full flex flex-col">
               <CardHeader>
-                <CardTitle className="text-base font-semibold">Stock Ledger</CardTitle>
+                <CardTitle className="text-base font-semibold">{t('ledger.stockLedgerTitle')}</CardTitle>
               </CardHeader>
               <CardContent className="flex-1 p-0 overflow-x-auto">
                 <Table className="min-w-[720px]">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Reference</TableHead>
-                      <TableHead>Location</TableHead>
-                      <TableHead className="text-right">Qty</TableHead>
-                      <TableHead className="text-right">Cost</TableHead>
+                      <TableHead>{t('ledger.columns.date')}</TableHead>
+                      <TableHead>{t('ledger.columns.type')}</TableHead>
+                      <TableHead>{t('ledger.columns.reference')}</TableHead>
+                      <TableHead>{t('ledger.columns.location')}</TableHead>
+                      <TableHead className="text-right">{t('ledger.columns.qty')}</TableHead>
+                      <TableHead className="text-right">{t('ledger.columns.cost')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {isLedgerLoading ? (
                       <TableRow>
                         <TableCell colSpan={6} className="py-6 text-center text-muted-foreground">
-                          Loading ledger...
+                          {t('ledger.loadingLedger')}
                         </TableCell>
                       </TableRow>
                     ) : ledgerError ? (
                       <TableRow>
                         <TableCell colSpan={6} className="py-6 text-center text-muted-foreground">
-                          Failed to load ledger.
+                          {t('ledger.loadLedgerFailed')}
                         </TableCell>
                       </TableRow>
                     ) : !transactions || transactions.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={6} className="py-6 text-center text-muted-foreground">
-                          No ledger activity yet.
+                          {t('ledger.noLedgerActivity')}
                         </TableCell>
                       </TableRow>
                     ) : (
@@ -148,20 +147,19 @@ export default function InventoryLedgerPage() {
                           transaction.cost_basis === null || transaction.cost_basis === undefined
                             ? null
                             : Number(transaction.cost_basis)
-                        const transactionTypeLabel =
-                          transactionLabels[transaction.type]?.trim() || transaction.type || 'Unknown'
+                        const transactionTypeLabel = formatInventoryTransactionType(transaction.type)
                         return (
                           <TableRow key={transaction.id}>
                             <TableCell>{formatLedgerDate(transaction.createdAt)}</TableCell>
                             <TableCell>{transactionTypeLabel}</TableCell>
-                            <TableCell>{transaction.reference_id ?? '—'}</TableCell>
-                            <TableCell>{transaction.location?.name ?? '—'}</TableCell>
+                            <TableCell>{transaction.reference_id ?? emDash}</TableCell>
+                            <TableCell>{transaction.location?.name ?? emDash}</TableCell>
                             <TableCell className="text-right">
                               {quantity > 0 ? '+' : ''}
                               {quantity}
                             </TableCell>
                             <TableCell className="text-right">
-                              {costValue === null ? '—' : formatCurrency(costValue)}
+                              {costValue === null ? emDash : formatCurrency(costValue)}
                             </TableCell>
                           </TableRow>
                         )

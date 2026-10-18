@@ -1,7 +1,11 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import deHr from '../../../../../locales/de/hr.json'
+import { registerGermanUiForTests } from '@/test/german-ui'
 import { TeamLeaveMonthGrid } from './TeamLeaveMonthGrid'
+
+registerGermanUiForTests()
 
 const employees = [
   { id: 'employee-1', name: 'Ada Lovelace', role: 'SERVICE_ADVISOR' as const },
@@ -42,7 +46,12 @@ describe('TeamLeaveMonthGrid', () => {
     expect(screen.getAllByText('Gebucht')).toHaveLength(2)
     const bookedCell = screen.getByTestId('leave-cell-employee-1-2026-08-03')
     expect(bookedCell).toHaveTextContent('Gebucht')
-    expect(bookedCell).toHaveAccessibleName('Ada Lovelace, 2026-08-03, status Gebucht')
+    expect(bookedCell).toHaveAccessibleName(
+      deHr.leave.grid.cellAria
+        .replace('{{name}}', 'Ada Lovelace')
+        .replace('{{date}}', '2026-08-03')
+        .replace('{{status}}', 'Gebucht'),
+    )
 
     fireEvent.click(screen.getByTestId('leave-cell-employee-2-2026-08-05'))
 

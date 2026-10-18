@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import type { TFunction } from 'i18next'
+import { useTranslation } from 'react-i18next'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { parseISO } from 'date-fns'
 import { Link } from 'react-router-dom'
@@ -26,11 +28,14 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { getErrorMessage, getErrorStatus } from '@/lib/error-utils'
+import { i18n } from '@/lib/i18n'
 import {
   formatLocalDateInZone,
   formatTimeInZone,
   resolvedSystemTimeZone,
 } from '@/lib/format'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { formatAttendanceEventType, formatAttendanceSource } from '@/lib/i18n/enum-labels'
 
 type AttendanceEventType = components['schemas']['AttendanceEventType']
 type TenantMemberRole = components['schemas']['TenantMemberRole']
@@ -46,13 +51,6 @@ type AttendanceTableRow = {
   event: AttendanceEventType
   source: AttendanceEvent['source']
   note: string
-}
-
-const EVENT_LABELS: Record<AttendanceEventType, string> = {
-  CLOCK_IN: 'Come to work',
-  PAUSE: 'Pause',
-  DOCTOR: 'Doctor',
-  CLOCK_OUT: 'Go home',
 }
 
 function isManagerRole(role: TenantMemberRole | null | undefined): boolean {
@@ -83,18 +81,14 @@ function compareEvents(left: AttendanceEvent, right: AttendanceEvent): number {
   return parseISO(left.occurredAt).getTime() - parseISO(right.occurredAt).getTime()
 }
 
-function formatSourceLabel(source: AttendanceEvent['source']): string {
-  return source === 'AUTO_SHIFT_CLOSE' ? 'Auto shift close' : source === 'MANAGER' ? 'Manager' : 'Self'
-}
-
-function MissingEmployeeState() {
+function MissingEmployeeState({ t }: { t: TFunction<'hr'> }) {
   return (
     <Alert>
-      <AlertTitle>No employee record linked</AlertTitle>
+      <AlertTitle>{t('clock.missingEmployee.title')}</AlertTitle>
       <AlertDescription className='flex flex-col items-start gap-2'>
-        <span>Ask an owner or administrator to link your account to an employee record.</span>
+        <span>{t('clock.missingEmployee.description')}</span>
         <Link className='font-medium underline underline-offset-4' to='/hr/employees'>
-          Go to HR Employees
+          {t('clock.missingEmployee.link')}
         </Link>
       </AlertDescription>
     </Alert>
@@ -110,11 +104,11 @@ function ClockPageSkeleton() {
   )
 }
 
-function TodayTimeline({ events, timezone }: { events: readonly AttendanceEvent[]; timezone: string }) {
+function TodayTimeline({ events, timezone, t }: { events: readonly AttendanceEvent[]; timezone: string; t: TFunction<'hr'> }) {
   const orderedEvents = useMemo(() => [...events].sort(compareEvents), [events])
 
   if (orderedEvents.length === 0) {
-    return <p className='text-sm text-slate-500'>No attendance events recorded today.</p>
+    return <p className='text-sm text-slate-500'>{t('clock.noEventsToday')}</p>
   }
 
   return (
@@ -125,9 +119,9 @@ function TodayTimeline({ events, timezone }: { events: readonly AttendanceEvent[
             {formatEventTime(event.occurredAt, timezone)}
           </time>
           <span data-timeline-label>
-            <StatusBadge status={event.type} label={EVENT_LABELS[event.type]} />
+            <StatusBadge status={event.type} label={formatAttendanceEventType(event.type)} />
           </span>
-          <span className='text-sm text-slate-500'>{formatSourceLabel(event.source)}</span>
+          <span className='text-sm text-slate-500'>{formatAttendanceSource(event.source)}</span>
         </li>
       ))}
     </ol>
@@ -141,10 +135,12 @@ type ManagerAttendanceSectionProps = {
 }
 
 function ManagerAttendanceSection({
+  t,
+
   selectedEmployeeId,
   today,
   timezone,
-}: ManagerAttendanceSectionProps) {
+}: ManagerAttendanceSectionProps & { t: TFunction<'hr'> }) {
   const [selectedDay, setSelectedDay] = useState(today)
   const { queryParams, setPagination, ...tableState } = useDataTableQuery({ defaultPageSize: 25 })
   const { data: attendanceEvents = [], isLoading: isAttendanceLoading, error: attendanceError } =
@@ -152,8 +148,8 @@ function ManagerAttendanceSection({
 
   useEffect(() => {
     if (!attendanceError) return
-    toast.error(getErrorMessage(attendanceError, 'Failed to load attendance'))
-  }, [attendanceError])
+    toast.error(getErrorMessage(attendanceError, t('clock.toast.loadAttendanceFailed')))
+  }, [attendanceError, t])
 
   const selectedEmployeeEvents = useMemo(
     () => attendanceEvents.filter((event) => event.employeeId === selectedEmployeeId),
@@ -176,7 +172,7 @@ function ManagerAttendanceSection({
     if (!search) return attendanceRows
 
     return attendanceRows.filter((row) =>
-      [row.time, EVENT_LABELS[row.event], row.event, formatSourceLabel(row.source), row.note]
+      [row.time, formatAttendanceEventType(row.event), row.event, formatAttendanceSource(row.source), row.note]
         .some((value) => value.toLowerCase().includes(search)),
     )
   }, [attendanceRows, queryParams.search])
@@ -206,39 +202,48 @@ function ManagerAttendanceSection({
     () => [
       {
         accessorKey: 'time',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Time' />,
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('clock.columns.time')} />,
         cell: ({ row }) => <span className='font-mono text-sm'>{row.original.time}</span>,
       },
       {
         accessorKey: 'event',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Event' />,
-        cell: ({ row }) => <StatusBadge status={row.original.event} label={EVENT_LABELS[row.original.event]} />,
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('clock.columns.event')} />,
+        cell: ({ row }) => (
+          <StatusBadge
+            status={row.original.event}
+            label={formatAttendanceEventType(row.original.event)}
+          />
+        ),
       },
       {
         accessorKey: 'source',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Source' />,
-        cell: ({ row }) => <StatusBadge status={row.original.source} label={formatSourceLabel(row.original.source)} />,
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('clock.columns.source')} />,
+        cell: ({ row }) => <StatusBadge status={row.original.source} label={formatAttendanceSource(row.original.source)} />,
       },
       {
         accessorKey: 'note',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Note' />,
-        cell: ({ row }) => <span className='text-slate-600'>{row.original.note || '—'}</span>,
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('clock.columns.note')} />,
+        cell: ({ row }) => (
+          <span className='text-slate-600'>
+            {row.original.note || i18n.t('common:placeholders.missing')}
+          </span>
+        ),
       },
     ],
-    [],
+    [t],
   )
 
   return (
     <section className='space-y-4' aria-labelledby='team-attendance-heading'>
       <div className='flex flex-col justify-between gap-4 rounded-lg border bg-white p-4 lg:flex-row lg:items-end'>
         <div>
-          <h2 id='team-attendance-heading' className='text-lg font-semibold'>Team attendance</h2>
-          <p className='text-sm text-slate-500'>Review attendance for the selected employee.</p>
+          <h2 id='team-attendance-heading' className='text-lg font-semibold'>{t('clock.teamAttendance')}</h2>
+          <p className='text-sm text-slate-500'>{t('clock.teamAttendanceHint')}</p>
         </div>
       </div>
 
       <div className='space-y-1'>
-        <label htmlFor='attendance-day' className='text-sm font-medium'>Attendance day</label>
+        <label htmlFor='attendance-day' className='text-sm font-medium'>{t('clock.attendanceDay')}</label>
         <Input
           id='attendance-day'
           type='date'
@@ -250,8 +255,8 @@ function ManagerAttendanceSection({
 
       {attendanceError ? (
         <Alert variant='destructive'>
-          <AlertTitle>Attendance unavailable</AlertTitle>
-          <AlertDescription>{getErrorMessage(attendanceError, 'Failed to load attendance')}</AlertDescription>
+          <AlertTitle>{t('clock.attendanceUnavailable')}</AlertTitle>
+          <AlertDescription>{getErrorMessage(attendanceError, t('clock.toast.loadAttendanceFailed'))}</AlertDescription>
         </Alert>
       ) : null}
 
@@ -260,7 +265,7 @@ function ManagerAttendanceSection({
         data={pagedRows}
         pageCount={pageCount}
         isLoading={isAttendanceLoading}
-        searchPlaceholder='Search attendance...'
+        searchPlaceholder={t('clock.searchPlaceholder')}
         setPagination={setPagination}
         {...tableState}
       />
@@ -269,6 +274,9 @@ function ManagerAttendanceSection({
 }
 
 export default function HrClockPage() {
+  const { t } = useTranslation('hr')
+  useEffect(() => { void ensureNamespaceLoaded('hr') }, [])
+
   const sessionQuery = useAuthSession()
   const meQuery = useHrMe()
   const clockQuery = useHrMeClock()
@@ -328,12 +336,12 @@ export default function HrClockPage() {
 
   useEffect(() => {
     if (!meQuery.error || getErrorStatus(meQuery.error) === 403) return
-    toast.error(getErrorMessage(meQuery.error, 'Failed to load HR profile'))
+    toast.error(getErrorMessage(meQuery.error, t('clock.toast.loadProfileFailed')))
   }, [meQuery.error])
 
   useEffect(() => {
     if (!clockQuery.error || getErrorStatus(clockQuery.error) === 403) return
-    toast.error(getErrorMessage(clockQuery.error, 'Failed to load attendance clock'))
+    toast.error(getErrorMessage(clockQuery.error, t('clock.toast.loadClockFailed')))
   }, [clockQuery.error])
 
   const handleSelfPunch = (type: AttendanceEventType) => {
@@ -341,7 +349,7 @@ export default function HrClockPage() {
       { type },
       {
         onError: (error: HrApiError) => {
-          toast.error(getErrorMessage(error, 'Failed to punch attendance clock'))
+          toast.error(getErrorMessage(error, t('clock.toast.punchFailed')))
         },
       },
     )
@@ -359,7 +367,7 @@ export default function HrClockPage() {
       { employeeId: selectedEmployeeId, type },
       {
         onError: (error) => {
-          toast.error(getErrorMessage(error, 'Failed to punch employee attendance'))
+          toast.error(getErrorMessage(error, t('clock.toast.punchEmployeeFailed')))
         },
       },
     )
@@ -369,8 +377,8 @@ export default function HrClockPage() {
     <div className='space-y-6'>
       <div className='flex items-center justify-between gap-4' data-testid='hr-clock-header'>
         <div>
-          <h2 className='text-2xl font-semibold tracking-tight'>Time Clock</h2>
-          <p className='text-slate-500'>Track attendance for today.</p>
+          <h2 className='text-2xl font-semibold tracking-tight'>{t('clock.pageTitle')}</h2>
+          <p className='text-slate-500'>{t('clock.pageDescription')}</p>
         </div>
         {!canManageAttendance && clockResponse && !isMissingEmployee ? (
           <AttendancePunchBar
@@ -382,7 +390,7 @@ export default function HrClockPage() {
         {canManageAttendance && !isMissingEmployee ? (
           <div className='flex flex-col gap-3 sm:flex-row sm:items-end' data-testid='hr-clock-manager-actions'>
             <div className='space-y-1'>
-              <label htmlFor='attendance-employee' className='text-sm font-medium'>Employee</label>
+              <label htmlFor='attendance-employee' className='text-sm font-medium'>{t('clock.employee')}</label>
               <select
                 id='attendance-employee'
                 value={selectedEmployeeId}
@@ -397,7 +405,7 @@ export default function HrClockPage() {
             </div>
             <AttendancePunchBar
               state={selectedEmployeeState ?? 'CLOCKED_OUT'}
-              statusLabel={selectedEmployeeState ? undefined : 'Unavailable'}
+              statusLabel={selectedEmployeeState ? undefined : t('clock.unavailable')}
               disabled={selectedEmployeeClockUnavailable}
               pending={selectedEmployeeId === meEmployeeId
                 ? punchClockMutation.isPending
@@ -409,14 +417,14 @@ export default function HrClockPage() {
       </div>
 
       {isMissingEmployee ? (
-        <MissingEmployeeState />
+        <MissingEmployeeState t={t} />
       ) : !canManageAttendance && (meQuery.isLoading || clockQuery.isLoading) ? (
         <ClockPageSkeleton />
       ) : !canManageAttendance && (meQuery.error || clockQuery.error || !meQuery.data || !clockResponse) ? (
         <Alert variant='destructive'>
-          <AlertTitle>Attendance unavailable</AlertTitle>
+          <AlertTitle>{t('clock.attendanceUnavailable')}</AlertTitle>
           <AlertDescription>
-            {getErrorMessage(meQuery.error ?? clockQuery.error, 'Failed to load time clock')}
+            {getErrorMessage(meQuery.error ?? clockQuery.error, t('clock.toast.loadTimeClockFailed'))}
           </AlertDescription>
         </Alert>
       ) : (
@@ -424,15 +432,16 @@ export default function HrClockPage() {
           {meQuery.data && clockResponse ? (
             <section className='space-y-3 rounded-lg border bg-white p-4' aria-labelledby='today-timeline-heading'>
               <div>
-                <h2 id='today-timeline-heading' className='text-lg font-semibold'>Today&apos;s timeline</h2>
-                <p className='text-sm text-slate-500'>Events are shown in the tenant&apos;s local time.</p>
+                <h2 id='today-timeline-heading' className='text-lg font-semibold'>{t('clock.todayTimeline')}</h2>
+                <p className='text-sm text-slate-500'>{t('clock.todayTimelineHint')}</p>
               </div>
-              <TodayTimeline events={todayEvents} timezone={timezone} />
+              <TodayTimeline events={todayEvents} timezone={timezone} t={t} />
             </section>
           ) : null}
 
           {canManageAttendance && selectedEmployeeId ? (
             <ManagerAttendanceSection
+              t={t}
               selectedEmployeeId={selectedEmployeeId}
               today={today}
               timezone={timezone}
