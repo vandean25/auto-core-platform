@@ -3,7 +3,7 @@ title: "core-api scheduled jobs"
 description: "Inventory of Nest @Cron workers in core-api and how multi-instance dedup works on Cloud Run."
 ---
 
-core-api runs background sweeps in-process via `@nestjs/schedule`. On Cloud Run, several instances can be healthy at once, so each job uses a **Postgres session advisory lock** (AUT-611) keyed by its stable cron `name`. If `pg_try_advisory_lock` fails, that instance skips the tick and logs once; the next schedule picks up work.
+core-api runs background sweeps in-process via `@nestjs/schedule`. On Cloud Run, several instances can be healthy at once, so each job uses a **Postgres session advisory lock** keyed by its stable cron `name`. If `pg_try_advisory_lock` fails, that instance skips the tick and logs once; the next schedule picks up work.
 
 Lock helper: `SystemPrismaService.withCronJobLock(jobName, fn)` pins one connection from the shared runtime `pg` pool for the whole sweep so session locks are not dropped while other queries use the pool (`apps/core-api/src/scheduler/cron-job-advisory-lock.ts`).
 
@@ -23,7 +23,7 @@ Lock helper: `SystemPrismaService.withCronJobLock(jobName, fn)` pins one connect
 | `notification-outbox-body-purge` | `17 3 * * *` | `NotificationOutboxRetentionService` | Clear terminal notification bodies after retention. |
 | `registration-intake-byte-purge` | Every minute | `RegistrationIntakeBytePurgeService` | Delete registration intake page bytes after apply (outbox claim). |
 | `registration-intake-expiry` | Every hour | `RegistrationIntakeExpiryService` | Abort unapplied registration intakes past TTL. |
-| `workshop-check-in-orphan-upload-cleanup` | Every minute | `WorkshopCheckInOrphanUploadCleanupService` | Purge unattached workshop check-in media (AUT-562; env gated). |
+| `workshop-check-in-orphan-upload-cleanup` | Every minute | `WorkshopCheckInOrphanUploadCleanupService` | Purge unattached workshop check-in media (env gated). |
 
 There are no `@Interval` schedulers in core-api today.
 
