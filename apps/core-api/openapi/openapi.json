@@ -3198,6 +3198,65 @@
         ]
       }
     },
+    "/api/legal-entities/{legalEntityId}/document-branding/assets": {
+      "post": {
+        "operationId": "DocumentBrandingController_uploadAsset",
+        "parameters": [
+          {
+            "name": "legalEntityId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "purpose",
+                  "file"
+                ],
+                "properties": {
+                  "purpose": {
+                    "type": "string",
+                    "enum": [
+                      "SOURCE",
+                      "LOGO"
+                    ]
+                  },
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Quarantined or validated asset metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentBrandAssetResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Upload a private document branding asset",
+        "tags": [
+          "Document branding"
+        ]
+      }
+    },
     "/api/legal-entities/{legalEntityId}/document-branding/extractions": {
       "post": {
         "operationId": "DocumentBrandingController_createExtraction",
@@ -3331,65 +3390,6 @@
           }
         },
         "summary": "Discard a letterhead extraction",
-        "tags": [
-          "Document branding"
-        ]
-      }
-    },
-    "/api/legal-entities/{legalEntityId}/document-branding/assets": {
-      "post": {
-        "operationId": "DocumentBrandingController_uploadAsset",
-        "parameters": [
-          {
-            "name": "legalEntityId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "purpose",
-                  "file"
-                ],
-                "properties": {
-                  "purpose": {
-                    "type": "string",
-                    "enum": [
-                      "SOURCE",
-                      "LOGO"
-                    ]
-                  },
-                  "file": {
-                    "type": "string",
-                    "format": "binary"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "202": {
-            "description": "Quarantined or validated asset metadata",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DocumentBrandAssetResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Upload a private document branding asset",
         "tags": [
           "Document branding"
         ]
