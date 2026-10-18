@@ -4,15 +4,13 @@ import {
   planCustomerDryRunRow,
   type CustomerMatchContext,
 } from '../import/customer-import.logic.js';
+import { normalizeVehicleRow } from '../import/vehicle-import-normalize.row.js';
 import {
-  normalizeVehicleRow,
   planVehicleDryRunRow,
   type VehicleMatchContext,
-} from '../import/vehicle-import.logic.js';
-import type {
-  NormalizedCustomerRow,
-  NormalizedVehicleRow,
-} from '../import/import.types.js';
+} from '../import/vehicle-import-plan.row.js';
+import type { NormalizedCustomerRow } from '../import/import.types.js';
+import type { NormalizedVehicleRow } from '../import/vehicle-import.types.js';
 import { DECISION_USE_CASES } from './decision.constants.js';
 import {
   classifyDocumentTextHeuristic,

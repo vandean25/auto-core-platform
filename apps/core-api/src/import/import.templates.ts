@@ -31,6 +31,11 @@ const VEHICLE_TEMPLATE: ImportTemplateDefinition = {
     { key: 'make', label_de: 'Marke', required: true },
     { key: 'model', label_de: 'Modell', required: true },
     { key: 'year', label_de: 'Baujahr', required: true },
+    {
+      key: 'first_registration_date',
+      label_de: 'Erstzulassung',
+      required: false,
+    },
     { key: 'mileage', label_de: 'Kilometerstand', required: false },
     { key: 'color', label_de: 'Farbe', required: false },
     {
@@ -41,7 +46,7 @@ const VEHICLE_TEMPLATE: ImportTemplateDefinition = {
     { key: 'key_number', label_de: 'Schlüsselnummer', required: false },
   ],
   csv_header:
-    'Fahrzeug-Nr;FIN;Kennzeichen;Marke;Modell;Baujahr;Kilometerstand;Farbe;Kunden-Nr;Schlüsselnummer',
+    'Fahrzeug-Nr;FIN;Kennzeichen;Marke;Modell;Baujahr;Erstzulassung;Kilometerstand;Farbe;Kunden-Nr;Schlüsselnummer',
 };
 
 const LABOR_OPERATION_TEMPLATE: ImportTemplateDefinition = {

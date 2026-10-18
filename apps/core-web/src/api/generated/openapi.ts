@@ -6303,9 +6303,9 @@ export interface components {
             themeHash: string;
         };
         CreateDocumentBrandExtractionDto: {
+            expectedRevision: number;
             /** Format: uuid */
             sourceAssetId: string;
-            expectedRevision: number;
         };
         DocumentBrandExtractionResponseDto: {
             /** Format: uuid */
