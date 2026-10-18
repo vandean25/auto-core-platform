@@ -126,20 +126,51 @@
             ]
           },
           {
+            "group": "Finance",
+            "pages": [
+              "workflows/credit-notes",
+              "workflows/accounting-export",
+              "settings/document-branding"
+            ]
+          },
+          {
             "group": "Workshop",
             "pages": [
               "workflows/workshop-intake",
               "workflows/workshop-orders",
+              "workflows/workshop-check-in",
+              "workflows/warranty-claims",
               "workflows/workshop-planner",
               "workflows/workshop-board",
               "workflows/workshop-pick",
               "workflows/mechanic",
-              "workflows/workshop-kpis"
+              "workflows/workshop-capacity",
+              "workflows/workshop-kpis",
+              "workflows/loaner-vehicles",
+              "workflows/tyre-storage"
+            ]
+          },
+          {
+            "group": "Vehicles and trading",
+            "pages": [
+              "workflows/vehicle-stock",
+              "workflows/listings-export"
+            ]
+          },
+          {
+            "group": "Austria compliance",
+            "pages": [
+              "workflows/pickerl-due",
+              "workflows/nova",
+              "workflows/statutory-warranty-due"
             ]
           },
           {
             "group": "Inventory",
-            "pages": ["workflows/inventory"]
+            "pages": [
+              "workflows/inventory",
+              "workflows/stock-transfers"
+            ]
           },
           {
             "group": "Procurement",
@@ -151,7 +182,11 @@
           },
           {
             "group": "Platform",
-            "pages": ["workflows/platform-tenants"]
+            "pages": [
+              "workflows/platform-tenants",
+              "workflows/sites",
+              "workflows/agent-supervision"
+            ]
           }
         ]
       },
@@ -168,8 +203,13 @@
             "pages": [
               "settings/finance",
               "settings/legal-entities",
+              "settings/document-branding",
               "settings/revenue-groups"
             ]
+          },
+          {
+            "group": "Organization",
+            "pages": ["settings/sites"]
           },
           {
             "group": "Workshop",
@@ -182,11 +222,20 @@
           },
           {
             "group": "Master data",
-            "pages": ["settings/brands", "settings/storage-locations"]
+            "pages": [
+              "settings/brands",
+              "settings/storage-locations",
+              "settings/vehicle-data",
+              "settings/margin-rules"
+            ]
           },
           {
             "group": "Access",
             "pages": ["settings/team"]
+          },
+          {
+            "group": "Integrations",
+            "pages": ["settings/data-import", "settings/api-keys"]
           },
           {
             "group": "Audit & compliance",

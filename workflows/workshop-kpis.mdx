@@ -1,54 +1,48 @@
 ---
-title: Workshop-Kennzahlen
-description: Vergleichen Sie Arbeitsleistung und Teilebestand an einem Werkstattstandort.
+title: "Workshop KPIs"
+description: "Compare labor utilisation and parts turnover for one workshop site."
 ---
 
-# Workshop-Kennzahlen
+**Workshop KPIs** reports how much workshop time was available, clocked, and sold, and how parts inventory moved in a date range.
 
-Mit dem Bericht sehen Sie, wie viel Werkstattzeit verfügbar, gebucht und fakturiert wurde und wie sich der Teilebestand bewegt.
+**OWNER**, **ADMIN**, and **SALES** roles see the sidebar entry. Other roles do not.
 
 <Steps>
-  <Step title="Bericht öffnen">
-    Öffnen Sie **Workshop KPIs** im Workshop-Menü.
+  <Step title="Open Workshop KPIs">
+    Sidebar → **Workshop KPIs**.
   </Step>
-  <Step title="Standort und Zeitraum wählen">
-    Wählen Sie einen Standort, das Start- und Enddatum sowie die Gruppierung nach Mechaniker, Kalenderwoche oder Monat.
+  <Step title="Choose site and period">
+    Pick **Site**, **From**, **To**, and **Group by** (mechanic, week, or month).
   </Step>
-  <Step title="Bericht exportieren">
-    Wählen Sie **CSV exportieren**, um Arbeitsleistung, Lagerumschlag und langsam drehende Teile herunterzuladen.
+  <Step title="Export CSV">
+    Click **Export CSV** to download labor performance, parts turnover, and slow-moving parts.
   </Step>
 </Steps>
 
 <CardGroup cols={2}>
-  <Card title="Arbeitsleistung" icon="wrench">
-    - **Verfügbar**: Dienstplanzeit am ausgewählten Standort, abzüglich gebuchter Abwesenheiten und ganztägig geschlossener Werkstattfeiertage.
-    - **Auslastung**: abgeschlossene Arbeitszeit ÷ verfügbare Zeit × 100.
-    - **Leistungsgrad**: fakturierte Arbeitsstunden aus endgültigen Rechnungspositionen ÷ abgeschlossene Arbeitszeit × 100.
-    - **Nettoerlös je Auftrag**: Nettoerlös endgültiger Werkstattrechnungen ÷ abgerechnete Aufträge.
+  <Card title="Labor performance" icon="wrench">
+    **Available** hours from schedules minus absences and full-day holidays. **Utilisation** is clocked ÷ available. **Productivity** is sold hours from finalized invoice lines ÷ clocked hours. **Avg. net/order** divides net revenue on finalized workshop invoices by closed orders.
   </Card>
-  <Card title="Lagerumschlag" icon="package">
-    - **Verbrauchskosten**: Kostenbasis der Werkstattverbrauchsbuchungen im Zeitraum.
-    - **Ø Lagerwert**: Summe der bewerteten Tagesendbestände ÷ Kalendertage im Zeitraum.
-    - **Umschlag**: Verbrauchskosten ÷ durchschnittlicher Lagerwert.
-    - Die Liste zeigt bis zu zehn Teile ohne Werkstattverbrauch in den letzten 90 Tagen.
+  <Card title="Parts turnover" icon="package">
+    **Issued cost** from workshop consumption in the period. **Avg. stock value** averages daily valued stock. **Turnover** is issued cost ÷ average stock. Up to ten parts with no consumption in 90 days appear as slow movers.
   </Card>
 </CardGroup>
 
 <Check>
-  Sie sehen nur Standorte, für die Sie eine aktive Standortmitgliedschaft haben. Datumsgrenzen richten sich nach der Zeitzone des gewählten Standorts. Ein Bericht umfasst höchstens 366 Kalendertage.
+You only see sites where you have an active site membership. Date boundaries use the selected site time zone. A single report spans at most 366 calendar days.
 </Check>
 
 <AccordionGroup>
-  <Accordion title="Warum fehlen offene Zeiteinträge in den Stunden?">
-    Ein Zeiteintrag ohne Endzeit zählt nicht zu den gebuchten Arbeitsstunden. Seine Anzahl erscheint separat.
+  <Accordion title="Open labor time entries">
+    Time entries without an end time do not count toward clocked hours. The report shows open entry counts separately.
   </Accordion>
-  <Accordion title="Wie werden Dienstplanwechsel berücksichtigt?">
-    Für jeden Tag gilt die Dienstplanversion, die an diesem Datum beginnt. Die Standortzuordnung dieser Version bestimmt, welchem Standort die verfügbare Zeit zugerechnet wird.
+  <Accordion title="Schedule version changes">
+    Each day uses the schedule version that starts on that date. The site on that version decides which site receives available hours.
   </Accordion>
-  <Accordion title="Was bedeutet ein leerer Prozentwert oder Lagerwert?">
-    Wenn verfügbare oder gebuchte Stunden null sind, zeigt der Bericht keinen Prozentwert. Für nicht bewertete Bestände wird kein Lagerwert geschätzt; der Bericht weist solche Positionen separat aus.
+  <Accordion title="Blank percentages or stock value">
+    When available or clocked hours are zero, utilisation and productivity stay empty. Unvalued stock is not guessed; the report lists unvalued items separately.
   </Accordion>
-  <Accordion title="Was enthält der CSV-Export?">
-    Der Export enthält die Arbeitsleistungszeilen samt Gesamtzeile, eine Zeile mit den Lagerumschlagswerten, einzelne Zeilen für langsam drehende Teile und eine Zeile mit Berichtszeitzone, Gruppierung und nicht zugeordneten Mechanikern. Trennzeichen ist ein Semikolon; Zahlen behalten den Dezimalpunkt.
+  <Accordion title="CSV format">
+    The export uses semicolon separators and dot decimals. It includes labor rows, a total row, parts turnover summary, slow-mover lines, and metadata (time zone, grouping, unassigned mechanics).
   </Accordion>
 </AccordionGroup>

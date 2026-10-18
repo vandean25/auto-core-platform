@@ -1,0 +1,33 @@
+---
+title: "Listings export"
+description: "Export vehicle stock ads to mobile.de, willhaben, or AutoScout24."
+---
+
+The listing editor on a **vehicle stock** unit prepares marketplace fields, equipment mapping, and consumer hints (including NoVA wording). Export generates portal-specific files you upload or push according to each portal’s process.
+
+Sales and admins manage listings. Advisors can help with photos and descriptions.
+
+<Steps>
+  <Step title="Open stock detail">
+    **Vehicle Stock** → click the unit → open the **Listing** editor.
+  </Step>
+  <Step title="Complete required fields">
+    Fill title, price, mileage, equipment, and confirm **NoVA included** when the ad must state tax treatment (*inkl. USt. und NoVA* in German copy).
+  </Step>
+  <Step title="Choose portal profile">
+    Select the target portal (for example **mobile.de**, **willhaben**, or **AutoScout24**). Equipment codes map through ACP’s portal tables.
+  </Step>
+  <Step title="Export">
+    Run **Export** and download the generated file or follow the in-app push flow when AutoScout24 DMS API credentials are configured for your tenant.
+  </Step>
+</Steps>
+
+<Warning>
+Portal acceptance is yours to verify. ACP maps known equipment codes; unmapped options export as free text and may need manual cleanup in the portal UI.
+</Warning>
+
+<AccordionGroup>
+  <Accordion title="Who can use this">
+    Anyone who can edit vehicle stock economics and marketing fields can export. API push requires operator-level credentials outside this guide.
+  </Accordion>
+</AccordionGroup>
