@@ -75,6 +75,15 @@ Read tools are tenant- or active-site-scoped by the server. Their tier is `AUTO`
 | `request_workshop_media_upload` | Reserve a short-lived direct upload slot for workshop task photos (jpeg, png, heic, or webp); returns `media_id` and presigned POST fields only | Write | Off by default; AUTO when enabled |
 | `propose_mechanic_finding` | Propose an additional mechanic finding with photos for internal advisor review; never sends customer messages | Write | Off by default; PROPOSE when enabled (clamped from AUTO) |
 
+## Compliance read tools
+
+| Tool | Description | Access | Policy tier |
+| ---- | ----------- | ------ | ----------- |
+| `check_contact_permission` | Whether the tenant may contact a customer for a purpose and channel (`allowed` and `reason` only; no consent ledger text) | Read | AUTO |
+| `list_gewaehrleistung_due` | Consumer vehicle sales at the active site whose base Gewährleistung period ends within 30, 60, or 90 days | Read | AUTO |
+| `list_tyre_sets` | Tyre storage sets at the active site by customer, vehicle, status, or due-for-swap | Read | AUTO |
+| `list_warranty_claims` | Garantie, Kulanz, and Gewährleistung claims at the active site, optionally for one workshop order (no complaint text) | Read | AUTO |
+
 Write tools start Off (`enabled: false`) in the platform policy table. A tenant admin must enable a tool through the policy table before it can run; the admin cannot loosen the platform tier or conditions. `propose_line_item`, `propose_registration_intake`, `propose_workshop_booking`, `propose_purchase_order`, `propose_workshop_order_completion`, `propose_invoice_draft_from_order`, `propose_estimate_send`, and `propose_mechanic_finding` are clamped to `PROPOSE`. The server evaluates every write call, so never infer permission from this table alone.
 
 ### Reservation rules
@@ -97,13 +106,14 @@ Policy-mode wording maps approximately as follows: `Allowed` to `AUTO`, `Ask fir
 
 Offset list and search tools accept `page` and `pageSize`; the server defaults to page 1 and 10 rows and caps `pageSize` at 25. Cursor-based tools take `pageSize` and an opaque `cursor` from `meta.next_cursor` with the same default and maximum. `get_customer` and `get_vehicle_history` page their order list with `orders_page_size` and `orders_cursor`. Offset cursors are limited to `get_capabilities`, the three stock/Pickerl report reads, and nothing else; other cursor tools use keyset positions.
 
-- `get_capabilities` pages the tool catalog by offset. Its default and maximum page size is 25. The catalog holds 55 tools, so follow `meta.next_cursor` before deciding that a write tool is unavailable.
+- `get_capabilities` pages the tool catalog by offset. Its default and maximum page size is 25. The catalog holds 59 tools, so follow `meta.next_cursor` before deciding that a write tool is unavailable.
 - `list_sites` pages with `pageSize` (default 10, max 25) and an opaque `cursor` from `meta.next_cursor`, in site code order.
 - `list_audit_events`, `get_entity_history`, `get_agent_action`, and `list_agent_actions` page with a keyset cursor. The default page size is 10 and the maximum is 25. Audit lists are newest first. `get_agent_action` log rows are oldest first.
 - `list_invoices` pages with a keyset cursor over issue date and invoice ID, with the same default and maximum. It is newest first.
 - `list_documents` pages with `pageSize` and a keyset `cursor` over generation time and record ID, with the same default and maximum. It is newest first. The order lists of `get_customer` and `get_vehicle_history` page with `orders_page_size` and `orders_cursor`, newest first, with the same default and maximum.
 - `list_purchase_orders` and `list_vendors` page the same way: `pageSize` and a keyset `cursor`, newest first, with the same default and maximum.
-- `get_vehicle_stock_age_report`, `get_vehicle_stock_margin_report`, and `list_pickerl_due` take `pageSize` (default 10, max 25) and an opaque `cursor` from `meta.next_cursor`. Their cursor is an offset over the report's rows, so the next page starts after the last row returned.
+- `get_vehicle_stock_age_report`, `get_vehicle_stock_margin_report`, `list_pickerl_due`, `list_gewaehrleistung_due`, and `list_tyre_sets` take `pageSize` (default 10, max 25) and an opaque `cursor` from `meta.next_cursor`. Their cursor is an offset over the report's rows, so the next page starts after the last row returned.
+- `list_warranty_claims` pages with `pageSize` and a keyset `cursor` over `created_at` then claim `id`, newest first, with the same default and maximum.
 - `list_workshop_slots` pages with `pageSize` and a keyset `cursor` over `start_at` then `bay_id`, ascending. Rows are sorted that way before paging, so pages stay stable when the underlying slot list does not change between calls.
 - `list_available_loaners` pages with `pageSize` and a keyset `cursor` over `loaner_vehicle_id`, ascending. Treat availability as a snapshot: re-check before booking if you page across calls.
 
@@ -205,6 +215,13 @@ The serialized-result cap is 32 KB (32,768). An audit or agent action page drops
 - Both stock reports return `data` rows, a `totals` block, and `meta` with `total`, `page_size`, and `next_cursor`. Amounts are EUR decimal strings.
 - `list_pickerl_due` lists vehicles whose Pickerl falls due within `window` days (30, 60, or 90; default 30), counted from today. Overdue vehicles are always listed. Each row has `vehicle`, `customer_name`, `status`, and `due_date`, the last day of the sticker's due month. Overdue rows come first, then rows by due month. It sends no reminder; reminders are a person's action.
 - `get_nova_preview` takes `vehicle_id` and `net_price_eur`, the net vehicle price without VAT as a EUR decimal string. It is a calculation only: nothing is saved, and no invoice is created, changed, or sent. Every result has a `note`, which says the Steuerberater must still confirm while any unconfirmed rule applies. When `has_unverified_rules` is `true`, `warnings` names the rules, and the amount must not be relied on until the Steuerberater confirms it. Never present a NoVA amount as a confirmed tax figure.
+
+### Consent, Gewährleistung, tyre storage, and warranty reads
+
+- `check_contact_permission` needs OWNER, ADMIN, or SALES, like the consent ledger REST API. It takes `customer_id`, `purpose`, `channel`, and optional `controller_legal_entity_id` when more than one legal entity is active. The result is only `allowed` and `reason` from the consent rules; ledger text, snapshots, and evidence are never returned.
+- `list_gewaehrleistung_due` uses the same Gewährleistung due query as `GET /vehicle-stock/gewaehrleistung-due` at the active site. `within_days` is 30, 60, or 90 (default 30). Rows include vehicle identity, sale metadata, end dates, and a formatted `customer_name`.
+- `list_tyre_sets` uses the tyre storage service at the active site. Filter by `customer_id`, `vehicle_id`, `status`, or set `due_for_swap` to true for the seasonal swap list. Contact fields match the REST tyre set list for the same roles (OWNER, ADMIN, SALES, and TECH).
+- `list_warranty_claims` needs OWNER, ADMIN, or SALES, like workshop warranty claim REST endpoints. Optional `order_id`, `status`, and `type` (`GARANTIE`, `KULANZ`, or `GEWAEHRLEISTUNG`) filter the active site. Rows are compact: amounts, status, and line count only; complaint, cause, and decision note text are omitted.
 
 ## Outcomes and errors
 

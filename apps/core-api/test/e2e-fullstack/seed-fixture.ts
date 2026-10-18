@@ -13,6 +13,7 @@ import {
   createTestAuthToken,
   createTestTenant,
   resolveTestMainSiteId,
+  seedTestTenantMember,
   type TestTenantResult,
 } from '../tenant-test-utils.js';
 import {
@@ -30,6 +31,12 @@ import {
   E2E_FULLSTACK_CUSTOMER_LABEL,
   E2E_FULLSTACK_FIXTURE_RELATIVE_PATH,
   E2E_FULLSTACK_JWT_SECRET,
+  E2E_FULLSTACK_MECHANIC_NAME,
+  E2E_FULLSTACK_VEHICLE_BUYER_FIRST,
+  E2E_FULLSTACK_VEHICLE_BUYER_LAST,
+  E2E_FULLSTACK_VENDOR_NAME,
+  E2E_FULLSTACK_WORKSHOP_ORDER_NUMBER,
+  E2E_FULLSTACK_WORKSHOP_TASK_TITLE,
 } from './constants.js';
 import { teardownTestApp } from '../test-lifecycle.js';
 
@@ -41,6 +48,17 @@ export type E2eFullstackFixture = {
   catalogSku: string;
   catalogName: string;
   catalogItemId: string;
+  vendorId: string;
+  vendorName: string;
+  vehicleBuyerId: string;
+  vehicleBuyerLabel: string;
+  mechanicAuthToken: string;
+  mechanicEmployeeId: string;
+  mechanicEmployeeName: string;
+  workshopOrderId: string;
+  workshopOrderNumber: string;
+  workshopTaskId: string;
+  workshopTaskTitle: string;
 };
 
 const repoRoot = resolve(
@@ -76,6 +94,16 @@ async function seedBaseTenantData(
   authToken: string;
   customerId: string;
   catalogItemId: string;
+  vendorId: string;
+  vehicleBuyerId: string;
+  vehicleBuyerLabel: string;
+  mechanicAuthToken: string;
+  mechanicEmployeeId: string;
+  mechanicEmployeeName: string;
+  workshopOrderId: string;
+  workshopOrderNumber: string;
+  workshopTaskId: string;
+  workshopTaskTitle: string;
 }> {
   await truncateTransactionalTables(prisma);
 
@@ -83,10 +111,118 @@ async function seedBaseTenantData(
   const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
   const authToken = createTestAuthToken(app.get(AuthService), tenant);
 
-  await seedReadySellerAndAccountingProfile(tenantPrisma, tenant.tenantId);
+  await seedReadySellerAndAccountingProfile(tenantPrisma, tenant.tenantId, {
+    includeVehicleMargin: true,
+  });
   const customer = await seedInvoiceReadyCustomer(tenantPrisma, tenant.tenantId);
 
   const siteId = await resolveTestMainSiteId(prisma, tenant.tenantId);
+
+  const vendor = await tenantPrisma.vendor.create({
+    data: {
+      name: E2E_FULLSTACK_VENDOR_NAME,
+      email: 'e2e-fullstack-vendor@auto.core.test',
+      account_number: 'E2E-FS-VND',
+    },
+  });
+
+  const vehicleBuyer = await tenantPrisma.customer.create({
+    data: {
+      first_name: E2E_FULLSTACK_VEHICLE_BUYER_FIRST,
+      last_name: E2E_FULLSTACK_VEHICLE_BUYER_LAST,
+      email: 'e2e-fullstack-vehicle-buyer@auto.core.test',
+      type: 'PRIVATE',
+      address_street: 'Testgasse 2',
+      address_zip: '1020',
+      address_city: 'Wien',
+      address_country: 'AT',
+    },
+  });
+
+  const authService = app.get(AuthService);
+  const mechanicFirebaseUid = `e2e-fullstack-mechanic-${tenant.tenantId}`;
+  const mechanicUser = await prisma.user.create({
+    data: {
+      firebaseUid: mechanicFirebaseUid,
+      email: `e2e-fullstack-mechanic-${tenant.tenantId}@auto.core.test`,
+    },
+  });
+  await seedTestTenantMember(prisma, {
+    tenantId: tenant.tenantId,
+    userId: mechanicUser.id,
+    role: 'TECH',
+  });
+  await tenantPrisma.siteMembership.create({
+    data: {
+      tenant_id: tenant.tenantId,
+      user_id: mechanicUser.id,
+      site_id: siteId,
+      is_active: true,
+    },
+  });
+  await prisma.user.update({
+    where: { id: mechanicUser.id },
+    data: {
+      active_tenant_id: tenant.tenantId,
+      active_site_id: siteId,
+    },
+  });
+  const mechanicEmployee = await tenantPrisma.employee.create({
+    data: {
+      tenant_id: tenant.tenantId,
+      name: E2E_FULLSTACK_MECHANIC_NAME,
+      role: 'MECHANIC',
+      is_active: true,
+      user_id: mechanicUser.id,
+    },
+  });
+  const mechanicAuthToken = authService.createTestToken({
+    sub: mechanicFirebaseUid,
+    email: mechanicUser.email,
+    tenantId: tenant.tenantId,
+    role: 'TECH',
+  });
+
+  const workshopCustomer = await tenantPrisma.customer.create({
+    data: {
+      first_name: 'Werkstatt',
+      last_name: 'Kundin E2E',
+      email: 'e2e-fullstack-workshop-customer@auto.core.test',
+      type: 'PRIVATE',
+    },
+  });
+  const workshopVehicle = await tenantPrisma.vehicle.create({
+    data: {
+      tenant_id: tenant.tenantId,
+      make: 'Skoda',
+      model: 'Fabia',
+      year: 2019,
+      vin: 'WVWE2EFULLSTKW001',
+      plate: 'W-E2EFS1',
+      customer_id: workshopCustomer.id,
+    },
+  });
+  const workshopOrder = await tenantPrisma.workshopOrder.create({
+    data: {
+      tenant_id: tenant.tenantId,
+      site_id: siteId,
+      order_number: E2E_FULLSTACK_WORKSHOP_ORDER_NUMBER,
+      customer_id: workshopCustomer.id,
+      vehicle_id: workshopVehicle.id,
+      odometer: 95_000,
+      fuel_level: 40,
+      status: 'INTAKE',
+    },
+  });
+  const workshopTask = await tenantPrisma.workshopTask.create({
+    data: {
+      tenant_id: tenant.tenantId,
+      workshop_order_id: workshopOrder.id,
+      title: E2E_FULLSTACK_WORKSHOP_TASK_TITLE,
+      sequence: 1,
+      status: 'NOT_STARTED',
+    },
+  });
   const catalogItem = await tenantPrisma.catalogItem.create({
     data: {
       sku: E2E_FULLSTACK_CATALOG_SKU,
@@ -142,6 +278,16 @@ async function seedBaseTenantData(
     authToken,
     customerId: customer.id,
     catalogItemId,
+    vendorId: vendor.id,
+    vehicleBuyerId: vehicleBuyer.id,
+    vehicleBuyerLabel: `${E2E_FULLSTACK_VEHICLE_BUYER_FIRST} ${E2E_FULLSTACK_VEHICLE_BUYER_LAST}`,
+    mechanicAuthToken,
+    mechanicEmployeeId: mechanicEmployee.id,
+    mechanicEmployeeName: E2E_FULLSTACK_MECHANIC_NAME,
+    workshopOrderId: workshopOrder.id,
+    workshopOrderNumber: E2E_FULLSTACK_WORKSHOP_ORDER_NUMBER,
+    workshopTaskId: workshopTask.id,
+    workshopTaskTitle: E2E_FULLSTACK_WORKSHOP_TASK_TITLE,
   };
 }
 
@@ -170,22 +316,32 @@ export async function seedE2eFullstackFixture(
   const prisma = app.get(PrismaService);
 
   try {
-    const { tenant, authToken, customerId, catalogItemId } =
-      await seedBaseTenantData(app, prisma);
+    const seeded = await seedBaseTenantData(app, prisma);
 
     await request(app.getHttpServer())
       .get('/api/auth/me')
-      .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${seeded.authToken}`)
       .expect(200);
 
     const fixture: E2eFullstackFixture = {
-      authToken,
-      tenantId: tenant.tenantId,
-      customerId,
+      authToken: seeded.authToken,
+      tenantId: seeded.tenant.tenantId,
+      customerId: seeded.customerId,
       customerLabel: E2E_FULLSTACK_CUSTOMER_LABEL,
       catalogSku: E2E_FULLSTACK_CATALOG_SKU,
       catalogName: E2E_FULLSTACK_CATALOG_NAME,
-      catalogItemId,
+      catalogItemId: seeded.catalogItemId,
+      vendorId: seeded.vendorId,
+      vendorName: E2E_FULLSTACK_VENDOR_NAME,
+      vehicleBuyerId: seeded.vehicleBuyerId,
+      vehicleBuyerLabel: seeded.vehicleBuyerLabel,
+      mechanicAuthToken: seeded.mechanicAuthToken,
+      mechanicEmployeeId: seeded.mechanicEmployeeId,
+      mechanicEmployeeName: seeded.mechanicEmployeeName,
+      workshopOrderId: seeded.workshopOrderId,
+      workshopOrderNumber: seeded.workshopOrderNumber,
+      workshopTaskId: seeded.workshopTaskId,
+      workshopTaskTitle: seeded.workshopTaskTitle,
     };
 
     await mkdir(dirname(fixturePath), { recursive: true });
