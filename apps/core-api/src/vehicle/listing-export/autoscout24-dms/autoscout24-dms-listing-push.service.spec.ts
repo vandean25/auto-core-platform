@@ -53,7 +53,10 @@ function buildListingFixture() {
   };
 }
 
-function createSyncStore(initial?: Partial<SyncRow>) {
+function createSyncStore(
+  initial?: Partial<SyncRow>,
+  options?: { serializeTransactions?: boolean },
+) {
   const row: SyncRow = {
     id: 'sync-1',
     tenant_id: 'tenant-1',
@@ -101,8 +104,26 @@ function createSyncStore(initial?: Partial<SyncRow>) {
     $queryRaw: prisma.$queryRaw,
   };
 
+  let transactionChain = Promise.resolve();
   prisma.$transaction.mockImplementation(
-    async (callback: (client: typeof tx) => Promise<unknown>) => callback(tx),
+    async (callback: (client: typeof tx) => Promise<unknown>) => {
+      if (!options?.serializeTransactions) {
+        return callback(tx);
+      }
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const run = transactionChain.then(async () => {
+        try {
+          return await callback(tx);
+        } finally {
+          release();
+        }
+      });
+      transactionChain = gate;
+      return run;
+    },
   );
 
   return { prisma, row };
@@ -278,6 +299,172 @@ describe('Autoscout24DmsListingPushService', () => {
         action: 'UPSERT',
       }),
     ).rejects.toBeInstanceOf(UnprocessableEntityException);
+  });
+
+  it('replays DEACTIVATE for the same idempotency key', async () => {
+    syncStore.row.sync_state = VehicleListingDmsSyncState.SYNCED;
+    syncStore.row.external_listing_id = 'as24-fake-existing';
+
+    const first = await service.pushListing('vehicle-1', {
+      idempotency_key: 'deact-replay',
+      expected_revision: 3,
+      action: 'DEACTIVATE',
+    });
+    const deactivateCalls = publisher.contract.calls.filter(
+      (c) => c.method === 'DEACTIVATE',
+    ).length;
+
+    const replay = await service.pushListing('vehicle-1', {
+      idempotency_key: 'deact-replay',
+      expected_revision: 3,
+      action: 'DEACTIVATE',
+    });
+
+    expect(first.sync_state).toBe(VehicleListingDmsSyncState.DEACTIVATED);
+    expect(replay.idempotent_replay).toBe(true);
+    expect(replay.sync_state).toBe(VehicleListingDmsSyncState.DEACTIVATED);
+    expect(
+      publisher.contract.calls.filter((c) => c.method === 'DEACTIVATE').length,
+    ).toBe(deactivateCalls);
+  });
+
+  it('rejects a second push while another idempotency key is PENDING', async () => {
+    syncStore.row.sync_state = VehicleListingDmsSyncState.PENDING;
+    syncStore.row.last_idempotency_key = 'in-flight';
+
+    await expect(
+      service.pushListing('vehicle-1', {
+        idempotency_key: 'other-key',
+        expected_revision: 3,
+        action: 'UPSERT',
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('uses only one remote create when two upserts run sequentially', async () => {
+    const createCalls: string[] = [];
+    const upsertSpy = jest.spyOn(publisher, 'upsertListing');
+    upsertSpy.mockImplementation(async (key, body, externalId) => {
+      if (!externalId) {
+        createCalls.push(key);
+      }
+      return publisher.contract.upsertListing(key, body, externalId);
+    });
+
+    await service.pushListing('vehicle-1', {
+      idempotency_key: 'seq-1',
+      expected_revision: 3,
+      action: 'UPSERT',
+    });
+    await service.pushListing('vehicle-1', {
+      idempotency_key: 'seq-2',
+      expected_revision: 3,
+      action: 'UPSERT',
+    });
+
+    expect(createCalls).toEqual(['seq-1']);
+    upsertSpy.mockRestore();
+  });
+
+  it('does not overwrite SYNCED with FAILED when a stale attempt fails', async () => {
+    await service.pushListing('vehicle-1', {
+      idempotency_key: 'winner',
+      expected_revision: 3,
+      action: 'UPSERT',
+    });
+    expect(syncStore.row.sync_state).toBe(VehicleListingDmsSyncState.SYNCED);
+
+    const stalePublisher = {
+      upsertListing: jest.fn().mockImplementation(async () => {
+        Object.assign(syncStore.row, {
+          sync_state: VehicleListingDmsSyncState.SYNCED,
+          last_idempotency_key: 'winner',
+          last_sync_error_code: null,
+        });
+        throw new Autoscout24DmsAdapterError('client_error', 'stale', 400);
+      }),
+      deactivateListing: jest.fn(),
+    };
+    const staleService = new Autoscout24DmsListingPushService(
+      syncStore.prisma as unknown as PrismaService,
+      tenantContext as unknown as TenantContextService,
+      siteContext as unknown as SiteContextService,
+      stalePublisher,
+    );
+
+    await expect(
+      staleService.pushListing('vehicle-1', {
+        idempotency_key: 'stale-loser',
+        expected_revision: 3,
+        action: 'UPSERT',
+      }),
+    ).rejects.toBeInstanceOf(UnprocessableEntityException);
+
+    expect(syncStore.row.sync_state).toBe(VehicleListingDmsSyncState.SYNCED);
+    expect(syncStore.row.last_idempotency_key).toBe('winner');
+  });
+
+  it('maps rate_limit retry_after_seconds on the HTTP exception', async () => {
+    const failingPublisher = {
+      upsertListing: jest.fn().mockRejectedValue(
+        new Autoscout24DmsAdapterError('rate_limit', 'limited', 429, 120),
+      ),
+      deactivateListing: jest.fn(),
+    };
+    const rateLimitService = new Autoscout24DmsListingPushService(
+      syncStore.prisma as unknown as PrismaService,
+      tenantContext as unknown as TenantContextService,
+      siteContext as unknown as SiteContextService,
+      failingPublisher,
+    );
+
+    const error = await rateLimitService
+      .pushListing('vehicle-1', {
+        idempotency_key: 'retry-after',
+        expected_revision: 3,
+        action: 'UPSERT',
+      })
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(BadGatewayException);
+    expect((error as BadGatewayException).getResponse()).toMatchObject({
+      code: 'LISTING_PUSH_RATE_LIMIT',
+      retry_after_seconds: 120,
+    });
+  });
+
+  describe('deactivateAfterVehicleSale', () => {
+    it('no-ops when the env push flag is off', async () => {
+      delete process.env.VEHICLE_LISTING_AS24_PUSH_ENABLED;
+      const upsertSpy = jest.spyOn(publisher, 'upsertListing');
+
+      await service.deactivateAfterVehicleSale({
+        tenantId: 'tenant-1',
+        siteId: 'site-1',
+        vehicleId: 'vehicle-1',
+        stockPurchaseId: 'stock-purchase-1',
+      });
+
+      expect(upsertSpy).not.toHaveBeenCalled();
+      upsertSpy.mockRestore();
+    });
+
+    it('deactivates when flags are on and sync was SYNCED', async () => {
+      syncStore.row.sync_state = VehicleListingDmsSyncState.SYNCED;
+      syncStore.row.external_listing_id = 'as24-fake-existing';
+
+      await service.deactivateAfterVehicleSale({
+        tenantId: 'tenant-1',
+        siteId: 'site-1',
+        vehicleId: 'vehicle-1',
+        stockPurchaseId: 'stock-purchase-1',
+      });
+
+      expect(syncStore.row.sync_state).toBe(VehicleListingDmsSyncState.DEACTIVATED);
+      expect(
+        publisher.contract.calls.some((c) => c.method === 'DEACTIVATE'),
+      ).toBe(true);
+    });
   });
 
   it('stores payload digest on success for replay detection', async () => {

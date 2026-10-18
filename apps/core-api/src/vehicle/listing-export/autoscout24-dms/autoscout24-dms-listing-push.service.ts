@@ -256,6 +256,18 @@ export class Autoscout24DmsListingPushService {
         });
       }
 
+      if (
+        row.sync_state === VehicleListingDmsSyncState.PENDING &&
+        row.last_idempotency_key &&
+        row.last_idempotency_key !== input.idempotency_key
+      ) {
+        throw new ConflictException({
+          code: 'LISTING_PUSH_IDEMPOTENCY_CONFLICT',
+          message:
+            'Another AutoScout24 DMS push is already in progress for this channel.',
+        });
+      }
+
       const pending = await tx.vehicleListingChannelDmsSync.update({
         where: { tenant_id: tenantId, id: syncId },
         data: {
@@ -287,7 +299,12 @@ export class Autoscout24DmsListingPushService {
 
     try {
       if (input.action === 'DEACTIVATE') {
-        return await this.runDeactivate(input.idempotency_key, payload, ctx);
+        return await this.runDeactivate(
+          input.idempotency_key,
+          payload,
+          ctx,
+          channel.external_ref,
+        );
       }
 
       if (!listing.price_gross_eur || !listing.title) {
@@ -298,10 +315,17 @@ export class Autoscout24DmsListingPushService {
         });
       }
 
+      const externalRef = await this.resolvePublisherExternalRef(
+        ctx,
+        input.idempotency_key,
+        channel.external_ref,
+      );
+      ctx.externalRef = externalRef;
+
       const result = await this.publisher.upsertListing(
         input.idempotency_key,
         { ...payload, action: 'UPSERT' },
-        ctx.externalRef,
+        externalRef,
       );
 
       const updated = await this.commitSuccess(ctx, input.idempotency_key, {
@@ -317,6 +341,26 @@ export class Autoscout24DmsListingPushService {
     }
   }
 
+  private async resolvePublisherExternalRef(
+    ctx: PushContext,
+    idempotencyKey: string,
+    channelExternalRef: string | null,
+  ): Promise<string | null> {
+    return this.prisma.$transaction(async (tx) => {
+      await lockVehicleListingChannelDmsSyncRow(tx, ctx.tenantId, ctx.syncId);
+      const row = await tx.vehicleListingChannelDmsSync.findFirstOrThrow({
+        where: { tenant_id: ctx.tenantId, id: ctx.syncId },
+      });
+      if (row.last_idempotency_key !== idempotencyKey) {
+        throw new ConflictException({
+          code: 'LISTING_PUSH_IDEMPOTENCY_CONFLICT',
+          message: 'Another push request superseded this attempt.',
+        });
+      }
+      return row.external_listing_id ?? channelExternalRef;
+    });
+  }
+
   private async runDeactivate(
     idempotencyKey: string,
     payload: {
@@ -326,12 +370,19 @@ export class Autoscout24DmsListingPushService {
       action: Autoscout24DmsPushAction;
     },
     ctx: PushContext,
+    channelExternalRef: string | null,
   ): Promise<Autoscout24DmsPushResultDto> {
     try {
+      const externalRef = await this.resolvePublisherExternalRef(
+        ctx,
+        idempotencyKey,
+        channelExternalRef,
+      );
+      ctx.externalRef = externalRef;
       const result = await this.publisher.deactivateListing(
         idempotencyKey,
         payload,
-        ctx.externalRef,
+        externalRef,
       );
       const updated = await this.commitSuccess(ctx, idempotencyKey, {
         sync_state: VehicleListingDmsSyncState.DEACTIVATED,
@@ -472,12 +523,16 @@ export class Autoscout24DmsListingPushService {
         };
       }
       if (error.code === 'rate_limit') {
+        const retryAfterSeconds = error.retryAfterSeconds;
         return {
           code: 'LISTING_PUSH_RATE_LIMIT',
           persistFailure: false,
           exception: new BadGatewayException({
             code: 'LISTING_PUSH_RATE_LIMIT',
             message: 'AutoScout24 DMS API rate limit exceeded. Retry later.',
+            ...(retryAfterSeconds !== undefined
+              ? { retry_after_seconds: retryAfterSeconds }
+              : {}),
           }),
         };
       }

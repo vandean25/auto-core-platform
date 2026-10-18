@@ -41,6 +41,24 @@ describe('AutoScout24 DMS fake adapter contract', () => {
     expect(deactivated.externalListingId).toBe(created.externalListingId);
   });
 
+  it('replays deactivate idempotently for the same key', async () => {
+    const created = await adapter.upsertListing('key-create', payload, null);
+    await adapter.deactivateListing(
+      'deact-key',
+      { sellerListingRef: payload.sellerListingRef },
+      created.externalListingId,
+    );
+    const replay = await adapter.deactivateListing(
+      'deact-key',
+      { sellerListingRef: payload.sellerListingRef },
+      created.externalListingId,
+    );
+    expect(replay.idempotentReplay).toBe(true);
+    expect(
+      adapter.contract.calls.filter((c) => c.method === 'DEACTIVATE'),
+    ).toHaveLength(2);
+  });
+
   it('replays upsert idempotently for the same key and payload', async () => {
     const first = await adapter.upsertListing('same-key', payload, null);
     const second = await adapter.upsertListing('same-key', payload, null);
@@ -105,6 +123,7 @@ describe('AutoScout24 DMS HTTP adapter error mapping', () => {
     const fetchImpl = async () =>
       ({
         status: 429,
+        headers: { get: (name: string) => (name === 'Retry-After' ? '90' : null) },
         text: async () => 'too many requests',
       }) as Response;
 
@@ -119,6 +138,7 @@ describe('AutoScout24 DMS HTTP adapter error mapping', () => {
     await expect(adapter.upsertListing('http-429', payload, null)).rejects.toMatchObject({
       code: 'rate_limit',
       httpStatus: 429,
+      retryAfterSeconds: 90,
     });
 
     delete process.env.AUTOSCOUT24_DMS_API_BASE_URL;

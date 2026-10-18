@@ -32,6 +32,7 @@ export class Autoscout24DmsAdapterError extends Error {
     readonly code: Autoscout24DmsAdapterErrorCode,
     message: string,
     readonly httpStatus?: number,
+    readonly retryAfterSeconds?: number,
   ) {
     super(message);
     this.name = 'Autoscout24DmsAdapterError';

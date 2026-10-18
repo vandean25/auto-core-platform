@@ -516,12 +516,13 @@ export class VehicleSaleService {
       );
     });
 
-    if (dmsSaleContext) {
+    if (dmsSaleContext !== null) {
+      const { vehicleId: saleVehicleId, stockPurchaseId } = dmsSaleContext;
       await this.autoscout24DmsPush.deactivateAfterVehicleSale({
         tenantId,
         siteId,
-        vehicleId: dmsSaleContext.vehicleId,
-        stockPurchaseId: dmsSaleContext.stockPurchaseId,
+        vehicleId: saleVehicleId,
+        stockPurchaseId,
       });
     }
 

@@ -196,6 +196,7 @@ export class HttpAutoscout24DmsListingPublisherAdapter implements Autoscout24Dms
           'rate_limit',
           'AutoScout24 DMS API rate limit exceeded.',
           response.status,
+          parseRetryAfterSeconds(response.headers),
         );
       }
       if (response.status >= 500) {
@@ -235,4 +236,22 @@ export class HttpAutoscout24DmsListingPublisherAdapter implements Autoscout24Dms
       clearTimeout(timer);
     }
   }
+}
+
+function parseRetryAfterSeconds(
+  headers: Pick<Headers, 'get'>,
+): number | undefined {
+  const raw = headers.get('Retry-After')?.trim();
+  if (!raw) {
+    return undefined;
+  }
+  const asSeconds = Number.parseInt(raw, 10);
+  if (Number.isFinite(asSeconds) && asSeconds >= 0) {
+    return asSeconds;
+  }
+  const retryAt = Date.parse(raw);
+  if (!Number.isFinite(retryAt)) {
+    return undefined;
+  }
+  return Math.max(0, Math.ceil((retryAt - Date.now()) / 1000));
 }
