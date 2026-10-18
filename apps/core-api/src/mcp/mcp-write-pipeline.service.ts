@@ -28,11 +28,13 @@ import {
   McpWriteCommandIdempotencyService,
   type McpWriteCommandClaim,
 } from './mcp-write-command-idempotency.service.js';
+import { parseMcpWriteCommandInput } from './mcp-write-command-idempotency.util.js';
+import { resolveMcpWriteCommandGate } from './mcp-write-command-idempotency.gate.js';
+import type { McpWriteDryRunResult } from './mcp-write-dry-run.util.js';
 import {
-  fingerprintMcpWriteArgs,
-  parseMcpWriteCommandInput,
-} from './mcp-write-command-idempotency.util.js';
-import { randomUUID } from 'node:crypto';
+  executeMcpWriteDryRun,
+  resolveMcpWriteDryRunSimulation,
+} from './mcp-write-dry-run.runner.js';
 import { WorkshopBookingPackageService } from '../workshop/workshop-booking-package.service.js';
 import { MechanicFindingProposeService } from '../mechanic/mechanic-finding-propose.service.js';
 import { mechanicFindingProposeNoop } from '../mechanic/mechanic-finding-propose.noop.js';
@@ -83,6 +85,8 @@ export type McpWriteToolResult = {
   /** True when this response was returned from a durable command_id receipt. */
   replayed?: boolean;
 };
+
+export type McpWritePipelineResult = McpWriteToolResult | McpWriteDryRunResult;
 
 /** One write call as it moves through the pipeline. Tier and reasons are filled in by the policy step. */
 type WriteCall = {
@@ -182,38 +186,30 @@ export class McpWritePipelineService {
     execution: McpWriteExecution,
     input: unknown,
     context: McpWriteToolContext,
-  ): Promise<McpWriteToolResult> {
-    const { commandId, businessInput } = parseMcpWriteCommandInput(input);
-    const workInput = commandId ? businessInput : input;
-
-    let claim: McpWriteCommandClaim | undefined;
-    let idempotencyMeta:
-      { command_id: string; args_fingerprint: string } | undefined;
-    if (commandId) {
-      const originalTraceId = this.requestContext.getTraceId() ?? randomUUID();
-      const argsFingerprint = fingerprintMcpWriteArgs(
-        execution.toolName,
-        workInput,
-      );
-      idempotencyMeta = {
-        command_id: commandId,
-        args_fingerprint: argsFingerprint,
-      };
-      const gate = await this.commandIdempotency.beginOrReplay({
-        commandId,
-        toolName: execution.toolName,
-        argsFingerprint,
-        context,
-        originalTraceId,
-      });
-      if (gate.kind === 'replay') {
-        if (execution.refreshReplayResult) {
-          return execution.refreshReplayResult(gate.result);
-        }
-        return gate.result;
-      }
-      claim = gate.claim;
+  ): Promise<McpWritePipelineResult> {
+    const parsed = parseMcpWriteCommandInput(input);
+    const workInput = parsed.businessInput;
+    if (parsed.dryRun) {
+      return this.runDryRun(execution, workInput, context, input);
     }
+
+    const commandGate = await resolveMcpWriteCommandGate(this.commandIdempotency, {
+      parsed,
+      toolName: execution.toolName,
+      workInput,
+      context,
+      traceId: this.requestContext.getTraceId(),
+    });
+    if (commandGate.kind === 'replay') {
+      if (execution.refreshReplayResult) {
+        return execution.refreshReplayResult(commandGate.result);
+      }
+      return commandGate.result;
+    }
+    const claim =
+      commandGate.kind === 'claimed' ? commandGate.claim : undefined;
+    const idempotencyMeta =
+      commandGate.kind === 'claimed' ? commandGate.idempotencyMeta : undefined;
 
     try {
       return await this.runOnce(
@@ -267,6 +263,66 @@ export class McpWritePipelineService {
           'agent.decision',
           { 'agent.policy.outcome': agentPolicyOutcome(call.tier) },
           () => this.decideAndRun(call, idempotencyMeta, claim),
+        );
+        if (result.trace_id) {
+          span.setAttribute('agent.trace_id', result.trace_id);
+        }
+        return result;
+      },
+    );
+  }
+
+  private async runDryRun(
+    execution: McpWriteExecution,
+    input: unknown,
+    context: McpWriteToolContext,
+    loggedInput: unknown,
+  ): Promise<McpWriteDryRunResult> {
+    const normalizedInput = await this.normalizeWriteInput(execution, input);
+    const call: WriteCall = {
+      execution,
+      input: normalizedInput,
+      context,
+      actionType: logActionType(execution.toolName),
+      inputSummary: { tool: execution.toolName, args: loggedInput },
+      tier: AgentPolicyTier.PROPOSE,
+      reasons: [],
+    };
+
+    return withSpan(
+      'Agent action',
+      'agent.action',
+      {
+        'agent.action.type': call.actionType,
+        'agent.trace_id': TenantContextStorage.getRequestMeta()?.traceId,
+      },
+      async (span) => {
+        await this.evaluatePolicy(call);
+        span.setAttribute('agent.policy.tier', call.tier);
+
+        const result = await withSpan(
+          'Agent decision',
+          'agent.decision',
+          { 'agent.policy.outcome': agentPolicyOutcome(call.tier) },
+          async () => {
+            const simulation = await resolveMcpWriteDryRunSimulation(
+              call.tier,
+              () => this.simulate(call),
+            );
+            return executeMcpWriteDryRun(
+              this.agentActionLog,
+              {
+                toolName: call.execution.toolName,
+                actionType: call.actionType,
+                tier: call.tier,
+                reasons: call.reasons,
+                inputSummary: call.inputSummary,
+                context: call.context,
+              },
+              simulation,
+              (error) => this.recordFailure(call, error),
+            );
+          },
         );
         if (result.trace_id) {
           span.setAttribute('agent.trace_id', result.trace_id);

@@ -1743,6 +1743,50 @@ describe('MCP server (e2e)', () => {
     expect(log?.status).toBe('REFUSED');
   });
 
+  it('dry_run on draft_workshop_order previews without creating an order', async () => {
+    await setPolicyTier('workshop_order.create', 'AUTO');
+    const draftVehicle = await createDraftVehicle('draft-dry-run-preview');
+    const traceId = '00000000-0000-4000-8000-000000000215';
+    const notes = 'MCP dry_run preview test';
+
+    const result = await callMcpTool(
+      caller(adminHeaderA, 'e2e-draft-workshop-order-dry-run'),
+      'draft_workshop_order',
+      {
+        ...draftOrderArgs(draftVehicle),
+        notes,
+        dry_run: true,
+      },
+      traceId,
+    );
+
+    expect(result.isError).not.toBe(true);
+    const payload = parsePayload<{
+      dry_run: boolean;
+      policy_decision: { tier: string };
+    }>(result);
+    expect(payload.dry_run).toBe(true);
+    expect(payload.policy_decision.tier).toBe('AUTO');
+
+    expect(
+      await prismaA.workshopOrder.count({
+        where: {
+          customer_id: draftVehicle.customerId,
+          vehicle_id: draftVehicle.vehicleId,
+          notes,
+        },
+      }),
+    ).toBe(0);
+
+    const dryRunLog = await findActionLog(traceId, 'mcp.draft_workshop_order');
+    expect(dryRunLog?.status).toBe('DRY_RUN');
+    expect(
+      await prismaA.agentActionLog.count({
+        where: { trace_id: traceId, status: 'EXECUTED' },
+      }),
+    ).toBe(0);
+  });
+
   /** Refused drafts create no order and leave one FAILED NOT_EVALUATED row on their trace. */
   it.each<{
     title: string;
@@ -1775,24 +1819,6 @@ describe('MCP server (e2e)', () => {
         fuel_level: 50,
         notes: 'MCP missing status test',
       }),
-    },
-    {
-      title:
-        'rejects dry_run on draft_workshop_order without creating an order',
-      clientName: 'e2e-draft-workshop-order-dry-run-rejected',
-      traceId: '00000000-0000-4000-8000-000000000215',
-      expectedOrders: 0,
-      newVehicle: 'draft-dry-run-rejected',
-      args: (vehicle) => ({
-        ...vehicleRefs(vehicle),
-        status: 'SCHEDULED',
-        ...scheduledBooking(14),
-        odometer: 1000,
-        fuel_level: 50,
-        notes: 'MCP dry_run rejected test',
-        dry_run: true,
-      }),
-      payloadPattern: /validation|unrecognized|invalid/i,
     },
     {
       title:

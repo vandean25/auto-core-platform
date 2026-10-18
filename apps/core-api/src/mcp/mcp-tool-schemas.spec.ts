@@ -208,19 +208,40 @@ describe('MCP tool input schemas', () => {
     ).toEqual({ from: '2026-10-01', to: '2026-10-31' });
   });
 
+  it('accepts dry_run on every MCP write tool input schema', () => {
+    const scheduledDraft = { ...validDraft, status: 'SCHEDULED' as const };
+    expect(
+      draftWorkshopOrderInputSchema.parse({ ...scheduledDraft, dry_run: true }),
+    ).toMatchObject({ dry_run: true });
+
+    for (const toolName of MCP_WRITE_TOOL_NAMES) {
+      const schema = mcpWriteToolInputSchemas[toolName];
+      const parsed = schema.safeParse({ dry_run: true });
+      if (parsed.success) {
+        expect(parsed.data).toMatchObject({ dry_run: true });
+        continue;
+      }
+      const rejectsDryRun = parsed.error.issues.some(
+        (issue) =>
+          issue.code === 'unrecognized_keys' &&
+          'keys' in issue &&
+          (issue.keys as string[]).includes('dry_run'),
+      );
+      expect(rejectsDryRun).toBe(false);
+    }
+  });
+
   it('rejects unknown fields on MCP write tool schemas', () => {
     const scheduledDraft = { ...validDraft, status: 'SCHEDULED' as const };
     expect(draftWorkshopOrderInputSchema.parse(scheduledDraft)).toEqual(
       scheduledDraft,
     );
     expect(() =>
-      draftWorkshopOrderInputSchema.parse({ ...scheduledDraft, dry_run: true }),
+      draftWorkshopOrderInputSchema.parse({
+        ...scheduledDraft,
+        unexpected_field: true,
+      }),
     ).toThrow(/unrecognized/i);
-
-    for (const toolName of MCP_WRITE_TOOL_NAMES) {
-      const schema = mcpWriteToolInputSchemas[toolName];
-      expect(() => schema.parse({ dry_run: true })).toThrow();
-    }
   });
 
   it('accepts only SCHEDULED as the draft workshop order status', () => {
