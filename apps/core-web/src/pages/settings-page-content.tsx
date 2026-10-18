@@ -42,7 +42,7 @@ import { VoiceTranslationSettingsTab } from "@/components/settings/VoiceTranslat
 import { AuditLogsTab } from "@/components/settings/AuditLogsTab"
 import { AccountingExportSettingsPanel } from "@/components/settings/accounting-export-settings-panel"
 import { LegalEntitiesSettingsTab } from "@/components/settings/LegalEntitiesSettingsTab"
-import { SitesSettingsTab } from "@/components/settings/sites-settings-tab"
+import { SitesSettingsTab } from "@/components/settings/SitesSettingsTab"
 import { VehicleDataSettingsPanel } from "@/components/settings/vehicle-data-settings-panel"
 import { MarginRulesTab } from "@/components/settings/MarginRulesTab"
 import { DataImportSettingsTab } from "@/components/settings/data-import/DataImportSettingsTab"

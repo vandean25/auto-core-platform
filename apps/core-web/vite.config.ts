@@ -46,7 +46,7 @@ export default defineConfig(({ mode }) => {
     },
     test: {
       environment: 'jsdom',
-      setupFiles: ['./src/test/setup.ts', './src/test/settings-panel-vitest-stubs.ts'],
+      setupFiles: './src/test/setup.ts',
       include: ['src/**/*.{test,spec}.{ts,tsx}', 'scripts/**/*.test.ts'],
       exclude: [...configDefaults.exclude, 'e2e/**', 'e2e-fullstack/**'],
       // A CI job owns its runner, so use every core there. Locally Vitest keeps one core free.
