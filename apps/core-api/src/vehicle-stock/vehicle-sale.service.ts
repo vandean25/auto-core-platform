@@ -518,12 +518,14 @@ export class VehicleSaleService {
 
     if (dmsSaleContext !== null) {
       const { vehicleId: saleVehicleId, stockPurchaseId } = dmsSaleContext;
-      await this.autoscout24DmsPush.deactivateAfterVehicleSale({
-        tenantId,
-        siteId,
-        vehicleId: saleVehicleId,
-        stockPurchaseId,
-      });
+      await this.autoscout24DmsPush
+        .deactivateAfterVehicleSale({
+          tenantId,
+          siteId,
+          vehicleId: saleVehicleId,
+          stockPurchaseId,
+        })
+        .catch(() => undefined);
     }
 
     return response;

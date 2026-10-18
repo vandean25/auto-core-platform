@@ -4,6 +4,7 @@ import {
   HttpException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
@@ -69,8 +70,13 @@ function syncRequiresRemoteDeactivation(
   return Boolean(sync.external_listing_id ?? channelExternalRef);
 }
 
+/** Minimum age before a DEACTIVATION_PENDING row is retried by the worker sweep. */
+export const AUTOSCOUT24_DMS_DEACTIVATION_RETRY_INTERVAL_MS = 60_000;
+
 @Injectable()
 export class Autoscout24DmsListingPushService {
+  private readonly logger = new Logger(Autoscout24DmsListingPushService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
@@ -147,17 +153,96 @@ export class Autoscout24DmsListingPushService {
       return;
     }
 
-    await this.executePush(
-      {
-        tenantId: input.tenantId,
-        listing,
-        channel,
+    try {
+      await this.executePush(
+        {
+          tenantId: input.tenantId,
+          listing,
+          channel,
+        },
+        {
+          idempotency_key: `sale-deactivate:${input.stockPurchaseId}`,
+          action: 'DEACTIVATE',
+        },
+      );
+    } catch (error) {
+      this.logger.warn(
+        `AutoScout24 DMS sale deactivate did not complete for vehicle ${input.vehicleId}: ${
+          error instanceof Error ? error.message : 'unknown error'
+        }`,
+      );
+    }
+  }
+
+  /**
+   * Retries remote deactivations left in DEACTIVATION_PENDING (sale finalize or API).
+   * Tenant-scoped; call from a worker context after checking push flags.
+   */
+  async retryPendingDeactivations(options?: {
+    retryIntervalMs?: number;
+    batchSize?: number;
+  }): Promise<void> {
+    if (!isVehicleListingAs24PushEnvEnabled()) {
+      return;
+    }
+
+    const retryIntervalMs =
+      options?.retryIntervalMs ??
+      AUTOSCOUT24_DMS_DEACTIVATION_RETRY_INTERVAL_MS;
+    const batchSize = options?.batchSize ?? 50;
+    const notBefore = new Date(Date.now() - retryIntervalMs);
+
+    const rows = await this.prisma.vehicleListingChannelDmsSync.findMany({
+      where: {
+        provider: VehicleListingDmsProvider.AS24_DMS,
+        sync_state: VehicleListingDmsSyncState.DEACTIVATION_PENDING,
+        last_sync_at: { lte: notBefore },
       },
-      {
-        idempotency_key: `sale-deactivate:${input.stockPurchaseId}`,
-        action: 'DEACTIVATE',
+      include: {
+        channel: {
+          include: {
+            listing: true,
+          },
+        },
       },
-    );
+      orderBy: { last_sync_at: 'asc' },
+      take: batchSize,
+    });
+
+    for (const row of rows) {
+      const listing = row.channel.listing;
+      const channel = row.channel;
+      if (
+        !syncRequiresRemoteDeactivation(row, channel.external_ref) ||
+        !listing
+      ) {
+        continue;
+      }
+
+      const idempotencyKey =
+        row.last_idempotency_key ??
+        `sale-deactivate:${listing.stock_purchase_id}`;
+
+      try {
+        await this.executePush(
+          {
+            tenantId: row.tenant_id,
+            listing,
+            channel,
+          },
+          {
+            idempotency_key: idempotencyKey,
+            action: 'DEACTIVATE',
+          },
+        );
+      } catch (error) {
+        this.logger.warn(
+          `AutoScout24 DMS deactivation retry failed for sync ${row.id}: ${
+            error instanceof Error ? error.message : 'unknown error'
+          }`,
+        );
+      }
+    }
   }
 
   private async loadListingContext(vehicleId: string) {
