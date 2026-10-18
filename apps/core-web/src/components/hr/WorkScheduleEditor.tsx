@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import {
@@ -17,10 +18,11 @@ import {
   normalizeDaysForSubmit,
   type ScheduleDayFormState,
   validateDays,
-  WEEKDAY_LABELS,
+  weekdayLabel,
   DEFAULT_NON_WORKING_DAY,
   DEFAULT_WORKING_DAY,
 } from '@/components/hr/work-schedule-form'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 
 export type WorkScheduleEditorProps = {
   employeeId: string
@@ -32,18 +34,21 @@ function ScheduleDayRow({
   day,
   canEdit,
   onChange,
+  t,
 }: {
   day: ScheduleDayFormState
   canEdit: boolean
   onChange: (weekday: number, patch: Partial<ScheduleDayFormState>) => void
+  t: (key: string, options?: Record<string, unknown>) => string
 }) {
+  const dayName = weekdayLabel(day.weekday)
   if (!canEdit) {
     return (
       <tr>
-        <td className='px-3 py-2 text-sm'>{WEEKDAY_LABELS[day.weekday]}</td>
-        <td className='px-3 py-2 text-sm'>{day.isWorking ? 'Yes' : 'No'}</td>
-        <td className='px-3 py-2 text-sm'>{day.startTime ?? '—'}</td>
-        <td className='px-3 py-2 text-sm'>{day.endTime ?? '—'}</td>
+        <td className='px-3 py-2 text-sm'>{dayName}</td>
+        <td className='px-3 py-2 text-sm'>{day.isWorking ? t('employees.yes') : t('employees.no')}</td>
+        <td className='px-3 py-2 text-sm'>{day.startTime ?? t('employees.notSet')}</td>
+        <td className='px-3 py-2 text-sm'>{day.endTime ?? t('employees.notSet')}</td>
         <td className='px-3 py-2 text-sm'>{day.breakMinutes}</td>
       </tr>
     )
@@ -51,11 +56,11 @@ function ScheduleDayRow({
 
   return (
     <tr>
-      <td className='px-3 py-2 text-sm'>{WEEKDAY_LABELS[day.weekday]}</td>
+      <td className='px-3 py-2 text-sm'>{dayName}</td>
       <td className='px-3 py-2'>
         <input
           type='checkbox'
-          aria-label={`${WEEKDAY_LABELS[day.weekday]} working`}
+          aria-label={t('workSchedule.workingAria', { day: dayName })}
           checked={day.isWorking}
           onChange={(event) => {
             const isWorking = event.target.checked
@@ -73,7 +78,7 @@ function ScheduleDayRow({
       <td className='px-3 py-2'>
         <Input
           type='time'
-          aria-label={`${WEEKDAY_LABELS[day.weekday]} start`}
+          aria-label={t('workSchedule.startAria', { day: dayName })}
           value={day.startTime ?? ''}
           disabled={!day.isWorking}
           onChange={(event) => onChange(day.weekday, { startTime: event.target.value })}
@@ -83,7 +88,7 @@ function ScheduleDayRow({
       <td className='px-3 py-2'>
         <Input
           type='time'
-          aria-label={`${WEEKDAY_LABELS[day.weekday]} end`}
+          aria-label={t('workSchedule.endAria', { day: dayName })}
           value={day.endTime ?? ''}
           disabled={!day.isWorking}
           onChange={(event) => onChange(day.weekday, { endTime: event.target.value })}
@@ -95,7 +100,7 @@ function ScheduleDayRow({
           type='number'
           min={0}
           step={1}
-          aria-label={`${WEEKDAY_LABELS[day.weekday]} break minutes`}
+          aria-label={t('workSchedule.breakAria', { day: dayName })}
           value={day.breakMinutes}
           disabled={!day.isWorking}
           onChange={(event) =>
@@ -111,26 +116,28 @@ function ScheduleDaysTable({
   days,
   canEdit,
   onChange,
+  t,
 }: {
   days: ScheduleDayFormState[]
   canEdit: boolean
   onChange: (weekday: number, patch: Partial<ScheduleDayFormState>) => void
+  t: (key: string, options?: Record<string, unknown>) => string
 }) {
   return (
     <div className='overflow-hidden rounded-md border'>
       <table className='min-w-full divide-y divide-slate-200'>
         <thead className='bg-slate-50'>
           <tr>
-            <th className='px-3 py-2 text-left text-xs font-medium uppercase text-slate-500'>Day</th>
-            <th className='px-3 py-2 text-left text-xs font-medium uppercase text-slate-500'>Working</th>
-            <th className='px-3 py-2 text-left text-xs font-medium uppercase text-slate-500'>Start</th>
-            <th className='px-3 py-2 text-left text-xs font-medium uppercase text-slate-500'>End</th>
-            <th className='px-3 py-2 text-left text-xs font-medium uppercase text-slate-500'>Break (min)</th>
+            <th className='px-3 py-2 text-left text-xs font-medium uppercase text-slate-500'>{t('workSchedule.table.day')}</th>
+            <th className='px-3 py-2 text-left text-xs font-medium uppercase text-slate-500'>{t('workSchedule.table.working')}</th>
+            <th className='px-3 py-2 text-left text-xs font-medium uppercase text-slate-500'>{t('workSchedule.table.start')}</th>
+            <th className='px-3 py-2 text-left text-xs font-medium uppercase text-slate-500'>{t('workSchedule.table.end')}</th>
+            <th className='px-3 py-2 text-left text-xs font-medium uppercase text-slate-500'>{t('workSchedule.table.breakMin')}</th>
           </tr>
         </thead>
         <tbody className='divide-y divide-slate-200 bg-white'>
           {days.map((day) => (
-            <ScheduleDayRow key={day.weekday} day={day} canEdit={canEdit} onChange={onChange} />
+            <ScheduleDayRow key={day.weekday} day={day} canEdit={canEdit} onChange={onChange} t={t} />
           ))}
         </tbody>
       </table>
@@ -143,6 +150,11 @@ export function WorkScheduleEditor({
   canEdit,
   defaultEffectiveFrom,
 }: WorkScheduleEditorProps) {
+  const { t } = useTranslation('hr')
+  useEffect(() => {
+    void ensureNamespaceLoaded('hr')
+  }, [])
+
   const scheduleQuery = useEmployeeWorkSchedule(employeeId)
   const createSchedule = useCreateWorkSchedule(employeeId)
   const updateSchedule = useUpdateWorkSchedule(employeeId)
@@ -235,9 +247,9 @@ export function WorkScheduleEditor({
         scheduleId: currentVersion.id,
         data: { days: normalizeDaysForSubmit(correctionDays), siteId: siteId || undefined },
       })
-      toast.success('Work schedule updated')
+      toast.success(t('workSchedule.toast.updated'))
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to update work schedule'))
+      toast.error(getErrorMessage(error, t('workSchedule.toast.updateFailed')))
     }
   }
 
@@ -250,11 +262,11 @@ export function WorkScheduleEditor({
     }
 
     if (!effectiveFrom) {
-      toast.error('Effective date is required for a new schedule version')
+      toast.error(t('workSchedule.toast.effectiveDateRequired'))
       return
     }
     if (!versionSiteId) {
-      toast.error('A site is required for a work schedule')
+      toast.error(t('workSchedule.toast.siteRequired'))
       return
     }
 
@@ -264,23 +276,23 @@ export function WorkScheduleEditor({
         siteId: versionSiteId,
         days: normalizeDaysForSubmit(newVersionDays),
       })
-      toast.success('Work schedule version created')
+      toast.success(t('workSchedule.toast.versionCreated'))
       if (currentVersion) {
         setShowNewVersion(false)
       }
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to create work schedule version'))
+      toast.error(getErrorMessage(error, t('workSchedule.toast.createFailed')))
     }
   }
 
   if (scheduleQuery.isLoading) {
-    return <p className='text-sm text-slate-500'>Loading work schedule…</p>
+    return <p className='text-sm text-slate-500'>{t('workSchedule.loading')}</p>
   }
 
   if (scheduleQuery.error) {
     return (
       <p className='text-sm text-red-600'>
-        {getErrorMessage(scheduleQuery.error, 'Failed to load work schedule')}
+        {getErrorMessage(scheduleQuery.error, t('workSchedule.loadFailed'))}
       </p>
     )
   }
@@ -290,27 +302,34 @@ export function WorkScheduleEditor({
   return (
     <section className='space-y-4' data-testid='work-schedule-editor'>
       <div className='space-y-1'>
-        <h4 className='text-sm font-semibold text-slate-900'>Work schedule</h4>
-        <p className='text-sm text-slate-500'>
-          Expected working hours per weekday. Leave minutes are charged from this pattern.
-        </p>
+        <h4 className='text-sm font-semibold text-slate-900'>{t('workSchedule.title')}</h4>
+        <p className='text-sm text-slate-500'>{t('workSchedule.description')}</p>
         {currentVersion ? (
-          <p className='text-xs text-slate-500'>Current version from {currentVersion.effectiveFrom}</p>
+          <p className='text-xs text-slate-500'>{t('workSchedule.currentFrom', { date: currentVersion.effectiveFrom })}</p>
         ) : (
-          <p className='text-xs text-slate-500'>No schedule version yet.</p>
+          <p className='text-xs text-slate-500'>{t('workSchedule.noVersion')}</p>
         )}
       </div>
 
       {currentVersion ? (
         <>
         {canEdit ? <div className='space-y-2'>
-          <Label htmlFor='schedule-site'>Site assignment</Label>
-          <select id='schedule-site' aria-label='Site assignment' value={siteId} onChange={(event) => setSiteId(event.target.value)} className='h-10 rounded-md border px-3'>
-            <option value=''>Select site</option>
+          <Label htmlFor='schedule-site'>{t('workSchedule.siteAssignment')}</Label>
+          <select id='schedule-site' aria-label={t('workSchedule.siteAssignment')} value={siteId} onChange={(event) => setSiteId(event.target.value)} className='h-10 rounded-md border px-3'>
+            <option value=''>{t('workSchedule.selectSite')}</option>
             {(sitesQuery.data ?? []).map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}
           </select>
-        </div> : <p className='text-sm text-slate-500'>Site: {sitesQuery.data?.find((site) => site.id === currentVersion.siteId)?.name ?? 'Not assigned'}</p>}
+        </div> : (
+          <p className='text-sm text-slate-500'>
+            {t('workSchedule.siteLabel', {
+              name:
+                sitesQuery.data?.find((site) => site.id === currentVersion.siteId)?.name ??
+                t('workSchedule.notAssigned'),
+            })}
+          </p>
+        )}
         <ScheduleDaysTable
+          t={t}
           days={correctionDays}
           canEdit={canEdit}
           onChange={updateCorrectionDay}
@@ -319,14 +338,14 @@ export function WorkScheduleEditor({
       ) : creatingFirstVersion ? (
         <div className='space-y-4' data-testid='first-schedule-version'>
           <div className='space-y-2'>
-            <Label htmlFor='schedule-site'>Site assignment</Label>
-            <select id='schedule-site' aria-label='Site assignment' value={siteId} onChange={(event) => setSiteId(event.target.value)} className='h-10 rounded-md border px-3'>
-              <option value=''>Select site</option>
+            <Label htmlFor='schedule-site'>{t('workSchedule.siteAssignment')}</Label>
+            <select id='schedule-site' aria-label={t('workSchedule.siteAssignment')} value={siteId} onChange={(event) => setSiteId(event.target.value)} className='h-10 rounded-md border px-3'>
+              <option value=''>{t('workSchedule.selectSite')}</option>
               {(sitesQuery.data ?? []).map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}
             </select>
           </div>
           <div className='space-y-2'>
-            <Label htmlFor='schedule-effective-from'>Effective from</Label>
+            <Label htmlFor='schedule-effective-from'>{t('workSchedule.effectiveFrom')}</Label>
             <Input
               id='schedule-effective-from'
               type='date'
@@ -334,18 +353,18 @@ export function WorkScheduleEditor({
               onChange={(event) => setEffectiveFrom(event.target.value)}
             />
           </div>
-          <ScheduleDaysTable days={newVersionDays} canEdit onChange={updateNewVersionDay} />
+          <ScheduleDaysTable t={t} days={newVersionDays} canEdit onChange={updateNewVersionDay} />
           <Button
             type='button'
             size='sm'
             disabled={createSchedule.isPending}
             onClick={() => void handleCreateVersion()}
           >
-            {createSchedule.isPending ? 'Creating…' : 'Create version'}
+            {createSchedule.isPending ? t('workSchedule.creating') : t('workSchedule.createVersion')}
           </Button>
         </div>
       ) : (
-        <ScheduleDaysTable days={buildDefaultDays()} canEdit={false} onChange={() => undefined} />
+        <ScheduleDaysTable t={t} days={buildDefaultDays()} canEdit={false} onChange={() => undefined} />
       )}
 
       {canEdit && currentVersion ? (
@@ -356,10 +375,10 @@ export function WorkScheduleEditor({
             disabled={updateSchedule.isPending}
             onClick={() => void handleSaveCorrection()}
           >
-            {updateSchedule.isPending ? 'Saving…' : 'Save correction'}
+            {updateSchedule.isPending ? t('workSchedule.saving') : t('workSchedule.saveCorrection')}
           </Button>
           <Button type='button' size='sm' variant='outline' onClick={openNewVersionPanel}>
-            New version
+            {t('workSchedule.newVersion')}
           </Button>
         </div>
       ) : null}
@@ -367,14 +386,14 @@ export function WorkScheduleEditor({
       {canEdit && showNewVersion && currentVersion ? (
         <div className='space-y-4 rounded-md border border-dashed p-4' data-testid='new-schedule-version'>
           <div className='space-y-2'>
-            <Label htmlFor='schedule-new-version-site'>Site assignment</Label>
-            <select id='schedule-new-version-site' aria-label='New version site assignment' value={newVersionSiteId} onChange={(event) => setNewVersionSiteId(event.target.value)} className='h-10 rounded-md border px-3'>
-              <option value=''>Select site</option>
+            <Label htmlFor='schedule-new-version-site'>{t('workSchedule.newVersionSite')}</Label>
+            <select id='schedule-new-version-site' aria-label={t('workSchedule.newVersionSiteAria')} value={newVersionSiteId} onChange={(event) => setNewVersionSiteId(event.target.value)} className='h-10 rounded-md border px-3'>
+              <option value=''>{t('workSchedule.selectSite')}</option>
               {(sitesQuery.data ?? []).map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}
             </select>
           </div>
           <div className='space-y-2'>
-            <Label htmlFor='schedule-new-effective-from'>Effective from</Label>
+            <Label htmlFor='schedule-new-effective-from'>{t('workSchedule.effectiveFrom')}</Label>
             <Input
               id='schedule-new-effective-from'
               type='date'
@@ -382,7 +401,7 @@ export function WorkScheduleEditor({
               onChange={(event) => setEffectiveFrom(event.target.value)}
             />
           </div>
-          <ScheduleDaysTable days={newVersionDays} canEdit onChange={updateNewVersionDay} />
+          <ScheduleDaysTable t={t} days={newVersionDays} canEdit onChange={updateNewVersionDay} />
           <div className='flex flex-wrap gap-2'>
             <Button
               type='button'
@@ -390,7 +409,7 @@ export function WorkScheduleEditor({
               disabled={createSchedule.isPending}
               onClick={() => void handleCreateVersion()}
             >
-              {createSchedule.isPending ? 'Creating…' : 'Create version'}
+              {createSchedule.isPending ? t('workSchedule.creating') : t('workSchedule.createVersion')}
             </Button>
             <Button
               type='button'
@@ -398,7 +417,7 @@ export function WorkScheduleEditor({
               variant='outline'
               onClick={() => setShowNewVersion(false)}
             >
-              Hide new version
+              {t('workSchedule.hideNewVersion')}
             </Button>
           </div>
         </div>
@@ -406,10 +425,10 @@ export function WorkScheduleEditor({
 
       {history.length > 0 ? (
         <div className='space-y-2'>
-          <p className='text-sm font-medium text-slate-700'>Previous versions</p>
+          <p className='text-sm font-medium text-slate-700'>{t('workSchedule.previousVersions')}</p>
           <ul className='space-y-1 text-sm text-slate-600'>
             {history.map((version) => (
-              <li key={version.id}>From {version.effectiveFrom}</li>
+              <li key={version.id}>{t('workSchedule.fromDate', { date: version.effectiveFrom })}</li>
             ))}
           </ul>
         </div>

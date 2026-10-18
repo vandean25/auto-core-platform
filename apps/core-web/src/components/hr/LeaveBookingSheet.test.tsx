@@ -1,7 +1,11 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import deHr from '../../../../../locales/de/hr.json'
+import { registerGermanUiForTests } from '@/test/german-ui'
 import { LeaveBookingSheet } from './LeaveBookingSheet'
+
+registerGermanUiForTests()
 
 const apiMocks = vi.hoisted(() => ({
   useCreateLeave: vi.fn(),
@@ -54,8 +58,8 @@ describe('LeaveBookingSheet', () => {
       />,
     )
 
-    expect(screen.getByLabelText('Start')).toHaveValue('2026-08-24')
-    expect(screen.getByLabelText('End')).toHaveValue('2026-08-24')
+    expect(screen.getByLabelText(deHr.leave.bookingSheet.start)).toHaveValue('2026-08-24')
+    expect(screen.getByLabelText(deHr.leave.bookingSheet.end)).toHaveValue('2026-08-24')
   })
 
   it('submits self leave with the date range and note', async () => {
@@ -74,8 +78,8 @@ describe('LeaveBookingSheet', () => {
       />,
     )
 
-    fireEvent.change(screen.getByLabelText('Note'), { target: { value: 'Summer trip' } })
-    fireEvent.click(screen.getByRole('button', { name: '+ Leave' }))
+    fireEvent.change(screen.getByLabelText(deHr.leave.bookingSheet.note), { target: { value: 'Summer trip' } })
+    fireEvent.click(screen.getByRole('button', { name: deHr.leave.bookLeave }))
 
     await waitFor(() => {
       expect(createLeave).toHaveBeenCalledWith({
@@ -103,7 +107,7 @@ describe('LeaveBookingSheet', () => {
       />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: '+ Leave' }))
+    fireEvent.click(screen.getByRole('button', { name: deHr.leave.bookLeave }))
 
     await waitFor(() => {
       expect(createEmployeeLeave).toHaveBeenCalledWith({
@@ -137,7 +141,7 @@ describe('LeaveBookingSheet', () => {
       />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: '+ Leave' }))
+    fireEvent.click(screen.getByRole('button', { name: deHr.leave.bookLeave }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(expectedMessage)
     expect(onOpenChange).not.toHaveBeenCalledWith(false)

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import type { Employee, useCreateEmployee, useDeleteEmployee, useUpdateEmployee } from '@/api/employees'
 import type { usePatchLeaveBalance } from '@/api/hr'
+import deHr from '../../../../../locales/de/hr.json'
 import {
   applyCarryoverBalanceUpdate,
   parseAllowanceDays,
@@ -40,10 +41,10 @@ describe('useEmployeeTableActions pure helpers', () => {
 
     it('throws error for negative or invalid days', () => {
       expect(() => parseAnnualLeaveMinutesFromForm('', '-2', 480)).toThrow(
-        'Leave days must be a non-negative number',
+        deHr.employees.validation.leaveDaysNonNegative,
       )
       expect(() => parseAnnualLeaveMinutesFromForm('', 'abc', 480)).toThrow(
-        'Leave days must be a non-negative number',
+        deHr.employees.validation.leaveDaysNonNegative,
       )
     })
 
@@ -53,10 +54,10 @@ describe('useEmployeeTableActions pure helpers', () => {
 
     it('throws error for negative or non-integer minutes', () => {
       expect(() => parseAnnualLeaveMinutesFromForm('-100', '', 480)).toThrow(
-        'Leave minutes must be a non-negative integer',
+        deHr.employees.validation.leaveMinutesNonNegative,
       )
       expect(() => parseAnnualLeaveMinutesFromForm('12.5', '', 480)).toThrow(
-        'Leave minutes must be a non-negative integer',
+        deHr.employees.validation.leaveMinutesNonNegative,
       )
     })
   })
@@ -68,8 +69,8 @@ describe('useEmployeeTableActions pure helpers', () => {
     })
 
     it('throws error for negative or invalid values', () => {
-      expect(() => parseAllowanceDays('-1')).toThrow('Leave days must be a non-negative number')
-      expect(() => parseAllowanceDays('abc')).toThrow('Leave days must be a non-negative number')
+      expect(() => parseAllowanceDays('-1')).toThrow(deHr.employees.validation.leaveDaysNonNegative)
+      expect(() => parseAllowanceDays('abc')).toThrow(deHr.employees.validation.leaveDaysNonNegative)
     })
   })
 
@@ -80,12 +81,8 @@ describe('useEmployeeTableActions pure helpers', () => {
     })
 
     it('throws error for negative or float values', () => {
-      expect(() => parseCarryoverMinutes('-5')).toThrow(
-        'Carryover minutes must be a non-negative integer',
-      )
-      expect(() => parseCarryoverMinutes('12.5')).toThrow(
-        'Carryover minutes must be a non-negative integer',
-      )
+      expect(() => parseCarryoverMinutes('-5')).toThrow(deHr.employees.validation.carryoverNonNegative)
+      expect(() => parseCarryoverMinutes('12.5')).toThrow(deHr.employees.validation.carryoverNonNegative)
     })
   })
 
@@ -118,7 +115,7 @@ describe('useEmployeeTableActions pure helpers', () => {
           },
           true,
         ),
-      ).toThrow('Employee name is required')
+      ).toThrow(deHr.employees.validation.nameRequired)
     })
 
     it('validates sort order', () => {
@@ -135,7 +132,7 @@ describe('useEmployeeTableActions pure helpers', () => {
           },
           true,
         ),
-      ).toThrow('Sort order must be a non-negative integer')
+      ).toThrow(deHr.employees.validation.sortOrderNonNegative)
     })
 
     it('constructs payload with HR fields when hasHrEditAccess is true', () => {

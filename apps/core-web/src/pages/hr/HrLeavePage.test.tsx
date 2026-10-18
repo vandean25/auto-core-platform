@@ -4,7 +4,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'sonner'
 
 import { formatLocalDateInZone } from '@/lib/format'
+import deHr from '../../../../../locales/de/hr.json'
+import { formatApproxDays } from '@/lib/hr-leave-minutes'
+import { registerGermanUiForTests } from '@/test/german-ui'
 import HrLeavePage from './HrLeavePage'
+
+registerGermanUiForTests()
 
 // Matches apps/core-api/test/tenant-test-utils.ts
 const HR_TEST_ANNUAL_LEAVE_MINUTES = 12875
@@ -192,12 +197,19 @@ describe('HrLeavePage', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByText(`Remaining: ${HR_TEST_REMAINING_AFTER_WEEK_MINUTES} min (≈ 19.5 days)`)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '+ Leave' })).toBeInTheDocument()
+    const remainingApprox = formatApproxDays(HR_TEST_REMAINING_AFTER_WEEK_MINUTES, 515)
+    expect(
+      screen.getByText(
+        deHr.leave.remaining
+          .replace('{{minutes}}', String(HR_TEST_REMAINING_AFTER_WEEK_MINUTES))
+          .replace('{{approx}}', ` (${remainingApprox})`),
+      ),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: deHr.leave.bookLeave })).toBeInTheDocument()
     expect(screen.getByTestId('leave-table')).toHaveTextContent(String(HR_TEST_TWO_DAY_LEAVE_MINUTES))
     expect(screen.getByTestId('leave-booking-sheet')).toHaveAttribute('data-timezone', 'Europe/Vienna')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    fireEvent.click(screen.getByRole('button', { name: deHr.leave.cancel }))
 
     expect(cancelLeave).toHaveBeenCalledWith('leave-1', expect.objectContaining({
       onError: expect.any(Function),
@@ -226,7 +238,7 @@ describe('HrLeavePage', () => {
       </MemoryRouter>,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: '+ Leave' }))
+    fireEvent.click(screen.getByRole('button', { name: deHr.leave.bookLeave }))
 
     expect(screen.getByTestId('leave-booking-sheet')).toHaveAttribute('data-open', 'true')
   })
@@ -245,8 +257,8 @@ describe('HrLeavePage', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByText('No employee record linked')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '+ Leave' })).not.toBeInTheDocument()
+    expect(screen.getByText(deHr.leave.missingEmployee.title)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: deHr.leave.bookLeave })).not.toBeInTheDocument()
   })
 
   it('shows a toast when leave cancellation fails', () => {
@@ -264,9 +276,9 @@ describe('HrLeavePage', () => {
       </MemoryRouter>,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    fireEvent.click(screen.getByRole('button', { name: deHr.leave.cancel }))
 
-    expect(toast.error).toHaveBeenCalledWith('Failed to cancel leave booking')
+    expect(toast.error).toHaveBeenCalledWith(deHr.leave.toast.cancelFailed)
   })
 
   it('lets OWNER book from the team grid but keeps SALES read-only', () => {

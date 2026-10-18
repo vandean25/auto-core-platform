@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { components } from '@/api/generated/openapi'
 import { useLocations } from '@/api/locations'
 import { useTyreSetAction } from '@/api/tyre-storage'
@@ -21,6 +22,7 @@ import {
 } from '@/components/ui/select'
 import { getErrorMessage } from '@/lib/error-utils'
 import { toast } from 'sonner'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 
 type ActionKind = 'check-in' | 'check-out' | 'move' | 'dispose'
 
@@ -32,6 +34,13 @@ type Props = {
   currentLocationId?: string | null
 }
 
+const titleKeyByAction: Record<ActionKind, string> = {
+  'check-in': 'tyreStorage.actionDialog.checkIn',
+  'check-out': 'tyreStorage.actionDialog.checkOut',
+  move: 'tyreStorage.actionDialog.move',
+  dispose: 'tyreStorage.actionDialog.dispose',
+}
+
 export function TyreSetActionDialog({
   open,
   onOpenChange,
@@ -39,6 +48,11 @@ export function TyreSetActionDialog({
   action,
   currentLocationId,
 }: Props) {
+  const { t } = useTranslation(['inventory', 'common'])
+  useEffect(() => {
+    void ensureNamespaceLoaded('inventory')
+  }, [])
+
   const { data: locations } = useLocations()
   const runAction = useTyreSetAction()
   const [locationId, setLocationId] = useState('')
@@ -59,35 +73,26 @@ export function TyreSetActionDialog({
     }
     try {
       await runAction.mutateAsync({ id: tyreSetId, action, body })
-      toast.success('Updated')
+      toast.success(t('inventory:tyreStorage.actionDialog.success'))
       onOpenChange(false)
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, 'Action failed'))
+      toast.error(getErrorMessage(error, t('inventory:tyreStorage.actionDialog.failed')))
     }
   }
-
-  const title =
-    action === 'check-in'
-      ? 'Check in'
-      : action === 'check-out'
-        ? 'Check out'
-        : action === 'move'
-          ? 'Move'
-          : 'Dispose'
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
+          <DialogTitle>{t(titleKeyByAction[action])}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           {action !== 'check-out' && action !== 'dispose' ? (
             <div className="space-y-2">
-              <Label>Location</Label>
+              <Label>{t('inventory:tyreStorage.actionDialog.location')}</Label>
               <Select value={locationId} onValueChange={setLocationId}>
                 <SelectTrigger className="min-h-11">
-                  <SelectValue placeholder="Select rack" />
+                  <SelectValue placeholder={t('inventory:tyreStorage.actionDialog.selectRack')} />
                 </SelectTrigger>
                 <SelectContent>
                   {storageLocations.map((loc) => (
@@ -100,15 +105,15 @@ export function TyreSetActionDialog({
             </div>
           ) : null}
           <div className="space-y-2">
-            <Label>Odometer</Label>
+            <Label>{t('inventory:tyreStorage.actionDialog.odometer')}</Label>
             <Input className="min-h-11" value={odometer} onChange={(e) => setOdometer(e.target.value)} />
           </div>
           <div className="space-y-2">
-            <Label>Note</Label>
+            <Label>{t('inventory:tyreStorage.actionDialog.note')}</Label>
             <Input className="min-h-11" value={note} onChange={(e) => setNote(e.target.value)} />
           </div>
           <div className="space-y-2">
-            <Label>Workshop order id</Label>
+            <Label>{t('inventory:tyreStorage.actionDialog.workshopOrderId')}</Label>
             <Input
               className="min-h-11"
               value={workshopOrderId}
@@ -124,7 +129,7 @@ export function TyreSetActionDialog({
               (action === 'check-in' || action === 'move') && !locationId
             }
           >
-            Confirm
+            {t('common:actions.confirm')}
           </Button>
         </DialogFooter>
       </DialogContent>

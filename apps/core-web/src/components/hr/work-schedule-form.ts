@@ -1,15 +1,10 @@
 import type { EmployeeWorkScheduleDay } from '@/api/hr'
+import { i18n } from '@/lib/i18n'
 
 export const ISO_WEEKDAYS = [1, 2, 3, 4, 5, 6, 7] as const
 
-export const WEEKDAY_LABELS: Record<number, string> = {
-  1: 'Monday',
-  2: 'Tuesday',
-  3: 'Wednesday',
-  4: 'Thursday',
-  5: 'Friday',
-  6: 'Saturday',
-  7: 'Sunday',
+export function weekdayLabel(weekday: number): string {
+  return i18n.t(`hr:workSchedule.weekdays.${weekday}`)
 }
 
 export const DEFAULT_WORKING_DAY: Omit<EmployeeWorkScheduleDay, 'weekday'> = {
@@ -84,34 +79,35 @@ export function normalizeDaysForSubmit(days: ScheduleDayFormState[]): EmployeeWo
 
 export function validateDays(days: ScheduleDayFormState[]): string | null {
   if (days.length !== 7) {
-    return 'Work schedule must include exactly 7 weekdays'
+    return i18n.t('hr:workSchedule.validation.mustHaveSevenDays')
   }
 
   const weekdays = new Set(days.map((day) => day.weekday))
   if (weekdays.size !== 7) {
-    return 'Work schedule must include each weekday once'
+    return i18n.t('hr:workSchedule.validation.eachWeekdayOnce')
   }
 
   for (const day of days) {
+    const dayLabel = weekdayLabel(day.weekday)
     if (!day.isWorking) {
       if (day.startTime || day.endTime) {
-        return `${WEEKDAY_LABELS[day.weekday]} must not include times when not working`
+        return i18n.t('hr:workSchedule.validation.noTimesWhenNotWorking', { day: dayLabel })
       }
       continue
     }
 
     if (!day.startTime || !day.endTime) {
-      return `${WEEKDAY_LABELS[day.weekday]} requires start and end times`
+      return i18n.t('hr:workSchedule.validation.requiresTimes', { day: dayLabel })
     }
 
     const [startHour, startMinute] = day.startTime.split(':').map(Number)
     const [endHour, endMinute] = day.endTime.split(':').map(Number)
     const grossSpan = endHour * 60 + endMinute - (startHour * 60 + startMinute)
     if (grossSpan <= 0) {
-      return `${WEEKDAY_LABELS[day.weekday]} end time must be after start time`
+      return i18n.t('hr:workSchedule.validation.endAfterStart', { day: dayLabel })
     }
     if (day.breakMinutes < 0 || day.breakMinutes >= grossSpan) {
-      return `${WEEKDAY_LABELS[day.weekday]} break must be shorter than the workday`
+      return i18n.t('hr:workSchedule.validation.breakShorterThanDay', { day: dayLabel })
     }
   }
 

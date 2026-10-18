@@ -1,17 +1,19 @@
+import { useEffect } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { LogIn, LogOut, Pause, Stethoscope } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import type { components } from '@/api/generated/openapi'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 type AttendanceState = components['schemas']['AttendanceState']
 type AttendanceEventType = components['schemas']['AttendanceEventType']
 
 type AttendancePunchAction = {
   type: AttendanceEventType
-  label: string
+  labelKey: 'punchBar.clockIn' | 'punchBar.pause' | 'punchBar.doctor' | 'punchBar.clockOut'
   Icon: LucideIcon
   enabledStates: readonly AttendanceState[]
 }
@@ -28,25 +30,25 @@ export type AttendancePunchBarProps = {
 const attendanceActions: readonly AttendancePunchAction[] = [
   {
     type: 'CLOCK_IN',
-    label: 'Come to work',
+    labelKey: 'punchBar.clockIn',
     Icon: LogIn,
     enabledStates: ['CLOCKED_OUT', 'PAUSED', 'AT_DOCTOR'],
   },
   {
     type: 'PAUSE',
-    label: 'Pause',
+    labelKey: 'punchBar.pause',
     Icon: Pause,
     enabledStates: ['CLOCKED_IN'],
   },
   {
     type: 'DOCTOR',
-    label: 'Doctor',
+    labelKey: 'punchBar.doctor',
     Icon: Stethoscope,
     enabledStates: ['CLOCKED_IN'],
   },
   {
     type: 'CLOCK_OUT',
-    label: 'Go home',
+    labelKey: 'punchBar.clockOut',
     Icon: LogOut,
     enabledStates: ['CLOCKED_IN', 'PAUSED', 'AT_DOCTOR'],
   },
@@ -68,6 +70,11 @@ export function AttendancePunchBar({
   size = 'default',
   onPunch,
 }: AttendancePunchBarProps) {
+  const { t } = useTranslation('hr')
+  useEffect(() => {
+    void ensureNamespaceLoaded('hr')
+  }, [])
+
   const isCompact = size === 'compact'
 
   return (
@@ -78,7 +85,8 @@ export function AttendancePunchBar({
         className={cn(isCompact && 'px-2 py-0.5 text-[11px]')}
       />
       {attendanceActions.map((action) => {
-        const { type, label, Icon } = action
+        const { type, labelKey, Icon } = action
+        const label = t(labelKey)
 
         return (
           <Button

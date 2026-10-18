@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react'
+import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { InventoryItem } from '@/api/types'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -7,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { formatCurrency } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 
 const formatPrice = (amount: number) => formatCurrency(amount)
 
@@ -31,6 +34,11 @@ export function InventoryItemInfoCard({
   onChange,
   brandOptions = [],
 }: InventoryItemInfoCardProps) {
+  const { t } = useTranslation('inventory')
+  useEffect(() => {
+    void ensureNamespaceLoaded('inventory')
+  }, [])
+
   const isExpanded = variant === 'expanded'
   const brandList = Array.isArray(brandOptions) ? brandOptions : []
   const selectedBrandId = item.brand_id ?? brandList.find((brand) => brand.name === item.brand)?.id
@@ -39,20 +47,22 @@ export function InventoryItemInfoCard({
     <Card className={className}>
       <CardHeader className={cn('flex flex-row items-center justify-between space-y-0', isExpanded && 'items-start')}>
         <div>
-          <CardTitle className="text-base font-semibold">Item Info</CardTitle>
-          {isExpanded && <p className="text-xs text-muted-foreground mt-1">ID: {item.id}</p>}
+          <CardTitle className="text-base font-semibold">{t('itemInfoCard.title')}</CardTitle>
+          {isExpanded && (
+            <p className="text-xs text-muted-foreground mt-1">{t('itemInfoCard.idLabel', { id: item.id })}</p>
+          )}
         </div>
         {action && <div>{action}</div>}
       </CardHeader>
       <CardContent className={cn('space-y-4 text-sm', isExpanded && 'space-y-5', contentClassName)}>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1">
-            <p className="text-xs font-medium text-slate-500 uppercase">SKU</p>
+            <p className="text-xs font-medium text-slate-500 uppercase">{t('dialogs.editItem.sku')}</p>
             <p className="font-semibold">{item.sku}</p>
-            {editable && <p className="text-xs text-slate-500">SKU is locked to preserve traceability across documents.</p>}
+            {editable && <p className="text-xs text-slate-500">{t('itemInfoCard.skuLockedHint')}</p>}
           </div>
           <div className="space-y-1">
-            <p className="text-xs font-medium text-slate-500 uppercase">Brand</p>
+            <p className="text-xs font-medium text-slate-500 uppercase">{t('itemInfoCard.brand')}</p>
             {editable ? (
               <Select
                 value={selectedBrandId ? String(selectedBrandId) : '__none'}
@@ -69,10 +79,10 @@ export function InventoryItemInfoCard({
                 }}
               >
                 <SelectTrigger className="h-8">
-                  <SelectValue placeholder="Select brand" />
+                  <SelectValue placeholder={t('itemInfoCard.selectBrand')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__none">No brand</SelectItem>
+                  <SelectItem value="__none">{t('itemInfoCard.noBrand')}</SelectItem>
                   {brandList.map((brand) => (
                     <SelectItem key={brand.id} value={String(brand.id)}>
                       {brand.name}
@@ -87,7 +97,7 @@ export function InventoryItemInfoCard({
         </div>
 
         <div className="space-y-1">
-          <p className="text-xs font-medium text-slate-500 uppercase">Name</p>
+          <p className="text-xs font-medium text-slate-500 uppercase">{t('itemInfoCard.name')}</p>
           {editable ? (
             <Input
               value={item.name}
@@ -101,7 +111,7 @@ export function InventoryItemInfoCard({
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1">
-            <p className="text-xs font-medium text-slate-500 uppercase">Price</p>
+            <p className="text-xs font-medium text-slate-500 uppercase">{t('itemInfoCard.price')}</p>
             {editable ? (
               <div className="relative">
                 <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-500">
@@ -124,18 +134,20 @@ export function InventoryItemInfoCard({
             )}
           </div>
           <div className="space-y-1">
-            <p className="text-xs font-medium text-slate-500 uppercase">Availability</p>
+            <p className="text-xs font-medium text-slate-500 uppercase">{t('itemInfoCard.availability')}</p>
             <div className="flex items-center gap-2 mt-1">
               <StatusBadge status={item.status} />
-              <span className="text-sm font-medium">({item.quantity_available} units)</span>
+              <span className="text-sm font-medium">
+                ({t('shared.units', { count: item.quantity_available })})
+              </span>
             </div>
-            {editable && <p className="text-xs text-slate-500">Availability is ledger-derived and read-only.</p>}
+            {editable && <p className="text-xs text-slate-500">{t('itemInfoCard.availabilityReadOnlyHint')}</p>}
           </div>
         </div>
 
         {(editable || item.category) && (
           <div className="space-y-1">
-            <p className="text-xs font-medium text-slate-500 uppercase">Category</p>
+            <p className="text-xs font-medium text-slate-500 uppercase">{t('itemInfoCard.category')}</p>
             {editable ? (
               <Input
                 value={item.category ?? ''}
@@ -152,13 +164,11 @@ export function InventoryItemInfoCard({
 
         {(editable || item.warehouse_location) && (
           <div className="space-y-1">
-            <p className="text-xs font-medium text-slate-500 uppercase">Location</p>
-            <p className="text-sm text-slate-600 font-medium">{item.warehouse_location ?? 'N/A'}</p>
-            {editable && (
-              <p className="text-xs text-slate-500">
-                Use a stock transfer workflow to move quantity and create ledger entries.
-              </p>
-            )}
+            <p className="text-xs font-medium text-slate-500 uppercase">{t('itemInfoCard.location')}</p>
+            <p className="text-sm text-slate-600 font-medium">
+              {item.warehouse_location ?? t('itemInfoCard.notAvailable')}
+            </p>
+            {editable && <p className="text-xs text-slate-500">{t('itemInfoCard.transferWorkflowHint')}</p>}
           </div>
         )}
       </CardContent>

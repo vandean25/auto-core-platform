@@ -2,7 +2,11 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import deHr from '../../../../../locales/de/hr.json'
+import { registerGermanUiForTests } from '@/test/german-ui'
 import HrEmployeesPage from './HrEmployeesPage'
+
+registerGermanUiForTests()
 
 afterEach(cleanup)
 
@@ -41,9 +45,9 @@ describe('HrEmployeesPage', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByRole('heading', { name: 'Employees' })).toBeInTheDocument()
-    expect(screen.getByText('Manage workshop personnel available for assignments.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '+ Employee' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: deHr.employees.pageTitle })).toBeInTheDocument()
+    expect(screen.getByText(deHr.employees.pageDescription)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: deHr.employees.createButton })).toBeInTheDocument()
     expect(screen.getByTestId('employee-table')).toHaveAttribute('data-active-role', 'ADMIN')
   })
 
@@ -56,7 +60,7 @@ describe('HrEmployeesPage', () => {
 
     expect(screen.getByTestId('employee-table')).toHaveAttribute('data-create-open', 'false')
 
-    fireEvent.click(screen.getByRole('button', { name: '+ Employee' }))
+    fireEvent.click(screen.getByRole('button', { name: deHr.employees.createButton }))
 
     expect(screen.getByTestId('employee-table')).toHaveAttribute('data-create-open', 'true')
   })

@@ -1,8 +1,12 @@
+import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
+
 import type { Employee } from '@/api/employees'
 import type { LeaveRequest } from '@/api/hr'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { formatStatusLabel } from '@/lib/i18n/enum-labels'
 import { cn } from '@/lib/utils'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 
 type GridEmployee = Pick<Employee, 'id' | 'name' | 'role'>
 
@@ -42,7 +46,13 @@ export function TeamLeaveMonthGrid({
   canBook,
   onEmptyCellClick,
 }: TeamLeaveMonthGridProps) {
+  const { t } = useTranslation('hr')
+  useEffect(() => {
+    void ensureNamespaceLoaded('hr')
+  }, [])
+
   const days = getMonthDays(month)
+  const bookedLabel = formatStatusLabel('BOOKED')
 
   return (
     <div className='overflow-x-auto rounded-md border' data-testid='team-leave-month-grid'>
@@ -51,7 +61,7 @@ export function TeamLeaveMonthGrid({
         style={{ gridTemplateColumns: `minmax(180px, 1.5fr) repeat(${days.length}, minmax(32px, 1fr))` }}
       >
         <div className='sticky left-0 z-10 border-b border-r bg-background px-3 py-2 text-sm font-medium'>
-          Employee
+          {t('leave.grid.employee')}
         </div>
         {days.map((date) => (
           <div key={date} className='border-b px-1 py-2 text-center text-xs font-medium text-slate-500'>
@@ -74,8 +84,12 @@ export function TeamLeaveMonthGrid({
                     key={date}
                     data-testid={cellTestId}
                     className='flex min-h-10 items-center justify-center border-b border-r bg-emerald-50 px-1'
-                    aria-label={`${employee.name}, ${date}, status ${formatStatusLabel('BOOKED')}`}
-                    title={booking.note || 'Booked leave'}
+                    aria-label={t('leave.grid.cellAria', {
+                      name: employee.name,
+                      date,
+                      status: bookedLabel,
+                    })}
+                    title={booking.note || t('leave.grid.bookedLeave')}
                   >
                     <StatusBadge status='BOOKED' className='px-1 py-0.5 text-[10px]' />
                   </div>
@@ -96,7 +110,7 @@ export function TeamLeaveMonthGrid({
                   key={date}
                   type='button'
                   data-testid={cellTestId}
-                  aria-label={`Book leave for ${employee.name} on ${date}`}
+                  aria-label={t('leave.grid.bookFor', { name: employee.name, date })}
                   className={cn(cellClassName, 'cursor-pointer')}
                   onClick={() => onEmptyCellClick(employee.id, date)}
                 />

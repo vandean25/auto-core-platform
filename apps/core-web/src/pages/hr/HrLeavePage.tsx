@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -30,6 +31,7 @@ import {
   formatApproxDays,
 } from '@/lib/hr-leave-minutes'
 import { formatLocalDateInZone, formatMonthYear } from '@/lib/format'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 
 type TenantMemberRole = components['schemas']['TenantMemberRole']
 type LeaveEmployee = Pick<Employee, 'id' | 'name' | 'role'>
@@ -107,14 +109,14 @@ function isFutureOrToday(date: string, today: string): boolean {
   return date >= today
 }
 
-function MissingEmployeeState() {
+function MissingEmployeeState({ t }: { t: (k: string) => string }) {
   return (
     <Alert>
-      <AlertTitle>No employee record linked</AlertTitle>
+      <AlertTitle>{t('leave.missingEmployee.title')}</AlertTitle>
       <AlertDescription className='flex flex-col items-start gap-2'>
-        <span>Ask an owner or administrator to link your account to an employee record.</span>
+        <span>{t('leave.missingEmployee.description')}</span>
         <Link className='font-medium underline underline-offset-4' to='/hr/employees'>
-          Go to HR Employees
+          {t('leave.missingEmployee.link')}
         </Link>
       </AlertDescription>
     </Alert>
@@ -122,6 +124,9 @@ function MissingEmployeeState() {
 }
 
 export default function HrLeavePage() {
+  const { t } = useTranslation('hr')
+  useEffect(() => { void ensureNamespaceLoaded('hr') }, [])
+
   const sessionQuery = useAuthSession()
   const hrMeQuery = useHrMe()
   const meScheduleQuery = useEmployeeWorkSchedule(hrMeQuery.data?.employee.id ?? null)
@@ -145,7 +150,7 @@ export default function HrLeavePage() {
 
   useEffect(() => {
     if (!hrMeQuery.error || getErrorStatus(hrMeQuery.error) === 403) return
-    toast.error(getErrorMessage(hrMeQuery.error, 'Failed to load HR profile'))
+    toast.error(getErrorMessage(hrMeQuery.error, t('leave.toast.loadProfileFailed')))
   }, [hrMeQuery.error])
 
   const year = Number(month.slice(0, 4))
@@ -192,28 +197,28 @@ export default function HrLeavePage() {
     () => [
       {
         accessorKey: 'employee',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Employee' />,
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('leave.columns.employee')} />,
         cell: ({ row }) => getLeaveEmployeeName(row.original),
       },
       {
         accessorKey: 'startOn',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Date range' />,
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('leave.columns.dateRange')} />,
         cell: ({ row }) => `${row.original.startOn} – ${row.original.endOn}`,
       },
       {
         accessorKey: 'minutesCharged',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Charged (min)' />,
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('leave.columns.chargedMin')} />,
         cell: ({ row }) => row.original.minutesCharged,
       },
       {
         accessorKey: 'status',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Status' />,
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('leave.columns.status')} />,
         cell: ({ row }) => <StatusBadge status={row.original.status} />,
       },
       {
         accessorKey: 'note',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Note' />,
-        cell: ({ row }) => row.original.note || '—',
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('leave.columns.note')} />,
+        cell: ({ row }) => row.original.note || t('employees.notSet'),
       },
     ],
     [],
@@ -243,10 +248,10 @@ export default function HrLeavePage() {
     return (
       <div className='space-y-6'>
         <div>
-          <h2 className='text-2xl font-semibold tracking-tight'>Leave</h2>
-          <p className='text-slate-500'>Book and review team leave.</p>
+          <h2 className='text-2xl font-semibold tracking-tight'>{t('leave.pageTitle')}</h2>
+          <p className='text-slate-500'>{t('leave.pageDescription')}</p>
         </div>
-        <MissingEmployeeState />
+        <MissingEmployeeState t={t} />
       </div>
     )
   }
@@ -255,26 +260,24 @@ export default function HrLeavePage() {
     <div className='space-y-8'>
       <div className='flex items-center justify-between'>
         <div>
-          <h2 className='text-2xl font-semibold tracking-tight'>Leave</h2>
-          <p className='text-slate-500'>Book and review team leave.</p>
+          <h2 className='text-2xl font-semibold tracking-tight'>{t('leave.pageTitle')}</h2>
+          <p className='text-slate-500'>{t('leave.pageDescription')}</p>
         </div>
         <div className='flex items-center gap-3'>
           <StatusBadge
             status='ACTIVE'
-            label={`Remaining: ${remainingMinutes} min${remainingApprox ? ` (${remainingApprox})` : ''}`}
+            label={t('leave.remaining', { minutes: remainingMinutes, approx: remainingApprox ? ` (${remainingApprox})` : '' })}
           />
           <Button type='button' onClick={() => openCreateSheet()}>
-            + Leave
+            {t('leave.bookLeave')}
           </Button>
         </div>
       </div>
 
       <section className='space-y-4' aria-labelledby='my-leave-heading'>
         <div>
-          <h3 id='my-leave-heading' className='text-lg font-semibold'>
-            My leave
-          </h3>
-          <p className='text-sm text-slate-500'>Your leave bookings for the selected year.</p>
+          <h3 id='my-leave-heading' className='text-lg font-semibold'>{t('leave.myLeave')}</h3>
+          <p className='text-sm text-slate-500'>{t('leave.myLeaveHint')}</p>
         </div>
         <DataTable
           columns={tableColumns}
@@ -282,7 +285,7 @@ export default function HrLeavePage() {
           pageCount={pageCount}
           isLoading={myLeaveQuery.isLoading}
           searchColumn='startOn'
-          searchPlaceholder='Search leave...'
+          searchPlaceholder={t('leave.searchPlaceholder')}
           columnFilters={columnFilters}
           setColumnFilters={setColumnFilters}
           sorting={sorting}
@@ -297,11 +300,11 @@ export default function HrLeavePage() {
             canCancelBooking(row)
               ? [
                   {
-                    label: 'Cancel',
+                    label: t('leave.cancel'),
                     destructive: true,
                     onClick: () => cancelLeave.mutate(row.id, {
                       onError: (error) => {
-                        toast.error(getErrorMessage(error, 'Failed to cancel leave booking'))
+                        toast.error(getErrorMessage(error, t('leave.toast.cancelFailed')))
                       },
                     }),
                   },
@@ -315,18 +318,16 @@ export default function HrLeavePage() {
         <section className='space-y-4' aria-labelledby='team-leave-heading'>
           <div className='flex items-center justify-between'>
             <div>
-              <h3 id='team-leave-heading' className='text-lg font-semibold'>
-                Team leave
-              </h3>
-              <p className='text-sm text-slate-500'>Tenant-local month view of booked leave.</p>
+              <h3 id='team-leave-heading' className='text-lg font-semibold'>{t('leave.teamLeave')}</h3>
+              <p className='text-sm text-slate-500'>{t('leave.teamLeaveHint')}</p>
             </div>
             <div className='flex items-center gap-2'>
               <Button type='button' variant='outline' size='sm' onClick={() => setMonth((current) => shiftMonth(current, -1))}>
-                Previous
+                {t('leave.previous')}
               </Button>
               <span className='min-w-36 text-center text-sm font-medium'>{formatMonthLabel(month)}</span>
               <Button type='button' variant='outline' size='sm' onClick={() => setMonth((current) => shiftMonth(current, 1))}>
-                Next
+                {t('leave.next')}
               </Button>
             </div>
           </div>

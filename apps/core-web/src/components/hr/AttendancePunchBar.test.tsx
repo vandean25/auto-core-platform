@@ -6,11 +6,20 @@ import { StatusBadge } from '@/components/status/StatusBadge'
 import { formatStatusLabel } from '@/lib/i18n/enum-labels'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Skeleton } from '@/components/ui/skeleton'
+import deHr from '../../../../../locales/de/hr.json'
+import { registerGermanUiForTests } from '@/test/german-ui'
 import { AttendancePunchBar } from './AttendancePunchBar'
+
+registerGermanUiForTests()
 
 type AttendanceState = components['schemas']['AttendanceState']
 
-const actionLabels = ['Come to work', 'Pause', 'Doctor', 'Go home']
+const actionLabels = [
+  deHr.punchBar.clockIn,
+  deHr.punchBar.pause,
+  deHr.punchBar.doctor,
+  deHr.punchBar.clockOut,
+]
 
 afterEach(() => {
   cleanup()
@@ -39,7 +48,7 @@ describe('AttendancePunchBar', () => {
   it('enables only Come to work while clocked out', () => {
     renderPunchBar('CLOCKED_OUT')
 
-    expect(getActionButton('Come to work')).toBeEnabled()
+    expect(getActionButton(deHr.punchBar.clockIn)).toBeEnabled()
     actionLabels.slice(1).forEach((label) => {
       expect(getActionButton(label)).toBeDisabled()
     })
@@ -48,28 +57,28 @@ describe('AttendancePunchBar', () => {
   it('enables Pause, Doctor, and Go home while clocked in', () => {
     renderPunchBar('CLOCKED_IN', false)
 
-    expect(getActionButton('Come to work')).toBeDisabled()
-    expect(getActionButton('Pause')).toBeEnabled()
-    expect(getActionButton('Doctor')).toBeEnabled()
-    expect(getActionButton('Go home')).toBeEnabled()
+    expect(getActionButton(deHr.punchBar.clockIn)).toBeDisabled()
+    expect(getActionButton(deHr.punchBar.pause)).toBeEnabled()
+    expect(getActionButton(deHr.punchBar.doctor)).toBeEnabled()
+    expect(getActionButton(deHr.punchBar.clockOut)).toBeEnabled()
   })
 
   it('enables Come to work and Go home while paused', () => {
     renderPunchBar('PAUSED', false)
 
-    expect(getActionButton('Come to work')).toBeEnabled()
-    expect(getActionButton('Pause')).toBeDisabled()
-    expect(getActionButton('Doctor')).toBeDisabled()
-    expect(getActionButton('Go home')).toBeEnabled()
+    expect(getActionButton(deHr.punchBar.clockIn)).toBeEnabled()
+    expect(getActionButton(deHr.punchBar.pause)).toBeDisabled()
+    expect(getActionButton(deHr.punchBar.doctor)).toBeDisabled()
+    expect(getActionButton(deHr.punchBar.clockOut)).toBeEnabled()
   })
 
   it('enables Come to work and Go home while at the doctor', () => {
     renderPunchBar('AT_DOCTOR')
 
-    expect(getActionButton('Come to work')).toBeEnabled()
-    expect(getActionButton('Go home')).toBeEnabled()
-    expect(getActionButton('Pause')).toBeDisabled()
-    expect(getActionButton('Doctor')).toBeDisabled()
+    expect(getActionButton(deHr.punchBar.clockIn)).toBeEnabled()
+    expect(getActionButton(deHr.punchBar.clockOut)).toBeEnabled()
+    expect(getActionButton(deHr.punchBar.pause)).toBeDisabled()
+    expect(getActionButton(deHr.punchBar.doctor)).toBeDisabled()
   })
 
   it('disables every action while a punch is pending', () => {
@@ -92,13 +101,13 @@ describe('AttendancePunchBar', () => {
       'py-0.5',
     )
     expect(container.firstElementChild).toHaveClass('gap-1')
-    expect(getActionButton('Come to work')).toHaveClass('h-8')
+    expect(getActionButton(deHr.punchBar.clockIn)).toHaveClass('h-8')
   })
 
   it('passes the selected attendance event type to onPunch', () => {
     const { onPunch } = renderPunchBar('CLOCKED_IN')
 
-    fireEvent.click(getActionButton('Doctor'))
+    fireEvent.click(getActionButton(deHr.punchBar.doctor))
 
     expect(onPunch).toHaveBeenCalledWith('DOCTOR')
   })

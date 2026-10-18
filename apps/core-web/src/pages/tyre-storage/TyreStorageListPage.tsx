@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { Download, Plus } from 'lucide-react'
 import { DataTable } from '@/components/data-table/DataTable'
@@ -25,11 +26,18 @@ import { TyreSetFormDialog } from '@/features/tyre-storage/TyreSetFormDialog'
 import { CustomerSearch } from '@/components/sales/CustomerSearch'
 import type { Customer } from '@/api/types'
 import { toast } from 'sonner'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 
 const ALL = '__all__'
 
 export default function TyreStorageListPage() {
+  const { t } = useTranslation('inventory')
+  useEffect(() => {
+    void ensureNamespaceLoaded('inventory')
+  }, [])
+
   const navigate = useNavigate()
+  const emDash = t('shared.emDash')
   const [search, setSearch] = useState('')
   const [viewMode, setViewMode] = useState<'all' | 'due'>('all')
   const [season, setSeason] = useState(ALL)
@@ -68,62 +76,80 @@ export default function TyreStorageListPage() {
     const base: ColumnDef<TyreSet>[] = [
       {
         accessorKey: 'label',
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Label" />,
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title={t('tyreStorage.list.columns.label')} />
+        ),
         cell: ({ row }) => <span className="font-medium">{row.original.label}</span>,
       },
       {
         accessorKey: 'customerName',
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Customer" />,
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title={t('tyreStorage.list.columns.customer')} />
+        ),
       },
     ]
     if (viewMode === 'due') {
       base.push(
         {
           accessorKey: 'customerPhone',
-          header: ({ column }) => <DataTableColumnHeader column={column} title="Phone" />,
-          cell: ({ row }) => row.original.customerPhone ?? '—',
+          header: ({ column }) => (
+            <DataTableColumnHeader column={column} title={t('tyreStorage.list.columns.phone')} />
+          ),
+          cell: ({ row }) => row.original.customerPhone ?? emDash,
         },
         {
           accessorKey: 'customerEmail',
-          header: ({ column }) => <DataTableColumnHeader column={column} title="Email" />,
-          cell: ({ row }) => row.original.customerEmail ?? '—',
+          header: ({ column }) => (
+            <DataTableColumnHeader column={column} title={t('tyreStorage.list.columns.email')} />
+          ),
+          cell: ({ row }) => row.original.customerEmail ?? emDash,
         },
       )
     }
     base.push(
       {
         accessorKey: 'vehiclePlate',
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Plate" />,
-        cell: ({ row }) => row.original.vehiclePlate ?? '—',
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title={t('tyreStorage.list.columns.plate')} />
+        ),
+        cell: ({ row }) => row.original.vehiclePlate ?? emDash,
       },
       {
         accessorKey: 'season',
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Season" />,
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title={t('tyreStorage.list.columns.season')} />
+        ),
         cell: ({ row }) => <StatusBadge status={row.original.season} />,
       },
       {
         accessorKey: 'status',
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title={t('tyreStorage.list.columns.status')} />
+        ),
         cell: ({ row }) => <StatusBadge status={row.original.status} />,
       },
       {
         accessorKey: 'binLabel',
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Bin" />,
-        cell: ({ row }) => row.original.binLabel ?? '—',
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title={t('tyreStorage.list.columns.bin')} />
+        ),
+        cell: ({ row }) => row.original.binLabel ?? emDash,
       },
       {
         accessorKey: 'plannedSwapOn',
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Swap due" />,
-        cell: ({ row }) => row.original.plannedSwapOn ?? '—',
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title={t('tyreStorage.list.columns.swapDue')} />
+        ),
+        cell: ({ row }) => row.original.plannedSwapOn ?? emDash,
       },
     )
     return base
-  }, [viewMode])
+  }, [emDash, t, viewMode])
 
   const exportDueCsv = async () => {
     const response = await fetchWithAuth('/api/tyre-sets/due-for-swap/export')
     if (!response.ok) {
-      toast.error('CSV export failed')
+      toast.error(t('tyreStorage.list.exportFailed'))
       return
     }
     const text = await response.text()
@@ -134,29 +160,27 @@ export default function TyreStorageListPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Reifenlager</h1>
-          <p className="text-slate-500">
-            Customer tyre sets, storage locations, and seasonal swap planning (manual outreach only).
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight">{t('tyreStorage.list.title')}</h1>
+          <p className="text-slate-500">{t('tyreStorage.list.description')}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="lg" className="min-h-11" onClick={() => void exportDueCsv()}>
             <Download className="mr-2 h-4 w-4" />
-            Export due CSV
+            {t('actions.exportDueCsv')}
           </Button>
           <Button
             size="lg"
             className="min-h-11"
             onClick={() => {
               if (!customerFilter?.id) {
-                toast.error('Select a customer in filters to create a set from this page')
+                toast.error(t('tyreStorage.list.selectCustomerToCreate'))
                 return
               }
               setCreateOpen(true)
             }}
           >
             <Plus className="mr-2 h-4 w-4" />
-            Tyre set
+            {t('actions.tyreSet')}
           </Button>
         </div>
       </div>
@@ -164,10 +188,10 @@ export default function TyreStorageListPage() {
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end">
           <div className="space-y-1">
-            <Label>Plate / VIN</Label>
+            <Label>{t('tyreStorage.list.filters.plateVin')}</Label>
             <Input
               className="max-w-md min-h-11 text-base"
-              placeholder="Search plate or VIN…"
+              placeholder={t('tyreStorage.list.filters.searchPlateVin')}
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               disabled={viewMode === 'due'}
@@ -176,45 +200,45 @@ export default function TyreStorageListPage() {
           <div
             className={`space-y-1 min-w-[16rem] ${viewMode === 'due' ? 'pointer-events-none opacity-50' : ''}`}
           >
-            <Label>Customer</Label>
+            <Label>{t('tyreStorage.list.filters.customer')}</Label>
             <CustomerSearch value={customerFilter} onChange={setCustomerFilter} />
           </div>
           <div className="space-y-1">
-            <Label>Season</Label>
+            <Label>{t('tyreStorage.list.filters.season')}</Label>
             <Select value={season} onValueChange={setSeason} disabled={viewMode === 'due'}>
               <SelectTrigger className="min-h-11 w-40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={ALL}>All</SelectItem>
-                <SelectItem value="WINTER">Winter</SelectItem>
-                <SelectItem value="SUMMER">Summer</SelectItem>
-                <SelectItem value="ALL_SEASON">All season</SelectItem>
+                <SelectItem value={ALL}>{t('tyreStorage.list.filters.all')}</SelectItem>
+                <SelectItem value="WINTER">{t('tyreStorage.list.filters.winter')}</SelectItem>
+                <SelectItem value="SUMMER">{t('tyreStorage.list.filters.summer')}</SelectItem>
+                <SelectItem value="ALL_SEASON">{t('tyreStorage.list.filters.allSeason')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-1">
-            <Label>Status</Label>
+            <Label>{t('tyreStorage.list.filters.status')}</Label>
             <Select value={status} onValueChange={setStatus} disabled={viewMode === 'due'}>
               <SelectTrigger className="min-h-11 w-44">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={ALL}>All</SelectItem>
-                <SelectItem value="IN_STORAGE">In storage</SelectItem>
-                <SelectItem value="RETURNED">Returned</SelectItem>
-                <SelectItem value="DISPOSED">Disposed</SelectItem>
+                <SelectItem value={ALL}>{t('tyreStorage.list.filters.all')}</SelectItem>
+                <SelectItem value="IN_STORAGE">{t('tyreStorage.list.filters.inStorage')}</SelectItem>
+                <SelectItem value="RETURNED">{t('tyreStorage.list.filters.returned')}</SelectItem>
+                <SelectItem value="DISPOSED">{t('tyreStorage.list.filters.disposed')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-1">
-            <Label>Location</Label>
+            <Label>{t('tyreStorage.list.filters.location')}</Label>
             <Select value={locationId} onValueChange={setLocationId} disabled={viewMode === 'due'}>
               <SelectTrigger className="min-h-11 w-44">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={ALL}>All</SelectItem>
+                <SelectItem value={ALL}>{t('tyreStorage.list.filters.all')}</SelectItem>
                 {storageLocations.map((loc) => (
                   <SelectItem key={loc.id} value={loc.id}>
                     {loc.code}
@@ -224,7 +248,7 @@ export default function TyreStorageListPage() {
             </Select>
           </div>
           <div className="space-y-1">
-            <Label>Due from</Label>
+            <Label>{t('tyreStorage.list.filters.dueFrom')}</Label>
             <Input
               type="date"
               className="min-h-11"
@@ -234,7 +258,7 @@ export default function TyreStorageListPage() {
             />
           </div>
           <div className="space-y-1">
-            <Label>Due to</Label>
+            <Label>{t('tyreStorage.list.filters.dueTo')}</Label>
             <Input
               type="date"
               className="min-h-11"
@@ -250,14 +274,14 @@ export default function TyreStorageListPage() {
             className="min-h-11"
             onClick={() => setViewMode('all')}
           >
-            All sets
+            {t('actions.allSets')}
           </Button>
           <Button
             variant={viewMode === 'due' ? 'default' : 'outline'}
             className="min-h-11"
             onClick={() => setViewMode('due')}
           >
-            Due for swap ({dueData?.data.length ?? 0})
+            {t('tyreStorage.list.dueCount', { count: dueData?.data.length ?? 0 })}
           </Button>
         </div>
       </div>

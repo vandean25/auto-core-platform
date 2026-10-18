@@ -1,6 +1,11 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
+
+import deInventory from '../../../../../locales/de/inventory.json'
+import { registerGermanUiForTests } from '@/test/german-ui'
 import { TyreSetFormDialog } from './TyreSetFormDialog'
+
+registerGermanUiForTests()
 
 vi.mock('@/api/locations', () => ({
   useLocations: () => ({ data: [] }),
@@ -32,7 +37,7 @@ describe('TyreSetFormDialog', () => {
       />,
     )
 
-    expect(screen.queryByText('Storage location')).not.toBeInTheDocument()
-    expect(screen.getByText('Edit tyre set')).toBeInTheDocument()
+    expect(screen.queryByText(deInventory.tyreStorage.form.storageLocation)).not.toBeInTheDocument()
+    expect(screen.getByText(deInventory.tyreStorage.form.editTitle)).toBeInTheDocument()
   })
 })

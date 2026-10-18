@@ -2,7 +2,17 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import deEnums from '../../../../../locales/de/enums.json'
+import deHr from '../../../../../locales/de/hr.json'
+import { registerGermanUiForTests } from '@/test/german-ui'
 import HrClockPage from './HrClockPage'
+
+registerGermanUiForTests()
+
+const punch = deHr.punchBar
+const eventIn = deEnums.attendanceEventType.CLOCK_IN
+const eventPause = deEnums.attendanceEventType.PAUSE
+const eventOut = deEnums.attendanceEventType.CLOCK_OUT
 
 const apiMocks = vi.hoisted(() => ({
   useAuthSession: vi.fn(),
@@ -166,22 +176,22 @@ describe('HrClockPage', () => {
   it('renders the linked employee state, four punch buttons, and tenant-local timeline', () => {
     renderPage()
 
-    expect(screen.getByRole('heading', { name: 'Time Clock' })).toBeInTheDocument()
-    expect(screen.getByText('Track attendance for today.')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: deHr.clock.pageTitle })).toBeInTheDocument()
+    expect(screen.getByText(deHr.clock.pageDescription)).toBeInTheDocument()
     expect(screen.getByText('Eingestempelt')).toBeInTheDocument()
     expect(screen.getAllByRole('button')).toHaveLength(4)
 
-    expect(screen.getByRole('button', { name: 'Come to work' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Pause' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Doctor' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Go home' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: punch.clockIn })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: punch.pause })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: punch.doctor })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: punch.clockOut })).toBeInTheDocument()
     expect(screen.getByText('08:05')).toBeInTheDocument()
     expect(screen.getByText('12:10')).toBeInTheDocument()
     expect(screen.getByText('17:35')).toBeInTheDocument()
     const timelineRows = screen.getAllByRole('listitem')
-    expect(within(timelineRows[0]).getByText('Come to work')).toBeInTheDocument()
-    expect(within(timelineRows[1]).getByText('Pause')).toBeInTheDocument()
-    expect(within(timelineRows[2]).getByText('Go home')).toBeInTheDocument()
+    expect(within(timelineRows[0]).getByText(eventIn)).toBeInTheDocument()
+    expect(within(timelineRows[1]).getByText(eventPause)).toBeInTheDocument()
+    expect(within(timelineRows[2]).getByText(eventOut)).toBeInTheDocument()
   })
 
   it('formats UTC events and the attendance range in the tenant timezone', () => {
@@ -199,7 +209,7 @@ describe('HrClockPage', () => {
     renderPage()
 
     expect(screen.getAllByText('08:05')).toHaveLength(2)
-    expect(screen.getByLabelText('Attendance day')).toHaveValue('2026-08-24')
+    expect(screen.getByLabelText(deHr.clock.attendanceDay)).toHaveValue('2026-08-24')
     expect(apiMocks.useHrAttendance).toHaveBeenCalledWith(
       '2026-08-24',
       '2026-08-24',
@@ -212,19 +222,19 @@ describe('HrClockPage', () => {
     renderPage()
 
     const pageHeader = screen.getByTestId('hr-clock-header')
-    expect(within(pageHeader).getByLabelText('Employee')).toBeInTheDocument()
-    expect(within(pageHeader).getByRole('button', { name: 'Come to work' })).toBeInTheDocument()
-    expect(screen.getByLabelText('Attendance day')).toHaveValue('2026-08-23')
-    expect(screen.getByPlaceholderText('Search attendance...')).toBeInTheDocument()
-    expect(screen.getByText('Team attendance')).toBeInTheDocument()
+    expect(within(pageHeader).getByLabelText(deHr.clock.employee)).toBeInTheDocument()
+    expect(within(pageHeader).getByRole('button', { name: punch.clockIn })).toBeInTheDocument()
+    expect(screen.getByLabelText(deHr.clock.attendanceDay)).toHaveValue('2026-08-23')
+    expect(screen.getByPlaceholderText(deHr.clock.searchPlaceholder)).toBeInTheDocument()
+    expect(screen.getByText(deHr.clock.teamAttendance)).toBeInTheDocument()
 
     cleanup()
     setupMocks('SALES')
     renderPage()
 
-    expect(screen.queryByLabelText('Employee')).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('Attendance day')).not.toBeInTheDocument()
-    expect(screen.queryByPlaceholderText('Search attendance...')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(deHr.clock.employee)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(deHr.clock.attendanceDay)).not.toBeInTheDocument()
+    expect(screen.queryByPlaceholderText(deHr.clock.searchPlaceholder)).not.toBeInTheDocument()
   })
 
   it('uses the selected employee current clock state instead of historical attendance events', () => {
@@ -234,10 +244,10 @@ describe('HrClockPage', () => {
     )
 
     renderPage()
-    fireEvent.change(screen.getByLabelText('Employee'), { target: { value: secondEmployee.id } })
+    fireEvent.change(screen.getByLabelText(deHr.clock.employee), { target: { value: secondEmployee.id } })
 
-    expect(screen.getByRole('button', { name: 'Come to work' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Pause' })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: punch.clockIn })).toBeDisabled()
+    expect(screen.getByRole('button', { name: punch.pause })).not.toBeDisabled()
   })
 
   it('disables selected employee punch actions while current clock state is loading', () => {
@@ -247,12 +257,12 @@ describe('HrClockPage', () => {
     )
 
     renderPage()
-    fireEvent.change(screen.getByLabelText('Employee'), { target: { value: secondEmployee.id } })
+    fireEvent.change(screen.getByLabelText(deHr.clock.employee), { target: { value: secondEmployee.id } })
 
-    expect(screen.getByRole('button', { name: 'Come to work' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Pause' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Doctor' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Go home' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: punch.clockIn })).toBeDisabled()
+    expect(screen.getByRole('button', { name: punch.pause })).toBeDisabled()
+    expect(screen.getByRole('button', { name: punch.doctor })).toBeDisabled()
+    expect(screen.getByRole('button', { name: punch.clockOut })).toBeDisabled()
   })
 
   it('disables selected employee punch actions when current clock state returns 403', () => {
@@ -263,12 +273,12 @@ describe('HrClockPage', () => {
     )
 
     renderPage()
-    fireEvent.change(screen.getByLabelText('Employee'), { target: { value: secondEmployee.id } })
+    fireEvent.change(screen.getByLabelText(deHr.clock.employee), { target: { value: secondEmployee.id } })
 
-    expect(screen.getByRole('button', { name: 'Come to work' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Pause' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Doctor' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Go home' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: punch.clockIn })).toBeDisabled()
+    expect(screen.getByRole('button', { name: punch.pause })).toBeDisabled()
+    expect(screen.getByRole('button', { name: punch.doctor })).toBeDisabled()
+    expect(screen.getByRole('button', { name: punch.clockOut })).toBeDisabled()
   })
 
   it('renders the documented state when the employee link is missing', () => {
@@ -280,8 +290,8 @@ describe('HrClockPage', () => {
 
     renderPage()
 
-    expect(screen.getByText('No employee record linked')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Go to HR Employees' })).toHaveAttribute(
+    expect(screen.getByText(deHr.clock.missingEmployee.title)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: deHr.clock.missingEmployee.link })).toHaveAttribute(
       'href',
       '/hr/employees',
     )
@@ -303,11 +313,11 @@ describe('HrClockPage', () => {
 
     renderPage()
 
-    expect(screen.queryByText('No employee record linked')).not.toBeInTheDocument()
-    expect(screen.getByLabelText('Employee')).toHaveValue(secondEmployee.id)
-    expect(screen.getByText('Team attendance')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Pause' })).not.toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Come to work' })).toBeDisabled()
+    expect(screen.queryByText(deHr.clock.missingEmployee.title)).not.toBeInTheDocument()
+    expect(screen.getByLabelText(deHr.clock.employee)).toHaveValue(secondEmployee.id)
+    expect(screen.getByText(deHr.clock.teamAttendance)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: punch.pause })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: punch.clockIn })).toBeDisabled()
     expect(apiMocks.useHrEmployeeClock).toHaveBeenLastCalledWith(secondEmployee.id)
   })
 
@@ -347,7 +357,7 @@ describe('HrClockPage', () => {
     const { punchClock } = setupMocks('SALES')
     renderPage()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Doctor' }))
+    fireEvent.click(screen.getByRole('button', { name: punch.doctor }))
 
     expect(punchClock).toHaveBeenCalledWith({ type: 'DOCTOR' }, expect.any(Object))
     expect(punchClock.mock.calls[0][0]).toEqual({ type: 'DOCTOR' })
@@ -357,8 +367,8 @@ describe('HrClockPage', () => {
     const { punchEmployeeClock } = setupMocks('ADMIN')
     renderPage()
 
-    fireEvent.change(screen.getByLabelText('Employee'), { target: { value: secondEmployee.id } })
-    fireEvent.click(screen.getByRole('button', { name: 'Come to work' }))
+    fireEvent.change(screen.getByLabelText(deHr.clock.employee), { target: { value: secondEmployee.id } })
+    fireEvent.click(screen.getByRole('button', { name: punch.clockIn }))
 
     expect(punchEmployeeClock).toHaveBeenCalledWith(
       { employeeId: secondEmployee.id, type: 'CLOCK_IN' },
