@@ -4,6 +4,9 @@ import { cronJobAdvisoryLockKeys } from './cron-job-advisory-lock-key.js';
 
 const defaultLogger = new Logger('CronJobAdvisoryLock');
 
+/** Jobs currently executing `fn` in this Node process (belt under the DB lock). */
+const runningInThisProcess = new Set<string>();
+
 export type CronJobLockLogger = {
   log: (message: string) => void;
   warn?: (message: string) => void;
@@ -46,6 +49,13 @@ export async function withCronJobLock(
   fn: () => Promise<void>,
   logger: CronJobLockLogger = defaultLogger,
 ): Promise<boolean> {
+  if (runningInThisProcess.has(jobName)) {
+    logger.log(
+      `Skipping cron job "${jobName}": already running in this process.`,
+    );
+    return false;
+  }
+
   const client = await pool.connect();
   let acquired = false;
   try {
@@ -56,8 +66,13 @@ export async function withCronJobLock(
       );
       return false;
     }
-    await fn();
-    return true;
+    runningInThisProcess.add(jobName);
+    try {
+      await fn();
+      return true;
+    } finally {
+      runningInThisProcess.delete(jobName);
+    }
   } finally {
     if (acquired) {
       const released = await releaseCronJobAdvisoryLockOnClient(

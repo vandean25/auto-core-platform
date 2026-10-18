@@ -1,8 +1,10 @@
+import type { Pool, PoolClient } from 'pg';
 import {
   CORE_API_CRON_ADVISORY_LOCK_CLASS,
   cronJobAdvisoryLockKeys,
 } from './cron-job-advisory-lock-key.js';
 import { CORE_API_CRON_JOB_NAMES } from './core-api-cron-job-names.js';
+import { withCronJobLock } from './cron-job-advisory-lock.js';
 
 const INT32_MIN = -2_147_483_648;
 const INT32_MAX = 2_147_483_647;
@@ -29,5 +31,35 @@ describe('cronJobAdvisoryLockKeys', () => {
       keys.add(encoded);
     }
     expect(CORE_API_CRON_JOB_NAMES).toHaveLength(13);
+  });
+});
+
+describe('withCronJobLock in-process guard', () => {
+  it('skips a nested call for the same job name without taking a second lock', async () => {
+    const query = jest.fn(async (sql: string) => {
+      if (sql.includes('pg_try_advisory_lock')) {
+        return { rows: [{ acquired: true }] };
+      }
+      if (sql.includes('pg_advisory_unlock')) {
+        return { rows: [{ released: true }] };
+      }
+      return { rows: [] };
+    });
+    const client = { query, release: jest.fn() } as unknown as PoolClient;
+    const pool = {
+      connect: jest.fn().mockResolvedValue(client),
+    } as unknown as Pool;
+
+    let nestedRan = false;
+    const ran = await withCronJobLock(pool, 'nested-guard-test', async () => {
+      const nested = await withCronJobLock(pool, 'nested-guard-test', async () => {
+        nestedRan = true;
+      });
+      expect(nested).toBe(false);
+    });
+
+    expect(ran).toBe(true);
+    expect(nestedRan).toBe(false);
+    expect(pool.connect).toHaveBeenCalledTimes(1);
   });
 });
