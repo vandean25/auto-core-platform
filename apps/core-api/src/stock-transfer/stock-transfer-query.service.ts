@@ -2,7 +2,6 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TRANSFER_INCLUDE } from './stock-transfer-include.js';
-import type { CallerAccess } from './stock-transfer-access.types.js';
 import {
   serializeStockTransfer,
   SerializedStockTransfer,

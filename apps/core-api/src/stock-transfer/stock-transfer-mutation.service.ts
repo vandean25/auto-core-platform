@@ -5,7 +5,11 @@ import {
   Injectable,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { Prisma, StockTransferCommandAction, StockTransferStatus } from '@prisma/client';
+import {
+  Prisma,
+  StockTransferCommandAction,
+  StockTransferStatus,
+} from '@prisma/client';
 import { chunkedPromiseAll } from '../common/utils/promise.util.js';
 import type {
   ApproveStockTransferDto,
@@ -69,10 +73,11 @@ export class StockTransferMutationService {
     }
 
     return this.commitService.commitTransfer(access, 'CREATED', async (tx) => {
-      const [fromSite, toSite] = await this.siteLockService.lockSites(tx, access.tenantId, [
-        dto.fromSiteId,
-        dto.toSiteId,
-      ]);
+      const [fromSite, toSite] = await this.siteLockService.lockSites(
+        tx,
+        access.tenantId,
+        [dto.fromSiteId, dto.toSiteId],
+      );
       if (fromSite.legal_entity_id !== toSite.legal_entity_id) {
         throw new UnprocessableEntityException(
           'Stock transfers cannot cross legal entities (same-GmbH only).',
@@ -106,7 +111,8 @@ export class StockTransferMutationService {
         sourceLocationIds,
       );
 
-      const transferNumber = await this.commitService.generateTransferNumber(tx);
+      const transferNumber =
+        await this.commitService.generateTransferNumber(tx);
       const transfer = await tx.stockTransfer.create({
         data: {
           tenant_id: access.tenantId,
@@ -144,9 +150,12 @@ export class StockTransferMutationService {
     assertUniqueLineIds(dto.lines?.map((line) => line.id) ?? []);
 
     return this.commitService.commitTransfer(access, 'UPDATED', async (tx) => {
-      const transfer = await this.queryService.loadTransfer(tx, access.tenantId, id, [
-        ...access.accessBySite.keys(),
-      ]);
+      const transfer = await this.queryService.loadTransfer(
+        tx,
+        access.tenantId,
+        id,
+        [...access.accessBySite.keys()],
+      );
       this.accessService.assertTransferAccess(access, transfer, {
         requireFrom: true,
         requireAdmin: true,
@@ -161,7 +170,11 @@ export class StockTransferMutationService {
           `Version conflict: expected ${dto.expectedVersion}, current ${transfer.version}.`,
         );
       }
-      await this.siteLockService.lockSitesForTransfer(tx, access.tenantId, transfer);
+      await this.siteLockService.lockSitesForTransfer(
+        tx,
+        access.tenantId,
+        transfer,
+      );
 
       const linesById = new Map(transfer.lines.map((line) => [line.id, line]));
       const updates: ApproveStockTransferLineDto[] =
@@ -267,9 +280,12 @@ export class StockTransferMutationService {
     const access = await this.accessService.loadCallerAccess();
 
     return this.commitService.commitTransfer(access, 'UPDATED', async (tx) => {
-      const transfer = await this.queryService.loadTransfer(tx, access.tenantId, id, [
-        ...access.accessBySite.keys(),
-      ]);
+      const transfer = await this.queryService.loadTransfer(
+        tx,
+        access.tenantId,
+        id,
+        [...access.accessBySite.keys()],
+      );
       this.accessService.assertTransferAccess(access, transfer, {
         requireFrom: true,
         requireAdmin: true,
@@ -312,10 +328,17 @@ export class StockTransferMutationService {
     const access = await this.accessService.loadCallerAccess();
 
     return this.commitService.commitTransfer(access, 'UPDATED', async (tx) => {
-      const transfer = await this.queryService.loadTransfer(tx, access.tenantId, id, [
-        ...access.accessBySite.keys(),
-      ]);
-      const { fromAccess } = this.accessService.assertTransferAccess(access, transfer, {});
+      const transfer = await this.queryService.loadTransfer(
+        tx,
+        access.tenantId,
+        id,
+        [...access.accessBySite.keys()],
+      );
+      const { fromAccess } = this.accessService.assertTransferAccess(
+        access,
+        transfer,
+        {},
+      );
       if (
         transfer.requested_by_user_id !== access.userId &&
         !(fromAccess && access.isAdmin)
@@ -366,9 +389,12 @@ export class StockTransferMutationService {
     assertUniqueLineIds(dto.lines.map((line) => line.id));
 
     return this.commitService.commitTransfer(access, 'UPDATED', async (tx) => {
-      const transfer = await this.queryService.loadTransfer(tx, access.tenantId, id, [
-        ...access.accessBySite.keys(),
-      ]);
+      const transfer = await this.queryService.loadTransfer(
+        tx,
+        access.tenantId,
+        id,
+        [...access.accessBySite.keys()],
+      );
       this.accessService.assertTransferAccess(access, transfer, {
         requireFrom: true,
       });
@@ -382,7 +408,11 @@ export class StockTransferMutationService {
           `Version conflict: expected ${dto.expectedVersion}, current ${transfer.version}.`,
         );
       }
-      await this.siteLockService.lockSitesForTransfer(tx, access.tenantId, transfer);
+      await this.siteLockService.lockSitesForTransfer(
+        tx,
+        access.tenantId,
+        transfer,
+      );
 
       const linesById = new Map(transfer.lines.map((line) => [line.id, line]));
       const bodyById = new Map(dto.lines.map((line) => [line.id, line]));
@@ -500,10 +530,14 @@ export class StockTransferMutationService {
         }
       });
 
-      await this.ledgerPostingService.writeShipLedgerPairs(tx, access.tenantId, {
-        transfer,
-        sourceByLine: [...frozenSourceByLine.entries()],
-      });
+      await this.ledgerPostingService.writeShipLedgerPairs(
+        tx,
+        access.tenantId,
+        {
+          transfer,
+          sourceByLine: [...frozenSourceByLine.entries()],
+        },
+      );
 
       return this.queryService.loadTransfer(tx, access.tenantId, id, [
         ...access.accessBySite.keys(),
@@ -531,132 +565,147 @@ export class StockTransferMutationService {
     }
 
     try {
-      return await this.commitService.commitTransfer(access, 'UPDATED', async (tx) => {
-        const transfer = await this.queryService.loadTransfer(tx, access.tenantId, id, [
-          ...access.accessBySite.keys(),
-        ]);
-        this.accessService.assertTransferAccess(access, transfer, {
-          requireTo: true,
-        });
-        if (transfer.status !== StockTransferStatus.SHIPPED) {
-          throw new ConflictException(
-            `Only SHIPPED transfers can receive stock (current: ${transfer.status}).`,
-          );
-        }
-        if (transfer.version !== dto.expectedVersion) {
-          throw new ConflictException(
-            `Version conflict: expected ${dto.expectedVersion}, current ${transfer.version}.`,
-          );
-        }
-        await this.siteLockService.lockSitesForTransfer(tx, access.tenantId, transfer);
-
-        const linesById = new Map(
-          transfer.lines.map((line) => [line.id, line]),
-        );
-        for (const update of dto.lines) {
-          const line = linesById.get(update.id);
-          if (!line) {
-            throw new UnprocessableEntityException(
-              `Line ${update.id} does not belong to this transfer.`,
-            );
-          }
-          if (line.shipped_qty.eq(0)) {
-            throw new UnprocessableEntityException(
-              `Line ${update.id} has nothing shipped to receive.`,
-            );
-          }
-          const outstanding = line.shipped_qty
-            .minus(line.received_qty)
-            .minus(line.returned_qty);
-          if (outstanding.lt(update.receiveQty)) {
-            throw new UnprocessableEntityException(
-              `Receive quantity exceeds the outstanding shipped quantity for line ${update.id}.`,
-            );
-          }
-          if (
-            line.dest_location_id &&
-            line.dest_location_id !== update.destLocationId
-          ) {
-            throw new UnprocessableEntityException(
-              `Destination bin for line ${update.id} is frozen; received quantity must go to ${line.dest_location_id}.`,
-            );
-          }
-        }
-
-        const destLocationIds = [
-          ...new Set(dto.lines.map((update) => update.destLocationId)),
-        ];
-        await assertDestBinsValid(
-          tx,
-          access.tenantId,
-          transfer.to_site_id,
-          destLocationIds,
-        );
-
-        const guarded = await tx.stockTransfer.updateMany({
-          where: {
+      return await this.commitService.commitTransfer(
+        access,
+        'UPDATED',
+        async (tx) => {
+          const transfer = await this.queryService.loadTransfer(
+            tx,
+            access.tenantId,
             id,
-            tenant_id: access.tenantId,
-            status: StockTransferStatus.SHIPPED,
-            version: dto.expectedVersion,
-          },
-          data: {
-            version: { increment: 1 },
-            received_by_user_id: access.userId,
-          },
-        });
-        if (guarded.count !== 1) {
-          throw new ConflictException(
-            'Transfer changed during receiving. Refresh and retry.',
+            [...access.accessBySite.keys()],
           );
-        }
+          this.accessService.assertTransferAccess(access, transfer, {
+            requireTo: true,
+          });
+          if (transfer.status !== StockTransferStatus.SHIPPED) {
+            throw new ConflictException(
+              `Only SHIPPED transfers can receive stock (current: ${transfer.status}).`,
+            );
+          }
+          if (transfer.version !== dto.expectedVersion) {
+            throw new ConflictException(
+              `Version conflict: expected ${dto.expectedVersion}, current ${transfer.version}.`,
+            );
+          }
+          await this.siteLockService.lockSitesForTransfer(
+            tx,
+            access.tenantId,
+            transfer,
+          );
 
-        await chunkedPromiseAll(dto.lines, async (update) => {
-          const line = linesById.get(update.id)!;
-          const result = await tx.stockTransferLine.updateMany({
+          const linesById = new Map(
+            transfer.lines.map((line) => [line.id, line]),
+          );
+          for (const update of dto.lines) {
+            const line = linesById.get(update.id);
+            if (!line) {
+              throw new UnprocessableEntityException(
+                `Line ${update.id} does not belong to this transfer.`,
+              );
+            }
+            if (line.shipped_qty.eq(0)) {
+              throw new UnprocessableEntityException(
+                `Line ${update.id} has nothing shipped to receive.`,
+              );
+            }
+            const outstanding = line.shipped_qty
+              .minus(line.received_qty)
+              .minus(line.returned_qty);
+            if (outstanding.lt(update.receiveQty)) {
+              throw new UnprocessableEntityException(
+                `Receive quantity exceeds the outstanding shipped quantity for line ${update.id}.`,
+              );
+            }
+            if (
+              line.dest_location_id &&
+              line.dest_location_id !== update.destLocationId
+            ) {
+              throw new UnprocessableEntityException(
+                `Destination bin for line ${update.id} is frozen; received quantity must go to ${line.dest_location_id}.`,
+              );
+            }
+          }
+
+          const destLocationIds = [
+            ...new Set(dto.lines.map((update) => update.destLocationId)),
+          ];
+          await assertDestBinsValid(
+            tx,
+            access.tenantId,
+            transfer.to_site_id,
+            destLocationIds,
+          );
+
+          const guarded = await tx.stockTransfer.updateMany({
             where: {
+              id,
               tenant_id: access.tenantId,
-              id: update.id,
-              transfer_id: id,
-              received_qty: line.received_qty,
-              returned_qty: line.returned_qty,
+              status: StockTransferStatus.SHIPPED,
+              version: dto.expectedVersion,
             },
             data: {
-              received_qty: { increment: update.receiveQty },
-              ...(line.dest_location_id
-                ? {}
-                : { dest_location_id: update.destLocationId }),
+              version: { increment: 1 },
+              received_by_user_id: access.userId,
             },
           });
-          if (result.count !== 1) {
+          if (guarded.count !== 1) {
             throw new ConflictException(
-              `Line ${update.id} changed during receiving. Refresh and retry.`,
+              'Transfer changed during receiving. Refresh and retry.',
             );
           }
-        });
 
-        await this.ledgerPostingService.writeSettlementLedgerPairs(tx, access.tenantId, {
-          transfer,
-          movements: dto.lines.map((update) => {
+          await chunkedPromiseAll(dto.lines, async (update) => {
             const line = linesById.get(update.id)!;
-            return {
-              line,
-              quantity: update.receiveQty,
-              inLocationId: update.destLocationId,
-            };
-          }),
-        });
+            const result = await tx.stockTransferLine.updateMany({
+              where: {
+                tenant_id: access.tenantId,
+                id: update.id,
+                transfer_id: id,
+                received_qty: line.received_qty,
+                returned_qty: line.returned_qty,
+              },
+              data: {
+                received_qty: { increment: update.receiveQty },
+                ...(line.dest_location_id
+                  ? {}
+                  : { dest_location_id: update.destLocationId }),
+              },
+            });
+            if (result.count !== 1) {
+              throw new ConflictException(
+                `Line ${update.id} changed during receiving. Refresh and retry.`,
+              );
+            }
+          });
 
-        return await this.commandService.settleAndStoreCommand(
-          tx,
-          access.tenantId,
-          id,
-          [...access.accessBySite.keys()],
-          StockTransferCommandAction.RECEIVE,
-          dto.idempotencyKey,
-          dto,
-        );
-      });
+          await this.ledgerPostingService.writeSettlementLedgerPairs(
+            tx,
+            access.tenantId,
+            {
+              transfer,
+              movements: dto.lines.map((update) => {
+                const line = linesById.get(update.id)!;
+                return {
+                  line,
+                  quantity: update.receiveQty,
+                  inLocationId: update.destLocationId,
+                };
+              }),
+            },
+          );
+
+          return await this.commandService.settleAndStoreCommand(
+            tx,
+            access.tenantId,
+            id,
+            [...access.accessBySite.keys()],
+            StockTransferCommandAction.RECEIVE,
+            dto.idempotencyKey,
+            dto,
+          );
+        },
+      );
     } catch (error) {
       return await this.commandService.replayOrRethrow(
         error,
@@ -689,120 +738,137 @@ export class StockTransferMutationService {
     }
 
     try {
-      return await this.commitService.commitTransfer(access, 'UPDATED', async (tx) => {
-        const transfer = await this.queryService.loadTransfer(tx, access.tenantId, id, [
-          ...access.accessBySite.keys(),
-        ]);
-        this.accessService.assertTransferAccess(access, transfer, {
-          requireTo: true,
-          allowFromAdmin: true,
-        });
-        if (transfer.status !== StockTransferStatus.SHIPPED) {
-          throw new ConflictException(
-            `Only SHIPPED transfers can return stock (current: ${transfer.status}).`,
-          );
-        }
-        if (transfer.version !== dto.expectedVersion) {
-          throw new ConflictException(
-            `Version conflict: expected ${dto.expectedVersion}, current ${transfer.version}.`,
-          );
-        }
-        await this.siteLockService.lockSitesForTransfer(tx, access.tenantId, transfer);
-
-        const linesById = new Map(
-          transfer.lines.map((line) => [line.id, line]),
-        );
-        for (const update of dto.lines) {
-          const line = linesById.get(update.id);
-          if (!line) {
-            throw new UnprocessableEntityException(
-              `Line ${update.id} does not belong to this transfer.`,
-            );
-          }
-          if (line.shipped_qty.eq(0) || !line.source_location_id) {
-            throw new UnprocessableEntityException(
-              `Line ${update.id} has no shipped stock to return.`,
-            );
-          }
-          const unreceived = line.shipped_qty
-            .minus(line.received_qty)
-            .minus(line.returned_qty);
-          if (unreceived.lt(update.returnQty)) {
-            throw new UnprocessableEntityException(
-              `Return quantity exceeds the unreceived quantity for line ${update.id}.`,
-            );
-          }
-        }
-
-        await assertSourceBinsValid(
-          tx,
-          access.tenantId,
-          transfer.from_site_id,
-          dto.lines
-            .map(
-              (update) =>
-                (linesById.get(update.id) as (typeof transfer.lines)[number])
-                  .source_location_id,
-            )
-            .filter((locationId): locationId is string => Boolean(locationId)),
-        );
-
-        const guarded = await tx.stockTransfer.updateMany({
-          where: {
+      return await this.commitService.commitTransfer(
+        access,
+        'UPDATED',
+        async (tx) => {
+          const transfer = await this.queryService.loadTransfer(
+            tx,
+            access.tenantId,
             id,
-            tenant_id: access.tenantId,
-            status: StockTransferStatus.SHIPPED,
-            version: dto.expectedVersion,
-          },
-          data: { version: { increment: 1 } },
-        });
-        if (guarded.count !== 1) {
-          throw new ConflictException(
-            'Transfer changed during return. Refresh and retry.',
+            [...access.accessBySite.keys()],
           );
-        }
-
-        await chunkedPromiseAll(dto.lines, async (update) => {
-          const line = linesById.get(update.id)!;
-          const result = await tx.stockTransferLine.updateMany({
-            where: {
-              tenant_id: access.tenantId,
-              id: update.id,
-              transfer_id: id,
-              received_qty: line.received_qty,
-              returned_qty: line.returned_qty,
-            },
-            data: { returned_qty: { increment: update.returnQty } },
+          this.accessService.assertTransferAccess(access, transfer, {
+            requireTo: true,
+            allowFromAdmin: true,
           });
-          if (result.count !== 1) {
+          if (transfer.status !== StockTransferStatus.SHIPPED) {
             throw new ConflictException(
-              `Line ${update.id} changed during return. Refresh and retry.`,
+              `Only SHIPPED transfers can return stock (current: ${transfer.status}).`,
             );
           }
-        });
+          if (transfer.version !== dto.expectedVersion) {
+            throw new ConflictException(
+              `Version conflict: expected ${dto.expectedVersion}, current ${transfer.version}.`,
+            );
+          }
+          await this.siteLockService.lockSitesForTransfer(
+            tx,
+            access.tenantId,
+            transfer,
+          );
 
-        await this.ledgerPostingService.writeSettlementLedgerPairs(tx, access.tenantId, {
-          transfer,
-          movements: dto.lines.map((update) => {
+          const linesById = new Map(
+            transfer.lines.map((line) => [line.id, line]),
+          );
+          for (const update of dto.lines) {
+            const line = linesById.get(update.id);
+            if (!line) {
+              throw new UnprocessableEntityException(
+                `Line ${update.id} does not belong to this transfer.`,
+              );
+            }
+            if (line.shipped_qty.eq(0) || !line.source_location_id) {
+              throw new UnprocessableEntityException(
+                `Line ${update.id} has no shipped stock to return.`,
+              );
+            }
+            const unreceived = line.shipped_qty
+              .minus(line.received_qty)
+              .minus(line.returned_qty);
+            if (unreceived.lt(update.returnQty)) {
+              throw new UnprocessableEntityException(
+                `Return quantity exceeds the unreceived quantity for line ${update.id}.`,
+              );
+            }
+          }
+
+          await assertSourceBinsValid(
+            tx,
+            access.tenantId,
+            transfer.from_site_id,
+            dto.lines
+              .map(
+                (update) =>
+                  (linesById.get(update.id) as (typeof transfer.lines)[number])
+                    .source_location_id,
+              )
+              .filter((locationId): locationId is string =>
+                Boolean(locationId),
+              ),
+          );
+
+          const guarded = await tx.stockTransfer.updateMany({
+            where: {
+              id,
+              tenant_id: access.tenantId,
+              status: StockTransferStatus.SHIPPED,
+              version: dto.expectedVersion,
+            },
+            data: { version: { increment: 1 } },
+          });
+          if (guarded.count !== 1) {
+            throw new ConflictException(
+              'Transfer changed during return. Refresh and retry.',
+            );
+          }
+
+          await chunkedPromiseAll(dto.lines, async (update) => {
             const line = linesById.get(update.id)!;
-            return {
-              line,
-              quantity: update.returnQty,
-              inLocationId: line.source_location_id!,
-            };
-          }),
-        });
+            const result = await tx.stockTransferLine.updateMany({
+              where: {
+                tenant_id: access.tenantId,
+                id: update.id,
+                transfer_id: id,
+                received_qty: line.received_qty,
+                returned_qty: line.returned_qty,
+              },
+              data: { returned_qty: { increment: update.returnQty } },
+            });
+            if (result.count !== 1) {
+              throw new ConflictException(
+                `Line ${update.id} changed during return. Refresh and retry.`,
+              );
+            }
+          });
 
-        return await this.commandService.settleAndStoreCommand(
-          tx,
-          access.tenantId,
-          id,
-          [...access.accessBySite.keys()],
-          StockTransferCommandAction.RETURN,
-          dto.idempotencyKey,
-          dto,
-        );
-      });
+          await this.ledgerPostingService.writeSettlementLedgerPairs(
+            tx,
+            access.tenantId,
+            {
+              transfer,
+              movements: dto.lines.map((update) => {
+                const line = linesById.get(update.id)!;
+                return {
+                  line,
+                  quantity: update.returnQty,
+                  inLocationId: line.source_location_id!,
+                };
+              }),
+            },
+          );
+
+          return await this.commandService.settleAndStoreCommand(
+            tx,
+            access.tenantId,
+            id,
+            [...access.accessBySite.keys()],
+            StockTransferCommandAction.RETURN,
+            dto.idempotencyKey,
+            dto,
+          );
+        },
+      );
     } catch (error) {
       return await this.commandService.replayOrRethrow(
         error,
@@ -814,5 +880,4 @@ export class StockTransferMutationService {
       );
     }
   }
-
 }

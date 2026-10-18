@@ -1,8 +1,4 @@
-import {
-  ConflictException,
-  Inject,
-  Injectable,
-} from '@nestjs/common';
+import { ConflictException, Inject, Injectable } from '@nestjs/common';
 import {
   Prisma,
   StockTransferCommandAction,
@@ -68,7 +64,9 @@ export class StockTransferCommandService {
         data: { status: StockTransferStatus.COMPLETED },
       });
     }
-    return this.queryService.loadTransfer(tx, tenantId, transferId, [...siteIds]);
+    return this.queryService.loadTransfer(tx, tenantId, transferId, [
+      ...siteIds,
+    ]);
   }
 
   async settleAndStoreCommand(

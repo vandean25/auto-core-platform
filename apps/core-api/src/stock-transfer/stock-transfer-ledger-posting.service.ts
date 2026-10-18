@@ -1,4 +1,9 @@
-import { Inject, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { LocationType, Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import {

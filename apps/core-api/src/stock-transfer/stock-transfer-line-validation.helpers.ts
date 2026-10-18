@@ -136,8 +136,7 @@ export async function assertShipAvailability(
   for (const [key, quantity] of demandsByStock) {
     const [itemId, locationId] = key.split(':');
     const stock = lockedStocks.find(
-      (row) =>
-        row.catalog_item_id === itemId && row.location_id === locationId,
+      (row) => row.catalog_item_id === itemId && row.location_id === locationId,
     );
     const available = stock
       ? new Decimal(stock.quantity_on_hand).minus(

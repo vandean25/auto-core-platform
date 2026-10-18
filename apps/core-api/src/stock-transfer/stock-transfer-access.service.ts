@@ -13,7 +13,8 @@ import { TENANT_ADMIN_ROLES } from './stock-transfer.constants.js';
 export class StockTransferAccessService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
-    @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
+    @Inject(TenantContextService)
+    private readonly tenantContext: TenantContextService,
   ) {}
 
   async loadCallerAccess(): Promise<CallerAccess> {
