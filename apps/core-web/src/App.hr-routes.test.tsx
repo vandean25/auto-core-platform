@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it } from 'vitest'
 
+import deHr from '../../../locales/de/hr.json'
 import { AppRoutes } from './App'
 
 const LAZY_ROUTE_LOAD_TIMEOUT_MS = 5000
@@ -24,11 +25,11 @@ describe('App HR route registration', () => {
     )
 
     expect(
-      await screen.findByRole('heading', { name: 'Employees' }, { timeout: LAZY_ROUTE_LOAD_TIMEOUT_MS }),
+      await screen.findByRole('heading', { name: deHr.employees.pageTitle }, { timeout: LAZY_ROUTE_LOAD_TIMEOUT_MS }),
     ).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Employees' })).toHaveAttribute('aria-current', 'page')
-    expect(screen.getByText('Manage workshop personnel available for assignments.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '+ Employee' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: deHr.layout.tabs.employees })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByText(deHr.employees.pageDescription)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: deHr.employees.createButton })).toBeInTheDocument()
   })
 
   it('lazy-loads the registered HR clock route from the application route tree', async () => {
@@ -45,9 +46,9 @@ describe('App HR route registration', () => {
     )
 
     expect(
-      await screen.findByRole('heading', { name: 'Time Clock' }, { timeout: LAZY_ROUTE_LOAD_TIMEOUT_MS }),
+      await screen.findByRole('heading', { name: deHr.clock.pageTitle }, { timeout: LAZY_ROUTE_LOAD_TIMEOUT_MS }),
     ).toBeInTheDocument()
-    expect(screen.getByText('Track attendance for today.')).toBeInTheDocument()
+    expect(screen.getByText(deHr.clock.pageDescription)).toBeInTheDocument()
   })
 
   it('lazy-loads the registered HR leave route from the application route tree', async () => {
@@ -63,7 +64,7 @@ describe('App HR route registration', () => {
       </QueryClientProvider>,
     )
 
-    expect(await screen.findByRole('heading', { name: 'Leave' })).toBeInTheDocument()
-    expect(screen.getByText('Book and review team leave.')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: deHr.leave.pageTitle })).toBeInTheDocument()
+    expect(screen.getByText(deHr.leave.pageDescription)).toBeInTheDocument()
   })
 })
