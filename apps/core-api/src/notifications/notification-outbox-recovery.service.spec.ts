@@ -1,3 +1,4 @@
+import { cronJobLockTestStub } from '../scheduler/cron-job-lock.test-helpers.js';
 import { NotificationOutboxRecoveryService } from './notification-outbox-recovery.service.js';
 
 describe('NotificationOutboxRecoveryService', () => {
@@ -26,6 +27,7 @@ describe('NotificationOutboxRecoveryService', () => {
           .fn()
           .mockResolvedValue([{ id: 'tenant-1', is_active: true }]),
       },
+      ...cronJobLockTestStub(),
     };
     requestContext = {
       runAsWorker: jest.fn((_tenantId: string, run: () => unknown) => run()),

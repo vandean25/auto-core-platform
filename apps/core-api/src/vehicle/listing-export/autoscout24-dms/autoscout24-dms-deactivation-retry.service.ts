@@ -11,7 +11,9 @@ import { Autoscout24DmsListingPushService } from './autoscout24-dms-listing-push
  */
 @Injectable()
 export class Autoscout24DmsDeactivationRetryService {
-  private readonly logger = new Logger(Autoscout24DmsDeactivationRetryService.name);
+  private readonly logger = new Logger(
+    Autoscout24DmsDeactivationRetryService.name,
+  );
 
   constructor(
     private readonly systemPrisma: SystemPrismaService,

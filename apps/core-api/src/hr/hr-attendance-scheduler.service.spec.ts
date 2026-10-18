@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AttendanceEventSource, AttendanceEventType } from '@prisma/client';
 import { SystemPrismaService } from '../prisma/system-prisma.service.js';
+import { cronJobLockTestStub } from '../scheduler/cron-job-lock.test-helpers.js';
 import { HrAttendanceSchedulerService } from './hr-attendance-scheduler.service.js';
 
 describe('HrAttendanceSchedulerService', () => {
@@ -20,10 +21,7 @@ describe('HrAttendanceSchedulerService', () => {
         findMany: jest.fn(),
         create: jest.fn().mockResolvedValue({ id: 'evt-new' }),
       },
-      withCronJobLock: jest.fn(async (_name: string, fn: () => Promise<void>) => {
-        await fn();
-        return true;
-      }),
+      ...cronJobLockTestStub(),
     };
 
     const module: TestingModule = await Test.createTestingModule({

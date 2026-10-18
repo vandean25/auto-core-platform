@@ -1,5 +1,6 @@
 import { LaborPauseReason } from '@prisma/client';
 import { SystemPrismaService } from '../prisma/system-prisma.service.js';
+import { cronJobLockTestStub } from '../scheduler/cron-job-lock.test-helpers.js';
 import { MechanicSchedulerService } from './mechanic-scheduler.service.js';
 
 const mockSystemPrisma = {
@@ -7,10 +8,7 @@ const mockSystemPrisma = {
     findMany: jest.fn(),
     update: jest.fn(),
   },
-  withCronJobLock: jest.fn(async (_name: string, fn: () => Promise<void>) => {
-    await fn();
-    return true;
-  }),
+  ...cronJobLockTestStub(),
 } as unknown as SystemPrismaService;
 
 describe('MechanicSchedulerService', () => {

@@ -15,7 +15,9 @@ const QUOTA_EVENT_RETENTION_MS = 60 * 60 * 1000;
  */
 @Injectable()
 export class DocumentBrandingUploadRecoveryService {
-  private readonly logger = new Logger(DocumentBrandingUploadRecoveryService.name);
+  private readonly logger = new Logger(
+    DocumentBrandingUploadRecoveryService.name,
+  );
 
   constructor(
     private readonly prisma: PrismaService,

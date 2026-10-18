@@ -1,6 +1,7 @@
 import { describe, expect, it, jest, beforeEach } from '@jest/globals';
 import { TenantMemberRole } from '@prisma/client';
 import type { SystemPrismaService } from '../prisma/system-prisma.service.js';
+import { cronJobLockTestStub } from '../scheduler/cron-job-lock.test-helpers.js';
 
 const updateUser = jest.fn<() => Promise<void>>();
 const getFirebaseAdminAuth = jest.fn(() => ({ updateUser }));
@@ -45,10 +46,7 @@ describe('LandingDemoAccessCleanupService', () => {
         count: tenantMemberCount,
       },
       publicRateLimitCounter: { deleteMany },
-      withCronJobLock: jest.fn(async (_name: string, fn: () => Promise<void>) => {
-        await fn();
-        return true;
-      }),
+      ...cronJobLockTestStub(),
     } as unknown as SystemPrismaService;
 
     const service = new LandingDemoAccessCleanupService(systemPrisma);
