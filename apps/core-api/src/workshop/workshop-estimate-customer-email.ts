@@ -111,7 +111,9 @@ export function buildCustomerEstimateEmail(
   }
   const vehicleLabel = `${make} ${model}`;
   const documentLocale = resolveCustomerDocumentLanguage(
-    input.customer,
+    {
+      preferred_language: input.customer.preferred_language ?? null,
+    },
     input.tenantDefaultLocale,
   );
 

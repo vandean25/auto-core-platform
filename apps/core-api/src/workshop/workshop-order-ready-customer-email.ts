@@ -71,7 +71,9 @@ export function buildWorkshopOrderReadyCustomerEmail(
     };
   }
   const documentLocale = resolveCustomerDocumentLanguage(
-    input.customer,
+    {
+      preferred_language: input.customer.preferred_language ?? null,
+    },
     input.tenantDefaultLocale,
   );
   try {
