@@ -1267,7 +1267,21 @@
     "save": {
       "saving": "Saving…",
       "saved": "Saved",
+      "savedLocally": "Saved locally",
       "error": "Save failed"
+    },
+    "offline": {
+      "quotaExceeded": "Local storage is full. Delete queued photos or wait for pending uploads to finish. Your draft is kept.",
+      "storageEvictionHint": "Private browsing or storage cleanup may remove local drafts.",
+      "conflict": {
+        "title": "Local draft differs from server",
+        "description": "The check-in changed on the server while you worked offline or with a local draft. Choose which version to keep.",
+        "completedTitle": "Check-in already completed",
+        "completedDescription": "This check-in was already completed on the server. The local draft can no longer be uploaded.",
+        "keepServer": "Keep server version",
+        "reapplyLocal": "Reapply local draft",
+        "discardLocal": "Discard local draft"
+      }
     },
     "fields": {
       "odometer": "Odometer",
@@ -1346,6 +1360,10 @@
       "capture": "Take photo",
       "uploading": "Uploading photo…",
       "uploaded": "Photo saved",
+      "queued": "Photo queued",
+      "pendingUpload": "Upload pending",
+      "pendingUploads_one": "{{count}} upload pending",
+      "pendingUploads_other": "{{count}} uploads pending",
       "galleryAria": "Photos for this check-in",
       "selectPhoto": "Select photo {{id}}",
       "pending": "Processing…"

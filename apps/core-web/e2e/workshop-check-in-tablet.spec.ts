@@ -163,11 +163,17 @@ test.describe('AUT-557: workshop check-in tablet flow', () => {
       .fill('88100')
 
     await expect(page.getByText(deWorkshop.checkIn.errors.CHECK_IN_CONFLICT)).toBeVisible({
-      timeout: 5000,
+      timeout: 10_000,
     })
+    const conflictDialog = page.getByTestId('check-in-conflict-dialog')
+    if (await conflictDialog.isVisible()) {
+      await page
+        .getByRole('button', { name: deWorkshop.checkIn.offline.conflict.keepServer })
+        .click()
+    }
     await expect(
       page.getByRole('spinbutton', { name: deWorkshop.checkIn.fields.odometer }),
-    ).toHaveValue('89000')
+    ).toHaveValue('89000', { timeout: 5_000 })
 
     await page
       .getByRole('spinbutton', { name: deWorkshop.checkIn.fields.odometer })
@@ -191,7 +197,7 @@ test.describe('AUT-557: workshop check-in tablet flow', () => {
       mimeType: 'image/jpeg',
       buffer: fixture,
     })
-    await expect(page.getByText(deWorkshop.checkIn.media.uploaded)).toBeVisible({
+    await expect(page.getByText(deWorkshop.checkIn.media.queued)).toBeVisible({
       timeout: 5000,
     })
     expect(uploadPurpose).toBe('CHECK_IN')

@@ -22,6 +22,11 @@ type Options = {
   record: WorkshopCheckIn | null | undefined
   readOnly: boolean
   onRevisionConflict?: () => Promise<WorkshopCheckIn | null | undefined>
+  persistDraftLocally?: (
+    snapshot: CheckInDraftSnapshot,
+    announce?: boolean,
+  ) => Promise<void>
+  onServerDraftSaved?: () => Promise<void>
 }
 
 export function useCheckInDraftAutosave({
@@ -29,13 +34,25 @@ export function useCheckInDraftAutosave({
   record,
   readOnly,
   onRevisionConflict,
+  persistDraftLocally,
+  onServerDraftSaved,
 }: Options) {
   const { t } = useTranslation('workshop')
   const updateDraft = useUpdateWorkshopCheckInDraft()
+  const updateDraftRef = useRef(updateDraft)
+  updateDraftRef.current = updateDraft
+  const onServerDraftSavedRef = useRef(onServerDraftSaved)
+  onServerDraftSavedRef.current = onServerDraftSaved
+  const persistDraftLocallyRef = useRef(persistDraftLocally)
+  persistDraftLocallyRef.current = persistDraftLocally
+  const readOnlyRef = useRef(readOnly)
+  readOnlyRef.current = readOnly
   const [draft, setDraft] = useState<CheckInDraftSnapshot | null>(null)
   const lastSavedRef = useRef<CheckInDraftSnapshot | null>(null)
   const revisionRef = useRef(1)
   const hydrateFromServerRef = useRef(false)
+  const recordRef = useRef(record)
+  recordRef.current = record
 
   const applyServerRecord = useCallback((serverRecord: WorkshopCheckIn) => {
     revisionRef.current = serverRecord.revision
@@ -62,7 +79,8 @@ export function useCheckInDraftAutosave({
 
   const save = useCallback(
     async (snapshot: CheckInDraftSnapshot, signal: AbortSignal) => {
-      if (readOnly || !record) {
+      const currentRecord = recordRef.current
+      if (readOnlyRef.current || !currentRecord) {
         return
       }
       if (
@@ -71,42 +89,80 @@ export function useCheckInDraftAutosave({
       ) {
         return
       }
-      const result = await updateDraft.mutateAsync({
-        orderId,
-        body: buildUpdatePayload(revisionRef.current, snapshot),
-      })
-      if (signal.aborted) {
-        return
+      try {
+        const result = await updateDraftRef.current.mutateAsync({
+          orderId,
+          body: buildUpdatePayload(revisionRef.current, snapshot),
+        })
+        if (signal.aborted) {
+          return
+        }
+        revisionRef.current = result.revision
+        lastSavedRef.current = snapshot
+        await onServerDraftSavedRef.current?.()
+      } catch (error: unknown) {
+        if (persistDraftLocallyRef.current) {
+          try {
+            await persistDraftLocallyRef.current(snapshot, true)
+          } catch {
+            // Keep the original server/network error for conflict handling.
+          }
+        }
+        throw error
       }
-      revisionRef.current = result.revision
-      lastSavedRef.current = snapshot
     },
-    [orderId, readOnly, record, updateDraft],
+    [orderId],
   )
 
-  const { saveStatus, triggerAutoSave } = useDebouncedAutoSave({
-    enabled: Boolean(record) && !readOnly,
-    save,
-    shouldSave: (snapshot) =>
-      !lastSavedRef.current || !snapshotsEqual(lastSavedRef.current, snapshot),
-    onError: (error) => {
+  const onRevisionConflictRef = useRef(onRevisionConflict)
+  onRevisionConflictRef.current = onRevisionConflict
+
+  const debouncedSaveHelpersRef = useRef({
+    clearPendingSave: () => {},
+    abortInFlightSave: () => {},
+  })
+
+  const shouldSaveSnapshot = useCallback((snapshot: CheckInDraftSnapshot) => {
+    return (
+      !lastSavedRef.current || !snapshotsEqual(lastSavedRef.current, snapshot)
+    )
+  }, [])
+
+  const handleSaveError = useCallback(
+    (error: unknown) => {
       const message = describeWorkshopCheckInError(error)
       toast.error(message)
       const code = resolveWorkshopCheckInErrorCode(error)
       if (code === 'CHECK_IN_CONFLICT') {
+        debouncedSaveHelpersRef.current.clearPendingSave()
+        debouncedSaveHelpersRef.current.abortInFlightSave()
         hydrateFromServerRef.current = true
         void (async () => {
-          const fresh = await onRevisionConflict?.()
+          const fresh = await onRevisionConflictRef.current?.()
           if (fresh) {
             applyServerRecord(fresh)
           }
         })()
       }
       if (code === 'CHECK_IN_COMPLETED') {
-        void onRevisionConflict?.()
+        void onRevisionConflictRef.current?.()
       }
     },
-  })
+    [applyServerRecord],
+  )
+
+  const { saveStatus, triggerAutoSave, clearPendingSave, abortInFlightSave } =
+    useDebouncedAutoSave({
+      enabled: Boolean(record) && !readOnly,
+      save,
+      shouldSave: shouldSaveSnapshot,
+      onError: handleSaveError,
+    })
+
+  debouncedSaveHelpersRef.current = {
+    clearPendingSave,
+    abortInFlightSave,
+  }
 
   const patchDraft = useCallback(
     (patch: Partial<CheckInDraftSnapshot>) => {
@@ -147,9 +203,21 @@ export function useCheckInDraftAutosave({
     return revisionRef.current
   }, [draft, readOnly, triggerAutoSave])
 
+  const replaceDraft = useCallback(
+    (snapshot: CheckInDraftSnapshot, revision?: number) => {
+      if (typeof revision === 'number') {
+        revisionRef.current = revision
+      }
+      lastSavedRef.current = snapshot
+      setDraft(snapshot)
+    },
+    [],
+  )
+
   return {
     draft,
     setDraft,
+    replaceDraft,
     patchDraft,
     patchCondition,
     saveStatus,

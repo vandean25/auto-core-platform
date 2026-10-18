@@ -1267,7 +1267,21 @@
     "save": {
       "saving": "Speichern…",
       "saved": "Gespeichert",
+      "savedLocally": "Lokal gespeichert",
       "error": "Speichern fehlgeschlagen"
+    },
+    "offline": {
+      "quotaExceeded": "Der lokale Speicher ist voll. Bitte löschen Sie Fotos aus der Warteschlange oder warten Sie, bis ausstehende Uploads abgeschlossen sind. Ihr Entwurf bleibt erhalten.",
+      "storageEvictionHint": "Private Browserfenster oder Speicherbereinigung können lokale Entwürfe löschen.",
+      "conflict": {
+        "title": "Abweichung zwischen lokalem Entwurf und Server",
+        "description": "Die Annahme wurde auf dem Server geändert, während Sie offline oder mit einem lokalen Entwurf gearbeitet haben. Wählen Sie, welche Version gelten soll.",
+        "completedTitle": "Annahme bereits abgeschlossen",
+        "completedDescription": "Diese Annahme wurde auf dem Server bereits abgeschlossen. Der lokale Entwurf kann nicht mehr hochgeladen werden.",
+        "keepServer": "Serverversion behalten",
+        "reapplyLocal": "Lokalen Entwurf erneut anwenden",
+        "discardLocal": "Lokalen Entwurf verwerfen"
+      }
     },
     "fields": {
       "odometer": "Kilometerstand",
@@ -1346,6 +1360,10 @@
       "capture": "Foto aufnehmen",
       "uploading": "Foto wird hochgeladen…",
       "uploaded": "Foto gespeichert",
+      "queued": "Foto in Warteschlange",
+      "pendingUpload": "Upload ausstehend",
+      "pendingUploads_one": "{{count}} Upload ausstehend",
+      "pendingUploads_other": "{{count}} Uploads ausstehend",
       "galleryAria": "Aufnahmen dieser Annahme",
       "selectPhoto": "Foto {{id}} auswählen",
       "pending": "Wird verarbeitet…"
