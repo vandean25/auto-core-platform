@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { useTenantMembers } from '@/api/tenant-members'
@@ -38,6 +39,7 @@ function memberLabel(member: {
 }
 
 export function SitesSettingsTab() {
+  const { t } = useTranslation('settings')
   const { data: sites, isLoading: areSitesLoading } = useAdminSites(true)
   const { data: tenantMembers } = useTenantMembers({ includeInactive: false, limit: 100 })
   const [selectedSiteId, setSelectedSiteId] = React.useState<string | null>(null)
@@ -63,10 +65,10 @@ export function SitesSettingsTab() {
 
     try {
       await addMembership.mutateAsync({ siteId: selectedSiteId, userId: userToAdd })
-      toast.success('Site membership added')
+      toast.success(t('sites.toast.added'))
       setUserToAdd('')
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to add site membership')
+      toast.error(error instanceof Error ? error.message : t('sites.toast.addFailed'))
     }
   }
 
@@ -75,9 +77,9 @@ export function SitesSettingsTab() {
 
     try {
       await removeMembership.mutateAsync({ siteId: selectedSiteId, userId })
-      toast.success('Site membership removed')
+      toast.success(t('sites.toast.removed'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to remove site membership')
+      toast.error(error instanceof Error ? error.message : t('sites.toast.removeFailed'))
     }
   }
 
@@ -92,9 +94,9 @@ export function SitesSettingsTab() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-medium">Sites</h3>
+        <h3 className="text-lg font-medium">{t('sites.title')}</h3>
         <p className="text-sm text-muted-foreground">
-          Operational shop locations. Site memberships control who can activate each site in the sidebar switcher.
+          {t('sites.description')}
         </p>
       </div>
 
@@ -102,11 +104,11 @@ export function SitesSettingsTab() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Code</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Legal Entity</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Members</TableHead>
+              <TableHead>{t('sites.columns.code')}</TableHead>
+              <TableHead>{t('sites.columns.name')}</TableHead>
+              <TableHead>{t('sites.columns.legalEntity')}</TableHead>
+              <TableHead>{t('sites.columns.status')}</TableHead>
+              <TableHead>{t('sites.columns.members')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -134,20 +136,20 @@ export function SitesSettingsTab() {
         <div className="space-y-4 rounded-lg border bg-white p-6 shadow-sm">
           <div>
             <h4 className="font-medium">
-              Memberships for {selectedSite.name}
+              {t('sites.memberships.title', { name: selectedSite.name })}
               <span className="ml-2 font-mono text-sm text-slate-500">{selectedSite.code}</span>
             </h4>
             <p className="text-sm text-muted-foreground">
-              Users need an active tenant role and a site membership before the site appears in Current Site.
+              {t('sites.memberships.description')}
             </p>
           </div>
 
           <div className="flex flex-col gap-3 md:flex-row md:items-end">
             <div className="grid flex-1 gap-2">
-              <Label htmlFor="site-member-add">Add tenant member</Label>
+              <Label htmlFor="site-member-add">{t('sites.memberships.addLabel')}</Label>
               <Select value={userToAdd} onValueChange={setUserToAdd}>
                 <SelectTrigger id="site-member-add">
-                  <SelectValue placeholder="Select team member" />
+                  <SelectValue placeholder={t('sites.memberships.addPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {availableMembers.map((member) => (
@@ -163,22 +165,22 @@ export function SitesSettingsTab() {
               disabled={!userToAdd || addMembership.isPending}
               onClick={() => void handleAddMembership()}
             >
-              Add Membership
+              {t('sites.memberships.addButton')}
             </Button>
           </div>
 
           {areMembershipsLoading ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Loading memberships...
+              {t('sites.memberships.loading')}
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>Tenant Role</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>{t('sites.memberships.columns.user')}</TableHead>
+                  <TableHead>{t('sites.memberships.columns.tenantRole')}</TableHead>
+                  <TableHead className="text-right">{t('sites.memberships.columns.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -194,7 +196,7 @@ export function SitesSettingsTab() {
                         disabled={removeMembership.isPending}
                         onClick={() => void handleRemoveMembership(membership.user_id)}
                       >
-                        Remove
+                        {t('sites.memberships.remove')}
                       </Button>
                     </TableCell>
                   </TableRow>

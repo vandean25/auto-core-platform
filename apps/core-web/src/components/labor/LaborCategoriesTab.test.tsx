@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import deSettings from "../../../../../locales/de/settings.json";
 import { LaborCategoriesTab } from "./LaborCategoriesTab";
 
 vi.mock("@/api/labor", () => ({
@@ -27,9 +28,9 @@ vi.mock("@/api/labor", () => ({
 }));
 
 describe("LaborCategoriesTab", () => {
-  it("shows Not set when a category has no default hourly rate", () => {
+  it("shows the not-set label when a category has no default hourly rate", () => {
     render(<LaborCategoriesTab />);
 
-    expect(screen.getByText("Not set")).toBeInTheDocument();
+    expect(screen.getByText(deSettings.labor.categories.notSet)).toBeInTheDocument();
   });
 });

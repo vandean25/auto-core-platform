@@ -3,6 +3,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useTenantMembers } from '@/api/tenant-members'
 import { toast } from 'sonner'
+import deSettings from '../../../../../locales/de/settings.json'
 import { TeamSettingsTab } from './TeamSettingsTab'
 
 const updateMutateAsync = vi.fn()
@@ -69,15 +70,15 @@ describe('TeamSettingsTab', () => {
     inviteMutateAsync.mockReset()
   })
 
-  it('renders title and top-right + Member action', () => {
+  it('renders title and top-right invite action', () => {
     render(
       <MemoryRouter>
         <TeamSettingsTab />
       </MemoryRouter>,
     )
 
-    expect(screen.getByText('Team')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '+ Member' })).toBeInTheDocument()
+    expect(screen.getByText(deSettings.team.title)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: deSettings.team.inviteButton })).toBeInTheDocument()
     expect(vi.mocked(useTenantMembers)).toHaveBeenCalledWith({
       includeInactive: true,
       limit: 100,
@@ -95,10 +96,10 @@ describe('TeamSettingsTab', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'owner@autocore.test' }))
 
-    await screen.findByText('Member Details')
+    await screen.findByText(deSettings.team.sheet.title)
     fireEvent.click(screen.getByText('TECH'))
 
-    const input = await screen.findByLabelText('Tenant member role')
+    const input = await screen.findByLabelText(deSettings.team.sheet.roleAria)
     fireEvent.change(input, { target: { value: 'ADMIN' } })
     fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' })
 
@@ -110,7 +111,7 @@ describe('TeamSettingsTab', () => {
     })
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('Failed to update member role')
+      expect(toast.error).toHaveBeenCalledWith(deSettings.team.toast.roleFailed)
     })
   })
 })

@@ -9,6 +9,7 @@ import { shellI18nEslintConfig } from './eslint-shell-i18n.config.js'
 import { financePurchasingI18nEslintConfig } from './eslint-finance-purchasing-i18n.config.js'
 import { inventoryHrI18nEslintConfig } from './eslint-inventory-hr-i18n.config.js'
 import { salesDomainI18nEslintConfig } from './eslint-sales-domain-i18n.config.js'
+import { settingsI18nEslintConfig } from './eslint-settings-i18n.config.js'
 import { workshopI18nEslintConfig } from './eslint-workshop-i18n.config.js'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
@@ -76,7 +77,7 @@ export default defineConfig([
       'no-restricted-syntax': 'off',
     },
   },
-  // AUT-578 / AUT-584: error on hard-coded UI strings outside migrated folders (strict overrides below).
+  // AUT-578 / AUT-584: error on hard-coded UI strings everywhere (strict domain overrides below).
   {
     files: ['**/*.{ts,tsx}'],
     ignores: [
@@ -85,19 +86,6 @@ export default defineConfig([
       'src/api/generated/**',
       'dist/**',
       'dist-e2e/**',
-      // AUT-584: migrated in follow-up PRs (strict domain configs or separate tickets).
-      'src/components/settings/**',
-      'src/pages/SettingsPage.tsx',
-      'src/components/labor/**',
-      'src/pages/agent/**',
-      'src/pages/reports/**',
-      'src/pages/platform/**',
-      'src/components/AddBrandDialog.tsx',
-      'src/components/AddRevenueGroupDialog.tsx',
-      'src/components/BrandTable.tsx',
-      'src/components/BrandCombobox.tsx',
-      'src/components/BrandMultiSelect.tsx',
-      'src/components/RevenueGroupTable.tsx',
     ],
     plugins: {
       i18next,
@@ -112,4 +100,5 @@ export default defineConfig([
   salesDomainI18nEslintConfig,
   financePurchasingI18nEslintConfig,
   inventoryHrI18nEslintConfig,
+  settingsI18nEslintConfig,
 ])
