@@ -29,7 +29,8 @@ export async function resolveWorkshopOrderPdfRenderContext(
   order: WorkshopOrderForPdf,
   existingRenderInput: unknown,
 ): Promise<ResolvedPdfRenderMode> {
-  const renderInput = existingRenderInput as DocumentSnapshotLocaleReader | null;
+  const renderInput =
+    existingRenderInput as DocumentSnapshotLocaleReader | null;
   const locale = resolveLocalizedDocumentLocale(renderInput);
   if (locale && snapshotUsesLocalizedPdfResources(renderInput)) {
     return { mode: 'localized', documentLocale: locale };

@@ -5,10 +5,7 @@ import type { DisplayLanguage } from './display-language.js';
 export type PdfLocaleBundle = Record<string, unknown>;
 
 export function loadPdfLocaleJson(language: DisplayLanguage): PdfLocaleBundle {
-  const path = resolve(
-    process.cwd(),
-    `../../locales/${language}/pdf.json`,
-  );
+  const path = resolve(process.cwd(), `../../locales/${language}/pdf.json`);
   return JSON.parse(readFileSync(path, 'utf8')) as PdfLocaleBundle;
 }
 

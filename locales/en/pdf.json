@@ -114,7 +114,7 @@
     "taxBreakdownNetHeader": "Net",
     "taxBreakdownTaxHeader": "VAT",
     "taxBreakdownGrossHeader": "Gross",
-    "validUntilTimeSuffix": ""
+    "validUntilTimeSuffix": " (local time)"
   },
   "kaufvertrag": {
     "htmlLang": "en",

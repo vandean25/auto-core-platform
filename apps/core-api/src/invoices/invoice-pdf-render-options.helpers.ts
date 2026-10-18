@@ -6,7 +6,10 @@ import {
 } from './invoice-pdf.layout.js';
 import { resolveInvoicePdfLayoutContext } from './invoice-pdf-layout-context.js';
 import type { InvoiceSnapshot } from './invoice-snapshot.js';
-import { isCreditNoteSnapshot, isDachRechnungSnapshot } from './invoice-pdf.layout.js';
+import {
+  isCreditNoteSnapshot,
+  isDachRechnungSnapshot,
+} from './invoice-pdf.layout.js';
 
 export type InvoicePdfOptions = NonNullable<Parameters<Page['pdf']>[0]>;
 

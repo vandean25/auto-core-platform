@@ -33,7 +33,10 @@ function safeColor(value: string, fallback: string): string {
   return HEX_COLOR.test(value) ? value : fallback;
 }
 
-function sellerLines(snapshot: KaufvertragSnapshot, t: TFunction | null): string {
+function sellerLines(
+  snapshot: KaufvertragSnapshot,
+  t: TFunction | null,
+): string {
   const { seller } = snapshot;
   const street = [seller.address_street, seller.address_line2]
     .filter(Boolean)
@@ -90,7 +93,10 @@ function sellerLines(snapshot: KaufvertragSnapshot, t: TFunction | null): string
     .join('<br>');
 }
 
-function buyerLines(snapshot: KaufvertragSnapshot, t: TFunction | null): string {
+function buyerLines(
+  snapshot: KaufvertragSnapshot,
+  t: TFunction | null,
+): string {
   const { buyer } = snapshot;
   const name =
     buyer.type === 'COMPANY' && buyer.company_name
@@ -219,9 +225,7 @@ export function buildKaufvertragHtmlDocument(
   const buyerHeading = t ? t('kaufvertrag.buyerHeading') : 'Käufer';
   const vehicleHeading = t ? t('kaufvertrag.vehicleHeading') : 'Fahrzeug';
   const makeModelLabel = t ? t('kaufvertrag.makeModelLabel') : 'Marke / Modell';
-  const vinLabel = t
-    ? t('kaufvertrag.vinLabel')
-    : 'Fahrgestellnummer (FIN)';
+  const vinLabel = t ? t('kaufvertrag.vinLabel') : 'Fahrgestellnummer (FIN)';
   const hsnTsnLabel = t ? t('kaufvertrag.hsnTsnLabel') : 'HSN / TSN';
   const firstRegistrationLabel = t
     ? t('kaufvertrag.firstRegistrationLabel')
