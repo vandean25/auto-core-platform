@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { WarrantyClaimStatus, WarrantyClaimType } from '@prisma/client';
+import type { WarrantyClaimStatus } from '@prisma/client';
 import type { z } from 'zod';
 import {
   assertConsentLedgerAccess,
@@ -13,10 +13,7 @@ import type { TyreSetResponseDto } from '../tyre-storage/dto/tyre-set.dto.js';
 import { VehicleStockQueryService } from '../vehicle-stock/vehicle-stock-query.service.js';
 import { WarrantyClaimService } from '../warranty-claim/warranty-claim.service.js';
 import { assertWarrantyClaimAccess } from '../warranty-claim/warranty-claim.rules.js';
-import {
-  offsetFromCursor,
-  toMcpPageMeta,
-} from './mcp-report-read.mapper.js';
+import { offsetFromCursor, toMcpPageMeta } from './mcp-report-read.mapper.js';
 import {
   toMcpGewaehrleistungDueRow,
   toMcpTyreSetRow,
@@ -37,7 +34,9 @@ import type {
 } from './mcp-tool-schemas.js';
 
 type CheckContactInput = z.infer<typeof checkContactPermissionInputSchema>;
-type GewaehrleistungDueInput = z.infer<typeof listGewaehrleistungDueInputSchema>;
+type GewaehrleistungDueInput = z.infer<
+  typeof listGewaehrleistungDueInputSchema
+>;
 type TyreSetsInput = z.infer<typeof listTyreSetsInputSchema>;
 type WarrantyClaimsInput = z.infer<typeof listWarrantyClaimsInputSchema>;
 
@@ -74,8 +73,7 @@ export class McpComplianceReadService {
   }
 
   async listGewaehrleistungDue(input: GewaehrleistungDueInput) {
-    const withinDays =
-      input.within_days ?? DEFAULT_GEWAEHRLEISTUNG_WITHIN_DAYS;
+    const withinDays = input.within_days ?? DEFAULT_GEWAEHRLEISTUNG_WITHIN_DAYS;
     const scope = {
       offset: offsetFromCursor(input.cursor),
       pageSize: clampMcpPageSize(input.pageSize),
@@ -97,26 +95,10 @@ export class McpComplianceReadService {
     const pageSize = clampMcpPageSize(input.pageSize);
     const offset = offsetFromCursor(input.cursor);
 
-    let rows: TyreSetResponseDto[] = [];
-    if (input.due_for_swap) {
-      const due = await this.tyreStorage.listDueForSwap();
-      rows = due.data;
-      if (input.customer_id) {
-        rows = rows.filter((row) => row.customerId === input.customer_id);
-      }
-      if (input.vehicle_id) {
-        rows = rows.filter((row) => row.vehicleId === input.vehicle_id);
-      }
-      if (input.status) {
-        rows = rows.filter((row) => row.status === input.status);
-      }
-    } else if (input.vehicle_id && !input.customer_id) {
-      const byVehicle = await this.tyreStorage.findByVehicle(input.vehicle_id);
-      rows = byVehicle.data;
-      if (input.status) {
-        rows = rows.filter((row) => row.status === input.status);
-      }
-    } else {
+    if (
+      !input.due_for_swap &&
+      !(input.vehicle_id && !input.customer_id)
+    ) {
       const page = Math.floor(offset / pageSize) + 1;
       const listed = await this.tyreStorage.list({
         customerId: input.customer_id,
@@ -135,6 +117,31 @@ export class McpComplianceReadService {
               : null,
         },
       };
+    }
+
+    let rows: TyreSetResponseDto[];
+    if (input.due_for_swap) {
+      const due = await this.tyreStorage.listDueForSwap();
+      rows = due.data;
+      if (input.customer_id) {
+        rows = rows.filter((row) => row.customerId === input.customer_id);
+      }
+      if (input.vehicle_id) {
+        rows = rows.filter((row) => row.vehicleId === input.vehicle_id);
+      }
+      if (input.status) {
+        rows = rows.filter((row) => row.status === input.status);
+      }
+    } else {
+      const vehicleId = input.vehicle_id;
+      if (!vehicleId) {
+        return { data: [], meta: toMcpPageMeta(0, { offset, pageSize }) };
+      }
+      const byVehicle = await this.tyreStorage.findByVehicle(vehicleId);
+      rows = byVehicle.data;
+      if (input.status) {
+        rows = rows.filter((row) => row.status === input.status);
+      }
     }
 
     const pageRows = rows.slice(offset, offset + pageSize);
@@ -157,7 +164,7 @@ export class McpComplianceReadService {
     const { rows, total } = await this.warrantyClaims.listAtActiveSite({
       workshopOrderId: input.order_id,
       statuses,
-      type: input.type as WarrantyClaimType | undefined,
+      type: input.type,
       pageSize,
       cursorCreatedAt: cursor ? new Date(cursor.at) : undefined,
       cursorId: cursor?.id,
