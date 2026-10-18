@@ -240,21 +240,14 @@ export async function clearPendingCheckInCreate(
   )
 }
 
-/** Only requeue uploads stuck in `uploading` long enough to be abandoned (not in-flight). */
-const UPLOADING_STALE_MS = 2 * 60 * 1000
-
+/** On load, every `uploading` row is abandoned (no in-flight pass survives a fresh session). */
 export async function reconcileStaleUploadingPhotos(
   scope: CheckInOfflineScope,
 ): Promise<void> {
   const photos = await listQueuedPhotosForScope(scope)
-  const now = Date.now()
   await Promise.all(
     photos
-      .filter(
-        (photo) =>
-          photo.status === 'uploading' &&
-          now - photo.createdAt > UPLOADING_STALE_MS,
-      )
+      .filter((photo) => photo.status === 'uploading')
       .map((photo) =>
         upsertQueuedPhoto({
           ...photo,
@@ -266,11 +259,23 @@ export async function reconcileStaleUploadingPhotos(
 
 export async function clearPhotoQueueRetryDelays(
   scope: CheckInOfflineScope,
+  preserveInFlightClientUploadIds: ReadonlySet<string> = new Set(),
 ): Promise<void> {
   const photos = await listQueuedPhotosForScope(scope)
   await Promise.all(
     photos
-      .filter((photo) => photo.status === 'failed' || photo.status === 'queued')
+      .filter((photo) => {
+        if (photo.status === 'failed' || photo.status === 'queued') {
+          return true
+        }
+        if (
+          photo.status === 'uploading' &&
+          !preserveInFlightClientUploadIds.has(photo.clientUploadId)
+        ) {
+          return true
+        }
+        return false
+      })
       .map((photo) =>
         upsertQueuedPhoto({
           ...photo,

@@ -90,6 +90,8 @@ export function useCheckInOffline({
   const onUploadConflictRef = useRef(onUploadConflict)
   const queuePausedRef = useRef(queuePaused)
   const prevActiveSiteIdRef = useRef<string | null>(null)
+  const pausedForSiteSwitchRef = useRef(false)
+  const resumeQueueAtSiteIdRef = useRef<string | null>(null)
   const reconciledScopeKeyRef = useRef<string | null>(null)
 
   useEffect(() => {
@@ -126,6 +128,10 @@ export function useCheckInOffline({
       prevActiveSiteIdRef.current &&
       prevActiveSiteIdRef.current !== activeSiteId
     ) {
+      if (!pausedForSiteSwitchRef.current) {
+        resumeQueueAtSiteIdRef.current = prevActiveSiteIdRef.current
+      }
+      pausedForSiteSwitchRef.current = true
       setQueuePaused(true)
     }
     prevActiveSiteIdRef.current = activeSiteId
@@ -148,6 +154,21 @@ export function useCheckInOffline({
       checkInId: checkIn.id,
     }
   }, [checkIn?.id, orderId, sessionQuery.data])
+
+  useEffect(() => {
+    if (!activeSiteId) {
+      return
+    }
+    if (
+      pausedForSiteSwitchRef.current &&
+      resumeQueueAtSiteIdRef.current &&
+      activeSiteId === resumeQueueAtSiteIdRef.current
+    ) {
+      pausedForSiteSwitchRef.current = false
+      resumeQueueAtSiteIdRef.current = null
+      setQueuePaused(false)
+    }
+  }, [activeSiteId])
 
   const buildQueueContext = useCallback(() => {
     if (!scope) {

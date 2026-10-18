@@ -28,6 +28,36 @@ export type PhotoQueueUploadContext = {
 
 const retryTimers = new Map<string, ReturnType<typeof setTimeout>>()
 const processingScopeKeys = new Set<string>()
+const pendingRerunByScope = new Map<string, boolean>()
+const inFlightUploadIdsByScope = new Map<string, Set<string>>()
+
+function trackInFlightUpload(
+  scopeKey: string,
+  clientUploadId: string,
+  active: boolean,
+): void {
+  if (!active) {
+    const set = inFlightUploadIdsByScope.get(scopeKey)
+    set?.delete(clientUploadId)
+    if (set && set.size === 0) {
+      inFlightUploadIdsByScope.delete(scopeKey)
+    }
+    return
+  }
+  let set = inFlightUploadIdsByScope.get(scopeKey)
+  if (!set) {
+    set = new Set()
+    inFlightUploadIdsByScope.set(scopeKey, set)
+  }
+  set.add(clientUploadId)
+}
+
+/** Upload ids owned by the current in-memory processor pass (manual retry must not reset these). */
+export function getInFlightCheckInPhotoUploadIds(
+  scopeKey: string,
+): ReadonlySet<string> {
+  return inFlightUploadIdsByScope.get(scopeKey) ?? new Set()
+}
 
 /** Test-only: release in-memory processor locks and retry timers between cases. */
 export function resetCheckInPhotoQueueProcessorLocks(): void {
@@ -36,6 +66,8 @@ export function resetCheckInPhotoQueueProcessorLocks(): void {
   }
   retryTimers.clear()
   processingScopeKeys.clear()
+  pendingRerunByScope.clear()
+  inFlightUploadIdsByScope.clear()
 }
 
 function scheduleQueueRetry(
@@ -133,6 +165,7 @@ export async function processCheckInPhotoQueue(
 
   const scopeKey = buildCheckInOfflineScopeKey(context.scope)
   if (processingScopeKeys.has(scopeKey)) {
+    pendingRerunByScope.set(scopeKey, true)
     return
   }
   processingScopeKeys.add(scopeKey)
@@ -152,6 +185,7 @@ export async function processCheckInPhotoQueue(
         status: 'uploading',
       }
       await upsertQueuedPhoto(uploading)
+      trackInFlightUpload(scopeKey, item.clientUploadId, true)
 
       try {
         const file = new File([item.blob], item.fileName, { type: item.mimeType })
@@ -224,6 +258,8 @@ export async function processCheckInPhotoQueue(
             void processCheckInPhotoQueue(context)
           })
         }
+      } finally {
+        trackInFlightUpload(scopeKey, item.clientUploadId, false)
       }
     }
 
@@ -244,6 +280,10 @@ export async function processCheckInPhotoQueue(
     }
   } finally {
     processingScopeKeys.delete(scopeKey)
+    if (pendingRerunByScope.get(scopeKey)) {
+      pendingRerunByScope.delete(scopeKey)
+      void processCheckInPhotoQueue(context)
+    }
   }
 }
 
@@ -251,6 +291,10 @@ export async function flushPhotoQueueRetries(
   scope: CheckInOfflineScope,
   context: Omit<PhotoQueueUploadContext, 'scope'>,
 ): Promise<void> {
-  await clearPhotoQueueRetryDelays(scope)
+  const scopeKey = buildCheckInOfflineScopeKey(scope)
+  await clearPhotoQueueRetryDelays(
+    scope,
+    getInFlightCheckInPhotoUploadIds(scopeKey),
+  )
   await processCheckInPhotoQueue({ ...context, scope })
 }
