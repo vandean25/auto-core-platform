@@ -135,10 +135,10 @@ export function SitesSettingsTab() {
       {selectedSite ? (
         <div className="space-y-4 rounded-lg border bg-white p-6 shadow-sm">
           <div>
-            <h4 className="font-medium">
+            <h3 className="font-medium">
               {t('sites.memberships.title', { name: selectedSite.name })}
               <span className="ml-2 font-mono text-sm text-slate-500">{selectedSite.code}</span>
-            </h4>
+            </h3>
             <p className="text-sm text-muted-foreground">
               {t('sites.memberships.description')}
             </p>

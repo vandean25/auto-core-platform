@@ -438,9 +438,9 @@ export function DataImportSettingsTab() {
 
       {step === 1 && (
         <section className="space-y-4" aria-labelledby="import-step-source">
-          <h4 id="import-step-source" className="font-medium">
+          <h3 id="import-step-source" className="font-medium">
             {t('dataImport.source.title')}
-          </h4>
+          </h3>
           <div className="grid gap-4 md:grid-cols-2 max-w-2xl">
             <div className="space-y-2">
               <Label htmlFor="import-entity">{t('dataImport.source.entityLabel')}</Label>
@@ -523,9 +523,9 @@ export function DataImportSettingsTab() {
 
       {step === 2 && (
         <section className="space-y-4" aria-labelledby="import-step-upload">
-          <h4 id="import-step-upload" className="font-medium">
+          <h3 id="import-step-upload" className="font-medium">
             {t('dataImport.upload.title')}
-          </h4>
+          </h3>
           <div className="space-y-2 max-w-lg">
             <Label htmlFor="import-file">{t('dataImport.upload.fileLabel')}</Label>
             <Input
@@ -560,9 +560,9 @@ export function DataImportSettingsTab() {
 
       {step === 3 && (
         <section className="space-y-4" aria-labelledby="import-step-mapping">
-          <h4 id="import-step-mapping" className="font-medium">
+          <h3 id="import-step-mapping" className="font-medium">
             {t('dataImport.mapping.title')}
-          </h4>
+          </h3>
 
           <div className="flex flex-col gap-3 md:flex-row md:items-end">
             <div className="space-y-2 flex-1 max-w-xs">
@@ -741,7 +741,7 @@ export function DataImportSettingsTab() {
 
           {previewRows.length > 0 ? (
             <div className="space-y-2">
-              <h5 className="text-sm font-medium">{t('dataImport.mapping.previewTitle')}</h5>
+              <h4 className="text-sm font-medium">{t('dataImport.mapping.previewTitle')}</h4>
               <div className="overflow-x-auto border rounded-md max-h-64">
                 <Table>
                   <TableHeader>
@@ -789,14 +789,14 @@ export function DataImportSettingsTab() {
 
       {step >= 4 && dryRunJob ? (
         <section className="space-y-4" aria-labelledby="import-step-dryrun">
-          <h4 id="import-step-dryrun" className="font-medium">
+          <h3 id="import-step-dryrun" className="font-medium">
             {t('dataImport.dryRun.title')}
-          </h4>
+          </h3>
 
           {dryRunStale ? (
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
-              <AlertTitle as="h5">{t('dataImport.dryRun.stale.title')}</AlertTitle>
+              <AlertTitle as="h4">{t('dataImport.dryRun.stale.title')}</AlertTitle>
               <AlertDescription>
                 {t('dataImport.dryRun.stale.description')}
               </AlertDescription>
@@ -1068,10 +1068,10 @@ export function DataImportSettingsTab() {
 
       {step === 5 && appliedJob ? (
         <section className="space-y-3" aria-labelledby="import-step-result">
-          <h4 id="import-step-result" className="font-medium flex items-center gap-2">
+          <h3 id="import-step-result" className="font-medium flex items-center gap-2">
             <CheckCircle2 className="h-5 w-5 text-green-600" />
             {t('dataImport.result.title')}
-          </h4>
+          </h3>
           <p className="text-sm text-muted-foreground">
             {t('dataImport.result.summary', {
               status: appliedJob.status,

@@ -584,7 +584,7 @@ export function AccountingExportSettingsTab({
           <div className="flex flex-wrap items-center gap-3">
             <FileSpreadsheet className="h-5 w-5 text-slate-500" />
             <div>
-              <h4 className="font-medium">{t('accountingExport.preview.title')}</h4>
+              <h3 className="font-medium">{t('accountingExport.preview.title')}</h3>
               <p className="text-sm text-slate-500">
                 {t('accountingExport.preview.summary', {
                   version: preview.profileVersion,
@@ -702,7 +702,7 @@ export function AccountingExportSettingsTab({
       <div className="rounded-lg border bg-white p-6 shadow-sm">
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h4 className="font-medium">{t('accountingExport.history.title')}</h4>
+            <h3 className="font-medium">{t('accountingExport.history.title')}</h3>
             <p className="text-sm text-slate-500">
               {t('accountingExport.history.description')}
             </p>

@@ -336,7 +336,7 @@ export function VehicleDataSettingsTab() {
             return (
               <div key={code} className='space-y-3 border rounded-md p-4'>
                 <div className='flex flex-wrap items-center justify-between gap-2'>
-                  <h4 className='text-sm font-medium'>{OEM_CONCERN_LABELS[code]}</h4>
+                  <h3 className='text-sm font-medium'>{OEM_CONCERN_LABELS[code]}</h3>
                   <div className='flex flex-wrap gap-2'>
                     {concern?.hasPartsCredential ? (
                       <Badge variant='secondary'>{t('vehicleData.oemConcerns.partsCredential')}</Badge>

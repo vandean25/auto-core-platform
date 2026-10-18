@@ -149,6 +149,50 @@ test.describe('Heading order on detail pages', () => {
     await expectNoHeadingOrderViolations(page)
   })
 
+  test('settings workshop hours tab has no heading-order violations', async ({ page }) => {
+    await page.route(AutoCorePage.apiRouteMatcher('/api/finance/settings'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(createMockFinanceSettings()),
+      })
+    })
+    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/settings'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          timezone: 'Europe/Vienna',
+          slotMinutes: 30,
+          holidayCountryIso: 'AT',
+          holidaySubdivisionCode: null,
+          openingHours: [
+            { weekday: 1, isClosed: false, openTime: '08:00', closeTime: '17:00' },
+          ],
+        }),
+      })
+    })
+    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/holidays'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: [] }),
+      })
+    })
+
+    await page.goto('/settings?tab=hours')
+    await page.waitForLoadState('networkidle')
+
+    await expect(page.getByRole('heading', { level: 1, name: DE_SETTINGS.page.title })).toBeVisible()
+    await expect(
+      page.getByRole('heading', { level: 2, name: DE_SETTINGS.workshopHours.title, exact: true }),
+    ).toBeVisible()
+    await expect(
+      page.getByRole('heading', { level: 3, name: DE_SETTINGS.workshopHours.weekdaysTitle, exact: true }),
+    ).toBeVisible()
+    await expectNoHeadingOrderViolations(page)
+  })
+
   test('settings brands tab has no heading-order violations', async ({ page }) => {
     await page.route(AutoCorePage.apiRouteMatcher('/api/finance/settings'), async (route) => {
       await route.fulfill({
