@@ -434,7 +434,7 @@ describe('AgentSupervisionPage', () => {
     expect(screen.getByText(deAgent.approvals.doManually)).toBeInTheDocument()
     expect(
       screen.getByText(
-        /Diese\ Aktion\ ist\ als\ HUMAN_ONLY\ eingestuft\ und\ kan/i,
+        /Diese Aktion ist als HUMAN_ONLY eingestuft und kan/i,
       ),
     ).toBeInTheDocument()
   })
@@ -712,9 +712,9 @@ describe('AgentSupervisionPage', () => {
     renderSupervisionPage()
 
     expect(screen.getByTestId('approvals-empty-state')).toBeInTheDocument()
-    expect(screen.getByText(/Keine\ Vorschläge\ in\ der\ Warteschlange/i)).toBeInTheDocument()
+    expect(screen.getByText(/Keine Vorschläge in der Warteschlange/i)).toBeInTheDocument()
     expect(
-      screen.getByText(/Neue\ Agenten\-Vorschläge\ erscheinen\ hier,\ sobald\ sie\ zur\ Freigabe\ eingereicht\ werden\./i),
+      screen.getByText(/Neue Agenten-Vorschläge erscheinen hier, sobald sie zur Freigabe eingereicht werden./i),
     ).toBeInTheDocument()
   })
 
@@ -1375,7 +1375,7 @@ describe('AgentSupervisionPage', () => {
       renderSupervisionPage()
 
       expect(screen.getByTestId('approvals-empty-state')).toBeInTheDocument()
-      expect(screen.getByText(/Keine\ Vorschläge\ in\ der\ Warteschlange/i)).toBeInTheDocument()
+      expect(screen.getByText(/Keine Vorschläge in der Warteschlange/i)).toBeInTheDocument()
     })
 
     it('does not show the empty inbox when triage fails to load', () => {
@@ -1391,7 +1391,7 @@ describe('AgentSupervisionPage', () => {
       expect(screen.getByTestId('approvals-error-state')).toBeInTheDocument()
       expect(screen.queryByTestId('approvals-empty-state')).not.toBeInTheDocument()
       expect(
-        screen.queryByText(/Keine\ Vorschläge\ in\ der\ Warteschlange/i),
+        screen.queryByText(/Keine Vorschläge in der Warteschlange/i),
       ).not.toBeInTheDocument()
     })
 
@@ -1587,7 +1587,7 @@ describe('AgentSupervisionPage', () => {
 
       expect(screen.queryByTestId('approvals-proposals-error-state')).not.toBeInTheDocument()
       expect(screen.getByTestId('approvals-empty-state')).toBeInTheDocument()
-      expect(screen.getByText(/Keine\ Vorschläge\ in\ der\ Warteschlange/i)).toBeInTheDocument()
+      expect(screen.getByText(/Keine Vorschläge in der Warteschlange/i)).toBeInTheDocument()
     })
 
     it('does not show inbox clear when only pending proposals fail to load', () => {
@@ -1614,7 +1614,7 @@ describe('AgentSupervisionPage', () => {
       ).toBeInTheDocument()
       expect(screen.queryByTestId('approvals-empty-state')).not.toBeInTheDocument()
       expect(
-        screen.queryByText(/Keine\ Vorschläge\ in\ der\ Warteschlange/i),
+        screen.queryByText(/Keine Vorschläge in der Warteschlange/i),
       ).not.toBeInTheDocument()
     })
 

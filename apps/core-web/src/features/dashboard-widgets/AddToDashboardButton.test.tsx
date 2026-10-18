@@ -5,8 +5,8 @@ import { DashboardWidgetsProvider } from '@/features/dashboard-widgets/Dashboard
 import { DASHBOARD_WIDGET_SOURCE_CUSTOMERS } from '@/features/dashboard-widgets/sources'
 import { AddToDashboardButton } from './AddToDashboardButton'
 
-const TRIGGER_NAME = 'Add to dashboard'
-const TOOLTIP = 'Shows this result as a widget on your dashboard'
+const TRIGGER_NAME = 'Zum Dashboard hinzufügen'
+const TOOLTIP = 'Dieses Ergebnis als Widget auf Ihrem Dashboard anzeigen'
 
 function renderAddButton() {
   return render(
@@ -64,6 +64,6 @@ describe('AddToDashboardButton', () => {
     fireEvent.click(screen.getByRole('button', { name: TRIGGER_NAME }))
 
     const dialog = await screen.findByRole('dialog')
-    expect(within(dialog).getByRole('heading', { name: 'Add Widget to Dashboard' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('heading', { name: 'Widget zum Dashboard hinzufügen' })).toBeInTheDocument()
   })
 })

@@ -1421,5 +1421,48 @@
       "loadError": "Could not load the intake checklist.",
       "saveError": "Could not save the intake checklist."
     }
+  },
+  "publicEstimateApproval": {
+    "pageTitle": "Estimate",
+    "loadFailed": "The estimate could not be loaded. Please try again later.",
+    "errors": {
+      "404": "This link is not valid.",
+      "410": "This link has expired or was already used.",
+      "409": "This estimate can no longer be approved or declined.",
+      "429": "Too many requests. Please try again later."
+    },
+    "workshop": "Workshop",
+    "customer": "Customer",
+    "vehicle": "Vehicle:",
+    "plate": "Plate {{plate}}",
+    "vin": "VIN {{vin}}",
+    "freeOfCharge": "This estimate is free of charge.",
+    "lineItemsAria": "Line items",
+    "gross": "(gross)",
+    "net": "(net)",
+    "totalNet": "Net total",
+    "tax": "VAT",
+    "totalGross": "Gross total",
+    "validUntil": "Valid until {{date}}",
+    "decisionSectionAria": "Legal notices and decision",
+    "legalAccepted": "I have read the notices above.",
+    "b2cAccepted": "I confirm the non-binding consumer declaration (KSchG § 5 para. 2).",
+    "fullName": "Full name",
+    "approve": "Accept estimate",
+    "decline": "Decline",
+    "declineConfirm": "Do you really want to decline this estimate?",
+    "declineYes": "Yes, decline",
+    "back": "Back",
+    "validation422": "Please confirm the notices and enter your full name.",
+    "submitFailed": "Your decision could not be saved. Please try again later.",
+    "loading": "Loading estimate…",
+    "estimateTitle": "Estimate {{number}}",
+    "version": "Version {{version}}",
+    "thankYou": "Thank you. Your decision has been saved.",
+    "approved": "Approved",
+    "declined": "Declined",
+    "approvedAt": "Electronically confirmed on",
+    "decidedAt": "Decided on",
+    "uid": "VAT ID {{vatId}}"
   }
 }

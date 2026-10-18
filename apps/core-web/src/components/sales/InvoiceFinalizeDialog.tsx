@@ -1,4 +1,5 @@
 import { Loader2 } from "lucide-react"
+import { useTranslation } from 'react-i18next'
 
 import { Button } from "@/components/ui/button"
 import {
@@ -26,14 +27,15 @@ export function InvoiceFinalizeDialog({
   errorMessage,
   onConfirm,
 }: InvoiceFinalizeDialogProps) {
+  const { t } = useTranslation(['sales', 'common'])
+
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Finalize invoice?</AlertDialogTitle>
+          <AlertDialogTitle>{t('sales:invoiceEditor.finalizeDialog.title')}</AlertDialogTitle>
           <AlertDialogDescription>
-            This will lock the invoice, assign an official RE number, and deduct stock for
-            catalog lines. You cannot edit the draft after this.
+            {t('sales:invoiceEditor.finalizeDialog.description')}
           </AlertDialogDescription>
           {errorMessage ? (
             <p className="text-sm text-destructive" role="alert">
@@ -42,7 +44,7 @@ export function InvoiceFinalizeDialog({
           ) : null}
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isFinalizing}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={isFinalizing}>{t('common:actions.cancel')}</AlertDialogCancel>
           <Button
             type="button"
             variant="destructive"
@@ -52,10 +54,10 @@ export function InvoiceFinalizeDialog({
             {isFinalizing ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Finalizing…
+                {t('sales:invoiceEditor.finalizeDialog.finalizing')}
               </>
             ) : (
-              "Finalize"
+              t('sales:invoiceEditor.finalizeDialog.confirm')
             )}
           </Button>
         </AlertDialogFooter>

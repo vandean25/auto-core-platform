@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNovaCalculate } from '@/api/nova'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,13 +18,6 @@ type NovaPreviewPanelProps = {
 
 type PreviewMode = 'v1' | 'eu_used_m1_2024'
 
-function display(value: string | number | null): string | number {
-  return value ?? '—'
-}
-
-const EU_SLICE_LEGAL_BASIS =
-  'Rechtsgrundlage: direkter EU/EWR-Gebrauchtimport M1 (Slice EU-M1-2024). Erstzulassung in der EU/EWR im Kalenderjahr 2024; Steuerereignis ab dieser Erstzulassung bis 31.12.2026. Tarif nach EU-Erstzulassung (at-m1-2024), Wertentwicklung nach Ihrer Angabe. Diese Vorschau ist keine NoVA-Anmeldung und kein FinanzOnline-Export.'
-
 export function NovaPreviewPanel({
   vehicleId,
   firstRegistrationDate,
@@ -33,6 +27,13 @@ export function NovaPreviewPanel({
   novaClass,
   initialNetPriceEuro,
 }: NovaPreviewPanelProps) {
+  const { t } = useTranslation('vehicles')
+  const emDash = t('shared.emDash')
+
+  function display(value: string | number | null): string | number {
+    return value ?? emDash
+  }
+
   const [previewMode, setPreviewMode] = useState<PreviewMode>('v1')
   const [netPrice, setNetPrice] = useState(
     initialNetPriceEuro == null ? '' : String(initialNetPriceEuro),
@@ -79,23 +80,25 @@ export function NovaPreviewPanel({
           originalNewNetEuro > 0)))
   const calculationError = error as (Error & { code?: string }) | null
 
+  const euSliceLegalBasis = t('novaPreview.euSliceLegalBasis')
+
   return (
     <section className="space-y-3 rounded-lg border p-4" aria-labelledby="nova-preview-title">
       <div>
         <h3 id="nova-preview-title" className="text-sm font-semibold text-slate-700">
-          NoVA-Vorschau
+          {t('novaPreview.title')}
         </h3>
         <div className="mt-2 grid gap-x-4 gap-y-1 text-xs text-slate-600 sm:grid-cols-2">
-          <div>Erstzulassung: {display(firstRegistrationDate)}</div>
-          <div>CO₂ WLTP (g/km): {display(co2Wltp)}</div>
-          <div>CO₂ NEDC (g/km): {display(co2Nedc)}</div>
-          <div>Typenschein-Nr.: {display(typenscheinNo)}</div>
-          <div>NoVA-Klasse: {display(novaClass)}</div>
+          <div>{t('novaPreview.firstRegistration', { value: display(firstRegistrationDate) })}</div>
+          <div>{t('novaPreview.co2Wltp', { value: display(co2Wltp) })}</div>
+          <div>{t('novaPreview.co2Nedc', { value: display(co2Nedc) })}</div>
+          <div>{t('novaPreview.typenschein', { value: display(typenscheinNo) })}</div>
+          <div>{t('novaPreview.novaClass', { value: display(novaClass) })}</div>
         </div>
       </div>
 
       <fieldset className="space-y-2 text-sm">
-        <legend className="text-slate-600">Vorschau-Modus</legend>
+        <legend className="text-slate-600">{t('novaPreview.previewMode')}</legend>
         <label className="flex items-center gap-2">
           <input
             type="radio"
@@ -109,7 +112,7 @@ export function NovaPreviewPanel({
               reset()
             }}
           />
-          <span>Standard-Vorschau (Steuerereignis = heute, Tarif nach Ereignisdatum)</span>
+          <span>{t('novaPreview.modeStandard')}</span>
         </label>
         <label className="flex items-center gap-2">
           <input
@@ -122,21 +125,21 @@ export function NovaPreviewPanel({
               reset()
             }}
           />
-          <span>EU-M1-Gebrauchtimport 2024 (explizit; kein automatischer Wechsel)</span>
+          <span>{t('novaPreview.modeEuUsedM1')}</span>
         </label>
       </fieldset>
 
       {previewMode === 'eu_used_m1_2024' ? (
         <p className="text-xs text-slate-600" role="note">
-          {EU_SLICE_LEGAL_BASIS}
+          {euSliceLegalBasis}
         </p>
       ) : null}
 
       <div className="flex flex-wrap items-end gap-2">
         <label className="min-w-48 space-y-1 text-sm">
-          <span className="text-slate-600">NoVA-Netto-Preis</span>
+          <span className="text-slate-600">{t('novaPreview.netPrice')}</span>
           <Input
-            aria-label="NoVA-Netto-Preis"
+            aria-label={t('novaPreview.netPriceAria')}
             type="number"
             min={0}
             step="0.01"
@@ -151,9 +154,9 @@ export function NovaPreviewPanel({
         {previewMode === 'eu_used_m1_2024' ? (
           <>
             <label className="min-w-48 space-y-1 text-sm">
-              <span className="text-slate-600">Steuerereignis (Datum)</span>
+              <span className="text-slate-600">{t('novaPreview.taxableEventDate')}</span>
               <Input
-                aria-label="Steuerereignis"
+                aria-label={t('novaPreview.taxableEventAria')}
                 type="date"
                 value={taxableEventDate}
                 onChange={(event) => {
@@ -164,9 +167,9 @@ export function NovaPreviewPanel({
               />
             </label>
             <label className="min-w-48 space-y-1 text-sm">
-              <span className="text-slate-600">Wertentwicklung</span>
+              <span className="text-slate-600">{t('novaPreview.valueDevelopment')}</span>
               <select
-                aria-label="Wertentwicklung"
+                aria-label={t('novaPreview.valueDevelopmentAria')}
                 className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
                 value={valueBasis}
                 onChange={(event) => {
@@ -175,15 +178,15 @@ export function NovaPreviewPanel({
                   reset()
                 }}
               >
-                <option value="achtelung">Achtelung</option>
-                <option value="known_new_net">Bekannter Neuwagen-Nettowert</option>
+                <option value="achtelung">{t('novaPreview.valueBasisAchtelung')}</option>
+                <option value="known_new_net">{t('novaPreview.valueBasisKnownNewNet')}</option>
               </select>
             </label>
             {valueBasis === 'known_new_net' ? (
               <label className="min-w-48 space-y-1 text-sm">
-                <span className="text-slate-600">Neuwagen-Nettowert (€)</span>
+                <span className="text-slate-600">{t('novaPreview.originalNewNet')}</span>
                 <Input
-                  aria-label="Neuwagen-Nettowert"
+                  aria-label={t('novaPreview.originalNewNetAria')}
                   type="number"
                   min={0}
                   step="0.01"
@@ -227,13 +230,13 @@ export function NovaPreviewPanel({
             }
           }}
         >
-          {isPending ? 'Berechnung läuft…' : 'NoVA berechnen'}
+          {isPending ? t('novaPreview.calculating') : t('novaPreview.calculate')}
         </Button>
       </div>
 
       {calculationError?.code === 'MISSING_CO2' ? (
         <p className="text-sm text-amber-700" role="status">
-          CO2 fehlt
+          {t('novaPreview.missingCo2')}
         </p>
       ) : null}
       {calculationError && calculationError.code !== 'MISSING_CO2' ? (
@@ -245,28 +248,36 @@ export function NovaPreviewPanel({
       {data && hasCurrentCalculation ? (
         <div className="space-y-2 border-t pt-3 text-sm">
           <div className="flex items-center justify-between gap-3">
-            <span className="text-slate-600">Berechnete NoVA</span>
+            <span className="text-slate-600">{t('novaPreview.calculatedNova')}</span>
             <strong>{formatCurrency(data.novaAmountEuro)}</strong>
           </div>
           <div className="text-xs text-slate-600">
-            Tarifversion: <span>{data.tariffVersionId}</span>
+            {t('novaPreview.tariffVersion', { id: data.tariffVersionId })}
           </div>
           {data.tariffSelectionBasis ? (
             <div className="text-xs text-slate-600">
-              Tarifwahl: {data.tariffSelectionBasis}
-              {data.tariffSelectionDate ? ` (${data.tariffSelectionDate})` : ''}
+              {t('novaPreview.tariffSelection', {
+                basis: data.tariffSelectionBasis,
+                dateSuffix: data.tariffSelectionDate
+                  ? t('novaPreview.tariffSelectionDateSuffix', { date: data.tariffSelectionDate })
+                  : '',
+              })}
             </div>
           ) : null}
           {data.intermediates ? (
             <div className="text-xs text-slate-600">
-              Wertentwicklung ({data.intermediates.valueBasis}):{' '}
-              {data.intermediates.valueDevelopmentFactor.numerator}/
-              {data.intermediates.valueDevelopmentFactor.denominator},{' '}
-              {data.intermediates.fullYearsElapsed} volle Jahre seit Erstzulassung
+              {t('novaPreview.valueDevelopmentDetail', {
+                basis: data.intermediates.valueBasis,
+                numerator: data.intermediates.valueDevelopmentFactor.numerator,
+                denominator: data.intermediates.valueDevelopmentFactor.denominator,
+                years: data.intermediates.fullYearsElapsed,
+              })}
             </div>
           ) : null}
           <div className="text-xs text-slate-600">
-            Angewandte Regeln: {data.appliedRuleIds.length ? data.appliedRuleIds.join(', ') : '—'}
+            {t('novaPreview.appliedRules', {
+              rules: data.appliedRuleIds.length ? data.appliedRuleIds.join(', ') : emDash,
+            })}
           </div>
           {data.warnings.length ? (
             <ul className="list-disc space-y-1 pl-4 text-xs text-slate-600">
@@ -277,17 +288,17 @@ export function NovaPreviewPanel({
           ) : null}
           {data.hasScopeLimitations ? (
             <p className="text-sm font-medium text-amber-800" role="status">
-              Vorschau eingeschränkt – Wertentwicklung und EU-Importtarif nicht berechnet
+              {t('novaPreview.scopeLimited')}
             </p>
           ) : null}
           {data.hasUnverifiedRules ? (
             <p className="text-sm font-medium text-amber-800">
-              Vorschau - Steuerberater-Bestätigung ausstehend
+              {t('novaPreview.unverifiedRules')}
             </p>
           ) : null}
           {previewMode === 'eu_used_m1_2024' ? (
             <p className="text-xs text-slate-600" role="status">
-              {EU_SLICE_LEGAL_BASIS}
+              {euSliceLegalBasis}
             </p>
           ) : null}
         </div>

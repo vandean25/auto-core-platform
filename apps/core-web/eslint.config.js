@@ -4,7 +4,7 @@ import jsxA11y from 'eslint-plugin-jsx-a11y'
 import i18next from 'eslint-plugin-i18next'
 import reactHooks from 'eslint-plugin-react-hooks'
 import { enumsI18nEslintConfig } from './eslint-enums-i18n.config.js'
-import { i18nLiteralStringWarningRule } from './eslint-i18n-shared.config.js'
+import { i18nLiteralStringRule } from './eslint-i18n-shared.config.js'
 import { shellI18nEslintConfig } from './eslint-shell-i18n.config.js'
 import { financePurchasingI18nEslintConfig } from './eslint-finance-purchasing-i18n.config.js'
 import { inventoryHrI18nEslintConfig } from './eslint-inventory-hr-i18n.config.js'
@@ -76,7 +76,7 @@ export default defineConfig([
       'no-restricted-syntax': 'off',
     },
   },
-  // AUT-578: warn on new hard-coded UI strings outside migrated folders (strict overrides below).
+  // AUT-578 / AUT-584: error on hard-coded UI strings outside migrated folders (strict overrides below).
   {
     files: ['**/*.{ts,tsx}'],
     ignores: [
@@ -85,12 +85,25 @@ export default defineConfig([
       'src/api/generated/**',
       'dist/**',
       'dist-e2e/**',
+      // AUT-584: migrated in follow-up PRs (strict domain configs or separate tickets).
+      'src/components/settings/**',
+      'src/pages/SettingsPage.tsx',
+      'src/components/labor/**',
+      'src/pages/agent/**',
+      'src/pages/reports/**',
+      'src/pages/platform/**',
+      'src/components/AddBrandDialog.tsx',
+      'src/components/AddRevenueGroupDialog.tsx',
+      'src/components/BrandTable.tsx',
+      'src/components/BrandCombobox.tsx',
+      'src/components/BrandMultiSelect.tsx',
+      'src/components/RevenueGroupTable.tsx',
     ],
     plugins: {
       i18next,
     },
     rules: {
-      'i18next/no-literal-string': i18nLiteralStringWarningRule[1],
+      'i18next/no-literal-string': i18nLiteralStringRule[1],
     },
   },
   shellI18nEslintConfig,

@@ -7,8 +7,8 @@ import { OnboardingChecklist } from './OnboardingChecklist'
 
 vi.mock('@/api/auth-session', () => ({ useAuthSession: vi.fn() }))
 
-const HEADING = 'Get your workshop set up'
-const DISMISS_BUTTON = 'Dismiss onboarding checklist'
+const HEADING = 'Werkstatt einrichten'
+const DISMISS_BUTTON = 'Onboarding-Checkliste ausblenden'
 const STORAGE_KEY_PREFIX = 'acp:onboarding-checklist:dismissed:'
 
 function sessionFor(activeRole: AuthSession['activeRole'], userId = 'user-1'): AuthSession {
@@ -78,10 +78,10 @@ describe('OnboardingChecklist steps', () => {
     mockSession(sessionFor('ADMIN'))
     renderChecklist()
 
-    expect(screen.getByRole('link', { name: 'Open customers' })).toHaveAttribute('href', '/customers')
-    expect(screen.getByRole('link', { name: 'Open vehicles' })).toHaveAttribute('href', '/vehicles')
-    expect(screen.getByRole('link', { name: 'Open inventory' })).toHaveAttribute('href', '/inventory')
-    expect(screen.getByRole('link', { name: 'Open workshop orders' })).toHaveAttribute('href', '/workshop/orders')
+    expect(screen.getByRole('link', { name: 'Kunden öffnen' })).toHaveAttribute('href', '/customers')
+    expect(screen.getByRole('link', { name: 'Fahrzeuge öffnen' })).toHaveAttribute('href', '/vehicles')
+    expect(screen.getByRole('link', { name: 'Lager öffnen' })).toHaveAttribute('href', '/inventory')
+    expect(screen.getByRole('link', { name: 'Werkstattaufträge öffnen' })).toHaveAttribute('href', '/workshop/orders')
   })
 })
 

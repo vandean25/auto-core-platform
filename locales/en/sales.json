@@ -188,6 +188,34 @@
       "rowNumber": "#"
     }
   },
+  "invoiceEditor": {
+    "lineItemsTable": {
+      "description": "Item / description",
+      "qty": "Qty",
+      "price": "Price (€)",
+      "tax": "Tax (%)",
+      "total": "Total",
+      "descriptionPlaceholder": "Service or item name",
+      "searchPartAria": "Search part for line {{index}}",
+      "removeLineAria": "Remove line {{index}}",
+      "addLine": "Add line item"
+    },
+    "finalizeDialog": {
+      "title": "Finalize invoice?",
+      "description": "This will lock the invoice, assign an official RE number, and deduct stock for catalog lines. You cannot edit the draft after this.",
+      "confirm": "Finalize",
+      "finalizing": "Finalizing…"
+    },
+    "partSearch": {
+      "title": "Search inventory",
+      "description": "Find parts and add them to the invoice.",
+      "searchAria": "Search inventory",
+      "placeholder": "Search inventory…",
+      "empty": "No parts found.",
+      "group": "Inventory",
+      "stockLine": "{{sku}} · Stock: {{quantity}} · €{{price}}"
+    }
+  },
   "finalize": {
     "missingCustomer": "Invoice draft is missing required customer information.",
     "saving": "Please wait for the draft to finish saving before finalizing.",

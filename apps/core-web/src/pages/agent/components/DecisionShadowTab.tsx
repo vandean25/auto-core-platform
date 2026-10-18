@@ -26,11 +26,8 @@ const USE_CASE_OPTIONS: DecisionShadowUseCase[] = [
   'document_sort',
 ]
 
-interface DecisionShadowTabProps {
-}
-
 /** Read-only shadow log view. It has filters and paging only; nothing here applies a suggestion. */
-export function DecisionShadowTab({}: DecisionShadowTabProps) {
+export function DecisionShadowTab() {
   const [useCaseFilter, setUseCaseFilter] = useState<
     'ALL' | DecisionShadowUseCase
   >('ALL')

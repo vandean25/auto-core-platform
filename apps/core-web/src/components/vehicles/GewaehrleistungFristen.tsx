@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { VehicleSale } from '@/api/vehicle-stock'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { formatWarrantyDay } from '@/lib/vehicle-sale-warranty'
@@ -11,20 +12,23 @@ type GewaehrleistungFristenSale = Pick<
 >
 
 function ExpiredMarker({ expired }: { expired: boolean | undefined }) {
+  const { t } = useTranslation('vehicles')
   if (!expired) return null
-  return <StatusBadge status="GEWAEHRLEISTUNG_EXPIRED" label="Abgelaufen" />
+  return <StatusBadge status="GEWAEHRLEISTUNG_EXPIRED" label={t('gewaehrleistungFristen.expired')} />
 }
 
 /** The Basisfrist and Vermutungsfrist end dates; a period whose end day has passed is marked expired. */
 export function GewaehrleistungFristen({ sale }: { sale: GewaehrleistungFristenSale }) {
+  const { t } = useTranslation('vehicles')
+
   return (
     <div className="space-y-1 text-sm">
       <p className="flex flex-wrap items-center gap-2">
-        Basisfrist bis {formatWarrantyDay(sale.gewaehrleistung_ends_on)}
+        {t('gewaehrleistungFristen.basisfrist', { date: formatWarrantyDay(sale.gewaehrleistung_ends_on) })}
         <ExpiredMarker expired={sale.gewaehrleistung_ends_on_expired} />
       </p>
       <p className="flex flex-wrap items-center gap-2">
-        Vermutungsfrist bis {formatWarrantyDay(sale.presumption_ends_on)}
+        {t('gewaehrleistungFristen.presumption', { date: formatWarrantyDay(sale.presumption_ends_on) })}
         <ExpiredMarker expired={sale.presumption_ends_on_expired} />
       </p>
     </div>

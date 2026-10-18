@@ -338,7 +338,7 @@ export function LegalEntityAccountingProfileForm({
   const { data: profile, isLoading } = useAccountingProfile(entity.id)
   const updateMutation = useUpdateAccountingProfile()
   const [form, setForm] = React.useState<ProfileFormState | null>(null)
-  const [version, setVersion] = React.useState(1)
+  const [, setVersion] = React.useState(1)
   const lastSavedRef = React.useRef('')
   const updateMutationRef = React.useRef(updateMutation)
   const versionRef = React.useRef(1)
