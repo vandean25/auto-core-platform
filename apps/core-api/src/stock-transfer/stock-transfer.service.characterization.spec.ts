@@ -1,8 +1,8 @@
 import { LocationType } from '@prisma/client';
 import { LedgerService } from '../inventory/ledger.service.js';
 import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service.js';
+import { StockTransferService } from './stock-transfer.service.js';
 import {
-  buildStockTransferService,
   buildTransactionClient,
   buildTransfer,
   fromSiteId,
@@ -34,7 +34,7 @@ describe('StockTransferService characterization', () => {
     $transaction: jest.Mock;
   };
   let tx: ReturnType<typeof buildTransactionClient>;
-  let service: ReturnType<typeof buildStockTransferService>;
+  let service: StockTransferService;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -78,11 +78,11 @@ describe('StockTransferService characterization', () => {
     });
     tx.stockTransfer.create.mockResolvedValue(buildTransfer());
 
-    service = buildStockTransferService(
+    service = new StockTransferService(
       prisma,
       tenantContext,
-      ledgerService,
-      realtimeService,
+      ledgerService as never,
+      realtimeService as never,
     );
   });
 

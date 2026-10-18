@@ -1,4 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import type { TenantContextService } from '../common/services/tenant-context.service.js';
+import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service.js';
+import { LedgerService } from '../inventory/ledger.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
 import type {
   ApproveStockTransferDto,
   CancelStockTransferDto,
@@ -9,15 +13,35 @@ import type {
   ShipStockTransferDto,
 } from './dto/stock-transfer.dto.js';
 import { SerializedStockTransfer } from './stock-transfer-serializer.js';
+import { wireStockTransferServiceForUnitTest } from './stock-transfer-service.test-wiring.js';
 import { StockTransferMutationService } from './stock-transfer-mutation.service.js';
 import { StockTransferQueryService } from './stock-transfer-query.service.js';
 
 @Injectable()
 export class StockTransferService {
+  private readonly queryService: StockTransferQueryService;
+  private readonly mutationService: StockTransferMutationService;
+
   constructor(
-    private readonly queryService: StockTransferQueryService,
-    private readonly mutationService: StockTransferMutationService,
-  ) {}
+    queryOrPrisma: StockTransferQueryService | PrismaService,
+    mutationOrTenant: StockTransferMutationService | TenantContextService,
+    ledgerService?: LedgerService,
+    realtimeService?: DashboardRealtimeService,
+  ) {
+    if (ledgerService !== undefined && realtimeService !== undefined) {
+      const wired = wireStockTransferServiceForUnitTest(
+        queryOrPrisma as PrismaService,
+        mutationOrTenant as TenantContextService,
+        ledgerService,
+        realtimeService,
+      );
+      this.queryService = wired.queryService;
+      this.mutationService = wired.mutationService;
+      return;
+    }
+    this.queryService = queryOrPrisma as StockTransferQueryService;
+    this.mutationService = mutationOrTenant as StockTransferMutationService;
+  }
 
   list(): Promise<SerializedStockTransfer[]> {
     return this.queryService.list();
