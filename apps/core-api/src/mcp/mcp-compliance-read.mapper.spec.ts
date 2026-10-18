@@ -1,4 +1,38 @@
-import { toMcpWarrantyClaimListRow } from './mcp-compliance-read.mapper.js';
+import {
+  toMcpGewaehrleistungDueRow,
+  toMcpWarrantyClaimListRow,
+} from './mcp-compliance-read.mapper.js';
+
+describe('toMcpGewaehrleistungDueRow', () => {
+  it('uses Customer.type for customer_name, not company_name presence', () => {
+    const row = toMcpGewaehrleistungDueRow({
+      id: 'sale-1',
+      sale_number: 'S-1',
+      vehicle_id: 'veh-1',
+      customer_id: 'cust-1',
+      handed_over_at: null,
+      gewaehrleistung_ends_on: new Date('2028-01-01'),
+      presumption_ends_on: null,
+      gewaehrleistung_rule_version: 'v1',
+      vehicle: {
+        id: 'veh-1',
+        make: 'Make',
+        model: 'Model',
+        year: 2024,
+        vin: null,
+        plate: null,
+      },
+      customer: {
+        type: 'PRIVATE',
+        company_name: 'Stale GmbH',
+        first_name: 'Anna',
+        last_name: 'Pilot',
+      },
+    });
+
+    expect(row.customer_name).toBe('Anna Pilot');
+  });
+});
 
 describe('toMcpWarrantyClaimListRow', () => {
   it('omits complaint and decision note text', () => {

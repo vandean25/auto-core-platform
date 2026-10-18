@@ -413,6 +413,7 @@ export class VehicleStockQueryService {
         customer: {
           select: {
             id: true,
+            type: true,
             first_name: true,
             last_name: true,
             company_name: true,

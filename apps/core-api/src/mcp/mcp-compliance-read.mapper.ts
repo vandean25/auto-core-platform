@@ -21,6 +21,7 @@ type GewaehrleistungDueRow = {
     plate: string | null;
   };
   customer: {
+    type: 'COMPANY' | 'PRIVATE';
     company_name: string | null;
     first_name: string | null;
     last_name: string | null;
@@ -53,7 +54,7 @@ export function toMcpGewaehrleistungDueRow(row: GewaehrleistungDueRow) {
       plate: row.vehicle.plate,
     },
     customer_name: mcpCustomerName({
-      type: customer.company_name ? 'COMPANY' : 'PRIVATE',
+      type: customer.type,
       company_name: customer.company_name,
       first_name: customer.first_name ?? '',
       last_name: customer.last_name ?? '',
