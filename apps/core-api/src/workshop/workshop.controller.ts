@@ -61,6 +61,7 @@ import * as pdf from './workshop-pdf.service.js';
 import * as pick from './workshop-pick-parts.service.js';
 import * as task from './workshop-task.service.js';
 import { WorkshopInspectionService } from './workshop-inspection.service.js';
+import { workshopPdfGenerationHttpBody } from './workshop-pdf-generation-http.js';
 import { DryRunSupported } from '../dry-run/dry-run.decorators.js';
 
 function parsePositiveInteger(value?: string): number | undefined {
@@ -126,17 +127,7 @@ async function enqueuePdfGeneration(
 ) {
   const targetBaseUrl = process.env.CLOUD_TASKS_TARGET_BASE_URL ?? '';
   const result = await pdfService.requestGeneration(orderId, { targetBaseUrl });
-  if (result.mode === 'enqueued') {
-    return {
-      message: 'PDF generation enqueued',
-      enqueued: true,
-      taskId: result.taskId,
-    };
-  }
-  return {
-    message: 'PDF is ready',
-    enqueued: false,
-  };
+  return workshopPdfGenerationHttpBody(result);
 }
 
 async function servePdfDownload(
