@@ -47,13 +47,6 @@ import { generateWeeklyReportPdfInputSchema } from '../reports/weekly-report/wee
 import { proposeWorkshopOrderCompletionInputSchema } from '../workshop/workshop-order-completion.schema.js';
 import { proposeInvoiceDraftFromOrderInputSchema } from '../invoices/invoice-workshop-draft-propose.schema.js';
 import { proposeEstimateSendInputSchema } from '../workshop/workshop-estimate-send-propose.schema.js';
-import {
-  dryRunArg,
-  dryRunArgSchema,
-  withMcpWriteDryRunInput,
-} from './mcp-write-dry-run.schema.js';
-
-export { dryRunArg, dryRunArgSchema };
 
 const pageSchema = z.number().int().min(1).optional();
 const uuidSchema = z.string().uuid();
@@ -829,7 +822,6 @@ export const draftWorkshopOrderInputSchema = z
     reported_issue: z.string().optional(),
     notes: z.string().optional(),
     ...optionalMcpCommandIdSchema,
-    ...dryRunArg,
   })
   .strict();
 
@@ -843,7 +835,6 @@ export const reservePartInputSchema = z
       'ID of a bin storage location at the active site',
     ),
     ...optionalMcpCommandIdSchema,
-    ...dryRunArg,
   })
   .strict()
   .describe(
@@ -855,7 +846,6 @@ export const releaseReservationInputSchema = z
     reservation_id: uuidSchema,
     return_location_id: uuidSchema.optional(),
     ...optionalMcpCommandIdSchema,
-    ...dryRunArg,
   })
   .strict();
 
@@ -892,7 +882,6 @@ export const proposeRegistrationIntakeInputSchema = z
       .strict()
       .optional(),
     ...optionalMcpCommandIdSchema,
-    ...dryRunArg,
   })
   .strict();
 
@@ -920,7 +909,6 @@ export const proposeLineItemInputSchema = z
         }
       }),
     ...optionalMcpCommandIdSchema,
-    ...dryRunArg,
   })
   .strict();
 
@@ -933,28 +921,12 @@ export const mcpWriteToolInputSchemas: Record<
   release_reservation: releaseReservationInputSchema,
   propose_line_item: proposeLineItemInputSchema,
   propose_registration_intake: proposeRegistrationIntakeInputSchema,
-  propose_workshop_booking: withMcpWriteDryRunInput(
-    proposeWorkshopBookingInputSchema,
-  ),
-  propose_purchase_order: withMcpWriteDryRunInput(
-    proposePurchaseOrderInputSchema,
-  ),
-  propose_workshop_order_completion: withMcpWriteDryRunInput(
-    proposeWorkshopOrderCompletionInputSchema,
-  ),
-  propose_invoice_draft_from_order: withMcpWriteDryRunInput(
-    proposeInvoiceDraftFromOrderInputSchema,
-  ),
-  propose_estimate_send: withMcpWriteDryRunInput(
-    proposeEstimateSendInputSchema,
-  ),
-  request_workshop_media_upload: withMcpWriteDryRunInput(
-    requestWorkshopMediaUploadInputSchema,
-  ),
-  propose_mechanic_finding: withMcpWriteDryRunInput(
-    proposeMechanicFindingInputSchema,
-  ),
-  generate_weekly_report_pdf: withMcpWriteDryRunInput(
-    generateWeeklyReportPdfInputSchema,
-  ),
+  propose_workshop_booking: proposeWorkshopBookingInputSchema,
+  propose_purchase_order: proposePurchaseOrderInputSchema,
+  propose_workshop_order_completion: proposeWorkshopOrderCompletionInputSchema,
+  propose_invoice_draft_from_order: proposeInvoiceDraftFromOrderInputSchema,
+  propose_estimate_send: proposeEstimateSendInputSchema,
+  request_workshop_media_upload: requestWorkshopMediaUploadInputSchema,
+  propose_mechanic_finding: proposeMechanicFindingInputSchema,
+  generate_weekly_report_pdf: generateWeeklyReportPdfInputSchema,
 };

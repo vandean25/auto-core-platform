@@ -23,7 +23,7 @@ export const mcpOutputTotalCursorMeta = z.object({
 
 type Shape = Record<string, z.ZodType>;
 
-function optionalShape<S extends Shape>(shape: S) {
+export function mcpOutputOptionalShape<S extends Shape>(shape: S) {
   return Object.fromEntries(
     Object.entries(shape).map(([key, schema]) => [key, schema.optional()]),
   ) as { [K in keyof S]: z.ZodOptional<S[K]> };
@@ -35,16 +35,19 @@ const truncatedMarkerShape = {
   preview: z.string(),
 };
 
-/** Same contract as the core MCP output registry (AUT-427). */
-export function mcpOutputResultOf<S extends Shape>(success: S) {
+function mcpOutputResultOfWithOptions<S extends Shape>(
+  success: S,
+  options: { loose?: boolean },
+) {
   const requiredKeys = Object.keys(success).filter(
     (key) => !success[key].safeParse(undefined).success,
   );
   const shape = {
-    ...optionalShape(success),
-    ...optionalShape(truncatedMarkerShape),
+    ...mcpOutputOptionalShape(success),
+    ...mcpOutputOptionalShape(truncatedMarkerShape),
   };
-  return z.object(shape).superRefine((value, ctx) => {
+  const object = options.loose ? z.looseObject(shape) : z.object(shape);
+  return object.superRefine((value, ctx) => {
     const fields = value as Record<string, unknown>;
     if (fields.__truncated__ === true) {
       return;
@@ -59,4 +62,13 @@ export function mcpOutputResultOf<S extends Shape>(success: S) {
       }
     }
   });
+}
+
+/** Same contract as the core MCP output registry (AUT-427). */
+export function mcpOutputResultOf<S extends Shape>(success: S) {
+  return mcpOutputResultOfWithOptions(success, {});
+}
+
+export function mcpOutputLooseResultOf<S extends Shape>(success: S) {
+  return mcpOutputResultOfWithOptions(success, { loose: true });
 }

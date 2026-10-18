@@ -6,7 +6,7 @@ import {
   encodeMcpKeysetCursor,
   toMcpJsonObject,
 } from './mcp-output.util.js';
-import { mcpToolOutputSchemas } from './mcp-tool-output-schemas.js';
+import { mcpToolOutputSchemas } from './mcp-tool-output-schemas.registry.js';
 import { toMcpInvoiceDetail } from './mcp-invoice-read.mapper.js';
 import {
   toMcpPurchaseOrderDetail,
@@ -15,6 +15,9 @@ import {
 import { toMcpDocumentPdf, toMcpDocumentRow } from './mcp-document-read.mapper.js';
 import {
   draftWorkshopOrderInputSchema,
+  mcpWriteToolInputSchemas,
+} from './mcp-tool-schemas.write.js';
+import {
   getAgentActionInputSchema,
   getCapabilitiesInputSchema,
   getCustomerInputSchema,
@@ -29,7 +32,6 @@ import {
   getWorkshopKpiReportInputSchema,
   listPickerlDueInputSchema,
   listWorkshopOrdersInputSchema,
-  mcpWriteToolInputSchemas,
   searchCustomersInputSchema,
   whoamiInputSchema,
 } from './mcp-tool-schemas.js';

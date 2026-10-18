@@ -14,12 +14,13 @@ import { RequestContextService } from '../common/services/request-context.servic
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { MCP_WRITE_TOOL_NAMES } from './mcp.constants.js';
 import { McpWriteCommandIdempotencyService } from './mcp-write-command-idempotency.service.js';
+import { McpWritePipelineHost } from './mcp-write-pipeline.host.js';
 import {
   McpWritePipelineService,
   type McpWriteExecution,
 } from './mcp-write-pipeline.service.js';
-import { mcpWriteToolInputSchemas } from './mcp-tool-schemas.js';
-import { mcpToolOutputSchemas } from './mcp-tool-output-schemas.js';
+import { mcpWriteToolInputSchemas } from './mcp-tool-schemas.write.js';
+import { mcpToolOutputSchemas } from './mcp-tool-output-schemas.registry.js';
 import { mcpWriteDryRunResultSchema } from './mcp-write-dry-run.schema.js';
 import { toMcpJsonObject } from './mcp-output.util.js';
 import { WorkshopBookingPackageService } from '../workshop/workshop-booking-package.service.js';
@@ -110,7 +111,7 @@ describe('MCP write dry_run contract (AUT-612)', () => {
 
       const module: TestingModule = await Test.createTestingModule({
         providers: [
-          McpWritePipelineService,
+          { provide: McpWritePipelineService, useClass: McpWritePipelineHost },
           { provide: PrismaService, useValue: mockPrisma },
           { provide: AgentPolicyService, useValue: mockAgentPolicy },
           { provide: DryRunService, useValue: mockDryRun },

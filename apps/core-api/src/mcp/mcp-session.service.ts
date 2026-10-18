@@ -14,7 +14,7 @@ import { MCP_MAX_OPEN_SESSIONS } from './mcp.constants.js';
 import {
   createMcpServer,
   type McpServerSessionContext,
-} from './mcp-server.factory.js';
+} from './mcp-server.create.js';
 import {
   formatMcpAgentId,
   resolveMcpClientNameFromInitializeBody,

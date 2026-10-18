@@ -28,7 +28,6 @@ import {
   type McpToolName,
   type McpWriteToolName,
 } from './mcp.constants.js';
-import { mergeMcpWriteToolOutput } from './mcp-write-dry-run.schema.js';
 
 /**
  * Output schemas for the MCP tools (AUT-427). The SDK publishes each one as the tool's
@@ -1391,57 +1390,23 @@ export const mcpToolOutputSchemas = {
       }),
     ),
   }),
-  draft_workshop_order: mergeMcpWriteToolOutput(
-    'draft_workshop_order',
-    writeResultOf('draft_workshop_order'),
-  ),
-  reserve_part: mergeMcpWriteToolOutput(
-    'reserve_part',
-    writeResultOf('reserve_part'),
-  ),
-  release_reservation: mergeMcpWriteToolOutput(
-    'release_reservation',
-    writeResultOf('release_reservation'),
-  ),
-  propose_line_item: mergeMcpWriteToolOutput(
-    'propose_line_item',
-    writeResultOf('propose_line_item'),
-  ),
-  propose_registration_intake: mergeMcpWriteToolOutput(
-    'propose_registration_intake',
-    writeResultOf('propose_registration_intake'),
-  ),
-  propose_workshop_booking: mergeMcpWriteToolOutput(
-    'propose_workshop_booking',
-    writeResultOf('propose_workshop_booking'),
-  ),
-  propose_purchase_order: mergeMcpWriteToolOutput(
-    'propose_purchase_order',
-    writeResultOf('propose_purchase_order'),
-  ),
-  propose_workshop_order_completion: mergeMcpWriteToolOutput(
+  draft_workshop_order: writeResultOf('draft_workshop_order'),
+  reserve_part: writeResultOf('reserve_part'),
+  release_reservation: writeResultOf('release_reservation'),
+  propose_line_item: writeResultOf('propose_line_item'),
+  propose_registration_intake: writeResultOf('propose_registration_intake'),
+  propose_workshop_booking: writeResultOf('propose_workshop_booking'),
+  propose_purchase_order: writeResultOf('propose_purchase_order'),
+  propose_workshop_order_completion: writeResultOf(
     'propose_workshop_order_completion',
-    writeResultOf('propose_workshop_order_completion'),
   ),
-  propose_invoice_draft_from_order: mergeMcpWriteToolOutput(
+  propose_invoice_draft_from_order: writeResultOf(
     'propose_invoice_draft_from_order',
-    writeResultOf('propose_invoice_draft_from_order'),
   ),
-  propose_estimate_send: mergeMcpWriteToolOutput(
-    'propose_estimate_send',
-    writeResultOf('propose_estimate_send'),
-  ),
-  request_workshop_media_upload: mergeMcpWriteToolOutput(
-    'request_workshop_media_upload',
-    writeResultOf('request_workshop_media_upload'),
-  ),
-  propose_mechanic_finding: mergeMcpWriteToolOutput(
-    'propose_mechanic_finding',
-    writeResultOf('propose_mechanic_finding'),
-  ),
-  generate_weekly_report_pdf: mergeMcpWriteToolOutput(
-    'generate_weekly_report_pdf',
-    z
+  propose_estimate_send: writeResultOf('propose_estimate_send'),
+  request_workshop_media_upload: writeResultOf('request_workshop_media_upload'),
+  propose_mechanic_finding: writeResultOf('propose_mechanic_finding'),
+  generate_weekly_report_pdf: z
     .object({
       ...optionalShape({
         tool: z.literal('generate_weekly_report_pdf'),
@@ -1497,7 +1462,6 @@ export const mcpToolOutputSchemas = {
         }
       }
     }),
-  ),
 } satisfies Record<McpToolName, z.ZodType>;
 
 export type McpToolOutputSchemas = typeof mcpToolOutputSchemas;
