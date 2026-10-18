@@ -193,12 +193,12 @@ vi.mock('@/components/settings/BaySettingsTab', () => ({
   BaySettingsTab: () => <div>Bays tab content</div>,
 }))
 
-vi.mock('@/components/settings/WorkshopHoursSettingsTab', () => ({
-  WorkshopHoursSettingsTab: () => <div>Hours tab content</div>,
+vi.mock('@/components/settings/workshop-hours-settings-panel', () => ({
+  WorkshopHoursSettingsPanel: () => <div>Hours tab content</div>,
 }))
 
-vi.mock('@/components/settings/VehicleDataSettingsTab', () => ({
-  VehicleDataSettingsTab: () => <div>Vehicle data tab content</div>,
+vi.mock('@/components/settings/vehicle-data-settings-panel', () => ({
+  VehicleDataSettingsPanel: () => <div>Vehicle data tab content</div>,
 }))
 
 vi.mock('@/components/settings/TeamSettingsTab', () => ({
@@ -217,8 +217,8 @@ vi.mock('@/components/settings/SitesSettingsTab', () => ({
   SitesSettingsTab: () => <div>Sites tab content</div>,
 }))
 
-vi.mock('@/components/settings/AccountingExportSettingsTab', () => ({
-  AccountingExportSettingsTab: () => <div>Accounting export tab content</div>,
+vi.mock('@/components/settings/accounting-export-settings-panel', () => ({
+  AccountingExportSettingsPanel: () => <div>Accounting export tab content</div>,
 }))
 
 vi.mock('@/components/settings/MarginRulesTab', () => ({
