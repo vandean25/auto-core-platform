@@ -38,7 +38,23 @@ type VehicleSnapshotFields = {
   color: string | null;
   key_number: string | null;
   customer_id: string | null;
+  first_registration_date: Date | null;
 };
+
+function toFirstRegistrationDate(
+  value: unknown,
+): Date | null | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (value === null || value === '') {
+    return null;
+  }
+  if (typeof value !== 'string') {
+    return null;
+  }
+  return new Date(`${value}T00:00:00.000Z`);
+}
 
 function buildVehicleUpdateData(
   existing: VehicleSnapshotFields,
@@ -56,6 +72,10 @@ function buildVehicleUpdateData(
       ['mileage', payload.mileage],
       ['color', payload.color],
       ['key_number', payload.key_number],
+      [
+        'first_registration_date',
+        toFirstRegistrationDate(payload.first_registration_date),
+      ],
     ],
     options,
   );
@@ -94,6 +114,9 @@ async function createVehicle(
       color: payload.color as string | null,
       key_number: payload.key_number as string | null,
       customer_id: payload.customer_id as string | null,
+      first_registration_date: toFirstRegistrationDate(
+        payload.first_registration_date,
+      ) ?? null,
     },
   });
   await createExternalMapping(

@@ -122,6 +122,17 @@ export const VEHICLE_IMPORT_FIELDS: ImportFieldDefinition[] = [
     headerAliases: ['baujahr', 'year', 'model year', 'bj'],
   },
   {
+    key: 'first_registration_date',
+    required: false,
+    headerAliases: [
+      'erstzulassung',
+      'first registration',
+      'first registration date',
+      'first_registration_date',
+      'ez',
+    ],
+  },
+  {
     key: 'mileage',
     required: false,
     headerAliases: ['kilometerstand', 'mileage', 'km', 'odometer'],

@@ -30,6 +30,7 @@ const HEADER = [
   'Marke',
   'Modell',
   'Baujahr',
+  'Erstzulassung',
   'Kilometerstand',
   'Farbe',
   'Kunden-Nr',
@@ -43,6 +44,7 @@ const MAPPING = {
   make: 'Marke',
   model: 'Modell',
   year: 'Baujahr',
+  first_registration_date: 'Erstzulassung',
   mileage: 'Kilometerstand',
   color: 'Farbe',
   owner_customer_external_id: 'Kunden-Nr',
@@ -56,10 +58,11 @@ const COL = {
   make: 3,
   model: 4,
   year: 5,
-  mileage: 6,
-  color: 7,
-  owner: 8,
-  key: 9,
+  firstRegistration: 6,
+  mileage: 7,
+  color: 8,
+  owner: 9,
+  key: 10,
 };
 
 const EMPTY_ROW = HEADER.map(() => '');

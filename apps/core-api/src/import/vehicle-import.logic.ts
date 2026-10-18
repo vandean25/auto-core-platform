@@ -13,6 +13,7 @@ import {
 import { normalizeVehicleIdentityValueOrNull } from '../vehicle/vehicle-identity.util.js';
 import { recordsEqual } from './customer-import.logic.js';
 import { IMPORT_ERROR_CODES } from './import.constants.js';
+import { parseImportFirstRegistrationDate } from './import-first-registration-date.util.js';
 
 export type VehicleMatchContext = {
   mappingByExternalId: Map<string, string>;
@@ -137,6 +138,17 @@ export function normalizeVehicleRow(
   );
   const ownerExternalId = ownerExternalIdRaw || null;
 
+  const firstRegistrationRaw = cellValue(
+    record,
+    mapping,
+    'first_registration_date',
+  );
+  const firstRegistrationParsed = parseImportFirstRegistrationDate(
+    firstRegistrationRaw,
+  );
+  issues.push(...firstRegistrationParsed.issues);
+  warnings.push(...firstRegistrationParsed.warnings);
+
   if (issues.length > 0) {
     return { row: null, issues, warnings };
   }
@@ -154,6 +166,7 @@ export function normalizeVehicleRow(
       owner_customer_external_id: ownerExternalId,
       owner_external_id_provided: ownerExternalIdRaw.length > 0,
       key_number: cellValue(record, mapping, 'key_number') || null,
+      first_registration_date: firstRegistrationParsed.isoDate,
     },
     issues,
     warnings,
@@ -174,6 +187,7 @@ export function vehicleComparableForUpdate(
       mileage: normalized.mileage,
       color: normalized.color,
       key_number: normalized.key_number,
+      first_registration_date: normalized.first_registration_date,
       ...(ownerProvided ? { customer_id: normalized.customer_id } : {}),
     }).filter(([, value]) => value !== null && value !== ''),
   );
@@ -192,6 +206,7 @@ function buildVehiclePayload(
     mileage: row.mileage,
     color: row.color,
     key_number: row.key_number,
+    first_registration_date: row.first_registration_date,
     customer_id: customerId,
     owner_external_id_provided: row.owner_external_id_provided,
   };

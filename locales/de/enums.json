@@ -153,6 +153,7 @@
       "make": "Marke",
       "model": "Modell",
       "year": "Baujahr",
+      "first_registration_date": "Erstzulassung",
       "mileage": "Kilometerstand",
       "color": "Farbe",
       "owner_customer_external_id": "Kunden-Nr",

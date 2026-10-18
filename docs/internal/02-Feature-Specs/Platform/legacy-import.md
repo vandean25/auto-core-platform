@@ -45,7 +45,6 @@ The wizard can download entity templates and error-row CSVs. Marketing-consent c
 
 ## Follow-ups
 
-- `first_registration_date` vehicle mapping after AUT-375 merges to `main`
 - Import job row retention cleanup (default retention constant: 180 days)
 
 ## Release notes
