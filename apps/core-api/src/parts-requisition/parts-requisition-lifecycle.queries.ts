@@ -1,4 +1,9 @@
-import { LocationType, Prisma, WorkshopLineItemType, WorkshopPartLineExecutionStatus } from '@prisma/client';
+import {
+  LocationType,
+  Prisma,
+  WorkshopLineItemType,
+  WorkshopPartLineExecutionStatus,
+} from '@prisma/client';
 import {
   OPEN_WORKSHOP_ORDER_STATUSES,
   type RequisitionCandidateLine,

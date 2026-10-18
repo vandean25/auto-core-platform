@@ -198,10 +198,10 @@ export async function executeConsumeReservation(
       },
     },
   });
-  if (
-    !line?.catalog_item_id ||
-    !line.workshop_task.workshop_order.staging_location_id
-  ) {
+  const stagingLocationId =
+    line?.workshop_task.workshop_order.staging_location_id;
+  const catalogItemId = line?.catalog_item_id;
+  if (!catalogItemId || !stagingLocationId) {
     throw new UnprocessableEntityException(
       'Reservation line is not linked to a job tote.',
     );
@@ -210,12 +210,11 @@ export async function executeConsumeReservation(
   const consumeLine: ConsumeLineContext = {
     id: line.id,
     workshop_task_id: line.workshop_task_id,
-    catalog_item_id: line.catalog_item_id,
+    catalog_item_id: catalogItemId,
     quantity: line.quantity,
     workshop_task: {
       workshop_order: {
-        staging_location_id: line.workshop_task.workshop_order
-          .staging_location_id as string,
+        staging_location_id: stagingLocationId,
       },
     },
   };

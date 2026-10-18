@@ -102,8 +102,8 @@ function assertReservationEligibleForPoItem(
     );
   }
   if (
-    reservation.workshop_task_line_item.workshop_task.workshop_order
-      .site_id !== siteId
+    reservation.workshop_task_line_item.workshop_task.workshop_order.site_id !==
+    siteId
   ) {
     throw new UnprocessableEntityException(
       'Reservation slice is not available in the active site.',
