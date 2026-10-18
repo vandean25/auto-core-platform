@@ -1,0 +1,189 @@
+{
+  "banner": {
+    "title": "Agent Supervision Active",
+    "description": "Agent supervision active: proposed agent actions require supervisor approval before execution. HUMAN_ONLY actions must be performed manually.",
+    "badge": "Supervision Mode"
+  },
+  "header": {
+    "title": "Agent Supervision",
+    "subtitle": "Approve or reject queue for proposed agent actions and audit agent activities."
+  },
+  "tabs": {
+    "approvals": "Approvals",
+    "activity": "Activity",
+    "decisionShadow": "Decision shadow"
+  },
+  "approvals": {
+    "pendingOnly": "Pending only",
+    "showAll": "Show all statuses",
+    "statusFilter": "Status",
+    "action": "Action",
+    "agent": "Proposed by",
+    "tier": "Policy Tier",
+    "context": "Context / Target",
+    "target": "Target",
+    "amount": "Amount",
+    "proposalId": "Proposal ID",
+    "amountNet": "net",
+    "amountGross": "gross",
+    "taxBasisNotSet": "Tax basis not set",
+    "orderNumber": "Order No.",
+    "orderNumberMissing": "Order No. not set",
+    "customer": "Customer",
+    "customerMissing": "Customer not set",
+    "dealerStock": "Dealer stock",
+    "unnamedLine": "Proposed line item",
+    "vehicle": "Vehicle",
+    "vehicleMissing": "Vehicle not set",
+    "workshopOrderId": "Workshop order ID",
+    "proposedLines": "Proposed lines",
+    "lineName": "Name",
+    "lineType": "Type",
+    "lineQuantity": "Qty",
+    "lineUnitPrice": "Unit price",
+    "lineTypePart": "Part",
+    "lineTypeLabor": "Labor",
+    "lineTypeFee": "Fee",
+    "previewDiff": "Preview / Diff",
+    "payloadJson": "Payload JSON",
+    "traceId": "Trace ID",
+    "decidedBy": "Decided by",
+    "decidedById": "Decided by ID",
+    "expiresAt": "Expires",
+    "payloadPreview": "Payload & Preview",
+    "showPreview": "Show details",
+    "hidePreview": "Hide details",
+    "actions": "Actions",
+    "approve": "Approve",
+    "approving": "Approving...",
+    "reject": "Reject",
+    "rejecting": "Rejecting...",
+    "doManually": "Do this manually",
+    "humanOnlyNotice": "This action is classified as HUMAN_ONLY and cannot be executed automatically. Please perform this action manually in the system.",
+    "emptyState": "No proposals waiting",
+    "emptyStateDesc": "New agent proposals will appear here when submitted for approval.",
+    "changePreview": "Planned changes",
+    "allChangesPreview": "All planned changes",
+    "workshopLocation": "Workshop location",
+    "triageLoadError": "Could not load the supervision inbox. Retry or check your site access.",
+    "proposalsLoadError": "Could not load pending proposal details. Other inbox items are still shown below.",
+    "triagePageLoadError": "Could not load the next page of the supervision inbox.",
+    "openRecord": "Open record",
+    "dueAt": "Due",
+    "triageReason": {
+      "LOANER_RETURN_OVERDUE": "Loaner return overdue",
+      "WORKSHOP_TASK_WAITING_CUSTOMER": "Work blocked — waiting on customer",
+      "ESTIMATE_AWAITING_CUSTOMER_RESPONSE": "Estimate (KVA) awaiting customer answer",
+      "CUSTOMER_ESTIMATE_APPROVED": "Customer approved the estimate (KVA)",
+      "CUSTOMER_ESTIMATE_DECLINED": "Customer declined the estimate (KVA)",
+      "CUSTOMER_ESTIMATE_APPROVED_REVIEW_WAITING_TASKS": "Estimate approved — review waiting tasks before resuming work",
+      "CUSTOMER_ESTIMATE_DECLINED_REVIEW_WAITING_TASKS": "Estimate declined — review waiting tasks on the order",
+      "CUSTOMER_ESTIMATE_DECIDED": "Customer estimate decision recorded",
+      "AGENT_PROPOSAL_PENDING": "Agent proposal pending approval"
+    },
+    "approveSuccess": "Proposal approved",
+    "rejectSuccess": "Proposal rejected",
+    "approveError": "Failed to approve proposal",
+    "rejectError": "Failed to reject proposal"
+  },
+  "rejectDialog": {
+    "title": "Reject Agent Proposal",
+    "description": "Are you sure you want to reject this proposed action? The agent will not execute this payload.",
+    "reasonLabel": "Reason (optional)",
+    "reasonPlaceholder": "e.g. Price too low, customer already notified, manual inspection needed...",
+    "cancel": "Cancel",
+    "confirm": "Confirm Rejection"
+  },
+  "activity": {
+    "filters": {
+      "statusLabel": "Status",
+      "allStatuses": "All statuses",
+      "tierLabel": "Tier",
+      "allTiers": "All tiers",
+      "agentPlaceholder": "Filter by agent name...",
+      "actionOrTracePlaceholder": "Filter by action or trace ID...",
+      "startDateLabel": "From",
+      "endDateLabel": "To"
+    },
+    "columns": {
+      "time": "Time",
+      "agent": "Agent",
+      "action": "Action",
+      "tier": "Tier",
+      "status": "Status",
+      "approver": "Decided by",
+      "traceId": "Trace ID"
+    },
+    "showDetails": "Show details",
+    "emptyState": "No activity found",
+    "emptyStateDesc": "No agent action records match the selected filters.",
+    "loadMore": "Load more",
+    "loadingMore": "Loading more…",
+    "viewAudit": "View correlated audit logs",
+    "copyTraceId": "Copy trace ID",
+    "traceIdCopied": "Trace ID copied",
+    "traceIdCopyFailed": "Copy failed. Select the trace ID and copy it manually."
+  },
+  "decisionShadow": {
+    "description": "Read-only view of Jev suggestions recorded in shadow mode. Suggestions are never applied and do not change any outcome.",
+    "filters": {
+      "useCaseLabel": "Use case",
+      "allUseCases": "All use cases"
+    },
+    "useCases": {
+      "import_row_matching": "Import row matching",
+      "document_sort": "Document sort"
+    },
+    "columns": {
+      "time": "Time",
+      "useCase": "Use case",
+      "suggestion": "Suggestion",
+      "actualOutcome": "Actual outcome",
+      "match": "Match",
+      "latency": "Latency",
+      "provider": "Provider / model",
+      "error": "Provider error",
+      "traceId": "Trace ID"
+    },
+    "confidence": "Confidence",
+    "matchYes": "Match",
+    "matchNo": "Mismatch",
+    "noSuggestion": "No suggestion",
+    "emptyState": "No shadow suggestions found",
+    "emptyStateDesc": "No decision shadow rows match the selected filters."
+  },
+  "traceDialog": {
+    "title": "Trace Audit & Correlation",
+    "description": "Review all actions and ADR-0015 audit log entries correlated with trace ID:",
+    "actionHistory": "Action Log Entries",
+    "correlatedAudit": "Correlated System Audit Logs (ADR-0015)",
+    "noAudit": "No correlated ADR-0015 audit records found for this trace.",
+    "close": "Close",
+    "agentLabel": "Agent",
+    "onBehalfOf": "On behalf of",
+    "time": "Time",
+    "user": "User",
+    "systemActor": "System / Agent"
+  },
+  "common": {
+    "unknownUser": "Unknown user",
+    "loading": "Loading data...",
+    "error": "An error occurred while loading data.",
+    "refresh": "Refresh",
+    "retry": "Retry"
+  },
+  "changePreview": {
+    "ops": {
+      "create": "Create",
+      "update": "Update",
+      "delete": "Delete"
+    },
+    "entities": {
+      "WorkshopOrder": "Workshop order",
+      "WorkshopTask": "Workshop task",
+      "WorkshopTaskLineItem": "Workshop line item",
+      "Customer": "Customer",
+      "SalesOrder": "Sales order"
+    }
+  }
+}

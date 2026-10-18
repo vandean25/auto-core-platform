@@ -1,0 +1,1280 @@
+{
+  "page": {
+    "title": "Settings",
+    "description": "Manage your platform configuration, master data, and storage locations."
+  },
+  "tabs": {
+    "finance": "Finance",
+    "voiceTranslation": "Voice Translation",
+    "revenueGroups": "Revenue Groups",
+    "brands": "Brands",
+    "legalEntities": "Legal Entities",
+    "sites": "Sites",
+    "locations": "Storage Locations",
+    "employees": "Employees",
+    "bays": "Bays",
+    "hours": "Hours",
+    "labor": "Labor",
+    "vehicleData": "Vehicle data",
+    "marginRules": "Margin rules",
+    "dataImport": "Data import",
+    "team": "Team",
+    "apiKeys": "API keys",
+    "auditLogs": "Audit Logs"
+  },
+  "employees": {
+    "title": "Employees",
+    "description": "Manage workshop personnel available for assignments.",
+    "createButton": "+ Employee"
+  },
+  "finance": {
+    "subTabs": {
+      "fiscal": "Fiscal control",
+      "accountingExport": "Accounting export"
+    },
+    "fiscal": {
+      "title": "Fiscal Control",
+      "lockDate": "Lock Date",
+      "lockDateHint": "Transactions on or before this date cannot be modified."
+    },
+    "invoicing": {
+      "title": "Invoice Numbering",
+      "prefix": "Prefix",
+      "nextNumber": "Next Number"
+    },
+    "saveChanges": "Save Changes",
+    "toast": {
+      "updated": "Settings updated",
+      "updateFailed": "Failed to update settings"
+    },
+    "lockDialog": {
+      "title": "Confirm Fiscal Lock",
+      "description": "Changing the lock date to a later date will permanently prevent modifications to all transactions in the previous period. This may affect finalized reports. Are you sure?",
+      "confirm": "Confirm Lock"
+    }
+  },
+  "revenueGroups": {
+    "title": "Revenue Groups",
+    "description": "Categorize your revenue for accounting and tax reporting.",
+    "addDialog": {
+      "trigger": "Group",
+      "title": "Add Revenue Group",
+      "name": "Name",
+      "namePlaceholder": "e.g., Spare Parts 20%",
+      "taxRate": "Tax Rate (%)",
+      "accountNumber": "Account Number",
+      "accountPlaceholder": "4000",
+      "defaultCheckbox": "Set as default for new items",
+      "creating": "Creating...",
+      "create": "Create Group"
+    },
+    "toast": {
+      "created": "Revenue group created",
+      "createFailed": "Failed to create revenue group"
+    },
+    "table": {
+      "name": "Name",
+      "taxRate": "Tax Rate",
+      "accountNumber": "Account Number",
+      "default": "Default",
+      "defaultBadge": "Default"
+    }
+  },
+  "brands": {
+    "title": "Brands",
+    "description": "Centralized vehicle makes and part manufacturers.",
+    "addDialog": {
+      "trigger": "Brand",
+      "editTitle": "Edit Brand",
+      "addTitle": "Add Brand",
+      "name": "Name",
+      "namePlaceholder": "e.g., Volkswagen, Bosch",
+      "typesLabel": "Brand Types",
+      "vehicleMake": "Vehicle Make (OEM)",
+      "partManufacturer": "Part Manufacturer (Aftermarket)",
+      "logoUrl": "Logo URL (optional)",
+      "saveChanges": "Save Changes",
+      "create": "Create Brand",
+      "logoUrlPlaceholder": "https://…"
+    },
+    "toast": {
+      "typeRequired": "Brand must be at least one type",
+      "updated": "Brand updated",
+      "created": "Brand created",
+      "saveFailed": "Failed to save brand",
+      "deleted": "Brand deleted",
+      "deleteFailed": "Failed to delete brand"
+    },
+    "table": {
+      "logo": "Logo",
+      "name": "Name",
+      "type": "Type",
+      "actions": "Actions",
+      "vehicleMakeBadge": "Vehicle Make",
+      "partManufacturerBadge": "Part Manufacturer",
+      "deleteConfirm": "Are you sure you want to delete this brand?",
+      "editAria": "Edit brand {{name}}",
+      "deleteAria": "Delete brand {{name}}"
+    },
+    "combobox": {
+      "loading": "Loading...",
+      "placeholder": "Select brand...",
+      "search": "Search brand...",
+      "empty": "No brand found."
+    },
+    "multiSelect": {
+      "defaultAria": "Select brands",
+      "search": "Search brands...",
+      "empty": "No brand found.",
+      "loading": "Loading brands...",
+      "placeholder": "Select supported brands...",
+      "removeAria": "Remove {{name}}"
+    }
+  },
+  "storageLocations": {
+    "title": "Storage Locations",
+    "description": "Manage hierarchical bin locations for your warehouse.",
+    "loading": "Loading hierarchy...",
+    "empty": "No locations found. Create your first warehouse.",
+    "add": {
+      "title": "Add Location",
+      "description": "Create a new storage unit."
+    },
+    "form": {
+      "name": "Name",
+      "namePlaceholder": "e.g. Main Warehouse",
+      "code": "Code (Unique)",
+      "codePlaceholder": "e.g. WH-001",
+      "type": "Type",
+      "parent": "Parent Location",
+      "parentNone": "None (Root)",
+      "parentSelect": "Select Parent",
+      "submit": "Create Location"
+    },
+    "types": {
+      "warehouse": "Warehouse",
+      "aisle": "Aisle",
+      "shelf": "Shelf",
+      "bin": "Bin",
+      "customer_storage": "Customer storage",
+      "staging_tote": "Staging tote"
+    },
+    "deleteConfirm": "Delete {{name}}?",
+    "deleteAria": "Delete storage location {{name}} ({{code}})",
+    "toast": {
+      "created": "Location created successfully",
+      "createFailed": "Failed to create location",
+      "deleted": "Location deleted",
+      "deleteFailed": "Failed to delete location"
+    }
+  },
+  "marginRules": {
+    "title": "Margin rules",
+    "description": "Rules for automatically calculating sales prices from purchase prices, brands, and revenue groups.",
+    "createButton": "+ Margin rule",
+    "priceJump": {
+      "title": "Price jump threshold",
+      "description": "Maximum percentage price jump before a warning and approval is required during price list import.",
+      "label": "Threshold (%)",
+      "save": "Save threshold",
+      "toastUpdated": "Price jump threshold updated",
+      "toastSaveFailed": "Could not save threshold"
+    },
+    "activeRules": {
+      "title": "Active rules",
+      "description": "Rules are evaluated top to bottom (lowest priority first). The first matching rule applies."
+    },
+    "columns": {
+      "sortPriorityAria": "Sort by priority",
+      "priority": "Prio",
+      "name": "Name",
+      "brand": "Brand",
+      "revenueGroup": "Revenue group",
+      "costRange": "Cost range",
+      "markup": "Markup",
+      "useRrp": "Use RRP",
+      "rounding": "Rounding",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "loading": "Loading margin rules…",
+    "empty": "No margin rules defined. Create one with \"+ Margin rule\".",
+    "costRange": {
+      "all": "All",
+      "from": "from {{amount}}",
+      "to": "up to {{amount}}",
+      "between": "{{min}} – {{max}}"
+    },
+    "yes": "Yes",
+    "no": "No",
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "editAria": "Edit {{name}}",
+    "deleteAria": "Delete {{name}}",
+    "dialog": {
+      "editTitle": "Edit margin rule",
+      "createTitle": "Create margin rule",
+      "description": "Set conditions and markup for this rule."
+    },
+    "form": {
+      "name": "Name *",
+      "namePlaceholder": "e.g. Bosch wear parts",
+      "priority": "Priority",
+      "markup": "Markup (%)",
+      "markupPlaceholder": "e.g. 35",
+      "brand": "Brand (optional)",
+      "allBrands": "All brands",
+      "revenueGroup": "Revenue group (optional)",
+      "allRevenueGroups": "All revenue groups",
+      "costMin": "Min. purchase price (€)",
+      "costMax": "Max. purchase price (€)",
+      "rounding": "Rounding strategy",
+      "useSupplierRrp": "Prefer supplier RRP when available",
+      "active": "Margin rule active",
+      "saveChanges": "Save changes",
+      "create": "Create rule"
+    },
+    "rounding": {
+      "NONE": "No rounding",
+      "ROUND_90": "Round to .90",
+      "ROUND_99": "Round to .99",
+      "WHOLE_EURO": "Round to whole euro"
+    },
+    "roundingShort": {
+      "NONE": "No rounding",
+      "ROUND_90": "To .90",
+      "ROUND_99": "To .99",
+      "WHOLE_EURO": "Whole euro"
+    },
+    "toast": {
+      "nameRequired": "Please enter a name",
+      "costRangeInvalid": "Minimum purchase price cannot exceed maximum purchase price",
+      "markupNegative": "Markup cannot be negative",
+      "updated": "Margin rule updated",
+      "created": "Margin rule created",
+      "saveFailed": "Could not save margin rule",
+      "deleted": "Margin rule deleted",
+      "deleteFailed": "Could not delete margin rule"
+    },
+    "delete": {
+      "title": "Delete margin rule?",
+      "description": "Delete margin rule \"{{name}}\"? This cannot be undone.",
+      "confirm": "Confirm delete"
+    }
+  },
+  "apiKeys": {
+    "title": "API keys",
+    "description": "Read-only keys for integrations. Each key works only for the scopes you grant and has its own request budget.",
+    "createButton": "+ API key",
+    "loadFailed": "Failed to load API keys",
+    "searchPlaceholder": "Search API keys...",
+    "emptyState": "No API keys yet. Create one to connect an integration.",
+    "unknownCreator": "Unknown creator",
+    "never": "Never",
+    "columns": {
+      "name": "Name",
+      "keyPrefix": "Key prefix",
+      "scopes": "Scopes",
+      "status": "Status",
+      "lastUsed": "Last used",
+      "expires": "Expires"
+    },
+    "revoke": "Revoke",
+    "createDialog": {
+      "title": "New API key",
+      "description": "Choose a name and the read scopes this key may use.",
+      "name": "Name",
+      "namePlaceholder": "Warehouse dashboard",
+      "scopesLegend": "Scopes",
+      "expires": "Expires on (optional)",
+      "creating": "Creating…",
+      "submit": "Create key",
+      "nameRequired": "Enter a name for the key.",
+      "scopesRequired": "Select at least one scope."
+    },
+    "createdDialog": {
+      "title": "Copy your new API key",
+      "description": "This is the only time the full key is shown. Store it in your integration's secret store now.",
+      "label": "API key",
+      "copy": "Copy",
+      "done": "Done"
+    },
+    "revokeDialog": {
+      "title": "Revoke API key?",
+      "description": "\"{{name}}\" stops working immediately. Integrations that use it get 401 on their next request. This cannot be undone.",
+      "confirm": "Revoke key"
+    },
+    "scopes": {
+      "customers_read": {
+        "label": "Customers",
+        "description": "Names, contact details and addresses."
+      },
+      "vehicles_read": {
+        "label": "Vehicles",
+        "description": "Vehicle identity: make, model, VIN and plate."
+      },
+      "invoices_read": {
+        "label": "Invoices",
+        "description": "Invoice headers and totals."
+      },
+      "workshop_orders_read": {
+        "label": "Workshop orders",
+        "description": "Status and scheduling of workshop orders."
+      },
+      "stock_read": {
+        "label": "Parts stock",
+        "description": "Parts quantities per storage location."
+      }
+    },
+    "toast": {
+      "createdFailed": "Failed to create API key",
+      "copied": "API key copied",
+      "copyFailed": "Copy failed. Select the key and copy it manually.",
+      "revoked": "API key revoked",
+      "revokeFailed": "Failed to revoke API key"
+    },
+    "retry": "Retry"
+  },
+  "auditLogs": {
+    "title": "Audit Logs",
+    "description": "Immutable, append-only audit trail of business entity mutations and deletions.",
+    "filters": {
+      "action": "Action",
+      "allActions": "All Actions",
+      "update": "Update",
+      "delete": "Delete",
+      "create": "Create",
+      "entityType": "Filter by entity type",
+      "entityTypePlaceholder": "Entity type",
+      "entityId": "Filter by entity ID",
+      "entityIdPlaceholder": "Entity ID"
+    },
+    "searchPlaceholder": "Search by entity, ID, actor, request ID...",
+    "columns": {
+      "timestamp": "Timestamp",
+      "action": "Action",
+      "entityType": "Entity Type",
+      "entityId": "Entity ID",
+      "actor": "Actor",
+      "changedFields": "Changed Fields"
+    },
+    "viewDetails": "View Details",
+    "viewDetailsAria": "View details for {{action}} {{entityType}} {{entityId}} at {{occurredAt}}",
+    "jsonNone": "None",
+    "sheet": {
+      "title": "Audit Record Details",
+      "targetId": "Target ID: {{id}}",
+      "occurredAt": "Occurred At",
+      "actorType": "Actor Type",
+      "actorEmail": "Actor Email",
+      "actorRole": "Actor Role",
+      "requestId": "Request ID",
+      "sourceIp": "Source / IP",
+      "sourceApi": "API",
+      "redactedTitle": "Redacted Secret Fields:",
+      "modifiedFields": "Modified Fields:",
+      "statePayloads": "State Payloads:",
+      "tabs": {
+        "diff": "Diff",
+        "before": "Before",
+        "after": "After"
+      }
+    }
+  },
+  "vehicleData": {
+    "noAccess": "Vehicle data settings are available to workshop owners and administrators only.",
+    "loadFailed": "Failed to load vehicle data settings. Refresh and try again.",
+    "catalog": {
+      "title": "Catalog defaults",
+      "description": "Default adapters and labor conversion used when resolving vehicles and searching external parts and labor catalogs.",
+      "identityAdapter": "Identity adapter",
+      "partsAdapter": "Aftermarket parts adapter",
+      "laborAdapter": "Aftermarket labor adapter",
+      "defaultLaborCategory": "Default labor category",
+      "selectLaborCategory": "Select labor category",
+      "awMinutes": "AW minutes",
+      "awMinutesHint": "Minutes per Arbeitswert when converting external labor catalog hits to hours.",
+      "notConfigured": "Not configured",
+      "badges": {
+        "identity": "Identity credentials configured",
+        "parts": "Aftermarket parts credentials configured",
+        "labor": "Aftermarket labor credentials configured"
+      }
+    },
+    "oemConcerns": {
+      "title": "OEM concerns",
+      "description": "Assign vehicle makes to BMW, Mercedes-Benz, or Stellantis concerns. Stellantis typically includes Peugeot, Citroën, Opel, Fiat, Jeep, and related makes.",
+      "partsCredential": "OEM parts credentials",
+      "laborCredential": "OEM labor credentials",
+      "memberMakesAria": "{{concern}} member makes"
+    },
+    "toast": {
+      "awMinutesInvalid": "AW minutes must be a positive whole number",
+      "saved": "Vehicle data settings saved",
+      "saveFailed": "Failed to save vehicle data settings"
+    },
+    "saveChanges": "Save Changes"
+  },
+  "workshopHours": {
+    "loadFailed": "Failed to load workshop hours. Refresh and try again.",
+    "title": "Workshop hours",
+    "description": "Opening hours and holidays drive the Workshop Planner grid. Slot size sets the day-view column width.",
+    "timezone": "Timezone",
+    "slotMinutes": "Slot size (minutes)",
+    "slotMinutesOption": "{{minutes}} minutes",
+    "holidayCountry": "Holiday country (ISO)",
+    "subdivision": "Subdivision code (optional)",
+    "subdivisionPlaceholder": "DE-BY",
+    "weekdays": {
+      "1": "Monday",
+      "2": "Tuesday",
+      "3": "Wednesday",
+      "4": "Thursday",
+      "5": "Friday",
+      "6": "Saturday",
+      "7": "Sunday"
+    },
+    "closed": "Closed",
+    "saveHours": "Save hours",
+    "holidays": {
+      "title": "Holidays",
+      "description": "Closed or short days override weekday hours on the planner. Public holidays from OpenHolidays API.",
+      "import": "Import public holidays",
+      "importing": "Importing...",
+      "createButton": "+ Holiday",
+      "searchPlaceholder": "Search holidays...",
+      "columns": {
+        "name": "Name",
+        "date": "Date",
+        "annual": "Annual",
+        "hours": "Hours",
+        "source": "Source"
+      },
+      "yes": "Yes",
+      "no": "No",
+      "closedLabel": "Closed",
+      "delete": "Delete"
+    },
+    "toast": {
+      "closeTimeInvalid": "{{day}} close time must be after open time",
+      "saved": "Workshop hours saved",
+      "saveFailed": "Failed to save workshop hours",
+      "importSuccess": "Imported {{imported}} public holidays ({{skipped}} skipped)",
+      "importFailed": "Failed to import public holidays",
+      "holidayDeleted": "Holiday deleted",
+      "holidayDeleteFailed": "Failed to delete holiday"
+    },
+    "holidayDialog": {
+      "editTitle": "Edit Holiday",
+      "createTitle": "Create Holiday",
+      "description": "Override weekday hours for a specific date. Closed days block the grid; short days use custom hours.",
+      "name": "Name",
+      "namePlaceholder": "National holiday",
+      "date": "Date",
+      "repeatsAnnually": "Repeats annually (same month and day)",
+      "closedAllDay": "Closed all day",
+      "open": "Open",
+      "close": "Close",
+      "saving": "Saving...",
+      "save": "Save",
+      "create": "Create",
+      "toast": {
+        "nameRequired": "Holiday name is required",
+        "dateRequired": "Date is required",
+        "closeTimeInvalid": "Close time must be after open time",
+        "updated": "Holiday updated",
+        "created": "Holiday created",
+        "saveFailed": "Failed to save holiday"
+      }
+    },
+    "weekdaysTitle": "Weekdays"
+  },
+  "labor": {
+    "categories": {
+      "title": "Labor Categories",
+      "description": "Manage hierarchical labor categories with hourly rates. Right-click a row to delete.",
+      "loading": "Loading categories...",
+      "empty": "No categories found. Create your first category using the form.",
+      "notSet": "Not set",
+      "invalidRate": "Invalid hourly rate format",
+      "tree": {
+        "collapse": "Collapse",
+        "expand": "Expand",
+        "rateTitle": "Click to edit rate",
+        "toggleActiveTitle": "Toggle active status",
+        "editTitle": "Edit category",
+        "editAria": "Edit category {{name}}"
+      },
+      "active": "Active",
+      "inactive": "Inactive",
+      "contextDelete": "Delete",
+      "addDialog": {
+        "title": "Add Category",
+        "description": "Create a new labor category.",
+        "name": "Name",
+        "namePlaceholder": "e.g. Engine Repair",
+        "descriptionLabel": "Description",
+        "descriptionPlaceholder": "Optional description",
+        "parent": "Parent Category",
+        "parentNone": "None (Top Level)",
+        "defaultRate": "Default Hourly Rate",
+        "defaultRatePlaceholder": "e.g. 850.00",
+        "sortOrder": "Sort Order",
+        "sortOrderPlaceholder": "e.g. 10",
+        "active": "Active",
+        "activeAria": "Active: {{state}}",
+        "stateOn": "on",
+        "stateOff": "off",
+        "submit": "Add Category"
+      },
+      "editDialog": {
+        "title": "Edit Category",
+        "description": "Update the details for <strong>{{name}}</strong>.",
+        "submit": "Save Changes"
+      },
+      "deleteDialog": {
+        "title": "Delete Category",
+        "description": "Are you sure you want to delete <strong>{{name}}</strong>? This action cannot be undone.",
+        "childrenWarning_one": "This category has {{count}} child category which may also be affected.",
+        "childrenWarning_other": "This category has {{count}} child categories which may also be affected.",
+        "confirm": "Delete"
+      },
+      "toast": {
+        "created": "Category created",
+        "createFailed": "Failed to create category",
+        "updated": "Category updated",
+        "updateFailed": "Failed to update category",
+        "deleted": "Category deleted",
+        "deleteFailed": "Failed to delete category",
+        "activated": "Category activated",
+        "deactivated": "Category deactivated",
+        "statusFailed": "Failed to update status",
+        "rateUpdated": "Hourly rate updated",
+        "rateFailed": "Failed to update hourly rate",
+        "orderUpdated": "Order updated",
+        "orderFailed": "Failed to update order"
+      }
+    },
+    "operations": {
+      "title": "Labor Operations",
+      "description": "Manage standard labor operations and their allocated work rates.",
+      "createButton": "Labor Operation",
+      "allCategories": "All categories",
+      "searchPlaceholder": "Search by code or description...",
+      "hoursSuffix": "hrs",
+      "deactivate": "Deactivate",
+      "deactivateDialog": {
+        "title": "Are you sure?",
+        "description": "This will deactivate the labor operation. It will no longer be available for new workshop orders but historical data will remain.",
+        "confirm": "Deactivate"
+      },
+      "toast": {
+        "deactivated": "Labor operation deactivated",
+        "deactivateFailed": "Failed to deactivate labor operation"
+      },
+      "columns": {
+        "code": "Code",
+        "description": "Description",
+        "standardAw": "Standard AW",
+        "hourlyRate": "Hourly Rate",
+        "category": "Category",
+        "active": "Active"
+      }
+    },
+    "operationForm": {
+      "createTitle": "New Labor Operation",
+      "editTitle": "Edit Labor Operation",
+      "saveStatus": {
+        "saving": "Saving...",
+        "saved": "All changes saved",
+        "failed": "Save failed"
+      },
+      "saveFailed": "Failed to save labor operation",
+      "code": "Code",
+      "codePlaceholder": "e.g. ENG-OIL-01",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "Operation description",
+      "standardAw": "Standard AW (hrs)",
+      "hourlyRate": "Hourly Rate",
+      "internalCost": "Internal Cost",
+      "internalCostPlaceholder": "Optional",
+      "category": "Category",
+      "categoryPlaceholder": "Select category...",
+      "noCategory": "No category",
+      "active": "Active",
+      "inactive": "Inactive",
+      "fitments": {
+        "title": "Fitments",
+        "addAria": "Add fitment",
+        "removeAria": "Remove fitment",
+        "make": "Make",
+        "model": "Model",
+        "yearFrom": "Year From",
+        "yearTo": "Year To",
+        "engineCode": "Engine Code"
+      },
+      "close": "Close",
+      "saveNow": "Save now",
+      "validation": {
+        "codeRequired": "Code is required",
+        "descriptionRequired": "Description is required",
+        "standardAwRequired": "Standard AW is required",
+        "standardAwInvalid": "Standard AW must be a non-negative number",
+        "hourlyRateInvalid": "Hourly Rate must be greater than 0",
+        "internalCostInvalid": "Internal Cost must be zero or greater",
+        "makeRequired": "Make is required",
+        "modelRequired": "Model is required",
+        "yearInteger": "{{label}} must be an integer",
+        "yearRange": "{{label}} must be between {{min}} and {{max}}",
+        "yearToBeforeFrom": "Year To must be greater than or equal to Year From"
+      }
+    }
+  },
+  "voiceTranslation": {
+    "title": "Voice Translation",
+    "description": "Configure Google speech-to-text and translated output language for mechanic voice notes.",
+    "loading": "Loading voice translation settings...",
+    "targetLanguage": "Target Language",
+    "projectId": "Google Project ID",
+    "projectIdPlaceholder": "my-google-project-id",
+    "location": "Google Location",
+    "locationPlaceholder": "global",
+    "credential": "Google Service Account JSON",
+    "credentialPlaceholder": "{\"type\":\"service_account\",...}",
+    "credentialHint": "Credential is stored encrypted on the server and never returned to the browser. Leave this blank to keep the current credential unchanged. Current status: {{status}}.",
+    "credentialConfigured": "configured",
+    "credentialNotConfigured": "not configured",
+    "showCredential": "Show credential",
+    "overwriteConfirm": "Overwrite the currently configured Google credential?",
+    "saving": "Saving...",
+    "save": "Save Changes",
+    "toast": {
+      "saved": "Voice translation settings saved",
+      "saveFailed": "Failed to save voice translation settings"
+    }
+  },
+  "sites": {
+    "title": "Sites",
+    "description": "Operational shop locations. Site memberships control who can activate each site in the sidebar switcher.",
+    "columns": {
+      "code": "Code",
+      "name": "Name",
+      "legalEntity": "Legal Entity",
+      "status": "Status",
+      "members": "Members"
+    },
+    "memberships": {
+      "title": "Memberships for {{name}}",
+      "description": "Users need an active tenant role and a site membership before the site appears in Current Site.",
+      "addLabel": "Add tenant member",
+      "addPlaceholder": "Select team member",
+      "addButton": "Add Membership",
+      "loading": "Loading memberships...",
+      "columns": {
+        "user": "User",
+        "tenantRole": "Tenant Role",
+        "actions": "Actions"
+      },
+      "remove": "Remove"
+    },
+    "toast": {
+      "added": "Site membership added",
+      "addFailed": "Failed to add site membership",
+      "removed": "Site membership removed",
+      "removeFailed": "Failed to remove site membership"
+    }
+  },
+  "bays": {
+    "title": "Bays",
+    "description": "Manage workshop service bays and their ordering.",
+    "createButton": "+ Bay",
+    "searchPlaceholder": "Search bays...",
+    "columns": {
+      "name": "Name",
+      "active": "Active",
+      "sortOrder": "Sort Order"
+    },
+    "active": "Active",
+    "inactive": "Inactive",
+    "delete": "Delete",
+    "dialog": {
+      "title": "Create Bay",
+      "description": "Add a physical workshop bay.",
+      "name": "Name",
+      "namePlaceholder": "Bay name",
+      "sortOrder": "Sort Order",
+      "saving": "Saving...",
+      "create": "Create"
+    },
+    "search": {
+      "active": "active",
+      "inactive": "inactive"
+    },
+    "toast": {
+      "nameRequired": "Bay name is required",
+      "sortOrderInvalid": "Sort order must be a non-negative integer",
+      "created": "Bay created",
+      "createFailed": "Failed to create bay",
+      "deleted": "Bay deleted",
+      "deactivated": "Bay deactivated",
+      "activated": "Bay activated",
+      "deleteFailed": "Failed to delete bay",
+      "updated": "Bay updated",
+      "updateNameFailed": "Failed to update bay name",
+      "updateStatusFailed": "Failed to update bay status",
+      "sortOrderUpdated": "Bay sort order updated",
+      "updateSortOrderFailed": "Failed to update bay sort order"
+    }
+  },
+  "team": {
+    "title": "Team",
+    "description": "Invite tenant users and manage their membership roles.",
+    "inviteButton": "+ Member",
+    "loadFailed": "Failed to load team members",
+    "retry": "Retry",
+    "searchPlaceholder": "Search team members...",
+    "columns": {
+      "name": "Name",
+      "role": "Role",
+      "status": "Status"
+    },
+    "search": {
+      "active": "active",
+      "inactive": "inactive"
+    },
+    "inviteDialog": {
+      "title": "Invite Member",
+      "description": "Create or reactivate a tenant membership and synchronize the user claims immediately.",
+      "email": "Email",
+      "emailPlaceholder": "tech@autocore.com",
+      "role": "Role",
+      "submit": "Invite Member"
+    },
+    "sheet": {
+      "title": "Member Details",
+      "description": "Update a role or deactivate access. Security-sensitive changes force a claims refresh.",
+      "role": "Role",
+      "roleAria": "Tenant member role",
+      "allowedRoles": "Allowed values: OWNER, ADMIN, TECH, SALES.",
+      "status": "Status",
+      "deactivate": "Deactivate Member",
+      "reactivate": "Reactivate Member"
+    },
+    "toast": {
+      "invited": "Member invited",
+      "inviteFailed": "Failed to invite team member",
+      "reactivated": "Member reactivated",
+      "deactivated": "Member deactivated",
+      "statusFailed": "Failed to update member status",
+      "roleUpdated": "Member role updated",
+      "roleFailed": "Failed to update member role"
+    }
+  },
+  "legalEntities": {
+    "title": "Legal entities",
+    "description": "Legal entities own seller identity for invoices. Sites inherit the entity configured here.",
+    "create": {
+      "nameLabel": "Name",
+      "namePlaceholder": "Example GmbH",
+      "countryLabel": "Country",
+      "countryAt": "Austria (AT)",
+      "countryDe": "Germany (DE)",
+      "submit": "+ Legal entity"
+    },
+    "table": {
+      "name": "Name",
+      "country": "Country",
+      "readiness": "Readiness",
+      "status": "Status",
+      "actions": "Actions",
+      "deactivate": "Deactivate",
+      "reactivate": "Reactivate"
+    },
+    "toast": {
+      "created": "Legal entity created",
+      "createFailed": "Failed to create legal entity",
+      "deactivated": "Legal entity deactivated",
+      "reactivated": "Legal entity reactivated",
+      "updateFailed": "Failed to update legal entity"
+    },
+    "missingPrefix": "Missing: {{fields}}",
+    "seller": {
+      "description": "Seller identity for {{country}} invoices. Country is fixed after creation.",
+      "ready": "Ready for invoice issuance",
+      "incomplete": "Seller identity incomplete",
+      "missing": {
+        "taxNumberOrVatId": "Tax number or VAT ID",
+        "vatIdAt": "UID (VAT ID)",
+        "vatIdDe": "VAT ID",
+        "paymentTermsDays": "Payment terms (days)",
+        "paymentTermsText": "Payment terms text",
+        "addressStreet": "Street address",
+        "addressZip": "Postal code",
+        "addressCity": "City"
+      },
+      "fields": {
+        "legalName": "Legal name",
+        "street": "Street",
+        "line2": "Address line 2",
+        "zip": "Postal code",
+        "city": "City",
+        "taxNumber": "Tax number",
+        "taxNumberDe": "Tax number (Steuernummer)",
+        "vatIdAt": "UID",
+        "vatIdDe": "VAT ID (USt-IdNr.)",
+        "iban": "IBAN (optional)",
+        "bic": "BIC (optional)",
+        "bankName": "Bank name (optional)",
+        "email": "Email",
+        "phone": "Phone",
+        "registrationNumber": "Registration number",
+        "registrationCourt": "Registration court",
+        "representatives": "Representatives",
+        "rksvMode": "Fiscal settlement mode (RKSV)",
+        "paymentTermsDays": "Payment terms (days)",
+        "paymentTermsText": "Payment terms text"
+      },
+      "rksv": {
+        "off": "Off",
+        "unknown": "Unknown",
+        "externalKasse": "External Kasse",
+        "acpRksv": "ACP RKSV (fiskaly)"
+      }
+    },
+    "profile": {
+      "title": "Accounting profile",
+      "description": "Configure accounting export mappings for {{name}}. Incomplete profiles can be saved; issuance readiness is surfaced separately.",
+      "ready": "Mapping configuration complete",
+      "incomplete": "Accounting mappings incomplete",
+      "missing": {
+        "advisorNumber": "Advisor number (Beraternummer)",
+        "clientNumber": "Client number (Mandantennummer)",
+        "accountLength": "Account length",
+        "defaultDebtorAccount": "Default debtor account",
+        "mappingRules": "Source category mappings"
+      },
+      "exportMissing": {
+        "firmNumber": "firm number",
+        "steuercodeVat20": "Steuercode 20%",
+        "steuercodeVat13": "Steuercode 13%",
+        "steuercodeVat10": "Steuercode 10%",
+        "formatVersion": "pinned format version (save to pin)",
+        "chart": "chart of accounts",
+        "accountLength": "account length",
+        "defaultDebtorAccount": "default debtor account"
+      },
+      "exportMissingLine": "Missing for export: {{fields}}.",
+      "fields": {
+        "advisorNumber": "Advisor number",
+        "clientNumber": "Client number",
+        "accountLength": "Account length",
+        "defaultDebtorAccount": "Default debtor account",
+        "fiscalYearStartMonth": "Fiscal year start month",
+        "chart": "Chart",
+        "profileCode": "Profile code",
+        "formatVersion": "Format version"
+      },
+      "datev": {
+        "title": "DATEV export enabled",
+        "description": "Gates CSV export only (AUT-307). Does not block invoice issuance."
+      },
+      "rzl": {
+        "title": "RZL export configuration",
+        "description": "Used only by the RZL CSV export. Revenue accounts come from the mapping rules below; postings use the default debtor account.",
+        "useSuggested": "Use suggested codes 20 / 13 / 10",
+        "firmNumber": "Firm number (Firmennummer)",
+        "steuercode20": "Steuercode 20%",
+        "steuercode13": "Steuercode 13%",
+        "steuercode10": "Steuercode 10%",
+        "enabledTitle": "RZL export enabled",
+        "released": "Released in this environment. Gates CSV export only; does not block invoice issuance.",
+        "notReleased": "Not released in this environment. CSV export stays off until the RZL import is validated (AUT-368)."
+      },
+      "unsupportedSerializer": "Export profile activation is available only for supported serializer profiles.",
+      "mappings": {
+        "title": "Source category mappings",
+        "description": "Map each billable source category to a revenue account. Suggested accounts from revenue groups are prefilled only in the editor.",
+        "category": "Category",
+        "tax": "Tax",
+        "revenueAccount": "Revenue account",
+        "treatment": "Treatment",
+        "buKey": "BU key",
+        "margin": "Margin",
+        "automatic": "Automatic",
+        "manualBu": "Manual BU"
+      },
+      "version": "Profile version: {{version}}"
+    }
+  },
+  "accountingExport": {
+    "noAccess": {
+      "title": "Accounting export",
+      "description": "Only tenant OWNER and ADMIN users with complete site access can preview or download DATEV accounting exports."
+    },
+    "noEntities": {
+      "message": "Create a legal entity before configuring DATEV accounting export."
+    },
+    "header": {
+      "title": "Accounting export",
+      "description": "Preview and download immutable DATEV Buchungsstapel CSV runs for a closed period. Generation requires profile <code>{{profileCode}}</code> to be enabled after accountant approval.",
+      "selected": "Selected: <name>{{name}}</name>",
+      "selectedPeriod": "Selected: <name>{{name}}</name> · {{from}} to {{to}}"
+    },
+    "actions": {
+      "preview": "Preview",
+      "generate": "Generate",
+      "downloadLatest": "Download latest",
+      "download": "Download",
+      "downloadCsv": "Download CSV",
+      "generateAnyway": "Generate anyway"
+    },
+    "filters": {
+      "legalEntity": "Legal entity",
+      "selectEntity": "Select entity",
+      "dateFrom": "Date from",
+      "dateTo": "Date to"
+    },
+    "settingsLinks": {
+      "finance": "Open Finance settings",
+      "legalEntities": "Open Legal Entities settings",
+      "sites": "Open Sites settings",
+      "default": "Open settings"
+    },
+    "forbidden": "Export scope is incomplete for your account. No document totals are shown. Review site memberships and legal entity access with an administrator.",
+    "preview": {
+      "title": "Preview results",
+      "summary": "Profile v{{version}} · {{documents}} documents · {{rows}} booking rows",
+      "blockers": "Blocking issues",
+      "blockersNote": "Exports never omit blocked documents or export valid rows only.",
+      "emptyPeriod": "This closed period contains no exportable documents. Generation is not available for empty periods.",
+      "columns": {
+        "account": "Account",
+        "taxRate": "Tax rate",
+        "net": "Net",
+        "tax": "Tax",
+        "gross": "Gross"
+      }
+    },
+    "overlap": {
+      "title": "Overlapping export runs",
+      "item": "{{from}} → {{to}} · {{documents}} docs · {{createdAt}}",
+      "warning": "Importing overlapping files into DATEV can duplicate bookings. Auto Core Platform does not know whether DATEV already imported a prior file.",
+      "acknowledge": "I understand duplicate import risk and still want to generate a new run.",
+      "dialogTitle": "Confirm overlapping export",
+      "dialogDescription": "This period overlaps prior export runs. Importing both files into DATEV can duplicate bookings. Auto Core Platform cannot detect whether DATEV already imported an earlier file."
+    },
+    "history": {
+      "title": "Export run history",
+      "description": "Immutable completed runs. Downloads are audit-logged with run ID and checksum; they do not confirm DATEV import.",
+      "searchPlaceholder": "Search runs by ID, entity, or checksum...",
+      "empty": "No authorized export runs yet.",
+      "columns": {
+        "legalEntity": "Legal entity",
+        "period": "Period",
+        "documents": "Documents",
+        "created": "Created",
+        "generatedBy": "Generated by",
+        "checksum": "Checksum"
+      }
+    },
+    "detail": {
+      "title": "Export run details",
+      "description": "Exact metadata stored with the immutable CSV artifact.",
+      "runId": "Run ID:",
+      "period": "Period:",
+      "documentsRows": "Documents / rows:",
+      "generatedBy": "Generated by:",
+      "sha256": "SHA-256:",
+      "created": "Created:",
+      "downloadNote": "Download events record who retrieved these bytes and the checksum. They do not indicate successful DATEV import.",
+      "selectRun": "Select a run from the history table."
+    },
+    "toast": {
+      "downloaded": "Export downloaded",
+      "downloadedDescription": "Download is logged for audit. Auto Core Platform does not track DATEV import status.",
+      "checksumMismatch": "Download checksum mismatch",
+      "checksumMismatchDescription": "The file bytes do not match the recorded SHA-256. Do not import this file.",
+      "downloadFailed": "Download failed",
+      "selectPeriod": "Select a legal entity and closed period dates first.",
+      "overlapDetected": "Overlapping export runs detected",
+      "overlapDetectedDescription": "Importing overlapping DATEV files can duplicate bookings. Acknowledge before generating a new run.",
+      "previewForbidden": "You do not have access to export this legal entity for the selected period.",
+      "previewFailed": "Preview failed",
+      "previewFirst": "Run preview before generating an export.",
+      "profileSaving": "Wait until accounting profile changes finish saving.",
+      "blocked": "Export is blocked. Resolve all blockers or enable the DATEV profile before generating.",
+      "generated": "DATEV export generated",
+      "generatedDescription": "{{documents}} documents · SHA-256 {{hash}}",
+      "generateFailed": "Generate failed"
+    }
+  },
+  "dataImport": {
+    "title": "Data import",
+    "description": "Legacy DMS CSV import for new tenant onboarding. Dry-run validates rows before any write. Marketing consent columns are ignored by the import engine.",
+    "stepsNavAria": "Import wizard steps",
+    "steps": {
+      "source": "Source",
+      "upload": "Upload",
+      "mapping": "Mapping",
+      "dryRun": "Dry-run",
+      "apply": "Apply"
+    },
+    "consent": {
+      "title": "Marketing consent",
+      "description": "Columns related to consent, marketing, newsletter, or Werbung are not imported and are reported as warnings only."
+    },
+    "source": {
+      "title": "1. Entity & source",
+      "entityLabel": "Entity",
+      "entityCustomer": "Customers",
+      "entityVehicle": "Vehicles",
+      "entitySupplierPriceList": "Supplier price list",
+      "sourceSystemLabel": "Source system",
+      "vendorLabel": "Vendor *",
+      "vendorPlaceholder": "Select vendor…",
+      "vendorAria": "Select vendor",
+      "downloadTemplate": "Download CSV template",
+      "continue": "Continue",
+      "templateFields": "Template fields: {{fields}}"
+    },
+    "upload": {
+      "title": "2. Upload CSV",
+      "fileLabel": "CSV file",
+      "fileSummary": "{{name}} ({{columns}} columns)",
+      "back": "Back",
+      "continue": "Continue"
+    },
+    "mapping": {
+      "title": "3. Column mapping",
+      "savedProfile": "Saved profile",
+      "loadProfilePlaceholder": "Load profile…",
+      "saveAs": "Save as",
+      "saveProfile": "Save profile",
+      "acpField": "ACP field",
+      "csvColumn": "CSV column",
+      "required": "Required",
+      "mapAria": "Map {{field}}",
+      "missingRequired": "Map required fields: {{fields}}",
+      "options": {
+        "updateExisting": "Update existing",
+        "fillEmptyOnly": "Fill empty only",
+        "allowMissingVin": "Allow missing VIN",
+        "invalidVatAsError": "Invalid VAT ID as error",
+        "createCatalogItems": "Create new catalog items"
+      },
+      "previewTitle": "Preview (first 20 rows)",
+      "back": "Back",
+      "runDryRun": "Run dry-run"
+    },
+    "dryRun": {
+      "title": "4. Dry-run report",
+      "stale": {
+        "title": "Stale dry-run",
+        "description": "File, mapping, or options changed after the last dry-run. Run dry-run again before applying."
+      },
+      "totals": {
+        "rows": "Rows: {{value}}",
+        "create": "Create: {{value}}",
+        "update": "Update: {{value}}",
+        "skip": "Skip: {{value}}",
+        "error": "Error: {{value}}"
+      },
+      "rerunRequired": "(Dry-run must be restarted)",
+      "priceJumps": {
+        "accept": "Accept price jumps",
+        "acceptedAll": "(All price jumps accepted)",
+        "acceptedRows": "({{rows}} rows accepted)",
+        "clearSelection": "Clear selection",
+        "badge": "Price jump > {{percent}}%",
+        "acceptRow": "Accept price jump"
+      },
+      "maxErrors": "Max errors to allow apply",
+      "rowFilter": "Row filter",
+      "filter": {
+        "all": "All",
+        "error": "Errors",
+        "create": "Create",
+        "update": "Update",
+        "skip": "Skip"
+      },
+      "errorRowsCsv": "Error rows CSV",
+      "showing": "Showing {{shown}} of {{total}} rows (page {{page}} of {{pages}})",
+      "loadingRows": "Loading rows…",
+      "columns": {
+        "action": "Action",
+        "externalId": "External ID",
+        "issues": "Issues"
+      },
+      "issueError": "Error: {{message}}",
+      "issueWarning": "Warning: {{message}}",
+      "previousPage": "Previous page",
+      "nextPage": "Next page",
+      "editMapping": "Edit mapping",
+      "applyImport": "Apply import"
+    },
+    "result": {
+      "title": "Import complete",
+      "summary": "Status: {{status}}. Created {{created}}, updated {{updated}}, skipped {{skipped}}, errors {{errors}}.",
+      "auditLink": "View audit log for this import job"
+    },
+    "confirm": {
+      "title": "Apply import?",
+      "description": "This writes data to your tenant. Counts from the last dry-run:",
+      "create": "Create: {{value}}",
+      "update": "Update: {{value}}",
+      "skip": "Skip: {{value}}",
+      "errors": "Errors (skipped): {{value}}",
+      "priceJumps": "Price jumps accepted: {{value}}",
+      "priceJumpsAll": "All",
+      "priceJumpsRows": "{{rows}} rows",
+      "confirm": "Confirm"
+    },
+    "toast": {
+      "csvReadFailed": "Could not read CSV file",
+      "profileLoaded": "Mapping profile loaded",
+      "profileNameRequired": "Enter a profile name",
+      "profileSaved": "Mapping profile saved",
+      "profileSaveFailed": "Failed to save profile",
+      "selectCsv": "Select a CSV file first",
+      "mapRequired": "Map all required fields before running dry-run",
+      "dryRunFailed": "Dry-run failed",
+      "applied": "Import applied successfully",
+      "applyFailed": "Apply failed",
+      "templateFailed": "Template download failed",
+      "errorCsvFailed": "Error CSV download failed"
+    }
+  },
+  "documentBranding": {
+    "title": "Document branding",
+    "subtitle": "These settings apply to future invoices after you confirm them.",
+    "inactiveEntity": "Reactivate this legal entity to edit its document branding.",
+    "loading": "Loading document branding…",
+    "loadFailed": "Document branding could not be loaded: {{message}}",
+    "logo": {
+      "label": "Logo",
+      "selected": "Selected logo asset: {{id}}",
+      "remove": "Remove logo",
+      "uploading": "Uploading and validating logo…",
+      "refreshStatus": "Refresh validation status"
+    },
+    "fields": {
+      "primaryColor": "Primary color",
+      "secondaryColor": "Secondary color",
+      "headerBand": "Header band",
+      "footerBand": "Footer band",
+      "bandNone": "None",
+      "bandPrimary": "Primary",
+      "bandSecondary": "Secondary",
+      "headerText": "Decorative header text (up to {{max}} characters, two lines)",
+      "footerText": "Decorative footer text (up to {{max}} characters)"
+    },
+    "conflict": {
+      "message": "Another session saved newer document branding while you were editing. Your local edits are still shown here.",
+      "reload": "Reload latest",
+      "keep": "Keep my edits",
+      "reapplying": "Re-applying…"
+    },
+    "draftFailed": "Draft save failed. Fix validation issues or try again. {{message}}",
+    "status": {
+      "activeRevision": "Active appearance · revision {{revision}}",
+      "activeDefaults": "Active appearance · ACP defaults",
+      "draft": "Draft — not yet used on invoices",
+      "noDraft": "No saved draft"
+    },
+    "actions": {
+      "previewSample": "Preview sample",
+      "preparingPreview": "Preparing preview…",
+      "confirm": "Confirm branding",
+      "confirming": "Confirming…",
+      "discardDraft": "Discard draft",
+      "discarding": "Discarding…",
+      "confirmDefaults": "Confirm ACP defaults",
+      "resetting": "Resetting…"
+    },
+    "preview": {
+      "warningsAria": "Preview warnings",
+      "iframeTitle": "Synthetic invoice branding preview"
+    },
+    "confirmReset": "Confirm ACP default invoice branding for this legal entity? New invoices will use ACP defaults; previously issued invoices and PDFs will not change.",
+    "confirmDiscard": "Discard the saved document branding draft?",
+    "toast": {
+      "saveFailed": "Document branding could not be saved",
+      "draftValidationFallback": "Draft validation or revision conflict.",
+      "loadLatestFallback": "Could not load the latest document branding.",
+      "reloadFailed": "Could not reload document branding",
+      "reloaded": "Loaded the latest document branding from the server.",
+      "reapplied": "Your edits were saved on top of the latest revision.",
+      "reapplyFallback": "Could not re-apply your edits.",
+      "logoValidated": "Logo validated and added to the draft",
+      "logoRejected": "Logo file was rejected",
+      "confirmed": "Document branding confirmed",
+      "confirmFailed": "Document branding could not be confirmed",
+      "reviewDraftFallback": "Review the draft and try again.",
+      "suggestionsSaved": "Suggestions saved to the draft",
+      "suggestionsSavedDescription": "Review the draft and confirm it to use it on future invoices.",
+      "proposalFailed": "Proposal could not be applied",
+      "proposalFallback": "The profile revision changed. Start a new extraction.",
+      "defaultsConfirmed": "ACP default branding confirmed",
+      "defaultsFailed": "Default branding could not be confirmed",
+      "reviewRevisionFallback": "Review the current revision and try again.",
+      "draftDiscarded": "Document branding draft discarded",
+      "discardFailed": "Draft could not be discarded",
+      "previewFailed": "Preview could not be generated",
+      "tryAgain": "Please try again.",
+      "logoUploaded": "Logo uploaded; validation is in progress",
+      "sourceUploaded": "Source file uploaded; validation is in progress",
+      "logoUploadFailed": "Logo could not be uploaded",
+      "sourceUploadFailed": "Source file could not be uploaded"
+    },
+    "letterheadSource": {
+      "label": "Letterhead source (PDF or PNG, up to 10 MiB)",
+      "hint": "Upload a PDF or PNG letterhead to keep it with your branding draft.",
+      "download": "Download",
+      "replace": "Replace",
+      "remove": "Remove",
+      "previewAlt": "Preview of {{name}}",
+      "refreshStatus": "Refresh validation status",
+      "refreshProfileFailed": "Failed to refresh document branding profile",
+      "downloadHttpFailed": "Download failed",
+      "toast": {
+        "uploaded": "Letterhead uploaded; validation is in progress",
+        "uploadFailed": "Letterhead source could not be uploaded",
+        "uploadFallback": "Choose a supported PDF or PNG file and try again.",
+        "removed": "Letterhead source removed from the draft",
+        "removeFailed": "Letterhead source could not be removed",
+        "removeFallback": "Try again in a moment.",
+        "downloadFailed": "Letterhead source could not be downloaded"
+      }
+    },
+    "letterheadImport": {
+      "title": "Letterhead suggestions",
+      "unavailable": "Assisted extraction is unavailable. You can configure the profile manually.",
+      "extract": "Extract suggestions",
+      "starting": "Starting…",
+      "uploadFirst": "Upload and validate a PDF or PNG letterhead first.",
+      "stateLine": "Extraction: {{state}}",
+      "states": {
+        "QUEUED": "queued",
+        "RUNNING": "running",
+        "SUCCEEDED": "succeeded",
+        "FAILED": "failed",
+        "DISCARDED": "discarded"
+      },
+      "useProposal": "Use proposal in draft",
+      "discardExtraction": "Discard extraction",
+      "discardProposal": "Discard proposal",
+      "refreshStatus": "Refresh extraction status",
+      "tryNew": "Try a new extraction",
+      "revisionChanged": "The profile changed after this extraction started. Start a new extraction from the current revision.",
+      "statusLoadFailed": "Extraction status could not be loaded. Refresh to try again.",
+      "toast": {
+        "startFailed": "Letterhead extraction could not be started",
+        "tryLater": "Try again later.",
+        "discardFailed": "Extraction could not be discarded",
+        "tryAgain": "Try again."
+      }
+    }
+  }
+}

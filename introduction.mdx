@@ -1,36 +1,140 @@
 ---
-title: "Introduction"
-description: "ACP is the workshop ERP for parts, jobs, invoices, and the people who change them."
+title: "Willkommen"
+description: "Finden Sie die passende Anleitung für Ihre Arbeit in der Werkstatt, an der Theke oder im Backoffice."
 ---
 
-ACP keeps a workshop running as one system: stock on the shelf, jobs on the board, bills from vendors, and invoices to customers.
+Auto Core Platform ist ein Werkstatt- und Händlersystem für Österreich und die DACH-Region. Kunden, Fahrzeuge, Aufträge, Teile, Einkäufe und Rechnungen liegen an einem Ort — mit einer Änderungshistorie, der Sie vertrauen können, wenn jemand fragt: *Wer hat das geändert?*
 
-Every business change is treated like a ledger entry. You can later answer *who changed this, when, and what it looked like before*.
+Wählen Sie unten Ihre Rolle. Jede Karte führt zu den Anleitungen, die zu Ihrem Arbeitsalltag passen.
+
+## Serviceberater
 
 <CardGroup cols={2}>
-  <Card title="Live demo" icon="play" href="https://auto-core-platform-vande.web.app/">
-    Open the workshop tenant in your browser — sign in and try counter, bay, and shelf flows.
+  <Card title="Anmelden" icon="log-in" href="/workflows/sign-in">
+    App öffnen, Standorte wechseln und bei Bedarf die Live-Demo als Sandbox nutzen.
   </Card>
-  <Card title="GitHub" icon="github" href="https://github.com/vandean25/auto-core-platform">
-    Source code, issues, and AGPL license for Auto Core Platform.
+  <Card title="Dashboard" icon="layout-dashboard" href="/workflows/dashboard">
+    Suche, gespeicherte Ansichten und Widgets für das, was heute Aufmerksamkeit braucht.
+  </Card>
+  <Card title="Kunden" icon="users" href="/workflows/customers">
+    Kundenstammdaten, Kontaktdaten und Verkaufshistorie.
+  </Card>
+  <Card title="Fahrzeuge" icon="car" href="/workflows/vehicles">
+    Fahrzeugakten, Zulassungsdaten und Compliance-Felder.
+  </Card>
+  <Card title="Fahrzeugannahme" icon="clipboard-list" href="/workflows/workshop-intake">
+    Einen Werkstattbesuch in einen Werkstattauftrag mit dem richtigen Kunden und Fahrzeug überführen.
+  </Card>
+  <Card title="Werkstattaufträge" icon="wrench" href="/workflows/workshop-orders">
+    Status, Positionen, Kundenmeldungen und Abrechnung bis zur Rechnung.
+  </Card>
+  <Card title="Tablet-Annahme" icon="clipboard-check" href="/workflows/workshop-check-in">
+    Tablet-Annahme: Fotos, Schadenskizze, Checkliste und Unterschrift.
+  </Card>
+  <Card title="Reifenlager" icon="warehouse" href="/workflows/tyre-storage">
+    Saison-Sets, Lagerplatz und Ein- bzw. Auslagerungsvorgänge.
+  </Card>
+  <Card title="Pickerl fällig" icon="car" href="/workflows/pickerl-due">
+    §57a-Fälligkeitsliste und Nachverfolgung bei Kundenfahrzeugen.
   </Card>
 </CardGroup>
 
+## Mechaniker
+
 <CardGroup cols={2}>
-  <Card title="Workflows" icon="list-checks" href="/workflows">
-    Counter, bay, shelf, and vendor — one guide per job.
+  <Card title="Mechaniker-Ansicht" icon="hard-hat" href="/workflows/mechanic">
+    Ihre zugewiesenen Jobs, Zeit und Aufgaben ohne das volle Büro-Menü.
   </Card>
-  <Card title="Settings" icon="settings" href="/settings">
-    Finance, bays, brands, team, and the audit trail.
+  <Card title="Werkstattboard" icon="columns-3" href="/workflows/workshop-board">
+    Aufträge per Drag & Drop über Arbeitsplätze legen und sehen, was in der Werkstatt wartet.
   </Card>
-  <Card title="Inventory" icon="package" href="/workflows/inventory">
-    Parts, bins, and the quantity ledger.
+  <Card title="Teile-Kommissionierung" icon="package-search" href="/workflows/workshop-pick">
+    Für offene Aufträge zu holende Teile, sortiert für den Gang durchs Regal.
   </Card>
-  <Card title="Workshop" icon="wrench" href="/workflows/workshop-orders">
-    Intake, tasks, parts pick queue, board, checkout invoice.
+  <Card title="Werkstattaufträge" icon="file-text" href="/workflows/workshop-orders">
+    Den Auftrag öffnen, an dem Sie arbeiten — Aufgaben, Teile und Notizen.
+  </Card>
+  <Card title="Werkstattplaner" icon="calendar-days" href="/workflows/workshop-planner">
+    Termine, Kapazität der Arbeitsplätze und Öffnungszeiten.
+  </Card>
+</CardGroup>
+
+## Buchhaltung und Backoffice
+
+<CardGroup cols={2}>
+  <Card title="Rechnungen" icon="receipt" href="/workflows/invoices">
+    Kundenrechnungen als Entwurf anlegen, abschließen und als PDF herunterladen.
+  </Card>
+  <Card title="Gutschriften" icon="receipt-text" href="/workflows/credit-notes">
+    Gutschriften zu abgeschlossenen Rechnungen ausstellen und das PDF herunterladen.
+  </Card>
+  <Card title="Buchhaltungsexport" icon="file-spreadsheet" href="/workflows/accounting-export">
+    Exportbereitschaft prüfen, dann DATEV-, RZL- oder BMD-CSV für einen abgeschlossenen Zeitraum.
+  </Card>
+  <Card title="Eingangsrechnungen" icon="file-input" href="/workflows/purchase-bills">
+    Lieferantenrechnungen erfassen und mit Bestand oder Kosten verknüpfen.
+  </Card>
+  <Card title="Bestellungen" icon="shopping-cart" href="/workflows/purchase-orders">
+    Teile bei Lieferanten bestellen und offene Positionen verfolgen.
+  </Card>
+  <Card title="Finanzen" icon="calculator" href="/settings/finance">
+    Steuer, Nummerierung und Optionen für den Buchhaltungsexport.
+  </Card>
+  <Card title="Rechtsträger" icon="building-2" href="/settings/legal-entities">
+    Firmen auf dem Briefkopf, Steuer-IDs und Verkäuferidentität auf Rechnungen.
+  </Card>
+  <Card title="Zeit und Urlaub" icon="clock" href="/hr">
+    Kommen/Gehen, Urlaub und HR-Daten für Ihr Team.
+  </Card>
+</CardGroup>
+
+## Admin und Inhaber
+
+<CardGroup cols={2}>
+  <Card title="Schnellstart" icon="rocket" href="/quickstart">
+    Erster Login, Rollen und wie die Hauptbereiche zusammenhängen.
+  </Card>
+  <Card title="Alle Einstellungen" icon="settings" href="/settings">
+    Überblick über jeden Einstellungs-Tab, bevor Sie Produktionsdaten ändern.
+  </Card>
+  <Card title="Standorte" icon="map-pin" href="/settings/sites">
+    Werkstattstandorte, Verknüpfung zum Rechtsträger und Standort-Mitgliedschaften.
+  </Card>
+  <Card title="Datenimport" icon="upload" href="/settings/data-import">
+    CSV-Assistent für Kunden und Fahrzeuge aus einem Altsystem.
+  </Card>
+  <Card title="API-Schlüssel" icon="key" href="/settings/api-keys">
+    Mandanten-Schlüssel für die öffentliche Lese-API.
+  </Card>
+  <Card title="Team und Zugriff" icon="shield" href="/settings/team">
+    Wer sich anmelden darf und was jede Rolle tun darf.
+  </Card>
+  <Card title="Arbeitsplätze und Werkstatt" icon="warehouse" href="/settings/bays">
+    Arbeitsplätze, Arbeitsstundensätze und Werkstattzeiten.
+  </Card>
+  <Card title="Audit-Logs" icon="scroll-text" href="/settings/audit-logs">
+    Wer Geschäftsdaten geändert hat — getrennt von Server-Logs.
+  </Card>
+  <Card title="Plattform-Mandanten" icon="layers" href="/workflows/platform-tenants">
+    Für Betreiber, die mehrere Werkstatt-Mandanten verwalten.
+  </Card>
+</CardGroup>
+
+## Neuigkeiten
+
+<Card title="Änderungsprotokoll" icon="sparkles" href="/changelog">
+  Für Anwender sichtbare Verbesserungen der letzten acht Wochen — Rechnungen, Werkstatt, Compliance und mehr.
+</Card>
+
+<CardGroup cols={2}>
+  <Card title="Live-Demo" icon="play" href="https://auto-core-platform-vande.web.app/">
+    Den Werkstatt-Mandanten im Browser ausprobieren.
+  </Card>
+  <Card title="Alle Workflows" icon="list-checks" href="/workflows">
+    Vollständige Liste der Tages-Anleitungen, wenn Sie nicht wissen, wo Sie anfangen sollen.
   </Card>
 </CardGroup>
 
 <Tip>
-Audit history lives in **Settings → Audit Logs**. Runtime server logs are a different system, used by operators during incidents. They are not the same thing.
+Die Änderungshistorie finden Sie unter **Einstellungen → Audit-Logs**. Laufzeit-Server-Logs sind ein separates System und werden von Betreibern bei Störungen genutzt.
 </Tip>

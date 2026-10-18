@@ -1,0 +1,43 @@
+---
+title: "Storage locations"
+description: "Build the warehouse tree so stock has a bin, not a mystery pile."
+---
+
+Use **Settings → Storage Locations** to name warehouses and the aisles, shelves, and bins under them. Stock quantities live on bins, not on this screen.
+
+Left: the tree. Right: **Add Location**.
+
+<Steps>
+  <Step title="Create the warehouse first">
+    Type **Warehouse**. Parent is locked to **None (Root)**.
+  </Step>
+  <Step title="Hang children underneath">
+    Type Aisle, Shelf, or Bin. Pick a **Parent Location**.
+  </Step>
+  <Step title="Give a unique Code">
+    Codes show as a small badge on the tree (example `WH-001`).
+  </Step>
+</Steps>
+
+## Add Location
+
+| Field | Rules |
+| --- | --- |
+| **Name** | Required. Example: Main Warehouse |
+| **Code (Unique)** | Required |
+| **Type** | Warehouse, Aisle, Shelf, Bin |
+| **Parent Location** | Disabled for Warehouse. For other types, pick an existing row |
+
+**Create Location** sits at the bottom of the right card.
+
+## Tree
+
+Click a row with children to expand or collapse. Hover shows a red trash on the right. Confirm **Delete {name}?**
+
+<Warning>
+Delete is allowed only when the location has **no children** and **no stock**. The server message is the source of truth. Soft-delete is used; the name should not come back as a live bin.
+</Warning>
+
+<Accordion title="Types you will not pick here">
+The product also knows customer storage and staging totes for workshop flows. This Settings form only creates warehouse, aisle, shelf, and bin.
+</Accordion>

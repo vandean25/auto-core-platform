@@ -34,6 +34,7 @@ describe('Notification outbox sender worker (e2e)', () => {
   let fake: FakeEmailProvider;
   let tenantA: string;
   let tenantB: string;
+  const customerIds = new Map<string, string>();
   const saved: Record<string, string | undefined> = {};
 
   const api = () => request(app.getHttpServer());
@@ -47,14 +48,36 @@ describe('Notification outbox sender worker (e2e)', () => {
     }
   }
 
-  function emailInput(tenantId: string, recipient = 'kunde@example.at') {
+  async function ensureConsentTestCustomer(tenantId: string): Promise<string> {
+    const existing = customerIds.get(tenantId);
+    if (existing) {
+      return existing;
+    }
+    const created = await tenantPrisma(tenantId).customer.create({
+      data: {
+        tenant_id: tenantId,
+        type: 'PRIVATE',
+        first_name: 'Test',
+        last_name: 'Kunde',
+        email: `consent-test-${tenantId}@example.at`,
+        contact_email_ok: true,
+      },
+      select: { id: true },
+    });
+    customerIds.set(tenantId, created.id);
+    return created.id;
+  }
+
+  async function emailInput(tenantId: string, recipient = 'kunde@example.at') {
+    const customerId = await ensureConsentTestCustomer(tenantId);
     return {
       tenantId,
       eventType: 'WORKSHOP_TASK_WAITING_CUSTOMER' as const,
       occurrenceId: randomUUID(),
       channel: 'EMAIL' as const,
       recipientKind: 'CUSTOMER' as const,
-      recipientKey: `customer:${recipient}`,
+      recipientKey: `customer:${customerId}`,
+      consentPurpose: 'ORDER_COMMUNICATION' as const,
       email: {
         recipientEmail: recipient,
         subject: 'Auftrag Nr. E2E-1',
@@ -71,12 +94,15 @@ describe('Notification outbox sender worker (e2e)', () => {
     options: { now?: Date; recipient?: string } = {},
   ) {
     const outbox = app.get(NotificationOutboxService);
-    const input = emailInput(tenantId, options.recipient);
+    const input = await emailInput(tenantId, options.recipient);
     const result = await runWithTenantContext(tenantId, () =>
       basePrisma.$transaction((tx) =>
         outbox.enqueueInTx(tx, input, options.now),
       ),
     );
+    if (result.blocked) {
+      throw new Error(`Outbox enqueue blocked: ${result.reason}`);
+    }
     return result.id;
   }
 

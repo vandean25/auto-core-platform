@@ -1,0 +1,43 @@
+---
+title: "Revenue groups"
+description: "Name the tax buckets your invoices and catalog items report into."
+---
+
+Use **Settings → Revenue Groups** to tell the accountant which sales are parts, which are labor, and which tax rate and ledger account they use.
+
+The group **name** is copied onto invoice lines at sale time. Renaming a group later does not rewrite old invoices.
+
+<Info>
+The table is a list. There is no row click to edit, and no delete on this screen. You add groups with **Group** (plus icon) at the top right of the card.
+</Info>
+
+<Steps>
+  <Step title="Open Settings → Revenue Groups">
+    Gear in the header, then the **Revenue Groups** tab.
+  </Step>
+  <Step title="Read the table">
+    Columns are **Name**, **Tax Rate**, **Account Number**, and **Default**.
+  </Step>
+  <Step title="Add a group when you need a new tax bucket">
+    Click **Group**. Fill the dialog. **Create Group** writes it for this tenant.
+  </Step>
+</Steps>
+
+## Fields you fill
+
+| Field | Example | Why it matters |
+| --- | --- | --- |
+| **Name** | Spare Parts 20% | Shown on the group list and snapshotted onto invoice lines |
+| **Tax Rate (%)** | 20.00 | VAT percent for items that use this group |
+| **Account Number** | 4000 | Mapping for the accountant / export |
+| **Set as default for new items** | checked or not | New catalog items can pick this group first |
+
+One row can show a green **Default** badge. Others show a dash.
+
+<Warning>
+You cannot delete a revenue group from this tab. Backend rules still block a delete when a catalog item still points at the group. Historical invoices keep the old **name** even if you later add a replacement group.
+</Warning>
+
+<Accordion title="Where the group is used">
+Catalog items and labor carry a revenue group. When an invoice is issued, the line stores the group **name** and unit price as they were at that moment. Dashboard revenue charts group finalized invoice lines by that snapshotted name for the current month.
+</Accordion>

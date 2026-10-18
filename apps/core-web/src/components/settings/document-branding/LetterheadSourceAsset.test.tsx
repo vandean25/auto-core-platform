@@ -9,7 +9,10 @@ import {
 import * as React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DocumentBrandAsset } from "@/api/document-branding";
+import deSettings from "../../../../../../locales/de/settings.json";
 import { LetterheadSourceAsset } from "./LetterheadSourceAsset";
+
+const sourceCopy = deSettings.documentBranding.letterheadSource;
 
 const mocks = vi.hoisted(() => ({
   upload: vi.fn(),
@@ -227,8 +230,8 @@ describe("LetterheadSourceAsset", () => {
       initialAsset: quarantinedAsset,
     });
 
-    expect(screen.getByRole("button", { name: "Replace" })).not.toBeDisabled();
-    expect(screen.getByRole("button", { name: "Remove" })).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: sourceCopy.replace })).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: sourceCopy.remove })).not.toBeDisabled();
   });
 
   it("disables remove while upload or attach is in flight", () => {
@@ -238,7 +241,7 @@ describe("LetterheadSourceAsset", () => {
       draftSourceAssetId: "source-1",
       initialAsset: quarantinedAsset,
     });
-    expect(screen.getByRole("button", { name: "Remove" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: sourceCopy.remove })).toBeDisabled();
 
     cleanup();
     mocks.uploadPending = false;
@@ -247,7 +250,7 @@ describe("LetterheadSourceAsset", () => {
       draftSourceAssetId: "source-1",
       initialAsset: quarantinedAsset,
     });
-    expect(screen.getByRole("button", { name: "Remove" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: sourceCopy.remove })).toBeDisabled();
   });
 
   it("disables replace and remove when the legal entity is inactive", () => {
@@ -257,9 +260,9 @@ describe("LetterheadSourceAsset", () => {
       draftSourceAssetId: "source-1",
       initialAsset: readyAsset,
     });
-    expect(screen.getByRole("button", { name: "Replace" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Remove" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Download" })).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: sourceCopy.replace })).toBeDisabled();
+    expect(screen.getByRole("button", { name: sourceCopy.remove })).toBeDisabled();
+    expect(screen.getByRole("button", { name: sourceCopy.download })).not.toBeDisabled();
   });
 
   it("shows validation status for a quarantined asset", () => {

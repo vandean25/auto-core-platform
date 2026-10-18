@@ -1,5 +1,6 @@
 import type { LegacyReactTable as Table } from '@tanstack/react-table/legacy'
 import { Download, X } from "lucide-react"
+import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -25,7 +26,7 @@ interface DataTableToolbarProps<TData extends object> {
 export function DataTableToolbar<TData extends object>({
   table,
   searchColumn,
-  placeholder = "Filter...",
+  placeholder,
   saveViewTitle,
   dashboardSource,
   enableCsvExport = true,
@@ -33,6 +34,8 @@ export function DataTableToolbar<TData extends object>({
   getRoot,
   isLoading = false,
 }: DataTableToolbarProps<TData>) {
+  const { t } = useTranslation('common')
+  const filterPlaceholder = placeholder ?? t('dataTable.filterPlaceholder')
   const isFiltered = table.getState().columnFilters.length > 0 || !!table.getState().globalFilter
 
   return (
@@ -40,7 +43,7 @@ export function DataTableToolbar<TData extends object>({
       <div className="flex flex-1 flex-wrap items-center gap-2">
         {searchColumn ? (
             <Input
-            placeholder={placeholder}
+            placeholder={filterPlaceholder}
             value={(table.getColumn(searchColumn)?.getFilterValue() as string) ?? ""}
             onChange={(event) =>
                 table.getColumn(searchColumn)?.setFilterValue(event.target.value)
@@ -49,7 +52,7 @@ export function DataTableToolbar<TData extends object>({
             />
         ) : (
             <Input
-            placeholder={placeholder}
+            placeholder={filterPlaceholder}
             value={(table.getState().globalFilter as string) ?? ""}
             onChange={(event) =>
                 table.setGlobalFilter(event.target.value)
@@ -67,7 +70,7 @@ export function DataTableToolbar<TData extends object>({
             }}
             className="h-8 px-2 lg:px-3"
           >
-            Reset
+            {t('dataTable.reset')}
             <X className="ml-2 h-4 w-4" />
           </Button>
         )}
@@ -80,7 +83,7 @@ export function DataTableToolbar<TData extends object>({
             variant="outline"
             size="sm"
             className="h-8"
-            title="Exports the visible columns of the rows loaded in this table"
+            title={t('dataTable.exportCsvTitle')}
             disabled={isLoading || table.getRowModel().rows.length === 0 || getDataTableExportColumns(table).length === 0}
             onClick={() => {
               const csv = buildDataTableCsv(table, getRoot?.() ?? null)
@@ -88,7 +91,7 @@ export function DataTableToolbar<TData extends object>({
             }}
           >
             <Download className="mr-2 h-4 w-4" />
-            Export CSV
+            {t('dataTable.exportCsv')}
           </Button>
         ) : null}
         <DataTableViewOptions table={table} />

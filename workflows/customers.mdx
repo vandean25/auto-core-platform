@@ -1,24 +1,24 @@
 ---
-title: "Customers"
-description: "Open a private or company record before you write an order or start a job."
+title: "Kunden"
+description: "Privat- oder Firmenstamm öffnen, bevor Sie einen Auftrag schreiben oder einen Job starten."
 ---
 
-**Customers** is the CRM list. Click a row for the detail card (orders and vehicles hang off that person). Top-right: **+ Customer**. Search: **Search customers...** Right-click **Delete** when the record has no orders, invoices, jobs, or vehicles.
+**Kunden** ist die CRM-Liste. Klicken Sie eine Zeile für die Detailkarte (Aufträge und Fahrzeuge hängen an dieser Person). Oben rechts: **+ Kunde**. Suche: **Kunden suchen…** Rechtsklick **Löschen**, wenn der Datensatz keine Aufträge, Rechnungen, Jobs oder Fahrzeuge hat.
 
 <Steps>
-  <Step title="Create">
-    Choose private vs company in the dialog. Company uses **company name**. Private uses first and last name. Address, email, and phone live on the same form.
+  <Step title="Anlegen">
+    Im Dialog Privat vs. Firma wählen. Firma nutzt **Firmenname**. Privat Vor- und Nachname. Adresse, E-Mail und Telefon stehen im selben Formular.
   </Step>
-  <Step title="Open the row">
-    Detail shows history. From here you start a sales order with the customer already selected (`/sales-orders/new?customerId=…`).
+  <Step title="Zeile öffnen">
+    In der Detailansicht sehen Sie die Historie. Von hier starten Sie einen Kundenauftrag mit vorausgewähltem Kunden (`/sales-orders/new?customerId=…`).
   </Step>
-  <Step title="Email for order communication">
-    On the customer record and at workshop intake, confirm **E-Mail-Adresse für Auftragskommunikation angegeben** when the customer gave an email for this repair (Kostenvoranschlag, ready-for-pickup notice). This is not marketing consent. Without it, estimate and ready emails stay blocked on the order with a visible reason.
+  <Step title="E-Mail für Auftragskommunikation">
+    Am Kunden und bei der Fahrzeugannahme bestätigen Sie **E-Mail-Adresse für Auftragskommunikation bestätigt**, wenn der Kunde eine E-Mail für diese Reparatur angegeben hat (Kostenvoranschlag, Abholbereit-Hinweis). Das ist keine Marketing-Einwilligung. Ohne Bestätigung bleiben KVA- und Abhol-E-Mails am Auftrag mit sichtbarem Grund blockiert.
   </Step>
 </Steps>
 
 <Warning>
-Delete fails if the customer still owns a sales order, invoice, workshop order, or vehicle. The toast shows the server message.
+Löschen schlägt fehl, wenn der Kunde noch einen Kundenauftrag, eine Rechnung, einen Werkstattauftrag oder ein Fahrzeug hat. Der Toast zeigt die Servermeldung.
 </Warning>
 
-Next: [Vehicles](/workflows/vehicles) if a car is on the driveway, or [Sales orders](/workflows/sales-orders) for a counter sale.
+Weiter: [Fahrzeuge](/workflows/vehicles), wenn ein Auto auf der Zufahrt steht, oder [Kundenaufträge](/workflows/sales-orders) für Thekenverkauf.

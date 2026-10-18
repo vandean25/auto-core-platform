@@ -69,6 +69,36 @@
     "transferWorkflowHint": "Use a stock transfer workflow to move quantity and create ledger entries.",
     "notAvailable": "N/A"
   },
+  "partsList": {
+    "title": "Inventory",
+    "description": "Manage your automotive parts and stock levels.",
+    "searchPlaceholder": "Search parts…",
+    "locationAria": "Storage location",
+    "allLocations": "All storage locations",
+    "saveViewTitle": "Inventory",
+    "columns": {
+      "status": "Status",
+      "part": "Part",
+      "description": "Description",
+      "storageLocation": "Storage location",
+      "price": "Price"
+    },
+    "notAvailable": "N/A"
+  },
+  "addItemDialog": {
+    "trigger": "+ Item",
+    "title": "Add inventory item",
+    "sku": "SKU / MPN",
+    "skuPlaceholder": "e.g., OF-1001",
+    "brand": "Brand",
+    "name": "Item name",
+    "namePlaceholder": "e.g., Oil filter",
+    "costPrice": "Cost price (€)",
+    "retailPrice": "Retail price (€)",
+    "creating": "Creating…",
+    "createFailed": "Failed to create item",
+    "created": "Inventory item created"
+  },
   "dialogs": {
     "adjustStock": {
       "title": "Adjust stock",

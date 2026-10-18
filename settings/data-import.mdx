@@ -1,0 +1,33 @@
+---
+title: "Datenimport"
+description: "CSV-Assistent ausführen, um Bestandskunden und Fahrzeuge zu laden."
+---
+
+**Datenimport** ist der geführte CSV-Assistent, um einen Mandanten aus einem anderen System zu übernehmen. Er unterstützt Probeläufe, Validierung pro Zeile und einen Audit-Link pro Importjob.
+
+Nur Mitglieder mit der Rolle **OWNER** oder **ADMIN** sehen diesen Tab.
+
+<Steps>
+  <Step title="Datenimport öffnen">
+    Zahnrad → **Datenimport**.
+  </Step>
+  <Step title="Entitätstyp wählen">
+    **Kunden** oder **Fahrzeuge** wählen und bei Bedarf die Vorlage für Spaltennamen herunterladen.
+  </Step>
+  <Step title="Hochladen und Probelauf">
+    CSV hochladen. Zuerst einen **Probelauf** ausführen. Beheben Sie Validierungsfehler in der Datei, bevor Sie den Live-Import starten.
+  </Step>
+  <Step title="Import ausführen">
+    Starten Sie den Live-Import, wenn der Probelauf sauber ist. Öffnen Sie den Audit-Link in der Jobzeile, wenn Sie die Import-Job-ID in [Audit-Logs](/settings/audit-logs) brauchen.
+  </Step>
+</Steps>
+
+<Warning>
+Importe legen neue Zeilen an. Sie führen keine Duplikate per Kennzeichen oder E-Mail zusammen, sofern der Assistentsschritt kein Matching explizit anbietet — lesen Sie jeden Schritt, bevor Sie ausführen.
+</Warning>
+
+<AccordionGroup>
+  <Accordion title="Wer das nutzen darf">
+    Nur OWNER und ADMIN. Berater können den Tab auch mit direkter URL nicht öffnen.
+  </Accordion>
+</AccordionGroup>

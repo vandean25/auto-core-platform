@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import deSettings from '../../../../../locales/de/settings.json'
 import { WorkshopHoursSettingsTab } from './WorkshopHoursSettingsTab'
 
 const { mocks, defaultSettings, sampleHoliday } = vi.hoisted(() => {
@@ -130,17 +131,17 @@ describe('WorkshopHoursSettingsTab', () => {
   it('renders hours form and holiday actions for admins', () => {
     renderTab()
 
-    expect(screen.getByText('Workshop hours')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Save hours' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '+ Holiday' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Import public holidays' })).toBeInTheDocument()
-    expect(screen.getByLabelText('Timezone')).toHaveValue('Europe/Vienna')
+    expect(screen.getByText(deSettings.workshopHours.title)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: deSettings.workshopHours.saveHours })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: deSettings.workshopHours.holidays.createButton })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: deSettings.workshopHours.holidays.import })).toBeInTheDocument()
+    expect(screen.getByLabelText(deSettings.workshopHours.timezone)).toHaveValue('Europe/Vienna')
   })
 
   it('saves timezone and weekday hours for admins', async () => {
     renderTab()
 
-    fireEvent.change(screen.getByLabelText('Timezone'), {
+    fireEvent.change(screen.getByLabelText(deSettings.workshopHours.timezone), {
       target: { value: 'Europe/Berlin' },
     })
 
@@ -150,7 +151,7 @@ describe('WorkshopHoursSettingsTab', () => {
     fireEvent.change(timeInputs![0], { target: { value: '08:00:00' } })
     fireEvent.change(timeInputs![1], { target: { value: '16:00:00' } })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Save hours' }))
+    fireEvent.click(screen.getByRole('button', { name: deSettings.workshopHours.saveHours }))
 
     await waitFor(() => {
       expect(mocks.updateSettingsMutateAsync).toHaveBeenCalledWith(
@@ -172,26 +173,26 @@ describe('WorkshopHoursSettingsTab', () => {
     mocks.activeRole = 'SALES'
     renderTab()
 
-    expect(screen.queryByRole('button', { name: 'Save hours' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '+ Holiday' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Import public holidays' })).not.toBeInTheDocument()
-    expect(screen.getByLabelText('Timezone')).toBeDisabled()
+    expect(screen.queryByRole('button', { name: deSettings.workshopHours.saveHours })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: deSettings.workshopHours.holidays.createButton })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: deSettings.workshopHours.holidays.import })).not.toBeInTheDocument()
+    expect(screen.getByLabelText(deSettings.workshopHours.timezone)).toBeDisabled()
   })
 
   it('creates an annual holiday from the dialog', async () => {
     renderTab()
 
-    fireEvent.click(screen.getByRole('button', { name: '+ Holiday' }))
+    fireEvent.click(screen.getByRole('button', { name: deSettings.workshopHours.holidays.createButton }))
 
-    fireEvent.change(screen.getByLabelText('Name'), {
+    fireEvent.change(screen.getByLabelText(deSettings.workshopHours.holidayDialog.name), {
       target: { value: 'Company day' },
     })
-    fireEvent.change(screen.getByLabelText('Date'), {
+    fireEvent.change(screen.getByLabelText(deSettings.workshopHours.holidayDialog.date), {
       target: { value: '2026-08-15' },
     })
-    fireEvent.click(screen.getByLabelText('Repeats annually (same month and day)'))
+    fireEvent.click(screen.getByLabelText(deSettings.workshopHours.holidayDialog.repeatsAnnually))
 
-    fireEvent.click(screen.getByRole('button', { name: 'Create' }))
+    fireEvent.click(screen.getByRole('button', { name: deSettings.workshopHours.holidayDialog.create }))
 
     await waitFor(() => {
       expect(mocks.createHolidayMutateAsync).toHaveBeenCalledWith({
@@ -208,7 +209,7 @@ describe('WorkshopHoursSettingsTab', () => {
     renderTab()
 
     fireEvent.contextMenu(screen.getByText('Betriebsurlaub'))
-    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    fireEvent.click(screen.getByRole('button', { name: deSettings.workshopHours.holidays.delete }))
 
     await waitFor(() => {
       expect(mocks.deleteHolidayMutateAsync).toHaveBeenCalledWith('holiday-1')
@@ -218,7 +219,7 @@ describe('WorkshopHoursSettingsTab', () => {
   it('imports public holidays for admins', async () => {
     renderTab()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Import public holidays' }))
+    fireEvent.click(screen.getByRole('button', { name: deSettings.workshopHours.holidays.import }))
 
     await waitFor(() => {
       expect(mocks.importHolidaysMutateAsync).toHaveBeenCalledWith({})

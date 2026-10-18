@@ -1,6 +1,9 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import deSettings from "../../../../../../locales/de/settings.json";
 import { LetterheadImport } from "./LetterheadImport";
+
+const importCopy = deSettings.documentBranding.letterheadImport;
 
 const mocks = vi.hoisted(() => ({
   create: vi.fn(),
@@ -53,8 +56,8 @@ describe("LetterheadImport", () => {
       />,
     );
 
-    expect(screen.getByText(/configure the profile manually/i)).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Extract suggestions" })).toBeNull();
+    expect(screen.getByText(importCopy.unavailable)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: importCopy.extract })).toBeNull();
   });
 
   it("applies a successful proposal through the draft callback without confirming", async () => {
@@ -89,7 +92,7 @@ describe("LetterheadImport", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Use proposal in draft" }));
+    fireEvent.click(screen.getByRole("button", { name: importCopy.useProposal }));
 
     await waitFor(() =>
       expect(onApply).toHaveBeenCalledWith(theme, "extraction-1"),
@@ -115,10 +118,10 @@ describe("LetterheadImport", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Extract suggestions" }));
+    fireEvent.click(screen.getByRole("button", { name: importCopy.extract }));
     await waitFor(() => expect(mocks.pollingStates.at(-1)).toBe(true));
 
-    fireEvent.click(screen.getByRole("button", { name: "Discard extraction" }));
+    fireEvent.click(screen.getByRole("button", { name: importCopy.discardExtraction }));
 
     await waitFor(() => expect(mocks.discard).toHaveBeenCalledWith({
       legalEntityId: "entity-1",
@@ -126,7 +129,7 @@ describe("LetterheadImport", () => {
     }));
     await waitFor(() => expect(mocks.pollingStates.at(-1)).toBe(false));
     expect(
-      screen.getByRole("button", { name: "Extract suggestions" }).hasAttribute("disabled"),
+      screen.getByRole("button", { name: importCopy.extract }).hasAttribute("disabled"),
     ).toBe(false);
     expect(sessionStorage.getItem("acp.document-brand-extraction.entity-1")).toBe(
       "extraction-1",
@@ -172,8 +175,8 @@ describe("LetterheadImport", () => {
         enabled: false,
       }),
     );
-    expect(await screen.findByRole("button", { name: "Use proposal in draft" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Discard proposal" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: importCopy.useProposal })).toBeTruthy();
+    expect(screen.getByRole("button", { name: importCopy.discardProposal })).toBeTruthy();
     expect(mocks.pollingStates.at(-1)).toBe(false);
   });
 
@@ -248,9 +251,9 @@ describe("LetterheadImport", () => {
     });
 
     expect(mocks.pollingStates.at(-1)).toBe(false);
-    expect(screen.getByRole("button", { name: "Refresh extraction status" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: importCopy.refreshStatus })).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "Refresh extraction status" }));
+    fireEvent.click(screen.getByRole("button", { name: importCopy.refreshStatus }));
 
     expect(mocks.pollingStates.at(-1)).toBe(true);
 
@@ -259,7 +262,7 @@ describe("LetterheadImport", () => {
     });
 
     expect(mocks.pollingStates.at(-1)).toBe(false);
-    expect(screen.getByRole("button", { name: "Refresh extraction status" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: importCopy.refreshStatus })).toBeTruthy();
   });
 
   it("does not expose the previous entity's extraction after switching entities", async () => {
@@ -289,6 +292,6 @@ describe("LetterheadImport", () => {
       extractionId: "extraction-2",
       enabled: false,
     });
-    expect(screen.queryByText(/Extraction: succeeded/i)).toBeNull();
+    expect(screen.queryByText(importCopy.stateLine.replace("{{state}}", importCopy.states.SUCCEEDED))).toBeNull();
   });
 });

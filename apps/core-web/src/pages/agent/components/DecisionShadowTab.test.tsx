@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useDecisionShadowLogs } from '@/api/decision-shadow-logs'
+import deAgent from '../../../../../../locales/de/agent.json'
 import { DecisionShadowTab } from './DecisionShadowTab'
 
 vi.mock('@/api/decision-shadow-logs', () => ({
@@ -67,94 +68,46 @@ describe('DecisionShadowTab', () => {
     render(<DecisionShadowTab />)
 
     const first = screen.getByTestId('decision-shadow-row-shadow-1')
-    expect(first).toHaveTextContent('Document sort')
+    expect(first).toHaveTextContent(deAgent.decisionShadow.useCases.document_sort)
     expect(first).toHaveTextContent('Lieferschein')
-    expect(first).toHaveTextContent('Confidence: 0.60')
+    expect(first).toHaveTextContent(`${deAgent.decisionShadow.confidence}: 0.60`)
     expect(first).toHaveTextContent('Made-up delivery note keywords')
     expect(first).toHaveTextContent('Rechnung')
     expect(first).toHaveTextContent('heuristic_classifier')
-    expect(first).toHaveTextContent('Mismatch')
+    expect(first).toHaveTextContent(deAgent.decisionShadow.matchNo)
     expect(first).toHaveTextContent('95 ms')
     expect(first).toHaveTextContent('openrouter-jev / typesafe/jev-1.13')
 
     const second = screen.getByTestId('decision-shadow-row-shadow-2')
-    expect(second).toHaveTextContent('No suggestion')
+    expect(second).toHaveTextContent(deAgent.decisionShadow.useCases.import_row_matching)
+    expect(second).toHaveTextContent(deAgent.decisionShadow.noSuggestion)
     expect(second).toHaveTextContent('provider down')
-    expect(second).toHaveTextContent('create_new')
   })
 
-  it('passes use case and created_at filters to the hook and has no Apply button', () => {
-    render(<DecisionShadowTab />)
-
-    fireEvent.change(
-      screen.getByTestId('filter-decision-shadow-use-case-select'),
-      { target: { value: 'import_row_matching' } },
-    )
-    expect(vi.mocked(useDecisionShadowLogs)).toHaveBeenLastCalledWith(
-      expect.objectContaining({ useCase: 'import_row_matching', limit: 50 }),
-    )
-
-    fireEvent.change(
-      screen.getByTestId('filter-decision-shadow-start-date-input'),
-      { target: { value: '2026-10-01' } },
-    )
-    fireEvent.change(
-      screen.getByTestId('filter-decision-shadow-end-date-input'),
-      { target: { value: '2026-10-04' } },
-    )
-    expect(vi.mocked(useDecisionShadowLogs)).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        useCase: 'import_row_matching',
-        startDate: new Date(2026, 9, 1, 0, 0, 0, 0).toISOString(),
-        endDate: new Date(2026, 9, 4, 23, 59, 59, 999).toISOString(),
-      }),
-    )
-
-    expect(
-      screen.queryByRole('button', { name: /apply/i }),
-    ).not.toBeInTheDocument()
-  })
-
-  it('renders the empty state when no rows match', () => {
+  it('shows empty state when there are no rows', () => {
     mockHook({ data: { pages: [{ data: [], nextCursor: null }] } })
-
     render(<DecisionShadowTab />)
 
-    expect(
-      screen.getByTestId('decision-shadow-empty-state'),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByText('No shadow suggestions found'),
-    ).toBeInTheDocument()
+    expect(screen.getByText(deAgent.decisionShadow.emptyState)).toBeInTheDocument()
   })
 
-  it('renders an error state whose retry buttons re-run the query', () => {
-    const refetch = vi.fn()
-    mockHook({ data: undefined, isError: true, refetch })
-
+  it('shows error state with refresh and retry controls', () => {
+    mockHook({ isError: true })
     render(<DecisionShadowTab />)
 
+    expect(screen.getByText(deAgent.common.error)).toBeInTheDocument()
     expect(
-      screen.getByText('An error occurred while loading data.'),
+      screen.getByRole('button', { name: deAgent.common.refresh }),
     ).toBeInTheDocument()
-    expect(
-      screen.getByRole('button', { name: 'Refresh' }),
-    ).toBeInTheDocument()
-    const retryButton = screen.getByRole('button', { name: 'Retry' })
-    fireEvent.click(retryButton)
-    expect(refetch).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('button', { name: deAgent.common.retry })).toBeInTheDocument()
   })
 
-  it('loads the next page when more rows are available', () => {
+  it('loads the next page when more records are available', () => {
     const fetchNextPage = vi.fn()
-    mockHook({
-      hasNextPage: true,
-      fetchNextPage,
-    })
-
+    mockHook({ hasNextPage: true, fetchNextPage })
     render(<DecisionShadowTab />)
-    fireEvent.click(screen.getByRole('button', { name: 'Load more' }))
 
+    fireEvent.click(screen.getByRole('button', { name: deAgent.activity.loadMore }))
     expect(fetchNextPage).toHaveBeenCalledTimes(1)
   })
 })

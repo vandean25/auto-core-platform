@@ -1,6 +1,7 @@
 import { expectNoCriticalA11yViolations } from "./utils/a11y";
 import { test, expect } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
+import { DE_COMMON } from './helpers/de-common';
 import { createMockInventoryItem, createMockSalesOrder, createMockListResponse } from './utils/mock-factories';
 
 /**
@@ -71,8 +72,8 @@ test.describe('Blueprint: Dashboard Page', () => {
     await page.goto('/dashboard');
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
-    await expect(page.getByText('Build your command center from saved table filters.')).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: DE_COMMON.dashboard.title })).toBeVisible();
+    await expect(page.getByText(DE_COMMON.dashboard.description)).toBeVisible();
   });
 
   test('shows empty state when no widgets are saved', async ({ page }) => {
@@ -90,9 +91,7 @@ test.describe('Blueprint: Dashboard Page', () => {
     await page.waitForLoadState('networkidle');
 
     // Empty state message
-    await expect(
-      page.getByText('No widgets yet. Open a list view, apply filters, then click Add to dashboard.'),
-    ).toBeVisible();
+    await expect(page.getByText(DE_COMMON.dashboard.emptyWidgets)).toBeVisible();
   });
 
   test('renders a list widget with mocked inventory data', async ({ page }) => {
@@ -154,7 +153,7 @@ test.describe('Blueprint: Dashboard Page', () => {
     await expect(page.getByText('Total Sales Value')).toBeVisible();
 
     // Metric label
-    await expect(page.getByText('Summed Value')).toBeVisible();
+    await expect(page.getByText(DE_COMMON.dashboard.summedValue)).toBeVisible();
   });
 
   test('shows "No data for this widget." when API returns empty data', async ({ page }) => {
@@ -175,7 +174,7 @@ test.describe('Blueprint: Dashboard Page', () => {
     await page.waitForLoadState('networkidle');
 
     // Widget should show "No data for this widget."
-    await expect(page.getByText('No data for this widget.')).toBeVisible();
+    await expect(page.getByText(DE_COMMON.dashboard.noWidgetData)).toBeVisible();
   });
 
   test('removes a widget when the X button is clicked', async ({ page }) => {
@@ -199,13 +198,15 @@ test.describe('Blueprint: Dashboard Page', () => {
     await expect(page.getByText('Removable Widget')).toBeVisible();
 
     // Click the remove button
-    await page.getByRole('button', { name: 'Remove widget Removable Widget' }).click();
+    await page
+      .getByRole('button', {
+        name: DE_COMMON.dashboard.removeWidgetAria.replace('{{name}}', 'Removable Widget'),
+      })
+      .click();
 
     // Widget should disappear, empty state should appear
     await expect(page.getByText('Removable Widget')).not.toBeVisible();
-    await expect(
-      page.getByText('No widgets yet. Open a list view, apply filters, then click Add to dashboard.'),
-    ).toBeVisible();
+    await expect(page.getByText(DE_COMMON.dashboard.emptyWidgets)).toBeVisible();
   });
 
   test('renders multiple widgets in the grid', async ({ page }) => {

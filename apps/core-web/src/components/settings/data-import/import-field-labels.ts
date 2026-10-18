@@ -150,6 +150,102 @@ export const VEHICLE_IMPORT_FIELDS: ImportFieldDefinition[] = [
   },
 ]
 
+export const LABOR_OPERATION_IMPORT_FIELDS: ImportFieldDefinition[] = [
+  {
+    key: 'external_id',
+    required: true,
+    headerAliases: [
+      'arbeitswert-nr',
+      'arbeitswertnr',
+      'labor operation no',
+      'labor operation number',
+      'external id',
+      'external_id',
+    ],
+  },
+  {
+    key: 'code',
+    required: true,
+    headerAliases: ['aw-code', 'aw code', 'code', 'arbeitswert', 'labor code'],
+  },
+  {
+    key: 'description',
+    required: true,
+    headerAliases: ['beschreibung', 'description', 'bezeichnung'],
+  },
+  {
+    key: 'standard_aw',
+    required: true,
+    headerAliases: ['aw', 'standard aw', 'standard_aw', 'arbeitswert aw'],
+  },
+  {
+    key: 'hourly_rate',
+    required: true,
+    headerAliases: [
+      'stundensatz',
+      'hourly rate',
+      'hourly_rate',
+      'verrechnungssatz',
+      'vk stundensatz',
+    ],
+  },
+  {
+    key: 'internal_cost',
+    required: false,
+    headerAliases: [
+      'interner kostensatz',
+      'internal cost',
+      'internal_cost',
+      'ek stundensatz',
+    ],
+  },
+  {
+    key: 'category_name',
+    required: false,
+    headerAliases: ['kategorie', 'category', 'category name', 'category_name'],
+  },
+  {
+    key: 'fitment_make',
+    required: false,
+    headerAliases: ['marke', 'make', 'fitment make', 'fitment_make'],
+  },
+  {
+    key: 'fitment_model',
+    required: false,
+    headerAliases: ['modell', 'model', 'fitment model', 'fitment_model'],
+  },
+  {
+    key: 'fitment_year_from',
+    required: false,
+    headerAliases: [
+      'baujahr von',
+      'year from',
+      'fitment year from',
+      'fitment_year_from',
+    ],
+  },
+  {
+    key: 'fitment_year_to',
+    required: false,
+    headerAliases: [
+      'baujahr bis',
+      'year to',
+      'fitment year to',
+      'fitment_year_to',
+    ],
+  },
+  {
+    key: 'fitment_engine_code',
+    required: false,
+    headerAliases: [
+      'motorcode',
+      'engine code',
+      'fitment engine code',
+      'fitment_engine_code',
+    ],
+  },
+]
+
 export const SUPPLIER_PRICE_LIST_IMPORT_FIELDS: ImportFieldDefinition[] = [
   {
     key: 'supplier_article_no',
@@ -243,6 +339,9 @@ export function getImportFieldsForEntity(entityType: ImportEntityTypeUi): Import
   if (entityType === 'SUPPLIER_PRICE_LIST') {
     return SUPPLIER_PRICE_LIST_IMPORT_FIELDS
   }
+  if (entityType === 'LABOR_OPERATION') {
+    return LABOR_OPERATION_IMPORT_FIELDS
+  }
   return CUSTOMER_IMPORT_FIELDS
 }
 
@@ -259,9 +358,4 @@ export function importFieldHeaderLabelCandidates(
   const deFields = deEnums.importField[segment] as Record<string, string>
   const enFields = enEnums.importField[segment] as Record<string, string>
   return [deFields[fieldKey], enFields[fieldKey]]
-}
-
-/** @deprecated Bilingual UI copy outside the import field enum maps; migrate callers to `t()`. */
-export function bilingualLabel(english: string, german: string): string {
-  return `${english} / ${german}`
 }

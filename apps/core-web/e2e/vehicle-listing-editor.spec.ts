@@ -220,8 +220,8 @@ test.describe('Vehicle listing editor', () => {
         req.url().includes(`/api/vehicle-stock/${VEHICLE_ID}/listing`) &&
         req.postDataJSON()?.expected_revision === 2,
     );
-    await corePage.waitForAutoSave();
     await patchRequest;
+    await expect(page.getByText(/gespeichert/i)).toBeVisible({ timeout: 10_000 });
 
     await page.getByRole('tab', { name: 'MOBILE.DE' }).click();
     await expect(page.getByRole('tabpanel')).toContainText(

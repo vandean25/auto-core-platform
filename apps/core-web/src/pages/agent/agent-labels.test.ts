@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
 
+import deAgent from '../../../../../locales/de/agent.json'
 import { i18n } from '@/lib/i18n'
 import {
   resolveActivityAgentName,
@@ -58,7 +59,7 @@ describe('resolveUserId', () => {
 })
 
 describe('resolveDecidedByLabel', () => {
-  const unknownUser = 'Unknown user'
+  const unknownUser = deAgent.common.unknownUser
 
   it('shows the person name', () => {
     expect(

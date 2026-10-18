@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as publicApi from '@/api/public-estimate-approvals'
 import type { PublicEstimateView } from '@/api/public-estimate-approvals'
+import { changeUiLanguage, ensureNamespaceLoaded, i18n } from '@/lib/i18n'
 import { PublicEstimateApprovalPage } from './PublicEstimateApprovalPage'
 import { readApprovalToken } from './PublicEstimateApprovalRoot'
 
@@ -87,6 +88,30 @@ afterEach(() => {
 })
 
 describe('PublicEstimateApprovalPage', () => {
+  it('loads the lazy workshop namespace and renders German copy instead of raw i18n keys', async () => {
+    i18n.removeResourceBundle('de', 'workshop')
+    asMock(publicApi.fetchPublicEstimate).mockResolvedValue(VIEW)
+
+    render(<PublicEstimateApprovalPage token='tok-1' />)
+
+    await screen.findByRole('heading', { name: /Kostenvoranschlag KV-2026-0001/ })
+    expect(document.body.textContent).not.toMatch(/publicEstimateApproval\./)
+    expect(screen.getByText(/Gültig bis 24\.10\.2026, 10:05 Uhr/)).toBeTruthy()
+
+    await ensureNamespaceLoaded('workshop')
+  })
+
+  it('formats validity without a German Uhr suffix in English', async () => {
+    await changeUiLanguage('en')
+    await ensureNamespaceLoaded('workshop')
+    asMock(publicApi.fetchPublicEstimate).mockResolvedValue(VIEW)
+
+    render(<PublicEstimateApprovalPage token='tok-1' />)
+
+    const validUntil = await screen.findByText(/Valid until 24\.10\.2026, 10:05/)
+    expect(validUntil.textContent).not.toMatch(/Uhr/)
+  })
+
   it('reads the token from the path after /approve/', () => {
     expect(readApprovalToken('/approve/abc%20d')).toBe('abc d')
     expect(readApprovalToken('/approve/abc/extra')).toBe('abc')

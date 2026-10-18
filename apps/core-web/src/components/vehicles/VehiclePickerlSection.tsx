@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import type { components } from '@/api/generated/openapi'
 import { useOpenPickerlWorkshopOrder } from '@/api/vehicles'
 import { useAuthSession } from '@/api/auth-session'
@@ -27,18 +28,12 @@ type VehiclePickerlSectionProps = {
   pickerlDue?: PickerlDue | null
 }
 
-function formatDueMonth(dueMonth: string | null | undefined) {
-  if (!dueMonth) {
-    return 'Unbekannt'
-  }
-  const [year, month] = dueMonth.split('-')
-  return `${month}/${year}`
-}
-
 export function VehiclePickerlSection({
   vehicleId,
   pickerlDue,
 }: VehiclePickerlSectionProps) {
+  const { t } = useTranslation('vehicles')
+  const emDash = t('shared.emDash')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [intakeOpen, setIntakeOpen] = useState(false)
@@ -53,19 +48,27 @@ export function VehiclePickerlSection({
     (warning) => warning.code === 'NO_INSPECTION_RECORDS',
   )
 
+  function formatDueMonth(dueMonth: string | null | undefined) {
+    if (!dueMonth) {
+      return t('pickerlSection.unknownMonth')
+    }
+    const [year, month] = dueMonth.split('-')
+    return `${month}/${year}`
+  }
+
   return (
     <div className='pt-4 border-t space-y-3'>
       <div className='flex items-start justify-between gap-2'>
         <div>
-          <div className='text-sm font-medium'>Pickerl (§57a)</div>
+          <div className='text-sm font-medium'>{t('pickerlSection.title')}</div>
           <div className='text-xs text-muted-foreground'>
-            Fälligkeit aus Erstzulassung und erfassten Begutachtungen
+            {t('pickerlSection.subtitle')}
           </div>
         </div>
         <div className='flex gap-2'>
           {canRecord ? (
             <Button size='sm' onClick={() => setDialogOpen(true)}>
-              Pickerl erfasst
+              {t('pickerlSection.recordPickerl')}
             </Button>
           ) : null}
           {canRecord && primaryConnectionId ? (
@@ -74,12 +77,12 @@ export function VehiclePickerlSection({
               variant='outline'
               onClick={() => setImportOpen(true)}
             >
-              Begutachtung importieren
+              {t('pickerlSection.importInspection')}
             </Button>
           ) : null}
           {canRecord && openOrderQuery.data ? (
             <Button size='sm' variant='outline' onClick={() => navigate(`/workshop/orders/${openOrderQuery.data?.id}`)}>
-              §57a-Auftrag öffnen
+              {t('pickerlSection.openOrder')}
             </Button>
           ) : canRecord ? (
             <Button
@@ -88,14 +91,16 @@ export function VehiclePickerlSection({
               disabled={openOrderQuery.isLoading || openOrderQuery.isError || openOrderQuery.data !== null}
               onClick={() => setIntakeOpen(true)}
             >
-              {openOrderQuery.isLoading || openOrderQuery.isError ? 'Auftrag prüfen…' : '§57a-Auftrag anlegen'}
+              {openOrderQuery.isLoading || openOrderQuery.isError
+                ? t('pickerlSection.checkingOrder')
+                : t('pickerlSection.createOrder')}
             </Button>
           ) : null}
         </div>
       </div>
 
       <div className='flex flex-wrap items-center gap-2 text-sm'>
-        <span className='text-muted-foreground'>Fällig:</span>
+        <span className='text-muted-foreground'>{t('pickerlSection.dueLabel')}</span>
         <span className='font-medium'>{formatDueMonth(pickerlDue?.due_month)}</span>
         {pickerlDue?.status ? (
           <StatusBadge status={pickerlDue.status} />
@@ -105,8 +110,8 @@ export function VehiclePickerlSection({
       {pickerlDue?.status === 'UNKNOWN' ? (
         <p className='text-xs text-muted-foreground'>
           {hasNoInspectionRecordsWarning
-            ? 'Keine Begutachtung erfasst — bitte letzte Plakette erfassen.'
-            : 'Erstzulassung fehlt — Fälligkeit kann nicht berechnet werden.'}
+            ? t('pickerlSection.noInspectionRecorded')
+            : t('pickerlSection.missingFirstRegistration')}
         </p>
       ) : null}
 
@@ -121,23 +126,23 @@ export function VehiclePickerlSection({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Begutachtet</TableHead>
-            <TableHead>Plakette</TableHead>
-            <TableHead>Quelle</TableHead>
-            <TableHead>Prüfstelle</TableHead>
+            <TableHead>{t('pickerlSection.columns.inspected')}</TableHead>
+            <TableHead>{t('pickerlSection.columns.sticker')}</TableHead>
+            <TableHead>{t('pickerlSection.columns.source')}</TableHead>
+            <TableHead>{t('pickerlSection.columns.station')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {isLoading ? (
             <TableRow>
               <TableCell colSpan={4} className='text-muted-foreground'>
-                Laden…
+                {t('pickerlSection.loading')}
               </TableCell>
             </TableRow>
           ) : records.length === 0 ? (
             <TableRow>
               <TableCell colSpan={4} className='text-muted-foreground'>
-                Noch keine Begutachtung erfasst.
+                {t('pickerlSection.empty')}
               </TableCell>
             </TableRow>
           ) : (
@@ -153,9 +158,11 @@ export function VehiclePickerlSection({
                   {record.plaketten_valid_until_year}
                 </TableCell>
                 <TableCell>
-                  {record.source === 'EBV_IMPORTED' ? 'EBV importiert' : 'Manuell'}
+                  {record.source === 'EBV_IMPORTED'
+                    ? t('pickerlSection.sourceEbv')
+                    : t('pickerlSection.sourceManual')}
                 </TableCell>
-                <TableCell>{record.station_name ?? '—'}</TableCell>
+                <TableCell>{record.station_name ?? emDash}</TableCell>
               </TableRow>
             ))
           )}

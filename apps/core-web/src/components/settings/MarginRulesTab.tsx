@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { AlertCircle, ArrowDown, ArrowUp, Edit2, Loader2, Plus, Trash2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import type {
@@ -58,14 +59,14 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { getErrorMessage } from '@/lib/error-utils'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatPercent } from '@/lib/format'
 
-const ROUNDING_LABELS: Record<MarginRoundingStrategy, string> = {
-  NONE: 'Keine Rundung',
-  ROUND_90: 'Auf .90',
-  ROUND_99: 'Auf .99',
-  WHOLE_EURO: 'Voller Euro',
-}
+const ROUNDING_STRATEGIES: readonly MarginRoundingStrategy[] = [
+  'NONE',
+  'ROUND_90',
+  'ROUND_99',
+  'WHOLE_EURO',
+]
 
 interface RuleFormData {
   name: string
@@ -94,6 +95,7 @@ const DEFAULT_FORM_DATA: RuleFormData = {
 }
 
 export function MarginRulesTab() {
+  const { t } = useTranslation(['settings', 'common'])
   const { data: rules = [], isLoading: isLoadingRules } = useMarginRules()
   const { data: thresholdData } = usePriceJumpThreshold()
   const { data: brands = [] } = useBrands()
@@ -153,16 +155,16 @@ export function MarginRulesTab() {
       await updateThreshold.mutateAsync({
         threshold_percent: thresholdInput,
       })
-      toast.success('Schwellenwert für Preissprünge aktualisiert')
+      toast.success(t('marginRules.priceJump.toastUpdated'))
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Fehler beim Speichern des Schwellenwerts'))
+      toast.error(getErrorMessage(error, t('marginRules.priceJump.toastSaveFailed')))
     }
   }
 
   const handleSubmitRule = async (event: React.FormEvent) => {
     event.preventDefault()
     if (!formData.name.trim()) {
-      toast.error('Bitte geben Sie eine Bezeichnung ein')
+      toast.error(t('marginRules.toast.nameRequired'))
       return
     }
 
@@ -171,12 +173,12 @@ export function MarginRulesTab() {
       formData.cost_max != null &&
       formData.cost_min > formData.cost_max
     ) {
-      toast.error('Mindest-Einkaufspreis darf nicht größer als Höchst-Einkaufspreis sein')
+      toast.error(t('marginRules.toast.costRangeInvalid'))
       return
     }
 
     if (formData.markup_percent != null && formData.markup_percent < 0) {
-      toast.error('Aufschlag darf nicht negativ sein')
+      toast.error(t('marginRules.toast.markupNegative'))
       return
     }
 
@@ -195,7 +197,7 @@ export function MarginRulesTab() {
           is_active: formData.is_active,
         }
         await updateRule.mutateAsync({ id: editingRule.id, data: payload })
-        toast.success('Margenregel aktualisiert')
+        toast.success(t('marginRules.toast.updated'))
       } else {
         const payload: CreateMarginRulePayload = {
           name: formData.name.trim(),
@@ -210,11 +212,11 @@ export function MarginRulesTab() {
           is_active: formData.is_active,
         }
         await createRule.mutateAsync(payload)
-        toast.success('Margenregel angelegt')
+        toast.success(t('marginRules.toast.created'))
       }
       setDialogOpen(false)
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Fehler beim Speichern der Margenregel'))
+      toast.error(getErrorMessage(error, t('marginRules.toast.saveFailed')))
     }
   }
 
@@ -222,10 +224,10 @@ export function MarginRulesTab() {
     if (!deleteCandidate) return
     try {
       await deleteRule.mutateAsync(deleteCandidate.id)
-      toast.success('Margenregel gelöscht')
+      toast.success(t('marginRules.toast.deleted'))
       setDeleteCandidate(null)
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Fehler beim Löschen der Margenregel'))
+      toast.error(getErrorMessage(error, t('marginRules.toast.deleteFailed')))
     }
   }
 
@@ -234,43 +236,46 @@ export function MarginRulesTab() {
     const numMax = max != null ? Number(max) : null
 
     if (numMin != null && numMax != null) {
-      return `${formatCurrency(numMin)} – ${formatCurrency(numMax)}`
+      return t('marginRules.costRange.between', {
+        min: formatCurrency(numMin),
+        max: formatCurrency(numMax),
+      })
     }
     if (numMin != null) {
-      return `ab ${formatCurrency(numMin)}`
+      return t('marginRules.costRange.from', { amount: formatCurrency(numMin) })
     }
     if (numMax != null) {
-      return `bis ${formatCurrency(numMax)}`
+      return t('marginRules.costRange.to', { amount: formatCurrency(numMax) })
     }
-    return 'Alle'
+    return t('marginRules.costRange.all')
   }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-xl font-semibold tracking-tight">Margenregeln</h2>
+          <h2 className="text-xl font-semibold tracking-tight">{t('marginRules.title')}</h2>
           <p className="text-sm text-slate-500">
-            Regeln zur automatischen Berechnung von Verkaufspreisen basierend auf Einkaufspreisen, Marken und Erlösgruppen.
+            {t('marginRules.description')}
           </p>
         </div>
         <Button onClick={openCreateDialog} className="self-start sm:self-auto">
           <Plus className="mr-2 h-4 w-4" />
-          + Margenregel
+          {t('marginRules.createButton')}
         </Button>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle as="h3" className="text-base font-medium">Schwellenwert für Preissprünge</CardTitle>
+          <CardTitle as="h3" className="text-base font-medium">{t('marginRules.priceJump.title')}</CardTitle>
           <CardDescription>
-            Definiert den maximalen prozentualen Preissprung vor Warnung und Genehmigungserfordernis beim Preislistenimport.
+            {t('marginRules.priceJump.description')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end max-w-md">
             <div className="space-y-2 flex-1">
-              <Label htmlFor="price-jump-threshold">Schwellenwert (%)</Label>
+              <Label htmlFor="price-jump-threshold">{t('marginRules.priceJump.label')}</Label>
               <Input
                 id="price-jump-threshold"
                 type="number"
@@ -289,7 +294,7 @@ export function MarginRulesTab() {
               {updateThreshold.isPending ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : null}
-              Schwellenwert speichern
+              {t('marginRules.priceJump.save')}
             </Button>
           </div>
         </CardContent>
@@ -297,9 +302,9 @@ export function MarginRulesTab() {
 
       <Card>
         <CardHeader>
-          <CardTitle as="h3" className="text-base font-medium">Aktive Regeln</CardTitle>
+          <CardTitle as="h3" className="text-base font-medium">{t('marginRules.activeRules.title')}</CardTitle>
           <CardDescription>
-            Regeln werden von oben nach unten (niedrigste Priorität zuerst) ausgewertet. Die erste passende Regel greift.
+            {t('marginRules.activeRules.description')}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
@@ -314,9 +319,9 @@ export function MarginRulesTab() {
                       onClick={() =>
                         setPrioritySortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))
                       }
-                      aria-label="Priorität sortieren"
+                      aria-label={t('marginRules.columns.sortPriorityAria')}
                     >
-                      <span>Prio</span>
+                      <span>{t('marginRules.columns.priority')}</span>
                       {prioritySortOrder === 'asc' ? (
                         <ArrowUp className="h-3.5 w-3.5" />
                       ) : (
@@ -324,15 +329,15 @@ export function MarginRulesTab() {
                       )}
                     </button>
                   </TableHead>
-                  <TableHead>Bezeichnung</TableHead>
-                  <TableHead>Marke</TableHead>
-                  <TableHead>Erlösgruppe</TableHead>
-                  <TableHead>EK-Bereich</TableHead>
-                  <TableHead>Aufschlag</TableHead>
-                  <TableHead>UVP verwenden</TableHead>
-                  <TableHead>Rundung</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Aktionen</TableHead>
+                  <TableHead>{t('marginRules.columns.name')}</TableHead>
+                  <TableHead>{t('marginRules.columns.brand')}</TableHead>
+                  <TableHead>{t('marginRules.columns.revenueGroup')}</TableHead>
+                  <TableHead>{t('marginRules.columns.costRange')}</TableHead>
+                  <TableHead>{t('marginRules.columns.markup')}</TableHead>
+                  <TableHead>{t('marginRules.columns.useRrp')}</TableHead>
+                  <TableHead>{t('marginRules.columns.rounding')}</TableHead>
+                  <TableHead>{t('marginRules.columns.status')}</TableHead>
+                  <TableHead className="text-right">{t('marginRules.columns.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -340,13 +345,13 @@ export function MarginRulesTab() {
                   <TableRow>
                     <TableCell colSpan={10} className="text-center py-6 text-muted-foreground">
                       <Loader2 className="h-5 w-5 animate-spin inline mr-2" />
-                      Lade Margenregeln…
+                      {t('marginRules.loading')}
                     </TableCell>
                   </TableRow>
                 ) : sortedRules.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={10} className="text-center py-6 text-muted-foreground">
-                      Keine Margenregeln definiert. Erstellen Sie eine neue Regel mit &quot;+ Margenregel&quot;.
+                      {t('marginRules.empty')}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -357,13 +362,13 @@ export function MarginRulesTab() {
                       <TableCell>{rule.brand?.name || '—'}</TableCell>
                       <TableCell>{rule.revenue_group?.name || '—'}</TableCell>
                       <TableCell>{formatCostRange(rule.cost_min, rule.cost_max)}</TableCell>
-                      <TableCell>{rule.markup_percent != null ? `${Number(rule.markup_percent)} %` : '—'}</TableCell>
-                      <TableCell>{rule.use_supplier_rrp ? 'Ja' : 'Nein'}</TableCell>
-                      <TableCell>{ROUNDING_LABELS[rule.rounding] || rule.rounding}</TableCell>
+                      <TableCell>{rule.markup_percent != null ? formatPercent(Number(rule.markup_percent), { maximumFractionDigits: 2 }) : '—'}</TableCell>
+                      <TableCell>{rule.use_supplier_rrp ? t('marginRules.yes') : t('marginRules.no')}</TableCell>
+                      <TableCell>{t(`marginRules.roundingShort.${rule.rounding}`, { defaultValue: rule.rounding })}</TableCell>
                       <TableCell>
                         <StatusBadge
                           status={rule.is_active ? 'ACTIVE' : 'INACTIVE'}
-                          label={rule.is_active ? 'Aktiv' : 'Inaktiv'}
+                          label={rule.is_active ? t('marginRules.status.active') : t('marginRules.status.inactive')}
                         />
                       </TableCell>
                       <TableCell className="text-right">
@@ -372,7 +377,7 @@ export function MarginRulesTab() {
                             variant="ghost"
                             size="icon"
                             onClick={() => openEditDialog(rule)}
-                            aria-label={`Bearbeiten ${rule.name}`}
+                            aria-label={t('marginRules.editAria', { name: rule.name })}
                           >
                             <Edit2 className="h-4 w-4" />
                           </Button>
@@ -381,7 +386,7 @@ export function MarginRulesTab() {
                             size="icon"
                             className="text-red-600 hover:text-red-700 hover:bg-red-50"
                             onClick={() => setDeleteCandidate(rule)}
-                            aria-label={`Löschen ${rule.name}`}
+                            aria-label={t('marginRules.deleteAria', { name: rule.name })}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -401,28 +406,28 @@ export function MarginRulesTab() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {editingRule ? 'Margenregel bearbeiten' : 'Neue Margenregel anlegen'}
+              {editingRule ? t('marginRules.dialog.editTitle') : t('marginRules.dialog.createTitle')}
             </DialogTitle>
             <DialogDescription>
-              Legen Sie Bedingungen und Margenaufschläge für diese Regel fest.
+              {t('marginRules.dialog.description')}
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSubmitRule} noValidate className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="rule-name">Bezeichnung *</Label>
+              <Label htmlFor="rule-name">{t('marginRules.form.name')}</Label>
               <Input
                 id="rule-name"
                 value={formData.name}
                 onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
-                placeholder="z.B. Bosch Verschleißteile"
+                placeholder={t('marginRules.form.namePlaceholder')}
                 required
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="rule-priority">Priorität</Label>
+                <Label htmlFor="rule-priority">{t('marginRules.form.priority')}</Label>
                 <Input
                   id="rule-priority"
                   type="number"
@@ -434,7 +439,7 @@ export function MarginRulesTab() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="rule-markup">Aufschlag (%)</Label>
+                <Label htmlFor="rule-markup">{t('marginRules.form.markup')}</Label>
                 <Input
                   id="rule-markup"
                   type="number"
@@ -447,14 +452,14 @@ export function MarginRulesTab() {
                       markup_percent: e.target.value === '' ? null : Number(e.target.value),
                     }))
                   }
-                  placeholder="z.B. 35"
+                  placeholder={t('marginRules.form.markupPlaceholder')}
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="rule-brand">Marke (optional)</Label>
+                <Label htmlFor="rule-brand">{t('marginRules.form.brand')}</Label>
                 <Select
                   value={formData.brand_id ? String(formData.brand_id) : '__none__'}
                   onValueChange={(val) =>
@@ -465,10 +470,10 @@ export function MarginRulesTab() {
                   }
                 >
                   <SelectTrigger id="rule-brand">
-                    <SelectValue placeholder="Alle Marken" />
+                    <SelectValue placeholder={t('marginRules.form.allBrands')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__none__">Alle Marken</SelectItem>
+                    <SelectItem value="__none__">{t('marginRules.form.allBrands')}</SelectItem>
                     {brands.map((b) => (
                       <SelectItem key={b.id} value={String(b.id)}>
                         {b.name}
@@ -479,7 +484,7 @@ export function MarginRulesTab() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="rule-revenue-group">Erlösgruppe (optional)</Label>
+                <Label htmlFor="rule-revenue-group">{t('marginRules.form.revenueGroup')}</Label>
                 <Select
                   value={
                     formData.revenue_group_id ? String(formData.revenue_group_id) : '__none__'
@@ -492,10 +497,10 @@ export function MarginRulesTab() {
                   }
                 >
                   <SelectTrigger id="rule-revenue-group">
-                    <SelectValue placeholder="Alle Erlösgruppen" />
+                    <SelectValue placeholder={t('marginRules.form.allRevenueGroups')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__none__">Alle Erlösgruppen</SelectItem>
+                    <SelectItem value="__none__">{t('marginRules.form.allRevenueGroups')}</SelectItem>
                     {revenueGroups.map((rg) => (
                       <SelectItem key={rg.id} value={String(rg.id)}>
                         {rg.name}
@@ -508,7 +513,7 @@ export function MarginRulesTab() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="rule-cost-min">Min. Einkaufspreis (€)</Label>
+                <Label htmlFor="rule-cost-min">{t('marginRules.form.costMin')}</Label>
                 <Input
                   id="rule-cost-min"
                   type="number"
@@ -526,7 +531,7 @@ export function MarginRulesTab() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="rule-cost-max">Max. Einkaufspreis (€)</Label>
+                <Label htmlFor="rule-cost-max">{t('marginRules.form.costMax')}</Label>
                 <Input
                   id="rule-cost-max"
                   type="number"
@@ -545,7 +550,7 @@ export function MarginRulesTab() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="rule-rounding">Rundungsstrategie</Label>
+              <Label htmlFor="rule-rounding">{t('marginRules.form.rounding')}</Label>
               <Select
                 value={formData.rounding}
                 onValueChange={(val) =>
@@ -559,10 +564,11 @@ export function MarginRulesTab() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="NONE">Keine Rundung</SelectItem>
-                  <SelectItem value="ROUND_90">Auf .90 runden</SelectItem>
-                  <SelectItem value="ROUND_99">Auf .99 runden</SelectItem>
-                  <SelectItem value="WHOLE_EURO">Auf vollen Euro runden</SelectItem>
+                  {ROUNDING_STRATEGIES.map((strategy) => (
+                    <SelectItem key={strategy} value={strategy}>
+                      {t(`marginRules.rounding.${strategy}`)}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -577,7 +583,7 @@ export function MarginRulesTab() {
                   }
                 />
                 <Label htmlFor="rule-use-rrp" className="font-normal cursor-pointer">
-                  UVP des Lieferanten bevorzugen (falls vorhanden)
+                  {t('marginRules.form.useSupplierRrp')}
                 </Label>
               </div>
 
@@ -590,14 +596,14 @@ export function MarginRulesTab() {
                   }
                 />
                 <Label htmlFor="rule-active" className="font-normal cursor-pointer">
-                  Margenregel aktiv
+                  {t('marginRules.form.active')}
                 </Label>
               </div>
             </div>
 
             <DialogFooter className="pt-4">
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                Abbrechen
+                {t('common:actions.cancel')}
               </Button>
               <Button
                 type="submit"
@@ -606,7 +612,7 @@ export function MarginRulesTab() {
                 {createRule.isPending || updateRule.isPending ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : null}
-                {editingRule ? 'Änderungen speichern' : 'Regel erstellen'}
+                {editingRule ? t('marginRules.form.saveChanges') : t('marginRules.form.create')}
               </Button>
             </DialogFooter>
           </form>
@@ -622,14 +628,14 @@ export function MarginRulesTab() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <AlertCircle className="h-5 w-5 text-red-600" />
-              Margenregel wirklich löschen?
+              {t('marginRules.delete.title')}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Möchten Sie die Margenregel &quot;{deleteCandidate?.name}&quot; wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.
+              {t('marginRules.delete.description', { name: deleteCandidate?.name ?? '' })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogCancel>{t('common:actions.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-red-600 hover:bg-red-700"
               disabled={deleteRule.isPending}
@@ -641,7 +647,7 @@ export function MarginRulesTab() {
               {deleteRule.isPending ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : null}
-              Löschen bestätigen
+              {t('marginRules.delete.confirm')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

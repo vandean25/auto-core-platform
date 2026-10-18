@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   CUSTOMER_IMPORT_FIELDS,
+  LABOR_OPERATION_IMPORT_FIELDS,
   SUPPLIER_PRICE_LIST_IMPORT_FIELDS,
   VEHICLE_IMPORT_FIELDS,
 } from './import-field-labels'
@@ -52,6 +53,33 @@ describe('import mapping suggest', () => {
 
     expect(mapping.owner_customer_external_id).toBe('Owner customer number')
     expect(mapping.external_id).toBe('Vehicle number')
+  })
+
+  it('auto-suggests labor operation columns from German labor CSV', () => {
+    const mapping = suggestColumnMapping(
+      [
+        'Arbeitswert-Nr',
+        'AW-Code',
+        'Beschreibung',
+        'AW',
+        'Stundensatz',
+        'Kategorie',
+        'Marke',
+        'Modell',
+      ],
+      'LABOR_OPERATION',
+      LABOR_OPERATION_IMPORT_FIELDS,
+    )
+    expect(mapping).toEqual({
+      external_id: 'Arbeitswert-Nr',
+      code: 'AW-Code',
+      description: 'Beschreibung',
+      standard_aw: 'AW',
+      hourly_rate: 'Stundensatz',
+      category_name: 'Kategorie',
+      fitment_make: 'Marke',
+      fitment_model: 'Modell',
+    })
   })
 
   it('auto-suggests supplier price list columns from German supplier CSV', () => {

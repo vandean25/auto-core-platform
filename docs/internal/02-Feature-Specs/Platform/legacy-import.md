@@ -2,7 +2,7 @@
 
 ## Summary
 
-OWNER/ADMIN tenants can use **Settings → Data import** to upload legacy DMS CSV exports for **customers** and **vehicles**, map columns, run a synchronous **dry-run**, review per-row actions, and **apply** results idempotently. External IDs from the source system are stored in `external_id_mappings` for reconciliation.
+OWNER/ADMIN tenants can use **Settings → Data import** to upload legacy DMS CSV exports for **customers**, **vehicles**, **supplier price lists**, and **labor operations (Arbeitswerte)**, map columns, run a synchronous **dry-run**, review per-row actions, and **apply** results idempotently. External IDs from the source system are stored in `external_id_mappings` for reconciliation.
 
 ## Settings UI
 
@@ -15,6 +15,13 @@ The shipped five-step wizard is available to users who can manage team settings:
 5. Apply the dry-run after reviewing the result.
 
 The wizard can download entity templates and error-row CSVs. Marketing-consent columns are ignored by the import engine and reported as warnings.
+
+### Labor operations (`LABOR_OPERATION`)
+
+- Template columns (German headers): Arbeitswert-Nr, AW-Code, Beschreibung, AW, Stundensatz, optional internal cost, category name, and optional vehicle fitment (make, model, year from/to, engine code).
+- Unknown category names import with `category_id = null` and a dry-run warning.
+- Duplicate **code** within the file is an error; duplicate **code** in the tenant follows `update_existing` (update vs skip) like other entity types.
+- Apply writes `LaborOperation` rows and optional `LaborFitment` rows; external IDs map through `external_id_mappings`.
 
 ## API (`/api/imports`)
 
@@ -34,6 +41,7 @@ The wizard can download entity templates and error-row CSVs. Marketing-consent c
 - `fill_empty_only` (default `false`)
 - `allow_missing_vin` (vehicles)
 - `invalid_vat_as_error` (customers)
+- Supplier price list options (`vendor_id`, price-jump acceptance) apply only to `SUPPLIER_PRICE_LIST`.
 
 ## Follow-ups
 
@@ -42,4 +50,4 @@ The wizard can download entity templates and error-row CSVs. Marketing-consent c
 
 ## Release notes
 
-Expand-only migration adds `import_jobs`, `import_job_rows`, and `external_id_mappings`. No changes to `customers` / `vehicles` columns.
+Expand-only migration adds `import_jobs`, `import_job_rows`, and `external_id_mappings`, and extends `ImportEntityType` with `LABOR_OPERATION`. No changes to `customers` / `vehicles` columns beyond mapping usage.

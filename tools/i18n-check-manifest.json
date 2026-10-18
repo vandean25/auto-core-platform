@@ -13,7 +13,19 @@
     "enums:attendanceEventType.",
     "enums:attendanceSource.",
     "hr:workSchedule.weekdays.",
-    "hr:employees.roles."
+    "hr:employees.roles.",
+    "settings:apiKeys.scopes.",
+    "settings:marginRules.rounding.",
+    "settings:marginRules.roundingShort.",
+    "settings:storageLocations.types.",
+    "settings:workshopHours.weekdays.",
+    "settings:documentBranding.letterheadImport.states."
   ],
-  "usedKeys": []
+  "usedKeys": [
+    "settings:accountingExport.header.description",
+    "settings:accountingExport.header.selected",
+    "settings:accountingExport.header.selectedPeriod",
+    "settings:labor.categories.deleteDialog.description",
+    "settings:labor.categories.editDialog.description"
+  ]
 }

@@ -1,124 +1,124 @@
 ---
-title: "Finance"
-description: "Set the fiscal lock date, the invoice numbering fields, and check which documents are ready for accounting export."
+title: "Finanzen"
+description: "Sperrdatum setzen, Rechnungsnummern pflegen und prüfen, welche Belege für den Buchhaltungsexport bereit sind."
 ---
 
-Use **Settings → Finance** when the books for a period must stay closed, or when you need to see how this tenant stores invoice prefix and next number.
+Nutzen Sie **Einstellungen → Finanzen**, wenn Bücher für einen Zeitraum geschlossen bleiben sollen oder wenn Sie Präfix und nächste Nummer für Rechnungen dieses Mandanten sehen möchten.
 
-This tab is one form. Changes sit in the fields until you click **Save Changes**.
+Dieser Tab ist ein Formular. Änderungen gelten erst nach **Änderungen speichern**.
 
 <CardGroup cols={3}>
-  <Card title="Fiscal Control" icon="calendar-lock" href="#lock-date">
-    Block edits to transactions on or before the lock date.
+  <Card title="Fiskalsteuerung" icon="calendar-lock" href="#sperrdatum">
+    Bearbeitung von Buchungen an oder vor dem Sperrdatum sperren.
   </Card>
-  <Card title="Invoice Numbering" icon="hash" href="#invoice-numbering">
-    Prefix and next-number fields on the finance record.
+  <Card title="Rechnungsnummern" icon="hash" href="#rechnungsnummern">
+    Präfix und nächste Nummer am Finanzdatensatz.
   </Card>
-  <Card title="Export Readiness" icon="clipboard-check" href="#export-readiness">
-    See which documents in a period can be exported, and why the rest are held back.
+  <Card title="Exportbereitschaft" icon="clipboard-check" href="#exportbereitschaft">
+    Welche Belege in einem Zeitraum exportiert werden können — und warum andere blockiert sind.
   </Card>
 </CardGroup>
 
 <Steps>
-  <Step title="Open Settings">
-    Click the gear in the app header.
+  <Step title="Einstellungen öffnen">
+    Klicken Sie auf das Zahnrad im App-Kopf.
   </Step>
-  <Step title="Stay on Finance">
-    Finance is the first tab. If you landed on another tab, click **Finance**.
+  <Step title="Auf Finanzen bleiben">
+    **Finanzen** ist der erste Tab. Sind Sie woanders gelandet, wählen Sie **Finanzen**.
   </Step>
-  <Step title="Edit, then Save Changes">
-    The save button is bottom-right of the form. A toast reads **Settings updated** when it sticks.
+  <Step title="Bearbeiten, dann Änderungen speichern">
+    Der Speichern-Button sitzt unten rechts im Formular. Ein Toast **Einstellungen aktualisiert** bestätigt den Erfolg.
   </Step>
 </Steps>
 
-## Lock Date
+## Sperrdatum
 
-**Lock Date** is a date picker. Helper text on the screen: transactions on or before this date cannot be modified.
+**Sperrdatum** ist ein Datumsfeld. Hilfetext auf dem Bildschirm: Buchungen an oder vor diesem Datum können nicht mehr geändert werden.
 
-Leave it empty if you do not want a lock.
+Lassen Sie das Feld leer, wenn Sie keine Sperre wünschen.
 
 <Warning>
-Moving the lock **later** opens **Confirm Fiscal Lock**. Confirming permanently blocks changes in the previous period and can affect finalized reports. Cancel if you are not ready. The product does not reopen a closed period from this screen.
+Verschieben Sie die Sperre **nach hinten**, öffnet sich **Fiskalsperre bestätigen**. Mit **Sperre bestätigen** sperren Sie Änderungen im bisherigen Zeitraum dauerhaft; das kann abgeschlossene Auswertungen betreffen. Brechen Sie ab, wenn Sie nicht bereit sind. Einen geschlossenen Zeitraum öffnen Sie von diesem Bildschirm nicht wieder.
 </Warning>
 
-| You do this | What happens |
+| Ihre Aktion | Folge |
 | --- | --- |
-| Pick a date and save | Dates on or before that day are locked for this tenant |
-| Pick a **later** date than today | Confirm Fiscal Lock, then **Confirm Lock** |
-| Clear the date and save | No lock date |
+| Datum wählen und speichern | Daten an oder vor diesem Tag sind für diesen Mandanten gesperrt |
+| Ein **späteres** Datum als heute wählen | Fiskalsperre bestätigen, dann **Sperre bestätigen** |
+| Datum leeren und speichern | Kein Sperrdatum |
 
-## Invoice Numbering
+## Rechnungsnummern
 
-Two fields sit side by side:
+Zwei Felder stehen nebeneinander:
 
-| Field | What you type |
+| Feld | Eingabe |
 | --- | --- |
-| **Prefix** | Text stored on finance settings (seed default looks like `RE-2026-`) |
-| **Next Number** | Integer stored on finance settings (seed default `1001`) |
+| **Präfix** | Text am Finanzdatensatz (Seed-Standard ähnlich `RE-2026-`) |
+| **Nächste Nummer** | Ganzzahl am Finanzdatensatz (Seed-Standard `1001`) |
 
 <Tip>
-When you **finalize** a tax invoice, ACP assigns `RE-` plus the current year plus a four-digit yearly counter (`RE-2026-0001`). Already issued numbers do not change when you edit these fields.
+Beim **Abschließen** einer Steuerrechnung vergibt ACP `RE-` plus aktuelles Jahr plus einen vierstelligen Jahreszähler (`RE-2026-0001`). Bereits vergebene Nummern ändern sich nicht, wenn Sie diese Felder später anpassen.
 </Tip>
 
 <AccordionGroup>
-  <Accordion title="What this tab does not show">
-    Sales order prefixes (`SO-…`) and workshop order prefixes (`WO-…`) live on the same finance record in the database. They are not fields on this tab. Fiscal year start month is also not on this screen.
+  <Accordion title="Was dieser Tab nicht zeigt">
+    Präfixe für Kundenaufträge (`SO-…`) und Werkstattaufträge (`WO-…`) liegen am selben Finanzdatensatz in der Datenbank, sind aber nicht auf diesem Tab. Der Monat des Geschäftsjahresbeginns steht hier ebenfalls nicht.
   </Accordion>
-  <Accordion title="Who sees this">
-    Settings is tenant-wide. There is no separate finance login. Changes apply to this workshop tenant only.
+  <Accordion title="Wer sieht das">
+    Einstellungen gelten mandantenweit. Es gibt keinen separaten Finanz-Login. Änderungen betreffen nur diesen Werkstatt-Mandanten.
   </Accordion>
 </AccordionGroup>
 
-## Export Readiness
+## Exportbereitschaft
 
-Export Readiness is a page in the sidebar, not a tab on this screen. Open it before you run an accounting export. For one legal entity and one period, it shows which invoices and credit notes can go out, and which are held back with the reason for each.
+**Exportbereitschaft** ist eine Seite in der Seitenleiste, kein Tab auf diesem Bildschirm. Öffnen Sie sie vor dem Buchhaltungsexport. Für einen Rechtsträger und einen Zeitraum sehen Sie, welche Rechnungen und Gutschriften exportiert werden können — und welche mit Begründung blockiert sind.
 
-Owners and admins see the link. Other roles do not.
+OWNER und Administratoren sehen den Link. Andere Rollen nicht.
 
 <Steps>
-  <Step title="Open Export Readiness">
-    Click **Export Readiness** in the sidebar, under **Credit Notes**.
+  <Step title="Exportbereitschaft öffnen">
+    In der Seitenleiste **Exportbereitschaft** unter **Gutschriften** wählen.
   </Step>
-  <Step title="Choose the legal entity and period">
-    Pick the legal entity, then set **From** and **To**. The page starts on the previous calendar month.
+  <Step title="Rechtsträger und Zeitraum wählen">
+    Rechtsträger wählen, dann **Von** und **Bis** setzen. Standard ist der vorherige Kalendermonat.
   </Step>
-  <Step title="Read the cards">
-    **Exportable** counts documents with no blocking reason. **Blocked** counts documents with at least one. **Period** reads **Closed** when the lock date covers the period end.
+  <Step title="Karten lesen">
+    **Exportierbar** zählt Belege ohne Blockiergrund. **Blockiert** zählt Belege mit mindestens einem Grund. **Zeitraum** zeigt **Geschlossen**, wenn das Sperrdatum das Periodenende abdeckt.
   </Step>
-  <Step title="Open a blocked document">
-    Click its row. The invoice or credit note opens, so you can fix the cause there.
+  <Step title="Blockierten Beleg öffnen">
+    Klicken Sie auf die Zeile. Rechnung oder Gutschrift öffnet sich, damit Sie die Ursache dort beheben können.
   </Step>
 </Steps>
 
-Click a reason under the cards to show only the documents it blocks. **Reason** and **Document type** narrow the list the same way. The search box matches the document number, type, status, date, and site. The date matches as the list shows it (for example `05 Mar 2026`) or as `2026-03-05`.
+Klicken Sie unter den Karten auf einen Grund, um nur die betroffenen Belege zu sehen. **Grund** und **Belegart** filtern die Liste ebenso. Die Suche trifft Belegnummer, Art, Status, Datum und Standort. Das Datum entspricht der Listenanzeige (z. B. `05.03.2026`) oder `2026-03-05`.
 
-Click a column header to sort the whole period, not only the page you are on. The Reasons column cannot be sorted.
+Klicken Sie auf eine Spaltenüberschrift, um den gesamten Zeitraum zu sortieren — nicht nur die aktuelle Seite. Die Spalte **Gründe** ist nicht sortierbar.
 
 <Warning>
-One blocked document stops the export for that legal entity and period. Clear every blocked row, then generate the file in **Settings → Finance → Accounting export**.
+Ein blockierter Beleg stoppt den Export für diesen Rechtsträger und Zeitraum. Klären Sie alle blockierten Zeilen, dann erzeugen Sie die CSV unter **Einstellungen → Finanzen → Buchhaltungsexport** (DATEV-, RZL- oder BMD-Profil je Rechtsträger — siehe [Buchhaltungsexport](/workflows/accounting-export)).
 </Warning>
 
 <Tip>
-If the legal entity has no accounting export profile, or the profile is turned off, a notice appears above the list. Set up or turn on the profile in **Settings** before you export. Until then, no period for that entity can be exported.
+Fehlt ein Buchhaltungsexport-Profil für den Rechtsträger oder ist es deaktiviert, erscheint ein Hinweis über der Liste. Richten Sie das Profil in den **Einstellungen** ein oder aktivieren Sie es. Bis dahin ist kein Zeitraum für diesen Rechtsträger exportierbar.
 </Tip>
 
 <AccordionGroup>
-  <Accordion title="Reasons on a blocked document">
-    | Reason | What it means |
+  <Accordion title="Gründe an einem blockierten Beleg">
+    | Grund | Bedeutung |
     | --- | --- |
-    | Legacy document | The document was saved before the current invoice format, so its accounting data cannot be checked. |
-    | Outside DE export | A line's accounting allocation is for a country other than Germany (DE). Only German lines can be exported right now. |
-    | Unsupported tax mode | The document uses margin-scheme tax, which the export profile does not support. |
-    | Mapping incomplete | A line has no accounting allocation saved on it. |
-    | Ownership evidence missing | The document is missing its legal entity, site, or number. |
-    | Cancelled | Cancelled documents cannot be exported. |
+    | Älterer Beleg (nicht exportierbar) | Der Beleg stammt vor dem aktuellen Rechnungsformat; Buchhaltungsdaten können nicht geprüft werden. |
+    | Export außerhalb DE | Die Kontenzuordnung einer Position gilt für ein anderes Land als Deutschland (DE). Derzeit sind nur deutsche Zeilen exportierbar. |
+    | Nicht unterstützter Steuermodus | Der Beleg nutzt Differenzbesteuerung, die das Exportprofil nicht unterstützt. |
+    | Kontenzuordnung unvollständig | Einer Position fehlt eine gespeicherte Kontenzuordnung. |
+    | Eigentumsnachweis fehlt | Rechtsträger, Standort oder Nummer fehlt am Beleg. |
+    | Storniert | Stornierte Belege sind nicht exportierbar. |
   </Accordion>
-  <Accordion title="Notices above the list">
-    Some blocks belong to the whole period, not to one row. A document with no legal entity is one example. These appear as a notice above the list, because no single row can show them. The notice does not name the document.
+  <Accordion title="Hinweise über der Liste">
+    Manche Blockaden betreffen den ganzen Zeitraum, nicht eine einzelne Zeile. Ein Beleg ohne Rechtsträger ist ein Beispiel. Diese erscheinen als Hinweis über der Liste, weil keine Zeile sie allein darstellen kann.
 
-    A document that has a legal entity but no site is a row with the **Ownership evidence missing** reason. Its gap also appears in the notice above the list. A cancelled document shows only **Cancelled** on its row, so its ownership gap appears only in the notice.
+    Ein Beleg mit Rechtsträger aber ohne Standort ist eine Zeile mit Grund **Eigentumsnachweis fehlt**. Die Lücke erscheint zusätzlich im Hinweis über der Liste. Ein stornierter Beleg zeigt in der Zeile nur **Storniert**; fehlende Eigentumsdaten stehen dann nur im Hinweis.
   </Accordion>
-  <Accordion title="Refusals">
-    The page shows a refusal message instead of the cards and the list when it cannot show the period. That happens when a site that holds documents in the period is inactive, or when you have no active site membership for one of those sites. Ask an owner or admin to give you access to the site, or reactivate an inactive site under **Settings → Sites**. Then reload this page.
+  <Accordion title="Ablehnungen">
+    Statt Karten und Liste zeigt die Seite eine Ablehnungsmeldung, wenn der Zeitraum nicht angezeigt werden kann — z. B. wenn ein Standort mit Belegen im Zeitraum inaktiv ist oder Ihnen die aktive Standortzuordnung fehlt. Bitten Sie OWNER oder ADMIN um Zugriff oder reaktivieren Sie den Standort unter **Einstellungen → Standorte**. Laden Sie die Seite danach neu.
   </Accordion>
 </AccordionGroup>

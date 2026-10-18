@@ -1,5 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 import { AutoCorePage } from '../pom/AutoCorePage';
+import { DE_SETTINGS } from '../helpers/de-settings';
+import inventoryDe from '../../../../locales/de/inventory.json' with { type: 'json' };
 import {
   createMockBay,
   createMockBrand,
@@ -44,6 +46,11 @@ async function mockApi(page: Page, path: string | RegExp, body: unknown, status 
       body: JSON.stringify(body),
     });
   });
+}
+
+/** Layout shell calls these on most pages; mock them so smoke tests stay offline. */
+async function mockShellApis(page: Page) {
+  await mockApi(page, '/api/me/sites', []);
 }
 
 /**
@@ -214,28 +221,37 @@ export const A11Y_SMOKE_ROUTES: A11ySmokeRoute[] = [
         createMockRevenueGroup({ name: 'Parts Revenue' }),
       ]);
     },
-    ready: titleReady('Settings'),
+    ready: titleReady(DE_SETTINGS.page.title),
   },
   {
     name: 'settings: brands tab',
     path: '/settings?tab=brands',
     mock: async (page) => {
+      await mockShellApis(page);
+      await mockApi(page, '/api/finance/settings', createMockFinanceSettings());
+      await mockApi(page, '/api/finance/revenue-groups', []);
       await mockApi(page, '/api/brands', createMockListResponse([createMockBrand({ name: 'Stellantis' })]));
     },
-    ready: titleReady('Settings'),
+    ready: async (page) => {
+      await expect(page.getByRole('heading', { level: 1, name: DE_SETTINGS.page.title })).toBeVisible({
+        timeout: 15_000,
+      });
+    },
   },
   {
     name: 'settings: storage locations tab',
     path: '/settings?tab=locations',
     mock: async (page) => {
+      await mockApi(page, '/api/finance/settings', createMockFinanceSettings());
       await mockApi(page, '/api/inventory/locations/tree', [createMockStorageLocation({ name: 'Aisle F' })]);
     },
-    ready: titleReady('Settings'),
+    ready: titleReady(DE_SETTINGS.page.title),
   },
   {
     name: 'settings: labor tab',
     path: '/settings?tab=labor',
     mock: async (page) => {
+      await mockApi(page, '/api/finance/settings', createMockFinanceSettings());
       await mockApi(
         page,
         '/api/labor/categories',
@@ -247,7 +263,7 @@ export const A11Y_SMOKE_ROUTES: A11ySmokeRoute[] = [
         createMockListResponse([createMockLaborOperation({ description: 'Engine Diagnostics' })]),
       );
     },
-    ready: titleReady('Settings'),
+    ready: titleReady(DE_SETTINGS.page.title),
   },
   {
     name: 'customers list with add customer dialog open',
@@ -284,9 +300,16 @@ export const A11Y_SMOKE_ROUTES: A11ySmokeRoute[] = [
     name: 'inventory list',
     path: '/inventory',
     mock: async (page) => {
+      await mockShellApis(page);
       await mockApi(page, '/api/inventory', createMockListResponse([createMockInventoryItem()]));
+      await mockApi(page, '/api/brands', createMockListResponse([]));
+      await mockApi(page, '/api/inventory/locations', []);
     },
-    ready: titleReady(),
+    ready: async (page) => {
+      await expect(
+        page.getByRole('heading', { level: 1, name: inventoryDe.partsList.title }),
+      ).toBeVisible({ timeout: 15_000 });
+    },
   },
   {
     name: 'vehicle stock list',

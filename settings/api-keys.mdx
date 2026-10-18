@@ -1,0 +1,41 @@
+---
+title: "API-Schlüssel"
+description: "Mandanten-API-Schlüssel für die öffentliche Lese-API anlegen."
+---
+
+**API-Schlüssel** erlauben Integrationen, die nur-Lese-HTTP-API von ACP mit einem Bearer-Token aufzurufen. Jeder Schlüssel hat Bereiche, optionales Ablaufdatum und eine Nachverfolgung der letzten Nutzung.
+
+Nur Mitglieder mit der Rolle **OWNER** oder **ADMIN** sehen diesen Tab.
+
+<Steps>
+  <Step title="API-Schlüssel öffnen">
+    Zahnrad → **API-Schlüssel**.
+  </Step>
+  <Step title="Schlüssel anlegen">
+    **Schlüssel anlegen** → Name, ein oder mehrere Bereiche, optional Ablaufdatum → bestätigen. Secret sofort kopieren; es wird nur einmal angezeigt.
+  </Step>
+  <Step title="API aufrufen">
+    Senden Sie `Authorization: Bearer <token>` an Ihren Mandanten-API-Host auf Routen, die zu den gewählten Bereichen passen.
+  </Step>
+  <Step title="Widerrufen, wenn fertig">
+    **Widerrufen** für ausgemusterte Schlüssel. Aktive Schlüssel funktionieren bis Ablauf oder Widerruf.
+  </Step>
+</Steps>
+
+| Bereich | Lesezugriff auf |
+| --- | --- |
+| `customers:read` | Namen, Kontaktdaten, Adressen |
+| `vehicles:read` | Marke, Modell, FIN, Kennzeichen |
+| `invoices:read` | Rechnungsköpfe und Summen |
+| `workshop-orders:read` | Status und Terminierung von Werkstattaufträgen |
+| `stock:read` | Teilemengen je Lagerort |
+
+<Warning>
+v1-Bereiche sind nur-Lese. Schreiboperationen brauchen separate Produktfreigabe und sind mit diesen Schlüsseln nicht verfügbar.
+</Warning>
+
+<AccordionGroup>
+  <Accordion title="OpenAPI">
+    Die vollständige Routenliste liegt in `apps/core-api/openapi/openapi.json` im Repository. Filtern Sie nach öffentlichen Routen, die Ihr Schlüssel aufrufen darf.
+  </Accordion>
+</AccordionGroup>

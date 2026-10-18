@@ -4,11 +4,12 @@ import jsxA11y from 'eslint-plugin-jsx-a11y'
 import i18next from 'eslint-plugin-i18next'
 import reactHooks from 'eslint-plugin-react-hooks'
 import { enumsI18nEslintConfig } from './eslint-enums-i18n.config.js'
-import { i18nLiteralStringWarningRule } from './eslint-i18n-shared.config.js'
+import { i18nLiteralStringRule } from './eslint-i18n-shared.config.js'
 import { shellI18nEslintConfig } from './eslint-shell-i18n.config.js'
 import { financePurchasingI18nEslintConfig } from './eslint-finance-purchasing-i18n.config.js'
 import { inventoryHrI18nEslintConfig } from './eslint-inventory-hr-i18n.config.js'
 import { salesDomainI18nEslintConfig } from './eslint-sales-domain-i18n.config.js'
+import { settingsI18nEslintConfig } from './eslint-settings-i18n.config.js'
 import { workshopI18nEslintConfig } from './eslint-workshop-i18n.config.js'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
@@ -76,7 +77,7 @@ export default defineConfig([
       'no-restricted-syntax': 'off',
     },
   },
-  // AUT-578: warn on new hard-coded UI strings outside migrated folders (strict overrides below).
+  // AUT-578 / AUT-584: error on hard-coded UI strings everywhere (strict domain overrides below).
   {
     files: ['**/*.{ts,tsx}'],
     ignores: [
@@ -90,7 +91,7 @@ export default defineConfig([
       i18next,
     },
     rules: {
-      'i18next/no-literal-string': i18nLiteralStringWarningRule[1],
+      'i18next/no-literal-string': i18nLiteralStringRule[1],
     },
   },
   shellI18nEslintConfig,
@@ -99,4 +100,5 @@ export default defineConfig([
   salesDomainI18nEslintConfig,
   financePurchasingI18nEslintConfig,
   inventoryHrI18nEslintConfig,
+  settingsI18nEslintConfig,
 ])

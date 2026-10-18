@@ -1,0 +1,27 @@
+---
+title: "Margenregeln"
+description: "Margenregeln für Preislistenimporte festlegen, wenn Lieferantenlisten ins Lager kommen."
+---
+
+**Margenregeln** definieren, wie Einkaufspreise netto zu Verkaufspreisen werden, wenn Sie Lieferanten-Preislisten in [Teilebestand](/workflows/inventory) importieren.
+
+Nur Mitglieder mit der Rolle **OWNER** oder **ADMIN** sehen diesen Tab.
+
+<Steps>
+  <Step title="Margenregeln öffnen">
+    Zahnrad → **Margenregeln**.
+  </Step>
+  <Step title="Regel definieren">
+    Priorität, Bezeichnung, optionale Marke und Erlösgruppe, EK-Bereich, Aufschlag in Prozent, optional UVP des Lieferanten und Rundungsstrategie festlegen. Regeln werden von oben nach unten (niedrigste Priorität zuerst) ausgewertet; die erste passende Regel greift.
+  </Step>
+  <Step title="Preisliste importieren">
+    Preislistenimport aus Bestand oder Einkauf ausführen. Passende Zeilen übernehmen die Regel zum Importzeitpunkt.
+  </Step>
+  <Step title="Änderungen nachverfolgen">
+    Nutzen Sie [Audit-Logs](/settings/audit-logs), wenn Sie wissen müssen, wer eine Regelzeile geändert hat.
+  </Step>
+</Steps>
+
+<Warning>
+Margenregeln wirken auf zukünftige Importe. Sie schreiben Preise auf bereits eingebuchte Teile nicht um, außer Sie führen einen neuen Import oder eine manuelle Preisänderung durch.
+</Warning>

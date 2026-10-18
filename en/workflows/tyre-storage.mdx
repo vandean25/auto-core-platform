@@ -1,0 +1,36 @@
+---
+title: "Tyre storage"
+description: "Store customer tyre sets, log check-in and check-out, and see what is due."
+---
+
+**Tyre storage** (*Reifenlager*) tracks seasonal tyre sets per customer vehicle: location in your warehouse, status events, and due lists for seasonal changeover.
+
+Advisors and parts staff use it daily. Mechanics may view sets linked to vehicles they work on.
+
+<Steps>
+  <Step title="Open Tyre storage">
+    Sidebar → **Tyre storage**.
+  </Step>
+  <Step title="Create or open a set">
+    Start a new set from a customer vehicle or open an existing row.
+  </Step>
+  <Step title="Check in tyres">
+    Record **check-in** with storage location and season label. The set status updates from events.
+  </Step>
+  <Step title="Check out or move">
+    **Check-out** when the customer takes tyres back. Use move events when bins change inside the warehouse.
+  </Step>
+</Steps>
+
+<Warning>
+You cannot check in the same set twice without an intervening check-out. The API rejects double check-in.
+</Warning>
+
+<AccordionGroup>
+  <Accordion title="Due lists">
+    Dashboard widgets and list filters highlight sets that are due for seasonal swap. Pair with [Workshop orders](/en/workflows/workshop-orders) when you book the appointment.
+  </Accordion>
+  <Accordion title="Storage locations">
+    Bin codes come from [Storage locations](/en/settings/storage-locations). Create the tree before you assign precise bin positions.
+  </Accordion>
+</AccordionGroup>

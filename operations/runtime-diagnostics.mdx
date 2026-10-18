@@ -1,25 +1,25 @@
 ---
-title: "Runtime diagnostics"
-description: "Raise server log verbosity for an incident without touching the business audit trail."
+title: "Runtime-Diagnose"
+description: "Server-Log-Ausführlichkeit für einen Vorfall erhöhen, ohne die geschäftliche Audit-Spur anzutasten."
 ---
 
-Runtime diagnostics are for operators. They explain slow requests, failed jobs, and websocket disconnects. They are **not** evidence of who changed an invoice.
+Runtime-Diagnose richtet sich an Betreiber. Sie erklärt langsame Requests, fehlgeschlagene Jobs und WebSocket-Abbrüche. Sie ist **kein** Nachweis, wer eine Rechnung geändert hat.
 
 <Warning>
-Only platform super-admins can change the live log level. Tenant administrators cannot. Noisy levels expire so production cannot stay in `debug` forever.
+Nur Plattform-Super-Admins können die Live-Log-Stufe ändern. Mandanten-Administratoren können das nicht. Laute Stufen laufen ab, damit die Produktion nicht dauerhaft auf `debug` bleibt.
 </Warning>
 
-## Two systems, two jobs
+## Zwei Systeme, zwei Aufgaben
 
-| | Audit logs | Runtime diagnostics |
+| | Audit-Logs | Runtime-Diagnose |
 | --- | --- | --- |
-| Who | Workshop users, accountants, support | Platform operators |
-| Where | Settings → Audit Logs (database) | API stdout / cloud log sink |
-| Question | Who changed this row? | Why did this request fail? |
-| Retention | Durable business record | Infrastructure retention |
-| Bodies & secrets | Snapshots with secrets redacted | Request bodies are not logged |
+| Wer | Werkstatt, Buchhaltung, Support | Plattform-Betreiber |
+| Wo | Einstellungen → Audit-Logs (Datenbank) | API-Stdout / Cloud-Log-Sink |
+| Frage | Wer hat diese Zeile geändert? | Warum ist dieser Request fehlgeschlagen? |
+| Aufbewahrung | Dauerhafte Geschäftsaufzeichnung | Infrastruktur-Aufbewahrung |
+| Bodies & Geheimnisse | Snapshots mit geschwärzten Geheimnissen | Request-Bodies werden nicht geloggt |
 
-## Inspect the current level
+## Aktuelle Stufe prüfen
 
 ```http
 GET /api/admin/settings/log-level
@@ -33,11 +33,11 @@ Authorization: Bearer <SUPER_ADMIN_JWT>
 }
 ```
 
-Boot default comes from `LOG_LEVEL`. Invalid or empty values fall back to `log`. Production never boots into `debug` or `verbose` by accident.
+Boot-Standard kommt von `LOG_LEVEL`. Ungültige oder leere Werte fallen auf `log` zurück. Die Produktion startet nicht versehentlich mit `debug` oder `verbose`.
 
-## Raise verbosity for an incident
+## Ausführlichkeit für einen Vorfall erhöhen
 
-`debug` and `verbose` require a TTL (default 30 minutes, max 24 hours). When it expires, the process returns to the boot default.
+`debug` und `verbose` brauchen eine TTL (Standard 30 Minuten, maximal 24 Stunden). Nach Ablauf kehrt der Prozess zum Boot-Standard zurück.
 
 ```http
 PATCH /api/admin/settings/log-level
@@ -51,21 +51,21 @@ Content-Type: application/json
 ```
 
 <Steps>
-  <Step title="Confirm you are a platform super-admin">
-    Tenant-admin tokens receive `403`. This endpoint is platform-scoped on purpose.
+  <Step title="Plattform-Super-Admin bestätigen">
+    Mandanten-Admin-Tokens erhalten `403`. Der Endpunkt ist absichtlich plattformweit.
   </Step>
-  <Step title="Set a short TTL">
-    Prefer 15–30 minutes. Leave `verbose` for a single instance investigation, not a whole day.
+  <Step title="Kurze TTL setzen">
+    Bevorzugen Sie 15–30 Minuten. `verbose` nur für die Untersuchung einer einzelnen Instanz, nicht einen ganzen Tag.
   </Step>
-  <Step title="Filter the sink by request id">
-    Structured entries include `requestId`, `tenantId`, `actorId`, method, path, status, and duration. Match that `requestId` to an [audit log](/settings/audit-logs) row when a mutation and a failure happened on the same call.
+  <Step title="Sink nach Request-ID filtern">
+    Strukturierte Einträge enthalten `requestId`, `tenantId`, `actorId`, Methode, Pfad, Status und Dauer. Gleichen Sie diese `requestId` mit einem [Audit-Log](/settings/audit-logs)-Eintrag ab, wenn Mutation und Fehler im selben Aufruf passierten.
   </Step>
-  <Step title="Let the override expire">
-    Do not leave `debug` as the new normal. The product reverts automatically.
+  <Step title="Override ablaufen lassen">
+    Lassen Sie `debug` nicht zur neuen Normalität werden. Das Produkt setzt automatisch zurück.
   </Step>
 </Steps>
 
-## What a request log looks like
+## Wie ein Request-Log aussieht
 
 ```json
 {
@@ -81,5 +81,5 @@ Content-Type: application/json
 ```
 
 <Tip>
-Need *what changed on the customer*? Open Audit Logs. Need *why the request took 2 seconds*? Stay in the log sink.
+Sie brauchen *was am Kunden geändert wurde*? Öffnen Sie Audit-Logs. Sie brauchen *warum der Request zwei Sekunden dauerte*? Bleiben Sie im Log-Sink.
 </Tip>

@@ -1,0 +1,84 @@
+---
+title: "Settings"
+description: "Every workshop control plane lives behind the gear: books, people, bins, and the audit trail."
+---
+
+Click the **gear** in the app header. Settings is one tabbed page for this tenant (17 tabs). There is no separate admin site. Several tabs (legal entities, sites, team, API keys, margin rules, data import, and the Finance **Accounting export** sub-tab) are visible only to **OWNER** and **ADMIN**.
+
+<CardGroup cols={2}>
+  <Card title="Finance" icon="banknote" href="/en/settings/finance">
+    Lock date, invoice numbering, and accounting export (DATEV, RZL, BMD readiness).
+  </Card>
+
+  <Card title="Legal entities" icon="building-2" href="/en/settings/legal-entities">
+    Seller identity and accounting profile used for invoice issuance.
+  </Card>
+
+  <Card title="Document branding" icon="file-image" href="/en/settings/document-branding">
+    Letterhead and PDF layout per legal entity.
+  </Card>
+
+  <Card title="Revenue groups" icon="percent" href="/en/settings/revenue-groups">
+    Tax buckets snapshotted onto invoice lines.
+  </Card>
+
+  <Card title="Sites" icon="map-pin" href="/en/settings/sites">
+    Workshop sites, legal-entity linkage, and memberships (OWNER/ADMIN).
+  </Card>
+
+  <Card title="Voice translation" icon="languages" href="/en/settings/voice-translation">
+    Target language and Google credentials for mechanic voice notes.
+  </Card>
+
+  <Card title="Brands" icon="tag" href="/en/settings/brands">
+    Vehicle makes and part manufacturers, one list.
+  </Card>
+
+  <Card title="Storage locations" icon="warehouse" href="/en/settings/storage-locations">
+    Warehouse → aisle → shelf → bin tree.
+  </Card>
+
+  <Card title="Employees" icon="users" href="/en/settings/employees">
+    People you assign to jobs (not login accounts).
+  </Card>
+
+  <Card title="Bays" icon="align-horizontal-space-around" href="/en/settings/bays">
+    Physical stalls on the workshop board.
+  </Card>
+
+  <Card title="Hours" icon="clock" href="/en/workflows/workshop-planner#opening-hours-and-holidays">
+    Opening hours, slot size, and holiday overrides that shape the planner calendar.
+  </Card>
+
+  <Card title="Labor" icon="timer" href="/en/settings/labor">
+    Hierarchical labor categories and hourly rates.
+  </Card>
+
+  <Card title="Vehicle data" icon="car" href="/en/settings/vehicle-data">
+    VIN decode and catalog providers (OWNER/ADMIN).
+  </Card>
+
+  <Card title="Margin rules" icon="scale" href="/en/settings/margin-rules">
+    Price-list margin rules (*Margenregeln*) (OWNER/ADMIN).
+  </Card>
+
+  <Card title="Data import" icon="upload" href="/en/settings/data-import">
+    CSV wizard for customers and vehicles (OWNER/ADMIN).
+  </Card>
+
+  <Card title="Team" icon="shield" href="/en/settings/team">
+    Who can sign in. OWNER and ADMIN only.
+  </Card>
+
+  <Card title="API keys" icon="key" href="/en/settings/api-keys">
+    Tenant keys for the public read API (OWNER/ADMIN).
+  </Card>
+
+  <Card title="Audit logs" icon="scroll-text" href="/en/settings/audit-logs">
+    Who changed a business row, and what it looked like before.
+  </Card>
+</CardGroup>
+
+<Tip>
+  **Employees** are workshop roster names. **Team** members are login accounts. Mixing them up is the usual first mistake.
+</Tip>

@@ -1,6 +1,8 @@
 import { motion } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 
 export function PageLoader() {
+  const { t } = useTranslation('common')
   return (
     <div className="flex min-h-[50vh] w-full flex-col items-center justify-center space-y-4">
       <motion.div
@@ -19,7 +21,7 @@ export function PageLoader() {
         ACP
       </motion.div>
       <div className="flex flex-col items-center space-y-1">
-        <p className="text-sm font-medium text-slate-600">Loading Auto Core…</p>
+        <p className="text-sm font-medium text-slate-600">{t('pageLoader.loading')}</p>
         <div className="h-1 w-24 overflow-hidden rounded-full bg-slate-200">
           <motion.div
             initial={{ x: "-100%" }}

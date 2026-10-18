@@ -1,0 +1,40 @@
+---
+title: "Vehicle check-in"
+description: "Tablet-friendly intake: photos, damage sketch, checklist, and customer signature on the workshop order."
+---
+
+**Vehicle check-in** (*Fahrzeugannahme*) captures the car’s condition when it arrives. Use it from a workshop order in **INTAKE** or **IN_PROGRESS** so advisors and customers share one record before work starts.
+
+Advisors and admins typically run check-in at the counter tablet. Mechanics can continue an in-progress check-in when linked to an employee record for photo upload.
+
+<Steps>
+  <Step title="Open the workshop order">
+    From **Workshop Orders**, click the row. Use **Start vehicle check-in** or **Continue vehicle check-in** when the button shows.
+  </Step>
+  <Step title="Walk the three steps">
+    The flow label is **Vehicle check-in**. Steps cover condition (including damage markers on the sketch), inspection checklist, and review.
+  </Step>
+  <Step title="Add photos and signature">
+    Attach photos per panel. Capture the customer signature on the review step when required.
+  </Step>
+  <Step title="Complete check-in">
+    Click **Complete check-in**. A completed check-in cannot be edited; the banner says it is completed.
+  </Step>
+</Steps>
+
+<Tip>
+Check-in drafts can be saved locally when connectivity is poor. If the server changed while you were offline, the app asks you to choose between your draft and the server version.
+</Tip>
+
+<Warning>
+Photo upload requires your login to be linked to an active **employee** record. Without that link, uploads are refused with a clear error.
+</Warning>
+
+<AccordionGroup>
+  <Accordion title="Who can use this">
+    Any role that can open the workshop order can start or continue check-in, subject to order status rules. Only orders in intake or in progress accept new check-ins.
+  </Accordion>
+  <Accordion title="Job card PDF">
+    Completed check-in data can appear on the job card PDF. See [Workshop orders](/en/workflows/workshop-orders).
+  </Accordion>
+</AccordionGroup>

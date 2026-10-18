@@ -20,6 +20,7 @@ import { toast } from 'sonner'
 import { MemoryRouter } from 'react-router-dom'
 import AgentSupervisionPage from './AgentSupervisionPage'
 import { formattedCurrencyPattern, formattedCurrencyLabelPattern } from '@/test/format-assertions'
+import deAgent from '../../../../../locales/de/agent.json'
 
 function renderSupervisionPage() {
   return render(
@@ -332,43 +333,19 @@ describe('AgentSupervisionPage', () => {
     renderSupervisionPage()
 
     expect(
-      screen.getByRole('heading', { level: 1, name: 'Agent Supervision' }),
+      screen.getByRole('heading', { level: 1, name: deAgent.header.title }),
     ).toBeInTheDocument()
     expect(screen.getByTestId('agent-safety-banner')).toBeInTheDocument()
     expect(
       screen.getByText(
-        /Agent supervision active: proposed agent actions require supervisor approval/i,
+        /Agenten-Überwachung aktiv: Vorgeschlagen/i,
       ),
     ).toBeInTheDocument()
   })
 
-  it('toggles language between English and German', () => {
+  it('renders German copy by default via global i18n', () => {
     renderSupervisionPage()
-
-    // Initially English
-    expect(
-      screen.getByRole('heading', { level: 1, name: 'Agent Supervision' }),
-    ).toBeInTheDocument()
-    const toggleBtn = screen.getByTestId('toggle-language-btn')
-    expect(toggleBtn).toHaveTextContent('DE (Deutsch)')
-
-    // Switch to German
-    fireEvent.click(toggleBtn)
-    expect(
-      screen.getByRole('heading', { level: 1, name: 'Agenten-Überwachung' }),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByText(
-        /Agenten-Überwachung aktiv: Vorgeschlagene Aktionen erfordern eine Genehmigung/i,
-      ),
-    ).toBeInTheDocument()
-    expect(toggleBtn).toHaveTextContent('EN (English)')
-
-    // Switch back to English
-    fireEvent.click(toggleBtn)
-    expect(
-      screen.getByRole('heading', { level: 1, name: 'Agent Supervision' }),
-    ).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: deAgent.header.title })).toBeInTheDocument()
   })
 
   it('renders proposal cards with details and amounts in Approvals tab', () => {
@@ -429,21 +406,19 @@ describe('AgentSupervisionPage', () => {
 
     expect(screen.getByText('Customer (customer)')).toBeInTheDocument()
     expect(screen.queryByText(/WorkshopOrder \(/)).not.toBeInTheDocument()
-    expect(screen.getByText('Order No. not set')).toBeInTheDocument()
+    expect(screen.getByText(deAgent.approvals.orderNumberMissing)).toBeInTheDocument()
     expect(screen.getByText(formattedCurrencyPattern(125))).toBeInTheDocument()
     expect(screen.getAllByText(formattedCurrencyPattern(100)).length).toBeGreaterThan(0)
   })
 
-  it('localizes approval detail labels in German', () => {
+  it('shows approval detail labels in German', () => {
     renderSupervisionPage()
-
-    fireEvent.click(screen.getByTestId('toggle-language-btn'))
     fireEvent.click(screen.getByTestId('toggle-preview-prop-1'))
 
     expect(screen.getAllByText(/Ziel:/)).toHaveLength(2)
     expect(screen.getAllByText(/Betrag:/)).toHaveLength(2)
-    expect(screen.getByText('Vorschau / Differenz:')).toBeInTheDocument()
-    expect(screen.getByText('Nutzlast-JSON:')).toBeInTheDocument()
+    expect(screen.getByText(deAgent.approvals.previewDiff + ':')).toBeInTheDocument()
+    expect(screen.getByText(deAgent.approvals.payloadJson + ':')).toBeInTheDocument()
   })
 
   it('CRITICAL SAFETY GUARD: suppresses Approve button for HUMAN_ONLY proposals and displays "Do this manually"', () => {
@@ -456,10 +431,10 @@ describe('AgentSupervisionPage', () => {
     // For prop-2 (HUMAN_ONLY): Approve button MUST NOT EXIST, but Reject button MUST EXIST
     expect(screen.queryByTestId('approve-btn-prop-2')).not.toBeInTheDocument()
     expect(screen.getByTestId('reject-btn-prop-2')).toBeInTheDocument()
-    expect(screen.getByText('Do this manually')).toBeInTheDocument()
+    expect(screen.getByText(deAgent.approvals.doManually)).toBeInTheDocument()
     expect(
       screen.getByText(
-        /This action is classified as HUMAN_ONLY and cannot be executed automatically/i,
+        /Diese Aktion ist als HUMAN_ONLY eingestuft und kan/i,
       ),
     ).toBeInTheDocument()
   })
@@ -483,11 +458,11 @@ describe('AgentSupervisionPage', () => {
 
     // Dialog opens
     expect(
-      screen.getByRole('heading', { name: 'Reject Agent Proposal' }),
+      screen.getByRole('heading', { name: deAgent.rejectDialog.title }),
     ).toBeInTheDocument()
 
     // Type optional reason
-    const reasonInput = screen.getByLabelText(/Reason \(optional\)/i)
+    const reasonInput = screen.getByLabelText(deAgent.rejectDialog.reasonLabel)
     fireEvent.change(reasonInput, {
       target: { value: 'Discount exceeds allowed range' },
     })
@@ -514,7 +489,7 @@ describe('AgentSupervisionPage', () => {
       renderSupervisionPage()
 
       fireEvent.click(screen.getByTestId('reject-btn-prop-1'))
-      const reasonInput = screen.getByLabelText(/Reason \(optional\)/i)
+      const reasonInput = screen.getByLabelText(deAgent.rejectDialog.reasonLabel)
       fireEvent.change(reasonInput, {
         target: { value: 'Needs a second look' },
       })
@@ -524,7 +499,7 @@ describe('AgentSupervisionPage', () => {
         expect(reasonInput).toHaveValue('Needs a second look'),
       )
       expect(
-        screen.getByRole('heading', { name: 'Reject Agent Proposal' }),
+        screen.getByRole('heading', { name: deAgent.rejectDialog.title }),
       ).toBeInTheDocument()
     },
   )
@@ -550,7 +525,7 @@ describe('AgentSupervisionPage', () => {
 
     renderSupervisionPage()
     fireEvent.click(screen.getByTestId('tab-activity'))
-    fireEvent.click(screen.getByRole('button', { name: 'Load more' }))
+    fireEvent.click(screen.getByRole('button', { name: deAgent.activity.loadMore }))
 
     expect(fetchNextPage).toHaveBeenCalledTimes(1)
   })
@@ -587,10 +562,10 @@ describe('AgentSupervisionPage', () => {
     // Modal opens
     await waitFor(() => {
       expect(
-        screen.getByRole('heading', { name: 'Trace Audit & Correlation' }),
+        screen.getByRole('heading', { name: deAgent.traceDialog.title }),
       ).toBeInTheDocument()
       expect(
-        screen.getByText(/Correlated System Audit Logs/i),
+        screen.getByText(new RegExp(deAgent.traceDialog.correlatedAudit.slice(0, 20), 'i')),
       ).toBeInTheDocument()
       expect(screen.getByText(/supervisor@example.com/)).toBeInTheDocument()
     })
@@ -694,7 +669,7 @@ describe('AgentSupervisionPage', () => {
       expect(writeText).toHaveBeenCalledWith(
         '11111111-1111-1111-1111-111111111111',
       )
-      expect(toast.success).toHaveBeenCalledWith('Trace ID copied')
+      expect(toast.success).toHaveBeenCalledWith(deAgent.activity.traceIdCopied)
     })
   })
 
@@ -737,9 +712,9 @@ describe('AgentSupervisionPage', () => {
     renderSupervisionPage()
 
     expect(screen.getByTestId('approvals-empty-state')).toBeInTheDocument()
-    expect(screen.getByText(/No proposals waiting/i)).toBeInTheDocument()
+    expect(screen.getByText(/Keine Vorschläge in der Warteschlange/i)).toBeInTheDocument()
     expect(
-      screen.getByText(/New agent proposals will appear here/i),
+      screen.getByText(/Neue Agenten-Vorschläge erscheinen hier, sobald sie zur Freigabe eingereicht werden./i),
     ).toBeInTheDocument()
   })
 
@@ -747,10 +722,10 @@ describe('AgentSupervisionPage', () => {
     renderSupervisionPage()
     const approvalsTab = screen.getByTestId('approvals-tab')
     expect(
-      within(approvalsTab).getByRole('button', { name: 'Refresh' }),
+      within(approvalsTab).getByRole('button', { name: deAgent.common.refresh }),
     ).toBeInTheDocument()
     expect(
-      within(approvalsTab).queryByRole('button', { name: 'Retry' }),
+      within(approvalsTab).queryByRole('button', { name: deAgent.common.retry }),
     ).not.toBeInTheDocument()
   })
 
@@ -852,7 +827,7 @@ describe('AgentSupervisionPage', () => {
       ])
 
       const card = within(screen.getByTestId('proposal-card-wo-prop-1'))
-      expect(card.getByText('Order No. not set')).toBeInTheDocument()
+      expect(card.getByText(deAgent.approvals.orderNumberMissing)).toBeInTheDocument()
       expect(card.getByText('Maria Demo')).toBeInTheDocument()
       expect(card.getByText('2019 Volkswagen Golf')).toBeInTheDocument()
     })
@@ -863,9 +838,9 @@ describe('AgentSupervisionPage', () => {
       ])
 
       const card = within(screen.getByTestId('proposal-card-wo-prop-1'))
-      expect(card.getByText('Order No. not set')).toBeInTheDocument()
-      expect(card.getByText('Customer not set')).toBeInTheDocument()
-      expect(card.getByText('Vehicle not set')).toBeInTheDocument()
+      expect(card.getByText(deAgent.approvals.orderNumberMissing)).toBeInTheDocument()
+      expect(card.getByText(deAgent.approvals.customerMissing)).toBeInTheDocument()
+      expect(card.getByText(deAgent.approvals.vehicleMissing)).toBeInTheDocument()
     })
 
     it('shows the order UUID only under Show details', () => {
@@ -888,18 +863,17 @@ describe('AgentSupervisionPage', () => {
 
       const lines = within(screen.getByTestId('proposed-lines-wo-prop-1'))
       expect(lines.getByText('Brake pad set')).toBeInTheDocument()
-      expect(lines.getByText('Part')).toBeInTheDocument()
+      expect(lines.getByText(deAgent.approvals.lineTypePart)).toBeInTheDocument()
       expect(lines.getByText('2')).toBeInTheDocument()
-      expect(lines.getAllByText(formattedCurrencyLabelPattern(250, 'Tax basis not set'))).toHaveLength(1)
-      expect(lines.getAllByText(formattedCurrencyLabelPattern(500, 'Tax basis not set'))).toHaveLength(1)
+      expect(lines.getAllByText(formattedCurrencyLabelPattern(250, deAgent.approvals.taxBasisNotSet))).toHaveLength(1)
+      expect(lines.getAllByText(formattedCurrencyLabelPattern(500, deAgent.approvals.taxBasisNotSet))).toHaveLength(1)
     })
 
     it('formats proposed line amounts as German euros', () => {
       renderWithProposals([workshopOrderProposal()])
-      fireEvent.click(screen.getByTestId('toggle-language-btn'))
 
       const lines = within(screen.getByTestId('proposed-lines-wo-prop-1'))
-      expect(lines.getByText('Teil')).toBeInTheDocument()
+      expect(lines.getByText(deAgent.approvals.lineTypePart)).toBeInTheDocument()
       expect(
         lines.getByText(formattedCurrencyLabelPattern(250, 'Steuerbasis nicht gesetzt')),
       ).toBeInTheDocument()
@@ -953,11 +927,11 @@ describe('AgentSupervisionPage', () => {
       ])
 
       const card = within(screen.getByTestId('proposal-card-wo-prop-gross'))
-      expect(card.getAllByText(formattedCurrencyLabelPattern(100, 'gross')).length).toBeGreaterThanOrEqual(
+      expect(card.getAllByText(formattedCurrencyLabelPattern(100, deAgent.approvals.amountGross)).length).toBeGreaterThanOrEqual(
         2,
       )
       expect(card.getByTestId('proposal-amount-wo-prop-gross').textContent).toMatch(
-        formattedCurrencyLabelPattern(100, 'gross'),
+        formattedCurrencyLabelPattern(100, deAgent.approvals.amountGross),
       )
     })
 
@@ -989,7 +963,7 @@ describe('AgentSupervisionPage', () => {
 
       const card = within(screen.getByTestId('proposal-card-po-prop-net'))
       expect(card.getByTestId('proposal-amount-po-prop-net').textContent).toMatch(
-        formattedCurrencyLabelPattern(12.5, 'net'),
+        formattedCurrencyLabelPattern(12.5, deAgent.approvals.amountNet),
       )
     })
 
@@ -1014,7 +988,7 @@ describe('AgentSupervisionPage', () => {
         screen.getByTestId('proposal-card-wo-prop-unknown-basis'),
       )
       expect(
-        card.getAllByText(formattedCurrencyLabelPattern(50, 'Tax basis not set')).length,
+        card.getAllByText(formattedCurrencyLabelPattern(50, deAgent.approvals.taxBasisNotSet)).length,
       ).toBeGreaterThanOrEqual(2)
     })
 
@@ -1034,7 +1008,6 @@ describe('AgentSupervisionPage', () => {
           },
         }),
       ])
-      fireEvent.click(screen.getByTestId('toggle-language-btn'))
 
       const card = within(screen.getByTestId('proposal-card-wo-prop-de-unknown'))
       expect(
@@ -1069,8 +1042,8 @@ describe('AgentSupervisionPage', () => {
       ])
 
       const card = within(screen.getByTestId('proposal-card-wo-prop-1'))
-      expect(card.getByText('Dealer stock')).toBeInTheDocument()
-      expect(card.queryByText('Customer not set')).not.toBeInTheDocument()
+      expect(card.getByText(deAgent.approvals.dealerStock)).toBeInTheDocument()
+      expect(card.queryByText(deAgent.approvals.customerMissing)).not.toBeInTheDocument()
     })
 
     it('shows the name and quantity the approval writes when the payload omits them', () => {
@@ -1085,9 +1058,9 @@ describe('AgentSupervisionPage', () => {
       ])
 
       const lines = within(screen.getByTestId('proposed-lines-wo-prop-1'))
-      expect(lines.getByText('Proposed line item')).toBeInTheDocument()
+      expect(lines.getByText(deAgent.approvals.unnamedLine)).toBeInTheDocument()
       expect(lines.getByText('1')).toBeInTheDocument()
-      expect(lines.getAllByText(formattedCurrencyLabelPattern(250, 'Tax basis not set'))).toHaveLength(2)
+      expect(lines.getAllByText(formattedCurrencyLabelPattern(250, deAgent.approvals.taxBasisNotSet))).toHaveLength(2)
     })
 
     it('keeps the existing target label for workshop order proposals that are not line actions', () => {
@@ -1105,7 +1078,7 @@ describe('AgentSupervisionPage', () => {
 
       const card = within(screen.getByTestId('proposal-card-wo-prop-1'))
       expect(card.getByText('WorkshopOrder (6fd17060)')).toBeInTheDocument()
-      expect(card.queryByText('Order No. not set')).not.toBeInTheDocument()
+      expect(card.queryByText(deAgent.approvals.orderNumberMissing)).not.toBeInTheDocument()
       expect(
         screen.queryByTestId('proposed-lines-wo-prop-1'),
       ).not.toBeInTheDocument()
@@ -1235,7 +1208,7 @@ describe('AgentSupervisionPage', () => {
         screen.getByTestId('activity-decided-by-log-decided-1'),
       )
       expect(decidedBy.getByText('Sam Supervisor')).toBeInTheDocument()
-      expect(decidedBy.getByText('Show details')).toBeInTheDocument()
+      expect(decidedBy.getByText(deAgent.activity.showDetails)).toBeInTheDocument()
       expect(
         decidedBy.getByText(DECIDER_ID).closest('details'),
       ).not.toBeNull()
@@ -1265,7 +1238,7 @@ describe('AgentSupervisionPage', () => {
       const decidedBy = within(
         screen.getByTestId('activity-decided-by-log-decided-1'),
       )
-      expect(decidedBy.getByText('Unknown user')).toBeInTheDocument()
+      expect(decidedBy.getByText(deAgent.common.unknownUser)).toBeInTheDocument()
       expect(
         decidedBy.getByText(DECIDER_ID).closest('details'),
       ).not.toBeNull()
@@ -1334,7 +1307,7 @@ describe('AgentSupervisionPage', () => {
       const defaultPreview = within(
         card.getByTestId('change-preview-mcp-prop-1'),
       )
-      expect(defaultPreview.getByText('Sales order — Update')).toBeInTheDocument()
+      expect(defaultPreview.getByText('Verkaufsauftrag — Aktualisieren')).toBeInTheDocument()
       expect(
         defaultPreview.queryByText('Workshop location — Update'),
       ).not.toBeInTheDocument()
@@ -1343,8 +1316,8 @@ describe('AgentSupervisionPage', () => {
       const details = within(
         screen.getByTestId('change-preview-details-mcp-prop-1'),
       )
-      expect(details.getByText('Sales order — Update')).toBeInTheDocument()
-      expect(details.getByText('Workshop location')).toBeInTheDocument()
+      expect(details.getByText('Verkaufsauftrag — Aktualisieren')).toBeInTheDocument()
+      expect(details.getByText(deAgent.approvals.workshopLocation)).toBeInTheDocument()
     })
 
     it('shows the Proposal approved toast after a successful Approve', async () => {
@@ -1353,7 +1326,7 @@ describe('AgentSupervisionPage', () => {
       fireEvent.click(screen.getByTestId('approve-btn-mcp-prop-1'))
 
       await waitFor(() =>
-        expect(toast.success).toHaveBeenCalledWith('Proposal approved'),
+        expect(toast.success).toHaveBeenCalledWith(deAgent.approvals.approveSuccess),
       )
       expect(toast.error).not.toHaveBeenCalled()
     })
@@ -1369,7 +1342,7 @@ describe('AgentSupervisionPage', () => {
       await waitFor(() =>
         expect(toast.error).toHaveBeenCalledWith('Proposal has expired'),
       )
-      expect(toast.success).not.toHaveBeenCalledWith('Proposal approved')
+      expect(toast.success).not.toHaveBeenCalledWith(deAgent.approvals.approveSuccess)
     })
 
     it('still shows the Proposal rejected toast after a successful reject', async () => {
@@ -1379,7 +1352,7 @@ describe('AgentSupervisionPage', () => {
       fireEvent.click(screen.getByTestId('confirm-reject-btn'))
 
       await waitFor(() =>
-        expect(toast.success).toHaveBeenCalledWith('Proposal rejected'),
+        expect(toast.success).toHaveBeenCalledWith(deAgent.approvals.rejectSuccess),
       )
     })
   })
@@ -1402,7 +1375,7 @@ describe('AgentSupervisionPage', () => {
       renderSupervisionPage()
 
       expect(screen.getByTestId('approvals-empty-state')).toBeInTheDocument()
-      expect(screen.getByText(/No proposals waiting/i)).toBeInTheDocument()
+      expect(screen.getByText(/Keine Vorschläge in der Warteschlange/i)).toBeInTheDocument()
     })
 
     it('does not show the empty inbox when triage fails to load', () => {
@@ -1418,7 +1391,7 @@ describe('AgentSupervisionPage', () => {
       expect(screen.getByTestId('approvals-error-state')).toBeInTheDocument()
       expect(screen.queryByTestId('approvals-empty-state')).not.toBeInTheDocument()
       expect(
-        screen.queryByText(/No proposals waiting/i),
+        screen.queryByText(/Keine Vorschläge in der Warteschlange/i),
       ).not.toBeInTheDocument()
     })
 
@@ -1524,7 +1497,9 @@ describe('AgentSupervisionPage', () => {
         screen.getByTestId('triage-card-CUSTOMER_DECISION-notice-1'),
       ).toBeInTheDocument()
       expect(
-        screen.getByText(/review waiting tasks before resuming work/i),
+        screen.getByText(
+          deAgent.approvals.triageReason.CUSTOMER_ESTIMATE_APPROVED_REVIEW_WAITING_TASKS,
+        ),
       ).toBeInTheDocument()
     })
 
@@ -1612,7 +1587,7 @@ describe('AgentSupervisionPage', () => {
 
       expect(screen.queryByTestId('approvals-proposals-error-state')).not.toBeInTheDocument()
       expect(screen.getByTestId('approvals-empty-state')).toBeInTheDocument()
-      expect(screen.getByText(/No proposals waiting/i)).toBeInTheDocument()
+      expect(screen.getByText(/Keine Vorschläge in der Warteschlange/i)).toBeInTheDocument()
     })
 
     it('does not show inbox clear when only pending proposals fail to load', () => {
@@ -1639,7 +1614,7 @@ describe('AgentSupervisionPage', () => {
       ).toBeInTheDocument()
       expect(screen.queryByTestId('approvals-empty-state')).not.toBeInTheDocument()
       expect(
-        screen.queryByText(/No proposals waiting/i),
+        screen.queryByText(/Keine Vorschläge in der Warteschlange/i),
       ).not.toBeInTheDocument()
     })
 

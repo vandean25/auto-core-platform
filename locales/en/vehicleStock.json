@@ -120,9 +120,32 @@
       "taxModeMarginScheme": "Margin scheme"
     },
     "tradeIn": {
+      "title": "Trade-in",
       "vehicle": "Trade-in vehicle",
       "allowance": "Trade-in allowance",
-      "amountDue": "Amount due after trade-in"
+      "amountDue": "Amount due after trade-in",
+      "amountDueLabel": "Amount due after trade-in:",
+      "hintWithSale": "The buyer’s vehicle is credited against the sale price. The invoice bills the remaining amount.",
+      "hintSaveFirst": "Save the sale first, then add the buyer’s vehicle as a trade-in.",
+      "allowanceLabel": "Allowance (EUR)",
+      "vin": "VIN",
+      "make": "Make",
+      "model": "Model",
+      "year": "Model year",
+      "mileage": "Mileage (km)",
+      "firstRegistration": "First registration",
+      "plateOptional": "Plate (optional)",
+      "remove": "Remove trade-in",
+      "removed": "Trade-in removed",
+      "saveFailed": "Failed to save trade-in",
+      "removeFailed": "Failed to remove trade-in",
+      "storedIncomplete": "Remove the trade-in or complete its details before finalizing.",
+      "removalFailed": "The trade-in could not be removed and is still on this sale. Remove it again before finalizing.",
+      "saveStatus": {
+        "saving": "Saving…",
+        "saved": "Saved",
+        "error": "Save failed"
+      }
     }
   },
   "reports": {

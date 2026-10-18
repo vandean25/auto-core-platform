@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useSalesOrder, useCreateInvoiceFromOrder, useUpdateSalesOrder } from '@/api/sales-orders'
@@ -22,7 +22,8 @@ import { translateSalesApiError } from '@/features/sales/sales-api-error-i18n'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { usePageBreadcrumbs } from '@/hooks/usePageBreadcrumbs'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
-import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { ensureNamespaceLoaded, i18n } from '@/lib/i18n'
+import { PageLoader } from '@/components/ui/PageLoader'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,9 +38,13 @@ import {
 
 export default function SalesOrderDetail() {
   const { t } = useTranslation('sales')
+  const [salesLocaleReady, setSalesLocaleReady] = useState(() =>
+    i18n.hasResourceBundle(i18n.language, 'sales'),
+  )
   useEffect(() => {
-    void ensureNamespaceLoaded('sales')
-  }, [])
+    if (salesLocaleReady) return
+    void ensureNamespaceLoaded('sales').then(() => setSalesLocaleReady(true))
+  }, [salesLocaleReady])
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { data: order, isLoading } = useSalesOrder(id!)
@@ -61,8 +66,12 @@ export default function SalesOrderDetail() {
     }
   }
 
-  if (isLoading) {
-    return <div className="p-8 text-center">{t('orders.detail.loading')}</div>
+  if (!salesLocaleReady || isLoading) {
+    return salesLocaleReady ? (
+      <div className="p-8 text-center">{t('orders.detail.loading')}</div>
+    ) : (
+      <PageLoader />
+    )
   }
   if (!order) {
     return <div className="p-8 text-center">{t('orders.detail.notFound')}</div>

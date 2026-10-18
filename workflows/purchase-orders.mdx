@@ -1,25 +1,25 @@
 ---
-title: "Purchase orders"
-description: "Send the PO, receive parts to the right stock location, then bill only what arrived."
+title: "Bestellungen"
+description: "Bestellung versenden, Teile am richtigen Lagerort empfangen und nur das abrechnen, was angekommen ist."
 ---
 
-**Purchase Orders**: **+ Purchase Order**. Statuses: **DRAFT → SENT → PARTIAL → COMPLETED**. Right-click **Delete** on **DRAFT** only.
+**Bestellungen**: **Bestellung**. Status: **Entwurf → Gesendet → Teilweise → Abgeschlossen**. **Löschen** per Kontextmenü nur im Status **Entwurf**.
 
 <Steps>
-  <Step title="Draft">
-    Pick a [vendor](/workflows/vendors), add lines (catalog item, qty, price).
+  <Step title="Entwurf">
+    [Lieferant](/workflows/vendors) wählen, Positionen hinzufügen (Katalogartikel, Menge, Preis).
   </Step>
-  <Step title="Mark as Sent">
-    On **DRAFT**, top-right **Mark as Sent**. That is the office saying it left the building.
+  <Step title="Als gesendet markieren">
+    Bei **Entwurf** oben rechts **Als gesendet markieren**. Das bedeutet: die Bestellung ist das Haus verlassen.
   </Step>
-  <Step title="Receive Goods">
-    Until **COMPLETED**, **Receive Goods**. Partial receipts move status to **PARTIAL**. Lines reserved for a workshop job go straight to that job's staging tote, not a free-stock bin. Unlinked items use the free-stock bin provided, or the default general bin; released linked items require a free-stock bin.
+  <Step title="Wareneingang buchen">
+    Solange der Status nicht **Abgeschlossen** ist: **Wareneingang buchen**. Teilweise Empfänge setzen den Status auf **Teilweise**. Für Werkstattaufträge reservierte Positionen gehen direkt in den Staging-Behälter des Auftrags, nicht in freien Bestand. Nicht verknüpfte Artikel nutzen den angegebenen Freibestands-Lagerplatz oder den Standard-Lagerplatz; freigegebene verknüpfte Positionen brauchen einen Freibestands-Lagerplatz.
   </Step>
-  <Step title="Create Bill">
-    **Create Bill (N items)** uses unbilled received qty and jumps to a new vendor bill with vendor and PO prefilled. Disabled when the unbilled count is 0.
+  <Step title="Eingangsrechnung anlegen">
+    **Eingangsrechnung anlegen (N Positionen)** nutzt nicht abgerechnete Empfangsmengen und öffnet eine neue Eingangsrechnung mit vorausgefülltem Lieferanten und Bestellung. Deaktiviert, wenn die Anzahl nicht abgerechneter Positionen 0 ist.
   </Step>
 </Steps>
 
 <Warning>
-You cannot receive after **COMPLETED**. Fiscal lock still applies to dated receipts and bills.
+Nach **Abgeschlossen** ist kein Empfang mehr möglich. Die Fiskalsperre gilt weiterhin für datierte Empfänge und Rechnungen.
 </Warning>

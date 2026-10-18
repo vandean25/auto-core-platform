@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { BrandTable } from './BrandTable'
 import type { Brand } from '@/api/types'
+import deSettings from '../../../../locales/de/settings.json'
 
 vi.mock('@/api/brands', () => ({
   useDeleteBrand: () => ({ mutateAsync: vi.fn() }),
@@ -17,6 +18,9 @@ const brand = (overrides: Partial<Brand>): Brand => ({
   ...overrides,
 })
 
+const editLabel = (name: string) => deSettings.brands.table.editAria.replace('{{name}}', name)
+const deleteLabel = (name: string) => deSettings.brands.table.deleteAria.replace('{{name}}', name)
+
 describe('BrandTable row actions', () => {
   afterEach(() => {
     cleanup()
@@ -25,8 +29,8 @@ describe('BrandTable row actions', () => {
   it('names the edit and delete icon buttons after the brand they act on', () => {
     render(<BrandTable brands={[brand({ name: 'Acme' })]} onEdit={vi.fn()} />)
 
-    expect(screen.getByRole('button', { name: /Edit brand Acme/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Delete brand Acme/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: new RegExp(editLabel('Acme')) })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: new RegExp(deleteLabel('Acme')) })).toBeInTheDocument()
   })
 
   it('keeps the action names distinct for each row', () => {
@@ -40,8 +44,8 @@ describe('BrandTable row actions', () => {
       />,
     )
 
-    expect(screen.getByRole('button', { name: 'Edit brand Bosch' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Delete brand Bosch' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: editLabel('Bosch') })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: deleteLabel('Bosch') })).toBeInTheDocument()
   })
 
   it('opens the editor for the brand whose edit button was clicked', () => {
@@ -49,7 +53,7 @@ describe('BrandTable row actions', () => {
     const acme = brand({ name: 'Acme' })
     render(<BrandTable brands={[acme]} onEdit={onEdit} />)
 
-    fireEvent.click(screen.getByRole('button', { name: /Edit brand Acme/ }))
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(editLabel('Acme')) }))
 
     expect(onEdit).toHaveBeenCalledWith(acme)
   })

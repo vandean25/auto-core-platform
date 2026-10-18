@@ -1,13 +1,14 @@
+import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ShieldAlert } from 'lucide-react'
-import type { Language } from '../agent-supervision-copy'
-import { getCopy, SUPERVISION_COPY } from '../agent-supervision-copy'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 
-interface AgentSafetyBannerProps {
-  language?: Language
-}
+export function AgentSafetyBanner() {
+  const { t } = useTranslation('agent')
 
-export function AgentSafetyBanner({ language = 'en' }: AgentSafetyBannerProps) {
-  const t = SUPERVISION_COPY.banner
+  useEffect(() => {
+    void ensureNamespaceLoaded('agent')
+  }, [])
 
   return (
     <div
@@ -22,14 +23,14 @@ export function AgentSafetyBanner({ language = 'en' }: AgentSafetyBannerProps) {
       <div className="flex-1 space-y-1">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-semibold tracking-tight">
-            {getCopy(t.title, language)}
+            {t('banner.title')}
           </h2>
           <span className="rounded bg-amber-200 px-2 py-0.5 text-xs font-medium text-amber-800">
-            {getCopy(t.badge, language)}
+            {t('banner.badge')}
           </span>
         </div>
         <p className="text-sm text-amber-800/90 leading-relaxed">
-          {getCopy(t.description, language)}
+          {t('banner.description')}
         </p>
       </div>
     </div>

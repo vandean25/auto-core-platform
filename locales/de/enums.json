@@ -128,7 +128,8 @@
   "importEntityType": {
     "CUSTOMER": "Kunde",
     "VEHICLE": "Fahrzeug",
-    "SUPPLIER_PRICE_LIST": "Lieferantenpreisliste"
+    "SUPPLIER_PRICE_LIST": "Lieferantenpreisliste",
+    "LABOR_OPERATION": "Arbeitswerte"
   },
   "importField": {
     "customer": {
@@ -165,6 +166,20 @@
       "cost_price": "Einkaufspreis (netto)",
       "rrp": "UVP / RRP (brutto/netto)",
       "unit": "Einheit"
+    },
+    "laborOperation": {
+      "external_id": "Arbeitswert-Nr",
+      "code": "AW-Code",
+      "description": "Beschreibung",
+      "standard_aw": "AW",
+      "hourly_rate": "Stundensatz",
+      "internal_cost": "Interner Kostensatz",
+      "category_name": "Kategorie",
+      "fitment_make": "Marke",
+      "fitment_model": "Modell",
+      "fitment_year_from": "Baujahr von",
+      "fitment_year_to": "Baujahr bis",
+      "fitment_engine_code": "Motorcode"
     }
   },
   "documentBrandAssetState": {

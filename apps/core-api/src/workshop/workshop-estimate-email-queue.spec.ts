@@ -21,6 +21,7 @@ const INPUT: EstimateEmailInput = {
   tenantId: 'tenant-1',
   versionId: 'version-1',
   workshopOrderId: 'order-1',
+  controllerLegalEntityId: 'controller-1',
   vehicle: { make: 'VW', model: 'Golf' },
   customer: {
     id: 'customer-1',
@@ -54,7 +55,7 @@ describe('workshop estimate email queue (ADR-0025 §6 and §7)', () => {
     const outbox = {
       enqueueInTx: jest
         .fn()
-        .mockResolvedValue({ id: 'outbox-1', created: true }),
+        .mockResolvedValue({ blocked: false, id: 'outbox-1', created: true }),
     };
 
     const id = await queueEstimateEmailInTx(tx as never, outbox, INPUT);
@@ -80,6 +81,8 @@ describe('workshop estimate email queue (ADR-0025 §6 and §7)', () => {
       occurrenceId: 'version-1',
       workshopOrderId: 'order-1',
       payload: { customer_id: 'customer-1' },
+      consentPurpose: 'ORDER_COMMUNICATION',
+      controllerLegalEntityId: 'controller-1',
     });
     // The link carries the raw token, and the database holds the hash of that same token.
     const raw = /\/approve\/([A-Za-z0-9_-]{43})/.exec(row.email.text)?.[1];
@@ -93,7 +96,7 @@ describe('workshop estimate email queue (ADR-0025 §6 and §7)', () => {
     const outbox = {
       enqueueInTx: jest
         .fn()
-        .mockResolvedValue({ id: 'outbox-1', created: true }),
+        .mockResolvedValue({ blocked: false, id: 'outbox-1', created: true }),
     };
 
     await queueEstimateEmailInTx(tx as never, outbox, {

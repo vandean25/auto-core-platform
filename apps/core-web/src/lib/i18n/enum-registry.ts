@@ -22,5 +22,6 @@ export const DATA_TABLE_COLUMN_IDS = Object.keys(deEnums.dataTableColumn) as Dat
 export function importFieldSegmentForEntity(entityType: ImportEntityTypeUi): keyof typeof deEnums.importField {
   if (entityType === 'VEHICLE') return 'vehicle'
   if (entityType === 'SUPPLIER_PRICE_LIST') return 'supplierPriceList'
+  if (entityType === 'LABOR_OPERATION') return 'laborOperation'
   return 'customer'
 }

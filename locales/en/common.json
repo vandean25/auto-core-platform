@@ -9,7 +9,122 @@
   "actions": {
     "cancel": "Cancel",
     "save": "Save",
-    "confirm": "Confirm"
+    "confirm": "Confirm",
+    "close": "Close"
+  },
+  "documentSave": {
+    "saving": "Saving…",
+    "saved": "All changes saved",
+    "error": "Save failed"
+  },
+  "appVersion": {
+    "available": "New version available",
+    "reload": "Reload"
+  },
+  "pageLoader": {
+    "loading": "Loading Auto Core…"
+  },
+  "dataTable": {
+    "noResults": "No results.",
+    "rowsPerPage": "Rows per page",
+    "rowsPerPageAria": "Rows per page",
+    "previous": "Previous",
+    "next": "Next",
+    "page": "Page",
+    "of": "of",
+    "closeContextMenu": "Close context menu",
+    "columns": "Columns",
+    "toggleColumns": "Toggle columns",
+    "showAll": "Show all",
+    "reset": "Reset",
+    "filterPlaceholder": "Filter…",
+    "exportCsv": "Export CSV",
+    "exportCsvTitle": "Exports the visible columns of the rows loaded in this table",
+    "hide": "Hide",
+    "columnOptions": "{{title}} column options",
+    "loading": "Loading…"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "description": "Build your command center from saved table filters.",
+    "addToDashboard": "Add to dashboard",
+    "addToDashboardHint": "Shows this result as a widget on your dashboard",
+    "addWidgetTitle": "Add widget to dashboard",
+    "addWidgetDescription": "Configure how this saved filter should appear on your dashboard.",
+    "widgetName": "Widget name",
+    "widgetNamePlaceholder": "Orders by status",
+    "displayType": "Display type",
+    "displayList": "List",
+    "displayDonut": "Donut chart",
+    "displayMetric": "Metric card",
+    "groupBy": "Group by",
+    "groupByPlaceholder": "Select grouping column",
+    "calculate": "Calculate",
+    "calculateCount": "Count (total items)",
+    "calculateSum": "Sum (numbers / currency)",
+    "sumColumn": "Sum column",
+    "sumColumnPlaceholder": "Select numeric column",
+    "widgetNameRequired": "Widget name is required.",
+    "groupByRequired": "Select a Group By field.",
+    "sumColumnRequired": "Select a column to sum.",
+    "widgetAdded": "Widget added to dashboard.",
+    "defaultWidgetName": "{{sourceLabel}} widget",
+    "openSourceTitle": "Open source table with saved filters",
+    "removeWidgetAria": "Remove widget {{name}}",
+    "loadingWidget": "Loading widget…",
+    "loadWidgetFailed": "Unable to load widget data.",
+    "noWidgetData": "No data for this widget.",
+    "noPreviewData": "No preview data",
+    "summedValue": "Summed value",
+    "totalItems": "Total items",
+    "emptyWidgets": "No widgets yet. Open a list view, apply filters, then click Add to dashboard.",
+    "sourceUnavailable": "Widget source is no longer available.",
+    "unknownGroup": "Unknown"
+  },
+  "savedViews": {
+    "saveButton": "Save as sidebar view",
+    "saveHint": "Saves these filters as a shortcut in the sidebar",
+    "saveAria": "Save as sidebar view for {{title}}",
+    "title": "Save as sidebar view",
+    "description": "Give this view a name to save it to your Favorites.",
+    "nameLabel": "Name",
+    "defaultName": "{{title}} view",
+    "added": "Saved view added to Favorites.",
+    "duplicate": "This view is already in Favorites.",
+    "failed": "Unable to save this view."
+  },
+  "onboarding": {
+    "title": "Get your workshop set up",
+    "description": "Four steps to get your first jobs on the board. Dismiss this card once you are set up.",
+    "dismissAria": "Dismiss onboarding checklist",
+    "dismissTitle": "Dismiss onboarding checklist",
+    "steps": {
+      "customers": {
+        "title": "Create customers",
+        "description": "Add the private and company customers you bill and service.",
+        "action": "Open customers"
+      },
+      "vehicles": {
+        "title": "Add vehicles",
+        "description": "Register the cars you service so every job links to the right vehicle.",
+        "action": "Open vehicles"
+      },
+      "inventory": {
+        "title": "Add inventory items",
+        "description": "Load the parts and supplies you keep on the shelf.",
+        "action": "Open inventory"
+      },
+      "workshop-order": {
+        "title": "Create the first workshop order",
+        "description": "Book a first job for a customer and vehicle.",
+        "action": "Open workshop orders"
+      }
+    }
+  },
+  "scroll": {
+    "workshopHint": "Scroll or use the arrows to see more columns",
+    "left": "Scroll left",
+    "right": "Scroll right"
   },
   "placeholders": {
     "missing": "—",

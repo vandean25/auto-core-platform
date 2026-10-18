@@ -4,11 +4,15 @@ import { MemoryRouter } from 'react-router-dom'
 import { useMySites } from '@/api/sites'
 import { useAuthSession } from '@/api/auth-session'
 import { useWorkshopKpiReport, type WorkshopKpiReport, type WorkshopKpiReportRow } from '@/api/workshop-kpi-reports'
+import { i18n } from '@/lib/i18n'
+import deReports from '../../../../../locales/de/reports.json'
 import WorkshopKpiReportsPage, { serializeWorkshopKpiCsv } from './WorkshopKpiReportsPage'
 
 vi.mock('@/api/sites', () => ({ useMySites: vi.fn() }))
 vi.mock('@/api/auth-session', () => ({ useAuthSession: vi.fn() }))
 vi.mock('@/api/workshop-kpi-reports', () => ({ useWorkshopKpiReport: vi.fn() }))
+
+const reportsT = i18n.getFixedT('de', 'reports')
 
 const row: WorkshopKpiReportRow = {
   key: 'm1', period: '2026-01', mechanic_id: 'm1', mechanic_name: 'Müller',
@@ -34,7 +38,7 @@ describe('WorkshopKpiReportsPage', () => {
     vi.mocked(useAuthSession).mockReturnValue({ data: { activeSiteId: 'site-1' } } as never)
     vi.mocked(useWorkshopKpiReport).mockReturnValue({ isLoading: false, isError: false, data: undefined } as never)
     render(<MemoryRouter><WorkshopKpiReportsPage /></MemoryRouter>)
-    expect(screen.getByText('Keine Daten für den ausgewählten Zeitraum.')).toBeInTheDocument()
+    expect(screen.getByText(deReports.workshopKpi.laborPerformance.empty)).toBeInTheDocument()
     expect(screen.queryByText(/NaN/)).not.toBeInTheDocument()
     expect(useWorkshopKpiReport).toHaveBeenCalledWith(expect.objectContaining({ siteId: 'site-1', groupBy: 'mechanic' }))
   })
@@ -48,11 +52,11 @@ describe('WorkshopKpiReportsPage', () => {
     } as never)
     render(<MemoryRouter><WorkshopKpiReportsPage /></MemoryRouter>)
     expect(screen.getAllByText('75,00 %')).toHaveLength(2)
-    expect(serializeWorkshopKpiCsv(reportData)).toContain('10.00;7.50;6.00;100.00;25.50;75.00;80.00')
+    expect(serializeWorkshopKpiCsv(reportData, reportsT)).toContain('10.00;7.50;6.00;100.00;25.50;75.00;80.00')
   })
 
   it('exports parts turnover and slow movers with the work performance rows', () => {
-    const csv = serializeWorkshopKpiCsv(reportData)
+    const csv = serializeWorkshopKpiCsv(reportData, reportsT)
 
     expect(csv).toContain('40.00;200.00;0.20;0')
     expect(csv).toContain('FILTER-1;"Filter; Öl";2.000;40.00;120')

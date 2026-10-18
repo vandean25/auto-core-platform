@@ -8,6 +8,7 @@ import {
 import { afterEach, describe, expect, it, vi, beforeEach } from "vitest";
 import PickerlDueList from "./PickerlDueList";
 import { deVehicles } from "@/test/de-vehicles";
+import deCommon from "../../../../../locales/de/common.json";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import * as vehiclesApi from "@/api/vehicles";
@@ -71,7 +72,7 @@ describe("PickerlDueList", () => {
 
   it("renders No results. when data is empty", () => {
     renderList();
-    expect(screen.getAllByText("No results.").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(deCommon.dataTable.noResults).length).toBeGreaterThan(0);
   });
 
   it("renders UNKNOWN row with em dashes for due month and last inspection", async () => {

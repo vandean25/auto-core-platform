@@ -1,0 +1,25 @@
+---
+title: "Inventory"
+description: "Create the part, see on-hand, and read the ledger instead of guessing the count."
+---
+
+**Inventory** lists parts: status, SKU + brand, description, price. Search: **Search parts...** Top-right: **+ Item**. Click the row to open the **item ledger** for that SKU.
+
+<Steps>
+  <Step title="Add a part">
+    **+ Item**. Brand comes from [part manufacturers](/en/settings/brands). Revenue group from [finance groups](/en/settings/revenue-groups).
+  </Step>
+  <Step title="Stock lives on a bin">
+    On-hand is per [storage location](/en/settings/storage-locations). Receiving a PO and issuing an invoice both write ledger rows. You do not type a new quantity into a cell.
+  </Step>
+  <Step title="Receive, adjust, or edit on the ledger">
+    On the item ledger, OWNER/ADMIN users get **Receive** (goods receipt into a bin), **Adjust** (signed correction with a reason), and **Edit** (catalog fields). Each action writes ledger rows you can audit later.
+  </Step>
+  <Step title="Read the ledger table">
+    The ledger lists Purchase Receipt, Sale Issue, Adjustment, Transfer In/Out, Initial Balance, Workshop Consumption, and related movement types.
+  </Step>
+</Steps>
+
+<Warning>
+The catalog item is not hard-deleted. History hangs on that identity. Use supersession / inactive instead of wiping the SKU.
+</Warning>

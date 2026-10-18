@@ -4,6 +4,11 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import InvoiceDraftEditPage from './InvoiceDraftEditPage'
 import { deSales } from '@/test/de-sales'
+import deCommon from '../../../../../locales/de/common.json'
+import deErrors from '../../../../../locales/de/errors.json'
+
+const invoiceEditor = deSales.invoiceEditor
+const accountingMappingIncomplete = deErrors.codes.ACCOUNTING_MAPPING_INCOMPLETE
 import { invoiceKeys } from '@/api/sales'
 import * as salesApi from '@/api/sales'
 import * as salesOrdersApi from '@/api/sales-orders'
@@ -141,7 +146,7 @@ describe('InvoiceDraftEditPage autosave', () => {
 
   const confirmFinalize = () => {
     fireEvent.click(
-      within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Finalize' }),
+      within(screen.getByRole('alertdialog')).getByRole('button', { name: invoiceEditor.finalizeDialog.confirm }),
     )
   }
 
@@ -154,7 +159,7 @@ describe('InvoiceDraftEditPage autosave', () => {
 
     renderPage()
 
-    fireEvent.change(screen.getByPlaceholderText('Service or Item Name'), {
+    fireEvent.change(screen.getByPlaceholderText(invoiceEditor.lineItemsTable.descriptionPlaceholder), {
       target: { value: 'Brake pads premium' },
     })
 
@@ -174,7 +179,7 @@ describe('InvoiceDraftEditPage autosave', () => {
       { timeout: 2000 },
     )
 
-    expect(await screen.findByText('All changes saved')).toBeInTheDocument()
+    expect(await screen.findByText(deCommon.documentSave.saved)).toBeInTheDocument()
   })
 
   it('does not PATCH an unchanged draft on open', async () => {
@@ -204,7 +209,7 @@ describe('InvoiceDraftEditPage autosave', () => {
     const { rerender } = renderPage()
     await screen.findByDisplayValue('Brake pads')
 
-    fireEvent.change(screen.getByPlaceholderText('Service or Item Name'), {
+    fireEvent.change(screen.getByPlaceholderText(invoiceEditor.lineItemsTable.descriptionPlaceholder), {
       target: { value: 'User typed value' },
     })
 
@@ -275,7 +280,7 @@ describe('InvoiceDraftEditPage autosave', () => {
     const finalizeButton = await screen.findByRole('button', { name: deSales.invoices.draft.finalize })
     expect(finalizeButton).not.toBeDisabled()
     fireEvent.click(finalizeButton)
-    expect(await screen.findByText(/Finalize invoice\?/i)).toBeInTheDocument()
+    expect(await screen.findByText(invoiceEditor.finalizeDialog.title)).toBeInTheDocument()
   })
 
   it('calls finalize after confirm and navigates only on success', async () => {
@@ -359,7 +364,7 @@ describe('InvoiceDraftEditPage autosave', () => {
     openFinalizeDialog()
 
     const dialog = await screen.findByRole('alertdialog')
-    expect(within(dialog).getByRole('button', { name: 'Finalize' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: invoiceEditor.finalizeDialog.confirm })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /print/i })).not.toBeInTheDocument()
   })
 
@@ -418,8 +423,8 @@ describe('InvoiceDraftEditPage autosave', () => {
 
     await waitFor(() => {
       expect(finalizeMutation).toHaveBeenCalledWith('inv-1')
-      expect(toast.error).toHaveBeenCalledWith('Die Buchhaltungszuordnung ist unvollständig.')
-      expect(screen.getByText('Die Buchhaltungszuordnung ist unvollständig.')).toBeInTheDocument()
+      expect(toast.error).toHaveBeenCalledWith(accountingMappingIncomplete)
+      expect(screen.getByText(accountingMappingIncomplete)).toBeInTheDocument()
       expect(mockNavigate).not.toHaveBeenCalled()
     })
   })
@@ -453,7 +458,7 @@ describe('InvoiceDraftEditPage autosave', () => {
       expect(toast.error).toHaveBeenCalledWith(conflictMessage)
     })
 
-    expect(screen.getByText(/Finalize invoice\?/i)).toBeInTheDocument()
+    expect(screen.getByText(invoiceEditor.finalizeDialog.title)).toBeInTheDocument()
   })
 
   it('surfaces API message when autosave fails', async () => {
@@ -470,7 +475,7 @@ describe('InvoiceDraftEditPage autosave', () => {
 
     renderPage()
 
-    fireEvent.change(screen.getByPlaceholderText('Service or Item Name'), {
+    fireEvent.change(screen.getByPlaceholderText(invoiceEditor.lineItemsTable.descriptionPlaceholder), {
       target: { value: 'Updated line' },
     })
 

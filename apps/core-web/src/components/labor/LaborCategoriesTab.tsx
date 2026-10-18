@@ -1,4 +1,5 @@
 import * as React from "react"
+import { Trans, useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { Plus, ChevronRight, ChevronDown, Loader2, GripVertical, Pencil } from "lucide-react"
 
@@ -22,6 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { formatCurrency } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 // ── Internal Types ─────────────────────────────────────────────────────────
@@ -64,6 +66,7 @@ function InlineRateEditor({
   value: number | null
   onSave: (rate: number | null) => Promise<void>
 }) {
+  const { t } = useTranslation(["settings", "common"])
   const [editing, setEditing] = React.useState(false)
   const [input, setInput] = React.useState(value != null ? String(value) : "")
   const [isSaving, setIsSaving] = React.useState(false)
@@ -87,7 +90,7 @@ function InlineRateEditor({
     
     // Check if input is empty OR if parseFloat resulted in a valid number
     if (trimmedInput !== "" && isNaN(parsed as number)) {
-        toast.error("Invalid hourly rate format")
+        toast.error(t("labor.categories.invalidRate"))
         setEditing(false)
         setInput(value != null ? String(value) : "")
         return
@@ -140,9 +143,9 @@ function InlineRateEditor({
     <button
       onClick={e => { e.stopPropagation(); setEditing(true) }}
       className="text-xs text-slate-600 hover:underline cursor-pointer tabular-nums min-w-[64px] text-left"
-      title="Click to edit rate"
+      title={t("labor.categories.tree.rateTitle")}
     >
-      {value != null ? `฿${value.toFixed(2)}` : <span className="text-slate-400">Not set</span>}
+      {value != null ? formatCurrency(value) : <span className="text-slate-400">{t("labor.categories.notSet")}</span>}
     </button>
   )
 }
@@ -175,6 +178,7 @@ function CategoryTreeRow({
   onRateSave: (id: string, rate: number | null) => Promise<void>
   dragProps: DragProps
 }) {
+  const { t } = useTranslation(["settings", "common"])
   const [expanded, setExpanded] = React.useState(true)
   const hasChildren = category.children && category.children.length > 0
   const isDragging = dragProps.dragging === category.id
@@ -202,7 +206,7 @@ function CategoryTreeRow({
         <button
           className="flex items-center justify-center w-4 h-4 text-slate-400 shrink-0"
           onClick={e => { e.stopPropagation(); setExpanded(v => !v) }}
-          aria-label={expanded ? "Collapse" : "Expand"}
+          aria-label={expanded ? t("labor.categories.tree.collapse") : t("labor.categories.tree.expand")}
           tabIndex={-1}
         >
           {hasChildren ? (
@@ -235,17 +239,17 @@ function CategoryTreeRow({
               ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
               : "bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200",
           )}
-          title="Toggle active status"
+          title={t("labor.categories.tree.toggleActiveTitle")}
         >
-          {category.is_active ? "Active" : "Inactive"}
+          {category.is_active ? t("labor.categories.active") : t("labor.categories.inactive")}
         </button>
 
         {/* Edit Button */}
         <button
           onClick={e => { e.stopPropagation(); onEdit(category) }}
           className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-slate-700 shrink-0"
-          aria-label={`Edit category ${category.name}`}
-          title="Edit category"
+          aria-label={t("labor.categories.tree.editAria", { name: category.name })}
+          title={t("labor.categories.tree.editTitle")}
         >
           <Pencil className="h-3.5 w-3.5" />
         </button>
@@ -275,6 +279,7 @@ function CategoryTreeRow({
 // ── Main Component ─────────────────────────────────────────────────────────
 
 export function LaborCategoriesTab() {
+  const { t } = useTranslation(["settings", "common"])
   const { data: categoriesData, isLoading } = useLaborCategories()
   const createMutation = useCreateLaborCategory()
   const updateMutation = useUpdateLaborCategory()
@@ -360,10 +365,10 @@ export function LaborCategoriesTab() {
         ...(addForm.default_hourly_rate ? { default_hourly_rate: parseFloat(addForm.default_hourly_rate) } : {}),
         is_active: addForm.is_active,
       })
-      toast.success("Category created")
+      toast.success(t("labor.categories.toast.created"))
       setAddForm(defaultFormState)
     } catch (error: unknown) {
-      toast.error((error as Error).message || "Failed to create category")
+      toast.error((error as Error).message || t("labor.categories.toast.createFailed"))
     } finally {
       setIsAddPending(false)
     }
@@ -399,11 +404,11 @@ export function LaborCategoriesTab() {
           is_active: editForm.is_active,
         },
       })
-      toast.success("Category updated")
+      toast.success(t("labor.categories.toast.updated"))
       setIsEditOpen(false)
       setEditCategory(null)
     } catch (error: unknown) {
-      toast.error((error as Error).message || "Failed to update category")
+      toast.error((error as Error).message || t("labor.categories.toast.updateFailed"))
     }
   }
 
@@ -432,9 +437,9 @@ export function LaborCategoriesTab() {
     if (!deleteTarget) return
     try {
       await deleteMutation.mutateAsync(deleteTarget.id)
-      toast.success("Category deleted")
+      toast.success(t("labor.categories.toast.deleted"))
     } catch (error: unknown) {
-      toast.error((error as Error).message || "Failed to delete category")
+      toast.error((error as Error).message || t("labor.categories.toast.deleteFailed"))
     } finally {
       setIsDeleteOpen(false)
       setDeleteTarget(null)
@@ -448,9 +453,13 @@ export function LaborCategoriesTab() {
         id: category.id,
         data: { is_active: !category.is_active },
       })
-      toast.success(category.is_active ? "Category deactivated" : "Category activated")
+      toast.success(
+        category.is_active
+          ? t("labor.categories.toast.deactivated")
+          : t("labor.categories.toast.activated"),
+      )
     } catch {
-      toast.error("Failed to update status")
+      toast.error(t("labor.categories.toast.statusFailed"))
     }
   }
 
@@ -461,9 +470,9 @@ export function LaborCategoriesTab() {
         id,
         data: { default_hourly_rate: rate ?? null },
       })
-      toast.success("Hourly rate updated")
+      toast.success(t("labor.categories.toast.rateUpdated"))
     } catch {
-      toast.error("Failed to update hourly rate")
+      toast.error(t("labor.categories.toast.rateFailed"))
     }
   }
 
@@ -533,9 +542,9 @@ export function LaborCategoriesTab() {
           ),
         )
       }
-      toast.success("Order updated")
+      toast.success(t("labor.categories.toast.orderUpdated"))
     } catch {
-      toast.error("Failed to update order")
+      toast.error(t("labor.categories.toast.orderFailed"))
     }
 
     handleDragEnd()
@@ -555,9 +564,9 @@ export function LaborCategoriesTab() {
       {/* ── Tree ── */}
       <div className="md:col-span-2 space-y-4">
         <div>
-          <h3 className="text-lg font-medium">Labor Categories</h3>
+          <h3 className="text-lg font-medium">{t("labor.categories.title")}</h3>
           <p className="text-sm text-slate-500">
-            Manage hierarchical labor categories with hourly rates. Right-click a row to delete.
+            {t("labor.categories.description")}
           </p>
         </div>
 
@@ -565,11 +574,11 @@ export function LaborCategoriesTab() {
           <CardContent className="p-4">
             {isLoading ? (
               <div className="flex items-center justify-center p-8 text-slate-500">
-                <Loader2 className="animate-spin h-6 w-6 mr-2" /> Loading categories...
+                <Loader2 className="animate-spin h-6 w-6 mr-2" /> {t("labor.categories.loading")}
               </div>
             ) : categories.length === 0 ? (
               <div className="text-center p-8 text-slate-500">
-                No categories found. Create your first category using the form.
+                {t("labor.categories.empty")}
               </div>
             ) : (
               <div className="space-y-0.5">
@@ -596,46 +605,46 @@ export function LaborCategoriesTab() {
           <CardHeader>
             <CardTitle as="h4" className="flex items-center gap-2">
               <Plus className="h-4 w-4" />
-              Add Category
+              {t("labor.categories.addDialog.title")}
             </CardTitle>
-            <CardDescription>Create a new labor category.</CardDescription>
+            <CardDescription>{t("labor.categories.addDialog.description")}</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={e => void handleAdd(e)} className="space-y-4">
               <div className="space-y-2">
                 <label htmlFor="add-category-name" className="text-sm font-medium">
-                  Name <span className="text-red-500">*</span>
+                  {t("labor.categories.addDialog.name")} <span className="text-red-500">*</span>
                 </label>
                 <Input
                   id="add-category-name"
                   value={addForm.name}
                   onChange={e => setAddForm(f => ({ ...f, name: e.target.value }))}
-                  placeholder="e.g. Engine Repair"
+                  placeholder={t("labor.categories.addDialog.namePlaceholder")}
                   required
                 />
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="add-category-description" className="text-sm font-medium">Description</label>
+                <label htmlFor="add-category-description" className="text-sm font-medium">{t("labor.categories.addDialog.descriptionLabel")}</label>
                 <Input
                   id="add-category-description"
                   value={addForm.description}
                   onChange={e => setAddForm(f => ({ ...f, description: e.target.value }))}
-                  placeholder="Optional description"
+                  placeholder={t("labor.categories.addDialog.descriptionPlaceholder")}
                 />
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="add-category-parent" className="text-sm font-medium">Parent Category</label>
+                <label htmlFor="add-category-parent" className="text-sm font-medium">{t("labor.categories.addDialog.parent")}</label>
                 <Select
                   value={addForm.parent_id}
                   onValueChange={val => setAddForm(f => ({ ...f, parent_id: val }))}
                 >
                   <SelectTrigger id="add-category-parent">
-                    <SelectValue placeholder="None (Top Level)" />
+                    <SelectValue placeholder={t("labor.categories.addDialog.parentNone")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">None (Top Level)</SelectItem>
+                    <SelectItem value="none">{t("labor.categories.addDialog.parentNone")}</SelectItem>
                     {categories.map(cat => (
                       <SelectItem key={cat.id} value={cat.id}>
                         {cat.name}
@@ -646,7 +655,7 @@ export function LaborCategoriesTab() {
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="add-category-rate" className="text-sm font-medium">Default Hourly Rate</label>
+                <label htmlFor="add-category-rate" className="text-sm font-medium">{t("labor.categories.addDialog.defaultRate")}</label>
                 <Input
                   id="add-category-rate"
                   value={addForm.default_hourly_rate}
@@ -654,24 +663,24 @@ export function LaborCategoriesTab() {
                   type="number"
                   step="0.01"
                   min="0"
-                  placeholder="e.g. 850.00"
+                  placeholder={t("labor.categories.addDialog.defaultRatePlaceholder")}
                 />
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="add-category-sort-order" className="text-sm font-medium">Sort Order</label>
+                <label htmlFor="add-category-sort-order" className="text-sm font-medium">{t("labor.categories.addDialog.sortOrder")}</label>
                 <Input
                   id="add-category-sort-order"
                   value={addForm.sort_order}
                   onChange={e => setAddForm(f => ({ ...f, sort_order: e.target.value }))}
                   type="number"
                   min="0"
-                  placeholder="e.g. 10"
+                  placeholder={t("labor.categories.addDialog.sortOrderPlaceholder")}
                 />
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Active</span>
+                <span className="text-sm font-medium">{t("labor.categories.addDialog.active")}</span>
                 <button
                   type="button"
                   onClick={() => setAddForm(f => ({ ...f, is_active: !f.is_active }))}
@@ -681,9 +690,13 @@ export function LaborCategoriesTab() {
                       ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
                       : "bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200",
                   )}
-                  aria-label={`Active: ${addForm.is_active ? "on" : "off"}`}
+                  aria-label={t("labor.categories.addDialog.activeAria", {
+                    state: addForm.is_active
+                      ? t("labor.categories.addDialog.stateOn")
+                      : t("labor.categories.addDialog.stateOff"),
+                  })}
                 >
-                  {addForm.is_active ? "Active" : "Inactive"}
+                  {addForm.is_active ? t("labor.categories.active") : t("labor.categories.inactive")}
                 </button>
               </div>
 
@@ -696,7 +709,7 @@ export function LaborCategoriesTab() {
                   <Loader2 className="animate-spin mr-2 h-4 w-4" />
                 )}
                 <Plus className="mr-2 h-4 w-4" />
-                Add Category
+                {t("labor.categories.addDialog.submit")}
               </Button>
             </form>
           </CardContent>
@@ -714,7 +727,7 @@ export function LaborCategoriesTab() {
             className="w-full px-3 py-1.5 text-sm text-left text-red-600 hover:bg-red-50 hover:text-red-700"
             onClick={handleDeleteClick}
           >
-            Delete
+            {t("labor.categories.contextDelete")}
           </button>
         </div>
       )}
@@ -723,16 +736,21 @@ export function LaborCategoriesTab() {
       <AlertDialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle>Edit Category</AlertDialogTitle>
+            <AlertDialogTitle>{t("labor.categories.editDialog.title")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Update the details for <strong>{editCategory?.name}</strong>.
+              <Trans
+                t={t}
+                i18nKey="labor.categories.editDialog.description"
+                values={{ name: editCategory?.name ?? "" }}
+                components={{ strong: <strong /> }}
+              />
             </AlertDialogDescription>
           </AlertDialogHeader>
 
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <label htmlFor="edit-category-name" className="text-sm font-medium">
-                Name <span className="text-red-500">*</span>
+                {t("labor.categories.addDialog.name")} <span className="text-red-500">*</span>
               </label>
               <Input
                 id="edit-category-name"
@@ -743,26 +761,26 @@ export function LaborCategoriesTab() {
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="edit-category-description" className="text-sm font-medium">Description</label>
+              <label htmlFor="edit-category-description" className="text-sm font-medium">{t("labor.categories.addDialog.descriptionLabel")}</label>
               <Input
                 id="edit-category-description"
                 value={editForm.description}
                 onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
-                placeholder="Optional description"
+                placeholder={t("labor.categories.addDialog.descriptionPlaceholder")}
               />
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="edit-category-parent" className="text-sm font-medium">Parent Category</label>
+              <label htmlFor="edit-category-parent" className="text-sm font-medium">{t("labor.categories.addDialog.parent")}</label>
               <Select
                 value={editForm.parent_id}
                 onValueChange={val => setEditForm(f => ({ ...f, parent_id: val }))}
               >
                 <SelectTrigger id="edit-category-parent">
-                  <SelectValue placeholder="None (Top Level)" />
+                  <SelectValue placeholder={t("labor.categories.addDialog.parentNone")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">None (Top Level)</SelectItem>
+                  <SelectItem value="none">{t("labor.categories.addDialog.parentNone")}</SelectItem>
                   {categories
                     .filter(cat => cat.id !== editCategory?.id)
                     .map(cat => (
@@ -775,7 +793,7 @@ export function LaborCategoriesTab() {
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="edit-category-rate" className="text-sm font-medium">Default Hourly Rate</label>
+              <label htmlFor="edit-category-rate" className="text-sm font-medium">{t("labor.categories.addDialog.defaultRate")}</label>
               <Input
                 id="edit-category-rate"
                 value={editForm.default_hourly_rate}
@@ -783,24 +801,24 @@ export function LaborCategoriesTab() {
                 type="number"
                 step="0.01"
                 min="0"
-                placeholder="e.g. 850.00"
+                placeholder={t("labor.categories.addDialog.defaultRatePlaceholder")}
               />
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="edit-category-sort-order" className="text-sm font-medium">Sort Order</label>
+              <label htmlFor="edit-category-sort-order" className="text-sm font-medium">{t("labor.categories.addDialog.sortOrder")}</label>
               <Input
                 id="edit-category-sort-order"
                 value={editForm.sort_order}
                 onChange={e => setEditForm(f => ({ ...f, sort_order: e.target.value }))}
                 type="number"
                 min="0"
-                placeholder="e.g. 10"
+                placeholder={t("labor.categories.addDialog.sortOrderPlaceholder")}
               />
             </div>
 
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Active</span>
+              <span className="text-sm font-medium">{t("labor.categories.addDialog.active")}</span>
               <button
                 type="button"
                 onClick={() => setEditForm(f => ({ ...f, is_active: !f.is_active }))}
@@ -810,21 +828,25 @@ export function LaborCategoriesTab() {
                     ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
                     : "bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200",
                 )}
-                aria-label={`Active: ${editForm.is_active ? "on" : "off"}`}
+                aria-label={t("labor.categories.addDialog.activeAria", {
+                  state: editForm.is_active
+                    ? t("labor.categories.addDialog.stateOn")
+                    : t("labor.categories.addDialog.stateOff"),
+                })}
               >
-                {editForm.is_active ? "Active" : "Inactive"}
+                {editForm.is_active ? t("labor.categories.active") : t("labor.categories.inactive")}
               </button>
             </div>
           </div>
 
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => void handleEditSave()}
               disabled={updateMutation.isPending || !editForm.name.trim()}
             >
               {updateMutation.isPending && <Loader2 className="animate-spin mr-2 h-4 w-4" />}
-              Save Changes
+              {t("labor.categories.editDialog.submit")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -834,32 +856,36 @@ export function LaborCategoriesTab() {
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Category</AlertDialogTitle>
+            <AlertDialogTitle>{t("labor.categories.deleteDialog.title")}</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div>
                 <p>
-                  Are you sure you want to delete{" "}
-                  <strong>{deleteTarget?.name}</strong>? This action cannot be undone.
+                  <Trans
+                    t={t}
+                    i18nKey="labor.categories.deleteDialog.description"
+                    values={{ name: deleteTarget?.name ?? "" }}
+                    components={{ strong: <strong /> }}
+                  />
                 </p>
                 {deleteTarget && deleteTarget.children.length > 0 && (
                   <p className="mt-2 text-amber-600">
-                    This category has {deleteTarget.children.length} child{" "}
-                    {deleteTarget.children.length === 1 ? "category" : "categories"} which may also
-                    be affected.
+                    {t("labor.categories.deleteDialog.childrenWarning", {
+                      count: deleteTarget.children.length,
+                    })}
                   </p>
                 )}
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => void handleDeleteConfirm()}
               className="bg-red-600 hover:bg-red-700"
               disabled={deleteMutation.isPending}
             >
               {deleteMutation.isPending && <Loader2 className="animate-spin mr-2 h-4 w-4" />}
-              Delete
+              {t("labor.categories.deleteDialog.confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

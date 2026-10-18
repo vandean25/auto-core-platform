@@ -1,60 +1,84 @@
 ---
-title: "Settings"
-description: "Every workshop control plane lives behind the gear: books, people, bins, and the audit trail."
+title: "Einstellungen"
+description: "Die gesamte Steuerzentrale Ihrer Werkstatt hinter dem Zahnrad: Bücher, Personal, Lagerplätze und der Audit-Trail."
 ---
 
-Click the **gear** in the app header. Settings is one tabbed page for this tenant. There is no separate admin site.
+Klicken Sie auf das **Zahnrad** in der App-Kopfzeile. Einstellungen ist eine Registerkarten-Seite für diesen Mandanten (17 Tabs). Es gibt keine separate Admin-Website. Mehrere Tabs (Rechtsträger, Standorte, Team, API-Schlüssel, Margenregeln, Datenimport und der Unter-Tab Finanzen **Buchhaltungsexport**) sehen nur **OWNER** und **ADMIN**.
 
 <CardGroup cols={2}>
-  <Card title="Finance" icon="banknote" href="/settings/finance">
-    Lock date and invoice numbering fields.
+  <Card title="Finanzen" icon="banknote" href="/settings/finance">
+    Sperrdatum, Rechnungsnummerierung und Buchhaltungsexport (DATEV-, RZL-, BMD-Bereitschaft).
   </Card>
 
-  <Card title="Legal entities" icon="building-2" href="/settings/legal-entities">
-    Seller identity and accounting profile used for invoice issuance.
+  <Card title="Rechtsträger" icon="building-2" href="/settings/legal-entities">
+    Verkäuferidentität und Buchhaltungsprofil für die Rechnungsstellung.
   </Card>
 
-  <Card title="Revenue groups" icon="percent" href="/settings/revenue-groups">
-    Tax buckets snapshotted onto invoice lines.
+  <Card title="Beleggestaltung" icon="file-image" href="/settings/document-branding">
+    Briefkopf und PDF-Layout pro Rechtsträger.
   </Card>
 
-  <Card title="Voice translation" icon="languages" href="/settings/voice-translation">
-    Target language and Google credentials for mechanic voice notes.
+  <Card title="Erlösgruppen" icon="percent" href="/settings/revenue-groups">
+    Steuer-Buckets, die auf Rechnungspositionen eingefroren werden.
   </Card>
 
-  <Card title="Brands" icon="tag" href="/settings/brands">
-    Vehicle makes and part manufacturers, one list.
+  <Card title="Standorte" icon="map-pin" href="/settings/sites">
+    Werkstattstandorte, Rechtsträger-Verknüpfung und Mitgliedschaften (OWNER/ADMIN).
   </Card>
 
-  <Card title="Storage locations" icon="warehouse" href="/settings/storage-locations">
-    Warehouse → aisle → shelf → bin tree.
+  <Card title="Sprachübersetzung" icon="languages" href="/settings/voice-translation">
+    Zielsprache und Google-Zugangsdaten für Mechaniker-Sprachnotizen.
   </Card>
 
-  <Card title="Employees" icon="users" href="/settings/employees">
-    People you assign to jobs (not login accounts).
+  <Card title="Marken" icon="tag" href="/settings/brands">
+    Fahrzeugmarken und Teilehersteller in einer Liste.
   </Card>
 
-  <Card title="Bays" icon="align-horizontal-space-around" href="/settings/bays">
-    Physical stalls on the workshop board.
+  <Card title="Lagerorte" icon="warehouse" href="/settings/storage-locations">
+    Hierarchie Lager → Gang → Regal → Fach.
   </Card>
 
-  <Card title="Hours" icon="clock" href="/workflows/workshop-planner#opening-hours-and-holidays">
-    Opening hours, slot size, and holiday overrides that shape the planner calendar.
+  <Card title="Mitarbeiter" icon="users" href="/settings/employees">
+    Personen, die Sie Aufträgen zuweisen (keine Anmeldekonten).
   </Card>
 
-  <Card title="Labor" icon="timer" href="/settings/labor">
-    Hierarchical labor categories and hourly rates.
+  <Card title="Arbeitsplätze" icon="align-horizontal-space-around" href="/settings/bays">
+    Physische Plätze auf dem Werkstattboard.
+  </Card>
+
+  <Card title="Öffnungszeiten" icon="clock" href="/workflows/workshop-planner#opening-hours-and-holidays">
+    Öffnungszeiten, Slot-Größe und Feiertags-Ausnahmen für den Planer-Kalender.
+  </Card>
+
+  <Card title="Arbeit" icon="timer" href="/settings/labor">
+    Hierarchische Arbeitskategorien und Stundensätze.
+  </Card>
+
+  <Card title="Fahrzeugdaten" icon="car" href="/settings/vehicle-data">
+    FIN-Decode und Katalog-Anbieter (OWNER/ADMIN).
+  </Card>
+
+  <Card title="Margenregeln" icon="scale" href="/settings/margin-rules">
+    Margenregeln für Preislisten (*Margenregeln*) (OWNER/ADMIN).
+  </Card>
+
+  <Card title="Datenimport" icon="upload" href="/settings/data-import">
+    CSV-Assistent für Kunden und Fahrzeuge (OWNER/ADMIN).
   </Card>
 
   <Card title="Team" icon="shield" href="/settings/team">
-    Who can sign in. OWNER and ADMIN only.
+    Wer sich anmelden darf. Nur OWNER und ADMIN.
   </Card>
 
-  <Card title="Audit logs" icon="scroll-text" href="/settings/audit-logs">
-    Who changed a business row, and what it looked like before.
+  <Card title="API-Schlüssel" icon="key" href="/settings/api-keys">
+    Mandanten-Schlüssel für die öffentliche Lese-API (OWNER/ADMIN).
+  </Card>
+
+  <Card title="Audit-Logs" icon="scroll-text" href="/settings/audit-logs">
+    Wer eine Geschäftszeile geändert hat und wie sie vorher aussah.
   </Card>
 </CardGroup>
 
 <Tip>
-  **Employees** are workshop roster names. **Team** members are login accounts. Mixing them up is the usual first mistake.
+  **Mitarbeiter** sind Namen im Werkstatt-Dienstplan. **Team**-Mitglieder sind Anmeldekonten. Die beiden zu verwechseln ist der häufigste Anfängerfehler.
 </Tip>

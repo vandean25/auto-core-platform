@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { ensureNamespaceLoaded, i18n } from '@/lib/i18n'
+import { PageLoader } from '@/components/ui/PageLoader'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -14,29 +17,29 @@ import {
 import type { PublicEstimateDecisionResult, PublicEstimateView } from '@/api/public-estimate-approvals'
 import { formatCurrency, formatDateTime, formatNumber } from '@/lib/format'
 
-const PAGE_TITLE = 'Kostenvoranschlag'
 const MAX_NAME_LENGTH = 120
 const MIN_NAME_LENGTH = 2
 
-const LOAD_ERROR_FALLBACK = 'Der Kostenvoranschlag konnte nicht geladen werden. Bitte versuchen Sie es später erneut.'
-const ERROR_MESSAGES: Record<number, string> = {
-  404: 'Dieser Link ist nicht gültig.',
-  410: 'Dieser Link ist abgelaufen oder wurde bereits verwendet.',
-  409: 'Dieser Kostenvoranschlag kann nicht mehr angenommen oder abgelehnt werden.',
-  429: 'Zu viele Anfragen. Bitte versuchen Sie es später erneut.',
+function loadErrorFallback() {
+  return i18n.t('workshop:publicEstimateApproval.loadFailed')
+}
+
+function errorMessageForStatus(status: number): string {
+  return i18n.t(`workshop:publicEstimateApproval.errors.${status}`, {
+    defaultValue: loadErrorFallback(),
+  })
 }
 /** After these statuses the link can no longer be used, so the page shows only the message. */
 const TERMINAL_STATUSES = new Set([404, 409, 410])
 
 const formatMoney = (value: string) => formatCurrency(Number(value))
 const formatQuantity = (value: string) => formatNumber(Number(value), { maximumFractionDigits: 3 })
-const formatEstimateDateTime = (value: string) => `${formatDateTime(value)} Uhr`
 
 function describeError(error: unknown): string {
   if (error instanceof PublicEstimateApprovalError) {
-    return ERROR_MESSAGES[error.status] ?? LOAD_ERROR_FALLBACK
+    return errorMessageForStatus(error.status)
   }
-  return LOAD_ERROR_FALLBACK
+  return loadErrorFallback()
 }
 
 /** Adds a <meta> tag to the head and returns the cleanup that removes it again. */
@@ -75,14 +78,15 @@ function AddressBlock({ title, lines }: { title: string; lines: Array<string | n
 }
 
 function EstimateSummary({ view }: { view: PublicEstimateView }) {
+  const { t } = useTranslation('workshop')
   const { document: doc, seller, customer, vehicle, order, lines, totals } = view
   const showGross = doc.price_display === 'GROSS'
   const customerName = customer.company_name || `${customer.first_name} ${customer.last_name}`.trim()
   const vehicleLine = [
     `${vehicle.make} ${vehicle.model}`.trim(),
     vehicle.year ? String(vehicle.year) : null,
-    vehicle.plate ? `Kennzeichen ${vehicle.plate}` : null,
-    vehicle.vin ? `FIN ${vehicle.vin}` : null,
+    vehicle.plate ? t('publicEstimateApproval.plate', { plate: vehicle.plate }) : null,
+    vehicle.vin ? t('publicEstimateApproval.vin', { vin: vehicle.vin }) : null,
   ]
     .filter(Boolean)
     .join(' · ')
@@ -91,40 +95,40 @@ function EstimateSummary({ view }: { view: PublicEstimateView }) {
     <>
       <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
         <AddressBlock
-          title='Werkstatt'
+          title={t('publicEstimateApproval.workshop')}
           lines={[
             seller.name,
             seller.address_street,
             addressLine(seller.address_zip, seller.address_city),
-            seller.vat_id ? `UID ${seller.vat_id}` : null,
+            seller.vat_id ? t('publicEstimateApproval.uid', { vatId: seller.vat_id }) : null,
           ]}
         />
         <AddressBlock
-          title='Kunde'
+          title={t('publicEstimateApproval.customer')}
           lines={[
             customerName,
             customer.address_street,
             addressLine(customer.address_zip, customer.address_city),
-            customer.vat_id ? `UID ${customer.vat_id}` : null,
+            customer.vat_id ? t('publicEstimateApproval.uid', { vatId: customer.vat_id }) : null,
           ]}
         />
       </div>
 
       <p className='text-sm break-words'>
-        <span className='font-medium'>Fahrzeug:</span> {vehicleLine}
+        <span className='font-medium'>{t('publicEstimateApproval.vehicle')}</span> {vehicleLine}
         {order.odometer > 0 && ` · ${formatQuantity(String(order.odometer))} km`}
       </p>
 
-      {doc.free_of_charge && <p className='text-sm text-slate-600'>Dieser Kostenvoranschlag ist kostenlos.</p>}
+      {doc.free_of_charge && <p className='text-sm text-slate-600'>{t('publicEstimateApproval.freeOfCharge')}</p>}
 
-      <ul className='divide-y rounded-md border bg-white' aria-label='Positionen'>
+      <ul className='divide-y rounded-md border bg-white' aria-label={t('publicEstimateApproval.lineItemsAria')}>
         {lines.map((line, index) => (
           <li key={`${line.item_no}-${index}`} className='flex items-start justify-between gap-3 p-3 text-sm'>
             <div className='min-w-0'>
               <p className='break-words font-medium'>{line.description}</p>
               <p className='text-xs text-slate-500'>
                 {formatQuantity(line.quantity)} × {formatMoney(line.unit_price)}
-                {showGross ? ' (brutto)' : ' (netto)'}
+                {showGross ? ` ${t('publicEstimateApproval.gross')}` : ` ${t('publicEstimateApproval.net')}`}
               </p>
             </div>
             <span className='shrink-0 tabular-nums'>{formatMoney(showGross ? line.gross : line.net)}</span>
@@ -134,15 +138,15 @@ function EstimateSummary({ view }: { view: PublicEstimateView }) {
 
       <dl className='space-y-1 text-sm'>
         <div className='flex justify-between gap-3'>
-          <dt>Summe netto</dt>
+          <dt>{t('publicEstimateApproval.totalNet')}</dt>
           <dd className='tabular-nums'>{formatMoney(totals.total_net)}</dd>
         </div>
         <div className='flex justify-between gap-3'>
-          <dt>USt.</dt>
+          <dt>{t('publicEstimateApproval.tax')}</dt>
           <dd className='tabular-nums'>{formatMoney(totals.total_tax)}</dd>
         </div>
         <div className='flex justify-between gap-3 text-base font-semibold'>
-          <dt>Summe brutto</dt>
+          <dt>{t('publicEstimateApproval.totalGross')}</dt>
           <dd className='tabular-nums'>{formatMoney(totals.total_gross)}</dd>
         </div>
       </dl>
@@ -158,6 +162,7 @@ interface DecisionFormProps {
 }
 
 function DecisionForm({ token, paragraphs, onDecided, onTerminalError }: DecisionFormProps) {
+  const { t } = useTranslation('workshop')
   const [legalAccepted, setLegalAccepted] = useState(false)
   const [b2cAccepted, setB2cAccepted] = useState(false)
   const [name, setName] = useState('')
@@ -193,10 +198,10 @@ function DecisionForm({ token, paragraphs, onDecided, onTerminalError }: Decisio
       setConfirmingDecline(false)
       setError(
         submitError instanceof PublicEstimateApprovalError && submitError.status === 422
-          ? 'Bitte bestätigen Sie die Hinweise und geben Sie Ihren vollständigen Namen an.'
-          : submitError instanceof PublicEstimateApprovalError && ERROR_MESSAGES[submitError.status]
-            ? ERROR_MESSAGES[submitError.status]
-            : 'Ihre Entscheidung konnte nicht gespeichert werden. Bitte versuchen Sie es später erneut.',
+          ? t('publicEstimateApproval.validation422')
+          : submitError instanceof PublicEstimateApprovalError
+            ? errorMessageForStatus(submitError.status)
+            : t('publicEstimateApproval.submitFailed'),
       )
     } finally {
       setSubmitting(false)
@@ -204,7 +209,7 @@ function DecisionForm({ token, paragraphs, onDecided, onTerminalError }: Decisio
   }
 
   return (
-    <section className='space-y-4' aria-label='Hinweise und Entscheidung'>
+    <section className='space-y-4' aria-label={t('publicEstimateApproval.decisionSectionAria')}>
       <div className='space-y-2 rounded-md border bg-white p-3 text-sm' data-testid='legal-paragraphs'>
         {paragraphs.map((paragraph, index) => (
           <p key={`${index}-${paragraph.slice(0, 16)}`} className='break-words'>
@@ -222,7 +227,7 @@ function DecisionForm({ token, paragraphs, onDecided, onTerminalError }: Decisio
             onCheckedChange={(checked) => setLegalAccepted(checked === true)}
           />
           <Label htmlFor='approval-legal' className='font-normal leading-snug'>
-            Ich habe die oben stehenden Hinweise gelesen.
+            {t('publicEstimateApproval.legalAccepted')}
           </Label>
         </div>
         <div className='flex items-start gap-2'>
@@ -233,11 +238,11 @@ function DecisionForm({ token, paragraphs, onDecided, onTerminalError }: Decisio
             onCheckedChange={(checked) => setB2cAccepted(checked === true)}
           />
           <Label htmlFor='approval-b2c' className='font-normal leading-snug'>
-            Ich bestätige die unverbindliche Erklärung für Verbraucher (KSchG § 5 Abs. 2).
+            {t('publicEstimateApproval.b2cAccepted')}
           </Label>
         </div>
         <div className='space-y-1.5'>
-          <Label htmlFor='approval-name'>Vollständiger Name</Label>
+          <Label htmlFor='approval-name'>{t('publicEstimateApproval.fullName')}</Label>
           <Input
             id='approval-name'
             value={name}
@@ -258,24 +263,24 @@ function DecisionForm({ token, paragraphs, onDecided, onTerminalError }: Decisio
       <div className='flex flex-col gap-2'>
         <Button className='w-full' disabled={!canApprove} onClick={() => void submit('APPROVE')}>
           {submitting && !confirmingDecline ? <Loader2 className='mr-2 h-4 w-4 animate-spin' /> : null}
-          Kostenvoranschlag annehmen
+          {t('publicEstimateApproval.approve')}
         </Button>
 
         {confirmingDecline ? (
           <div className='space-y-2 rounded-md border p-3'>
-            <p className='text-sm'>Möchten Sie den Kostenvoranschlag wirklich ablehnen?</p>
+            <p className='text-sm'>{t('publicEstimateApproval.declineConfirm')}</p>
             <div className='flex flex-col gap-2 sm:flex-row'>
               <Button variant='destructive' disabled={submitting} onClick={() => void submit('DECLINE')}>
-                Ja, ablehnen
+                {t('publicEstimateApproval.declineYes')}
               </Button>
               <Button variant='outline' disabled={submitting} onClick={() => setConfirmingDecline(false)}>
-                Zurück
+                {t('publicEstimateApproval.back')}
               </Button>
             </div>
           </div>
         ) : (
           <Button variant='outline' className='w-full' disabled={submitting} onClick={() => setConfirmingDecline(true)}>
-            Ablehnen
+            {t('publicEstimateApproval.decline')}
           </Button>
         )}
       </div>
@@ -298,11 +303,21 @@ export interface PublicEstimateApprovalPageProps {
  * has no link into the app. The token is read once per mount, and the page never refetches after a decision.
  */
 export function PublicEstimateApprovalPage({ token }: PublicEstimateApprovalPageProps) {
+  const { t } = useTranslation('workshop')
+  const [workshopLocaleReady, setWorkshopLocaleReady] = useState(() =>
+    i18n.hasResourceBundle(i18n.language, 'workshop'),
+  )
   const [state, setState] = useState<PageState>({ kind: 'loading' })
 
   useEffect(() => {
+    if (workshopLocaleReady) return
+    void ensureNamespaceLoaded('workshop').then(() => setWorkshopLocaleReady(true))
+  }, [workshopLocaleReady])
+
+  useEffect(() => {
+    if (!workshopLocaleReady) return
     const previousTitle = document.title
-    document.title = PAGE_TITLE
+    document.title = t('publicEstimateApproval.pageTitle')
     const removeRobots = ensureMeta('robots', 'noindex, nofollow')
     const removeReferrer = ensureMeta('referrer', 'no-referrer')
     return () => {
@@ -310,9 +325,10 @@ export function PublicEstimateApprovalPage({ token }: PublicEstimateApprovalPage
       removeRobots()
       removeReferrer()
     }
-  }, [])
+  }, [t, workshopLocaleReady])
 
   useEffect(() => {
+    if (!workshopLocaleReady) return
     const controller = new AbortController()
     setState({ kind: 'loading' })
     fetchPublicEstimate(token, controller.signal).then(
@@ -324,7 +340,11 @@ export function PublicEstimateApprovalPage({ token }: PublicEstimateApprovalPage
       },
     )
     return () => controller.abort()
-  }, [token])
+  }, [token, workshopLocaleReady])
+
+  if (!workshopLocaleReady) {
+    return <PageLoader />
+  }
 
   return (
     <main className='min-h-screen bg-slate-50 px-4 py-6'>
@@ -332,7 +352,7 @@ export function PublicEstimateApprovalPage({ token }: PublicEstimateApprovalPage
         {state.kind === 'loading' && (
           <p className='flex items-center gap-2 text-sm text-slate-600' role='status'>
             <Loader2 className='h-4 w-4 animate-spin' />
-            Kostenvoranschlag wird geladen…
+            {t('publicEstimateApproval.loading')}
           </p>
         )}
 
@@ -346,13 +366,17 @@ export function PublicEstimateApprovalPage({ token }: PublicEstimateApprovalPage
           <Card>
             <CardHeader className='space-y-1'>
               <CardTitle className='text-xl break-words'>
-                {`Kostenvoranschlag ${state.view.document.estimate_number}`}
+                {t('publicEstimateApproval.estimateTitle', { number: state.view.document.estimate_number })}
               </CardTitle>
-              <p className='text-sm text-slate-500'>Version {state.view.document.version}</p>
+              <p className='text-sm text-slate-500'>{t('publicEstimateApproval.version', { version: state.view.document.version })}</p>
             </CardHeader>
             <CardContent className='space-y-5'>
               <EstimateSummary view={state.view} />
-              <p className='text-sm font-medium'>Gültig bis {formatEstimateDateTime(state.view.document.valid_until)}</p>
+              <p className='text-sm font-medium'>
+                {t('publicEstimateApproval.validUntil', {
+                  date: formatDateTime(state.view.document.valid_until),
+                })}
+              </p>
               <DecisionForm
                 token={token}
                 paragraphs={state.view.legal.paragraphs}
@@ -366,13 +390,14 @@ export function PublicEstimateApprovalPage({ token }: PublicEstimateApprovalPage
         {state.kind === 'decided' && (
           <Card>
             <CardHeader>
-              <CardTitle className='text-xl'>Vielen Dank. Ihre Entscheidung wurde gespeichert.</CardTitle>
+              <CardTitle className='text-xl'>{t('publicEstimateApproval.thankYou')}</CardTitle>
             </CardHeader>
             <CardContent className='space-y-1 text-sm' role='status'>
-              <p className='font-medium'>{state.result.decision === 'APPROVED' ? 'Angenommen' : 'Abgelehnt'}</p>
+              <p className='font-medium'>{state.result.decision === 'APPROVED' ? t('publicEstimateApproval.approved') : t('publicEstimateApproval.declined')}</p>
               <p className='text-slate-600'>
-                {state.result.decision === 'APPROVED' ? 'Elektronisch bestätigt am' : 'Entschieden am'}{' '}
-                {formatEstimateDateTime(state.result.decided_at)}
+                {state.result.decision === 'APPROVED'
+                  ? t('publicEstimateApproval.approvedAt', { date: formatDateTime(state.result.decided_at) })
+                  : t('publicEstimateApproval.decidedAt', { date: formatDateTime(state.result.decided_at) })}
               </p>
             </CardContent>
           </Card>

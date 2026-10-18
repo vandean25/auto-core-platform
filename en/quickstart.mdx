@@ -1,0 +1,22 @@
+---
+title: "Quickstart"
+description: "Open ACP, do one real job, then confirm the change landed in the audit trail."
+---
+
+This is the shortest path from login to a record you can prove. Full click-paths live under [Workflows](/en/workflows).
+
+<Steps>
+  <Step title="Sign in to your workshop tenant">
+    Use the account your administrator invited. ACP isolates every tenant. You only see your workshop's customers, jobs, and stock. See [Sign in](/en/workflows/sign-in).
+  </Step>
+  <Step title="Complete one business change">
+    Start a [sales order](/en/workflows/sales-orders), [intake a job](/en/workflows/workshop-intake), or [receive a purchase](/en/workflows/purchase-orders). The product already records the mutation. You do not turn auditing on.
+  </Step>
+  <Step title="Open the audit trail">
+    Go to **Settings → Audit Logs**. Search for the person, document id, or request id. Click the row to see before, after, and the field-level diff.
+  </Step>
+</Steps>
+
+<Check>
+If the row is missing, the change was likely a create (new records are the first state) or a model that is not on the audited list. See [Audit logs](/en/settings/audit-logs).
+</Check>

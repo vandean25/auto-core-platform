@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import deCommon from '../../../../../locales/de/common.json'
 import { HorizontalScrollArea } from './horizontal-scroll-area'
 
 describe('HorizontalScrollArea', () => {
@@ -47,7 +48,7 @@ describe('HorizontalScrollArea', () => {
 
     fireEvent.scroll(viewport!)
 
-    expect(screen.getByRole('button', { name: 'Scroll right' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: deCommon.scroll.right })).toBeInTheDocument()
   })
 
   it('scrolls horizontally when the right arrow is clicked', () => {
@@ -69,7 +70,7 @@ describe('HorizontalScrollArea', () => {
 
     fireEvent.scroll(viewport!)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Scroll right' }))
+    fireEvent.click(screen.getByRole('button', { name: deCommon.scroll.right }))
 
     expect(scrollBy).toHaveBeenCalledWith({ left: 280, behavior: 'smooth' })
   })
