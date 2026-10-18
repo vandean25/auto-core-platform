@@ -11,6 +11,7 @@ import { LocationType, Prisma, StockTransferStatus } from '@prisma/client';
 import { LedgerService } from '../inventory/ledger.service.js';
 import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service.js';
 import { StockTransferService } from './stock-transfer.service.js';
+import { buildStockTransferService } from './stock-transfer.service.spec.support.js';
 import {
   hashCommandRequest,
   redactStoredCommandResponse,
@@ -222,11 +223,11 @@ describe('StockTransferService', () => {
     );
     realtimeService.emitStockTransferUpdated.mockReturnValue(undefined);
 
-    service = new StockTransferService(
+    service = buildStockTransferService(
       prisma,
       tenantContext,
-      ledgerService as never,
-      realtimeService as never,
+      ledgerService,
+      realtimeService,
     );
   });
 

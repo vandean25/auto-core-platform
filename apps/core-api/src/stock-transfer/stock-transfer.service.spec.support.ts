@@ -1,4 +1,12 @@
 import { LocationType, Prisma, StockTransferStatus } from '@prisma/client';
+import { StockTransferAccessService } from './stock-transfer-access.service.js';
+import { StockTransferCommandService } from './stock-transfer-command.service.js';
+import { StockTransferCommitService } from './stock-transfer-commit.service.js';
+import { StockTransferLedgerPostingService } from './stock-transfer-ledger-posting.service.js';
+import { StockTransferMutationService } from './stock-transfer-mutation.service.js';
+import { StockTransferQueryService } from './stock-transfer-query.service.js';
+import { StockTransferSiteLockService } from './stock-transfer-site-lock.service.js';
+import { StockTransferService } from './stock-transfer.service.js';
 
 export const tenantId = 'tenant-1';
 export const userId = 'user-1';
@@ -58,6 +66,45 @@ export function buildTransfer(overrides: Record<string, unknown> = {}) {
     lines: [buildLine()],
     ...overrides,
   };
+}
+
+export function buildStockTransferService(
+  prisma: unknown,
+  tenantContext: unknown,
+  ledgerService: unknown,
+  realtimeService: unknown,
+): StockTransferService {
+  const accessService = new StockTransferAccessService(
+    prisma as never,
+    tenantContext as never,
+  );
+  const queryService = new StockTransferQueryService(
+    prisma as never,
+    accessService,
+  );
+  const siteLockService = new StockTransferSiteLockService();
+  const ledgerPostingService = new StockTransferLedgerPostingService(
+    ledgerService as never,
+  );
+  const commandService = new StockTransferCommandService(
+    prisma as never,
+    accessService,
+    queryService,
+  );
+  const commitService = new StockTransferCommitService(
+    prisma as never,
+    tenantContext as never,
+    realtimeService as never,
+  );
+  const mutationService = new StockTransferMutationService(
+    accessService,
+    queryService,
+    siteLockService,
+    ledgerPostingService,
+    commandService,
+    commitService,
+  );
+  return new StockTransferService(queryService, mutationService);
 }
 
 export function buildTransactionClient() {
