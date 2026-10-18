@@ -8526,7 +8526,7 @@ export interface components {
         /** @enum {string} */
         VehicleListingDmsProvider: "AS24_DMS";
         /** @enum {string} */
-        VehicleListingDmsSyncState: "NEVER_SYNCED" | "PENDING" | "SYNCED" | "FAILED" | "DEACTIVATED";
+        VehicleListingDmsSyncState: "NEVER_SYNCED" | "PENDING" | "SYNCED" | "FAILED" | "DEACTIVATION_PENDING" | "DEACTIVATED";
         Autoscout24DmsPushResponseDto: {
             channel_id: string;
             provider: components["schemas"]["VehicleListingDmsProvider"];

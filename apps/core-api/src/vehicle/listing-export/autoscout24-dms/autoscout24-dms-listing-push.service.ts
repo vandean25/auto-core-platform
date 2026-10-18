@@ -52,6 +52,23 @@ type PushContext = {
   syncId: string;
 };
 
+function isSaleDeactivateIdempotencyKey(idempotencyKey: string): boolean {
+  return idempotencyKey.startsWith('sale-deactivate:');
+}
+
+function syncRequiresRemoteDeactivation(
+  sync: {
+    sync_state: VehicleListingDmsSyncState;
+    external_listing_id: string | null;
+  } | null,
+  channelExternalRef: string | null,
+): boolean {
+  if (!sync || sync.sync_state === VehicleListingDmsSyncState.DEACTIVATED) {
+    return false;
+  }
+  return Boolean(sync.external_listing_id ?? channelExternalRef);
+}
+
 @Injectable()
 export class Autoscout24DmsListingPushService {
   constructor(
@@ -126,7 +143,7 @@ export class Autoscout24DmsListingPushService {
         },
       },
     });
-    if (sync?.sync_state !== VehicleListingDmsSyncState.SYNCED) {
+    if (!syncRequiresRemoteDeactivation(sync, channel.external_ref)) {
       return;
     }
 
@@ -140,7 +157,7 @@ export class Autoscout24DmsListingPushService {
         idempotency_key: `sale-deactivate:${input.stockPurchaseId}`,
         action: 'DEACTIVATE',
       },
-    ).catch(() => undefined);
+    );
   }
 
   private async loadListingContext(vehicleId: string) {
@@ -256,10 +273,14 @@ export class Autoscout24DmsListingPushService {
         });
       }
 
+      const saleDeactivateTakeOver =
+        input.action === 'DEACTIVATE' &&
+        isSaleDeactivateIdempotencyKey(input.idempotency_key);
       if (
         row.sync_state === VehicleListingDmsSyncState.PENDING &&
         row.last_idempotency_key &&
-        row.last_idempotency_key !== input.idempotency_key
+        row.last_idempotency_key !== input.idempotency_key &&
+        !saleDeactivateTakeOver
       ) {
         throw new ConflictException({
           code: 'LISTING_PUSH_IDEMPOTENCY_CONFLICT',
@@ -299,12 +320,23 @@ export class Autoscout24DmsListingPushService {
 
     try {
       if (input.action === 'DEACTIVATE') {
-        return await this.runDeactivate(
-          input.idempotency_key,
-          payload,
+        const externalRef = await this.resolvePublisherExternalRef(
           ctx,
+          input.idempotency_key,
           channel.external_ref,
         );
+        ctx.externalRef = externalRef;
+        const result = await this.publisher.deactivateListing(
+          input.idempotency_key,
+          payload,
+          externalRef,
+        );
+        const updated = await this.commitSuccess(ctx, input.idempotency_key, {
+          sync_state: VehicleListingDmsSyncState.DEACTIVATED,
+          external_listing_id:
+            result.externalListingId ?? ctx.externalRef ?? null,
+        });
+        return this.toDto(updated, channel.id, result.idempotentReplay);
       }
 
       if (!listing.price_gross_eur || !listing.title) {
@@ -336,8 +368,15 @@ export class Autoscout24DmsListingPushService {
 
       return this.toDto(updated, channel.id, result.idempotentReplay);
     } catch (error) {
-      await this.handlePushFailure(ctx, input.idempotency_key, error);
-      throw this.mapThrownError(error).exception;
+      await this.handlePushFailure(
+        ctx,
+        input.idempotency_key,
+        error,
+        input.action,
+      );
+      throw this.mapThrownError(error, {
+        forDeactivate: input.action === 'DEACTIVATE',
+      }).exception;
     }
   }
 
@@ -359,41 +398,6 @@ export class Autoscout24DmsListingPushService {
       }
       return row.external_listing_id ?? channelExternalRef;
     });
-  }
-
-  private async runDeactivate(
-    idempotencyKey: string,
-    payload: {
-      sellerListingRef: string;
-      title: string | null;
-      priceGrossEur: string | null;
-      action: Autoscout24DmsPushAction;
-    },
-    ctx: PushContext,
-    channelExternalRef: string | null,
-  ): Promise<Autoscout24DmsPushResultDto> {
-    try {
-      const externalRef = await this.resolvePublisherExternalRef(
-        ctx,
-        idempotencyKey,
-        channelExternalRef,
-      );
-      ctx.externalRef = externalRef;
-      const result = await this.publisher.deactivateListing(
-        idempotencyKey,
-        payload,
-        externalRef,
-      );
-      const updated = await this.commitSuccess(ctx, idempotencyKey, {
-        sync_state: VehicleListingDmsSyncState.DEACTIVATED,
-        external_listing_id:
-          result.externalListingId ?? ctx.externalRef ?? null,
-      });
-      return this.toDto(updated, ctx.channelId, result.idempotentReplay);
-    } catch (error) {
-      await this.handlePushFailure(ctx, idempotencyKey, error);
-      throw this.mapThrownError(error).exception;
-    }
   }
 
   private tryIdempotentReplay(
@@ -464,13 +468,43 @@ export class Autoscout24DmsListingPushService {
     });
   }
 
+  private async persistDeactivationPending(
+    ctx: PushContext,
+    idempotencyKey: string,
+    errorCode: string,
+  ): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      await lockVehicleListingChannelDmsSyncRow(tx, ctx.tenantId, ctx.syncId);
+      const current = await tx.vehicleListingChannelDmsSync.findFirst({
+        where: { tenant_id: ctx.tenantId, id: ctx.syncId },
+      });
+      if (!current || current.last_idempotency_key !== idempotencyKey) {
+        return;
+      }
+      await tx.vehicleListingChannelDmsSync.update({
+        where: { tenant_id: ctx.tenantId, id: ctx.syncId },
+        data: {
+          sync_state: VehicleListingDmsSyncState.DEACTIVATION_PENDING,
+          last_sync_at: new Date(),
+          last_sync_error_code: errorCode,
+        },
+      });
+    });
+  }
+
   private async handlePushFailure(
     ctx: PushContext,
     idempotencyKey: string,
     error: unknown,
+    action: Autoscout24DmsPushAction,
   ): Promise<void> {
-    const mapped = this.mapThrownError(error);
+    const mapped = this.mapThrownError(error, {
+      forDeactivate: action === 'DEACTIVATE',
+    });
     if (mapped.persistFailure === false) {
+      if (action === 'DEACTIVATE') {
+        await this.persistDeactivationPending(ctx, idempotencyKey, mapped.code);
+      }
       return;
     }
 
@@ -493,29 +527,20 @@ export class Autoscout24DmsListingPushService {
     });
   }
 
-  private mapThrownError(error: unknown): {
+  private mapThrownError(
+    error: unknown,
+    options?: { forDeactivate?: boolean },
+  ): {
     code: string;
     exception: Error;
     persistFailure: boolean;
   } {
-    if (error instanceof HttpException) {
-      let code = 'LISTING_PUSH_PROVIDER_ERROR';
-      const response = error.getResponse();
-      if (
-        typeof response === 'object' &&
-        response !== null &&
-        'code' in response &&
-        typeof response.code === 'string'
-      ) {
-        code = response.code;
-      }
-      return { code, exception: error, persistFailure: true };
-    }
+    const forDeactivate = options?.forDeactivate === true;
     if (error instanceof Autoscout24DmsAdapterError) {
       if (error.code === 'timeout') {
         return {
           code: 'LISTING_PUSH_TIMEOUT',
-          persistFailure: true,
+          persistFailure: !forDeactivate,
           exception: new BadGatewayException({
             code: 'LISTING_PUSH_TIMEOUT',
             message: 'AutoScout24 DMS API request timed out.',
@@ -555,7 +580,7 @@ export class Autoscout24DmsListingPushService {
       }
       return {
         code: 'LISTING_PUSH_PROVIDER_ERROR',
-        persistFailure: true,
+        persistFailure: !forDeactivate,
         exception: new BadGatewayException({
           code: 'LISTING_PUSH_PROVIDER_ERROR',
           message: 'AutoScout24 DMS API is temporarily unavailable.',
@@ -568,6 +593,25 @@ export class Autoscout24DmsListingPushService {
         exception: error,
         persistFailure: false,
       };
+    }
+    if (error instanceof HttpException) {
+      let code = 'LISTING_PUSH_PROVIDER_ERROR';
+      const response = error.getResponse();
+      if (
+        typeof response === 'object' &&
+        response !== null &&
+        'code' in response &&
+        typeof response.code === 'string'
+      ) {
+        code = response.code;
+      }
+      const retryable =
+        code === 'LISTING_PUSH_RATE_LIMIT' ||
+        code === 'LISTING_PUSH_IDEMPOTENCY_CONFLICT' ||
+        (forDeactivate &&
+          (code === 'LISTING_PUSH_TIMEOUT' ||
+            code === 'LISTING_PUSH_PROVIDER_ERROR'));
+      return { code, exception: error, persistFailure: !retryable };
     }
     if (error instanceof Error) {
       return {

@@ -434,37 +434,154 @@ describe('Autoscout24DmsListingPushService', () => {
   });
 
   describe('deactivateAfterVehicleSale', () => {
+    const saleInput = {
+      tenantId: 'tenant-1',
+      siteId: 'site-1',
+      vehicleId: 'vehicle-1',
+      stockPurchaseId: 'stock-purchase-1',
+    };
+
+    function listingWithInactiveChannel() {
+      return {
+        ...buildListingFixture(),
+        channels: [
+          {
+            id: 'channel-1',
+            platform: VehicleListingPlatform.AS24,
+            external_ref: 'as24-fake-existing',
+            desired_state: VehicleListingDesiredState.INACTIVE,
+          },
+        ],
+      };
+    }
+
     it('no-ops when the env push flag is off', async () => {
       delete process.env.VEHICLE_LISTING_AS24_PUSH_ENABLED;
-      const upsertSpy = jest.spyOn(publisher, 'upsertListing');
+      const deactivateSpy = jest.spyOn(publisher, 'deactivateListing');
 
-      await service.deactivateAfterVehicleSale({
-        tenantId: 'tenant-1',
-        siteId: 'site-1',
-        vehicleId: 'vehicle-1',
-        stockPurchaseId: 'stock-purchase-1',
-      });
+      await service.deactivateAfterVehicleSale(saleInput);
 
-      expect(upsertSpy).not.toHaveBeenCalled();
-      upsertSpy.mockRestore();
+      expect(deactivateSpy).not.toHaveBeenCalled();
+      deactivateSpy.mockRestore();
     });
 
-    it('deactivates when flags are on and sync was SYNCED', async () => {
+    it('deactivates when sync was SYNCED', async () => {
       syncStore.row.sync_state = VehicleListingDmsSyncState.SYNCED;
       syncStore.row.external_listing_id = 'as24-fake-existing';
+      syncStore.prisma.vehicleListing.findFirst.mockResolvedValue(
+        listingWithInactiveChannel(),
+      );
 
-      await service.deactivateAfterVehicleSale({
-        tenantId: 'tenant-1',
-        siteId: 'site-1',
-        vehicleId: 'vehicle-1',
-        stockPurchaseId: 'stock-purchase-1',
-      });
+      await service.deactivateAfterVehicleSale(saleInput);
 
       expect(syncStore.row.sync_state).toBe(VehicleListingDmsSyncState.DEACTIVATED);
-      expect(
-        publisher.contract.calls.some((c) => c.method === 'DEACTIVATE'),
-      ).toBe(true);
     });
+
+    it('deactivates when last upsert left PENDING after rate limit but external id exists', async () => {
+      syncStore.row.sync_state = VehicleListingDmsSyncState.PENDING;
+      syncStore.row.external_listing_id = 'as24-fake-existing';
+      syncStore.row.last_idempotency_key = 'upsert-key-429';
+      syncStore.prisma.vehicleListing.findFirst.mockResolvedValue(
+        listingWithInactiveChannel(),
+      );
+
+      await service.deactivateAfterVehicleSale(saleInput);
+
+      expect(syncStore.row.sync_state).toBe(VehicleListingDmsSyncState.DEACTIVATED);
+      expect(syncStore.row.last_idempotency_key).toBe(
+        'sale-deactivate:stock-purchase-1',
+      );
+    });
+
+    it('deactivates when sync is FAILED but a remote listing id remains', async () => {
+      syncStore.row.sync_state = VehicleListingDmsSyncState.FAILED;
+      syncStore.row.external_listing_id = 'as24-fake-existing';
+      syncStore.row.last_sync_error_code = 'LISTING_PUSH_CLIENT_ERROR';
+      syncStore.prisma.vehicleListing.findFirst.mockResolvedValue(
+        listingWithInactiveChannel(),
+      );
+
+      await service.deactivateAfterVehicleSale(saleInput);
+
+      expect(syncStore.row.sync_state).toBe(VehicleListingDmsSyncState.DEACTIVATED);
+    });
+
+    it('leaves DEACTIVATION_PENDING when deactivate is rate limited', async () => {
+      syncStore.row.sync_state = VehicleListingDmsSyncState.SYNCED;
+      syncStore.row.external_listing_id = 'as24-fake-existing';
+      syncStore.prisma.vehicleListing.findFirst.mockResolvedValue(
+        listingWithInactiveChannel(),
+      );
+      const rateLimited = jest
+        .spyOn(publisher, 'deactivateListing')
+        .mockRejectedValue(
+          new Autoscout24DmsAdapterError('rate_limit', 'limited', 429, 30),
+        );
+
+      await expect(service.deactivateAfterVehicleSale(saleInput)).rejects.toBeInstanceOf(
+        BadGatewayException,
+      );
+
+      expect(syncStore.row.sync_state).toBe(
+        VehicleListingDmsSyncState.DEACTIVATION_PENDING,
+      );
+      expect(syncStore.row.last_sync_error_code).toBe('LISTING_PUSH_RATE_LIMIT');
+      rateLimited.mockRestore();
+    });
+
+    it('retries sale deactivate after DEACTIVATION_PENDING', async () => {
+      syncStore.row.sync_state = VehicleListingDmsSyncState.DEACTIVATION_PENDING;
+      syncStore.row.external_listing_id = 'as24-fake-existing';
+      syncStore.row.last_idempotency_key = 'sale-deactivate:stock-purchase-1';
+      syncStore.row.last_sync_error_code = 'LISTING_PUSH_RATE_LIMIT';
+      syncStore.prisma.vehicleListing.findFirst.mockResolvedValue(
+        listingWithInactiveChannel(),
+      );
+
+      await service.deactivateAfterVehicleSale(saleInput);
+
+      expect(syncStore.row.sync_state).toBe(VehicleListingDmsSyncState.DEACTIVATED);
+    });
+  });
+
+  it('deactivate rate limit stays retryable and a later deactivate succeeds', async () => {
+    syncStore.row.sync_state = VehicleListingDmsSyncState.SYNCED;
+    syncStore.row.external_listing_id = 'as24-fake-existing';
+
+    const deactivateSpy = jest
+      .spyOn(publisher, 'deactivateListing')
+      .mockRejectedValueOnce(
+        new Autoscout24DmsAdapterError('rate_limit', 'limited', 429),
+      )
+      .mockImplementation(async (key, body, externalId) =>
+        publisher.contract.deactivateListing(
+          key,
+          body.sellerListingRef,
+          externalId,
+        ),
+      );
+
+    await expect(
+      service.pushListing('vehicle-1', {
+        idempotency_key: 'deact-rate',
+        expected_revision: 3,
+        action: 'DEACTIVATE',
+      }),
+    ).rejects.toBeInstanceOf(BadGatewayException);
+
+    expect(syncStore.row.sync_state).toBe(
+      VehicleListingDmsSyncState.DEACTIVATION_PENDING,
+    );
+    expect(syncStore.row.sync_state).not.toBe(VehicleListingDmsSyncState.FAILED);
+
+    const retry = await service.pushListing('vehicle-1', {
+      idempotency_key: 'deact-rate',
+      expected_revision: 3,
+      action: 'DEACTIVATE',
+    });
+
+    expect(retry.sync_state).toBe(VehicleListingDmsSyncState.DEACTIVATED);
+    deactivateSpy.mockRestore();
   });
 
   it('stores payload digest on success for replay detection', async () => {

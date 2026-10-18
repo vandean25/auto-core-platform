@@ -1968,6 +1968,7 @@ enum VehicleListingDmsSyncState {
   PENDING
   SYNCED
   FAILED
+  DEACTIVATION_PENDING
   DEACTIVATED
 }
 
