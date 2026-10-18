@@ -1,14 +1,14 @@
 import { ImportEntityType, ImportRowAction } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { rowToRecord, type ParsedCsv } from './csv-parse.util.js';
-import { pickVehicleAuditSnapshot } from './import-audit.util.js';
+import { pickVehicleImportAuditSnapshot } from './vehicle-import-audit.snapshot.js';
 import type { ImportDryRunInput } from './import-type-handler.js';
 import type { DryRunRowResult } from './import.types.js';
+import { normalizeVehicleRow } from './vehicle-import-normalize.row.js';
 import {
-  normalizeVehicleRow,
   planVehicleDryRunRow,
   type VehicleMatchContext,
-} from './vehicle-import.logic.js';
+} from './vehicle-import-plan.row.js';
 
 async function loadVehicleMatchContext(
   prisma: PrismaService,
@@ -32,7 +32,7 @@ async function loadVehicleMatchContext(
   const vehicleByPlate = new Map<string, string>();
   const vehicleById = new Map<string, Record<string, unknown>>();
   for (const vehicle of vehicles) {
-    vehicleById.set(vehicle.id, pickVehicleAuditSnapshot(vehicle));
+    vehicleById.set(vehicle.id, pickVehicleImportAuditSnapshot(vehicle));
     if (vehicle.vin) {
       vehicleByVin.set(vehicle.vin.toUpperCase(), vehicle.id);
     }

@@ -1,11 +1,16 @@
 import { ImportRowAction } from '@prisma/client';
-import { IMPORT_ERROR_CODES } from './import.constants.js';
+const IMPORT_FIRST_REGISTRATION_MONTH_ASSUMED =
+  'IMPORT_FIRST_REGISTRATION_MONTH_ASSUMED';
+const IMPORT_FIRST_REGISTRATION_DATE_INVALID =
+  'IMPORT_FIRST_REGISTRATION_DATE_INVALID';
+const IMPORT_FIRST_REGISTRATION_DATE_FUTURE =
+  'IMPORT_FIRST_REGISTRATION_DATE_FUTURE';
 import { parseImportFirstRegistrationDate } from './import-first-registration-date.util.js';
+import { normalizeVehicleRow } from './vehicle-import-normalize.row.js';
 import {
-  normalizeVehicleRow,
   planVehicleDryRunRow,
   vehicleComparableForUpdate,
-} from './vehicle-import.logic.js';
+} from './vehicle-import-plan.row.js';
 
 const mapping = {
   external_id: 'Fahrzeug-Nr',
@@ -219,20 +224,20 @@ describe('vehicle-import.logic', () => {
       const monthOnly = parseImportFirstRegistrationDate('03/2020');
       expect(monthOnly.isoDate).toBe('2020-03-01');
       expect(monthOnly.warnings[0]?.code).toBe(
-        IMPORT_ERROR_CODES.FIRST_REGISTRATION_MONTH_ASSUMED,
+        IMPORT_FIRST_REGISTRATION_MONTH_ASSUMED,
       );
     });
 
     it('errors on invalid and future dates', () => {
       expect(
         parseImportFirstRegistrationDate('not-a-date').issues[0]?.code,
-      ).toBe(IMPORT_ERROR_CODES.FIRST_REGISTRATION_DATE_INVALID);
+      ).toBe(IMPORT_FIRST_REGISTRATION_DATE_INVALID);
       expect(parseImportFirstRegistrationDate('2024-02-30').issues[0]?.code).toBe(
-        IMPORT_ERROR_CODES.FIRST_REGISTRATION_DATE_INVALID,
+        IMPORT_FIRST_REGISTRATION_DATE_INVALID,
       );
       const future = parseImportFirstRegistrationDate('2099-01-01');
       expect(future.issues[0]?.code).toBe(
-        IMPORT_ERROR_CODES.FIRST_REGISTRATION_DATE_FUTURE,
+        IMPORT_FIRST_REGISTRATION_DATE_FUTURE,
       );
     });
 

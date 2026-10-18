@@ -56,7 +56,6 @@ export type NormalizedVehicleRow = {
   owner_customer_external_id: string | null;
   owner_external_id_provided: boolean;
   key_number: string | null;
-  first_registration_date: string | null;
 };
 
 export type NormalizedLaborFitmentRow = {

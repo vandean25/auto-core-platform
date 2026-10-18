@@ -11,7 +11,7 @@ import {
   type ImportTypeHandler,
 } from './import-type-handler.js';
 import type { DryRunRowResult } from './import.types.js';
-import { applyVehicleImportRow } from './vehicle-import.apply.js';
+import { applyVehicleImportRow } from './vehicle-import-apply.row.js';
 import { planVehicleDryRun } from './vehicle-import.dry-run.js';
 
 /** Vehicle imports. Rows are written one at a time, like customer imports. */

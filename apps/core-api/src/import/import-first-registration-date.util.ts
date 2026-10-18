@@ -1,5 +1,10 @@
 import type { ImportRowIssue } from './import.types.js';
-import { IMPORT_ERROR_CODES } from './import.constants.js';
+
+const FIRST_REGISTRATION_DATE_INVALID =
+  'IMPORT_FIRST_REGISTRATION_DATE_INVALID';
+const FIRST_REGISTRATION_DATE_FUTURE = 'IMPORT_FIRST_REGISTRATION_DATE_FUTURE';
+const FIRST_REGISTRATION_MONTH_ASSUMED =
+  'IMPORT_FIRST_REGISTRATION_MONTH_ASSUMED';
 
 const VIENNA_TIME_ZONE = 'Europe/Vienna';
 
@@ -39,7 +44,7 @@ function finishParse(
       isoDate: null,
       issues: [
         {
-          code: IMPORT_ERROR_CODES.FIRST_REGISTRATION_DATE_INVALID,
+          code: FIRST_REGISTRATION_DATE_INVALID,
           message: 'first_registration_date must be a valid date',
           field: 'first_registration_date',
         },
@@ -53,7 +58,7 @@ function finishParse(
       isoDate: null,
       issues: [
         {
-          code: IMPORT_ERROR_CODES.FIRST_REGISTRATION_DATE_FUTURE,
+          code: FIRST_REGISTRATION_DATE_FUTURE,
           message: 'first_registration_date cannot be in the future',
           field: 'first_registration_date',
         },
@@ -62,6 +67,33 @@ function finishParse(
     };
   }
   return { isoDate, issues: [], warnings };
+}
+
+function mappedCellValue(
+  record: Record<string, string>,
+  mapping: Record<string, string>,
+  field: string,
+): string {
+  const column = mapping[field];
+  if (!column) {
+    return '';
+  }
+  return record[column]?.trim() ?? '';
+}
+
+/** Reads Erstzulassung from a mapped CSV row and appends parse issues/warnings. */
+export function readMappedFirstRegistrationDate(
+  record: Record<string, string>,
+  mapping: Record<string, string>,
+  issues: ImportRowIssue[],
+  warnings: ImportRowIssue[],
+): string | null {
+  const parsed = parseImportFirstRegistrationDate(
+    mappedCellValue(record, mapping, 'first_registration_date'),
+  );
+  issues.push(...parsed.issues);
+  warnings.push(...parsed.warnings);
+  return parsed.isoDate;
 }
 
 /** Parses legacy vehicle Erstzulassung cells for CSV import (DD.MM.YYYY, ISO day, MM/YYYY). */
@@ -102,7 +134,7 @@ export function parseImportFirstRegistrationDate(
         isoDate: null,
         issues: [
           {
-            code: IMPORT_ERROR_CODES.FIRST_REGISTRATION_DATE_INVALID,
+            code: FIRST_REGISTRATION_DATE_INVALID,
             message: 'first_registration_date must be a valid date',
             field: 'first_registration_date',
           },
@@ -112,7 +144,7 @@ export function parseImportFirstRegistrationDate(
     }
     return finishParse(year, month, 1, [
       {
-        code: IMPORT_ERROR_CODES.FIRST_REGISTRATION_MONTH_ASSUMED,
+        code: FIRST_REGISTRATION_MONTH_ASSUMED,
         message:
           'first_registration_date month only; assumed first day of month',
         field: 'first_registration_date',
@@ -124,7 +156,7 @@ export function parseImportFirstRegistrationDate(
     isoDate: null,
     issues: [
       {
-        code: IMPORT_ERROR_CODES.FIRST_REGISTRATION_DATE_INVALID,
+        code: FIRST_REGISTRATION_DATE_INVALID,
         message: 'first_registration_date must be a valid date',
         field: 'first_registration_date',
       },

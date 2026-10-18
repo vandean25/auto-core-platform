@@ -8,7 +8,6 @@ export function pickVehicleAuditSnapshot(vehicle: {
   color: string | null;
   key_number: string | null;
   customer_id: string | null;
-  first_registration_date?: Date | null;
 }): Record<string, unknown> {
   return {
     make: vehicle.make,
@@ -20,9 +19,6 @@ export function pickVehicleAuditSnapshot(vehicle: {
     color: vehicle.color,
     key_number: vehicle.key_number,
     customer_id: vehicle.customer_id,
-    first_registration_date: vehicle.first_registration_date
-      ? vehicle.first_registration_date.toISOString().slice(0, 10)
-      : null,
   };
 }
 

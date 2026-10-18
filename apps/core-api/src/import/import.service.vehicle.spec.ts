@@ -30,7 +30,6 @@ const HEADER = [
   'Marke',
   'Modell',
   'Baujahr',
-  'Erstzulassung',
   'Kilometerstand',
   'Farbe',
   'Kunden-Nr',
@@ -44,7 +43,6 @@ const MAPPING = {
   make: 'Marke',
   model: 'Modell',
   year: 'Baujahr',
-  first_registration_date: 'Erstzulassung',
   mileage: 'Kilometerstand',
   color: 'Farbe',
   owner_customer_external_id: 'Kunden-Nr',
@@ -58,11 +56,10 @@ const COL = {
   make: 3,
   model: 4,
   year: 5,
-  firstRegistration: 6,
-  mileage: 7,
-  color: 8,
-  owner: 9,
-  key: 10,
+  mileage: 6,
+  color: 7,
+  owner: 8,
+  key: 9,
 };
 
 const EMPTY_ROW = HEADER.map(() => '');
@@ -411,7 +408,6 @@ describe('ImportService vehicle import (characterization)', () => {
         color: 'Blau',
         key_number: 'S-7',
         customer_id: 'cust-1',
-        first_registration_date: null,
       });
     });
 
@@ -436,7 +432,6 @@ describe('ImportService vehicle import (characterization)', () => {
           color: 'Blau',
           key_number: 'S-7',
           customer_id: 'cust-1',
-          first_registration_date: null,
         },
       });
       expect(h.prisma.externalIdMapping.create).toHaveBeenCalledWith({
@@ -482,7 +477,6 @@ describe('ImportService vehicle import (characterization)', () => {
             color: 'Blau',
             key_number: 'S-7',
             customer_id: 'cust-1',
-            first_registration_date: null,
             importJobId: JOB_ID,
           },
           diff: Prisma.JsonNull,
