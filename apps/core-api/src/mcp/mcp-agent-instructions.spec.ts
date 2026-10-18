@@ -10,12 +10,9 @@ import {
   MCP_AGENT_FACING_CODES,
   MCP_NEVER_EXPOSED_ACTIONS,
   MCP_READ_TOOL_NAMES,
+  MCP_TOOL_NAMES,
   MCP_WRITE_TOOL_NAMES,
 } from './mcp.constants.js';
-import {
-  MCP_READ_TOOL_NAMES_WITH_COMPLIANCE,
-  MCP_TOOL_NAMES_WITH_COMPLIANCE,
-} from './mcp-read-tool-catalog.aut605.js';
 import {
   draftWorkshopOrderInputSchema,
   reservePartInputSchema,
@@ -185,10 +182,7 @@ describe('MCP agent-facing instructions', () => {
     );
 
     expect(() =>
-      assertToolTableMatchesRegistry(
-        instructions,
-        MCP_TOOL_NAMES_WITH_COMPLIANCE,
-      ),
+      assertToolTableMatchesRegistry(instructions, MCP_TOOL_NAMES),
     ).not.toThrow();
   });
 
@@ -263,7 +257,7 @@ describe('MCP agent-facing instructions', () => {
     );
 
     expect([...documentedReadTools].sort()).toEqual(
-      [...MCP_READ_TOOL_NAMES_WITH_COMPLIANCE].sort(),
+      [...MCP_READ_TOOL_NAMES].sort(),
     );
     expect([...documentedWriteTools].sort()).toEqual(
       [...MCP_WRITE_TOOL_NAMES].sort(),
