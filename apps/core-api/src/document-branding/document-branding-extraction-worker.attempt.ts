@@ -2,7 +2,10 @@ import { randomUUID } from 'node:crypto';
 import type { Logger } from '@nestjs/common';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { SpanHandle } from '../common/observability/trace.js';
-import { toByteSizeBucket, withStatusSpan } from '../common/observability/trace.js';
+import {
+  toByteSizeBucket,
+  withStatusSpan,
+} from '../common/observability/trace.js';
 import type { DocumentBrandingAssetStorage } from './document-branding-asset-storage.js';
 import type { DocumentBrandingPdfParser } from './document-branding-pdf-parser.js';
 import type { DocumentBrandingExtractionImageProcessor } from './document-branding-extraction-image-processor.js';
@@ -139,7 +142,10 @@ export async function runExtractionWorkerAttempt(params: {
       extraWarningCodes: raster.warningCodes,
     });
     if (published) publishedObject = null;
-    params.span.setAttribute('status', published ? 'published' : 'not_published');
+    params.span.setAttribute(
+      'status',
+      published ? 'published' : 'not_published',
+    );
   } catch (error) {
     params.span.setAttributes({
       status:

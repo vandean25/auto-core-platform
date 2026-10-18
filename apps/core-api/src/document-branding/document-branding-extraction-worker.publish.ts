@@ -33,10 +33,7 @@ export async function publishExtractionProposal(params: {
 }): Promise<boolean> {
   const now = new Date();
   const warningCodes = [
-    ...new Set([
-      ...params.proposal.warningCodes,
-      ...params.extraWarningCodes,
-    ]),
+    ...new Set([...params.proposal.warningCodes, ...params.extraWarningCodes]),
   ];
   const theme = { ...params.proposal.theme, logoAssetId: params.logoAssetId };
   const providerMetadata = params.provider.getMetadata();
@@ -131,9 +128,7 @@ export async function publishExtractionProposal(params: {
       },
     });
     if (completed.count !== 1) {
-      throw new Error(
-        'Extraction lease changed while publishing its proposal',
-      );
+      throw new Error('Extraction lease changed while publishing its proposal');
     }
     return true;
   });
