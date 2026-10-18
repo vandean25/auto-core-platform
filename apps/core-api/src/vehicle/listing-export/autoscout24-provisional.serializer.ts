@@ -274,8 +274,7 @@ function validateAutoscout24ProvisionalListing(
       issues.push({
         field: 'image_files',
         code: 'LISTING_FIELD_INVALID',
-        message:
-          `Image filename must not require CSV sanitisation (must match ZIP member name): ${image.filename}`,
+        message: `Image filename must not require CSV sanitisation (must match ZIP member name): ${image.filename}`,
       });
     }
   }
