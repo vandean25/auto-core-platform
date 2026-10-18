@@ -13,7 +13,7 @@ import {
   HARNESS_VERSION_ID,
   laborLineOrder,
   readyAtLegalEntity,
-} from './workshop-estimate.service.harness.spec.js';
+} from './workshop-estimate.service.spec.support.js';
 
 const SEND_FLAG = 'CUSTOMER_ESTIMATE_SEND_ENABLED';
 
