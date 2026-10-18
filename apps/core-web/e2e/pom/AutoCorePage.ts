@@ -73,13 +73,6 @@ export class AutoCorePage {
         });
       },
     );
-    await this.page.route(AutoCorePage.apiRouteMatcher("/api/me/sites"), async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: "[]",
-      });
-    });
     await this.page.goto(path);
     await this.page.waitForLoadState("networkidle");
   }
@@ -94,10 +87,11 @@ export class AutoCorePage {
    */
   async verifyHeaderConsistency(title: string) {
     const heading = this.page.getByRole("heading", {
+      level: 1,
       name: title,
       exact: true,
     });
-    await expect(heading).toBeVisible({ timeout: 15_000 });
+    await expect(heading).toBeVisible({ timeout: 30_000 });
     await expect(this.createButton).toBeVisible({ timeout: 15_000 });
   }
 

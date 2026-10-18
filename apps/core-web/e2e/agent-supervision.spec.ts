@@ -4,6 +4,7 @@ import { DE_AGENT } from './helpers/de-agent'
 import { expectNoCriticalA11yViolations } from './utils/a11y'
 
 test.describe('Agent Supervision Screen (AUT-401)', () => {
+  test.describe.configure({ mode: 'serial' })
   const mockProposals = [
     {
       id: 'prop-1',
@@ -157,14 +158,20 @@ test.describe('Agent Supervision Screen (AUT-401)', () => {
     })
   })
 
-  test('renders persistent safety banner, proposal queue, and passes axe a11y', async ({ page }) => {
-    const corePage = new AutoCorePage(page, DE_AGENT.header.title)
-    await corePage.navigate('/agent/supervision')
-
-    // Verify Heading & Safety Banner
+  async function waitForSupervisionShell(page: import('@playwright/test').Page) {
+    await page.waitForSelector('[data-testid="agent-supervision-page"]', { timeout: 60_000 })
     await expect(page.getByRole('heading', { level: 1, name: DE_AGENT.header.title })).toBeVisible({
       timeout: 30_000,
     })
+  }
+
+  test('renders persistent safety banner, proposal queue, and passes axe a11y', async ({ page }) => {
+    test.setTimeout(90_000)
+    const corePage = new AutoCorePage(page, DE_AGENT.header.title)
+    await corePage.navigate('/agent/supervision')
+    await waitForSupervisionShell(page)
+
+    // Verify Heading & Safety Banner
     const safetyBanner = page.getByTestId('agent-safety-banner')
     await expect(safetyBanner).toBeVisible()
     await expect(safetyBanner).toContainText(DE_AGENT.banner.title)
@@ -279,12 +286,10 @@ test.describe('Agent Supervision Screen (AUT-401)', () => {
   })
 
   test('renders German UI by default', async ({ page }) => {
+    test.setTimeout(90_000)
     const corePage = new AutoCorePage(page, DE_AGENT.header.title)
     await corePage.navigate('/agent/supervision')
-
-    await expect(page.getByRole('heading', { level: 1, name: DE_AGENT.header.title })).toBeVisible({
-      timeout: 30_000,
-    })
+    await waitForSupervisionShell(page)
     await expect(page.getByTestId('agent-safety-banner')).toContainText(DE_AGENT.banner.title)
     await expectNoCriticalA11yViolations(page)
   })

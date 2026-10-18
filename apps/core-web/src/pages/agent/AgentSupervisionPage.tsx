@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { PageLoader } from '@/components/ui/PageLoader'
+import { ensureNamespaceLoaded, i18n } from '@/lib/i18n'
 import { AgentSafetyBanner } from './components/AgentSafetyBanner'
 import { ApprovalsTab } from './components/ApprovalsTab'
 import { ActivityTab } from './components/ActivityTab'
@@ -14,10 +15,18 @@ export default function AgentSupervisionPage() {
   const { t } = useTranslation('agent')
   const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null)
   const [currentTab, setCurrentTab] = useState<SupervisionTab>('approvals')
+  const [agentLocaleReady, setAgentLocaleReady] = useState(() =>
+    i18n.hasResourceBundle(i18n.language, 'agent'),
+  )
 
   useEffect(() => {
-    void ensureNamespaceLoaded('agent')
-  }, [])
+    if (agentLocaleReady) return
+    void ensureNamespaceLoaded('agent').then(() => setAgentLocaleReady(true))
+  }, [agentLocaleReady])
+
+  if (!agentLocaleReady) {
+    return <PageLoader />
+  }
 
   return (
     <div className="space-y-6" data-testid="agent-supervision-page">

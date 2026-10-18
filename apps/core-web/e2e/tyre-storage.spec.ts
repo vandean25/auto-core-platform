@@ -3,6 +3,7 @@ import { AutoCorePage } from './pom/AutoCorePage'
 import { createMockListResponse } from './utils/mock-factories'
 import { deErrorCode } from './helpers/de-errors'
 import { DE_COMMON_ACTIONS, DE_INVENTORY } from './helpers/de-inventory'
+import { waitForDeNamespace } from './helpers/wait-for-i18n'
 
 const mockTyreSet = {
   id: 'tyre-set-1',
@@ -123,6 +124,10 @@ test.describe('Reifenlager', () => {
     )
 
     await corePage.navigate('/workshop/tyre-storage/tyre-set-1')
+    await waitForDeNamespace(page, 'inventory')
+    await expect(page.getByRole('heading', { name: 'Winter 18"' })).toBeVisible({
+      timeout: 15_000,
+    })
     await page.getByRole('button', { name: DE_INVENTORY.actions.checkIn }).click()
     await page.getByRole('combobox').click()
     await page.getByRole('option', { name: 'RACK-A' }).click()
