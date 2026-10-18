@@ -254,7 +254,7 @@ export function DataTable<TData extends object>({
         getRoot={() => rootRef.current}
         isLoading={isLoading}
       />
-      <div className="rounded-md border">
+      <div className="max-w-full overflow-x-auto rounded-md border">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (

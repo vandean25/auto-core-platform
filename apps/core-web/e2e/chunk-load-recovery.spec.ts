@@ -28,6 +28,13 @@ test.describe('Stale chunk recovery', () => {
         body: JSON.stringify({ data: [], meta: { total: 0, page: 1, pageSize: 1, pageCount: 0 } }),
       })
     })
+    await page.route(AutoCorePage.apiRouteMatcher(/\/api\/vehicle-stock\/reports\/stock-age/), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: [], summary: { over_90_cost_basis: '0.00' } }),
+      })
+    })
     await page.route(AutoCorePage.apiRouteMatcher('/api/auth/session'), async (route) => {
       await route.fulfill({
         status: 200,
