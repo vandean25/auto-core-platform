@@ -217,7 +217,7 @@ export function useCheckInOffline({
       }
       const current = draftRef.current
       const stillDirty =
-        Boolean(current) && !snapshotsEqual(current, syncedSnapshot)
+        current != null && !snapshotsEqual(current, syncedSnapshot)
       await saveCheckInOfflineDraft({
         scope,
         serverBaseRevision: revisionRef.current,

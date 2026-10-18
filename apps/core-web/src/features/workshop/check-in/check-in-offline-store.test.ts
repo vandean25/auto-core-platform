@@ -13,7 +13,6 @@ const draftSnapshot: CheckInDraftSnapshot = {
   key_count: 0,
   warning_lights: [],
   condition: {
-    schema_version: 1,
     tyre_season: 'UNKNOWN',
     exterior_notes: '',
     interior_notes: '',
