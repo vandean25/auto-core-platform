@@ -1,6 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 import { AutoCorePage } from '../pom/AutoCorePage';
 import { DE_SETTINGS } from '../helpers/de-settings';
+import inventoryDe from '../../../../locales/de/inventory.json' with { type: 'json' };
 import {
   createMockBay,
   createMockBrand,
@@ -289,8 +290,9 @@ export const A11Y_SMOKE_ROUTES: A11ySmokeRoute[] = [
     path: '/inventory',
     mock: async (page) => {
       await mockApi(page, '/api/inventory', createMockListResponse([createMockInventoryItem()]));
+      await mockApi(page, '/api/brands', createMockListResponse([]));
     },
-    ready: titleReady(),
+    ready: titleReady(inventoryDe.partsList.title),
   },
   {
     name: 'vehicle stock list',

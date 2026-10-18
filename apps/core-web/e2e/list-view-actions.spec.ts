@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { DE_COMMON } from './helpers/de-common';
 import { DE_SHELL } from './helpers/de-shell';
 import { DE_CUSTOMERS } from './helpers/de-customers';
 import { AutoCorePage } from './pom/AutoCorePage';
@@ -9,10 +10,10 @@ import { createMockCustomer, createMockListResponse } from './utils/mock-factori
  * AUT-488: The list-view buttons carry clear labels and a one-line tooltip that opens on
  * focus and hover and closes with Escape. The empty sidebar Favorites copy names the new label.
  */
-const SAVE_NAME = `Save as sidebar view for ${DE_CUSTOMERS.list.saveViewTitle}`;
-const ADD_NAME = 'Add to dashboard';
-const SAVE_TOOLTIP = 'Saves these filters as a shortcut in the sidebar';
-const ADD_TOOLTIP = 'Shows this result as a widget on your dashboard';
+const SAVE_NAME = DE_COMMON.savedViews.saveAria.replace('{{title}}', DE_CUSTOMERS.list.saveViewTitle);
+const ADD_NAME = DE_COMMON.dashboard.addToDashboard;
+const SAVE_TOOLTIP = DE_COMMON.savedViews.saveHint;
+const ADD_TOOLTIP = DE_COMMON.dashboard.addToDashboardHint;
 
 test.describe('List view actions: labels and tooltips (AUT-488)', () => {
   test.beforeEach(async ({ page }) => {

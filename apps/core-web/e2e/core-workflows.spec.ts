@@ -16,6 +16,7 @@ import { DE_SALES } from './helpers/de-sales';
 import { DE_VEHICLES } from './helpers/de-vehicles';
 import { DE_VEHICLE_STOCK } from './helpers/de-vehicle-stock';
 import { DE_FINANCE } from './helpers/de-finance';
+import { DE_INVENTORY } from './helpers/de-inventory';
 
 /**
  * Blueprint Validation Suite — Core Management Workflows
@@ -52,9 +53,9 @@ interface ModuleConfig {
 
 const modules: ModuleConfig[] = [
   {
-    name: 'Inventory',
+    name: DE_INVENTORY.partsList.title,
     path: '/inventory',
-    entity: 'Item',
+    entity: 'Artikel',
     seed: 'TEST-SKU-1',
     mockFactory: () => createMockInventoryItem({ sku: 'TEST-SKU-1', name: 'Oil Filter' }),
     apiPath: '/api/inventory',

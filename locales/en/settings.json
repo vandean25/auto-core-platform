@@ -1012,7 +1012,7 @@
   },
   "dataImport": {
     "title": "Data import",
-    "description": "Legacy DMS CSV import for pilot customer onboarding. Dry-run validates rows before any write. Marketing consent columns are ignored by the import engine.",
+    "description": "Legacy DMS CSV import for new tenant onboarding. Dry-run validates rows before any write. Marketing consent columns are ignored by the import engine.",
     "stepsNavAria": "Import wizard steps",
     "steps": {
       "source": "Source",

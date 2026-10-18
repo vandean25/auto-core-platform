@@ -1012,7 +1012,7 @@
   },
   "dataImport": {
     "title": "Datenimport",
-    "description": "Import von CSV-Dateien aus Alt-DMS für das Onboarding von Pilotkunden. Der Probelauf validiert die Zeilen, bevor Daten geschrieben werden. Marketing-Einwilligungsspalten werden vom Importmodul ignoriert.",
+    "description": "Import von CSV-Dateien aus Alt-DMS für das Onboarding neuer Mandanten. Der Probelauf validiert die Zeilen, bevor Daten geschrieben werden. Marketing-Einwilligungsspalten werden vom Importmodul ignoriert.",
     "stepsNavAria": "Schritte des Import-Assistenten",
     "steps": {
       "source": "Quelle",

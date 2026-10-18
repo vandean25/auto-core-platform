@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { DE_COMMON } from './helpers/de-common'
 import { DE_SHELL } from './helpers/de-shell'
 
 // The suite runs against the production bundle (vite preview), so the lazy route chunk is a hashed asset.
@@ -6,7 +7,7 @@ const dashboardModulePattern = /DashboardPage-[\w-]+\.js$/
 
 async function expectRecoveredUi(page: import('@playwright/test').Page) {
   const updateRequired = page.getByText(DE_SHELL.errorBoundary.chunkTitle)
-  const dashboardHeading = page.getByRole('heading', { name: 'Dashboard' })
+  const dashboardHeading = page.getByRole('heading', { name: DE_COMMON.dashboard.title })
 
   await expect(updateRequired.or(dashboardHeading)).toBeVisible({ timeout: 30_000 })
 
