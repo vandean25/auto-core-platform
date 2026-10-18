@@ -1461,8 +1461,8 @@
     "thankYou": "Thank you. Your decision has been saved.",
     "approved": "Approved",
     "declined": "Declined",
-    "approvedAt": "Electronically confirmed on",
-    "decidedAt": "Decided on",
+    "approvedAt": "Electronically confirmed on {{date}}",
+    "decidedAt": "Decided on {{date}}",
     "uid": "VAT ID {{vatId}}"
   }
 }

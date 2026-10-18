@@ -1443,7 +1443,7 @@
     "totalNet": "Summe netto",
     "tax": "USt.",
     "totalGross": "Summe brutto",
-    "validUntil": "Gültig bis {{date}}",
+    "validUntil": "Gültig bis {{date}} Uhr",
     "decisionSectionAria": "Hinweise und Entscheidung",
     "legalAccepted": "Ich habe die oben stehenden Hinweise gelesen.",
     "b2cAccepted": "Ich bestätige die unverbindliche Erklärung für Verbraucher (KSchG § 5 Abs. 2).",
@@ -1461,8 +1461,8 @@
     "thankYou": "Vielen Dank. Ihre Entscheidung wurde gespeichert.",
     "approved": "Angenommen",
     "declined": "Abgelehnt",
-    "approvedAt": "Elektronisch bestätigt am",
-    "decidedAt": "Entschieden am",
+    "approvedAt": "Elektronisch bestätigt am {{date}} Uhr",
+    "decidedAt": "Entschieden am {{date}} Uhr",
     "uid": "UID {{vatId}}"
   }
 }

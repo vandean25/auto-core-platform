@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { i18n } from '@/lib/i18n'
+import { ensureNamespaceLoaded, i18n } from '@/lib/i18n'
+import { PageLoader } from '@/components/ui/PageLoader'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -33,7 +34,6 @@ const TERMINAL_STATUSES = new Set([404, 409, 410])
 
 const formatMoney = (value: string) => formatCurrency(Number(value))
 const formatQuantity = (value: string) => formatNumber(Number(value), { maximumFractionDigits: 3 })
-const formatEstimateDateTime = (value: string) => `${formatDateTime(value)} Uhr`
 
 function describeError(error: unknown): string {
   if (error instanceof PublicEstimateApprovalError) {
@@ -304,9 +304,18 @@ export interface PublicEstimateApprovalPageProps {
  */
 export function PublicEstimateApprovalPage({ token }: PublicEstimateApprovalPageProps) {
   const { t } = useTranslation('workshop')
+  const [workshopLocaleReady, setWorkshopLocaleReady] = useState(() =>
+    i18n.hasResourceBundle(i18n.language, 'workshop'),
+  )
   const [state, setState] = useState<PageState>({ kind: 'loading' })
 
   useEffect(() => {
+    if (workshopLocaleReady) return
+    void ensureNamespaceLoaded('workshop').then(() => setWorkshopLocaleReady(true))
+  }, [workshopLocaleReady])
+
+  useEffect(() => {
+    if (!workshopLocaleReady) return
     const previousTitle = document.title
     document.title = t('publicEstimateApproval.pageTitle')
     const removeRobots = ensureMeta('robots', 'noindex, nofollow')
@@ -316,9 +325,10 @@ export function PublicEstimateApprovalPage({ token }: PublicEstimateApprovalPage
       removeRobots()
       removeReferrer()
     }
-  }, [t])
+  }, [t, workshopLocaleReady])
 
   useEffect(() => {
+    if (!workshopLocaleReady) return
     const controller = new AbortController()
     setState({ kind: 'loading' })
     fetchPublicEstimate(token, controller.signal).then(
@@ -330,7 +340,11 @@ export function PublicEstimateApprovalPage({ token }: PublicEstimateApprovalPage
       },
     )
     return () => controller.abort()
-  }, [token])
+  }, [token, workshopLocaleReady])
+
+  if (!workshopLocaleReady) {
+    return <PageLoader />
+  }
 
   return (
     <main className='min-h-screen bg-slate-50 px-4 py-6'>
@@ -358,7 +372,11 @@ export function PublicEstimateApprovalPage({ token }: PublicEstimateApprovalPage
             </CardHeader>
             <CardContent className='space-y-5'>
               <EstimateSummary view={state.view} />
-              <p className='text-sm font-medium'>{t('publicEstimateApproval.validUntil', { date: formatEstimateDateTime(state.view.document.valid_until) })}</p>
+              <p className='text-sm font-medium'>
+                {t('publicEstimateApproval.validUntil', {
+                  date: formatDateTime(state.view.document.valid_until),
+                })}
+              </p>
               <DecisionForm
                 token={token}
                 paragraphs={state.view.legal.paragraphs}
@@ -377,8 +395,9 @@ export function PublicEstimateApprovalPage({ token }: PublicEstimateApprovalPage
             <CardContent className='space-y-1 text-sm' role='status'>
               <p className='font-medium'>{state.result.decision === 'APPROVED' ? t('publicEstimateApproval.approved') : t('publicEstimateApproval.declined')}</p>
               <p className='text-slate-600'>
-                {state.result.decision === 'APPROVED' ? t('publicEstimateApproval.approvedAt') : t('publicEstimateApproval.decidedAt')}{' '}
-                {formatEstimateDateTime(state.result.decided_at)}
+                {state.result.decision === 'APPROVED'
+                  ? t('publicEstimateApproval.approvedAt', { date: formatDateTime(state.result.decided_at) })
+                  : t('publicEstimateApproval.decidedAt', { date: formatDateTime(state.result.decided_at) })}
               </p>
             </CardContent>
           </Card>
