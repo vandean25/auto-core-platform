@@ -28,19 +28,22 @@ function readMarkdownTableNames(
   );
 }
 
-function readToolCatalogNames(markdown: string): string[] {
-  return readMarkdownTableNames(
-    markdown,
-    /^## Tool catalog\s*$/m,
-    'Tool catalog',
-  );
+function readAgentsDocumentedToolNames(markdown: string): string[] {
+  return [
+    ...readMarkdownTableNames(markdown, /^## Tool catalog\s*$/m, 'Tool catalog'),
+    ...readMarkdownTableNames(
+      markdown,
+      /^## Compliance read tools\s*$/m,
+      'Compliance read tools',
+    ),
+  ];
 }
 
 function assertToolCatalogMatchesRegistry(
   markdown: string,
   registeredTools: readonly string[],
 ): void {
-  const documentedTools = readToolCatalogNames(markdown);
+  const documentedTools = readAgentsDocumentedToolNames(markdown);
   const registeredToolSet = new Set(registeredTools);
   const documentedToolSet = new Set(documentedTools);
   const documentedButNotRegistered = documentedTools.filter(
@@ -91,11 +94,18 @@ describe('MCP agent instructions (AUT-605 compliance reads)', () => {
       ),
       'utf8',
     );
-    const documentedReadTools = readMarkdownTableNames(
-      featureSpec,
-      /^## Read-only tools/m,
-      'Read-only tools',
-    );
+    const documentedReadTools = [
+      ...readMarkdownTableNames(
+        featureSpec,
+        /^## Read-only tools/m,
+        'Read-only tools',
+      ),
+      ...readMarkdownTableNames(
+        featureSpec,
+        /^## Compliance read-only tools\s*$/m,
+        'Compliance read-only tools',
+      ),
+    ];
     const documentedWriteTools = readMarkdownTableNames(
       featureSpec,
       /^## Write tools/m,

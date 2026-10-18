@@ -50,10 +50,6 @@ Read tools are tenant- or active-site-scoped by the server. Their tier is `AUTO`
 | `get_revenue_report` | Revenue for a period at the active site or a given site: net, VAT, and gross split by workshop, vehicle sales, and other, plus revenue groups; optional prior-period comparison | Read | AUTO |
 | `list_pickerl_due` | Vehicles with a Pickerl due within 30, 60, or 90 days, overdue vehicles always included: vehicle, customer name, and due date | Read | AUTO |
 | `get_nova_preview` | A calculation preview of NoVA for a vehicle at a net EUR price, which saves nothing; the Steuerberater must still confirm while an unconfirmed rule applies | Read | AUTO |
-| `check_contact_permission` | Whether the tenant may contact a customer for a purpose and channel (`allowed` and `reason` only; no consent ledger text) | Read | AUTO |
-| `list_gewaehrleistung_due` | Consumer vehicle sales at the active site whose base Gewährleistung period ends within 30, 60, or 90 days | Read | AUTO |
-| `list_tyre_sets` | Tyre storage sets at the active site by customer, vehicle, status, or due-for-swap | Read | AUTO |
-| `list_warranty_claims` | Garantie, Kulanz, and Gewährleistung claims at the active site, optionally for one workshop order (no complaint text) | Read | AUTO |
 | `list_bays` | List active bays for the active site | Read | AUTO |
 | `list_bins` | List bin storage locations for the active site | Read | AUTO |
 | `list_workshop_tasks` | List tasks visible to the caller with line IDs for MCP actions | Read | AUTO |
@@ -78,6 +74,15 @@ Read tools are tenant- or active-site-scoped by the server. Their tier is `AUTO`
 | `generate_weekly_report_pdf` | Render the internal weekly report PDF for one ISO week (Monday–Sunday in the site timezone) and return a short-lived read link; never archives the PDF or sends anything | Write | Off by default; AUTO when enabled |
 | `request_workshop_media_upload` | Reserve a short-lived direct upload slot for workshop task photos (jpeg, png, heic, or webp); returns `media_id` and presigned POST fields only | Write | Off by default; AUTO when enabled |
 | `propose_mechanic_finding` | Propose an additional mechanic finding with photos for internal advisor review; never sends customer messages | Write | Off by default; PROPOSE when enabled (clamped from AUTO) |
+
+## Compliance read tools
+
+| Tool | Description | Access | Policy tier |
+| ---- | ----------- | ------ | ----------- |
+| `check_contact_permission` | Whether the tenant may contact a customer for a purpose and channel (`allowed` and `reason` only; no consent ledger text) | Read | AUTO |
+| `list_gewaehrleistung_due` | Consumer vehicle sales at the active site whose base Gewährleistung period ends within 30, 60, or 90 days | Read | AUTO |
+| `list_tyre_sets` | Tyre storage sets at the active site by customer, vehicle, status, or due-for-swap | Read | AUTO |
+| `list_warranty_claims` | Garantie, Kulanz, and Gewährleistung claims at the active site, optionally for one workshop order (no complaint text) | Read | AUTO |
 
 Write tools start Off (`enabled: false`) in the platform policy table. A tenant admin must enable a tool through the policy table before it can run; the admin cannot loosen the platform tier or conditions. `propose_line_item`, `propose_registration_intake`, `propose_workshop_booking`, `propose_purchase_order`, `propose_workshop_order_completion`, `propose_invoice_draft_from_order`, `propose_estimate_send`, and `propose_mechanic_finding` are clamped to `PROPOSE`. The server evaluates every write call, so never infer permission from this table alone.
 

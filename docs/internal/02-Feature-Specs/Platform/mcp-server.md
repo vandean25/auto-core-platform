@@ -60,10 +60,6 @@ Tenant isolation matches existing services (`tenant_id` from the session). Site-
 | `get_revenue_report` | AUTO | Revenue for a period (`from`/`to`, max 366 days) at the active site or a given `site_id`: net, VAT, and gross split by workshop, vehicle sales, and other, plus revenue groups; optional `compare_previous` |
 | `list_pickerl_due` | AUTO | Vehicles with a Pickerl due within a 30, 60, or 90 day `window`, overdue vehicles always included: vehicle, customer name, and due date (`pageSize` max 25, opaque cursor) |
 | `get_nova_preview` | AUTO | Read-only NoVA calculation for `vehicle_id` at a `net_price_eur`; nothing is saved and no invoice changes; the Steuerberater must still confirm while an unconfirmed rule applies |
-| `check_contact_permission` | AUTO | Consent gate: `allowed` and `reason` for a `customer_id`, `purpose`, and `channel` (no ledger text); same roles as the consent ledger REST API |
-| `list_gewaehrleistung_due` | AUTO | Gewährleistung period ending within `within_days` (30, 60, or 90) at the active site (`pageSize` max 25, opaque cursor) |
-| `list_tyre_sets` | AUTO | Tyre storage sets at the active site by `customer_id`, `vehicle_id`, `status`, or `due_for_swap` (`pageSize` max 25, opaque cursor) |
-| `list_warranty_claims` | AUTO | Warranty claims at the active site, optional `order_id`, `status`, and `type` (`pageSize` max 25, keyset cursor; compact rows without complaint text) |
 | `list_bays` | AUTO | Paged active bays for the active site |
 | `list_bins` | AUTO | Paged bin storage locations for the active site |
 | `list_workshop_tasks` | AUTO | Paged tasks visible to the caller with line IDs for MCP actions |
@@ -75,6 +71,15 @@ Tenant isolation matches existing services (`tenant_id` from the session). Site-
 | `get_entity_history` | AUTO | Paged field changes for one entity, with email, phone, and address values masked (OWNER and ADMIN only) |
 | `get_agent_action` | AUTO | Agent action log rows for a trace ID, plus up to 25 correlated audit entries (OWNER and ADMIN only) |
 | `list_agent_actions` | AUTO | Paged agent action log rows filtered by agent, tool, tier, status, or time range (OWNER and ADMIN only) |
+
+## Compliance read-only tools
+
+| Tool | Tier | Description |
+|------|------|-------------|
+| `check_contact_permission` | AUTO | Consent gate: `allowed` and `reason` for a `customer_id`, `purpose`, and `channel` (no ledger text); same roles as the consent ledger REST API |
+| `list_gewaehrleistung_due` | AUTO | Gewährleistung period ending within `within_days` (30, 60, or 90) at the active site (`pageSize` max 25, opaque cursor) |
+| `list_tyre_sets` | AUTO | Tyre storage sets at the active site by `customer_id`, `vehicle_id`, `status`, or `due_for_swap` (`pageSize` max 25, opaque cursor) |
+| `list_warranty_claims` | AUTO | Warranty claims at the active site, optional `order_id`, `status`, and `type` (`pageSize` max 25, keyset cursor; compact rows without complaint text) |
 
 Outputs are page-limited (max 25 rows) and JSON size-capped before returning to the client. Summaries written to the action log are redacted per AE2.
 
