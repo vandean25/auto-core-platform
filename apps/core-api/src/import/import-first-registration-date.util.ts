@@ -15,7 +15,11 @@ function todayInViennaYmd(): string {
   }).format(new Date());
 }
 
-function isValidUtcDateParts(year: number, month: number, day: number): boolean {
+function isValidUtcDateParts(
+  year: number,
+  month: number,
+  day: number,
+): boolean {
   const parsed = new Date(Date.UTC(year, month - 1, day));
   return (
     parsed.getUTCFullYear() === year &&

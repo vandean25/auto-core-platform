@@ -143,9 +143,8 @@ export function normalizeVehicleRow(
     mapping,
     'first_registration_date',
   );
-  const firstRegistrationParsed = parseImportFirstRegistrationDate(
-    firstRegistrationRaw,
-  );
+  const firstRegistrationParsed =
+    parseImportFirstRegistrationDate(firstRegistrationRaw);
   issues.push(...firstRegistrationParsed.issues);
   warnings.push(...firstRegistrationParsed.warnings);
 
