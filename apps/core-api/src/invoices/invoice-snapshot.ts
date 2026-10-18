@@ -7,6 +7,7 @@ import {
   type InvoiceItem,
   type Vehicle,
 } from '@prisma/client';
+import type { DocumentSnapshotLocaleFields } from '../common/i18n/document-snapshot-locale.js';
 import type {
   InvoiceSnapshotV2Branding,
   InvoiceSnapshotV2Seller,
@@ -82,7 +83,7 @@ export type InvoiceSnapshot = {
     reason: string;
     snapshot_version: number;
   };
-};
+} & Partial<DocumentSnapshotLocaleFields>;
 
 type InvoiceForSnapshot = Invoice & {
   items: InvoiceItem[];

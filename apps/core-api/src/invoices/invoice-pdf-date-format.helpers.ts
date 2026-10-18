@@ -1,3 +1,6 @@
+import { formatDocumentDate } from '../common/format/document-format.js';
+import { readDocumentSnapshotLocaleFields } from '../common/i18n/document-snapshot-locale.js';
+import { DEFAULT_FORMAT_LOCALE } from '../common/i18n/display-language.js';
 import {
   isDachRechnungSnapshot,
   type FormatDate,
@@ -5,19 +8,27 @@ import {
 import type { InvoiceSnapshot } from './invoice-snapshot.js';
 
 /**
- * Formats a PDF date: German dd.mm.yyyy for DACH Rechnung layouts, ISO
- * yyyy-mm-dd otherwise. Values that do not parse as dates are echoed back.
+ * Legacy invoices without frozen `document_locale` keep the historical DACH vs ISO
+ * date switch. Localized snapshots always use de-AT calendar formatting.
  */
 export function formatInvoicePdfDate(
   value: string | Date,
-  useGermanLocale: boolean,
+  snapshot: InvoiceSnapshot,
 ): string {
+  const frozen = readDocumentSnapshotLocaleFields(snapshot);
+  if (frozen) {
+    return formatDocumentDate(
+      value,
+      frozen.format_locale ?? DEFAULT_FORMAT_LOCALE,
+    );
+  }
+
   const date = typeof value === 'string' ? new Date(value) : value;
   if (Number.isNaN(date.getTime())) {
     return String(value);
   }
 
-  if (useGermanLocale) {
+  if (isDachRechnungSnapshot(snapshot)) {
     return date.toLocaleDateString('de-DE', {
       day: '2-digit',
       month: '2-digit',
@@ -32,6 +43,5 @@ export function formatInvoicePdfDate(
 export function createInvoicePdfDateFormatter(
   snapshot: InvoiceSnapshot,
 ): FormatDate {
-  return (value) =>
-    formatInvoicePdfDate(value, isDachRechnungSnapshot(snapshot));
+  return (value) => formatInvoicePdfDate(value, snapshot);
 }

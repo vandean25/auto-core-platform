@@ -1,4 +1,9 @@
+import type { TFunction } from 'i18next';
 import { escapeHtml } from '../../common/pdf/pdf-layout.js';
+import { buildAuthoritativeGermanLegalNoticeHtml } from '../../common/i18n/pdf-legal-notice.js';
+import { resolveDocumentLanguage } from '../../common/i18n/locale-resolution.js';
+import { createPdfTranslator } from '../../common/i18n/pdf-i18n.js';
+import { snapshotUsesLocalizedPdfResources } from '../../common/i18n/pdf-resource-bundle.js';
 import type { KaufvertragSnapshot } from './kaufvertrag-snapshot.js';
 
 const DEFAULT_PRIMARY = '#1d4ed8';
@@ -28,7 +33,10 @@ function safeColor(value: string, fallback: string): string {
   return HEX_COLOR.test(value) ? value : fallback;
 }
 
-function sellerLines(snapshot: KaufvertragSnapshot): string {
+function sellerLines(
+  snapshot: KaufvertragSnapshot,
+  t: TFunction | null,
+): string {
   const { seller } = snapshot;
   const street = [seller.address_street, seller.address_line2]
     .filter(Boolean)
@@ -36,27 +44,59 @@ function sellerLines(snapshot: KaufvertragSnapshot): string {
   const cityLine = [seller.address_zip, seller.address_city]
     .filter(Boolean)
     .join(' ');
+  const vatLine = seller.vat_id
+    ? t
+      ? escapeHtml(t('kaufvertrag.uidLine', { value: seller.vat_id }))
+      : `UID: ${escapeHtml(seller.vat_id)}`
+    : '';
+  const taxLine = seller.tax_number
+    ? t
+      ? escapeHtml(t('kaufvertrag.taxNumberLine', { value: seller.tax_number }))
+      : `Steuernummer: ${escapeHtml(seller.tax_number)}`
+    : '';
+  const registrationLine = seller.registration_number
+    ? t
+      ? escapeHtml(
+          t('kaufvertrag.companyBookNumberLine', {
+            value: seller.registration_number,
+          }),
+        )
+      : `Firmenbuchnummer: ${escapeHtml(seller.registration_number)}`
+    : '';
+  const courtLine = seller.registration_court
+    ? t
+      ? escapeHtml(
+          t('kaufvertrag.companyBookCourtLine', {
+            value: seller.registration_court,
+          }),
+        )
+      : `Firmenbuchgericht: ${escapeHtml(seller.registration_court)}`
+    : '';
+  const representativesLine = seller.representatives
+    ? t
+      ? escapeHtml(
+          t('kaufvertrag.representedByLine', { value: seller.representatives }),
+        )
+      : `Vertreten durch: ${escapeHtml(seller.representatives)}`
+    : '';
   return [
     `<strong>${escapeHtml(seller.name)}</strong>`,
     escapeHtml(street),
     escapeHtml(cityLine),
-    seller.vat_id ? `UID: ${escapeHtml(seller.vat_id)}` : '',
-    seller.tax_number ? `Steuernummer: ${escapeHtml(seller.tax_number)}` : '',
-    seller.registration_number
-      ? `Firmenbuchnummer: ${escapeHtml(seller.registration_number)}`
-      : '',
-    seller.registration_court
-      ? `Firmenbuchgericht: ${escapeHtml(seller.registration_court)}`
-      : '',
-    seller.representatives
-      ? `Vertreten durch: ${escapeHtml(seller.representatives)}`
-      : '',
+    vatLine,
+    taxLine,
+    registrationLine,
+    courtLine,
+    representativesLine,
   ]
     .filter(Boolean)
     .join('<br>');
 }
 
-function buyerLines(snapshot: KaufvertragSnapshot): string {
+function buyerLines(
+  snapshot: KaufvertragSnapshot,
+  t: TFunction | null,
+): string {
   const { buyer } = snapshot;
   const name =
     buyer.type === 'COMPANY' && buyer.company_name
@@ -69,16 +109,26 @@ function buyerLines(snapshot: KaufvertragSnapshot): string {
   const cityLine = [buyer.address_zip, buyer.address_city]
     .filter(Boolean)
     .join(' ');
+  const buyerStatus =
+    snapshot.warranty.regime === 'B2B_PER_CONTRACT'
+      ? t
+        ? t('kaufvertrag.buyerBusinessCustomer')
+        : 'Unternehmer'
+      : t
+        ? t('kaufvertrag.buyerConsumer')
+        : 'Verbraucher';
+  const buyerVatLine = buyer.vat_id
+    ? t
+      ? escapeHtml(t('kaufvertrag.uidLine', { value: buyer.vat_id }))
+      : `UID: ${escapeHtml(buyer.vat_id)}`
+    : '';
   return [
     `<strong>${escapeHtml(name)}</strong>`,
     escapeHtml(buyer.address_street ?? ''),
     escapeHtml(cityLine),
     escapeHtml(country),
-    buyer.vat_id ? `UID: ${escapeHtml(buyer.vat_id)}` : '',
-    // Same status the warranty section uses, so the two cannot disagree.
-    snapshot.warranty.regime === 'B2B_PER_CONTRACT'
-      ? 'Unternehmer'
-      : 'Verbraucher',
+    buyerVatLine,
+    buyerStatus,
   ]
     .filter(Boolean)
     .join('<br>');
@@ -153,9 +203,43 @@ export function buildKaufvertragHtmlDocument(
       : '–';
   const typeCodes =
     [vehicle.hsn, vehicle.tsn].filter(Boolean).join(' / ') || '–';
+  const documentLocale = resolveDocumentLanguage(snapshot);
+  const t = snapshotUsesLocalizedPdfResources(snapshot)
+    ? createPdfTranslator(documentLocale)
+    : null;
+  const legalNotice = t
+    ? buildAuthoritativeGermanLegalNoticeHtml(documentLocale)
+    : '';
+  const title = t
+    ? t('kaufvertrag.titleFull')
+    : 'Kaufvertrag über ein gebrauchtes Kraftfahrzeug';
+  const htmlLang = t ? t('kaufvertrag.htmlLang') : 'de-AT';
+  const contractNumberLabel = t
+    ? t('kaufvertrag.contractNumberLabel')
+    : 'Vertragsnummer';
+  const contractDateLabel = t
+    ? t('kaufvertrag.contractDateLabel')
+    : 'Vertragsdatum';
+  const handoverLabel = t ? t('kaufvertrag.handoverLabel') : 'Übergabe';
+  const sellerHeading = t ? t('kaufvertrag.sellerHeading') : 'Verkäufer';
+  const buyerHeading = t ? t('kaufvertrag.buyerHeading') : 'Käufer';
+  const vehicleHeading = t ? t('kaufvertrag.vehicleHeading') : 'Fahrzeug';
+  const makeModelLabel = t ? t('kaufvertrag.makeModelLabel') : 'Marke / Modell';
+  const vinLabel = t ? t('kaufvertrag.vinLabel') : 'Fahrgestellnummer (FIN)';
+  const hsnTsnLabel = t ? t('kaufvertrag.hsnTsnLabel') : 'HSN / TSN';
+  const firstRegistrationLabel = t
+    ? t('kaufvertrag.firstRegistrationLabel')
+    : 'Erstzulassung';
+  const mileageLabel = t ? t('kaufvertrag.mileageLabel') : 'Kilometerstand';
+  const colorLabel = t ? t('kaufvertrag.colorLabel') : 'Farbe';
+  const purchasePriceLabel = t
+    ? t('kaufvertrag.purchasePriceGrossLabel')
+    : 'Kaufpreis (brutto)';
+  const signatureSeller = t ? t('kaufvertrag.signatureSeller') : 'Verkäufer';
+  const signatureBuyer = t ? t('kaufvertrag.signatureBuyer') : 'Käufer';
 
   return `<!doctype html>
-<html lang="de-AT">
+<html lang="${htmlLang}">
 <head>
   <meta charset="utf-8">
   <style>
@@ -183,32 +267,33 @@ export function buildKaufvertragHtmlDocument(
   </style>
 </head>
 <body>
-  <h1>Kaufvertrag über ein gebrauchtes Kraftfahrzeug</h1>
+  ${legalNotice}
+  <h1>${escapeHtml(title)}</h1>
   <p class="meta">
-    Vertragsnummer ${escapeHtml(sale.sale_number)} · Vertragsdatum ${formatDeDay(sale.contract_concluded_at)} · Übergabe ${formatDeDay(sale.handed_over_at)}
+    ${escapeHtml(contractNumberLabel)} ${escapeHtml(sale.sale_number)} · ${escapeHtml(contractDateLabel)} ${formatDeDay(sale.contract_concluded_at)} · ${escapeHtml(handoverLabel)} ${formatDeDay(sale.handed_over_at)}
   </p>
 
   <div class="parties">
     <div>
-      <h2>Verkäufer</h2>
-      <p>${sellerLines(snapshot)}</p>
+      <h2>${escapeHtml(sellerHeading)}</h2>
+      <p>${sellerLines(snapshot, t)}</p>
     </div>
     <div>
-      <h2>Käufer</h2>
-      <p>${buyerLines(snapshot)}</p>
+      <h2>${escapeHtml(buyerHeading)}</h2>
+      <p>${buyerLines(snapshot, t)}</p>
     </div>
   </div>
 
   <section>
-    <h2>Fahrzeug</h2>
+    <h2>${escapeHtml(vehicleHeading)}</h2>
     <table class="vehicle">
-      <tr><td class="k">Marke / Modell</td><td>${escapeHtml(vehicle.make)} ${escapeHtml(vehicle.model)}</td></tr>
-      <tr><td class="k">Fahrgestellnummer (FIN)</td><td>${escapeHtml(vehicle.vin)}</td></tr>
-      <tr><td class="k">HSN / TSN</td><td>${escapeHtml(typeCodes)}</td></tr>
-      <tr><td class="k">Erstzulassung</td><td>${registration}</td></tr>
-      <tr><td class="k">Kilometerstand</td><td>${mileage}</td></tr>
-      <tr><td class="k">Farbe</td><td>${escapeHtml(vehicle.color ?? '–')}</td></tr>
-      <tr><td class="k">Kaufpreis (brutto)</td><td class="price">${formatDeEuro(sale.sale_price_eur)}</td></tr>
+      <tr><td class="k">${escapeHtml(makeModelLabel)}</td><td>${escapeHtml(vehicle.make)} ${escapeHtml(vehicle.model)}</td></tr>
+      <tr><td class="k">${escapeHtml(vinLabel)}</td><td>${escapeHtml(vehicle.vin)}</td></tr>
+      <tr><td class="k">${escapeHtml(hsnTsnLabel)}</td><td>${escapeHtml(typeCodes)}</td></tr>
+      <tr><td class="k">${escapeHtml(firstRegistrationLabel)}</td><td>${registration}</td></tr>
+      <tr><td class="k">${escapeHtml(mileageLabel)}</td><td>${mileage}</td></tr>
+      <tr><td class="k">${escapeHtml(colorLabel)}</td><td>${escapeHtml(vehicle.color ?? '–')}</td></tr>
+      <tr><td class="k">${escapeHtml(purchasePriceLabel)}</td><td class="price">${formatDeEuro(sale.sale_price_eur)}</td></tr>
     </table>
   </section>
 
@@ -216,8 +301,8 @@ export function buildKaufvertragHtmlDocument(
   ${garantieSection(snapshot)}
 
   <div class="signatures">
-    <div class="signature">Verkäufer</div>
-    <div class="signature">Käufer</div>
+    <div class="signature">${escapeHtml(signatureSeller)}</div>
+    <div class="signature">${escapeHtml(signatureBuyer)}</div>
   </div>
 </body>
 </html>`;

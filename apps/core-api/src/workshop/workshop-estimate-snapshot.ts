@@ -29,6 +29,7 @@ import {
   DEFAULT_DISPLAY_LANGUAGE,
   type DisplayLanguage,
 } from '../common/i18n/display-language.js';
+import { createPdfTranslator } from '../common/i18n/pdf-i18n.js';
 
 /**
  * Immutable record of what the customer was offered (ADR-0025 §4). Built once
@@ -157,6 +158,10 @@ export function buildWorkshopEstimateSnapshot(
   input: BuildWorkshopEstimateSnapshotInput,
 ): WorkshopEstimateSnapshot {
   const documentLocale = input.documentLocale ?? DEFAULT_DISPLAY_LANGUAGE;
+  const title =
+    documentLocale === 'en'
+      ? createPdfTranslator('en')('estimate.title')
+      : WORKSHOP_ESTIMATE_TITLE;
   return {
     ...buildDocumentSnapshotLocaleFields(
       documentLocale,
@@ -165,7 +170,7 @@ export function buildWorkshopEstimateSnapshot(
     schema_version: WORKSHOP_ESTIMATE_SNAPSHOT_SCHEMA_VERSION,
     document: {
       kind: 'WORKSHOP_ESTIMATE',
-      title: WORKSHOP_ESTIMATE_TITLE,
+      title,
       estimate_number: input.estimateNumber,
       version: input.version,
       issued_at: input.issuedAt.toISOString(),

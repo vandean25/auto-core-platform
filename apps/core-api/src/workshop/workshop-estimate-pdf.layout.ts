@@ -1,8 +1,11 @@
 import type { WorkshopLineItemType } from '@prisma/client';
+import type { TFunction } from 'i18next';
 import {
   buildBasePdfStyles,
   type EscapeHtml,
 } from '../common/pdf/pdf-layout.js';
+import { createPdfTranslator } from '../common/i18n/pdf-i18n.js';
+import { snapshotUsesLocalizedPdfResources } from '../common/i18n/pdf-resource-bundle.js';
 import {
   FOOTER_DECORATIVE_MAX_LINES,
   FOOTER_DECORATIVE_WIDTH_MM,
@@ -16,15 +19,45 @@ import {
   type WorkshopEstimateSnapshot,
 } from './workshop-estimate-snapshot.js';
 import type { WorkshopEstimateLine } from './workshop-estimate-lines.helpers.js';
+import { buildAuthoritativeGermanLegalNoticeHtml } from '../common/i18n/pdf-legal-notice.js';
+import { resolveDocumentLanguage } from '../common/i18n/locale-resolution.js';
 
 const DEFAULT_COLOR = '#111827';
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 
-const LINE_TYPE_LABEL: Record<WorkshopLineItemType, string> = {
+const LEGACY_LINE_TYPE_LABEL: Record<WorkshopLineItemType, string> = {
   LABOR: 'Arbeitsleistung',
   PART: 'Ersatzteil',
   FEE: 'Nebenleistung',
 };
+
+const ESTIMATE_LINE_TYPE_KEY: Record<
+  WorkshopLineItemType,
+  'estimate.lineTypeLabor' | 'estimate.lineTypePart' | 'estimate.lineTypeFee'
+> = {
+  LABOR: 'estimate.lineTypeLabor',
+  PART: 'estimate.lineTypePart',
+  FEE: 'estimate.lineTypeFee',
+};
+
+function resolveEstimatePdfTranslator(
+  snapshot: WorkshopEstimateSnapshot,
+): TFunction | null {
+  if (!snapshotUsesLocalizedPdfResources(snapshot)) {
+    return null;
+  }
+  return createPdfTranslator(resolveDocumentLanguage(snapshot));
+}
+
+function lineTypeLabel(
+  type: WorkshopLineItemType,
+  t: TFunction | null,
+): string {
+  if (!t) {
+    return LEGACY_LINE_TYPE_LABEL[type];
+  }
+  return t(ESTIMATE_LINE_TYPE_KEY[type]);
+}
 
 const MONEY_FORMAT = new Intl.NumberFormat('de-AT', {
   minimumFractionDigits: 2,
@@ -104,49 +137,97 @@ function buildWorkshopEstimateStyles(primary: string): string {
 function buildTitleSection(
   snapshot: WorkshopEstimateSnapshot,
   escape: EscapeHtml,
+  t: TFunction | null,
 ): string {
+  const title = t ? t('estimate.title') : snapshot.document.title;
+  const versionLine = t
+    ? `${escape(snapshot.document.estimate_number)} · ${escape(t('estimate.versionLabel', { version: snapshot.document.version }))}`
+    : `${escape(snapshot.document.estimate_number)} · Version ${escape(snapshot.document.version)}`;
   return `
   <div class="header">
-    <h1>${escape(snapshot.document.title)}</h1>
-    <div class="muted">${escape(snapshot.document.estimate_number)} · Version ${escape(snapshot.document.version)}</div>
+    <h1>${escape(title)}</h1>
+    <div class="muted">${versionLine}</div>
   </div>`;
 }
 
 function buildMetaSection(
   snapshot: WorkshopEstimateSnapshot,
   escape: EscapeHtml,
+  t: TFunction | null,
 ): string {
   const issued = formatWorkshopEstimateDate(
     new Date(snapshot.document.issued_at),
   );
-  const validUntil = `${formatWorkshopEstimateValidUntil(new Date(snapshot.document.valid_until))} Uhr`;
+  const validUntilSuffix = t ? t('estimate.validUntilTimeSuffix') : ' Uhr';
+  const validUntil = `${formatWorkshopEstimateValidUntil(new Date(snapshot.document.valid_until))}${validUntilSuffix}`;
   const odometer = `${new Intl.NumberFormat('de-AT').format(snapshot.order.odometer)} km`;
+  const dateLabel = t ? t('estimate.dateLabel') : 'Datum';
+  const validUntilLabel = t ? t('estimate.validUntilLabel') : 'Gültig bis';
+  const orderLabel = t ? t('estimate.orderLabel') : 'Auftrag';
+  const odometerLabel = t ? t('estimate.odometerLabel') : 'Kilometerstand';
   return `
   <table class="meta">
-    <tr><td>Datum</td><td>${escape(issued)}</td></tr>
-    <tr><td>Gültig bis</td><td>${escape(validUntil)}</td></tr>
-    <tr><td>Auftrag</td><td>${escape(snapshot.order.order_number)}</td></tr>
-    <tr><td>Kilometerstand</td><td>${escape(odometer)}</td></tr>
+    <tr><td>${escape(dateLabel)}</td><td>${escape(issued)}</td></tr>
+    <tr><td>${escape(validUntilLabel)}</td><td>${escape(validUntil)}</td></tr>
+    <tr><td>${escape(orderLabel)}</td><td>${escape(snapshot.order.order_number)}</td></tr>
+    <tr><td>${escape(odometerLabel)}</td><td>${escape(odometer)}</td></tr>
   </table>`;
 }
 
 function buildPartiesSection(
   snapshot: WorkshopEstimateSnapshot,
   escape: EscapeHtml,
+  t: TFunction | null,
 ): string {
   const { seller, customer, vehicle } = snapshot;
   const sellerTaxLine = seller.vat_id
-    ? `UID: ${seller.vat_id}`
+    ? t
+      ? t('estimate.uidLine', { value: seller.vat_id })
+      : `UID: ${seller.vat_id}`
     : seller.tax_number
-      ? `Steuernummer: ${seller.tax_number}`
+      ? t
+        ? t('estimate.taxNumberLine', { value: seller.tax_number })
+        : `Steuernummer: ${seller.tax_number}`
       : null;
   const customerName = [customer.first_name, customer.last_name]
     .filter(Boolean)
     .join(' ');
+  const providerLabel = t ? t('estimate.providerLabel') : 'Anbieter';
+  const customerLabel = t ? t('estimate.customerLabel') : 'Kunde';
+  const vehicleLabel = t ? t('estimate.vehicleLabel') : 'Fahrzeug';
+  const customerVatLine = customer.vat_id
+    ? t
+      ? t('estimate.uidLine', { value: customer.vat_id })
+      : `UID: ${customer.vat_id}`
+    : null;
+  const vehicleYearLine =
+    vehicle.year && t
+      ? t('estimate.yearLabel', { year: vehicle.year })
+      : vehicle.year
+        ? `Baujahr ${vehicle.year}`
+        : null;
+  const vehiclePlateLine =
+    vehicle.plate && t
+      ? t('estimate.plateLine', { plate: vehicle.plate })
+      : vehicle.plate
+        ? `Kennzeichen: ${vehicle.plate}`
+        : null;
+  const vehicleVinLine =
+    vehicle.vin && t
+      ? t('estimate.vinLine', { vin: vehicle.vin })
+      : vehicle.vin
+        ? `FIN: ${vehicle.vin}`
+        : null;
+  const sellerPhoneLine =
+    seller.phone && t
+      ? t('estimate.phoneLine', { phone: seller.phone })
+      : seller.phone
+        ? `Tel.: ${seller.phone}`
+        : null;
   return `
   <div class="parties">
     <div class="party">
-      <div class="party-title">Anbieter</div>
+      <div class="party-title">${escape(providerLabel)}</div>
       ${renderLines(
         [
           seller.name,
@@ -154,14 +235,14 @@ function buildPartiesSection(
           seller.address_line2,
           [seller.address_zip, seller.address_city].filter(Boolean).join(' '),
           sellerTaxLine,
-          seller.phone ? `Tel.: ${seller.phone}` : null,
+          sellerPhoneLine,
           seller.email,
         ],
         escape,
       )}
     </div>
     <div class="party">
-      <div class="party-title">Kunde</div>
+      <div class="party-title">${escape(customerLabel)}</div>
       ${renderLines(
         [
           customer.company_name,
@@ -171,7 +252,7 @@ function buildPartiesSection(
             .filter(Boolean)
             .join(' '),
           customer.address_country,
-          customer.vat_id ? `UID: ${customer.vat_id}` : null,
+          customerVatLine,
           customer.email,
           customer.phone,
         ],
@@ -179,13 +260,13 @@ function buildPartiesSection(
       )}
     </div>
     <div class="party">
-      <div class="party-title">Fahrzeug</div>
+      <div class="party-title">${escape(vehicleLabel)}</div>
       ${renderLines(
         [
           [vehicle.make, vehicle.model].filter(Boolean).join(' '),
-          vehicle.year ? `Baujahr ${vehicle.year}` : null,
-          vehicle.plate ? `Kennzeichen: ${vehicle.plate}` : null,
-          vehicle.vin ? `FIN: ${vehicle.vin}` : null,
+          vehicleYearLine,
+          vehiclePlateLine,
+          vehicleVinLine,
         ],
         escape,
       )}
@@ -199,8 +280,9 @@ function buildLineCells(
   line: WorkshopEstimateLine,
   grossDisplay: boolean,
   escape: EscapeHtml,
+  t: TFunction | null,
 ): LineCell[] {
-  const description = `<span class="kind">${escape(LINE_TYPE_LABEL[line.type])}</span>${escape(line.description)}`;
+  const description = `<span class="kind">${escape(lineTypeLabel(line.type, t))}</span>${escape(line.description)}`;
   const quantity = {
     html: escape(DECIMAL_FORMAT.format(Number(line.quantity))),
     numeric: true,
@@ -231,18 +313,36 @@ function buildLineCells(
 function buildLinesSection(
   snapshot: WorkshopEstimateSnapshot,
   escape: EscapeHtml,
+  t: TFunction | null,
 ): string {
   const grossDisplay = snapshot.document.price_display === 'GROSS';
   const headers = grossDisplay
-    ? ['Nr.', 'Bezeichnung', 'Menge', 'USt', 'Betrag brutto']
-    : [
-        'Nr.',
-        'Bezeichnung',
-        'Menge',
-        'Einzelpreis netto',
-        'USt',
-        'Betrag netto',
-      ];
+    ? t
+      ? [
+          t('estimate.lineNoHeader'),
+          t('estimate.lineDescriptionHeader'),
+          t('estimate.quantityHeader'),
+          t('estimate.taxRateHeader'),
+          t('estimate.grossAmountHeader'),
+        ]
+      : ['Nr.', 'Bezeichnung', 'Menge', 'USt', 'Betrag brutto']
+    : t
+      ? [
+          t('estimate.lineNoHeader'),
+          t('estimate.lineDescriptionHeader'),
+          t('estimate.quantityHeader'),
+          t('estimate.netUnitPriceHeader'),
+          t('estimate.taxRateHeader'),
+          t('estimate.netAmountHeader'),
+        ]
+      : [
+          'Nr.',
+          'Bezeichnung',
+          'Menge',
+          'Einzelpreis netto',
+          'USt',
+          'Betrag netto',
+        ];
   const headerRow = headers
     .map(
       (header, index) =>
@@ -251,7 +351,7 @@ function buildLinesSection(
     .join('');
   const bodyRows = snapshot.lines
     .map((line) => {
-      const cells = buildLineCells(line, grossDisplay, escape)
+      const cells = buildLineCells(line, grossDisplay, escape, t)
         .map(
           (cell) =>
             `<td${cell.numeric ? ' class="num"' : ''}>${cell.html}</td>`,
@@ -270,22 +370,31 @@ function buildLinesSection(
 function buildTotalsSection(
   snapshot: WorkshopEstimateSnapshot,
   escape: EscapeHtml,
+  t: TFunction | null,
 ): string {
   const { total_net, total_tax, total_gross } = snapshot.totals;
+  const netLabel = t ? t('estimate.totalsNetAmount') : 'Nettobetrag';
+  const taxLabel = t ? t('estimate.totalsTax') : 'Umsatzsteuer';
+  const grossLabel = t ? t('estimate.totalsGross') : 'Gesamtbetrag brutto';
   return `
   <div class="totals">
-    <div class="total-row"><span>Nettobetrag</span><span>${escape(formatEstimateMoney(total_net))}</span></div>
-    <div class="total-row"><span>Umsatzsteuer</span><span>${escape(formatEstimateMoney(total_tax))}</span></div>
-    <div class="total-row grand"><span>Gesamtbetrag brutto</span><span>${escape(formatEstimateMoney(total_gross))}</span></div>
+    <div class="total-row"><span>${escape(netLabel)}</span><span>${escape(formatEstimateMoney(total_net))}</span></div>
+    <div class="total-row"><span>${escape(taxLabel)}</span><span>${escape(formatEstimateMoney(total_tax))}</span></div>
+    <div class="total-row grand"><span>${escape(grossLabel)}</span><span>${escape(formatEstimateMoney(total_gross))}</span></div>
   </div>`;
 }
 
 function buildTaxBreakdownSection(
   snapshot: WorkshopEstimateSnapshot,
   escape: EscapeHtml,
+  t: TFunction | null,
 ): string {
   const buckets = snapshot.totals.tax_breakdown;
   if (buckets.length === 0) return '';
+  const rateHeader = t ? t('estimate.taxBreakdownRateHeader') : 'USt-Satz';
+  const netHeader = t ? t('estimate.taxBreakdownNetHeader') : 'Netto';
+  const taxHeader = t ? t('estimate.taxBreakdownTaxHeader') : 'USt';
+  const grossHeader = t ? t('estimate.taxBreakdownGrossHeader') : 'Brutto';
   const rows = buckets
     .map(
       (bucket) => `<tr>
@@ -298,7 +407,7 @@ function buildTaxBreakdownSection(
     .join('');
   return `
   <table class="tax-breakdown">
-    <thead><tr><th>USt-Satz</th><th>Netto</th><th>USt</th><th>Brutto</th></tr></thead>
+    <thead><tr><th>${escape(rateHeader)}</th><th>${escape(netHeader)}</th><th>${escape(taxHeader)}</th><th>${escape(grossHeader)}</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
 }
@@ -321,8 +430,16 @@ export function buildWorkshopEstimateHtmlDocument(
   escape: EscapeHtml,
 ): string {
   const primary = safeColor(snapshot.branding.tokens.primary_color);
+  const documentLocale = resolveDocumentLanguage(snapshot);
+  const t = resolveEstimatePdfTranslator(snapshot);
+  const legalNotice = buildAuthoritativeGermanLegalNoticeHtml(documentLocale);
+  const htmlLang = t
+    ? t('estimate.htmlLang')
+    : documentLocale === 'en'
+      ? 'en'
+      : 'de-AT';
   return `<!doctype html>
-<html lang="de-AT">
+<html lang="${htmlLang}">
 <head>
 <meta charset="utf-8" />
 <style>
@@ -332,12 +449,13 @@ ${buildWorkshopEstimateStyles(primary)}
 </style>
 </head>
 <body>
-${buildTitleSection(snapshot, escape)}
-${buildMetaSection(snapshot, escape)}
-${buildPartiesSection(snapshot, escape)}
-${buildLinesSection(snapshot, escape)}
-${buildTotalsSection(snapshot, escape)}
-${buildTaxBreakdownSection(snapshot, escape)}
+${buildTitleSection(snapshot, escape, t)}
+${buildMetaSection(snapshot, escape, t)}
+${buildPartiesSection(snapshot, escape, t)}
+${buildLinesSection(snapshot, escape, t)}
+${buildTotalsSection(snapshot, escape, t)}
+${buildTaxBreakdownSection(snapshot, escape, t)}
+${legalNotice}
 ${buildLegalSection(snapshot, escape)}
 </body>
 </html>`;

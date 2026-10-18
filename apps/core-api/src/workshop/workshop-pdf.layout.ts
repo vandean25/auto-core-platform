@@ -1,4 +1,6 @@
 import type { DisplayLanguage } from '@prisma/client';
+import type { PdfRenderMode } from '../common/i18n/pdf-render-mode.js';
+import { buildAuthoritativeGermanLegalNoticeHtml } from '../common/i18n/pdf-legal-notice.js';
 import {
   buildBasePdfStyles,
   buildPdfFooterTemplate,
@@ -245,8 +247,9 @@ export const buildWorkshopFooterTemplate = (
   orderNumber: string,
   escape: EscapeHtml,
   documentLocale: DisplayLanguage,
+  renderMode: PdfRenderMode = 'legacy',
 ): string => {
-  const copy = getWorkshopPdfCopy(documentLocale);
+  const copy = getWorkshopPdfCopy(documentLocale, renderMode);
   return buildPdfFooterTemplate(escape(copy.footerDocumentLabel(orderNumber)));
 };
 
@@ -255,9 +258,14 @@ export const buildWorkshopHtmlDocument = (
   orderNumber: string,
   escape: EscapeHtml,
   documentLocale: DisplayLanguage,
+  renderMode: PdfRenderMode = 'legacy',
 ): string => {
   const safeOrderNumber = escape(orderNumber);
-  const copy = getWorkshopPdfCopy(documentLocale);
+  const copy = getWorkshopPdfCopy(documentLocale, renderMode);
+  const legalNotice =
+    renderMode === 'localized'
+      ? buildAuthoritativeGermanLegalNoticeHtml(documentLocale, escape)
+      : '';
 
   return `
     <!DOCTYPE html>
@@ -284,11 +292,12 @@ export const buildWorkshopHtmlDocument = (
               order.check_in.embedded,
               escape,
               documentLocale,
+              renderMode,
             )
           : ''
       }
       ${buildWorkshopInternalNotesSection(order.notes, escape, copy)}
-      ${buildWorkshopFooterNotes(copy)}
+      ${legalNotice}${buildWorkshopFooterNotes(copy)}
     </body>
     </html>
   `;

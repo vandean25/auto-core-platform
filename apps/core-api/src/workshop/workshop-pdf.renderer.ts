@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { DisplayLanguage } from '@prisma/client';
+import type { PdfRenderMode } from '../common/i18n/pdf-render-mode.js';
 import * as Sentry from '@sentry/node';
 import { PlaywrightBrowserService } from '../common/index.js';
 import { escapeHtml } from '../common/pdf/pdf-layout.js';
@@ -17,7 +18,10 @@ export class WorkshopPdfRenderer {
 
   async render(
     order: WorkshopOrderForPdf,
-    options: { documentLocale: DisplayLanguage },
+    options: {
+      documentLocale: DisplayLanguage;
+      renderMode?: PdfRenderMode;
+    },
   ): Promise<Buffer> {
     return Sentry.startSpan(
       { name: 'Render Workshop PDF', op: 'pdf.render' },
@@ -31,6 +35,7 @@ export class WorkshopPdfRenderer {
             order,
             orderNumber,
             options.documentLocale,
+            options.renderMode ?? 'legacy',
           );
           await page.setContent(html, { timeout: 10_000 });
 
@@ -51,6 +56,7 @@ export class WorkshopPdfRenderer {
                   footerTemplate: this.buildFooterTemplate(
                     orderNumber,
                     options.documentLocale,
+                    options.renderMode ?? 'legacy',
                   ),
                   printBackground: true,
                 }),
@@ -79,19 +85,27 @@ export class WorkshopPdfRenderer {
     order: WorkshopOrderForPdf,
     orderNumber: string,
     documentLocale: DisplayLanguage,
+    renderMode: PdfRenderMode = 'legacy',
   ): string {
     return buildWorkshopHtmlDocument(
       order,
       orderNumber,
       escapeHtml,
       documentLocale,
+      renderMode,
     );
   }
 
   private buildFooterTemplate(
     orderNumber: string,
     documentLocale: DisplayLanguage,
+    renderMode: PdfRenderMode,
   ): string {
-    return buildWorkshopFooterTemplate(orderNumber, escapeHtml, documentLocale);
+    return buildWorkshopFooterTemplate(
+      orderNumber,
+      escapeHtml,
+      documentLocale,
+      renderMode,
+    );
   }
 }

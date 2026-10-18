@@ -23,8 +23,15 @@ export function buildDocumentSnapshotLocaleFields(
   };
 }
 
+export type DocumentSnapshotLocaleReader = {
+  document_locale?: DisplayLanguage | null;
+  format_locale?: typeof DEFAULT_FORMAT_LOCALE;
+  translation_bundle_version?: string;
+  legal_text_version?: string | null;
+};
+
 export function readDocumentSnapshotLocaleFields(
-  snapshot: Partial<DocumentSnapshotLocaleFields> | null | undefined,
+  snapshot: DocumentSnapshotLocaleReader | null | undefined,
 ): DocumentSnapshotLocaleFields | null {
   if (!snapshot?.document_locale) {
     return null;

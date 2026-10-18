@@ -182,6 +182,10 @@ const WORKSHOP_CHECK_IN_PDF_COPY: Record<
 
 export function getWorkshopCheckInPdfCopy(
   documentLocale: DisplayLanguage,
+  mode: 'legacy' | 'localized' = 'legacy',
 ): WorkshopCheckInPdfCopy {
+  if (mode === 'legacy') {
+    return WORKSHOP_CHECK_IN_PDF_COPY.de;
+  }
   return WORKSHOP_CHECK_IN_PDF_COPY[documentLocale];
 }

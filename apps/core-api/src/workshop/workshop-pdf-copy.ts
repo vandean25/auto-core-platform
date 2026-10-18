@@ -1,4 +1,5 @@
 import type { DisplayLanguage } from '@prisma/client';
+import { buildWorkshopPdfCopyFromI18n } from '../common/i18n/workshop-pdf-i18n-copy.js';
 
 export type WorkshopPdfCopy = {
   htmlLang: string;
@@ -76,13 +77,17 @@ const WORKSHOP_PDF_COPY: Record<DisplayLanguage, WorkshopPdfCopy> = {
     mechanicNotesLabel: 'Mechanic Notes',
     internalNotesTitle: 'Internal Notes',
     footerSignatureLine:
-      'Signature Mechanic: ___________________________ &nbsp;&nbsp;&nbsp;&nbsp; Date: ________________',
+      "Mechanic's signature: ___________________________ &nbsp;&nbsp;&nbsp;&nbsp; Date: ________________",
     footerDocumentLabel: (orderNumber) => `Job Card ${orderNumber}`,
   },
 };
 
 export function getWorkshopPdfCopy(
   documentLocale: DisplayLanguage,
+  mode: 'legacy' | 'localized' = 'legacy',
 ): WorkshopPdfCopy {
-  return WORKSHOP_PDF_COPY[documentLocale];
+  if (mode === 'legacy') {
+    return WORKSHOP_PDF_COPY.de;
+  }
+  return buildWorkshopPdfCopyFromI18n(documentLocale);
 }
