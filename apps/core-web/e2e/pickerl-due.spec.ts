@@ -158,8 +158,11 @@ test.describe('Pickerl due list and dashboard widgets', () => {
     await expect(page.getByText('7')).toBeVisible()
     await expect(page.getByText('11')).toBeVisible()
 
-    const pickerl30Title = DE_VEHICLES.dashboardWidgets.pickerlDueTitle.replace('{{count}}', '30')
-    await page.getByText(pickerl30Title, { exact: true }).click()
+    await page
+      .locator('.cursor-pointer')
+      .filter({ has: page.getByText('4', { exact: true }) })
+      .first()
+      .click()
     await expect(page).toHaveURL(/\/vehicles\/pickerl-due\?filter_window=30/)
   })
 })

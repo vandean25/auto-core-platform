@@ -1,5 +1,6 @@
 import { expect, type Page } from '@playwright/test';
 import { AutoCorePage } from '../pom/AutoCorePage';
+import { DE_SETTINGS } from '../helpers/de-settings';
 import {
   createMockBay,
   createMockBrand,
@@ -214,28 +215,31 @@ export const A11Y_SMOKE_ROUTES: A11ySmokeRoute[] = [
         createMockRevenueGroup({ name: 'Parts Revenue' }),
       ]);
     },
-    ready: titleReady('Settings'),
+    ready: titleReady(DE_SETTINGS.page.title),
   },
   {
     name: 'settings: brands tab',
     path: '/settings?tab=brands',
     mock: async (page) => {
+      await mockApi(page, '/api/finance/settings', createMockFinanceSettings());
       await mockApi(page, '/api/brands', createMockListResponse([createMockBrand({ name: 'Stellantis' })]));
     },
-    ready: titleReady('Settings'),
+    ready: titleReady(DE_SETTINGS.page.title),
   },
   {
     name: 'settings: storage locations tab',
     path: '/settings?tab=locations',
     mock: async (page) => {
+      await mockApi(page, '/api/finance/settings', createMockFinanceSettings());
       await mockApi(page, '/api/inventory/locations/tree', [createMockStorageLocation({ name: 'Aisle F' })]);
     },
-    ready: titleReady('Settings'),
+    ready: titleReady(DE_SETTINGS.page.title),
   },
   {
     name: 'settings: labor tab',
     path: '/settings?tab=labor',
     mock: async (page) => {
+      await mockApi(page, '/api/finance/settings', createMockFinanceSettings());
       await mockApi(
         page,
         '/api/labor/categories',
@@ -247,7 +251,7 @@ export const A11Y_SMOKE_ROUTES: A11ySmokeRoute[] = [
         createMockListResponse([createMockLaborOperation({ description: 'Engine Diagnostics' })]),
       );
     },
-    ready: titleReady('Settings'),
+    ready: titleReady(DE_SETTINGS.page.title),
   },
   {
     name: 'customers list with add customer dialog open',
