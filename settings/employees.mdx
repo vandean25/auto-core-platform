@@ -1,48 +1,48 @@
 ---
-title: "Employees"
-description: "Manage the workshop roster, then open HR for attendance and leave."
+title: "Mitarbeiter"
+description: "Werkstattliste pflegen und für Anwesenheit sowie Urlaub Personal öffnen."
 ---
 
-Use **Settings → Employees** for the workshop roster: mechanics, service advisors, and parts clerks. This is the same employee list shown in [HR](/hr). These are **not** login accounts. Logins live under [Team](/settings/team).
+**Einstellungen → Mitarbeiter** ist die Werkstattliste: Mechaniker, Serviceberater und Teileverkauf. Dieselbe Liste finden Sie unter [Personal](/hr). Das sind **keine** Anmeldekonten. Logins verwalten Sie unter [Team](/settings/team).
 
-Search box: **Search employees...** Top-right: **+ Employee**.
+Suchfeld: **Mitarbeiter suchen…** Oben rechts: **+ Mitarbeiter**.
 
 <Steps>
-  <Step title="Create">
-    **+ Employee** → **Create Employee**. Name is required. Role defaults to Mechanic. Sort order must be a whole number ≥ 0.
+  <Step title="Anlegen">
+    **+ Mitarbeiter** → **Mitarbeiter anlegen**. Name ist Pflicht. Rolle standardmäßig Mechaniker. Sortierreihenfolge muss eine ganze Zahl ≥ 0 sein.
   </Step>
-  <Step title="Edit in the row">
-    Click the name or sort order to save on blur. Role and mother language are dropdowns. They save as soon as you pick.
+  <Step title="In der Zeile bearbeiten">
+    Klicken Sie auf Name oder Sortierreihenfolge; beim Verlassen des Feldes wird gespeichert. Rolle und Muttersprache sind Dropdowns und werden beim Auswählen sofort gespeichert.
   </Step>
-  <Step title="Active / Inactive">
-    The **Active** / **Inactive** button toggles assignment eligibility without removing the row.
+  <Step title="Aktiv / Inaktiv">
+    Mit **Aktiv** / **Inaktiv** schalten Sie die Zuweisungsfähigkeit um, ohne die Zeile zu entfernen.
   </Step>
-  <Step title="Open HR details">
-    Open [HR → Employees](/hr#add-a-person) for hire date, leave allowance in minutes, remaining leave in minutes, login links, and **Carryover this year (min)**. Owners and administrators can save the leave balance there.
+  <Step title="Personal-Details öffnen">
+    Unter [Personal → Mitarbeiter](/hr#add-a-person) finden Sie Eintrittsdatum, Urlaubsanspruch in Minuten, Resturlaub in Minuten, Anmeldeverknüpfungen und **Übertrag dieses Jahr (Min.)**. Inhaber und Administratoren können dort den Urlaubssaldo speichern.
   </Step>
 </Steps>
 
-## Columns
+## Spalten
 
-| Column | How you change it |
+| Spalte | Änderung |
 | --- | --- |
-| **Name** | Inline edit |
-| **Role** | Mechanic, Service Advisor, Parts Clerk |
-| **Mother Language** | Default (target language), or a spoken locale such as German (Germany) |
-| **Active** | Toggle button |
-| **Sort Order** | Inline edit, whole number ≥ 0 |
+| **Name** | Inline-Bearbeitung |
+| **Rolle** | Mechaniker, Serviceberater, Teileverkauf |
+| **Muttersprache** | Standard (Zielsprache) oder eine gesprochene Locale, z. B. Deutsch (Deutschland) |
+| **Aktiv** | Umschaltknopf |
+| **Sortierreihenfolge** | Inline-Bearbeitung, ganze Zahl ≥ 0 |
 
-Right-click a row → **Delete**.
+Rechtsklick auf eine Zeile → **Löschen**.
 
 <Tabs>
-  <Tab title="Unused employee">
-    Delete can remove the row. Toast: **Employee deleted**.
+  <Tab title="Unbenutzter Mitarbeiter">
+    Löschen kann die Zeile entfernen. Toast: **Mitarbeiter gelöscht**.
   </Tab>
-  <Tab title="Assigned to a job">
-    Delete is blocked or becomes a deactivate. Toast: **Employee deactivated**. Prefer the Active toggle when they still exist on the board.
+  <Tab title="Auf einem Auftrag zugewiesen">
+    Löschen ist blockiert oder wird zu einer Deaktivierung. Toast: **Mitarbeiter deaktiviert**. Nutzen Sie lieber den Aktiv-Schalter, wenn die Person noch auf dem Board steht.
   </Tab>
 </Tabs>
 
 <Tip>
-**Mother Language** is what they speak. **Target Language** on [Voice translation](/settings/voice-translation) is what the office reads. Leave mother language on Default unless this person speaks something else. For attendance and leave, use [HR](/hr), not the workshop board.
+**Muttersprache** ist die gesprochene Sprache. **Zielsprache** unter [Sprachübersetzung](/settings/voice-translation) ist die Sprache, die das Büro liest. Lassen Sie die Muttersprache auf Standard, sofern die Person keine andere Sprache spricht. Für Anwesenheit und Urlaub nutzen Sie [Personal](/hr), nicht das Werkstatt-Board.
 </Tip>

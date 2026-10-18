@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Star } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -34,10 +35,11 @@ type SaveCurrentViewButtonProps = {
 }
 
 export function SaveCurrentViewButton({ title }: SaveCurrentViewButtonProps) {
+  const { t } = useTranslation('common')
   const location = useLocation()
   const { addSavedView } = useSavedViews()
   const [open, setOpen] = useState(false)
-  const [name, setName] = useState(`${title} View`)
+  const [name, setName] = useState(() => t('savedViews.defaultName', { title }))
 
   const href = useMemo(() => `${location.pathname}${location.search}`, [location.pathname, location.search])
   const shouldShow = useMemo(() => hasMeaningfulFilters(location.search), [location.search])
@@ -51,47 +53,45 @@ export function SaveCurrentViewButton({ title }: SaveCurrentViewButtonProps) {
 
     const result = addSavedView({ name: normalizedName, href })
     if (result.created) {
-      toast.success('Saved view added to Favorites.')
+      toast.success(t('savedViews.added'))
       setOpen(false)
       return
     }
     if (result.reason === 'duplicate') {
-      toast.message('This view is already in Favorites.')
+      toast.message(t('savedViews.duplicate'))
       return
     }
-    toast.error('Unable to save this view.')
+    toast.error(t('savedViews.failed'))
   }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <TooltipHint hint="Saves these filters as a shortcut in the sidebar">
+      <TooltipHint hint={t('savedViews.saveHint')}>
         <DialogTrigger asChild>
           <Button
             variant="outline"
             size="sm"
             className="gap-2"
-            aria-label={`Save as sidebar view for ${title}`}
+            aria-label={t('savedViews.saveAria', { title })}
             onClick={() => {
-              setName(`${title} View`)
+              setName(t('savedViews.defaultName', { title }))
             }}
           >
             <Star className="h-4 w-4" />
-            Save as sidebar view
+            {t('savedViews.saveButton')}
           </Button>
         </DialogTrigger>
       </TooltipHint>
       <DialogContent className="sm:max-w-[425px]">
         <form onSubmit={handleSave}>
           <DialogHeader>
-            <DialogTitle>Save as sidebar view</DialogTitle>
-            <DialogDescription>
-              Give this view a name to save it to your Favorites.
-            </DialogDescription>
+            <DialogTitle>{t('savedViews.title')}</DialogTitle>
+            <DialogDescription>{t('savedViews.description')}</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="name" className="text-right">
-                Name
+                {t('savedViews.nameLabel')}
               </Label>
               <Input
                 id="name"
@@ -103,9 +103,9 @@ export function SaveCurrentViewButton({ title }: SaveCurrentViewButtonProps) {
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-              Cancel
+              {t('actions.cancel')}
             </Button>
-            <Button type="submit">Save</Button>
+            <Button type="submit">{t('actions.save')}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

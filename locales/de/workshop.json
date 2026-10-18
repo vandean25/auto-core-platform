@@ -17,7 +17,7 @@
       "description": "{{resource}} in den Einstellungen anlegen, um Werkstattaufträge zuzuweisen.",
       "goToSettings": "Zu den Einstellungen"
     },
-    "assignError": "Zuweisung fehlgeschlagen. Bitte erneut versuchen.",
+    "assignError": "Zuweisung fehlgeschlagen. Bitte versuchen Sie es erneut.",
     "a11y": {
       "orderFallback": "Werkstattauftrag",
       "unknownColumn": "eine unbekannte Spalte",
@@ -42,20 +42,20 @@
     },
     "queue": {
       "title": "Meine Warteschlange",
-      "description": "Ihre aktiven Aufträge — Aufgabe antippen zum Öffnen.",
+      "description": "Ihre aktiven Aufträge. Tippen Sie auf eine Aufgabe, um sie zu öffnen.",
       "refreshAria": "Warteschlange aktualisieren",
-      "searchPlaceholder": "Aufgaben, Kennzeichen, WA…",
+      "searchPlaceholder": "Aufgaben, Kennzeichen, Auftragsnr.…",
       "searchAria": "Mechaniker-Warteschlange durchsuchen",
       "loading": "Aufgaben werden geladen…",
       "identityErrorTitle": "Mechaniker-Profil nicht verknüpft",
-      "identityErrorDescription": "Ihr Login ist in diesem Mandanten mit keinem aktiven Mechaniker-Mitarbeiter verknüpft. Bitte einen Administrator, Ihren HR-Datensatz zu verknüpfen, oder das UAT-Seed für dieses Konto erneut ausführen.",
+      "identityErrorDescription": "Ihr Konto ist keinem aktiven Mechaniker zugeordnet. Bitte wenden Sie sich an Ihren Administrator.",
       "loadErrorTitle": "Warteschlange konnte nicht geladen werden",
       "loadErrorFallback": "Mechaniker-Warteschlange konnte nicht geladen werden",
       "tryAgain": "Erneut versuchen",
       "noResults": "Keine Treffer.",
       "emptyTitle": "Keine zugewiesenen Aufgaben",
       "emptyDescription": "Zugewiesene Arbeiten erscheinen hier.",
-      "clockLoadError": "Anwesenheitsuhr konnte nicht geladen werden",
+      "clockLoadError": "Zeiterfassung konnte nicht geladen werden",
       "punchError": "Stempeln fehlgeschlagen",
       "taskSequence": "Aufgabe {{sequence}}",
       "noPlate": "Kein Kennzeichen",
@@ -116,7 +116,7 @@
         "uploading": "Wird hochgeladen…",
         "upload": "Foto / Video hochladen",
         "uploaded": "Hochgeladen ✓",
-        "failed": "Upload fehlgeschlagen — bitte erneut versuchen",
+        "failed": "Hochladen fehlgeschlagen. Bitte versuchen Sie es erneut.",
         "acceptedTypes": "Erlaubt: JPEG, PNG, WebP, MP4, MOV"
       },
       "requestPart": {
@@ -134,10 +134,10 @@
         "recording": "Aufnahme läuft…",
         "draftReady": "Entwurf bereit. Vor Übernahme in die Diagnose prüfen und bearbeiten.",
         "accepted": "Entwurf in Diagnose-Notizen übernommen.",
-        "errorFallback": "Sprachnotiz fehlgeschlagen. Bitte erneut aufnehmen.",
-        "noMicrophone": "Kein Mikrofon gefunden. Geräteberechtigungen prüfen.",
+        "errorFallback": "Sprachnotiz fehlgeschlagen. Bitte nehmen Sie sie erneut auf.",
+        "noMicrophone": "Kein Mikrofon gefunden. Bitte prüfen Sie die Geräteberechtigungen.",
         "microphoneAccessFailed": "Mikrofonzugriff nicht möglich.",
-        "noAudioCaptured": "Keine Aufnahme erfasst. Bitte erneut aufnehmen.",
+        "noAudioCaptured": "Es wurde nichts aufgenommen. Bitte nehmen Sie erneut auf.",
         "stop": "Aufnahme stoppen",
         "record": "Sprachnotiz aufnehmen",
         "retry": "Erneut aufnehmen",
@@ -206,8 +206,8 @@
       "mediaToast": {
         "unsupportedType": "Dateityp nicht unterstützt. JPEG, PNG, WebP, MP4 oder MOV verwenden.",
         "uploaded": "Medien erfolgreich hochgeladen",
-        "uploadFailed": "Upload fehlgeschlagen",
-        "storageFailed": "Upload in den Speicher fehlgeschlagen. Bitte erneut versuchen."
+        "uploadFailed": "Hochladen fehlgeschlagen",
+        "storageFailed": "Die Datei konnte nicht gespeichert werden. Bitte versuchen Sie es erneut."
       }
     }
   },
@@ -264,7 +264,7 @@
       "outsideHoursTitle": "Außerhalb der Öffnungszeiten",
       "outsideHoursDescription": "Dieser Slot liegt außerhalb der effektiven Öffnungszeiten. Buchung ist trotzdem möglich.",
       "mechanicDoubleBookedTitle": "Mechaniker doppelt gebucht",
-      "mechanicDoubleBookedDescription": "Dieser Mechaniker hat {{orderNumber}} in diesem Fenster. Sie können trotzdem planen.",
+      "mechanicDoubleBookedDescription": "Dieser Mechaniker ist in diesem Zeitraum bereits für {{orderNumber}} eingeplant. Sie können trotzdem planen.",
       "bayOccupiedTitle": "Hebebühne belegt",
       "bayOccupiedDescription": "Überlappung mit {{orderNumber}}. Anderen Slot wählen.",
       "toastSelectVehicle": "Fahrzeug mit verknüpftem Kunden wählen.",
@@ -273,9 +273,11 @@
     }
   },
   "resumeWaitingTasks": {
-    "description": "{{count}} Aufgabe(n) warten auf den Kunden. Die Freigabe setzt sie nicht automatisch fort.",
+    "description_one": "{{count}} Aufgabe wartet auf den Kunden. Die Freigabe setzt sie nicht automatisch fort.",
+    "description_other": "{{count}} Aufgaben warten auf den Kunden. Die Freigabe setzt sie nicht automatisch fort.",
     "button": "Wartende Aufgaben fortsetzen",
-    "success": "{{count}} Aufgabe(n) fortgesetzt",
+    "success_one": "{{count}} Aufgabe fortgesetzt",
+    "success_other": "{{count}} Aufgaben fortgesetzt",
     "error": "Wartende Aufgaben konnten nicht fortgesetzt werden."
   },
   "pick": {
@@ -371,7 +373,7 @@
     "decisionDialog": {
       "approveTitle": "Freigabe erfassen",
       "rejectTitle": "Ablehnung erfassen",
-      "description": "Entscheidungsdatum vom OEM eingeben. Das Datum ist für beide Ergebnisse erforderlich.",
+      "description": "Bitte geben Sie das Entscheidungsdatum des Herstellers ein. Das Datum ist für beide Ergebnisse erforderlich.",
       "date": "Entscheidungsdatum",
       "note": "Entscheidungsnotiz",
       "approvePlaceholder": "Zum Beispiel: 80 % Kulanzanteil",
@@ -417,7 +419,7 @@
       "useLinesTotal": "Summe der Positionen",
       "amountInvalid": "Betrag in EUR mit höchstens zwei Nachkommastellen eingeben.",
       "affectedLines": "Betroffene Arbeit und Teile",
-      "noLines": "Noch keine Arbeits- oder Teilepositionen. Zuerst Positionen in einer Aufgabe anlegen.",
+      "noLines": "Noch keine Arbeits- oder Teilepositionen. Legen Sie zuerst Positionen in einer Aufgabe an.",
       "lineTypeLabor": "Arbeit",
       "lineTypePart": "Teil",
       "cancelledOnOrder": "Im Auftrag storniert. Abwählen, um aus dem Antrag zu entfernen.",
@@ -429,7 +431,7 @@
       "decisionNote": "Entscheidungsnotiz",
       "decisionSaving": "Entscheidung wird noch gespeichert.",
       "closeTitle": "Diesen Antrag schließen?",
-      "closeDescription": "Ein geschlossener Antrag ist nur lesbar. Für einen neuen Antrag einen neuen anlegen.",
+      "closeDescription": "Ein geschlossener Antrag kann nur gelesen werden. Legen Sie für weitere Ansprüche einen neuen Antrag an.",
       "cancel": "Abbrechen"
     }
   },
@@ -451,7 +453,7 @@
     "phone": "Telefon",
     "callCustomer": "Kunde anrufen",
     "vehicleInfo": "Fahrzeuginfo",
-    "vin": "VIN",
+    "vin": "FIN",
     "plate": "Kennzeichen",
     "mileage": "Kilometerstand",
     "fuel": "Tankfüllung"
@@ -488,9 +490,9 @@
       "jobCardPdfQueued": "Die Job-Card-PDF-Erstellung wurde in die Warteschlange gestellt und steht in Kürze bereit.",
       "jobCardPdfDownloaded": "Job-Card-PDF erfolgreich heruntergeladen",
       "jobCardPdfFailed": "PDF konnte nicht erstellt werden",
-      "technicianAssigned": "Techniker zugewiesen",
-      "technicianUnassigned": "Technikerzuweisung entfernt",
-      "technicianAssignFailed": "Techniker konnte nicht zugewiesen werden",
+      "technicianAssigned": "Mechaniker zugewiesen",
+      "technicianUnassigned": "Mechanikerzuweisung entfernt",
+      "technicianAssignFailed": "Mechaniker konnte nicht zugewiesen werden",
       "vehicleIdentityResolved": "Fahrzeugidentität aktualisiert",
       "vehicleIdentityResolveFailed": "Fahrzeugidentität konnte nicht aktualisiert werden"
     }
@@ -537,7 +539,7 @@
   },
   "quickRegister": {
     "title": "Fahrzeug schnell anlegen",
-    "vin": "VIN",
+    "vin": "FIN",
     "plate": "Kennzeichen",
     "make": "Marke",
     "model": "Modell",
@@ -577,18 +579,18 @@
       "version": "Version",
       "coverage": "Abdeckung",
       "status": "Status",
-      "positionId": "Positions-ID",
+      "positionId": "Positionsnummer",
       "attach": "Referenz übernehmen",
       "toastSaved": "Katalogreferenz gespeichert",
       "errors": {
-        "NOT_CONFIGURED": "Der offizielle Katalog ist für diesen Mandanten noch nicht freigeschaltet.",
+        "NOT_CONFIGURED": "Der offizielle Katalog ist für Ihren Betrieb noch nicht freigeschaltet.",
         "UNKNOWN_CODE": "Der gewählte Katalogcode ist unbekannt.",
         "STALE_CATALOG": "Die Katalogversion ist veraltet und muss erneut geprüft werden.",
         "OUT_OF_SCOPE": "Für dieses Fahrzeug liegt kein nachgewiesener Anwendungsbereich vor.",
         "SOURCE_CONFLICT": "Mehrere Katalogversionen überschneiden sich. Manuelle Klärung erforderlich.",
-        "REVIEW_REQUIRED": "Die Vorschau ist abgelaufen oder hat sich geändert. Bitte erneut prüfen.",
+        "REVIEW_REQUIRED": "Die Vorschau ist abgelaufen oder hat sich geändert. Bitte prüfen Sie sie erneut.",
         "UNSUPPORTED_SCHEMA_VERSION": "Das Katalogformat wird nicht unterstützt.",
-        "generic": "Die Katalogreferenz konnte nicht verarbeitet werden. Bitte erneut versuchen."
+        "generic": "Die Katalogreferenz konnte nicht verarbeitet werden. Bitte versuchen Sie es erneut."
       },
       "resolution": {
         "RESOLVED": "Aufgelöst",
@@ -670,21 +672,21 @@
       "MERCEDES": "Mercedes-Benz"
     },
     "identity": {
-      "noKeys": "Keine Identitätsschlüssel"
+      "noKeys": "Keine Fahrzeugmerkmale für die Katalogsuche vorhanden"
     },
     "banner": {
-      "oem": "{{concern}}: OEM-Katalog{{suffix}}",
+      "oem": "{{concern}}: Originalteile-Katalog{{suffix}}",
       "oemSuffix": " ({{label}})",
-      "fallbackEmpty": "{{concern}}: OEM ohne Treffer — Aftermarket-Katalog wird angezeigt",
-      "fallbackError": "{{concern}}: OEM nicht verfügbar — Aftermarket-Katalog wird angezeigt",
-      "notConfigured": "{{concern}}: Kein OEM-Katalog konfiguriert — Aftermarket wird angezeigt",
-      "aftermarket": "{{concern}}: Aftermarket-Katalog"
+      "fallbackEmpty": "{{concern}}: Originalteile ohne Treffer — Zubehörkatalog wird angezeigt",
+      "fallbackError": "{{concern}}: Originalteile-Katalog nicht verfügbar, Zubehörkatalog wird angezeigt",
+      "notConfigured": "{{concern}}: Kein Originalteile-Katalog konfiguriert — Zubehörkatalog wird angezeigt",
+      "aftermarket": "{{concern}}: Zubehörkatalog"
     },
     "fallbackDialog": {
-      "emptyTitle": "Keine OEM-Treffer",
-      "emptyDescription": "Der OEM-Katalog lieferte keine passenden Teile oder Arbeiten für dieses Fahrzeug. Stattdessen Aftermarket-Katalog durchsuchen?",
-      "errorTitle": "OEM-Katalog nicht verfügbar",
-      "errorDescription": "Der OEM-Katalog ist für dieses Fahrzeug derzeit nicht verfügbar. Stattdessen Aftermarket-Katalog durchsuchen?"
+      "emptyTitle": "Keine Originalteile-Treffer",
+      "emptyDescription": "Der Originalteile-Katalog lieferte keine passenden Teile oder Arbeiten für dieses Fahrzeug. Stattdessen Zubehörkatalog durchsuchen?",
+      "errorTitle": "Originalteile-Katalog nicht verfügbar",
+      "errorDescription": "Der Originalteile-Katalog ist für dieses Fahrzeug derzeit nicht verfügbar. Möchten Sie stattdessen im Zubehörkatalog suchen?"
     },
     "fitmentModal": {
       "title": "Ersatzteil-Katalogsuche",
@@ -716,9 +718,9 @@
     "title": "Werkstatt-Annahme",
     "quickRegister": "Schnellanlage",
     "searchTitle": "Annahme-Suche",
-    "searchPlaceholder": "VIN, Kennzeichen oder Kundenname suchen…",
+    "searchPlaceholder": "FIN, Kennzeichen oder Kundenname suchen…",
     "searching": "Suche…",
-    "vehicleMeta": "VIN: {{vin}} | Kennzeichen: {{plate}}",
+    "vehicleMeta": "FIN: {{vin}} | Kennzeichen: {{plate}}",
     "vehicles": "Fahrzeuge",
     "owner": "Halter: {{name}}",
     "startService": "Service starten",
@@ -821,8 +823,8 @@
         "ESTIMATE_REACTION_MISMATCH": "Die Reaktion des Kunden passt nicht zur gewählten Entscheidung.",
         "ESTIMATE_AMOUNT_MISMATCH": "Der Betrag stimmt nicht mit dem Gesamtbetrag des Kostenvoranschlags überein.",
         "ESTIMATE_DECISION_TIME_INVALID": "Der Zeitpunkt der Entscheidung muss nach dem Versand liegen und darf nicht in der Zukunft liegen.",
-        "ESTIMATE_DECISION_CONFLICT": "Der Kostenvoranschlag wurde gerade geändert. Bitte neu laden und erneut versuchen.",
-        "ESTIMATE_ROLE_FORBIDDEN": "Für diese Aktion fehlt die Berechtigung."
+        "ESTIMATE_DECISION_CONFLICT": "Der Kostenvoranschlag wurde gerade geändert. Bitte laden Sie die Seite neu und versuchen Sie es erneut.",
+        "ESTIMATE_ROLE_FORBIDDEN": "Für diese Aktion fehlt Ihnen die Berechtigung."
       },
       "overrun": {
         "OVERRUN_NOT_DETECTED": "Der Auftrag weicht derzeit nicht vom Kostenvoranschlag ab.",
@@ -830,7 +832,7 @@
         "OVERRUN_NO_BASELINE": "Es gibt noch keinen freigegebenen Kostenvoranschlag als Vergleich.",
         "OVERRUN_AMOUNT_MISMATCH": "Der Betrag stimmt nicht mit dem aktuellen Auftragsbetrag überein.",
         "WORKSHOP_ORDER_CLOSED": "Ein abgerechneter Auftrag braucht keine Mitteilung mehr.",
-        "ESTIMATE_ROLE_FORBIDDEN": "Für diese Aktion fehlt die Berechtigung."
+        "ESTIMATE_ROLE_FORBIDDEN": "Für diese Aktion fehlt Ihnen die Berechtigung."
       }
     },
     "record": {
@@ -870,8 +872,8 @@
     }
   },
   "vehicleIdentity": {
-    "resolvedToast": "Fahrzeugidentität aufgelöst",
-    "resolveFailed": "Fahrzeugidentität konnte nicht aufgelöst werden",
+    "resolvedToast": "Fahrzeugdaten ermittelt",
+    "resolveFailed": "Fahrzeugdaten konnten nicht ermittelt werden",
     "loading": "Fahrzeugidentität wird geladen…",
     "title": "Fahrzeugidentität",
     "staleBadge": "Veraltet — erneute Auflösung erforderlich",
@@ -879,8 +881,8 @@
     "oemBadge": "OEM {{label}}",
     "keys": "Schlüssel: {{keys}}",
     "resolvedAt": "Aufgelöst {{date}}",
-    "vinRequired": "VIN ist erforderlich, bevor die Identität aufgelöst werden kann.",
-    "reResolve": "Identität erneut auflösen",
+    "vinRequired": "Bitte geben Sie zuerst die FIN ein.",
+    "reResolve": "Fahrzeugdaten neu ermitteln",
     "reResolveShort": "Erneut auflösen"
   },
   "communicationTimeline": {
@@ -949,7 +951,7 @@
     "overdueUntil": "{{customer}} · bis {{date}}",
     "addDialogTitle": "Ersatzfahrzeug hinzufügen",
     "searchVehicle": "Fahrzeug suchen",
-    "searchVehiclePlaceholder": "Kennzeichen, VIN, Modell…",
+    "searchVehiclePlaceholder": "Kennzeichen, FIN, Modell…",
     "selected": "Ausgewählt: {{label}}",
     "displayName": "Anzeigename",
     "displayNamePlaceholder": "z. B. Golf Ersatzwagen",
@@ -987,7 +989,7 @@
       "returnSuccess": "Rückgabe protokolliert",
       "returnFailed": "Rückgabe fehlgeschlagen",
       "bookingCancelled": "Buchung storniert",
-      "cancelFailed": "Storno fehlgeschlagen"
+      "cancelFailed": "Stornieren fehlgeschlagen"
     }
   },
   "taskList": {
@@ -1015,7 +1017,7 @@
     "labor_other": "{{count}} Arbeitszeilen",
     "feesSegment": " · Gebühren {{amount}}",
     "taskDetails": "Aufgabendetails und KVA-Zeilen",
-    "fitmentSearch": "Fitment-Suche",
+    "fitmentSearch": "Passende Teile suchen",
     "deleteTask": "Aufgabe löschen",
     "mechanicNotes": "Mechaniker-Notizen",
     "mechanicNotesPlaceholder": "Beobachtungen, Messwerte und Servicenotizen…",
@@ -1087,7 +1089,8 @@
       "SUPERSEDED": "Ersetzt"
     },
     "overrunTotalLine": "Gesamtbetrag brutto {{current}} liegt über dem freigegebenen Betrag {{approved}}{{percentText}}. Grenzwert: {{threshold}}.",
-    "overrunNewLines": "{{count}} neue Position(en) gegenüber dem freigegebenen Kostenvoranschlag.",
+    "overrunNewLines_one": "{{count}} neue Position gegenüber dem freigegebenen Kostenvoranschlag.",
+    "overrunNewLines_other": "{{count}} neue Positionen gegenüber dem freigegebenen Kostenvoranschlag.",
     "toast": {
       "created": "Kostenvoranschlag erstellt",
       "createFailed": "Kostenvoranschlag konnte nicht erstellt werden.",
@@ -1156,7 +1159,7 @@
     "lastName": "Nachname",
     "email": "E-Mail",
     "phone": "Telefon",
-    "registrationHint": "Österreichischen Zulassungsschein hochladen (Vorderseite, optional Rückseite). Felder prüfen, Identität bestätigen, dann Auftrag am Standort anlegen.",
+    "registrationHint": "Österreichischen Zulassungsschein hochladen (Vorderseite, optional Rückseite). Felder prüfen, Kunde und Fahrzeug bestätigen, dann Auftrag am Standort anlegen.",
     "orderIntakeSection": "Auftragsannahme",
     "odometerPlaceholder": "Kilometerstand (km)",
     "fuelPlaceholder": "Tankfüllung (%)",
@@ -1188,10 +1191,10 @@
     "toastOdometerRequired": "Gültigen Kilometerstand eingeben, bevor der Auftrag erstellt wird.",
     "toastOrderCreated": "Werkstattauftrag erstellt",
     "toastCheckInReady": "Werkstattauftrag angelegt — Fahrzeugannahme starten",
-    "extractionFailed": "Extraktion fehlgeschlagen ({{code}}). Löschen und mit neuem Upload erneut versuchen.",
+    "extractionFailed": "Das Dokument konnte nicht gelesen werden. Bitte löschen Sie es und laden Sie es erneut hoch.",
     "unknown": "unbekannt",
-    "uploadFailed": "Upload fehlgeschlagen",
-    "extractionFailedFallback": "Auslesen fehlgeschlagen"
+    "uploadFailed": "Hochladen fehlgeschlagen",
+    "extractionFailedFallback": "Dokument konnte nicht gelesen werden"
   },
   "registrationReview": {
     "actionFailed": "Aktion fehlgeschlagen",
@@ -1199,7 +1202,7 @@
     "selectVehicle": "Fahrzeug wählen",
     "ownershipConfirm": "Fahrzeug dem Halter auf diesem Dokument zuweisen",
     "lowConfidence": " (niedrige Konfidenz)",
-    "confirmIdentity": "Identität bestätigen",
+    "confirmIdentity": "Kunde und Fahrzeug bestätigen",
     "createOrder": "Werkstattauftrag anlegen",
     "startCheckIn": "Fahrzeugannahme starten",
     "continueCheckIn": "Fahrzeugannahme fortsetzen",
@@ -1400,15 +1403,15 @@
       "completedAt": "Abgeschlossen am {{date}}"
     },
     "errors": {
-      "generic": "Annahme konnte nicht gespeichert werden. Bitte erneut versuchen.",
+      "generic": "Die Annahme konnte nicht gespeichert werden. Bitte versuchen Sie es erneut.",
       "CHECK_IN_EXISTS": "Für diesen Auftrag existiert bereits eine Annahme.",
-      "CHECK_IN_CONFLICT": "Die Annahme wurde zwischenzeitlich geändert. Bitte laden Sie neu und versuchen Sie es erneut.",
+      "CHECK_IN_CONFLICT": "Die Annahme wurde zwischenzeitlich geändert. Bitte laden Sie die Seite neu und versuchen Sie es erneut.",
       "CHECK_IN_COMPLETED": "Diese Annahme ist bereits abgeschlossen.",
       "CHECK_IN_ORDER_STATUS": "Annahme ist nur bei Aufträgen in Annahme oder in Bearbeitung möglich.",
       "CHECK_IN_MEDIA_INVALID": "Mindestens ein Foto ist für diese Annahme nicht gültig.",
-      "CHECK_IN_MEDIA_UPLOADER_REQUIRED": "Für Foto-Uploads muss Ihr Benutzer mit einem aktiven Mitarbeiter verknüpft sein.",
-      "CHECK_IN_SIGNATURE_REQUIRED": "Bitte Name eintragen, Bestätigung aktivieren und eine Unterschrift zeichnen, bevor Sie abschließen.",
-      "UPLOAD_ID_REUSED": "Diese Upload-ID wurde bereits für andere Check-in-Medien verwendet."
+      "CHECK_IN_MEDIA_UPLOADER_REQUIRED": "Zum Hochladen von Fotos muss Ihr Konto einem aktiven Mitarbeiter zugeordnet sein. Bitte wenden Sie sich an Ihren Administrator.",
+      "CHECK_IN_SIGNATURE_REQUIRED": "Bitte tragen Sie den Namen ein, bestätigen Sie den Hinweis und lassen Sie unterschreiben, bevor Sie abschließen.",
+      "UPLOAD_ID_REUSED": "Dieses Foto wurde bereits zu einer anderen Annahme hochgeladen."
     },
     "inspection": {
       "sectionLabel": "Annahme-Checkliste",
@@ -1421,5 +1424,48 @@
       "loadError": "Annahme-Checkliste konnte nicht geladen werden.",
       "saveError": "Annahme-Checkliste konnte nicht gespeichert werden."
     }
+  },
+  "publicEstimateApproval": {
+    "pageTitle": "Kostenvoranschlag",
+    "loadFailed": "Der Kostenvoranschlag konnte nicht geladen werden. Bitte versuchen Sie es später erneut.",
+    "errors": {
+      "404": "Dieser Link ist nicht gültig.",
+      "410": "Dieser Link ist abgelaufen oder wurde bereits verwendet.",
+      "409": "Dieser Kostenvoranschlag kann nicht mehr angenommen oder abgelehnt werden.",
+      "429": "Zu viele Anfragen. Bitte versuchen Sie es später erneut."
+    },
+    "workshop": "Werkstatt",
+    "customer": "Kunde",
+    "vehicle": "Fahrzeug:",
+    "plate": "Kennzeichen {{plate}}",
+    "vin": "FIN {{vin}}",
+    "freeOfCharge": "Dieser Kostenvoranschlag ist kostenlos.",
+    "lineItemsAria": "Positionen",
+    "gross": "(brutto)",
+    "net": "(netto)",
+    "totalNet": "Summe netto",
+    "tax": "USt.",
+    "totalGross": "Summe brutto",
+    "validUntil": "Gültig bis {{date}} Uhr",
+    "decisionSectionAria": "Hinweise und Entscheidung",
+    "legalAccepted": "Ich habe die oben stehenden Hinweise gelesen.",
+    "b2cAccepted": "Ich bestätige die unverbindliche Erklärung für Verbraucher (KSchG § 5 Abs. 2).",
+    "fullName": "Vollständiger Name",
+    "approve": "Kostenvoranschlag annehmen",
+    "decline": "Ablehnen",
+    "declineConfirm": "Möchten Sie den Kostenvoranschlag wirklich ablehnen?",
+    "declineYes": "Ja, ablehnen",
+    "back": "Zurück",
+    "validation422": "Bitte bestätigen Sie die Hinweise und geben Sie Ihren vollständigen Namen an.",
+    "submitFailed": "Ihre Entscheidung konnte nicht gespeichert werden. Bitte versuchen Sie es später erneut.",
+    "loading": "Kostenvoranschlag wird geladen…",
+    "estimateTitle": "Kostenvoranschlag {{number}}",
+    "version": "Version {{version}}",
+    "thankYou": "Vielen Dank. Ihre Entscheidung wurde gespeichert.",
+    "approved": "Angenommen",
+    "declined": "Abgelehnt",
+    "approvedAt": "Elektronisch bestätigt am {{date}} Uhr",
+    "decidedAt": "Entschieden am {{date}} Uhr",
+    "uid": "UID {{vatId}}"
   }
 }

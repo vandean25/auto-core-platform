@@ -2,6 +2,28 @@
   "$schema": "https://mintlify.com/docs.json",
   "name": "Auto Core Platform",
   "theme": "willow",
+  "logo": {
+    "light": "/images/logo-light.svg",
+    "dark": "/images/logo-dark.svg",
+    "href": "/introduction"
+  },
+  "favicon": "/images/favicon.svg",
+  "seo": {
+    "metatags": {
+      "description": "Hilfe für Auto Core Platform — Werkstatt- und Händlersoftware für Österreich und DACH: Aufträge, Teile, Rechnungen und Einstellungen.",
+      "og:title": "Auto Core Platform Dokumentation",
+      "og:description": "Rollenbasierte Anleitungen für Serviceberater, Mechaniker, Buchhaltung und Inhaber.",
+      "og:site_name": "Auto Core Platform",
+      "twitter:card": "summary",
+      "twitter:title": "Auto Core Platform Dokumentation",
+      "twitter:description": "Werkstatt- und Händler-DMS-Hilfe für Österreich und DACH."
+    }
+  },
+  "integrations": {
+    "telemetry": {
+      "enabled": true
+    }
+  },
   "colors": {
     "primary": "#0F172A",
     "light": "#38BDF8",
@@ -38,153 +60,467 @@
       }
     }
   },
-  "navbar": {
-    "links": [
+  "navigation": {
+    "languages": [
       {
-        "type": "github",
-        "href": "https://github.com/vandean25/auto-core-platform"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Live demo",
-      "href": "https://auto-core-platform-vande.web.app/"
-    }
-  },
-  "banner": {
-    "content": "Try the [live demo](https://auto-core-platform-vande.web.app/) or browse the [source on GitHub](https://github.com/vandean25/auto-core-platform).",
-    "dismissible": true,
-    "type": "info"
-  },
-  "footer": {
-    "socials": {
-      "github": "https://github.com/vandean25/auto-core-platform"
-    },
-    "links": [
-      {
-        "header": "Product",
-        "items": [
+        "language": "de-AT",
+        "default": true,
+        "navbar": {
+          "links": [
+            {
+              "type": "github",
+              "href": "https://github.com/vandean25/auto-core-platform"
+            }
+          ],
+          "primary": {
+            "type": "button",
+            "label": "Live-Demo",
+            "href": "https://auto-core-platform-vande.web.app/"
+          }
+        },
+        "banner": {
+          "content": "Testen Sie die [Live-Demo](https://auto-core-platform-vande.web.app/) oder den [Quellcode auf GitHub](https://github.com/vandean25/auto-core-platform).",
+          "dismissible": true,
+          "type": "info"
+        },
+        "footer": {
+          "socials": {
+            "github": "https://github.com/vandean25/auto-core-platform"
+          },
+          "links": [
+            {
+              "header": "Produkt",
+              "items": [
+                {
+                  "label": "Live-Demo",
+                  "href": "https://auto-core-platform-vande.web.app/"
+                },
+                {
+                  "label": "GitHub",
+                  "href": "https://github.com/vandean25/auto-core-platform"
+                }
+              ]
+            }
+          ]
+        },
+        "tabs": [
           {
+            "tab": "Anleitungen",
+            "icon": "book-open",
+            "groups": [
+              {
+                "group": "Einstieg",
+                "pages": [
+                  "introduction",
+                  "changelog",
+                  "quickstart",
+                  "workflows"
+                ]
+              },
+              {
+                "group": "Tägliche Arbeit",
+                "pages": [
+                  "workflows/sign-in",
+                  "workflows/dashboard"
+                ]
+              },
+              {
+                "group": "Personal",
+                "pages": [
+                  "hr"
+                ]
+              },
+              {
+                "group": "Verkauf",
+                "pages": [
+                  "workflows/customers",
+                  "workflows/vehicles",
+                  "workflows/sales-orders",
+                  "workflows/invoices"
+                ]
+              },
+              {
+                "group": "Finanzen",
+                "pages": [
+                  "workflows/credit-notes",
+                  "workflows/accounting-export",
+                  "settings/document-branding"
+                ]
+              },
+              {
+                "group": "Werkstatt",
+                "pages": [
+                  "workflows/workshop-intake",
+                  "workflows/workshop-orders",
+                  "workflows/workshop-check-in",
+                  "workflows/warranty-claims",
+                  "workflows/workshop-planner",
+                  "workflows/workshop-board",
+                  "workflows/workshop-pick",
+                  "workflows/mechanic",
+                  "workflows/workshop-capacity",
+                  "workflows/workshop-kpis",
+                  "workflows/loaner-vehicles",
+                  "workflows/tyre-storage"
+                ]
+              },
+              {
+                "group": "Fahrzeuge & Handel",
+                "pages": [
+                  "workflows/vehicle-stock",
+                  "workflows/listings-export"
+                ]
+              },
+              {
+                "group": "Österreich & Compliance",
+                "pages": [
+                  "workflows/pickerl-due",
+                  "workflows/nova",
+                  "workflows/statutory-warranty-due"
+                ]
+              },
+              {
+                "group": "Lager",
+                "pages": [
+                  "workflows/inventory",
+                  "workflows/stock-transfers"
+                ]
+              },
+              {
+                "group": "Einkauf",
+                "pages": [
+                  "workflows/vendors",
+                  "workflows/purchase-orders",
+                  "workflows/purchase-bills"
+                ]
+              },
+              {
+                "group": "Plattform",
+                "pages": [
+                  "workflows/platform-tenants",
+                  "workflows/sites",
+                  "workflows/agent-supervision"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "Einstellungen",
+            "icon": "settings",
+            "groups": [
+              {
+                "group": "Alle Einstellungen",
+                "pages": [
+                  "settings"
+                ]
+              },
+              {
+                "group": "Finanzen",
+                "pages": [
+                  "settings/finance",
+                  "settings/legal-entities",
+                  "settings/document-branding",
+                  "settings/revenue-groups"
+                ]
+              },
+              {
+                "group": "Organisation",
+                "pages": [
+                  "settings/sites"
+                ]
+              },
+              {
+                "group": "Werkstatt",
+                "pages": [
+                  "settings/employees",
+                  "settings/bays",
+                  "settings/labor",
+                  "settings/voice-translation"
+                ]
+              },
+              {
+                "group": "Stammdaten",
+                "pages": [
+                  "settings/brands",
+                  "settings/storage-locations",
+                  "settings/vehicle-data",
+                  "settings/margin-rules"
+                ]
+              },
+              {
+                "group": "Zugriff",
+                "pages": [
+                  "settings/team"
+                ]
+              },
+              {
+                "group": "Integrationen",
+                "pages": [
+                  "settings/data-import",
+                  "settings/api-keys"
+                ]
+              },
+              {
+                "group": "Audit & Compliance",
+                "pages": [
+                  "settings/audit-logs"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "Betrieb",
+            "icon": "activity",
+            "groups": [
+              {
+                "group": "Diagnose",
+                "pages": [
+                  "operations/runtime-diagnostics",
+                  "operations/core-api-scheduled-jobs"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "language": "en",
+        "navbar": {
+          "links": [
+            {
+              "type": "github",
+              "href": "https://github.com/vandean25/auto-core-platform"
+            }
+          ],
+          "primary": {
+            "type": "button",
             "label": "Live demo",
             "href": "https://auto-core-platform-vande.web.app/"
+          }
+        },
+        "banner": {
+          "content": "Try the [live demo](https://auto-core-platform-vande.web.app/) or browse the [source on GitHub](https://github.com/vandean25/auto-core-platform).",
+          "dismissible": true,
+          "type": "info"
+        },
+        "footer": {
+          "socials": {
+            "github": "https://github.com/vandean25/auto-core-platform"
+          },
+          "links": [
+            {
+              "header": "Product",
+              "items": [
+                {
+                  "label": "Live demo",
+                  "href": "https://auto-core-platform-vande.web.app/"
+                },
+                {
+                  "label": "GitHub",
+                  "href": "https://github.com/vandean25/auto-core-platform"
+                }
+              ]
+            }
+          ]
+        },
+        "seo": {
+          "metatags": {
+            "description": "Guides for Auto Core Platform — workshop and dealer software for Austria and DACH: jobs, parts, invoices, and settings.",
+            "og:title": "Auto Core Platform documentation",
+            "og:description": "Role-based help for service advisors, mechanics, accounting, and owners using Auto Core Platform.",
+            "og:site_name": "Auto Core Platform",
+            "twitter:card": "summary",
+            "twitter:title": "Auto Core Platform documentation",
+            "twitter:description": "Workshop and dealer DMS guides for Austria and DACH."
+          }
+        },
+        "tabs": [
+          {
+            "tab": "Guides",
+            "icon": "book-open",
+            "groups": [
+              {
+                "group": "Getting started",
+                "pages": [
+                  "en/introduction",
+                  "en/changelog",
+                  "en/quickstart",
+                  "en/workflows"
+                ]
+              },
+              {
+                "group": "Daily work",
+                "pages": [
+                  "en/workflows/sign-in",
+                  "en/workflows/dashboard"
+                ]
+              },
+              {
+                "group": "People",
+                "pages": [
+                  "en/hr"
+                ]
+              },
+              {
+                "group": "Sales",
+                "pages": [
+                  "en/workflows/customers",
+                  "en/workflows/vehicles",
+                  "en/workflows/sales-orders",
+                  "en/workflows/invoices"
+                ]
+              },
+              {
+                "group": "Finance",
+                "pages": [
+                  "en/workflows/credit-notes",
+                  "en/workflows/accounting-export",
+                  "en/settings/document-branding"
+                ]
+              },
+              {
+                "group": "Workshop",
+                "pages": [
+                  "en/workflows/workshop-intake",
+                  "en/workflows/workshop-orders",
+                  "en/workflows/workshop-check-in",
+                  "en/workflows/warranty-claims",
+                  "en/workflows/workshop-planner",
+                  "en/workflows/workshop-board",
+                  "en/workflows/workshop-pick",
+                  "en/workflows/mechanic",
+                  "en/workflows/workshop-capacity",
+                  "en/workflows/workshop-kpis",
+                  "en/workflows/loaner-vehicles",
+                  "en/workflows/tyre-storage"
+                ]
+              },
+              {
+                "group": "Vehicles and trading",
+                "pages": [
+                  "en/workflows/vehicle-stock",
+                  "en/workflows/listings-export"
+                ]
+              },
+              {
+                "group": "Austria compliance",
+                "pages": [
+                  "en/workflows/pickerl-due",
+                  "en/workflows/nova",
+                  "en/workflows/statutory-warranty-due"
+                ]
+              },
+              {
+                "group": "Inventory",
+                "pages": [
+                  "en/workflows/inventory",
+                  "en/workflows/stock-transfers"
+                ]
+              },
+              {
+                "group": "Procurement",
+                "pages": [
+                  "en/workflows/vendors",
+                  "en/workflows/purchase-orders",
+                  "en/workflows/purchase-bills"
+                ]
+              },
+              {
+                "group": "Platform",
+                "pages": [
+                  "en/workflows/platform-tenants",
+                  "en/workflows/sites",
+                  "en/workflows/agent-supervision"
+                ]
+              }
+            ]
           },
           {
-            "label": "GitHub",
-            "href": "https://github.com/vandean25/auto-core-platform"
+            "tab": "Settings",
+            "icon": "settings",
+            "groups": [
+              {
+                "group": "All settings",
+                "pages": [
+                  "en/settings"
+                ]
+              },
+              {
+                "group": "Finance",
+                "pages": [
+                  "en/settings/finance",
+                  "en/settings/legal-entities",
+                  "en/settings/document-branding",
+                  "en/settings/revenue-groups"
+                ]
+              },
+              {
+                "group": "Organization",
+                "pages": [
+                  "en/settings/sites"
+                ]
+              },
+              {
+                "group": "Workshop",
+                "pages": [
+                  "en/settings/employees",
+                  "en/settings/bays",
+                  "en/settings/labor",
+                  "en/settings/voice-translation"
+                ]
+              },
+              {
+                "group": "Master data",
+                "pages": [
+                  "en/settings/brands",
+                  "en/settings/storage-locations",
+                  "en/settings/vehicle-data",
+                  "en/settings/margin-rules"
+                ]
+              },
+              {
+                "group": "Access",
+                "pages": [
+                  "en/settings/team"
+                ]
+              },
+              {
+                "group": "Integrations",
+                "pages": [
+                  "en/settings/data-import",
+                  "en/settings/api-keys"
+                ]
+              },
+              {
+                "group": "Audit & compliance",
+                "pages": [
+                  "en/settings/audit-logs"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "Operations",
+            "icon": "activity",
+            "groups": [
+              {
+                "group": "Diagnostics",
+                "pages": [
+                  "en/operations/runtime-diagnostics",
+                  "en/operations/core-api-scheduled-jobs"
+                ]
+              }
+            ]
           }
         ]
       }
     ]
   },
-  "navigation": {
-    "tabs": [
-      {
-        "tab": "Guides",
-        "icon": "book-open",
-        "groups": [
-          {
-            "group": "Getting started",
-            "pages": ["introduction", "quickstart", "workflows"]
-          },
-          {
-            "group": "Daily work",
-            "pages": ["workflows/sign-in", "workflows/dashboard"]
-          },
-          {
-            "group": "People",
-            "pages": ["hr"]
-          },
-          {
-            "group": "Sales",
-            "pages": [
-              "workflows/customers",
-              "workflows/vehicles",
-              "workflows/sales-orders",
-              "workflows/invoices"
-            ]
-          },
-          {
-            "group": "Workshop",
-            "pages": [
-              "workflows/workshop-intake",
-              "workflows/workshop-orders",
-              "workflows/workshop-planner",
-              "workflows/workshop-board",
-              "workflows/workshop-pick",
-              "workflows/mechanic",
-              "workflows/workshop-kpis"
-            ]
-          },
-          {
-            "group": "Inventory",
-            "pages": ["workflows/inventory"]
-          },
-          {
-            "group": "Procurement",
-            "pages": [
-              "workflows/vendors",
-              "workflows/purchase-orders",
-              "workflows/purchase-bills"
-            ]
-          },
-          {
-            "group": "Platform",
-            "pages": ["workflows/platform-tenants"]
-          }
-        ]
-      },
-      {
-        "tab": "Settings",
-        "icon": "settings",
-        "groups": [
-          {
-            "group": "All settings",
-            "pages": ["settings"]
-          },
-          {
-            "group": "Finance",
-            "pages": [
-              "settings/finance",
-              "settings/legal-entities",
-              "settings/revenue-groups"
-            ]
-          },
-          {
-            "group": "Workshop",
-            "pages": [
-              "settings/employees",
-              "settings/bays",
-              "settings/labor",
-              "settings/voice-translation"
-            ]
-          },
-          {
-            "group": "Master data",
-            "pages": ["settings/brands", "settings/storage-locations"]
-          },
-          {
-            "group": "Access",
-            "pages": ["settings/team"]
-          },
-          {
-            "group": "Audit & compliance",
-            "pages": ["settings/audit-logs"]
-          }
-        ]
-      },
-      {
-        "tab": "Operations",
-        "icon": "activity",
-        "groups": [
-          {
-            "group": "Diagnostics",
-            "pages": [
-              "operations/runtime-diagnostics",
-              "operations/core-api-scheduled-jobs"
-            ]
-          }
-        ]
-      }
-    ]
-  }
+  "redirects": [
+    {
+      "source": "/docs/workflows/workshop-kpis",
+      "destination": "/workflows/workshop-kpis",
+      "permanent": true
+    }
+  ]
 }

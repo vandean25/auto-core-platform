@@ -1,0 +1,34 @@
+---
+title: "Invoices"
+description: "Read a tax invoice, download the PDF, and know when the number is real."
+---
+
+Open **Invoices** in the sidebar (`/sales/invoices`) to browse drafts and finalized tax invoices. You can also open an invoice from a [sales order](/en/workflows/sales-orders), from workshop checkout, or from **Ctrl+K → Find a sales order to invoice** (which opens the sales order list).
+
+The header shows the invoice number (or a short id while still draft) and a status badge: **DRAFT**, **FINALIZED**, **ISSUED**, **PAID**, **CANCELLED**.
+
+Top-right: **Download PDF**. That generates the PDF and downloads it. If the server queues it, the toast says generation is in the background — try Download PDF again shortly.
+
+<Steps>
+  <Step title="From a sales order">
+    **Create Invoice** on the order. See [Sales orders](/en/workflows/sales-orders).
+  </Step>
+  <Step title="From a completed job">
+    On the workshop order, **Generate Invoice** / checkout. Issue the draft there. See [Workshop orders](/en/workflows/workshop-orders).
+  </Step>
+  <Step title="Download the PDF">
+    **Download PDF** on the invoice. Filename is based on the invoice number. Finalizing an invoice does not download anything, so this is the step that saves a copy.
+  </Step>
+</Steps>
+
+Numbers look like `RE-2026-0001` (year + four digits). Line **revenue group names** and unit prices are snapshotted at issue. Changing a [revenue group](/en/settings/revenue-groups) later does not rewrite old invoices.
+
+<Tip>
+Need who changed a draft line yesterday? [Audit logs](/en/settings/audit-logs), not the PDF.
+</Tip>
+
+<AccordionGroup>
+  <Accordion title="Find a sales order to invoice from search">
+    **Ctrl+K → Find a sales order to invoice** opens the sales order list. Open an order and use **Create Invoice** to start a sourced draft, then edit and finalize from the draft editor. Standalone blank invoices are not supported.
+  </Accordion>
+</AccordionGroup>

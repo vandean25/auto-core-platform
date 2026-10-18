@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { InventoryItem } from "@/api/types"
 import {
   CommandDialog,
@@ -25,27 +26,35 @@ export function InvoicePartSearchDialog({
   items,
   onSelect,
 }: InvoicePartSearchDialogProps) {
+  const { t } = useTranslation('sales')
+
   return (
     <CommandDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Search Inventory"
-      description="Find parts and add them to the invoice."
+      title={t('invoiceEditor.partSearch.title')}
+      description={t('invoiceEditor.partSearch.description')}
     >
       <CommandInput
-        aria-label="Search inventory"
-        placeholder="Search inventory…"
+        aria-label={t('invoiceEditor.partSearch.searchAria')}
+        placeholder={t('invoiceEditor.partSearch.placeholder')}
         value={search}
         onValueChange={onSearchChange}
       />
       <CommandList>
-        <CommandEmpty>No parts found.</CommandEmpty>
-        <CommandGroup heading="Inventory">
+        <CommandEmpty>{t('invoiceEditor.partSearch.empty')}</CommandEmpty>
+        <CommandGroup heading={t('invoiceEditor.partSearch.group')}>
           {items.map((part: InventoryItem) => (
             <CommandItem key={part.id} value={part.name + ' ' + part.sku} onSelect={() => onSelect(part)}>
               <div className="flex flex-col">
                 <span className="font-medium">{part.name}</span>
-                <span className="text-xs text-muted-foreground">{part.sku} • Stock: {part.quantity_available} • €{part.price}</span>
+                <span className="text-xs text-muted-foreground">
+                  {t('invoiceEditor.partSearch.stockLine', {
+                    sku: part.sku,
+                    quantity: part.quantity_available,
+                    price: part.price,
+                  })}
+                </span>
               </div>
             </CommandItem>
           ))}

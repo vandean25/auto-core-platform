@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next"
 import {
     Table,
     TableBody,
@@ -20,15 +21,16 @@ interface BrandTableProps {
 }
 
 export function BrandTable({ brands, onEdit }: BrandTableProps) {
+    const { t } = useTranslation('settings')
     const deleteMutation = useDeleteBrand()
 
     const handleDelete = async (id: number) => {
-        if (!confirm("Are you sure you want to delete this brand?")) return
+        if (!confirm(t('brands.table.deleteConfirm'))) return
         try {
             await deleteMutation.mutateAsync(id)
-            toast.success("Brand deleted")
+            toast.success(t('brands.toast.deleted'))
         } catch (error: unknown) {
-            toast.error(getErrorMessage(error, "Failed to delete brand"))
+            toast.error(getErrorMessage(error, t('brands.toast.deleteFailed')))
         }
     }
 
@@ -37,10 +39,10 @@ export function BrandTable({ brands, onEdit }: BrandTableProps) {
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead className="w-[80px]">Logo</TableHead>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
+                        <TableHead className="w-[80px]">{t('brands.table.logo')}</TableHead>
+                        <TableHead>{t('brands.table.name')}</TableHead>
+                        <TableHead>{t('brands.table.type')}</TableHead>
+                        <TableHead className="text-right">{t('brands.table.actions')}</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -59,19 +61,19 @@ export function BrandTable({ brands, onEdit }: BrandTableProps) {
                             <TableCell>
                                 <div className="flex gap-1 flex-wrap">
                                     {brand.isVehicleMake && (
-                                        <Badge>Vehicle Make</Badge>
+                                        <Badge>{t('brands.table.vehicleMakeBadge')}</Badge>
                                     )}
                                     {brand.isPartManufacturer && (
-                                        <Badge variant="secondary">Part Manufacturer</Badge>
+                                        <Badge variant="secondary">{t('brands.table.partManufacturerBadge')}</Badge>
                                     )}
                                 </div>
                             </TableCell>
                             <TableCell className="text-right">
                                 <div className="flex justify-end gap-2">
-                                    <Button variant="ghost" size="icon" aria-label={`Edit brand ${brand.name}`} onClick={() => onEdit(brand)}>
+                                    <Button variant="ghost" size="icon" aria-label={t('brands.table.editAria', { name: brand.name })} onClick={() => onEdit(brand)}>
                                         <Edit2 className="h-4 w-4" />
                                     </Button>
-                                    <Button variant="ghost" size="icon" className="text-destructive" aria-label={`Delete brand ${brand.name}`} onClick={() => handleDelete(brand.id)}>
+                                    <Button variant="ghost" size="icon" className="text-destructive" aria-label={t('brands.table.deleteAria', { name: brand.name })} onClick={() => handleDelete(brand.id)}>
                                         <Trash2 className="h-4 w-4" />
                                     </Button>
                                 </div>

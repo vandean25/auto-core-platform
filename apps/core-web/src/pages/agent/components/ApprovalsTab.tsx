@@ -1,4 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
@@ -25,8 +27,6 @@ import {
   useAgentSupervisionTriage,
   type AgentSupervisionTriageItem,
 } from '@/api/agent-supervision-triage'
-import type { Language } from '../agent-supervision-copy'
-import { getCopy, SUPERVISION_COPY } from '../agent-supervision-copy'
 import { resolveDecidedByLabel, resolveProposalAgentName } from '../agent-labels'
 import { formatCurrency, formatDate, formatDateTime, formatNumber } from '@/lib/format'
 import {
@@ -82,12 +82,10 @@ function getProposedLine(payload: Record<string, unknown>): ProposedLine {
 }
 
 interface ApprovalsTabProps {
-  language?: Language
   onSelectTraceId?: (traceId: string) => void
 }
 
 export function ApprovalsTab({
-  language = 'en',
   onSelectTraceId,
 }: ApprovalsTabProps) {
   const [pendingOnly, setPendingOnly] = useState(true)
@@ -95,8 +93,10 @@ export function ApprovalsTab({
   const [rejectingProposal, setRejectingProposal] =
     useState<AgentProposal | null>(null)
 
-  const t = SUPERVISION_COPY.approvals
-  const common = SUPERVISION_COPY.common
+  const { t } = useTranslation('agent')
+
+  useEffect(() => { void ensureNamespaceLoaded('agent') }, [])
+
 
   const {
     data: triageData,
@@ -185,10 +185,8 @@ export function ApprovalsTab({
     displayRows.length === 0 &&
     !(pendingOnly && proposalsError)
 
-  const resolveTriageReasonLabel = (reason: string) => {
-    const copy = t.triageReason[reason as keyof typeof t.triageReason]
-    return copy ? getCopy(copy, language) : reason
-  }
+  const resolveTriageReasonLabel = (reason: string) =>
+    t(`approvals.triageReason.${reason}`, { defaultValue: reason })
 
   const triageStatusForItem = (item: AgentSupervisionTriageItem) => {
     if (item.kind === 'OVERDUE_LOANER') return 'OUT_OF_STOCK'
@@ -200,10 +198,10 @@ export function ApprovalsTab({
   const handleApprove = async (proposal: AgentProposal) => {
     try {
       await approveMutation.mutateAsync(proposal.id)
-      toast.success(getCopy(t.approveSuccess, language))
+      toast.success(t('approvals.approveSuccess'))
     } catch (err: unknown) {
       const msg =
-        err instanceof Error ? err.message : getCopy(t.approveError, language)
+        err instanceof Error ? err.message : t('approvals.approveError')
       toast.error(msg)
     }
   }
@@ -212,11 +210,11 @@ export function ApprovalsTab({
     if (!rejectingProposal) return false
     try {
       await rejectMutation.mutateAsync({ id: rejectingProposal.id, reason })
-      toast.success(getCopy(t.rejectSuccess, language))
+      toast.success(t('approvals.rejectSuccess'))
       return true
     } catch (err: unknown) {
       const msg =
-        err instanceof Error ? err.message : getCopy(t.rejectError, language)
+        err instanceof Error ? err.message : t('approvals.rejectError')
       toast.error(msg)
       return false
     }
@@ -229,12 +227,12 @@ export function ApprovalsTab({
 
   const formatTaxBasisLabel = (basis: AmountTaxBasis | null) => {
     if (basis === 'NET') {
-      return getCopy(t.amountNet, language)
+      return t('approvals.amountNet')
     }
     if (basis === 'GROSS') {
-      return getCopy(t.amountGross, language)
+      return t('approvals.amountGross')
     }
-    return getCopy(t.taxBasisNotSet, language)
+    return t('approvals.taxBasisNotSet')
   }
 
   const formatMoneyWithTaxBasis = (
@@ -249,9 +247,9 @@ export function ApprovalsTab({
   }
 
   const formatLineType = (type: ProposedLine['type']) => {
-    if (type === 'LABOR') return getCopy(t.lineTypeLabor, language)
-    if (type === 'FEE') return getCopy(t.lineTypeFee, language)
-    return getCopy(t.lineTypePart, language)
+    if (type === 'LABOR') return t('approvals.lineTypeLabor')
+    if (type === 'FEE') return t('approvals.lineTypeFee')
+    return t('approvals.lineTypePart')
   }
 
   return (
@@ -266,7 +264,7 @@ export function ApprovalsTab({
             onClick={() => setPendingOnly(true)}
             data-testid="filter-pending-btn"
           >
-            {getCopy(t.pendingOnly, language)}
+            {t('approvals.pendingOnly')}
           </Button>
           <Button
             type="button"
@@ -275,7 +273,7 @@ export function ApprovalsTab({
             onClick={() => setPendingOnly(false)}
             data-testid="filter-all-btn"
           >
-            {getCopy(t.showAll, language)}
+            {t('approvals.showAll')}
           </Button>
         </div>
 
@@ -285,10 +283,10 @@ export function ApprovalsTab({
           size="sm"
           onClick={() => refetch()}
           className="text-slate-500 hover:text-slate-900"
-          aria-label={getCopy(common.refresh, language)}
+          aria-label={t('common.refresh')}
         >
           <RefreshCw className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-          {getCopy(common.refresh, language)}
+          {t('common.refresh')}
         </Button>
       </div>
 
@@ -299,7 +297,7 @@ export function ApprovalsTab({
             className="mx-auto mb-3 h-6 w-6 animate-spin text-slate-400"
             aria-hidden="true"
           />
-          {getCopy(common.loading, language)}
+          {t('common.loading')}
         </div>
       )}
 
@@ -311,8 +309,8 @@ export function ApprovalsTab({
         >
           <p className="text-sm font-medium text-rose-800">
             {pendingOnly
-              ? getCopy(t.triageLoadError, language)
-              : getCopy(common.error, language)}
+              ? t('approvals.triageLoadError')
+              : t('common.error')}
           </p>
           <Button
             type="button"
@@ -321,7 +319,7 @@ export function ApprovalsTab({
             onClick={() => refetch()}
             className="mt-3 border-rose-300 text-rose-700 hover:bg-rose-100"
           >
-            {getCopy(common.retry, language)}
+            {t('common.retry')}
           </Button>
         </div>
       )}
@@ -332,7 +330,7 @@ export function ApprovalsTab({
           data-testid="approvals-triage-page-error-state"
         >
           <p className="text-sm font-medium text-amber-900">
-            {getCopy(t.triagePageLoadError, language)}
+            {t('approvals.triagePageLoadError')}
           </p>
           <Button
             type="button"
@@ -341,7 +339,7 @@ export function ApprovalsTab({
             onClick={() => retryTriagePagination()}
             className="mt-3 border-amber-300 text-amber-900 hover:bg-amber-100"
           >
-            {getCopy(common.retry, language)}
+            {t('common.retry')}
           </Button>
         </div>
       )}
@@ -352,7 +350,7 @@ export function ApprovalsTab({
           data-testid="approvals-proposals-error-state"
         >
           <p className="text-sm font-medium text-amber-900">
-            {getCopy(t.proposalsLoadError, language)}
+            {t('approvals.proposalsLoadError')}
           </p>
           <Button
             type="button"
@@ -361,7 +359,7 @@ export function ApprovalsTab({
             onClick={() => refetchProposals()}
             className="mt-3 border-amber-300 text-amber-900 hover:bg-amber-100"
           >
-            {getCopy(common.retry, language)}
+            {t('common.retry')}
           </Button>
         </div>
       )}
@@ -377,10 +375,10 @@ export function ApprovalsTab({
             aria-hidden="true"
           />
           <h3 className="text-base font-semibold text-slate-800">
-            {getCopy(t.emptyState, language)}
+            {t('approvals.emptyState')}
           </h3>
           <p className="mt-1 text-sm text-slate-500">
-            {getCopy(t.emptyStateDesc, language)}
+            {t('approvals.emptyStateDesc')}
           </p>
         </div>
       )}
@@ -416,7 +414,7 @@ export function ApprovalsTab({
                         />
                         {formatDateTime(item.created_at)}
                         {item.due_at
-                          ? ` · ${getCopy(t.dueAt, language)} ${formatDateTime(item.due_at)}`
+                          ? ` · ${t('approvals.dueAt')} ${formatDateTime(item.due_at)}`
                           : null}
                       </p>
                     </div>
@@ -425,7 +423,7 @@ export function ApprovalsTab({
                       className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                       data-testid={`triage-open-${item.entity_id}`}
                     >
-                      {getCopy(t.openRecord, language)}
+                      {t('approvals.openRecord')}
                       <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
                     </Link>
                   </div>
@@ -508,25 +506,25 @@ export function ApprovalsTab({
                     </div>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
                       <span data-testid={`proposal-id-${proposal.id}`}>
-                        {getCopy(t.proposalId, language)}:{' '}
+                        {t('approvals.proposalId')}:{' '}
                         <strong className="font-mono text-slate-700">
                           {proposal.id}
                         </strong>
                       </span>
                       <span>
-                        {getCopy(t.agent, language)}:{' '}
+                        {t('approvals.agent')}:{' '}
                         <strong className="text-slate-700">{agentName}</strong>
                       </span>
                       {proposal.decided_by ? (
                         <span data-testid={`decided-by-${proposal.id}`}>
-                          {getCopy(t.decidedBy, language)}:{' '}
+                          {t('approvals.decidedBy')}:{' '}
                           <strong className="text-slate-700">
                             {resolveDecidedByLabel(
                               {
                                 name: proposal.decided_by_name,
                                 email: proposal.decided_by_email,
                               },
-                              getCopy(common.unknownUser, language),
+                              t('common.unknownUser'),
                             )}
                           </strong>
                         </span>
@@ -536,44 +534,44 @@ export function ApprovalsTab({
                           <span>
                             {orderSummary?.order_number ? (
                               <>
-                                {getCopy(t.orderNumber, language)}:{' '}
+                                {t('approvals.orderNumber')}:{' '}
                                 <strong className="text-slate-700">
                                   {orderSummary.order_number}
                                 </strong>
                               </>
                             ) : (
-                              getCopy(t.orderNumberMissing, language)
+                              t('approvals.orderNumberMissing')
                             )}
                           </span>
                           <span>
                             {orderSummary ? (
                               <>
-                                {getCopy(t.customer, language)}:{' '}
+                                {t('approvals.customer')}:{' '}
                                 <strong className="text-slate-700">
                                   {orderSummary.customer_name ??
-                                    getCopy(t.dealerStock, language)}
+                                    t('approvals.dealerStock')}
                                 </strong>
                               </>
                             ) : (
-                              getCopy(t.customerMissing, language)
+                              t('approvals.customerMissing')
                             )}
                           </span>
                           <span>
                             {orderVehicleLabel ? (
                               <>
-                                {getCopy(t.vehicle, language)}:{' '}
+                                {t('approvals.vehicle')}:{' '}
                                 <strong className="text-slate-700">
                                   {orderVehicleLabel}
                                 </strong>
                               </>
                             ) : (
-                              getCopy(t.vehicleMissing, language)
+                              t('approvals.vehicleMissing')
                             )}
                           </span>
                         </>
                       ) : entityType ? (
                         <span>
-                          {getCopy(t.target, language)}:{' '}
+                          {t('approvals.target')}:{' '}
                           <strong className="text-slate-700">
                             {entityType}
                             {entityId ? ` (${entityId.slice(0, 8)})` : ''}
@@ -589,7 +587,7 @@ export function ApprovalsTab({
                       </span>
                       {proposal.expires_at && isPending && (
                         <span className="text-amber-800">
-                          {getCopy(t.expiresAt, language)}:{' '}
+                          {t('approvals.expiresAt')}:{' '}
                           {formatDate(proposal.expires_at)}
                         </span>
                       )}
@@ -604,7 +602,7 @@ export function ApprovalsTab({
                         {isHumanOnly ? (
                           <div className="flex items-center gap-1.5 rounded-md border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700">
                             <HandMetal className="h-4 w-4" aria-hidden="true" />
-                            <span>{getCopy(t.doManually, language)}</span>
+                            <span>{t('approvals.doManually')}</span>
                           </div>
                         ) : (
                           <Button
@@ -621,8 +619,8 @@ export function ApprovalsTab({
                               aria-hidden="true"
                             />
                             {isActionPending
-                              ? getCopy(t.approving, language)
-                              : getCopy(t.approve, language)}
+                              ? t('approvals.approving')
+                              : t('approvals.approve')}
                           </Button>
                         )}
                         <Button
@@ -638,13 +636,13 @@ export function ApprovalsTab({
                             className="mr-1.5 h-4 w-4"
                             aria-hidden="true"
                           />
-                          {getCopy(t.reject, language)}
+                          {t('approvals.reject')}
                         </Button>
                       </>
                     ) : isHumanOnly ? (
                       <div className="flex items-center gap-1.5 rounded-md border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700">
                         <HandMetal className="h-4 w-4" aria-hidden="true" />
-                        <span>{getCopy(t.doManually, language)}</span>
+                        <span>{t('approvals.doManually')}</span>
                       </div>
                     ) : null}
                   </div>
@@ -654,7 +652,7 @@ export function ApprovalsTab({
                 {isHumanOnly && (
                   <div className="rounded-md border border-purple-200 bg-purple-50/70 p-3 text-xs text-purple-900">
                     <p className="leading-relaxed">
-                      {getCopy(t.humanOnlyNotice, language)}
+                      {t('approvals.humanOnlyNotice')}
                     </p>
                   </div>
                 )}
@@ -665,14 +663,14 @@ export function ApprovalsTab({
                     data-testid={`change-preview-${proposal.id}`}
                   >
                     <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                      {getCopy(t.changePreview, language)}
+                      {t('approvals.changePreview')}
                     </div>
                     <ul className="list-disc space-y-0.5 pl-4 text-sm text-slate-700">
                       {defaultChanges.map((change, index) => (
                         <li
                           key={`${change.entity}-${change.op}-${change.id}-${index}`}
                         >
-                          {formatDefaultSupervisionChangeLabel(change, language)}
+                          {formatDefaultSupervisionChangeLabel(change)}
                         </li>
                       ))}
                     </ul>
@@ -686,26 +684,26 @@ export function ApprovalsTab({
                     data-testid={`proposed-lines-${proposal.id}`}
                   >
                     <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                      {getCopy(t.proposedLines, language)}
+                      {t('approvals.proposedLines')}
                     </div>
                     <div className="overflow-x-auto">
                       <table className="w-full text-xs text-slate-700">
                         <thead>
                           <tr className="border-b border-slate-200 text-left text-slate-500">
                             <th className="py-1.5 pr-3 font-medium">
-                              {getCopy(t.lineName, language)}
+                              {t('approvals.lineName')}
                             </th>
                             <th className="py-1.5 pr-3 font-medium">
-                              {getCopy(t.lineType, language)}
+                              {t('approvals.lineType')}
                             </th>
                             <th className="py-1.5 pr-3 text-right font-medium">
-                              {getCopy(t.lineQuantity, language)}
+                              {t('approvals.lineQuantity')}
                             </th>
                             <th className="py-1.5 pr-3 text-right font-medium">
-                              {getCopy(t.lineUnitPrice, language)}
+                              {t('approvals.lineUnitPrice')}
                             </th>
                             <th className="py-1.5 text-right font-medium">
-                              {getCopy(t.amount, language)}
+                              {t('approvals.amount')}
                             </th>
                           </tr>
                         </thead>
@@ -716,7 +714,7 @@ export function ApprovalsTab({
                               className="border-b border-slate-100 last:border-0"
                             >
                               <td className="py-1.5 pr-3 font-medium text-slate-900">
-                                {line.name ?? getCopy(t.unnamedLine, language)}
+                                {line.name ?? t('approvals.unnamedLine')}
                               </td>
                               <td className="py-1.5 pr-3">
                                 {formatLineType(line.type)}
@@ -754,7 +752,7 @@ export function ApprovalsTab({
                         className="font-semibold text-slate-900"
                         data-testid={`proposal-amount-${proposal.id}`}
                       >
-                        {getCopy(t.amount, language)}:{' '}
+                        {t('approvals.amount')}:{' '}
                         <span className="font-mono text-emerald-700">
                           {formatMoneyWithTaxBasis(amountEur, proposalTaxBasis)}
                         </span>
@@ -790,7 +788,7 @@ export function ApprovalsTab({
                           className="mr-1 h-3.5 w-3.5"
                           aria-hidden="true"
                         />
-                        {getCopy(t.hidePreview, language)}
+                        {t('approvals.hidePreview')}
                       </>
                     ) : (
                       <>
@@ -798,7 +796,7 @@ export function ApprovalsTab({
                           className="mr-1 h-3.5 w-3.5"
                           aria-hidden="true"
                         />
-                        {getCopy(t.showPreview, language)}
+                        {t('approvals.showPreview')}
                       </>
                     )}
                   </Button>
@@ -813,7 +811,7 @@ export function ApprovalsTab({
                     {proposal.decided_by ? (
                       <div>
                         <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                          {getCopy(t.decidedById, language)}:
+                          {t('approvals.decidedById')}:
                         </div>
                         <div>{proposal.decided_by}</div>
                       </div>
@@ -821,7 +819,7 @@ export function ApprovalsTab({
                     {workshopOrderId ? (
                       <div>
                         <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                          {getCopy(t.workshopOrderId, language)}:
+                          {t('approvals.workshopOrderId')}:
                         </div>
                         <div>{workshopOrderId}</div>
                       </div>
@@ -829,17 +827,14 @@ export function ApprovalsTab({
                     {wouldChange.length > 0 ? (
                       <div data-testid={`change-preview-details-${proposal.id}`}>
                         <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                          {getCopy(t.allChangesPreview, language)}:
+                          {t('approvals.allChangesPreview')}:
                         </div>
                         <ul className="mb-3 list-disc space-y-0.5 pl-4 text-slate-200">
                           {wouldChange.map((change, index) => (
                             <li
                               key={`detail-${change.entity}-${change.op}-${change.id}-${index}`}
                             >
-                              {formatDetailSupervisionChangeLabel(
-                                change,
-                                language,
-                              )}
+                              {formatDetailSupervisionChangeLabel(change)}
                             </li>
                           ))}
                         </ul>
@@ -848,7 +843,7 @@ export function ApprovalsTab({
                     {proposal.preview_json ? (
                       <div>
                         <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                          {getCopy(t.previewDiff, language)}:
+                          {t('approvals.previewDiff')}:
                         </div>
                         <pre>
                           {JSON.stringify(proposal.preview_json, null, 2)}
@@ -857,7 +852,7 @@ export function ApprovalsTab({
                     ) : null}
                     <div>
                       <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                        {getCopy(t.payloadJson, language)}:
+                        {t('approvals.payloadJson')}:
                       </div>
                       <pre>
                         {JSON.stringify(proposal.payload_json, null, 2)}
@@ -877,7 +872,6 @@ export function ApprovalsTab({
         onOpenChange={(open) => !open && setRejectingProposal(null)}
         onConfirm={handleConfirmReject}
         isPending={rejectMutation.isPending}
-        language={language}
       />
     </div>
   )

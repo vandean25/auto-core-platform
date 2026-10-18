@@ -1,6 +1,8 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
+  Logger,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
@@ -134,5 +136,105 @@ describe('AgentProposalDecisionService', () => {
       'HUMAN_ONLY proposals must be performed manually',
     );
     expect(h.mockAgentPolicyService.evaluate).not.toHaveBeenCalled();
+  });
+
+  it('refuses site-bound approval when the active site differs from the simulation site', async () => {
+    h.mockSiteContext.getSiteId.mockResolvedValue('site-2');
+    h.mockPrisma.agentProposal.findFirst.mockResolvedValue(
+      createMockProposal({
+        action_type: 'workshop.booking_package',
+        preview_json: { execution_context: { site_id: 'site-1' } },
+      }),
+    );
+
+    await expect(h.decisions.approveProposal(proposalId)).rejects.toThrow(
+      'Select the site where this action was simulated before applying it',
+    );
+    expect(h.mockPrisma.agentProposal.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('passes the simulated site into the executor for site-bound workshop order creation', async () => {
+    const executeSpy = jest
+      .spyOn(h.mockPendingActionExecutors, 'resolve')
+      .mockReturnValue({
+        actionType: 'workshop_order.create',
+        buildPolicyContext: () => Promise.resolve({}),
+        execute: jest.fn().mockResolvedValue({ id: 'order-1' }),
+        buildResultSummary: () => ({}),
+      });
+    h.mockPrisma.agentProposal.findFirst
+      .mockResolvedValueOnce(
+        createMockProposal({
+          action_type: 'workshop_order.create',
+          preview_json: { execution_context: { site_id: 'site-1' } },
+        }),
+      )
+      .mockResolvedValueOnce(
+        createMockProposal({
+          action_type: 'workshop_order.create',
+          status: AgentProposalStatus.EXECUTED,
+          decided_by: userId,
+        }),
+      );
+    h.mockPrisma.agentProposal.updateMany.mockResolvedValue({ count: 1 });
+
+    await h.decisions.approveProposal(proposalId);
+
+    const executor = executeSpy.mock.results[0]?.value;
+    expect(executor.execute).toHaveBeenCalledWith(
+      expect.anything(),
+      { site_id: 'site-1' },
+    );
+  });
+
+  it('marks an unsupported action as FAILED before rethrowing', async () => {
+    jest.spyOn(h.mockPendingActionExecutors, 'resolve').mockImplementation(() => {
+      throw new BadRequestException('Unsupported action type');
+    });
+    h.mockPrisma.agentProposal.findFirst.mockResolvedValue(createMockProposal());
+    h.mockPrisma.agentProposal.updateMany.mockResolvedValue({ count: 1 });
+
+    await expect(h.decisions.approveProposal(proposalId)).rejects.toThrow(
+      BadRequestException,
+    );
+
+    expect(h.mockPrisma.agentProposal.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: AgentProposalStatus.FAILED,
+          reason: 'Unsupported action type',
+        }),
+      }),
+    );
+  });
+
+  it('logs when audit persistence for a failed execution cannot be stored', async () => {
+    const warnSpy = jest
+      .spyOn(Logger.prototype, 'warn')
+      .mockImplementation(() => undefined);
+    const execute = jest.fn().mockRejectedValue(new Error('execute failed'));
+    jest.spyOn(h.mockPendingActionExecutors, 'resolve').mockReturnValue({
+      actionType: 'workshop_order.add_line',
+      buildPolicyContext: () => Promise.resolve({}),
+      execute,
+      buildResultSummary: () => ({}),
+    });
+    h.mockPrisma.agentProposal.findFirst.mockResolvedValue(createMockProposal());
+    h.mockPrisma.agentProposal.updateMany.mockResolvedValue({ count: 1 });
+    let transactionCalls = 0;
+    h.mockPrisma.$transaction.mockImplementation(async (callback) => {
+      transactionCalls += 1;
+      if (transactionCalls === 1) {
+        return callback(h.mockPrisma);
+      }
+      throw new Error('audit storage unavailable');
+    });
+
+    await expect(h.decisions.approveProposal(proposalId)).rejects.toThrow(
+      'execute failed',
+    );
+
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
   });
 });

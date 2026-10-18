@@ -8,6 +8,7 @@ import * as inventoryApi from '@/api/inventory'
 import * as customersApi from '@/api/customers'
 import type { Customer } from '@/api/types'
 import { deSales } from '@/test/de-sales'
+import deCommon from '../../../../../locales/de/common.json'
 
 const mockNavigate = vi.fn()
 
@@ -130,7 +131,7 @@ describe('SalesOrderCreate autosave', () => {
       { timeout: 2000 },
     )
 
-    expect(await screen.findByText('All changes saved')).toBeInTheDocument()
+    expect(await screen.findByText(deCommon.documentSave.saved)).toBeInTheDocument()
   })
 
   it('flushes a pending autosave before navigating on Done', async () => {

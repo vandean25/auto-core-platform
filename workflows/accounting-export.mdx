@@ -1,0 +1,53 @@
+---
+title: "Buchhaltungsexport"
+description: "Zeitraum abschließen, Export-Blocker beseitigen und DATEV-, RZL- oder BMD-CSV-Läufe herunterladen."
+---
+
+Der Buchhaltungsexport macht aus abgeschlossenen Rechnungen und Gutschriften unveränderliche CSV-Dateien für Ihr Buchhaltungssystem. Das Produkt unterstützt drei Profil-Codes am Rechtsträger: **DATEV** (`ACP-DATEV-DE-EUR-1`, Deutschland), **RZL** (`ACP-RZL-AT-EUR-1`, Österreich) und **BMD** (`ACP-BMD-AT-EUR-1`, Österreich). RZL und BMD können deaktiviert bleiben, bis Ihr Plattform-Betreiber sie in dieser Umgebung freischaltet.
+
+Nur **OWNER**- und **ADMIN**-Mitglieder mit vollständigem Standortzugriff können Vorschau oder Export erzeugen.
+
+<CardGroup cols={2}>
+  <Card title="Exportbereitschaft" icon="clipboard-check" href="/settings/finance#export-readiness">
+    Blockierte Belege sehen, bevor Sie eine Datei erzeugen.
+  </Card>
+  <Card title="Rechtsträger-Profil" icon="building-2" href="/settings/legal-entities">
+    DATEV-, RZL- oder BMD-Zuordnung und Freigabe-Schalter pro Rechtsträger.
+  </Card>
+</CardGroup>
+
+<Steps>
+  <Step title="Exportbereitschaft prüfen">
+    **Exportbereitschaft** in der Seitenleiste öffnen. Rechtsträger und Zeitraum wählen. Jede blockierte Rechnung oder Gutschrift bereinigen.
+  </Step>
+  <Step title="Buchhaltungsexport öffnen">
+    **Einstellungen** (Zahnrad) → **Finanzen** → Unter-Tab **Buchhaltungsexport**.
+  </Step>
+  <Step title="Vorschau">
+    Rechtsträger, **Datum von** und **Datum bis** wählen. **Vorschau** klicken. Alle in der Vorschau genannten **Blockierungen** beheben.
+  </Step>
+  <Step title="Erzeugen und herunterladen">
+    **Erzeugen** klicken, dann in der Lauf-Historie **Herunterladen** oder **Letzten Download**. Downloads werden audit-protokolliert; sie bestätigen keinen Import in DATEV, RZL oder BMD.
+  </Step>
+</Steps>
+
+<Tip>
+Der Text auf dem Bildschirm nennt DATEV Buchungsstapel-CSV, weil das das Standardprofil in der Demo-Oberfläche ist. Österreichische Rechtsträger mit **RZL-Export aktiviert** oder BMD-Profil `ACP-BMD-AT-EUR-1` (wenn freigegeben) nutzen denselben Vorschau- und Erzeugen-Flow; Dateiname und Spaltenlayout folgen dem Profil-Code des Rechtsträgers.
+</Tip>
+
+<Warning>
+Überlappende CSV-Dateien in Ihr Buchhaltungssystem zu importieren kann Buchungen duplizieren. Der Export-Bildschirm warnt bei Überlappung mit früheren Läufen. Risiko bestätigen, bevor Sie **Trotzdem erzeugen** wählen.
+</Warning>
+
+<AccordionGroup>
+  <Accordion title="BMD vs. RZL vs. DATEV">
+    | Profil | Typischer Einsatz | Konfiguration in der UI |
+    | --- | --- | --- |
+    | `ACP-DATEV-DE-EUR-1` | Deutscher DATEV Buchungsstapel | Schalter **DATEV-Export aktiviert** am DE-Rechtsträger |
+    | `ACP-RZL-AT-EUR-1` | Österreichischer RZL-Fibu-Import | **RZL-Export-Konfiguration** (Firmennummer, Steuercodes) am AT-Rechtsträger |
+    | `ACP-BMD-AT-EUR-1` | Österreichischer BMD-NTCS-Import | Profil-Code im Buchhaltungsprofil; CSV-Erzeugung ist gesperrt, bis der Betreiber BMD in dieser Umgebung aktiviert |
+  </Accordion>
+  <Accordion title="Export abgelehnt">
+    Zeigt die Vorschau eine Bereichs-Verweigerung statt Belegsummen, fehlt Ihrem Konto eine aktive Mitgliedschaft an einem Standort mit Belegen im Zeitraum. Ein Inhaber oder Admin muss **Einstellungen → Standorte** und Team-Standortzugriff korrigieren.
+  </Accordion>
+</AccordionGroup>

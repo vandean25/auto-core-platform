@@ -1,4 +1,5 @@
 import { useEffect, useImperativeHandle, useRef, useState, type ChangeEvent, type Ref } from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -20,11 +21,6 @@ import {
 
 const AUTO_SAVE_DEBOUNCE_MS = 750
 const VALIDATION_MESSAGE_ID = 'trade-in-validation-message'
-const STORED_TRADE_IN_INCOMPLETE_MESSAGE =
-  'Remove the trade-in or complete its details before finalizing.'
-const TRADE_IN_REMOVAL_FAILED_MESSAGE =
-  'The trade-in could not be removed and is still on this sale. Remove it again before finalizing.'
-
 export type VehicleSaleTradeInHandle = {
   /**
    * Saves a trade-in that has changes still inside the autosave window. Rejects when the trade-in on the form
@@ -60,6 +56,7 @@ export function VehicleSaleTradeInSection({
   editable,
   ref,
 }: VehicleSaleTradeInSectionProps) {
+  const { t } = useTranslation('vehicleStock')
   const { mutateAsync: upsertTradeIn } = useUpsertVehicleSaleTradeIn()
   const { mutateAsync: removeTradeIn } = useRemoveVehicleSaleTradeIn()
   const [draft, setDraft] = useState<TradeInDraft>(() => tradeInDraftFromPurchase(purchase))
@@ -110,7 +107,7 @@ export function VehicleSaleTradeInSection({
     const snapshot = { saleId, input: result.input, serialized }
     const handle = window.setTimeout(() => {
       saveTimer.current = null
-      saveTradeIn(snapshot).catch((error) => toast.error(getErrorMessage(error, 'Failed to save trade-in')))
+      saveTradeIn(snapshot).catch((error) => toast.error(getErrorMessage(error, t('sale.tradeIn.saveFailed'))))
     }, AUTO_SAVE_DEBOUNCE_MS)
     saveTimer.current = handle
     return () => {
@@ -136,14 +133,14 @@ export function VehicleSaleTradeInSection({
         try {
           await pendingRemoval.current
         } catch {
-          throw new Error(TRADE_IN_REMOVAL_FAILED_MESSAGE)
+          throw new Error(t('sale.tradeIn.removalFailed'))
         }
         return
       }
       if (result.status === 'invalid') throw new Error(result.message)
       if (result.status === 'empty') {
         // A blank form with a stored trade-in would still be netted on the invoice, so stop instead.
-        if (purchase) throw new Error(STORED_TRADE_IN_INCOMPLETE_MESSAGE)
+        if (purchase) throw new Error(t('sale.tradeIn.storedIncomplete'))
         return
       }
       await saveTradeIn({ saleId, input: result.input, serialized: JSON.stringify(result.input) })
@@ -161,14 +158,14 @@ export function VehicleSaleTradeInSection({
       lastSavedSerialized.current = null
       setDraft(EMPTY_TRADE_IN_DRAFT)
       setSaveStatus('idle')
-      toast.success('Trade-in removed')
+      toast.success(t('sale.tradeIn.removed'))
     })
     pendingRemoval.current = removal
     setIsRemoving(true)
     try {
       await removal
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to remove trade-in'))
+      toast.error(getErrorMessage(error, t('sale.tradeIn.removeFailed')))
     } finally {
       pendingRemoval.current = null
       setIsRemoving(false)
@@ -193,21 +190,19 @@ export function VehicleSaleTradeInSection({
   return (
     <section aria-labelledby="trade-in-form-title" className="space-y-3 rounded-lg border p-4">
       <div className="flex items-center justify-between">
-        <h2 id="trade-in-form-title" className="font-medium">Trade-in</h2>
+        <h2 id="trade-in-form-title" className="font-medium">{t('sale.tradeIn.title')}</h2>
         <div role="status" aria-live="polite" className="text-sm">
-          {saveStatus === 'saving' && <span className="text-slate-500">Saving...</span>}
-          {saveStatus === 'saved' && <span className="text-emerald-600">Saved</span>}
-          {saveStatus === 'error' && <span className="text-rose-600">Save failed</span>}
+          {saveStatus === 'saving' && <span className="text-slate-500">{t('sale.tradeIn.saveStatus.saving')}</span>}
+          {saveStatus === 'saved' && <span className="text-emerald-600">{t('sale.tradeIn.saveStatus.saved')}</span>}
+          {saveStatus === 'error' && <span className="text-rose-600">{t('sale.tradeIn.saveStatus.error')}</span>}
         </div>
       </div>
       <p className="text-xs text-slate-500">
-        {saleId
-          ? 'The buyer’s vehicle is credited against the sale price. The invoice bills the remaining amount.'
-          : 'Save the sale first, then add the buyer’s vehicle as a trade-in.'}
+        {saleId ? t('sale.tradeIn.hintWithSale') : t('sale.tradeIn.hintSaveFirst')}
       </p>
       <div className="grid gap-3 md:grid-cols-2">
         <label className="space-y-1 text-sm">
-          <span className="text-slate-500">Allowance (EUR)</span>
+          <span className="text-slate-500">{t('sale.tradeIn.allowanceLabel')}</span>
           <Input
             type="number"
             min={0}
@@ -219,23 +214,23 @@ export function VehicleSaleTradeInSection({
           />
         </label>
         <label className="space-y-1 text-sm">
-          <span className="text-slate-500">VIN</span>
+          <span className="text-slate-500">{t('sale.tradeIn.vin')}</span>
           <Input maxLength={17} disabled={!canEdit} {...fieldErrorProps('vin')} value={draft.vin} onChange={handleFieldChange('vin')} />
         </label>
         <label className="space-y-1 text-sm">
-          <span className="text-slate-500">Make</span>
+          <span className="text-slate-500">{t('sale.tradeIn.make')}</span>
           <Input disabled={!canEdit} {...fieldErrorProps('make')} value={draft.make} onChange={handleFieldChange('make')} />
         </label>
         <label className="space-y-1 text-sm">
-          <span className="text-slate-500">Model</span>
+          <span className="text-slate-500">{t('sale.tradeIn.model')}</span>
           <Input disabled={!canEdit} {...fieldErrorProps('model')} value={draft.model} onChange={handleFieldChange('model')} />
         </label>
         <label className="space-y-1 text-sm">
-          <span className="text-slate-500">Model year</span>
+          <span className="text-slate-500">{t('sale.tradeIn.year')}</span>
           <Input type="number" disabled={!canEdit} {...fieldErrorProps('year')} value={draft.year} onChange={handleFieldChange('year')} />
         </label>
         <label className="space-y-1 text-sm">
-          <span className="text-slate-500">Mileage (km)</span>
+          <span className="text-slate-500">{t('sale.tradeIn.mileage')}</span>
           <Input
             type="number"
             min={0}
@@ -246,7 +241,7 @@ export function VehicleSaleTradeInSection({
           />
         </label>
         <label className="space-y-1 text-sm">
-          <span className="text-slate-500">First registration</span>
+          <span className="text-slate-500">{t('sale.tradeIn.firstRegistration')}</span>
           <Input
             type="date"
             disabled={!canEdit}
@@ -256,7 +251,7 @@ export function VehicleSaleTradeInSection({
           />
         </label>
         <label className="space-y-1 text-sm">
-          <span className="text-slate-500">Plate (optional)</span>
+          <span className="text-slate-500">{t('sale.tradeIn.plateOptional')}</span>
           <Input disabled={!canEdit} value={draft.plate} onChange={handleFieldChange('plate')} />
         </label>
       </div>
@@ -265,12 +260,12 @@ export function VehicleSaleTradeInSection({
       </p>
       {amountDue ? (
         <p className="text-sm">
-          Amount due after trade-in: <span className="font-medium">{amountDue}</span>
+          {t('sale.tradeIn.amountDueLabel')} <span className="font-medium">{amountDue}</span>
         </p>
       ) : null}
       {canRemoveTradeIn ? (
         <Button variant="outline" size="sm" onClick={() => void handleRemoveTradeIn()}>
-          Remove trade-in
+          {t('sale.tradeIn.remove')}
         </Button>
       ) : null}
     </section>

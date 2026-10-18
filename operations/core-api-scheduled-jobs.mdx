@@ -1,32 +1,33 @@
 ---
-title: "core-api scheduled jobs"
-description: "Inventory of Nest @Cron workers in core-api and how multi-instance dedup works on Cloud Run."
+title: "core-api geplante Jobs"
+description: "Inventar der Nest-@Cron-Worker in core-api und wie die Deduplizierung bei mehreren Instanzen auf Cloud Run funktioniert."
 ---
 
-core-api runs background sweeps in-process via `@nestjs/schedule`. On Cloud Run, several instances can be healthy at once, so each job uses a **Postgres session advisory lock** (AUT-611) keyed by its stable cron `name`. If `pg_try_advisory_lock` fails, that instance skips the tick and logs once; the next schedule picks up work.
+core-api führt Hintergrund-Sweeps im Prozess über `@nestjs/schedule` aus. Auf Cloud Run können mehrere Instanzen gleichzeitig healthy sein; jeder Job nutzt daher eine **Postgres-Session-Advisory-Lock** mit dem stabilen Cron-`name`. Schlägt `pg_try_advisory_lock` fehl, überspringt diese Instanz den Tick und loggt einmal; der nächste Schedule-Zyklus übernimmt die Arbeit.
 
-Lock helper: `SystemPrismaService.withCronJobLock(jobName, fn)` pins one connection from the shared runtime `pg` pool for the whole sweep so session locks are not dropped while other queries use the pool (`apps/core-api/src/scheduler/cron-job-advisory-lock.ts`).
+Lock-Helfer: `SystemPrismaService.withCronJobLock(jobName, fn)` hält für den gesamten Sweep eine Verbindung aus dem gemeinsamen Runtime-`pg`-Pool, damit Session-Locks nicht fallen, während andere Queries den Pool nutzen (`apps/core-api/src/scheduler/cron-job-advisory-lock.ts`).
 
-## Inventory
+## Inventar
 
-| Cron `name` | Schedule | Service | Purpose |
+| Cron-`name` | Schedule | Service | Zweck |
 | --- | --- | --- | --- |
-| `autoscout24-dms-deactivation-retry` | Every minute | `Autoscout24DmsDeactivationRetryService` | Retry `DEACTIVATION_PENDING` vehicle listing DMS sync rows (env + per-tenant push flag gated). |
-| `customer-consent-proof-purge` | `23 3 * * *` | `CustomerConsentRetentionService` | Purge expired marketing consent proof rows per tenant. |
-| `document-branding-extraction-recovery` | Every minute | `DocumentBrandingExtractionRecoveryService` | Re-dispatch stalled logo extractions and retention cleanup. |
-| `document-branding-upload-recovery` | Every minute | `DocumentBrandingUploadRecoveryService` | Requeue stalled branding uploads and purge expired quarantine assets. |
-| `domain-event-consumer-recovery` | Every minute | `DomainEventConsumerRecoveryService` | Catch up workshop estimate-decided domain event consumers. |
-| `hr-shift-close` | `59 23 * * *` | `HrAttendanceSchedulerService` | Nightly auto `CLOCK_OUT` for open HR attendance shifts. |
-| `landing-demo-access-cleanup` | Daily 03:00 | `LandingDemoAccessCleanupService` | Deactivate expired demo memberships and stale public rate-limit counters. |
-| `mechanic-shift-close` | `59 23 * * *` | `MechanicSchedulerService` | Nightly auto-close open mechanic `LaborEntry` rows. |
-| `notification-outbox-recovery` | Every minute | `NotificationOutboxRecoveryService` | Fail stale notices, release expired leases, wake due outbox rows. |
-| `notification-outbox-body-purge` | `17 3 * * *` | `NotificationOutboxRetentionService` | Clear terminal notification bodies after retention. |
-| `registration-intake-byte-purge` | Every minute | `RegistrationIntakeBytePurgeService` | Delete registration intake page bytes after apply (outbox claim). |
-| `registration-intake-expiry` | Every hour | `RegistrationIntakeExpiryService` | Abort unapplied registration intakes past TTL. |
-| `workshop-check-in-orphan-upload-cleanup` | Every minute | `WorkshopCheckInOrphanUploadCleanupService` | Purge unattached workshop check-in media (AUT-562; env gated). |
+| `autoscout24-dms-deactivation-retry` | Jede Minute | `Autoscout24DmsDeactivationRetryService` | Wiederholung von `DEACTIVATION_PENDING`-DMS-Sync-Zeilen für Fahrzeug-Inserate (env- und mandantenweiser Push-Flag-gated). |
+| `customer-consent-proof-purge` | `23 3 * * *` | `CustomerConsentRetentionService` | Abgelaufene Marketing-Einwilligungsnachweise pro Mandant löschen. |
+| `document-branding-extraction-recovery` | Jede Minute | `DocumentBrandingExtractionRecoveryService` | Hängende Logo-Extraktionen neu dispatchen und Retention-Cleanup. |
+| `document-branding-upload-recovery` | Jede Minute | `DocumentBrandingUploadRecoveryService` | Hängende Branding-Uploads erneut einreihen und abgelaufene Quarantäne-Assets purgen. |
+| `domain-event-consumer-recovery` | Jede Minute | `DomainEventConsumerRecoveryService` | Workshop-Estimate-Decided-Domain-Event-Consumer nachziehen. |
+| `hr-shift-close` | `59 23 * * *` | `HrAttendanceSchedulerService` | Nächtliches automatisches `CLOCK_OUT` für offene HR-Anwesenheitsschichten. |
+| `import-job-row-purge` | `31 3 * * *` | `ImportRetentionService` | Legacy-Import-Zeilenpayloads nach 180 Tagen pro Mandant löschen (Job-Header und External-IDs bleiben). |
+| `landing-demo-access-cleanup` | Täglich 03:00 | `LandingDemoAccessCleanupService` | Abgelaufene Demo-Mitgliedschaften und veraltete öffentliche Rate-Limit-Zähler deaktivieren. |
+| `mechanic-shift-close` | `59 23 * * *` | `MechanicSchedulerService` | Nächtliches automatisches Schließen offener Mechaniker-`LaborEntry`-Zeilen. |
+| `notification-outbox-recovery` | Jede Minute | `NotificationOutboxRecoveryService` | Veraltete Benachrichtigungen fehlschlagen lassen, abgelaufene Leases freigeben, fällige Outbox-Zeilen wecken. |
+| `notification-outbox-body-purge` | `17 3 * * *` | `NotificationOutboxRetentionService` | Terminal-Benachrichtigungsinhalte nach Retention leeren. |
+| `registration-intake-byte-purge` | Jede Minute | `RegistrationIntakeBytePurgeService` | Zulassungs-Intake-Seitenbytes nach Apply löschen (Outbox-Claim). |
+| `registration-intake-expiry` | Stündlich | `RegistrationIntakeExpiryService` | Nicht angewendete Zulassungs-Intakes nach TTL abbrechen. |
+| `workshop-check-in-orphan-upload-cleanup` | Jede Minute | `WorkshopCheckInOrphanUploadCleanupService` | Nicht verknüpfte Werkstatt-Annahme-Medien purgen (env-gated). |
 
-There are no `@Interval` schedulers in core-api today.
+Es gibt heute keine `@Interval`-Scheduler in core-api.
 
-## Idempotency notes
+## Hinweise zur Idempotenz
 
-Several jobs already tolerate a duplicate tick (conditional updates, row claims, or `FOR UPDATE` per row). The advisory lock prevents duplicate **full sweeps** across instances; per-tenant effects still rely on those existing guards where noted in feature specs (for example notification outbox claims and registration intake byte purge).
+Mehrere Jobs tolerieren bereits einen doppelten Tick (bedingte Updates, Row-Claims oder `FOR UPDATE` pro Zeile). Der Advisory-Lock verhindert doppelte **vollständige Sweeps** über Instanzen; mandantenweite Effekte verlassen sich weiterhin auf die bestehenden Guards, wo in Feature-Specs vermerkt (z. B. Notification-Outbox-Claims und Registration-Intake-Byte-Purge).

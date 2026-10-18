@@ -1,0 +1,27 @@
+---
+title: "Margin rules"
+description: "Set price-list margin rules that apply when importing supplier price lists."
+---
+
+**Margin rules** (*Margenregeln* in the German UI) define how purchase net prices become sell prices when you import vendor price lists into [Inventory](/en/workflows/inventory).
+
+Only **OWNER** and **ADMIN** members see this tab.
+
+<Steps>
+  <Step title="Open Margin rules">
+    Gear → **Margin rules**.
+  </Step>
+  <Step title="Define a rule">
+    Set the scope (brand, category, or default), margin type, and percentage or markup formula the import should apply.
+  </Step>
+  <Step title="Import a price list">
+    Run the price list import from inventory or procurement. Matching lines pick up the rule at import time.
+  </Step>
+  <Step title="Audit changes">
+    Use [Audit logs](/en/settings/audit-logs) if you need who changed a rule row.
+  </Step>
+</Steps>
+
+<Warning>
+Margin rules affect future imports. They do not rewrite prices on parts already received unless you run a new import or manual price edit.
+</Warning>

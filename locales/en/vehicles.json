@@ -146,5 +146,125 @@
       "warrantyEnds": "Warranty ends",
       "presumptionEnds": "Presumption period ends"
     }
+  },
+  "novaPreview": {
+    "title": "NoVA preview",
+    "firstRegistration": "First registration: {{value}}",
+    "co2Wltp": "CO₂ WLTP (g/km): {{value}}",
+    "co2Nedc": "CO₂ NEDC (g/km): {{value}}",
+    "typenschein": "Type approval no.: {{value}}",
+    "novaClass": "NoVA class: {{value}}",
+    "previewMode": "Preview mode",
+    "modeStandard": "Standard preview (tax event = today, tariff by event date)",
+    "modeEuUsedM1": "EU M1 used import 2024 (explicit; no automatic switch)",
+    "euSliceLegalBasis": "Legal basis: direct EU/EEA used import M1 (slice EU-M1-2024). First registration in the EU/EEA in calendar year 2024; tax event from that first registration through 31 Dec 2026. Tarif by EU first registration (at-m1-2024), value development per your input. This preview is not a NoVA registration or FinanzOnline export.",
+    "netPrice": "NoVA net price",
+    "netPriceAria": "NoVA net price",
+    "taxableEventDate": "Tax event (date)",
+    "taxableEventAria": "Tax event",
+    "valueDevelopment": "Value development",
+    "valueDevelopmentAria": "Value development",
+    "valueBasisAchtelung": "Eighths rule",
+    "valueBasisKnownNewNet": "Known new car net value",
+    "originalNewNet": "New car net value (€)",
+    "originalNewNetAria": "New car net value",
+    "calculate": "Calculate NoVA",
+    "calculating": "Calculating…",
+    "missingCo2": "CO₂ missing",
+    "calculatedNova": "Calculated NoVA",
+    "tariffVersion": "Tariff version: {{id}}",
+    "tariffSelection": "Tariff selection: {{basis}}{{dateSuffix}}",
+    "tariffSelectionDateSuffix": " ({{date}})",
+    "valueDevelopmentDetail": "Value development ({{basis}}): {{numerator}}/{{denominator}}, {{years}} full years since first registration",
+    "appliedRules": "Applied rules: {{rules}}",
+    "scopeLimited": "Preview limited — value development and EU import tariff not calculated",
+    "unverifiedRules": "Preview — tax adviser confirmation pending"
+  },
+  "dialog": {
+    "addTitle": "Add vehicle",
+    "editTitle": "Edit vehicle",
+    "make": "Make",
+    "model": "Model",
+    "year": "Year",
+    "plate": "License plate",
+    "vin": "VIN",
+    "engineCode": "Engine code",
+    "makePlaceholder": "Toyota",
+    "modelPlaceholder": "Corolla",
+    "customerOptional": "Customer (optional)",
+    "create": "Create vehicle",
+    "saveChanges": "Save changes",
+    "created": "Vehicle created",
+    "updated": "Vehicle updated",
+    "saveFailed": "Failed to save vehicle"
+  },
+  "pickerlSection": {
+    "title": "Pickerl (§57a)",
+    "subtitle": "Due date from first registration and recorded inspections",
+    "recordPickerl": "Record Pickerl",
+    "importInspection": "Import inspection",
+    "openOrder": "Open §57a order",
+    "checkingOrder": "Checking order…",
+    "createOrder": "Create §57a order",
+    "dueLabel": "Due:",
+    "unknownMonth": "Unknown",
+    "noInspectionRecorded": "No inspection recorded — please record the last sticker.",
+    "missingFirstRegistration": "First registration missing — due date cannot be calculated.",
+    "columns": {
+      "inspected": "Inspected",
+      "sticker": "Sticker",
+      "source": "Source",
+      "station": "Test station"
+    },
+    "loading": "Loading…",
+    "empty": "No inspection recorded yet.",
+    "sourceEbv": "EBV imported",
+    "sourceManual": "Manual"
+  },
+  "recordPickerlDialog": {
+    "title": "Record Pickerl",
+    "inspectedOn": "Inspected on",
+    "dueYear": "Sticker due year",
+    "dueMonth": "Month (1–12)",
+    "stationOptional": "Test station (optional)",
+    "notesOptional": "Note (optional)",
+    "saved": "Pickerl recorded",
+    "saveFailed": "Could not save Pickerl"
+  },
+  "inspectionImport": {
+    "title": "Import inspection",
+    "description": "Review external EBV result and apply once. Inspector qualification is not verified.",
+    "reference": "Result reference",
+    "status": "Status:",
+    "inspected": "Inspected:",
+    "stickerUntil": "Sticker valid until:",
+    "qualificationUnverified": "Qualification not verified",
+    "preview": "Preview",
+    "apply": "Apply",
+    "states": {
+      "READY_FOR_REVIEW": "Ready to apply",
+      "UNCONFIRMED": "Unconfirmed",
+      "CONFLICT": "Conflict — manual review required",
+      "APPLIED": "Applied",
+      "RECEIVED": "Received",
+      "REJECTED": "Rejected"
+    }
+  },
+  "gewaehrleistungSection": {
+    "title": "Warranty",
+    "b2b": "B2B — warranty per contract",
+    "dataUnknown": "Warranty data unknown.",
+    "noSale": "No completed vehicle sale warranty on file.",
+    "repairsNote": "Extensions from repairs are not tracked."
+  },
+  "gewaehrleistungFristen": {
+    "basisfrist": "Base period until {{date}}",
+    "presumption": "Presumption period until {{date}}",
+    "expired": "Expired"
+  },
+  "dashboardWidgets": {
+    "agedStockTitle": "Aged stock · over 90 days",
+    "agedStockCostBasis": "Cost basis {{amount}}",
+    "pickerlDueTitle": "Pickerl due in {{count}} days"
   }
 }

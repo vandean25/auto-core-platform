@@ -645,6 +645,7 @@ export class WorkshopEstimateService {
           tenantId: scope.tenantId,
           versionId,
           workshopOrderId: order.id,
+          controllerLegalEntityId: legalEntity.id,
           vehicle: order.vehicle,
           customer: order.customer,
           sellerName: legalEntity.name,

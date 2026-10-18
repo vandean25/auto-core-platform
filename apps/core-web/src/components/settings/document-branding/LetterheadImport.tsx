@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
   useCreateDocumentBrandExtraction,
@@ -59,6 +60,7 @@ export function LetterheadImport({
   enabled: boolean;
   onApply: (theme: DocumentBrandTheme, extractionId: string) => Promise<void>;
 }) {
+  const { t } = useTranslation("settings");
   const create = useCreateDocumentBrandExtraction();
   const discard = useDiscardDocumentBrandExtraction();
   const [viewState, setViewState] = React.useState(() =>
@@ -157,8 +159,11 @@ export function LetterheadImport({
         polling: job.state === "QUEUED" || job.state === "RUNNING",
       });
     } catch (error) {
-      toast.error("Letterhead extraction could not be started", {
-        description: error instanceof Error ? error.message : "Try again later.",
+      toast.error(t("documentBranding.letterheadImport.toast.startFailed"), {
+        description:
+          error instanceof Error
+            ? error.message
+            : t("documentBranding.letterheadImport.toast.tryLater"),
       });
     }
   };
@@ -183,8 +188,11 @@ export function LetterheadImport({
         pollingSuspended: true,
       });
     } catch (error) {
-      toast.error("Extraction could not be discarded", {
-        description: error instanceof Error ? error.message : "Try again.",
+      toast.error(t("documentBranding.letterheadImport.toast.discardFailed"), {
+        description:
+          error instanceof Error
+            ? error.message
+            : t("documentBranding.letterheadImport.toast.tryAgain"),
       });
     }
   };
@@ -195,10 +203,10 @@ export function LetterheadImport({
 
   return (
     <div className="space-y-2 rounded-md border border-dashed p-3">
-      <p className="text-sm font-medium">Letterhead suggestions</p>
+      <p className="text-sm font-medium">{t("documentBranding.letterheadImport.title")}</p>
       {!enabled ? (
         <p className="text-sm text-slate-500">
-          Assisted extraction is unavailable. You can configure the profile manually.
+          {t("documentBranding.letterheadImport.unavailable")}
         </p>
       ) : (
         <>
@@ -208,11 +216,13 @@ export function LetterheadImport({
             disabled={!sourceAssetId || create.isPending || !enabled}
             onClick={() => void start()}
           >
-            {create.isPending ? "Starting…" : "Extract suggestions"}
+            {create.isPending
+              ? t("documentBranding.letterheadImport.starting")
+              : t("documentBranding.letterheadImport.extract")}
           </Button>
           {!sourceAssetId ? (
             <p className="text-xs text-slate-500">
-              Upload and validate a PDF or PNG letterhead first.
+              {t("documentBranding.letterheadImport.uploadFirst")}
             </p>
           ) : null}
         </>
@@ -220,7 +230,9 @@ export function LetterheadImport({
       {job ? (
         <div className="space-y-2" aria-live="polite">
           <p className="text-sm text-slate-600">
-            Extraction: {job.state.toLowerCase()}
+            {t("documentBranding.letterheadImport.stateLine", {
+              state: t(`documentBranding.letterheadImport.states.${job.state}`),
+            })}
             {job.failureCode ? ` · ${job.failureCode}` : ""}
           </p>
           {job.warnings.length > 0 ? (
@@ -237,7 +249,7 @@ export function LetterheadImport({
                 disabled={!enabled || !proposal || job.baseRevision !== expectedRevision}
                 onClick={() => void onApply(proposal, job.id)}
               >
-                Use proposal in draft
+                {t("documentBranding.letterheadImport.useProposal")}
               </Button>
             </div>
           ) : null}
@@ -248,7 +260,9 @@ export function LetterheadImport({
               disabled={discard.isPending}
               onClick={() => void discardProposal()}
             >
-              {pending ? "Discard extraction" : "Discard proposal"}
+              {pending
+                ? t("documentBranding.letterheadImport.discardExtraction")
+                : t("documentBranding.letterheadImport.discardProposal")}
             </Button>
           ) : null}
           {pending && timedOut ? (
@@ -258,7 +272,7 @@ export function LetterheadImport({
               disabled={extraction.isFetching}
               onClick={() => void refresh()}
             >
-              Refresh extraction status
+              {t("documentBranding.letterheadImport.refreshStatus")}
             </Button>
           ) : null}
           {job.state === "FAILED" || job.state === "DISCARDED" ? (
@@ -268,19 +282,19 @@ export function LetterheadImport({
               disabled={!enabled || !sourceAssetId || create.isPending}
               onClick={() => void start()}
             >
-              Try a new extraction
+              {t("documentBranding.letterheadImport.tryNew")}
             </Button>
           ) : null}
           {job.state === "SUCCEEDED" && job.baseRevision !== expectedRevision ? (
             <p role="status" className="text-sm text-amber-800">
-              The profile changed after this extraction started. Start a new extraction from the current revision.
+              {t("documentBranding.letterheadImport.revisionChanged")}
             </p>
           ) : null}
         </div>
       ) : null}
       {extraction.error ? (
         <p role="alert" className="text-sm text-red-700">
-          Extraction status could not be loaded. Refresh to try again.
+          {t("documentBranding.letterheadImport.statusLoadFailed")}
         </p>
       ) : null}
     </div>

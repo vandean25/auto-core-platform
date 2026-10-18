@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 32" role="img" aria-label="Auto Core Platform">
+  <rect width="32" height="32" rx="6" fill="#0F172A"/>
+  <path fill="#38BDF8" d="M8 22v-8.2c0-1 .6-1.9 1.5-2.3l9-3.8c1.2-.5 2.5.4 2.5 1.7V22h-3.2v-9.1l-6.3 2.7V22H8z"/>
+  <path fill="#F8FAFC" d="M19.5 11.2 24 9.3c.9-.4 1.9.3 1.9 1.3V22h-3.2v-8.4l-3.2 1.4v7H19.5v-11.2z"/>
+  <text x="40" y="22" font-family="system-ui, sans-serif" font-size="15" font-weight="600" fill="#0F172A">Auto Core Platform</text>
+</svg>

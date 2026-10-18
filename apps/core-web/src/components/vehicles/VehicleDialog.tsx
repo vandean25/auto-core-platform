@@ -27,6 +27,7 @@ import {
   type VehicleNovaClass,
   type VehicleRegulatoryValues,
 } from '@/components/vehicles/VehicleRegulatorySection'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 interface VehicleDialogProps {
@@ -77,6 +78,7 @@ function regulatoryFromVehicle(
 }
 
 export function VehicleDialog({ vehicle, trigger, open: controlledOpen, onOpenChange }: VehicleDialogProps) {
+    const { t } = useTranslation(['vehicles', 'common'])
     const [open, setOpen] = useState(false)
     const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(vehicle?.customer || null)
     const isEdit = !!vehicle
@@ -108,16 +110,16 @@ export function VehicleDialog({ vehicle, trigger, open: controlledOpen, onOpenCh
 
             if (isEdit && vehicle) {
                 await updateMutation.mutateAsync({ id: vehicle.id, data: payload })
-                toast.success('Vehicle updated')
+                toast.success(t('vehicles:dialog.updated'))
             } else {
                 await createMutation.mutateAsync(payload)
-                toast.success('Vehicle created')
+                toast.success(t('vehicles:dialog.created'))
             }
             handleOpenChange(false)
             form.reset()
             setSelectedCustomer(null)
         } catch {
-            toast.error('Failed to save vehicle')
+            toast.error(t('vehicles:dialog.saveFailed'))
         }
     }
 
@@ -154,7 +156,7 @@ export function VehicleDialog({ vehicle, trigger, open: controlledOpen, onOpenCh
             {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
             <DialogContent className="sm:max-w-[600px]">
                 <DialogHeader>
-                    <DialogTitle>{isEdit ? 'Edit Vehicle' : 'Add Vehicle'}</DialogTitle>
+                    <DialogTitle>{isEdit ? t('vehicles:dialog.editTitle') : t('vehicles:dialog.addTitle')}</DialogTitle>
                 </DialogHeader>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -164,9 +166,9 @@ export function VehicleDialog({ vehicle, trigger, open: controlledOpen, onOpenCh
                                 name="make"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Make</FormLabel>
+                                        <FormLabel>{t('vehicles:dialog.make')}</FormLabel>
                                         <FormControl>
-                                            <Input {...field} placeholder="Toyota" required />
+                                            <Input {...field} placeholder={t('vehicles:dialog.makePlaceholder')} required />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -177,9 +179,9 @@ export function VehicleDialog({ vehicle, trigger, open: controlledOpen, onOpenCh
                                 name="model"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Model</FormLabel>
+                                        <FormLabel>{t('vehicles:dialog.model')}</FormLabel>
                                         <FormControl>
-                                            <Input {...field} placeholder="Corolla" required />
+                                            <Input {...field} placeholder={t('vehicles:dialog.modelPlaceholder')} required />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -193,7 +195,7 @@ export function VehicleDialog({ vehicle, trigger, open: controlledOpen, onOpenCh
                                 name="year"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Year</FormLabel>
+                                        <FormLabel>{t('vehicles:dialog.year')}</FormLabel>
                                         <FormControl>
                                             <Input type="number" min={1900} max={2100} {...field} required />
                                         </FormControl>
@@ -206,7 +208,7 @@ export function VehicleDialog({ vehicle, trigger, open: controlledOpen, onOpenCh
                                 name="plate"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>License Plate</FormLabel>
+                                        <FormLabel>{t('vehicles:dialog.plate')}</FormLabel>
                                         <FormControl>
                                             <Input {...field} />
                                         </FormControl>
@@ -222,7 +224,7 @@ export function VehicleDialog({ vehicle, trigger, open: controlledOpen, onOpenCh
                                 name="vin"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>VIN</FormLabel>
+                                        <FormLabel>{t('vehicles:dialog.vin')}</FormLabel>
                                         <FormControl>
                                             <Input {...field} />
                                         </FormControl>
@@ -235,7 +237,7 @@ export function VehicleDialog({ vehicle, trigger, open: controlledOpen, onOpenCh
                                 name="engine_code"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Engine Code</FormLabel>
+                                        <FormLabel>{t('vehicles:dialog.engineCode')}</FormLabel>
                                         <FormControl>
                                             <Input {...field} />
                                         </FormControl>
@@ -246,7 +248,7 @@ export function VehicleDialog({ vehicle, trigger, open: controlledOpen, onOpenCh
                         </div>
 
                         <div className="space-y-2">
-                            <FormLabel>Customer (Optional)</FormLabel>
+                            <FormLabel>{t('vehicles:dialog.customerOptional')}</FormLabel>
                             <CustomerSearch
                                 value={selectedCustomer}
                                 onChange={setSelectedCustomer}
@@ -263,10 +265,10 @@ export function VehicleDialog({ vehicle, trigger, open: controlledOpen, onOpenCh
 
                         <div className="flex justify-end gap-2 pt-4">
                             <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
-                                Cancel
+                                {t('common:actions.cancel')}
                             </Button>
                             <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                                {isEdit ? 'Save Changes' : 'Create Vehicle'}
+                                {isEdit ? t('vehicles:dialog.saveChanges') : t('vehicles:dialog.create')}
                             </Button>
                         </div>
                     </form>

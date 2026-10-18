@@ -43,9 +43,9 @@ The wizard can download entity templates and error-row CSVs. Marketing-consent c
 - `invalid_vat_as_error` (customers)
 - Supplier price list options (`vendor_id`, price-jump acceptance) apply only to `SUPPLIER_PRICE_LIST`.
 
-## Follow-ups
+## Retention
 
-- Import job row retention cleanup (default retention constant: 180 days)
+Applied import jobs keep their header row and `external_id_mappings` for reconciliation. Row payloads (`import_job_rows`, including normalized CSV fields) are purged on a daily schedule when `status` is `APPLIED` and `appliedAt` is strictly older than **180 days** (`IMPORT_JOB_RETENTION_DAYS`). Dry-run, in-progress, failed, and cancelled jobs are never purged (no finish timestamp without a schema change). Job totals on `import_jobs` are not changed.
 
 ## Release notes
 

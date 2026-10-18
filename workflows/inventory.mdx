@@ -1,22 +1,25 @@
 ---
-title: "Inventory"
-description: "Create the part, see on-hand, and read the ledger instead of guessing the count."
+title: "Lager"
+description: "Artikel anlegen, Bestand einsehen und das Bestandsbuch lesen — statt Mengen zu schätzen."
 ---
 
-**Inventory** lists parts: status, SKU + brand, description, price. Search: **Search parts...** Top-right: **+ Item**. Click the row. A right-hand **Item Details** sheet opens — that panel is preview-only and does not save.
+**Lager** listet Teile: Status, SKU und Marke, Bezeichnung, Preis. Suche: **Teile suchen…** Oben rechts: **+ Artikel**. Klicken Sie auf die Zeile, um das **Bestandsbuch** für diese SKU zu öffnen.
 
 <Steps>
-  <Step title="Add a part">
-    **+ Item**. Brand comes from [part manufacturers](/settings/brands). Revenue group from [finance groups](/settings/revenue-groups).
+  <Step title="Teil anlegen">
+    **+ Artikel**. Die Marke stammt aus [Marken](/settings/brands) (Teilehersteller). Die Erlösgruppe aus [Erlösgruppen](/settings/revenue-groups).
   </Step>
-  <Step title="Stock lives on a bin">
-    On-hand is per [storage location](/settings/storage-locations). Receiving a PO and issuing an invoice both write ledger rows. You do not type a new quantity into a cell.
+  <Step title="Bestand liegt am Lagerort">
+    Der Bestand gilt pro [Lagerort](/settings/storage-locations). Wareneingang aus einer Bestellung und Ausgang bei Rechnungsstellung schreiben beide Buchungen ins Bestandsbuch. Sie geben keine neue Menge direkt in eine Zelle ein.
   </Step>
-  <Step title="Show Ledger">
-    On the sheet, **Show Ledger**. Rows include Purchase Receipt, Sale Issue, Adjustment, Transfer In/Out, Initial Balance, Workshop Consumption.
+  <Step title="Einbuchen, korrigieren oder bearbeiten im Bestandsbuch">
+    Im Bestandsbuch erhalten OWNER/ADMIN **Einbuchen** (Wareneingang in einen Lagerplatz), **Korrigieren** (vorzeichenbehaftete Korrektur mit Begründung) und **Bearbeiten** (Katalogfelder). Jede Aktion erzeugt nachvollziehbare Buchungszeilen.
+  </Step>
+  <Step title="Buchungstabelle lesen">
+    Das Bestandsbuch listet Wareneingang, Verkaufsausgang, Korrektur, Umlagerung (Eingang/Ausgang), Anfangsbestand, Werkstattverbrauch und verwandte Bewegungsarten.
   </Step>
 </Steps>
 
 <Warning>
-The catalog item is not hard-deleted. History hangs on that identity. Use supersession / inactive instead of wiping the SKU.
+Der Katalogartikel wird nicht hart gelöscht. Die Historie hängt an dieser Identität. Nutzen Sie Nachfolger oder Inaktiv statt die SKU zu entfernen.
 </Warning>

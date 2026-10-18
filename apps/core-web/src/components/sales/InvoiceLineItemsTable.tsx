@@ -1,4 +1,5 @@
 import { Plus, Search, Trash2 } from "lucide-react"
+import { useTranslation } from 'react-i18next'
 
 import type { InvoiceEditorItem } from "@/hooks/useInvoiceEditor"
 import { Button } from "@/components/ui/button"
@@ -27,17 +28,19 @@ export function InvoiceLineItemsTable({
   onOpenPartSearch,
   onAddItem,
 }: InvoiceLineItemsTableProps) {
+  const { t } = useTranslation('sales')
+
   return (
     <div className="mb-12">
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead className="w-[50px]"></TableHead>
-            <TableHead className="w-[40%]">Item / Description</TableHead>
-            <TableHead className="w-[100px]">Qty</TableHead>
-            <TableHead className="w-[120px]">Price (€)</TableHead>
-            <TableHead className="w-[100px]">Tax (%)</TableHead>
-            <TableHead className="text-right">Total</TableHead>
+            <TableHead className="w-[40%]">{t('invoiceEditor.lineItemsTable.description')}</TableHead>
+            <TableHead className="w-[100px]">{t('invoiceEditor.lineItemsTable.qty')}</TableHead>
+            <TableHead className="w-[120px]">{t('invoiceEditor.lineItemsTable.price')}</TableHead>
+            <TableHead className="w-[100px]">{t('invoiceEditor.lineItemsTable.tax')}</TableHead>
+            <TableHead className="text-right">{t('invoiceEditor.lineItemsTable.total')}</TableHead>
             <TableHead className="w-[50px]"></TableHead>
           </TableRow>
         </TableHeader>
@@ -52,14 +55,14 @@ export function InvoiceLineItemsTable({
                   <Input
                     value={item.description}
                     onChange={(e) => onUpdateItem(index, { description: e.target.value })}
-                    placeholder="Service or Item Name"
+                    placeholder={t('invoiceEditor.lineItemsTable.descriptionPlaceholder')}
                     className="pr-10"
                   />
                   <Button
                     variant="ghost"
                     size="icon"
                     className="absolute right-0 top-0 h-full text-muted-foreground hover:text-foreground"
-                    aria-label={`Search part for line ${index + 1}`}
+                    aria-label={t('invoiceEditor.lineItemsTable.searchPartAria', { index: index + 1 })}
                     onClick={() => onOpenPartSearch(index)}
                   >
                     <Search className="h-4 w-4" />
@@ -96,7 +99,7 @@ export function InvoiceLineItemsTable({
                 €{((item.quantity * item.unit_price) * (1 + item.tax_rate / 100)).toFixed(2)}
               </TableCell>
               <TableCell>
-                <Button variant="ghost" size="icon" aria-label={`Remove line ${index + 1}`} onClick={() => onRemoveItem(index)}>
+                <Button variant="ghost" size="icon" aria-label={t('invoiceEditor.lineItemsTable.removeLineAria', { index: index + 1 })} onClick={() => onRemoveItem(index)}>
                   <Trash2 className="h-4 w-4 text-destructive opacity-50 hover:opacity-100" />
                 </Button>
               </TableCell>
@@ -106,7 +109,7 @@ export function InvoiceLineItemsTable({
       </Table>
 
       <Button variant="outline" className="mt-4" onClick={onAddItem}>
-        <Plus className="mr-2 h-4 w-4" /> Add Line Item
+        <Plus className="mr-2 h-4 w-4" /> {t('invoiceEditor.lineItemsTable.addLine')}
       </Button>
     </div>
   )

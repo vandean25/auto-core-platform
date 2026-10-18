@@ -1,0 +1,48 @@
+---
+title: "Workshop KPIs"
+description: "Compare labor utilisation and parts turnover for one workshop site."
+---
+
+**Workshop KPIs** reports how much workshop time was available, clocked, and sold, and how parts inventory moved in a date range.
+
+**OWNER**, **ADMIN**, and **SALES** roles see the sidebar entry. Other roles do not.
+
+<Steps>
+  <Step title="Open Workshop KPIs">
+    Sidebar → **Workshop KPIs**.
+  </Step>
+  <Step title="Choose site and period">
+    Pick **Site**, **From**, **To**, and **Group by** (mechanic, week, or month).
+  </Step>
+  <Step title="Export CSV">
+    Click **Export CSV** to download labor performance, parts turnover, and slow-moving parts.
+  </Step>
+</Steps>
+
+<CardGroup cols={2}>
+  <Card title="Labor performance" icon="wrench">
+    **Available** hours from schedules minus absences and full-day holidays. **Utilisation** is clocked ÷ available. **Productivity** is sold hours from finalized invoice lines ÷ clocked hours. **Avg. net/order** divides net revenue on finalized workshop invoices by closed orders.
+  </Card>
+  <Card title="Parts turnover" icon="package">
+    **Issued cost** from workshop consumption in the period. **Avg. stock value** averages daily valued stock. **Turnover** is issued cost ÷ average stock. Up to ten parts with no consumption in 90 days appear as slow movers.
+  </Card>
+</CardGroup>
+
+<Check>
+You only see sites where you have an active site membership. Date boundaries use the selected site time zone. A single report spans at most 366 calendar days.
+</Check>
+
+<AccordionGroup>
+  <Accordion title="Open labor time entries">
+    Time entries without an end time do not count toward clocked hours. The report shows open entry counts separately.
+  </Accordion>
+  <Accordion title="Schedule version changes">
+    Each day uses the schedule version that starts on that date. The site on that version decides which site receives available hours.
+  </Accordion>
+  <Accordion title="Blank percentages or stock value">
+    When available or clocked hours are zero, utilisation and productivity stay empty. Unvalued stock is not guessed; the report lists unvalued items separately.
+  </Accordion>
+  <Accordion title="CSV format">
+    The export uses semicolon separators and dot decimals. It includes labor rows, a total row, parts turnover summary, slow-mover lines, and metadata (time zone, grouping, unassigned mechanics).
+  </Accordion>
+</AccordionGroup>

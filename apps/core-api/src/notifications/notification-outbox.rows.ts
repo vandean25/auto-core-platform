@@ -3,6 +3,7 @@ import {
   NotificationChannel,
   NotificationMessageClass,
   NotificationOutboxStatus,
+  type CustomerConsentPurpose,
   type NotificationEventType,
   type NotificationRecipientKind,
   type Prisma,
@@ -35,6 +36,14 @@ export interface EnqueueNotificationInput {
   email?: EmailDraft;
   /** When set, a marketing unsubscribe token is minted and appended to the email body. */
   marketingUnsubscribe?: MarketingUnsubscribeEmailContext;
+  /** Required for customer EMAIL rows; drives canContact before enqueue (AUT-610). */
+  consentPurpose?: CustomerConsentPurpose;
+  /**
+   * Sender controller for consent ledger lookup. When omitted, the guard uses this id only if the
+   * tenant has exactly one active legal entity; otherwise consent blocks with NO_CONTACT_POINT.
+   * Workshop customer email callers should pass the seller legal entity id explicitly.
+   */
+  controllerLegalEntityId?: string;
 }
 
 /** Event, occurrence, recipient and channel: a repeated write for the same key is a no-op. */

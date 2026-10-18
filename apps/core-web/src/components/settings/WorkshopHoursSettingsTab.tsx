@@ -1,6 +1,7 @@
 import * as React from 'react'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { Loader2, Save } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { useAuthSession } from '@/api/auth-session'
@@ -31,16 +32,9 @@ import {
 } from '@/components/ui/select'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { getErrorMessage } from '@/lib/error-utils'
+import { formatIsoDateOnly } from '@/lib/format'
 
-const WEEKDAY_LABELS: Record<number, string> = {
-  1: 'Monday',
-  2: 'Tuesday',
-  3: 'Wednesday',
-  4: 'Thursday',
-  5: 'Friday',
-  6: 'Saturday',
-  7: 'Sunday',
-}
+type WeekdayNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7
 
 const SLOT_MINUTES = [15, 30, 60] as const
 
@@ -88,8 +82,8 @@ function settingsToFormState(settings: WorkshopSettingsResponse): SettingsFormSt
   }
 }
 
-function formatHolidayHours(holiday: WorkshopHoliday): string {
-  if (holiday.isClosed) return 'Closed'
+function formatHolidayHours(holiday: WorkshopHoliday, closedLabel: string): string {
+  if (holiday.isClosed) return closedLabel
   if (holiday.openTime && holiday.closeTime) {
     return `${holiday.openTime} – ${holiday.closeTime}`
   }
@@ -101,6 +95,7 @@ function canManageWorkshopHours(activeRole?: string | null): boolean {
 }
 
 export function WorkshopHoursSettingsTab() {
+  const { t } = useTranslation('settings')
   const sessionQuery = useAuthSession()
   const canManage = canManageWorkshopHours(sessionQuery.data?.activeRole)
 
@@ -134,11 +129,13 @@ export function WorkshopHoursSettingsTab() {
         holiday.name,
         holiday.observedOn,
         holiday.source,
-        holiday.repeatsAnnually ? 'annual' : 'one-off',
-        formatHolidayHours(holiday),
+        holiday.repeatsAnnually ? t('workshopHours.holidays.yes') : t('workshopHours.holidays.no'),
+        formatHolidayHours(holiday, t('workshopHours.holidays.closedLabel')),
       ].some((value) => value.toLowerCase().includes(term)),
     )
-  }, [holidaysResponse?.data, queryParams.search])
+  }, [holidaysResponse?.data, queryParams.search, t])
+
+  const closedLabel = t('workshopHours.holidays.closedLabel')
 
   const sortedHolidays = React.useMemo(() => {
     const field = queryParams.sortField
@@ -149,14 +146,14 @@ export function WorkshopHoursSettingsTab() {
         return direction * (Number(left.repeatsAnnually) - Number(right.repeatsAnnually))
       }
       const leftValue = String(
-        field === 'hours' ? formatHolidayHours(left) : left[field as keyof WorkshopHoliday] ?? '',
+        field === 'hours' ? formatHolidayHours(left, closedLabel) : left[field as keyof WorkshopHoliday] ?? '',
       )
       const rightValue = String(
-        field === 'hours' ? formatHolidayHours(right) : right[field as keyof WorkshopHoliday] ?? '',
+        field === 'hours' ? formatHolidayHours(right, closedLabel) : right[field as keyof WorkshopHoliday] ?? '',
       )
       return direction * leftValue.localeCompare(rightValue)
     })
-  }, [filteredHolidays, queryParams.sortDirection, queryParams.sortField])
+  }, [closedLabel, filteredHolidays, queryParams.sortDirection, queryParams.sortField])
 
   const pageSize = queryParams.pageSize
   const pageCount = Math.max(1, Math.ceil(sortedHolidays.length / pageSize))
@@ -190,7 +187,11 @@ export function WorkshopHoursSettingsTab() {
 
     for (const hour of formState.openingHours) {
       if (!hour.isClosed && hour.closeTime <= hour.openTime) {
-        toast.error(`${WEEKDAY_LABELS[hour.weekday]} close time must be after open time`)
+        toast.error(
+          t('workshopHours.toast.closeTimeInvalid', {
+            day: t(`workshopHours.weekdays.${hour.weekday as WeekdayNumber}`),
+          }),
+        )
         return
       }
     }
@@ -211,9 +212,9 @@ export function WorkshopHoursSettingsTab() {
     try {
       const saved = await updateSettingsMutation.mutateAsync(payload)
       setFormState(settingsToFormState(saved))
-      toast.success('Workshop hours saved')
+      toast.success(t('workshopHours.toast.saved'))
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, 'Failed to save workshop hours'))
+      toast.error(getErrorMessage(error, t('workshopHours.toast.saveFailed')))
     }
   }
 
@@ -223,10 +224,13 @@ export function WorkshopHoursSettingsTab() {
     try {
       const result = await importHolidaysMutation.mutateAsync({})
       toast.success(
-        `Imported ${result.imported} public holidays (${result.skipped} skipped)`,
+        t('workshopHours.toast.importSuccess', {
+          imported: result.imported,
+          skipped: result.skipped,
+        }),
       )
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, 'Failed to import public holidays'))
+      toast.error(getErrorMessage(error, t('workshopHours.toast.importFailed')))
     }
   }
 
@@ -235,9 +239,9 @@ export function WorkshopHoursSettingsTab() {
 
     try {
       await deleteHolidayMutation.mutateAsync(id)
-      toast.success('Holiday deleted')
+      toast.success(t('workshopHours.toast.holidayDeleted'))
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, 'Failed to delete holiday'))
+      toast.error(getErrorMessage(error, t('workshopHours.toast.holidayDeleteFailed')))
     }
   }
 
@@ -255,39 +259,41 @@ export function WorkshopHoursSettingsTab() {
     () => [
       {
         accessorKey: 'name',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Name' />,
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('workshopHours.holidays.columns.name')} />,
         cell: ({ row }) => row.original.name,
       },
       {
         accessorKey: 'observedOn',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Date' />,
-        cell: ({ row }) => row.original.observedOn,
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('workshopHours.holidays.columns.date')} />,
+        cell: ({ row }) => formatIsoDateOnly(row.original.observedOn),
       },
       {
         accessorKey: 'repeatsAnnually',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Annual' />,
-        cell: ({ row }) => (row.original.repeatsAnnually ? 'Yes' : 'No'),
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('workshopHours.holidays.columns.annual')} />,
+        cell: ({ row }) => (row.original.repeatsAnnually
+            ? t('workshopHours.holidays.yes')
+            : t('workshopHours.holidays.no')),
       },
       {
         id: 'hours',
-        header: 'Hours',
-        cell: ({ row }) => formatHolidayHours(row.original),
+        header: t('workshopHours.holidays.columns.hours'),
+        cell: ({ row }) => formatHolidayHours(row.original, closedLabel),
       },
       {
         accessorKey: 'source',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Source' />,
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('workshopHours.holidays.columns.source')} />,
         cell: ({ row }) => (
           <Badge variant='outline'>{row.original.source}</Badge>
         ),
       },
     ],
-    [],
+    [closedLabel, t],
   )
 
   if (isSettingsError) {
     return (
       <p className='text-sm text-destructive'>
-        Failed to load workshop hours. Refresh and try again.
+        {t('workshopHours.loadFailed')}
       </p>
     )
   }
@@ -305,15 +311,15 @@ export function WorkshopHoursSettingsTab() {
       <form onSubmit={handleSaveSettings} className='space-y-6'>
         <div className='p-6 bg-white border rounded-lg shadow-sm space-y-6'>
           <div>
-            <h3 className='text-lg font-medium'>Workshop hours</h3>
+            <h3 className='text-lg font-medium'>{t('workshopHours.title')}</h3>
             <p className='text-sm text-muted-foreground'>
-              Opening hours and holidays drive the Workshop Planner grid. Slot size sets the day-view column width.
+              {t('workshopHours.description')}
             </p>
           </div>
 
           <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-4'>
             <div className='space-y-2'>
-              <Label htmlFor='workshop-timezone'>Timezone</Label>
+              <Label htmlFor='workshop-timezone'>{t('workshopHours.timezone')}</Label>
               <Input
                 id='workshop-timezone'
                 value={formState.timezone}
@@ -334,7 +340,7 @@ export function WorkshopHoursSettingsTab() {
             </div>
 
             <div className='space-y-2'>
-              <Label htmlFor='workshop-slot-minutes'>Slot size (minutes)</Label>
+              <Label htmlFor='workshop-slot-minutes'>{t('workshopHours.slotMinutes')}</Label>
               <Select
                 value={String(formState.slotMinutes)}
                 disabled={!canManage}
@@ -352,7 +358,7 @@ export function WorkshopHoursSettingsTab() {
                 <SelectContent>
                   {SLOT_MINUTES.map((minutes) => (
                     <SelectItem key={minutes} value={String(minutes)}>
-                      {minutes} minutes
+                      {t('workshopHours.slotMinutesOption', { minutes })}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -360,7 +366,7 @@ export function WorkshopHoursSettingsTab() {
             </div>
 
             <div className='space-y-2'>
-              <Label htmlFor='workshop-country'>Holiday country (ISO)</Label>
+              <Label htmlFor='workshop-country'>{t('workshopHours.holidayCountry')}</Label>
               <Input
                 id='workshop-country'
                 value={formState.holidayCountryIso}
@@ -377,12 +383,12 @@ export function WorkshopHoursSettingsTab() {
             </div>
 
             <div className='space-y-2'>
-              <Label htmlFor='workshop-subdivision'>Subdivision code (optional)</Label>
+              <Label htmlFor='workshop-subdivision'>{t('workshopHours.subdivision')}</Label>
               <Input
                 id='workshop-subdivision'
                 value={formState.holidaySubdivisionCode}
                 disabled={!canManage}
-                placeholder='DE-BY'
+                placeholder={t('workshopHours.subdivisionPlaceholder')}
                 onChange={(event) => {
                   setFormState((previous) =>
                     previous
@@ -395,14 +401,14 @@ export function WorkshopHoursSettingsTab() {
           </div>
 
           <div className='space-y-3'>
-            <h4 className='text-sm font-medium'>Weekdays</h4>
+            <h4 className='text-sm font-medium'>{t('workshopHours.weekdaysTitle')}</h4>
             <div className='space-y-2'>
               {formState.openingHours.map((hour) => (
                 <div
                   key={hour.weekday}
                   className='grid gap-3 items-center md:grid-cols-[140px_120px_1fr_1fr] border rounded-md p-3'
                 >
-                  <span className='text-sm font-medium'>{WEEKDAY_LABELS[hour.weekday]}</span>
+                  <span className='text-sm font-medium'>{t(`workshopHours.weekdays.${hour.weekday as WeekdayNumber}`)}</span>
                   <div className='flex items-center gap-2'>
                     <Checkbox
                       id={`weekday-closed-${hour.weekday}`}
@@ -412,7 +418,7 @@ export function WorkshopHoursSettingsTab() {
                         updateOpeningHour(hour.weekday, { isClosed: checked === true })
                       }}
                     />
-                    <Label htmlFor={`weekday-closed-${hour.weekday}`}>Closed</Label>
+                    <Label htmlFor={`weekday-closed-${hour.weekday}`}>{t('workshopHours.closed')}</Label>
                   </div>
                   <Input
                     type='time'
@@ -443,7 +449,7 @@ export function WorkshopHoursSettingsTab() {
                 ) : (
                   <Save className='mr-2 h-4 w-4' />
                 )}
-                Save hours
+                {t('workshopHours.saveHours')}
               </Button>
             </div>
           ) : null}
@@ -453,9 +459,9 @@ export function WorkshopHoursSettingsTab() {
       <div className='p-6 bg-white border rounded-lg shadow-sm space-y-4'>
         <div className='flex items-center justify-between gap-4'>
           <div>
-            <h3 className='text-lg font-medium'>Holidays</h3>
+            <h3 className='text-lg font-medium'>{t('workshopHours.holidays.title')}</h3>
             <p className='text-sm text-muted-foreground'>
-              Closed or short days override weekday hours on the planner. Public holidays from OpenHolidays API.
+              {t('workshopHours.holidays.description')}
             </p>
           </div>
           {canManage ? (
@@ -468,9 +474,13 @@ export function WorkshopHoursSettingsTab() {
                   void handleImportHolidays()
                 }}
               >
-                {importHolidaysMutation.isPending ? 'Importing...' : 'Import public holidays'}
+                {importHolidaysMutation.isPending
+                  ? t('workshopHours.holidays.importing')
+                  : t('workshopHours.holidays.import')}
               </Button>
-              <Button type='button' onClick={openCreateHoliday}>+ Holiday</Button>
+              <Button type='button' onClick={openCreateHoliday}>
+                {t('workshopHours.holidays.createButton')}
+              </Button>
             </div>
           ) : null}
         </div>
@@ -480,14 +490,14 @@ export function WorkshopHoursSettingsTab() {
           data={pagedHolidays}
           pageCount={pageCount}
           isLoading={isLoadingHolidays}
-          searchPlaceholder='Search holidays...'
+          searchPlaceholder={t('workshopHours.holidays.searchPlaceholder')}
           setPagination={setPagination}
           onRowClick={canManage ? openEditHoliday : undefined}
           getRowContextActions={
             canManage
               ? (row) => [
                   {
-                    label: 'Delete',
+                    label: t('workshopHours.holidays.delete'),
                     destructive: true,
                     onClick: () => {
                       void handleDeleteHoliday(row.id)

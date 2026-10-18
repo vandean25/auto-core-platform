@@ -1,0 +1,1280 @@
+{
+  "page": {
+    "title": "Einstellungen",
+    "description": "Plattformkonfiguration, Stammdaten und Lagerorte verwalten."
+  },
+  "tabs": {
+    "finance": "Finanzen",
+    "voiceTranslation": "Sprachübersetzung",
+    "revenueGroups": "Erlösgruppen",
+    "brands": "Marken",
+    "legalEntities": "Rechtsträger",
+    "sites": "Standorte",
+    "locations": "Lagerorte",
+    "employees": "Mitarbeiter",
+    "bays": "Arbeitsplätze",
+    "hours": "Öffnungszeiten",
+    "labor": "Arbeit",
+    "vehicleData": "Fahrzeugdaten",
+    "marginRules": "Margenregeln",
+    "dataImport": "Datenimport",
+    "team": "Team",
+    "apiKeys": "API-Schlüssel",
+    "auditLogs": "Audit-Logs"
+  },
+  "employees": {
+    "title": "Mitarbeiter",
+    "description": "Werkstattpersonal für Zuweisungen verwalten.",
+    "createButton": "+ Mitarbeiter"
+  },
+  "finance": {
+    "subTabs": {
+      "fiscal": "Fiskalsteuerung",
+      "accountingExport": "Buchhaltungsexport"
+    },
+    "fiscal": {
+      "title": "Fiskalsteuerung",
+      "lockDate": "Sperrdatum",
+      "lockDateHint": "Buchungen an oder vor diesem Datum können nicht mehr geändert werden."
+    },
+    "invoicing": {
+      "title": "Rechnungsnummern",
+      "prefix": "Präfix",
+      "nextNumber": "Nächste Nummer"
+    },
+    "saveChanges": "Änderungen speichern",
+    "toast": {
+      "updated": "Einstellungen aktualisiert",
+      "updateFailed": "Einstellungen konnten nicht aktualisiert werden"
+    },
+    "lockDialog": {
+      "title": "Fiskalsperre bestätigen",
+      "description": "Wenn Sie das Sperrdatum auf ein späteres Datum setzen, können Buchungen im bisherigen Zeitraum dauerhaft nicht mehr geändert werden. Das kann abgeschlossene Auswertungen betreffen. Möchten Sie fortfahren?",
+      "confirm": "Sperre bestätigen"
+    }
+  },
+  "revenueGroups": {
+    "title": "Erlösgruppen",
+    "description": "Erlöse für Buchhaltung und Steuerbericht kategorisieren.",
+    "addDialog": {
+      "trigger": "Gruppe",
+      "title": "Erlösgruppe anlegen",
+      "name": "Name",
+      "namePlaceholder": "z. B. Ersatzteile 20 %",
+      "taxRate": "Steuersatz (%)",
+      "accountNumber": "Kontonummer",
+      "accountPlaceholder": "4000",
+      "defaultCheckbox": "Als Standard für neue Artikel setzen",
+      "creating": "Wird angelegt…",
+      "create": "Gruppe anlegen"
+    },
+    "toast": {
+      "created": "Erlösgruppe angelegt",
+      "createFailed": "Erlösgruppe konnte nicht angelegt werden"
+    },
+    "table": {
+      "name": "Name",
+      "taxRate": "Steuersatz",
+      "accountNumber": "Kontonummer",
+      "default": "Standard",
+      "defaultBadge": "Standard"
+    }
+  },
+  "brands": {
+    "title": "Marken",
+    "description": "Zentral verwaltete Fahrzeugmarken und Teilehersteller.",
+    "addDialog": {
+      "trigger": "Marke",
+      "editTitle": "Marke bearbeiten",
+      "addTitle": "Marke anlegen",
+      "name": "Name",
+      "namePlaceholder": "z. B. Volkswagen, Bosch",
+      "typesLabel": "Markentypen",
+      "vehicleMake": "Fahrzeugmarke (OEM)",
+      "partManufacturer": "Teilehersteller (Aftermarket)",
+      "logoUrl": "Logo-URL (optional)",
+      "saveChanges": "Änderungen speichern",
+      "create": "Marke anlegen",
+      "logoUrlPlaceholder": "https://…"
+    },
+    "toast": {
+      "typeRequired": "Marke muss mindestens einen Typ haben",
+      "updated": "Marke aktualisiert",
+      "created": "Marke angelegt",
+      "saveFailed": "Marke konnte nicht gespeichert werden",
+      "deleted": "Marke gelöscht",
+      "deleteFailed": "Marke konnte nicht gelöscht werden"
+    },
+    "table": {
+      "logo": "Logo",
+      "name": "Name",
+      "type": "Typ",
+      "actions": "Aktionen",
+      "vehicleMakeBadge": "Fahrzeugmarke",
+      "partManufacturerBadge": "Teilehersteller",
+      "deleteConfirm": "Möchten Sie diese Marke wirklich löschen?",
+      "editAria": "Marke {{name}} bearbeiten",
+      "deleteAria": "Marke {{name}} löschen"
+    },
+    "combobox": {
+      "loading": "Laden…",
+      "placeholder": "Marke wählen…",
+      "search": "Marke suchen…",
+      "empty": "Keine Marke gefunden."
+    },
+    "multiSelect": {
+      "defaultAria": "Marken wählen",
+      "search": "Marken suchen…",
+      "empty": "Keine Marke gefunden.",
+      "loading": "Marken werden geladen…",
+      "placeholder": "Unterstützte Marken wählen…",
+      "removeAria": "{{name}} entfernen"
+    }
+  },
+  "storageLocations": {
+    "title": "Lagerorte",
+    "description": "Hierarchische Lagerplätze für Ihr Lager verwalten.",
+    "loading": "Hierarchie wird geladen…",
+    "empty": "Keine Lagerorte gefunden. Legen Sie Ihr erstes Lager an.",
+    "add": {
+      "title": "Lagerort anlegen",
+      "description": "Neue Lagereinheit anlegen."
+    },
+    "form": {
+      "name": "Name",
+      "namePlaceholder": "z. B. Hauptlager",
+      "code": "Code (eindeutig)",
+      "codePlaceholder": "z. B. WH-001",
+      "type": "Typ",
+      "parent": "Übergeordneter Lagerort",
+      "parentNone": "Keiner (Stamm)",
+      "parentSelect": "Übergeordneten Ort wählen",
+      "submit": "Lagerort anlegen"
+    },
+    "types": {
+      "warehouse": "Lager",
+      "aisle": "Gang",
+      "shelf": "Regal",
+      "bin": "Fach",
+      "customer_storage": "Kundenlager",
+      "staging_tote": "Bereitstellungsbox"
+    },
+    "deleteConfirm": "{{name}} löschen?",
+    "deleteAria": "Lagerort {{name}} ({{code}}) löschen",
+    "toast": {
+      "created": "Lagerort angelegt",
+      "createFailed": "Lagerort konnte nicht angelegt werden",
+      "deleted": "Lagerort gelöscht",
+      "deleteFailed": "Lagerort konnte nicht gelöscht werden"
+    }
+  },
+  "marginRules": {
+    "title": "Margenregeln",
+    "description": "Regeln zur automatischen Berechnung von Verkaufspreisen basierend auf Einkaufspreisen, Marken und Erlösgruppen.",
+    "createButton": "+ Margenregel",
+    "priceJump": {
+      "title": "Schwellenwert für Preissprünge",
+      "description": "Definiert den maximalen prozentualen Preissprung vor Warnung und Genehmigungserfordernis beim Preislistenimport.",
+      "label": "Schwellenwert (%)",
+      "save": "Schwellenwert speichern",
+      "toastUpdated": "Schwellenwert für Preissprünge aktualisiert",
+      "toastSaveFailed": "Fehler beim Speichern des Schwellenwerts"
+    },
+    "activeRules": {
+      "title": "Aktive Regeln",
+      "description": "Regeln werden von oben nach unten (niedrigste Priorität zuerst) ausgewertet. Die erste passende Regel greift."
+    },
+    "columns": {
+      "sortPriorityAria": "Priorität sortieren",
+      "priority": "Prio",
+      "name": "Bezeichnung",
+      "brand": "Marke",
+      "revenueGroup": "Erlösgruppe",
+      "costRange": "EK-Bereich",
+      "markup": "Aufschlag",
+      "useRrp": "UVP verwenden",
+      "rounding": "Rundung",
+      "status": "Status",
+      "actions": "Aktionen"
+    },
+    "loading": "Lade Margenregeln…",
+    "empty": "Keine Margenregeln definiert. Erstellen Sie eine neue Regel mit \"+ Margenregel\".",
+    "costRange": {
+      "all": "Alle",
+      "from": "ab {{amount}}",
+      "to": "bis {{amount}}",
+      "between": "{{min}} – {{max}}"
+    },
+    "yes": "Ja",
+    "no": "Nein",
+    "status": {
+      "active": "Aktiv",
+      "inactive": "Inaktiv"
+    },
+    "editAria": "Bearbeiten {{name}}",
+    "deleteAria": "Löschen {{name}}",
+    "dialog": {
+      "editTitle": "Margenregel bearbeiten",
+      "createTitle": "Neue Margenregel anlegen",
+      "description": "Legen Sie Bedingungen und Margenaufschläge für diese Regel fest."
+    },
+    "form": {
+      "name": "Bezeichnung *",
+      "namePlaceholder": "z.B. Bosch Verschleißteile",
+      "priority": "Priorität",
+      "markup": "Aufschlag (%)",
+      "markupPlaceholder": "z.B. 35",
+      "brand": "Marke (optional)",
+      "allBrands": "Alle Marken",
+      "revenueGroup": "Erlösgruppe (optional)",
+      "allRevenueGroups": "Alle Erlösgruppen",
+      "costMin": "Min. Einkaufspreis (€)",
+      "costMax": "Max. Einkaufspreis (€)",
+      "rounding": "Rundungsstrategie",
+      "useSupplierRrp": "UVP des Lieferanten bevorzugen (falls vorhanden)",
+      "active": "Margenregel aktiv",
+      "saveChanges": "Änderungen speichern",
+      "create": "Regel erstellen"
+    },
+    "rounding": {
+      "NONE": "Keine Rundung",
+      "ROUND_90": "Auf .90 runden",
+      "ROUND_99": "Auf .99 runden",
+      "WHOLE_EURO": "Auf vollen Euro runden"
+    },
+    "roundingShort": {
+      "NONE": "Keine Rundung",
+      "ROUND_90": "Auf .90",
+      "ROUND_99": "Auf .99",
+      "WHOLE_EURO": "Voller Euro"
+    },
+    "toast": {
+      "nameRequired": "Bitte geben Sie eine Bezeichnung ein",
+      "costRangeInvalid": "Mindest-Einkaufspreis darf nicht größer als Höchst-Einkaufspreis sein",
+      "markupNegative": "Aufschlag darf nicht negativ sein",
+      "updated": "Margenregel aktualisiert",
+      "created": "Margenregel angelegt",
+      "saveFailed": "Fehler beim Speichern der Margenregel",
+      "deleted": "Margenregel gelöscht",
+      "deleteFailed": "Fehler beim Löschen der Margenregel"
+    },
+    "delete": {
+      "title": "Margenregel wirklich löschen?",
+      "description": "Möchten Sie die Margenregel \"{{name}}\" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
+      "confirm": "Löschen bestätigen"
+    }
+  },
+  "apiKeys": {
+    "title": "API-Schlüssel",
+    "description": "Nur-Lese-Schlüssel für Integrationen. Jeder Schlüssel gilt nur für die gewählten Bereiche und hat ein eigenes Anfragebudget.",
+    "createButton": "+ API-Schlüssel",
+    "loadFailed": "API-Schlüssel konnten nicht geladen werden",
+    "searchPlaceholder": "API-Schlüssel suchen…",
+    "emptyState": "Noch keine API-Schlüssel vorhanden. Legen Sie einen an, um eine Integration anzubinden.",
+    "unknownCreator": "Unbekannter Ersteller",
+    "never": "Nie",
+    "columns": {
+      "name": "Name",
+      "keyPrefix": "Schlüssel-Präfix",
+      "scopes": "Bereiche",
+      "status": "Status",
+      "lastUsed": "Zuletzt verwendet",
+      "expires": "Läuft ab"
+    },
+    "revoke": "Widerrufen",
+    "createDialog": {
+      "title": "Neuer API-Schlüssel",
+      "description": "Wählen Sie einen Namen und die Lesebereiche, die dieser Schlüssel nutzen darf.",
+      "name": "Name",
+      "namePlaceholder": "Lager-Dashboard",
+      "scopesLegend": "Bereiche",
+      "expires": "Läuft ab am (optional)",
+      "creating": "Wird angelegt…",
+      "submit": "Schlüssel anlegen",
+      "nameRequired": "Geben Sie einen Namen für den Schlüssel ein.",
+      "scopesRequired": "Wählen Sie mindestens einen Bereich."
+    },
+    "createdDialog": {
+      "title": "Neuen API-Schlüssel kopieren",
+      "description": "Der vollständige Schlüssel wird nur dieses eine Mal angezeigt. Speichern Sie ihn jetzt im Secret-Speicher Ihrer Integration.",
+      "label": "API-Schlüssel",
+      "copy": "Kopieren",
+      "done": "Fertig"
+    },
+    "revokeDialog": {
+      "title": "API-Schlüssel widerrufen?",
+      "description": "„{{name}}“ funktioniert sofort nicht mehr. Integrationen, die ihn verwenden, erhalten bei der nächsten Anfrage den Fehler 401. Das kann nicht rückgängig gemacht werden.",
+      "confirm": "Schlüssel widerrufen"
+    },
+    "scopes": {
+      "customers_read": {
+        "label": "Kunden",
+        "description": "Namen, Kontaktdaten und Adressen."
+      },
+      "vehicles_read": {
+        "label": "Fahrzeuge",
+        "description": "Fahrzeugidentität: Marke, Modell, FIN und Kennzeichen."
+      },
+      "invoices_read": {
+        "label": "Rechnungen",
+        "description": "Rechnungsköpfe und Summen."
+      },
+      "workshop_orders_read": {
+        "label": "Werkstattaufträge",
+        "description": "Status und Terminierung von Werkstattaufträgen."
+      },
+      "stock_read": {
+        "label": "Teilebestand",
+        "description": "Teilemengen je Lagerort."
+      }
+    },
+    "toast": {
+      "createdFailed": "API-Schlüssel konnte nicht angelegt werden",
+      "copied": "API-Schlüssel kopiert",
+      "copyFailed": "Kopieren fehlgeschlagen. Markieren Sie den Schlüssel und kopieren Sie ihn manuell.",
+      "revoked": "API-Schlüssel widerrufen",
+      "revokeFailed": "API-Schlüssel konnte nicht widerrufen werden"
+    },
+    "retry": "Erneut versuchen"
+  },
+  "auditLogs": {
+    "title": "Audit-Logs",
+    "description": "Unveränderliches, nur ergänzbares Audit-Protokoll von Änderungen und Löschungen an Geschäftsobjekten.",
+    "filters": {
+      "action": "Aktion",
+      "allActions": "Alle Aktionen",
+      "update": "Änderung",
+      "delete": "Löschung",
+      "create": "Anlage",
+      "entityType": "Nach Objekttyp filtern",
+      "entityTypePlaceholder": "Objekttyp",
+      "entityId": "Nach Objekt-ID filtern",
+      "entityIdPlaceholder": "Objekt-ID"
+    },
+    "searchPlaceholder": "Nach Objekt, ID, Akteur, Request-ID suchen…",
+    "columns": {
+      "timestamp": "Zeitstempel",
+      "action": "Aktion",
+      "entityType": "Objekttyp",
+      "entityId": "Objekt-ID",
+      "actor": "Akteur",
+      "changedFields": "Geänderte Felder"
+    },
+    "viewDetails": "Details anzeigen",
+    "viewDetailsAria": "Details zu {{action}} {{entityType}} {{entityId}} am {{occurredAt}} anzeigen",
+    "jsonNone": "Keine",
+    "sheet": {
+      "title": "Details zum Audit-Eintrag",
+      "targetId": "Ziel-ID: {{id}}",
+      "occurredAt": "Zeitpunkt",
+      "actorType": "Akteurtyp",
+      "actorEmail": "E-Mail des Akteurs",
+      "actorRole": "Rolle des Akteurs",
+      "requestId": "Request-ID",
+      "sourceIp": "Quelle / IP",
+      "sourceApi": "API",
+      "redactedTitle": "Geschwärzte Geheimnisfelder:",
+      "modifiedFields": "Geänderte Felder:",
+      "statePayloads": "Zustandsdaten:",
+      "tabs": {
+        "diff": "Differenz",
+        "before": "Vorher",
+        "after": "Nachher"
+      }
+    }
+  },
+  "vehicleData": {
+    "noAccess": "Fahrzeugdaten-Einstellungen sind nur für Werkstattinhaber und Administratoren verfügbar.",
+    "loadFailed": "Fahrzeugdaten-Einstellungen konnten nicht geladen werden. Laden Sie die Seite neu und versuchen Sie es erneut.",
+    "catalog": {
+      "title": "Katalog-Standardwerte",
+      "description": "Standard-Adapter und Arbeitszeitumrechnung für die Fahrzeugauflösung sowie die Suche in externen Teile- und Arbeitskatalogen.",
+      "identityAdapter": "Identitäts-Adapter",
+      "partsAdapter": "Aftermarket-Teile-Adapter",
+      "laborAdapter": "Aftermarket-Arbeitsadapter",
+      "defaultLaborCategory": "Standard-Arbeitskategorie",
+      "selectLaborCategory": "Arbeitskategorie wählen",
+      "awMinutes": "AW-Minuten",
+      "awMinutesHint": "Minuten pro Arbeitswert bei der Umrechnung externer Arbeitskatalog-Treffer in Stunden.",
+      "notConfigured": "Nicht konfiguriert",
+      "badges": {
+        "identity": "Identitäts-Zugangsdaten konfiguriert",
+        "parts": "Aftermarket-Teile-Zugangsdaten konfiguriert",
+        "labor": "Aftermarket-Arbeits-Zugangsdaten konfiguriert"
+      }
+    },
+    "oemConcerns": {
+      "title": "OEM-Konzerne",
+      "description": "Ordnen Sie Fahrzeugmarken den Konzernen BMW, Mercedes-Benz oder Stellantis zu. Stellantis umfasst typischerweise Peugeot, Citroën, Opel, Fiat, Jeep und verwandte Marken.",
+      "partsCredential": "OEM-Teile-Zugangsdaten",
+      "laborCredential": "OEM-Arbeits-Zugangsdaten",
+      "memberMakesAria": "Zugehörige Marken von {{concern}}"
+    },
+    "toast": {
+      "awMinutesInvalid": "AW-Minuten müssen eine positive ganze Zahl sein",
+      "saved": "Fahrzeugdaten-Einstellungen gespeichert",
+      "saveFailed": "Fahrzeugdaten-Einstellungen konnten nicht gespeichert werden"
+    },
+    "saveChanges": "Änderungen speichern"
+  },
+  "workshopHours": {
+    "loadFailed": "Werkstattzeiten konnten nicht geladen werden. Laden Sie die Seite neu und versuchen Sie es erneut.",
+    "title": "Werkstattzeiten",
+    "description": "Öffnungszeiten und Feiertage steuern das Raster des Werkstattplaners. Die Slot-Größe legt die Spaltenbreite der Tagesansicht fest.",
+    "timezone": "Zeitzone",
+    "slotMinutes": "Slot-Größe (Minuten)",
+    "slotMinutesOption": "{{minutes}} Minuten",
+    "holidayCountry": "Feiertagsland (ISO)",
+    "subdivision": "Regionscode (optional)",
+    "subdivisionPlaceholder": "DE-BY",
+    "weekdays": {
+      "1": "Montag",
+      "2": "Dienstag",
+      "3": "Mittwoch",
+      "4": "Donnerstag",
+      "5": "Freitag",
+      "6": "Samstag",
+      "7": "Sonntag"
+    },
+    "closed": "Geschlossen",
+    "saveHours": "Zeiten speichern",
+    "holidays": {
+      "title": "Feiertage",
+      "description": "Geschlossene oder verkürzte Tage überschreiben die Wochentagszeiten im Planer. Gesetzliche Feiertage stammen aus der OpenHolidays-API.",
+      "import": "Gesetzliche Feiertage importieren",
+      "importing": "Import läuft…",
+      "createButton": "+ Feiertag",
+      "searchPlaceholder": "Feiertage suchen…",
+      "columns": {
+        "name": "Name",
+        "date": "Datum",
+        "annual": "Jährlich",
+        "hours": "Zeiten",
+        "source": "Quelle"
+      },
+      "yes": "Ja",
+      "no": "Nein",
+      "closedLabel": "Geschlossen",
+      "delete": "Löschen"
+    },
+    "toast": {
+      "closeTimeInvalid": "Die Schließzeit am {{day}} muss nach der Öffnungszeit liegen",
+      "saved": "Werkstattzeiten gespeichert",
+      "saveFailed": "Werkstattzeiten konnten nicht gespeichert werden",
+      "importSuccess": "{{imported}} gesetzliche Feiertage importiert ({{skipped}} übersprungen)",
+      "importFailed": "Gesetzliche Feiertage konnten nicht importiert werden",
+      "holidayDeleted": "Feiertag gelöscht",
+      "holidayDeleteFailed": "Feiertag konnte nicht gelöscht werden"
+    },
+    "holidayDialog": {
+      "editTitle": "Feiertag bearbeiten",
+      "createTitle": "Feiertag anlegen",
+      "description": "Überschreiben Sie die Wochentagszeiten für ein bestimmtes Datum. Geschlossene Tage sperren das Raster, verkürzte Tage verwenden eigene Zeiten.",
+      "name": "Name",
+      "namePlaceholder": "Nationalfeiertag",
+      "date": "Datum",
+      "repeatsAnnually": "Jährlich wiederholen (gleicher Monat und Tag)",
+      "closedAllDay": "Ganztägig geschlossen",
+      "open": "Öffnungszeit",
+      "close": "Schließzeit",
+      "saving": "Wird gespeichert…",
+      "save": "Speichern",
+      "create": "Anlegen",
+      "toast": {
+        "nameRequired": "Der Name des Feiertags ist erforderlich",
+        "dateRequired": "Das Datum ist erforderlich",
+        "closeTimeInvalid": "Die Schließzeit muss nach der Öffnungszeit liegen",
+        "updated": "Feiertag aktualisiert",
+        "created": "Feiertag angelegt",
+        "saveFailed": "Feiertag konnte nicht gespeichert werden"
+      }
+    },
+    "weekdaysTitle": "Wochentage"
+  },
+  "labor": {
+    "categories": {
+      "title": "Arbeitskategorien",
+      "description": "Hierarchische Arbeitskategorien mit Stundensätzen verwalten. Rechtsklick auf eine Zeile zum Löschen.",
+      "loading": "Kategorien werden geladen…",
+      "empty": "Keine Kategorien gefunden. Legen Sie Ihre erste Kategorie mit dem Formular an.",
+      "notSet": "Nicht festgelegt",
+      "invalidRate": "Ungültiges Format für den Stundensatz",
+      "tree": {
+        "collapse": "Einklappen",
+        "expand": "Ausklappen",
+        "rateTitle": "Klicken, um den Satz zu bearbeiten",
+        "toggleActiveTitle": "Aktivstatus umschalten",
+        "editTitle": "Kategorie bearbeiten",
+        "editAria": "Kategorie {{name}} bearbeiten"
+      },
+      "active": "Aktiv",
+      "inactive": "Inaktiv",
+      "contextDelete": "Löschen",
+      "addDialog": {
+        "title": "Kategorie hinzufügen",
+        "description": "Neue Arbeitskategorie anlegen.",
+        "name": "Name",
+        "namePlaceholder": "z. B. Motorreparatur",
+        "descriptionLabel": "Beschreibung",
+        "descriptionPlaceholder": "Optionale Beschreibung",
+        "parent": "Übergeordnete Kategorie",
+        "parentNone": "Keine (oberste Ebene)",
+        "defaultRate": "Standard-Stundensatz",
+        "defaultRatePlaceholder": "z. B. 850,00",
+        "sortOrder": "Sortierreihenfolge",
+        "sortOrderPlaceholder": "z. B. 10",
+        "active": "Aktiv",
+        "activeAria": "Aktiv: {{state}}",
+        "stateOn": "ein",
+        "stateOff": "aus",
+        "submit": "Kategorie hinzufügen"
+      },
+      "editDialog": {
+        "title": "Kategorie bearbeiten",
+        "description": "Aktualisieren Sie die Details für <strong>{{name}}</strong>.",
+        "submit": "Änderungen speichern"
+      },
+      "deleteDialog": {
+        "title": "Kategorie löschen",
+        "description": "Möchten Sie <strong>{{name}}</strong> wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
+        "childrenWarning_one": "Diese Kategorie hat {{count}} Unterkategorie, die ebenfalls betroffen sein kann.",
+        "childrenWarning_other": "Diese Kategorie hat {{count}} Unterkategorien, die ebenfalls betroffen sein können.",
+        "confirm": "Löschen"
+      },
+      "toast": {
+        "created": "Kategorie angelegt",
+        "createFailed": "Kategorie konnte nicht angelegt werden",
+        "updated": "Kategorie aktualisiert",
+        "updateFailed": "Kategorie konnte nicht aktualisiert werden",
+        "deleted": "Kategorie gelöscht",
+        "deleteFailed": "Kategorie konnte nicht gelöscht werden",
+        "activated": "Kategorie aktiviert",
+        "deactivated": "Kategorie deaktiviert",
+        "statusFailed": "Status konnte nicht aktualisiert werden",
+        "rateUpdated": "Stundensatz aktualisiert",
+        "rateFailed": "Stundensatz konnte nicht aktualisiert werden",
+        "orderUpdated": "Reihenfolge aktualisiert",
+        "orderFailed": "Reihenfolge konnte nicht aktualisiert werden"
+      }
+    },
+    "operations": {
+      "title": "Arbeitsvorgänge",
+      "description": "Standard-Arbeitsvorgänge und ihre zugeordneten Stundensätze verwalten.",
+      "createButton": "Arbeitsvorgang",
+      "allCategories": "Alle Kategorien",
+      "searchPlaceholder": "Nach Code oder Beschreibung suchen…",
+      "hoursSuffix": "Std.",
+      "deactivate": "Deaktivieren",
+      "deactivateDialog": {
+        "title": "Sind Sie sicher?",
+        "description": "Der Arbeitsvorgang wird deaktiviert. Er steht für neue Werkstattaufträge nicht mehr zur Verfügung, historische Daten bleiben erhalten.",
+        "confirm": "Deaktivieren"
+      },
+      "toast": {
+        "deactivated": "Arbeitsvorgang deaktiviert",
+        "deactivateFailed": "Arbeitsvorgang konnte nicht deaktiviert werden"
+      },
+      "columns": {
+        "code": "Code",
+        "description": "Beschreibung",
+        "standardAw": "Standard-AW",
+        "hourlyRate": "Stundensatz",
+        "category": "Kategorie",
+        "active": "Aktiv"
+      }
+    },
+    "operationForm": {
+      "createTitle": "Neuer Arbeitsvorgang",
+      "editTitle": "Arbeitsvorgang bearbeiten",
+      "saveStatus": {
+        "saving": "Wird gespeichert…",
+        "saved": "Alle Änderungen gespeichert",
+        "failed": "Speichern fehlgeschlagen"
+      },
+      "saveFailed": "Arbeitsvorgang konnte nicht gespeichert werden",
+      "code": "Code",
+      "codePlaceholder": "z. B. ENG-OIL-01",
+      "descriptionLabel": "Beschreibung",
+      "descriptionPlaceholder": "Beschreibung des Arbeitsvorgangs",
+      "standardAw": "Standard-AW (Std.)",
+      "hourlyRate": "Stundensatz",
+      "internalCost": "Interne Kosten",
+      "internalCostPlaceholder": "Optional",
+      "category": "Kategorie",
+      "categoryPlaceholder": "Kategorie wählen…",
+      "noCategory": "Keine Kategorie",
+      "active": "Aktiv",
+      "inactive": "Inaktiv",
+      "fitments": {
+        "title": "Verwendbarkeit",
+        "addAria": "Verwendbarkeit hinzufügen",
+        "removeAria": "Verwendbarkeit entfernen",
+        "make": "Marke",
+        "model": "Modell",
+        "yearFrom": "Baujahr von",
+        "yearTo": "Baujahr bis",
+        "engineCode": "Motorcode"
+      },
+      "close": "Schließen",
+      "saveNow": "Jetzt speichern",
+      "validation": {
+        "codeRequired": "Der Code ist erforderlich",
+        "descriptionRequired": "Die Beschreibung ist erforderlich",
+        "standardAwRequired": "Standard-AW ist erforderlich",
+        "standardAwInvalid": "Standard-AW muss eine nicht negative Zahl sein",
+        "hourlyRateInvalid": "Der Stundensatz muss größer als 0 sein",
+        "internalCostInvalid": "Die internen Kosten müssen null oder größer sein",
+        "makeRequired": "Die Marke ist erforderlich",
+        "modelRequired": "Das Modell ist erforderlich",
+        "yearInteger": "{{label}} muss eine ganze Zahl sein",
+        "yearRange": "{{label}} muss zwischen {{min}} und {{max}} liegen",
+        "yearToBeforeFrom": "Baujahr bis muss größer oder gleich Baujahr von sein"
+      }
+    }
+  },
+  "voiceTranslation": {
+    "title": "Sprachübersetzung",
+    "description": "Google Speech-to-Text und die Ausgabesprache der Übersetzung für Sprachnotizen der Mechaniker konfigurieren.",
+    "loading": "Einstellungen zur Sprachübersetzung werden geladen…",
+    "targetLanguage": "Zielsprache",
+    "projectId": "Google-Projekt-ID",
+    "projectIdPlaceholder": "mein-google-projekt",
+    "location": "Google-Standort",
+    "locationPlaceholder": "global",
+    "credential": "Google-Dienstkonto-JSON",
+    "credentialPlaceholder": "{\"type\":\"service_account\",...}",
+    "credentialHint": "Die Zugangsdaten werden verschlüsselt auf dem Server gespeichert und nie an den Browser zurückgegeben. Lassen Sie das Feld leer, um die aktuellen Zugangsdaten unverändert zu lassen. Aktueller Status: {{status}}.",
+    "credentialConfigured": "konfiguriert",
+    "credentialNotConfigured": "nicht konfiguriert",
+    "showCredential": "Zugangsdaten anzeigen",
+    "overwriteConfirm": "Die aktuell konfigurierten Google-Zugangsdaten überschreiben?",
+    "saving": "Wird gespeichert…",
+    "save": "Änderungen speichern",
+    "toast": {
+      "saved": "Einstellungen zur Sprachübersetzung gespeichert",
+      "saveFailed": "Einstellungen zur Sprachübersetzung konnten nicht gespeichert werden"
+    }
+  },
+  "sites": {
+    "title": "Standorte",
+    "description": "Betriebliche Werkstattstandorte. Standortzuordnungen legen fest, wer welchen Standort in der Seitenleiste aktivieren kann.",
+    "columns": {
+      "code": "Code",
+      "name": "Name",
+      "legalEntity": "Rechtsträger",
+      "status": "Status",
+      "members": "Mitglieder"
+    },
+    "memberships": {
+      "title": "Zuordnungen für {{name}}",
+      "description": "Benutzer benötigen eine aktive Mandantenrolle und eine Standortzuordnung, bevor der Standort unter „Aktueller Standort“ erscheint.",
+      "addLabel": "Mandantenmitglied hinzufügen",
+      "addPlaceholder": "Teammitglied wählen",
+      "addButton": "Zuordnung hinzufügen",
+      "loading": "Zuordnungen werden geladen…",
+      "columns": {
+        "user": "Benutzer",
+        "tenantRole": "Mandantenrolle",
+        "actions": "Aktionen"
+      },
+      "remove": "Entfernen"
+    },
+    "toast": {
+      "added": "Standortzuordnung hinzugefügt",
+      "addFailed": "Standortzuordnung konnte nicht hinzugefügt werden",
+      "removed": "Standortzuordnung entfernt",
+      "removeFailed": "Standortzuordnung konnte nicht entfernt werden"
+    }
+  },
+  "bays": {
+    "title": "Arbeitsplätze",
+    "description": "Werkstatt-Arbeitsplätze und ihre Reihenfolge verwalten.",
+    "createButton": "+ Arbeitsplatz",
+    "searchPlaceholder": "Arbeitsplätze suchen…",
+    "columns": {
+      "name": "Name",
+      "active": "Aktiv",
+      "sortOrder": "Sortierreihenfolge"
+    },
+    "active": "Aktiv",
+    "inactive": "Inaktiv",
+    "delete": "Löschen",
+    "dialog": {
+      "title": "Arbeitsplatz anlegen",
+      "description": "Einen physischen Werkstatt-Arbeitsplatz hinzufügen.",
+      "name": "Name",
+      "namePlaceholder": "Name des Arbeitsplatzes",
+      "sortOrder": "Sortierreihenfolge",
+      "saving": "Wird gespeichert…",
+      "create": "Anlegen"
+    },
+    "search": {
+      "active": "aktiv",
+      "inactive": "inaktiv"
+    },
+    "toast": {
+      "nameRequired": "Der Name des Arbeitsplatzes ist erforderlich",
+      "sortOrderInvalid": "Die Sortierreihenfolge muss eine nicht negative ganze Zahl sein",
+      "created": "Arbeitsplatz angelegt",
+      "createFailed": "Arbeitsplatz konnte nicht angelegt werden",
+      "deleted": "Arbeitsplatz gelöscht",
+      "deactivated": "Arbeitsplatz deaktiviert",
+      "activated": "Arbeitsplatz aktiviert",
+      "deleteFailed": "Arbeitsplatz konnte nicht gelöscht werden",
+      "updated": "Arbeitsplatz aktualisiert",
+      "updateNameFailed": "Name des Arbeitsplatzes konnte nicht aktualisiert werden",
+      "updateStatusFailed": "Status des Arbeitsplatzes konnte nicht aktualisiert werden",
+      "sortOrderUpdated": "Sortierreihenfolge des Arbeitsplatzes aktualisiert",
+      "updateSortOrderFailed": "Sortierreihenfolge des Arbeitsplatzes konnte nicht aktualisiert werden"
+    }
+  },
+  "team": {
+    "title": "Team",
+    "description": "Mandantenbenutzer einladen und ihre Mitgliedsrollen verwalten.",
+    "inviteButton": "+ Mitglied",
+    "loadFailed": "Teammitglieder konnten nicht geladen werden",
+    "retry": "Erneut versuchen",
+    "searchPlaceholder": "Teammitglieder suchen…",
+    "columns": {
+      "name": "Name",
+      "role": "Rolle",
+      "status": "Status"
+    },
+    "search": {
+      "active": "aktiv",
+      "inactive": "inaktiv"
+    },
+    "inviteDialog": {
+      "title": "Mitglied einladen",
+      "description": "Eine Mandantenmitgliedschaft anlegen oder reaktivieren und die Benutzerrechte sofort synchronisieren.",
+      "email": "E-Mail",
+      "emailPlaceholder": "techniker@autocore.com",
+      "role": "Rolle",
+      "submit": "Mitglied einladen"
+    },
+    "sheet": {
+      "title": "Mitgliedsdetails",
+      "description": "Rolle ändern oder Zugriff deaktivieren. Sicherheitsrelevante Änderungen erzwingen eine Aktualisierung der Benutzerrechte.",
+      "role": "Rolle",
+      "roleAria": "Mandantenrolle des Mitglieds",
+      "allowedRoles": "Zulässige Werte: OWNER, ADMIN, TECH, SALES.",
+      "status": "Status",
+      "deactivate": "Mitglied deaktivieren",
+      "reactivate": "Mitglied reaktivieren"
+    },
+    "toast": {
+      "invited": "Mitglied eingeladen",
+      "inviteFailed": "Teammitglied konnte nicht eingeladen werden",
+      "reactivated": "Mitglied reaktiviert",
+      "deactivated": "Mitglied deaktiviert",
+      "statusFailed": "Status des Mitglieds konnte nicht aktualisiert werden",
+      "roleUpdated": "Rolle des Mitglieds aktualisiert",
+      "roleFailed": "Rolle des Mitglieds konnte nicht aktualisiert werden"
+    }
+  },
+  "legalEntities": {
+    "title": "Rechtsträger",
+    "description": "Rechtsträger bilden die Verkäuferidentität für Rechnungen. Standorte übernehmen den hier konfigurierten Rechtsträger.",
+    "create": {
+      "nameLabel": "Name",
+      "namePlaceholder": "Beispiel GmbH",
+      "countryLabel": "Land",
+      "countryAt": "Österreich (AT)",
+      "countryDe": "Deutschland (DE)",
+      "submit": "+ Rechtsträger"
+    },
+    "table": {
+      "name": "Name",
+      "country": "Land",
+      "readiness": "Bereitschaft",
+      "status": "Status",
+      "actions": "Aktionen",
+      "deactivate": "Deaktivieren",
+      "reactivate": "Reaktivieren"
+    },
+    "toast": {
+      "created": "Rechtsträger angelegt",
+      "createFailed": "Rechtsträger konnte nicht angelegt werden",
+      "deactivated": "Rechtsträger deaktiviert",
+      "reactivated": "Rechtsträger reaktiviert",
+      "updateFailed": "Rechtsträger konnte nicht aktualisiert werden"
+    },
+    "missingPrefix": "Fehlend: {{fields}}",
+    "seller": {
+      "description": "Verkäuferidentität für {{country}}-Rechnungen. Das Land kann nach dem Anlegen nicht mehr geändert werden.",
+      "ready": "Bereit für die Rechnungsausstellung",
+      "incomplete": "Verkäuferidentität unvollständig",
+      "missing": {
+        "taxNumberOrVatId": "Steuernummer oder UID",
+        "vatIdAt": "UID",
+        "vatIdDe": "USt-IdNr.",
+        "paymentTermsDays": "Zahlungsziel (Tage)",
+        "paymentTermsText": "Zahlungsbedingungen (Text)",
+        "addressStreet": "Straße",
+        "addressZip": "Postleitzahl",
+        "addressCity": "Ort"
+      },
+      "fields": {
+        "legalName": "Firmenname",
+        "street": "Straße",
+        "line2": "Adresszusatz",
+        "zip": "Postleitzahl",
+        "city": "Ort",
+        "taxNumber": "Steuernummer",
+        "taxNumberDe": "Steuernummer",
+        "vatIdAt": "UID",
+        "vatIdDe": "USt-IdNr.",
+        "iban": "IBAN (optional)",
+        "bic": "BIC (optional)",
+        "bankName": "Bankname (optional)",
+        "email": "E-Mail",
+        "phone": "Telefon",
+        "registrationNumber": "Firmenbuchnummer",
+        "registrationCourt": "Firmenbuchgericht",
+        "representatives": "Vertretungsberechtigte",
+        "rksvMode": "Fiskalmodus (RKSV)",
+        "paymentTermsDays": "Zahlungsziel (Tage)",
+        "paymentTermsText": "Zahlungsbedingungen (Text)"
+      },
+      "rksv": {
+        "off": "Aus",
+        "unknown": "Unbekannt",
+        "externalKasse": "Externe Kasse",
+        "acpRksv": "ACP RKSV (fiskaly)"
+      }
+    },
+    "profile": {
+      "title": "Buchhaltungsprofil",
+      "description": "Konfigurieren Sie die Zuordnungen für den Buchhaltungsexport von {{name}}. Unvollständige Profile können gespeichert werden; die Ausstellungsbereitschaft wird separat angezeigt.",
+      "ready": "Zuordnungskonfiguration vollständig",
+      "incomplete": "Buchhaltungszuordnungen unvollständig",
+      "missing": {
+        "advisorNumber": "Beraternummer",
+        "clientNumber": "Mandantennummer",
+        "accountLength": "Kontenlänge",
+        "defaultDebtorAccount": "Standard-Debitorenkonto",
+        "mappingRules": "Zuordnungen der Quellkategorien"
+      },
+      "exportMissing": {
+        "firmNumber": "Firmennummer",
+        "steuercodeVat20": "Steuercode 20 %",
+        "steuercodeVat13": "Steuercode 13 %",
+        "steuercodeVat10": "Steuercode 10 %",
+        "formatVersion": "fixierte Formatversion (zum Fixieren speichern)",
+        "chart": "Kontenplan",
+        "accountLength": "Kontenlänge",
+        "defaultDebtorAccount": "Standard-Debitorenkonto"
+      },
+      "exportMissingLine": "Für den Export fehlt: {{fields}}.",
+      "fields": {
+        "advisorNumber": "Beraternummer",
+        "clientNumber": "Mandantennummer",
+        "accountLength": "Kontenlänge",
+        "defaultDebtorAccount": "Standard-Debitorenkonto",
+        "fiscalYearStartMonth": "Beginn des Geschäftsjahres (Monat)",
+        "chart": "Kontenplan",
+        "profileCode": "Profilcode",
+        "formatVersion": "Formatversion"
+      },
+      "datev": {
+        "title": "DATEV-Export aktiviert",
+        "description": "Steuert nur den CSV-Export (AUT-307). Blockiert die Rechnungsausstellung nicht."
+      },
+      "rzl": {
+        "title": "RZL-Exportkonfiguration",
+        "description": "Wird nur vom RZL-CSV-Export verwendet. Erlöskonten stammen aus den Zuordnungsregeln unten; Buchungen verwenden das Standard-Debitorenkonto.",
+        "useSuggested": "Vorgeschlagene Codes 20 / 13 / 10 verwenden",
+        "firmNumber": "Firmennummer",
+        "steuercode20": "Steuercode 20 %",
+        "steuercode13": "Steuercode 13 %",
+        "steuercode10": "Steuercode 10 %",
+        "enabledTitle": "RZL-Export aktiviert",
+        "released": "In dieser Umgebung freigegeben. Steuert nur den CSV-Export; blockiert die Rechnungsausstellung nicht.",
+        "notReleased": "In dieser Umgebung nicht freigegeben. Der CSV-Export bleibt deaktiviert, bis der RZL-Import validiert ist (AUT-368)."
+      },
+      "unsupportedSerializer": "Die Aktivierung des Exportprofils ist nur für unterstützte Serializer-Profile verfügbar.",
+      "mappings": {
+        "title": "Zuordnungen der Quellkategorien",
+        "description": "Ordnen Sie jeder verrechenbaren Quellkategorie ein Erlöskonto zu. Vorgeschlagene Konten aus den Erlösgruppen werden nur im Editor vorbefüllt.",
+        "category": "Kategorie",
+        "tax": "Steuer",
+        "revenueAccount": "Erlöskonto",
+        "treatment": "Behandlung",
+        "buKey": "BU-Schlüssel",
+        "margin": "Differenz",
+        "automatic": "Automatisch",
+        "manualBu": "Manueller BU"
+      },
+      "version": "Profilversion: {{version}}"
+    }
+  },
+  "accountingExport": {
+    "noAccess": {
+      "title": "Buchhaltungsexport",
+      "description": "Nur Mandanten-Benutzer mit der Rolle OWNER oder ADMIN und vollständigem Standortzugriff können DATEV-Buchhaltungsexporte in der Vorschau ansehen oder herunterladen."
+    },
+    "noEntities": {
+      "message": "Legen Sie einen Rechtsträger an, bevor Sie den DATEV-Buchhaltungsexport konfigurieren."
+    },
+    "header": {
+      "title": "Buchhaltungsexport",
+      "description": "Zeigen Sie unveränderliche DATEV-Buchungsstapel-CSV-Läufe für einen abgeschlossenen Zeitraum in der Vorschau an und laden Sie sie herunter. Die Erstellung setzt voraus, dass das Profil <code>{{profileCode}}</code> nach der Freigabe durch den Steuerberater aktiviert wurde.",
+      "selected": "Ausgewählt: <name>{{name}}</name>",
+      "selectedPeriod": "Ausgewählt: <name>{{name}}</name> · {{from}} bis {{to}}"
+    },
+    "actions": {
+      "preview": "Vorschau",
+      "generate": "Erstellen",
+      "downloadLatest": "Neuesten herunterladen",
+      "download": "Herunterladen",
+      "downloadCsv": "CSV herunterladen",
+      "generateAnyway": "Trotzdem erstellen"
+    },
+    "filters": {
+      "legalEntity": "Rechtsträger",
+      "selectEntity": "Rechtsträger auswählen",
+      "dateFrom": "Datum von",
+      "dateTo": "Datum bis"
+    },
+    "settingsLinks": {
+      "finance": "Finanzeinstellungen öffnen",
+      "legalEntities": "Einstellungen für Rechtsträger öffnen",
+      "sites": "Standorteinstellungen öffnen",
+      "default": "Einstellungen öffnen"
+    },
+    "forbidden": "Der Exportumfang ist für Ihr Konto unvollständig. Es werden keine Belegsummen angezeigt. Prüfen Sie die Standortzuordnungen und den Rechtsträgerzugriff mit einer Administratorin oder einem Administrator.",
+    "preview": {
+      "title": "Vorschauergebnisse",
+      "summary": "Profil v{{version}} · {{documents}} Belege · {{rows}} Buchungszeilen",
+      "blockers": "Blockierende Probleme",
+      "blockersNote": "Exporte lassen blockierte Belege nie aus und exportieren nie nur gültige Zeilen.",
+      "emptyPeriod": "Dieser abgeschlossene Zeitraum enthält keine exportierbaren Belege. Für leere Zeiträume ist die Erstellung nicht verfügbar.",
+      "columns": {
+        "account": "Konto",
+        "taxRate": "Steuersatz",
+        "net": "Netto",
+        "tax": "Steuer",
+        "gross": "Brutto"
+      }
+    },
+    "overlap": {
+      "title": "Überlappende Exportläufe",
+      "item": "{{from}} → {{to}} · {{documents}} Belege · {{createdAt}}",
+      "warning": "Der Import überlappender Dateien in DATEV kann zu doppelten Buchungen führen. Auto Core Platform weiß nicht, ob DATEV eine frühere Datei bereits importiert hat.",
+      "acknowledge": "Ich verstehe das Risiko doppelter Importe und möchte trotzdem einen neuen Lauf erstellen.",
+      "dialogTitle": "Überlappenden Export bestätigen",
+      "dialogDescription": "Dieser Zeitraum überlappt mit früheren Exportläufen. Der Import beider Dateien in DATEV kann zu doppelten Buchungen führen. Auto Core Platform kann nicht erkennen, ob DATEV eine frühere Datei bereits importiert hat."
+    },
+    "history": {
+      "title": "Exportlauf-Verlauf",
+      "description": "Unveränderliche abgeschlossene Läufe. Downloads werden mit Lauf-ID und Prüfsumme im Audit-Protokoll erfasst; sie bestätigen keinen DATEV-Import.",
+      "searchPlaceholder": "Läufe nach ID, Rechtsträger oder Prüfsumme suchen...",
+      "empty": "Noch keine autorisierten Exportläufe.",
+      "columns": {
+        "legalEntity": "Rechtsträger",
+        "period": "Zeitraum",
+        "documents": "Belege",
+        "created": "Erstellt",
+        "generatedBy": "Erstellt von",
+        "checksum": "Prüfsumme"
+      }
+    },
+    "detail": {
+      "title": "Details zum Exportlauf",
+      "description": "Exakte Metadaten, die mit dem unveränderlichen CSV-Artefakt gespeichert wurden.",
+      "runId": "Lauf-ID:",
+      "period": "Zeitraum:",
+      "documentsRows": "Belege / Zeilen:",
+      "generatedBy": "Erstellt von:",
+      "sha256": "SHA-256:",
+      "created": "Erstellt:",
+      "downloadNote": "Download-Ereignisse erfassen, wer diese Bytes abgerufen hat, sowie die Prüfsumme. Sie weisen keinen erfolgreichen DATEV-Import nach.",
+      "selectRun": "Wählen Sie einen Lauf in der Verlaufstabelle aus."
+    },
+    "toast": {
+      "downloaded": "Export heruntergeladen",
+      "downloadedDescription": "Der Download wird für das Audit protokolliert. Auto Core Platform verfolgt den DATEV-Importstatus nicht.",
+      "checksumMismatch": "Prüfsumme des Downloads stimmt nicht überein",
+      "checksumMismatchDescription": "Die Dateibytes stimmen nicht mit dem erfassten SHA-256 überein. Importieren Sie diese Datei nicht.",
+      "downloadFailed": "Download fehlgeschlagen",
+      "selectPeriod": "Wählen Sie zuerst einen Rechtsträger und die Datumsangaben eines abgeschlossenen Zeitraums.",
+      "overlapDetected": "Überlappende Exportläufe erkannt",
+      "overlapDetectedDescription": "Der Import überlappender DATEV-Dateien kann zu doppelten Buchungen führen. Bestätigen Sie dies, bevor Sie einen neuen Lauf erstellen.",
+      "previewForbidden": "Sie haben keinen Zugriff auf den Export dieses Rechtsträgers für den ausgewählten Zeitraum.",
+      "previewFailed": "Vorschau fehlgeschlagen",
+      "previewFirst": "Führen Sie die Vorschau aus, bevor Sie einen Export erstellen.",
+      "profileSaving": "Warten Sie, bis die Änderungen am Buchhaltungsprofil gespeichert sind.",
+      "blocked": "Der Export ist blockiert. Beheben Sie alle Blocker oder aktivieren Sie das DATEV-Profil, bevor Sie ihn erstellen.",
+      "generated": "DATEV-Export erstellt",
+      "generatedDescription": "{{documents}} Belege · SHA-256 {{hash}}",
+      "generateFailed": "Erstellung fehlgeschlagen"
+    }
+  },
+  "dataImport": {
+    "title": "Datenimport",
+    "description": "Import von CSV-Dateien aus Alt-DMS für das Onboarding neuer Mandanten. Der Probelauf validiert die Zeilen, bevor Daten geschrieben werden. Marketing-Einwilligungsspalten werden vom Importmodul ignoriert.",
+    "stepsNavAria": "Schritte des Import-Assistenten",
+    "steps": {
+      "source": "Quelle",
+      "upload": "Upload",
+      "mapping": "Zuordnung",
+      "dryRun": "Probelauf",
+      "apply": "Import"
+    },
+    "consent": {
+      "title": "Marketing-Einwilligung",
+      "description": "Spalten zu Einwilligung, Marketing, Newsletter oder Werbung werden nicht importiert und nur als Warnungen gemeldet."
+    },
+    "source": {
+      "title": "1. Entität & Quelle",
+      "entityLabel": "Entität",
+      "entityCustomer": "Kunden",
+      "entityVehicle": "Fahrzeuge",
+      "entitySupplierPriceList": "Lieferanten-Preisliste",
+      "sourceSystemLabel": "Quellsystem",
+      "vendorLabel": "Lieferant *",
+      "vendorPlaceholder": "Lieferant auswählen…",
+      "vendorAria": "Lieferant auswählen",
+      "downloadTemplate": "CSV-Vorlage herunterladen",
+      "continue": "Weiter",
+      "templateFields": "Vorlagenfelder: {{fields}}"
+    },
+    "upload": {
+      "title": "2. CSV hochladen",
+      "fileLabel": "CSV-Datei",
+      "fileSummary": "{{name}} ({{columns}} Spalten)",
+      "back": "Zurück",
+      "continue": "Weiter"
+    },
+    "mapping": {
+      "title": "3. Spaltenzuordnung",
+      "savedProfile": "Gespeichertes Profil",
+      "loadProfilePlaceholder": "Profil laden…",
+      "saveAs": "Speichern als",
+      "saveProfile": "Profil speichern",
+      "acpField": "ACP-Feld",
+      "csvColumn": "CSV-Spalte",
+      "required": "Pflicht",
+      "mapAria": "Zuordnung für {{field}}",
+      "missingRequired": "Pflichtfelder zuordnen: {{fields}}",
+      "options": {
+        "updateExisting": "Bestehende aktualisieren",
+        "fillEmptyOnly": "Nur leere Felder füllen",
+        "allowMissingVin": "FIN optional",
+        "invalidVatAsError": "Ungültige UID als Fehler",
+        "createCatalogItems": "Neue Artikel im Katalog anlegen"
+      },
+      "previewTitle": "Vorschau (erste 20 Zeilen)",
+      "back": "Zurück",
+      "runDryRun": "Probelauf starten"
+    },
+    "dryRun": {
+      "title": "4. Probelauf-Bericht",
+      "stale": {
+        "title": "Veralteter Probelauf",
+        "description": "Datei, Zuordnung oder Optionen wurden nach dem letzten Probelauf geändert. Starten Sie den Probelauf erneut, bevor Sie den Import anwenden."
+      },
+      "totals": {
+        "rows": "Zeilen: {{value}}",
+        "create": "Neu: {{value}}",
+        "update": "Aktualisiert: {{value}}",
+        "skip": "Übersprungen: {{value}}",
+        "error": "Fehler: {{value}}"
+      },
+      "rerunRequired": "(Probelauf erneut starten erforderlich)",
+      "priceJumps": {
+        "accept": "Preissprünge akzeptieren",
+        "acceptedAll": "(Alle Preissprünge akzeptiert)",
+        "acceptedRows": "({{rows}} Zeilen akzeptiert)",
+        "clearSelection": "Auswahl aufheben",
+        "badge": "Preissprung > {{percent}} %",
+        "acceptRow": "Preissprung akzeptieren"
+      },
+      "maxErrors": "Max. Fehler für Import",
+      "rowFilter": "Zeilenfilter",
+      "filter": {
+        "all": "Alle",
+        "error": "Fehler",
+        "create": "Neu",
+        "update": "Aktualisieren",
+        "skip": "Überspringen"
+      },
+      "errorRowsCsv": "Fehlerzeilen CSV",
+      "showing": "Angezeigt {{shown}} von {{total}} Zeilen (Seite {{page}} von {{pages}})",
+      "loadingRows": "Zeilen werden geladen…",
+      "columns": {
+        "action": "Aktion",
+        "externalId": "Externe ID",
+        "issues": "Hinweise"
+      },
+      "issueError": "Fehler: {{message}}",
+      "issueWarning": "Warnung: {{message}}",
+      "previousPage": "Vorherige Seite",
+      "nextPage": "Nächste Seite",
+      "editMapping": "Zuordnung bearbeiten",
+      "applyImport": "Import anwenden"
+    },
+    "result": {
+      "title": "Import abgeschlossen",
+      "summary": "Status: {{status}}. Neu {{created}}, aktualisiert {{updated}}, übersprungen {{skipped}}, Fehler {{errors}}.",
+      "auditLink": "Audit-Log für diesen Import anzeigen"
+    },
+    "confirm": {
+      "title": "Import anwenden?",
+      "description": "Schreibt Daten in Ihren Mandanten. Zahlen aus dem letzten Probelauf:",
+      "create": "Neu: {{value}}",
+      "update": "Aktualisiert: {{value}}",
+      "skip": "Übersprungen: {{value}}",
+      "errors": "Fehler (übersprungen): {{value}}",
+      "priceJumps": "Preissprünge akzeptiert: {{value}}",
+      "priceJumpsAll": "Alle",
+      "priceJumpsRows": "{{rows}} Zeilen",
+      "confirm": "Bestätigen"
+    },
+    "toast": {
+      "csvReadFailed": "CSV-Datei konnte nicht gelesen werden",
+      "profileLoaded": "Zuordnungsprofil geladen",
+      "profileNameRequired": "Profilnamen eingeben",
+      "profileSaved": "Zuordnung gespeichert",
+      "profileSaveFailed": "Profil konnte nicht gespeichert werden",
+      "selectCsv": "Zuerst eine CSV-Datei auswählen",
+      "mapRequired": "Pflichtfelder zuordnen, bevor der Probelauf startet",
+      "dryRunFailed": "Probelauf fehlgeschlagen",
+      "applied": "Import erfolgreich angewendet",
+      "applyFailed": "Import fehlgeschlagen",
+      "templateFailed": "Vorlage konnte nicht heruntergeladen werden",
+      "errorCsvFailed": "Fehler-CSV konnte nicht heruntergeladen werden"
+    }
+  },
+  "documentBranding": {
+    "title": "Dokumentenbranding",
+    "subtitle": "Diese Einstellungen gelten nach Ihrer Bestätigung für künftige Rechnungen.",
+    "inactiveEntity": "Reaktivieren Sie diesen Rechtsträger, um sein Dokumentenbranding zu bearbeiten.",
+    "loading": "Dokumentenbranding wird geladen…",
+    "loadFailed": "Dokumentenbranding konnte nicht geladen werden: {{message}}",
+    "logo": {
+      "label": "Logo",
+      "selected": "Ausgewähltes Logo-Asset: {{id}}",
+      "remove": "Logo entfernen",
+      "uploading": "Logo wird hochgeladen und geprüft…",
+      "refreshStatus": "Prüfstatus aktualisieren"
+    },
+    "fields": {
+      "primaryColor": "Primärfarbe",
+      "secondaryColor": "Sekundärfarbe",
+      "headerBand": "Kopfband",
+      "footerBand": "Fußband",
+      "bandNone": "Keines",
+      "bandPrimary": "Primär",
+      "bandSecondary": "Sekundär",
+      "headerText": "Dekorativer Kopftext (bis zu {{max}} Zeichen, zwei Zeilen)",
+      "footerText": "Dekorativer Fußtext (bis zu {{max}} Zeichen)"
+    },
+    "conflict": {
+      "message": "Eine andere Sitzung hat neueres Dokumentenbranding gespeichert, während Sie bearbeitet haben. Ihre lokalen Änderungen werden weiterhin hier angezeigt.",
+      "reload": "Neueste laden",
+      "keep": "Meine Änderungen behalten",
+      "reapplying": "Wird erneut angewendet…"
+    },
+    "draftFailed": "Entwurf konnte nicht gespeichert werden. Beheben Sie Validierungsprobleme oder versuchen Sie es erneut. {{message}}",
+    "status": {
+      "activeRevision": "Aktives Erscheinungsbild · Revision {{revision}}",
+      "activeDefaults": "Aktives Erscheinungsbild · ACP-Standard",
+      "draft": "Entwurf – noch nicht für Rechnungen verwendet",
+      "noDraft": "Kein gespeicherter Entwurf"
+    },
+    "actions": {
+      "previewSample": "Beispielvorschau",
+      "preparingPreview": "Vorschau wird erstellt…",
+      "confirm": "Branding bestätigen",
+      "confirming": "Wird bestätigt…",
+      "discardDraft": "Entwurf verwerfen",
+      "discarding": "Wird verworfen…",
+      "confirmDefaults": "ACP-Standard bestätigen",
+      "resetting": "Wird zurückgesetzt…"
+    },
+    "preview": {
+      "warningsAria": "Vorschauwarnungen",
+      "iframeTitle": "Synthetische Vorschau des Rechnungsbrandings"
+    },
+    "confirmReset": "ACP-Standardbranding für diesen Rechtsträger bestätigen? Neue Rechnungen verwenden den ACP-Standard; bereits ausgestellte Rechnungen und PDFs bleiben unverändert.",
+    "confirmDiscard": "Gespeicherten Entwurf des Dokumentenbrandings verwerfen?",
+    "toast": {
+      "saveFailed": "Dokumentenbranding konnte nicht gespeichert werden",
+      "draftValidationFallback": "Entwurfsvalidierung oder Revisionskonflikt.",
+      "loadLatestFallback": "Das neueste Dokumentenbranding konnte nicht geladen werden.",
+      "reloadFailed": "Dokumentenbranding konnte nicht neu geladen werden",
+      "reloaded": "Das neueste Dokumentenbranding wurde vom Server geladen.",
+      "reapplied": "Ihre Änderungen wurden auf der neuesten Revision gespeichert.",
+      "reapplyFallback": "Ihre Änderungen konnten nicht erneut angewendet werden.",
+      "logoValidated": "Logo geprüft und zum Entwurf hinzugefügt",
+      "logoRejected": "Logodatei wurde abgelehnt",
+      "confirmed": "Dokumentenbranding bestätigt",
+      "confirmFailed": "Dokumentenbranding konnte nicht bestätigt werden",
+      "reviewDraftFallback": "Prüfen Sie den Entwurf und versuchen Sie es erneut.",
+      "suggestionsSaved": "Vorschläge im Entwurf gespeichert",
+      "suggestionsSavedDescription": "Prüfen Sie den Entwurf und bestätigen Sie ihn, um ihn für künftige Rechnungen zu verwenden.",
+      "proposalFailed": "Vorschlag konnte nicht angewendet werden",
+      "proposalFallback": "Die Profilrevision hat sich geändert. Starten Sie eine neue Extraktion.",
+      "defaultsConfirmed": "ACP-Standardbranding bestätigt",
+      "defaultsFailed": "Standardbranding konnte nicht bestätigt werden",
+      "reviewRevisionFallback": "Prüfen Sie die aktuelle Revision und versuchen Sie es erneut.",
+      "draftDiscarded": "Entwurf des Dokumentenbrandings verworfen",
+      "discardFailed": "Entwurf konnte nicht verworfen werden",
+      "previewFailed": "Vorschau konnte nicht erstellt werden",
+      "tryAgain": "Bitte versuchen Sie es erneut.",
+      "logoUploaded": "Logo hochgeladen; die Prüfung läuft",
+      "sourceUploaded": "Quelldatei hochgeladen; die Prüfung läuft",
+      "logoUploadFailed": "Logo konnte nicht hochgeladen werden",
+      "sourceUploadFailed": "Quelldatei konnte nicht hochgeladen werden"
+    },
+    "letterheadSource": {
+      "label": "Briefkopf-Vorlage (PDF oder PNG, bis zu 10 MiB)",
+      "hint": "Laden Sie einen PDF- oder PNG-Briefkopf hoch, um ihn mit Ihrem Branding-Entwurf aufzubewahren.",
+      "download": "Herunterladen",
+      "replace": "Ersetzen",
+      "remove": "Entfernen",
+      "previewAlt": "Vorschau von {{name}}",
+      "refreshStatus": "Prüfstatus aktualisieren",
+      "refreshProfileFailed": "Das Dokumentenbranding-Profil konnte nicht aktualisiert werden",
+      "downloadHttpFailed": "Download fehlgeschlagen",
+      "toast": {
+        "uploaded": "Briefkopf hochgeladen; die Prüfung läuft",
+        "uploadFailed": "Briefkopf-Vorlage konnte nicht hochgeladen werden",
+        "uploadFallback": "Wählen Sie eine unterstützte PDF- oder PNG-Datei und versuchen Sie es erneut.",
+        "removed": "Briefkopf-Vorlage aus dem Entwurf entfernt",
+        "removeFailed": "Briefkopf-Vorlage konnte nicht entfernt werden",
+        "removeFallback": "Versuchen Sie es gleich noch einmal.",
+        "downloadFailed": "Briefkopf-Vorlage konnte nicht heruntergeladen werden"
+      }
+    },
+    "letterheadImport": {
+      "title": "Briefkopf-Vorschläge",
+      "unavailable": "Die assistierte Extraktion ist nicht verfügbar. Sie können das Profil manuell konfigurieren.",
+      "extract": "Vorschläge extrahieren",
+      "starting": "Wird gestartet…",
+      "uploadFirst": "Laden Sie zuerst einen PDF- oder PNG-Briefkopf hoch und lassen Sie ihn prüfen.",
+      "stateLine": "Extraktion: {{state}}",
+      "states": {
+        "QUEUED": "in Warteschlange",
+        "RUNNING": "läuft",
+        "SUCCEEDED": "erfolgreich",
+        "FAILED": "fehlgeschlagen",
+        "DISCARDED": "verworfen"
+      },
+      "useProposal": "Vorschlag in Entwurf übernehmen",
+      "discardExtraction": "Extraktion verwerfen",
+      "discardProposal": "Vorschlag verwerfen",
+      "refreshStatus": "Extraktionsstatus aktualisieren",
+      "tryNew": "Neue Extraktion versuchen",
+      "revisionChanged": "Das Profil wurde geändert, nachdem diese Extraktion gestartet wurde. Starten Sie eine neue Extraktion von der aktuellen Revision aus.",
+      "statusLoadFailed": "Der Extraktionsstatus konnte nicht geladen werden. Aktualisieren Sie, um es erneut zu versuchen.",
+      "toast": {
+        "startFailed": "Briefkopf-Extraktion konnte nicht gestartet werden",
+        "tryLater": "Versuchen Sie es später erneut.",
+        "discardFailed": "Extraktion konnte nicht verworfen werden",
+        "tryAgain": "Versuchen Sie es erneut."
+      }
+    }
+  }
+}

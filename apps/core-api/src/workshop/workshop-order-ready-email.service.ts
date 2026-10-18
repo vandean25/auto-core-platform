@@ -21,6 +21,7 @@ import { RequestContextService } from '../common/services/request-context.servic
 import { SiteContextService } from '../common/services/site-context.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { NotificationCloudTasksService } from '../notifications/notification-cloud-tasks.service.js';
+import type { ContactPermissionReason } from '../customer-consent/customer-consent.permissions.js';
 import { NotificationOutboxService } from '../notifications/notification-outbox.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { computeSellerReadiness } from '../site/legal-entity-readiness.js';
@@ -38,6 +39,18 @@ import {
   resolveReadyEmailNotice,
   type WorkshopReadyEmailNotice,
 } from './workshop-order-ready-notice.js';
+
+type QueueReadyEmailInTxResult =
+  | { status: 'queued'; outboxId: string }
+  | {
+      status: 'skipped';
+      skipReason:
+        | 'missing_site'
+        | 'seller_incomplete'
+        | 'email_not_buildable'
+        | 'consent_blocked';
+      contactPermissionReason?: ContactPermissionReason;
+    };
 
 const ORDER_READY_SELECT = {
   id: true,
@@ -100,7 +113,7 @@ export class WorkshopOrderReadyEmailService {
     if (!order || order.purpose !== WorkshopOrderPurpose.CUSTOMER_REPAIR) {
       return null;
     }
-    return this.queueReadyEmailInTx(tx, {
+    const queued = await this.queueReadyEmailInTx(tx, {
       tenantId: input.tenantId,
       siteId: input.siteId,
       order,
@@ -109,6 +122,7 @@ export class WorkshopOrderReadyEmailService {
       actorUserId: null,
       occurredAt: input.occurredAt,
     });
+    return queued.status === 'queued' ? queued.outboxId : null;
   }
 
   async resend(orderId: string): Promise<WorkshopReadyEmailNotice> {
@@ -154,7 +168,7 @@ export class WorkshopOrderReadyEmailService {
             message: 'This order does not use customer ready notices.',
           });
         }
-        const outboxId = await this.queueReadyEmailInTx(tx, {
+        const queued = await this.queueReadyEmailInTx(tx, {
           tenantId: scope.tenantId,
           siteId: scope.siteId,
           order,
@@ -163,13 +177,22 @@ export class WorkshopOrderReadyEmailService {
           actorUserId,
           occurredAt,
         });
-        if (outboxId === null) {
+        if (queued.status === 'skipped') {
+          if (queued.skipReason === 'consent_blocked') {
+            throw new UnprocessableEntityException({
+              code: 'READY_EMAIL_CONTACT_CONSENT_BLOCKED',
+              message:
+                'The ready notice cannot be sent because customer contact permission is not granted or has been withdrawn.',
+              reason: queued.contactPermissionReason ?? null,
+            });
+          }
           throw new UnprocessableEntityException({
             code: 'READY_EMAIL_BLOCKED',
             message:
               'The ready notice cannot be sent until customer contact details are complete.',
           });
         }
+        const outboxId = queued.outboxId;
         await this.audit.recordTenantMutation(
           {
             entityType: 'NotificationOutbox',
@@ -267,17 +290,17 @@ export class WorkshopOrderReadyEmailService {
       actorUserId: string | null;
       occurredAt: Date;
     },
-  ): Promise<string | null> {
+  ): Promise<QueueReadyEmailInTxResult> {
     const site = await tx.site.findFirst({
       where: { id: input.siteId, tenant_id: input.tenantId },
       select: { legal_entity: true },
     });
     if (!site) {
-      return null;
+      return { status: 'skipped', skipReason: 'missing_site' };
     }
     const sellerReady = computeSellerReadiness(site.legal_entity).isReady;
     if (!sellerReady) {
-      return null;
+      return { status: 'skipped', skipReason: 'seller_incomplete' };
     }
     const tenant = await tx.tenant.findFirst({
       where: { id: input.tenantId },
@@ -291,9 +314,9 @@ export class WorkshopOrderReadyEmailService {
       tenantDefaultLocale: tenant?.default_locale ?? 'de',
     });
     if (!built.ok) {
-      return null;
+      return { status: 'skipped', skipReason: 'email_not_buildable' };
     }
-    const { id, created } = await this.outbox.enqueueInTx(
+    const enqueued = await this.outbox.enqueueInTx(
       tx,
       {
         tenantId: input.tenantId,
@@ -305,6 +328,8 @@ export class WorkshopOrderReadyEmailService {
         workshopOrderId: input.order.id,
         sourceEntityType: 'WorkshopOrder',
         sourceEntityId: input.order.id,
+        consentPurpose: 'ORDER_COMMUNICATION',
+        controllerLegalEntityId: site.legal_entity.id,
         email: built.draft,
         payload: {
           customer_id: input.order.customer!.id,
@@ -314,6 +339,14 @@ export class WorkshopOrderReadyEmailService {
       },
       input.occurredAt,
     );
+    if (enqueued.blocked) {
+      return {
+        status: 'skipped',
+        skipReason: 'consent_blocked',
+        contactPermissionReason: enqueued.reason,
+      };
+    }
+    const { id, created } = enqueued;
     if (created) {
       await appendWorkshopOrderReadyDomainEvent(tx, this.domainEventStore, {
         tenantId: input.tenantId,
@@ -326,6 +359,6 @@ export class WorkshopOrderReadyEmailService {
         traceId: this.requestContext.getTraceId() ?? id,
       });
     }
-    return id;
+    return { status: 'queued', outboxId: id };
   }
 }

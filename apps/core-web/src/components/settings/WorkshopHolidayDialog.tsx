@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import {
@@ -68,6 +69,7 @@ export function WorkshopHolidayDialog({
   onOpenChange,
   holiday,
 }: WorkshopHolidayDialogProps) {
+  const { t } = useTranslation(['settings', 'common'])
   const createMutation = useCreateWorkshopHoliday()
   const updateMutation = useUpdateWorkshopHoliday()
   const [formState, setFormState] = React.useState<FormState>(defaultFormState)
@@ -85,17 +87,17 @@ export function WorkshopHolidayDialog({
 
     const name = formState.name.trim()
     if (!name) {
-      toast.error('Holiday name is required')
+      toast.error(t('workshopHours.holidayDialog.toast.nameRequired'))
       return
     }
 
     if (!formState.observedOn) {
-      toast.error('Date is required')
+      toast.error(t('workshopHours.holidayDialog.toast.dateRequired'))
       return
     }
 
     if (!formState.isClosed && formState.closeTime <= formState.openTime) {
-      toast.error('Close time must be after open time')
+      toast.error(t('workshopHours.holidayDialog.toast.closeTimeInvalid'))
       return
     }
 
@@ -115,14 +117,14 @@ export function WorkshopHolidayDialog({
     try {
       if (isEditing && holiday) {
         await updateMutation.mutateAsync({ id: holiday.id, payload })
-        toast.success('Holiday updated')
+        toast.success(t('workshopHours.holidayDialog.toast.updated'))
       } else {
         await createMutation.mutateAsync(payload)
-        toast.success('Holiday created')
+        toast.success(t('workshopHours.holidayDialog.toast.created'))
       }
       onOpenChange(false)
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, 'Failed to save holiday'))
+      toast.error(getErrorMessage(error, t('workshopHours.holidayDialog.toast.saveFailed')))
     }
   }
 
@@ -130,28 +132,28 @@ export function WorkshopHolidayDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Edit Holiday' : 'Create Holiday'}</DialogTitle>
+          <DialogTitle>{isEditing ? t('workshopHours.holidayDialog.editTitle') : t('workshopHours.holidayDialog.createTitle')}</DialogTitle>
           <DialogDescription>
-            Override weekday hours for a specific date. Closed days block the grid; short days use custom hours.
+            {t('workshopHours.holidayDialog.description')}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className='space-y-4'>
           <div className='space-y-2'>
-            <Label htmlFor='holiday-name'>Name</Label>
+            <Label htmlFor='holiday-name'>{t('workshopHours.holidayDialog.name')}</Label>
             <Input
               id='holiday-name'
               value={formState.name}
               onChange={(event) => {
                 setFormState((previous) => ({ ...previous, name: event.target.value }))
               }}
-              placeholder='Nationalfeiertag'
+              placeholder={t('workshopHours.holidayDialog.namePlaceholder')}
               required
             />
           </div>
 
           <div className='space-y-2'>
-            <Label htmlFor='holiday-date'>Date</Label>
+            <Label htmlFor='holiday-date'>{t('workshopHours.holidayDialog.date')}</Label>
             <Input
               id='holiday-date'
               type='date'
@@ -174,7 +176,7 @@ export function WorkshopHolidayDialog({
                 }))
               }}
             />
-            <Label htmlFor='holiday-annual'>Repeats annually (same month and day)</Label>
+            <Label htmlFor='holiday-annual'>{t('workshopHours.holidayDialog.repeatsAnnually')}</Label>
           </div>
 
           <div className='flex items-center gap-2'>
@@ -188,13 +190,13 @@ export function WorkshopHolidayDialog({
                 }))
               }}
             />
-            <Label htmlFor='holiday-closed'>Closed all day</Label>
+            <Label htmlFor='holiday-closed'>{t('workshopHours.holidayDialog.closedAllDay')}</Label>
           </div>
 
           {!formState.isClosed ? (
             <div className='grid grid-cols-2 gap-4'>
               <div className='space-y-2'>
-                <Label htmlFor='holiday-open'>Open</Label>
+                <Label htmlFor='holiday-open'>{t('workshopHours.holidayDialog.open')}</Label>
                 <Input
                   id='holiday-open'
                   type='time'
@@ -206,7 +208,7 @@ export function WorkshopHolidayDialog({
                 />
               </div>
               <div className='space-y-2'>
-                <Label htmlFor='holiday-close'>Close</Label>
+                <Label htmlFor='holiday-close'>{t('workshopHours.holidayDialog.close')}</Label>
                 <Input
                   id='holiday-close'
                   type='time'
@@ -222,10 +224,14 @@ export function WorkshopHolidayDialog({
 
           <DialogFooter>
             <Button type='button' variant='outline' onClick={() => onOpenChange(false)}>
-              Cancel
+              {t('common:actions.cancel')}
             </Button>
             <Button type='submit' disabled={isPending}>
-              {isPending ? 'Saving...' : isEditing ? 'Save' : 'Create'}
+              {isPending
+                ? t('workshopHours.holidayDialog.saving')
+                : isEditing
+                  ? t('workshopHours.holidayDialog.save')
+                  : t('workshopHours.holidayDialog.create')}
             </Button>
           </DialogFooter>
         </form>

@@ -370,8 +370,3 @@ export function importFieldHeaderLabelCandidates(
   const enFields = enEnums.importField[segment] as Record<string, string>
   return [deFields[fieldKey], enFields[fieldKey]]
 }
-
-/** @deprecated Bilingual UI copy outside the import field enum maps; migrate callers to `t()`. */
-export function bilingualLabel(english: string, german: string): string {
-  return `${english} / ${german}`
-}

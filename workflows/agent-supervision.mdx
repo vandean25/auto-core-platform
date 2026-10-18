@@ -1,0 +1,36 @@
+---
+title: "Agentenüberwachung"
+description: "Vorgeschlagene Agenten-Aktionen freigeben und Agentenaktivität prüfen, wenn der Überwachungsmodus aktiv ist."
+---
+
+**Agentenüberwachung** ist das menschliche Kontrolltor für automatisierte Agenten (MCP und Richtlinien-Stufen). Wenn Ihre Umgebung die Überwachung aktiviert (`VITE_FEATURE_AGENT_SUPERVISION`), sehen OWNER, Administratoren und Serviceberater das Modul in der Seitenleiste.
+
+Ist die Kennzeichnung aus, leitet die Route zur Startseite um — diese Seite gilt dann nicht für Ihren Mandanten.
+
+<Steps>
+  <Step title="Agentenüberwachung öffnen">
+    Seitenleiste → **Agentenüberwachung**.
+  </Step>
+  <Step title="Genehmigungen prüfen">
+    Auf dem Tab **Genehmigungen** filtern Sie mit **Nur ausstehend**. Öffnen Sie einen Vorschlag, um Ziel, Betrag und Richtlinien-Stufe zu sehen.
+  </Step>
+  <Step title="Genehmigen oder ablehnen">
+    Genehmigen Sie, damit die Plattform die vorgeschlagene Aktion ausführt. Lehnen Sie mit Begründung ab, wenn der Vorschlag falsch oder unsicher ist.
+  </Step>
+  <Step title="In Aktivitäten nachvollziehen">
+    Nutzen Sie die Tabs **Aktivitäten** und **Entscheidungs-Schatten**, um ausgeführte und im Schattenmodus simulierte Läufe nachzuverfolgen.
+  </Step>
+</Steps>
+
+<Warning>
+Das Banner weist darauf hin, dass **HUMAN_ONLY**-Aktionen manuell ausgeführt werden müssen. Die Überwachung führt diese nicht automatisch aus.
+</Warning>
+
+<AccordionGroup>
+  <Accordion title="Wer darf das nutzen">
+    Rollen **OWNER**, **ADMIN** und **ADVISOR**, wenn die Feature-Kennzeichnung aktiv ist. Techniker und rein verkaufsorientierte Rollen sehen das Modul nicht.
+  </Accordion>
+  <Accordion title="API-Schlüssel vs. Agenten">
+    Mandanten-[API-Schlüssel](/settings/api-keys) sind schreibgeschützter HTTP-Zugriff für Integrationen. Agentenüberwachung ist davon getrennt.
+  </Accordion>
+</AccordionGroup>

@@ -7,7 +7,38 @@ description: Use when writing, editing, or reviewing Mintlify documentation (MDX
 
 Public docs are a **workshop product**, not an engineering wiki. Write for the person standing at the counter.
 
-**REQUIRED:** Read this skill before creating or editing any `*.mdx` or `docs.json`.
+**REQUIRED:** Read this skill before creating or editing any public `*.mdx` or `docs.json`.
+
+## Languages (de-AT first)
+
+The Mintlify site (`autocore-platform`) is **bilingual** via `navigation.languages` in `docs.json`:
+
+| Locale | Code | Files | URLs |
+| --- | --- | --- | --- |
+| **Default** — Austrian German | `de-AT` | Repo root: `introduction.mdx`, `workflows/`, `settings/`, `operations/`, etc. | `/introduction`, `/workflows/sign-in`, … |
+| English | `en` | Mirror tree under `en/` | `/en/introduction`, `/en/workflows/sign-in`, … |
+
+**Write German first, then English.** New or updated pages need **both** trees with the **same page set** and matching navigation order (see `tools/docs-i18n-pages.mjs` for the shared page list). After editing navigation, run `node tools/patch-docs-json-i18n.mjs` only if you are intentionally regenerating language blocks from that shared list.
+
+### Voice and terminology (German)
+
+- **Sie-Form**, natural **Austrian** workshop/dealer German (Pickerl, Kostenvoranschlag, Gutschrift, Werkstatt, Jänner in dates, etc.).
+- **UI labels** must match the app: read `locales/de/*.json` (and `locales/en/*.json` for English) — do not invent menu names.
+- Internal links: **no** `/en/` prefix in German MDX; **always** `/en/…` in English MDX under `en/`.
+- No Linear `AUT-` keys, no ADR numbers, no pilot customer real names (use „Pilotkunde“).
+
+### Voice (English)
+
+Same counter-floor tone as before: short sentences, name real controls, “you” not “the user”. Match `locales/en/*.json` for UI strings.
+
+### Automations (docs-drift / docs-stale maintainers)
+
+When an automation updates docs from product changes:
+
+1. Update the **German** page at the root path.
+2. Update the matching **`en/`** page in the same PR.
+3. Keep `docs.json` navigation in sync (group labels are localized per language entry).
+4. Run `mint validate` and `mintlify broken-links` from the repo root before pushing.
 
 ## Unique design (do not drift)
 
@@ -24,31 +55,20 @@ Pages must *feel* like ACP UI: slate language, ledger metaphors, Lucide `icon` o
 Every page:
 
 1. Frontmatter `title` + `description` (one sentence, user outcome)
-2. Opening paragraph: what this screen is *for*, in bay-floor English
+2. Opening paragraph: what this screen is *for*, on the shop floor
 3. `CardGroup` or a 2-column table if the page has more than one job
-4. `Steps` for any click-path (Settings gear → tab → row)
+4. `Steps` for any click-path (Zahnrad → Tab → Zeile / Settings gear → tab → row)
 5. `Warning` / `Tip` / `Check` for one sharp constraint
 6. `Accordion` for edge cases — never dump them in the intro
 7. `Tabs` when the same UI has two audiences (user vs job vs delete)
 
 Do **not** open with architecture history, Linear ids, or ADR numbers.
 
-## Voice
-
-| Do | Don't |
-| --- | --- |
-| "Open Settings → Audit Logs." | "Navigate to the audit module." |
-| "The trail is append-only." | "Robust immutable compliance logging." |
-| "Who changed this invoice?" | "Leverage observability for stakeholders." |
-| Name the actual control | "Simply click around until you find it." |
-
-Address **you**. Short sentences. Product nouns: tenant, bay, job, invoice, ledger.
-
 ## Audience split
 
 - **Settings tab** — workshop users, accountants, support. No NestJS, no Prisma, no env vars.
-- **Operations tab** — platform super-admins. HTTP is allowed. Still no ADR paste.
-- Internal ADRs stay in `docs/internal/`. Mintlify may *summarize* behavior that shipped, never reproduce the decision record.
+- **Operations tab** — platform super-admins. HTTP is allowed. Still no ADR paste. **Translate operations pages to German** for AT operators; keep code paths and API examples accurate.
+- Internal ADRs stay in `docs/internal/` (excluded via `.mintignore`). Mintlify may *summarize* behavior that shipped, never reproduce the decision record.
 
 ## Source of truth
 
@@ -56,6 +76,8 @@ Read the **shipped UI and API**, then write. If Settings has no control, do not 
 
 ## Common mistakes
 
+- English-only root MDX (breaks default locale)
+- Mismatched page sets between `de-AT` and `en` navigation
 - Copying runbooks/ADRs into MDX and calling it a user guide
 - Mixing audit trail and server logs on one page without a comparison table
 - Font Awesome icons (library is Lucide)

@@ -1,5 +1,6 @@
 import * as React from "react"
 import { Check, ChevronsUpDown } from "lucide-react"
+import { useTranslation } from "react-i18next"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -25,7 +26,8 @@ interface BrandComboboxProps {
     placeholder?: string
 }
 
-export function BrandCombobox({ value, onChange, placeholder = "Select brand..." }: BrandComboboxProps) {
+export function BrandCombobox({ value, onChange, placeholder }: BrandComboboxProps) {
+  const { t } = useTranslation('settings')
   const [open, setOpen] = React.useState(false)
   const { data: brands, isLoading } = useBrands()
 
@@ -48,19 +50,19 @@ export function BrandCombobox({ value, onChange, placeholder = "Select brand..."
             {isLoading ? (
                 <div className="flex items-center gap-2">
                     <Loader2 className="h-3 w-3 animate-spin" />
-                    <span>Loading...</span>
+                    <span>{t('brands.combobox.loading')}</span>
                 </div>
             ) : (
-                selectedBrand ? selectedBrand.name : placeholder
+                selectedBrand ? selectedBrand.name : (placeholder ?? t('brands.combobox.placeholder'))
             )}
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[300px] p-0">
           <Command>
-            <CommandInput placeholder="Search brand..." />
+            <CommandInput placeholder={t('brands.combobox.search')} />
             <CommandList>
-              <CommandEmpty>No brand found.</CommandEmpty>
+              <CommandEmpty>{t('brands.combobox.empty')}</CommandEmpty>
               <CommandGroup>
                 {brands?.map((brand) => (
                   <CommandItem

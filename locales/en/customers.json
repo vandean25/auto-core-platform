@@ -27,6 +27,11 @@
     "confirmRevoke": "Confirm withdrawal",
     "cancel": "Cancel"
   },
+  "search": {
+    "selectPlaceholder": "Select customer…",
+    "searchPlaceholder": "Search customers…",
+    "empty": "No customer found."
+  },
   "list": {
     "title": "Customers",
     "description": "Manage your customer database and CRM.",

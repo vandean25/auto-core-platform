@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { Loader2, Save } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { useAuthSession } from '@/api/auth-session'
@@ -85,6 +86,7 @@ function AdapterSelect({
   disabled?: boolean
   onChange: (value: string) => void
 }) {
+  const { t } = useTranslation('settings')
   return (
     <div className='space-y-2'>
       <Label htmlFor={id}>{label}</Label>
@@ -94,10 +96,10 @@ function AdapterSelect({
         onValueChange={(nextValue) => onChange(nextValue === '__none__' ? '' : nextValue)}
       >
         <SelectTrigger id={id}>
-          <SelectValue placeholder='Not configured' />
+          <SelectValue placeholder={t('vehicleData.catalog.notConfigured')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value='__none__'>Not configured</SelectItem>
+          <SelectItem value='__none__'>{t('vehicleData.catalog.notConfigured')}</SelectItem>
           {options.map((option) => (
             <SelectItem key={option.value} value={option.value}>
               {option.label}
@@ -110,6 +112,7 @@ function AdapterSelect({
 }
 
 export function VehicleDataSettingsTab() {
+  const { t } = useTranslation('settings')
   const sessionQuery = useAuthSession()
   const canManage = canManageVehicleData(sessionQuery.data?.activeRole)
 
@@ -143,7 +146,7 @@ export function VehicleDataSettingsTab() {
     if (!formState || !canManage) return
 
     if (!Number.isInteger(formState.awMinutes) || formState.awMinutes < 1) {
-      toast.error('AW minutes must be a positive whole number')
+      toast.error(t('vehicleData.toast.awMinutesInvalid'))
       return
     }
 
@@ -162,9 +165,9 @@ export function VehicleDataSettingsTab() {
     try {
       const saved = await updateMutation.mutateAsync(payload)
       setFormState(settingsToFormState(saved))
-      toast.success('Vehicle data settings saved')
+      toast.success(t('vehicleData.toast.saved'))
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, 'Failed to save vehicle data settings'))
+      toast.error(getErrorMessage(error, t('vehicleData.toast.saveFailed')))
     }
   }
 
@@ -184,7 +187,7 @@ export function VehicleDataSettingsTab() {
   if (!canManage) {
     return (
       <p className='text-sm text-muted-foreground'>
-        Vehicle data settings are available to workshop owners and administrators only.
+        {t('vehicleData.noAccess')}
       </p>
     )
   }
@@ -192,7 +195,7 @@ export function VehicleDataSettingsTab() {
   if (isSettingsError) {
     return (
       <p className='text-sm text-destructive'>
-        Failed to load vehicle data settings. Refresh and try again.
+        {t('vehicleData.loadFailed')}
       </p>
     )
   }
@@ -209,17 +212,16 @@ export function VehicleDataSettingsTab() {
     <form onSubmit={handleSave} className='space-y-8'>
       <div className='p-6 bg-white border rounded-lg shadow-sm space-y-6'>
         <div>
-          <h3 className='text-lg font-medium'>Catalog defaults</h3>
+          <h3 className='text-lg font-medium'>{t('vehicleData.catalog.title')}</h3>
           <p className='text-sm text-muted-foreground'>
-            Default adapters and labor conversion used when resolving vehicles and searching
-            external parts and labor catalogs.
+            {t('vehicleData.catalog.description')}
           </p>
         </div>
 
         <div className='grid gap-4 md:grid-cols-2'>
           <AdapterSelect
             id='vehicle-identity-adapter'
-            label='Identity adapter'
+            label={t('vehicleData.catalog.identityAdapter')}
             value={formState.defaultIdentityAdapterId}
             options={CATALOG_ADAPTER_OPTIONS.identity}
             disabled={!canManage}
@@ -231,7 +233,7 @@ export function VehicleDataSettingsTab() {
           />
           <AdapterSelect
             id='vehicle-parts-aftermarket-adapter'
-            label='Aftermarket parts adapter'
+            label={t('vehicleData.catalog.partsAdapter')}
             value={formState.defaultPartsAftermarketAdapterId}
             options={CATALOG_ADAPTER_OPTIONS.partsAftermarket}
             disabled={!canManage}
@@ -243,7 +245,7 @@ export function VehicleDataSettingsTab() {
           />
           <AdapterSelect
             id='vehicle-labor-aftermarket-adapter'
-            label='Aftermarket labor adapter'
+            label={t('vehicleData.catalog.laborAdapter')}
             value={formState.defaultLaborAftermarketAdapterId}
             options={CATALOG_ADAPTER_OPTIONS.laborAftermarket}
             disabled={!canManage}
@@ -254,7 +256,7 @@ export function VehicleDataSettingsTab() {
             }}
           />
           <div className='space-y-2'>
-            <Label htmlFor='vehicle-default-labor-category'>Default labor category</Label>
+            <Label htmlFor='vehicle-default-labor-category'>{t('vehicleData.catalog.defaultLaborCategory')}</Label>
             <Select
               value={formState.defaultLaborCategoryId || '__none__'}
               disabled={!canManage}
@@ -270,10 +272,10 @@ export function VehicleDataSettingsTab() {
               }}
             >
               <SelectTrigger id='vehicle-default-labor-category'>
-                <SelectValue placeholder='Select labor category' />
+                <SelectValue placeholder={t('vehicleData.catalog.selectLaborCategory')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value='__none__'>Not configured</SelectItem>
+                <SelectItem value='__none__'>{t('vehicleData.catalog.notConfigured')}</SelectItem>
                 {laborCategoryOptions.map((category) => (
                   <SelectItem key={category.id} value={category.id}>
                     {category.name}
@@ -283,7 +285,7 @@ export function VehicleDataSettingsTab() {
             </Select>
           </div>
           <div className='space-y-2'>
-            <Label htmlFor='vehicle-aw-minutes'>AW minutes</Label>
+            <Label htmlFor='vehicle-aw-minutes'>{t('vehicleData.catalog.awMinutes')}</Label>
             <Input
               id='vehicle-aw-minutes'
               type='number'
@@ -301,30 +303,29 @@ export function VehicleDataSettingsTab() {
               }}
             />
             <p className='text-sm text-muted-foreground'>
-              Minutes per Arbeitswert when converting external labor catalog hits to hours.
+              {t('vehicleData.catalog.awMinutesHint')}
             </p>
           </div>
         </div>
 
         <div className='flex flex-wrap gap-2'>
           {settings?.hasIdentityCredential ? (
-            <Badge variant='outline'>Identity credentials configured</Badge>
+            <Badge variant='outline'>{t('vehicleData.catalog.badges.identity')}</Badge>
           ) : null}
           {settings?.hasPartsAftermarketCredential ? (
-            <Badge variant='outline'>Aftermarket parts credentials configured</Badge>
+            <Badge variant='outline'>{t('vehicleData.catalog.badges.parts')}</Badge>
           ) : null}
           {settings?.hasLaborAftermarketCredential ? (
-            <Badge variant='outline'>Aftermarket labor credentials configured</Badge>
+            <Badge variant='outline'>{t('vehicleData.catalog.badges.labor')}</Badge>
           ) : null}
         </div>
       </div>
 
       <div className='p-6 bg-white border rounded-lg shadow-sm space-y-6'>
         <div>
-          <h3 className='text-lg font-medium'>OEM concerns</h3>
+          <h3 className='text-lg font-medium'>{t('vehicleData.oemConcerns.title')}</h3>
           <p className='text-sm text-muted-foreground'>
-            Assign vehicle makes to BMW, Mercedes-Benz, or Stellantis concerns. Stellantis
-            typically includes Peugeot, Citroën, Opel, Fiat, Jeep, and related makes.
+            {t('vehicleData.oemConcerns.description')}
           </p>
         </div>
 
@@ -338,10 +339,10 @@ export function VehicleDataSettingsTab() {
                   <h4 className='text-sm font-medium'>{OEM_CONCERN_LABELS[code]}</h4>
                   <div className='flex flex-wrap gap-2'>
                     {concern?.hasPartsCredential ? (
-                      <Badge variant='secondary'>OEM parts credentials</Badge>
+                      <Badge variant='secondary'>{t('vehicleData.oemConcerns.partsCredential')}</Badge>
                     ) : null}
                     {concern?.hasLaborCredential ? (
-                      <Badge variant='secondary'>OEM labor credentials</Badge>
+                      <Badge variant='secondary'>{t('vehicleData.oemConcerns.laborCredential')}</Badge>
                     ) : null}
                   </div>
                 </div>
@@ -350,7 +351,7 @@ export function VehicleDataSettingsTab() {
                   onChange={(memberBrandIds) => updateConcernMakes(code, memberBrandIds)}
                   vehicleMakesOnly
                   disabled={!canManage}
-                  ariaLabel={`${OEM_CONCERN_LABELS[code]} member makes`}
+                  ariaLabel={t('vehicleData.oemConcerns.memberMakesAria', { concern: OEM_CONCERN_LABELS[code] })}
                 />
               </div>
             )
@@ -366,7 +367,7 @@ export function VehicleDataSettingsTab() {
             ) : (
               <Save className='mr-2 h-4 w-4' />
             )}
-            Save Changes
+            {t('vehicleData.saveChanges')}
           </Button>
         </div>
       ) : null}

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import commonDe from '../../../locales/de/common.json' with { type: 'json' }
 
 const E2E_BUNDLED_VERSION = 'v1.0.0-e2e'
 
@@ -15,8 +16,8 @@ test.describe('New version available banner', () => {
     await page.goto('/dashboard')
     await page.waitForLoadState('networkidle')
 
-    await expect(page.getByRole('status')).toContainText('New version available')
-    await expect(page.getByRole('button', { name: 'Reload' })).toBeVisible()
+    await expect(page.getByRole('status')).toContainText(commonDe.appVersion.available)
+    await expect(page.getByRole('button', { name: commonDe.appVersion.reload })).toBeVisible()
   })
 
   test('does not show banner when version.json matches the bundled release', async ({ page }) => {

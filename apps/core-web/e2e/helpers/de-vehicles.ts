@@ -7,9 +7,20 @@ export const DE_VEHICLES = {
     addVehicle: vehiclesDe.list.addVehicle,
     rowAria: vehiclesDe.list.rowAria,
   },
+  dialog: {
+    addTitle: vehiclesDe.dialog.addTitle,
+    editTitle: vehiclesDe.dialog.editTitle,
+    make: vehiclesDe.dialog.make,
+    model: vehiclesDe.dialog.model,
+    year: vehiclesDe.dialog.year,
+    create: vehiclesDe.dialog.create,
+  },
   detail: {
     vehicleInfo: vehiclesDe.detail.vehicleInfo,
     editVehicle: vehiclesDe.detail.editVehicle,
+  },
+  dashboardWidgets: {
+    pickerlDueTitle: vehiclesDe.dashboardWidgets.pickerlDueTitle,
   },
   pickerlDue: {
     exportCsv: vehiclesDe.pickerlDue.exportCsv,

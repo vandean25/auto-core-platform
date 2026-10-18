@@ -24,6 +24,7 @@ export const LAZY_NAMESPACES = [
   'agent',
   'settings',
   'platform',
+  'reports',
   'pdf',
   'email',
   'customers',

@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
   DEFAULT_DOCUMENT_BRAND_THEME,
@@ -40,6 +41,7 @@ export function DocumentBrandingSettings({
 }: {
   entity: LegalEntityRecord;
 }) {
+  const { t } = useTranslation("settings");
   const {
     data: profile,
     isLoading,
@@ -159,9 +161,9 @@ export function DocumentBrandingSettings({
         const message =
           saveError instanceof Error
             ? saveError.message
-            : "Draft validation or revision conflict.";
+            : t("documentBranding.toast.draftValidationFallback");
         setDraftError(message);
-        toast.error("Document branding could not be saved", {
+        toast.error(t("documentBranding.toast.saveFailed"), {
           description: message,
         });
       },
@@ -237,16 +239,16 @@ export function DocumentBrandingSettings({
         const message =
           result.error instanceof Error
             ? result.error.message
-            : "Could not load the latest document branding.";
+            : t("documentBranding.toast.loadLatestFallback");
         setDraftError(message);
-        toast.error("Could not reload document branding", {
+        toast.error(t("documentBranding.toast.reloadFailed"), {
           description: message,
         });
         return;
       }
       applyProfileTheme(result.data);
       markIdle();
-      toast.message("Loaded the latest document branding from the server.");
+      toast.message(t("documentBranding.toast.reloaded"));
     } finally {
       if (recoveryStillCurrent(requestId, entityId)) {
         setReapplyingConflict(false);
@@ -260,6 +262,7 @@ export function DocumentBrandingSettings({
     markIdle,
     recoveryStillCurrent,
     refetchProfile,
+    t,
   ]);
 
   const reapplyEditsOnLatestRevision = React.useCallback(async () => {
@@ -277,7 +280,7 @@ export function DocumentBrandingSettings({
         throw new Error(
           result.error instanceof Error
             ? result.error.message
-            : "Could not load the latest document branding.",
+            : t("documentBranding.toast.loadLatestFallback"),
         );
       }
       if (!recoveryStillCurrent(requestId, entityId)) return;
@@ -295,15 +298,15 @@ export function DocumentBrandingSettings({
       setRevisionConflict(false);
       setNeedsPostConflictAutosave(true);
       markSaved();
-      toast.success("Your edits were saved on top of the latest revision.");
+      toast.success(t("documentBranding.toast.reapplied"));
     } catch (reapplyError) {
       if (!recoveryStillCurrent(requestId, entityId)) return;
       const message =
         reapplyError instanceof Error
           ? reapplyError.message
-          : "Could not re-apply your edits.";
+          : t("documentBranding.toast.reapplyFallback");
       setDraftError(message);
-      toast.error("Document branding could not be saved", {
+      toast.error(t("documentBranding.toast.saveFailed"), {
         description: message,
       });
     } finally {
@@ -319,6 +322,7 @@ export function DocumentBrandingSettings({
     recoveryStillCurrent,
     refetchProfile,
     saveDraft,
+    t,
   ]);
 
   const updateTheme = React.useCallback(
@@ -338,14 +342,14 @@ export function DocumentBrandingSettings({
     if (!logoAsset.data || logoAsset.data.state === "QUARANTINED") return;
     if (logoAsset.data.state === "READY") {
       updateTheme("logoAssetId", logoAsset.data.id);
-      toast.success("Logo validated and added to the draft");
+      toast.success(t("documentBranding.toast.logoValidated"));
     } else if (logoAsset.data.state === "REJECTED") {
-      toast.error("Logo file was rejected", {
+      toast.error(t("documentBranding.toast.logoRejected"), {
         description: logoAsset.data.failureCode ?? undefined,
       });
     }
     setPendingLogoId(null);
-  }, [logoAsset.data, updateTheme]);
+  }, [logoAsset.data, t, updateTheme]);
 
   const confirmDraft = async () => {
     if (!profile || !theme) return;
@@ -368,13 +372,13 @@ export function DocumentBrandingSettings({
       revisionRef.current = updated.revision;
       setSavedTheme(updated.activeTheme);
       setTheme(updated.activeTheme);
-      toast.success("Document branding confirmed");
+      toast.success(t("documentBranding.toast.confirmed"));
     } catch (confirmError) {
-      toast.error("Document branding could not be confirmed", {
+      toast.error(t("documentBranding.toast.confirmFailed"), {
         description:
           confirmError instanceof Error
             ? confirmError.message
-            : "Review the draft and try again.",
+            : t("documentBranding.toast.reviewDraftFallback"),
       });
     }
   };
@@ -395,15 +399,15 @@ export function DocumentBrandingSettings({
       setSavedTheme(updated.draftTheme ?? proposal);
       setDraftError(null);
       preview.reset();
-      toast.success("Suggestions saved to the draft", {
-        description: "Review the draft and confirm it to use it on future invoices.",
+      toast.success(t("documentBranding.toast.suggestionsSaved"), {
+        description: t("documentBranding.toast.suggestionsSavedDescription"),
       });
     } catch (applyError) {
-      toast.error("Proposal could not be applied", {
+      toast.error(t("documentBranding.toast.proposalFailed"), {
         description:
           applyError instanceof Error
             ? applyError.message
-            : "The profile revision changed. Start a new extraction.",
+            : t("documentBranding.toast.proposalFallback"),
       });
     }
   };
@@ -411,9 +415,7 @@ export function DocumentBrandingSettings({
   const resetToDefaults = async () => {
     if (
       !profile ||
-      !window.confirm(
-        "Confirm ACP default invoice branding for this legal entity? New invoices will use ACP defaults; previously issued invoices and PDFs will not change.",
-      )
+      !window.confirm(t("documentBranding.confirmReset"))
     )
       return;
     try {
@@ -425,13 +427,13 @@ export function DocumentBrandingSettings({
       revisionRef.current = updated.revision;
       setTheme(DEFAULT_DOCUMENT_BRAND_THEME);
       setSavedTheme(DEFAULT_DOCUMENT_BRAND_THEME);
-      toast.success("ACP default branding confirmed");
+      toast.success(t("documentBranding.toast.defaultsConfirmed"));
     } catch (resetError) {
-      toast.error("Default branding could not be confirmed", {
+      toast.error(t("documentBranding.toast.defaultsFailed"), {
         description:
           resetError instanceof Error
             ? resetError.message
-            : "Review the current revision and try again.",
+            : t("documentBranding.toast.reviewRevisionFallback"),
       });
     }
   };
@@ -439,7 +441,7 @@ export function DocumentBrandingSettings({
   const discardDraft = async () => {
     if (
       !profile ||
-      !window.confirm("Discard the saved document branding draft?")
+      !window.confirm(t("documentBranding.confirmDiscard"))
     )
       return;
     clearPendingSave();
@@ -452,13 +454,13 @@ export function DocumentBrandingSettings({
       revisionRef.current = updated.revision;
       setTheme(updated.activeTheme);
       setSavedTheme(updated.activeTheme);
-      toast.success("Document branding draft discarded");
+      toast.success(t("documentBranding.toast.draftDiscarded"));
     } catch (discardError) {
-      toast.error("Draft could not be discarded", {
+      toast.error(t("documentBranding.toast.discardFailed"), {
         description:
           discardError instanceof Error
             ? discardError.message
-            : "Review the current revision and try again.",
+            : t("documentBranding.toast.reviewRevisionFallback"),
       });
     }
   };
@@ -472,11 +474,11 @@ export function DocumentBrandingSettings({
         sample: entity.country_iso === "AT" ? "AT_STANDARD" : "DE_STANDARD",
       });
     } catch (previewError) {
-      toast.error("Preview could not be generated", {
+      toast.error(t("documentBranding.toast.previewFailed"), {
         description:
           previewError instanceof Error
             ? previewError.message
-            : "Please try again.",
+            : t("documentBranding.toast.tryAgain"),
       });
     }
   };
@@ -494,7 +496,9 @@ export function DocumentBrandingSettings({
       });
       if (purpose === "LOGO") setPendingLogoId(asset.id);
       toast.message(
-        `${purpose === "LOGO" ? "Logo" : "Source file"} uploaded; validation is in progress`,
+        purpose === "LOGO"
+          ? t("documentBranding.toast.logoUploaded")
+          : t("documentBranding.toast.sourceUploaded"),
       );
     } catch (uploadError) {
       const constraints =
@@ -502,7 +506,9 @@ export function DocumentBrandingSettings({
           ? uploadCapabilities?.logo
           : uploadCapabilities?.source;
       toast.error(
-        `${purpose === "LOGO" ? "Logo" : "Source file"} could not be uploaded`,
+        purpose === "LOGO"
+          ? t("documentBranding.toast.logoUploadFailed")
+          : t("documentBranding.toast.sourceUploadFailed"),
         {
           description: documentBrandAssetUploadErrorMessage(
             purpose,
@@ -515,11 +521,13 @@ export function DocumentBrandingSettings({
   };
 
   if (isLoading)
-    return <p className="text-sm text-slate-500">Loading document branding…</p>;
+    return (
+      <p className="text-sm text-slate-500">{t("documentBranding.loading")}</p>
+    );
   if (error)
     return (
       <p role="alert" className="text-sm text-red-700">
-        Document branding could not be loaded: {error.message}
+        {t("documentBranding.loadFailed", { message: error.message })}
       </p>
     );
   if (!theme) return null;
@@ -543,10 +551,10 @@ export function DocumentBrandingSettings({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 id="document-branding-title" className="text-lg font-medium">
-            Document branding
+            {t("documentBranding.title")}
           </h3>
           <p className="text-sm text-slate-500">
-            These settings apply to future invoices after you confirm them.
+            {t("documentBranding.subtitle")}
           </p>
         </div>
         <DocumentSaveIndicator
@@ -556,13 +564,13 @@ export function DocumentBrandingSettings({
 
       {!entity.is_active ? (
         <p role="status" className="text-sm text-amber-800">
-          Reactivate this legal entity to edit its document branding.
+          {t("documentBranding.inactiveEntity")}
         </p>
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="grid gap-2 sm:col-span-2">
-          <Label htmlFor="brand-logo">Logo</Label>
+          <Label htmlFor="brand-logo">{t("documentBranding.logo.label")}</Label>
           {uploadCapabilities?.logo.requirementLabel ? (
             <p className="text-xs text-slate-500">
               {uploadCapabilities.logo.requirementLabel}
@@ -583,7 +591,7 @@ export function DocumentBrandingSettings({
           />
           {theme.logoAssetId ? (
             <p className="text-xs text-slate-500">
-              Selected logo asset: {theme.logoAssetId}
+              {t("documentBranding.logo.selected", { id: theme.logoAssetId })}
             </p>
           ) : null}
           {theme.logoAssetId ? (
@@ -594,12 +602,12 @@ export function DocumentBrandingSettings({
               disabled={themeEditingDisabled}
               onClick={() => updateTheme("logoAssetId", null)}
             >
-              Remove logo
+              {t("documentBranding.logo.remove")}
             </Button>
           ) : null}
           {assetUpload.isPending || logoAsset.data?.state === "QUARANTINED" ? (
             <p role="status" className="text-sm text-slate-500">
-              Uploading and validating logo…
+              {t("documentBranding.logo.uploading")}
             </p>
           ) : null}
           {logoAsset.pollTimedOut ? (
@@ -610,7 +618,7 @@ export function DocumentBrandingSettings({
               disabled={logoAsset.isFetching}
               onClick={() => void logoAsset.refetch()}
             >
-              Refresh validation status
+              {t("documentBranding.logo.refreshStatus")}
             </Button>
           ) : null}
         </div>
@@ -638,7 +646,7 @@ export function DocumentBrandingSettings({
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="brand-primary-color">Primary color</Label>
+          <Label htmlFor="brand-primary-color">{t("documentBranding.fields.primaryColor")}</Label>
           <Input
             id="brand-primary-color"
             type="color"
@@ -665,7 +673,7 @@ export function DocumentBrandingSettings({
           ) : null}
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="brand-secondary-color">Secondary color</Label>
+          <Label htmlFor="brand-secondary-color">{t("documentBranding.fields.secondaryColor")}</Label>
           <Input
             id="brand-secondary-color"
             type="color"
@@ -692,7 +700,7 @@ export function DocumentBrandingSettings({
           ) : null}
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="brand-header-band">Header band</Label>
+          <Label htmlFor="brand-header-band">{t("documentBranding.fields.headerBand")}</Label>
           <Select
             value={theme.headerBand}
             disabled={themeEditingDisabled}
@@ -702,14 +710,14 @@ export function DocumentBrandingSettings({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="none">None</SelectItem>
-              <SelectItem value="primary">Primary</SelectItem>
-              <SelectItem value="secondary">Secondary</SelectItem>
+              <SelectItem value="none">{t("documentBranding.fields.bandNone")}</SelectItem>
+              <SelectItem value="primary">{t("documentBranding.fields.bandPrimary")}</SelectItem>
+              <SelectItem value="secondary">{t("documentBranding.fields.bandSecondary")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="brand-footer-band">Footer band</Label>
+          <Label htmlFor="brand-footer-band">{t("documentBranding.fields.footerBand")}</Label>
           <Select
             value={theme.footerBand}
             disabled={themeEditingDisabled}
@@ -719,17 +727,18 @@ export function DocumentBrandingSettings({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="none">None</SelectItem>
-              <SelectItem value="primary">Primary</SelectItem>
-              <SelectItem value="secondary">Secondary</SelectItem>
+              <SelectItem value="none">{t("documentBranding.fields.bandNone")}</SelectItem>
+              <SelectItem value="primary">{t("documentBranding.fields.bandPrimary")}</SelectItem>
+              <SelectItem value="secondary">{t("documentBranding.fields.bandSecondary")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
         <div className="grid gap-2 sm:col-span-2">
           <div className="flex items-baseline justify-between gap-2">
             <Label htmlFor="brand-header-text">
-              Decorative header text (up to {decorativeTextMaxCodePoints}{" "}
-              characters, two lines)
+              {t("documentBranding.fields.headerText", {
+                max: decorativeTextMaxCodePoints,
+              })}
             </Label>
             <span
               className="text-xs text-slate-500"
@@ -764,8 +773,9 @@ export function DocumentBrandingSettings({
         <div className="grid gap-2 sm:col-span-2">
           <div className="flex items-baseline justify-between gap-2">
             <Label htmlFor="brand-footer-text">
-              Decorative footer text (up to {decorativeTextMaxCodePoints}{" "}
-              characters)
+              {t("documentBranding.fields.footerText", {
+                max: decorativeTextMaxCodePoints,
+              })}
             </Label>
             <span
               className="text-xs text-slate-500"
@@ -803,8 +813,7 @@ export function DocumentBrandingSettings({
           className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950"
         >
           <p>
-            Another session saved newer document branding while you were
-            editing. Your local edits are still shown here.
+            {t("documentBranding.conflict.message")}
             {draftError ? ` ${draftError}` : ""}
           </p>
           <div className="flex flex-wrap gap-2">
@@ -815,7 +824,7 @@ export function DocumentBrandingSettings({
               disabled={reapplyingConflict}
               onClick={() => void reloadLatestBranding()}
             >
-              Reload latest
+              {t("documentBranding.conflict.reload")}
             </Button>
             <Button
               type="button"
@@ -823,21 +832,29 @@ export function DocumentBrandingSettings({
               disabled={reapplyingConflict || hasThemeValidationErrors}
               onClick={() => void reapplyEditsOnLatestRevision()}
             >
-              {reapplyingConflict ? "Re-applying…" : "Keep my edits"}
+              {reapplyingConflict
+                ? t("documentBranding.conflict.reapplying")
+                : t("documentBranding.conflict.keep")}
             </Button>
           </div>
         </div>
       ) : null}
       {draftError && !revisionConflict ? (
         <p role="alert" className="text-sm text-red-700">
-          Draft save failed. Fix validation issues or try again. {draftError}
+          {t("documentBranding.draftFailed", { message: draftError })}
         </p>
       ) : null}
       <p role="status" className="text-sm text-slate-600">
-        {profile?.activeRevision
-          ? `Active appearance · revision ${profile.activeRevision}`
-          : "Active appearance · ACP defaults"}
-        {profile?.draftTheme ? " · Draft — not yet used on invoices" : " · No saved draft"}
+        {[
+          profile?.activeRevision
+            ? t("documentBranding.status.activeRevision", {
+                revision: profile.activeRevision,
+              })
+            : t("documentBranding.status.activeDefaults"),
+          profile?.draftTheme
+            ? t("documentBranding.status.draft")
+            : t("documentBranding.status.noDraft"),
+        ].join(" · ")}
       </p>
       <div className="flex flex-wrap items-center gap-2">
         <Button
@@ -846,14 +863,18 @@ export function DocumentBrandingSettings({
           disabled={!entity.is_active || preview.isPending}
           onClick={() => void createPreview()}
         >
-          {preview.isPending ? "Preparing preview…" : "Preview sample"}
+          {preview.isPending
+            ? t("documentBranding.actions.preparingPreview")
+            : t("documentBranding.actions.previewSample")}
         </Button>
         <Button
           type="button"
           disabled={!canConfirm || (!profile?.draftTheme && !hasUnsavedChanges)}
           onClick={() => void confirmDraft()}
         >
-          {confirm.isPending ? "Confirming…" : "Confirm branding"}
+          {confirm.isPending
+            ? t("documentBranding.actions.confirming")
+            : t("documentBranding.actions.confirm")}
         </Button>
         {profile?.draftTheme ? (
           <Button
@@ -862,7 +883,9 @@ export function DocumentBrandingSettings({
             disabled={!entity.is_active || discard.isPending}
             onClick={() => void discardDraft()}
           >
-            {discard.isPending ? "Discarding…" : "Discard draft"}
+            {discard.isPending
+              ? t("documentBranding.actions.discarding")
+              : t("documentBranding.actions.discardDraft")}
           </Button>
         ) : null}
         <Button
@@ -871,14 +894,16 @@ export function DocumentBrandingSettings({
           disabled={!entity.is_active || reset.isPending}
           onClick={() => void resetToDefaults()}
         >
-          {reset.isPending ? "Resetting…" : "Confirm ACP defaults"}
+          {reset.isPending
+            ? t("documentBranding.actions.resetting")
+            : t("documentBranding.actions.confirmDefaults")}
         </Button>
       </div>
       {preview.data ? (
         <div className="overflow-hidden rounded-md border">
           {preview.data.warnings.length > 0 ? (
             <ul
-              aria-label="Preview warnings"
+              aria-label={t("documentBranding.preview.warningsAria")}
               className="list-disc px-8 py-3 text-sm text-amber-800"
             >
               {preview.data.warnings.map((warning) => (
@@ -889,7 +914,7 @@ export function DocumentBrandingSettings({
             </ul>
           ) : null}
           <iframe
-            title="Synthetic invoice branding preview"
+            title={t("documentBranding.preview.iframeTitle")}
             sandbox=""
             srcDoc={preview.data.html}
             className="h-[560px] w-full"

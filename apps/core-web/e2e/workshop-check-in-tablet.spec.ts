@@ -204,7 +204,7 @@ test.describe('AUT-557: workshop check-in tablet flow', () => {
     await expect(page.getByText(deWorkshop.checkIn.media.queued)).toBeVisible({
       timeout: 5000,
     })
-    expect(uploadPurpose).toBe('CHECK_IN')
+    await expect.poll(() => uploadPurpose, { timeout: 10_000 }).toBe('CHECK_IN')
 
     await page.getByTestId('check-in-next').click()
     await expect(page.getByTestId('check-in-step-review')).toBeVisible()

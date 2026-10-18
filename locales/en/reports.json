@@ -1,0 +1,87 @@
+{
+  "workshopKpi": {
+    "pageTitle": "Workshop KPIs",
+    "pageDescription": "Utilisation, productivity, and parts turnover.",
+    "exportCsv": "Export CSV",
+    "site": "Site",
+    "sitePlaceholder": "Select site",
+    "from": "From",
+    "to": "To",
+    "groupBy": "Group by",
+    "groupByOptions": {
+      "mechanic": "Mechanic",
+      "week": "Week",
+      "month": "Month"
+    },
+    "total": "Total",
+    "never": "Never",
+    "laborPerformance": {
+      "title": "Labor performance",
+      "loading": "Loading report…",
+      "empty": "No data for the selected period.",
+      "metaFooter": "Time zone: {{timezone}}. {{count}} mechanics without a valid site assignment.",
+      "columns": {
+        "mechanic": "Mechanic",
+        "period": "Period",
+        "available": "Available",
+        "clocked": "Clocked",
+        "sold": "Sold",
+        "laborNet": "Labor net",
+        "partsNet": "Parts net",
+        "utilisation": "Utilisation",
+        "productivity": "Productivity",
+        "orders": "Orders",
+        "avgNetPerOrder": "Avg. net/order",
+        "openTimes": "Open time entries"
+      }
+    },
+    "partsTurnover": {
+      "title": "Parts turnover",
+      "summary": "Issued cost: {{issuedCost}} · Avg. stock value: {{averageStock}} · Turnover: {{turnover}}",
+      "unvaluedStock": "Unvalued stock items: {{count}}",
+      "slowMoversTitle": "Parts with no workshop consumption in the last 90 days",
+      "columns": {
+        "article": "Article",
+        "quantity": "Quantity",
+        "stockValue": "Stock value",
+        "daysSinceIssue": "Days since issue"
+      },
+      "slowMoversEmpty": "No matching parts in stock."
+    },
+    "csv": {
+      "headers": {
+        "dataType": "Data type",
+        "mechanic": "Mechanic",
+        "period": "Period",
+        "availableHours": "Available hours",
+        "clockedHours": "Clocked hours",
+        "soldHours": "Sold hours",
+        "laborNetRevenueEur": "Labor net revenue (EUR)",
+        "partsNetRevenueEur": "Parts net revenue (EUR)",
+        "utilisationPercent": "Utilisation (%)",
+        "productivityPercent": "Productivity (%)",
+        "closedOrders": "Closed orders",
+        "avgNetRevenuePerOrderEur": "Net revenue per order (EUR)",
+        "openLaborEntries": "Open labor entries",
+        "issuedCostEur": "Issued cost (EUR)",
+        "averageStockValueEur": "Average stock value (EUR)",
+        "turnover": "Parts turnover",
+        "unvaluedStockItems": "Unvalued stock items",
+        "sku": "Item SKU",
+        "article": "Article",
+        "quantity": "Quantity",
+        "stockValueEur": "Stock value (EUR)",
+        "daysSinceIssue": "Days since issue",
+        "siteTimezone": "Site time zone",
+        "grouping": "Grouping",
+        "unassignedMechanics": "Mechanics without site assignment"
+      },
+      "rowTypes": {
+        "workPerformance": "Labor performance",
+        "partsTurnover": "Parts turnover",
+        "slowMover": "Slow mover",
+        "reportInfo": "Report info"
+      }
+    }
+  }
+}

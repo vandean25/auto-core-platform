@@ -1,7 +1,7 @@
 import * as React from 'react'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
-import { format } from 'date-fns'
 import { Copy } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import {
@@ -41,9 +41,18 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { getErrorMessage } from '@/lib/error-utils'
+import { formatDateTime } from '@/lib/format'
 
-function formatDateTime(value: string | null | undefined, fallback: string) {
-  return value ? format(new Date(value), 'yyyy-MM-dd HH:mm') : fallback
+const SCOPE_I18N_KEYS = {
+  'customers:read': 'customers_read',
+  'vehicles:read': 'vehicles_read',
+  'invoices:read': 'invoices_read',
+  'workshop-orders:read': 'workshop_orders_read',
+  'stock:read': 'stock_read',
+} as const satisfies Record<PublicApiScope, string>
+
+function formatDateTimeOrFallback(value: string | null | undefined, fallback: string) {
+  return value ? formatDateTime(value) : fallback
 }
 
 function sortApiKeys(keys: TenantApiKey[], field?: string, direction?: 'asc' | 'desc') {
@@ -75,6 +84,7 @@ function sortApiKeys(keys: TenantApiKey[], field?: string, direction?: 'asc' | '
  * full key is shown exactly once, in the dialog that follows creation, and is never kept after it closes.
  */
 export function ApiKeysSettingsTab() {
+  const { t } = useTranslation(['settings', 'common'])
   const { queryParams, setPagination, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
   const { data: responseData, error, isLoading, refetch } = useTenantApiKeys()
   const createMutation = useCreateTenantApiKey()
@@ -125,22 +135,22 @@ export function ApiKeysSettingsTab() {
     () => [
       {
         id: 'name',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Name' />,
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('apiKeys.columns.name')} />,
         cell: ({ row }) => (
           <div>
             <div className='font-medium'>{row.original.name}</div>
-            <div className='text-xs text-slate-500'>{row.original.createdByEmail ?? 'Unknown creator'}</div>
+            <div className='text-xs text-slate-500'>{row.original.createdByEmail ?? t('apiKeys.unknownCreator')}</div>
           </div>
         ),
       },
       {
         id: 'keyPrefix',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Key prefix' />,
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('apiKeys.columns.keyPrefix')} />,
         cell: ({ row }) => <code className='font-mono text-xs'>{`${row.original.keyPrefix}…`}</code>,
       },
       {
         id: 'scopes',
-        header: 'Scopes',
+        header: t('apiKeys.columns.scopes'),
         cell: ({ row }) => (
           <div className='flex flex-wrap gap-1'>
             {row.original.scopes.map((scope) => (
@@ -153,18 +163,18 @@ export function ApiKeysSettingsTab() {
       },
       {
         id: 'status',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Status' />,
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('apiKeys.columns.status')} />,
         cell: ({ row }) => <StatusBadge status={row.original.status} />,
       },
       {
         id: 'lastUsedAt',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Last used' />,
-        cell: ({ row }) => formatDateTime(row.original.lastUsedAt, 'Never'),
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('apiKeys.columns.lastUsed')} />,
+        cell: ({ row }) => formatDateTimeOrFallback(row.original.lastUsedAt, t('apiKeys.never')),
       },
       {
         id: 'expiresAt',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Expires' />,
-        cell: ({ row }) => formatDateTime(row.original.expiresAt, 'Never'),
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('apiKeys.columns.expires')} />,
+        cell: ({ row }) => formatDateTimeOrFallback(row.original.expiresAt, t('apiKeys.never')),
       },
       {
         id: 'actions',
@@ -172,12 +182,12 @@ export function ApiKeysSettingsTab() {
         cell: ({ row }) =>
           row.original.status === 'ACTIVE' ? (
             <Button variant='outline' size='sm' onClick={() => setRevokeTarget(row.original)}>
-              Revoke
+              {t('apiKeys.revoke')}
             </Button>
           ) : null,
       },
     ],
-    [],
+    [t],
   )
 
   const resetCreateForm = () => {
@@ -192,11 +202,11 @@ export function ApiKeysSettingsTab() {
 
     const name = createName.trim()
     if (!name) {
-      setCreateError('Enter a name for the key.')
+      setCreateError(t('apiKeys.createDialog.nameRequired'))
       return
     }
     if (createScopes.length === 0) {
-      setCreateError('Select at least one scope.')
+      setCreateError(t('apiKeys.createDialog.scopesRequired'))
       return
     }
 
@@ -210,16 +220,16 @@ export function ApiKeysSettingsTab() {
       setCreateOpen(false)
       setCreatedKey(created)
     } catch (mutationError) {
-      setCreateError(getErrorMessage(mutationError, 'Failed to create API key'))
+      setCreateError(getErrorMessage(mutationError, t('apiKeys.toast.createdFailed')))
     }
   }
 
   const copyToken = async (token: string) => {
     try {
       await navigator.clipboard.writeText(token)
-      toast.success('API key copied')
+      toast.success(t('apiKeys.toast.copied'))
     } catch {
-      toast.error('Copy failed. Select the key and copy it manually.')
+      toast.error(t('apiKeys.toast.copyFailed'))
     }
   }
 
@@ -228,10 +238,10 @@ export function ApiKeysSettingsTab() {
 
     try {
       await revokeMutation.mutateAsync(revokeTarget.id)
-      toast.success('API key revoked')
+      toast.success(t('apiKeys.toast.revoked'))
       setRevokeTarget(null)
     } catch (mutationError) {
-      toast.error(getErrorMessage(mutationError, 'Failed to revoke API key'))
+      toast.error(getErrorMessage(mutationError, t('apiKeys.toast.revokeFailed')))
     }
   }
 
@@ -241,9 +251,9 @@ export function ApiKeysSettingsTab() {
     <div className='space-y-6'>
       <div className='flex items-start justify-between gap-4'>
         <div>
-          <h3 className='text-lg font-medium'>API keys</h3>
+          <h3 className='text-lg font-medium'>{t('apiKeys.title')}</h3>
           <p className='text-sm text-slate-500'>
-            Read-only keys for integrations. Each key works only for the scopes you grant and has its own request budget.
+            {t('apiKeys.description')}
           </p>
         </div>
         <Button
@@ -252,16 +262,16 @@ export function ApiKeysSettingsTab() {
             setCreateOpen(true)
           }}
         >
-          + API key
+          {t('apiKeys.createButton')}
         </Button>
       </div>
 
       {error ? (
         <div className='rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700'>
           <div className='flex items-center justify-between gap-4'>
-            <span>{getErrorMessage(error, 'Failed to load API keys')}</span>
+            <span>{getErrorMessage(error, t('apiKeys.loadFailed'))}</span>
             <Button variant='outline' size='sm' onClick={() => void refetch()}>
-              Retry
+              {t('apiKeys.retry')}
             </Button>
           </div>
         </div>
@@ -272,8 +282,8 @@ export function ApiKeysSettingsTab() {
         data={pagedKeys}
         pageCount={pageCount}
         isLoading={isLoading}
-        searchPlaceholder='Search API keys...'
-        emptyStateMessage='No API keys yet. Create one to connect an integration.'
+        searchPlaceholder={t('apiKeys.searchPlaceholder')}
+        emptyStateMessage={t('apiKeys.emptyState')}
         setPagination={setPagination}
         {...tableState}
       />
@@ -281,23 +291,23 @@ export function ApiKeysSettingsTab() {
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>New API key</DialogTitle>
-            <DialogDescription>Choose a name and the read scopes this key may use.</DialogDescription>
+            <DialogTitle>{t('apiKeys.createDialog.title')}</DialogTitle>
+            <DialogDescription>{t('apiKeys.createDialog.description')}</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCreate} className='space-y-4'>
             <div className='space-y-2'>
-              <Label htmlFor='api-key-name'>Name</Label>
+              <Label htmlFor='api-key-name'>{t('apiKeys.createDialog.name')}</Label>
               <Input
                 id='api-key-name'
                 value={createName}
                 maxLength={120}
-                placeholder='Warehouse dashboard'
+                placeholder={t('apiKeys.createDialog.namePlaceholder')}
                 onChange={(event) => setCreateName(event.target.value)}
               />
             </div>
 
             <fieldset className='space-y-3'>
-              <legend className='text-sm font-medium'>Scopes</legend>
+              <legend className='text-sm font-medium'>{t('apiKeys.createDialog.scopesLegend')}</legend>
               {API_KEY_SCOPE_OPTIONS.map((option) => {
                 const checkboxId = `api-key-scope-${option.value}`
                 return (
@@ -314,9 +324,9 @@ export function ApiKeysSettingsTab() {
                       }
                     />
                     <div>
-                      <Label htmlFor={checkboxId}>{option.label}</Label>
+                      <Label htmlFor={checkboxId}>{t(`apiKeys.scopes.${SCOPE_I18N_KEYS[option.value]}.label`)}</Label>
                       <p className='text-xs text-slate-500'>
-                        {option.description} <code>{option.value}</code>
+                        {t(`apiKeys.scopes.${SCOPE_I18N_KEYS[option.value]}.description`)} <code>{option.value}</code>
                       </p>
                     </div>
                   </div>
@@ -325,7 +335,7 @@ export function ApiKeysSettingsTab() {
             </fieldset>
 
             <div className='space-y-2'>
-              <Label htmlFor='api-key-expires'>Expires on (optional)</Label>
+              <Label htmlFor='api-key-expires'>{t('apiKeys.createDialog.expires')}</Label>
               <Input
                 id='api-key-expires'
                 type='date'
@@ -343,7 +353,7 @@ export function ApiKeysSettingsTab() {
 
             <DialogFooter>
               <Button type='submit' disabled={createMutation.isPending}>
-                {createMutation.isPending ? 'Creating…' : 'Create key'}
+                {createMutation.isPending ? t('apiKeys.createDialog.creating') : t('apiKeys.createDialog.submit')}
               </Button>
             </DialogFooter>
           </form>
@@ -353,13 +363,13 @@ export function ApiKeysSettingsTab() {
       <Dialog open={createdKey !== null} onOpenChange={(open) => { if (!open) setCreatedKey(null) }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Copy your new API key</DialogTitle>
+            <DialogTitle>{t('apiKeys.createdDialog.title')}</DialogTitle>
             <DialogDescription>
-              This is the only time the full key is shown. Store it in your integration&apos;s secret store now.
+              {t('apiKeys.createdDialog.description')}
             </DialogDescription>
           </DialogHeader>
           <div className='space-y-2'>
-            <Label htmlFor='api-key-token'>API key</Label>
+            <Label htmlFor='api-key-token'>{t('apiKeys.createdDialog.label')}</Label>
             <div className='flex gap-2'>
               <Input
                 id='api-key-token'
@@ -376,12 +386,12 @@ export function ApiKeysSettingsTab() {
                 }}
               >
                 <Copy className='mr-2 h-4 w-4' aria-hidden='true' />
-                Copy
+                {t('apiKeys.createdDialog.copy')}
               </Button>
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={() => setCreatedKey(null)}>Done</Button>
+            <Button onClick={() => setCreatedKey(null)}>{t('apiKeys.createdDialog.done')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -389,13 +399,13 @@ export function ApiKeysSettingsTab() {
       <AlertDialog open={revokeTarget !== null} onOpenChange={(open) => { if (!open) setRevokeTarget(null) }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Revoke API key?</AlertDialogTitle>
+            <AlertDialogTitle>{t('apiKeys.revokeDialog.title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              {`"${revokeTarget?.name ?? ''}" stops working immediately. Integrations that use it get 401 on their next request. This cannot be undone.`}
+              {t('apiKeys.revokeDialog.description', { name: revokeTarget?.name ?? '' })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('common:actions.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               disabled={revokeMutation.isPending}
               onClick={(event) => {
@@ -403,7 +413,7 @@ export function ApiKeysSettingsTab() {
                 void handleRevoke()
               }}
             >
-              Revoke key
+              {t('apiKeys.revokeDialog.confirm')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

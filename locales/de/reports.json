@@ -1,0 +1,87 @@
+{
+  "workshopKpi": {
+    "pageTitle": "Workshop-KPIs",
+    "pageDescription": "Auslastung, Leistungsgrad und Lagerumschlag.",
+    "exportCsv": "CSV exportieren",
+    "site": "Standort",
+    "sitePlaceholder": "Standort wählen",
+    "from": "Von",
+    "to": "Bis",
+    "groupBy": "Gruppierung",
+    "groupByOptions": {
+      "mechanic": "Mechaniker",
+      "week": "Woche",
+      "month": "Monat"
+    },
+    "total": "Gesamt",
+    "never": "Nie",
+    "laborPerformance": {
+      "title": "Arbeitsleistung",
+      "loading": "Bericht wird geladen …",
+      "empty": "Keine Daten für den ausgewählten Zeitraum.",
+      "metaFooter": "Zeitzone: {{timezone}}. {{count}} Mechaniker ohne gültige Standortzuordnung.",
+      "columns": {
+        "mechanic": "Mechaniker",
+        "period": "Zeitraum",
+        "available": "Verfügbar",
+        "clocked": "Gebucht",
+        "sold": "Fakturiert",
+        "laborNet": "Arbeit netto",
+        "partsNet": "Teile netto",
+        "utilisation": "Auslastung",
+        "productivity": "Leistungsgrad",
+        "orders": "Aufträge",
+        "avgNetPerOrder": "Ø Netto/Auftrag",
+        "openTimes": "Offene Zeiten"
+      }
+    },
+    "partsTurnover": {
+      "title": "Lagerumschlag",
+      "summary": "Verbrauchskosten: {{issuedCost}} · Ø Lagerwert: {{averageStock}} · Umschlag: {{turnover}}",
+      "unvaluedStock": "Nicht bewertete Lagerpositionen: {{count}}",
+      "slowMoversTitle": "Teile ohne Werkstattverbrauch in den letzten 90 Tagen",
+      "columns": {
+        "article": "Artikel",
+        "quantity": "Menge",
+        "stockValue": "Lagerwert",
+        "daysSinceIssue": "Tage seit Verbrauch"
+      },
+      "slowMoversEmpty": "Keine passenden Teile im Bestand."
+    },
+    "csv": {
+      "headers": {
+        "dataType": "Datentyp",
+        "mechanic": "Mechaniker",
+        "period": "Zeitraum",
+        "availableHours": "Verfügbare Stunden",
+        "clockedHours": "Gebuchte Stunden",
+        "soldHours": "Fakturierte Stunden",
+        "laborNetRevenueEur": "Nettoerlös Arbeit (EUR)",
+        "partsNetRevenueEur": "Nettoerlös Teile (EUR)",
+        "utilisationPercent": "Auslastung (%)",
+        "productivityPercent": "Leistungsgrad (%)",
+        "closedOrders": "Abgeschlossene Aufträge",
+        "avgNetRevenuePerOrderEur": "Nettoerlös je Auftrag (EUR)",
+        "openLaborEntries": "Offene Zeiteinträge",
+        "issuedCostEur": "Verbrauchskosten (EUR)",
+        "averageStockValueEur": "Durchschnittlicher Lagerwert (EUR)",
+        "turnover": "Lagerumschlag",
+        "unvaluedStockItems": "Nicht bewertete Lagerpositionen",
+        "sku": "Artikel-SKU",
+        "article": "Artikel",
+        "quantity": "Menge",
+        "stockValueEur": "Lagerwert (EUR)",
+        "daysSinceIssue": "Tage seit Verbrauch",
+        "siteTimezone": "Standortzeitzone",
+        "grouping": "Gruppierung",
+        "unassignedMechanics": "Mechaniker ohne Standortzuordnung"
+      },
+      "rowTypes": {
+        "workPerformance": "Arbeitsleistung",
+        "partsTurnover": "Lagerumschlag",
+        "slowMover": "Langsamläufer",
+        "reportInfo": "Berichtsinfo"
+      }
+    }
+  }
+}

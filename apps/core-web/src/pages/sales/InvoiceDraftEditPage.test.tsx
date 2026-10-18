@@ -4,6 +4,11 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import InvoiceDraftEditPage from './InvoiceDraftEditPage'
 import { deSales } from '@/test/de-sales'
+import deCommon from '../../../../../locales/de/common.json'
+import deErrors from '../../../../../locales/de/errors.json'
+
+const invoiceEditor = deSales.invoiceEditor
+const accountingMappingIncomplete = deErrors.codes.ACCOUNTING_MAPPING_INCOMPLETE
 import { invoiceKeys } from '@/api/sales'
 import * as salesApi from '@/api/sales'
 import * as salesOrdersApi from '@/api/sales-orders'
@@ -141,7 +146,7 @@ describe('InvoiceDraftEditPage autosave', () => {
 
   const confirmFinalize = () => {
     fireEvent.click(
-      within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Finalize' }),
+      within(screen.getByRole('alertdialog')).getByRole('button', { name: invoiceEditor.finalizeDialog.confirm }),
     )
   }
 
@@ -154,7 +159,7 @@ describe('InvoiceDraftEditPage autosave', () => {
 
     renderPage()
 
-    fireEvent.change(screen.getByPlaceholderText('Service or Item Name'), {
+    fireEvent.change(screen.getByPlaceholderText(invoiceEditor.lineItemsTable.descriptionPlaceholder), {
       target: { value: 'Brake pads premium' },
     })
 
@@ -174,7 +179,7 @@ describe('InvoiceDraftEditPage autosave', () => {
       { timeout: 2000 },
     )
 
-    expect(await screen.findByText('All changes saved')).toBeInTheDocument()
+    expect(await screen.findByText(deCommon.documentSave.saved)).toBeInTheDocument()
   })
 
   it('does not PATCH an unchanged draft on open', async () => {
@@ -204,7 +209,7 @@ describe('InvoiceDraftEditPage autosave', () => {
     const { rerender } = renderPage()
     await screen.findByDisplayValue('Brake pads')
 
-    fireEvent.change(screen.getByPlaceholderText('Service or Item Name'), {
+    fireEvent.change(screen.getByPlaceholderText(invoiceEditor.lineItemsTable.descriptionPlaceholder), {
       target: { value: 'User typed value' },
     })
 
@@ -275,7 +280,7 @@ describe('InvoiceDraftEditPage autosave', () => {
     const finalizeButton = await screen.findByRole('button', { name: deSales.invoices.draft.finalize })
     expect(finalizeButton).not.toBeDisabled()
     fireEvent.click(finalizeButton)
-    expect(await screen.findByText(/Finalize invoice\?/i)).toBeInTheDocument()
+    expect(await screen.findByText(invoiceEditor.finalizeDialog.title)).toBeInTheDocument()
   })
 
   it('calls finalize after confirm and navigates only on success', async () => {
@@ -359,13 +364,13 @@ describe('InvoiceDraftEditPage autosave', () => {
     openFinalizeDialog()
 
     const dialog = await screen.findByRole('alertdialog')
-    expect(within(dialog).getByRole('button', { name: 'Finalize' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: invoiceEditor.finalizeDialog.confirm })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /print/i })).not.toBeInTheDocument()
   })
 
   it('surfaces the branding writer gate message when finalize is blocked', async () => {
     const brandingGateMessage =
-      'Marken-Rechnungsausstellung ist in dieser Umgebung deaktiviert. Finalisieren funktioniert, sobald der Rechnungs-Branding-Writer freigeschaltet ist.'
+      'Rechnungen mit Briefpapier sind in dieser Umgebung noch nicht aktiviert. Das Ausstellen ist möglich, sobald die Funktion freigeschaltet ist.'
     const updateMutation = vi.fn().mockResolvedValue(mockInvoice)
     const finalizeMutation = vi.fn().mockRejectedValue(
       Object.assign(new Error('api'), {
@@ -418,8 +423,8 @@ describe('InvoiceDraftEditPage autosave', () => {
 
     await waitFor(() => {
       expect(finalizeMutation).toHaveBeenCalledWith('inv-1')
-      expect(toast.error).toHaveBeenCalledWith('Die Buchhaltungszuordnung ist unvollständig.')
-      expect(screen.getByText('Die Buchhaltungszuordnung ist unvollständig.')).toBeInTheDocument()
+      expect(toast.error).toHaveBeenCalledWith(accountingMappingIncomplete)
+      expect(screen.getByText(accountingMappingIncomplete)).toBeInTheDocument()
       expect(mockNavigate).not.toHaveBeenCalled()
     })
   })
@@ -446,14 +451,14 @@ describe('InvoiceDraftEditPage autosave', () => {
     openFinalizeDialog()
     confirmFinalize()
 
-    const conflictMessage = 'Die Anfrage steht im Konflikt mit dem aktuellen Zustand.'
+    const conflictMessage = 'Die Anfrage steht im Konflikt mit dem aktuellen Stand.'
 
     await waitFor(() => {
       expect(screen.getByText(conflictMessage)).toBeInTheDocument()
       expect(toast.error).toHaveBeenCalledWith(conflictMessage)
     })
 
-    expect(screen.getByText(/Finalize invoice\?/i)).toBeInTheDocument()
+    expect(screen.getByText(invoiceEditor.finalizeDialog.title)).toBeInTheDocument()
   })
 
   it('surfaces API message when autosave fails', async () => {
@@ -470,7 +475,7 @@ describe('InvoiceDraftEditPage autosave', () => {
 
     renderPage()
 
-    fireEvent.change(screen.getByPlaceholderText('Service or Item Name'), {
+    fireEvent.change(screen.getByPlaceholderText(invoiceEditor.lineItemsTable.descriptionPlaceholder), {
       target: { value: 'Updated line' },
     })
 
@@ -478,7 +483,7 @@ describe('InvoiceDraftEditPage autosave', () => {
       () => {
         expect(toast.error).toHaveBeenCalledWith('Auto-save failed', {
           description:
-            'Rechnungen ohne Quellbeleg werden nicht unterstützt. Erstellen Sie Rechnungen aus einem berechtigten Verkaufsauftrag.',
+            'Rechnungen ohne zugrunde liegenden Auftrag sind nicht möglich. Bitte legen Sie die Rechnung aus einem Kundenauftrag an.',
         })
       },
       { timeout: 3000 },

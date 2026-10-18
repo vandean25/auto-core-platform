@@ -1,0 +1,33 @@
+---
+title: "NoVA-Rechner"
+description: "NoVA bei Fahrzeugankauf und Bestand mit dem integrierten Berechnungskern vorschauen."
+---
+
+Die **NoVA**-Vorschau (*Normverbrauchsabgabe*) hilft Ihnen, die Abgabe bei An- und Verkauf von Fahrzeugen zu schätzen, auch bei EU-Gebrauchtimporten. Sie ist eine Planungshilfe — gleichen Sie die Werte vor Vertragsabschluss immer mit Ihrer Steuerberatung ab.
+
+Serviceberater, Verkauf und Administratoren nutzen den Rechner in Fahrzeugformularen und beim Einkauf im Fahrzeugbestand. Die Vorschau ruft `POST /api/vehicles/nova/calculate` mit Ihren Eingaben auf.
+
+<Steps>
+  <Step title="Fahrzeug oder Bestandseinkauf öffnen">
+    Starten Sie unter [Fahrzeuge](/workflows/vehicles) oder beim Einkauf unter [Fahrzeugbestand](/workflows/vehicle-stock).
+  </Step>
+  <Step title="NoVA-Klasse setzen">
+    Wählen Sie am Fahrzeug die **NoVA-Klasse** (z. B. **STANDARD**, **ELECTRIC_EXEMPT**, **OTHER** oder **NOT_SET**).
+  </Step>
+  <Step title="Vorschau-Panel ausführen">
+    Tragen Sie Nettopreis sowie Verbrauchs- oder CO₂-Werte ein, wie das Formular es verlangt. Klicken Sie im **NoVA**-Vorschau-Panel auf **NoVA berechnen**.
+  </Step>
+  <Step title="Inseratexport nutzen">
+    Beim Veröffentlichen von Bestand prüfen Sie die NoVA-Hinweise im Marktplatztext — siehe [Inseratexport](/workflows/listings-export).
+  </Step>
+</Steps>
+
+<Warning>
+ACP zeigt Hinweise, wenn Eingaben außerhalb validierter Bereiche liegen. Behandeln Sie die Vorschau nicht als abgegebene Steuererklärung.
+</Warning>
+
+<AccordionGroup>
+  <Accordion title="Wer darf das nutzen">
+    Jede Rolle mit Berechtigung zur Bearbeitung der Fahrzeugwirtschaft sieht die Vorschau. Endgültige Beträge auf Kundenverträgen folgen weiterhin Ihren Rechtsträger-Einstellungen.
+  </Accordion>
+</AccordionGroup>

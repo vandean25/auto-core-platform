@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -46,6 +47,7 @@ export function LetterheadSourceAsset({
   extractionAvailable: boolean;
   onProfileUpdated: (profile: DocumentBrandProfile) => void;
 }) {
+  const { t } = useTranslation("settings");
   const queryClient = useQueryClient();
   const upload = useUploadDocumentBrandAsset();
   const attach = useAttachDocumentBrandDraftSource();
@@ -73,7 +75,7 @@ export function LetterheadSourceAsset({
       `/api/legal-entities/${legalEntityId}/document-branding`,
     );
     if (!response.ok) {
-      throw new Error("Failed to refresh document branding profile");
+      throw new Error(t("documentBranding.letterheadSource.refreshProfileFailed"));
     }
     const profile = (await response.json()) as DocumentBrandProfile;
     queryClient.setQueryData(
@@ -82,7 +84,7 @@ export function LetterheadSourceAsset({
     );
     onProfileUpdated(profile);
     return profile;
-  }, [legalEntityId, onProfileUpdated, queryClient]);
+  }, [legalEntityId, onProfileUpdated, queryClient, t]);
 
   const attachSource = async (sourceAssetId: string) => {
     const tryAttach = (expectedRevision: number) =>
@@ -111,14 +113,14 @@ export function LetterheadSourceAsset({
       setPendingAssetId(uploaded.id);
       const profile = await attachSource(uploaded.id);
       onProfileUpdated(profile);
-      toast.message("Letterhead uploaded; validation is in progress");
+      toast.message(t("documentBranding.letterheadSource.toast.uploaded"));
     } catch (error) {
       setPendingAssetId(null);
-      toast.error("Letterhead source could not be uploaded", {
+      toast.error(t("documentBranding.letterheadSource.toast.uploadFailed"), {
         description:
           error instanceof Error
             ? error.message
-            : "Choose a supported PDF or PNG file and try again.",
+            : t("documentBranding.letterheadSource.toast.uploadFallback"),
       });
     }
   };
@@ -131,7 +133,7 @@ export function LetterheadSourceAsset({
       });
       setPendingAssetId(null);
       onProfileUpdated(profile);
-      toast.success("Letterhead source removed from the draft");
+      toast.success(t("documentBranding.letterheadSource.toast.removed"));
     } catch (error) {
       if (isRevisionConflict(error)) {
         try {
@@ -142,21 +144,23 @@ export function LetterheadSourceAsset({
           });
           setPendingAssetId(null);
           onProfileUpdated(profile);
-          toast.success("Letterhead source removed from the draft");
+          toast.success(t("documentBranding.letterheadSource.toast.removed"));
           return;
         } catch (retryError) {
-          toast.error("Letterhead source could not be removed", {
+          toast.error(t("documentBranding.letterheadSource.toast.removeFailed"), {
             description:
               retryError instanceof Error
                 ? retryError.message
-                : "Try again in a moment.",
+                : t("documentBranding.letterheadSource.toast.removeFallback"),
           });
           return;
         }
       }
-      toast.error("Letterhead source could not be removed", {
+      toast.error(t("documentBranding.letterheadSource.toast.removeFailed"), {
         description:
-          error instanceof Error ? error.message : "Try again in a moment.",
+          error instanceof Error
+            ? error.message
+            : t("documentBranding.letterheadSource.toast.removeFallback"),
       });
     }
   };
@@ -168,7 +172,7 @@ export function LetterheadSourceAsset({
         `/api/legal-entities/${legalEntityId}/document-branding/assets/${trackedAssetId}/content`,
       );
       if (!response.ok) {
-        throw new Error("Download failed");
+        throw new Error(t("documentBranding.letterheadSource.downloadHttpFailed"));
       }
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
@@ -178,7 +182,7 @@ export function LetterheadSourceAsset({
       anchor.click();
       URL.revokeObjectURL(url);
     } catch {
-      toast.error("Letterhead source could not be downloaded");
+      toast.error(t("documentBranding.letterheadSource.toast.downloadFailed"));
     }
   };
 
@@ -207,7 +211,7 @@ export function LetterheadSourceAsset({
   return (
     <div className="grid gap-2 sm:col-span-2">
       <Label htmlFor="brand-source">
-        Letterhead source (PDF or PNG, up to 10 MiB)
+        {t("documentBranding.letterheadSource.label")}
       </Label>
       <Input
         id="brand-source"
@@ -241,7 +245,7 @@ export function LetterheadSourceAsset({
                   size="sm"
                   onClick={() => void downloadSource()}
                 >
-                  Download
+                  {t("documentBranding.letterheadSource.download")}
                 </Button>
               ) : null}
               <Button
@@ -253,7 +257,7 @@ export function LetterheadSourceAsset({
                   document.getElementById("brand-source-replace")?.click()
                 }
               >
-                Replace
+                {t("documentBranding.letterheadSource.replace")}
               </Button>
               <input
                 id="brand-source-replace"
@@ -273,7 +277,7 @@ export function LetterheadSourceAsset({
                 disabled={controlsDisabled}
                 onClick={() => void removeSource()}
               >
-                Remove
+                {t("documentBranding.letterheadSource.remove")}
               </Button>
             </div>
           </div>
@@ -285,7 +289,9 @@ export function LetterheadSourceAsset({
           {previewUrl ? (
             <img
               src={previewUrl}
-              alt={`Preview of ${letterheadSourceDisplayName(asset)}`}
+              alt={t("documentBranding.letterheadSource.previewAlt", {
+                name: letterheadSourceDisplayName(asset),
+              })}
               className="max-h-48 rounded border bg-white object-contain"
             />
           ) : null}
@@ -297,13 +303,13 @@ export function LetterheadSourceAsset({
               disabled={assetQuery.isFetching}
               onClick={() => void assetQuery.refetch()}
             >
-              Refresh validation status
+              {t("documentBranding.letterheadSource.refreshStatus")}
             </Button>
           ) : null}
         </div>
       ) : (
         <p className="text-xs text-slate-500">
-          Upload a PDF or PNG letterhead to keep it with your branding draft.
+          {t("documentBranding.letterheadSource.hint")}
         </p>
       )}
     </div>

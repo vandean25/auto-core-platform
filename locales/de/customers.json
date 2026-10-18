@@ -17,7 +17,7 @@
     "saved": "Einwilligung gespeichert",
     "failed": "Einwilligung konnte nicht gespeichert werden",
     "emptyHistory": "Noch keine Einwilligungsereignisse.",
-    "revision": "Stand-Revision",
+    "revision": "Version",
     "textRequired": "Bitte den dem Kunden gezeigten Einwilligungstext eingeben.",
     "textVersion": "Textversion",
     "textShown": "Dem Kunden gezeigter Einwilligungstext",
@@ -26,6 +26,11 @@
     "confirmGrant": "Bestätigen und speichern",
     "confirmRevoke": "Widerruf bestätigen",
     "cancel": "Abbrechen"
+  },
+  "search": {
+    "selectPlaceholder": "Kunde wählen…",
+    "searchPlaceholder": "Kunden suchen…",
+    "empty": "Kein Kunde gefunden."
   },
   "list": {
     "title": "Kunden",
@@ -52,7 +57,7 @@
     "companyBadge": "Unternehmen",
     "updated": "Kunde aktualisiert",
     "updateFailed": "Kunde konnte nicht aktualisiert werden",
-    "noVehicleForService": "Kein Fahrzeug vorhanden. Zuerst ein Fahrzeug anlegen, um einen Werkstattauftrag zu erstellen.",
+    "noVehicleForService": "Kein Fahrzeug vorhanden. Legen Sie zuerst ein Fahrzeug an, um einen Werkstattauftrag zu erstellen.",
     "tabs": {
       "overview": "Übersicht",
       "orders": "Aufträge",
@@ -62,7 +67,7 @@
       "consent": "Kontaktpräferenzen"
     },
     "contactInformation": "Kontaktdaten",
-    "invoiceHint": "Rechnungen werden aus Verkaufsaufträgen erstellt.",
+    "invoiceHint": "Rechnungen werden aus Kundenaufträgen erstellt.",
     "idLabel": "ID: {{id}}",
     "notAvailable": "k. A.",
     "selectVehicleTitle": "Fahrzeug wählen",
@@ -70,7 +75,7 @@
     "contact": "Kontakt",
     "address": "Adresse",
     "startService": "Werkstattauftrag",
-    "newSalesOrder": "Verkaufsauftrag",
+    "newSalesOrder": "Kundenauftrag",
     "activeOrders": "Aktive Aufträge",
     "orderHistory": "Auftragshistorie",
     "vehicles": "Fahrzeuge",
@@ -127,7 +132,7 @@
       "city": "Kundenort",
       "country": "Kundenland",
       "vatId": "Kunden-UID",
-      "openSalesOrder": "Verkaufsauftrag {{number}} öffnen",
+      "openSalesOrder": "Kundenauftrag {{number}} öffnen",
       "openServiceOrder": "Werkstattauftrag {{number}} öffnen",
       "openInvoice": "Rechnung {{number}} öffnen",
       "openVehicle": "Fahrzeug {{make}} {{model}} öffnen",

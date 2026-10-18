@@ -625,18 +625,6 @@
       "public": true,
       "params": []
     },
-    "IMPORT_FIRST_REGISTRATION_DATE_FUTURE": {
-      "public": true,
-      "params": []
-    },
-    "IMPORT_FIRST_REGISTRATION_DATE_INVALID": {
-      "public": true,
-      "params": []
-    },
-    "IMPORT_FIRST_REGISTRATION_MONTH_ASSUMED": {
-      "public": true,
-      "params": []
-    },
     "IMPORT_INVALID_COST_PRICE": {
       "public": true,
       "params": []
@@ -1102,6 +1090,10 @@
       "params": []
     },
     "READY_EMAIL_BLOCKED": {
+      "public": false,
+      "params": []
+    },
+    "READY_EMAIL_CONTACT_CONSENT_BLOCKED": {
       "public": false,
       "params": []
     },

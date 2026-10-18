@@ -450,7 +450,7 @@ test.describe('Blueprint: Workshop Board', () => {
 
     await corePage.navigate('/workshop/board')
 
-    const scrollRight = page.getByRole('button', { name: 'Scroll right' })
+    const scrollRight = page.getByRole('button', { name: 'Nach rechts scrollen' })
     await expect(scrollRight).toBeVisible()
 
     await scrollRight.click()

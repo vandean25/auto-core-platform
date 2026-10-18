@@ -1,5 +1,7 @@
 import * as React from 'react'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
+import type { TFunction } from 'i18next'
+import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 import { toast } from 'sonner'
 
@@ -59,7 +61,7 @@ function getDisplayName(member: TenantMember) {
   return fullName || member.email
 }
 
-function matchesMemberSearch(member: TenantMember, term: string) {
+function matchesMemberSearch(member: TenantMember, term: string, t: TFunction<'settings'>) {
   if (!term) return true
 
   const haystack = [
@@ -68,7 +70,7 @@ function matchesMemberSearch(member: TenantMember, term: string) {
     member.lastName ?? '',
     getDisplayName(member),
     member.role,
-    member.isActive ? 'active' : 'inactive',
+    member.isActive ? t('team.search.active') : t('team.search.inactive'),
   ]
 
   return haystack.some((entry) => entry.toLowerCase().includes(term))
@@ -105,6 +107,7 @@ function sortMembers(
 }
 
 export function TeamSettingsTab() {
+  const { t } = useTranslation('settings')
   const { queryParams, setPagination, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
   const { data: responseData, error, isLoading, refetch } = useTenantMembers({
     includeInactive: true,
@@ -122,8 +125,8 @@ export function TeamSettingsTab() {
 
   const filteredMembers = React.useMemo(() => {
     const term = normalizeSearch(queryParams.search ?? '')
-    return members.filter((member) => matchesMemberSearch(member, term))
-  }, [members, queryParams.search])
+    return members.filter((member) => matchesMemberSearch(member, term, t))
+  }, [members, queryParams.search, t])
 
   const sortedMembers = React.useMemo(
     () => sortMembers(filteredMembers, queryParams.sortField, queryParams.sortDirection),
@@ -154,11 +157,11 @@ export function TeamSettingsTab() {
         email: inviteFormState.email.trim().toLowerCase(),
         role: inviteFormState.role,
       })
-      toast.success('Member invited')
+      toast.success(t('team.toast.invited'))
       setInviteFormState(defaultInviteMemberFormState)
       setInviteOpen(false)
     } catch (inviteError: unknown) {
-      toast.error(getErrorMessage(inviteError, 'Failed to invite team member'))
+      toast.error(getErrorMessage(inviteError, t('team.toast.inviteFailed')))
     }
   }
 
@@ -169,10 +172,12 @@ export function TeamSettingsTab() {
         data: { isActive: !member.isActive },
       })
 
-      toast.success(updatedMember.isActive ? 'Member reactivated' : 'Member deactivated')
+      toast.success(
+        updatedMember.isActive ? t('team.toast.reactivated') : t('team.toast.deactivated'),
+      )
       setSelectedMember(updatedMember)
     } catch (updateError: unknown) {
-      toast.error(getErrorMessage(updateError, 'Failed to update member status'))
+      toast.error(getErrorMessage(updateError, t('team.toast.statusFailed')))
     }
   }
 
@@ -180,7 +185,7 @@ export function TeamSettingsTab() {
     () => [
       {
         id: 'name',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Name' />,
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('team.columns.name')} />,
         cell: ({ row }) => (
           <div>
             <div className='font-medium'>{getDisplayName(row.original)}</div>
@@ -190,37 +195,37 @@ export function TeamSettingsTab() {
       },
       {
         accessorKey: 'role',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Role' />,
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('team.columns.role')} />,
       },
       {
         accessorKey: 'isActive',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Status' />,
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('team.columns.status')} />,
         cell: ({ row }) => (
           <StatusBadge status={row.original.isActive ? 'ACTIVE' : 'INACTIVE'} />
         ),
       },
     ],
-    [],
+    [t],
   )
 
   return (
     <div className='space-y-6'>
       <div className='flex items-center justify-between'>
         <div>
-          <h3 className='text-lg font-medium'>Team</h3>
-          <p className='text-sm text-slate-500'>Invite tenant users and manage their membership roles.</p>
+          <h3 className='text-lg font-medium'>{t('team.title')}</h3>
+          <p className='text-sm text-slate-500'>{t('team.description')}</p>
         </div>
         <Button onClick={() => setInviteOpen(true)}>
-          + Member
+          {t('team.inviteButton')}
         </Button>
       </div>
 
       {error ? (
         <div className='rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700'>
           <div className='flex items-center justify-between gap-4'>
-            <span>{getErrorMessage(error, 'Failed to load team members')}</span>
+            <span>{getErrorMessage(error, t('team.loadFailed'))}</span>
             <Button variant='outline' size='sm' onClick={() => void refetch()}>
-              Retry
+              {t('team.retry')}
             </Button>
           </div>
         </div>
@@ -231,7 +236,7 @@ export function TeamSettingsTab() {
         data={pagedMembers}
         pageCount={pageCount}
         isLoading={isLoading}
-        searchPlaceholder='Search team members...'
+        searchPlaceholder={t('team.searchPlaceholder')}
         setPagination={setPagination}
         onRowClick={(member) => {
           setSelectedMember(member)
@@ -243,15 +248,15 @@ export function TeamSettingsTab() {
       <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Invite Member</DialogTitle>
+            <DialogTitle>{t('team.inviteDialog.title')}</DialogTitle>
             <DialogDescription>
-              Create or reactivate a tenant membership and synchronize the user claims immediately.
+              {t('team.inviteDialog.description')}
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleInvite} className='space-y-4'>
             <div className='space-y-2'>
-              <Label htmlFor='team-invite-email'>Email</Label>
+              <Label htmlFor='team-invite-email'>{t('team.inviteDialog.email')}</Label>
               <Input
                 id='team-invite-email'
                 type='email'
@@ -260,13 +265,13 @@ export function TeamSettingsTab() {
                   ...previous,
                   email: event.target.value,
                 }))}
-                placeholder='tech@autocore.com'
+                placeholder={t('team.inviteDialog.emailPlaceholder')}
                 required
               />
             </div>
 
             <div className='space-y-2'>
-              <Label htmlFor='team-invite-role'>Role</Label>
+              <Label htmlFor='team-invite-role'>{t('team.inviteDialog.role')}</Label>
               <Select
                 value={inviteFormState.role}
                 onValueChange={(nextRole) => setInviteFormState((previous) => ({
@@ -289,7 +294,7 @@ export function TeamSettingsTab() {
 
             <DialogFooter>
               <Button type='submit' disabled={inviteMutation.isPending}>
-                Invite Member
+                {t('team.inviteDialog.submit')}
               </Button>
             </DialogFooter>
           </form>
@@ -299,9 +304,9 @@ export function TeamSettingsTab() {
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent side='right' className='w-full sm:max-w-xl'>
           <SheetHeader className='mb-6'>
-            <SheetTitle>Member Details</SheetTitle>
+            <SheetTitle>{t('team.sheet.title')}</SheetTitle>
             <SheetDescription>
-              Update a role or deactivate access. Security-sensitive changes force a claims refresh.
+              {t('team.sheet.description')}
             </SheetDescription>
           </SheetHeader>
 
@@ -313,11 +318,11 @@ export function TeamSettingsTab() {
               </div>
 
               <div className='space-y-2'>
-                <Label>Role</Label>
+                <Label>{t('team.sheet.role')}</Label>
                 <InlineEdit
                   value={selectedMember.role}
                   schema={TEAM_ROLE_SCHEMA}
-                  ariaLabel='Tenant member role'
+                  ariaLabel={t('team.sheet.roleAria')}
                   onSave={async (nextRole) => {
                     const normalizedRole = nextRole.trim().toUpperCase() as TenantMemberRole
                     try {
@@ -326,18 +331,18 @@ export function TeamSettingsTab() {
                         data: { role: normalizedRole },
                       })
                       setSelectedMember(updatedMember)
-                      toast.success('Member role updated')
+                      toast.success(t('team.toast.roleUpdated'))
                     } catch (updateError: unknown) {
-                      toast.error(getErrorMessage(updateError, 'Failed to update member role'))
+                      toast.error(getErrorMessage(updateError, t('team.toast.roleFailed')))
                       throw updateError
                     }
                   }}
                 />
-                <p className='text-xs text-slate-500'>Allowed values: OWNER, ADMIN, TECH, SALES.</p>
+                <p className='text-xs text-slate-500'>{t('team.sheet.allowedRoles')}</p>
               </div>
 
               <div className='space-y-2'>
-                <Label>Status</Label>
+                <Label>{t('team.sheet.status')}</Label>
                 <StatusBadge status={selectedMember.isActive ? 'ACTIVE' : 'INACTIVE'} />
               </div>
 
@@ -347,7 +352,7 @@ export function TeamSettingsTab() {
                   onClick={() => void handleToggleActive(selectedMember)}
                   disabled={updateMutation.isPending}
                 >
-                  {selectedMember.isActive ? 'Deactivate Member' : 'Reactivate Member'}
+                  {selectedMember.isActive ? t('team.sheet.deactivate') : t('team.sheet.reactivate')}
                 </Button>
               </SheetFooter>
             </div>

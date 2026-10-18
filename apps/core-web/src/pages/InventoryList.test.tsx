@@ -7,7 +7,10 @@ import * as inventoryApi from '@/api/inventory'
 import * as locationsApi from '@/api/locations'
 import { DashboardWidgetsProvider } from '@/features/dashboard-widgets/DashboardWidgetsProvider'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
+import deInventory from '../../../../locales/de/inventory.json'
 import InventoryList from './InventoryList'
+
+const partsList = deInventory.partsList
 
 vi.mock('@/api/inventory')
 vi.mock('@/api/locations', () => ({
@@ -95,7 +98,7 @@ describe('InventoryList row actions', () => {
       </QueryClientProvider>,
     )
 
-    fireEvent.click(screen.getByRole('combobox', { name: 'Storage location' }))
+    fireEvent.click(screen.getByRole('combobox', { name: partsList.locationAria }))
     expect(screen.getByRole('option', { name: 'A-1' })).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: 'Transit Bin' })).not.toBeInTheDocument()
 
@@ -123,7 +126,7 @@ describe('InventoryList row actions', () => {
       </QueryClientProvider>,
     )
 
-    expect(screen.getByText('Storage Location')).toBeInTheDocument()
+    expect(screen.getByText(partsList.columns.storageLocation)).toBeInTheDocument()
     expect(screen.getByText('A-1')).toBeInTheDocument()
   })
 

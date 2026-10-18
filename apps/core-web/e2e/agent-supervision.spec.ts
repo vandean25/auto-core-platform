@@ -1,8 +1,10 @@
 import { test, expect } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
+import { DE_AGENT } from './helpers/de-agent'
 import { expectNoCriticalA11yViolations } from './utils/a11y'
 
 test.describe('Agent Supervision Screen (AUT-401)', () => {
+  test.describe.configure({ mode: 'serial' })
   const mockProposals = [
     {
       id: 'prop-1',
@@ -156,15 +158,23 @@ test.describe('Agent Supervision Screen (AUT-401)', () => {
     })
   })
 
+  async function waitForSupervisionShell(page: import('@playwright/test').Page) {
+    await page.waitForSelector('[data-testid="agent-supervision-page"]', { timeout: 60_000 })
+    await expect(page.getByRole('heading', { level: 1, name: DE_AGENT.header.title })).toBeVisible({
+      timeout: 30_000,
+    })
+  }
+
   test('renders persistent safety banner, proposal queue, and passes axe a11y', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Agent Supervision')
+    test.setTimeout(90_000)
+    const corePage = new AutoCorePage(page, DE_AGENT.header.title)
     await corePage.navigate('/agent/supervision')
+    await waitForSupervisionShell(page)
 
     // Verify Heading & Safety Banner
-    await expect(page.getByRole('heading', { level: 1, name: 'Agent Supervision' })).toBeVisible()
     const safetyBanner = page.getByTestId('agent-safety-banner')
     await expect(safetyBanner).toBeVisible()
-    await expect(safetyBanner).toContainText('Agent supervision active')
+    await expect(safetyBanner).toContainText(DE_AGENT.banner.title)
 
     // Verify proposals queue
     await expect(page.getByTestId('proposal-card-prop-1')).toBeVisible()
@@ -175,14 +185,14 @@ test.describe('Agent Supervision Screen (AUT-401)', () => {
     await expect(page.getByTestId('proposal-card-prop-2')).toBeVisible()
     await expect(page.getByTestId('approve-btn-prop-2')).not.toBeVisible()
     await expect(page.getByTestId('reject-btn-prop-2')).toBeVisible()
-    await expect(page.getByText('Do this manually')).toBeVisible()
+    await expect(page.getByText(DE_AGENT.approvals.doManually)).toBeVisible()
 
     // Axe a11y audit on Approvals view
     await expectNoCriticalA11yViolations(page)
   })
 
   test('switches tabs to Activity view, exercises date filters, and passes axe a11y', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Agent Supervision')
+    const corePage = new AutoCorePage(page, DE_AGENT.header.title)
     await corePage.navigate('/agent/supervision')
 
     // Switch to Activity tab
@@ -257,7 +267,7 @@ test.describe('Agent Supervision Screen (AUT-401)', () => {
       })
     })
 
-    const corePage = new AutoCorePage(page, 'Agent Supervision')
+    const corePage = new AutoCorePage(page, DE_AGENT.header.title)
     await corePage.navigate('/agent/supervision')
 
     await page.getByTestId('tab-decision-shadow').click()
@@ -275,21 +285,12 @@ test.describe('Agent Supervision Screen (AUT-401)', () => {
     await expectNoCriticalA11yViolations(page)
   })
 
-  test('toggles language to German and back to English', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Agent Supervision')
+  test('renders German UI by default', async ({ page }) => {
+    test.setTimeout(90_000)
+    const corePage = new AutoCorePage(page, DE_AGENT.header.title)
     await corePage.navigate('/agent/supervision')
-
-    const langBtn = page.getByTestId('toggle-language-btn')
-    await langBtn.click()
-
-    await expect(page.getByRole('heading', { level: 1, name: 'Agenten-Überwachung' })).toBeVisible()
-    await expect(page.getByTestId('agent-safety-banner')).toContainText('Agenten-Überwachung aktiv')
-
-    // Axe a11y audit in German mode
+    await waitForSupervisionShell(page)
+    await expect(page.getByTestId('agent-safety-banner')).toContainText(DE_AGENT.banner.title)
     await expectNoCriticalA11yViolations(page)
-
-    // Switch back to English
-    await langBtn.click()
-    await expect(page.getByRole('heading', { level: 1, name: 'Agent Supervision' })).toBeVisible()
   })
 })

@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { useBays } from '@/api/bays'
+import deSettings from '../../../../../locales/de/settings.json'
 import { BaySettingsTab } from './BaySettingsTab'
 
 vi.mock('@/api/bays', () => ({
@@ -18,15 +19,15 @@ vi.mock('@/api/bays', () => ({
 }))
 
 describe('BaySettingsTab', () => {
-  it('renders title and top-right + Bay action', () => {
+  it('renders title and top-right create action', () => {
     render(
       <MemoryRouter>
         <BaySettingsTab />
       </MemoryRouter>,
     )
 
-    expect(screen.getByText('Bays')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '+ Bay' })).toBeInTheDocument()
+    expect(screen.getByText(deSettings.bays.title)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: deSettings.bays.createButton })).toBeInTheDocument()
     expect(vi.mocked(useBays)).toHaveBeenCalledWith({
       includeInactive: true,
       limit: 100,

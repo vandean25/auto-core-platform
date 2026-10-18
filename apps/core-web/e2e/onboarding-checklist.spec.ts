@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { DE_COMMON } from './helpers/de-common';
 import { DE_SHELL } from './helpers/de-shell';
 import { expectNoCriticalA11yViolations } from './utils/a11y';
 
@@ -7,8 +8,8 @@ import { expectNoCriticalA11yViolations } from './utils/a11y';
  * sidebar link. The E2E session is ADMIN unless `e2e-active-role` overrides it in localStorage.
  */
 
-const CHECKLIST_HEADING = 'Get your workshop set up';
-const DISMISS_BUTTON = 'Dismiss onboarding checklist';
+const CHECKLIST_HEADING = DE_COMMON.onboarding.title;
+const DISMISS_BUTTON = DE_COMMON.onboarding.dismissAria;
 const DOCUMENTATION_URL = 'https://autocore-platform.mintlify.site/';
 
 async function setE2eRole(page: Page, role: string) {
@@ -22,16 +23,27 @@ test.describe('AUT-486: onboarding checklist and Help / Docs', () => {
     await page.goto('/dashboard');
 
     await expect(page.getByRole('heading', { name: CHECKLIST_HEADING })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Open customers' })).toHaveAttribute('href', '/customers');
-    await expect(page.getByRole('link', { name: 'Open vehicles' })).toHaveAttribute('href', '/vehicles');
-    await expect(page.getByRole('link', { name: 'Open inventory' })).toHaveAttribute('href', '/inventory');
-    await expect(page.getByRole('link', { name: 'Open workshop orders' })).toHaveAttribute('href', '/workshop/orders');
+    await expect(page.getByRole('link', { name: DE_COMMON.onboarding.steps.customers.action })).toHaveAttribute(
+      'href',
+      '/customers',
+    );
+    await expect(page.getByRole('link', { name: DE_COMMON.onboarding.steps.vehicles.action })).toHaveAttribute(
+      'href',
+      '/vehicles',
+    );
+    await expect(page.getByRole('link', { name: DE_COMMON.onboarding.steps.inventory.action })).toHaveAttribute(
+      'href',
+      '/inventory',
+    );
+    await expect(
+      page.getByRole('link', { name: DE_COMMON.onboarding.steps['workshop-order'].action }),
+    ).toHaveAttribute('href', '/workshop/orders');
   });
 
   test('a checklist step opens its page', async ({ page }) => {
     await page.goto('/dashboard');
 
-    await page.getByRole('link', { name: 'Open vehicles' }).click();
+    await page.getByRole('link', { name: DE_COMMON.onboarding.steps.vehicles.action }).click();
 
     await expect(page).toHaveURL(/\/vehicles$/);
   });
@@ -43,7 +55,7 @@ test.describe('AUT-486: onboarding checklist and Help / Docs', () => {
 
     await page.reload();
 
-    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: DE_COMMON.dashboard.title })).toBeVisible();
     await expect(page.getByRole('heading', { name: CHECKLIST_HEADING })).toHaveCount(0);
   });
 
@@ -52,7 +64,7 @@ test.describe('AUT-486: onboarding checklist and Help / Docs', () => {
 
     await page.goto('/dashboard');
 
-    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: DE_COMMON.dashboard.title })).toBeVisible();
     await expect(page.getByRole('heading', { name: CHECKLIST_HEADING })).toHaveCount(0);
   });
 

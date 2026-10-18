@@ -254,10 +254,10 @@ export class LandingDemoAccessService {
           email: operatorDraft,
         });
 
-        if (magicEnqueue.created) {
+        if (!magicEnqueue.blocked && magicEnqueue.created) {
           await this.wakeUpOutboxRow(magicEnqueue.id, demoTenant.id);
         }
-        if (operatorEnqueue.created) {
+        if (!operatorEnqueue.blocked && operatorEnqueue.created) {
           await this.wakeUpOutboxRow(operatorEnqueue.id, demoTenant.id);
         }
       });
@@ -318,7 +318,7 @@ export class LandingDemoAccessService {
         sourceEntityId: input.accessRequestId,
         email: operatorDraft,
       });
-      if (operatorEnqueue.created) {
+      if (!operatorEnqueue.blocked && operatorEnqueue.created) {
         await this.wakeUpOutboxRow(operatorEnqueue.id, input.demoTenantId);
       }
     });

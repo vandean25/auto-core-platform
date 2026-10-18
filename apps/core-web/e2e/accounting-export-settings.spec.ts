@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { DE_SETTINGS } from './helpers/de-settings';
 import { AutoCorePage } from './pom/AutoCorePage';
 import {
   createMockAccountingExportPreview,
@@ -179,9 +180,9 @@ async function installAccountingExportMocks(
 }
 
 async function openAccountingExportTab(page: Page) {
-  const corePage = new AutoCorePage(page, 'Accounting Export');
+  const corePage = new AutoCorePage(page, DE_SETTINGS.page.title);
   await corePage.navigate('/settings?tab=finance');
-  await page.getByRole('tab', { name: 'Accounting export' }).click();
+  await page.getByRole('tab', { name: DE_SETTINGS.finance.subTabs.accountingExport }).click();
   await page.locator('#export-date-from').fill('2026-01-01');
   await page.locator('#export-date-to').fill('2026-01-31');
 }
@@ -191,15 +192,15 @@ test.describe('Accounting export settings', () => {
     await installAccountingExportMocks(page);
     await openAccountingExportTab(page);
 
-    await page.getByRole('button', { name: 'Preview' }).click();
-    await expect(page.getByText('Preview results')).toBeVisible();
+    await page.getByRole('button', { name: DE_SETTINGS.accountingExport.actions.preview }).click();
+    await expect(page.getByText(DE_SETTINGS.accountingExport.preview.title)).toBeVisible();
     await expect(page.getByText('8400')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Generate' }).click();
-    await expect(page.getByText(/DATEV export generated/i)).toBeVisible();
+    await page.getByRole('button', { name: DE_SETTINGS.accountingExport.actions.generate }).click();
+    await expect(page.getByText(DE_SETTINGS.accountingExport.toast.generated)).toBeVisible();
 
     const downloadPromise = page.waitForEvent('download');
-    await page.getByRole('button', { name: 'Download latest' }).click();
+    await page.getByRole('button', { name: DE_SETTINGS.accountingExport.actions.downloadLatest }).click();
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toContain('.csv');
   });
@@ -208,11 +209,11 @@ test.describe('Accounting export settings', () => {
     await installAccountingExportMocks(page, { previewStatus: 403 });
     await openAccountingExportTab(page);
 
-    await page.getByRole('button', { name: 'Preview' }).click();
+    await page.getByRole('button', { name: DE_SETTINGS.accountingExport.actions.preview }).click();
 
-    await expect(page.getByText(/Export scope is incomplete/i)).toBeVisible();
+    await expect(page.getByText(DE_SETTINGS.accountingExport.forbidden)).toBeVisible();
     await expect(page.getByText('8400')).toHaveCount(0);
-    await expect(page.getByText('Preview results')).toHaveCount(0);
+    await expect(page.getByText(DE_SETTINGS.accountingExport.preview.title)).toHaveCount(0);
   });
 
   test('requires overlap acknowledgement before generate POST', async ({ page }) => {
@@ -238,15 +239,17 @@ test.describe('Accounting export settings', () => {
     });
     await openAccountingExportTab(page);
 
-    await page.getByRole('button', { name: 'Preview' }).click();
-    await expect(page.getByText('Overlapping export runs', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: DE_SETTINGS.accountingExport.actions.preview }).click();
+    await expect(page.getByText(DE_SETTINGS.accountingExport.overlap.title, { exact: true })).toBeVisible();
 
-    await page.getByRole('button', { name: 'Generate' }).click();
-    await expect(page.getByRole('alertdialog', { name: 'Confirm overlapping export' })).toBeVisible();
+    await page.getByRole('button', { name: DE_SETTINGS.accountingExport.actions.generate }).click();
+    await expect(
+      page.getByRole('alertdialog', { name: DE_SETTINGS.accountingExport.overlap.dialogTitle }),
+    ).toBeVisible();
     expect(generateCalled).toBe(false);
 
-    await page.getByRole('button', { name: 'Generate anyway' }).click();
-    await expect(page.getByText(/DATEV export generated/i)).toBeVisible();
+    await page.getByRole('button', { name: DE_SETTINGS.accountingExport.actions.generateAnyway }).click();
+    await expect(page.getByText(DE_SETTINGS.accountingExport.toast.generated)).toBeVisible();
     expect(generateCalled).toBe(true);
     expect(generatePayload?.acknowledgeOverlap).toBe(true);
   });
@@ -262,9 +265,11 @@ test.describe('Accounting export settings', () => {
     });
     await openAccountingExportTab(page);
 
-    await page.getByRole('button', { name: 'Preview' }).click();
-    await expect(page.getByText(/no exportable documents/i)).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Generate' })).toBeDisabled();
+    await page.getByRole('button', { name: DE_SETTINGS.accountingExport.actions.preview }).click();
+    await expect(page.getByText(DE_SETTINGS.accountingExport.preview.emptyPeriod)).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: DE_SETTINGS.accountingExport.actions.generate }),
+    ).toBeDisabled();
   });
 
   test('checksum mismatch blocks download', async ({ page }) => {
@@ -273,13 +278,13 @@ test.describe('Accounting export settings', () => {
     });
     await openAccountingExportTab(page);
 
-    await page.getByRole('button', { name: 'Preview' }).click();
-    await page.getByRole('button', { name: 'Generate' }).click();
-    await expect(page.getByText(/DATEV export generated/i)).toBeVisible();
+    await page.getByRole('button', { name: DE_SETTINGS.accountingExport.actions.preview }).click();
+    await page.getByRole('button', { name: DE_SETTINGS.accountingExport.actions.generate }).click();
+    await expect(page.getByText(DE_SETTINGS.accountingExport.toast.generated)).toBeVisible();
 
     const downloadPromise = page.waitForEvent('download', { timeout: 1500 }).catch(() => null);
-    await page.getByRole('button', { name: 'Download latest' }).click();
-    await expect(page.getByText(/Download checksum mismatch/i)).toBeVisible();
+    await page.getByRole('button', { name: DE_SETTINGS.accountingExport.actions.downloadLatest }).click();
+    await expect(page.getByText(DE_SETTINGS.accountingExport.toast.checksumMismatch)).toBeVisible();
     expect(await downloadPromise).toBeNull();
   });
 
@@ -309,6 +314,8 @@ test.describe('Accounting export settings', () => {
     });
 
     await page.goto('/settings?tab=finance');
-    await expect(page.getByRole('tab', { name: 'Accounting export' })).toHaveCount(0);
+    await expect(
+      page.getByRole('tab', { name: DE_SETTINGS.finance.subTabs.accountingExport }),
+    ).toHaveCount(0);
   });
 });

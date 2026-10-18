@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { DE_STATUS } from "./helpers/de-enums";
+import { DE_SETTINGS } from "./helpers/de-settings";
 import { AutoCorePage } from "./pom/AutoCorePage";
 import { deErrorCode } from "./helpers/de-errors";
 import { createMockFinanceSettings, createMockListResponse } from "./utils/mock-factories";
@@ -141,35 +142,35 @@ test.describe("Blueprint: API keys settings", () => {
     await mockSettingsBootstrap(page);
     const { calls } = await mockApiKeys(page, [seededKey]);
 
-    const corePage = new AutoCorePage(page, "Settings");
+    const corePage = new AutoCorePage(page, DE_SETTINGS.page.title);
     await corePage.navigate("/settings?tab=api-keys");
 
-    await expect(page.getByRole("heading", { name: "API keys", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: DE_SETTINGS.apiKeys.title, exact: true })).toBeVisible();
     const seededRow = rowFor(page, "Warehouse BI");
     await expect(seededRow).toBeVisible();
     await expect(seededRow).toContainText("acp_live_3f9a2c1b");
     await expect(seededRow).toContainText(DE_STATUS.ACTIVE);
 
     // Create: the form refuses an empty name and an empty scope set.
-    await page.getByRole("button", { name: "+ API key" }).click();
-    const createDialog = page.getByRole("dialog", { name: "New API key" });
+    await page.getByRole("button", { name: DE_SETTINGS.apiKeys.createButton }).click();
+    const createDialog = page.getByRole("dialog", { name: DE_SETTINGS.apiKeys.createDialog.title });
     await expect(createDialog).toBeVisible();
-    await createDialog.getByRole("button", { name: "Create key" }).click();
-    await expect(createDialog.getByRole("alert")).toHaveText("Enter a name for the key.");
+    await createDialog.getByRole("button", { name: DE_SETTINGS.apiKeys.createDialog.submit }).click();
+    await expect(createDialog.getByRole("alert")).toHaveText(DE_SETTINGS.apiKeys.createDialog.nameRequired);
 
-    await createDialog.getByLabel("Name").fill("Dashboard feed");
-    await createDialog.getByRole("button", { name: "Create key" }).click();
-    await expect(createDialog.getByRole("alert")).toHaveText("Select at least one scope.");
+    await createDialog.getByLabel(DE_SETTINGS.apiKeys.createDialog.name).fill("Dashboard feed");
+    await createDialog.getByRole("button", { name: DE_SETTINGS.apiKeys.createDialog.submit }).click();
+    await expect(createDialog.getByRole("alert")).toHaveText(DE_SETTINGS.apiKeys.createDialog.scopesRequired);
 
-    await createDialog.getByRole("checkbox", { name: "Customers", exact: true }).click();
-    await createDialog.getByRole("checkbox", { name: "Vehicles", exact: true }).click();
-    await createDialog.getByRole("button", { name: "Create key" }).click();
+    await createDialog.getByRole("checkbox", { name: DE_SETTINGS.apiKeys.scopes.customers_read.label, exact: true }).click();
+    await createDialog.getByRole("checkbox", { name: DE_SETTINGS.apiKeys.scopes.vehicles_read.label, exact: true }).click();
+    await createDialog.getByRole("button", { name: DE_SETTINGS.apiKeys.createDialog.submit }).click();
 
     // The token is shown in its own dialog, once.
-    const tokenDialog = page.getByRole("dialog", { name: "Copy your new API key" });
+    const tokenDialog = page.getByRole("dialog", { name: DE_SETTINGS.apiKeys.createdDialog.title });
     await expect(tokenDialog).toBeVisible();
-    await expect(tokenDialog.getByLabel("API key")).toHaveValue(NEW_KEY_TOKEN);
-    await tokenDialog.getByRole("button", { name: "Done" }).click();
+    await expect(tokenDialog.getByLabel(DE_SETTINGS.apiKeys.createdDialog.label)).toHaveValue(NEW_KEY_TOKEN);
+    await tokenDialog.getByRole("button", { name: DE_SETTINGS.apiKeys.createdDialog.done }).click();
     await expect(tokenDialog).toBeHidden();
 
     // The list shows the new key but never its token.
@@ -183,13 +184,13 @@ test.describe("Blueprint: API keys settings", () => {
     expect(created?.path).toBe("/api/tenant-api-keys");
 
     // Revoke: confirm first, then the row turns REVOKED and loses its Revoke action.
-    await createdRow.getByRole("button", { name: "Revoke" }).click();
-    const revokeDialog = page.getByRole("alertdialog", { name: "Revoke API key?" });
+    await createdRow.getByRole("button", { name: DE_SETTINGS.apiKeys.revoke }).click();
+    const revokeDialog = page.getByRole("alertdialog", { name: DE_SETTINGS.apiKeys.revokeDialog.title });
     await expect(revokeDialog).toBeVisible();
-    await revokeDialog.getByRole("button", { name: "Revoke key" }).click();
+    await revokeDialog.getByRole("button", { name: DE_SETTINGS.apiKeys.revokeDialog.confirm }).click();
 
     await expect(rowFor(page, "Dashboard feed")).toContainText(DE_STATUS.REVOKED);
-    await expect(rowFor(page, "Dashboard feed").getByRole("button", { name: "Revoke" })).toHaveCount(0);
+    await expect(rowFor(page, "Dashboard feed").getByRole("button", { name: DE_SETTINGS.apiKeys.revoke })).toHaveCount(0);
     expect(calls).toContainEqual({
       method: "POST",
       path: `/api/tenant-api-keys/${NEW_KEY_ID}/revoke`,
@@ -203,12 +204,12 @@ test.describe("Blueprint: API keys settings", () => {
     await mockSettingsBootstrap(page);
     await mockApiKeys(page, [seededKey]);
 
-    const corePage = new AutoCorePage(page, "Settings");
+    const corePage = new AutoCorePage(page, DE_SETTINGS.page.title);
     await corePage.navigate("/settings");
 
-    await expect(page.getByRole("tab", { name: "Audit Logs" })).toBeVisible();
-    await expect(page.getByRole("tab", { name: "API keys" })).toHaveCount(0);
-    await expect(page.getByRole("tab", { name: "Team" })).toHaveCount(0);
+    await expect(page.getByRole("tab", { name: DE_SETTINGS.tabs.auditLogs })).toBeVisible();
+    await expect(page.getByRole("tab", { name: DE_SETTINGS.tabs.apiKeys })).toHaveCount(0);
+    await expect(page.getByRole("tab", { name: DE_SETTINGS.tabs.team })).toHaveCount(0);
   });
 
   test("shows an error with Retry when the key list cannot be loaded", async ({ page }) => {
@@ -221,10 +222,10 @@ test.describe("Blueprint: API keys settings", () => {
       });
     });
 
-    const corePage = new AutoCorePage(page, "Settings");
+    const corePage = new AutoCorePage(page, DE_SETTINGS.page.title);
     await corePage.navigate("/settings?tab=api-keys");
 
     await expect(page.getByText(deErrorCode("HTTP_403"), { exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Retry" })).toBeVisible();
+    await expect(page.getByRole("button", { name: DE_SETTINGS.apiKeys.retry })).toBeVisible();
   });
 });

@@ -1,34 +1,34 @@
 ---
-title: "Invoices"
-description: "Read a tax invoice, download the PDF, and know when the number is real."
+title: "Rechnungen"
+description: "Steuerrechnung lesen, PDF herunterladen und wissen, wann die Nummer verbindlich ist."
 ---
 
-There is no dedicated invoice item in the sidebar, but you can browse drafts and finalized invoices at **`/sales/invoices`**. You can also open a tax invoice from a [sales order](/workflows/sales-orders), from workshop checkout, or from **Ctrl+K → Find a sales order to invoice** (which opens the sales order list).
+Öffnen Sie **Rechnungen** in der Seitenleiste (`/sales/invoices`), um Entwürfe und abgeschlossene Steuerrechnungen zu durchsuchen. Sie können eine Rechnung auch aus einem [Kundenauftrag](/workflows/sales-orders), aus dem Werkstatt-Checkout oder über **Strg+K → Kundenauftrag zum Fakturieren finden** öffnen (öffnet die Kundenauftragsliste).
 
-The header shows the invoice number (or a short id while still draft) and a status badge: **DRAFT**, **FINALIZED**, **ISSUED**, **PAID**, **CANCELLED**.
+In der Kopfzeile stehen Rechnungsnummer (oder kurze ID im Entwurf) und Status-Badge: **ENTWURF**, **ABGESCHLOSSEN**, **AUSGESTELLT**, **BEZAHLT**, **STORNIERT**.
 
-Top-right: **Download PDF**. That generates the PDF and downloads it. If the server queues it, the toast says generation is in the background — try Download PDF again shortly.
+Oben rechts: **PDF herunterladen**. Das erzeugt das PDF und startet den Download. Wenn der Server in die Warteschlange stellt, sagt der Toast, dass die Erstellung im Hintergrund läuft — **PDF herunterladen** kurz danach erneut versuchen.
 
 <Steps>
-  <Step title="From a sales order">
-    **Create Invoice** on the order. See [Sales orders](/workflows/sales-orders).
+  <Step title="Aus einem Kundenauftrag">
+    Am Auftrag **Rechnung erstellen**. Siehe [Kundenaufträge](/workflows/sales-orders).
   </Step>
-  <Step title="From a completed job">
-    On the workshop order, **Generate Invoice** / checkout. Issue the draft there. See [Workshop orders](/workflows/workshop-orders).
+  <Step title="Aus einem abgeschlossenen Job">
+    Am Werkstattauftrag **Rechnung erzeugen** / Checkout. Entwurf dort ausstellen. Siehe [Werkstattaufträge](/workflows/workshop-orders).
   </Step>
-  <Step title="Download the PDF">
-    **Download PDF** on the invoice. Filename is based on the invoice number. Finalizing an invoice does not download anything, so this is the step that saves a copy.
+  <Step title="PDF herunterladen">
+    **PDF herunterladen** auf der Rechnung. Der Dateiname basiert auf der Rechnungsnummer. Abschließen lädt nichts herunter — dieser Schritt speichert die Kopie.
   </Step>
 </Steps>
 
-Numbers look like `RE-2026-0001` (year + four digits). Line **revenue group names** and unit prices are snapshotted at issue. Changing a [revenue group](/settings/revenue-groups) later does not rewrite old invoices.
+Nummern sehen aus wie `RE-2026-0001` (Jahr + vier Stellen). **Erlösgruppen**-Namen und Einzelpreise der Positionen werden beim Ausstellen eingefroren. Änderungen an einer [Erlösgruppe](/settings/revenue-groups) später schreiben alte Rechnungen nicht um.
 
 <Tip>
-Need who changed a draft line yesterday? [Audit logs](/settings/audit-logs), not the PDF.
+Wer gestern eine Entwurfsposition geändert hat? [Audit-Logs](/settings/audit-logs), nicht das PDF.
 </Tip>
 
 <AccordionGroup>
-  <Accordion title="Find a sales order to invoice from search">
-    **Ctrl+K → Find a sales order to invoice** opens the sales order list. Open an order and use **Create Invoice** to start a sourced draft, then edit and finalize from the draft editor. Standalone blank invoices are not supported.
+  <Accordion title="Kundenauftrag zum Fakturieren aus der Suche">
+    **Strg+K → Kundenauftrag zum Fakturieren finden** öffnet die Kundenauftragsliste. Auftrag öffnen und **Rechnung erstellen** für einen verknüpften Entwurf, dann im Entwurfs-Editor bearbeiten und abschließen. Freistehende Blanko-Rechnungen werden nicht unterstützt.
   </Accordion>
 </AccordionGroup>

@@ -13,7 +13,12 @@ import { createHttpError } from "@/lib/error-utils";
 import { toast } from "sonner";
 import type { UseDebouncedAutoSaveOptions } from "@/hooks/useDebouncedAutoSave";
 import type { DocumentBrandTheme } from "@/api/document-branding";
+import deCommon from "../../../../../../locales/de/common.json";
+import deSettings from "../../../../../../locales/de/settings.json";
 import { DocumentBrandingSettings } from "./DocumentBrandingSettings";
+
+const branding = deSettings.documentBranding;
+const footerTextLabel = new RegExp(branding.fields.footerText.split(" (")[0]);
 
 const fixtures = vi.hoisted(() => ({
   clearPendingSave: vi.fn(),
@@ -207,15 +212,15 @@ describe("DocumentBrandingSettings", () => {
     render(<DocumentBrandingSettings entity={entity} />);
 
     expect(
-      screen.getByRole("heading", { name: "Document branding" }),
+      screen.getByRole("heading", { name: branding.title }),
     ).toBeTruthy();
-    expect(screen.getByLabelText("Primary color")).toHaveProperty(
+    expect(screen.getByLabelText(branding.fields.primaryColor)).toHaveProperty(
       "value",
       "#111827",
     );
     expect(
       screen
-        .getByRole("button", { name: "Confirm branding" })
+        .getByRole("button", { name: branding.actions.confirm })
         .hasAttribute("disabled"),
     ).toBe(true);
   });
@@ -229,23 +234,23 @@ describe("DocumentBrandingSettings", () => {
 
     expect(
       screen
-        .getByRole("button", { name: "Confirm branding" })
+        .getByRole("button", { name: branding.actions.confirm })
         .hasAttribute("disabled"),
     ).toBe(false);
-    expect(screen.getByRole("button", { name: "Discard draft" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: branding.actions.discardDraft })).toBeTruthy();
   });
 
   it("renders the sample only in a sandboxed frame", () => {
     render(<DocumentBrandingSettings entity={entity} />);
 
-    const preview = screen.getByTitle("Synthetic invoice branding preview");
+    const preview = screen.getByTitle(branding.preview.iframeTitle);
     expect(preview.getAttribute("sandbox")).toBe("");
     expect(preview.getAttribute("srcdoc")).toContain("SAMPLE — NOT AN INVOICE");
   });
 
   it("keeps the bounded PNG logo upload control from backend capabilities", () => {
     render(<DocumentBrandingSettings entity={entity} />);
-    expect(screen.getByLabelText("Logo")).toHaveProperty(
+    expect(screen.getByLabelText(branding.logo.label)).toHaveProperty(
       "accept",
       "image/png,.png",
     );
@@ -275,12 +280,12 @@ describe("DocumentBrandingSettings", () => {
     await waitFor(() =>
       expect(
         screen
-          .getByRole("button", { name: "Extract suggestions" })
+          .getByRole("button", { name: branding.letterheadImport.extract })
           .hasAttribute("disabled"),
       ).toBe(false),
     );
     expect(
-      screen.queryByText("Upload and validate a PDF or PNG letterhead first."),
+      screen.queryByText(branding.letterheadImport.uploadFirst),
     ).toBeNull();
 
     fixtures.profile.draftSourceAssetId = null;
@@ -293,7 +298,7 @@ describe("DocumentBrandingSettings", () => {
     await waitFor(() =>
       expect(
         screen
-          .getByRole("button", { name: "Extract suggestions" })
+          .getByRole("button", { name: branding.letterheadImport.extract })
           .hasAttribute("disabled"),
       ).toBe(true),
     );
@@ -302,13 +307,13 @@ describe("DocumentBrandingSettings", () => {
   it("does not show the saved indicator while decorative text fails validation", () => {
     render(<DocumentBrandingSettings entity={entity} />);
 
-    expect(screen.getByText("All changes saved")).toBeTruthy();
+    expect(screen.getByText(deCommon.documentSave.saved)).toBeTruthy();
 
-    fireEvent.change(screen.getByLabelText(/Decorative footer text/), {
+    fireEvent.change(screen.getByLabelText(footerTextLabel), {
       target: { value: "x".repeat(121) },
     });
 
-    expect(screen.queryByText("All changes saved")).toBeNull();
+    expect(screen.queryByText(deCommon.documentSave.saved)).toBeNull();
   });
 
   function triggerRevisionConflict() {
@@ -323,13 +328,13 @@ describe("DocumentBrandingSettings", () => {
     render(<DocumentBrandingSettings entity={entity} />);
     triggerRevisionConflict();
 
-    expect(screen.getByRole("button", { name: "Reload latest" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Keep my edits" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: branding.conflict.reload })).toBeTruthy();
+    expect(screen.getByRole("button", { name: branding.conflict.keep })).toBeTruthy();
   });
 
   it("keeps local edits when reload latest refetch fails", async () => {
     render(<DocumentBrandingSettings entity={entity} />);
-    fireEvent.change(screen.getByLabelText(/Decorative footer text/), {
+    fireEvent.change(screen.getByLabelText(footerTextLabel), {
       target: { value: "local-edit" },
     });
     triggerRevisionConflict();
@@ -345,10 +350,10 @@ describe("DocumentBrandingSettings", () => {
       error: new Error("network down"),
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Reload latest" }));
+    fireEvent.click(screen.getByRole("button", { name: branding.conflict.reload }));
 
     await waitFor(() =>
-      expect(screen.getByLabelText(/Decorative footer text/)).toHaveProperty(
+      expect(screen.getByLabelText(footerTextLabel)).toHaveProperty(
         "value",
         "local-edit",
       ),
@@ -359,7 +364,7 @@ describe("DocumentBrandingSettings", () => {
 
   it("applies the server draft when reload latest refetch succeeds", async () => {
     render(<DocumentBrandingSettings entity={entity} />);
-    fireEvent.change(screen.getByLabelText(/Decorative footer text/), {
+    fireEvent.change(screen.getByLabelText(footerTextLabel), {
       target: { value: "local-edit" },
     });
     triggerRevisionConflict();
@@ -375,23 +380,23 @@ describe("DocumentBrandingSettings", () => {
       },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Reload latest" }));
+    fireEvent.click(screen.getByRole("button", { name: branding.conflict.reload }));
 
     await waitFor(() =>
-      expect(screen.getByLabelText(/Decorative footer text/)).toHaveProperty(
+      expect(screen.getByLabelText(footerTextLabel)).toHaveProperty(
         "value",
         "server-copy",
       ),
     );
     expect(toast.message).toHaveBeenCalledWith(
-      "Loaded the latest document branding from the server.",
+      branding.toast.reloaded,
     );
     expect(fixtures.markIdle).toHaveBeenCalled();
   });
 
   it("re-applies local edits on the latest revision after a successful refetch", async () => {
     render(<DocumentBrandingSettings entity={entity} />);
-    fireEvent.change(screen.getByLabelText(/Decorative footer text/), {
+    fireEvent.change(screen.getByLabelText(footerTextLabel), {
       target: { value: "local-edit" },
     });
     triggerRevisionConflict();
@@ -408,7 +413,7 @@ describe("DocumentBrandingSettings", () => {
       },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Keep my edits" }));
+    fireEvent.click(screen.getByRole("button", { name: branding.conflict.keep }));
 
     await waitFor(() =>
       expect(fixtures.saveDraft).toHaveBeenCalledWith({
@@ -419,16 +424,16 @@ describe("DocumentBrandingSettings", () => {
     );
     await waitFor(() => expect(fixtures.markSaved).toHaveBeenCalled());
     await waitFor(() =>
-      expect(screen.queryByRole("button", { name: "Reload latest" })).toBeNull(),
+      expect(screen.queryByRole("button", { name: branding.conflict.reload })).toBeNull(),
     );
   });
 
   it("clears save failed indicator after keep my edits succeeds", async () => {
     fixtures.saveStatus = "error";
     const { rerender } = render(<DocumentBrandingSettings entity={entity} />);
-    expect(screen.getByText("Save failed")).toBeTruthy();
+    expect(screen.getByText(deCommon.documentSave.error)).toBeTruthy();
 
-    fireEvent.change(screen.getByLabelText(/Decorative footer text/), {
+    fireEvent.change(screen.getByLabelText(footerTextLabel), {
       target: { value: "local-edit" },
     });
     triggerRevisionConflict();
@@ -445,13 +450,13 @@ describe("DocumentBrandingSettings", () => {
       },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Keep my edits" }));
+    fireEvent.click(screen.getByRole("button", { name: branding.conflict.keep }));
 
     await waitFor(() => expect(fixtures.markSaved).toHaveBeenCalled());
     fixtures.saveStatus = "saved";
     rerender(<DocumentBrandingSettings entity={entity} />);
-    expect(screen.queryByText("Save failed")).toBeNull();
-    expect(screen.getByText("All changes saved")).toBeTruthy();
+    expect(screen.queryByText(deCommon.documentSave.error)).toBeNull();
+    expect(screen.getByText(deCommon.documentSave.saved)).toBeTruthy();
   });
 
   it("saves the latest theme when footer changes during keep my edits refetch", async () => {
@@ -469,7 +474,7 @@ describe("DocumentBrandingSettings", () => {
     );
 
     render(<DocumentBrandingSettings entity={entity} />);
-    fireEvent.change(screen.getByLabelText(/Decorative footer text/), {
+    fireEvent.change(screen.getByLabelText(footerTextLabel), {
       target: { value: "before-refetch" },
     });
     triggerRevisionConflict();
@@ -482,9 +487,9 @@ describe("DocumentBrandingSettings", () => {
       },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Keep my edits" }));
+    fireEvent.click(screen.getByRole("button", { name: branding.conflict.keep }));
 
-    fireEvent.change(screen.getByLabelText(/Decorative footer text/), {
+    fireEvent.change(screen.getByLabelText(footerTextLabel), {
       target: { value: "after-refetch" },
     });
 
@@ -523,16 +528,16 @@ describe("DocumentBrandingSettings", () => {
     );
 
     render(<DocumentBrandingSettings entity={entity} />);
-    fireEvent.change(screen.getByLabelText(/Decorative footer text/), {
+    fireEvent.change(screen.getByLabelText(footerTextLabel), {
       target: { value: "local-edit" },
     });
     triggerRevisionConflict();
 
-    fireEvent.click(screen.getByRole("button", { name: "Keep my edits" }));
+    fireEvent.click(screen.getByRole("button", { name: branding.conflict.keep }));
 
     await waitFor(() => expect(fixtures.refetchProfile).toHaveBeenCalled());
 
-    fireEvent.change(screen.getByLabelText(/Decorative footer text/), {
+    fireEvent.change(screen.getByLabelText(footerTextLabel), {
       target: { value: "typed-during-put" },
     });
 
@@ -569,11 +574,11 @@ describe("DocumentBrandingSettings", () => {
     );
 
     const { rerender } = render(<DocumentBrandingSettings entity={entity} />);
-    fireEvent.change(screen.getByLabelText(/Decorative footer text/), {
+    fireEvent.change(screen.getByLabelText(footerTextLabel), {
       target: { value: "entity-a-local" },
     });
     triggerRevisionConflict();
-    fireEvent.click(screen.getByRole("button", { name: "Reload latest" }));
+    fireEvent.click(screen.getByRole("button", { name: branding.conflict.reload }));
 
     fixtures.profile.activeTheme = {
       ...fixtures.profile.activeTheme,
@@ -584,7 +589,7 @@ describe("DocumentBrandingSettings", () => {
     );
 
     await waitFor(() =>
-      expect(screen.getByLabelText(/Decorative footer text/)).toHaveProperty(
+      expect(screen.getByLabelText(footerTextLabel)).toHaveProperty(
         "value",
         "entity-b-profile",
       ),
@@ -605,7 +610,7 @@ describe("DocumentBrandingSettings", () => {
     });
 
     await waitFor(() =>
-      expect(screen.getByLabelText(/Decorative footer text/)).toHaveProperty(
+      expect(screen.getByLabelText(footerTextLabel)).toHaveProperty(
         "value",
         "entity-b-profile",
       ),
@@ -623,16 +628,16 @@ describe("DocumentBrandingSettings", () => {
       error: new Error("network down"),
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Keep my edits" }));
+    fireEvent.click(screen.getByRole("button", { name: branding.conflict.keep }));
 
     await waitFor(() => expect(fixtures.saveDraft).not.toHaveBeenCalled());
-    expect(screen.getByRole("button", { name: "Keep my edits" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: branding.conflict.keep })).toBeTruthy();
   });
 
   it("shows a character counter and inline validation for over-limit footer text", () => {
     render(<DocumentBrandingSettings entity={entity} />);
 
-    fireEvent.change(screen.getByLabelText(/Decorative footer text/), {
+    fireEvent.change(screen.getByLabelText(footerTextLabel), {
       target: { value: "x".repeat(121) },
     });
 
@@ -647,7 +652,7 @@ describe("DocumentBrandingSettings", () => {
     fixtures.assetStatus.pollTimedOut = true;
     const { getByRole } = render(<DocumentBrandingSettings entity={entity} />);
 
-    getByRole("button", { name: "Refresh validation status" }).click();
+    getByRole("button", { name: branding.logo.refreshStatus }).click();
 
     expect(fixtures.assetStatus.refetch).toHaveBeenCalledOnce();
   });

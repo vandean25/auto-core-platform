@@ -1,6 +1,8 @@
 import { expect, test, type Page, type Request } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { AutoCorePage } from './pom/AutoCorePage';
+import { DE_COMMON } from './helpers/de-common';
+import { DE_INVENTORY } from './helpers/de-inventory';
 import { DE_WORKSHOP } from './helpers/de-workshop';
 import {
   createMockInventoryItem,
@@ -19,6 +21,13 @@ async function mockInventory(page: Page) {
     createMockInventoryItem({ id: 'item-1', sku: 'AAA-100', name: 'Brake pad', price: 45 }),
     createMockInventoryItem({ id: 'item-2', sku: 'ZZZ-900', name: 'Air filter', price: 12 }),
   ];
+  await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/locations'), async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([]),
+    });
+  });
   await page.route(AutoCorePage.apiRouteMatcher('/api/inventory'), async (route) => {
     await route.fulfill({
       status: 200,
@@ -71,31 +80,38 @@ async function expectNoAxeViolations(page: Page, selectors: string[]) {
 test.describe('Inventory — DataTable column picker and sorting', () => {
   test('lists readable column labels and Show all brings back a hidden column', async ({ page }) => {
     await mockInventory(page);
-    const corePage = new AutoCorePage(page, 'Item');
+    const corePage = new AutoCorePage(page, 'Artikel');
     await corePage.navigate('/inventory');
     await expect(corePage.dataTable).toBeVisible();
 
-    await page.getByRole('button', { name: 'Columns', exact: true }).click();
-    await expect(page.getByRole('menuitemcheckbox', { name: 'SKU' })).toBeVisible();
-    await expect(page.getByRole('menuitemcheckbox', { name: 'Warehouse location' })).toBeVisible();
+    await page.getByRole('button', { name: DE_COMMON.dataTable.columns, exact: true }).click();
+    await expect(
+      page.getByRole('menuitemcheckbox', { name: DE_INVENTORY.partsList.columns.part }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('menuitemcheckbox', { name: DE_INVENTORY.partsList.columns.storageLocation }),
+    ).toBeVisible();
     await expectNoAxeViolations(page, ['[role="menu"]']);
 
-    await page.getByRole('menuitemcheckbox', { name: 'Warehouse location' }).click();
-    await page.getByRole('menuitem', { name: 'Show all' }).click();
+    await page.getByRole('menuitemcheckbox', { name: DE_INVENTORY.partsList.columns.storageLocation }).click();
+    await page.getByRole('menuitem', { name: DE_COMMON.dataTable.showAll }).click();
     await page.keyboard.press('Escape');
 
-    await expect(page.getByRole('columnheader', { name: /Storage Location/ })).toBeVisible();
+    await expect(
+      page.getByRole('columnheader', { name: DE_INVENTORY.partsList.columns.storageLocation }),
+    ).toBeVisible();
     await expectNoAxeViolations(page, ['table']);
   });
 
   test('one click sorts ascending, the next descending, and the third clears', async ({ page }) => {
     await mockInventory(page);
-    const corePage = new AutoCorePage(page, 'Item');
+    const corePage = new AutoCorePage(page, 'Artikel');
     await corePage.navigate('/inventory');
     await expect(corePage.dataTable).toBeVisible();
 
-    const header = page.getByRole('columnheader', { name: /^Part/ });
-    const sortButton = page.getByRole('button', { name: 'Part', exact: true });
+    const partLabel = DE_INVENTORY.partsList.columns.part;
+    const header = page.getByRole('columnheader', { name: new RegExp(`^${partLabel}`) });
+    const sortButton = page.getByRole('button', { name: partLabel, exact: true });
     await expect(header).toHaveAttribute('aria-sort', 'none');
 
     let sortedRequest = page.waitForRequest(sortRequest('/api/inventory', 'sku', 'asc'));
@@ -114,10 +130,10 @@ test.describe('Inventory — DataTable column picker and sorting', () => {
 
   test('the Columns picker stays on screen at narrow, tablet and desktop widths', async ({ page }) => {
     await mockInventory(page);
-    const corePage = new AutoCorePage(page, 'Item');
+    const corePage = new AutoCorePage(page, 'Artikel');
     await corePage.navigate('/inventory');
 
-    const trigger = page.getByRole('button', { name: 'Columns', exact: true });
+    const trigger = page.getByRole('button', { name: DE_COMMON.dataTable.columns, exact: true });
     for (const width of [640, 768, 1024]) {
       await page.setViewportSize({ width, height: 800 });
       await expect(trigger).toBeVisible();
@@ -131,7 +147,7 @@ test.describe('Inventory — DataTable column picker and sorting', () => {
 test.describe('Workshop orders — DataTable click-to-sort', () => {
   test('sorting by Order No. updates aria-sort and the request, and is axe clean', async ({ page }) => {
     await mockWorkshopOrders(page);
-    const corePage = new AutoCorePage(page, 'Order');
+    const corePage = new AutoCorePage(page, DE_WORKSHOP.orders.list.newOrder);
     await corePage.navigate('/workshop/orders');
     await expect(corePage.dataTable).toBeVisible();
 

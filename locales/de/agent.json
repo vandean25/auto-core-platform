@@ -1,0 +1,189 @@
+{
+  "banner": {
+    "title": "Agenten-Überwachung aktiv",
+    "description": "Agenten-Überwachung aktiv: Vorgeschlagene Aktionen erfordern eine Genehmigung vor der Ausführung. HUMAN_ONLY Aktionen müssen manuell durchgeführt werden.",
+    "badge": "Überwachungsmodus"
+  },
+  "header": {
+    "title": "Agenten-Überwachung",
+    "subtitle": "Genehmigungswarteschlange für vorgeschlagene Agenten-Aktionen und Aktivitätenprotokoll."
+  },
+  "tabs": {
+    "approvals": "Genehmigungen",
+    "activity": "Aktivitäten",
+    "decisionShadow": "Entscheidungs-Schatten"
+  },
+  "approvals": {
+    "pendingOnly": "Nur ausstehend",
+    "showAll": "Alle Status anzeigen",
+    "statusFilter": "Status",
+    "action": "Aktion",
+    "agent": "Vorgeschlagen von",
+    "tier": "Richtlinien-Stufe",
+    "context": "Kontext / Ziel",
+    "target": "Ziel",
+    "amount": "Betrag",
+    "proposalId": "Vorschlags-ID",
+    "amountNet": "netto",
+    "amountGross": "brutto",
+    "taxBasisNotSet": "Steuerbasis nicht gesetzt",
+    "orderNumber": "Auftrags-Nr.",
+    "orderNumberMissing": "Auftrags-Nr. nicht gesetzt",
+    "customer": "Kunde",
+    "customerMissing": "Kunde nicht gesetzt",
+    "dealerStock": "Händlerbestand",
+    "unnamedLine": "Vorgeschlagene Position",
+    "vehicle": "Fahrzeug",
+    "vehicleMissing": "Fahrzeug nicht gesetzt",
+    "workshopOrderId": "Auftrags-ID",
+    "proposedLines": "Vorgeschlagene Positionen",
+    "lineName": "Bezeichnung",
+    "lineType": "Typ",
+    "lineQuantity": "Menge",
+    "lineUnitPrice": "Einzelpreis",
+    "lineTypePart": "Teil",
+    "lineTypeLabor": "Arbeit",
+    "lineTypeFee": "Nebenleistung",
+    "previewDiff": "Vorschau / Differenz",
+    "payloadJson": "Nutzlast-JSON",
+    "traceId": "Trace-ID",
+    "decidedBy": "Entschieden von",
+    "decidedById": "ID der entscheidenden Person",
+    "expiresAt": "Gültig bis",
+    "payloadPreview": "Nutzlast & Vorschau",
+    "showPreview": "Details anzeigen",
+    "hidePreview": "Details ausblenden",
+    "actions": "Aktionen",
+    "approve": "Genehmigen",
+    "approving": "Wird genehmigt...",
+    "reject": "Ablehnen",
+    "rejecting": "Wird abgelehnt...",
+    "doManually": "Manuell durchführen",
+    "humanOnlyNotice": "Diese Aktion ist als HUMAN_ONLY eingestuft und kann nicht automatisiert ausgeführt werden. Bitte führen Sie diesen Vorgang manuell durch.",
+    "emptyState": "Keine Vorschläge in der Warteschlange",
+    "emptyStateDesc": "Neue Agenten-Vorschläge erscheinen hier, sobald sie zur Freigabe eingereicht werden.",
+    "changePreview": "Geplante Änderungen",
+    "allChangesPreview": "Alle geplanten Änderungen",
+    "workshopLocation": "Werkstattstandort",
+    "triageLoadError": "Der Überwachungs-Posteingang konnte nicht geladen werden. Erneut versuchen oder Standortzugriff prüfen.",
+    "proposalsLoadError": "Ausstehende Vorschlagsdetails konnten nicht geladen werden. Andere Posteingangseinträge werden weiter unten angezeigt.",
+    "triagePageLoadError": "Die nächste Seite des Überwachungs-Posteingangs konnte nicht geladen werden.",
+    "openRecord": "Datensatz öffnen",
+    "dueAt": "Fällig",
+    "triageReason": {
+      "LOANER_RETURN_OVERDUE": "Leihfahrzeug-Rückgabe überfällig",
+      "WORKSHOP_TASK_WAITING_CUSTOMER": "Werkstatt blockiert — Kunde wartet",
+      "ESTIMATE_AWAITING_CUSTOMER_RESPONSE": "Kostenvoranschlag wartet auf Kundenantwort",
+      "CUSTOMER_ESTIMATE_APPROVED": "Kunde hat den Kostenvoranschlag bestätigt",
+      "CUSTOMER_ESTIMATE_DECLINED": "Kunde hat den Kostenvoranschlag abgelehnt",
+      "CUSTOMER_ESTIMATE_APPROVED_REVIEW_WAITING_TASKS": "KVA bestätigt — wartende Aufgaben prüfen, bevor die Arbeit fortgesetzt wird",
+      "CUSTOMER_ESTIMATE_DECLINED_REVIEW_WAITING_TASKS": "KVA abgelehnt — wartende Aufgaben am Auftrag prüfen",
+      "CUSTOMER_ESTIMATE_DECIDED": "Kundenantwort zum Kostenvoranschlag erfasst",
+      "AGENT_PROPOSAL_PENDING": "Agenten-Vorschlag wartet auf Freigabe"
+    },
+    "approveSuccess": "Vorschlag genehmigt",
+    "rejectSuccess": "Vorschlag abgelehnt",
+    "approveError": "Fehler beim Genehmigen des Vorschlags",
+    "rejectError": "Fehler beim Ablehnen des Vorschlags"
+  },
+  "rejectDialog": {
+    "title": "Agenten-Vorschlag ablehnen",
+    "description": "Sind Sie sicher, dass Sie diese vorgeschlagene Aktion ablehnen möchten? Der Agent wird diese Nutzlast nicht ausführen.",
+    "reasonLabel": "Begründung (optional)",
+    "reasonPlaceholder": "z.B. Preis zu niedrig, Kunde bereits informiert, manuelle Prüfung erforderlich...",
+    "cancel": "Abbrechen",
+    "confirm": "Ablehnung bestätigen"
+  },
+  "activity": {
+    "filters": {
+      "statusLabel": "Status",
+      "allStatuses": "Alle Status",
+      "tierLabel": "Stufe",
+      "allTiers": "Alle Stufen",
+      "agentPlaceholder": "Nach Agenten filtern...",
+      "actionOrTracePlaceholder": "Nach Aktion oder Trace-ID filtern...",
+      "startDateLabel": "Von",
+      "endDateLabel": "Bis"
+    },
+    "columns": {
+      "time": "Zeitpunkt",
+      "agent": "Agent",
+      "action": "Aktion",
+      "tier": "Stufe",
+      "status": "Status",
+      "approver": "Entschieden von",
+      "traceId": "Trace-ID"
+    },
+    "showDetails": "Details anzeigen",
+    "emptyState": "Keine Aktivitäten gefunden",
+    "emptyStateDesc": "Keine Agenten-Aktivitäten entsprechen den gewählten Filtern.",
+    "loadMore": "Mehr laden",
+    "loadingMore": "Weitere Einträge werden geladen…",
+    "viewAudit": "Korrelierte Audit-Logs anzeigen",
+    "copyTraceId": "Trace-ID kopieren",
+    "traceIdCopied": "Trace-ID kopiert",
+    "traceIdCopyFailed": "Kopieren fehlgeschlagen. Trace-ID manuell auswählen und kopieren."
+  },
+  "decisionShadow": {
+    "description": "Nur-Lese-Ansicht der im Schattenmodus protokollierten Jev-Vorschläge. Vorschläge werden nie angewendet und ändern kein Ergebnis.",
+    "filters": {
+      "useCaseLabel": "Anwendungsfall",
+      "allUseCases": "Alle Anwendungsfälle"
+    },
+    "useCases": {
+      "import_row_matching": "Import-Zeilenzuordnung",
+      "document_sort": "Dokumentensortierung"
+    },
+    "columns": {
+      "time": "Zeitpunkt",
+      "useCase": "Anwendungsfall",
+      "suggestion": "Vorschlag",
+      "actualOutcome": "Tatsächliches Ergebnis",
+      "match": "Übereinstimmung",
+      "latency": "Latenz",
+      "provider": "Anbieter / Modell",
+      "error": "Anbieterfehler",
+      "traceId": "Trace-ID"
+    },
+    "confidence": "Konfidenz",
+    "matchYes": "Treffer",
+    "matchNo": "Abweichung",
+    "noSuggestion": "Kein Vorschlag",
+    "emptyState": "Keine Schatten-Vorschläge gefunden",
+    "emptyStateDesc": "Keine Einträge zur Entscheidungs-Schattenprotokollierung entsprechen den gewählten Filtern."
+  },
+  "traceDialog": {
+    "title": "Trace-Audit & Korrelation",
+    "description": "Übersicht aller Aktionen und ADR-0015-Audit-Einträge für Trace-ID:",
+    "actionHistory": "Aktionsprotokoll-Einträge",
+    "correlatedAudit": "Korrelierte System-Audit-Logs (ADR-0015)",
+    "noAudit": "Keine korrelierten ADR-0015-Audit-Einträge für diesen Trace gefunden.",
+    "close": "Schließen",
+    "agentLabel": "Agent",
+    "onBehalfOf": "Im Auftrag von",
+    "time": "Zeit",
+    "user": "Benutzer",
+    "systemActor": "System / Agent"
+  },
+  "common": {
+    "unknownUser": "Unbekannter Benutzer",
+    "loading": "Daten werden geladen...",
+    "error": "Beim Laden der Daten ist ein Fehler aufgetreten.",
+    "refresh": "Aktualisieren",
+    "retry": "Erneut versuchen"
+  },
+  "changePreview": {
+    "ops": {
+      "create": "Anlegen",
+      "update": "Aktualisieren",
+      "delete": "Löschen"
+    },
+    "entities": {
+      "WorkshopOrder": "Werkstattauftrag",
+      "WorkshopTask": "Werkstattaufgabe",
+      "WorkshopTaskLineItem": "Werkstattposition",
+      "Customer": "Kunde",
+      "SalesOrder": "Verkaufsauftrag"
+    }
+  }
+}

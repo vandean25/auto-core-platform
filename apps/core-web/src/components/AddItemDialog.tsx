@@ -1,5 +1,6 @@
 import * as React from "react"
 import { Plus } from "lucide-react"
+import { useTranslation } from 'react-i18next'
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -18,6 +19,7 @@ import { useCreateInventoryItem } from "@/api/inventory"
 import { getErrorMessage } from "@/lib/error-utils"
 
 export function AddItemDialog() {
+    const { t } = useTranslation(['inventory', 'common'])
     const [open, setOpen] = React.useState(false)
     const [selectedBrandId, setSelectedBrandId] = React.useState<number | undefined>()
     const createMutation = useCreateInventoryItem()
@@ -35,11 +37,11 @@ export function AddItemDialog() {
                 brandId: selectedBrandId,
             })
             
-            toast.success("Inventory item created")
+            toast.success(t('inventory:addItemDialog.created'))
             setOpen(false)
             setSelectedBrandId(undefined)
         } catch (error: unknown) {
-            toast.error(getErrorMessage(error, "Failed to create item"))
+            toast.error(getErrorMessage(error, t('inventory:addItemDialog.createFailed')))
         }
     }
 
@@ -47,44 +49,44 @@ export function AddItemDialog() {
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
                 <Button>
-                    <Plus className="mr-2 h-4 w-4" /> + Item
+                    <Plus className="mr-2 h-4 w-4" /> {t('inventory:addItemDialog.trigger')}
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
                 <form onSubmit={handleSubmit}>
                     <DialogHeader>
-                        <DialogTitle>Add Inventory Item</DialogTitle>
+                        <DialogTitle>{t('inventory:addItemDialog.title')}</DialogTitle>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid grid-cols-2 gap-4">
                             <div className="grid gap-2">
-                                <Label htmlFor="sku">SKU / MPN</Label>
-                                <Input id="sku" name="sku" placeholder="e.g., OF-1001" required />
+                                <Label htmlFor="sku">{t('inventory:addItemDialog.sku')}</Label>
+                                <Input id="sku" name="sku" placeholder={t('inventory:addItemDialog.skuPlaceholder')} required />
                             </div>
                             <div className="grid gap-2">
-                                <Label>Brand</Label>
+                                <Label>{t('inventory:addItemDialog.brand')}</Label>
                                 <BrandCombobox value={selectedBrandId} onChange={setSelectedBrandId} />
                             </div>
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="name">Item Name</Label>
-                            <Input id="name" name="name" placeholder="e.g., Oil Filter" required />
+                            <Label htmlFor="name">{t('inventory:addItemDialog.name')}</Label>
+                            <Input id="name" name="name" placeholder={t('inventory:addItemDialog.namePlaceholder')} required />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div className="grid gap-2">
-                                <Label htmlFor="cost_price">Cost Price (€)</Label>
+                                <Label htmlFor="cost_price">{t('inventory:addItemDialog.costPrice')}</Label>
                                 <Input id="cost_price" name="cost_price" type="number" step="0.01" required />
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="retail_price">Retail Price (€)</Label>
+                                <Label htmlFor="retail_price">{t('inventory:addItemDialog.retailPrice')}</Label>
                                 <Input id="retail_price" name="retail_price" type="number" step="0.01" required />
                             </div>
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+                        <Button type="button" variant="outline" onClick={() => setOpen(false)}>{t('common:actions.cancel')}</Button>
                         <Button type="submit" disabled={createMutation.isPending}>
-                            {createMutation.isPending ? "Creating…" : "+ Item"}
+                            {createMutation.isPending ? t('inventory:addItemDialog.creating') : t('inventory:addItemDialog.trigger')}
                         </Button>
                     </DialogFooter>
                 </form>

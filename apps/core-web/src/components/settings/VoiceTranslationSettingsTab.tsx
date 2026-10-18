@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import {
@@ -29,6 +30,7 @@ const defaultFormState: FormState = {
 }
 
 export function VoiceTranslationSettingsTab() {
+  const { t } = useTranslation('settings')
   const { data, isLoading } = useVoiceTranslationSettings()
   const updateMutation = useUpdateVoiceTranslationSettings()
   const [formState, setFormState] = React.useState<FormState>(defaultFormState)
@@ -51,7 +53,7 @@ export function VoiceTranslationSettingsTab() {
       Boolean(data?.hasGoogleCredential) && Boolean(formState.googleServiceAccountJson.trim())
     if (
       isOverwritingCredential &&
-      !window.confirm('Overwrite the currently configured Google credential?')
+      !window.confirm(t('voiceTranslation.overwriteConfirm'))
     ) {
       return
     }
@@ -65,9 +67,9 @@ export function VoiceTranslationSettingsTab() {
           : {}),
       })
       setFormState((previous) => ({ ...previous, googleServiceAccountJson: '' }))
-      toast.success('Voice translation settings saved')
+      toast.success(t('voiceTranslation.toast.saved'))
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, 'Failed to save voice translation settings'))
+      toast.error(getErrorMessage(error, t('voiceTranslation.toast.saveFailed')))
     }
   }
 
@@ -75,7 +77,7 @@ export function VoiceTranslationSettingsTab() {
     return (
       <div className='flex items-center justify-center py-12 text-slate-500'>
         <Loader2 className='mr-2 h-5 w-5 animate-spin' />
-        Loading voice translation settings...
+        {t('voiceTranslation.loading')}
       </div>
     )
   }
@@ -83,15 +85,15 @@ export function VoiceTranslationSettingsTab() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Voice Translation</CardTitle>
+        <CardTitle>{t('voiceTranslation.title')}</CardTitle>
         <CardDescription>
-          Configure Google speech-to-text and translated output language for mechanic voice notes.
+          {t('voiceTranslation.description')}
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSave} className='space-y-4'>
           <div className='grid gap-2'>
-            <Label htmlFor='voice-target-language'>Target Language</Label>
+            <Label htmlFor='voice-target-language'>{t('voiceTranslation.targetLanguage')}</Label>
             <Select
               value={formState.targetLanguageCode}
               onValueChange={(value) =>
@@ -112,32 +114,32 @@ export function VoiceTranslationSettingsTab() {
           </div>
 
           <div className='grid gap-2 max-w-md'>
-            <Label htmlFor='voice-google-project'>Google Project ID</Label>
+            <Label htmlFor='voice-google-project'>{t('voiceTranslation.projectId')}</Label>
             <Input
               id='voice-google-project'
               value={formState.googleProjectId}
               onChange={(event) =>
                 setFormState((previous) => ({ ...previous, googleProjectId: event.target.value }))
               }
-              placeholder='my-google-project-id'
+              placeholder={t('voiceTranslation.projectIdPlaceholder')}
             />
           </div>
 
           <div className='grid gap-2 max-w-md'>
-            <Label htmlFor='voice-google-location'>Google Location</Label>
+            <Label htmlFor='voice-google-location'>{t('voiceTranslation.location')}</Label>
             <Input
               id='voice-google-location'
               value={formState.googleLocation}
               onChange={(event) =>
                 setFormState((previous) => ({ ...previous, googleLocation: event.target.value }))
               }
-              placeholder='global'
+              placeholder={t('voiceTranslation.locationPlaceholder')}
             />
           </div>
 
           <div className='grid gap-2'>
             <Label htmlFor='voice-google-credential'>
-              Google Service Account JSON
+              {t('voiceTranslation.credential')}
             </Label>
             <textarea
               id='voice-google-credential'
@@ -159,12 +161,14 @@ export function VoiceTranslationSettingsTab() {
                   : undefined
               }
               readOnly={!showCredential}
-              placeholder='{"type":"service_account",...}'
+              placeholder={t('voiceTranslation.credentialPlaceholder')}
             />
             <p className='text-sm text-slate-500'>
-              Credential is stored encrypted on the server and never returned to the browser. Leave
-              this blank to keep the current credential unchanged. Current status:{' '}
-              {data?.hasGoogleCredential ? 'configured' : 'not configured'}.
+              {t('voiceTranslation.credentialHint', {
+                status: data?.hasGoogleCredential
+                  ? t('voiceTranslation.credentialConfigured')
+                  : t('voiceTranslation.credentialNotConfigured'),
+              })}
             </p>
             <label className='flex items-center gap-2 text-sm text-slate-600'>
               <input
@@ -172,13 +176,13 @@ export function VoiceTranslationSettingsTab() {
                 checked={showCredential}
                 onChange={(event) => setShowCredential(event.target.checked)}
               />
-              Show credential
+              {t('voiceTranslation.showCredential')}
             </label>
           </div>
 
           <div className='flex justify-end'>
             <Button type='submit' disabled={updateMutation.isPending}>
-              {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
+              {updateMutation.isPending ? t('voiceTranslation.saving') : t('voiceTranslation.save')}
             </Button>
           </div>
         </form>

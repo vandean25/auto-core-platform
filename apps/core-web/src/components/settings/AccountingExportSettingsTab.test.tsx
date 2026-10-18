@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import deSettings from '../../../../../locales/de/settings.json'
 import { AccountingExportSettingsTab } from './AccountingExportSettingsTab'
 
 afterEach(() => {
@@ -133,7 +134,7 @@ describe('AccountingExportSettingsTab', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByText(/Only tenant OWNER and ADMIN users/i)).toBeInTheDocument()
+    expect(screen.getByText(deSettings.accountingExport.noAccess.description)).toBeInTheDocument()
   })
 
   it('renders generated-by actor label in run history', async () => {
@@ -155,21 +156,21 @@ describe('AccountingExportSettingsTab', () => {
       </MemoryRouter>,
     )
 
-    fireEvent.change(screen.getByLabelText('Date from'), { target: { value: '2026-01-01' } })
-    fireEvent.change(screen.getByLabelText('Date to'), { target: { value: '2026-01-31' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Preview' }))
+    fireEvent.change(screen.getByLabelText(deSettings.accountingExport.filters.dateFrom), { target: { value: '2026-01-01' } })
+    fireEvent.change(screen.getByLabelText(deSettings.accountingExport.filters.dateTo), { target: { value: '2026-01-31' } })
+    fireEvent.click(screen.getByRole('button', { name: deSettings.accountingExport.actions.preview }))
 
     await waitFor(() => {
-      expect(screen.getByText('Preview results')).toBeInTheDocument()
+      expect(screen.getByText(deSettings.accountingExport.preview.title)).toBeInTheDocument()
     })
 
-    const generateButton = screen.getByRole('button', { name: 'Generate' })
+    const generateButton = screen.getByRole('button', { name: deSettings.accountingExport.actions.generate })
     expect(generateButton).toBeEnabled()
 
     fireEvent.click(screen.getByRole('button', { name: 'Simulate profile save' }))
 
     await waitFor(() => {
-      expect(screen.queryByText('Preview results')).not.toBeInTheDocument()
+      expect(screen.queryByText(deSettings.accountingExport.preview.title)).not.toBeInTheDocument()
       expect(generateButton).toBeDisabled()
     })
   })

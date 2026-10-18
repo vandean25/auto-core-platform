@@ -169,6 +169,9 @@ test.describe('Stock Transfers — destination-only request and cancel', () => {
     await page.getByLabel(DE_INVENTORY.stockTransfers.create.fromSite).click()
     await page.getByRole('option', { name: /Wien/ }).click()
 
+    await page.getByLabel(DE_INVENTORY.stockTransfers.create.toSite).click()
+    await page.getByRole('option', { name: /München/ }).click()
+
     await page.getByLabel(DE_INVENTORY.stockTransfers.create.addParts).fill('FILTER')
     await page.getByRole('button', { name: 'FILTER-01' }).click()
 
@@ -354,9 +357,13 @@ test.describe('Stock Transfers — MAIN <-> GRZ (AUT-466)', () => {
     await page.getByLabel(DE_INVENTORY.stockTransfers.create.addParts).fill('FILTER')
     await page.getByRole('button', { name: 'FILTER-01' }).click()
 
-    await page
-      .getByLabel(DE_INVENTORY.stockTransfers.create.sourceBinAria.replace('{{sku}}', 'FILTER-01'))
-      .click()
+    const sourceBinLabel = DE_INVENTORY.stockTransfers.create.sourceBinAria.replace(
+      '{{sku}}',
+      'FILTER-01',
+    )
+    const sourceBin = page.getByRole('combobox', { name: sourceBinLabel })
+    await expect(sourceBin).toBeVisible({ timeout: 15_000 })
+    await sourceBin.click()
     await page.getByRole('option', { name: /BIN-A1/ }).click()
 
     await page.getByRole('button', { name: DE_INVENTORY.actions.submitRequest }).click()

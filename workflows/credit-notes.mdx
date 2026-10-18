@@ -1,0 +1,40 @@
+---
+title: "Gutschriften"
+description: "Gutschriften zu abgeschlossenen Rechnungen ausstellen und das PDF herunterladen."
+---
+
+Nutzen Sie **Gutschriften** in der Seitenleiste, wenn Sie einen Teil einer abgeschlossenen Steuerrechnung mindern oder stornieren müssen, ohne das Original zu bearbeiten. Gutschriften haben eine eigene Nummernkreis und erscheinen in der [Exportbereitschaft](/settings/finance#export-readiness) vor dem Buchhaltungsexport.
+
+Nur **OWNER**- und **ADMIN**-Mitglieder sehen den Menüpunkt **Gutschriften**.
+
+<Steps>
+  <Step title="Gutschriften öffnen">
+    In der Seitenleiste **Gutschriften** anklicken.
+  </Step>
+  <Step title="Aus einer Rechnung anlegen">
+    Abgeschlossene Rechnung unter [Rechnungen](/workflows/invoices) öffnen und **Gutschrift** klicken. Volle oder teilweise Gutschrift wählen, dann den Entwurf anlegen. Bestehende Zeilen finden Sie auch in der Liste **Gutschriften**.
+  </Step>
+  <Step title="Abschließen und herunterladen">
+    Grund und Positionen ergänzen, Gutschrift **Abschließen**, dann wie bei einer Steuerrechnung **PDF herunterladen**.
+  </Step>
+</Steps>
+
+| Spalte | Bedeutung |
+| --- | --- |
+| **Gutschrift-Nr.** | Nummer nach Abschluss oder kurze Entwurfs-ID |
+| **Datum** | Belegdatum |
+| **Grund** | Freitext-Grund auf der Gutschrift |
+| **Summe** | Bruttosumme |
+
+<Warning>
+Stornierte Rechnungen können nicht exportiert werden. Eine Gutschrift, die die Exportbereitschaft blockiert, muss bereinigt oder aufgelöst werden, bevor Sie für diesen Zeitraum eine Buchhaltungs-CSV erzeugen.
+</Warning>
+
+<AccordionGroup>
+  <Accordion title="Wer darf das nutzen">
+    Die Seitenleiste sehen nur **OWNER** und **ADMIN**. Berater und Mechaniker sehen das Modul nicht.
+  </Accordion>
+  <Accordion title="Buchhaltungsexport">
+    Gutschriften folgen denselben Bereitschaftsregeln wie Rechnungen. Siehe [Finanzen](/settings/finance#export-readiness) und [Buchhaltungsexport](/workflows/accounting-export).
+  </Accordion>
+</AccordionGroup>

@@ -190,7 +190,7 @@ export class WorkshopEstimateDecidedConsumerService {
       let notificationOutboxId: string | null = null;
       if (outcome.kind === 'notify') {
         const enqueued = await this.outbox.enqueueInTx(tx, outcome.input, now);
-        notificationOutboxId = enqueued.id;
+        notificationOutboxId = enqueued.blocked ? null : enqueued.id;
       }
       await tx.domainEventConsumerDelivery.create({
         data: {

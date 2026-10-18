@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
+import { DE_COMMON, DE_SETTINGS } from './helpers/de-settings';
 import {
   createMockAccountingProfile,
   createMockLegalEntity,
@@ -109,21 +110,21 @@ test.describe('Legal entities seller settings', () => {
 
     await corePage.navigate('/settings?tab=legal-entities');
 
-    await expect(page.getByRole('heading', { name: 'Legal Entities' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: DE_SETTINGS.legalEntities.title })).toBeVisible();
     await expect(page.getByRole('cell', { name: 'Example GmbH' })).toBeVisible();
-    await expect(page.getByText('Seller identity incomplete')).toBeVisible();
+    await expect(page.getByText(DE_SETTINGS.legalEntities.seller.incomplete)).toBeVisible();
 
-    await page.getByLabel('UID').fill('ATU12345678');
-    await page.getByLabel('Payment terms (days)').fill('14');
+    await page.getByLabel(DE_SETTINGS.legalEntities.seller.fields.vatIdAt).fill('ATU12345678');
+    await page.getByLabel(DE_SETTINGS.legalEntities.seller.fields.paymentTermsDays).fill('14');
 
-    await expect(page.getByText('All changes saved')).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText('Ready for invoice issuance')).toBeVisible();
+    await expect(page.getByText(DE_COMMON.documentSave.saved)).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText(DE_SETTINGS.legalEntities.seller.ready)).toBeVisible();
 
-    await expect(page.getByRole('heading', { name: 'Accounting profile' })).toBeVisible();
-    await expect(page.getByText('Accounting mappings incomplete')).toBeVisible();
+    await expect(page.getByRole('heading', { name: DE_SETTINGS.legalEntities.profile.title })).toBeVisible();
+    await expect(page.getByText(DE_SETTINGS.legalEntities.profile.incomplete)).toBeVisible();
 
-    await page.getByLabel('Advisor number').fill('12345');
-    await expect(page.getByText('All changes saved')).toBeVisible({ timeout: 5000 });
+    await page.getByLabel(DE_SETTINGS.legalEntities.profile.fields.advisorNumber).fill('12345');
+    await expect(page.getByText(DE_COMMON.documentSave.saved)).toBeVisible({ timeout: 5000 });
 
     await page.screenshot({
       path: '/opt/cursor/artifacts/legal-entities-seller-settings.png',

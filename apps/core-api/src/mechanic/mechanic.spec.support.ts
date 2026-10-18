@@ -54,7 +54,7 @@ export const mockRealtimeService = {
 export const mockNotificationOutbox = {
   enqueueInTx: jest
     .fn()
-    .mockResolvedValue({ id: 'notification-1', created: true }),
+    .mockResolvedValue({ blocked: false, id: 'notification-1', created: true }),
 };
 
 export const mockMediaStorage = {

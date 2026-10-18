@@ -8,17 +8,22 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useTyreSet } from '@/api/tyre-storage'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { formatDateTime, formatIsoDateOnly } from '@/lib/format'
-import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { ensureNamespaceLoaded, i18n } from '@/lib/i18n'
 import { TyreSetActionDialog } from '@/features/tyre-storage/TyreSetActionDialog'
 import { TyreSetFormDialog } from '@/features/tyre-storage/TyreSetFormDialog'
+import { PageLoader } from '@/components/ui/PageLoader'
 
 type ActionKind = 'check-in' | 'check-out' | 'move' | 'dispose'
 
 export default function TyreSetDetailPage() {
   const { t } = useTranslation('inventory')
+  const [inventoryLocaleReady, setInventoryLocaleReady] = useState(() =>
+    i18n.hasResourceBundle(i18n.language, 'inventory'),
+  )
   useEffect(() => {
-    void ensureNamespaceLoaded('inventory')
-  }, [])
+    if (inventoryLocaleReady) return
+    void ensureNamespaceLoaded('inventory').then(() => setInventoryLocaleReady(true))
+  }, [inventoryLocaleReady])
 
   const { id } = useParams<{ id: string }>()
   const { data: tyreSet, isLoading } = useTyreSet(id)
@@ -34,6 +39,10 @@ export default function TyreSetDetailPage() {
 
   const printLabel = () => {
     window.print()
+  }
+
+  if (!inventoryLocaleReady) {
+    return <PageLoader />
   }
 
   if (isLoading || !tyreSet) {

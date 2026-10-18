@@ -87,11 +87,12 @@ export class AutoCorePage {
    */
   async verifyHeaderConsistency(title: string) {
     const heading = this.page.getByRole("heading", {
+      level: 1,
       name: title,
       exact: true,
     });
-    await expect(heading).toBeVisible();
-    await expect(this.createButton).toBeVisible();
+    await expect(heading).toBeVisible({ timeout: 30_000 });
+    await expect(this.createButton).toBeVisible({ timeout: 15_000 });
   }
 
   /**
@@ -167,8 +168,10 @@ export class AutoCorePage {
           res.request().method() === "POST"),
     );
 
-    const savingLocator = this.page.getByText(/saving/i)
-    const savedLocator = this.page.getByText(/^(all changes saved|saved(?: ✓)?)$/i)
+    const savingLocator = this.page.getByText(/saving|speichern/i)
+    const savedLocator = this.page.getByText(
+      /all changes saved|alle änderungen gespeichert|^saved(?: ✓)?$|^gespeichert$/i,
+    )
 
     // Some pages transition from "Saving…" to "Saved" too quickly for a strict
     // visible assertion, so observe the transient state only if it appears

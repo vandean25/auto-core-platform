@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
 import { useAuthSession } from '@/api/auth-session'
 import { Button } from '@/components/ui/button'
@@ -18,6 +19,7 @@ export function OnboardingChecklist() {
 }
 
 function OnboardingChecklistCard({ userId }: { userId: string }) {
+  const { t } = useTranslation('common')
   const [dismissed, setDismissed] = useState(() => isOnboardingChecklistDismissed(userId))
 
   if (dismissed) {
@@ -33,17 +35,15 @@ function OnboardingChecklistCard({ userId }: { userId: string }) {
     <Card>
       <CardHeader className="flex flex-row items-start justify-between gap-3 pb-2">
         <div className="space-y-1.5">
-          <CardTitle className="text-base font-semibold">Get your workshop set up</CardTitle>
-          <CardDescription className="text-slate-500">
-            Four steps to get your first jobs on the board. Dismiss this card once you are set up.
-          </CardDescription>
+          <CardTitle className="text-base font-semibold">{t('onboarding.title')}</CardTitle>
+          <CardDescription className="text-slate-500">{t('onboarding.description')}</CardDescription>
         </div>
         <Button
           variant="ghost"
           size="icon"
           onClick={handleDismiss}
-          aria-label="Dismiss onboarding checklist"
-          title="Dismiss onboarding checklist"
+          aria-label={t('onboarding.dismissAria')}
+          title={t('onboarding.dismissTitle')}
         >
           <X className="h-4 w-4" aria-hidden="true" />
         </Button>
@@ -53,11 +53,11 @@ function OnboardingChecklistCard({ userId }: { userId: string }) {
           {ONBOARDING_CHECKLIST_STEPS.map((step) => (
             <li key={step.id} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
               <div>
-                <p className="text-sm font-medium">{step.title}</p>
-                <p className="text-xs text-slate-500">{step.description}</p>
+                <p className="text-sm font-medium">{t(`onboarding.steps.${step.id}.title`)}</p>
+                <p className="text-xs text-slate-500">{t(`onboarding.steps.${step.id}.description`)}</p>
               </div>
               <Button asChild variant="outline" size="sm" className="self-start sm:self-auto">
-                <Link to={step.to}>{step.actionLabel}</Link>
+                <Link to={step.to}>{t(`onboarding.steps.${step.id}.action`)}</Link>
               </Button>
             </li>
           ))}

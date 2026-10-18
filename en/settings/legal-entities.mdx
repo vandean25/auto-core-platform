@@ -1,0 +1,79 @@
+---
+title: "Legal entities"
+description: "Set the seller identity and accounting profile that your sites use when issuing invoices."
+---
+
+Use **Settings → Legal Entities** to maintain the seller identity printed and snapshotted on invoices. Sites inherit the legal entity configured for them. Only **OWNER** and **ADMIN** members can manage this screen.
+
+<CardGroup cols={2}>
+  <Card title="Seller identity" icon="building-2">
+    Legal name, address, country-specific tax identifiers, contact details, and payment terms.
+  </Card>
+  <Card title="Accounting profile" icon="calculator">
+    DATEV-oriented profile fields and source-category mappings for invoice accounting data.
+  </Card>
+  <Card title="Readiness" icon="badge-check">
+    See which seller fields and accounting mappings still need attention before invoice issuance.
+  </Card>
+</CardGroup>
+
+<Steps>
+  <Step title="Open Legal Entities">
+    Click the gear in the app header, then click **Legal Entities**.
+  </Step>
+  <Step title="Create an entity">
+    Enter the legal **Name**, choose **Austria (AT)** or **Germany (DE)**, then click **+ Legal Entity**. The country is fixed after creation.
+  </Step>
+  <Step title="Complete seller identity">
+    Select the entity row and fill in its address, country-specific tax identifier, and payment terms. Contact, bank, registration, and representative fields are available in the same form.
+  </Step>
+  <Step title="Complete the accounting profile">
+    Configure the advisor number, client number, account length, default debtor account, and the source-category mappings. The form saves changes automatically; watch the **Saving** / **Saved** indicator.
+  </Step>
+</Steps>
+
+## Seller identity
+
+The readiness panel lists the fields that are still missing. The required tax identifier depends on the entity country:
+
+| Entity country | Required before invoice issuance |
+| --- | --- |
+| **Austria (AT)** | Legal name, street, postal code, city, **UID**, payment terms in days, and payment terms text |
+| **Germany (DE)** | Legal name, street, postal code, city, **tax number or VAT ID**, payment terms in days, and payment terms text |
+
+The form also supports **IBAN**, **BIC**, bank name, email, phone, registration number, registration court, and representatives. These fields are optional unless the readiness panel says otherwise.
+
+<Tip>
+The seller readiness badge changes to **Ready for invoice issuance** only when the required identity fields are complete. If it remains incomplete, the panel names the missing fields.
+</Tip>
+
+## Accounting profile
+
+The accounting profile is configured per legal entity. Its core readiness fields are:
+
+- Advisor number
+- Client number
+- Account length
+- Default debtor account
+- A revenue-account mapping for every required source category
+
+Source categories can include revenue groups, labor and workshop services, manual invoice lines, and vehicle margin scheme lines. For a manual BU treatment, enter the BU key as well as the revenue account.
+
+The profile also includes fiscal-year start month, chart, profile code, format version, and the **DATEV export enabled** toggle. In the current release, DATEV export activation is available for **DE** legal entities only. An incomplete profile can be saved, but its mapping readiness remains incomplete until the required fields and mappings are present.
+
+<Warning>
+Invoice issuance checks both seller identity and accounting mappings before it consumes an invoice number or changes stock. Complete the readiness panels before finalizing or issuing an invoice.
+</Warning>
+
+## What happens after an invoice is issued
+
+ACP snapshots the seller identity, payment and supply terms, and accounting allocation when the invoice is finalized or issued. Later edits to a legal entity do not rewrite the data already stored on that invoice.
+
+<AccordionGroup>
+  <Accordion title="Can I deactivate an entity?">
+    Yes. Use **Deactivate** in the entity table. The same control becomes **Reactivate** for an inactive entity.
+  </Accordion>
+  <Accordion title="Who can edit legal entities?">
+    Legal entity management is available to **OWNER** and **ADMIN** members. Other team members do not manage seller identity or accounting profiles from Settings.
+  </Accordion>
+</AccordionGroup>

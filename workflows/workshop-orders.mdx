@@ -1,44 +1,47 @@
 ---
-title: "Workshop orders"
-description: "Run the job: tasks, parts, notes, job card PDF, then checkout invoice."
+title: "Werkstattaufträge"
+description: "Den Auftrag führen: Aufgaben, Teile, Notizen, Jobkarte-PDF, danach Rechnung in der Abrechnung."
 ---
 
-**Workshop Orders** lists open work. Click the row for the full job. Top-right: **Parts pick queue** and **+ Order**.
+**Werkstattaufträge** listet offene Arbeit. Zeile anklicken für den vollständigen Auftrag. Oben rechts: **Teile-Kommissionierung** und **+ Auftrag**.
 
-Order statuses: **SCHEDULED → INTAKE → IN_PROGRESS → COMPLETED → INVOICED**. Appointments booked in the [Workshop Planner](/workflows/workshop-planner) start in **SCHEDULED** holding the bay, then advance to **INTAKE** when the car arrives.
+Auftragsstatus: **Geplant → Annahme → In Bearbeitung → Abgeschlossen → Fakturiert**. Im [Werkstattplaner](/workflows/workshop-planner) gebuchte Termine starten als **Geplant** mit reservierter Hebebühne und wechseln bei Ankunft des Fahrzeugs auf **Annahme**.
 
-Task statuses include **NOT_STARTED**, **IN_PROGRESS**, **WAITING_PARTS**, **DONE**. Mechanic pause can also show waiting for customer.
+Aufgabenstatus: **Nicht begonnen**, **In Bearbeitung**, **Wartet auf Teile**, **Erledigt**. Bei einer Mechaniker-Pause kann zusätzlich **Wartet auf Kunde** erscheinen.
 
 <Steps>
-  <Step title="Open the job">
-    Header shows order number and status. Add tasks. Line items are parts and labor on each task. Notes and reported issue save inline until the job is **INVOICED**.
+  <Step title="Auftrag öffnen">
+    In der Kopfzeile stehen Auftragsnummer und Status. Aufgaben hinzufügen. Positionen sind Teile und Arbeit je Aufgabe. Notizen und gemeldetes Problem speichern inline, bis der Auftrag **Fakturiert** ist.
   </Step>
-  <Step title="Print the job card">
-    **Print Job Card** queues or downloads the PDF. Toast: **Generating Job Card PDF...**
+  <Step title="Jobkarte drucken">
+    **Jobkarte drucken** stellt die PDF in die Warteschlange oder lädt sie herunter. Toast: **Job-Card-PDF wird erstellt…**
   </Step>
-  <Step title="Checkout">
-    **Generate Invoice** is enabled when status is **COMPLETED** (or a linked invoice already exists). Inside checkout: **Create Draft Invoice**, then **Issue Invoice**. After issue the order is **INVOICED** and tasks lock.
+  <Step title="Kostenvoranschlag (KVA)">
+    **OWNER**, **ADMIN** und **SALES** sehen die Karte **Kostenvoranschlag**, solange der Auftrag **Annahme** oder **In Bearbeitung** ist. **Kostenvoranschlag erstellen** erfasst Aufgaben und Positionen; **An Kunden senden** versendet eine PDF und optional eine Benachrichtigung. Der Kunde öffnet den öffentlichen Freigabelink (`/approve/:token`), prüft die Summen und nimmt an oder lehnt ab. **Bestätigung erfassen** dokumentiert telefonische oder persönliche Zustimmung ohne Link. Überarbeitungen erzeugen eine neue Entwurfsversion; Warnungen bei Überschreitung des freigegebenen Betrags erscheinen, wenn die Arbeit den genehmigten Gesamtbetrag übersteigt.
   </Step>
-  <Step title="Ready-for-pickup email">
-    When every task is **DONE**, the order becomes **COMPLETED** and the platform queues one transactional **ready-for-pickup email** to the customer (German Sie-form, no marketing content), if the customer has a confirmed email for order communication. The **Kommunikation mit dem Kunden** card shows delivery state. Advisors can **Erneut senden** when contact details were missing at completion or delivery failed; mechanics cannot send or resend.
+  <Step title="Abrechnung">
+    **Abrechnung** ist aktiv, wenn der Status **Abgeschlossen** ist (oder bereits eine verknüpfte Rechnung existiert). In der Abrechnung: **Rechnungsentwurf anlegen**, danach **Rechnung ausstellen**. Nach der Ausstellung ist der Auftrag **Fakturiert** und Aufgaben sind gesperrt.
+  </Step>
+  <Step title="Abholbenachrichtigung per E-Mail">
+    Sind alle Aufgaben **Erledigt**, wird der Auftrag **Abgeschlossen** und die Plattform stellt eine transaktionale Abholbenachrichtigung für den Kunden in die Warteschlange (formelles Deutsch, kein Marketing), sofern der Kunde eine bestätigte E-Mail für die Auftragskommunikation hat. Die Karte **Kommunikation mit dem Kunden** zeigt den Zustand des Versands. Berater können **Erneut senden**, wenn Kontaktdaten bei Abschluss fehlten oder der Versand fehlschlug; Mechaniker können nicht senden oder erneut senden.
   </Step>
 </Steps>
 
-| Button | When it shows |
+| Schaltfläche | Wann sichtbar |
 | --- | --- |
-| Generate Invoice | Job completed, no invoice yet |
-| Open Checkout | Draft invoice exists |
-| Open Invoice | Already invoiced |
-| Close Checkout | You are in checkout view |
+| Abrechnung | Auftrag abgeschlossen, noch keine Rechnung |
+| Abrechnung | Rechnungsentwurf vorhanden |
+| Rechnung öffnen | Bereits fakturiert |
+| Abrechnung schließen | Sie sind in der Abrechnungsansicht |
 
 <Warning>
-You cannot delete tasks after the order is invoiced or already has a linked invoice. Labor time entries are never deleted.
+Aufgaben können Sie nicht löschen, nachdem der Auftrag fakturiert ist oder bereits eine verknüpfte Rechnung hat. Arbeitszeiteinträge werden niemals gelöscht.
 </Warning>
 
 <AccordionGroup>
-  <Accordion title="Generate Invoice is greyed out">
-    Finish the job first. Checkout only opens when status is **COMPLETED**, unless an invoice is already linked.
+  <Accordion title="Abrechnung ist ausgegraut">
+    Schließen Sie den Auftrag zuerst ab. Die Abrechnung öffnet sich nur bei Status **Abgeschlossen**, sofern nicht schon eine Rechnung verknüpft ist.
   </Accordion>
 </AccordionGroup>
 
-Related: [Planner](/workflows/workshop-planner), [Board](/workflows/workshop-board), [Parts pick queue](/workflows/workshop-pick), [Mechanic](/workflows/mechanic).
+Verwandt: [Planer](/workflows/workshop-planner), [Board](/workflows/workshop-board), [Teile-Kommissionierung](/workflows/workshop-pick), [Mechaniker](/workflows/mechanic).

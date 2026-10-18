@@ -1,0 +1,41 @@
+---
+title: "API keys"
+description: "Mint tenant API keys for the public read API."
+---
+
+**API keys** let integrations call ACP’s read-only HTTP API with a bearer token. Each key has scopes, optional expiry, and an audit trail of last use.
+
+Only **OWNER** and **ADMIN** members see this tab.
+
+<Steps>
+  <Step title="Open API keys">
+    Gear → **API keys**.
+  </Step>
+  <Step title="Create a key">
+    **Create key** → name, one or more scopes, optional expiry → confirm. Copy the secret immediately; it is shown only once.
+  </Step>
+  <Step title="Call the API">
+    Send `Authorization: Bearer <token>` to your tenant API host on routes that match the scopes you selected.
+  </Step>
+  <Step title="Revoke when done">
+    **Revoke** retired keys. Active keys keep working until expiry or revocation.
+  </Step>
+</Steps>
+
+| Scope | Grants read access to |
+| --- | --- |
+| `customers:read` | Names, contact details, addresses |
+| `vehicles:read` | Make, model, VIN, plate |
+| `invoices:read` | Invoice headers and totals |
+| `workshop-orders:read` | Workshop order status and scheduling |
+| `stock:read` | Parts quantities per storage location |
+
+<Warning>
+v1 scopes are read-only. Write operations require separate product approval and are not available through these keys.
+</Warning>
+
+<AccordionGroup>
+  <Accordion title="OpenAPI">
+    The full route list lives in the repository `apps/core-api/openapi/openapi.json`. Filter for public routes your key can call.
+  </Accordion>
+</AccordionGroup>

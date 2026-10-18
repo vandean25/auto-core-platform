@@ -4,6 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AccountingProfileRecord, LegalEntityRecord } from '@/api/site-admin'
 
 import { LegalEntityAccountingProfileForm } from './LegalEntitiesSettingsTab'
+import deSettings from '../../../../../locales/de/settings.json'
+
+const rzl = deSettings.legalEntities.profile.rzl
 
 const updateMutateAsync = vi.fn()
 let profileFixture: AccountingProfileRecord
@@ -68,14 +71,19 @@ describe('LegalEntityAccountingProfileForm (RZL)', () => {
   it('shows the RZL configuration with the release toggle disabled while the flag is off', () => {
     render(<LegalEntityAccountingProfileForm entity={atEntity} />)
 
-    expect(screen.getByLabelText('Firm number (Firmennummer)')).toHaveValue('FN-1')
-    expect(screen.getByLabelText('Steuercode 20%')).toHaveValue('20')
-    expect(screen.getByLabelText('Steuercode 13%')).toHaveValue('')
-    expect(screen.getByLabelText('Format version')).toBeDisabled()
+    expect(screen.getByLabelText(rzl.firmNumber)).toHaveValue('FN-1')
+    expect(screen.getByLabelText(rzl.steuercode20)).toHaveValue('20')
+    expect(screen.getByLabelText(rzl.steuercode13)).toHaveValue('')
+    expect(screen.getByLabelText(deSettings.legalEntities.profile.fields.formatVersion)).toBeDisabled()
     expect(screen.getByRole('checkbox')).toBeDisabled()
-    expect(screen.getByText(/Not released in this environment/)).toBeInTheDocument()
+    expect(screen.getByText(rzl.notReleased)).toBeInTheDocument()
     expect(
-      screen.getByText('Missing for export: Steuercode 13%, Steuercode 10%.'),
+      screen.getByText(
+        deSettings.legalEntities.profile.exportMissingLine.replace(
+          '{{fields}}',
+          `${deSettings.legalEntities.profile.exportMissing.steuercodeVat13}, ${deSettings.legalEntities.profile.exportMissing.steuercodeVat10}`,
+        ),
+      ),
     ).toBeInTheDocument()
   })
 
@@ -83,7 +91,7 @@ describe('LegalEntityAccountingProfileForm (RZL)', () => {
     updateMutateAsync.mockResolvedValue({ ...profileFixture, version: 2 })
     render(<LegalEntityAccountingProfileForm entity={atEntity} />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Use suggested codes 20 / 13 / 10' }))
+    fireEvent.click(screen.getByRole('button', { name: rzl.useSuggested }))
 
     await waitFor(
       () => {
@@ -117,7 +125,7 @@ describe('LegalEntityAccountingProfileForm (RZL)', () => {
     render(<LegalEntityAccountingProfileForm entity={atEntity} />)
 
     expect(screen.getByRole('checkbox')).toBeEnabled()
-    expect(screen.getByText(/Released in this environment/)).toBeInTheDocument()
-    expect(screen.queryByText(/Missing for export/)).not.toBeInTheDocument()
+    expect(screen.getByText(rzl.released)).toBeInTheDocument()
+    expect(screen.queryByText(/Für den Export fehlt/)).not.toBeInTheDocument()
   })
 })

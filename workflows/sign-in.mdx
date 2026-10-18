@@ -1,28 +1,32 @@
 ---
-title: "Sign in"
-description: "Get into the right tenant, or onto the mechanic queue if you are TECH."
+title: "Anmelden"
+description: "In den richtigen Mandanten kommen — oder in die Mechaniker-Warteschlange, wenn Sie TECH sind."
 ---
 
-The first-run page explains that **Auto Core** keeps stock, jobs, and invoices in one workshop ledger. Access is invite-only: sign in with **email + password** or **Continue with Google**. If you have forgotten your password, use **Forgot password?** below the password field and check your email for the reset link.
+Die Erstseite erklärt, dass **Auto Core** Bestand, Aufträge und Rechnungen in einem Werkstatt-Journal bündelt. Der Zugang erfolgt nur auf Einladung: Melden Sie sich mit **E-Mail + Passwort** oder **Mit Google fortfahren** an. Passwort vergessen? Nutzen Sie **Passwort vergessen?** unter dem Passwortfeld und prüfen Sie Ihre E-Mail auf den Reset-Link.
 
-On the public demo host, the page also lists the office and mechanic demo email addresses. It never displays passwords; ask the demo owner for access. Public self-serve signup is not available because workshops invite their team members. If sign-in is unavailable for a deployment, the page shows `Sign-in is not configured for this deployment.` without exposing configuration details.
+Auf dem öffentlichen Demo-Host listet die Seite auch die Demo-E-Mail-Adressen für Büro und Mechaniker. Passwörter werden nie angezeigt; fragen Sie den Demo-Inhaber nach Zugang.
 
-For product context and the full workflow guide, use the **Documentation** link on the sign-in page.
+Sie können auch eine **Self-Service-Demo** ohne gemeinsames Passwort starten: Auf der Auto-Core-Landingpage Ihre E-Mail für Demo-Zugang senden. Die Plattform schickt einen einmaligen **Magic-Anmeldelink**. Öffnen Sie ihn, landen Sie auf `/login`, bestätigen Sie bei Aufforderung dieselbe E-Mail, und ACP lädt den isolierten Demo-Mandanten (zeitlich begrenzte Mitgliedschaft). Fordern Sie auf der Landingpage einen neuen Link an, wenn er abgelaufen oder bereits verwendet wurde.
 
-After sign-in, ACP loads your tenant session. If you belong to more than one workshop, the sidebar tenant switcher changes which data you see. That switch is not a second login.
+Werkstätten nutzen für Produktions-Mandanten kein öffentliches Self-Service-Registrieren — Ihr Admin lädt Teammitglieder ein. Ist Anmeldung für eine Installation nicht verfügbar, zeigt die Seite `Sign-in is not configured for this deployment.` ohne Konfigurationsdetails preiszugeben.
+
+Für Produktkontext und den vollständigen Workflow-Leitfaden nutzen Sie den Link **Dokumentation** auf der Anmeldeseite.
+
+Nach der Anmeldung lädt ACP Ihre Mandanten-Session. Gehören Sie zu mehr als einer Werkstatt, wechselt der Mandanten-Umschalter in der Seitenleiste, welche Daten Sie sehen. Das ist kein zweiter Login.
 
 <Tabs>
-  <Tab title="Office roles">
-    OWNER, ADMIN, and SALES get the full sidebar: dashboard, customers, workshop, inventory, purchasing, settings gear. Default landing after `/` is **Inventory**.
+  <Tab title="Bürorollen">
+    OWNER, ADMIN und SALES erhalten die volle Seitenleiste: Dashboard, Kunden, Werkstatt, Lager, Einkauf, Einstellungs-Zahnrad. Standard-Landing nach `/` ist **Lager**.
   </Tab>
-  <Tab title="TECH (mechanic)">
-    A TECH membership only loads **My Queue** (`/mechanic/queue`). Any other URL redirects there. There is no finance or vendor nav on that shell. **Sign out** is in the top bar.
+  <Tab title="TECH (Mechaniker)">
+    Eine TECH-Mitgliedschaft lädt nur **Meine Warteschlange** (`/mechanic/queue`). Jede andere URL leitet dorthin um. In dieser Oberfläche gibt es kein Finanz- oder Lieferanten-Menü. **Abmelden** ist in der oberen Leiste.
   </Tab>
-  <Tab title="Platform super-admin">
-    Sidebar shows **Tenants** as well. That list is not a workshop screen. See [Platform tenants](/workflows/platform-tenants).
+  <Tab title="Plattform-Super-Admin">
+    In der Seitenleiste erscheint zusätzlich **Mandanten**. Diese Liste ist kein Werkstatt-Bildschirm. Siehe [Plattform-Mandanten](/workflows/platform-tenants).
   </Tab>
 </Tabs>
 
 <Warning>
-You only see one tenant at a time. Customer, stock, and jobs never mix across workshops.
+Sie sehen immer nur einen Mandanten gleichzeitig. Kunden, Bestand und Aufträge vermischen sich nicht zwischen Werkstätten.
 </Warning>

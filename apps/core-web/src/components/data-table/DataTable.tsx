@@ -18,6 +18,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
 } from "react"
+import { useTranslation } from "react-i18next"
 
 import {
   Table,
@@ -159,7 +160,7 @@ export function DataTable<TData extends object>({
   setPagination,
   searchColumn,
   searchPlaceholder,
-  emptyStateMessage = 'No results.',
+  emptyStateMessage,
   onRowClick,
   getRowHref,
   getRowAccessibleName,
@@ -168,6 +169,8 @@ export function DataTable<TData extends object>({
   enableCsvExport,
   csvFileName,
 }: DataTableProps<TData>) {
+  const { t } = useTranslation('common')
+  const resolvedEmptyStateMessage = emptyStateMessage ?? t('dataTable.noResults')
   const [contextMenu, setContextMenu] = useState<{
     row: TData
     x: number
@@ -251,7 +254,7 @@ export function DataTable<TData extends object>({
         getRoot={() => rootRef.current}
         isLoading={isLoading}
       />
-      <div className="rounded-md border">
+      <div className="max-w-full overflow-x-auto rounded-md border">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -278,7 +281,7 @@ export function DataTable<TData extends object>({
                   colSpan={columns.length}
                   className="h-24 text-center"
                 >
-                  Loading...
+                  {t('dataTable.loading')}
                 </TableCell>
               </TableRow>
             ) : table.getRowModel().rows?.length ? (
@@ -383,7 +386,7 @@ export function DataTable<TData extends object>({
                   colSpan={columns.length}
                   className="h-24 text-center"
                 >
-                  {emptyStateMessage}
+                  {resolvedEmptyStateMessage}
                 </TableCell>
               </TableRow>
             )}
@@ -393,12 +396,12 @@ export function DataTable<TData extends object>({
       <div className="flex flex-wrap items-center justify-between gap-2 py-4">
         {pageSizeChoices.length > 0 ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span>Rows per page</span>
+            <span>{t('dataTable.rowsPerPage')}</span>
             <Select
               value={String(pagination.pageSize)}
               onValueChange={(value) => setPagination({ pageIndex: 0, pageSize: Number(value) })}
             >
-              <SelectTrigger aria-label="Rows per page" className="h-8 w-[76px]">
+              <SelectTrigger aria-label={t('dataTable.rowsPerPageAria')} className="h-8 w-[76px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -418,12 +421,12 @@ export function DataTable<TData extends object>({
               onClick={() => table.previousPage()}
               disabled={!table.getCanPreviousPage()}
           >
-              Previous
+              {t('dataTable.previous')}
           </Button>
           <div className="flex items-center gap-1 text-sm text-muted-foreground">
-              <span>Page</span>
+              <span>{t('dataTable.page')}</span>
               <span className="font-medium">{table.getState().pagination.pageIndex + 1}</span>
-              <span>of</span>
+              <span>{t('dataTable.of')}</span>
               <span className="font-medium">{table.getPageCount()}</span>
           </div>
           <Button
@@ -432,7 +435,7 @@ export function DataTable<TData extends object>({
               onClick={() => table.nextPage()}
               disabled={!table.getCanNextPage()}
           >
-              Next
+              {t('dataTable.next')}
           </Button>
         </div>
       </div>
@@ -441,7 +444,7 @@ export function DataTable<TData extends object>({
         <>
           <button
             type="button"
-            aria-label="Close context menu"
+            aria-label={t('dataTable.closeContextMenu')}
             className="fixed inset-0 z-50 cursor-default"
             onClick={() => setContextMenu(null)}
             onContextMenu={(event) => {

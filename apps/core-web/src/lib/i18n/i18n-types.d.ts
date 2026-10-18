@@ -12,6 +12,10 @@ import type vehicleStock from '../../../../../locales/de/vehicleStock.json'
 import type finance from '../../../../../locales/de/finance.json'
 import type inventory from '../../../../../locales/de/inventory.json'
 import type hr from '../../../../../locales/de/hr.json'
+import type settings from '../../../../../locales/de/settings.json'
+import type platform from '../../../../../locales/de/platform.json'
+import type reports from '../../../../../locales/de/reports.json'
+import type agent from '../../../../../locales/de/agent.json'
 
 declare module 'i18next' {
   interface CustomTypeOptions {
@@ -30,6 +34,10 @@ declare module 'i18next' {
       finance: typeof finance
       inventory: typeof inventory
       hr: typeof hr
+      settings: typeof settings
+      platform: typeof platform
+      reports: typeof reports
+      agent: typeof agent
     }
   }
 }

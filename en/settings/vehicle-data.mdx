@@ -1,0 +1,27 @@
+---
+title: "Vehicle data"
+description: "Configure VIN decode and catalog providers for fitment and vehicle intelligence."
+---
+
+**Settings → Vehicle data** controls how ACP resolves VINs and which catalog provider backs part fitment and vehicle attributes.
+
+Only **OWNER** and **ADMIN** members see this tab.
+
+<Steps>
+  <Step title="Open Vehicle data">
+    Gear → **Vehicle data**.
+  </Step>
+  <Step title="Choose providers">
+    Select the active VIN and catalog providers your contract includes. Save changes.
+  </Step>
+  <Step title="Test on a vehicle">
+    Open [Vehicles](/en/workflows/vehicles), create or edit a record, and run VIN decode to confirm results.
+  </Step>
+</Steps>
+
+<AccordionGroup>
+  <Accordion title="Gotchas">
+    - Provider credentials are tenant-wide. A wrong provider shows empty fitment in parts search.
+    - Decoded data never replaces your legal responsibility to verify plate and registration documents at intake.
+  </Accordion>
+</AccordionGroup>

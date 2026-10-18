@@ -1,31 +1,33 @@
 ---
-title: "Vehicles"
-description: "Register the car, plate, and VIN against a customer before intake."
+title: "Fahrzeuge"
+description: "Fahrzeug, Kennzeichen und FIN dem Kunden zuordnen, bevor Sie annehmen."
 ---
 
-**Vehicles** lists every car in the tenant. Columns: vehicle, year, VIN, plate, customer. Top-right: **+ Vehicle**. Click the row for full vehicle context.
+**Fahrzeuge** listet jedes Auto im Mandanten. Spalten: Fahrzeug, Jahr, FIN, Kennzeichen, Kunde. Oben rechts: **+ Fahrzeug**. Zeile anklicken für den vollen Fahrzeugkontext.
 
-### Registration & emissions (Zulassung & Emissionen)
+### Zulassung & Emissionen
 
-On **+ Vehicle**, **Edit Vehicle**, and the vehicle detail card you can capture Austrian regulatory data (all optional):
+Bei **+ Fahrzeug**, **Fahrzeug bearbeiten** und auf der Fahrzeugdetailkarte können Sie österreichische Zulassungsdaten erfassen (alle optional):
 
-- First registration date / Erstzulassung
-- CO₂ WLTP and optional NEDC (g/km)
-- Typenschein number (type approval)
-- NoVA class (placeholder values until NoVA calculation ships)
-- Emission class / Schadstoffklasse
+- Erstzulassung
+- CO₂ WLTP und optional NEDC (g/km)
+- Typenscheinnummer
+- NoVA-Klasse (für die Live-NoVA-Vorschau)
+- Schadstoffklasse
 
-**ZB I vs Typenschein:** The existing **registration certificate** field on dealer stock vehicles is the ZB I (Fahrzeugschein). The **Typenschein** is the separate type-approval document — use the Typenschein field for that number.
+In der Fahrzeugdetailansicht berechnet das Panel **NoVA** eine Vorschau aus Zulassungsdaten, CO₂, Typenschein, Klasse und Nettopreis. **Berechnen** ruft den Server auf; nichts wird am Fahrzeug oder an einer Rechnung gespeichert. Ihr Steuerberater bestätigt den Betrag, bevor Sie sich für die Zulassung darauf verlassen.
+
+**ZB I vs. Typenschein:** Das bestehende Feld **Zulassungsbescheinigung** bei Händler-Bestandsfahrzeugen ist die ZB I (Fahrzeugschein). Der **Typenschein** ist das separate Typgenehmigungsdokument — nutzen Sie das Typenschein-Feld für diese Nummer.
 
 <Steps>
-  <Step title="Create from the list">
-    **+ Vehicle** opens **Vehicle** dialog. Tie it to a customer. Unassigned shows as **Unassigned** on the list.
+  <Step title="Aus der Liste anlegen">
+    **+ Fahrzeug** öffnet den Dialog **Fahrzeug**. Mit einem Kunden verknüpfen. Ohne Zuordnung steht in der Liste **Nicht zugewiesen**.
   </Step>
-  <Step title="Or register at the door">
-    [Workshop intake](/workflows/workshop-intake) **Quick Register** creates customer + vehicle when they are new.
+  <Step title="Oder an der Tür registrieren">
+    Bei der [Fahrzeugannahme](/workflows/workshop-intake) erstellt **Schnellregistrierung** Kunde + Fahrzeug, wenn beides neu ist.
   </Step>
 </Steps>
 
 <Check>
-Intake search looks up VIN, plate, or customer name. Keep plate and VIN unique enough that the advisor hits the right car.
+Die Annahme-Suche findet FIN, Kennzeichen oder Kundenname. Halten Sie Kennzeichen und FIN eindeutig genug, dass der Berater das richtige Auto trifft.
 </Check>

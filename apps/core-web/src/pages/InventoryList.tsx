@@ -1,5 +1,8 @@
 import * as React from 'react'
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { type LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import type { ColumnFiltersState } from '@tanstack/react-table'
 import { useInventory } from '@/api/inventory'
@@ -15,6 +18,10 @@ import { formatCurrency } from '@/lib/format'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 export default function InventoryList() {
+    const { t } = useTranslation('inventory')
+    useEffect(() => {
+        void ensureNamespaceLoaded('inventory')
+    }, [])
     const navigate = useNavigate()
     const { queryParams, columnFilters, setColumnFilters, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
 
@@ -55,14 +62,14 @@ export default function InventoryList() {
         {
             accessorKey: 'status',
             enableSorting: false,
-            meta: { label: 'Status' },
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+            meta: { label: t('partsList.columns.status') },
+            header: ({ column }) => <DataTableColumnHeader column={column} title={t('partsList.columns.status')} />,
             cell: ({ row }) => <StatusBadge status={row.original.status} />,
         },
         {
             accessorKey: 'sku',
-            meta: { label: 'SKU' },
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Part" />,
+            meta: { label: t('partsList.columns.part') },
+            header: ({ column }) => <DataTableColumnHeader column={column} title={t('partsList.columns.part')} />,
             cell: ({ row }) => (
                 <div className="flex flex-col">
                     <span className="font-bold text-slate-900">{row.original.sku}</span>
@@ -72,23 +79,23 @@ export default function InventoryList() {
         },
         {
             accessorKey: 'name',
-            meta: { label: 'Description' },
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Description" />,
+            meta: { label: t('partsList.columns.description') },
+            header: ({ column }) => <DataTableColumnHeader column={column} title={t('partsList.columns.description')} />,
             cell: ({ row }) => <span className="text-slate-700">{row.original.name}</span>,
         },
         {
             accessorKey: 'warehouse_location',
             enableSorting: false,
-            meta: { label: 'Warehouse location' },
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Storage Location" />,
+            meta: { label: t('partsList.columns.storageLocation') },
+            header: ({ column }) => <DataTableColumnHeader column={column} title={t('partsList.columns.storageLocation')} />,
             cell: ({ row }) => (
-                <span className="text-slate-600">{row.original.warehouse_location ?? 'N/A'}</span>
+                <span className="text-slate-600">{row.original.warehouse_location ?? t('partsList.notAvailable')}</span>
             ),
         },
         {
             accessorKey: 'price',
-            meta: { label: 'Price' },
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Price" />,
+            meta: { label: t('partsList.columns.price') },
+            header: ({ column }) => <DataTableColumnHeader column={column} title={t('partsList.columns.price')} />,
             cell: ({ row }) => {
                 const amount = Number(row.getValue('price'))
                 return (
@@ -104,19 +111,19 @@ export default function InventoryList() {
         <>
             <div className="flex items-center justify-between mb-8">
                 <div>
-                    <h1 className="text-2xl font-semibold tracking-tight">Inventory</h1>
-                    <p className="text-slate-500">Manage your automotive parts and stock levels.</p>
+                    <h1 className="text-2xl font-semibold tracking-tight">{t('partsList.title')}</h1>
+                    <p className="text-slate-500">{t('partsList.description')}</p>
                 </div>
                 <AddItemDialog />
             </div>
 
             <div className="mb-4 flex items-center gap-2">
                 <Select value={locationFilterValue ?? '_all'} onValueChange={handleLocationFilter}>
-                    <SelectTrigger className="h-8 w-[260px]" aria-label="Storage location">
-                        <SelectValue placeholder="All storage locations" />
+                    <SelectTrigger className="h-8 w-[260px]" aria-label={t('partsList.locationAria')}>
+                        <SelectValue placeholder={t('partsList.allLocations')} />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="_all">All storage locations</SelectItem>
+                        <SelectItem value="_all">{t('partsList.allLocations')}</SelectItem>
                         {warehouseLocations.map((location) => (
                             <SelectItem key={location.id} value={location.name}>
                                 {location.name}
@@ -129,12 +136,12 @@ export default function InventoryList() {
             <DataTable
                 columns={columns}
                 data={data}
-                saveViewTitle="Inventory"
+                saveViewTitle={t('partsList.saveViewTitle')}
                 dashboardSource={DASHBOARD_WIDGET_SOURCE_INVENTORY}
                 pageCount={pageCount}
                 isLoading={isLoading}
                 searchColumn="name"
-                searchPlaceholder="Search parts..."
+                searchPlaceholder={t('partsList.searchPlaceholder')}
                 columnFilters={columnFilters}
                 setColumnFilters={setColumnFilters}
                 onRowClick={(item) =>

@@ -1,5 +1,7 @@
 import * as React from 'react'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
+import type { TFunction } from 'i18next'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { type Bay, useBays, useCreateBay, useDeleteBay, useUpdateBay } from '@/api/bays'
@@ -34,12 +36,12 @@ function normalizeSearch(value: string) {
   return value.trim().toLowerCase()
 }
 
-function matchesBaySearch(bay: Bay, term: string) {
+function matchesBaySearch(bay: Bay, term: string, t: TFunction<'settings'>) {
   if (!term) return true
 
   const haystack = [
     bay.name,
-    bay.isActive ? 'active' : 'inactive',
+    bay.isActive ? t('bays.search.active') : t('bays.search.inactive'),
     String(bay.sortOrder),
   ]
 
@@ -73,6 +75,7 @@ function sortBays(
 }
 
 export function BaySettingsTab() {
+  const { t } = useTranslation(['settings', 'common'])
   const { queryParams, setPagination, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
 
   const { data: responseData, isLoading } = useBays({
@@ -90,8 +93,8 @@ export function BaySettingsTab() {
 
   const filteredBays = React.useMemo(() => {
     const term = normalizeSearch(queryParams.search ?? '')
-    return bays.filter((bay) => matchesBaySearch(bay, term))
-  }, [bays, queryParams.search])
+    return bays.filter((bay) => matchesBaySearch(bay, term, t))
+  }, [bays, queryParams.search, t])
 
   const sortedBays = React.useMemo(
     () => sortBays(filteredBays, queryParams.sortField, queryParams.sortDirection),
@@ -141,13 +144,13 @@ export function BaySettingsTab() {
 
     const normalizedName = formState.name.trim()
     if (!normalizedName) {
-      toast.error('Bay name is required')
+      toast.error(t('bays.toast.nameRequired'))
       return
     }
 
     const parsedSortOrder = Number(formState.sortOrder)
     if (!Number.isInteger(parsedSortOrder) || parsedSortOrder < 0) {
-      toast.error('Sort order must be a non-negative integer')
+      toast.error(t('bays.toast.sortOrderInvalid'))
       return
     }
 
@@ -158,11 +161,11 @@ export function BaySettingsTab() {
         isActive: true,
       })
 
-      toast.success('Bay created')
+      toast.success(t('bays.toast.created'))
       setFormState(defaultFormState)
       setCreateOpen(false)
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, 'Failed to create bay'))
+      toast.error(getErrorMessage(error, t('bays.toast.createFailed')))
     }
   }
 
@@ -170,13 +173,13 @@ export function BaySettingsTab() {
     try {
       const result = await deleteMutation.mutateAsync(id)
       if (result.deleted) {
-        toast.success('Bay deleted')
+        toast.success(t('bays.toast.deleted'))
         return
       }
 
-      toast.success('Bay deactivated')
+      toast.success(t('bays.toast.deactivated'))
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, 'Failed to delete bay'))
+      toast.error(getErrorMessage(error, t('bays.toast.deleteFailed')))
     }
   }
 
@@ -184,22 +187,22 @@ export function BaySettingsTab() {
     () => [
       {
         accessorKey: 'name',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Name' />,
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('bays.columns.name')} />,
         cell: ({ row }) => (
           <InlineEdit
             value={row.original.name}
             onSave={async (nextName) => {
               const normalizedName = nextName.trim()
               if (!normalizedName) {
-                toast.error('Bay name is required')
-                throw new Error('Bay name is required')
+                toast.error(t('bays.toast.nameRequired'))
+                throw new Error(t('bays.toast.nameRequired'))
               }
 
               await runUpdate(
                 row.original.id,
                 { name: normalizedName },
-                'Bay updated',
-                'Failed to update bay name',
+                t('bays.toast.updated'),
+                t('bays.toast.updateNameFailed'),
               )
             }}
           />
@@ -207,7 +210,7 @@ export function BaySettingsTab() {
       },
       {
         accessorKey: 'isActive',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Active' />,
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('bays.columns.active')} />,
         cell: ({ row }) => (
           <Button
             variant='outline'
@@ -216,50 +219,50 @@ export function BaySettingsTab() {
               void runUpdate(
                 row.original.id,
                 { isActive: !row.original.isActive },
-                row.original.isActive ? 'Bay deactivated' : 'Bay activated',
-                'Failed to update bay status',
+                row.original.isActive ? t('bays.toast.deactivated') : t('bays.toast.activated'),
+                t('bays.toast.updateStatusFailed'),
               )
             }}
           >
-            {row.original.isActive ? 'Active' : 'Inactive'}
+            {row.original.isActive ? t('bays.active') : t('bays.inactive')}
           </Button>
         ),
       },
       {
         accessorKey: 'sortOrder',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Sort Order' />,
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('bays.columns.sortOrder')} />,
         cell: ({ row }) => (
           <InlineEdit
             value={String(row.original.sortOrder)}
             onSave={async (nextSortOrder) => {
               const parsedSortOrder = Number(nextSortOrder.trim())
               if (!Number.isInteger(parsedSortOrder) || parsedSortOrder < 0) {
-                toast.error('Sort order must be a non-negative integer')
-                throw new Error('Sort order must be a non-negative integer')
+                toast.error(t('bays.toast.sortOrderInvalid'))
+                throw new Error(t('bays.toast.sortOrderInvalid'))
               }
 
               await runUpdate(
                 row.original.id,
                 { sortOrder: parsedSortOrder },
-                'Bay sort order updated',
-                'Failed to update bay sort order',
+                t('bays.toast.sortOrderUpdated'),
+                t('bays.toast.updateSortOrderFailed'),
               )
             }}
           />
         ),
       },
     ],
-    [runUpdate],
+    [runUpdate, t],
   )
 
   return (
     <div className='space-y-4'>
       <div className='flex items-center justify-between'>
         <div>
-          <h3 className='text-lg font-medium'>Bays</h3>
-          <p className='text-sm text-muted-foreground'>Manage workshop service bays and their ordering.</p>
+          <h3 className='text-lg font-medium'>{t('bays.title')}</h3>
+          <p className='text-sm text-muted-foreground'>{t('bays.description')}</p>
         </div>
-        <Button type='button' onClick={() => setCreateOpen(true)}>+ Bay</Button>
+        <Button type='button' onClick={() => setCreateOpen(true)}>{t('bays.createButton')}</Button>
       </div>
 
       <DataTable
@@ -267,11 +270,11 @@ export function BaySettingsTab() {
         data={pagedBays}
         pageCount={pageCount}
         isLoading={isLoading}
-        searchPlaceholder='Search bays...'
+        searchPlaceholder={t('bays.searchPlaceholder')}
         setPagination={setPagination}
         getRowContextActions={(row) => [
           {
-            label: 'Delete',
+            label: t('bays.delete'),
             destructive: true,
             onClick: () => {
               void handleDelete(row.id)
@@ -284,26 +287,26 @@ export function BaySettingsTab() {
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create Bay</DialogTitle>
-            <DialogDescription>Add a physical workshop bay.</DialogDescription>
+            <DialogTitle>{t('bays.dialog.title')}</DialogTitle>
+            <DialogDescription>{t('bays.dialog.description')}</DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleCreate} className='space-y-4'>
             <div className='space-y-2'>
-              <Label htmlFor='bay-name'>Name</Label>
+              <Label htmlFor='bay-name'>{t('bays.dialog.name')}</Label>
               <Input
                 id='bay-name'
                 value={formState.name}
                 onChange={(event) => {
                   setFormState((previous) => ({ ...previous, name: event.target.value }))
                 }}
-                placeholder='Bay name'
+                placeholder={t('bays.dialog.namePlaceholder')}
                 required
               />
             </div>
 
             <div className='space-y-2'>
-              <Label htmlFor='bay-sort-order'>Sort Order</Label>
+              <Label htmlFor='bay-sort-order'>{t('bays.dialog.sortOrder')}</Label>
               <Input
                 id='bay-sort-order'
                 type='number'
@@ -318,10 +321,10 @@ export function BaySettingsTab() {
 
             <DialogFooter>
               <Button type='button' variant='outline' onClick={() => setCreateOpen(false)}>
-                Cancel
+                {t('common:actions.cancel')}
               </Button>
               <Button type='submit' disabled={createMutation.isPending}>
-                {createMutation.isPending ? 'Saving...' : 'Create'}
+                {createMutation.isPending ? t('bays.dialog.saving') : t('bays.dialog.create')}
               </Button>
             </DialogFooter>
           </form>

@@ -1,0 +1,48 @@
+---
+title: "Werkstatt-KPIs"
+description: "Arbeitsauslastung und Teileumschlag für einen Werkstattstandort vergleichen."
+---
+
+**Werkstatt-KPIs** berichtet, wie viel Werkstattzeit verfügbar, gebucht und fakturiert war und wie sich der Teilebestand in einem Datumsbereich bewegt hat.
+
+Rollen **OWNER**, **ADMIN** und **SALES** sehen den Seitenleisten-Eintrag. Andere Rollen nicht.
+
+<Steps>
+  <Step title="Werkstatt-KPIs öffnen">
+    Seitenleiste → **Werkstatt-KPIs**.
+  </Step>
+  <Step title="Standort und Zeitraum">
+    **Standort**, **Von**, **Bis** und **Gruppierung** wählen (Mechaniker, Woche oder Monat).
+  </Step>
+  <Step title="CSV exportieren">
+    **CSV exportieren** lädt Arbeitsleistung, Lagerumschlag und langsame Teile herunter.
+  </Step>
+</Steps>
+
+<CardGroup cols={2}>
+  <Card title="Arbeitsleistung" icon="wrench">
+    **Verfügbar** — Stunden aus Plänen abzüglich Abwesenheiten und ganztägiger Feiertage. **Auslastung** ist gebucht ÷ verfügbar. **Leistungsgrad** ist fakturierte Stunden aus abgeschlossenen Rechnungszeilen ÷ gebuchte Stunden. **Ø Netto/Auftrag** teilt Nettoerlös auf abgeschlossenen Werkstattrechnungen durch geschlossene Aufträge.
+  </Card>
+  <Card title="Lagerumschlag" icon="package">
+    **Verbrauchskosten** aus Werkstattverbrauch im Zeitraum. **Ø Lagerwert** mittelt den täglich bewerteten Bestand. **Umschlag** ist Verbrauchskosten ÷ durchschnittlicher Lagerwert. Bis zu zehn Teile ohne Verbrauch in 90 Tagen erscheinen als langsame Teile.
+  </Card>
+</CardGroup>
+
+<Check>
+Sie sehen nur Standorte mit aktiver Standort-Mitgliedschaft. Datumsgrenzen nutzen die Zeitzone des gewählten Standorts. Ein Bericht spannt höchstens 366 Kalendertage.
+</Check>
+
+<AccordionGroup>
+  <Accordion title="Offene Arbeitszeiteinträge">
+    Zeiteinträge ohne Endzeit zählen nicht zu gebuchten Stunden. Der Bericht listet offene Einträge separat.
+  </Accordion>
+  <Accordion title="Änderungen am Dienstplan">
+    Jeder Tag nutzt die Planversion, die an diesem Datum beginnt. Der Standort dieser Version bestimmt, welcher Standort verfügbare Stunden erhält.
+  </Accordion>
+  <Accordion title="Leere Prozente oder Lagerwert">
+    Sind verfügbare oder gebuchte Stunden null, bleiben Auslastung und Leistungsgrad leer. Unbewerteter Bestand wird nicht geschätzt; der Bericht listet unbewertete Positionen separat.
+  </Accordion>
+  <Accordion title="CSV-Format">
+    Der Export nutzt Semikolon als Trennzeichen und Punkt als Dezimaltrennzeichen. Enthalten sind Arbeitszeilen, eine Summenzeile, Lagerumschlag-Zusammenfassung, Langsamläufer-Zeilen und Metadaten (Zeitzone, Gruppierung, nicht zugewiesene Mechaniker).
+  </Accordion>
+</AccordionGroup>

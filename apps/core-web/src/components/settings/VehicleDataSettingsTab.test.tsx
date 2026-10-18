@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import deSettings from '../../../../../locales/de/settings.json'
 import { VehicleDataSettingsTab } from './VehicleDataSettingsTab'
 
 const { mocks, defaultSettings } = vi.hoisted(() => {
@@ -166,22 +167,22 @@ describe('VehicleDataSettingsTab', () => {
   it('renders catalog defaults and Stellantis member makes for admins', () => {
     renderTab()
 
-    expect(screen.getByText('Catalog defaults')).toBeInTheDocument()
-    expect(screen.getByText('OEM concerns')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Save Changes' })).toBeInTheDocument()
-    expect(screen.getByLabelText('Stellantis member makes')).toHaveValue('3,4,5,6,7')
-    expect(screen.getByText('Aftermarket parts credentials configured')).toBeInTheDocument()
-    expect(screen.getByText('OEM parts credentials')).toBeInTheDocument()
+    expect(screen.getByText(deSettings.vehicleData.catalog.title)).toBeInTheDocument()
+    expect(screen.getByText(deSettings.vehicleData.oemConcerns.title)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: deSettings.vehicleData.saveChanges })).toBeInTheDocument()
+    expect(screen.getByLabelText(deSettings.vehicleData.oemConcerns.memberMakesAria.replace('{{concern}}', 'Stellantis'))).toHaveValue('3,4,5,6,7')
+    expect(screen.getByText(deSettings.vehicleData.catalog.badges.parts)).toBeInTheDocument()
+    expect(screen.getByText(deSettings.vehicleData.oemConcerns.partsCredential)).toBeInTheDocument()
   })
 
   it('saves updated settings for admins', async () => {
     renderTab()
 
-    fireEvent.change(screen.getByLabelText('AW minutes'), {
+    fireEvent.change(screen.getByLabelText(deSettings.vehicleData.catalog.awMinutes), {
       target: { value: '8' },
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
+    fireEvent.click(screen.getByRole('button', { name: deSettings.vehicleData.saveChanges }))
 
     await waitFor(() => {
       expect(mocks.updateSettingsMutateAsync).toHaveBeenCalledWith(
@@ -202,7 +203,7 @@ describe('VehicleDataSettingsTab', () => {
     mocks.activeRole = 'TECH'
     renderTab()
 
-    expect(screen.getByText(/owners and administrators only/i)).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Save Changes' })).not.toBeInTheDocument()
+    expect(screen.getByText(deSettings.vehicleData.noAccess)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: deSettings.vehicleData.saveChanges })).not.toBeInTheDocument()
   })
 })

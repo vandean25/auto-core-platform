@@ -1,0 +1,33 @@
+---
+title: "Data import"
+description: "Run the CSV wizard to load legacy customers and vehicles."
+---
+
+**Data import** is the guided CSV wizard for bootstrapping a tenant from another system. It supports dry runs, row-level validation, and an audit link per import job.
+
+Only **OWNER** and **ADMIN** members see this tab.
+
+<Steps>
+  <Step title="Open Data import">
+    Gear → **Data import**.
+  </Step>
+  <Step title="Pick entity type">
+    Choose **Customers** or **Vehicles** and download the template if you need column names.
+  </Step>
+  <Step title="Upload and dry run">
+    Upload your CSV. Run a **dry run** first. Fix validation errors in the file before you commit.
+  </Step>
+  <Step title="Commit import">
+    Start the live import when the dry run is clean. Open the audit link from the job row if you need the import job id in [Audit logs](/en/settings/audit-logs).
+  </Step>
+</Steps>
+
+<Warning>
+Imports create new rows. They do not merge duplicates by plate or email unless the wizard step explicitly offers matching — read each screen before you commit.
+</Warning>
+
+<AccordionGroup>
+  <Accordion title="Who can use this">
+    OWNER and ADMIN only. Advisors cannot open the tab even with a direct URL.
+  </Accordion>
+</AccordionGroup>

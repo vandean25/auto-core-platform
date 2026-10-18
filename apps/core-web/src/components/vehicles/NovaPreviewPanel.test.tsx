@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { useNovaCalculate } = vi.hoisted(() => ({
@@ -49,7 +49,7 @@ describe('NovaPreviewPanel', () => {
     })
   })
 
-  it('shows the tariff, applied rules, and adviser note for an unverified rule', () => {
+  it('shows the tariff, applied rules, and adviser note for an unverified rule', async () => {
     useNovaCalculate.mockReturnValue({
       mutate: calculate,
       reset,
@@ -83,7 +83,9 @@ describe('NovaPreviewPanel', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'NoVA berechnen' }))
 
-    expect(screen.getByText('at-m1-2025-h1')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText(/at-m1-2025-h1/)).toBeInTheDocument()
+    })
     expect(
       screen.getByText(
         (_text, element) =>
@@ -91,12 +93,12 @@ describe('NovaPreviewPanel', () => {
       ),
     ).toBeInTheDocument()
     expect(
-      screen.getByText('Vorschau - Steuerberater-Bestätigung ausstehend'),
+      screen.getByText('Vorschau — Steuerberater-Bestätigung ausstehend'),
     ).toBeInTheDocument()
     expect(screen.getByText('CO₂ NEDC (g/km): 130')).toBeInTheDocument()
   })
 
-  it('clears a previous result when the net price changes', () => {
+  it('clears a previous result when the net price changes', async () => {
     useNovaCalculate.mockReturnValue({
       mutate: calculate,
       reset,
@@ -129,12 +131,14 @@ describe('NovaPreviewPanel', () => {
       target: { value: '25000' },
     })
     fireEvent.click(screen.getByRole('button', { name: 'NoVA berechnen' }))
-    expect(screen.getByText('at-m1-2025-h2')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText(/at-m1-2025-h2/)).toBeInTheDocument()
+    })
     fireEvent.change(screen.getByLabelText('NoVA-Netto-Preis'), {
       target: { value: '26000' },
     })
 
-    expect(screen.queryByText('at-m1-2025-h2')).not.toBeInTheDocument()
+    expect(screen.queryByText(/at-m1-2025-h2/)).not.toBeInTheDocument()
   })
 
   it('shows scope limitation hints for Wertentwicklung warnings', () => {
@@ -183,7 +187,7 @@ describe('NovaPreviewPanel', () => {
       ),
     ).toBeInTheDocument()
     expect(
-      screen.queryByText('Vorschau - Steuerberater-Bestätigung ausstehend'),
+      screen.queryByText('Vorschau — Steuerberater-Bestätigung ausstehend'),
     ).not.toBeInTheDocument()
   })
 
@@ -283,6 +287,6 @@ describe('NovaPreviewPanel', () => {
       />,
     )
 
-    expect(screen.getByText('CO2 fehlt')).toBeInTheDocument()
+    expect(screen.getByText('CO₂ fehlt')).toBeInTheDocument()
   })
 })

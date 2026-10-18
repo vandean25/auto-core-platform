@@ -1,22 +1,22 @@
 ---
-title: "Quickstart"
-description: "Open ACP, do one real job, then confirm the change landed in the audit trail."
+title: "Schnellstart"
+description: "ACP öffnen, einen echten Vorgang durchführen und prüfen, dass die Änderung im Audit-Trail landet."
 ---
 
-This is the shortest path from login to a record you can prove. Full click-paths live under [Workflows](/workflows).
+Das ist der kürzeste Weg vom Login bis zu einem Datensatz, den Sie nachweisen können. Ausführliche Klickpfade stehen unter [Workflows](/workflows).
 
 <Steps>
-  <Step title="Sign in to your workshop tenant">
-    Use the account your administrator invited. ACP isolates every tenant. You only see your workshop's customers, jobs, and stock. See [Sign in](/workflows/sign-in).
+  <Step title="Bei Ihrem Werkstatt-Mandanten anmelden">
+    Nutzen Sie das Konto, zu dem Ihr Administrator Sie eingeladen hat. ACP trennt jeden Mandanten strikt. Sie sehen nur die Kunden, Aufträge und den Bestand Ihrer Werkstatt. Siehe [Anmelden](/workflows/sign-in).
   </Step>
-  <Step title="Complete one business change">
-    Start a [sales order](/workflows/sales-orders), [intake a job](/workflows/workshop-intake), or [receive a purchase](/workflows/purchase-orders). The product already records the mutation. You do not turn auditing on.
+  <Step title="Eine geschäftliche Änderung durchführen">
+    Legen Sie einen [Kundenauftrag](/workflows/sales-orders) an, [nehmen Sie einen Auftrag an](/workflows/workshop-intake) oder [buchen Sie einen Wareneingang](/workflows/purchase-orders). Das Produkt protokolliert die Änderung automatisch — Sie müssen Audit nicht extra aktivieren.
   </Step>
-  <Step title="Open the audit trail">
-    Go to **Settings → Audit Logs**. Search for the person, document id, or request id. Click the row to see before, after, and the field-level diff.
+  <Step title="Den Audit-Trail öffnen">
+    Gehen Sie zu **Einstellungen → Audit-Logs**. Suchen Sie nach Person, Beleg-ID oder Request-ID. Klicken Sie die Zeile an, um Vorher, Nachher und die Feld-für-Feld-Differenz zu sehen.
   </Step>
 </Steps>
 
 <Check>
-If the row is missing, the change was likely a create (new records are the first state) or a model that is not on the audited list. See [Audit logs](/settings/audit-logs).
+Fehlt die Zeile, war die Änderung vermutlich ein Neuanlage (neue Datensätze sind der erste Zustand) oder betrifft ein Modell, das nicht auf der Audit-Liste steht. Siehe [Audit-Logs](/settings/audit-logs).
 </Check>

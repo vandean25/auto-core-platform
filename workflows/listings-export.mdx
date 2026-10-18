@@ -1,0 +1,33 @@
+---
+title: "Inserate exportieren"
+description: "Fahrzeugbestand-Inserate nach mobile.de, willhaben oder AutoScout24 exportieren."
+---
+
+Der Inserat-Editor an einer **Fahrzeugbestand**-Einheit bereitet Marktplatzfelder, Ausstattungszuordnung und Verbraucherhinweise (inkl. NoVA-Formulierung) vor. Der Export erzeugt portal-spezifische Dateien zum Hochladen oder Pushen gemäß dem jeweiligen Portal-Prozess.
+
+Vertrieb und Administratoren pflegen Inserate. Berater helfen bei Fotos und Beschreibungen.
+
+<Steps>
+  <Step title="Bestandsdetail öffnen">
+    **Fahrzeugbestand** → Einheit anklicken → Editor **Inserat** öffnen.
+  </Step>
+  <Step title="Pflichtfelder ausfüllen">
+    Titel, Preis, Kilometerstand, Ausstattung und **NoVA im Preis enthalten** bestätigen, wenn das Inserat die Steuerbehandlung nennen muss (*inkl. USt. und NoVA*).
+  </Step>
+  <Step title="Portal-Profil wählen">
+    Zielportal wählen (z. B. **mobile.de**, **willhaben** oder **AutoScout24**). Ausstattungscodes werden über ACP-Portal-Tabellen gemappt.
+  </Step>
+  <Step title="Export">
+    **Export** ausführen und die erzeugte Datei herunterladen oder den In-App-Push nutzen, wenn AutoScout24-DMS-API-Zugangsdaten für Ihren Mandanten konfiguriert sind.
+  </Step>
+</Steps>
+
+<Warning>
+Die Annahme durch das Portal prüfen Sie selbst. ACP mappt bekannte Ausstattungscodes; nicht gemappte Optionen exportieren als Freitext und können in der Portal-Oberfläche manuell bereinigt werden.
+</Warning>
+
+<AccordionGroup>
+  <Accordion title="Wer darf das nutzen">
+    Jeder, der Fahrzeugbestand in Wirtschaftlichkeit und Marketing bearbeiten darf, kann exportieren. API-Push erfordert Operator-Zugangsdaten außerhalb dieser Anleitung.
+  </Accordion>
+</AccordionGroup>

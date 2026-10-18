@@ -1,4 +1,5 @@
 import * as React from "react"
+import { useTranslation } from "react-i18next"
 import { Plus } from "lucide-react"
 import { toast } from "sonner"
 
@@ -24,6 +25,7 @@ interface AddBrandDialogProps {
 }
 
 export function AddBrandDialog({ brand, onClose }: AddBrandDialogProps) {
+    const { t } = useTranslation(['settings', 'common'])
     const [open, setOpen] = React.useState(false)
     const createMutation = useCreateBrand()
     const updateMutation = useUpdateBrand()
@@ -46,7 +48,7 @@ export function AddBrandDialog({ brand, onClose }: AddBrandDialogProps) {
         const isPartManufacturer = formData.get("isPartManufacturer") === "on"
 
         if (!isVehicleMake && !isPartManufacturer) {
-            toast.error("Brand must be at least one type")
+            toast.error(t('brands.toast.typeRequired'))
             return
         }
 
@@ -59,7 +61,7 @@ export function AddBrandDialog({ brand, onClose }: AddBrandDialogProps) {
                     isPartManufacturer,
                     logoUrl: logoUrl || undefined
                 })
-                toast.success("Brand updated")
+                toast.success(t('brands.toast.updated'))
             } else {
                 await createMutation.mutateAsync({
                     name,
@@ -67,11 +69,11 @@ export function AddBrandDialog({ brand, onClose }: AddBrandDialogProps) {
                     isPartManufacturer,
                     logoUrl: logoUrl || undefined
                 })
-                toast.success("Brand created")
+                toast.success(t('brands.toast.created'))
             }
             handleClose(false)
         } catch (error: unknown) {
-            toast.error(getErrorMessage(error, "Failed to save brand"))
+            toast.error(getErrorMessage(error, t('brands.toast.saveFailed')))
         }
     }
 
@@ -80,42 +82,42 @@ export function AddBrandDialog({ brand, onClose }: AddBrandDialogProps) {
             {!brand && (
                 <DialogTrigger asChild>
                     <Button size="sm">
-                        <Plus className="mr-2 h-4 w-4" /> Brand
+                        <Plus className="mr-2 h-4 w-4" /> {t('brands.addDialog.trigger')}
                     </Button>
                 </DialogTrigger>
             )}
             <DialogContent>
                 <form onSubmit={handleSubmit}>
                     <DialogHeader>
-                        <DialogTitle>{brand ? "Edit Brand" : "Add Brand"}</DialogTitle>
+                        <DialogTitle>{brand ? t('brands.addDialog.editTitle') : t('brands.addDialog.addTitle')}</DialogTitle>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid gap-2">
-                            <Label htmlFor="name">Name</Label>
-                            <Input id="name" name="name" defaultValue={brand?.name} placeholder="e.g., Volkswagen, Bosch" required />
+                            <Label htmlFor="name">{t('brands.addDialog.name')}</Label>
+                            <Input id="name" name="name" defaultValue={brand?.name} placeholder={t('brands.addDialog.namePlaceholder')} required />
                         </div>
                         <div className="space-y-4">
-                            <Label>Brand Types</Label>
+                            <Label>{t('brands.addDialog.typesLabel')}</Label>
                             <div className="flex flex-col gap-3">
                                 <div className="flex items-center space-x-2">
                                     <Checkbox id="isVehicleMake" name="isVehicleMake" defaultChecked={brand?.isVehicleMake} />
-                                    <Label htmlFor="isVehicleMake" className="font-normal">Vehicle Make (OEM)</Label>
+                                    <Label htmlFor="isVehicleMake" className="font-normal">{t('brands.addDialog.vehicleMake')}</Label>
                                 </div>
                                 <div className="flex items-center space-x-2">
                                     <Checkbox id="isPartManufacturer" name="isPartManufacturer" defaultChecked={brand?.isPartManufacturer} />
-                                    <Label htmlFor="isPartManufacturer" className="font-normal">Part Manufacturer (Aftermarket)</Label>
+                                    <Label htmlFor="isPartManufacturer" className="font-normal">{t('brands.addDialog.partManufacturer')}</Label>
                                 </div>
                             </div>
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="logoUrl">Logo URL (optional)</Label>
-                            <Input id="logoUrl" name="logoUrl" defaultValue={brand?.logoUrl ?? ''} placeholder="https://..." />
+                            <Label htmlFor="logoUrl">{t('brands.addDialog.logoUrl')}</Label>
+                            <Input id="logoUrl" name="logoUrl" defaultValue={brand?.logoUrl ?? ''} placeholder={t('brands.addDialog.logoUrlPlaceholder')} />
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => handleClose(false)}>Cancel</Button>
+                        <Button type="button" variant="outline" onClick={() => handleClose(false)}>{t('common:actions.cancel')}</Button>
                         <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                            {brand ? "Save Changes" : "Create Brand"}
+                            {brand ? t('brands.addDialog.saveChanges') : t('brands.addDialog.create')}
                         </Button>
                     </DialogFooter>
                 </form>

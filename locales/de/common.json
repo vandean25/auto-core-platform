@@ -9,7 +9,122 @@
   "actions": {
     "cancel": "Abbrechen",
     "save": "Speichern",
-    "confirm": "Bestätigen"
+    "confirm": "Bestätigen",
+    "close": "Schließen"
+  },
+  "documentSave": {
+    "saving": "Speichern…",
+    "saved": "Alle Änderungen gespeichert",
+    "error": "Speichern fehlgeschlagen"
+  },
+  "appVersion": {
+    "available": "Neue Version verfügbar",
+    "reload": "Neu laden"
+  },
+  "pageLoader": {
+    "loading": "Auto Core wird geladen…"
+  },
+  "dataTable": {
+    "noResults": "Keine Ergebnisse.",
+    "rowsPerPage": "Zeilen pro Seite",
+    "rowsPerPageAria": "Zeilen pro Seite",
+    "previous": "Zurück",
+    "next": "Weiter",
+    "page": "Seite",
+    "of": "von",
+    "closeContextMenu": "Kontextmenü schließen",
+    "columns": "Spalten",
+    "toggleColumns": "Spalten ein-/ausblenden",
+    "showAll": "Alle anzeigen",
+    "reset": "Zurücksetzen",
+    "filterPlaceholder": "Filtern…",
+    "exportCsv": "CSV exportieren",
+    "exportCsvTitle": "Exportiert die sichtbaren Spalten der in dieser Tabelle geladenen Zeilen",
+    "hide": "Ausblenden",
+    "columnOptions": "{{title}} — Spaltenoptionen",
+    "loading": "Laden…"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "description": "Ihre Übersicht aus gespeicherten Tabellenfiltern.",
+    "addToDashboard": "Zum Dashboard hinzufügen",
+    "addToDashboardHint": "Dieses Ergebnis als Widget auf Ihrem Dashboard anzeigen",
+    "addWidgetTitle": "Widget zum Dashboard hinzufügen",
+    "addWidgetDescription": "Legen Sie fest, wie dieser gespeicherte Filter auf dem Dashboard erscheinen soll.",
+    "widgetName": "Widget-Name",
+    "widgetNamePlaceholder": "Aufträge nach Status",
+    "displayType": "Anzeigeart",
+    "displayList": "Liste",
+    "displayDonut": "Donut-Diagramm",
+    "displayMetric": "Kennzahl",
+    "groupBy": "Gruppieren nach",
+    "groupByPlaceholder": "Gruppierungsspalte wählen",
+    "calculate": "Berechnen",
+    "calculateCount": "Anzahl (Positionen gesamt)",
+    "calculateSum": "Summe (Zahlen / Währung)",
+    "sumColumn": "Summenspalte",
+    "sumColumnPlaceholder": "Zahlenspalte wählen",
+    "widgetNameRequired": "Bitte geben Sie einen Widget-Namen ein.",
+    "groupByRequired": "Bitte wählen Sie ein Feld für „Gruppieren nach“.",
+    "sumColumnRequired": "Bitte wählen Sie eine Spalte für die Summe.",
+    "widgetAdded": "Widget zum Dashboard hinzugefügt.",
+    "defaultWidgetName": "{{sourceLabel}} Widget",
+    "openSourceTitle": "Quelltabelle mit gespeicherten Filtern öffnen",
+    "removeWidgetAria": "Widget {{name}} entfernen",
+    "loadingWidget": "Widget wird geladen…",
+    "loadWidgetFailed": "Widget-Daten konnten nicht geladen werden.",
+    "noWidgetData": "Keine Daten für dieses Widget.",
+    "noPreviewData": "Keine Vorschaudaten",
+    "summedValue": "Summenwert",
+    "totalItems": "Positionen gesamt",
+    "emptyWidgets": "Noch keine Widgets. Öffnen Sie eine Liste, setzen Sie Filter und klicken Sie auf „Zum Dashboard hinzufügen“.",
+    "sourceUnavailable": "Widget-Quelle ist nicht mehr verfügbar.",
+    "unknownGroup": "Unbekannt"
+  },
+  "savedViews": {
+    "saveButton": "Als Seitenleisten-Ansicht speichern",
+    "saveHint": "Speichert diese Filter als Shortcut in den Favoriten",
+    "saveAria": "Als Seitenleisten-Ansicht für {{title}} speichern",
+    "title": "Als Seitenleisten-Ansicht speichern",
+    "description": "Geben Sie dieser Ansicht einen Namen, um sie in Ihren Favoriten zu speichern.",
+    "nameLabel": "Name",
+    "defaultName": "{{title}} Ansicht",
+    "added": "Ansicht zu den Favoriten hinzugefügt.",
+    "duplicate": "Diese Ansicht ist bereits in den Favoriten.",
+    "failed": "Diese Ansicht konnte nicht gespeichert werden."
+  },
+  "onboarding": {
+    "title": "Werkstatt einrichten",
+    "description": "Vier Schritte bis zum ersten Auftrag am Board. Blenden Sie diese Karte aus, sobald Sie fertig sind.",
+    "dismissAria": "Onboarding-Checkliste ausblenden",
+    "dismissTitle": "Onboarding-Checkliste ausblenden",
+    "steps": {
+      "customers": {
+        "title": "Kunden anlegen",
+        "description": "Erfassen Sie Privat- und Firmenkunden, die Sie abrechnen und betreuen.",
+        "action": "Kunden öffnen"
+      },
+      "vehicles": {
+        "title": "Fahrzeuge hinzufügen",
+        "description": "Registrieren Sie die Fahrzeuge, die Sie betreuen, damit jeder Auftrag verknüpft ist.",
+        "action": "Fahrzeuge öffnen"
+      },
+      "inventory": {
+        "title": "Lagerartikel anlegen",
+        "description": "Pflegen Sie Teile und Verbrauchsmaterial, die Sie vorrätig halten.",
+        "action": "Lager öffnen"
+      },
+      "workshop-order": {
+        "title": "Ersten Werkstattauftrag anlegen",
+        "description": "Buchen Sie einen ersten Auftrag für Kunde und Fahrzeug.",
+        "action": "Werkstattaufträge öffnen"
+      }
+    }
+  },
+  "scroll": {
+    "workshopHint": "Scrollen oder mit den Pfeilen weitere Spalten anzeigen",
+    "left": "Nach links scrollen",
+    "right": "Nach rechts scrollen"
   },
   "placeholders": {
     "missing": "—",
@@ -42,9 +157,9 @@
   },
   "errorBoundary": {
     "chunkTitle": "Aktualisierung erforderlich",
-    "chunkDescription": "Die Anwendung wurde aktualisiert oder die Verbindung wurde unterbrochen. Bitte neu laden.",
+    "chunkDescription": "Die Anwendung wurde aktualisiert oder die Verbindung wurde unterbrochen. Bitte laden Sie die Seite neu.",
     "unexpectedTitle": "Unerwarteter Fehler",
-    "unexpectedDescription": "Ein unerwarteter Fehler ist aufgetreten. Bitte neu laden.",
+    "unexpectedDescription": "Ein unerwarteter Fehler ist aufgetreten. Bitte laden Sie die Seite neu.",
     "unknownError": "Unbekannter Fehler",
     "reload": "Anwendung neu laden"
   },
@@ -79,12 +194,12 @@
     },
     "errors": {
       "loginFailed": "Anmeldung fehlgeschlagen. E-Mail und Passwort prüfen und erneut versuchen.",
-      "googleFailed": "Google-Anmeldung fehlgeschlagen. Bitte erneut versuchen."
+      "googleFailed": "Google-Anmeldung fehlgeschlagen. Bitte versuchen Sie es erneut."
     },
     "toast": {
-      "resetEmailRequired": "E-Mail für Passwort-Reset eingeben.",
-      "resetSent": "E-Mail mit Reset-Link wurde gesendet.",
-      "resetFailed": "Reset-E-Mail konnte nicht gesendet werden. Adresse prüfen und erneut versuchen."
+      "resetEmailRequired": "E-Mail-Adresse zum Zurücksetzen des Passworts eingeben.",
+      "resetSent": "Wir haben Ihnen einen Link zum Zurücksetzen des Passworts gesendet.",
+      "resetFailed": "Die E-Mail zum Zurücksetzen konnte nicht gesendet werden. Bitte prüfen Sie die Adresse und versuchen Sie es erneut."
     }
   },
   "landingDemo": {
@@ -98,7 +213,7 @@
     "errors": {
       "grantInvalid": "Dieser Anmeldelink ist abgelaufen oder wurde bereits verwendet.",
       "invalidEmail": "Bitte geben Sie die E-Mail-Adresse ein, mit der Sie die Demo angefordert haben.",
-      "retry": "Die Anmeldung konnte nicht abgeschlossen werden. Bitte erneut versuchen.",
+      "retry": "Die Anmeldung konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.",
       "unknown": "Die Anmeldung konnte nicht abgeschlossen werden.",
       "invalidConfiguration": "Dieser Anmeldelink ist ungültig oder die Anmeldung ist nicht konfiguriert."
     },

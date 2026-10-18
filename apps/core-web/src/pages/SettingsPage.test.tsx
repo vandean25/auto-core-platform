@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import deSettings from '../../../../locales/de/settings.json'
 import SettingsPage from './SettingsPage'
 
 afterEach(() => {
@@ -245,8 +246,8 @@ describe('SettingsPage tab integration', () => {
 
     const [mainTabList] = screen.getAllByRole('tablist')
     expect(mainTabList).toHaveClass('h-auto', 'overflow-x-auto')
-    expect(screen.getByRole('tab', { name: 'Voice Translation' })).toHaveClass('shrink-0')
-    expect(screen.getByRole('tab', { name: 'Storage Locations' })).toHaveClass('shrink-0')
+    expect(screen.getByRole('tab', { name: deSettings.tabs.voiceTranslation })).toHaveClass('shrink-0')
+    expect(screen.getByRole('tab', { name: deSettings.tabs.locations })).toHaveClass('shrink-0')
   })
 
   it('renders Employees, Bays, and Audit Logs triggers and respects the initial employees query param', async () => {
@@ -266,40 +267,40 @@ describe('SettingsPage tab integration', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByRole('tab', { name: 'Employees' })).toBeVisible()
-    expect(screen.getByRole('tab', { name: 'Bays' })).toBeVisible()
-    expect(screen.getByRole('tab', { name: 'Hours' })).toBeVisible()
-    expect(screen.getByRole('tab', { name: 'Vehicle data' })).toBeVisible()
-    expect(screen.getByRole('tab', { name: 'Legal Entities' })).toBeVisible()
-    expect(screen.getByRole('tab', { name: 'Sites' })).toBeVisible()
-    expect(screen.getByRole('tab', { name: 'Margenregeln' })).toBeVisible()
-    expect(screen.getByRole('tab', { name: 'Team' })).toBeVisible()
-    expect(screen.getByRole('tab', { name: 'Audit Logs' })).toBeVisible()
+    expect(screen.getByRole('tab', { name: deSettings.tabs.employees })).toBeVisible()
+    expect(screen.getByRole('tab', { name: deSettings.tabs.bays })).toBeVisible()
+    expect(screen.getByRole('tab', { name: deSettings.tabs.hours })).toBeVisible()
+    expect(screen.getByRole('tab', { name: deSettings.tabs.vehicleData })).toBeVisible()
+    expect(screen.getByRole('tab', { name: deSettings.tabs.legalEntities })).toBeVisible()
+    expect(screen.getByRole('tab', { name: deSettings.tabs.sites })).toBeVisible()
+    expect(screen.getByRole('tab', { name: deSettings.tabs.marginRules })).toBeVisible()
+    expect(screen.getByRole('tab', { name: deSettings.tabs.team })).toBeVisible()
+    expect(screen.getByRole('tab', { name: deSettings.tabs.auditLogs })).toBeVisible()
     expect(screen.getByText('Employees tab content')).toBeVisible()
     expect(screen.getByTestId('location-search')).toHaveTextContent('?tab=employees')
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Bays' }))
+    fireEvent.click(screen.getByRole('tab', { name: deSettings.tabs.bays }))
 
     await waitFor(() => {
       expect(screen.getByText('Bays tab content')).toBeVisible()
       expect(screen.getByTestId('location-search')).toHaveTextContent('?tab=bays')
     })
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Vehicle data' }))
+    fireEvent.click(screen.getByRole('tab', { name: deSettings.tabs.vehicleData }))
 
     await waitFor(() => {
       expect(screen.getByText('Vehicle data tab content')).toBeVisible()
       expect(screen.getByTestId('location-search')).toHaveTextContent('?tab=vehicle-data')
     })
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Margenregeln' }))
+    fireEvent.click(screen.getByRole('tab', { name: deSettings.tabs.marginRules }))
 
     await waitFor(() => {
       expect(screen.getByText('Margin rules tab content')).toBeVisible()
       expect(screen.getByTestId('location-search')).toHaveTextContent('?tab=margin-rules')
     })
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Audit Logs' }))
+    fireEvent.click(screen.getByRole('tab', { name: deSettings.tabs.auditLogs }))
 
     await waitFor(() => {
       expect(screen.getByText('Audit logs tab content')).toBeVisible()
@@ -324,7 +325,7 @@ describe('SettingsPage tab integration', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByRole('tab', { name: 'Margenregeln' })).toBeVisible()
+    expect(screen.getByRole('tab', { name: deSettings.tabs.marginRules })).toBeVisible()
     expect(screen.getByText('Margin rules tab content')).toBeVisible()
     expect(screen.getByTestId('location-search')).toHaveTextContent('?tab=margin-rules')
   })

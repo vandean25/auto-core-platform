@@ -69,6 +69,36 @@
     "transferWorkflowHint": "Verwenden Sie eine Umlagerung, um Mengen zu verschieben und Buchungen zu erzeugen.",
     "notAvailable": "k. A."
   },
+  "partsList": {
+    "title": "Lager",
+    "description": "Teile und Bestände verwalten.",
+    "searchPlaceholder": "Teile suchen…",
+    "locationAria": "Lagerort",
+    "allLocations": "Alle Lagerorte",
+    "saveViewTitle": "Lager",
+    "columns": {
+      "status": "Status",
+      "part": "Teil",
+      "description": "Beschreibung",
+      "storageLocation": "Lagerort",
+      "price": "Preis"
+    },
+    "notAvailable": "k. A."
+  },
+  "addItemDialog": {
+    "trigger": "+ Artikel",
+    "title": "Lagerartikel anlegen",
+    "sku": "SKU / MPN",
+    "skuPlaceholder": "z. B. OF-1001",
+    "brand": "Marke",
+    "name": "Bezeichnung",
+    "namePlaceholder": "z. B. Ölfilter",
+    "costPrice": "Einkaufspreis (€)",
+    "retailPrice": "Verkaufspreis (€)",
+    "creating": "Wird angelegt…",
+    "createFailed": "Artikel konnte nicht angelegt werden",
+    "created": "Lagerartikel angelegt"
+  },
   "dialogs": {
     "adjustStock": {
       "title": "Bestand korrigieren",

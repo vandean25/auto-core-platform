@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
+import { DE_SETTINGS } from './helpers/de-settings'
 import { createMockFinanceSettings, createMockListResponse } from './utils/mock-factories'
 
 type ImportJobMock = {
@@ -176,31 +177,35 @@ test.describe('Data import settings wizard', () => {
     await installSettingsShellMocks(page)
     const { getApplyCount } = await installImportMocks(page, {})
 
-    const corePage = new AutoCorePage(page, 'Settings')
+    const corePage = new AutoCorePage(page, DE_SETTINGS.page.title)
     await corePage.navigate('/settings?tab=data-import')
 
-    await expect(page.getByRole('heading', { name: /Data import/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: DE_SETTINGS.dataImport.title, exact: true })).toBeVisible()
 
-    await page.getByRole('button', { name: /Continue/i }).first().click()
+    await page.getByRole('button', { name: DE_SETTINGS.dataImport.source.continue }).first().click()
 
-    const csv = 'Kunden-Nr;Nachname\n100;Pilot\n101;Error\n'
+    const csv = 'Kunden-Nr;Nachname\n100;Demo\n101;Error\n'
     await page.setInputFiles('#import-file', {
       name: 'customers.csv',
       mimeType: 'text/csv',
       buffer: Buffer.from(csv, 'utf8'),
     })
 
-    await page.getByRole('button', { name: /Continue/i }).click()
-    await page.getByRole('button', { name: /Run dry-run/i }).click()
+    await page.getByRole('button', { name: DE_SETTINGS.dataImport.upload.continue }).click()
+    await page.getByRole('button', { name: DE_SETTINGS.dataImport.mapping.runDryRun }).click()
 
-    await expect(page.getByText(/Dry-run report/i)).toBeVisible()
-    await expect(page.getByText(/Error \/ Fehler: 1/)).toBeVisible()
+    await expect(page.getByRole('heading', { name: DE_SETTINGS.dataImport.dryRun.title })).toBeVisible()
+    await expect(
+      page.getByText(DE_SETTINGS.dataImport.dryRun.totals.error.replace('{{value}}', '1')),
+    ).toBeVisible()
 
-    await page.getByLabel(/Max errors to allow apply/i).fill('1')
-    await page.getByRole('button', { name: /Apply import/i }).click()
-    await page.getByRole('button', { name: /Confirm apply/i }).dblclick()
+    await page.getByLabel(DE_SETTINGS.dataImport.dryRun.maxErrors).fill('1')
+    await page.getByRole('button', { name: DE_SETTINGS.dataImport.dryRun.applyImport }).click()
+    await page
+      .getByRole('button', { name: DE_SETTINGS.dataImport.confirm.confirm })
+      .dblclick()
 
-    await expect(page.getByText(/Import complete/i)).toBeVisible()
+    await expect(page.getByRole('heading', { name: DE_SETTINGS.dataImport.result.title })).toBeVisible()
     expect(getApplyCount()).toBe(1)
   })
 
@@ -210,23 +215,23 @@ test.describe('Data import settings wizard', () => {
       job: createMockImportJob({ totals: { rows: 2, create: 0, update: 0, skip: 0, error: 2 } }),
     })
 
-    const corePage = new AutoCorePage(page, 'Settings')
+    const corePage = new AutoCorePage(page, DE_SETTINGS.page.title)
     await corePage.navigate('/settings?tab=data-import')
-    await page.getByRole('button', { name: /Continue/i }).first().click()
+    await page.getByRole('button', { name: DE_SETTINGS.dataImport.source.continue }).first().click()
     await page.setInputFiles('#import-file', {
       name: 'customers.csv',
       mimeType: 'text/csv',
       buffer: Buffer.from('Kunden-Nr;Nachname\n1;A\n', 'utf8'),
     })
-    await page.getByRole('button', { name: /Continue/i }).click()
-    await page.getByRole('button', { name: /Run dry-run/i }).click()
+    await page.getByRole('button', { name: DE_SETTINGS.dataImport.upload.continue }).click()
+    await page.getByRole('button', { name: DE_SETTINGS.dataImport.mapping.runDryRun }).click()
 
-    await page.getByLabel('Row filter / Zeilenfilter').click()
-    await page.getByRole('option', { name: /Errors/i }).click()
+    await page.getByLabel(DE_SETTINGS.dataImport.dryRun.rowFilter).click()
+    await page.getByRole('option', { name: DE_SETTINGS.dataImport.dryRun.filter.error }).click()
     await expect(page.getByText('Invalid row')).toBeVisible()
 
     const downloadPromise = page.waitForEvent('download')
-    await page.getByRole('button', { name: /Error rows CSV/i }).click()
+    await page.getByRole('button', { name: DE_SETTINGS.dataImport.dryRun.errorRowsCsv }).click()
     const download = await downloadPromise
     expect(download.suggestedFilename()).toContain('errors')
   })

@@ -1,0 +1,33 @@
+---
+title: "NoVA calculator"
+description: "Preview Austrian NoVA on vehicle purchase and stock with the built-in calculation kernel."
+---
+
+The **NoVA** (*Normverbrauchsabgabe*) preview helps you estimate tax on vehicles you buy or sell, including EU used imports. It is a planning aid — always reconcile with your tax advisor before you contract.
+
+Advisors, sales, and admins use the calculator on vehicle forms and stock purchase flows. The preview calls `POST /api/vehicles/nova/calculate` with your inputs.
+
+<Steps>
+  <Step title="Open a vehicle or stock purchase">
+    Start from [Vehicles](/en/workflows/vehicles) or [Vehicle stock](/en/workflows/vehicle-stock) purchase intake.
+  </Step>
+  <Step title="Set NoVA class">
+    Choose **NoVA class** (for example **STANDARD**, **ELECTRIC_EXEMPT**, **OTHER**, or **NOT_SET**) on the vehicle.
+  </Step>
+  <Step title="Run the preview panel">
+    Enter net price and consumption or CO₂ inputs as the form asks. Click the calculate action in the **NoVA** preview panel.
+  </Step>
+  <Step title="Use listing export">
+    When you publish stock, confirm **NoVA included** flags on marketplace copy — see [Listings export](/en/workflows/listings-export).
+  </Step>
+</Steps>
+
+<Warning>
+ACP shows limitation hints when inputs fall outside validated bands. Do not treat the preview as a filed tax return.
+</Warning>
+
+<AccordionGroup>
+  <Accordion title="Who can use this">
+    Any role that can edit vehicle economics sees the preview. Final numbers on customer contracts still follow your legal entity settings.
+  </Accordion>
+</AccordionGroup>

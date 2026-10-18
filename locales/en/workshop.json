@@ -273,9 +273,11 @@
     }
   },
   "resumeWaitingTasks": {
-    "description": "{{count}} task(s) are waiting on the customer. Approval does not resume them automatically.",
+    "description_one": "{{count}} task is waiting on the customer. Approval does not resume it automatically.",
+    "description_other": "{{count}} tasks are waiting on the customer. Approval does not resume them automatically.",
     "button": "Resume waiting tasks",
-    "success": "Resumed {{count}} task(s)",
+    "success_one": "Resumed {{count}} task",
+    "success_other": "Resumed {{count}} tasks",
     "error": "Could not resume waiting tasks."
   },
   "pick": {
@@ -1087,7 +1089,8 @@
       "SUPERSEDED": "Superseded"
     },
     "overrunTotalLine": "Gross total {{current}} exceeds approved {{approved}}{{percentText}}. Threshold: {{threshold}}.",
-    "overrunNewLines": "{{count}} new line(s) compared to the approved estimate.",
+    "overrunNewLines_one": "{{count}} new line compared to the approved estimate.",
+    "overrunNewLines_other": "{{count}} new lines compared to the approved estimate.",
     "toast": {
       "created": "Estimate created",
       "createFailed": "Could not create estimate.",
@@ -1188,7 +1191,7 @@
     "toastOdometerRequired": "Enter a valid odometer reading before creating the order.",
     "toastOrderCreated": "Workshop order created",
     "toastCheckInReady": "Workshop order created — start vehicle check-in",
-    "extractionFailed": "Extraction failed ({{code}}). Delete and try again with a new upload.",
+    "extractionFailed": "The document could not be read. Delete it and upload it again.",
     "unknown": "unknown",
     "uploadFailed": "Upload failed",
     "extractionFailedFallback": "Extraction failed"
@@ -1421,5 +1424,48 @@
       "loadError": "Could not load the intake checklist.",
       "saveError": "Could not save the intake checklist."
     }
+  },
+  "publicEstimateApproval": {
+    "pageTitle": "Estimate",
+    "loadFailed": "The estimate could not be loaded. Please try again later.",
+    "errors": {
+      "404": "This link is not valid.",
+      "410": "This link has expired or was already used.",
+      "409": "This estimate can no longer be approved or declined.",
+      "429": "Too many requests. Please try again later."
+    },
+    "workshop": "Workshop",
+    "customer": "Customer",
+    "vehicle": "Vehicle:",
+    "plate": "Plate {{plate}}",
+    "vin": "VIN {{vin}}",
+    "freeOfCharge": "This estimate is free of charge.",
+    "lineItemsAria": "Line items",
+    "gross": "(gross)",
+    "net": "(net)",
+    "totalNet": "Net total",
+    "tax": "VAT",
+    "totalGross": "Gross total",
+    "validUntil": "Valid until {{date}}",
+    "decisionSectionAria": "Legal notices and decision",
+    "legalAccepted": "I have read the notices above.",
+    "b2cAccepted": "I confirm the non-binding consumer declaration (KSchG § 5 para. 2).",
+    "fullName": "Full name",
+    "approve": "Accept estimate",
+    "decline": "Decline",
+    "declineConfirm": "Do you really want to decline this estimate?",
+    "declineYes": "Yes, decline",
+    "back": "Back",
+    "validation422": "Please confirm the notices and enter your full name.",
+    "submitFailed": "Your decision could not be saved. Please try again later.",
+    "loading": "Loading estimate…",
+    "estimateTitle": "Estimate {{number}}",
+    "version": "Version {{version}}",
+    "thankYou": "Thank you. Your decision has been saved.",
+    "approved": "Approved",
+    "declined": "Declined",
+    "approvedAt": "Electronically confirmed on {{date}}",
+    "decidedAt": "Decided on {{date}}",
+    "uid": "VAT ID {{vatId}}"
   }
 }

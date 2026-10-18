@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { Copy, ExternalLink, Inbox, RefreshCw, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -14,8 +16,6 @@ import {
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { useAgentActions } from '@/api/agent-actions'
 import type { AgentActionStatus, AgentActionTier } from '@/api/agent-actions'
-import type { Language } from '../agent-supervision-copy'
-import { getCopy, SUPERVISION_COPY } from '../agent-supervision-copy'
 import { formatDateTime } from '@/lib/format'
 import {
   resolveActivityAgentName,
@@ -25,7 +25,6 @@ import {
 import { parseActivityActionOrTraceSearch } from '../activity-search'
 
 interface ActivityTabProps {
-  language?: Language
   onSelectTraceId: (traceId: string) => void
 }
 
@@ -40,7 +39,6 @@ export function toLocalEndOfDayIso(dateStr: string): string {
 }
 
 export function ActivityTab({
-  language = 'en',
   onSelectTraceId,
 }: ActivityTabProps) {
   const [statusFilter, setStatusFilter] = useState<string>('ALL')
@@ -52,8 +50,10 @@ export function ActivityTab({
 
   const actionOrTraceFilter = parseActivityActionOrTraceSearch(actionOrTraceSearch)
 
-  const t = SUPERVISION_COPY.activity
-  const common = SUPERVISION_COPY.common
+  const { t } = useTranslation('agent')
+
+  useEffect(() => { void ensureNamespaceLoaded('agent') }, [])
+
 
   const {
     data: logsData,
@@ -80,9 +80,9 @@ export function ActivityTab({
   const copyTraceId = async (traceId: string) => {
     try {
       await navigator.clipboard.writeText(traceId)
-      toast.success(getCopy(t.traceIdCopied, language))
+      toast.success(t('activity.traceIdCopied'))
     } catch {
-      toast.error(getCopy(t.traceIdCopyFailed, language))
+      toast.error(t('activity.traceIdCopyFailed'))
     }
   }
 
@@ -99,7 +99,7 @@ export function ActivityTab({
             />
             <Input
               type="text"
-              placeholder={getCopy(t.filters.agentPlaceholder, language)}
+              placeholder={t('activity.filters.agentPlaceholder')}
               value={agentSearch}
               onChange={(e) => setAgentSearch(e.target.value)}
               className="pl-9 text-xs"
@@ -114,10 +114,7 @@ export function ActivityTab({
             />
             <Input
               type="text"
-              placeholder={getCopy(
-                t.filters.actionOrTracePlaceholder,
-                language,
-              )}
+              placeholder={t('activity.filters.actionOrTracePlaceholder')}
               value={actionOrTraceSearch}
               onChange={(e) => setActionOrTraceSearch(e.target.value)}
               className="pl-9 text-xs"
@@ -131,7 +128,7 @@ export function ActivityTab({
               htmlFor="activity-status-select"
               className="text-xs text-slate-500 font-medium"
             >
-              {getCopy(t.filters.statusLabel, language)}:
+              {t('activity.filters.statusLabel')}:
             </label>
             <select
               id="activity-status-select"
@@ -141,7 +138,7 @@ export function ActivityTab({
               data-testid="filter-status-select"
             >
               <option value="ALL">
-                {getCopy(t.filters.allStatuses, language)}
+                {t('activity.filters.allStatuses')}
               </option>
               <option value="EXECUTED">EXECUTED</option>
               <option value="FAILED">FAILED</option>
@@ -155,7 +152,7 @@ export function ActivityTab({
               htmlFor="activity-tier-select"
               className="text-xs text-slate-500 font-medium"
             >
-              {getCopy(t.filters.tierLabel, language)}:
+              {t('activity.filters.tierLabel')}:
             </label>
             <select
               id="activity-tier-select"
@@ -165,7 +162,7 @@ export function ActivityTab({
               data-testid="filter-tier-select"
             >
               <option value="ALL">
-                {getCopy(t.filters.allTiers, language)}
+                {t('activity.filters.allTiers')}
               </option>
               <option value="AUTO">AUTO</option>
               <option value="PROPOSE">PROPOSE</option>
@@ -180,7 +177,7 @@ export function ActivityTab({
               htmlFor="activity-start-date"
               className="text-xs text-slate-500 font-medium"
             >
-              {getCopy(t.filters.startDateLabel, language)}:
+              {t('activity.filters.startDateLabel')}:
             </label>
             <Input
               id="activity-start-date"
@@ -197,7 +194,7 @@ export function ActivityTab({
               htmlFor="activity-end-date"
               className="text-xs text-slate-500 font-medium"
             >
-              {getCopy(t.filters.endDateLabel, language)}:
+              {t('activity.filters.endDateLabel')}:
             </label>
             <Input
               id="activity-end-date"
@@ -216,10 +213,10 @@ export function ActivityTab({
           size="sm"
           onClick={() => refetch()}
           className="text-slate-500 hover:text-slate-900"
-          aria-label={getCopy(common.refresh, language)}
+          aria-label={t('common.refresh')}
         >
           <RefreshCw className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-          {getCopy(common.refresh, language)}
+          {t('common.refresh')}
         </Button>
       </div>
 
@@ -230,7 +227,7 @@ export function ActivityTab({
             className="mx-auto mb-3 h-6 w-6 animate-spin text-slate-400"
             aria-hidden="true"
           />
-          {getCopy(common.loading, language)}
+          {t('common.loading')}
         </div>
       )}
 
@@ -238,7 +235,7 @@ export function ActivityTab({
       {isError && (
         <div className="rounded-lg border border-rose-200 bg-rose-50 p-6 text-center">
           <p className="text-sm font-medium text-rose-800">
-            {getCopy(common.error, language)}
+            {t('common.error')}
           </p>
           <Button
             type="button"
@@ -247,7 +244,7 @@ export function ActivityTab({
             onClick={() => refetch()}
             className="mt-3 border-rose-300 text-rose-700 hover:bg-rose-100"
           >
-            {getCopy(common.retry, language)}
+            {t('common.retry')}
           </Button>
         </div>
       )}
@@ -263,10 +260,10 @@ export function ActivityTab({
             aria-hidden="true"
           />
           <h3 className="text-base font-semibold text-slate-800">
-            {getCopy(t.emptyState, language)}
+            {t('activity.emptyState')}
           </h3>
           <p className="mt-1 text-sm text-slate-500">
-            {getCopy(t.emptyStateDesc, language)}
+            {t('activity.emptyStateDesc')}
           </p>
         </div>
       )}
@@ -277,13 +274,13 @@ export function ActivityTab({
           <Table data-testid="activity-table">
             <TableHeader>
               <TableRow>
-                <TableHead>{getCopy(t.columns.time, language)}</TableHead>
-                <TableHead>{getCopy(t.columns.agent, language)}</TableHead>
-                <TableHead>{getCopy(t.columns.action, language)}</TableHead>
-                <TableHead>{getCopy(t.columns.tier, language)}</TableHead>
-                <TableHead>{getCopy(t.columns.status, language)}</TableHead>
-                <TableHead>{getCopy(t.columns.approver, language)}</TableHead>
-                <TableHead>{getCopy(t.columns.traceId, language)}</TableHead>
+                <TableHead>{t('activity.columns.time')}</TableHead>
+                <TableHead>{t('activity.columns.agent')}</TableHead>
+                <TableHead>{t('activity.columns.action')}</TableHead>
+                <TableHead>{t('activity.columns.tier')}</TableHead>
+                <TableHead>{t('activity.columns.status')}</TableHead>
+                <TableHead>{t('activity.columns.approver')}</TableHead>
+                <TableHead>{t('activity.columns.traceId')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -320,12 +317,12 @@ export function ActivityTab({
                                 name: log.onBehalfOfUserName,
                                 email: log.onBehalfOfUserEmail,
                               },
-                              getCopy(common.unknownUser, language),
+                              t('common.unknownUser'),
                             )}
                           </div>
                           <details className="text-[11px] text-slate-500">
                             <summary className="cursor-pointer hover:text-slate-600">
-                              {getCopy(t.showDetails, language)}
+                              {t('activity.showDetails')}
                             </summary>
                             <div className="mt-1 break-all font-mono">
                               {approverId}
@@ -356,7 +353,7 @@ export function ActivityTab({
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7 text-slate-500 hover:text-slate-800"
-                            aria-label={getCopy(t.copyTraceId, language)}
+                            aria-label={t('activity.copyTraceId')}
                             data-testid={`activity-trace-copy-btn-${log.id}`}
                             onClick={() => void copyTraceId(log.traceId)}
                           >
@@ -382,8 +379,8 @@ export function ActivityTab({
                 disabled={isFetchingNextPage}
               >
                 {isFetchingNextPage
-                  ? getCopy(t.loadingMore, language)
-                  : getCopy(t.loadMore, language)}
+                  ? t('activity.loadingMore')
+                  : t('activity.loadMore')}
               </Button>
             </div>
           )}

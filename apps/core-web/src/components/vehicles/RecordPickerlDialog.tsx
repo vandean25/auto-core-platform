@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -46,6 +47,7 @@ export function RecordPickerlDialog({
   initialInspectedOn,
   onOpenChange,
 }: RecordPickerlDialogProps) {
+  const { t } = useTranslation(['vehicles', 'common'])
   const createRecord = useCreateVehicleInspectionRecord(vehicleId)
   const [inspectedOn, setInspectedOn] = useState(defaultFormValues(initialInspectedOn).inspectedOn)
   const [dueYear, setDueYear] = useState(defaultFormValues(initialInspectedOn).dueYear)
@@ -75,10 +77,10 @@ export function RecordPickerlDialog({
         station_name: stationName.trim() || undefined,
         notes: notes.trim() || undefined,
       })
-      toast.success('Pickerl erfasst')
+      toast.success(t('vehicles:recordPickerlDialog.saved'))
       onOpenChange(false)
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Pickerl konnte nicht gespeichert werden'))
+      toast.error(getErrorMessage(error, t('vehicles:recordPickerlDialog.saveFailed')))
     }
   }
 
@@ -86,11 +88,11 @@ export function RecordPickerlDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Pickerl erfasst</DialogTitle>
+          <DialogTitle>{t('vehicles:recordPickerlDialog.title')}</DialogTitle>
         </DialogHeader>
         <div className='grid gap-4 py-2'>
           <div className='grid gap-2'>
-            <Label htmlFor='pickerl-inspected-on'>Begutachtet am</Label>
+            <Label htmlFor='pickerl-inspected-on'>{t('vehicles:recordPickerlDialog.inspectedOn')}</Label>
             <Input
               id='pickerl-inspected-on'
               type='date'
@@ -100,7 +102,7 @@ export function RecordPickerlDialog({
           </div>
           <div className='grid grid-cols-2 gap-3'>
             <div className='grid gap-2'>
-              <Label htmlFor='pickerl-due-year'>Plakette Fälligkeit Jahr</Label>
+              <Label htmlFor='pickerl-due-year'>{t('vehicles:recordPickerlDialog.dueYear')}</Label>
               <Input
                 id='pickerl-due-year'
                 type='number'
@@ -111,7 +113,7 @@ export function RecordPickerlDialog({
               />
             </div>
             <div className='grid gap-2'>
-              <Label htmlFor='pickerl-due-month'>Monat (1–12)</Label>
+              <Label htmlFor='pickerl-due-month'>{t('vehicles:recordPickerlDialog.dueMonth')}</Label>
               <Input
                 id='pickerl-due-month'
                 type='number'
@@ -123,7 +125,7 @@ export function RecordPickerlDialog({
             </div>
           </div>
           <div className='grid gap-2'>
-            <Label htmlFor='pickerl-station'>Prüfstelle (optional)</Label>
+            <Label htmlFor='pickerl-station'>{t('vehicles:recordPickerlDialog.stationOptional')}</Label>
             <Input
               id='pickerl-station'
               value={stationName}
@@ -131,7 +133,7 @@ export function RecordPickerlDialog({
             />
           </div>
           <div className='grid gap-2'>
-            <Label htmlFor='pickerl-notes'>Notiz (optional)</Label>
+            <Label htmlFor='pickerl-notes'>{t('vehicles:recordPickerlDialog.notesOptional')}</Label>
             <Input
               id='pickerl-notes'
               value={notes}
@@ -141,10 +143,10 @@ export function RecordPickerlDialog({
         </div>
         <DialogFooter>
           <Button variant='outline' onClick={() => onOpenChange(false)}>
-            Abbrechen
+            {t('common:actions.cancel')}
           </Button>
           <Button onClick={() => void handleSubmit()} disabled={createRecord.isPending}>
-            Speichern
+            {t('common:actions.save')}
           </Button>
         </DialogFooter>
       </DialogContent>
