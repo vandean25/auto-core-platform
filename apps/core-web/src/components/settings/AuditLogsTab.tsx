@@ -244,7 +244,7 @@ export function AuditLogsTab() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-lg font-medium">{t('auditLogs.title')}</h2>
+          <h3 className="text-lg font-medium">{t('auditLogs.title')}</h3>
           <p className="text-sm text-slate-500">
             {t('auditLogs.description')}
           </p>

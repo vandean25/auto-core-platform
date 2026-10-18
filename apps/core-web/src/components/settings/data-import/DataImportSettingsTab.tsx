@@ -409,7 +409,7 @@ export function DataImportSettingsTab() {
     <div className="space-y-6 p-6 bg-white border rounded-lg shadow-sm">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-lg font-medium">{t('dataImport.title')}</h2>
+          <h3 className="text-lg font-medium">{t('dataImport.title')}</h3>
           <p className="text-sm text-muted-foreground max-w-2xl">
             {t('dataImport.description')}
           </p>
@@ -430,7 +430,7 @@ export function DataImportSettingsTab() {
 
       <Alert>
         <AlertTriangle className="h-4 w-4" />
-        <AlertTitle as="div">{t('dataImport.consent.title')}</AlertTitle>
+        <AlertTitle>{t('dataImport.consent.title')}</AlertTitle>
         <AlertDescription>
           {t('dataImport.consent.description')}
         </AlertDescription>
@@ -438,9 +438,9 @@ export function DataImportSettingsTab() {
 
       {step === 1 && (
         <section className="space-y-4" aria-labelledby="import-step-source">
-          <h3 id="import-step-source" className="font-medium">
+          <h4 id="import-step-source" className="font-medium">
             {t('dataImport.source.title')}
-          </h3>
+          </h4>
           <div className="grid gap-4 md:grid-cols-2 max-w-2xl">
             <div className="space-y-2">
               <Label htmlFor="import-entity">{t('dataImport.source.entityLabel')}</Label>
@@ -523,9 +523,9 @@ export function DataImportSettingsTab() {
 
       {step === 2 && (
         <section className="space-y-4" aria-labelledby="import-step-upload">
-          <h3 id="import-step-upload" className="font-medium">
+          <h4 id="import-step-upload" className="font-medium">
             {t('dataImport.upload.title')}
-          </h3>
+          </h4>
           <div className="space-y-2 max-w-lg">
             <Label htmlFor="import-file">{t('dataImport.upload.fileLabel')}</Label>
             <Input
@@ -560,9 +560,9 @@ export function DataImportSettingsTab() {
 
       {step === 3 && (
         <section className="space-y-4" aria-labelledby="import-step-mapping">
-          <h3 id="import-step-mapping" className="font-medium">
+          <h4 id="import-step-mapping" className="font-medium">
             {t('dataImport.mapping.title')}
-          </h3>
+          </h4>
 
           <div className="flex flex-col gap-3 md:flex-row md:items-end">
             <div className="space-y-2 flex-1 max-w-xs">
@@ -741,7 +741,7 @@ export function DataImportSettingsTab() {
 
           {previewRows.length > 0 ? (
             <div className="space-y-2">
-              <h4 className="text-sm font-medium">{t('dataImport.mapping.previewTitle')}</h4>
+              <h5 className="text-sm font-medium">{t('dataImport.mapping.previewTitle')}</h5>
               <div className="overflow-x-auto border rounded-md max-h-64">
                 <Table>
                   <TableHeader>
@@ -789,14 +789,14 @@ export function DataImportSettingsTab() {
 
       {step >= 4 && dryRunJob ? (
         <section className="space-y-4" aria-labelledby="import-step-dryrun">
-          <h3 id="import-step-dryrun" className="font-medium">
+          <h4 id="import-step-dryrun" className="font-medium">
             {t('dataImport.dryRun.title')}
-          </h3>
+          </h4>
 
           {dryRunStale ? (
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
-              <AlertTitle as="h4">{t('dataImport.dryRun.stale.title')}</AlertTitle>
+              <AlertTitle>{t('dataImport.dryRun.stale.title')}</AlertTitle>
               <AlertDescription>
                 {t('dataImport.dryRun.stale.description')}
               </AlertDescription>
@@ -1068,10 +1068,10 @@ export function DataImportSettingsTab() {
 
       {step === 5 && appliedJob ? (
         <section className="space-y-3" aria-labelledby="import-step-result">
-          <h3 id="import-step-result" className="font-medium flex items-center gap-2">
+          <h4 id="import-step-result" className="font-medium flex items-center gap-2">
             <CheckCircle2 className="h-5 w-5 text-green-600" />
             {t('dataImport.result.title')}
-          </h3>
+          </h4>
           <p className="text-sm text-muted-foreground">
             {t('dataImport.result.summary', {
               status: appliedJob.status,

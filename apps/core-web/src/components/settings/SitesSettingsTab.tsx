@@ -94,7 +94,7 @@ export function SitesSettingsTab() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-medium">{t('sites.title')}</h2>
+        <h3 className="text-lg font-medium">{t('sites.title')}</h3>
         <p className="text-sm text-muted-foreground">
           {t('sites.description')}
         </p>
@@ -135,10 +135,10 @@ export function SitesSettingsTab() {
       {selectedSite ? (
         <div className="space-y-4 rounded-lg border bg-white p-6 shadow-sm">
           <div>
-            <h3 className="font-medium">
+            <h4 className="font-medium">
               {t('sites.memberships.title', { name: selectedSite.name })}
               <span className="ml-2 font-mono text-sm text-slate-500">{selectedSite.code}</span>
-            </h3>
+            </h4>
             <p className="text-sm text-muted-foreground">
               {t('sites.memberships.description')}
             </p>

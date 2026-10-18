@@ -3,7 +3,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import deSettings from '../../../../../locales/de/settings.json'
-import { WorkshopHoursSettingsTab } from './WorkshopHoursSettingsTab'
+import { WorkshopHoursSettingsPanel as WorkshopHoursSettingsTab } from './workshop-hours-settings-panel'
 
 const { mocks, defaultSettings, sampleHoliday } = vi.hoisted(() => {
   const defaultSettings = {

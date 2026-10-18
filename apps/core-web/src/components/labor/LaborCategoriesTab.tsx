@@ -564,7 +564,7 @@ export function LaborCategoriesTab() {
       {/* ── Tree ── */}
       <div className="md:col-span-2 space-y-4">
         <div>
-          <h2 className="text-lg font-medium">{t("labor.categories.title")}</h2>
+          <h3 className="text-lg font-medium">{t("labor.categories.title")}</h3>
           <p className="text-sm text-slate-500">
             {t("labor.categories.description")}
           </p>
@@ -603,7 +603,7 @@ export function LaborCategoriesTab() {
       <div>
         <Card>
           <CardHeader>
-            <CardTitle as="h3" className="flex items-center gap-2">
+            <CardTitle as="h4" className="flex items-center gap-2">
               <Plus className="h-4 w-4" />
               {t("labor.categories.addDialog.title")}
             </CardTitle>

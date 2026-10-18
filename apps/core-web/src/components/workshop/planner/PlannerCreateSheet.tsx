@@ -342,7 +342,7 @@ export function PlannerCreateSheet({
 
           {outsideHours && (
             <Alert className="border-amber-200 bg-amber-50 text-amber-900">
-              <AlertTitle as="div">{t('planner.createSheet.outsideHoursTitle')}</AlertTitle>
+              <AlertTitle>{t('planner.createSheet.outsideHoursTitle')}</AlertTitle>
               <AlertDescription>{t('planner.createSheet.outsideHoursDescription')}</AlertDescription>
             </Alert>
           )}
@@ -354,7 +354,7 @@ export function PlannerCreateSheet({
 
           {mechanicOverlap && (
             <Alert className="border-amber-200 bg-amber-50 text-amber-900">
-              <AlertTitle as="div">{t('planner.createSheet.mechanicDoubleBookedTitle')}</AlertTitle>
+              <AlertTitle>{t('planner.createSheet.mechanicDoubleBookedTitle')}</AlertTitle>
               <AlertDescription>
                 {t('planner.createSheet.mechanicDoubleBookedDescription', {
                   orderNumber: mechanicOverlap,
@@ -365,7 +365,7 @@ export function PlannerCreateSheet({
 
           {bayCollision && (
             <Alert variant="destructive">
-              <AlertTitle as="div">{t('planner.createSheet.bayOccupiedTitle')}</AlertTitle>
+              <AlertTitle>{t('planner.createSheet.bayOccupiedTitle')}</AlertTitle>
               <AlertDescription>
                 {t('planner.createSheet.bayOccupiedDescription', { orderNumber: bayCollision })}
               </AlertDescription>

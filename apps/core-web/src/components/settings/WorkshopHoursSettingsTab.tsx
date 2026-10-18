@@ -1,4 +1,5 @@
 import * as React from 'react'
+import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { Loader2, Save } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -15,12 +16,9 @@ import {
   useWorkshopSettings,
 } from '@/api/workshop'
 import { DataTable } from '@/components/data-table/DataTable'
-import { SettingsSectionHeading, SettingsSubsectionHeading } from '@/components/settings/SettingsSectionHeading'
+import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { WorkshopHolidayDialog } from '@/components/settings/WorkshopHolidayDialog'
-import {
-  buildWorkshopHolidayColumns,
-  formatHolidayHours,
-} from '@/components/settings/workshop-hours-holiday-columns'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -34,6 +32,7 @@ import {
 } from '@/components/ui/select'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { getErrorMessage } from '@/lib/error-utils'
+import { formatIsoDateOnly } from '@/lib/format'
 
 type WeekdayNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7
 
@@ -81,6 +80,14 @@ function settingsToFormState(settings: WorkshopSettingsResponse): SettingsFormSt
       closeTime: normalizeTimeValue(hour.closeTime),
     })),
   }
+}
+
+function formatHolidayHours(holiday: WorkshopHoliday, closedLabel: string): string {
+  if (holiday.isClosed) return closedLabel
+  if (holiday.openTime && holiday.closeTime) {
+    return `${holiday.openTime} – ${holiday.closeTime}`
+  }
+  return '—'
 }
 
 function canManageWorkshopHours(activeRole?: string | null): boolean {
@@ -248,8 +255,38 @@ export function WorkshopHoursSettingsTab() {
     setHolidayDialogOpen(true)
   }
 
-  const holidayColumns = React.useMemo(
-    () => buildWorkshopHolidayColumns(t, closedLabel),
+  const holidayColumns = React.useMemo<ColumnDef<WorkshopHoliday>[]>(
+    () => [
+      {
+        accessorKey: 'name',
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('workshopHours.holidays.columns.name')} />,
+        cell: ({ row }) => row.original.name,
+      },
+      {
+        accessorKey: 'observedOn',
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('workshopHours.holidays.columns.date')} />,
+        cell: ({ row }) => formatIsoDateOnly(row.original.observedOn),
+      },
+      {
+        accessorKey: 'repeatsAnnually',
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('workshopHours.holidays.columns.annual')} />,
+        cell: ({ row }) => (row.original.repeatsAnnually
+            ? t('workshopHours.holidays.yes')
+            : t('workshopHours.holidays.no')),
+      },
+      {
+        id: 'hours',
+        header: t('workshopHours.holidays.columns.hours'),
+        cell: ({ row }) => formatHolidayHours(row.original, closedLabel),
+      },
+      {
+        accessorKey: 'source',
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('workshopHours.holidays.columns.source')} />,
+        cell: ({ row }) => (
+          <Badge variant='outline'>{row.original.source}</Badge>
+        ),
+      },
+    ],
     [closedLabel, t],
   )
 
@@ -273,10 +310,12 @@ export function WorkshopHoursSettingsTab() {
     <div className='space-y-8'>
       <form onSubmit={handleSaveSettings} className='space-y-6'>
         <div className='p-6 bg-white border rounded-lg shadow-sm space-y-6'>
-          <SettingsSectionHeading
-            title={t('workshopHours.title')}
-            description={t('workshopHours.description')}
-          />
+          <div>
+            <h3 className='text-lg font-medium'>{t('workshopHours.title')}</h3>
+            <p className='text-sm text-muted-foreground'>
+              {t('workshopHours.description')}
+            </p>
+          </div>
 
           <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-4'>
             <div className='space-y-2'>
@@ -362,10 +401,7 @@ export function WorkshopHoursSettingsTab() {
           </div>
 
           <div className='space-y-3'>
-            <SettingsSubsectionHeading
-              title={t('workshopHours.weekdaysTitle')}
-              className='text-sm'
-            />
+            <h4 className='text-sm font-medium'>{t('workshopHours.weekdaysTitle')}</h4>
             <div className='space-y-2'>
               {formState.openingHours.map((hour) => (
                 <div
@@ -422,10 +458,12 @@ export function WorkshopHoursSettingsTab() {
 
       <div className='p-6 bg-white border rounded-lg shadow-sm space-y-4'>
         <div className='flex items-center justify-between gap-4'>
-          <SettingsSectionHeading
-            title={t('workshopHours.holidays.title')}
-            description={t('workshopHours.holidays.description')}
-          />
+          <div>
+            <h3 className='text-lg font-medium'>{t('workshopHours.holidays.title')}</h3>
+            <p className='text-sm text-muted-foreground'>
+              {t('workshopHours.holidays.description')}
+            </p>
+          </div>
           {canManage ? (
             <div className='flex items-center gap-2'>
               <Button

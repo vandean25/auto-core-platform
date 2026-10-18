@@ -85,7 +85,7 @@ export function VoiceTranslationSettingsTab() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle as="h2">{t('voiceTranslation.title')}</CardTitle>
+        <CardTitle>{t('voiceTranslation.title')}</CardTitle>
         <CardDescription>
           {t('voiceTranslation.description')}
         </CardDescription>

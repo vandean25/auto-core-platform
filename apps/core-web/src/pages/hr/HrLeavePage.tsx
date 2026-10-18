@@ -115,7 +115,7 @@ function isFutureOrToday(date: string, today: string): boolean {
 function MissingEmployeeState({ t }: { t: TFunction<'hr'> }) {
   return (
     <Alert>
-      <AlertTitle as="div">{t('leave.missingEmployee.title')}</AlertTitle>
+      <AlertTitle>{t('leave.missingEmployee.title')}</AlertTitle>
       <AlertDescription className='flex flex-col items-start gap-2'>
         <span>{t('leave.missingEmployee.description')}</span>
         <Link className='font-medium underline underline-offset-4' to='/hr/employees'>

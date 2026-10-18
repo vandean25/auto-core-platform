@@ -35,24 +35,21 @@ const Alert = React.forwardRef<HTMLDivElement, AlertProps>(
 )
 Alert.displayName = "Alert"
 
-type AlertTitleElement = "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "div" | "p"
-
-interface AlertTitleProps extends React.HTMLAttributes<HTMLElement> {
-  /** Heading level, or a non-heading element when the title is not a document section. */
-  as?: AlertTitleElement
+interface AlertTitleProps extends React.HTMLAttributes<HTMLHeadingElement> {
+  /** Heading level. Defaults to h5; pass the level that fits the outline, e.g. `as="h3"` under a card title. */
+  as?: "h1" | "h2" | "h3" | "h4" | "h5" | "h6"
 }
 
-const AlertTitle = React.forwardRef<HTMLElement, AlertTitleProps>(
-  ({ as: Heading = "h5", className, children, ...props }, ref) =>
-    React.createElement(
-      Heading,
-      {
-        ref,
-        className: cn("mb-1 font-medium leading-none tracking-tight", className),
-        ...props,
-      },
-      children,
-    ),
+const AlertTitle = React.forwardRef<HTMLHeadingElement, AlertTitleProps>(
+  ({ as: Heading = "h5", className, children, ...props }, ref) => (
+    <Heading
+      ref={ref}
+      className={cn("mb-1 font-medium leading-none tracking-tight", className)}
+      {...props}
+    >
+      {children}
+    </Heading>
+  )
 )
 AlertTitle.displayName = "AlertTitle"
 

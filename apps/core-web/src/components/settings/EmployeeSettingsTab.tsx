@@ -13,7 +13,7 @@ export function EmployeeSettingsTab() {
     <div className='space-y-4'>
       <div className='flex items-center justify-between'>
         <div>
-          <h2 className='text-lg font-medium'>{t('employees.title')}</h2>
+          <h3 className='text-lg font-medium'>{t('employees.title')}</h3>
           <p className='text-sm text-muted-foreground'>{t('employees.description')}</p>
         </div>
         <Button type='button' onClick={() => setCreateOpen(true)}>{t('employees.createButton')}</Button>

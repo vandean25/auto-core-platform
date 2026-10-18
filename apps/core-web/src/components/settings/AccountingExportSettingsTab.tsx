@@ -26,7 +26,6 @@ import {
 import type { components } from '@/api/generated/openapi'
 import { useLegalEntities } from '@/api/site-admin'
 import { useTenantMembers } from '@/api/tenant-members'
-import { SettingsSubsectionIntro } from '@/components/settings/SettingsSectionHeading'
 import { LegalEntityAccountingProfileForm } from '@/components/settings/LegalEntitiesSettingsTab'
 import { DataTable } from '@/components/data-table/DataTable'
 import { StatusBadge } from '@/components/status/StatusBadge'
@@ -408,7 +407,7 @@ export function AccountingExportSettingsTab({
         <div className="flex items-start gap-3 text-slate-700">
           <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-500" />
           <div>
-            <h2 className="text-lg font-medium">{t('accountingExport.noAccess.title')}</h2>
+            <h3 className="text-lg font-medium">{t('accountingExport.noAccess.title')}</h3>
             <p className="mt-1 text-sm text-slate-600">
               {t('accountingExport.noAccess.description')}
             </p>
@@ -448,7 +447,7 @@ export function AccountingExportSettingsTab({
     <div className="space-y-6">
       <div className="flex flex-col gap-4 rounded-lg border bg-white p-6 shadow-sm lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-1">
-          <h2 className="text-lg font-medium">{t('accountingExport.header.title')}</h2>
+          <h3 className="text-lg font-medium">{t('accountingExport.header.title')}</h3>
           <p className="max-w-2xl text-sm text-slate-600">
             <Trans
               t={t}
@@ -584,15 +583,16 @@ export function AccountingExportSettingsTab({
         <div className="space-y-4 rounded-lg border bg-white p-6 shadow-sm">
           <div className="flex flex-wrap items-center gap-3">
             <FileSpreadsheet className="h-5 w-5 text-slate-500" />
-            <SettingsSubsectionIntro
-              title={t('accountingExport.preview.title')}
-              description={t('accountingExport.preview.summary', {
-                version: preview.profileVersion,
-                documents: formatNumber(preview.documentCount),
-                rows: formatNumber(preview.rowCount),
-              })}
-              descriptionClassName="text-sm text-slate-500"
-            />
+            <div>
+              <h4 className="font-medium">{t('accountingExport.preview.title')}</h4>
+              <p className="text-sm text-slate-500">
+                {t('accountingExport.preview.summary', {
+                  version: preview.profileVersion,
+                  documents: formatNumber(preview.documentCount),
+                  rows: formatNumber(preview.rowCount),
+                })}
+              </p>
+            </div>
             <StatusBadge status={preview.canGenerate ? 'ACTIVE' : 'INACTIVE'} />
           </div>
 
@@ -701,11 +701,12 @@ export function AccountingExportSettingsTab({
 
       <div className="rounded-lg border bg-white p-6 shadow-sm">
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <SettingsSubsectionIntro
-            title={t('accountingExport.history.title')}
-            description={t('accountingExport.history.description')}
-            descriptionClassName="text-sm text-slate-500"
-          />
+          <div>
+            <h4 className="font-medium">{t('accountingExport.history.title')}</h4>
+            <p className="text-sm text-slate-500">
+              {t('accountingExport.history.description')}
+            </p>
+          </div>
         </div>
         <DataTable
           columns={columns}

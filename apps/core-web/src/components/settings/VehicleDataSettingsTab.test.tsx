@@ -3,7 +3,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import deSettings from '../../../../../locales/de/settings.json'
-import { VehicleDataSettingsTab } from './VehicleDataSettingsTab'
+import { VehicleDataSettingsPanel as VehicleDataSettingsTab } from './vehicle-data-settings-panel'
 
 const { mocks, defaultSettings } = vi.hoisted(() => {
   const defaultSettings = {

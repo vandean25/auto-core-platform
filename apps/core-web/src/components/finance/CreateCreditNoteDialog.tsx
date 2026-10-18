@@ -259,9 +259,6 @@ export function CreateCreditNoteDialog({
                               className="ml-auto max-w-[120px] text-right"
                               value={line.quantity}
                               id={`credit-line-quantity-${line.originalItemId}`}
-                              aria-label={t('creditNotes.quantityInputAria', {
-                                description: line.description,
-                              })}
                               aria-invalid={Boolean(lineError)}
                               aria-describedby={lineError ? `credit-line-quantity-${line.originalItemId}-error` : undefined}
                               onChange={(event) => {

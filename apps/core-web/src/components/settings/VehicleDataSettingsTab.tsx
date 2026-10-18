@@ -11,10 +11,6 @@ import {
 } from '@/api/useCatalogProviderSettings'
 import type { CatalogProviderSettings } from '@/api/types'
 import { BrandMultiSelect } from '@/components/BrandMultiSelect'
-import {
-  SettingsSectionHeading,
-  SettingsSubsectionHeading,
-} from '@/components/settings/SettingsSectionHeading'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -215,10 +211,12 @@ export function VehicleDataSettingsTab() {
   return (
     <form onSubmit={handleSave} className='space-y-8'>
       <div className='p-6 bg-white border rounded-lg shadow-sm space-y-6'>
-        <SettingsSectionHeading
-          title={t('vehicleData.catalog.title')}
-          description={t('vehicleData.catalog.description')}
-        />
+        <div>
+          <h3 className='text-lg font-medium'>{t('vehicleData.catalog.title')}</h3>
+          <p className='text-sm text-muted-foreground'>
+            {t('vehicleData.catalog.description')}
+          </p>
+        </div>
 
         <div className='grid gap-4 md:grid-cols-2'>
           <AdapterSelect
@@ -324,10 +322,12 @@ export function VehicleDataSettingsTab() {
       </div>
 
       <div className='p-6 bg-white border rounded-lg shadow-sm space-y-6'>
-        <SettingsSectionHeading
-          title={t('vehicleData.oemConcerns.title')}
-          description={t('vehicleData.oemConcerns.description')}
-        />
+        <div>
+          <h3 className='text-lg font-medium'>{t('vehicleData.oemConcerns.title')}</h3>
+          <p className='text-sm text-muted-foreground'>
+            {t('vehicleData.oemConcerns.description')}
+          </p>
+        </div>
 
         <div className='space-y-6'>
           {OEM_CONCERN_CODES.map((code) => {
@@ -336,10 +336,7 @@ export function VehicleDataSettingsTab() {
             return (
               <div key={code} className='space-y-3 border rounded-md p-4'>
                 <div className='flex flex-wrap items-center justify-between gap-2'>
-                  <SettingsSubsectionHeading
-                    title={OEM_CONCERN_LABELS[code]}
-                    className='text-sm'
-                  />
+                  <h4 className='text-sm font-medium'>{OEM_CONCERN_LABELS[code]}</h4>
                   <div className='flex flex-wrap gap-2'>
                     {concern?.hasPartsCredential ? (
                       <Badge variant='secondary'>{t('vehicleData.oemConcerns.partsCredential')}</Badge>

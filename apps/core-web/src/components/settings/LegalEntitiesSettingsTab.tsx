@@ -443,7 +443,7 @@ export function LegalEntityAccountingProfileForm({
     <div className="space-y-6 rounded-lg border bg-white p-6 shadow-sm">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h3 className="font-medium">{t('legalEntities.profile.title')}</h3>
+          <h4 className="font-medium">{t('legalEntities.profile.title')}</h4>
           <p className="text-sm text-slate-500">
             {t('legalEntities.profile.description', { name: entity.name })}
           </p>
@@ -693,7 +693,7 @@ export function LegalEntityAccountingProfileForm({
 
       <div className="space-y-3">
         <div>
-          <h4 className="font-medium">{t('legalEntities.profile.mappings.title')}</h4>
+          <h5 className="font-medium">{t('legalEntities.profile.mappings.title')}</h5>
           <p className="text-sm text-slate-500">
             {t('legalEntities.profile.mappings.description')}
           </p>
@@ -838,7 +838,7 @@ function LegalEntitySellerForm({
     <div className="space-y-6 rounded-lg border bg-white p-6 shadow-sm">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h3 className="font-medium">{entity.name}</h3>
+          <h4 className="font-medium">{entity.name}</h4>
           <p className="text-sm text-slate-500">
             {t('legalEntities.seller.description', { country: entity.country_iso })}
           </p>
@@ -1112,7 +1112,7 @@ export function LegalEntitiesSettingsTab() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-medium">{t('legalEntities.title')}</h2>
+        <h3 className="text-lg font-medium">{t('legalEntities.title')}</h3>
         <p className="text-sm text-muted-foreground">
           {t('legalEntities.description')}
         </p>

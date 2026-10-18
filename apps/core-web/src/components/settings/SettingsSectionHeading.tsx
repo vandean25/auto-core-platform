@@ -3,8 +3,9 @@ import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
 type SettingsSectionHeadingProps = {
-  title: string
-  description?: string
+  title: ReactNode
+  description?: ReactNode
+  descriptionClassName?: string
   id?: string
   className?: string
 }
@@ -12,6 +13,7 @@ type SettingsSectionHeadingProps = {
 export function SettingsSectionHeading({
   title,
   description,
+  descriptionClassName = 'text-sm text-muted-foreground',
   id,
   className,
 }: SettingsSectionHeadingProps) {
@@ -20,9 +22,7 @@ export function SettingsSectionHeading({
       <h2 id={id} className="text-lg font-medium">
         {title}
       </h2>
-      {description ? (
-        <p className="text-sm text-muted-foreground">{description}</p>
-      ) : null}
+      {description ? <p className={descriptionClassName}>{description}</p> : null}
     </div>
   )
 }
@@ -46,8 +46,8 @@ export function SettingsSubsectionHeading({
 }
 
 type SettingsSubsectionIntroProps = {
-  title: string
-  description?: string
+  title: ReactNode
+  description?: ReactNode
   descriptionClassName?: string
   id?: string
   headingClassName?: string
@@ -67,3 +67,4 @@ export function SettingsSubsectionIntro({
     </div>
   )
 }
+

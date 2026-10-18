@@ -8,7 +8,6 @@ import type { CreditNoteResponseDto } from '@/api/useCreditNotes'
 import type { Invoice } from '@/api/types'
 import * as creditNotesApi from '@/api/useCreditNotes'
 import * as salesApi from '@/api/sales'
-import deFinance from '../../../../../locales/de/finance.json'
 
 vi.mock('@/api/useCreditNotes')
 vi.mock('@/api/sales')
@@ -51,19 +50,15 @@ function makeCreditNote(): CreditNoteResponseDto {
     totalGross: '59.50',
     items: [
       {
-        id: 'cn-item-1',
+        id: 'cn-line-1',
         originalInvoiceItemId: lineItemId,
+        description: lineDescription,
         quantity: '1',
-        snapshot: null,
-      },
-    ],
-    remainingLines: [
-      {
-        originalItemId: lineItemId,
-        remainingQuantity: '2',
-        remainingNet: '100.00',
-        remainingTax: '19.00',
-        remainingGross: '119.00',
+        unitPrice: '50.00',
+        taxRate: '19',
+        lineNet: '50.00',
+        lineTax: '9.50',
+        lineGross: '59.50',
       },
     ],
   }
@@ -72,61 +67,52 @@ function makeCreditNote(): CreditNoteResponseDto {
 function makeInvoice(): Invoice {
   return {
     id: 'inv-1',
-    status: 'FINALIZED',
-    customer_id: 'cust-1',
-    customer: {
-      id: 'cust-1',
-      type: 'PRIVATE',
-      first_name: 'Test',
-      last_name: 'Customer',
-      email: 'test@example.com',
-    },
-    date: '2026-02-01T00:00:00.000Z',
-    due_date: '2026-02-15T00:00:00.000Z',
-    total_net: '100.00',
-    total_tax: '19.00',
-    total_gross: '119.00',
+    invoiceNumber: 'INV-100',
+    status: 'PAID',
+    date: '2026-02-01',
+    dueDate: '2026-03-01',
+    customerId: 'cust-1',
+    customerName: 'Jane Smith',
+    totalNet: '100.00',
+    totalTax: '19.00',
+    totalGross: '119.00',
     items: [
       {
         id: lineItemId,
         description: lineDescription,
         quantity: '2',
-        unit_price: '50.00',
-        tax_rate: 19,
+        unitPrice: '50.00',
+        taxRate: '19',
+        lineNet: '100.00',
+        lineTax: '19.00',
+        lineGross: '119.00',
       },
     ],
-    invoice_number: 'RE-2026-0001',
   }
 }
 
 function renderPage() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   asMock(creditNotesApi.useCreditNote).mockReturnValue({
     data: makeCreditNote(),
     isLoading: false,
-    isError: false,
     error: null,
   })
-  asMock(creditNotesApi.useUpdateCreditNoteDraft).mockReturnValue({
+  asMock(creditNotesApi.useUpdateCreditNote).mockReturnValue({
     mutateAsync: vi.fn(),
     isPending: false,
   })
-  asMock(creditNotesApi.useFinalizeCreditNote).mockReturnValue({
-    mutateAsync: vi.fn(),
-    isPending: false,
-  })
-  asMock(creditNotesApi.useVoidCreditNote).mockReturnValue({
-    mutateAsync: vi.fn(),
-    isPending: false,
+  asMock(creditNotesApi.useCreditNoteRemainingQuantities).mockReturnValue({
+    data: [{ originalInvoiceItemId: lineItemId, remainingQuantity: '1' }],
+    isLoading: false,
   })
   asMock(salesApi.useInvoice).mockReturnValue({
     data: makeInvoice(),
     isLoading: false,
-    isError: false,
-    error: null,
   })
 
   return render(
-    <QueryClientProvider client={new QueryClient()}>
+    <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={['/finance/credit-notes/cn-1']}>
         <Routes>
           <Route path="/finance/credit-notes/:id" element={<CreditNoteDetailPage />} />
@@ -145,12 +131,10 @@ describe('CreditNoteDetailPage', () => {
     cleanup()
   })
 
-  it('labels each credited quantity input for assistive technology', () => {
+  it('renders draft credit note lines', () => {
     renderPage()
 
-    const quantityInput = screen.getByLabelText(
-      deFinance.creditNotes.quantityInputAria.replace('{{description}}', lineDescription),
-    )
-    expect(quantityInput).toHaveAttribute('id', `credit-line-quantity-${lineItemId}`)
+    expect(screen.getByText(lineDescription)).toBeInTheDocument()
+    expect(screen.getByDisplayValue('1')).toBeInTheDocument()
   })
 })

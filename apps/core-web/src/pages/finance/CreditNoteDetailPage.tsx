@@ -452,11 +452,6 @@ export default function CreditNoteDetailPage() {
                               <Input
                                 className="text-right"
                                 id={`credit-line-quantity-${item.originalInvoiceItemId}`}
-                                aria-label={t('creditNotes.quantityInputAria', {
-                                  description: getOriginalLineDescription(
-                                    item.originalInvoiceItemId,
-                                  ),
-                                })}
                                 aria-invalid={Boolean(lineError)}
                                 aria-describedby={lineError ? `credit-line-quantity-${item.originalInvoiceItemId}-error` : undefined}
                                 value={
