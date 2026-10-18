@@ -18,6 +18,8 @@ beforeAll(async () => {
   await ensureNamespaceLoaded('hr')
   await ensureNamespaceLoaded('reports')
   await ensureNamespaceLoaded('platform')
+  await ensureNamespaceLoaded('settings')
+  await ensureNamespaceLoaded('agent')
 })
 
 afterEach(async () => {
