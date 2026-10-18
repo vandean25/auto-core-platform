@@ -6,7 +6,7 @@
     "saved": "Gespeichert",
     "saveFailed": "Speichern fehlgeschlagen",
     "saving": "Speichern…",
-    "genericError": "Etwas ist schiefgelaufen. Bitte erneut versuchen."
+    "genericError": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut."
   },
   "stockList": {
     "title": "Fahrzeugbestand",
@@ -80,11 +80,11 @@
     "gewaehrleistung": "Gewährleistung",
     "contractDate": "Vertragsdatum",
     "handoverDate": "Übergabedatum",
-    "finalize": "Finalisieren",
-    "finalizeInvoice": "Rechnung finalisieren",
+    "finalize": "Verkauf abschließen",
+    "finalizeInvoice": "Rechnung ausstellen",
     "downloadKaufvertrag": "Kaufvertrag PDF",
     "kaufvertragIncomplete": "Bitte Kaufpreis und Käufer angeben, bevor das PDF erstellt wird.",
-    "finalizeFailed": "Verkauf konnte nicht finalisiert werden",
+    "finalizeFailed": "Verkauf konnte nicht abgeschlossen werden",
     "saveFailed": "Speichern fehlgeschlagen",
     "invoicedSuccess": "Verkauf abgerechnet",
     "subtitleMargin": "Differenzbesteuerung",
@@ -139,8 +139,8 @@
       "removed": "Inzahlungnahme entfernt",
       "saveFailed": "Inzahlungnahme konnte nicht gespeichert werden",
       "removeFailed": "Inzahlungnahme konnte nicht entfernt werden",
-      "storedIncomplete": "Entfernen Sie die Inzahlungnahme oder vervollständigen Sie die Angaben vor der Finalisierung.",
-      "removalFailed": "Die Inzahlungnahme konnte nicht entfernt werden und ist noch am Verkauf. Bitte erneut entfernen, bevor Sie finalisieren.",
+      "storedIncomplete": "Entfernen Sie die Inzahlungnahme oder vervollständigen Sie die Angaben, bevor Sie den Verkauf abschließen.",
+      "removalFailed": "Die Inzahlungnahme konnte nicht entfernt werden und ist noch am Verkauf. Bitte erneut entfernen, bevor Sie den Verkauf abschließen.",
       "saveStatus": {
         "saving": "Speichern…",
         "saved": "Gespeichert",
@@ -317,9 +317,9 @@
       "desiredActive": "Angebot aktiv",
       "desiredInactive": "Inaktiv",
       "validationTitle": "Portal-Validierung",
-      "serializerUnsupported": "Für dieses Portal ist noch kein Export-Validator verfügbar.",
+      "serializerUnsupported": "Für dieses Portal ist die Prüfung noch nicht verfügbar.",
       "noIssues": "Keine Validierungsmeldungen für dieses Portal.",
-      "validationLoadError": "Portal-Validierung konnte nicht geladen werden. Bitte erneut versuchen."
+      "validationLoadError": "Die Portalprüfung konnte nicht geladen werden. Bitte versuchen Sie es erneut."
     },
     "photos": {
       "moveUp": "Nach oben",
@@ -351,21 +351,21 @@
       "LISTING_VEHICLE_MILEAGE_REQUIRED": "Kilometerstand ist für den Export erforderlich.",
       "LISTING_VEHICLE_MILEAGE_INVALID": "Der Kilometerstand muss null oder größer sein.",
       "LISTING_IMAGES_MAX_EXCEEDED": "Zu viele Fotos für dieses Portal ausgewählt.",
-      "LISTING_FIELD_NOT_ENCODABLE": "Dieser Wert kann für den Portal-Export nicht kodiert werden."
+      "LISTING_FIELD_NOT_ENCODABLE": "Dieser Wert enthält Zeichen, die das Portal nicht annimmt."
     },
     "loadError": {
       "title": "Inserat konnte nicht geladen werden",
-      "description": "Das Inserat konnte nicht geladen werden. Verbindung prüfen und erneut versuchen.",
+      "description": "Das Inserat konnte nicht geladen werden. Bitte prüfen Sie die Verbindung und versuchen Sie es erneut.",
       "retry": "Erneut versuchen"
     },
     "createError": {
       "title": "Inserat konnte nicht angelegt werden",
-      "description": "Ein neues Inserat konnte nicht angelegt werden. Bitte erneut versuchen.",
+      "description": "Ein neues Inserat konnte nicht angelegt werden. Bitte versuchen Sie es erneut.",
       "retry": "Erneut versuchen"
     },
     "vehicleFieldHint": "Diese Angabe wird auf der Fahrzeugbestandsseite gepflegt.",
     "errors": {
-      "generic": "Etwas ist schiefgelaufen. Bitte erneut versuchen.",
+      "generic": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
       "saveFailed": "Inserat konnte nicht gespeichert werden",
       "channelFailed": "Portalstatus konnte nicht gespeichert werden",
       "equipmentFailed": "Ausstattung konnte nicht gespeichert werden",

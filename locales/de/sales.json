@@ -8,12 +8,12 @@
     "invoiceFallback": "Rechnung {{id}}",
     "creditDraftLabel": "Entwurf {{id}}",
     "breadcrumbInvoice": "Rechnung",
-    "breadcrumbSalesOrder": "Verkaufsauftrag"
+    "breadcrumbSalesOrder": "Kundenauftrag"
   },
   "invoices": {
     "list": {
       "title": "Verkaufsrechnungen",
-      "description": "Finalisierte und Entwurfs-Rechnungen über alle Verkaufskanäle.",
+      "description": "Ausgestellte Rechnungen und Rechnungsentwürfe aus allen Verkaufsbereichen.",
       "newInvoice": "Rechnung",
       "searchPlaceholder": "Rechnungen durchsuchen…",
       "columns": {
@@ -26,17 +26,17 @@
     },
     "newPage": {
       "title": "Verkaufsrechnungen benötigen einen Quellauftrag",
-      "descriptionBefore": "Freistehende Rechnungsentwürfe werden nicht unterstützt. Legen Sie zuerst einen Verkaufsauftrag an und nutzen Sie dann",
+      "descriptionBefore": "Rechnungsentwürfe ohne Auftrag sind nicht möglich. Legen Sie zuerst einen Kundenauftrag an und wählen Sie dann",
       "createInvoiceAction": "Rechnung erstellen",
       "descriptionAfter": "auf dem Auftrag, um einen verknüpften Entwurf zu öffnen.",
       "workflowTitle": "Empfohlener Ablauf",
-      "step1": "Verkaufsauftrag mit Kunde und Positionen anlegen oder öffnen.",
+      "step1": "Kundenauftrag mit Kunde und Positionen anlegen oder öffnen.",
       "step2Before": "Auf der Auftragsdetailseite",
       "step2Action": "Rechnung erstellen",
       "step2After": "wählen.",
-      "step3": "Entwurf prüfen, Positionen bei Bedarf anpassen und im Entwurfseditor finalisieren.",
-      "openOrders": "Verkaufsaufträge öffnen",
-      "newOrder": "+ Verkaufsauftrag"
+      "step3": "Entwurf prüfen, Positionen bei Bedarf anpassen und die Rechnung ausstellen.",
+      "openOrders": "Kundenaufträge öffnen",
+      "newOrder": "+ Kundenauftrag"
     },
     "detail": {
       "loading": "Rechnung wird geladen…",
@@ -48,7 +48,7 @@
       "taskSubtotal": "Aufgabensumme",
       "creditFully": "Vollständig gutgeschrieben",
       "creditPartially": "Teilweise gutgeschrieben",
-      "creditNoteGuidance": "Gutschriften können nur von OWNER oder ADMIN ausgestellt werden.",
+      "creditNoteGuidance": "Gutschriften können nur Inhaber oder Administratoren ausstellen.",
       "creditNote": "Gutschrift",
       "generatingPdf": "Wird erstellt…",
       "downloadPdf": "PDF herunterladen",
@@ -71,7 +71,7 @@
       },
       "noLineItems": "Keine Positionen.",
       "loadingTaskGroups": "Aufgabengruppen werden geladen…",
-      "taskGroupsFailed": "Werkstattaufgaben konnten nicht geladen werden. Ungroupierte Positionen werden angezeigt.",
+      "taskGroupsFailed": "Werkstattaufgaben konnten nicht geladen werden. Die Positionen werden ohne Gruppierung angezeigt.",
       "totals": {
         "net": "Netto",
         "tax": "USt.",
@@ -84,13 +84,13 @@
       "loading": "Rechnungsentwurf wird geladen…",
       "loadFailed": "Rechnung konnte nicht geladen werden",
       "unsupportedTitle": "Nicht unterstützter Entwurf",
-      "unsupportedDescription": "Diese Rechnung wurde nicht aus einem Verkaufsauftrag erstellt. Bearbeiten Sie Werkstatt- oder Fahrzeugverkaufsrechnungen in den jeweiligen Workflows.",
+      "unsupportedDescription": "Diese Rechnung wurde nicht aus einem Kundenauftrag erstellt. Werkstatt- und Fahrzeugverkaufsrechnungen bearbeiten Sie im jeweiligen Bereich.",
       "viewInvoice": "Rechnung anzeigen",
       "notEditableTitle": "Rechnung ist nicht bearbeitbar",
       "notEditableDescription": "Nur Rechnungsentwürfe können hier bearbeitet werden.",
-      "backToOrderAria": "Zurück zum Verkaufsauftrag",
+      "backToOrderAria": "Zurück zum Kundenauftrag",
       "title": "Rechnungsentwurf bearbeiten",
-      "finalize": "Finalisieren",
+      "finalize": "Rechnung ausstellen",
       "billTo": "Rechnung an",
       "noStreet": "Keine Straße angegeben",
       "emailLabel": "E-Mail: {{email}}",
@@ -99,21 +99,21 @@
       "subtotal": "Zwischensumme",
       "taxVat": "USt.",
       "total": "Summe",
-      "incompleteDraft": "Der Rechnungsentwurf ist unvollständig. Kunde und Positionen vor dem Finalisieren ergänzen.",
-      "finalizedSuccess": "Rechnung finalisiert und Nummer vergeben!",
-      "finalizeFailed": "Rechnung konnte nicht finalisiert werden"
+      "incompleteDraft": "Der Rechnungsentwurf ist unvollständig. Bitte ergänzen Sie Kunde und Positionen, bevor Sie die Rechnung ausstellen.",
+      "finalizedSuccess": "Rechnung ausgestellt, Rechnungsnummer vergeben.",
+      "finalizeFailed": "Rechnung konnte nicht ausgestellt werden"
     }
   },
   "orders": {
     "list": {
-      "title": "Verkaufsaufträge",
-      "description": "Verkaufspipeline und Jobcards verwalten.",
+      "title": "Kundenaufträge",
+      "description": "Kundenaufträge anlegen, verfolgen und verrechnen.",
       "newOrder": "Neuer Auftrag",
       "searchPlaceholder": "Aufträge durchsuchen…",
-      "saveViewTitle": "Verkaufsaufträge",
-      "deleteConfirm": "Diesen Verkaufsauftrag wirklich löschen?",
-      "deleted": "Verkaufsauftrag gelöscht",
-      "deleteFailed": "Verkaufsauftrag konnte nicht gelöscht werden",
+      "saveViewTitle": "Kundenaufträge",
+      "deleteConfirm": "Diesen Kundenauftrag wirklich löschen?",
+      "deleted": "Kundenauftrag gelöscht",
+      "deleteFailed": "Kundenauftrag konnte nicht gelöscht werden",
       "columns": {
         "orderNumber": "Auftrag Nr.",
         "date": "Datum",
@@ -126,13 +126,13 @@
     "detail": {
       "loading": "Auftrag wird geladen…",
       "notFound": "Auftrag nicht gefunden",
-      "breadcrumbFallback": "Verkaufsauftrag",
-      "backAria": "Zurück zu Verkaufsaufträgen",
+      "breadcrumbFallback": "Kundenauftrag",
+      "backAria": "Zurück zu den Kundenaufträgen",
       "createdOn": "Erstellt am {{date}}",
       "createInvoice": "Rechnung erstellen",
       "createInvoiceTitle": "Rechnungsentwurf erstellen?",
-      "createInvoiceDraftConfirm": "Dies bestätigt den Verkaufsauftrag und erstellt einen verknüpften Rechnungsentwurf. Prüfen und finalisieren Sie die Rechnung im Entwurfseditor.",
-      "createInvoiceLinkedConfirm": "Dies erstellt einen Rechnungsentwurf, der mit diesem Verkaufsauftrag verknüpft ist. Prüfen und finalisieren Sie ihn im Entwurfseditor.",
+      "createInvoiceDraftConfirm": "Der Kundenauftrag wird bestätigt und ein Rechnungsentwurf angelegt. Prüfen Sie den Entwurf und stellen Sie die Rechnung anschließend aus.",
+      "createInvoiceLinkedConfirm": "Zu diesem Kundenauftrag wird ein Rechnungsentwurf angelegt. Prüfen Sie den Entwurf und stellen Sie die Rechnung anschließend aus.",
       "invoiceDraftCreated": "Rechnungsentwurf erstellt",
       "invoiceCreateFailed": "Rechnung konnte nicht erstellt werden",
       "invoiced": "Verrechnet",
@@ -143,7 +143,7 @@
       "notes": "Notizen",
       "notesPlaceholder": "Auftragsnotizen…",
       "notesEmpty": "Notizen hinzufügen",
-      "notesAria": "Notizen zum Verkaufsauftrag",
+      "notesAria": "Notizen zum Kundenauftrag",
       "notesSaved": "Auftragsnotizen gespeichert",
       "notesSaveFailed": "Auftragsnotizen konnten nicht gespeichert werden",
       "orderItems": "Auftragspositionen",
@@ -159,8 +159,8 @@
     },
     "create": {
       "backAria": "Zurück",
-      "title": "Neuer Verkaufsauftrag",
-      "description": "Entwurfsauftrag für einen Kunden anlegen.",
+      "title": "Neuer Kundenauftrag",
+      "description": "Auftragsentwurf für einen Kunden anlegen.",
       "customerDetails": "Kundendaten",
       "selectCustomer": "Kunde auswählen",
       "lineItems": "Positionen",
@@ -181,7 +181,7 @@
       "total": "Summe",
       "internalNotes": "Interne Notizen",
       "addItem": "Position hinzufügen",
-      "searchPartsBySku": "Teile nach SKU oder Name suchen…",
+      "searchPartsBySku": "Teile nach Artikelnummer oder Name suchen…",
       "noItemsAddItem": "Keine Positionen. Mit „Position hinzufügen“ starten.",
       "removeLineAria": "Position {{label}} entfernen",
       "totalAmount": "Gesamtbetrag:",
@@ -201,10 +201,10 @@
       "addLine": "Position hinzufügen"
     },
     "finalizeDialog": {
-      "title": "Rechnung finalisieren?",
+      "title": "Rechnung ausstellen?",
       "description": "Die Rechnung wird gesperrt, erhält eine offizielle RE-Nummer und Lagerbestand wird für Katalogpositionen abgebucht. Danach ist der Entwurf nicht mehr bearbeitbar.",
-      "confirm": "Finalisieren",
-      "finalizing": "Finalisierung…"
+      "confirm": "Rechnung ausstellen",
+      "finalizing": "Rechnung wird ausgestellt…"
     },
     "partSearch": {
       "title": "Lager durchsuchen",
@@ -218,20 +218,20 @@
   },
   "finalize": {
     "missingCustomer": "Im Rechnungsentwurf fehlen Pflichtangaben zum Kunden.",
-    "saving": "Bitte warten, bis der Entwurf gespeichert ist, bevor Sie finalisieren.",
-    "autosaveError": "Beheben Sie den Autospeicher-Fehler, bevor Sie diese Rechnung finalisieren.",
-    "notNumbered": "Die Finalisierung lieferte keine finalisierte Rechnung mit Rechnungsnummer.",
-    "salesOrderBlocked": "Dieser Verkaufsauftrag ist bereits als verrechnet markiert. Öffnen Sie die finalisierte Rechnung unter Verkauf oder laden Sie diese Seite neu."
+    "saving": "Bitte warten Sie, bis der Entwurf gespeichert ist, bevor Sie die Rechnung ausstellen.",
+    "autosaveError": "Ihre Änderungen konnten nicht automatisch gespeichert werden. Bitte speichern Sie erneut, bevor Sie die Rechnung ausstellen.",
+    "notNumbered": "Die Rechnung wurde ohne Rechnungsnummer zurückgegeben. Bitte laden Sie die Seite neu.",
+    "salesOrderBlocked": "Dieser Kundenauftrag ist bereits verrechnet. Öffnen Sie die ausgestellte Rechnung unter Verkauf oder laden Sie die Seite neu."
   },
   "errors": {
-    "generic": "Etwas ist schiefgelaufen. Bitte erneut versuchen.",
+    "generic": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
     "loadFailed": "Daten konnten nicht geladen werden.",
     "insufficientAtp": "Unzureichender Bestand für {{item}} (Bedarf: {{required}}, verfügbar: {{available}}).",
     "codes": {
-      "INVOICE_BRANDING_WRITER_DISABLED": "Marken-Rechnungsausstellung ist in dieser Umgebung deaktiviert. Finalisieren funktioniert, sobald der Rechnungs-Branding-Writer freigeschaltet ist.",
+      "INVOICE_BRANDING_WRITER_DISABLED": "Rechnungen mit Briefpapier sind in dieser Umgebung noch nicht aktiviert. Das Ausstellen ist möglich, sobald die Funktion freigeschaltet ist.",
       "ACCOUNTING_MAPPING_INCOMPLETE": "Buchhaltungszuordnung ist unvollständig.",
-      "SOURCE_DOCUMENT_REQUIRED": "Rechnungen ohne Quellbeleg werden nicht unterstützt. Erstellen Sie Rechnungen aus einem berechtigten Verkaufsauftrag.",
-      "LEGACY_DOCUMENT_UNSUPPORTED": "Legacy-Beleg wird nicht unterstützt.",
+      "SOURCE_DOCUMENT_REQUIRED": "Rechnungen ohne zugrunde liegenden Auftrag sind nicht möglich. Bitte legen Sie die Rechnung aus einem Kundenauftrag an.",
+      "LEGACY_DOCUMENT_UNSUPPORTED": "Dieser Altbeleg wird nicht unterstützt.",
       "UNSUPPORTED_EXPORT_TAX_MODE": "Steuermodus wird für den Export nicht unterstützt.",
       "UNSUPPORTED_EXPORT_COUNTRY": "Land wird für den Export nicht unterstützt.",
       "MISSING_OWNERSHIP_EVIDENCE": "Eigentumsnachweis fehlt.",

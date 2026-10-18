@@ -187,7 +187,7 @@ describe('WorkshopOrderIntakeDialog', () => {
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith(
-        'Ein unerwarteter Serverfehler ist aufgetreten. (ref: req-5xx-1)',
+        'Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es erneut. (ref: req-5xx-1)',
       )
     })
   })

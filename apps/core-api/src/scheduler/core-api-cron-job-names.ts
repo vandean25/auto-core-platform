@@ -6,6 +6,7 @@ export const CORE_API_CRON_JOB_NAMES = [
   'document-branding-upload-recovery',
   'domain-event-consumer-recovery',
   'hr-shift-close',
+  'import-job-row-purge',
   'landing-demo-access-cleanup',
   'mechanic-shift-close',
   'notification-outbox-recovery',
