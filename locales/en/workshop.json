@@ -1273,6 +1273,7 @@
     "offline": {
       "quotaExceeded": "Local storage is full. Delete queued photos or wait for pending uploads to finish. Your draft is kept.",
       "storageEvictionHint": "Private browsing or storage cleanup may remove local drafts.",
+      "draftExpiryWarning": "This local draft is older than 24 hours. Sync or discard it before it is removed.",
       "conflict": {
         "title": "Local draft differs from server",
         "description": "The check-in changed on the server while you worked offline or with a local draft. Choose which version to keep.",

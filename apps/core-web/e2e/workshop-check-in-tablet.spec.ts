@@ -171,11 +171,10 @@ test.describe('AUT-557: workshop check-in tablet flow', () => {
       timeout: 10_000,
     })
     const conflictDialog = page.getByTestId('check-in-conflict-dialog')
-    if (await conflictDialog.isVisible()) {
-      await page
-        .getByRole('button', { name: deWorkshop.checkIn.offline.conflict.keepServer })
-        .click()
-    }
+    await expect(conflictDialog).toBeVisible({ timeout: 5_000 })
+    await page
+      .getByRole('button', { name: deWorkshop.checkIn.offline.conflict.keepServer })
+      .click()
     await expect(
       page.getByRole('spinbutton', { name: deWorkshop.checkIn.fields.odometer }),
     ).toHaveValue('89000', { timeout: 5_000 })

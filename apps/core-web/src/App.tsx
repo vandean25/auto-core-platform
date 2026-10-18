@@ -26,6 +26,7 @@ import { DashboardWidgetsProvider } from '@/features/dashboard-widgets/Dashboard
 import { RealtimeDashboardSyncProvider } from '@/features/realtime/RealtimeDashboardSyncProvider'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import { generateId } from '@/lib/id'
+import { purgeAllCheckInOfflineData } from '@/features/workshop/check-in/check-in-offline-store'
 import {
   APP_ROUTE_PATHS,
   LANDING_DEMO_SIGN_IN_FINISH_ALT_PATH,
@@ -342,16 +343,30 @@ function AuthenticatedApp() {
       isSwitchingTenant={switchTenantMutation.isPending}
       isSwitchingSite={switchSiteMutation.isPending}
       onSwitchTenant={(tenantId) => {
-        switchTenantMutation.mutateAsync(tenantId).catch((error: unknown) => {
-          toast.error(shellSwitchTenantFailedMessage(error))
-        })
+        void purgeAllCheckInOfflineData()
+          .catch(() => undefined)
+          .then(() =>
+            switchTenantMutation.mutateAsync(tenantId).catch((error: unknown) => {
+              toast.error(shellSwitchTenantFailedMessage(error))
+            }),
+          )
       }}
       onSwitchSite={(siteId) => {
-        switchSiteMutation.mutateAsync(siteId).catch((error: unknown) => {
-          toast.error(shellSwitchSiteFailedMessage(error))
-        })
+        void purgeAllCheckInOfflineData()
+          .catch(() => undefined)
+          .then(() =>
+            switchSiteMutation.mutateAsync(siteId).catch((error: unknown) => {
+              toast.error(shellSwitchSiteFailedMessage(error))
+            }),
+          )
       }}
-      onSignOut={() => void signOutUser()}
+      onSignOut={() => {
+        void purgeAllCheckInOfflineData()
+          .catch(() => undefined)
+          .finally(() => {
+            void signOutUser()
+          })
+      }}
     />
   )
 }

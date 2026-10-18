@@ -31,4 +31,16 @@ describe('check-in-offline-quota', () => {
     const message = deWorkshop.checkIn.offline.quotaExceeded
     expect(message).toContain('Entwurf bleibt erhalten')
   })
+
+  it('rejects an oversized photo without changing the evaluated queue count', () => {
+    const beforeCount = 3
+    const violation = evaluateCheckInOfflineQuota({
+      queuedPhotoCount: beforeCount,
+      totalQueuedBytes: 0,
+      orderQueuedBytes: 0,
+      incomingBytes: CHECK_IN_OFFLINE_MAX_PHOTO_BYTES + 1,
+    })
+    expect(violation).toBe('photo_size')
+    expect(beforeCount).toBe(3)
+  })
 })

@@ -2,7 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuthSession } from '@/api/auth-session'
 import type { WorkshopCheckIn, WorkshopCheckInMedia } from '@/api/workshop-check-in'
 import type { CheckInDraftSnapshot } from './check-in-draft'
-import { processCheckInPhotoQueue } from './check-in-offline-photo-queue'
+import { snapshotsEqual } from './check-in-draft'
+import {
+  flushPhotoQueueRetries,
+  processCheckInPhotoQueue,
+} from './check-in-offline-photo-queue'
 import {
   evaluateCheckInOfflineQuota,
   isQuotaExceededError,
@@ -16,9 +20,11 @@ import {
 import {
   clearQueuedPhotosForScope,
   deleteCheckInOfflineDraft,
+  isCheckInOfflineDraftExpired,
   listAllQueuedPhotos,
   listQueuedPhotosForScope,
   loadCheckInOfflineDraft,
+  resetStaleUploadingPhotos,
   saveCheckInOfflineDraft,
   sumQueuedPhotoBytes,
   upsertQueuedPhoto,
@@ -32,6 +38,12 @@ export type CheckInOfflineSaveStatus =
   | 'savedLocally'
   | 'error'
 
+export type CheckInHydrateConflict = {
+  draft: CheckInDraftSnapshot
+  serverBaseRevision: number
+  serverRevision: number
+}
+
 type Options = {
   orderId: string
   checkIn: WorkshopCheckIn | null | undefined
@@ -39,6 +51,7 @@ type Options = {
   serverRevision: number
   readOnly: boolean
   onApplyLocalDraft: (draft: CheckInDraftSnapshot, serverRevision: number) => void
+  onHydrateConflict?: (conflict: CheckInHydrateConflict) => void
   onRevisionSynced: (revision: number) => void
   onPhotoUploaded: (media: WorkshopCheckInMedia) => void
 }
@@ -50,6 +63,7 @@ export function useCheckInOffline({
   serverRevision,
   readOnly,
   onApplyLocalDraft,
+  onHydrateConflict,
   onRevisionSynced,
   onPhotoUploaded,
 }: Options) {
@@ -59,8 +73,22 @@ export function useCheckInOffline({
   const [queuedPhotos, setQueuedPhotos] = useState<CheckInQueuedPhotoRecord[]>(
     [],
   )
+  const [draftExpiryWarning, setDraftExpiryWarning] = useState(false)
   const [queuePaused, setQueuePaused] = useState(false)
   const revisionRef = useRef(serverRevision)
+  const draftRef = useRef(draft)
+  const hydratedScopeKeyRef = useRef<string | null>(null)
+  const onApplyLocalDraftRef = useRef(onApplyLocalDraft)
+  const onHydrateConflictRef = useRef(onHydrateConflict)
+
+  useEffect(() => {
+    draftRef.current = draft
+  }, [draft])
+
+  useEffect(() => {
+    onApplyLocalDraftRef.current = onApplyLocalDraft
+    onHydrateConflictRef.current = onHydrateConflict
+  }, [onApplyLocalDraft, onHydrateConflict])
 
   useEffect(() => {
     revisionRef.current = serverRevision
@@ -84,11 +112,31 @@ export function useCheckInOffline({
     }
   }, [checkIn?.id, orderId, sessionQuery.data])
 
+  const buildQueueContext = useCallback(() => {
+    if (!scope) {
+      return null
+    }
+    return {
+      scope,
+      getExpectedRevision: () => revisionRef.current,
+      onRevisionChange: (revision: number) => {
+        revisionRef.current = revision
+        onRevisionSynced(revision)
+      },
+      onUploaded: onPhotoUploaded,
+      isPaused: () => queuePaused,
+      onAuthError: () => {
+        setQueuePaused(true)
+      },
+    }
+  }, [onPhotoUploaded, onRevisionSynced, queuePaused, scope])
+
   const refreshQueuedPhotos = useCallback(async () => {
     if (!scope) {
       setQueuedPhotos([])
       return
     }
+    await resetStaleUploadingPhotos(scope)
     const rows = await listQueuedPhotosForScope(scope)
     setQueuedPhotos(rows)
   }, [scope])
@@ -101,21 +149,34 @@ export function useCheckInOffline({
     if (!scope || !checkIn || readOnly) {
       return
     }
+    const scopeKey = buildCheckInOfflineScopeKey(scope)
+    if (hydratedScopeKeyRef.current === scopeKey) {
+      return
+    }
+    hydratedScopeKeyRef.current = scopeKey
+
     void (async () => {
       const stored = await loadCheckInOfflineDraft(scope)
       if (!stored || !stored.dirty) {
+        setDraftExpiryWarning(false)
         return
       }
       if (!scopesMatch(stored.scope, scope)) {
         return
       }
+      setDraftExpiryWarning(isCheckInOfflineDraftExpired(stored))
       if (checkIn.revision > stored.serverBaseRevision) {
+        onHydrateConflictRef.current?.({
+          draft: stored.draft,
+          serverBaseRevision: stored.serverBaseRevision,
+          serverRevision: checkIn.revision,
+        })
         return
       }
-      onApplyLocalDraft(stored.draft, stored.serverBaseRevision)
+      onApplyLocalDraftRef.current(stored.draft, stored.serverBaseRevision)
       setLocalSaveStatus('savedLocally')
     })()
-  }, [checkIn, onApplyLocalDraft, readOnly, scope])
+  }, [checkIn, readOnly, scope])
 
   const persistDraftLocally = useCallback(
     async (
@@ -135,6 +196,7 @@ export function useCheckInOffline({
           pendingServerSync: dirty,
           pendingCreate: false,
         })
+        setDraftExpiryWarning(false)
         if (dirty && options?.announce) {
           setLocalSaveStatus('savedLocally')
         }
@@ -148,20 +210,26 @@ export function useCheckInOffline({
     [readOnly, scope],
   )
 
-  const markDraftSynced = useCallback(async () => {
-    if (!scope || !draft) {
-      return
-    }
-    await saveCheckInOfflineDraft({
-      scope,
-      serverBaseRevision: revisionRef.current,
-      draft,
-      dirty: false,
-      pendingServerSync: false,
-      pendingCreate: false,
-    })
-    setLocalSaveStatus('saved')
-  }, [draft, scope])
+  const markDraftSynced = useCallback(
+    async (syncedSnapshot: CheckInDraftSnapshot) => {
+      if (!scope) {
+        return
+      }
+      const current = draftRef.current
+      const stillDirty =
+        Boolean(current) && !snapshotsEqual(current, syncedSnapshot)
+      await saveCheckInOfflineDraft({
+        scope,
+        serverBaseRevision: revisionRef.current,
+        draft: stillDirty && current ? current : syncedSnapshot,
+        dirty: stillDirty,
+        pendingServerSync: stillDirty,
+        pendingCreate: false,
+      })
+      setLocalSaveStatus(stillDirty ? 'savedLocally' : 'saved')
+    },
+    [scope],
+  )
 
   const enqueuePhoto = useCallback(
     async (file: File, clientUploadId: string) => {
@@ -220,44 +288,26 @@ export function useCheckInOffline({
       }
 
       await refreshQueuedPhotos()
-      void processCheckInPhotoQueue({
-        scope,
-        expectedRevision: revisionRef.current,
-        onRevisionChange: (revision) => {
-          revisionRef.current = revision
-          onRevisionSynced(revision)
-        },
-        onUploaded: onPhotoUploaded,
-        isPaused: () => queuePaused,
-      })
+      const queueContext = buildQueueContext()
+      if (queueContext) {
+        void processCheckInPhotoQueue(queueContext)
+      }
       return clientUploadId
     },
-    [
-      onPhotoUploaded,
-      onRevisionSynced,
-      orderId,
-      queuePaused,
-      readOnly,
-      refreshQueuedPhotos,
-      scope,
-    ],
+    [buildQueueContext, orderId, readOnly, refreshQueuedPhotos, scope],
   )
 
   const retryFailedUploads = useCallback(() => {
     if (!scope) {
       return
     }
-    void processCheckInPhotoQueue({
-      scope,
-      expectedRevision: revisionRef.current,
-      onRevisionChange: (revision) => {
-        revisionRef.current = revision
-        onRevisionSynced(revision)
-      },
-      onUploaded: onPhotoUploaded,
-      isPaused: () => queuePaused,
-    })
-  }, [onPhotoUploaded, onRevisionSynced, queuePaused, scope])
+    setQueuePaused(false)
+    const queueContext = buildQueueContext()
+    if (!queueContext) {
+      return
+    }
+    void flushPhotoQueueRetries(scope, queueContext)
+  }, [buildQueueContext, scope])
 
   const discardLocalDraft = useCallback(async () => {
     if (!scope) {
@@ -266,6 +316,7 @@ export function useCheckInOffline({
     await deleteCheckInOfflineDraft(scope)
     await clearQueuedPhotosForScope(scope)
     await refreshQueuedPhotos()
+    setDraftExpiryWarning(false)
     setLocalSaveStatus('idle')
   }, [refreshQueuedPhotos, scope])
 
@@ -277,22 +328,20 @@ export function useCheckInOffline({
     if (!scope || readOnly || queuePaused) {
       return
     }
+    const queueContext = buildQueueContext()
+    if (!queueContext) {
+      return
+    }
     void processCheckInPhotoQueue({
-      scope,
-      expectedRevision: revisionRef.current,
-      onRevisionChange: (revision) => {
-        revisionRef.current = revision
-        onRevisionSynced(revision)
-      },
+      ...queueContext,
       onUploaded: (media) => {
         onPhotoUploaded(media as WorkshopCheckInMedia)
         void refreshQueuedPhotos()
       },
-      isPaused: () => queuePaused,
     })
   }, [
+    buildQueueContext,
     onPhotoUploaded,
-    onRevisionSynced,
     queuePaused,
     readOnly,
     refreshQueuedPhotos,
@@ -303,6 +352,7 @@ export function useCheckInOffline({
     scope,
     localSaveStatus,
     setLocalSaveStatus,
+    draftExpiryWarning,
     persistDraftLocally,
     markDraftSynced,
     enqueuePhoto,

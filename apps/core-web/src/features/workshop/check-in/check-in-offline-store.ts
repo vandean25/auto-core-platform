@@ -122,6 +122,12 @@ export async function saveCheckInOfflineDraft(
   await withStore(DRAFT_STORE, 'readwrite', (store) => store.put(row))
 }
 
+export function isCheckInOfflineDraftExpired(
+  record: CheckInOfflineDraftRecord,
+): boolean {
+  return Date.now() - record.lastLocalSavedAt > CHECK_IN_OFFLINE_DRAFT_TTL_MS
+}
+
 export async function loadCheckInOfflineDraft(
   scope: CheckInOfflineScope,
 ): Promise<CheckInOfflineDraftRecord | null> {
@@ -129,14 +135,7 @@ export async function loadCheckInOfflineDraft(
   const row = await withStore<DraftRow | undefined>(DRAFT_STORE, 'readonly', (store) =>
     store.get(scopeKey),
   )
-  if (!row) {
-    return null
-  }
-  if (Date.now() - row.lastLocalSavedAt > CHECK_IN_OFFLINE_DRAFT_TTL_MS) {
-    await deleteCheckInOfflineDraft(scope)
-    return null
-  }
-  return row
+  return row ?? null
 }
 
 export async function deleteCheckInOfflineDraft(
@@ -239,4 +238,60 @@ export async function clearPendingCheckInCreate(
   await withStore(PENDING_CREATE_STORE, 'readwrite', (store) =>
     store.delete(orderScopeKey),
   )
+}
+
+export async function resetStaleUploadingPhotos(
+  scope: CheckInOfflineScope,
+): Promise<void> {
+  const photos = await listQueuedPhotosForScope(scope)
+  await Promise.all(
+    photos
+      .filter((photo) => photo.status === 'uploading')
+      .map((photo) =>
+        upsertQueuedPhoto({
+          ...photo,
+          status: 'queued',
+        }),
+      ),
+  )
+}
+
+export async function clearPhotoQueueRetryDelays(
+  scope: CheckInOfflineScope,
+): Promise<void> {
+  const photos = await listQueuedPhotosForScope(scope)
+  await Promise.all(
+    photos
+      .filter((photo) => photo.status === 'failed' || photo.status === 'queued')
+      .map((photo) =>
+        upsertQueuedPhoto({
+          ...photo,
+          status: 'queued',
+          nextRetryAt: null,
+        }),
+      ),
+  )
+}
+
+async function clearObjectStore(storeName: string): Promise<void> {
+  const db = await openCheckInOfflineDb()
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(storeName, 'readwrite')
+    tx.objectStore(storeName).clear()
+    tx.oncomplete = () => {
+      db.close()
+      resolve()
+    }
+    tx.onerror = () => {
+      db.close()
+      reject(tx.error ?? new Error('IndexedDB clear failed'))
+    }
+  })
+}
+
+/** Removes local check-in drafts, queued photo bytes, and pending create markers. */
+export async function purgeAllCheckInOfflineData(): Promise<void> {
+  await clearObjectStore(DRAFT_STORE)
+  await clearObjectStore(PHOTO_STORE)
+  await clearObjectStore(PENDING_CREATE_STORE)
 }

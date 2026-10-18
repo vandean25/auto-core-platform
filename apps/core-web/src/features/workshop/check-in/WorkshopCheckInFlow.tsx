@@ -97,37 +97,49 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
   >(() => {})
 
   const persistDraftLocally = useCallback(
-    async (snapshot: CheckInDraftSnapshot, announce = false) => {
+    async (
+      snapshot: CheckInDraftSnapshot,
+      dirty: boolean,
+      announce = false,
+    ) => {
       localDraftRef.current = snapshot
-      await offlineRef.current?.persistDraftLocally(snapshot, true, {
+      await offlineRef.current?.persistDraftLocally(snapshot, dirty, {
         announce,
       })
     },
     [],
   )
 
-  const onServerDraftSaved = useCallback(async () => {
-    await offlineRef.current?.markDraftSynced()
-  }, [])
+  const onServerDraftSaved = useCallback(
+    async (syncedSnapshot: CheckInDraftSnapshot) => {
+      await offlineRef.current?.markDraftSynced(syncedSnapshot)
+    },
+    [],
+  )
 
   const refetchCheckInRef = useRef(checkInQuery.refetch)
 
   const onRevisionConflict = useCallback(async () => {
     const result = await refetchCheckInRef.current()
     const fresh = result.data ?? null
-    if (fresh) {
-      replaceDraftRef.current(draftFromCheckIn(fresh), fresh.revision)
-    }
-    if (fresh?.status === 'COMPLETED') {
-      setConflictCompletedRemotely(true)
-      setConflictOpen(true)
-    } else {
-      localDraftRef.current = latestDraftRef.current
-      setConflictCompletedRemotely(false)
-      setConflictOpen(true)
-    }
+    localDraftRef.current = latestDraftRef.current
+    setConflictCompletedRemotely(fresh?.status === 'COMPLETED')
+    setConflictOpen(true)
     return fresh
   }, [])
+
+  const onHydrateConflict = useCallback(
+    (conflict: {
+      draft: CheckInDraftSnapshot
+      serverBaseRevision: number
+      serverRevision: number
+    }) => {
+      localDraftRef.current = conflict.draft
+      setConflictCompletedRemotely(checkInQuery.data?.status === 'COMPLETED')
+      setConflictOpen(true)
+    },
+    [checkInQuery.data?.status],
+  )
 
   const {
     draft,
@@ -145,16 +157,22 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
     onServerDraftSaved,
   })
 
+  const onApplyLocalDraft = useCallback(
+    (snapshot: CheckInDraftSnapshot, baseRevision: number) => {
+      localDraftRef.current = snapshot
+      replaceDraft(snapshot, baseRevision)
+    },
+    [replaceDraft],
+  )
+
   const offline = useCheckInOffline({
     orderId,
     checkIn: checkInQuery.data,
     draft,
     serverRevision: checkInQuery.data?.revision ?? 1,
     readOnly,
-    onApplyLocalDraft: (snapshot, baseRevision) => {
-      localDraftRef.current = snapshot
-      replaceDraft(snapshot, baseRevision)
-    },
+    onApplyLocalDraft,
+    onHydrateConflict,
     onRevisionSynced: () => {
       void checkInQuery.refetch()
     },
@@ -429,6 +447,20 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
         </p>
       )}
 
+      <p className="text-xs text-muted-foreground" role="note">
+        {t('checkIn.offline.storageEvictionHint')}
+      </p>
+
+      {offline.draftExpiryWarning && (
+        <p
+          className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+          role="status"
+          data-testid="check-in-draft-expiry-warning"
+        >
+          {t('checkIn.offline.draftExpiryWarning')}
+        </p>
+      )}
+
       <nav aria-label={t('checkIn.stepNavAria')} className="flex flex-wrap gap-2">
         {STEPS.map((id) => (
           <Button
@@ -595,7 +627,7 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
             })
             replaceDraft(draftFromCheckIn(updated), updated.revision)
             localDraftRef.current = null
-            await offline.markDraftSynced()
+            await offline.markDraftSynced(snapshot)
             await checkInQuery.refetch()
           } catch (error: unknown) {
             toast.error(describeWorkshopCheckInError(error))

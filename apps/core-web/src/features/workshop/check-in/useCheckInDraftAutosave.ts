@@ -24,9 +24,10 @@ type Options = {
   onRevisionConflict?: () => Promise<WorkshopCheckIn | null | undefined>
   persistDraftLocally?: (
     snapshot: CheckInDraftSnapshot,
+    dirty: boolean,
     announce?: boolean,
   ) => Promise<void>
-  onServerDraftSaved?: () => Promise<void>
+  onServerDraftSaved?: (snapshot: CheckInDraftSnapshot) => Promise<void>
 }
 
 export function useCheckInDraftAutosave({
@@ -101,6 +102,9 @@ export function useCheckInDraftAutosave({
       ) {
         return
       }
+      if (persistDraftLocallyRef.current) {
+        await persistDraftLocallyRef.current(snapshot, true, false)
+      }
       try {
         const result = await updateDraftRef.current.mutateAsync({
           orderId,
@@ -111,11 +115,11 @@ export function useCheckInDraftAutosave({
         }
         revisionRef.current = result.revision
         lastSavedRef.current = snapshot
-        await onServerDraftSavedRef.current?.()
+        await onServerDraftSavedRef.current?.(snapshot)
       } catch (error: unknown) {
         if (persistDraftLocallyRef.current) {
           try {
-            await persistDraftLocallyRef.current(snapshot, true)
+            await persistDraftLocallyRef.current(snapshot, true, true)
           } catch {
             // Keep the original server/network error for conflict handling.
           }
@@ -139,6 +143,15 @@ export function useCheckInDraftAutosave({
 
   const handleSaveError = useCallback(
     (error: unknown) => {
+      const offlineQuotaCode =
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        (error as { code?: string }).code === 'CHECK_IN_OFFLINE_QUOTA'
+      if (offlineQuotaCode) {
+        toast.error(t('checkIn.offline.quotaExceeded'))
+        return
+      }
       const message = describeWorkshopCheckInError(error)
       toast.error(message)
       const code = resolveWorkshopCheckInErrorCode(error)
@@ -146,18 +159,13 @@ export function useCheckInDraftAutosave({
         debouncedSaveHelpersRef.current.clearPendingSave()
         debouncedSaveHelpersRef.current.abortInFlightSave()
         hydrateFromServerRef.current = true
-        void (async () => {
-          const fresh = await onRevisionConflictRef.current?.()
-          if (fresh) {
-            applyServerRecord(fresh)
-          }
-        })()
+        void onRevisionConflictRef.current?.()
       }
       if (code === 'CHECK_IN_COMPLETED') {
         void onRevisionConflictRef.current?.()
       }
     },
-    [applyServerRecord],
+    [t],
   )
 
   const { saveStatus, triggerAutoSave, clearPendingSave, abortInFlightSave } =
@@ -182,6 +190,7 @@ export function useCheckInDraftAutosave({
           return current
         }
         const next = { ...current, ...patch }
+        void persistDraftLocallyRef.current?.(next, true, false)
         triggerAutoSave(next)
         return next
       })
@@ -199,6 +208,7 @@ export function useCheckInDraftAutosave({
           ...current,
           condition: { ...current.condition, ...patch },
         }
+        void persistDraftLocallyRef.current?.(next, true, false)
         triggerAutoSave(next)
         return next
       })
