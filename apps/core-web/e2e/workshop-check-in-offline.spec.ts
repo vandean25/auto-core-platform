@@ -4,9 +4,13 @@ import { AutoCorePage } from './pom/AutoCorePage'
 import { createMockWorkshopOrder } from './utils/mock-factories'
 
 const ORDER_ID = 'ws-check-in-offline-1'
+const E2E_SITE_ID = 'e2e-site-1'
 
 test.describe('AUT-558: check-in offline draft', () => {
   test('keeps draft field values across reload while offline', async ({ page }) => {
+    await page.addInitScript((siteId) => {
+      window.localStorage.setItem('e2e-active-site-id', siteId)
+    }, E2E_SITE_ID)
     const corePage = new AutoCorePage(page, 'Order')
     const order = createMockWorkshopOrder({
       id: ORDER_ID,

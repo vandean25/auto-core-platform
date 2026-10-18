@@ -6,6 +6,7 @@ import deWorkshop from '../../../locales/de/workshop.json' with { type: 'json' }
 
 const ORDER_ID = 'ws-check-in-tablet-1'
 const CHECK_IN_ID = '51500000-0000-4000-8000-000000000557'
+const E2E_SITE_ID = 'e2e-site-1'
 
 test.use({
   viewport: { width: 834, height: 1194 },
@@ -17,6 +18,10 @@ test.describe('AUT-557: workshop check-in tablet flow', () => {
   test('three-screen flow with autosave, upload, and conflict recovery', async ({
     page,
   }) => {
+    await page.addInitScript((siteId) => {
+      window.localStorage.setItem('e2e-active-site-id', siteId)
+    }, E2E_SITE_ID)
+
     const corePage = new AutoCorePage(page, 'Order')
     const order = createMockWorkshopOrder({
       id: ORDER_ID,

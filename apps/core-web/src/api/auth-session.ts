@@ -24,7 +24,7 @@ const e2eAuthSession: AuthSession = {
     slug: 'e2e-tenant',
   },
   activeRole: 'ADMIN',
-  activeSiteId: 'e2e-site-1',
+  activeSiteId: null,
   memberships: [],
   locale: null,
   effectiveLocale: 'de',
@@ -47,9 +47,13 @@ function getE2EAuthSession(pathname = window.location.pathname): AuthSession {
         ? 'TECH'
         : 'ADMIN'
 
+  const siteOverride = window.localStorage.getItem('e2e-active-site-id')?.trim()
+  const activeSiteId = siteOverride ? siteOverride : e2eAuthSession.activeSiteId
+
   return {
     ...e2eAuthSession,
     activeRole,
+    activeSiteId,
   }
 }
 
