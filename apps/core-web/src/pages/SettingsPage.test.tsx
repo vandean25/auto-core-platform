@@ -213,7 +213,7 @@ vi.mock('@/components/settings/LegalEntitiesSettingsTab', () => ({
   LegalEntitiesSettingsTab: () => <div>Legal entities tab content</div>,
 }))
 
-vi.mock('@/components/settings/SitesSettingsTab', () => ({
+vi.mock('@/components/settings/sites-settings-tab', () => ({
   SitesSettingsTab: () => <div>Sites tab content</div>,
 }))
 

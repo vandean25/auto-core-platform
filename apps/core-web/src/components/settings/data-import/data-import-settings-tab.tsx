@@ -409,7 +409,7 @@ export function DataImportSettingsTab() {
     <div className="space-y-6 p-6 bg-white border rounded-lg shadow-sm">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h3 className="text-lg font-medium">{t('dataImport.title')}</h3>
+          <h2 className="text-lg font-medium">{t('dataImport.title')}</h2>
           <p className="text-sm text-muted-foreground max-w-2xl">
             {t('dataImport.description')}
           </p>

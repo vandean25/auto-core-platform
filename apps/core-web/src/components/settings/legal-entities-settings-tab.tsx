@@ -693,7 +693,7 @@ export function LegalEntityAccountingProfileForm({
 
       <div className="space-y-3">
         <div>
-          <h5 className="font-medium">{t('legalEntities.profile.mappings.title')}</h5>
+          <h4 className="font-medium">{t('legalEntities.profile.mappings.title')}</h4>
           <p className="text-sm text-slate-500">
             {t('legalEntities.profile.mappings.description')}
           </p>

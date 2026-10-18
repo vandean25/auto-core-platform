@@ -41,11 +41,11 @@ import { ApiKeysSettingsTab } from "@/components/settings/ApiKeysSettingsTab"
 import { VoiceTranslationSettingsTab } from "@/components/settings/VoiceTranslationSettingsTab"
 import { AuditLogsTab } from "@/components/settings/AuditLogsTab"
 import { AccountingExportSettingsPanel } from "@/components/settings/accounting-export-settings-panel"
-import { LegalEntitiesSettingsTab } from "@/components/settings/legal-entities-settings-tab-content"
-import { SitesSettingsTab } from "@/components/settings/sites-settings-tab-content"
+import { LegalEntitiesSettingsTab } from "@/components/settings/LegalEntitiesSettingsTab"
+import { SitesSettingsTab } from "@/components/settings/sites-settings-tab"
 import { VehicleDataSettingsPanel } from "@/components/settings/vehicle-data-settings-panel"
 import { MarginRulesTab } from "@/components/settings/MarginRulesTab"
-import { DataImportSettingsTab } from "@/components/settings/data-import/data-import-settings-tab-content"
+import { DataImportSettingsTab } from "@/components/settings/data-import/DataImportSettingsTab"
 import { cn } from "@/lib/utils"
 import { getErrorMessage } from "@/lib/error-utils"
 import { ensureNamespaceLoaded } from "@/lib/i18n"
@@ -207,7 +207,7 @@ function StorageLocationsTab() {
             <div>
                 <Card>
                     <CardHeader>
-                        <CardTitle as="h4">{t('storageLocations.add.title')}</CardTitle>
+                        <CardTitle as="h3">{t('storageLocations.add.title')}</CardTitle>
                         <CardDescription>{t('storageLocations.add.description')}</CardDescription>
                     </CardHeader>
                     <CardContent>
