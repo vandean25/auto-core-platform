@@ -44,7 +44,9 @@ jest.unstable_mockModule('@sentry/node', () => ({
   },
 }));
 
-const { McpWritePipelineHost } = await import('./mcp-write-pipeline.host.js');
+const { McpWritePipelineService } = await import(
+  './mcp-write-pipeline.service.js'
+);
 
 function buildService(tier: AgentPolicyTier) {
   const agentPolicy = {
@@ -113,7 +115,7 @@ function buildService(tier: AgentPolicyTier) {
   const invoiceWorkshopDraftPropose = {
     enrichInput: async (input: unknown) => input,
   };
-  return new McpWritePipelineHost(
+  return new McpWritePipelineService(
     prisma as never,
     agentPolicy as never,
     dryRun as never,

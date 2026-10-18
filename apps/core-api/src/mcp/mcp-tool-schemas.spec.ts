@@ -6,7 +6,7 @@ import {
   encodeMcpKeysetCursor,
   toMcpJsonObject,
 } from './mcp-output.util.js';
-import { mcpToolOutputSchemas } from './mcp-tool-output-schemas.registry.js';
+import { mcpToolOutputSchemas } from './mcp-tool-output-schemas.js';
 import { toMcpInvoiceDetail } from './mcp-invoice-read.mapper.js';
 import {
   toMcpPurchaseOrderDetail,
@@ -15,9 +15,6 @@ import {
 import { toMcpDocumentPdf, toMcpDocumentRow } from './mcp-document-read.mapper.js';
 import {
   draftWorkshopOrderInputSchema,
-  mcpWriteToolInputSchemas,
-} from './mcp-tool-schemas.write.js';
-import {
   getAgentActionInputSchema,
   getCapabilitiesInputSchema,
   getCustomerInputSchema,
@@ -32,6 +29,7 @@ import {
   getWorkshopKpiReportInputSchema,
   listPickerlDueInputSchema,
   listWorkshopOrdersInputSchema,
+  mcpWriteToolInputSchemas,
   searchCustomersInputSchema,
   whoamiInputSchema,
 } from './mcp-tool-schemas.js';
@@ -210,40 +208,19 @@ describe('MCP tool input schemas', () => {
     ).toEqual({ from: '2026-10-01', to: '2026-10-31' });
   });
 
-  it('accepts dry_run on every MCP write tool input schema', () => {
-    const scheduledDraft = { ...validDraft, status: 'SCHEDULED' as const };
-    expect(
-      draftWorkshopOrderInputSchema.parse({ ...scheduledDraft, dry_run: true }),
-    ).toMatchObject({ dry_run: true });
-
-    for (const toolName of MCP_WRITE_TOOL_NAMES) {
-      const schema = mcpWriteToolInputSchemas[toolName];
-      const parsed = schema.safeParse({ dry_run: true });
-      if (parsed.success) {
-        expect(parsed.data).toMatchObject({ dry_run: true });
-        continue;
-      }
-      const rejectsDryRun = parsed.error.issues.some(
-        (issue) =>
-          issue.code === 'unrecognized_keys' &&
-          'keys' in issue &&
-          (issue.keys).includes('dry_run'),
-      );
-      expect(rejectsDryRun).toBe(false);
-    }
-  });
-
   it('rejects unknown fields on MCP write tool schemas', () => {
     const scheduledDraft = { ...validDraft, status: 'SCHEDULED' as const };
     expect(draftWorkshopOrderInputSchema.parse(scheduledDraft)).toEqual(
       scheduledDraft,
     );
     expect(() =>
-      draftWorkshopOrderInputSchema.parse({
-        ...scheduledDraft,
-        unexpected_field: true,
-      }),
+      draftWorkshopOrderInputSchema.parse({ ...scheduledDraft, dry_run: true }),
     ).toThrow(/unrecognized/i);
+
+    for (const toolName of MCP_WRITE_TOOL_NAMES) {
+      const schema = mcpWriteToolInputSchemas[toolName];
+      expect(() => schema.parse({ dry_run: true })).toThrow();
+    }
   });
 
   it('accepts only SCHEDULED as the draft workshop order status', () => {
