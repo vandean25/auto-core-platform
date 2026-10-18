@@ -1,7 +1,4 @@
-import {
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { Logger, NotFoundException } from '@nestjs/common';
 import { AgentProposalStatus, type AgentProposal } from '@prisma/client';
 import type { AgentActionLogService } from '../agent-action-log/agent-action-log.service.js';
 import { DryRunStorage } from '../dry-run/dry-run.storage.js';
@@ -147,8 +144,7 @@ export async function markExecutionFailed(params: {
 }): Promise<void> {
   const { prisma, agentActionLog, proposal, tenantId, approverId, error } =
     params;
-  const reason =
-    error instanceof Error ? error.message : 'Execution failed';
+  const reason = error instanceof Error ? error.message : 'Execution failed';
   try {
     await prisma.$transaction(async (tx) => {
       const failed = await tx.agentProposal.updateMany({

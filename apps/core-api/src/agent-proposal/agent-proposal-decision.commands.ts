@@ -1,4 +1,8 @@
-import { ConflictException, Injectable, UnprocessableEntityException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { AgentPolicyTier, AgentProposalStatus } from '@prisma/client';
 import { AgentActionLogService } from '../agent-action-log/agent-action-log.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
@@ -120,11 +124,7 @@ export class AgentProposalDecisionService {
       tenantId,
       currentUser.id,
     );
-    await assertPolicyAllowsApproval(
-      this.policyEvaluator,
-      proposal,
-      executor,
-    );
+    await assertPolicyAllowsApproval(this.policyEvaluator, proposal, executor);
     await assertSiteMatchesSimulation(this.siteContext, proposal);
 
     const deciderContacts = await loadTenantUserContacts(

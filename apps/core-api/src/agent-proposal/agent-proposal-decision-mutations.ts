@@ -108,8 +108,7 @@ export async function resolveExecutorOrFail(
         },
         data: {
           status: AgentProposalStatus.FAILED,
-          reason:
-            error instanceof Error ? error.message : 'Unsupported action',
+          reason: error instanceof Error ? error.message : 'Unsupported action',
         },
       });
       if (failed.count === 0) return;

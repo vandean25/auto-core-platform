@@ -8,7 +8,9 @@ export type ProposalAuditActor = {
 };
 
 export function proposalAgentId(proposal: AgentProposal): string | undefined {
-  return proposal.created_by_agent ?? getOriginatingAgentId(proposal.payload_json);
+  return (
+    proposal.created_by_agent ?? getOriginatingAgentId(proposal.payload_json)
+  );
 }
 
 export function proposalUserAuditBase({

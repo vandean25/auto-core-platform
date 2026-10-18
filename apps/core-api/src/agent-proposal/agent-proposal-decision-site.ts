@@ -13,10 +13,7 @@ export async function assertSiteMatchesSimulation(
     return;
   }
   const intendedSiteId = readExecutionSiteId(proposal.preview_json);
-  if (
-    !intendedSiteId ||
-    (await siteContext.getSiteId()) !== intendedSiteId
-  ) {
+  if (!intendedSiteId || (await siteContext.getSiteId()) !== intendedSiteId) {
     throw new UnprocessableEntityException(
       'Select the site where this action was simulated before applying it',
     );
