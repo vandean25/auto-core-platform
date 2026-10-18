@@ -11,14 +11,18 @@ import { applyZodLocale } from './zod-locale'
 import { resolveInitialUiLanguage } from './storage'
 import { syncDocumentLang } from './sync-document-lang'
 import { refreshMountedFormValidations } from './form-validation-refresh'
+import { ensureCustomerSearchI18n } from '@/components/sales/customer-search-i18n'
 
 export type InitI18nOptions = {
   language?: UiLanguage
 }
 
+/** CustomerSearch combobox copy must resolve on first paint (not lazy-only). */
+const STARTUP_PRELOAD_NAMESPACES: readonly AppNamespace[] = [...PRELOAD_NAMESPACES, 'customers']
+
 async function preloadNamespaces(language: UiLanguage): Promise<void> {
   const bundles = await Promise.all(
-    PRELOAD_NAMESPACES.map(async (namespace) => [namespace, await loadNamespace(language, namespace)] as const),
+    STARTUP_PRELOAD_NAMESPACES.map(async (namespace) => [namespace, await loadNamespace(language, namespace)] as const),
   )
   for (const [namespace, resources] of bundles) {
     i18n.addResourceBundle(language, namespace, resources, true, true)
@@ -33,7 +37,7 @@ export async function initI18n(options: InitI18nOptions = {}): Promise<typeof i1
       lng: language,
       fallbackLng: DEFAULT_UI_LANGUAGE,
       supportedLngs: ['de', 'en'],
-      ns: [...PRELOAD_NAMESPACES],
+      ns: [...STARTUP_PRELOAD_NAMESPACES],
       defaultNS: 'common',
       interpolation: { escapeValue: true },
       returnNull: false,
@@ -46,6 +50,7 @@ export async function initI18n(options: InitI18nOptions = {}): Promise<typeof i1
   }
 
   await preloadNamespaces(language)
+  await ensureCustomerSearchI18n()
   syncDocumentLang(language)
   applyZodLocale(language)
 

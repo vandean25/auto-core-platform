@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CustomerSearch } from './CustomerSearch'
 import * as customersApi from '@/api/customers'
 import { deCustomers } from '@/test/de-customers'
-import { LAZY_NAMESPACES, PRELOAD_NAMESPACES } from '@/lib/i18n/constants'
+import * as customerSearchI18n from './customer-search-i18n'
 import * as i18nModule from '@/lib/i18n'
 
 vi.mock('@/api/customers')
@@ -27,11 +27,19 @@ describe('CustomerSearch', () => {
     vi.restoreAllMocks()
   })
 
-  it('requires customers in PRELOAD_NAMESPACES (removing it restores raw search.selectPlaceholder)', async () => {
-    expect(PRELOAD_NAMESPACES).toContain('customers')
-    expect(LAZY_NAMESPACES).not.toContain('customers')
+  it('loads customers through ensureNamespaceLoaded via ensureCustomerSearchI18n', async () => {
+    const ensureSpy = vi.spyOn(i18nModule, 'ensureNamespaceLoaded').mockResolvedValue(undefined)
+    await customerSearchI18n.ensureCustomerSearchI18n()
+    expect(ensureSpy).toHaveBeenCalledWith('customers')
+    ensureSpy.mockRestore()
+  })
+
+  it('bootstraps customers during initI18n for combobox copy', async () => {
+    const loadSpy = vi.spyOn(customerSearchI18n, 'ensureCustomerSearchI18n')
     await i18nModule.initI18n({ language: 'de' })
+    expect(loadSpy).toHaveBeenCalled()
     expect(i18nModule.i18n.hasResourceBundle('de', 'customers')).toBe(true)
+    loadSpy.mockRestore()
   })
 
   it('shows the translated select placeholder on the combobox', () => {
