@@ -11,13 +11,15 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import type { AuthenticatedUser } from '../auth/types/authenticated-user.js';
 import { MCP_MAX_OPEN_SESSIONS } from './mcp.constants.js';
-import type { McpServerSessionContext } from './mcp-server.factory.js';
-import { createMcpServerWithComplianceReads } from './mcp-server.factory.aut605.js';
+import {
+  createMcpServer,
+  type McpServerSessionContext,
+} from './mcp-server.factory.js';
 import {
   formatMcpAgentId,
   resolveMcpClientNameFromInitializeBody,
 } from './mcp-agent-id.util.js';
-import { McpToolHandlerComplianceWrapper } from './mcp-tool-handler.compliance-wrapper.js';
+import { McpToolHandlerService } from './mcp-tool-handler.service.js';
 import { respondMcpSessionNotFound } from './mcp-session.util.js';
 
 const MCP_IDLE_SESSION_MS = 30 * 60 * 1000;
@@ -37,7 +39,7 @@ export class McpSessionService implements OnModuleInit, OnModuleDestroy {
   private readonly sessions = new Map<string, McpSessionRecord>();
   private sweepTimer: ReturnType<typeof setInterval> | undefined;
 
-  constructor(private readonly toolHandler: McpToolHandlerComplianceWrapper) {}
+  constructor(private readonly toolHandler: McpToolHandlerService) {}
 
   onModuleInit(): void {
     this.sweepTimer = setInterval(() => {
@@ -108,10 +110,7 @@ export class McpSessionService implements OnModuleInit, OnModuleDestroy {
         }
       };
 
-      const server = createMcpServerWithComplianceReads(
-        this.toolHandler,
-        context,
-      );
+      const server = createMcpServer(this.toolHandler, context);
       await server.connect(transport);
       await transport.handleRequest(req, res, body);
       return;

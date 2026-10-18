@@ -46,8 +46,9 @@ export class McpReadToolServiceAut605 extends McpReadToolService {
     reportReads: McpReportReadService,
     availabilityReads: McpAvailabilityReadService,
     workshopOrderDetailReads: McpWorkshopOrderDetailReadService,
-    _complianceReads: McpComplianceReadFacade,
+    complianceReads: McpComplianceReadFacade,
   ) {
+    void complianceReads;
     super(
       capabilities,
       auditReads,

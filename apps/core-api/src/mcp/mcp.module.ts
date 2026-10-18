@@ -41,6 +41,7 @@ import { McpListingReadService } from './mcp-listing-read.service.js';
 import { McpStockReadService } from './mcp-stock-read.service.js';
 import { McpController } from './mcp.controller.js';
 import { McpSessionService } from './mcp-session.service.js';
+import { McpSessionServiceAut605 } from './mcp-session.service.aut605.js';
 import { McpToolHandlerService } from './mcp-tool-handler.service.js';
 import { McpWritePipelineService } from './mcp-write-pipeline.service.js';
 import { McpWriteCommandIdempotencyService } from './mcp-write-command-idempotency.service.js';
@@ -97,7 +98,7 @@ import { InvoicesModule } from '../invoices/invoices.module.js';
     McpComplianceReadService,
     McpComplianceReadListsService,
     McpComplianceReadFacade,
-    McpSessionService,
+    { provide: McpSessionService, useClass: McpSessionServiceAut605 },
     McpUserLocaleService,
   ],
 })

@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import type { McpToolName } from './mcp.constants.js';
 import { McpToolHandlerService } from './mcp-tool-handler.service.js';
 import type { McpToolCallContext } from './mcp-tool-handler.service.js';
 import { McpComplianceReadFacade } from './mcp-compliance-read.facade.js';
