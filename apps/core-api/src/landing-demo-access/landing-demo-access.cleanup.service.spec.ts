@@ -45,6 +45,10 @@ describe('LandingDemoAccessCleanupService', () => {
         count: tenantMemberCount,
       },
       publicRateLimitCounter: { deleteMany },
+      withCronJobLock: jest.fn(async (_name: string, fn: () => Promise<void>) => {
+        await fn();
+        return true;
+      }),
     } as unknown as SystemPrismaService;
 
     const service = new LandingDemoAccessCleanupService(systemPrisma);

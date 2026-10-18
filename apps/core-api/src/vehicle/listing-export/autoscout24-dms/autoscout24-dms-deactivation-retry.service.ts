@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { RequestContextService } from '../../../common/services/request-context.service.js';
 import { SystemPrismaService } from '../../../prisma/system-prisma.service.js';
@@ -11,7 +11,7 @@ import { Autoscout24DmsListingPushService } from './autoscout24-dms-listing-push
  */
 @Injectable()
 export class Autoscout24DmsDeactivationRetryService {
-  private running = false;
+  private readonly logger = new Logger(Autoscout24DmsDeactivationRetryService.name);
 
   constructor(
     private readonly systemPrisma: SystemPrismaService,
@@ -26,26 +26,24 @@ export class Autoscout24DmsDeactivationRetryService {
     if (!isVehicleListingAs24PushEnvEnabled()) {
       return;
     }
-    if (this.running) {
-      return;
-    }
-    this.running = true;
-    try {
-      const tenants = await this.systemPrisma.tenant.findMany({
-        where: {
-          vehicleListingPushSettings: { is: { as24_dms_push_enabled: true } },
-        },
-        select: { id: true },
-      });
-      for (const { id: tenantId } of tenants) {
-        await this.requestContext.runAsWorker(
-          tenantId,
-          () => this.pushService.retryPendingDeactivations(),
-          { workerId: 'autoscout24-dms-deactivation-retry' },
-        );
-      }
-    } finally {
-      this.running = false;
-    }
+    await this.systemPrisma.withCronJobLock(
+      'autoscout24-dms-deactivation-retry',
+      async () => {
+        const tenants = await this.systemPrisma.tenant.findMany({
+          where: {
+            vehicleListingPushSettings: { is: { as24_dms_push_enabled: true } },
+          },
+          select: { id: true },
+        });
+        for (const { id: tenantId } of tenants) {
+          await this.requestContext.runAsWorker(
+            tenantId,
+            () => this.pushService.retryPendingDeactivations(),
+            { workerId: 'autoscout24-dms-deactivation-retry' },
+          );
+        }
+      },
+      this.logger,
+    );
   }
 }

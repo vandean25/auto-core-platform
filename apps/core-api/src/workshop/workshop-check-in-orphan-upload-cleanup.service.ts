@@ -12,8 +12,6 @@ export class WorkshopCheckInOrphanUploadCleanupService {
   private readonly logger = new Logger(
     WorkshopCheckInOrphanUploadCleanupService.name,
   );
-  private running = false;
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly systemPrisma: SystemPrismaService,
@@ -29,46 +27,44 @@ export class WorkshopCheckInOrphanUploadCleanupService {
     if (!config.enabled) {
       return;
     }
-    if (this.running) {
-      return;
-    }
-    this.running = true;
     const cutoff = new Date(Date.now() - config.ttlMs);
-    try {
-      const tenants = await this.systemPrisma.tenant.findMany({
-        select: { id: true },
-      });
-      for (const tenant of tenants) {
-        try {
-          const counts = await this.requestContext.runAsWorker(
-            tenant.id,
-            () =>
-              purgeOrphanCheckInUploadsForTenant(
-                this.prisma,
-                this.mediaStorage,
-                tenant.id,
-                cutoff,
-                config.batchSize,
-              ),
-            { workerId: 'workshop-check-in-orphan-upload-cleanup' },
-          );
-          if (
-            counts.deleted > 0 ||
-            counts.skipped > 0 ||
-            counts.storage_failed > 0
-          ) {
-            this.logger.log(
-              `Check-in orphan upload purge tenant=${tenant.id} scanned=${counts.scanned} deleted=${counts.deleted} skipped=${counts.skipped} storage_failed=${counts.storage_failed}`,
+    await this.systemPrisma.withCronJobLock(
+      'workshop-check-in-orphan-upload-cleanup',
+      async () => {
+        const tenants = await this.systemPrisma.tenant.findMany({
+          select: { id: true },
+        });
+        for (const tenant of tenants) {
+          try {
+            const counts = await this.requestContext.runAsWorker(
+              tenant.id,
+              () =>
+                purgeOrphanCheckInUploadsForTenant(
+                  this.prisma,
+                  this.mediaStorage,
+                  tenant.id,
+                  cutoff,
+                  config.batchSize,
+                ),
+              { workerId: 'workshop-check-in-orphan-upload-cleanup' },
+            );
+            if (
+              counts.deleted > 0 ||
+              counts.skipped > 0 ||
+              counts.storage_failed > 0
+            ) {
+              this.logger.log(
+                `Check-in orphan upload purge tenant=${tenant.id} scanned=${counts.scanned} deleted=${counts.deleted} skipped=${counts.skipped} storage_failed=${counts.storage_failed}`,
+              );
+            }
+          } catch (cause) {
+            this.logger.error(
+              `Check-in orphan upload purge failed for tenant=${tenant.id}: ${cause instanceof Error ? cause.message : 'unknown'}`,
             );
           }
-        } catch (cause) {
-          this.logger.error(
-            `Check-in orphan upload purge failed for tenant=${tenant.id}: ${cause instanceof Error ? cause.message : 'unknown'}`,
-          );
         }
-      }
-    } finally {
-      this.running = false;
-    }
+      },
+      this.logger,
+    );
   }
 }

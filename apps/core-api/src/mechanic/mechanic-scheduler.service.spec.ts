@@ -7,6 +7,10 @@ const mockSystemPrisma = {
     findMany: jest.fn(),
     update: jest.fn(),
   },
+  withCronJobLock: jest.fn(async (_name: string, fn: () => Promise<void>) => {
+    await fn();
+    return true;
+  }),
 } as unknown as SystemPrismaService;
 
 describe('MechanicSchedulerService', () => {

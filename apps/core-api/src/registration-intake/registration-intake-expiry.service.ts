@@ -22,23 +22,29 @@ export class RegistrationIntakeExpiryService {
 
   @Cron(CronExpression.EVERY_HOUR, { name: 'registration-intake-expiry' })
   async expireUnapplied(): Promise<void> {
-    const tenants = await this.systemPrisma.tenant.findMany({
-      select: { id: true },
-    });
-    const now = new Date();
-    for (const tenant of tenants) {
-      try {
-        await this.requestContext.runAsWorker(
-          tenant.id,
-          () => this.expireForTenant(tenant.id, now),
-          { workerId: 'registration-intake-expiry' },
-        );
-      } catch (cause) {
-        this.logger.error(
-          `Registration intake expiry failed: ${cause instanceof Error ? cause.message : 'unknown'}`,
-        );
-      }
-    }
+    await this.systemPrisma.withCronJobLock(
+      'registration-intake-expiry',
+      async () => {
+        const tenants = await this.systemPrisma.tenant.findMany({
+          select: { id: true },
+        });
+        const now = new Date();
+        for (const tenant of tenants) {
+          try {
+            await this.requestContext.runAsWorker(
+              tenant.id,
+              () => this.expireForTenant(tenant.id, now),
+              { workerId: 'registration-intake-expiry' },
+            );
+          } catch (cause) {
+            this.logger.error(
+              `Registration intake expiry failed: ${cause instanceof Error ? cause.message : 'unknown'}`,
+            );
+          }
+        }
+      },
+      this.logger,
+    );
   }
 
   private async expireForTenant(tenantId: string, now: Date): Promise<void> {

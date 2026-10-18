@@ -1,6 +1,7 @@
 import {
   Injectable,
   Logger,
+  type LoggerService,
   OnModuleDestroy,
   OnModuleInit,
 } from '@nestjs/common';
@@ -17,6 +18,7 @@ import {
   type SystemPrismaClient,
   type SystemPrismaTransactionClient,
 } from './system-prisma.types.js';
+import { withCronJobLock } from '../scheduler/cron-job-advisory-lock.js';
 
 /**
  * Unextended Prisma client for global identity and three documented exceptions.
@@ -142,6 +144,18 @@ export class SystemPrismaService
     return this.prisma.$transaction((transaction) => {
       return fn(createSystemPrismaTransactionClient(transaction));
     }, options);
+  }
+
+  /**
+   * Cluster-wide dedup for in-process @Cron handlers (AUT-611). Uses Postgres session
+   * advisory locks on the shared runtime pool connection for this instance.
+   */
+  async withCronJobLock(
+    jobName: string,
+    fn: () => Promise<void>,
+    logger?: Pick<LoggerService, 'log'>,
+  ): Promise<boolean> {
+    return withCronJobLock(this.prisma, jobName, fn, logger);
   }
 
   async onModuleInit() {

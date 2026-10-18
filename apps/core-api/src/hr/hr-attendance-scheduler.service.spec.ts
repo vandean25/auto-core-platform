@@ -20,6 +20,10 @@ describe('HrAttendanceSchedulerService', () => {
         findMany: jest.fn(),
         create: jest.fn().mockResolvedValue({ id: 'evt-new' }),
       },
+      withCronJobLock: jest.fn(async (_name: string, fn: () => Promise<void>) => {
+        await fn();
+        return true;
+      }),
     };
 
     const module: TestingModule = await Test.createTestingModule({

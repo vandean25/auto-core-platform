@@ -24,24 +24,30 @@ export class NotificationOutboxRetentionService {
 
   @Cron('17 3 * * *', { name: 'notification-outbox-body-purge' })
   async purgeBodies(): Promise<void> {
-    const tenants = await this.systemPrisma.tenant.findMany({
-      select: { id: true },
-    });
-    const now = new Date();
-    for (const { id: tenantId } of tenants) {
-      try {
-        await this.requestContext.runAsWorker(
-          tenantId,
-          () => this.purgeForTenant(tenantId, now),
-          { workerId: 'notification-outbox-body-purge' },
-        );
-      } catch (cause) {
-        // One tenant's failure must not skip the tenants after it; the next night retries it.
-        this.logger.error(
-          `Notification body purge failed for one tenant: ${cause instanceof Error ? cause.name : 'unknown error'}`,
-        );
-      }
-    }
+    await this.systemPrisma.withCronJobLock(
+      'notification-outbox-body-purge',
+      async () => {
+        const tenants = await this.systemPrisma.tenant.findMany({
+          select: { id: true },
+        });
+        const now = new Date();
+        for (const { id: tenantId } of tenants) {
+          try {
+            await this.requestContext.runAsWorker(
+              tenantId,
+              () => this.purgeForTenant(tenantId, now),
+              { workerId: 'notification-outbox-body-purge' },
+            );
+          } catch (cause) {
+            // One tenant's failure must not skip the tenants after it; the next night retries it.
+            this.logger.error(
+              `Notification body purge failed for one tenant: ${cause instanceof Error ? cause.name : 'unknown error'}`,
+            );
+          }
+        }
+      },
+      this.logger,
+    );
   }
 
   private async purgeForTenant(tenantId: string, now: Date): Promise<void> {

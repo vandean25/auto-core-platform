@@ -51,5 +51,6 @@ Any new Prisma model is forbidden until it is added to `SYSTEM_PRISMA_MODEL_DELE
 | `NotificationOutboxWorkerService` | `tenant` (`findFirst` by id, reads `is_active` before a claim; ADR-0025) |
 | `NotificationOutboxRecoveryService` | `tenant` (`findMany`: the tenant list and `is_active`, for the minute sweep; ADR-0025) |
 | `NotificationOutboxRetentionService` | `tenant` (`findMany`: the tenant list, for the daily body purge; ADR-0025) |
+| All core-api `@Cron` services (AUT-611) | `$queryRaw` / `$executeRaw` on the runtime pool **only** via `SystemPrismaService.withCronJobLock` for Postgres session advisory locks (not tenant data) |
 
 Do not inject `SystemPrismaService` into feature modules (customers, workshop, inventory, …). Use `PrismaService`.
