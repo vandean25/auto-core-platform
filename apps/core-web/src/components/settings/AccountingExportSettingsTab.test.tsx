@@ -3,7 +3,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import deSettings from '../../../../../locales/de/settings.json'
-import { AccountingExportSettingsPanel as AccountingExportSettingsTab } from './accounting-export-settings-panel'
+import { AccountingExportSettingsTab } from './AccountingExportSettingsTab'
 
 afterEach(() => {
   cleanup()
