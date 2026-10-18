@@ -8,8 +8,17 @@ tools/
 test-results/
 secrets/
 
-# Internal engineering docs (Obsidian vault, ADRs, runbooks).
-docs/internal/
+# Monorepo engineering tree (ADRs, runbooks, superpowers plans/specs, ops notes).
+# Public Mintlify pages live at the repo root only: *.mdx here plus workflows/, settings/, operations/.
+docs/
+
+# Agent workflow artifacts — not user-facing documentation.
+.superpowers/
+.agents/
+
+# Repository and GitHub-only markdown.
+.github/
+README.md
 
 # Large API discovery dumps and repo metadata — not user-facing docs assets.
 identitytoolkit-v1-discovery.json

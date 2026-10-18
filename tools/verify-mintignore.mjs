@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 
-export const REQUIRED_MINTIGNORE_PATTERNS = ['apps/', 'infra/', 'tools/', 'docs/internal/'];
+export const REQUIRED_MINTIGNORE_PATTERNS = ['apps/', 'infra/', 'tools/', 'docs/', '.superpowers/'];
 
 export function assertMintignore(mintignorePath = '.mintignore') {
   const mintignore = readFileSync(mintignorePath, 'utf8');
