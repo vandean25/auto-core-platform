@@ -1,0 +1,42 @@
+{
+  "tenants": {
+    "pageTitle": "Mandanten",
+    "pageDescription": "Plattform-Mandanten, Tarife und Onboarding-Status verwalten.",
+    "createButton": "+ Mandant",
+    "searchPlaceholder": "Mandanten suchen…",
+    "loadFailed": "Mandanten konnten nicht geladen werden.",
+    "retry": "Erneut versuchen",
+    "columns": {
+      "name": "Name",
+      "plan": "Tarif",
+      "members": "Mitglieder",
+      "status": "Status"
+    },
+    "createDialog": {
+      "title": "Mandant anlegen",
+      "description": "Legt den Mandanten und die Standard-Finanzeinstellungen an.",
+      "slugPlaceholder": "north-branch",
+      "submit": "Mandant anlegen"
+    },
+    "editSheet": {
+      "title": "Mandantendetails",
+      "description": "Plattform-Metadaten und Aktivierungsstatus für diesen Mandanten bearbeiten.",
+      "currentMembers": "Aktuelle Mitglieder: {{count}}",
+      "submit": "Mandant speichern"
+    },
+    "form": {
+      "name": "Name",
+      "slug": "Slug",
+      "plan": "Tarif",
+      "status": "Status",
+      "statusActive": "Aktiv",
+      "statusInactive": "Inaktiv"
+    },
+    "toast": {
+      "created": "Mandant angelegt",
+      "updated": "Mandant gespeichert",
+      "createFailed": "Mandant konnte nicht angelegt werden.",
+      "updateFailed": "Mandant konnte nicht gespeichert werden."
+    }
+  }
+}
