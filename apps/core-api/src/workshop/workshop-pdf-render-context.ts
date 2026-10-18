@@ -2,8 +2,12 @@ import {
   loadTenantDefaultLocale,
   resolveCustomerDocumentLanguage,
 } from '../common/i18n/customer-document-language.js';
-import { readDocumentSnapshotLocaleFields } from '../common/i18n/document-snapshot-locale.js';
+import type { DocumentSnapshotLocaleReader } from '../common/i18n/document-snapshot-locale.js';
 import type { DisplayLanguage } from '../common/i18n/display-language.js';
+import {
+  resolveLocalizedDocumentLocale,
+  snapshotUsesLocalizedPdfResources,
+} from '../common/i18n/pdf-resource-bundle.js';
 import type {
   PdfRenderMode,
   ResolvedPdfRenderMode,
@@ -25,11 +29,10 @@ export async function resolveWorkshopOrderPdfRenderContext(
   order: WorkshopOrderForPdf,
   existingRenderInput: unknown,
 ): Promise<ResolvedPdfRenderMode> {
-  const frozen = readDocumentSnapshotLocaleFields(
-    existingRenderInput as { document_locale?: DisplayLanguage | null } | null,
-  );
-  if (frozen) {
-    return { mode: 'localized', documentLocale: frozen.document_locale };
+  const renderInput = existingRenderInput as DocumentSnapshotLocaleReader | null;
+  const locale = resolveLocalizedDocumentLocale(renderInput);
+  if (locale && snapshotUsesLocalizedPdfResources(renderInput)) {
+    return { mode: 'localized', documentLocale: locale };
   }
 
   if (existingRenderInput && typeof existingRenderInput === 'object') {

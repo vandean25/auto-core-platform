@@ -4,7 +4,9 @@ import {
   buildBrandedInvoiceHeaderTemplate,
   buildInvoiceFooterTemplate,
 } from './invoice-pdf.layout.js';
+import { resolveInvoicePdfLayoutContext } from './invoice-pdf-layout-context.js';
 import type { InvoiceSnapshot } from './invoice-snapshot.js';
+import { isCreditNoteSnapshot, isDachRechnungSnapshot } from './invoice-pdf.layout.js';
 
 export type InvoicePdfOptions = NonNullable<Parameters<Page['pdf']>[0]>;
 
@@ -41,10 +43,30 @@ function buildInvoicePdfHeaderTemplate({
     : '<div></div>';
 }
 
+function resolveLocalizedInvoiceFooterTitlePrefix(
+  snapshot: InvoiceSnapshot,
+): string | null {
+  const ctx = resolveInvoicePdfLayoutContext(snapshot);
+  if (!ctx) {
+    return null;
+  }
+  const { t } = ctx;
+  if (isCreditNoteSnapshot(snapshot)) {
+    return snapshot.credit_title ?? t('invoice.creditTitle');
+  }
+  if (isDachRechnungSnapshot(snapshot)) {
+    return t('invoice.title');
+  }
+  return t('invoice.legacyTitle');
+}
+
 /** Assembles the page.pdf() options for one invoice render. */
 export function buildInvoicePdfOptions(
   input: InvoicePdfOptionsInput,
 ): InvoicePdfOptions {
+  const footerTitlePrefix = resolveLocalizedInvoiceFooterTitlePrefix(
+    input.snapshot,
+  );
   return {
     format: 'A4',
     margin: buildInvoicePdfMargin(input.branded),
@@ -55,6 +77,7 @@ export function buildInvoicePdfOptions(
       escapeHtml,
       input.snapshot,
       input.fontFaceCss,
+      footerTitlePrefix,
     ),
     printBackground: true,
   };

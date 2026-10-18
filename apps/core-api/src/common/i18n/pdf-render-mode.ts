@@ -1,5 +1,6 @@
 import type { DisplayLanguage } from './display-language.js';
-import { readDocumentSnapshotLocaleFields } from './document-snapshot-locale.js';
+import { resolveLocalizedDocumentLocale } from './pdf-resource-bundle.js';
+import type { DocumentSnapshotLocaleReader } from './document-snapshot-locale.js';
 
 export type PdfRenderMode = 'legacy' | 'localized';
 
@@ -9,15 +10,16 @@ export type ResolvedPdfRenderMode = {
 };
 
 /**
- * Legacy snapshots without frozen `document_locale` keep the pre-AUT-586 renderer
- * (German labels and historical date rules). New snapshots use localized resources.
+ * Legacy path: no frozen locale, or AUT-576 placeholders (pre-resources-v1)
+ * that were never rendered with locales pdf.json. Localized path requires
+ * the current I18N_TRANSLATION_BUNDLE_VERSION on the snapshot.
  */
 export function resolvePdfRenderMode(
-  snapshot: { document_locale?: DisplayLanguage | null } | null | undefined,
+  snapshot: DocumentSnapshotLocaleReader | null | undefined,
 ): ResolvedPdfRenderMode {
-  const frozen = readDocumentSnapshotLocaleFields(snapshot ?? undefined);
-  if (!frozen) {
+  const locale = resolveLocalizedDocumentLocale(snapshot);
+  if (!locale) {
     return { mode: 'legacy', documentLocale: 'de' };
   }
-  return { mode: 'localized', documentLocale: frozen.document_locale };
+  return { mode: 'localized', documentLocale: locale };
 }

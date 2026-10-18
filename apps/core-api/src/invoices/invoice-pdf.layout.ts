@@ -594,12 +594,15 @@ export const buildInvoiceFooterTemplate = (
   escape: EscapeHtml,
   snapshot: InvoiceSnapshot,
   fontFaceCss = '',
+  localizedTitlePrefix?: string | null,
 ): string => {
-  const prefix = isCreditNoteSnapshot(snapshot)
-    ? (snapshot.credit_title ?? 'Rechnungskorrektur')
-    : isDachRechnungSnapshot(snapshot)
-      ? 'Rechnung'
-      : 'Invoice';
+  const prefix =
+    localizedTitlePrefix ??
+    (isCreditNoteSnapshot(snapshot)
+      ? (snapshot.credit_title ?? 'Rechnungskorrektur')
+      : isDachRechnungSnapshot(snapshot)
+        ? 'Rechnung'
+        : 'Invoice');
   if (snapshot.template_version === 'invoice-brand-v1' && snapshot.branding) {
     const { tokens } = snapshot.branding;
     const bandColor =

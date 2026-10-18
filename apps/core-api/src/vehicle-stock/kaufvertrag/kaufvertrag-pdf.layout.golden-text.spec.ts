@@ -1,5 +1,9 @@
 import { extractVisibleTextFromHtml } from '../../common/pdf/pdf-html-text.js';
 import { I18N_TRANSLATION_BUNDLE_VERSION } from '../../common/i18n/display-language.js';
+import {
+  loadPdfLocaleJson,
+  pdfLocaleString,
+} from '../../common/i18n/pdf-locale-test-helpers.js';
 import { buildKaufvertragHtmlDocument } from './kaufvertrag-pdf.layout.js';
 import {
   buildKaufvertragSnapshot,
@@ -83,14 +87,20 @@ const BASE_INPUT: KaufvertragSnapshotInput = {
 };
 
 describe('kaufvertrag-pdf.layout golden text', () => {
-  it('renders the German contract title by default', () => {
+  const dePdf = loadPdfLocaleJson('de');
+  const enPdf = loadPdfLocaleJson('en');
+
+  it('renders the German contract title from pdf.json by default', () => {
     const snapshot = buildKaufvertragSnapshot(BASE_INPUT);
-    const html = buildKaufvertragHtmlDocument(snapshot, { fontFaceCss: '' });
-    const text = extractVisibleTextFromHtml(html);
-    expect(text).toContain('Kaufvertrag über ein gebrauchtes Kraftfahrzeug');
+    const text = extractVisibleTextFromHtml(
+      buildKaufvertragHtmlDocument(snapshot, { fontFaceCss: '' }),
+    );
+    expect(text).toContain(pdfLocaleString(dePdf, 'kaufvertrag.titleFull'));
+    expect(text).toContain(pdfLocaleString(dePdf, 'kaufvertrag.sellerHeading'));
+    expect(text).toContain(pdfLocaleString(dePdf, 'kaufvertrag.makeModelLabel'));
   });
 
-  it('renders English heading and legal notice when document_locale is en', () => {
+  it('renders English presentation labels from pdf.json when document_locale is en', () => {
     const snapshot = {
       ...buildKaufvertragSnapshot({ ...BASE_INPUT, documentLocale: 'en' }),
       document_locale: 'en' as const,
@@ -98,11 +108,14 @@ describe('kaufvertrag-pdf.layout golden text', () => {
       translation_bundle_version: I18N_TRANSLATION_BUNDLE_VERSION,
       legal_text_version: null,
     };
-    const html = buildKaufvertragHtmlDocument(snapshot, { fontFaceCss: '' });
-    const text = extractVisibleTextFromHtml(html);
-    expect(text).toContain('Purchase contract');
-    expect(text).toContain(
-      'The German version of the legal texts is authoritative',
+    const text = extractVisibleTextFromHtml(
+      buildKaufvertragHtmlDocument(snapshot, { fontFaceCss: '' }),
     );
+    expect(text).toContain(pdfLocaleString(enPdf, 'kaufvertrag.titleFull'));
+    expect(text).toContain(pdfLocaleString(enPdf, 'kaufvertrag.sellerHeading'));
+    expect(text).toContain(pdfLocaleString(enPdf, 'kaufvertrag.buyerHeading'));
+    expect(text).toContain(pdfLocaleString(enPdf, 'kaufvertrag.makeModelLabel'));
+    expect(text).toContain(pdfLocaleString(enPdf, 'legal.authoritativeGermanNotice'));
+    expect(text).toContain('Gewährleistung');
   });
 });

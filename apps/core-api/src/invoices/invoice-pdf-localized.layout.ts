@@ -3,12 +3,10 @@ import type { EscapeHtml, FormatDate } from './invoice-pdf.layout.js';
 import {
   buildInvoiceDocumentStyles,
   buildInvoiceHtmlDocument,
-  buildInvoiceNotesSection,
   buildInvoiceSellerSection,
   buildInvoiceTotalsSection,
-  buildInvoiceVehicleSection,
-  buildCreditNoteOriginalReferenceSection,
   isCreditNoteSnapshot,
+  isDachRechnungSnapshot,
 } from './invoice-pdf.layout.js';
 import type { InvoiceSnapshot } from './invoice-snapshot.js';
 import { buildAuthoritativeGermanLegalNoticeHtml } from '../common/i18n/pdf-legal-notice.js';
@@ -160,6 +158,43 @@ function localizedItemsTable(
   `;
 }
 
+function localizedTaxBreakdownSection(
+  snapshot: InvoiceSnapshot,
+  escapeHtml: EscapeHtml,
+  t: TFunction,
+): string {
+  if (
+    snapshot.tax_mode === 'MARGIN_SCHEME' ||
+    !isDachRechnungSnapshot(snapshot) ||
+    !snapshot.tax_breakdown?.length
+  ) {
+    return '';
+  }
+
+  const rows = snapshot.tax_breakdown
+    .map(
+      (bucket) => `
+      <div class="total-row tax-rate-row">
+        <span>${escapeHtml(
+          t('invoice.taxRateRow', {
+            rate: bucket.rate,
+            net: bucket.net,
+          }),
+        )}:</span>
+        <span>${escapeHtml(bucket.tax)}</span>
+      </div>
+    `,
+    )
+    .join('');
+
+  return `
+    <div class="tax-breakdown">
+      <div class="section-title">${escapeHtml(t('invoice.taxBreakdownTitle'))}</div>
+      ${rows}
+    </div>
+  `;
+}
+
 function localizedTotalsSection(
   snapshot: InvoiceSnapshot,
   escapeHtml: EscapeHtml,
@@ -169,7 +204,10 @@ function localizedTotalsSection(
     return buildInvoiceTotalsSection(snapshot, escapeHtml);
   }
 
+  const taxBreakdown = localizedTaxBreakdownSection(snapshot, escapeHtml, t);
+
   return `
+    ${taxBreakdown}
     <div class="totals">
       <div class="total-row">
         <span>${escapeHtml(t('invoice.netLabel'))}:</span>
@@ -183,6 +221,67 @@ function localizedTotalsSection(
         <span>${escapeHtml(t('invoice.grossLabel'))}:</span>
         <span>${escapeHtml(snapshot.total_gross)}</span>
       </div>
+    </div>
+  `;
+}
+
+function localizedCreditNoteOriginalReferenceSection(
+  snapshot: InvoiceSnapshot,
+  escapeHtml: EscapeHtml,
+  formatDate: FormatDate,
+  t: TFunction,
+): string {
+  if (!isCreditNoteSnapshot(snapshot) || !snapshot.original_document) {
+    return '';
+  }
+
+  const original = snapshot.original_document;
+  const originalDate = formatDate(`${original.date}T00:00:00.000Z`);
+
+  return `
+    <div class="section" style="margin-bottom: 18px; padding: 12px 14px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px;">
+      <div class="section-title">${escapeHtml(t('invoice.creditReferenceTitle'))}</div>
+      <div><strong>${escapeHtml(t('invoice.originalNumberLabel'))}:</strong> ${escapeHtml(original.number)}</div>
+      <div><strong>${escapeHtml(t('invoice.originalDateLabel'))}:</strong> ${escapeHtml(originalDate)}</div>
+      <div><strong>${escapeHtml(t('invoice.originalReasonLabel'))}:</strong> ${escapeHtml(original.reason)}</div>
+    </div>
+  `;
+}
+
+function localizedVehicleSection(
+  snapshot: InvoiceSnapshot,
+  escapeHtml: EscapeHtml,
+  t: TFunction,
+): string {
+  if (!snapshot.vehicle) {
+    return '';
+  }
+
+  const vehicle = snapshot.vehicle;
+
+  return `
+    <div class="section">
+      <div class="section-title">${escapeHtml(t('invoice.vehicleSectionTitle'))}:</div>
+      <div style="font-weight: 600;">${escapeHtml(vehicle.make)} ${escapeHtml(vehicle.model)} (${escapeHtml(vehicle.year)})</div>
+      ${vehicle.plate ? `<div>${escapeHtml(t('invoice.plateLabel'))}: <strong>${escapeHtml(vehicle.plate)}</strong></div>` : ''}
+      ${vehicle.vin ? `<div>${escapeHtml(t('invoice.vinLabel'))}: <span style="font-family: monospace;">${escapeHtml(vehicle.vin)}</span></div>` : ''}
+    </div>
+  `;
+}
+
+function localizedNotesSection(
+  snapshot: InvoiceSnapshot,
+  escapeHtml: EscapeHtml,
+  t: TFunction,
+): string {
+  if (!snapshot.notes) {
+    return '';
+  }
+
+  return `
+    <div class="section notes-container">
+      <div class="section-title">${escapeHtml(t('invoice.notesTitle'))}</div>
+      <div>${escapeHtml(snapshot.notes)}</div>
     </div>
   `;
 }
@@ -206,16 +305,16 @@ export function buildLocalizedInvoiceHtmlDocument(
   </head>
   <body>
     ${localizedHeader(invoiceNumber, escapeHtml, snapshot, t)}
-    ${buildCreditNoteOriginalReferenceSection(snapshot, escapeHtml, formatDate)}
+    ${localizedCreditNoteOriginalReferenceSection(snapshot, escapeHtml, formatDate, t)}
     <div style="display: flex; justify-content: space-between;">
       ${buildInvoiceSellerSection(snapshot, escapeHtml)}
       ${localizedMetaSection(snapshot, invoiceNumber, escapeHtml, formatDate, t)}
     </div>
     ${localizedCustomerSection(snapshot, escapeHtml, t)}
-    ${buildInvoiceVehicleSection(snapshot, escapeHtml)}
+    ${localizedVehicleSection(snapshot, escapeHtml, t)}
     ${localizedItemsTable(snapshot, escapeHtml, t)}
     ${localizedTotalsSection(snapshot, escapeHtml, t)}
-    ${buildInvoiceNotesSection(snapshot, escapeHtml)}
+    ${localizedNotesSection(snapshot, escapeHtml, t)}
     ${legalNotice}
   </body>
   </html>
