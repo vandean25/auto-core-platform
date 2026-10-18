@@ -25,6 +25,7 @@ import { GlobalSearch } from '@/components/GlobalSearch'
 import { DashboardWidgetsProvider } from '@/features/dashboard-widgets/DashboardWidgetsProvider'
 import { RealtimeDashboardSyncProvider } from '@/features/realtime/RealtimeDashboardSyncProvider'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
+import { ensureCustomerSearchI18n } from '@/components/sales/customer-search-i18n'
 import { generateId } from '@/lib/id'
 import { CheckInOfflinePurgeDialog } from '@/features/workshop/check-in/CheckInOfflinePurgeDialog'
 import { purgeAllCheckInOfflineData } from '@/features/workshop/check-in/check-in-offline-store'
@@ -426,6 +427,10 @@ function AuthenticatedApp() {
 }
 
 function App() {
+  React.useEffect(() => {
+    void ensureCustomerSearchI18n()
+  }, [])
+
   return (
     <Router>
       <RouteTitle />
