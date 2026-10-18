@@ -24,39 +24,47 @@ export class MechanicSchedulerService {
 
   @Cron('59 23 * * *', { name: 'mechanic-shift-close' })
   async closeOrphanedLaborEntries(): Promise<void> {
-    this.logger.log('Shift-close job started: closing orphaned labor entries.');
+    await this.systemPrisma.withCronJobLock(
+      'mechanic-shift-close',
+      async () => {
+        this.logger.log(
+          'Shift-close job started: closing orphaned labor entries.',
+        );
 
-    // Pre-fetch all open entries so we can batch writes without an N+1 loop.
-    const openEntries = await this.systemPrisma.laborEntry.findMany({
-      where: { ended_at: null },
-      select: { id: true },
-    });
+        // Pre-fetch all open entries so we can batch writes without an N+1 loop.
+        const openEntries = await this.systemPrisma.laborEntry.findMany({
+          where: { ended_at: null },
+          select: { id: true },
+        });
 
-    if (openEntries.length === 0) {
-      this.logger.log('Shift-close job: no orphaned entries found.');
-      return;
-    }
+        if (openEntries.length === 0) {
+          this.logger.log('Shift-close job: no orphaned entries found.');
+          return;
+        }
 
-    this.logger.log(
-      `Shift-close job: closing ${openEntries.length} orphaned labor entries.`,
-    );
+        this.logger.log(
+          `Shift-close job: closing ${openEntries.length} orphaned labor entries.`,
+        );
 
-    const now = new Date();
+        const now = new Date();
 
-    // Use chunkedPromiseAll to close entries concurrently in bounded batches
-    // rather than one unbounded Promise.all (ADR-0014 §4.1.1 + performance rule).
-    const results = await chunkedPromiseAll(openEntries, (entry) =>
-      this.systemPrisma.laborEntry.update({
-        where: { id: entry.id },
-        data: {
-          ended_at: now,
-          pause_reason: LaborPauseReason.AUTO_SHIFT_CLOSE,
-        },
-      }),
-    );
+        // Use chunkedPromiseAll to close entries concurrently in bounded batches
+        // rather than one unbounded Promise.all (ADR-0014 §4.1.1 + performance rule).
+        const results = await chunkedPromiseAll(openEntries, (entry) =>
+          this.systemPrisma.laborEntry.update({
+            where: { id: entry.id },
+            data: {
+              ended_at: now,
+              pause_reason: LaborPauseReason.AUTO_SHIFT_CLOSE,
+            },
+          }),
+        );
 
-    this.logger.log(
-      `Shift-close job completed: closed ${results.length} labor entries.`,
+        this.logger.log(
+          `Shift-close job completed: closed ${results.length} labor entries.`,
+        );
+      },
+      this.logger,
     );
   }
 }

@@ -1,3 +1,4 @@
+import { cronJobLockTestStub } from '../scheduler/cron-job-lock.test-helpers.js';
 import {
   NOTIFICATION_BODY_RETENTION_MS,
   NotificationOutboxRetentionService,
@@ -12,6 +13,7 @@ describe('NotificationOutboxRetentionService', () => {
     };
     const systemPrisma = {
       tenant: { findMany: jest.fn().mockResolvedValue([{ id: 'tenant-1' }]) },
+      ...cronJobLockTestStub(),
     };
     const requestContext = {
       runAsWorker: jest.fn((_t: string, run: () => unknown) => run()),
@@ -35,6 +37,7 @@ describe('NotificationOutboxRetentionService', () => {
     };
     const systemPrisma = {
       tenant: { findMany: jest.fn().mockResolvedValue([{ id: 'tenant-1' }]) },
+      ...cronJobLockTestStub(),
     };
     const requestContext = {
       runAsWorker: jest.fn((_t: string, run: () => unknown) => run()),

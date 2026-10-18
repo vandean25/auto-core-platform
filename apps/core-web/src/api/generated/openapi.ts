@@ -2697,6 +2697,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vehicle-stock/{vehicleId}/listing/export/as24-dms/push": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Push the current AutoScout24 listing to the DMS API (feature-flagged, default off) */
+        post: operations["Autoscout24DmsPushController_push"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/workshop/registration-intakes": {
         parameters: {
             query?: never;
@@ -8499,6 +8516,26 @@ export interface components {
             /** @description Full ordered list of photo ids belonging to this vehicle (tenant-scoped). */
             mediaIds: string[];
         };
+        /** @enum {string} */
+        Autoscout24DmsPushActionDto: "UPSERT" | "DEACTIVATE";
+        Autoscout24DmsPushRequestDto: {
+            idempotency_key: string;
+            expected_revision: number;
+            action: components["schemas"]["Autoscout24DmsPushActionDto"];
+        };
+        /** @enum {string} */
+        VehicleListingDmsProvider: "AS24_DMS";
+        /** @enum {string} */
+        VehicleListingDmsSyncState: "NEVER_SYNCED" | "PENDING" | "SYNCED" | "FAILED" | "DEACTIVATION_PENDING" | "DEACTIVATED";
+        Autoscout24DmsPushResponseDto: {
+            channel_id: string;
+            provider: components["schemas"]["VehicleListingDmsProvider"];
+            sync_state: components["schemas"]["VehicleListingDmsSyncState"];
+            external_listing_id: Record<string, never> | null;
+            last_sync_at: Record<string, never> | null;
+            last_sync_error_code: Record<string, never> | null;
+            idempotent_replay: boolean;
+        };
         HolderDto: {
             firstName: string;
             lastName: string;
@@ -10646,7 +10683,7 @@ export interface components {
             oemConcerns?: components["schemas"]["UpdateCatalogProviderOemConcernDto"][];
         };
         /** @enum {string} */
-        ImportEntityType: "CUSTOMER" | "VEHICLE" | "SUPPLIER_PRICE_LIST";
+        ImportEntityType: "CUSTOMER" | "VEHICLE" | "SUPPLIER_PRICE_LIST" | "LABOR_OPERATION";
         /** @enum {string} */
         ImportJobStatus: "DRY_RUN_DONE" | "APPLYING" | "APPLIED" | "FAILED" | "CANCELLED";
         ImportJobTotalsDto: {
@@ -16842,6 +16879,31 @@ export interface operations {
             };
         };
     };
+    Autoscout24DmsPushController_push: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Autoscout24DmsPushRequestDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Autoscout24DmsPushResponseDto"];
+                };
+            };
+        };
+    };
     RegistrationIntakeController_create: {
         parameters: {
             query?: never;
@@ -20373,7 +20435,7 @@ export interface operations {
                     /** Format: binary */
                     file: string;
                     /** @enum {string} */
-                    entityType: "CUSTOMER" | "VEHICLE" | "SUPPLIER_PRICE_LIST";
+                    entityType: "CUSTOMER" | "VEHICLE" | "SUPPLIER_PRICE_LIST" | "LABOR_OPERATION";
                     /** @example incadea */
                     sourceSystem: string;
                     /** @description JSON object mapping logical fields to CSV headers */
@@ -20397,7 +20459,7 @@ export interface operations {
     ImportController_listMappingProfiles: {
         parameters: {
             query: {
-                entityType: "CUSTOMER" | "VEHICLE" | "SUPPLIER_PRICE_LIST";
+                entityType: "CUSTOMER" | "VEHICLE" | "SUPPLIER_PRICE_LIST" | "LABOR_OPERATION";
                 sourceSystem: string;
             };
             header?: never;

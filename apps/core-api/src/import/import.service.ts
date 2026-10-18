@@ -42,6 +42,7 @@ import { buildTemplateCsv, getImportTemplate } from './import.templates.js';
 import type { ImportJobOptions, ImportJobTotals } from './import.types.js';
 import { SupplierChunkedApplyRunner } from './supplier-price-list-apply.runner.js';
 import { SupplierPriceListImportHandler } from './supplier-price-list-import.handler.js';
+import { LaborOperationImportHandler } from './labor-operation-import.handler.js';
 import { VehicleImportHandler } from './vehicle-import.handler.js';
 
 function buildRowsWhere(
@@ -105,6 +106,11 @@ export class ImportService {
           new ImportVendorResolver(prisma),
           supplierRunner,
         ),
+      [ImportEntityType.LABOR_OPERATION]: new LaborOperationImportHandler(
+        prisma,
+        this.audit,
+        rowRunner,
+      ),
     };
   }
 

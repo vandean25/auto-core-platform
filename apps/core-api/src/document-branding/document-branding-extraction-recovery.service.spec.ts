@@ -3,11 +3,13 @@ import { TenantContextStorage } from '../common/services/tenant-context.storage.
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import { DocumentBrandingExtractionTaskService } from './document-branding-extraction-task.service.js';
+import { cronJobLockTestStub } from '../scheduler/cron-job-lock.test-helpers.js';
 import { DocumentBrandingExtractionRecoveryService } from './document-branding-extraction-recovery.service.js';
 
 describe('DocumentBrandingExtractionRecoveryService', () => {
   const systemPrisma = {
     tenant: { findMany: jest.fn().mockResolvedValue([{ id: 'tenant-1' }]) },
+    ...cronJobLockTestStub(),
   } as unknown as SystemPrismaService;
   const requestContext = new RequestContextService();
   const prisma = {

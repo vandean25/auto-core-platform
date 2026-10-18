@@ -32,7 +32,6 @@ const LEASE_EXPIRED_MESSAGE = 'The delivery attempt did not finish in time';
 @Injectable()
 export class NotificationOutboxRecoveryService {
   private readonly logger = new Logger(NotificationOutboxRecoveryService.name);
-  private running = false;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -45,39 +44,36 @@ export class NotificationOutboxRecoveryService {
     name: 'notification-outbox-recovery',
   })
   async recover(): Promise<void> {
-    // A slow run must not stack a second sweep on top of it; the next minute picks up the rest.
-    if (this.running) {
-      return;
-    }
-    this.running = true;
-    try {
-      const queueOn = this.wakeUps.isEnabled();
-      const tenants = await this.systemPrisma.tenant.findMany({
-        select: { id: true, is_active: true },
-      });
-      const now = new Date();
-      for (const tenant of tenants) {
-        try {
-          await this.requestContext.runAsWorker(
-            tenant.id,
-            () =>
-              this.recoverForTenant(
-                tenant.id,
-                now,
-                queueOn && tenant.is_active,
-              ),
-            { workerId: 'notification-outbox-recovery' },
-          );
-        } catch (cause) {
-          // One tenant's failure must not skip the tenants after it.
-          this.logger.error(
-            `Notification recovery failed for one tenant: ${cause instanceof Error ? cause.name : 'unknown error'}`,
-          );
+    await this.systemPrisma.withCronJobLock(
+      'notification-outbox-recovery',
+      async () => {
+        const queueOn = this.wakeUps.isEnabled();
+        const tenants = await this.systemPrisma.tenant.findMany({
+          select: { id: true, is_active: true },
+        });
+        const now = new Date();
+        for (const tenant of tenants) {
+          try {
+            await this.requestContext.runAsWorker(
+              tenant.id,
+              () =>
+                this.recoverForTenant(
+                  tenant.id,
+                  now,
+                  queueOn && tenant.is_active,
+                ),
+              { workerId: 'notification-outbox-recovery' },
+            );
+          } catch (cause) {
+            // One tenant's failure must not skip the tenants after it.
+            this.logger.error(
+              `Notification recovery failed for one tenant: ${cause instanceof Error ? cause.name : 'unknown error'}`,
+            );
+          }
         }
-      }
-    } finally {
-      this.running = false;
-    }
+      },
+      this.logger,
+    );
   }
 
   private async recoverForTenant(

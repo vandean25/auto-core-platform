@@ -7,11 +7,13 @@ import { DocumentBrandingUploadTaskService } from './document-branding-upload-ta
 import { DocumentBrandingUploadRecoveryService } from './document-branding-upload-recovery.service.js';
 import { DocumentBrandingAssetCleanupService } from './document-branding-asset-cleanup.service.js';
 import { DocumentBrandingUploadRequeueService } from './document-branding-upload-requeue.service.js';
+import { cronJobLockTestStub } from '../scheduler/cron-job-lock.test-helpers.js';
 
 describe('DocumentBrandingUploadRecoveryService', () => {
   const tenant = { id: 'tenant-1' };
   const systemPrisma = {
     tenant: { findMany: jest.fn().mockResolvedValue([tenant]) },
+    ...cronJobLockTestStub(),
   } as unknown as SystemPrismaService;
   const requestContext = new RequestContextService();
   const prisma = {

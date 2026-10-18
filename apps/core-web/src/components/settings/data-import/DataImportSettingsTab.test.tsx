@@ -8,11 +8,13 @@ import * as importsApi from '@/api/imports'
 import * as marginRulesApi from '@/api/margin-rules'
 import * as vendorsApi from '@/api/vendors'
 
+import deEnums from '../../../../../../locales/de/enums.json'
 import deSettings from '../../../../../../locales/de/settings.json'
 
 import { DataImportSettingsTab } from './DataImportSettingsTab'
 
 const di = deSettings.dataImport
+const importEntityTypeDe = deEnums.importEntityType
 
 vi.mock('@/api/vendors', () => ({
   useVendors: vi.fn(),
@@ -245,10 +247,17 @@ describe('DataImportSettingsTab SUPPLIER_PRICE_LIST flow', () => {
     cleanup()
   })
 
+  it('preselects LABOR_OPERATION from URL search params', () => {
+    renderTab(['/?tab=data-import&entity=LABOR_OPERATION'])
+    expect(screen.getByRole('combobox', { name: di.source.entityLabel })).toHaveTextContent(
+      importEntityTypeDe.LABOR_OPERATION,
+    )
+  })
+
   it('preselects SUPPLIER_PRICE_LIST and vendor from URL search params', () => {
     renderTab(['/?tab=data-import&entity=SUPPLIER_PRICE_LIST&vendorId=vendor-1'])
 
-    expect(screen.getByText(di.source.entitySupplierPriceList)).toBeInTheDocument()
+    expect(screen.getByText(importEntityTypeDe.SUPPLIER_PRICE_LIST)).toBeInTheDocument()
     expect(screen.getByText('Stahlgruber GmbH')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: di.source.continue })).toBeEnabled()
   })
