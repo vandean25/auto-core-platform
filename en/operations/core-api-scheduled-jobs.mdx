@@ -17,6 +17,7 @@ Lock helper: `SystemPrismaService.withCronJobLock(jobName, fn)` pins one connect
 | `document-branding-upload-recovery` | Every minute | `DocumentBrandingUploadRecoveryService` | Requeue stalled branding uploads and purge expired quarantine assets. |
 | `domain-event-consumer-recovery` | Every minute | `DomainEventConsumerRecoveryService` | Catch up workshop estimate-decided domain event consumers. |
 | `hr-shift-close` | `59 23 * * *` | `HrAttendanceSchedulerService` | Nightly auto `CLOCK_OUT` for open HR attendance shifts. |
+| `import-job-row-purge` | `31 3 * * *` | `ImportRetentionService` | Purge legacy import row payloads after 180 days per tenant (job headers and external IDs kept). |
 | `landing-demo-access-cleanup` | Daily 03:00 | `LandingDemoAccessCleanupService` | Deactivate expired demo memberships and stale public rate-limit counters. |
 | `mechanic-shift-close` | `59 23 * * *` | `MechanicSchedulerService` | Nightly auto-close open mechanic `LaborEntry` rows. |
 | `notification-outbox-recovery` | Every minute | `NotificationOutboxRecoveryService` | Fail stale notices, release expired leases, wake due outbox rows. |
