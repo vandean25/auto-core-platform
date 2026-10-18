@@ -343,22 +343,17 @@ function AuthenticatedApp() {
       isSwitchingTenant={switchTenantMutation.isPending}
       isSwitchingSite={switchSiteMutation.isPending}
       onSwitchTenant={(tenantId) => {
-        void purgeAllCheckInOfflineData()
-          .catch(() => undefined)
-          .then(() =>
-            switchTenantMutation.mutateAsync(tenantId).catch((error: unknown) => {
-              toast.error(shellSwitchTenantFailedMessage(error))
-            }),
-          )
+        switchTenantMutation
+          .mutateAsync(tenantId)
+          .then(() => purgeAllCheckInOfflineData().catch(() => undefined))
+          .catch((error: unknown) => {
+            toast.error(shellSwitchTenantFailedMessage(error))
+          })
       }}
       onSwitchSite={(siteId) => {
-        void purgeAllCheckInOfflineData()
-          .catch(() => undefined)
-          .then(() =>
-            switchSiteMutation.mutateAsync(siteId).catch((error: unknown) => {
-              toast.error(shellSwitchSiteFailedMessage(error))
-            }),
-          )
+        switchSiteMutation.mutateAsync(siteId).catch((error: unknown) => {
+          toast.error(shellSwitchSiteFailedMessage(error))
+        })
       }}
       onSignOut={() => {
         void purgeAllCheckInOfflineData()

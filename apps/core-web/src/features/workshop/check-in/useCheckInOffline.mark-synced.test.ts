@@ -26,7 +26,7 @@ vi.mock('./check-in-offline-store', async (importOriginal) => {
     loadCheckInOfflineDraft: vi.fn().mockResolvedValue(null),
     listQueuedPhotosForScope: vi.fn().mockResolvedValue([]),
     listAllQueuedPhotos: vi.fn().mockResolvedValue([]),
-    resetStaleUploadingPhotos: vi.fn().mockResolvedValue(undefined),
+    reconcileStaleUploadingPhotos: vi.fn().mockResolvedValue(undefined),
   }
 })
 
@@ -79,6 +79,7 @@ describe('useCheckInOffline markDraftSynced', () => {
           readOnly: false,
           onApplyLocalDraft: vi.fn(),
           onRevisionSynced: vi.fn(),
+          onRefreshRevision: vi.fn(),
           onPhotoUploaded: vi.fn(),
         }),
       { initialProps: { draft: serverSnapshot } },

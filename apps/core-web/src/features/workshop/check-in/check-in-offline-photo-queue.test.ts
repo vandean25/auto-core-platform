@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { processCheckInPhotoQueue } from './check-in-offline-photo-queue'
+import {
+  processCheckInPhotoQueue,
+  resetCheckInPhotoQueueProcessorLocks,
+} from './check-in-offline-photo-queue'
 import type { CheckInOfflineScope } from './check-in-offline-scope'
 
 const uploadWorkshopCheckInMedia = vi.fn()
@@ -10,15 +13,12 @@ vi.mock('@/api/workshop-check-in', () => ({
 }))
 
 const listQueuedPhotosForScope = vi.fn()
-const resetStaleUploadingPhotos = vi.fn()
 const upsertQueuedPhoto = vi.fn()
 const deleteQueuedPhoto = vi.fn()
 
 vi.mock('./check-in-offline-store', () => ({
   listQueuedPhotosForScope: (...args: unknown[]) =>
     listQueuedPhotosForScope(...args),
-  resetStaleUploadingPhotos: (...args: unknown[]) =>
-    resetStaleUploadingPhotos(...args),
   upsertQueuedPhoto: (...args: unknown[]) => upsertQueuedPhoto(...args),
   deleteQueuedPhoto: (...args: unknown[]) => deleteQueuedPhoto(...args),
   clearPhotoQueueRetryDelays: vi.fn(),
@@ -32,15 +32,24 @@ const scope: CheckInOfflineScope = {
   checkInId: 'check-in-1',
 }
 
+const baseContext = {
+  scope,
+  getExpectedRevision: () => 4,
+  onRevisionChange: vi.fn(),
+  onRefreshRevision: vi.fn().mockResolvedValue(5),
+  onUploaded: vi.fn(),
+  isPaused: () => false,
+}
+
 describe('processCheckInPhotoQueue', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    resetStaleUploadingPhotos.mockResolvedValue(undefined)
+    resetCheckInPhotoQueueProcessorLocks()
     upsertQueuedPhoto.mockResolvedValue(undefined)
     deleteQueuedPhoto.mockResolvedValue(undefined)
   })
 
-  it('bumps expected revision after each successful upload', async () => {
+  it('bumps expected revision only after HTTP 201', async () => {
     const photoA = {
       clientUploadId: 'photo-a',
       scopeKey: 'scope',
@@ -55,38 +64,25 @@ describe('processCheckInPhotoQueue', () => {
       createdAt: 1,
       lastErrorCode: null,
     }
-    const photoB = {
-      ...photoA,
-      clientUploadId: 'photo-b',
-      fileName: 'b.jpg',
-      blob: new Blob(['b']),
-      createdAt: 2,
-    }
+    const photoB = { ...photoA, clientUploadId: 'photo-b', createdAt: 2 }
 
     listQueuedPhotosForScope
       .mockResolvedValueOnce([photoA, photoB])
       .mockResolvedValueOnce([])
 
     uploadWorkshopCheckInMedia
-      .mockResolvedValueOnce({ id: 'media-a' })
-      .mockResolvedValueOnce({ id: 'media-b' })
+      .mockResolvedValueOnce({ media: { id: 'media-a' }, httpStatus: 201 })
+      .mockResolvedValueOnce({ media: { id: 'media-b' }, httpStatus: 201 })
 
     let revision = 4
     await processCheckInPhotoQueue({
-      scope,
+      ...baseContext,
       getExpectedRevision: () => revision,
       onRevisionChange: (next) => {
         revision = next
       },
-      onUploaded: vi.fn(),
-      isPaused: () => false,
     })
 
-    expect(uploadWorkshopCheckInMedia).toHaveBeenNthCalledWith(
-      1,
-      'order-1',
-      expect.objectContaining({ expectedRevision: 4 }),
-    )
     expect(uploadWorkshopCheckInMedia).toHaveBeenNthCalledWith(
       2,
       'order-1',
@@ -95,19 +91,7 @@ describe('processCheckInPhotoQueue', () => {
     expect(revision).toBe(6)
   })
 
-  it('resets stale uploading rows before processing', async () => {
-    listQueuedPhotosForScope.mockResolvedValueOnce([]).mockResolvedValueOnce([])
-    await processCheckInPhotoQueue({
-      scope,
-      getExpectedRevision: () => 1,
-      onRevisionChange: vi.fn(),
-      onUploaded: vi.fn(),
-      isPaused: () => false,
-    })
-    expect(resetStaleUploadingPhotos).toHaveBeenCalledWith(scope)
-  })
-
-  it('pauses the queue on 401 responses', async () => {
+  it('refetches revision on idempotent HTTP 200 without incrementing locally', async () => {
     const photo = {
       clientUploadId: 'photo-a',
       scopeKey: 'scope',
@@ -122,21 +106,62 @@ describe('processCheckInPhotoQueue', () => {
       createdAt: 1,
       lastErrorCode: null,
     }
-    listQueuedPhotosForScope
-      .mockResolvedValueOnce([photo])
-      .mockResolvedValueOnce([{ ...photo, status: 'failed' as const }])
-    uploadWorkshopCheckInMedia.mockRejectedValueOnce(
-      Object.assign(new Error('unauthorized'), { status: 401 }),
-    )
-    const onAuthError = vi.fn()
-    await processCheckInPhotoQueue({
-      scope,
-      getExpectedRevision: () => 2,
-      onRevisionChange: vi.fn(),
-      onUploaded: vi.fn(),
-      isPaused: () => false,
-      onAuthError,
+
+    listQueuedPhotosForScope.mockResolvedValueOnce([photo]).mockResolvedValueOnce([])
+    uploadWorkshopCheckInMedia.mockResolvedValueOnce({
+      media: { id: 'media-a' },
+      httpStatus: 200,
     })
-    expect(onAuthError).toHaveBeenCalled()
+
+    const onRevisionChange = vi.fn()
+    const onRefreshRevision = vi.fn().mockResolvedValue(9)
+
+    await processCheckInPhotoQueue({
+      ...baseContext,
+      onRevisionChange,
+      onRefreshRevision,
+    })
+
+    expect(onRefreshRevision).toHaveBeenCalled()
+    expect(onRevisionChange).not.toHaveBeenCalled()
   })
+
+  it('pauses on upload conflict without immediate replay', async () => {
+    const photo = {
+      clientUploadId: 'photo-a',
+      scopeKey: 'scope',
+      orderId: 'order-1',
+      fileName: 'a.jpg',
+      mimeType: 'image/jpeg',
+      sizeBytes: 10,
+      blob: new Blob(['a']),
+      status: 'queued' as const,
+      attempts: 0,
+      nextRetryAt: null,
+      createdAt: 1,
+      lastErrorCode: null,
+    }
+
+    listQueuedPhotosForScope.mockResolvedValueOnce([photo]).mockResolvedValueOnce([])
+    uploadWorkshopCheckInMedia.mockRejectedValueOnce({
+      code: 'CHECK_IN_CONFLICT',
+      status: 409,
+    })
+    const onUploadConflict = vi.fn()
+
+    await processCheckInPhotoQueue({
+      ...baseContext,
+      onUploadConflict,
+    })
+
+    expect(onUploadConflict).toHaveBeenCalled()
+    expect(upsertQueuedPhoto).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'failed',
+        nextRetryAt: null,
+        lastErrorCode: 'CHECK_IN_CONFLICT',
+      }),
+    )
+  })
+
 })

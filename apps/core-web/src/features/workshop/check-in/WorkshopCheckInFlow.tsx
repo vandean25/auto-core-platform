@@ -13,6 +13,7 @@ import {
   useUploadWorkshopCheckInMedia,
   useWorkshopCheckIn,
   useWorkshopCheckInMedia,
+  type WorkshopCheckInMedia,
 } from '@/api/workshop-check-in'
 import { describeWorkshopCheckInError } from './check-in-errors'
 import { CheckInSaveIndicator } from './CheckInSaveIndicator'
@@ -165,6 +166,33 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
     [replaceDraft],
   )
 
+  const onRevisionSynced = useCallback(() => {
+    void checkInQuery.refetch()
+  }, [checkInQuery.refetch])
+
+  const onRefreshRevision = useCallback(async () => {
+    const result = await checkInQuery.refetch()
+    return result.data?.revision
+  }, [checkInQuery.refetch])
+
+  const onPhotoUploaded = useCallback(
+    (media: WorkshopCheckInMedia) => {
+      setSessionMedia((previous) =>
+        previous.some((entry) => entry.id === media.id)
+          ? previous.map((entry) => (entry.id === media.id ? media : entry))
+          : [...previous, media],
+      )
+      void mediaQuery.refetch()
+    },
+    [mediaQuery.refetch],
+  )
+
+  const onUploadConflict = useCallback(() => {
+    localDraftRef.current = latestDraftRef.current
+    setConflictCompletedRemotely(false)
+    setConflictOpen(true)
+  }, [])
+
   const offline = useCheckInOffline({
     orderId,
     checkIn: checkInQuery.data,
@@ -173,17 +201,10 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
     readOnly,
     onApplyLocalDraft,
     onHydrateConflict,
-    onRevisionSynced: () => {
-      void checkInQuery.refetch()
-    },
-    onPhotoUploaded: (media) => {
-      setSessionMedia((previous) =>
-        previous.some((entry) => entry.id === media.id)
-          ? previous.map((entry) => (entry.id === media.id ? media : entry))
-          : [...previous, media],
-      )
-      void mediaQuery.refetch()
-    },
+    onRevisionSynced,
+    onRefreshRevision,
+    onPhotoUploaded,
+    onUploadConflict,
   })
   useEffect(() => {
     refetchCheckInRef.current = checkInQuery.refetch

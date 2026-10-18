@@ -11,7 +11,6 @@ import {
   clearPhotoQueueRetryDelays,
   deleteQueuedPhoto,
   listQueuedPhotosForScope,
-  resetStaleUploadingPhotos,
   upsertQueuedPhoto,
   type CheckInQueuedPhotoRecord,
 } from './check-in-offline-store'
@@ -20,12 +19,24 @@ export type PhotoQueueUploadContext = {
   scope: CheckInOfflineScope
   getExpectedRevision: () => number
   onRevisionChange: (revision: number) => void
+  onRefreshRevision: () => Promise<number | undefined>
   onUploaded: (media: WorkshopCheckInMedia) => void
   isPaused: () => boolean
   onAuthError?: () => void
+  onUploadConflict?: () => void
 }
 
 const retryTimers = new Map<string, ReturnType<typeof setTimeout>>()
+const processingScopeKeys = new Set<string>()
+
+/** Test-only: release in-memory processor locks and retry timers between cases. */
+export function resetCheckInPhotoQueueProcessorLocks(): void {
+  for (const timer of retryTimers.values()) {
+    clearTimeout(timer)
+  }
+  retryTimers.clear()
+  processingScopeKeys.clear()
+}
 
 function scheduleQueueRetry(
   scopeKey: string,
@@ -59,18 +70,30 @@ function readHttpStatus(error: unknown): number | null {
   return null
 }
 
+function readErrorCode(error: unknown): string | null {
+  if (!error || typeof error !== 'object' || !('code' in error)) {
+    return null
+  }
+  return String((error as { code?: string }).code ?? '')
+}
+
 function isAuthUploadError(error: unknown): boolean {
   const status = readHttpStatus(error)
   return status === 401 || status === 403
+}
+
+function isUploadConflict(error: unknown): boolean {
+  return readErrorCode(error) === 'CHECK_IN_CONFLICT'
 }
 
 function isRetryableUploadError(error: unknown): boolean {
   if (!error || typeof error !== 'object') {
     return true
   }
-  const code =
-    'code' in error ? String((error as { code?: string }).code ?? '') : ''
-  if (code === 'CHECK_IN_CONFLICT' || code === 'CHECK_IN_COMPLETED') {
+  if (
+    readErrorCode(error) === 'CHECK_IN_CONFLICT' ||
+    readErrorCode(error) === 'CHECK_IN_COMPLETED'
+  ) {
     return false
   }
   if (isAuthUploadError(error)) {
@@ -95,6 +118,10 @@ function nextRetryDelayMs(attempts: number): number {
   ]
 }
 
+function canScheduleAutomaticRetry(attempts: number): boolean {
+  return attempts <= CHECK_IN_OFFLINE_UPLOAD_RETRY_DELAYS_MS.length
+}
+
 export async function processCheckInPhotoQueue(
   context: PhotoQueueUploadContext,
 ): Promise<void> {
@@ -103,86 +130,117 @@ export async function processCheckInPhotoQueue(
   }
 
   const scopeKey = buildCheckInOfflineScopeKey(context.scope)
-  await resetStaleUploadingPhotos(context.scope)
+  if (processingScopeKeys.has(scopeKey)) {
+    return
+  }
+  processingScopeKeys.add(scopeKey)
 
-  const queued = await listQueuedPhotosForScope(context.scope)
-  const pending = pickNextRunnable(queued)
-  let revision = context.getExpectedRevision()
+  try {
+    const queued = await listQueuedPhotosForScope(context.scope)
+    const pending = pickNextRunnable(queued)
+    let revision = context.getExpectedRevision()
 
-  for (const item of pending) {
-    if (context.isPaused()) {
-      return
-    }
-
-    const uploading: CheckInQueuedPhotoRecord = {
-      ...item,
-      status: 'uploading',
-    }
-    await upsertQueuedPhoto(uploading)
-
-    try {
-      const file = new File([item.blob], item.fileName, { type: item.mimeType })
-      const uploaded = await uploadWorkshopCheckInMedia(context.scope.orderId, {
-        file,
-        clientUploadId: item.clientUploadId,
-        expectedRevision: revision,
-        purpose: 'CHECK_IN',
-      })
-      context.onUploaded(uploaded)
-      revision += 1
-      context.onRevisionChange(revision)
-      await deleteQueuedPhoto(item.clientUploadId)
-    } catch (error: unknown) {
-      if (isAuthUploadError(error)) {
-        const status = readHttpStatus(error) ?? 401
-        await upsertQueuedPhoto({
-          ...item,
-          status: 'failed',
-          attempts: item.attempts + 1,
-          nextRetryAt: null,
-          lastErrorCode: `HTTP_${status}`,
-        })
-        context.onAuthError?.()
+    for (const item of pending) {
+      if (context.isPaused()) {
         return
       }
 
-      const attempts = item.attempts + 1
-      const retryDelay = nextRetryDelayMs(attempts)
-      const failed: CheckInQueuedPhotoRecord = {
+      const uploading: CheckInQueuedPhotoRecord = {
         ...item,
-        status: isRetryableUploadError(error) ? 'failed' : 'queued',
-        attempts,
-        nextRetryAt: isRetryableUploadError(error)
-          ? Date.now() + retryDelay
-          : null,
-        lastErrorCode:
-          error && typeof error === 'object' && 'code' in error
-            ? String((error as { code?: string }).code ?? '')
-            : null,
+        status: 'uploading',
       }
-      await upsertQueuedPhoto(failed)
-      if (isRetryableUploadError(error)) {
-        scheduleQueueRetry(scopeKey, retryDelay, () => {
-          void processCheckInPhotoQueue(context)
-        })
+      await upsertQueuedPhoto(uploading)
+
+      try {
+        const file = new File([item.blob], item.fileName, { type: item.mimeType })
+        const { media, httpStatus } = await uploadWorkshopCheckInMedia(
+          context.scope.orderId,
+          {
+            file,
+            clientUploadId: item.clientUploadId,
+            expectedRevision: revision,
+            purpose: 'CHECK_IN',
+          },
+        )
+        context.onUploaded(media)
+        await deleteQueuedPhoto(item.clientUploadId)
+
+        if (httpStatus === 201) {
+          revision += 1
+          context.onRevisionChange(revision)
+        } else {
+          const refreshed = await context.onRefreshRevision()
+          if (typeof refreshed === 'number') {
+            revision = refreshed
+          }
+        }
+      } catch (error: unknown) {
+        if (isAuthUploadError(error)) {
+          const status = readHttpStatus(error) ?? 401
+          await upsertQueuedPhoto({
+            ...item,
+            status: 'failed',
+            attempts: item.attempts + 1,
+            nextRetryAt: null,
+            lastErrorCode: `HTTP_${status}`,
+          })
+          context.onAuthError?.()
+          return
+        }
+
+        if (isUploadConflict(error)) {
+          await upsertQueuedPhoto({
+            ...item,
+            status: 'failed',
+            attempts: item.attempts + 1,
+            nextRetryAt: null,
+            lastErrorCode: 'CHECK_IN_CONFLICT',
+          })
+          context.onUploadConflict?.()
+          return
+        }
+
+        const attempts = item.attempts + 1
+        const retryDelay = nextRetryDelayMs(attempts)
+        const failed: CheckInQueuedPhotoRecord = {
+          ...item,
+          status: isRetryableUploadError(error) ? 'failed' : 'queued',
+          attempts,
+          nextRetryAt:
+            isRetryableUploadError(error) && canScheduleAutomaticRetry(attempts)
+              ? Date.now() + retryDelay
+              : null,
+          lastErrorCode: readErrorCode(error),
+        }
+        await upsertQueuedPhoto(failed)
+        if (
+          isRetryableUploadError(error) &&
+          canScheduleAutomaticRetry(attempts)
+        ) {
+          scheduleQueueRetry(scopeKey, retryDelay, () => {
+            void processCheckInPhotoQueue(context)
+          })
+        }
       }
     }
-  }
 
-  const afterPass = await listQueuedPhotosForScope(context.scope)
-  const waiting = afterPass.filter(
-    (item) =>
-      item.nextRetryAt &&
-      item.nextRetryAt > Date.now() &&
-      (item.status === 'failed' || item.status === 'queued'),
-  )
-  if (waiting.length > 0) {
-    const minWait = Math.min(
-      ...waiting.map((item) => item.nextRetryAt as number),
+    const afterPass = await listQueuedPhotosForScope(context.scope)
+    const waiting = afterPass.filter(
+      (item) =>
+        item.nextRetryAt &&
+        item.nextRetryAt > Date.now() &&
+        (item.status === 'failed' || item.status === 'queued'),
     )
-    scheduleQueueRetry(scopeKey, minWait - Date.now(), () => {
-      void processCheckInPhotoQueue(context)
-    })
+    if (waiting.length > 0) {
+      const minWait = Math.min(
+        ...waiting.map((item) => item.nextRetryAt as number),
+      )
+      scheduleQueueRetry(scopeKey, minWait - Date.now(), () => {
+        void processCheckInPhotoQueue(context)
+      })
+    }
+  } finally {
+    processingScopeKeys.delete(scopeKey)
   }
 }
 

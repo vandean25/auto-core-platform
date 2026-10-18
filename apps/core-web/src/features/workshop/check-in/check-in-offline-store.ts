@@ -240,13 +240,21 @@ export async function clearPendingCheckInCreate(
   )
 }
 
-export async function resetStaleUploadingPhotos(
+/** Only requeue uploads stuck in `uploading` long enough to be abandoned (not in-flight). */
+const UPLOADING_STALE_MS = 2 * 60 * 1000
+
+export async function reconcileStaleUploadingPhotos(
   scope: CheckInOfflineScope,
 ): Promise<void> {
   const photos = await listQueuedPhotosForScope(scope)
+  const now = Date.now()
   await Promise.all(
     photos
-      .filter((photo) => photo.status === 'uploading')
+      .filter(
+        (photo) =>
+          photo.status === 'uploading' &&
+          now - photo.createdAt > UPLOADING_STALE_MS,
+      )
       .map((photo) =>
         upsertQueuedPhoto({
           ...photo,

@@ -127,6 +127,11 @@ export async function completeWorkshopCheckIn(
   return response.json() as Promise<WorkshopCheckIn>
 }
 
+export type WorkshopCheckInMediaUploadResult = {
+  media: WorkshopCheckInMedia
+  httpStatus: number
+}
+
 export async function uploadWorkshopCheckInMedia(
   orderId: string,
   input: {
@@ -135,7 +140,7 @@ export async function uploadWorkshopCheckInMedia(
     expectedRevision: number
     purpose?: 'CHECK_IN' | 'CHECK_IN_SIGNATURE'
   },
-): Promise<WorkshopCheckInMedia> {
+): Promise<WorkshopCheckInMediaUploadResult> {
   const form = new FormData()
   form.append('file', input.file)
   form.append('client_upload_id', input.clientUploadId)
@@ -152,7 +157,8 @@ export async function uploadWorkshopCheckInMedia(
   if (!response.ok) {
     return parseCheckInErrorResponse(response)
   }
-  return response.json() as Promise<WorkshopCheckInMedia>
+  const media = (await response.json()) as WorkshopCheckInMedia
+  return { media, httpStatus: response.status }
 }
 
 export async function fetchWorkshopCheckInMedia(
@@ -253,7 +259,7 @@ export function useUploadWorkshopCheckInMedia() {
         clientUploadId: payload.clientUploadId,
         expectedRevision: payload.expectedRevision,
         purpose: payload.purpose,
-      }),
+      }).then((result) => result.media),
     onSuccess: (_data, payload) => {
       void queryClient.invalidateQueries({
         queryKey: workshopCheckInKeys.media(payload.orderId),

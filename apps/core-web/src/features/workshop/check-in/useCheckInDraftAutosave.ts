@@ -16,6 +16,7 @@ import {
   snapshotsEqual,
   type CheckInDraftSnapshot,
 } from './check-in-draft'
+import { isQuotaExceededError } from './check-in-offline-quota'
 
 type Options = {
   orderId: string
@@ -96,7 +97,16 @@ export function useCheckInDraftAutosave({
         return
       }
       if (persistDraftLocallyRef.current) {
-        await persistDraftLocallyRef.current(snapshot, true, false)
+        try {
+          await persistDraftLocallyRef.current(snapshot, true, false)
+        } catch (persistError: unknown) {
+          if (isQuotaExceededError(persistError)) {
+            throw Object.assign(new Error('quota_exceeded'), {
+              code: 'CHECK_IN_OFFLINE_QUOTA',
+            })
+          }
+          throw persistError
+        }
       }
       try {
         const result = await updateDraftRef.current.mutateAsync({
@@ -137,10 +147,11 @@ export function useCheckInDraftAutosave({
   const handleSaveError = useCallback(
     (error: unknown) => {
       const offlineQuotaCode =
-        error &&
-        typeof error === 'object' &&
-        'code' in error &&
-        (error as { code?: string }).code === 'CHECK_IN_OFFLINE_QUOTA'
+        (error &&
+          typeof error === 'object' &&
+          'code' in error &&
+          (error as { code?: string }).code === 'CHECK_IN_OFFLINE_QUOTA') ||
+        isQuotaExceededError(error)
       if (offlineQuotaCode) {
         toast.error(t('checkIn.offline.quotaExceeded'))
         return

@@ -24,7 +24,7 @@ import {
   listAllQueuedPhotos,
   listQueuedPhotosForScope,
   loadCheckInOfflineDraft,
-  resetStaleUploadingPhotos,
+  reconcileStaleUploadingPhotos,
   saveCheckInOfflineDraft,
   sumQueuedPhotoBytes,
   upsertQueuedPhoto,
@@ -53,7 +53,9 @@ type Options = {
   onApplyLocalDraft: (draft: CheckInDraftSnapshot, serverRevision: number) => void
   onHydrateConflict?: (conflict: CheckInHydrateConflict) => void
   onRevisionSynced: (revision: number) => void
+  onRefreshRevision: () => Promise<number | undefined>
   onPhotoUploaded: (media: WorkshopCheckInMedia) => void
+  onUploadConflict?: () => void
 }
 
 export function useCheckInOffline({
@@ -65,7 +67,9 @@ export function useCheckInOffline({
   onApplyLocalDraft,
   onHydrateConflict,
   onRevisionSynced,
+  onRefreshRevision,
   onPhotoUploaded,
+  onUploadConflict,
 }: Options) {
   const sessionQuery = useAuthSession()
   const [localSaveStatus, setLocalSaveStatus] =
@@ -80,6 +84,13 @@ export function useCheckInOffline({
   const hydratedScopeKeyRef = useRef<string | null>(null)
   const onApplyLocalDraftRef = useRef(onApplyLocalDraft)
   const onHydrateConflictRef = useRef(onHydrateConflict)
+  const onRevisionSyncedRef = useRef(onRevisionSynced)
+  const onRefreshRevisionRef = useRef(onRefreshRevision)
+  const onPhotoUploadedRef = useRef(onPhotoUploaded)
+  const onUploadConflictRef = useRef(onUploadConflict)
+  const queuePausedRef = useRef(queuePaused)
+  const prevActiveSiteIdRef = useRef<string | null>(null)
+  const reconciledScopeKeyRef = useRef<string | null>(null)
 
   useEffect(() => {
     draftRef.current = draft
@@ -88,11 +99,37 @@ export function useCheckInOffline({
   useEffect(() => {
     onApplyLocalDraftRef.current = onApplyLocalDraft
     onHydrateConflictRef.current = onHydrateConflict
-  }, [onApplyLocalDraft, onHydrateConflict])
+    onRevisionSyncedRef.current = onRevisionSynced
+    onRefreshRevisionRef.current = onRefreshRevision
+    onPhotoUploadedRef.current = onPhotoUploaded
+    onUploadConflictRef.current = onUploadConflict
+  }, [
+    onApplyLocalDraft,
+    onHydrateConflict,
+    onPhotoUploaded,
+    onRefreshRevision,
+    onRevisionSynced,
+    onUploadConflict,
+  ])
+
+  useEffect(() => {
+    queuePausedRef.current = queuePaused
+  }, [queuePaused])
 
   useEffect(() => {
     revisionRef.current = serverRevision
   }, [serverRevision])
+
+  const activeSiteId = sessionQuery.data?.activeSiteId ?? null
+  useEffect(() => {
+    if (
+      prevActiveSiteIdRef.current &&
+      prevActiveSiteIdRef.current !== activeSiteId
+    ) {
+      setQueuePaused(true)
+    }
+    prevActiveSiteIdRef.current = activeSiteId
+  }, [activeSiteId])
 
   const scope = useMemo((): CheckInOfflineScope | null => {
     const session = sessionQuery.data
@@ -121,25 +158,49 @@ export function useCheckInOffline({
       getExpectedRevision: () => revisionRef.current,
       onRevisionChange: (revision: number) => {
         revisionRef.current = revision
-        onRevisionSynced(revision)
+        onRevisionSyncedRef.current(revision)
       },
-      onUploaded: onPhotoUploaded,
-      isPaused: () => queuePaused,
+      onRefreshRevision: async () => {
+        const revision = await onRefreshRevisionRef.current()
+        if (typeof revision === 'number') {
+          revisionRef.current = revision
+        }
+        return revision
+      },
+      onUploaded: (media: WorkshopCheckInMedia) => {
+        onPhotoUploadedRef.current(media)
+      },
+      isPaused: () => queuePausedRef.current,
       onAuthError: () => {
         setQueuePaused(true)
       },
+      onUploadConflict: () => {
+        setQueuePaused(true)
+        onUploadConflictRef.current?.()
+      },
     }
-  }, [onPhotoUploaded, onRevisionSynced, queuePaused, scope])
+  }, [scope])
 
   const refreshQueuedPhotos = useCallback(async () => {
     if (!scope) {
       setQueuedPhotos([])
       return
     }
-    await resetStaleUploadingPhotos(scope)
     const rows = await listQueuedPhotosForScope(scope)
     setQueuedPhotos(rows)
   }, [scope])
+
+  useEffect(() => {
+    if (!scope) {
+      return
+    }
+    const scopeKey = buildCheckInOfflineScopeKey(scope)
+    if (reconciledScopeKeyRef.current === scopeKey) {
+      return
+    }
+    reconciledScopeKeyRef.current = scopeKey
+    void reconcileStaleUploadingPhotos(scope).then(() => refreshQueuedPhotos())
+  }, [refreshQueuedPhotos, scope])
 
   useEffect(() => {
     void refreshQueuedPhotos()
@@ -324,29 +385,21 @@ export function useCheckInOffline({
     setQueuePaused(paused)
   }, [])
 
+  const scopeKey = scope ? buildCheckInOfflineScopeKey(scope) : null
+
   useEffect(() => {
-    if (!scope || readOnly || queuePaused) {
+    if (!scope || !scopeKey || readOnly || queuePaused) {
       return
     }
     const queueContext = buildQueueContext()
     if (!queueContext) {
       return
     }
-    void processCheckInPhotoQueue({
-      ...queueContext,
-      onUploaded: (media) => {
-        onPhotoUploaded(media as WorkshopCheckInMedia)
-        void refreshQueuedPhotos()
-      },
-    })
-  }, [
-    buildQueueContext,
-    onPhotoUploaded,
-    queuePaused,
-    readOnly,
-    refreshQueuedPhotos,
-    scope,
-  ])
+    void (async () => {
+      await processCheckInPhotoQueue(queueContext)
+      await refreshQueuedPhotos()
+    })()
+  }, [buildQueueContext, queuePaused, readOnly, refreshQueuedPhotos, scope, scopeKey])
 
   return {
     scope,
