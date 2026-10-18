@@ -91,12 +91,17 @@ export class TyreStorageService {
     const page = query.page && query.page > 0 ? query.page : 1;
     const pageSize =
       query.pageSize && query.pageSize > 0 ? Math.min(query.pageSize, 100) : 25;
+    const skip =
+      query.skip !== undefined && query.skip >= 0
+        ? query.skip
+        : (page - 1) * pageSize;
 
     const where: Prisma.TyreSetWhereInput = {
       tenant_id: tenantId,
       site_id: siteId,
     };
     if (query.customerId) where.customer_id = query.customerId;
+    if (query.vehicleId) where.vehicle_id = query.vehicleId;
     if (query.locationId) where.location_id = query.locationId;
     if (query.season) where.season = query.season;
     if (query.status) where.status = query.status;
@@ -136,7 +141,7 @@ export class TyreStorageService {
           location: { select: { code: true } },
         },
         orderBy: { updatedAt: 'desc' },
-        skip: (page - 1) * pageSize,
+        skip,
         take: pageSize,
       }),
     ]);
