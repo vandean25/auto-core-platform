@@ -42,6 +42,10 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         "@": path.resolve(import.meta.dirname, "./src"),
+        "@/components/finance/CreateCreditNoteDialog": path.resolve(
+          import.meta.dirname,
+          "./src/components/finance/create-credit-note-dialog-content.tsx",
+        ),
       },
     },
     test: {

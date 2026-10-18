@@ -41,11 +41,11 @@ import { ApiKeysSettingsTab } from "@/components/settings/ApiKeysSettingsTab"
 import { VoiceTranslationSettingsTab } from "@/components/settings/VoiceTranslationSettingsTab"
 import { AuditLogsTab } from "@/components/settings/AuditLogsTab"
 import { AccountingExportSettingsPanel } from "@/components/settings/accounting-export-settings-panel"
-import { LegalEntitiesSettingsTab } from "@/components/settings/LegalEntitiesSettingsTab"
-import { SitesSettingsTab } from "@/components/settings/SitesSettingsTab"
+import { LegalEntitiesSettingsTab } from "@/components/settings/legal-entities-settings-tab-content"
+import { SitesSettingsTab } from "@/components/settings/sites-settings-tab-content"
 import { VehicleDataSettingsPanel } from "@/components/settings/vehicle-data-settings-panel"
 import { MarginRulesTab } from "@/components/settings/MarginRulesTab"
-import { DataImportSettingsTab } from "@/components/settings/data-import/DataImportSettingsTab"
+import { DataImportSettingsTab } from "@/components/settings/data-import/data-import-settings-tab-content"
 import { cn } from "@/lib/utils"
 import { getErrorMessage } from "@/lib/error-utils"
 import { ensureNamespaceLoaded } from "@/lib/i18n"
@@ -178,10 +178,10 @@ function StorageLocationsTab() {
     return (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="md:col-span-2 space-y-4">
-                <div>
-                    <h3 className="text-lg font-medium">{t('storageLocations.title')}</h3>
-                    <p className="text-sm text-muted-foreground">{t('storageLocations.description')}</p>
-                </div>
+                <SettingsSectionHeading
+                    title={t('storageLocations.title')}
+                    description={t('storageLocations.description')}
+                />
 
                 <Card>
                     <CardContent className="p-4">
@@ -364,14 +364,6 @@ export default function SettingsPage() {
         return <PageLoader />
     }
 
-    if (isLoading) {
-        return (
-            <div className="flex items-center justify-center min-h-[400px]">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-        )
-    }
-
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between mb-8">
@@ -412,6 +404,11 @@ export default function SettingsPage() {
                             ) : null}
                         </TabsList>
                         <TabsContent value="fiscal" className="space-y-6">
+                    {isLoading ? (
+                        <div className="flex items-center justify-center min-h-[200px]">
+                            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                        </div>
+                    ) : (
                     <form onSubmit={handleSaveRequest} className="space-y-8">
                         <div className="grid gap-6 p-6 bg-white border rounded-lg shadow-sm">
                             <div className="space-y-4">
@@ -463,6 +460,7 @@ export default function SettingsPage() {
                             </Button>
                         </div>
                     </form>
+                    )}
                         </TabsContent>
                         {canManageTeam ? (
                             <TabsContent value="accounting-export" className="space-y-6">
@@ -480,12 +478,10 @@ export default function SettingsPage() {
                 <TabsContent value="revenue-groups" className="space-y-6">
                     <div className="p-6 bg-white border rounded-lg shadow-sm">
                         <div className="flex items-center justify-between mb-6">
-                            <div>
-                                <h3 className="text-lg font-medium">{t('revenueGroups.title')}</h3>
-                                <p className="text-sm text-muted-foreground">
-                                    {t('revenueGroups.description')}
-                                </p>
-                            </div>
+                            <SettingsSectionHeading
+                                title={t('revenueGroups.title')}
+                                description={t('revenueGroups.description')}
+                            />
                             <AddRevenueGroupDialog />
                         </div>
                         {isLoadingGroups ? (

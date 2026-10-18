@@ -8,6 +8,7 @@ import type { CreditNoteResponseDto } from '@/api/useCreditNotes'
 import type { Invoice } from '@/api/types'
 import * as creditNotesApi from '@/api/useCreditNotes'
 import * as salesApi from '@/api/sales'
+import deFinance from '../../../../../locales/de/finance.json'
 vi.mock('@/api/useCreditNotes')
 vi.mock('@/api/sales')
 vi.mock('@/api/auth-session', () => ({
@@ -143,10 +144,12 @@ describe('CreditNoteDetailPage', () => {
     cleanup()
   })
 
-  it('renders draft credit note lines', () => {
+  it('labels each credited quantity input for assistive technology', () => {
     renderPage()
 
-    expect(screen.getByText(lineDescription)).toBeInTheDocument()
-    expect(screen.getByDisplayValue('1')).toBeInTheDocument()
+    const quantityInput = screen.getByLabelText(
+      deFinance.creditNotes.quantityInputAria.replace('{{description}}', lineDescription),
+    )
+    expect(quantityInput).toHaveAttribute('id', `credit-line-quantity-${lineItemId}`)
   })
 })
