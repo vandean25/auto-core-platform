@@ -1,6 +1,6 @@
 import type { PrismaClient } from '@prisma/client';
-import type { DisplayLanguage } from '../../common/i18n/display-language.js';
 import { loadSeedMasterCopy } from './seed-master-copy.js';
+import type { InspectionTemplateSeedOptions } from './inspection-template-seed.options.js';
 
 type AnnahmeTemplateSeedClient = Pick<
   PrismaClient,
@@ -26,9 +26,11 @@ const ANNAHME_ITEM_CODES = [
 export async function seedAnnahmeCheckInspectionTemplate(
   prisma: AnnahmeTemplateSeedClient,
   tenantId: string,
-  language: DisplayLanguage = 'de',
+  options: InspectionTemplateSeedOptions = {},
 ) {
+  const language = options.language ?? 'de';
   const copy = loadSeedMasterCopy(language);
+  const refresh = options.refreshLocalizedCopy === true;
   const template = await prisma.inspectionTemplate.upsert({
     where: {
       tenant_id_code_version: {
@@ -37,9 +39,7 @@ export async function seedAnnahmeCheckInspectionTemplate(
         version: ANNAHME_CHECK_TEMPLATE_VERSION,
       },
     },
-    update: {
-      title: copy.annahme.title,
-    },
+    update: refresh ? { title: copy.annahme.title } : {},
     create: {
       tenant_id: tenantId,
       code: ANNAHME_CHECK_TEMPLATE_CODE,
@@ -59,9 +59,7 @@ export async function seedAnnahmeCheckInspectionTemplate(
             code,
           },
         },
-        update: {
-          label: copy.annahme.items[code],
-        },
+        update: refresh ? { label: copy.annahme.items[code] } : {},
         create: {
           tenant_id: tenantId,
           inspection_template_id: template.id,

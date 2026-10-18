@@ -171,43 +171,55 @@ async function main() {
     });
   }
 
-  await prisma.storageLocation.createMany({
-    data: [
-      {
+  for (const location of [
+    {
+      code: 'TRANSIT',
+      name: master.landingDemo.storage.TRANSIT,
+      type: 'in_transit' as const,
+      is_system: true,
+    },
+    {
+      code: 'A1',
+      name: master.landingDemo.storage.A1,
+      type: 'shelf' as const,
+      is_system: false,
+    },
+    {
+      code: 'LOT',
+      name: master.landingDemo.storage.LOT,
+      type: 'vehicle_lot' as const,
+      is_system: false,
+    },
+  ]) {
+    await prisma.storageLocation.upsert({
+      where: {
+        tenant_id_site_id_code: {
+          tenant_id: tenant.id,
+          site_id: mainSite.id,
+          code: location.code,
+        },
+      },
+      update: { name: location.name },
+      create: {
         tenant_id: tenant.id,
         site_id: mainSite.id,
-        code: 'TRANSIT',
-        name: master.landingDemo.storage.TRANSIT,
-        type: 'in_transit',
-        is_system: true,
+        code: location.code,
+        name: location.name,
+        type: location.type,
+        is_system: location.is_system,
       },
-      {
-        tenant_id: tenant.id,
-        site_id: mainSite.id,
-        code: 'A1',
-        name: master.landingDemo.storage.A1,
-        type: 'shelf',
-        is_system: false,
-      },
-      {
-        tenant_id: tenant.id,
-        site_id: mainSite.id,
-        code: 'LOT',
-        name: master.landingDemo.storage.LOT,
-        type: 'vehicle_lot',
-        is_system: false,
-      },
-    ],
-    skipDuplicates: true,
-  });
+    });
+  }
 
   const finance = await seedFinance(prisma, tenant.id);
-  await seedPickerlInspectionTemplate(prisma, tenant.id, LANDING_DEMO_LANGUAGE);
-  await seedAnnahmeCheckInspectionTemplate(
-    prisma,
-    tenant.id,
-    LANDING_DEMO_LANGUAGE,
-  );
+  await seedPickerlInspectionTemplate(prisma, tenant.id, {
+    language: LANDING_DEMO_LANGUAGE,
+    refreshLocalizedCopy: true,
+  });
+  await seedAnnahmeCheckInspectionTemplate(prisma, tenant.id, {
+    language: LANDING_DEMO_LANGUAGE,
+    refreshLocalizedCopy: true,
+  });
 
   const foundation = {
     defaultTenant: tenant,

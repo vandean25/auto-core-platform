@@ -39,7 +39,7 @@ export const DEMO_USERS: DemoUserDefinition[] = [
     tenantRole: TenantMemberRole.TECH,
   },
   {
-    email: 'demo-en@auto.core.at',
+    email: 'workshop-demo-en@auto.core.at',
     firebaseUid: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
     tenantRole: TenantMemberRole.ADMIN,
     locale: 'en',

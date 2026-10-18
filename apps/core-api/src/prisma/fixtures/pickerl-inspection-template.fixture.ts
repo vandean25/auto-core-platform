@@ -1,6 +1,6 @@
-import type { DisplayLanguage } from '../../common/i18n/display-language.js';
 import type { PrismaClient } from '@prisma/client';
 import { loadSeedMasterCopy } from './seed-master-copy.js';
+import type { InspectionTemplateSeedOptions } from './inspection-template-seed.options.js';
 
 type PickerlTemplateSeedClient = Pick<
   PrismaClient,
@@ -28,9 +28,11 @@ const PICKERL_ITEM_CODES = [
 export async function seedPickerlInspectionTemplate(
   prisma: PickerlTemplateSeedClient,
   tenantId: string,
-  language: DisplayLanguage = 'de',
+  options: InspectionTemplateSeedOptions = {},
 ) {
+  const language = options.language ?? 'de';
   const copy = loadSeedMasterCopy(language);
+  const refresh = options.refreshLocalizedCopy === true;
   const template = await prisma.inspectionTemplate.upsert({
     where: {
       tenant_id_code_version: {
@@ -39,9 +41,7 @@ export async function seedPickerlInspectionTemplate(
         version: PICKERL_TEMPLATE_VERSION,
       },
     },
-    update: {
-      title: copy.pickerl.title,
-    },
+    update: refresh ? { title: copy.pickerl.title } : {},
     create: {
       tenant_id: tenantId,
       code: PICKERL_TEMPLATE_CODE,
@@ -61,9 +61,7 @@ export async function seedPickerlInspectionTemplate(
             code,
           },
         },
-        update: {
-          label: copy.pickerl.items[code],
-        },
+        update: refresh ? { label: copy.pickerl.items[code] } : {},
         create: {
           tenant_id: tenantId,
           inspection_template_id: template.id,
