@@ -1,4 +1,8 @@
-import { ImportJobStatus, type Prisma, type PrismaClient } from '@prisma/client';
+import {
+  ImportJobStatus,
+  type Prisma,
+  type PrismaClient,
+} from '@prisma/client';
 import { IMPORT_JOB_RETENTION_DAYS } from './import.constants.js';
 
 export const IMPORT_JOB_ROW_PURGE_JOBS_PER_TENANT = 25;

@@ -8,6 +8,10 @@ import { ImportService } from './import.service.js';
 @Module({
   imports: [ScheduleModule.forRoot()],
   controllers: [ImportController],
-  providers: [ImportService, ImportMappingProfileService, ImportRetentionService],
+  providers: [
+    ImportService,
+    ImportMappingProfileService,
+    ImportRetentionService,
+  ],
 })
 export class ImportModule {}
