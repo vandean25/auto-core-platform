@@ -1,4 +1,6 @@
 import * as React from 'react'
+import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import type { InventoryItemDetail } from '@/api/inventory'
 import { useUpdateInventoryItem } from '@/api/inventory'
@@ -14,6 +16,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { getErrorMessage } from '@/lib/error-utils'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 
 type EditInventoryItemDialogProps = {
   item: InventoryItemDetail
@@ -22,6 +25,11 @@ type EditInventoryItemDialogProps = {
 }
 
 export function EditInventoryItemDialog({ item, open, onOpenChange }: EditInventoryItemDialogProps) {
+  const { t } = useTranslation('inventory')
+  useEffect(() => {
+    void ensureNamespaceLoaded('inventory')
+  }, [])
+
   const updateMutation = useUpdateInventoryItem(item.id)
   const [brandId, setBrandId] = React.useState<number | undefined>(item.brand_id ?? undefined)
 
@@ -43,10 +51,10 @@ export function EditInventoryItemDialog({ item, open, onOpenChange }: EditInvent
         retail_price: Number(formData.get('retail_price')),
         brandId,
       })
-      toast.success('Item updated')
+      toast.success(t('dialogs.editItem.success'))
       onOpenChange(false)
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, 'Failed to update item'))
+      toast.error(getErrorMessage(error, t('dialogs.editItem.failed')))
     }
   }
 
@@ -55,26 +63,26 @@ export function EditInventoryItemDialog({ item, open, onOpenChange }: EditInvent
       <DialogContent className="sm:max-w-[480px]">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Edit item</DialogTitle>
+            <DialogTitle>{t('dialogs.editItem.title')}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="edit-sku">SKU</Label>
+                <Label htmlFor="edit-sku">{t('dialogs.editItem.sku')}</Label>
                 <Input id="edit-sku" name="sku" defaultValue={item.sku} required />
               </div>
               <div className="grid gap-2">
-                <Label>Brand</Label>
+                <Label>{t('dialogs.editItem.brand')}</Label>
                 <BrandCombobox value={brandId} onChange={setBrandId} />
               </div>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="edit-name">Name</Label>
+              <Label htmlFor="edit-name">{t('dialogs.editItem.name')}</Label>
               <Input id="edit-name" name="name" defaultValue={item.name} required />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="edit-cost">Cost price (€)</Label>
+                <Label htmlFor="edit-cost">{t('dialogs.editItem.costPrice')}</Label>
                 <Input
                   id="edit-cost"
                   name="cost_price"
@@ -86,7 +94,7 @@ export function EditInventoryItemDialog({ item, open, onOpenChange }: EditInvent
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="edit-retail">Retail price (€)</Label>
+                <Label htmlFor="edit-retail">{t('dialogs.editItem.retailPrice')}</Label>
                 <Input
                   id="edit-retail"
                   name="retail_price"
@@ -101,7 +109,7 @@ export function EditInventoryItemDialog({ item, open, onOpenChange }: EditInvent
           </div>
           <DialogFooter>
             <Button type="submit" disabled={updateMutation.isPending}>
-              Save changes
+              {t('actions.saveChanges')}
             </Button>
           </DialogFooter>
         </form>

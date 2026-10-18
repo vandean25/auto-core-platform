@@ -1,7 +1,50 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef } from 'react'
+import { getApiErrorBody } from '@/api/api-error'
 import { generateId } from '@/lib/id'
+import { createHttpError, getErrorMessage } from '@/lib/error-utils'
 import { invoiceKeys } from '@/api/sales'
+
+export type SettlementMutationErrorKey =
+  | 'settlement.errors.recordFailed'
+  | 'settlement.errors.reconcileFailed'
+  | 'settlement.errors.cancellationFailed'
+  | 'settlement.errors.missingIdempotencyKey'
+
+export class SettlementMutationError extends Error {
+  readonly i18nKey: SettlementMutationErrorKey
+
+  constructor(i18nKey: SettlementMutationErrorKey) {
+    super(i18nKey)
+    this.name = 'SettlementMutationError'
+    this.i18nKey = i18nKey
+  }
+}
+
+const SETTLEMENT_HTTP_FALLBACK: Record<SettlementMutationErrorKey, string> = {
+  'settlement.errors.recordFailed': 'Settlement failed',
+  'settlement.errors.reconcileFailed': 'Reconciliation failed',
+  'settlement.errors.cancellationFailed': 'Cancellation failed',
+  'settlement.errors.missingIdempotencyKey': 'Missing settlement idempotency key',
+}
+
+/** Throws with `response.data.code` preserved for `getErrorMessage`, or a finance fallback key. */
+export function throwIfSettlementResponseNotOk(
+  response: Response,
+  body: unknown,
+  fallbackKey: SettlementMutationErrorKey,
+): void {
+  if (response.ok) {
+    return
+  }
+  const data = getApiErrorBody({ response: { status: response.status, data: body } })
+  if (typeof data?.code === 'string' && data.code.length > 0) {
+    const synthetic = { response: { status: response.status, data } }
+    const message = getErrorMessage(synthetic, SETTLEMENT_HTTP_FALLBACK[fallbackKey])
+    throw createHttpError(message, response.status, data)
+  }
+  throw new SettlementMutationError(fallbackKey)
+}
 
 export type FiscalReceiptSummary = {
   id: string
@@ -108,11 +151,7 @@ export function useRecordSettlement(invoiceId: string) {
       const body = (await response.json().catch(() => ({}))) as SettlementResponse & {
         message?: string
       }
-      if (!response.ok) {
-        throw new Error(
-          typeof body.message === 'string' ? body.message : 'Settlement failed',
-        )
-      }
+      throwIfSettlementResponseNotOk(response, body, 'settlement.errors.recordFailed')
       return body
     },
     onSuccess: (result) => {
@@ -128,7 +167,7 @@ export function useReconcileSettlement(invoiceId: string, idempotencyKey: string
   return useMutation({
     mutationFn: async () => {
       if (!idempotencyKey) {
-        throw new Error('Missing settlement idempotency key')
+        throw new SettlementMutationError('settlement.errors.missingIdempotencyKey')
       }
       const response = await fetch(`/api/invoices/${invoiceId}/settlement/reconcile`, {
         method: 'POST',
@@ -139,11 +178,7 @@ export function useReconcileSettlement(invoiceId: string, idempotencyKey: string
       const body = (await response.json().catch(() => ({}))) as SettlementResponse & {
         message?: string
       }
-      if (!response.ok) {
-        throw new Error(
-          typeof body.message === 'string' ? body.message : 'Reconcile failed',
-        )
-      }
+      throwIfSettlementResponseNotOk(response, body, 'settlement.errors.reconcileFailed')
       return body
     },
     onSuccess: () => {
@@ -168,11 +203,7 @@ export function useCancelFiscalReceipt(invoiceId: string) {
       const body = (await response.json().catch(() => ({}))) as SettlementResponse & {
         message?: string
       }
-      if (!response.ok) {
-        throw new Error(
-          typeof body.message === 'string' ? body.message : 'Cancellation failed',
-        )
-      }
+      throwIfSettlementResponseNotOk(response, body, 'settlement.errors.cancellationFailed')
       return body
     },
     onSuccess: () => {
@@ -183,9 +214,16 @@ export function useCancelFiscalReceipt(invoiceId: string) {
   })
 }
 
-export function settlementSuccessToastMessage(paymentStatus: string | undefined): string | null {
+export function settlementSuccessToastMessageKey(
+  paymentStatus: string | undefined,
+): 'settlement.toast.recorded' | null {
   if (paymentStatus === 'SETTLED' || paymentStatus === 'SETTLED_EXTERNAL') {
-    return 'Settlement recorded'
+    return 'settlement.toast.recorded'
   }
   return null
+}
+
+/** @deprecated Use settlementSuccessToastMessageKey and translate in the UI layer. */
+export function settlementSuccessToastMessage(paymentStatus: string | undefined): string | null {
+  return settlementSuccessToastMessageKey(paymentStatus)
 }

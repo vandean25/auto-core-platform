@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
-import { format } from 'date-fns'
 import { ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthSession } from '@/api/auth-session'
@@ -51,7 +51,8 @@ import {
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { generateId } from '@/lib/id'
 import { getErrorMessage } from '@/lib/error-utils'
-import { formatNumber } from '@/lib/format'
+import { formatDateTime, formatNumber } from '@/lib/format'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 import {
   buildMemberSiteIdSet,
   canApproveOrRejectTransfer,
@@ -73,7 +74,13 @@ function formatQty(value: string) {
 }
 
 export default function StockTransferDetail() {
+  const { t } = useTranslation(['inventory', 'common'])
+  useEffect(() => {
+    void ensureNamespaceLoaded('inventory')
+  }, [])
+
   const { id = '' } = useParams<{ id: string }>()
+  const emDash = t('inventory:shared.emDash')
   const { user } = useAuth()
   const sessionQuery = useAuthSession(user?.uid ?? user?.email ?? null, Boolean(user))
   const { data: mySites = [] } = useMySites(Boolean(id))
@@ -132,20 +139,23 @@ export default function StockTransferDetail() {
   const locationLabelById = useMemo(() => {
     const map = new Map<string, string>()
     for (const location of locations) {
-      map.set(location.id, `${location.code} — ${location.name}`)
+      map.set(
+        location.id,
+        t('inventory:shared.locationCodeName', { code: location.code, name: location.name }),
+      )
     }
     return map
-  }, [locations])
+  }, [locations, t])
 
   const destinationBins = locations.filter((location) => location.type === 'bin')
   const sourceBins = locations.filter((location) => location.type === 'bin')
 
   if (isLoading) {
-    return <div className="p-8 text-center">Loading transfer…</div>
+    return <div className="p-8 text-center">{t('inventory:stockTransfers.detail.loading')}</div>
   }
 
   if (error || !transfer) {
-    return <div className="p-8 text-center">Transfer not found</div>
+    return <div className="p-8 text-center">{t('inventory:stockTransfers.detail.notFound')}</div>
   }
 
   const canApprove = canApproveOrRejectTransfer(transfer, memberSiteIds, activeRole)
@@ -166,26 +176,26 @@ export default function StockTransferDetail() {
     hasReceiveMembership(transfer, memberSiteIds) && activeSiteId !== transfer.toSiteId
 
   const runAction = async (
-    label: string,
+    successMessage: string,
     action: () => Promise<unknown>,
   ) => {
     try {
       await action()
-      toast.success(label)
+      toast.success(successMessage)
     } catch (actionError: unknown) {
-      toast.error(getErrorMessage(actionError, `Failed to ${label.toLowerCase()}`))
+      toast.error(getErrorMessage(actionError, t('inventory:stockTransfers.detail.toast.actionFailed')))
     }
   }
 
   const handleApprove = () =>
-    runAction('Transfer approved', () =>
+    runAction(t('inventory:stockTransfers.detail.toast.approved'), () =>
       approveMutation.mutateAsync({
         expectedVersion: transfer.version,
       }),
     )
 
   const handleReject = () =>
-    runAction('Transfer rejected', () =>
+    runAction(t('inventory:stockTransfers.detail.toast.rejected'), () =>
       rejectMutation.mutateAsync({
         expectedVersion: transfer.version,
         reason: rejectReason || undefined,
@@ -193,7 +203,7 @@ export default function StockTransferDetail() {
     )
 
   const handleCancel = () =>
-    runAction('Transfer cancelled', () =>
+    runAction(t('inventory:stockTransfers.detail.toast.cancelled'), () =>
       cancelMutation.mutateAsync({
         expectedVersion: transfer.version,
         reason: cancelReason || undefined,
@@ -202,13 +212,13 @@ export default function StockTransferDetail() {
 
   const handleShip = () => {
     if (!canShipOnActiveSite) {
-      toast.error('Switch your active site to the source site before shipping')
+      toast.error(t('inventory:stockTransfers.detail.toast.switchSiteBeforeShip'))
       return
     }
 
     const missingSourceBins = getLinesMissingShipSourceBins(transfer, sourceLocationByLine)
     if (missingSourceBins.length > 0) {
-      toast.error('Select a source bin for every approved line before shipping')
+      toast.error(t('inventory:stockTransfers.detail.toast.selectSourceBins'))
       return
     }
 
@@ -219,7 +229,7 @@ export default function StockTransferDetail() {
         sourceLocationId: resolveShipSourceLocationId(line, sourceLocationByLine)!,
       }))
 
-    return runAction('Transfer shipped', () =>
+    return runAction(t('inventory:stockTransfers.detail.toast.shipped'), () =>
       shipMutation.mutateAsync({
         expectedVersion: transfer.version,
         lines,
@@ -229,7 +239,7 @@ export default function StockTransferDetail() {
 
   const handleReceive = () => {
     if (!canReceiveOnActiveSite) {
-      toast.error('Switch your active site to the destination site before receiving')
+      toast.error(t('inventory:stockTransfers.detail.toast.switchSiteBeforeReceive'))
       return
     }
 
@@ -247,11 +257,11 @@ export default function StockTransferDetail() {
       .filter((line): line is NonNullable<typeof line> => line !== null)
 
     if (lines.length === 0) {
-      toast.error('Enter receive quantity and destination bin for at least one line')
+      toast.error(t('inventory:stockTransfers.detail.toast.enterReceiveQty'))
       return
     }
 
-    return runAction('Stock received', () =>
+    return runAction(t('inventory:stockTransfers.detail.toast.received'), () =>
       receiveMutation.mutateAsync({
         expectedVersion: transfer.version,
         idempotencyKey: generateId(),
@@ -270,11 +280,11 @@ export default function StockTransferDetail() {
       .filter((line): line is NonNullable<typeof line> => line !== null)
 
     if (lines.length === 0) {
-      toast.error('Enter return quantity for at least one line')
+      toast.error(t('inventory:stockTransfers.detail.toast.enterReturnQty'))
       return
     }
 
-    return runAction('Unreceived stock returned', () =>
+    return runAction(t('inventory:stockTransfers.detail.toast.returned'), () =>
       returnMutation.mutateAsync({
         expectedVersion: transfer.version,
         idempotencyKey: generateId(),
@@ -288,7 +298,7 @@ export default function StockTransferDetail() {
       <div className="mb-8 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" asChild>
-            <Link to="/stock-transfers" aria-label="Back to stock transfers">
+            <Link to="/stock-transfers" aria-label={t('inventory:stockTransfers.detail.backAriaLabel')}>
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
@@ -298,7 +308,9 @@ export default function StockTransferDetail() {
               <StatusBadge status={transfer.status} />
             </h1>
             <p className="text-slate-500">
-              Requested {format(new Date(transfer.createdAt), 'PPP p')}
+              {t('inventory:stockTransfers.detail.requestedAt', {
+                date: formatDateTime(transfer.createdAt),
+              })}
             </p>
           </div>
         </div>
@@ -306,24 +318,26 @@ export default function StockTransferDetail() {
         <div className="flex flex-wrap justify-end gap-2">
           {canApprove ? (
             <Button onClick={() => void handleApprove()} disabled={approveMutation.isPending}>
-              Approve
+              {t('inventory:actions.approve')}
             </Button>
           ) : null}
 
           {canReject ? (
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="outline">Reject</Button>
+                <Button variant="outline">{t('inventory:actions.reject')}</Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Reject transfer request?</AlertDialogTitle>
+                  <AlertDialogTitle>{t('inventory:stockTransfers.detail.rejectDialog.title')}</AlertDialogTitle>
                   <AlertDialogDescription>
-                    The destination site will be notified that this request was rejected.
+                    {t('inventory:stockTransfers.detail.rejectDialog.description')}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <div className="space-y-2">
-                  <Label htmlFor="reject-reason">Reason (optional)</Label>
+                  <Label htmlFor="reject-reason">
+                    {t('inventory:stockTransfers.detail.rejectDialog.reasonOptional')}
+                  </Label>
                   <Input
                     id="reject-reason"
                     value={rejectReason}
@@ -331,9 +345,9 @@ export default function StockTransferDetail() {
                   />
                 </div>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Keep request</AlertDialogCancel>
+                  <AlertDialogCancel>{t('inventory:actions.keepRequest')}</AlertDialogCancel>
                   <AlertDialogAction onClick={() => void handleReject()}>
-                    Reject
+                    {t('inventory:actions.reject')}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -343,17 +357,19 @@ export default function StockTransferDetail() {
           {canCancel ? (
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="outline">Cancel</Button>
+                <Button variant="outline">{t('common:actions.cancel')}</Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Cancel transfer?</AlertDialogTitle>
+                  <AlertDialogTitle>{t('inventory:stockTransfers.detail.cancelDialog.title')}</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This stops the transfer before any stock has shipped.
+                    {t('inventory:stockTransfers.detail.cancelDialog.description')}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <div className="space-y-2">
-                  <Label htmlFor="cancel-reason">Reason (optional)</Label>
+                  <Label htmlFor="cancel-reason">
+                    {t('inventory:stockTransfers.detail.cancelDialog.reasonOptional')}
+                  </Label>
                   <Input
                     id="cancel-reason"
                     value={cancelReason}
@@ -361,9 +377,9 @@ export default function StockTransferDetail() {
                   />
                 </div>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Keep transfer</AlertDialogCancel>
+                  <AlertDialogCancel>{t('inventory:actions.keepTransfer')}</AlertDialogCancel>
                   <AlertDialogAction onClick={() => void handleCancel()}>
-                    Cancel transfer
+                    {t('inventory:actions.cancelTransfer')}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -375,13 +391,13 @@ export default function StockTransferDetail() {
               onClick={() => void handleShip()}
               disabled={shipMutation.isPending || !shipReady}
             >
-              Ship
+              {t('inventory:actions.ship')}
             </Button>
           ) : null}
 
           {canReceive ? (
             <Button onClick={() => void handleReceive()} disabled={receiveMutation.isPending}>
-              Receive
+              {t('inventory:actions.receiveStock')}
             </Button>
           ) : null}
 
@@ -391,7 +407,7 @@ export default function StockTransferDetail() {
               onClick={() => void handleReturn()}
               disabled={returnMutation.isPending}
             >
-              Return unreceived
+              {t('inventory:actions.returnUnreceived')}
             </Button>
           ) : null}
         </div>
@@ -399,42 +415,46 @@ export default function StockTransferDetail() {
 
       {needsFromSiteForShip ? (
         <p className="text-sm text-amber-700">
-          Switch your active site to {transfer.fromSiteName ?? 'the source site'} to pick source
-          bins and ship.
+          {t('inventory:stockTransfers.detail.switchToSourceSite', {
+            site: transfer.fromSiteName ?? t('inventory:stockTransfers.detail.switchToSourceSiteFallback'),
+          })}
         </p>
       ) : null}
       {needsToSiteForReceive ? (
         <p className="text-sm text-amber-700">
-          Switch your active site to {transfer.toSiteName ?? 'the destination site'} to receive
-          stock.
+          {t('inventory:stockTransfers.detail.switchToDestSite', {
+            site: transfer.toSiteName ?? t('inventory:stockTransfers.detail.switchToDestSiteFallback'),
+          })}
         </p>
       ) : null}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-1">
           <CardHeader>
-            <CardTitle className="text-base font-semibold">Route</CardTitle>
+            <CardTitle className="text-base font-semibold">
+              {t('inventory:stockTransfers.detail.routeTitle')}
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <div>
-              <p className="text-slate-500">From</p>
+              <p className="text-slate-500">{t('inventory:stockTransfers.detail.from')}</p>
               <p className="font-medium">
                 {transfer.fromSiteName ?? transfer.fromSiteId}
               </p>
             </div>
             <div>
-              <p className="text-slate-500">To</p>
+              <p className="text-slate-500">{t('inventory:stockTransfers.detail.to')}</p>
               <p className="font-medium">{transfer.toSiteName ?? transfer.toSiteId}</p>
             </div>
             {transfer.rejectReason ? (
               <div>
-                <p className="text-slate-500">Reject reason</p>
+                <p className="text-slate-500">{t('inventory:stockTransfers.detail.rejectReason')}</p>
                 <p>{transfer.rejectReason}</p>
               </div>
             ) : null}
             {transfer.cancelReason ? (
               <div>
-                <p className="text-slate-500">Cancel reason</p>
+                <p className="text-slate-500">{t('inventory:stockTransfers.detail.cancelReason')}</p>
                 <p>{transfer.cancelReason}</p>
               </div>
             ) : null}
@@ -443,20 +463,22 @@ export default function StockTransferDetail() {
 
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle className="text-base font-semibold">Lines</CardTitle>
+            <CardTitle className="text-base font-semibold">
+              {t('inventory:stockTransfers.detail.linesTitle')}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Part</TableHead>
-                  <TableHead className="text-right">Requested</TableHead>
-                  <TableHead className="text-right">Approved</TableHead>
-                  <TableHead className="text-right">Shipped</TableHead>
-                  <TableHead className="text-right">Received</TableHead>
-                  <TableHead className="text-right">Returned</TableHead>
-                  <TableHead>Source bin</TableHead>
-                  <TableHead>Dest bin</TableHead>
+                  <TableHead>{t('inventory:stockTransfers.detail.columns.part')}</TableHead>
+                  <TableHead className="text-right">{t('inventory:stockTransfers.detail.columns.requested')}</TableHead>
+                  <TableHead className="text-right">{t('inventory:stockTransfers.detail.columns.approved')}</TableHead>
+                  <TableHead className="text-right">{t('inventory:stockTransfers.detail.columns.shipped')}</TableHead>
+                  <TableHead className="text-right">{t('inventory:stockTransfers.detail.columns.received')}</TableHead>
+                  <TableHead className="text-right">{t('inventory:stockTransfers.detail.columns.returned')}</TableHead>
+                  <TableHead>{t('inventory:stockTransfers.detail.columns.sourceBin')}</TableHead>
+                  <TableHead>{t('inventory:stockTransfers.detail.columns.destBin')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -501,8 +523,8 @@ export default function StockTransferDetail() {
                         {showSourceBin
                           ? locationLabelById.get(line.sourceLocationId ?? '') ??
                             line.sourceLocationId ??
-                            '—'
-                          : '—'}
+                            emDash
+                          : emDash}
                         {showShipControls && Number(line.approvedQty) > 0 ? (
                           <Select
                             value={
@@ -518,12 +540,15 @@ export default function StockTransferDetail() {
                             }
                           >
                             <SelectTrigger className="mt-2 h-8">
-                              <SelectValue placeholder="Confirm source bin" />
+                              <SelectValue placeholder={t('inventory:stockTransfers.detail.confirmSourceBin')} />
                             </SelectTrigger>
                             <SelectContent>
                               {sourceBins.map((location) => (
                                 <SelectItem key={location.id} value={location.id}>
-                                  {location.code} — {location.name}
+                                  {t('inventory:shared.locationCodeName', {
+                                    code: location.code,
+                                    name: location.name,
+                                  })}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -533,14 +558,14 @@ export default function StockTransferDetail() {
                       <TableCell>
                         {line.destLocationId
                           ? locationLabelById.get(line.destLocationId) ?? line.destLocationId
-                          : '—'}
+                          : emDash}
                         {showReceiveControls && outstandingReceive > 0 ? (
                           <div className="mt-2 space-y-2">
                             <Input
                               type="number"
                               min="0.001"
                               step="0.001"
-                              placeholder="Receive qty"
+                              placeholder={t('inventory:stockTransfers.detail.receiveQtyPlaceholder')}
                               value={receiveQtyByLine[line.id] ?? ''}
                               onChange={(event) =>
                                 setReceiveQtyByLine((current) => ({
@@ -563,7 +588,7 @@ export default function StockTransferDetail() {
                               }
                             >
                               <SelectTrigger className="h-8">
-                                <SelectValue placeholder="Destination bin" />
+                                <SelectValue placeholder={t('inventory:stockTransfers.detail.destinationBin')} />
                               </SelectTrigger>
                               <SelectContent>
                                 {destinationBins.map((location) => (
@@ -581,7 +606,7 @@ export default function StockTransferDetail() {
                             type="number"
                             min="0.001"
                             step="0.001"
-                            placeholder="Return qty"
+                            placeholder={t('inventory:stockTransfers.detail.returnQtyPlaceholder')}
                             value={returnQtyByLine[line.id] ?? ''}
                             onChange={(event) =>
                               setReturnQtyByLine((current) => ({

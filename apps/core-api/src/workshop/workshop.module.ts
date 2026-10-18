@@ -28,6 +28,7 @@ import { WorkshopMechanicFindingService } from './workshop-mechanic-finding.serv
 import { WorkshopCheckInController } from './workshop-check-in.controller.js';
 import { WorkshopCheckInService } from './workshop-check-in.service.js';
 import { WorkshopCheckInMediaService } from './workshop-check-in-media.service.js';
+import { WorkshopCheckInOrphanUploadCleanupService } from './workshop-check-in-orphan-upload-cleanup.service.js';
 import { WorkshopEstimateApprovalService } from './workshop-estimate-approval.service.js';
 import { WorkshopEstimateDecidedConsumerService } from './workshop-estimate-decided-consumer.service.js';
 import { WorkshopEstimateDecidedConsumerWorkerController } from './workshop-estimate-decided-consumer.worker.controller.js';
@@ -108,6 +109,7 @@ import { InspectionMeasurementModule } from '../inspection-measurement/inspectio
     WorkshopMechanicFindingService,
     WorkshopCheckInService,
     WorkshopCheckInMediaService,
+    WorkshopCheckInOrphanUploadCleanupService,
     MechanicMediaStorage,
     WorkshopEstimateApprovalService,
     WorkshopEstimateDecidedConsumerService,

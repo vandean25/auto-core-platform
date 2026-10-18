@@ -8,6 +8,20 @@ describe('listing-serializer.registry', () => {
     expect(serializer.platform).toBe('MOBILE_DE');
   });
 
+  it('resolves the AutoScout24 provisional serializer as UNVERIFIED', () => {
+    const serializer = resolveListingSerializer('AS24_PROVISIONAL_V1');
+    expect(serializer.profileCode).toBe('AS24_PROVISIONAL_V1');
+    expect(serializer.platform).toBe('AS24');
+    expect(serializer.verification).toBe('UNVERIFIED');
+  });
+
+  it('resolves the willhaben generic serializer as UNVERIFIED', () => {
+    const serializer = resolveListingSerializer('WILLHABEN_GENERIC_V1');
+    expect(serializer.profileCode).toBe('WILLHABEN_GENERIC_V1');
+    expect(serializer.platform).toBe('WILLHABEN');
+    expect(serializer.verification).toBe('UNVERIFIED');
+  });
+
   it('rejects unknown profile codes with LISTING_SERIALIZER_UNSUPPORTED', () => {
     let thrown: unknown;
     try {
@@ -16,8 +30,8 @@ describe('listing-serializer.registry', () => {
       thrown = error;
     }
     expect(thrown).toBeInstanceOf(UnprocessableEntityException);
-    expect((thrown as UnprocessableEntityException).getResponse()).toMatchObject(
-      { code: 'LISTING_SERIALIZER_UNSUPPORTED' },
-    );
+    expect(
+      (thrown as UnprocessableEntityException).getResponse(),
+    ).toMatchObject({ code: 'LISTING_SERIALIZER_UNSUPPORTED' });
   });
 });

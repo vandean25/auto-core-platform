@@ -8,3 +8,6 @@ mkdirSync(outputDirectory, { recursive: true });
 cpSync(resolve(appRoot, 'src/document-branding/assets'), outputDirectory, {
   recursive: true,
 });
+const localesOutput = resolve(appRoot, 'dist/locales');
+mkdirSync(localesOutput, { recursive: true });
+cpSync(resolve(appRoot, '../../locales'), localesOutput, { recursive: true });

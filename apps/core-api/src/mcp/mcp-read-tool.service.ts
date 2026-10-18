@@ -13,6 +13,7 @@ import { McpWorkshopOrderDetailReadService } from './mcp-workshop-order-detail.r
 import { McpAvailabilityReadService } from './mcp-availability-read.service.js';
 import { McpReportReadService } from './mcp-report-read.service.js';
 import { McpSettingsReadService } from './mcp-settings-read.service.js';
+import { McpListingReadService } from './mcp-listing-read.service.js';
 import { McpStockReadService } from './mcp-stock-read.service.js';
 import type { McpToolCallContext } from './mcp-tool-handler.service.js';
 import {
@@ -32,6 +33,7 @@ import {
   getVehicleContextInputSchema,
   getVehicleHistoryInputSchema,
   getVehicleInputSchema,
+  getVehicleListingStatusInputSchema,
   getVehicleStockAgeReportInputSchema,
   getVehicleStockMarginReportInputSchema,
   getWorkshopOrderInputSchema,
@@ -68,6 +70,7 @@ export class McpReadToolService {
   private readonly auditReads: McpAuditReadService;
   private readonly invoiceReads: McpInvoiceReadService;
   private readonly recordReads: McpRecordReadService;
+  private readonly listingReads: McpListingReadService;
   private readonly stockReads: McpStockReadService;
   private readonly orderHistoryReads: McpOrderHistoryReadService;
   private readonly vehicleContextReads: McpVehicleContextReadService;
@@ -86,6 +89,7 @@ export class McpReadToolService {
     auditReads: McpAuditReadService,
     invoiceReads: McpInvoiceReadService,
     recordReads: McpRecordReadService,
+    listingReads: McpListingReadService,
     stockReads: McpStockReadService,
     orderHistoryReads: McpOrderHistoryReadService,
     vehicleContextReads: McpVehicleContextReadService,
@@ -101,6 +105,7 @@ export class McpReadToolService {
     this.auditReads = auditReads;
     this.invoiceReads = invoiceReads;
     this.recordReads = recordReads;
+    this.listingReads = listingReads;
     this.stockReads = stockReads;
     this.orderHistoryReads = orderHistoryReads;
     this.vehicleContextReads = vehicleContextReads;
@@ -133,6 +138,10 @@ export class McpReadToolService {
         );
       case 'get_vehicle':
         return this.recordReads.getVehicle(getVehicleInputSchema.parse(parsed));
+      case 'get_vehicle_listing_status':
+        return this.listingReads.getVehicleListingStatus(
+          getVehicleListingStatusInputSchema.parse(parsed),
+        );
       case 'get_vehicle_history':
         return this.orderHistoryReads.getVehicleHistory(
           getVehicleHistoryInputSchema.parse(parsed),

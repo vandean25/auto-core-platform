@@ -1190,6 +1190,7 @@
     "toastConfirmed": "Customer and vehicle confirmed",
     "toastOdometerRequired": "Enter a valid odometer reading before creating the order.",
     "toastOrderCreated": "Workshop order created",
+    "toastCheckInReady": "Workshop order created — start vehicle check-in",
     "extractionFailed": "Extraction failed ({{code}}). Delete and try again with a new upload.",
     "unknown": "unknown",
     "uploadFailed": "Upload failed",
@@ -1203,6 +1204,8 @@
     "lowConfidence": " (low confidence)",
     "confirmIdentity": "Confirm identity",
     "createOrder": "Create workshop order",
+    "startCheckIn": "Start vehicle check-in",
+    "continueCheckIn": "Continue vehicle check-in",
     "abort": "Abort",
     "delete": "Delete"
   },
@@ -1267,7 +1270,28 @@
     "save": {
       "saving": "Saving…",
       "saved": "Saved",
+      "savedLocally": "Saved locally",
       "error": "Save failed"
+    },
+    "offline": {
+      "quotaExceeded": "Local storage is full. Delete queued photos or wait for pending uploads to finish. Your draft is kept.",
+      "storageEvictionHint": "Private browsing or storage cleanup may remove local drafts.",
+      "draftExpiryWarning": "This local draft is older than 24 hours. Please sync or discard it.",
+      "purge": {
+        "title": "Discard local check-in data?",
+        "description": "You still have unsynced check-in drafts ({{drafts}}) or queued photos ({{photos}}). Continuing will delete this local data.",
+        "confirm": "Discard and continue",
+        "cancel": "Cancel"
+      },
+      "conflict": {
+        "title": "Local draft differs from server",
+        "description": "The check-in changed on the server while you worked offline or with a local draft. Choose which version to keep.",
+        "completedTitle": "Check-in already completed",
+        "completedDescription": "This check-in was already completed on the server. The local draft can no longer be uploaded.",
+        "keepServer": "Keep server version",
+        "reapplyLocal": "Reapply local draft",
+        "discardLocal": "Discard local draft"
+      }
     },
     "fields": {
       "odometer": "Odometer",
@@ -1346,6 +1370,10 @@
       "capture": "Take photo",
       "uploading": "Uploading photo…",
       "uploaded": "Photo saved",
+      "queued": "Photo queued",
+      "pendingUpload": "Upload pending",
+      "pendingUploads_one": "{{count}} upload pending",
+      "pendingUploads_other": "{{count}} uploads pending",
       "galleryAria": "Photos for this check-in",
       "selectPhoto": "Select photo {{id}}",
       "pending": "Processing…"
@@ -1396,5 +1424,48 @@
       "loadError": "Could not load the intake checklist.",
       "saveError": "Could not save the intake checklist."
     }
+  },
+  "publicEstimateApproval": {
+    "pageTitle": "Estimate",
+    "loadFailed": "The estimate could not be loaded. Please try again later.",
+    "errors": {
+      "404": "This link is not valid.",
+      "410": "This link has expired or was already used.",
+      "409": "This estimate can no longer be approved or declined.",
+      "429": "Too many requests. Please try again later."
+    },
+    "workshop": "Workshop",
+    "customer": "Customer",
+    "vehicle": "Vehicle:",
+    "plate": "Plate {{plate}}",
+    "vin": "VIN {{vin}}",
+    "freeOfCharge": "This estimate is free of charge.",
+    "lineItemsAria": "Line items",
+    "gross": "(gross)",
+    "net": "(net)",
+    "totalNet": "Net total",
+    "tax": "VAT",
+    "totalGross": "Gross total",
+    "validUntil": "Valid until {{date}}",
+    "decisionSectionAria": "Legal notices and decision",
+    "legalAccepted": "I have read the notices above.",
+    "b2cAccepted": "I confirm the non-binding consumer declaration (KSchG § 5 para. 2).",
+    "fullName": "Full name",
+    "approve": "Accept estimate",
+    "decline": "Decline",
+    "declineConfirm": "Do you really want to decline this estimate?",
+    "declineYes": "Yes, decline",
+    "back": "Back",
+    "validation422": "Please confirm the notices and enter your full name.",
+    "submitFailed": "Your decision could not be saved. Please try again later.",
+    "loading": "Loading estimate…",
+    "estimateTitle": "Estimate {{number}}",
+    "version": "Version {{version}}",
+    "thankYou": "Thank you. Your decision has been saved.",
+    "approved": "Approved",
+    "declined": "Declined",
+    "approvedAt": "Electronically confirmed on {{date}}",
+    "decidedAt": "Decided on {{date}}",
+    "uid": "VAT ID {{vatId}}"
   }
 }

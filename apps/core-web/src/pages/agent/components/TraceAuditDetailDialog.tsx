@@ -1,3 +1,5 @@
+import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAgentActionTraceDetail } from '@/api/agent-actions'
 import {
   Dialog,
@@ -9,8 +11,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/status/StatusBadge'
-import type { Language } from '../agent-supervision-copy'
-import { getCopy, SUPERVISION_COPY } from '../agent-supervision-copy'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { formatDateTime } from '@/lib/format'
 import {
   resolveActivityAgentName,
@@ -22,47 +23,48 @@ interface TraceAuditDetailDialogProps {
   traceId: string | null
   open: boolean
   onOpenChange: (open: boolean) => void
-  language?: Language
 }
 
 export function TraceAuditDetailDialog({
   traceId,
   open,
   onOpenChange,
-  language = 'en',
 }: TraceAuditDetailDialogProps) {
   const { data, isLoading, error } = useAgentActionTraceDetail(traceId ?? '')
-  const t = SUPERVISION_COPY.traceDialog
+  const { t } = useTranslation('agent')
+
+  useEffect(() => {
+    void ensureNamespaceLoaded('agent')
+  }, [])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{getCopy(t.title, language)}</DialogTitle>
+          <DialogTitle>{t('traceDialog.title')}</DialogTitle>
           <DialogDescription>
-            {getCopy(t.description, language)}{' '}
+            {t('traceDialog.description')}{' '}
             <span className="font-mono font-medium text-slate-900">{traceId}</span>
           </DialogDescription>
         </DialogHeader>
 
         {isLoading && (
           <div className="py-8 text-center text-sm text-slate-500">
-            {getCopy(SUPERVISION_COPY.common.loading, language)}
+            {t('common.loading')}
           </div>
         )}
 
         {error && (
           <div className="rounded-md border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-            {getCopy(SUPERVISION_COPY.common.error, language)}
+            {t('common.error')}
           </div>
         )}
 
         {data && (
           <div className="space-y-6 py-2">
-            {/* Action Log Entries */}
             <div className="space-y-3">
               <h3 className="text-sm font-semibold text-slate-900">
-                {getCopy(t.actionHistory, language)} ({data.logs?.length ?? 0})
+                {t('traceDialog.actionHistory')} ({data.logs?.length ?? 0})
               </h3>
               <div className="space-y-2">
                 {data.logs?.map((act) => {
@@ -82,27 +84,32 @@ export function TraceAuditDetailDialog({
                         </div>
                       </div>
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-slate-500">
-                        <span>Agent: <strong className="text-slate-700">{agentName}</strong></span>
+                        <span>
+                          {t('traceDialog.agentLabel')}:{' '}
+                          <strong className="text-slate-700">{agentName}</strong>
+                        </span>
                         {onBehalfOfId && (
                           <div className="space-y-1">
                             <span>
-                              On behalf of:{' '}
+                              {t('traceDialog.onBehalfOf')}:{' '}
                               <strong className="text-slate-700">
                                 {resolveDecidedByLabel(
                                   { name: act.onBehalfOfUserName, email: act.onBehalfOfUserEmail },
-                                  getCopy(SUPERVISION_COPY.common.unknownUser, language),
+                                  t('common.unknownUser'),
                                 )}
                               </strong>
                             </span>
                             <details className="text-[11px] text-slate-500">
                               <summary className="cursor-pointer hover:text-slate-600">
-                                {getCopy(SUPERVISION_COPY.activity.showDetails, language)}
+                                {t('activity.showDetails')}
                               </summary>
                               <div className="mt-1 break-all font-mono">{onBehalfOfId}</div>
                             </details>
                           </div>
                         )}
-                        <span>Time: {formatDateTime(act.createdAt)}</span>
+                        <span>
+                          {t('traceDialog.time')}: {formatDateTime(act.createdAt)}
+                        </span>
                       </div>
                     </div>
                   )
@@ -110,14 +117,13 @@ export function TraceAuditDetailDialog({
               </div>
             </div>
 
-            {/* Correlated ADR-0015 Audit Logs */}
             <div className="space-y-3">
               <h3 className="text-sm font-semibold text-slate-900">
-                {getCopy(t.correlatedAudit, language)} ({data.auditEntries?.length ?? 0})
+                {t('traceDialog.correlatedAudit')} ({data.auditEntries?.length ?? 0})
               </h3>
               {(!data.auditEntries || data.auditEntries.length === 0) ? (
                 <div className="rounded-md border border-dashed border-slate-200 p-4 text-center text-xs text-slate-500">
-                  {getCopy(t.noAudit, language)}
+                  {t('traceDialog.noAudit')}
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -133,7 +139,10 @@ export function TraceAuditDetailDialog({
                         <StatusBadge status={entry.action} />
                       </div>
                       <div className="flex items-center gap-4 text-slate-500">
-                        <span>User: {entry.actorEmail ?? entry.actorUserId ?? 'System / Agent'}</span>
+                        <span>
+                          {t('traceDialog.user')}:{' '}
+                          {entry.actorEmail ?? entry.actorUserId ?? t('traceDialog.systemActor')}
+                        </span>
                         <span>{formatDateTime(entry.occurredAt)}</span>
                       </div>
                     </div>
@@ -146,7 +155,7 @@ export function TraceAuditDetailDialog({
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            {getCopy(t.close, language)}
+            {t('traceDialog.close')}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next"
 import {
     Table,
     TableBody,
@@ -14,15 +15,16 @@ interface RevenueGroupTableProps {
 }
 
 export function RevenueGroupTable({ groups }: RevenueGroupTableProps) {
+    const { t } = useTranslation('settings')
     return (
         <div className="border rounded-md">
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Tax Rate</TableHead>
-                        <TableHead>Account Number</TableHead>
-                        <TableHead className="text-right">Default</TableHead>
+                        <TableHead>{t('revenueGroups.table.name')}</TableHead>
+                        <TableHead>{t('revenueGroups.table.taxRate')}</TableHead>
+                        <TableHead>{t('revenueGroups.table.accountNumber')}</TableHead>
+                        <TableHead className="text-right">{t('revenueGroups.table.default')}</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -38,7 +40,7 @@ export function RevenueGroupTable({ groups }: RevenueGroupTableProps) {
                             <TableCell className="text-right">
                                 {group.is_default ? (
                                     <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100">
-                                        Default
+                                        {t('revenueGroups.table.defaultBadge')}
                                     </Badge>
                                 ) : (
                                     <span className="text-muted-foreground">-</span>

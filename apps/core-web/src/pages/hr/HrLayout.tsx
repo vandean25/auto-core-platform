@@ -1,23 +1,31 @@
+import { useEffect } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 import { cn } from '@/lib/utils'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 
-const hrTabs = [
-  { label: 'Employees', to: 'employees' },
-  { label: 'Time Clock', to: 'clock' },
-  { label: 'Leave', to: 'leave' },
+const hrTabKeys = [
+  { labelKey: 'layout.tabs.employees', to: 'employees' },
+  { labelKey: 'layout.tabs.clock', to: 'clock' },
+  { labelKey: 'layout.tabs.leave', to: 'leave' },
 ] as const
 
 export default function HrLayout() {
+  const { t } = useTranslation('hr')
+  useEffect(() => {
+    void ensureNamespaceLoaded('hr')
+  }, [])
+
   return (
     <div className='space-y-6'>
       <div>
-        <h1 className='text-2xl font-semibold tracking-tight'>HR</h1>
-        <p className='text-slate-500'>Manage employees, attendance, and leave.</p>
+        <h1 className='text-2xl font-semibold tracking-tight'>{t('layout.title')}</h1>
+        <p className='text-slate-500'>{t('layout.description')}</p>
       </div>
 
-      <nav aria-label='HR sections' className='flex gap-1 border-b border-slate-200'>
-        {hrTabs.map((tab) => (
+      <nav aria-label={t('layout.sectionsAria')} className='flex gap-1 border-b border-slate-200'>
+        {hrTabKeys.map((tab) => (
           <NavLink
             key={tab.to}
             to={tab.to}
@@ -31,7 +39,7 @@ export default function HrLayout() {
               )
             }
           >
-            {tab.label}
+            {t(tab.labelKey)}
           </NavLink>
         ))}
       </nav>

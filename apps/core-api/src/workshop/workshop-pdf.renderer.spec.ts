@@ -58,6 +58,7 @@ describe('WorkshopPdfRenderer', () => {
       }),
       'WO-1',
       'en',
+      'localized',
     );
 
     expect(html).toContain('>—<');

@@ -2,7 +2,14 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'sonner'
 
+import deHr from '../../../../../locales/de/hr.json'
+import { registerGermanUiForTests } from '@/test/german-ui'
 import { WorkScheduleEditor } from './WorkScheduleEditor'
+
+registerGermanUiForTests()
+
+const monday = deHr.workSchedule.weekdays['1']
+const mondayBreakAria = deHr.workSchedule.breakAria.replace('{{day}}', monday)
 
 vi.mock('@/api/sites', () => ({
   useMySites: () => ({ data: [
@@ -87,8 +94,8 @@ describe('WorkScheduleEditor', () => {
     render(<WorkScheduleEditor employeeId='employee-1' canEdit={false} />)
 
     expect(screen.getByTestId('work-schedule-editor')).toBeInTheDocument()
-    expect(screen.getByText('Monday')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Save correction' })).not.toBeInTheDocument()
+    expect(screen.getByText(monday)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: deHr.workSchedule.saveCorrection })).not.toBeInTheDocument()
   })
 
   it('patches the current schedule version on save correction', async () => {
@@ -96,7 +103,7 @@ describe('WorkScheduleEditor', () => {
 
     render(<WorkScheduleEditor employeeId='employee-1' canEdit />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Save correction' }))
+    fireEvent.click(screen.getByRole('button', { name: deHr.workSchedule.saveCorrection }))
 
     await waitFor(() => {
       expect(updateSchedule).toHaveBeenCalledWith({
@@ -117,11 +124,11 @@ describe('WorkScheduleEditor', () => {
       />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'New version' }))
-    const effectiveInput = screen.getByLabelText('Effective from')
+    fireEvent.click(screen.getByRole('button', { name: deHr.workSchedule.newVersion }))
+    const effectiveInput = screen.getByLabelText(deHr.workSchedule.effectiveFrom)
     expect(effectiveInput).toHaveValue('')
     fireEvent.change(effectiveInput, { target: { value: '2026-09-01' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Create version' }))
+    fireEvent.click(screen.getByRole('button', { name: deHr.workSchedule.createVersion }))
 
     await waitFor(() => {
       expect(createSchedule).toHaveBeenCalledWith({
@@ -137,14 +144,14 @@ describe('WorkScheduleEditor', () => {
 
     render(<WorkScheduleEditor employeeId='employee-1' canEdit />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'New version' }))
-    fireEvent.change(screen.getByLabelText('New version site assignment'), {
+    fireEvent.click(screen.getByRole('button', { name: deHr.workSchedule.newVersion }))
+    fireEvent.change(screen.getByLabelText(deHr.workSchedule.newVersionSiteAria), {
       target: { value: 'site-2' },
     })
-    fireEvent.change(screen.getByLabelText('Effective from'), {
+    fireEvent.change(screen.getByLabelText(deHr.workSchedule.effectiveFrom), {
       target: { value: '2026-09-01' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Create version' }))
+    fireEvent.click(screen.getByRole('button', { name: deHr.workSchedule.createVersion }))
 
     await waitFor(() => {
       expect(createSchedule).toHaveBeenCalledWith({
@@ -166,11 +173,11 @@ describe('WorkScheduleEditor', () => {
       />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'New version' }))
-    fireEvent.change(screen.getByLabelText('Effective from'), {
+    fireEvent.click(screen.getByRole('button', { name: deHr.workSchedule.newVersion }))
+    fireEvent.change(screen.getByLabelText(deHr.workSchedule.effectiveFrom), {
       target: { value: '2026-09-01' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Create version' }))
+    fireEvent.click(screen.getByRole('button', { name: deHr.workSchedule.createVersion }))
 
     await waitFor(() => {
       expect(createSchedule).toHaveBeenCalledWith(
@@ -192,9 +199,9 @@ describe('WorkScheduleEditor', () => {
 
     render(<WorkScheduleEditor employeeId='employee-1' canEdit />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Create version' }))
+    fireEvent.click(screen.getByRole('button', { name: deHr.workSchedule.createVersion }))
 
-    expect(toast.error).toHaveBeenCalledWith('Effective date is required for a new schedule version')
+    expect(toast.error).toHaveBeenCalledWith(deHr.workSchedule.toast.effectiveDateRequired)
   })
 
   it('preserves unsaved day edits when the schedule query refetches the same version', () => {
@@ -202,8 +209,8 @@ describe('WorkScheduleEditor', () => {
 
     const { rerender } = render(<WorkScheduleEditor employeeId='employee-1' canEdit />)
 
-    fireEvent.change(screen.getByLabelText('Monday break minutes'), { target: { value: '30' } })
-    expect(screen.getByLabelText('Monday break minutes')).toHaveValue(30)
+    fireEvent.change(screen.getByLabelText(mondayBreakAria), { target: { value: '30' } })
+    expect(screen.getByLabelText(mondayBreakAria)).toHaveValue(30)
 
     const refetchedVersion = {
       ...currentVersion,
@@ -217,7 +224,7 @@ describe('WorkScheduleEditor', () => {
 
     rerender(<WorkScheduleEditor employeeId='employee-1' canEdit />)
 
-    expect(screen.getByLabelText('Monday break minutes')).toHaveValue(30)
+    expect(screen.getByLabelText(mondayBreakAria)).toHaveValue(30)
   })
 
   it('preserves a typed new-version effective date when the schedule query refetches', () => {
@@ -231,8 +238,8 @@ describe('WorkScheduleEditor', () => {
       />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'New version' }))
-    fireEvent.change(screen.getByLabelText('Effective from'), {
+    fireEvent.click(screen.getByRole('button', { name: deHr.workSchedule.newVersion }))
+    fireEvent.change(screen.getByLabelText(deHr.workSchedule.effectiveFrom), {
       target: { value: '2026-09-01' },
     })
 
@@ -254,7 +261,7 @@ describe('WorkScheduleEditor', () => {
       />,
     )
 
-    expect(screen.getByLabelText('Effective from')).toHaveValue('2026-09-01')
+    expect(screen.getByLabelText(deHr.workSchedule.effectiveFrom)).toHaveValue('2026-09-01')
   })
 
   it('resets in-progress first-version edits when switching to another employee without a schedule', () => {
@@ -273,8 +280,8 @@ describe('WorkScheduleEditor', () => {
       />,
     )
 
-    fireEvent.change(screen.getByLabelText('Monday break minutes'), { target: { value: '45' } })
-    expect(screen.getByLabelText('Monday break minutes')).toHaveValue(45)
+    fireEvent.change(screen.getByLabelText(mondayBreakAria), { target: { value: '45' } })
+    expect(screen.getByLabelText(mondayBreakAria)).toHaveValue(45)
 
     rerender(
       <WorkScheduleEditor
@@ -284,8 +291,8 @@ describe('WorkScheduleEditor', () => {
       />,
     )
 
-    expect(screen.getByLabelText('Monday break minutes')).toHaveValue(0)
-    expect(screen.getByLabelText('Effective from')).toHaveValue('2025-01-01')
+    expect(screen.getByLabelText(mondayBreakAria)).toHaveValue(0)
+    expect(screen.getByLabelText(deHr.workSchedule.effectiveFrom)).toHaveValue('2025-01-01')
   })
 
   it('creates the first schedule version with hire date prefilled', async () => {
@@ -304,8 +311,8 @@ describe('WorkScheduleEditor', () => {
       />,
     )
 
-    expect(screen.getByLabelText('Effective from')).toHaveValue('2024-03-01')
-    fireEvent.click(screen.getByRole('button', { name: 'Create version' }))
+    expect(screen.getByLabelText(deHr.workSchedule.effectiveFrom)).toHaveValue('2024-03-01')
+    fireEvent.click(screen.getByRole('button', { name: deHr.workSchedule.createVersion }))
 
     await waitFor(() => {
       expect(createSchedule).toHaveBeenCalledWith({

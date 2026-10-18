@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatCurrency, formatDate, formatNumber } from '@/lib/format'
+import { formatCurrency, formatDate, formatIsoDateOnly, formatNumber } from '@/lib/format'
 import { zonedWallClockToUtc } from '@/lib/format/timezone'
 
 describe('lib/format (de-AT)', () => {
@@ -14,6 +14,10 @@ describe('lib/format (de-AT)', () => {
 
   it('formats ISO calendar dates as DD.MM.YYYY in Vienna', () => {
     expect(formatDate('2026-10-16T12:00:00.000Z')).toBe('16.10.2026')
+  })
+
+  it('formats date-only ISO strings without timezone day shift', () => {
+    expect(formatIsoDateOnly('2026-08-24')).toBe('24.08.2026')
   })
 })
 

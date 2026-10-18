@@ -22,6 +22,41 @@ export function pickVehicleAuditSnapshot(vehicle: {
   };
 }
 
+export function pickLaborAuditSnapshot(operation: {
+  code: string;
+  description: string;
+  standard_aw: { toString(): string } | number;
+  hourly_rate: { toString(): string } | number;
+  internal_cost: { toString(): string } | number | null;
+  category_id: string | null;
+  fitments?: Array<{
+    make: string;
+    model: string;
+    year_from: number | null;
+    year_to: number | null;
+    engine_code: string | null;
+  }>;
+}): Record<string, unknown> {
+  return {
+    code: operation.code,
+    description: operation.description,
+    standard_aw: Number(operation.standard_aw),
+    hourly_rate: Number(operation.hourly_rate),
+    internal_cost:
+      operation.internal_cost !== null && operation.internal_cost !== undefined
+        ? Number(operation.internal_cost)
+        : null,
+    category_id: operation.category_id,
+    fitments: (operation.fitments ?? []).map((fitment) => ({
+      make: fitment.make,
+      model: fitment.model,
+      year_from: fitment.year_from,
+      year_to: fitment.year_to,
+      engine_code: fitment.engine_code,
+    })),
+  };
+}
+
 export function pickCustomerAuditSnapshot(customer: {
   type: string;
   company_name: string | null;

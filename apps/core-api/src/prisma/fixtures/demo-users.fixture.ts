@@ -1,4 +1,5 @@
 import {
+  DisplayLanguage,
   EmployeeRole,
   PlatformAdminRole,
   TenantMemberRole,
@@ -11,6 +12,7 @@ export type DemoUserDefinition = {
   platformRole?: PlatformAdminRole;
   tenantRole: TenantMemberRole;
   mechanicEmployeeName?: string;
+  locale?: DisplayLanguage;
 };
 
 export const DEMO_USERS: DemoUserDefinition[] = [
@@ -35,6 +37,12 @@ export const DEMO_USERS: DemoUserDefinition[] = [
     email: 'tablet-mechanic@auto.core.at',
     firebaseUid: '2hUKXTB9LWNhp6pnTzI7i91Cbd92',
     tenantRole: TenantMemberRole.TECH,
+  },
+  {
+    email: 'workshop-demo-en@auto.core.at',
+    firebaseUid: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+    tenantRole: TenantMemberRole.ADMIN,
+    locale: 'en',
   },
 ];
 
@@ -104,6 +112,7 @@ export async function seedDemoUsers(
           firebaseUid: def.firebaseUid ?? null,
           active_tenant_id: tenantId,
           active_site_id: foundation.mainSite.id,
+          locale: def.locale ?? null,
         },
       });
     } else {
@@ -114,6 +123,7 @@ export async function seedDemoUsers(
           firebaseUid: def.firebaseUid ?? user.firebaseUid,
           active_tenant_id: tenantId,
           active_site_id: user.active_site_id ?? foundation.mainSite.id,
+          locale: def.locale ?? user.locale,
         },
       });
     }

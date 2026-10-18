@@ -14,8 +14,9 @@ import { TenantContextService } from '../common/services/tenant-context.service.
 import { MechanicMediaStorage } from '../mechanic/mechanic-media.storage.js';
 import { readCachedWorkshopPdfMetadata } from './workshop-pdf.generation.js';
 import type { WorkshopOrderForPdf } from './workshop-pdf.types.js';
-import { documentLocaleFrozenForCurrentRenderers } from '../common/i18n/rendered-document-locale.js';
 import { buildWorkshopOrderPdfRenderInput } from './workshop-order-pdf-render-input.js';
+import { resolveWorkshopOrderPdfRenderContext } from './workshop-pdf-render-context.js';
+import type { PdfRenderMode } from '../common/i18n/pdf-render-mode.js';
 import type { WorkshopCheckInEvidenceSnapshot } from './workshop-check-in-evidence-snapshot.js';
 import { embedWorkshopCheckInPdfMedia } from './workshop-pdf-check-in.assets.js';
 import {
@@ -47,6 +48,7 @@ type OrderRowForPdfGeneration = {
   fuel_level: number;
   reported_issue: string | null;
   notes: string | null;
+  pdf_render_input: unknown;
   customer: WorkshopOrderForPdf['customer'];
   vehicle: WorkshopOrderForPdf['vehicle'];
   tasks: WorkshopOrderForPdf['tasks'];
@@ -153,12 +155,16 @@ export class WorkshopPdfService {
           tenantId ?? (await this.tenantContext.getTenantId());
         span.setAttribute('workshopOrderId', workshopOrderId);
 
-        const order = await this.loadOrderForGeneration(
+        const loaded = await this.loadOrderForGeneration(
           workshopOrderId,
           resolvedTenantId,
         );
 
-        return this.executeGeneration(order, resolvedTenantId);
+        return this.executeGeneration(
+          loaded.order,
+          resolvedTenantId,
+          loaded.existingRenderInput,
+        );
       },
     );
   }
@@ -226,10 +232,21 @@ export class WorkshopPdfService {
   private async loadOrderForGeneration(
     workshopOrderId: string,
     tenantId: string,
-  ): Promise<WorkshopOrderForPdf> {
+  ): Promise<{
+    order: WorkshopOrderForPdf;
+    existingRenderInput: unknown;
+  }> {
     const order = await this.prisma.client.workshopOrder.findFirst({
       where: { id: workshopOrderId, tenant_id: tenantId },
-      include: {
+      select: {
+        id: true,
+        order_number: true,
+        status: true,
+        odometer: true,
+        fuel_level: true,
+        reported_issue: true,
+        notes: true,
+        pdf_render_input: true,
         customer: true,
         vehicle: true,
         tasks: {
@@ -246,14 +263,17 @@ export class WorkshopPdfService {
             pdf_sha256: true,
           },
         },
-      },
+      } as const,
     });
 
     if (!order) {
       throw new NotFoundException('Workshop order not found');
     }
 
-    return this.prepareOrderForPdfRender(order, tenantId);
+    return {
+      order: await this.prepareOrderForPdfRender(order, tenantId),
+      existingRenderInput: order.pdf_render_input,
+    };
   }
 
   private async prepareOrderForPdfRender(
@@ -310,16 +330,24 @@ export class WorkshopPdfService {
   private async executeGeneration(
     order: WorkshopOrderForPdf,
     tenantId: string,
+    existingRenderInput: unknown,
   ): Promise<WorkshopPdfGeneratedResult> {
     const key = `workshop-orders/${order.id}.pdf`;
 
     try {
-      const documentLocale = documentLocaleFrozenForCurrentRenderers();
+      const { documentLocale, mode: renderMode } =
+        await resolveWorkshopOrderPdfRenderContext(
+          this.prisma.client,
+          tenantId,
+          order,
+          existingRenderInput,
+        );
       let renderedPdf: Buffer | null = null;
       const upload = await this.uploadRenderedPdf(
         order,
         key,
         documentLocale,
+        renderMode,
         (pdf) => {
           renderedPdf = pdf;
         },
@@ -385,10 +413,11 @@ export class WorkshopPdfService {
     order: WorkshopOrderForPdf,
     key: string,
     documentLocale: DisplayLanguage,
+    renderMode: PdfRenderMode,
     onRendered?: (pdf: Buffer) => void,
   ): Promise<PdfUploadResult> {
     return renderAndUploadPdf({
-      render: () => this.renderer.render(order, { documentLocale }),
+      render: () => this.renderer.render(order, { documentLocale, renderMode }),
       upload: (pdf) => {
         onRendered?.(pdf);
         return this.storage.uploadPdf({

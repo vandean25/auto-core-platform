@@ -2,7 +2,10 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import type { components } from '@/api/generated/openapi'
+import { registerGermanUiForTests } from '@/test/german-ui'
 import { MechanicAwayAlert } from './MechanicAwayAlert'
+
+registerGermanUiForTests()
 
 type PlannerEmployeeAway = components['schemas']['PlannerEmployeeAwayDto']
 
@@ -46,7 +49,9 @@ describe('MechanicAwayAlert', () => {
   it('renders the inclusive away date range', () => {
     render(<MechanicAwayAlert employeeAway={awayRecord} />)
 
-    expect(screen.getByRole('alert')).toHaveTextContent('2026-08-24 through 2026-08-25 (inclusive)')
+    expect(screen.getByRole('alert')).toHaveTextContent('24.08.2026')
+    expect(screen.getByRole('alert')).toHaveTextContent('25.08.2026')
+    expect(screen.getByRole('alert')).toHaveTextContent('einschließlich')
   })
 
   it('uses the shared amber alert styling', () => {
@@ -58,8 +63,7 @@ describe('MechanicAwayAlert', () => {
   it('explains that leave is advisory and bay booking remains allowed', () => {
     render(<MechanicAwayAlert employeeAway={awayRecord} />)
 
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      'Leave is advisory only; bay booking remains allowed.',
-    )
+    expect(screen.getByRole('alert')).toHaveTextContent('nur informativ')
+    expect(screen.getByRole('alert')).toHaveTextContent('Hebebühnen können weiter gebucht werden')
   })
 })

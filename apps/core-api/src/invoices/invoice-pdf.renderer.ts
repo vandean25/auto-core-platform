@@ -5,8 +5,9 @@ import * as Sentry from '@sentry/node';
 import type { Page } from 'playwright';
 import { PlaywrightBrowserService } from '../common/index.js';
 import { escapeHtml } from '../common/pdf/pdf-layout.js';
-import { buildInvoiceHtmlDocument } from './invoice-pdf.layout.js';
 import { createInvoicePdfDateFormatter } from './invoice-pdf-date-format.helpers.js';
+import { buildInvoiceHtmlDocumentForSnapshot } from './invoice-pdf-localized.layout.js';
+import { resolveInvoicePdfLayoutContext } from './invoice-pdf-layout-context.js';
 import {
   createRenderInputUnavailableError,
   loadInvoiceFontFaceCss,
@@ -76,11 +77,13 @@ export class InvoicePdfRenderer {
       await page.route(/^https?:\/\//, (route) => route.abort());
     }
 
-    const html = buildInvoiceHtmlDocument(
+    const formatDate = createInvoicePdfDateFormatter(snapshot);
+    const html = buildInvoiceHtmlDocumentForSnapshot(
       snapshot,
       invoiceNumber,
       escapeHtml,
-      createInvoicePdfDateFormatter(snapshot),
+      formatDate,
+      resolveInvoicePdfLayoutContext(snapshot),
       { branded, fontFaceCss },
     );
     await page.setContent(html, { timeout: 10_000 });

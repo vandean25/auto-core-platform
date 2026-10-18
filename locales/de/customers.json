@@ -27,6 +27,11 @@
     "confirmRevoke": "Widerruf bestätigen",
     "cancel": "Abbrechen"
   },
+  "search": {
+    "selectPlaceholder": "Kunde wählen…",
+    "searchPlaceholder": "Kunden suchen…",
+    "empty": "Kein Kunde gefunden."
+  },
   "list": {
     "title": "Kunden",
     "description": "Kundenstamm und CRM verwalten.",

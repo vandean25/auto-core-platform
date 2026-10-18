@@ -34,6 +34,7 @@ export const MCP_READ_TOOL_NAMES = [
   'get_customer',
   'search_vehicles',
   'get_vehicle',
+  'get_vehicle_listing_status',
   'list_workshop_orders',
   'get_workshop_order',
   'search_parts',

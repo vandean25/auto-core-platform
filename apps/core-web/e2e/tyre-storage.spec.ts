@@ -2,6 +2,8 @@ import { test, expect } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
 import { createMockListResponse } from './utils/mock-factories'
 import { deErrorCode } from './helpers/de-errors'
+import { DE_COMMON_ACTIONS, DE_INVENTORY } from './helpers/de-inventory'
+import { waitForDeNamespace } from './helpers/wait-for-i18n'
 
 const mockTyreSet = {
   id: 'tyre-set-1',
@@ -24,7 +26,7 @@ const mockTyreSet = {
   storedSince: '2026-01-01',
   plannedSwapOn: '2026-03-01',
   binLabel: 'R3-F2-07',
-  customerName: 'Pilot Customer',
+  customerName: 'Demo Kunde',
   vehiclePlate: 'W-TEST-1',
   customerPhone: '+43123456789',
   customerEmail: 'pilot@example.com',
@@ -79,7 +81,7 @@ test.describe('Reifenlager', () => {
     })
 
     await corePage.navigate('/workshop/tyre-storage')
-    await page.getByRole('button', { name: /Due for swap/ }).click()
+    await page.getByRole('button', { name: new RegExp(DE_INVENTORY.actions.dueForSwap) }).click()
     await expect(page.getByText('+43123456789')).toBeVisible()
     await expect(page.getByText('pilot@example.com')).toBeVisible()
   })
@@ -122,10 +124,14 @@ test.describe('Reifenlager', () => {
     )
 
     await corePage.navigate('/workshop/tyre-storage/tyre-set-1')
-    await page.getByRole('button', { name: 'Check in' }).click()
+    await waitForDeNamespace(page, 'inventory')
+    await expect(page.getByRole('heading', { name: 'Winter 18"' })).toBeVisible({
+      timeout: 15_000,
+    })
+    await page.getByRole('button', { name: DE_INVENTORY.actions.checkIn }).click()
     await page.getByRole('combobox').click()
     await page.getByRole('option', { name: 'RACK-A' }).click()
-    await page.getByRole('button', { name: 'Confirm' }).click()
+    await page.getByRole('button', { name: DE_COMMON_ACTIONS.confirm }).click()
     await expect(page.getByText(deErrorCode('HTTP_409'))).toBeVisible()
   })
 })

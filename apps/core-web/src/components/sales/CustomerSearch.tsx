@@ -1,5 +1,6 @@
 import * as React from "react"
 import { Check, ChevronsUpDown } from "lucide-react"
+import { useTranslation } from 'react-i18next'
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -30,6 +31,7 @@ const getCustomerName = (customer: Customer) => {
 }
 
 export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
+  const { t } = useTranslation('customers')
   const [open, setOpen] = React.useState(false)
   const [search, setSearch] = React.useState("")
   const { data: customersResponse } = useCustomers({
@@ -55,15 +57,15 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
           aria-expanded={open}
           className="w-full justify-between"
         >
-          {value ? getCustomerName(value) : "Select customer..."}
+          {value ? getCustomerName(value) : t('search.selectPlaceholder')}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[300px] p-0">
         <Command shouldFilter={false}>
-          <CommandInput placeholder="Search customer..." value={search} onValueChange={setSearch} />
+          <CommandInput placeholder={t('search.searchPlaceholder')} value={search} onValueChange={setSearch} />
           <CommandList>
-            <CommandEmpty>No customer found.</CommandEmpty>
+            <CommandEmpty>{t('search.empty')}</CommandEmpty>
             <CommandGroup>
               {customers.map((customer: Customer) => (
                 <CommandItem

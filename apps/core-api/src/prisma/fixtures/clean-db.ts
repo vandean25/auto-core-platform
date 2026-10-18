@@ -147,12 +147,20 @@ export const TABLE_CLEANERS: TableCleaner[] = [
       }),
   },
   {
+    table: 'vehicle_listing_channel_dms_syncs',
+    clean: (p) => p.vehicleListingChannelDmsSync.deleteMany(),
+  },
+  {
     table: 'vehicle_listing_photos',
     clean: (p) => p.vehicleListingPhoto.deleteMany(),
   },
   {
     table: 'vehicle_listing_channels',
     clean: (p) => p.vehicleListingChannel.deleteMany(),
+  },
+  {
+    table: 'vehicle_listing_push_settings',
+    clean: (p) => p.vehicleListingPushSettings.deleteMany(),
   },
   {
     table: 'vehicle_listings',

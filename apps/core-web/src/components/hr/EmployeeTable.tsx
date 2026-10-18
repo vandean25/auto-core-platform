@@ -1,4 +1,6 @@
 import * as React from 'react'
+import type { TFunction } from 'i18next'
+import { useTranslation } from 'react-i18next'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { Pencil } from 'lucide-react'
 import { toast } from 'sonner'
@@ -52,6 +54,7 @@ import {
   averageExpectedMinutesPerWorkday,
   FALLBACK_AVG_WORKDAY_MINUTES,
 } from '@/lib/hr-leave-minutes'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 
 const EMPLOYEE_ROLE_OPTIONS: EmployeeRole[] = ['MECHANIC', 'SERVICE_ADVISOR', 'PARTS_CLERK']
 type TenantMemberRole = components['schemas']['TenantMemberRole']
@@ -69,19 +72,17 @@ type EditableFieldProps = {
   onSave: (value: string) => Promise<void>
 }
 
-function formatRoleLabel(role: EmployeeRole) {
-  return role
-    .toLowerCase()
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (character) => character.toUpperCase())
+function formatRoleLabel(role: EmployeeRole, t: TFunction<'hr'>) {
+  const roleKey = `employees.roles.${role}` as 'employees.roles.MECHANIC'
+  return t(roleKey)
 }
 
 function normalizeSearch(value: string) {
   return value.trim().toLowerCase()
 }
 
-function getLanguageLabel(code: string | null | undefined) {
-  if (!code) return 'Default (target language)'
+function getLanguageLabel(code: string | null | undefined, t: TFunction<'hr'>) {
+  if (!code) return t('employees.languageDefault')
   const option = SOURCE_LANGUAGE_OPTIONS.find((item) => item.value === code)
   return option ? option.label : code
 }
@@ -90,22 +91,22 @@ function canEditHrFields(activeRole?: TenantMemberRole | null) {
   return activeRole === 'OWNER' || activeRole === 'ADMIN'
 }
 
-function matchesEmployeeSearch(employee: Employee, term: string) {
+function matchesEmployeeSearch(employee: Employee, term: string, t: TFunction<'hr'>) {
   if (!term) return true
 
   const haystack = [
     employee.name,
     employee.role,
-    formatRoleLabel(employee.role),
-    employee.isActive ? 'active' : 'inactive',
+    formatRoleLabel(employee.role, t),
+    employee.isActive ? t('employees.yes') : t('employees.no'),
     String(employee.sortOrder),
     employee.motherLanguageCode ?? '',
-    getLanguageLabel(employee.motherLanguageCode),
-    employee.hiredOn ?? 'Not set',
+    getLanguageLabel(employee.motherLanguageCode, t),
+    employee.hiredOn ?? t('employees.notSet'),
     String(employee.annualLeaveMinutes),
     String(employee.remainingLeaveMinutes),
     employee.userId ?? '',
-    employee.userId ? 'linked' : 'not linked',
+    employee.userId ? t('employees.columns.login') : t('employees.notLinked'),
   ]
 
   return haystack.some((entry) => entry.toLowerCase().includes(term))
@@ -152,6 +153,7 @@ function sortEmployees(
 }
 
 function EditableDateField({ ariaLabel, canEdit, initialValue, onSave }: EditableFieldProps) {
+  const { t } = useTranslation('hr')
   const [value, setValue] = React.useState(initialValue)
   const [isEditing, setIsEditing] = React.useState(Boolean(initialValue))
   const [isSaving, setIsSaving] = React.useState(false)
@@ -179,7 +181,7 @@ function EditableDateField({ ariaLabel, canEdit, initialValue, onSave }: Editabl
   }
 
   if (!canEdit) {
-    return <span>{initialValue || 'Not set'}</span>
+    return <span>{initialValue || t('employees.notSet')}</span>
   }
 
   if (!isEditing) {
@@ -192,7 +194,7 @@ function EditableDateField({ ariaLabel, canEdit, initialValue, onSave }: Editabl
         }}
         className='group/inline-edit relative -mx-2 w-full rounded-md px-2 py-1 text-left transition-colors hover:bg-slate-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
       >
-        <span className='block pr-5 text-sm text-muted-foreground italic'>Not set</span>
+        <span className='block pr-5 text-sm text-muted-foreground italic'>{t('employees.notSet')}</span>
         <Pencil className='pointer-events-none absolute right-1.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground opacity-0 transition-opacity group-hover/inline-edit:opacity-70' />
       </button>
     )
@@ -218,6 +220,7 @@ function EditableDateField({ ariaLabel, canEdit, initialValue, onSave }: Editabl
 }
 
 function EditableLeaveMinutesField({ ariaLabel, canEdit, initialValue, onSave }: EditableFieldProps) {
+  const { t } = useTranslation('hr')
   const [value, setValue] = React.useState(initialValue)
   const [isSaving, setIsSaving] = React.useState(false)
 
@@ -230,7 +233,7 @@ function EditableLeaveMinutesField({ ariaLabel, canEdit, initialValue, onSave }:
 
     const parsedValue = Number(value)
     if (!Number.isInteger(parsedValue) || parsedValue < MIN_LEAVE_MINUTES) {
-      toast.error(`Leave minutes must be a non-negative integer`)
+      toast.error(t('employees.validation.leaveMinutesNonNegative'))
       setValue(initialValue)
       return
     }
@@ -271,6 +274,9 @@ function EditableLeaveMinutesField({ ariaLabel, canEdit, initialValue, onSave }:
 }
 
 export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: EmployeeTableProps) {
+  const { t } = useTranslation(['hr', 'common'])
+  React.useEffect(() => { void ensureNamespaceLoaded('hr') }, [])
+
   const { queryParams, setPagination, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
   const { data: responseData, isLoading } = useEmployees({
     includeInactive: true,
@@ -300,8 +306,8 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
 
   const filteredEmployees = React.useMemo(() => {
     const term = normalizeSearch(queryParams.search ?? '')
-    return employees.filter((employee) => matchesEmployeeSearch(employee, term))
-  }, [employees, queryParams.search])
+    return employees.filter((employee) => matchesEmployeeSearch(employee, term, t))
+  }, [employees, queryParams.search, t])
 
   const sortedEmployees = React.useMemo(
     () => sortEmployees(filteredEmployees, queryParams.sortField, queryParams.sortDirection),
@@ -351,7 +357,7 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
     () => [
       {
         accessorKey: 'name',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Name' />,
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('employees.columns.name')} />,
         cell: ({ row }) => (
           <div
             role='presentation'
@@ -363,15 +369,15 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
               onSave={async (nextName) => {
                 const normalizedName = nextName.trim()
                 if (!normalizedName) {
-                  toast.error('Employee name is required')
+                  toast.error(t('employees.validation.nameRequired'))
                   throw new Error('Employee name is required')
                 }
 
                 await runUpdate(
                   row.original.id,
                   { name: normalizedName },
-                  'Employee updated',
-                  'Failed to update employee name',
+                  t('employees.toast.updated'),
+                  t('employees.toast.updateNameFailed'),
                 )
               }}
             />
@@ -380,7 +386,7 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
       },
       {
         accessorKey: 'role',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Role' />,
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('employees.columns.role')} />,
         cell: ({ row }) => (
           <div
             role='presentation'
@@ -393,8 +399,8 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
                 void runUpdate(
                   row.original.id,
                   { role: nextRole as EmployeeRole },
-                  'Employee role updated',
-                  'Failed to update employee role',
+                  t('employees.toast.roleUpdated'),
+                  t('employees.toast.updateRoleFailed'),
                 )
               }}
             >
@@ -404,7 +410,7 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
               <SelectContent>
                 {EMPLOYEE_ROLE_OPTIONS.map((role) => (
                   <SelectItem key={role} value={role}>
-                    {formatRoleLabel(role)}
+                    {formatRoleLabel(role, t)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -414,7 +420,7 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
       },
       {
         accessorKey: 'motherLanguageCode',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Mother Language' />,
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('employees.columns.motherLanguage')} />,
         cell: ({ row }) => (
           <div
             role='presentation'
@@ -430,16 +436,16 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
                     motherLanguageCode:
                       nextLanguageCode === '__DEFAULT__' ? null : nextLanguageCode,
                   },
-                  'Employee language updated',
-                  'Failed to update employee language',
+                  t('employees.toast.languageUpdated'),
+                  t('employees.toast.updateLanguageFailed'),
                 )
               }}
             >
               <SelectTrigger className='h-8 w-[250px]'>
-                <SelectValue>{getLanguageLabel(row.original.motherLanguageCode)}</SelectValue>
+                <SelectValue>{getLanguageLabel(row.original.motherLanguageCode, t)}</SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value='__DEFAULT__'>Default (target language)</SelectItem>
+                <SelectItem value='__DEFAULT__'>{t('employees.languageDefault')}</SelectItem>
                 {SOURCE_LANGUAGE_OPTIONS.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
@@ -452,7 +458,7 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
       },
       {
         accessorKey: 'isActive',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Active' />,
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('employees.columns.active')} />,
         cell: ({ row }) => (
           // eslint-disable-next-line jsx-a11y/control-has-associated-label -- accessible name is the StatusBadge text
           <Button
@@ -463,8 +469,8 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
               void runUpdate(
                 row.original.id,
                 { isActive: !row.original.isActive },
-                row.original.isActive ? 'Employee deactivated' : 'Employee activated',
-                'Failed to update employee status',
+                row.original.isActive ? t('employees.toast.deactivated') : t('employees.toast.activated'),
+                t('employees.toast.updateStatusFailed'),
               )
             }}
           >
@@ -474,7 +480,7 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
       },
       {
         accessorKey: 'sortOrder',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Sort Order' />,
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('employees.columns.sortOrder')} />,
         cell: ({ row }) => (
           <div
             role='presentation'
@@ -486,15 +492,15 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
               onSave={async (nextSortOrder) => {
                 const parsedSortOrder = Number(nextSortOrder.trim())
                 if (!Number.isInteger(parsedSortOrder) || parsedSortOrder < 0) {
-                  toast.error('Sort order must be a non-negative integer')
+                  toast.error(t('employees.validation.sortOrderNonNegative'))
                   throw new Error('Sort order must be a non-negative integer')
                 }
 
                 await runUpdate(
                   row.original.id,
                   { sortOrder: parsedSortOrder },
-                  'Employee sort order updated',
-                  'Failed to update employee sort order',
+                  t('employees.toast.sortOrderUpdated'),
+                  t('employees.toast.updateSortOrderFailed'),
                 )
               }}
             />
@@ -503,54 +509,54 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
       },
       {
         accessorKey: 'hiredOn',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Hire date' />,
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('employees.columns.hireDate')} />,
         cell: ({ row }) => (
           <EditableDateField
-            ariaLabel={`Hire date for ${row.original.name}`}
+            ariaLabel={t('employees.columns.hireDate') + ' ' + row.original.name}
             canEdit={hasHrEditAccess}
             initialValue={row.original.hiredOn ?? ''}
             onSave={(hiredOn) =>
               runUpdate(
                 row.original.id,
                 { hiredOn: hiredOn || null },
-                'Employee hire date updated',
-                'Failed to update employee hire date',
+                t('employees.toast.hireDateUpdated'),
+                t('employees.toast.updateHireDateFailed'),
               )}
           />
         ),
       },
       {
         accessorKey: 'annualLeaveMinutes',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Leave (min)' />,
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('employees.columns.leaveMin')} />,
         cell: ({ row }) => (
           <EditableLeaveMinutesField
-            ariaLabel={`Annual leave minutes for ${row.original.name}`}
+            ariaLabel={t('employees.columns.leaveMin') + ' ' + row.original.name}
             canEdit={hasHrEditAccess}
             initialValue={String(row.original.annualLeaveMinutes)}
             onSave={(annualLeaveMinutes) =>
               runUpdate(
                 row.original.id,
                 { annualLeaveMinutes: Number(annualLeaveMinutes) },
-                'Employee leave allowance updated',
-                'Failed to update employee leave allowance',
+                t('employees.toast.leaveAllowanceUpdated'),
+                t('employees.toast.updateLeaveAllowanceFailed'),
               )}
           />
         ),
       },
       {
         accessorKey: 'remainingLeaveMinutes',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Remaining (min)' />,
-        cell: ({ row }) => <span>{row.original.remainingLeaveMinutes} min</span>,
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('employees.columns.remainingMin')} />,
+        cell: ({ row }) => <span>{t('employees.minSuffix', { count: row.original.remainingLeaveMinutes })}</span>,
       },
       {
         accessorKey: 'userId',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Login' />,
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('employees.columns.login')} />,
         cell: ({ row }) => (
-          <span className='font-mono text-xs'>{row.original.userId ?? 'Not linked'}</span>
+          <span className='font-mono text-xs'>{row.original.userId ?? t('employees.notLinked')}</span>
         ),
       },
     ],
-    [hasHrEditAccess, runUpdate],
+    [hasHrEditAccess, runUpdate, t],
   )
 
   return (
@@ -560,7 +566,7 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
         data={pagedEmployees}
         pageCount={pageCount}
         isLoading={isLoading}
-        searchPlaceholder='Search employees...'
+        searchPlaceholder={t('employees.searchPlaceholder')}
         setPagination={setPagination}
         onRowClick={(employee) => {
           setSelectedEmployee(employee)
@@ -570,7 +576,7 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
         }}
         getRowContextActions={(row) => [
           {
-            label: 'Delete',
+            label: t('employees.delete'),
             destructive: true,
             onClick: () => {
               void handleDelete(row.id)
@@ -583,26 +589,26 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
       <Dialog open={createOpen} onOpenChange={onCreateOpenChange}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create Employee</DialogTitle>
-            <DialogDescription>Add a workshop team member.</DialogDescription>
+            <DialogTitle>{t('employees.createDialog.title')}</DialogTitle>
+            <DialogDescription>{t('employees.createDialog.description')}</DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleCreate} className='space-y-4'>
             <div className='space-y-2'>
-              <Label htmlFor='employee-name'>Name</Label>
+              <Label htmlFor='employee-name'>{t('employees.createDialog.name')}</Label>
               <Input
                 id='employee-name'
                 value={formState.name}
                 onChange={(event) => {
                   setFormState((previous) => ({ ...previous, name: event.target.value }))
                 }}
-                placeholder='Employee name'
+                placeholder={t('employees.createDialog.namePlaceholder')}
                 required
               />
             </div>
 
             <div className='space-y-2'>
-              <Label htmlFor='employee-role'>Role</Label>
+              <Label htmlFor='employee-role'>{t('employees.createDialog.role')}</Label>
               <Select
                 value={formState.role}
                 onValueChange={(nextRole) => {
@@ -615,7 +621,7 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
                 <SelectContent>
                   {EMPLOYEE_ROLE_OPTIONS.map((role) => (
                     <SelectItem key={role} value={role}>
-                      {formatRoleLabel(role)}
+                      {formatRoleLabel(role, t)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -623,7 +629,7 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
             </div>
 
             <div className='space-y-2'>
-              <Label htmlFor='employee-sort-order'>Sort Order</Label>
+              <Label htmlFor='employee-sort-order'>{t('employees.createDialog.sortOrder')}</Label>
               <Input
                 id='employee-sort-order'
                 type='number'
@@ -637,7 +643,7 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
             </div>
 
             <div className='space-y-2'>
-              <Label htmlFor='employee-mother-language'>Mother Language</Label>
+              <Label htmlFor='employee-mother-language'>{t('employees.createDialog.motherLanguage')}</Label>
               <Select
                 value={formState.motherLanguageCode || '__DEFAULT__'}
                 onValueChange={(nextLanguageCode) => {
@@ -649,10 +655,10 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
                 }}
               >
                 <SelectTrigger id='employee-mother-language'>
-                  <SelectValue placeholder='Default (target language)' />
+                  <SelectValue placeholder={t('employees.languageDefault')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value='__DEFAULT__'>Default (target language)</SelectItem>
+                  <SelectItem value='__DEFAULT__'>{t('employees.languageDefault')}</SelectItem>
                   {SOURCE_LANGUAGE_OPTIONS.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
@@ -663,7 +669,7 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
             </div>
 
             <div className='space-y-2'>
-              <Label htmlFor='employee-hired-on'>Hire date</Label>
+              <Label htmlFor='employee-hired-on'>{t('employees.createDialog.hireDate')}</Label>
               <Input
                 id='employee-hired-on'
                 type='date'
@@ -676,13 +682,13 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
             </div>
 
             <div className='space-y-2'>
-              <Label htmlFor='employee-annual-leave-days'>Leave (days)</Label>
+              <Label htmlFor='employee-annual-leave-days'>{t('employees.createDialog.leaveDays')}</Label>
               <Input
                 id='employee-annual-leave-days'
                 type='number'
                 min={0}
                 step={0.5}
-                placeholder='e.g. 25 (uses default workday length)'
+                placeholder={t('employees.createDialog.leaveDaysPlaceholder')}
                 value={formState.annualLeaveDays}
                 disabled={!hasHrEditAccess}
                 onChange={(event) => {
@@ -695,13 +701,13 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
             </div>
 
             <div className='space-y-2'>
-              <Label htmlFor='employee-annual-leave-minutes'>Leave (min)</Label>
+              <Label htmlFor='employee-annual-leave-minutes'>{t('employees.createDialog.leaveMin')}</Label>
               <Input
                 id='employee-annual-leave-minutes'
                 type='number'
                 min={MIN_LEAVE_MINUTES}
                 step={1}
-                placeholder='Server default (25 × avg workday)'
+                placeholder={t('employees.createDialog.leaveMinPlaceholder')}
                 value={formState.annualLeaveMinutes}
                 disabled={!hasHrEditAccess}
                 onChange={(event) => {
@@ -715,10 +721,10 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
 
             <DialogFooter>
               <Button type='button' variant='outline' onClick={() => onCreateOpenChange(false)}>
-                Cancel
+                {t('common:actions.cancel')}
               </Button>
               <Button type='submit' disabled={createMutation.isPending}>
-                {createMutation.isPending ? 'Saving...' : 'Create'}
+                {createMutation.isPending ? t('employees.createDialog.saving') : t('employees.createDialog.create')}
               </Button>
             </DialogFooter>
           </form>
@@ -728,24 +734,24 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent side='right' className='w-full overflow-y-auto sm:max-w-xl'>
           <SheetHeader className='mb-6'>
-            <SheetTitle>Employee Details</SheetTitle>
-            <SheetDescription>Review roster and leave information.</SheetDescription>
+            <SheetTitle>{t('employees.detailSheet.title')}</SheetTitle>
+            <SheetDescription>{t('employees.detailSheet.description')}</SheetDescription>
           </SheetHeader>
 
           {selectedEmployee ? (
             <div className='space-y-6' data-testid='employee-detail-sheet'>
               <div className='space-y-1'>
                 <p className='text-sm font-medium text-slate-900'>{selectedEmployee.name}</p>
-                <p className='text-sm text-slate-500'>{formatRoleLabel(selectedEmployee.role)}</p>
+                <p className='text-sm text-slate-500'>{formatRoleLabel(selectedEmployee.role, t)}</p>
               </div>
 
               <div className='grid gap-4 sm:grid-cols-2'>
                 <div className='space-y-1'>
-                  <Label>Hire date</Label>
-                  <p className='text-sm'>{selectedEmployee.hiredOn ?? 'Not set'}</p>
+                  <Label>{t('employees.detailSheet.hireDate')}</Label>
+                  <p className='text-sm'>{selectedEmployee.hiredOn ?? t('employees.notSet')}</p>
                 </div>
                 <div className='space-y-1'>
-                  <Label>Leave allowance</Label>
+                  <Label>{t('employees.detailSheet.leaveAllowance')}</Label>
                   <p className='text-sm'>
                     <LeaveMinutesSummary
                       minutes={selectedEmployee.annualLeaveMinutes}
@@ -754,7 +760,7 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
                   </p>
                 </div>
                 <div className='space-y-1'>
-                  <Label>Remaining</Label>
+                  <Label>{t('employees.detailSheet.remaining')}</Label>
                   <p className='text-sm'>
                     <LeaveMinutesSummary
                       minutes={selectedEmployee.remainingLeaveMinutes}
@@ -763,8 +769,8 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
                   </p>
                 </div>
                 <div className='space-y-1'>
-                  <Label>Login</Label>
-                  <p className='break-all font-mono text-xs'>{selectedEmployee.userId ?? 'Not linked'}</p>
+                  <Label>{t('employees.detailSheet.login')}</Label>
+                  <p className='break-all font-mono text-xs'>{selectedEmployee.userId ?? t('employees.notLinked')}</p>
                 </div>
               </div>
 
@@ -780,19 +786,18 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
 
               {hasHrEditAccess ? (
                 <div className='space-y-2'>
-                  <Label htmlFor='employee-allowance-days'>Leave allowance (days)</Label>
+                  <Label htmlFor='employee-allowance-days'>{t('employees.detailSheet.allowanceDays')}</Label>
                   <Input
                     id='employee-allowance-days'
                     type='number'
                     min={0}
                     step={0.5}
-                    placeholder='e.g. 25'
+                    placeholder={t('employees.detailSheet.allowanceDaysPlaceholder')}
                     value={sheetAllowanceDays}
                     onChange={(event) => setSheetAllowanceDays(event.target.value)}
                   />
                   <p className='text-xs text-slate-500'>
-                    Converts to minutes using the current schedule average (
-                    {sheetAvgMinutes} min/day).
+                    {t('employees.detailSheet.allowanceHint', { minutes: sheetAvgMinutes })}
                   </p>
                   <Button
                     type='button'
@@ -801,20 +806,20 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
                     disabled={!sheetAllowanceDays.trim() || updateMutation.isPending}
                     onClick={() => void handleSaveAllowanceDays()}
                   >
-                    Save allowance
+                    {t('employees.detailSheet.saveAllowance')}
                   </Button>
                 </div>
               ) : null}
 
               <div className='space-y-2'>
-                <Label htmlFor='employee-carryover-minutes'>Carryover this year (min)</Label>
+                <Label htmlFor='employee-carryover-minutes'>{t('employees.detailSheet.carryover')}</Label>
                 <Input
                   id='employee-carryover-minutes'
                   type='number'
                   min={MIN_LEAVE_MINUTES}
                   step={1}
                   value={carryoverMinutes}
-                  aria-label='Carryover this year'
+                  aria-label={t('employees.detailSheet.carryoverAria')}
                   disabled={!hasHrEditAccess || patchLeaveBalanceMutation.isPending}
                   onChange={(event) => setCarryoverMinutes(event.target.value)}
                 />
@@ -827,7 +832,7 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
                     onClick={() => void handleSaveCarryover()}
                     disabled={patchLeaveBalanceMutation.isPending}
                   >
-                    {patchLeaveBalanceMutation.isPending ? 'Saving...' : 'Save leave balance'}
+                    {patchLeaveBalanceMutation.isPending ? t('employees.createDialog.saving') : t('employees.detailSheet.saveLeaveBalance')}
                   </Button>
                 </SheetFooter>
               ) : null}

@@ -1,5 +1,7 @@
 import * as React from 'react'
+import type { TFunction } from 'i18next'
 import { Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import {
@@ -39,6 +41,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useDebouncedAutoSave, type DocumentSaveStatus } from '@/hooks/useDebouncedAutoSave'
+import { formatPercent } from '@/lib/format'
 
 type SellerFormState = {
   name: string
@@ -122,22 +125,24 @@ function buildUpdatePayload(
   }
 }
 
-function formatMissingField(field: string, countryIso: 'AT' | 'DE') {
+function formatMissingField(field: string, countryIso: 'AT' | 'DE', t: TFunction<'settings'>) {
   switch (field) {
     case 'tax_number_or_vat_id':
-      return countryIso === 'DE' ? 'Tax number or VAT ID' : 'Tax number or VAT ID'
+      return t('legalEntities.seller.missing.taxNumberOrVatId')
     case 'vat_id':
-      return countryIso === 'AT' ? 'UID (VAT ID)' : 'VAT ID'
+      return countryIso === 'AT'
+        ? t('legalEntities.seller.missing.vatIdAt')
+        : t('legalEntities.seller.missing.vatIdDe')
     case 'payment_terms_days':
-      return 'Payment terms (days)'
+      return t('legalEntities.seller.missing.paymentTermsDays')
     case 'payment_terms_text':
-      return 'Payment terms text'
+      return t('legalEntities.seller.missing.paymentTermsText')
     case 'address_street':
-      return 'Street address'
+      return t('legalEntities.seller.missing.addressStreet')
     case 'address_zip':
-      return 'Postal code'
+      return t('legalEntities.seller.missing.addressZip')
     case 'address_city':
-      return 'City'
+      return t('legalEntities.seller.missing.addressCity')
     default:
       return field.replaceAll('_', ' ')
   }
@@ -288,41 +293,41 @@ function buildProfileUpdatePayload(
   }
 }
 
-function formatRzlExportMissingField(field: string) {
+function formatRzlExportMissingField(field: string, t: TFunction<'settings'>) {
   switch (field) {
     case 'firm_number':
-      return 'firm number'
+      return t('legalEntities.profile.exportMissing.firmNumber')
     case 'steuercode_vat20':
-      return 'Steuercode 20%'
+      return t('legalEntities.profile.exportMissing.steuercodeVat20')
     case 'steuercode_vat13':
-      return 'Steuercode 13%'
+      return t('legalEntities.profile.exportMissing.steuercodeVat13')
     case 'steuercode_vat10':
-      return 'Steuercode 10%'
+      return t('legalEntities.profile.exportMissing.steuercodeVat10')
     case 'format_version':
-      return 'pinned format version (save to pin)'
+      return t('legalEntities.profile.exportMissing.formatVersion')
     case 'chart':
-      return 'chart of accounts'
+      return t('legalEntities.profile.exportMissing.chart')
     case 'account_length':
-      return 'account length'
+      return t('legalEntities.profile.exportMissing.accountLength')
     case 'default_debtor_account':
-      return 'default debtor account'
+      return t('legalEntities.profile.exportMissing.defaultDebtorAccount')
     default:
       return field.replaceAll('_', ' ')
   }
 }
 
-function formatProfileMissingField(field: string) {
+function formatProfileMissingField(field: string, t: TFunction<'settings'>) {
   switch (field) {
     case 'advisor_number':
-      return 'Advisor number (Beraternummer)'
+      return t('legalEntities.profile.missing.advisorNumber')
     case 'client_number':
-      return 'Client number (Mandantennummer)'
+      return t('legalEntities.profile.missing.clientNumber')
     case 'account_length':
-      return 'Account length'
+      return t('legalEntities.profile.missing.accountLength')
     case 'default_debtor_account':
-      return 'Default debtor account'
+      return t('legalEntities.profile.missing.defaultDebtorAccount')
     case 'mapping_rules':
-      return 'Source category mappings'
+      return t('legalEntities.profile.missing.mappingRules')
     default:
       return field.replaceAll('_', ' ')
   }
@@ -335,6 +340,7 @@ export function LegalEntityAccountingProfileForm({
   entity: LegalEntityRecord
   onSaveStatusChange?: (status: DocumentSaveStatus) => void
 }) {
+  const { t } = useTranslation('settings')
   const { data: profile, isLoading } = useAccountingProfile(entity.id)
   const updateMutation = useUpdateAccountingProfile()
   const [form, setForm] = React.useState<ProfileFormState | null>(null)
@@ -437,10 +443,9 @@ export function LegalEntityAccountingProfileForm({
     <div className="space-y-6 rounded-lg border bg-white p-6 shadow-sm">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h4 className="font-medium">Accounting profile</h4>
+          <h4 className="font-medium">{t('legalEntities.profile.title')}</h4>
           <p className="text-sm text-slate-500">
-            Configure accounting export mappings for {entity.name}. Incomplete profiles can be saved;
-            issuance readiness is surfaced separately.
+            {t('legalEntities.profile.description', { name: entity.name })}
           </p>
         </div>
         <DocumentSaveIndicator status={saveStatus} />
@@ -451,23 +456,24 @@ export function LegalEntityAccountingProfileForm({
           <StatusBadge status={readiness.is_ready ? 'ACTIVE' : 'INACTIVE'} />
           <span className="text-sm font-medium text-slate-700">
             {readiness.is_ready
-              ? 'Mapping configuration complete'
-              : 'Accounting mappings incomplete'}
+              ? t('legalEntities.profile.ready')
+              : t('legalEntities.profile.incomplete')}
           </span>
         </div>
         {!readiness.is_ready ? (
           <p className="mt-2 text-sm text-slate-600">
-            Missing:{' '}
-            {readiness.missing_fields
-              .map((field) => formatProfileMissingField(field))
-              .join(', ')}
+            {t('legalEntities.missingPrefix', {
+              fields: readiness.missing_fields
+                .map((field) => formatProfileMissingField(field, t))
+                .join(', '),
+            })}
           </p>
         ) : null}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="grid gap-2">
-          <Label htmlFor="profile-advisor-number">Advisor number</Label>
+          <Label htmlFor="profile-advisor-number">{t('legalEntities.profile.fields.advisorNumber')}</Label>
           <Input
             id="profile-advisor-number"
             value={form.advisorNumber}
@@ -477,7 +483,7 @@ export function LegalEntityAccountingProfileForm({
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="profile-client-number">Client number</Label>
+          <Label htmlFor="profile-client-number">{t('legalEntities.profile.fields.clientNumber')}</Label>
           <Input
             id="profile-client-number"
             value={form.clientNumber}
@@ -487,7 +493,7 @@ export function LegalEntityAccountingProfileForm({
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="profile-account-length">Account length</Label>
+          <Label htmlFor="profile-account-length">{t('legalEntities.profile.fields.accountLength')}</Label>
           <Input
             id="profile-account-length"
             type="number"
@@ -500,7 +506,7 @@ export function LegalEntityAccountingProfileForm({
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="profile-debtor-account">Default debtor account</Label>
+          <Label htmlFor="profile-debtor-account">{t('legalEntities.profile.fields.defaultDebtorAccount')}</Label>
           <Input
             id="profile-debtor-account"
             value={form.defaultDebtorAccount}
@@ -513,7 +519,7 @@ export function LegalEntityAccountingProfileForm({
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="profile-fiscal-year-start">Fiscal year start month</Label>
+          <Label htmlFor="profile-fiscal-year-start">{t('legalEntities.profile.fields.fiscalYearStartMonth')}</Label>
           <Input
             id="profile-fiscal-year-start"
             type="number"
@@ -529,7 +535,7 @@ export function LegalEntityAccountingProfileForm({
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="profile-chart">Chart</Label>
+          <Label htmlFor="profile-chart">{t('legalEntities.profile.fields.chart')}</Label>
           <Input
             id="profile-chart"
             value={form.chart}
@@ -539,7 +545,7 @@ export function LegalEntityAccountingProfileForm({
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="profile-code">Profile code</Label>
+          <Label htmlFor="profile-code">{t('legalEntities.profile.fields.profileCode')}</Label>
           <Input
             id="profile-code"
             value={form.profileCode}
@@ -549,7 +555,7 @@ export function LegalEntityAccountingProfileForm({
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="profile-format-version">Format version</Label>
+          <Label htmlFor="profile-format-version">{t('legalEntities.profile.fields.formatVersion')}</Label>
           <Input
             id="profile-format-version"
             value={form.profileCode === RZL_PROFILE_CODE ? RZL_FORMAT_VERSION : form.formatVersion}
@@ -564,9 +570,9 @@ export function LegalEntityAccountingProfileForm({
       {form.profileCode === 'ACP-DATEV-DE-EUR-1' && entity.country_iso === 'DE' ? (
         <div className="flex items-center justify-between rounded-md border border-slate-200 p-4">
           <div>
-            <p className="text-sm font-medium text-slate-700">DATEV export enabled</p>
+            <p className="text-sm font-medium text-slate-700">{t('legalEntities.profile.datev.title')}</p>
             <p className="text-sm text-slate-500">
-              Gates CSV export only (AUT-307). Does not block invoice issuance.
+              {t('legalEntities.profile.datev.description')}
             </p>
           </div>
           <Checkbox
@@ -581,9 +587,9 @@ export function LegalEntityAccountingProfileForm({
           <div className="space-y-3 rounded-md border border-slate-200 p-4">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-sm font-medium text-slate-700">RZL export configuration</p>
+                <p className="text-sm font-medium text-slate-700">{t('legalEntities.profile.rzl.title')}</p>
                 <p className="text-sm text-slate-500">
-                  Used only by the RZL CSV export. Revenue accounts come from the mapping rules below; postings use the default debtor account.
+                  {t('legalEntities.profile.rzl.description')}
                 </p>
               </div>
               <Button
@@ -599,12 +605,12 @@ export function LegalEntityAccountingProfileForm({
                   }))
                 }
               >
-                Use suggested codes 20 / 13 / 10
+                {t('legalEntities.profile.rzl.useSuggested')}
               </Button>
             </div>
             <div className="grid gap-4 md:grid-cols-4">
               <div className="grid gap-2">
-                <Label htmlFor="profile-rzl-firm-number">Firm number (Firmennummer)</Label>
+                <Label htmlFor="profile-rzl-firm-number">{t('legalEntities.profile.rzl.firmNumber')}</Label>
                 <Input
                   id="profile-rzl-firm-number"
                   maxLength={32}
@@ -615,7 +621,7 @@ export function LegalEntityAccountingProfileForm({
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="profile-rzl-steuercode-20">Steuercode 20%</Label>
+                <Label htmlFor="profile-rzl-steuercode-20">{t('legalEntities.profile.rzl.steuercode20')}</Label>
                 <Input
                   id="profile-rzl-steuercode-20"
                   inputMode="numeric"
@@ -627,7 +633,7 @@ export function LegalEntityAccountingProfileForm({
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="profile-rzl-steuercode-13">Steuercode 13%</Label>
+                <Label htmlFor="profile-rzl-steuercode-13">{t('legalEntities.profile.rzl.steuercode13')}</Label>
                 <Input
                   id="profile-rzl-steuercode-13"
                   inputMode="numeric"
@@ -639,7 +645,7 @@ export function LegalEntityAccountingProfileForm({
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="profile-rzl-steuercode-10">Steuercode 10%</Label>
+                <Label htmlFor="profile-rzl-steuercode-10">{t('legalEntities.profile.rzl.steuercode10')}</Label>
                 <Input
                   id="profile-rzl-steuercode-10"
                   inputMode="numeric"
@@ -654,11 +660,11 @@ export function LegalEntityAccountingProfileForm({
           </div>
           <div className="flex items-center justify-between rounded-md border border-slate-200 p-4">
             <div>
-              <p className="text-sm font-medium text-slate-700">RZL export enabled</p>
+              <p className="text-sm font-medium text-slate-700">{t('legalEntities.profile.rzl.enabledTitle')}</p>
               <p className="text-sm text-slate-500">
                 {profile.serializer_released
-                  ? 'Released in this environment. Gates CSV export only; does not block invoice issuance.'
-                  : 'Not released in this environment. CSV export stays off until the RZL import is validated (AUT-368).'}
+                  ? t('legalEntities.profile.rzl.released')
+                  : t('legalEntities.profile.rzl.notReleased')}
               </p>
             </div>
             <Checkbox
@@ -671,32 +677,35 @@ export function LegalEntityAccountingProfileForm({
           </div>
           {profile.export_missing_fields.length > 0 ? (
             <p className="text-sm text-amber-700">
-              Missing for export: {profile.export_missing_fields.map(formatRzlExportMissingField).join(', ')}.
+              {t('legalEntities.profile.exportMissingLine', {
+                fields: profile.export_missing_fields
+                  .map((field) => formatRzlExportMissingField(field, t))
+                  .join(', '),
+              })}
             </p>
           ) : null}
         </div>
       ) : (
         <p className="text-sm text-slate-500">
-          Export profile activation is available only for supported serializer profiles.
+          {t('legalEntities.profile.unsupportedSerializer')}
         </p>
       )}
 
       <div className="space-y-3">
         <div>
-          <h5 className="font-medium">Source category mappings</h5>
+          <h5 className="font-medium">{t('legalEntities.profile.mappings.title')}</h5>
           <p className="text-sm text-slate-500">
-            Map each billable source category to a revenue account. Suggested accounts from revenue
-            groups are prefilled only in the editor.
+            {t('legalEntities.profile.mappings.description')}
           </p>
         </div>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Category</TableHead>
-              <TableHead>Tax</TableHead>
-              <TableHead>Revenue account</TableHead>
-              <TableHead>Treatment</TableHead>
-              <TableHead>BU key</TableHead>
+              <TableHead>{t('legalEntities.profile.mappings.category')}</TableHead>
+              <TableHead>{t('legalEntities.profile.mappings.tax')}</TableHead>
+              <TableHead>{t('legalEntities.profile.mappings.revenueAccount')}</TableHead>
+              <TableHead>{t('legalEntities.profile.mappings.treatment')}</TableHead>
+              <TableHead>{t('legalEntities.profile.mappings.buKey')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -707,8 +716,8 @@ export function LegalEntityAccountingProfileForm({
                   <TableCell className="font-medium">{category.label}</TableCell>
                   <TableCell>
                     {category.taxMode === 'MARGIN_SCHEME'
-                      ? 'Margin'
-                      : `${category.taxRate}%`}
+                      ? t('legalEntities.profile.mappings.margin')
+                      : formatPercent(Number(category.taxRate))}
                   </TableCell>
                   <TableCell>
                     <Input
@@ -735,8 +744,8 @@ export function LegalEntityAccountingProfileForm({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="automatic">Automatic</SelectItem>
-                        <SelectItem value="manual_bu">Manual BU</SelectItem>
+                        <SelectItem value="automatic">{t('legalEntities.profile.mappings.automatic')}</SelectItem>
+                        <SelectItem value="manual_bu">{t('legalEntities.profile.mappings.manualBu')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </TableCell>
@@ -756,7 +765,7 @@ export function LegalEntityAccountingProfileForm({
         </Table>
       </div>
 
-      <p className="text-xs text-slate-500">Profile version: {version}</p>
+      <p className="text-xs text-slate-500">{t('legalEntities.profile.version', { version })}</p>
     </div>
   )
 }
@@ -768,6 +777,7 @@ function LegalEntitySellerForm({
   entity: LegalEntityRecord
   onSaved: (entity: LegalEntityRecord) => void
 }) {
+  const { t } = useTranslation('settings')
   const updateMutation = useUpdateLegalEntity()
   const [form, setForm] = React.useState<SellerFormState>(() => toFormState(entity))
   const lastSavedRef = React.useRef(JSON.stringify(toFormState(entity)))
@@ -830,7 +840,7 @@ function LegalEntitySellerForm({
         <div>
           <h4 className="font-medium">{entity.name}</h4>
           <p className="text-sm text-slate-500">
-            Seller identity for {entity.country_iso} invoices. Country is fixed after creation.
+            {t('legalEntities.seller.description', { country: entity.country_iso })}
           </p>
         </div>
         <DocumentSaveIndicator status={saveStatus} />
@@ -840,22 +850,23 @@ function LegalEntitySellerForm({
         <div className="flex items-center gap-3">
           <StatusBadge status={readiness.is_ready ? 'ACTIVE' : 'INACTIVE'} />
           <span className="text-sm font-medium text-slate-700">
-            {readiness.is_ready ? 'Ready for invoice issuance' : 'Seller identity incomplete'}
+            {readiness.is_ready ? t('legalEntities.seller.ready') : t('legalEntities.seller.incomplete')}
           </span>
         </div>
         {!readiness.is_ready ? (
           <p className="mt-2 text-sm text-slate-600">
-            Missing:{' '}
-            {readiness.missing_fields
-              .map((field) => formatMissingField(field, entity.country_iso))
-              .join(', ')}
+            {t('legalEntities.missingPrefix', {
+              fields: readiness.missing_fields
+                .map((field) => formatMissingField(field, entity.country_iso, t))
+                .join(', '),
+            })}
           </p>
         ) : null}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="grid gap-2 md:col-span-2">
-          <Label htmlFor="seller-name">Legal name</Label>
+          <Label htmlFor="seller-name">{t('legalEntities.seller.fields.legalName')}</Label>
           <Input
             id="seller-name"
             value={form.name}
@@ -864,7 +875,7 @@ function LegalEntitySellerForm({
         </div>
 
         <div className="grid gap-2">
-          <Label htmlFor="seller-street">Street</Label>
+          <Label htmlFor="seller-street">{t('legalEntities.seller.fields.street')}</Label>
           <Input
             id="seller-street"
             value={form.addressStreet}
@@ -872,7 +883,7 @@ function LegalEntitySellerForm({
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="seller-line2">Address line 2</Label>
+          <Label htmlFor="seller-line2">{t('legalEntities.seller.fields.line2')}</Label>
           <Input
             id="seller-line2"
             value={form.addressLine2}
@@ -880,7 +891,7 @@ function LegalEntitySellerForm({
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="seller-zip">Postal code</Label>
+          <Label htmlFor="seller-zip">{t('legalEntities.seller.fields.zip')}</Label>
           <Input
             id="seller-zip"
             value={form.addressZip}
@@ -888,7 +899,7 @@ function LegalEntitySellerForm({
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="seller-city">City</Label>
+          <Label htmlFor="seller-city">{t('legalEntities.seller.fields.city')}</Label>
           <Input
             id="seller-city"
             value={form.addressCity}
@@ -898,7 +909,9 @@ function LegalEntitySellerForm({
 
         <div className="grid gap-2">
           <Label htmlFor="seller-tax-number">
-            {entity.country_iso === 'DE' ? 'Tax number (Steuernummer)' : 'Tax number'}
+            {entity.country_iso === 'DE'
+              ? t('legalEntities.seller.fields.taxNumberDe')
+              : t('legalEntities.seller.fields.taxNumber')}
           </Label>
           <Input
             id="seller-tax-number"
@@ -908,7 +921,9 @@ function LegalEntitySellerForm({
         </div>
         <div className="grid gap-2">
           <Label htmlFor="seller-vat-id">
-            {entity.country_iso === 'AT' ? 'UID' : 'VAT ID (USt-IdNr.)'}
+            {entity.country_iso === 'AT'
+              ? t('legalEntities.seller.fields.vatIdAt')
+              : t('legalEntities.seller.fields.vatIdDe')}
           </Label>
           <Input
             id="seller-vat-id"
@@ -918,7 +933,7 @@ function LegalEntitySellerForm({
         </div>
 
         <div className="grid gap-2">
-          <Label htmlFor="seller-iban">IBAN (optional)</Label>
+          <Label htmlFor="seller-iban">{t('legalEntities.seller.fields.iban')}</Label>
           <Input
             id="seller-iban"
             value={form.iban}
@@ -926,7 +941,7 @@ function LegalEntitySellerForm({
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="seller-bic">BIC (optional)</Label>
+          <Label htmlFor="seller-bic">{t('legalEntities.seller.fields.bic')}</Label>
           <Input
             id="seller-bic"
             value={form.bic}
@@ -934,7 +949,7 @@ function LegalEntitySellerForm({
           />
         </div>
         <div className="grid gap-2 md:col-span-2">
-          <Label htmlFor="seller-bank-name">Bank name (optional)</Label>
+          <Label htmlFor="seller-bank-name">{t('legalEntities.seller.fields.bankName')}</Label>
           <Input
             id="seller-bank-name"
             value={form.bankName}
@@ -943,7 +958,7 @@ function LegalEntitySellerForm({
         </div>
 
         <div className="grid gap-2">
-          <Label htmlFor="seller-email">Email</Label>
+          <Label htmlFor="seller-email">{t('legalEntities.seller.fields.email')}</Label>
           <Input
             id="seller-email"
             type="email"
@@ -952,7 +967,7 @@ function LegalEntitySellerForm({
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="seller-phone">Phone</Label>
+          <Label htmlFor="seller-phone">{t('legalEntities.seller.fields.phone')}</Label>
           <Input
             id="seller-phone"
             value={form.phone}
@@ -961,7 +976,7 @@ function LegalEntitySellerForm({
         </div>
 
         <div className="grid gap-2">
-          <Label htmlFor="seller-registration-number">Registration number</Label>
+          <Label htmlFor="seller-registration-number">{t('legalEntities.seller.fields.registrationNumber')}</Label>
           <Input
             id="seller-registration-number"
             value={form.registrationNumber}
@@ -969,7 +984,7 @@ function LegalEntitySellerForm({
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="seller-registration-court">Registration court</Label>
+          <Label htmlFor="seller-registration-court">{t('legalEntities.seller.fields.registrationCourt')}</Label>
           <Input
             id="seller-registration-court"
             value={form.registrationCourt}
@@ -978,7 +993,7 @@ function LegalEntitySellerForm({
         </div>
 
         <div className="grid gap-2 md:col-span-2">
-          <Label htmlFor="seller-representatives">Representatives</Label>
+          <Label htmlFor="seller-representatives">{t('legalEntities.seller.fields.representatives')}</Label>
           <textarea
             id="seller-representatives"
             className="min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -988,7 +1003,7 @@ function LegalEntitySellerForm({
         </div>
 
         <div className="grid gap-2 md:col-span-2">
-          <Label>Fiscal settlement mode (RKSV)</Label>
+          <Label>{t('legalEntities.seller.fields.rksvMode')}</Label>
           <Select
             value={form.rksvMode}
             onValueChange={(value) =>
@@ -999,16 +1014,16 @@ function LegalEntitySellerForm({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="OFF">Off</SelectItem>
-              <SelectItem value="UNKNOWN">Unknown</SelectItem>
-              <SelectItem value="REQUIRED_EXTERNAL_KASSE">External Kasse</SelectItem>
-              <SelectItem value="REQUIRED_ACP_RKSV">ACP RKSV (fiskaly)</SelectItem>
+              <SelectItem value="OFF">{t('legalEntities.seller.rksv.off')}</SelectItem>
+              <SelectItem value="UNKNOWN">{t('legalEntities.seller.rksv.unknown')}</SelectItem>
+              <SelectItem value="REQUIRED_EXTERNAL_KASSE">{t('legalEntities.seller.rksv.externalKasse')}</SelectItem>
+              <SelectItem value="REQUIRED_ACP_RKSV">{t('legalEntities.seller.rksv.acpRksv')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         <div className="grid gap-2">
-          <Label htmlFor="seller-payment-days">Payment terms (days)</Label>
+          <Label htmlFor="seller-payment-days">{t('legalEntities.seller.fields.paymentTermsDays')}</Label>
           <Input
             id="seller-payment-days"
             type="number"
@@ -1019,7 +1034,7 @@ function LegalEntitySellerForm({
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="seller-payment-text">Payment terms text</Label>
+          <Label htmlFor="seller-payment-text">{t('legalEntities.seller.fields.paymentTermsText')}</Label>
           <textarea
             id="seller-payment-text"
             className="min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -1033,6 +1048,7 @@ function LegalEntitySellerForm({
 }
 
 export function LegalEntitiesSettingsTab() {
+  const { t } = useTranslation('settings')
   const { data: entities, isLoading } = useLegalEntities()
   const createMutation = useCreateLegalEntity()
   const updateMutation = useUpdateLegalEntity()
@@ -1062,12 +1078,12 @@ export function LegalEntitiesSettingsTab() {
 
     try {
       const created = await createMutation.mutateAsync({ name: name.trim(), countryIso })
-      toast.success('Legal entity created')
+      toast.success(t('legalEntities.toast.created'))
       setName('')
       setSelectedEntityId(created.id)
       setSelectedEntity(created)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to create legal entity')
+      toast.error(error instanceof Error ? error.message : t('legalEntities.toast.createFailed'))
     }
   }
 
@@ -1077,9 +1093,11 @@ export function LegalEntitiesSettingsTab() {
       if (selectedEntityId === id) {
         setSelectedEntity(updated)
       }
-      toast.success(isActive ? 'Legal entity deactivated' : 'Legal entity reactivated')
+      toast.success(
+        isActive ? t('legalEntities.toast.deactivated') : t('legalEntities.toast.reactivated'),
+      )
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to update legal entity')
+      toast.error(error instanceof Error ? error.message : t('legalEntities.toast.updateFailed'))
     }
   }
 
@@ -1094,37 +1112,37 @@ export function LegalEntitiesSettingsTab() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-medium">Legal Entities</h3>
+        <h3 className="text-lg font-medium">{t('legalEntities.title')}</h3>
         <p className="text-sm text-muted-foreground">
-          Legal entities own seller identity for invoices. Sites inherit the entity configured here.
+          {t('legalEntities.description')}
         </p>
       </div>
 
       <div className="rounded-lg border bg-white p-6 shadow-sm">
         <form onSubmit={handleCreate} className="grid gap-4 md:grid-cols-[1fr_160px_auto] md:items-end">
           <div className="grid gap-2">
-            <Label htmlFor="legal-entity-name">Name</Label>
+            <Label htmlFor="legal-entity-name">{t('legalEntities.create.nameLabel')}</Label>
             <Input
               id="legal-entity-name"
               value={name}
               onChange={(event) => setName(event.target.value)}
-              placeholder="Example GmbH"
+              placeholder={t('legalEntities.create.namePlaceholder')}
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="legal-entity-country">Country</Label>
+            <Label htmlFor="legal-entity-country">{t('legalEntities.create.countryLabel')}</Label>
             <Select value={countryIso} onValueChange={(value) => setCountryIso(value as 'AT' | 'DE')}>
               <SelectTrigger id="legal-entity-country">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="AT">Austria (AT)</SelectItem>
-                <SelectItem value="DE">Germany (DE)</SelectItem>
+                <SelectItem value="AT">{t('legalEntities.create.countryAt')}</SelectItem>
+                <SelectItem value="DE">{t('legalEntities.create.countryDe')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <Button type="submit" disabled={createMutation.isPending || !name.trim()}>
-            + Legal Entity
+            {t('legalEntities.create.submit')}
           </Button>
         </form>
       </div>
@@ -1133,11 +1151,11 @@ export function LegalEntitiesSettingsTab() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Country</TableHead>
-              <TableHead>Readiness</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead>{t('legalEntities.table.name')}</TableHead>
+              <TableHead>{t('legalEntities.table.country')}</TableHead>
+              <TableHead>{t('legalEntities.table.readiness')}</TableHead>
+              <TableHead>{t('legalEntities.table.status')}</TableHead>
+              <TableHead className="text-right">{t('legalEntities.table.actions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -1167,7 +1185,9 @@ export function LegalEntitiesSettingsTab() {
                       void toggleActive(entity.id, entity.is_active)
                     }}
                   >
-                    {entity.is_active ? 'Deactivate' : 'Reactivate'}
+                    {entity.is_active
+                      ? t('legalEntities.table.deactivate')
+                      : t('legalEntities.table.reactivate')}
                   </Button>
                 </TableCell>
               </TableRow>

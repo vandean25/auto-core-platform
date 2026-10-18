@@ -1,15 +1,24 @@
 import { AlertCircle, CloudCheck, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { DocumentSaveStatus } from '@/hooks/useDebouncedAutoSave'
+import type { CheckInOfflineSaveStatus } from './useCheckInOffline'
 
 type Props = {
   status: DocumentSaveStatus
+  offlineStatus?: CheckInOfflineSaveStatus
 }
 
-export function CheckInSaveIndicator({ status }: Props) {
+export function CheckInSaveIndicator({ status, offlineStatus }: Props) {
   const { t } = useTranslation('workshop')
 
-  if (status === 'idle') {
+  const effectiveStatus =
+    status === 'saved' && offlineStatus === 'savedLocally'
+      ? 'savedLocally'
+      : status === 'idle' && offlineStatus === 'savedLocally'
+        ? 'savedLocally'
+        : status
+
+  if (effectiveStatus === 'idle') {
     return null
   }
 
@@ -19,19 +28,25 @@ export function CheckInSaveIndicator({ status }: Props) {
       data-testid="check-in-save-indicator"
       aria-live="polite"
     >
-      {status === 'saving' && (
+      {effectiveStatus === 'saving' && (
         <>
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
           <span>{t('checkIn.save.saving')}</span>
         </>
       )}
-      {status === 'saved' && (
+      {effectiveStatus === 'saved' && (
         <>
           <CloudCheck className="h-4 w-4 text-green-600" aria-hidden />
           <span>{t('checkIn.save.saved')}</span>
         </>
       )}
-      {status === 'error' && (
+      {effectiveStatus === 'savedLocally' && (
+        <>
+          <CloudCheck className="h-4 w-4 text-amber-600" aria-hidden />
+          <span>{t('checkIn.save.savedLocally')}</span>
+        </>
+      )}
+      {effectiveStatus === 'error' && (
         <>
           <AlertCircle className="h-4 w-4 text-destructive" aria-hidden />
           <span className="font-medium text-destructive">{t('checkIn.save.error')}</span>

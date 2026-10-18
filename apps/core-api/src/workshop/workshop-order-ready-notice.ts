@@ -117,6 +117,7 @@ export function resolveReadyEmailNotice(
     vehicle: input.vehicle,
     sellerName: input.sellerName,
     orderNumber: 'WO-0000',
+    tenantDefaultLocale: 'de',
   });
   if (!built.ok) {
     const code = REFUSAL_TO_NOTICE[built.code];
@@ -137,6 +138,7 @@ export function readyEmailNoticeWhenNoPriorOutbox(
     vehicle: input.vehicle,
     sellerName: input.sellerName,
     orderNumber: 'WO-0000',
+    tenantDefaultLocale: 'de',
   });
   if (!built.ok) {
     const code = REFUSAL_TO_NOTICE[built.code];

@@ -11,8 +11,14 @@ import type {
 import type { usePatchLeaveBalance } from '@/api/hr'
 import { getErrorMessage } from '@/lib/error-utils'
 import { daysToMinutes, FALLBACK_AVG_WORKDAY_MINUTES } from '@/lib/hr-leave-minutes'
+import { i18n } from '@/lib/i18n'
 
 export const MIN_LEAVE_MINUTES = 0
+
+function hrT(key: string, options?: Record<string, unknown>): string {
+  const t = i18n.getFixedT(i18n.language, 'hr') as (k: string, o?: Record<string, unknown>) => string
+  return t(key, options)
+}
 
 export type EmployeeFormState = {
   name: string
@@ -43,7 +49,7 @@ export function parseAnnualLeaveMinutesFromForm(
   if (normalizedDays) {
     const parsedDays = Number(normalizedDays)
     if (!Number.isFinite(parsedDays) || parsedDays < 0) {
-      throw new Error('Leave days must be a non-negative number')
+      throw new Error(hrT('employees.validation.leaveDaysNonNegative'))
     }
     return daysToMinutes(parsedDays, avgMinutesPerWorkday)
   }
@@ -55,7 +61,7 @@ export function parseAnnualLeaveMinutesFromForm(
 
   const parsedMinutes = Number(normalizedMinutes)
   if (!Number.isInteger(parsedMinutes) || parsedMinutes < MIN_LEAVE_MINUTES) {
-    throw new Error('Leave minutes must be a non-negative integer')
+    throw new Error(hrT('employees.validation.leaveMinutesNonNegative'))
   }
   return parsedMinutes
 }
@@ -63,7 +69,7 @@ export function parseAnnualLeaveMinutesFromForm(
 export function parseAllowanceDays(allowanceDays: string): number {
   const parsed = Number(allowanceDays.trim())
   if (!Number.isFinite(parsed) || parsed < 0) {
-    throw new Error('Leave days must be a non-negative number')
+    throw new Error(hrT('employees.validation.leaveDaysNonNegative'))
   }
   return parsed
 }
@@ -71,7 +77,7 @@ export function parseAllowanceDays(allowanceDays: string): number {
 export function parseCarryoverMinutes(carryover: string): number {
   const parsed = Number(carryover.trim())
   if (!Number.isInteger(parsed) || parsed < MIN_LEAVE_MINUTES) {
-    throw new Error('Carryover minutes must be a non-negative integer')
+    throw new Error(hrT('employees.validation.carryoverNonNegative'))
   }
   return parsed
 }
@@ -95,12 +101,12 @@ export function validateAndBuildCreatePayload(
 ) {
   const normalizedName = formState.name.trim()
   if (!normalizedName) {
-    throw new Error('Employee name is required')
+    throw new Error(hrT('employees.validation.nameRequired'))
   }
 
   const parsedSortOrder = Number(formState.sortOrder)
   if (!Number.isInteger(parsedSortOrder) || parsedSortOrder < 0) {
-    throw new Error('Sort order must be a non-negative integer')
+    throw new Error(hrT('employees.validation.sortOrderNonNegative'))
   }
 
   let parsedAnnualLeaveMinutes: number | undefined
@@ -196,17 +202,17 @@ export function useEmployeeTableActions({
       try {
         payload = validateAndBuildCreatePayload(formState, hasHrEditAccess)
       } catch (error: unknown) {
-        toast.error(getErrorMessage(error, 'Failed to create employee'))
+        toast.error(getErrorMessage(error, hrT('employees.toast.createFailed')))
         return
       }
 
       try {
         await createMutation.mutateAsync(payload)
-        toast.success('Employee created')
+        toast.success(hrT('employees.toast.created'))
         setFormState(defaultFormState)
         onCreateOpenChange(false)
       } catch (error: unknown) {
-        toast.error(getErrorMessage(error, 'Failed to create employee'))
+        toast.error(getErrorMessage(error, hrT('employees.toast.createFailed')))
       }
     },
     [createMutation, formState, hasHrEditAccess, onCreateOpenChange, setFormState],
@@ -217,13 +223,13 @@ export function useEmployeeTableActions({
       try {
         const result = await deleteMutation.mutateAsync(id)
         if (result.deleted) {
-          toast.success('Employee deleted')
+          toast.success(hrT('employees.toast.deleted'))
           return
         }
 
-        toast.success('Employee deactivated')
+        toast.success(hrT('employees.toast.deactivated'))
       } catch (error: unknown) {
-        toast.error(getErrorMessage(error, 'Failed to delete employee'))
+        toast.error(getErrorMessage(error, hrT('employees.toast.deleteFailed')))
       }
     },
     [deleteMutation],
@@ -236,7 +242,7 @@ export function useEmployeeTableActions({
     try {
       parsedDays = parseAllowanceDays(sheetAllowanceDays)
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, 'Leave days must be a non-negative number'))
+      toast.error(getErrorMessage(error, hrT('employees.validation.leaveDaysNonNegative')))
       return
     }
 
@@ -247,8 +253,8 @@ export function useEmployeeTableActions({
       await runUpdate(
         selectedEmployee.id,
         { annualLeaveMinutes },
-        'Employee leave allowance updated',
-        'Failed to update employee leave allowance',
+        hrT('employees.toast.leaveAllowanceUpdated'),
+        hrT('employees.toast.updateLeaveAllowanceFailed'),
       )
       setSelectedEmployee((current) =>
         current?.id === selectedEmployee.id ? { ...current, annualLeaveMinutes } : current,
@@ -272,7 +278,7 @@ export function useEmployeeTableActions({
     try {
       parsedCarryoverMinutes = parseCarryoverMinutes(carryoverMinutes)
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, 'Carryover minutes must be a non-negative integer'))
+      toast.error(getErrorMessage(error, hrT('employees.validation.carryoverNonNegative')))
       return
     }
 
@@ -293,9 +299,9 @@ export function useEmployeeTableActions({
           : current,
       )
       setCarryoverMinutes(String(updatedBalance.carryoverMinutes))
-      toast.success('Leave carryover updated')
+      toast.success(hrT('employees.toast.carryoverUpdated'))
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, 'Failed to update leave carryover'))
+      toast.error(getErrorMessage(error, hrT('employees.toast.updateCarryoverFailed')))
     }
   }, [
     carryoverMinutes,

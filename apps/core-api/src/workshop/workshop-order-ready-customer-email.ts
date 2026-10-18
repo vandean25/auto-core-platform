@@ -1,3 +1,5 @@
+import type { DisplayLanguage } from '../common/i18n/display-language.js';
+import { resolveCustomerDocumentLanguage } from '../common/i18n/customer-document-language.js';
 import { isPlainEmailAddress } from '../notifications/email/email-address.js';
 import type { EmailDraft } from '../notifications/notification-outbox.email-columns.js';
 import { renderOrderReadyEmail } from '../notifications/templates/customer-email-templates.js';
@@ -14,10 +16,12 @@ export interface ReadyEmailCustomerInput {
     id: string;
     contact_email_ok: boolean;
     email: string | null;
+    preferred_language?: DisplayLanguage | null;
   } | null;
   vehicle: { make: string; model: string };
   sellerName: string;
   orderNumber: string;
+  tenantDefaultLocale: DisplayLanguage;
 }
 
 export type ReadyEmailCustomerBuildResult =
@@ -66,12 +70,19 @@ export function buildWorkshopOrderReadyCustomerEmail(
       message: 'The vehicle needs a make and a model for the ready notice.',
     };
   }
+  const documentLocale = resolveCustomerDocumentLanguage(
+    {
+      preferred_language: input.customer.preferred_language ?? null,
+    },
+    input.tenantDefaultLocale,
+  );
   try {
     const draft = renderOrderReadyEmail({
       recipientEmail,
       senderName: input.sellerName,
       orderNumber: input.orderNumber,
       vehicleLabel: `${make} ${model}`,
+      documentLocale,
     });
     return { ok: true, recipientEmail, draft };
   } catch {

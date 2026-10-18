@@ -397,10 +397,6 @@
       "public": false,
       "params": []
     },
-    "EXHAUST_LEAKS": {
-      "public": false,
-      "params": []
-    },
     "EXPORT_BLOCKED": {
       "public": false,
       "params": []
@@ -465,10 +461,6 @@
       "public": false,
       "params": []
     },
-    "FIRST_AID_KIT": {
-      "public": false,
-      "params": []
-    },
     "FISCAL_PATH_DISABLED": {
       "public": true,
       "params": []
@@ -491,10 +483,6 @@
     },
     "FISCAL_REGISTER_MISSING": {
       "public": true,
-      "params": []
-    },
-    "FLOOR_MATS": {
-      "public": false,
       "params": []
     },
     "GEWAEHRLEISTUNG_FIRST_REGISTRATION_REQUIRED": {
@@ -605,6 +593,10 @@
       "public": true,
       "params": []
     },
+    "IMPORT_DUPLICATE_CODE_IN_FILE": {
+      "public": true,
+      "params": []
+    },
     "IMPORT_DUPLICATE_EMAIL_IN_FILE": {
       "public": true,
       "params": []
@@ -645,7 +637,19 @@
       "public": true,
       "params": []
     },
+    "IMPORT_INVALID_HOURLY_RATE": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_INVALID_INTERNAL_COST": {
+      "public": true,
+      "params": []
+    },
     "IMPORT_INVALID_MAPPING": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_INVALID_STANDARD_AW": {
       "public": true,
       "params": []
     },
@@ -658,6 +662,22 @@
       "params": []
     },
     "IMPORT_JOB_STALE": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_LABOR_CODE_CONFLICT": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_LABOR_CODE_REQUIRED": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_LABOR_DESCRIPTION_REQUIRED": {
+      "public": true,
+      "params": []
+    },
+    "IMPORT_LABOR_FITMENT_MAKE_MODEL_REQUIRED": {
       "public": true,
       "params": []
     },
@@ -769,7 +789,7 @@
       "public": false,
       "params": []
     },
-    "KEYS_COMPLETE": {
+    "LABOR_CATEGORY_UNKNOWN": {
       "public": false,
       "params": []
     },
@@ -829,6 +849,10 @@
       "public": true,
       "params": []
     },
+    "LISTING_FIELD_INVALID": {
+      "public": true,
+      "params": []
+    },
     "LISTING_FIELD_NOT_ENCODABLE": {
       "public": true,
       "params": []
@@ -849,7 +873,43 @@
       "public": true,
       "params": []
     },
+    "LISTING_PRICE_GROSS_INVALID": {
+      "public": true,
+      "params": []
+    },
     "LISTING_PRICE_REQUIRED": {
+      "public": true,
+      "params": []
+    },
+    "LISTING_PUSH_CLIENT_ERROR": {
+      "public": true,
+      "params": []
+    },
+    "LISTING_PUSH_DISABLED": {
+      "public": true,
+      "params": []
+    },
+    "LISTING_PUSH_IDEMPOTENCY_CONFLICT": {
+      "public": true,
+      "params": []
+    },
+    "LISTING_PUSH_PROVIDER_ERROR": {
+      "public": true,
+      "params": []
+    },
+    "LISTING_PUSH_RATE_LIMIT": {
+      "public": true,
+      "params": []
+    },
+    "LISTING_PUSH_TIMEOUT": {
+      "public": true,
+      "params": []
+    },
+    "LISTING_PUSH_UNCONFIGURED": {
+      "public": true,
+      "params": []
+    },
+    "LISTING_REF_REQUIRED": {
       "public": true,
       "params": []
     },
@@ -1001,15 +1061,7 @@
       "public": false,
       "params": []
     },
-    "PERSONAL_ITEMS": {
-      "public": false,
-      "params": []
-    },
     "PICKERL_57A_PREP": {
-      "public": false,
-      "params": []
-    },
-    "PLATE_READABLE": {
       "public": false,
       "params": []
     },
@@ -1070,10 +1122,6 @@
       "params": []
     },
     "RECIPIENT_MISSING": {
-      "public": false,
-      "params": []
-    },
-    "REGISTRATION_DOC": {
       "public": false,
       "params": []
     },
@@ -1185,14 +1233,6 @@
       "public": true,
       "params": []
     },
-    "SAFETY_VEST": {
-      "public": false,
-      "params": []
-    },
-    "SEAT_BELTS": {
-      "public": false,
-      "params": []
-    },
     "SEAT_HEATING": {
       "public": false,
       "params": []
@@ -1202,10 +1242,6 @@
       "params": []
     },
     "SENDER_NOT_CONFIGURED": {
-      "public": false,
-      "params": []
-    },
-    "SERVICE_BOOK": {
       "public": false,
       "params": []
     },
@@ -1404,14 +1440,6 @@
       "public": false,
       "params": []
     },
-    "VIN_READABLE": {
-      "public": false,
-      "params": []
-    },
-    "WARNING_TRIANGLE": {
-      "public": false,
-      "params": []
-    },
     "WARRANTY_CLAIM_CLOSED": {
       "public": true,
       "params": []
@@ -1453,10 +1481,6 @@
       "params": []
     },
     "WEEKLY_REPORT_RATE_LIMIT": {
-      "public": false,
-      "params": []
-    },
-    "WIPERS_WASHER": {
       "public": false,
       "params": []
     },

@@ -13,7 +13,6 @@ import { WorkshopEstimateDecidedConsumerService } from '../workshop/workshop-est
 @Injectable()
 export class DomainEventConsumerRecoveryService {
   private readonly logger = new Logger(DomainEventConsumerRecoveryService.name);
-  private running = false;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -24,37 +23,35 @@ export class DomainEventConsumerRecoveryService {
 
   @Cron(CronExpression.EVERY_MINUTE, { name: 'domain-event-consumer-recovery' })
   async recover(): Promise<void> {
-    if (this.running) {
-      return;
-    }
-    this.running = true;
-    try {
-      const tenants = await this.systemPrisma.tenant.findMany({
-        where: { is_active: true },
-        select: { id: true },
-      });
-      for (const tenant of tenants) {
-        try {
-          const hasPending = await this.tenantHasPendingEstimateDecidedEvents(
-            tenant.id,
-          );
-          if (!hasPending) {
-            continue;
+    await this.systemPrisma.withCronJobLock(
+      'domain-event-consumer-recovery',
+      async () => {
+        const tenants = await this.systemPrisma.tenant.findMany({
+          where: { is_active: true },
+          select: { id: true },
+        });
+        for (const tenant of tenants) {
+          try {
+            const hasPending = await this.tenantHasPendingEstimateDecidedEvents(
+              tenant.id,
+            );
+            if (!hasPending) {
+              continue;
+            }
+            await this.requestContext.runAsWorker(
+              tenant.id,
+              () => this.estimateDecidedConsumer.processTenantBatch(tenant.id),
+              { workerId: 'domain-event-consumer-recovery' },
+            );
+          } catch (cause) {
+            this.logger.error(
+              `Domain event consumer recovery failed for tenant ${tenant.id}: ${cause instanceof Error ? cause.name : 'unknown error'}`,
+            );
           }
-          await this.requestContext.runAsWorker(
-            tenant.id,
-            () => this.estimateDecidedConsumer.processTenantBatch(tenant.id),
-            { workerId: 'domain-event-consumer-recovery' },
-          );
-        } catch (cause) {
-          this.logger.error(
-            `Domain event consumer recovery failed for tenant ${tenant.id}: ${cause instanceof Error ? cause.name : 'unknown error'}`,
-          );
         }
-      }
-    } finally {
-      this.running = false;
-    }
+      },
+      this.logger,
+    );
   }
 
   private async tenantHasPendingEstimateDecidedEvents(

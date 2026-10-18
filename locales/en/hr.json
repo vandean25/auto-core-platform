@@ -1,0 +1,270 @@
+{
+  "layout": {
+    "title": "HR",
+    "description": "Manage employees, attendance, and leave.",
+    "sectionsAria": "HR sections",
+    "tabs": {
+      "employees": "Employees",
+      "clock": "Time Clock",
+      "leave": "Leave"
+    }
+  },
+  "employees": {
+    "pageTitle": "Employees",
+    "pageDescription": "Manage workshop personnel available for assignments.",
+    "createButton": "+ Employee",
+    "roles": {
+      "MECHANIC": "Mechanic",
+      "SERVICE_ADVISOR": "Service Advisor",
+      "PARTS_CLERK": "Parts Clerk"
+    },
+    "languageDefault": "Default (target language)",
+    "notSet": "Not set",
+    "notLinked": "Not linked",
+    "yes": "Yes",
+    "no": "No",
+    "minSuffix": "{{count}} min",
+    "searchPlaceholder": "Search employees...",
+    "delete": "Delete",
+    "columns": {
+      "name": "Name",
+      "role": "Role",
+      "motherLanguage": "Mother Language",
+      "active": "Active",
+      "sortOrder": "Sort Order",
+      "hireDate": "Hire date",
+      "leaveMin": "Leave (min)",
+      "remainingMin": "Remaining (min)",
+      "login": "Login"
+    },
+    "createDialog": {
+      "title": "Create Employee",
+      "description": "Add a workshop team member.",
+      "name": "Name",
+      "namePlaceholder": "Employee name",
+      "role": "Role",
+      "sortOrder": "Sort Order",
+      "motherLanguage": "Mother Language",
+      "hireDate": "Hire date",
+      "leaveDays": "Leave (days)",
+      "leaveDaysPlaceholder": "e.g. 25 (uses default workday length)",
+      "leaveMin": "Leave (min)",
+      "leaveMinPlaceholder": "Server default (25 × avg workday)",
+      "create": "Create",
+      "saving": "Saving..."
+    },
+    "detailSheet": {
+      "title": "Employee Details",
+      "description": "Review roster and leave information.",
+      "hireDate": "Hire date",
+      "leaveAllowance": "Leave allowance",
+      "remaining": "Remaining",
+      "login": "Login",
+      "allowanceDays": "Leave allowance (days)",
+      "allowanceDaysPlaceholder": "e.g. 25",
+      "allowanceHint": "Converts to minutes using the current schedule average ({{minutes}} min/day).",
+      "saveAllowance": "Save allowance",
+      "carryover": "Carryover this year (min)",
+      "carryoverAria": "Carryover this year",
+      "saveLeaveBalance": "Save leave balance"
+    },
+    "validation": {
+      "nameRequired": "Employee name is required",
+      "sortOrderNonNegative": "Sort order must be a non-negative integer",
+      "leaveMinutesNonNegative": "Leave minutes must be a non-negative integer",
+      "leaveDaysNonNegative": "Leave days must be a non-negative number",
+      "carryoverNonNegative": "Carryover minutes must be a non-negative integer"
+    },
+    "toast": {
+      "updated": "Employee updated",
+      "roleUpdated": "Employee role updated",
+      "languageUpdated": "Employee language updated",
+      "activated": "Employee activated",
+      "deactivated": "Employee deactivated",
+      "sortOrderUpdated": "Employee sort order updated",
+      "hireDateUpdated": "Employee hire date updated",
+      "leaveAllowanceUpdated": "Employee leave allowance updated",
+      "created": "Employee created",
+      "deleted": "Employee deleted",
+      "carryoverUpdated": "Leave carryover updated",
+      "createFailed": "Failed to create employee",
+      "updateNameFailed": "Failed to update employee name",
+      "updateRoleFailed": "Failed to update employee role",
+      "updateLanguageFailed": "Failed to update employee language",
+      "updateStatusFailed": "Failed to update employee status",
+      "updateSortOrderFailed": "Failed to update employee sort order",
+      "updateHireDateFailed": "Failed to update employee hire date",
+      "updateLeaveAllowanceFailed": "Failed to update employee leave allowance",
+      "deleteFailed": "Failed to delete employee",
+      "updateCarryoverFailed": "Failed to update leave carryover"
+    }
+  },
+  "clock": {
+    "pageTitle": "Time Clock",
+    "pageDescription": "Track attendance for today.",
+    "employee": "Employee",
+    "unavailable": "Unavailable",
+    "todayTimeline": "Today's timeline",
+    "todayTimelineHint": "Events are shown in the tenant's local time.",
+    "noEventsToday": "No attendance events recorded today.",
+    "teamAttendance": "Team attendance",
+    "teamAttendanceHint": "Review attendance for the selected employee.",
+    "attendanceDay": "Attendance day",
+    "attendanceUnavailable": "Attendance unavailable",
+    "searchPlaceholder": "Search attendance...",
+    "columns": {
+      "time": "Time",
+      "event": "Event",
+      "source": "Source",
+      "note": "Note"
+    },
+    "missingEmployee": {
+      "title": "No employee record linked",
+      "description": "Ask an owner or administrator to link your account to an employee record.",
+      "link": "Go to HR Employees"
+    },
+    "toast": {
+      "loadProfileFailed": "Failed to load HR profile",
+      "loadClockFailed": "Failed to load attendance clock",
+      "loadAttendanceFailed": "Failed to load attendance",
+      "loadTimeClockFailed": "Failed to load time clock",
+      "punchFailed": "Failed to punch attendance clock",
+      "punchEmployeeFailed": "Failed to punch employee attendance"
+    }
+  },
+  "punchBar": {
+    "clockIn": "Come to work",
+    "pause": "Pause",
+    "doctor": "Doctor",
+    "clockOut": "Go home"
+  },
+  "leave": {
+    "pageTitle": "Leave",
+    "pageDescription": "Book and review team leave.",
+    "remaining": "Remaining: {{minutes}} min{{approx}}",
+    "bookLeave": "+ Leave",
+    "myLeave": "My leave",
+    "myLeaveHint": "Your leave bookings for the selected year.",
+    "teamLeave": "Team leave",
+    "teamLeaveHint": "Tenant-local month view of booked leave.",
+    "previous": "Previous",
+    "next": "Next",
+    "searchPlaceholder": "Search leave...",
+    "cancel": "Cancel",
+    "columns": {
+      "employee": "Employee",
+      "dateRange": "Date range",
+      "chargedMin": "Charged (min)",
+      "status": "Status",
+      "note": "Note"
+    },
+    "missingEmployee": {
+      "title": "No employee record linked",
+      "description": "Ask an owner or administrator to link your account to an employee record.",
+      "link": "Go to HR Employees"
+    },
+    "toast": {
+      "loadProfileFailed": "Failed to load HR profile",
+      "cancelFailed": "Failed to cancel leave booking"
+    },
+    "bookingSheet": {
+      "viewTitle": "Leave booking",
+      "bookTitle": "Book leave",
+      "viewDescription": "Review the selected leave booking.",
+      "bookDescription": "Book leave for an employee.",
+      "employee": "Employee",
+      "start": "Start",
+      "end": "End",
+      "chargedMin": "Charged (min)",
+      "note": "Note",
+      "notePlaceholder": "Optional note",
+      "employeeFallback": "Employee",
+      "createFailed": "Failed to create leave booking",
+      "saving": "Saving..."
+    },
+    "grid": {
+      "employee": "Employee",
+      "bookedLeave": "Booked leave",
+      "bookFor": "Book leave for {{name}} on {{date}}",
+      "cellAria": "{{name}}, {{date}}, status {{status}}"
+    }
+  },
+  "mechanicAway": {
+    "title": "Mechanic away: {{name}}",
+    "description": "{{name}} is away from {{start}} through {{end}} (inclusive). Leave is advisory only; bay booking remains allowed."
+  },
+  "inspectorEvidence": {
+    "title": "Inspector evidence",
+    "description": "Restricted HR document review and support status — not an official qualification.",
+    "supportCurrent": "Support current",
+    "supportExpired": "Support expired",
+    "supportUnknown": "Support unknown",
+    "scope": "Scope: {{scope}}",
+    "revisions": "Evidence revisions",
+    "loading": "Loading…",
+    "empty": "No evidence recorded.",
+    "latestDocHint": "Latest document reference is stored in authorized storage only (not downloadable here)."
+  },
+  "workSchedule": {
+    "title": "Work schedule",
+    "description": "Expected working hours per weekday. Leave minutes are charged from this pattern.",
+    "currentFrom": "Current version from {{date}}",
+    "noVersion": "No schedule version yet.",
+    "siteAssignment": "Site assignment",
+    "selectSite": "Select site",
+    "siteLabel": "Site: {{name}}",
+    "notAssigned": "Not assigned",
+    "effectiveFrom": "Effective from",
+    "newVersionSite": "Site assignment",
+    "newVersionSiteAria": "New version site assignment",
+    "createVersion": "Create version",
+    "creating": "Creating…",
+    "saveCorrection": "Save correction",
+    "saving": "Saving…",
+    "newVersion": "New version",
+    "hideNewVersion": "Hide new version",
+    "previousVersions": "Previous versions",
+    "fromDate": "From {{date}}",
+    "loading": "Loading work schedule…",
+    "loadFailed": "Failed to load work schedule",
+    "table": {
+      "day": "Day",
+      "working": "Working",
+      "start": "Start",
+      "end": "End",
+      "breakMin": "Break (min)"
+    },
+    "weekdays": {
+      "1": "Monday",
+      "2": "Tuesday",
+      "3": "Wednesday",
+      "4": "Thursday",
+      "5": "Friday",
+      "6": "Saturday",
+      "7": "Sunday"
+    },
+    "workingAria": "{{day}} working",
+    "startAria": "{{day}} start",
+    "endAria": "{{day}} end",
+    "breakAria": "{{day}} break minutes",
+    "toast": {
+      "updated": "Work schedule updated",
+      "updateFailed": "Failed to update work schedule",
+      "effectiveDateRequired": "Effective date is required for a new schedule version",
+      "siteRequired": "A site is required for a work schedule",
+      "versionCreated": "Work schedule version created",
+      "createFailed": "Failed to create work schedule version"
+    },
+    "validation": {
+      "mustHaveSevenDays": "Work schedule must include exactly 7 weekdays",
+      "eachWeekdayOnce": "Work schedule must include each weekday once",
+      "noTimesWhenNotWorking": "{{day}} must not include times when not working",
+      "requiresTimes": "{{day}} requires start and end times",
+      "endAfterStart": "{{day}} end time must be after start time",
+      "breakShorterThanDay": "{{day}} break must be shorter than the workday"
+    }
+  },
+  "leaveMinutes": {
+    "min": "{{count}} min"
+  }
+}

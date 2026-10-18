@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AuditLog } from '@/api/audit'
+import deSettings from '../../../../../locales/de/settings.json'
 import { AuditLogsTab } from './AuditLogsTab'
 
 const mockAuditLogs: AuditLog[] = [
@@ -78,10 +79,8 @@ describe('AuditLogsTab', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByText('Audit Logs')).toBeInTheDocument()
-    expect(
-      screen.getByText('Immutable, append-only audit trail of business entity mutations and deletions.'),
-    ).toBeInTheDocument()
+    expect(screen.getByText(deSettings.auditLogs.title)).toBeInTheDocument()
+    expect(screen.getByText(deSettings.auditLogs.description)).toBeInTheDocument()
     expect(screen.getByTestId('mock-data-table')).toBeInTheDocument()
     expect(screen.getByText('Customer - cust-uuid-1')).toBeInTheDocument()
   })
@@ -96,10 +95,10 @@ describe('AuditLogsTab', () => {
     fireEvent.click(screen.getByText('Customer - cust-uuid-1'))
 
     await waitFor(() => {
-      expect(screen.getByText('Audit Record Details')).toBeInTheDocument()
+      expect(screen.getByText(deSettings.auditLogs.sheet.title)).toBeInTheDocument()
     })
 
-    expect(screen.getByText('Target ID: cust-uuid-1')).toBeInTheDocument()
+    expect(screen.getByText(deSettings.auditLogs.sheet.targetId.replace('{{id}}', 'cust-uuid-1'))).toBeInTheDocument()
     expect(screen.getByText('2026-08-14 12:00:00')).toBeInTheDocument()
     expect(screen.getByText('admin@autocore.test')).toBeInTheDocument()
     expect(screen.getByText('req-abc-123')).toBeInTheDocument()

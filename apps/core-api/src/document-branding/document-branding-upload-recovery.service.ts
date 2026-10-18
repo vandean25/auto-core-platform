@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { RequestContextService } from '../common/services/request-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -15,6 +15,10 @@ const QUOTA_EVENT_RETENTION_MS = 60 * 60 * 1000;
  */
 @Injectable()
 export class DocumentBrandingUploadRecoveryService {
+  private readonly logger = new Logger(
+    DocumentBrandingUploadRecoveryService.name,
+  );
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly systemPrisma: SystemPrismaService,
@@ -27,19 +31,25 @@ export class DocumentBrandingUploadRecoveryService {
     name: 'document-branding-upload-recovery',
   })
   async recoverAndClean() {
-    const tenants = await this.systemPrisma.tenant.findMany({
-      select: { id: true },
-    });
-    if (tenants.length === 0) return;
+    await this.systemPrisma.withCronJobLock(
+      'document-branding-upload-recovery',
+      async () => {
+        const tenants = await this.systemPrisma.tenant.findMany({
+          select: { id: true },
+        });
+        if (tenants.length === 0) return;
 
-    const now = new Date();
-    for (const { id: tenantId } of tenants) {
-      await this.requestContext.runAsWorker(
-        tenantId,
-        () => this.recoverAndCleanForTenant(now),
-        { workerId: 'document-branding-upload-recovery' },
-      );
-    }
+        const now = new Date();
+        for (const { id: tenantId } of tenants) {
+          await this.requestContext.runAsWorker(
+            tenantId,
+            () => this.recoverAndCleanForTenant(now),
+            { workerId: 'document-branding-upload-recovery' },
+          );
+        }
+      },
+      this.logger,
+    );
   }
 
   private async recoverAndCleanForTenant(now: Date) {

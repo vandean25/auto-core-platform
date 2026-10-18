@@ -524,6 +524,7 @@ describe('VehicleSalePage Kaufvertrag PDF and Garantie', () => {
 })
 
 describe('VehicleSalePage trade-in', () => {
+  const ti = deVehicleStock.sale.tradeIn
   const savedTradeIn = {
     id: 'purchase-1',
     purchase_number: 'VP-2026-0002',
@@ -570,12 +571,12 @@ describe('VehicleSalePage trade-in', () => {
     upsertTradeIn.mockResolvedValue({ ...existingSale, trade_in_purchase: null })
     renderSalePage()
 
-    fireEvent.change(screen.getByLabelText('Allowance (EUR)'), { target: { value: '5000' } })
-    fireEvent.change(screen.getByLabelText('VIN'), { target: { value: 'trdnb000000000001' } })
-    fireEvent.change(screen.getByLabelText('Make'), { target: { value: 'Skoda' } })
-    fireEvent.change(screen.getByLabelText('Model'), { target: { value: 'Octavia' } })
-    fireEvent.change(screen.getByLabelText('Model year'), { target: { value: '2016' } })
-    expect(screen.getByText(/Amount due after trade-in/)).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText(ti.allowanceLabel), { target: { value: '5000' } })
+    fireEvent.change(screen.getByLabelText(ti.vin), { target: { value: 'trdnb000000000001' } })
+    fireEvent.change(screen.getByLabelText(ti.make), { target: { value: 'Skoda' } })
+    fireEvent.change(screen.getByLabelText(ti.model), { target: { value: 'Octavia' } })
+    fireEvent.change(screen.getByLabelText(ti.year), { target: { value: '2016' } })
+    expect(screen.getByText(new RegExp(ti.amountDue))).toBeInTheDocument()
     expect(screen.getByText(formattedCurrencyPattern(7000))).toBeInTheDocument()
 
     await act(async () => {
@@ -598,11 +599,11 @@ describe('VehicleSalePage trade-in', () => {
   it('does not save a trade-in whose allowance exceeds the sale price', async () => {
     renderSalePage()
 
-    fireEvent.change(screen.getByLabelText('Allowance (EUR)'), { target: { value: '13000' } })
-    fireEvent.change(screen.getByLabelText('VIN'), { target: { value: 'TRDNB000000000001' } })
-    fireEvent.change(screen.getByLabelText('Make'), { target: { value: 'Skoda' } })
-    fireEvent.change(screen.getByLabelText('Model'), { target: { value: 'Octavia' } })
-    fireEvent.change(screen.getByLabelText('Model year'), { target: { value: '2016' } })
+    fireEvent.change(screen.getByLabelText(ti.allowanceLabel), { target: { value: '13000' } })
+    fireEvent.change(screen.getByLabelText(ti.vin), { target: { value: 'TRDNB000000000001' } })
+    fireEvent.change(screen.getByLabelText(ti.make), { target: { value: 'Skoda' } })
+    fireEvent.change(screen.getByLabelText(ti.model), { target: { value: 'Octavia' } })
+    fireEvent.change(screen.getByLabelText(ti.year), { target: { value: '2016' } })
 
     expect(screen.getByText('The allowance cannot exceed the sale price.')).toBeInTheDocument()
     await act(async () => {
@@ -631,11 +632,11 @@ describe('VehicleSalePage trade-in', () => {
     removeTradeIn.mockResolvedValue({ ...existingSale, trade_in_purchase: null })
     renderSalePage()
 
-    expect(screen.getByLabelText('VIN')).toHaveValue('TRDNB000000000001')
+    expect(screen.getByLabelText(ti.vin)).toHaveValue('TRDNB000000000001')
     expect(screen.getAllByText(formattedCurrencyPattern(7000)).length).toBeGreaterThan(0)
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Remove trade-in' }))
+      fireEvent.click(screen.getByRole('button', { name: ti.remove }))
     })
 
     expect(removeTradeIn).toHaveBeenCalledWith('sale-1')
@@ -646,11 +647,11 @@ describe('VehicleSalePage trade-in', () => {
     finalizeSale.mockResolvedValue({ invoice: { id: 'invoice-1' } })
     renderSalePage()
 
-    fireEvent.change(screen.getByLabelText('Allowance (EUR)'), { target: { value: '5000' } })
-    fireEvent.change(screen.getByLabelText('VIN'), { target: { value: 'TRDNB000000000001' } })
-    fireEvent.change(screen.getByLabelText('Make'), { target: { value: 'Skoda' } })
-    fireEvent.change(screen.getByLabelText('Model'), { target: { value: 'Octavia' } })
-    fireEvent.change(screen.getByLabelText('Model year'), { target: { value: '2016' } })
+    fireEvent.change(screen.getByLabelText(ti.allowanceLabel), { target: { value: '5000' } })
+    fireEvent.change(screen.getByLabelText(ti.vin), { target: { value: 'TRDNB000000000001' } })
+    fireEvent.change(screen.getByLabelText(ti.make), { target: { value: 'Skoda' } })
+    fireEvent.change(screen.getByLabelText(ti.model), { target: { value: 'Octavia' } })
+    fireEvent.change(screen.getByLabelText(ti.year), { target: { value: '2016' } })
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: deVehicleStock.sale.finalizeInvoice }))
@@ -669,7 +670,7 @@ describe('VehicleSalePage trade-in', () => {
   it('stops the invoice with the reason when the trade-in on the form is incomplete', async () => {
     renderSalePage()
 
-    fireEvent.change(screen.getByLabelText('Allowance (EUR)'), { target: { value: '5000' } })
+    fireEvent.change(screen.getByLabelText(ti.allowanceLabel), { target: { value: '5000' } })
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: deVehicleStock.sale.finalizeInvoice }))
@@ -695,7 +696,7 @@ describe('VehicleSalePage trade-in', () => {
     renderSalePage()
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Remove trade-in' }))
+      fireEvent.click(screen.getByRole('button', { name: ti.remove }))
     })
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: deVehicleStock.sale.finalizeInvoice }))
@@ -727,7 +728,7 @@ describe('VehicleSalePage trade-in', () => {
     renderSalePage()
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Remove trade-in' }))
+      fireEvent.click(screen.getByRole('button', { name: ti.remove }))
     })
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: deVehicleStock.sale.finalizeInvoice }))
@@ -745,9 +746,9 @@ describe('VehicleSalePage trade-in', () => {
 
   it('announces the save status and the validation message to assistive technology', () => {
     renderSalePage()
-    const section = screen.getByRole('region', { name: 'Trade-in' })
+    const section = screen.getByRole('region', { name: ti.title })
 
-    fireEvent.change(within(section).getByLabelText('Allowance (EUR)'), { target: { value: '13000' } })
+    fireEvent.change(within(section).getByLabelText(ti.allowanceLabel), { target: { value: '13000' } })
 
     expect(within(section).getByRole('status')).toBeInTheDocument()
     expect(within(section).getByText('The allowance cannot exceed the sale price.')).toHaveAttribute(
@@ -758,13 +759,13 @@ describe('VehicleSalePage trade-in', () => {
 
   it('marks the trade-in field behind the validation message as invalid', () => {
     renderSalePage()
-    const section = screen.getByRole('region', { name: 'Trade-in' })
-    const allowance = within(section).getByLabelText('Allowance (EUR)')
+    const section = screen.getByRole('region', { name: ti.title })
+    const allowance = within(section).getByLabelText(ti.allowanceLabel)
 
     fireEvent.change(allowance, { target: { value: '13000' } })
 
     expectFieldErrorLinked(allowance, 'The allowance cannot exceed the sale price.')
-    expectFieldValid(within(section).getByLabelText('VIN'))
+    expectFieldValid(within(section).getByLabelText(ti.vin))
   })
 })
 

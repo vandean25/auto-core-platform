@@ -22,23 +22,29 @@ export class CustomerConsentRetentionService {
 
   @Cron('23 3 * * *', { name: 'customer-consent-proof-purge' })
   async purgeExpiredProofRows(): Promise<void> {
-    const tenants = await this.systemPrisma.tenant.findMany({
-      select: { id: true },
-    });
-    const now = new Date();
-    for (const { id: tenantId } of tenants) {
-      try {
-        await this.requestContext.runAsWorker(
-          tenantId,
-          () => this.purgeForTenant(tenantId, now),
-          { workerId: 'customer-consent-proof-purge' },
-        );
-      } catch (cause) {
-        this.logger.error(
-          `Customer consent proof purge failed for one tenant: ${cause instanceof Error ? cause.name : 'unknown error'}`,
-        );
-      }
-    }
+    await this.systemPrisma.withCronJobLock(
+      'customer-consent-proof-purge',
+      async () => {
+        const tenants = await this.systemPrisma.tenant.findMany({
+          select: { id: true },
+        });
+        const now = new Date();
+        for (const { id: tenantId } of tenants) {
+          try {
+            await this.requestContext.runAsWorker(
+              tenantId,
+              () => this.purgeForTenant(tenantId, now),
+              { workerId: 'customer-consent-proof-purge' },
+            );
+          } catch (cause) {
+            this.logger.error(
+              `Customer consent proof purge failed for one tenant: ${cause instanceof Error ? cause.name : 'unknown error'}`,
+            );
+          }
+        }
+      },
+      this.logger,
+    );
   }
 
   async purgeForTenant(tenantId: string, now: Date): Promise<number> {

@@ -3,6 +3,8 @@ import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { useEmployees } from '@/api/employees'
 import { useAuthSession } from '@/api/auth-session'
+import deHr from '../../../../../locales/de/hr.json'
+import deSettings from '../../../../../locales/de/settings.json'
 import { EmployeeSettingsTab } from './EmployeeSettingsTab'
 
 vi.mock('@/api/employees', () => ({
@@ -32,17 +34,17 @@ vi.mock('@/api/auth-session', () => ({
 }))
 
 describe('EmployeeSettingsTab', () => {
-  it('renders title and top-right + Employee action', () => {
+  it('renders title and top-right create action', () => {
     render(
       <MemoryRouter>
         <EmployeeSettingsTab />
       </MemoryRouter>,
     )
 
-    expect(screen.getByText('Employees')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '+ Employee' })).toBeInTheDocument()
+    expect(screen.getByText(deSettings.employees.title)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: deSettings.employees.createButton })).toBeInTheDocument()
     expect(screen.getByTestId('employee-table')).toBeInTheDocument()
-    expect(screen.getByText('Hire date')).toBeInTheDocument()
+    expect(screen.getByText(deHr.employees.columns.hireDate)).toBeInTheDocument()
     expect(vi.mocked(useEmployees)).toHaveBeenCalledWith({
       includeInactive: true,
       limit: 100,

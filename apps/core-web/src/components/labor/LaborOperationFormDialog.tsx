@@ -1,5 +1,7 @@
 import * as React from 'react'
+import type { TFunction } from 'i18next'
 import { AlertCircle, CloudCheck, Loader2, Plus } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -134,20 +136,30 @@ function operationToFormState(operation: LaborOperation): FormState {
 function parseAndValidateYear(
   rawYear: string,
   label: string,
+  t: TFunction<'settings'>,
 ): { num?: number; error?: string } {
   const trimmed = rawYear.trim()
   if (!trimmed) return {}
   const parsed = Number(trimmed)
   if (!Number.isInteger(parsed)) {
-    return { error: `${label} must be an integer` }
+    return { error: t('labor.operationForm.validation.yearInteger', { label }) }
   }
   if (parsed < MIN_YEAR || parsed > MAX_YEAR) {
-    return { error: `${label} must be between ${MIN_YEAR} and ${MAX_YEAR}` }
+    return {
+      error: t('labor.operationForm.validation.yearRange', {
+        label,
+        min: MIN_YEAR,
+        max: MAX_YEAR,
+      }),
+    }
   }
   return { num: parsed }
 }
 
-function validateSingleFitment(fitment: FitmentState): {
+function validateSingleFitment(
+  fitment: FitmentState,
+  t: TFunction<'settings'>,
+): {
   make?: string
   model?: string
   yearFrom?: string
@@ -172,16 +184,16 @@ function validateSingleFitment(fitment: FitmentState): {
   } = {}
 
   if (!fitment.make.trim()) {
-    currentFitmentErrors.make = 'Make is required'
+    currentFitmentErrors.make = t('labor.operationForm.validation.makeRequired')
   }
   if (!fitment.model.trim()) {
-    currentFitmentErrors.model = 'Model is required'
+    currentFitmentErrors.model = t('labor.operationForm.validation.modelRequired')
   }
 
-  const from = parseAndValidateYear(fitment.yearFrom, 'Year From')
+  const from = parseAndValidateYear(fitment.yearFrom, t('labor.operationForm.fitments.yearFrom'), t)
   if (from.error) currentFitmentErrors.yearFrom = from.error
 
-  const to = parseAndValidateYear(fitment.yearTo, 'Year To')
+  const to = parseAndValidateYear(fitment.yearTo, t('labor.operationForm.fitments.yearTo'), t)
   if (to.error) currentFitmentErrors.yearTo = to.error
 
   if (
@@ -189,13 +201,16 @@ function validateSingleFitment(fitment: FitmentState): {
     to.num !== undefined &&
     from.num > to.num
   ) {
-    currentFitmentErrors.yearTo = 'Year To must be greater than or equal to Year From'
+    currentFitmentErrors.yearTo = t('labor.operationForm.validation.yearToBeforeFrom')
   }
 
   return Object.keys(currentFitmentErrors).length > 0 ? currentFitmentErrors : null
 }
 
-function validateLaborOperationForm(currentForm: FormState): ValidationState {
+function validateLaborOperationForm(
+  currentForm: FormState,
+  t: TFunction<'settings'>,
+): ValidationState {
   const nextErrors: ValidationState = {}
   const standardAwRaw = currentForm.standardAw.trim()
   const hourlyRate = Number(currentForm.hourlyRate)
@@ -203,29 +218,29 @@ function validateLaborOperationForm(currentForm: FormState): ValidationState {
     currentForm.internalCost.trim() === '' ? undefined : Number(currentForm.internalCost)
 
   if (!currentForm.code.trim()) {
-    nextErrors.code = 'Code is required'
+    nextErrors.code = t('labor.operationForm.validation.codeRequired')
   }
   if (!currentForm.description.trim()) {
-    nextErrors.description = 'Description is required'
+    nextErrors.description = t('labor.operationForm.validation.descriptionRequired')
   }
   if (standardAwRaw === '') {
-    nextErrors.standardAw = 'Standard AW is required'
+    nextErrors.standardAw = t('labor.operationForm.validation.standardAwRequired')
   } else {
     const standardAw = Number(standardAwRaw)
     if (!Number.isFinite(standardAw) || standardAw < 0) {
-      nextErrors.standardAw = 'Standard AW must be a non-negative number'
+      nextErrors.standardAw = t('labor.operationForm.validation.standardAwInvalid')
     }
   }
   if (!Number.isFinite(hourlyRate) || hourlyRate <= 0) {
-    nextErrors.hourlyRate = 'Hourly Rate must be greater than 0'
+    nextErrors.hourlyRate = t('labor.operationForm.validation.hourlyRateInvalid')
   }
   if (internalCost !== undefined && (!Number.isFinite(internalCost) || internalCost < 0)) {
-    nextErrors.internalCost = 'Internal Cost must be zero or greater'
+    nextErrors.internalCost = t('labor.operationForm.validation.internalCostInvalid')
   }
 
   const fitmentErrors: NonNullable<ValidationState['fitments']> = []
   currentForm.fitments.forEach((fitment, index) => {
-    const err = validateSingleFitment(fitment)
+    const err = validateSingleFitment(fitment, t)
     if (err) {
       fitmentErrors[index] = err
     }
@@ -271,6 +286,7 @@ function buildLaborOperationPayload(currentForm: FormState): CreateLaborOperatio
 }
 
 export function LaborOperationFormDialog({ open, onOpenChange, operation }: Props) {
+  const { t } = useTranslation('settings')
   const createMutation = useCreateLaborOperation()
   const updateMutation = useUpdateLaborOperation()
   const { data: categoriesData } = useLaborCategories()
@@ -366,7 +382,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
         return
       }
 
-      const currentErrors = validateLaborOperationForm(formToSave)
+      const currentErrors = validateLaborOperationForm(formToSave, t)
       if (Object.keys(currentErrors).length > 0) {
         setSaveErrorMessage(null)
         setErrors(currentErrors)
@@ -402,7 +418,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
         }
       } catch (error: unknown) {
         const message =
-          error instanceof Error ? error.message : 'Failed to save labor operation'
+          error instanceof Error ? error.message : t('labor.operationForm.saveFailed')
         if (serializeFormState(formRef.current) === saveSnapshot) {
           setSaveStatus('error')
           setSaveErrorMessage(message)
@@ -417,7 +433,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
         }
       }
     },
-    [createMutation, operation, updateMutation]
+    [createMutation, operation, t, updateMutation]
   )
 
   React.useEffect(() => {
@@ -443,7 +459,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Edit Labor Operation' : 'New Labor Operation'}</DialogTitle>
+          <DialogTitle>{isEditing ? t('labor.operationForm.editTitle') : t('labor.operationForm.createTitle')}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -452,19 +468,19 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
               {saveStatus === 'saving' && (
                 <>
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  <span>Saving...</span>
+                  <span>{t('labor.operationForm.saveStatus.saving')}</span>
                 </>
               )}
               {saveStatus === 'saved' && (
                 <>
                   <CloudCheck className="h-3.5 w-3.5 text-green-600" />
-                  <span>All changes saved</span>
+                  <span>{t('labor.operationForm.saveStatus.saved')}</span>
                 </>
               )}
               {saveStatus === 'error' && (
                 <>
                   <AlertCircle className="h-3.5 w-3.5 text-red-600" />
-                  <span className="text-red-600 font-medium">Save failed</span>
+                  <span className="text-red-600 font-medium">{t('labor.operationForm.saveStatus.failed')}</span>
                 </>
               )}
             </div>
@@ -476,27 +492,27 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="lo-code">Code</Label>
+              <Label htmlFor="lo-code">{t('labor.operationForm.code')}</Label>
               <Input
                 id="lo-code"
                 aria-invalid={Boolean(errors.code)}
                 aria-describedby={errors.code ? 'lo-code-error' : undefined}
                 value={form.code}
                 onChange={(e) => setField('code', e.target.value)}
-                placeholder="e.g. ENG-OIL-01"
+                placeholder={t('labor.operationForm.codePlaceholder')}
                 required
               />
               {errors.code && <p id="lo-code-error" className="text-xs text-red-600">{errors.code}</p>}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="lo-description">Description</Label>
+              <Label htmlFor="lo-description">{t('labor.operationForm.descriptionLabel')}</Label>
               <Input
                 id="lo-description"
                 aria-invalid={Boolean(errors.description)}
                 aria-describedby={errors.description ? 'lo-description-error' : undefined}
                 value={form.description}
                 onChange={(e) => setField('description', e.target.value)}
-                placeholder="Operation description"
+                placeholder={t('labor.operationForm.descriptionPlaceholder')}
                 required
               />
               {errors.description && <p id="lo-description-error" className="text-xs text-red-600">{errors.description}</p>}
@@ -505,7 +521,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
 
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="lo-standardAw">Standard AW (hrs)</Label>
+              <Label htmlFor="lo-standardAw">{t('labor.operationForm.standardAw')}</Label>
               <Input
                 id="lo-standardAw"
                 type="number"
@@ -521,7 +537,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
               {errors.standardAw && <p id="lo-standardAw-error" className="text-xs text-red-600">{errors.standardAw}</p>}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="lo-hourlyRate">Hourly Rate</Label>
+              <Label htmlFor="lo-hourlyRate">{t('labor.operationForm.hourlyRate')}</Label>
               <Input
                 id="lo-hourlyRate"
                 type="number"
@@ -537,7 +553,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
               {errors.hourlyRate && <p id="lo-hourlyRate-error" className="text-xs text-red-600">{errors.hourlyRate}</p>}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="lo-internalCost">Internal Cost</Label>
+              <Label htmlFor="lo-internalCost">{t('labor.operationForm.internalCost')}</Label>
               <Input
                 id="lo-internalCost"
                 type="number"
@@ -547,7 +563,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
                 aria-describedby={errors.internalCost ? 'lo-internalCost-error' : undefined}
                 value={form.internalCost}
                 onChange={(e) => setField('internalCost', e.target.value)}
-                placeholder="Optional"
+                placeholder={t('labor.operationForm.internalCostPlaceholder')}
               />
               {errors.internalCost && <p id="lo-internalCost-error" className="text-xs text-red-600">{errors.internalCost}</p>}
             </div>
@@ -555,16 +571,16 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="lo-category">Category</Label>
+              <Label htmlFor="lo-category">{t('labor.operationForm.category')}</Label>
               <Select
                 value={form.categoryId || '_none'}
                 onValueChange={(v) => setField('categoryId', v === '_none' ? '' : v)}
               >
                 <SelectTrigger id="lo-category">
-                  <SelectValue placeholder="Select category..." />
+                  <SelectValue placeholder={t('labor.operationForm.categoryPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="_none">No category</SelectItem>
+                  <SelectItem value="_none">{t('labor.operationForm.noCategory')}</SelectItem>
                   {categories.map((cat) => (
                     <SelectItem key={cat.id} value={cat.id}>
                       {cat.name}
@@ -574,26 +590,26 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="lo-active">Active</Label>
+              <Label htmlFor="lo-active">{t('labor.operationForm.active')}</Label>
               <div className="flex h-10 items-center gap-2 rounded-md border px-3">
                 <Checkbox
                   id="lo-active"
                   checked={form.isActive}
                   onCheckedChange={(checked) => setField('isActive', checked === true)}
                 />
-                <span className="text-sm">{form.isActive ? 'Active' : 'Inactive'}</span>
+                <span className="text-sm">{form.isActive ? t('labor.operationForm.active') : t('labor.operationForm.inactive')}</span>
               </div>
             </div>
           </div>
 
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <Label>Fitments</Label>
+              <Label>{t('labor.operationForm.fitments.title')}</Label>
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                aria-label="Add fitment"
+                aria-label={t('labor.operationForm.fitments.addAria')}
                 onClick={() => setField('fitments', [...form.fitments, createFitment(EMPTY_FITMENT_TEMPLATE)])}
               >
                 <Plus className="h-4 w-4" />
@@ -604,7 +620,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
               <div key={fitment.id} className="rounded-md border p-3 space-y-3">
                 <div className="grid grid-cols-12 gap-2 items-start">
                   <div className="col-span-2 space-y-1">
-                    <Label htmlFor={`fitment-make-${index}`}>Make</Label>
+                    <Label htmlFor={`fitment-make-${index}`}>{t('labor.operationForm.fitments.make')}</Label>
                     <Input
                       id={`fitment-make-${index}`}
                       aria-invalid={Boolean(errors.fitments?.[index]?.make)}
@@ -615,7 +631,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
                     {errors.fitments?.[index]?.make && <p id={`fitment-make-${index}-error`} className="text-xs text-red-600">{errors.fitments[index]?.make}</p>}
                   </div>
                   <div className="col-span-2 space-y-1">
-                    <Label htmlFor={`fitment-model-${index}`}>Model</Label>
+                    <Label htmlFor={`fitment-model-${index}`}>{t('labor.operationForm.fitments.model')}</Label>
                     <Input
                       id={`fitment-model-${index}`}
                       aria-invalid={Boolean(errors.fitments?.[index]?.model)}
@@ -626,7 +642,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
                     {errors.fitments?.[index]?.model && <p id={`fitment-model-${index}-error`} className="text-xs text-red-600">{errors.fitments[index]?.model}</p>}
                   </div>
                   <div className="col-span-2 space-y-1">
-                    <Label htmlFor={`fitment-year-from-${index}`}>Year From</Label>
+                    <Label htmlFor={`fitment-year-from-${index}`}>{t('labor.operationForm.fitments.yearFrom')}</Label>
                     <Input
                       id={`fitment-year-from-${index}`}
                       type="number"
@@ -638,7 +654,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
                     {errors.fitments?.[index]?.yearFrom && <p id={`fitment-year-from-${index}-error`} className="text-xs text-red-600">{errors.fitments[index]?.yearFrom}</p>}
                   </div>
                   <div className="col-span-2 space-y-1">
-                    <Label htmlFor={`fitment-year-to-${index}`}>Year To</Label>
+                    <Label htmlFor={`fitment-year-to-${index}`}>{t('labor.operationForm.fitments.yearTo')}</Label>
                     <Input
                       id={`fitment-year-to-${index}`}
                       type="number"
@@ -650,7 +666,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
                     {errors.fitments?.[index]?.yearTo && <p id={`fitment-year-to-${index}-error`} className="text-xs text-red-600">{errors.fitments[index]?.yearTo}</p>}
                   </div>
                   <div className="col-span-3 space-y-1">
-                    <Label htmlFor={`fitment-engine-code-${index}`}>Engine Code</Label>
+                    <Label htmlFor={`fitment-engine-code-${index}`}>{t('labor.operationForm.fitments.engineCode')}</Label>
                     <Input
                       id={`fitment-engine-code-${index}`}
                       value={fitment.engineCode}
@@ -662,7 +678,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
                       type="button"
                       variant="ghost"
                       size="icon"
-                      aria-label="Remove fitment"
+                      aria-label={t('labor.operationForm.fitments.removeAria')}
                       onClick={() => setField('fitments', form.fitments.filter((currentFitment) => currentFitment.id !== fitment.id))}
                     >
                       ×
@@ -675,7 +691,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
 
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Close
+              {t('labor.operationForm.close')}
             </Button>
             <Button
               type="button"
@@ -686,7 +702,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
               disabled={isPending || !dirty}
             >
               {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save now
+              {t('labor.operationForm.saveNow')}
             </Button>
           </div>
         </div>

@@ -154,12 +154,12 @@ test.describe('Blueprint: Vehicles Module', () => {
     await corePage.navigate('/vehicles');
     await corePage.createButton.click();
 
-    const dialog = page.getByRole('dialog', { name: 'Add Vehicle' });
+    const dialog = page.getByRole('dialog', { name: DE_VEHICLES.dialog.addTitle });
     await expect(dialog).toBeVisible();
 
-    await dialog.getByLabel('Make').fill('Tesla');
-    await dialog.getByLabel('Model').fill('Model 3');
-    await dialog.getByLabel('Year').fill('2023');
+    await dialog.getByLabel(DE_VEHICLES.dialog.make).fill('Tesla');
+    await dialog.getByLabel(DE_VEHICLES.dialog.model).fill('Model 3');
+    await dialog.getByLabel(DE_VEHICLES.dialog.year).fill('2023');
     await expect(
       dialog.getByText('Registration & emissions / Zulassung & Emissionen'),
     ).toBeVisible();
@@ -167,7 +167,7 @@ test.describe('Blueprint: Vehicles Module', () => {
     await dialog.getByLabel('First registration date / Erstzulassung').fill('2023-06-01');
     await dialog.getByLabel('CO₂ WLTP (g/km) / CO₂ WLTP (g/km)').fill('142');
 
-    await dialog.getByRole('button', { name: 'Create Vehicle' }).click();
+    await dialog.getByRole('button', { name: DE_VEHICLES.dialog.create }).click();
     await expect(dialog).not.toBeVisible();
 
     expect(postBody?.first_registration_date).toBe('2023-06-01');
@@ -201,7 +201,7 @@ test.describe('Blueprint: Vehicles Module', () => {
     await page.waitForLoadState('networkidle');
 
     await page.getByRole('button', { name: DE_VEHICLES.detail.editVehicle }).click();
-    const dialog = page.getByRole('dialog', { name: 'Edit Vehicle' });
+    const dialog = page.getByRole('dialog', { name: DE_VEHICLES.dialog.editTitle });
     await expect(dialog).toBeVisible();
 
     await expect(dialog.getByLabel('First registration date / Erstzulassung')).toHaveValue(

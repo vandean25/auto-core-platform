@@ -38,9 +38,14 @@ export async function queueEstimateEmailInTx(
   outbox: NotificationOutboxService,
   input: EstimateEmailInput,
 ): Promise<string> {
+  const tenant = await tx.tenant.findFirst({
+    where: { id: input.tenantId },
+    select: { default_locale: true },
+  });
   const token = mintApprovalToken();
   const email = buildCustomerEstimateEmail({
     customer: input.customer,
+    tenantDefaultLocale: tenant?.default_locale ?? 'de',
     vehicle: input.vehicle,
     sellerName: input.sellerName,
     estimateNumber: input.estimateNumber,

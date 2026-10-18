@@ -15,6 +15,9 @@ import { DE_CUSTOMERS } from './helpers/de-customers';
 import { DE_SALES } from './helpers/de-sales';
 import { DE_VEHICLES } from './helpers/de-vehicles';
 import { DE_VEHICLE_STOCK } from './helpers/de-vehicle-stock';
+import { DE_FINANCE } from './helpers/de-finance';
+import { DE_INVENTORY } from './helpers/de-inventory';
+import { waitForDeNamespace } from './helpers/wait-for-i18n';
 
 /**
  * Blueprint Validation Suite — Core Management Workflows
@@ -51,19 +54,19 @@ interface ModuleConfig {
 
 const modules: ModuleConfig[] = [
   {
-    name: 'Inventory',
+    name: DE_INVENTORY.partsList.title,
     path: '/inventory',
-    entity: 'Item',
+    entity: 'Artikel',
     seed: 'TEST-SKU-1',
     mockFactory: () => createMockInventoryItem({ sku: 'TEST-SKU-1', name: 'Oil Filter' }),
     apiPath: '/api/inventory',
     // InventoryList also calls /api/brands for the brand filter dropdown
-    secondaryApiMocks: ['/api/brands'],
+    secondaryApiMocks: ['/api/brands', '/api/inventory/locations'],
   },
   {
-    name: 'Vendors',
+    name: DE_FINANCE.vendors.list.title,
     path: '/vendors',
-    entity: 'Vendor',
+    entity: DE_FINANCE.vendors.list.create,
     seed: 'Bosch Automotive',
     mockFactory: () => createMockVendor({ name: 'Bosch Automotive' }),
     apiPath: '/api/vendors',
@@ -77,9 +80,9 @@ const modules: ModuleConfig[] = [
     apiPath: '/api/customers',
   },
   {
-    name: 'Purchase Orders',
+    name: DE_FINANCE.purchaseOrders.list.title,
     path: '/purchase-orders',
-    entity: 'Purchase Order',
+    entity: DE_FINANCE.purchaseOrders.list.create,
     seed: 'PO-2026-0001',
     mockFactory: () => createMockPurchaseOrder({ order_number: 'PO-2026-0001' }),
     apiPath: '/api/purchase-orders',
@@ -93,9 +96,9 @@ const modules: ModuleConfig[] = [
     apiPath: '/api/sales-orders',
   },
   {
-    name: 'Purchase Bills',
+    name: DE_FINANCE.purchaseBills.list.title,
     path: '/purchase-bills',
-    entity: 'Bill',
+    entity: DE_FINANCE.purchaseBills.list.create,
     seed: 'B-2026-001',
     mockFactory: () => createMockPurchaseBill({ vendor_invoice_number: 'B-2026-001' }),
     apiPath: '/api/purchase-invoices',
@@ -139,16 +142,23 @@ test.describe('Blueprint: Golden Rules — Core List Pages', () => {
       // backend is not available (e.g. brand filter dropdowns on Inventory).
       for (const secondaryPath of module.secondaryApiMocks ?? []) {
         await page.route(AutoCorePage.apiRouteMatcher(secondaryPath), async (route) => {
+          const body =
+            secondaryPath === '/api/inventory/locations'
+              ? JSON.stringify([])
+              : JSON.stringify(createMockListResponse([]));
           await route.fulfill({
             status: 200,
             contentType: 'application/json',
-            body: JSON.stringify(createMockListResponse([])),
+            body,
           });
         });
       }
 
       // ── Step 2: Navigate and wait for network idle ──────────────────────────
       await corePage.navigate(module.path);
+      if (module.path === '/inventory') {
+        await waitForDeNamespace(page, 'inventory');
+      }
 
       // ── Step 3: Golden Rule 1 — Header Consistency ─────────────────────────
       await corePage.verifyHeaderConsistency(module.name);

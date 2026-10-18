@@ -120,9 +120,32 @@
       "taxModeMarginScheme": "Margenbesteuerung"
     },
     "tradeIn": {
+      "title": "Inzahlungnahme",
       "vehicle": "Inzahlungnahme",
       "allowance": "Inzahlungnahme-Betrag",
-      "amountDue": "Fälliger Betrag nach Inzahlungnahme"
+      "amountDue": "Fälliger Betrag nach Inzahlungnahme",
+      "amountDueLabel": "Fälliger Betrag nach Inzahlungnahme:",
+      "hintWithSale": "Das Fahrzeug des Käufers wird gegen den Verkaufspreis angerechnet. Die Rechnung stellt den Restbetrag in Rechnung.",
+      "hintSaveFirst": "Speichern Sie den Verkauf zuerst, dann erfassen Sie das Fahrzeug des Käufers als Inzahlungnahme.",
+      "allowanceLabel": "Anrechnung (EUR)",
+      "vin": "FIN",
+      "make": "Marke",
+      "model": "Modell",
+      "year": "Baujahr",
+      "mileage": "Kilometerstand (km)",
+      "firstRegistration": "Erstzulassung",
+      "plateOptional": "Kennzeichen (optional)",
+      "remove": "Inzahlungnahme entfernen",
+      "removed": "Inzahlungnahme entfernt",
+      "saveFailed": "Inzahlungnahme konnte nicht gespeichert werden",
+      "removeFailed": "Inzahlungnahme konnte nicht entfernt werden",
+      "storedIncomplete": "Entfernen Sie die Inzahlungnahme oder vervollständigen Sie die Angaben vor der Finalisierung.",
+      "removalFailed": "Die Inzahlungnahme konnte nicht entfernt werden und ist noch am Verkauf. Bitte erneut entfernen, bevor Sie finalisieren.",
+      "saveStatus": {
+        "saving": "Speichern…",
+        "saved": "Gespeichert",
+        "error": "Speichern fehlgeschlagen"
+      }
     }
   },
   "reports": {

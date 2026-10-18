@@ -4,7 +4,11 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import * as creditNotesApi from '@/api/useCreditNotes'
+import deFinance from '../../../../../locales/de/finance.json'
+import { registerGermanUiForTests } from '@/test/german-ui'
 import CreditNotesPage from './CreditNotesPage'
+
+registerGermanUiForTests()
 
 vi.mock('@/api/useCreditNotes')
 
@@ -44,7 +48,9 @@ describe('CreditNotesPage', () => {
   it('navigates to the sales invoices list from Open Sales Invoices (AUT-310)', () => {
     renderPage()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open Sales Invoices' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: deFinance.creditNotes.list.openSalesInvoices }),
+    )
 
     expect(screen.getByText('Sales invoices list')).toBeInTheDocument()
   })

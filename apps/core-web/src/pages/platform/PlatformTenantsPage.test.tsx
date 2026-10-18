@@ -3,6 +3,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { useAuthSession } from '@/api/auth-session'
 import { usePlatformTenants } from '@/api/platform-tenants'
+import dePlatform from '../../../../../locales/de/platform.json'
 import PlatformTenantsPage from './PlatformTenantsPage'
 
 const platformTenantsResult = {
@@ -53,8 +54,8 @@ describe('PlatformTenantsPage', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByText('Tenants')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '+ Tenant' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: dePlatform.tenants.pageTitle })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: dePlatform.tenants.createButton })).toBeInTheDocument()
     expect(screen.getByText('North Branch')).toBeInTheDocument()
     expect(vi.mocked(usePlatformTenants)).toHaveBeenCalledWith({
       includeInactive: true,

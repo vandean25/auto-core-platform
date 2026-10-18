@@ -1,4 +1,6 @@
 import * as React from 'react'
+import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useReceiveInventoryStock } from '@/api/inventory'
 import { useLocations } from '@/api/locations'
@@ -20,6 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { getErrorMessage } from '@/lib/error-utils'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 
 type ReceiveInventoryStockDialogProps = {
   itemId: string
@@ -32,6 +35,11 @@ export function ReceiveInventoryStockDialog({
   open,
   onOpenChange,
 }: ReceiveInventoryStockDialogProps) {
+  const { t } = useTranslation('inventory')
+  useEffect(() => {
+    void ensureNamespaceLoaded('inventory')
+  }, [])
+
   const receiveMutation = useReceiveInventoryStock(itemId)
   const { data: locations } = useLocations({ enabled: open })
   const binLocations = React.useMemo(
@@ -51,16 +59,16 @@ export function ReceiveInventoryStockDialog({
     const formData = new FormData(event.currentTarget)
     const quantity = Number(formData.get('quantity'))
     if (!locationId || Number.isNaN(quantity) || quantity <= 0) {
-      toast.error('Choose a bin and enter a positive quantity.')
+      toast.error(t('dialogs.receiveStock.validationRequired'))
       return
     }
 
     try {
       await receiveMutation.mutateAsync({ locationId, quantity })
-      toast.success('Stock received')
+      toast.success(t('dialogs.receiveStock.success'))
       onOpenChange(false)
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, 'Failed to receive stock'))
+      toast.error(getErrorMessage(error, t('dialogs.receiveStock.failed')))
     }
   }
 
@@ -69,14 +77,14 @@ export function ReceiveInventoryStockDialog({
       <DialogContent className="sm:max-w-[425px]">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Receive stock</DialogTitle>
+            <DialogTitle>{t('dialogs.receiveStock.title')}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label>Storage bin</Label>
+              <Label>{t('dialogs.receiveStock.storageBin')}</Label>
               <Select value={locationId} onValueChange={setLocationId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select bin" />
+                  <SelectValue placeholder={t('dialogs.receiveStock.selectBin')} />
                 </SelectTrigger>
                 <SelectContent>
                   {binLocations.map((location) => (
@@ -88,7 +96,7 @@ export function ReceiveInventoryStockDialog({
               </Select>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="receive-quantity">Quantity</Label>
+              <Label htmlFor="receive-quantity">{t('dialogs.receiveStock.quantity')}</Label>
               <Input
                 id="receive-quantity"
                 name="quantity"
@@ -101,7 +109,7 @@ export function ReceiveInventoryStockDialog({
           </div>
           <DialogFooter>
             <Button type="submit" disabled={receiveMutation.isPending}>
-              Receive
+              {t('dialogs.receiveStock.submit')}
             </Button>
           </DialogFooter>
         </form>

@@ -44,6 +44,26 @@ const VEHICLE_TEMPLATE: ImportTemplateDefinition = {
     'Fahrzeug-Nr;FIN;Kennzeichen;Marke;Modell;Baujahr;Kilometerstand;Farbe;Kunden-Nr;Schlüsselnummer',
 };
 
+const LABOR_OPERATION_TEMPLATE: ImportTemplateDefinition = {
+  entity_type: ImportEntityType.LABOR_OPERATION,
+  fields: [
+    { key: 'external_id', label_de: 'Arbeitswert-Nr', required: true },
+    { key: 'code', label_de: 'AW-Code', required: true },
+    { key: 'description', label_de: 'Beschreibung', required: true },
+    { key: 'standard_aw', label_de: 'AW', required: true },
+    { key: 'hourly_rate', label_de: 'Stundensatz', required: true },
+    { key: 'internal_cost', label_de: 'Interner Kostensatz', required: false },
+    { key: 'category_name', label_de: 'Kategorie', required: false },
+    { key: 'fitment_make', label_de: 'Marke', required: false },
+    { key: 'fitment_model', label_de: 'Modell', required: false },
+    { key: 'fitment_year_from', label_de: 'Baujahr von', required: false },
+    { key: 'fitment_year_to', label_de: 'Baujahr bis', required: false },
+    { key: 'fitment_engine_code', label_de: 'Motorcode', required: false },
+  ],
+  csv_header:
+    'Arbeitswert-Nr;AW-Code;Beschreibung;AW;Stundensatz;Interner Kostensatz;Kategorie;Marke;Modell;Baujahr von;Baujahr bis;Motorcode',
+};
+
 const SUPPLIER_PRICE_LIST_TEMPLATE: ImportTemplateDefinition = {
   entity_type: ImportEntityType.SUPPLIER_PRICE_LIST,
   fields: [
@@ -74,6 +94,9 @@ export function getImportTemplate(
   }
   if (entityType === ImportEntityType.SUPPLIER_PRICE_LIST) {
     return SUPPLIER_PRICE_LIST_TEMPLATE;
+  }
+  if (entityType === ImportEntityType.LABOR_OPERATION) {
+    return LABOR_OPERATION_TEMPLATE;
   }
   throw new Error('Unsupported import entity type');
 }

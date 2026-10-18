@@ -9,6 +9,8 @@
     "BOOKED": "Gebucht",
     "SCHEDULED": "Geplant",
     "SENT": "Gesendet",
+    "SETTLED": "Abgerechnet",
+    "SETTLED_EXTERNAL": "Extern abgerechnet",
     "DECLINED": "Abgelehnt",
     "INTAKE": "Annahme",
     "CONFIRMED": "Bestätigt",
@@ -32,6 +34,7 @@
     "RESERVED": "Reserviert",
     "IN_PREP": "In Vorbereitung",
     "SOLD": "Verkauft",
+    "SIGNED": "Signiert",
     "RECEIVED": "Empfangen",
     "USED": "Verwendet",
     "SUPERSEDED": "Ersetzt",
@@ -60,6 +63,7 @@
     "APPROVED": "Freigegeben",
     "SHIPPED": "Versendet",
     "REJECTED": "Abgelehnt",
+    "REVERSED": "Rückgebucht",
     "VOID": "Ungültig",
     "AVAILABLE": "Verfügbar",
     "ON_LOAN": "Ausgeliehen",
@@ -95,7 +99,28 @@
     "GEWAEHRLEISTUNG_EXPIRED": "Gewährleistung abgelaufen",
     "AWAITING_REVIEW": "Wartet auf Prüfung",
     "APPLIED": "Angewendet",
-    "ABORTED": "Abgebrochen"
+    "ABORTED": "Abgebrochen",
+    "MOVED": "Umgelagert"
+  },
+  "inventoryTransactionType": {
+    "PURCHASE_RECEIPT": "Wareneingang",
+    "SALE_ISSUE": "Verkaufsausgang",
+    "ADJUSTMENT": "Korrektur",
+    "TRANSFER_IN": "Umlagerung (Eingang)",
+    "TRANSFER_OUT": "Umlagerung (Ausgang)",
+    "INITIAL_BALANCE": "Anfangsbestand",
+    "WORKSHOP_CONSUMPTION": "Werkstattverbrauch"
+  },
+  "attendanceEventType": {
+    "CLOCK_IN": "Kommen",
+    "PAUSE": "Pause",
+    "DOCTOR": "Arzt",
+    "CLOCK_OUT": "Gehen"
+  },
+  "attendanceSource": {
+    "SELF": "Selbst",
+    "MANAGER": "Vorgesetzter",
+    "AUTO_SHIFT_CLOSE": "Automatischer Schichtabschluss"
   },
   "agent": {
     "genericName": "Agent"
@@ -103,7 +128,8 @@
   "importEntityType": {
     "CUSTOMER": "Kunde",
     "VEHICLE": "Fahrzeug",
-    "SUPPLIER_PRICE_LIST": "Lieferantenpreisliste"
+    "SUPPLIER_PRICE_LIST": "Lieferantenpreisliste",
+    "LABOR_OPERATION": "Arbeitswerte"
   },
   "importField": {
     "customer": {
@@ -140,6 +166,20 @@
       "cost_price": "Einkaufspreis (netto)",
       "rrp": "UVP / RRP (brutto/netto)",
       "unit": "Einheit"
+    },
+    "laborOperation": {
+      "external_id": "Arbeitswert-Nr",
+      "code": "AW-Code",
+      "description": "Beschreibung",
+      "standard_aw": "AW",
+      "hourly_rate": "Stundensatz",
+      "internal_cost": "Interner Kostensatz",
+      "category_name": "Kategorie",
+      "fitment_make": "Marke",
+      "fitment_model": "Modell",
+      "fitment_year_from": "Baujahr von",
+      "fitment_year_to": "Baujahr bis",
+      "fitment_engine_code": "Motorcode"
     }
   },
   "documentBrandAssetState": {

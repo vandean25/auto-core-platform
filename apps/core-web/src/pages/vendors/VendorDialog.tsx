@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useCreateVendor } from '@/api/vendors'
 import { Button } from '@/components/ui/button'
 import {
@@ -11,6 +12,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { BrandMultiSelect } from '@/components/BrandMultiSelect'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 
 interface VendorDialogProps {
     open: boolean
@@ -18,6 +20,11 @@ interface VendorDialogProps {
 }
 
 export function VendorDialog({ open, onOpenChange }: VendorDialogProps) {
+    const { t } = useTranslation('finance')
+    useEffect(() => {
+        void ensureNamespaceLoaded('finance')
+    }, [])
+
     const [name, setName] = useState('')
     const [email, setEmail] = useState('')
     const [accountNumber, setAccountNumber] = useState('')
@@ -54,11 +61,11 @@ export function VendorDialog({ open, onOpenChange }: VendorDialogProps) {
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                    <DialogTitle>Add Vendor</DialogTitle>
+                    <DialogTitle>{t('vendors.dialog.title')}</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="grid gap-4 py-4">
                     <div className="grid gap-2">
-                        <Label htmlFor="name">Name</Label>
+                        <Label htmlFor="name">{t('columns.name')}</Label>
                         <Input
                             id="name"
                             value={name}
@@ -67,7 +74,7 @@ export function VendorDialog({ open, onOpenChange }: VendorDialogProps) {
                         />
                     </div>
                     <div className="grid gap-2">
-                        <Label htmlFor="email">Email</Label>
+                        <Label htmlFor="email">{t('columns.email')}</Label>
                         <Input
                             id="email"
                             type="email"
@@ -77,7 +84,7 @@ export function VendorDialog({ open, onOpenChange }: VendorDialogProps) {
                         />
                     </div>
                     <div className="grid gap-2">
-                        <Label htmlFor="accountNumber">Account Number</Label>
+                        <Label htmlFor="accountNumber">{t('vendors.dialog.accountNumber')}</Label>
                         <Input
                             id="accountNumber"
                             value={accountNumber}
@@ -86,16 +93,16 @@ export function VendorDialog({ open, onOpenChange }: VendorDialogProps) {
                         />
                     </div>
                     <div className="grid gap-2">
-                        <Label>Supported Brands</Label>
+                        <Label>{t('columns.supportedBrands')}</Label>
                         <BrandMultiSelect 
                             value={selectedBrandIds} 
                             onChange={setSelectedBrandIds} 
-                            ariaLabel="Select supported brands for new vendor"
+                            ariaLabel={t('vendors.dialog.supportedBrandsAria')}
                         />
                     </div>
                     <DialogFooter>
                         <Button type="submit" disabled={createVendor.isPending}>
-                            {createVendor.isPending ? 'Saving...' : 'Save Vendor'}
+                            {createVendor.isPending ? t('shared.saving') : t('vendors.dialog.saveVendor')}
                         </Button>
                     </DialogFooter>
                 </form>

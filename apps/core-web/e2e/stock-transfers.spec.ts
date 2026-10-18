@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import { DE_STATUS } from './helpers/de-enums'
+import { DE_COMMON_ACTIONS, DE_INVENTORY } from './helpers/de-inventory'
 import { AutoCorePage } from './pom/AutoCorePage'
 import {
   createMockInventoryItem,
@@ -159,21 +160,24 @@ test.describe('Stock Transfers — destination-only request and cancel', () => {
       })
     })
 
-    const corePage = new AutoCorePage(page, 'New transfer')
+    const corePage = new AutoCorePage(page, DE_INVENTORY.stockTransfers.list.newTransfer)
     await corePage.navigate('/stock-transfers')
 
-    await expect(page.getByRole('heading', { name: 'Transfers', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: DE_INVENTORY.stockTransfers.list.title, exact: true })).toBeVisible()
     await corePage.createButton.click()
 
-    await page.getByLabel('From site').click()
+    await page.getByLabel(DE_INVENTORY.stockTransfers.create.fromSite).click()
     await page.getByRole('option', { name: /Wien/ }).click()
 
-    await page.getByLabel('Add parts').fill('FILTER')
+    await page.getByLabel(DE_INVENTORY.stockTransfers.create.toSite).click()
+    await page.getByRole('option', { name: /München/ }).click()
+
+    await page.getByLabel(DE_INVENTORY.stockTransfers.create.addParts).fill('FILTER')
     await page.getByRole('button', { name: 'FILTER-01' }).click()
 
-    await expect(page.getByLabel('Source bin (optional)')).toHaveCount(0)
+    await expect(page.getByLabel(DE_INVENTORY.stockTransfers.create.sourceBinOptional)).toHaveCount(0)
 
-    await page.getByRole('button', { name: 'Submit request' }).click()
+    await page.getByRole('button', { name: DE_INVENTORY.actions.submitRequest }).click()
 
     await expect(page).toHaveURL(`/stock-transfers/${TRANSFER_ID}`)
     await expect(page.getByRole('heading', { name: 'TR-2026-0042' })).toBeVisible()
@@ -181,9 +185,9 @@ test.describe('Stock Transfers — destination-only request and cancel', () => {
       DE_STATUS.REQUESTED,
     )
 
-    await page.getByRole('button', { name: 'Cancel', exact: true }).click()
-    await page.getByLabel('Reason (optional)').fill('No longer needed')
-    await page.getByRole('button', { name: 'Cancel transfer' }).click()
+    await page.getByRole('button', { name: DE_COMMON_ACTIONS.cancel, exact: true }).click()
+    await page.getByLabel(DE_INVENTORY.stockTransfers.detail.cancelDialog.reasonOptional).fill('No longer needed')
+    await page.getByRole('button', { name: DE_INVENTORY.actions.cancelTransfer }).click()
 
     await expect(page.getByRole('heading', { name: 'TR-2026-0042' }).locator('span')).toHaveText(
       DE_STATUS.CANCELLED,
@@ -341,22 +345,28 @@ test.describe('Stock Transfers — MAIN <-> GRZ (AUT-466)', () => {
       onCreate: (body) => bodies.push(body),
     })
 
-    const corePage = new AutoCorePage(page, 'New transfer')
+    const corePage = new AutoCorePage(page, DE_INVENTORY.stockTransfers.list.newTransfer)
     await corePage.navigate('/stock-transfers')
     await corePage.createButton.click()
 
-    await page.getByLabel('To site').click()
+    await page.getByLabel(DE_INVENTORY.stockTransfers.create.toSite).click()
     await page.getByRole('option', { name: /Graz Workshop \(GRZ\)/ }).click()
-    await page.getByLabel('From site').click()
+    await page.getByLabel(DE_INVENTORY.stockTransfers.create.fromSite).click()
     await page.getByRole('option', { name: /Vienna Workshop \(MAIN\)/ }).click()
 
-    await page.getByLabel('Add parts').fill('FILTER')
+    await page.getByLabel(DE_INVENTORY.stockTransfers.create.addParts).fill('FILTER')
     await page.getByRole('button', { name: 'FILTER-01' }).click()
 
-    await page.getByLabel('Source bin for FILTER-01').click()
+    const sourceBinLabel = DE_INVENTORY.stockTransfers.create.sourceBinAria.replace(
+      '{{sku}}',
+      'FILTER-01',
+    )
+    const sourceBin = page.getByRole('combobox', { name: sourceBinLabel })
+    await expect(sourceBin).toBeVisible({ timeout: 15_000 })
+    await sourceBin.click()
     await page.getByRole('option', { name: /BIN-A1/ }).click()
 
-    await page.getByRole('button', { name: 'Submit request' }).click()
+    await page.getByRole('button', { name: DE_INVENTORY.actions.submitRequest }).click()
 
     await expect(page).toHaveURL(`/stock-transfers/${MAIN_GRZ_TRANSFER_ID}`)
     await expect(page.getByRole('heading', { name: 'TR-2026-0043' })).toBeVisible()
@@ -384,20 +394,22 @@ test.describe('Stock Transfers — MAIN <-> GRZ (AUT-466)', () => {
       onCreate: (body) => bodies.push(body),
     })
 
-    const corePage = new AutoCorePage(page, 'New transfer')
+    const corePage = new AutoCorePage(page, DE_INVENTORY.stockTransfers.list.newTransfer)
     await corePage.navigate('/stock-transfers')
     await corePage.createButton.click()
 
-    await page.getByLabel('To site').click()
+    await page.getByLabel(DE_INVENTORY.stockTransfers.create.toSite).click()
     await page.getByRole('option', { name: /Vienna Workshop \(MAIN\)/ }).click()
-    await page.getByLabel('From site').click()
+    await page.getByLabel(DE_INVENTORY.stockTransfers.create.fromSite).click()
     await page.getByRole('option', { name: /Graz Workshop \(GRZ\)/ }).click()
 
-    await page.getByLabel('Add parts').fill('FILTER')
+    await page.getByLabel(DE_INVENTORY.stockTransfers.create.addParts).fill('FILTER')
     await page.getByRole('button', { name: 'FILTER-01' }).click()
 
-    await expect(page.getByLabel('Source bin for FILTER-01')).toHaveCount(0)
-    await page.getByRole('button', { name: 'Submit request' }).click()
+    await expect(
+      page.getByLabel(DE_INVENTORY.stockTransfers.create.sourceBinAria.replace('{{sku}}', 'FILTER-01')),
+    ).toHaveCount(0)
+    await page.getByRole('button', { name: DE_INVENTORY.actions.submitRequest }).click()
 
     await expect(page).toHaveURL(`/stock-transfers/${MAIN_GRZ_TRANSFER_ID}`)
     await expect(page.getByRole('heading', { name: 'TR-2026-0043' })).toBeVisible()

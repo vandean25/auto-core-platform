@@ -1,0 +1,37 @@
+{
+  "shared": {
+    "defaultGreeting": "Sehr geehrte Damen und Herren",
+    "closing": "Mit freundlichen Grüßen",
+    "contactSentence": "Bei Fragen stehen wir Ihnen gerne zur Verfügung."
+  },
+  "customer": {
+    "estimateSent": {
+      "subject": "Kostenvoranschlag {{estimateNumber}}",
+      "intro": "wir haben für Ihr Fahrzeug {{vehicleLabel}} den Kostenvoranschlag {{estimateNumber}} erstellt.",
+      "link": "Den Kostenvoranschlag können Sie unter folgendem Link einsehen: {{approvalUrl}}",
+      "validity": "Der Kostenvoranschlag ist gültig bis {{validUntil}} Uhr. Bitte prüfen Sie ihn in Ruhe. {{contactSentence}}"
+    },
+    "estimateApprovalConfirmed": {
+      "subject": "Bestätigung Ihrer Freigabe: Kostenvoranschlag {{estimateNumber}}",
+      "thanks": "vielen Dank für Ihre Freigabe des Kostenvoranschlags {{estimateNumber}} am {{approvedAt}}.",
+      "confirm": "Wir bestätigen Ihre Freigabe hiermit. {{contactSentence}}"
+    },
+    "orderReady": {
+      "subject": "{{orderNumber}}",
+      "body": "die Arbeiten an Ihrem Fahrzeug {{vehicleLabel}} sind abgeschlossen. Sie können Ihr Fahrzeug bei uns abholen.",
+      "footer": "Diese E-Mail betrifft Ihren Auftrag Nr. {{orderNumber}}."
+    }
+  },
+  "landingDemo": {
+    "magicLink": {
+      "subject": "Ihr Demo-Zugang zur Auto Core Platform",
+      "greeting": "Guten Tag,",
+      "thanks": "vielen Dank für Ihr Interesse an der Auto Core Platform ({{betrieb}}).",
+      "instruction": "Öffnen Sie den folgenden einmaligen Anmeldelink, um die Demo zu starten:",
+      "validity": "Der Link ist bis {{validUntil}} gültig und führt Sie ohne Passwort direkt in die Demo-Umgebung.",
+      "ignore": "Falls Sie diese Anfrage nicht gestellt haben, können Sie diese E-Mail ignorieren.",
+      "closing": "Freundliche Grüße",
+      "senderName": "Auto Core Platform"
+    }
+  }
+}

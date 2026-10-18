@@ -1190,6 +1190,7 @@
     "toastConfirmed": "Kunde und Fahrzeug bestätigt",
     "toastOdometerRequired": "Gültigen Kilometerstand eingeben, bevor der Auftrag erstellt wird.",
     "toastOrderCreated": "Werkstattauftrag erstellt",
+    "toastCheckInReady": "Werkstattauftrag angelegt — Fahrzeugannahme starten",
     "extractionFailed": "Das Dokument konnte nicht gelesen werden ({{code}}). Bitte löschen Sie es und laden Sie es erneut hoch.",
     "unknown": "unbekannt",
     "uploadFailed": "Hochladen fehlgeschlagen",
@@ -1203,6 +1204,8 @@
     "lowConfidence": " (niedrige Konfidenz)",
     "confirmIdentity": "Kunde und Fahrzeug bestätigen",
     "createOrder": "Werkstattauftrag anlegen",
+    "startCheckIn": "Fahrzeugannahme starten",
+    "continueCheckIn": "Fahrzeugannahme fortsetzen",
     "abort": "Abbrechen",
     "delete": "Löschen"
   },
@@ -1267,7 +1270,28 @@
     "save": {
       "saving": "Speichern…",
       "saved": "Gespeichert",
+      "savedLocally": "Lokal gespeichert",
       "error": "Speichern fehlgeschlagen"
+    },
+    "offline": {
+      "quotaExceeded": "Der lokale Speicher ist voll. Bitte löschen Sie Fotos aus der Warteschlange oder warten Sie, bis ausstehende Uploads abgeschlossen sind. Ihr Entwurf bleibt erhalten.",
+      "storageEvictionHint": "Private Browserfenster oder Speicherbereinigung können lokale Entwürfe löschen.",
+      "draftExpiryWarning": "Dieser lokale Entwurf ist älter als 24 Stunden. Bitte synchronisieren oder verwerfen.",
+      "purge": {
+        "title": "Lokale Annahme-Daten verwerfen?",
+        "description": "Es gibt noch nicht synchronisierte Annahme-Entwürfe ({{drafts}}) oder Fotos in der Warteschlange ({{photos}}). Beim Fortfahren werden diese lokalen Daten gelöscht.",
+        "confirm": "Verwerfen und fortfahren",
+        "cancel": "Abbrechen"
+      },
+      "conflict": {
+        "title": "Abweichung zwischen lokalem Entwurf und Server",
+        "description": "Die Annahme wurde auf dem Server geändert, während Sie offline oder mit einem lokalen Entwurf gearbeitet haben. Wählen Sie, welche Version gelten soll.",
+        "completedTitle": "Annahme bereits abgeschlossen",
+        "completedDescription": "Diese Annahme wurde auf dem Server bereits abgeschlossen. Der lokale Entwurf kann nicht mehr hochgeladen werden.",
+        "keepServer": "Serverversion behalten",
+        "reapplyLocal": "Lokalen Entwurf erneut anwenden",
+        "discardLocal": "Lokalen Entwurf verwerfen"
+      }
     },
     "fields": {
       "odometer": "Kilometerstand",
@@ -1346,6 +1370,10 @@
       "capture": "Foto aufnehmen",
       "uploading": "Foto wird hochgeladen…",
       "uploaded": "Foto gespeichert",
+      "queued": "Foto in Warteschlange",
+      "pendingUpload": "Upload ausstehend",
+      "pendingUploads_one": "{{count}} Upload ausstehend",
+      "pendingUploads_other": "{{count}} Uploads ausstehend",
       "galleryAria": "Aufnahmen dieser Annahme",
       "selectPhoto": "Foto {{id}} auswählen",
       "pending": "Wird verarbeitet…"
@@ -1396,5 +1424,48 @@
       "loadError": "Annahme-Checkliste konnte nicht geladen werden.",
       "saveError": "Annahme-Checkliste konnte nicht gespeichert werden."
     }
+  },
+  "publicEstimateApproval": {
+    "pageTitle": "Kostenvoranschlag",
+    "loadFailed": "Der Kostenvoranschlag konnte nicht geladen werden. Bitte versuchen Sie es später erneut.",
+    "errors": {
+      "404": "Dieser Link ist nicht gültig.",
+      "410": "Dieser Link ist abgelaufen oder wurde bereits verwendet.",
+      "409": "Dieser Kostenvoranschlag kann nicht mehr angenommen oder abgelehnt werden.",
+      "429": "Zu viele Anfragen. Bitte versuchen Sie es später erneut."
+    },
+    "workshop": "Werkstatt",
+    "customer": "Kunde",
+    "vehicle": "Fahrzeug:",
+    "plate": "Kennzeichen {{plate}}",
+    "vin": "FIN {{vin}}",
+    "freeOfCharge": "Dieser Kostenvoranschlag ist kostenlos.",
+    "lineItemsAria": "Positionen",
+    "gross": "(brutto)",
+    "net": "(netto)",
+    "totalNet": "Summe netto",
+    "tax": "USt.",
+    "totalGross": "Summe brutto",
+    "validUntil": "Gültig bis {{date}} Uhr",
+    "decisionSectionAria": "Hinweise und Entscheidung",
+    "legalAccepted": "Ich habe die oben stehenden Hinweise gelesen.",
+    "b2cAccepted": "Ich bestätige die unverbindliche Erklärung für Verbraucher (KSchG § 5 Abs. 2).",
+    "fullName": "Vollständiger Name",
+    "approve": "Kostenvoranschlag annehmen",
+    "decline": "Ablehnen",
+    "declineConfirm": "Möchten Sie den Kostenvoranschlag wirklich ablehnen?",
+    "declineYes": "Ja, ablehnen",
+    "back": "Zurück",
+    "validation422": "Bitte bestätigen Sie die Hinweise und geben Sie Ihren vollständigen Namen an.",
+    "submitFailed": "Ihre Entscheidung konnte nicht gespeichert werden. Bitte versuchen Sie es später erneut.",
+    "loading": "Kostenvoranschlag wird geladen…",
+    "estimateTitle": "Kostenvoranschlag {{number}}",
+    "version": "Version {{version}}",
+    "thankYou": "Vielen Dank. Ihre Entscheidung wurde gespeichert.",
+    "approved": "Angenommen",
+    "declined": "Abgelehnt",
+    "approvedAt": "Elektronisch bestätigt am {{date}} Uhr",
+    "decidedAt": "Entschieden am {{date}} Uhr",
+    "uid": "UID {{vatId}}"
   }
 }

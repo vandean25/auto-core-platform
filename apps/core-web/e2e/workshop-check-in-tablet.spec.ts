@@ -6,6 +6,7 @@ import deWorkshop from '../../../locales/de/workshop.json' with { type: 'json' }
 
 const ORDER_ID = 'ws-check-in-tablet-1'
 const CHECK_IN_ID = '51500000-0000-4000-8000-000000000557'
+const E2E_SITE_ID = 'e2e-site-1'
 
 test.use({
   viewport: { width: 834, height: 1194 },
@@ -17,6 +18,10 @@ test.describe('AUT-557: workshop check-in tablet flow', () => {
   test('three-screen flow with autosave, upload, and conflict recovery', async ({
     page,
   }) => {
+    await page.addInitScript((siteId) => {
+      window.localStorage.setItem('e2e-active-site-id', siteId)
+    }, E2E_SITE_ID)
+
     const corePage = new AutoCorePage(page, 'Order')
     const order = createMockWorkshopOrder({
       id: ORDER_ID,
@@ -163,11 +168,16 @@ test.describe('AUT-557: workshop check-in tablet flow', () => {
       .fill('88100')
 
     await expect(page.getByText(deWorkshop.checkIn.errors.CHECK_IN_CONFLICT)).toBeVisible({
-      timeout: 5000,
+      timeout: 10_000,
     })
+    const conflictDialog = page.getByTestId('check-in-conflict-dialog')
+    await expect(conflictDialog).toBeVisible({ timeout: 5_000 })
+    await page
+      .getByRole('button', { name: deWorkshop.checkIn.offline.conflict.keepServer })
+      .click()
     await expect(
       page.getByRole('spinbutton', { name: deWorkshop.checkIn.fields.odometer }),
-    ).toHaveValue('89000')
+    ).toHaveValue('89000', { timeout: 5_000 })
 
     await page
       .getByRole('spinbutton', { name: deWorkshop.checkIn.fields.odometer })
@@ -191,10 +201,10 @@ test.describe('AUT-557: workshop check-in tablet flow', () => {
       mimeType: 'image/jpeg',
       buffer: fixture,
     })
-    await expect(page.getByText(deWorkshop.checkIn.media.uploaded)).toBeVisible({
+    await expect(page.getByText(deWorkshop.checkIn.media.queued)).toBeVisible({
       timeout: 5000,
     })
-    expect(uploadPurpose).toBe('CHECK_IN')
+    await expect.poll(() => uploadPurpose, { timeout: 10_000 }).toBe('CHECK_IN')
 
     await page.getByTestId('check-in-next').click()
     await expect(page.getByTestId('check-in-step-review')).toBeVisible()

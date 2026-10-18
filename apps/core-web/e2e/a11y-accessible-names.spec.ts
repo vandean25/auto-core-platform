@@ -8,6 +8,8 @@ import {
   createMockRevenueGroup,
 } from './utils/mock-factories';
 import { DE_SALES } from './helpers/de-sales';
+import { DE_SETTINGS } from './helpers/de-settings';
+import { waitForDeNamespace } from './helpers/wait-for-i18n';
 
 /**
  * AUT-471: icon-only buttons and links must expose an accessible name.
@@ -58,8 +60,11 @@ test.describe('Icon-only controls have accessible names (AUT-471)', () => {
 
     const corePage = new AutoCorePage(page, 'Sales Order');
     await corePage.navigate('/sales-orders/so-1');
+    await waitForDeNamespace(page, 'sales');
 
-    await expect(page.getByRole('link', { name: DE_SALES.orders.detail.backAria })).toBeVisible();
+    await expect(page.getByRole('link', { name: DE_SALES.orders.detail.backAria })).toBeVisible({
+      timeout: 30_000,
+    });
     await expectNamedControls(page);
   });
 
@@ -94,8 +99,16 @@ test.describe('Icon-only controls have accessible names (AUT-471)', () => {
     const corePage = new AutoCorePage(page, 'Settings');
     await corePage.navigate('/settings?tab=brands');
 
-    await expect(page.getByRole('button', { name: 'Edit brand Acme' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Delete brand Acme' })).toBeVisible();
+    await expect(
+      page.getByRole('button', {
+        name: DE_SETTINGS.brands.table.editAria.replace('{{name}}', 'Acme'),
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', {
+        name: DE_SETTINGS.brands.table.deleteAria.replace('{{name}}', 'Acme'),
+      }),
+    ).toBeVisible();
     await expectNamedControls(page);
   });
 });

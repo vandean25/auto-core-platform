@@ -9,6 +9,8 @@
     "BOOKED": "Booked",
     "SCHEDULED": "Scheduled",
     "SENT": "Sent",
+    "SETTLED": "Settled",
+    "SETTLED_EXTERNAL": "Settled externally",
     "DECLINED": "Declined",
     "INTAKE": "Check-in",
     "CONFIRMED": "Confirmed",
@@ -32,6 +34,7 @@
     "RESERVED": "Reserved",
     "IN_PREP": "In Prep",
     "SOLD": "Sold",
+    "SIGNED": "Signed",
     "RECEIVED": "Received",
     "USED": "Used",
     "SUPERSEDED": "Superseded",
@@ -60,6 +63,7 @@
     "APPROVED": "Approved",
     "SHIPPED": "Shipped",
     "REJECTED": "Rejected",
+    "REVERSED": "Reversed",
     "VOID": "Void",
     "AVAILABLE": "Available",
     "ON_LOAN": "On Loan",
@@ -95,7 +99,28 @@
     "GEWAEHRLEISTUNG_EXPIRED": "Statutory warranty expired",
     "AWAITING_REVIEW": "Awaiting Review",
     "APPLIED": "Applied",
-    "ABORTED": "Aborted"
+    "ABORTED": "Aborted",
+    "MOVED": "Moved"
+  },
+  "inventoryTransactionType": {
+    "PURCHASE_RECEIPT": "Purchase receipt",
+    "SALE_ISSUE": "Sale issue",
+    "ADJUSTMENT": "Adjustment",
+    "TRANSFER_IN": "Transfer in",
+    "TRANSFER_OUT": "Transfer out",
+    "INITIAL_BALANCE": "Initial balance",
+    "WORKSHOP_CONSUMPTION": "Workshop consumption"
+  },
+  "attendanceEventType": {
+    "CLOCK_IN": "Come to work",
+    "PAUSE": "Pause",
+    "DOCTOR": "Doctor",
+    "CLOCK_OUT": "Go home"
+  },
+  "attendanceSource": {
+    "SELF": "Self",
+    "MANAGER": "Manager",
+    "AUTO_SHIFT_CLOSE": "Auto shift close"
   },
   "agent": {
     "genericName": "Agent"
@@ -103,7 +128,8 @@
   "importEntityType": {
     "CUSTOMER": "Customer",
     "VEHICLE": "Vehicle",
-    "SUPPLIER_PRICE_LIST": "Supplier price list"
+    "SUPPLIER_PRICE_LIST": "Supplier price list",
+    "LABOR_OPERATION": "Labor operations"
   },
   "importField": {
     "customer": {
@@ -140,6 +166,20 @@
       "cost_price": "Cost Price",
       "rrp": "RRP",
       "unit": "Unit"
+    },
+    "laborOperation": {
+      "external_id": "Labor operation number",
+      "code": "Labor code",
+      "description": "Description",
+      "standard_aw": "Standard labor units",
+      "hourly_rate": "Hourly rate",
+      "internal_cost": "Internal cost rate",
+      "category_name": "Category",
+      "fitment_make": "Fitment make",
+      "fitment_model": "Fitment model",
+      "fitment_year_from": "Fitment year from",
+      "fitment_year_to": "Fitment year to",
+      "fitment_engine_code": "Fitment engine code"
     }
   },
   "documentBrandAssetState": {

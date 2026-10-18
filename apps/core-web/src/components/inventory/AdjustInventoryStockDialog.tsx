@@ -1,4 +1,6 @@
 import * as React from 'react'
+import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useAdjustInventoryStock } from '@/api/inventory'
 import { useLocations } from '@/api/locations'
@@ -20,6 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { getErrorMessage } from '@/lib/error-utils'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 
 type AdjustInventoryStockDialogProps = {
   itemId: string
@@ -32,6 +35,11 @@ export function AdjustInventoryStockDialog({
   open,
   onOpenChange,
 }: AdjustInventoryStockDialogProps) {
+  const { t } = useTranslation('inventory')
+  useEffect(() => {
+    void ensureNamespaceLoaded('inventory')
+  }, [])
+
   const adjustMutation = useAdjustInventoryStock(itemId)
   const { data: locations } = useLocations({ enabled: open })
   const binLocations = React.useMemo(
@@ -52,16 +60,16 @@ export function AdjustInventoryStockDialog({
     const quantity = Number(formData.get('quantity'))
     const reason = String(formData.get('reason') ?? '').trim()
     if (!locationId || Number.isNaN(quantity) || quantity === 0 || !reason) {
-      toast.error('Bin, non-zero quantity, and reason are required.')
+      toast.error(t('dialogs.adjustStock.validationRequired'))
       return
     }
 
     try {
       await adjustMutation.mutateAsync({ locationId, quantity, reason })
-      toast.success('Stock adjusted')
+      toast.success(t('dialogs.adjustStock.success'))
       onOpenChange(false)
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, 'Failed to adjust stock'))
+      toast.error(getErrorMessage(error, t('dialogs.adjustStock.failed')))
     }
   }
 
@@ -70,14 +78,14 @@ export function AdjustInventoryStockDialog({
       <DialogContent className="sm:max-w-[425px]">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Adjust stock</DialogTitle>
+            <DialogTitle>{t('dialogs.adjustStock.title')}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label>Storage bin</Label>
+              <Label>{t('dialogs.adjustStock.storageBin')}</Label>
               <Select value={locationId} onValueChange={setLocationId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select bin" />
+                  <SelectValue placeholder={t('dialogs.adjustStock.selectBin')} />
                 </SelectTrigger>
                 <SelectContent>
                   {binLocations.map((location) => (
@@ -89,7 +97,7 @@ export function AdjustInventoryStockDialog({
               </Select>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="adjust-quantity">Signed quantity</Label>
+              <Label htmlFor="adjust-quantity">{t('dialogs.adjustStock.signedQuantity')}</Label>
               <Input
                 id="adjust-quantity"
                 name="quantity"
@@ -98,17 +106,17 @@ export function AdjustInventoryStockDialog({
                 required
               />
               <p className="text-xs text-muted-foreground">
-                Use a negative value to remove stock. Resulting on-hand quantity cannot go below zero.
+                {t('dialogs.adjustStock.signedQuantityHint')}
               </p>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="adjust-reason">Reason</Label>
+              <Label htmlFor="adjust-reason">{t('dialogs.adjustStock.reason')}</Label>
               <Input id="adjust-reason" name="reason" required />
             </div>
           </div>
           <DialogFooter>
             <Button type="submit" disabled={adjustMutation.isPending}>
-              Apply adjustment
+              {t('actions.applyAdjustment')}
             </Button>
           </DialogFooter>
         </form>

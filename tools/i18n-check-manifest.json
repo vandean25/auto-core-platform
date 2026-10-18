@@ -1,12 +1,31 @@
 {
-  "treatNamespaceAsUsed": ["enums", "errors"],
+  "treatNamespaceAsUsed": ["enums", "errors", "pdf", "email", "seedMaster"],
   "usedKeyPrefixes": [
     "errors:codes.",
     "enums:status.",
     "enums:importEntityType.",
     "enums:importField.",
     "enums:dataTableColumn.",
-    "common:landingDemo.errors."
+    "common:landingDemo.errors.",
+    "finance:accountingExportReadiness.blockers.",
+    "finance:accountingExportReadiness.documentKind.",
+    "enums:inventoryTransactionType.",
+    "enums:attendanceEventType.",
+    "enums:attendanceSource.",
+    "hr:workSchedule.weekdays.",
+    "hr:employees.roles.",
+    "settings:apiKeys.scopes.",
+    "settings:marginRules.rounding.",
+    "settings:marginRules.roundingShort.",
+    "settings:storageLocations.types.",
+    "settings:workshopHours.weekdays.",
+    "settings:documentBranding.letterheadImport.states."
   ],
-  "usedKeys": []
+  "usedKeys": [
+    "settings:accountingExport.header.description",
+    "settings:accountingExport.header.selected",
+    "settings:accountingExport.header.selectedPeriod",
+    "settings:labor.categories.deleteDialog.description",
+    "settings:labor.categories.editDialog.description"
+  ]
 }

@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test'
 import { DE_STATUS } from './helpers/de-enums'
 import { AutoCorePage } from './pom/AutoCorePage'
 import { DE_WORKSHOP } from './helpers/de-workshop'
+import { DE_COMMON } from './helpers/de-common'
 import { DE_VEHICLES } from './helpers/de-vehicles'
 import { createMockListResponse } from './utils/mock-factories'
 
@@ -20,7 +21,7 @@ test.describe('Pickerl due list and dashboard widgets', () => {
 
     await page.goto('/vehicles/pickerl-due')
     await page.waitForLoadState('networkidle')
-    await expect(page.getByText('No results.').first()).toBeVisible()
+    await expect(page.getByText(DE_COMMON.dataTable.noResults).first()).toBeVisible()
   })
 
   test('list shows mocked row and UNKNOWN badge', async ({ page }) => {
@@ -158,7 +159,11 @@ test.describe('Pickerl due list and dashboard widgets', () => {
     await expect(page.getByText('7')).toBeVisible()
     await expect(page.getByText('11')).toBeVisible()
 
-    await page.getByText('Pickerl due in 30 days').click()
+    await page
+      .locator('.cursor-pointer')
+      .filter({ has: page.getByText('4', { exact: true }) })
+      .first()
+      .click()
     await expect(page).toHaveURL(/\/vehicles\/pickerl-due\?filter_window=30/)
   })
 })

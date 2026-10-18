@@ -46,7 +46,9 @@ describe('McpToolHandlerService AUT-512 availability reads', () => {
       unused,
       unused,
       unused,
+      unused,
       availabilityReads as unknown as McpAvailabilityReadService,
+      unused,
     );
     handler = new McpToolHandlerService(
       agentActionLog as unknown as AgentActionLogService,

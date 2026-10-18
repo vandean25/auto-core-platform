@@ -18,6 +18,7 @@ import { VehicleSaleService } from './vehicle-sale.service.js';
 import { AuditLogAction } from '@prisma/client';
 import { AuditService } from '../audit/audit.service.js';
 import { RequestContextService } from '../common/services/request-context.service.js';
+import { Autoscout24DmsListingPushService } from '../vehicle/listing-export/autoscout24-dms/autoscout24-dms-listing-push.service.js';
 
 describe('VehicleSaleService', () => {
   const tenantId = 'tenant-1';
@@ -63,6 +64,7 @@ describe('VehicleSaleService', () => {
   };
   let auditService: { recordTenantMutation: jest.Mock };
   let requestContext: { getSource: jest.Mock };
+  let autoscout24DmsPush: { deactivateAfterVehicleSale: jest.Mock };
 
   beforeEach(() => {
     prisma = {
@@ -73,7 +75,11 @@ describe('VehicleSaleService', () => {
         create: jest.fn(),
       },
       vehicle: { findFirst: jest.fn(), updateMany: jest.fn() },
-      vehiclePurchase: { findFirst: jest.fn() },
+      vehiclePurchase: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      vehicleListing: { findFirst: jest.fn().mockResolvedValue(null) },
+      vehicleListingChannel: { update: jest.fn() },
       customer: { findFirst: jest.fn() },
       workshopOrder: { count: jest.fn() },
       vehicleLedgerEntry: { findMany: jest.fn() },
@@ -128,6 +134,9 @@ describe('VehicleSaleService', () => {
     };
     auditService = { recordTenantMutation: jest.fn() };
     requestContext = { getSource: jest.fn().mockReturnValue('API') };
+    autoscout24DmsPush = {
+      deactivateAfterVehicleSale: jest.fn().mockResolvedValue(undefined),
+    };
     service = new VehicleSaleService(
       prisma as unknown as PrismaService,
       tenantContext as unknown as TenantContextService,
@@ -136,6 +145,7 @@ describe('VehicleSaleService', () => {
       snapshotCommit as unknown as InvoiceSnapshotCommitService,
       auditService as unknown as AuditService,
       requestContext as unknown as RequestContextService,
+      autoscout24DmsPush as unknown as Autoscout24DmsListingPushService,
     );
   });
 
@@ -647,6 +657,77 @@ describe('VehicleSaleService', () => {
         }),
       }),
     );
+  });
+
+  it('finalize succeeds when post-sale AutoScout24 DMS deactivate rejects', async () => {
+    const stockReceivedAt = new Date();
+    const vehicle = {
+      id: vehicleId,
+      stock_purchase_id: 'stock-purchase-1',
+      inventory_role: VehicleInventoryRole.USED,
+      stock_status: VehicleStockStatus.IN_STOCK,
+      stock_received_at: stockReceivedAt,
+      first_registration_date: new Date('2020-01-01T00:00:00.000Z'),
+      reserved_for_customer_id: null,
+    };
+    const customer = { id: customerId };
+    const sale = {
+      id: saleId,
+      site_id: 'site-1',
+      vehicle_id: vehicleId,
+      customer_id: customerId,
+      status: VehicleSaleStatus.DRAFT,
+      sale_price: new Prisma.Decimal(100),
+      contract_concluded_at: new Date('2026-10-02T00:00:00.000Z'),
+      handed_over_at: new Date('2026-10-08T00:00:00.000Z'),
+      buyer_is_consumer: true,
+      gewaehrleistung_shortened_negotiated: false,
+      vehicle,
+      customer,
+    };
+    prisma.vehicleSale.findFirst.mockImplementation(async () => ({
+      ...sale,
+      status: VehicleSaleStatus.INVOICED,
+      vehicle,
+      customer,
+    }));
+    prisma.vehicle.findFirst.mockResolvedValue(vehicle);
+    prisma.customer.findFirst.mockResolvedValue(customer);
+    prisma.workshopOrder.count.mockResolvedValue(0);
+    prisma.vehicleSale.updateMany.mockResolvedValue({ count: 1 });
+    prisma.vehicleLedgerEntry.findMany.mockResolvedValue([]);
+    prisma.invoiceSequence.upsert.mockResolvedValue({ current: 1 });
+    prisma.site.findFirst.mockResolvedValue({
+      id: 'site-1',
+      legal_entity_id: 'le-1',
+    });
+    prisma.invoice.create.mockResolvedValue({
+      id: 'invoice-1',
+      invoice_number: 'RE-2026-0001',
+      date: new Date(),
+      due_date: new Date(),
+      total_net: new Prisma.Decimal(100),
+      total_tax: new Prisma.Decimal(0),
+      total_gross: new Prisma.Decimal(100),
+      notes: null,
+      tax_mode: InvoiceTaxMode.MARGIN_SCHEME,
+      items: [],
+      customer,
+      vehicle,
+    });
+    prisma.invoice.updateMany.mockResolvedValue({ count: 1 });
+    prisma.vehicleSale.update.mockResolvedValue(sale);
+    prisma.vehicle.updateMany.mockResolvedValue({ count: 1 });
+    prisma.vehiclePurchase.findFirst.mockResolvedValue({
+      id: 'stock-purchase-1',
+    });
+    prisma.$queryRaw.mockResolvedValue([{ id: 'site-1', is_active: true }]);
+    autoscout24DmsPush.deactivateAfterVehicleSale.mockRejectedValue(
+      new Error('simulated DMS outage'),
+    );
+
+    await expect(service.finalize(saleId)).resolves.toBeDefined();
+    expect(autoscout24DmsPush.deactivateAfterVehicleSale).toHaveBeenCalled();
   });
 
   it('rejects finalization when a newly corrected registration date invalidates shortening', async () => {

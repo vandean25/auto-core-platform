@@ -8685,6 +8685,47 @@
         ]
       }
     },
+    "/api/vehicle-stock/{vehicleId}/listing/export/as24-dms/push": {
+      "post": {
+        "operationId": "Autoscout24DmsPushController_push",
+        "parameters": [
+          {
+            "name": "vehicleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Autoscout24DmsPushRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Autoscout24DmsPushResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Push the current AutoScout24 listing to the DMS API (feature-flagged, default off)",
+        "tags": [
+          "vehicle-stock"
+        ]
+      }
+    },
     "/api/workshop/registration-intakes": {
       "post": {
         "operationId": "RegistrationIntakeController_create",
@@ -14420,7 +14461,8 @@
                     "enum": [
                       "CUSTOMER",
                       "VEHICLE",
-                      "SUPPLIER_PRICE_LIST"
+                      "SUPPLIER_PRICE_LIST",
+                      "LABOR_OPERATION"
                     ]
                   },
                   "sourceSystem": {
@@ -14470,7 +14512,8 @@
               "enum": [
                 "CUSTOMER",
                 "VEHICLE",
-                "SUPPLIER_PRICE_LIST"
+                "SUPPLIER_PRICE_LIST",
+                "LABOR_OPERATION"
               ],
               "type": "string"
             }
@@ -28512,6 +28555,100 @@
           "mediaIds"
         ]
       },
+      "Autoscout24DmsPushActionDto": {
+        "type": "string",
+        "enum": [
+          "UPSERT",
+          "DEACTIVATE"
+        ]
+      },
+      "Autoscout24DmsPushRequestDto": {
+        "type": "object",
+        "properties": {
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "expected_revision": {
+            "type": "number"
+          },
+          "action": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Autoscout24DmsPushActionDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "idempotency_key",
+          "expected_revision",
+          "action"
+        ]
+      },
+      "VehicleListingDmsProvider": {
+        "type": "string",
+        "enum": [
+          "AS24_DMS"
+        ]
+      },
+      "VehicleListingDmsSyncState": {
+        "type": "string",
+        "enum": [
+          "NEVER_SYNCED",
+          "PENDING",
+          "SYNCED",
+          "FAILED",
+          "DEACTIVATION_PENDING",
+          "DEACTIVATED"
+        ]
+      },
+      "Autoscout24DmsPushResponseDto": {
+        "type": "object",
+        "properties": {
+          "channel_id": {
+            "type": "string"
+          },
+          "provider": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VehicleListingDmsProvider"
+              }
+            ]
+          },
+          "sync_state": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VehicleListingDmsSyncState"
+              }
+            ]
+          },
+          "external_listing_id": {
+            "type": "object",
+            "nullable": true
+          },
+          "last_sync_at": {
+            "type": "object",
+            "nullable": true
+          },
+          "last_sync_error_code": {
+            "type": "object",
+            "nullable": true
+          },
+          "idempotent_replay": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "channel_id",
+          "provider",
+          "sync_state",
+          "external_listing_id",
+          "last_sync_at",
+          "last_sync_error_code",
+          "idempotent_replay"
+        ]
+      },
       "HolderDto": {
         "type": "object",
         "properties": {
@@ -35497,7 +35634,8 @@
         "enum": [
           "CUSTOMER",
           "VEHICLE",
-          "SUPPLIER_PRICE_LIST"
+          "SUPPLIER_PRICE_LIST",
+          "LABOR_OPERATION"
         ]
       },
       "ImportJobStatus": {

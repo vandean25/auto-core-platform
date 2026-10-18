@@ -10,8 +10,20 @@ export class LandingDemoAccessCleanupService {
 
   constructor(private readonly systemPrisma: SystemPrismaService) {}
 
-  @Cron(CronExpression.EVERY_DAY_AT_3AM)
+  @Cron(CronExpression.EVERY_DAY_AT_3AM, {
+    name: 'landing-demo-access-cleanup',
+  })
   async deactivateExpiredDemoMemberships(): Promise<void> {
+    await this.systemPrisma.withCronJobLock(
+      'landing-demo-access-cleanup',
+      async () => {
+        await this.deactivateExpiredDemoMembershipsWork();
+      },
+      this.logger,
+    );
+  }
+
+  private async deactivateExpiredDemoMembershipsWork(): Promise<void> {
     const now = new Date();
     const expired = await this.systemPrisma.tenantMember.findMany({
       where: {

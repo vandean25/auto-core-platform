@@ -188,6 +188,34 @@
       "rowNumber": "#"
     }
   },
+  "invoiceEditor": {
+    "lineItemsTable": {
+      "description": "Position / Beschreibung",
+      "qty": "Menge",
+      "price": "Preis (€)",
+      "tax": "USt. (%)",
+      "total": "Summe",
+      "descriptionPlaceholder": "Leistung oder Artikel",
+      "searchPartAria": "Teil für Position {{index}} suchen",
+      "removeLineAria": "Position {{index}} entfernen",
+      "addLine": "Position hinzufügen"
+    },
+    "finalizeDialog": {
+      "title": "Rechnung finalisieren?",
+      "description": "Die Rechnung wird gesperrt, erhält eine offizielle RE-Nummer und Lagerbestand wird für Katalogpositionen abgebucht. Danach ist der Entwurf nicht mehr bearbeitbar.",
+      "confirm": "Finalisieren",
+      "finalizing": "Finalisierung…"
+    },
+    "partSearch": {
+      "title": "Lager durchsuchen",
+      "description": "Teile finden und zur Rechnung hinzufügen.",
+      "searchAria": "Lager durchsuchen",
+      "placeholder": "Lager durchsuchen…",
+      "empty": "Keine Teile gefunden.",
+      "group": "Lager",
+      "stockLine": "{{sku}} · Bestand: {{quantity}} · €{{price}}"
+    }
+  },
   "finalize": {
     "missingCustomer": "Im Rechnungsentwurf fehlen Pflichtangaben zum Kunden.",
     "saving": "Bitte warten Sie, bis der Entwurf gespeichert ist, bevor Sie die Rechnung ausstellen.",

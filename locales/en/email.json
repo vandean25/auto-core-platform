@@ -1,0 +1,37 @@
+{
+  "shared": {
+    "defaultGreeting": "Dear Sir or Madam",
+    "closing": "Kind regards",
+    "contactSentence": "If you have any questions, we will be happy to help."
+  },
+  "customer": {
+    "estimateSent": {
+      "subject": "Estimate {{estimateNumber}}",
+      "intro": "we have prepared estimate {{estimateNumber}} for your vehicle {{vehicleLabel}}.",
+      "link": "You can view the estimate at the following link: {{approvalUrl}}",
+      "validity": "The estimate is valid until {{validUntil}}. Please review it at your convenience. {{contactSentence}}"
+    },
+    "estimateApprovalConfirmed": {
+      "subject": "Confirmation of your approval: estimate {{estimateNumber}}",
+      "thanks": "thank you for approving estimate {{estimateNumber}} on {{approvedAt}}.",
+      "confirm": "We hereby confirm your approval. {{contactSentence}}"
+    },
+    "orderReady": {
+      "subject": "{{orderNumber}}",
+      "body": "the work on your vehicle {{vehicleLabel}} is complete. You may pick up your vehicle from us.",
+      "footer": "This email relates to your order no. {{orderNumber}}."
+    }
+  },
+  "landingDemo": {
+    "magicLink": {
+      "subject": "Your demo access to Auto Core Platform",
+      "greeting": "Hello,",
+      "thanks": "thank you for your interest in Auto Core Platform ({{betrieb}}).",
+      "instruction": "Open the following one-time sign-in link to start the demo:",
+      "validity": "The link is valid until {{validUntil}} and takes you straight into the demo without a password.",
+      "ignore": "If you did not request this, you can ignore this email.",
+      "closing": "Kind regards",
+      "senderName": "Auto Core Platform"
+    }
+  }
+}

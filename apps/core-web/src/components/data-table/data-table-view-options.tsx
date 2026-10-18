@@ -1,5 +1,6 @@
 import { DropdownMenuTrigger } from "@radix-ui/react-dropdown-menu"
 import { Settings2 } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import type { LegacyReactTable as Table } from '@tanstack/react-table/legacy'
 
 import { Button } from "@/components/ui/button"
@@ -42,6 +43,8 @@ function ColumnToggleItems<TData extends object>({ table }: DataTableViewOptions
 export function DataTableViewOptions<TData extends object>({
   table,
 }: DataTableViewOptionsProps<TData>) {
+  const { t } = useTranslation('common')
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -51,11 +54,11 @@ export function DataTableViewOptions<TData extends object>({
           className="ml-auto h-8"
         >
           <Settings2 className="mr-2 h-4 w-4" />
-          Columns
+          {t('dataTable.columns')}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[200px]">
-        <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
+        <DropdownMenuLabel>{t('dataTable.toggleColumns')}</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onSelect={(event) => {
@@ -63,7 +66,7 @@ export function DataTableViewOptions<TData extends object>({
             table.toggleAllColumnsVisible(true)
           }}
         >
-          Show all
+          {t('dataTable.showAll')}
         </DropdownMenuItem>
         <DropdownMenuItem
           onSelect={(event) => {
@@ -71,7 +74,7 @@ export function DataTableViewOptions<TData extends object>({
             table.resetColumnVisibility()
           }}
         >
-          Reset
+          {t('dataTable.reset')}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <ColumnToggleItems table={table} />

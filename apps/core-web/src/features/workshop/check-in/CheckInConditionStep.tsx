@@ -13,7 +13,6 @@ import {
 } from '@/components/ui/select'
 import { generateId } from '@/lib/id'
 import type { CheckInDamageMarker, WorkshopCheckInMedia } from '@/api/workshop-check-in'
-import { useUploadWorkshopCheckInMedia } from '@/api/workshop-check-in'
 import { describeWorkshopCheckInError } from './check-in-errors'
 import type { CheckInDraftSnapshot } from './check-in-draft'
 import {
@@ -37,22 +36,28 @@ type Props = {
   onPatch: (patch: Partial<CheckInDraftSnapshot>) => void
   onRevisionBump: () => void
   onMediaUploaded: (media: WorkshopCheckInMedia) => void
+  onQueuePhoto: (file: File, clientUploadId: string) => Promise<void>
+  pendingUploadIds: string[]
+  onRetryUploads: () => void
 }
 
 export function CheckInConditionStep({
-  orderId,
+  orderId: _orderId,
   draft,
   readOnly,
-  expectedRevision,
+  expectedRevision: _expectedRevision,
   media,
   localPreviewUrls,
   onRegisterPreview,
   onPatch,
   onRevisionBump,
   onMediaUploaded,
+  onQueuePhoto,
+  pendingUploadIds,
+  onRetryUploads,
 }: Props) {
   const { t } = useTranslation('workshop')
-  const uploadMedia = useUploadWorkshopCheckInMedia()
+  const [isCapturing, setIsCapturing] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [zoneId, setZoneId] = useState<CheckInZoneId>('FRONT_BUMPER')
   const [damageType, setDamageType] = useState<CheckInDamageType>('SCRATCH')
@@ -74,24 +79,38 @@ export function CheckInConditionStep({
       return
     }
     const clientUploadId = generateId()
+    setIsCapturing(true)
     try {
-      const uploaded = await uploadMedia.mutateAsync({
-        orderId,
-        file,
-        clientUploadId,
-        expectedRevision,
-      })
-      onMediaUploaded(uploaded)
-      onRevisionBump()
       const preview = URL.createObjectURL(file)
       previewUrlsRef.current.add(preview)
-      onRegisterPreview(uploaded.id, preview)
+      onRegisterPreview(clientUploadId, preview)
       setSelectedMediaIds((previous) =>
-        previous.includes(uploaded.id) ? previous : [...previous, uploaded.id],
+        previous.includes(clientUploadId)
+          ? previous
+          : [...previous, clientUploadId],
       )
-      toast.success(t('checkIn.media.uploaded'))
+      await onQueuePhoto(file, clientUploadId)
+      onMediaUploaded({
+        id: clientUploadId,
+        purpose: 'CHECK_IN',
+        mime_type: file.type || 'image/jpeg',
+        size_bytes: file.size,
+        processing_status: 'PENDING',
+      })
+      onRevisionBump()
+      toast.success(t('checkIn.media.queued'))
     } catch (error: unknown) {
-      toast.error(describeWorkshopCheckInError(error))
+      const code =
+        error && typeof error === 'object' && 'code' in error
+          ? String((error as { code?: string }).code)
+          : ''
+      if (code === 'CHECK_IN_OFFLINE_QUOTA') {
+        toast.error(t('checkIn.offline.quotaExceeded'))
+      } else {
+        toast.error(describeWorkshopCheckInError(error))
+      }
+    } finally {
+      setIsCapturing(false)
     }
   }
 
@@ -150,13 +169,24 @@ export function CheckInConditionStep({
         <Button
           type="button"
           className="min-h-11"
-          disabled={readOnly || uploadMedia.isPending}
+          disabled={readOnly || isCapturing}
           onClick={() => fileInputRef.current?.click()}
         >
-          {uploadMedia.isPending
-            ? t('checkIn.media.uploading')
-            : t('checkIn.media.capture')}
+          {isCapturing ? t('checkIn.media.uploading') : t('checkIn.media.capture')}
         </Button>
+        {pendingUploadIds.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <span>{t('checkIn.media.pendingUploads', { count: pendingUploadIds.length })}</span>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11"
+              onClick={onRetryUploads}
+            >
+              {t('checkIn.actions.retry')}
+            </Button>
+          </div>
+        )}
         {allMedia.length > 0 && (
           <ul className="flex flex-wrap gap-3" aria-label={t('checkIn.media.galleryAria')}>
             {allMedia.map((item) => {
@@ -177,8 +207,10 @@ export function CheckInConditionStep({
                     {src ? (
                       <img src={src} alt="" className="h-full w-full object-cover" />
                     ) : (
-                      <span className="flex h-full items-center justify-center text-xs text-muted-foreground">
-                        {t('checkIn.media.pending')}
+                      <span className="flex h-full items-center justify-center px-1 text-center text-xs text-muted-foreground">
+                        {pendingUploadIds.includes(item.id)
+                          ? t('checkIn.media.pendingUpload')
+                          : t('checkIn.media.pending')}
                       </span>
                     )}
                   </button>

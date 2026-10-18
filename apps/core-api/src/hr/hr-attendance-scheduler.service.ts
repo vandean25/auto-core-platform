@@ -23,6 +23,16 @@ export class HrAttendanceSchedulerService {
 
   @Cron('59 23 * * *', { name: 'hr-shift-close' })
   async closeOrphanedShifts(now: Date = new Date()): Promise<void> {
+    await this.systemPrisma.withCronJobLock(
+      'hr-shift-close',
+      async () => {
+        await this.closeOrphanedShiftsWork(now);
+      },
+      this.logger,
+    );
+  }
+
+  private async closeOrphanedShiftsWork(now: Date): Promise<void> {
     this.logger.log(
       'HR shift-close job started: querying latest attendance events.',
     );

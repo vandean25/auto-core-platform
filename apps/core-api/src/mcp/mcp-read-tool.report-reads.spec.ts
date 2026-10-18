@@ -55,6 +55,7 @@ describe('McpToolHandlerService AUT-461 report reads', () => {
       unused,
       unused,
       unused,
+      unused,
       stockReads as unknown as McpStockReadService,
       unused,
       unused,
@@ -63,6 +64,7 @@ describe('McpToolHandlerService AUT-461 report reads', () => {
       unused,
       unused,
       reportReads as unknown as McpReportReadService,
+      unused,
       unused,
     );
     handler = new McpToolHandlerService(
