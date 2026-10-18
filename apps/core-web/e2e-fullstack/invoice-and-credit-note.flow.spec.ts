@@ -1,11 +1,14 @@
 import { test, expect } from '@playwright/test'
 import { loadE2eFullstackFixture } from './fixture.ts'
+import { gotoWithReadySession } from './harness.ts'
+import { DE_FULLSTACK_FINANCE, DE_FULLSTACK_SALES } from './de-copy.ts'
 import { E2E_FULLSTACK_API_PORT } from '../../core-api/test/e2e-fullstack/constants.ts'
 
 test.describe.configure({ mode: 'serial' })
 
 test.describe('Full-stack sales invoice and credit note flows', () => {
   let finalizedInvoiceNumber = ''
+  let finalizedInvoiceId = ''
 
   test('flow 1: sales order → finalize invoice → PDF download', async ({ page, request }) => {
     const fixture = loadE2eFullstackFixture()
@@ -40,8 +43,7 @@ test.describe('Full-stack sales invoice and credit note flows', () => {
     })
     expect(orderCheck.ok()).toBeTruthy()
 
-    await page.goto('/dashboard')
-    await expect(page.getByText('Current Tenant')).toBeVisible()
+    await gotoWithReadySession(page, '/dashboard')
 
     const orderDetailResponse = page.waitForResponse(
       (response) =>
@@ -51,31 +53,33 @@ test.describe('Full-stack sales invoice and credit note flows', () => {
     await page.goto(`/sales-orders/${order.id}`)
     const detailResponse = await orderDetailResponse
     expect(detailResponse.ok()).toBeTruthy()
-    await expect(page.getByText('Order not found')).not.toBeVisible()
+    await expect(page.getByText(DE_FULLSTACK_SALES.orderNotFound)).not.toBeVisible()
     await expect(page.getByRole('heading', { name: order.order_number })).toBeVisible()
 
-    await page.getByRole('button', { name: 'Create Invoice' }).click()
-    await page.getByRole('button', { name: 'Create Invoice' }).last().click()
+    await page.getByRole('button', { name: DE_FULLSTACK_SALES.createInvoice }).click()
+    await page.getByRole('button', { name: DE_FULLSTACK_SALES.createInvoice }).last().click()
     await expect(page).toHaveURL(/\/sales\/invoices\/[0-9a-f-]+\/edit/)
 
-    await page.getByRole('button', { name: 'Finalize', exact: true }).click()
+    await page.getByRole('button', { name: DE_FULLSTACK_SALES.finalize, exact: true }).click()
     await page
       .getByRole('alertdialog')
-      .getByRole('button', { name: 'Finalize', exact: true })
+      .getByRole('button', { name: DE_FULLSTACK_SALES.finalizeDialogConfirm, exact: true })
       .click()
 
     await expect(page).toHaveURL(/\/sales\/invoices\/[0-9a-f-]+$/)
     const invoiceHeading = page.getByRole('heading', { name: /^RE-/ })
     await expect(invoiceHeading).toBeVisible()
     finalizedInvoiceNumber = (await invoiceHeading.textContent())?.trim() ?? ''
+    finalizedInvoiceId = page.url().split('/').pop() ?? ''
     expect(finalizedInvoiceNumber.length).toBeGreaterThan(0)
+    expect(finalizedInvoiceId.length).toBeGreaterThan(0)
     expect(pdfGenerationRequests).toEqual([])
 
     const downloadPromise = page.waitForEvent('download', { timeout: 90_000 })
-    await page.getByRole('button', { name: 'Download PDF', exact: true }).click()
+    await page.getByRole('button', { name: DE_FULLSTACK_SALES.downloadPdf, exact: true }).click()
     const download = await downloadPromise
     expect(download.suggestedFilename()).toMatch(/^invoice_.*\.pdf$/)
-    await expect(page.getByText('Invoice PDF downloaded successfully')).toBeVisible({
+    await expect(page.getByText(DE_FULLSTACK_SALES.pdfSuccess)).toBeVisible({
       timeout: 90_000,
     })
     expect(pdfGenerationRequests).toHaveLength(1)
@@ -94,23 +98,23 @@ test.describe('Full-stack sales invoice and credit note flows', () => {
 
   test('flow 2: create and finalize a full credit note', async ({ page }) => {
     loadE2eFullstackFixture()
-    await page.goto('/sales/invoices')
-    await expect(page.getByRole('heading', { name: 'Sales Invoices' })).toBeVisible()
-    expect(finalizedInvoiceNumber).toBeTruthy()
-    await page.getByRole('cell', { name: finalizedInvoiceNumber }).click()
+    expect(finalizedInvoiceId).toBeTruthy()
+    await gotoWithReadySession(page, `/sales/invoices/${finalizedInvoiceId}`)
     await expect(
       page.getByRole('heading', { name: finalizedInvoiceNumber }),
     ).toBeVisible()
 
-    await page.getByRole('button', { name: 'Credit Note' }).click()
-    await page.getByLabel('Reason').fill('E2E fullstack commercial correction')
-    await page.getByRole('button', { name: 'Create Draft' }).click()
+    await page.getByRole('button', { name: DE_FULLSTACK_SALES.creditNote }).click()
+    await page
+      .getByPlaceholder(DE_FULLSTACK_FINANCE.creditReasonPlaceholder)
+      .fill('E2E fullstack commercial correction')
+    await page.getByRole('button', { name: DE_FULLSTACK_FINANCE.createDraft }).click()
 
     await expect(page).toHaveURL(/\/finance\/credit-notes\/[0-9a-f-]+$/)
-    await page.getByRole('button', { name: 'Finalize' }).click()
-    await page.getByRole('button', { name: 'Finalize credit note' }).click()
+    await page.getByRole('button', { name: DE_FULLSTACK_FINANCE.finalizeAction }).click()
+    await page.getByRole('button', { name: DE_FULLSTACK_FINANCE.finalizeCredit }).click()
 
-    await expect(page.getByText('Finalized', { exact: false })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Print' })).toBeVisible()
+    await expect(page.getByText(DE_FULLSTACK_FINANCE.finalizedToast)).toBeVisible()
+    await expect(page.getByRole('button', { name: DE_FULLSTACK_FINANCE.print })).toBeVisible()
   })
 })
