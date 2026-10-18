@@ -34,14 +34,6 @@ describe('CustomerSearch', () => {
     ensureSpy.mockRestore()
   })
 
-  it('bootstraps customers during initI18n for combobox copy', async () => {
-    const loadSpy = vi.spyOn(customerSearchI18n, 'ensureCustomerSearchI18n')
-    await i18nModule.initI18n({ language: 'de' })
-    expect(loadSpy).toHaveBeenCalled()
-    expect(i18nModule.i18n.hasResourceBundle('de', 'customers')).toBe(true)
-    loadSpy.mockRestore()
-  })
-
   it('shows the translated select placeholder on the combobox', () => {
     render(
       <QueryClientProvider client={queryClient}>

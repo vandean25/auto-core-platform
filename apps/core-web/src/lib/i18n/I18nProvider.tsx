@@ -1,5 +1,6 @@
 import { Suspense, useEffect, useState, type ReactNode } from 'react'
 import { I18nextProvider } from 'react-i18next'
+import { ensureCustomerSearchI18n } from '@/components/sales/customer-search-i18n'
 import { initI18n, i18n } from './init-i18n'
 import type { InitI18nOptions } from './init-i18n'
 
@@ -16,7 +17,9 @@ export function I18nProvider({ children, initOptions }: I18nProviderProps) {
       setReady(true)
       return
     }
-    void initI18n(initOptions).then(() => setReady(true))
+    void initI18n(initOptions)
+      .then(() => ensureCustomerSearchI18n())
+      .then(() => setReady(true))
   }, [initOptions])
 
   if (!ready) {
