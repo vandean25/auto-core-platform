@@ -116,7 +116,7 @@ export class Autoscout24DmsListingPushService {
     if (!isVehicleListingAs24PushEnvEnabled()) {
       return;
     }
-    const settings = await this.prisma.vehicleListingPushSettings.findUnique({
+    const settings = await this.prisma.vehicleListingPushSettings.findFirst({
       where: { tenant_id: input.tenantId },
       select: { as24_dms_push_enabled: true },
     });
@@ -140,13 +140,11 @@ export class Autoscout24DmsListingPushService {
       return;
     }
 
-    const sync = await this.prisma.vehicleListingChannelDmsSync.findUnique({
+    const sync = await this.prisma.vehicleListingChannelDmsSync.findFirst({
       where: {
-        tenant_id_channel_id_provider: {
-          tenant_id: input.tenantId,
-          channel_id: channel.id,
-          provider: VehicleListingDmsProvider.AS24_DMS,
-        },
+        tenant_id: input.tenantId,
+        channel_id: channel.id,
+        provider: VehicleListingDmsProvider.AS24_DMS,
       },
     });
     if (!syncRequiresRemoteDeactivation(sync, channel.external_ref)) {

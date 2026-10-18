@@ -13,7 +13,7 @@ export async function assertVehicleListingAs24PushEnabled(
     });
   }
 
-  const settings = await prisma.vehicleListingPushSettings.findUnique({
+  const settings = await prisma.vehicleListingPushSettings.findFirst({
     where: { tenant_id: tenantId },
     select: { as24_dms_push_enabled: true },
   });

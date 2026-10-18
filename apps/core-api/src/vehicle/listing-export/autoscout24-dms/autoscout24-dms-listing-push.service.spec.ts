@@ -73,7 +73,7 @@ function createSyncStore(
 
   const prisma = {
     vehicleListingPushSettings: {
-      findUnique: jest.fn().mockResolvedValue({ as24_dms_push_enabled: true }),
+      findFirst: jest.fn().mockResolvedValue({ as24_dms_push_enabled: true }),
     },
     vehiclePurchase: {
       findFirst: jest.fn().mockResolvedValue({ id: 'stock-purchase-1' }),
@@ -82,7 +82,6 @@ function createSyncStore(
       findFirst: jest.fn().mockResolvedValue(buildListingFixture()),
     },
     vehicleListingChannelDmsSync: {
-      findUnique: jest.fn().mockImplementation(async () => row),
       findMany: jest.fn().mockResolvedValue([]),
       upsert: jest.fn().mockImplementation(async () => ({ id: row.id })),
       findFirstOrThrow: jest.fn().mockImplementation(async () => ({ ...row })),

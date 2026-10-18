@@ -151,7 +151,7 @@ describe('AutoScout24 DMS push guards', () => {
     delete process.env.VEHICLE_LISTING_AS24_PUSH_ENABLED;
     await expect(
       assertVehicleListingAs24PushEnabled(
-        { vehicleListingPushSettings: { findUnique: async () => null } },
+        { vehicleListingPushSettings: { findFirst: async () => null } },
         'tenant-1',
       ),
     ).rejects.toBeInstanceOf(ServiceUnavailableException);
