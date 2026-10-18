@@ -102,7 +102,8 @@ function normalizeFitment(
       issues: [
         {
           code: IMPORT_ERROR_CODES.LABOR_FITMENT_MAKE_MODEL_REQUIRED,
-          message: 'fitment_make and fitment_model are required when fitment data is provided',
+          message:
+            'fitment_make and fitment_model are required when fitment data is provided',
           field: 'fitment_make',
         },
       ],
@@ -330,7 +331,9 @@ export function normalizeLaborOperationRow(
   return { row, issues, warnings };
 }
 
-function buildNormalizedPayload(row: NormalizedLaborOperationRow): Record<string, unknown> {
+function buildNormalizedPayload(
+  row: NormalizedLaborOperationRow,
+): Record<string, unknown> {
   return {
     external_id: row.external_id,
     code: row.code,
@@ -393,14 +396,11 @@ export function planLaborOperationDryRunRow(
   context.codeSeenInFile.set(codeKey, rowNo);
 
   const payload = buildNormalizedPayload(row);
-  const mappingEntityId = context.mappingByExternalId.get(row.external_id) ?? null;
+  const mappingEntityId =
+    context.mappingByExternalId.get(row.external_id) ?? null;
   const codeEntityId = context.operationByCode.get(codeKey) ?? null;
 
-  if (
-    mappingEntityId &&
-    codeEntityId &&
-    mappingEntityId !== codeEntityId
-  ) {
+  if (mappingEntityId && codeEntityId && mappingEntityId !== codeEntityId) {
     return {
       row_no: rowNo,
       external_id: row.external_id,

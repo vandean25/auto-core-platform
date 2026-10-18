@@ -90,11 +90,7 @@ function planLaborCsvRow(
   input: ImportDryRunInput,
   context: LaborMatchContext,
 ): DryRunRowResult {
-  const normalized = normalizeLaborOperationRow(
-    record,
-    input.mapping,
-    context,
-  );
+  const normalized = normalizeLaborOperationRow(record, input.mapping, context);
   if (!normalized.row) {
     return {
       row_no: rowNo,

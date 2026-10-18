@@ -48,8 +48,8 @@ function readFitment(
     return null;
   }
   const record = fitment as Record<string, unknown>;
-  const make = String(record.make ?? '').trim();
-  const model = String(record.model ?? '').trim();
+  const make = typeof record.make === 'string' ? record.make.trim() : '';
+  const model = typeof record.model === 'string' ? record.model.trim() : '';
   if (!make || !model) {
     return null;
   }
@@ -65,9 +65,7 @@ function readFitment(
         ? null
         : Number(record.year_to),
     engine_code:
-      record.engine_code === null || record.engine_code === undefined
-        ? null
-        : String(record.engine_code),
+      typeof record.engine_code === 'string' ? record.engine_code : null,
   };
 }
 
@@ -148,7 +146,7 @@ function buildLaborUpdateData(
       ['category_id', payload.category_id],
     ],
     options,
-  ) as Prisma.LaborOperationUpdateInput;
+  );
 }
 
 async function loadLaborSnapshot(
@@ -171,7 +169,6 @@ async function createLaborOperation(
   ctx: LaborApplyContext,
   externalId: string,
   payload: Record<string, unknown>,
-  options: ImportJobOptions,
 ): Promise<void> {
   const fitment = readFitment(payload);
   const created = await tx.laborOperation.create({
@@ -236,11 +233,7 @@ async function updateLaborOperation(
   if (!before) {
     throw new ApplyRowStaleError();
   }
-  const updateData = buildLaborUpdateData(
-    before,
-    payload,
-    options,
-  );
+  const updateData = buildLaborUpdateData(before, payload, options);
   await tx.laborOperation.update({
     where: { id: entityId },
     data: updateData,
@@ -291,7 +284,7 @@ export async function applyLaborOperationImportRow(
   delete payload.category_name;
 
   if (row.action === ImportRowAction.CREATE) {
-    await createLaborOperation(tx, ctx, externalId, payload, options);
+    await createLaborOperation(tx, ctx, externalId, payload);
     return;
   }
   if (row.action === ImportRowAction.UPDATE && row.entity_id) {
