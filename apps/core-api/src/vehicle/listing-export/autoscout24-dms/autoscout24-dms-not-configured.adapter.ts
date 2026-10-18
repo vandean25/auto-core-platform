@@ -17,18 +17,24 @@ export class NotConfiguredAutoscout24DmsListingPublisherAdapter implements Autos
   }
 
   upsertListing(
-    _idempotencyKey: string,
-    _payload: Autoscout24DmsListingPayload,
-    _existingExternalListingId: string | null,
+    idempotencyKey: string,
+    payload: Autoscout24DmsListingPayload,
+    existingExternalListingId: string | null,
   ): Promise<Autoscout24DmsUpsertResult> {
+    void idempotencyKey;
+    void payload;
+    void existingExternalListingId;
     return Promise.resolve(this.refuse());
   }
 
   deactivateListing(
-    _idempotencyKey: string,
-    _payload: Pick<Autoscout24DmsListingPayload, 'sellerListingRef'>,
-    _existingExternalListingId: string | null,
+    idempotencyKey: string,
+    payload: Pick<Autoscout24DmsListingPayload, 'sellerListingRef'>,
+    existingExternalListingId: string | null,
   ): Promise<Autoscout24DmsDeactivateResult> {
+    void idempotencyKey;
+    void payload;
+    void existingExternalListingId;
     return Promise.resolve(this.refuse());
   }
 }

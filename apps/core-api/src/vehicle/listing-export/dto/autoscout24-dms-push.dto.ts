@@ -3,7 +3,14 @@ import {
   VehicleListingDmsProvider,
   VehicleListingDmsSyncState,
 } from '@prisma/client';
-import { IsEnum, IsInt, IsString, MaxLength, Min, MinLength } from 'class-validator';
+import {
+  IsEnum,
+  IsInt,
+  IsString,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
 
 export enum Autoscout24DmsPushActionDto {
   UPSERT = 'UPSERT',
@@ -22,7 +29,10 @@ export class Autoscout24DmsPushRequestDto {
   @Min(1)
   expected_revision!: number;
 
-  @ApiProperty({ enum: Autoscout24DmsPushActionDto, enumName: 'Autoscout24DmsPushActionDto' })
+  @ApiProperty({
+    enum: Autoscout24DmsPushActionDto,
+    enumName: 'Autoscout24DmsPushActionDto',
+  })
   @IsEnum(Autoscout24DmsPushActionDto)
   action!: Autoscout24DmsPushActionDto;
 }

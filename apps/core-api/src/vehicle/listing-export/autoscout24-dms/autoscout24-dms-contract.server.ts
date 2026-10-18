@@ -6,10 +6,7 @@ import type {
 } from './autoscout24-dms-api.types.js';
 
 export type FakeAutoscout24DmsBehavior =
-  | 'success'
-  | 'reject400'
-  | 'reject500'
-  | 'timeout';
+  'success' | 'reject400' | 'reject500' | 'timeout';
 
 type StoredListing = {
   sellerListingRef: string;
@@ -80,7 +77,6 @@ export class FakeAutoscout24DmsContractServer {
       idempotencyKey,
     });
 
-    const digest = this.digestIdempotency(idempotencyKey, payload);
     const existing = this.listings.get(payload.sellerListingRef);
     if (existing && existing.idempotencyKey === idempotencyKey) {
       return {
@@ -124,7 +120,10 @@ export class FakeAutoscout24DmsContractServer {
     });
 
     const existing = this.listings.get(sellerListingRef);
-    if (existing?.idempotencyKey === idempotencyKey && !this.listings.has(sellerListingRef)) {
+    if (
+      existing?.idempotencyKey === idempotencyKey &&
+      !this.listings.has(sellerListingRef)
+    ) {
       return {
         kind: 'deactivate',
         externalListingId: existingExternalListingId,

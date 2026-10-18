@@ -3903,6 +3903,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vehicle-stock/{vehicleId}/listing/export/as24-dms/push": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Push the current AutoScout24 listing to the DMS API (feature-flagged, default off) */
+        post: operations["Autoscout24DmsPushController_push"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/employees": {
         parameters: {
             query?: never;
@@ -9883,6 +9900,26 @@ export interface components {
         };
         VehicleListingExportValidationResponseDto: {
             channels: components["schemas"]["VehicleListingChannelValidationDto"][];
+        };
+        /** @enum {string} */
+        Autoscout24DmsPushActionDto: "UPSERT" | "DEACTIVATE";
+        Autoscout24DmsPushRequestDto: {
+            idempotency_key: string;
+            expected_revision: number;
+            action: components["schemas"]["Autoscout24DmsPushActionDto"];
+        };
+        /** @enum {string} */
+        VehicleListingDmsProvider: "AS24_DMS";
+        /** @enum {string} */
+        VehicleListingDmsSyncState: "NEVER_SYNCED" | "PENDING" | "SYNCED" | "FAILED" | "DEACTIVATED";
+        Autoscout24DmsPushResponseDto: {
+            channel_id: string;
+            provider: components["schemas"]["VehicleListingDmsProvider"];
+            sync_state: components["schemas"]["VehicleListingDmsSyncState"];
+            external_listing_id: Record<string, never> | null;
+            last_sync_at: Record<string, never> | null;
+            last_sync_error_code: Record<string, never> | null;
+            idempotent_replay: boolean;
         };
         /** @enum {string} */
         EmployeeRole: "MECHANIC" | "SERVICE_ADVISOR" | "PARTS_CLERK";
@@ -19117,6 +19154,31 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    Autoscout24DmsPushController_push: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Autoscout24DmsPushRequestDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Autoscout24DmsPushResponseDto"];
+                };
             };
         };
     };

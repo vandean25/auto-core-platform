@@ -9,7 +9,12 @@ import { VehicleListingController } from './vehicle-listing.controller.js';
 import { VehicleListingService } from './vehicle-listing.service.js';
 
 @Module({
-  imports: [PrismaModule, CommonModule, VehicleStockModule, Autoscout24DmsModule],
+  imports: [
+    PrismaModule,
+    CommonModule,
+    VehicleStockModule,
+    Autoscout24DmsModule,
+  ],
   controllers: [VehicleListingController, VehicleListingExportController],
   providers: [VehicleListingService, VehicleListingExportService],
   exports: [VehicleListingService, VehicleListingExportService],

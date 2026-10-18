@@ -13,7 +13,8 @@ import {
   readAutoscout24DmsHttpTimeoutMs,
 } from './autoscout24-dms-env.js';
 
-export type Autoscout24DmsCredentialResolver = () => Promise<Autoscout24DmsCredentials | null>;
+export type Autoscout24DmsCredentialResolver =
+  () => Promise<Autoscout24DmsCredentials | null>;
 
 type FetchLike = typeof fetch;
 
@@ -23,7 +24,9 @@ type FetchLike = typeof fetch;
  */
 @Injectable()
 export class HttpAutoscout24DmsListingPublisherAdapter implements Autoscout24DmsListingPublisherPort {
-  private readonly logger = new Logger(HttpAutoscout24DmsListingPublisherAdapter.name);
+  private readonly logger = new Logger(
+    HttpAutoscout24DmsListingPublisherAdapter.name,
+  );
 
   constructor(
     private readonly resolveCredentials: Autoscout24DmsCredentialResolver | null,
@@ -42,19 +45,30 @@ export class HttpAutoscout24DmsListingPublisherAdapter implements Autoscout24Dms
       : '/api/v1/listings';
     const method = existingExternalListingId ? 'PUT' : 'POST';
 
-    const response = await this.request(baseUrl, path, method, credentials, idempotencyKey, {
-      sellerListingRef: payload.sellerListingRef,
-      title: payload.title,
-      priceGrossEur: payload.priceGrossEur,
-      action: payload.action,
-    });
+    const response = await this.request(
+      baseUrl,
+      path,
+      method,
+      credentials,
+      idempotencyKey,
+      {
+        sellerListingRef: payload.sellerListingRef,
+        title: payload.title,
+        priceGrossEur: payload.priceGrossEur,
+        action: payload.action,
+      },
+    );
 
-    const externalListingId = this.readExternalListingId(response.body, existingExternalListingId);
+    const externalListingId = this.readExternalListingId(
+      response.body,
+      existingExternalListingId,
+    );
     return {
       kind: 'upsert',
       externalListingId,
       httpStatus: response.status,
-      idempotentReplay: response.status === 200 && Boolean(existingExternalListingId),
+      idempotentReplay:
+        response.status === 200 && Boolean(existingExternalListingId),
     };
   }
 
@@ -66,8 +80,7 @@ export class HttpAutoscout24DmsListingPublisherAdapter implements Autoscout24Dms
     const credentials = await this.requireCredentials();
     const baseUrl = this.requireBaseUrl();
     const externalId =
-      existingExternalListingId ??
-      encodeURIComponent(payload.sellerListingRef);
+      existingExternalListingId ?? encodeURIComponent(payload.sellerListingRef);
     const response = await this.request(
       baseUrl,
       `/api/v1/listings/${externalId}`,

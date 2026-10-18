@@ -230,13 +230,15 @@ export class Autoscout24DmsListingPushService {
   } {
     if (error instanceof HttpException) {
       const response = error.getResponse();
-      const code =
+      let code = 'LISTING_PUSH_PROVIDER_ERROR';
+      if (
         typeof response === 'object' &&
         response !== null &&
         'code' in response &&
-        typeof (response as { code: unknown }).code === 'string'
-          ? (response as { code: string }).code
-          : 'LISTING_PUSH_PROVIDER_ERROR';
+        typeof response.code === 'string'
+      ) {
+        code = response.code;
+      }
       return { code, exception: error };
     }
     if (error instanceof Autoscout24DmsAdapterError) {
