@@ -253,7 +253,7 @@ describe('workshop-pdf.layout', () => {
   describe('buildWorkshopFooterNotes and buildWorkshopFooterTemplate', () => {
     it('renders footer signature line', () => {
       const html = buildWorkshopFooterNotes(enCopy);
-      expect(html).toContain('Signature Mechanic:');
+      expect(html).toContain("Mechanic's signature:");
     });
 
     it('renders footer template for Playwright with safe order number', () => {

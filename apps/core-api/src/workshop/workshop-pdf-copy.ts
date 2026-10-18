@@ -77,7 +77,7 @@ const WORKSHOP_PDF_COPY: Record<DisplayLanguage, WorkshopPdfCopy> = {
     mechanicNotesLabel: 'Mechanic Notes',
     internalNotesTitle: 'Internal Notes',
     footerSignatureLine:
-      'Signature Mechanic: ___________________________ &nbsp;&nbsp;&nbsp;&nbsp; Date: ________________',
+      "Mechanic's signature: ___________________________ &nbsp;&nbsp;&nbsp;&nbsp; Date: ________________",
     footerDocumentLabel: (orderNumber) => `Job Card ${orderNumber}`,
   },
 };
