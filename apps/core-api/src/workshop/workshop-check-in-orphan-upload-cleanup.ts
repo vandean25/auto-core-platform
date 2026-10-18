@@ -1,7 +1,4 @@
-import {
-  WorkshopMediaPurpose,
-  type Prisma,
-} from '@prisma/client';
+import { WorkshopMediaPurpose, type Prisma } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { MechanicMediaStorage } from '../mechanic/mechanic-media.storage.js';
 import { WORKSHOP_CHECK_IN_MEDIA_PURPOSES } from './workshop-media-purpose.helpers.js';
@@ -73,9 +70,7 @@ async function lockOrphanMediaRow(
 }
 
 export type PurgeOrphanCheckInUploadResult =
-  | { outcome: 'deleted' }
-  | { outcome: 'skipped' }
-  | { outcome: 'missing' };
+  { outcome: 'deleted' } | { outcome: 'skipped' } | { outcome: 'missing' };
 
 /**
  * Deletes unattached check-in media after the row lock confirms it is still orphaned
