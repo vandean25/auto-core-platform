@@ -8,7 +8,6 @@ import {
   AuditLogAction,
   Prisma,
   WarrantyClaimStatus,
-  WarrantyClaimType,
   WorkshopOrderStatus,
   WorkshopPartLineExecutionStatus,
 } from '@prisma/client';
@@ -111,71 +110,6 @@ export class WarrantyClaimService {
 
     const data = rows.map((row) => toWarrantyClaimResponse(row));
     return { data, meta: { total: data.length } };
-  }
-
-  /**
-   * Site-scoped claim list for agent reads: optional order filter, status and type filters,
-   * keyset paging over createdAt desc then id desc.
-   */
-  async listAtActiveSite(params: {
-    workshopOrderId?: string;
-    statuses?: WarrantyClaimStatus[];
-    type?: WarrantyClaimType;
-    pageSize: number;
-    cursorCreatedAt?: Date;
-    cursorId?: string;
-  }): Promise<{ rows: WarrantyClaimResponse[]; total: number }> {
-    const { tenantId, siteId } = await this.resolveScope();
-    if (params.workshopOrderId) {
-      await this.findOrderInSite(tenantId, siteId, params.workshopOrderId);
-    }
-
-    const orderScope: Prisma.WorkshopOrderWhereInput = {
-      tenant_id: tenantId,
-      site_id: siteId,
-      ...(params.workshopOrderId ? { id: params.workshopOrderId } : {}),
-    };
-
-    const baseWhere: Prisma.WarrantyClaimWhereInput = {
-      tenant_id: tenantId,
-      workshop_order: orderScope,
-      ...(params.statuses && params.statuses.length > 0
-        ? { status: { in: params.statuses } }
-        : {}),
-      ...(params.type ? { type: params.type } : {}),
-    };
-
-    const cursorWhere: Prisma.WarrantyClaimWhereInput | undefined =
-      params.cursorCreatedAt && params.cursorId
-        ? {
-            OR: [
-              { createdAt: { lt: params.cursorCreatedAt } },
-              {
-                createdAt: params.cursorCreatedAt,
-                id: { lt: params.cursorId },
-              },
-            ],
-          }
-        : undefined;
-
-    const where: Prisma.WarrantyClaimWhereInput = cursorWhere
-      ? { AND: [baseWhere, cursorWhere] }
-      : baseWhere;
-
-    const [total, rows] = await Promise.all([
-      this.prisma.warrantyClaim.count({ where: baseWhere }),
-      this.prisma.warrantyClaim.findMany({
-        where,
-        include: claimInclude(tenantId),
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-        take: params.pageSize + 1,
-      }),
-    ]);
-
-    return {
-      rows: rows.map((row) => toWarrantyClaimResponse(row)),
-      total,
-    };
   }
 
   async get(orderId: string, claimId: string): Promise<WarrantyClaimResponse> {

@@ -60,7 +60,6 @@ import {
   exports: [
     VehicleLedgerService,
     VehicleSaleService,
-    VehicleStockQueryService,
     VehicleStockReportsService,
     VEHICLE_MEDIA_STORAGE,
   ],

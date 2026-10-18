@@ -4,12 +4,13 @@ import { PrismaModule } from '../prisma/prisma.module.js';
 import { SiteModule } from '../site/site.module.js';
 import { TyreStorageController } from './tyre-storage.controller.js';
 import { TyreStorageClock } from './tyre-storage.clock.js';
+import { TyreSetListReadService } from './tyre-set-list-read.service.js';
 import { TyreStorageService } from './tyre-storage.service.js';
 
 @Module({
   imports: [PrismaModule, CommonModule, SiteModule],
   controllers: [TyreStorageController],
-  providers: [TyreStorageService, TyreStorageClock],
-  exports: [TyreStorageService, TyreStorageClock],
+  providers: [TyreStorageService, TyreSetListReadService, TyreStorageClock],
+  exports: [TyreStorageService, TyreSetListReadService, TyreStorageClock],
 })
 export class TyreStorageModule {}

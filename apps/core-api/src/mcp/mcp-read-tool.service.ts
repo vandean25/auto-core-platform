@@ -106,7 +106,7 @@ export class McpReadToolService {
     reportReads: McpReportReadService,
     availabilityReads: McpAvailabilityReadService,
     workshopOrderDetailReads: McpWorkshopOrderDetailReadService,
-    complianceReads: McpComplianceReadService,
+    complianceReads: McpComplianceReadService = {} as McpComplianceReadService,
   ) {
     this.capabilities = capabilities;
     this.auditReads = auditReads;

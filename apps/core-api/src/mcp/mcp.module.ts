@@ -15,6 +15,7 @@ import { WorkshopModule } from '../workshop/workshop.module.js';
 import { CustomerConsentModule } from '../customer-consent/customer-consent.module.js';
 import { TyreStorageModule } from '../tyre-storage/tyre-storage.module.js';
 import { VehicleStockModule } from '../vehicle-stock/vehicle-stock.module.js';
+import { VehicleStockQueryModule } from '../vehicle-stock/vehicle-stock-query.module.js';
 import { WarrantyClaimModule } from '../warranty-claim/warranty-claim.module.js';
 import { McpComplianceReadService } from './mcp-compliance-read.service.js';
 import { LoanerVehiclesModule } from '../loaner-vehicles/loaner-vehicles.module.js';
@@ -58,6 +59,7 @@ import { InvoicesModule } from '../invoices/invoices.module.js';
     InventoryModule,
     PartsRequisitionModule,
     VehicleStockModule,
+    VehicleStockQueryModule,
     CustomerConsentModule,
     TyreStorageModule,
     WarrantyClaimModule,

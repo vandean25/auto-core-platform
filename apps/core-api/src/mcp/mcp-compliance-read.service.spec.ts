@@ -2,9 +2,10 @@ import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import type { TenantContextService } from '../common/services/tenant-context.service.js';
 import type { CustomerConsentService } from '../customer-consent/customer-consent.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
+import type { TyreSetListReadService } from '../tyre-storage/tyre-set-list-read.service.js';
 import type { TyreStorageService } from '../tyre-storage/tyre-storage.service.js';
 import type { VehicleStockQueryService } from '../vehicle-stock/vehicle-stock-query.service.js';
-import type { WarrantyClaimService } from '../warranty-claim/warranty-claim.service.js';
+import type { WarrantyClaimSiteListService } from '../warranty-claim/warranty-claim-site-list.service.js';
 import { McpComplianceReadService } from './mcp-compliance-read.service.js';
 import { encodeMcpCursor } from './mcp-output.util.js';
 
@@ -43,14 +44,16 @@ function build(options: {
     }),
   };
   const tyreStorage = {
+    listDueForSwap: jest.fn().mockResolvedValue({ data: [] }),
+    findByVehicle: jest.fn().mockResolvedValue({ data: [] }),
+  };
+  const tyreSetListRead = {
     list: jest.fn().mockResolvedValue({
       data: [],
       meta: { total: 0, page: 1, pageSize: 10, pageCount: 0 },
     }),
-    listDueForSwap: jest.fn().mockResolvedValue({ data: [] }),
-    findByVehicle: jest.fn().mockResolvedValue({ data: [] }),
   };
-  const warrantyClaims = {
+  const warrantyClaimSiteList = {
     listAtActiveSite: jest.fn().mockResolvedValue({ rows: [], total: 0 }),
   };
 
@@ -60,7 +63,8 @@ function build(options: {
     customerConsent as unknown as CustomerConsentService,
     vehicleStock as unknown as VehicleStockQueryService,
     tyreStorage as unknown as TyreStorageService,
-    warrantyClaims as unknown as WarrantyClaimService,
+    tyreSetListRead as unknown as TyreSetListReadService,
+    warrantyClaimSiteList as unknown as WarrantyClaimSiteListService,
   );
 
   return {
@@ -70,7 +74,8 @@ function build(options: {
     customerConsent,
     vehicleStock,
     tyreStorage,
-    warrantyClaims,
+    tyreSetListRead,
+    warrantyClaimSiteList,
   };
 }
 
@@ -151,16 +156,16 @@ describe('McpComplianceReadService.listTyreSets', () => {
   const VEHICLE_ID = '00000000-0000-4000-8000-0000000000v1';
 
   it('uses listDueForSwap when due_for_swap is true', async () => {
-    const { service, tyreStorage } = build({});
+    const { service, tyreStorage, tyreSetListRead } = build({});
 
     await service.listTyreSets({ due_for_swap: true });
 
     expect(tyreStorage.listDueForSwap).toHaveBeenCalled();
-    expect(tyreStorage.list).not.toHaveBeenCalled();
+    expect(tyreSetListRead.list).not.toHaveBeenCalled();
   });
 
   it('passes vehicle_id to list when customer_id is also set', async () => {
-    const { service, tyreStorage } = build({});
+    const { service, tyreSetListRead } = build({});
 
     await service.listTyreSets({
       customer_id: CUSTOMER_ID,
@@ -168,18 +173,17 @@ describe('McpComplianceReadService.listTyreSets', () => {
       pageSize: 10,
     });
 
-    expect(tyreStorage.list).toHaveBeenCalledWith(
+    expect(tyreSetListRead.list).toHaveBeenCalledWith(
       expect.objectContaining({
         customerId: CUSTOMER_ID,
         vehicleId: VEHICLE_ID,
       }),
     );
-    expect(tyreStorage.findByVehicle).not.toHaveBeenCalled();
   });
 
   it('pages with a row offset cursor instead of a page index', async () => {
-    const { service, tyreStorage } = build({});
-    tyreStorage.list.mockResolvedValueOnce({
+    const { service, tyreSetListRead } = build({});
+    tyreSetListRead.list.mockResolvedValueOnce({
       data: [{ id: 'row-2' }, { id: 'row-3' }, { id: 'row-4' }],
       meta: { total: 5, page: 1, pageSize: 3, pageCount: 2 },
     });
@@ -189,7 +193,7 @@ describe('McpComplianceReadService.listTyreSets', () => {
       pageSize: 2,
     });
 
-    expect(tyreStorage.list).toHaveBeenCalledWith({
+    expect(tyreSetListRead.list).toHaveBeenCalledWith({
       skip: 2,
       pageSize: 3,
       customerId: undefined,
@@ -201,11 +205,11 @@ describe('McpComplianceReadService.listTyreSets', () => {
 
 describe('McpComplianceReadService.listWarrantyClaims', () => {
   it('scopes through the warranty claim service', async () => {
-    const { service, warrantyClaims } = build({});
+    const { service, warrantyClaimSiteList } = build({});
 
     await service.listWarrantyClaims({ status: 'DRAFT', pageSize: 10 });
 
-    expect(warrantyClaims.listAtActiveSite).toHaveBeenCalledWith(
+    expect(warrantyClaimSiteList.listAtActiveSite).toHaveBeenCalledWith(
       expect.objectContaining({
         statuses: ['DRAFT'],
         pageSize: 10,
@@ -214,11 +218,11 @@ describe('McpComplianceReadService.listWarrantyClaims', () => {
   });
 
   it('rejects TECH callers', async () => {
-    const { service, warrantyClaims } = build({ role: 'TECH' });
+    const { service, warrantyClaimSiteList } = build({ role: 'TECH' });
 
     await expect(service.listWarrantyClaims({})).rejects.toBeInstanceOf(
       ForbiddenException,
     );
-    expect(warrantyClaims.listAtActiveSite).not.toHaveBeenCalled();
+    expect(warrantyClaimSiteList.listAtActiveSite).not.toHaveBeenCalled();
   });
 });

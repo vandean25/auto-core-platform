@@ -7,15 +7,17 @@ import { WarrantyClaimController } from './warranty-claim.controller.js';
 import { WarrantyClaimPdfRenderer } from './warranty-claim-pdf.renderer.js';
 import { WarrantyClaimPdfService } from './warranty-claim-pdf.service.js';
 import { WarrantyClaimService } from './warranty-claim.service.js';
+import { WarrantyClaimSiteListService } from './warranty-claim-site-list.service.js';
 
 @Module({
   imports: [PrismaModule, AuditModule, CommonModule, DocumentBrandingModule],
   controllers: [WarrantyClaimController],
   providers: [
     WarrantyClaimService,
+    WarrantyClaimSiteListService,
     WarrantyClaimPdfService,
     WarrantyClaimPdfRenderer,
   ],
-  exports: [WarrantyClaimService],
+  exports: [WarrantyClaimService, WarrantyClaimSiteListService],
 })
 export class WarrantyClaimModule {}

@@ -8,10 +8,11 @@ import {
 import { CustomerConsentService } from '../customer-consent/customer-consent.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { TyreSetListReadService } from '../tyre-storage/tyre-set-list-read.service.js';
 import { TyreStorageService } from '../tyre-storage/tyre-storage.service.js';
 import type { TyreSetResponseDto } from '../tyre-storage/dto/tyre-set.dto.js';
 import { VehicleStockQueryService } from '../vehicle-stock/vehicle-stock-query.service.js';
-import { WarrantyClaimService } from '../warranty-claim/warranty-claim.service.js';
+import { WarrantyClaimSiteListService } from '../warranty-claim/warranty-claim-site-list.service.js';
 import { assertWarrantyClaimAccess } from '../warranty-claim/warranty-claim.rules.js';
 import { offsetFromCursor, toMcpPageMeta } from './mcp-report-read.mapper.js';
 import {
@@ -50,7 +51,8 @@ export class McpComplianceReadService {
     private readonly customerConsent: CustomerConsentService,
     private readonly vehicleStock: VehicleStockQueryService,
     private readonly tyreStorage: TyreStorageService,
-    private readonly warrantyClaims: WarrantyClaimService,
+    private readonly tyreSetListRead: TyreSetListReadService,
+    private readonly warrantyClaimSiteList: WarrantyClaimSiteListService,
   ) {}
 
   async checkContactPermission(input: CheckContactInput) {
@@ -114,7 +116,7 @@ export class McpComplianceReadService {
       };
     }
 
-    const listed = await this.tyreStorage.list({
+    const listed = await this.tyreSetListRead.list({
       customerId: input.customer_id,
       vehicleId: input.vehicle_id,
       status: input.status,
@@ -143,7 +145,7 @@ export class McpComplianceReadService {
       ? [input.status]
       : undefined;
 
-    const { rows, total } = await this.warrantyClaims.listAtActiveSite({
+    const { rows, total } = await this.warrantyClaimSiteList.listAtActiveSite({
       workshopOrderId: input.order_id,
       statuses,
       type: input.type,

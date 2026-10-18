@@ -15021,27 +15021,11 @@
             }
           },
           {
-            "name": "skip",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "number"
-            }
-          },
-          {
             "name": "status",
             "required": false,
             "in": "query",
             "schema": {
               "$ref": "#/components/schemas/TyreSetStatus"
-            }
-          },
-          {
-            "name": "vehicleId",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
             }
           },
           {

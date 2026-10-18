@@ -2,7 +2,7 @@ import { ForbiddenException } from '@nestjs/common';
 import { ZodError } from 'zod';
 import type { AgentActionLogService } from '../agent-action-log/agent-action-log.service.js';
 import type { McpComplianceReadService } from './mcp-compliance-read.service.js';
-import { McpReadToolService } from './mcp-read-tool.service.js';
+import { createMcpReadToolServiceForTest } from './mcp-read-tool.service.spec.support.js';
 import {
   HANDLER_SPEC_CONTEXT,
   expectAutoReadRecorded,
@@ -50,24 +50,10 @@ describe('McpToolHandlerService AUT-605 compliance reads', () => {
     };
     const unused = {} as never;
 
-    const readTools = new McpReadToolService(
-      unused,
-      unused,
-      unused,
-      unused,
-      unused,
-      unused,
-      unused,
-      unused,
-      unused,
-      unused,
-      unused,
-      unused,
-      unused,
-      unused,
-      unused,
-      complianceReads as unknown as McpComplianceReadService,
-    );
+    const readTools = createMcpReadToolServiceForTest({
+      complianceReads:
+        complianceReads as unknown as McpComplianceReadService,
+    });
     handler = new McpToolHandlerService(
       agentActionLog as unknown as AgentActionLogService,
       {} as unknown as McpWritePipelineService,

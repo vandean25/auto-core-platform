@@ -20764,9 +20764,7 @@ export interface operations {
                 page?: number;
                 pageSize?: number;
                 season?: components["schemas"]["TyreSeason"];
-                skip?: number;
                 status?: components["schemas"]["TyreSetStatus"];
-                vehicleId?: string;
                 vehicleSearch?: string;
             };
             header?: never;

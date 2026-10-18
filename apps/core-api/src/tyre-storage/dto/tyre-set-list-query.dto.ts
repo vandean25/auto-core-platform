@@ -20,11 +20,6 @@ export class TyreSetListQueryDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsUUID()
-  vehicleId?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
   @IsString()
   vehicleSearch?: string;
 
@@ -52,14 +47,6 @@ export class TyreSetListQueryDto {
   @IsOptional()
   @IsDateString()
   dueTo?: string;
-
-  /** Row offset for keyset-free paging (MCP offset cursors). Ignored when `page` is used without `skip`. */
-  @ApiPropertyOptional()
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  skip?: number;
 
   @ApiPropertyOptional()
   @IsOptional()
