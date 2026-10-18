@@ -62,7 +62,11 @@ describe('NotificationOutboxService.enqueueInTx()', () => {
       idempotency_key:
         'WORKSHOP_TASK_WAITING_CUSTOMER:labor-entry-1:advisors:IN_APP',
     });
-    expect(result).toEqual({ id: args.data[0].id, created: true });
+    expect(result).toEqual({
+      blocked: false,
+      id: args.data[0].id,
+      created: true,
+    });
     expect(tx.notificationOutbox.findFirst).not.toHaveBeenCalled();
   });
 
@@ -71,7 +75,11 @@ describe('NotificationOutboxService.enqueueInTx()', () => {
 
     const result = await service.enqueueInTx(tx as never, input);
 
-    expect(result).toEqual({ id: 'existing-row', created: false });
+    expect(result).toEqual({
+      blocked: false,
+      id: 'existing-row',
+      created: false,
+    });
     expect(tx.notificationOutbox.findFirst).toHaveBeenCalledWith({
       where: {
         tenant_id: 'tenant-1',

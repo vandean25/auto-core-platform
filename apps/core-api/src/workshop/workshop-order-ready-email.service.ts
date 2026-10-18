@@ -293,7 +293,7 @@ export class WorkshopOrderReadyEmailService {
     if (!built.ok) {
       return null;
     }
-    const { id, created } = await this.outbox.enqueueInTx(
+    const enqueued = await this.outbox.enqueueInTx(
       tx,
       {
         tenantId: input.tenantId,
@@ -305,6 +305,8 @@ export class WorkshopOrderReadyEmailService {
         workshopOrderId: input.order.id,
         sourceEntityType: 'WorkshopOrder',
         sourceEntityId: input.order.id,
+        consentPurpose: 'ORDER_COMMUNICATION',
+        controllerLegalEntityId: site.legal_entity.id,
         email: built.draft,
         payload: {
           customer_id: input.order.customer!.id,
@@ -314,6 +316,10 @@ export class WorkshopOrderReadyEmailService {
       },
       input.occurredAt,
     );
+    if (enqueued.blocked) {
+      return null;
+    }
+    const { id, created } = enqueued;
     if (created) {
       await appendWorkshopOrderReadyDomainEvent(tx, this.domainEventStore, {
         tenantId: input.tenantId,

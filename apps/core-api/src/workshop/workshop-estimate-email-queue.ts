@@ -62,7 +62,7 @@ export async function queueEstimateEmailInTx(
       expires_at: input.validUntil,
     },
   });
-  const { id } = await outbox.enqueueInTx(
+  const enqueued = await outbox.enqueueInTx(
     tx,
     {
       tenantId: input.tenantId,
@@ -74,13 +74,17 @@ export async function queueEstimateEmailInTx(
       workshopOrderId: input.workshopOrderId,
       sourceEntityType: 'WorkshopEstimateVersion',
       sourceEntityId: input.versionId,
+      consentPurpose: 'ORDER_COMMUNICATION',
       email: email.draft,
       // The customer the message is for, so a refusal of the address can clear that customer's confirmation.
       payload: { customer_id: input.customer.id },
     },
     input.issuedAt,
   );
-  return id;
+  if (enqueued.blocked) {
+    return null;
+  }
+  return enqueued.id;
 }
 
 /**

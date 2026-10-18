@@ -78,7 +78,9 @@ describe('LandingDemoAccessService account isolation', () => {
       .fn()
       .mockResolvedValue(true);
 
-    outbox.enqueueInTx = jest.fn().mockResolvedValue({ created: true, id: 'o1' });
+    outbox.enqueueInTx = jest
+      .fn()
+      .mockResolvedValue({ blocked: false, created: true, id: 'o1' });
 
     service = new LandingDemoAccessService(
       systemPrisma,
