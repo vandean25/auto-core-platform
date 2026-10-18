@@ -61,7 +61,9 @@ import {
   toGewaehrleistungReadFields,
 } from './vehicle-sale.warranty.js';
 import { viennaIsoDay } from './gewaehrleistung/gewaehrleistung-status.js';
+import { findReceivedStockPurchaseIdForActiveSite } from '../vehicle/equipment/vehicle-equipment-stock-cycle.js';
 import { deactivateVehicleListingsOnSale } from '../vehicle/listing/vehicle-listing-sale-deactivate.js';
+import { Autoscout24DmsListingPushService } from '../vehicle/listing-export/autoscout24-dms/autoscout24-dms-listing-push.service.js';
 import {
   DEFAULT_VAT_RATE,
   assignInvoiceNumber,
@@ -88,6 +90,7 @@ export class VehicleSaleService {
   private readonly snapshotCommit: InvoiceSnapshotCommitService;
   private readonly auditService: AuditService;
   private readonly requestContext: RequestContextService;
+  private readonly autoscout24DmsPush: Autoscout24DmsListingPushService;
 
   // Fields are assigned in the body rather than declared as parameter properties: cohesion analysis
   // otherwise counts the constructor as a separate component and flags the whole class as low-cohesion.
@@ -99,6 +102,7 @@ export class VehicleSaleService {
     snapshotCommit: InvoiceSnapshotCommitService,
     auditService: AuditService,
     requestContext: RequestContextService,
+    autoscout24DmsPush: Autoscout24DmsListingPushService,
   ) {
     this.prisma = prisma;
     this.tenantContext = tenantContext;
@@ -107,6 +111,7 @@ export class VehicleSaleService {
     this.snapshotCommit = snapshotCommit;
     this.auditService = auditService;
     this.requestContext = requestContext;
+    this.autoscout24DmsPush = autoscout24DmsPush;
   }
 
   async create(dto: CreateVehicleSaleDto) {
@@ -352,7 +357,11 @@ export class VehicleSaleService {
   async finalize(id: string) {
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
-    return this.prisma.$transaction(async (tx) => {
+    let dmsSaleContext: {
+      vehicleId: string;
+      stockPurchaseId: string;
+    } | null = null;
+    const response = await this.prisma.$transaction(async (tx) => {
       const draft = await findSaleForFinalize(tx, id, tenantId, siteId);
       const persistedSiteId = assertPersistedSiteId(
         draft.site_id,
@@ -482,6 +491,18 @@ export class VehicleSaleService {
         siteId: persistedSiteId,
         vehicleId: posted.vehicle_id,
       });
+      const stockPurchaseId = await findReceivedStockPurchaseIdForActiveSite(
+        tx,
+        tenantId,
+        posted.vehicle_id,
+        persistedSiteId,
+      );
+      if (stockPurchaseId) {
+        dmsSaleContext = {
+          vehicleId: posted.vehicle_id,
+          stockPurchaseId,
+        };
+      }
 
       await this.releaseStockAndPostLedger(tx, tenantId, posted, {
         persistedSiteId,
@@ -494,6 +515,20 @@ export class VehicleSaleService {
         prepared.snapshot,
       );
     });
+
+    if (dmsSaleContext !== null) {
+      const { vehicleId: saleVehicleId, stockPurchaseId } = dmsSaleContext;
+      await this.autoscout24DmsPush
+        .deactivateAfterVehicleSale({
+          tenantId,
+          siteId,
+          vehicleId: saleVehicleId,
+          stockPurchaseId,
+        })
+        .catch(() => undefined);
+    }
+
+    return response;
   }
 
   async hasOpenStockPrep(

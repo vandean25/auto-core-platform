@@ -23,6 +23,7 @@ import { VehicleLedgerService } from './vehicle-ledger.service.js';
 import { VehicleSaleService } from './vehicle-sale.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { RequestContextService } from '../common/services/request-context.service.js';
+import { Autoscout24DmsListingPushService } from '../vehicle/listing-export/autoscout24-dms/autoscout24-dms-listing-push.service.js';
 import type { CreateVehicleSaleDto } from './dto/create-vehicle-sale.dto.js';
 import type { PatchVehicleSaleDto } from './dto/patch-vehicle-sale.dto.js';
 import type { CorrectGewaehrleistungSnapshotDto } from './dto/correct-gewaehrleistung-snapshot.dto.js';
@@ -215,6 +216,9 @@ describe('VehicleSaleService characterization', () => {
       listAuthorizedSiteIds: jest.fn().mockResolvedValue(['site-1']),
     };
     const requestContext = { getSource: jest.fn().mockReturnValue('API') };
+    const autoscout24DmsPush = {
+      deactivateAfterVehicleSale: jest.fn().mockResolvedValue(undefined),
+    };
     service = new VehicleSaleService(
       prisma as unknown as PrismaService,
       tenantContext as unknown as TenantContextService,
@@ -223,6 +227,7 @@ describe('VehicleSaleService characterization', () => {
       snapshotCommit as unknown as InvoiceSnapshotCommitService,
       auditService as unknown as AuditService,
       requestContext as unknown as RequestContextService,
+      autoscout24DmsPush as unknown as Autoscout24DmsListingPushService,
     );
   });
 
