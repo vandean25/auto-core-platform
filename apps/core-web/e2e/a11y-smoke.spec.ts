@@ -20,8 +20,6 @@ import { A11Y_SMOKE_ROUTES, type A11ySmokeRoute } from './utils/a11y-smoke-route
  * route once its overflow is fixed. With the sidebar expanded, every smoke route overflows.
  */
 const REFLOW_320_GATED_ROUTES = new Set<string>([
-  'inventory list',
-  'settings: brands tab',
   'settings: storage locations tab',
 ]);
 

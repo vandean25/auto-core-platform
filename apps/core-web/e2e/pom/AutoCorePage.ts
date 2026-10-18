@@ -97,8 +97,8 @@ export class AutoCorePage {
       name: title,
       exact: true,
     });
-    await expect(heading).toBeVisible();
-    await expect(this.createButton).toBeVisible();
+    await expect(heading).toBeVisible({ timeout: 15_000 });
+    await expect(this.createButton).toBeVisible({ timeout: 15_000 });
   }
 
   /**

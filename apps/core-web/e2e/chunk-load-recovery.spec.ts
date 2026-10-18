@@ -8,7 +8,7 @@ const dashboardModulePattern = /DashboardPage-[\w-]+\.js$/
 
 async function expectRecoveredUi(page: import('@playwright/test').Page) {
   const updateRequired = page.getByText(DE_SHELL.errorBoundary.chunkTitle)
-  const dashboardHeading = page.getByRole('heading', { name: DE_COMMON.dashboard.title })
+  const dashboardHeading = page.getByRole('heading', { level: 1, name: DE_COMMON.dashboard.title })
 
   await expect(updateRequired.or(dashboardHeading)).toBeVisible({ timeout: 30_000 })
 

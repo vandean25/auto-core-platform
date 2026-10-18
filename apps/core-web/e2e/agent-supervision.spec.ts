@@ -157,20 +157,14 @@ test.describe('Agent Supervision Screen (AUT-401)', () => {
     })
   })
 
-  async function waitForAgentCopy(page: import('@playwright/test').Page) {
-    await expect(page.getByTestId('agent-supervision-page')).toBeVisible({ timeout: 30_000 })
-    await expect(page.getByRole('heading', { level: 1, name: DE_AGENT.header.title })).toBeVisible({
-      timeout: 30_000,
-    })
-  }
-
   test('renders persistent safety banner, proposal queue, and passes axe a11y', async ({ page }) => {
     const corePage = new AutoCorePage(page, DE_AGENT.header.title)
     await corePage.navigate('/agent/supervision')
 
-    await waitForAgentCopy(page)
-
     // Verify Heading & Safety Banner
+    await expect(page.getByRole('heading', { level: 1, name: DE_AGENT.header.title })).toBeVisible({
+      timeout: 30_000,
+    })
     const safetyBanner = page.getByTestId('agent-safety-banner')
     await expect(safetyBanner).toBeVisible()
     await expect(safetyBanner).toContainText(DE_AGENT.banner.title)
@@ -288,7 +282,9 @@ test.describe('Agent Supervision Screen (AUT-401)', () => {
     const corePage = new AutoCorePage(page, DE_AGENT.header.title)
     await corePage.navigate('/agent/supervision')
 
-    await waitForAgentCopy(page)
+    await expect(page.getByRole('heading', { level: 1, name: DE_AGENT.header.title })).toBeVisible({
+      timeout: 30_000,
+    })
     await expect(page.getByTestId('agent-safety-banner')).toContainText(DE_AGENT.banner.title)
     await expectNoCriticalA11yViolations(page)
   })

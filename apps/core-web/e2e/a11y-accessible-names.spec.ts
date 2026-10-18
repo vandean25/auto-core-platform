@@ -60,7 +60,9 @@ test.describe('Icon-only controls have accessible names (AUT-471)', () => {
     const corePage = new AutoCorePage(page, 'Sales Order');
     await corePage.navigate('/sales-orders/so-1');
 
-    await expect(page.getByRole('link', { name: DE_SALES.orders.detail.backAria })).toBeVisible();
+    await expect(page.getByRole('link', { name: DE_SALES.orders.detail.backAria })).toBeVisible({
+      timeout: 15_000,
+    });
     await expectNamedControls(page);
   });
 

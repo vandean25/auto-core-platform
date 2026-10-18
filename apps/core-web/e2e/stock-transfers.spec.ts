@@ -169,6 +169,9 @@ test.describe('Stock Transfers — destination-only request and cancel', () => {
     await page.getByLabel(DE_INVENTORY.stockTransfers.create.fromSite).click()
     await page.getByRole('option', { name: /Wien/ }).click()
 
+    await page.getByLabel(DE_INVENTORY.stockTransfers.create.toSite).click()
+    await page.getByRole('option', { name: /München/ }).click()
+
     await page.getByLabel(DE_INVENTORY.stockTransfers.create.addParts).fill('FILTER')
     await page.getByRole('button', { name: 'FILTER-01' }).click()
 
