@@ -1,7 +1,6 @@
 import * as React from "react"
 import { Check, ChevronsUpDown } from "lucide-react"
 import { useTranslation } from 'react-i18next'
-import { ensureNamespaceLoaded } from '@/lib/i18n'
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -33,9 +32,6 @@ const getCustomerName = (customer: Customer) => {
 
 export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
   const { t } = useTranslation('customers')
-  React.useEffect(() => {
-    void ensureNamespaceLoaded('customers')
-  }, [])
   const [open, setOpen] = React.useState(false)
   const [search, setSearch] = React.useState("")
   const { data: customersResponse } = useCustomers({

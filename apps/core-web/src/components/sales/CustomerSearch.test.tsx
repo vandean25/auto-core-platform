@@ -1,18 +1,18 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CustomerSearch } from './CustomerSearch'
 import * as customersApi from '@/api/customers'
 import { deCustomers } from '@/test/de-customers'
-import { changeUiLanguage } from '@/lib/i18n'
+import { LAZY_NAMESPACES, PRELOAD_NAMESPACES } from '@/lib/i18n/constants'
+import * as i18nModule from '@/lib/i18n'
 
 vi.mock('@/api/customers')
 
 describe('CustomerSearch', () => {
   let queryClient: QueryClient
 
-  beforeEach(async () => {
-    await changeUiLanguage('de')
+  beforeEach(() => {
     queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
@@ -24,9 +24,17 @@ describe('CustomerSearch', () => {
 
   afterEach(() => {
     cleanup()
+    vi.restoreAllMocks()
   })
 
-  it('loads the customers namespace and shows the translated select placeholder', async () => {
+  it('requires customers in PRELOAD_NAMESPACES (removing it restores raw search.selectPlaceholder)', async () => {
+    expect(PRELOAD_NAMESPACES).toContain('customers')
+    expect(LAZY_NAMESPACES).not.toContain('customers')
+    await i18nModule.initI18n({ language: 'de' })
+    expect(i18nModule.i18n.hasResourceBundle('de', 'customers')).toBe(true)
+  })
+
+  it('shows the translated select placeholder on the combobox', () => {
     render(
       <QueryClientProvider client={queryClient}>
         <CustomerSearch value={null} onChange={vi.fn()} />
@@ -34,9 +42,6 @@ describe('CustomerSearch', () => {
     )
 
     expect(screen.queryByText('search.selectPlaceholder')).not.toBeInTheDocument()
-
-    await waitFor(() => {
-      expect(screen.getByRole('combobox')).toHaveTextContent(deCustomers.search.selectPlaceholder)
-    })
+    expect(screen.getByRole('combobox')).toHaveTextContent(deCustomers.search.selectPlaceholder)
   })
 })
