@@ -8,6 +8,7 @@ import {
   Loader2,
   Save,
 } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
 import type { ImportEntityType, ImportJob } from '@/api/imports'
@@ -22,8 +23,11 @@ import {
   useImportMappingProfiles,
   useImportTemplate,
 } from '@/api/imports'
+import { laborKeys } from '@/api/labor'
 import { usePriceJumpThreshold } from '@/api/margin-rules'
 import { useVendors } from '@/api/vendors'
+import { formatImportEntityTypeLabel } from '@/lib/i18n/enum-labels'
+import { IMPORT_ENTITY_TYPE_VALUES } from '@/lib/i18n/enum-registry'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
   AlertDialog,
@@ -88,13 +92,25 @@ const WIZARD_STEPS = [
   { id: 5, labelEn: 'Apply', labelDe: 'Import' },
 ] as const
 
+function initialEntityFromParam(param: string | null): ImportEntityTypeUi {
+  if (
+    param === 'CUSTOMER' ||
+    param === 'VEHICLE' ||
+    param === 'SUPPLIER_PRICE_LIST' ||
+    param === 'LABOR_OPERATION'
+  ) {
+    return param
+  }
+  return 'CUSTOMER'
+}
+
 export function DataImportSettingsTab() {
+  const queryClient = useQueryClient()
   const [searchParams] = useSearchParams()
   const initialEntityParam = searchParams.get('entity')
   const initialVendorParam = searchParams.get('vendorId')
 
-  const initialEntityType: ImportEntityTypeUi =
-    initialEntityParam === 'SUPPLIER_PRICE_LIST' ? 'SUPPLIER_PRICE_LIST' : 'CUSTOMER'
+  const initialEntityType = initialEntityFromParam(initialEntityParam)
 
   const [step, setStep] = React.useState(1)
   const [entityType, setEntityType] = React.useState<ImportEntityTypeUi>(initialEntityType)
@@ -352,6 +368,10 @@ export function DataImportSettingsTab() {
       setDryRunJob(result)
       setStep(5)
       setConfirmApplyOpen(false)
+      if (entityType === 'LABOR_OPERATION') {
+        void queryClient.invalidateQueries({ queryKey: laborKeys.operations() })
+        void queryClient.invalidateQueries({ queryKey: laborKeys.categories() })
+      }
       toast.success(
         bilingualLabel('Import applied successfully', 'Import erfolgreich angewendet'),
       )
@@ -445,11 +465,11 @@ export function DataImportSettingsTab() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="CUSTOMER">Customers / Kunden</SelectItem>
-                  <SelectItem value="VEHICLE">Vehicles / Fahrzeuge</SelectItem>
-                  <SelectItem value="SUPPLIER_PRICE_LIST">
-                    Lieferanten-Preisliste / Supplier price list
-                  </SelectItem>
+                  {IMPORT_ENTITY_TYPE_VALUES.map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {formatImportEntityTypeLabel(value)}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

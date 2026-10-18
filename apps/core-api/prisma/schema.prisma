@@ -4777,6 +4777,7 @@ enum ImportEntityType {
   CUSTOMER
   VEHICLE
   SUPPLIER_PRICE_LIST
+  LABOR_OPERATION
 }
 
 enum ImportJobStatus {

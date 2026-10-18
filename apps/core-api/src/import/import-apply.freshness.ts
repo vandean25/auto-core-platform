@@ -21,11 +21,24 @@ async function assertTargetExists(
     return;
   }
 
-  const vehicle = await tx.vehicle.findFirst({
-    where: { tenant_id: tenantId, id: entityId },
-  });
-  if (!vehicle) {
-    throw new ApplyRowStaleError();
+  if (entityType === ImportEntityType.VEHICLE) {
+    const vehicle = await tx.vehicle.findFirst({
+      where: { tenant_id: tenantId, id: entityId },
+    });
+    if (!vehicle) {
+      throw new ApplyRowStaleError();
+    }
+    return;
+  }
+
+  if (entityType === ImportEntityType.LABOR_OPERATION) {
+    const operation = await tx.laborOperation.findFirst({
+      where: { tenant_id: tenantId, id: entityId },
+    });
+    if (!operation) {
+      throw new ApplyRowStaleError();
+    }
+    return;
   }
 }
 

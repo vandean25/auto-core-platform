@@ -58,6 +58,26 @@ export type NormalizedVehicleRow = {
   key_number: string | null;
 };
 
+export type NormalizedLaborFitmentRow = {
+  make: string;
+  model: string;
+  year_from: number | null;
+  year_to: number | null;
+  engine_code: string | null;
+};
+
+export type NormalizedLaborOperationRow = {
+  external_id: string;
+  code: string;
+  description: string;
+  standard_aw: number;
+  hourly_rate: number;
+  internal_cost: number | null;
+  category_name: string | null;
+  category_id: string | null;
+  fitment: NormalizedLaborFitmentRow | null;
+};
+
 export type NormalizedSupplierPriceListRow = {
   supplier_article_no: string;
   ean: string | null;

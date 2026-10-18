@@ -241,10 +241,17 @@ describe('DataImportSettingsTab SUPPLIER_PRICE_LIST flow', () => {
     cleanup()
   })
 
+  it('preselects LABOR_OPERATION from URL search params', () => {
+    renderTab(['/?tab=data-import&entity=LABOR_OPERATION'])
+    expect(screen.getByRole('combobox', { name: /Entity/i })).toHaveTextContent(
+      /Labor operations|Arbeitswerte/i,
+    )
+  })
+
   it('preselects SUPPLIER_PRICE_LIST and vendor from URL search params', () => {
     renderTab(['/?tab=data-import&entity=SUPPLIER_PRICE_LIST&vendorId=vendor-1'])
 
-    expect(screen.getByText(/Lieferanten-Preisliste/i)).toBeInTheDocument()
+    expect(screen.getByText(/Lieferantenpreisliste|Supplier price list/i)).toBeInTheDocument()
     expect(screen.getByText('Stahlgruber GmbH')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Continue \/ Weiter/i })).toBeEnabled()
   })

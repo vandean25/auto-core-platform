@@ -14511,7 +14511,8 @@
               "enum": [
                 "CUSTOMER",
                 "VEHICLE",
-                "SUPPLIER_PRICE_LIST"
+                "SUPPLIER_PRICE_LIST",
+                "LABOR_OPERATION"
               ],
               "type": "string"
             }
@@ -35632,7 +35633,8 @@
         "enum": [
           "CUSTOMER",
           "VEHICLE",
-          "SUPPLIER_PRICE_LIST"
+          "SUPPLIER_PRICE_LIST",
+          "LABOR_OPERATION"
         ]
       },
       "ImportJobStatus": {

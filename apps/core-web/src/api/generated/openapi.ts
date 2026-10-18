@@ -10683,7 +10683,7 @@ export interface components {
             oemConcerns?: components["schemas"]["UpdateCatalogProviderOemConcernDto"][];
         };
         /** @enum {string} */
-        ImportEntityType: "CUSTOMER" | "VEHICLE" | "SUPPLIER_PRICE_LIST";
+        ImportEntityType: "CUSTOMER" | "VEHICLE" | "SUPPLIER_PRICE_LIST" | "LABOR_OPERATION";
         /** @enum {string} */
         ImportJobStatus: "DRY_RUN_DONE" | "APPLYING" | "APPLIED" | "FAILED" | "CANCELLED";
         ImportJobTotalsDto: {
@@ -20459,7 +20459,7 @@ export interface operations {
     ImportController_listMappingProfiles: {
         parameters: {
             query: {
-                entityType: "CUSTOMER" | "VEHICLE" | "SUPPLIER_PRICE_LIST";
+                entityType: "CUSTOMER" | "VEHICLE" | "SUPPLIER_PRICE_LIST" | "LABOR_OPERATION";
                 sourceSystem: string;
             };
             header?: never;
