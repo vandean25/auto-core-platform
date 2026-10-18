@@ -1,10 +1,3 @@
-import {
-  CustomerConsentChannel,
-  CustomerConsentPurpose,
-  TyreSetStatus,
-  WarrantyClaimStatus,
-  WarrantyClaimType,
-} from '@prisma/client';
 import { z } from 'zod';
 import {
   AGENT_ACTION_STATUSES,
@@ -712,52 +705,6 @@ export const listPickerlDueInputSchema = z.object({
     .describe('Cursor from meta.next_cursor'),
 });
 
-/** AUT-605: consent gate before outbound contact; returns allowed and reason only. */
-export const checkContactPermissionInputSchema = z.object({
-  customer_id: uuidSchema,
-  purpose: z.nativeEnum(CustomerConsentPurpose),
-  channel: z.nativeEnum(CustomerConsentChannel),
-  controller_legal_entity_id: uuidSchema
-    .optional()
-    .describe(
-      'Controller legal entity when the tenant has more than one active entity',
-    ),
-});
-
-/** AUT-605 Gewährleistung due list for the active site (same query as REST gewaehrleistung-due). */
-export const listGewaehrleistungDueInputSchema = z.object({
-  within_days: z
-    .union([z.literal(30), z.literal(60), z.literal(90)])
-    .optional()
-    .describe('Days until base Gewährleistung period ends; default 30'),
-  pageSize: reportPageSizeSchema,
-  cursor: offsetCursorSchema
-    .optional()
-    .describe('Cursor from meta.next_cursor'),
-});
-
-/** AUT-605 tyre storage sets at the active site. */
-export const listTyreSetsInputSchema = z.object({
-  customer_id: uuidSchema.optional(),
-  vehicle_id: uuidSchema.optional(),
-  status: z.nativeEnum(TyreSetStatus).optional(),
-  due_for_swap: z
-    .boolean()
-    .optional()
-    .describe('When true, list sets due for seasonal swap only'),
-  pageSize: pageSizeCamelSchema,
-  cursor: offsetCursorSchema.optional(),
-});
-
-/** AUT-605 warranty claims at the active site (optional order filter). */
-export const listWarrantyClaimsInputSchema = z.object({
-  status: z.nativeEnum(WarrantyClaimStatus).optional(),
-  type: z.nativeEnum(WarrantyClaimType).optional(),
-  order_id: uuidSchema.optional(),
-  pageSize: pageSizeCamelSchema,
-  cursor: keysetCursorSchema.optional(),
-});
-
 /** AUT-461 NoVA preview: a vehicle and the net price to calculate on, as a EUR decimal string. */
 export const getNovaPreviewInputSchema = z.object({
   vehicle_id: uuidSchema,
@@ -843,10 +790,6 @@ export const mcpToolInputSchemas: Record<
   get_revenue_report: getRevenueReportInputSchema,
   list_pickerl_due: listPickerlDueInputSchema,
   get_nova_preview: getNovaPreviewInputSchema,
-  check_contact_permission: checkContactPermissionInputSchema,
-  list_gewaehrleistung_due: listGewaehrleistungDueInputSchema,
-  list_tyre_sets: listTyreSetsInputSchema,
-  list_warranty_claims: listWarrantyClaimsInputSchema,
   list_catalog_items: listCatalogItemsInputSchema,
   get_catalog_item: getCatalogItemInputSchema,
   list_price_lists: listPriceListsInputSchema,

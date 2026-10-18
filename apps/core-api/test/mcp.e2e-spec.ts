@@ -93,14 +93,6 @@ const TENANT_B_PROBE_ARGUMENTS: Partial<
   list_documents: {},
   list_purchase_orders: {},
   list_vendors: {},
-  list_gewaehrleistung_due: {},
-  list_tyre_sets: {},
-  list_warranty_claims: {},
-  check_contact_permission: {
-    customer_id: '00000000-0000-4000-8000-0000000000ff',
-    purpose: 'ORDER_COMMUNICATION',
-    channel: 'EMAIL',
-  },
   list_audit_events: {},
   get_entity_history: {
     entity_type: 'Customer',
@@ -124,7 +116,6 @@ const DETAIL_TOOLS_HIDDEN_FROM_OTHER_TENANT = [
   'get_purchase_order',
   'get_catalog_item',
   'get_nova_preview',
-  'check_contact_permission',
 ];
 
 describe('MCP server (e2e)', () => {
@@ -794,20 +785,6 @@ describe('MCP server (e2e)', () => {
           vehicle_id: fixtures.vehicleId,
           net_price_eur: '12000.00',
         },
-      },
-      {
-        name: 'check_contact_permission',
-        arguments: {
-          customer_id: fixtures.customerId,
-          purpose: 'ORDER_COMMUNICATION',
-          channel: 'EMAIL',
-        },
-      },
-      { name: 'list_gewaehrleistung_due', arguments: {} },
-      { name: 'list_tyre_sets', arguments: {} },
-      {
-        name: 'list_warranty_claims',
-        arguments: { order_id: fixtures.workshopOrderId },
       },
       { name: 'list_bays', arguments: {} },
       { name: 'list_bins', arguments: {} },

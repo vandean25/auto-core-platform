@@ -28,7 +28,6 @@ import { assertTenantCustomerExists } from './vehicle-stock-ref.validator.js';
 import type { PatchVehicleStockDto } from './dto/patch-vehicle-stock.dto.js';
 import { syncVehicleListingContentHashWhenStockCycleExists } from '../vehicle/listing/vehicle-listing-hash-sync.js';
 import type { GewaehrleistungDueListQueryDto } from './dto/gewaehrleistung-due-list.dto.js';
-import { gewaehrleistungDueSaleSelect } from './gewaehrleistung/gewaehrleistung-due.select.js';
 import {
   gewaehrleistungDueWindow,
   viennaIsoDay,
@@ -392,7 +391,34 @@ export class VehicleStockQueryService {
         buyer_is_consumer: true,
         gewaehrleistung_ends_on: { gte: windowStart, lte: windowEnd },
       },
-      select: gewaehrleistungDueSaleSelect,
+      select: {
+        id: true,
+        sale_number: true,
+        vehicle_id: true,
+        customer_id: true,
+        handed_over_at: true,
+        gewaehrleistung_ends_on: true,
+        presumption_ends_on: true,
+        gewaehrleistung_rule_version: true,
+        vehicle: {
+          select: {
+            id: true,
+            make: true,
+            model: true,
+            year: true,
+            vin: true,
+            plate: true,
+          },
+        },
+        customer: {
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            company_name: true,
+          },
+        },
+      },
       orderBy: [{ gewaehrleistung_ends_on: 'asc' }, { id: 'asc' }],
     });
 

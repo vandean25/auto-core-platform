@@ -72,10 +72,6 @@ export const MCP_READ_TOOL_NAMES = [
   'get_revenue_report',
   'list_pickerl_due',
   'get_nova_preview',
-  'check_contact_permission',
-  'list_gewaehrleistung_due',
-  'list_tyre_sets',
-  'list_warranty_claims',
 ] as const;
 
 export type McpReadToolName = (typeof MCP_READ_TOOL_NAMES)[number];

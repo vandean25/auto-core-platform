@@ -2,13 +2,14 @@ import { ForbiddenException } from '@nestjs/common';
 import { ZodError } from 'zod';
 import type { AgentActionLogService } from '../agent-action-log/agent-action-log.service.js';
 import type { McpComplianceReadFacade } from './mcp-compliance-read.facade.js';
-import { createMcpReadToolServiceForTest } from './mcp-read-tool.service.spec.support.js';
 import {
   HANDLER_SPEC_CONTEXT,
   expectAutoReadRecorded,
   handlerSpecActionLog,
 } from './mcp-tool-handler.spec.support.js';
 import { McpToolHandlerService } from './mcp-tool-handler.service.js';
+import { McpToolHandlerComplianceWrapper } from './mcp-tool-handler.compliance-wrapper.js';
+import { createMcpReadToolServiceForTest } from './mcp-read-tool.service.spec.support.js';
 import type { McpWritePipelineService } from './mcp-write-pipeline.service.js';
 
 const CUSTOMER_ID = '00000000-0000-4000-8000-0000000000c1';
@@ -22,7 +23,7 @@ const EMPTY_PAGE = {
 describe('McpToolHandlerService AUT-605 compliance reads', () => {
   const context = HANDLER_SPEC_CONTEXT;
 
-  let handler: McpToolHandlerService;
+  let handler: McpToolHandlerComplianceWrapper;
   let agentActionLog: { record: jest.Mock };
   let complianceReads: {
     checkContactPermission: jest.Mock;
@@ -50,15 +51,16 @@ describe('McpToolHandlerService AUT-605 compliance reads', () => {
     };
     const unused = {} as never;
 
-    const readTools = createMcpReadToolServiceForTest({
-      complianceReads:
-        complianceReads as unknown as McpComplianceReadFacade,
-    });
-    handler = new McpToolHandlerService(
+    const coreHandler = new McpToolHandlerService(
       agentActionLog as unknown as AgentActionLogService,
       {} as unknown as McpWritePipelineService,
       unused,
-      readTools,
+      createMcpReadToolServiceForTest(),
+    );
+    handler = new McpToolHandlerComplianceWrapper(
+      coreHandler,
+      agentActionLog as unknown as AgentActionLogService,
+      complianceReads as unknown as McpComplianceReadFacade,
     );
   });
 

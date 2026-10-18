@@ -29,6 +29,8 @@ import { McpOrderHistoryReadService } from './mcp-order-history-read.service.js'
 import { McpVehicleContextReadService } from './mcp-vehicle-context-read.service.js';
 import { McpPurchasingReadService } from './mcp-purchasing-read.service.js';
 import { McpReadToolService } from './mcp-read-tool.service.js';
+import { McpReadToolServiceAut605 } from './mcp-read-tool.service.aut605.js';
+import { McpToolHandlerComplianceWrapper } from './mcp-tool-handler.compliance-wrapper.js';
 import { McpRecordReadService } from './mcp-record-read.service.js';
 import { McpWorkshopOrderReadService } from './mcp-workshop-order-read.service.js';
 import { McpCatalogReadService } from './mcp-catalog-read.service.js';
@@ -73,6 +75,7 @@ import { InvoicesModule } from '../invoices/invoices.module.js';
   controllers: [McpController],
   providers: [
     McpToolHandlerService,
+    McpToolHandlerComplianceWrapper,
     McpWritePipelineService,
     McpWriteCommandIdempotencyService,
     McpCapabilitiesService,
@@ -82,7 +85,7 @@ import { InvoicesModule } from '../invoices/invoices.module.js';
     McpOrderHistoryReadService,
     McpVehicleContextReadService,
     McpPurchasingReadService,
-    McpReadToolService,
+    { provide: McpReadToolService, useClass: McpReadToolServiceAut605 },
     McpRecordReadService,
     McpWorkshopOrderReadService,
     McpCatalogReadService,

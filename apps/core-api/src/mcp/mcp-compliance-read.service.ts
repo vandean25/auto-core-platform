@@ -7,7 +7,7 @@ import {
 import { CustomerConsentService } from '../customer-consent/customer-consent.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import type { checkContactPermissionInputSchema } from './mcp-tool-schemas.js';
+import type { checkContactPermissionInputSchema } from './mcp-tool-schemas.compliance-reads.js';
 
 type CheckContactInput = z.infer<typeof checkContactPermissionInputSchema>;
 

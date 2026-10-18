@@ -7,7 +7,7 @@ import type {
   listGewaehrleistungDueInputSchema,
   listTyreSetsInputSchema,
   listWarrantyClaimsInputSchema,
-} from './mcp-tool-schemas.js';
+} from './mcp-tool-schemas.compliance-reads.js';
 
 /** Routes MCP compliance read tools to contact vs list services. */
 @Injectable()

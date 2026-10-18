@@ -9,7 +9,7 @@ import {
   decodeMcpKeysetCursor,
   encodeMcpKeysetCursor,
 } from './mcp-output.util.js';
-import type { listWarrantyClaimsInputSchema } from './mcp-tool-schemas.js';
+import type { listWarrantyClaimsInputSchema } from './mcp-tool-schemas.compliance-reads.js';
 
 type WarrantyClaimsInput = z.infer<typeof listWarrantyClaimsInputSchema>;
 

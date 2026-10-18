@@ -2,7 +2,7 @@ import { ForbiddenException } from '@nestjs/common';
 import type { TenantContextService } from '../common/services/tenant-context.service.js';
 import type { TyreSetListReadService } from '../tyre-storage/tyre-set-list-read.service.js';
 import type { TyreStorageService } from '../tyre-storage/tyre-storage.service.js';
-import type { VehicleStockQueryService } from '../vehicle-stock/vehicle-stock-query.service.js';
+import type { GewaehrleistungDueListReadService } from '../vehicle-stock/gewaehrleistung/gewaehrleistung-due-list.read.js';
 import type { WarrantyClaimSiteListService } from '../warranty-claim/warranty-claim-site-list.service.js';
 import { McpComplianceReadListsService } from './mcp-compliance-read-lists.service.js';
 import { encodeMcpCursor } from './mcp-output.util.js';
@@ -16,8 +16,8 @@ function buildLists(options: { role?: string } = {}) {
       role: options.role ?? 'SALES',
     }),
   };
-  const vehicleStock = {
-    listGewaehrleistungDue: jest.fn().mockResolvedValue({
+  const gewaehrleistungDueList = {
+    list: jest.fn().mockResolvedValue({
       data: [],
       meta: { total: 0, page: 1, pageSize: 0, pageCount: 0 },
     }),
@@ -37,7 +37,7 @@ function buildLists(options: { role?: string } = {}) {
 
   const service = new McpComplianceReadListsService(
     tenantContext as unknown as TenantContextService,
-    vehicleStock as unknown as VehicleStockQueryService,
+    gewaehrleistungDueList as unknown as GewaehrleistungDueListReadService,
     tyreStorage as unknown as TyreStorageService,
     tyreSetListRead as unknown as TyreSetListReadService,
     warrantyClaimSiteList as unknown as WarrantyClaimSiteListService,
@@ -45,7 +45,7 @@ function buildLists(options: { role?: string } = {}) {
 
   return {
     service,
-    vehicleStock,
+    gewaehrleistungDueList,
     tyreStorage,
     tyreSetListRead,
     warrantyClaimSiteList,

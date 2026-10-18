@@ -4,7 +4,7 @@ import type { TyreStorageService } from '../tyre-storage/tyre-storage.service.js
 import { toMcpTyreSetRow } from './mcp-compliance-read.mapper.js';
 import { toMcpPageMeta } from './mcp-report-read.mapper.js';
 import { encodeMcpCursor } from './mcp-output.util.js';
-import type { listTyreSetsInputSchema } from './mcp-tool-schemas.js';
+import type { listTyreSetsInputSchema } from './mcp-tool-schemas.compliance-reads.js';
 import type { z } from 'zod';
 
 type TyreSetsInput = z.infer<typeof listTyreSetsInputSchema>;

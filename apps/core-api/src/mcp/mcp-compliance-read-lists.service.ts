@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { z } from 'zod';
 import { TyreSetListReadService } from '../tyre-storage/tyre-set-list-read.service.js';
 import { TyreStorageService } from '../tyre-storage/tyre-storage.service.js';
-import { VehicleStockQueryService } from '../vehicle-stock/vehicle-stock-query.service.js';
+import { GewaehrleistungDueListReadService } from '../vehicle-stock/gewaehrleistung/gewaehrleistung-due-list.read.js';
 import { WarrantyClaimSiteListService } from '../warranty-claim/warranty-claim-site-list.service.js';
 import { assertWarrantyClaimAccess } from '../warranty-claim/warranty-claim.rules.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
@@ -15,13 +15,13 @@ import type {
   listGewaehrleistungDueInputSchema,
   listTyreSetsInputSchema,
   listWarrantyClaimsInputSchema,
-} from './mcp-tool-schemas.js';
+} from './mcp-tool-schemas.compliance-reads.js';
 
 @Injectable()
 export class McpComplianceReadListsService {
   constructor(
     private readonly tenantContext: TenantContextService,
-    private readonly vehicleStock: VehicleStockQueryService,
+    private readonly gewaehrleistungDueList: GewaehrleistungDueListReadService,
     private readonly tyreStorage: TyreStorageService,
     private readonly tyreSetListRead: TyreSetListReadService,
     private readonly warrantyClaimSiteList: WarrantyClaimSiteListService,
@@ -30,7 +30,7 @@ export class McpComplianceReadListsService {
   listGewaehrleistungDue(
     input: z.infer<typeof listGewaehrleistungDueInputSchema>,
   ) {
-    return mcpListGewaehrleistungDue(this.vehicleStock, input);
+    return mcpListGewaehrleistungDue(this.gewaehrleistungDueList, input);
   }
 
   listTyreSets(input: z.infer<typeof listTyreSetsInputSchema>) {

@@ -1,10 +1,5 @@
 import type { McpToolName } from './mcp.constants.js';
 
-/** English tool text plus a German line for hosts that show both (AUT-605). */
-function bilingual(en: string, de: string): string {
-  return `${en} | DE: ${de}`;
-}
-
 export const MCP_TOOL_DESCRIPTIONS: Record<McpToolName, string> = {
   search_customers: 'Search customers (tenant-scoped, paged)',
   get_customer:
@@ -83,22 +78,6 @@ export const MCP_TOOL_DESCRIPTIONS: Record<McpToolName, string> = {
     'Vehicles with a Pickerl due within 30, 60, or 90 days (window, default 30), overdue vehicles always included: vehicle, customer name, status, and due date (last day of the due month). Overdue first, then by due month (pageSize max 25, opaque cursor)',
   get_nova_preview:
     'Read-only NoVA calculation for a vehicle at a net EUR price. Nothing is saved and no invoice changes. The result always states that the Steuerberater must still confirm while an unconfirmed rule applies',
-  check_contact_permission: bilingual(
-    'Whether the tenant may contact a customer for a purpose and channel (allowed and reason only; no consent ledger text)',
-    'Ob der Mandant einen Kunden für Zweck und Kanal kontaktieren darf (nur erlaubt und Grund; kein Einwilligungstext)',
-  ),
-  list_gewaehrleistung_due: bilingual(
-    'Consumer vehicle sales at the active site whose base Gewährleistung period ends within 30, 60, or 90 days (pageSize max 25, opaque cursor)',
-    'Verbraucher-Fahrzeugverkäufe am aktiven Standort mit Gewährleistungsende in 30, 60 oder 90 Tagen (pageSize max. 25, Cursor)',
-  ),
-  list_tyre_sets: bilingual(
-    'Tyre storage sets at the active site by customer, vehicle, status, or due-for-swap flag (pageSize max 25, opaque cursor)',
-    'Reifeneinlagerungssätze am aktiven Standort nach Kunde, Fahrzeug, Status oder fälligem Wechsel (pageSize max. 25, Cursor)',
-  ),
-  list_warranty_claims: bilingual(
-    'Garantie, Kulanz, and Gewährleistung claims at the active site, optionally for one workshop order (pageSize max 25, keyset cursor; no complaint text)',
-    'Garantie-, Kulanz- und Gewährleistungsfälle am aktiven Standort, optional zu einem Werkstattauftrag (pageSize max. 25, Keyset-Cursor; ohne Reklamationstext)',
-  ),
   draft_workshop_order:
     'Create a DRAFT/SCHEDULED workshop order (policy-checked, logged)',
   reserve_part:
