@@ -18,7 +18,8 @@ import type {
 } from './mcp-write-pipeline.types.js';
 import type { McpWriteToolName } from './mcp.constants.js';
 
-export type McpWritePipelineRunResult = McpWriteToolResult | McpWriteDryRunResult;
+export type McpWritePipelineRunResult =
+  McpWriteToolResult | McpWriteDryRunResult;
 
 export async function runMcpWritePipeline(input: {
   execution: McpWriteExecution;
@@ -70,8 +71,7 @@ export async function runMcpWritePipeline(input: {
     }
     return commandGate.result;
   }
-  const claim =
-    commandGate.kind === 'claimed' ? commandGate.claim : undefined;
+  const claim = commandGate.kind === 'claimed' ? commandGate.claim : undefined;
   const idempotencyMeta =
     commandGate.kind === 'claimed' ? commandGate.idempotencyMeta : undefined;
 

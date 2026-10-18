@@ -227,7 +227,7 @@ describe('MCP tool input schemas', () => {
         (issue) =>
           issue.code === 'unrecognized_keys' &&
           'keys' in issue &&
-          (issue.keys as string[]).includes('dry_run'),
+          (issue.keys).includes('dry_run'),
       );
       expect(rejectsDryRun).toBe(false);
     }

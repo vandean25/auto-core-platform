@@ -1,12 +1,5 @@
-import {
-  ConflictException,
-  ForbiddenException,
-} from '@nestjs/common';
-import {
-  AgentPolicyTier,
-  AgentProposalStatus,
-  Prisma,
-} from '@prisma/client';
+import { ConflictException, ForbiddenException } from '@nestjs/common';
+import { AgentPolicyTier, AgentProposalStatus, Prisma } from '@prisma/client';
 import type { AgentActionLogService } from '../agent-action-log/agent-action-log.service.js';
 import type { AgentPolicyService } from '../agent-policy/agent-policy.service.js';
 import { DryRunService } from '../dry-run/dry-run.service.js';
@@ -48,10 +41,7 @@ export async function evaluateMcpWritePolicy(
       call.execution.policyActionType,
       policyContext,
     );
-    call.tier = effectiveMcpWriteTier(
-      call.execution.toolName,
-      evaluation.tier,
-    );
+    call.tier = effectiveMcpWriteTier(call.execution.toolName, evaluation.tier);
     call.reasons = evaluation.reasons;
   } catch (error) {
     await recordMcpWriteFailure(deps, call, error);
@@ -234,8 +224,7 @@ export async function executeMcpWrite(
           tier: call.tier,
           status: 'EXECUTED',
           inputSummary: call.inputSummary,
-          resultSummary: (result) =>
-            call.execution.buildResultSummary(result),
+          resultSummary: (result) => call.execution.buildResultSummary(result),
         },
         tx,
         workResult !== undefined

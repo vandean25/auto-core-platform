@@ -44,7 +44,8 @@ export function buildMcpWriteDryRunResult(input: {
     dry_run: true,
     tool: input.tool,
     tier: input.tier,
-    would_change: policy_decision.tier === 'HUMAN_ONLY' ? [] : input.would_change,
+    would_change:
+      policy_decision.tier === 'HUMAN_ONLY' ? [] : input.would_change,
     preview: policy_decision.tier === 'HUMAN_ONLY' ? null : input.preview,
     policy_decision,
     warnings: extractMcpWriteDryRunWarnings(input.preview),

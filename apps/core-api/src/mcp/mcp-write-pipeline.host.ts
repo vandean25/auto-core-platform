@@ -29,8 +29,7 @@ import { WorkshopEstimateSendProposeService } from '../workshop/workshop-estimat
 import type { McpWriteToolName } from './mcp.constants.js';
 
 export type McpWritePipelineHostResult =
-  | McpWriteToolResult
-  | McpWriteDryRunResult;
+  McpWriteToolResult | McpWriteDryRunResult;
 
 const logActionType = (toolName: McpWriteToolName): string => `mcp.${toolName}`;
 

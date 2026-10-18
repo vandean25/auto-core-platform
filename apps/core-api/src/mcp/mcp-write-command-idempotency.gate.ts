@@ -8,7 +8,10 @@ import {
   fingerprintMcpWriteArgs,
   type ParsedMcpWriteInput,
 } from './mcp-write-command-idempotency.util.js';
-import type { McpWriteToolContext, McpWriteToolResult } from './mcp-write-pipeline.service.js';
+import type {
+  McpWriteToolContext,
+  McpWriteToolResult,
+} from './mcp-write-pipeline.service.js';
 
 export type McpWriteCommandGate =
   | { kind: 'none' }
