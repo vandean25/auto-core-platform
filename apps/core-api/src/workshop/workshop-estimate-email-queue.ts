@@ -38,7 +38,7 @@ export async function queueEstimateEmailInTx(
   tx: Prisma.TransactionClient,
   outbox: NotificationOutboxService,
   input: EstimateEmailInput,
-): Promise<string> {
+): Promise<string | null> {
   const tenant = await tx.tenant.findFirst({
     where: { id: input.tenantId },
     select: { default_locale: true },
