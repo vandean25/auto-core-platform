@@ -79,6 +79,8 @@ export function useCheckInOffline({
   )
   const [draftExpiryWarning, setDraftExpiryWarning] = useState(false)
   const [queuePaused, setQueuePaused] = useState(false)
+  const [uploadReconcileReadyScopeKey, setUploadReconcileReadyScopeKey] =
+    useState<string | null>(null)
   const revisionRef = useRef(serverRevision)
   const draftRef = useRef(draft)
   const hydratedScopeKeyRef = useRef<string | null>(null)
@@ -220,7 +222,12 @@ export function useCheckInOffline({
       return
     }
     reconciledScopeKeyRef.current = scopeKey
-    void reconcileStaleUploadingPhotos(scope).then(() => refreshQueuedPhotos())
+    setUploadReconcileReadyScopeKey(null)
+    void (async () => {
+      await reconcileStaleUploadingPhotos(scope)
+      await refreshQueuedPhotos()
+      setUploadReconcileReadyScopeKey(scopeKey)
+    })()
   }, [refreshQueuedPhotos, scope])
 
   useEffect(() => {
@@ -415,6 +422,9 @@ export function useCheckInOffline({
     if (!scope || !scopeKey || readOnly || queuePaused) {
       return
     }
+    if (uploadReconcileReadyScopeKey !== scopeKey) {
+      return
+    }
     const queueContext = buildQueueContext()
     if (!queueContext) {
       return
@@ -423,7 +433,15 @@ export function useCheckInOffline({
       await processCheckInPhotoQueue(queueContext)
       await refreshQueuedPhotos()
     })()
-  }, [buildQueueContext, queuePaused, readOnly, refreshQueuedPhotos, scope, scopeKey])
+  }, [
+    buildQueueContext,
+    queuePaused,
+    readOnly,
+    refreshQueuedPhotos,
+    scope,
+    scopeKey,
+    uploadReconcileReadyScopeKey,
+  ])
 
   return {
     scope,
