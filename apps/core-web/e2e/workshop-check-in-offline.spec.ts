@@ -16,7 +16,7 @@ test.describe('AUT-558: check-in offline draft', () => {
       fuel_level: 40,
     })
 
-    let checkIn = {
+    const checkIn = {
       id: 'check-in-offline-1',
       workshop_order_id: ORDER_ID,
       status: 'DRAFT',

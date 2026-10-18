@@ -111,7 +111,6 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
   }, [])
 
   const refetchCheckInRef = useRef(checkInQuery.refetch)
-  refetchCheckInRef.current = checkInQuery.refetch
 
   const onRevisionConflict = useCallback(async () => {
     const result = await refetchCheckInRef.current()
@@ -168,8 +167,14 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
       void mediaQuery.refetch()
     },
   })
-  offlineRef.current = offline
-  replaceDraftRef.current = replaceDraft
+  useEffect(() => {
+    refetchCheckInRef.current = checkInQuery.refetch
+  }, [checkInQuery.refetch])
+
+  useEffect(() => {
+    offlineRef.current = offline
+    replaceDraftRef.current = replaceDraft
+  }, [offline, replaceDraft])
 
   useEffect(() => {
     latestDraftRef.current = draft

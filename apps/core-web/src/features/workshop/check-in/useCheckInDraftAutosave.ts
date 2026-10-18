@@ -40,19 +40,31 @@ export function useCheckInDraftAutosave({
   const { t } = useTranslation('workshop')
   const updateDraft = useUpdateWorkshopCheckInDraft()
   const updateDraftRef = useRef(updateDraft)
-  updateDraftRef.current = updateDraft
   const onServerDraftSavedRef = useRef(onServerDraftSaved)
-  onServerDraftSavedRef.current = onServerDraftSaved
   const persistDraftLocallyRef = useRef(persistDraftLocally)
-  persistDraftLocallyRef.current = persistDraftLocally
   const readOnlyRef = useRef(readOnly)
-  readOnlyRef.current = readOnly
   const [draft, setDraft] = useState<CheckInDraftSnapshot | null>(null)
   const lastSavedRef = useRef<CheckInDraftSnapshot | null>(null)
   const revisionRef = useRef(1)
   const hydrateFromServerRef = useRef(false)
   const recordRef = useRef(record)
-  recordRef.current = record
+  const onRevisionConflictRef = useRef(onRevisionConflict)
+
+  useEffect(() => {
+    updateDraftRef.current = updateDraft
+    onServerDraftSavedRef.current = onServerDraftSaved
+    persistDraftLocallyRef.current = persistDraftLocally
+    readOnlyRef.current = readOnly
+    recordRef.current = record
+    onRevisionConflictRef.current = onRevisionConflict
+  }, [
+    onRevisionConflict,
+    onServerDraftSaved,
+    persistDraftLocally,
+    readOnly,
+    record,
+    updateDraft,
+  ])
 
   const applyServerRecord = useCallback((serverRecord: WorkshopCheckIn) => {
     revisionRef.current = serverRecord.revision
@@ -114,9 +126,6 @@ export function useCheckInDraftAutosave({
     [orderId],
   )
 
-  const onRevisionConflictRef = useRef(onRevisionConflict)
-  onRevisionConflictRef.current = onRevisionConflict
-
   const debouncedSaveHelpersRef = useRef({
     clearPendingSave: () => {},
     abortInFlightSave: () => {},
@@ -159,10 +168,12 @@ export function useCheckInDraftAutosave({
       onError: handleSaveError,
     })
 
-  debouncedSaveHelpersRef.current = {
-    clearPendingSave,
-    abortInFlightSave,
-  }
+  useEffect(() => {
+    debouncedSaveHelpersRef.current = {
+      clearPendingSave,
+      abortInFlightSave,
+    }
+  }, [abortInFlightSave, clearPendingSave])
 
   const patchDraft = useCallback(
     (patch: Partial<CheckInDraftSnapshot>) => {
