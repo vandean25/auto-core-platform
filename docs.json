@@ -178,7 +178,10 @@
         "groups": [
           {
             "group": "Diagnostics",
-            "pages": ["operations/runtime-diagnostics"]
+            "pages": [
+              "operations/runtime-diagnostics",
+              "operations/core-api-scheduled-jobs"
+            ]
           }
         ]
       }

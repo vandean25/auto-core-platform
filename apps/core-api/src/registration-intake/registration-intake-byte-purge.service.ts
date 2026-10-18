@@ -11,8 +11,6 @@ import {
 @Injectable()
 export class RegistrationIntakeBytePurgeService {
   private readonly logger = new Logger(RegistrationIntakeBytePurgeService.name);
-  private running = false;
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly systemPrisma: SystemPrismaService,
@@ -23,28 +21,28 @@ export class RegistrationIntakeBytePurgeService {
 
   @Cron(CronExpression.EVERY_MINUTE, { name: 'registration-intake-byte-purge' })
   async purgePending(): Promise<void> {
-    if (this.running) return;
-    this.running = true;
-    try {
-      const tenants = await this.systemPrisma.tenant.findMany({
-        select: { id: true },
-      });
-      for (const tenant of tenants) {
-        try {
-          await this.requestContext.runAsWorker(
-            tenant.id,
-            () => this.purgeTenant(tenant.id),
-            { workerId: 'registration-intake-byte-purge' },
-          );
-        } catch (cause) {
-          this.logger.error(
-            `Registration intake byte purge failed for tenant: ${cause instanceof Error ? cause.message : 'unknown'}`,
-          );
+    await this.systemPrisma.withCronJobLock(
+      'registration-intake-byte-purge',
+      async () => {
+        const tenants = await this.systemPrisma.tenant.findMany({
+          select: { id: true },
+        });
+        for (const tenant of tenants) {
+          try {
+            await this.requestContext.runAsWorker(
+              tenant.id,
+              () => this.purgeTenant(tenant.id),
+              { workerId: 'registration-intake-byte-purge' },
+            );
+          } catch (cause) {
+            this.logger.error(
+              `Registration intake byte purge failed for tenant: ${cause instanceof Error ? cause.message : 'unknown'}`,
+            );
+          }
         }
-      }
-    } finally {
-      this.running = false;
-    }
+      },
+      this.logger,
+    );
   }
 
   private async purgeTenant(tenantId: string): Promise<void> {

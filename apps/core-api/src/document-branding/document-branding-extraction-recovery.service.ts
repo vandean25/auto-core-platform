@@ -28,19 +28,25 @@ export class DocumentBrandingExtractionRecoveryService {
     name: 'document-branding-extraction-recovery',
   })
   async recover() {
-    const tenants = await this.systemPrisma.tenant.findMany({
-      select: { id: true },
-    });
-    if (tenants.length === 0) return;
+    await this.systemPrisma.withCronJobLock(
+      'document-branding-extraction-recovery',
+      async () => {
+        const tenants = await this.systemPrisma.tenant.findMany({
+          select: { id: true },
+        });
+        if (tenants.length === 0) return;
 
-    const now = new Date();
-    for (const { id: tenantId } of tenants) {
-      await this.requestContext.runAsWorker(
-        tenantId,
-        () => this.recoverForTenant(now),
-        { workerId: 'document-branding-extraction-recovery' },
-      );
-    }
+        const now = new Date();
+        for (const { id: tenantId } of tenants) {
+          await this.requestContext.runAsWorker(
+            tenantId,
+            () => this.recoverForTenant(now),
+            { workerId: 'document-branding-extraction-recovery' },
+          );
+        }
+      },
+      this.logger,
+    );
   }
 
   private async recoverForTenant(now: Date) {
