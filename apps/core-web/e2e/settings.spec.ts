@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
+import { DE_HR } from './helpers/de-hr';
 import {
   createMockFinanceSettings,
   createMockRevenueGroup,
@@ -146,7 +147,7 @@ test.describe('Blueprint: Settings Page', () => {
     await expect(page.getByRole('button', { name: /^\+ Employee$/ })).toBeVisible();
 
     await page.getByRole('button', { name: /^\+ Employee$/ }).click();
-    await expect(page.getByRole('dialog', { name: 'Create Employee' })).toBeVisible();
+    await expect(page.getByRole('dialog', { name: DE_HR.employees.createDialog.title })).toBeVisible();
     await page.keyboard.press('Escape');
 
     // 8. Tab Navigation to Bays
