@@ -26,7 +26,13 @@ import { DashboardWidgetsProvider } from '@/features/dashboard-widgets/Dashboard
 import { RealtimeDashboardSyncProvider } from '@/features/realtime/RealtimeDashboardSyncProvider'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import { generateId } from '@/lib/id'
+import { CheckInOfflinePurgeDialog } from '@/features/workshop/check-in/CheckInOfflinePurgeDialog'
 import { purgeAllCheckInOfflineData } from '@/features/workshop/check-in/check-in-offline-store'
+import {
+  hasUnsyncedCheckInOfflineData,
+  summarizeCheckInOfflineUnsynced,
+  type CheckInOfflineUnsyncedSummary,
+} from '@/features/workshop/check-in/check-in-offline-unsynced'
 import {
   APP_ROUTE_PATHS,
   LANDING_DEMO_SIGN_IN_FINISH_ALT_PATH,
@@ -289,6 +295,14 @@ function LoginRoute() {
   )
 }
 
+type CheckInOfflinePurgePrompt =
+  | { kind: 'signOut'; summary: CheckInOfflineUnsyncedSummary }
+  | {
+      kind: 'switchTenant'
+      tenantId: string
+      summary: CheckInOfflineUnsyncedSummary
+    }
+
 function AuthenticatedApp() {
   const { user, loading, signOutUser } = useAuth()
   const location = useLocation()
@@ -296,6 +310,16 @@ function AuthenticatedApp() {
   const switchTenantMutation = useSwitchTenant()
   const mySitesQuery = useMySites(Boolean(sessionQuery.data))
   const switchSiteMutation = useSetActiveSite()
+  const [purgePrompt, setPurgePrompt] =
+    React.useState<CheckInOfflinePurgePrompt | null>(null)
+
+  const completeTenantSwitch = React.useCallback(
+    async (tenantId: string) => {
+      await switchTenantMutation.mutateAsync(tenantId)
+      await purgeAllCheckInOfflineData().catch(() => undefined)
+    },
+    [switchTenantMutation],
+  )
 
   const isUnknownPath = !isKnownAppPath(location.pathname)
 
@@ -330,39 +354,74 @@ function AuthenticatedApp() {
   }
 
   return (
-    <ShellRouter
-      userId={user.uid}
-      userEmail={user.email ?? null}
-      platformRole={sessionQuery.data.platformRole ?? null}
-      activeTenant={sessionQuery.data.activeTenant}
-      activeRole={sessionQuery.data.activeRole}
-      memberships={sessionQuery.data.memberships}
-      activeSiteId={sessionQuery.data.activeSiteId}
-      sites={mySitesQuery.data ?? []}
-      isLoadingSites={mySitesQuery.isLoading}
-      isSwitchingTenant={switchTenantMutation.isPending}
-      isSwitchingSite={switchSiteMutation.isPending}
-      onSwitchTenant={(tenantId) => {
-        switchTenantMutation
-          .mutateAsync(tenantId)
-          .then(() => purgeAllCheckInOfflineData().catch(() => undefined))
-          .catch((error: unknown) => {
-            toast.error(shellSwitchTenantFailedMessage(error))
+    <>
+      <ShellRouter
+        userId={user.uid}
+        userEmail={user.email ?? null}
+        platformRole={sessionQuery.data.platformRole ?? null}
+        activeTenant={sessionQuery.data.activeTenant}
+        activeRole={sessionQuery.data.activeRole}
+        memberships={sessionQuery.data.memberships}
+        activeSiteId={sessionQuery.data.activeSiteId}
+        sites={mySitesQuery.data ?? []}
+        isLoadingSites={mySitesQuery.isLoading}
+        isSwitchingTenant={switchTenantMutation.isPending}
+        isSwitchingSite={switchSiteMutation.isPending}
+        onSwitchTenant={(tenantId) => {
+          void (async () => {
+            const summary = await summarizeCheckInOfflineUnsynced()
+            if (hasUnsyncedCheckInOfflineData(summary)) {
+              setPurgePrompt({ kind: 'switchTenant', tenantId, summary })
+              return
+            }
+            try {
+              await completeTenantSwitch(tenantId)
+            } catch (error: unknown) {
+              toast.error(shellSwitchTenantFailedMessage(error))
+            }
+          })()
+        }}
+        onSwitchSite={(siteId) => {
+          switchSiteMutation.mutateAsync(siteId).catch((error: unknown) => {
+            toast.error(shellSwitchSiteFailedMessage(error))
           })
-      }}
-      onSwitchSite={(siteId) => {
-        switchSiteMutation.mutateAsync(siteId).catch((error: unknown) => {
-          toast.error(shellSwitchSiteFailedMessage(error))
-        })
-      }}
-      onSignOut={() => {
-        void purgeAllCheckInOfflineData()
-          .catch(() => undefined)
-          .finally(() => {
-            void signOutUser()
-          })
-      }}
-    />
+        }}
+        onSignOut={() => {
+          void (async () => {
+            const summary = await summarizeCheckInOfflineUnsynced()
+            if (hasUnsyncedCheckInOfflineData(summary)) {
+              setPurgePrompt({ kind: 'signOut', summary })
+              return
+            }
+            await purgeAllCheckInOfflineData().catch(() => undefined)
+            await signOutUser()
+          })()
+        }}
+      />
+      {purgePrompt && (
+        <CheckInOfflinePurgeDialog
+          open
+          summary={purgePrompt.summary}
+          onCancel={() => setPurgePrompt(null)}
+          onConfirm={() => {
+            const prompt = purgePrompt
+            setPurgePrompt(null)
+            void (async () => {
+              if (prompt.kind === 'switchTenant') {
+                try {
+                  await completeTenantSwitch(prompt.tenantId)
+                } catch (error: unknown) {
+                  toast.error(shellSwitchTenantFailedMessage(error))
+                }
+                return
+              }
+              await purgeAllCheckInOfflineData().catch(() => undefined)
+              await signOutUser()
+            })()
+          }}
+        />
+      )}
+    </>
   )
 }
 

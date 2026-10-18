@@ -303,3 +303,23 @@ export async function purgeAllCheckInOfflineData(): Promise<void> {
   await clearObjectStore(PHOTO_STORE)
   await clearObjectStore(PENDING_CREATE_STORE)
 }
+
+export async function listAllCheckInOfflineDrafts(): Promise<
+  CheckInOfflineDraftRecord[]
+> {
+  const rows = await withStore<DraftRow[]>(DRAFT_STORE, 'readonly', (store) =>
+    store.getAll(),
+  )
+  return rows ?? []
+}
+
+export async function listAllPendingCheckInCreates(): Promise<
+  CheckInPendingCreateRecord[]
+> {
+  const rows = await withStore<CheckInPendingCreateRecord[]>(
+    PENDING_CREATE_STORE,
+    'readonly',
+    (store) => store.getAll(),
+  )
+  return rows ?? []
+}

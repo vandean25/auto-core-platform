@@ -264,6 +264,9 @@ export function useCheckInOffline({
       } catch (error: unknown) {
         if (isQuotaExceededError(error)) {
           setLocalSaveStatus('error')
+          throw Object.assign(new Error('quota_exceeded'), {
+            code: 'CHECK_IN_OFFLINE_QUOTA',
+          })
         }
         throw error
       }

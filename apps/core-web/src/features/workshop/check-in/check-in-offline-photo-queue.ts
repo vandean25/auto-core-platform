@@ -118,7 +118,9 @@ function nextRetryDelayMs(attempts: number): number {
   ]
 }
 
-function canScheduleAutomaticRetry(attempts: number): boolean {
+export function canScheduleAutomaticCheckInPhotoRetry(
+  attempts: number,
+): boolean {
   return attempts <= CHECK_IN_OFFLINE_UPLOAD_RETRY_DELAYS_MS.length
 }
 
@@ -207,7 +209,8 @@ export async function processCheckInPhotoQueue(
           status: isRetryableUploadError(error) ? 'failed' : 'queued',
           attempts,
           nextRetryAt:
-            isRetryableUploadError(error) && canScheduleAutomaticRetry(attempts)
+            isRetryableUploadError(error) &&
+            canScheduleAutomaticCheckInPhotoRetry(attempts)
               ? Date.now() + retryDelay
               : null,
           lastErrorCode: readErrorCode(error),
@@ -215,7 +218,7 @@ export async function processCheckInPhotoQueue(
         await upsertQueuedPhoto(failed)
         if (
           isRetryableUploadError(error) &&
-          canScheduleAutomaticRetry(attempts)
+          canScheduleAutomaticCheckInPhotoRetry(attempts)
         ) {
           scheduleQueueRetry(scopeKey, retryDelay, () => {
             void processCheckInPhotoQueue(context)

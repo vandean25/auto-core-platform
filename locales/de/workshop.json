@@ -1274,6 +1274,12 @@
       "quotaExceeded": "Der lokale Speicher ist voll. Bitte löschen Sie Fotos aus der Warteschlange oder warten Sie, bis ausstehende Uploads abgeschlossen sind. Ihr Entwurf bleibt erhalten.",
       "storageEvictionHint": "Private Browserfenster oder Speicherbereinigung können lokale Entwürfe löschen.",
       "draftExpiryWarning": "Dieser lokale Entwurf ist älter als 24 Stunden. Bitte synchronisieren oder verwerfen.",
+      "purge": {
+        "title": "Lokale Annahme-Daten verwerfen?",
+        "description": "Es gibt noch nicht synchronisierte Annahme-Entwürfe ({{drafts}}) oder Fotos in der Warteschlange ({{photos}}). Beim Fortfahren werden diese lokalen Daten gelöscht.",
+        "confirm": "Verwerfen und fortfahren",
+        "cancel": "Abbrechen"
+      },
       "conflict": {
         "title": "Abweichung zwischen lokalem Entwurf und Server",
         "description": "Die Annahme wurde auf dem Server geändert, während Sie offline oder mit einem lokalen Entwurf gearbeitet haben. Wählen Sie, welche Version gelten soll.",
