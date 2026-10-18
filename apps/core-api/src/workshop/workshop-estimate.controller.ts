@@ -17,7 +17,6 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { pipeline } from 'node:stream/promises';
 import { PdfWorker } from '../common/index.js';
 import {
   WorkshopEstimateListResponseDto,
@@ -40,24 +39,7 @@ import { WorkshopEstimateApprovalService } from './workshop-estimate-approval.se
 import { WorkshopOverrunNoticeService } from './workshop-overrun-notice.service.js';
 import { WorkshopMechanicFindingService } from './workshop-mechanic-finding.service.js';
 import { WorkshopMechanicFindingListResponseDto } from './dto/workshop-mechanic-finding.dto.js';
-
-async function servePdfDownload(
-  estimates: WorkshopEstimateService,
-  versionId: string,
-  res: Response,
-) {
-  const { stream, filename, contentType, contentLength } =
-    await estimates.getVersionPdf(versionId);
-  const safeFilename = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
-  res.set({
-    'Content-Type': contentType,
-    'Content-Disposition': `inline; filename="${safeFilename}"`,
-  });
-  if (contentLength != null) {
-    res.set('Content-Length', contentLength.toString());
-  }
-  await pipeline(stream, res);
-}
+import { serveWorkshopEstimatePdfDownload } from './workshop-estimate-pdf-http.js';
 
 @ApiTags('Workshop')
 @Controller('workshop')
@@ -172,6 +154,10 @@ export class WorkshopEstimateController {
     @Param('versionId', ParseUUIDPipe) versionId: string,
     @Res() res: Response,
   ) {
-    await servePdfDownload(this.estimates, versionId, res);
+    await serveWorkshopEstimatePdfDownload(
+      (id) => this.estimates.getVersionPdf(id),
+      versionId,
+      res,
+    );
   }
 }
