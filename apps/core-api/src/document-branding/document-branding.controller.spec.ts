@@ -1,5 +1,6 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
-import { DocumentBrandingController } from './document-branding.controller.js';
+import { DocumentBrandingAssetsController } from './document-branding-assets.controller.js';
+import { DocumentBrandingController } from './document-branding-profile.controller.js';
 import { DocumentBrandingService } from './document-branding.service.js';
 import { DocumentBrandingUploadService } from './document-branding-upload.service.js';
 import { DocumentBrandingExtractionService } from './document-branding-extraction.service.js';
@@ -15,11 +16,11 @@ describe('DocumentBrandingController quota headers', () => {
     create: jest.fn(),
   } as unknown as DocumentBrandingExtractionService;
   const response = { setHeader: jest.fn() };
-  const controller = new DocumentBrandingController(
+  const profileController = new DocumentBrandingController(
     branding,
-    uploads,
     extractions,
   );
+  const assetsController = new DocumentBrandingAssetsController(uploads);
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -36,7 +37,7 @@ describe('DocumentBrandingController quota headers', () => {
       );
 
     await expect(
-      controller.preview('entity-1', {} as never, response as never),
+      profileController.preview('entity-1', {} as never, response as never),
     ).rejects.toMatchObject({ status: HttpStatus.TOO_MANY_REQUESTS });
 
     expect(response.setHeader).toHaveBeenCalledWith('Retry-After', '60');
@@ -53,7 +54,12 @@ describe('DocumentBrandingController quota headers', () => {
       );
 
     await expect(
-      controller.uploadAsset('entity-1', 'LOGO', undefined, response as never),
+      assetsController.uploadAsset(
+        'entity-1',
+        'LOGO',
+        undefined,
+        response as never,
+      ),
     ).rejects.toMatchObject({ status: HttpStatus.TOO_MANY_REQUESTS });
 
     expect(response.setHeader).toHaveBeenCalledWith('Retry-After', '3600');

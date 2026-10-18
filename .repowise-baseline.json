@@ -4,7 +4,6 @@
     "apps/core-api/prisma/verify-seed.ts": 4.59,
     "apps/core-api/src/agent-proposal/agent-proposal.spec.support.ts": 5.38,
     "apps/core-api/src/document-branding/document-branding-extraction.service.ts": 5.65,
-    "apps/core-api/src/document-branding/document-branding-upload-worker.service.ts": 5.49,
     "apps/core-api/src/loaner-vehicles/loaner-vehicles.service.ts": 5.65,
     "apps/core-api/src/mcp/mcp-output.util.ts": 5.94,
     "apps/core-api/src/mcp/mcp-read-tool.service.ts": 5.3,

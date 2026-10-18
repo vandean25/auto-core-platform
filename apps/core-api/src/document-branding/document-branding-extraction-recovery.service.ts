@@ -6,9 +6,13 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import { DocumentBrandingExtractionTaskService } from './document-branding-extraction-task.service.js';
 import { startDerivedLogoGraceIfUnreferenced } from './document-branding-extraction-retention.js';
+import { runDocumentBrandingRecoveryCron } from './document-branding-tenant-recovery-cron.js';
+import {
+  DISPATCH_RECOVERY_GRACE_MS,
+  INITIAL_DISPATCH_GRACE_MS,
+} from './document-branding-upload-recovery.rules.js';
+import { safeExtractionWorkerError } from './document-branding-extraction-worker.errors.js';
 
-const INITIAL_DISPATCH_GRACE_MS = 60 * 1000;
-const DISPATCH_RECOVERY_GRACE_MS = 11 * 60 * 1000;
 const EXTRACTION_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
 @Injectable()
@@ -28,25 +32,14 @@ export class DocumentBrandingExtractionRecoveryService {
     name: 'document-branding-extraction-recovery',
   })
   async recover() {
-    await this.systemPrisma.withCronJobLock(
-      'document-branding-extraction-recovery',
-      async () => {
-        const tenants = await this.systemPrisma.tenant.findMany({
-          select: { id: true },
-        });
-        if (tenants.length === 0) return;
-
-        const now = new Date();
-        for (const { id: tenantId } of tenants) {
-          await this.requestContext.runAsWorker(
-            tenantId,
-            () => this.recoverForTenant(now),
-            { workerId: 'document-branding-extraction-recovery' },
-          );
-        }
-      },
-      this.logger,
-    );
+    await runDocumentBrandingRecoveryCron({
+      jobName: 'document-branding-extraction-recovery',
+      logger: this.logger,
+      systemPrisma: this.systemPrisma,
+      requestContext: this.requestContext,
+      workerId: 'document-branding-extraction-recovery',
+      runForTenant: (now) => this.recoverForTenant(now),
+    });
   }
 
   private async recoverForTenant(now: Date) {
@@ -197,7 +190,7 @@ export class DocumentBrandingExtractionRecoveryService {
       });
     } catch (error) {
       this.logger.warn(
-        `Could not requeue document branding extraction ${job.id}: ${error instanceof Error ? error.name : 'unknown error'}`,
+        `Could not requeue document branding extraction ${job.id}: ${safeExtractionWorkerError(error)}`,
       );
     }
   }
