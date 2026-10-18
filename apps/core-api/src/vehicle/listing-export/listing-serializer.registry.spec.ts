@@ -8,6 +8,13 @@ describe('listing-serializer.registry', () => {
     expect(serializer.platform).toBe('MOBILE_DE');
   });
 
+  it('resolves the AutoScout24 provisional serializer as UNVERIFIED', () => {
+    const serializer = resolveListingSerializer('AS24_PROVISIONAL_V1');
+    expect(serializer.profileCode).toBe('AS24_PROVISIONAL_V1');
+    expect(serializer.platform).toBe('AS24');
+    expect(serializer.verification).toBe('UNVERIFIED');
+  });
+
   it('resolves the willhaben generic serializer as UNVERIFIED', () => {
     const serializer = resolveListingSerializer('WILLHABEN_GENERIC_V1');
     expect(serializer.profileCode).toBe('WILLHABEN_GENERIC_V1');

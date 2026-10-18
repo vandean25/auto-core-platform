@@ -306,7 +306,7 @@ export class VehicleListingExportService {
         message: formatListingExportValidationMessage([
           {
             field: 'images',
-            message: `mobile.de reference export allows at most ${serializer.limits.maxImagesPerListing} images.`,
+            message: `${serializer.profileCode} export allows at most ${serializer.limits.maxImagesPerListing} images.`,
           },
         ]),
       });
