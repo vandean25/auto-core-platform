@@ -1,4 +1,4 @@
-/** ImportService getTemplate characterization (split for repowise). */
+/** ImportService getTemplate characterization (split for repowise; AUT-602). */
 import { ImportEntityType } from '@prisma/client';
 import {
   ACTOR_AUTH_UID,
