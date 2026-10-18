@@ -1,43 +1,43 @@
 ---
-title: "Storage locations"
-description: "Build the warehouse tree so stock has a bin, not a mystery pile."
+title: "Lagerorte"
+description: "Lagerbaum aufbauen, damit Bestand einem Fach hat — nicht einem unklaren Stapel."
 ---
 
-Use **Settings → Storage Locations** to name warehouses and the aisles, shelves, and bins under them. Stock quantities live on bins, not on this screen.
+**Einstellungen → Lagerorte** benennt Lager und die darunter liegenden Gänge, Regale und Fächer. Bestandsmengen liegen auf Fächern, nicht auf diesem Bildschirm.
 
-Left: the tree. Right: **Add Location**.
+Links: der Baum. Rechts: **Lagerort anlegen**.
 
 <Steps>
-  <Step title="Create the warehouse first">
-    Type **Warehouse**. Parent is locked to **None (Root)**.
+  <Step title="Zuerst das Lager anlegen">
+    Typ **Lager**. Übergeordneter Ort ist fest **Keiner (Stamm)**.
   </Step>
-  <Step title="Hang children underneath">
-    Type Aisle, Shelf, or Bin. Pick a **Parent Location**.
+  <Step title="Kinder darunter hängen">
+    Typ Gang, Regal oder Fach. **Übergeordneten Lagerort** wählen.
   </Step>
-  <Step title="Give a unique Code">
-    Codes show as a small badge on the tree (example `WH-001`).
+  <Step title="Eindeutigen Code vergeben">
+    Codes erscheinen als kleines Badge im Baum (Beispiel `WH-001`).
   </Step>
 </Steps>
 
-## Add Location
+## Lagerort anlegen
 
-| Field | Rules |
+| Feld | Regeln |
 | --- | --- |
-| **Name** | Required. Example: Main Warehouse |
-| **Code (Unique)** | Required |
-| **Type** | Warehouse, Aisle, Shelf, Bin |
-| **Parent Location** | Disabled for Warehouse. For other types, pick an existing row |
+| **Name** | Pflicht. Beispiel: Hauptlager |
+| **Code (eindeutig)** | Pflicht |
+| **Typ** | Lager, Gang, Regal, Fach |
+| **Übergeordneter Lagerort** | Bei Lager deaktiviert. Sonst eine bestehende Zeile wählen |
 
-**Create Location** sits at the bottom of the right card.
+**Lagerort anlegen** steht unten auf der rechten Karte.
 
-## Tree
+## Baum
 
-Click a row with children to expand or collapse. Hover shows a red trash on the right. Confirm **Delete {name}?**
+Klicken Sie eine Zeile mit Kindern, um ein- oder auszuklappen. Bei Hover erscheint rechts ein rotes Papierkorbsymbol. Bestätigen Sie **{name} löschen?**
 
 <Warning>
-Delete is allowed only when the location has **no children** and **no stock**. The server message is the source of truth. Soft-delete is used; the name should not come back as a live bin.
+Löschen ist nur erlaubt, wenn der Ort **keine Kinder** und **keinen Bestand** hat. Die Servermeldung ist maßgeblich. Es wird soft-gelöscht; der Name soll nicht als aktives Fach zurückkommen.
 </Warning>
 
-<Accordion title="Types you will not pick here">
-The product also knows customer storage and staging totes for workshop flows. This Settings form only creates warehouse, aisle, shelf, and bin.
+<Accordion title="Typen, die Sie hier nicht wählen">
+Das Produkt kennt auch Kundenlager und Bereitstellungsboxen für Werkstattabläufe. Dieses Einstellungsformular legt nur Lager, Gang, Regal und Fach an.
 </Accordion>

@@ -1,33 +1,33 @@
 ---
-title: "Listings export"
-description: "Export vehicle stock ads to mobile.de, willhaben, or AutoScout24."
+title: "Inserate exportieren"
+description: "Fahrzeugbestand-Inserate nach mobile.de, willhaben oder AutoScout24 exportieren."
 ---
 
-The listing editor on a **vehicle stock** unit prepares marketplace fields, equipment mapping, and consumer hints (including NoVA wording). Export generates portal-specific files you upload or push according to each portal’s process.
+Der Inserat-Editor an einer **Fahrzeugbestand**-Einheit bereitet Marktplatzfelder, Ausstattungszuordnung und Verbraucherhinweise (inkl. NoVA-Formulierung) vor. Der Export erzeugt portal-spezifische Dateien zum Hochladen oder Pushen gemäß dem jeweiligen Portal-Prozess.
 
-Sales and admins manage listings. Advisors can help with photos and descriptions.
+Vertrieb und Administratoren pflegen Inserate. Berater helfen bei Fotos und Beschreibungen.
 
 <Steps>
-  <Step title="Open stock detail">
-    **Vehicle Stock** → click the unit → open the **Listing** editor.
+  <Step title="Bestandsdetail öffnen">
+    **Fahrzeugbestand** → Einheit anklicken → Editor **Inserat** öffnen.
   </Step>
-  <Step title="Complete required fields">
-    Fill title, price, mileage, equipment, and confirm **NoVA included** when the ad must state tax treatment (*inkl. USt. und NoVA* in German copy).
+  <Step title="Pflichtfelder ausfüllen">
+    Titel, Preis, Kilometerstand, Ausstattung und **NoVA im Preis enthalten** bestätigen, wenn das Inserat die Steuerbehandlung nennen muss (*inkl. USt. und NoVA*).
   </Step>
-  <Step title="Choose portal profile">
-    Select the target portal (for example **mobile.de**, **willhaben**, or **AutoScout24**). Equipment codes map through ACP’s portal tables.
+  <Step title="Portal-Profil wählen">
+    Zielportal wählen (z. B. **mobile.de**, **willhaben** oder **AutoScout24**). Ausstattungscodes werden über ACP-Portal-Tabellen gemappt.
   </Step>
   <Step title="Export">
-    Run **Export** and download the generated file or follow the in-app push flow when AutoScout24 DMS API credentials are configured for your tenant.
+    **Export** ausführen und die erzeugte Datei herunterladen oder den In-App-Push nutzen, wenn AutoScout24-DMS-API-Zugangsdaten für Ihren Mandanten konfiguriert sind.
   </Step>
 </Steps>
 
 <Warning>
-Portal acceptance is yours to verify. ACP maps known equipment codes; unmapped options export as free text and may need manual cleanup in the portal UI.
+Die Annahme durch das Portal prüfen Sie selbst. ACP mappt bekannte Ausstattungscodes; nicht gemappte Optionen exportieren als Freitext und können in der Portal-Oberfläche manuell bereinigt werden.
 </Warning>
 
 <AccordionGroup>
-  <Accordion title="Who can use this">
-    Anyone who can edit vehicle stock economics and marketing fields can export. API push requires operator-level credentials outside this guide.
+  <Accordion title="Wer darf das nutzen">
+    Jeder, der Fahrzeugbestand in Wirtschaftlichkeit und Marketing bearbeiten darf, kann exportieren. API-Push erfordert Operator-Zugangsdaten außerhalb dieser Anleitung.
   </Accordion>
 </AccordionGroup>

@@ -1,0 +1,36 @@
+---
+title: "Agent supervision"
+description: "Approve proposed agent actions and review agent activity when supervision mode is on."
+---
+
+**Agent Supervision** is the human gate for automated agents (MCP and policy-tier actions). When your deployment enables supervision (`VITE_FEATURE_AGENT_SUPERVISION`), owners, admins, and advisors see the sidebar module.
+
+If the flag is off, the route redirects home and this page does not apply to your tenant.
+
+<Steps>
+  <Step title="Open Agent Supervision">
+    Sidebar → **Agent Supervision** (*Agentenüberwachung*).
+  </Step>
+  <Step title="Review Approvals">
+    On the **Approvals** tab, filter **Pending only**. Open a proposal to see target, amount, and policy tier.
+  </Step>
+  <Step title="Approve or reject">
+    Approve to let the platform execute the proposed action. Reject with a reason when the proposal is wrong or unsafe.
+  </Step>
+  <Step title="Audit in Activity">
+    Use **Activity** and **Decision shadow** tabs to trace what ran and what would have run under shadow mode.
+  </Step>
+</Steps>
+
+<Warning>
+The banner states that **HUMAN_ONLY** actions must be performed manually. Supervision does not auto-run those.
+</Warning>
+
+<AccordionGroup>
+  <Accordion title="Who can use this">
+    **OWNER**, **ADMIN**, and **ADVISOR** roles when the feature flag is enabled. Technicians and sales-only roles do not see the module.
+  </Accordion>
+  <Accordion title="API keys vs agents">
+    Tenant [API keys](/en/settings/api-keys) are read-only HTTP access for integrations. Agent supervision is separate from API key scopes.
+  </Accordion>
+</AccordionGroup>

@@ -1,33 +1,33 @@
 ---
-title: "Data import"
-description: "Run the CSV wizard to load legacy customers and vehicles."
+title: "Datenimport"
+description: "CSV-Assistent ausführen, um Bestandskunden und Fahrzeuge zu laden."
 ---
 
-**Data import** is the guided CSV wizard for bootstrapping a tenant from another system. It supports dry runs, row-level validation, and an audit link per import job.
+**Datenimport** ist der geführte CSV-Assistent, um einen Mandanten aus einem anderen System zu übernehmen. Er unterstützt Probeläufe, Validierung pro Zeile und einen Audit-Link pro Importjob.
 
-Only **OWNER** and **ADMIN** members see this tab.
+Nur Mitglieder mit der Rolle **OWNER** oder **ADMIN** sehen diesen Tab.
 
 <Steps>
-  <Step title="Open Data import">
-    Gear → **Data import**.
+  <Step title="Datenimport öffnen">
+    Zahnrad → **Datenimport**.
   </Step>
-  <Step title="Pick entity type">
-    Choose **Customers** or **Vehicles** and download the template if you need column names.
+  <Step title="Entitätstyp wählen">
+    **Kunden** oder **Fahrzeuge** wählen und bei Bedarf die Vorlage für Spaltennamen herunterladen.
   </Step>
-  <Step title="Upload and dry run">
-    Upload your CSV. Run a **dry run** first. Fix validation errors in the file before you commit.
+  <Step title="Hochladen und Probelauf">
+    CSV hochladen. Zuerst einen **Probelauf** ausführen. Beheben Sie Validierungsfehler in der Datei, bevor Sie den Live-Import starten.
   </Step>
-  <Step title="Commit import">
-    Start the live import when the dry run is clean. Open the audit link from the job row if you need the import job id in [Audit logs](/settings/audit-logs).
+  <Step title="Import ausführen">
+    Starten Sie den Live-Import, wenn der Probelauf sauber ist. Öffnen Sie den Audit-Link in der Jobzeile, wenn Sie die Import-Job-ID in [Audit-Logs](/settings/audit-logs) brauchen.
   </Step>
 </Steps>
 
 <Warning>
-Imports create new rows. They do not merge duplicates by plate or email unless the wizard step explicitly offers matching — read each screen before you commit.
+Importe legen neue Zeilen an. Sie führen keine Duplikate per Kennzeichen oder E-Mail zusammen, sofern der Assistentsschritt kein Matching explizit anbietet — lesen Sie jeden Schritt, bevor Sie ausführen.
 </Warning>
 
 <AccordionGroup>
-  <Accordion title="Who can use this">
-    OWNER and ADMIN only. Advisors cannot open the tab even with a direct URL.
+  <Accordion title="Wer das nutzen darf">
+    Nur OWNER und ADMIN. Berater können den Tab auch mit direkter URL nicht öffnen.
   </Accordion>
 </AccordionGroup>

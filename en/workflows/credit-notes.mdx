@@ -1,0 +1,40 @@
+---
+title: "Credit notes"
+description: "Issue credit notes (Gutschriften) against finalized invoices and download the PDF."
+---
+
+Use **Credit Notes** in the sidebar when you need to reduce or reverse part of a finalized tax invoice without editing the original document. Credit notes get their own number series and appear in [Export Readiness](/en/settings/finance#export-readiness) before accounting export.
+
+Only **OWNER** and **ADMIN** members see the **Credit Notes** sidebar entry.
+
+<Steps>
+  <Step title="Open Credit Notes">
+    In the sidebar, click **Credit Notes** (*Gutschriften*).
+  </Step>
+  <Step title="Create from an invoice">
+    Open a finalized invoice from [Invoices](/en/workflows/invoices) and click **Credit note**. Choose full or partial credit, then create the draft. You can also open existing rows from the **Credit Notes** list.
+  </Step>
+  <Step title="Finalize and download">
+    Complete the reason and lines, **Finalize** the credit note, then **Download PDF** like a tax invoice.
+  </Step>
+</Steps>
+
+| Column | Meaning |
+| --- | --- |
+| **Credit #** | Assigned number after finalize, or a short draft id |
+| **Date** | Document date |
+| **Reason** | Free-text reason stored on the credit note |
+| **Total** | Gross total |
+
+<Warning>
+Cancelled invoices cannot be exported. A credit note that blocks export readiness must be fixed or voided before you generate an accounting CSV for that period.
+</Warning>
+
+<AccordionGroup>
+  <Accordion title="Who can use this">
+    Sidebar visibility is limited to **OWNER** and **ADMIN**. Advisors and mechanics do not see the module.
+  </Accordion>
+  <Accordion title="Accounting export">
+    Credit notes use the same readiness rules as invoices. See [Finance](/en/settings/finance#export-readiness) and [Accounting export](/en/workflows/accounting-export).
+  </Accordion>
+</AccordionGroup>

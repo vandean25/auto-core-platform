@@ -1,27 +1,27 @@
 ---
-title: "Vehicle data"
-description: "Configure VIN decode and catalog providers for fitment and vehicle intelligence."
+title: "Fahrzeugdaten"
+description: "FIN-Dekodierung und Kataloganbieter für Verwendbarkeit und Fahrzeugdaten konfigurieren."
 ---
 
-**Settings → Vehicle data** controls how ACP resolves VINs and which catalog provider backs part fitment and vehicle attributes.
+**Einstellungen → Fahrzeugdaten** steuert, wie ACP FINs auflöst und welcher Kataloganbieter Verwendbarkeit und Fahrzeugattribute liefert.
 
-Only **OWNER** and **ADMIN** members see this tab.
+Nur Mitglieder mit der Rolle **OWNER** oder **ADMIN** sehen diesen Tab.
 
 <Steps>
-  <Step title="Open Vehicle data">
-    Gear → **Vehicle data**.
+  <Step title="Fahrzeugdaten öffnen">
+    Zahnrad → **Fahrzeugdaten**.
   </Step>
-  <Step title="Choose providers">
-    Select the active VIN and catalog providers your contract includes. Save changes.
+  <Step title="Anbieter wählen">
+    Aktive FIN- und Kataloganbieter auswählen, die Ihr Vertrag umfasst. Änderungen speichern.
   </Step>
-  <Step title="Test on a vehicle">
-    Open [Vehicles](/workflows/vehicles), create or edit a record, and run VIN decode to confirm results.
+  <Step title="Am Fahrzeug testen">
+    [Fahrzeuge](/workflows/vehicles) öffnen, Datensatz anlegen oder bearbeiten und FIN-Dekodierung ausführen, um die Ergebnisse zu prüfen.
   </Step>
 </Steps>
 
 <AccordionGroup>
-  <Accordion title="Gotchas">
-    - Provider credentials are tenant-wide. A wrong provider shows empty fitment in parts search.
-    - Decoded data never replaces your legal responsibility to verify plate and registration documents at intake.
+  <Accordion title="Fallstricke">
+    - Anbieter-Zugangsdaten gelten mandantenweit. Ein falscher Anbieter zeigt leere Verwendbarkeit in der Teilesuche.
+    - Dekodierte Daten ersetzen nicht Ihre Pflicht, Zulassung und Papiere bei der Annahme zu prüfen.
   </Accordion>
 </AccordionGroup>

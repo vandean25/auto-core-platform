@@ -1,27 +1,27 @@
 ---
-title: "Margin rules"
-description: "Set price-list margin rules that apply when importing supplier price lists."
+title: "Margenregeln"
+description: "Margenregeln für Preislistenimporte festlegen, wenn Lieferantenlisten ins Lager kommen."
 ---
 
-**Margin rules** (*Margenregeln* in the German UI) define how purchase net prices become sell prices when you import vendor price lists into [Inventory](/workflows/inventory).
+**Margenregeln** definieren, wie Einkaufspreise netto zu Verkaufspreisen werden, wenn Sie Lieferanten-Preislisten in [Teilebestand](/workflows/inventory) importieren.
 
-Only **OWNER** and **ADMIN** members see this tab.
+Nur Mitglieder mit der Rolle **OWNER** oder **ADMIN** sehen diesen Tab.
 
 <Steps>
-  <Step title="Open Margin rules">
-    Gear → **Margin rules**.
+  <Step title="Margenregeln öffnen">
+    Zahnrad → **Margenregeln**.
   </Step>
-  <Step title="Define a rule">
-    Set the scope (brand, category, or default), margin type, and percentage or markup formula the import should apply.
+  <Step title="Regel definieren">
+    Priorität, Bezeichnung, optionale Marke und Erlösgruppe, EK-Bereich, Aufschlag in Prozent, optional UVP des Lieferanten und Rundungsstrategie festlegen. Regeln werden von oben nach unten (niedrigste Priorität zuerst) ausgewertet; die erste passende Regel greift.
   </Step>
-  <Step title="Import a price list">
-    Run the price list import from inventory or procurement. Matching lines pick up the rule at import time.
+  <Step title="Preisliste importieren">
+    Preislistenimport aus Bestand oder Einkauf ausführen. Passende Zeilen übernehmen die Regel zum Importzeitpunkt.
   </Step>
-  <Step title="Audit changes">
-    Use [Audit logs](/settings/audit-logs) if you need who changed a rule row.
+  <Step title="Änderungen nachverfolgen">
+    Nutzen Sie [Audit-Logs](/settings/audit-logs), wenn Sie wissen müssen, wer eine Regelzeile geändert hat.
   </Step>
 </Steps>
 
 <Warning>
-Margin rules affect future imports. They do not rewrite prices on parts already received unless you run a new import or manual price edit.
+Margenregeln wirken auf zukünftige Importe. Sie schreiben Preise auf bereits eingebuchte Teile nicht um, außer Sie führen einen neuen Import oder eine manuelle Preisänderung durch.
 </Warning>

@@ -1,33 +1,33 @@
 ---
-title: "NoVA calculator"
-description: "Preview Austrian NoVA on vehicle purchase and stock with the built-in calculation kernel."
+title: "NoVA-Rechner"
+description: "NoVA bei Fahrzeugankauf und Bestand mit dem integrierten Berechnungskern vorschauen."
 ---
 
-The **NoVA** (*Normverbrauchsabgabe*) preview helps you estimate tax on vehicles you buy or sell, including EU used imports. It is a planning aid — always reconcile with your tax advisor before you contract.
+Die **NoVA**-Vorschau (*Normverbrauchsabgabe*) hilft Ihnen, die Abgabe bei An- und Verkauf von Fahrzeugen zu schätzen, auch bei EU-Gebrauchtimporten. Sie ist eine Planungshilfe — gleichen Sie die Werte vor Vertragsabschluss immer mit Ihrer Steuerberatung ab.
 
-Advisors, sales, and admins use the calculator on vehicle forms and stock purchase flows. The preview calls `POST /api/vehicles/nova/calculate` with your inputs.
+Serviceberater, Verkauf und Administratoren nutzen den Rechner in Fahrzeugformularen und beim Einkauf im Fahrzeugbestand. Die Vorschau ruft `POST /api/vehicles/nova/calculate` mit Ihren Eingaben auf.
 
 <Steps>
-  <Step title="Open a vehicle or stock purchase">
-    Start from [Vehicles](/workflows/vehicles) or [Vehicle stock](/workflows/vehicle-stock) purchase intake.
+  <Step title="Fahrzeug oder Bestandseinkauf öffnen">
+    Starten Sie unter [Fahrzeuge](/workflows/vehicles) oder beim Einkauf unter [Fahrzeugbestand](/workflows/vehicle-stock).
   </Step>
-  <Step title="Set NoVA class">
-    Choose **NoVA class** (for example **STANDARD**, **ELECTRIC_EXEMPT**, **OTHER**, or **NOT_SET**) on the vehicle.
+  <Step title="NoVA-Klasse setzen">
+    Wählen Sie am Fahrzeug die **NoVA-Klasse** (z. B. **STANDARD**, **ELECTRIC_EXEMPT**, **OTHER** oder **NOT_SET**).
   </Step>
-  <Step title="Run the preview panel">
-    Enter net price and consumption or CO₂ inputs as the form asks. Click the calculate action in the **NoVA** preview panel.
+  <Step title="Vorschau-Panel ausführen">
+    Tragen Sie Nettopreis sowie Verbrauchs- oder CO₂-Werte ein, wie das Formular es verlangt. Klicken Sie im **NoVA**-Vorschau-Panel auf **NoVA berechnen**.
   </Step>
-  <Step title="Use listing export">
-    When you publish stock, confirm **NoVA included** flags on marketplace copy — see [Listings export](/workflows/listings-export).
+  <Step title="Inseratexport nutzen">
+    Beim Veröffentlichen von Bestand prüfen Sie die NoVA-Hinweise im Marktplatztext — siehe [Inseratexport](/workflows/listings-export).
   </Step>
 </Steps>
 
 <Warning>
-ACP shows limitation hints when inputs fall outside validated bands. Do not treat the preview as a filed tax return.
+ACP zeigt Hinweise, wenn Eingaben außerhalb validierter Bereiche liegen. Behandeln Sie die Vorschau nicht als abgegebene Steuererklärung.
 </Warning>
 
 <AccordionGroup>
-  <Accordion title="Who can use this">
-    Any role that can edit vehicle economics sees the preview. Final numbers on customer contracts still follow your legal entity settings.
+  <Accordion title="Wer darf das nutzen">
+    Jede Rolle mit Berechtigung zur Bearbeitung der Fahrzeugwirtschaft sieht die Vorschau. Endgültige Beträge auf Kundenverträgen folgen weiterhin Ihren Rechtsträger-Einstellungen.
   </Accordion>
 </AccordionGroup>

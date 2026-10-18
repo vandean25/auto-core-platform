@@ -1,0 +1,30 @@
+---
+title: "Stock transfers"
+description: "Move parts between sites with a tracked transfer document (Umlagerung)."
+---
+
+**Transfers** (*Umlagerungen*) move quantity from one site’s storage location to another. Each transfer has a status trail so parts clerks know what is in transit.
+
+Parts staff, advisors, and admins create transfers. Mechanics consume stock through job issues rather than transfers.
+
+<Steps>
+  <Step title="Open Transfers">
+    Sidebar → **Transfers**, or **Ctrl+K → Open Transfers**.
+  </Step>
+  <Step title="Create a transfer">
+    Pick **from** site/location and **to** site/location. Add lines with SKU and quantity.
+  </Step>
+  <Step title="Ship and receive">
+    Mark dispatched quantities when the pallet leaves. Complete receipt at the destination site to post inventory.
+  </Step>
+</Steps>
+
+<Check>
+You need an active **site** in the header switcher for operational stock views. See [Sites](/en/workflows/sites).
+</Check>
+
+<AccordionGroup>
+  <Accordion title="Inventory detail">
+    On-hand per bin still lives in [Inventory](/en/workflows/inventory). Transfers adjust quantities only when receipt completes.
+  </Accordion>
+</AccordionGroup>

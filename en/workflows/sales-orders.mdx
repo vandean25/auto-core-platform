@@ -1,0 +1,29 @@
+---
+title: "Sales orders"
+description: "Sell parts over the counter: pick a customer, add lines, then review and finalize its invoice draft."
+---
+
+**Sales Orders** is the counter pipeline. List subtitle: manage your sales pipeline and job cards. Top-right: **+ New order**. Click the row. Right-click **Delete** only while status is **DRAFT**.
+
+Status badges include **DRAFT**, **CONFIRMED**, **IN_PROGRESS**, **COMPLETED**, **INVOICED**. The header action you use every day is **Create Invoice**. It starts a linked invoice draft; it does not issue the tax invoice immediately.
+
+<Steps>
+  <Step title="New order">
+    **+ New order** opens `/sales-orders/new`. Search the customer. Add at least one line from inventory (description, qty, unit price, tax). Save fails with **Please add at least one item** if the grid is empty.
+  </Step>
+  <Step title="Work the draft">
+    Detail shows customer card and lines. Auto-save applies on complex documents. You cannot edit after **INVOICED**.
+  </Step>
+  <Step title="Create the invoice draft">
+    Top-right **Create Invoice**, then confirm. From **DRAFT**, this confirms the sales order and creates a linked draft. From later statuses, it creates the linked draft without issuing it. The draft editor opens at `/sales/invoices/:id/edit`.
+  </Step>
+  <Step title="Review and finalize">
+    Review the linked draft and let its changes save. **Finalize** issues the official invoice number. Finalizing does not download a PDF. Open the invoice and use **Download PDF** when you need a copy. Finalization moves the sales order to **INVOICED**, after which the order cannot be edited.
+  </Step>
+</Steps>
+
+<Warning>
+A locked [fiscal lock date](/en/settings/finance) blocks backdated invoices. Stock for catalog lines comes off the shelf when the invoice is finalized, through the inventory ledger — not a silent quantity edit.
+</Warning>
+
+Continue on [Invoices](/en/workflows/invoices) to download the PDF.
