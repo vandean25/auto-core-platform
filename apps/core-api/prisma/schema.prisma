@@ -102,6 +102,8 @@ model Tenant {
   vehicleListings               VehicleListing[]
   vehicleListingChannels        VehicleListingChannel[]
   vehicleListingPhotos          VehicleListingPhoto[]
+  vehicleListingPushSettings    VehicleListingPushSettings?
+  vehicleListingChannelDmsSyncs VehicleListingChannelDmsSync[]
   salesOrders                   SalesOrder[]
   salesOrderItems               SalesOrderItem[]
   invoices                      Invoice[]
@@ -1957,6 +1959,18 @@ enum VehicleListingRemoteState {
   CONFIRMED_INACTIVE
 }
 
+enum VehicleListingDmsProvider {
+  AS24_DMS
+}
+
+enum VehicleListingDmsSyncState {
+  NEVER_SYNCED
+  PENDING
+  SYNCED
+  FAILED
+  DEACTIVATED
+}
+
 /// Marketplace listing draft for one stock purchase cycle (AUT-567).
 model VehicleListing {
   id                                String                          @id @default(uuid())
@@ -2015,6 +2029,7 @@ model VehicleListingChannel {
   last_export_content_sha256 String?                    @map("last_export_content_sha256") @db.Char(64)
   external_ref               String?                    @map("external_ref") @db.VarChar(120)
   removal_revision           Int                        @default(0) @map("removal_revision")
+  dms_syncs                  VehicleListingChannelDmsSync[]
   createdAt                  DateTime                   @default(now()) @map("created_at")
   updatedAt                  DateTime                   @updatedAt @map("updated_at")
 
@@ -2022,6 +2037,38 @@ model VehicleListingChannel {
   @@unique([tenant_id, id])
   @@index([tenant_id, platform, export_state])
   @@map("vehicle_listing_channels")
+}
+
+/// Per-tenant opt-in for marketplace API push (AUT-572). Env flag must also be enabled.
+model VehicleListingPushSettings {
+  tenant_id              String   @id @map("tenant_id")
+  tenant                 Tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  as24_dms_push_enabled  Boolean  @default(false) @map("as24_dms_push_enabled")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  @@map("vehicle_listing_push_settings")
+}
+
+/// DMS API sync status per listing channel (AUT-572).
+model VehicleListingChannelDmsSync {
+  id                    String                      @id @default(uuid())
+  tenant_id             String
+  tenant                Tenant                      @relation(fields: [tenant_id], references: [id])
+  channel_id            String                      @map("channel_id")
+  channel               VehicleListingChannel       @relation(fields: [tenant_id, channel_id], references: [tenant_id, id], onDelete: Cascade, onUpdate: Cascade)
+  provider              VehicleListingDmsProvider
+  external_listing_id   String?                     @map("external_listing_id") @db.VarChar(120)
+  sync_state            VehicleListingDmsSyncState  @default(NEVER_SYNCED) @map("sync_state")
+  last_sync_at          DateTime?                   @map("last_sync_at")
+  last_sync_error_code  String?                     @map("last_sync_error_code") @db.VarChar(64)
+  last_idempotency_key  String?                     @map("last_idempotency_key") @db.VarChar(128)
+  createdAt             DateTime                    @default(now()) @map("created_at")
+  updatedAt             DateTime                    @updatedAt @map("updated_at")
+
+  @@unique([tenant_id, channel_id, provider])
+  @@unique([tenant_id, id])
+  @@map("vehicle_listing_channel_dms_syncs")
 }
 
 /// Ordered listing photo selection referencing stock media (AUT-567).
