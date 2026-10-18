@@ -341,8 +341,11 @@ describe('Notification outbox: WAITING_CUSTOMER (e2e)', () => {
       basePrisma.$transaction((tx) => outbox.enqueueInTx(tx, input)),
     );
 
-    expect(first.created).toBe(true);
-    expect(second).toEqual({ id: first.id, created: false });
+    expect(first.blocked).toBe(false);
+    if (!first.blocked) {
+      expect(first.created).toBe(true);
+    }
+    expect(second).toEqual({ blocked: false, id: first.id, created: false });
     const stored = await createTenantAwarePrisma(
       basePrisma,
       tenantId,
@@ -404,8 +407,12 @@ describe('Notification outbox: WAITING_CUSTOMER (e2e)', () => {
       ),
     );
 
-    expect(inThisTenant.created).toBe(true);
-    expect(inOtherTenant.created).toBe(true);
-    expect(inOtherTenant.id).not.toBe(inThisTenant.id);
+    expect(inThisTenant.blocked).toBe(false);
+    expect(inOtherTenant.blocked).toBe(false);
+    if (!inThisTenant.blocked && !inOtherTenant.blocked) {
+      expect(inThisTenant.created).toBe(true);
+      expect(inOtherTenant.created).toBe(true);
+      expect(inOtherTenant.id).not.toBe(inThisTenant.id);
+    }
   });
 });

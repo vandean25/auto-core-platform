@@ -260,6 +260,7 @@
   "PRICE_JUMP_EXCEEDED": "Preissprung überschritten.",
   "PROVIDER_READ_FAILED": "Anbieter konnte nicht gelesen werden.",
   "READY_EMAIL_BLOCKED": "Die Abholbenachrichtigung kann erst gesendet werden, wenn die Kundenkontaktdaten vollständig sind.",
+  "READY_EMAIL_CONTACT_CONSENT_BLOCKED": "Die Abholbenachrichtigung kann nicht gesendet werden, weil die Kontakterlaubnis fehlt oder widerrufen wurde.",
   "READY_EMAIL_INCOMPLETE": "Für die Abholbenachrichtigung benötigt das Fahrzeug Marke und Modell.",
   "READY_EMAIL_INVALID": "Die Kunden-E-Mail-Adresse ist keine einfache Adresse.",
   "READY_EMAIL_MISSING": "Der Kunde hat keine E-Mail-Adresse für die Abholbenachrichtigung.",
