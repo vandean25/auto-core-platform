@@ -133,11 +133,7 @@ function normalizeFitment(
   }
 
   const warnings: ImportRowIssue[] = [];
-  const yearFrom = parseFitmentYear(
-    yearFromRaw,
-    'fitment_year_from',
-    warnings,
-  );
+  const yearFrom = parseFitmentYear(yearFromRaw, 'fitment_year_from', warnings);
   const yearTo = parseFitmentYear(yearToRaw, 'fitment_year_to', warnings);
 
   const fitment: NormalizedLaborFitmentRow = {
