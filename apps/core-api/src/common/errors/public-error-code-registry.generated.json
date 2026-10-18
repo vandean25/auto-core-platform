@@ -1093,6 +1093,10 @@
       "public": false,
       "params": []
     },
+    "READY_EMAIL_CONTACT_CONSENT_BLOCKED": {
+      "public": false,
+      "params": []
+    },
     "READY_EMAIL_INCOMPLETE": {
       "public": false,
       "params": []

@@ -1,0 +1,53 @@
+---
+title: "Accounting export"
+description: "Close a period, clear export blockers, and download DATEV, RZL, or BMD CSV runs."
+---
+
+Accounting export turns finalized invoices and credit notes into immutable CSV files for your accountant system. The product supports three profile codes on the legal entity: **DATEV** (`ACP-DATEV-DE-EUR-1`, Germany), **RZL** (`ACP-RZL-AT-EUR-1`, Austria), and **BMD** (`ACP-BMD-AT-EUR-1`, Austria). RZL and BMD may stay disabled until your platform operator releases them in that environment.
+
+Only **OWNER** and **ADMIN** members with complete site access can preview or generate exports.
+
+<CardGroup cols={2}>
+  <Card title="Export Readiness" icon="clipboard-check" href="/en/settings/finance#export-readiness">
+    See blocked documents before you generate a file.
+  </Card>
+  <Card title="Legal entity profile" icon="building-2" href="/en/settings/legal-entities">
+    DATEV, RZL, or BMD mapping and enable toggles per entity.
+  </Card>
+</CardGroup>
+
+<Steps>
+  <Step title="Clear Export Readiness">
+    Open **Export Readiness** in the sidebar. Pick the legal entity and period. Fix every blocked invoice or credit note.
+  </Step>
+  <Step title="Open Accounting export">
+    **Settings** (gear) → **Finance** → sub-tab **Accounting export**.
+  </Step>
+  <Step title="Preview">
+    Choose the legal entity, **Date from**, and **Date to**. Click **Preview**. Resolve any **Blocking issues** the preview lists.
+  </Step>
+  <Step title="Generate and download">
+    Click **Generate**, then **Download** or **Download latest** from the run history. Downloads are audit-logged; they do not confirm import into DATEV, RZL, or BMD.
+  </Step>
+</Steps>
+
+<Tip>
+The on-screen copy references DATEV Buchungsstapel CSV because that is the default profile in the demo UI. Austrian entities with **RZL export enabled** or **BMD** profile `ACP-BMD-AT-EUR-1` (when released) use the same preview and generate flow; the downloaded filename and column layout follow the entity profile code.
+</Tip>
+
+<Warning>
+Importing overlapping CSV files into your accounting system can duplicate bookings. The export screen warns when a period overlaps prior runs. Acknowledge the risk before **Generate anyway**.
+</Warning>
+
+<AccordionGroup>
+  <Accordion title="BMD vs RZL vs DATEV">
+    | Profile | Typical use | UI configuration |
+    | --- | --- | --- |
+    | `ACP-DATEV-DE-EUR-1` | German DATEV Buchungsstapel | **DATEV export enabled** toggle on the DE legal entity |
+    | `ACP-RZL-AT-EUR-1` | Austrian RZL Fibu import | **RZL export configuration** (firm number, Steuercodes) on the AT legal entity |
+    | `ACP-BMD-AT-EUR-1` | Austrian BMD NTCS import | Profile code on the accounting profile; CSV generation is gated until the operator enables BMD in that environment |
+  </Accordion>
+  <Accordion title="Export refused">
+    If preview shows a scope refusal instead of document totals, your account lacks active membership on a site that holds documents in the period. An owner or admin must fix **Settings → Sites** and team site access.
+  </Accordion>
+</AccordionGroup>

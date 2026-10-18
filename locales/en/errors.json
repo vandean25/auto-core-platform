@@ -276,6 +276,7 @@
     "PRISMA_P2025": "The requested record was not found.",
     "PROVIDER_READ_FAILED": "Provider read failed.",
     "READY_EMAIL_BLOCKED": "The ready notice cannot be sent until customer contact details are complete.",
+    "READY_EMAIL_CONTACT_CONSENT_BLOCKED": "The ready notice cannot be sent because customer contact permission is not granted or has been withdrawn.",
     "READY_EMAIL_INCOMPLETE": "The vehicle needs a make and a model for the ready notice.",
     "READY_EMAIL_INVALID": "The customer email address is not a plain address.",
     "READY_EMAIL_MISSING": "The customer has no email address for the ready notice.",

@@ -1,38 +1,38 @@
 ---
-title: "Dashboard and search"
-description: "Turn saved list filters into widgets, and jump to parts, customers, vehicles, or jobs with Ctrl+K."
+title: "Dashboard und Suche"
+description: "Gespeicherte Listenfilter in Widgets verwandeln und mit Strg+K zu Teilen, Kunden, Fahrzeugen oder Aufträgen springen."
 ---
 
-**Dashboard** is a command board you build, not a fixed report pack. Subtitle: build your command center from saved table filters.
+**Dashboard** ist ein Kommandoboard, das Sie selbst bauen — kein festes Report-Paket. Untertitel: Bauen Sie Ihre Kommandozentrale aus gespeicherten Tabellenfiltern.
 
-Empty dashboard copy: **No widgets yet. Open a list view, apply filters, then click Add to dashboard.**
+Leerer Dashboard-Text: **Noch keine Widgets. Öffnen Sie eine Listenansicht, setzen Sie Filter und klicken Sie auf Zum Dashboard hinzufügen.**
 
-That button is on Customers, Vehicles, Sales Orders, Workshop Orders, Inventory, Vendors, Purchase Orders, and Purchase Bills.
+Dieser Button gibt es bei Kunden, Fahrzeugen, Kundenaufträgen, Werkstattaufträgen, Lager, Lieferanten, Bestellungen und Eingangsrechnungen.
 
 <Steps>
-  <Step title="Filter a list the way you work">
-    Search and sort until the table matches “open POs” or “today’s jobs.”
+  <Step title="Liste so filtern, wie Sie arbeiten">
+    Suchen und sortieren, bis die Tabelle z. B. „offene Bestellungen“ oder „heutige Jobs“ zeigt.
   </Step>
-  <Step title="Add to dashboard">
-    Click **Add to dashboard**. Name the widget. Choose list or a grouped metric.
+  <Step title="Zum Dashboard hinzufügen">
+    Klicken Sie **Zum Dashboard hinzufügen**. Benennen Sie das Widget. Wählen Sie Liste oder gruppierte Kennzahl.
   </Step>
-  <Step title="Open Dashboard">
-    Sidebar **Dashboard**. Widgets stay live as other people receive stock or update jobs.
+  <Step title="Dashboard öffnen">
+    In der Seitenleiste **Dashboard**. Widgets bleiben live, wenn andere Ware einbuchen oder Aufträge aktualisieren.
   </Step>
 </Steps>
 
-## Global search
+## Globale Suche
 
-**Ctrl+K** (Windows) or **Cmd+K** (Mac) opens search. Placeholder: **Search parts, customers, vehicles, jobs…**
+**Strg+K** (Windows) oder **Cmd+K** (Mac) öffnet die Suche. Platzhalter: **Teile, Kunden, Fahrzeuge, Aufträge…**
 
-Search runs across five groups in parallel:
-- **Commands**: Jump directly to views or trigger create dialogs (for example, **Open Workshop Intake** or **Create Sales Order**).
-- **Customers**: Search by individual name, company name, or phone to open `/customers/:id`.
-- **Vehicles**: Search by license plate, VIN, or make/model to open `/vehicles/:id`.
-- **Workshop orders**: Search by work order number (e.g. `WO-2026-0004`), vehicle plate, or customer to open `/workshop/orders/:id`.
-- **Inventory**: Search by SKU or description to jump to the part's stock ledger.
+Die Suche läuft parallel über fünf Gruppen:
+- **Befehle**: Direkt zu Ansichten springen oder Anlegen-Dialoge starten (z. B. **Fahrzeugannahme öffnen** oder **Kundenauftrag anlegen**).
+- **Kunden**: Suche nach Name, Firmenname oder Telefon, um `/customers/:id` zu öffnen.
+- **Fahrzeuge**: Suche nach Kennzeichen, FIN oder Marke/Modell, um `/vehicles/:id` zu öffnen.
+- **Werkstattaufträge**: Suche nach Auftragsnummer (z. B. `WO-2026-0004`), Kennzeichen oder Kunde, um `/workshop/orders/:id` zu öffnen.
+- **Lager**: Suche nach SKU oder Beschreibung, um zum Bestandsjournal des Teils zu springen.
 
 <Tip>
-Lists stay live. When someone else receives stock or updates a job, the widgets update.
+Listen bleiben live. Wenn jemand anderes Ware einbucht oder einen Auftrag ändert, aktualisieren sich die Widgets.
 </Tip>
 
