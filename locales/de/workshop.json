@@ -491,7 +491,7 @@
       "jobCardPdfDownloaded": "Job-Card-PDF erfolgreich heruntergeladen",
       "jobCardPdfFailed": "PDF konnte nicht erstellt werden",
       "technicianAssigned": "Mechaniker zugewiesen",
-      "technicianUnassigned": "Technikerzuweisung entfernt",
+      "technicianUnassigned": "Mechanikerzuweisung entfernt",
       "technicianAssignFailed": "Mechaniker konnte nicht zugewiesen werden",
       "vehicleIdentityResolved": "Fahrzeugidentität aktualisiert",
       "vehicleIdentityResolveFailed": "Fahrzeugidentität konnte nicht aktualisiert werden"
