@@ -1384,7 +1384,7 @@ export const mcpToolOutputSchemas = {
         vehicle_id: idString,
         customer_id: idString,
         handed_over_at: isoDateOnly.nullable(),
-        gewaehrleistung_ends_on: isoDateOnly,
+        gewaehrleistung_ends_on: isoDateOnly.nullable(),
         presumption_ends_on: isoDateOnly.nullable(),
         gewaehrleistung_rule_version: z.string().nullable(),
         vehicle: z.object({

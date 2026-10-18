@@ -1,10 +1,33 @@
-import type { GewaehrleistungDueListItemDto } from '../vehicle-stock/dto/gewaehrleistung-due-list.dto.js';
 import type { TyreSetResponseDto } from '../tyre-storage/dto/tyre-set.dto.js';
 import type { WarrantyClaimResponse } from '../warranty-claim/warranty-claim.mapper.js';
 import { mcpCustomerName } from './mcp-invoice-read.mapper.js';
 import type { McpKeysetCursor } from './mcp-output.util.js';
 
-export function toMcpGewaehrleistungDueRow(row: GewaehrleistungDueListItemDto) {
+type GewaehrleistungDueRow = {
+  id: string;
+  sale_number: string;
+  vehicle_id: string;
+  customer_id: string;
+  handed_over_at: Date | null;
+  gewaehrleistung_ends_on: Date | null;
+  presumption_ends_on: Date | null;
+  gewaehrleistung_rule_version: string | null;
+  vehicle: {
+    id: string;
+    make: string;
+    model: string;
+    year: number;
+    vin: string | null;
+    plate: string | null;
+  };
+  customer: {
+    company_name: string | null;
+    first_name: string | null;
+    last_name: string | null;
+  };
+};
+
+export function toMcpGewaehrleistungDueRow(row: GewaehrleistungDueRow) {
   const customer = row.customer;
   return {
     id: row.id,
@@ -15,8 +38,8 @@ export function toMcpGewaehrleistungDueRow(row: GewaehrleistungDueListItemDto) {
       ? row.handed_over_at.toISOString().slice(0, 10)
       : null,
     gewaehrleistung_ends_on: row.gewaehrleistung_ends_on
-      .toISOString()
-      .slice(0, 10),
+      ? row.gewaehrleistung_ends_on.toISOString().slice(0, 10)
+      : null,
     presumption_ends_on: row.presumption_ends_on
       ? row.presumption_ends_on.toISOString().slice(0, 10)
       : null,
@@ -32,8 +55,8 @@ export function toMcpGewaehrleistungDueRow(row: GewaehrleistungDueListItemDto) {
     customer_name: mcpCustomerName({
       type: customer.company_name ? 'COMPANY' : 'PRIVATE',
       company_name: customer.company_name,
-      first_name: customer.first_name,
-      last_name: customer.last_name,
+      first_name: customer.first_name ?? '',
+      last_name: customer.last_name ?? '',
     }),
   };
 }

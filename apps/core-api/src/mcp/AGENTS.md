@@ -211,6 +211,13 @@ The serialized-result cap is 32 KB (32,768). An audit or agent action page drops
 - `list_pickerl_due` lists vehicles whose Pickerl falls due within `window` days (30, 60, or 90; default 30), counted from today. Overdue vehicles are always listed. Each row has `vehicle`, `customer_name`, `status`, and `due_date`, the last day of the sticker's due month. Overdue rows come first, then rows by due month. It sends no reminder; reminders are a person's action.
 - `get_nova_preview` takes `vehicle_id` and `net_price_eur`, the net vehicle price without VAT as a EUR decimal string. It is a calculation only: nothing is saved, and no invoice is created, changed, or sent. Every result has a `note`, which says the Steuerberater must still confirm while any unconfirmed rule applies. When `has_unverified_rules` is `true`, `warnings` names the rules, and the amount must not be relied on until the Steuerberater confirms it. Never present a NoVA amount as a confirmed tax figure.
 
+### Consent, Gewährleistung, tyre storage, and warranty reads
+
+- `check_contact_permission` needs OWNER, ADMIN, or SALES, like the consent ledger REST API. It takes `customer_id`, `purpose`, `channel`, and optional `controller_legal_entity_id` when more than one legal entity is active. The result is only `allowed` and `reason` from the consent rules; ledger text, snapshots, and evidence are never returned.
+- `list_gewaehrleistung_due` uses the same Gewährleistung due query as `GET /vehicle-stock/gewaehrleistung-due` at the active site. `within_days` is 30, 60, or 90 (default 30). Rows include vehicle identity, sale metadata, end dates, and a formatted `customer_name`.
+- `list_tyre_sets` uses the tyre storage service at the active site. Filter by `customer_id`, `vehicle_id`, `status`, or set `due_for_swap` to true for the seasonal swap list. Contact fields match the REST tyre set list for the same roles (OWNER, ADMIN, SALES, and TECH).
+- `list_warranty_claims` needs OWNER, ADMIN, or SALES, like workshop warranty claim REST endpoints. Optional `order_id`, `status`, and `type` (`GARANTIE`, `KULANZ`, or `GEWAEHRLEISTUNG`) filter the active site. Rows are compact: amounts, status, and line count only; complaint, cause, and decision note text are omitted.
+
 ## Outcomes and errors
 
 Policy refusals return an MCP tool error with the code `not_permitted`, and a free-text workshop line returns `NOT_A_CATALOG_LINE`. Other MCP tool errors may not have a stable application code. Use the actual outcome or exception below; do not translate it into a made-up code.
