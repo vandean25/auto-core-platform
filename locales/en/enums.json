@@ -153,6 +153,7 @@
       "make": "Make",
       "model": "Model",
       "year": "Year",
+      "first_registration_date": "First registration date",
       "mileage": "Mileage",
       "color": "Color",
       "owner_customer_external_id": "Owner customer number",

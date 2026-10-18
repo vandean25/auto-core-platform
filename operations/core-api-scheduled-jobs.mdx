@@ -17,6 +17,7 @@ Lock-Helfer: `SystemPrismaService.withCronJobLock(jobName, fn)` hält für den g
 | `document-branding-upload-recovery` | Jede Minute | `DocumentBrandingUploadRecoveryService` | Hängende Branding-Uploads erneut einreihen und abgelaufene Quarantäne-Assets purgen. |
 | `domain-event-consumer-recovery` | Jede Minute | `DomainEventConsumerRecoveryService` | Workshop-Estimate-Decided-Domain-Event-Consumer nachziehen. |
 | `hr-shift-close` | `59 23 * * *` | `HrAttendanceSchedulerService` | Nächtliches automatisches `CLOCK_OUT` für offene HR-Anwesenheitsschichten. |
+| `import-job-row-purge` | `31 3 * * *` | `ImportRetentionService` | Legacy-Import-Zeilenpayloads nach 180 Tagen pro Mandant löschen (Job-Header und External-IDs bleiben). |
 | `landing-demo-access-cleanup` | Täglich 03:00 | `LandingDemoAccessCleanupService` | Abgelaufene Demo-Mitgliedschaften und veraltete öffentliche Rate-Limit-Zähler deaktivieren. |
 | `mechanic-shift-close` | `59 23 * * *` | `MechanicSchedulerService` | Nächtliches automatisches Schließen offener Mechaniker-`LaborEntry`-Zeilen. |
 | `notification-outbox-recovery` | Jede Minute | `NotificationOutboxRecoveryService` | Veraltete Benachrichtigungen fehlschlagen lassen, abgelaufene Leases freigeben, fällige Outbox-Zeilen wecken. |
