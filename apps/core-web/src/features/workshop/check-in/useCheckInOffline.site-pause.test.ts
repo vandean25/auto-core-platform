@@ -52,7 +52,7 @@ vi.mock('./check-in-offline-photo-queue', () => ({
   flushPhotoQueueRetries: vi.fn(),
 }))
 
-const checkIn: WorkshopCheckIn = {
+const checkIn = {
   id: 'check-in-1',
   workshop_order_id: 'order-1',
   status: 'DRAFT',
@@ -63,14 +63,18 @@ const checkIn: WorkshopCheckIn = {
     interior_notes: '',
   },
   damage_markers_json: [],
-  odometer: null,
-  fuel_level: null,
-  items_left: null,
-  key_count: null,
-  warning_lights_json: [],
-  created_at: '',
-  updated_at: '',
-}
+  items_left: '',
+  key_count: 0,
+  warning_lights: [],
+  odometer: 100,
+  fuel_level: 50,
+  inspection_id: null,
+  content_sha256: null,
+  completed_at: null,
+  pdf_sha256: null,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+} as unknown as WorkshopCheckIn
 
 describe('useCheckInOffline site pause', () => {
   beforeEach(() => {
