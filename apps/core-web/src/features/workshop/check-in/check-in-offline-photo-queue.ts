@@ -1,4 +1,7 @@
-import { uploadWorkshopCheckInMedia } from '@/api/workshop-check-in'
+import {
+  uploadWorkshopCheckInMedia,
+  type WorkshopCheckInMedia,
+} from '@/api/workshop-check-in'
 import { CHECK_IN_OFFLINE_UPLOAD_RETRY_DELAYS_MS } from './check-in-offline-constants'
 import {
   deleteQueuedPhoto,
@@ -12,13 +15,7 @@ export type PhotoQueueUploadContext = {
   scope: CheckInOfflineScope
   expectedRevision: number
   onRevisionChange: (revision: number) => void
-  onUploaded: (media: {
-    id: string
-    purpose: 'CHECK_IN'
-    mime_type: string
-    size_bytes: number
-    preview_url?: string | null
-  }) => void
+  onUploaded: (media: WorkshopCheckInMedia) => void
   isPaused: () => boolean
 }
 

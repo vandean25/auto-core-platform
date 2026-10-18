@@ -42,10 +42,10 @@ type Props = {
 }
 
 export function CheckInConditionStep({
-  orderId,
+  orderId: _orderId,
   draft,
   readOnly,
-  expectedRevision,
+  expectedRevision: _expectedRevision,
   media,
   localPreviewUrls,
   onRegisterPreview,

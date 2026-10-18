@@ -82,13 +82,7 @@ export function useCheckInOffline({
       orderId,
       checkInId: checkIn.id,
     }
-  }, [
-    checkIn?.id,
-    orderId,
-    sessionQuery.data?.activeSiteId,
-    sessionQuery.data?.activeTenant?.id,
-    sessionQuery.data?.userId,
-  ])
+  }, [checkIn?.id, orderId, sessionQuery.data])
 
   const refreshQueuedPhotos = useCallback(async () => {
     if (!scope) {

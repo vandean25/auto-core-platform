@@ -202,10 +202,11 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
     }
 
     void (async () => {
+      const siteId = session.activeSiteId as string
       const orderScopeKey = buildOrderOfflineScopeKey({
         userId: session.userId,
         tenantId: session.activeTenant.id,
-        siteId: session.activeSiteId,
+        siteId,
         orderId,
       })
       const pending = await loadPendingCheckInCreate(orderScopeKey)
@@ -215,7 +216,7 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
         orderScopeKey,
         userId: session.userId,
         tenantId: session.activeTenant.id,
-        siteId: session.activeSiteId,
+        siteId,
         orderId,
         checkInId: id,
         createdAt: Date.now(),
