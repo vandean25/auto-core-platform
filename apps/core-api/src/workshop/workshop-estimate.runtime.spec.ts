@@ -37,6 +37,7 @@ function buildService(role: string | undefined) {
   };
   const outbox = { enqueueInTx: jest.fn() };
   const wakeUps = { enqueueWakeUp: jest.fn() };
+  const overruns = { observe: jest.fn().mockResolvedValue(null) };
   const service = new WorkshopEstimateService(
     prisma as never,
     tenantContext as never,
@@ -44,6 +45,7 @@ function buildService(role: string | undefined) {
     pdf as never,
     outbox,
     wakeUps as never,
+    overruns as never,
   );
   return { service, prisma, tenantContext, pdf };
 }
