@@ -86,9 +86,7 @@ export async function readWorkshopEstimate(
     settings?.estimate_overrun_threshold_pct.toFixed(2) ??
     DEFAULT_OVERRUN_THRESHOLD_PCT;
   const approvedSnapshot = approved?.snapshot as unknown as
-    | WorkshopEstimateSnapshot
-    | null
-    | undefined;
+    WorkshopEstimateSnapshot | null | undefined;
   const warning: WorkshopEstimateOverrunWarning | null = approvedSnapshot
     ? computeWorkshopEstimateOverrun({
         approved: {
@@ -148,7 +146,12 @@ export async function readWorkshopEstimateVersion(
   }
 
   const now = new Date();
-  await expireDueEstimateVersions(prisma, scope.tenantId, version.estimate_id, now);
+  await expireDueEstimateVersions(
+    prisma,
+    scope.tenantId,
+    version.estimate_id,
+    now,
+  );
   const status = isDueForExpiry(version, now)
     ? WorkshopEstimateStatus.EXPIRED
     : version.status;
