@@ -46,7 +46,10 @@ The wizard can download entity templates and error-row CSVs. Marketing-consent c
 ## Follow-ups
 
 - `first_registration_date` vehicle mapping after AUT-375 merges to `main`
-- Import job row retention cleanup (default retention constant: 180 days)
+
+## Retention
+
+Finished import jobs keep their header row and `external_id_mappings` for reconciliation. Row payloads (`import_job_rows`, including normalized CSV fields) are purged on a daily schedule after **180 days** (`IMPORT_JOB_RETENTION_DAYS`), derived from `appliedAt` for applied jobs and `createdAt` for other terminal statuses. Job totals on `import_jobs` are not changed.
 
 ## Release notes
 
