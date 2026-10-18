@@ -36,6 +36,11 @@ const INPUT: EstimateEmailInput = {
 
 function makeTx() {
   return {
+    tenant: {
+      findFirst: jest
+        .fn()
+        .mockResolvedValue({ default_locale: 'de' as const }),
+    },
     workshopEstimateApprovalToken: {
       create: jest.fn().mockResolvedValue({}),
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
@@ -81,6 +86,27 @@ describe('workshop estimate email queue (ADR-0025 §6 and §7)', () => {
     expect(raw).toBeDefined();
     expect(hashApprovalToken(raw as string)).toBe(tokenWrite.token_sha256);
     expect(JSON.stringify(tokenWrite)).not.toContain(raw);
+  });
+
+  it('freezes document_locale en on the queued email when preferred_language is en', async () => {
+    const tx = makeTx();
+    const outbox = {
+      enqueueInTx: jest
+        .fn()
+        .mockResolvedValue({ id: 'outbox-1', created: true }),
+    };
+
+    await queueEstimateEmailInTx(tx as never, outbox, {
+      ...INPUT,
+      customer: {
+        ...INPUT.customer,
+        preferred_language: 'en',
+      },
+    });
+
+    const row = outbox.enqueueInTx.mock.calls[0][1];
+    expect(row.email.documentLocale).toBe('en');
+    expect(row.email.subject).toMatch(/^Estimate /);
   });
 
   it('writes nothing when the customer has not confirmed the address', async () => {

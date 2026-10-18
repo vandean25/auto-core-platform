@@ -1,12 +1,19 @@
 import { createHmac } from 'node:crypto';
 import { UnprocessableEntityException } from '@nestjs/common';
+import type { DisplayLanguage } from '../common/i18n/display-language.js';
+import { resolveCustomerDocumentLanguage } from '../common/i18n/customer-document-language.js';
 import { isPlainEmailAddress } from '../notifications/email/email-address.js';
 import type { EmailDraft } from '../notifications/notification-outbox.email-columns.js';
 import { renderEstimateSentEmail } from '../notifications/templates/customer-email-templates.js';
 import { buildApprovalUrl } from './workshop-estimate-approval-token.helpers.js';
 
 export interface CustomerEstimateEmailInput {
-  customer: { contact_email_ok: boolean; email: string | null };
+  customer: {
+    contact_email_ok: boolean;
+    email: string | null;
+    preferred_language?: DisplayLanguage | null;
+  };
+  tenantDefaultLocale: DisplayLanguage;
   vehicle: { make: string; model: string };
   /** The seller's name as the estimate prints it. */
   sellerName: string;
@@ -103,6 +110,12 @@ export function buildCustomerEstimateEmail(
     });
   }
   const vehicleLabel = `${make} ${model}`;
+  const documentLocale = resolveCustomerDocumentLanguage(
+    {
+      preferred_language: input.customer.preferred_language ?? null,
+    },
+    input.tenantDefaultLocale,
+  );
 
   try {
     const draft = renderEstimateSentEmail({
@@ -112,6 +125,7 @@ export function buildCustomerEstimateEmail(
       vehicleLabel,
       approvalUrl: buildApprovalUrl(input.approvalBaseUrl, input.approvalToken),
       validUntil: input.validUntil,
+      documentLocale,
     });
     return { recipientEmail, draft };
   } catch {

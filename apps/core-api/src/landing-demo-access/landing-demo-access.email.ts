@@ -1,3 +1,7 @@
+import type { DisplayLanguage } from '../common/i18n/display-language.js';
+import { DEFAULT_DISPLAY_LANGUAGE } from '../common/i18n/display-language.js';
+import { formatLandingDemoMagicLinkExpiry } from '../common/i18n/email-date-format.js';
+import { createEmailTranslator } from '../common/i18n/email-i18n.js';
 import type { EmailDraft } from '../notifications/notification-outbox.email-columns.js';
 
 export function renderLandingDemoMagicLinkEmail(input: {
@@ -5,36 +9,39 @@ export function renderLandingDemoMagicLinkEmail(input: {
   signInUrl: string;
   validUntil: Date;
   betrieb: string;
+  documentLocale?: DisplayLanguage;
 }): EmailDraft {
-  const validUntilText = input.validUntil.toLocaleString('de-AT', {
-    timeZone: 'Europe/Vienna',
-    dateStyle: 'long',
-    timeStyle: 'short',
-  });
+  const documentLocale = input.documentLocale ?? DEFAULT_DISPLAY_LANGUAGE;
+  const t = createEmailTranslator(documentLocale);
+  const validUntilText = formatLandingDemoMagicLinkExpiry(
+    documentLocale,
+    input.validUntil,
+  );
 
-  const subject = 'Ihr Demo-Zugang zur Auto Core Platform';
+  const subject = t('landingDemo.magicLink.subject');
   const body = [
-    'Guten Tag,',
+    t('landingDemo.magicLink.greeting'),
     '',
-    `vielen Dank für Ihr Interesse an der Auto Core Platform (${input.betrieb}).`,
+    t('landingDemo.magicLink.thanks', { betrieb: input.betrieb }),
     '',
-    'Öffnen Sie den folgenden einmaligen Anmeldelink, um die Demo zu starten:',
+    t('landingDemo.magicLink.instruction'),
     input.signInUrl,
     '',
-    `Der Link ist bis ${validUntilText} gültig und führt Sie ohne Passwort direkt in die Demo-Umgebung.`,
+    t('landingDemo.magicLink.validity', { validUntil: validUntilText }),
     '',
-    'Falls Sie diese Anfrage nicht gestellt haben, können Sie diese E-Mail ignorieren.',
+    t('landingDemo.magicLink.ignore'),
     '',
-    'Freundliche Grüße',
-    'Auto Core Platform',
+    t('landingDemo.magicLink.closing'),
+    t('landingDemo.magicLink.senderName'),
   ].join('\n');
 
   return {
     recipientEmail: input.recipientEmail,
     subject,
     text: body,
-    senderName: 'Auto Core Platform',
+    senderName: t('landingDemo.magicLink.senderName'),
     replyToEmail: null,
+    documentLocale,
   };
 }
 
@@ -73,5 +80,6 @@ export function renderLandingDemoOperatorAlertEmail(input: {
     text: lines.join('\n'),
     senderName: 'Auto Core Platform',
     replyToEmail: null,
+    documentLocale: 'de',
   };
 }

@@ -174,7 +174,7 @@ describe('seedDemoUsers', () => {
     );
 
     // Verify only DEMO_USERS were created (no bootstrap admin)
-    expect(mockPrisma.user.create).toHaveBeenCalledTimes(4);
+    expect(mockPrisma.user.create).toHaveBeenCalledTimes(5);
   });
 
   it('updates an existing user instead of creating when found by email', async () => {
@@ -210,7 +210,7 @@ describe('seedDemoUsers', () => {
       })
     );
 
-    // The remaining 3 users should be created (not found)
-    expect(mockPrisma.user.create).toHaveBeenCalledTimes(3);
+    // The remaining demo users should be created (not found)
+    expect(mockPrisma.user.create).toHaveBeenCalledTimes(4);
   });
 });

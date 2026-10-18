@@ -49,6 +49,7 @@ const ORDER_READY_SELECT = {
       id: true,
       contact_email_ok: true,
       email: true,
+      preferred_language: true,
     },
   },
   vehicle: { select: { make: true, model: true } },
@@ -278,11 +279,16 @@ export class WorkshopOrderReadyEmailService {
     if (!sellerReady) {
       return null;
     }
+    const tenant = await tx.tenant.findFirst({
+      where: { id: input.tenantId },
+      select: { default_locale: true },
+    });
     const built = buildWorkshopOrderReadyCustomerEmail({
       customer: input.order.customer,
       vehicle: input.order.vehicle,
       sellerName: site.legal_entity.name,
       orderNumber: input.order.order_number,
+      tenantDefaultLocale: tenant?.default_locale ?? 'de',
     });
     if (!built.ok) {
       return null;

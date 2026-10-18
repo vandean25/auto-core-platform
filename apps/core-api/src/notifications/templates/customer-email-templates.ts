@@ -1,8 +1,15 @@
+import type { DisplayLanguage } from '../../common/i18n/display-language.js';
+import { DEFAULT_DISPLAY_LANGUAGE } from '../../common/i18n/display-language.js';
+import { createEmailTranslator } from '../../common/i18n/email-i18n.js';
 import type { EmailDraft } from '../notification-outbox.email-columns.js';
 import { isSingleLineText } from '../email/header-text.js';
+import {
+  formatWorkshopEstimateDate,
+  formatWorkshopEstimateValidUntil,
+} from '../../workshop/workshop-estimate-snapshot.js';
 
 /**
- * Customer messages in the formal German Sie form (ADR-0025 section 6, AUT-360 D16: transactional).
+ * Customer messages in the formal Sie form (ADR-0025 section 6, AUT-360 D16: transactional).
  *
  * The wording is a draft until the lawyer signs it off (AUT-360 D19 and D23). Phase 3 only renders the
  * drafts; nothing sends them. Phase 4 wires the estimate send behind CUSTOMER_ESTIMATE_SEND_ENABLED.
@@ -16,11 +23,6 @@ export const CUSTOMER_TEMPLATE_IDS = {
   orderReady: 'customer.order_ready',
 } as const;
 
-const DEFAULT_GREETING = 'Sehr geehrte Damen und Herren';
-const CLOSING = 'Mit freundlichen Grüßen';
-const CONTACT_SENTENCE = 'Bei Fragen stehen wir Ihnen gerne zur Verfügung.';
-const VIENNA = 'Europe/Vienna';
-
 /** The recipient and sender details every customer message shares. */
 export interface CustomerMessageContext {
   recipientEmail: string;
@@ -29,6 +31,8 @@ export interface CustomerMessageContext {
   replyToEmail?: string | null;
   /** A salutation such as "Sehr geehrte Frau Muster", without the comma. Defaults to the neutral form. */
   greeting?: string | null;
+  /** AUT-588 customer document language for the message body. */
+  documentLocale?: DisplayLanguage;
 }
 
 export interface EstimateSentInput extends CustomerMessageContext {
@@ -54,17 +58,28 @@ export interface OrderReadyInput extends CustomerMessageContext {
   vehicleLabel: string;
 }
 
+function resolveDocumentLocale(input: CustomerMessageContext): DisplayLanguage {
+  return input.documentLocale ?? DEFAULT_DISPLAY_LANGUAGE;
+}
+
 export function renderEstimateSentEmail(input: EstimateSentInput): EmailDraft {
+  const documentLocale = resolveDocumentLocale(input);
+  const t = createEmailTranslator(documentLocale);
   const estimateNumber = requiredText('estimateNumber', input.estimateNumber);
   const vehicleLabel = requiredText('vehicleLabel', input.vehicleLabel);
   const approvalUrl = requiredHttpsUrl('approvalUrl', input.approvalUrl);
   const validUntil = requiredInstant('validUntil', input.validUntil);
-  return draft(input, CUSTOMER_TEMPLATE_IDS.estimateSent, {
-    subject: `Kostenvoranschlag ${estimateNumber}`,
+  const contactSentence = t('shared.contactSentence');
+  const validUntilLabel = formatWorkshopEstimateValidUntil(validUntil);
+  return draft(input, CUSTOMER_TEMPLATE_IDS.estimateSent, documentLocale, {
+    subject: t('customer.estimateSent.subject', { estimateNumber }),
     paragraphs: [
-      `wir haben für Ihr Fahrzeug ${vehicleLabel} den Kostenvoranschlag ${estimateNumber} erstellt.`,
-      `Den Kostenvoranschlag können Sie unter folgendem Link einsehen: ${approvalUrl}`,
-      `Der Kostenvoranschlag ist gültig bis ${formatValidUntil(validUntil)} Uhr. Bitte prüfen Sie ihn in Ruhe. ${CONTACT_SENTENCE}`,
+      t('customer.estimateSent.intro', { vehicleLabel, estimateNumber }),
+      t('customer.estimateSent.link', { approvalUrl }),
+      t('customer.estimateSent.validity', {
+        validUntil: validUntilLabel,
+        contactSentence,
+      }),
     ],
   });
 }
@@ -72,27 +87,43 @@ export function renderEstimateSentEmail(input: EstimateSentInput): EmailDraft {
 export function renderEstimateApprovalConfirmedEmail(
   input: EstimateApprovalConfirmedInput,
 ): EmailDraft {
+  const documentLocale = resolveDocumentLocale(input);
+  const t = createEmailTranslator(documentLocale);
   const estimateNumber = requiredText('estimateNumber', input.estimateNumber);
   const approvedAt = requiredInstant('approvedAt', input.approvedAt);
-  return draft(input, CUSTOMER_TEMPLATE_IDS.estimateApprovalConfirmed, {
-    subject: `Bestätigung Ihrer Freigabe: Kostenvoranschlag ${estimateNumber}`,
-    paragraphs: [
-      `vielen Dank für Ihre Freigabe des Kostenvoranschlags ${estimateNumber} am ${formatDate(approvedAt)}.`,
-      `Wir bestätigen Ihre Freigabe hiermit. ${CONTACT_SENTENCE}`,
-    ],
-  });
+  const contactSentence = t('shared.contactSentence');
+  const approvedAtLabel = formatWorkshopEstimateDate(approvedAt);
+  return draft(
+    input,
+    CUSTOMER_TEMPLATE_IDS.estimateApprovalConfirmed,
+    documentLocale,
+    {
+      subject: t('customer.estimateApprovalConfirmed.subject', {
+        estimateNumber,
+      }),
+      paragraphs: [
+        t('customer.estimateApprovalConfirmed.thanks', {
+          estimateNumber,
+          approvedAt: approvedAtLabel,
+        }),
+        t('customer.estimateApprovalConfirmed.confirm', { contactSentence }),
+      ],
+    },
+  );
 }
 
 export function renderOrderReadyEmail(input: OrderReadyInput): EmailDraft {
+  const documentLocale = resolveDocumentLocale(input);
+  const t = createEmailTranslator(documentLocale);
   const orderNumber = requiredText('orderNumber', input.orderNumber);
   const vehicleLabel = requiredText('vehicleLabel', input.vehicleLabel);
-  const footer = `Diese E-Mail betrifft Ihren Auftrag Nr. ${orderNumber}.`;
-  return draft(input, CUSTOMER_TEMPLATE_IDS.orderReady, {
-    subject: orderNumber,
+  const contactSentence = t('shared.contactSentence');
+  return draft(input, CUSTOMER_TEMPLATE_IDS.orderReady, documentLocale, {
+    subject: t('customer.orderReady.subject', { orderNumber }),
     paragraphs: [
-      `die Arbeiten an Ihrem Fahrzeug ${vehicleLabel} sind abgeschlossen. Sie können Ihr Fahrzeug bei uns abholen.`,
-      CONTACT_SENTENCE,
-      footer,
+      t('customer.orderReady.body', { vehicleLabel }),
+      contactSentence,
+      t('customer.orderReady.footer', { orderNumber }),
     ],
   });
 }
@@ -152,10 +183,12 @@ function requiredHttpsUrl(name: string, value: string): string {
 function draft(
   input: CustomerMessageContext,
   templateId: string,
+  documentLocale: DisplayLanguage,
   content: { subject: string; paragraphs: string[] },
 ): EmailDraft {
+  const t = createEmailTranslator(documentLocale);
   const senderName = requiredText('senderName', input.senderName);
-  const salutation = salutationFor(input.greeting);
+  const salutation = salutationFor(input.greeting, t('shared.defaultGreeting'));
   return {
     recipientEmail: input.recipientEmail,
     senderName,
@@ -164,10 +197,11 @@ function draft(
     text: [
       `${salutation},`,
       ...content.paragraphs,
-      `${CLOSING}\n${senderName}`,
+      `${t('shared.closing')}\n${senderName}`,
     ].join('\n\n'),
     templateId,
     templateVersion: CUSTOMER_TEMPLATE_VERSION,
+    documentLocale,
   };
 }
 
@@ -175,35 +209,16 @@ function draft(
  * The salutation without the comma the copy adds. Commas and spaces at either end are dropped, and a
  * greeting that is blank once they are gone gets the neutral form.
  */
-function salutationFor(greeting: string | null | undefined): string {
+function salutationFor(
+  greeting: string | null | undefined,
+  defaultGreeting: string,
+): string {
   if (!greeting || greeting.trim() === '') {
-    return DEFAULT_GREETING;
+    return defaultGreeting;
   }
   const salutation = requiredText('greeting', greeting).replace(
     /^[,\s]+|[,\s]+$/g,
     '',
   );
-  return salutation === '' ? DEFAULT_GREETING : salutation;
-}
-
-/** "13.10.2026" in business time, as formatWorkshopEstimateDate prints it. The spec keeps them in step. */
-function formatDate(instant: Date): string {
-  return new Intl.DateTimeFormat('de-AT', {
-    timeZone: VIENNA,
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  }).format(instant);
-}
-
-/** "27.10.2026, 10:00" in business time, as the estimate PDF prints it (formatWorkshopEstimateValidUntil). */
-function formatValidUntil(instant: Date): string {
-  return new Intl.DateTimeFormat('de-AT', {
-    timeZone: VIENNA,
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(instant);
+  return salutation === '' ? defaultGreeting : salutation;
 }

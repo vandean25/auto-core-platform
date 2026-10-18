@@ -104,7 +104,7 @@ export class LandingDemoAccessService {
         is_landing_demo_tenant: true,
         is_active: true,
       },
-      select: { id: true, name: true },
+      select: { id: true, name: true, default_locale: true },
     });
 
     if (!demoTenant) {
@@ -216,6 +216,7 @@ export class LandingDemoAccessService {
           signInUrl,
           validUntil: grantExpiresAt,
           betrieb: accessRequest.betrieb,
+          documentLocale: demoTenant.default_locale,
         });
         const operatorDraft = renderLandingDemoOperatorAlertEmail({
           operatorEmail: this.config.operatorEmail,

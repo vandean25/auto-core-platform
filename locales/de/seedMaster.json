@@ -1,0 +1,41 @@
+{
+  "pickerl": {
+    "title": "§57a Vorbereitung — editierbare Start-Checkliste, keine Rechtsliste",
+    "items": {
+      "LIGHTS": "Beleuchtung",
+      "BRAKES": "Bremsen",
+      "TYRES": "Reifen",
+      "WIPERS_WASHER": "Scheibenwischer und Waschanlage",
+      "HORN": "Hupe",
+      "SEAT_BELTS": "Sicherheitsgurte",
+      "EXHAUST_LEAKS": "Abgasanlage und Undichtigkeiten",
+      "WARNING_TRIANGLE": "Warndreieck",
+      "FIRST_AID_KIT": "Erste-Hilfe-Kasten",
+      "SAFETY_VEST": "Warnweste",
+      "VIN_READABLE": "Fahrzeug-Identifizierungsnummer lesbar",
+      "PLATE_READABLE": "Kennzeichen lesbar"
+    }
+  },
+  "annahme": {
+    "title": "Annahme-Check",
+    "items": {
+      "KEYS_COMPLETE": "Schlüssel vollständig",
+      "SERVICE_BOOK": "Serviceheft / Bordmappe",
+      "REGISTRATION_DOC": "Zulassungsbescheinigung",
+      "WARNING_TRIANGLE": "Warndreieck",
+      "FIRST_AID_KIT": "Verbandskasten",
+      "SAFETY_VEST": "Warnweste",
+      "FLOOR_MATS": "Fußmatten dokumentiert",
+      "PERSONAL_ITEMS": "Persönliche Gegenstände dokumentiert"
+    }
+  },
+  "landingDemo": {
+    "tenantName": "Demo Werkstatt Alpenblick",
+    "siteName": "Werkstatt Salzburg",
+    "storage": {
+      "TRANSIT": "Unterwegs",
+      "A1": "Regal A1",
+      "LOT": "Fahrzeugplatz"
+    }
+  }
+}
