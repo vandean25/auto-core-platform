@@ -1,0 +1,43 @@
+---
+title: "Erlösgruppen"
+description: "Steuer- und Buchungskategorien benennen, in die Rechnungen und Katalogartikel einfließen."
+---
+
+Nutzen Sie **Einstellungen → Erlösgruppen**, um Ihrer Buchhaltung mitzuteilen, welche Umsätze Teile, welche Arbeit sind — und welcher Steuersatz und welches Konto gilt.
+
+Der Gruppen-**Name** wird beim Verkauf auf Rechnungszeilen kopiert. Umbenennen später schreibt alte Rechnungen nicht um.
+
+<Info>
+Die Tabelle ist eine Liste. Es gibt keinen Zeilenklick zum Bearbeiten und kein Löschen auf diesem Bildschirm. Neue Gruppen legen Sie mit **Gruppe** (Plus-Symbol) oben rechts auf der Karte an.
+</Info>
+
+<Steps>
+  <Step title="Einstellungen → Erlösgruppen öffnen">
+    Zahnrad im Kopf, dann Tab **Erlösgruppen**.
+  </Step>
+  <Step title="Tabelle lesen">
+    Spalten: **Name**, **Steuersatz**, **Kontonummer** und **Standard**.
+  </Step>
+  <Step title="Gruppe für neue Steuerkategorie anlegen">
+    **Gruppe** klicken. Dialog ausfüllen. **Gruppe anlegen** speichert für diesen Mandanten.
+  </Step>
+</Steps>
+
+## Auszufüllende Felder
+
+| Feld | Beispiel | Warum es zählt |
+| --- | --- | --- |
+| **Name** | Ersatzteile 20 % | In der Gruppenliste und eingefroren auf Rechnungszeilen |
+| **Steuersatz (%)** | 20,00 | USt-Prozentsatz für Artikel mit dieser Gruppe |
+| **Kontonummer** | 4000 | Zuordnung für Buchhaltung / Export |
+| **Als Standard für neue Artikel setzen** | aktiviert oder nicht | Neue Katalogartikel können diese Gruppe vorauswählen |
+
+Eine Zeile kann ein grünes Badge **Standard** zeigen. Andere zeigen einen Strich.
+
+<Warning>
+Sie können eine Erlösgruppe auf diesem Tab nicht löschen. Backend-Regeln blockieren Löschen, solange noch Katalogartikel auf die Gruppe zeigen. Historische Rechnungen behalten den alten **Namen**, auch wenn Sie später eine Ersatzgruppe anlegen.
+</Warning>
+
+<Accordion title="Wo die Gruppe verwendet wird">
+Katalogartikel und Arbeit tragen eine Erlösgruppe. Bei Rechnungsausstellung speichert die Zeile **Name** und Einzelpreis zum Zeitpunkt der Ausstellung. Dashboard-Umsatzdiagramme gruppieren finalisierte Rechnungszeilen nach diesem eingefrorenen Namen im aktuellen Monat.
+</Accordion>

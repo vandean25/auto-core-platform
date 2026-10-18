@@ -1,0 +1,79 @@
+---
+title: "Rechtsträger"
+description: "Verkäuferidentität und Buchhaltungsprofil pflegen, die Ihre Standorte bei Rechnungen nutzen."
+---
+
+Nutzen Sie **Einstellungen → Rechtsträger**, um die Verkäuferidentität zu pflegen, die auf Rechnungen gedruckt und eingefroren wird. Standorte übernehmen den hier konfigurierten Rechtsträger. Nur **OWNER**- und **ADMIN**-Mitglieder verwalten diesen Bildschirm.
+
+<CardGroup cols={2}>
+  <Card title="Verkäuferidentität" icon="building-2">
+    Firmenname, Adresse, länderspezifische Steuerkennzeichen, Kontaktdaten und Zahlungsbedingungen.
+  </Card>
+  <Card title="Buchhaltungsprofil" icon="calculator">
+    DATEV-orientierte Profilfelder und Zuordnungen von Quellkategorien für Rechnungsbuchungsdaten.
+  </Card>
+  <Card title="Bereitschaft" icon="badge-check">
+    Welche Verkäuferfelder und Buchhaltungszuordnungen vor der Rechnungsausstellung noch fehlen.
+  </Card>
+</CardGroup>
+
+<Steps>
+  <Step title="Rechtsträger öffnen">
+    Zahnrad im App-Kopf, dann **Rechtsträger**.
+  </Step>
+  <Step title="Rechtsträger anlegen">
+    Rechtlichen **Namen** eingeben, **Österreich (AT)** oder **Deutschland (DE)** wählen, dann **+ Rechtsträger**. Das Land ist nach dem Anlegen fix.
+  </Step>
+  <Step title="Verkäuferidentität vervollständigen">
+    Zeile wählen und Adresse, länderspezifisches Steuerkennzeichen und Zahlungsbedingungen ausfüllen. Kontakt, Bank, Firmenbuch und Vertretungsberechtigte stehen im selben Formular.
+  </Step>
+  <Step title="Buchhaltungsprofil vervollständigen">
+    Beraternummer, Mandantennummer, Kontenlänge, Standard-Debitorenkonto und Quellkategorie-Zuordnungen konfigurieren. Das Formular speichert automatisch; achten Sie auf **Speichern…** / **Gespeichert**.
+  </Step>
+</Steps>
+
+## Verkäuferidentität
+
+Das Bereitschaftspanel listet fehlende Felder. Das erforderliche Steuerkennzeichen hängt vom Land des Rechtsträgers ab:
+
+| Land des Rechtsträgers | Vor Rechnungsausstellung erforderlich |
+| --- | --- |
+| **Österreich (AT)** | Firmenname, Straße, Postleitzahl, Ort, **UID**, Zahlungsziel (Tage) und Zahlungsbedingungen (Text) |
+| **Deutschland (DE)** | Firmenname, Straße, Postleitzahl, Ort, **Steuernummer oder USt-IdNr.**, Zahlungsziel (Tage) und Zahlungsbedingungen (Text) |
+
+Das Formular unterstützt auch **IBAN**, **BIC**, Bankname, E-Mail, Telefon, Firmenbuchnummer, Firmenbuchgericht und Vertretungsberechtigte. Optional, sofern das Bereitschaftspanel nichts anderes verlangt.
+
+<Tip>
+Das Verkäufer-Bereitschafts-Badge wird **Bereit für die Rechnungsausstellung**, wenn alle Pflichtfelder der Identität vollständig sind. Bleibt es unvollständig, nennt das Panel die fehlenden Felder.
+</Tip>
+
+## Buchhaltungsprofil
+
+Das Buchhaltungsprofil gilt je Rechtsträger. Kernfelder der Zuordnungsbereitschaft:
+
+- Beraternummer
+- Mandantennummer
+- Kontenlänge
+- Standard-Debitorenkonto
+- Erlöskonten-Zuordnung für jede erforderliche Quellkategorie
+
+Quellkategorien können Erlösgruppen, Arbeit und Werkstattleistungen, manuelle Rechnungszeilen und Fahrzeug-Differenzbesteuerung umfassen. Bei manueller BU-Behandlung tragen Sie BU-Schlüssel und Erlöskonto ein.
+
+Das Profil umfasst auch Geschäftsjahresbeginn (Monat), Kontenplan, Profilcode, Formatversion und **DATEV-Export aktiviert**. In der aktuellen Version ist die DATEV-Export-Aktivierung nur für **DE**-Rechtsträger verfügbar. Ein unvollständiges Profil kann gespeichert werden; die Zuordnungsbereitschaft bleibt bis zur Vervollständigung unvollständig.
+
+<Warning>
+Die Rechnungsausstellung prüft Verkäuferidentität und Buchhaltungszuordnungen, bevor eine Rechnungsnummer verbraucht oder Bestand gebucht wird. Schließen Sie die Bereitschaftspanels ab, bevor Sie finalisieren oder ausstellen.
+</Warning>
+
+## Nach der Rechnungsausstellung
+
+ACP friert Verkäuferidentität, Zahlungs- und Lieferbedingungen sowie Kontenzuordnung ein, wenn die Rechnung finalisiert oder ausgestellt wird. Spätere Änderungen am Rechtsträger schreiben bereits gespeicherte Rechnungsdaten nicht um.
+
+<AccordionGroup>
+  <Accordion title="Kann ich einen Rechtsträger deaktivieren?">
+    Ja. **Deaktivieren** in der Tabelle. Für inaktive Rechtsträger wird die Aktion **Reaktivieren**.
+  </Accordion>
+  <Accordion title="Wer darf Rechtsträger bearbeiten?">
+    Verwaltung steht **OWNER**- und **ADMIN**-Mitgliedern zur Verfügung. Andere Teammitglieder pflegen Verkäuferidentität oder Buchhaltungsprofile in den Einstellungen nicht.
+  </Accordion>
+</AccordionGroup>

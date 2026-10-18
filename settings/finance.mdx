@@ -1,0 +1,124 @@
+---
+title: "Finanzen"
+description: "Sperrdatum setzen, Rechnungsnummern pflegen und prüfen, welche Belege für den Buchhaltungsexport bereit sind."
+---
+
+Nutzen Sie **Einstellungen → Finanzen**, wenn Bücher für einen Zeitraum geschlossen bleiben sollen oder wenn Sie Präfix und nächste Nummer für Rechnungen dieses Mandanten sehen möchten.
+
+Dieser Tab ist ein Formular. Änderungen gelten erst nach **Änderungen speichern**.
+
+<CardGroup cols={3}>
+  <Card title="Fiskalsteuerung" icon="calendar-lock" href="#sperrdatum">
+    Bearbeitung von Buchungen an oder vor dem Sperrdatum sperren.
+  </Card>
+  <Card title="Rechnungsnummern" icon="hash" href="#rechnungsnummern">
+    Präfix und nächste Nummer am Finanzdatensatz.
+  </Card>
+  <Card title="Exportbereitschaft" icon="clipboard-check" href="#exportbereitschaft">
+    Welche Belege in einem Zeitraum exportiert werden können — und warum andere blockiert sind.
+  </Card>
+</CardGroup>
+
+<Steps>
+  <Step title="Einstellungen öffnen">
+    Klicken Sie auf das Zahnrad im App-Kopf.
+  </Step>
+  <Step title="Auf Finanzen bleiben">
+    **Finanzen** ist der erste Tab. Sind Sie woanders gelandet, wählen Sie **Finanzen**.
+  </Step>
+  <Step title="Bearbeiten, dann Änderungen speichern">
+    Der Speichern-Button sitzt unten rechts im Formular. Ein Toast **Einstellungen aktualisiert** bestätigt den Erfolg.
+  </Step>
+</Steps>
+
+## Sperrdatum
+
+**Sperrdatum** ist ein Datumsfeld. Hilfetext auf dem Bildschirm: Buchungen an oder vor diesem Datum können nicht mehr geändert werden.
+
+Lassen Sie das Feld leer, wenn Sie keine Sperre wünschen.
+
+<Warning>
+Verschieben Sie die Sperre **nach hinten**, öffnet sich **Fiskalsperre bestätigen**. Mit **Sperre bestätigen** sperren Sie Änderungen im bisherigen Zeitraum dauerhaft; das kann abgeschlossene Auswertungen betreffen. Brechen Sie ab, wenn Sie nicht bereit sind. Einen geschlossenen Zeitraum öffnen Sie von diesem Bildschirm nicht wieder.
+</Warning>
+
+| Ihre Aktion | Folge |
+| --- | --- |
+| Datum wählen und speichern | Daten an oder vor diesem Tag sind für diesen Mandanten gesperrt |
+| Ein **späteres** Datum als heute wählen | Fiskalsperre bestätigen, dann **Sperre bestätigen** |
+| Datum leeren und speichern | Kein Sperrdatum |
+
+## Rechnungsnummern
+
+Zwei Felder stehen nebeneinander:
+
+| Feld | Eingabe |
+| --- | --- |
+| **Präfix** | Text am Finanzdatensatz (Seed-Standard ähnlich `RE-2026-`) |
+| **Nächste Nummer** | Ganzzahl am Finanzdatensatz (Seed-Standard `1001`) |
+
+<Tip>
+Beim **Abschließen** einer Steuerrechnung vergibt ACP `RE-` plus aktuelles Jahr plus einen vierstelligen Jahreszähler (`RE-2026-0001`). Bereits vergebene Nummern ändern sich nicht, wenn Sie diese Felder später anpassen.
+</Tip>
+
+<AccordionGroup>
+  <Accordion title="Was dieser Tab nicht zeigt">
+    Präfixe für Kundenaufträge (`SO-…`) und Werkstattaufträge (`WO-…`) liegen am selben Finanzdatensatz in der Datenbank, sind aber nicht auf diesem Tab. Der Monat des Geschäftsjahresbeginns steht hier ebenfalls nicht.
+  </Accordion>
+  <Accordion title="Wer sieht das">
+    Einstellungen gelten mandantenweit. Es gibt keinen separaten Finanz-Login. Änderungen betreffen nur diesen Werkstatt-Mandanten.
+  </Accordion>
+</AccordionGroup>
+
+## Exportbereitschaft
+
+**Exportbereitschaft** ist eine Seite in der Seitenleiste, kein Tab auf diesem Bildschirm. Öffnen Sie sie vor dem Buchhaltungsexport. Für einen Rechtsträger und einen Zeitraum sehen Sie, welche Rechnungen und Gutschriften exportiert werden können — und welche mit Begründung blockiert sind.
+
+OWNER und Administratoren sehen den Link. Andere Rollen nicht.
+
+<Steps>
+  <Step title="Exportbereitschaft öffnen">
+    In der Seitenleiste **Exportbereitschaft** unter **Gutschriften** wählen.
+  </Step>
+  <Step title="Rechtsträger und Zeitraum wählen">
+    Rechtsträger wählen, dann **Von** und **Bis** setzen. Standard ist der vorherige Kalendermonat.
+  </Step>
+  <Step title="Karten lesen">
+    **Exportierbar** zählt Belege ohne Blockiergrund. **Blockiert** zählt Belege mit mindestens einem Grund. **Zeitraum** zeigt **Geschlossen**, wenn das Sperrdatum das Periodenende abdeckt.
+  </Step>
+  <Step title="Blockierten Beleg öffnen">
+    Klicken Sie auf die Zeile. Rechnung oder Gutschrift öffnet sich, damit Sie die Ursache dort beheben können.
+  </Step>
+</Steps>
+
+Klicken Sie unter den Karten auf einen Grund, um nur die betroffenen Belege zu sehen. **Grund** und **Belegart** filtern die Liste ebenso. Die Suche trifft Belegnummer, Art, Status, Datum und Standort. Das Datum entspricht der Listenanzeige (z. B. `05.03.2026`) oder `2026-03-05`.
+
+Klicken Sie auf eine Spaltenüberschrift, um den gesamten Zeitraum zu sortieren — nicht nur die aktuelle Seite. Die Spalte **Gründe** ist nicht sortierbar.
+
+<Warning>
+Ein blockierter Beleg stoppt den Export für diesen Rechtsträger und Zeitraum. Klären Sie alle blockierten Zeilen, dann erzeugen Sie die CSV unter **Einstellungen → Finanzen → Buchhaltungsexport** (DATEV-, RZL- oder BMD-Profil je Rechtsträger — siehe [Buchhaltungsexport](/workflows/accounting-export)).
+</Warning>
+
+<Tip>
+Fehlt ein Buchhaltungsexport-Profil für den Rechtsträger oder ist es deaktiviert, erscheint ein Hinweis über der Liste. Richten Sie das Profil in den **Einstellungen** ein oder aktivieren Sie es. Bis dahin ist kein Zeitraum für diesen Rechtsträger exportierbar.
+</Tip>
+
+<AccordionGroup>
+  <Accordion title="Gründe an einem blockierten Beleg">
+    | Grund | Bedeutung |
+    | --- | --- |
+    | Älterer Beleg (nicht exportierbar) | Der Beleg stammt vor dem aktuellen Rechnungsformat; Buchhaltungsdaten können nicht geprüft werden. |
+    | Export außerhalb DE | Die Kontenzuordnung einer Position gilt für ein anderes Land als Deutschland (DE). Derzeit sind nur deutsche Zeilen exportierbar. |
+    | Nicht unterstützter Steuermodus | Der Beleg nutzt Differenzbesteuerung, die das Exportprofil nicht unterstützt. |
+    | Kontenzuordnung unvollständig | Einer Position fehlt eine gespeicherte Kontenzuordnung. |
+    | Eigentumsnachweis fehlt | Rechtsträger, Standort oder Nummer fehlt am Beleg. |
+    | Storniert | Stornierte Belege sind nicht exportierbar. |
+  </Accordion>
+  <Accordion title="Hinweise über der Liste">
+    Manche Blockaden betreffen den ganzen Zeitraum, nicht eine einzelne Zeile. Ein Beleg ohne Rechtsträger ist ein Beispiel. Diese erscheinen als Hinweis über der Liste, weil keine Zeile sie allein darstellen kann.
+
+    Ein Beleg mit Rechtsträger aber ohne Standort ist eine Zeile mit Grund **Eigentumsnachweis fehlt**. Die Lücke erscheint zusätzlich im Hinweis über der Liste. Ein stornierter Beleg zeigt in der Zeile nur **Storniert**; fehlende Eigentumsdaten stehen dann nur im Hinweis.
+  </Accordion>
+  <Accordion title="Ablehnungen">
+    Statt Karten und Liste zeigt die Seite eine Ablehnungsmeldung, wenn der Zeitraum nicht angezeigt werden kann — z. B. wenn ein Standort mit Belegen im Zeitraum inaktiv ist oder Ihnen die aktive Standortzuordnung fehlt. Bitten Sie OWNER oder ADMIN um Zugriff oder reaktivieren Sie den Standort unter **Einstellungen → Standorte**. Laden Sie die Seite danach neu.
+  </Accordion>
+</AccordionGroup>
