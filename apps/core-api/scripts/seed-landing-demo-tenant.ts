@@ -12,9 +12,12 @@ import {
   seedAnnahmeCheckInspectionTemplate,
 } from '../src/prisma/fixtures/index.js';
 import { DEFAULT_WORKSHOP_DEMO_SELLER_FIELDS } from '../src/prisma/fixtures/demo-legal-entity-seller.fixture.js';
+import { loadSeedMasterCopy } from '../src/prisma/fixtures/seed-master-copy.js';
 
 const DEMO_TENANT_SLUG =
   process.env.LANDING_DEMO_TENANT_SLUG?.trim() || 'selbstservice-demo';
+
+const LANDING_DEMO_LANGUAGE = 'en' as const;
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
@@ -58,23 +61,75 @@ async function assertSlugNotHijacked(): Promise<void> {
   }
 }
 
+async function seedLandingDemoEnglishUser(tenantId: string, siteId: string) {
+  const email = 'demo-en@auto.core.at';
+  const user = await prisma.user.upsert({
+    where: { email },
+    update: {
+      locale: 'en',
+      active_tenant_id: tenantId,
+      active_site_id: siteId,
+    },
+    create: {
+      email,
+      locale: 'en',
+      active_tenant_id: tenantId,
+      active_site_id: siteId,
+    },
+  });
+
+  await prisma.tenantMember.upsert({
+    where: {
+      tenant_id_user_id: { tenant_id: tenantId, user_id: user.id },
+    },
+    update: { role: TenantMemberRole.DEMO, is_active: true },
+    create: {
+      tenant_id: tenantId,
+      user_id: user.id,
+      role: TenantMemberRole.DEMO,
+      is_active: true,
+    },
+  });
+
+  await prisma.siteMembership.upsert({
+    where: {
+      tenant_id_user_id_site_id: {
+        tenant_id: tenantId,
+        user_id: user.id,
+        site_id: siteId,
+      },
+    },
+    update: { is_active: true },
+    create: {
+      tenant_id: tenantId,
+      user_id: user.id,
+      site_id: siteId,
+      is_active: true,
+    },
+  });
+}
+
 async function main() {
   console.log(`Seeding landing demo tenant (${DEMO_TENANT_SLUG})...`);
 
   await assertSlugNotHijacked();
+
+  const master = loadSeedMasterCopy(LANDING_DEMO_LANGUAGE);
 
   const tenant = await prisma.tenant.upsert({
     where: { slug: DEMO_TENANT_SLUG },
     update: {
       is_landing_demo_tenant: true,
       is_active: true,
-      name: 'Demo Werkstatt Alpenblick',
+      name: master.landingDemo.tenantName,
+      default_locale: LANDING_DEMO_LANGUAGE,
     },
     create: {
-      name: 'Demo Werkstatt Alpenblick',
+      name: master.landingDemo.tenantName,
       slug: DEMO_TENANT_SLUG,
       plan: 'STANDARD',
       is_landing_demo_tenant: true,
+      default_locale: LANDING_DEMO_LANGUAGE,
     },
   });
 
@@ -102,12 +157,17 @@ async function main() {
         tenant_id: tenant.id,
         legal_entity_id: legalEntity.id,
         code: 'MAIN',
-        name: 'Werkstatt Salzburg',
+        name: master.landingDemo.siteName,
         timezone: 'Europe/Vienna',
         slot_minutes: 30,
         holiday_country_iso: 'AT',
         is_active: true,
       },
+    });
+  } else {
+    mainSite = await prisma.site.update({
+      where: { id: mainSite.id },
+      data: { name: master.landingDemo.siteName },
     });
   }
 
@@ -117,7 +177,7 @@ async function main() {
         tenant_id: tenant.id,
         site_id: mainSite.id,
         code: 'TRANSIT',
-        name: 'Unterwegs',
+        name: master.landingDemo.storage.TRANSIT,
         type: 'in_transit',
         is_system: true,
       },
@@ -125,7 +185,7 @@ async function main() {
         tenant_id: tenant.id,
         site_id: mainSite.id,
         code: 'A1',
-        name: 'Regal A1',
+        name: master.landingDemo.storage.A1,
         type: 'shelf',
         is_system: false,
       },
@@ -133,7 +193,7 @@ async function main() {
         tenant_id: tenant.id,
         site_id: mainSite.id,
         code: 'LOT',
-        name: 'Fahrzeugplatz',
+        name: master.landingDemo.storage.LOT,
         type: 'vehicle_lot',
         is_system: false,
       },
@@ -142,8 +202,12 @@ async function main() {
   });
 
   const finance = await seedFinance(prisma, tenant.id);
-  await seedPickerlInspectionTemplate(prisma, tenant.id);
-  await seedAnnahmeCheckInspectionTemplate(prisma, tenant.id);
+  await seedPickerlInspectionTemplate(prisma, tenant.id, LANDING_DEMO_LANGUAGE);
+  await seedAnnahmeCheckInspectionTemplate(
+    prisma,
+    tenant.id,
+    LANDING_DEMO_LANGUAGE,
+  );
 
   const foundation = {
     defaultTenant: tenant,
@@ -157,6 +221,7 @@ async function main() {
   await seedInventory(prisma, foundation, finance, brands.allBrands);
   await seedLabor(prisma, tenant.id);
   await seedCustomersAndVehicles(prisma, tenant.id);
+  await seedLandingDemoEnglishUser(tenant.id, mainSite.id);
 
   console.log('Landing demo tenant seed completed.');
   console.log(`  tenant_id=${tenant.id}`);

@@ -7,6 +7,7 @@ import {
 
 const INPUT: CustomerEstimateEmailInput = {
   customer: { contact_email_ok: true, email: 'max.muster@example.at' },
+  tenantDefaultLocale: 'de',
   vehicle: { make: 'VW', model: 'Golf' },
   sellerName: 'Werkstatt Muster',
   estimateNumber: 'KV-2026-0001',

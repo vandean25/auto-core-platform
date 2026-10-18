@@ -1,0 +1,41 @@
+{
+  "pickerl": {
+    "title": "§57a preparation — editable starter checklist, not a legal list",
+    "items": {
+      "LIGHTS": "Lighting",
+      "BRAKES": "Brakes",
+      "TYRES": "Tyres",
+      "WIPERS_WASHER": "Wipers and washer system",
+      "HORN": "Horn",
+      "SEAT_BELTS": "Seat belts",
+      "EXHAUST_LEAKS": "Exhaust system and leaks",
+      "WARNING_TRIANGLE": "Warning triangle",
+      "FIRST_AID_KIT": "First-aid kit",
+      "SAFETY_VEST": "High-visibility vest",
+      "VIN_READABLE": "Vehicle identification number readable",
+      "PLATE_READABLE": "Registration plate readable"
+    }
+  },
+  "annahme": {
+    "title": "Vehicle intake check",
+    "items": {
+      "KEYS_COMPLETE": "Keys complete",
+      "SERVICE_BOOK": "Service book / onboard folder",
+      "REGISTRATION_DOC": "Registration certificate",
+      "WARNING_TRIANGLE": "Warning triangle",
+      "FIRST_AID_KIT": "First-aid kit",
+      "SAFETY_VEST": "High-visibility vest",
+      "FLOOR_MATS": "Floor mats documented",
+      "PERSONAL_ITEMS": "Personal items documented"
+    }
+  },
+  "landingDemo": {
+    "tenantName": "Demo Workshop Alpenblick",
+    "siteName": "Salzburg workshop",
+    "storage": {
+      "TRANSIT": "In transit",
+      "A1": "Shelf A1",
+      "LOT": "Vehicle bay"
+    }
+  }
+}

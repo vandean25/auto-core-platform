@@ -1,4 +1,6 @@
+import type { DisplayLanguage } from '../../common/i18n/display-language.js';
 import type { PrismaClient } from '@prisma/client';
+import { loadSeedMasterCopy } from './seed-master-copy.js';
 
 type PickerlTemplateSeedClient = Pick<
   PrismaClient,
@@ -8,25 +10,27 @@ type PickerlTemplateSeedClient = Pick<
 const PICKERL_TEMPLATE_CODE = 'PICKERL_57A_PREP';
 const PICKERL_TEMPLATE_VERSION = 1;
 
-const PICKERL_TEMPLATE_ITEMS = [
-  { code: 'LIGHTS', label: 'Beleuchtung' },
-  { code: 'BRAKES', label: 'Bremsen' },
-  { code: 'TYRES', label: 'Reifen' },
-  { code: 'WIPERS_WASHER', label: 'Scheibenwischer und Waschanlage' },
-  { code: 'HORN', label: 'Hupe' },
-  { code: 'SEAT_BELTS', label: 'Sicherheitsgurte' },
-  { code: 'EXHAUST_LEAKS', label: 'Abgasanlage und Undichtigkeiten' },
-  { code: 'WARNING_TRIANGLE', label: 'Warndreieck' },
-  { code: 'FIRST_AID_KIT', label: 'Erste-Hilfe-Kasten' },
-  { code: 'SAFETY_VEST', label: 'Warnweste' },
-  { code: 'VIN_READABLE', label: 'Fahrzeug-Identifizierungsnummer lesbar' },
-  { code: 'PLATE_READABLE', label: 'Kennzeichen lesbar' },
+const PICKERL_ITEM_CODES = [
+  'LIGHTS',
+  'BRAKES',
+  'TYRES',
+  'WIPERS_WASHER',
+  'HORN',
+  'SEAT_BELTS',
+  'EXHAUST_LEAKS',
+  'WARNING_TRIANGLE',
+  'FIRST_AID_KIT',
+  'SAFETY_VEST',
+  'VIN_READABLE',
+  'PLATE_READABLE',
 ] as const;
 
 export async function seedPickerlInspectionTemplate(
   prisma: PickerlTemplateSeedClient,
   tenantId: string,
+  language: DisplayLanguage = 'de',
 ) {
+  const copy = loadSeedMasterCopy(language);
   const template = await prisma.inspectionTemplate.upsert({
     where: {
       tenant_id_code_version: {
@@ -35,33 +39,36 @@ export async function seedPickerlInspectionTemplate(
         version: PICKERL_TEMPLATE_VERSION,
       },
     },
-    update: {},
+    update: {
+      title: copy.pickerl.title,
+    },
     create: {
       tenant_id: tenantId,
       code: PICKERL_TEMPLATE_CODE,
-      title:
-        '§57a Vorbereitung — editierbare Start-Checkliste, keine Rechtsliste',
+      title: copy.pickerl.title,
       version: PICKERL_TEMPLATE_VERSION,
       is_active: true,
     },
   });
 
   await Promise.all(
-    PICKERL_TEMPLATE_ITEMS.map((item, index) =>
+    PICKERL_ITEM_CODES.map((code, index) =>
       prisma.inspectionTemplateItem.upsert({
         where: {
           tenant_id_inspection_template_id_code: {
             tenant_id: tenantId,
             inspection_template_id: template.id,
-            code: item.code,
+            code,
           },
         },
-        update: {},
+        update: {
+          label: copy.pickerl.items[code],
+        },
         create: {
           tenant_id: tenantId,
           inspection_template_id: template.id,
-          code: item.code,
-          label: item.label,
+          code,
+          label: copy.pickerl.items[code],
           response_type: 'PASS_FAIL',
           sort_order: index + 1,
           is_required: false,

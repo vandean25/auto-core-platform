@@ -1,5 +1,5 @@
 {
-  "treatNamespaceAsUsed": ["enums", "errors", "pdf"],
+  "treatNamespaceAsUsed": ["enums", "errors", "pdf", "email", "seedMaster"],
   "usedKeyPrefixes": [
     "errors:codes.",
     "enums:status.",

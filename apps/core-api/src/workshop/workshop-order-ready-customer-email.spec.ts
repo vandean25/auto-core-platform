@@ -5,6 +5,7 @@ const BASE = {
   vehicle: { make: 'Skoda', model: 'Octavia' },
   sellerName: 'Werkstatt',
   orderNumber: 'WO-2026-0001',
+  tenantDefaultLocale: 'de' as const,
 };
 
 describe('buildWorkshopOrderReadyCustomerEmail', () => {

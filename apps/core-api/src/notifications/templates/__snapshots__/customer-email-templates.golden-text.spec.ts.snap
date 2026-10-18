@@ -1,0 +1,175 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`customer email templates golden text (AUT-588) renders English estimate-sent copy from locales/en/email.json 1`] = `
+{
+  "documentLocale": "en",
+  "recipientEmail": "max.muster@example.at",
+  "replyToEmail": "werkstatt@example.at",
+  "senderName": "Werkstatt Muster",
+  "subject": "Estimate KV-2026-0001",
+  "templateId": "customer.estimate_sent",
+  "templateVersion": 1,
+  "text": "Dear Sir or Madam,
+
+we have prepared estimate KV-2026-0001 for your vehicle VW Golf.
+
+You can view the estimate at the following link: https://portal.example.at/approve/demo-token
+
+The estimate is valid until 27.10.2026, 10:00. Please review it at your convenience. If you have any questions, we will be happy to help.
+
+Kind regards
+Werkstatt Muster",
+}
+`;
+
+exports[`customer email templates golden text (AUT-588) renders German and English order-ready emails from email.json 1`] = `
+{
+  "documentLocale": "de",
+  "recipientEmail": "max.muster@example.at",
+  "replyToEmail": "werkstatt@example.at",
+  "senderName": "Werkstatt Muster",
+  "subject": "WO-2026-0001",
+  "templateId": "customer.order_ready",
+  "templateVersion": 1,
+  "text": "Sehr geehrte Damen und Herren,
+
+die Arbeiten an Ihrem Fahrzeug Skoda Octavia sind abgeschlossen. Sie können Ihr Fahrzeug bei uns abholen.
+
+Bei Fragen stehen wir Ihnen gerne zur Verfügung.
+
+Diese E-Mail betrifft Ihren Auftrag Nr. WO-2026-0001.
+
+Mit freundlichen Grüßen
+Werkstatt Muster",
+}
+`;
+
+exports[`customer email templates golden text (AUT-588) renders German and English order-ready emails from email.json 2`] = `
+{
+  "documentLocale": "en",
+  "recipientEmail": "max.muster@example.at",
+  "replyToEmail": "werkstatt@example.at",
+  "senderName": "Werkstatt Muster",
+  "subject": "WO-2026-0001",
+  "templateId": "customer.order_ready",
+  "templateVersion": 1,
+  "text": "Dear Sir or Madam,
+
+the work on your vehicle Skoda Octavia is complete. You may pick up your vehicle from us.
+
+If you have any questions, we will be happy to help.
+
+This email relates to your order no. WO-2026-0001.
+
+Kind regards
+Werkstatt Muster",
+}
+`;
+
+exports[`customer email templates golden text (AUT-588) renders German estimate-sent copy from locales/de/email.json 1`] = `
+{
+  "documentLocale": "de",
+  "recipientEmail": "max.muster@example.at",
+  "replyToEmail": "werkstatt@example.at",
+  "senderName": "Werkstatt Muster",
+  "subject": "Kostenvoranschlag KV-2026-0001",
+  "templateId": "customer.estimate_sent",
+  "templateVersion": 1,
+  "text": "Sehr geehrte Damen und Herren,
+
+wir haben für Ihr Fahrzeug VW Golf den Kostenvoranschlag KV-2026-0001 erstellt.
+
+Den Kostenvoranschlag können Sie unter folgendem Link einsehen: https://portal.example.at/approve/demo-token
+
+Der Kostenvoranschlag ist gültig bis 27.10.2026, 10:00 Uhr. Bitte prüfen Sie ihn in Ruhe. Bei Fragen stehen wir Ihnen gerne zur Verfügung.
+
+Mit freundlichen Grüßen
+Werkstatt Muster",
+}
+`;
+
+exports[`customer email templates golden text (AUT-588) renders approval confirmation dates from email.json in de and en 1`] = `
+{
+  "documentLocale": "de",
+  "recipientEmail": "max.muster@example.at",
+  "replyToEmail": "werkstatt@example.at",
+  "senderName": "Werkstatt Muster",
+  "subject": "Bestätigung Ihrer Freigabe: Kostenvoranschlag KV-2026-0001",
+  "templateId": "customer.estimate_approval_confirmed",
+  "templateVersion": 1,
+  "text": "Sehr geehrte Damen und Herren,
+
+vielen Dank für Ihre Freigabe des Kostenvoranschlags KV-2026-0001 am 14.10.2026.
+
+Wir bestätigen Ihre Freigabe hiermit. Bei Fragen stehen wir Ihnen gerne zur Verfügung.
+
+Mit freundlichen Grüßen
+Werkstatt Muster",
+}
+`;
+
+exports[`customer email templates golden text (AUT-588) renders approval confirmation dates from email.json in de and en 2`] = `
+{
+  "documentLocale": "en",
+  "recipientEmail": "max.muster@example.at",
+  "replyToEmail": "werkstatt@example.at",
+  "senderName": "Werkstatt Muster",
+  "subject": "Confirmation of your approval: estimate KV-2026-0001",
+  "templateId": "customer.estimate_approval_confirmed",
+  "templateVersion": 1,
+  "text": "Dear Sir or Madam,
+
+thank you for approving estimate KV-2026-0001 on 14.10.2026.
+
+We hereby confirm your approval. If you have any questions, we will be happy to help.
+
+Kind regards
+Werkstatt Muster",
+}
+`;
+
+exports[`customer email templates golden text (AUT-588) renders landing demo magic-link emails from email.json 1`] = `
+{
+  "documentLocale": "de",
+  "recipientEmail": "demo@example.com",
+  "replyToEmail": null,
+  "senderName": "Auto Core Platform",
+  "subject": "Ihr Demo-Zugang zur Auto Core Platform",
+  "text": "Guten Tag,
+
+vielen Dank für Ihr Interesse an der Auto Core Platform (Example Workshop).
+
+Öffnen Sie den folgenden einmaligen Anmeldelink, um die Demo zu starten:
+https://app.example/sign-in
+
+Der Link ist bis 27. Oktober 2026 um 10:00 gültig und führt Sie ohne Passwort direkt in die Demo-Umgebung.
+
+Falls Sie diese Anfrage nicht gestellt haben, können Sie diese E-Mail ignorieren.
+
+Freundliche Grüße
+Auto Core Platform",
+}
+`;
+
+exports[`customer email templates golden text (AUT-588) renders landing demo magic-link emails from email.json 2`] = `
+{
+  "documentLocale": "en",
+  "recipientEmail": "demo@example.com",
+  "replyToEmail": null,
+  "senderName": "Auto Core Platform",
+  "subject": "Your demo access to Auto Core Platform",
+  "text": "Hello,
+
+thank you for your interest in Auto Core Platform (Example Workshop).
+
+Open the following one-time sign-in link to start the demo:
+https://app.example/sign-in
+
+The link is valid until 27 October 2026 at 10:00 and takes you straight into the demo without a password.
+
+If you did not request this, you can ignore this email.
+
+Kind regards
+Auto Core Platform",
+}
+`;
