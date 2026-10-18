@@ -44,3 +44,26 @@ export function SettingsSubsectionHeading({
     </h3>
   )
 }
+
+type SettingsSubsectionIntroProps = {
+  title: string
+  description?: string
+  descriptionClassName?: string
+  id?: string
+  headingClassName?: string
+}
+
+export function SettingsSubsectionIntro({
+  title,
+  description,
+  descriptionClassName = 'text-sm text-muted-foreground',
+  id,
+  headingClassName,
+}: SettingsSubsectionIntroProps) {
+  return (
+    <div>
+      <SettingsSubsectionHeading title={title} id={id} className={headingClassName} />
+      {description ? <p className={descriptionClassName}>{description}</p> : null}
+    </div>
+  )
+}

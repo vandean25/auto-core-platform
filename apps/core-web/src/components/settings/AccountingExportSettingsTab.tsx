@@ -26,6 +26,7 @@ import {
 import type { components } from '@/api/generated/openapi'
 import { useLegalEntities } from '@/api/site-admin'
 import { useTenantMembers } from '@/api/tenant-members'
+import { SettingsSubsectionIntro } from '@/components/settings/SettingsSectionHeading'
 import { LegalEntityAccountingProfileForm } from '@/components/settings/LegalEntitiesSettingsTab'
 import { DataTable } from '@/components/data-table/DataTable'
 import { StatusBadge } from '@/components/status/StatusBadge'
@@ -583,16 +584,15 @@ export function AccountingExportSettingsTab({
         <div className="space-y-4 rounded-lg border bg-white p-6 shadow-sm">
           <div className="flex flex-wrap items-center gap-3">
             <FileSpreadsheet className="h-5 w-5 text-slate-500" />
-            <div>
-              <h3 className="font-medium">{t('accountingExport.preview.title')}</h3>
-              <p className="text-sm text-slate-500">
-                {t('accountingExport.preview.summary', {
-                  version: preview.profileVersion,
-                  documents: formatNumber(preview.documentCount),
-                  rows: formatNumber(preview.rowCount),
-                })}
-              </p>
-            </div>
+            <SettingsSubsectionIntro
+              title={t('accountingExport.preview.title')}
+              description={t('accountingExport.preview.summary', {
+                version: preview.profileVersion,
+                documents: formatNumber(preview.documentCount),
+                rows: formatNumber(preview.rowCount),
+              })}
+              descriptionClassName="text-sm text-slate-500"
+            />
             <StatusBadge status={preview.canGenerate ? 'ACTIVE' : 'INACTIVE'} />
           </div>
 
@@ -701,12 +701,11 @@ export function AccountingExportSettingsTab({
 
       <div className="rounded-lg border bg-white p-6 shadow-sm">
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h3 className="font-medium">{t('accountingExport.history.title')}</h3>
-            <p className="text-sm text-slate-500">
-              {t('accountingExport.history.description')}
-            </p>
-          </div>
+          <SettingsSubsectionIntro
+            title={t('accountingExport.history.title')}
+            description={t('accountingExport.history.description')}
+            descriptionClassName="text-sm text-slate-500"
+          />
         </div>
         <DataTable
           columns={columns}
