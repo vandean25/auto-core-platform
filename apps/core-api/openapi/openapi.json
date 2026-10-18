@@ -20340,18 +20340,18 @@
       "CreateDocumentBrandExtractionDto": {
         "type": "object",
         "properties": {
-          "sourceAssetId": {
-            "type": "string",
-            "format": "uuid"
-          },
           "expectedRevision": {
             "type": "number",
             "minimum": 0
+          },
+          "sourceAssetId": {
+            "type": "string",
+            "format": "uuid"
           }
         },
         "required": [
-          "sourceAssetId",
-          "expectedRevision"
+          "expectedRevision",
+          "sourceAssetId"
         ]
       },
       "DocumentBrandExtractionResponseDto": {
