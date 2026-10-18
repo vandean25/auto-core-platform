@@ -10,4 +10,6 @@ export const CANONICAL_EN_MESSAGES = {
     'Shortening the statutory warranty period requires a consumer purchase.',
   GEWAEHRLEISTUNG_SHORTENING_VEHICLE_TOO_NEW:
     'First registration must be more than one year before handover.',
+  LISTING_SERIALIZER_UNSUPPORTED:
+    'No listing export format is available for this portal.',
 }

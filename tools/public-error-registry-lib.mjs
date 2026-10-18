@@ -24,7 +24,7 @@ const SYSTEM_WIRE_CODES = {
   },
   HTTP_409: {
     en: 'The request conflicts with the current state.',
-    de: 'Der Eintrag wurde inzwischen geändert. Bitte laden Sie die Seite neu.',
+    de: 'Die Anfrage steht im Konflikt mit dem aktuellen Stand.',
   },
   HTTP_413: {
     en: 'The request payload is too large.',

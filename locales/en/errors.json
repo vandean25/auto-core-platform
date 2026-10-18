@@ -233,7 +233,7 @@
     "LISTING_REF_REQUIRED": "Listing reference is required for willhaben generic export.",
     "LISTING_SERIALIZER_PROFILE_MISMATCH": "Listing serializer profile mismatch.",
     "LISTING_SERIALIZER_PROFILE_MISSING": "Listing serializer profile code is required.",
-    "LISTING_SERIALIZER_UNSUPPORTED": "Listing serializer profile code is required.",
+    "LISTING_SERIALIZER_UNSUPPORTED": "No listing export format is available for this portal.",
     "LISTING_VALIDATE_DEMO_DENIED": "Demo accounts cannot run portal validation.",
     "LISTING_VAT_DISPLAY_REQUIRED": "VAT display (STANDARD or MARGIN) must be confirmed.",
     "LISTING_VEHICLE_FIRST_REGISTRATION_REQUIRED": "First registration date is required for mobile.de export.",

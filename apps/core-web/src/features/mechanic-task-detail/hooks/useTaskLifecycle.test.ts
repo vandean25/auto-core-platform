@@ -6,7 +6,7 @@ import { deWorkshop } from '@/test/de-workshop'
 import { useTaskLifecycle } from './useTaskLifecycle'
 
 const lifecycleToast = deWorkshop.mechanic.taskDetail.lifecycle.toast
-const http409 = 'Der Eintrag wurde inzwischen geändert. Bitte laden Sie die Seite neu.'
+const http409 = 'Die Anfrage steht im Konflikt mit dem aktuellen Stand.'
 
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', () => ({

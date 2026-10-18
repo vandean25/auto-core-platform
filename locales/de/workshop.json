@@ -169,7 +169,7 @@
         }
       },
       "checklist": {
-        "loadError": "Checkliste konnte nicht geladen werden",
+        "loadError": "Checkliste konnte nicht gespeichert werden",
         "loading": "Checkliste wird geladen…"
       },
       "lifecycle": {
@@ -490,11 +490,11 @@
       "jobCardPdfQueued": "Die Job-Card-PDF-Erstellung wurde in die Warteschlange gestellt und steht in Kürze bereit.",
       "jobCardPdfDownloaded": "Job-Card-PDF erfolgreich heruntergeladen",
       "jobCardPdfFailed": "PDF konnte nicht erstellt werden",
-      "technicianAssigned": "Techniker zugewiesen",
+      "technicianAssigned": "Mechaniker zugewiesen",
       "technicianUnassigned": "Technikerzuweisung entfernt",
       "technicianAssignFailed": "Mechaniker konnte nicht zugewiesen werden",
       "vehicleIdentityResolved": "Fahrzeugidentität aktualisiert",
-      "vehicleIdentityResolveFailed": "Fahrzeugdaten konnten nicht aktualisiert werden"
+      "vehicleIdentityResolveFailed": "Fahrzeugidentität konnte nicht aktualisiert werden"
     }
   },
   "estimateSend": {
@@ -675,16 +675,16 @@
       "noKeys": "Keine Fahrzeugmerkmale für die Katalogsuche vorhanden"
     },
     "banner": {
-      "oem": "{{concern}}: OEM-Katalog{{suffix}}",
+      "oem": "{{concern}}: Originalteile-Katalog{{suffix}}",
       "oemSuffix": " ({{label}})",
-      "fallbackEmpty": "{{concern}}: OEM ohne Treffer — Aftermarket-Katalog wird angezeigt",
+      "fallbackEmpty": "{{concern}}: Originalteile ohne Treffer — Zubehörkatalog wird angezeigt",
       "fallbackError": "{{concern}}: Originalteile-Katalog nicht verfügbar, Zubehörkatalog wird angezeigt",
-      "notConfigured": "{{concern}}: Kein OEM-Katalog konfiguriert — Aftermarket wird angezeigt",
-      "aftermarket": "{{concern}}: Aftermarket-Katalog"
+      "notConfigured": "{{concern}}: Kein Originalteile-Katalog konfiguriert — Zubehörkatalog wird angezeigt",
+      "aftermarket": "{{concern}}: Zubehörkatalog"
     },
     "fallbackDialog": {
-      "emptyTitle": "Keine OEM-Treffer",
-      "emptyDescription": "Der OEM-Katalog lieferte keine passenden Teile oder Arbeiten für dieses Fahrzeug. Stattdessen Aftermarket-Katalog durchsuchen?",
+      "emptyTitle": "Keine Originalteile-Treffer",
+      "emptyDescription": "Der Originalteile-Katalog lieferte keine passenden Teile oder Arbeiten für dieses Fahrzeug. Stattdessen Zubehörkatalog durchsuchen?",
       "errorTitle": "Originalteile-Katalog nicht verfügbar",
       "errorDescription": "Der Originalteile-Katalog ist für dieses Fahrzeug derzeit nicht verfügbar. Möchten Sie stattdessen im Zubehörkatalog suchen?"
     },
@@ -1191,7 +1191,7 @@
     "toastOdometerRequired": "Gültigen Kilometerstand eingeben, bevor der Auftrag erstellt wird.",
     "toastOrderCreated": "Werkstattauftrag erstellt",
     "toastCheckInReady": "Werkstattauftrag angelegt — Fahrzeugannahme starten",
-    "extractionFailed": "Das Dokument konnte nicht gelesen werden ({{code}}). Bitte löschen Sie es und laden Sie es erneut hoch.",
+    "extractionFailed": "Das Dokument konnte nicht gelesen werden. Bitte löschen Sie es und laden Sie es erneut hoch.",
     "unknown": "unbekannt",
     "uploadFailed": "Hochladen fehlgeschlagen",
     "extractionFailedFallback": "Dokument konnte nicht gelesen werden"

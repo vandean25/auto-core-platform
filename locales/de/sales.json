@@ -201,10 +201,10 @@
       "addLine": "Position hinzufügen"
     },
     "finalizeDialog": {
-      "title": "Rechnung finalisieren?",
+      "title": "Rechnung ausstellen?",
       "description": "Die Rechnung wird gesperrt, erhält eine offizielle RE-Nummer und Lagerbestand wird für Katalogpositionen abgebucht. Danach ist der Entwurf nicht mehr bearbeitbar.",
-      "confirm": "Finalisieren",
-      "finalizing": "Finalisierung…"
+      "confirm": "Rechnung ausstellen",
+      "finalizing": "Rechnung wird ausgestellt…"
     },
     "partSearch": {
       "title": "Lager durchsuchen",

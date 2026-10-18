@@ -139,8 +139,8 @@
       "removed": "Inzahlungnahme entfernt",
       "saveFailed": "Inzahlungnahme konnte nicht gespeichert werden",
       "removeFailed": "Inzahlungnahme konnte nicht entfernt werden",
-      "storedIncomplete": "Entfernen Sie die Inzahlungnahme oder vervollständigen Sie die Angaben vor der Finalisierung.",
-      "removalFailed": "Die Inzahlungnahme konnte nicht entfernt werden und ist noch am Verkauf. Bitte erneut entfernen, bevor Sie finalisieren.",
+      "storedIncomplete": "Entfernen Sie die Inzahlungnahme oder vervollständigen Sie die Angaben, bevor Sie den Verkauf abschließen.",
+      "removalFailed": "Die Inzahlungnahme konnte nicht entfernt werden und ist noch am Verkauf. Bitte erneut entfernen, bevor Sie den Verkauf abschließen.",
       "saveStatus": {
         "saving": "Speichern…",
         "saved": "Gespeichert",

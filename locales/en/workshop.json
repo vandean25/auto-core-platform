@@ -1191,7 +1191,7 @@
     "toastOdometerRequired": "Enter a valid odometer reading before creating the order.",
     "toastOrderCreated": "Workshop order created",
     "toastCheckInReady": "Workshop order created — start vehicle check-in",
-    "extractionFailed": "Extraction failed ({{code}}). Delete and try again with a new upload.",
+    "extractionFailed": "The document could not be read. Delete it and upload it again.",
     "unknown": "unknown",
     "uploadFailed": "Upload failed",
     "extractionFailedFallback": "Extraction failed"

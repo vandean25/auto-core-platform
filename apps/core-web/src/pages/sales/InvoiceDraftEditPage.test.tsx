@@ -451,7 +451,7 @@ describe('InvoiceDraftEditPage autosave', () => {
     openFinalizeDialog()
     confirmFinalize()
 
-    const conflictMessage = 'Der Eintrag wurde inzwischen geändert. Bitte laden Sie die Seite neu.'
+    const conflictMessage = 'Die Anfrage steht im Konflikt mit dem aktuellen Stand.'
 
     await waitFor(() => {
       expect(screen.getByText(conflictMessage)).toBeInTheDocument()

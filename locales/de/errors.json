@@ -132,7 +132,7 @@
     "HTTP_401": "Bitte melden Sie sich an.",
     "HTTP_403": "Sie haben keine Berechtigung für diese Aktion.",
     "HTTP_404": "Der Eintrag wurde nicht gefunden.",
-    "HTTP_409": "Der Eintrag wurde inzwischen geändert. Bitte laden Sie die Seite neu.",
+    "HTTP_409": "Die Anfrage steht im Konflikt mit dem aktuellen Stand.",
     "HTTP_413": "Die Anfrage ist zu groß.",
     "HTTP_415": "Dieser Dateityp wird nicht unterstützt.",
     "HTTP_422": "Die Anfrage konnte nicht verarbeitet werden.",
