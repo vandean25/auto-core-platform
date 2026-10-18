@@ -5,7 +5,11 @@ description: "Get into the right tenant, or onto the mechanic queue if you are T
 
 The first-run page explains that **Auto Core** keeps stock, jobs, and invoices in one workshop ledger. Access is invite-only: sign in with **email + password** or **Continue with Google**. If you have forgotten your password, use **Forgot password?** below the password field and check your email for the reset link.
 
-On the public demo host, the page also lists the office and mechanic demo email addresses. It never displays passwords; ask the demo owner for access. Public self-serve signup is not available because workshops invite their team members. If sign-in is unavailable for a deployment, the page shows `Sign-in is not configured for this deployment.` without exposing configuration details.
+On the public demo host, the page also lists the office and mechanic demo email addresses. It never displays passwords; ask the demo owner for access.
+
+You can also start a **self-service demo** without a shared password: on the Auto Core landing page, submit your email for demo access. The platform emails a one-time **magic sign-in link**. Open it to land on `/login`, confirm the same email if prompted, and ACP loads the isolated demo tenant (time-limited membership). Request a fresh link from the landing page if the link expired or was already used.
+
+Workshops do not use public self-serve signup for production tenants — your admin invites team members. If sign-in is unavailable for a deployment, the page shows `Sign-in is not configured for this deployment.` without exposing configuration details.
 
 For product context and the full workflow guide, use the **Documentation** link on the sign-in page.
 

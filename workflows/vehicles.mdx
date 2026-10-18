@@ -12,8 +12,10 @@ On **+ Vehicle**, **Edit Vehicle**, and the vehicle detail card you can capture 
 - First registration date / Erstzulassung
 - CO₂ WLTP and optional NEDC (g/km)
 - Typenschein number (type approval)
-- NoVA class (placeholder values until NoVA calculation ships)
+- NoVA class (used by the live NoVA preview calculator)
 - Emission class / Schadstoffklasse
+
+On the vehicle detail view, the **NoVA** panel calculates a preview from registration data, CO₂, Typenschein, class, and net price. **Calculate** calls the server; nothing is saved to the vehicle or any invoice. Your tax advisor still confirms the amount before you rely on it for registration.
 
 **ZB I vs Typenschein:** The existing **registration certificate** field on dealer stock vehicles is the ZB I (Fahrzeugschein). The **Typenschein** is the separate type-approval document — use the Typenschein field for that number.
 
