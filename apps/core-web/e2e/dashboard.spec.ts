@@ -72,7 +72,7 @@ test.describe('Blueprint: Dashboard Page', () => {
     await page.goto('/dashboard');
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByRole('heading', { name: DE_COMMON.dashboard.title })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: DE_COMMON.dashboard.title })).toBeVisible();
     await expect(page.getByText(DE_COMMON.dashboard.description)).toBeVisible();
   });
 

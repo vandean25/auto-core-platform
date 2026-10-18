@@ -1,6 +1,8 @@
 import * as React from 'react'
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { type LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import type { ColumnFiltersState } from '@tanstack/react-table'
 import { useInventory } from '@/api/inventory'
@@ -17,6 +19,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 export default function InventoryList() {
     const { t } = useTranslation('inventory')
+    useEffect(() => {
+        void ensureNamespaceLoaded('inventory')
+    }, [])
     const navigate = useNavigate()
     const { queryParams, columnFilters, setColumnFilters, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
 

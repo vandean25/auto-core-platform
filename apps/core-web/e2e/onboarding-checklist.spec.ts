@@ -55,7 +55,7 @@ test.describe('AUT-486: onboarding checklist and Help / Docs', () => {
 
     await page.reload();
 
-    await expect(page.getByRole('heading', { name: DE_COMMON.dashboard.title })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: DE_COMMON.dashboard.title })).toBeVisible();
     await expect(page.getByRole('heading', { name: CHECKLIST_HEADING })).toHaveCount(0);
   });
 
@@ -64,7 +64,7 @@ test.describe('AUT-486: onboarding checklist and Help / Docs', () => {
 
     await page.goto('/dashboard');
 
-    await expect(page.getByRole('heading', { name: DE_COMMON.dashboard.title })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: DE_COMMON.dashboard.title })).toBeVisible();
     await expect(page.getByRole('heading', { name: CHECKLIST_HEADING })).toHaveCount(0);
   });
 

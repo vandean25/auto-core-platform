@@ -62,6 +62,9 @@ test.describe('Inventory — Blueprint Validation (mocked)', () => {
         body: JSON.stringify(createMockListResponse([])),
       });
     });
+    await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/locations'), async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+    });
 
     // Mock /api/brands with deliberately malformed data — the resilience target
     await page.route(AutoCorePage.apiRouteMatcher('/api/brands'), async (route) => {
@@ -92,6 +95,9 @@ test.describe('Inventory — Blueprint Validation (mocked)', () => {
         contentType: 'application/json',
         body: JSON.stringify(createMockListResponse([item])),
       });
+    });
+    await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/locations'), async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
 
     const corePage = new AutoCorePage(page, 'Artikel');

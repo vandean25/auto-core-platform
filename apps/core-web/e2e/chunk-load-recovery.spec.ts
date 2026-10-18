@@ -18,6 +18,16 @@ async function expectRecoveredUi(page: import('@playwright/test').Page) {
 
 test.describe('Stale chunk recovery', () => {
   test.beforeEach(async ({ page }) => {
+    await page.route(AutoCorePage.apiRouteMatcher('/api/me/sites'), async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+    })
+    await page.route(AutoCorePage.apiRouteMatcher(/\/api\/vehicles\/pickerl-due/), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: [], meta: { total: 0, page: 1, pageSize: 1, pageCount: 0 } }),
+      })
+    })
     await page.route(AutoCorePage.apiRouteMatcher('/api/auth/session'), async (route) => {
       await route.fulfill({
         status: 200,

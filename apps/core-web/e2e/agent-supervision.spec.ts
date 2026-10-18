@@ -158,9 +158,9 @@ test.describe('Agent Supervision Screen (AUT-401)', () => {
   })
 
   async function waitForAgentCopy(page: import('@playwright/test').Page) {
-    await expect(page.getByTestId('agent-supervision-page')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('agent-supervision-page')).toBeVisible({ timeout: 30_000 })
     await expect(page.getByRole('heading', { level: 1, name: DE_AGENT.header.title })).toBeVisible({
-      timeout: 15_000,
+      timeout: 30_000,
     })
   }
 

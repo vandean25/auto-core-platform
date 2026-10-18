@@ -93,6 +93,7 @@ test.describe('A11y smoke: reflow at 320px (WCAG 1.4.10)', () => {
       // The dialog is not opened here: at 320px the sidebar covers its trigger, which is reported
       // through the page measurement instead.
       await new AutoCorePage(page, route.name).navigate(route.path);
+      await route.ready(page);
       await settle(page);
 
       const overflow = await measureOverflow(page);

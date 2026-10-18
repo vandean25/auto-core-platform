@@ -21,6 +21,13 @@ async function mockInventory(page: Page) {
     createMockInventoryItem({ id: 'item-1', sku: 'AAA-100', name: 'Brake pad', price: 45 }),
     createMockInventoryItem({ id: 'item-2', sku: 'ZZZ-900', name: 'Air filter', price: 12 }),
   ];
+  await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/locations'), async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([]),
+    });
+  });
   await page.route(AutoCorePage.apiRouteMatcher('/api/inventory'), async (route) => {
     await route.fulfill({
       status: 200,
