@@ -996,6 +996,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/legal-entities/{legalEntityId}/document-branding/assets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload a private document branding asset */
+        post: operations["DocumentBrandingController_uploadAsset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/legal-entities/{legalEntityId}/document-branding/extractions": {
         parameters: {
             query?: never;
@@ -1041,23 +1058,6 @@ export interface paths {
         put?: never;
         /** Discard a letterhead extraction */
         post: operations["DocumentBrandingController_discardExtraction"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/legal-entities/{legalEntityId}/document-branding/assets": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Upload a private document branding asset */
-        post: operations["DocumentBrandingController_uploadAsset"];
         delete?: never;
         options?: never;
         head?: never;
@@ -13454,6 +13454,37 @@ export interface operations {
             };
         };
     };
+    DocumentBrandingController_uploadAsset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                legalEntityId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** @enum {string} */
+                    purpose: "SOURCE" | "LOGO";
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Quarantined or validated asset metadata */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentBrandAssetResponseDto"];
+                };
+            };
+        };
+    };
     DocumentBrandingController_createExtraction: {
         parameters: {
             query?: never;
@@ -13522,37 +13553,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DocumentBrandExtractionResponseDto"];
-                };
-            };
-        };
-    };
-    DocumentBrandingController_uploadAsset: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                legalEntityId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "multipart/form-data": {
-                    /** @enum {string} */
-                    purpose: "SOURCE" | "LOGO";
-                    /** Format: binary */
-                    file: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Quarantined or validated asset metadata */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DocumentBrandAssetResponseDto"];
                 };
             };
         };
