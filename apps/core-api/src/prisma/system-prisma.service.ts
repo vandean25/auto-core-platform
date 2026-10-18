@@ -147,15 +147,16 @@ export class SystemPrismaService
   }
 
   /**
-   * Cluster-wide dedup for in-process @Cron handlers (AUT-611). Uses Postgres session
-   * advisory locks on the shared runtime pool connection for this instance.
+   * Cluster-wide dedup for in-process @Cron handlers (AUT-611). Pins one pool
+   * connection for the whole sweep so session advisory locks are not dropped
+   * while other queries use the shared runtime pool.
    */
   async withCronJobLock(
     jobName: string,
     fn: () => Promise<void>,
-    logger?: Pick<LoggerService, 'log'>,
+    logger?: Pick<LoggerService, 'log' | 'warn'>,
   ): Promise<boolean> {
-    return withCronJobLock(this.prisma, jobName, fn, logger);
+    return withCronJobLock(this.pool, jobName, fn, logger);
   }
 
   async onModuleInit() {

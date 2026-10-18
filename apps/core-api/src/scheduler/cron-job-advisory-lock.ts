@@ -1,58 +1,76 @@
 import { Logger } from '@nestjs/common';
-import type { PrismaClient } from '@prisma/client';
+import type { Pool, PoolClient } from 'pg';
 import { cronJobAdvisoryLockKeys } from './cron-job-advisory-lock-key.js';
-
-export type CronJobAdvisoryLockDb = Pick<
-  PrismaClient,
-  '$queryRaw' | '$executeRaw'
->;
 
 const defaultLogger = new Logger('CronJobAdvisoryLock');
 
-export async function tryAcquireCronJobAdvisoryLock(
-  db: CronJobAdvisoryLockDb,
+export type CronJobLockLogger = {
+  log: (message: string) => void;
+  warn?: (message: string) => void;
+};
+
+async function tryAcquireCronJobAdvisoryLockOnClient(
+  client: PoolClient,
   jobName: string,
 ): Promise<boolean> {
   const [key1, key2] = cronJobAdvisoryLockKeys(jobName);
-  // eslint-disable-next-line no-restricted-syntax -- session advisory lock; not tenant-scoped data.
-  const rows = await db.$queryRaw<Array<{ acquired: boolean }>>`
-    SELECT pg_try_advisory_lock(${key1}::int, ${key2}::int) AS acquired
-  `;
-  return rows[0]?.acquired === true;
+  const result = await client.query<{ acquired: boolean }>(
+    'SELECT pg_try_advisory_lock($1::int, $2::int) AS acquired',
+    [key1, key2],
+  );
+  return result.rows[0]?.acquired === true;
 }
 
-export async function releaseCronJobAdvisoryLock(
-  db: CronJobAdvisoryLockDb,
+async function releaseCronJobAdvisoryLockOnClient(
+  client: PoolClient,
   jobName: string,
-): Promise<void> {
+): Promise<boolean> {
   const [key1, key2] = cronJobAdvisoryLockKeys(jobName);
-  // eslint-disable-next-line no-restricted-syntax -- pairs with pg_try_advisory_lock above.
-  await db.$executeRaw`
-    SELECT pg_advisory_unlock(${key1}::int, ${key2}::int)
-  `;
+  const result = await client.query<{ released: boolean }>(
+    'SELECT pg_advisory_unlock($1::int, $2::int) AS released',
+    [key1, key2],
+  );
+  return result.rows[0]?.released === true;
 }
 
 /**
  * Runs `fn` when this process holds the cluster-wide cron lock for `jobName`.
+ * The lock is held on one pinned pool connection for the whole callback so
+ * `pg_try_advisory_lock` / `pg_advisory_unlock` stay on the same Postgres session.
+ *
  * Returns whether the job ran (false when another instance holds the lock).
  */
 export async function withCronJobLock(
-  db: CronJobAdvisoryLockDb,
+  pool: Pool,
   jobName: string,
   fn: () => Promise<void>,
-  logger: Pick<Logger, 'log'> = defaultLogger,
+  logger: CronJobLockLogger = defaultLogger,
 ): Promise<boolean> {
-  const acquired = await tryAcquireCronJobAdvisoryLock(db, jobName);
-  if (!acquired) {
-    logger.log(
-      `Skipping cron job "${jobName}": advisory lock held by another instance.`,
-    );
-    return false;
-  }
+  const client = await pool.connect();
+  let acquired = false;
   try {
+    acquired = await tryAcquireCronJobAdvisoryLockOnClient(client, jobName);
+    if (!acquired) {
+      logger.log(
+        `Skipping cron job "${jobName}": advisory lock held by another instance.`,
+      );
+      return false;
+    }
     await fn();
     return true;
   } finally {
-    await releaseCronJobAdvisoryLock(db, jobName);
+    if (acquired) {
+      const released = await releaseCronJobAdvisoryLockOnClient(
+        client,
+        jobName,
+      );
+      if (!released) {
+        (logger.warn ?? logger.log).call(
+          logger,
+          `Cron job "${jobName}": pg_advisory_unlock did not release the lock on this session.`,
+        );
+      }
+    }
+    client.release();
   }
 }

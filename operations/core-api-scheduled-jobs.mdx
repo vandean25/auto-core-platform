@@ -5,7 +5,7 @@ description: "Inventory of Nest @Cron workers in core-api and how multi-instance
 
 core-api runs background sweeps in-process via `@nestjs/schedule`. On Cloud Run, several instances can be healthy at once, so each job uses a **Postgres session advisory lock** (AUT-611) keyed by its stable cron `name`. If `pg_try_advisory_lock` fails, that instance skips the tick and logs once; the next schedule picks up work.
 
-Lock helper: `SystemPrismaService.withCronJobLock(jobName, fn)` in `apps/core-api/src/scheduler/cron-job-advisory-lock.ts`.
+Lock helper: `SystemPrismaService.withCronJobLock(jobName, fn)` pins one connection from the shared runtime `pg` pool for the whole sweep so session locks are not dropped while other queries use the pool (`apps/core-api/src/scheduler/cron-job-advisory-lock.ts`).
 
 ## Inventory
 
