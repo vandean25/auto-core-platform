@@ -52,14 +52,18 @@ export class WorkshopCheckInOrphanUploadCleanupService {
               ),
             { workerId: 'workshop-check-in-orphan-upload-cleanup' },
           );
-          if (counts.deleted > 0 || counts.skipped > 0) {
+          if (
+            counts.deleted > 0 ||
+            counts.skipped > 0 ||
+            counts.storage_failed > 0
+          ) {
             this.logger.log(
-              `Check-in orphan upload purge tenant=${tenant.id} scanned=${counts.scanned} deleted=${counts.deleted} skipped=${counts.skipped}`,
+              `Check-in orphan upload purge tenant=${tenant.id} scanned=${counts.scanned} deleted=${counts.deleted} skipped=${counts.skipped} storage_failed=${counts.storage_failed}`,
             );
           }
         } catch (cause) {
           this.logger.error(
-            `Check-in orphan upload purge failed for tenant: ${cause instanceof Error ? cause.message : 'unknown'}`,
+            `Check-in orphan upload purge failed for tenant=${tenant.id}: ${cause instanceof Error ? cause.message : 'unknown'}`,
           );
         }
       }

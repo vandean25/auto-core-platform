@@ -25,6 +25,17 @@ export function isUnattachedCheckInMediaPurpose(
   return WORKSHOP_CHECK_IN_MEDIA_PURPOSES.has(purpose);
 }
 
+function isEligibleOrphanUnderLock(
+  locked: LockedOrphanRow,
+  cutoff: Date,
+): boolean {
+  return (
+    locked.check_in_id === null &&
+    isUnattachedCheckInMediaPurpose(locked.purpose) &&
+    locked.createdAt < cutoff
+  );
+}
+
 export async function listOrphanCheckInUploadCandidates(
   prisma: PrismaService,
   tenantId: string,
@@ -70,12 +81,15 @@ async function lockOrphanMediaRow(
 }
 
 export type PurgeOrphanCheckInUploadResult =
-  { outcome: 'deleted' } | { outcome: 'skipped' } | { outcome: 'missing' };
+  | { outcome: 'deleted' }
+  | { outcome: 'skipped' }
+  | { outcome: 'missing' }
+  | { outcome: 'storage_failed' };
 
 /**
  * Deletes unattached check-in media after the row lock confirms it is still orphaned
- * and older than the TTL cutoff. Removes the DB row before storage so a row never
- * points at a deleted object; leftover bytes are removed best-effort afterward.
+ * and older than the TTL cutoff. Storage is removed before the DB row so a failed
+ * delete can retry; not-found on storage is treated as already purged.
  */
 export async function purgeOrphanCheckInUpload(
   prisma: PrismaService,
@@ -84,31 +98,18 @@ export async function purgeOrphanCheckInUpload(
   mediaId: string,
   cutoff: Date,
 ): Promise<PurgeOrphanCheckInUploadResult> {
-  const deleted = await prisma.$transaction(async (tx) => {
+  const claimed = await prisma.$transaction(async (tx) => {
     const locked = await lockOrphanMediaRow(tx, tenantId, mediaId);
-    if (!locked) {
+    if (!locked || !isEligibleOrphanUnderLock(locked, cutoff)) {
       return null;
     }
-    if (locked.check_in_id !== null) {
-      return null;
-    }
-    if (!isUnattachedCheckInMediaPurpose(locked.purpose)) {
-      return null;
-    }
-    if (locked.createdAt >= cutoff) {
-      return null;
-    }
-
-    await tx.workshopMedia.delete({
-      where: { tenant_id: tenantId, id: locked.id },
-    });
     return {
       storage_bucket: locked.storage_bucket,
       storage_key: locked.storage_key,
     };
   });
 
-  if (!deleted) {
+  if (!claimed) {
     const exists = await prisma.workshopMedia.findFirst({
       where: { tenant_id: tenantId, id: mediaId },
       select: { id: true },
@@ -116,12 +117,35 @@ export async function purgeOrphanCheckInUpload(
     return exists ? { outcome: 'skipped' } : { outcome: 'missing' };
   }
 
-  await mediaStorage.deleteObjectIfExists(
-    deleted.storage_bucket,
-    deleted.storage_key,
-  );
-  return { outcome: 'deleted' };
+  try {
+    await mediaStorage.deleteObjectOrIgnoreNotFound(
+      claimed.storage_bucket,
+      claimed.storage_key,
+    );
+  } catch {
+    return { outcome: 'storage_failed' };
+  }
+
+  const deleted = await prisma.$transaction(async (tx) => {
+    const locked = await lockOrphanMediaRow(tx, tenantId, mediaId);
+    if (!locked || !isEligibleOrphanUnderLock(locked, cutoff)) {
+      return false;
+    }
+    await tx.workshopMedia.delete({
+      where: { tenant_id: tenantId, id: locked.id },
+    });
+    return true;
+  });
+
+  return deleted ? { outcome: 'deleted' } : { outcome: 'skipped' };
 }
+
+export type PurgeOrphanCheckInUploadsForTenantResult = {
+  scanned: number;
+  deleted: number;
+  skipped: number;
+  storage_failed: number;
+};
 
 export async function purgeOrphanCheckInUploadsForTenant(
   prisma: PrismaService,
@@ -129,7 +153,7 @@ export async function purgeOrphanCheckInUploadsForTenant(
   tenantId: string,
   cutoff: Date,
   batchSize: number,
-): Promise<{ scanned: number; deleted: number; skipped: number }> {
+): Promise<PurgeOrphanCheckInUploadsForTenantResult> {
   const candidates = await listOrphanCheckInUploadCandidates(
     prisma,
     tenantId,
@@ -138,6 +162,7 @@ export async function purgeOrphanCheckInUploadsForTenant(
   );
   let deleted = 0;
   let skipped = 0;
+  let storage_failed = 0;
   for (const candidate of candidates) {
     const result = await purgeOrphanCheckInUpload(
       prisma,
@@ -148,9 +173,11 @@ export async function purgeOrphanCheckInUploadsForTenant(
     );
     if (result.outcome === 'deleted') {
       deleted += 1;
+    } else if (result.outcome === 'storage_failed') {
+      storage_failed += 1;
     } else {
       skipped += 1;
     }
   }
-  return { scanned: candidates.length, deleted, skipped };
+  return { scanned: candidates.length, deleted, skipped, storage_failed };
 }

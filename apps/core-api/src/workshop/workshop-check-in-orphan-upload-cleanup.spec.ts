@@ -39,33 +39,71 @@ describe('purgeOrphanCheckInUpload', () => {
     createdAt: new Date('2025-12-01T00:00:00.000Z'),
   };
 
-  function createPrismaMock(
-    locked: typeof lockedRow | null,
-    existsAfter: boolean,
-  ) {
-    const deleteMock = jest.fn().mockResolvedValue(lockedRow);
-    const findFirstMock = jest
-      .fn()
-      .mockResolvedValue(existsAfter ? { id: mediaId } : null);
-    const prisma = {
-      $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
-        fn({
-          $queryRaw: jest.fn().mockResolvedValue(locked ? [locked] : []),
-          workshopMedia: { delete: deleteMock },
-        }),
+  function createPrismaMock(options: {
+    lockRows: Array<typeof lockedRow | null>;
+    existsAfter?: boolean;
+  }) {
+    let lockCall = 0;
+    const deleteMock = jest.fn().mockResolvedValue(undefined);
+    const findFirstMock = jest.fn().mockImplementation(() =>
+      Promise.resolve(
+        options.existsAfter === false ? null : { id: mediaId },
       ),
+    );
+    const prisma = {
+      $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) => {
+        const row = options.lockRows[lockCall] ?? null;
+        lockCall += 1;
+        return fn({
+          $queryRaw: jest.fn().mockResolvedValue(row ? [row] : []),
+          workshopMedia: { delete: deleteMock },
+        });
+      }),
       workshopMedia: {
         findFirst: findFirstMock,
         findMany: jest.fn(),
       },
     } as unknown as PrismaService;
-    return { prisma, deleteMock, findFirstMock };
+    return { prisma, deleteMock };
   }
 
-  it('deletes the row before storage and is idempotent on missing rows', async () => {
-    const { prisma, deleteMock } = createPrismaMock(lockedRow, false);
+  it('deletes storage before the row when the object is removed', async () => {
+    const { prisma, deleteMock } = createPrismaMock({
+      lockRows: [lockedRow, lockedRow],
+      existsAfter: false,
+    });
+    const order: string[] = [];
     const mediaStorage = {
-      deleteObjectIfExists: jest.fn().mockResolvedValue(undefined),
+      deleteObjectOrIgnoreNotFound: jest.fn().mockImplementation(async () => {
+        order.push('storage');
+      }),
+    } as unknown as MechanicMediaStorage;
+    deleteMock.mockImplementation(async () => {
+      order.push('row');
+    });
+
+    const result = await purgeOrphanCheckInUpload(
+      prisma,
+      mediaStorage,
+      tenantId,
+      mediaId,
+      cutoff,
+    );
+    expect(result).toEqual({ outcome: 'deleted' });
+    expect(order).toEqual(['storage', 'row']);
+    expect(mediaStorage.deleteObjectOrIgnoreNotFound).toHaveBeenCalledWith(
+      'bucket-a',
+      'key-a',
+    );
+  });
+
+  it('deletes the row when storage reports not-found (already gone)', async () => {
+    const { prisma, deleteMock } = createPrismaMock({
+      lockRows: [lockedRow, lockedRow],
+      existsAfter: false,
+    });
+    const mediaStorage = {
+      deleteObjectOrIgnoreNotFound: jest.fn().mockResolvedValue(undefined),
     } as unknown as MechanicMediaStorage;
 
     const result = await purgeOrphanCheckInUpload(
@@ -76,20 +114,60 @@ describe('purgeOrphanCheckInUpload', () => {
       cutoff,
     );
     expect(result).toEqual({ outcome: 'deleted' });
-    expect(deleteMock).toHaveBeenCalledWith({
-      where: { tenant_id: tenantId, id: mediaId },
+    expect(deleteMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the row when storage delete throws', async () => {
+    const { prisma, deleteMock } = createPrismaMock({
+      lockRows: [lockedRow],
+      existsAfter: true,
     });
-    expect(mediaStorage.deleteObjectIfExists).toHaveBeenCalledWith(
-      'bucket-a',
-      'key-a',
+    const mediaStorage = {
+      deleteObjectOrIgnoreNotFound: jest
+        .fn()
+        .mockRejectedValue(new Error('GCS unavailable')),
+    } as unknown as MechanicMediaStorage;
+
+    const result = await purgeOrphanCheckInUpload(
+      prisma,
+      mediaStorage,
+      tenantId,
+      mediaId,
+      cutoff,
     );
+    expect(result).toEqual({ outcome: 'storage_failed' });
+    expect(deleteMock).not.toHaveBeenCalled();
+  });
+
+  it('is idempotent when the row was already deleted', async () => {
+    const { prisma, deleteMock } = createPrismaMock({
+      lockRows: [null],
+      existsAfter: false,
+    });
+    const mediaStorage = {
+      deleteObjectOrIgnoreNotFound: jest.fn(),
+    } as unknown as MechanicMediaStorage;
+
+    const result = await purgeOrphanCheckInUpload(
+      prisma,
+      mediaStorage,
+      tenantId,
+      mediaId,
+      cutoff,
+    );
+    expect(result).toEqual({ outcome: 'missing' });
+    expect(deleteMock).not.toHaveBeenCalled();
+    expect(mediaStorage.deleteObjectOrIgnoreNotFound).not.toHaveBeenCalled();
   });
 
   it('skips when the row was attached to a check-in under the lock', async () => {
     const attached = { ...lockedRow, check_in_id: 'check-in-1' };
-    const { prisma } = createPrismaMock(attached, true);
+    const { prisma } = createPrismaMock({
+      lockRows: [attached],
+      existsAfter: true,
+    });
     const mediaStorage = {
-      deleteObjectIfExists: jest.fn(),
+      deleteObjectOrIgnoreNotFound: jest.fn(),
     } as unknown as MechanicMediaStorage;
 
     const result = await purgeOrphanCheckInUpload(
@@ -100,7 +178,7 @@ describe('purgeOrphanCheckInUpload', () => {
       cutoff,
     );
     expect(result).toEqual({ outcome: 'skipped' });
-    expect(mediaStorage.deleteObjectIfExists).not.toHaveBeenCalled();
+    expect(mediaStorage.deleteObjectOrIgnoreNotFound).not.toHaveBeenCalled();
   });
 });
 

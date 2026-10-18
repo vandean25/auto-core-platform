@@ -246,6 +246,16 @@ export class MechanicMediaStorage {
     }
   }
 
+  /** Deletes one object; not-found is success. Real storage errors propagate. */
+  async deleteObjectOrIgnoreNotFound(
+    storageBucket: string,
+    storageKey: string,
+  ): Promise<void> {
+    await this.storage.bucket(storageBucket).file(storageKey).delete({
+      ignoreNotFound: true,
+    });
+  }
+
   /** Short-lived signed GET URL for advisor review of uploaded bay media. */
   async generateSignedReadUrl(
     storageBucket: string,

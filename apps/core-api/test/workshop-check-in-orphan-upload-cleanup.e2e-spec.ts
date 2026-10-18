@@ -54,6 +54,7 @@ describe('Workshop check-in orphan upload cleanup (e2e)', () => {
       .fn()
       .mockResolvedValue('https://example.test/photo.jpg'),
     deleteObjectIfExists: deleteObjectSpy,
+    deleteObjectOrIgnoreNotFound: deleteObjectSpy,
     readObjectBytes: jest.fn().mockResolvedValue(Buffer.from('png')),
   };
 
