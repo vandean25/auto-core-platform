@@ -1,8 +1,22 @@
 import { Injectable } from '@nestjs/common';
 import type { McpReadToolName } from './mcp.constants.js';
-import { McpComplianceReadFacade } from './mcp-compliance-read.facade.js';
+import { McpAuditReadService } from './mcp-audit-read.service.js';
+import { McpAvailabilityReadService } from './mcp-availability-read.service.js';
 import { McpCapabilitiesService } from './mcp-capabilities.service.js';
+import { McpCatalogReadService } from './mcp-catalog-read.service.js';
+import { McpComplianceReadFacade } from './mcp-compliance-read.facade.js';
+import { McpDocumentReadService } from './mcp-document-read.service.js';
+import { McpInvoiceReadService } from './mcp-invoice-read.service.js';
+import { McpListingReadService } from './mcp-listing-read.service.js';
+import { McpOrderHistoryReadService } from './mcp-order-history-read.service.js';
+import { McpPurchasingReadService } from './mcp-purchasing-read.service.js';
 import { McpReadToolService } from './mcp-read-tool.service.js';
+import { McpRecordReadService } from './mcp-record-read.service.js';
+import { McpReportReadService } from './mcp-report-read.service.js';
+import { McpSettingsReadService } from './mcp-settings-read.service.js';
+import { McpStockReadService } from './mcp-stock-read.service.js';
+import { McpVehicleContextReadService } from './mcp-vehicle-context-read.service.js';
+import { McpWorkshopOrderDetailReadService } from './mcp-workshop-order-detail.read.service.js';
 import type { McpToolCallContext } from './mcp-tool-handler.service.js';
 import { getCapabilitiesWithComplianceReads } from './mcp-capabilities-read.aut605.js';
 import type { getCapabilitiesInputSchema } from './mcp-tool-schemas.js';
@@ -18,20 +32,20 @@ export class McpReadToolServiceAut605 extends McpReadToolService {
 
   constructor(
     capabilities: McpCapabilitiesService,
-    auditReads: ConstructorParameters<typeof McpReadToolService>[1],
-    invoiceReads: ConstructorParameters<typeof McpReadToolService>[2],
-    recordReads: ConstructorParameters<typeof McpReadToolService>[3],
-    listingReads: ConstructorParameters<typeof McpReadToolService>[4],
-    stockReads: ConstructorParameters<typeof McpReadToolService>[5],
-    orderHistoryReads: ConstructorParameters<typeof McpReadToolService>[6],
-    vehicleContextReads: ConstructorParameters<typeof McpReadToolService>[7],
-    documentReads: ConstructorParameters<typeof McpReadToolService>[8],
-    settingsReads: ConstructorParameters<typeof McpReadToolService>[9],
-    purchasingReads: ConstructorParameters<typeof McpReadToolService>[10],
-    catalogReads: ConstructorParameters<typeof McpReadToolService>[11],
-    reportReads: ConstructorParameters<typeof McpReadToolService>[12],
-    availabilityReads: ConstructorParameters<typeof McpReadToolService>[13],
-    workshopOrderDetailReads: ConstructorParameters<typeof McpReadToolService>[14],
+    auditReads: McpAuditReadService,
+    invoiceReads: McpInvoiceReadService,
+    recordReads: McpRecordReadService,
+    listingReads: McpListingReadService,
+    stockReads: McpStockReadService,
+    orderHistoryReads: McpOrderHistoryReadService,
+    vehicleContextReads: McpVehicleContextReadService,
+    documentReads: McpDocumentReadService,
+    settingsReads: McpSettingsReadService,
+    purchasingReads: McpPurchasingReadService,
+    catalogReads: McpCatalogReadService,
+    reportReads: McpReportReadService,
+    availabilityReads: McpAvailabilityReadService,
+    workshopOrderDetailReads: McpWorkshopOrderDetailReadService,
     _complianceReads: McpComplianceReadFacade,
   ) {
     super(

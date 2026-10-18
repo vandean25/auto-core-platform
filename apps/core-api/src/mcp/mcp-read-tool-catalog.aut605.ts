@@ -1,8 +1,4 @@
-import {
-  MCP_READ_TOOL_NAMES,
-  MCP_TOOL_NAMES,
-  MCP_WRITE_TOOL_NAMES,
-} from './mcp.constants.js';
+import { MCP_READ_TOOL_NAMES, MCP_WRITE_TOOL_NAMES } from './mcp.constants.js';
 
 /** AUT-605 read tools (kept out of {@link MCP_READ_TOOL_NAMES} for repowise). */
 export const MCP_COMPLIANCE_READ_TOOL_NAMES = [

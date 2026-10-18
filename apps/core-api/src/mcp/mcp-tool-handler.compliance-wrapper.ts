@@ -25,7 +25,7 @@ export class McpToolHandlerComplianceWrapper {
     context: McpToolCallContext,
   ): Promise<unknown> {
     if (!isMcpComplianceReadToolName(toolName)) {
-      return this.core.executeTool(toolName as McpToolName, rawArgs, context);
+      return this.core.executeTool(toolName, rawArgs, context);
     }
 
     const schema = mcpComplianceReadInputSchemas[toolName];
@@ -41,11 +41,7 @@ export class McpToolHandlerComplianceWrapper {
       },
       async () => {
         const parsed = schema.parse(rawArgs ?? {});
-        return runMcpComplianceReadTool(
-          this.complianceReads,
-          toolName,
-          parsed,
-        );
+        return runMcpComplianceReadTool(this.complianceReads, toolName, parsed);
       },
     );
     return capMcpToolPayload(record.workResult);
