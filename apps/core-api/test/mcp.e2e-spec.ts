@@ -96,6 +96,11 @@ const TENANT_B_PROBE_ARGUMENTS: Partial<
   list_gewaehrleistung_due: {},
   list_tyre_sets: {},
   list_warranty_claims: {},
+  check_contact_permission: {
+    customer_id: '00000000-0000-4000-8000-0000000000ff',
+    purpose: 'ORDER_COMMUNICATION',
+    channel: 'EMAIL',
+  },
   list_audit_events: {},
   get_entity_history: {
     entity_type: 'Customer',
@@ -120,7 +125,6 @@ const DETAIL_TOOLS_HIDDEN_FROM_OTHER_TENANT = [
   'get_catalog_item',
   'get_nova_preview',
   'check_contact_permission',
-  'list_warranty_claims',
 ];
 
 describe('MCP server (e2e)', () => {
