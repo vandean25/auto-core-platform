@@ -4,7 +4,9 @@ import type { DisplayLanguage } from './display-language.js';
 
 export type EmailLocaleBundle = Record<string, unknown>;
 
-export function loadEmailLocaleJson(language: DisplayLanguage): EmailLocaleBundle {
+export function loadEmailLocaleJson(
+  language: DisplayLanguage,
+): EmailLocaleBundle {
   const path = resolve(process.cwd(), `../../locales/${language}/email.json`);
   return JSON.parse(readFileSync(path, 'utf8')) as EmailLocaleBundle;
 }

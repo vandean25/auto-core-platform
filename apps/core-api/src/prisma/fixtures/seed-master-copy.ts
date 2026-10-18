@@ -28,7 +28,9 @@ function localesRoot(): string {
   return resolve(moduleDir, '../../../../../locales');
 }
 
-export function loadSeedMasterCopy(language: DisplayLanguage): SeedMasterBundle {
+export function loadSeedMasterCopy(
+  language: DisplayLanguage,
+): SeedMasterBundle {
   const filePath = resolve(localesRoot(), language, 'seedMaster.json');
   return JSON.parse(readFileSync(filePath, 'utf8')) as SeedMasterBundle;
 }

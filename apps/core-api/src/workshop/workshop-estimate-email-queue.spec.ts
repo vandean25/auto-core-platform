@@ -36,6 +36,11 @@ const INPUT: EstimateEmailInput = {
 
 function makeTx() {
   return {
+    tenant: {
+      findFirst: jest
+        .fn()
+        .mockResolvedValue({ default_locale: 'de' as const }),
+    },
     workshopEstimateApprovalToken: {
       create: jest.fn().mockResolvedValue({}),
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),

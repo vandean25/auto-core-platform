@@ -58,9 +58,7 @@ export interface OrderReadyInput extends CustomerMessageContext {
   vehicleLabel: string;
 }
 
-function resolveDocumentLocale(
-  input: CustomerMessageContext,
-): DisplayLanguage {
+function resolveDocumentLocale(input: CustomerMessageContext): DisplayLanguage {
   return input.documentLocale ?? DEFAULT_DISPLAY_LANGUAGE;
 }
 

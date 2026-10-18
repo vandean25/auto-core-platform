@@ -8,7 +8,8 @@ type AnnahmeTemplateSeedClient = Pick<
 >;
 
 export const ANNAHME_CHECK_TEMPLATE_CODE = 'ANNAHME_CHECK';
-export const ANNAHME_CHECK_TEMPLATE_TITLE = loadSeedMasterCopy('de').annahme.title;
+export const ANNAHME_CHECK_TEMPLATE_TITLE =
+  loadSeedMasterCopy('de').annahme.title;
 export const ANNAHME_CHECK_TEMPLATE_VERSION = 1;
 
 const ANNAHME_ITEM_CODES = [
