@@ -27,7 +27,8 @@ export function proposeLinePolicyContext(
   }
   return {
     amount_eur:
-      (parsed.data.line_item.quantity * parsed.data.line_item.unit_price_cents) /
+      (parsed.data.line_item.quantity *
+        parsed.data.line_item.unit_price_cents) /
       100,
   };
 }
@@ -146,8 +147,7 @@ export async function addLineItemWithoutSync(
   assertOrderEditable(order);
 
   const taskId = (record.workshop_task_id ?? record.task_id) as
-    | string
-    | undefined;
+    string | undefined;
   let task = taskId
     ? order.tasks.find((candidate) => candidate.id === taskId)
     : order.tasks[0];

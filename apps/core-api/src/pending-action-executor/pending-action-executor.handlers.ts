@@ -354,8 +354,7 @@ export async function applyRegistrationIntake(
     vehicleId: record.vehicle_id,
     ownershipCorrection: record.ownership_correction
       ? {
-          expectedCustomerId:
-            record.ownership_correction.expected_customer_id,
+          expectedCustomerId: record.ownership_correction.expected_customer_id,
           nextCustomerId: record.ownership_correction.next_customer_id,
         }
       : undefined,
