@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { Inbox, RefreshCw } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -17,8 +19,6 @@ import type {
   DecisionShadowLog,
   DecisionShadowUseCase,
 } from '@/api/decision-shadow-logs'
-import type { Language } from '../agent-supervision-copy'
-import { getCopy, SUPERVISION_COPY } from '../agent-supervision-copy'
 import { toLocalEndOfDayIso, toLocalStartOfDayIso } from './ActivityTab'
 
 const USE_CASE_OPTIONS: DecisionShadowUseCase[] = [
@@ -26,21 +26,18 @@ const USE_CASE_OPTIONS: DecisionShadowUseCase[] = [
   'document_sort',
 ]
 
-interface DecisionShadowTabProps {
-  language?: Language
-}
-
 /** Read-only shadow log view. It has filters and paging only; nothing here applies a suggestion. */
-export function DecisionShadowTab({ language = 'en' }: DecisionShadowTabProps) {
+export function DecisionShadowTab() {
   const [useCaseFilter, setUseCaseFilter] = useState<
     'ALL' | DecisionShadowUseCase
   >('ALL')
   const [startDate, setStartDate] = useState<string>('')
   const [endDate, setEndDate] = useState<string>('')
 
-  const t = SUPERVISION_COPY.decisionShadow
-  const common = SUPERVISION_COPY.common
-  const activity = SUPERVISION_COPY.activity
+  const { t } = useTranslation('agent')
+
+  useEffect(() => { void ensureNamespaceLoaded('agent') }, [])
+
 
   const {
     data: logsData,
@@ -62,7 +59,7 @@ export function DecisionShadowTab({ language = 'en' }: DecisionShadowTabProps) {
   return (
     <div className="space-y-6" data-testid="decision-shadow-tab">
       <p className="text-sm text-slate-500">
-        {getCopy(t.description, language)}
+        {t('decisionShadow.description')}
       </p>
 
       {/* Filter toolbar: filters apply on change, so there is no Apply button */}
@@ -73,7 +70,7 @@ export function DecisionShadowTab({ language = 'en' }: DecisionShadowTabProps) {
               htmlFor="decision-shadow-use-case-select"
               className="text-xs text-slate-500 font-medium"
             >
-              {getCopy(t.filters.useCaseLabel, language)}:
+              {t('decisionShadow.filters.useCaseLabel')}:
             </label>
             <select
               id="decision-shadow-use-case-select"
@@ -85,11 +82,11 @@ export function DecisionShadowTab({ language = 'en' }: DecisionShadowTabProps) {
               data-testid="filter-decision-shadow-use-case-select"
             >
               <option value="ALL">
-                {getCopy(t.filters.allUseCases, language)}
+                {t('decisionShadow.filters.allUseCases')}
               </option>
               {USE_CASE_OPTIONS.map((useCase) => (
                 <option key={useCase} value={useCase}>
-                  {getCopy(t.useCases[useCase], language)}
+                  {t(`decisionShadow.useCases.${useCase}`)}
                 </option>
               ))}
             </select>
@@ -100,7 +97,7 @@ export function DecisionShadowTab({ language = 'en' }: DecisionShadowTabProps) {
               htmlFor="decision-shadow-start-date"
               className="text-xs text-slate-500 font-medium"
             >
-              {getCopy(activity.filters.startDateLabel, language)}:
+              {t('activity.filters.startDateLabel')}:
             </label>
             <Input
               id="decision-shadow-start-date"
@@ -117,7 +114,7 @@ export function DecisionShadowTab({ language = 'en' }: DecisionShadowTabProps) {
               htmlFor="decision-shadow-end-date"
               className="text-xs text-slate-500 font-medium"
             >
-              {getCopy(activity.filters.endDateLabel, language)}:
+              {t('activity.filters.endDateLabel')}:
             </label>
             <Input
               id="decision-shadow-end-date"
@@ -136,10 +133,10 @@ export function DecisionShadowTab({ language = 'en' }: DecisionShadowTabProps) {
           size="sm"
           onClick={() => refetch()}
           className="text-slate-500 hover:text-slate-900"
-          aria-label={getCopy(common.refresh, language)}
+          aria-label={t('common.refresh')}
         >
           <RefreshCw className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-          {getCopy(common.refresh, language)}
+          {t('common.refresh')}
         </Button>
       </div>
 
@@ -149,14 +146,14 @@ export function DecisionShadowTab({ language = 'en' }: DecisionShadowTabProps) {
             className="mx-auto mb-3 h-6 w-6 animate-spin text-slate-400"
             aria-hidden="true"
           />
-          {getCopy(common.loading, language)}
+          {t('common.loading')}
         </div>
       )}
 
       {isError && (
         <div className="rounded-lg border border-rose-200 bg-rose-50 p-6 text-center">
           <p className="text-sm font-medium text-rose-800">
-            {getCopy(common.error, language)}
+            {t('common.error')}
           </p>
           <Button
             type="button"
@@ -165,7 +162,7 @@ export function DecisionShadowTab({ language = 'en' }: DecisionShadowTabProps) {
             onClick={() => refetch()}
             className="mt-3 border-rose-300 text-rose-700 hover:bg-rose-100"
           >
-            {getCopy(common.retry, language)}
+            {t('common.retry')}
           </Button>
         </div>
       )}
@@ -180,10 +177,10 @@ export function DecisionShadowTab({ language = 'en' }: DecisionShadowTabProps) {
             aria-hidden="true"
           />
           <h3 className="text-base font-semibold text-slate-800">
-            {getCopy(t.emptyState, language)}
+            {t('decisionShadow.emptyState')}
           </h3>
           <p className="mt-1 text-sm text-slate-500">
-            {getCopy(t.emptyStateDesc, language)}
+            {t('decisionShadow.emptyStateDesc')}
           </p>
         </div>
       )}
@@ -194,17 +191,17 @@ export function DecisionShadowTab({ language = 'en' }: DecisionShadowTabProps) {
             <Table data-testid="decision-shadow-table">
               <TableHeader>
                 <TableRow>
-                  <TableHead>{getCopy(t.columns.time, language)}</TableHead>
-                  <TableHead>{getCopy(t.columns.useCase, language)}</TableHead>
-                  <TableHead>{getCopy(t.columns.suggestion, language)}</TableHead>
+                  <TableHead>{t('decisionShadow.columns.time')}</TableHead>
+                  <TableHead>{t('decisionShadow.columns.useCase')}</TableHead>
+                  <TableHead>{t('decisionShadow.columns.suggestion')}</TableHead>
                   <TableHead>
-                    {getCopy(t.columns.actualOutcome, language)}
+                    {t('decisionShadow.columns.actualOutcome')}
                   </TableHead>
-                  <TableHead>{getCopy(t.columns.match, language)}</TableHead>
-                  <TableHead>{getCopy(t.columns.latency, language)}</TableHead>
-                  <TableHead>{getCopy(t.columns.provider, language)}</TableHead>
-                  <TableHead>{getCopy(t.columns.error, language)}</TableHead>
-                  <TableHead>{getCopy(t.columns.traceId, language)}</TableHead>
+                  <TableHead>{t('decisionShadow.columns.match')}</TableHead>
+                  <TableHead>{t('decisionShadow.columns.latency')}</TableHead>
+                  <TableHead>{t('decisionShadow.columns.provider')}</TableHead>
+                  <TableHead>{t('decisionShadow.columns.error')}</TableHead>
+                  <TableHead>{t('decisionShadow.columns.traceId')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -212,7 +209,6 @@ export function DecisionShadowTab({ language = 'en' }: DecisionShadowTabProps) {
                   <DecisionShadowRow
                     key={row.id}
                     row={row}
-                    language={language}
                   />
                 ))}
               </TableBody>
@@ -228,8 +224,8 @@ export function DecisionShadowTab({ language = 'en' }: DecisionShadowTabProps) {
                 disabled={isFetchingNextPage}
               >
                 {isFetchingNextPage
-                  ? getCopy(activity.loadingMore, language)
-                  : getCopy(activity.loadMore, language)}
+                  ? t('activity.loadingMore')
+                  : t('activity.loadMore')}
               </Button>
             </div>
           )}
@@ -239,14 +235,8 @@ export function DecisionShadowTab({ language = 'en' }: DecisionShadowTabProps) {
   )
 }
 
-function DecisionShadowRow({
-  row,
-  language,
-}: {
-  row: DecisionShadowLog
-  language: Language
-}) {
-  const t = SUPERVISION_COPY.decisionShadow
+function DecisionShadowRow({ row }: { row: DecisionShadowLog }) {
+  const { t } = useTranslation('agent')
 
   return (
     <TableRow data-testid={`decision-shadow-row-${row.id}`}>
@@ -254,7 +244,7 @@ function DecisionShadowRow({
         {formatDateTime(row.createdAt)}
       </TableCell>
       <TableCell className="text-xs text-slate-700">
-        {getCopy(t.useCases[row.useCase], language)}
+        {t(`decisionShadow.useCases.${row.useCase}`)}
       </TableCell>
       <TableCell>
         {row.suggestion ? (
@@ -264,7 +254,7 @@ function DecisionShadowRow({
             </div>
             {row.suggestion.confidence !== null && (
               <div className="text-[11px] text-slate-500">
-                {getCopy(t.confidence, language)}:{' '}
+                {t('decisionShadow.confidence')}:{' '}
                 {row.suggestion.confidence.toFixed(2)}
               </div>
             )}
@@ -279,7 +269,7 @@ function DecisionShadowRow({
           </div>
         ) : (
           <span className="text-xs text-slate-500">
-            {getCopy(t.noSuggestion, language)}
+            {t('decisionShadow.noSuggestion')}
           </span>
         )}
       </TableCell>
@@ -307,14 +297,14 @@ function DecisionShadowRow({
             variant="outline"
             className="border-emerald-200 bg-emerald-50 text-emerald-800"
           >
-            {getCopy(t.matchYes, language)}
+            {t('decisionShadow.matchYes')}
           </Badge>
         ) : (
           <Badge
             variant="outline"
             className="border-amber-200 bg-amber-50 text-amber-800"
           >
-            {getCopy(t.matchNo, language)}
+            {t('decisionShadow.matchNo')}
           </Badge>
         )}
       </TableCell>

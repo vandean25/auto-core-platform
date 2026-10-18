@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import * as vehicleStockApi from '@/api/vehicle-stock'
+import { deVehicles } from '@/test/de-vehicles'
 import { AgedStockDashboardWidget } from './AgedStockDashboardWidget'
 
 vi.mock('@/api/vehicle-stock')
@@ -27,7 +28,9 @@ describe('AgedStockDashboardWidget', () => {
 
     expect(screen.getByText('3')).toBeInTheDocument()
     expect(screen.getByText(/45\.000,00/)).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('link', { name: /Aged stock/i }))
+    const card = screen.getByText(deVehicles.dashboardWidgets.agedStockTitle).closest('[role="link"]')
+    expect(card).toBeTruthy()
+    fireEvent.click(card!)
     expect(screen.getByTestId('location')).toHaveTextContent('/vehicle-stock/reports?bucket=over_90')
   })
 })

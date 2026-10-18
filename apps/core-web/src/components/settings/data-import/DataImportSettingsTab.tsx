@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -61,10 +62,10 @@ import {
 } from '@/components/ui/table'
 import { triggerBlobDownload } from '@/lib/download'
 import { getErrorMessage } from '@/lib/error-utils'
+import { formatNumber } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import {
-  bilingualLabel,
   formatFieldLabel,
   getImportFieldsForEntity,
   type ImportEntityTypeUi,
@@ -85,11 +86,11 @@ import {
 import { parseImportCsvFile, sha256HexFromFile } from './parse-import-csv-client'
 
 const WIZARD_STEPS = [
-  { id: 1, labelEn: 'Source', labelDe: 'Quelle' },
-  { id: 2, labelEn: 'Upload', labelDe: 'Upload' },
-  { id: 3, labelEn: 'Mapping', labelDe: 'Zuordnung' },
-  { id: 4, labelEn: 'Dry-run', labelDe: 'Probelauf' },
-  { id: 5, labelEn: 'Apply', labelDe: 'Import' },
+  { id: 1, labelKey: 'dataImport.steps.source' },
+  { id: 2, labelKey: 'dataImport.steps.upload' },
+  { id: 3, labelKey: 'dataImport.steps.mapping' },
+  { id: 4, labelKey: 'dataImport.steps.dryRun' },
+  { id: 5, labelKey: 'dataImport.steps.apply' },
 ] as const
 
 function initialEntityFromParam(param: string | null): ImportEntityTypeUi {
@@ -105,6 +106,7 @@ function initialEntityFromParam(param: string | null): ImportEntityTypeUi {
 }
 
 export function DataImportSettingsTab() {
+  const { t } = useTranslation(['settings', 'common'])
   const queryClient = useQueryClient()
   const [searchParams] = useSearchParams()
   const initialEntityParam = searchParams.get('entity')
@@ -267,7 +269,7 @@ export function DataImportSettingsTab() {
       setFileFingerprint(null)
       setMapping({})
       toast.error(
-        getErrorMessage(error, bilingualLabel('Could not read CSV file', 'CSV-Datei konnte nicht gelesen werden')),
+        getErrorMessage(error, t('dataImport.toast.csvReadFailed')),
       )
     }
   }
@@ -277,13 +279,13 @@ export function DataImportSettingsTab() {
     if (!profile) return
     setMapping(constrainMappingToCsvHeaders(profile.mapping, csvHeaders))
     resetDryRun()
-    toast.success(bilingualLabel('Mapping profile loaded', 'Zuordnungsprofil geladen'))
+    toast.success(t('dataImport.toast.profileLoaded'))
   }
 
   const handleSaveProfile = async () => {
     const name = profileName.trim()
     if (!name) {
-      toast.error('Enter a profile name / Profilnamen eingeben')
+      toast.error(t('dataImport.toast.profileNameRequired'))
       return
     }
     try {
@@ -293,27 +295,22 @@ export function DataImportSettingsTab() {
         name,
         mapping,
       })
-      toast.success('Mapping profile saved / Zuordnung gespeichert')
+      toast.success(t('dataImport.toast.profileSaved'))
       setProfileName('')
     } catch (error) {
       toast.error(
-        getErrorMessage(error, bilingualLabel('Failed to save profile', 'Profil konnte nicht gespeichert werden')),
+        getErrorMessage(error, t('dataImport.toast.profileSaveFailed')),
       )
     }
   }
 
   const handleRunDryRun = async () => {
     if (!file) {
-      toast.error(bilingualLabel('Select a CSV file first', 'Zuerst eine CSV-Datei auswählen'))
+      toast.error(t('dataImport.toast.selectCsv'))
       return
     }
     if (missingRequired.length > 0) {
-      toast.error(
-        bilingualLabel(
-          'Map all required fields before running dry-run',
-          'Pflichtfelder zuordnen, bevor der Probelauf startet',
-        ),
-      )
+      toast.error(t('dataImport.toast.mapRequired'))
       return
     }
 
@@ -340,7 +337,7 @@ export function DataImportSettingsTab() {
       setRowFilter('ALL')
       setRowsPage(1)
     } catch (error) {
-      toast.error(getErrorMessage(error, bilingualLabel('Dry-run failed', 'Probelauf fehlgeschlagen')))
+      toast.error(getErrorMessage(error, t('dataImport.toast.dryRunFailed')))
     }
   }
 
@@ -372,11 +369,9 @@ export function DataImportSettingsTab() {
         void queryClient.invalidateQueries({ queryKey: laborKeys.operations() })
         void queryClient.invalidateQueries({ queryKey: laborKeys.categories() })
       }
-      toast.success(
-        bilingualLabel('Import applied successfully', 'Import erfolgreich angewendet'),
-      )
+      toast.success(t('dataImport.toast.applied'))
     } catch (error) {
-      toast.error(getErrorMessage(error, bilingualLabel('Apply failed', 'Import fehlgeschlagen')))
+      toast.error(getErrorMessage(error, t('dataImport.toast.applyFailed')))
     } finally {
       applyInFlightRef.current = false
       setApplyInFlight(false)
@@ -389,10 +384,7 @@ export function DataImportSettingsTab() {
       triggerBlobDownload(blob, `${entityType.toLowerCase()}-import-template.csv`)
     } catch (error) {
       toast.error(
-        getErrorMessage(
-          error,
-          bilingualLabel('Template download failed', 'Vorlage konnte nicht heruntergeladen werden'),
-        ),
+        getErrorMessage(error, t('dataImport.toast.templateFailed')),
       )
     }
   }
@@ -404,10 +396,7 @@ export function DataImportSettingsTab() {
       triggerBlobDownload(blob, `import-${dryRunJob.id}-errors.csv`)
     } catch (error) {
       toast.error(
-        getErrorMessage(
-          error,
-          bilingualLabel('Error CSV download failed', 'Fehler-CSV konnte nicht heruntergeladen werden'),
-        ),
+        getErrorMessage(error, t('dataImport.toast.errorCsvFailed')),
       )
     }
   }
@@ -420,43 +409,41 @@ export function DataImportSettingsTab() {
     <div className="space-y-6 p-6 bg-white border rounded-lg shadow-sm">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h3 className="text-lg font-medium">Data import / Datenimport</h3>
+          <h3 className="text-lg font-medium">{t('dataImport.title')}</h3>
           <p className="text-sm text-muted-foreground max-w-2xl">
-            Legacy DMS CSV import for pilot customer onboarding. Dry-run validates rows before any
-            write. Marketing consent columns are ignored by the import engine.
+            {t('dataImport.description')}
           </p>
         </div>
       </div>
 
-      <nav aria-label="Import wizard steps" className="flex flex-wrap gap-2">
+      <nav aria-label={t('dataImport.stepsNavAria')} className="flex flex-wrap gap-2">
         {WIZARD_STEPS.map((wizardStep) => (
           <Badge
             key={wizardStep.id}
             variant={step === wizardStep.id ? 'default' : 'outline'}
             className={cn('text-xs', step > wizardStep.id && 'border-green-600 text-green-700')}
           >
-            {wizardStep.id}. {wizardStep.labelEn} / {wizardStep.labelDe}
+            {wizardStep.id}. {t(wizardStep.labelKey)}
           </Badge>
         ))}
       </nav>
 
       <Alert>
         <AlertTriangle className="h-4 w-4" />
-        <AlertTitle>Marketing consent / Marketing-Einwilligung</AlertTitle>
+        <AlertTitle>{t('dataImport.consent.title')}</AlertTitle>
         <AlertDescription>
-          Columns related to consent, marketing, newsletter, or Werbung are not imported and are
-          reported as warnings only.
+          {t('dataImport.consent.description')}
         </AlertDescription>
       </Alert>
 
       {step === 1 && (
         <section className="space-y-4" aria-labelledby="import-step-source">
           <h4 id="import-step-source" className="font-medium">
-            1. Entity &amp; source / Entität &amp; Quelle
+            {t('dataImport.source.title')}
           </h4>
           <div className="grid gap-4 md:grid-cols-2 max-w-2xl">
             <div className="space-y-2">
-              <Label htmlFor="import-entity">Entity / Entität</Label>
+              <Label htmlFor="import-entity">{t('dataImport.source.entityLabel')}</Label>
               <Select
                 value={entityType}
                 onValueChange={(value) => handleEntityChange(value as ImportEntityTypeUi)}
@@ -474,7 +461,7 @@ export function DataImportSettingsTab() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="import-source">Source system / Quellsystem</Label>
+              <Label htmlFor="import-source">{t('dataImport.source.sourceSystemLabel')}</Label>
               <Input
                 id="import-source"
                 value={sourceSystem}
@@ -486,7 +473,7 @@ export function DataImportSettingsTab() {
             </div>
             {entityType === 'SUPPLIER_PRICE_LIST' ? (
               <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="import-vendor">Lieferant / Vendor *</Label>
+                <Label htmlFor="import-vendor">{t('dataImport.source.vendorLabel')}</Label>
                 <Select
                   value={selectedVendorId || '__none__'}
                   onValueChange={(value) => {
@@ -496,11 +483,11 @@ export function DataImportSettingsTab() {
                     resetDryRun()
                   }}
                 >
-                  <SelectTrigger id="import-vendor" aria-label="Lieferant auswählen">
-                    <SelectValue placeholder="Lieferant auswählen…" />
+                  <SelectTrigger id="import-vendor" aria-label={t('dataImport.source.vendorAria')}>
+                    <SelectValue placeholder={t('dataImport.source.vendorPlaceholder')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__none__">Lieferant auswählen…</SelectItem>
+                    <SelectItem value="__none__">{t('dataImport.source.vendorPlaceholder')}</SelectItem>
                     {vendors.map((vendor) => (
                       <SelectItem key={vendor.id} value={vendor.id}>
                         {vendor.name}
@@ -514,19 +501,21 @@ export function DataImportSettingsTab() {
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="outline" onClick={() => void handleDownloadTemplate()}>
               <Download className="mr-2 h-4 w-4" />
-              Download CSV template / CSV-Vorlage
+              {t('dataImport.source.downloadTemplate')}
             </Button>
             <Button
               type="button"
               disabled={entityType === 'SUPPLIER_PRICE_LIST' && !selectedVendorId}
               onClick={() => setStep(2)}
             >
-              Continue / Weiter
+              {t('dataImport.source.continue')}
             </Button>
           </div>
           {template?.fields?.length ? (
             <p className="text-xs text-muted-foreground">
-              Template fields: {template.fields.map((field) => field.key).join(', ')}
+              {t('dataImport.source.templateFields', {
+                fields: template.fields.map((field) => field.key).join(', '),
+              })}
             </p>
           ) : null}
         </section>
@@ -535,10 +524,10 @@ export function DataImportSettingsTab() {
       {step === 2 && (
         <section className="space-y-4" aria-labelledby="import-step-upload">
           <h4 id="import-step-upload" className="font-medium">
-            2. Upload CSV / CSV hochladen
+            {t('dataImport.upload.title')}
           </h4>
           <div className="space-y-2 max-w-lg">
-            <Label htmlFor="import-file">CSV file / CSV-Datei</Label>
+            <Label htmlFor="import-file">{t('dataImport.upload.fileLabel')}</Label>
             <Input
               id="import-file"
               type="file"
@@ -551,16 +540,19 @@ export function DataImportSettingsTab() {
             {file ? (
               <p className="text-sm text-muted-foreground flex items-center gap-2">
                 <FileUp className="h-4 w-4" />
-                {file.name} ({csvHeaders.length} columns / Spalten)
+                {t('dataImport.upload.fileSummary', {
+                  name: file.name,
+                  columns: formatNumber(csvHeaders.length),
+                })}
               </p>
             ) : null}
           </div>
           <div className="flex gap-2">
             <Button type="button" variant="outline" onClick={() => setStep(1)}>
-              Back / Zurück
+              {t('dataImport.upload.back')}
             </Button>
             <Button type="button" disabled={!file} onClick={() => setStep(3)}>
-              Continue / Weiter
+              {t('dataImport.upload.continue')}
             </Button>
           </div>
         </section>
@@ -569,15 +561,15 @@ export function DataImportSettingsTab() {
       {step === 3 && (
         <section className="space-y-4" aria-labelledby="import-step-mapping">
           <h4 id="import-step-mapping" className="font-medium">
-            3. Column mapping / Spaltenzuordnung
+            {t('dataImport.mapping.title')}
           </h4>
 
           <div className="flex flex-col gap-3 md:flex-row md:items-end">
             <div className="space-y-2 flex-1 max-w-xs">
-              <Label htmlFor="import-profile-load">Saved profile / Gespeichertes Profil</Label>
+              <Label htmlFor="import-profile-load">{t('dataImport.mapping.savedProfile')}</Label>
               <Select onValueChange={handleLoadProfile}>
                 <SelectTrigger id="import-profile-load">
-                  <SelectValue placeholder="Load profile…" />
+                  <SelectValue placeholder={t('dataImport.mapping.loadProfilePlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {profiles.map((profile) => (
@@ -590,7 +582,7 @@ export function DataImportSettingsTab() {
             </div>
             <div className="flex flex-1 gap-2 items-end">
               <div className="space-y-2 flex-1 max-w-xs">
-                <Label htmlFor="import-profile-name">Save as / Speichern als</Label>
+                <Label htmlFor="import-profile-name">{t('dataImport.mapping.saveAs')}</Label>
                 <Input
                   id="import-profile-name"
                   value={profileName}
@@ -608,7 +600,7 @@ export function DataImportSettingsTab() {
                 ) : (
                   <Save className="mr-2 h-4 w-4" />
                 )}
-                {bilingualLabel('Save profile', 'Profil speichern')}
+                {t('dataImport.mapping.saveProfile')}
               </Button>
             </div>
           </div>
@@ -617,8 +609,8 @@ export function DataImportSettingsTab() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>ACP field / ACP-Feld</TableHead>
-                  <TableHead>CSV column / CSV-Spalte</TableHead>
+                  <TableHead>{t('dataImport.mapping.acpField')}</TableHead>
+                  <TableHead>{t('dataImport.mapping.csvColumn')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -629,7 +621,7 @@ export function DataImportSettingsTab() {
                         <span>{formatFieldLabel(entityType, field)}</span>
                         {field.required ? (
                           <Badge variant="destructive" className="text-[10px]">
-                            Required / Pflicht
+                            {t('dataImport.mapping.required')}
                           </Badge>
                         ) : null}
                       </div>
@@ -645,7 +637,7 @@ export function DataImportSettingsTab() {
                           resetDryRun()
                         }}
                       >
-                        <SelectTrigger aria-label={`Map ${field.key}`}>
+                        <SelectTrigger aria-label={t('dataImport.mapping.mapAria', { field: field.key })}>
                           <SelectValue placeholder="—" />
                         </SelectTrigger>
                         <SelectContent>
@@ -666,7 +658,7 @@ export function DataImportSettingsTab() {
 
           {missingRequired.length > 0 ? (
             <p className="text-sm text-destructive" role="alert">
-              Map required fields: {missingRequired.join(', ')}
+              {t('dataImport.mapping.missingRequired', { fields: missingRequired.join(', ') })}
             </p>
           ) : null}
 
@@ -681,7 +673,7 @@ export function DataImportSettingsTab() {
                 }}
               />
               <Label htmlFor="import-opt-update-existing" className="font-normal cursor-pointer">
-                Update existing / Bestehende aktualisieren
+                {t('dataImport.mapping.options.updateExisting')}
               </Label>
             </div>
             <div className="flex items-center gap-2 text-sm">
@@ -694,7 +686,7 @@ export function DataImportSettingsTab() {
                 }}
               />
               <Label htmlFor="import-opt-fill-empty" className="font-normal cursor-pointer">
-                Fill empty only / Nur leere Felder füllen
+                {t('dataImport.mapping.options.fillEmptyOnly')}
               </Label>
             </div>
             {entityType === 'VEHICLE' ? (
@@ -708,7 +700,7 @@ export function DataImportSettingsTab() {
                   }}
                 />
                 <Label htmlFor="import-opt-allow-missing-vin" className="font-normal cursor-pointer">
-                  Allow missing VIN / FIN optional
+                  {t('dataImport.mapping.options.allowMissingVin')}
                 </Label>
               </div>
             ) : null}
@@ -723,7 +715,7 @@ export function DataImportSettingsTab() {
                   }}
                 />
                 <Label htmlFor="import-opt-invalid-vat-error" className="font-normal cursor-pointer">
-                  Invalid VAT ID as error / Ungültige UID als Fehler
+                  {t('dataImport.mapping.options.invalidVatAsError')}
                 </Label>
               </div>
             ) : null}
@@ -741,7 +733,7 @@ export function DataImportSettingsTab() {
                   }}
                 />
                 <Label htmlFor="import-opt-create-catalog" className="font-normal cursor-pointer">
-                  Neue Artikel im Katalog anlegen / Create new catalog items
+                  {t('dataImport.mapping.options.createCatalogItems')}
                 </Label>
               </div>
             ) : null}
@@ -749,7 +741,7 @@ export function DataImportSettingsTab() {
 
           {previewRows.length > 0 ? (
             <div className="space-y-2">
-              <h5 className="text-sm font-medium">Preview (first 20 rows) / Vorschau</h5>
+              <h5 className="text-sm font-medium">{t('dataImport.mapping.previewTitle')}</h5>
               <div className="overflow-x-auto border rounded-md max-h-64">
                 <Table>
                   <TableHeader>
@@ -779,7 +771,7 @@ export function DataImportSettingsTab() {
 
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="outline" onClick={() => setStep(2)}>
-              Back / Zurück
+              {t('dataImport.mapping.back')}
             </Button>
             <Button
               type="button"
@@ -789,7 +781,7 @@ export function DataImportSettingsTab() {
               {dryRunMutation.isPending ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : null}
-              Run dry-run / Probelauf starten
+              {t('dataImport.mapping.runDryRun')}
             </Button>
           </div>
         </section>
@@ -798,31 +790,34 @@ export function DataImportSettingsTab() {
       {step >= 4 && dryRunJob ? (
         <section className="space-y-4" aria-labelledby="import-step-dryrun">
           <h4 id="import-step-dryrun" className="font-medium">
-            4. Dry-run report / Probelauf-Bericht
+            {t('dataImport.dryRun.title')}
           </h4>
 
           {dryRunStale ? (
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>Stale dry-run / Veralteter Probelauf</AlertTitle>
+              <AlertTitle>{t('dataImport.dryRun.stale.title')}</AlertTitle>
               <AlertDescription>
-                File, mapping, or options changed after the last dry-run. Run dry-run again before
-                applying.
+                {t('dataImport.dryRun.stale.description')}
               </AlertDescription>
             </Alert>
           ) : null}
 
           <div className="flex flex-wrap gap-2">
-            <Badge variant="outline">Rows / Zeilen: {dryRunJob.totals.rows}</Badge>
+            <Badge variant="outline">
+              {t('dataImport.dryRun.totals.rows', { value: formatNumber(dryRunJob.totals.rows) })}
+            </Badge>
             <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
-              Create / Neu: {dryRunJob.totals.create}
+              {t('dataImport.dryRun.totals.create', { value: formatNumber(dryRunJob.totals.create) })}
             </Badge>
             <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
-              Update / Update: {dryRunJob.totals.update}
+              {t('dataImport.dryRun.totals.update', { value: formatNumber(dryRunJob.totals.update) })}
             </Badge>
-            <Badge variant="secondary">Skip / Übersprungen: {dryRunJob.totals.skip}</Badge>
+            <Badge variant="secondary">
+              {t('dataImport.dryRun.totals.skip', { value: formatNumber(dryRunJob.totals.skip) })}
+            </Badge>
             <Badge variant={dryRunJob.totals.error > 0 ? 'destructive' : 'outline'}>
-              Error / Fehler: {dryRunJob.totals.error}
+              {t('dataImport.dryRun.totals.error', { value: formatNumber(dryRunJob.totals.error) })}
             </Badge>
           </div>
 
@@ -839,12 +834,12 @@ export function DataImportSettingsTab() {
                 }}
               />
               <Label htmlFor="step4-opt-create-catalog" className="font-normal cursor-pointer">
-                Neue Artikel im Katalog anlegen / Create new catalog items
+                {t('dataImport.mapping.options.createCatalogItems')}
               </Label>
               {options.create_new_catalog_items !==
               Boolean((dryRunJob.options as ImportWizardOptions)?.create_new_catalog_items) ? (
                 <span className="text-xs text-amber-600 ml-auto">
-                  (Probelauf erneut starten erforderlich)
+                  {t('dataImport.dryRun.rerunRequired')}
                 </span>
               ) : null}
             </div>
@@ -861,13 +856,15 @@ export function DataImportSettingsTab() {
                   }}
                 />
                 <Label htmlFor="step4-accept-price-jumps" className="font-medium cursor-pointer">
-                  Preissprünge akzeptieren
+                  {t('dataImport.dryRun.priceJumps.accept')}
                 </Label>
                 <span className="text-xs text-muted-foreground">
                   {acceptAllPriceJumps
-                    ? '(Alle Preissprünge akzeptiert)'
+                    ? t('dataImport.dryRun.priceJumps.acceptedAll')
                     : acceptedRowNumbers.length > 0
-                      ? `(${acceptedRowNumbers.length} Zeilen akzeptiert)`
+                      ? t('dataImport.dryRun.priceJumps.acceptedRows', {
+                          rows: formatNumber(acceptedRowNumbers.length),
+                        })
                       : ''}
                 </span>
               </div>
@@ -877,7 +874,9 @@ export function DataImportSettingsTab() {
                 size="sm"
                 onClick={() => setAcceptAllPriceJumps((prev) => !prev)}
               >
-                {acceptAllPriceJumps ? 'Auswahl aufheben' : 'Preissprünge akzeptieren'}
+                {acceptAllPriceJumps
+                  ? t('dataImport.dryRun.priceJumps.clearSelection')
+                  : t('dataImport.dryRun.priceJumps.accept')}
               </Button>
             </div>
           ) : null}
@@ -885,7 +884,7 @@ export function DataImportSettingsTab() {
           <div className="flex flex-wrap items-end gap-4">
             <div className="space-y-2 max-w-[200px]">
               <Label htmlFor="import-error-threshold">
-                {bilingualLabel('Max errors to allow apply', 'Max. Fehler für Import')}
+                {t('dataImport.dryRun.maxErrors')}
               </Label>
               <Input
                 id="import-error-threshold"
@@ -896,7 +895,7 @@ export function DataImportSettingsTab() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="import-row-filter">Row filter / Zeilenfilter</Label>
+              <Label htmlFor="import-row-filter">{t('dataImport.dryRun.rowFilter')}</Label>
               <Select
                 value={rowFilter}
                 onValueChange={(value) => {
@@ -908,26 +907,28 @@ export function DataImportSettingsTab() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ALL">All / Alle</SelectItem>
-                  <SelectItem value="ERROR">Errors / Fehler</SelectItem>
-                  <SelectItem value="CREATE">Create / Neu</SelectItem>
-                  <SelectItem value="UPDATE">Update</SelectItem>
-                  <SelectItem value="SKIP">Skip</SelectItem>
+                  <SelectItem value="ALL">{t('dataImport.dryRun.filter.all')}</SelectItem>
+                  <SelectItem value="ERROR">{t('dataImport.dryRun.filter.error')}</SelectItem>
+                  <SelectItem value="CREATE">{t('dataImport.dryRun.filter.create')}</SelectItem>
+                  <SelectItem value="UPDATE">{t('dataImport.dryRun.filter.update')}</SelectItem>
+                  <SelectItem value="SKIP">{t('dataImport.dryRun.filter.skip')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <Button type="button" variant="outline" onClick={() => void handleDownloadErrors()}>
               <Download className="mr-2 h-4 w-4" />
-              {bilingualLabel('Error rows CSV', 'Fehlerzeilen CSV')}
+              {t('dataImport.dryRun.errorRowsCsv')}
             </Button>
           </div>
 
           {rowsMeta ? (
             <p className="text-sm text-muted-foreground">
-              {bilingualLabel('Showing', 'Angezeigt')}{' '}
-              {jobRows.length} {bilingualLabel('of', 'von')} {rowsMeta.total}{' '}
-              {bilingualLabel('rows (page', 'Zeilen (Seite')} {rowsMeta.page}{' '}
-              {bilingualLabel('of', 'von')} {rowsTotalPages})
+              {t('dataImport.dryRun.showing', {
+                shown: formatNumber(jobRows.length),
+                total: formatNumber(rowsMeta.total),
+                page: formatNumber(rowsMeta.page),
+                pages: formatNumber(rowsTotalPages),
+              })}
             </p>
           ) : null}
 
@@ -935,16 +936,16 @@ export function DataImportSettingsTab() {
             {isLoadingRows ? (
               <div className="p-6 flex items-center justify-center text-muted-foreground">
                 <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                {bilingualLabel('Loading rows…', 'Zeilen werden geladen…')}
+                {t('dataImport.dryRun.loadingRows')}
               </div>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>#</TableHead>
-                    <TableHead>{bilingualLabel('Action', 'Aktion')}</TableHead>
-                    <TableHead>{bilingualLabel('External ID', 'Externe ID')}</TableHead>
-                    <TableHead>{bilingualLabel('Issues', 'Hinweise')}</TableHead>
+                    <TableHead>{t('dataImport.dryRun.columns.action')}</TableHead>
+                    <TableHead>{t('dataImport.dryRun.columns.externalId')}</TableHead>
+                    <TableHead>{t('dataImport.dryRun.columns.issues')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -960,13 +961,11 @@ export function DataImportSettingsTab() {
                     }>
 
                     const issues = [
-                      ...(row.errors ?? []).map(
-                        (issue) =>
-                          `${bilingualLabel('Error', 'Fehler')}: ${issue.message}`,
+                      ...(row.errors ?? []).map((issue) =>
+                        t('dataImport.dryRun.issueError', { message: issue.message }),
                       ),
-                      ...warnings.map(
-                        (issue) =>
-                          `${bilingualLabel('Warning', 'Warnung')}: ${issue.message}`,
+                      ...warnings.map((issue) =>
+                        t('dataImport.dryRun.issueWarning', { message: issue.message }),
                       ),
                     ]
                     return (
@@ -977,7 +976,9 @@ export function DataImportSettingsTab() {
                             <span>{row.action}</span>
                             {isPriceJump ? (
                               <Badge variant="destructive" className="text-[10px]">
-                                Preissprung &gt; {thresholdPercent}%
+                                {t('dataImport.dryRun.priceJumps.badge', {
+                                  percent: formatNumber(thresholdPercent),
+                                })}
                               </Badge>
                             ) : null}
                           </div>
@@ -1014,7 +1015,7 @@ export function DataImportSettingsTab() {
                                 htmlFor={`accept-row-${row.row_no}`}
                                 className="text-xs text-muted-foreground cursor-pointer"
                               >
-                                Preissprung akzeptieren
+                                {t('dataImport.dryRun.priceJumps.acceptRow')}
                               </label>
                             </div>
                           ) : null}
@@ -1036,7 +1037,7 @@ export function DataImportSettingsTab() {
                 disabled={rowsPage <= 1 || isLoadingRows}
                 onClick={() => setRowsPage((page) => Math.max(1, page - 1))}
               >
-                {bilingualLabel('Previous page', 'Vorherige Seite')}
+                {t('dataImport.dryRun.previousPage')}
               </Button>
               <Button
                 type="button"
@@ -1045,21 +1046,21 @@ export function DataImportSettingsTab() {
                 disabled={rowsPage >= rowsTotalPages || isLoadingRows}
                 onClick={() => setRowsPage((page) => Math.min(rowsTotalPages, page + 1))}
               >
-                {bilingualLabel('Next page', 'Nächste Seite')}
+                {t('dataImport.dryRun.nextPage')}
               </Button>
             </div>
           ) : null}
 
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="outline" onClick={() => setStep(3)}>
-              Edit mapping / Zuordnung bearbeiten
+              {t('dataImport.dryRun.editMapping')}
             </Button>
             <Button
               type="button"
               disabled={!applyEnabled}
               onClick={() => setConfirmApplyOpen(true)}
             >
-              Apply import / Import anwenden
+              {t('dataImport.dryRun.applyImport')}
             </Button>
           </div>
         </section>
@@ -1069,20 +1070,22 @@ export function DataImportSettingsTab() {
         <section className="space-y-3" aria-labelledby="import-step-result">
           <h4 id="import-step-result" className="font-medium flex items-center gap-2">
             <CheckCircle2 className="h-5 w-5 text-green-600" />
-            Import complete / Import abgeschlossen
+            {t('dataImport.result.title')}
           </h4>
           <p className="text-sm text-muted-foreground">
-            {bilingualLabel('Status', 'Status')}: {appliedJob.status}.{' '}
-            {bilingualLabel('Created', 'Neu')} {appliedJob.totals.create},{' '}
-            {bilingualLabel('updated', 'aktualisiert')} {appliedJob.totals.update},{' '}
-            {bilingualLabel('skipped', 'übersprungen')} {appliedJob.totals.skip},{' '}
-            {bilingualLabel('errors', 'Fehler')} {appliedJob.totals.error}.
+            {t('dataImport.result.summary', {
+              status: appliedJob.status,
+              created: formatNumber(appliedJob.totals.create),
+              updated: formatNumber(appliedJob.totals.update),
+              skipped: formatNumber(appliedJob.totals.skip),
+              errors: formatNumber(appliedJob.totals.error),
+            })}
           </p>
           <Link
             to={auditLogHref}
             className="text-sm text-primary underline underline-offset-4"
           >
-            View audit log for this import job / Audit-Log für diesen Import anzeigen
+            {t('dataImport.result.auditLink')}
           </Link>
         </section>
       ) : null}
@@ -1090,23 +1093,26 @@ export function DataImportSettingsTab() {
       <AlertDialog open={confirmApplyOpen} onOpenChange={setConfirmApplyOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Apply import? / Import anwenden?</AlertDialogTitle>
+            <AlertDialogTitle>{t('dataImport.confirm.title')}</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-2 text-sm">
                 <p>
-                  {bilingualLabel(
-                    'This writes data to your tenant. Counts from the last dry-run:',
-                    'Schreibt Daten in Ihren Mandanten. Zahlen aus dem letzten Probelauf:',
-                  )}
+                  {t('dataImport.confirm.description')}
                 </p>
                 <ul className="list-disc pl-5">
-                  <li>Create / Neu: {dryRunJob?.totals.create ?? 0}</li>
-                  <li>Update: {dryRunJob?.totals.update ?? 0}</li>
-                  <li>Skip: {dryRunJob?.totals.skip ?? 0}</li>
-                  <li>Errors (skipped) / Fehler: {dryRunJob?.totals.error ?? 0}</li>
+                  <li>{t('dataImport.confirm.create', { value: formatNumber(dryRunJob?.totals.create ?? 0) })}</li>
+                  <li>{t('dataImport.confirm.update', { value: formatNumber(dryRunJob?.totals.update ?? 0) })}</li>
+                  <li>{t('dataImport.confirm.skip', { value: formatNumber(dryRunJob?.totals.skip ?? 0) })}</li>
+                  <li>{t('dataImport.confirm.errors', { value: formatNumber(dryRunJob?.totals.error ?? 0) })}</li>
                   {entityType === 'SUPPLIER_PRICE_LIST' ? (
                     <li>
-                      Preissprünge akzeptiert: {acceptAllPriceJumps ? 'Alle' : `${acceptedRowNumbers.length} Zeilen`}
+                      {t('dataImport.confirm.priceJumps', {
+                        value: acceptAllPriceJumps
+                          ? t('dataImport.confirm.priceJumpsAll')
+                          : t('dataImport.confirm.priceJumpsRows', {
+                              rows: formatNumber(acceptedRowNumbers.length),
+                            }),
+                      })}
                     </li>
                   ) : null}
                 </ul>
@@ -1114,7 +1120,7 @@ export function DataImportSettingsTab() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel / Abbrechen</AlertDialogCancel>
+            <AlertDialogCancel>{t('common:actions.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               disabled={applyMutation.isPending || applyInFlight}
               onClick={(event) => {
@@ -1125,7 +1131,7 @@ export function DataImportSettingsTab() {
               {applyMutation.isPending ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : null}
-              Confirm apply / Bestätigen
+              {t('dataImport.confirm.confirm')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

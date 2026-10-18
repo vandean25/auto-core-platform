@@ -1,5 +1,6 @@
 import * as React from "react"
 import { Check, ChevronsUpDown, X, Loader2 } from "lucide-react"
+import { useTranslation } from "react-i18next"
 
 import { cn } from "@/lib/utils"
 import {
@@ -31,10 +32,11 @@ export function BrandMultiSelect({
   value, 
   onChange, 
   isUpdating,
-  ariaLabel = "Select brands",
+  ariaLabel,
   vehicleMakesOnly = false,
   disabled = false,
 }: BrandMultiSelectProps) {
+  const { t } = useTranslation('settings')
   const [open, setOpen] = React.useState(false)
   const { data: brands, isLoading } = useBrands(
     vehicleMakesOnly ? { isVehicleMake: true } : undefined,
@@ -79,7 +81,7 @@ export function BrandMultiSelect({
             role="combobox"
             aria-expanded={open}
             aria-controls="brand-options"
-            aria-label={ariaLabel}
+            aria-label={ariaLabel ?? t('brands.multiSelect.defaultAria')}
             tabIndex={0}
             className={cn(
               "flex min-h-10 w-full flex-wrap items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer",
@@ -92,7 +94,7 @@ export function BrandMultiSelect({
               {isLoading ? (
                 <div className="flex items-center gap-2 text-slate-500">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  <span>Loading brands...</span>
+                  <span>{t('brands.multiSelect.loading')}</span>
                 </div>
               ) : selectedBrands.length > 0 ? (
                 selectedBrands.map(brand => (
@@ -109,12 +111,12 @@ export function BrandMultiSelect({
                       onClick={(e) => handleRemove(e, brand.id)}
                     >
                       <X className="h-3 w-3" />
-                      <span className="sr-only">Remove {brand.name}</span>
+                      <span className="sr-only">{t('brands.multiSelect.removeAria', { name: brand.name })}</span>
                     </button>
                   </Badge>
                 ))
               ) : (
-                <span className="text-slate-500">Select supported brands...</span>
+                <span className="text-slate-500">{t('brands.multiSelect.placeholder')}</span>
               )}
             </div>
             <div className="flex items-center shrink-0 gap-2 ml-2">
@@ -125,9 +127,9 @@ export function BrandMultiSelect({
         </PopoverTrigger>
         <PopoverContent className="w-[300px] p-0" align="start">
           <Command>
-            <CommandInput placeholder="Search brands..." className="h-9" />
+            <CommandInput placeholder={t('brands.multiSelect.search')} className="h-9" />
             <CommandList id="brand-options">
-              <CommandEmpty>No brand found.</CommandEmpty>
+              <CommandEmpty>{t('brands.multiSelect.empty')}</CommandEmpty>
               <CommandGroup>
                 {brands
                   ?.filter((brand) => !value.includes(brand.id))

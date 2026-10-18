@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   useApplyInspectionImport,
   usePreviewInspectionImport,
@@ -28,28 +29,14 @@ type InspectionImportDialogProps = {
   onOpenChange: (open: boolean) => void
 }
 
-const INSPECTION_IMPORT_STATE_LABELS: Record<string, string> = {
-  READY_FOR_REVIEW: 'Bereit zur Übernahme',
-  UNCONFIRMED: 'Nicht bestätigt',
-  CONFLICT: 'Konflikt — manuelle Prüfung erforderlich',
-  APPLIED: 'Übernommen',
-  RECEIVED: 'Empfangen',
-  REJECTED: 'Abgelehnt',
-}
-
-function qualificationLabel(state: string): string {
-  if (state === 'NOT_VERIFIED') {
-    return 'Qualifikation nicht verifiziert'
-  }
-  return 'Qualifikation nicht verifiziert'
-}
-
 export function InspectionImportDialog({
   vehicleId,
   connectionId,
   open,
   onOpenChange,
 }: InspectionImportDialogProps) {
+  const { t } = useTranslation('vehicles')
+  const emDash = t('shared.emDash')
   const [reference, setReference] = useState('SYNTH-RESULT-001')
   const [preview, setPreview] = useState<InspectionImportPreview | null>(null)
   const previewMutation = usePreviewInspectionImport(vehicleId)
@@ -59,6 +46,12 @@ export function InspectionImportDialog({
     setPreview(null)
     previewMutation.reset()
     applyMutation.reset()
+  }
+
+  function stateLabel(state: string): string {
+    const key = `inspectionImport.states.${state}`
+    const translated = String(t(key as never))
+    return translated === key ? state : translated
   }
 
   return (
@@ -71,17 +64,14 @@ export function InspectionImportDialog({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Begutachtung importieren</DialogTitle>
-          <DialogDescription>
-            Externes EBV-Ergebnis prüfen und einmalig übernehmen. Qualifikation
-            des Prüfers ist nicht verifiziert.
-          </DialogDescription>
+          <DialogTitle>{t('inspectionImport.title')}</DialogTitle>
+          <DialogDescription>{t('inspectionImport.description')}</DialogDescription>
         </DialogHeader>
 
         {!preview ? (
           <div className='space-y-3'>
             <div className='space-y-1'>
-              <Label htmlFor='native-ref'>Ergebnisreferenz</Label>
+              <Label htmlFor='native-ref'>{t('inspectionImport.reference')}</Label>
               <Input
                 id='native-ref'
                 value={reference}
@@ -97,14 +87,8 @@ export function InspectionImportDialog({
         ) : (
           <div className='space-y-2 text-sm'>
             <div className='flex items-center gap-2'>
-              <span className='text-muted-foreground'>Status:</span>
-              <StatusBadge
-                status={preview.state}
-                label={
-                  INSPECTION_IMPORT_STATE_LABELS[preview.state] ??
-                  preview.state
-                }
-              />
+              <span className='text-muted-foreground'>{t('inspectionImport.status')}</span>
+              <StatusBadge status={preview.state} label={stateLabel(preview.state)} />
             </div>
             {preview.reviewed_fields.display_unconfirmed ? (
               <p className='text-amber-700'>
@@ -112,19 +96,19 @@ export function InspectionImportDialog({
               </p>
             ) : null}
             <p>
-              Begutachtet:{' '}
+              {t('inspectionImport.inspected')}{' '}
               <span className='font-medium'>
                 {preview.reviewed_fields.inspected_on}
               </span>
             </p>
             <p>
-              Plakette bis:{' '}
+              {t('inspectionImport.stickerUntil')}{' '}
               <span className='font-medium'>
-                {preview.reviewed_fields.plate_valid_until ?? '—'}
+                {preview.reviewed_fields.plate_valid_until ?? emDash}
               </span>
             </p>
             <p className='text-muted-foreground text-xs'>
-              {qualificationLabel(preview.reviewed_fields.qualification_state)}
+              {t('inspectionImport.qualificationUnverified')}
             </p>
             {applyMutation.isError ? (
               <p className='text-sm text-destructive'>
@@ -146,7 +130,7 @@ export function InspectionImportDialog({
                 setPreview(result)
               }}
             >
-              Vorschau
+              {t('inspectionImport.preview')}
             </Button>
           ) : (
             <Button
@@ -167,7 +151,7 @@ export function InspectionImportDialog({
                 reset()
               }}
             >
-              Übernehmen
+              {t('inspectionImport.apply')}
             </Button>
           )}
         </DialogFooter>

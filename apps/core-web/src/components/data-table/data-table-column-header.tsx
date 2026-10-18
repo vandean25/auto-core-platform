@@ -1,5 +1,6 @@
 import { useLayoutEffect } from "react"
 import { ArrowDown, ArrowUp, ChevronsUpDown, EllipsisVertical, EyeOff } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import type { LegacyColumn as Column } from '@tanstack/react-table/legacy'
 
 import { cn } from "@/lib/utils"
@@ -41,6 +42,7 @@ export function DataTableColumnHeader<TData extends object, TValue>({
   title,
   className,
 }: DataTableColumnHeaderProps<TData, TValue>) {
+  const { t } = useTranslation('common')
   useLayoutEffect(() => {
     columnTitles.set(column, title)
   }, [column, title])
@@ -70,7 +72,7 @@ export function DataTableColumnHeader<TData extends object, TValue>({
               variant="ghost"
               size="icon"
               className="h-8 w-8 data-[state=open]:bg-accent"
-              aria-label={`${title} column options`}
+              aria-label={t('dataTable.columnOptions', { title })}
             >
               <EllipsisVertical className="h-4 w-4" />
             </Button>
@@ -78,7 +80,7 @@ export function DataTableColumnHeader<TData extends object, TValue>({
           <DropdownMenuContent align="start">
             <DropdownMenuItem onClick={() => column.toggleVisibility(false)}>
               <EyeOff className="mr-2 h-3.5 w-3.5 text-muted-foreground/70" />
-              Hide
+              {t('dataTable.hide')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

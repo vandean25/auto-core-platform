@@ -8,7 +8,13 @@ import * as importsApi from '@/api/imports'
 import * as marginRulesApi from '@/api/margin-rules'
 import * as vendorsApi from '@/api/vendors'
 
+import deEnums from '../../../../../../locales/de/enums.json'
+import deSettings from '../../../../../../locales/de/settings.json'
+
 import { DataImportSettingsTab } from './DataImportSettingsTab'
+
+const di = deSettings.dataImport
+const importEntityTypeDe = deEnums.importEntityType
 
 vi.mock('@/api/vendors', () => ({
   useVendors: vi.fn(),
@@ -117,28 +123,28 @@ describe('DataImportSettingsTab row filter', () => {
   it('requests error rows from the API when the Errors filter is selected', async () => {
     renderTab()
 
-    fireEvent.click(screen.getByRole('button', { name: /Continue \/ Weiter/i }))
+    fireEvent.click(screen.getByRole('button', { name: di.source.continue }))
 
-    const fileInput = screen.getByLabelText(/CSV file/i)
+    const fileInput = screen.getByLabelText(di.upload.fileLabel)
     const csvFile = new File(['Kunden-Nr\n1\n'], 'customers.csv', { type: 'text/csv' })
     fireEvent.change(fileInput, { target: { files: [csvFile] } })
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Continue \/ Weiter/i })).toBeEnabled()
+      expect(screen.getByRole('button', { name: di.source.continue })).toBeEnabled()
     })
-    fireEvent.click(screen.getByRole('button', { name: /Continue \/ Weiter/i }))
+    fireEvent.click(screen.getByRole('button', { name: di.source.continue }))
 
-    fireEvent.click(screen.getByRole('button', { name: /Run dry-run/i }))
+    fireEvent.click(screen.getByRole('button', { name: di.mapping.runDryRun }))
 
     await waitFor(() => {
-      expect(screen.getByLabelText(/Row filter/i)).toBeInTheDocument()
+      expect(screen.getByLabelText(di.dryRun.rowFilter)).toBeInTheDocument()
     })
 
     const useImportJobRowsMock = importsApi.useImportJobRows as ReturnType<typeof vi.fn>
     const callsBeforeFilter = useImportJobRowsMock.mock.calls.length
 
-    fireEvent.click(screen.getByLabelText(/Row filter/i))
-    const errorOption = await screen.findByRole('option', { name: /Errors \/ Fehler/i })
+    fireEvent.click(screen.getByLabelText(di.dryRun.rowFilter))
+    const errorOption = await screen.findByRole('option', { name: di.dryRun.filter.error })
     fireEvent.click(errorOption)
 
     await waitFor(() => {
@@ -243,17 +249,17 @@ describe('DataImportSettingsTab SUPPLIER_PRICE_LIST flow', () => {
 
   it('preselects LABOR_OPERATION from URL search params', () => {
     renderTab(['/?tab=data-import&entity=LABOR_OPERATION'])
-    expect(screen.getByRole('combobox', { name: /Entity/i })).toHaveTextContent(
-      /Labor operations|Arbeitswerte/i,
+    expect(screen.getByRole('combobox', { name: di.source.entityLabel })).toHaveTextContent(
+      importEntityTypeDe.LABOR_OPERATION,
     )
   })
 
   it('preselects SUPPLIER_PRICE_LIST and vendor from URL search params', () => {
     renderTab(['/?tab=data-import&entity=SUPPLIER_PRICE_LIST&vendorId=vendor-1'])
 
-    expect(screen.getByText(/Lieferantenpreisliste|Supplier price list/i)).toBeInTheDocument()
+    expect(screen.getByText(importEntityTypeDe.SUPPLIER_PRICE_LIST)).toBeInTheDocument()
     expect(screen.getByText('Stahlgruber GmbH')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Continue \/ Weiter/i })).toBeEnabled()
+    expect(screen.getByRole('button', { name: di.source.continue })).toBeEnabled()
   })
 
   it('renders flagged price jump badge and accepts price jumps on apply', async () => {
@@ -265,20 +271,20 @@ describe('DataImportSettingsTab SUPPLIER_PRICE_LIST flow', () => {
     renderTab(['/?tab=data-import&entity=SUPPLIER_PRICE_LIST&vendorId=vendor-1'])
 
     // Go to upload step
-    fireEvent.click(screen.getByRole('button', { name: /Continue \/ Weiter/i }))
+    fireEvent.click(screen.getByRole('button', { name: di.source.continue }))
 
     // Upload file
-    const fileInput = screen.getByLabelText(/CSV file/i)
+    const fileInput = screen.getByLabelText(di.upload.fileLabel)
     const csvFile = new File(['ArtNr\n1\n'], 'prices.csv', { type: 'text/csv' })
     fireEvent.change(fileInput, { target: { files: [csvFile] } })
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Continue \/ Weiter/i })).toBeEnabled()
+      expect(screen.getByRole('button', { name: di.source.continue })).toBeEnabled()
     })
-    fireEvent.click(screen.getByRole('button', { name: /Continue \/ Weiter/i }))
+    fireEvent.click(screen.getByRole('button', { name: di.source.continue }))
 
     // Run dry-run
-    fireEvent.click(screen.getByRole('button', { name: /Run dry-run/i }))
+    fireEvent.click(screen.getByRole('button', { name: di.mapping.runDryRun }))
 
     await waitFor(() => {
       expect(dryRunMutationMock.mutateAsync).toHaveBeenCalledWith(
@@ -292,21 +298,21 @@ describe('DataImportSettingsTab SUPPLIER_PRICE_LIST flow', () => {
 
     // In dry-run report
     await waitFor(() => {
-      expect(screen.getByText(/Preissprung > 20%/i)).toBeInTheDocument()
+      expect(screen.getByText(di.dryRun.priceJumps.badge.replace('{{percent}}', '20'))).toBeInTheDocument()
     })
 
     // Check create catalog toggle is present in step 4
-    expect(screen.getByLabelText(/Neue Artikel im Katalog anlegen/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(di.mapping.options.createCatalogItems)).toBeInTheDocument()
 
     // Accept price jumps
-    const acceptAllCheckbox = screen.getByLabelText(/Preissprünge akzeptieren/i)
+    const acceptAllCheckbox = screen.getByLabelText(di.dryRun.priceJumps.accept)
     fireEvent.click(acceptAllCheckbox)
 
     // Apply import
-    fireEvent.click(screen.getByRole('button', { name: /Apply import \/ Import anwenden/i }))
+    fireEvent.click(screen.getByRole('button', { name: di.dryRun.applyImport }))
 
     // Confirm apply in dialog
-    const confirmBtn = await screen.findByRole('button', { name: /Confirm apply/i })
+    const confirmBtn = await screen.findByRole('button', { name: di.confirm.confirm })
     fireEvent.click(confirmBtn)
 
     await waitFor(() => {
@@ -340,22 +346,22 @@ describe('DataImportSettingsTab SUPPLIER_PRICE_LIST flow', () => {
 
     renderTab(['/?tab=data-import&entity=SUPPLIER_PRICE_LIST&vendorId=vendor-1'])
 
-    fireEvent.click(screen.getByRole('button', { name: /Continue \/ Weiter/i }))
-    const fileInput = screen.getByLabelText(/CSV file/i)
+    fireEvent.click(screen.getByRole('button', { name: di.source.continue }))
+    const fileInput = screen.getByLabelText(di.upload.fileLabel)
     const csvFile = new File(['ArtNr\n1\n'], 'prices.csv', { type: 'text/csv' })
     fireEvent.change(fileInput, { target: { files: [csvFile] } })
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Continue \/ Weiter/i })).toBeEnabled()
+      expect(screen.getByRole('button', { name: di.source.continue })).toBeEnabled()
     })
-    fireEvent.click(screen.getByRole('button', { name: /Continue \/ Weiter/i }))
-    fireEvent.click(screen.getByRole('button', { name: /Run dry-run/i }))
+    fireEvent.click(screen.getByRole('button', { name: di.source.continue }))
+    fireEvent.click(screen.getByRole('button', { name: di.mapping.runDryRun }))
 
     await waitFor(() => {
-      expect(screen.getByText(/4\. Dry-run report/i)).toBeInTheDocument()
+      expect(screen.getByText(di.dryRun.title)).toBeInTheDocument()
     })
 
-    expect(screen.queryByLabelText(/Preissprünge akzeptieren/i)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(di.dryRun.priceJumps.accept)).not.toBeInTheDocument()
   })
 
   it('renders price jump acceptance banner when totals.flagged_jumps > 0 even if page rows have no jumps', async () => {
@@ -382,22 +388,22 @@ describe('DataImportSettingsTab SUPPLIER_PRICE_LIST flow', () => {
 
     renderTab(['/?tab=data-import&entity=SUPPLIER_PRICE_LIST&vendorId=vendor-1'])
 
-    fireEvent.click(screen.getByRole('button', { name: /Continue \/ Weiter/i }))
-    const fileInput = screen.getByLabelText(/CSV file/i)
+    fireEvent.click(screen.getByRole('button', { name: di.source.continue }))
+    const fileInput = screen.getByLabelText(di.upload.fileLabel)
     const csvFile = new File(['ArtNr\n1\n'], 'prices.csv', { type: 'text/csv' })
     fireEvent.change(fileInput, { target: { files: [csvFile] } })
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Continue \/ Weiter/i })).toBeEnabled()
+      expect(screen.getByRole('button', { name: di.source.continue })).toBeEnabled()
     })
-    fireEvent.click(screen.getByRole('button', { name: /Continue \/ Weiter/i }))
-    fireEvent.click(screen.getByRole('button', { name: /Run dry-run/i }))
+    fireEvent.click(screen.getByRole('button', { name: di.source.continue }))
+    fireEvent.click(screen.getByRole('button', { name: di.mapping.runDryRun }))
 
     await waitFor(() => {
-      expect(screen.getByText(/4\. Dry-run report/i)).toBeInTheDocument()
+      expect(screen.getByText(di.dryRun.title)).toBeInTheDocument()
     })
 
-    expect(screen.getByLabelText(/Preissprünge akzeptieren/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(di.dryRun.priceJumps.accept)).toBeInTheDocument()
   })
 })
 

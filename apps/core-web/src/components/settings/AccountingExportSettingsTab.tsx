@@ -1,6 +1,6 @@
 import * as React from 'react'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
-import { format } from 'date-fns'
+import type { TFunction } from 'i18next'
 import {
   AlertTriangle,
   Download,
@@ -10,6 +10,7 @@ import {
   Play,
   Search,
 } from 'lucide-react'
+import { Trans, useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
@@ -68,18 +69,13 @@ import type { DocumentSaveStatus } from '@/hooks/useDebouncedAutoSave'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { triggerBlobDownload } from '@/lib/download'
 import { getErrorMessage, getErrorStatus } from '@/lib/error-utils'
+import { formatCurrency, formatDateTime, formatIsoDateOnly, formatNumber, formatPercent } from '@/lib/format'
 
 const DATEV_PROFILE_CODE = 'ACP-DATEV-DE-EUR-1'
 
 function truncateHash(value: string, visible = 10): string {
   if (value.length <= visible * 2 + 3) return value
   return `${value.slice(0, visible)}…${value.slice(-visible)}`
-}
-
-function formatExportTimestamp(value: string): string {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return '—'
-  return format(date, 'yyyy-MM-dd HH:mm')
 }
 
 type AccountingExportBlockerDto =
@@ -100,16 +96,16 @@ function getBlockerSettingsTab(blocker: AccountingExportBlockerDto): string | nu
   }
 }
 
-function getBlockerSettingsLabel(tab: string): string {
+function getBlockerSettingsLabel(tab: string, t: TFunction<'settings'>): string {
   switch (tab) {
     case 'finance':
-      return 'Open Finance settings'
+      return t('accountingExport.settingsLinks.finance')
     case 'legal-entities':
-      return 'Open Legal Entities settings'
+      return t('accountingExport.settingsLinks.legalEntities')
     case 'sites':
-      return 'Open Sites settings'
+      return t('accountingExport.settingsLinks.sites')
     default:
-      return 'Open settings'
+      return t('accountingExport.settingsLinks.default')
   }
 }
 
@@ -129,6 +125,7 @@ type AccountingExportSettingsTabProps = {
 export function AccountingExportSettingsTab({
   canManageExports,
 }: AccountingExportSettingsTabProps) {
+  const { t } = useTranslation(['settings', 'common'])
   const [, setSearchParams] = useSearchParams()
   const { data: legalEntities = [], isLoading: isLoadingEntities } = useLegalEntities()
   const { data: tenantMembersResponse } = useTenantMembers({
@@ -190,26 +187,25 @@ export function AccountingExportSettingsTab({
           expectedSha256 ?? undefined,
         )
         triggerBlobDownload(blob, filenameHint ?? filename)
-        toast.success('Export downloaded', {
-          description:
-            'Download is logged for audit. Auto Core Platform does not track DATEV import status.',
+        toast.success(t('accountingExport.toast.downloaded'), {
+          description: t('accountingExport.toast.downloadedDescription'),
         })
       } catch (error: unknown) {
         if (getErrorStatus(error) === 422) {
-          toast.error('Download checksum mismatch', {
+          toast.error(t('accountingExport.toast.checksumMismatch'), {
             description: getErrorMessage(
               error,
-              'The file bytes do not match the recorded SHA-256. Do not import this file.',
+              t('accountingExport.toast.checksumMismatchDescription'),
             ),
           })
           return
         }
-        toast.error(getErrorMessage(error, 'Download failed'))
+        toast.error(getErrorMessage(error, t('accountingExport.toast.downloadFailed')))
       } finally {
         setIsDownloading(false)
       }
     },
-    [],
+    [t],
   )
 
   const historyQuery = useAccountingExports({
@@ -265,7 +261,7 @@ export function AccountingExportSettingsTab({
 
   const handlePreview = async () => {
     if (!periodReady) {
-      toast.error('Select a legal entity and closed period dates first.')
+      toast.error(t('accountingExport.toast.selectPeriod'))
       return
     }
 
@@ -279,37 +275,32 @@ export function AccountingExportSettingsTab({
       setPreview(result)
       setAcknowledgeOverlap(false)
       if (result.overlaps.length > 0) {
-        toast.message('Overlapping export runs detected', {
-          description:
-            'Importing overlapping DATEV files can duplicate bookings. Acknowledge before generating a new run.',
+        toast.message(t('accountingExport.toast.overlapDetected'), {
+          description: t('accountingExport.toast.overlapDetectedDescription'),
         })
       }
     } catch (error: unknown) {
       setPreview(null)
       if (getErrorStatus(error) === 403) {
         setPreviewForbidden(true)
-        toast.error(
-          'You do not have access to export this legal entity for the selected period.',
-        )
+        toast.error(t('accountingExport.toast.previewForbidden'))
         return
       }
-      toast.error(getErrorMessage(error, 'Preview failed'))
+      toast.error(getErrorMessage(error, t('accountingExport.toast.previewFailed')))
     }
   }
 
   const runGenerate = async (withOverlapAck: boolean) => {
     if (!preview || !periodReady) {
-      toast.error('Run preview before generating an export.')
+      toast.error(t('accountingExport.toast.previewFirst'))
       return
     }
     if (profileSaveBlocking) {
-      toast.error('Wait until accounting profile changes finish saving.')
+      toast.error(t('accountingExport.toast.profileSaving'))
       return
     }
     if (!preview.canGenerate) {
-      toast.error(
-        'Export is blocked. Resolve all blockers or enable the DATEV profile before generating.',
-      )
+      toast.error(t('accountingExport.toast.blocked'))
       return
     }
     if (preview.overlaps.length > 0 && !withOverlapAck && !acknowledgeOverlap) {
@@ -329,11 +320,14 @@ export function AccountingExportSettingsTab({
       })
       setLastGeneratedId(created.id)
       setLastGeneratedSha256(created.sha256)
-      toast.success('DATEV export generated', {
-        description: `${created.documentCount} documents · SHA-256 ${truncateHash(created.sha256)}`,
+      toast.success(t('accountingExport.toast.generated'), {
+        description: t('accountingExport.toast.generatedDescription', {
+          documents: created.documentCount,
+          hash: truncateHash(created.sha256),
+        }),
       })
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, 'Generate failed'))
+      toast.error(getErrorMessage(error, t('accountingExport.toast.generateFailed')))
     } finally {
       setOverlapDialogOpen(false)
     }
@@ -346,7 +340,7 @@ export function AccountingExportSettingsTab({
       {
         accessorKey: 'legalEntityId',
         enableSorting: false,
-        header: 'Legal entity',
+        header: t('accountingExport.history.columns.legalEntity'),
         cell: ({ row }) =>
           entityNameById.get(row.original.legalEntityId) ??
           truncateHash(row.original.legalEntityId, 6),
@@ -354,30 +348,31 @@ export function AccountingExportSettingsTab({
       {
         id: 'period',
         enableSorting: false,
-        header: 'Period',
-        cell: ({ row }) => `${row.original.dateFrom} → ${row.original.dateTo}`,
+        header: t('accountingExport.history.columns.period'),
+        cell: ({ row }) =>
+          `${formatIsoDateOnly(row.original.dateFrom)} → ${formatIsoDateOnly(row.original.dateTo)}`,
       },
       {
         accessorKey: 'documentCount',
         enableSorting: false,
-        header: 'Documents',
+        header: t('accountingExport.history.columns.documents'),
       },
       {
         accessorKey: 'createdAt',
         enableSorting: false,
-        header: 'Created',
-        cell: ({ row }) => formatExportTimestamp(row.original.createdAt),
+        header: t('accountingExport.history.columns.created'),
+        cell: ({ row }) => formatDateTime(row.original.createdAt),
       },
       {
         accessorKey: 'createdByUserId',
         enableSorting: false,
-        header: 'Generated by',
+        header: t('accountingExport.history.columns.generatedBy'),
         cell: ({ row }) => resolveGeneratedByLabel(row.original.createdByUserId),
       },
       {
         accessorKey: 'sha256',
         enableSorting: false,
-        header: 'Checksum',
+        header: t('accountingExport.history.columns.checksum'),
         cell: ({ row }) => (
           <span className="font-mono text-xs" title={row.original.sha256}>
             {truncateHash(row.original.sha256)}
@@ -398,12 +393,12 @@ export function AccountingExportSettingsTab({
             }}
           >
             <Download className="mr-1 h-3.5 w-3.5" />
-            Download
+            {t('accountingExport.actions.download')}
           </Button>
         ),
       },
     ],
-    [entityNameById, handleDownload, resolveGeneratedByLabel],
+    [entityNameById, handleDownload, resolveGeneratedByLabel, t],
   )
 
   if (!canManageExports) {
@@ -412,10 +407,9 @@ export function AccountingExportSettingsTab({
         <div className="flex items-start gap-3 text-slate-700">
           <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-500" />
           <div>
-            <h3 className="text-lg font-medium">Accounting export</h3>
+            <h3 className="text-lg font-medium">{t('accountingExport.noAccess.title')}</h3>
             <p className="mt-1 text-sm text-slate-600">
-              Only tenant OWNER and ADMIN users with complete site access can preview or
-              download DATEV accounting exports.
+              {t('accountingExport.noAccess.description')}
             </p>
           </div>
         </div>
@@ -435,7 +429,7 @@ export function AccountingExportSettingsTab({
     return (
       <div className="rounded-lg border bg-white p-6 shadow-sm">
         <p className="text-sm text-slate-600">
-          Create a legal entity before configuring DATEV accounting export.
+          {t('accountingExport.noEntities.message')}
         </p>
         <Button
           type="button"
@@ -443,7 +437,7 @@ export function AccountingExportSettingsTab({
           className="mt-2 h-auto px-0"
           onClick={() => openSettingsTab('legal-entities')}
         >
-          Open Legal Entities settings
+          {t('accountingExport.settingsLinks.legalEntities')}
         </Button>
       </div>
     )
@@ -453,21 +447,36 @@ export function AccountingExportSettingsTab({
     <div className="space-y-6">
       <div className="flex flex-col gap-4 rounded-lg border bg-white p-6 shadow-sm lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-1">
-          <h3 className="text-lg font-medium">Accounting export</h3>
+          <h3 className="text-lg font-medium">{t('accountingExport.header.title')}</h3>
           <p className="max-w-2xl text-sm text-slate-600">
-            Preview and download immutable DATEV Buchungsstapel CSV runs for a closed period.
-            Generation requires profile <span className="font-mono text-xs">{DATEV_PROFILE_CODE}</span>{' '}
-            to be enabled after accountant approval.
+            <Trans
+              t={t}
+              i18nKey="accountingExport.header.description"
+              values={{ profileCode: DATEV_PROFILE_CODE }}
+              components={{ code: <span className="font-mono text-xs" /> }}
+            />
           </p>
           {selectedEntity ? (
             <p className="text-sm text-slate-500">
-              Selected: <span className="font-medium text-slate-700">{selectedEntity.name}</span>
               {periodReady ? (
-                <>
-                  {' '}
-                  · {dateFrom} to {dateTo}
-                </>
-              ) : null}
+                <Trans
+                  t={t}
+                  i18nKey="accountingExport.header.selectedPeriod"
+                  values={{
+                    name: selectedEntity.name,
+                    from: formatIsoDateOnly(dateFrom),
+                    to: formatIsoDateOnly(dateTo),
+                  }}
+                  components={{ name: <span className="font-medium text-slate-700" /> }}
+                />
+              ) : (
+                <Trans
+                  t={t}
+                  i18nKey="accountingExport.header.selected"
+                  values={{ name: selectedEntity.name }}
+                  components={{ name: <span className="font-medium text-slate-700" /> }}
+                />
+              )}
             </p>
           ) : null}
         </div>
@@ -483,7 +492,7 @@ export function AccountingExportSettingsTab({
             ) : (
               <Search className="mr-2 h-4 w-4" />
             )}
-            Preview
+            {t('accountingExport.actions.preview')}
           </Button>
           <Button
             type="button"
@@ -500,7 +509,7 @@ export function AccountingExportSettingsTab({
             ) : (
               <Play className="mr-2 h-4 w-4" />
             )}
-            Generate
+            {t('accountingExport.actions.generate')}
           </Button>
           <Button
             type="button"
@@ -516,17 +525,17 @@ export function AccountingExportSettingsTab({
             ) : (
               <Download className="mr-2 h-4 w-4" />
             )}
-            Download latest
+            {t('accountingExport.actions.downloadLatest')}
           </Button>
         </div>
       </div>
 
       <div className="grid gap-4 rounded-lg border bg-white p-6 shadow-sm md:grid-cols-3">
         <div className="grid gap-2 md:col-span-1">
-          <Label htmlFor="export-legal-entity">Legal entity</Label>
+          <Label htmlFor="export-legal-entity">{t('accountingExport.filters.legalEntity')}</Label>
           <Select value={legalEntityId} onValueChange={setLegalEntityId}>
             <SelectTrigger id="export-legal-entity">
-              <SelectValue placeholder="Select entity" />
+              <SelectValue placeholder={t('accountingExport.filters.selectEntity')} />
             </SelectTrigger>
             <SelectContent>
               {legalEntities.map((entity) => (
@@ -538,7 +547,7 @@ export function AccountingExportSettingsTab({
           </Select>
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="export-date-from">Date from</Label>
+          <Label htmlFor="export-date-from">{t('accountingExport.filters.dateFrom')}</Label>
           <Input
             id="export-date-from"
             type="date"
@@ -547,7 +556,7 @@ export function AccountingExportSettingsTab({
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="export-date-to">Date to</Label>
+          <Label htmlFor="export-date-to">{t('accountingExport.filters.dateTo')}</Label>
           <Input
             id="export-date-to"
             type="date"
@@ -566,8 +575,7 @@ export function AccountingExportSettingsTab({
 
       {previewForbidden ? (
         <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          Export scope is incomplete for your account. No document totals are shown. Review
-          site memberships and legal entity access with an administrator.
+          {t('accountingExport.forbidden')}
         </div>
       ) : null}
 
@@ -576,10 +584,13 @@ export function AccountingExportSettingsTab({
           <div className="flex flex-wrap items-center gap-3">
             <FileSpreadsheet className="h-5 w-5 text-slate-500" />
             <div>
-              <h4 className="font-medium">Preview results</h4>
+              <h4 className="font-medium">{t('accountingExport.preview.title')}</h4>
               <p className="text-sm text-slate-500">
-                Profile v{preview.profileVersion} · {preview.documentCount} documents ·{' '}
-                {preview.rowCount} booking rows
+                {t('accountingExport.preview.summary', {
+                  version: preview.profileVersion,
+                  documents: formatNumber(preview.documentCount),
+                  rows: formatNumber(preview.rowCount),
+                })}
               </p>
             </div>
             <StatusBadge status={preview.canGenerate ? 'ACTIVE' : 'INACTIVE'} />
@@ -587,7 +598,7 @@ export function AccountingExportSettingsTab({
 
           {preview.blockers.length > 0 ? (
             <div className="space-y-2">
-              <p className="text-sm font-medium text-slate-700">Blocking issues</p>
+              <p className="text-sm font-medium text-slate-700">{t('accountingExport.preview.blockers')}</p>
               <ul className="space-y-2">
                 {preview.blockers.map((blocker, index) => {
                   const settingsTab = getBlockerSettingsTab(blocker)
@@ -607,7 +618,7 @@ export function AccountingExportSettingsTab({
                           className="mt-1 h-auto px-0 text-red-900"
                           onClick={() => openSettingsTab(settingsTab)}
                         >
-                          {getBlockerSettingsLabel(settingsTab)}
+                          {getBlockerSettingsLabel(settingsTab, t)}
                         </Button>
                       ) : null}
                     </li>
@@ -615,15 +626,14 @@ export function AccountingExportSettingsTab({
                 })}
               </ul>
               <p className="text-xs text-slate-500">
-                Exports never omit blocked documents or export valid rows only.
+                {t('accountingExport.preview.blockersNote')}
               </p>
             </div>
           ) : null}
 
           {preview.documentCount === 0 && preview.blockers.length === 0 ? (
             <p className="text-sm text-slate-600">
-              This closed period contains no exportable documents. Generation is not available
-              for empty periods.
+              {t('accountingExport.preview.emptyPeriod')}
             </p>
           ) : null}
 
@@ -632,21 +642,21 @@ export function AccountingExportSettingsTab({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Account</TableHead>
-                    <TableHead>Tax rate</TableHead>
-                    <TableHead>Net</TableHead>
-                    <TableHead>Tax</TableHead>
-                    <TableHead>Gross</TableHead>
+                    <TableHead>{t('accountingExport.preview.columns.account')}</TableHead>
+                    <TableHead>{t('accountingExport.preview.columns.taxRate')}</TableHead>
+                    <TableHead>{t('accountingExport.preview.columns.net')}</TableHead>
+                    <TableHead>{t('accountingExport.preview.columns.tax')}</TableHead>
+                    <TableHead>{t('accountingExport.preview.columns.gross')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {preview.totals.map((bucket) => (
                     <TableRow key={`${bucket.account}-${bucket.taxRate}`}>
                       <TableCell className="font-mono text-sm">{bucket.account}</TableCell>
-                      <TableCell>{bucket.taxRate}%</TableCell>
-                      <TableCell>{bucket.net}</TableCell>
-                      <TableCell>{bucket.tax}</TableCell>
-                      <TableCell>{bucket.gross}</TableCell>
+                      <TableCell>{formatPercent(Number(bucket.taxRate))}</TableCell>
+                      <TableCell>{formatCurrency(bucket.net)}</TableCell>
+                      <TableCell>{formatCurrency(bucket.tax)}</TableCell>
+                      <TableCell>{formatCurrency(bucket.gross)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -656,19 +666,23 @@ export function AccountingExportSettingsTab({
 
           {preview.overlaps.length > 0 ? (
             <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
-              <p className="font-medium">Overlapping export runs</p>
+              <p className="font-medium">{t('accountingExport.overlap.title')}</p>
               <ul className="mt-2 list-disc space-y-1 pl-5">
                 {preview.overlaps.map((overlap) => (
                   <li key={overlap.id}>
-                    {overlap.dateFrom} → {overlap.dateTo} · {overlap.documentCount} docs ·{' '}
-                    {formatExportTimestamp(overlap.createdAt)} ·{' '}
+                    {t('accountingExport.overlap.item', {
+                      from: formatIsoDateOnly(overlap.dateFrom),
+                      to: formatIsoDateOnly(overlap.dateTo),
+                      documents: formatNumber(overlap.documentCount),
+                      createdAt: formatDateTime(overlap.createdAt),
+                    })}{' '}
+                    ·{' '}
                     <span className="font-mono text-xs">{truncateHash(overlap.fileSha256)}</span>
                   </li>
                 ))}
               </ul>
               <p className="mt-2">
-                Importing overlapping files into DATEV can duplicate bookings. Auto Core Platform
-                does not know whether DATEV already imported a prior file.
+                {t('accountingExport.overlap.warning')}
               </p>
               <div className="mt-3 flex items-start gap-2">
                 <Checkbox
@@ -677,7 +691,7 @@ export function AccountingExportSettingsTab({
                   onCheckedChange={(checked) => setAcknowledgeOverlap(checked === true)}
                 />
                 <Label htmlFor="export-overlap-ack" className="font-normal leading-snug">
-                  I understand duplicate import risk and still want to generate a new run.
+                  {t('accountingExport.overlap.acknowledge')}
                 </Label>
               </div>
             </div>
@@ -688,10 +702,9 @@ export function AccountingExportSettingsTab({
       <div className="rounded-lg border bg-white p-6 shadow-sm">
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h4 className="font-medium">Export run history</h4>
+            <h4 className="font-medium">{t('accountingExport.history.title')}</h4>
             <p className="text-sm text-slate-500">
-              Immutable completed runs. Downloads are audit-logged with run ID and checksum; they
-              do not confirm DATEV import.
+              {t('accountingExport.history.description')}
             </p>
           </div>
         </div>
@@ -700,10 +713,10 @@ export function AccountingExportSettingsTab({
           data={historyRows}
           isLoading={historyQuery.isLoading}
           pageCount={historyQuery.data?.meta.pageCount ?? 1}
-          searchPlaceholder="Search runs by ID, entity, or checksum..."
+          searchPlaceholder={t('accountingExport.history.searchPlaceholder')}
           setPagination={setPagination}
           onRowClick={(row) => setSelectedRunId(row.id)}
-          emptyStateMessage="No authorized export runs yet."
+          emptyStateMessage={t('accountingExport.history.empty')}
           {...tableState}
         />
       </div>
@@ -711,9 +724,9 @@ export function AccountingExportSettingsTab({
       <Sheet open={Boolean(selectedRunId)} onOpenChange={(open) => !open && setSelectedRunId(null)}>
         <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
           <SheetHeader>
-            <SheetTitle>Export run details</SheetTitle>
+            <SheetTitle>{t('accountingExport.detail.title')}</SheetTitle>
             <SheetDescription>
-              Exact metadata stored with the immutable CSV artifact.
+              {t('accountingExport.detail.description')}
             </SheetDescription>
           </SheetHeader>
           {detailQuery.isLoading ? (
@@ -724,28 +737,29 @@ export function AccountingExportSettingsTab({
             <div className="mt-6 space-y-4 text-sm">
               <div className="grid gap-2">
                 <p>
-                  <span className="text-slate-500">Run ID:</span>{' '}
+                  <span className="text-slate-500">{t('accountingExport.detail.runId')}</span>{' '}
                   <span className="font-mono text-xs">{detailQuery.data.id}</span>
                 </p>
                 <p>
-                  <span className="text-slate-500">Period:</span> {detailQuery.data.dateFrom} →{' '}
-                  {detailQuery.data.dateTo}
+                  <span className="text-slate-500">{t('accountingExport.detail.period')}</span>{' '}
+                  {formatIsoDateOnly(detailQuery.data.dateFrom)} →{' '}
+                  {formatIsoDateOnly(detailQuery.data.dateTo)}
                 </p>
                 <p>
-                  <span className="text-slate-500">Documents / rows:</span>{' '}
-                  {detailQuery.data.documentCount} / {detailQuery.data.rowCount}
+                  <span className="text-slate-500">{t('accountingExport.detail.documentsRows')}</span>{' '}
+                  {formatNumber(detailQuery.data.documentCount)} / {formatNumber(detailQuery.data.rowCount)}
                 </p>
                 <p>
-                  <span className="text-slate-500">Generated by:</span>{' '}
+                  <span className="text-slate-500">{t('accountingExport.detail.generatedBy')}</span>{' '}
                   {resolveGeneratedByLabel(detailQuery.data.createdByUserId)}
                 </p>
                 <p>
-                  <span className="text-slate-500">SHA-256:</span>{' '}
+                  <span className="text-slate-500">{t('accountingExport.detail.sha256')}</span>{' '}
                   <span className="break-all font-mono text-xs">{detailQuery.data.sha256}</span>
                 </p>
                 <p>
-                  <span className="text-slate-500">Created:</span>{' '}
-                  {formatExportTimestamp(detailQuery.data.createdAt)}
+                  <span className="text-slate-500">{t('accountingExport.detail.created')}</span>{' '}
+                  {formatDateTime(detailQuery.data.createdAt)}
                 </p>
               </div>
               <Button
@@ -761,17 +775,16 @@ export function AccountingExportSettingsTab({
                 }
               >
                 <Download className="mr-2 h-4 w-4" />
-                Download CSV
+                {t('accountingExport.actions.downloadCsv')}
               </Button>
               <p className="text-xs text-slate-500">
-                Download events record who retrieved these bytes and the checksum. They do not
-                indicate successful DATEV import.
+                {t('accountingExport.detail.downloadNote')}
               </p>
             </div>
           ) : (
             <div className="mt-6 flex items-center gap-2 text-sm text-slate-500">
               <Eye className="h-4 w-4" />
-              Select a run from the history table.
+              {t('accountingExport.detail.selectRun')}
             </div>
           )}
         </SheetContent>
@@ -780,17 +793,15 @@ export function AccountingExportSettingsTab({
       <AlertDialog open={overlapDialogOpen} onOpenChange={setOverlapDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirm overlapping export</AlertDialogTitle>
+            <AlertDialogTitle>{t('accountingExport.overlap.dialogTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              This period overlaps prior export runs. Importing both files into DATEV can duplicate
-              bookings. Auto Core Platform cannot detect whether DATEV already imported an earlier
-              file.
+              {t('accountingExport.overlap.dialogDescription')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('common:actions.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={() => void runGenerate(true)}>
-              Generate anyway
+              {t('accountingExport.actions.generateAnyway')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

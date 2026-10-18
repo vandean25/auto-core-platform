@@ -4,8 +4,8 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import { SaveCurrentViewButton } from './SaveCurrentViewButton'
 
-const TRIGGER_NAME = 'Save as sidebar view for Customers'
-const TOOLTIP = 'Saves these filters as a shortcut in the sidebar'
+const TRIGGER_NAME = 'Als Seitenleisten-Ansicht für Customers speichern'
+const TOOLTIP = 'Speichert diese Filter als Shortcut in den Favoriten'
 
 function renderSaveButton() {
   return render(
@@ -62,14 +62,14 @@ describe('SaveCurrentViewButton', () => {
 
     fireEvent.click(screen.getByRole('button', { name: TRIGGER_NAME }))
     const dialog = await screen.findByRole('dialog')
-    expect(within(dialog).getByRole('heading', { name: 'Save as sidebar view' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('heading', { name: 'Als Seitenleisten-Ansicht speichern' })).toBeInTheDocument()
 
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Speichern' }))
 
     await waitFor(() => {
       const stored = JSON.parse(window.localStorage.getItem('acp:saved-views:test-user') ?? '[]')
       expect(stored).toEqual([
-        expect.objectContaining({ name: 'Customers View', href: '/customers?search=klaus' }),
+        expect.objectContaining({ name: 'Customers Ansicht', href: '/customers?search=klaus' }),
       ])
     })
   })

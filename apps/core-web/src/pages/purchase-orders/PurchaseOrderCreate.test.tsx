@@ -6,6 +6,7 @@ import PurchaseOrderCreate from './PurchaseOrderCreate'
 import * as vendorApi from '@/api/vendors'
 import * as brandApi from '@/api/brands'
 import * as purchaseOrderApi from '@/api/purchase-orders'
+import deCommon from '../../../../../locales/de/common.json'
 
 vi.mock('@/api/vendors')
 vi.mock('@/api/brands')
@@ -71,6 +72,8 @@ describe('PurchaseOrderCreate autosave', () => {
       { timeout: 2000 },
     )
 
-    expect(await screen.findByText(/Saving|All changes saved/)).toBeInTheDocument()
+    expect(
+      await screen.findByText(new RegExp(`${deCommon.documentSave.saving}|${deCommon.documentSave.saved}`)),
+    ).toBeInTheDocument()
   })
 })

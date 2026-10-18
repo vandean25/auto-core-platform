@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
+import { DE_INVENTORY } from './helpers/de-inventory';
 import { createMockInventoryItem, createMockListResponse } from './utils/mock-factories';
 
 const RUN_SEEDED_SMOKE_TESTS = process.env.E2E_LIVE_BACKEND === 'true';
@@ -23,10 +24,10 @@ test.describe('Inventory — Smoke Tests (seed-based)', () => {
   const SEED_SKU = '06J-115-403-Q';
 
   test('should display inventory list and open item details sheet', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Item');
+    const corePage = new AutoCorePage(page, 'Artikel');
     await corePage.navigate('/inventory');
 
-    await expect(page.getByRole('heading', { name: 'Inventory' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: DE_INVENTORY.partsList.title })).toBeVisible();
     await expect(page.getByRole('cell', { name: SEED_SKU }).first()).toBeVisible();
 
     // Use the POM row-click helper — validates the Golden Rule data attribute too
@@ -34,10 +35,10 @@ test.describe('Inventory — Smoke Tests (seed-based)', () => {
   });
 
   test('should allow searching for parts by SKU', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Item');
+    const corePage = new AutoCorePage(page, 'Artikel');
     await corePage.navigate('/inventory');
 
-    const searchInput = page.getByPlaceholder('Search parts...');
+    const searchInput = page.getByPlaceholder(DE_INVENTORY.partsList.searchPlaceholder);
     await searchInput.fill(SEED_SKU);
 
     await expect(page.getByRole('cell', { name: SEED_SKU }).first()).toBeVisible();
@@ -61,6 +62,9 @@ test.describe('Inventory — Blueprint Validation (mocked)', () => {
         body: JSON.stringify(createMockListResponse([])),
       });
     });
+    await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/locations'), async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+    });
 
     // Mock /api/brands with deliberately malformed data — the resilience target
     await page.route(AutoCorePage.apiRouteMatcher('/api/brands'), async (route) => {
@@ -75,7 +79,9 @@ test.describe('Inventory — Blueprint Validation (mocked)', () => {
     await page.waitForLoadState('networkidle');
 
     // The page MUST NOT crash or go blank
-    await expect(page.getByPlaceholder('Search parts...')).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByPlaceholder(DE_INVENTORY.partsList.searchPlaceholder)).toBeVisible({
+      timeout: 20_000,
+    });
   });
 
   test('should render mocked inventory items using data-table-row attributes', async ({
@@ -90,8 +96,11 @@ test.describe('Inventory — Blueprint Validation (mocked)', () => {
         body: JSON.stringify(createMockListResponse([item])),
       });
     });
+    await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/locations'), async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+    });
 
-    const corePage = new AutoCorePage(page, 'Item');
+    const corePage = new AutoCorePage(page, 'Artikel');
     await corePage.navigate('/inventory');
 
     // Golden Rule 2: rows carry the data-table-row attribute

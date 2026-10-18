@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -24,6 +25,7 @@ export function HorizontalScrollArea({
   ariaLabel,
   layout = 'default',
 }: HorizontalScrollAreaProps) {
+  const { t } = useTranslation('common')
   const scrollRef = React.useRef<HTMLDivElement>(null)
   const [canScrollLeft, setCanScrollLeft] = React.useState(false)
   const [canScrollRight, setCanScrollRight] = React.useState(false)
@@ -75,7 +77,7 @@ export function HorizontalScrollArea({
         >
           <p className="flex min-w-0 items-center gap-1 text-xs text-slate-600">
             <ChevronRight className="h-4 w-4 shrink-0" aria-hidden />
-            Scroll or use the arrows to see more columns
+            {t('scroll.workshopHint')}
           </p>
           <div className="flex shrink-0 items-center gap-1">
             {canScrollLeft && (
@@ -84,7 +86,7 @@ export function HorizontalScrollArea({
                 variant="outline"
                 size="icon"
                 className="h-11 w-11 min-h-11 min-w-11 rounded-full shadow-sm"
-                aria-label="Scroll left"
+                aria-label={t('scroll.left')}
                 data-testid="workshop-board-scroll-left"
                 onClick={() => scrollBy(-scrollStep)}
               >
@@ -97,7 +99,7 @@ export function HorizontalScrollArea({
                 variant="outline"
                 size="icon"
                 className="h-11 w-11 min-h-11 min-w-11 rounded-full shadow-sm"
-                aria-label="Scroll right"
+                aria-label={t('scroll.right')}
                 data-testid="workshop-board-scroll-right"
                 onClick={() => scrollBy(scrollStep)}
               >
@@ -134,7 +136,7 @@ export function HorizontalScrollArea({
           variant="outline"
           size="icon"
           className="absolute left-1 top-1/2 z-20 h-11 w-11 min-h-11 min-w-11 -translate-y-1/2 rounded-full bg-white/90 shadow-sm"
-          aria-label="Scroll left"
+          aria-label={t('scroll.left')}
           onClick={() => scrollBy(-scrollStep)}
         >
           <ChevronLeft className="h-5 w-5" />
@@ -147,7 +149,7 @@ export function HorizontalScrollArea({
           variant="outline"
           size="icon"
           className="absolute right-1 top-1/2 z-20 h-11 w-11 min-h-11 min-w-11 -translate-y-1/2 rounded-full bg-white/90 shadow-sm"
-          aria-label="Scroll right"
+          aria-label={t('scroll.right')}
           onClick={() => scrollBy(scrollStep)}
         >
           <ChevronRight className="h-5 w-5" />

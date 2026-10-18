@@ -1,0 +1,42 @@
+{
+  "tenants": {
+    "pageTitle": "Tenants",
+    "pageDescription": "Manage platform tenants, plans, and onboarding state.",
+    "createButton": "+ Tenant",
+    "searchPlaceholder": "Search tenants…",
+    "loadFailed": "Failed to load tenants.",
+    "retry": "Retry",
+    "columns": {
+      "name": "Name",
+      "plan": "Plan",
+      "members": "Members",
+      "status": "Status"
+    },
+    "createDialog": {
+      "title": "Create tenant",
+      "description": "This creates the tenant foundation and its default finance settings.",
+      "slugPlaceholder": "north-branch",
+      "submit": "Create tenant"
+    },
+    "editSheet": {
+      "title": "Tenant details",
+      "description": "Update platform metadata and activation state for this tenant.",
+      "currentMembers": "Current members: {{count}}",
+      "submit": "Save tenant"
+    },
+    "form": {
+      "name": "Name",
+      "slug": "Slug",
+      "plan": "Plan",
+      "status": "Status",
+      "statusActive": "Active",
+      "statusInactive": "Inactive"
+    },
+    "toast": {
+      "created": "Tenant created",
+      "updated": "Tenant updated",
+      "createFailed": "Failed to create tenant.",
+      "updateFailed": "Failed to update tenant."
+    }
+  }
+}

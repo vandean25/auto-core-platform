@@ -1,5 +1,8 @@
 // @vitest-environment node
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
+import deAgent from '../../../../../locales/de/agent.json'
+import enAgent from '../../../../../locales/en/agent.json'
+import { changeUiLanguage, ensureNamespaceLoaded } from '@/lib/i18n'
 import {
   formatDefaultSupervisionChangeLabel,
   formatDetailSupervisionChangeLabel,
@@ -25,6 +28,11 @@ describe('agent-proposal-change-preview', () => {
       },
     ],
   }
+
+  beforeAll(async () => {
+    await ensureNamespaceLoaded('agent')
+    await changeUiLanguage('de')
+  })
 
   it('parses would_change from preview_json', () => {
     expect(parseWouldChangeFromPreview(previewWithSite)).toEqual([
@@ -55,31 +63,35 @@ describe('agent-proposal-change-preview', () => {
     )
   })
 
-  it('formats business changes for the default preview', () => {
+  it('formats business changes for the default preview', async () => {
     const lineChange = {
       entity: 'WorkshopTaskLineItem',
       id: 'line-1',
       op: 'create' as const,
     }
-    expect(formatDefaultSupervisionChangeLabel(lineChange, 'en')).toBe(
-      'Workshop line item — Create',
+    await changeUiLanguage('en')
+    expect(formatDefaultSupervisionChangeLabel(lineChange)).toBe(
+      `${enAgent.changePreview.entities.WorkshopTaskLineItem} — ${enAgent.changePreview.ops.create}`,
     )
-    expect(formatDefaultSupervisionChangeLabel(lineChange, 'de')).toBe(
-      'Werkstattposition — Anlegen',
+    await changeUiLanguage('de')
+    expect(formatDefaultSupervisionChangeLabel(lineChange)).toBe(
+      `${deAgent.changePreview.entities.WorkshopTaskLineItem} — ${deAgent.changePreview.ops.create}`,
     )
   })
 
-  it('uses workshop language for Site update under Show details only', () => {
+  it('uses workshop language for Site update under Show details only', async () => {
     const siteChange = {
       entity: 'Site',
       id: 'site-1',
       op: 'update' as const,
     }
-    expect(formatDetailSupervisionChangeLabel(siteChange, 'en')).toBe(
-      'Workshop location',
+    await changeUiLanguage('en')
+    expect(formatDetailSupervisionChangeLabel(siteChange)).toBe(
+      enAgent.approvals.workshopLocation,
     )
-    expect(formatDetailSupervisionChangeLabel(siteChange, 'de')).toBe(
-      'Werkstattstandort',
+    await changeUiLanguage('de')
+    expect(formatDetailSupervisionChangeLabel(siteChange)).toBe(
+      deAgent.approvals.workshopLocation,
     )
   })
 })

@@ -1,6 +1,8 @@
 import * as React from 'react'
+import { useEffect } from 'react'
 import { Navigate } from 'react-router-dom'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { useAuthSession } from '@/api/auth-session'
@@ -37,6 +39,7 @@ import {
 import { PageLoader } from '@/components/ui/PageLoader'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { getErrorMessage } from '@/lib/error-utils'
+import { ensureNamespaceLoaded, translateEnum } from '@/lib/i18n'
 
 const TENANT_PLAN_OPTIONS = ['STANDARD', 'PREMIUM', 'ENTERPRISE'] as const
 
@@ -66,7 +69,7 @@ function matchesTenantSearch(tenant: PlatformTenant, term: string) {
     tenant.slug,
     tenant.plan,
     String(tenant.memberCount),
-    tenant.isActive ? 'active' : 'inactive',
+    tenant.isActive ? translateEnum('status', 'ACTIVE') : translateEnum('status', 'INACTIVE'),
   ]
 
   return haystack.some((entry) => entry.toLowerCase().includes(term))
@@ -116,6 +119,11 @@ function toEditFormState(tenant: PlatformTenant): TenantFormState {
 }
 
 export default function PlatformTenantsPage() {
+  const { t } = useTranslation('platform')
+  useEffect(() => {
+    void ensureNamespaceLoaded('platform')
+  }, [])
+
   const sessionQuery = useAuthSession()
   const { queryParams, setPagination, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
   const { data: responseData, error, isLoading, refetch } = usePlatformTenants({
@@ -163,7 +171,7 @@ export default function PlatformTenantsPage() {
     () => [
       {
         accessorKey: 'name',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Name' />,
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('tenants.columns.name')} />,
         cell: ({ row }) => (
           <div>
             <div className='font-medium'>{row.original.name}</div>
@@ -173,21 +181,21 @@ export default function PlatformTenantsPage() {
       },
       {
         accessorKey: 'plan',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Plan' />,
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('tenants.columns.plan')} />,
       },
       {
         accessorKey: 'memberCount',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Members' />,
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('tenants.columns.members')} />,
       },
       {
         accessorKey: 'isActive',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Status' />,
+        header: ({ column }) => <DataTableColumnHeader column={column} title={t('tenants.columns.status')} />,
         cell: ({ row }) => (
           <StatusBadge status={row.original.isActive ? 'ACTIVE' : 'INACTIVE'} />
         ),
       },
     ],
-    [],
+    [t],
   )
 
   if (sessionQuery.isLoading) {
@@ -207,11 +215,11 @@ export default function PlatformTenantsPage() {
         slug: createFormState.slug.trim().toLowerCase(),
         plan: createFormState.plan,
       })
-      toast.success('Tenant created')
+      toast.success(t('tenants.toast.created'))
       setCreateFormState(defaultTenantFormState)
       setCreateOpen(false)
     } catch (createError: unknown) {
-      toast.error(getErrorMessage(createError, 'Failed to create tenant'))
+      toast.error(getErrorMessage(createError, t('tenants.toast.createFailed')))
     }
   }
 
@@ -230,11 +238,11 @@ export default function PlatformTenantsPage() {
         },
       })
 
-      toast.success('Tenant updated')
+      toast.success(t('tenants.toast.updated'))
       setSelectedTenant(updatedTenant)
       setEditFormState(toEditFormState(updatedTenant))
     } catch (updateError: unknown) {
-      toast.error(getErrorMessage(updateError, 'Failed to update tenant'))
+      toast.error(getErrorMessage(updateError, t('tenants.toast.updateFailed')))
     }
   }
 
@@ -242,20 +250,20 @@ export default function PlatformTenantsPage() {
     <div className='space-y-6'>
       <div className='flex items-center justify-between mb-8'>
         <div>
-          <h1 className='text-2xl font-semibold tracking-tight'>Tenants</h1>
-          <p className='text-slate-500'>Manage platform tenants, plans, and onboarding state.</p>
+          <h1 className='text-2xl font-semibold tracking-tight'>{t('tenants.pageTitle')}</h1>
+          <p className='text-slate-500'>{t('tenants.pageDescription')}</p>
         </div>
         <Button onClick={() => setCreateOpen(true)}>
-          + Tenant
+          {t('tenants.createButton')}
         </Button>
       </div>
 
       {error ? (
         <div className='rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700'>
           <div className='flex items-center justify-between gap-4'>
-            <span>{getErrorMessage(error, 'Failed to load tenants')}</span>
+            <span>{getErrorMessage(error, t('tenants.loadFailed'))}</span>
             <Button variant='outline' size='sm' onClick={() => void refetch()}>
-              Retry
+              {t('tenants.retry')}
             </Button>
           </div>
         </div>
@@ -266,7 +274,7 @@ export default function PlatformTenantsPage() {
         data={pagedTenants}
         pageCount={pageCount}
         isLoading={isLoading}
-        searchPlaceholder='Search tenants...'
+        searchPlaceholder={t('tenants.searchPlaceholder')}
         setPagination={setPagination}
         onRowClick={(tenant) => {
           setSelectedTenant(tenant)
@@ -279,15 +287,15 @@ export default function PlatformTenantsPage() {
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create Tenant</DialogTitle>
+            <DialogTitle>{t('tenants.createDialog.title')}</DialogTitle>
             <DialogDescription>
-              This creates the tenant foundation and its default finance settings.
+              {t('tenants.createDialog.description')}
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleCreate} className='space-y-4'>
             <div className='space-y-2'>
-              <Label htmlFor='tenant-name'>Name</Label>
+              <Label htmlFor='tenant-name'>{t('tenants.form.name')}</Label>
               <Input
                 id='tenant-name'
                 value={createFormState.name}
@@ -300,7 +308,7 @@ export default function PlatformTenantsPage() {
             </div>
 
             <div className='space-y-2'>
-              <Label htmlFor='tenant-slug'>Slug</Label>
+              <Label htmlFor='tenant-slug'>{t('tenants.form.slug')}</Label>
               <Input
                 id='tenant-slug'
                 value={createFormState.slug}
@@ -308,13 +316,13 @@ export default function PlatformTenantsPage() {
                   ...previous,
                   slug: event.target.value,
                 }))}
-                placeholder='north-branch'
+                placeholder={t('tenants.createDialog.slugPlaceholder')}
                 required
               />
             </div>
 
             <div className='space-y-2'>
-              <Label htmlFor='tenant-plan'>Plan</Label>
+              <Label htmlFor='tenant-plan'>{t('tenants.form.plan')}</Label>
               <Select
                 value={createFormState.plan}
                 onValueChange={(nextPlan) => setCreateFormState((previous) => ({
@@ -337,7 +345,7 @@ export default function PlatformTenantsPage() {
 
             <DialogFooter>
               <Button type='submit' disabled={createMutation.isPending}>
-                Create Tenant
+                {t('tenants.createDialog.submit')}
               </Button>
             </DialogFooter>
           </form>
@@ -347,16 +355,16 @@ export default function PlatformTenantsPage() {
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent side='right' className='w-full sm:max-w-xl'>
           <SheetHeader className='mb-6'>
-            <SheetTitle>Tenant Details</SheetTitle>
+            <SheetTitle>{t('tenants.editSheet.title')}</SheetTitle>
             <SheetDescription>
-              Update platform metadata and activation state for this tenant.
+              {t('tenants.editSheet.description')}
             </SheetDescription>
           </SheetHeader>
 
           {selectedTenant ? (
             <form onSubmit={handleSaveTenant} className='space-y-4'>
               <div className='space-y-2'>
-                <Label htmlFor='tenant-edit-name'>Name</Label>
+                <Label htmlFor='tenant-edit-name'>{t('tenants.form.name')}</Label>
                 <Input
                   id='tenant-edit-name'
                   value={editFormState.name}
@@ -369,7 +377,7 @@ export default function PlatformTenantsPage() {
               </div>
 
               <div className='space-y-2'>
-                <Label htmlFor='tenant-edit-slug'>Slug</Label>
+                <Label htmlFor='tenant-edit-slug'>{t('tenants.form.slug')}</Label>
                 <Input
                   id='tenant-edit-slug'
                   value={editFormState.slug}
@@ -382,7 +390,7 @@ export default function PlatformTenantsPage() {
               </div>
 
               <div className='space-y-2'>
-                <Label htmlFor='tenant-edit-plan'>Plan</Label>
+                <Label htmlFor='tenant-edit-plan'>{t('tenants.form.plan')}</Label>
                 <Select
                   value={editFormState.plan}
                   onValueChange={(nextPlan) => setEditFormState((previous) => ({
@@ -404,7 +412,7 @@ export default function PlatformTenantsPage() {
               </div>
 
               <div className='space-y-2'>
-                <Label htmlFor='tenant-edit-status'>Status</Label>
+                <Label htmlFor='tenant-edit-status'>{t('tenants.form.status')}</Label>
                 <Select
                   value={editFormState.isActive}
                   onValueChange={(nextStatus) => setEditFormState((previous) => ({
@@ -416,19 +424,19 @@ export default function PlatformTenantsPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value='ACTIVE'>Active</SelectItem>
-                    <SelectItem value='INACTIVE'>Inactive</SelectItem>
+                    <SelectItem value='ACTIVE'>{t('tenants.form.statusActive')}</SelectItem>
+                    <SelectItem value='INACTIVE'>{t('tenants.form.statusInactive')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className='rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600'>
-                Current members: {selectedTenant.memberCount}
+                {t('tenants.editSheet.currentMembers', { count: selectedTenant.memberCount })}
               </div>
 
               <SheetFooter>
                 <Button type='submit' disabled={updateMutation.isPending}>
-                  Save Tenant
+                  {t('tenants.editSheet.submit')}
                 </Button>
               </SheetFooter>
             </form>

@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import { X } from 'lucide-react'
@@ -31,13 +32,17 @@ function appendGroupFilterToHref(href: string, field: string, value: string): st
   return `${url.pathname}${url.search}`
 }
 
-function renderListPreviewRow(row: unknown, source: DashboardWidgetTableSource): string {
+function renderListPreviewRow(
+  row: unknown,
+  source: DashboardWidgetTableSource,
+  noPreviewLabel: string,
+): string {
   const previewFields = source.listPreviewFields.length > 0 ? source.listPreviewFields : source.fields.map((field) => field.key)
   const text = previewFields
     .map((fieldKey) => stringifyValue(getValueByPath(row, fieldKey)))
     .filter(Boolean)
     .join(' · ')
-  return text || 'No preview data'
+  return text || noPreviewLabel
 }
 
 function DashboardWidgetCard({
@@ -49,6 +54,7 @@ function DashboardWidgetCard({
   source: DashboardWidgetTableSource
   onRemove: () => void
 }) {
+  const { t } = useTranslation('common')
   const navigate = useNavigate()
   const { data: rows = [], isLoading, error } = useWidgetRows(widget)
 
@@ -56,11 +62,11 @@ function DashboardWidgetCard({
     if (widget.displayType !== 'donut' || !widget.groupByField) return []
     const counts = new Map<string, number>()
     for (const row of rows) {
-      const key = stringifyValue(getValueByPath(row, widget.groupByField)) || 'Unknown'
+      const key = stringifyValue(getValueByPath(row, widget.groupByField)) || t('dashboard.unknownGroup')
       counts.set(key, (counts.get(key) ?? 0) + 1)
     }
     return Array.from(counts.entries()).map(([name, value]) => ({ name, value }))
-  }, [rows, widget.displayType, widget.groupByField])
+  }, [rows, t, widget.displayType, widget.groupByField])
 
   const metricValue = useMemo<number | null>(() => {
     if (widget.displayType !== 'metric') return null
@@ -97,26 +103,26 @@ function DashboardWidgetCard({
             type="button"
             className="text-left"
             onClick={() => navigate(widget.href)}
-            title="Open source table with saved filters"
+            title={t('dashboard.openSourceTitle')}
           >
             <CardTitle className="text-base font-semibold hover:text-primary transition-colors">{widget.name}</CardTitle>
           </button>
           <p className="text-xs text-slate-500 mt-1">{source.sourceLabel}</p>
         </div>
-        <Button variant="ghost" size="icon" onClick={onRemove} aria-label={`Remove widget ${widget.name}`}>
+        <Button variant="ghost" size="icon" onClick={onRemove} aria-label={t('dashboard.removeWidgetAria', { name: widget.name })}>
           <X className="h-4 w-4" />
         </Button>
       </CardHeader>
       <CardContent>
-        {isLoading ? <p className="text-sm text-slate-500">Loading widget...</p> : null}
-        {error ? <p className="text-sm text-destructive">Unable to load widget data.</p> : null}
-        {!isLoading && !error && rows.length === 0 ? <p className="text-sm text-slate-500">No data for this widget.</p> : null}
+        {isLoading ? <p className="text-sm text-slate-500">{t('dashboard.loadingWidget')}</p> : null}
+        {error ? <p className="text-sm text-destructive">{t('dashboard.loadWidgetFailed')}</p> : null}
+        {!isLoading && !error && rows.length === 0 ? <p className="text-sm text-slate-500">{t('dashboard.noWidgetData')}</p> : null}
 
         {!isLoading && !error && rows.length > 0 && widget.displayType === 'list' ? (
           <ul className="space-y-2">
             {rows.slice(0, 5).map((row, index) => (
               <li key={`${widget.id}-row-${index}`} className="text-sm text-slate-700 border-b pb-2 last:border-b-0">
-                {renderListPreviewRow(row, source)}
+                {renderListPreviewRow(row, source, t('dashboard.noPreviewData'))}
               </li>
             ))}
           </ul>
@@ -127,11 +133,11 @@ function DashboardWidgetCard({
             type="button"
             className="w-full rounded-lg border border-transparent py-8 text-center transition hover:border-slate-200"
             onClick={() => navigate(widget.href)}
-            title="Open source table with saved filters"
+            title={t('dashboard.openSourceTitle')}
           >
             <div className="text-4xl font-bold tracking-tight">{formattedMetricValue}</div>
             <div className="mt-2 text-xs uppercase tracking-wide text-slate-500">
-              {widget.metricCalculation === 'sum' ? 'Summed Value' : 'Total Items'}
+              {widget.metricCalculation === 'sum' ? t('dashboard.summedValue') : t('dashboard.totalItems')}
             </div>
           </button>
         ) : null}
@@ -166,15 +172,14 @@ function DashboardWidgetCard({
 }
 
 export function DashboardWidgetsGrid({ sourcesByKey }: DashboardWidgetsGridProps) {
+  const { t } = useTranslation('common')
   const { widgets, removeWidget } = useDashboardWidgets()
 
   if (widgets.length === 0) {
     return (
       <Card>
         <CardContent className="pt-6">
-          <p className="text-sm text-slate-500">
-            No widgets yet. Open a list view, apply filters, then click Add to dashboard.
-          </p>
+          <p className="text-sm text-slate-500">{t('dashboard.emptyWidgets')}</p>
         </CardContent>
       </Card>
     )
@@ -193,13 +198,13 @@ export function DashboardWidgetsGrid({ sourcesByKey }: DashboardWidgetsGridProps
                   variant="ghost"
                   size="icon"
                   onClick={() => removeWidget(widget.id)}
-                  aria-label={`Remove widget ${widget.name}`}
+                  aria-label={t('dashboard.removeWidgetAria', { name: widget.name })}
                 >
                   <X className="h-4 w-4" />
                 </Button>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-slate-500">Widget source is no longer available.</p>
+                <p className="text-sm text-slate-500">{t('dashboard.sourceUnavailable')}</p>
               </CardContent>
             </Card>
           )

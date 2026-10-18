@@ -10,6 +10,7 @@ export const inventoryHrI18nFiles = [
   'src/features/tyre-storage/**/*.{ts,tsx}',
   'src/pages/hr/**/*.{ts,tsx}',
   'src/components/hr/**/*.{ts,tsx}',
+  'src/pages/agent/**/*.{ts,tsx}',
 ]
 
 export const inventoryHrI18nEslintConfig = {
