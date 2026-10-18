@@ -37,7 +37,7 @@ describe('ResumeWaitingTasksPanel', () => {
     mutateAsync.mockResolvedValue({ resumed_task_ids: ['t1', 't2'] })
     renderPanel({ waitingCount: 2, orderStatus: 'IN_PROGRESS' })
 
-    expect(screen.getByText(/2 Aufgabe\(n\) warten auf den Kunden/)).toBeTruthy()
+    expect(screen.getByText(/2 Aufgaben warten auf den Kunden/)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Wartende Aufgaben fortsetzen' }))
 
     await waitFor(() => expect(mutateAsync).toHaveBeenCalledWith('order-1'))

@@ -42,7 +42,7 @@ describe('getErrorMessage', () => {
     )
 
     expect(message).toBe(
-      'Ein unerwarteter Serverfehler ist aufgetreten. (ref: req-1)',
+      'Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es erneut. (ref: req-1)',
     )
   })
 
@@ -114,7 +114,7 @@ describe('getErrorMessage', () => {
     )
 
     expect(message).toBe(
-      'Fahrzeugfoto überschreitet das Upload-Limit von 10 MiB.',
+      'Das Fahrzeugfoto ist größer als 10 MB.',
     )
   })
 

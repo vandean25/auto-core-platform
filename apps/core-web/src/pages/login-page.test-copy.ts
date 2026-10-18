@@ -18,7 +18,7 @@ export const loginPageDeCopy = {
   passwordLabel: 'Passwort',
   emailLabel: 'E-Mail',
   forgotPassword: 'Passwort vergessen?',
-  resetSent: 'E-Mail mit Reset-Link wurde gesendet.',
-  resetFailed: 'Reset-E-Mail konnte nicht gesendet werden. Adresse prüfen und erneut versuchen.',
-  resetNeedsEmail: 'E-Mail für Passwort-Reset eingeben.',
+  resetSent: 'Wir haben Ihnen einen Link zum Zurücksetzen des Passworts gesendet.',
+  resetFailed: 'Die E-Mail zum Zurücksetzen konnte nicht gesendet werden. Bitte prüfen Sie die Adresse und versuchen Sie es erneut.',
+  resetNeedsEmail: 'E-Mail-Adresse zum Zurücksetzen des Passworts eingeben.',
 } as const
