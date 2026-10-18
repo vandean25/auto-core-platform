@@ -1,0 +1,269 @@
+{
+  "layout": {
+    "title": "Personal",
+    "description": "Mitarbeiter, Zeiterfassung und Urlaub verwalten.",
+    "tabs": {
+      "employees": "Mitarbeiter",
+      "clock": "Zeiterfassung",
+      "leave": "Urlaub"
+    }
+  },
+  "employees": {
+    "pageTitle": "Mitarbeiter",
+    "pageDescription": "Werkstattpersonal für Zuweisungen verwalten.",
+    "createButton": "+ Mitarbeiter",
+    "roles": {
+      "MECHANIC": "Mechaniker",
+      "SERVICE_ADVISOR": "Serviceberater",
+      "PARTS_CLERK": "Teileverkauf"
+    },
+    "languageDefault": "Standard (Zielsprache)",
+    "notSet": "Nicht gesetzt",
+    "notLinked": "Nicht verknüpft",
+    "yes": "Ja",
+    "no": "Nein",
+    "minSuffix": "{{count}} Min.",
+    "searchPlaceholder": "Mitarbeiter suchen…",
+    "delete": "Löschen",
+    "columns": {
+      "name": "Name",
+      "role": "Rolle",
+      "motherLanguage": "Muttersprache",
+      "active": "Aktiv",
+      "sortOrder": "Sortierreihenfolge",
+      "hireDate": "Eintrittsdatum",
+      "leaveMin": "Urlaub (Min.)",
+      "remainingMin": "Rest (Min.)",
+      "login": "Anmeldung"
+    },
+    "createDialog": {
+      "title": "Mitarbeiter anlegen",
+      "description": "Teammitglied der Werkstatt hinzufügen.",
+      "name": "Name",
+      "namePlaceholder": "Name des Mitarbeiters",
+      "role": "Rolle",
+      "sortOrder": "Sortierreihenfolge",
+      "motherLanguage": "Muttersprache",
+      "hireDate": "Eintrittsdatum",
+      "leaveDays": "Urlaub (Tage)",
+      "leaveDaysPlaceholder": "z. B. 25 (Standard-Arbeitstag)",
+      "leaveMin": "Urlaub (Min.)",
+      "leaveMinPlaceholder": "Server-Standard (25 × Ø-Arbeitstag)",
+      "create": "Anlegen",
+      "saving": "Speichern…"
+    },
+    "detailSheet": {
+      "title": "Mitarbeiterdetails",
+      "description": "Stammdaten und Urlaubsinformationen.",
+      "hireDate": "Eintrittsdatum",
+      "leaveAllowance": "Urlaubsanspruch",
+      "remaining": "Resturlaub",
+      "login": "Anmeldung",
+      "allowanceDays": "Urlaubsanspruch (Tage)",
+      "allowanceDaysPlaceholder": "z. B. 25",
+      "allowanceHint": "Umwandlung in Minuten anhand des aktuellen Durchschnitts ({{minutes}} Min./Tag).",
+      "saveAllowance": "Anspruch speichern",
+      "carryover": "Übertrag dieses Jahr (Min.)",
+      "carryoverAria": "Übertrag dieses Jahr",
+      "saveLeaveBalance": "Urlaubssaldo speichern"
+    },
+    "validation": {
+      "nameRequired": "Name des Mitarbeiters ist erforderlich",
+      "sortOrderNonNegative": "Sortierreihenfolge muss eine nicht negative Ganzzahl sein",
+      "leaveMinutesNonNegative": "Urlaubsminuten müssen eine nicht negative Ganzzahl sein",
+      "leaveDaysNonNegative": "Urlaubstage müssen eine nicht negative Zahl sein",
+      "carryoverNonNegative": "Übertragsminuten müssen eine nicht negative Ganzzahl sein"
+    },
+    "toast": {
+      "updated": "Mitarbeiter aktualisiert",
+      "roleUpdated": "Rolle aktualisiert",
+      "languageUpdated": "Sprache aktualisiert",
+      "activated": "Mitarbeiter aktiviert",
+      "deactivated": "Mitarbeiter deaktiviert",
+      "sortOrderUpdated": "Sortierreihenfolge aktualisiert",
+      "hireDateUpdated": "Eintrittsdatum aktualisiert",
+      "leaveAllowanceUpdated": "Urlaubsanspruch aktualisiert",
+      "created": "Mitarbeiter angelegt",
+      "deleted": "Mitarbeiter gelöscht",
+      "carryoverUpdated": "Urlaubsübertrag aktualisiert",
+      "createFailed": "Mitarbeiter konnte nicht angelegt werden",
+      "updateNameFailed": "Name konnte nicht aktualisiert werden",
+      "updateRoleFailed": "Rolle konnte nicht aktualisiert werden",
+      "updateLanguageFailed": "Sprache konnte nicht aktualisiert werden",
+      "updateStatusFailed": "Status konnte nicht aktualisiert werden",
+      "updateSortOrderFailed": "Sortierreihenfolge konnte nicht aktualisiert werden",
+      "updateHireDateFailed": "Eintrittsdatum konnte nicht aktualisiert werden",
+      "updateLeaveAllowanceFailed": "Urlaubsanspruch konnte nicht aktualisiert werden",
+      "deleteFailed": "Mitarbeiter konnte nicht gelöscht werden",
+      "updateCarryoverFailed": "Urlaubsübertrag konnte nicht aktualisiert werden"
+    }
+  },
+  "clock": {
+    "pageTitle": "Zeiterfassung",
+    "pageDescription": "Anwesenheit für heute erfassen.",
+    "employee": "Mitarbeiter",
+    "unavailable": "Nicht verfügbar",
+    "todayTimeline": "Heutiger Verlauf",
+    "todayTimelineHint": "Ereignisse werden in der lokalen Zeit des Mandanten angezeigt.",
+    "noEventsToday": "Heute wurden keine Anwesenheitsereignisse erfasst.",
+    "teamAttendance": "Team-Anwesenheit",
+    "teamAttendanceHint": "Anwesenheit für den ausgewählten Mitarbeiter prüfen.",
+    "attendanceDay": "Anwesenheitstag",
+    "attendanceUnavailable": "Anwesenheit nicht verfügbar",
+    "searchPlaceholder": "Anwesenheit suchen…",
+    "columns": {
+      "time": "Zeit",
+      "event": "Ereignis",
+      "source": "Quelle",
+      "note": "Notiz"
+    },
+    "missingEmployee": {
+      "title": "Kein Mitarbeiterdatensatz verknüpft",
+      "description": "Bitten Sie einen Inhaber oder Administrator, Ihr Konto mit einem Mitarbeiterdatensatz zu verknüpfen.",
+      "link": "Zu Mitarbeitern"
+    },
+    "toast": {
+      "loadProfileFailed": "HR-Profil konnte nicht geladen werden",
+      "loadClockFailed": "Zeiterfassung konnte nicht geladen werden",
+      "loadAttendanceFailed": "Anwesenheit konnte nicht geladen werden",
+      "loadTimeClockFailed": "Zeiterfassung konnte nicht geladen werden",
+      "punchFailed": "Stempelung fehlgeschlagen",
+      "punchEmployeeFailed": "Mitarbeiter-Stempelung fehlgeschlagen"
+    }
+  },
+  "punchBar": {
+    "clockIn": "Kommen",
+    "pause": "Pause",
+    "doctor": "Arzt",
+    "clockOut": "Gehen"
+  },
+  "leave": {
+    "pageTitle": "Urlaub",
+    "pageDescription": "Teamurlaub buchen und prüfen.",
+    "remaining": "Rest: {{minutes}} Min.{{approx}}",
+    "bookLeave": "+ Urlaub",
+    "myLeave": "Mein Urlaub",
+    "myLeaveHint": "Ihre Urlaubsbuchungen für das gewählte Jahr.",
+    "teamLeave": "Teamurlaub",
+    "teamLeaveHint": "Monatsansicht gebuchter Abwesenheiten (Mandantenzeit).",
+    "previous": "Zurück",
+    "next": "Weiter",
+    "searchPlaceholder": "Urlaub suchen…",
+    "cancel": "Stornieren",
+    "columns": {
+      "employee": "Mitarbeiter",
+      "dateRange": "Zeitraum",
+      "chargedMin": "Verrechnet (Min.)",
+      "status": "Status",
+      "note": "Notiz"
+    },
+    "missingEmployee": {
+      "title": "Kein Mitarbeiterdatensatz verknüpft",
+      "description": "Bitten Sie einen Inhaber oder Administrator, Ihr Konto mit einem Mitarbeiterdatensatz zu verknüpfen.",
+      "link": "Zu Mitarbeitern"
+    },
+    "toast": {
+      "loadProfileFailed": "HR-Profil konnte nicht geladen werden",
+      "cancelFailed": "Urlaubsbuchung konnte nicht storniert werden"
+    },
+    "bookingSheet": {
+      "viewTitle": "Urlaubsbuchung",
+      "bookTitle": "Urlaub buchen",
+      "viewDescription": "Ausgewählte Urlaubsbuchung anzeigen.",
+      "bookDescription": "Urlaub für einen Mitarbeiter buchen.",
+      "employee": "Mitarbeiter",
+      "start": "Beginn",
+      "end": "Ende",
+      "chargedMin": "Verrechnet (Min.)",
+      "note": "Notiz",
+      "notePlaceholder": "Optionale Notiz",
+      "employeeFallback": "Mitarbeiter",
+      "createFailed": "Urlaubsbuchung konnte nicht erstellt werden",
+      "saving": "Speichern…"
+    },
+    "grid": {
+      "employee": "Mitarbeiter",
+      "bookedLeave": "Gebuchter Urlaub",
+      "bookFor": "Urlaub buchen für {{name}} am {{date}}",
+      "cellAria": "{{name}}, {{date}}, Status {{status}}"
+    }
+  },
+  "mechanicAway": {
+    "title": "Mechaniker abwesend: {{name}}",
+    "description": "{{name}} ist vom {{start}} bis {{end}} (einschließlich) abwesend. Der Hinweis ist nur informativ; Hebebühnen können weiter gebucht werden."
+  },
+  "inspectorEvidence": {
+    "title": "Prüfernachweise",
+    "description": "Eingeschränkte HR-Dokumentenprüfung und Unterstützungsstatus — keine offizielle Qualifikation.",
+    "supportCurrent": "Unterstützung gültig",
+    "supportExpired": "Unterstützung abgelaufen",
+    "supportUnknown": "Unterstützung unbekannt",
+    "scope": "Geltungsbereich: {{scope}}",
+    "revisions": "Nachweisversionen",
+    "loading": "Laden…",
+    "empty": "Keine Nachweise erfasst.",
+    "latestDocHint": "Die neueste Dokumentreferenz wird nur im autorisierten Speicher abgelegt (hier nicht herunterladbar)."
+  },
+  "workSchedule": {
+    "title": "Arbeitszeitmodell",
+    "description": "Erwartete Arbeitszeiten pro Wochentag. Urlaubsminuten werden nach diesem Modell verrechnet.",
+    "currentFrom": "Aktuelle Version ab {{date}}",
+    "noVersion": "Noch keine Version.",
+    "siteAssignment": "Standortzuweisung",
+    "selectSite": "Standort wählen",
+    "siteLabel": "Standort: {{name}}",
+    "notAssigned": "Nicht zugewiesen",
+    "effectiveFrom": "Gültig ab",
+    "newVersionSite": "Standortzuweisung (neue Version)",
+    "newVersionSiteAria": "Standortzuweisung neue Version",
+    "createVersion": "Version anlegen",
+    "creating": "Wird angelegt…",
+    "saveCorrection": "Korrektur speichern",
+    "saving": "Speichern…",
+    "newVersion": "Neue Version",
+    "hideNewVersion": "Neue Version ausblenden",
+    "previousVersions": "Frühere Versionen",
+    "fromDate": "Ab {{date}}",
+    "loading": "Arbeitszeitmodell wird geladen…",
+    "loadFailed": "Arbeitszeitmodell konnte nicht geladen werden",
+    "table": {
+      "day": "Tag",
+      "working": "Arbeitstag",
+      "start": "Beginn",
+      "end": "Ende",
+      "breakMin": "Pause (Min.)"
+    },
+    "weekdays": {
+      "1": "Montag",
+      "2": "Dienstag",
+      "3": "Mittwoch",
+      "4": "Donnerstag",
+      "5": "Freitag",
+      "6": "Samstag",
+      "7": "Sonntag"
+    },
+    "workingAria": "{{day}} Arbeitstag",
+    "startAria": "{{day}} Beginn",
+    "endAria": "{{day}} Ende",
+    "breakAria": "{{day}} Pausenminuten",
+    "toast": {
+      "updated": "Arbeitszeitmodell aktualisiert",
+      "updateFailed": "Arbeitszeitmodell konnte nicht aktualisiert werden",
+      "effectiveDateRequired": "Für eine neue Version ist ein Gültigkeitsdatum erforderlich",
+      "siteRequired": "Für ein Arbeitszeitmodell ist ein Standort erforderlich",
+      "versionCreated": "Arbeitszeitmodell-Version angelegt",
+      "createFailed": "Arbeitszeitmodell-Version konnte nicht angelegt werden"
+    },
+    "validation": {
+      "mustHaveSevenDays": "Das Arbeitszeitmodell muss genau 7 Wochentage enthalten",
+      "eachWeekdayOnce": "Jeder Wochentag darf nur einmal vorkommen",
+      "noTimesWhenNotWorking": "{{day}} darf bei freiem Tag keine Zeiten haben",
+      "requiresTimes": "{{day}} benötigt Beginn- und Endzeit",
+      "endAfterStart": "{{day}}: Endzeit muss nach der Beginnzeit liegen",
+      "breakShorterThanDay": "{{day}}: Pause muss kürzer als der Arbeitstag sein"
+    }
+  },
+  "leaveMinutes": {
+    "min": "{{count}} Min."
+  }
+}

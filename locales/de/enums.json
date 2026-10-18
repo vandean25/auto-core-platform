@@ -99,7 +99,28 @@
     "GEWAEHRLEISTUNG_EXPIRED": "Gewährleistung abgelaufen",
     "AWAITING_REVIEW": "Wartet auf Prüfung",
     "APPLIED": "Angewendet",
-    "ABORTED": "Abgebrochen"
+    "ABORTED": "Abgebrochen",
+    "MOVED": "Umgelagert"
+  },
+  "inventoryTransactionType": {
+    "PURCHASE_RECEIPT": "Wareneingang",
+    "SALE_ISSUE": "Verkaufsausgang",
+    "ADJUSTMENT": "Korrektur",
+    "TRANSFER_IN": "Umlagerung (Eingang)",
+    "TRANSFER_OUT": "Umlagerung (Ausgang)",
+    "INITIAL_BALANCE": "Anfangsbestand",
+    "WORKSHOP_CONSUMPTION": "Werkstattverbrauch"
+  },
+  "attendanceEventType": {
+    "CLOCK_IN": "Kommen",
+    "PAUSE": "Pause",
+    "DOCTOR": "Arzt",
+    "CLOCK_OUT": "Gehen"
+  },
+  "attendanceSource": {
+    "SELF": "Selbst",
+    "MANAGER": "Vorgesetzter",
+    "AUTO_SHIFT_CLOSE": "Automatischer Schichtabschluss"
   },
   "agent": {
     "genericName": "Agent"

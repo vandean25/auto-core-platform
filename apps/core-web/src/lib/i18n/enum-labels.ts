@@ -33,6 +33,18 @@ export function formatStatusLabel(status: string): string {
   return translateEnum('status', status)
 }
 
+export function formatInventoryTransactionType(type: string): string {
+  return translateEnum('inventoryTransactionType', type)
+}
+
+export function formatAttendanceEventType(type: string): string {
+  return translateEnum('attendanceEventType', type)
+}
+
+export function formatAttendanceSource(source: string): string {
+  return translateEnum('attendanceSource', source)
+}
+
 export function formatStatusLabelTyped(status: StatusEnumValue): string {
   return formatStatusLabel(status)
 }

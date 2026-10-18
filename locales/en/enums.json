@@ -99,7 +99,28 @@
     "GEWAEHRLEISTUNG_EXPIRED": "Statutory warranty expired",
     "AWAITING_REVIEW": "Awaiting Review",
     "APPLIED": "Applied",
-    "ABORTED": "Aborted"
+    "ABORTED": "Aborted",
+    "MOVED": "Moved"
+  },
+  "inventoryTransactionType": {
+    "PURCHASE_RECEIPT": "Purchase receipt",
+    "SALE_ISSUE": "Sale issue",
+    "ADJUSTMENT": "Adjustment",
+    "TRANSFER_IN": "Transfer in",
+    "TRANSFER_OUT": "Transfer out",
+    "INITIAL_BALANCE": "Initial balance",
+    "WORKSHOP_CONSUMPTION": "Workshop consumption"
+  },
+  "attendanceEventType": {
+    "CLOCK_IN": "Come to work",
+    "PAUSE": "Pause",
+    "DOCTOR": "Doctor",
+    "CLOCK_OUT": "Go home"
+  },
+  "attendanceSource": {
+    "SELF": "Self",
+    "MANAGER": "Manager",
+    "AUTO_SHIFT_CLOSE": "Auto shift close"
   },
   "agent": {
     "genericName": "Agent"
