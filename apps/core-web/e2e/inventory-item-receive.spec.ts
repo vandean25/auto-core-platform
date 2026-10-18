@@ -104,7 +104,7 @@ test.describe('Inventory item detail — receive flow (mocked)', () => {
     await page.getByRole('button', { name: DE_INVENTORY.actions.receive }).click()
     await page.getByRole('combobox').click()
     await page.getByRole('option', { name: 'Demo bin A1' }).click()
-    await page.getByLabel(DE_INVENTORY.dialogs.receiveStock.quantity).fill('2')
+    await page.getByRole('spinbutton', { name: DE_INVENTORY.dialogs.receiveStock.quantity }).fill('2')
     await page.getByRole('button', { name: DE_INVENTORY.dialogs.receiveStock.submit, exact: true }).click()
 
     await expect(page.getByRole('cell', { name: DE_INVENTORY_TRANSACTION.PURCHASE_RECEIPT })).toBeVisible()
