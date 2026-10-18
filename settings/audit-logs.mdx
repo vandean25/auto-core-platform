@@ -1,0 +1,77 @@
+---
+title: "Audit-Logs"
+description: "Nachlesen, wer einen Geschäftsdatensatz wann geändert hat und wie die Zeile vorher aussah."
+---
+
+Nutzen Sie Audit-Logs, wenn Preis, Status oder ein Stammdatenfeld nicht zur Erinnerung passt. Die Spur ist die Quelle der Wahrheit für *Änderungen*, keine Debug-Konsole.
+
+<Info>
+Audit-Einträge sind **nur anfügbar**. Es gibt keinen Löschen-Button. Sie können den Snapshot von gestern nicht nachträglich „aufräumen“.
+</Info>
+
+## Protokoll öffnen
+
+<Steps>
+  <Step title="Zu Einstellungen wechseln">
+    Klicken Sie auf das Zahnrad in der Kopfzeile. Einstellungen ist die Tab-Seite für Finanzen, Marken, Lagerorte und Audit.
+  </Step>
+  <Step title="Audit-Logs öffnen">
+    Tab **Audit-Logs** wählen. Die Tabelle listet aktuelle Mutationen nur für *Ihren Mandanten*.
+  </Step>
+  <Step title="Filtern, dann Zeile öffnen">
+    Auf **Änderung** oder **Löschung** eingrenzen. Suchen über Objekttyp, ID, E-Mail des Akteurs und Request-ID. Zeile (oder Auge) anklicken für das Detailpanel.
+  </Step>
+</Steps>
+
+## Eintrag lesen
+
+Die Liste beantwortet die erste Frage. Das Panel den Rest.
+
+| Spalte | Bedeutung |
+| --- | --- |
+| Zeitstempel | Wann der Server die Änderung committed hat |
+| Aktion | `UPDATE` oder `DELETE` (Anlagen sind nicht der Standard in der Spur) |
+| Objekttyp | Art des Datensatzes, z. B. `Invoice` oder `WorkshopTask` |
+| Objekt-ID | Die exakte Zeile |
+| Akteur | E-Mail des angemeldeten Benutzers oder `SYSTEM` / Skript bei Job-Schreibungen |
+| Geänderte Felder | Namen der Felder, die sich tatsächlich unterschieden haben |
+
+Im Panel:
+
+- **Differenz** — nur geänderte Felder, vorher vs. nachher
+- **Vorher** — die Zeile wie sie war
+- **Nachher** — die Zeile wie sie wurde (`Keine` bei Löschungen)
+- **Request-ID** — der HTTP-Aufruf mit der Mutation, nützlich wenn der Support einen Vorfall korreliert
+- **Geschwärzte Geheimnisfelder** — Passwörter, Tokens und Schlüssel werden vor dem Speichern des Snapshots entfernt. Geschäftsfelder (Preise, Mengen, Status, Namen) bleiben sichtbar, weil sie *Gegenstand* des Audits sind
+
+<Tabs>
+  <Tab title="Werkstatt und Büro">
+    Mechaniker oder Bürobenutzer hat Auftrag, Kunde oder Rechnung geändert. Akteurtyp ist `USER`. Starten Sie mit E-Mail und Zeitstempel, prüfen Sie dann, ob die Feldnamen zur Meldung passen.
+  </Tab>
+  <Tab title="Hintergrundjob">
+    Akteurtyp ist `SYSTEM`. Die Mutation gehört trotzdem zu Ihrem Mandanten. Nutzen Sie Request-ID und Objekt-ID im Support-Gespräch.
+  </Tab>
+  <Tab title="Löschung">
+    **Nachher** ist leer. **Vorher** ist der letzte bekannte Geschäftszustand. Löschen muss trotzdem die Produktregeln erfüllen; Audit entsperrt keine verbotene Löschung.
+  </Tab>
+</Tabs>
+
+## Was protokolliert wird
+
+ACP schreibt einen Audit-Eintrag pro betroffenem Geschäftsdatensatz bei **Änderung** und **Löschung**. Schreibung und Audit-Zeile werden gemeinsam committed. Eine erfolgreiche Bearbeitung ohne Spur gilt als Defekt.
+
+<AccordionGroup>
+  <Accordion title="Datensätze in der Spur">
+    Kunden, Lieferanten, Fahrzeuge, Katalogartikel, Marken, Lagerorte, Mitarbeiter, Arbeitsplätze, Arbeitskategorien und -sätze, Finanzeinstellungen, Erlösgruppen, Bestellungen und Eingangsrechnungen, Kundenaufträge, Rechnungen, Werkstattaufträge, Aufgaben, Positionen, Medien und Arbeitsbuchungen.
+  </Accordion>
+  <Accordion title="Was Sie nicht sehen">
+    Neue Anlagen (die angelegte Zeile *ist* der erste Zustand). Bestandsmengen-Historie liegt im Bestandsjournal, nicht hier. Serverfehler und API-Latenz stehen in [Runtime-Diagnose](/operations/runtime-diagnostics), nicht in dieser Tabelle. Daten anderer Mandanten erscheinen nie.
+  </Accordion>
+  <Accordion title="Geheimnisse">
+    Bekannte Geheimnisfelder werden vor dem Speichern der Snapshots ersetzt. Zeigt ein Datensatz ein Schwärzungs-Banner, waren diese Felder vorhanden und wurden absichtlich entfernt.
+  </Accordion>
+</AccordionGroup>
+
+<Warning>
+Mehr oder weniger ausführliche Betriebslogs **stoppen** die Audit-Erfassung nicht. Die Geschäftsspur bleibt aktiv, auch wenn der Server wenig loggt.
+</Warning>

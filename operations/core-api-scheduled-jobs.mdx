@@ -1,0 +1,32 @@
+---
+title: "core-api geplante Jobs"
+description: "Inventar der Nest-@Cron-Worker in core-api und wie die Deduplizierung bei mehreren Instanzen auf Cloud Run funktioniert."
+---
+
+core-api führt Hintergrund-Sweeps im Prozess über `@nestjs/schedule` aus. Auf Cloud Run können mehrere Instanzen gleichzeitig healthy sein; jeder Job nutzt daher eine **Postgres-Session-Advisory-Lock** mit dem stabilen Cron-`name`. Schlägt `pg_try_advisory_lock` fehl, überspringt diese Instanz den Tick und loggt einmal; der nächste Schedule-Zyklus übernimmt die Arbeit.
+
+Lock-Helfer: `SystemPrismaService.withCronJobLock(jobName, fn)` hält für den gesamten Sweep eine Verbindung aus dem gemeinsamen Runtime-`pg`-Pool, damit Session-Locks nicht fallen, während andere Queries den Pool nutzen (`apps/core-api/src/scheduler/cron-job-advisory-lock.ts`).
+
+## Inventar
+
+| Cron-`name` | Schedule | Service | Zweck |
+| --- | --- | --- | --- |
+| `autoscout24-dms-deactivation-retry` | Jede Minute | `Autoscout24DmsDeactivationRetryService` | Wiederholung von `DEACTIVATION_PENDING`-DMS-Sync-Zeilen für Fahrzeug-Inserate (env- und mandantenweiser Push-Flag-gated). |
+| `customer-consent-proof-purge` | `23 3 * * *` | `CustomerConsentRetentionService` | Abgelaufene Marketing-Einwilligungsnachweise pro Mandant löschen. |
+| `document-branding-extraction-recovery` | Jede Minute | `DocumentBrandingExtractionRecoveryService` | Hängende Logo-Extraktionen neu dispatchen und Retention-Cleanup. |
+| `document-branding-upload-recovery` | Jede Minute | `DocumentBrandingUploadRecoveryService` | Hängende Branding-Uploads erneut einreihen und abgelaufene Quarantäne-Assets purgen. |
+| `domain-event-consumer-recovery` | Jede Minute | `DomainEventConsumerRecoveryService` | Workshop-Estimate-Decided-Domain-Event-Consumer nachziehen. |
+| `hr-shift-close` | `59 23 * * *` | `HrAttendanceSchedulerService` | Nächtliches automatisches `CLOCK_OUT` für offene HR-Anwesenheitsschichten. |
+| `landing-demo-access-cleanup` | Täglich 03:00 | `LandingDemoAccessCleanupService` | Abgelaufene Demo-Mitgliedschaften und veraltete öffentliche Rate-Limit-Zähler deaktivieren. |
+| `mechanic-shift-close` | `59 23 * * *` | `MechanicSchedulerService` | Nächtliches automatisches Schließen offener Mechaniker-`LaborEntry`-Zeilen. |
+| `notification-outbox-recovery` | Jede Minute | `NotificationOutboxRecoveryService` | Veraltete Benachrichtigungen fehlschlagen lassen, abgelaufene Leases freigeben, fällige Outbox-Zeilen wecken. |
+| `notification-outbox-body-purge` | `17 3 * * *` | `NotificationOutboxRetentionService` | Terminal-Benachrichtigungsinhalte nach Retention leeren. |
+| `registration-intake-byte-purge` | Jede Minute | `RegistrationIntakeBytePurgeService` | Zulassungs-Intake-Seitenbytes nach Apply löschen (Outbox-Claim). |
+| `registration-intake-expiry` | Stündlich | `RegistrationIntakeExpiryService` | Nicht angewendete Zulassungs-Intakes nach TTL abbrechen. |
+| `workshop-check-in-orphan-upload-cleanup` | Jede Minute | `WorkshopCheckInOrphanUploadCleanupService` | Nicht verknüpfte Werkstatt-Annahme-Medien purgen (env-gated). |
+
+Es gibt heute keine `@Interval`-Scheduler in core-api.
+
+## Hinweise zur Idempotenz
+
+Mehrere Jobs tolerieren bereits einen doppelten Tick (bedingte Updates, Row-Claims oder `FOR UPDATE` pro Zeile). Der Advisory-Lock verhindert doppelte **vollständige Sweeps** über Instanzen; mandantenweite Effekte verlassen sich weiterhin auf die bestehenden Guards, wo in Feature-Specs vermerkt (z. B. Notification-Outbox-Claims und Registration-Intake-Byte-Purge).

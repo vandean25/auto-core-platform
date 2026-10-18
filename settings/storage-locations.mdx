@@ -1,0 +1,43 @@
+---
+title: "Lagerorte"
+description: "Lagerbaum aufbauen, damit Bestand einem Fach hat — nicht einem unklaren Stapel."
+---
+
+**Einstellungen → Lagerorte** benennt Lager und die darunter liegenden Gänge, Regale und Fächer. Bestandsmengen liegen auf Fächern, nicht auf diesem Bildschirm.
+
+Links: der Baum. Rechts: **Lagerort anlegen**.
+
+<Steps>
+  <Step title="Zuerst das Lager anlegen">
+    Typ **Lager**. Übergeordneter Ort ist fest **Keiner (Stamm)**.
+  </Step>
+  <Step title="Kinder darunter hängen">
+    Typ Gang, Regal oder Fach. **Übergeordneten Lagerort** wählen.
+  </Step>
+  <Step title="Eindeutigen Code vergeben">
+    Codes erscheinen als kleines Badge im Baum (Beispiel `WH-001`).
+  </Step>
+</Steps>
+
+## Lagerort anlegen
+
+| Feld | Regeln |
+| --- | --- |
+| **Name** | Pflicht. Beispiel: Hauptlager |
+| **Code (eindeutig)** | Pflicht |
+| **Typ** | Lager, Gang, Regal, Fach |
+| **Übergeordneter Lagerort** | Bei Lager deaktiviert. Sonst eine bestehende Zeile wählen |
+
+**Lagerort anlegen** steht unten auf der rechten Karte.
+
+## Baum
+
+Klicken Sie eine Zeile mit Kindern, um ein- oder auszuklappen. Bei Hover erscheint rechts ein rotes Papierkorbsymbol. Bestätigen Sie **{name} löschen?**
+
+<Warning>
+Löschen ist nur erlaubt, wenn der Ort **keine Kinder** und **keinen Bestand** hat. Die Servermeldung ist maßgeblich. Es wird soft-gelöscht; der Name soll nicht als aktives Fach zurückkommen.
+</Warning>
+
+<Accordion title="Typen, die Sie hier nicht wählen">
+Das Produkt kennt auch Kundenlager und Bereitstellungsboxen für Werkstattabläufe. Dieses Einstellungsformular legt nur Lager, Gang, Regal und Fach an.
+</Accordion>

@@ -1,0 +1,41 @@
+---
+title: "Sprachübersetzung"
+description: "Ausgabesprache und Google-Zugangsdaten für Sprachnotizen der Mechaniker festlegen."
+---
+
+**Einstellungen → Sprachübersetzung** sorgt dafür, dass eine in der Werkstatt gesprochene Notiz in der Sprache ankommt, die das Büro liest.
+
+Speichern: **Änderungen speichern** unten rechts auf der Karte. Toast: **Einstellungen zur Sprachübersetzung gespeichert**.
+
+<Steps>
+  <Step title="Tab öffnen">
+    Zahnrad → **Sprachübersetzung**.
+  </Step>
+  <Step title="Zielsprache wählen">
+    Das ist die Sprache, in die das Transkript übersetzt wird. Auf einem leeren Formular ist die Vorgabe Deutsch.
+  </Step>
+  <Step title="Google-Projekt-ID und Standort ausfüllen">
+    Projekt-ID ist Ihr Google-Cloud-Projekt. Standort ist standardmäßig `global`.
+  </Step>
+  <Step title="Dienstkonto-JSON nur bei Änderung einfügen">
+    Lassen Sie das Feld leer, um die auf dem Server hinterlegten Zugangsdaten zu behalten. Der Status unter dem Feld lautet **konfiguriert** oder **nicht konfiguriert**.
+  </Step>
+</Steps>
+
+## Felder
+
+| Steuerung | Funktion |
+| --- | --- |
+| **Zielsprache** | Deutsch, Englisch, Polnisch, Kroatisch, Serbisch, Bosnisch, Türkisch, Italienisch, Französisch, Spanisch, Tschechisch, Slowakisch, Ungarisch, Rumänisch, Ukrainisch |
+| **Google-Projekt-ID** | Cloud-Projekt für Speech / Translate |
+| **Google-Standort** | Regionaler Endpunkt, meist `global` |
+| **Google-Dienstkonto-JSON** | Schlüssel-JSON einfügen. Verschlüsselt gespeichert. Wird nie an den Browser zurückgegeben |
+| **Zugangsdaten anzeigen** | Checkbox. Deaktiviert zeigt das Feld beim Tippen eines neuen Schlüssels Punkte |
+
+<Warning>
+Wenn Zugangsdaten bereits **konfiguriert** sind und Sie neues JSON einfügen, fragt der Browser: **Die aktuell konfigurierten Google-Zugangsdaten überschreiben?** Mit Abbrechen bleibt der alte Schlüssel erhalten.
+</Warning>
+
+<Accordion title="Zusammenhang mit Mitarbeitern">
+Jeder Mitarbeiter kann unter [Mitarbeiter](/settings/employees) eine **Muttersprache** haben — die gesprochene Sprache. Die Zielsprache hier ist die schriftliche Ausgabe. Standard-Muttersprache bedeutet: „diese Zielsprache verwenden“.
+</Accordion>

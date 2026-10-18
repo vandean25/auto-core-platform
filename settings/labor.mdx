@@ -1,0 +1,42 @@
+---
+title: "Arbeit"
+description: "Arbeitskategorie-Baum aufbauen und den Standard-Stundensatz je Zweig festlegen."
+---
+
+**Einstellungen → Arbeit** verwaltet **Arbeitskategorien** — Motorreparatur versus Diagnose, über- und untergeordnete Kategorien, Standard-Stundensätze. Dieser Tab listet **keine** einzelnen Arbeitsvorgänge (Codes, AW-Zeiten, Verwendbarkeiten).
+
+Links: der Baum. Rechts: **Kategorie hinzufügen**. Hilfetext: Rechtsklick auf eine Zeile zum Löschen.
+
+<Steps>
+  <Step title="Kategorie auf oberster Ebene anlegen">
+    Name ist Pflicht. Übergeordnete Kategorie **Keine (oberste Ebene)**. Optionale Beschreibung, Standard-Stundensatz, Sortierreihenfolge. Schalter **Aktiv** im Formular. **Kategorie hinzufügen**.
+  </Step>
+  <Step title="Unterkategorie einordnen">
+    Übergeordnete Kategorie = eine bestehende Zeile der obersten Ebene.
+  </Step>
+  <Step title="Satz ohne Dialog anpassen">
+    Klicken Sie auf den Satz (mit Währungssymbol). Eingabe, Feld verlassen zum Speichern; Escape bricht ab.
+  </Step>
+</Steps>
+
+## Pro Zeile
+
+| Steuerung | Aktion |
+| --- | --- |
+| Griff | Nur **Geschwister** (gleiche übergeordnete Kategorie) per Drag & Drop umsortieren. Ablegen auf eine entfernte Kategorie hat keine Wirkung |
+| Chevron | Unterkategorien ein- / ausklappen |
+| Name | Öffnet **Kategorie bearbeiten** |
+| Satz | Inline-Stundensatz |
+| Aktiv / Inaktiv | Umschalten |
+| Stift (bei Hover) | Gleicher Bearbeitungsdialog |
+| Rechtsklick → Löschen | Bestätigung **Kategorie löschen** |
+
+Die Felder im Bearbeitungsdialog entsprechen dem Anlegeformular: Name, Beschreibung, übergeordnete Kategorie, Standard-Stundensatz, Sortierreihenfolge, aktiv.
+
+<Warning>
+Löschen ist blockiert, solange die Kategorie noch Arbeitsvorgänge oder Unterkategorien hat. Der Bestätigungstext warnt bei vorhandenen Kindern. Bei einem fehlgeschlagenen Löschen gilt die Servermeldung.
+</Warning>
+
+<Accordion title="Währungssymbol">
+Der Inline-Satz zeigt in der Oberfläche derzeit ein Baht-Symbol. Behandeln Sie es als „Stundensatz dieses Mandanten“, nicht als zweite Währungseinstellung. Auf diesem Tab gibt es keine Währungsauswahl.
+</Accordion>

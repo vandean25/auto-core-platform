@@ -1,0 +1,85 @@
+---
+title: "Runtime-Diagnose"
+description: "Server-Log-Ausführlichkeit für einen Vorfall erhöhen, ohne die geschäftliche Audit-Spur anzutasten."
+---
+
+Runtime-Diagnose richtet sich an Betreiber. Sie erklärt langsame Requests, fehlgeschlagene Jobs und WebSocket-Abbrüche. Sie ist **kein** Nachweis, wer eine Rechnung geändert hat.
+
+<Warning>
+Nur Plattform-Super-Admins können die Live-Log-Stufe ändern. Mandanten-Administratoren können das nicht. Laute Stufen laufen ab, damit die Produktion nicht dauerhaft auf `debug` bleibt.
+</Warning>
+
+## Zwei Systeme, zwei Aufgaben
+
+| | Audit-Logs | Runtime-Diagnose |
+| --- | --- | --- |
+| Wer | Werkstatt, Buchhaltung, Support | Plattform-Betreiber |
+| Wo | Einstellungen → Audit-Logs (Datenbank) | API-Stdout / Cloud-Log-Sink |
+| Frage | Wer hat diese Zeile geändert? | Warum ist dieser Request fehlgeschlagen? |
+| Aufbewahrung | Dauerhafte Geschäftsaufzeichnung | Infrastruktur-Aufbewahrung |
+| Bodies & Geheimnisse | Snapshots mit geschwärzten Geheimnissen | Request-Bodies werden nicht geloggt |
+
+## Aktuelle Stufe prüfen
+
+```http
+GET /api/admin/settings/log-level
+Authorization: Bearer <SUPER_ADMIN_JWT>
+```
+
+```json
+{
+  "currentLevel": "log",
+  "defaultLevel": "log"
+}
+```
+
+Boot-Standard kommt von `LOG_LEVEL`. Ungültige oder leere Werte fallen auf `log` zurück. Die Produktion startet nicht versehentlich mit `debug` oder `verbose`.
+
+## Ausführlichkeit für einen Vorfall erhöhen
+
+`debug` und `verbose` brauchen eine TTL (Standard 30 Minuten, maximal 24 Stunden). Nach Ablauf kehrt der Prozess zum Boot-Standard zurück.
+
+```http
+PATCH /api/admin/settings/log-level
+Authorization: Bearer <SUPER_ADMIN_JWT>
+Content-Type: application/json
+
+{
+  "level": "debug",
+  "durationMinutes": 30
+}
+```
+
+<Steps>
+  <Step title="Plattform-Super-Admin bestätigen">
+    Mandanten-Admin-Tokens erhalten `403`. Der Endpunkt ist absichtlich plattformweit.
+  </Step>
+  <Step title="Kurze TTL setzen">
+    Bevorzugen Sie 15–30 Minuten. `verbose` nur für die Untersuchung einer einzelnen Instanz, nicht einen ganzen Tag.
+  </Step>
+  <Step title="Sink nach Request-ID filtern">
+    Strukturierte Einträge enthalten `requestId`, `tenantId`, `actorId`, Methode, Pfad, Status und Dauer. Gleichen Sie diese `requestId` mit einem [Audit-Log](/settings/audit-logs)-Eintrag ab, wenn Mutation und Fehler im selben Aufruf passierten.
+  </Step>
+  <Step title="Override ablaufen lassen">
+    Lassen Sie `debug` nicht zur neuen Normalität werden. Das Produkt setzt automatisch zurück.
+  </Step>
+</Steps>
+
+## Wie ein Request-Log aussieht
+
+```json
+{
+  "type": "http_request",
+  "requestId": "550e8400-e29b-41d4-a716-446655440000",
+  "method": "POST",
+  "path": "/api/customers",
+  "statusCode": 201,
+  "durationMs": 42,
+  "tenantId": "tenant-uuid",
+  "actorId": "user-uuid"
+}
+```
+
+<Tip>
+Sie brauchen *was am Kunden geändert wurde*? Öffnen Sie Audit-Logs. Sie brauchen *warum der Request zwei Sekunden dauerte*? Bleiben Sie im Log-Sink.
+</Tip>

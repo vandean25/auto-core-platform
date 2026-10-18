@@ -1,0 +1,48 @@
+---
+title: "Mitarbeiter"
+description: "Werkstattliste pflegen und für Anwesenheit sowie Urlaub Personal öffnen."
+---
+
+**Einstellungen → Mitarbeiter** ist die Werkstattliste: Mechaniker, Serviceberater und Teileverkauf. Dieselbe Liste finden Sie unter [Personal](/hr). Das sind **keine** Anmeldekonten. Logins verwalten Sie unter [Team](/settings/team).
+
+Suchfeld: **Mitarbeiter suchen…** Oben rechts: **+ Mitarbeiter**.
+
+<Steps>
+  <Step title="Anlegen">
+    **+ Mitarbeiter** → **Mitarbeiter anlegen**. Name ist Pflicht. Rolle standardmäßig Mechaniker. Sortierreihenfolge muss eine ganze Zahl ≥ 0 sein.
+  </Step>
+  <Step title="In der Zeile bearbeiten">
+    Klicken Sie auf Name oder Sortierreihenfolge; beim Verlassen des Feldes wird gespeichert. Rolle und Muttersprache sind Dropdowns und werden beim Auswählen sofort gespeichert.
+  </Step>
+  <Step title="Aktiv / Inaktiv">
+    Mit **Aktiv** / **Inaktiv** schalten Sie die Zuweisungsfähigkeit um, ohne die Zeile zu entfernen.
+  </Step>
+  <Step title="Personal-Details öffnen">
+    Unter [Personal → Mitarbeiter](/hr#add-a-person) finden Sie Eintrittsdatum, Urlaubsanspruch in Minuten, Resturlaub in Minuten, Anmeldeverknüpfungen und **Übertrag dieses Jahr (Min.)**. Inhaber und Administratoren können dort den Urlaubssaldo speichern.
+  </Step>
+</Steps>
+
+## Spalten
+
+| Spalte | Änderung |
+| --- | --- |
+| **Name** | Inline-Bearbeitung |
+| **Rolle** | Mechaniker, Serviceberater, Teileverkauf |
+| **Muttersprache** | Standard (Zielsprache) oder eine gesprochene Locale, z. B. Deutsch (Deutschland) |
+| **Aktiv** | Umschaltknopf |
+| **Sortierreihenfolge** | Inline-Bearbeitung, ganze Zahl ≥ 0 |
+
+Rechtsklick auf eine Zeile → **Löschen**.
+
+<Tabs>
+  <Tab title="Unbenutzter Mitarbeiter">
+    Löschen kann die Zeile entfernen. Toast: **Mitarbeiter gelöscht**.
+  </Tab>
+  <Tab title="Auf einem Auftrag zugewiesen">
+    Löschen ist blockiert oder wird zu einer Deaktivierung. Toast: **Mitarbeiter deaktiviert**. Nutzen Sie lieber den Aktiv-Schalter, wenn die Person noch auf dem Board steht.
+  </Tab>
+</Tabs>
+
+<Tip>
+**Muttersprache** ist die gesprochene Sprache. **Zielsprache** unter [Sprachübersetzung](/settings/voice-translation) ist die Sprache, die das Büro liest. Lassen Sie die Muttersprache auf Standard, sofern die Person keine andere Sprache spricht. Für Anwesenheit und Urlaub nutzen Sie [Personal](/hr), nicht das Werkstatt-Board.
+</Tip>
