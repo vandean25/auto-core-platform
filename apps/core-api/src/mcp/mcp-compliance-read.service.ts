@@ -95,10 +95,7 @@ export class McpComplianceReadService {
     const pageSize = clampMcpPageSize(input.pageSize);
     const offset = offsetFromCursor(input.cursor);
 
-    if (
-      !input.due_for_swap &&
-      !(input.vehicle_id && !input.customer_id)
-    ) {
+    if (!input.due_for_swap && !(input.vehicle_id && !input.customer_id)) {
       const page = Math.floor(offset / pageSize) + 1;
       const listed = await this.tyreStorage.list({
         customerId: input.customer_id,
