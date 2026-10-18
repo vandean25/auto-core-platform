@@ -1,4 +1,3 @@
-/** Vehicle import ImportService characterization (split for repowise). */
 import {
   AuditLogAction,
   ImportEntityType,
