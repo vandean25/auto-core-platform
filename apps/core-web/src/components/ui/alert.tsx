@@ -43,15 +43,16 @@ interface AlertTitleProps extends React.HTMLAttributes<HTMLElement> {
 }
 
 const AlertTitle = React.forwardRef<HTMLElement, AlertTitleProps>(
-  ({ as: Heading = "h5", className, children, ...props }, ref) => (
-    <Heading
-      ref={ref}
-      className={cn("mb-1 font-medium leading-none tracking-tight", className)}
-      {...props}
-    >
-      {children}
-    </Heading>
-  )
+  ({ as: Heading = "h5", className, children, ...props }, ref) =>
+    React.createElement(
+      Heading,
+      {
+        ref,
+        className: cn("mb-1 font-medium leading-none tracking-tight", className),
+        ...props,
+      },
+      children,
+    ),
 )
 AlertTitle.displayName = "AlertTitle"
 
