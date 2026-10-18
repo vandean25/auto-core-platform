@@ -1,10 +1,8 @@
 import { UnprocessableEntityException } from '@nestjs/common';
 import type { AgentProposal } from '@prisma/client';
 import type { SiteContextService } from '../site/site-context.service.js';
-import {
-  isSiteBoundPendingAction,
-  readExecutionSiteId,
-} from './agent-proposal-payload.js';
+import { readExecutionSiteId } from './agent-proposal-payload.js';
+import { isSiteBoundPendingAction } from './site-bound-pending-actions.js';
 
 /** Workshop-order creation only applies in the site where it was simulated. */
 export async function assertSiteMatchesSimulation(
