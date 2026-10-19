@@ -5186,6 +5186,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/imports/canonical-migration/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Validate a canonical migration CSV bundle (manifest.json + CSV files + optional PDF assets) */
+        post: operations["CanonicalMigrationImportController_validateCanonicalMigration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -11419,6 +11436,18 @@ export interface components {
         LandingDemoAccessOkDto: {
             /** @example true */
             ok: boolean;
+        };
+        CanonicalMigrationValidationIssueDto: {
+            code: string;
+            message: string;
+            file?: string;
+            row?: number;
+            external_id?: string;
+            field?: string;
+        };
+        CanonicalMigrationValidateResponseDto: {
+            valid: boolean;
+            issues: components["schemas"]["CanonicalMigrationValidationIssueDto"][];
         };
     };
     responses: never;
@@ -21749,6 +21778,39 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    CanonicalMigrationImportController_validateCanonicalMigration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * Format: binary
+                     * @description manifest.json
+                     */
+                    manifest: string;
+                    /** @description CSV files listed in manifest.files */
+                    files?: string[];
+                    /** @description PDF assets listed in manifest.assets */
+                    assets?: string[];
+                };
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CanonicalMigrationValidateResponseDto"];
+                };
             };
         };
     };

@@ -44,6 +44,8 @@ import { parseImportUpload } from './import-upload.util.js';
 import { computeDryRunTotals } from './import-totals.util.js';
 import { buildTemplateCsv, getImportTemplate } from './import.templates.js';
 import type { ImportJobOptions, ImportJobTotals } from './import.types.js';
+import { parseMigrationManifestFromDryRunOptions } from './canonical-migration-import/canonical-migration-import.options.js';
+import { assertCanonicalMigrationUploadAllowed } from './migration-manifest-upload.guard.js';
 import { SupplierChunkedApplyRunner } from './supplier-price-list-apply.runner.js';
 import { SupplierPriceListImportHandler } from './supplier-price-list-import.handler.js';
 import { LaborOperationImportHandler } from './labor-operation-import.handler.js';
@@ -137,12 +139,16 @@ export class ImportService {
       tenantId,
     );
 
+    const options = normalizeImportOptions(params.optionsJson);
+    const migrationManifest = parseMigrationManifestFromDryRunOptions(
+      params.optionsJson,
+    );
+    assertCanonicalMigrationUploadAllowed(params.file, migrationManifest);
+
     const parsed = traceImportParse(params.entityType, () =>
       parseImportUpload(params.file),
     );
-    const options = normalizeImportOptions(params.optionsJson);
-    const handler =
-      this.handlers[params.entityType as ImplementedImportEntityType];
+    const handler = this.handlers[params.entityType];
     await handler.prepareCreate(tenantId, params.sourceSystem, options);
     const dryRunRows = await traceImportValidate(params.entityType, () =>
       handler.planDryRun(

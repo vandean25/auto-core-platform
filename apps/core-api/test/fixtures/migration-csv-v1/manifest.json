@@ -1,0 +1,43 @@
+{
+  "format_version": "1.1",
+  "source_name": "synthetic_dms",
+  "source_system": "synthetic_dms:synth_fixture",
+  "source_company_code": "synth_fixture",
+  "extracted_at": "2026-10-19T08:00:00Z",
+  "cutover_date": "2026-11-01",
+  "currency": "EUR",
+  "files": [
+    {
+      "name": "customers.csv",
+      "sha256": "eaf7657f9ab6b13373d31de0b203a4f3e26cfdd6acee6aee1eb564c7ebae3622",
+      "row_count": 8
+    },
+    {
+      "name": "vehicles.csv",
+      "sha256": "4bcff1cad4515cf4d24fd6972543d6b27d41471a9a9e3f285cbe2b397dd172e8",
+      "row_count": 6
+    }
+  ],
+  "assets": [],
+  "control_totals": {
+    "counts_by_type": {
+      "customers": 8,
+      "vehicles": 6
+    },
+    "stock_value": null,
+    "open_items": null,
+    "document_totals": [],
+    "domain_counts": {
+      "vehicle_parties": null,
+      "vehicle_due_dates": null,
+      "vehicle_notices": null,
+      "tyre_sets": null,
+      "open_orders": null,
+      "open_order_lines": null,
+      "legacy_documents": null,
+      "open_items": null
+    },
+    "open_orders_net": null,
+    "open_items_as_of": null
+  }
+}

@@ -1,6 +1,6 @@
 import './instrument.js';
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module.js';
+import { ApiRootModule } from './api-root.module.js';
 import {
   createGlobalValidationPipes,
   GlobalExceptionFilter,
@@ -25,7 +25,7 @@ async function bootstrap() {
   requireRuntimePooler(runtimeDatabaseUrlStatus);
 
   const observeTelemetry = isObserveTelemetryConfigured();
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create(ApiRootModule, {
     logger: LogLevelService.getInitialNestLogLevels(),
     routeConflictPolicy: {
       duplicate: 'warn',

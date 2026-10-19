@@ -1,4 +1,5 @@
 import type { SeedPrismaClient } from './types.js';
+import { seedCanonicalMigrationImportPresets } from './canonical-migration-import-presets.fixture.js';
 
 export const SAMPLE_CUSTOMERS_DATA = [
   {
@@ -160,6 +161,8 @@ export async function seedCustomersAndVehicles(
       }
     }
   }
+
+  await seedCanonicalMigrationImportPresets(prisma, tenantId);
 
   return {
     customers: createdCustomers,
