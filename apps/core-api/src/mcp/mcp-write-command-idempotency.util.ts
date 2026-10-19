@@ -1,20 +1,25 @@
 import { createHash } from 'node:crypto';
 const COMMAND_ID_FIELD = 'command_id';
+const DRY_RUN_FIELD = 'dry_run';
 
 export type ParsedMcpWriteInput = {
   commandId?: string;
+  dryRun: boolean;
   businessInput: Record<string, unknown>;
 };
 
 export function parseMcpWriteCommandInput(input: unknown): ParsedMcpWriteInput {
   if (!input || typeof input !== 'object' || Array.isArray(input)) {
-    return { businessInput: {} };
+    return { businessInput: {}, dryRun: false };
   }
   const record = { ...(input as Record<string, unknown>) };
   const commandId = record[COMMAND_ID_FIELD];
   delete record[COMMAND_ID_FIELD];
+  const dryRun = record[DRY_RUN_FIELD] === true;
+  delete record[DRY_RUN_FIELD];
   return {
     commandId: typeof commandId === 'string' ? commandId : undefined,
+    dryRun,
     businessInput: record,
   };
 }
@@ -24,9 +29,19 @@ export function fingerprintMcpWriteArgs(
   toolName: string,
   businessInput: unknown,
 ): string {
+  const args = stripDryRunField(businessInput);
   return createHash('sha256')
-    .update(canonicalize({ tool: toolName, args: businessInput }))
+    .update(canonicalize({ tool: toolName, args }))
     .digest('hex');
+}
+
+function stripDryRunField(value: unknown): unknown {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return value;
+  }
+  const record = { ...(value as Record<string, unknown>) };
+  delete record[DRY_RUN_FIELD];
+  return record;
 }
 
 function canonicalize(value: unknown): string {

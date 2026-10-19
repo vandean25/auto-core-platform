@@ -1,3 +1,4 @@
+import './workshop-estimate-send-propose.preview-install.js';
 import { Module, forwardRef } from '@nestjs/common';
 import { CommonModule } from '../common/index.js';
 import { InventoryModule } from '../inventory/inventory.module.js';
@@ -67,7 +68,6 @@ import { MechanicMcpModule } from '../mechanic/mechanic-mcp.module.js';
 import { McpWorkshopOrderDetailReadService } from '../mcp/mcp-workshop-order-detail.read.service.js';
 import { InspectionCatalogModule } from '../inspection-catalog/inspection-catalog.module.js';
 import { InspectionMeasurementModule } from '../inspection-measurement/inspection-measurement.module.js';
-
 @Module({
   imports: [
     PrismaModule,

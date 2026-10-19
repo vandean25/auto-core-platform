@@ -17,6 +17,7 @@ import { InvoiceWorkshopDraftProposeService } from '../invoices/invoice-workshop
 import { WorkshopEstimateSendProposeService } from '../workshop/workshop-estimate-send-propose.service.js';
 import { MechanicFindingProposeService } from '../mechanic/mechanic-finding-propose.service.js';
 import type { McpWriteExecution, McpWriteToolContext } from './mcp-write-pipeline.service.js';
+import { mcpWritePipelineMediaWeeklyTestProviders } from './mcp-write-weekly-report-pipeline.spec.support.js';
 import { toMcpJsonObject } from './mcp-output.util.js';
 import { mcpToolOutputSchemas } from './mcp-tool-output-schemas.js';
 
@@ -143,6 +144,7 @@ describe('McpWritePipelineService', () => {
           provide: WorkshopEstimateSendProposeService,
           useValue: { enrichInput: async (input: unknown) => input },
         },
+        ...mcpWritePipelineMediaWeeklyTestProviders(),
         {
           provide: MechanicFindingProposeService,
           useValue: {

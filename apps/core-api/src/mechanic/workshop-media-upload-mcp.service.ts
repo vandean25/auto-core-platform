@@ -25,6 +25,17 @@ export type WorkshopMediaUploadSlotResult = {
   expires_at: string;
 };
 
+export type WorkshopMediaUploadDryRunPreview = {
+  dry_run_preview: true;
+  workshop_task_id: string;
+  mime_type: string;
+  size_bytes: number;
+  media_id: string;
+  expires_at: string;
+  upload_url: null;
+  fields: Record<string, never>;
+};
+
 @Injectable()
 export class WorkshopMediaUploadMcpService {
   constructor(
@@ -34,9 +45,72 @@ export class WorkshopMediaUploadMcpService {
     private readonly mediaStorage: MechanicMediaStorage,
   ) {}
 
+  /** Validates task and mime/size only; does not persist media or mint GCS credentials. */
+  async previewUploadSlot(
+    input: RequestWorkshopMediaUploadInput,
+  ): Promise<WorkshopMediaUploadDryRunPreview> {
+    await this.assertUploadPreconditions(input);
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    return {
+      dry_run_preview: true,
+      workshop_task_id: input.workshop_task_id,
+      mime_type: input.mime_type,
+      size_bytes: input.size_bytes,
+      media_id: '00000000-0000-4000-8000-00000000d001',
+      expires_at: expiresAt,
+      upload_url: null,
+      fields: {},
+    };
+  }
+
   async createUploadSlot(
     input: RequestWorkshopMediaUploadInput,
   ): Promise<WorkshopMediaUploadSlotResult> {
+    const { tenantId, employee, task } = await this.resolveUploadContext(input);
+
+    const mimeType = input.mime_type as AllowedMediaMimeType;
+    const policy = await this.mediaStorage.generateUploadPolicy({
+      tenantId,
+      orderId: task.workshop_order_id,
+      taskId: task.id,
+      mimeType,
+      sizeBytes: input.size_bytes,
+    });
+
+    const media = await this.prisma.workshopMedia.create({
+      data: {
+        tenant_id: tenantId,
+        workshop_order_id: task.workshop_order_id,
+        workshop_task_id: task.id,
+        uploaded_by_employee_id: employee.id,
+        purpose: resolveMcpWorkshopMediaPurpose(input.purpose),
+        storage_bucket: policy.storageBucket,
+        storage_key: policy.storageKey,
+        url_strategy: WorkshopMediaUrlStrategy.SIGNED,
+        mime_type: input.mime_type,
+        size_bytes: input.size_bytes,
+      },
+      select: { id: true },
+    });
+
+    const expiresAt = policy.expiresAt.toISOString();
+    return {
+      id: media.id,
+      entityId: media.id,
+      media_id: media.id,
+      upload_url: policy.uploadUrl,
+      fields: policy.formFields,
+      expires_at: expiresAt,
+    };
+  }
+
+  private async assertUploadPreconditions(
+    input: RequestWorkshopMediaUploadInput,
+  ): Promise<void> {
+    await this.resolveUploadContext(input);
+  }
+
+  private async resolveUploadContext(input: RequestWorkshopMediaUploadInput) {
     assertMcpWorkshopMediaUploadDeclared(input.mime_type, input.size_bytes);
 
     const tenantId = await this.tenantContext.getTenantId();
@@ -88,40 +162,6 @@ export class WorkshopMediaUploadMcpService {
       );
     }
     assertOrderEditable(task.workshop_order);
-
-    const mimeType = input.mime_type as AllowedMediaMimeType;
-    const policy = await this.mediaStorage.generateUploadPolicy({
-      tenantId,
-      orderId: task.workshop_order_id,
-      taskId: task.id,
-      mimeType,
-      sizeBytes: input.size_bytes,
-    });
-
-    const media = await this.prisma.workshopMedia.create({
-      data: {
-        tenant_id: tenantId,
-        workshop_order_id: task.workshop_order_id,
-        workshop_task_id: task.id,
-        uploaded_by_employee_id: employee.id,
-        purpose: resolveMcpWorkshopMediaPurpose(input.purpose),
-        storage_bucket: policy.storageBucket,
-        storage_key: policy.storageKey,
-        url_strategy: WorkshopMediaUrlStrategy.SIGNED,
-        mime_type: input.mime_type,
-        size_bytes: input.size_bytes,
-      },
-      select: { id: true },
-    });
-
-    const expiresAt = policy.expiresAt.toISOString();
-    return {
-      id: media.id,
-      entityId: media.id,
-      media_id: media.id,
-      upload_url: policy.uploadUrl,
-      fields: policy.formFields,
-      expires_at: expiresAt,
-    };
+    return { tenantId, employee, task };
   }
 }
