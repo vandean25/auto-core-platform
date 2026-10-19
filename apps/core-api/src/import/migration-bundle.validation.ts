@@ -1,4 +1,7 @@
-import { MIGRATION_CSV_FILE_SPECS, type MigrationCsvFileName } from './migration-csv-dictionary.js';
+import {
+  MIGRATION_CSV_FILE_SPECS,
+  type MigrationCsvFileName,
+} from './migration-csv-dictionary.js';
 import { validateMigrationCsvFile } from './migration-csv-file.validation.js';
 import { validateMigrationBundleControlTotals } from './migration-bundle.control-totals.validation.js';
 import {
@@ -45,9 +48,19 @@ export function validateMigrationBundle(
   }
 
   validateMigrationSourceSystem(manifest, issues);
-  validateMigrationBundleFileSet(manifest, input.files, issues, allowPartialFiles);
+  validateMigrationBundleFileSet(
+    manifest,
+    input.files,
+    issues,
+    allowPartialFiles,
+  );
   validateMigrationReservedFilesForVersion(manifest, issues);
-  validateMigrationBundleControlTotals(manifest, input.files, issues, allowPartialFiles);
+  validateMigrationBundleControlTotals(
+    manifest,
+    input.files,
+    issues,
+    allowPartialFiles,
+  );
   validateMigrationManifestReconciliationV11(
     manifest,
     input.files,

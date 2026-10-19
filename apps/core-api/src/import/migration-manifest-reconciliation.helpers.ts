@@ -1,7 +1,4 @@
-import {
-  MIGRATION_CSV_FILE_SPECS,
-  type MigrationCsvFileName,
-} from './migration-csv-dictionary.js';
+import { MIGRATION_CSV_FILE_SPECS } from './migration-csv-dictionary.js';
 import {
   formatMoneyFromCents,
   tryParseMoneyToCents,
@@ -108,7 +105,7 @@ export function manifestCountsByTypeKeys(
 ): Set<string> {
   return new Set(
     manifest.files.map(
-      (entry) => MIGRATION_CSV_FILE_SPECS[entry.name as MigrationCsvFileName].countsKey,
+      (entry) => MIGRATION_CSV_FILE_SPECS[entry.name].countsKey,
     ),
   );
 }
