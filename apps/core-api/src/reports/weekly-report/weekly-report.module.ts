@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { CommonModule } from '../../common/common.module.js';
 import { PrismaModule } from '../../prisma/prisma.module.js';
 import { SiteModule } from '../../site/site.module.js';
@@ -11,12 +11,7 @@ import { PublicRateLimitStore } from '../../landing-demo-access/public-rate-limi
 import { WeeklyReportRateLimitService } from './weekly-report-rate-limit.service.js';
 
 @Module({
-  imports: [
-    PrismaModule,
-    CommonModule,
-    SiteModule,
-    forwardRef(() => WorkshopModule),
-  ],
+  imports: [PrismaModule, CommonModule, SiteModule, WorkshopModule],
   providers: [
     WeeklyReportDataService,
     WeeklyReportPdfRenderer,

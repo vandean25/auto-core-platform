@@ -16,9 +16,8 @@ import { WorkshopOrderCompletionService } from '../workshop/workshop-order-compl
 import { InvoiceWorkshopDraftProposeService } from '../invoices/invoice-workshop-draft-propose.service.js';
 import { WorkshopEstimateSendProposeService } from '../workshop/workshop-estimate-send-propose.service.js';
 import { MechanicFindingProposeService } from '../mechanic/mechanic-finding-propose.service.js';
-import { WorkshopMediaUploadMcpService } from '../mechanic/workshop-media-upload-mcp.service.js';
-import { WeeklyReportMcpService } from '../reports/weekly-report/weekly-report-mcp.service.js';
 import type { McpWriteExecution, McpWriteToolContext } from './mcp-write-pipeline.service.js';
+import { mcpWritePipelineMediaWeeklyTestProviders } from './mcp-write-weekly-report-pipeline.spec.support.js';
 import { toMcpJsonObject } from './mcp-output.util.js';
 import { mcpToolOutputSchemas } from './mcp-tool-output-schemas.js';
 
@@ -145,21 +144,7 @@ describe('McpWritePipelineService', () => {
           provide: WorkshopEstimateSendProposeService,
           useValue: { enrichInput: async (input: unknown) => input },
         },
-        {
-          provide: WorkshopMediaUploadMcpService,
-          useValue: {
-            previewUploadSlot: jest.fn(),
-            createUploadSlot: jest.fn(),
-          },
-        },
-        {
-          provide: WeeklyReportMcpService,
-          useValue: {
-            preview: jest.fn(),
-            execute: jest.fn(),
-            refreshReplayResult: jest.fn(),
-          },
-        },
+        ...mcpWritePipelineMediaWeeklyTestProviders(),
         {
           provide: MechanicFindingProposeService,
           useValue: {

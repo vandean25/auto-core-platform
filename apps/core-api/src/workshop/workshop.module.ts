@@ -68,8 +68,6 @@ import { MechanicMcpModule } from '../mechanic/mechanic-mcp.module.js';
 import { McpWorkshopOrderDetailReadService } from '../mcp/mcp-workshop-order-detail.read.service.js';
 import { InspectionCatalogModule } from '../inspection-catalog/inspection-catalog.module.js';
 import { InspectionMeasurementModule } from '../inspection-measurement/inspection-measurement.module.js';
-import { WeeklyReportModule } from '../reports/weekly-report/weekly-report.module.js';
-
 @Module({
   imports: [
     PrismaModule,
@@ -88,7 +86,6 @@ import { WeeklyReportModule } from '../reports/weekly-report/weekly-report.modul
     AuditModule,
     forwardRef(() => RegistrationIntakeModule),
     MechanicMcpModule,
-    forwardRef(() => WeeklyReportModule),
   ],
   controllers: [
     PublicEstimateApprovalController,
@@ -161,7 +158,6 @@ import { WeeklyReportModule } from '../reports/weekly-report/weekly-report.modul
     WorkshopEstimateDecisionTriageService,
     WorkshopMechanicFindingService,
     MechanicMcpModule,
-    forwardRef(() => WeeklyReportModule),
     McpWorkshopOrderDetailReadService,
   ],
 })
