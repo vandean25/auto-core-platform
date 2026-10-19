@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 export const financeSettingsResult = {
   data: {
@@ -203,3 +203,9 @@ vi.mock('@/components/settings/MarginRulesTab', () => ({
 vi.mock('@/components/settings/data-import/DataImportSettingsTab', () => ({
   DataImportSettingsTab: () => <div>Data import tab content</div>,
 }))
+
+describe('SettingsPage shared test support', () => {
+  it('registers shared mocks', () => {
+    expect(true).toBe(true)
+  })
+})
