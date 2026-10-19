@@ -7,10 +7,8 @@ import { PdfStorage } from '../src/common/pdf/pdf-storage.js';
 import { MechanicMediaStorage } from '../src/mechanic/mechanic-media.storage.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { AuthService } from '../src/auth/auth.service.js';
-import {
-  MCP_COMPLIANCE_READ_TOOL_NAMES,
-  MCP_TOOL_NAMES_WITH_COMPLIANCE,
-} from '../src/mcp/mcp-read-tool-catalog.aut605.js';
+import { MCP_COMPLIANCE_READ_TOOL_NAMES } from '../src/mcp/mcp-read-tool-catalog.aut605.js';
+import { MCP_TOOL_NAMES_WITH_WAVE2 } from '../src/mcp/mcp-read-wave2-catalog.js';
 import {
   cleanupTestTenantGraph,
   createTenantAwarePrisma,
@@ -128,7 +126,7 @@ describe('MCP compliance read tools (e2e)', () => {
     );
     const tools = await client.listTools();
     const toolNames = tools.tools.map((tool) => tool.name);
-    expect(toolNames.sort()).toEqual([...MCP_TOOL_NAMES_WITH_COMPLIANCE].sort());
+    expect(toolNames.sort()).toEqual([...MCP_TOOL_NAMES_WITH_WAVE2].sort());
     for (const name of MCP_COMPLIANCE_READ_TOOL_NAMES) {
       expect(toolNames).toContain(name);
     }
