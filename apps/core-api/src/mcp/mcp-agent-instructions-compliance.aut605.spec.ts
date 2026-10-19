@@ -1,9 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { MCP_WRITE_TOOL_NAMES } from './mcp.constants.js';
-import {
-  MCP_READ_TOOL_NAMES_WITH_COMPLIANCE,
-  MCP_TOOL_NAMES_WITH_COMPLIANCE,
-} from './mcp-read-tool-catalog.aut605.js';
+import { MCP_READ_TOOL_NAMES_WITH_COMPLIANCE } from './mcp-read-tool-catalog.aut605.js';
+import { MCP_TOOL_NAMES_WITH_WAVE2 } from './mcp-read-wave2-catalog.js';
 
 function readMarkdownTableNames(
   markdown: string,
@@ -79,10 +77,7 @@ describe('MCP agent instructions (AUT-605 compliance reads)', () => {
       'utf8',
     );
     expect(() =>
-      assertToolCatalogMatchesRegistry(
-        instructions,
-        MCP_TOOL_NAMES_WITH_COMPLIANCE,
-      ),
+      assertToolCatalogMatchesRegistry(instructions, MCP_TOOL_NAMES_WITH_WAVE2),
     ).not.toThrow();
   });
 

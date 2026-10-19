@@ -10,9 +10,9 @@ import {
   MCP_AGENT_FACING_CODES,
   MCP_NEVER_EXPOSED_ACTIONS,
   MCP_READ_TOOL_NAMES,
-  MCP_TOOL_NAMES,
   MCP_WRITE_TOOL_NAMES,
 } from './mcp.constants.js';
+import { MCP_TOOL_NAMES_WITH_WAVE2 } from './mcp-read-wave2-catalog.js';
 import {
   draftWorkshopOrderInputSchema,
   reservePartInputSchema,
@@ -57,6 +57,8 @@ const APPROVED_PRODUCT_OR_FICTIONAL_NAMES = new Set([
   'Model Context Protocol',
   'Musterwerkstatt Nord',
   'Werkstatt Donau',
+  'Welche Leihwagen',
+  'Welche KVAs',
 ]);
 
 function readMarkdownTableNames(
@@ -90,11 +92,22 @@ function readTableNames(markdown: string, heading: string): string[] {
   );
 }
 
+function readTableNamesIfPresent(markdown: string, heading: string): string[] {
+  try {
+    return readTableNames(markdown, heading);
+  } catch {
+    return [];
+  }
+}
+
 function findToolDrift(
   markdown: string,
   registeredTools: readonly string[],
 ): ToolDrift {
-  const documentedTools = readTableNames(markdown, 'Tool catalog');
+  const documentedTools = [
+    ...readTableNames(markdown, 'Tool catalog'),
+    ...readTableNamesIfPresent(markdown, 'Compliance read tools'),
+  ];
   const registeredToolSet = new Set(registeredTools);
   const documentedToolSet = new Set(documentedTools);
 
@@ -182,7 +195,7 @@ describe('MCP agent-facing instructions', () => {
     );
 
     expect(() =>
-      assertToolTableMatchesRegistry(instructions, MCP_TOOL_NAMES),
+      assertToolTableMatchesRegistry(instructions, MCP_TOOL_NAMES_WITH_WAVE2),
     ).not.toThrow();
   });
 
