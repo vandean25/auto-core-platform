@@ -117,11 +117,10 @@ describe('listSiteEstimateVersionsPage', () => {
     );
 
     expect(first.rows).toHaveLength(2);
-    expect(
-      first.rows.every(
-        (row) => effectiveEstimateStatus(row, NOW) === WorkshopEstimateStatus.SENT,
-      ),
-    ).toBe(true);
+    expect(first.rows.map((row) => row.id)).toEqual([
+      '00000000-0000-4000-8000-000000000010',
+      '00000000-0000-4000-8000-000000000011',
+    ]);
 
     const second = await listSiteEstimateVersionsPage(
       prisma,
@@ -135,13 +134,14 @@ describe('listSiteEstimateVersionsPage', () => {
       NOW,
     );
 
-    expect(second.rows.length).toBeGreaterThan(0);
+    expect(second.rows.map((row) => row.id)).toEqual([
+      '00000000-0000-4000-8000-000000000012',
+    ]);
     expect(
       second.rows.every(
         (row) => effectiveEstimateStatus(row, NOW) === WorkshopEstimateStatus.SENT,
       ),
     ).toBe(true);
-    expect(second.rows.some((row) => row.id.endsWith('13'))).toBe(false);
   });
 
   it('keeps EXPIRED status filter on page 2', async () => {
@@ -185,6 +185,10 @@ describe('listSiteEstimateVersionsPage', () => {
       NOW,
     );
 
+    expect(first.rows.map((row) => row.id)).toEqual([
+      '00000000-0000-4000-8000-000000000020',
+    ]);
+
     const second = await listSiteEstimateVersionsPage(
       prisma,
       SCOPE,
@@ -197,13 +201,15 @@ describe('listSiteEstimateVersionsPage', () => {
       NOW,
     );
 
+    expect(second.rows.map((row) => row.id)).toEqual([
+      '00000000-0000-4000-8000-000000000021',
+    ]);
     expect(
       [...first.rows, ...second.rows].every(
         (row) =>
           effectiveEstimateStatus(row, NOW) === WorkshopEstimateStatus.EXPIRED,
       ),
     ).toBe(true);
-    expect(second.rows.some((row) => row.id.endsWith('22'))).toBe(false);
   });
 
   it('returns a row when the workshop order has no customer', async () => {

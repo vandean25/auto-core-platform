@@ -45,6 +45,9 @@ function matchesSingleClause(
   if (clause.estimate?.site_id && row.estimate.site_id !== clause.estimate.site_id) {
     return false;
   }
+  if ('sent_at' in clause && clause.sent_at === null && clause.id === undefined) {
+    return row.sent_at === null;
+  }
   if (clause.sent_at?.gte) {
     if (!row.sent_at || row.sent_at.getTime() < clause.sent_at.gte.getTime()) {
       return false;
