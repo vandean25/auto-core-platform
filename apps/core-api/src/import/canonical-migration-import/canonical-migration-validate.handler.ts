@@ -1,10 +1,10 @@
 import { BadRequestException } from '@nestjs/common';
-import type { ImportService } from './import.service.js';
-import { MIGRATION_MANIFEST_ERROR_CODES } from './migration-manifest.errors.js';
-import { parseMigrationManifestJson } from './migration-manifest.validator.js';
+import type { CanonicalMigrationBundleService } from './canonical-migration-bundle.service.js';
+import { MIGRATION_MANIFEST_ERROR_CODES } from '../migration-manifest.errors.js';
+import { parseMigrationManifestJson } from '../migration-manifest.validator.js';
 
 export function validateCanonicalMigrationUpload(
-  importService: ImportService,
+  bundleService: CanonicalMigrationBundleService,
   uploads: {
     manifest?: Express.Multer.File[];
     files?: Express.Multer.File[];
@@ -24,5 +24,5 @@ export function validateCanonicalMigrationUpload(
       files[file.originalname] = file.buffer;
     }
   }
-  return importService.validateCanonicalMigrationBundle({ manifest, files });
+  return bundleService.validateBundle({ manifest, files });
 }

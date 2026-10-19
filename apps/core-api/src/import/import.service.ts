@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ImportEntityType, ImportRowAction, Prisma } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { RequestContextService } from '../common/services/request-context.service.js';
@@ -40,12 +40,8 @@ import { parseImportUpload } from './import-upload.util.js';
 import { computeDryRunTotals } from './import-totals.util.js';
 import { buildTemplateCsv, getImportTemplate } from './import.templates.js';
 import type { ImportJobOptions, ImportJobTotals } from './import.types.js';
+import { parseMigrationManifestFromDryRunOptions } from './canonical-migration-import/canonical-migration-import.options.js';
 import { assertCanonicalMigrationUploadAllowed } from './migration-manifest-upload.guard.js';
-import {
-  validateMigrationBundle,
-  type MigrationManifest,
-} from './migration-manifest.validator.js';
-import { MIGRATION_MANIFEST_ERROR_CODES } from './migration-manifest.errors.js';
 import { SupplierChunkedApplyRunner } from './supplier-price-list-apply.runner.js';
 import { SupplierPriceListImportHandler } from './supplier-price-list-import.handler.js';
 import { LaborOperationImportHandler } from './labor-operation-import.handler.js';
@@ -136,7 +132,10 @@ export class ImportService {
     );
 
     const options = normalizeImportOptions(params.optionsJson);
-    assertCanonicalMigrationUploadAllowed(params.file, options);
+    const migrationManifest = parseMigrationManifestFromDryRunOptions(
+      params.optionsJson,
+    );
+    assertCanonicalMigrationUploadAllowed(params.file, migrationManifest);
 
     const parsed = traceImportParse(params.entityType, () =>
       parseImportUpload(params.file),
@@ -295,26 +294,5 @@ export class ImportService {
       fields: template.fields,
       csv: buildTemplateCsv(entityType),
     };
-  }
-
-  validateCanonicalMigrationBundle(params: {
-    manifest: MigrationManifest;
-    files: Record<string, Buffer>;
-  }) {
-    assertTenantAdmin(this.tenantContext);
-    const issues = validateMigrationBundle({
-      manifest: params.manifest,
-      files: params.files,
-    });
-    if (issues.length > 0) {
-      throw new BadRequestException({
-        code:
-          issues[0]?.code ??
-          MIGRATION_MANIFEST_ERROR_CODES.MIGRATION_MANIFEST_SCHEMA_INVALID,
-        message: issues[0]?.message ?? 'Migration bundle validation failed',
-        issues,
-      });
-    }
-    return { valid: true, issues: [] as const };
   }
 }

@@ -14795,21 +14795,6 @@
         ]
       }
     },
-    "/api/imports/canonical-migration/validate": {
-      "post": {
-        "operationId": "CanonicalMigrationImportController_validateCanonicalMigration",
-        "parameters": [],
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "summary": "Validate a canonical migration CSV bundle (manifest.json + CSV files)",
-        "tags": [
-          "imports"
-        ]
-      }
-    },
     "/api/tyre-sets/settings": {
       "get": {
         "operationId": "TyreStorageController_getSettings",
@@ -16611,6 +16596,21 @@
         "summary": "Request self-service demo access (landing page form)",
         "tags": [
           "public-landing-demo"
+        ]
+      }
+    },
+    "/api/imports/canonical-migration/validate": {
+      "post": {
+        "operationId": "CanonicalMigrationImportController_validateCanonicalMigration",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Validate a canonical migration CSV bundle (manifest.json + CSV files)",
+        "tags": [
+          "imports"
         ]
       }
     }

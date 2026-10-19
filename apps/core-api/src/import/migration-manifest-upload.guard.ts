@@ -1,26 +1,22 @@
 import { BadRequestException } from '@nestjs/common';
 import type { Express } from 'express';
+import type { MigrationManifest } from './migration-manifest.types.js';
 import { MIGRATION_MANIFEST_ERROR_CODES } from './migration-manifest.errors.js';
-import type { ImportJobOptions } from './import.types.js';
-import {
-  validateMigrationBundle,
-  type MigrationManifest,
-} from './migration-manifest.validator.js';
+import { validateMigrationBundle } from './migration-manifest.validator.js';
 
 export function assertCanonicalMigrationUploadAllowed(
   file: Express.Multer.File,
-  options: ImportJobOptions,
+  migrationManifest: MigrationManifest | undefined,
 ): void {
-  if (!options.migration_manifest) {
+  if (!migrationManifest) {
     return;
   }
-  const manifest = options.migration_manifest as MigrationManifest;
   const fileName = file.originalname?.trim();
   if (!fileName || !file.buffer) {
     return;
   }
   const issues = validateMigrationBundle({
-    manifest,
+    manifest: migrationManifest,
     files: { [fileName]: file.buffer },
     allowPartialFiles: true,
   });

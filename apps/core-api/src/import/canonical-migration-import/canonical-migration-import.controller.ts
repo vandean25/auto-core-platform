@@ -6,13 +6,15 @@ import {
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { CanonicalMigrationBundleService } from './canonical-migration-bundle.service.js';
 import { validateCanonicalMigrationUpload } from './canonical-migration-validate.handler.js';
-import { ImportService } from './import.service.js';
 
 @ApiTags('imports')
 @Controller('imports')
 export class CanonicalMigrationImportController {
-  constructor(private readonly importService: ImportService) {}
+  constructor(
+    private readonly bundleService: CanonicalMigrationBundleService,
+  ) {}
 
   @Post('canonical-migration/validate')
   @UseInterceptors(
@@ -33,6 +35,6 @@ export class CanonicalMigrationImportController {
       files?: Express.Multer.File[];
     },
   ) {
-    return validateCanonicalMigrationUpload(this.importService, uploads);
+    return validateCanonicalMigrationUpload(this.bundleService, uploads);
   }
 }

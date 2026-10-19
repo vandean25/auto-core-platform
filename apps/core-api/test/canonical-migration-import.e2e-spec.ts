@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { AppModule } from '../src/app.module.js';
+import { ApiRootModule } from '../src/api-root.module.js';
 import { createGlobalValidationPipe } from '../src/common/index.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { AuthService } from '../src/auth/auth.service.js';
@@ -33,7 +33,7 @@ describe('Canonical migration CSV import (e2e)', () => {
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
+      imports: [ApiRootModule],
     }).compile();
 
     app = moduleFixture.createNestApplication();
