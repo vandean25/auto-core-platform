@@ -243,6 +243,9 @@ export class WorkshopOrderResponseDto extends DryRunMetaDto {
       'Ready-for-pickup email state when the order is COMPLETED (AUT-357). Null while the job is still open.',
   })
   ready_email_notice?: WorkshopReadyEmailNoticeDto | null;
+
+  @ApiProperty({ type: String, required: false, nullable: true })
+  bill_to_customer_id?: string | null;
 }
 
 export class WorkshopPaginatedResponseDto {
