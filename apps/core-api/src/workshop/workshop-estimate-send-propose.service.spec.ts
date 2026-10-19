@@ -10,10 +10,17 @@ describe('WorkshopEstimateSendProposeService enrichInput', () => {
   const mockEstimates = {
     createDraft: jest.fn(),
     createRevision: jest.fn(),
+    sendVersion: jest.fn(),
   };
 
   const service = new WorkshopEstimateSendProposeService(
     {
+      user: {
+        findUnique: jest.fn().mockResolvedValue({ id: 'user-1' }),
+      },
+      tenantMember: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'member-1' }),
+      },
       site: {
         findFirst: jest.fn().mockResolvedValue({ id: SITE_ID }),
       },
@@ -53,7 +60,10 @@ describe('WorkshopEstimateSendProposeService enrichInput', () => {
     } as never,
     {
       getTenantId: jest.fn().mockResolvedValue(TENANT_ID),
-      getAuthenticatedUser: jest.fn().mockReturnValue({ role: 'ADMIN' }),
+      getAuthenticatedUser: jest.fn().mockReturnValue({
+        role: 'ADMIN',
+        userId: 'firebase-uid-1',
+      }),
     } as never,
     {
       getSiteId: jest.fn().mockResolvedValue(SITE_ID),
