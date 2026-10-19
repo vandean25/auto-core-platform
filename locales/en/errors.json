@@ -250,6 +250,7 @@
     "MESSAGE_INCOMPLETE": "The outbox row has no sender name, subject or body",
     "MESSAGE_INVALID": "The outbox row has a value that is unsafe in an email header",
     "MIGRATION_CONTROL_TOTAL_MISMATCH": "Migration control total mismatch.",
+    "MIGRATION_CONTROL_TOTAL_NOT_RECONCILED": "Migration control total not reconciled.",
     "MIGRATION_DUPLICATE_FILE_NAME": "Migration duplicate file name.",
     "MIGRATION_EXTRA_BUNDLE_FILE": "Migration extra bundle file.",
     "MIGRATION_FILE_HASH_MISMATCH": "Migration file hash mismatch.",

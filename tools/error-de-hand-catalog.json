@@ -239,6 +239,7 @@
   "MESSAGE_INCOMPLETE": "Der Nachricht fehlen Absendername, Betreff oder Text.",
   "MESSAGE_INVALID": "Die Nachricht enthält ungültige Zeichen und kann nicht versendet werden.",
   "MIGRATION_CONTROL_TOTAL_MISMATCH": "Die Kontrollsummen in der Migrations-Manifestdatei stimmen nicht mit den CSV-Dateien überein.",
+  "MIGRATION_CONTROL_TOTAL_NOT_RECONCILED": "Die Kontrollsummen können erst abgeglichen werden, wenn alle dafür erforderlichen CSV-Dateien im Upload enthalten sind.",
   "MIGRATION_DUPLICATE_FILE_NAME": "Die Manifestdatei listet denselben CSV-Dateinamen mehrfach.",
   "MIGRATION_EXTRA_BUNDLE_FILE": "Das Paket enthält eine CSV-Datei, die nicht im Manifest aufgeführt ist.",
   "MIGRATION_FILE_HASH_MISMATCH": "Die Prüfsumme einer CSV-Datei stimmt nicht mit dem Manifest überein.",
