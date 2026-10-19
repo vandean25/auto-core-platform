@@ -1,6 +1,4 @@
-import {
-  computeMigrationStockValue,
-} from './migration-manifest-csv.validation.js';
+import { computeMigrationStockValue } from './migration-stock-value.util.js';
 import {
   headerOnlyCanonicalCsvBytes,
   parseCanonicalMigrationCsv,
