@@ -24339,6 +24339,18 @@
             "type": "string",
             "nullable": true
           },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "bill_to_customer_id": {
+            "type": "string",
+            "nullable": true
+          },
           "customer": {
             "nullable": true,
             "type": "object",
@@ -24369,14 +24381,6 @@
               }
             ]
           },
-          "createdAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "updatedAt": {
-            "format": "date-time",
-            "type": "string"
-          },
           "ready_email_notice": {
             "nullable": true,
             "description": "Ready-for-pickup email state when the order is COMPLETED (AUT-357). Null while the job is still open.",
@@ -24386,10 +24390,6 @@
                 "$ref": "#/components/schemas/WorkshopReadyEmailNoticeDto"
               }
             ]
-          },
-          "bill_to_customer_id": {
-            "type": "string",
-            "nullable": true
           }
         },
         "required": [
@@ -24400,10 +24400,10 @@
           "vehicle_id",
           "odometer",
           "fuel_level",
-          "vehicle",
-          "tasks",
           "createdAt",
-          "updatedAt"
+          "updatedAt",
+          "vehicle",
+          "tasks"
         ]
       },
       "UpdateWorkshopOrderDto": {
