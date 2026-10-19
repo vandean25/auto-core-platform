@@ -154,6 +154,11 @@ describe('listSiteEstimateVersionsPage', () => {
         new Date('2026-10-20T10:00:00.000Z'),
       ),
       estimateRow(
+        '00000000-0000-4000-8000-000000000024',
+        WorkshopEstimateStatus.SENT,
+        new Date('2026-10-19T14:00:00.000Z'),
+      ),
+      estimateRow(
         '00000000-0000-4000-8000-000000000021',
         WorkshopEstimateStatus.SENT,
         new Date('2026-10-19T10:00:00.000Z'),
