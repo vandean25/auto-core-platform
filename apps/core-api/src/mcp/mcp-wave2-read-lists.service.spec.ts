@@ -1,6 +1,6 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { LoanerBookingStatus, WorkshopEstimateStatus } from '@prisma/client';
-import { McpWave2ReadListsService } from './mcp-wave2-read-lists.service.js';
+import { McpWave2ReadListsService } from './mcp-wave2-read-lists.service.support.js';
 import { paginateCommunications } from './mcp-wave2-read.mapper.js';
 
 const ORDER_ID = '00000000-0000-4000-8000-0000000000e1';

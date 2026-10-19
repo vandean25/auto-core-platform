@@ -1,15 +1,15 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import type { z } from 'zod';
 import { getLoanerNow } from '../loaner-vehicles/loaner-clock.js';
 import type { LoanerBookingResponse } from '../loaner-vehicles/loaner.mapper.js';
-import type { LoanerVehiclesService } from '../loaner-vehicles/loaner-vehicles.service.js';
-import type { HrStaffAvailabilityService } from '../hr/hr-staff-availability.service.js';
-import type { WorkshopCheckInService } from '../workshop/workshop-check-in.service.js';
-import type { WorkshopCheckInMediaService } from '../workshop/workshop-check-in-media.service.js';
-import type { WorkshopEstimateService } from '../workshop/workshop-estimate.service.js';
-import type { WorkshopEstimateSiteVersionListService } from '../workshop/workshop-estimate-site-version-list.service.js';
-import type { WorkshopInspectionService } from '../workshop/workshop-inspection.service.js';
-import type { SiteContextService } from '../site/site-context.service.js';
+import { LoanerVehiclesService } from '../loaner-vehicles/loaner-vehicles.service.js';
+import { HrStaffAvailabilityService } from '../hr/hr-staff-availability.service.js';
+import { WorkshopCheckInService } from '../workshop/workshop-check-in.service.js';
+import { WorkshopCheckInMediaService } from '../workshop/workshop-check-in-media.service.js';
+import { WorkshopEstimateService } from '../workshop/workshop-estimate.service.js';
+import { WorkshopEstimateSiteVersionListService } from '../workshop/workshop-estimate-site-version-list.service.js';
+import { WorkshopInspectionService } from '../workshop/workshop-inspection.service.js';
+import { SiteContextService } from '../site/site-context.service.js';
 import { clampMcpPageSize } from './mcp-output.util.js';
 import {
   paginateCommunications,
@@ -188,13 +188,21 @@ export function runGetStaffAvailability(
 @Injectable()
 export class McpWave2ReadListsService {
   constructor(
+    @Inject(LoanerVehiclesService)
     private readonly loaners: LoanerVehiclesService,
+    @Inject(WorkshopEstimateService)
     private readonly estimates: WorkshopEstimateService,
+    @Inject(WorkshopEstimateSiteVersionListService)
     private readonly estimateSiteVersions: WorkshopEstimateSiteVersionListService,
+    @Inject(WorkshopCheckInService)
     private readonly checkIns: WorkshopCheckInService,
+    @Inject(WorkshopCheckInMediaService)
     private readonly checkInMedia: WorkshopCheckInMediaService,
+    @Inject(WorkshopInspectionService)
     private readonly inspections: WorkshopInspectionService,
+    @Inject(HrStaffAvailabilityService)
     private readonly staffAvailability: HrStaffAvailabilityService,
+    @Inject(SiteContextService)
     private readonly siteContext: SiteContextService,
   ) {}
 
