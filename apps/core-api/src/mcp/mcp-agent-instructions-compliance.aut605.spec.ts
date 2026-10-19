@@ -34,6 +34,11 @@ function readAgentsDocumentedToolNames(markdown: string): string[] {
       /^## Compliance read tools\s*$/m,
       'Compliance read tools',
     ),
+    ...readMarkdownTableNames(
+      markdown,
+      /^## Wave 2 read tools\s*$/m,
+      'Wave 2 read tools',
+    ),
   ];
 }
 

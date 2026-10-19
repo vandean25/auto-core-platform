@@ -55,11 +55,6 @@ Read tools are tenant- or active-site-scoped by the server. Their tier is `AUTO`
 | `list_workshop_tasks` | List tasks visible to the caller with line IDs for MCP actions | Read | AUTO |
 | `list_workshop_slots` | List free bay slots at the active site for a UTC window (max 8 days), required duration, and optional bay | Read | AUTO |
 | `list_available_loaners` | List loaner vehicles available at the active site for a UTC window (max 8 days) | Read | AUTO |
-| `list_loaner_bookings` | List loaner bookings at the active site with optional status, customer, order, date range, or overdue-only filters | Read | AUTO |
-| `list_estimates` | List workshop estimate (KVA) versions at the active site; filter by customer, order, status, or sent date range | Read | AUTO |
-| `list_order_communications` | Customer communication timeline for one workshop order (no message bodies) | Read | AUTO |
-| `get_check_in` | Vehicle check-in summary for a workshop order (checklist counts, damage zones, media ids; no signature image) | Read | AUTO |
-| `get_staff_availability` | Staff presence and scheduled hours for a day (OWNER/ADMIN; same access as HR attendance view) | Read | AUTO |
 | `whoami` | Caller identity, role, tenant, active site, and decision apply mode | Read | AUTO |
 | `get_capabilities` | Paged tools for the caller with policy tier, enabled state, and disabled reason | Read | AUTO |
 | `list_audit_events` | List tenant audit events, newest first, filtered by entity, actor, action, date range, or trace ID | Read | AUTO |
@@ -88,6 +83,16 @@ Read tools are tenant- or active-site-scoped by the server. Their tier is `AUTO`
 | `list_gewaehrleistung_due` | Consumer vehicle sales at the active site whose base Gewährleistung period ends within 30, 60, or 90 days | Read | AUTO |
 | `list_tyre_sets` | Tyre storage sets at the active site by customer, vehicle, status, or due-for-swap | Read | AUTO |
 | `list_warranty_claims` | Garantie, Kulanz, and Gewährleistung claims at the active site, optionally for one workshop order (no complaint text) | Read | AUTO |
+
+## Wave 2 read tools
+
+| Tool | Description | Access | Policy tier |
+| ---- | ----------- | ------ | ----------- |
+| `list_loaner_bookings` | List loaner bookings at the active site with optional status, customer, order, date range, or overdue-only filters | Read | AUTO |
+| `list_estimates` | List workshop estimate (KVA) versions at the active site; filter by customer, order, status, or sent date range | Read | AUTO |
+| `list_order_communications` | Customer communication timeline for one workshop order (no message bodies) | Read | AUTO |
+| `get_check_in` | Vehicle check-in summary for a workshop order (checklist counts, damage zones, media ids; no signature image) | Read | AUTO |
+| `get_staff_availability` | Staff presence and scheduled hours for a day (OWNER/ADMIN; same access as HR attendance view) | Read | AUTO |
 
 Write tools start Off (`enabled: false`) in the platform policy table. A tenant admin must enable a tool through the policy table before it can run; the admin cannot loosen the platform tier or conditions. `propose_line_item`, `propose_registration_intake`, `propose_workshop_booking`, `propose_purchase_order`, `propose_workshop_order_completion`, `propose_invoice_draft_from_order`, `propose_estimate_send`, and `propose_mechanic_finding` are clamped to `PROPOSE`. The server evaluates every write call, so never infer permission from this table alone.
 
@@ -121,8 +126,8 @@ Offset list and search tools accept `page` and `pageSize`; the server defaults t
 - `list_warranty_claims` pages with `pageSize` and a keyset `cursor` over `created_at` then claim `id`, newest first, with the same default and maximum.
 - `list_workshop_slots` pages with `pageSize` and a keyset `cursor` over `start_at` then `bay_id`, ascending. Rows are sorted that way before paging, so pages stay stable when the underlying slot list does not change between calls.
 - `list_available_loaners` pages with `pageSize` and a keyset `cursor` over `loaner_vehicle_id`, ascending. Treat availability as a snapshot: re-check before booking if you page across calls.
-- `list_loaner_bookings`, `list_estimates`, and `list_order_communications` page with `pageSize` (default 10, max 25) and an opaque `cursor` from `meta.next_cursor`. `list_loaner_bookings` supports `overdueOnly` (same overdue rules as `GET /workshop/loaner-bookings/overdue`). Example: “Welche Leihwagen sind überfällig?” → `list_loaner_bookings` with `overdueOnly: true`.
-- `list_estimates` returns estimate versions for the active site. Example: “Welche KVAs von Kunde X sind offen?” → `list_estimates` with `customerId` and `status: SENT` (or `APPROVED` as needed).
+- `list_loaner_bookings`, `list_estimates`, and `list_order_communications` page with `pageSize` (default 10, max 25) and an opaque `cursor` from `meta.next_cursor`. `list_loaner_bookings` supports `overdueOnly` (same overdue rules as `GET /workshop/loaner-bookings/overdue`). Example (German): welche Leihwagen sind überfällig? → `list_loaner_bookings` with `overdueOnly: true`.
+- `list_estimates` returns estimate versions for the active site. Example (German): welche KVAs von Kunde X sind offen? → `list_estimates` with `customerId` and `status: SENT` (or `APPROVED` as needed).
 - `list_order_communications` requires `orderId` and returns `at`, `channel`, `direction`, `event_type`, and `delivery_state` only; recipients stay masked and message bodies are never returned.
 - `get_check_in` requires `orderId` and returns checklist summary counts, flagged item labels, damage zone ids, `signature_captured`, and media ids/purposes only.
 - `get_staff_availability` is OWNER/ADMIN only (forbidden for roles without HR attendance view access). Optional `date`, `siteId`, and `role` filter the roster. Never returns leave type, balances, or clock-event detail.
