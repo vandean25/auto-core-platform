@@ -1,4 +1,4 @@
-import { Injectable, Optional } from '@nestjs/common';
+import { Injectable, Optional, type Type } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { AgentActionLogService } from '../agent-action-log/agent-action-log.service.js';
 import { AgentProposalService } from '../agent-proposal/agent-proposal.service.js';
@@ -39,14 +39,11 @@ export type McpWritePipelineHostResult =
 const logActionType = (toolName: McpWriteToolName): string => `mcp.${toolName}`;
 
 function tryGetFromModuleRef<T>(
-  moduleRef: ModuleRef | undefined,
-  token: unknown,
+  moduleRef: ModuleRef,
+  token: Type<T>,
 ): T | undefined {
-  if (!moduleRef) {
-    return undefined;
-  }
   try {
-    return moduleRef.get<T>(token, { strict: false });
+    return moduleRef.get(token, { strict: false });
   } catch {
     return undefined;
   }
@@ -69,11 +66,11 @@ export class McpWritePipelineHost {
     private readonly workshopOrderCompletion: WorkshopOrderCompletionService,
     private readonly invoiceWorkshopDraftPropose: InvoiceWorkshopDraftProposeService,
     private readonly workshopEstimateSendPropose: WorkshopEstimateSendProposeService,
+    private readonly moduleRef: ModuleRef,
     @Optional()
     private readonly workshopMediaUploadMcp?: WorkshopMediaUploadMcpService,
     @Optional() private readonly weeklyReportMcp?: WeeklyReportMcpService,
     @Optional() mechanicFindingPropose?: MechanicFindingProposeService,
-    private readonly moduleRef: ModuleRef,
   ) {
     const weeklyFromApp = tryGetFromModuleRef<WeeklyReportMcpService>(
       moduleRef,
