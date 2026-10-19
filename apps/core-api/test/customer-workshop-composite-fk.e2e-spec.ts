@@ -109,4 +109,68 @@ describe('customer and workshop composite FK tenant isolation (e2e)', () => {
 
     await expect(attempt).rejects.toMatchObject({ code: 'P2003' });
   });
+
+  it('clears default bill-to when the referenced customer is deleted', async () => {
+    const tenantAPrisma = createTenantAwarePrisma(prisma, tenantAId);
+
+    const billToCustomer = await tenantAPrisma.customer.create({
+      data: {
+        tenant_id: tenantAId,
+        first_name: 'Default',
+        last_name: 'BillTo',
+        email: `${prefix}-billto@example.com`,
+      },
+    });
+
+    const payerCustomer = await tenantAPrisma.customer.create({
+      data: {
+        tenant_id: tenantAId,
+        first_name: 'Payer',
+        last_name: 'Customer',
+        email: `${prefix}-payer@example.com`,
+        default_bill_to_customer_id: billToCustomer.id,
+      },
+    });
+
+    await tenantAPrisma.customer.delete({ where: { id: billToCustomer.id } });
+
+    const updated = await tenantAPrisma.customer.findUniqueOrThrow({
+      where: { id: payerCustomer.id },
+    });
+
+    expect(updated.tenant_id).toBe(tenantAId);
+    expect(updated.default_bill_to_customer_id).toBeNull();
+  });
+
+  it('clears labor price group when the referenced group is deleted', async () => {
+    const tenantAPrisma = createTenantAwarePrisma(prisma, tenantAId);
+
+    const priceGroup = await tenantAPrisma.laborPriceGroup.create({
+      data: {
+        tenant_id: tenantAId,
+        code: `${prefix}-LPG`,
+        name: 'Standard',
+        hourly_rate: 120,
+      },
+    });
+
+    const customer = await tenantAPrisma.customer.create({
+      data: {
+        tenant_id: tenantAId,
+        first_name: 'Labor',
+        last_name: 'Group',
+        email: `${prefix}-lpg@example.com`,
+        labor_price_group_id: priceGroup.id,
+      },
+    });
+
+    await tenantAPrisma.laborPriceGroup.delete({ where: { id: priceGroup.id } });
+
+    const updated = await tenantAPrisma.customer.findUniqueOrThrow({
+      where: { id: customer.id },
+    });
+
+    expect(updated.tenant_id).toBe(tenantAId);
+    expect(updated.labor_price_group_id).toBeNull();
+  });
 });

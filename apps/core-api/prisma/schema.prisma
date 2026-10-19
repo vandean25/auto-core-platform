@@ -1648,9 +1648,11 @@ model Customer {
   payment_terms_days       Int?
   payment_terms_text       String?
   default_bill_to_customer_id String?
+  // Composite FK ON DELETE SET NULL uses column list in migration SQL (Prisma onDelete: SetNull).
   default_bill_to_customer    Customer?  @relation("CustomerDefaultBillTo", fields: [tenant_id, default_bill_to_customer_id], references: [tenant_id, id], onDelete: SetNull)
   customers_with_default_bill_to Customer[] @relation("CustomerDefaultBillTo")
   labor_price_group_id     String?        @db.Uuid
+  // Composite FK ON DELETE SET NULL uses column list in migration SQL (Prisma onDelete: SetNull).
   labor_price_group        LaborPriceGroup? @relation(fields: [tenant_id, labor_price_group_id], references: [tenant_id, id], onDelete: SetNull)
 
   vehicles                Vehicle[]

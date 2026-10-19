@@ -57,9 +57,10 @@ ALTER TABLE "labor_fitments" ADD COLUMN "standard_aw" DECIMAL(10,2);
 
 CREATE INDEX "labor_operations_make_brand_id_idx" ON "labor_operations"("make_brand_id");
 
-ALTER TABLE "customers" ADD CONSTRAINT "customers_tenant_id_default_bill_to_customer_id_fkey" FOREIGN KEY ("tenant_id", "default_bill_to_customer_id") REFERENCES "customers"("tenant_id", "id") ON DELETE SET NULL ON UPDATE CASCADE;
+-- Postgres 15 column-list ON DELETE SET NULL (Prisma onDelete: SetNull cannot emit the column list; SQL is authoritative)
+ALTER TABLE "customers" ADD CONSTRAINT "customers_tenant_id_default_bill_to_customer_id_fkey" FOREIGN KEY ("tenant_id", "default_bill_to_customer_id") REFERENCES "customers"("tenant_id", "id") ON DELETE SET NULL ("default_bill_to_customer_id") ON UPDATE CASCADE;
 
-ALTER TABLE "customers" ADD CONSTRAINT "customers_tenant_id_labor_price_group_id_fkey" FOREIGN KEY ("tenant_id", "labor_price_group_id") REFERENCES "labor_price_groups"("tenant_id", "id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "customers" ADD CONSTRAINT "customers_tenant_id_labor_price_group_id_fkey" FOREIGN KEY ("tenant_id", "labor_price_group_id") REFERENCES "labor_price_groups"("tenant_id", "id") ON DELETE SET NULL ("labor_price_group_id") ON UPDATE CASCADE;
 
 ALTER TABLE "workshop_orders" ADD CONSTRAINT "workshop_orders_tenant_id_bill_to_customer_id_fkey" FOREIGN KEY ("tenant_id", "bill_to_customer_id") REFERENCES "customers"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
