@@ -1,0 +1,7 @@
+external_id,vin,plate,make,model,year,engine_code,first_registration_date,mileage,color,owner_customer_external_id,key_number,inventory_role
+veh-001,1M8GDM9AXKP042788,W-SYN-1,Example Make,Demo,2020,,2020-03-01,45000,Blau,cust-001,K1,CUSTOMER
+veh-002,1HGCM82633A004352,W-SYN-1,Example Make,Tour,2019,,2019-07-01,82000,Grau,cust-002,,CUSTOMER
+veh-bad-vin,NOT_A_VALID_VIN,W-SYN-3,Example Make,Bad,2018,,,,,cust-001,,CUSTOMER
+veh-missing-vin,,W-SYN-4,Example Make,NoVin,2021,,,,,cust-001,,CUSTOMER
+veh-dup-vin,1M8GDM9AXKP042788,W-SYN-5,Example Make,Dup,2017,,,,,cust-002,,CUSTOMER
+veh-owner-missing,1M8GDM9A0KP042788,W-SYN-6,Example Make,Orphan,2016,,,,,cust-missing,,CUSTOMER

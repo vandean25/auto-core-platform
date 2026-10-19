@@ -16598,6 +16598,64 @@
           "public-landing-demo"
         ]
       }
+    },
+    "/api/imports/canonical-migration/validate": {
+      "post": {
+        "operationId": "CanonicalMigrationImportController_validateCanonicalMigration",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "manifest"
+                ],
+                "properties": {
+                  "manifest": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "manifest.json"
+                  },
+                  "files": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "binary"
+                    },
+                    "description": "CSV files listed in manifest.files"
+                  },
+                  "assets": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "binary"
+                    },
+                    "description": "PDF assets listed in manifest.assets"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CanonicalMigrationValidateResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Validate a canonical migration CSV bundle (manifest.json + CSV files + optional PDF assets)",
+        "tags": [
+          "imports"
+        ]
+      }
     }
   },
   "info": {
@@ -37762,6 +37820,51 @@
         },
         "required": [
           "ok"
+        ]
+      },
+      "CanonicalMigrationValidationIssueDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "file": {
+            "type": "string"
+          },
+          "row": {
+            "type": "number"
+          },
+          "external_id": {
+            "type": "string"
+          },
+          "field": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ]
+      },
+      "CanonicalMigrationValidateResponseDto": {
+        "type": "object",
+        "properties": {
+          "valid": {
+            "type": "boolean"
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CanonicalMigrationValidationIssueDto"
+            }
+          }
+        },
+        "required": [
+          "valid",
+          "issues"
         ]
       }
     }

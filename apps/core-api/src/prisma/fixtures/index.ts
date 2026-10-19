@@ -15,3 +15,4 @@ export * from './demo-workshop-revenue-groups.fixture.js';
 export * from './pickerl-inspection-template.fixture.js';
 export * from './annahme-check-inspection-template.fixture.js';
 export * from './demo-users.fixture.js';
+export * from './canonical-migration-import-presets.fixture.js';
