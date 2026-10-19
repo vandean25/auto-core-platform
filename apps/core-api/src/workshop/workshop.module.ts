@@ -50,6 +50,7 @@ import { WorkshopSettingsService } from './workshop-settings.service.js';
 import { WorkshopTaskService } from './workshop-task.service.js';
 import { WorkshopCatalogLineService } from './workshop-catalog-line.service.js';
 import { WorkshopController } from './workshop.controller.js';
+import { WorkshopOrdersController } from './workshop-orders.controller.js';
 import { WorkshopHolidayController } from './workshop-holidays.controller.js';
 import { WorkshopSettingsController } from './workshop-settings.controller.js';
 import { WorkshopPlannerController } from './workshop-planner.controller.js';
@@ -95,6 +96,7 @@ import { InspectionMeasurementModule } from '../inspection-measurement/inspectio
     WorkshopPlannerController,
     WorkshopCapacityController,
     WorkshopController,
+    WorkshopOrdersController,
     WorkshopKpiReportsController,
     WorkshopEstimateController,
     WorkshopWaitingTasksController,

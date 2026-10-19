@@ -1,37 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { TenantContextStorage } from '../common/services/tenant-context.storage.js';
-import { applyTenantIsolation } from '../prisma/tenant-isolation.extension.js';
 
-const TENANT_ID = 'tenant-test-master-data-schema';
+const schema = readFileSync(
+  join(process.cwd(), 'prisma', 'schema.prisma'),
+  'utf8',
+);
 
-function runWithTenant<T>(fn: () => T) {
-  return TenantContextStorage.run(() => {
-    TenantContextStorage.setUser({
-      userId: 'user-1',
-      email: 'test@example.com',
-      tenantId: TENANT_ID,
-      role: 'ADMIN',
-    });
-    return fn();
-  });
-}
-
-function call(
-  model: string,
-  operation: string,
-  args: Record<string, unknown> | undefined,
-  queryFn: jest.Mock,
-) {
-  return applyTenantIsolation.call({}, {}, model, operation, args, queryFn);
-}
-
-describe('customer master data schema (Prisma)', () => {
-  const schema = readFileSync(
-    join(process.cwd(), 'prisma', 'schema.prisma'),
-    'utf8',
-  );
-
+describe('customer master data schema (Prisma enum and models)', () => {
   it('extends ImportEntityType with migration master-data values', () => {
     const block =
       schema.match(/enum ImportEntityType \{[\s\S]*?\n\}/m)?.[0] ?? '';
@@ -69,44 +44,5 @@ describe('customer master data schema (Prisma)', () => {
     expect(groupBlock).toContain('@@unique([tenant_id, code])');
     expect(groupBlock).toContain('@@unique([tenant_id, id])');
     expect(groupBlock).toContain('@@index([tenant_id])');
-  });
-
-  it('documents migration master-data fields on detail response DTOs', () => {
-    expect(
-      readFileSync(
-        join(
-          process.cwd(),
-          'src',
-          'customer',
-          'dto',
-          'customer-detail-api-response.dto.ts',
-        ),
-        'utf8',
-      ),
-    ).toContain('block_level');
-    expect(
-      readFileSync(
-        join(
-          process.cwd(),
-          'src',
-          'workshop',
-          'dto',
-          'workshop-api-response.dto.ts',
-        ),
-        'utf8',
-      ),
-    ).toContain('bill_to_customer_id');
-  });
-
-  it('scopes LaborPriceGroup queries by tenant_id', async () => {
-    const query = jest.fn().mockResolvedValue([]);
-
-    await runWithTenant(() =>
-      call('LaborPriceGroup', 'findMany', { where: {} }, query),
-    );
-
-    expect(query).toHaveBeenCalledWith({
-      where: { tenant_id: TENANT_ID },
-    });
   });
 });

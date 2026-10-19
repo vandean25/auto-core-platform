@@ -2,10 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, RequestMethod, ValidationPipe } from '@nestjs/common';
 import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 const SWAGGER_API_RESPONSE = 'swagger/apiResponse';
-import {
-  parsePaginationParams,
-  WorkshopController,
-} from './workshop.controller.js';
+import { parsePaginationParams } from './workshop-controller.http-helpers.js';
+import { WorkshopController } from './workshop.controller.js';
+import { WorkshopOrdersController } from './workshop-orders.controller.js';
 import { WorkshopHolidayController } from './workshop-holidays.controller.js';
 import { WorkshopSettingsController } from './workshop-settings.controller.js';
 import { WorkshopPlannerController } from './workshop-planner.controller.js';
@@ -25,8 +24,8 @@ import { PickWorkshopPartsResponseDto } from './dto/pick-workshop-parts-response
 import { AddWorkshopTaskLineFromCatalogResponseDto } from './dto/workshop-catalog-line-response.dto.js';
 import { WorkshopInspectionService } from './workshop-inspection.service.js';
 
-describe('WorkshopController', () => {
-  let controller: WorkshopController;
+describe('WorkshopOrdersController', () => {
+  let controller: WorkshopOrdersController;
 
   const mockIntakeService = {
     findAll: jest.fn(),
@@ -34,7 +33,6 @@ describe('WorkshopController', () => {
   const mockTaskService = {};
   const mockCatalogLineService = {};
   const mockPickPartsService = {};
-  const mockBoardService = {};
   const mockInvoiceService = {};
   const mockPdfService = {
     requestGeneration: jest.fn(),
@@ -45,7 +43,7 @@ describe('WorkshopController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        WorkshopController,
+        WorkshopOrdersController,
         { provide: WorkshopIntakeService, useValue: mockIntakeService },
         { provide: WorkshopInspectionService, useValue: {} },
         { provide: WorkshopTaskService, useValue: mockTaskService },
@@ -54,12 +52,8 @@ describe('WorkshopController', () => {
           useValue: mockCatalogLineService,
         },
         { provide: WorkshopPickPartsService, useValue: mockPickPartsService },
-        { provide: WorkshopBoardService, useValue: mockBoardService },
         { provide: WorkshopInvoiceService, useValue: mockInvoiceService },
         { provide: WorkshopPdfService, useValue: mockPdfService },
-        { provide: WorkshopSettingsService, useValue: {} },
-        { provide: WorkshopHolidayService, useValue: {} },
-        { provide: WorkshopPlannerService, useValue: {} },
         {
           provide: TenantContextService,
           useValue: { setTenantIdForWorker: jest.fn() },
@@ -67,7 +61,7 @@ describe('WorkshopController', () => {
       ],
     }).compile();
 
-    controller = module.get(WorkshopController);
+    controller = module.get(WorkshopOrdersController);
     jest.clearAllMocks();
   });
 
@@ -206,6 +200,30 @@ describe('WorkshopController', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
+});
+
+describe('WorkshopController', () => {
+  let controller: WorkshopController;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        WorkshopController,
+        { provide: WorkshopIntakeService, useValue: {} },
+        { provide: WorkshopBoardService, useValue: {} },
+      ],
+    }).compile();
+
+    controller = module.get(WorkshopController);
+  });
+
+  it('exposes workshop search on the workshop controller', () => {
+    const routePath = Reflect.getMetadata(PATH_METADATA, controller.search);
+    expect(routePath).toBe('search');
+  });
+});
+
+describe('workshop pagination helpers', () => {
   describe('parsePaginationParams', () => {
     it('parses valid positive integer page and pageSize', () => {
       expect(parsePaginationParams('1', '20')).toEqual({

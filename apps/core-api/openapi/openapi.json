@@ -5181,9 +5181,105 @@
         ]
       }
     },
+    "/api/workshop/search": {
+      "get": {
+        "operationId": "WorkshopController_search",
+        "parameters": [
+          {
+            "name": "q",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopSearchResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
+    "/api/workshop/resources": {
+      "get": {
+        "operationId": "WorkshopController_getBoardResources",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopResourcesResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
+    "/api/workshop/board/active": {
+      "get": {
+        "operationId": "WorkshopController_getBoardActive",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardActiveResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
+    "/api/workshop/board/assign": {
+      "patch": {
+        "operationId": "WorkshopController_assignBoard",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignBoardDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated workshop order assignment."
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
     "/api/workshop/orders": {
       "post": {
-        "operationId": "WorkshopController_create",
+        "operationId": "WorkshopOrdersController_create",
         "parameters": [
           {
             "name": "dry_run",
@@ -5231,7 +5327,7 @@
         ]
       },
       "get": {
-        "operationId": "WorkshopController_findAll",
+        "operationId": "WorkshopOrdersController_findAll",
         "parameters": [
           {
             "name": "customerId",
@@ -5327,7 +5423,7 @@
     },
     "/api/workshop/orders/{id}": {
       "get": {
-        "operationId": "WorkshopController_findOne",
+        "operationId": "WorkshopOrdersController_findOne",
         "parameters": [
           {
             "name": "id",
@@ -5355,7 +5451,7 @@
         ]
       },
       "patch": {
-        "operationId": "WorkshopController_updateOrder",
+        "operationId": "WorkshopOrdersController_updateOrder",
         "parameters": [
           {
             "name": "id",
@@ -5395,7 +5491,7 @@
     },
     "/api/workshop/orders/{id}/tasks": {
       "post": {
-        "operationId": "WorkshopController_createTask",
+        "operationId": "WorkshopOrdersController_createTask",
         "parameters": [
           {
             "name": "id",
@@ -5435,7 +5531,7 @@
     },
     "/api/workshop/orders/{id}/tasks/{taskId}/lines/from-catalog": {
       "post": {
-        "operationId": "WorkshopController_addTaskLineFromCatalog",
+        "operationId": "WorkshopOrdersController_addTaskLineFromCatalog",
         "parameters": [
           {
             "name": "id",
@@ -5489,7 +5585,7 @@
     },
     "/api/workshop/orders/{id}/pick-parts": {
       "post": {
-        "operationId": "WorkshopController_pickParts",
+        "operationId": "WorkshopOrdersController_pickParts",
         "parameters": [
           {
             "name": "id",
@@ -5529,7 +5625,7 @@
     },
     "/api/workshop/orders/{orderId}/tasks/{taskId}": {
       "patch": {
-        "operationId": "WorkshopController_updateTask",
+        "operationId": "WorkshopOrdersController_updateTask",
         "parameters": [
           {
             "name": "orderId",
@@ -5575,7 +5671,7 @@
         ]
       },
       "delete": {
-        "operationId": "WorkshopController_deleteTask",
+        "operationId": "WorkshopOrdersController_deleteTask",
         "parameters": [
           {
             "name": "orderId",
@@ -5655,7 +5751,7 @@
     },
     "/api/workshop/orders/{orderId}/tasks/{taskId}/checklist": {
       "get": {
-        "operationId": "WorkshopController_getTaskChecklist",
+        "operationId": "WorkshopOrdersController_getTaskChecklist",
         "parameters": [
           {
             "name": "orderId",
@@ -5691,7 +5787,7 @@
         ]
       },
       "patch": {
-        "operationId": "WorkshopController_updateTaskChecklist",
+        "operationId": "WorkshopOrdersController_updateTaskChecklist",
         "parameters": [
           {
             "name": "orderId",
@@ -5739,7 +5835,7 @@
     },
     "/api/workshop/orders/{orderId}/tasks/{taskId}/line-items": {
       "patch": {
-        "operationId": "WorkshopController_replaceTaskLineItems",
+        "operationId": "WorkshopOrdersController_replaceTaskLineItems",
         "parameters": [
           {
             "name": "dry_run",
@@ -5805,7 +5901,7 @@
     },
     "/api/workshop/orders/{id}/create-invoice": {
       "post": {
-        "operationId": "WorkshopController_createInvoiceFromOrder",
+        "operationId": "WorkshopOrdersController_createInvoiceFromOrder",
         "parameters": [
           {
             "name": "id",
@@ -5833,39 +5929,9 @@
         ]
       }
     },
-    "/api/workshop/search": {
-      "get": {
-        "operationId": "WorkshopController_search",
-        "parameters": [
-          {
-            "name": "q",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/WorkshopSearchResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Workshop"
-        ]
-      }
-    },
     "/api/workshop/orders/{id}/pdf": {
       "post": {
-        "operationId": "WorkshopController_generatePdf",
+        "operationId": "WorkshopOrdersController_generatePdf",
         "parameters": [
           {
             "name": "id",
@@ -5893,7 +5959,7 @@
         ]
       },
       "get": {
-        "operationId": "WorkshopController_getPdf",
+        "operationId": "WorkshopOrdersController_getPdf",
         "parameters": [
           {
             "name": "id",
@@ -5915,72 +5981,6 @@
                 }
               }
             }
-          }
-        },
-        "tags": [
-          "Workshop"
-        ]
-      }
-    },
-    "/api/workshop/resources": {
-      "get": {
-        "operationId": "WorkshopController_getBoardResources",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/WorkshopResourcesResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Workshop"
-        ]
-      }
-    },
-    "/api/workshop/board/active": {
-      "get": {
-        "operationId": "WorkshopController_getBoardActive",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BoardActiveResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Workshop"
-        ]
-      }
-    },
-    "/api/workshop/board/assign": {
-      "patch": {
-        "operationId": "WorkshopController_assignBoard",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AssignBoardDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Updated workshop order assignment."
           }
         },
         "tags": [
@@ -23275,6 +23275,626 @@
           "year"
         ]
       },
+      "WorkshopSearchVehicleDto": {
+        "type": "object",
+        "properties": {
+          "dry_run": {
+            "type": "boolean",
+            "description": "Indicates whether the request was executed in dry-run mode",
+            "example": true
+          },
+          "would_change": {
+            "description": "List of changes that would occur if executed without dry_run",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WouldChangeItemDto"
+            }
+          },
+          "open_pickerl_order": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OpenPickerlOrderDto"
+              }
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "make": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "year": {
+            "type": "number"
+          },
+          "engine_code": {
+            "type": "string",
+            "nullable": true
+          },
+          "vin": {
+            "type": "string",
+            "nullable": true
+          },
+          "plate": {
+            "type": "string",
+            "nullable": true
+          },
+          "make_brand_id": {
+            "type": "number",
+            "nullable": true
+          },
+          "hsn": {
+            "type": "string",
+            "nullable": true
+          },
+          "tsn": {
+            "type": "string",
+            "nullable": true
+          },
+          "identity_keys": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true
+          },
+          "identity_input_fingerprint": {
+            "type": "string",
+            "nullable": true
+          },
+          "identity_resolved_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "fuel_type": {
+            "type": "string",
+            "nullable": true
+          },
+          "power_kw": {
+            "type": "number",
+            "nullable": true
+          },
+          "customer_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "first_registration_date": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "co2_wltp_g_km": {
+            "type": "number",
+            "nullable": true
+          },
+          "co2_nedc_g_km": {
+            "type": "number",
+            "nullable": true
+          },
+          "typenschein_no": {
+            "type": "string",
+            "nullable": true
+          },
+          "nova_class": {
+            "type": "string",
+            "nullable": true
+          },
+          "emission_class": {
+            "type": "string",
+            "nullable": true
+          },
+          "customer": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CustomerResponseDto"
+              }
+            ]
+          },
+          "pickerl_due": {
+            "$ref": "#/components/schemas/PickerlDueDto"
+          }
+        },
+        "required": [
+          "id",
+          "make",
+          "model",
+          "year",
+          "customer"
+        ]
+      },
+      "WorkshopSearchCustomerDto": {
+        "type": "object",
+        "properties": {
+          "dry_run": {
+            "type": "boolean",
+            "description": "Indicates whether the request was executed in dry-run mode",
+            "example": true
+          },
+          "would_change": {
+            "description": "List of changes that would occur if executed without dry_run",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WouldChangeItemDto"
+            }
+          },
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "PRIVATE",
+              "COMPANY"
+            ]
+          },
+          "company_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "first_name": {
+            "type": "string"
+          },
+          "last_name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "contact_email_ok": {
+            "type": "boolean"
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "vat_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "address_street": {
+            "type": "string",
+            "nullable": true
+          },
+          "address_city": {
+            "type": "string",
+            "nullable": true
+          },
+          "address_zip": {
+            "type": "string",
+            "nullable": true
+          },
+          "address_country": {
+            "type": "string",
+            "nullable": true
+          },
+          "preferred_language": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DisplayLanguage"
+              }
+            ]
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "vehicles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VehicleResponseDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "first_name",
+          "last_name",
+          "vehicles"
+        ]
+      },
+      "WorkshopSearchDataDto": {
+        "type": "object",
+        "properties": {
+          "vehicles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopSearchVehicleDto"
+            }
+          },
+          "customers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopSearchCustomerDto"
+            }
+          }
+        },
+        "required": [
+          "vehicles",
+          "customers"
+        ]
+      },
+      "WorkshopSearchMetaDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number"
+          },
+          "page": {
+            "type": "number"
+          },
+          "limit": {
+            "type": "number"
+          },
+          "totalPages": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "total",
+          "page",
+          "limit",
+          "totalPages"
+        ]
+      },
+      "WorkshopSearchResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/WorkshopSearchDataDto"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/WorkshopSearchMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "WorkshopMechanicDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "MECHANIC",
+              "SERVICE_ADVISOR",
+              "PARTS_CLERK"
+            ]
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "sortOrder": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "role",
+          "isActive",
+          "sortOrder"
+        ]
+      },
+      "WorkshopBayDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "sortOrder": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "isActive",
+          "sortOrder"
+        ]
+      },
+      "WorkshopResourcesResponseDto": {
+        "type": "object",
+        "properties": {
+          "mechanics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopMechanicDto"
+            }
+          },
+          "bays": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopBayDto"
+            }
+          }
+        },
+        "required": [
+          "mechanics",
+          "bays"
+        ]
+      },
+      "BoardCustomerDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "PRIVATE",
+              "COMPANY"
+            ]
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "companyName": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "firstName",
+          "lastName"
+        ]
+      },
+      "BoardVehicleDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "make": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "year": {
+            "type": "number"
+          },
+          "plate": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "make",
+          "model",
+          "year"
+        ]
+      },
+      "BoardLineItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "LABOR",
+              "PART",
+              "FEE"
+            ]
+          },
+          "itemNo": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "unitPrice": {
+            "type": "number"
+          },
+          "partExecutionStatus": {
+            "type": "string",
+            "enum": [
+              "PENDING_PICK",
+              "STAGED",
+              "CONSUMED",
+              "CANCELLED"
+            ],
+            "nullable": true
+          },
+          "catalogItemId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "itemNo",
+          "description",
+          "quantity",
+          "unitPrice"
+        ]
+      },
+      "BoardTaskDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "NOT_STARTED",
+              "IN_PROGRESS",
+              "WAITING_PARTS",
+              "WAITING_CUSTOMER",
+              "PAUSED",
+              "DONE"
+            ]
+          },
+          "lineItems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BoardLineItemDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "status",
+          "lineItems"
+        ]
+      },
+      "BoardOrderDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "orderNumber": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "SCHEDULED",
+              "INTAKE",
+              "IN_PROGRESS",
+              "COMPLETED",
+              "INVOICED"
+            ]
+          },
+          "customer": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BoardCustomerDto"
+              }
+            ]
+          },
+          "vehicle": {
+            "$ref": "#/components/schemas/BoardVehicleDto"
+          },
+          "mechanicId": {
+            "type": "string",
+            "nullable": true
+          },
+          "bayId": {
+            "type": "string",
+            "nullable": true
+          },
+          "stagingLocationId": {
+            "type": "string",
+            "nullable": true
+          },
+          "partsStatus": {
+            "type": "string",
+            "enum": [
+              "READY",
+              "SHORTAGE",
+              "WAITING",
+              "NO_PARTS"
+            ]
+          },
+          "tasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BoardTaskDto"
+            }
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "orderNumber",
+          "status",
+          "vehicle",
+          "partsStatus",
+          "tasks",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "BoardActiveResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BoardOrderDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "AssignBoardDto": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "description": "Workshop order ID to assign"
+          },
+          "mechanicId": {
+            "type": "string",
+            "description": "Mechanic (employee) ID to assign, or null to unassign",
+            "nullable": true
+          },
+          "bayId": {
+            "type": "string",
+            "description": "Bay ID to assign, or null to unassign",
+            "nullable": true
+          }
+        },
+        "required": [
+          "orderId"
+        ]
+      },
       "WorkshopOrderPurpose": {
         "type": "string",
         "enum": [
@@ -24254,294 +24874,6 @@
           "items"
         ]
       },
-      "WorkshopSearchVehicleDto": {
-        "type": "object",
-        "properties": {
-          "dry_run": {
-            "type": "boolean",
-            "description": "Indicates whether the request was executed in dry-run mode",
-            "example": true
-          },
-          "would_change": {
-            "description": "List of changes that would occur if executed without dry_run",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/WouldChangeItemDto"
-            }
-          },
-          "open_pickerl_order": {
-            "nullable": true,
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/OpenPickerlOrderDto"
-              }
-            ]
-          },
-          "id": {
-            "type": "string"
-          },
-          "make": {
-            "type": "string"
-          },
-          "model": {
-            "type": "string"
-          },
-          "year": {
-            "type": "number"
-          },
-          "engine_code": {
-            "type": "string",
-            "nullable": true
-          },
-          "vin": {
-            "type": "string",
-            "nullable": true
-          },
-          "plate": {
-            "type": "string",
-            "nullable": true
-          },
-          "make_brand_id": {
-            "type": "number",
-            "nullable": true
-          },
-          "hsn": {
-            "type": "string",
-            "nullable": true
-          },
-          "tsn": {
-            "type": "string",
-            "nullable": true
-          },
-          "identity_keys": {
-            "type": "object",
-            "additionalProperties": true,
-            "nullable": true
-          },
-          "identity_input_fingerprint": {
-            "type": "string",
-            "nullable": true
-          },
-          "identity_resolved_at": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
-          },
-          "fuel_type": {
-            "type": "string",
-            "nullable": true
-          },
-          "power_kw": {
-            "type": "number",
-            "nullable": true
-          },
-          "customer_id": {
-            "type": "string",
-            "nullable": true
-          },
-          "first_registration_date": {
-            "type": "string",
-            "format": "date",
-            "nullable": true
-          },
-          "co2_wltp_g_km": {
-            "type": "number",
-            "nullable": true
-          },
-          "co2_nedc_g_km": {
-            "type": "number",
-            "nullable": true
-          },
-          "typenschein_no": {
-            "type": "string",
-            "nullable": true
-          },
-          "nova_class": {
-            "type": "string",
-            "nullable": true
-          },
-          "emission_class": {
-            "type": "string",
-            "nullable": true
-          },
-          "customer": {
-            "nullable": true,
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/CustomerResponseDto"
-              }
-            ]
-          },
-          "pickerl_due": {
-            "$ref": "#/components/schemas/PickerlDueDto"
-          }
-        },
-        "required": [
-          "id",
-          "make",
-          "model",
-          "year",
-          "customer"
-        ]
-      },
-      "WorkshopSearchCustomerDto": {
-        "type": "object",
-        "properties": {
-          "dry_run": {
-            "type": "boolean",
-            "description": "Indicates whether the request was executed in dry-run mode",
-            "example": true
-          },
-          "would_change": {
-            "description": "List of changes that would occur if executed without dry_run",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/WouldChangeItemDto"
-            }
-          },
-          "id": {
-            "type": "string"
-          },
-          "type": {
-            "type": "string",
-            "enum": [
-              "PRIVATE",
-              "COMPANY"
-            ]
-          },
-          "company_name": {
-            "type": "string",
-            "nullable": true
-          },
-          "first_name": {
-            "type": "string"
-          },
-          "last_name": {
-            "type": "string"
-          },
-          "email": {
-            "type": "string",
-            "nullable": true
-          },
-          "contact_email_ok": {
-            "type": "boolean"
-          },
-          "phone": {
-            "type": "string",
-            "nullable": true
-          },
-          "vat_id": {
-            "type": "string",
-            "nullable": true
-          },
-          "address_street": {
-            "type": "string",
-            "nullable": true
-          },
-          "address_city": {
-            "type": "string",
-            "nullable": true
-          },
-          "address_zip": {
-            "type": "string",
-            "nullable": true
-          },
-          "address_country": {
-            "type": "string",
-            "nullable": true
-          },
-          "preferred_language": {
-            "nullable": true,
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/DisplayLanguage"
-              }
-            ]
-          },
-          "createdAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "updatedAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "vehicles": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/VehicleResponseDto"
-            }
-          }
-        },
-        "required": [
-          "id",
-          "type",
-          "first_name",
-          "last_name",
-          "vehicles"
-        ]
-      },
-      "WorkshopSearchDataDto": {
-        "type": "object",
-        "properties": {
-          "vehicles": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/WorkshopSearchVehicleDto"
-            }
-          },
-          "customers": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/WorkshopSearchCustomerDto"
-            }
-          }
-        },
-        "required": [
-          "vehicles",
-          "customers"
-        ]
-      },
-      "WorkshopSearchMetaDto": {
-        "type": "object",
-        "properties": {
-          "total": {
-            "type": "number"
-          },
-          "page": {
-            "type": "number"
-          },
-          "limit": {
-            "type": "number"
-          },
-          "totalPages": {
-            "type": "number"
-          }
-        },
-        "required": [
-          "total",
-          "page",
-          "limit",
-          "totalPages"
-        ]
-      },
-      "WorkshopSearchResponseDto": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "$ref": "#/components/schemas/WorkshopSearchDataDto"
-          },
-          "meta": {
-            "$ref": "#/components/schemas/WorkshopSearchMetaDto"
-          }
-        },
-        "required": [
-          "data",
-          "meta"
-        ]
-      },
       "WorkshopPdfGenerationResponseDto": {
         "type": "object",
         "properties": {
@@ -24558,338 +24890,6 @@
         "required": [
           "message",
           "enqueued"
-        ]
-      },
-      "WorkshopMechanicDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "role": {
-            "type": "string",
-            "enum": [
-              "MECHANIC",
-              "SERVICE_ADVISOR",
-              "PARTS_CLERK"
-            ]
-          },
-          "isActive": {
-            "type": "boolean"
-          },
-          "sortOrder": {
-            "type": "number"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "role",
-          "isActive",
-          "sortOrder"
-        ]
-      },
-      "WorkshopBayDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "isActive": {
-            "type": "boolean"
-          },
-          "sortOrder": {
-            "type": "number"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "isActive",
-          "sortOrder"
-        ]
-      },
-      "WorkshopResourcesResponseDto": {
-        "type": "object",
-        "properties": {
-          "mechanics": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/WorkshopMechanicDto"
-            }
-          },
-          "bays": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/WorkshopBayDto"
-            }
-          }
-        },
-        "required": [
-          "mechanics",
-          "bays"
-        ]
-      },
-      "BoardCustomerDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "type": {
-            "type": "string",
-            "enum": [
-              "PRIVATE",
-              "COMPANY"
-            ]
-          },
-          "firstName": {
-            "type": "string"
-          },
-          "lastName": {
-            "type": "string"
-          },
-          "companyName": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "required": [
-          "id",
-          "type",
-          "firstName",
-          "lastName"
-        ]
-      },
-      "BoardVehicleDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "make": {
-            "type": "string"
-          },
-          "model": {
-            "type": "string"
-          },
-          "year": {
-            "type": "number"
-          },
-          "plate": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "required": [
-          "id",
-          "make",
-          "model",
-          "year"
-        ]
-      },
-      "BoardLineItemDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "type": {
-            "type": "string",
-            "enum": [
-              "LABOR",
-              "PART",
-              "FEE"
-            ]
-          },
-          "itemNo": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "quantity": {
-            "type": "number"
-          },
-          "unitPrice": {
-            "type": "number"
-          },
-          "partExecutionStatus": {
-            "type": "string",
-            "enum": [
-              "PENDING_PICK",
-              "STAGED",
-              "CONSUMED",
-              "CANCELLED"
-            ],
-            "nullable": true
-          },
-          "catalogItemId": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "required": [
-          "id",
-          "type",
-          "itemNo",
-          "description",
-          "quantity",
-          "unitPrice"
-        ]
-      },
-      "BoardTaskDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "title": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "NOT_STARTED",
-              "IN_PROGRESS",
-              "WAITING_PARTS",
-              "WAITING_CUSTOMER",
-              "PAUSED",
-              "DONE"
-            ]
-          },
-          "lineItems": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/BoardLineItemDto"
-            }
-          }
-        },
-        "required": [
-          "id",
-          "title",
-          "status",
-          "lineItems"
-        ]
-      },
-      "BoardOrderDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "orderNumber": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "SCHEDULED",
-              "INTAKE",
-              "IN_PROGRESS",
-              "COMPLETED",
-              "INVOICED"
-            ]
-          },
-          "customer": {
-            "nullable": true,
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/BoardCustomerDto"
-              }
-            ]
-          },
-          "vehicle": {
-            "$ref": "#/components/schemas/BoardVehicleDto"
-          },
-          "mechanicId": {
-            "type": "string",
-            "nullable": true
-          },
-          "bayId": {
-            "type": "string",
-            "nullable": true
-          },
-          "stagingLocationId": {
-            "type": "string",
-            "nullable": true
-          },
-          "partsStatus": {
-            "type": "string",
-            "enum": [
-              "READY",
-              "SHORTAGE",
-              "WAITING",
-              "NO_PARTS"
-            ]
-          },
-          "tasks": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/BoardTaskDto"
-            }
-          },
-          "createdAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "updatedAt": {
-            "format": "date-time",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "orderNumber",
-          "status",
-          "vehicle",
-          "partsStatus",
-          "tasks",
-          "createdAt",
-          "updatedAt"
-        ]
-      },
-      "BoardActiveResponseDto": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/BoardOrderDto"
-            }
-          }
-        },
-        "required": [
-          "data"
-        ]
-      },
-      "AssignBoardDto": {
-        "type": "object",
-        "properties": {
-          "orderId": {
-            "type": "string",
-            "description": "Workshop order ID to assign"
-          },
-          "mechanicId": {
-            "type": "string",
-            "description": "Mechanic (employee) ID to assign, or null to unassign",
-            "nullable": true
-          },
-          "bayId": {
-            "type": "string",
-            "description": "Bay ID to assign, or null to unassign",
-            "nullable": true
-          }
-        },
-        "required": [
-          "orderId"
         ]
       },
       "WorkshopKpiReportRowDto": {
