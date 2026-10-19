@@ -342,14 +342,15 @@ export function validateMigrationBundle(
     filesPresent,
     input.allowPartialFiles === true,
   );
+  validateMigrationManifestReconciliationV11(
+    manifest,
+    input.files,
+    input.assets ?? {},
+    issues,
+    { allowPartialFiles: input.allowPartialFiles === true },
+  );
   if (input.allowPartialFiles !== true) {
     validateStockValue(manifest, input.files, issues);
-    validateMigrationManifestReconciliationV11(
-      manifest,
-      input.files,
-      input.assets ?? {},
-      issues,
-    );
   }
   validateHandlerCapabilities(
     manifest,

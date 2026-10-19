@@ -19,6 +19,7 @@ import { CANONICAL_MIGRATION_PRESET_NAME } from '../src/import/canonical-migrati
 import { CANONICAL_MIGRATION_FIXTURE_SOURCE_SYSTEM } from '../src/prisma/fixtures/canonical-migration-import-presets.fixture.js';
 import { parseMigrationManifestJson } from '../src/import/migration-manifest.validator.js';
 import {
+  countDryRunWarningRows,
   dryRunCanonicalMigrationCustomers,
   dryRunCanonicalMigrationVehicles,
 } from './helpers/canonical-migration-fixture-totals.js';
@@ -59,13 +60,14 @@ describe('Canonical migration CSV import (e2e)', () => {
     const job = await dryRunCanonicalMigrationCustomers(app, authHeader).expect(
       201,
     );
-    expect(job.body.totals).toMatchObject({
+    expect(job.body.totals).toEqual({
       rows: 8,
       create: 7,
       error: 1,
       skip: 0,
       update: 0,
     });
+    expect(await countDryRunWarningRows(app, authHeader, job.body.id)).toBe(0);
   });
 
   it('dry-runs synthetic vehicles with the v1 preset', async () => {
@@ -208,15 +210,7 @@ describe('Canonical migration CSV import (e2e)', () => {
       skip: 0,
       update: 0,
     });
-    const rows = await request(app.getHttpServer())
-      .get(`/imports/${job.body.id}/rows`)
-      .set('Authorization', authHeader)
-      .expect(200);
-    expect(
-      rows.body.data.filter(
-        (row: { warnings?: unknown[] }) => (row.warnings?.length ?? 0) > 0,
-      ),
-    ).toHaveLength(1);
+    expect(await countDryRunWarningRows(app, authHeader, job.body.id)).toBe(1);
   });
 
   it('lists the Canonical migration CSV v1 preset for the fixture namespace', async () => {

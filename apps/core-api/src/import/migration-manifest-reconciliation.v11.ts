@@ -8,11 +8,10 @@ import {
   sha256Buffer,
 } from './migration-csv-parse.util.js';
 import {
-  addMoneyStrings,
-  moneyStringsEqual,
+  formatMoneyFromCents,
   formatSignedMoneyFromCents,
-  parseMoneyToCents,
-  sumMoneyStrings,
+  moneyStringsEqual,
+  tryParseMoneyToCents,
 } from './migration-money.util.js';
 import { MIGRATION_MANIFEST_ERROR_CODES } from './migration-manifest.errors.js';
 import { pushMigrationIssue } from './migration-manifest.validation.util.js';
@@ -37,6 +36,81 @@ type ManifestAsset = {
   media_type: string;
   created_via: string;
 };
+
+export type MigrationReconciliationOptions = {
+  allowPartialFiles: boolean;
+};
+
+function pushInvalidMoneyIssue(
+  issues: MigrationValidationIssue[],
+  value: string,
+  ctx: { file?: string; field?: string; row?: number },
+): void {
+  pushMigrationIssue(issues, {
+    code: MIGRATION_MANIFEST_ERROR_CODES.MIGRATION_INVALID_SCALAR_VALUE,
+    message: `invalid money value "${value}"`,
+    file: ctx.file,
+    field: ctx.field,
+    row: ctx.row,
+  });
+}
+
+function sumMoneyStringsSafe(
+  values: string[],
+  issues: MigrationValidationIssue[],
+  ctx: { file?: string; field?: string },
+): string | null {
+  let total = 0n;
+  for (const value of values) {
+    const cents = tryParseMoneyToCents(value);
+    if (cents === null) {
+      pushInvalidMoneyIssue(issues, value, ctx);
+      return null;
+    }
+    total += cents;
+  }
+  return formatMoneyFromCents(total);
+}
+
+function addMoneyStringsSafe(
+  left: string,
+  right: string,
+  issues: MigrationValidationIssue[],
+  ctx: { file?: string; field?: string },
+): string | null {
+  const leftCents = tryParseMoneyToCents(left);
+  const rightCents = tryParseMoneyToCents(right);
+  if (leftCents === null) {
+    pushInvalidMoneyIssue(issues, left, ctx);
+    return null;
+  }
+  if (rightCents === null) {
+    pushInvalidMoneyIssue(issues, right, ctx);
+    return null;
+  }
+  return formatMoneyFromCents(leftCents + rightCents);
+}
+
+function pushNotReconciledWhenUploadMissing(
+  issues: MigrationValidationIssue[],
+  options: MigrationReconciliationOptions,
+  listed: boolean,
+  buffer: Buffer | undefined,
+  field: string,
+  file?: string,
+): boolean {
+  if (!options.allowPartialFiles || !listed || buffer) {
+    return false;
+  }
+  pushMigrationIssue(issues, {
+    code: MIGRATION_MANIFEST_ERROR_CODES.MIGRATION_CONTROL_TOTAL_NOT_RECONCILED,
+    message:
+      'control totals for this file cannot be reconciled until the file is included in the upload',
+    field,
+    file,
+  });
+  return true;
+}
 
 function manifestListsFile(
   manifest: MigrationManifest,
@@ -67,6 +141,7 @@ function validateDomainCounts(
   manifest: MigrationManifest,
   files: Record<string, Buffer>,
   issues: MigrationValidationIssue[],
+  options: MigrationReconciliationOptions,
 ): void {
   const domainCounts = manifest.control_totals.domain_counts as
     Record<string, unknown> | undefined;
@@ -106,6 +181,20 @@ function validateDomainCounts(
     }
 
     if (!buffer) {
+      if (
+        typeof declared === 'object' &&
+        declared !== null &&
+        pushNotReconciledWhenUploadMissing(
+          issues,
+          options,
+          fileListed,
+          buffer,
+          `control_totals.domain_counts.${spec.domainKey}`,
+          spec.fileName,
+        )
+      ) {
+        continue;
+      }
       continue;
     }
 
@@ -170,6 +259,7 @@ function validateOpenOrdersNet(
   manifest: MigrationManifest,
   files: Record<string, Buffer>,
   issues: MigrationValidationIssue[],
+  options: MigrationReconciliationOptions,
 ): void {
   const declared = manifest.control_totals.open_orders_net as string | null;
   const listed = manifestListsFile(manifest, 'open_orders.csv');
@@ -196,6 +286,19 @@ function validateOpenOrdersNet(
     return;
   }
 
+  if (
+    pushNotReconciledWhenUploadMissing(
+      issues,
+      options,
+      listed,
+      buffer,
+      'control_totals.open_orders_net',
+      'open_orders.csv',
+    )
+  ) {
+    return;
+  }
+
   if (!buffer) {
     return;
   }
@@ -209,8 +312,14 @@ function validateOpenOrdersNet(
       amounts.push(value);
     }
   }
-  const computed = sumMoneyStrings(amounts);
-  if (!moneyStringsEqual(declared, computed)) {
+  const computed = sumMoneyStringsSafe(amounts, issues, {
+    file: 'open_orders.csv',
+    field: 'expected_net_total',
+  });
+  if (computed === null) {
+    return;
+  }
+  if (!moneyStringsEqual(String(declared), computed)) {
     pushMigrationIssue(issues, {
       code: MIGRATION_MANIFEST_ERROR_CODES.MIGRATION_CONTROL_TOTAL_MISMATCH,
       message: `open_orders_net is ${declared}, recomputed ${computed}`,
@@ -224,6 +333,7 @@ function validateOpenItemsAsOf(
   manifest: MigrationManifest,
   files: Record<string, Buffer>,
   issues: MigrationValidationIssue[],
+  options: MigrationReconciliationOptions,
 ): void {
   const declared = manifest.control_totals.open_items_as_of as string | null;
   const listed = manifestListsFile(manifest, 'open_items.csv');
@@ -247,6 +357,19 @@ function validateOpenItemsAsOf(
       message: 'open_items_as_of must be null when open_items.csv is absent',
       field: 'control_totals.open_items_as_of',
     });
+    return;
+  }
+
+  if (
+    pushNotReconciledWhenUploadMissing(
+      issues,
+      options,
+      listed,
+      buffer,
+      'control_totals.open_items_as_of',
+      'open_items.csv',
+    )
+  ) {
     return;
   }
 
@@ -274,13 +397,14 @@ function validateDocumentTotals(
   manifest: MigrationManifest,
   files: Record<string, Buffer>,
   issues: MigrationValidationIssue[],
+  options: MigrationReconciliationOptions,
 ): void {
   const totals = manifest.control_totals.document_totals as
     DocumentTotalBucket[] | undefined;
   const listed = manifestListsFile(manifest, 'legacy_documents.csv');
   const buffer = files['legacy_documents.csv'];
 
-  if (!listed || !buffer) {
+  if (!listed) {
     if (Array.isArray(totals) && totals.length > 0) {
       pushMigrationIssue(issues, {
         code: MIGRATION_MANIFEST_ERROR_CODES.MIGRATION_CONTROL_TOTAL_MISMATCH,
@@ -289,6 +413,18 @@ function validateDocumentTotals(
         field: 'control_totals.document_totals',
       });
     }
+    return;
+  }
+
+  if (!buffer) {
+    pushNotReconciledWhenUploadMissing(
+      issues,
+      options,
+      listed,
+      buffer,
+      'control_totals.document_totals',
+      'legacy_documents.csv',
+    );
     return;
   }
 
@@ -358,13 +494,34 @@ function validateDocumentTotals(
       continue;
     }
     existing.row_count += 1;
-    existing.net = sumMoneyStrings([existing.net, row.net]);
-    existing.vat = sumMoneyStrings([existing.vat, row.vat]);
-    existing.gross = sumMoneyStrings([existing.gross, row.gross]);
+    const nextNet = sumMoneyStringsSafe([existing.net, row.net], issues, {
+      file: 'legacy_documents.csv',
+      field: 'net_total',
+    });
+    const nextVat = sumMoneyStringsSafe([existing.vat, row.vat], issues, {
+      file: 'legacy_documents.csv',
+      field: 'vat_total',
+    });
+    const nextGross = sumMoneyStringsSafe([existing.gross, row.gross], issues, {
+      file: 'legacy_documents.csv',
+      field: 'gross_total',
+    });
+    if (nextNet === null || nextVat === null || nextGross === null) {
+      return;
+    }
+    existing.net = nextNet;
+    existing.vat = nextVat;
+    existing.gross = nextGross;
   }
 
   for (const row of financialRows) {
-    const expectedGross = addMoneyStrings(row.net, row.vat);
+    const expectedGross = addMoneyStringsSafe(row.net, row.vat, issues, {
+      file: 'legacy_documents.csv',
+      field: 'gross_total',
+    });
+    if (expectedGross === null) {
+      return;
+    }
     if (!moneyStringsEqual(row.gross, expectedGross)) {
       pushMigrationIssue(issues, {
         code: MIGRATION_MANIFEST_ERROR_CODES.MIGRATION_CONTROL_TOTAL_MISMATCH,
@@ -377,7 +534,12 @@ function validateDocumentTotals(
 
   const declaredByKey = new Map<string, DocumentTotalBucket>();
   for (const bucket of totals) {
-    const expectedGross = addMoneyStrings(bucket.net, bucket.vat);
+    const expectedGross = addMoneyStringsSafe(bucket.net, bucket.vat, issues, {
+      field: 'control_totals.document_totals',
+    });
+    if (expectedGross === null) {
+      return;
+    }
     if (!moneyStringsEqual(bucket.gross, expectedGross)) {
       pushMigrationIssue(issues, {
         code: MIGRATION_MANIFEST_ERROR_CODES.MIGRATION_CONTROL_TOTAL_MISMATCH,
@@ -451,12 +613,13 @@ function validateSignedOpenItemsTotal(
   manifest: MigrationManifest,
   files: Record<string, Buffer>,
   issues: MigrationValidationIssue[],
+  options: MigrationReconciliationOptions,
 ): void {
   const declared = manifest.control_totals.open_items as string | null;
   const listed = manifestListsFile(manifest, 'open_items.csv');
   const buffer = files['open_items.csv'];
 
-  if (!listed || !buffer) {
+  if (!listed) {
     if (declared !== null && declared !== undefined) {
       pushMigrationIssue(issues, {
         code: MIGRATION_MANIFEST_ERROR_CODES.MIGRATION_CONTROL_TOTAL_MISMATCH,
@@ -464,6 +627,18 @@ function validateSignedOpenItemsTotal(
         field: 'control_totals.open_items',
       });
     }
+    return;
+  }
+
+  if (!buffer) {
+    pushNotReconciledWhenUploadMissing(
+      issues,
+      options,
+      listed,
+      buffer,
+      'control_totals.open_items',
+      'open_items.csv',
+    );
     return;
   }
 
@@ -488,7 +663,15 @@ function validateSignedOpenItemsTotal(
   }
   let total = 0n;
   for (const amount of amounts) {
-    total += parseMoneyToCents(amount);
+    const cents = tryParseMoneyToCents(amount);
+    if (cents === null) {
+      pushInvalidMoneyIssue(issues, amount, {
+        file: 'open_items.csv',
+        field: 'remaining_amount',
+      });
+      return;
+    }
+    total += cents;
   }
   const computedStr = formatSignedMoneyFromCents(total);
   if (!moneyStringsEqual(String(declared), computedStr)) {
@@ -576,14 +759,18 @@ export function validateMigrationManifestReconciliationV11(
   files: Record<string, Buffer>,
   assetFiles: Record<string, Buffer>,
   issues: MigrationValidationIssue[],
+  options: MigrationReconciliationOptions = { allowPartialFiles: false },
 ): void {
+  validateDocumentTotals(manifest, files, issues, options);
+  validateSignedOpenItemsTotal(manifest, files, issues, options);
+
   if (manifest.format_version !== '1.1') {
     return;
   }
-  validateDomainCounts(manifest, files, issues);
-  validateOpenOrdersNet(manifest, files, issues);
-  validateOpenItemsAsOf(manifest, files, issues);
-  validateDocumentTotals(manifest, files, issues);
-  validateSignedOpenItemsTotal(manifest, files, issues);
-  validateManifestAssets(manifest, files, assetFiles, issues);
+  validateDomainCounts(manifest, files, issues, options);
+  validateOpenOrdersNet(manifest, files, issues, options);
+  validateOpenItemsAsOf(manifest, files, issues, options);
+  if (!options.allowPartialFiles) {
+    validateManifestAssets(manifest, files, assetFiles, issues);
+  }
 }
