@@ -15,7 +15,7 @@ vi.mock('@/components/settings/vehicle-data-settings-panel', () => ({
   VehicleDataSettingsPanel: () => <div>Vehicle data tab content</div>,
 }))
 
-vi.mock('@/components/settings/SitesSettingsTab', () => ({
+vi.mock('@/components/settings/sites-settings-tab', () => ({
   SitesSettingsTab: () => <div>Sites tab content</div>,
 }))
 
