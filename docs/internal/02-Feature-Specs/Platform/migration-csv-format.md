@@ -1,5 +1,5 @@
 ---
-title: "Canonical Migration CSV v1 and Manifest"
+title: "Canonical Migration CSV 1.1 and Manifest"
 date: "2026-10-19"
 module: Platform
 status: accepted
@@ -7,11 +7,11 @@ linear-project: "incadea Migration"
 tags: [feature-spec, platform, migration]
 ---
 
-# Canonical Migration CSV v1 and Manifest
+# Canonical Migration CSV 1.1 and Manifest
 
 ## Status
 
-**Accepted — 2026-10-19, Dejan Dosenovic (Product Owner).** Accepted as the implementation baseline for AUT-645 after independent GPT-6.1 Sol review and re-review. Production import/cutover remains subject to the implementation and evidence gates below.
+**Accepted — 2026-10-19, Dejan Dosenovic (Product Owner).** Version 1.0 was accepted for AUT-645 after independent review. Revision 1.1 completes AUT-647/648/649/650 as requested for main; the prerequisite payer model is AUT-646. Production import/cutover remains subject to the implementation and evidence gates below.
 
 ## Summary
 
@@ -27,9 +27,11 @@ The extractor stays in a separate private repository. ACP code, fixtures, docume
 
 ## Contract scope and file registry
 
-**Version `1.0`.** One bundle represents one source company, one extraction snapshot and one cutover date. Multiple companies require separate bundles and namespaces, mapped to separate legal entities in the same tenant. The bundle may contain a subset of files for rehearsal or staged migration. Missing files mean **not supplied**, not empty or deleted; every supplied file must be listed exactly once in the manifest, including header-only files.
+**Version `1.1`.** [Version 1.0](migration-csv-format-v1.0.md) is preserved byte-for-byte as accepted in PR #900; validators select the exact version and never reinterpret a 1.0 bundle with these new dictionaries. Existing 1.0 core column meanings are unchanged. The four normative domain specifications below are part of this revision, not unimplemented outlines.
 
-“Defined” means that all columns and validation rules are fixed below. “Outline” reserves the filename and domain; its owning ticket must complete the dictionary and validator before that file can be accepted. A validator must reject an outline or unimplemented file explicitly, never silently skip it or pretend the migration is complete.
+ One bundle represents one source company, one extraction snapshot and one cutover date. Multiple companies require separate bundles and namespaces, mapped to separate legal entities in the same tenant. The bundle may contain a subset of files for rehearsal or staged migration. Missing files mean **not supplied**, not empty or deleted; every supplied file must be listed exactly once in the manifest, including header-only files.
+
+“Defined” means that all columns and validation rules are fixed here or in the normative linked domain dictionaries. Definition is not evidence of an installed handler. A validator must reject an unimplemented capability explicitly, never silently skip it or pretend the migration is complete.
 
 | File | Contract | Handler/domain owner |
 |---|---|---|
@@ -43,15 +45,15 @@ The extractor stays in a separate private repository. ACP code, fixtures, docume
 | `labor_price_groups.csv` | Defined | LABOR_PRICE_GROUP; AUT-637 |
 | `labor_packages.csv` | Defined | LABOR_PACKAGE headers/versions; AUT-643 |
 | `labor_package_items.csv` | Defined | LABOR_PACKAGE child rows; AUT-643 |
-| `vehicle_parties.csv` | Outline | VEHICLE_PARTY; AUT-641 |
-| `vehicle_due_dates.csv` | Outline | VEHICLE_DUE_DATE; AUT-641 |
-| `vehicle_notices.csv` | Outline | VEHICLE_NOTICE; AUT-642 |
-| `tyre_sets.csv` | Outline | TYRE_SET; AUT-636 |
-| `open_orders.csv`, `open_order_tasks.csv`, `open_order_lines.csv` | Outline | OPEN_WORKSHOP_ORDER aggregate; AUT-631 |
-| `legacy_documents.csv`, `legacy_document_lines.csv` | Outline | Legacy history; AUT-628/629 |
-| `open_items.csv` | Outline | LEGACY_OPEN_ITEM; AUT-630 |
+| `vehicle_parties.csv` | [Defined in 1.1 — AUT-647](migration-csv-vehicles.md) | VEHICLE_PARTY; AUT-641 |
+| `vehicle_due_dates.csv` | [Defined in 1.1 — AUT-647](migration-csv-vehicles.md) | VEHICLE_DUE_DATE; AUT-641 |
+| `vehicle_notices.csv` | [Defined in 1.1 — AUT-647](migration-csv-vehicles.md) | VEHICLE_NOTICE; AUT-642 |
+| `tyre_sets.csv` | [Defined in 1.1 — AUT-648](migration-csv-tyres.md) | TYRE_SET; AUT-636 |
+| `open_orders.csv`, `open_order_tasks.csv`, `open_order_lines.csv` | [Defined in 1.1 — AUT-649](migration-csv-open-orders.md) | OPEN_WORKSHOP_ORDER aggregate; AUT-631 |
+| `legacy_documents.csv`, `legacy_document_lines.csv` | [Defined in 1.1 — AUT-650](migration-csv-history.md) | Legacy history; AUT-628/629 |
+| `open_items.csv` | [Defined in 1.1 — AUT-650](migration-csv-history.md) | LEGACY_OPEN_ITEM; AUT-630 |
 
-`manifest.json` is mandatory. No arbitrary extra files, absolute paths, nested paths, archive path traversal or duplicate filenames are allowed. Original historical PDFs/attachments require the later history contract's explicit asset inventory; they are not accepted as unlisted files in this version's defined subset. Archive packaging/transport does not change these logical filenames.
+`manifest.json` is mandatory. No arbitrary extra files, absolute paths, nested paths, archive path traversal or duplicate filenames are allowed. Version 1.1 additionally accepts only original PDF assets explicitly inventoried under manifest.assets, as defined in AUT-650; assets are not CSV records and are never counted as rows. Archive packaging/transport does not change these logical filenames.
 
 ## CSV and scalar rules (normative)
 
@@ -76,6 +78,8 @@ References ending in `_external_id` resolve through the same tenant/company name
 `ExternalIdMapping` uses `(tenant_id, entity_type, source_system, external_id)`. Same accepted input is a no-op on replay. A changed master row follows `update_existing`/`fill_empty_only` after dry-run; neither option overrides blocked customers, restrictions, ownership or fiscal guards. Contradictory external mapping and natural-key matches block apply rather than relinking silently. A missing row never deletes a record.
 
 Apply stages follow ADR-0031: master data → parties/notices → labor/parts → opening stock → tyres → open orders → history → open items. Within master data, import customer identities and vendors first; resolve customer price-group/bill-to edges after price groups/customer identities exist. Within labor, price groups and operation identities precede standard times and packages; package items follow package versions and referenced parts/labor. Dry-run checks the full dependency graph first.
+
+For 1.1 actual source-evidence business dates use the approved source legal entity timezone (AT Europe/Vienna; DE Europe/Berlin), never the host clock. Actual performed/document/storage/activity dates cannot postdate that calendar date of extracted_at or cutover_date, whichever is earlier. Future due/planned dates are expressly exempt. The mapping is approved configuration, not user-supplied authorization. Open-item snapshots additionally declare their actual as-of date as specified by AUT-650; a future rehearsal cutover is not evidence of future accounting balances.
 
 ## Defined file dictionaries
 
@@ -268,21 +272,18 @@ Reject overlapping validity intervals for versions of one package, regardless of
 
 Require exactly the reference appropriate to type; other reference columns must be blank. No nested packages. Every version has at least one LABOR/PART item. One replay must not append duplicate versions/items. Fixed-price allocation and shop-supplies behavior remain AUT-643 domain logic; the validator checks values/references without generating fiscal lines.
 
-## Reserved later-domain outlines
+## Complete versioned domain dictionaries
 
-Every later row still carries external_id and follows the same namespace, CSV and manifest rules. The following are **not complete header dictionaries** and are not accepted by the initial validator:
+The following files contain the **normative exact ordered column dictionaries, conditional values, references, duplicate/replay rules and synthetic examples** for 1.1. They replace all 1.0 reserved outlines. Implementers must read the linked dictionary as part of this contract; a link does not mean the data may be skipped.
 
-| Files | Minimum content / frozen domain vocabulary | Completion owner |
+| Spec | Files | Implementation owner |
 |---|---|---|
-| vehicle_parties | Vehicle/customer references; role OWNER, DRIVER, USER, BILL_TO, LEASING, INSURANCE, WARRANTY_PROVIDER, SERVICE_CONTRACT, PREVIOUS_OWNER; validity dates. | AUT-641 |
-| vehicle_due_dates | Vehicle reference; kind INSPECTION_57A or SERVICE; actual last inspection/date, valid-until month or due date/km. | AUT-641 |
-| vehicle_notices | Vehicle reference; type CAMPAIGN, RECALL, REMARK, WARNING, SERVICE_DUE; status OPEN, DONE, DISMISSED; plain text and due date/km. | AUT-642 |
-| tyre_sets | Customer/vehicle/site/storage references; tyre details; season uses the target TyreSet enum, no source enum aliases. | AUT-636 |
-| open_orders / tasks / lines | Parent references, original order identity, site/customer/bill-to, LABOR/PART/TEXT domain lines and CostBearer CUSTOMER/WARRANTY/GOODWILL/INTERNAL; goodwill customer share. No partial invoicing replay. | AUT-631/640 |
-| legacy_documents / lines | Original number/date, type INVOICE/CREDIT_MEMO/SERVICE_ORDER/etc., origin SOURCE/PRIOR_SYSTEM, seller/site/customer/vehicle references, currency, exact net/VAT/gross, immutable raw canonical row and original-PDF metadata. Never ACP invoices. | AUT-628/629 |
-| open_items | Original document/customer references, currency, due date and signed remaining accounting balance as of extraction; display only. | AUT-630 |
+| [AUT-647 — Vehicle parties, due dates and notices](migration-csv-vehicles.md) | vehicle_parties, vehicle_due_dates, vehicle_notices | AUT-641/642 |
+| [AUT-648 — Tyre sets](migration-csv-tyres.md) | tyre_sets | AUT-636 |
+| [AUT-649 — Open orders](migration-csv-open-orders.md) | open_orders, open_order_tasks, open_order_lines | AUT-631; [AUT-646 payer model](../Finance/split-invoicing-multi-payer.md) |
+| [AUT-650 — Legacy history and open items](migration-csv-history.md) | legacy_documents, legacy_document_lines, open_items; original PDF assets | AUT-629/630 |
 
-The owners must add exact columns, enum sets, signs, reference resolution, raw-byte/asset retention and tests to this spec before enabling those files. Compatible additions are additive contract revisions with a new format_version; never change the meaning of `1.0` in place. Until then, schema acceptance of a reserved filename is not a claim of handler support.
+New-file scalar exceptions (signed historical amounts, strict JSON cells and domain-specific units) are defined locally. They do not change the earlier core files. DOMAIN COUNTS are supplied-row controls before business skips, separate from actual apply/skip/conflict counts. Their map rules below are mandatory in 1.1. No subsequent edit may silently change the meaning of version 1.1; further contract changes require another revision.
 
 ## Manifest and reconciliation
 
@@ -291,64 +292,685 @@ The owners must add exact columns, enum sets, signs, reference resolution, raw-b
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "ACP canonical migration manifest v1.0",
+  "title": "ACP canonical migration manifest v1.1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["format_version", "source_name", "source_system", "source_company_code", "extracted_at", "cutover_date", "currency", "files", "control_totals"],
+  "required": [
+    "format_version",
+    "source_name",
+    "source_system",
+    "source_company_code",
+    "extracted_at",
+    "cutover_date",
+    "currency",
+    "files",
+    "control_totals",
+    "assets"
+  ],
   "properties": {
-    "format_version": { "const": "1.0" },
-    "source_name": { "$ref": "#/$defs/namespaceCode" },
-    "source_system": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,63}:[a-z0-9][a-z0-9_-]{0,63}$" },
-    "source_company_code": { "$ref": "#/$defs/namespaceCode" },
-    "extracted_at": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$" },
-    "cutover_date": { "type": "string", "format": "date" },
-    "currency": { "const": "EUR" },
+    "format_version": {
+      "const": "1.1"
+    },
+    "source_name": {
+      "$ref": "#/$defs/namespaceCode"
+    },
+    "source_system": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}:[a-z0-9][a-z0-9_-]{0,63}$"
+    },
+    "source_company_code": {
+      "$ref": "#/$defs/namespaceCode"
+    },
+    "extracted_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    },
+    "cutover_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "currency": {
+      "const": "EUR"
+    },
     "files": {
-      "type": "array", "minItems": 1, "maxItems": 20,
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 20,
       "items": {
-        "type": "object", "additionalProperties": false,
-        "required": ["name", "sha256", "row_count"],
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "sha256",
+          "row_count"
+        ],
         "properties": {
-          "name": { "$ref": "#/$defs/fileName" },
-          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
-          "row_count": { "type": "integer", "minimum": 0, "maximum": 2147483647 }
+          "name": {
+            "$ref": "#/$defs/fileName"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "row_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+          }
         }
       }
     },
     "control_totals": {
-      "type": "object", "additionalProperties": false,
-      "required": ["counts_by_type", "stock_value", "open_items", "document_totals"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "counts_by_type",
+        "stock_value",
+        "open_items",
+        "document_totals",
+        "domain_counts",
+        "open_orders_net",
+        "open_items_as_of"
+      ],
       "properties": {
         "counts_by_type": {
-          "type": "object", "minProperties": 1, "maxProperties": 20,
-          "propertyNames": { "enum": ["customers", "vehicles", "vendors", "parts", "stock_opening", "labor_operations", "labor_standard_times", "labor_price_groups", "labor_packages", "labor_package_items", "vehicle_parties", "vehicle_due_dates", "vehicle_notices", "tyre_sets", "open_orders", "open_order_tasks", "open_order_lines", "legacy_documents", "legacy_document_lines", "open_items"] },
-          "additionalProperties": { "type": "integer", "minimum": 0, "maximum": 2147483647 }
+          "type": "object",
+          "minProperties": 1,
+          "maxProperties": 20,
+          "propertyNames": {
+            "enum": [
+              "customers",
+              "vehicles",
+              "vendors",
+              "parts",
+              "stock_opening",
+              "labor_operations",
+              "labor_standard_times",
+              "labor_price_groups",
+              "labor_packages",
+              "labor_package_items",
+              "vehicle_parties",
+              "vehicle_due_dates",
+              "vehicle_notices",
+              "tyre_sets",
+              "open_orders",
+              "open_order_tasks",
+              "open_order_lines",
+              "legacy_documents",
+              "legacy_document_lines",
+              "open_items"
+            ]
+          },
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+          }
         },
-        "stock_value": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/amount" }] },
-        "open_items": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/signedAmount" }] },
+        "stock_value": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/amount"
+            }
+          ]
+        },
+        "open_items": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/signedAmount"
+            }
+          ]
+        },
         "document_totals": {
           "type": "array",
           "items": {
-            "type": "object", "additionalProperties": false,
-            "required": ["year_month", "doc_type", "row_count", "net", "vat", "gross"],
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "year_month",
+              "doc_type",
+              "row_count",
+              "net",
+              "vat",
+              "gross"
+            ],
             "properties": {
-              "year_month": { "type": "string", "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$" },
-              "doc_type": { "enum": ["INVOICE", "CREDIT_MEMO"] },
-              "row_count": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
-              "net": { "$ref": "#/$defs/amount" },
-              "vat": { "$ref": "#/$defs/amount" },
-              "gross": { "$ref": "#/$defs/amount" }
+              "year_month": {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$"
+              },
+              "doc_type": {
+                "enum": [
+                  "INVOICE",
+                  "CREDIT_MEMO"
+                ]
+              },
+              "row_count": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 2147483647
+              },
+              "net": {
+                "$ref": "#/$defs/amount"
+              },
+              "vat": {
+                "$ref": "#/$defs/amount"
+              },
+              "gross": {
+                "$ref": "#/$defs/amount"
+              }
             }
+          }
+        },
+        "domain_counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "vehicle_parties",
+            "vehicle_due_dates",
+            "vehicle_notices",
+            "tyre_sets",
+            "open_orders",
+            "open_order_lines",
+            "legacy_documents",
+            "open_items"
+          ],
+          "properties": {
+            "vehicle_parties": {
+              "$ref": "#/$defs/vehicle_partiesCounts"
+            },
+            "vehicle_due_dates": {
+              "$ref": "#/$defs/vehicle_due_datesCounts"
+            },
+            "vehicle_notices": {
+              "$ref": "#/$defs/vehicle_noticesCounts"
+            },
+            "tyre_sets": {
+              "$ref": "#/$defs/tyre_setsCounts"
+            },
+            "open_orders": {
+              "$ref": "#/$defs/open_ordersCounts"
+            },
+            "open_order_lines": {
+              "$ref": "#/$defs/open_order_linesCounts"
+            },
+            "legacy_documents": {
+              "$ref": "#/$defs/legacy_documentsCounts"
+            },
+            "open_items": {
+              "$ref": "#/$defs/open_itemsCounts"
+            }
+          }
+        },
+        "open_orders_net": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/amount"
+            }
+          ]
+        },
+        "open_items_as_of": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "format": "date"
+            }
+          ]
+        }
+      }
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "sha256",
+          "size_bytes",
+          "media_type",
+          "created_via"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^asset_[A-Za-z0-9_-]{1,128}\\.pdf$"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 52428800
+          },
+          "media_type": {
+            "const": "application/pdf"
+          },
+          "created_via": {
+            "enum": [
+              "ORIGINAL_EXPORT",
+              "SOURCE_MASS_PRINT"
+            ]
           }
         }
       }
     }
   },
   "$defs": {
-    "namespaceCode": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$" },
-    "amount": { "type": "string", "pattern": "^(0|[1-9][0-9]{0,17})\\.[0-9]{2}$" },
-    "signedAmount": { "type": "string", "pattern": "^-?(0|[1-9][0-9]{0,17})\\.[0-9]{2}$", "not": { "const": "-0.00" } },
-    "fileName": { "enum": ["customers.csv", "vehicles.csv", "vendors.csv", "parts.csv", "stock_opening.csv", "labor_operations.csv", "labor_standard_times.csv", "labor_price_groups.csv", "labor_packages.csv", "labor_package_items.csv", "vehicle_parties.csv", "vehicle_due_dates.csv", "vehicle_notices.csv", "tyre_sets.csv", "open_orders.csv", "open_order_tasks.csv", "open_order_lines.csv", "legacy_documents.csv", "legacy_document_lines.csv", "open_items.csv"] }
+    "namespaceCode": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+    },
+    "amount": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]{0,17})\\.[0-9]{2}$"
+    },
+    "signedAmount": {
+      "type": "string",
+      "pattern": "^-?(0|[1-9][0-9]{0,17})\\.[0-9]{2}$",
+      "not": {
+        "const": "-0.00"
+      }
+    },
+    "fileName": {
+      "enum": [
+        "customers.csv",
+        "vehicles.csv",
+        "vendors.csv",
+        "parts.csv",
+        "stock_opening.csv",
+        "labor_operations.csv",
+        "labor_standard_times.csv",
+        "labor_price_groups.csv",
+        "labor_packages.csv",
+        "labor_package_items.csv",
+        "vehicle_parties.csv",
+        "vehicle_due_dates.csv",
+        "vehicle_notices.csv",
+        "tyre_sets.csv",
+        "open_orders.csv",
+        "open_order_tasks.csv",
+        "open_order_lines.csv",
+        "legacy_documents.csv",
+        "legacy_document_lines.csv",
+        "open_items.csv"
+      ]
+    },
+    "vehicle_partiesCounts": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "OWNER",
+            "DRIVER",
+            "USER",
+            "BILL_TO",
+            "LEASING",
+            "INSURANCE",
+            "WARRANTY_PROVIDER",
+            "SERVICE_CONTRACT",
+            "PREVIOUS_OWNER"
+          ],
+          "properties": {
+            "OWNER": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "DRIVER": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "USER": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "BILL_TO": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "LEASING": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "INSURANCE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "WARRANTY_PROVIDER": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "SERVICE_CONTRACT": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "PREVIOUS_OWNER": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            }
+          }
+        }
+      ]
+    },
+    "vehicle_due_datesCounts": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "INSPECTION_57A",
+            "SERVICE"
+          ],
+          "properties": {
+            "INSPECTION_57A": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "SERVICE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            }
+          }
+        }
+      ]
+    },
+    "vehicle_noticesCounts": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "CAMPAIGN",
+            "RECALL",
+            "REMARK",
+            "WARNING",
+            "SERVICE_DUE"
+          ],
+          "properties": {
+            "CAMPAIGN": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "RECALL": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "REMARK": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "WARNING": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "SERVICE_DUE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            }
+          }
+        }
+      ]
+    },
+    "tyre_setsCounts": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "IN_STORAGE",
+            "ON_VEHICLE",
+            "RETURNED",
+            "DISPOSED"
+          ],
+          "properties": {
+            "IN_STORAGE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "ON_VEHICLE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "RETURNED": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "DISPOSED": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            }
+          }
+        }
+      ]
+    },
+    "open_ordersCounts": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "ORDER",
+            "QUOTE",
+            "SCHEDULED"
+          ],
+          "properties": {
+            "ORDER": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "QUOTE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "SCHEDULED": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            }
+          }
+        }
+      ]
+    },
+    "open_order_linesCounts": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "LABOR",
+            "PART",
+            "FEE",
+            "TEXT"
+          ],
+          "properties": {
+            "LABOR": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "PART": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "FEE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "TEXT": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            }
+          }
+        }
+      ]
+    },
+    "legacy_documentsCounts": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "INVOICE",
+            "CREDIT_MEMO",
+            "SERVICE_ORDER",
+            "QUOTE",
+            "WARRANTY_CLAIM",
+            "SERVICE_CONTRACT",
+            "TYRE_ORDER",
+            "VEHICLE_HISTORY_SUMMARY"
+          ],
+          "properties": {
+            "INVOICE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "CREDIT_MEMO": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "SERVICE_ORDER": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "QUOTE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "WARRANTY_CLAIM": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "SERVICE_CONTRACT": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "TYRE_ORDER": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "VEHICLE_HISTORY_SUMMARY": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            }
+          }
+        }
+      ]
+    },
+    "open_itemsCounts": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "INVOICE",
+            "CREDIT_MEMO",
+            "PAYMENT",
+            "REFUND",
+            "REMINDER_FEE"
+          ],
+          "properties": {
+            "INVOICE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "CREDIT_MEMO": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "PAYMENT": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "REFUND": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "REMINDER_FEE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            }
+          }
+        }
+      ]
+    }
   }
 }
 ```
@@ -359,8 +981,14 @@ Cross-field checks, in addition to the schema:
 - `files[].name` is unique. Actual file set equals that list. SHA-256 is lowercase hex over **exact received bytes**, including BOM/line endings if present, before decoding/normalization. No self-hash for manifest; persist a SHA-256 of its original bytes separately with the future migration run.
 - Parse each CSV with the contract rules; computed logical count must equal row_count. counts_by_type must contain exactly each listed CSV basename without `.csv`, and the corresponding count must equal row_count. Counts are **supplied rows before GDPR skips or target apply actions**, not CREATE counts. Document-type-specific row counts are carried separately in document_totals.
 - stock_value is null iff stock_opening.csv is absent; otherwise it is a string including `0.00` for an empty file. Recompute with the row-rounding rule above. open_items follows the same null/absence rule and uses signed outstanding receivables (credit balances negative). Historical INVOICE and CREDIT_MEMO document totals are separate positive-magnitude buckets by original document year-month; credits are not negated twice. For each bucket gross = net + vat. Only original source amounts are totaled; do not recompute historical VAT from today's rates.
-- document_totals must be empty if legacy_documents.csv is absent or contains no INVOICE/CREDIT_MEMO rows. Otherwise there must be exactly one bucket per present `(year_month, doc_type)`, with its exact count and sums; no missing, duplicate or extra bucket. History/open-item validation is enabled only when the owning contracts are complete. No unsupported file can pass on the strength of declared totals alone.
+- document_totals must be empty if legacy_documents.csv is absent or contains no INVOICE/CREDIT_MEMO rows. Otherwise there must be exactly one bucket per present `(year_month, doc_type)`, with its exact count and sums; no missing, duplicate or extra bucket. History/open-item validation follows AUT-650 and still requires installed handler/storage capabilities. No unsupported file can pass on the strength of declared totals alone.
 - Hash/count/enum/header/reference/control-total mismatch blocks dry-run acceptance/apply. Report expected and actual totals with no tolerance; currency is EUR throughout. Keep separate bundles if a source company has unsupported non-EUR balances; no implicit conversion or mixed-currency summation.
+
+
+- `control_totals.domain_counts` has exactly the eight schema-listed domains. Each value is null iff its CSV is absent, otherwise a complete enum map with zeroes for unused values. Sum of each map equals its CSV row_count (vehicle role, due kind, notice type, tyre status, order kind, line kind, history doc_type, open-item doc_type respectively). A present empty file has a full zero map, never null. Customer restrictions and skipped/partially invoiced orders do not reduce supplied counts.
+- `open_items_as_of` is null iff open_items.csv is absent; otherwise it is the actual snapshot business date, even for an empty snapshot, and every balance_as_of equals it. It cannot postdate extraction business date or cutover. Final cutover requires explicit freeze/bridge evidence, not relabeling a rehearsal snapshot.
+- `open_orders_net` is null iff open_orders.csv is absent; otherwise exact sum of supplied expected_net_total before skips. Validate corresponding complete task/line graph under AUT-649. There is no new accounting revenue event.
+- `assets` is empty unless legacy documents reference source PDFs. Asset names must be unique and disjoint from CSV names. Actual bundle members equal manifest.json + files[].name + assets[].name. Verify exact PDF byte size/hash/type, all references and no orphan entries; asset publication follows AUT-650 retention/hold rules. The manifest itself and assets never add to counts_by_type.
 
 ### Synthetic, internally consistent minimal bundle
 
@@ -379,7 +1007,7 @@ header = (
 )
 csv_bytes = header.encode("utf-8")
 manifest = {
-    "format_version": "1.0",
+    "format_version": "1.1",
     "source_name": "incadea",
     "source_system": "incadea:sample_company",
     "source_company_code": "sample_company",
@@ -387,7 +1015,8 @@ manifest = {
     "cutover_date": "2026-11-01",
     "currency": "EUR",
     "files": [{"name": "customers.csv", "sha256": hashlib.sha256(csv_bytes).hexdigest(), "row_count": 0}],
-    "control_totals": {"counts_by_type": {"customers": 0}, "stock_value": None, "open_items": None, "document_totals": []}
+    "assets": [],
+    "control_totals": {"counts_by_type": {"customers": 0}, "stock_value": None, "open_items": None, "document_totals": [], "open_orders_net": None, "open_items_as_of": None, "domain_counts": {name: None for name in ["vehicle_parties", "vehicle_due_dates", "vehicle_notices", "tyre_sets", "open_orders", "open_order_lines", "legacy_documents", "open_items"]}}
 }
 manifest_bytes = json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8")
 ```
@@ -436,7 +1065,7 @@ AUT-645 must use TDD for schema + semantic validators and include:
 
 There are no open **wire-format choices** for AUT-645's defined subset. Source unit conversion, export rights, real field coverage, namespace/site assignments, DPA and legal/fiscal readiness require rehearsal evidence (AUT-390/391/634), not guessed defaults. Product Owner acceptance establishes the specification baseline; implementation follows the repository's normal planning/TDD/review workflow, and production use remains gated on the required evidence.
 
-Later-domain outlines are intentionally incomplete per AUT-621; their owners must finish and version their dictionaries before enabling import. Vendor-address/original-labor-code storage and dealer-stock activation are explicit implementation prerequisites, not reasons to drop canonical values. A full cutover remains blocked on all ADR-0031 gates.
+The AUT-647/648/649/650 dictionaries are complete in revision 1.1; import still requires the named target schemas, capabilities and validation tests. Vendor-address/original-labor-code storage and dealer-stock activation are explicit implementation prerequisites, not reasons to drop canonical values. A full cutover remains blocked on all ADR-0031 gates.
 
 ## References and Linear Tracking
 
