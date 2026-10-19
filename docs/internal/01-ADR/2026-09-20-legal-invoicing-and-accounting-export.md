@@ -18,6 +18,8 @@ Accountant-approved mapping fixtures remain a **M1 release gate**; official DATE
 
 ## Context
 
+**Source-cardinality amendment (2026-10-19):** [ADR-0032](2026-10-19-collective-workshop-invoice-sources.md) specifies a future gated collective-workshop origin with a nonempty immutable source-allocation manifest instead of one direct order FK. That exception does not authorize generic source-less invoices or alter this ADR's RE/CN numbering, financial immutability, credits or accounting/retention rules. Existing documents and all other source origins retain their present contract.
+
 The Legal Invoicing & Accounting Export project needs seller identity, customer-facing Rechnung content, financial corrections and an accountant export. These cross Finance, Sales, Workshop, Vehicle Stock and Site; ship them in the project's ordered milestones.
 
 Repository inspection on 2026-09-20 found:
