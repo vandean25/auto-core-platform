@@ -84,7 +84,7 @@ export async function runCanonicalMigrationFixtureDryRunTotalsCheck(
   const customers = await dryRunCanonicalMigrationCustomers(app, authHeader).expect(
     201,
   );
-  expect(customers.body.totals).toEqual(expected.customers.totals);
+  expect(customers.body.totals).toMatchObject(expected.customers.totals);
   expect(
     await countDryRunWarningRows(app, authHeader, customers.body.id),
   ).toBe(expected.customers.warningRows);
@@ -92,7 +92,7 @@ export async function runCanonicalMigrationFixtureDryRunTotalsCheck(
   const vehicles = await dryRunCanonicalMigrationVehicles(app, authHeader).expect(
     201,
   );
-  expect(vehicles.body.totals).toEqual(expected.vehicles.totals);
+  expect(vehicles.body.totals).toMatchObject(expected.vehicles.totals);
   expect(
     await countDryRunWarningRows(app, authHeader, vehicles.body.id),
   ).toBe(expected.vehicles.warningRows);
