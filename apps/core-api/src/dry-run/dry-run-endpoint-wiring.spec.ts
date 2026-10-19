@@ -4,7 +4,7 @@ import { DryRunModule } from './dry-run.module.js';
 import { AppModule } from '../app.module.js';
 import { CustomerController } from '../customer/customer.controller.js';
 import { VehicleController } from '../vehicle/vehicle.controller.js';
-import { WorkshopController } from '../workshop/workshop.controller.js';
+import { WorkshopOrdersController } from '../workshop/workshop-orders.controller.js';
 import { SalesController } from '../sales/sales.controller.js';
 import { InvoicesController } from '../invoices/invoices.controller.js';
 import { CreditNotesController } from '../credit-notes/credit-notes.controller.js';
@@ -35,18 +35,18 @@ describe('Dry-Run Endpoint Wiring', () => {
       expect(isSupported).toBe(true);
     });
 
-    it('decorates POST /api/workshop/orders (WorkshopController.create)', () => {
+    it('decorates POST /api/workshop/orders (WorkshopOrdersController.create)', () => {
       const isSupported = Reflect.getMetadata(
         DRY_RUN_SUPPORTED_KEY,
-        WorkshopController.prototype.create,
+        WorkshopOrdersController.prototype.create,
       );
       expect(isSupported).toBe(true);
     });
 
-    it('decorates PATCH /api/workshop/orders/:orderId/tasks/:taskId/line-items (WorkshopController.replaceTaskLineItems)', () => {
+    it('decorates PATCH /api/workshop/orders/:orderId/tasks/:taskId/line-items (WorkshopOrdersController.replaceTaskLineItems)', () => {
       const isSupported = Reflect.getMetadata(
         DRY_RUN_SUPPORTED_KEY,
-        WorkshopController.prototype.replaceTaskLineItems,
+        WorkshopOrdersController.prototype.replaceTaskLineItems,
       );
       expect(isSupported).toBe(true);
     });

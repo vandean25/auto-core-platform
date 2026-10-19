@@ -32,7 +32,7 @@ export function importInvalidEntityTypeError(value: string) {
 
 export function assertImplementedImportEntityType(
   entityType: ImportEntityType,
-): void {
+): asserts entityType is ImplementedImportEntityType {
   if (!implementedImportEntityTypeSet.has(entityType)) {
     throw importInvalidEntityTypeError(entityType);
   }

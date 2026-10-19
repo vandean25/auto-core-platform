@@ -261,8 +261,7 @@ export class ImportService {
     );
     const rows = await this.jobStore.findApplyRows(tenantId, jobId);
     assertImplementedImportEntityType(job.entity_type);
-    const handler =
-      this.handlers[job.entity_type as ImplementedImportEntityType];
+    const handler = this.handlers[job.entity_type];
     const preparation = await handler.prepareApply({
       tenantId,
       job,
