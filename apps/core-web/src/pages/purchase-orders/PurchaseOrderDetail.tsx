@@ -542,7 +542,9 @@ export default function PurchaseOrderDetail() {
                       <TableHead className="text-right">{t("columns.received")}</TableHead>
                       <TableHead className="text-right">{t("columns.remaining")}</TableHead>
                       <TableHead className="text-right">{t("columns.cost")}</TableHead>
-                      <TableHead className="w-[100px]"></TableHead>
+                      <TableHead className="w-[100px]">
+                        <span className="sr-only">{t("purchaseOrders.detail.lineActionsHeader")}</span>
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
