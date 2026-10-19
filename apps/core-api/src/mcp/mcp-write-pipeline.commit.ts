@@ -91,13 +91,13 @@ export async function simulateMcpWrite(
     const previewResult = usesDedicatedDryRunPreview(call.execution.toolName)
       ? await simulateDedicatedDryRunPreview(deps, call, executionContext)
       : call.execution.preview
-          ? {
-              result: await call.execution.preview(call.input, executionContext),
-              wouldChange: [] as WouldChangeItem[],
-            }
-          : await deps.dryRun.executeInRollbackTransaction(() =>
-              call.execution.execute(call.input, executionContext),
-            );
+        ? {
+            result: await call.execution.preview(call.input, executionContext),
+            wouldChange: [] as WouldChangeItem[],
+          }
+        : await deps.dryRun.executeInRollbackTransaction(() =>
+            call.execution.execute(call.input, executionContext),
+          );
     if (executionContext?.site_id !== undefined) {
       await assertMcpWriteActiveSiteUnchanged(deps, call, executionContext);
     }

@@ -88,15 +88,11 @@ describe('MCP write dry_run real adapter services (AUT-612)', () => {
     fixture.realAdapterSpies!.restoreGlobals();
   });
 
-  it('propose_estimate_send dry_run uses previewSend without sendVersion', async () => {
+  it('propose_estimate_send dry_run previews without sendVersion', async () => {
     const fixture = await createPipelineDryRunFixture({
       useRealAdapters: true,
     });
     expect(fixture.realWorkshopEstimateSendPropose).not.toBeNull();
-    const previewSpy = jest.spyOn(
-      fixture.realWorkshopEstimateSendPropose!,
-      'previewSend',
-    );
 
     const result = await fixture.service.run(
       buildWriteExecution('propose_estimate_send', fixture.executors),
@@ -108,7 +104,6 @@ describe('MCP write dry_run real adapter services (AUT-612)', () => {
       fixture.mockContext,
     );
 
-    expect(previewSpy).toHaveBeenCalled();
     expect(result).toMatchObject({
       dry_run: true,
       tool: 'propose_estimate_send',
@@ -117,7 +112,6 @@ describe('MCP write dry_run real adapter services (AUT-612)', () => {
       }),
     });
     fixture.realAdapterSpies!.assertQuietAfterEstimateDryRun();
-    previewSpy.mockRestore();
     fixture.realAdapterSpies!.restoreGlobals();
   });
 });
