@@ -10,8 +10,16 @@ function unsupportedClause(
   );
 }
 
-function toDate(value: Date | string): Date {
-  return value instanceof Date ? value : new Date(value);
+function filterDateBoundary(
+  value: string | Date | Prisma.FieldRef<'WorkshopEstimateVersion', 'DateTime'>,
+): Date {
+  if (value instanceof Date) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    return new Date(value);
+  }
+  unsupportedClause({ sent_at: value });
 }
 
 function matchesIdFilter(
@@ -42,13 +50,13 @@ function matchesValidUntil(
     );
   }
   if (validUntil.gte !== undefined) {
-    const gte = toDate(validUntil.gte);
+    const gte = filterDateBoundary(validUntil.gte);
     return (
       row.valid_until !== null && row.valid_until.getTime() >= gte.getTime()
     );
   }
   if (validUntil.lt !== undefined) {
-    const lt = toDate(validUntil.lt);
+    const lt = filterDateBoundary(validUntil.lt);
     return row.valid_until !== null && row.valid_until.getTime() < lt.getTime();
   }
   unsupportedClause({ valid_until: validUntil });
@@ -66,13 +74,13 @@ function matchesSentAt(
     return row.sent_at !== null && row.sent_at.getTime() === sentAt.getTime();
   }
   if (sentAt.gte !== undefined) {
-    const gte = toDate(sentAt.gte);
+    const gte = filterDateBoundary(sentAt.gte);
     if (!row.sent_at || row.sent_at.getTime() < gte.getTime()) {
       return false;
     }
   }
   if (sentAt.lt !== undefined) {
-    const lt = toDate(sentAt.lt);
+    const lt = filterDateBoundary(sentAt.lt);
     if (!row.sent_at || row.sent_at.getTime() >= lt.getTime()) {
       return false;
     }
