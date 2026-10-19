@@ -4,9 +4,11 @@ import {
   parseCanonicalMigrationCsv,
 } from './migration-csv-parse.util.js';
 import {
+  isCanonicalMoneyString,
   lineMoneyCentsFromQtyAndUnit,
   formatMoneyFromCents,
   sumMoneyStrings,
+  tryParseMoneyToCents,
 } from './migration-money.util.js';
 
 describe('migration-money.util', () => {
@@ -17,6 +19,11 @@ describe('migration-money.util', () => {
 
   it('sums money without float drift', () => {
     expect(sumMoneyStrings(['0.10', '0.20'])).toBe('0.30');
+  });
+
+  it('rejects single-decimal money strings', () => {
+    expect(isCanonicalMoneyString('1.0')).toBe(false);
+    expect(tryParseMoneyToCents('1.0')).toBeNull();
   });
 });
 

@@ -248,6 +248,49 @@ describe('validateMigrationBundle', () => {
     ).toBe(true);
   });
 
+  it('reports unsupported inventory_role=USED on vehicles', () => {
+    const parsedHeader = parseCanonicalMigrationCsv(
+      headerOnlyCanonicalCsvBytes('vehicles.csv'),
+    );
+    const cells = parsedHeader.headers.map((header) => {
+      if (header === 'external_id') return 'veh-used';
+      if (header === 'vin') return '';
+      if (header === 'license_plate') return 'W-USED-1';
+      if (header === 'make') return 'Make';
+      if (header === 'model') return 'Model';
+      if (header === 'model_year') return '2020';
+      if (header === 'customer_external_id') return 'cust-001';
+      if (header === 'inventory_role') return 'USED';
+      return '';
+    });
+    const buffer = Buffer.from(
+      `${parsedHeader.headers.join(',')}\r\n${cells.join(',')}\r\n`,
+      'utf8',
+    );
+    const parsed = parseCanonicalMigrationCsv(buffer);
+    const manifest = buildMinimalManifest({
+      files: [
+        {
+          name: 'vehicles.csv',
+          sha256: parsed.sha256,
+          row_count: 1,
+        },
+      ],
+      counts: { vehicles: 1 },
+    });
+    const issues = validateMigrationBundle({
+      manifest,
+      files: { 'vehicles.csv': buffer },
+    });
+    expect(
+      issues.some(
+        (i) =>
+          i.code === MIGRATION_MANIFEST_ERROR_CODES.MIGRATION_UNSUPPORTED_CAPABILITY &&
+          i.field === 'inventory_role',
+      ),
+    ).toBe(true);
+  });
+
   it('rejects reserved outline files for format_version 1.0', () => {
     const parties = headerOnlyCanonicalCsvBytes('vehicle_parties.csv');
     const manifest: MigrationManifest = {
