@@ -11,7 +11,9 @@ import { RequestContextService } from '../common/services/request-context.servic
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { CloudTasksService } from '../common/services/cloud-tasks.service.js';
 import { MechanicMediaStorage } from '../mechanic/mechanic-media.storage.js';
+import { NotificationCloudTasksService } from '../notifications/notification-cloud-tasks.service.js';
 import { NotificationOutboxWorkerService } from '../notifications/notification-outbox-worker.service.js';
+import { buildRealAdapterServices } from './mcp-write-dry-run.contract.adapters.spec.support.js';
 import { SideEffectGuard } from '../dry-run/side-effect-guard.js';
 import type { SideEffectType } from '../dry-run/dry-run.types.js';
 import { DryRunStorage } from '../dry-run/dry-run.storage.js';
@@ -205,6 +207,9 @@ export function installOutboundSideEffectSpies(): OutboundSideEffectSpies {
   const emailSpy = jest
     .spyOn(NotificationOutboxWorkerService.prototype, 'deliver')
     .mockRejectedValue(new Error('Email deliver must not run during dry_run tests'));
+  const notificationQueueSpy = jest
+    .spyOn(NotificationCloudTasksService.prototype, 'enqueueWakeUp')
+    .mockResolvedValue(undefined);
 
   return {
     assertNoOutboundSideEffects: () => {
@@ -212,12 +217,14 @@ export function installOutboundSideEffectSpies(): OutboundSideEffectSpies {
       expect(cloudTasksSpy).not.toHaveBeenCalled();
       expect(gcsSpy).not.toHaveBeenCalled();
       expect(emailSpy).not.toHaveBeenCalled();
+      expect(notificationQueueSpy).not.toHaveBeenCalled();
     },
     restore: () => {
       assertAllowedSpy.mockRestore();
       cloudTasksSpy.mockRestore();
       gcsSpy.mockRestore();
       emailSpy.mockRestore();
+      notificationQueueSpy.mockRestore();
     },
   };
 }
@@ -245,9 +252,12 @@ export type PipelineDryRunFixture = {
   };
   mockContext: { agentId: string; onBehalfOfUserId: string };
   executorPrisma: Record<string, unknown>;
+  realAdapterSpies: import('./mcp-write-dry-run.contract.adapters.spec.support.js').AdapterLowLevelSpies | null;
 };
 
-export async function createPipelineDryRunFixture(): Promise<PipelineDryRunFixture> {
+export async function createPipelineDryRunFixture(options?: {
+  useRealAdapters?: boolean;
+}): Promise<PipelineDryRunFixture> {
   const txAgentProposalCreate = jest.fn();
   const mockTx = {
     agentProposal: { create: txAgentProposalCreate },
@@ -280,32 +290,42 @@ export async function createPipelineDryRunFixture(): Promise<PipelineDryRunFixtu
     abandon: jest.fn(),
   } as jest.Mocked<McpWriteCommandIdempotencyService>;
 
-  const mockWorkshopMediaUploadMcp = {
-    createUploadSlot: jest.fn(),
-    previewUploadSlot: jest.fn().mockResolvedValue({
-      dry_run_preview: true,
-      workshop_task_id: '00000000-0000-4000-8000-000000000006',
-      mime_type: 'image/jpeg',
-      size_bytes: 1024,
-      media_id: '00000000-0000-4000-8000-00000000d001',
-      expires_at: '2026-10-19T12:00:00.000Z',
-      upload_url: null,
-      fields: {},
-    }),
-  };
-  const mockWeeklyReportMcp = {
-    preview: jest.fn().mockResolvedValue({
-      site_id: 'site-1',
-      period: {
-        from: '2026-10-12',
-        to: '2026-10-18',
-        timezone: 'Europe/Vienna',
-        iso_week: '2026-W42',
-      },
-    }),
-    execute: jest.fn(),
-    refreshReplayResult: jest.fn((result: unknown) => Promise.resolve(result)),
-  };
+  const realAdapters = options?.useRealAdapters
+    ? buildRealAdapterServices()
+    : null;
+
+  const mockWorkshopMediaUploadMcp = realAdapters
+    ? realAdapters.workshopMediaUploadMcp
+    : {
+        createUploadSlot: jest.fn(),
+        previewUploadSlot: jest.fn().mockResolvedValue({
+          dry_run_preview: true,
+          workshop_task_id: '00000000-0000-4000-8000-000000000006',
+          mime_type: 'image/jpeg',
+          size_bytes: 1024,
+          media_id: '00000000-0000-4000-8000-00000000d001',
+          expires_at: '2026-10-19T12:00:00.000Z',
+          upload_url: null,
+          fields: {},
+        }),
+      };
+  const mockWeeklyReportMcp = realAdapters
+    ? realAdapters.weeklyReportMcp
+    : {
+        preview: jest.fn().mockResolvedValue({
+          site_id: 'site-1',
+          period: {
+            from: '2026-10-12',
+            to: '2026-10-18',
+            timezone: 'Europe/Vienna',
+            iso_week: '2026-W42',
+          },
+        }),
+        execute: jest.fn(),
+        refreshReplayResult: jest.fn((result: unknown) =>
+          Promise.resolve(result),
+        ),
+      };
   const mockMechanicFindingPropose = {
     enrichInput: jest.fn(async (input: unknown) => input),
     buildPreview: jest.fn().mockResolvedValue({
@@ -317,7 +337,7 @@ export async function createPipelineDryRunFixture(): Promise<PipelineDryRunFixtu
     applyAcknowledgment: jest.fn(),
   };
 
-  const executorPrisma = {
+  let executorPrisma: Record<string, unknown> = {
     site: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
     workshopOrder: {
       findFirst: jest.fn().mockResolvedValue({
@@ -380,6 +400,33 @@ export async function createPipelineDryRunFixture(): Promise<PipelineDryRunFixtu
     },
   };
 
+  if (realAdapters) {
+    executorPrisma = realAdapters.enrichExecutorPrisma(executorPrisma);
+  }
+
+  const completionService = realAdapters
+    ? realAdapters.workshopOrderCompletion
+    : ({
+        applyCompletion: jest.fn().mockImplementation(async () => {
+          expect(DryRunStorage.isDryRun()).toBe(true);
+          return { id: 'order-1' };
+        }),
+        buildExecutionContext: jest.fn().mockResolvedValue({ site_id: 'site-1' }),
+        enrichInput: jest.fn(async (input: unknown) => input),
+      } as never);
+
+  const estimateSendService = realAdapters
+    ? realAdapters.workshopEstimateSendPropose
+    : ({
+        applySend: jest.fn().mockImplementation(async () => {
+          expect(DryRunStorage.isDryRun()).toBe(true);
+          return { id: 'ver-1' };
+        }),
+        buildExecutionContext: jest.fn().mockResolvedValue({ site_id: 'site-1' }),
+        buildPolicyContext: jest.fn().mockResolvedValue({ amount_eur: 60 }),
+        enrichInput: jest.fn(async (input: unknown) => input),
+      } as never);
+
   const executors = new PendingActionExecutorService(
     executorPrisma as never,
     { getTenantId: jest.fn().mockResolvedValue('tenant-1') } as never,
@@ -427,14 +474,7 @@ export async function createPipelineDryRunFixture(): Promise<PipelineDryRunFixtu
         .fn()
         .mockResolvedValue({ site_id: 'site-1' }),
     } as never,
-    {
-      applyCompletion: jest.fn().mockImplementation(async () => {
-        expect(DryRunStorage.isDryRun()).toBe(true);
-        return { id: 'order-1' };
-      }),
-      buildExecutionContext: jest.fn().mockResolvedValue({ site_id: 'site-1' }),
-      enrichInput: jest.fn(async (input: unknown) => input),
-    } as never,
+    completionService,
     {
       applyDraft: jest.fn().mockImplementation(async () => {
         expect(DryRunStorage.isDryRun()).toBe(true);
@@ -444,15 +484,7 @@ export async function createPipelineDryRunFixture(): Promise<PipelineDryRunFixtu
       buildPolicyContext: jest.fn().mockResolvedValue({ amount_eur: 120 }),
       enrichInput: jest.fn(async (input: unknown) => input),
     } as never,
-    {
-      applySend: jest.fn().mockImplementation(async () => {
-        expect(DryRunStorage.isDryRun()).toBe(true);
-        return { id: 'ver-1' };
-      }),
-      buildExecutionContext: jest.fn().mockResolvedValue({ site_id: 'site-1' }),
-      buildPolicyContext: jest.fn().mockResolvedValue({ amount_eur: 60 }),
-      enrichInput: jest.fn(async (input: unknown) => input),
-    } as never,
+    estimateSendService,
     mockWorkshopMediaUploadMcp as never,
     mockMechanicFindingPropose as never,
     mockWeeklyReportMcp as never,
@@ -488,7 +520,9 @@ export async function createPipelineDryRunFixture(): Promise<PipelineDryRunFixtu
       },
       {
         provide: WorkshopOrderCompletionService,
-        useValue: { enrichInput: async (input: unknown) => input },
+        useValue:
+          realAdapters?.workshopOrderCompletion ??
+          ({ enrichInput: async (input: unknown) => input } as never),
       },
       {
         provide: InvoiceWorkshopDraftProposeService,
@@ -496,7 +530,9 @@ export async function createPipelineDryRunFixture(): Promise<PipelineDryRunFixtu
       },
       {
         provide: WorkshopEstimateSendProposeService,
-        useValue: { enrichInput: async (input: unknown) => input },
+        useValue:
+          realAdapters?.workshopEstimateSendPropose ??
+          ({ enrichInput: async (input: unknown) => input } as never),
       },
       {
         provide: MechanicFindingProposeService,
@@ -508,6 +544,7 @@ export async function createPipelineDryRunFixture(): Promise<PipelineDryRunFixtu
   return {
     service: module.get(McpWritePipelineService),
     executors,
+    realAdapterSpies: realAdapters?.spies ?? null,
     mockAgentPolicy,
     mockAgentActionLog,
     mockPrisma,
