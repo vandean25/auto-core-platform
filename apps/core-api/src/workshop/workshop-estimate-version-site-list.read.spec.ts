@@ -134,9 +134,11 @@ describe('listSiteEstimateVersionsPage', () => {
       NOW,
     );
 
-    expect(second.rows.map((row) => row.id)).toEqual([
-      '00000000-0000-4000-8000-000000000012',
-    ]);
+    const secondIds = second.rows.map((row) => row.id);
+    expect(secondIds).toEqual(['00000000-0000-4000-8000-000000000012']);
+    expect(secondIds.some((id) => first.rows.some((row) => row.id === id))).toBe(
+      false,
+    );
     expect(
       second.rows.every(
         (row) => effectiveEstimateStatus(row, NOW) === WorkshopEstimateStatus.SENT,
@@ -201,9 +203,11 @@ describe('listSiteEstimateVersionsPage', () => {
       NOW,
     );
 
-    expect(second.rows.map((row) => row.id)).toEqual([
-      '00000000-0000-4000-8000-000000000021',
-    ]);
+    const secondIds = second.rows.map((row) => row.id);
+    expect(secondIds).toEqual(['00000000-0000-4000-8000-000000000021']);
+    expect(secondIds.some((id) => first.rows.some((row) => row.id === id))).toBe(
+      false,
+    );
     expect(
       [...first.rows, ...second.rows].every(
         (row) =>
