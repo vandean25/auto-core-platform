@@ -1,13 +1,13 @@
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { ForbiddenException } from '@nestjs/common';
 import { LoanerBookingStatus, WorkshopEstimateStatus } from '@prisma/client';
 import { paginateCommunications } from './mcp-wave2-read.mapper.js';
-import { McpWave2ReadListsService } from './mcp-wave2-read-lists.service.js';
+import { McpWave2ReadFacade } from './mcp-wave2-read.facade.js';
 
 const ORDER_ID = '00000000-0000-4000-8000-0000000000e1';
 const SITE_ID = '00000000-0000-4000-8000-000000000002';
 
-function createService(overrides: Partial<Record<string, unknown>> = {}) {
-  return new McpWave2ReadListsService(
+function createFacade(overrides: Partial<Record<string, unknown>> = {}) {
+  return new McpWave2ReadFacade(
     overrides.loaners as never,
     overrides.estimates as never,
     overrides.estimateSiteVersions as never,
@@ -21,7 +21,7 @@ function createService(overrides: Partial<Record<string, unknown>> = {}) {
   );
 }
 
-describe('McpWave2ReadListsService', () => {
+describe('McpWave2ReadFacade wave-2 lists', () => {
   describe('list_loaner_bookings', () => {
     it('keeps bookings that overlap the from/to window', async () => {
       const booking = {
@@ -37,13 +37,13 @@ describe('McpWave2ReadListsService', () => {
         loanerVehicle: { displayName: 'Pool 1' },
         customer: { companyName: 'Demo GmbH' },
       };
-      const service = createService({
+      const facade = createFacade({
         loaners: {
           listBookings: jest.fn().mockResolvedValue({ data: [booking] }),
         },
       });
 
-      const page = await service.listLoanerBookings({
+      const page = await facade.listLoanerBookings({
         from: '2026-10-01T00:00:00.000Z',
         to: '2026-10-31T23:59:59.000Z',
       });
@@ -53,12 +53,12 @@ describe('McpWave2ReadListsService', () => {
     });
 
     it('returns an empty page when nothing matches', async () => {
-      const service = createService({
+      const facade = createFacade({
         loaners: {
           listBookings: jest.fn().mockResolvedValue({ data: [] }),
         },
       });
-      const page = await service.listLoanerBookings({});
+      const page = await facade.listLoanerBookings({});
       expect(page.data).toEqual([]);
       expect(page.meta.next_cursor).toBeNull();
     });
@@ -66,7 +66,7 @@ describe('McpWave2ReadListsService', () => {
 
   describe('list_estimates', () => {
     it('returns an empty page from the estimate service', async () => {
-      const service = createService({
+      const facade = createFacade({
         estimateSiteVersions: {
           listPage: jest.fn().mockResolvedValue({
             rows: [],
@@ -74,14 +74,14 @@ describe('McpWave2ReadListsService', () => {
           }),
         },
       });
-      const page = await service.listEstimates({ status: WorkshopEstimateStatus.SENT });
+      const page = await facade.listEstimates({ status: WorkshopEstimateStatus.SENT });
       expect(page.data).toEqual([]);
     });
   });
 
   describe('list_order_communications', () => {
     it('masks bodies and recipients', async () => {
-      const service = createService({
+      const facade = createFacade({
         estimates: {
           listCommunicationsForOrder: jest.fn().mockResolvedValue({
             data: [
@@ -98,7 +98,7 @@ describe('McpWave2ReadListsService', () => {
           }),
         },
       });
-      const page = await service.listOrderCommunications({ orderId: ORDER_ID });
+      const page = await facade.listOrderCommunications({ orderId: ORDER_ID });
       expect(page.data[0]).toMatchObject({
         recipient_masked: null,
         template_id: null,
@@ -110,7 +110,7 @@ describe('McpWave2ReadListsService', () => {
 
   describe('get_check_in', () => {
     it('rethrows unexpected checklist errors', async () => {
-      const service = createService({
+      const facade = createFacade({
         checkIns: {
           get: jest.fn().mockResolvedValue({
             status: 'DRAFT',
@@ -126,13 +126,13 @@ describe('McpWave2ReadListsService', () => {
           list: jest.fn().mockResolvedValue({ data: [] }),
         },
       });
-      await expect(service.getCheckIn({ orderId: ORDER_ID })).rejects.toThrow(
+      await expect(facade.getCheckIn({ orderId: ORDER_ID })).rejects.toThrow(
         'database offline',
       );
     });
 
     it('omits signature image and hash fields', async () => {
-      const service = createService({
+      const facade = createFacade({
         checkIns: {
           get: jest.fn().mockResolvedValue({
             status: 'COMPLETED',
@@ -151,7 +151,7 @@ describe('McpWave2ReadListsService', () => {
           }),
         },
       });
-      const summary = await service.getCheckIn({ orderId: ORDER_ID });
+      const summary = await facade.getCheckIn({ orderId: ORDER_ID });
       expect(summary.signature_captured).toBe(true);
       expect(summary).not.toHaveProperty('signature_image');
       expect(summary).not.toHaveProperty('content_hash');
@@ -161,7 +161,7 @@ describe('McpWave2ReadListsService', () => {
 
   describe('getStaffAvailability', () => {
     it('surfaces MCP not_permitted from the HR service', async () => {
-      const service = createService({
+      const facade = createFacade({
         staffAvailability: {
           getStaffAvailability: jest.fn().mockRejectedValue(
             new ForbiddenException({
@@ -171,13 +171,13 @@ describe('McpWave2ReadListsService', () => {
           ),
         },
       });
-      await expect(service.getStaffAvailability({})).rejects.toMatchObject({
+      await expect(facade.getStaffAvailability({})).rejects.toMatchObject({
         response: { code: 'not_permitted' },
       });
     });
 
     it('returns an empty roster without leave or clock detail fields', async () => {
-      const service = createService({
+      const facade = createFacade({
         staffAvailability: {
           getStaffAvailability: jest.fn().mockResolvedValue({
             date: '2026-10-01',
@@ -186,7 +186,7 @@ describe('McpWave2ReadListsService', () => {
           }),
         },
       });
-      const result = await service.getStaffAvailability({});
+      const result = await facade.getStaffAvailability({});
       expect(result.employees).toEqual([]);
       expect(result).not.toHaveProperty('leave_type');
       expect(result).not.toHaveProperty('clock_events');
