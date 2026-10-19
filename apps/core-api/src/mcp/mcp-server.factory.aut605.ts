@@ -10,7 +10,6 @@ import {
   MCP_REGISTERED_TOOL_INPUT_SCHEMAS,
   type McpServerSessionContext,
 } from './mcp-server.factory.js';
-import { withWriteToolInputSchemas } from './mcp-server.write-tool-input.js';
 import type { McpComplianceReadToolName } from './mcp-read-tool-catalog.aut605.js';
 import * as complianceSchemas from './mcp-tool-schemas.compliance-reads.js';
 import type { z } from 'zod';
@@ -33,7 +32,7 @@ const REGISTERED_TOOL_INPUT_SCHEMAS: Record<
   McpToolNameWithCompliance,
   McpRegisterToolInputSchema
 > = {
-  ...withWriteToolInputSchemas(MCP_REGISTERED_TOOL_INPUT_SCHEMAS),
+  ...MCP_REGISTERED_TOOL_INPUT_SCHEMAS,
   ...COMPLIANCE_REGISTERED_INPUT_SCHEMAS,
 };
 

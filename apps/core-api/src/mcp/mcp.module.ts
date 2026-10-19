@@ -1,3 +1,4 @@
+import './mcp-tool-descriptions.apply-dry-run.js';
 import { Module } from '@nestjs/common';
 import { AgentActionLogModule } from '../agent-action-log/agent-action-log.module.js';
 import { AgentProposalModule } from '../agent-proposal/agent-proposal.module.js';
