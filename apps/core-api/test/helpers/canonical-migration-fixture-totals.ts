@@ -11,7 +11,7 @@ const migrationFixtureDir = join(
   'test/fixtures/migration-csv-v1',
 );
 
-export async function dryRunCanonicalMigrationCustomers(
+export function dryRunCanonicalMigrationCustomers(
   app: INestApplication,
   authHeader: string,
 ) {
@@ -38,7 +38,7 @@ export async function dryRunCanonicalMigrationCustomers(
     .attach('file', customersCsv, 'customers.csv');
 }
 
-export async function dryRunCanonicalMigrationVehicles(
+export function dryRunCanonicalMigrationVehicles(
   app: INestApplication,
   authHeader: string,
 ) {
