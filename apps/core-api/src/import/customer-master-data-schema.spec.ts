@@ -86,7 +86,13 @@ describe('customer master data schema (Prisma)', () => {
     ).toContain('block_level');
     expect(
       readFileSync(
-        join(process.cwd(), 'src', 'workshop', 'dto', 'workshop-response.dto.ts'),
+        join(
+          process.cwd(),
+          'src',
+          'workshop',
+          'dto',
+          'workshop-order-response.dto.ts',
+        ),
         'utf8',
       ),
     ).toContain('bill_to_customer_id');
