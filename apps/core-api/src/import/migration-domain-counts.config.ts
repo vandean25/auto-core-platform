@@ -35,13 +35,7 @@ export const MIGRATION_V11_DOMAIN_COUNT_SPECS: readonly MigrationDomainCountSpec
       domainKey: 'vehicle_notices',
       fileName: 'vehicle_notices.csv',
       enumField: 'type',
-      enumKeys: [
-        'CAMPAIGN',
-        'RECALL',
-        'REMARK',
-        'WARNING',
-        'SERVICE_DUE',
-      ],
+      enumKeys: ['CAMPAIGN', 'RECALL', 'REMARK', 'WARNING', 'SERVICE_DUE'],
     },
     {
       domainKey: 'tyre_sets',
@@ -80,12 +74,6 @@ export const MIGRATION_V11_DOMAIN_COUNT_SPECS: readonly MigrationDomainCountSpec
       domainKey: 'open_items',
       fileName: 'open_items.csv',
       enumField: 'doc_type',
-      enumKeys: [
-        'INVOICE',
-        'CREDIT_MEMO',
-        'PAYMENT',
-        'REFUND',
-        'REMINDER_FEE',
-      ],
+      enumKeys: ['INVOICE', 'CREDIT_MEMO', 'PAYMENT', 'REFUND', 'REMINDER_FEE'],
     },
   ];

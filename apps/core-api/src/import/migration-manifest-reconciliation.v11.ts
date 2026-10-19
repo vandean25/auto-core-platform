@@ -69,8 +69,7 @@ function validateDomainCounts(
   issues: MigrationValidationIssue[],
 ): void {
   const domainCounts = manifest.control_totals.domain_counts as
-    | Record<string, unknown>
-    | undefined;
+    Record<string, unknown> | undefined;
   if (!domainCounts || typeof domainCounts !== 'object') {
     pushMigrationIssue(issues, {
       code: MIGRATION_MANIFEST_ERROR_CODES.MIGRATION_CONTROL_TOTAL_MISMATCH,
@@ -84,7 +83,6 @@ function validateDomainCounts(
     const declared = domainCounts[spec.domainKey];
     const fileListed = manifestListsFile(manifest, spec.fileName);
     const buffer = files[spec.fileName];
-    const filePresent = fileListed && buffer !== undefined;
 
     if (declared === null || declared === undefined) {
       if (fileListed) {
@@ -173,7 +171,7 @@ function validateOpenOrdersNet(
   files: Record<string, Buffer>,
   issues: MigrationValidationIssue[],
 ): void {
-  const declared = manifest.control_totals.open_orders_net;
+  const declared = manifest.control_totals.open_orders_net as string | null;
   const listed = manifestListsFile(manifest, 'open_orders.csv');
   const buffer = files['open_orders.csv'];
 
@@ -212,7 +210,7 @@ function validateOpenOrdersNet(
     }
   }
   const computed = sumMoneyStrings(amounts);
-  if (!moneyStringsEqual(String(declared), computed)) {
+  if (!moneyStringsEqual(declared, computed)) {
     pushMigrationIssue(issues, {
       code: MIGRATION_MANIFEST_ERROR_CODES.MIGRATION_CONTROL_TOTAL_MISMATCH,
       message: `open_orders_net is ${declared}, recomputed ${computed}`,
@@ -278,8 +276,7 @@ function validateDocumentTotals(
   issues: MigrationValidationIssue[],
 ): void {
   const totals = manifest.control_totals.document_totals as
-    | DocumentTotalBucket[]
-    | undefined;
+    DocumentTotalBucket[] | undefined;
   const listed = manifestListsFile(manifest, 'legacy_documents.csv');
   const buffer = files['legacy_documents.csv'];
 
@@ -313,7 +310,7 @@ function validateDocumentTotals(
     const yearMonth = docDate.length >= 7 ? docDate.slice(0, 7) : '';
     financialRows.push({
       year_month: yearMonth,
-      doc_type: docType as 'INVOICE' | 'CREDIT_MEMO',
+      doc_type: docType,
       net: record.net_total ?? '0.00',
       vat: record.vat_total ?? '0.00',
       gross: record.gross_total ?? '0.00',
@@ -524,10 +521,7 @@ function validateManifestAssets(
     }
   }
 
-  const expectedBundleMembers = new Set<string>([
-    ...csvNames,
-    ...assetNames,
-  ]);
+  const expectedBundleMembers = new Set<string>([...csvNames, ...assetNames]);
   const received = new Set([
     ...Object.keys(files).filter((name) => name !== 'manifest.json'),
     ...Object.keys(assetFiles),

@@ -173,7 +173,8 @@ export function validateMigrationCsvFile(
     ) {
       pushMigrationIssue(issues, {
         code: MIGRATION_MANIFEST_ERROR_CODES.MIGRATION_UNSUPPORTED_CAPABILITY,
-        message: 'anonymized=true is not supported by the customer import handler',
+        message:
+          'anonymized=true is not supported by the customer import handler',
         file: fileName,
         row: rowNo,
         external_id: externalId || undefined,

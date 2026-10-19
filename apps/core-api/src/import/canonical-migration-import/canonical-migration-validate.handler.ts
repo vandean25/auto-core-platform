@@ -1,7 +1,10 @@
 import { BadRequestException } from '@nestjs/common';
 import type { CanonicalMigrationBundleService } from './canonical-migration-bundle.service.js';
 import { MIGRATION_MANIFEST_ERROR_CODES } from '../migration-manifest.errors.js';
-import { parseMigrationManifestJson } from '../migration-manifest.validator.js';
+import {
+  parseMigrationManifestJson,
+  type MigrationManifest,
+} from '../migration-manifest.validator.js';
 
 export function validateCanonicalMigrationUpload(
   bundleService: CanonicalMigrationBundleService,
@@ -18,7 +21,7 @@ export function validateCanonicalMigrationUpload(
       message: 'manifest file is required',
     });
   }
-  let manifest;
+  let manifest: MigrationManifest;
   try {
     manifest = parseMigrationManifestJson(manifestFile.buffer);
   } catch {
