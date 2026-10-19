@@ -1,4 +1,5 @@
 import { Injectable, Optional } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { AgentActionLogService } from '../agent-action-log/agent-action-log.service.js';
 import { AgentProposalService } from '../agent-proposal/agent-proposal.service.js';
 import { AgentPolicyService } from '../agent-policy/agent-policy.service.js';
@@ -37,6 +38,20 @@ export type McpWritePipelineHostResult =
 
 const logActionType = (toolName: McpWriteToolName): string => `mcp.${toolName}`;
 
+function tryGetFromModuleRef<T>(
+  moduleRef: ModuleRef | undefined,
+  token: unknown,
+): T | undefined {
+  if (!moduleRef) {
+    return undefined;
+  }
+  try {
+    return moduleRef.get<T>(token, { strict: false });
+  } catch {
+    return undefined;
+  }
+}
+
 @Injectable()
 export class McpWritePipelineHost {
   private readonly commitDeps: McpWritePipelineCommitDeps;
@@ -58,7 +73,16 @@ export class McpWritePipelineHost {
     private readonly workshopMediaUploadMcp?: WorkshopMediaUploadMcpService,
     @Optional() private readonly weeklyReportMcp?: WeeklyReportMcpService,
     @Optional() mechanicFindingPropose?: MechanicFindingProposeService,
+    private readonly moduleRef: ModuleRef,
   ) {
+    const weeklyFromApp = tryGetFromModuleRef<WeeklyReportMcpService>(
+      moduleRef,
+      WeeklyReportMcpService,
+    );
+    const mediaFromApp = tryGetFromModuleRef<WorkshopMediaUploadMcpService>(
+      moduleRef,
+      WorkshopMediaUploadMcpService,
+    );
     this.commitDeps = {
       prisma,
       agentPolicy,
@@ -70,8 +94,10 @@ export class McpWritePipelineHost {
         mechanicFindingProposeNoop) as MechanicFindingProposeService,
       workshopEstimateSendPropose: this.workshopEstimateSendPropose,
       workshopMediaUploadMcp: (this.workshopMediaUploadMcp ??
+        mediaFromApp ??
         workshopMediaUploadMcpNoop) as WorkshopMediaUploadMcpService,
       weeklyReportMcp: (this.weeklyReportMcp ??
+        weeklyFromApp ??
         weeklyReportMcpNoop) as WeeklyReportMcpService,
     };
   }

@@ -8,7 +8,6 @@ import { DryRunModule } from '../dry-run/dry-run.module.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { PendingActionExecutorModule } from '../pending-action-executor/pending-action-executor.module.js';
 import { MechanicMcpModule } from '../mechanic/mechanic-mcp.module.js';
-import { WeeklyReportModule } from '../reports/weekly-report/weekly-report.module.js';
 import { AgentProposalAuthorization } from './agent-proposal.authorization.js';
 import { AgentProposalController } from './agent-proposal.controller.js';
 import { AgentProposalService } from './agent-proposal.service.js';
@@ -29,7 +28,6 @@ import { AgentProposalSubmitPayloadNormalizer } from './agent-proposal-submit-pa
     WorkshopModule,
     InvoicesModule,
     MechanicMcpModule,
-    WeeklyReportModule,
   ],
   controllers: [AgentProposalController],
   providers: [
@@ -45,7 +43,6 @@ import { AgentProposalSubmitPayloadNormalizer } from './agent-proposal-submit-pa
     AgentProposalService,
     AgentProposalReadService,
     AgentProposalAuthorization,
-    WeeklyReportModule,
   ],
 })
 export class AgentProposalModule {}
