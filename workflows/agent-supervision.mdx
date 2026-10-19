@@ -18,7 +18,7 @@ Ist die Kennzeichnung aus, leitet die Route zur Startseite um — diese Seite gi
     Genehmigen Sie, damit die Plattform die vorgeschlagene Aktion ausführt. Lehnen Sie mit Begründung ab, wenn der Vorschlag falsch oder unsicher ist.
   </Step>
   <Step title="In Aktivitäten nachvollziehen">
-    Nutzen Sie die Tabs **Aktivitäten** und **Entscheidungs-Schatten**, um ausgeführte und im Schattenmodus simulierte Läufe nachzuverfolgen.
+    Nutzen Sie die Tabs **Aktivitäten** und **Entscheidungs-Schatten**, um ausgeführte und im Schattenmodus simulierte Läufe nachzuverfolgen. Filtern Sie nach Aktion oder **Trace-ID**; **Trace-ID kopieren** hilft beim Support-Handoff.
   </Step>
 </Steps>
 
@@ -32,5 +32,8 @@ Das Banner weist darauf hin, dass **HUMAN_ONLY**-Aktionen manuell ausgeführt we
   </Accordion>
   <Accordion title="API-Schlüssel vs. Agenten">
     Mandanten-[API-Schlüssel](/settings/api-keys) sind schreibgeschützter HTTP-Zugriff für Integrationen. Agentenüberwachung ist davon getrennt.
+  </Accordion>
+  <Accordion title="Schreibende Agenten-Tools (MCP)">
+    Externe Agenten mit MCP-Schreibtools sollten zuerst mit `dry_run: true` simulieren (Vorschau ohne Persistenz), danach ohne Dry-Run ausführen oder einen Genehmigungsvorschlag auslösen. Die Plattform blockiert Nebenwirkungen wie E-Mail-Versand während eines Dry-Runs.
   </Accordion>
 </AccordionGroup>
