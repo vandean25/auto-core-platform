@@ -1,3 +1,4 @@
+import './mcp-tool-descriptions.bootstrap.js';
 import { Module } from '@nestjs/common';
 import { AgentActionLogModule } from '../agent-action-log/agent-action-log.module.js';
 import { AgentProposalModule } from '../agent-proposal/agent-proposal.module.js';
@@ -38,11 +39,7 @@ import { McpSettingsReadService } from './mcp-settings-read.service.js';
 import { McpListingReadService } from './mcp-listing-read.service.js';
 import { McpStockReadService } from './mcp-stock-read.service.js';
 import { McpController } from './mcp.controller.js';
-import { MCP_STACK_PROVIDERS_AUT615 } from './mcp-stack.providers.aut615.js';
-import { HrModule } from '../hr/hr.module.js';
-import { McpWave2ReadListsService } from './mcp-wave2-read-lists.service.js';
-import { McpWave2ReadFacade } from './mcp-wave2-read.facade.js';
-import { McpToolHandlerWave2Wrapper } from './mcp-tool-handler.wave2-wrapper.js';
+import { MCP_STACK_PROVIDERS_AUT605 } from './mcp-stack.providers.aut605.js';
 import { McpToolHandlerService } from './mcp-tool-handler.service.js';
 import { McpWritePipelineService } from './mcp-write-pipeline.service.js';
 import { McpWriteCommandIdempotencyService } from './mcp-write-command-idempotency.service.js';
@@ -73,13 +70,11 @@ import { InvoicesModule } from '../invoices/invoices.module.js';
     PendingActionExecutorModule,
     SiteModule,
     InvoicesModule,
-    HrModule,
   ],
   controllers: [McpController],
   providers: [
     McpToolHandlerService,
     McpToolHandlerComplianceWrapper,
-    McpToolHandlerWave2Wrapper,
     McpWritePipelineService,
     McpWriteCommandIdempotencyService,
     McpCapabilitiesService,
@@ -89,7 +84,7 @@ import { InvoicesModule } from '../invoices/invoices.module.js';
     McpOrderHistoryReadService,
     McpVehicleContextReadService,
     McpPurchasingReadService,
-    ...MCP_STACK_PROVIDERS_AUT615,
+    ...MCP_STACK_PROVIDERS_AUT605,
     McpRecordReadService,
     McpWorkshopOrderReadService,
     McpCatalogReadService,
@@ -101,8 +96,6 @@ import { InvoicesModule } from '../invoices/invoices.module.js';
     McpComplianceReadService,
     McpComplianceReadListsService,
     McpComplianceReadFacade,
-    McpWave2ReadListsService,
-    McpWave2ReadFacade,
     McpUserLocaleService,
   ],
 })

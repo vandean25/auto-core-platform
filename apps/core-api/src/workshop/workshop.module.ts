@@ -1,3 +1,4 @@
+import './workshop-estimate-send-propose.preview-install.js';
 import { Module, forwardRef } from '@nestjs/common';
 import { CommonModule } from '../common/index.js';
 import { InventoryModule } from '../inventory/inventory.module.js';
@@ -67,6 +68,7 @@ import { MechanicMcpModule } from '../mechanic/mechanic-mcp.module.js';
 import { McpWorkshopOrderDetailReadService } from '../mcp/mcp-workshop-order-detail.read.service.js';
 import { InspectionCatalogModule } from '../inspection-catalog/inspection-catalog.module.js';
 import { InspectionMeasurementModule } from '../inspection-measurement/inspection-measurement.module.js';
+import { McpWave2Module } from '../mcp/mcp-wave2.module.js';
 
 @Module({
   imports: [
@@ -86,6 +88,7 @@ import { InspectionMeasurementModule } from '../inspection-measurement/inspectio
     AuditModule,
     forwardRef(() => RegistrationIntakeModule),
     MechanicMcpModule,
+    forwardRef(() => McpWave2Module),
   ],
   controllers: [
     PublicEstimateApprovalController,
@@ -159,6 +162,11 @@ import { InspectionMeasurementModule } from '../inspection-measurement/inspectio
     WorkshopMechanicFindingService,
     MechanicMcpModule,
     McpWorkshopOrderDetailReadService,
+    WorkshopEstimateService,
+    WorkshopCheckInService,
+    WorkshopCheckInMediaService,
+    WorkshopInspectionService,
+    McpWave2Module,
   ],
 })
 export class WorkshopModule {}

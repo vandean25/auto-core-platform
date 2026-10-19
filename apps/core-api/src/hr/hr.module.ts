@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { CommonModule } from '../common/index.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { WorkshopModule } from '../workshop/workshop.module.js';
@@ -15,7 +15,7 @@ import { HrController } from './hr.controller.js';
 import { HrStaffAvailabilityService } from './hr-staff-availability.service.js';
 
 @Module({
-  imports: [PrismaModule, CommonModule, WorkshopModule],
+  imports: [PrismaModule, CommonModule, forwardRef(() => WorkshopModule)],
   controllers: [HrController],
   providers: [
     HrIdentityService,

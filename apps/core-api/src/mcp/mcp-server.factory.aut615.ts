@@ -4,8 +4,8 @@ import { MCP_TOOL_NAMES_WITH_WAVE2 } from './mcp-read-tool-catalog.aut615.js';
 import type { McpToolNameWithWave2 } from './mcp-read-tool-catalog.aut615.js';
 import { McpToolHandlerWave2Wrapper } from './mcp-tool-handler.wave2-wrapper.js';
 import { toMcpJsonObject } from './mcp-output.util.js';
-import { MCP_TOOL_DESCRIPTIONS_WITH_WAVE2 } from './mcp-tool-descriptions.merged.js';
-import { mcpToolOutputSchemas } from './mcp-tool-output-schemas.merged.js';
+import { MCP_TOOL_DESCRIPTIONS_WITH_WAVE2 } from './mcp-tool-descriptions.merged.aut615.js';
+import { mcpToolOutputSchemasWithWave2 as mcpToolOutputSchemas } from './mcp-tool-output-schemas.merged.aut615.js';
 import {
   MCP_REGISTERED_TOOL_INPUT_SCHEMAS,
   type McpServerSessionContext,
