@@ -4632,23 +4632,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/imports/canonical-migration/validate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Validate a canonical migration CSV bundle (manifest.json + CSV files) */
-        post: operations["CanonicalMigrationImportController_validateCanonicalMigration"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/tyre-sets/settings": {
         parameters: {
             query?: never;
@@ -5197,6 +5180,23 @@ export interface paths {
          * @description Creates or refreshes a demo user in the landing demo tenant and emails a one-time magic sign-in link. Always returns {ok:true} for honeypot submissions.
          */
         post: operations["LandingDemoAccessController_submit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/imports/canonical-migration/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Validate a canonical migration CSV bundle (manifest.json + CSV files) */
+        post: operations["CanonicalMigrationImportController_validateCanonicalMigration"];
         delete?: never;
         options?: never;
         head?: never;
@@ -20649,23 +20649,6 @@ export interface operations {
             };
         };
     };
-    CanonicalMigrationImportController_validateCanonicalMigration: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
     TyreStorageController_getSettings: {
         parameters: {
             query?: never;
@@ -21764,6 +21747,23 @@ export interface operations {
             };
             /** @description Rate limit exceeded. */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CanonicalMigrationImportController_validateCanonicalMigration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
