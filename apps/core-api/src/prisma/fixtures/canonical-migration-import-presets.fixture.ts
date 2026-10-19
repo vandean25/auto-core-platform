@@ -1,7 +1,5 @@
 import { ImportEntityType, PrismaClient } from '@prisma/client';
-import {
-  CANONICAL_MIGRATION_PRESET_NAME,
-} from '../../import/import.constants.js';
+import { CANONICAL_MIGRATION_PRESET_NAME } from '../../import/canonical-migration.constants.js';
 import { buildCanonicalMigrationIdentityMapping } from '../../import/canonical-migration-preset.js';
 
 /** Source namespace used by synthetic migration-csv-v1 fixtures and rehearsal docs. */

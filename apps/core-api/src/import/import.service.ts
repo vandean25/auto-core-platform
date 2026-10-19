@@ -40,11 +40,12 @@ import { parseImportUpload } from './import-upload.util.js';
 import { computeDryRunTotals } from './import-totals.util.js';
 import { buildTemplateCsv, getImportTemplate } from './import.templates.js';
 import type { ImportJobOptions, ImportJobTotals } from './import.types.js';
+import { assertCanonicalMigrationUploadAllowed } from './migration-manifest-upload.guard.js';
 import {
   validateMigrationBundle,
   type MigrationManifest,
 } from './migration-manifest.validator.js';
-import { IMPORT_ERROR_CODES } from './import.constants.js';
+import { MIGRATION_MANIFEST_ERROR_CODES } from './migration-manifest.errors.js';
 import { SupplierChunkedApplyRunner } from './supplier-price-list-apply.runner.js';
 import { SupplierPriceListImportHandler } from './supplier-price-list-import.handler.js';
 import { LaborOperationImportHandler } from './labor-operation-import.handler.js';
@@ -135,7 +136,7 @@ export class ImportService {
     );
 
     const options = normalizeImportOptions(params.optionsJson);
-    this.validateCanonicalMigrationUpload(params.file, options);
+    assertCanonicalMigrationUploadAllowed(params.file, options);
 
     const parsed = traceImportParse(params.entityType, () =>
       parseImportUpload(params.file),
@@ -307,37 +308,13 @@ export class ImportService {
     });
     if (issues.length > 0) {
       throw new BadRequestException({
-        code: issues[0]?.code ?? IMPORT_ERROR_CODES.MIGRATION_MANIFEST_SCHEMA_INVALID,
+        code:
+          issues[0]?.code ??
+          MIGRATION_MANIFEST_ERROR_CODES.MIGRATION_MANIFEST_SCHEMA_INVALID,
         message: issues[0]?.message ?? 'Migration bundle validation failed',
         issues,
       });
     }
     return { valid: true, issues: [] as const };
-  }
-
-  private validateCanonicalMigrationUpload(
-    file: Express.Multer.File,
-    options: ImportJobOptions,
-  ): void {
-    if (!options.migration_manifest) {
-      return;
-    }
-    const manifest = options.migration_manifest as MigrationManifest;
-    const fileName = file.originalname?.trim();
-    if (!fileName) {
-      return;
-    }
-    const issues = validateMigrationBundle({
-      manifest,
-      files: { [fileName]: file.buffer },
-      allowPartialFiles: true,
-    });
-    if (issues.length > 0) {
-      throw new BadRequestException({
-        code: issues[0]?.code ?? IMPORT_ERROR_CODES.MIGRATION_MANIFEST_SCHEMA_INVALID,
-        message: issues[0]?.message ?? 'Migration manifest validation failed',
-        issues,
-      });
-    }
   }
 }

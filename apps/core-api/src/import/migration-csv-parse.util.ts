@@ -88,9 +88,7 @@ export function sha256Buffer(buffer: Buffer): string {
   return createHash('sha256').update(buffer).digest('hex');
 }
 
-export function parseCanonicalMigrationCsv(
-  buffer: Buffer,
-): ParsedCanonicalCsv {
+export function parseCanonicalMigrationCsv(buffer: Buffer): ParsedCanonicalCsv {
   const sha256 = sha256Buffer(buffer);
   const text = decodeCanonicalCsvText(buffer);
   if (text.trim().length === 0) {

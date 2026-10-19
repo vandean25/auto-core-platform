@@ -476,5 +476,7 @@ export const MIGRATION_CSV_FILE_SPECS: Record<
 export function expectedHeadersForFile(
   fileName: MigrationCsvFileName,
 ): string[] {
-  return MIGRATION_CSV_FILE_SPECS[fileName].columns.map((column) => column.name);
+  return MIGRATION_CSV_FILE_SPECS[fileName].columns.map(
+    (column) => column.name,
+  );
 }

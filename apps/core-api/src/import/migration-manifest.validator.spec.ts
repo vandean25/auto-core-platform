@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
-import { IMPORT_ERROR_CODES } from './import.constants.js';
+import { MIGRATION_MANIFEST_ERROR_CODES } from './migration-manifest.errors.js';
 import {
   headerOnlyCanonicalCsvBytes,
   parseCanonicalMigrationCsv,
@@ -94,7 +94,7 @@ describe('validateMigrationBundle', () => {
       manifest,
       files: { 'customers.csv': customers },
     });
-    expect(issues.some((i) => i.code === IMPORT_ERROR_CODES.MIGRATION_FILE_HASH_MISMATCH)).toBe(
+    expect(issues.some((i) => i.code === MIGRATION_MANIFEST_ERROR_CODES.MIGRATION_FILE_HASH_MISMATCH)).toBe(
       true,
     );
   });
@@ -116,7 +116,7 @@ describe('validateMigrationBundle', () => {
       manifest,
       files: { 'customers.csv': customers },
     });
-    expect(issues.some((i) => i.code === IMPORT_ERROR_CODES.MIGRATION_ROW_COUNT_MISMATCH)).toBe(
+    expect(issues.some((i) => i.code === MIGRATION_MANIFEST_ERROR_CODES.MIGRATION_ROW_COUNT_MISMATCH)).toBe(
       true,
     );
   });
@@ -155,7 +155,7 @@ describe('validateMigrationBundle', () => {
       manifest,
       files: { 'customers.csv': buffer },
     });
-    expect(issues.some((i) => i.code === IMPORT_ERROR_CODES.MIGRATION_UNKNOWN_ENUM_VALUE)).toBe(
+    expect(issues.some((i) => i.code === MIGRATION_MANIFEST_ERROR_CODES.MIGRATION_UNKNOWN_ENUM_VALUE)).toBe(
       true,
     );
   });
@@ -178,7 +178,7 @@ describe('validateMigrationBundle', () => {
       files: { 'customers.csv': buffer },
     });
     expect(
-      issues.some((i) => i.code === IMPORT_ERROR_CODES.MIGRATION_MISSING_REQUIRED_COLUMN),
+      issues.some((i) => i.code === MIGRATION_MANIFEST_ERROR_CODES.MIGRATION_MISSING_REQUIRED_COLUMN),
     ).toBe(true);
   });
 
@@ -202,7 +202,7 @@ describe('validateMigrationBundle', () => {
     });
     expect(
       issues.some(
-        (i) => i.code === IMPORT_ERROR_CODES.MIGRATION_UNSUPPORTED_FORMAT_VERSION,
+        (i) => i.code === MIGRATION_MANIFEST_ERROR_CODES.MIGRATION_UNSUPPORTED_FORMAT_VERSION,
       ),
     ).toBe(true);
   });
@@ -236,7 +236,7 @@ describe('validateMigrationBundle', () => {
       files: { 'vehicle_parties.csv': parties },
     });
     expect(
-      issues.some((i) => i.code === IMPORT_ERROR_CODES.MIGRATION_RESERVED_FILE_REJECTED),
+      issues.some((i) => i.code === MIGRATION_MANIFEST_ERROR_CODES.MIGRATION_RESERVED_FILE_REJECTED),
     ).toBe(true);
   });
 });

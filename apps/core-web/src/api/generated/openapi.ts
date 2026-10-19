@@ -4632,6 +4632,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/imports/canonical-migration/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Validate a canonical migration CSV bundle (manifest.json + CSV files) */
+        post: operations["CanonicalMigrationImportController_validateCanonicalMigration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tyre-sets/settings": {
         parameters: {
             query?: never;
@@ -20629,6 +20646,23 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ImportJobResponseDto"];
                 };
+            };
+        };
+    };
+    CanonicalMigrationImportController_validateCanonicalMigration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

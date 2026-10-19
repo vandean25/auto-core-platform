@@ -27,8 +27,7 @@ export const MIGRATION_MANIFEST_SCHEMA_V10 = {
     extracted_at: {
       type: 'string',
       format: 'date-time',
-      pattern:
-        '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$',
+      pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$',
     },
     cutover_date: { type: 'string', format: 'date' },
     currency: { const: 'EUR' },
@@ -283,10 +282,7 @@ export const MIGRATION_MANIFEST_SCHEMA_V11 = {
       'SERVICE_CONTRACT',
       'PREVIOUS_OWNER',
     ]),
-    vehicleDueDatesCounts: domainEnumCountSchema([
-      'INSPECTION_57A',
-      'SERVICE',
-    ]),
+    vehicleDueDatesCounts: domainEnumCountSchema(['INSPECTION_57A', 'SERVICE']),
     vehicleNoticesCounts: domainEnumCountSchema([
       'CAMPAIGN',
       'RECALL',
