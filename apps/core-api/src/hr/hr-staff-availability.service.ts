@@ -3,11 +3,13 @@ import { EmployeeRole, LeaveRequestStatus } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
-import { formatLocalDate, isoWeekdayFromUtcDate, parseLocalDate } from '../workshop/workshop-planner.time.js';
-import { WorkshopSettingsService } from '../workshop/workshop-settings.service.js';
 import {
-  deriveAttendanceState,
-} from './hr-attendance.service.js';
+  formatLocalDate,
+  isoWeekdayFromUtcDate,
+  parseLocalDate,
+} from '../workshop/workshop-planner.time.js';
+import { WorkshopSettingsService } from '../workshop/workshop-settings.service.js';
+import { deriveAttendanceState } from './hr-attendance.service.js';
 import { HrIdentityService } from './hr-identity.service.js';
 import { HrWorkScheduleService } from './hr-work-schedule.service.js';
 import { expectedMinutesForScheduleDay } from './hr-work-schedule.time.js';
@@ -38,20 +40,21 @@ export class HrStaffAvailabilityService {
     private readonly workshopSettings: WorkshopSettingsService,
   ) {}
 
-  async getStaffAvailability(
-    query: StaffAvailabilityQuery,
-  ): Promise<{ date: string; site_id: string; employees: StaffAvailabilityEmployeeRow[] }> {
+  async getStaffAvailability(query: StaffAvailabilityQuery): Promise<{
+    date: string;
+    site_id: string;
+    employees: StaffAvailabilityEmployeeRow[];
+  }> {
     this.identity.assertOwnerAdmin();
     const tenantId = await this.tenantContext.getTenantId();
-    const siteId = query.siteId ?? await this.siteContext.getSiteId();
+    const siteId = query.siteId ?? (await this.siteContext.getSiteId());
     await this.assertSiteAuthorized(siteId);
 
     const settings = await this.workshopSettings.getSettingsForSite(
       tenantId,
       siteId,
     );
-    const date =
-      query.date ?? formatLocalDate(new Date(), settings.timezone);
+    const date = query.date ?? formatLocalDate(new Date(), settings.timezone);
     parseLocalDate(date);
 
     const employees = await this.prisma.employee.findMany({

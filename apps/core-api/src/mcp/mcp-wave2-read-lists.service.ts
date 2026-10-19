@@ -1,5 +1,4 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { WorkshopEstimateStatus } from '@prisma/client';
 import type { z } from 'zod';
 import { LoanerVehiclesService } from '../loaner-vehicles/loaner-vehicles.service.js';
 import { getLoanerNow } from '../loaner-vehicles/loaner-clock.js';
@@ -69,7 +68,7 @@ export class McpWave2ReadListsService {
     const rows = await this.estimates.listVersionsForSite({
       customerId: input.customerId,
       orderId: input.orderId,
-      status: input.status as WorkshopEstimateStatus | undefined,
+      status: input.status,
       sentFrom: input.sentFrom,
       sentTo: input.sentTo,
     });

@@ -36,4 +36,5 @@ export function isMcpWave2ReadToolName(
 }
 
 /** @deprecated Use {@link MCP_TOOL_NAMES_WITH_WAVE2} — alias for compliance-era imports. */
-export const MCP_TOOL_NAMES_WITH_COMPLIANCE_AND_WAVE2 = MCP_TOOL_NAMES_WITH_WAVE2;
+export const MCP_TOOL_NAMES_WITH_COMPLIANCE_AND_WAVE2 =
+  MCP_TOOL_NAMES_WITH_WAVE2;

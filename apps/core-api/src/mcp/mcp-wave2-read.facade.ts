@@ -13,9 +13,7 @@ import type {
 export class McpWave2ReadFacade {
   constructor(private readonly lists: McpWave2ReadListsService) {}
 
-  listLoanerBookings(
-    input: z.infer<typeof listLoanerBookingsInputSchema>,
-  ) {
+  listLoanerBookings(input: z.infer<typeof listLoanerBookingsInputSchema>) {
     return this.lists.listLoanerBookings(input);
   }
 
@@ -33,9 +31,7 @@ export class McpWave2ReadFacade {
     return this.lists.getCheckIn(input);
   }
 
-  getStaffAvailability(
-    input: z.infer<typeof getStaffAvailabilityInputSchema>,
-  ) {
+  getStaffAvailability(input: z.infer<typeof getStaffAvailabilityInputSchema>) {
     return this.lists.getStaffAvailability(input);
   }
 }

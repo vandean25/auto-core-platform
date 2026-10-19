@@ -61,7 +61,10 @@ export const listEstimatesInputSchema = z
     cursor: keysetCursorSchema,
   })
   .superRefine((value, ctx) => {
-    if ((value.sentFrom && !value.sentTo) || (!value.sentFrom && value.sentTo)) {
+    if (
+      (value.sentFrom && !value.sentTo) ||
+      (!value.sentFrom && value.sentTo)
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'sentFrom and sentTo must be provided together',

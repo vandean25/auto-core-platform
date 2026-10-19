@@ -10,7 +10,6 @@ import {
 import { z } from 'zod';
 
 const bookingCursorSchema = z.object({ id: z.string().uuid() });
-const communicationCursorSchema = z.object({ id: z.string().uuid() });
 const estimateCursorSchema = z.object({
   sent_at: z.string().datetime().nullable(),
   id: z.string().uuid(),
@@ -47,9 +46,7 @@ export function toMcpLoanerBookingRow(
       id: booking.customerId,
       display_name: formatCustomerRef(booking.customer),
     },
-    order_ref: booking.workshopOrderId
-      ? { id: booking.workshopOrderId }
-      : null,
+    order_ref: booking.workshopOrderId ? { id: booking.workshopOrderId } : null,
     planned_pickup_at: booking.plannedFrom.toISOString(),
     planned_return_at: booking.plannedTo.toISOString(),
     actual_pickup_at: booking.handedOverAt
@@ -63,13 +60,11 @@ export function toMcpLoanerBookingRow(
   };
 }
 
-function formatCustomerRef(
-  customer?: {
-    companyName?: string | null;
-    firstName?: string | null;
-    lastName?: string | null;
-  },
-): string {
+function formatCustomerRef(customer?: {
+  companyName?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+}): string {
   if (!customer) {
     return '';
   }
@@ -139,7 +134,9 @@ export function toMcpCheckInSummary(
   checklist: ChecklistItem[],
   media: CheckInMediaItem[],
 ) {
-  const markers = (row.damage_markers_json ?? []) as Array<{ zone_id?: string }>;
+  const markers = (row.damage_markers_json ?? []) as Array<{
+    zone_id?: string;
+  }>;
   const zones = [
     ...new Set(markers.map((marker) => marker.zone_id).filter(Boolean)),
   ].sort() as string[];
@@ -189,7 +186,8 @@ export function paginateLoanerBookings<T extends { id: string }>(
 export function paginateEstimateVersions<
   T extends { id: string; sent_at: string | null },
 >(rows: T[], pageSize: number, cursor?: string) {
-  const startIndex = cursor === undefined ? 0 : findEstimateStartIndex(rows, cursor);
+  const startIndex =
+    cursor === undefined ? 0 : findEstimateStartIndex(rows, cursor);
   const slice = rows.slice(startIndex, startIndex + pageSize);
   const next =
     startIndex + pageSize < rows.length && slice.length > 0
@@ -207,13 +205,10 @@ export function paginateCommunications<T extends { id: string }>(
   cursor?: string,
 ) {
   const startIndex =
-    cursor === undefined
-      ? 0
-      : rows.findIndex((row) => row.id === cursor) + 1;
+    cursor === undefined ? 0 : rows.findIndex((row) => row.id === cursor) + 1;
   const slice = rows.slice(Math.max(0, startIndex), startIndex + pageSize);
   const last = slice[slice.length - 1];
-  const next =
-    startIndex + pageSize < rows.length && last ? last.id : null;
+  const next = startIndex + pageSize < rows.length && last ? last.id : null;
   return {
     data: slice,
     meta: { page_size: pageSize, next_cursor: next },
@@ -238,9 +233,7 @@ function findEstimateStartIndex<
     return 0;
   }
   const index = rows.findIndex(
-    (row) =>
-      row.id === parsed.data.id &&
-      row.sent_at === parsed.data.sent_at,
+    (row) => row.id === parsed.data.id && row.sent_at === parsed.data.sent_at,
   );
   return index < 0 ? 0 : index + 1;
 }

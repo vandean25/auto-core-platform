@@ -72,9 +72,7 @@ export async function listSiteEstimateVersions(
       tenant_id: scope.tenantId,
       estimate: {
         site_id: scope.siteId,
-        ...(filters.orderId
-          ? { workshop_order_id: filters.orderId }
-          : {}),
+        ...(filters.orderId ? { workshop_order_id: filters.orderId } : {}),
         workshop_order: filters.customerId
           ? { customer_id: filters.customerId }
           : undefined,
@@ -140,7 +138,6 @@ export async function listSiteEstimateVersions(
   }
 
   return mapped.filter(
-    (row) =>
-      effectiveEstimateStatus(row, now) === filters.status,
+    (row) => effectiveEstimateStatus(row, now) === filters.status,
   );
 }
