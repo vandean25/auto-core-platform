@@ -43,7 +43,6 @@ import {
   ReplaceWorkshopTaskLineItemsDto,
   UpdateWorkshopOrderDto,
   UpdateWorkshopTaskDto,
-  WorkshopOrderResponseDto,
   WorkshopPdfGenerationResponseDto,
   WorkshopResourcesResponseDto,
   WorkshopSearchResponseDto,
@@ -51,6 +50,7 @@ import {
   UpdateWorkshopInspectionDto,
   WorkshopInspectionResponseDto,
 } from './dto/index.js';
+import { WorkshopOrderResponseDto } from './dto/workshop-api-response.dto.js';
 import { InvoiceResponseDto } from '../sales/dto/invoice-response.dto.js';
 import { VehicleListItemDto } from '../vehicle/dto/vehicle-response.dto.js';
 import * as board from './workshop-board.service.js';

@@ -20,6 +20,7 @@
     "apps/core-api/src/tyre-storage/tyre-storage.service.ts": 5.65,
     "apps/core-api/src/vehicle/vehicle.controller.ts": 5.98,
     "apps/core-api/src/workshop/workshop-board.service.ts": 5.39,
+    "apps/core-api/src/workshop/workshop.controller.ts": 5.75,
     "apps/core-api/src/workshop/workshop.module.ts": 5.9,
     "apps/core-api/test/mcp.e2e-spec.ts": 3.9,
     "apps/core-web/src/api/agent-proposals.test.ts": 5.65,
