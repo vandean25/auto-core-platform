@@ -1,10 +1,10 @@
 import type { Prisma } from '@prisma/client';
 import type { EstimateScope } from './workshop-estimate-scope.js';
-import type { EstimateVersionFixture } from './workshop-estimate-version-site-list.read.spec.fixtures.js';
+import type { EstimateVersionFixture } from './workshop-estimate-version-site-list.read.fixtures.spec.support.js';
 import {
   estimateVersionAndClauses,
   matchEstimateVersionWhereClause,
-} from './workshop-estimate-version-site-list.read.spec.matcher.dispatch.js';
+} from './workshop-estimate-version-site-list.read.matcher-dispatch.spec.support.js';
 
 export function rowMatchesSiteEstimateVersionWhere(
   row: EstimateVersionFixture,

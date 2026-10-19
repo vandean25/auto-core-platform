@@ -3,10 +3,10 @@ import type { EstimateScope } from './workshop-estimate-scope.js';
 import {
   compareEstimateVersionsDesc,
   type EstimateVersionFixture,
-} from './workshop-estimate-version-site-list.read.spec.fixtures.js';
-import { rowMatchesSiteEstimateVersionWhere } from './workshop-estimate-version-site-list.read.spec.matcher.js';
+} from './workshop-estimate-version-site-list.read.fixtures.spec.support.js';
+import { rowMatchesSiteEstimateVersionWhere } from './workshop-estimate-version-site-list.read.matcher.spec.support.js';
 
-export type { EstimateVersionFixture } from './workshop-estimate-version-site-list.read.spec.fixtures.js';
+export type { EstimateVersionFixture } from './workshop-estimate-version-site-list.read.fixtures.spec.support.js';
 
 export function createEstimateVersionListPrisma(
   rows: EstimateVersionFixture[],

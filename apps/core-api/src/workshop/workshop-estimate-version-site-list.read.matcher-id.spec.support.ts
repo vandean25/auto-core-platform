@@ -1,6 +1,6 @@
 import type { Prisma } from '@prisma/client';
-import type { EstimateVersionFixture } from './workshop-estimate-version-site-list.read.spec.fixtures.js';
-import { unsupportedEstimateVersionWhereClause } from './workshop-estimate-version-site-list.read.spec.matcher.errors.js';
+import type { EstimateVersionFixture } from './workshop-estimate-version-site-list.read.fixtures.spec.support.js';
+import { unsupportedEstimateVersionWhereClause } from './workshop-estimate-version-site-list.read.matcher-errors.spec.support.js';
 
 export function matchEstimateVersionIdFilter(
   row: EstimateVersionFixture,

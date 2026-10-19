@@ -10,9 +10,6 @@
     "dist",
     "**/*spec.ts",
     "**/*.spec.support.ts",
-    "**/*.spec.matcher.ts",
-    "**/*.spec.matcher.*.ts",
-    "**/*.spec.fixtures.ts",
     "prisma/**/*.ts"
   ]
 }

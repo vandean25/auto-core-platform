@@ -1,11 +1,11 @@
 import type { Prisma } from '@prisma/client';
 import type { EstimateScope } from './workshop-estimate-scope.js';
-import type { EstimateVersionFixture } from './workshop-estimate-version-site-list.read.spec.fixtures.js';
-import { unsupportedEstimateVersionWhereClause } from './workshop-estimate-version-site-list.read.spec.matcher.errors.js';
-import { matchEstimateVersionEstimateScope } from './workshop-estimate-version-site-list.read.spec.matcher.estimate.js';
-import { matchEstimateVersionIdFilter } from './workshop-estimate-version-site-list.read.spec.matcher.id.js';
-import { matchEstimateVersionSentAt } from './workshop-estimate-version-site-list.read.spec.matcher.sent-at.js';
-import { matchEstimateVersionValidUntil } from './workshop-estimate-version-site-list.read.spec.matcher.valid-until.js';
+import type { EstimateVersionFixture } from './workshop-estimate-version-site-list.read.fixtures.spec.support.js';
+import { unsupportedEstimateVersionWhereClause } from './workshop-estimate-version-site-list.read.matcher-errors.spec.support.js';
+import { matchEstimateVersionEstimateScope } from './workshop-estimate-version-site-list.read.matcher-estimate.spec.support.js';
+import { matchEstimateVersionIdFilter } from './workshop-estimate-version-site-list.read.matcher-id.spec.support.js';
+import { matchEstimateVersionSentAt } from './workshop-estimate-version-site-list.read.matcher-sent-at.spec.support.js';
+import { matchEstimateVersionValidUntil } from './workshop-estimate-version-site-list.read.matcher-valid-until.spec.support.js';
 
 type ClauseFieldKey =
   'tenant_id' | 'estimate' | 'sent_at' | 'valid_until' | 'status' | 'id';

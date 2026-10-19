@@ -1,5 +1,5 @@
 import type { Prisma } from '@prisma/client';
-import type { EstimateVersionFixture } from './workshop-estimate-version-site-list.read.spec.fixtures.js';
+import type { EstimateVersionFixture } from './workshop-estimate-version-site-list.read.fixtures.spec.support.js';
 
 export function matchEstimateVersionEstimateScope(
   row: EstimateVersionFixture,
