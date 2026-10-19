@@ -23,7 +23,7 @@ Task statuses include **NOT_STARTED**, **IN_PROGRESS**, **WAITING_PARTS**, **DON
     **Generate Invoice** is enabled when status is **COMPLETED** (or a linked invoice already exists). Inside checkout: **Create Draft Invoice**, then **Issue Invoice**. After issue the order is **INVOICED** and tasks lock.
   </Step>
   <Step title="Ready-for-pickup email">
-    When every task is **DONE**, the order becomes **COMPLETED** and the platform queues one transactional ready-for-pickup email to the customer (formal German copy, no marketing content), if the customer has a confirmed email for order communication. The **Customer communication** card shows delivery state. Advisors can **Resend** when contact details were missing at completion or delivery failed; mechanics cannot send or resend.
+    When every task is **DONE**, the order becomes **COMPLETED** and the platform queues one transactional ready-for-pickup email to the customer (no marketing; language follows the customer or tenant default, typically German or English), if the customer has a confirmed email for order communication. The **Customer communication** card shows delivery state. Advisors can **Resend** when contact details were missing at completion or delivery failed; mechanics cannot send or resend.
   </Step>
 </Steps>
 

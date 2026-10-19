@@ -36,5 +36,7 @@ One-page index of ADRs in this folder. Filename is the stable link; the number i
 | ADR-0028 | Vehicle valuation is a separate port from identity                     | Proposed | 2026-10-15                      | [2026-10-15-valuation-separate-from-identity.md](2026-10-15-valuation-separate-from-identity.md)                   |
 | ADR-0029 | Audatex BMS 5.7.0 file is the first damage-estimate import             | Proposed | 2026-10-15                      | [2026-10-15-audatex-bms-damage-estimate-import.md](2026-10-15-audatex-bms-damage-estimate-import.md)               |
 | ADR-0030 | Wear OS standalone watch for mechanic voice capture                    | Proposed | 2026-10-16                      | [2026-10-16-wear-os-standalone-watch-voice.md](2026-10-16-wear-os-standalone-watch-voice.md)                       |
+| ADR-0031 | incadea Migration and Hard Cutover to ACP                              | Accepted | 2026-10-19                      | [2026-10-19-incadea-migration-hard-cutover.md](2026-10-19-incadea-migration-hard-cutover.md)                       |
+| ADR-0032 | Collective Workshop Invoices Have Immutable Allocation Sources         | Accepted | 2026-10-19                      | [2026-10-19-collective-workshop-invoice-sources.md](2026-10-19-collective-workshop-invoice-sources.md)             |
 
-Next free number: **ADR-0031**.
+Next free number: **ADR-0033**.

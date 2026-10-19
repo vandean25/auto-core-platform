@@ -18,7 +18,7 @@ If the flag is off, the route redirects home and this page does not apply to you
     Approve to let the platform execute the proposed action. Reject with a reason when the proposal is wrong or unsafe.
   </Step>
   <Step title="Audit in Activity">
-    Use **Activity** and **Decision shadow** tabs to trace what ran and what would have run under shadow mode.
+    Use **Activity** and **Decision shadow** tabs to trace what ran and what would have run under shadow mode. Filter by action or **trace ID**; **Copy trace ID** helps when you escalate to support.
   </Step>
 </Steps>
 
@@ -32,5 +32,8 @@ The banner states that **HUMAN_ONLY** actions must be performed manually. Superv
   </Accordion>
   <Accordion title="API keys vs agents">
     Tenant [API keys](/en/settings/api-keys) are read-only HTTP access for integrations. Agent supervision is separate from API key scopes.
+  </Accordion>
+  <Accordion title="MCP write tools">
+    External agents using MCP write tools should call with `dry_run: true` first (preview without persisting), then call again without dry-run to execute or raise an approval proposal. The platform blocks side effects such as outbound email during a dry-run.
   </Accordion>
 </AccordionGroup>

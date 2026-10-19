@@ -1,6 +1,6 @@
 ---
 title: "Data import"
-description: "Run the CSV wizard to load legacy customers and vehicles."
+description: "Run the CSV wizard to load legacy customers, vehicles, labor operations, and supplier price lists."
 ---
 
 **Data import** is the guided CSV wizard for bootstrapping a tenant from another system. It supports dry runs, row-level validation, and an audit link per import job.
@@ -12,7 +12,7 @@ Only **OWNER** and **ADMIN** members see this tab.
     Gear → **Data import**.
   </Step>
   <Step title="Pick entity type">
-    Choose **Customers** or **Vehicles** and download the template if you need column names.
+    Choose **Customers**, **Vehicles**, **Supplier price list**, or **Labor operations** and download the template if you need column names. The vehicle template includes **first registration date** (*Erstzulassung*; values such as `DD.MM.YYYY` or an ISO day).
   </Step>
   <Step title="Upload and dry run">
     Upload your CSV. Run a **dry run** first. Fix validation errors in the file before you commit.
@@ -29,5 +29,11 @@ Imports create new rows. They do not merge duplicates by plate or email unless t
 <AccordionGroup>
   <Accordion title="Who can use this">
     OWNER and ADMIN only. Advisors cannot open the tab even with a direct URL.
+  </Accordion>
+  <Accordion title="Labor operations import">
+    The **Labor operations** type creates AW codes, descriptions, AW times, hourly rates, and optional fitments (make/model/year). Category names are matched on import. Individual operations are not maintained on the [Labor](/en/settings/labor) tab afterward — that screen stays categories and rates only.
+  </Accordion>
+  <Accordion title="Import row retention">
+    Detailed row payloads from finished import jobs are purged after **180 days** per tenant. Job headers, status, and external IDs remain for traceability. The nightly `import-job-row-purge` job is listed under [Core API scheduled jobs](/en/operations/core-api-scheduled-jobs).
   </Accordion>
 </AccordionGroup>
