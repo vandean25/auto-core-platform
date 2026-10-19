@@ -31,8 +31,8 @@ function buildMinimalManifest(
 ): MigrationManifest {
   return {
     format_version: '1.1',
-    source_name: 'incadea',
-    source_system: 'incadea:synth_fixture',
+    source_name: 'synthetic_dms',
+    source_system: 'synthetic_dms:synth_fixture',
     source_company_code: 'synth_fixture',
     extracted_at: '2026-10-19T08:00:00Z',
     cutover_date: '2026-11-01',
@@ -211,8 +211,8 @@ describe('validateMigrationBundle', () => {
     const parties = headerOnlyCanonicalCsvBytes('vehicle_parties.csv');
     const manifest: MigrationManifest = {
       format_version: '1.0',
-      source_name: 'incadea',
-      source_system: 'incadea:synth_fixture',
+      source_name: 'synthetic_dms',
+      source_system: 'synthetic_dms:synth_fixture',
       source_company_code: 'synth_fixture',
       extracted_at: '2026-10-19T08:00:00Z',
       cutover_date: '2026-11-01',

@@ -6,7 +6,7 @@ import { buildCanonicalMigrationIdentityMapping } from '../../import/canonical-m
 
 /** Source namespace used by synthetic migration-csv-v1 fixtures and rehearsal docs. */
 export const CANONICAL_MIGRATION_FIXTURE_SOURCE_SYSTEM =
-  'incadea:synth_fixture';
+  'synthetic_dms:synth_fixture';
 
 export async function seedCanonicalMigrationImportPresets(
   prisma: PrismaClient,

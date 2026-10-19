@@ -629,7 +629,7 @@ describe('Legacy CSV import (e2e)', () => {
     process.cwd(),
     'test/fixtures/migration-csv-v1',
   );
-  const canonicalSourceSystem = 'incadea:synth_fixture';
+  const canonicalSourceSystem = 'synthetic_dms:synth_fixture';
 
   it('dry-runs synthetic canonical migration customers with the v1 preset', async () => {
     const manifest = parseMigrationManifestJson(

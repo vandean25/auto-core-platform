@@ -28,7 +28,7 @@ The wizard can download entity templates and error-row CSVs. Marketing-consent c
 
 ### Canonical migration CSV v1 preset and manifest validator
 
-[AUT-645](https://linear.app/auto-core-platform/issue/AUT-645) adds a **Canonical migration CSV v1** mapping preset (English `snake_case` headers mapped 1:1) for **customers**, **vehicles**, and **labor operations**, seeded for the default tenant under source system `incadea:synth_fixture` together with synthetic fixtures in `apps/core-api/test/fixtures/migration-csv-v1/`. Select the preset in step 3 of the wizard after choosing the manifest `source_system`.
+[AUT-645](https://linear.app/auto-core-platform/issue/AUT-645) adds a **Canonical migration CSV v1** mapping preset (English `snake_case` headers mapped 1:1) for **customers**, **vehicles**, and **labor operations**, seeded for the default tenant under source system `synthetic_dms:synth_fixture` together with synthetic fixtures in `apps/core-api/test/fixtures/migration-csv-v1/`. Select the preset in step 3 of the wizard after choosing the manifest `source_system`.
 
 Before a dry-run, optional `options.migration_manifest` validates the uploaded CSV file against the declared `manifest.json` entry (hash, row count, headers, enums, and control totals for the staged file). Full bundle validation is available at `POST /imports/canonical-migration/validate` (multipart: `manifest` + `files`). Format versions **1.0** and **1.1** are supported; 1.0 rejects reserved outline filenames explicitly. Nonempty files without an installed import handler are rejected with a blocking capability error.
 
