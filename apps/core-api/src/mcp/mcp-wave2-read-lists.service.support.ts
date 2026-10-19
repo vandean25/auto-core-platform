@@ -146,7 +146,9 @@ export async function runListOrderCommunications(
 ) {
   const pageSize = clampMcpPageSize(input.pageSize);
   const siteId = await deps.siteContext.getSiteId();
-  const { data } = await deps.estimates.listCommunicationsForOrder(input.orderId);
+  const { data } = await deps.estimates.listCommunicationsForOrder(
+    input.orderId,
+  );
   const mapped = data.map(toMcpOrderCommunicationRow);
   const page = paginateCommunications(mapped, pageSize, input.cursor);
   return { site_id: siteId, order_id: input.orderId, ...page };
@@ -245,6 +247,9 @@ export class McpWave2ReadListsService {
   }
 
   getStaffAvailability(input: z.infer<typeof getStaffAvailabilityInputSchema>) {
-    return runGetStaffAvailability({ staffAvailability: this.staffAvailability }, input);
+    return runGetStaffAvailability(
+      { staffAvailability: this.staffAvailability },
+      input,
+    );
   }
 }

@@ -1,5 +1,4 @@
 import { NotFoundException } from '@nestjs/common';
-import type { EmployeeRole } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { TenantContextService } from '../common/services/tenant-context.service.js';
 import type { SiteContextService } from '../site/site-context.service.js';
@@ -70,7 +69,7 @@ export async function runGetStaffAvailability(
     employees: employees.map((employee) => ({
       employee_id: employee.id,
       display_name: employee.name,
-      role: employee.role as EmployeeRole,
+      role: employee.role,
       present_now: presentIds.has(employee.id),
       scheduled_hours: scheduledHours.get(employee.id) ?? '0.00',
       on_leave: onLeaveIds.has(employee.id),

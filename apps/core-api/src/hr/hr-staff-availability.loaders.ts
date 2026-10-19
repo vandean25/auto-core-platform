@@ -58,11 +58,7 @@ export async function loadPresentNowEmployeeIds(
   const present = new Set<string>();
   for (const [employeeId, event] of lastByEmployee) {
     const state = deriveAttendanceState(event.type);
-    if (
-      state === 'CLOCKED_IN' ||
-      state === 'PAUSED' ||
-      state === 'AT_DOCTOR'
-    ) {
+    if (state === 'CLOCKED_IN' || state === 'PAUSED' || state === 'AT_DOCTOR') {
       present.add(employeeId);
     }
   }

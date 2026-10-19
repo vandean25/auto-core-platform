@@ -223,10 +223,9 @@ export function paginateCommunications<
   };
 }
 
-function findCommunicationStartIndex<T extends { id: string; at: string; event_type: string }>(
-  rows: T[],
-  cursor: string,
-): number {
+function findCommunicationStartIndex<
+  T extends { id: string; at: string; event_type: string },
+>(rows: T[], cursor: string): number {
   const decoded = decodeMcpPositionCursor(cursor);
   const parsed = communicationCursorSchema.safeParse(decoded);
   if (!parsed.success) {

@@ -41,8 +41,10 @@ export async function getCapabilitiesWithWave2Reads(
   const pageSize = input.pageSize ?? MCP_CAPABILITIES_DEFAULT_PAGE_SIZE;
   const offset =
     input.cursor === undefined ? 0 : (decodeMcpCursor(input.cursor) ?? 0);
-  const { tools, humanOnlyActions } =
-    await loadFullCapabilityCatalogWithWave2(capabilities, sessionRole);
+  const { tools, humanOnlyActions } = await loadFullCapabilityCatalogWithWave2(
+    capabilities,
+    sessionRole,
+  );
   const nextOffset = offset + pageSize;
   return {
     data: tools.slice(offset, nextOffset),
