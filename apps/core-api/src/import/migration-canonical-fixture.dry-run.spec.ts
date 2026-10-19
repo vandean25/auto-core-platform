@@ -64,7 +64,7 @@ describe('migration-csv-v1 fixture dry-run totals', () => {
       if (planned.action === 'SKIP') totals.skip += 1;
     });
 
-    expect(totals).toEqual({ rows: 9, create: 8, error: 1, skip: 0 });
+    expect(totals).toEqual({ rows: 8, create: 7, error: 1, skip: 0 });
   });
 
   it('matches expected vehicle CREATE/ERROR counts with allow_missing_vin', () => {
@@ -102,6 +102,6 @@ describe('migration-csv-v1 fixture dry-run totals', () => {
     expect(totals.rows).toBe(6);
     expect(totals.create).toBe(3);
     expect(totals.error).toBe(3);
-    expect(totals.warnings).toBeGreaterThanOrEqual(1);
+    expect(totals.warnings).toBe(1);
   });
 });

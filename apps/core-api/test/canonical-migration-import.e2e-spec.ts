@@ -18,6 +18,10 @@ import { buildCanonicalMigrationIdentityMapping } from '../src/import/canonical-
 import { CANONICAL_MIGRATION_PRESET_NAME } from '../src/import/canonical-migration.constants.js';
 import { CANONICAL_MIGRATION_FIXTURE_SOURCE_SYSTEM } from '../src/prisma/fixtures/canonical-migration-import-presets.fixture.js';
 import { parseMigrationManifestJson } from '../src/import/migration-manifest.validator.js';
+import {
+  dryRunCanonicalMigrationCustomers,
+  dryRunCanonicalMigrationVehicles,
+} from './helpers/canonical-migration-fixture-totals.js';
 
 describe('Canonical migration CSV import (e2e)', () => {
   let app: INestApplication;
@@ -52,35 +56,12 @@ describe('Canonical migration CSV import (e2e)', () => {
   });
 
   it('dry-runs synthetic customers with the v1 preset', async () => {
-    const manifest = parseMigrationManifestJson(
-      readFileSync(join(migrationFixtureDir, 'manifest.json')),
+    const job = await dryRunCanonicalMigrationCustomers(app, authHeader).expect(
+      201,
     );
-    const customersCsv = readFileSync(
-      join(migrationFixtureDir, 'customers.csv'),
-    );
-
-    const job = await request(app.getHttpServer())
-      .post('/imports')
-      .set('Authorization', authHeader)
-      .field('entityType', 'CUSTOMER')
-      .field('sourceSystem', CANONICAL_MIGRATION_FIXTURE_SOURCE_SYSTEM)
-      .field(
-        'mapping',
-        JSON.stringify(buildCanonicalMigrationIdentityMapping('CUSTOMER')),
-      )
-      .field(
-        'options',
-        JSON.stringify({
-          migration_manifest: manifest,
-          invalid_vat_as_error: false,
-        }),
-      )
-      .attach('file', customersCsv, 'customers.csv')
-      .expect(201);
-
     expect(job.body.totals).toMatchObject({
-      rows: 9,
-      create: 8,
+      rows: 8,
+      create: 7,
       error: 1,
       skip: 0,
       update: 0,
@@ -227,6 +208,15 @@ describe('Canonical migration CSV import (e2e)', () => {
       skip: 0,
       update: 0,
     });
+    const rows = await request(app.getHttpServer())
+      .get(`/imports/${job.body.id}/rows`)
+      .set('Authorization', authHeader)
+      .expect(200);
+    expect(
+      rows.body.data.filter(
+        (row: { warnings?: unknown[] }) => (row.warnings?.length ?? 0) > 0,
+      ),
+    ).toHaveLength(1);
   });
 
   it('lists the Canonical migration CSV v1 preset for the fixture namespace', async () => {

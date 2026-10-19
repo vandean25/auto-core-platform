@@ -7,6 +7,10 @@ import {
   rowToCanonicalRecord,
   sha256Buffer,
 } from './migration-csv-parse.util.js';
+import {
+  formatMoneyFromCents,
+  lineMoneyCentsFromQtyAndUnit,
+} from './migration-money.util.js';
 import { validateMigrationCsvHeaderOrder } from './migration-csv-header.validation.js';
 import { validateMigrationCsvScalar } from './migration-csv-scalar.validation.js';
 import { MIGRATION_MANIFEST_ERROR_CODES } from './migration-manifest.errors.js';
@@ -139,37 +143,63 @@ export function validateMigrationCsvFile(
       }
     }
 
-    if (fileName === 'vehicles.csv' && (record.engine_code ?? '').length > 0) {
+    if (fileName === 'vehicles.csv') {
+      if ((record.engine_code ?? '').length > 0) {
+        pushMigrationIssue(issues, {
+          code: MIGRATION_MANIFEST_ERROR_CODES.MIGRATION_UNSUPPORTED_CAPABILITY,
+          message: 'engine_code is not supported by the vehicle import handler',
+          file: fileName,
+          row: rowNo,
+          external_id: externalId || undefined,
+          field: 'engine_code',
+        });
+      }
+      const role = record.inventory_role ?? '';
+      if (role.length > 0 && role !== 'CUSTOMER') {
+        pushMigrationIssue(issues, {
+          code: MIGRATION_MANIFEST_ERROR_CODES.MIGRATION_UNSUPPORTED_CAPABILITY,
+          message: `inventory_role "${role}" is not supported by the vehicle import handler`,
+          file: fileName,
+          row: rowNo,
+          external_id: externalId || undefined,
+          field: 'inventory_role',
+        });
+      }
+    }
+
+    if (
+      fileName === 'customers.csv' &&
+      (record.anonymized ?? '').toLowerCase() === 'true'
+    ) {
       pushMigrationIssue(issues, {
         code: MIGRATION_MANIFEST_ERROR_CODES.MIGRATION_UNSUPPORTED_CAPABILITY,
-        message: 'engine_code is not supported by the vehicle import handler',
+        message: 'anonymized=true is not supported by the customer import handler',
         file: fileName,
         row: rowNo,
         external_id: externalId || undefined,
-        field: 'engine_code',
+        field: 'anonymized',
       });
     }
   }
 }
 
-export function roundMoneyHalfUp(value: number): string {
-  const rounded = Math.round(value * 100) / 100;
-  return rounded.toFixed(2);
-}
-
 export function computeMigrationStockValue(
   parsed: ReturnType<typeof parseCanonicalMigrationCsv>,
 ): string {
-  let total = 0;
+  let totalCents = 0n;
   const headers = parsed.headers;
   for (const row of parsed.rows) {
     const record = rowToCanonicalRecord(headers, row);
-    const qty = Number.parseFloat(record.quantity);
-    const unitCost = Number.parseFloat(record.unit_cost);
-    if (!Number.isFinite(qty) || !Number.isFinite(unitCost)) {
+    const quantity = record.quantity ?? '';
+    const unitCost = record.unit_cost ?? '';
+    if (quantity.length === 0 || unitCost.length === 0) {
       continue;
     }
-    total += Number.parseFloat(roundMoneyHalfUp(qty * unitCost));
+    try {
+      totalCents += lineMoneyCentsFromQtyAndUnit(quantity, unitCost);
+    } catch {
+      continue;
+    }
   }
-  return roundMoneyHalfUp(total);
+  return formatMoneyFromCents(totalCents);
 }

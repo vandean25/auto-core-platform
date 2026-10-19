@@ -5195,7 +5195,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Validate a canonical migration CSV bundle (manifest.json + CSV files) */
+        /** Validate a canonical migration CSV bundle (manifest.json + CSV files + optional PDF assets) */
         post: operations["CanonicalMigrationImportController_validateCanonicalMigration"];
         delete?: never;
         options?: never;
@@ -11421,6 +11421,18 @@ export interface components {
         LandingDemoAccessOkDto: {
             /** @example true */
             ok: boolean;
+        };
+        CanonicalMigrationValidationIssueDto: {
+            code: string;
+            message: string;
+            file?: string;
+            row?: number;
+            external_id?: string;
+            field?: string;
+        };
+        CanonicalMigrationValidateResponseDto: {
+            valid: boolean;
+            issues: components["schemas"]["CanonicalMigrationValidationIssueDto"][];
         };
     };
     responses: never;
@@ -21761,13 +21773,29 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * Format: binary
+                     * @description manifest.json
+                     */
+                    manifest: string;
+                    /** @description CSV files listed in manifest.files */
+                    files?: string[];
+                    /** @description PDF assets listed in manifest.assets */
+                    assets?: string[];
+                };
+            };
+        };
         responses: {
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["CanonicalMigrationValidateResponseDto"];
+                };
             };
         };
     };

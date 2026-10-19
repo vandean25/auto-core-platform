@@ -7,4 +7,3 @@ cust-dup-email-a,PRIVATE,,Dup,One,shared.dup@example.invalid,,,,,,AT,,,,,NONE,,,
 cust-dup-email-b,PRIVATE,,Dup,Two,shared.dup@example.invalid,,,,,,AT,,,,,NONE,,,,,,2025-03-02,false,false,false,false
 cust-restricted,PRIVATE,,Old,Timer,old.timer@example.invalid,,,,,,AT,,,,,NONE,,,,,,2023-11-01,false,false,false,false
 cust-skip-old,PRIVATE,,Skip,Me,skip.me@example.invalid,,,,,,AT,,,,,NONE,,,,,,2015-01-01,false,false,false,false
-cust-anon,PRIVATE,,Anon,Ymized,,,,,,,AT,,,,,NONE,,,,,,,false,false,false,true

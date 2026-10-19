@@ -23,6 +23,7 @@ import {
   computeMigrationStockValue,
   validateMigrationCsvFile,
 } from './migration-manifest-csv.validation.js';
+import { validateMigrationManifestReconciliationV11 } from './migration-manifest-reconciliation.v11.js';
 import { pushMigrationIssue } from './migration-manifest.validation.util.js';
 import { MIGRATION_MANIFEST_ERROR_CODES } from './migration-manifest.errors.js';
 import {
@@ -315,7 +316,14 @@ function validateStockValue(
 
 export function parseMigrationManifestJson(buffer: Buffer): MigrationManifest {
   const text = buffer.toString('utf8');
-  return JSON.parse(text) as MigrationManifest;
+  try {
+    return JSON.parse(text) as MigrationManifest;
+  } catch {
+    const error = new SyntaxError('manifest.json is not valid JSON');
+    (error as Error & { code: string }).code =
+      MIGRATION_MANIFEST_ERROR_CODES.MIGRATION_MANIFEST_SCHEMA_INVALID;
+    throw error;
+  }
 }
 
 export function validateMigrationBundle(
@@ -352,6 +360,12 @@ export function validateMigrationBundle(
   );
   if (input.allowPartialFiles !== true) {
     validateStockValue(manifest, input.files, issues);
+    validateMigrationManifestReconciliationV11(
+      manifest,
+      input.files,
+      input.assets ?? {},
+      issues,
+    );
   }
   validateHandlerCapabilities(
     manifest,

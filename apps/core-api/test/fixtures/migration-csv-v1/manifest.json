@@ -9,8 +9,8 @@
   "files": [
     {
       "name": "customers.csv",
-      "sha256": "459fe9e74b87b109b7c8d009e9b881ef60c02cc08548fd46f9865acb55b3a80b",
-      "row_count": 9
+      "sha256": "eaf7657f9ab6b13373d31de0b203a4f3e26cfdd6acee6aee1eb564c7ebae3622",
+      "row_count": 8
     },
     {
       "name": "vehicles.csv",
@@ -21,7 +21,7 @@
   "assets": [],
   "control_totals": {
     "counts_by_type": {
-      "customers": 9,
+      "customers": 8,
       "vehicles": 6
     },
     "stock_value": null,

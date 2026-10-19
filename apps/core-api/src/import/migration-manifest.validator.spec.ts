@@ -207,6 +207,47 @@ describe('validateMigrationBundle', () => {
     ).toBe(true);
   });
 
+  it('reports unsupported anonymized=true on customers', () => {
+    const parsedHeader = parseCanonicalMigrationCsv(
+      headerOnlyCanonicalCsvBytes('customers.csv'),
+    );
+    const cells = parsedHeader.headers.map((header) => {
+      if (header === 'external_id') return 'cust-anon';
+      if (header === 'type') return 'PRIVATE';
+      if (header === 'has_open_matters') return 'false';
+      if (header === 'privacy_objection') return 'false';
+      if (header === 'mail_stop') return 'false';
+      if (header === 'anonymized') return 'true';
+      return '';
+    });
+    const buffer = Buffer.from(
+      `${parsedHeader.headers.join(',')}\r\n${cells.join(',')}\r\n`,
+      'utf8',
+    );
+    const parsed = parseCanonicalMigrationCsv(buffer);
+    const manifest = buildMinimalManifest({
+      files: [
+        {
+          name: 'customers.csv',
+          sha256: parsed.sha256,
+          row_count: 1,
+        },
+      ],
+      counts: { customers: 1 },
+    });
+    const issues = validateMigrationBundle({
+      manifest,
+      files: { 'customers.csv': buffer },
+    });
+    expect(
+      issues.some(
+        (i) =>
+          i.code === MIGRATION_MANIFEST_ERROR_CODES.MIGRATION_UNSUPPORTED_CAPABILITY &&
+          i.field === 'anonymized',
+      ),
+    ).toBe(true);
+  });
+
   it('rejects reserved outline files for format_version 1.0', () => {
     const parties = headerOnlyCanonicalCsvBytes('vehicle_parties.csv');
     const manifest: MigrationManifest = {
