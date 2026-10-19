@@ -1,45 +1,25 @@
 import { ConflictException, ForbiddenException } from '@nestjs/common';
-import { AgentPolicyTier, AgentProposalStatus, Prisma } from '@prisma/client';
-import type { AgentActionLogService } from '../agent-action-log/agent-action-log.service.js';
-import type { AgentPolicyService } from '../agent-policy/agent-policy.service.js';
-import { DryRunService } from '../dry-run/dry-run.service.js';
-import { DryRunStorage } from '../dry-run/dry-run.storage.js';
-import type { PrismaService } from '../prisma/prisma.service.js';
+import { AgentPolicyTier } from '@prisma/client';
 import type { WouldChangeItem } from '../dry-run/dry-run.types.js';
 import { MCP_AGENT_FACING_CODES } from './mcp.constants.js';
 import { effectiveMcpWriteTier } from './mcp-write-tier.util.js';
-import type { TenantContextService } from '../common/services/tenant-context.service.js';
-import type {
-  McpWriteCommandClaim,
-  McpWriteCommandIdempotencyService,
-} from './mcp-write-command-idempotency.service.js';
-import type { MechanicFindingProposeService } from '../mechanic/mechanic-finding-propose.service.js';
-import type { WorkshopMediaUploadMcpService } from '../mechanic/workshop-media-upload-mcp.service.js';
-import type { WeeklyReportMcpService } from '../reports/weekly-report/weekly-report-mcp.service.js';
-import type { WorkshopEstimateSendProposeService } from '../workshop/workshop-estimate-send-propose.service.js';
 import {
   simulateDedicatedDryRunPreview,
   usesDedicatedDryRunPreview,
 } from './mcp-write-pipeline.write-tool-dry-run-preview.js';
-import { MECHANIC_FINDING_ACTION_TYPE } from '../mechanic/mechanic-finding.constants.js';
+import type { McpWriteCommandClaim } from './mcp-write-command-idempotency.service.js';
+import { executeMcpWrite } from './mcp-write-pipeline.commit-execute.js';
+import { proposeMcpWrite } from './mcp-write-pipeline.commit-propose.js';
+import type { McpWritePipelineCommitDeps } from './mcp-write-pipeline.commit-deps.js';
+import { recordMcpWriteFailure } from './mcp-write-pipeline.commit-failure.js';
 import type {
   McpWriteCall,
   McpWriteSimulation,
   McpWriteToolResult,
 } from './mcp-write-pipeline.types.js';
 
-export type McpWritePipelineCommitDeps = {
-  prisma: PrismaService;
-  agentPolicy: AgentPolicyService;
-  dryRun: DryRunService;
-  agentActionLog: AgentActionLogService;
-  tenantContext: TenantContextService;
-  commandIdempotency: McpWriteCommandIdempotencyService;
-  mechanicFindingPropose: MechanicFindingProposeService;
-  workshopEstimateSendPropose: WorkshopEstimateSendProposeService;
-  workshopMediaUploadMcp: WorkshopMediaUploadMcpService;
-  weeklyReportMcp: WeeklyReportMcpService;
-};
+export type { McpWritePipelineCommitDeps } from './mcp-write-pipeline.commit-deps.js';
+export { recordMcpWriteFailure } from './mcp-write-pipeline.commit-failure.js';
 
 export async function evaluateMcpWritePolicy(
   deps: McpWritePipelineCommitDeps,
@@ -127,145 +107,6 @@ async function assertMcpWriteActiveSiteUnchanged(
   }
 }
 
-export async function proposeMcpWrite(
-  deps: McpWritePipelineCommitDeps,
-  call: McpWriteCall,
-  simulation: McpWriteSimulation,
-  idempotencyMeta?: { command_id: string; args_fingerprint: string },
-  claim?: McpWriteCommandClaim,
-): Promise<McpWriteToolResult> {
-  let proposalPayload: unknown = call.input;
-  let proposalActionType = call.execution.policyActionType;
-  let proposalPreview: unknown = simulation.preview;
-  if (call.execution.toolName === 'propose_estimate_send') {
-    proposalActionType = 'estimate.send_customer_message';
-  }
-  if (call.execution.toolName === 'propose_mechanic_finding') {
-    const built = await deps.mechanicFindingPropose.buildProposalPayload(
-      call.input,
-      call.context.agentId,
-    );
-    proposalPayload = built.payload_json;
-    proposalActionType = MECHANIC_FINDING_ACTION_TYPE;
-    proposalPreview = {
-      ...built.preview_json,
-      would_change: simulation.wouldChange,
-    };
-  }
-  const proposal = {
-    payload: proposalPayload,
-    would_change: simulation.wouldChange,
-    preview: proposalPreview,
-    provisional: true,
-  };
-  try {
-    return await deps.prisma.$transaction(async (tx) => {
-      const record = await deps.agentActionLog.recordInTransaction(
-        {
-          actorType: 'AGENT',
-          agentId: call.context.agentId,
-          onBehalfOfUserId: call.context.onBehalfOfUserId,
-          actionType: call.actionType,
-          tier: call.tier,
-          status: 'PROPOSED',
-          inputSummary: call.inputSummary,
-          resultSummary: proposal,
-        },
-        tx,
-      );
-      const tenantId = await deps.tenantContext.getTenantId();
-      const pendingAction = await tx.agentProposal.create({
-        data: {
-          tenant_id: tenantId,
-          trace_id: record.traceId,
-          action_type: proposalActionType,
-          payload_json: proposalPayload as Prisma.InputJsonValue,
-          preview_json: JSON.parse(
-            JSON.stringify({
-              ...proposal,
-              ...(simulation.executionContext
-                ? { execution_context: simulation.executionContext }
-                : {}),
-              ...(idempotencyMeta
-                ? { mcp_command_idempotency: idempotencyMeta }
-                : {}),
-            }),
-          ) as Prisma.InputJsonValue,
-          tier: call.tier,
-          status: AgentProposalStatus.PENDING,
-          created_by_agent: call.context.agentId,
-        },
-      });
-      const result: McpWriteToolResult = {
-        tool: call.execution.toolName,
-        tier: call.tier,
-        status: MCP_AGENT_FACING_CODES.needsApprovalStatus,
-        would_change: simulation.wouldChange,
-        proposal,
-        pending_action_id: pendingAction.id,
-        trace_id: record.traceId,
-      };
-      if (claim) {
-        await deps.commandIdempotency.completeInTransaction(tx, claim, result);
-      }
-      return result;
-    });
-  } catch (error) {
-    await recordMcpWriteFailure(deps, call, error);
-    throw error;
-  }
-}
-
-export async function executeMcpWrite(
-  deps: McpWritePipelineCommitDeps,
-  call: McpWriteCall,
-  wouldChange: WouldChangeItem[],
-  claim?: McpWriteCommandClaim,
-): Promise<McpWriteToolResult> {
-  try {
-    const workResult = call.execution.executeOutsideTransaction
-      ? await call.execution.execute(call.input)
-      : undefined;
-    return await deps.prisma.$transaction(async (tx) => {
-      const record = await deps.agentActionLog.recordInTransaction(
-        {
-          actorType: 'AGENT',
-          agentId: call.context.agentId,
-          onBehalfOfUserId: call.context.onBehalfOfUserId,
-          actionType: call.actionType,
-          tier: call.tier,
-          status: 'EXECUTED',
-          inputSummary: call.inputSummary,
-          resultSummary: (result) => call.execution.buildResultSummary(result),
-        },
-        tx,
-        workResult !== undefined
-          ? () => Promise.resolve(workResult)
-          : () =>
-              DryRunStorage.run({ isDryRun: false, tx }, () =>
-                call.execution.execute(call.input),
-              ),
-        call.execution.buildLogMetadata,
-      );
-      const result: McpWriteToolResult = {
-        tool: call.execution.toolName,
-        tier: call.tier,
-        status: MCP_AGENT_FACING_CODES.executedStatus,
-        would_change: wouldChange,
-        result: record.workResult,
-        trace_id: record.traceId,
-      };
-      if (claim) {
-        await deps.commandIdempotency.completeInTransaction(tx, claim, result);
-      }
-      return result;
-    });
-  } catch (error) {
-    await recordMcpWriteFailure(deps, call, error);
-    throw error;
-  }
-}
-
 export async function decideMcpWriteCommit(
   deps: McpWritePipelineCommitDeps,
   call: McpWriteCall,
@@ -280,24 +121,4 @@ export async function decideMcpWriteCommit(
     return proposeMcpWrite(deps, call, simulation, idempotencyMeta, claim);
   }
   return executeMcpWrite(deps, call, simulation.wouldChange, claim);
-}
-
-export async function recordMcpWriteFailure(
-  deps: McpWritePipelineCommitDeps,
-  call: McpWriteCall,
-  error: unknown,
-): Promise<void> {
-  await deps.agentActionLog.record({
-    actorType: 'AGENT',
-    agentId: call.context.agentId,
-    onBehalfOfUserId: call.context.onBehalfOfUserId,
-    actionType: call.actionType,
-    tier: call.tier,
-    status: 'FAILED',
-    inputSummary: call.inputSummary,
-    resultSummary: {
-      reasons: call.reasons,
-      error: error instanceof Error ? error.message : 'Write tool failed',
-    },
-  });
 }

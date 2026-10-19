@@ -23,6 +23,6 @@ import { PendingActionExecutorService } from './pending-action-executor.service.
     WeeklyReportModule,
   ],
   providers: [PendingActionExecutorService],
-  exports: [PendingActionExecutorService],
+  exports: [PendingActionExecutorService, WeeklyReportModule],
 })
 export class PendingActionExecutorModule {}

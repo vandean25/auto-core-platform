@@ -14,6 +14,18 @@ import type {
   EstimateSendProposeResult,
 } from './workshop-estimate-send-propose.service.js';
 
+export type EstimateSendPlan = {
+  preview: EstimateSendProposePreview;
+  digest: string;
+  recipientEmail: string;
+  customerId: string;
+  recipientPin: string;
+  draftVersionId: string | null;
+  needsCreateEstimate: boolean;
+  needsRevision: boolean;
+  validUntilIso: string | null;
+};
+
 export type EstimateSendPreviewHost = {
   prisma: PrismaService;
   tenantContext: TenantContextService;
@@ -22,21 +34,10 @@ export type EstimateSendPreviewHost = {
     parsed: ProposeEstimateSendInput,
     tenantId: string,
     siteId: string,
-  ) => Promise<{
-    preview: EstimateSendProposePreview;
-    draftVersionId: string | null;
-  }>;
+  ) => Promise<EstimateSendPlan>;
   assertPinnedState: (
     parsed: ProposeEstimateSendInput,
-    plan: {
-      digest: string;
-      customerId: string;
-      recipientPin: string;
-      draftVersionId: string | null;
-      needsCreateEstimate: boolean;
-      needsRevision: boolean;
-      validUntilIso: string | null;
-    },
+    plan: EstimateSendPlan,
   ) => void;
   mapSentVersion: (
     version: {
@@ -50,10 +51,7 @@ export type EstimateSendPreviewHost = {
     },
     orderId: string,
     siteId: string,
-    plan: {
-      recipientEmail: string;
-      preview: EstimateSendProposePreview;
-    },
+    plan: EstimateSendPlan,
   ) => EstimateSendProposeResult;
 };
 
