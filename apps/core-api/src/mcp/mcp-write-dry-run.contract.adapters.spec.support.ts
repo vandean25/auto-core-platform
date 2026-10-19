@@ -11,6 +11,7 @@ import { NotificationOutboxWorkerService } from '../notifications/notification-o
 import { WeeklyReportMcpService } from '../reports/weekly-report/weekly-report-mcp.service.js';
 import { WeeklyReportPdfService } from '../reports/weekly-report/weekly-report-pdf.service.js';
 import { WorkshopEstimateSendProposeService } from '../workshop/workshop-estimate-send-propose.service.js';
+import { WorkshopEstimateService } from '../workshop/workshop-estimate.service.js';
 import { WorkshopOrderCompletionService } from '../workshop/workshop-order-completion.service.js';
 
 const ORDER_ID = '00000000-0000-4000-8000-000000000001';
@@ -25,9 +26,14 @@ export type AdapterLowLevelSpies = {
   enqueuePdfGeneration: jest.SpyInstance;
   enqueueWakeUp: jest.SpyInstance;
   deliverOutbox: jest.SpyInstance;
-  estimateSendVersion: jest.Mock;
+  estimateSendVersion: jest.SpyInstance;
+  estimateCreateForOrder: jest.SpyInstance;
+  estimateCreateRevision: jest.SpyInstance;
+  estimatePdfRequestGeneration: jest.Mock;
+  outboxEnqueueInTx: jest.Mock;
   workshopMediaCreate: jest.Mock;
   assertQuiet: () => void;
+  assertQuietAfterEstimateDryRun: () => void;
   restoreGlobals: () => void;
 };
 
@@ -63,15 +69,8 @@ export function buildRealAdapterServices(): RealAdapterServices {
   const workshopMediaCreate = jest.fn();
   const uploadEphemeralWeeklyReportPdf = jest.fn();
   const createSignedReadUrl = jest.fn();
-  const estimateSendVersion = jest.fn().mockResolvedValue({
-    id: '00000000-0000-4000-8000-000000000030',
-    estimate_number: 'EST-1',
-    status: 'SENT',
-    total_net: '100.00',
-    total_tax: '20.00',
-    total_gross: '120.00',
-    valid_until: null,
-  });
+  const estimatePdfRequestGeneration = jest.fn();
+  const outboxEnqueueInTx = jest.fn();
 
   const enqueuePdfGeneration = jest
     .spyOn(CloudTasksService.prototype, 'enqueuePdfGeneration')
@@ -223,23 +222,27 @@ export function buildRealAdapterServices(): RealAdapterServices {
     new NotificationCloudTasksService(),
   );
 
+  const workshopEstimates = new WorkshopEstimateService(
+    sharedPrisma as never,
+    tenantContext as never,
+    siteContext as never,
+    { requestGeneration: estimatePdfRequestGeneration } as never,
+    { enqueueInTx: outboxEnqueueInTx } as never,
+    new NotificationCloudTasksService(),
+    { observe: jest.fn().mockResolvedValue(null) } as never,
+  );
+  const estimateSendVersion = jest.spyOn(workshopEstimates, 'sendVersion');
+  const estimateCreateForOrder = jest.spyOn(workshopEstimates, 'createForOrder');
+  const estimateCreateRevision = jest.spyOn(
+    workshopEstimates,
+    'createRevision',
+  );
+
   const workshopEstimateSendPropose = new WorkshopEstimateSendProposeService(
     sharedPrisma as never,
     tenantContext as never,
     siteContext as never,
-    {
-      sendVersion: estimateSendVersion,
-      createDraft: jest.fn(),
-      createRevision: jest.fn(),
-      createForOrder: jest.fn().mockResolvedValue({
-        versions: [
-          {
-            id: '00000000-0000-4000-8000-000000000030',
-            status: 'DRAFT',
-          },
-        ],
-      }),
-    } as never,
+    workshopEstimates,
   );
 
   const spies: AdapterLowLevelSpies = {
@@ -250,6 +253,10 @@ export function buildRealAdapterServices(): RealAdapterServices {
     enqueueWakeUp,
     deliverOutbox,
     estimateSendVersion,
+    estimateCreateForOrder,
+    estimateCreateRevision,
+    estimatePdfRequestGeneration,
+    outboxEnqueueInTx,
     workshopMediaCreate,
     assertQuiet: () => {
       expect(generateUploadPolicy).not.toHaveBeenCalled();
@@ -259,17 +266,30 @@ export function buildRealAdapterServices(): RealAdapterServices {
       expect(enqueueWakeUp).not.toHaveBeenCalled();
       expect(deliverOutbox).not.toHaveBeenCalled();
       expect(workshopMediaCreate).not.toHaveBeenCalled();
+      expect(estimateSendVersion).not.toHaveBeenCalled();
+      expect(estimateCreateForOrder).not.toHaveBeenCalled();
+      expect(estimateCreateRevision).not.toHaveBeenCalled();
+      expect(estimatePdfRequestGeneration).not.toHaveBeenCalled();
+      expect(outboxEnqueueInTx).not.toHaveBeenCalled();
     },
     assertQuietAfterEstimateDryRun: () => {
+      expect(estimateSendVersion).not.toHaveBeenCalled();
+      expect(estimateCreateForOrder).not.toHaveBeenCalled();
+      expect(estimateCreateRevision).not.toHaveBeenCalled();
       expect(enqueuePdfGeneration).not.toHaveBeenCalled();
       expect(enqueueWakeUp).not.toHaveBeenCalled();
       expect(deliverOutbox).not.toHaveBeenCalled();
+      expect(estimatePdfRequestGeneration).not.toHaveBeenCalled();
+      expect(outboxEnqueueInTx).not.toHaveBeenCalled();
     },
     restoreGlobals: () => {
       generateUploadPolicy.mockRestore();
       enqueuePdfGeneration.mockRestore();
       enqueueWakeUp.mockRestore();
       deliverOutbox.mockRestore();
+      estimateSendVersion.mockRestore();
+      estimateCreateForOrder.mockRestore();
+      estimateCreateRevision.mockRestore();
     },
   };
 

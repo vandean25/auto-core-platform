@@ -1,6 +1,7 @@
 import { mcpWriteToolInputSchemas } from './mcp-tool-schemas.js';
 import './mcp-tool-descriptions.bootstrap.js';
 import { MCP_TOOL_DESCRIPTIONS } from './mcp-tool-descriptions.js';
+import { MCP_TOOL_DESCRIPTIONS_WITH_COMPLIANCE } from './mcp-tool-descriptions.merged.js';
 import {
   DRY_RUN_MINIMAL_INPUTS,
   MCP_WRITE_TOOL_NAMES,
@@ -32,6 +33,14 @@ describe('MCP write dry_run input schemas (AUT-612)', () => {
   it('every write tool registration description mentions dry_run', () => {
     for (const toolName of MCP_WRITE_TOOL_NAMES) {
       expect(MCP_TOOL_DESCRIPTIONS[toolName]).toMatch(/dry_run/i);
+    }
+  });
+
+  it('AUT-605 compliance server descriptions mention dry_run for write tools', () => {
+    for (const toolName of MCP_WRITE_TOOL_NAMES) {
+      expect(MCP_TOOL_DESCRIPTIONS_WITH_COMPLIANCE[toolName]).toMatch(
+        /dry_run/i,
+      );
     }
   });
 });

@@ -43,10 +43,11 @@ describe('MCP write dry_run real adapter services (AUT-612)', () => {
       );
 
       expect(result).toMatchObject({ dry_run: true, tool: toolName });
+      fixture.realAdapterSpies!.assertQuiet();
       if (toolName === 'propose_estimate_send') {
         fixture.realAdapterSpies!.assertQuietAfterEstimateDryRun();
-      } else {
-        fixture.realAdapterSpies!.assertQuiet();
+        expect(fixture.mockCommandIdempotency.beginOrReplay).not.toHaveBeenCalled();
+        expect(fixture.mockPrisma.mcpWriteCommandReceipt.create).not.toHaveBeenCalled();
       }
       outboundSpies.assertNoOutboundSideEffects();
       fixture.realAdapterSpies!.restoreGlobals();
@@ -83,6 +84,39 @@ describe('MCP write dry_run real adapter services (AUT-612)', () => {
       }),
     });
     fixture.realAdapterSpies!.assertQuiet();
+    previewSpy.mockRestore();
+    fixture.realAdapterSpies!.restoreGlobals();
+  });
+
+  it('propose_estimate_send dry_run uses previewSend without sendVersion', async () => {
+    const fixture = await createPipelineDryRunFixture({
+      useRealAdapters: true,
+    });
+    expect(fixture.realWorkshopEstimateSendPropose).not.toBeNull();
+    const previewSpy = jest.spyOn(
+      fixture.realWorkshopEstimateSendPropose!,
+      'previewSend',
+    );
+
+    const result = await fixture.service.run(
+      buildWriteExecution('propose_estimate_send', fixture.executors),
+      {
+        dry_run: true,
+        command_id: '51500000-0000-4000-8000-000000000603',
+        ...(DRY_RUN_MINIMAL_INPUTS.propose_estimate_send ?? {}),
+      },
+      fixture.mockContext,
+    );
+
+    expect(previewSpy).toHaveBeenCalled();
+    expect(result).toMatchObject({
+      dry_run: true,
+      tool: 'propose_estimate_send',
+      preview: expect.objectContaining({
+        estimate_version_id: expect.any(String),
+      }),
+    });
+    fixture.realAdapterSpies!.assertQuietAfterEstimateDryRun();
     previewSpy.mockRestore();
     fixture.realAdapterSpies!.restoreGlobals();
   });

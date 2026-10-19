@@ -253,6 +253,7 @@ export type PipelineDryRunFixture = {
   mockContext: { agentId: string; onBehalfOfUserId: string };
   executorPrisma: Record<string, unknown>;
   realAdapterSpies: import('./mcp-write-dry-run.contract.adapters.spec.support.js').AdapterLowLevelSpies | null;
+  realWorkshopEstimateSendPropose: import('../workshop/workshop-estimate-send-propose.service.js').WorkshopEstimateSendProposeService | null;
 };
 
 export async function createPipelineDryRunFixture(options?: {
@@ -418,6 +419,14 @@ export async function createPipelineDryRunFixture(options?: {
   const estimateSendService = realAdapters
     ? realAdapters.workshopEstimateSendPropose
     : ({
+        previewSend: jest.fn().mockResolvedValue({
+          id: '00000000-0000-4000-8000-000000000030',
+          entityId: '00000000-0000-4000-8000-000000000030',
+          estimate_version_id: '00000000-0000-4000-8000-000000000030',
+          estimate_number: 'EST-1',
+          status: 'DRAFT',
+          totals: { gross: '120.00', net: '100.00', vat: '20.00' },
+        }),
         applySend: jest.fn().mockImplementation(async () => {
           expect(DryRunStorage.isDryRun()).toBe(true);
           return { id: 'ver-1' };
@@ -545,6 +554,8 @@ export async function createPipelineDryRunFixture(options?: {
     service: module.get(McpWritePipelineService),
     executors,
     realAdapterSpies: realAdapters?.spies ?? null,
+    realWorkshopEstimateSendPropose:
+      realAdapters?.workshopEstimateSendPropose ?? null,
     mockAgentPolicy,
     mockAgentActionLog,
     mockPrisma,

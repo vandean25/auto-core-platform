@@ -431,6 +431,8 @@ function estimateSendExecutor(
       deps.workshopEstimateSendPropose.buildPolicyContext(input),
     buildExecutionContext: () =>
       deps.workshopEstimateSendPropose.buildExecutionContext(),
+    preview: (input, context) =>
+      deps.workshopEstimateSendPropose.previewSend(input, context),
     execute: (input, context) =>
       deps.workshopEstimateSendPropose.applySend(input, context),
     buildResultSummary: (result) => ({
