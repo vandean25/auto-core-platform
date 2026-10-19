@@ -82,9 +82,9 @@ export function toMcpEstimateVersionRow(row: SiteEstimateVersionListRow) {
       id: row.estimate.workshop_order_id,
       number: row.estimate.workshop_order.order_number,
     },
-    customer_ref: {
-      id: row.estimate.workshop_order.customer_id,
-    },
+    customer_ref: row.estimate.workshop_order.customer_id
+      ? { id: row.estimate.workshop_order.customer_id }
+      : null,
     status: row.status,
     total_net: row.total_net ? row.total_net.toFixed(2) : null,
     total_gross: row.total_gross ? row.total_gross.toFixed(2) : null,

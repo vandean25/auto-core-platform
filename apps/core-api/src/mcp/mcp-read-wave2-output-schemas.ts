@@ -60,9 +60,11 @@ export const mcpWave2ReadOutputSchemas: Record<
           id: mcpOutputIdString,
           number: z.string(),
         }),
-        customer_ref: z.object({
-          id: mcpOutputIdString,
-        }),
+        customer_ref: z
+          .object({
+            id: mcpOutputIdString,
+          })
+          .nullable(),
         status: z.nativeEnum(WorkshopEstimateStatus),
         total_net: z.string().nullable(),
         total_gross: z.string().nullable(),

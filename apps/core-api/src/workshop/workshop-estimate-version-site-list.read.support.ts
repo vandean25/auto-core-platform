@@ -1,5 +1,7 @@
 import { Prisma, WorkshopEstimateStatus } from '@prisma/client';
 import { localDateStartUtc } from './workshop-kpi-reports.math.js';
+import type { EstimateScope } from './workshop-estimate-scope.js';
+import type { ListSiteEstimateVersionsPageRequest } from './workshop-estimate-version-site-list.read.types.js';
 
 export function nextIsoDate(isoDate: string): string {
   const [year, month, day] = isoDate.split('-').map(Number);
@@ -84,6 +86,45 @@ export function effectiveStatusWhere(
     };
   }
   return { status };
+}
+
+export function buildSiteEstimateVersionsPageWhere(
+  scope: EstimateScope,
+  request: ListSiteEstimateVersionsPageRequest,
+  decodedCursor: EstimateKeysetCursor | undefined,
+  now: Date,
+): Prisma.WorkshopEstimateVersionWhereInput {
+  const sentRange = siteLocalSentRange(
+    request.sentFrom,
+    request.sentTo,
+    request.timeZone,
+  );
+  const base: Prisma.WorkshopEstimateVersionWhereInput = {
+    tenant_id: scope.tenantId,
+    estimate: {
+      site_id: scope.siteId,
+      ...(request.orderId ? { workshop_order_id: request.orderId } : {}),
+      workshop_order: request.customerId
+        ? { customer_id: request.customerId }
+        : undefined,
+    },
+    ...(sentRange
+      ? {
+          sent_at: {
+            gte: sentRange.gte,
+            lt: sentRange.lt,
+          },
+        }
+      : {}),
+  };
+  const andParts: Prisma.WorkshopEstimateVersionWhereInput[] = [base];
+  if (request.status) {
+    andParts.push(effectiveStatusWhere(request.status, now));
+  }
+  if (decodedCursor) {
+    andParts.push(keysetAfterCursor(decodedCursor));
+  }
+  return andParts.length === 1 ? andParts[0] : { AND: andParts };
 }
 
 export function keysetAfterCursor(

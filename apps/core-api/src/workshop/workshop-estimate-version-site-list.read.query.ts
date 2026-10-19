@@ -1,4 +1,3 @@
-import { Prisma } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { EstimateScope } from './workshop-estimate-scope.js';
 import { effectiveEstimateStatus } from './workshop-estimate-version-expiry.js';
@@ -7,11 +6,9 @@ import type {
   SiteEstimateVersionListRow,
 } from './workshop-estimate-version-site-list.read.types.js';
 import {
+  buildSiteEstimateVersionsPageWhere,
   decodeEstimateKeysetCursor,
-  effectiveStatusWhere,
   encodeEstimateKeysetCursor,
-  keysetAfterCursor,
-  siteLocalSentRange,
 } from './workshop-estimate-version-site-list.read.support.js';
 
 export async function querySiteEstimateVersionsPage(
@@ -20,36 +17,17 @@ export async function querySiteEstimateVersionsPage(
   request: ListSiteEstimateVersionsPageRequest,
   now: Date = new Date(),
 ): Promise<{ rows: SiteEstimateVersionListRow[]; nextCursor: string | null }> {
-  const sentRange = siteLocalSentRange(
-    request.sentFrom,
-    request.sentTo,
-    request.timeZone,
-  );
   const decodedCursor =
     request.cursor === undefined
       ? undefined
       : decodeEstimateKeysetCursor(request.cursor);
 
-  const where: Prisma.WorkshopEstimateVersionWhereInput = {
-    tenant_id: scope.tenantId,
-    estimate: {
-      site_id: scope.siteId,
-      ...(request.orderId ? { workshop_order_id: request.orderId } : {}),
-      workshop_order: request.customerId
-        ? { customer_id: request.customerId }
-        : undefined,
-    },
-    ...(sentRange
-      ? {
-          sent_at: {
-            gte: sentRange.gte,
-            lt: sentRange.lt,
-          },
-        }
-      : {}),
-    ...(request.status ? effectiveStatusWhere(request.status, now) : {}),
-    ...(decodedCursor ? keysetAfterCursor(decodedCursor) : {}),
-  };
+  const where = buildSiteEstimateVersionsPageWhere(
+    scope,
+    request,
+    decodedCursor ?? undefined,
+    now,
+  );
 
   const take = request.pageSize + 1;
   const rows = await prisma.workshopEstimateVersion.findMany({
