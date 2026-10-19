@@ -2,10 +2,16 @@ import { Prisma } from '@prisma/client';
 import type { EstimateScope } from './workshop-estimate-scope.js';
 import type { EstimateVersionFixture } from './workshop-estimate-version-site-list.read.spec.fixtures.js';
 
-function unsupportedClause(clause: Prisma.WorkshopEstimateVersionWhereInput): never {
+function unsupportedClause(
+  clause: Prisma.WorkshopEstimateVersionWhereInput,
+): never {
   throw new Error(
     `Unsupported estimate-version where clause for in-memory matcher: ${JSON.stringify(clause)}`,
   );
+}
+
+function toDate(value: Date | string): Date {
+  return value instanceof Date ? value : new Date(value);
 }
 
 function matchesIdFilter(
@@ -23,7 +29,8 @@ function matchesIdFilter(
 
 function matchesValidUntil(
   row: EstimateVersionFixture,
-  validUntil: Prisma.DateTimeNullableFilter<'WorkshopEstimateVersion'> | Date | null,
+  validUntil:
+    Prisma.DateTimeNullableFilter<'WorkshopEstimateVersion'> | Date | null,
 ): boolean {
   if (validUntil === null) {
     return row.valid_until === null;
@@ -35,39 +42,38 @@ function matchesValidUntil(
     );
   }
   if (validUntil.gte !== undefined) {
+    const gte = toDate(validUntil.gte);
     return (
-      row.valid_until !== null &&
-      row.valid_until.getTime() >= validUntil.gte.getTime()
+      row.valid_until !== null && row.valid_until.getTime() >= gte.getTime()
     );
   }
   if (validUntil.lt !== undefined) {
-    return (
-      row.valid_until !== null &&
-      row.valid_until.getTime() < validUntil.lt.getTime()
-    );
+    const lt = toDate(validUntil.lt);
+    return row.valid_until !== null && row.valid_until.getTime() < lt.getTime();
   }
   unsupportedClause({ valid_until: validUntil });
 }
 
 function matchesSentAt(
   row: EstimateVersionFixture,
-  sentAt: Prisma.DateTimeNullableFilter<'WorkshopEstimateVersion'> | Date | null,
+  sentAt:
+    Prisma.DateTimeNullableFilter<'WorkshopEstimateVersion'> | Date | null,
 ): boolean {
   if (sentAt === null) {
     return row.sent_at === null;
   }
   if (sentAt instanceof Date) {
-    return (
-      row.sent_at !== null && row.sent_at.getTime() === sentAt.getTime()
-    );
+    return row.sent_at !== null && row.sent_at.getTime() === sentAt.getTime();
   }
   if (sentAt.gte !== undefined) {
-    if (!row.sent_at || row.sent_at.getTime() < sentAt.gte.getTime()) {
+    const gte = toDate(sentAt.gte);
+    if (!row.sent_at || row.sent_at.getTime() < gte.getTime()) {
       return false;
     }
   }
   if (sentAt.lt !== undefined) {
-    if (!row.sent_at || row.sent_at.getTime() >= sentAt.lt.getTime()) {
+    const lt = toDate(sentAt.lt);
+    if (!row.sent_at || row.sent_at.getTime() >= lt.getTime()) {
       return false;
     }
   }
@@ -92,7 +98,7 @@ function matchesEstimate(
   }
   const customerId = estimate.workshop_order?.customer_id;
   if (
-    customerId &&
+    typeof customerId === 'string' &&
     row.estimate.workshop_order.customer_id !== customerId
   ) {
     return false;
@@ -103,8 +109,8 @@ function matchesEstimate(
 function matchesSingleClause(
   row: EstimateVersionFixture,
   clause: Prisma.WorkshopEstimateVersionWhereInput,
-  _scope: EstimateScope,
-  _now: Date,
+  scope: EstimateScope,
+  now: Date,
 ): boolean {
   if (clause.AND) {
     unsupportedClause({ AND: clause.AND });
@@ -129,16 +135,36 @@ function matchesSingleClause(
           return false;
         }
         break;
-      case 'sent_at':
-        if (!matchesSentAt(row, scalarParts.sent_at!)) {
-          return false;
+      case 'sent_at': {
+        const sentAt = scalarParts.sent_at;
+        if (
+          sentAt === null ||
+          sentAt instanceof Date ||
+          typeof sentAt === 'object'
+        ) {
+          if (!matchesSentAt(row, sentAt)) {
+            return false;
+          }
+        } else {
+          unsupportedClause({ sent_at: sentAt });
         }
         break;
-      case 'valid_until':
-        if (!matchesValidUntil(row, scalarParts.valid_until!)) {
-          return false;
+      }
+      case 'valid_until': {
+        const validUntil = scalarParts.valid_until;
+        if (
+          validUntil === null ||
+          validUntil instanceof Date ||
+          typeof validUntil === 'object'
+        ) {
+          if (!matchesValidUntil(row, validUntil)) {
+            return false;
+          }
+        } else {
+          unsupportedClause({ valid_until: validUntil });
         }
         break;
+      }
       case 'status':
         if (row.status !== scalarParts.status) {
           return false;
@@ -156,15 +182,19 @@ function matchesSingleClause(
 
   if (orBranches) {
     return orBranches.some((part) =>
-      matchesSingleClause(
-        row,
-        part as Prisma.WorkshopEstimateVersionWhereInput,
-        _scope,
-        _now,
-      ),
+      matchesSingleClause(row, part, scope, now),
     );
   }
   return true;
+}
+
+function andClauses(
+  where: Prisma.WorkshopEstimateVersionWhereInput,
+): Prisma.WorkshopEstimateVersionWhereInput[] {
+  if (!where.AND) {
+    return [where];
+  }
+  return Array.isArray(where.AND) ? where.AND : [where.AND];
 }
 
 export function rowMatchesSiteEstimateVersionWhere(
@@ -176,6 +206,7 @@ export function rowMatchesSiteEstimateVersionWhere(
   if (row.estimate.site_id !== scope.siteId) {
     return false;
   }
-  const clauses = where.AND ?? [where];
-  return clauses.every((clause) => matchesSingleClause(row, clause, scope, now));
+  return andClauses(where).every((clause) =>
+    matchesSingleClause(row, clause, scope, now),
+  );
 }
