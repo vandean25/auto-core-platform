@@ -12,6 +12,20 @@ export function isDueForExpiry(
   );
 }
 
+/** SENT past `valid_until` is reported as EXPIRED (workshop reads and MCP). */
+export function effectiveEstimateStatus(
+  version: {
+    status: WorkshopEstimateStatus;
+    valid_until: Date | null;
+  },
+  now: Date = new Date(),
+): WorkshopEstimateStatus {
+  if (isDueForExpiry(version, now)) {
+    return WorkshopEstimateStatus.EXPIRED;
+  }
+  return version.status;
+}
+
 export async function expireDueEstimateVersions(
   prisma: PrismaService,
   tenantId: string,

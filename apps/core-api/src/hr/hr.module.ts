@@ -12,6 +12,7 @@ import { HrWorkScheduleWriter } from './hr-work-schedule-writer.service.js';
 import { HrWorkScheduleService } from './hr-work-schedule.service.js';
 import { HrWorkdayService } from './hr-workday.service.js';
 import { HrController } from './hr.controller.js';
+import { HrStaffAvailabilityService } from './hr-staff-availability.service.js';
 
 @Module({
   imports: [PrismaModule, CommonModule, WorkshopModule],
@@ -26,6 +27,7 @@ import { HrController } from './hr.controller.js';
     HrWorkScheduleService,
     HrWorkdayService,
     HrLeaveService,
+    HrStaffAvailabilityService,
   ],
   exports: [
     HrIdentityService,
@@ -34,6 +36,7 @@ import { HrController } from './hr.controller.js';
     HrWorkScheduleService,
     HrWorkdayService,
     HrLeaveService,
+    HrStaffAvailabilityService,
   ],
 })
 export class HrModule {}

@@ -27,6 +27,12 @@ import { createEstimateForOrderInTx } from './workshop-estimate-create.command.j
 import { createEstimateRevisionInTx } from './workshop-estimate-revision.command.js';
 import { sendWorkshopEstimateVersion } from './workshop-estimate-send.command.js';
 import { listEstimatesForOrder } from './workshop-estimate-list.command.js';
+import {
+  listSiteEstimateVersions,
+  type ListSiteEstimateVersionsFilters,
+  type SiteEstimateVersionListRow,
+} from './workshop-estimate-version-site-list.read.js';
+import { WorkshopSettingsService } from './workshop-settings.service.js';
 import { mapEstimateWriteError } from './workshop-estimate-write-errors.js';
 import type { EstimateSendOptions } from './workshop-estimate-send.options.js';
 
@@ -46,6 +52,8 @@ export class WorkshopEstimateService {
     private readonly wakeUps: NotificationCloudTasksService,
     @Inject(WorkshopEstimateOverrunService)
     private readonly overruns: WorkshopEstimateOverrunService,
+    @Inject(WorkshopSettingsService)
+    private readonly workshopSettings: WorkshopSettingsService,
   ) {}
 
   async createForOrder(orderId: string): Promise<WorkshopEstimateResponseDto> {
@@ -68,6 +76,20 @@ export class WorkshopEstimateService {
   ): Promise<WorkshopOrderCommunicationsResponseDto> {
     const scope = await this.resolveScope();
     return loadWorkshopOrderCommunications(this.prisma, scope, orderId);
+  }
+
+  async listVersionsForSite(
+    filters: Omit<ListSiteEstimateVersionsFilters, 'timeZone'>,
+  ): Promise<SiteEstimateVersionListRow[]> {
+    const scope = await this.resolveScope();
+    const settings = await this.workshopSettings.getSettingsForSite(
+      scope.tenantId,
+      scope.siteId,
+    );
+    return listSiteEstimateVersions(this.prisma, scope, {
+      ...filters,
+      timeZone: settings.timezone,
+    });
   }
 
   async createRevision(

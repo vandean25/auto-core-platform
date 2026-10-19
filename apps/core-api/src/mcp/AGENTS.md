@@ -55,6 +55,11 @@ Read tools are tenant- or active-site-scoped by the server. Their tier is `AUTO`
 | `list_workshop_tasks` | List tasks visible to the caller with line IDs for MCP actions | Read | AUTO |
 | `list_workshop_slots` | List free bay slots at the active site for a UTC window (max 8 days), required duration, and optional bay | Read | AUTO |
 | `list_available_loaners` | List loaner vehicles available at the active site for a UTC window (max 8 days) | Read | AUTO |
+| `list_loaner_bookings` | List loaner bookings at the active site with optional status, customer, order, date range, or overdue-only filters | Read | AUTO |
+| `list_estimates` | List workshop estimate (KVA) versions at the active site; filter by customer, order, status, or sent date range | Read | AUTO |
+| `list_order_communications` | Customer communication timeline for one workshop order (no message bodies) | Read | AUTO |
+| `get_check_in` | Vehicle check-in summary for a workshop order (checklist counts, damage zones, media ids; no signature image) | Read | AUTO |
+| `get_staff_availability` | Staff presence and scheduled hours for a day (OWNER/ADMIN; same access as HR attendance view) | Read | AUTO |
 | `whoami` | Caller identity, role, tenant, active site, and decision apply mode | Read | AUTO |
 | `get_capabilities` | Paged tools for the caller with policy tier, enabled state, and disabled reason | Read | AUTO |
 | `list_audit_events` | List tenant audit events, newest first, filtered by entity, actor, action, date range, or trace ID | Read | AUTO |
@@ -106,7 +111,7 @@ Policy-mode wording maps approximately as follows: `Allowed` to `AUTO`, `Ask fir
 
 Offset list and search tools accept `page` and `pageSize`; the server defaults to page 1 and 10 rows and caps `pageSize` at 25. Cursor-based tools take `pageSize` and an opaque `cursor` from `meta.next_cursor` with the same default and maximum. `get_customer` and `get_vehicle_history` page their order list with `orders_page_size` and `orders_cursor`. Offset cursors are limited to `get_capabilities`, the three stock/Pickerl report reads, and nothing else; other cursor tools use keyset positions.
 
-- `get_capabilities` pages the tool catalog by offset. Its default and maximum page size is 25. The catalog holds 59 tools, so follow `meta.next_cursor` before deciding that a write tool is unavailable.
+- `get_capabilities` pages the tool catalog by offset. Its default and maximum page size is 25. The catalog holds 64 tools, so follow `meta.next_cursor` before deciding that a write tool is unavailable.
 - `list_sites` pages with `pageSize` (default 10, max 25) and an opaque `cursor` from `meta.next_cursor`, in site code order.
 - `list_audit_events`, `get_entity_history`, `get_agent_action`, and `list_agent_actions` page with a keyset cursor. The default page size is 10 and the maximum is 25. Audit lists are newest first. `get_agent_action` log rows are oldest first.
 - `list_invoices` pages with a keyset cursor over issue date and invoice ID, with the same default and maximum. It is newest first.
@@ -116,6 +121,11 @@ Offset list and search tools accept `page` and `pageSize`; the server defaults t
 - `list_warranty_claims` pages with `pageSize` and a keyset `cursor` over `created_at` then claim `id`, newest first, with the same default and maximum.
 - `list_workshop_slots` pages with `pageSize` and a keyset `cursor` over `start_at` then `bay_id`, ascending. Rows are sorted that way before paging, so pages stay stable when the underlying slot list does not change between calls.
 - `list_available_loaners` pages with `pageSize` and a keyset `cursor` over `loaner_vehicle_id`, ascending. Treat availability as a snapshot: re-check before booking if you page across calls.
+- `list_loaner_bookings`, `list_estimates`, and `list_order_communications` page with `pageSize` (default 10, max 25) and an opaque `cursor` from `meta.next_cursor`. `list_loaner_bookings` supports `overdueOnly` (same overdue rules as `GET /workshop/loaner-bookings/overdue`). Example: “Welche Leihwagen sind überfällig?” → `list_loaner_bookings` with `overdueOnly: true`.
+- `list_estimates` returns estimate versions for the active site. Example: “Welche KVAs von Kunde X sind offen?” → `list_estimates` with `customerId` and `status: SENT` (or `APPROVED` as needed).
+- `list_order_communications` requires `orderId` and returns `at`, `channel`, `direction`, `event_type`, and `delivery_state` only; recipients stay masked and message bodies are never returned.
+- `get_check_in` requires `orderId` and returns checklist summary counts, flagged item labels, damage zone ids, `signature_captured`, and media ids/purposes only.
+- `get_staff_availability` is OWNER/ADMIN only (forbidden for roles without HR attendance view access). Optional `date`, `siteId`, and `role` filter the roster. Never returns leave type, balances, or clock-event detail.
 
 The serialized-result cap is 32 KB (32,768). An audit or agent action page drops trailing rows that would exceed it, sets `truncated` to `true`, and returns `next_cursor` from the last row it kept. Other oversized results are truncated with a `__truncated__` marker. There is no MCP detail-mode argument. Narrow the query or request the next page instead of asking for an unbounded result.
 
