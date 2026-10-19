@@ -91,7 +91,7 @@ describe('customer master data schema (Prisma)', () => {
           'src',
           'workshop',
           'dto',
-          'workshop-api-response.dto.ts',
+          'workshop-response.dto.ts',
         ),
         'utf8',
       ),

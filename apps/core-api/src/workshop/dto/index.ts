@@ -13,7 +13,7 @@ export * from './workshop-catalog-line-response.dto.js';
 export * from './workshop-holiday.dto.js';
 export * from './workshop-pdf-generation-response.dto.js';
 export * from './workshop-planner.dto.js';
-export * from './workshop-api-response.dto.js';
+export * from './workshop-response.dto.js';
 export * from './workshop-search-response.dto.js';
 export * from './workshop-settings.dto.js';
 export * from './send-workshop-estimate-version.dto.js';
