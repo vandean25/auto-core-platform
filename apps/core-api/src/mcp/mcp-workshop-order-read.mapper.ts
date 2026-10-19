@@ -63,9 +63,23 @@ export function isInstantInSiteLocalDateRange(
   return ms >= range.gte.getTime() && ms < range.lt.getTime();
 }
 
-import { effectiveEstimateStatus } from '../workshop/workshop-estimate-version-expiry.js';
-
-export { effectiveEstimateStatus } from '../workshop/workshop-estimate-version-expiry.js';
+/** Matches workshop estimate reads: SENT past `valid_until` is reported as EXPIRED. */
+export function effectiveEstimateStatus(
+  version: {
+    status: WorkshopEstimateStatus;
+    valid_until: Date | null;
+  },
+  now: Date = new Date(),
+): WorkshopEstimateStatus {
+  if (
+    version.status === WorkshopEstimateStatus.SENT &&
+    version.valid_until !== null &&
+    version.valid_until.getTime() < now.getTime()
+  ) {
+    return WorkshopEstimateStatus.EXPIRED;
+  }
+  return version.status;
+}
 
 export function matchesEstimateStatusFilter(
   version: CurrentEstimateVersionRow,

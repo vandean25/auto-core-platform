@@ -7,6 +7,7 @@ import { MCP_CAPABILITIES_DEFAULT_PAGE_SIZE } from './mcp.constants.js';
 
 async function loadFullCapabilityCatalogWithWave2(
   capabilities: McpCapabilitiesService,
+  sessionRole: string | null | undefined,
 ): Promise<{
   tools: McpCapabilitiesPage['data'];
   humanOnlyActions: string[];
@@ -27,10 +28,7 @@ async function loadFullCapabilityCatalogWithWave2(
   } while (cursor !== undefined);
 
   return {
-    tools: appendWave2ReadCapabilities(
-      rows,
-      capabilities.getSessionRole(),
-    ),
+    tools: appendWave2ReadCapabilities(rows, sessionRole),
     humanOnlyActions,
   };
 }
@@ -38,12 +36,13 @@ async function loadFullCapabilityCatalogWithWave2(
 export async function getCapabilitiesWithWave2Reads(
   capabilities: McpCapabilitiesService,
   input: { pageSize?: number; cursor?: string },
+  sessionRole: string | null | undefined,
 ): Promise<McpCapabilitiesPage> {
   const pageSize = input.pageSize ?? MCP_CAPABILITIES_DEFAULT_PAGE_SIZE;
   const offset =
     input.cursor === undefined ? 0 : (decodeMcpCursor(input.cursor) ?? 0);
   const { tools, humanOnlyActions } =
-    await loadFullCapabilityCatalogWithWave2(capabilities);
+    await loadFullCapabilityCatalogWithWave2(capabilities, sessionRole);
   const nextOffset = offset + pageSize;
   return {
     data: tools.slice(offset, nextOffset),

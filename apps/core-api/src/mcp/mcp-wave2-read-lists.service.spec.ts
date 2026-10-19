@@ -10,6 +10,7 @@ function createService(overrides: Partial<Record<string, unknown>> = {}) {
   return new McpWave2ReadListsService(
     overrides.loaners as never,
     overrides.estimates as never,
+    overrides.estimateSiteVersions as never,
     overrides.checkIns as never,
     overrides.checkInMedia as never,
     overrides.inspections as never,
@@ -66,8 +67,8 @@ describe('McpWave2ReadListsService', () => {
   describe('list_estimates', () => {
     it('returns an empty page from the estimate service', async () => {
       const service = createService({
-        estimates: {
-          listVersionsForSite: jest.fn().mockResolvedValue({
+        estimateSiteVersions: {
+          listPage: jest.fn().mockResolvedValue({
             rows: [],
             nextCursor: null,
           }),

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
 import type { z } from 'zod';
 import type { McpReadToolName } from './mcp.constants.js';
 import { McpAuditReadService } from './mcp-audit-read.service.js';
@@ -26,9 +27,11 @@ import { McpWave2ReadFacade } from './mcp-wave2-read.facade.js';
 @Injectable()
 export class McpReadToolServiceWave2 extends McpReadToolServiceAut605 {
   private readonly capabilitiesForWave2: McpCapabilitiesService;
+  private readonly tenantContext: TenantContextService;
 
   constructor(
     capabilities: McpCapabilitiesService,
+    tenantContext: TenantContextService,
     auditReads: McpAuditReadService,
     invoiceReads: McpInvoiceReadService,
     recordReads: McpRecordReadService,
@@ -66,6 +69,7 @@ export class McpReadToolServiceWave2 extends McpReadToolServiceAut605 {
       complianceReads,
     );
     this.capabilitiesForWave2 = capabilities;
+    this.tenantContext = tenantContext;
   }
 
   override async run(
@@ -77,6 +81,7 @@ export class McpReadToolServiceWave2 extends McpReadToolServiceAut605 {
       return getCapabilitiesWithWave2Reads(
         this.capabilitiesForWave2,
         parsed as z.infer<typeof getCapabilitiesInputSchema>,
+        this.tenantContext.getAuthenticatedUser()?.role,
       );
     }
     return super.run(toolName, parsed, context);
