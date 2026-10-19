@@ -62,11 +62,31 @@ export function mcpWriteDryRunResultForTool(tool: McpWriteToolName) {
   );
 }
 
+/**
+ * MCP tool output must stay a single object schema (unions are not published on
+ * tools/list). Validation accepts either the committed write result or dry_run.
+ */
 export function mergeMcpWriteToolOutput(
   tool: McpWriteToolName,
   committedResultSchema: z.ZodTypeAny,
 ): z.ZodTypeAny {
-  return z.union([committedResultSchema, mcpWriteDryRunResultForTool(tool)]);
+  const alternatives = z.union([
+    committedResultSchema,
+    mcpWriteDryRunResultForTool(tool),
+  ]);
+  return z.looseObject({}).superRefine((value, ctx) => {
+    const parsed = alternatives.safeParse(value);
+    if (parsed.success) {
+      return;
+    }
+    for (const issue of parsed.error.issues) {
+      ctx.addIssue({
+        code: 'custom',
+        message: issue.message,
+        path: issue.path,
+      });
+    }
+  });
 }
 
 export function extractMcpWriteDryRunWarnings(preview: unknown): string[] {
