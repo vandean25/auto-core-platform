@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import type { z } from 'zod';
 import { getLoanerNow } from '../loaner-vehicles/loaner-clock.js';
 import type { LoanerBookingResponse } from '../loaner-vehicles/loaner.mapper.js';
@@ -185,71 +185,4 @@ export function runGetStaffAvailability(
     siteId: input.siteId,
     role: input.role,
   });
-}
-
-@Injectable()
-export class McpWave2ReadListsService {
-  constructor(
-    @Inject(LoanerVehiclesService)
-    private readonly loaners: LoanerVehiclesService,
-    @Inject(WorkshopEstimateService)
-    private readonly estimates: WorkshopEstimateService,
-    @Inject(WorkshopEstimateSiteVersionListService)
-    private readonly estimateSiteVersions: WorkshopEstimateSiteVersionListService,
-    @Inject(WorkshopCheckInService)
-    private readonly checkIns: WorkshopCheckInService,
-    @Inject(WorkshopCheckInMediaService)
-    private readonly checkInMedia: WorkshopCheckInMediaService,
-    @Inject(WorkshopInspectionService)
-    private readonly inspections: WorkshopInspectionService,
-    @Inject(HrStaffAvailabilityService)
-    private readonly staffAvailability: HrStaffAvailabilityService,
-    @Inject(SiteContextService)
-    private readonly siteContext: SiteContextService,
-  ) {}
-
-  listLoanerBookings(input: z.infer<typeof listLoanerBookingsInputSchema>) {
-    return runListLoanerBookings(
-      { loaners: this.loaners, siteContext: this.siteContext },
-      input,
-    );
-  }
-
-  listEstimates(input: z.infer<typeof listEstimatesInputSchema>) {
-    return runListEstimates(
-      {
-        estimateSiteVersions: this.estimateSiteVersions,
-        siteContext: this.siteContext,
-      },
-      input,
-    );
-  }
-
-  listOrderCommunications(
-    input: z.infer<typeof listOrderCommunicationsInputSchema>,
-  ) {
-    return runListOrderCommunications(
-      { estimates: this.estimates, siteContext: this.siteContext },
-      input,
-    );
-  }
-
-  getCheckIn(input: z.infer<typeof getCheckInInputSchema>) {
-    return runGetCheckIn(
-      {
-        checkIns: this.checkIns,
-        checkInMedia: this.checkInMedia,
-        inspections: this.inspections,
-        siteContext: this.siteContext,
-      },
-      input,
-    );
-  }
-
-  getStaffAvailability(input: z.infer<typeof getStaffAvailabilityInputSchema>) {
-    return runGetStaffAvailability(
-      { staffAvailability: this.staffAvailability },
-      input,
-    );
-  }
 }

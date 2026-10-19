@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { z } from 'zod';
-import { McpWave2ReadListsService } from './mcp-wave2-read-lists.service.support.js';
+import { McpWave2ReadListsService } from './mcp-wave2-read-lists.service.js';
 import type {
   getCheckInInputSchema,
   getStaffAvailabilityInputSchema,
