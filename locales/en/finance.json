@@ -189,7 +189,8 @@
     "validation": {
       "invalidQuantity": "Enter a valid quantity greater than zero.",
       "exceedsRemaining": "Cannot exceed remaining quantity ({{remaining}})."
-    }
+    },
+    "quantityInputAria": "Credited quantity for {{description}}"
   },
   "settlement": {
     "title": "Settlement",
@@ -265,6 +266,7 @@
       "createBill_other": "Create bill ({{count}} items)",
       "cannotDeleteReceived": "Cannot delete items that have been received",
       "deleteItem": "Delete item",
+      "lineActionsHeader": "Line actions",
       "deleteItemConfirm": "Are you sure you want to delete this item?",
       "toast": {
         "invalidQuantity": "Invalid quantity",

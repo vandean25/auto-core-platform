@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { CommonModule } from '../common/index.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { WorkshopModule } from '../workshop/workshop.module.js';
@@ -12,10 +12,9 @@ import { HrWorkScheduleWriter } from './hr-work-schedule-writer.service.js';
 import { HrWorkScheduleService } from './hr-work-schedule.service.js';
 import { HrWorkdayService } from './hr-workday.service.js';
 import { HrController } from './hr.controller.js';
-import { HrStaffAvailabilityService } from './hr-staff-availability.service.js';
 
 @Module({
-  imports: [PrismaModule, CommonModule, forwardRef(() => WorkshopModule)],
+  imports: [PrismaModule, CommonModule, WorkshopModule],
   controllers: [HrController],
   providers: [
     HrIdentityService,
@@ -27,7 +26,6 @@ import { HrStaffAvailabilityService } from './hr-staff-availability.service.js';
     HrWorkScheduleService,
     HrWorkdayService,
     HrLeaveService,
-    HrStaffAvailabilityService,
   ],
   exports: [
     HrIdentityService,
@@ -36,7 +34,6 @@ import { HrStaffAvailabilityService } from './hr-staff-availability.service.js';
     HrWorkScheduleService,
     HrWorkdayService,
     HrLeaveService,
-    HrStaffAvailabilityService,
   ],
 })
 export class HrModule {}

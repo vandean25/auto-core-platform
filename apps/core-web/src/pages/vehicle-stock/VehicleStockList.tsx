@@ -52,7 +52,11 @@ export default function VehicleStockList() {
       {
         id: 'icon',
         header: ({ column }) => (
-          <DataTableColumnHeader column={column} title="" className="w-[50px]" />
+          <DataTableColumnHeader
+            column={column}
+            title={t('stockList.columns.rowIndicator')}
+            className="w-[50px] sr-only"
+          />
         ),
         cell: () => (
           <div className="w-[50px]">

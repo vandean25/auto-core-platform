@@ -1,4 +1,4 @@
-import { mcpToolOutputSchemas as coreMcpToolOutputSchemas } from './mcp-tool-output-schemas.js';
+import { mcpToolOutputSchemas as coreMcpToolOutputSchemas } from './mcp-tool-output-schemas.registry.js';
 import {
   getCapabilitiesOutputSchemaWithCompliance,
   mcpComplianceReadOutputSchemas,

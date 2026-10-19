@@ -1,12 +1,12 @@
 import type { McpWave2ReadFacade } from './mcp-wave2-read.facade.js';
-import type { McpWave2ReadToolName } from './mcp-read-tool-catalog.aut615.js';
+import type { McpWave2ReadToolName } from './mcp-read-wave2-catalog.js';
 import type {
   getCheckInInputSchema,
   getStaffAvailabilityInputSchema,
   listEstimatesInputSchema,
   listLoanerBookingsInputSchema,
   listOrderCommunicationsInputSchema,
-} from './mcp-tool-schemas.aut615-reads.js';
+} from './mcp-read-wave2-schemas.js';
 import type { z } from 'zod';
 
 type ParsedWave2Input = {

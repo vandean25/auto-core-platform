@@ -189,7 +189,8 @@
     "validation": {
       "invalidQuantity": "Geben Sie eine gültige Menge größer als null ein.",
       "exceedsRemaining": "Die Menge darf den Restbestand ({{remaining}}) nicht überschreiten."
-    }
+    },
+    "quantityInputAria": "Gutschriftenmenge für {{description}}"
   },
   "settlement": {
     "title": "Abrechnung",
@@ -265,6 +266,7 @@
       "createBill_other": "Eingangsrechnung anlegen ({{count}} Positionen)",
       "cannotDeleteReceived": "Empfangene Positionen können nicht gelöscht werden",
       "deleteItem": "Position löschen",
+      "lineActionsHeader": "Aktionen für Position",
       "deleteItemConfirm": "Diese Position wirklich löschen?",
       "toast": {
         "invalidQuantity": "Ungültige Menge",

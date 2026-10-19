@@ -24,7 +24,8 @@
       "vin": "VIN",
       "plate": "Plate",
       "color": "Color",
-      "status": "Status"
+      "status": "Status",
+      "rowIndicator": "Vehicle"
     }
   },
   "stockDetail": {

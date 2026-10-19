@@ -13,7 +13,6 @@
     "apps/core-api/src/mcp/mcp-tool-output-schemas.ts": 3.49,
     "apps/core-api/src/mcp/mcp-tool-schemas.ts": 5.9,
     "apps/core-api/src/mcp/mcp-write-pipeline.service.spec.ts": 5.9,
-    "apps/core-api/src/mcp/mcp-write-pipeline.service.ts": 4.78,
     "apps/core-api/src/mcp/mcp.constants.spec.ts": 5.9,
     "apps/core-api/src/mcp/mcp.constants.ts": 5.9,
     "apps/core-api/src/mechanic/mechanic.module.ts": 5.9,

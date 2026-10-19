@@ -10,6 +10,7 @@ import {
   MCP_TOOL_NAMES,
   MCP_WRITE_TOOL_NAMES,
 } from './mcp.constants.js';
+import { withMcpWriteDryRunInput } from './mcp-write-dry-run.schema.js';
 import {
   loanerAvailabilityCursorPositionSchema,
   workshopSlotCursorPositionSchema,
@@ -912,9 +913,9 @@ export const proposeLineItemInputSchema = z
   })
   .strict();
 
-export const mcpWriteToolInputSchemas: Record<
+const mcpWriteToolInputSchemasBase: Record<
   (typeof MCP_WRITE_TOOL_NAMES)[number],
-  z.ZodTypeAny
+  z.ZodObject<z.ZodRawShape>
 > = {
   draft_workshop_order: draftWorkshopOrderInputSchema,
   reserve_part: reservePartInputSchema,
@@ -930,3 +931,20 @@ export const mcpWriteToolInputSchemas: Record<
   propose_mechanic_finding: proposeMechanicFindingInputSchema,
   generate_weekly_report_pdf: generateWeeklyReportPdfInputSchema,
 };
+
+function withDryRunOnWriteToolInputs(
+  base: typeof mcpWriteToolInputSchemasBase,
+): Record<(typeof MCP_WRITE_TOOL_NAMES)[number], z.ZodTypeAny> {
+  const schemas = {} as Record<
+    (typeof MCP_WRITE_TOOL_NAMES)[number],
+    z.ZodTypeAny
+  >;
+  for (const toolName of MCP_WRITE_TOOL_NAMES) {
+    schemas[toolName] = withMcpWriteDryRunInput(base[toolName]);
+  }
+  return schemas;
+}
+
+export const mcpWriteToolInputSchemas = withDryRunOnWriteToolInputs(
+  mcpWriteToolInputSchemasBase,
+);

@@ -68,8 +68,6 @@ import { MechanicMcpModule } from '../mechanic/mechanic-mcp.module.js';
 import { McpWorkshopOrderDetailReadService } from '../mcp/mcp-workshop-order-detail.read.service.js';
 import { InspectionCatalogModule } from '../inspection-catalog/inspection-catalog.module.js';
 import { InspectionMeasurementModule } from '../inspection-measurement/inspection-measurement.module.js';
-import { McpWave2Module } from '../mcp/mcp-wave2.module.js';
-
 @Module({
   imports: [
     PrismaModule,
@@ -88,7 +86,6 @@ import { McpWave2Module } from '../mcp/mcp-wave2.module.js';
     AuditModule,
     forwardRef(() => RegistrationIntakeModule),
     MechanicMcpModule,
-    forwardRef(() => McpWave2Module),
   ],
   controllers: [
     PublicEstimateApprovalController,
@@ -166,7 +163,6 @@ import { McpWave2Module } from '../mcp/mcp-wave2.module.js';
     WorkshopCheckInService,
     WorkshopCheckInMediaService,
     WorkshopInspectionService,
-    McpWave2Module,
   ],
 })
 export class WorkshopModule {}

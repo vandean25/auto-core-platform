@@ -15,9 +15,7 @@ Tracked items that are **not** enforced in CI (moderate/minor) or explicitly all
 
 | Area | Finding | Follow-up |
 | --- | --- | --- |
-| Settings page | Section headings (`Storage Locations`, `Fiscal Control`, ...) are `h3` directly under the page `h1`, so the outline jumps h1 → h3. Not scanned. | Promote the section headings to `h2`, then check the card levels under them. |
-| `AlertTitle` outside the estimate card (HR clock and leave, planner, data import, mechanic away) | Default `h5` can follow a heading with a jump. Not scanned. | Pass `as` per call site, or render a non-heading element where the title is not a section. |
-| Other pages with cards under a section heading | Audited for AUT-472 in the same file only: `MarginRulesTab`, `LaborCategoriesTab`, `SettingsPage`, `CheckoutSummary`. Not scanned. | Add the page to `e2e/a11y-heading-order.spec.ts` when it changes. |
+| Other pages with cards under a section heading | Audited for AUT-472 in the same file only: `CheckoutSummary`. Not scanned. | Add the page to `e2e/a11y-heading-order.spec.ts` when it changes. |
 
 ## Form inline errors (AUT-478)
 
@@ -29,10 +27,9 @@ Tracked items that are **not** enforced in CI (moderate/minor) or explicitly all
 
 | Area | Finding | Follow-up |
 | --- | --- | --- |
-| Credit-note quantity inputs | No accessible name. The column header is the only label. | Add an `aria-label` per line. |
 | `LoginPage` | Both fields reference the single login alert. Each field is marked invalid only while it is empty, so a failed sign-in with both fields filled marks neither. | Confirm the intended behavior before changing it. |
 | shadcn `FormControl` | Always references its description id, even when no `FormDescription` is rendered. Harmless to assistive technology, not an axe failure. | Reference the description only when one is rendered. |
-| `CreateCreditNoteDialog`, `CreditNoteDetailPage` | No unit test. The dialog's partial mode sits behind a Radix Select, and jsdom needs pointer shims the repo does not have. The page has no Select; its data hooks would need mocking. | Add a hook-mocked page test. For the dialog, add the shims or cover it in e2e. |
+| `CreateCreditNoteDialog` | No unit test. The dialog's partial mode sits behind a Radix Select, and jsdom needs pointer shims the repo does not have. | Add the shims or cover it in e2e. |
 
 ## Moderate / minor (report-only in Playwright)
 
@@ -53,7 +50,7 @@ Moderate and minor findings are attached per test run as `accessibility-backlog-
 - `e2e/a11y-smoke.spec.ts` scans 15 routes from `e2e/utils/a11y-smoke-routes.ts` with `expectNoCriticalA11yViolations`: sales order detail, customer detail, workshop order detail, purchase order detail, the workshop board, four settings tabs (finance, brands, storage locations, labor), the customers list with the Add Customer dialog open, and the sales orders, purchase orders, inventory, vehicle stock and vendors lists. Each route mocks the API calls it needs, so the scan reads rendered content, not an error state.
 - The scan runs the WCAG 2.2 AA tags (`wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa`, `wcag22aa`) plus `best-practice`. AAA is out of scope. `serious` and `critical` fail the build. `moderate` and `minor` are attached as `accessibility-backlog-violations` and do not fail it.
 - `color-contrast` fails at any impact (`FAIL_RULE_IDS` in `e2e/utils/a11y.ts`). axe already rates it `serious`, so this makes the rule explicit rather than changing what fails today.
-- `A11Y_ALLOWLIST` stays empty. No axe finding on the new routes is allowlisted. The `moderate` findings still reported on those routes are heading order on the Settings fiscal card, `page-has-heading-one` on the settings tabs, and `empty-table-header` on the purchase order and vehicle stock tables.
+- `A11Y_ALLOWLIST` stays empty. No axe finding on the new routes is allowlisted.
 - The scan settles the page first: CSS animations are frozen and `.animate-spin` loaders must be gone. A fade still in progress reads as a contrast failure that depends on timing.
 
 Trivial contrast and layout fixes made while widening coverage (class changes only):

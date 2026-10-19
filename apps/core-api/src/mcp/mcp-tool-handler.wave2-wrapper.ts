@@ -2,11 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { AgentActionLogService } from '../agent-action-log/agent-action-log.service.js';
 import { McpToolHandlerComplianceWrapper } from './mcp-tool-handler.compliance-wrapper.js';
 import type { McpToolCallContext } from './mcp-tool-handler.service.js';
-import { isMcpWave2ReadToolName } from './mcp-read-tool-catalog.aut615.js';
-import type { McpToolNameWithWave2 } from './mcp-read-tool-catalog.aut615.js';
+import { isMcpWave2ReadToolName } from './mcp-read-wave2-catalog.js';
+import type { McpToolNameWithWave2 } from './mcp-read-wave2-catalog.js';
 import { McpWave2ReadFacade } from './mcp-wave2-read.facade.js';
 import { runMcpWave2ReadTool } from './mcp-wave2-read.dispatch.js';
-import { mcpWave2ReadInputSchemas } from './mcp-tool-schemas.aut615-reads.js';
+import { mcpWave2ReadInputSchemas } from './mcp-read-wave2-schemas.js';
 import { capMcpToolPayload } from './mcp-output.util.js';
 
 /** Routes AUT-615 wave-2 read tools ahead of the AUT-605 compliance wrapper. */

@@ -1778,24 +1778,6 @@ describe('MCP server (e2e)', () => {
     },
     {
       title:
-        'rejects dry_run on draft_workshop_order without creating an order',
-      clientName: 'e2e-draft-workshop-order-dry-run-rejected',
-      traceId: '00000000-0000-4000-8000-000000000215',
-      expectedOrders: 0,
-      newVehicle: 'draft-dry-run-rejected',
-      args: (vehicle) => ({
-        ...vehicleRefs(vehicle),
-        status: 'SCHEDULED',
-        ...scheduledBooking(14),
-        odometer: 1000,
-        fuel_level: 50,
-        notes: 'MCP dry_run rejected test',
-        dry_run: true,
-      }),
-      payloadPattern: /validation|unrecognized|invalid/i,
-    },
-    {
-      title:
         'logs a DRAFT status for draft_workshop_order as FAILED NOT_EVALUATED, never PROPOSE',
       clientName: 'e2e-draft-workshop-order-status-draft-rejected',
       traceId: '00000000-0000-4000-8000-000000000217',
@@ -1841,6 +1823,41 @@ describe('MCP server (e2e)', () => {
       status: 'FAILED',
       tier: 'NOT_EVALUATED',
     });
+  });
+
+  it('dry_run on draft_workshop_order previews without creating an order', async () => {
+    await setPolicyTier('workshop_order.create', 'AUTO');
+    const vehicle = await createDraftVehicle('draft-dry-run-preview');
+    const traceId = '00000000-0000-4000-8000-000000000215';
+    const notes = 'MCP dry_run preview test';
+
+    const result = await callMcpTool(
+      caller(adminHeaderA, 'e2e-draft-workshop-order-dry-run'),
+      'draft_workshop_order',
+      {
+        ...draftOrderArgs(vehicle),
+        notes,
+        dry_run: true,
+      },
+      traceId,
+    );
+
+    expect(result.isError).toBeFalsy();
+    const payload = parsePayload<Record<string, unknown>>(result);
+    expect(payload).toMatchObject({
+      dry_run: true,
+      tool: 'draft_workshop_order',
+    });
+    expect(
+      await prismaA.workshopOrder.count({
+        where: {
+          vehicle_id: vehicle.vehicleId,
+          notes,
+        },
+      }),
+    ).toBe(0);
+    const dryRunLog = await findActionLog(traceId, 'mcp.draft_workshop_order');
+    expect(dryRunLog).toMatchObject({ status: 'DRY_RUN' });
   });
 
   it('reserve_part then release_reservation round-trip restores state', async () => {

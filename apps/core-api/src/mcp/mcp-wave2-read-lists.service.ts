@@ -27,7 +27,7 @@ import type {
   listEstimatesInputSchema,
   listLoanerBookingsInputSchema,
   listOrderCommunicationsInputSchema,
-} from './mcp-tool-schemas.aut615-reads.js';
+} from './mcp-read-wave2-schemas.js';
 
 @Injectable()
 export class McpWave2ReadListsService {
