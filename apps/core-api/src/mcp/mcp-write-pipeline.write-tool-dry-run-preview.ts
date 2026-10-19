@@ -82,6 +82,13 @@ export async function simulateDedicatedDryRunPreview(
       return { result, wouldChange: [] };
     }
     case 'generate_weekly_report_pdf': {
+      if (call.execution.preview) {
+        const result = await call.execution.preview(
+          call.input,
+          executionContext,
+        );
+        return { result, wouldChange: [] };
+      }
       const parsed = generateWeeklyReportPdfInputSchema.parse(call.input);
       const result = await deps.weeklyReportMcp.preview(parsed);
       return { result, wouldChange: [] };

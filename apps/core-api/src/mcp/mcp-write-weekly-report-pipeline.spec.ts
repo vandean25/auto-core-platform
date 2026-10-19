@@ -19,8 +19,6 @@ import { WorkshopOrderCompletionService } from '../workshop/workshop-order-compl
 import { InvoiceWorkshopDraftProposeService } from '../invoices/invoice-workshop-draft-propose.service.js';
 import { WorkshopEstimateSendProposeService } from '../workshop/workshop-estimate-send-propose.service.js';
 import { MechanicFindingProposeService } from '../mechanic/mechanic-finding-propose.service.js';
-import { WorkshopMediaUploadMcpService } from '../mechanic/workshop-media-upload-mcp.service.js';
-import { WeeklyReportMcpService } from '../reports/weekly-report/weekly-report-mcp.service.js';
 import { mcpToolOutputSchemas } from './mcp-tool-output-schemas.js';
 import { toMcpJsonObject } from './mcp-output.util.js';
 import { WeeklyReportPdfService } from '../reports/weekly-report/weekly-report-pdf.service.js';
@@ -173,21 +171,6 @@ describe('McpWritePipelineService generate_weekly_report_pdf', () => {
         { provide: WorkshopOrderCompletionService, useValue: {} },
         { provide: InvoiceWorkshopDraftProposeService, useValue: {} },
         { provide: WorkshopEstimateSendProposeService, useValue: {} },
-        {
-          provide: WorkshopMediaUploadMcpService,
-          useValue: {
-            previewUploadSlot: jest.fn(),
-            createUploadSlot: jest.fn(),
-          },
-        },
-        {
-          provide: WeeklyReportMcpService,
-          useValue: {
-            preview: (input: unknown) => weeklyReportPdf.preview(input),
-            execute: (input: unknown) => weeklyReportPdf.execute(input),
-            refreshReplayResult: jest.fn(),
-          },
-        },
         { provide: MechanicFindingProposeService, useValue: {} },
       ],
     }).compile();

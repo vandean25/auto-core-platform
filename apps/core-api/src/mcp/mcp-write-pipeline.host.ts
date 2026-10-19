@@ -27,7 +27,9 @@ import { WorkshopOrderCompletionService } from '../workshop/workshop-order-compl
 import { InvoiceWorkshopDraftProposeService } from '../invoices/invoice-workshop-draft-propose.service.js';
 import { WorkshopEstimateSendProposeService } from '../workshop/workshop-estimate-send-propose.service.js';
 import { WorkshopMediaUploadMcpService } from '../mechanic/workshop-media-upload-mcp.service.js';
+import { workshopMediaUploadMcpNoop } from '../mechanic/workshop-media-upload-mcp.noop.js';
 import { WeeklyReportMcpService } from '../reports/weekly-report/weekly-report-mcp.service.js';
+import { weeklyReportMcpNoop } from '../reports/weekly-report/weekly-report-mcp.noop.js';
 import type { McpWriteToolName } from './mcp.constants.js';
 
 export type McpWritePipelineHostResult =
@@ -52,8 +54,9 @@ export class McpWritePipelineHost {
     private readonly workshopOrderCompletion: WorkshopOrderCompletionService,
     private readonly invoiceWorkshopDraftPropose: InvoiceWorkshopDraftProposeService,
     private readonly workshopEstimateSendPropose: WorkshopEstimateSendProposeService,
-    private readonly workshopMediaUploadMcp: WorkshopMediaUploadMcpService,
-    private readonly weeklyReportMcp: WeeklyReportMcpService,
+    @Optional()
+    private readonly workshopMediaUploadMcp?: WorkshopMediaUploadMcpService,
+    @Optional() private readonly weeklyReportMcp?: WeeklyReportMcpService,
     @Optional() mechanicFindingPropose?: MechanicFindingProposeService,
   ) {
     this.commitDeps = {
@@ -66,8 +69,10 @@ export class McpWritePipelineHost {
       mechanicFindingPropose: (mechanicFindingPropose ??
         mechanicFindingProposeNoop) as MechanicFindingProposeService,
       workshopEstimateSendPropose: this.workshopEstimateSendPropose,
-      workshopMediaUploadMcp: this.workshopMediaUploadMcp,
-      weeklyReportMcp: this.weeklyReportMcp,
+      workshopMediaUploadMcp: (this.workshopMediaUploadMcp ??
+        workshopMediaUploadMcpNoop) as WorkshopMediaUploadMcpService,
+      weeklyReportMcp: (this.weeklyReportMcp ??
+        weeklyReportMcpNoop) as WeeklyReportMcpService,
     };
   }
 
