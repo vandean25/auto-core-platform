@@ -27,7 +27,7 @@ import {
 import { isMcpSupervisorRole } from './mcp.authorization.js';
 import { resolveMcpAgentName } from './mcp-agent-id.util.js';
 import { decodeMcpCursor, encodeMcpCursor } from './mcp-output.util.js';
-import { MCP_TOOL_DESCRIPTIONS } from './mcp-tool-descriptions.js';
+import { MCP_TOOL_DESCRIPTIONS } from './mcp-tool-descriptions.registry.js';
 import { effectiveMcpWriteTier } from './mcp-write-tier.util.js';
 import { buildAgentResponseLanguageInstruction } from './mcp-agent-response-language.js';
 import { McpUserLocaleService } from './mcp-user-locale.service.js';

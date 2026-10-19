@@ -25,6 +25,7 @@ import {
 import {
   applyRegistrationIntake,
   createWorkshopMediaUploadSlot,
+  previewWorkshopMediaUploadSlot,
   createWorkshopOrder,
   executeDocumentSortProposal,
   executeImportRowMatchProposal,
@@ -197,6 +198,7 @@ const EXECUTOR_FACTORIES: Partial<Record<PendingActionType, ExecutorFactory>> =
     'workshop.media_upload_slot': (deps, actionType) => ({
       actionType,
       buildPolicyContext: () => Promise.resolve({}),
+      preview: (input) => previewWorkshopMediaUploadSlot(deps, input),
       execute: (input) => createWorkshopMediaUploadSlot(deps, input),
       buildResultSummary: (result) => ({
         media_id: (result as { media_id: string }).media_id,

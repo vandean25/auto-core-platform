@@ -28,6 +28,7 @@ import {
   type McpToolName,
   type McpWriteToolName,
 } from './mcp.constants.js';
+import { mergeMcpWriteToolOutput } from './mcp-write-dry-run.schema.js';
 
 /**
  * Output schemas for the MCP tools (AUT-427). The SDK publishes each one as the tool's
@@ -545,7 +546,7 @@ const writeProposal = z.object({
  * A write result. `executed` ran and carries the committed row. `needs_approval` stored a
  * pending proposal and ran nothing. A refused call is a thrown error, not a result.
  */
-function writeResultOf(tool: McpWriteToolName) {
+function writeResultOf(tool: McpWriteToolName): z.ZodTypeAny {
   const shape = {
     ...optionalShape({
       tool: z.literal(tool),
@@ -596,6 +597,70 @@ function writeResultOf(tool: McpWriteToolName) {
     }
   });
 }
+
+function publishedWriteToolOutput(
+  tool: McpWriteToolName,
+  committed: z.ZodTypeAny,
+): z.ZodTypeAny {
+  return mergeMcpWriteToolOutput(tool, committed);
+}
+
+const generateWeeklyReportPdfCommittedOutputSchema = z
+  .object({
+    ...optionalShape({
+      tool: z.literal('generate_weekly_report_pdf'),
+      tier: z.enum(['AUTO', 'PROPOSE']),
+      status: z.enum(['executed', 'needs_approval']),
+      would_change: z.array(wouldChangeItem),
+      result: z.object({
+        id: idString,
+        url: z.string().url(),
+        expires_at: z.string().datetime(),
+        sha256: z.string().length(64),
+        page_count: z.number().int().positive(),
+        period: z.object({
+          from: z.string(),
+          to: z.string(),
+          timezone: z.string(),
+          iso_week: z.string().nullable(),
+        }),
+      }),
+      proposal: writeProposal,
+      pending_action_id: idString,
+      trace_id: idString,
+      replayed: z.literal(true).optional(),
+    }),
+    ...optionalShape(truncatedMarkerShape),
+  })
+  .superRefine((value, ctx) => {
+    if (value.__truncated__ === true) {
+      return;
+    }
+    if (value.status === 'executed') {
+      for (const key of [
+        'tool',
+        'tier',
+        'would_change',
+        'result',
+        'trace_id',
+      ] as const) {
+        if ((value as Record<string, unknown>)[key] === undefined) {
+          ctx.addIssue({
+            code: 'custom',
+            path: [key],
+            message: `${key} is required for executed weekly report PDF`,
+          });
+        }
+      }
+      if (value.tier !== 'AUTO') {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['tier'],
+          message: 'tier must be AUTO for executed weekly report PDF',
+        });
+      }
+    }
+  });
 
 // --- Per-tool output schemas ---------------------------------------------------
 
@@ -1390,78 +1455,58 @@ export const mcpToolOutputSchemas = {
       }),
     ),
   }),
-  draft_workshop_order: writeResultOf('draft_workshop_order'),
-  reserve_part: writeResultOf('reserve_part'),
-  release_reservation: writeResultOf('release_reservation'),
-  propose_line_item: writeResultOf('propose_line_item'),
-  propose_registration_intake: writeResultOf('propose_registration_intake'),
-  propose_workshop_booking: writeResultOf('propose_workshop_booking'),
-  propose_purchase_order: writeResultOf('propose_purchase_order'),
-  propose_workshop_order_completion: writeResultOf(
+  draft_workshop_order: publishedWriteToolOutput(
+    'draft_workshop_order',
+    writeResultOf('draft_workshop_order'),
+  ),
+  reserve_part: publishedWriteToolOutput(
+    'reserve_part',
+    writeResultOf('reserve_part'),
+  ),
+  release_reservation: publishedWriteToolOutput(
+    'release_reservation',
+    writeResultOf('release_reservation'),
+  ),
+  propose_line_item: publishedWriteToolOutput(
+    'propose_line_item',
+    writeResultOf('propose_line_item'),
+  ),
+  propose_registration_intake: publishedWriteToolOutput(
+    'propose_registration_intake',
+    writeResultOf('propose_registration_intake'),
+  ),
+  propose_workshop_booking: publishedWriteToolOutput(
+    'propose_workshop_booking',
+    writeResultOf('propose_workshop_booking'),
+  ),
+  propose_purchase_order: publishedWriteToolOutput(
+    'propose_purchase_order',
+    writeResultOf('propose_purchase_order'),
+  ),
+  propose_workshop_order_completion: publishedWriteToolOutput(
     'propose_workshop_order_completion',
+    writeResultOf('propose_workshop_order_completion'),
   ),
-  propose_invoice_draft_from_order: writeResultOf(
+  propose_invoice_draft_from_order: publishedWriteToolOutput(
     'propose_invoice_draft_from_order',
+    writeResultOf('propose_invoice_draft_from_order'),
   ),
-  propose_estimate_send: writeResultOf('propose_estimate_send'),
-  request_workshop_media_upload: writeResultOf('request_workshop_media_upload'),
-  propose_mechanic_finding: writeResultOf('propose_mechanic_finding'),
-  generate_weekly_report_pdf: z
-    .object({
-      ...optionalShape({
-        tool: z.literal('generate_weekly_report_pdf'),
-        tier: z.enum(['AUTO', 'PROPOSE']),
-        status: z.enum(['executed', 'needs_approval']),
-        would_change: z.array(wouldChangeItem),
-        result: z.object({
-          id: idString,
-          url: z.string().url(),
-          expires_at: z.string().datetime(),
-          sha256: z.string().length(64),
-          page_count: z.number().int().positive(),
-          period: z.object({
-            from: z.string(),
-            to: z.string(),
-            timezone: z.string(),
-            iso_week: z.string().nullable(),
-          }),
-        }),
-        proposal: writeProposal,
-        pending_action_id: idString,
-        trace_id: idString,
-        replayed: z.literal(true).optional(),
-      }),
-      ...optionalShape(truncatedMarkerShape),
-    })
-    .superRefine((value, ctx) => {
-      if (value.__truncated__ === true) {
-        return;
-      }
-      if (value.status === 'executed') {
-        for (const key of [
-          'tool',
-          'tier',
-          'would_change',
-          'result',
-          'trace_id',
-        ] as const) {
-          if ((value as Record<string, unknown>)[key] === undefined) {
-            ctx.addIssue({
-              code: 'custom',
-              path: [key],
-              message: `${key} is required for executed weekly report PDF`,
-            });
-          }
-        }
-        if (value.tier !== 'AUTO') {
-          ctx.addIssue({
-            code: 'custom',
-            path: ['tier'],
-            message: 'tier must be AUTO for executed weekly report PDF',
-          });
-        }
-      }
-    }),
+  propose_estimate_send: publishedWriteToolOutput(
+    'propose_estimate_send',
+    writeResultOf('propose_estimate_send'),
+  ),
+  request_workshop_media_upload: publishedWriteToolOutput(
+    'request_workshop_media_upload',
+    writeResultOf('request_workshop_media_upload'),
+  ),
+  propose_mechanic_finding: publishedWriteToolOutput(
+    'propose_mechanic_finding',
+    writeResultOf('propose_mechanic_finding'),
+  ),
+  generate_weekly_report_pdf: publishedWriteToolOutput(
+    'generate_weekly_report_pdf',
+    generateWeeklyReportPdfCommittedOutputSchema,
+  ),
 } satisfies Record<McpToolName, z.ZodType>;
 
 export type McpToolOutputSchemas = typeof mcpToolOutputSchemas;

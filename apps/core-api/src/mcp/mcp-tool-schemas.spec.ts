@@ -219,7 +219,9 @@ describe('MCP tool input schemas', () => {
 
     for (const toolName of MCP_WRITE_TOOL_NAMES) {
       const schema = mcpWriteToolInputSchemas[toolName];
-      expect(() => schema.parse({ dry_run: true })).toThrow();
+      expect(() => schema.parse({ dry_run: true, unknown_field: 1 })).toThrow(
+        /unrecognized/i,
+      );
     }
   });
 

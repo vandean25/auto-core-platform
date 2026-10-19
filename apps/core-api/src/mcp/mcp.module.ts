@@ -40,7 +40,6 @@ import { McpStockReadService } from './mcp-stock-read.service.js';
 import { McpController } from './mcp.controller.js';
 import { MCP_STACK_PROVIDERS_AUT605 } from './mcp-stack.providers.aut605.js';
 import { McpToolHandlerService } from './mcp-tool-handler.service.js';
-import { McpWritePipelineHost } from './mcp-write-pipeline.host.js';
 import { McpWritePipelineService } from './mcp-write-pipeline.service.js';
 import { McpWriteCommandIdempotencyService } from './mcp-write-command-idempotency.service.js';
 import { McpUserLocaleService } from './mcp-user-locale.service.js';
@@ -75,7 +74,7 @@ import { InvoicesModule } from '../invoices/invoices.module.js';
   providers: [
     McpToolHandlerService,
     McpToolHandlerComplianceWrapper,
-    { provide: McpWritePipelineService, useClass: McpWritePipelineHost },
+    McpWritePipelineService,
     McpWriteCommandIdempotencyService,
     McpCapabilitiesService,
     McpAuditReadService,
