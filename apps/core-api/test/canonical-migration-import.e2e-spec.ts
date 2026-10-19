@@ -18,6 +18,7 @@ import { buildCanonicalMigrationIdentityMapping } from '../src/import/canonical-
 import { CANONICAL_MIGRATION_PRESET_NAME } from '../src/import/canonical-migration.constants.js';
 import { CANONICAL_MIGRATION_FIXTURE_SOURCE_SYSTEM } from '../src/prisma/fixtures/canonical-migration-import-presets.fixture.js';
 import { parseMigrationManifestJson } from '../src/import/migration-manifest.validator.js';
+import { countDryRunWarningRows } from './helpers/canonical-migration-fixture-dry-run-check.js';
 import {
   dryRunCanonicalMigrationCustomers,
   dryRunCanonicalMigrationVehicles,

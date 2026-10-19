@@ -10,7 +10,7 @@ import {
   createTestTenant,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
-import { runCanonicalMigrationFixtureDryRunTotalsCheck } from './helpers/canonical-migration-fixture-totals.js';
+import { runCanonicalMigrationFixtureDryRunTotalsCheck } from './helpers/canonical-migration-fixture-dry-run-check.js';
 
 describe('legacy-import.e2e-spec.ts canonical migration totals', () => {
   let app: INestApplication;
