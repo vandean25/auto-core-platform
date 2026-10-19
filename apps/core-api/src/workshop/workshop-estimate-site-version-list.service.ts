@@ -24,10 +24,11 @@ export class WorkshopEstimateSiteVersionListService {
       cursor?: string;
     },
   ) {
-    const scope = await resolveEstimateScope(
-      this.tenantContext,
-      this.siteContext,
-    );
+    const scope = await resolveEstimateScope({
+      prisma: this.prisma,
+      tenantContext: this.tenantContext,
+      siteContext: this.siteContext,
+    });
     const settings = await this.workshopSettings.getSettingsForSite(
       scope.tenantId,
       scope.siteId,
