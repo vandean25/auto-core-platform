@@ -1,0 +1,10 @@
+external_id,type,company_name,first_name,last_name,email,phone,vat_id,address_street,address_zip,address_city,address_country,salutation,title,title_suffix,letter_salutation,block_level,block_reason,payment_terms_days,payment_terms_text,bill_to_external_id,labor_price_group_code,last_activity_date,has_open_matters,privacy_objection,mail_stop,anonymized
+cust-001,PRIVATE,,Erika,Müller,erika.mueller@example.invalid,,,Musterstraße 1,1010,Wien,AT,MS,,,,NONE,,,,,,2025-06-01,false,false,false,false
+cust-002,COMPANY,Synth Fleet GmbH,,,fleet@example.invalid,,,,,,AT,COMPANY,,,,NONE,,,,,,2024-01-15,true,false,false,false
+cust-bill-parent,COMPANY,Bill Parent KG,,,bill.parent@example.invalid,,,,,,AT,COMPANY,,,,NONE,,,,,,2025-01-01,false,false,false,false
+cust-bill-child,PRIVATE,,Lea,Rechnung,lea.bill@example.invalid,,,,,,AT,MS,,,,NONE,,,,cust-bill-parent,,2025-02-01,false,false,false,false
+cust-dup-email-a,PRIVATE,,Dup,One,shared.dup@example.invalid,,,,,,AT,,,,,NONE,,,,,,2025-03-01,false,false,false,false
+cust-dup-email-b,PRIVATE,,Dup,Two,shared.dup@example.invalid,,,,,,AT,,,,,NONE,,,,,,2025-03-02,false,false,false,false
+cust-restricted,PRIVATE,,Old,Timer,old.timer@example.invalid,,,,,,AT,,,,,NONE,,,,,,2023-11-01,false,false,false,false
+cust-skip-old,PRIVATE,,Skip,Me,skip.me@example.invalid,,,,,,AT,,,,,NONE,,,,,,2015-01-01,false,false,false,false
+cust-anon,PRIVATE,,Anon,Ymized,,,,,,,AT,,,,,NONE,,,,,,,false,false,false,true

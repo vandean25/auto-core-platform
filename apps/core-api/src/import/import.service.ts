@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { ImportEntityType, ImportRowAction, Prisma } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { RequestContextService } from '../common/services/request-context.service.js';
@@ -40,6 +40,11 @@ import { parseImportUpload } from './import-upload.util.js';
 import { computeDryRunTotals } from './import-totals.util.js';
 import { buildTemplateCsv, getImportTemplate } from './import.templates.js';
 import type { ImportJobOptions, ImportJobTotals } from './import.types.js';
+import {
+  validateMigrationBundle,
+  type MigrationManifest,
+} from './migration-manifest.validator.js';
+import { IMPORT_ERROR_CODES } from './import.constants.js';
 import { SupplierChunkedApplyRunner } from './supplier-price-list-apply.runner.js';
 import { SupplierPriceListImportHandler } from './supplier-price-list-import.handler.js';
 import { LaborOperationImportHandler } from './labor-operation-import.handler.js';
@@ -129,10 +134,12 @@ export class ImportService {
       tenantId,
     );
 
+    const options = normalizeImportOptions(params.optionsJson);
+    this.validateCanonicalMigrationUpload(params.file, options);
+
     const parsed = traceImportParse(params.entityType, () =>
       parseImportUpload(params.file),
     );
-    const options = normalizeImportOptions(params.optionsJson);
     const handler = this.handlers[params.entityType];
     await handler.prepareCreate(tenantId, params.sourceSystem, options);
     const dryRunRows = await traceImportValidate(params.entityType, () =>
@@ -287,5 +294,50 @@ export class ImportService {
       fields: template.fields,
       csv: buildTemplateCsv(entityType),
     };
+  }
+
+  validateCanonicalMigrationBundle(params: {
+    manifest: MigrationManifest;
+    files: Record<string, Buffer>;
+  }) {
+    assertTenantAdmin(this.tenantContext);
+    const issues = validateMigrationBundle({
+      manifest: params.manifest,
+      files: params.files,
+    });
+    if (issues.length > 0) {
+      throw new BadRequestException({
+        code: issues[0]?.code ?? IMPORT_ERROR_CODES.MIGRATION_MANIFEST_SCHEMA_INVALID,
+        message: issues[0]?.message ?? 'Migration bundle validation failed',
+        issues,
+      });
+    }
+    return { valid: true, issues: [] as const };
+  }
+
+  private validateCanonicalMigrationUpload(
+    file: Express.Multer.File,
+    options: ImportJobOptions,
+  ): void {
+    if (!options.migration_manifest) {
+      return;
+    }
+    const manifest = options.migration_manifest as MigrationManifest;
+    const fileName = file.originalname?.trim();
+    if (!fileName) {
+      return;
+    }
+    const issues = validateMigrationBundle({
+      manifest,
+      files: { [fileName]: file.buffer },
+      allowPartialFiles: true,
+    });
+    if (issues.length > 0) {
+      throw new BadRequestException({
+        code: issues[0]?.code ?? IMPORT_ERROR_CODES.MIGRATION_MANIFEST_SCHEMA_INVALID,
+        message: issues[0]?.message ?? 'Migration manifest validation failed',
+        issues,
+      });
+    }
   }
 }

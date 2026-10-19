@@ -36,6 +36,11 @@ export function normalizeImportOptions(
       options.price_jump_threshold_percent,
     ),
     vendor_id: trimmedStringOrUndefined(options.vendor_id),
+    migration_manifest:
+      options.migration_manifest &&
+      typeof options.migration_manifest === 'object'
+        ? options.migration_manifest
+        : undefined,
   };
 }
 

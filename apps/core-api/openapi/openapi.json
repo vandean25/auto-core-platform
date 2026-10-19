@@ -14575,6 +14575,21 @@
         ]
       }
     },
+    "/api/imports/canonical-migration/validate": {
+      "post": {
+        "operationId": "ImportController_validateCanonicalMigration",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Validate a canonical migration CSV bundle (manifest.json + CSV files)",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
     "/api/imports/templates/{entityType}": {
       "get": {
         "operationId": "ImportController_getTemplate",

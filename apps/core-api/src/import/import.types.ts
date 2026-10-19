@@ -1,4 +1,4 @@
-import type { ImportEntityType, ImportRowAction } from '@prisma/client';
+import type { ImportEntityType, ImportRowAction, Prisma } from '@prisma/client';
 
 export type ImportColumnMapping = Record<string, string>;
 
@@ -7,6 +7,8 @@ export type ImportJobOptions = {
   fill_empty_only?: boolean;
   allow_missing_vin?: boolean;
   invalid_vat_as_error?: boolean;
+  /** Parsed manifest.json for canonical migration CSV dry-runs (validates uploaded file first). */
+  migration_manifest?: Prisma.InputJsonObject;
   create_new_catalog_items?: boolean;
   accept_all_price_jumps?: boolean;
   accepted_row_numbers?: number[];

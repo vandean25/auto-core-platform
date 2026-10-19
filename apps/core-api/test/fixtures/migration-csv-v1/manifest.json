@@ -1,0 +1,43 @@
+{
+  "format_version": "1.1",
+  "source_name": "incadea",
+  "source_system": "incadea:synth_fixture",
+  "source_company_code": "synth_fixture",
+  "extracted_at": "2026-10-19T08:00:00Z",
+  "cutover_date": "2026-11-01",
+  "currency": "EUR",
+  "files": [
+    {
+      "name": "customers.csv",
+      "sha256": "459fe9e74b87b109b7c8d009e9b881ef60c02cc08548fd46f9865acb55b3a80b",
+      "row_count": 9
+    },
+    {
+      "name": "vehicles.csv",
+      "sha256": "4bcff1cad4515cf4d24fd6972543d6b27d41471a9a9e3f285cbe2b397dd172e8",
+      "row_count": 6
+    }
+  ],
+  "assets": [],
+  "control_totals": {
+    "counts_by_type": {
+      "customers": 9,
+      "vehicles": 6
+    },
+    "stock_value": null,
+    "open_items": null,
+    "document_totals": [],
+    "domain_counts": {
+      "vehicle_parties": null,
+      "vehicle_due_dates": null,
+      "vehicle_notices": null,
+      "tyre_sets": null,
+      "open_orders": null,
+      "open_order_lines": null,
+      "legacy_documents": null,
+      "open_items": null
+    },
+    "open_orders_net": null,
+    "open_items_as_of": null
+  }
+}
