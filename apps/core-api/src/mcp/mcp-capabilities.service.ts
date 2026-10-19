@@ -83,6 +83,10 @@ export class McpCapabilitiesService {
    * role, tenant, and site are those of the human the agent acts for. Everything
    * comes from the session, never from tool arguments.
    */
+  getSessionRole(): string | null | undefined {
+    return this.tenantContext.getAuthenticatedUser()?.role;
+  }
+
   async whoami(session: { agentId?: string }): Promise<McpWhoami> {
     const user = this.tenantContext.getAuthenticatedUser();
     if (!user?.tenantId) {

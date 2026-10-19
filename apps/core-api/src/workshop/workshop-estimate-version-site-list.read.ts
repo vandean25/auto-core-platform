@@ -55,39 +55,143 @@ export type ListSiteEstimateVersionsFilters = {
   timeZone: string;
 };
 
-export async function listSiteEstimateVersions(
+export type ListSiteEstimateVersionsPageRequest =
+  ListSiteEstimateVersionsFilters & {
+    pageSize: number;
+    cursor?: string;
+  };
+
+export type ListSiteEstimateVersionsPage = {
+  rows: SiteEstimateVersionListRow[];
+  nextCursor: string | null;
+};
+
+type EstimateKeysetCursor = {
+  sent_at: string | null;
+  id: string;
+};
+
+function encodeEstimateKeysetCursor(row: {
+  sent_at: Date | null;
+  id: string;
+}): string {
+  return Buffer.from(
+    JSON.stringify({
+      sent_at: row.sent_at ? row.sent_at.toISOString() : null,
+      id: row.id,
+    }),
+    'utf8',
+  ).toString('base64url');
+}
+
+function decodeEstimateKeysetCursor(
+  cursor: string,
+): EstimateKeysetCursor | null {
+  if (!/^[A-Za-z0-9_-]+$/.test(cursor)) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(
+      Buffer.from(cursor, 'base64url').toString('utf8'),
+    ) as EstimateKeysetCursor;
+    if (typeof parsed.id !== 'string') {
+      return null;
+    }
+    if (parsed.sent_at !== null && typeof parsed.sent_at !== 'string') {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function effectiveStatusWhere(
+  status: WorkshopEstimateStatus,
+  now: Date,
+): Prisma.WorkshopEstimateVersionWhereInput {
+  if (status === WorkshopEstimateStatus.EXPIRED) {
+    return {
+      OR: [
+        { status: WorkshopEstimateStatus.EXPIRED },
+        {
+          status: WorkshopEstimateStatus.SENT,
+          valid_until: { lt: now },
+        },
+      ],
+    };
+  }
+  if (status === WorkshopEstimateStatus.SENT) {
+    return {
+      status: WorkshopEstimateStatus.SENT,
+      OR: [{ valid_until: null }, { valid_until: { gte: now } }],
+    };
+  }
+  return { status };
+}
+
+function keysetAfterCursor(
+  cursor: EstimateKeysetCursor,
+): Prisma.WorkshopEstimateVersionWhereInput {
+  const sentAt = cursor.sent_at === null ? null : new Date(cursor.sent_at);
+  if (sentAt === null) {
+    return {
+      OR: [{ sent_at: null, id: { lt: cursor.id } }],
+    };
+  }
+  return {
+    OR: [
+      { sent_at: { lt: sentAt } },
+      { sent_at: sentAt, id: { lt: cursor.id } },
+      { sent_at: null },
+    ],
+  };
+}
+
+export async function listSiteEstimateVersionsPage(
   prisma: PrismaService,
   scope: EstimateScope,
-  filters: ListSiteEstimateVersionsFilters,
+  request: ListSiteEstimateVersionsPageRequest,
   now: Date = new Date(),
-): Promise<SiteEstimateVersionListRow[]> {
+): Promise<ListSiteEstimateVersionsPage> {
   const sentRange = siteLocalSentRange(
-    filters.sentFrom,
-    filters.sentTo,
-    filters.timeZone,
+    request.sentFrom,
+    request.sentTo,
+    request.timeZone,
   );
+  const decodedCursor =
+    request.cursor === undefined
+      ? undefined
+      : decodeEstimateKeysetCursor(request.cursor);
 
-  const rows = await prisma.workshopEstimateVersion.findMany({
-    where: {
-      tenant_id: scope.tenantId,
-      estimate: {
-        site_id: scope.siteId,
-        ...(filters.orderId ? { workshop_order_id: filters.orderId } : {}),
-        workshop_order: filters.customerId
-          ? { customer_id: filters.customerId }
-          : undefined,
-      },
-      ...(sentRange
-        ? {
-            sent_at: {
-              gte: sentRange.gte,
-              lt: sentRange.lt,
-            },
-          }
-        : {}),
+  const where: Prisma.WorkshopEstimateVersionWhereInput = {
+    tenant_id: scope.tenantId,
+    estimate: {
+      site_id: scope.siteId,
+      ...(request.orderId ? { workshop_order_id: request.orderId } : {}),
+      workshop_order: request.customerId
+        ? { customer_id: request.customerId }
+        : undefined,
     },
-    orderBy: [{ sent_at: 'desc' }, { id: 'desc' }],
-    take: 500,
+    ...(sentRange
+      ? {
+          sent_at: {
+            gte: sentRange.gte,
+            lt: sentRange.lt,
+          },
+        }
+      : {}),
+    ...(request.status
+      ? effectiveStatusWhere(request.status, now)
+      : {}),
+    ...(decodedCursor ? keysetAfterCursor(decodedCursor) : {}),
+  };
+
+  const take = request.pageSize + 1;
+  const rows = await prisma.workshopEstimateVersion.findMany({
+    where,
+    orderBy: [{ sent_at: { sort: 'desc', nulls: 'last' } }, { id: 'desc' }],
+    take,
     select: {
       id: true,
       version: true,
@@ -120,7 +224,9 @@ export async function listSiteEstimateVersions(
     },
   });
 
-  const mapped: SiteEstimateVersionListRow[] = rows.map((row) => ({
+  const hasMore = rows.length > request.pageSize;
+  const pageRows = hasMore ? rows.slice(0, request.pageSize) : rows;
+  const mapped: SiteEstimateVersionListRow[] = pageRows.map((row) => ({
     id: row.id,
     version: row.version,
     valid_until: row.valid_until,
@@ -133,11 +239,28 @@ export async function listSiteEstimateVersions(
     estimate: row.estimate,
   }));
 
-  if (!filters.status) {
-    return mapped;
-  }
+  const last = pageRows[pageRows.length - 1];
+  return {
+    rows: mapped,
+    nextCursor:
+      hasMore && last
+        ? encodeEstimateKeysetCursor({ sent_at: last.sent_at, id: last.id })
+        : null,
+  };
+}
 
-  return mapped.filter(
-    (row) => effectiveEstimateStatus(row, now) === filters.status,
+/** @deprecated Use {@link listSiteEstimateVersionsPage} for MCP paging. */
+export async function listSiteEstimateVersions(
+  prisma: PrismaService,
+  scope: EstimateScope,
+  filters: ListSiteEstimateVersionsFilters,
+  now: Date = new Date(),
+): Promise<SiteEstimateVersionListRow[]> {
+  const page = await listSiteEstimateVersionsPage(
+    prisma,
+    scope,
+    { ...filters, pageSize: 500 },
+    now,
   );
+  return page.rows;
 }

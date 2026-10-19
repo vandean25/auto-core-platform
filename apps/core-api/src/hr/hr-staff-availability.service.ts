@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { EmployeeRole, LeaveRequestStatus } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -10,7 +10,6 @@ import {
 } from '../workshop/workshop-planner.time.js';
 import { WorkshopSettingsService } from '../workshop/workshop-settings.service.js';
 import { deriveAttendanceState } from './hr-attendance.service.js';
-import { HrIdentityService } from './hr-identity.service.js';
 import { HrWorkScheduleService } from './hr-work-schedule.service.js';
 import { expectedMinutesForScheduleDay } from './hr-work-schedule.time.js';
 
@@ -35,7 +34,6 @@ export class HrStaffAvailabilityService {
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
     private readonly siteContext: SiteContextService,
-    private readonly identity: HrIdentityService,
     private readonly workSchedule: HrWorkScheduleService,
     private readonly workshopSettings: WorkshopSettingsService,
   ) {}
@@ -45,7 +43,7 @@ export class HrStaffAvailabilityService {
     site_id: string;
     employees: StaffAvailabilityEmployeeRow[];
   }> {
-    this.identity.assertOwnerAdmin();
+    this.assertOwnerAdminForMcp();
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = query.siteId ?? (await this.siteContext.getSiteId());
     await this.assertSiteAuthorized(siteId);
@@ -101,6 +99,16 @@ export class HrStaffAvailabilityService {
     };
   }
 
+  private assertOwnerAdminForMcp(): void {
+    const role = this.tenantContext.getAuthenticatedUser()?.role;
+    if (role !== 'OWNER' && role !== 'ADMIN') {
+      throw new ForbiddenException({
+        code: 'not_permitted',
+        message: 'Tenant admin access is required.',
+      });
+    }
+  }
+
   private async assertSiteAuthorized(siteId: string): Promise<void> {
     const allowed = await this.siteContext.listAuthorizedSiteIds();
     if (!allowed.includes(siteId)) {
@@ -137,6 +145,12 @@ export class HrStaffAvailabilityService {
         employee_id: { in: employeeIds },
       },
       orderBy: [{ occurred_at: 'desc' }, { createdAt: 'desc' }],
+      select: {
+        employee_id: true,
+        type: true,
+        occurred_at: true,
+        createdAt: true,
+      },
     });
 
     const lastByEmployee = new Map<string, (typeof events)[number]>();
@@ -184,8 +198,12 @@ export class HrStaffAvailabilityService {
           }
           const minutes = expectedMinutesForScheduleDay(dayRow);
           result.set(employeeId, (minutes / 60).toFixed(2));
-        } catch {
-          result.set(employeeId, '0.00');
+        } catch (error) {
+          if (error instanceof NotFoundException) {
+            result.set(employeeId, '0.00');
+            return;
+          }
+          throw error;
         }
       }),
     );

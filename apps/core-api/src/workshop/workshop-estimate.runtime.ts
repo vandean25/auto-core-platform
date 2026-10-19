@@ -28,7 +28,7 @@ import { createEstimateRevisionInTx } from './workshop-estimate-revision.command
 import { sendWorkshopEstimateVersion } from './workshop-estimate-send.command.js';
 import { listEstimatesForOrder } from './workshop-estimate-list.command.js';
 import {
-  listSiteEstimateVersions,
+  listSiteEstimateVersionsPage,
   type ListSiteEstimateVersionsFilters,
   type SiteEstimateVersionListRow,
 } from './workshop-estimate-version-site-list.read.js';
@@ -79,14 +79,20 @@ export class WorkshopEstimateService {
   }
 
   async listVersionsForSite(
-    filters: Omit<ListSiteEstimateVersionsFilters, 'timeZone'>,
-  ): Promise<SiteEstimateVersionListRow[]> {
+    filters: Omit<ListSiteEstimateVersionsFilters, 'timeZone'> & {
+      pageSize: number;
+      cursor?: string;
+    },
+  ): Promise<{
+    rows: SiteEstimateVersionListRow[];
+    nextCursor: string | null;
+  }> {
     const scope = await this.resolveScope();
     const settings = await this.workshopSettings.getSettingsForSite(
       scope.tenantId,
       scope.siteId,
     );
-    return listSiteEstimateVersions(this.prisma, scope, {
+    return listSiteEstimateVersionsPage(this.prisma, scope, {
       ...filters,
       timeZone: settings.timezone,
     });

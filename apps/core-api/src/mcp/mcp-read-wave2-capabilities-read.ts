@@ -27,7 +27,10 @@ async function loadFullCapabilityCatalogWithWave2(
   } while (cursor !== undefined);
 
   return {
-    tools: appendWave2ReadCapabilities(rows),
+    tools: appendWave2ReadCapabilities(
+      rows,
+      capabilities.getSessionRole(),
+    ),
     humanOnlyActions,
   };
 }

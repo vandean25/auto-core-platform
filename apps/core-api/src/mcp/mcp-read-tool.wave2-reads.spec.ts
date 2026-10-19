@@ -81,12 +81,17 @@ describe('McpToolHandlerService AUT-615 wave-2 reads', () => {
     expect(wave2Reads.listEstimates).not.toHaveBeenCalled();
   });
 
-  it('surfaces RBAC denial from get_staff_availability', async () => {
+  it('surfaces MCP not_permitted from get_staff_availability', async () => {
     wave2Reads.getStaffAvailability.mockRejectedValue(
-      new ForbiddenException('Tenant admin access is required.'),
+      new ForbiddenException({
+        code: 'not_permitted',
+        message: 'Tenant admin access is required.',
+      }),
     );
     await expect(
       handler.executeTool('get_staff_availability', {}, context),
-    ).rejects.toBeInstanceOf(ForbiddenException);
+    ).rejects.toMatchObject({
+      response: { code: 'not_permitted' },
+    });
   });
 });

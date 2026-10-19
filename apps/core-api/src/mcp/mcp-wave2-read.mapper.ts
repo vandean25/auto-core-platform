@@ -106,7 +106,7 @@ const COMMUNICATION_DIRECTION: Record<
 };
 
 export function toMcpOrderCommunicationRow(row: WorkshopOrderCommunicationDto) {
-  return {
+  const mapped = {
     id: row.id,
     at: row.occurred_at,
     channel: row.channel,
@@ -116,6 +116,7 @@ export function toMcpOrderCommunicationRow(row: WorkshopOrderCommunicationDto) {
     template_id: null,
     recipient_masked: null,
   };
+  return mapped;
 }
 
 type ChecklistItem = {
@@ -199,20 +200,55 @@ export function paginateEstimateVersions<
   };
 }
 
-export function paginateCommunications<T extends { id: string }>(
-  rows: T[],
-  pageSize: number,
-  cursor?: string,
-) {
+const communicationCursorSchema = z.object({
+  at: z.string().datetime(),
+  id: z.string().uuid(),
+  event_type: z.string().min(1),
+});
+
+export function paginateCommunications<
+  T extends { id: string; at: string; event_type: string },
+>(rows: T[], pageSize: number, cursor?: string) {
   const startIndex =
-    cursor === undefined ? 0 : rows.findIndex((row) => row.id === cursor) + 1;
-  const slice = rows.slice(Math.max(0, startIndex), startIndex + pageSize);
+    cursor === undefined ? 0 : findCommunicationStartIndex(rows, cursor);
+  const slice = rows.slice(startIndex, startIndex + pageSize);
   const last = slice[slice.length - 1];
-  const next = startIndex + pageSize < rows.length && last ? last.id : null;
+  const next =
+    startIndex + pageSize < rows.length && last
+      ? encodeCommunicationCursor(last)
+      : null;
   return {
     data: slice,
     meta: { page_size: pageSize, next_cursor: next },
   };
+}
+
+function findCommunicationStartIndex<T extends { id: string; at: string; event_type: string }>(
+  rows: T[],
+  cursor: string,
+): number {
+  const decoded = decodeMcpPositionCursor(cursor);
+  const parsed = communicationCursorSchema.safeParse(decoded);
+  if (!parsed.success) {
+    return 0;
+  }
+  const { at, id, event_type } = parsed.data;
+  const index = rows.findIndex(
+    (row) => row.at === at && row.id === id && row.event_type === event_type,
+  );
+  return index < 0 ? 0 : index + 1;
+}
+
+function encodeCommunicationCursor(row: {
+  at: string;
+  id: string;
+  event_type: string;
+}): string {
+  return encodeMcpPositionCursor({
+    at: row.at,
+    id: row.id,
+    event_type: row.event_type,
+  });
 }
 
 function decodeBookingCursor(cursor: string): string {

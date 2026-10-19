@@ -2,20 +2,26 @@ import { ForbiddenException } from '@nestjs/common';
 import { HrStaffAvailabilityService } from './hr-staff-availability.service.js';
 
 describe('HrStaffAvailabilityService', () => {
-  it('requires OWNER/ADMIN', async () => {
-    const identity = { assertOwnerAdmin: jest.fn(() => {
-      throw new ForbiddenException('Tenant admin access is required.');
-    }) };
+  it('returns MCP not_permitted for non-admin callers', async () => {
     const service = new HrStaffAvailabilityService(
       {} as never,
-      { getTenantId: jest.fn() } as never,
+      {
+        getTenantId: jest.fn(),
+        getAuthenticatedUser: jest.fn().mockReturnValue({ role: 'SALES' }),
+      } as never,
       {} as never,
-      identity as never,
       {} as never,
       {} as never,
     );
-    await expect(service.getStaffAvailability({})).rejects.toBeInstanceOf(
-      ForbiddenException,
-    );
+    try {
+      await service.getStaffAvailability({});
+      throw new Error('expected rejection');
+    } catch (error) {
+      expect(error).toBeInstanceOf(ForbiddenException);
+      expect((error as ForbiddenException).getResponse()).toEqual({
+        code: 'not_permitted',
+        message: 'Tenant admin access is required.',
+      });
+    }
   });
 });

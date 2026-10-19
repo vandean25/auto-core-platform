@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type { z } from 'zod';
 import { LoanerVehiclesService } from '../loaner-vehicles/loaner-vehicles.service.js';
 import { getLoanerNow } from '../loaner-vehicles/loaner-clock.js';
@@ -13,7 +13,6 @@ import { clampMcpPageSize } from './mcp-output.util.js';
 import {
   isLoanerBookingOverdue,
   paginateCommunications,
-  paginateEstimateVersions,
   paginateLoanerBookings,
   toMcpCheckInSummary,
   toMcpEstimateVersionRow,
@@ -65,16 +64,21 @@ export class McpWave2ReadListsService {
   async listEstimates(input: z.infer<typeof listEstimatesInputSchema>) {
     const pageSize = clampMcpPageSize(input.pageSize);
     const siteId = await this.siteContext.getSiteId();
-    const rows = await this.estimates.listVersionsForSite({
+    const { rows, nextCursor } = await this.estimates.listVersionsForSite({
       customerId: input.customerId,
       orderId: input.orderId,
       status: input.status,
       sentFrom: input.sentFrom,
       sentTo: input.sentTo,
+      pageSize,
+      cursor: input.cursor,
     });
     const mapped = rows.map(toMcpEstimateVersionRow);
-    const page = paginateEstimateVersions(mapped, pageSize, input.cursor);
-    return { site_id: siteId, ...page };
+    return {
+      site_id: siteId,
+      data: mapped,
+      meta: { page_size: pageSize, next_cursor: nextCursor },
+    };
   }
 
   async listOrderCommunications(
@@ -94,14 +98,8 @@ export class McpWave2ReadListsService {
     const siteId = await this.siteContext.getSiteId();
     const checkIn = await this.checkIns.get(input.orderId);
     const [checklist, media] = await Promise.all([
-      this.inspections
-        .getOrderCheckInChecklist(input.orderId)
-        .then((response) => response.items ?? [])
-        .catch(() => []),
-      this.checkInMedia
-        .list(input.orderId)
-        .then((response) => response.data ?? [])
-        .catch(() => []),
+      this.loadChecklistItems(input.orderId),
+      this.loadCheckInMedia(input.orderId),
     ]);
     return {
       site_id: siteId,
@@ -145,13 +143,37 @@ export class McpWave2ReadListsService {
       if (input.overdueOnly && !isLoanerBookingOverdue(row, asOf)) {
         return false;
       }
-      if (fromMs !== null && row.plannedFrom.getTime() < fromMs) {
+      if (fromMs !== null && row.plannedTo.getTime() < fromMs) {
         return false;
       }
-      if (toMs !== null && row.plannedTo.getTime() > toMs) {
+      if (toMs !== null && row.plannedFrom.getTime() > toMs) {
         return false;
       }
       return true;
     });
+  }
+
+  private async loadChecklistItems(orderId: string) {
+    try {
+      const response = await this.inspections.getOrderCheckInChecklist(orderId);
+      return response.items ?? [];
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        return [];
+      }
+      throw error;
+    }
+  }
+
+  private async loadCheckInMedia(orderId: string) {
+    try {
+      const response = await this.checkInMedia.list(orderId);
+      return response.data ?? [];
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        return [];
+      }
+      throw error;
+    }
   }
 }
