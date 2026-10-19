@@ -138,12 +138,6 @@ export function validateMigrationCsvFile(
       }
     }
 
-    pushCsvHandlerCapabilityIssues(
-      fileName,
-      record,
-      rowNo,
-      externalId,
-      issues,
-    );
+    pushCsvHandlerCapabilityIssues(fileName, record, rowNo, externalId, issues);
   }
 }
