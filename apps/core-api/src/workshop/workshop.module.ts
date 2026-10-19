@@ -25,6 +25,7 @@ import { WorkshopEstimateController } from './workshop-estimate.controller.js';
 import { WorkshopEstimatePdfRenderer } from './workshop-estimate-pdf.renderer.js';
 import { WorkshopEstimatePdfService } from './workshop-estimate-pdf.service.js';
 import { WorkshopEstimateService } from './workshop-estimate.service.js';
+import { WorkshopEstimateSiteVersionListService } from './workshop-estimate-site-version-list.service.js';
 import { WorkshopMechanicFindingService } from './workshop-mechanic-finding.service.js';
 import { WorkshopCheckInController } from './workshop-check-in.controller.js';
 import { WorkshopCheckInService } from './workshop-check-in.service.js';
@@ -106,6 +107,7 @@ import { InspectionMeasurementModule } from '../inspection-measurement/inspectio
     PublicEstimateApprovalLookup,
     PublicEstimateApprovalRateLimiter,
     WorkshopEstimateService,
+    WorkshopEstimateSiteVersionListService,
     WorkshopMechanicFindingService,
     WorkshopCheckInService,
     WorkshopCheckInMediaService,
@@ -159,6 +161,11 @@ import { InspectionMeasurementModule } from '../inspection-measurement/inspectio
     WorkshopMechanicFindingService,
     MechanicMcpModule,
     McpWorkshopOrderDetailReadService,
+    WorkshopEstimateService,
+    WorkshopEstimateSiteVersionListService,
+    WorkshopCheckInService,
+    WorkshopCheckInMediaService,
+    WorkshopInspectionService,
   ],
 })
 export class WorkshopModule {}
