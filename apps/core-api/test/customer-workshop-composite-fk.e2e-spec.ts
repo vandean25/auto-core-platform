@@ -134,8 +134,8 @@ describe('customer and workshop composite FK tenant isolation (e2e)', () => {
 
     await tenantAPrisma.customer.delete({ where: { id: billToCustomer.id } });
 
-    const updated = await tenantAPrisma.customer.findUniqueOrThrow({
-      where: { id: payerCustomer.id },
+    const updated = await tenantAPrisma.customer.findFirstOrThrow({
+      where: { id: payerCustomer.id, tenant_id: tenantAId },
     });
 
     expect(updated.tenant_id).toBe(tenantAId);
@@ -166,8 +166,8 @@ describe('customer and workshop composite FK tenant isolation (e2e)', () => {
 
     await tenantAPrisma.laborPriceGroup.delete({ where: { id: priceGroup.id } });
 
-    const updated = await tenantAPrisma.customer.findUniqueOrThrow({
-      where: { id: customer.id },
+    const updated = await tenantAPrisma.customer.findFirstOrThrow({
+      where: { id: customer.id, tenant_id: tenantAId },
     });
 
     expect(updated.tenant_id).toBe(tenantAId);
