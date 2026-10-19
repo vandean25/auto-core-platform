@@ -19,7 +19,9 @@ function filterDateBoundary(
   if (typeof value === 'string') {
     return new Date(value);
   }
-  unsupportedClause({ sent_at: value });
+  throw new Error(
+    'Unsupported Prisma FieldRef in estimate-version in-memory matcher',
+  );
 }
 
 function matchesIdFilter(
