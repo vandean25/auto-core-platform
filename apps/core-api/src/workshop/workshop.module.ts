@@ -1,4 +1,5 @@
 import './workshop-estimate-send-propose.preview-install.js';
+import './swagger/workshop-order-response.openapi.js';
 import { Module, forwardRef } from '@nestjs/common';
 import { CommonModule } from '../common/index.js';
 import { InventoryModule } from '../inventory/inventory.module.js';
