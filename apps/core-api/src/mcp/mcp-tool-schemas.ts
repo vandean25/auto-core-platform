@@ -932,12 +932,19 @@ const mcpWriteToolInputSchemasBase: Record<
   generate_weekly_report_pdf: generateWeeklyReportPdfInputSchema,
 };
 
-export const mcpWriteToolInputSchemas: Record<
-  (typeof MCP_WRITE_TOOL_NAMES)[number],
-  z.ZodTypeAny
-> = Object.fromEntries(
-  MCP_WRITE_TOOL_NAMES.map((toolName) => [
-    toolName,
-    withMcpWriteDryRunInput(mcpWriteToolInputSchemasBase[toolName]),
-  ]),
-) as Record<(typeof MCP_WRITE_TOOL_NAMES)[number], z.ZodTypeAny>;
+function withDryRunOnWriteToolInputs(
+  base: typeof mcpWriteToolInputSchemasBase,
+): Record<(typeof MCP_WRITE_TOOL_NAMES)[number], z.ZodTypeAny> {
+  const schemas = {} as Record<
+    (typeof MCP_WRITE_TOOL_NAMES)[number],
+    z.ZodTypeAny
+  >;
+  for (const toolName of MCP_WRITE_TOOL_NAMES) {
+    schemas[toolName] = withMcpWriteDryRunInput(base[toolName]);
+  }
+  return schemas;
+}
+
+export const mcpWriteToolInputSchemas = withDryRunOnWriteToolInputs(
+  mcpWriteToolInputSchemasBase,
+);
