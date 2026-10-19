@@ -15,6 +15,7 @@ import { McpReportReadService } from './mcp-report-read.service.js';
 import { McpSettingsReadService } from './mcp-settings-read.service.js';
 import { McpStockReadService } from './mcp-stock-read.service.js';
 import { McpToolHandlerComplianceWrapper } from './mcp-tool-handler.compliance-wrapper.js';
+import { McpToolHandlerWave2Wrapper } from './mcp-tool-handler.wave2-wrapper.js';
 import { McpToolHandlerService } from './mcp-tool-handler.service.js';
 import { McpUserLocaleService } from './mcp-user-locale.service.js';
 import { McpVehicleContextReadService } from './mcp-vehicle-context-read.service.js';
@@ -26,6 +27,7 @@ import { MCP_STACK_PROVIDERS_WAVE2 } from './mcp-stack.providers.wave2.js';
 export const MCP_NEST_PROVIDERS = [
   McpToolHandlerService,
   McpToolHandlerComplianceWrapper,
+  McpToolHandlerWave2Wrapper,
   McpWritePipelineService,
   McpWriteCommandIdempotencyService,
   McpCapabilitiesService,

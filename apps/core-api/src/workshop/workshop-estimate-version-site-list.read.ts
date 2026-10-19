@@ -40,7 +40,7 @@ export type SiteEstimateVersionListRow = {
     workshop_order_id: string;
     site_id: string;
     workshop_order: {
-      customer_id: string;
+      customer_id: string | null;
       order_number: string;
     };
   };

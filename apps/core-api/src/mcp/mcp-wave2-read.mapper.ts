@@ -82,7 +82,6 @@ function formatCustomerRef(
 export function toMcpEstimateVersionRow(row: SiteEstimateVersionListRow) {
   return {
     id: row.id,
-    sent_at: row.sent_at ? row.sent_at.toISOString() : null,
     version_id: row.id,
     order_ref: {
       id: row.estimate.workshop_order_id,
