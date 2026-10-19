@@ -43,7 +43,7 @@ Before go-live, a failed gate means staying on incadea. After ACP goes live, **f
 
 ### 2. Use only canonical migration CSV v1 plus manifest
 
-The sole migration interface into ACP is **canonical migration CSV v1 + `manifest.json`**, specified by [AUT-621](https://linear.app/auto-core-platform/issue/AUT-621). Its specification will live at `docs/internal/02-Feature-Specs/Platform/migration-csv-format.md`; that separate deliverable is not defined by this ADR.
+The sole migration interface into ACP is **canonical migration CSV v1 + `manifest.json`**, specified by [AUT-621](https://linear.app/auto-core-platform/issue/AUT-621) in the [canonical migration CSV specification](../02-Feature-Specs/Platform/migration-csv-format.md). Its validator, fixtures and preset are implemented separately in AUT-645.
 
 The read-only extractor lives **outside the ACP repository in a separate private repository**. It translates the source into ACP/dealer-domain vocabulary. ACP receives canonical files, not proprietary schemas, database connections or source-specific query logic.
 
@@ -166,7 +166,7 @@ Before cutover, evidence must prove tenant/site isolation, company separation, s
 - [ADR-0023: Legal Invoice Snapshots, Credit Notes and Accounting Export](2026-09-20-legal-invoicing-and-accounting-export.md).
 - [ADR-0022: Site Operational Scope](2026-08-31-site-operational-scope.md); [ADR-0002: Ledger-Based Inventory](2026-04-12-ledger-based-inventory.md).
 - ACP implementation evidence: `apps/core-api/prisma/schema.prisma` (`ExternalIdMapping`, `LegalEntity`, `FiscalRegister`, `FiscalReceipt`); `apps/core-api/src/import/import.constants.ts` and `import-retention.helpers.ts`.
-- Canonical CSV v1 specification: AUT-621 (planned `docs/internal/02-Feature-Specs/Platform/migration-csv-format.md`).
+- [Canonical CSV v1 specification and manifest schema](../02-Feature-Specs/Platform/migration-csv-format.md): AUT-621; implementation AUT-645.
 - Cutover runbook: AUT-634 (planned `docs/internal/05-Runbooks/incadea-cutover.md`).
 
 ## Linear Tracking

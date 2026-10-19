@@ -12,7 +12,7 @@ Migration uses only canonical CSV v1 plus a manifest ([AUT-621](https://linear.a
 
 Historical documents require separate read-only `LegacyDocument` tables and write-once evidence retention; they are excluded from ACP invoices, numbering and accounting exports under unchanged ADR-0023. The source export remains the archive of record. The staging-row purge described below must not delete retained document evidence. Open receivables remain accounting-owned and display-only in ACP.
 
-The canonical format specification is a separate deliverable in `migration-csv-format.md` (AUT-621). [AUT-634](https://linear.app/auto-core-platform/issue/AUT-634) owns the planned cutover runbook at `docs/internal/05-Runbooks/incadea-cutover.md`, including the real-data DPA gate, archive evidence, GDPR filtering, per-entity RKSV readiness and business sign-offs. Those files are planned, not shipped by this ADR.
+The [canonical migration CSV v1 specification and manifest schema](migration-csv-format.md) (AUT-621) define the file contract; validator, fixtures and preset implementation belong to [AUT-645](https://linear.app/auto-core-platform/issue/AUT-645). [AUT-634](https://linear.app/auto-core-platform/issue/AUT-634) owns the planned cutover runbook at `docs/internal/05-Runbooks/incadea-cutover.md`, including the real-data DPA gate, archive evidence, GDPR filtering, per-entity RKSV readiness and business sign-offs.
 
 ## Settings UI
 
