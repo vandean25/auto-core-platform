@@ -43,7 +43,7 @@ import {
   WorkshopPdfGenerationResponseDto,
   WorkshopTaskResponseDto,
 } from './dto/index.js';
-import { WorkshopOrderResponseDto } from './dto/workshop-order-response.dto.js';
+import { WorkshopOrderHttpResponseDto } from './dto/workshop-order-response.dto.js';
 import * as intake from './workshop-intake.service.js';
 import * as invoice from './workshop-invoice.service.js';
 import * as line from './workshop-catalog-line.service.js';
@@ -82,7 +82,7 @@ export class WorkshopOrdersController {
 
   @Post('orders')
   @DryRunSupported()
-  @ApiCreatedResponse({ type: WorkshopOrderResponseDto })
+  @ApiCreatedResponse({ type: WorkshopOrderHttpResponseDto })
   create(@Body() createWorkshopOrderDto: CreateWorkshopOrderDto) {
     this.logAction('create');
     return this.intakeService.create(createWorkshopOrderDto);
@@ -90,7 +90,7 @@ export class WorkshopOrdersController {
 
   @Get('orders')
   @ApiWorkshopPaginationQueries()
-  @ApiPaginatedResponse(WorkshopOrderResponseDto)
+  @ApiPaginatedResponse(WorkshopOrderHttpResponseDto)
   findAll(@Query() query: FindAllWorkshopOrdersQueryDto) {
     this.logAction('findAll');
     const pagination = parsePaginationParams(query.page, query.pageSize);
@@ -104,14 +104,14 @@ export class WorkshopOrdersController {
   }
 
   @Get('orders/:id')
-  @ApiOkResponse({ type: WorkshopOrderResponseDto })
+  @ApiOkResponse({ type: WorkshopOrderHttpResponseDto })
   findOne(@Param('id') id: string) {
     this.logAction('findOne');
     return this.intakeService.findOne(id);
   }
 
   @Patch('orders/:id')
-  @ApiOkResponse({ type: WorkshopOrderResponseDto })
+  @ApiOkResponse({ type: WorkshopOrderHttpResponseDto })
   updateOrder(@Param('id') id: string, @Body() dto: UpdateWorkshopOrderDto) {
     this.logAction('updateOrder');
     return this.intakeService.updateOrder(id, dto);
@@ -149,7 +149,7 @@ export class WorkshopOrdersController {
   }
 
   @Patch('orders/:orderId/tasks/:taskId')
-  @ApiOkResponse({ type: WorkshopOrderResponseDto })
+  @ApiOkResponse({ type: WorkshopOrderHttpResponseDto })
   updateTask(
     @Param('orderId') orderId: string,
     @Param('taskId') taskId: string,
@@ -187,7 +187,7 @@ export class WorkshopOrdersController {
   }
 
   @Delete('orders/:orderId/tasks/:taskId')
-  @ApiOkResponse({ type: WorkshopOrderResponseDto })
+  @ApiOkResponse({ type: WorkshopOrderHttpResponseDto })
   @ApiResponse({
     status: 200,
     description: 'Workshop task deleted successfully.',
@@ -213,7 +213,7 @@ export class WorkshopOrdersController {
 
   @Patch('orders/:orderId/tasks/:taskId/line-items')
   @DryRunSupported()
-  @ApiOkResponse({ type: WorkshopOrderResponseDto })
+  @ApiOkResponse({ type: WorkshopOrderHttpResponseDto })
   replaceTaskLineItems(
     @Param('orderId') orderId: string,
     @Param('taskId') taskId: string,
