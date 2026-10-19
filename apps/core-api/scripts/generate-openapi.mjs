@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { ApiRootModule } from '../dist/api-root.module.js';
+import { AppModule } from '../dist/app.module.js';
 import { standardSchemaConverter } from '../dist/common/index.js';
 
 function stabilizeOpenApiParameterOrder(document) {
@@ -23,7 +23,7 @@ function stabilizeOpenApiParameterOrder(document) {
  * to `apps/core-api/openapi/openapi.json` for CI contract checks.
  */
 async function generateOpenApiSpec() {
-  const app = await NestFactory.create(ApiRootModule, {
+  const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn'],
   });
   app.setGlobalPrefix('api');
