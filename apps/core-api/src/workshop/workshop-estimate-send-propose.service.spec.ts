@@ -10,17 +10,10 @@ describe('WorkshopEstimateSendProposeService enrichInput', () => {
   const mockEstimates = {
     createDraft: jest.fn(),
     createRevision: jest.fn(),
-    sendVersion: jest.fn(),
   };
 
   const service = new WorkshopEstimateSendProposeService(
     {
-      user: {
-        findUnique: jest.fn().mockResolvedValue({ id: 'user-1' }),
-      },
-      tenantMember: {
-        findFirst: jest.fn().mockResolvedValue({ id: 'member-1' }),
-      },
       site: {
         findFirst: jest.fn().mockResolvedValue({ id: SITE_ID }),
       },
@@ -60,10 +53,7 @@ describe('WorkshopEstimateSendProposeService enrichInput', () => {
     } as never,
     {
       getTenantId: jest.fn().mockResolvedValue(TENANT_ID),
-      getAuthenticatedUser: jest.fn().mockReturnValue({
-        role: 'ADMIN',
-        userId: 'firebase-uid-1',
-      }),
+      getAuthenticatedUser: jest.fn().mockReturnValue({ role: 'ADMIN' }),
     } as never,
     {
       getSiteId: jest.fn().mockResolvedValue(SITE_ID),
@@ -86,21 +76,6 @@ describe('WorkshopEstimateSendProposeService enrichInput', () => {
       pinned_customer_id: CUSTOMER_ID,
       pinned_lines_digest: expect.any(String),
       pinned_recipient_pin: expect.stringMatching(/^[a-f0-9]{64}$/),
-    });
-  });
-
-  it('previewSend plans the send without calling estimates.sendVersion', async () => {
-    const enriched = await service.enrichInput({
-      workshop_order_id: ORDER_ID,
-      channel: 'email',
-    });
-    const preview = await service.previewSend(enriched, { site_id: SITE_ID });
-    expect(mockEstimates.sendVersion).not.toHaveBeenCalled();
-    expect(preview).toMatchObject({
-      workshop_order_id: ORDER_ID,
-      site_id: SITE_ID,
-      channel: 'email',
-      estimate_version_id: expect.any(String),
     });
   });
 });

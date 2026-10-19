@@ -26,6 +26,8 @@ import { mechanicFindingProposeNoop } from '../mechanic/mechanic-finding-propose
 import { WorkshopOrderCompletionService } from '../workshop/workshop-order-completion.service.js';
 import { InvoiceWorkshopDraftProposeService } from '../invoices/invoice-workshop-draft-propose.service.js';
 import { WorkshopEstimateSendProposeService } from '../workshop/workshop-estimate-send-propose.service.js';
+import { WorkshopMediaUploadMcpService } from '../mechanic/workshop-media-upload-mcp.service.js';
+import { WeeklyReportMcpService } from '../reports/weekly-report/weekly-report-mcp.service.js';
 import type { McpWriteToolName } from './mcp.constants.js';
 
 export type McpWritePipelineHostResult =
@@ -50,6 +52,8 @@ export class McpWritePipelineHost {
     private readonly workshopOrderCompletion: WorkshopOrderCompletionService,
     private readonly invoiceWorkshopDraftPropose: InvoiceWorkshopDraftProposeService,
     private readonly workshopEstimateSendPropose: WorkshopEstimateSendProposeService,
+    private readonly workshopMediaUploadMcp: WorkshopMediaUploadMcpService,
+    private readonly weeklyReportMcp: WeeklyReportMcpService,
     @Optional() mechanicFindingPropose?: MechanicFindingProposeService,
   ) {
     this.commitDeps = {
@@ -61,6 +65,9 @@ export class McpWritePipelineHost {
       commandIdempotency,
       mechanicFindingPropose: (mechanicFindingPropose ??
         mechanicFindingProposeNoop) as MechanicFindingProposeService,
+      workshopEstimateSendPropose: this.workshopEstimateSendPropose,
+      workshopMediaUploadMcp: this.workshopMediaUploadMcp,
+      weeklyReportMcp: this.weeklyReportMcp,
     };
   }
 

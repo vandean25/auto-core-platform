@@ -14,6 +14,13 @@ import type {
   McpWriteCommandIdempotencyService,
 } from './mcp-write-command-idempotency.service.js';
 import type { MechanicFindingProposeService } from '../mechanic/mechanic-finding-propose.service.js';
+import type { WorkshopMediaUploadMcpService } from '../mechanic/workshop-media-upload-mcp.service.js';
+import type { WeeklyReportMcpService } from '../reports/weekly-report/weekly-report-mcp.service.js';
+import type { WorkshopEstimateSendProposeService } from '../workshop/workshop-estimate-send-propose.service.js';
+import {
+  simulateDedicatedDryRunPreview,
+  usesDedicatedDryRunPreview,
+} from './mcp-write-pipeline.write-tool-dry-run-preview.js';
 import { MECHANIC_FINDING_ACTION_TYPE } from '../mechanic/mechanic-finding.constants.js';
 import type {
   McpWriteCall,
@@ -29,6 +36,9 @@ export type McpWritePipelineCommitDeps = {
   tenantContext: TenantContextService;
   commandIdempotency: McpWriteCommandIdempotencyService;
   mechanicFindingPropose: MechanicFindingProposeService;
+  workshopEstimateSendPropose: WorkshopEstimateSendProposeService;
+  workshopMediaUploadMcp: WorkshopMediaUploadMcpService;
+  weeklyReportMcp: WeeklyReportMcpService;
 };
 
 export async function evaluateMcpWritePolicy(
@@ -78,14 +88,16 @@ export async function simulateMcpWrite(
       call.tier === AgentPolicyTier.PROPOSE
         ? await call.execution.buildExecutionContext?.(call.input)
         : undefined;
-    const previewResult = call.execution.preview
-      ? {
-          result: await call.execution.preview(call.input, executionContext),
-          wouldChange: [] as WouldChangeItem[],
-        }
-      : await deps.dryRun.executeInRollbackTransaction(() =>
-          call.execution.execute(call.input, executionContext),
-        );
+    const previewResult = usesDedicatedDryRunPreview(call.execution.toolName)
+      ? await simulateDedicatedDryRunPreview(deps, call, executionContext)
+      : call.execution.preview
+          ? {
+              result: await call.execution.preview(call.input, executionContext),
+              wouldChange: [] as WouldChangeItem[],
+            }
+          : await deps.dryRun.executeInRollbackTransaction(() =>
+              call.execution.execute(call.input, executionContext),
+            );
     if (executionContext?.site_id !== undefined) {
       await assertMcpWriteActiveSiteUnchanged(deps, call, executionContext);
     }
