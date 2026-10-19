@@ -1,4 +1,8 @@
 import {
+  MIGRATION_CSV_FILE_SPECS,
+  type MigrationCsvFileName,
+} from './migration-csv-dictionary.js';
+import {
   formatMoneyFromCents,
   tryParseMoneyToCents,
 } from './migration-money.util.js';
@@ -70,6 +74,20 @@ export function addMoneyStringsSafe(
   return formatMoneyFromCents(leftCents + rightCents);
 }
 
+export function pushControlTotalNotReconciled(
+  issues: MigrationValidationIssue[],
+  field: string,
+  file?: string,
+): void {
+  pushMigrationIssue(issues, {
+    code: MIGRATION_MANIFEST_ERROR_CODES.MIGRATION_CONTROL_TOTAL_NOT_RECONCILED,
+    message:
+      'control totals for this file cannot be reconciled until the file is included in the upload',
+    field,
+    file,
+  });
+}
+
 export function pushNotReconciledWhenUploadMissing(
   issues: MigrationValidationIssue[],
   options: MigrationReconciliationOptions,
@@ -81,12 +99,22 @@ export function pushNotReconciledWhenUploadMissing(
   if (!options.allowPartialFiles || !listed || buffer) {
     return false;
   }
-  pushMigrationIssue(issues, {
-    code: MIGRATION_MANIFEST_ERROR_CODES.MIGRATION_CONTROL_TOTAL_NOT_RECONCILED,
-    message:
-      'control totals for this file cannot be reconciled until the file is included in the upload',
-    field,
-    file,
-  });
+  pushControlTotalNotReconciled(issues, field, file);
   return true;
+}
+
+export function manifestCountsByTypeKeys(
+  manifest: MigrationManifest,
+): Set<string> {
+  return new Set(
+    manifest.files.map(
+      (entry) => MIGRATION_CSV_FILE_SPECS[entry.name as MigrationCsvFileName].countsKey,
+    ),
+  );
+}
+
+export function isDeclaredStockValue(
+  stockValue: MigrationManifest['control_totals']['stock_value'],
+): boolean {
+  return stockValue !== null && stockValue !== undefined;
 }

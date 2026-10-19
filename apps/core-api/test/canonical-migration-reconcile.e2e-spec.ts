@@ -55,6 +55,43 @@ describe('Canonical migration reconciliation (e2e)', () => {
     await teardownTestApp(app, prisma);
   });
 
+  it('returns 400 when partial dry-run cannot reconcile stock_value without stock file', async () => {
+    const customers = readFileSync(join(migrationFixtureDir, 'customers.csv'));
+    const manifest = parseMigrationManifestJson(
+      readFileSync(join(migrationFixtureDir, 'manifest.json')),
+    );
+    manifest.control_totals.stock_value = '100.00';
+
+    await request(app.getHttpServer())
+      .post('/imports')
+      .set('Authorization', authHeader)
+      .field('entityType', 'CUSTOMER')
+      .field('sourceSystem', CANONICAL_MIGRATION_FIXTURE_SOURCE_SYSTEM)
+      .field(
+        'mapping',
+        JSON.stringify(buildCanonicalMigrationIdentityMapping('CUSTOMER')),
+      )
+      .field(
+        'options',
+        JSON.stringify({
+          migration_manifest: manifest,
+          invalid_vat_as_error: false,
+        }),
+      )
+      .attach('file', customers, 'customers.csv')
+      .expect(400)
+      .expect((response) => {
+        expect(
+          response.body.issues?.some(
+            (issue: { code?: string; field?: string }) =>
+              issue.code ===
+                MIGRATION_MANIFEST_ERROR_CODES.MIGRATION_CONTROL_TOTAL_NOT_RECONCILED &&
+              issue.field === 'control_totals.stock_value',
+          ),
+        ).toBe(true);
+      });
+  });
+
   it('returns 400 when partial dry-run cannot reconcile open_orders_net', async () => {
     const customers = readFileSync(join(migrationFixtureDir, 'customers.csv'));
     const openOrdersHeader = headerOnlyCanonicalCsvBytes('open_orders.csv');

@@ -114,6 +114,63 @@ describe('validateMigrationManifestReconciliationV11', () => {
     ).toBe(true);
   });
 
+  it('blocks partial dry-run when stock_value is set but stock_opening.csv is absent', () => {
+    const customers = headerOnlyCanonicalCsvBytes('customers.csv');
+    const manifest = baseManifest({
+      files: [
+        {
+          name: 'customers.csv',
+          sha256: sha256Buffer(customers),
+          row_count: 0,
+        },
+      ],
+      counts: { customers: 0 },
+      control_totals: {
+        stock_value: '100.00',
+      },
+    });
+    const issues = validateMigrationBundle({
+      manifest,
+      files: { 'customers.csv': customers },
+      allowPartialFiles: true,
+    });
+    expect(
+      issues.some(
+        (issue) =>
+          issue.code ===
+            MIGRATION_MANIFEST_ERROR_CODES.MIGRATION_CONTROL_TOTAL_NOT_RECONCILED &&
+          issue.field === 'control_totals.stock_value',
+      ),
+    ).toBe(true);
+  });
+
+  it('rejects unexpected counts_by_type keys on partial upload', () => {
+    const customers = headerOnlyCanonicalCsvBytes('customers.csv');
+    const manifest = baseManifest({
+      files: [
+        {
+          name: 'customers.csv',
+          sha256: sha256Buffer(customers),
+          row_count: 9,
+        },
+      ],
+      counts: { customers: 9, open_orders: 50 },
+    });
+    const issues = validateMigrationBundle({
+      manifest,
+      files: { 'customers.csv': customers },
+      allowPartialFiles: true,
+    });
+    expect(
+      issues.some(
+        (issue) =>
+          issue.code ===
+            MIGRATION_MANIFEST_ERROR_CODES.MIGRATION_CONTROL_TOTAL_MISMATCH &&
+          issue.message.includes('open_orders'),
+      ),
+    ).toBe(true);
+  });
+
   it('blocks partial dry-run when open_orders_net is set but open_orders.csv is not uploaded', () => {
     const customers = headerOnlyCanonicalCsvBytes('customers.csv');
     const openOrders = headerOnlyCanonicalCsvBytes('open_orders.csv');
