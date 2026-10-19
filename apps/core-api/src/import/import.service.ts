@@ -34,6 +34,10 @@ import {
   traceImportParse,
   traceImportValidate,
 } from './import-trace.js';
+import {
+  assertImplementedImportEntityType,
+  type ImplementedImportEntityType,
+} from './import-entity-type.guard.js';
 import type { ImportTypeHandler } from './import-type-handler.js';
 import { ImportVendorResolver } from './import-vendor.resolver.js';
 import { parseImportUpload } from './import-upload.util.js';
@@ -67,7 +71,10 @@ function buildRowsWhere(
 export class ImportService {
   private readonly audit: ImportAuditWriter;
   private readonly jobStore: ImportJobStore;
-  private readonly handlers: Record<ImportEntityType, ImportTypeHandler>;
+  private readonly handlers: Record<
+    ImplementedImportEntityType,
+    ImportTypeHandler
+  >;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -122,6 +129,7 @@ export class ImportService {
     optionsJson: ImportJobOptions;
   }) {
     assertTenantAdmin(this.tenantContext);
+    assertImplementedImportEntityType(params.entityType);
     const tenantId = await this.tenantContext.getTenantId();
     const currentUser = await requireActiveCurrentUser(
       this.prisma,
@@ -133,7 +141,8 @@ export class ImportService {
       parseImportUpload(params.file),
     );
     const options = normalizeImportOptions(params.optionsJson);
-    const handler = this.handlers[params.entityType];
+    const handler =
+      this.handlers[params.entityType as ImplementedImportEntityType];
     await handler.prepareCreate(tenantId, params.sourceSystem, options);
     const dryRunRows = await traceImportValidate(params.entityType, () =>
       handler.planDryRun(
@@ -245,7 +254,9 @@ export class ImportService {
       applyOptions,
     );
     const rows = await this.jobStore.findApplyRows(tenantId, jobId);
-    const handler = this.handlers[job.entity_type];
+    assertImplementedImportEntityType(job.entity_type);
+    const handler =
+      this.handlers[job.entity_type as ImplementedImportEntityType];
     const preparation = await handler.prepareApply({
       tenantId,
       job,
@@ -281,6 +292,7 @@ export class ImportService {
 
   getTemplate(entityType: ImportEntityType) {
     assertTenantAdmin(this.tenantContext);
+    assertImplementedImportEntityType(entityType);
     const template = getImportTemplate(entityType);
     return {
       entity_type: template.entity_type,

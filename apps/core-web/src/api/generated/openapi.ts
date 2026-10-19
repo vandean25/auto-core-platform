@@ -6494,6 +6494,20 @@ export interface components {
             invoices?: components["schemas"]["InvoiceSummaryDto"][];
             workshop_orders_meta: components["schemas"]["CustomerHistoryMetaDto"];
             invoices_meta: components["schemas"]["CustomerHistoryMetaDto"];
+            legacy_restricted_at?: string | null;
+            legacy_restricted_reason?: string | null;
+            /** @enum {string} */
+            block_level: "NONE" | "INVOICING" | "ALL";
+            block_reason?: string | null;
+            /** @enum {string|null} */
+            salutation?: "MR" | "MS" | "NEUTRAL" | "COMPANY" | null;
+            title?: string | null;
+            title_suffix?: string | null;
+            letter_salutation?: string | null;
+            payment_terms_days?: number | null;
+            payment_terms_text?: string | null;
+            default_bill_to_customer_id?: string | null;
+            labor_price_group_id?: string | null;
         };
         UpdateCustomerDto: {
             type?: components["schemas"]["CustomerType"];
@@ -7196,6 +7210,7 @@ export interface components {
             updatedAt: string;
             /** @description Ready-for-pickup email state when the order is COMPLETED (AUT-357). Null while the job is still open. */
             ready_email_notice?: components["schemas"]["WorkshopReadyEmailNoticeDto"] | null;
+            bill_to_customer_id?: string | null;
         };
         UpdateWorkshopOrderDto: {
             reportedIssue?: string;
@@ -10683,7 +10698,7 @@ export interface components {
             oemConcerns?: components["schemas"]["UpdateCatalogProviderOemConcernDto"][];
         };
         /** @enum {string} */
-        ImportEntityType: "CUSTOMER" | "VEHICLE" | "SUPPLIER_PRICE_LIST" | "LABOR_OPERATION";
+        ImportEntityType: "CUSTOMER" | "VEHICLE" | "SUPPLIER_PRICE_LIST" | "LABOR_OPERATION" | "PART" | "VENDOR" | "STOCK_OPENING_BALANCE" | "OPEN_WORKSHOP_ORDER" | "LEGACY_SERVICE_ORDER" | "LEGACY_INVOICE" | "LEGACY_OPEN_ITEM" | "TYRE_SET" | "VEHICLE_PARTY" | "VEHICLE_DUE_DATE" | "VEHICLE_NOTICE" | "LABOR_STANDARD_TIME" | "LABOR_PRICE_GROUP";
         /** @enum {string} */
         ImportJobStatus: "DRY_RUN_DONE" | "APPLYING" | "APPLIED" | "FAILED" | "CANCELLED";
         ImportJobTotalsDto: {
@@ -20459,7 +20474,7 @@ export interface operations {
     ImportController_listMappingProfiles: {
         parameters: {
             query: {
-                entityType: "CUSTOMER" | "VEHICLE" | "SUPPLIER_PRICE_LIST" | "LABOR_OPERATION";
+                entityType: "CUSTOMER" | "VEHICLE" | "SUPPLIER_PRICE_LIST" | "LABOR_OPERATION" | "PART" | "VENDOR" | "STOCK_OPENING_BALANCE" | "OPEN_WORKSHOP_ORDER" | "LEGACY_SERVICE_ORDER" | "LEGACY_INVOICE" | "LEGACY_OPEN_ITEM" | "TYRE_SET" | "VEHICLE_PARTY" | "VEHICLE_DUE_DATE" | "VEHICLE_NOTICE" | "LABOR_STANDARD_TIME" | "LABOR_PRICE_GROUP";
                 sourceSystem: string;
             };
             header?: never;

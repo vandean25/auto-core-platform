@@ -14513,7 +14513,20 @@
                 "CUSTOMER",
                 "VEHICLE",
                 "SUPPLIER_PRICE_LIST",
-                "LABOR_OPERATION"
+                "LABOR_OPERATION",
+                "PART",
+                "VENDOR",
+                "STOCK_OPENING_BALANCE",
+                "OPEN_WORKSHOP_ORDER",
+                "LEGACY_SERVICE_ORDER",
+                "LEGACY_INVOICE",
+                "LEGACY_OPEN_ITEM",
+                "TYRE_SET",
+                "VEHICLE_PARTY",
+                "VEHICLE_DUE_DATE",
+                "VEHICLE_NOTICE",
+                "LABOR_STANDARD_TIME",
+                "LABOR_PRICE_GROUP"
               ],
               "type": "string"
             }
@@ -21134,6 +21147,64 @@
           },
           "invoices_meta": {
             "$ref": "#/components/schemas/CustomerHistoryMetaDto"
+          },
+          "legacy_restricted_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "legacy_restricted_reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "block_level": {
+            "type": "string",
+            "enum": [
+              "NONE",
+              "INVOICING",
+              "ALL"
+            ]
+          },
+          "block_reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "salutation": {
+            "type": "string",
+            "enum": [
+              "MR",
+              "MS",
+              "NEUTRAL",
+              "COMPANY"
+            ],
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "title_suffix": {
+            "type": "string",
+            "nullable": true
+          },
+          "letter_salutation": {
+            "type": "string",
+            "nullable": true
+          },
+          "payment_terms_days": {
+            "type": "number",
+            "nullable": true
+          },
+          "payment_terms_text": {
+            "type": "string",
+            "nullable": true
+          },
+          "default_bill_to_customer_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "labor_price_group_id": {
+            "type": "string",
+            "nullable": true
           }
         },
         "required": [
@@ -21142,7 +21213,8 @@
           "first_name",
           "last_name",
           "workshop_orders_meta",
-          "invoices_meta"
+          "invoices_meta",
+          "block_level"
         ]
       },
       "UpdateCustomerDto": {
@@ -23694,6 +23766,10 @@
                 "$ref": "#/components/schemas/WorkshopReadyEmailNoticeDto"
               }
             ]
+          },
+          "bill_to_customer_id": {
+            "type": "string",
+            "nullable": true
           }
         },
         "required": [
@@ -35635,7 +35711,20 @@
           "CUSTOMER",
           "VEHICLE",
           "SUPPLIER_PRICE_LIST",
-          "LABOR_OPERATION"
+          "LABOR_OPERATION",
+          "PART",
+          "VENDOR",
+          "STOCK_OPENING_BALANCE",
+          "OPEN_WORKSHOP_ORDER",
+          "LEGACY_SERVICE_ORDER",
+          "LEGACY_INVOICE",
+          "LEGACY_OPEN_ITEM",
+          "TYRE_SET",
+          "VEHICLE_PARTY",
+          "VEHICLE_DUE_DATE",
+          "VEHICLE_NOTICE",
+          "LABOR_STANDARD_TIME",
+          "LABOR_PRICE_GROUP"
         ]
       },
       "ImportJobStatus": {
