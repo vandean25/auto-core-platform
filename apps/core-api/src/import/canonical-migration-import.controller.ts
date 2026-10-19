@@ -12,11 +12,11 @@ import { MIGRATION_MANIFEST_ERROR_CODES } from './migration-manifest.errors.js';
 import { parseMigrationManifestJson } from './migration-manifest.validator.js';
 
 @ApiTags('imports')
-@Controller('imports/canonical-migration')
+@Controller('imports')
 export class CanonicalMigrationImportController {
   constructor(private readonly importService: ImportService) {}
 
-  @Post('validate')
+  @Post('canonical-migration/validate')
   @UseInterceptors(
     FileFieldsInterceptor([
       { name: 'manifest', maxCount: 1 },

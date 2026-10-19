@@ -985,6 +985,74 @@
       "public": false,
       "params": []
     },
+    "MIGRATION_CONTROL_TOTAL_MISMATCH": {
+      "public": false,
+      "params": []
+    },
+    "MIGRATION_DUPLICATE_FILE_NAME": {
+      "public": false,
+      "params": []
+    },
+    "MIGRATION_EXTRA_BUNDLE_FILE": {
+      "public": false,
+      "params": []
+    },
+    "MIGRATION_FILE_HASH_MISMATCH": {
+      "public": false,
+      "params": []
+    },
+    "MIGRATION_HEADER_ORDER_MISMATCH": {
+      "public": false,
+      "params": []
+    },
+    "MIGRATION_INVALID_SCALAR_VALUE": {
+      "public": false,
+      "params": []
+    },
+    "MIGRATION_MANIFEST_SCHEMA_INVALID": {
+      "public": false,
+      "params": []
+    },
+    "MIGRATION_MISSING_BUNDLE_FILE": {
+      "public": false,
+      "params": []
+    },
+    "MIGRATION_MISSING_REQUIRED_COLUMN": {
+      "public": false,
+      "params": []
+    },
+    "MIGRATION_REQUIRED_VALUE_MISSING": {
+      "public": false,
+      "params": []
+    },
+    "MIGRATION_RESERVED_FILE_REJECTED": {
+      "public": false,
+      "params": []
+    },
+    "MIGRATION_ROW_COUNT_MISMATCH": {
+      "public": false,
+      "params": []
+    },
+    "MIGRATION_SOURCE_SYSTEM_MISMATCH": {
+      "public": false,
+      "params": []
+    },
+    "MIGRATION_UNKNOWN_COLUMN": {
+      "public": false,
+      "params": []
+    },
+    "MIGRATION_UNKNOWN_ENUM_VALUE": {
+      "public": false,
+      "params": []
+    },
+    "MIGRATION_UNSUPPORTED_CAPABILITY": {
+      "public": false,
+      "params": []
+    },
+    "MIGRATION_UNSUPPORTED_FORMAT_VERSION": {
+      "public": false,
+      "params": []
+    },
     "MISSING_LABOR_REFERENCE": {
       "public": false,
       "params": []
