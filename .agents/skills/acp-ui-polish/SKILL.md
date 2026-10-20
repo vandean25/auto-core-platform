@@ -44,7 +44,7 @@ Semantic classes resolve to the ACP colors defined in `apps/core-web/src/index.c
 <section className="rounded-md border border-gray-200 bg-white p-4">...</section>
 ```
 
-- No `slate-*`, `gray-*` or `amber-*` classes (or any other palette scale) in new code. 186 files under `apps/core-web/src` use them today; do not add to that count. Do not copy the palette from `apps/core-web/src/components/ui/PageLoader.tsx`.
+- No `slate-*`, `gray-*` or `amber-*` classes (or any other palette scale) in new code. At least 186 files under `apps/core-web/src` use them today; do not add to that count. Do not copy the palette from `apps/core-web/src/components/ui/PageLoader.tsx`.
 - **Target (T2, AUT-655):** status colors (success, warning, info) and the sidebar and chart tokens. Until they exist, show state with text and an icon, and use `text-destructive` for errors.
 - No arbitrary font sizes such as `text-[11px]`. Use the scale (`text-xs`, `text-sm`). 21 files still use `text-[Npx]`.
 - Spacing comes from the scale (`gap-4`, `p-6`). An arbitrary value needs a one-line comment that says why.
@@ -59,7 +59,7 @@ Every list and detail page renders all three states. Build them before the happy
 - **Error:** one German sentence in Sie-form that says what happened and what to do, plus a Retry button that refetches. Never render raw API text. The backend sends codes, and the client maps them to the `errors` namespace (see `.agents/skills/acp-i18n/SKILL.md`).
 
 ```tsx
-// Do: copy comes from the locale files; errors:generic.unexpected is an existing key
+// Do: the copy says what happened, and the Retry button says what to do. Copy comes from the locale files (errors:generic.unexpected exists).
 <p>{t('errors:generic.unexpected')}</p>
 <Button variant="outline" onClick={() => refetch()}>{t('common:actions.retry')}</Button>
 
@@ -92,7 +92,7 @@ The spinner-in-button pattern already exists in `apps/core-web/src/features/purc
 - Amounts and dates come only from `@/lib/format` (`apps/core-web/src/lib/format/`).
 
 ```tsx
-// Do (as in SalesOrderList.tsx): the cell renderer returns the content, and DataTable draws the td
+// Do: the cell renderer returns the content, and DataTable draws the td. Shape as in SalesOrderList.tsx; import from @/lib/format, because lib/utils is a legacy re-export.
 import { formatCurrency } from '@/lib/format'
 {
   accessorKey: 'total_amount',
@@ -109,23 +109,25 @@ cell: ({ row }) => <TableCell>{row.original.total.toFixed(2)} €</TableCell>,
 
 ## 5. Layout
 
-- **Today:** admin pages render inside `PageContainer` (`apps/core-web/src/components/layout/PageContainer.tsx`). It adds `p-6`, takes the page width from the `--container-page` token, and accepts optional breadcrumbs.
-- **Target (T5):** `PageHeader`. Until it exists, follow the existing `components/layout` pattern: wrap the page in `PageContainer` and build the header inline as a flex row with `gap-4`, one `h1` with `text-2xl font-semibold tracking-tight`, and actions on the right. `apps/core-web/src/features/purchase-bills/components/PurchaseBillPageHeader.tsx` shows the markup.
+- **Today:** the app shell wraps every routed page in `PageContainerWithBreadcrumbs` (`apps/core-web/src/App.tsx`, defined in `apps/core-web/src/components/layout/PageBreadcrumbs.tsx`). That renders `PageContainer` (`apps/core-web/src/components/layout/PageContainer.tsx`), which adds `p-6`, takes the page width from the `--container-page` token, and shows the published breadcrumbs. Pages do not wrap themselves.
+- **Detail pages** publish their trail with `usePageBreadcrumbs({ listPath, currentLabel })` (`apps/core-web/src/hooks/usePageBreadcrumbs.ts`). Four pages use it today, for example `apps/core-web/src/pages/customers/CustomerDetail.tsx`.
+- **Target (T5):** `PageHeader`. Until it exists, build the header inline in the page as a flex row with `gap-4`, one `h1` with `text-2xl font-semibold tracking-tight`, and actions on the right. `apps/core-web/src/features/purchase-bills/components/PurchaseBillPageHeader.tsx` shows the markup.
 - **Spacing:** sections on a page use `gap-6`. Cards and form groups inside a section use `gap-4`.
 - **Dense B2B look, not a marketing look.** Default controls are `h-9` (`apps/core-web/src/components/ui/button.tsx`), tables are compact, and work screens have no hero blocks, gradients or decorative illustrations.
 
 ```tsx
-// Do: shared wrapper, section gaps, table from the shared component
-const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
+// Do: the shell supplies width, padding and breadcrumbs; a detail page publishes its trail
+usePageBreadcrumbs({ listPath: '/customers', currentLabel: customer.name })
 
-<PageContainer breadcrumbs={crumbs}>
-  <div className="flex flex-col gap-6">
-    <div className="flex items-center justify-between gap-4">...</div>
-    <DataTable columns={columns} data={rows} {...tableState} />
-  </div>
-</PageContainer>
+<div className="flex flex-col gap-6">
+  <div className="flex items-center justify-between gap-4">...</div>
+  <div className="grid gap-4">...</div>
+</div>
 
-// Don't: marketing spacing and a custom width that ignores --container-page
+// Don't: a second wrapper that repeats the shell's padding and width
+<div className="mx-auto max-w-page p-6">...</div>
+
+// Don't: marketing spacing, and a custom width that ignores --container-page
 <div className="mx-auto max-w-5xl space-y-16 px-12 py-20">...</div>
 ```
 
@@ -147,7 +149,7 @@ const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 }
 - **Reduced motion:** every loop or large motion honors `prefers-reduced-motion` (Tailwind `motion-safe:` and `motion-reduce:`, or framer-motion's `useReducedMotion`). Only `apps/core-web/src/App.css` mentions it today. `PageLoader.tsx` loops without a check; do not copy that.
 - **Hit targets** are at least 24 × 24 CSS px. Icon-only buttons use `size="icon"` (36 px).
 - **Labels:** an icon-only button gets an `aria-label`, as the back button in `PurchaseBillPageHeader.tsx` has.
-- **Automated check:** `apps/core-web/e2e/a11y-smoke.spec.ts` fails the build on serious or critical axe findings and on color-contrast problems, route by route. It also checks reflow at 320 px and no horizontal scroll at 200% zoom.
+- **Automated check:** `apps/core-web/e2e/a11y-smoke.spec.ts` fails the build on serious or critical axe findings and on color-contrast problems, route by route. It measures reflow at 320 px and fails on horizontal scroll only for the routes in `REFLOW_320_GATED_ROUTES`. Key pages must not scroll horizontally at 200% zoom.
 
 ## 7. Visual design
 
