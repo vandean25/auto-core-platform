@@ -1,9 +1,7 @@
+import { createE2eApp } from './helpers/e2e-suite.js';
 import { AuthService } from '../src/auth/auth.service.js';
-import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { AppModule } from '../src/app.module.js';
-import { createGlobalValidationPipe } from '../src/common/index.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
   cleanupTestTenantGraph,
@@ -36,14 +34,7 @@ describe('Vehicle sale trade-in (e2e)', () => {
   let otherBuyerId: string;
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api');
-    app.useGlobalPipes(createGlobalValidationPipe());
-    await app.init();
+    app = await createE2eApp();
     installFakeInvoiceArchiveStorage(app);
 
     basePrisma = app.get(PrismaService);

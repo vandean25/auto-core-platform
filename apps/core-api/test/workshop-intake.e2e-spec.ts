@@ -1,9 +1,7 @@
+import { createE2eApp } from './helpers/e2e-suite.js';
 import { AuthService } from '../src/auth/auth.service.js';
-import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { AppModule } from '../src/app.module.js';
-import { createGlobalValidationPipe } from '../src/common/index.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
   cleanupTestTenantGraph,
@@ -29,14 +27,7 @@ describe('Workshop Intake Module (e2e)', () => {
   let techEmployeeId: string;
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api');
-    app.useGlobalPipes(createGlobalValidationPipe());
-    await app.init();
+    app = await createE2eApp();
 
     basePrisma = app.get(PrismaService);
     const testTenant = await createTestTenant(basePrisma, 'workshop-intake');
@@ -323,21 +314,16 @@ describe('Workshop intake — registration document (AUT-537)', () => {
     (globalThis as { __regIntakeBytes?: typeof encodeRegistrationIntakeFixtureBytes }).__regIntakeBytes =
       encodeRegistrationIntakeFixtureBytes;
 
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    })
-      .overrideProvider(REGISTRATION_DOCUMENT_EXTRACTION_PROVIDER)
-      .useFactory({
-        factory: () => createRegistrationDocumentExtractionProvider(process.env),
-      })
-      .overrideProvider(REGISTRATION_INTAKE_BYTE_STORAGE)
-      .useValue(new InMemoryRegistrationIntakeByteStorage())
-      .compile();
-
-    app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api');
-    app.useGlobalPipes(createGlobalValidationPipe());
-    await app.init();
+    app = await createE2eApp((builder) =>
+      builder
+        .overrideProvider(REGISTRATION_DOCUMENT_EXTRACTION_PROVIDER)
+        .useFactory({
+          factory: () =>
+            createRegistrationDocumentExtractionProvider(process.env),
+        })
+        .overrideProvider(REGISTRATION_INTAKE_BYTE_STORAGE)
+        .useValue(new InMemoryRegistrationIntakeByteStorage()),
+    );
     const prisma = app.get(PrismaService);
     const tenant = await createTestTenant(prisma, 'workshop-reg-intake');
     tenantId = tenant.tenantId;

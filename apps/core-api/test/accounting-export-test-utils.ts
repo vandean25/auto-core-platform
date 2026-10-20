@@ -1,3 +1,5 @@
+import type { INestApplication } from '@nestjs/common';
+import request from 'supertest';
 import type { PrismaService } from '../src/prisma/prisma.service.js';
 import {
   FIXED_SOURCE_CATEGORY_KEYS,
@@ -102,6 +104,95 @@ export async function closeFinancePeriod(
       tenant_id: tenantId,
       fiscal_year_start_month: 1,
       lock_date: new Date(`${lockDate}T23:59:59.999Z`),
+      next_invoice_number: 1001,
+      invoice_prefix: `RE-${currentYear}-`,
+      next_sales_order_number: 1001,
+      sales_order_prefix: `SO-${currentYear}-`,
+      next_workshop_order_number: 1,
+      workshop_order_prefix: `WO-${currentYear}-`,
+    },
+  });
+}
+
+export async function createAccountingExportInvoice(
+  context: {
+    app: INestApplication;
+    tenantPrisma: PrismaService;
+    authToken: string;
+    customerId: string;
+    catalogItemId: string;
+  },
+  input: {
+    quantity: number;
+    unitPrice: number;
+    invoiceDate: string;
+    siteId: string;
+    legalEntityId: string;
+  },
+) {
+  const { app, tenantPrisma, authToken, customerId, catalogItemId } = context;
+  const { quantity, unitPrice, invoiceDate, siteId, legalEntityId } = input;
+  const orderRes = await request(app.getHttpServer())
+    .post('/api/sales-orders')
+    .set('Authorization', `Bearer ${authToken}`)
+    .send({
+      customer_id: customerId,
+      items: [
+        {
+          catalog_item_id: catalogItemId,
+          description: 'Brake Disc',
+          quantity,
+          unit_price: unitPrice,
+          tax_rate: 20,
+        },
+      ],
+    })
+    .expect(201);
+
+  await tenantPrisma.salesOrder.updateMany({
+    where: { id: orderRes.body.id },
+    data: { status: 'CONFIRMED' },
+  });
+
+  const invoiceRes = await request(app.getHttpServer())
+    .post(`/api/sales-orders/${orderRes.body.id}/create-invoice`)
+    .set('Authorization', `Bearer ${authToken}`)
+    .expect(201);
+
+  await tenantPrisma.invoice.updateMany({
+    where: { id: invoiceRes.body.id },
+    data: {
+      date: new Date(`${invoiceDate}T12:00:00.000Z`),
+      site_id: siteId,
+      legal_entity_id: legalEntityId,
+    },
+  });
+
+  const finalized = await request(app.getHttpServer())
+    .put(`/api/sales/invoices/${invoiceRes.body.id}/finalize`)
+    .set('Authorization', `Bearer ${authToken}`);
+
+  if (finalized.status !== 200) {
+    throw new Error(
+      `Invoice finalize failed (${finalized.status}): ${JSON.stringify(finalized.body)}`,
+    );
+  }
+
+  return finalized.body as { id: string };
+}
+
+export async function openAccountingExportFinancePeriod(
+  tenantPrisma: PrismaService,
+  tenantId: string,
+) {
+  const currentYear = new Date().getFullYear();
+  await tenantPrisma.financeSettings.upsert({
+    where: { tenant_id: tenantId },
+    update: { lock_date: null },
+    create: {
+      tenant_id: tenantId,
+      fiscal_year_start_month: 1,
+      lock_date: null,
       next_invoice_number: 1001,
       invoice_prefix: `RE-${currentYear}-`,
       next_sales_order_number: 1001,

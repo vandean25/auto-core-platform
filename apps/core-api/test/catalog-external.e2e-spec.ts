@@ -1,9 +1,8 @@
+import { createE2eApp } from './helpers/e2e-suite.js';
 import { randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { AuthService } from '../src/auth/auth.service.js';
-import { createGlobalValidationPipe } from '../src/common/index.js';
 import { SANDBOX_CATALOG_QUERY } from '../src/catalog/catalog-adapter-ids.js';
 import {
   signCatalogHitPayload,
@@ -11,7 +10,6 @@ import {
 } from '../src/catalog/catalog-hit-payload.js';
 import { seedVehicleCatalogProviders } from '../src/prisma/seed-vehicle-catalog-providers.js';
 import { createIdentityInputFingerprint } from '../src/vehicle/vehicle-identity.util.js';
-import { AppModule } from '../src/app.module.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
   cleanupTestTenantGraph,
@@ -66,14 +64,7 @@ describe('Catalog external search (e2e)', () => {
   let techAuthToken: string;
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api');
-    app.useGlobalPipes(createGlobalValidationPipe());
-    await app.init();
+    app = await createE2eApp();
 
     basePrisma = app.get(PrismaService);
     const testTenant = await createTestTenant(basePrisma, 'catalog-external');
@@ -115,6 +106,36 @@ describe('Catalog external search (e2e)', () => {
     }
   });
 
+  async function createCatalogWorkshopTask(input: {
+    customerId: string;
+    vehicleId: string;
+    orderNumber: string;
+    title: string;
+  }) {
+    const workshopOrder = await prisma.workshopOrder.create({
+      data: {
+        tenant_id: tenantId,
+        site_id: (
+          await prisma.site.findFirstOrThrow({ where: { code: 'MAIN' } })
+        ).id,
+        customer_id: input.customerId,
+        vehicle_id: input.vehicleId,
+        order_number: input.orderNumber,
+        status: 'INTAKE',
+        odometer: 0,
+        fuel_level: 50,
+      },
+    });
+    const task = await prisma.workshopTask.create({
+      data: {
+        tenant_id: tenantId,
+        workshop_order_id: workshopOrder.id,
+        title: input.title,
+      },
+    });
+    return { workshopOrder, task };
+  }
+
   async function createResolvedPeugeotOrder() {
     const ts = Date.now();
     const peugeotBrand = await prisma.brand.findFirst({
@@ -150,27 +171,11 @@ describe('Catalog external search (e2e)', () => {
       },
     });
 
-    const workshopOrder = await prisma.workshopOrder.create({
-      data: {
-        tenant_id: tenantId,
-        site_id: (
-          await prisma.site.findFirstOrThrow({ where: { code: 'MAIN' } })
-        ).id,
-        customer_id: customer.id,
-        vehicle_id: vehicle.id,
-        order_number: `WO-EXT-${ts}`,
-        status: 'INTAKE',
-        odometer: 0,
-        fuel_level: 50,
-      },
-    });
-
-    const task = await prisma.workshopTask.create({
-      data: {
-        tenant_id: tenantId,
-        workshop_order_id: workshopOrder.id,
-        title: 'External catalog task',
-      },
+    const { workshopOrder, task } = await createCatalogWorkshopTask({
+      customerId: customer.id,
+      vehicleId: vehicle.id,
+      orderNumber: `WO-EXT-${ts}`,
+      title: 'External catalog task',
     });
 
     return { vehicle, workshopOrder, task };
@@ -210,26 +215,11 @@ describe('Catalog external search (e2e)', () => {
         email: `stale-${ts}@example.com`,
       },
     });
-    const workshopOrder = await prisma.workshopOrder.create({
-      data: {
-        tenant_id: tenantId,
-        site_id: (
-          await prisma.site.findFirstOrThrow({ where: { code: 'MAIN' } })
-        ).id,
-        customer_id: customer.id,
-        vehicle_id: vehicle.id,
-        order_number: `WO-STALE-${ts}`,
-        status: 'INTAKE',
-        odometer: 0,
-        fuel_level: 50,
-      },
-    });
-    const task = await prisma.workshopTask.create({
-      data: {
-        tenant_id: tenantId,
-        workshop_order_id: workshopOrder.id,
-        title: 'Stale identity task',
-      },
+    const { workshopOrder, task } = await createCatalogWorkshopTask({
+      customerId: customer.id,
+      vehicleId: vehicle.id,
+      orderNumber: `WO-STALE-${ts}`,
+      title: 'Stale identity task',
     });
 
     await request(app.getHttpServer())

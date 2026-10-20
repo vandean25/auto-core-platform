@@ -1,18 +1,14 @@
+import { createE2eApp } from './helpers/e2e-suite.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import {
   INestApplication,
   NotFoundException,
 } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { Readable } from 'node:stream';
-import { AppModule } from '../src/app.module.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { WorkshopPdfService } from '../src/workshop/workshop-pdf.service.js';
-import {
-  createGlobalValidationPipe,
-  signPdfTaskPayload,
-} from '../src/common/index.js';
+import { signPdfTaskPayload } from '../src/common/index.js';
 import { teardownTestApp } from './test-lifecycle.js';
 import {
   createTestAuthToken,
@@ -41,17 +37,9 @@ describe('Workshop PDF endpoints (e2e)', () => {
     jest.clearAllMocks();
     process.env.CLOUD_TASKS_WORKER_SECRET = WORKER_SECRET;
 
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    })
-      .overrideProvider(WorkshopPdfService)
-      .useValue(mockPdfService)
-      .compile();
-
-    app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api');
-    app.useGlobalPipes(createGlobalValidationPipe());
-    await app.init();
+    app = await createE2eApp((builder) =>
+      builder.overrideProvider(WorkshopPdfService).useValue(mockPdfService),
+    );
     prisma = app.get(PrismaService);
     const testTenant = await createTestTenant(prisma, 'workshop-pdf');
     tenantId = testTenant.tenantId;

@@ -1,9 +1,7 @@
+import { createE2eApp } from './helpers/e2e-suite.js';
 import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { AppModule } from '../src/app.module.js';
 import { AuthService } from '../src/auth/auth.service.js';
-import { createGlobalValidationPipe } from '../src/common/index.js';
 import { DOMAIN_EVENT_TYPES } from '../src/domain-event-store/domain-event.constants.js';
 import { encodeDomainEventFeedCursor } from '../src/domain-event-store/domain-event.cursor.js';
 import { DomainEventStoreService } from '../src/domain-event-store/domain-event-store.service.js';
@@ -31,14 +29,7 @@ describe('Domain event store (e2e, AUT-536)', () => {
   const auth = () => ({ Authorization: `Bearer ${adminToken}` });
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api');
-    app.useGlobalPipes(createGlobalValidationPipe());
-    await app.init();
+    app = await createE2eApp();
 
     basePrisma = app.get(PrismaService);
     const testTenant = await createTestTenant(basePrisma, 'domain-event-store');

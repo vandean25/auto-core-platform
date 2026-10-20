@@ -1,9 +1,7 @@
+import { createE2eApp } from './helpers/e2e-suite.js';
 import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { AuthService } from '../src/auth/auth.service.js';
-import { AppModule } from '../src/app.module.js';
-import { createGlobalValidationPipe } from '../src/common/index.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { assertSetMatchesEventLedger } from '../src/tyre-storage/tyre-set-event.helpers.js';
 import { TyreStorageClock } from '../src/tyre-storage/tyre-storage.clock.js';
@@ -32,14 +30,7 @@ describe('Tyre storage (e2e)', () => {
   let branchSiteId: string;
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api');
-    app.useGlobalPipes(createGlobalValidationPipe());
-    await app.init();
+    app = await createE2eApp();
 
     const basePrisma = app.get(PrismaService);
     const tenant = await createTestTenant(basePrisma, 'tyre-storage');

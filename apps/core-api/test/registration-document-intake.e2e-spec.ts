@@ -1,8 +1,6 @@
+import { createE2eApp } from './helpers/e2e-suite.js';
 import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { AppModule } from '../src/app.module.js';
-import { createGlobalValidationPipe } from '../src/common/index.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
@@ -20,7 +18,6 @@ import {
   createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
-  resolveTestMainSiteId,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
 
@@ -33,21 +30,16 @@ describe('Registration document intake (e2e)', () => {
 
   beforeAll(async () => {
     process.env.REGISTRATION_DOCUMENT_EXTRACTION_PROVIDER = 'fake';
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    })
-      .overrideProvider(REGISTRATION_DOCUMENT_EXTRACTION_PROVIDER)
-      .useFactory({
-        factory: () => createRegistrationDocumentExtractionProvider(process.env),
-      })
-      .overrideProvider(REGISTRATION_INTAKE_BYTE_STORAGE)
-      .useValue(storage)
-      .compile();
-
-    app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api');
-    app.useGlobalPipes(createGlobalValidationPipe());
-    await app.init();
+    app = await createE2eApp((builder) =>
+      builder
+        .overrideProvider(REGISTRATION_DOCUMENT_EXTRACTION_PROVIDER)
+        .useFactory({
+          factory: () =>
+            createRegistrationDocumentExtractionProvider(process.env),
+        })
+        .overrideProvider(REGISTRATION_INTAKE_BYTE_STORAGE)
+        .useValue(storage),
+    );
     prisma = app.get(PrismaService);
   });
 
@@ -95,24 +87,19 @@ describe('Registration document intake (e2e)', () => {
   });
 
   it('returns 503 when provider is disabled and no row exists', async () => {
-    const disabled = await Test.createTestingModule({
-      imports: [AppModule],
-    })
-      .overrideProvider(REGISTRATION_DOCUMENT_EXTRACTION_PROVIDER)
-      .useValue({
-        isAvailable: () => false,
-        getMetadata: () => ({ providerId: 'disabled', modelId: 'none' }),
-        extract: async () => {
-          throw new Error('unavailable');
-        },
-      })
-      .overrideProvider(REGISTRATION_INTAKE_BYTE_STORAGE)
-      .useValue(storage)
-      .compile();
-    const disabledApp = disabled.createNestApplication();
-    disabledApp.setGlobalPrefix('api');
-    disabledApp.useGlobalPipes(createGlobalValidationPipe());
-    await disabledApp.init();
+    const disabledApp = await createE2eApp((builder) =>
+      builder
+        .overrideProvider(REGISTRATION_DOCUMENT_EXTRACTION_PROVIDER)
+        .useValue({
+          isAvailable: () => false,
+          getMetadata: () => ({ providerId: 'disabled', modelId: 'none' }),
+          extract: async () => {
+            throw new Error('unavailable');
+          },
+        })
+        .overrideProvider(REGISTRATION_INTAKE_BYTE_STORAGE)
+        .useValue(storage),
+    );
     const token = createTestAuthToken(
       disabledApp.get(AuthService),
       await createTestTenant(disabledApp.get(PrismaService), 'reg-disabled'),
@@ -590,16 +577,15 @@ describe('Registration document intake (e2e)', () => {
     const previousTimeout = process.env.REGISTRATION_INTAKE_EXTRACT_TIMEOUT_MS;
     process.env.REGISTRATION_INTAKE_EXTRACT_TIMEOUT_MS = '50';
     let extractCalls = 0;
-    const slowModule = await Test.createTestingModule({
-      imports: [AppModule],
-    })
-      .overrideProvider(REGISTRATION_DOCUMENT_EXTRACTION_PROVIDER)
-      .useValue({
-        isAvailable: () => true,
-        getMetadata: () => ({ providerId: 'test-timeout', modelId: 'none' }),
-        extract: async ({ signal }: { signal: AbortSignal }) => {
-          extractCalls += 1;
-          await new Promise<void>((resolve, reject) => {
+    const slowApp = await createE2eApp((builder) =>
+      builder
+        .overrideProvider(REGISTRATION_DOCUMENT_EXTRACTION_PROVIDER)
+        .useValue({
+          isAvailable: () => true,
+          getMetadata: () => ({ providerId: 'test-timeout', modelId: 'none' }),
+          extract: async ({ signal }: { signal: AbortSignal }) => {
+            extractCalls += 1;
+            await new Promise<void>((resolve, reject) => {
             const timer = setTimeout(() => resolve(), 500);
             signal.addEventListener(
               'abort',
@@ -614,20 +600,16 @@ describe('Registration document intake (e2e)', () => {
               { once: true },
             );
           });
-          return {
+            return {
             documentKind: 'AT_ZULASSUNGSSCHEIN',
             warnings: [],
             fields: {},
           };
-        },
-      })
-      .overrideProvider(REGISTRATION_INTAKE_BYTE_STORAGE)
-      .useValue(storage)
-      .compile();
-    const slowApp = slowModule.createNestApplication();
-    slowApp.setGlobalPrefix('api');
-    slowApp.useGlobalPipes(createGlobalValidationPipe());
-    await slowApp.init();
+          },
+        })
+        .overrideProvider(REGISTRATION_INTAKE_BYTE_STORAGE)
+        .useValue(storage),
+    );
     const token = createTestAuthToken(
       slowApp.get(AuthService),
       await createTestTenant(slowApp.get(PrismaService), 'reg-timeout'),

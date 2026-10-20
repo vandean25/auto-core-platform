@@ -1,9 +1,7 @@
+import { createE2eApp } from './helpers/e2e-suite.js';
 import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { AppModule } from '../src/app.module.js';
 import { AuthService } from '../src/auth/auth.service.js';
-import { createGlobalValidationPipe } from '../src/common/index.js';
 import { PdfStorage } from '../src/common/pdf/pdf-storage.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
@@ -29,16 +27,9 @@ describe('Vehicle sale Kaufvertrag PDF (e2e)', () => {
   const archive = createInMemoryPdfArchive();
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    })
-      .overrideProvider(PdfStorage)
-      .useValue(archive)
-      .compile();
-    app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api');
-    app.useGlobalPipes(createGlobalValidationPipe());
-    await app.init();
+    app = await createE2eApp((builder) =>
+      builder.overrideProvider(PdfStorage).useValue(archive),
+    );
     prisma = app.get(PrismaService);
 
     const tenant = await createTestTenant(prisma, 'aut-442-kaufvertrag');

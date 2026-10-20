@@ -1,8 +1,7 @@
-import { Test, TestingModule } from '@nestjs/testing';
+import { createE2eApp } from './helpers/e2e-suite.js';
+
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { AppModule } from '../src/app.module.js';
-import { createGlobalValidationPipe } from '../src/common/index.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import { InventoryService } from '../src/inventory/inventory.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
@@ -26,17 +25,9 @@ describe('InventoryController (e2e) Security', () => {
   };
 
   beforeEach(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    })
-      .overrideProvider(InventoryService)
-      .useValue(mockInventoryService)
-      .compile();
-
-    app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api');
-    app.useGlobalPipes(createGlobalValidationPipe());
-    await app.init();
+    app = await createE2eApp((builder) =>
+      builder.overrideProvider(InventoryService).useValue(mockInventoryService),
+    );
     prisma = app.get(PrismaService);
     const testTenant = await createTestTenant(prisma, 'inventory-security');
     tenantId = testTenant.tenantId;

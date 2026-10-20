@@ -1,9 +1,8 @@
+import { createE2eApp } from './helpers/e2e-suite.js';
 import { AuthService } from '../src/auth/auth.service.js';
-import { Test, TestingModule } from '@nestjs/testing';
+
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { AppModule } from '../src/app.module.js';
-import { createGlobalValidationPipe } from '../src/common/index.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
   cleanupTestTenantGraph,
@@ -40,14 +39,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
   let catalogItemId: string;
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api');
-    app.useGlobalPipes(createGlobalValidationPipe());
-    await app.init();
+    app = await createE2eApp();
 
     basePrisma = app.get<PrismaService>(PrismaService);
 
@@ -97,23 +89,26 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
     await teardownTestApp(app, basePrisma);
   });
 
+  function createPurchaseOrder(
+    items: { catalogItemId: string; quantity: number; unitCost: number }[],
+  ) {
+    return request(app.getHttpServer())
+      .post('/api/purchase-orders')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ vendorId, items })
+      .expect(201);
+  }
+
   describe('POST /api/purchase-orders/:id/receive', () => {
     it('should return valid JSON response (not empty body)', async () => {
       // Create PO
-      const poResponse = await request(app.getHttpServer())
-        .post('/api/purchase-orders')
-          .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          vendorId,
-          items: [
-            {
-              catalogItemId,
-              quantity: 5,
-              unitCost: 10,
-            },
-          ],
-        })
-        .expect(201);
+      const poResponse = await createPurchaseOrder([
+        {
+          catalogItemId,
+          quantity: 5,
+          unitCost: 10,
+        },
+      ]);
 
       const poId = poResponse.body.id;
 
@@ -151,17 +146,10 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
         },
       });
 
-      const poResponse = await request(app.getHttpServer())
-        .post('/api/purchase-orders')
-          .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          vendorId,
-          items: [
-            { catalogItemId, quantity: 3, unitCost: 10 },
-            { catalogItemId: item2.id, quantity: 2, unitCost: 20 },
-          ],
-        })
-        .expect(201);
+      const poResponse = await createPurchaseOrder([
+        { catalogItemId, quantity: 3, unitCost: 10 },
+        { catalogItemId: item2.id, quantity: 2, unitCost: 20 },
+      ]);
 
       const poId = poResponse.body.id;
 
@@ -227,14 +215,9 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
 
     it('should handle partial receipts correctly', async () => {
       // Create PO
-      const poResponse = await request(app.getHttpServer())
-        .post('/api/purchase-orders')
-          .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          vendorId,
-          items: [{ catalogItemId, quantity: 10, unitCost: 10 }],
-        })
-        .expect(201);
+      const poResponse = await createPurchaseOrder([
+        { catalogItemId, quantity: 10, unitCost: 10 },
+      ]);
 
       const poId = poResponse.body.id;
 
@@ -263,14 +246,9 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
 
     it('should reject over-receiving', async () => {
       // Create PO
-      const poResponse = await request(app.getHttpServer())
-        .post('/api/purchase-orders')
-          .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          vendorId,
-          items: [{ catalogItemId, quantity: 5, unitCost: 10 }],
-        })
-        .expect(201);
+      const poResponse = await createPurchaseOrder([
+        { catalogItemId, quantity: 5, unitCost: 10 },
+      ]);
 
       const poId = poResponse.body.id;
 
@@ -288,14 +266,9 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
       // This test verifies that if ledger transaction fails,
       // the PO item updates are rolled back
 
-      const poResponse = await request(app.getHttpServer())
-        .post('/api/purchase-orders')
-          .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          vendorId,
-          items: [{ catalogItemId, quantity: 5, unitCost: 10 }],
-        })
-        .expect(201);
+      const poResponse = await createPurchaseOrder([
+        { catalogItemId, quantity: 5, unitCost: 10 },
+      ]);
 
       const poId = poResponse.body.id;
       const initialPO = await prisma.purchaseOrder.findFirst({

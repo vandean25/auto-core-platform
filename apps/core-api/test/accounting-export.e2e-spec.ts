@@ -1,9 +1,7 @@
+import { createE2eApp } from './helpers/e2e-suite.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { AppModule } from '../src/app.module.js';
-import { createGlobalValidationPipe } from '../src/common/index.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
@@ -15,6 +13,8 @@ import {
 } from './tenant-test-utils.js';
 import {
   closeFinancePeriod,
+  createAccountingExportInvoice,
+  openAccountingExportFinancePeriod,
   seedDeAccountingExportProfile,
 } from './accounting-export-test-utils.js';
 import {
@@ -45,14 +45,7 @@ describe('Accounting export (e2e)', () => {
   let userId: string;
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api');
-    app.useGlobalPipes(createGlobalValidationPipe());
-    await app.init();
+    app = await createE2eApp();
 
     prisma = app.get<PrismaService>(PrismaService);
     authService = app.get<AuthService>(AuthService);
@@ -245,54 +238,16 @@ describe('Accounting export (e2e)', () => {
       data: { active_site_id: siteId },
     });
 
-    const orderRes = await request(app.getHttpServer())
-      .post('/api/sales-orders')
-      .set('Authorization', `Bearer ${authTokenA}`)
-      .send({
-        customer_id: customerId,
-        items: [
-          {
-            catalog_item_id: catalogItemId,
-            description: 'Brake Disc',
-            quantity,
-            unit_price: unitPrice,
-            tax_rate: 20,
-          },
-        ],
-      })
-      .expect(201);
-
-    await tenantPrisma.salesOrder.updateMany({
-      where: { id: orderRes.body.id },
-      data: { status: 'CONFIRMED' },
-    });
-
-    const invoiceRes = await request(app.getHttpServer())
-      .post(`/api/sales-orders/${orderRes.body.id}/create-invoice`)
-      .set('Authorization', `Bearer ${authTokenA}`)
-      .expect(201);
-
-    await tenantPrisma.invoice.updateMany({
-      where: { id: invoiceRes.body.id },
-      data: {
-        date: new Date(`${invoiceDate}T12:00:00.000Z`),
-        site_id: siteId,
-        legal_entity_id:
-          siteId === deEntity2SiteId ? deEntity2Id : deEntityId,
+    return createAccountingExportInvoice(
+      { app, tenantPrisma, authToken: authTokenA, customerId, catalogItemId },
+      {
+        quantity,
+        unitPrice,
+        invoiceDate,
+        siteId,
+        legalEntityId: siteId === deEntity2SiteId ? deEntity2Id : deEntityId,
       },
-    });
-
-    const finalized = await request(app.getHttpServer())
-      .put(`/api/sales/invoices/${invoiceRes.body.id}/finalize`)
-      .set('Authorization', `Bearer ${authTokenA}`);
-
-    if (finalized.status !== 200) {
-      throw new Error(
-        `Invoice finalize failed (${finalized.status}): ${JSON.stringify(finalized.body)}`,
-      );
-    }
-
-    return finalized.body;
+    );
   }
 
   function previewExport(
@@ -312,23 +267,21 @@ describe('Accounting export (e2e)', () => {
       .send(body);
   }
 
-  async function openFinancePeriod() {
-    const currentYear = new Date().getFullYear();
-    await tenantPrisma.financeSettings.upsert({
-      where: { tenant_id: tenantA.tenantId },
-      update: { lock_date: null },
-      create: {
-        tenant_id: tenantA.tenantId,
-        fiscal_year_start_month: 1,
-        lock_date: null,
-        next_invoice_number: 1001,
-        invoice_prefix: `RE-${currentYear}-`,
-        next_sales_order_number: 1001,
-        sales_order_prefix: `SO-${currentYear}-`,
-        next_workshop_order_number: 1,
-        workshop_order_prefix: `WO-${currentYear}-`,
-      },
-    });
+  function downloadExport(exportId: string) {
+    return request(app.getHttpServer())
+      .get(`/api/finance/accounting-exports/${exportId}/download`)
+      .set('Authorization', `Bearer ${authTokenA}`)
+      .buffer(true)
+      .parse((response, callback) => {
+        const chunks: Buffer[] = [];
+        response.on('data', (chunk: Buffer) => chunks.push(chunk));
+        response.on('end', () => callback(null, Buffer.concat(chunks)));
+      })
+      .expect(200);
+  }
+
+  function openFinancePeriod() {
+    return openAccountingExportFinancePeriod(tenantPrisma, tenantA.tenantId);
   }
 
   async function createDraftCredit(invoiceId: string, creditDate: string) {
@@ -611,16 +564,7 @@ describe('Accounting export (e2e)', () => {
       acknowledgeOverlap: true,
     }).expect(409);
 
-    const download = await request(app.getHttpServer())
-      .get(`/api/finance/accounting-exports/${generated.body.id}/download`)
-      .set('Authorization', `Bearer ${authTokenA}`)
-      .buffer(true)
-      .parse((response, callback) => {
-        const chunks: Buffer[] = [];
-        response.on('data', (chunk: Buffer) => chunks.push(chunk));
-        response.on('end', () => callback(null, Buffer.concat(chunks)));
-      })
-      .expect(200);
+    const download = await downloadExport(generated.body.id);
 
     expect(download.headers['x-checksum-sha256']).toBe(generated.body.sha256);
     const csv = decodeDatevCsv(download.body as Buffer);
@@ -745,27 +689,9 @@ describe('Accounting export (e2e)', () => {
       acknowledgeOverlap: true,
     }).expect(201);
 
-    const downloadOnce = await request(app.getHttpServer())
-      .get(`/api/finance/accounting-exports/${generated.body.id}/download`)
-      .set('Authorization', `Bearer ${authTokenA}`)
-      .buffer(true)
-      .parse((response, callback) => {
-        const chunks: Buffer[] = [];
-        response.on('data', (chunk: Buffer) => chunks.push(chunk));
-        response.on('end', () => callback(null, Buffer.concat(chunks)));
-      })
-      .expect(200);
+    const downloadOnce = await downloadExport(generated.body.id);
 
-    const downloadTwice = await request(app.getHttpServer())
-      .get(`/api/finance/accounting-exports/${generated.body.id}/download`)
-      .set('Authorization', `Bearer ${authTokenA}`)
-      .buffer(true)
-      .parse((response, callback) => {
-        const chunks: Buffer[] = [];
-        response.on('data', (chunk: Buffer) => chunks.push(chunk));
-        response.on('end', () => callback(null, Buffer.concat(chunks)));
-      })
-      .expect(200);
+    const downloadTwice = await downloadExport(generated.body.id);
 
     expect(downloadOnce.body).toEqual(downloadTwice.body);
     expect(
@@ -816,16 +742,7 @@ describe('Accounting export (e2e)', () => {
       list.body.data.some((row: { id: string }) => row.id === generated.body.id),
     ).toBe(true);
 
-    const download = await request(app.getHttpServer())
-      .get(`/api/finance/accounting-exports/${generated.body.id}/download`)
-      .set('Authorization', `Bearer ${authTokenA}`)
-      .buffer(true)
-      .parse((response, callback) => {
-        const chunks: Buffer[] = [];
-        response.on('data', (chunk: Buffer) => chunks.push(chunk));
-        response.on('end', () => callback(null, Buffer.concat(chunks)));
-      })
-      .expect(200);
+    const download = await downloadExport(generated.body.id);
 
     expect(download.headers['content-disposition']).toContain('.csv');
     expect(
