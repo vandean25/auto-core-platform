@@ -5,18 +5,13 @@ import type { WorkshopBookingPackageService } from '../workshop/workshop-booking
 import type { WorkshopEstimateSendProposeService } from '../workshop/workshop-estimate-send-propose.service.js';
 import type { WorkshopOrderCompletionService } from '../workshop/workshop-order-completion.service.js';
 import type { McpWriteCommandIdempotencyService } from './mcp-write-command-idempotency.service.js';
-import { parseMcpWriteCommandInput } from './mcp-write-command-idempotency.util.js';
 import {
   evaluateMcpWritePolicy,
   recordMcpWriteFailure,
   simulateMcpWrite,
   type McpWritePipelineCommitDeps,
 } from './mcp-write-pipeline.commit.js';
-import {
-  isCustomerMcpProposeTool,
-  runCustomerMcpProposePath,
-} from './mcp-write-pipeline.customer-propose-path.js';
-import { runMcpWritePipeline } from './mcp-write-pipeline.run.masked-log.js';
+import { runMcpWritePipeline } from './mcp-write-pipeline.run.js';
 import type {
   McpWriteExecution,
   McpWriteToolContext,
@@ -42,27 +37,6 @@ export function runMcpWritePipelineService(
   input: unknown,
   context: McpWriteToolContext,
 ) {
-  const parsed = parseMcpWriteCommandInput(input);
-
-  if (isCustomerMcpProposeTool(execution.toolName) && !parsed.dryRun) {
-    return runCustomerMcpProposePath({
-      execution,
-      rawInput: input,
-      context,
-      commitDeps: pipeline.commitDeps,
-      enrichDeps: {
-        workshopBookingPackage: pipeline.workshopBookingPackage,
-        workshopOrderCompletion: pipeline.workshopOrderCompletion,
-        invoiceWorkshopDraftPropose: pipeline.invoiceWorkshopDraftPropose,
-        workshopEstimateSendPropose: pipeline.workshopEstimateSendPropose,
-        mechanicFindingPropose: pipeline.commitDeps.mechanicFindingPropose,
-      },
-      commandIdempotency: pipeline.commandIdempotency,
-      traceId: pipeline.requestContext.getTraceId(),
-      logActionType,
-    });
-  }
-
   return runMcpWritePipeline({
     execution,
     rawInput: input,
