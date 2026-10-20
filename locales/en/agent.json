@@ -184,6 +184,20 @@
       "WorkshopTaskLineItem": "Workshop line item",
       "Customer": "Customer",
       "SalesOrder": "Sales order"
+    },
+    "fields": {
+      "customer_type": "Customer type",
+      "first_name": "First name",
+      "last_name": "Last name",
+      "company_name": "Company name",
+      "email": "Email address",
+      "phone": "Phone",
+      "vat_id": "UID",
+      "preferred_language": "Language",
+      "address.street": "Street",
+      "address.zip": "Postcode",
+      "address.city": "City",
+      "address.country": "Country"
     }
   }
 }

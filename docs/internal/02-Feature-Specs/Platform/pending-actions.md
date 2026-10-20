@@ -11,7 +11,8 @@ Pending actions are simulated, policy-approved operations stored in the existing
 | `inventory.part_release` | `release_reservation` | Release an open reservation |
 | `workshop_order.propose_line` | `propose_line_item` | Add a part or labor line to a task |
 | `workshop_order.add_line` | Existing REST proposal compatibility | Add a line using the legacy proposal payload |
-| `customer.update` | Existing proposal compatibility | Update tenant-scoped customer fields |
+| `customer.create` | `propose_customer_create` | Create a customer master-data record; the proposal checks the tenant for duplicates first |
+| `customer.update` | `propose_customer_update` | Update tenant-scoped customer master data; existing REST proposals keep the legacy payload |
 
 Unknown action keys fail closed. Policy context is built by the executor from the authenticated tenant and active site; request payloads cannot select a tenant or policy tier.
 

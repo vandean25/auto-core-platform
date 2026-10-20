@@ -19,7 +19,8 @@
     "settings:marginRules.roundingShort.",
     "settings:storageLocations.types.",
     "settings:workshopHours.weekdays.",
-    "settings:documentBranding.letterheadImport.states."
+    "settings:documentBranding.letterheadImport.states.",
+    "agent:changePreview.fields."
   ],
   "usedKeys": [
     "settings:accountingExport.header.description",
