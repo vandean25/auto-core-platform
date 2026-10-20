@@ -19,6 +19,28 @@ The required CI check `Repowise Health Gate` (job `repowise-health-gate` in `.gi
 
 Gated: `.ts .tsx .mts .cts .js .jsx .mjs .cjs`. Not gated: `*.d.ts`, `docs/`, `.agents/`, and paths containing `node_modules`, `dist`, `coverage`, `generated` or `.repowise`.
 
+## Allowed vs. not allowed (read before fixing any violation)
+
+The gate step runs with `continue-on-error`, so a green check proves nothing. Always read the CI job log: only the literal line `Repowise health gate passed` counts.
+
+### Allowed
+- Extract cohesive units (helpers, mappers, constants, types, sub-DTOs, composed OpenAPI decorators) into new focused files and re-export them from the existing barrel (`index.ts`) so imports stay the same.
+- Split a controller or service by responsibility, keeping routes and operationIds unchanged.
+- Reduce complexity in place: early returns, small functions, lookup tables.
+- Split long specs by topic and move fixtures to `*.spec.support.ts`.
+- Run `--update` to remove entries for files that improved, or to follow an improved legacy score. Adding an entry is only allowed for a legacy file (< 6.0) you touched without making it worse, and the PR description must call it out.
+- If a reasonable refactor cannot reach the score, stop and report in the PR: file, before/after score, what you tried. Do not game it.
+
+### Not allowed
+- Renaming or moving a file mainly to shed its git history or make it count as "new". When you split a file, the original path keeps real code.
+- Skipping tests in any form: `testPathIgnorePatterns` (CLI or Jest config), `describe.skip` / `it.skip` / `.only`, moving specs out of `testRegex`, env toggles that switch behavior in tests.
+- Editing `.github/workflows/build.yaml`, `tools/repowise-gate*.mjs` or `tools/repowise-gate-fixtures/`; moving code under `generated`, `dist`, `.repowise` or `docs/` paths, or changing file extensions, to escape scoring.
+- Editing `.repowise-baseline.json` by hand, or lowering or loosening any value.
+- Duplicating a code path (copying a pipeline or module so the old file stays untouched). Extend the one shared path instead.
+- Deleting comments or documentation, or packing code onto fewer lines, just to move the score.
+- Changing public API (routes, operationIds, exported DTO names, generated client function names) for the score.
+- Claiming a pass from a local run against a different base. Compare against the same base as CI: `git fetch origin main && npm run repowise:gate -- --base "$(git merge-base origin/main HEAD)"`, or the SHA in the CI log line `node tools/repowise-gate.mjs --base <sha>`. Report the line from the CI log, not only the local one.
+
 ## Run locally
 ```bash
 git fetch origin main
@@ -29,6 +51,17 @@ npm run repowise:gate:test                    # unit tests of the gate itself
 Exit codes: `0` passed (or no gated file changed), `1` violations (or `--update` refused), `2` usage or setup error (for example `uvx` missing, `unknown base ref: ...`, invalid baseline). Errors print as `repowise health gate: <message>`.
 
 The gate looks at committed, uncommitted and untracked changes against the merge base with `--base`.
+
+### How the head is scored (AUT-665)
+
+Repowise mixes **static** markers (complexity, nesting, duplication, …) with **git-history** biomarkers (`change_entropy`, `prior_defect`, `co_change_scatter`, `churn_risk`, and related fields from `GitIndexer`). Scoring the PR checkout directly also sees **feature-branch** commit history that `main` never retains after a squash merge.
+
+The gate scores **base** and **head** under the same git revision:
+
+- **Base:** detached worktree at the `--base` commit (same as before).
+- **Head:** another detached worktree also checked out at `--base`, then the full merge-base → working-tree diff is applied (including uncommitted and untracked files). `repowise health` runs on that tree **without** an extra commit.
+
+Both runs therefore share the base commit’s history metadata; repowise still reads the patched file bytes from disk for static markers. A synthetic snapshot commit is **not** written: it would reintroduce false `churn_risk` on large deletes (for example shrinking a file to a short barrel). Disabling biomarkers via `.repowise/health-rules.json` is not used.
 
 ## Reading the report
 Each code violation looks like this:

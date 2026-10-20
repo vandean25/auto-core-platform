@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * Repowise health gate (AUT-462). Compares `repowise health --format json` for the
- * PR base (a git worktree of the base commit) with the working tree (the PR head),
+ * PR base (a git worktree of the base commit) with the head tree patched onto the same
+ * base commit in a second worktree (no extra commit — repowise reads file bytes from disk),
  * for the source files the change touches. Rules: see tools/repowise-gate-lib.mjs
  * and the Repowise section of agents.md.
  *
@@ -11,6 +12,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import {
   BASELINE_FILE,
   applyBaselineUpdate,
@@ -148,6 +150,8 @@ function runRepowiseHealth(dir) {
   });
 }
 
+const GIT_APPLY_MAX_BUFFER = 256 * 1024 * 1024;
+
 /** Scores the base commit from a throwaway worktree outside the repo, so repowise never sees both trees. */
 async function scoreBaseCommit(repoRoot, baseSha) {
   const workdir = fs.mkdtempSync(path.join(os.tmpdir(), 'repowise-base-'));
@@ -156,12 +160,81 @@ async function scoreBaseCommit(repoRoot, baseSha) {
     git(['worktree', 'add', '--detach', '--quiet', worktree, baseSha], repoRoot);
     return await runRepowiseHealth(worktree);
   } finally {
-    try {
-      git(['worktree', 'remove', '--force', worktree], repoRoot);
-    } catch {
-      // The directory is removed below either way; a stale worktree entry is pruned by git later.
+    removeWorktree(repoRoot, workdir, worktree);
+  }
+}
+
+/**
+ * Applies the working tree at `repoRoot` (relative to `mergeBase`) into `worktree`, including
+ * untracked files the gate already treats as part of the change set.
+ */
+export function applyWorkingTreeAtMergeBase(repoRoot, worktree, mergeBase) {
+  const diff = spawnSync('git', ['diff', '-M', '--binary', mergeBase], {
+    cwd: repoRoot,
+    encoding: 'buffer',
+    maxBuffer: GIT_APPLY_MAX_BUFFER,
+  });
+  if (diff.error) {
+    throw diff.error;
+  }
+  if (diff.status !== 0) {
+    throw new Error(`git diff ${mergeBase} failed: ${diff.stderr.toString('utf8').trim()}`);
+  }
+  if (diff.stdout.length > 0) {
+    const applied = spawnSync('git', ['apply', '--3way', '--whitespace=nowarn'], {
+      cwd: worktree,
+      input: diff.stdout,
+      encoding: 'buffer',
+      maxBuffer: GIT_APPLY_MAX_BUFFER,
+    });
+    if (applied.error) {
+      throw applied.error;
     }
-    fs.rmSync(workdir, { recursive: true, force: true });
+    if (applied.status !== 0) {
+      throw new Error(`git apply failed: ${applied.stderr.toString('utf8').trim()}`);
+    }
+  }
+
+  const untracked = git(['ls-files', '-z', '--others', '--exclude-standard'], repoRoot)
+    .split('\0')
+    .filter(Boolean);
+  for (const relativePath of untracked) {
+    const source = path.join(repoRoot, relativePath);
+    const destination = path.join(worktree, relativePath);
+    fs.mkdirSync(path.dirname(destination), { recursive: true });
+    if (fs.statSync(source).isDirectory()) {
+      fs.cpSync(source, destination, { recursive: true });
+    } else {
+      fs.copyFileSync(source, destination);
+    }
+  }
+}
+
+function removeWorktree(repoRoot, workdir, worktree) {
+  try {
+    git(['worktree', 'remove', '--force', worktree], repoRoot);
+  } catch {
+    // The directory is removed below either way; a stale worktree entry is pruned by git later.
+  }
+  fs.rmSync(workdir, { recursive: true, force: true });
+}
+
+/**
+ * Scores the PR head from a throwaway worktree checked out at `baseSha` with the
+ * merge-base → working-tree diff applied. Git history matches the base commit on both
+ * sides; static markers see the patched files without feature-branch checkout noise
+ * or a synthetic commit that would fire churn on large deletes.
+ */
+async function scorePatchedHead(repoRoot, baseSha) {
+  const mergeBase = git(['merge-base', baseSha, 'HEAD'], repoRoot).trim();
+  const workdir = fs.mkdtempSync(path.join(os.tmpdir(), 'repowise-head-'));
+  const worktree = path.join(workdir, 'head');
+  try {
+    git(['worktree', 'add', '--detach', '--quiet', worktree, baseSha], repoRoot);
+    applyWorkingTreeAtMergeBase(repoRoot, worktree, mergeBase);
+    return await runRepowiseHealth(worktree);
+  } finally {
+    removeWorktree(repoRoot, workdir, worktree);
   }
 }
 
@@ -199,7 +272,7 @@ async function run(argv) {
   const [baseScores, headScores] = needsScores
     ? await Promise.all([
         options.baseHealth ? readHealthFile(options.baseHealth) : scoreBaseCommit(repoRoot, baseSha),
-        options.headHealth ? readHealthFile(options.headHealth) : runRepowiseHealth(repoRoot),
+        options.headHealth ? readHealthFile(options.headHealth) : scorePatchedHead(repoRoot, baseSha),
       ])
     : [new Map(), new Map()];
 
@@ -226,12 +299,17 @@ async function run(argv) {
   return 0;
 }
 
-run(process.argv.slice(2)).then(
-  (code) => {
-    process.exitCode = code;
-  },
-  (error) => {
-    console.error(`repowise health gate: ${error.message}`);
-    process.exitCode = 2;
-  },
-);
+const isCliEntry =
+  process.argv[1] !== undefined && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url;
+
+if (isCliEntry) {
+  run(process.argv.slice(2)).then(
+    (code) => {
+      process.exitCode = code;
+    },
+    (error) => {
+      console.error(`repowise health gate: ${error.message}`);
+      process.exitCode = 2;
+    },
+  );
+}
