@@ -1651,102 +1651,6 @@ export interface paths {
         patch: operations["WorkshopOrdersController_updateOrder"];
         trace?: never;
     };
-    "/api/workshop/orders/{id}/tasks": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["WorkshopOrdersController_createTask"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/workshop/orders/{id}/tasks/{taskId}/lines/from-catalog": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["WorkshopOrdersController_addTaskLineFromCatalog"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/workshop/orders/{id}/pick-parts": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["WorkshopOrdersController_pickParts"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/workshop/orders/{orderId}/tasks/{taskId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete: operations["WorkshopOrdersController_deleteTask"];
-        options?: never;
-        head?: never;
-        patch: operations["WorkshopOrdersController_updateTask"];
-        trace?: never;
-    };
-    "/api/workshop/orders/{orderId}/tasks/{taskId}/checklist": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["WorkshopOrdersController_getTaskChecklist"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch: operations["WorkshopOrdersController_updateTaskChecklist"];
-        trace?: never;
-    };
-    "/api/workshop/orders/{orderId}/tasks/{taskId}/line-items": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch: operations["WorkshopOrdersController_replaceTaskLineItems"];
-        trace?: never;
-    };
     "/api/workshop/orders/{id}/create-invoice": {
         parameters: {
             query?: never;
@@ -1763,6 +1667,102 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/workshop/orders/{id}/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["WorkshopOrderTasksController_createTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/orders/{id}/tasks/{taskId}/lines/from-catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["WorkshopOrderTasksController_addTaskLineFromCatalog"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/orders/{id}/pick-parts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["WorkshopOrderTasksController_pickParts"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/orders/{orderId}/tasks/{taskId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["WorkshopOrderTasksController_deleteTask"];
+        options?: never;
+        head?: never;
+        patch: operations["WorkshopOrderTasksController_updateTask"];
+        trace?: never;
+    };
+    "/api/workshop/orders/{orderId}/tasks/{taskId}/checklist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["WorkshopOrderTasksController_getTaskChecklist"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["WorkshopOrderTasksController_updateTaskChecklist"];
+        trace?: never;
+    };
+    "/api/workshop/orders/{orderId}/tasks/{taskId}/line-items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["WorkshopOrderTasksController_replaceTaskLineItems"];
+        trace?: never;
+    };
     "/api/workshop/orders/{id}/pdf": {
         parameters: {
             query?: never;
@@ -1770,9 +1770,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["WorkshopOrdersController_getPdf"];
+        get: operations["WorkshopOrderPdfController_getPdf"];
         put?: never;
-        post: operations["WorkshopOrdersController_generatePdf"];
+        post: operations["WorkshopOrderPdfController_generatePdf"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7378,7 +7378,6 @@ export interface components {
             notes?: string | null;
             staging_location_id?: string | null;
             stagingLocationId?: string | null;
-            bill_to_customer_id?: string | null;
             customer?: components["schemas"]["WorkshopCustomerSummaryDto"] | null;
             vehicle: components["schemas"]["WorkshopVehicleSummaryDto"];
             tasks: components["schemas"]["WorkshopTaskResponseDto"][];
@@ -7390,6 +7389,7 @@ export interface components {
             updatedAt: string;
             /** @description Ready-for-pickup email state when the order is COMPLETED (AUT-357). Null while the job is still open. */
             ready_email_notice?: components["schemas"]["WorkshopReadyEmailNoticeDto"] | null;
+            bill_to_customer_id?: string | null;
         };
         UpdateWorkshopOrderDto: {
             reportedIssue?: string;
@@ -14896,7 +14896,28 @@ export interface operations {
             };
         };
     };
-    WorkshopOrdersController_createTask: {
+    WorkshopOrdersController_createInvoiceFromOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceResponseDto"];
+                };
+            };
+        };
+    };
+    WorkshopOrderTasksController_createTask: {
         parameters: {
             query?: never;
             header?: never;
@@ -14921,7 +14942,7 @@ export interface operations {
             };
         };
     };
-    WorkshopOrdersController_addTaskLineFromCatalog: {
+    WorkshopOrderTasksController_addTaskLineFromCatalog: {
         parameters: {
             query?: never;
             header?: never;
@@ -14961,7 +14982,7 @@ export interface operations {
             };
         };
     };
-    WorkshopOrdersController_pickParts: {
+    WorkshopOrderTasksController_pickParts: {
         parameters: {
             query?: never;
             header?: never;
@@ -14987,7 +15008,7 @@ export interface operations {
             };
         };
     };
-    WorkshopOrdersController_deleteTask: {
+    WorkshopOrderTasksController_deleteTask: {
         parameters: {
             query?: never;
             header?: never;
@@ -15004,9 +15025,7 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": components["schemas"]["WorkshopOrderResponseDto"];
-                };
+                content?: never;
             };
             /** @description Task cannot be deleted because the order is invoiced or already has a linked invoice. */
             400: {
@@ -15036,7 +15055,7 @@ export interface operations {
             };
         };
     };
-    WorkshopOrdersController_updateTask: {
+    WorkshopOrderTasksController_updateTask: {
         parameters: {
             query?: never;
             header?: never;
@@ -15062,7 +15081,7 @@ export interface operations {
             };
         };
     };
-    WorkshopOrdersController_getTaskChecklist: {
+    WorkshopOrderTasksController_getTaskChecklist: {
         parameters: {
             query?: never;
             header?: never;
@@ -15085,7 +15104,7 @@ export interface operations {
             };
         };
     };
-    WorkshopOrdersController_updateTaskChecklist: {
+    WorkshopOrderTasksController_updateTaskChecklist: {
         parameters: {
             query?: never;
             header?: never;
@@ -15112,7 +15131,7 @@ export interface operations {
             };
         };
     };
-    WorkshopOrdersController_replaceTaskLineItems: {
+    WorkshopOrderTasksController_replaceTaskLineItems: {
         parameters: {
             query?: {
                 /** @description Simulate the state changes of this operation within a rolled-back transaction without persisting data. */
@@ -15144,28 +15163,7 @@ export interface operations {
             };
         };
     };
-    WorkshopOrdersController_createInvoiceFromOrder: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InvoiceResponseDto"];
-                };
-            };
-        };
-    };
-    WorkshopOrdersController_getPdf: {
+    WorkshopOrderPdfController_getPdf: {
         parameters: {
             query?: never;
             header?: never;
@@ -15187,7 +15185,7 @@ export interface operations {
             };
         };
     };
-    WorkshopOrdersController_generatePdf: {
+    WorkshopOrderPdfController_generatePdf: {
         parameters: {
             query?: never;
             header?: never;
