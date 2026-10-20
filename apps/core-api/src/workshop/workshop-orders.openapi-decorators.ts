@@ -10,7 +10,9 @@ import { WorkshopOrderResponseDto } from './dto/workshop-response.dto.js';
 import { WORKSHOP_ERROR_RESPONSE_SCHEMA } from './workshop-controller.http-helpers.js';
 
 export function ApiWorkshopOrderCreatedResponse() {
-  return applyDecorators(ApiCreatedResponse({ type: WorkshopOrderResponseDto }));
+  return applyDecorators(
+    ApiCreatedResponse({ type: WorkshopOrderResponseDto }),
+  );
 }
 
 export function ApiWorkshopOrderOkResponse() {
