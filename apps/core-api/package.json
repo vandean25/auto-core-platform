@@ -50,7 +50,7 @@
     "@fontsource/noto-sans": "5.3.0",
     "@google-cloud/speech": "^8.0.1",
     "@google-cloud/storage": "^8.0.0",
-    "@google-cloud/tasks": "^7.0.0",
+    "@google-cloud/tasks": "^7.3.0",
     "@google-cloud/translate": "^10.0.1",
     "@modelcontextprotocol/sdk": "^1.32.0",
     "@nestjs/common": "^12.1.0",
