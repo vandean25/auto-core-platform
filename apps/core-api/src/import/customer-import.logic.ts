@@ -3,6 +3,7 @@ import {
   isValidDeVatId,
 } from '../site/legal-entity-seller.validation.js';
 import { normalizeCustomerVatId } from '../customer/customer-vat-id.validation.js';
+import { normalizeMatchEmail } from '../customer/customer-match.util.js';
 import type {
   DryRunRowResult,
   ImportJobOptions,
@@ -178,7 +179,7 @@ export function normalizeCustomerRow(
   }
 
   const emailRaw = cellValue(record, mapping, 'email');
-  const email = emailRaw ? emailRaw.toLowerCase() : null;
+  const email = normalizeMatchEmail(emailRaw);
   const vatRaw = normalizeCustomerVatId(cellValue(record, mapping, 'vat_id'));
   const hasCountryColumn = Boolean(mapping.address_country);
   const country = hasCountryColumn

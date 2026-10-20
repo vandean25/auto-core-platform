@@ -7,7 +7,8 @@ import type { McpWriteDryRunResult } from './mcp-write-dry-run.util.js';
 import { runMcpWriteDryRunPath } from './mcp-write-pipeline.dry-run-path.js';
 import { runMcpWriteExecutePath } from './mcp-write-pipeline.execute-path.js';
 import type { McpWriteEnrichInputDeps } from './mcp-write-pipeline.enrich-input.js';
-import { enrichMcpWriteInput } from './mcp-write-pipeline.enrich-input.js';
+import { createNormalizeWriteInput } from './mcp-write-pipeline.normalize-write-input.js';
+import { maskLoggedArgs } from './mcp-write-pipeline.mask.js';
 import type { McpWritePipelineCommitDeps } from './mcp-write-pipeline.commit.js';
 import type {
   McpWriteCall,
@@ -37,15 +38,15 @@ export async function runMcpWritePipeline(input: {
 }): Promise<McpWritePipelineRunResult> {
   const parsed = parseMcpWriteCommandInput(input.rawInput);
   const workInput = parsed.businessInput;
-  const normalizeWriteInput = (execution: McpWriteExecution, value: unknown) =>
-    enrichMcpWriteInput(input.enrichDeps, execution, value);
+  const loggedInput = maskLoggedArgs(input.execution, input.rawInput);
+  const normalizeWriteInput = createNormalizeWriteInput(input.enrichDeps);
 
   if (parsed.dryRun) {
     return runMcpWriteDryRunPath({
       execution: input.execution,
       workInput,
       context: input.context,
-      loggedInput: input.rawInput,
+      loggedInput,
       normalizeWriteInput,
       evaluatePolicy: input.evaluatePolicy,
       simulate: input.simulate,
@@ -81,7 +82,7 @@ export async function runMcpWritePipeline(input: {
       execution: input.execution,
       workInput,
       context: input.context,
-      loggedInput: input.rawInput,
+      loggedInput,
       idempotencyMeta,
       claim,
       normalizeWriteInput,

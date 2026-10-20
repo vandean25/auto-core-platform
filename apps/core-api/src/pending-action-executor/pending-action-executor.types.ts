@@ -11,6 +11,7 @@ export type PendingActionType =
   | 'inventory.part_release'
   | 'workshop_order.propose_line'
   | 'workshop_order.add_line'
+  | 'customer.create'
   | 'customer.update'
   | 'decision.import_row_match'
   | 'decision.document_sort'
@@ -43,6 +44,12 @@ export type PendingActionExecutor = {
     input: unknown,
     executionContext?: Record<string, unknown>,
   ): Promise<unknown>;
+  /** Builds the proposal payload the MCP write path stores and applies. */
+  enrichInput?(input: unknown): Promise<unknown>;
+  /** Masks the proposal payload for the tool result and the action log. */
+  maskProposalPayload?(payload: unknown): unknown;
+  /** Masks the raw tool arguments for the action log. */
+  maskLoggedArgs?(args: unknown): unknown;
   /** When true, real execute runs before the agent-action log transaction. */
   executeOutsideTransaction?: boolean;
   refreshReplayResult?(result: McpWriteToolResult): Promise<McpWriteToolResult>;
