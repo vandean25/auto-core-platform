@@ -204,32 +204,43 @@ We use a **Context-Based Approach**, allowing both patterns strictly based on th
   - `subscribe_github_pr` (scope `pr`) on the PR for review comments, `@cursoragent` mentions, and review activity.
   Keep both active until the PR merges or closes; re-subscribe after each push or when expired; unsubscribe only then. On wake, re-read the PR and address CI failures or review feedback before ending the turn.
 
-### Mandatory backend checks before creating a PR
-All of the following CI-equivalent backend checks must pass before creating a PR:
+### Local checks before pushing (CI is the source of truth)
+- Locally, run only the checks for the workspace you touched: lint, typecheck/build, the unit tests of the files you changed, and only the Playwright/E2E spec files you added or changed.
+- The full frontend UI smoke suite, the fullstack e2e suite and the backend E2E suite run **only in CI** (`.github/workflows/build.yaml`, sharded). The CI result is the source of truth; do not re-run full suites locally before pushing.
+- At most one local e2e attempt per change. No repeated full runs, no polling. If it fails for environment reasons (browser, ports, DB), push and let CI decide.
+- Never create or commit temporary Playwright configs. If the installed Chromium does not match `@playwright/test`, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to an existing Chromium; both Playwright configs honor it (the Claude Code SessionStart hook in `.claude/` sets it automatically when the browser download fails).
+
+### Backend checks before pushing
+For `core-api` changes, run before pushing:
 ```bash
 npm exec --workspace=core-api -- prisma generate
 npm run lint:prisma-tenant --workspace=core-api
 npm run lint --workspace=core-api
 npm run build --workspace=core-api
-npm test --workspace=core-api -- --ci --runInBand
+npm test --workspace=core-api -- --ci --runInBand --findRelatedTests <changed src/spec files>
+```
+Only if you added or changed a backend `.e2e-spec.ts`, run that one file once, against a fresh, unseeded `auto_core_test` database, migrated first and run serially (see [Cursor Cloud specific instructions](#cursor-cloud-specific-instructions)):
+```bash
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/auto_core_test" \
   npm exec --workspace=core-api -- prisma migrate deploy
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/auto_core_test" \
-  npm run test:e2e --workspace=core-api -- --ci --runInBand
+  npm run test:e2e --workspace=core-api -- --ci --runInBand test/<your>.e2e-spec.ts
 ```
-The E2E check must use a fresh, unseeded `auto_core_test` database, migrate it before the test, and run serially. Follow the existing [Cursor Cloud specific instructions](#cursor-cloud-specific-instructions) for the database setup and E2E guidance.
+The full backend E2E suite runs only in CI.
 
-### Mandatory frontend checks before creating a PR
-All of the following CI-equivalent frontend checks must pass before creating a PR:
+### Frontend checks before pushing
+For `core-web` changes, run before pushing:
 ```bash
-npm exec --workspace=core-web -- playwright install --with-deps chromium
 npm run lint --workspace=core-web
 npm run build --workspace=core-web
-npm test --workspace=core-web
-npm run test:e2e --workspace=core-web
-npm run api:types:check --workspace=core-web
+npm test --workspace=core-web -- <changed files or folders>
+npm run api:types:check --workspace=core-web   # only when backend API contracts change
 ```
-The Playwright browser installation is required before the frontend UI smoke tests. The API types check is also required when backend API contracts change, alongside the generated OpenAPI artifacts described above.
+Only if you added or changed a Playwright spec, run just those files once (needs a matching Chromium, see above):
+```bash
+npm run test:e2e --workspace=core-web -- e2e/<your>.spec.ts
+```
+The full UI smoke suite (`npm run test:e2e` without a file filter) and `test:e2e:fullstack` run only in CI. The API types check goes alongside the generated OpenAPI artifacts described above.
 
 ### Code health gate (Fallow)
 - The CI check `Code Health (Fallow)` (`fallow audit`, config `.fallowrc.json`) fails only on findings the PR introduces. Its CI result is the only source of truth.
@@ -393,7 +404,7 @@ sudo pg_ctlcluster 16 main start
 ```
 
 ### Backend e2e tests must use a fresh, unseeded DB, serially
-CI runs e2e against a fresh, unseeded `auto_core_test` DB, applies migrations before the test, and uses `--ci --runInBand` (see `.github/workflows/build.yaml`). Running e2e against the **seeded** `core_platform` DB, or in parallel, causes non-deterministic failures (leftover tenants / cross-suite `deleteMany`). Run e2e like CI:
+CI runs e2e against a fresh, unseeded `auto_core_test` DB, applies migrations before the test, and uses `--ci --runInBand` (see `.github/workflows/build.yaml`). The full suite runs only in CI; locally run only a new or changed `.e2e-spec.ts` (see [Local checks before pushing](#local-checks-before-pushing-ci-is-the-source-of-truth)). Running e2e against the **seeded** `core_platform` DB, or in parallel, causes non-deterministic failures (leftover tenants / cross-suite `deleteMany`). Run e2e like CI:
 ```
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/auto_core_test" \
   npm --prefix apps/core-api exec -- prisma migrate deploy

@@ -3,6 +3,9 @@ import {
   E2E_FULLSTACK_WEB_PORT,
 } from '../core-api/test/e2e-fullstack/constants.ts'
 
+// Optional local override for agent VMs whose preinstalled Chromium differs from @playwright/test. Unset in CI.
+const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+
 export default defineConfig({
   testDir: './e2e-fullstack',
   fullyParallel: false,
@@ -19,6 +22,7 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'off',
+    ...(chromiumExecutablePath ? { launchOptions: { executablePath: chromiumExecutablePath } } : {}),
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
 })

@@ -1,6 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const isCI = !!process.env.CI
+/* Optional local override for agent VMs whose preinstalled Chromium differs from @playwright/test. Unset in CI. */
+const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -24,6 +26,7 @@ export default defineConfig({
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
+    ...(chromiumExecutablePath ? { launchOptions: { executablePath: chromiumExecutablePath } } : {}),
   },
 
   /* Configure projects for major browsers */
