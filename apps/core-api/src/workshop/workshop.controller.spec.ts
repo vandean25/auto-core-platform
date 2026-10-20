@@ -6,7 +6,7 @@ import { parsePaginationParams } from './workshop-controller.http-helpers.js';
 import { WorkshopController } from './workshop.controller.js';
 import { WorkshopOrderPdfController } from './workshop-order-pdf.controller.js';
 import { WorkshopOrderTasksController } from './workshop-order-tasks.controller.js';
-import { WorkshopOrdersController } from './workshop-order-crud.controller.js';
+import { WorkshopOrdersController } from './workshop-orders.controller.js';
 import { WorkshopOrdersHttpHandlers } from './workshop-orders.http-handlers.js';
 import { WorkshopHolidayController } from './workshop-holidays.controller.js';
 import { WorkshopSettingsController } from './workshop-settings.controller.js';

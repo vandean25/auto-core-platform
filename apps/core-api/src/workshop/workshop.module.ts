@@ -50,7 +50,7 @@ import { WorkshopSettingsService } from './workshop-settings.service.js';
 import { WorkshopTaskService } from './workshop-task.service.js';
 import { WorkshopCatalogLineService } from './workshop-catalog-line.service.js';
 import { WorkshopController } from './workshop.controller.js';
-import { WorkshopOrdersController } from './workshop-order-crud.controller.js';
+import { WorkshopOrdersController } from './workshop-orders.controller.js';
 import { WorkshopOrderPdfController } from './workshop-order-pdf.controller.js';
 import { WorkshopOrderTasksController } from './workshop-order-tasks.controller.js';
 import { WorkshopOrdersHttpHandlers } from './workshop-orders.http-handlers.js';
