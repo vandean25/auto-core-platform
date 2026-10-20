@@ -73,3 +73,6 @@ infra/.terraform/
 
 # Repowise
 .repowise/
+
+# Fallow cache
+.fallow/
