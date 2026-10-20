@@ -778,7 +778,7 @@ describe('WorkshopKpiReportsService.getReport characterization', () => {
             invoiceItem('Pads', '2.00', '30.00', '60.00', null, 'part-1'),
             // Conflicting source types and no revenue group: falls back to PART.
             invoiceItem('Mixed', '1.00', '10.00', '10.00', null, 'part-2'),
-            // Exact match from a task of a non-employee mechanic: still LABOR.
+            // Typed from a task of a non-employee mechanic: still LABOR.
             invoiceItem('Wash', '5.00', '10.00', '50.00'),
           ],
         },
@@ -856,5 +856,62 @@ describe('WorkshopKpiReportsService.getReport characterization', () => {
       },
       parts_turnover: emptyPartsTurnover,
     });
+  });
+
+  it('lists mechanics reached only by a task or an open entry and types lines by exact quantity first', async () => {
+    const { service } = reportService({
+      employees: [
+        { id: 'm1', name: 'Mechanic One' },
+        { id: 't1', name: 'Task only' },
+        { id: 'o1', name: 'Open only' },
+      ],
+      schedules: [siteSchedule('m1')],
+      openEntries: [{ employee_id: 'o1', started_at: new Date('2026-03-02T09:00:00.000Z') }],
+      invoices: [{
+        id: 'invoice-1',
+        date: new Date('2026-03-02T15:00:00.000Z'),
+        total_net: new Prisma.Decimal('40.00'),
+        workshop_order: {
+          id: 'order-1',
+          mechanic_id: 'm1',
+          tasks: [
+            { mechanic_id: null, line_items: [line('LABOR', 'Mixed', '2.00', 'part-1')] },
+            // Zero labor hours: the mechanic is listed with a zero share.
+            { mechanic_id: 't1', line_items: [line('PART', 'Mixed', '3.00', 'part-1')] },
+          ],
+        },
+        // Conflicting source types; the exact quantity match makes it LABOR.
+        items: [invoiceItem('Mixed', '2.00', '20.00', '40.00', null, 'part-1')],
+      }],
+    });
+
+    const report = await service.getReport({
+      siteId: 'site-1', from: '2026-03-02', to: '2026-03-02', groupBy: 'mechanic',
+    });
+
+    expect(report.data).toEqual([
+      {
+        key: 'm1', period: '2026-03-02–2026-03-02', mechanic_id: 'm1', mechanic_name: 'Mechanic One',
+        available_hours: '8.00', clocked_hours: '0.00', sold_hours: '2.00',
+        labor_net_revenue: '40.00', parts_net_revenue: '0.00',
+        utilisation_percent: '0.00', productivity_percent: null,
+        closed_orders: 1, average_net_revenue_per_order: '40.00', open_labor_entry_count: 0,
+      },
+      {
+        key: 't1', period: '2026-03-02–2026-03-02', mechanic_id: 't1', mechanic_name: 'Task only',
+        available_hours: '0.00', clocked_hours: '0.00', sold_hours: '0.00',
+        labor_net_revenue: '0.00', parts_net_revenue: '0.00',
+        utilisation_percent: null, productivity_percent: null,
+        closed_orders: 1, average_net_revenue_per_order: '0.00', open_labor_entry_count: 0,
+      },
+      {
+        key: 'o1', period: '2026-03-02–2026-03-02', mechanic_id: 'o1', mechanic_name: 'Open only',
+        available_hours: '0.00', clocked_hours: '0.00', sold_hours: '0.00',
+        labor_net_revenue: '0.00', parts_net_revenue: '0.00',
+        utilisation_percent: null, productivity_percent: null,
+        closed_orders: 0, average_net_revenue_per_order: null, open_labor_entry_count: 1,
+      },
+    ]);
+    expect(report.meta.unassigned_mechanic_count).toBe(2);
   });
 });
