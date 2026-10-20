@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import type { PrismaService } from '../prisma/prisma.service.js';
-import { isSameCustomerName } from '../customer/customer-match.util.js';
 import type {
   RegistrationFieldEvidence,
   RegistrationMatchSnapshot,
@@ -36,22 +35,14 @@ export class RegistrationIntakeMatchService {
         take: 25,
         select: { id: true, first_name: true, last_name: true },
       });
-      const matches = rows.filter((row) =>
-        isSameCustomerName(
-          row.first_name,
-          row.last_name,
-          holderFirst,
-          holderLast,
-        ),
-      );
-      customers = matches.map((row) => ({
+      customers = rows.map((row) => ({
         id: row.id,
         firstName: row.first_name,
         lastName: row.last_name,
       }));
-      if (matches.length === 1) {
+      if (rows.length === 1) {
         cases.push('EXISTING_CUSTOMER');
-      } else if (matches.length > 1) {
+      } else if (rows.length > 1) {
         cases.push('DUPLICATE_CUSTOMERS');
       }
     }

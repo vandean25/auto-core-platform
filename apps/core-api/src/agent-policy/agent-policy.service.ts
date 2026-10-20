@@ -8,11 +8,11 @@ import {
   requireActiveCurrentUser,
 } from '../site/site.authorization.js';
 import { evaluateAgentPolicy } from './agent-policy.evaluator.js';
-import { loadEffectiveRules } from './agent-policy-rule.load-effective.js';
 import {
+  loadEffectiveRules,
   requirePlatformRule,
   resolveEffectiveRule,
-} from './agent-policy-rule.resolve-effective.js';
+} from './agent-policy-rule.lookup.js';
 import {
   toAgentPolicyRuleResponseDto,
   toAuditSnapshot,
@@ -59,7 +59,7 @@ export class AgentPolicyService {
 
   async listRules(): Promise<AgentPolicyRuleListResponseDto> {
     const tenantId = await this.requireAdminTenantId();
-    const effective = await this.loadEffectiveRulesForList(tenantId);
+    const effective = await loadEffectiveRules(this.deps, tenantId);
     return {
       data: effective.map((rule) => toAgentPolicyRuleResponseDto(rule)),
     };
@@ -152,12 +152,6 @@ export class AgentPolicyService {
   ): Promise<AgentPolicyEvaluationResult> {
     const rule = await resolveEffectiveRule(this.deps, tenantId, actionType);
     return evaluateAgentPolicy(actionType, context, rule);
-  }
-
-  private async loadEffectiveRulesForList(
-    tenantId: string,
-  ): Promise<ResolvedAgentPolicyRule[]> {
-    return loadEffectiveRules(this.deps, tenantId);
   }
 
   /** Admin gate for the rule-management endpoints. Returns the active tenant id. */

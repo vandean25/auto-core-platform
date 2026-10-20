@@ -12,7 +12,6 @@ import { TenantContextStorage } from '../common/services/tenant-context.storage.
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import { AgentPolicyService } from './agent-policy.service.js';
-import { ruleRow } from './agent-policy-rule.spec.support.js';
 import type {
   AgentPolicyEvaluateRequestDto,
   UpsertAgentPolicyRuleDto,
@@ -22,27 +21,19 @@ const TENANT_ID = 'tenant-1';
 const ACTION_TYPE = 'inventory.part_reserve';
 const FIREBASE_UID = 'firebase-uid-1';
 
-const CUSTOMER_CODE_DEFAULT_MATCHERS = [
-  expect.objectContaining({
-    id: 'code-default:customer.create',
-    action_type: 'customer.create',
-    tier: AgentPolicyTier.PROPOSE,
-    enabled: false,
-    source: 'platform',
-  }),
-  expect.objectContaining({
-    id: 'code-default:customer.update',
-    action_type: 'customer.update',
-    tier: AgentPolicyTier.PROPOSE,
-    enabled: false,
-    source: 'platform',
-  }),
-];
-
-function expectListRulesIncludesCustomerDefaults(
-  data: { action_type: string }[],
-): void {
-  expect(data).toEqual(expect.arrayContaining(CUSTOMER_CODE_DEFAULT_MATCHERS));
+function ruleRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'rule-row-1',
+    tenant_id: null,
+    action_type: ACTION_TYPE,
+    tier: AgentPolicyTier.AUTO,
+    conditions_json: { amount_max: 250 },
+    enabled: true,
+    version: 1,
+    created_at: new Date('2026-10-01T00:00:00.000Z'),
+    updated_at: new Date('2026-10-01T00:00:00.000Z'),
+    ...overrides,
+  };
 }
 
 function createService() {
@@ -349,6 +340,178 @@ describe('AgentPolicyService.getEffectiveRule', () => {
       );
     });
   });
+});
+
+describe('AgentPolicyService.listRules', () => {
+  it('returns one effective rule per action type, sorted, with tenant overrides winning', async () => {
+    const h = buildHarness();
+    h.systemPrisma.agentPolicyRule.findMany.mockResolvedValue([
+      ruleRow({ id: 'platform-ipr' }),
+      ruleRow({
+        id: 'platform-wo',
+        action_type: 'workshop_order.create',
+        tier: AgentPolicyTier.PROPOSE,
+        conditions_json: {},
+      }),
+    ]);
+    h.prisma.agentPolicyRule.findMany.mockResolvedValue([
+      ruleRow({
+        id: 'tenant-ipr',
+        tenant_id: TENANT_ID,
+        tier: AgentPolicyTier.HUMAN_ONLY,
+        conditions_json: { amount_max: 100 },
+        enabled: false,
+        version: 2,
+      }),
+    ]);
+
+    await expect(h.service.listRules()).resolves.toEqual({
+      data: [
+        expectedDto({
+          id: 'tenant-ipr',
+          tier: AgentPolicyTier.HUMAN_ONLY,
+          conditions: { amount_max: 100 },
+          enabled: false,
+          version: 2,
+          source: 'tenant',
+        }),
+        expectedDto({
+          id: 'platform-wo',
+          action_type: 'workshop_order.create',
+          tier: AgentPolicyTier.PROPOSE,
+          conditions: {},
+        }),
+      ],
+    });
+  });
+
+  it('sorts the effective rules by action type even when the rows arrive unsorted', async () => {
+    const h = buildHarness();
+    h.systemPrisma.agentPolicyRule.findMany.mockResolvedValue([
+      ruleRow({
+        id: 'platform-wo',
+        action_type: 'workshop_order.create',
+        conditions_json: {},
+      }),
+      ruleRow({ id: 'platform-ipr' }),
+    ]);
+
+    const { data } = await h.service.listRules();
+
+    expect(data.map((rule) => rule.action_type)).toEqual([
+      ACTION_TYPE,
+      'workshop_order.create',
+    ]);
+  });
+
+  it('orders mixed-case action types by code unit, as the list has always done', async () => {
+    const h = buildHarness();
+    h.prisma.agentPolicyRule.findMany.mockResolvedValue([
+      ruleRow({ id: 't-b', tenant_id: TENANT_ID, action_type: 'b.rule' }),
+      ruleRow({ id: 't-a', tenant_id: TENANT_ID, action_type: 'a.rule' }),
+      ruleRow({ id: 't-upper', tenant_id: TENANT_ID, action_type: 'Z.rule' }),
+    ]);
+
+    const { data } = await h.service.listRules();
+
+    expect(data.map((rule) => rule.action_type)).toEqual([
+      'Z.rule',
+      'a.rule',
+      'b.rule',
+    ]);
+  });
+
+  it('keeps only the newest platform version when the tenant has no override', async () => {
+    const h = buildHarness();
+    h.systemPrisma.agentPolicyRule.findMany.mockResolvedValue([
+      ruleRow({ id: 'platform-v3', version: 3, tier: AgentPolicyTier.PROPOSE }),
+      ruleRow({ id: 'platform-v2', version: 2 }),
+      ruleRow({ id: 'platform-v1', version: 1 }),
+    ]);
+
+    await expect(h.service.listRules()).resolves.toEqual({
+      data: [
+        expectedDto({
+          id: 'platform-v3',
+          tier: AgentPolicyTier.PROPOSE,
+          version: 3,
+        }),
+      ],
+    });
+  });
+
+  it('keeps only the newest tenant version when the tenant overrides', async () => {
+    const h = buildHarness();
+    h.prisma.agentPolicyRule.findMany.mockResolvedValue([
+      ruleRow({
+        id: 'tenant-v2',
+        tenant_id: TENANT_ID,
+        version: 2,
+        tier: AgentPolicyTier.HUMAN_ONLY,
+      }),
+      ruleRow({ id: 'tenant-v1', tenant_id: TENANT_ID, version: 1 }),
+    ]);
+
+    await expect(h.service.listRules()).resolves.toEqual({
+      data: [
+        expectedDto({
+          id: 'tenant-v2',
+          tier: AgentPolicyTier.HUMAN_ONLY,
+          version: 2,
+          source: 'tenant',
+        }),
+      ],
+    });
+  });
+
+  it('includes tenant-only actions that have no platform default, tagged as tenant', async () => {
+    const h = buildHarness();
+    h.prisma.agentPolicyRule.findMany.mockResolvedValue([
+      ruleRow({
+        id: 'tenant-custom',
+        tenant_id: TENANT_ID,
+        action_type: 'custom.tenant_only',
+        conditions_json: {},
+      }),
+    ]);
+
+    await expect(h.service.listRules()).resolves.toEqual({
+      data: [
+        expectedDto({
+          id: 'tenant-custom',
+          action_type: 'custom.tenant_only',
+          conditions: {},
+          source: 'tenant',
+        }),
+      ],
+    });
+  });
+
+  it('returns an empty list when no rules exist', async () => {
+    const h = buildHarness();
+
+    await expect(h.service.listRules()).resolves.toEqual({ data: [] });
+  });
+
+  it.each(['ADMIN', 'OWNER'])('allows %s callers', async (role) => {
+    const h = buildHarness({ role });
+
+    await expect(h.service.listRules()).resolves.toEqual({ data: [] });
+  });
+
+  it.each(['SALES', null])(
+    'rejects %s callers before reading any rules',
+    async (role) => {
+      const h = buildHarness({ role });
+
+      await expectRejection(h.service.listRules(), ForbiddenException, {
+        message: 'Tenant admin access is required.',
+      });
+      expect(h.tenantContext.getTenantId).not.toHaveBeenCalled();
+      expect(h.prisma.agentPolicyRule.findMany).not.toHaveBeenCalled();
+      expect(h.systemPrisma.agentPolicyRule.findMany).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe('AgentPolicyService.upsertRule', () => {
@@ -972,7 +1135,6 @@ describe('AgentPolicyService.evaluateAction', () => {
     });
   });
 });
-
 
 describe('AgentPolicyService tenant isolation', () => {
   it('lists rules for the tenant on the request context only', async () => {

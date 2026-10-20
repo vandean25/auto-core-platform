@@ -74,8 +74,6 @@ Read tools are tenant- or active-site-scoped by the server. Their tier is `AUTO`
 | `generate_weekly_report_pdf` | Render the internal weekly report PDF for one ISO week (Monday–Sunday in the site timezone) and return a short-lived read link; never archives the PDF or sends anything | Write | Off by default; AUTO when enabled |
 | `request_workshop_media_upload` | Reserve a short-lived direct upload slot for workshop task photos (jpeg, png, heic, or webp); returns `media_id` and presigned POST fields only | Write | Off by default; AUTO when enabled |
 | `propose_mechanic_finding` | Propose an additional mechanic finding with photos for internal advisor review; never sends customer messages | Write | Off by default; PROPOSE when enabled (clamped from AUTO) |
-| `propose_customer_create` | Propose a new customer master-data record for human approval; checks the tenant for a duplicate e-mail, phone, UID, or name and postcode first, and refuses an exact e-mail or UID hit with `DUPLICATE_CUSTOMER` | Write | Off by default; PROPOSE when enabled (clamped from AUTO) |
-| `propose_customer_update` | Propose a change to the master data of an existing customer for human approval; stores only the changed fields and re-checks customer, e-mail uniqueness, and the proposed values on apply | Write | Off by default; PROPOSE when enabled (clamped from AUTO) |
 
 ## Compliance read tools
 
@@ -96,7 +94,7 @@ Read tools are tenant- or active-site-scoped by the server. Their tier is `AUTO`
 | `get_check_in` | Vehicle check-in summary for a workshop order (checklist counts, damage zones, media ids; no signature image) | Read | AUTO |
 | `get_staff_availability` | Staff presence and scheduled hours for a day (OWNER/ADMIN; same access as HR attendance view) | Read | AUTO |
 
-Write tools start Off (`enabled: false`) in the platform policy. A tenant admin must enable a tool through the policy table before it can run; the admin cannot loosen the platform tier or conditions. `propose_line_item`, `propose_registration_intake`, `propose_workshop_booking`, `propose_purchase_order`, `propose_workshop_order_completion`, `propose_invoice_draft_from_order`, `propose_estimate_send`, `propose_mechanic_finding`, `propose_customer_create`, and `propose_customer_update` are clamped to `PROPOSE`. The server evaluates every write call, so never infer permission from this table alone.
+Write tools start Off (`enabled: false`) in the platform policy table. A tenant admin must enable a tool through the policy table before it can run; the admin cannot loosen the platform tier or conditions. `propose_line_item`, `propose_registration_intake`, `propose_workshop_booking`, `propose_purchase_order`, `propose_workshop_order_completion`, `propose_invoice_draft_from_order`, `propose_estimate_send`, and `propose_mechanic_finding` are clamped to `PROPOSE`. The server evaluates every write call, so never infer permission from this table alone.
 
 ### Reservation rules
 
@@ -118,7 +116,7 @@ Policy-mode wording maps approximately as follows: `Allowed` to `AUTO`, `Ask fir
 
 Offset list and search tools accept `page` and `pageSize`; the server defaults to page 1 and 10 rows and caps `pageSize` at 25. Cursor-based tools take `pageSize` and an opaque `cursor` from `meta.next_cursor` with the same default and maximum. `get_customer` and `get_vehicle_history` page their order list with `orders_page_size` and `orders_cursor`. Offset cursors are limited to `get_capabilities`, the three stock/Pickerl report reads, and nothing else; other cursor tools use keyset positions.
 
-- `get_capabilities` pages the tool catalog by offset. Its default and maximum page size is 25. The catalog holds 66 tools, so follow `meta.next_cursor` before deciding that a write tool is unavailable.
+- `get_capabilities` pages the tool catalog by offset. Its default and maximum page size is 25. The catalog holds 64 tools, so follow `meta.next_cursor` before deciding that a write tool is unavailable.
 - `list_sites` pages with `pageSize` (default 10, max 25) and an opaque `cursor` from `meta.next_cursor`, in site code order.
 - `list_audit_events`, `get_entity_history`, `get_agent_action`, and `list_agent_actions` page with a keyset cursor. The default page size is 10 and the maximum is 25. Audit lists are newest first. `get_agent_action` log rows are oldest first.
 - `list_invoices` pages with a keyset cursor over issue date and invoice ID, with the same default and maximum. It is newest first.
@@ -256,7 +254,6 @@ Policy refusals return an MCP tool error with the code `not_permitted`, and a fr
 | `NotFoundException`    | The requested record or related entity was not found in the authorized scope. Report that result; do not guess an ID.           |
 | `ConflictException`    | The record changed or conflicts with the request. Reload current data before asking whether to retry.                           |
 | `NOT_A_CATALOG_LINE`   | `reserve_part` on a workshop PART line with no catalog item (free text). Nothing was reserved. Choose a catalog-backed part line; do not retry this line. |
-| `DUPLICATE_CUSTOMER`    | `propose_customer_create` found a customer with the same e-mail or UID in the tenant. Nothing was proposed. Propose `propose_customer_update` for that customer instead. |
 
 For pending action persistence, `needs_approval` responses, and apply semantics, see [implementation details](../../../../docs/internal/02-Feature-Specs/Platform/pending-actions.md).
 
@@ -278,16 +275,6 @@ Every write tool accepts optional `dry_run: true` (default false). **Preview fir
 Non-dry-run calls evaluate policy first. Disabled actions and `HUMAN_ONLY` return `not_permitted` without previewing or executing the action. Enabled `AUTO` and `PROPOSE` actions run a rollback-transaction preview and return `would_change`; `AUTO` then proceeds to a real write, while `PROPOSE` returns `needs_approval` with a `pending_action_id` and does not execute the action. A dry run with `HUMAN_ONLY` returns `policy_decision` only (no preview of forbidden data). Never present a dry-run preview as completed work. Relay the returned status and what was or was not executed exactly.
 
 Preview ids are provisional. A preview rolls back, so the row it creates is not kept and the committed write creates a different id. Each `would_change` item carries `provisional`: `true` for a row the preview created, or a change to one, and `false` for a change to an existing row, which keeps its committed id. A `needs_approval` response sets `proposal.provisional` to `true`, because nothing is committed until a person applies the pending action. Never open, release, or reuse a provisional id. For an `executed` write, use `result.id`. After a pending action is applied, read the committed row back and use its id.
-
-### Customer master data proposals
-
-`propose_customer_create` and `propose_customer_update` write customer master data only. Both need an `idempotency_key`; a second proposal with the same key is refused while the first one is still pending.
-
-Before a proposal is stored, the tenant is searched for the same customer: e-mail (case-insensitive), phone (national digits, so the country code and the trunk prefix do not matter), UID (upper case, no spaces), and name with postcode (case- and umlaut-insensitive). A candidate list with `customer_id`, `match_reasons`, and `display_name_initials` comes back with the result. An exact e-mail or UID hit refuses the create with `DUPLICATE_CUSTOMER`; propose an update for that customer instead.
-
-Consent is not writable. Both schemas are closed, so a consent field such as `contact_email_ok` or any consent record is rejected as an unrecognized key, and consent stays a human-only action.
-
-The result, the action log, and the trace show masked values only (e-mail as `m***@example.at`, phone with its last three digits, address as `***`). The proposal itself stores only the submitted fields, and an update stores only the changed fields plus the customer id, so the approver sees exactly what was asked for. On apply, the server re-checks that the customer still exists, that the e-mail is still free, and that the customer still holds the values the proposal was based on; a stale proposal fails with `ConflictException` and nothing is written.
 
 ## Trace IDs
 

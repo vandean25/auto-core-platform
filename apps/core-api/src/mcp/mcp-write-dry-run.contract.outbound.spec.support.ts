@@ -9,7 +9,6 @@ import { PendingActionExecutorService } from '../pending-action-executor/pending
 import type { McpWriteToolName } from './mcp.constants.js';
 import { MCP_REGISTERED_TOOL_INPUT_SCHEMAS } from './mcp-server.factory.js';
 import type { McpWriteExecution } from './mcp-write-pipeline.service.js';
-import { mapExecutorHooks } from './mcp-write-execution-hooks.js';
 import { ACTION_TYPE_BY_WRITE_TOOL } from './mcp-write-dry-run.contract.fixture.spec.support.js';
 
 const BLOCKED_OUTBOUND_EFFECTS: SideEffectType[] = [
@@ -46,7 +45,6 @@ export function buildWriteExecution(
       ? (input, executionContext) =>
           executor.preview!(input, executionContext)
       : undefined,
-    ...mapExecutorHooks(executor),
     execute: (input, executionContext) =>
       executor.execute(input, executionContext),
     executeOutsideTransaction: executor.executeOutsideTransaction ?? false,

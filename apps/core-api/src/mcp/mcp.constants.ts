@@ -6,7 +6,6 @@ import {
 } from '@nestjs/common';
 import { ZodError } from 'zod';
 import { NOT_A_CATALOG_LINE_CODE } from '../parts-requisition/parts-requisition.helpers.js';
-import { CUSTOMER_DUPLICATE_CODE } from '../customer/customer-propose.constants.js';
 
 export const MCP_SERVER_IMPLEMENTATION = {
   name: 'auto-core-platform-mcp',
@@ -98,8 +97,6 @@ export const MCP_WRITE_TOOL_NAMES = [
   'propose_estimate_send',
   'request_workshop_media_upload',
   'propose_mechanic_finding',
-  'propose_customer_create',
-  'propose_customer_update',
   'generate_weekly_report_pdf',
 ] as const;
 
@@ -119,7 +116,6 @@ export const MCP_AGENT_FACING_CODES = {
   refusedLogStatus: 'REFUSED',
   notPermitted: 'not_permitted',
   notCatalogLine: NOT_A_CATALOG_LINE_CODE,
-  duplicateCustomer: CUSTOMER_DUPLICATE_CODE,
   forbidden: ForbiddenException.name,
   forbiddenHttpStatus: HttpStatus.FORBIDDEN,
   invalidInput: ZodError.name,
@@ -155,20 +151,3 @@ export const MCP_NEVER_EXPOSED_ACTIONS = [
   'fiscal_receipt.sign',
   'fiscal_receipt.cancel',
 ] as const;
-
-import { MCP_WRITE_POLICY_ACTION_TYPES_AUT598 } from './mcp-write-policy-action-types.aut598.js';
-import { MCP_WRITE_TIER_PROPOSE_CLAMP_TOOLS } from './mcp-write-tier-clamp.js';
-
-const customerWriteTools = [
-  'propose_customer_create',
-  'propose_customer_update',
-] as const satisfies readonly McpWriteToolName[];
-
-for (const tool of customerWriteTools) {
-  (MCP_WRITE_TIER_PROPOSE_CLAMP_TOOLS as Set<McpWriteToolName>).add(tool);
-}
-
-Object.assign(MCP_WRITE_POLICY_ACTION_TYPES_AUT598, {
-  propose_customer_create: 'customer.create',
-  propose_customer_update: 'customer.update',
-});

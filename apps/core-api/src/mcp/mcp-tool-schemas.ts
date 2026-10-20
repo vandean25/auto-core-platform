@@ -48,10 +48,6 @@ import { generateWeeklyReportPdfInputSchema } from '../reports/weekly-report/wee
 import { proposeWorkshopOrderCompletionInputSchema } from '../workshop/workshop-order-completion.schema.js';
 import { proposeInvoiceDraftFromOrderInputSchema } from '../invoices/invoice-workshop-draft-propose.schema.js';
 import { proposeEstimateSendInputSchema } from '../workshop/workshop-estimate-send-propose.schema.js';
-import {
-  proposeCustomerCreateInputSchema,
-  proposeCustomerUpdateInputSchema,
-} from '../customer/customer-propose.schema.js';
 
 const pageSchema = z.number().int().min(1).optional();
 const uuidSchema = z.string().uuid();
@@ -933,8 +929,6 @@ const mcpWriteToolInputSchemasBase: Record<
   propose_estimate_send: proposeEstimateSendInputSchema,
   request_workshop_media_upload: requestWorkshopMediaUploadInputSchema,
   propose_mechanic_finding: proposeMechanicFindingInputSchema,
-  propose_customer_create: proposeCustomerCreateInputSchema,
-  propose_customer_update: proposeCustomerUpdateInputSchema,
   generate_weekly_report_pdf: generateWeeklyReportPdfInputSchema,
 };
 

@@ -38,22 +38,9 @@ const writeProposal = z.object({
   provisional: z.literal(true),
 });
 
-const customerProposalDiffItem = z.object({
-  field: nonEmptyString,
-  before_masked: z.string().nullable(),
-  after_masked: z.string().nullable(),
-});
-
-const customerDuplicateCandidate = z.object({
-  customer_id: idString,
-  match_reasons: z.array(nonEmptyString),
-  display_name_initials: z.string(),
-});
-
-function writeResultOf(tool: McpWriteToolName, extra: Shape = {}) {
+function writeResultOf(tool: McpWriteToolName) {
   const shape = {
     ...optionalShape({
-      ...extra,
       tool: z.literal(tool),
       tier: z.enum(['AUTO', 'PROPOSE']),
       status: z.enum(['executed', 'needs_approval']),
@@ -208,20 +195,6 @@ export const mcpWriteToolOutputSchemas = {
   propose_mechanic_finding: mergeMcpWriteToolOutput(
     'propose_mechanic_finding',
     writeResultOf('propose_mechanic_finding'),
-  ),
-  propose_customer_create: mergeMcpWriteToolOutput(
-    'propose_customer_create',
-    writeResultOf('propose_customer_create', {
-      diff: z.array(customerProposalDiffItem),
-      duplicate_candidates: z.array(customerDuplicateCandidate),
-    }),
-  ),
-  propose_customer_update: mergeMcpWriteToolOutput(
-    'propose_customer_update',
-    writeResultOf('propose_customer_update', {
-      diff: z.array(customerProposalDiffItem),
-      duplicate_candidates: z.array(customerDuplicateCandidate),
-    }),
   ),
   generate_weekly_report_pdf: mergeMcpWriteToolOutput(
     'generate_weekly_report_pdf',

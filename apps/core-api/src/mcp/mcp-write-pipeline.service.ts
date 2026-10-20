@@ -1,13 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { McpWritePipelineHost } from './mcp-write-pipeline.host.js';
-import {
-  runMcpWritePipelineService,
-  type McpWritePipelineServiceHost,
-} from './mcp-write-pipeline.service.run.js';
-import type {
-  McpWriteExecution,
-  McpWriteToolContext,
-} from './mcp-write-pipeline.types.js';
 
 export type {
   McpWriteExecution,
@@ -15,19 +7,6 @@ export type {
   McpWriteToolResult,
 } from './mcp-write-pipeline.types.js';
 
-/** Nest injection token for the MCP write pipeline. */
+/** Nest injection token; implementation lives in {@link McpWritePipelineHost}. */
 @Injectable()
-export class McpWritePipelineService extends McpWritePipelineHost {
-  override run(
-    execution: McpWriteExecution,
-    input: unknown,
-    context: McpWriteToolContext,
-  ) {
-    return runMcpWritePipelineService(
-      this as unknown as McpWritePipelineServiceHost,
-      execution,
-      input,
-      context,
-    );
-  }
-}
+export class McpWritePipelineService extends McpWritePipelineHost {}

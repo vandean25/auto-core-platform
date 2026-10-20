@@ -17,8 +17,6 @@ export const ACTION_TYPE_BY_WRITE_TOOL: Record<
   propose_estimate_send: 'workshop_estimate.send',
   request_workshop_media_upload: 'workshop.media_upload_slot',
   propose_mechanic_finding: 'workshop_order.propose_mechanic_finding',
-  propose_customer_create: 'customer.create',
-  propose_customer_update: 'customer.update',
   generate_weekly_report_pdf: 'report.generate_weekly_pdf',
 };
 
@@ -98,18 +96,6 @@ export const DRY_RUN_MINIMAL_INPUTS: Partial<
     workshop_order_id: '00000000-0000-4000-8000-000000000001',
     workshop_task_id: '00000000-0000-4000-8000-000000000006',
     description: 'Dry run finding',
-  },
-  propose_customer_create: {
-    customer_type: 'PRIVATE',
-    first_name: 'Max',
-    last_name: 'Mustermann',
-    idempotency_key: 'aut613-dry-run-create',
-  },
-  propose_customer_update: {
-    customer_id: '00000000-0000-4000-8000-000000000040',
-    changes: { email: 'neu@example.at' },
-    reason: 'Dry run customer change',
-    idempotency_key: 'aut613-dry-run-update',
   },
   generate_weekly_report_pdf: { iso_week: '2026-W42' },
 };

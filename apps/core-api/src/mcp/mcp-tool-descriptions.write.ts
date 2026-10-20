@@ -47,12 +47,6 @@ export const MCP_WRITE_TOOL_DESCRIPTIONS_WITH_DRY_RUN: Record<
   propose_mechanic_finding: withDryRunHint(
     'Propose an additional mechanic finding with photos for advisor review (never sends customer messages; records one pending proposal)',
   ),
-  propose_customer_create: withDryRunHint(
-    'Propose a new customer record for human approval (never executes; records one pending proposal). The tenant is checked for a duplicate e-mail, phone, UID, or name and postcode before the proposal is stored, and an exact e-mail or UID hit is refused with DUPLICATE_CUSTOMER so the agent can propose an update instead. Consent fields are rejected by the schema; consent stays human-only | DE: Schlägt einen neuen Kundenstammdatensatz zur menschlichen Freigabe vor (führt nie selbst aus; legt genau einen offenen Vorschlag an). Vor dem Speichern wird auf doppelte E-Mail, Telefon, UID oder Name und PLZ geprüft; ein exakter Treffer bei E-Mail oder UID wird mit DUPLICATE_CUSTOMER abgelehnt, damit stattdessen eine Änderung vorgeschlagen werden kann. Einwilligungsfelder werden vom Schema abgelehnt; Einwilligung bleibt ausschließlich menschlich',
-  ),
-  propose_customer_update: withDryRunHint(
-    'Propose a change to the master data of an existing customer for human approval (never executes; records one pending proposal). Only the changed fields and the customer id are stored, and the approval re-checks that the customer still exists, that the e-mail is still free, and that the customer still has the values the proposal was based on. Consent fields are rejected by the schema; consent stays human-only | DE: Schlägt eine Änderung der Stammdaten eines bestehenden Kunden zur menschlichen Freigabe vor (führt nie selbst aus; legt genau einen offenen Vorschlag an). Es werden nur die geänderten Felder und die Kunden-ID gespeichert; bei der Freigabe wird erneut geprüft, ob der Kunde noch existiert, ob die E-Mail noch frei ist und ob der Kunde noch die Werte des Vorschlags hat. Einwilligungsfelder werden vom Schema abgelehnt; Einwilligung bleibt ausschließlich menschlich',
-  ),
   generate_weekly_report_pdf: withDryRunHint(
     'Render the internal weekly report PDF for one ISO calendar week (Monday through Sunday in the site timezone) and return a short-lived read link. Does not archive the PDF or send anything externally',
   ),

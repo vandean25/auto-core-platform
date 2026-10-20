@@ -184,20 +184,6 @@
       "WorkshopTaskLineItem": "Werkstattposition",
       "Customer": "Kunde",
       "SalesOrder": "Verkaufsauftrag"
-    },
-    "fields": {
-      "customer_type": "Kundentyp",
-      "first_name": "Vorname",
-      "last_name": "Nachname",
-      "company_name": "Firmenname",
-      "email": "E-Mail-Adresse",
-      "phone": "Telefon",
-      "vat_id": "UID",
-      "preferred_language": "Sprache",
-      "address.street": "Straße",
-      "address.zip": "PLZ",
-      "address.city": "Ort",
-      "address.country": "Land"
     }
   }
 }

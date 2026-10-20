@@ -8,7 +8,6 @@ import {
   type CustomerMatchContext,
 } from './customer-import.logic.js';
 import { pickCustomerAuditSnapshot } from './import-audit.util.js';
-import { normalizeMatchEmail } from '../customer/customer-match.util.js';
 import type { ImportDryRunInput } from './import-type-handler.js';
 import type { DryRunRowResult } from './import.types.js';
 
@@ -58,9 +57,8 @@ async function loadCustomerMatchContext(
   for (const customer of customers) {
     const snapshot = pickCustomerAuditSnapshot(customer);
     customerById.set(customer.id, snapshot);
-    const emailKey = normalizeMatchEmail(customer.email);
-    if (emailKey) {
-      customerByEmail.set(emailKey, {
+    if (customer.email) {
+      customerByEmail.set(customer.email.toLowerCase(), {
         id: customer.id,
         record: snapshot,
       });

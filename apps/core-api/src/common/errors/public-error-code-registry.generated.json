@@ -233,18 +233,6 @@
       "public": false,
       "params": []
     },
-    "CUSTOMER_NO_CHANGES": {
-      "public": false,
-      "params": []
-    },
-    "CUSTOMER_PROPOSAL_INVALID": {
-      "public": false,
-      "params": []
-    },
-    "CUSTOMER_STALE_PROPOSAL": {
-      "public": false,
-      "params": []
-    },
     "CUSTOMER_VAT_ID_INVALID": {
       "public": false,
       "params": []
@@ -255,10 +243,6 @@
     },
     "DRY_RUN_NOT_SUPPORTED": {
       "public": true,
-      "params": []
-    },
-    "DUPLICATE_CUSTOMER": {
-      "public": false,
       "params": []
     },
     "EQUIPMENT_PORTAL_MAP_UNSUPPORTED": {
