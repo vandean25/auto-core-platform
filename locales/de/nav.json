@@ -3,6 +3,16 @@
     "acp": "ACP",
     "workshopBadge": "Werkstatt"
   },
+  "groups": {
+    "overview": "Übersicht",
+    "sales": "Verkauf",
+    "workshop": "Werkstatt",
+    "vehicles": "Fahrzeuge",
+    "inventoryPurchasing": "Lager & Einkauf",
+    "finance": "Finanzen",
+    "administration": "Verwaltung",
+    "favorites": "Favoriten"
+  },
   "sections": {
     "coreModules": "Kernmodule",
     "favorites": "Favoriten"
@@ -23,6 +33,7 @@
     "pickerlDue": "Pickerl fällig",
     "gewaehrleistungDue": "Gewährleistung fällig",
     "vehicleStock": "Fahrzeugbestand",
+    "vehicleStockReports": "Bestandsberichte",
     "salesOrders": "Kundenaufträge",
     "salesInvoices": "Rechnungen",
     "workshopOrders": "Werkstattaufträge",
@@ -40,7 +51,8 @@
     "creditNotes": "Gutschriften",
     "accountingExportReadiness": "Exportbereitschaft",
     "purchaseBills": "Eingangsrechnungen",
-    "finance": "Finanzen"
+    "finance": "Finanzeinstellungen",
+    "settings": "Einstellungen"
   },
   "footer": {
     "search": "Suche",

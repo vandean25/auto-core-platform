@@ -3,6 +3,16 @@
     "acp": "ACP",
     "workshopBadge": "Workshop"
   },
+  "groups": {
+    "overview": "Overview",
+    "sales": "Sales",
+    "workshop": "Workshop",
+    "vehicles": "Vehicles",
+    "inventoryPurchasing": "Inventory & Purchasing",
+    "finance": "Finance",
+    "administration": "Administration",
+    "favorites": "Favorites"
+  },
   "sections": {
     "coreModules": "Core Modules",
     "favorites": "Favorites"
@@ -23,6 +33,7 @@
     "pickerlDue": "Pickerl due",
     "gewaehrleistungDue": "Statutory warranty due",
     "vehicleStock": "Vehicle Stock",
+    "vehicleStockReports": "Stock reports",
     "salesOrders": "Sales Orders",
     "salesInvoices": "Invoices",
     "workshopOrders": "Workshop Orders",
@@ -40,7 +51,8 @@
     "creditNotes": "Credit Notes",
     "accountingExportReadiness": "Export Readiness",
     "purchaseBills": "Purchase Bills",
-    "finance": "Finance"
+    "finance": "Finance settings",
+    "settings": "Settings"
   },
   "footer": {
     "search": "Search",

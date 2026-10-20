@@ -1,0 +1,61 @@
+import { useCallback, useState } from 'react'
+
+/**
+ * The key and value of the first sidebar release stay as they are, so a saved preference still
+ * applies after the redesign. The value is `'true'` when the sidebar shows icons only.
+ */
+const SIDEBAR_COLLAPSED_STORAGE_KEY = 'acp:sidebar-collapsed'
+const SIDEBAR_GROUPS_STORAGE_KEY = 'acp:sidebar-groups'
+
+export type SidebarGroupState = Record<string, boolean>
+
+export function readSidebarCollapsed(): boolean {
+  try {
+    return window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
+
+export function writeSidebarCollapsed(collapsed: boolean) {
+  try {
+    window.localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(collapsed))
+  } catch {
+    // Storage can be blocked (private window, cleared site data). The sidebar still works for this visit.
+  }
+}
+
+export function readSidebarGroupState(): SidebarGroupState {
+  try {
+    const parsed: unknown = JSON.parse(window.localStorage.getItem(SIDEBAR_GROUPS_STORAGE_KEY) ?? 'null')
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return {}
+    }
+    return Object.fromEntries(Object.entries(parsed).filter(([, open]) => typeof open === 'boolean'))
+  } catch {
+    return {}
+  }
+}
+
+export function writeSidebarGroupState(state: SidebarGroupState) {
+  try {
+    window.localStorage.setItem(SIDEBAR_GROUPS_STORAGE_KEY, JSON.stringify(state))
+  } catch {
+    // Same as writeSidebarCollapsed: the groups keep their state until the page is reloaded.
+  }
+}
+
+/** Open state of one navigation group. Groups start open; the choice is kept per browser. */
+export function useSidebarGroupOpen(groupId: string) {
+  const [open, setOpenState] = useState(() => readSidebarGroupState()[groupId] ?? true)
+
+  const setOpen = useCallback(
+    (nextOpen: boolean) => {
+      setOpenState(nextOpen)
+      writeSidebarGroupState({ ...readSidebarGroupState(), [groupId]: nextOpen })
+    },
+    [groupId],
+  )
+
+  return [open, setOpen] as const
+}
