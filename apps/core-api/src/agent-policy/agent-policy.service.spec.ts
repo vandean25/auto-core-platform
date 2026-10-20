@@ -12,6 +12,7 @@ import { TenantContextStorage } from '../common/services/tenant-context.storage.
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import { AgentPolicyService } from './agent-policy.service.js';
+import { ruleRow } from './agent-policy-rule.spec.support.js';
 import type {
   AgentPolicyEvaluateRequestDto,
   UpsertAgentPolicyRuleDto,
@@ -21,19 +22,27 @@ const TENANT_ID = 'tenant-1';
 const ACTION_TYPE = 'inventory.part_reserve';
 const FIREBASE_UID = 'firebase-uid-1';
 
-function ruleRow(overrides: Record<string, unknown> = {}) {
-  return {
-    id: 'rule-row-1',
-    tenant_id: null,
-    action_type: ACTION_TYPE,
-    tier: AgentPolicyTier.AUTO,
-    conditions_json: { amount_max: 250 },
-    enabled: true,
-    version: 1,
-    created_at: new Date('2026-10-01T00:00:00.000Z'),
-    updated_at: new Date('2026-10-01T00:00:00.000Z'),
-    ...overrides,
-  };
+const CUSTOMER_CODE_DEFAULT_MATCHERS = [
+  expect.objectContaining({
+    id: 'code-default:customer.create',
+    action_type: 'customer.create',
+    tier: AgentPolicyTier.PROPOSE,
+    enabled: false,
+    source: 'platform',
+  }),
+  expect.objectContaining({
+    id: 'code-default:customer.update',
+    action_type: 'customer.update',
+    tier: AgentPolicyTier.PROPOSE,
+    enabled: false,
+    source: 'platform',
+  }),
+];
+
+function expectListRulesIncludesCustomerDefaults(
+  data: { action_type: string }[],
+): void {
+  expect(data).toEqual(expect.arrayContaining(CUSTOMER_CODE_DEFAULT_MATCHERS));
 }
 
 function createService() {
@@ -365,24 +374,24 @@ describe('AgentPolicyService.listRules', () => {
       }),
     ]);
 
-    await expect(h.service.listRules()).resolves.toEqual({
-      data: [
-        expectedDto({
-          id: 'tenant-ipr',
-          tier: AgentPolicyTier.HUMAN_ONLY,
-          conditions: { amount_max: 100 },
-          enabled: false,
-          version: 2,
-          source: 'tenant',
-        }),
-        expectedDto({
-          id: 'platform-wo',
-          action_type: 'workshop_order.create',
-          tier: AgentPolicyTier.PROPOSE,
-          conditions: {},
-        }),
-      ],
-    });
+    const { data } = await h.service.listRules();
+    expectListRulesIncludesCustomerDefaults(data);
+    expect(data.slice(2)).toEqual([
+      expectedDto({
+        id: 'tenant-ipr',
+        tier: AgentPolicyTier.HUMAN_ONLY,
+        conditions: { amount_max: 100 },
+        enabled: false,
+        version: 2,
+        source: 'tenant',
+      }),
+      expectedDto({
+        id: 'platform-wo',
+        action_type: 'workshop_order.create',
+        tier: AgentPolicyTier.PROPOSE,
+        conditions: {},
+      }),
+    ]);
   });
 
   it('sorts the effective rules by action type even when the rows arrive unsorted', async () => {
@@ -397,8 +406,11 @@ describe('AgentPolicyService.listRules', () => {
     ]);
 
     const { data } = await h.service.listRules();
+    expectListRulesIncludesCustomerDefaults(data);
 
     expect(data.map((rule) => rule.action_type)).toEqual([
+      'customer.create',
+      'customer.update',
       ACTION_TYPE,
       'workshop_order.create',
     ]);
@@ -413,11 +425,14 @@ describe('AgentPolicyService.listRules', () => {
     ]);
 
     const { data } = await h.service.listRules();
+    expectListRulesIncludesCustomerDefaults(data);
 
     expect(data.map((rule) => rule.action_type)).toEqual([
       'Z.rule',
       'a.rule',
       'b.rule',
+      'customer.create',
+      'customer.update',
     ]);
   });
 
@@ -429,15 +444,15 @@ describe('AgentPolicyService.listRules', () => {
       ruleRow({ id: 'platform-v1', version: 1 }),
     ]);
 
-    await expect(h.service.listRules()).resolves.toEqual({
-      data: [
-        expectedDto({
-          id: 'platform-v3',
-          tier: AgentPolicyTier.PROPOSE,
-          version: 3,
-        }),
-      ],
-    });
+    const { data } = await h.service.listRules();
+    expectListRulesIncludesCustomerDefaults(data);
+    expect(data.slice(2)).toEqual([
+      expectedDto({
+        id: 'platform-v3',
+        tier: AgentPolicyTier.PROPOSE,
+        version: 3,
+      }),
+    ]);
   });
 
   it('keeps only the newest tenant version when the tenant overrides', async () => {
@@ -452,16 +467,16 @@ describe('AgentPolicyService.listRules', () => {
       ruleRow({ id: 'tenant-v1', tenant_id: TENANT_ID, version: 1 }),
     ]);
 
-    await expect(h.service.listRules()).resolves.toEqual({
-      data: [
-        expectedDto({
-          id: 'tenant-v2',
-          tier: AgentPolicyTier.HUMAN_ONLY,
-          version: 2,
-          source: 'tenant',
-        }),
-      ],
-    });
+    const { data } = await h.service.listRules();
+    expectListRulesIncludesCustomerDefaults(data);
+    expect(data.slice(2)).toEqual([
+      expectedDto({
+        id: 'tenant-v2',
+        tier: AgentPolicyTier.HUMAN_ONLY,
+        version: 2,
+        source: 'tenant',
+      }),
+    ]);
   });
 
   it('includes tenant-only actions that have no platform default, tagged as tenant', async () => {
@@ -475,28 +490,34 @@ describe('AgentPolicyService.listRules', () => {
       }),
     ]);
 
-    await expect(h.service.listRules()).resolves.toEqual({
-      data: [
-        expectedDto({
-          id: 'tenant-custom',
-          action_type: 'custom.tenant_only',
-          conditions: {},
-          source: 'tenant',
-        }),
-      ],
-    });
+    const { data } = await h.service.listRules();
+    expectListRulesIncludesCustomerDefaults(data);
+    expect(
+      data.find((rule) => rule.action_type === 'custom.tenant_only'),
+    ).toEqual(
+      expectedDto({
+        id: 'tenant-custom',
+        action_type: 'custom.tenant_only',
+        conditions: {},
+        source: 'tenant',
+      }),
+    );
   });
 
-  it('returns an empty list when no rules exist', async () => {
+  it('returns customer code defaults when no stored rules exist', async () => {
     const h = buildHarness();
 
-    await expect(h.service.listRules()).resolves.toEqual({ data: [] });
+    const { data } = await h.service.listRules();
+    expectListRulesIncludesCustomerDefaults(data);
+    expect(data).toHaveLength(2);
   });
 
   it.each(['ADMIN', 'OWNER'])('allows %s callers', async (role) => {
     const h = buildHarness({ role });
 
-    await expect(h.service.listRules()).resolves.toEqual({ data: [] });
+    const { data } = await h.service.listRules();
+    expectListRulesIncludesCustomerDefaults(data);
+    expect(data).toHaveLength(2);
   });
 
   it.each(['SALES', null])(
@@ -1132,6 +1153,65 @@ describe('AgentPolicyService.evaluateAction', () => {
     expectLatestRuleLookup(h.systemPrisma.agentPolicyRule.findFirst, {
       tenant_id: null,
       action_type: padded,
+    });
+  });
+});
+
+
+describe('AgentPolicyService code platform defaults', () => {
+  it('resolves the code default of a customer action when no row exists', async () => {
+    const h = buildHarness();
+
+    await expect(
+      h.service.getEffectiveRule('customer.create'),
+    ).resolves.toMatchObject({
+      id: 'code-default:customer.create',
+      tier: AgentPolicyTier.PROPOSE,
+      enabled: false,
+      source: 'platform',
+    });
+  });
+
+  it('lets a tenant admin enable a customer action at PROPOSE', async () => {
+    const h = buildHarness();
+
+    await expect(
+      h.service.upsertRule('customer.create', { tier: AgentPolicyTier.PROPOSE }),
+    ).resolves.toMatchObject({
+      action_type: 'customer.create',
+      tier: AgentPolicyTier.PROPOSE,
+      source: 'tenant',
+    });
+    expect(h.tx.agentPolicyRule.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action_type: 'customer.create',
+        tier: AgentPolicyTier.PROPOSE,
+      }),
+    });
+  });
+
+  it('holds a customer action at PROPOSE, so the tenant cannot choose AUTO', async () => {
+    const h = buildHarness();
+
+    const error = await h.service
+      .upsertRule('customer.create', { tier: AgentPolicyTier.AUTO })
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(UnprocessableEntityException);
+    expect((error as UnprocessableEntityException).getResponse()).toMatchObject({
+      code: 'AGENT_POLICY_LOOSER_THAN_PLATFORM',
+      message:
+        'Tenant policy tier must be at least as strict as the platform default.',
+    });
+    expect(h.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('fails closed while the code default is off', async () => {
+    const h = buildHarness();
+
+    await expect(h.service.evaluateAction('customer.create')).resolves.toMatchObject({
+      tier: AgentPolicyTier.HUMAN_ONLY,
+      reasons: ['rule_disabled_fail_closed'],
     });
   });
 });

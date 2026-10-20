@@ -22,8 +22,25 @@ import { WeeklyReportMcpService } from '../reports/weekly-report/weekly-report-m
 import { McpWriteCommandIdempotencyService } from './mcp-write-command-idempotency.service.js';
 import { McpWritePipelineService } from './mcp-write-pipeline.service.js';
 
-export type PipelineDryRunFixture = {
-  service: McpWritePipelineService;
+const CONTRACT_CUSTOMER = {
+  id: '00000000-0000-4000-8000-000000000040',
+  tenant_id: 'tenant-1',
+  type: 'PRIVATE',
+  first_name: 'Max',
+  last_name: 'Mustermann',
+  company_name: null,
+  email: 'max@example.at',
+  phone: '+43 664 123456',
+  vat_id: null,
+  address_street: 'Mustergasse 1',
+  address_zip: '1010',
+  address_city: 'Wien',
+  address_country: 'AT',
+  preferred_language: 'de',
+  contact_email_ok: true,
+};
+
+export type PipelineDryRunFixture = {  service: McpWritePipelineService;
   executors: PendingActionExecutorService;
   mockAgentPolicy: jest.Mocked<AgentPolicyService>;
   mockAgentActionLog: jest.Mocked<AgentActionLogService>;
@@ -191,6 +208,21 @@ export async function createPipelineDryRunFixture(options?: {
         expect(DryRunStorage.isDryRun()).toBe(true);
         return { id: 'media-1' };
       }),
+    },
+    customer: {
+      findMany: jest.fn().mockResolvedValue([]),
+      findFirst: jest.fn().mockResolvedValue(CONTRACT_CUSTOMER),
+      create: jest.fn().mockImplementation(async () => {
+        expect(DryRunStorage.isDryRun()).toBe(true);
+        return CONTRACT_CUSTOMER;
+      }),
+      update: jest.fn().mockImplementation(async () => {
+        expect(DryRunStorage.isDryRun()).toBe(true);
+        return CONTRACT_CUSTOMER;
+      }),
+    },
+    agentProposal: {
+      findFirst: jest.fn().mockResolvedValue(null),
     },
   };
 

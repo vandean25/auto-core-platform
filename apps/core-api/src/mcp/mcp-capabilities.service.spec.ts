@@ -18,6 +18,7 @@ import {
 } from './mcp-capabilities.service.js';
 import type { McpUserLocaleService } from './mcp-user-locale.service.js';
 import { decodeMcpCursor } from './mcp-output.util.js';
+import { policyRule, TENANT_A_RULES } from './mcp-capabilities.service.spec.support.js';
 
 const TENANT_A = { id: 'tenant-a', name: 'Tenant Alpha' };
 const TENANT_B = { id: 'tenant-b', name: 'Tenant Beta' };
@@ -40,67 +41,8 @@ const AGENT_USER: SessionUser = {
   activeSiteId: 'site-a1',
 };
 
-function policyRule(
-  actionType: string,
-  overrides: Partial<ResolvedAgentPolicyRule> = {},
-): ResolvedAgentPolicyRule {
-  return {
-    id: `rule-${actionType}`,
-    version: 1,
-    action_type: actionType,
-    tier: AgentPolicyTier.AUTO,
-    conditions: {},
-    enabled: true,
-    source: 'platform',
-    created_at: new Date('2026-10-01T00:00:00.000Z'),
-    updated_at: new Date('2026-10-01T00:00:00.000Z'),
-    ...overrides,
-  };
-}
-
-const TENANT_A_RULES: Record<string, ResolvedAgentPolicyRule | null> = {
-  'workshop_order.create': policyRule('workshop_order.create', {
-    enabled: false,
-  }),
-  'inventory.part_reserve': policyRule('inventory.part_reserve'),
-  'inventory.part_release': policyRule('inventory.part_release', {
-    tier: AgentPolicyTier.HUMAN_ONLY,
-  }),
-  // A policy row that says AUTO must still be held at PROPOSE by the MCP clamp.
-  'workshop_order.propose_line': policyRule('workshop_order.propose_line'),
-  'registration_intake.apply': policyRule('registration_intake.apply', {
-    enabled: false,
-  }),
-  'workshop.booking_package': policyRule('workshop.booking_package', {
-    enabled: false,
-  }),
-  'purchase_order.propose_draft': policyRule('purchase_order.propose_draft', {
-    enabled: false,
-  }),
-  'workshop_order.complete': policyRule('workshop_order.complete', {
-    enabled: false,
-  }),
-  'invoice.create_draft_from_workshop_order': policyRule(
-    'invoice.create_draft_from_workshop_order',
-    { enabled: false },
-  ),
-  'estimate.send_customer_message': policyRule('estimate.send_customer_message', {
-    enabled: false,
-  }),
-  'workshop.media_upload_slot': policyRule('workshop.media_upload_slot', {
-    enabled: false,
-  }),
-  'workshop_order.propose_mechanic_finding': policyRule(
-    'workshop_order.propose_mechanic_finding',
-    { enabled: false },
-  ),
-  'report.generate_weekly_pdf': policyRule('report.generate_weekly_pdf', {
-    enabled: false,
-  }),
-};
-
-// Visible tools: every read tool plus 12 write tools (release_reservation is HUMAN_ONLY).
-const VISIBLE_TOOL_COUNT = MCP_READ_TOOL_NAMES.length + 12;
+// Visible tools: every read tool plus 14 write tools (release_reservation is HUMAN_ONLY).
+const VISIBLE_TOOL_COUNT = MCP_READ_TOOL_NAMES.length + 14;
 
 function createService() {
   const authenticated: { user?: SessionUser } = { user: AGENT_USER };
@@ -308,6 +250,8 @@ describe('McpCapabilitiesService.getCapabilities', () => {
       'propose_estimate_send',
       'request_workshop_media_upload',
       'propose_mechanic_finding',
+      'propose_customer_create',
+      'propose_customer_update',
       'generate_weekly_report_pdf',
     ]);
     expect(page.meta).toEqual({
@@ -327,6 +271,12 @@ describe('McpCapabilitiesService.getCapabilities', () => {
       tier: 'PROPOSE',
       access: 'write',
       enabled: true,
+    });
+    expect(tools.get('propose_customer_create')).toMatchObject({
+      tier: 'PROPOSE',
+      access: 'write',
+      enabled: false,
+      disabled_reason: 'policy_disabled',
     });
   });
 

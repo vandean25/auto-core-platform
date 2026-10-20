@@ -15,6 +15,8 @@ import {
   mcpWriteToolInputSchemas,
 } from './mcp-tool-schemas.js';
 import { PendingActionExecutorService } from '../pending-action-executor/pending-action-executor.service.js';
+import { resolveMcpWriteToolPendingActionType } from '../pending-action-executor/pending-action-executor.mcp-write-tool-map.js';
+import { mapExecutorHooks } from './mcp-write-execution-hooks.js';
 
 export type McpToolCallContext = {
   agentId: string;
@@ -154,24 +156,8 @@ export class McpToolHandlerService {
   }
 
   private buildWriteExecution(toolName: McpWriteToolName): McpWriteExecution {
-    const actionTypeByTool: Record<McpWriteToolName, string> = {
-      draft_workshop_order: 'workshop_order.create',
-      reserve_part: 'inventory.part_reserve',
-      release_reservation: 'inventory.part_release',
-      propose_line_item: 'workshop_order.propose_line',
-      propose_registration_intake: 'registration_intake.apply',
-      propose_workshop_booking: 'workshop.booking_package',
-      propose_purchase_order: 'purchase_order.propose_draft',
-      propose_workshop_order_completion: 'workshop_order.complete',
-      propose_invoice_draft_from_order:
-        'invoice.create_draft_from_workshop_order',
-      propose_estimate_send: 'workshop_estimate.send',
-      request_workshop_media_upload: 'workshop.media_upload_slot',
-      propose_mechanic_finding: 'workshop_order.propose_mechanic_finding',
-      generate_weekly_report_pdf: 'report.generate_weekly_pdf',
-    };
     const executor = this.pendingActionExecutors.resolve(
-      actionTypeByTool[toolName],
+      resolveMcpWriteToolPendingActionType(toolName),
     );
     const policyActionType =
       toolName === 'propose_estimate_send'
@@ -188,6 +174,7 @@ export class McpToolHandlerService {
         ? (input, executionContext) =>
             executor.preview!(input, executionContext)
         : undefined,
+      ...mapExecutorHooks(executor),
       execute: (input, executionContext) =>
         executor.execute(input, executionContext),
       executeOutsideTransaction: executor.executeOutsideTransaction ?? false,
@@ -215,6 +202,8 @@ const MCP_WRITE_TOOL_NAME_SET = new Set<string>([
   'propose_estimate_send',
   'request_workshop_media_upload',
   'propose_mechanic_finding',
+  'propose_customer_create',
+  'propose_customer_update',
   'generate_weekly_report_pdf',
 ]);
 
