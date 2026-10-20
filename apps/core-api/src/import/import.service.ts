@@ -34,6 +34,10 @@ import {
   traceImportParse,
   traceImportValidate,
 } from './import-trace.js';
+import {
+  assertImplementedImportEntityType,
+  type ImplementedImportEntityType,
+} from './import-entity-type.guard.js';
 import type { ImportTypeHandler } from './import-type-handler.js';
 import { ImportVendorResolver } from './import-vendor.resolver.js';
 import { parseImportUpload } from './import-upload.util.js';
@@ -69,7 +73,10 @@ function buildRowsWhere(
 export class ImportService {
   private readonly audit: ImportAuditWriter;
   private readonly jobStore: ImportJobStore;
-  private readonly handlers: Record<ImportEntityType, ImportTypeHandler>;
+  private readonly handlers: Record<
+    ImplementedImportEntityType,
+    ImportTypeHandler
+  >;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -124,6 +131,7 @@ export class ImportService {
     optionsJson: ImportJobOptions;
   }) {
     assertTenantAdmin(this.tenantContext);
+    assertImplementedImportEntityType(params.entityType);
     const tenantId = await this.tenantContext.getTenantId();
     const currentUser = await requireActiveCurrentUser(
       this.prisma,
@@ -252,6 +260,7 @@ export class ImportService {
       applyOptions,
     );
     const rows = await this.jobStore.findApplyRows(tenantId, jobId);
+    assertImplementedImportEntityType(job.entity_type);
     const handler = this.handlers[job.entity_type];
     const preparation = await handler.prepareApply({
       tenantId,
@@ -288,6 +297,7 @@ export class ImportService {
 
   getTemplate(entityType: ImportEntityType) {
     assertTenantAdmin(this.tenantContext);
+    assertImplementedImportEntityType(entityType);
     const template = getImportTemplate(entityType);
     return {
       entity_type: template.entity_type,

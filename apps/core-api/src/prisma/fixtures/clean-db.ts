@@ -92,6 +92,10 @@ export const TABLE_CLEANERS: TableCleaner[] = [
   },
   { table: 'labor_operations', clean: (p) => p.laborOperation.deleteMany() },
   {
+    table: 'labor_price_groups',
+    clean: (p) => p.laborPriceGroup.deleteMany(),
+  },
+  {
     table: 'labor_categories',
     clean: async (p) => {
       await p.laborCategory.deleteMany({ where: { parent_id: { not: null } } });

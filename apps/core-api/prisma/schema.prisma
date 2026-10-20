@@ -147,6 +147,7 @@ model Tenant {
   employeeWorkSchedules         EmployeeWorkSchedule[]
   employeeWorkScheduleDays      EmployeeWorkScheduleDay[]
   laborCategories               LaborCategory[]
+  laborPriceGroups              LaborPriceGroup[]
   laborOperations               LaborOperation[]
   laborEntries                  LaborEntry[]
   catalogProviderSettings       CatalogProviderSettings?
@@ -990,6 +991,7 @@ model Brand {
   catalogOemConcernMakes CatalogOemConcernMake[]
   partsRequisitions      PartsRequisition[]
   marginRules            MarginRule[]
+  laborOperationsMakeBrand LaborOperation[] @relation("LaborOperationMakeBrand")
 
   @@unique([tenant_id, name]) // tenant-scoped
   @@unique([tenant_id, normalized_name]) // tenant-scoped canonical name
@@ -1599,6 +1601,19 @@ enum CustomerCommunicationProcessingStatus {
   TOMBSTONED
 }
 
+enum CustomerBlockLevel {
+  NONE
+  INVOICING
+  ALL
+}
+
+enum CustomerSalutation {
+  MR
+  MS
+  NEUTRAL
+  COMPANY
+}
+
 model Customer {
   id           String       @id @default(uuid())
   tenant_id    String
@@ -1622,11 +1637,30 @@ model Customer {
   /// AUT-576 customer document/email language; null follows tenant default.
   preferred_language DisplayLanguage?
 
+  legacy_restricted_at     DateTime?
+  legacy_restricted_reason String?
+  block_level              CustomerBlockLevel @default(NONE)
+  block_reason             String?
+  salutation               CustomerSalutation?
+  title                    String?
+  title_suffix             String?
+  letter_salutation        String?
+  payment_terms_days       Int?
+  payment_terms_text       String?
+  default_bill_to_customer_id String?
+  // Composite FK ON DELETE SET NULL uses column list in migration SQL (Prisma onDelete: SetNull).
+  default_bill_to_customer    Customer?  @relation("CustomerDefaultBillTo", fields: [tenant_id, default_bill_to_customer_id], references: [tenant_id, id], onDelete: SetNull)
+  customers_with_default_bill_to Customer[] @relation("CustomerDefaultBillTo")
+  labor_price_group_id     String?        @db.Uuid
+  // Composite FK ON DELETE SET NULL uses column list in migration SQL (Prisma onDelete: SetNull).
+  labor_price_group        LaborPriceGroup? @relation(fields: [tenant_id, labor_price_group_id], references: [tenant_id, id], onDelete: SetNull)
+
   vehicles                Vehicle[]
   reserved_stock_vehicles Vehicle[]         @relation("VehicleStockReservation")
   invoices                Invoice[]
   sales_orders            SalesOrder[]
-  workshop_orders         WorkshopOrder[]
+  workshop_orders         WorkshopOrder[] @relation("WorkshopOrderCustomer")
+  bill_to_workshop_orders WorkshopOrder[] @relation("WorkshopOrderBillTo")
   vehicle_purchases       VehiclePurchase[] @relation("VehiclePurchaseSeller")
   vehicle_sales           VehicleSale[]
   loaner_bookings         LoanerBooking[]
@@ -3581,7 +3615,9 @@ model WorkshopOrder {
   purpose      WorkshopOrderPurpose @default(CUSTOMER_REPAIR)
 
   customer_id         String?
-  customer            Customer?        @relation(fields: [customer_id], references: [id])
+  customer            Customer?        @relation("WorkshopOrderCustomer", fields: [customer_id], references: [id])
+  bill_to_customer_id String?
+  bill_to_customer    Customer?        @relation("WorkshopOrderBillTo", fields: [tenant_id, bill_to_customer_id], references: [tenant_id, id], onDelete: Restrict)
   vehicle_id          String
   vehicle             Vehicle          @relation(fields: [vehicle_id], references: [id])
   staging_location_id String?
@@ -4681,6 +4717,24 @@ model LaborEntry {
   @@map("labor_entries")
 }
 
+model LaborPriceGroup {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenant_id   String
+  tenant      Tenant   @relation(fields: [tenant_id], references: [id])
+  code        String
+  name        String
+  hourly_rate Decimal  @db.Decimal(10, 2)
+  is_active   Boolean  @default(true)
+  customers   Customer[]
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, code])
+  @@index([tenant_id])
+  @@map("labor_price_groups")
+}
+
 model LaborCategory {
   id                         String          @id @default(uuid()) @db.Uuid
   tenant_id                  String
@@ -4739,6 +4793,8 @@ model LaborOperation {
   internal_cost   Decimal?               @db.Decimal(10, 2)
   category_id     String?                @db.Uuid
   category        LaborCategory?         @relation(fields: [category_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  make_brand_id   Int?                   @map("make_brand_id")
+  makeBrand       Brand?                 @relation("LaborOperationMakeBrand", fields: [make_brand_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
   is_active       Boolean                @default(true)
   fitments        LaborFitment[]
   task_line_items WorkshopTaskLineItem[]
@@ -4751,6 +4807,7 @@ model LaborOperation {
   @@index([description])
   @@index([code, description])
   @@index([category_id])
+  @@index([make_brand_id])
   @@index([is_active, description], name: "labor_operations_is_active_description_idx")
   @@map("labor_operations")
 }
@@ -4764,6 +4821,7 @@ model LaborFitment {
   year_from          Int?
   year_to            Int?
   engine_code        String?
+  standard_aw        Decimal?       @db.Decimal(10, 2)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -4778,6 +4836,19 @@ enum ImportEntityType {
   VEHICLE
   SUPPLIER_PRICE_LIST
   LABOR_OPERATION
+  PART
+  VENDOR
+  STOCK_OPENING_BALANCE
+  OPEN_WORKSHOP_ORDER
+  LEGACY_SERVICE_ORDER
+  LEGACY_INVOICE
+  LEGACY_OPEN_ITEM
+  TYRE_SET
+  VEHICLE_PARTY
+  VEHICLE_DUE_DATE
+  VEHICLE_NOTICE
+  LABOR_STANDARD_TIME
+  LABOR_PRICE_GROUP
 }
 
 enum ImportJobStatus {

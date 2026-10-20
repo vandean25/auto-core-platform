@@ -2,10 +2,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, RequestMethod, ValidationPipe } from '@nestjs/common';
 import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 const SWAGGER_API_RESPONSE = 'swagger/apiResponse';
-import {
-  parsePaginationParams,
-  WorkshopController,
-} from './workshop.controller.js';
+import { parsePaginationParams } from './workshop-controller.http-helpers.js';
+import { WorkshopController } from './workshop.controller.js';
+import { WorkshopOrderPdfController } from './workshop-order-pdf.controller.js';
+import { WorkshopOrderTasksController } from './workshop-order-tasks.controller.js';
+import { WorkshopOrdersController } from './workshop-orders.controller.js';
 import { WorkshopHolidayController } from './workshop-holidays.controller.js';
 import { WorkshopSettingsController } from './workshop-settings.controller.js';
 import { WorkshopPlannerController } from './workshop-planner.controller.js';
@@ -25,133 +26,36 @@ import { PickWorkshopPartsResponseDto } from './dto/pick-workshop-parts-response
 import { AddWorkshopTaskLineFromCatalogResponseDto } from './dto/workshop-catalog-line-response.dto.js';
 import { WorkshopInspectionService } from './workshop-inspection.service.js';
 
-describe('WorkshopController', () => {
-  let controller: WorkshopController;
+describe('WorkshopOrdersController', () => {
+  let controller: WorkshopOrdersController;
 
   const mockIntakeService = {
     findAll: jest.fn(),
   };
-  const mockTaskService = {};
-  const mockCatalogLineService = {};
-  const mockPickPartsService = {};
-  const mockBoardService = {};
-  const mockInvoiceService = {};
-  const mockPdfService = {
-    requestGeneration: jest.fn(),
-  };
-
-  const originalTargetBaseUrl = process.env.CLOUD_TASKS_TARGET_BASE_URL;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
+      controllers: [WorkshopOrdersController],
       providers: [
-        WorkshopController,
         { provide: WorkshopIntakeService, useValue: mockIntakeService },
-        { provide: WorkshopInspectionService, useValue: {} },
-        { provide: WorkshopTaskService, useValue: mockTaskService },
-        {
-          provide: WorkshopCatalogLineService,
-          useValue: mockCatalogLineService,
-        },
-        { provide: WorkshopPickPartsService, useValue: mockPickPartsService },
-        { provide: WorkshopBoardService, useValue: mockBoardService },
-        { provide: WorkshopInvoiceService, useValue: mockInvoiceService },
-        { provide: WorkshopPdfService, useValue: mockPdfService },
-        { provide: WorkshopSettingsService, useValue: {} },
-        { provide: WorkshopHolidayService, useValue: {} },
-        { provide: WorkshopPlannerService, useValue: {} },
-        {
-          provide: TenantContextService,
-          useValue: { setTenantIdForWorker: jest.fn() },
-        },
+        { provide: WorkshopInvoiceService, useValue: {} },
       ],
     }).compile();
 
-    controller = module.get(WorkshopController);
+    controller = module.get(WorkshopOrdersController);
     jest.clearAllMocks();
   });
 
-  afterEach(() => {
-    if (originalTargetBaseUrl === undefined) {
-      delete process.env.CLOUD_TASKS_TARGET_BASE_URL;
-    } else {
-      process.env.CLOUD_TASKS_TARGET_BASE_URL = originalTargetBaseUrl;
-    }
-  });
-
-  it('uses the configured Cloud Tasks base URL for workshop PDF generation', async () => {
-    process.env.CLOUD_TASKS_TARGET_BASE_URL = 'https://app.example.com/api';
-    mockPdfService.requestGeneration.mockResolvedValue({
-      mode: 'enqueued',
-      taskId: 'task-1',
-    });
-
-    await expect(
-      controller.generatePdf('11111111-1111-1111-1111-111111111111'),
-    ).resolves.toEqual({
-      message: 'PDF generation enqueued',
-      enqueued: true,
-      taskId: 'task-1',
-    });
-
-    expect(mockPdfService.requestGeneration).toHaveBeenCalledWith(
-      '11111111-1111-1111-1111-111111111111',
-      { targetBaseUrl: 'https://app.example.com/api' },
-    );
-  });
-
-  it('registers pick-parts route under workshop orders path', () => {
-    const routePath = Reflect.getMetadata(PATH_METADATA, controller.pickParts);
-    const routeMethod = Reflect.getMetadata(
-      METHOD_METADATA,
-      controller.pickParts,
-    );
-
-    expect(routePath).toBe('orders/:id/pick-parts');
-    expect(routeMethod).toBe(RequestMethod.POST);
-  });
-
-  it('documents pick-parts response schema in Swagger metadata', () => {
-    const responses = Reflect.getMetadata(
-      SWAGGER_API_RESPONSE,
-      controller.pickParts,
-    ) as Record<string, { type?: unknown }>;
-
-    expect(responses?.['201']?.type).toBe(PickWorkshopPartsResponseDto);
-  });
-
-  it('registers the token-only catalog line route with a 200 response', () => {
-    const routePath = Reflect.getMetadata(
-      PATH_METADATA,
-      controller.addTaskLineFromCatalog,
-    );
-    const routeMethod = Reflect.getMetadata(
-      METHOD_METADATA,
-      controller.addTaskLineFromCatalog,
-    );
-    const responses = Reflect.getMetadata(
-      SWAGGER_API_RESPONSE,
-      controller.addTaskLineFromCatalog,
-    ) as Record<string, { type?: unknown }>;
-
-    expect(routePath).toBe('orders/:id/tasks/:taskId/lines/from-catalog');
-    expect(routeMethod).toBe(RequestMethod.POST);
-    expect(responses?.['200']?.type).toBe(
-      AddWorkshopTaskLineFromCatalogResponseDto,
-    );
-    expect(responses?.['401']).toBeDefined();
-    expect(responses?.['409']).toBeDefined();
-  });
-
-  it('delegates findAll to intakeService with parsed pagination', () => {
+  it('delegates findAll to intake service with parsed pagination', () => {
     mockIntakeService.findAll.mockReturnValue({ data: [], meta: {} });
-    const result = controller.findAll({
+    const query = {
       search: 'oil',
       page: '2',
       pageSize: '25',
       sortField: 'createdAt',
       sortDirection: 'desc',
-    });
+    };
+    const result = controller.findAll(query);
 
     expect(mockIntakeService.findAll).toHaveBeenCalledWith({
       search: 'oil',
@@ -206,6 +110,144 @@ describe('WorkshopController', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
+});
+
+describe('WorkshopOrderPdfController', () => {
+  let controller: WorkshopOrderPdfController;
+  const mockPdfService = {
+    requestGeneration: jest.fn(),
+  };
+  const originalTargetBaseUrl = process.env.CLOUD_TASKS_TARGET_BASE_URL;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [WorkshopOrderPdfController],
+      providers: [
+        { provide: WorkshopPdfService, useValue: mockPdfService },
+        {
+          provide: TenantContextService,
+          useValue: { setTenantIdForWorker: jest.fn() },
+        },
+      ],
+    }).compile();
+
+    controller = module.get(WorkshopOrderPdfController);
+    jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    if (originalTargetBaseUrl === undefined) {
+      delete process.env.CLOUD_TASKS_TARGET_BASE_URL;
+    } else {
+      process.env.CLOUD_TASKS_TARGET_BASE_URL = originalTargetBaseUrl;
+    }
+  });
+
+  it('uses the configured Cloud Tasks base URL for workshop PDF generation', async () => {
+    process.env.CLOUD_TASKS_TARGET_BASE_URL = 'https://app.example.com/api';
+    mockPdfService.requestGeneration.mockResolvedValue({
+      mode: 'enqueued',
+      taskId: 'task-1',
+    });
+
+    await expect(
+      controller.generatePdf('11111111-1111-1111-1111-111111111111'),
+    ).resolves.toEqual({
+      message: 'PDF generation enqueued',
+      enqueued: true,
+      taskId: 'task-1',
+    });
+
+    expect(mockPdfService.requestGeneration).toHaveBeenCalledWith(
+      '11111111-1111-1111-1111-111111111111',
+      { targetBaseUrl: 'https://app.example.com/api' },
+    );
+  });
+});
+
+describe('WorkshopOrderTasksController', () => {
+  let controller: WorkshopOrderTasksController;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [WorkshopOrderTasksController],
+      providers: [
+        { provide: WorkshopCatalogLineService, useValue: {} },
+        { provide: WorkshopInspectionService, useValue: {} },
+        { provide: WorkshopPickPartsService, useValue: {} },
+        { provide: WorkshopTaskService, useValue: {} },
+      ],
+    }).compile();
+
+    controller = module.get(WorkshopOrderTasksController);
+  });
+
+  it('registers pick-parts route under workshop orders path', () => {
+    const routePath = Reflect.getMetadata(PATH_METADATA, controller.pickParts);
+    const routeMethod = Reflect.getMetadata(
+      METHOD_METADATA,
+      controller.pickParts,
+    );
+
+    expect(routePath).toBe('orders/:id/pick-parts');
+    expect(routeMethod).toBe(RequestMethod.POST);
+  });
+
+  it('documents pick-parts response schema in Swagger metadata', () => {
+    const responses = Reflect.getMetadata(
+      SWAGGER_API_RESPONSE,
+      controller.pickParts,
+    ) as Record<string, { type?: unknown }>;
+
+    expect(responses?.['201']?.type).toBe(PickWorkshopPartsResponseDto);
+  });
+
+  it('registers the token-only catalog line route with a 200 response', () => {
+    const routePath = Reflect.getMetadata(
+      PATH_METADATA,
+      controller.addTaskLineFromCatalog,
+    );
+    const routeMethod = Reflect.getMetadata(
+      METHOD_METADATA,
+      controller.addTaskLineFromCatalog,
+    );
+    const responses = Reflect.getMetadata(
+      SWAGGER_API_RESPONSE,
+      controller.addTaskLineFromCatalog,
+    ) as Record<string, { type?: unknown }>;
+
+    expect(routePath).toBe('orders/:id/tasks/:taskId/lines/from-catalog');
+    expect(routeMethod).toBe(RequestMethod.POST);
+    expect(responses?.['200']?.type).toBe(
+      AddWorkshopTaskLineFromCatalogResponseDto,
+    );
+    expect(responses?.['401']).toBeDefined();
+    expect(responses?.['409']).toBeDefined();
+  });
+});
+
+describe('WorkshopController', () => {
+  let controller: WorkshopController;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        WorkshopController,
+        { provide: WorkshopIntakeService, useValue: {} },
+        { provide: WorkshopBoardService, useValue: {} },
+      ],
+    }).compile();
+
+    controller = module.get(WorkshopController);
+  });
+
+  it('exposes workshop search on the workshop controller', () => {
+    const routePath = Reflect.getMetadata(PATH_METADATA, controller.search);
+    expect(routePath).toBe('search');
+  });
+});
+
+describe('workshop pagination helpers', () => {
   describe('parsePaginationParams', () => {
     it('parses valid positive integer page and pageSize', () => {
       expect(parsePaginationParams('1', '20')).toEqual({

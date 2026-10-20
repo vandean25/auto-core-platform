@@ -27,7 +27,6 @@ VALUES
   ('brands'),
   ('catalog_oem_concerns'),
   ('credit_note_sequences'),
-  ('customers'),
   ('decision_shadow_logs'),
   ('document_brand_quota_events'),
   ('document_brand_quota_locks'),
@@ -40,6 +39,7 @@ VALUES
   ('inspection_templates'),
   ('invoice_sequences'),
   ('labor_categories'),
+  ('labor_price_groups'),
   ('legal_entities'),
   ('mcp_write_command_receipts'),
   ('revenue_groups'),
@@ -58,9 +58,7 @@ VALUES
   ('catalog_items'),
   ('catalog_oem_concern_makes'),
   ('catalog_provider_settings'),
-  ('customer_communication_states'),
-  ('customer_consent_unsubscribe_tokens'),
-  ('customer_contact_points'),
+  ('customers'),
   ('document_brand_assets'),
   ('employee_leave_balances'),
   ('external_id_mappings'),
@@ -78,7 +76,9 @@ VALUES
   ('voice_note_rate_limits'),
   ('bays'),
   ('catalog_price_histories'),
-  ('customer_consents'),
+  ('customer_communication_states'),
+  ('customer_consent_unsubscribe_tokens'),
+  ('customer_contact_points'),
   ('document_brand_extractions'),
   ('domain_events'),
   ('employee_work_schedules'),
@@ -98,6 +98,7 @@ VALUES
   ('vendor_articles'),
   ('workshop_holidays'),
   ('workshop_opening_hours'),
+  ('customer_consents'),
   ('document_brand_profiles'),
   ('domain_event_consumer_deliveries'),
   ('employee_work_schedule_days'),
@@ -243,6 +244,8 @@ VALUES
   ('customer_consents', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('customer_contact_points', 'customers', 'tenant_id,customer_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('customer_contact_points', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('customers', 'customers', 'tenant_id,default_bill_to_customer_id', 'tenant_id,id', 'SET NULL', 'CASCADE'),
+  ('customers', 'labor_price_groups', 'tenant_id,labor_price_group_id', 'tenant_id,id', 'SET NULL', 'CASCADE'),
   ('customers', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('decision_shadow_logs', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('document_brand_assets', 'document_brand_assets', 'tenant_id,legal_entity_id,source_asset_id', 'tenant_id,legal_entity_id,id', 'RESTRICT', 'CASCADE'),
@@ -379,8 +382,10 @@ VALUES
   ('labor_entries', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('labor_entries', 'workshop_tasks', 'tenant_id,workshop_task_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('labor_fitments', 'labor_operations', 'labor_operation_id', 'id', 'CASCADE', 'CASCADE'),
+  ('labor_operations', 'brands', 'make_brand_id', 'id', 'SET NULL', 'CASCADE'),
   ('labor_operations', 'labor_categories', 'category_id', 'id', 'RESTRICT', 'CASCADE'),
   ('labor_operations', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('labor_price_groups', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('landing_demo_sign_in_grants', 'landing_demo_access_requests', 'access_request_id', 'id', 'RESTRICT', 'CASCADE'),
   ('landing_demo_sign_in_grants', 'users', 'user_id', 'id', 'RESTRICT', 'CASCADE'),
   ('leave_requests', 'employees', 'tenant_id,employee_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
@@ -596,6 +601,7 @@ VALUES
   ('workshop_opening_hours', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('workshop_orders', 'bays', 'bay_id', 'id', 'SET NULL', 'CASCADE'),
   ('workshop_orders', 'customers', 'customer_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('workshop_orders', 'customers', 'tenant_id,bill_to_customer_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('workshop_orders', 'employees', 'mechanic_id', 'id', 'SET NULL', 'CASCADE'),
   ('workshop_orders', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('workshop_orders', 'storage_locations', 'staging_location_id', 'id', 'SET NULL', 'CASCADE'),
@@ -797,6 +803,9 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 UPDATE public."agent_action_logs"
 SET "reverted_by_log_id" = NULL
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+UPDATE public."customers"
+SET "default_bill_to_customer_id" = NULL
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 UPDATE public."inspector_evidence_revisions"
 SET "predecessor_revision_id" = NULL
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
@@ -934,6 +943,8 @@ DELETE FROM public."domain_event_consumer_deliveries"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."document_brand_profiles"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."customer_consents"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_opening_hours"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_holidays"
@@ -972,7 +983,11 @@ DELETE FROM public."domain_events"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."document_brand_extractions"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."customer_consents"
+DELETE FROM public."customer_contact_points"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."customer_consent_unsubscribe_tokens"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."customer_communication_states"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."catalog_price_histories"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
@@ -1008,11 +1023,7 @@ DELETE FROM public."employee_leave_balances"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."document_brand_assets"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."customer_contact_points"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."customer_consent_unsubscribe_tokens"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."customer_communication_states"
+DELETE FROM public."customers"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."catalog_provider_settings"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
@@ -1051,6 +1062,8 @@ DELETE FROM public."mcp_write_command_receipts"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."legal_entities"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."labor_price_groups"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."labor_categories"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."invoice_sequences"
@@ -1074,8 +1087,6 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."document_brand_quota_events"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."decision_shadow_logs"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."customers"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."credit_note_sequences"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');

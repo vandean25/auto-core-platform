@@ -1,4 +1,6 @@
 import {
+  CustomerBlockLevel,
+  CustomerSalutation,
   CustomerType,
   InvoiceStatus,
   SalesOrderStatus,
@@ -93,6 +95,42 @@ export class CustomerDetailResponseDto {
 
   @ApiProperty({ type: CustomerHistoryMetaDto })
   invoices_meta!: CustomerHistoryMetaDto;
+
+  @ApiProperty({ type: String, required: false, nullable: true })
+  legacy_restricted_at?: string | null;
+
+  @ApiProperty({ type: String, required: false, nullable: true })
+  legacy_restricted_reason?: string | null;
+
+  @ApiProperty({ enum: CustomerBlockLevel })
+  block_level!: CustomerBlockLevel;
+
+  @ApiProperty({ type: String, required: false, nullable: true })
+  block_reason?: string | null;
+
+  @ApiProperty({ enum: CustomerSalutation, required: false, nullable: true })
+  salutation?: CustomerSalutation | null;
+
+  @ApiProperty({ type: String, required: false, nullable: true })
+  title?: string | null;
+
+  @ApiProperty({ type: String, required: false, nullable: true })
+  title_suffix?: string | null;
+
+  @ApiProperty({ type: String, required: false, nullable: true })
+  letter_salutation?: string | null;
+
+  @ApiProperty({ type: Number, required: false, nullable: true })
+  payment_terms_days?: number | null;
+
+  @ApiProperty({ type: String, required: false, nullable: true })
+  payment_terms_text?: string | null;
+
+  @ApiProperty({ type: String, required: false, nullable: true })
+  default_bill_to_customer_id?: string | null;
+
+  @ApiProperty({ type: String, required: false, nullable: true })
+  labor_price_group_id?: string | null;
 }
 
 export class VehicleSummaryDto {

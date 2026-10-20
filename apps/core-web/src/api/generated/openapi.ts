@@ -1555,6 +1555,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/workshop/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["WorkshopController_search"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/resources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["WorkshopController_getBoardResources"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/board/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["WorkshopController_getBoardActive"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/board/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["WorkshopController_assignBoard"];
+        trace?: never;
+    };
     "/api/workshop/orders": {
         parameters: {
             query?: never;
@@ -1585,6 +1649,22 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["WorkshopController_updateOrder"];
+        trace?: never;
+    };
+    "/api/workshop/orders/{id}/create-invoice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["WorkshopController_createInvoiceFromOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/workshop/orders/{id}/tasks": {
@@ -1683,38 +1763,6 @@ export interface paths {
         patch: operations["WorkshopController_replaceTaskLineItems"];
         trace?: never;
     };
-    "/api/workshop/orders/{id}/create-invoice": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["WorkshopController_createInvoiceFromOrder"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/workshop/search": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["WorkshopController_search"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/workshop/orders/{id}/pdf": {
         parameters: {
             query?: never;
@@ -1729,54 +1777,6 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
-        trace?: never;
-    };
-    "/api/workshop/resources": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["WorkshopController_getBoardResources"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/workshop/board/active": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["WorkshopController_getBoardActive"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/workshop/board/assign": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch: operations["WorkshopController_assignBoard"];
         trace?: never;
     };
     "/api/reports/workshop-kpis": {
@@ -6511,6 +6511,20 @@ export interface components {
             invoices?: components["schemas"]["InvoiceSummaryDto"][];
             workshop_orders_meta: components["schemas"]["CustomerHistoryMetaDto"];
             invoices_meta: components["schemas"]["CustomerHistoryMetaDto"];
+            legacy_restricted_at?: string | null;
+            legacy_restricted_reason?: string | null;
+            /** @enum {string} */
+            block_level: "NONE" | "INVOICING" | "ALL";
+            block_reason?: string | null;
+            /** @enum {string|null} */
+            salutation?: "MR" | "MS" | "NEUTRAL" | "COMPANY" | null;
+            title?: string | null;
+            title_suffix?: string | null;
+            letter_salutation?: string | null;
+            payment_terms_days?: number | null;
+            payment_terms_text?: string | null;
+            default_bill_to_customer_id?: string | null;
+            labor_price_group_id?: string | null;
         };
         UpdateCustomerDto: {
             type?: components["schemas"]["CustomerType"];
@@ -7082,6 +7096,168 @@ export interface components {
             customer?: components["schemas"]["CustomerResponseDto"] | null;
             pickerl_due?: components["schemas"]["PickerlDueDto"];
         };
+        WorkshopSearchVehicleDto: {
+            /**
+             * @description Indicates whether the request was executed in dry-run mode
+             * @example true
+             */
+            dry_run?: boolean;
+            /** @description List of changes that would occur if executed without dry_run */
+            would_change?: components["schemas"]["WouldChangeItemDto"][];
+            open_pickerl_order?: components["schemas"]["OpenPickerlOrderDto"] | null;
+            id: string;
+            make: string;
+            model: string;
+            year: number;
+            engine_code?: string | null;
+            vin?: string | null;
+            plate?: string | null;
+            make_brand_id?: number | null;
+            hsn?: string | null;
+            tsn?: string | null;
+            identity_keys?: {
+                [key: string]: unknown;
+            } | null;
+            identity_input_fingerprint?: string | null;
+            /** Format: date-time */
+            identity_resolved_at?: string | null;
+            fuel_type?: string | null;
+            power_kw?: number | null;
+            customer_id?: string | null;
+            /** Format: date */
+            first_registration_date?: string | null;
+            co2_wltp_g_km?: number | null;
+            co2_nedc_g_km?: number | null;
+            typenschein_no?: string | null;
+            nova_class?: string | null;
+            emission_class?: string | null;
+            customer: components["schemas"]["CustomerResponseDto"] | null;
+            pickerl_due?: components["schemas"]["PickerlDueDto"];
+        };
+        WorkshopSearchCustomerDto: {
+            /**
+             * @description Indicates whether the request was executed in dry-run mode
+             * @example true
+             */
+            dry_run?: boolean;
+            /** @description List of changes that would occur if executed without dry_run */
+            would_change?: components["schemas"]["WouldChangeItemDto"][];
+            id: string;
+            /** @enum {string} */
+            type: "PRIVATE" | "COMPANY";
+            company_name?: string | null;
+            first_name: string;
+            last_name: string;
+            email?: string | null;
+            contact_email_ok?: boolean;
+            phone?: string | null;
+            vat_id?: string | null;
+            address_street?: string | null;
+            address_city?: string | null;
+            address_zip?: string | null;
+            address_country?: string | null;
+            preferred_language?: components["schemas"]["DisplayLanguage"] | null;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+            vehicles: components["schemas"]["VehicleResponseDto"][];
+        };
+        WorkshopSearchDataDto: {
+            vehicles: components["schemas"]["WorkshopSearchVehicleDto"][];
+            customers: components["schemas"]["WorkshopSearchCustomerDto"][];
+        };
+        WorkshopSearchMetaDto: {
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
+        WorkshopSearchResponseDto: {
+            data: components["schemas"]["WorkshopSearchDataDto"];
+            meta: components["schemas"]["WorkshopSearchMetaDto"];
+        };
+        WorkshopMechanicDto: {
+            id: string;
+            name: string;
+            /** @enum {string} */
+            role: "MECHANIC" | "SERVICE_ADVISOR" | "PARTS_CLERK";
+            isActive: boolean;
+            sortOrder: number;
+        };
+        WorkshopBayDto: {
+            id: string;
+            name: string;
+            isActive: boolean;
+            sortOrder: number;
+        };
+        WorkshopResourcesResponseDto: {
+            mechanics: components["schemas"]["WorkshopMechanicDto"][];
+            bays: components["schemas"]["WorkshopBayDto"][];
+        };
+        BoardCustomerDto: {
+            id: string;
+            /** @enum {string} */
+            type: "PRIVATE" | "COMPANY";
+            firstName: string;
+            lastName: string;
+            companyName?: string | null;
+        };
+        BoardVehicleDto: {
+            id: string;
+            make: string;
+            model: string;
+            year: number;
+            plate?: string | null;
+        };
+        BoardLineItemDto: {
+            id: string;
+            /** @enum {string} */
+            type: "LABOR" | "PART" | "FEE";
+            itemNo: string;
+            description: string;
+            quantity: number;
+            unitPrice: number;
+            /** @enum {string|null} */
+            partExecutionStatus?: "PENDING_PICK" | "STAGED" | "CONSUMED" | "CANCELLED" | null;
+            catalogItemId?: string | null;
+        };
+        BoardTaskDto: {
+            id: string;
+            title: string;
+            /** @enum {string} */
+            status: "NOT_STARTED" | "IN_PROGRESS" | "WAITING_PARTS" | "WAITING_CUSTOMER" | "PAUSED" | "DONE";
+            lineItems: components["schemas"]["BoardLineItemDto"][];
+        };
+        BoardOrderDto: {
+            id: string;
+            orderNumber: string;
+            /** @enum {string} */
+            status: "SCHEDULED" | "INTAKE" | "IN_PROGRESS" | "COMPLETED" | "INVOICED";
+            customer?: components["schemas"]["BoardCustomerDto"] | null;
+            vehicle: components["schemas"]["BoardVehicleDto"];
+            mechanicId?: string | null;
+            bayId?: string | null;
+            stagingLocationId?: string | null;
+            /** @enum {string} */
+            partsStatus: "READY" | "SHORTAGE" | "WAITING" | "NO_PARTS";
+            tasks: components["schemas"]["BoardTaskDto"][];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        BoardActiveResponseDto: {
+            data: components["schemas"]["BoardOrderDto"][];
+        };
+        AssignBoardDto: {
+            /** @description Workshop order ID to assign */
+            orderId: string;
+            /** @description Mechanic (employee) ID to assign, or null to unassign */
+            mechanicId?: string | null;
+            /** @description Bay ID to assign, or null to unassign */
+            bayId?: string | null;
+        };
         /** @enum {string} */
         WorkshopOrderPurpose: "CUSTOMER_REPAIR" | "STOCK_PREP";
         /** @enum {string} */
@@ -7194,6 +7370,7 @@ export interface components {
             /** @enum {string} */
             purpose: "CUSTOMER_REPAIR" | "STOCK_PREP";
             customer_id?: string | null;
+            bill_to_customer_id?: string | null;
             vehicle_id: string;
             odometer: number;
             fuel_level: number;
@@ -7353,172 +7530,10 @@ export interface components {
             returnLocationId?: string;
             items: components["schemas"]["ReplaceWorkshopTaskLineItemDto"][];
         };
-        WorkshopSearchVehicleDto: {
-            /**
-             * @description Indicates whether the request was executed in dry-run mode
-             * @example true
-             */
-            dry_run?: boolean;
-            /** @description List of changes that would occur if executed without dry_run */
-            would_change?: components["schemas"]["WouldChangeItemDto"][];
-            open_pickerl_order?: components["schemas"]["OpenPickerlOrderDto"] | null;
-            id: string;
-            make: string;
-            model: string;
-            year: number;
-            engine_code?: string | null;
-            vin?: string | null;
-            plate?: string | null;
-            make_brand_id?: number | null;
-            hsn?: string | null;
-            tsn?: string | null;
-            identity_keys?: {
-                [key: string]: unknown;
-            } | null;
-            identity_input_fingerprint?: string | null;
-            /** Format: date-time */
-            identity_resolved_at?: string | null;
-            fuel_type?: string | null;
-            power_kw?: number | null;
-            customer_id?: string | null;
-            /** Format: date */
-            first_registration_date?: string | null;
-            co2_wltp_g_km?: number | null;
-            co2_nedc_g_km?: number | null;
-            typenschein_no?: string | null;
-            nova_class?: string | null;
-            emission_class?: string | null;
-            customer: components["schemas"]["CustomerResponseDto"] | null;
-            pickerl_due?: components["schemas"]["PickerlDueDto"];
-        };
-        WorkshopSearchCustomerDto: {
-            /**
-             * @description Indicates whether the request was executed in dry-run mode
-             * @example true
-             */
-            dry_run?: boolean;
-            /** @description List of changes that would occur if executed without dry_run */
-            would_change?: components["schemas"]["WouldChangeItemDto"][];
-            id: string;
-            /** @enum {string} */
-            type: "PRIVATE" | "COMPANY";
-            company_name?: string | null;
-            first_name: string;
-            last_name: string;
-            email?: string | null;
-            contact_email_ok?: boolean;
-            phone?: string | null;
-            vat_id?: string | null;
-            address_street?: string | null;
-            address_city?: string | null;
-            address_zip?: string | null;
-            address_country?: string | null;
-            preferred_language?: components["schemas"]["DisplayLanguage"] | null;
-            /** Format: date-time */
-            createdAt?: string;
-            /** Format: date-time */
-            updatedAt?: string;
-            vehicles: components["schemas"]["VehicleResponseDto"][];
-        };
-        WorkshopSearchDataDto: {
-            vehicles: components["schemas"]["WorkshopSearchVehicleDto"][];
-            customers: components["schemas"]["WorkshopSearchCustomerDto"][];
-        };
-        WorkshopSearchMetaDto: {
-            total: number;
-            page: number;
-            limit: number;
-            totalPages: number;
-        };
-        WorkshopSearchResponseDto: {
-            data: components["schemas"]["WorkshopSearchDataDto"];
-            meta: components["schemas"]["WorkshopSearchMetaDto"];
-        };
         WorkshopPdfGenerationResponseDto: {
             message: string;
             enqueued: boolean;
             taskId?: string;
-        };
-        WorkshopMechanicDto: {
-            id: string;
-            name: string;
-            /** @enum {string} */
-            role: "MECHANIC" | "SERVICE_ADVISOR" | "PARTS_CLERK";
-            isActive: boolean;
-            sortOrder: number;
-        };
-        WorkshopBayDto: {
-            id: string;
-            name: string;
-            isActive: boolean;
-            sortOrder: number;
-        };
-        WorkshopResourcesResponseDto: {
-            mechanics: components["schemas"]["WorkshopMechanicDto"][];
-            bays: components["schemas"]["WorkshopBayDto"][];
-        };
-        BoardCustomerDto: {
-            id: string;
-            /** @enum {string} */
-            type: "PRIVATE" | "COMPANY";
-            firstName: string;
-            lastName: string;
-            companyName?: string | null;
-        };
-        BoardVehicleDto: {
-            id: string;
-            make: string;
-            model: string;
-            year: number;
-            plate?: string | null;
-        };
-        BoardLineItemDto: {
-            id: string;
-            /** @enum {string} */
-            type: "LABOR" | "PART" | "FEE";
-            itemNo: string;
-            description: string;
-            quantity: number;
-            unitPrice: number;
-            /** @enum {string|null} */
-            partExecutionStatus?: "PENDING_PICK" | "STAGED" | "CONSUMED" | "CANCELLED" | null;
-            catalogItemId?: string | null;
-        };
-        BoardTaskDto: {
-            id: string;
-            title: string;
-            /** @enum {string} */
-            status: "NOT_STARTED" | "IN_PROGRESS" | "WAITING_PARTS" | "WAITING_CUSTOMER" | "PAUSED" | "DONE";
-            lineItems: components["schemas"]["BoardLineItemDto"][];
-        };
-        BoardOrderDto: {
-            id: string;
-            orderNumber: string;
-            /** @enum {string} */
-            status: "SCHEDULED" | "INTAKE" | "IN_PROGRESS" | "COMPLETED" | "INVOICED";
-            customer?: components["schemas"]["BoardCustomerDto"] | null;
-            vehicle: components["schemas"]["BoardVehicleDto"];
-            mechanicId?: string | null;
-            bayId?: string | null;
-            stagingLocationId?: string | null;
-            /** @enum {string} */
-            partsStatus: "READY" | "SHORTAGE" | "WAITING" | "NO_PARTS";
-            tasks: components["schemas"]["BoardTaskDto"][];
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            updatedAt: string;
-        };
-        BoardActiveResponseDto: {
-            data: components["schemas"]["BoardOrderDto"][];
-        };
-        AssignBoardDto: {
-            /** @description Workshop order ID to assign */
-            orderId: string;
-            /** @description Mechanic (employee) ID to assign, or null to unassign */
-            mechanicId?: string | null;
-            /** @description Bay ID to assign, or null to unassign */
-            bayId?: string | null;
         };
         WorkshopKpiReportRowDto: {
             key: string;
@@ -10700,7 +10715,7 @@ export interface components {
             oemConcerns?: components["schemas"]["UpdateCatalogProviderOemConcernDto"][];
         };
         /** @enum {string} */
-        ImportEntityType: "CUSTOMER" | "VEHICLE" | "SUPPLIER_PRICE_LIST" | "LABOR_OPERATION";
+        ImportEntityType: "CUSTOMER" | "VEHICLE" | "SUPPLIER_PRICE_LIST" | "LABOR_OPERATION" | "PART" | "VENDOR" | "STOCK_OPENING_BALANCE" | "OPEN_WORKSHOP_ORDER" | "LEGACY_SERVICE_ORDER" | "LEGACY_INVOICE" | "LEGACY_OPEN_ITEM" | "TYRE_SET" | "VEHICLE_PARTY" | "VEHICLE_DUE_DATE" | "VEHICLE_NOTICE" | "LABOR_STANDARD_TIME" | "LABOR_PRICE_GROUP";
         /** @enum {string} */
         ImportJobStatus: "DRY_RUN_DONE" | "APPLYING" | "APPLIED" | "FAILED" | "CANCELLED";
         ImportJobTotalsDto: {
@@ -14691,6 +14706,87 @@ export interface operations {
             };
         };
     };
+    WorkshopController_search: {
+        parameters: {
+            query: {
+                q: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopSearchResponseDto"];
+                };
+            };
+        };
+    };
+    WorkshopController_getBoardResources: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopResourcesResponseDto"];
+                };
+            };
+        };
+    };
+    WorkshopController_getBoardActive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BoardActiveResponseDto"];
+                };
+            };
+        };
+    };
+    WorkshopController_assignBoard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignBoardDto"];
+            };
+        };
+        responses: {
+            /** @description Updated workshop order assignment. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     WorkshopController_findAll: {
         parameters: {
             query?: {
@@ -14796,6 +14892,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkshopOrderResponseDto"];
+                };
+            };
+        };
+    };
+    WorkshopController_createInvoiceFromOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceResponseDto"];
                 };
             };
         };
@@ -14908,9 +15025,7 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": components["schemas"]["WorkshopOrderResponseDto"];
-                };
+                content?: never;
             };
             /** @description Task cannot be deleted because the order is invoiced or already has a linked invoice. */
             400: {
@@ -15048,48 +15163,6 @@ export interface operations {
             };
         };
     };
-    WorkshopController_createInvoiceFromOrder: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InvoiceResponseDto"];
-                };
-            };
-        };
-    };
-    WorkshopController_search: {
-        parameters: {
-            query: {
-                q: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WorkshopSearchResponseDto"];
-                };
-            };
-        };
-    };
     WorkshopController_getPdf: {
         parameters: {
             query?: never;
@@ -15131,66 +15204,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["WorkshopPdfGenerationResponseDto"];
                 };
-            };
-        };
-    };
-    WorkshopController_getBoardResources: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WorkshopResourcesResponseDto"];
-                };
-            };
-        };
-    };
-    WorkshopController_getBoardActive: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BoardActiveResponseDto"];
-                };
-            };
-        };
-    };
-    WorkshopController_assignBoard: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AssignBoardDto"];
-            };
-        };
-        responses: {
-            /** @description Updated workshop order assignment. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
         };
     };
@@ -20488,7 +20501,7 @@ export interface operations {
     ImportController_listMappingProfiles: {
         parameters: {
             query: {
-                entityType: "CUSTOMER" | "VEHICLE" | "SUPPLIER_PRICE_LIST" | "LABOR_OPERATION";
+                entityType: "CUSTOMER" | "VEHICLE" | "SUPPLIER_PRICE_LIST" | "LABOR_OPERATION" | "PART" | "VENDOR" | "STOCK_OPENING_BALANCE" | "OPEN_WORKSHOP_ORDER" | "LEGACY_SERVICE_ORDER" | "LEGACY_INVOICE" | "LEGACY_OPEN_ITEM" | "TYRE_SET" | "VEHICLE_PARTY" | "VEHICLE_DUE_DATE" | "VEHICLE_NOTICE" | "LABOR_STANDARD_TIME" | "LABOR_PRICE_GROUP";
                 sourceSystem: string;
             };
             header?: never;
