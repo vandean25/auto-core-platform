@@ -1,9 +1,7 @@
+import { createE2eApp } from './helpers/e2e-suite.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { AppModule } from '../src/app.module.js';
-import { createGlobalValidationPipe } from '../src/common/index.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
@@ -51,14 +49,7 @@ describe('RZL accounting export (e2e)', () => {
     previousReleaseFlag = process.env[RZL_SERIALIZER_RELEASE_ENV];
     process.env[RZL_SERIALIZER_RELEASE_ENV] = 'true';
 
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api');
-    app.useGlobalPipes(createGlobalValidationPipe());
-    await app.init();
+    app = await createE2eApp();
 
     prisma = app.get<PrismaService>(PrismaService);
     authService = app.get<AuthService>(AuthService);

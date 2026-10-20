@@ -1,9 +1,7 @@
-import { randomUUID } from 'node:crypto';
+import { createE2eApp } from './helpers/e2e-suite.js';
+
 import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { AppModule } from '../src/app.module.js';
-import { createGlobalValidationPipe } from '../src/common/index.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { SiteService } from '../src/site/site.service.js';
@@ -45,14 +43,7 @@ describe('Legal invoicing snapshot v2 (e2e)', () => {
   let vendorId: string;
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api');
-    app.useGlobalPipes(createGlobalValidationPipe());
-    await app.init();
+    app = await createE2eApp();
 
     prisma = app.get<PrismaService>(PrismaService);
     authService = app.get<AuthService>(AuthService);

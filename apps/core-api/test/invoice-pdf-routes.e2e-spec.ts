@@ -1,12 +1,8 @@
+import { createE2eApp } from './helpers/e2e-suite.js';
 import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { AppModule } from '../src/app.module.js';
 import { AuthService } from '../src/auth/auth.service.js';
-import {
-  createGlobalValidationPipe,
-  signPdfTaskPayload,
-} from '../src/common/index.js';
+import { signPdfTaskPayload } from '../src/common/index.js';
 import { CreditNotePdfService } from '../src/credit-notes/credit-note-pdf.service.js';
 import { InvoicePdfService } from '../src/invoices/invoice-pdf.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
@@ -135,17 +131,11 @@ describe('Invoice PDF routes (e2e)', () => {
       jest.clearAllMocks();
       process.env.CLOUD_TASKS_WORKER_SECRET = WORKER_SECRET;
 
-      const moduleFixture: TestingModule = await Test.createTestingModule({
-        imports: [AppModule],
-      })
-        .overrideProvider(InvoicePdfService)
-        .useValue(mockInvoicePdfService)
-        .compile();
-
-      app = moduleFixture.createNestApplication();
-      app.setGlobalPrefix('api');
-      app.useGlobalPipes(createGlobalValidationPipe());
-      await app.init();
+      app = await createE2eApp((builder) =>
+        builder
+          .overrideProvider(InvoicePdfService)
+          .useValue(mockInvoicePdfService),
+      );
 
       prisma = app.get(PrismaService);
       const testTenant = await createTestTenant(prisma, 'invoice-pdf-routes');
@@ -154,12 +144,12 @@ describe('Invoice PDF routes (e2e)', () => {
     });
 
     afterEach(async () => {
-      if (tenantId) {
-        await cleanupTestTenantGraph(prisma, tenantId);
-        tenantId = '';
-      }
-      await teardownTestApp(app, prisma);
-    });
+    if (tenantId) {
+      await cleanupTestTenantGraph(prisma, tenantId);
+      tenantId = '';
+    }
+    await teardownTestApp(app, prisma);
+  });
 
     const auth = () => ({ Authorization: `Bearer ${authToken}` });
 
@@ -354,17 +344,11 @@ describe('Credit note PDF routes (e2e)', () => {
     jest.clearAllMocks();
     process.env.CLOUD_TASKS_WORKER_SECRET = WORKER_SECRET;
 
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    })
-      .overrideProvider(CreditNotePdfService)
-      .useValue(mockCreditNotePdfService)
-      .compile();
-
-    app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api');
-    app.useGlobalPipes(createGlobalValidationPipe());
-    await app.init();
+    app = await createE2eApp((builder) =>
+      builder
+        .overrideProvider(CreditNotePdfService)
+        .useValue(mockCreditNotePdfService),
+    );
 
     prisma = app.get(PrismaService);
     const testTenant = await createTestTenant(prisma, 'credit-note-pdf-routes');

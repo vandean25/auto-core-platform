@@ -1,5 +1,5 @@
 import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
+import { Test, type TestingModuleBuilder } from '@nestjs/testing';
 import { AppModule } from '../../src/app.module.js';
 import { AuthService } from '../../src/auth/auth.service.js';
 import { createGlobalValidationPipe } from '../../src/common/index.js';
@@ -11,19 +11,26 @@ import {
   createTestTenant,
 } from '../tenant-test-utils.js';
 
-/**
- * Boots the full AppModule the way the API runs (`/api` prefix, global validation pipe) and swaps
- * invoice archive storage for the in-memory fake that suites read back from.
- */
-export async function bootstrapE2eApp() {
-  const moduleFixture: TestingModule = await Test.createTestingModule({
+export async function createE2eApp(
+  configureModule?: (builder: TestingModuleBuilder) => TestingModuleBuilder,
+): Promise<INestApplication> {
+  const builder = Test.createTestingModule({
     imports: [AppModule],
-  }).compile();
+  });
+  const moduleFixture = await (
+    configureModule ? configureModule(builder) : builder
+  ).compile();
 
   const app = moduleFixture.createNestApplication();
   app.setGlobalPrefix('api');
   app.useGlobalPipes(createGlobalValidationPipe());
   await app.init();
+  return app;
+}
+
+/** Installs the archive fake only for suites that read archived invoices back. */
+export async function bootstrapE2eApp() {
+  const app = await createE2eApp();
   const archiveReadKeys = installFakeInvoiceArchiveStorage(app).readKeys;
 
   return {

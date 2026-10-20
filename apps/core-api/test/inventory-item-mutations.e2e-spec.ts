@@ -1,9 +1,7 @@
-import { Test, TestingModule } from '@nestjs/testing';
+import { createE2eApp } from './helpers/e2e-suite.js';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { LocationType } from '@prisma/client';
-import { AppModule } from '../src/app.module.js';
-import { createGlobalValidationPipe } from '../src/common/index.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
@@ -26,14 +24,7 @@ describe('Inventory item mutations (e2e)', () => {
   let binLocationId: string;
 
   beforeEach(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api');
-    app.useGlobalPipes(createGlobalValidationPipe());
-    await app.init();
+    app = await createE2eApp();
 
     prisma = app.get(PrismaService);
     testTenant = await createTestTenant(prisma, 'inventory-mutations');

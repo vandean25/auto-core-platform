@@ -1,10 +1,8 @@
+import { createE2eApp } from './helpers/e2e-suite.js';
 import { randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import type { TenantMemberRole } from '@prisma/client';
 import request from 'supertest';
-import { AppModule } from '../src/app.module.js';
-import { createGlobalValidationPipe } from '../src/common/index.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
@@ -16,6 +14,8 @@ import {
 } from './tenant-test-utils.js';
 import {
   closeFinancePeriod,
+  createAccountingExportInvoice,
+  openAccountingExportFinancePeriod,
   seedDeAccountingExportProfile,
 } from './accounting-export-test-utils.js';
 import {
@@ -62,14 +62,7 @@ describe('Accounting export readiness (e2e)', () => {
   const outsiderUserIds: string[] = [];
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api');
-    app.useGlobalPipes(createGlobalValidationPipe());
-    await app.init();
+    app = await createE2eApp();
 
     prisma = app.get<PrismaService>(PrismaService);
     authService = app.get<AuthService>(AuthService);
@@ -227,23 +220,8 @@ describe('Accounting export readiness (e2e)', () => {
     await teardownTestApp(app, prisma);
   });
 
-  async function openFinancePeriod() {
-    const currentYear = new Date().getFullYear();
-    await tenantPrisma.financeSettings.upsert({
-      where: { tenant_id: tenantA.tenantId },
-      update: { lock_date: null },
-      create: {
-        tenant_id: tenantA.tenantId,
-        fiscal_year_start_month: 1,
-        lock_date: null,
-        next_invoice_number: 1001,
-        invoice_prefix: `RE-${currentYear}-`,
-        next_sales_order_number: 1001,
-        sales_order_prefix: `SO-${currentYear}-`,
-        next_workshop_order_number: 1,
-        workshop_order_prefix: `WO-${currentYear}-`,
-      },
-    });
+  function openFinancePeriod() {
+    return openAccountingExportFinancePeriod(tenantPrisma, tenantA.tenantId);
   }
 
   async function finalizeSalesInvoice(
@@ -251,53 +229,16 @@ describe('Accounting export readiness (e2e)', () => {
     unitPrice: number,
     invoiceDate: string,
   ) {
-    const orderRes = await request(app.getHttpServer())
-      .post('/api/sales-orders')
-      .set('Authorization', `Bearer ${authTokenA}`)
-      .send({
-        customer_id: customerId,
-        items: [
-          {
-            catalog_item_id: catalogItemId,
-            description: 'Brake Disc',
-            quantity,
-            unit_price: unitPrice,
-            tax_rate: 20,
-          },
-        ],
-      })
-      .expect(201);
-
-    await tenantPrisma.salesOrder.updateMany({
-      where: { id: orderRes.body.id },
-      data: { status: 'CONFIRMED' },
-    });
-
-    const invoiceRes = await request(app.getHttpServer())
-      .post(`/api/sales-orders/${orderRes.body.id}/create-invoice`)
-      .set('Authorization', `Bearer ${authTokenA}`)
-      .expect(201);
-
-    await tenantPrisma.invoice.updateMany({
-      where: { id: invoiceRes.body.id },
-      data: {
-        date: new Date(`${invoiceDate}T12:00:00.000Z`),
-        site_id: deSiteId,
-        legal_entity_id: deEntityId,
+    return createAccountingExportInvoice(
+      { app, tenantPrisma, authToken: authTokenA, customerId, catalogItemId },
+      {
+        quantity,
+        unitPrice,
+        invoiceDate,
+        siteId: deSiteId,
+        legalEntityId: deEntityId,
       },
-    });
-
-    const finalized = await request(app.getHttpServer())
-      .put(`/api/sales/invoices/${invoiceRes.body.id}/finalize`)
-      .set('Authorization', `Bearer ${authTokenA}`);
-
-    if (finalized.status !== 200) {
-      throw new Error(
-        `Invoice finalize failed (${finalized.status}): ${JSON.stringify(finalized.body)}`,
-      );
-    }
-
-    return finalized.body as { id: string };
+    );
   }
 
   async function markInvoiceSnapshotAsVersion1(invoiceId: string) {

@@ -39,6 +39,16 @@ describe('Legacy CSV import (e2e)', () => {
     address_country: 'Land',
   };
 
+  const vehicleMapping = {
+    external_id: 'Fahrzeug-Nr',
+    vin: 'FIN',
+    plate: 'Kennzeichen',
+    make: 'Marke',
+    model: 'Modell',
+    year: 'Baujahr',
+    owner_customer_external_id: 'Kunden-Nr',
+  };
+
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -62,6 +72,21 @@ describe('Legacy CSV import (e2e)', () => {
     await cleanupTestTenantGraph(prisma, tenantB.tenantId);
     await teardownTestApp(app, prisma);
   });
+
+  function postCustomerImport(
+    csv: Buffer,
+    sourceSystem: string,
+    fileName: string,
+  ) {
+    return request(app.getHttpServer())
+      .post('/imports')
+      .set('Authorization', authHeaderA)
+      .field('entityType', 'CUSTOMER')
+      .field('sourceSystem', sourceSystem)
+      .field('mapping', JSON.stringify(customerMapping))
+      .attach('file', csv, fileName)
+      .expect(201);
+  }
 
   function customerCsv(rows: string[][]) {
     const headers = [
@@ -115,28 +140,18 @@ describe('Legacy CSV import (e2e)', () => {
       ['9100', 'PRIVATE', 'Anna', 'Import', 'anna-import@example.com', '123', '', 'AT'],
     ]);
 
-    const dryRun = await request(app.getHttpServer())
-      .post('/imports')
-      .set('Authorization', authHeaderA)
-      .field('entityType', 'CUSTOMER')
-      .field('sourceSystem', 'legacy-dms')
-      .field('mapping', JSON.stringify(customerMapping))
-      .attach('file', csv, 'customers.csv')
-      .expect(201);
+    const dryRun = await postCustomerImport(csv, 'legacy-dms', 'customers.csv');
 
     await request(app.getHttpServer())
       .post(`/imports/${dryRun.body.id}/apply`)
       .set('Authorization', authHeaderA)
       .expect(200);
 
-    const secondDryRun = await request(app.getHttpServer())
-      .post('/imports')
-      .set('Authorization', authHeaderA)
-      .field('entityType', 'CUSTOMER')
-      .field('sourceSystem', 'legacy-dms')
-      .field('mapping', JSON.stringify(customerMapping))
-      .attach('file', csv, 'customers.csv')
-      .expect(201);
+    const secondDryRun = await postCustomerImport(
+      csv,
+      'legacy-dms',
+      'customers.csv',
+    );
 
     expect(secondDryRun.body.totals.skip).toBe(1);
     expect(secondDryRun.body.totals.create).toBe(0);
@@ -154,14 +169,11 @@ describe('Legacy CSV import (e2e)', () => {
       [externalId, 'PRIVATE', 'Update', 'Me', email, '111', '', 'AT'],
     ]);
 
-    const firstJob = await request(app.getHttpServer())
-      .post('/imports')
-      .set('Authorization', authHeaderA)
-      .field('entityType', 'CUSTOMER')
-      .field('sourceSystem', 'legacy-dms')
-      .field('mapping', JSON.stringify(customerMapping))
-      .attach('file', baseCsv, 'customers.csv')
-      .expect(201);
+    const firstJob = await postCustomerImport(
+      baseCsv,
+      'legacy-dms',
+      'customers.csv',
+    );
 
     await request(app.getHttpServer())
       .post(`/imports/${firstJob.body.id}/apply`)
@@ -306,22 +318,8 @@ describe('Legacy CSV import (e2e)', () => {
     const csv = customerCsv([
       ['9400', 'PRIVATE', 'Once', 'Only', 'once-only@example.com', '', '', 'AT'],
     ]);
-    const job1 = await request(app.getHttpServer())
-      .post('/imports')
-      .set('Authorization', authHeaderA)
-      .field('entityType', 'CUSTOMER')
-      .field('sourceSystem', 'legacy-dms')
-      .field('mapping', JSON.stringify(customerMapping))
-      .attach('file', csv, 'customers.csv')
-      .expect(201);
-    const job2 = await request(app.getHttpServer())
-      .post('/imports')
-      .set('Authorization', authHeaderA)
-      .field('entityType', 'CUSTOMER')
-      .field('sourceSystem', 'legacy-dms')
-      .field('mapping', JSON.stringify(customerMapping))
-      .attach('file', csv, 'customers.csv')
-      .expect(201);
+    const job1 = await postCustomerImport(csv, 'legacy-dms', 'customers.csv');
+    const job2 = await postCustomerImport(csv, 'legacy-dms', 'customers.csv');
 
     await request(app.getHttpServer())
       .post(`/imports/${job1.body.id}/apply`)
@@ -374,14 +372,7 @@ describe('Legacy CSV import (e2e)', () => {
       [externalId, 'PRIVATE', 'Tenant', 'B', 'same-ext-b@example.com', '', '', 'AT'],
     ]);
 
-    const jobA = await request(app.getHttpServer())
-      .post('/imports')
-      .set('Authorization', authHeaderA)
-      .field('entityType', 'CUSTOMER')
-      .field('sourceSystem', 'legacy-dms')
-      .field('mapping', JSON.stringify(customerMapping))
-      .attach('file', csvA, 'a.csv')
-      .expect(201);
+    const jobA = await postCustomerImport(csvA, 'legacy-dms', 'a.csv');
     const jobB = await request(app.getHttpServer())
       .post('/imports')
       .set('Authorization', authHeaderB)
@@ -442,28 +433,16 @@ describe('Legacy CSV import (e2e)', () => {
     const ownerCsv = customerCsv([
       ['own-1', 'PRIVATE', 'Vehicle', 'Owner', 'veh-owner@example.com', '', '', 'AT'],
     ]);
-    const ownerJob = await request(app.getHttpServer())
-      .post('/imports')
-      .set('Authorization', authHeaderA)
-      .field('entityType', 'CUSTOMER')
-      .field('sourceSystem', 'legacy-dms-veh')
-      .field('mapping', JSON.stringify(customerMapping))
-      .attach('file', ownerCsv, 'owner.csv')
-      .expect(201);
+    const ownerJob = await postCustomerImport(
+      ownerCsv,
+      'legacy-dms-veh',
+      'owner.csv',
+    );
     await request(app.getHttpServer())
       .post(`/imports/${ownerJob.body.id}/apply`)
       .set('Authorization', authHeaderA)
       .expect(200);
 
-    const vehicleMapping = {
-      external_id: 'Fahrzeug-Nr',
-      vin: 'FIN',
-      plate: 'Kennzeichen',
-      make: 'Marke',
-      model: 'Modell',
-      year: 'Baujahr',
-      owner_customer_external_id: 'Kunden-Nr',
-    };
     const vehicleCsv = Buffer.from(
       [
         'Fahrzeug-Nr;FIN;Kennzeichen;Marke;Modell;Baujahr;Kunden-Nr',
@@ -501,28 +480,16 @@ describe('Legacy CSV import (e2e)', () => {
     const ownerCsv = customerCsv([
       ['veh-own-2', 'PRIVATE', 'Veh', 'Owner', 'veh-own-2@example.com', '', '', 'AT'],
     ]);
-    const ownerJob = await request(app.getHttpServer())
-      .post('/imports')
-      .set('Authorization', authHeaderA)
-      .field('entityType', 'CUSTOMER')
-      .field('sourceSystem', 'legacy-dms-veh2')
-      .field('mapping', JSON.stringify(customerMapping))
-      .attach('file', ownerCsv, 'owner.csv')
-      .expect(201);
+    const ownerJob = await postCustomerImport(
+      ownerCsv,
+      'legacy-dms-veh2',
+      'owner.csv',
+    );
     await request(app.getHttpServer())
       .post(`/imports/${ownerJob.body.id}/apply`)
       .set('Authorization', authHeaderA)
       .expect(200);
 
-    const vehicleMapping = {
-      external_id: 'Fahrzeug-Nr',
-      vin: 'FIN',
-      plate: 'Kennzeichen',
-      make: 'Marke',
-      model: 'Modell',
-      year: 'Baujahr',
-      owner_customer_external_id: 'Kunden-Nr',
-    };
     const vehicleCsv = Buffer.from(
       [
         'Fahrzeug-Nr;FIN;Kennzeichen;Marke;Modell;Baujahr;Kunden-Nr',

@@ -1,9 +1,7 @@
+import { createE2eApp } from './helpers/e2e-suite.js';
 import { INestApplication } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { AppModule } from '../src/app.module.js';
-import { createGlobalValidationPipe } from '../src/common/index.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
@@ -40,14 +38,7 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
   const createdTenants: TestTenantResult[] = [];
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api');
-    app.useGlobalPipes(createGlobalValidationPipe());
-    await app.init();
+    app = await createE2eApp();
 
     basePrisma = app.get(PrismaService);
     authService = app.get(AuthService);
@@ -441,31 +432,20 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
     });
 
     it('marks the requisition ORDERED when the purchase order is sent', async () => {
-      const sheet = await postRequisitionSheet(fixture, [
-        { lineId: fixture.lineId, quantity: 1 },
-      ]);
-      const reservationId = sheet.body.lines[0].reservationId;
-
-      const purchaseOrder = await postCreatePurchaseOrder(
-        fixture,
-        sheet.body.id,
-        [{ reservationId, unitCost: 10 }],
-      );
+      const { sheet, reservationId, purchaseOrder } =
+        await createAllocatedPurchaseOrder(fixture);
       expect(purchaseOrder.status).toBe(201);
 
-      await request(app.getHttpServer())
-        .post(`/api/purchase-orders/${purchaseOrder.body.id}/mark-as-sent`)
-        .set('Authorization', `Bearer ${fixture.authToken}`)
-        .expect(200);
+      await markPurchaseOrderSent(fixture, purchaseOrder.body.id);
 
-      const reservation = await fixture.prisma.partsReservation.findFirstOrThrow(
-        { where: { id: reservationId } },
-      );
+      const reservation = await fixture.prisma.partsReservation.findFirstOrThrow({
+        where: { id: reservationId },
+      });
       expect(reservation.status).toBe('ORDERED');
 
-      const requisition = await fixture.prisma.partsRequisition.findFirstOrThrow(
-        { where: { id: sheet.body.id } },
-      );
+      const requisition = await fixture.prisma.partsRequisition.findFirstOrThrow({
+        where: { id: sheet.body.id },
+      });
       expect(requisition.status).toBe('ORDERED');
     });
 
@@ -491,14 +471,8 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
     });
 
     it('rejects PATCH quantity on a purchase order item linked to a reservation slice', async () => {
-      const sheet = await postRequisitionSheet(fixture, [
-        { lineId: fixture.lineId, quantity: 1 },
-      ]);
-      const reservationId = sheet.body.lines[0].reservationId;
-
-      const purchaseOrder = await postCreatePurchaseOrder(fixture, sheet.body.id, [
-        { reservationId, unitCost: 10 },
-      ]);
+      const { reservationId, purchaseOrder } =
+        await createAllocatedPurchaseOrder(fixture);
       expect(purchaseOrder.status).toBe(201);
       const itemId = purchaseOrder.body.items[0].id;
 
@@ -518,20 +492,11 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
     });
 
     it('rejects DELETE on a linked SENT purchase order item with 409 and keeps the FK intact', async () => {
-      const sheet = await postRequisitionSheet(fixture, [
-        { lineId: fixture.lineId, quantity: 1 },
-      ]);
-      const reservationId = sheet.body.lines[0].reservationId;
-
-      const purchaseOrder = await postCreatePurchaseOrder(fixture, sheet.body.id, [
-        { reservationId, unitCost: 10 },
-      ]);
+      const { reservationId, purchaseOrder } =
+        await createAllocatedPurchaseOrder(fixture);
       const itemId = purchaseOrder.body.items[0].id;
 
-      await request(app.getHttpServer())
-        .post(`/api/purchase-orders/${purchaseOrder.body.id}/mark-as-sent`)
-        .set('Authorization', `Bearer ${fixture.authToken}`)
-        .expect(200);
+      await markPurchaseOrderSent(fixture, purchaseOrder.body.id);
 
       const deleteRes = await request(app.getHttpServer())
         .delete(`/api/purchase-orders/${purchaseOrder.body.id}/items/${itemId}`)
@@ -547,14 +512,8 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
     });
 
     it('deletes a DRAFT purchase order: cancels unreceived reservations, unlinks FK, and updates requisition status', async () => {
-      const sheet = await postRequisitionSheet(fixture, [
-        { lineId: fixture.lineId, quantity: 1 },
-      ]);
-      const reservationId = sheet.body.lines[0].reservationId;
-
-      const purchaseOrder = await postCreatePurchaseOrder(fixture, sheet.body.id, [
-        { reservationId, unitCost: 10 },
-      ]);
+      const { sheet, reservationId, purchaseOrder } =
+        await createAllocatedPurchaseOrder(fixture);
 
       const deleteRes = await request(app.getHttpServer())
         .delete(`/api/purchase-orders/${purchaseOrder.body.id}`)
@@ -577,14 +536,7 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
     });
 
     it('serializes concurrent mark-as-sent vs DRAFT delete: one 200 and one 409 without deadlock', async () => {
-      const sheet = await postRequisitionSheet(fixture, [
-        { lineId: fixture.lineId, quantity: 1 },
-      ]);
-      const reservationId = sheet.body.lines[0].reservationId;
-
-      const purchaseOrder = await postCreatePurchaseOrder(fixture, sheet.body.id, [
-        { reservationId, unitCost: 10 },
-      ]);
+      const { purchaseOrder } = await createAllocatedPurchaseOrder(fixture);
 
       const [sentRes, deleteRes] = await Promise.all([
         request(app.getHttpServer())
@@ -600,21 +552,11 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
     });
 
     it('serializes concurrent unitCost PATCH vs receive: one succeeds and one 409, receipt cost_basis is preserved', async () => {
-      const sheet = await postRequisitionSheet(fixture, [
-        { lineId: fixture.lineId, quantity: 1 },
-      ]);
-      const reservationId = sheet.body.lines[0].reservationId;
-
-      const purchaseOrder = await postCreatePurchaseOrder(fixture, sheet.body.id, [
-        { reservationId, unitCost: 10 },
-      ]);
+      const { purchaseOrder } = await createAllocatedPurchaseOrder(fixture);
       const itemId = purchaseOrder.body.items[0].id;
 
       // Mark as sent so it can receive
-      await request(app.getHttpServer())
-        .post(`/api/purchase-orders/${purchaseOrder.body.id}/mark-as-sent`)
-        .set('Authorization', `Bearer ${fixture.authToken}`)
-        .expect(200);
+      await markPurchaseOrderSent(fixture, purchaseOrder.body.id);
 
       const catalogItem = await fixture.prisma.catalogItem.findFirstOrThrow({
         where: { workshop_task_line_items: { some: { id: fixture.lineId } } },
@@ -651,23 +593,12 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
     });
 
     it('receives an allocated slice into the job tote and stages it', async () => {
-      const sheet = await postRequisitionSheet(fixture, [
-        { lineId: fixture.lineId, quantity: 1 },
-      ]);
-      const reservationId = sheet.body.lines[0].reservationId;
-
-      const purchaseOrder = await postCreatePurchaseOrder(
-        fixture,
-        sheet.body.id,
-        [{ reservationId, unitCost: 10 }],
-      );
+      const { reservationId, purchaseOrder } =
+        await createAllocatedPurchaseOrder(fixture);
       const purchaseOrderId = purchaseOrder.body.id;
       const poItemId = purchaseOrder.body.items[0].id;
 
-      await request(app.getHttpServer())
-        .post(`/api/purchase-orders/${purchaseOrderId}/mark-as-sent`)
-        .set('Authorization', `Bearer ${fixture.authToken}`)
-        .expect(200);
+      await markPurchaseOrderSent(fixture, purchaseOrderId);
 
       await request(app.getHttpServer())
         .post(`/api/purchase-orders/${purchaseOrderId}/receive`)
@@ -801,23 +732,12 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
     });
 
     it('keeps a partially received slice ORDERED until the receipt is complete', async () => {
-      const sheet = await postRequisitionSheet(fixture, [
-        { lineId: fixture.lineId, quantity: 1 },
-      ]);
-      const reservationId = sheet.body.lines[0].reservationId;
-
-      const purchaseOrder = await postCreatePurchaseOrder(
-        fixture,
-        sheet.body.id,
-        [{ reservationId, unitCost: 10 }],
-      );
+      const { reservationId, purchaseOrder } =
+        await createAllocatedPurchaseOrder(fixture);
       const purchaseOrderId = purchaseOrder.body.id;
       const poItemId = purchaseOrder.body.items[0].id;
 
-      await request(app.getHttpServer())
-        .post(`/api/purchase-orders/${purchaseOrderId}/mark-as-sent`)
-        .set('Authorization', `Bearer ${fixture.authToken}`)
-        .expect(200);
+      await markPurchaseOrderSent(fixture, purchaseOrderId);
 
       await request(app.getHttpServer())
         .post(`/api/purchase-orders/${purchaseOrderId}/receive`)
@@ -847,23 +767,12 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
     });
 
     it('receives a released slice as free stock only when locationId is provided', async () => {
-      const sheet = await postRequisitionSheet(fixture, [
-        { lineId: fixture.lineId, quantity: 1 },
-      ]);
-      const reservationId = sheet.body.lines[0].reservationId;
-
-      const purchaseOrder = await postCreatePurchaseOrder(
-        fixture,
-        sheet.body.id,
-        [{ reservationId, unitCost: 10 }],
-      );
+      const { reservationId, purchaseOrder } =
+        await createAllocatedPurchaseOrder(fixture);
       const purchaseOrderId = purchaseOrder.body.id;
       const poItemId = purchaseOrder.body.items[0].id;
 
-      await request(app.getHttpServer())
-        .post(`/api/purchase-orders/${purchaseOrderId}/mark-as-sent`)
-        .set('Authorization', `Bearer ${fixture.authToken}`)
-        .expect(200);
+      await markPurchaseOrderSent(fixture, purchaseOrderId);
 
       await fixture.prisma.partsReservation.update({
         where: { id: reservationId },
@@ -905,7 +814,7 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
       expect(freeStock.quantity_on_hand).toEqual(new Prisma.Decimal(2));
     });
 
-    it('two jobs, same SKU, two PO items: receiving one item stages only that job\'s tote', async () => {
+    it("two jobs, same SKU, two PO items: receiving one item stages only that job's tote", async () => {
       // Second job with its own staging tote, same catalog item
       const site = await fixture.prisma.site.findFirstOrThrow({ where: { code: 'MAIN' } });
       const stagingTote2 = await fixture.prisma.storageLocation.create({
@@ -983,10 +892,7 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
       });
       const poItemId1 = res1Db.purchase_order_item_id!;
 
-      await request(app.getHttpServer())
-        .post(`/api/purchase-orders/${purchaseOrder.body.id}/mark-as-sent`)
-        .set('Authorization', `Bearer ${fixture.authToken}`)
-        .expect(200);
+      await markPurchaseOrderSent(fixture, purchaseOrder.body.id);
 
       // Receive only item 1 (qty 1)
       await request(app.getHttpServer())
@@ -1100,10 +1006,7 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
       const poItem1Id = resDb1.purchase_order_item_id!;
       const poItem2Id = resDb2.purchase_order_item_id!;
 
-      await request(app.getHttpServer())
-        .post(`/api/purchase-orders/${purchaseOrder.body.id}/mark-as-sent`)
-        .set('Authorization', `Bearer ${fixture.authToken}`)
-        .expect(200);
+      await markPurchaseOrderSent(fixture, purchaseOrder.body.id);
 
       // Send items in REVERSED order (poItem2 first, poItem1 second)
       const receiveRes = await request(app.getHttpServer())
@@ -1181,9 +1084,9 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
     return line.reservationId;
   }
 
-  async function stageAllocatedReservation(
+  async function createAllocatedPurchaseOrder(
     reservationFixture: ReservationFixture,
-  ): Promise<string> {
+  ) {
     const sheet = await postRequisitionSheet(reservationFixture, [
       { lineId: reservationFixture.lineId, quantity: 1 },
     ]);
@@ -1193,10 +1096,25 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
       sheet.body.id,
       [{ reservationId, unitCost: 10 }],
     );
-    await request(app.getHttpServer())
-      .post(`/api/purchase-orders/${purchaseOrder.body.id}/mark-as-sent`)
+    return { sheet, reservationId, purchaseOrder };
+  }
+
+  function markPurchaseOrderSent(
+    reservationFixture: ReservationFixture,
+    purchaseOrderId: string,
+  ) {
+    return request(app.getHttpServer())
+      .post(`/api/purchase-orders/${purchaseOrderId}/mark-as-sent`)
       .set('Authorization', `Bearer ${reservationFixture.authToken}`)
       .expect(200);
+  }
+
+  async function stageAllocatedReservation(
+    reservationFixture: ReservationFixture,
+  ): Promise<string> {
+    const { reservationId, purchaseOrder } =
+      await createAllocatedPurchaseOrder(reservationFixture);
+    await markPurchaseOrderSent(reservationFixture, purchaseOrder.body.id);
     await request(app.getHttpServer())
       .post(`/api/purchase-orders/${purchaseOrder.body.id}/receive`)
       .set('Authorization', `Bearer ${reservationFixture.authToken}`)

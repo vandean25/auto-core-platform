@@ -24,6 +24,17 @@ describe('Vehicle stock listing (e2e)', () => {
     });
   }
 
+  function createListing(
+    vehicleId: string,
+    body: { id: string; expected_stock_purchase_id: string },
+  ) {
+    return request(suite.app.getHttpServer())
+      .post(`/api/vehicle-stock/${vehicleId}/listing`)
+      .set('Authorization', `Bearer ${suite.authToken}`)
+      .send(body)
+      .expect(201);
+  }
+
   beforeAll(async () => {
     suite = await createVehicleStockSuite();
     await seedVehicleEquipmentOptions(suite.prisma, suite.tenantId);
@@ -41,14 +52,10 @@ describe('Vehicle stock listing (e2e)', () => {
     const vehicleId = created.received.vehicle_id;
     const listingId = randomUUID();
 
-    const postRes = await request(suite.app.getHttpServer())
-      .post(`/api/vehicle-stock/${vehicleId}/listing`)
-      .set('Authorization', `Bearer ${suite.authToken}`)
-      .send({
-        id: listingId,
-        expected_stock_purchase_id: created.received.id,
-      })
-      .expect(201);
+    const postRes = await createListing(vehicleId, {
+      id: listingId,
+      expected_stock_purchase_id: created.received.id,
+    });
 
     expect(postRes.body.listing_ref).toMatch(/^L[0-9a-f]{32}$/i);
     expect(postRes.body.channels).toHaveLength(3);
@@ -102,14 +109,10 @@ describe('Vehicle stock listing (e2e)', () => {
     const vehicleId = created.received.vehicle_id;
     const listingId = randomUUID();
 
-    await request(suite.app.getHttpServer())
-      .post(`/api/vehicle-stock/${vehicleId}/listing`)
-      .set('Authorization', `Bearer ${suite.authToken}`)
-      .send({
-        id: listingId,
-        expected_stock_purchase_id: created.received.id,
-      })
-      .expect(201);
+    await createListing(vehicleId, {
+      id: listingId,
+      expected_stock_purchase_id: created.received.id,
+    });
 
     await request(suite.app.getHttpServer())
       .patch(`/api/vehicle-stock/${vehicleId}/listing`)
@@ -139,14 +142,10 @@ describe('Vehicle stock listing (e2e)', () => {
     });
     const vehicleId = created.received.vehicle_id;
 
-    await request(suite.app.getHttpServer())
-      .post(`/api/vehicle-stock/${vehicleId}/listing`)
-      .set('Authorization', `Bearer ${suite.authToken}`)
-      .send({
-        id: randomUUID(),
-        expected_stock_purchase_id: created.received.id,
-      })
-      .expect(201);
+    await createListing(vehicleId, {
+      id: randomUUID(),
+      expected_stock_purchase_id: created.received.id,
+    });
 
     await request(suite.app.getHttpServer())
       .patch(`/api/vehicle-stock/${vehicleId}/listing`)
@@ -180,14 +179,10 @@ describe('Vehicle stock listing (e2e)', () => {
     });
     const vehicleId = created.received.vehicle_id;
 
-    await request(suite.app.getHttpServer())
-      .post(`/api/vehicle-stock/${vehicleId}/listing`)
-      .set('Authorization', `Bearer ${suite.authToken}`)
-      .send({
-        id: randomUUID(),
-        expected_stock_purchase_id: created.received.id,
-      })
-      .expect(201);
+    await createListing(vehicleId, {
+      id: randomUUID(),
+      expected_stock_purchase_id: created.received.id,
+    });
 
     await request(suite.app.getHttpServer())
       .patch(`/api/vehicle-stock/${vehicleId}/listing`)
@@ -234,27 +229,19 @@ describe('Vehicle stock listing (e2e)', () => {
       })
       .expect(200);
 
-    const withEquipment = await request(suite.app.getHttpServer())
-      .post(`/api/vehicle-stock/${vehicleId}/listing`)
-      .set('Authorization', `Bearer ${suite.authToken}`)
-      .send({
-        id: randomUUID(),
-        expected_stock_purchase_id: created.received.id,
-      })
-      .expect(201);
+    const withEquipment = await createListing(vehicleId, {
+      id: randomUUID(),
+      expected_stock_purchase_id: created.received.id,
+    });
 
     const bare = await suite.createAndReceive({
       vin: vin('LST-BARE'),
       sellerType: 'VENDOR',
     });
-    const bareListing = await request(suite.app.getHttpServer())
-      .post(`/api/vehicle-stock/${bare.received.vehicle_id}/listing`)
-      .set('Authorization', `Bearer ${suite.authToken}`)
-      .send({
-        id: randomUUID(),
-        expected_stock_purchase_id: bare.received.id,
-      })
-      .expect(201);
+    const bareListing = await createListing(bare.received.vehicle_id, {
+      id: randomUUID(),
+      expected_stock_purchase_id: bare.received.id,
+    });
 
     expect(withEquipment.body.content_sha256).not.toBe(
       bareListing.body.content_sha256,
@@ -268,14 +255,10 @@ describe('Vehicle stock listing (e2e)', () => {
     });
     const vehicleId = created.received.vehicle_id;
 
-    await request(suite.app.getHttpServer())
-      .post(`/api/vehicle-stock/${vehicleId}/listing`)
-      .set('Authorization', `Bearer ${suite.authToken}`)
-      .send({
-        id: randomUUID(),
-        expected_stock_purchase_id: created.received.id,
-      })
-      .expect(201);
+    await createListing(vehicleId, {
+      id: randomUUID(),
+      expected_stock_purchase_id: created.received.id,
+    });
 
     const before = await request(suite.app.getHttpServer())
       .get(`/api/vehicle-stock/${vehicleId}/listing`)
@@ -305,14 +288,10 @@ describe('Vehicle stock listing (e2e)', () => {
     const vehicleId = created.received.vehicle_id;
     const listingId = randomUUID();
 
-    await request(suite.app.getHttpServer())
-      .post(`/api/vehicle-stock/${vehicleId}/listing`)
-      .set('Authorization', `Bearer ${suite.authToken}`)
-      .send({
-        id: listingId,
-        expected_stock_purchase_id: created.received.id,
-      })
-      .expect(201);
+    await createListing(vehicleId, {
+      id: listingId,
+      expected_stock_purchase_id: created.received.id,
+    });
 
     const patched = await request(suite.app.getHttpServer())
       .patch(`/api/vehicle-stock/${vehicleId}/listing`)
@@ -358,14 +337,10 @@ describe('Vehicle stock listing (e2e)', () => {
     });
     const vehicleId = created.received.vehicle_id;
 
-    await request(suite.app.getHttpServer())
-      .post(`/api/vehicle-stock/${vehicleId}/listing`)
-      .set('Authorization', `Bearer ${suite.authToken}`)
-      .send({
-        id: randomUUID(),
-        expected_stock_purchase_id: created.received.id,
-      })
-      .expect(201);
+    await createListing(vehicleId, {
+      id: randomUUID(),
+      expected_stock_purchase_id: created.received.id,
+    });
 
     const patched = await request(suite.app.getHttpServer())
       .patch(`/api/vehicle-stock/${vehicleId}/listing`)
@@ -422,14 +397,10 @@ describe('Vehicle stock listing (e2e)', () => {
     const vehicleId = created.received.vehicle_id;
     const listingId = randomUUID();
 
-    await request(suite.app.getHttpServer())
-      .post(`/api/vehicle-stock/${vehicleId}/listing`)
-      .set('Authorization', `Bearer ${suite.authToken}`)
-      .send({
-        id: listingId,
-        expected_stock_purchase_id: created.received.id,
-      })
-      .expect(201);
+    await createListing(vehicleId, {
+      id: listingId,
+      expected_stock_purchase_id: created.received.id,
+    });
 
     const vehicle = await suite.prisma.vehicle.findFirstOrThrow({
       where: { id: vehicleId },

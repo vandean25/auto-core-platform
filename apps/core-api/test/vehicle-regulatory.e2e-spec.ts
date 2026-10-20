@@ -1,15 +1,13 @@
+import { createE2eApp } from './helpers/e2e-suite.js';
 import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { AuthService } from '../src/auth/auth.service.js';
-import { createGlobalValidationPipe } from '../src/common/index.js';
 import {
   VEHICLE_CO2_WLTP_OUT_OF_RANGE_CODE,
   VEHICLE_FIRST_REGISTRATION_DATE_FUTURE_CODE,
   VEHICLE_FIRST_REGISTRATION_DATE_INVALID_CODE,
   VEHICLE_NOVA_CLASS_INVALID_CODE,
 } from '../src/vehicle/vehicle-regulatory.validation.js';
-import { AppModule } from '../src/app.module.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
   cleanupTestTenantGraph,
@@ -32,14 +30,7 @@ describe('Vehicle regulatory fields (e2e)', () => {
   let lotId: string;
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api');
-    app.useGlobalPipes(createGlobalValidationPipe());
-    await app.init();
+    app = await createE2eApp();
 
     basePrisma = app.get(PrismaService);
     const testTenant = await createTestTenant(basePrisma, 'vehicle-regulatory');

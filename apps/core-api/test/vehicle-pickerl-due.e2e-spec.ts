@@ -1,9 +1,7 @@
+import { createE2eApp } from './helpers/e2e-suite.js';
 import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { AuthService } from '../src/auth/auth.service.js';
-import { createGlobalValidationPipe } from '../src/common/index.js';
-import { AppModule } from '../src/app.module.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
   cleanupTestTenantGraph,
@@ -45,14 +43,7 @@ describe('Pickerl Due (e2e)', () => {
   let techToken: string;
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api');
-    app.useGlobalPipes(createGlobalValidationPipe());
-    await app.init();
+    app = await createE2eApp();
 
     basePrisma = app.get(PrismaService);
     const testTenant = await createTestTenant(basePrisma, 'aut-380-fix');
@@ -251,7 +242,6 @@ describe('Pickerl Due (e2e)', () => {
     await cleanupTestTenantGraph(basePrisma, otherTenantId);
     await teardownTestApp(app);
   });
-
 
   it('GET /vehicles/pickerl-due returns paginated list with pageCount', async () => {
     const res = await request(app.getHttpServer())

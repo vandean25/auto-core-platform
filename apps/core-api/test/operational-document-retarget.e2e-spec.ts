@@ -1,8 +1,6 @@
+import { createE2eApp } from './helpers/e2e-suite.js';
 import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { AppModule } from '../src/app.module.js';
-import { createGlobalValidationPipe } from '../src/common/index.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
@@ -39,14 +37,7 @@ describe('Operational Document Retarget (e2e)', () => {
   let lotSiteB: { id: string };
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api');
-    app.useGlobalPipes(createGlobalValidationPipe());
-    await app.init();
+    app = await createE2eApp();
 
     prisma = app.get<PrismaService>(PrismaService);
     authService = app.get<AuthService>(AuthService);
@@ -359,24 +350,28 @@ describe('Operational Document Retarget (e2e)', () => {
     });
   });
 
+  function createSalesOrder(token: string, quantity: number) {
+    return request(app.getHttpServer())
+      .post('/api/sales-orders')
+      .set('Authorization', 'Bearer ' + token)
+      .send({
+        customer_id: customerId,
+        items: [
+          {
+            catalog_item_id: catalogItemId,
+            description: 'Synthetic Oil Filter',
+            quantity,
+            unit_price: 30,
+            tax_rate: 20,
+          },
+        ],
+      })
+      .expect(201);
+  }
+
   describe('SalesOrder Stamping & Retargeting', () => {
     it('stamps site_id upon creation and retargets when in DRAFT', async () => {
-      const createRes = await request(app.getHttpServer())
-        .post('/api/sales-orders')
-        .set('Authorization', 'Bearer ' + userBothSitesToken)
-        .send({
-          customer_id: customerId,
-          items: [
-            {
-              catalog_item_id: catalogItemId,
-              description: 'Synthetic Oil Filter',
-              quantity: 2,
-              unit_price: 30,
-              tax_rate: 20,
-            },
-          ],
-        })
-        .expect(201);
+      const createRes = await createSalesOrder(userBothSitesToken, 2);
 
       expect(createRes.body.site_id).toBe(siteA.id);
 
@@ -393,22 +388,7 @@ describe('Operational Document Retarget (e2e)', () => {
     });
 
     it('rejects retargeting when user lacks membership on target site (422)', async () => {
-      const createRes = await request(app.getHttpServer())
-        .post('/api/sales-orders')
-        .set('Authorization', 'Bearer ' + userAOnlyToken)
-        .send({
-          customer_id: customerId,
-          items: [
-            {
-              catalog_item_id: catalogItemId,
-              description: 'Synthetic Oil Filter',
-              quantity: 1,
-              unit_price: 30,
-              tax_rate: 20,
-            },
-          ],
-        })
-        .expect(201);
+      const createRes = await createSalesOrder(userAOnlyToken, 1);
 
       await request(app.getHttpServer())
         .patch('/api/sales-orders/' + createRes.body.id)
@@ -421,22 +401,7 @@ describe('Operational Document Retarget (e2e)', () => {
     });
 
     it('rejects retargeting when target site is inactive (422)', async () => {
-      const createRes = await request(app.getHttpServer())
-        .post('/api/sales-orders')
-        .set('Authorization', 'Bearer ' + userBothSitesToken)
-        .send({
-          customer_id: customerId,
-          items: [
-            {
-              catalog_item_id: catalogItemId,
-              description: 'Synthetic Oil Filter',
-              quantity: 1,
-              unit_price: 30,
-              tax_rate: 20,
-            },
-          ],
-        })
-        .expect(201);
+      const createRes = await createSalesOrder(userBothSitesToken, 1);
 
       await request(app.getHttpServer())
         .patch('/api/sales-orders/' + createRes.body.id)
@@ -561,22 +526,7 @@ describe('Operational Document Retarget (e2e)', () => {
 
   describe('Freeze boundaries and concurrency', () => {
     it('rejects sales order retarget after CONFIRMED (422)', async () => {
-      const createRes = await request(app.getHttpServer())
-        .post('/api/sales-orders')
-        .set('Authorization', 'Bearer ' + userBothSitesToken)
-        .send({
-          customer_id: customerId,
-          items: [
-            {
-              catalog_item_id: catalogItemId,
-              description: 'Synthetic Oil Filter',
-              quantity: 1,
-              unit_price: 30,
-              tax_rate: 20,
-            },
-          ],
-        })
-        .expect(201);
+      const createRes = await createSalesOrder(userBothSitesToken, 1);
 
       await request(app.getHttpServer())
         .patch('/api/sales-orders/' + createRes.body.id)
@@ -595,22 +545,7 @@ describe('Operational Document Retarget (e2e)', () => {
     });
 
     it('returns 409 when confirm races retarget on the same sales order', async () => {
-      const createRes = await request(app.getHttpServer())
-        .post('/api/sales-orders')
-        .set('Authorization', 'Bearer ' + userBothSitesToken)
-        .send({
-          customer_id: customerId,
-          items: [
-            {
-              catalog_item_id: catalogItemId,
-              description: 'Synthetic Oil Filter',
-              quantity: 1,
-              unit_price: 30,
-              tax_rate: 20,
-            },
-          ],
-        })
-        .expect(201);
+      const createRes = await createSalesOrder(userBothSitesToken, 1);
 
       const [confirmRes, retargetRes] = await Promise.all([
         request(app.getHttpServer())
@@ -690,22 +625,7 @@ describe('Operational Document Retarget (e2e)', () => {
 
   describe('Active site switcher does not rewrite document site', () => {
     it('retarget uses persisted site_id after switching active site to target', async () => {
-      const createRes = await request(app.getHttpServer())
-        .post('/api/sales-orders')
-        .set('Authorization', 'Bearer ' + userBothSitesToken)
-        .send({
-          customer_id: customerId,
-          items: [
-            {
-              catalog_item_id: catalogItemId,
-              description: 'Synthetic Oil Filter',
-              quantity: 1,
-              unit_price: 30,
-              tax_rate: 20,
-            },
-          ],
-        })
-        .expect(201);
+      const createRes = await createSalesOrder(userBothSitesToken, 1);
 
       expect(createRes.body.site_id).toBe(siteA.id);
 

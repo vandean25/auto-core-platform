@@ -1,9 +1,7 @@
+import { createE2eApp } from './helpers/e2e-suite.js';
 import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { AuthService } from '../src/auth/auth.service.js';
-import { AppModule } from '../src/app.module.js';
-import { createGlobalValidationPipe } from '../src/common/index.js';
 import { SANDBOX_CATALOG_ADAPTER_IDS } from '../src/catalog/catalog-adapter-ids.js';
 import { seedVehicleCatalogProviders } from '../src/prisma/seed-vehicle-catalog-providers.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
@@ -28,14 +26,7 @@ describe('Catalog provider settings (e2e)', () => {
   const testPrefix = `catalog-settings-${Date.now()}`;
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api');
-    app.useGlobalPipes(createGlobalValidationPipe());
-    await app.init();
+    app = await createE2eApp();
 
     basePrisma = app.get(PrismaService);
     const testTenant = await createTestTenant(
