@@ -233,5 +233,10 @@
       "requestNewLink": "Request a new demo link",
       "requestOnLanding": "Request a new demo link on the Auto Core landing page."
     }
+  },
+  "sidebar": {
+    "toggle": "Show or hide the sidebar",
+    "mobileTitle": "Navigation",
+    "mobileDescription": "Main navigation on small screens."
   }
 }

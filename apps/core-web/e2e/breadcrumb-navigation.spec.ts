@@ -55,9 +55,9 @@ async function mockJson(page: Page, path: string, body: unknown, status = 200) {
   });
 }
 
-/** The sidebar's core module nav, so assertions do not match breadcrumb links with the same name. */
-function coreModules(page: Page) {
-  return page.getByRole('navigation', { name: DE_SHELL.coreModulesNav });
+/** The sidebar's main navigation, so assertions do not match breadcrumb links with the same name. */
+function mainNavigation(page: Page) {
+  return page.getByRole('navigation', { name: DE_SHELL.mainNavigation });
 }
 
 function breadcrumbTrail(page: Page) {
@@ -70,14 +70,14 @@ test.describe('AUT-475: navigation and breadcrumbs', () => {
 
     await page.goto('/sales/invoices');
 
-    const invoicesLink = coreModules(page).getByRole('link', {
+    const invoicesLink = mainNavigation(page).getByRole('link', {
       name: DE_SHELL.modules.salesInvoices,
       exact: true,
     });
     await expect(invoicesLink).toHaveAttribute('href', '/sales/invoices');
     await expect(invoicesLink).toHaveAttribute('aria-current', 'page');
     await expect(
-      coreModules(page).getByRole('link', { name: DE_SHELL.modules.salesOrders, exact: true }),
+      mainNavigation(page).getByRole('link', { name: DE_SHELL.modules.salesOrders, exact: true }),
     ).not.toHaveAttribute('aria-current', 'page');
     await expectNoCriticalA11yViolations(page);
   });
@@ -107,7 +107,7 @@ test.describe('AUT-475: navigation and breadcrumbs', () => {
     await expect(page).toHaveURL('/sales-orders');
     await expect(breadcrumbTrail(page)).toHaveCount(0);
     await expect(
-      coreModules(page).getByRole('link', { name: DE_SHELL.modules.salesOrders, exact: true }),
+      mainNavigation(page).getByRole('link', { name: DE_SHELL.modules.salesOrders, exact: true }),
     ).toHaveAttribute('aria-current', 'page');
   });
 
@@ -129,7 +129,7 @@ test.describe('AUT-475: navigation and breadcrumbs', () => {
     await expect(page).toHaveURL('/sales/invoices');
     await expect(breadcrumbTrail(page)).toHaveCount(0);
     await expect(
-      coreModules(page).getByRole('link', { name: DE_SHELL.modules.salesInvoices, exact: true }),
+      mainNavigation(page).getByRole('link', { name: DE_SHELL.modules.salesInvoices, exact: true }),
     ).toHaveAttribute('aria-current', 'page');
   });
 

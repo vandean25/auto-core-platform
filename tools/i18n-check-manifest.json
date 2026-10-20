@@ -20,7 +20,9 @@
     "settings:storageLocations.types.",
     "settings:workshopHours.weekdays.",
     "settings:documentBranding.letterheadImport.states.",
-    "agent:changePreview.fields."
+    "agent:changePreview.fields.",
+    "nav:groups.",
+    "nav:modules."
   ],
   "usedKeys": [
     "settings:accountingExport.header.description",

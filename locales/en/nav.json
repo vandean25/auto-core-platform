@@ -3,8 +3,14 @@
     "acp": "ACP",
     "workshopBadge": "Workshop"
   },
-  "sections": {
-    "coreModules": "Core Modules",
+  "groups": {
+    "overview": "Overview",
+    "sales": "Sales",
+    "workshop": "Workshop",
+    "vehicles": "Vehicles",
+    "inventoryPurchasing": "Inventory & Purchasing",
+    "finance": "Finance",
+    "administration": "Administration",
     "favorites": "Favorites"
   },
   "favorites": {
@@ -12,7 +18,7 @@
     "removeAria": "Remove saved view {{name}}"
   },
   "aria": {
-    "coreModules": "Core modules"
+    "mainNavigation": "Main navigation"
   },
   "modules": {
     "dashboard": "Dashboard",
@@ -23,6 +29,7 @@
     "pickerlDue": "Pickerl due",
     "gewaehrleistungDue": "Statutory warranty due",
     "vehicleStock": "Vehicle Stock",
+    "vehicleStockReports": "Stock reports",
     "salesOrders": "Sales Orders",
     "salesInvoices": "Invoices",
     "workshopOrders": "Workshop Orders",
@@ -40,16 +47,18 @@
     "creditNotes": "Credit Notes",
     "accountingExportReadiness": "Export Readiness",
     "purchaseBills": "Purchase Bills",
-    "finance": "Finance"
+    "finance": "Finance settings",
+    "settings": "Settings"
   },
-  "footer": {
-    "search": "Search",
-    "openSearch": "Open search",
-    "settings": "Settings",
+  "search": {
+    "label": "Search",
+    "openAria": "Open search",
+    "shortcut": "Ctrl K",
+    "shortcutMac": "⌘ K"
+  },
+  "user": {
     "helpDocs": "Help / Docs",
-    "helpDocsOpensNewTab": "Help / Docs (opens in a new tab)",
-    "expandSidebar": "Expand sidebar",
-    "collapseSidebar": "Collapse sidebar"
+    "helpDocsOpensNewTab": "Help / Docs (opens in a new tab)"
   },
   "tenantSwitcher": {
     "currentTenant": "Current Tenant",
@@ -59,9 +68,7 @@
   "siteSwitcher": {
     "currentSite": "Current Site",
     "switchSite": "Switch site",
-    "selectSite": "Select site",
     "noActiveSite": "No active site",
-    "operationalNeedsSite": "Operational views need a site selection.",
     "activateSite": "Activate {{name}}"
   },
   "glossaryHints": {

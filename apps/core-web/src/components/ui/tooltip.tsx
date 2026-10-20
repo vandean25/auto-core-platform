@@ -15,6 +15,9 @@ const Tooltip = ({
 
 const TooltipTrigger = TooltipPrimitive.Trigger
 
+// Exposed for the sidebar, which wraps its whole tree in one provider.
+const TooltipProvider = TooltipPrimitive.Provider
+
 const TooltipContent = React.forwardRef<
     React.ElementRef<typeof TooltipPrimitive.Content>,
     React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content>
@@ -41,4 +44,4 @@ const TooltipHint = ({ hint, children }: { hint: string; children: React.ReactEl
     </Tooltip>
 )
 
-export { Tooltip, TooltipHint, TooltipTrigger, TooltipContent }
+export { Tooltip, TooltipHint, TooltipProvider, TooltipTrigger, TooltipContent }

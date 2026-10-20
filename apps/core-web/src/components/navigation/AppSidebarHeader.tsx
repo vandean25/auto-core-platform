@@ -1,25 +1,36 @@
+import { X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { useSidebar } from '@/components/ui/sidebar'
 
-type AppSidebarHeaderProps = {
-  collapsed: boolean
-}
-
-export function AppSidebarHeader({ collapsed }: AppSidebarHeaderProps) {
+/**
+ * Brand row at the top of the sidebar. It hides in icon mode, where the tenant icon below takes its place.
+ * In the mobile sheet it carries the close button, because the sheet's own close control is hidden.
+ */
+export function AppSidebarHeader() {
   const { t } = useTranslation('nav')
+  const { t: tCommon } = useTranslation('common')
+  const { isMobile, setOpenMobile } = useSidebar()
 
   return (
-    <div className={cn('border-b border-slate-800', collapsed ? 'px-2 py-4' : 'px-4 py-4')}>
-      <div className={cn('flex items-center', collapsed ? 'justify-center' : 'justify-between')}>
-        <span className={cn('font-semibold tracking-tight text-white', collapsed ? 'text-base' : 'text-lg')}>
-          {t('brand.acp')}
+    <div className="flex items-center justify-between gap-2 px-2 pt-1 group-data-[collapsible=icon]:hidden">
+      <div className="flex items-center gap-2">
+        <span className="text-base font-semibold tracking-tight">{t('brand.acp')}</span>
+        <span className="rounded-md border border-sidebar-border px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-sidebar-foreground">
+          {t('brand.workshopBadge')}
         </span>
-        {!collapsed ? (
-          <span className="rounded-md border border-slate-700 bg-slate-900 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-300">
-            {t('brand.workshopBadge')}
-          </span>
-        ) : null}
       </div>
+      {isMobile ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label={tCommon('actions.close')}
+          onClick={() => setOpenMobile(false)}
+        >
+          <X aria-hidden="true" />
+        </Button>
+      ) : null}
     </div>
   )
 }

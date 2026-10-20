@@ -233,5 +233,10 @@
       "requestNewLink": "Neuen Demo-Link anfordern",
       "requestOnLanding": "Fordern Sie auf der Auto-Core-Landingpage einen neuen Demo-Link an."
     }
+  },
+  "sidebar": {
+    "toggle": "Seitenleiste ein- oder ausblenden",
+    "mobileTitle": "Navigation",
+    "mobileDescription": "Hauptnavigation auf kleinen Bildschirmen."
   }
 }

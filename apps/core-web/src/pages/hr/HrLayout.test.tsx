@@ -3,6 +3,7 @@ import { MemoryRouter, Navigate, Route, Routes, useLocation } from 'react-router
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { AppSidebar } from '@/components/navigation/AppSidebar'
+import { SidebarProvider } from '@/components/ui/sidebar'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import deHr from '../../../../../locales/de/hr.json'
 import { registerGermanUiForTests } from '@/test/german-ui'
@@ -64,57 +65,49 @@ describe('HR navigation visibility', () => {
     activeSiteId: null,
     sites: [],
     isLoadingSites: false,
-    collapsed: false,
     isSwitchingTenant: false,
     isSwitchingSite: false,
-    onToggleCollapsed: () => undefined,
     onOpenSearch: () => undefined,
     onSwitchTenant: () => undefined,
     onSwitchSite: () => undefined,
     onSignOut: () => undefined,
   }
 
-  it('exposes one active HR sidebar link in the office shell', () => {
-    render(
-      <SavedViewsProvider userKey='test-user'>
-        <MemoryRouter initialEntries={['/hr']}>
-          <AppSidebar {...sidebarProps} activeRole='ADMIN' />
+  function renderSidebar(path: string, activeRole: 'ADMIN' | 'TECH') {
+    return render(
+      <SavedViewsProvider userKey={`test-user-${activeRole}`}>
+        <MemoryRouter initialEntries={[path]}>
+          <SidebarProvider>
+            <AppSidebar {...sidebarProps} activeRole={activeRole} />
+          </SidebarProvider>
         </MemoryRouter>
       </SavedViewsProvider>,
     )
+  }
+
+  it('exposes one active HR sidebar link in the office shell', () => {
+    renderSidebar('/hr', 'ADMIN')
 
     const hrLinks = screen.getAllByRole('link', { name: 'Personal' })
     expect(hrLinks).toHaveLength(1)
     expect(hrLinks[0]).toHaveAttribute('href', '/hr/employees')
-    expect(hrLinks[0]).toHaveClass('bg-slate-800', 'text-white')
+    expect(hrLinks[0]).toHaveAttribute('data-active', 'true')
   })
 
   it.each(['/hr/employees', '/hr/clock', '/hr/leave'])(
     'marks HR as the current sidebar link on %s',
     (initialPath) => {
-      render(
-        <SavedViewsProvider userKey='test-user'>
-          <MemoryRouter initialEntries={[initialPath]}>
-            <AppSidebar {...sidebarProps} activeRole='ADMIN' />
-          </MemoryRouter>
-        </SavedViewsProvider>,
-      )
+      renderSidebar(initialPath, 'ADMIN')
 
       const hrLink = screen.getByRole('link', { name: 'Personal' })
       expect(hrLink).toHaveAttribute('aria-current', 'page')
-      expect(hrLink).toHaveClass('bg-slate-800', 'text-white')
+      expect(hrLink).toHaveAttribute('data-active', 'true')
     },
   )
 
   it.each(['/hr', '/hr/clock', '/hr/leave'])('does not expose HR navigation to TECH on %s', (initialPath) => {
-    render(
-      <SavedViewsProvider userKey='test-user-tech'>
-        <MemoryRouter initialEntries={[initialPath]}>
-          <AppSidebar {...sidebarProps} activeRole='TECH' />
-        </MemoryRouter>
-      </SavedViewsProvider>,
-    )
+    renderSidebar(initialPath, 'TECH')
 
-    expect(screen.queryByRole('link', { name: 'HR' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Personal' })).not.toBeInTheDocument()
   })
 })
