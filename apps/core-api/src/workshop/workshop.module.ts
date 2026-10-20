@@ -53,7 +53,6 @@ import { WorkshopController } from './workshop.controller.js';
 import { WorkshopOrdersController } from './workshop-orders.controller.js';
 import { WorkshopOrderPdfController } from './workshop-order-pdf.controller.js';
 import { WorkshopOrderTasksController } from './workshop-order-tasks.controller.js';
-import { WorkshopOrdersHttpHandlers } from './workshop-orders.http-handlers.js';
 import { WorkshopHolidayController } from './workshop-holidays.controller.js';
 import { WorkshopSettingsController } from './workshop-settings.controller.js';
 import { WorkshopPlannerController } from './workshop-planner.controller.js';
@@ -110,7 +109,6 @@ import { InspectionMeasurementModule } from '../inspection-measurement/inspectio
     WorkshopEstimateDecidedConsumerWorkerController,
   ],
   providers: [
-    WorkshopOrdersHttpHandlers,
     PublicEstimateApprovalService,
     PublicEstimateApprovalLookup,
     PublicEstimateApprovalRateLimiter,

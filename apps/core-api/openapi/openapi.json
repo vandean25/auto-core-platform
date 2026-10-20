@@ -24371,6 +24371,10 @@
             "type": "string",
             "nullable": true
           },
+          "bill_to_customer_id": {
+            "type": "string",
+            "nullable": true
+          },
           "vehicle_id": {
             "type": "string"
           },
@@ -24447,10 +24451,6 @@
                 "$ref": "#/components/schemas/WorkshopReadyEmailNoticeDto"
               }
             ]
-          },
-          "bill_to_customer_id": {
-            "type": "string",
-            "nullable": true
           }
         },
         "required": [

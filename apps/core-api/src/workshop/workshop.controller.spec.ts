@@ -7,7 +7,6 @@ import { WorkshopController } from './workshop.controller.js';
 import { WorkshopOrderPdfController } from './workshop-order-pdf.controller.js';
 import { WorkshopOrderTasksController } from './workshop-order-tasks.controller.js';
 import { WorkshopOrdersController } from './workshop-orders.controller.js';
-import { WorkshopOrdersHttpHandlers } from './workshop-orders.http-handlers.js';
 import { WorkshopHolidayController } from './workshop-holidays.controller.js';
 import { WorkshopSettingsController } from './workshop-settings.controller.js';
 import { WorkshopPlannerController } from './workshop-planner.controller.js';
@@ -30,7 +29,7 @@ import { WorkshopInspectionService } from './workshop-inspection.service.js';
 describe('WorkshopOrdersController', () => {
   let controller: WorkshopOrdersController;
 
-  const mockOrdersHandlers = {
+  const mockIntakeService = {
     findAll: jest.fn(),
   };
 
@@ -38,10 +37,8 @@ describe('WorkshopOrdersController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [WorkshopOrdersController],
       providers: [
-        {
-          provide: WorkshopOrdersHttpHandlers,
-          useValue: mockOrdersHandlers,
-        },
+        { provide: WorkshopIntakeService, useValue: mockIntakeService },
+        { provide: WorkshopInvoiceService, useValue: {} },
       ],
     }).compile();
 
@@ -49,8 +46,8 @@ describe('WorkshopOrdersController', () => {
     jest.clearAllMocks();
   });
 
-  it('delegates findAll to orders handlers with query DTO', () => {
-    mockOrdersHandlers.findAll.mockReturnValue({ data: [], meta: {} });
+  it('delegates findAll to intake service with parsed pagination', () => {
+    mockIntakeService.findAll.mockReturnValue({ data: [], meta: {} });
     const query = {
       search: 'oil',
       page: '2',
@@ -60,7 +57,13 @@ describe('WorkshopOrdersController', () => {
     };
     const result = controller.findAll(query);
 
-    expect(mockOrdersHandlers.findAll).toHaveBeenCalledWith(query);
+    expect(mockIntakeService.findAll).toHaveBeenCalledWith({
+      search: 'oil',
+      page: 2,
+      pageSize: 25,
+      sortField: 'createdAt',
+      sortDirection: 'desc',
+    });
     expect(result).toEqual({ data: [], meta: {} });
   });
 

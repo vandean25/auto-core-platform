@@ -1,13 +1,17 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { WorkshopIntakeService } from './workshop-intake.service.js';
+import { WorkshopInvoiceService } from './workshop-invoice.service.js';
 import { WorkshopOrdersController } from './workshop-orders.controller.js';
-import { WorkshopOrdersHttpHandlers } from './workshop-orders.http-handlers.js';
 
 describe('WorkshopOrdersController', () => {
-  it('delegates create to orders handlers', async () => {
-    const handlers = { create: jest.fn().mockReturnValue({ id: 'o-1' }) };
+  it('delegates create to intake service', async () => {
+    const intakeService = { create: jest.fn().mockReturnValue({ id: 'o-1' }) };
     const module: TestingModule = await Test.createTestingModule({
       controllers: [WorkshopOrdersController],
-      providers: [{ provide: WorkshopOrdersHttpHandlers, useValue: handlers }],
+      providers: [
+        { provide: WorkshopIntakeService, useValue: intakeService },
+        { provide: WorkshopInvoiceService, useValue: {} },
+      ],
     }).compile();
 
     const controller = module.get(WorkshopOrdersController);
@@ -16,6 +20,6 @@ describe('WorkshopOrdersController', () => {
     >[0];
 
     expect(controller.create(dto)).toEqual({ id: 'o-1' });
-    expect(handlers.create).toHaveBeenCalledWith(dto);
+    expect(intakeService.create).toHaveBeenCalledWith(dto);
   });
 });

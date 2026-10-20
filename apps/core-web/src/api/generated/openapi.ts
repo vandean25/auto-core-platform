@@ -7370,6 +7370,7 @@ export interface components {
             /** @enum {string} */
             purpose: "CUSTOMER_REPAIR" | "STOCK_PREP";
             customer_id?: string | null;
+            bill_to_customer_id?: string | null;
             vehicle_id: string;
             odometer: number;
             fuel_level: number;
@@ -7389,7 +7390,6 @@ export interface components {
             updatedAt: string;
             /** @description Ready-for-pickup email state when the order is COMPLETED (AUT-357). Null while the job is still open. */
             ready_email_notice?: components["schemas"]["WorkshopReadyEmailNoticeDto"] | null;
-            bill_to_customer_id?: string | null;
         };
         UpdateWorkshopOrderDto: {
             reportedIssue?: string;
