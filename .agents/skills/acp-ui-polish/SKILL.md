@@ -17,7 +17,7 @@ Two kinds of rule appear below:
 - **UI kit:** shadcn/ui, style `new-york`, on Radix primitives (`apps/core-web/components.json`). Base components live in `apps/core-web/src/components/ui/`, for example `button.tsx`, `alert-dialog.tsx`, `skeleton.tsx`, `table.tsx`.
 - **New base components** come only from `npx shadcn add <name>`, run in `apps/core-web`. Never hand-copy a shadcn file, and never bend a `ui/` file to fit one screen. Wrap it in a feature component instead.
 - **Tailwind 4 is CSS-first.** Theme tokens live in `apps/core-web/src/index.css` (`@theme`). Do not add a `tailwind.config.js`. `components.json` still names one that does not exist; that fix is T2.
-- **Icons:** `lucide-react`, used in 122 files. Do not use `@radix-ui/react-icons` in new UI. The package is still in `package.json`, but no file under `apps/core-web/src` imports it today.
+- **Icons:** `lucide-react`, used in 148 files. Do not use `@radix-ui/react-icons` in new UI. The package is still in `package.json`, but no file under `apps/core-web/src` imports it today.
 - **Tables:** TanStack Table v9 (`@tanstack/react-table` ^9.1.2) sits behind `apps/core-web/src/components/data-table/DataTable.tsx`. Pages pass columns and rows to `DataTable`; no page calls the table hook itself.
 - **Forms:** react-hook-form and zod, with the `Form` primitives in `apps/core-web/src/components/ui/form.tsx`.
 - **Toasts:** sonner (`apps/core-web/src/components/ui/sonner.tsx`). **Charts:** Recharts, currently used in `apps/core-web/src/features/dashboard-widgets/DashboardWidgetsGrid.tsx`.
@@ -54,28 +54,28 @@ Semantic classes resolve to the ACP colors defined in `apps/core-web/src/index.c
 
 Every list and detail page renders all three states. Build them before the happy path.
 
-- **Loading:** a `Skeleton` (`apps/core-web/src/components/ui/skeleton.tsx`) shaped like the final content: rows for tables, blocks for cards. No spinner stands in for content. Show the skeleton after a 150–300 ms delay, so a fast response does not flash. `PageLoader` (`apps/core-web/src/components/ui/PageLoader.tsx`) is the route-level fallback used in `apps/core-web/src/App.tsx` and `apps/core-web/src/app/AppRouteTree.tsx`. It is not a content loader.
+- **Loading:** a `Skeleton` (`apps/core-web/src/components/ui/skeleton.tsx`) shaped like the final content: blocks for cards, rows for lists. No spinner stands in for content. Show the skeleton after a 150–300 ms delay, so a fast response does not flash. Today `DataTable` shows one text row (`dataTable.loading`, "Laden…") while `isLoading` is set; skeleton rows inside `DataTable` are a target. `PageLoader` (`apps/core-web/src/components/ui/PageLoader.tsx`) is the route-level fallback used in `apps/core-web/src/App.tsx` and `apps/core-web/src/app/AppRouteTree.tsx`. It is not a content loader.
 - **Empty:** say what is missing and offer one action, such as "Kunde anlegen". A table passes `emptyStateMessage` to `DataTable`; the default is `dataTable.noResults` ("Keine Ergebnisse."). A page-level empty state uses a shadcn Empty block (**target:** add it with `npx shadcn add` when the first page needs it). Until then, use a `Card` with one sentence and one `Button`.
 - **Error:** one German sentence in Sie-form that says what happened and what to do, plus a Retry button that refetches. Never render raw API text. The backend sends codes, and the client maps them to the `errors` namespace (see `.agents/skills/acp-i18n/SKILL.md`).
 
 ```tsx
-// Do: error copy plus Retry
-<p>Die Kunden konnten nicht geladen werden. Bitte versuchen Sie es erneut.</p>
+// Do: copy comes from the locale files; errors:generic.unexpected is an existing key
+<p>{t('errors:generic.unexpected')}</p>
 <Button variant="outline" onClick={() => refetch()}>{t('common:actions.retry')}</Button>
 
-// Don't: raw error text from the API, no action
+// Don't: raw API text, and no way out for the user
 <p>{error.message}</p>
 ```
 
 `common:actions` has no `retry` key yet. Add `retry` ("Erneut versuchen" in `locales/de/common.json`, "Try again" in `locales/en/common.json`) when you need it.
 
-- **Buttons while saving:** keep the label, add a spinner, disable the button, and use the ellipsis form ("Speichern…"). Do not swap the label for a different phrase.
+- **Buttons while saving:** keep the label, add a spinner, disable the button, and append the ellipsis ("Speichern" becomes "Speichern…"). Do not swap the label for a different phrase.
 
 ```tsx
-// Do: same label, spinner, disabled. Add actions.saving next to actions.save in both locales.
+// Do: same label with the ellipsis, spinner, disabled. "Speichern…" exists as common:documentSave.saving.
 <Button disabled={isPending}>
   {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-  {isPending ? t('common:actions.saving') : t('common:actions.save')}
+  {isPending ? t('common:documentSave.saving') : t('common:actions.save')}
 </Button>
 
 // Don't: stays clickable while pending, so a double submit is possible
@@ -88,17 +88,21 @@ The spinner-in-button pattern already exists in `apps/core-web/src/features/purc
 
 - Every list is a `DataTable` (`apps/core-web/src/components/data-table/DataTable.tsx`). Sorting (`data-table-column-header.tsx`), column options (`data-table-view-options.tsx`) and CSV export (`data-table-csv.ts`) come with it. Model: `apps/core-web/src/pages/customers/CustomerList.tsx`, where each sortable header is a `DataTableColumnHeader`.
 - **No raw `<table>` in new code.** Seven app files still hand-write one, for example `apps/core-web/src/pages/vehicle-stock/VehicleStockReportsPage.tsx`. Move a file to `DataTable` when you touch it. The area-by-area migration is T6 (AUT-659).
-- Numbers are right-aligned with `text-right tabular-nums`, as in `apps/core-web/src/components/labor/LaborOperationsTab.tsx`.
+- Numbers are right-aligned with `text-right tabular-nums`, as on one cell in `apps/core-web/src/pages/stock-transfers/StockTransferDetail.tsx`.
 - Amounts and dates come only from `@/lib/format` (`apps/core-web/src/lib/format/`).
 
 ```tsx
-// Do
+// Do (as in SalesOrderList.tsx): the cell renderer returns the content, and DataTable draws the td
 import { formatCurrency } from '@/lib/format'
-<TableCell className="text-right tabular-nums">{formatCurrency(row.original.total)}</TableCell>
+{
+  accessorKey: 'total_amount',
+  cell: ({ row }) => (
+    <div className="text-right tabular-nums">{formatCurrency(Number(row.original.total_amount))}</div>
+  ),
+}
 
-// Don't: hand-rolled number and currency formatting
-<TableCell>{row.original.total.toFixed(2)} €</TableCell>
-<TableCell>{new Intl.NumberFormat('de-AT').format(row.original.total)}</TableCell>
+// Don't: hand-rolled formatting, and a TableCell nested inside a column renderer
+cell: ({ row }) => <TableCell>{row.original.total.toFixed(2)} €</TableCell>,
 ```
 
 `apps/core-web/src/lib/utils.ts` re-exports `formatCurrency` for older code. Do not add new imports from it. ESLint already rejects direct `Intl` use outside `src/lib/format/`.
@@ -175,7 +179,7 @@ Paste this into the PR body and tick every line.
 - [ ] **Keyboard:** a keyboard-only pass over the change, with a visible focus ring on every control.
 - [ ] **Playwright:** the CI jobs "Frontend Lint, Build and Unit Tests" and "Frontend UI Smoke" are green. Read the smoke job log, not only the check mark. The axe spec is `apps/core-web/e2e/a11y-smoke.spec.ts`.
 - [ ] **i18n:** every new string exists in `locales/de` and `locales/en`. `npm run i18n:check` and `npm run lint --workspace=core-web` pass. Rules: `.agents/skills/acp-i18n/SKILL.md`.
-- [ ] **Repowise:** `npm run repowise:gate -- --base origin/main` passes locally, and the CI log line `Repowise health gate passed` is quoted in the PR. The job is advisory, so the log line is the proof. New source files score at least 6.0, and changed files must not get worse. Rules: `.agents/skills/repowise-gate/SKILL.md`.
+- [ ] **Repowise:** `npm run repowise:gate -- --base origin/main` passes locally, and the CI log line is quoted in the PR. The gate prints `Repowise health gate passed: N changed source file(s) checked.` when a gated file changed, or `Repowise health gate: no changed source files, nothing to check.` when none did. The job is advisory, so the log line is the proof. New source files score at least 6.0, and changed files must not get worse. Rules: `.agents/skills/repowise-gate/SKILL.md`.
 - [ ] **Scope:** the PR does not implement a target (T2 tokens, T3 sidebar, T5 PageHeader, T6 migration) by accident.
 
 ## Sources and licenses
