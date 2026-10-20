@@ -16,6 +16,7 @@ import {
   serializeBaseline,
   touchesGateSource,
 } from './repowise-gate-lib.mjs';
+import { applyWorkingTreeAtMergeBase, commitSquashSnapshot } from './repowise-gate.mjs';
 
 const fixturesDir = path.join(import.meta.dirname, 'repowise-gate-fixtures');
 const cliPath = path.join(import.meta.dirname, 'repowise-gate.mjs');
@@ -519,6 +520,59 @@ test('CLI skips the analysis without calling repowise when no gated source file 
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('squash head worktree applies the merge-base diff and records one synthetic commit', () => {
+  const tracked = 'tools/noisy-history.mjs';
+  const dir = makeRepo({
+    [tracked]: 'export const v = 1;\n',
+    [DOC]: 'docs\n',
+  });
+  const baseSha = gitIn(dir, ['rev-parse', 'HEAD']);
+  for (let index = 1; index <= 4; index += 1) {
+    writeFiles(dir, { [tracked]: `export const v = ${index + 1};\n` });
+    gitIn(dir, ['add', tracked]);
+    gitIn(dir, ['commit', '-q', '-m', `wip ${index}`]);
+  }
+  writeFiles(dir, { [tracked]: 'export const v = 99;\nexport const extra = 2;\n' });
+  gitIn(dir, ['add', tracked]);
+  gitIn(dir, ['commit', '-q', '-m', 'final']);
+
+  const workRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'repowise-squash-'));
+  const worktree = path.join(workRoot, 'head');
+  try {
+    gitIn(dir, ['worktree', 'add', worktree, baseSha]);
+    applyWorkingTreeAtMergeBase(dir, worktree, baseSha);
+    commitSquashSnapshot(worktree);
+    assert.equal(
+      fs.readFileSync(path.join(worktree, tracked), 'utf8'),
+      fs.readFileSync(path.join(dir, tracked), 'utf8'),
+    );
+    assert.equal(gitIn(dir, ['rev-list', '--count', 'HEAD']), '6');
+    assert.equal(gitIn(worktree, ['rev-list', '--count', 'HEAD']), '2');
+    assert.match(gitIn(worktree, ['log', '-1', '--format=%s']), /squash snapshot/);
+  } finally {
+    try {
+      gitIn(dir, ['worktree', 'remove', '--force', worktree]);
+    } catch {
+      // removed with the temp dir either way
+    }
+    fs.rmSync(workRoot, { recursive: true, force: true });
+  }
+});
+
+test('PR #901-style history noise on a new file passes once head is squash-scored', () => {
+  const newController = 'apps/core-api/src/workshop/workshop-orders.controller.ts';
+  const result = evaluate({
+    changes: [{ status: 'A', path: newController }],
+    head: { [newController]: 9.05 },
+  });
+  assert.deepEqual(result.violations, []);
+  const noisy = evaluate({
+    changes: [{ status: 'A', path: newController }],
+    head: { [newController]: 5.55 },
+  });
+  assert.equal(noisy.violations[0]?.kind, 'new-below-floor');
 });
 
 test('CLI exits 2 for an unknown base ref', () => {
