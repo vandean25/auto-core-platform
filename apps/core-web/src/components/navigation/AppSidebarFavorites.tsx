@@ -1,16 +1,15 @@
-import { Link, useLocation } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Star, X } from 'lucide-react'
-import { SidebarMenu, SidebarMenuAction, SidebarMenuButton, SidebarMenuItem, useSidebar } from '@/components/ui/sidebar'
+import { SidebarMenu, SidebarMenuAction } from '@/components/ui/sidebar'
 import { useSavedViews } from '@/features/saved-views/SavedViewsProvider'
-import { NavGroupShell } from './NavGroupMenu'
+import { NavGroupShell, SidebarNavItem } from './NavGroupMenu'
 import { normalizePathWithQuery } from './app-sidebar-path'
 
 /** Saved table views, kept in a group of their own below the navigation. */
 export function AppSidebarFavorites() {
   const { t } = useTranslation('nav')
   const location = useLocation()
-  const { setOpenMobile } = useSidebar()
   const { savedViews, removeSavedView } = useSavedViews()
   const currentPathWithQuery = normalizePathWithQuery(location.pathname, location.search)
 
@@ -26,16 +25,14 @@ export function AppSidebarFavorites() {
         </p>
       ) : (
         <SidebarMenu>
-          {savedViews.map((view) => {
-            const active = view.href === currentPathWithQuery
-            return (
-              <SidebarMenuItem key={view.id}>
-                <SidebarMenuButton asChild isActive={active} tooltip={view.name} onClick={() => setOpenMobile(false)}>
-                  <Link to={view.href} aria-current={active ? 'page' : undefined}>
-                    <Star aria-hidden="true" />
-                    <span>{view.name}</span>
-                  </Link>
-                </SidebarMenuButton>
+          {savedViews.map((view) => (
+            <SidebarNavItem
+              key={view.id}
+              to={view.href}
+              label={view.name}
+              active={view.href === currentPathWithQuery}
+              icon={<Star aria-hidden="true" />}
+              action={
                 <SidebarMenuAction
                   showOnHover
                   aria-label={t('favorites.removeAria', { name: view.name })}
@@ -43,9 +40,9 @@ export function AppSidebarFavorites() {
                 >
                   <X aria-hidden="true" />
                 </SidebarMenuAction>
-              </SidebarMenuItem>
-            )
-          })}
+              }
+            />
+          ))}
         </SidebarMenu>
       )}
     </NavGroupShell>

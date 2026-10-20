@@ -30,6 +30,7 @@ function useNavGroupState(groupId: string, hasActiveItem: boolean) {
   const [storedOpen, setStoredOpen] = useSidebarGroupOpen(groupId)
   const iconMode = state === 'collapsed' && !isMobile
 
+  // Opening the group of the current page is stored like a user choice, so it stays open after a reload.
   useEffect(() => {
     if (hasActiveItem) {
       setStoredOpen(true)
@@ -68,6 +69,32 @@ export function NavGroupShell({ groupId, label, hasActiveItem, children }: NavGr
   )
 }
 
+type SidebarNavItemProps = {
+  to: string
+  label: string
+  active: boolean
+  icon: ReactNode
+  /** Sits beside the link, for example a remove button. */
+  action?: ReactNode
+}
+
+/** A link in the sidebar. It marks the current page and closes the mobile sheet after a click. */
+export function SidebarNavItem({ to, label, active, icon, action }: SidebarNavItemProps) {
+  const { setOpenMobile } = useSidebar()
+
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton asChild isActive={active} tooltip={label} onClick={() => setOpenMobile(false)}>
+        <Link to={to} aria-current={active ? 'page' : undefined}>
+          {icon}
+          <span>{label}</span>
+        </Link>
+      </SidebarMenuButton>
+      {action}
+    </SidebarMenuItem>
+  )
+}
+
 type NavGroupMenuProps = {
   group: NavGroup
 }
@@ -76,7 +103,6 @@ type NavGroupMenuProps = {
 export function NavGroupMenu({ group }: NavGroupMenuProps) {
   const { t } = useTranslation('nav')
   const location = useLocation()
-  const { setOpenMobile } = useSidebar()
   const isItemActive = (item: NavGroup['items'][number]) => item.isActive(location.pathname, location.search)
 
   return (
@@ -84,17 +110,14 @@ export function NavGroupMenu({ group }: NavGroupMenuProps) {
       <SidebarMenu>
         {group.items.map((item) => {
           const Icon = item.icon
-          const active = isItemActive(item)
-          const label = t(item.labelKey)
           return (
-            <SidebarMenuItem key={item.id}>
-              <SidebarMenuButton asChild isActive={active} tooltip={label} onClick={() => setOpenMobile(false)}>
-                <Link to={item.to} aria-current={active ? 'page' : undefined}>
-                  <Icon />
-                  <span>{label}</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
+            <SidebarNavItem
+              key={item.id}
+              to={item.to}
+              label={t(item.labelKey)}
+              active={isItemActive(item)}
+              icon={<Icon />}
+            />
           )
         })}
       </SidebarMenu>

@@ -42,6 +42,19 @@ test.describe('AUT-656: grouped sidebar', () => {
     }
   });
 
+  test('icon mode keeps every entry reachable in the scroll area at 1366x768', async ({ page }) => {
+    await page.addInitScript(() => window.localStorage.setItem('acp:sidebar-collapsed', 'true'));
+    await page.setViewportSize(LAPTOP);
+    await page.goto('/dashboard');
+
+    const links = mainNavigation(page).getByRole('link');
+    await expect(links).toHaveCount(ADMIN_ENTRY_COUNT);
+    for (let index = 0; index < ADMIN_ENTRY_COUNT; index += 1) {
+      await links.nth(index).scrollIntoViewIfNeeded();
+      await expect(links.nth(index)).toBeInViewport();
+    }
+  });
+
   test('icon mode keeps every entry named and shows its label in a tooltip', async ({ page }) => {
     await page.addInitScript(() => window.localStorage.setItem('acp:sidebar-collapsed', 'true'));
     await page.setViewportSize(LAPTOP);

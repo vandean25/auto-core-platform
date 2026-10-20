@@ -60,7 +60,7 @@ export function AppSidebar({
   const { t } = useTranslation('nav')
   const groups = getVisibleNavGroups({ platformRole, activeRole })
   const { isMobile } = useSidebar()
-  const isMac = /Mac|iPhone|iPad/.test(navigator.platform)
+  const isMac = /Mac|iPhone|iPad/.test(navigator.userAgent)
 
   return (
     <Sidebar collapsible="icon">
@@ -80,7 +80,11 @@ export function AppSidebar({
         />
       </SidebarHeader>
 
-      <SidebarContent>
+      {/*
+        shadcn hides the overflow in icon mode, but icon mode lists every entry too, so the list scrolls there.
+        The thin scrollbar keeps that scroll visible on desktop, where the list is longer than the window.
+      */}
+      <SidebarContent className="group-data-[collapsible=icon]:overflow-auto [scrollbar-width:thin]">
         <SidebarMenu className="px-2 pt-2">
           <SidebarMenuItem>
             <SidebarMenuButton
@@ -115,7 +119,7 @@ export function AppSidebar({
         <NavUser userEmail={userEmail} onSignOut={onSignOut} />
       </SidebarFooter>
 
-      {/* The rail toggles the desktop sidebar only; the mobile sheet has its own close control. */}
+      {/* The rail toggles the desktop sidebar only. The mobile sheet closes from its header. */}
       {isMobile ? null : <SidebarRail />}
     </Sidebar>
   )

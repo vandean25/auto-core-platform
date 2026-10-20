@@ -15,7 +15,7 @@ export const DE_SHELL = {
       'Noch keine gespeicherten Ansichten. Setzen Sie Filter in einer Tabelle und wählen Sie „Als Seitenleistenansicht speichern“.',
   },
   user: {
-    // The e2e session's account (see getE2EAuthSession in src/api/auth-session.ts).
+    // The account of the e2e auth bypass (src/auth/AuthProvider.tsx).
     accountEmail: 'testauto@auto.core.at',
     helpDocs: 'Hilfe / Dokumentation',
   },

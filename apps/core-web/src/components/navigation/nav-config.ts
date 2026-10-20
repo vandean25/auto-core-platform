@@ -75,8 +75,8 @@ function isSettingsTab(search: string, tab: string) {
 
 /**
  * The sidebar's navigation. Every entry the former flat list had is here with the same visibility
- * and active rules; the groups only change how they are shown. Items are not de-duplicated across
- * groups, so each icon appears once per group.
+ * and active rules; the groups only change how they are shown. Every icon is unique across the
+ * navigation, so the icon-only sidebar stays readable.
  */
 export const NAV_GROUPS: readonly NavGroup[] = [
   {

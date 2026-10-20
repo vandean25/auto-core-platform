@@ -64,14 +64,13 @@ Trivial contrast and layout fixes made while widening coverage (class changes on
 
 ## Reflow at 320px (AUT-482)
 
-WCAG 1.4.10 is not met on the desktop routes yet. The smoke spec measures `document.body` at a 320px viewport on every route, with the sidebar collapsed (`acp:sidebar-collapsed`), and attaches the result as `reflow-320-overflow`. It fails the build only for the routes in `REFLOW_320_GATED_ROUTES`: the inventory list, the settings brands tab and the settings storage locations tab, which fit at this width in that state. The other routes are report-only until the shell follow-up lands.
+WCAG 1.4.10 is not met on the desktop routes yet. The smoke spec measures `document.body` at a 320px viewport on every route, and attaches the result as `reflow-320-overflow`. Below `md` the sidebar is a closed sheet, so the 320px measurement sees the page content on its own. It fails the build only for the routes in `REFLOW_320_GATED_ROUTES`: the inventory list, the settings brands tab and the settings storage locations tab, which fit at this width in that state. The other routes are report-only until the shell follow-up lands.
 
 Measured causes at 320px:
 
-- The expanded sidebar (the default for users) is a fixed overlay (`aside.fixed`, `w-72`) that takes most of the viewport and intercepts clicks. On the customers list the "+ Customer" button cannot be clicked. With the sidebar expanded, every smoke route overflows.
-- With the sidebar collapsed, most other routes still overflow. `PageContainer` (`w-full max-w-page mx-auto p-6`) ends at x=336 on the expanded layout. Page header rows, breadcrumbs and header button groups do not wrap, the sales orders and vehicle stock tables and the workshop board toolbar extend past the page instead of scrolling in their own wrapper, and the board columns (`w-max`) do the same.
+- Most other routes still overflow at 320px. `PageContainer` (`w-full max-w-page mx-auto p-6`) ends at x=336 on the expanded layout. Page header rows, breadcrumbs and header button groups do not wrap, the sales orders and vehicle stock tables and the workshop board toolbar extend past the page instead of scrolling in their own wrapper, and the board columns (`w-max`) do the same.
 
-Follow-up: a responsive app shell (sidebar off-canvas below `md`), wrapping header rows and breadcrumbs, scrolling table wrappers, and containing the board columns. Then add each route to `REFLOW_320_GATED_ROUTES`.
+Follow-up: wrapping header rows and breadcrumbs, scrolling table wrappers, and containing the board columns. Then add each route to `REFLOW_320_GATED_ROUTES`.
 
 ## 200% zoom on the key pages (AUT-482)
 
