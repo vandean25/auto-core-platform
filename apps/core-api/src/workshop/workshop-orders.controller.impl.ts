@@ -1,11 +1,4 @@
-import {
-  Body,
-  Get,
-  Param,
-  Patch,
-  Post,
-  Query,
-} from '@nestjs/common';
+import { Body, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiCreatedResponse } from '@nestjs/swagger';
 import { DryRunSupported } from '../dry-run/dry-run.decorators.js';
 import { InvoiceResponseDto } from '../sales/dto/invoice-response.dto.js';
