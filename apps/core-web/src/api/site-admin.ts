@@ -1,5 +1,5 @@
+import { fetchJsonWithAuth } from "./api-error";
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { fetchWithAuth } from './client'
 import { siteKeys } from './sites'
 
 export type LegalEntitySellerReadiness = {
@@ -179,59 +179,50 @@ export const siteAdminKeys = {
     [...siteAdminKeys.all, 'memberships', siteId] as const,
 }
 
-async function getErrorMessage(response: Response, fallbackMessage: string) {
-  const payload = (await response.json().catch(() => undefined)) as
-    | { message?: string }
-    | undefined
-  return payload?.message || fallbackMessage
-}
-
 export function useLegalEntities() {
   return useQuery<LegalEntityRecord[]>({
     queryKey: siteAdminKeys.legalEntities(),
     queryFn: async () => {
-      const response = await fetchWithAuth('/api/legal-entities')
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to load legal entities'))
-      }
-      return response.json()
+      return fetchJsonWithAuth(
+        "/api/legal-entities",
+        "Failed to load legal entities",
+      );
     },
-  })
+  });
 }
 
 export function useLegalEntity(id: string | null) {
   return useQuery<LegalEntityRecord>({
-    queryKey: siteAdminKeys.legalEntity(id ?? ''),
+    queryKey: siteAdminKeys.legalEntity(id ?? ""),
     enabled: Boolean(id),
     queryFn: async () => {
-      const response = await fetchWithAuth(`/api/legal-entities/${id}`)
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to load legal entity'))
-      }
-      return response.json()
+      return fetchJsonWithAuth(
+        `/api/legal-entities/${id}`,
+        "Failed to load legal entity",
+      );
     },
-  })
+  });
 }
 
 export function useCreateLegalEntity() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (payload: { name: string; countryIso: 'AT' | 'DE' }) => {
-      const response = await fetchWithAuth('/api/legal-entities', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to create legal entity'))
-      }
-      return response.json() as Promise<LegalEntityRecord>
+    mutationFn: async (payload: { name: string; countryIso: "AT" | "DE" }) => {
+      return fetchJsonWithAuth<LegalEntityRecord>(
+        "/api/legal-entities",
+        "Failed to create legal entity",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: siteAdminKeys.legalEntities() })
     },
-  })
+  });
 }
 
 export function useUpdateLegalEntity() {
@@ -240,40 +231,35 @@ export function useUpdateLegalEntity() {
   return useMutation({
     mutationFn: async (payload: UpdateLegalEntityPayload) => {
       const { id, ...body } = payload
-      const response = await fetchWithAuth(`/api/legal-entities/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to update legal entity'))
-      }
-      return response.json() as Promise<LegalEntityRecord>
+      return fetchJsonWithAuth<LegalEntityRecord>(
+        `/api/legal-entities/${id}`,
+        "Failed to update legal entity",
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        },
+      );
     },
     onSuccess: (entity) => {
       queryClient.setQueryData(siteAdminKeys.legalEntity(entity.id), entity)
       queryClient.invalidateQueries({ queryKey: siteAdminKeys.legalEntities() })
       queryClient.invalidateQueries({ queryKey: siteAdminKeys.all })
     },
-  })
+  });
 }
 
 export function useAccountingProfile(legalEntityId: string | null) {
   return useQuery<AccountingProfileRecord>({
-    queryKey: siteAdminKeys.accountingProfile(legalEntityId ?? ''),
+    queryKey: siteAdminKeys.accountingProfile(legalEntityId ?? ""),
     enabled: Boolean(legalEntityId),
     queryFn: async () => {
-      const response = await fetchWithAuth(
+      return fetchJsonWithAuth(
         `/api/legal-entities/${legalEntityId}/accounting-profile`,
-      )
-      if (!response.ok) {
-        throw new Error(
-          await getErrorMessage(response, 'Failed to load accounting profile'),
-        )
-      }
-      return response.json()
+        "Failed to load accounting profile",
+      );
     },
-  })
+  });
 }
 
 export function useUpdateAccountingProfile() {
@@ -282,20 +268,15 @@ export function useUpdateAccountingProfile() {
   return useMutation({
     mutationFn: async (payload: UpdateAccountingProfilePayload) => {
       const { legalEntityId, ...body } = payload
-      const response = await fetchWithAuth(
+      return fetchJsonWithAuth<AccountingProfileRecord>(
         `/api/legal-entities/${legalEntityId}/accounting-profile`,
+        "Failed to update accounting profile",
         {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         },
-      )
-      if (!response.ok) {
-        throw new Error(
-          await getErrorMessage(response, 'Failed to update accounting profile'),
-        )
-      }
-      return response.json() as Promise<AccountingProfileRecord>
+      );
     },
     onSuccess: (profile) => {
       queryClient.setQueryData(
@@ -303,36 +284,32 @@ export function useUpdateAccountingProfile() {
         profile,
       )
     },
-  })
+  });
 }
 
 export function useAdminSites(includeInactive = true) {
   return useQuery<AdminSiteRecord[]>({
     queryKey: siteAdminKeys.sites(includeInactive),
     queryFn: async () => {
-      const response = await fetchWithAuth(
-        `/api/sites?includeInactive=${includeInactive ? 'true' : 'false'}`,
-      )
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to load sites'))
-      }
-      return response.json()
+      return fetchJsonWithAuth(
+        `/api/sites?includeInactive=${includeInactive ? "true" : "false"}`,
+        "Failed to load sites",
+      );
     },
-  })
+  });
 }
 
 export function useSiteMemberships(siteId: string | null) {
   return useQuery<SiteMembershipRecord[]>({
-    queryKey: siteAdminKeys.memberships(siteId ?? ''),
+    queryKey: siteAdminKeys.memberships(siteId ?? ""),
     enabled: !!siteId,
     queryFn: async () => {
-      const response = await fetchWithAuth(`/api/sites/${siteId}/memberships`)
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to load site memberships'))
-      }
-      return response.json()
+      return fetchJsonWithAuth(
+        `/api/sites/${siteId}/memberships`,
+        "Failed to load site memberships",
+      );
     },
-  })
+  });
 }
 
 export function useAddSiteMembership() {
@@ -340,15 +317,15 @@ export function useAddSiteMembership() {
 
   return useMutation({
     mutationFn: async (payload: { siteId: string; userId: string }) => {
-      const response = await fetchWithAuth(`/api/sites/${payload.siteId}/memberships`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: payload.userId }),
-      })
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to add site membership'))
-      }
-      return response.json()
+      return fetchJsonWithAuth(
+        `/api/sites/${payload.siteId}/memberships`,
+        "Failed to add site membership",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: payload.userId }),
+        },
+      );
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
@@ -357,7 +334,7 @@ export function useAddSiteMembership() {
       queryClient.invalidateQueries({ queryKey: siteAdminKeys.sites(true) })
       queryClient.invalidateQueries({ queryKey: siteKeys.me() })
     },
-  })
+  });
 }
 
 export function useRemoveSiteMembership() {
@@ -365,14 +342,11 @@ export function useRemoveSiteMembership() {
 
   return useMutation({
     mutationFn: async (payload: { siteId: string; userId: string }) => {
-      const response = await fetchWithAuth(
+      return fetchJsonWithAuth(
         `/api/sites/${payload.siteId}/memberships/${payload.userId}`,
-        { method: 'DELETE' },
-      )
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to remove site membership'))
-      }
-      return response.json()
+        "Failed to remove site membership",
+        { method: "DELETE" },
+      );
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
@@ -381,5 +355,5 @@ export function useRemoveSiteMembership() {
       queryClient.invalidateQueries({ queryKey: siteAdminKeys.sites(true) })
       queryClient.invalidateQueries({ queryKey: siteKeys.me() })
     },
-  })
+  });
 }

@@ -1,5 +1,5 @@
+import { fetchJsonWithAuth } from "./api-error";
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { fetchWithAuth } from './client'
 import type { components } from './generated/openapi'
 
 const LOANER_VEHICLES_API = '/api/workshop/loaner-vehicles'
@@ -66,13 +66,6 @@ export const loanerKeys = {
   overdue: (asOf?: string) => [...loanerKeys.all, 'overdue', asOf ?? ''] as const,
 }
 
-async function getErrorMessage(response: Response, fallbackMessage: string) {
-  const payload = (await response.json().catch(() => undefined)) as
-    | { message?: string }
-    | undefined
-  return payload?.message || fallbackMessage
-}
-
 export function useLoanerFleet(options?: ListLoanerFleetOptions) {
   return useQuery<LoanerVehicleListResponse>({
     queryKey: loanerKeys.fleet(options),
@@ -82,88 +75,90 @@ export function useLoanerFleet(options?: ListLoanerFleetOptions) {
         params.set('includeInactive', String(options.includeInactive))
       }
       const query = params.toString()
-      const response = await fetchWithAuth(
+      return fetchJsonWithAuth(
         query ? `${LOANER_VEHICLES_API}?${query}` : LOANER_VEHICLES_API,
-      )
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to fetch loaner fleet'))
-      }
-      return response.json()
+        "Failed to fetch loaner fleet",
+      );
     },
-  })
+  });
 }
 
 export function useLoanerVehicle(id: string) {
   return useQuery<LoanerVehicle>({
     queryKey: loanerKeys.fleetDetail(id),
     queryFn: async () => {
-      const response = await fetchWithAuth(`${LOANER_VEHICLES_API}/${id}`)
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to fetch loaner vehicle'))
-      }
-      return response.json()
+      return fetchJsonWithAuth(
+        `${LOANER_VEHICLES_API}/${id}`,
+        "Failed to fetch loaner vehicle",
+      );
     },
     enabled: Boolean(id),
-  })
+  });
 }
 
 export function useCreateLoanerVehicle() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (payload: CreateLoanerVehiclePayload) => {
-      const response = await fetchWithAuth(LOANER_VEHICLES_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to create loaner vehicle'))
-      }
-      return response.json() as Promise<LoanerVehicle>
+      return fetchJsonWithAuth<LoanerVehicle>(
+        LOANER_VEHICLES_API,
+        "Failed to create loaner vehicle",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: loanerKeys.all })
     },
-  })
+  });
 }
 
 export function useUpdateLoanerVehicle() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: UpdateLoanerVehiclePayload }) => {
-      const response = await fetchWithAuth(`${LOANER_VEHICLES_API}/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      })
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to update loaner vehicle'))
-      }
-      return response.json() as Promise<LoanerVehicle>
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: UpdateLoanerVehiclePayload;
+    }) => {
+      return fetchJsonWithAuth<LoanerVehicle>(
+        `${LOANER_VEHICLES_API}/${id}`,
+        "Failed to update loaner vehicle",
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        },
+      );
     },
     onSuccess: (vehicle) => {
       queryClient.invalidateQueries({ queryKey: loanerKeys.all })
       queryClient.invalidateQueries({ queryKey: loanerKeys.fleetDetail(vehicle.id) })
     },
-  })
+  });
 }
 
 export function useDeleteLoanerVehicle() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      const response = await fetchWithAuth(`${LOANER_VEHICLES_API}/${id}`, {
-        method: 'DELETE',
-      })
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to remove loaner vehicle'))
-      }
-      return response.json() as Promise<{ id?: string; deleted?: boolean }>
+      return fetchJsonWithAuth<{ id?: string; deleted?: boolean }>(
+        `${LOANER_VEHICLES_API}/${id}`,
+        "Failed to remove loaner vehicle",
+        {
+          method: "DELETE",
+        },
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: loanerKeys.all })
     },
-  })
+  });
 }
 
 export function useLoanerAvailability(from: string, to: string, asOf?: string) {
@@ -172,24 +167,20 @@ export function useLoanerAvailability(from: string, to: string, asOf?: string) {
     queryFn: async () => {
       const params = new URLSearchParams({ from, to })
       if (asOf) params.set('asOf', asOf)
-      const response = await fetchWithAuth(
+      return fetchJsonWithAuth(
         `${LOANER_VEHICLES_API}/availability?${params.toString()}`,
-      )
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to fetch loaner availability'))
-      }
-      return response.json()
+        "Failed to fetch loaner availability",
+      );
     },
     enabled: Boolean(from && to),
-  })
+  });
 }
 
 async function fetchLoanerBookings(): Promise<LoanerBookingListResponse> {
-  const response = await fetchWithAuth(LOANER_BOOKINGS_API)
-  if (!response.ok) {
-    throw new Error(await getErrorMessage(response, 'Failed to fetch loaner bookings'))
-  }
-  return response.json()
+  return fetchJsonWithAuth(
+    LOANER_BOOKINGS_API,
+    "Failed to fetch loaner bookings",
+  );
 }
 
 export function useLoanerBookings(loanerVehicleId?: string) {
@@ -214,74 +205,79 @@ export function useLoanerBooking(id: string) {
   return useQuery<LoanerBooking>({
     queryKey: loanerKeys.booking(id),
     queryFn: async () => {
-      const response = await fetchWithAuth(`${LOANER_BOOKINGS_API}/${id}`)
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to fetch loaner booking'))
-      }
-      return response.json()
+      return fetchJsonWithAuth(
+        `${LOANER_BOOKINGS_API}/${id}`,
+        "Failed to fetch loaner booking",
+      );
     },
     enabled: Boolean(id),
-  })
+  });
 }
 
 export function useCreateLoanerBooking() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (payload: CreateLoanerBookingPayload) => {
-      const response = await fetchWithAuth(LOANER_BOOKINGS_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to create loaner booking'))
-      }
-      return response.json() as Promise<LoanerBooking>
+      return fetchJsonWithAuth<LoanerBooking>(
+        LOANER_BOOKINGS_API,
+        "Failed to create loaner booking",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: loanerKeys.all })
     },
-  })
+  });
 }
 
 export function useUpdateLoanerBooking() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: UpdateLoanerBookingPayload }) => {
-      const response = await fetchWithAuth(`${LOANER_BOOKINGS_API}/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      })
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to update loaner booking'))
-      }
-      return response.json() as Promise<LoanerBooking>
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: UpdateLoanerBookingPayload;
+    }) => {
+      return fetchJsonWithAuth<LoanerBooking>(
+        `${LOANER_BOOKINGS_API}/${id}`,
+        "Failed to update loaner booking",
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        },
+      );
     },
     onSuccess: (booking) => {
       queryClient.invalidateQueries({ queryKey: loanerKeys.all })
       queryClient.invalidateQueries({ queryKey: loanerKeys.booking(booking.id) })
     },
-  })
+  });
 }
 
 export function useCancelLoanerBooking() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      const response = await fetchWithAuth(`${LOANER_BOOKINGS_API}/${id}/cancel`, {
-        method: 'POST',
-      })
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to cancel loaner booking'))
-      }
-      return response.json() as Promise<LoanerBooking>
+      return fetchJsonWithAuth<LoanerBooking>(
+        `${LOANER_BOOKINGS_API}/${id}/cancel`,
+        "Failed to cancel loaner booking",
+        {
+          method: "POST",
+        },
+      );
     },
     onSuccess: (booking) => {
       queryClient.invalidateQueries({ queryKey: loanerKeys.all })
       queryClient.invalidateQueries({ queryKey: loanerKeys.booking(booking.id) })
     },
-  })
+  });
 }
 
 export function useHandOverLoanerBooking() {
@@ -291,24 +287,24 @@ export function useHandOverLoanerBooking() {
       id,
       data,
     }: {
-      id: string
-      data: HandOverLoanerBookingPayload
+      id: string;
+      data: HandOverLoanerBookingPayload;
     }) => {
-      const response = await fetchWithAuth(`${LOANER_BOOKINGS_API}/${id}/hand-over`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      })
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to record hand-over'))
-      }
-      return response.json() as Promise<LoanerBooking>
+      return fetchJsonWithAuth<LoanerBooking>(
+        `${LOANER_BOOKINGS_API}/${id}/hand-over`,
+        "Failed to record hand-over",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        },
+      );
     },
     onSuccess: (booking) => {
       queryClient.invalidateQueries({ queryKey: loanerKeys.all })
       queryClient.invalidateQueries({ queryKey: loanerKeys.booking(booking.id) })
     },
-  })
+  });
 }
 
 export function useReturnLoanerBooking() {
@@ -318,24 +314,24 @@ export function useReturnLoanerBooking() {
       id,
       data,
     }: {
-      id: string
-      data: ReturnLoanerBookingPayload
+      id: string;
+      data: ReturnLoanerBookingPayload;
     }) => {
-      const response = await fetchWithAuth(`${LOANER_BOOKINGS_API}/${id}/return`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      })
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to record return'))
-      }
-      return response.json() as Promise<LoanerBooking>
+      return fetchJsonWithAuth<LoanerBooking>(
+        `${LOANER_BOOKINGS_API}/${id}/return`,
+        "Failed to record return",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        },
+      );
     },
     onSuccess: (booking) => {
       queryClient.invalidateQueries({ queryKey: loanerKeys.all })
       queryClient.invalidateQueries({ queryKey: loanerKeys.booking(booking.id) })
     },
-  })
+  });
 }
 
 export function useOverdueLoanerBookings(asOf?: string) {
@@ -345,15 +341,14 @@ export function useOverdueLoanerBookings(asOf?: string) {
       const params = new URLSearchParams()
       if (asOf) params.set('asOf', asOf)
       const query = params.toString()
-      const response = await fetchWithAuth(
-        query ? `${LOANER_BOOKINGS_API}/overdue?${query}` : `${LOANER_BOOKINGS_API}/overdue`,
-      )
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to fetch overdue loaner bookings'))
-      }
-      return response.json()
+      return fetchJsonWithAuth(
+        query
+          ? `${LOANER_BOOKINGS_API}/overdue?${query}`
+          : `${LOANER_BOOKINGS_API}/overdue`,
+        "Failed to fetch overdue loaner bookings",
+      );
     },
-  })
+  });
 }
 
 export function getLoanerBookingCustomerLabel(booking: LoanerBooking) {

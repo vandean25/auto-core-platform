@@ -1,6 +1,27 @@
 import { WorkshopHoliday, WorkshopOpeningHour } from '@prisma/client';
 import { BadRequestException } from '@nestjs/common';
-import { HrWorkdayService } from './hr-workday.service.js';
+import { enumerateIsoDates, HrWorkdayService } from './hr-workday.service.js';
+
+describe('enumerateIsoDates', () => {
+  it('includes both endpoints across the year boundary', () => {
+    expect(enumerateIsoDates('2026-12-31', '2027-01-01')).toEqual([
+      '2026-12-31',
+      '2027-01-01',
+    ]);
+  });
+
+  it('includes leap day', () => {
+    expect(enumerateIsoDates('2028-02-28', '2028-03-01')).toEqual([
+      '2028-02-28',
+      '2028-02-29',
+      '2028-03-01',
+    ]);
+  });
+
+  it('returns no dates for a reversed range', () => {
+    expect(enumerateIsoDates('2026-01-02', '2026-01-01')).toEqual([]);
+  });
+});
 
 function createOpeningHours(): WorkshopOpeningHour[] {
   return [

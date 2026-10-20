@@ -88,9 +88,7 @@ export function eachLocalDate(
   const last = formatLocalDate(end, timeZone);
   while (current <= last) {
     dates.push(current);
-    const { year, month, day } = parseLocalDate(current);
-    const next = new Date(Date.UTC(year, month - 1, day + 1));
-    current = `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}-${String(next.getUTCDate()).padStart(2, '0')}`;
+    current = addIsoDays(current, 1);
   }
   return dates;
 }

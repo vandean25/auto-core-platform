@@ -1,4 +1,5 @@
 import { i18n } from '@/lib/i18n'
+import { fetchWithAuth } from "./client";
 import {
   PUBLIC_API_ERROR_CODE_PARAMS,
   type PublicApiErrorCode,
@@ -126,12 +127,12 @@ export function normalizeApiError(error: unknown): NormalizedApiError | null {
     code,
     params,
     violations,
-    requestId: typeof body.requestId === 'string' ? body.requestId : null,
+    requestId: typeof body.requestId === "string" ? body.requestId : null,
     eventId:
-      typeof body.eventId === 'string'
+      typeof body.eventId === "string"
         ? body.eventId
-        : carrier?.eventId ?? null,
-  }
+        : (carrier?.eventId ?? null),
+  };
 }
 
 function appendSupportReference(
@@ -191,4 +192,20 @@ export async function parseApiErrorResponse(
       eventId: null,
     }
   )
+}
+
+export async function fetchJsonWithAuth<T>(
+  input: RequestInfo | URL,
+  fallbackMessage: string,
+  init?: RequestInit,
+): Promise<T> {
+  const response = await (init === undefined
+    ? fetchWithAuth(input)
+    : fetchWithAuth(input, init));
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => undefined)) as
+      { message?: string } | undefined;
+    throw new Error(payload?.message || fallbackMessage);
+  }
+  return response.json() as Promise<T>;
 }

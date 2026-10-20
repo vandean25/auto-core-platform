@@ -1,6 +1,6 @@
+import { fetchJsonWithAuth } from "./api-error";
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { components } from './generated/openapi'
-import { fetchWithAuth } from './client'
 
 export type Bay = components['schemas']['BayResponseDto']
 export type BaysListResponse = components['schemas']['BaysListResponseDto']
@@ -18,11 +18,6 @@ export const bayKeys = {
   all: ['bays'] as const,
   list: (options?: ListBaysOptions) => [...bayKeys.all, 'list', options] as const,
   detail: (id: string) => [...bayKeys.all, 'detail', id] as const,
-}
-
-async function getErrorMessage(response: Response, fallbackMessage: string) {
-  const payload = await response.json().catch(() => undefined) as { message?: string } | undefined
-  return payload?.message || fallbackMessage
 }
 
 export function useBays(options?: ListBaysOptions) {
@@ -44,29 +39,22 @@ export function useBays(options?: ListBaysOptions) {
       }
 
       const query = params.toString()
-      const response = await fetchWithAuth(query ? `/api/bays?${query}` : '/api/bays')
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to fetch bays'))
-      }
-
-      return response.json()
+      return fetchJsonWithAuth(
+        query ? `/api/bays?${query}` : "/api/bays",
+        "Failed to fetch bays",
+      );
     },
-  })
+  });
 }
 
 export function useBay(id: string) {
   return useQuery<Bay>({
     queryKey: bayKeys.detail(id),
     queryFn: async () => {
-      const response = await fetchWithAuth(`/api/bays/${id}`)
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to fetch bay'))
-      }
-
-      return response.json()
+      return fetchJsonWithAuth(`/api/bays/${id}`, "Failed to fetch bay");
     },
     enabled: !!id,
-  })
+  });
 }
 
 export function useCreateBay() {
@@ -74,46 +62,40 @@ export function useCreateBay() {
 
   return useMutation({
     mutationFn: async (payload: CreateBayPayload) => {
-      const response = await fetchWithAuth('/api/bays', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      return fetchJsonWithAuth<Bay>("/api/bays", "Failed to create bay", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-      })
-
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to create bay'))
-      }
-
-      return response.json() as Promise<Bay>
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: bayKeys.all })
     },
-  })
+  });
 }
 
 export function useUpdateBay() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: UpdateBayPayload }) => {
-      const response = await fetchWithAuth(`/api/bays/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: UpdateBayPayload;
+    }) => {
+      return fetchJsonWithAuth<Bay>(`/api/bays/${id}`, "Failed to update bay", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
-      })
-
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to update bay'))
-      }
-
-      return response.json() as Promise<Bay>
+      });
     },
     onSuccess: (bay) => {
       queryClient.invalidateQueries({ queryKey: bayKeys.all })
       queryClient.invalidateQueries({ queryKey: bayKeys.detail(bay.id) })
     },
-  })
+  });
 }
 
 export function useDeleteBay() {
@@ -121,18 +103,16 @@ export function useDeleteBay() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const response = await fetchWithAuth(`/api/bays/${id}`, {
-        method: 'DELETE',
-      })
-
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to delete bay'))
-      }
-
-      return response.json() as Promise<DeleteBayResponse>
+      return fetchJsonWithAuth<DeleteBayResponse>(
+        `/api/bays/${id}`,
+        "Failed to delete bay",
+        {
+          method: "DELETE",
+        },
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: bayKeys.all })
     },
-  })
+  });
 }
