@@ -153,7 +153,11 @@ export const A11Y_SMOKE_ROUTES: A11ySmokeRoute[] = [
       });
       await mockApi(page, /\/api\/tyre-sets\/by-customer\/.*/, []);
     },
-    ready: titleReady('Jane Smith'),
+    ready: async (page) => {
+      await titleReady('Jane Smith')(page);
+      // The tyre-set summary reads the lazy `inventory` namespace and shows raw keys until it loads.
+      await expect(page.getByRole('button', { name: inventoryDe.tyreStorage.summary.addSet })).toBeVisible();
+    },
   },
   {
     name: 'workshop order detail',

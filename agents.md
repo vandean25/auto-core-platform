@@ -141,7 +141,7 @@ We use a **Context-Based Approach**, allowing both patterns strictly based on th
 - **Rule for Isolated Fields**: For single, isolated text edits (e.g., updating a "Note" field, renaming a task, or quick inline status changes), the **Field-Level Save-on-Blur** utilizing the shared `InlineEdit` component is the approved pattern.
 
 ### UI Styling & Standards
-- **Status Badges**: Always use the shared `@/components/status/StatusBadge` component for rendering entity statuses. Never construct raw status badges with hardcoded Tailwind colors inline. If a new status is introduced, you must update the `statusClassMap` inside `StatusBadge.tsx` to ensure consistent color mapping across the entire application.
+- **Status Badges**: Always use the shared `@/components/status/StatusBadge` component for rendering entity statuses. Never construct raw status badges with hardcoded Tailwind colors inline. If a new status is introduced, you must update the `statusClassMap` in `apps/core-web/src/components/status/status-class-map.ts` to ensure consistent color mapping across the entire application.
 
 ### Real-Time Sync
 - **Backend Emission**: The backend uses Prisma `$extends` (`createDashboardRealtimeExtension`) to automatically emit WebSocket events upon entity mutations (`CREATED`, `UPDATED`, `DELETED`). The `DashboardRealtimeService` orchestrates these, and `DashboardGateway` broadcasts them via Socket.IO.

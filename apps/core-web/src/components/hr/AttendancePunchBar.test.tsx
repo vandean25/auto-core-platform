@@ -94,9 +94,9 @@ describe('AttendancePunchBar', () => {
     const stateBadge = screen.getByText(formatStatusLabel('CLOCKED_IN'))
 
     expect(stateBadge).toHaveClass(
-      'border-emerald-200',
-      'bg-emerald-100',
-      'text-emerald-700',
+      'border-success/30',
+      'bg-success/10',
+      'text-success',
       'px-2',
       'py-0.5',
     )
@@ -115,10 +115,10 @@ describe('AttendancePunchBar', () => {
 
 describe('StatusBadge attendance mappings', () => {
   it.each([
-    ['CLOCKED_IN', 'border-emerald-200', 'bg-emerald-100', 'text-emerald-700'],
-    ['CLOCKED_OUT', 'border-slate-200', 'bg-slate-100', 'text-slate-700'],
-    ['AT_DOCTOR', 'border-sky-200', 'bg-sky-100', 'text-sky-700'],
-    ['BOOKED', 'border-emerald-200', 'bg-emerald-100', 'text-emerald-700'],
+    ['CLOCKED_IN', 'border-success/30', 'bg-success/10', 'text-success'],
+    ['CLOCKED_OUT', 'border-border', 'bg-muted', 'text-muted-foreground'],
+    ['AT_DOCTOR', 'border-info/30', 'bg-info/10', 'text-info'],
+    ['BOOKED', 'border-success/30', 'bg-success/10', 'text-success'],
   ] as const)('uses the shared colors for %s', (status, borderClass, backgroundClass, textClass) => {
     render(<StatusBadge status={status} />)
 
