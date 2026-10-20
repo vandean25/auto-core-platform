@@ -5279,7 +5279,7 @@
     },
     "/api/workshop/orders": {
       "post": {
-        "operationId": "WorkshopOrdersController_create",
+        "operationId": "WorkshopController_create",
         "parameters": [
           {
             "name": "dry_run",
@@ -5322,12 +5322,13 @@
             }
           }
         },
+        "summary": "",
         "tags": [
           "Workshop"
         ]
       },
       "get": {
-        "operationId": "WorkshopOrdersController_findAll",
+        "operationId": "WorkshopController_findAll",
         "parameters": [
           {
             "name": "customerId",
@@ -5416,6 +5417,7 @@
             }
           }
         },
+        "summary": "",
         "tags": [
           "Workshop"
         ]
@@ -5423,7 +5425,7 @@
     },
     "/api/workshop/orders/{id}": {
       "get": {
-        "operationId": "WorkshopOrdersController_findOne",
+        "operationId": "WorkshopController_findOne",
         "parameters": [
           {
             "name": "id",
@@ -5446,12 +5448,13 @@
             }
           }
         },
+        "summary": "",
         "tags": [
           "Workshop"
         ]
       },
       "patch": {
-        "operationId": "WorkshopOrdersController_updateOrder",
+        "operationId": "WorkshopController_updateOrder",
         "parameters": [
           {
             "name": "id",
@@ -5484,6 +5487,7 @@
             }
           }
         },
+        "summary": "",
         "tags": [
           "Workshop"
         ]
@@ -5491,7 +5495,7 @@
     },
     "/api/workshop/orders/{id}/create-invoice": {
       "post": {
-        "operationId": "WorkshopOrdersController_createInvoiceFromOrder",
+        "operationId": "WorkshopController_createInvoiceFromOrder",
         "parameters": [
           {
             "name": "id",
@@ -5514,6 +5518,7 @@
             }
           }
         },
+        "summary": "",
         "tags": [
           "Workshop"
         ]
@@ -5521,7 +5526,7 @@
     },
     "/api/workshop/orders/{id}/tasks": {
       "post": {
-        "operationId": "WorkshopOrdersController_createTask",
+        "operationId": "WorkshopController_createTask",
         "parameters": [
           {
             "name": "id",
@@ -5562,7 +5567,7 @@
     },
     "/api/workshop/orders/{id}/tasks/{taskId}/lines/from-catalog": {
       "post": {
-        "operationId": "WorkshopOrdersController_addTaskLineFromCatalog",
+        "operationId": "WorkshopController_addTaskLineFromCatalog",
         "parameters": [
           {
             "name": "id",
@@ -5617,7 +5622,7 @@
     },
     "/api/workshop/orders/{id}/pick-parts": {
       "post": {
-        "operationId": "WorkshopOrdersController_pickParts",
+        "operationId": "WorkshopController_pickParts",
         "parameters": [
           {
             "name": "id",
@@ -5658,7 +5663,7 @@
     },
     "/api/workshop/orders/{orderId}/tasks/{taskId}": {
       "patch": {
-        "operationId": "WorkshopOrdersController_updateTask",
+        "operationId": "WorkshopController_updateTask",
         "parameters": [
           {
             "name": "orderId",
@@ -5705,7 +5710,7 @@
         ]
       },
       "delete": {
-        "operationId": "WorkshopOrdersController_deleteTask",
+        "operationId": "WorkshopController_deleteTask",
         "parameters": [
           {
             "name": "orderId",
@@ -5779,7 +5784,7 @@
     },
     "/api/workshop/orders/{orderId}/tasks/{taskId}/checklist": {
       "get": {
-        "operationId": "WorkshopOrdersController_getTaskChecklist",
+        "operationId": "WorkshopController_getTaskChecklist",
         "parameters": [
           {
             "name": "orderId",
@@ -5816,7 +5821,7 @@
         ]
       },
       "patch": {
-        "operationId": "WorkshopOrdersController_updateTaskChecklist",
+        "operationId": "WorkshopController_updateTaskChecklist",
         "parameters": [
           {
             "name": "orderId",
@@ -5865,7 +5870,7 @@
     },
     "/api/workshop/orders/{orderId}/tasks/{taskId}/line-items": {
       "patch": {
-        "operationId": "WorkshopOrdersController_replaceTaskLineItems",
+        "operationId": "WorkshopController_replaceTaskLineItems",
         "parameters": [
           {
             "name": "dry_run",
@@ -5932,7 +5937,7 @@
     },
     "/api/workshop/orders/{id}/pdf": {
       "post": {
-        "operationId": "WorkshopOrdersController_generatePdf",
+        "operationId": "WorkshopController_generatePdf",
         "parameters": [
           {
             "name": "id",
@@ -5961,7 +5966,7 @@
         ]
       },
       "get": {
-        "operationId": "WorkshopOrdersController_getPdf",
+        "operationId": "WorkshopController_getPdf",
         "parameters": [
           {
             "name": "id",

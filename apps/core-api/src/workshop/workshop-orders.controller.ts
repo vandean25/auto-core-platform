@@ -7,7 +7,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { ApiCreatedResponse, ApiTags } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { DryRunSupported } from '../dry-run/dry-run.decorators.js';
 import { InvoiceResponseDto } from '../sales/dto/invoice-response.dto.js';
 import {
@@ -36,6 +36,7 @@ export class WorkshopOrdersController {
   ) {}
 
   @Post('orders')
+  @ApiOperation({ operationId: 'WorkshopController_create' })
   @DryRunSupported()
   @ApiWorkshopOrderCreatedResponse()
   create(@Body() dto: CreateWorkshopOrderDto) {
@@ -43,6 +44,7 @@ export class WorkshopOrdersController {
   }
 
   @Get('orders')
+  @ApiOperation({ operationId: 'WorkshopController_findAll' })
   @ApiWorkshopPaginationQueries()
   @ApiWorkshopOrderPaginatedResponse()
   findAll(@Query() query: FindAllWorkshopOrdersQueryDto) {
@@ -57,18 +59,21 @@ export class WorkshopOrdersController {
   }
 
   @Get('orders/:id')
+  @ApiOperation({ operationId: 'WorkshopController_findOne' })
   @ApiWorkshopOrderOkResponse()
   findOne(@Param('id') id: string) {
     return this.intakeService.findOne(id);
   }
 
   @Patch('orders/:id')
+  @ApiOperation({ operationId: 'WorkshopController_updateOrder' })
   @ApiWorkshopOrderOkResponse()
   updateOrder(@Param('id') id: string, @Body() dto: UpdateWorkshopOrderDto) {
     return this.intakeService.updateOrder(id, dto);
   }
 
   @Post('orders/:id/create-invoice')
+  @ApiOperation({ operationId: 'WorkshopController_createInvoiceFromOrder' })
   @ApiCreatedResponse({ type: InvoiceResponseDto })
   createInvoiceFromOrder(@Param('id') id: string) {
     return this.invoiceService.createInvoiceFromOrder(id);

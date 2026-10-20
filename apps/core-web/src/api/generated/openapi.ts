@@ -1626,9 +1626,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["WorkshopOrdersController_findAll"];
+        get: operations["WorkshopController_findAll"];
         put?: never;
-        post: operations["WorkshopOrdersController_create"];
+        post: operations["WorkshopController_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1642,13 +1642,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["WorkshopOrdersController_findOne"];
+        get: operations["WorkshopController_findOne"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        patch: operations["WorkshopOrdersController_updateOrder"];
+        patch: operations["WorkshopController_updateOrder"];
         trace?: never;
     };
     "/api/workshop/orders/{id}/create-invoice": {
@@ -1660,7 +1660,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["WorkshopOrdersController_createInvoiceFromOrder"];
+        post: operations["WorkshopController_createInvoiceFromOrder"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1676,7 +1676,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["WorkshopOrdersController_createTask"];
+        post: operations["WorkshopController_createTask"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1692,7 +1692,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["WorkshopOrdersController_addTaskLineFromCatalog"];
+        post: operations["WorkshopController_addTaskLineFromCatalog"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1708,7 +1708,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["WorkshopOrdersController_pickParts"];
+        post: operations["WorkshopController_pickParts"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1725,10 +1725,10 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete: operations["WorkshopOrdersController_deleteTask"];
+        delete: operations["WorkshopController_deleteTask"];
         options?: never;
         head?: never;
-        patch: operations["WorkshopOrdersController_updateTask"];
+        patch: operations["WorkshopController_updateTask"];
         trace?: never;
     };
     "/api/workshop/orders/{orderId}/tasks/{taskId}/checklist": {
@@ -1738,13 +1738,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["WorkshopOrdersController_getTaskChecklist"];
+        get: operations["WorkshopController_getTaskChecklist"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        patch: operations["WorkshopOrdersController_updateTaskChecklist"];
+        patch: operations["WorkshopController_updateTaskChecklist"];
         trace?: never;
     };
     "/api/workshop/orders/{orderId}/tasks/{taskId}/line-items": {
@@ -1760,7 +1760,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch: operations["WorkshopOrdersController_replaceTaskLineItems"];
+        patch: operations["WorkshopController_replaceTaskLineItems"];
         trace?: never;
     };
     "/api/workshop/orders/{id}/pdf": {
@@ -1770,9 +1770,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["WorkshopOrdersController_getPdf"];
+        get: operations["WorkshopController_getPdf"];
         put?: never;
-        post: operations["WorkshopOrdersController_generatePdf"];
+        post: operations["WorkshopController_generatePdf"];
         delete?: never;
         options?: never;
         head?: never;
@@ -14787,7 +14787,7 @@ export interface operations {
             };
         };
     };
-    WorkshopOrdersController_findAll: {
+    WorkshopController_findAll: {
         parameters: {
             query?: {
                 /** @description When set, only orders for this customer are returned (open workshop statuses only). */
@@ -14821,7 +14821,7 @@ export interface operations {
             };
         };
     };
-    WorkshopOrdersController_create: {
+    WorkshopController_create: {
         parameters: {
             query?: {
                 /** @description Simulate the state changes of this operation within a rolled-back transaction without persisting data. */
@@ -14850,7 +14850,7 @@ export interface operations {
             };
         };
     };
-    WorkshopOrdersController_findOne: {
+    WorkshopController_findOne: {
         parameters: {
             query?: never;
             header?: never;
@@ -14871,7 +14871,7 @@ export interface operations {
             };
         };
     };
-    WorkshopOrdersController_updateOrder: {
+    WorkshopController_updateOrder: {
         parameters: {
             query?: never;
             header?: never;
@@ -14896,7 +14896,7 @@ export interface operations {
             };
         };
     };
-    WorkshopOrdersController_createInvoiceFromOrder: {
+    WorkshopController_createInvoiceFromOrder: {
         parameters: {
             query?: never;
             header?: never;
@@ -14917,7 +14917,7 @@ export interface operations {
             };
         };
     };
-    WorkshopOrdersController_createTask: {
+    WorkshopController_createTask: {
         parameters: {
             query?: never;
             header?: never;
@@ -14942,7 +14942,7 @@ export interface operations {
             };
         };
     };
-    WorkshopOrdersController_addTaskLineFromCatalog: {
+    WorkshopController_addTaskLineFromCatalog: {
         parameters: {
             query?: never;
             header?: never;
@@ -14982,7 +14982,7 @@ export interface operations {
             };
         };
     };
-    WorkshopOrdersController_pickParts: {
+    WorkshopController_pickParts: {
         parameters: {
             query?: never;
             header?: never;
@@ -15008,7 +15008,7 @@ export interface operations {
             };
         };
     };
-    WorkshopOrdersController_deleteTask: {
+    WorkshopController_deleteTask: {
         parameters: {
             query?: never;
             header?: never;
@@ -15055,7 +15055,7 @@ export interface operations {
             };
         };
     };
-    WorkshopOrdersController_updateTask: {
+    WorkshopController_updateTask: {
         parameters: {
             query?: never;
             header?: never;
@@ -15081,7 +15081,7 @@ export interface operations {
             };
         };
     };
-    WorkshopOrdersController_getTaskChecklist: {
+    WorkshopController_getTaskChecklist: {
         parameters: {
             query?: never;
             header?: never;
@@ -15104,7 +15104,7 @@ export interface operations {
             };
         };
     };
-    WorkshopOrdersController_updateTaskChecklist: {
+    WorkshopController_updateTaskChecklist: {
         parameters: {
             query?: never;
             header?: never;
@@ -15131,7 +15131,7 @@ export interface operations {
             };
         };
     };
-    WorkshopOrdersController_replaceTaskLineItems: {
+    WorkshopController_replaceTaskLineItems: {
         parameters: {
             query?: {
                 /** @description Simulate the state changes of this operation within a rolled-back transaction without persisting data. */
@@ -15163,7 +15163,7 @@ export interface operations {
             };
         };
     };
-    WorkshopOrdersController_getPdf: {
+    WorkshopController_getPdf: {
         parameters: {
             query?: never;
             header?: never;
@@ -15185,7 +15185,7 @@ export interface operations {
             };
         };
     };
-    WorkshopOrdersController_generatePdf: {
+    WorkshopController_generatePdf: {
         parameters: {
             query?: never;
             header?: never;

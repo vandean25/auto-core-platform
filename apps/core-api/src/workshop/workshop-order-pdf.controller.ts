@@ -30,7 +30,7 @@ export class WorkshopOrderPdfController {
   }
 
   @Post('orders/:id/pdf')
-  @ApiOperation({ operationId: 'WorkshopOrdersController_generatePdf' })
+  @ApiOperation({ operationId: 'WorkshopController_generatePdf' })
   @ApiCreatedResponse({
     description: 'Workshop PDF generation status.',
     type: WorkshopPdfGenerationResponseDto,
@@ -48,7 +48,7 @@ export class WorkshopOrderPdfController {
   }
 
   @Get('orders/:id/pdf')
-  @ApiOperation({ operationId: 'WorkshopOrdersController_getPdf' })
+  @ApiOperation({ operationId: 'WorkshopController_getPdf' })
   @ApiWorkshopOrderPdfDownload()
   async getPdf(@Param('id', ParseUUIDPipe) id: string, @Res() res: Response) {
     this.logAction('getPdf');

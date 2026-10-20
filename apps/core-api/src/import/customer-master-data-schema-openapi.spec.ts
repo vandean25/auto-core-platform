@@ -8,13 +8,13 @@ function readCoreApiSrc(relativePath: string) {
 describe('customer master data schema (OpenAPI DTOs)', () => {
   it('documents migration fields on customer detail response DTO', () => {
     expect(
-      readCoreApiSrc('customer/dto/customer-detail-api-response.dto.ts'),
+      readCoreApiSrc('customer/dto/customer-detail-response.dto.ts'),
     ).toContain('block_level');
   });
 
   it('documents bill_to on workshop order response DTO', () => {
     expect(
-      readCoreApiSrc('workshop/dto/workshop-order-response.dto.ts'),
+      readCoreApiSrc('workshop/dto/workshop-response.dto.ts'),
     ).toContain('bill_to_customer_id');
   });
 });
