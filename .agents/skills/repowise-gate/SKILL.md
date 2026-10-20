@@ -54,14 +54,14 @@ The gate looks at committed, uncommitted and untracked changes against the merge
 
 ### How the head is scored (AUT-665)
 
-Repowise mixes **static** markers (complexity, nesting, duplication, …) with **git-history** biomarkers (`change_entropy`, `prior_defect`, `co_change_scatter`, churn/ownership/congestion signals, and related fields from `GitIndexer`). Feature-branch WIP commits inflate those history signals even when the final diff is small; after a squash merge, `main` never sees those commits.
+Repowise mixes **static** markers (complexity, nesting, duplication, …) with **git-history** biomarkers (`change_entropy`, `prior_defect`, `co_change_scatter`, `churn_risk`, and related fields from `GitIndexer`). Scoring the PR checkout directly also sees **feature-branch** commit history that `main` never retains after a squash merge.
 
-The gate scores **base** and **head** under the same rules:
+The gate scores **base** and **head** under the same git revision:
 
 - **Base:** detached worktree at the `--base` commit (same as before).
-- **Head:** another detached worktree also checked out at `--base`, then the full merge-base → working-tree diff is applied (including uncommitted and untracked files), and a single synthetic squash commit is created. `repowise health` runs on that tree.
+- **Head:** another detached worktree also checked out at `--base`, then the full merge-base → working-tree diff is applied (including uncommitted and untracked files). `repowise health` runs on that tree **without** an extra commit.
 
-So both sides see a linear history up to the PR base, and the head side adds **one** commit worth of git metadata for the PR diff—matching a squash merge to `main`. Disabling biomarkers via `.repowise/health-rules.json` is not used; the squash worktree is the supported, symmetric fix.
+Both runs therefore share the base commit’s history metadata; repowise still reads the patched file bytes from disk for static markers. A synthetic snapshot commit is **not** written: it would reintroduce false `churn_risk` on large deletes (for example shrinking a file to a short barrel). Disabling biomarkers via `.repowise/health-rules.json` is not used.
 
 ## Reading the report
 Each code violation looks like this:

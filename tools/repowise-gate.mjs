@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * Repowise health gate (AUT-462). Compares `repowise health --format json` for the
- * PR base (a git worktree of the base commit) with a squash-equivalent head worktree,
+ * PR base (a git worktree of the base commit) with the head tree patched onto the same
+ * base commit in a second worktree (no extra commit — repowise reads file bytes from disk),
  * for the source files the change touches. Rules: see tools/repowise-gate-lib.mjs
  * and the Repowise section of agents.md.
  *
@@ -209,29 +210,6 @@ export function applyWorkingTreeAtMergeBase(repoRoot, worktree, mergeBase) {
   }
 }
 
-/** One synthetic commit on top of `baseSha` so git-history biomarkers match a squash merge. */
-export function commitSquashSnapshot(worktree) {
-  const porcelain = git(['status', '--porcelain'], worktree);
-  if (!porcelain.trim()) {
-    return;
-  }
-  git(['add', '-A'], worktree);
-  git(
-    [
-      '-c',
-      'user.name=repowise gate',
-      '-c',
-      'user.email=repowise-gate@noreply.localhost',
-      '-c',
-      'commit.gpgsign=false',
-      'commit',
-      '-m',
-      'repowise-gate squash snapshot',
-    ],
-    worktree,
-  );
-}
-
 function removeWorktree(repoRoot, workdir, worktree) {
   try {
     git(['worktree', 'remove', '--force', worktree], repoRoot);
@@ -242,18 +220,18 @@ function removeWorktree(repoRoot, workdir, worktree) {
 }
 
 /**
- * Scores the PR head from a throwaway worktree: `baseSha` plus the full merge-base diff
- * (committed, unstaged, and untracked) as a single squash commit. Matches what main sees
- * after a squash merge, without feature-branch commit noise in git biomarkers.
+ * Scores the PR head from a throwaway worktree checked out at `baseSha` with the
+ * merge-base → working-tree diff applied. Git history matches the base commit on both
+ * sides; static markers see the patched files without feature-branch checkout noise
+ * or a synthetic commit that would fire churn on large deletes.
  */
-async function scoreSquashHead(repoRoot, baseSha) {
+async function scorePatchedHead(repoRoot, baseSha) {
   const mergeBase = git(['merge-base', baseSha, 'HEAD'], repoRoot).trim();
   const workdir = fs.mkdtempSync(path.join(os.tmpdir(), 'repowise-head-'));
   const worktree = path.join(workdir, 'head');
   try {
     git(['worktree', 'add', '--detach', '--quiet', worktree, baseSha], repoRoot);
     applyWorkingTreeAtMergeBase(repoRoot, worktree, mergeBase);
-    commitSquashSnapshot(worktree);
     return await runRepowiseHealth(worktree);
   } finally {
     removeWorktree(repoRoot, workdir, worktree);
@@ -294,7 +272,7 @@ async function run(argv) {
   const [baseScores, headScores] = needsScores
     ? await Promise.all([
         options.baseHealth ? readHealthFile(options.baseHealth) : scoreBaseCommit(repoRoot, baseSha),
-        options.headHealth ? readHealthFile(options.headHealth) : scoreSquashHead(repoRoot, baseSha),
+        options.headHealth ? readHealthFile(options.headHealth) : scorePatchedHead(repoRoot, baseSha),
       ])
     : [new Map(), new Map()];
 
