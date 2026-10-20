@@ -326,6 +326,8 @@ Canonical skills live in `.agents/skills/` (Superpowers at `.agents/skills/super
   - Use it when debugging from a request id, `x-request-id`, Sentry Error ID, or Cloud Logging `http_error` line.
 - **ACP i18n Skill**: `.agents/skills/acp-i18n/SKILL.md`
   - Use it before adding or changing user-facing text, editing `locales/{de,en}/*.json`, or when `npm run i18n:check` or `i18next/no-literal-string` fails. German (de-AT) is the source of truth.
+- **ACP UI Polish Skill**: `.agents/skills/acp-ui-polish/SKILL.md`
+  - Use it when building or changing UI in `apps/core-web` (pages, components, tables, forms, layout, styling, tokens, states, a11y), when reviewing UI PRs, or when the user mentions UI polish, design system, shadcn or Tailwind.
 
 ## Google Secret Manager (Shared Dev Secrets)
 
