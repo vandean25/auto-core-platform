@@ -24,7 +24,6 @@
     "apps/core-api/test/mcp.e2e-spec.ts": 3.9,
     "apps/core-web/src/api/agent-proposals.test.ts": 5.65,
     "apps/core-web/src/pages/agent/AgentSupervisionPage.test.tsx": 5.4,
-    "apps/core-web/src/pages/agent/components/ActivityTab.tsx": 4.65,
-    "apps/core-web/src/pages/agent/components/ApprovalsTab.tsx": 5.83
+    "apps/core-web/src/pages/agent/components/ActivityTab.tsx": 4.65
   }
 }

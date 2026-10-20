@@ -31,10 +31,12 @@ import { resolveDecidedByLabel, resolveProposalAgentName } from '../agent-labels
 import { formatCurrency, formatDate, formatDateTime, formatNumber } from '@/lib/format'
 import {
   formatDetailSupervisionChangeLabel,
-  formatDefaultSupervisionChangeLabel,
-  getDefaultSupervisionChanges,
   parseWouldChangeFromPreview,
 } from '../agent-proposal-change-preview'
+import {
+  formatSupervisionChangeLabel,
+  supervisionChangesForProposal,
+} from './ApprovalsTab.customerChangePreview'
 import {
   resolveLineAmountTaxBasis,
   resolveProposalAmountTaxBasis,
@@ -486,7 +488,11 @@ export function ApprovalsTab({
               ? resolveLineAmountTaxBasis(proposal)
               : proposalTaxBasis
             const wouldChange = parseWouldChangeFromPreview(proposal.preview_json)
-            const defaultChanges = getDefaultSupervisionChanges(wouldChange)
+            const defaultChanges = supervisionChangesForProposal(
+              proposal.action_type,
+              proposal.preview_json,
+              wouldChange,
+            )
 
             return (
               <div
@@ -670,7 +676,10 @@ export function ApprovalsTab({
                         <li
                           key={`${change.entity}-${change.op}-${change.id}-${index}`}
                         >
-                          {formatDefaultSupervisionChangeLabel(change)}
+                          {formatSupervisionChangeLabel(
+                            proposal.action_type,
+                            change,
+                          )}
                         </li>
                       ))}
                     </ul>

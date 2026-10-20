@@ -542,13 +542,29 @@ const writeProposal = z.object({
   provisional: z.literal(true),
 });
 
+const customerProposalDiffItem = z.object({
+  field: nonEmptyString,
+  before_masked: z.string().nullable(),
+  after_masked: z.string().nullable(),
+});
+
+const customerDuplicateCandidate = z.object({
+  customer_id: idString,
+  match_reasons: z.array(nonEmptyString),
+  display_name_initials: z.string(),
+});
+
 /**
  * A write result. `executed` ran and carries the committed row. `needs_approval` stored a
  * pending proposal and ran nothing. A refused call is a thrown error, not a result.
  */
-function writeResultOf(tool: McpWriteToolName): z.ZodTypeAny {
+function writeResultOf(
+  tool: McpWriteToolName,
+  extra: Shape = {},
+): z.ZodTypeAny {
   const shape = {
     ...optionalShape({
+      ...extra,
       tool: z.literal(tool),
       tier: z.enum(['AUTO', 'PROPOSE']),
       status: z.enum(['executed', 'needs_approval']),
@@ -1502,6 +1518,20 @@ export const mcpToolOutputSchemas = {
   propose_mechanic_finding: publishedWriteToolOutput(
     'propose_mechanic_finding',
     writeResultOf('propose_mechanic_finding'),
+  ),
+  propose_customer_create: publishedWriteToolOutput(
+    'propose_customer_create',
+    writeResultOf('propose_customer_create', {
+      diff: z.array(customerProposalDiffItem),
+      duplicate_candidates: z.array(customerDuplicateCandidate),
+    }),
+  ),
+  propose_customer_update: publishedWriteToolOutput(
+    'propose_customer_update',
+    writeResultOf('propose_customer_update', {
+      diff: z.array(customerProposalDiffItem),
+      duplicate_candidates: z.array(customerDuplicateCandidate),
+    }),
   ),
   generate_weekly_report_pdf: publishedWriteToolOutput(
     'generate_weekly_report_pdf',
