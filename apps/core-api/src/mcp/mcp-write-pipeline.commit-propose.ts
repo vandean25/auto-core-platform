@@ -25,11 +25,5 @@ export async function proposeMcpWrite(
   if (customerProposed !== undefined) {
     return customerProposed;
   }
-  return proposeGenericMcpWrite(
-    deps,
-    call,
-    simulation,
-    idempotencyMeta,
-    claim,
-  );
+  return proposeGenericMcpWrite(deps, call, simulation, idempotencyMeta, claim);
 }
