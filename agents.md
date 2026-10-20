@@ -231,6 +231,13 @@ npm run api:types:check --workspace=core-web
 ```
 The Playwright browser installation is required before the frontend UI smoke tests. The API types check is also required when backend API contracts change, alongside the generated OpenAPI artifacts described above.
 
+### Code health gate (Fallow)
+- The CI check `Code Health (Fallow)` (`fallow audit`, config `.fallowrc.json`) fails only on findings the PR introduces. Its CI result is the only source of truth.
+- Run `npx fallow audit` at most once locally before pushing. No polling, no re-runs in a loop.
+- At most one gate-fix round per PR. If it still fails, stop and flag it for a human in the PR; only a human may add the `gate-override` label (then re-run the job).
+- Fix the code. Never game the gate with renames, file splits, stubs, re-export shims or suppression comments, and never edit `.fallowrc.json` or the workflow to pass.
+- Reviewers do not repeat gate findings; they only check whether a gate fix is real or cosmetic. Details: `.agents/skills/acp-code-health/SKILL.md`.
+
 ## Database Schema Highlights
 
 - **Tables**: use snake_case via `@@map()` directive.
@@ -304,14 +311,7 @@ This project uses the following MCP servers:
 - **mcp-server-neon**: For managing the Neon PostgreSQL database (branching, migrations, etc.).
 - **github-mcp-server**: For GitHub operations.
 - **prisma-mcp-server**: For database schema management.
-- **repowise**: Codebase intelligence via AST dependency graph, git churn, dead-code detection, and code-health biomarkers.
-  - **Context triage**: Before modifying files in complex modules, invoke `get_context` to inspect dependencies, callers, callees, and churn hotspots without dumping large raw files into the LLM context.
-  - **Change risk & blast radius**: Before executing refactoring or architectural modifications, call `get_change_risk` or `get_risk` to evaluate downstream impact and statistical co-change partners.
-  - **Dead code**: Run `npm run repowise:dead-code` or call `get_dead_code` to detect unused exports and orphaned symbols.
-  - **Health biomarkers**: Use `npm run repowise:health` or call `get_health` to review file complexity, nesting depth, and defect likelihood.
-  - **Health gate** (check `Repowise Health Gate`, advisory since 2026-10-10: it reports but does not block merges): changed files should not get worse and new files should reach >= 6.0; legacy files are in `.repowise-baseline.json`. Local: `npm run repowise:gate -- --base origin/main`. On a red gate or before editing large files, read `.agents/skills/repowise-gate/SKILL.md`, especially its "Allowed vs. not allowed" section; renaming files to reset history, skipping tests, or touching the workflow/gate scripts is never acceptable. Prefer fixing the code over lowering baseline values by hand.
-  - **Gate check in agent loops**: do not run or poll `repowise health` / `npm run repowise:gate` locally; push, wait once for CI, and read the result with `scripts/ci-repowise-gate-line.sh <pr-number|sha>` (see the skill's "Token budget" section).
-  - **Web UI**: Run `npm run repowise:serve` to launch the local web UI (configured to bind to port `7338` to avoid colliding with NestJS on port 3000).
+- **repowise** (optional): codebase-intelligence MCP (`get_context`, `get_change_risk`, `get_dead_code`). Not a CI gate; never put repowise scores in PRs.
 
 Use the `mcp-server-neon` skills for database operations like creating branches or running migrations.
 
@@ -375,13 +375,6 @@ Use `list_subscriptions` before subscribing to reuse active ones; re-subscribe w
 - **PostgreSQL 15+** on `localhost:5432` (installed via apt as PG 16). Local dev DB is `core_platform`, credentials `postgres` / `postgres`. A separate empty `auto_core_test` DB exists for e2e.
 - **Backend** (`apps/core-api`) — NestJS on port `3000`: `npm run start:dev`. Requires `apps/core-api/.env` (already created, gitignored) with `DATABASE_URL` and a base64 32-byte `SECRET_ENCRYPTION_KEY`; the process throws on startup if `SECRET_ENCRYPTION_KEY` is missing/invalid.
 - **Frontend** (`apps/core-web`) — Vite/React on port `5173`: `npm run dev`. It proxies `/api` and `/socket.io` to `127.0.0.1:3000`.
-
-### Codebase Intelligence & Repowise in Cloud Environments
-Repowise MCP server is configured in `.mcp.json` at the root of the workspace. Cloud agents can bootstrap the index without requiring external LLM API keys:
-```bash
-uvx --from repowise==0.49.0 repowise init --no-prose --no-agents --no-claude-md --yes
-```
-This indexes the codebase in ~1-2 minutes in standard CI / cold environments (~15s incremental locally), enabling MCP tools (`get_context`, `get_change_risk`, `get_health`, `get_dead_code`) for the agent. For frequent local use, you can also install the pinned CLI globally via `uv tool install repowise==0.49.0`. The local SQLite index and cache live in `.repowise/` (which is gitignored). To run the web explorer, `npm run repowise:serve` binds to port `7338` (avoiding collision with NestJS on 3000).
 
 ### Postgres is not auto-started on boot
 `systemd`/`invoke-rc.d` is disabled in this VM, so Postgres does not start automatically. Start it before running the backend, tests, or seeds:

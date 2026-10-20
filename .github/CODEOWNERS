@@ -1,0 +1,6 @@
+# Gate, CI and lint config: changes need the owner's review.
+/.fallowrc.json @vandean25
+/.github/workflows/ @vandean25
+/.github/CODEOWNERS @vandean25
+/apps/core-api/eslint.config.mjs @vandean25
+/apps/core-web/eslint*.js @vandean25

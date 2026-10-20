@@ -232,7 +232,7 @@ Required CI coverage in owning PRs, not local checks in this spec task:
 - Reserve→manual portal removal→revisioned acknowledgement→return IN_STOCK→explicit reactivation produces no competing UPSERT/removal for one ref. Stale/different ack, duplicate ack, multiple moves while pending, re-withdrawal after new export and wrong-site ack cannot erase another withdrawal or grant access to moved/CRM vehicle data; manual report never becomes verified API confirmation.
 - Disabled/unconfigured API push produces no network/secret access; fake adapter contract cannot change production remote confirmation. MCP status has schema and preserves policy/access boundaries.
 - Frontend tablet/desktop editor, 750ms save flush/conflict, visible format uncertainty/all-in assertions/removal action and generated-vs-published status; search/sort/history rules and realtime invalidation.
-- Backend lint/build/unit/tenant guard/fresh unseeded E2E and frontend lint/build/unit/Playwright/contract checks on GitHub; Repowise applies without weakening baseline. This spec PR runs no local validation and claims no live portal/account/legal acceptance.
+- Backend lint/build/unit/tenant guard/fresh unseeded E2E and frontend lint/build/unit/Playwright/contract checks on GitHub; the Fallow code-health gate applies without weakening its config. This spec PR runs no local validation and claims no live portal/account/legal acceptance.
 
 ## References
 
