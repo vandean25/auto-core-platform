@@ -330,6 +330,16 @@ Canonical skills live in `.agents/skills/` (Superpowers at `.agents/skills/super
 - **ACP UI Polish Skill**: `.agents/skills/acp-ui-polish/SKILL.md`
   - Use it when building or changing UI in `apps/core-web` (pages, components, tables, forms, layout, styling, tokens, states, a11y), when reviewing UI PRs, or when the user mentions UI polish, design system, shadcn or Tailwind.
 
+### Default working mode: Ponytail
+- Every coding task runs in ponytail mode (level `full`) by default: read and follow `.agents/skills/ponytail/SKILL.md`. Reviewers use `ponytail-review`.
+- Ponytail never overrides correctness, tests, the ACP i18n skill, the Fallow code-health rule, ADRs, or the pilot-customer naming rule (never name the customer).
+- Sub-skills in `.agents/skills/`:
+  - `ponytail-review`: quality review of a change (logic, safety, load, tests, speed, every line needed); reads the connected code, not only the diff.
+  - `ponytail-audit`: one-shot quality audit of the whole repo, ranked findings; changes nothing.
+  - `ponytail-debt`: lists every `shortcut:` (and older `ponytail:`) comment as a debt ledger; changes nothing.
+  - `ponytail-gain`: shows ponytail's measured savings (code, cost, speed) from the benchmark.
+  - `ponytail-help`: quick reference for ponytail levels, skills and commands.
+
 ## Google Secret Manager (Shared Dev Secrets)
 
 Use Google Secret Manager (GSM) as the source of truth for local dev credentials across machines and agents.
