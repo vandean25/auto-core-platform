@@ -479,6 +479,15 @@ describe('RegistrationIntakeMatchService.buildMatchSnapshot vehicle conflicts', 
     ).toEqual(['EXISTING_VEHICLE']);
   });
 
+  it('ignores a CO2 cycle the provider sends outside WLTP and NEDC', async () => {
+    expect(
+      await conflictsFor(
+        { co2_wltp_g_km: 100, co2_nedc_g_km: 100 },
+        { co2: evidence(100, { cycle: 'wltp' as never }) },
+      ),
+    ).toEqual(['EXISTING_VEHICLE']);
+  });
+
   it('flags a vehicle owned by another customer than the one found by name', async () => {
     const prisma = buildPrismaWithVehicles(
       [{ id: 'customer-1', first_name: 'Max', last_name: 'Mustermann' }],

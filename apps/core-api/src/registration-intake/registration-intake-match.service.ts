@@ -19,10 +19,11 @@ const VEHICLE_MATCH_SELECT = {
   co2_nedc_g_km: true,
 } as const;
 
-const CO2_COLUMN_BY_CYCLE = {
-  WLTP: 'co2_wltp_g_km',
-  NEDC: 'co2_nedc_g_km',
-} as const;
+// A Map, so a cycle the provider sends outside WLTP/NEDC is ignored.
+const CO2_COLUMN_BY_CYCLE = new Map([
+  ['WLTP', 'co2_wltp_g_km'],
+  ['NEDC', 'co2_nedc_g_km'],
+] as const);
 
 type HolderName = { first: string; last: string };
 type VehicleRow = Awaited<ReturnType<typeof findVehicleRows>>[number];
@@ -123,7 +124,11 @@ function isCo2Conflict(fields: MatchFields, vehicle: VehicleRow) {
   if (!co2?.cycle || typeof co2.normalized !== 'number') {
     return false;
   }
-  const stored = vehicle[CO2_COLUMN_BY_CYCLE[co2.cycle]];
+  const column = CO2_COLUMN_BY_CYCLE.get(co2.cycle);
+  if (!column) {
+    return false;
+  }
+  const stored = vehicle[column];
   return stored !== null && stored !== co2.normalized;
 }
 
