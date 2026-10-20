@@ -13,6 +13,7 @@ import {
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiOkResponse,
+  ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -55,6 +56,7 @@ export class WorkshopOrderTasksController {
   }
 
   @Post('orders/:id/tasks')
+  @ApiOperation({ operationId: 'WorkshopOrdersController_createTask' })
   @ApiCreatedResponse({ type: WorkshopTaskResponseDto })
   createTask(@Param('id') id: string, @Body() dto: CreateWorkshopTaskDto) {
     this.logAction('createTask');
@@ -62,6 +64,9 @@ export class WorkshopOrderTasksController {
   }
 
   @Post('orders/:id/tasks/:taskId/lines/from-catalog')
+  @ApiOperation({
+    operationId: 'WorkshopOrdersController_addTaskLineFromCatalog',
+  })
   @HttpCode(200)
   @ApiOkResponse({ type: AddWorkshopTaskLineFromCatalogResponseDto })
   @ApiUnauthorizedResponse({ description: 'Invalid catalog hit token' })
@@ -76,6 +81,7 @@ export class WorkshopOrderTasksController {
   }
 
   @Post('orders/:id/pick-parts')
+  @ApiOperation({ operationId: 'WorkshopOrdersController_pickParts' })
   @ApiCreatedResponse({
     description: 'Workshop parts pick transfer summary.',
     type: PickWorkshopPartsResponseDto,
@@ -86,6 +92,7 @@ export class WorkshopOrderTasksController {
   }
 
   @Patch('orders/:orderId/tasks/:taskId')
+  @ApiOperation({ operationId: 'WorkshopOrdersController_updateTask' })
   @ApiWorkshopOrderOkResponse()
   updateTask(
     @Param('orderId') orderId: string,
@@ -97,6 +104,7 @@ export class WorkshopOrderTasksController {
   }
 
   @Get('orders/:orderId/tasks/:taskId/checklist')
+  @ApiOperation({ operationId: 'WorkshopOrdersController_getTaskChecklist' })
   @ApiOkResponse({
     description: 'Task inspection checklist.',
     type: WorkshopInspectionResponseDto,
@@ -110,6 +118,7 @@ export class WorkshopOrderTasksController {
   }
 
   @Patch('orders/:orderId/tasks/:taskId/checklist')
+  @ApiOperation({ operationId: 'WorkshopOrdersController_updateTaskChecklist' })
   @ApiOkResponse({
     description: 'Updated task inspection checklist.',
     type: WorkshopInspectionResponseDto,
@@ -124,6 +133,7 @@ export class WorkshopOrderTasksController {
   }
 
   @Delete('orders/:orderId/tasks/:taskId')
+  @ApiOperation({ operationId: 'WorkshopOrdersController_deleteTask' })
   @ApiWorkshopDeleteTaskResponses()
   deleteTask(
     @Param('orderId') orderId: string,
@@ -134,6 +144,9 @@ export class WorkshopOrderTasksController {
   }
 
   @Patch('orders/:orderId/tasks/:taskId/line-items')
+  @ApiOperation({
+    operationId: 'WorkshopOrdersController_replaceTaskLineItems',
+  })
   @DryRunSupported()
   @ApiWorkshopOrderOkResponse()
   replaceTaskLineItems(

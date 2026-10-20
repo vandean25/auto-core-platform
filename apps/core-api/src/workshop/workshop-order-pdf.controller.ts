@@ -7,7 +7,7 @@ import {
   Post,
   Res,
 } from '@nestjs/common';
-import { ApiCreatedResponse, ApiTags } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { PdfWorker } from '../common/index.js';
 import { WorkshopPdfGenerationResponseDto } from './dto/index.js';
@@ -30,6 +30,7 @@ export class WorkshopOrderPdfController {
   }
 
   @Post('orders/:id/pdf')
+  @ApiOperation({ operationId: 'WorkshopOrdersController_generatePdf' })
   @ApiCreatedResponse({
     description: 'Workshop PDF generation status.',
     type: WorkshopPdfGenerationResponseDto,
@@ -47,6 +48,7 @@ export class WorkshopOrderPdfController {
   }
 
   @Get('orders/:id/pdf')
+  @ApiOperation({ operationId: 'WorkshopOrdersController_getPdf' })
   @ApiWorkshopOrderPdfDownload()
   async getPdf(@Param('id', ParseUUIDPipe) id: string, @Res() res: Response) {
     this.logAction('getPdf');

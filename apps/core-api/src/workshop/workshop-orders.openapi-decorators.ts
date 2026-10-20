@@ -6,7 +6,7 @@ import {
   ApiResponse,
 } from '@nestjs/swagger';
 import { ApiPaginatedResponse } from '../common/dto/paginated-response.dto.js';
-import { WorkshopOrderResponseDto } from './dto/workshop-response.dto.js';
+import { WorkshopOrderResponseDto } from './dto/workshop-order-response.models.dto.js';
 import { WORKSHOP_ERROR_RESPONSE_SCHEMA } from './workshop-controller.http-helpers.js';
 
 export function ApiWorkshopOrderCreatedResponse() {

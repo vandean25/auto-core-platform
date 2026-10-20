@@ -5521,7 +5521,7 @@
     },
     "/api/workshop/orders/{id}/tasks": {
       "post": {
-        "operationId": "WorkshopOrderTasksController_createTask",
+        "operationId": "WorkshopOrdersController_createTask",
         "parameters": [
           {
             "name": "id",
@@ -5554,6 +5554,7 @@
             }
           }
         },
+        "summary": "",
         "tags": [
           "Workshop"
         ]
@@ -5561,7 +5562,7 @@
     },
     "/api/workshop/orders/{id}/tasks/{taskId}/lines/from-catalog": {
       "post": {
-        "operationId": "WorkshopOrderTasksController_addTaskLineFromCatalog",
+        "operationId": "WorkshopOrdersController_addTaskLineFromCatalog",
         "parameters": [
           {
             "name": "id",
@@ -5608,6 +5609,7 @@
             "description": "Catalog hit context conflict"
           }
         },
+        "summary": "",
         "tags": [
           "Workshop"
         ]
@@ -5615,7 +5617,7 @@
     },
     "/api/workshop/orders/{id}/pick-parts": {
       "post": {
-        "operationId": "WorkshopOrderTasksController_pickParts",
+        "operationId": "WorkshopOrdersController_pickParts",
         "parameters": [
           {
             "name": "id",
@@ -5648,6 +5650,7 @@
             }
           }
         },
+        "summary": "",
         "tags": [
           "Workshop"
         ]
@@ -5655,7 +5658,7 @@
     },
     "/api/workshop/orders/{orderId}/tasks/{taskId}": {
       "patch": {
-        "operationId": "WorkshopOrderTasksController_updateTask",
+        "operationId": "WorkshopOrdersController_updateTask",
         "parameters": [
           {
             "name": "orderId",
@@ -5696,12 +5699,13 @@
             }
           }
         },
+        "summary": "",
         "tags": [
           "Workshop"
         ]
       },
       "delete": {
-        "operationId": "WorkshopOrderTasksController_deleteTask",
+        "operationId": "WorkshopOrdersController_deleteTask",
         "parameters": [
           {
             "name": "orderId",
@@ -5767,6 +5771,7 @@
             }
           }
         },
+        "summary": "",
         "tags": [
           "Workshop"
         ]
@@ -5774,7 +5779,7 @@
     },
     "/api/workshop/orders/{orderId}/tasks/{taskId}/checklist": {
       "get": {
-        "operationId": "WorkshopOrderTasksController_getTaskChecklist",
+        "operationId": "WorkshopOrdersController_getTaskChecklist",
         "parameters": [
           {
             "name": "orderId",
@@ -5805,12 +5810,13 @@
             }
           }
         },
+        "summary": "",
         "tags": [
           "Workshop"
         ]
       },
       "patch": {
-        "operationId": "WorkshopOrderTasksController_updateTaskChecklist",
+        "operationId": "WorkshopOrdersController_updateTaskChecklist",
         "parameters": [
           {
             "name": "orderId",
@@ -5851,6 +5857,7 @@
             }
           }
         },
+        "summary": "",
         "tags": [
           "Workshop"
         ]
@@ -5858,7 +5865,7 @@
     },
     "/api/workshop/orders/{orderId}/tasks/{taskId}/line-items": {
       "patch": {
-        "operationId": "WorkshopOrderTasksController_replaceTaskLineItems",
+        "operationId": "WorkshopOrdersController_replaceTaskLineItems",
         "parameters": [
           {
             "name": "dry_run",
@@ -5917,6 +5924,7 @@
             }
           }
         },
+        "summary": "",
         "tags": [
           "Workshop"
         ]
@@ -5924,7 +5932,7 @@
     },
     "/api/workshop/orders/{id}/pdf": {
       "post": {
-        "operationId": "WorkshopOrderPdfController_generatePdf",
+        "operationId": "WorkshopOrdersController_generatePdf",
         "parameters": [
           {
             "name": "id",
@@ -5947,12 +5955,13 @@
             }
           }
         },
+        "summary": "",
         "tags": [
           "Workshop"
         ]
       },
       "get": {
-        "operationId": "WorkshopOrderPdfController_getPdf",
+        "operationId": "WorkshopOrdersController_getPdf",
         "parameters": [
           {
             "name": "id",
@@ -5976,6 +5985,7 @@
             }
           }
         },
+        "summary": "",
         "tags": [
           "Workshop"
         ]
