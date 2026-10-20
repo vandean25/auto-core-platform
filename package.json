@@ -23,7 +23,7 @@
     "repowise:serve": "uvx --from repowise==0.49.0 repowise serve --port 7338",
     "repowise:update": "uvx --from repowise==0.49.0 repowise update",
     "repowise:gate": "node tools/repowise-gate.mjs",
-    "repowise:gate:test": "node --test tools/repowise-gate.test.mjs",
+    "repowise:gate:test": "node --test tools/repowise-gate.test.mjs tools/repowise-gate-squash.test.mjs",
     "i18n:check": "node tools/i18n-check.mjs",
     "i18n:check:test": "node --test tools/i18n-check.test.mjs",
     "error-codes:generate": "node tools/generate-public-error-registry.mjs",
