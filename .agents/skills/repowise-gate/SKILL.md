@@ -52,6 +52,17 @@ Exit codes: `0` passed (or no gated file changed), `1` violations (or `--update`
 
 The gate looks at committed, uncommitted and untracked changes against the merge base with `--base`.
 
+### How the head is scored (AUT-665)
+
+Repowise mixes **static** markers (complexity, nesting, duplication, …) with **git-history** biomarkers (`change_entropy`, `prior_defect`, `co_change_scatter`, `churn_risk`, and related fields from `GitIndexer`). Scoring the PR checkout directly also sees **feature-branch** commit history that `main` never retains after a squash merge.
+
+The gate scores **base** and **head** under the same git revision:
+
+- **Base:** detached worktree at the `--base` commit (same as before).
+- **Head:** another detached worktree also checked out at `--base`, then the full merge-base → working-tree diff is applied (including uncommitted and untracked files). `repowise health` runs on that tree **without** an extra commit.
+
+Both runs therefore share the base commit’s history metadata; repowise still reads the patched file bytes from disk for static markers. A synthetic snapshot commit is **not** written: it would reintroduce false `churn_risk` on large deletes (for example shrinking a file to a short barrel). Disabling biomarkers via `.repowise/health-rules.json` is not used.
+
 ## Reading the report
 Each code violation looks like this:
 ```
