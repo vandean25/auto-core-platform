@@ -1,33 +1,158 @@
 @import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
 @import "tailwindcss";
+
+/* Dark mode follows the `dark` class on <html>, not the OS setting. The class is prepared, not toggled yet (AUT-655). */
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * ACP theme (AUT-655): slate neutrals, one blue accent (primary, ring, chart-1) and calm status tones.
+ * Written by hand in the tweakcn export shape. Every text pair is checked for WCAG AA on its surface.
+ */
+:root {
+  color-scheme: light;
+
+  --background: oklch(100% 0 0);
+  --foreground: oklch(12.9% 0.042 264.695);
+  --card: oklch(100% 0 0);
+  --card-foreground: oklch(12.9% 0.042 264.695);
+  --popover: oklch(100% 0 0);
+  --popover-foreground: oklch(12.9% 0.042 264.695);
+  --primary: oklch(36% 0.1 262);
+  --primary-foreground: oklch(98.4% 0.003 247.858);
+  --secondary: oklch(96.8% 0.007 247.896);
+  --secondary-foreground: oklch(20.8% 0.042 265.755);
+  --muted: oklch(96.8% 0.007 247.896);
+  /* slate-600 keeps 4.5:1 on muted and card surfaces; the default slate-500 does not */
+  --muted-foreground: oklch(44.6% 0.043 257.281);
+  --accent: oklch(96.8% 0.007 247.896);
+  --accent-foreground: oklch(20.8% 0.042 265.755);
+  --destructive: oklch(50.5% 0.213 27.518);
+  --destructive-foreground: oklch(98.4% 0.003 247.858);
+  --border: oklch(92.9% 0.013 255.508);
+  --input: oklch(92.9% 0.013 255.508);
+  --ring: oklch(55% 0.15 262);
+
+  /* Status tones read as text on their 10% tint, over white and over the muted surface */
+  --success: oklch(43.2% 0.095 166.913);
+  --success-foreground: oklch(100% 0 0);
+  --warning: oklch(47.3% 0.137 46.201);
+  --warning-foreground: oklch(100% 0 0);
+  --info: oklch(44.3% 0.11 240.79);
+  --info-foreground: oklch(100% 0 0);
+
+  --chart-1: oklch(50% 0.14 262);
+  --chart-2: oklch(62% 0.12 184);
+  --chart-3: oklch(66% 0.16 70);
+  --chart-4: oklch(56% 0.05 257);
+  --chart-5: oklch(60% 0.19 16);
+
+  --sidebar: oklch(98.4% 0.003 247.858);
+  --sidebar-foreground: oklch(37.2% 0.044 257.287);
+  --sidebar-primary: oklch(36% 0.1 262);
+  --sidebar-primary-foreground: oklch(98.4% 0.003 247.858);
+  --sidebar-accent: oklch(96.8% 0.007 247.896);
+  --sidebar-accent-foreground: oklch(20.8% 0.042 265.755);
+  --sidebar-border: oklch(92.9% 0.013 255.508);
+  --sidebar-ring: oklch(55% 0.15 262);
+
+  --radius: 0.5rem;
+}
+
+.dark {
+  color-scheme: dark;
+
+  --background: oklch(12.9% 0.042 264.695);
+  --foreground: oklch(98.4% 0.003 247.858);
+  --card: oklch(20.8% 0.042 265.755);
+  --card-foreground: oklch(98.4% 0.003 247.858);
+  --popover: oklch(20.8% 0.042 265.755);
+  --popover-foreground: oklch(98.4% 0.003 247.858);
+  --primary: oklch(90% 0.04 258);
+  --primary-foreground: oklch(12.9% 0.042 264.695);
+  --secondary: oklch(27.9% 0.041 260.031);
+  --secondary-foreground: oklch(98.4% 0.003 247.858);
+  --muted: oklch(27.9% 0.041 260.031);
+  --muted-foreground: oklch(70.4% 0.04 256.788);
+  --accent: oklch(27.9% 0.041 260.031);
+  --accent-foreground: oklch(98.4% 0.003 247.858);
+  --destructive: oklch(75% 0.16 22);
+  --destructive-foreground: oklch(12.9% 0.042 264.695);
+  --border: oklch(27.9% 0.041 260.031);
+  --input: oklch(27.9% 0.041 260.031);
+  --ring: oklch(70% 0.13 258);
+
+  --success: oklch(76.5% 0.177 163.223);
+  --success-foreground: oklch(12.9% 0.042 264.695);
+  --warning: oklch(82.8% 0.189 84.429);
+  --warning-foreground: oklch(12.9% 0.042 264.695);
+  --info: oklch(74.6% 0.16 232.661);
+  --info-foreground: oklch(12.9% 0.042 264.695);
+
+  --chart-1: oklch(72% 0.13 258);
+  --chart-2: oklch(72% 0.12 184);
+  --chart-3: oklch(80% 0.16 75);
+  --chart-4: oklch(70% 0.05 257);
+  --chart-5: oklch(72% 0.17 16);
+
+  --sidebar: oklch(20.8% 0.042 265.755);
+  --sidebar-foreground: oklch(86.9% 0.022 252.894);
+  --sidebar-primary: oklch(90% 0.04 258);
+  --sidebar-primary-foreground: oklch(12.9% 0.042 264.695);
+  --sidebar-accent: oklch(27.9% 0.041 260.031);
+  --sidebar-accent-foreground: oklch(98.4% 0.003 247.858);
+  --sidebar-border: oklch(27.9% 0.041 260.031);
+  --sidebar-ring: oklch(70% 0.13 258);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
     "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-
-  /* shadcn color tokens - Tailwind v4 format */
-  --color-background: hsl(0 0% 100%);
-  --color-foreground: hsl(222.2 84% 4.9%);
-  --color-card: hsl(0 0% 100%);
-  --color-card-foreground: hsl(222.2 84% 4.9%);
-  --color-popover: hsl(0 0% 100%);
-  --color-popover-foreground: hsl(222.2 84% 4.9%);
-  --color-primary: hsl(222.2 47.4% 11.2%);
-  --color-primary-foreground: hsl(210 40% 98%);
-  --color-secondary: hsl(210 40% 96.1%);
-  --color-secondary-foreground: hsl(222.2 47.4% 11.2%);
-  --color-muted: hsl(210 40% 96.1%);
-  /* Slightly darker than legacy shadcn default for 4.5:1 on slate-100 / muted surfaces */
-  --color-muted-foreground: hsl(215.4 16.3% 41%);
-  --color-accent: hsl(210 40% 96.1%);
-  --color-accent-foreground: hsl(222.2 47.4% 11.2%);
-  --color-destructive: hsl(0 84.2% 60.2%);
-  --color-destructive-foreground: hsl(210 40% 98%);
-  --color-border: hsl(214.3 31.8% 91.4%);
-  --color-input: hsl(214.3 31.8% 91.4%);
-  --color-ring: hsl(222.2 84% 4.9%);
-
-  --radius: 0.5rem;
 
   /* Main page content width — wider than legacy max-w-7xl (80rem) for list/detail views */
   --container-page: 96rem;
@@ -38,12 +163,16 @@
 
 @layer base {
   * {
-    border-color: var(--color-border);
+    border-color: var(--border);
   }
 
   body {
-    background-color: var(--color-background);
-    color: var(--color-foreground);
+    background-color: var(--background);
+    color: var(--foreground);
   }
 
+  /* Tabular figures in tables, so amounts and dates line up in their columns */
+  table {
+    font-feature-settings: "tnum" 1;
+  }
 }
