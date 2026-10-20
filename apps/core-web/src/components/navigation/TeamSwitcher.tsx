@@ -16,6 +16,51 @@ import {
 import { SidebarMenu, SidebarMenuItem, useSidebar } from '@/components/ui/sidebar'
 import { SidebarDropdownButton } from './SidebarDropdownButton'
 
+type TenantRole = components['schemas']['TenantMemberRole']
+
+type CurrentTenantLabelProps = {
+  tenantName: string
+  role: TenantRole | null
+}
+
+function CurrentTenantLabel({ tenantName, role }: CurrentTenantLabelProps) {
+  const { t } = useTranslation('nav')
+
+  return (
+    <DropdownMenuLabel className="flex flex-col gap-0.5 font-normal">
+      <span className="text-xs text-muted-foreground">{t('tenantSwitcher.currentTenant')}</span>
+      <span className="flex items-center justify-between gap-2">
+        <span className="truncate font-medium">{tenantName}</span>
+        {role ? <span className="shrink-0 text-xs text-muted-foreground">{role}</span> : null}
+      </span>
+    </DropdownMenuLabel>
+  )
+}
+
+type SiteStatusLineProps = {
+  activeSite: MeSite | null
+  sites: MeSite[]
+  isLoadingSites: boolean
+}
+
+/** The active site under the tenant name, or the warning that none is active. */
+function SiteStatusLine({ activeSite, sites, isLoadingSites }: SiteStatusLineProps) {
+  const { t } = useTranslation('nav')
+  // Do not claim "no active site" while the site list is still loading.
+  const label = activeSite?.name ?? (sites.length > 0 && !isLoadingSites ? t('siteSwitcher.noActiveSite') : null)
+
+  if (!label) {
+    return null
+  }
+
+  return (
+    <span className="flex min-w-0 items-center gap-1 text-xs text-sidebar-foreground">
+      <MapPin aria-hidden="true" className="size-3 shrink-0" />
+      <span className="truncate">{label}</span>
+    </span>
+  )
+}
+
 type TenantMenuItemsProps = {
   activeTenant: AuthSessionTenant
   memberships: AuthSessionMembership[]
@@ -23,12 +68,7 @@ type TenantMenuItemsProps = {
   isSwitchingTenant: boolean
 }
 
-function TenantMenuItems({
-  activeTenant,
-  memberships,
-  onSwitchTenant,
-  isSwitchingTenant,
-}: TenantMenuItemsProps) {
+function TenantMenuItems({ activeTenant, memberships, onSwitchTenant, isSwitchingTenant }: TenantMenuItemsProps) {
   const { t } = useTranslation('nav')
   const switchableMemberships = memberships.filter((membership) => membership.tenantId !== activeTenant.id)
 
@@ -110,7 +150,7 @@ function SiteMenuItems({ sites, activeSiteId, onSwitchSite, isSwitchingSite }: S
 
 type TeamSwitcherProps = {
   activeTenant: AuthSessionTenant | null
-  activeRole: components['schemas']['TenantMemberRole'] | null
+  activeRole: TenantRole | null
   memberships: AuthSessionMembership[]
   onSwitchTenant: (tenantId: string) => void
   isSwitchingTenant: boolean
@@ -134,7 +174,6 @@ export function TeamSwitcher({
   onSwitchSite,
   isSwitchingSite,
 }: TeamSwitcherProps) {
-  const { t } = useTranslation('nav')
   const { isMobile } = useSidebar()
 
   if (!activeTenant) {
@@ -142,8 +181,6 @@ export function TeamSwitcher({
   }
 
   const activeSite = sites.find((site) => site.id === activeSiteId) ?? null
-  // Do not claim "no active site" while the site list is still loading.
-  const siteStatus = activeSite?.name ?? (sites.length > 0 && !isLoadingSites ? t('siteSwitcher.noActiveSite') : null)
 
   return (
     <SidebarMenu>
@@ -154,14 +191,7 @@ export function TeamSwitcher({
               icon={<Building2 />}
               title={activeTenant.name}
               tooltip={activeTenant.name}
-              subtitle={
-                siteStatus ? (
-                  <span className="flex min-w-0 items-center gap-1 text-xs text-sidebar-foreground">
-                    <MapPin aria-hidden="true" className="size-3 shrink-0" />
-                    <span className="truncate">{siteStatus}</span>
-                  </span>
-                ) : null
-              }
+              subtitle={<SiteStatusLine activeSite={activeSite} sites={sites} isLoadingSites={isLoadingSites} />}
             />
           </DropdownMenuTrigger>
           <DropdownMenuContent
@@ -170,13 +200,7 @@ export function TeamSwitcher({
             sideOffset={4}
             className="min-w-56 rounded-lg"
           >
-            <DropdownMenuLabel className="flex flex-col gap-0.5 font-normal">
-              <span className="text-xs text-muted-foreground">{t('tenantSwitcher.currentTenant')}</span>
-              <span className="flex items-center justify-between gap-2">
-                <span className="truncate font-medium">{activeTenant.name}</span>
-                {activeRole ? <span className="shrink-0 text-xs text-muted-foreground">{activeRole}</span> : null}
-              </span>
-            </DropdownMenuLabel>
+            <CurrentTenantLabel tenantName={activeTenant.name} role={activeRole} />
             <TenantMenuItems
               activeTenant={activeTenant}
               memberships={memberships}
