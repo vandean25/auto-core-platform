@@ -11,7 +11,7 @@ import { A11Y_SMOKE_ROUTES, type A11ySmokeRoute } from './utils/a11y-smoke-route
  * - 200% zoom (a 640 CSS px layout viewport) fails the build on the three key pages.
  * - 320px reflow is measured on every route with the sidebar closed (the mobile sheet), and attached as
  *   `reflow-320-overflow`. Only the routes in REFLOW_320_GATED_ROUTES fail on horizontal scroll: the
- *   three that fit at this width today. The rest stay report-only until the responsive shell lands
+ *   three that fit at this width today. The rest stay report-only until the header and table follow-up lands
  *   (docs/a11y-backlog.md).
  */
 
@@ -86,8 +86,7 @@ test.describe('A11y smoke: reflow at 320px (WCAG 1.4.10)', () => {
       await page.setViewportSize({ width: 320, height: 800 });
       // Below md the sidebar is a closed sheet, so 320px measures the page content on its own.
       await route.mock(page);
-      // The dialog is not opened here: at 320px the sidebar covers its trigger, which is reported
-      // through the page measurement instead.
+      // The dialog is not opened here: this check measures the page layout, not the dialog.
       await new AutoCorePage(page, route.name).navigate(route.path);
       // Dialog routes are measured without `open` at 320px (see comment above).
       if (!route.open) {

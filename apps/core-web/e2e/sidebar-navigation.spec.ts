@@ -47,6 +47,8 @@ test.describe('AUT-656: grouped sidebar', () => {
     await page.setViewportSize(LAPTOP);
     await page.goto('/dashboard');
 
+    // A programmatic scroll also moves overflow:hidden containers, so the scroll container is asserted too.
+    await expect(page.locator('[data-sidebar="content"]')).toHaveCSS('overflow-y', 'auto');
     const links = mainNavigation(page).getByRole('link');
     await expect(links).toHaveCount(ADMIN_ENTRY_COUNT);
     for (let index = 0; index < ADMIN_ENTRY_COUNT; index += 1) {
@@ -100,6 +102,17 @@ test.describe('AUT-656: grouped sidebar', () => {
     await page.keyboard.press('Control+b');
 
     await expect(iconModeSidebar(page)).toHaveCount(1);
+  });
+
+  test('on a 390px phone the sheet closes from its header close button', async ({ page }) => {
+    await page.setViewportSize(MOBILE);
+    await page.goto('/dashboard');
+
+    await sidebarTrigger(page).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await page.getByRole('dialog').getByRole('button', { name: 'Schließen' }).click();
+
+    await expect(page.getByRole('dialog')).toBeHidden();
   });
 
   test('on a 390px phone the sidebar opens as a sheet and closes after a navigation', async ({ page }) => {

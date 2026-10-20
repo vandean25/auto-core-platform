@@ -18,7 +18,7 @@ type NavUserProps = {
   onSignOut: () => void
 }
 
-/** Two letters from the email address for the avatar, such as "VD" for "van.dean@…". */
+/** Two letters from the email address for the avatar, such as "JD" for "jane.doe@…". */
 function initialsFor(email: string | null) {
   const [localPart = ''] = (email ?? '').split('@')
   const parts = localPart.split(/[._-]+/).filter(Boolean)

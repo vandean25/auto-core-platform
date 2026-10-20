@@ -68,7 +68,7 @@ WCAG 1.4.10 is not met on the desktop routes yet. The smoke spec measures `docum
 
 Measured causes at 320px:
 
-- Most other routes still overflow at 320px. `PageContainer` (`w-full max-w-page mx-auto p-6`) ends at x=336 on the expanded layout. Page header rows, breadcrumbs and header button groups do not wrap, the sales orders and vehicle stock tables and the workshop board toolbar extend past the page instead of scrolling in their own wrapper, and the board columns (`w-max`) do the same.
+- Most other routes still overflow at 320px. `PageContainer` (`w-full max-w-page mx-auto p-6`) ended at x=336 when the sidebar was expanded, before the sheet change. Page header rows, breadcrumbs and header button groups do not wrap, the sales orders and vehicle stock tables and the workshop board toolbar extend past the page instead of scrolling in their own wrapper, and the board columns (`w-max`) do the same.
 
 Follow-up: wrapping header rows and breadcrumbs, scrolling table wrappers, and containing the board columns. Then add each route to `REFLOW_320_GATED_ROUTES`.
 

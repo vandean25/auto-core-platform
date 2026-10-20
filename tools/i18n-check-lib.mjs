@@ -249,7 +249,7 @@ export function extractTranslationKeysFromSource(source, defaultNamespace, fileP
 
   for (const match of source.matchAll(/labelKey:\s*['"]([^'"]+)['"]/g)) {
     const namespace =
-      filePath.includes('app-sidebar-modules') || source.includes("useTranslation('nav')") ? 'nav' : defaultNamespace
+      filePath.includes('nav-config') || source.includes("useTranslation('nav')") ? 'nav' : defaultNamespace
     addKey(match[1], namespace)
   }
 
