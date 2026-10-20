@@ -1,10 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { PaginationMetaDto } from '../../common/dto/paginated-response.dto.js';
-import { WorkshopOrderHttpResponseDto } from './workshop-order-response.dto.js';
+import { WorkshopOrderResponseDto } from './workshop-response.dto.js';
 
 export class WorkshopPaginatedResponseDto {
-  @ApiProperty({ type: [WorkshopOrderHttpResponseDto] })
-  data!: WorkshopOrderHttpResponseDto[];
+  @ApiProperty({ type: [WorkshopOrderResponseDto] })
+  data!: WorkshopOrderResponseDto[];
 
   @ApiProperty({ type: PaginationMetaDto })
   meta!: PaginationMetaDto;

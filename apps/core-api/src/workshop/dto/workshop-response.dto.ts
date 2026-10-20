@@ -9,7 +9,6 @@ import {
   WorkshopTaskStatus,
 } from '@prisma/client';
 import { LoanerBookingStatus } from '@prisma/client';
-import { PaginationMetaDto } from '../../common/dto/paginated-response.dto.js';
 import { DryRunMetaDto } from '../../dry-run/dto/dry-run-response.dto.js';
 
 export class WorkshopCustomerSummaryDto {
@@ -206,6 +205,9 @@ export class WorkshopOrderResponseDto extends DryRunMetaDto {
   @ApiProperty({ type: String, required: false, nullable: true })
   stagingLocationId?: string | null;
 
+  @ApiProperty({ type: String, required: false, nullable: true })
+  bill_to_customer_id?: string | null;
+
   @ApiProperty({
     type: () => WorkshopCustomerSummaryDto,
     required: false,
@@ -243,12 +245,4 @@ export class WorkshopOrderResponseDto extends DryRunMetaDto {
       'Ready-for-pickup email state when the order is COMPLETED (AUT-357). Null while the job is still open.',
   })
   ready_email_notice?: WorkshopReadyEmailNoticeDto | null;
-}
-
-export class WorkshopPaginatedResponseDto {
-  @ApiProperty({ type: [WorkshopOrderResponseDto] })
-  data!: WorkshopOrderResponseDto[];
-
-  @ApiProperty({ type: PaginationMetaDto })
-  meta!: PaginationMetaDto;
 }

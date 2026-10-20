@@ -7378,16 +7378,16 @@ export interface components {
             notes?: string | null;
             staging_location_id?: string | null;
             stagingLocationId?: string | null;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            updatedAt: string;
             bill_to_customer_id?: string | null;
             customer?: components["schemas"]["WorkshopCustomerSummaryDto"] | null;
             vehicle: components["schemas"]["WorkshopVehicleSummaryDto"];
             tasks: components["schemas"]["WorkshopTaskResponseDto"][];
             invoice?: components["schemas"]["WorkshopInvoiceSummaryDto"];
             loanerBooking?: components["schemas"]["WorkshopOrderLoanerBookingSummaryDto"] | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
             /** @description Ready-for-pickup email state when the order is COMPLETED (AUT-357). Null while the job is still open. */
             ready_email_notice?: components["schemas"]["WorkshopReadyEmailNoticeDto"] | null;
         };

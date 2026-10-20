@@ -14,7 +14,7 @@ describe('customer master data schema (OpenAPI DTOs)', () => {
 
   it('documents bill_to on workshop order response DTO', () => {
     expect(
-      readCoreApiSrc('workshop/dto/workshop-order-response-meta.dto.ts'),
+      readCoreApiSrc('workshop/dto/workshop-response.dto.ts'),
     ).toContain('bill_to_customer_id');
   });
 });
