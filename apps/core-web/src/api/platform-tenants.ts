@@ -1,6 +1,6 @@
+import { fetchJsonWithAuth } from "./api-error";
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { components } from './generated/openapi'
-import { fetchWithAuth } from './client'
 
 export type TenantPlan = components['schemas']['TenantPlan']
 export type PlatformTenant = components['schemas']['PlatformTenantResponseDto']
@@ -19,11 +19,6 @@ export const platformTenantKeys = {
   all: ['platform-tenants'] as const,
   list: (options?: ListPlatformTenantsOptions) => [...platformTenantKeys.all, 'list', options] as const,
   detail: (id: string) => [...platformTenantKeys.all, 'detail', id] as const,
-}
-
-async function getErrorMessage(response: Response, fallbackMessage: string) {
-  const payload = await response.json().catch(() => undefined) as { message?: string } | undefined
-  return payload?.message || fallbackMessage
 }
 
 export function usePlatformTenants(options?: ListPlatformTenantsOptions) {
@@ -49,14 +44,12 @@ export function usePlatformTenants(options?: ListPlatformTenantsOptions) {
       }
 
       const query = params.toString()
-      const response = await fetchWithAuth(query ? `/api/platform/tenants?${query}` : '/api/platform/tenants')
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to fetch tenants'))
-      }
-
-      return response.json()
+      return fetchJsonWithAuth(
+        query ? `/api/platform/tenants?${query}` : "/api/platform/tenants",
+        "Failed to fetch tenants",
+      );
     },
-  })
+  });
 }
 
 export function useCreatePlatformTenant() {
@@ -64,44 +57,46 @@ export function useCreatePlatformTenant() {
 
   return useMutation({
     mutationFn: async (payload: CreatePlatformTenantPayload) => {
-      const response = await fetchWithAuth('/api/platform/tenants', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to create tenant'))
-      }
-
-      return response.json() as Promise<PlatformTenant>
+      return fetchJsonWithAuth<PlatformTenant>(
+        "/api/platform/tenants",
+        "Failed to create tenant",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: platformTenantKeys.all })
     },
-  })
+  });
 }
 
 export function useUpdatePlatformTenant() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: UpdatePlatformTenantPayload }) => {
-      const response = await fetchWithAuth(`/api/platform/tenants/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      })
-
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to update tenant'))
-      }
-
-      return response.json() as Promise<PlatformTenant>
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: UpdatePlatformTenantPayload;
+    }) => {
+      return fetchJsonWithAuth<PlatformTenant>(
+        `/api/platform/tenants/${id}`,
+        "Failed to update tenant",
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        },
+      );
     },
     onSuccess: (tenant) => {
       queryClient.invalidateQueries({ queryKey: platformTenantKeys.all })
       queryClient.invalidateQueries({ queryKey: platformTenantKeys.detail(tenant.id) })
     },
-  })
+  });
 }

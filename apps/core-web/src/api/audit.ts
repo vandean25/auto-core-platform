@@ -1,6 +1,6 @@
+import { fetchJsonWithAuth } from "./api-error";
 import { useQuery } from '@tanstack/react-query'
 import type { components } from './generated/openapi'
-import { fetchWithAuth } from './client'
 
 export type AuditLog = components['schemas']['AuditLogResponseDto']
 export type AuditLogListResponse = components['schemas']['AuditLogListResponseDto']
@@ -22,11 +22,6 @@ export const auditLogKeys = {
   all: ['audit-logs'] as const,
   lists: () => [...auditLogKeys.all, 'list'] as const,
   list: (options?: ListAuditLogsOptions) => [...auditLogKeys.lists(), options] as const,
-}
-
-async function getErrorMessage(response: Response, fallbackMessage: string) {
-  const payload = (await response.json().catch(() => undefined)) as { message?: string } | undefined
-  return payload?.message || fallbackMessage
 }
 
 export function useAuditLogs(options?: ListAuditLogsOptions) {
@@ -64,12 +59,10 @@ export function useAuditLogs(options?: ListAuditLogsOptions) {
       }
 
       const query = params.toString()
-      const response = await fetchWithAuth(query ? `/api/audit-logs?${query}` : '/api/audit-logs')
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to fetch audit logs'))
-      }
-
-      return response.json()
+      return fetchJsonWithAuth(
+        query ? `/api/audit-logs?${query}` : "/api/audit-logs",
+        "Failed to fetch audit logs",
+      );
     },
-  })
+  });
 }

@@ -1,6 +1,6 @@
+import { fetchJsonWithAuth } from "./api-error";
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { components } from './generated/openapi'
-import { fetchWithAuth } from './client'
 import { firebaseAuth } from '@/lib/firebase'
 import { isE2EAuthBypassEnabled, isE2ETestTokenAuthEnabled } from '@/lib/runtime-flags'
 import { isMechanicPath } from '@/lib/shell-paths'
@@ -70,12 +70,9 @@ function getCurrentUserKey(explicitUserKey?: string | null) {
     return 'e2e-test-user'
   }
 
-  return firebaseAuth?.currentUser?.uid ?? firebaseAuth?.currentUser?.email ?? null
-}
-
-async function getErrorMessage(response: Response, fallbackMessage: string) {
-  const payload = await response.json().catch(() => undefined) as { message?: string } | undefined
-  return payload?.message || fallbackMessage
+  return (
+    firebaseAuth?.currentUser?.uid ?? firebaseAuth?.currentUser?.email ?? null
+  );
 }
 
 export function useAuthSession(userKey?: string | null, enabled = true) {
@@ -89,15 +86,12 @@ export function useAuthSession(userKey?: string | null, enabled = true) {
         return getE2EAuthSession()
       }
 
-      const response = await fetchWithAuth('/api/auth/me')
-
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to fetch auth session'))
-      }
-
-      return response.json() as Promise<AuthSession>
+      return fetchJsonWithAuth<AuthSession>(
+        "/api/auth/me",
+        "Failed to fetch auth session",
+      );
     },
-  })
+  });
 }
 
 export function useSwitchTenant() {
@@ -106,17 +100,15 @@ export function useSwitchTenant() {
   return useMutation({
     mutationFn: async (tenantId: string) => {
       const payload: SwitchTenantPayload = { tenantId }
-      const response = await fetchWithAuth('/api/auth/switch-tenant', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to switch tenant'))
-      }
-
-      return response.json() as Promise<AuthSession>
+      return fetchJsonWithAuth<AuthSession>(
+        "/api/auth/switch-tenant",
+        "Failed to switch tenant",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
     },
     onSuccess: async () => {
       await firebaseAuth?.currentUser?.getIdToken(true)
@@ -132,5 +124,5 @@ export function useSwitchTenant() {
         refetchType: 'active',
       })
     },
-  })
+  });
 }

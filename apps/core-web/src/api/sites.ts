@@ -1,6 +1,6 @@
+import { fetchJsonWithAuth } from "./api-error";
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { components } from './generated/openapi'
-import { fetchWithAuth } from './client'
 import { authSessionKeys } from './auth-session'
 import { inventoryKeys } from './inventory'
 import { vehicleStockKeys } from './vehicle-stock'
@@ -33,12 +33,6 @@ const SITE_SCOPED_QUERY_KEYS = [
   stockTransferKeys.all,
 ] as const
 
-async function getErrorMessage(response: Response, fallbackMessage: string) {
-  const payload = (await response.json().catch(() => undefined)) as
-    { message?: string } | undefined
-  return payload?.message || fallbackMessage
-}
-
 /**
  * GET /api/me/sites — only activatable sites for the current tenant
  * (ruling 47: Site.is_active AND active SiteMembership AND active TenantMember).
@@ -48,13 +42,12 @@ export function useMySites(enabled = true) {
     queryKey: siteKeys.me(),
     enabled,
     queryFn: async () => {
-      const response = await fetchWithAuth('/api/me/sites')
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to load sites'))
-      }
-      return response.json() as Promise<MeSite[]>
+      return fetchJsonWithAuth<MeSite[]>(
+        "/api/me/sites",
+        "Failed to load sites",
+      );
     },
-  })
+  });
 }
 
 /**
@@ -65,13 +58,12 @@ export function useSiteDirectory(enabled = true) {
     queryKey: siteKeys.directory(),
     enabled,
     queryFn: async () => {
-      const response = await fetchWithAuth('/api/sites')
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to load sites'))
-      }
-      return response.json() as Promise<SiteDirectoryEntry[]>
+      return fetchJsonWithAuth<SiteDirectoryEntry[]>(
+        "/api/sites",
+        "Failed to load sites",
+      );
     },
-  })
+  });
 }
 
 /**
@@ -84,19 +76,15 @@ export function useSetActiveSite() {
   return useMutation({
     mutationFn: async (siteId: string | null) => {
       const payload: SetActiveSitePayload = { siteId }
-      const response = await fetchWithAuth('/api/me/active-site', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-
-      if (!response.ok) {
-        throw new Error(
-          await getErrorMessage(response, 'Failed to switch active site'),
-        )
-      }
-
-      return response.json() as Promise<ActiveSiteResponse>
+      return fetchJsonWithAuth<ActiveSiteResponse>(
+        "/api/me/active-site",
+        "Failed to switch active site",
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({
@@ -114,5 +102,5 @@ export function useSetActiveSite() {
         })
       }
     },
-  })
+  });
 }

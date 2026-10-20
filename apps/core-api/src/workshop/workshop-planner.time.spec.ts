@@ -1,11 +1,28 @@
 import {
   addIsoDays,
+  eachLocalDate,
   formatUtcDate,
   isValidIsoDate,
   isoMondayOnOrBefore,
 } from './workshop-planner.time.js';
 
 describe('workshop-planner.time', () => {
+  describe('eachLocalDate', () => {
+    it('keeps the end exclusive across the Vienna daylight-saving transition', () => {
+      expect(
+        eachLocalDate(
+          new Date('2026-03-27T23:00:00Z'),
+          new Date('2026-03-29T22:00:00Z'),
+          'Europe/Vienna',
+        ),
+      ).toEqual(['2026-03-28', '2026-03-29']);
+    });
+
+    it('returns no dates for an empty range', () => {
+      const boundary = new Date('2026-12-31T23:00:00Z');
+      expect(eachLocalDate(boundary, boundary, 'Europe/Vienna')).toEqual([]);
+    });
+  });
   describe('addIsoDays', () => {
     it('rolls over month and year boundaries', () => {
       expect(addIsoDays('2026-10-31', 1)).toBe('2026-11-01');

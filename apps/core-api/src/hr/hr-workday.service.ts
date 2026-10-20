@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Optional } from '@nestjs/common';
 import { WorkshopHoliday, WorkshopOpeningHour } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
+  addIsoDays,
   isLeapYear,
   isoWeekdayFromUtcDate,
   parseLocalDate,
@@ -22,9 +23,7 @@ export function enumerateIsoDates(from: string, to: string): string[] {
   let current = from;
   while (current <= to) {
     dates.push(current);
-    const { year, month, day } = parseLocalDate(current);
-    const next = new Date(Date.UTC(year, month - 1, day + 1));
-    current = `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}-${String(next.getUTCDate()).padStart(2, '0')}`;
+    current = addIsoDays(current, 1);
   }
   return dates;
 }

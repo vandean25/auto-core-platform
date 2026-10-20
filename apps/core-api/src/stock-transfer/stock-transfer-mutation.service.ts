@@ -21,6 +21,7 @@ import type {
   ReturnStockTransferDto,
   ShipStockTransferDto,
 } from './dto/stock-transfer.dto.js';
+import type { CallerAccess } from './stock-transfer-access.types.js';
 import { StockTransferAccessService } from './stock-transfer-access.service.js';
 import { StockTransferCommitService } from './stock-transfer-commit.service.js';
 import { StockTransferCommandService } from './stock-transfer-command.service.js';
@@ -150,12 +151,7 @@ export class StockTransferMutationService {
     assertUniqueLineIds(dto.lines?.map((line) => line.id) ?? []);
 
     return this.commitService.commitTransfer(access, 'UPDATED', async (tx) => {
-      const transfer = await this.queryService.loadTransfer(
-        tx,
-        access.tenantId,
-        id,
-        [...access.accessBySite.keys()],
-      );
+      const transfer = await this.loadTransfer(tx, access, id);
       this.accessService.assertTransferAccess(access, transfer, {
         requireFrom: true,
         requireAdmin: true,
@@ -165,11 +161,7 @@ export class StockTransferMutationService {
           `Only REQUESTED transfers can be approved (current: ${transfer.status}).`,
         );
       }
-      if (transfer.version !== dto.expectedVersion) {
-        throw new ConflictException(
-          `Version conflict: expected ${dto.expectedVersion}, current ${transfer.version}.`,
-        );
-      }
+      this.assertExpectedVersion(transfer, dto.expectedVersion);
       await this.siteLockService.lockSitesForTransfer(
         tx,
         access.tenantId,
@@ -241,11 +233,10 @@ export class StockTransferMutationService {
               : {}),
           },
         });
-        if (result.count !== 1) {
-          throw new ConflictException(
-            `Line ${update.id} changed during approval. Refresh and retry.`,
-          );
-        }
+        this.assertSingleUpdate(
+          result,
+          `Line ${update.id} changed during approval. Refresh and retry.`,
+        );
       }
 
       const guarded = await tx.stockTransfer.updateMany({
@@ -261,15 +252,12 @@ export class StockTransferMutationService {
           approved_by_user_id: access.userId,
         },
       });
-      if (guarded.count !== 1) {
-        throw new ConflictException(
-          'Transfer changed during approval. Refresh and retry.',
-        );
-      }
+      this.assertSingleUpdate(
+        guarded,
+        'Transfer changed during approval. Refresh and retry.',
+      );
 
-      return this.queryService.loadTransfer(tx, access.tenantId, id, [
-        ...access.accessBySite.keys(),
-      ]);
+      return this.loadTransfer(tx, access, id);
     });
   }
 
@@ -280,12 +268,7 @@ export class StockTransferMutationService {
     const access = await this.accessService.loadCallerAccess();
 
     return this.commitService.commitTransfer(access, 'UPDATED', async (tx) => {
-      const transfer = await this.queryService.loadTransfer(
-        tx,
-        access.tenantId,
-        id,
-        [...access.accessBySite.keys()],
-      );
+      const transfer = await this.loadTransfer(tx, access, id);
       this.accessService.assertTransferAccess(access, transfer, {
         requireFrom: true,
         requireAdmin: true,
@@ -309,15 +292,12 @@ export class StockTransferMutationService {
           reject_reason: dto.reason ?? null,
         },
       });
-      if (guarded.count !== 1) {
-        throw new ConflictException(
-          'Transfer changed during rejection. Refresh and retry.',
-        );
-      }
+      this.assertSingleUpdate(
+        guarded,
+        'Transfer changed during rejection. Refresh and retry.',
+      );
 
-      return this.queryService.loadTransfer(tx, access.tenantId, id, [
-        ...access.accessBySite.keys(),
-      ]);
+      return this.loadTransfer(tx, access, id);
     });
   }
 
@@ -328,12 +308,7 @@ export class StockTransferMutationService {
     const access = await this.accessService.loadCallerAccess();
 
     return this.commitService.commitTransfer(access, 'UPDATED', async (tx) => {
-      const transfer = await this.queryService.loadTransfer(
-        tx,
-        access.tenantId,
-        id,
-        [...access.accessBySite.keys()],
-      );
+      const transfer = await this.loadTransfer(tx, access, id);
       const { fromAccess } = this.accessService.assertTransferAccess(
         access,
         transfer,
@@ -369,15 +344,12 @@ export class StockTransferMutationService {
           cancel_reason: dto.reason ?? null,
         },
       });
-      if (guarded.count !== 1) {
-        throw new ConflictException(
-          'Transfer changed during cancellation. Refresh and retry.',
-        );
-      }
+      this.assertSingleUpdate(
+        guarded,
+        'Transfer changed during cancellation. Refresh and retry.',
+      );
 
-      return this.queryService.loadTransfer(tx, access.tenantId, id, [
-        ...access.accessBySite.keys(),
-      ]);
+      return this.loadTransfer(tx, access, id);
     });
   }
 
@@ -389,12 +361,7 @@ export class StockTransferMutationService {
     assertUniqueLineIds(dto.lines.map((line) => line.id));
 
     return this.commitService.commitTransfer(access, 'UPDATED', async (tx) => {
-      const transfer = await this.queryService.loadTransfer(
-        tx,
-        access.tenantId,
-        id,
-        [...access.accessBySite.keys()],
-      );
+      const transfer = await this.loadTransfer(tx, access, id);
       this.accessService.assertTransferAccess(access, transfer, {
         requireFrom: true,
       });
@@ -403,11 +370,7 @@ export class StockTransferMutationService {
           `Only APPROVED transfers can be shipped (current: ${transfer.status}).`,
         );
       }
-      if (transfer.version !== dto.expectedVersion) {
-        throw new ConflictException(
-          `Version conflict: expected ${dto.expectedVersion}, current ${transfer.version}.`,
-        );
-      }
+      this.assertExpectedVersion(transfer, dto.expectedVersion);
       await this.siteLockService.lockSitesForTransfer(
         tx,
         access.tenantId,
@@ -503,11 +466,10 @@ export class StockTransferMutationService {
           shipped_by_user_id: access.userId,
         },
       });
-      if (guarded.count !== 1) {
-        throw new ConflictException(
-          'Transfer changed during shipping. Refresh and retry.',
-        );
-      }
+      this.assertSingleUpdate(
+        guarded,
+        'Transfer changed during shipping. Refresh and retry.',
+      );
 
       await chunkedPromiseAll(transfer.lines, async (line) => {
         const sourceLocationId = frozenSourceByLine.get(line.id) ?? null;
@@ -523,11 +485,10 @@ export class StockTransferMutationService {
             source_location_id: sourceLocationId,
           },
         });
-        if (result.count !== 1) {
-          throw new ConflictException(
-            `Line ${line.id} changed during shipping. Refresh and retry.`,
-          );
-        }
+        this.assertSingleUpdate(
+          result,
+          `Line ${line.id} changed during shipping. Refresh and retry.`,
+        );
       });
 
       await this.ledgerPostingService.writeShipLedgerPairs(
@@ -539,9 +500,7 @@ export class StockTransferMutationService {
         },
       );
 
-      return this.queryService.loadTransfer(tx, access.tenantId, id, [
-        ...access.accessBySite.keys(),
-      ]);
+      return this.loadTransfer(tx, access, id);
     });
   }
 
@@ -569,12 +528,7 @@ export class StockTransferMutationService {
         access,
         'UPDATED',
         async (tx) => {
-          const transfer = await this.queryService.loadTransfer(
-            tx,
-            access.tenantId,
-            id,
-            [...access.accessBySite.keys()],
-          );
+          const transfer = await this.loadTransfer(tx, access, id);
           this.accessService.assertTransferAccess(access, transfer, {
             requireTo: true,
           });
@@ -583,11 +537,7 @@ export class StockTransferMutationService {
               `Only SHIPPED transfers can receive stock (current: ${transfer.status}).`,
             );
           }
-          if (transfer.version !== dto.expectedVersion) {
-            throw new ConflictException(
-              `Version conflict: expected ${dto.expectedVersion}, current ${transfer.version}.`,
-            );
-          }
+          this.assertExpectedVersion(transfer, dto.expectedVersion);
           await this.siteLockService.lockSitesForTransfer(
             tx,
             access.tenantId,
@@ -649,11 +599,10 @@ export class StockTransferMutationService {
               received_by_user_id: access.userId,
             },
           });
-          if (guarded.count !== 1) {
-            throw new ConflictException(
-              'Transfer changed during receiving. Refresh and retry.',
-            );
-          }
+          this.assertSingleUpdate(
+            guarded,
+            'Transfer changed during receiving. Refresh and retry.',
+          );
 
           await chunkedPromiseAll(dto.lines, async (update) => {
             const line = linesById.get(update.id)!;
@@ -672,11 +621,10 @@ export class StockTransferMutationService {
                   : { dest_location_id: update.destLocationId }),
               },
             });
-            if (result.count !== 1) {
-              throw new ConflictException(
-                `Line ${update.id} changed during receiving. Refresh and retry.`,
-              );
-            }
+            this.assertSingleUpdate(
+              result,
+              `Line ${update.id} changed during receiving. Refresh and retry.`,
+            );
           });
 
           await this.ledgerPostingService.writeSettlementLedgerPairs(
@@ -742,12 +690,7 @@ export class StockTransferMutationService {
         access,
         'UPDATED',
         async (tx) => {
-          const transfer = await this.queryService.loadTransfer(
-            tx,
-            access.tenantId,
-            id,
-            [...access.accessBySite.keys()],
-          );
+          const transfer = await this.loadTransfer(tx, access, id);
           this.accessService.assertTransferAccess(access, transfer, {
             requireTo: true,
             allowFromAdmin: true,
@@ -757,11 +700,7 @@ export class StockTransferMutationService {
               `Only SHIPPED transfers can return stock (current: ${transfer.status}).`,
             );
           }
-          if (transfer.version !== dto.expectedVersion) {
-            throw new ConflictException(
-              `Version conflict: expected ${dto.expectedVersion}, current ${transfer.version}.`,
-            );
-          }
+          this.assertExpectedVersion(transfer, dto.expectedVersion);
           await this.siteLockService.lockSitesForTransfer(
             tx,
             access.tenantId,
@@ -817,11 +756,10 @@ export class StockTransferMutationService {
             },
             data: { version: { increment: 1 } },
           });
-          if (guarded.count !== 1) {
-            throw new ConflictException(
-              'Transfer changed during return. Refresh and retry.',
-            );
-          }
+          this.assertSingleUpdate(
+            guarded,
+            'Transfer changed during return. Refresh and retry.',
+          );
 
           await chunkedPromiseAll(dto.lines, async (update) => {
             const line = linesById.get(update.id)!;
@@ -835,11 +773,10 @@ export class StockTransferMutationService {
               },
               data: { returned_qty: { increment: update.returnQty } },
             });
-            if (result.count !== 1) {
-              throw new ConflictException(
-                `Line ${update.id} changed during return. Refresh and retry.`,
-              );
-            }
+            this.assertSingleUpdate(
+              result,
+              `Line ${update.id} changed during return. Refresh and retry.`,
+            );
           });
 
           await this.ledgerPostingService.writeSettlementLedgerPairs(
@@ -878,6 +815,36 @@ export class StockTransferMutationService {
         dto,
         access,
       );
+    }
+  }
+
+  private loadTransfer(
+    tx: Prisma.TransactionClient,
+    access: CallerAccess,
+    id: string,
+  ) {
+    return this.queryService.loadTransfer(tx, access.tenantId, id, [
+      ...access.accessBySite.keys(),
+    ]);
+  }
+
+  private assertExpectedVersion(
+    transfer: { version: number },
+    expectedVersion: number,
+  ): void {
+    if (transfer.version !== expectedVersion) {
+      throw new ConflictException(
+        `Version conflict: expected ${expectedVersion}, current ${transfer.version}.`,
+      );
+    }
+  }
+
+  private assertSingleUpdate(
+    result: { count: number },
+    conflictMessage: string,
+  ): void {
+    if (result.count !== 1) {
+      throw new ConflictException(conflictMessage);
     }
   }
 }

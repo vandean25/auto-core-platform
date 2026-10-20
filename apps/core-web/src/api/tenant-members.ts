@@ -1,6 +1,6 @@
+import { fetchJsonWithAuth } from "./api-error";
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { components } from './generated/openapi'
-import { fetchWithAuth } from './client'
 
 export type TenantMemberRole = components['schemas']['TenantMemberRole']
 export type TenantMember = components['schemas']['TenantMemberResponseDto']
@@ -19,11 +19,6 @@ export const tenantMemberKeys = {
   all: ['tenant-members'] as const,
   list: (options?: ListTenantMembersOptions) => [...tenantMemberKeys.all, 'list', options] as const,
   detail: (id: string) => [...tenantMemberKeys.all, 'detail', id] as const,
-}
-
-async function getErrorMessage(response: Response, fallbackMessage: string) {
-  const payload = await response.json().catch(() => undefined) as { message?: string } | undefined
-  return payload?.message || fallbackMessage
 }
 
 export function useTenantMembers(options?: ListTenantMembersOptions) {
@@ -49,14 +44,12 @@ export function useTenantMembers(options?: ListTenantMembersOptions) {
       }
 
       const query = params.toString()
-      const response = await fetchWithAuth(query ? `/api/tenant-members?${query}` : '/api/tenant-members')
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to fetch tenant members'))
-      }
-
-      return response.json()
+      return fetchJsonWithAuth(
+        query ? `/api/tenant-members?${query}` : "/api/tenant-members",
+        "Failed to fetch tenant members",
+      );
     },
-  })
+  });
 }
 
 export function useInviteTenantMember() {
@@ -64,44 +57,46 @@ export function useInviteTenantMember() {
 
   return useMutation({
     mutationFn: async (payload: InviteTenantMemberPayload) => {
-      const response = await fetchWithAuth('/api/tenant-members/invite', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to invite team member'))
-      }
-
-      return response.json() as Promise<TenantMember>
+      return fetchJsonWithAuth<TenantMember>(
+        "/api/tenant-members/invite",
+        "Failed to invite team member",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: tenantMemberKeys.all })
     },
-  })
+  });
 }
 
 export function useUpdateTenantMember() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: UpdateTenantMemberPayload }) => {
-      const response = await fetchWithAuth(`/api/tenant-members/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      })
-
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to update tenant member'))
-      }
-
-      return response.json() as Promise<TenantMember>
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: UpdateTenantMemberPayload;
+    }) => {
+      return fetchJsonWithAuth<TenantMember>(
+        `/api/tenant-members/${id}`,
+        "Failed to update tenant member",
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        },
+      );
     },
     onSuccess: (membership) => {
       queryClient.invalidateQueries({ queryKey: tenantMemberKeys.all })
       queryClient.invalidateQueries({ queryKey: tenantMemberKeys.detail(membership.id) })
     },
-  })
+  });
 }
