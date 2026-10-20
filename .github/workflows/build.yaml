@@ -565,7 +565,6 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
-      security-events: write
     steps:
       - name: Check gate-override label
         id: override
@@ -587,6 +586,19 @@ jobs:
           # Full history: audit compares against the merge base and attributes findings as new or inherited.
           fetch-depth: 0
 
+      - name: Setup Node
+        if: steps.override.outputs.skip != 'true'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install workspace dependencies
+        # Fallow resolves imports and tsconfig chains through node_modules; lifecycle scripts are not needed.
+        if: steps.override.outputs.skip != 'true'
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
       - name: Fallow audit
         if: steps.override.outputs.skip != 'true'
         uses: fallow-rs/fallow@6605f96806787f85124bfc144124ff7e44733b06 # v3.34.1
@@ -594,8 +606,10 @@ jobs:
           command: audit
           version: 3.34.1
           gate: new-only
+          # SARIF lands in the fallow-audit artifact. Code-scanning upload is off: audit SARIF has
+          # several runs per category, which the CodeQL upload action rejects.
           format: sarif
-          sarif: true
+          sarif: false
           annotations: true
           artifacts-dir: fallow-artifacts
           branded-token: false
