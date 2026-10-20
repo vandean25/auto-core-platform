@@ -71,7 +71,8 @@ test.describe('AUT-486: onboarding checklist and Help / Docs', () => {
   test('sidebar Help / Docs opens the documentation in a new tab', async ({ page }) => {
     await page.goto('/dashboard');
 
-    const helpLink = page.getByRole('link', { name: DE_SHELL.footer.helpDocs });
+    await page.getByRole('button', { name: DE_SHELL.user.accountEmail }).click();
+    const helpLink = page.getByRole('menuitem', { name: DE_SHELL.user.helpDocs });
     await expect(helpLink).toHaveAttribute('href', DOCUMENTATION_URL);
     await expect(helpLink).toHaveAttribute('target', '_blank');
     await expect(helpLink).toHaveAttribute('rel', /noopener/);
