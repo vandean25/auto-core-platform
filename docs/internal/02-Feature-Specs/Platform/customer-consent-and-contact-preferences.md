@@ -195,7 +195,7 @@ Dependency release order: C1 plus C3 preserve transactional safety before cutove
 - UI: unticked voluntary granular marketing, explicit choice submission, service continues on refusal, phone/print fallback, no losing dirty form on failure, real DE resources/default and EN cases per AUT-575, current address and confirmed withdrawal state visible.
 - Retention/erasure: withdrawal+3-year/leap-day deadline, proof-chain dependencies/hold, separate suppression necessity, restrict retained invoices while purge unrelated PII, tombstones excluded from CRM/MCP/reports, tenant archive/purge failure handling, restore reapplies erasure before workers and includes evidence blobs/composite FKs.
 - Controller records: authorised AVV acceptance exact hash/version, subprocessor register/change notice occurrence/audit, no unverified provider claims, notice supplied date from actual action and indirect-source Art14 path, rights request access checks.
-- Implementing API/schema PRs commit regenerated OpenAPI/frontend types, tenant-restore/deletion updates and pass GitHub backend/frontend checks/Repowise without weakened baselines. This documentation PR runs no local validation and proves no production legal/provider/storage compliance.
+- Implementing API/schema PRs commit regenerated OpenAPI/frontend types, tenant-restore/deletion updates and pass GitHub backend/frontend checks/Fallow code health without weakened gate config. This documentation PR runs no local validation and proves no production legal/provider/storage compliance.
 
 ## Official sources checked 16 October 2026
 

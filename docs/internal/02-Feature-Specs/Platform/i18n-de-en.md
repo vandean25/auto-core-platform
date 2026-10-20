@@ -201,7 +201,7 @@ Language selector in profile menu uses “Deutsch” / “English”, keyboard l
 - Error tests: safe registry codes through production filter, unknown/private 5xx sanitised, non-JSON/network/401, typed field errors, rejected unsafe params and no message-text parsing. Every registered public code has DE/EN resource coverage.
 - Snapshot/PDF/mail tests: new DE/EN per family, legacy snapshots unchanged, changed live locale/resources/branding after send cannot change archived text/hash, duplicate job sends frozen mail, credit note inherits original language, customer vs user conflict, missing EN legal block explicit DE fallback and notice, archive PDF hash only after render. Packaging smoke runs against built backend resources in CI.
 - Agent/MCP contract tests: user effective language context, customer/document language override, English tool description and invariant schemas/codes; original free text preserved, no tenant/site/proposal bypass. Record external-host compliance as an integration limitation.
-- Release evidence belongs to owning PRs: backend tenant guard/lint/type/build/unit/fresh unseeded serial E2E and frontend lint/build/unit/Playwright/contract checks. Repowise changed-file gate applies; no lowered baseline to disguise migration complexity. Spec PR uses GitHub CI only and makes no implementation/device/legal-success claim.
+- Release evidence belongs to owning PRs: backend tenant guard/lint/type/build/unit/fresh unseeded serial E2E and frontend lint/build/unit/Playwright/contract checks. The Fallow code-health gate applies; no loosened gate config to disguise migration complexity. Spec PR uses GitHub CI only and makes no implementation/device/legal-success claim.
 
 ## References
 

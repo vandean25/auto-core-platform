@@ -181,7 +181,7 @@ Paste this into the PR body and tick every line.
 - [ ] **Keyboard:** a keyboard-only pass over the change, with a visible focus ring on every control.
 - [ ] **Playwright:** the CI jobs "Frontend Lint, Build and Unit Tests" and "Frontend UI Smoke" are green. Read the smoke job log, not only the check mark. The axe spec is `apps/core-web/e2e/a11y-smoke.spec.ts`.
 - [ ] **i18n:** every new string exists in `locales/de` and `locales/en`. `npm run i18n:check` and `npm run lint --workspace=core-web` pass. Rules: `.agents/skills/acp-i18n/SKILL.md`.
-- [ ] **Repowise:** `npm run repowise:gate -- --base origin/main` passes locally, and the CI log line is quoted in the PR. The gate prints `Repowise health gate passed: N changed source file(s) checked.` when a gated file changed, or `Repowise health gate: no changed source files, nothing to check.` when none did. The job is advisory, so the log line is the proof. New source files score at least 6.0, and changed files must not get worse. Rules: `.agents/skills/repowise-gate/SKILL.md`.
+- [ ] **Code health:** the CI check "Code Health (Fallow)" is green. Rules: `.agents/skills/acp-code-health/SKILL.md`.
 - [ ] **Scope:** the PR does not implement a target (T2 tokens, T3 sidebar, T5 PageHeader, T6 migration) by accident.
 
 ## Sources and licenses

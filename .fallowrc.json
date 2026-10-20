@@ -1,0 +1,36 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "minimumVersion": "3.34.1",
+  "workspaces": {
+    "patterns": ["apps/*"]
+  },
+  "entry": [
+    "apps/core-api/test/**/*.e2e-spec.ts",
+    "apps/core-api/test/jest-esm-setup.ts",
+    "apps/core-api/test/mcp-e2e-legacy-env.aut605.ts",
+    "apps/core-api/test/support/throttler.shim.ts",
+    "apps/core-api/prisma/*.ts",
+    "apps/core-api/scripts/**/*.{mjs,ts}",
+    "apps/core-web/playwright.fullstack.config.ts",
+    "apps/core-web/e2e-fullstack/**/*.{mjs,ts}",
+    "tools/**/*.mjs"
+  ],
+  "ignorePatterns": [
+    "**/generated/**",
+    "**/dist/**",
+    "**/coverage/**",
+    "apps/core-api/prisma/migrations/**",
+    "apps/core-web/src/api/generated/**",
+    "locales/**",
+    "apps/core-web/public/**",
+    "docs/**",
+    "tools/verify-build-chunks-fixtures/**",
+    "tools/**/fixtures/**"
+  ],
+  "rules": {
+    "added-suppression": "error",
+    "weakened-tests": "error",
+    "boundary-violation": "off",
+    "policy-violation": "off"
+  }
+}
