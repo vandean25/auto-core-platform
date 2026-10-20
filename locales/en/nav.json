@@ -13,16 +13,12 @@
     "administration": "Administration",
     "favorites": "Favorites"
   },
-  "sections": {
-    "coreModules": "Core Modules",
-    "favorites": "Favorites"
-  },
   "favorites": {
     "empty": "No saved views yet. Apply filters on a table and click Save as sidebar view.",
     "removeAria": "Remove saved view {{name}}"
   },
   "aria": {
-    "coreModules": "Core modules"
+    "mainNavigation": "Main navigation"
   },
   "modules": {
     "dashboard": "Dashboard",
@@ -54,14 +50,15 @@
     "finance": "Finance settings",
     "settings": "Settings"
   },
-  "footer": {
-    "search": "Search",
-    "openSearch": "Open search",
-    "settings": "Settings",
+  "search": {
+    "label": "Search",
+    "openAria": "Open search",
+    "shortcut": "Ctrl K",
+    "shortcutMac": "⌘ K"
+  },
+  "user": {
     "helpDocs": "Help / Docs",
-    "helpDocsOpensNewTab": "Help / Docs (opens in a new tab)",
-    "expandSidebar": "Expand sidebar",
-    "collapseSidebar": "Collapse sidebar"
+    "helpDocsOpensNewTab": "Help / Docs (opens in a new tab)"
   },
   "tenantSwitcher": {
     "currentTenant": "Current Tenant",
@@ -71,9 +68,7 @@
   "siteSwitcher": {
     "currentSite": "Current Site",
     "switchSite": "Switch site",
-    "selectSite": "Select site",
     "noActiveSite": "No active site",
-    "operationalNeedsSite": "Operational views need a site selection.",
     "activateSite": "Activate {{name}}"
   },
   "glossaryHints": {

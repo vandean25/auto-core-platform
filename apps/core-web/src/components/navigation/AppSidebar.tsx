@@ -1,14 +1,28 @@
+import { Fragment } from 'react'
+import { useTranslation } from 'react-i18next'
+import { Search } from 'lucide-react'
 import type { components } from '@/api/generated/openapi'
 import type { AuthSessionMembership, AuthSessionTenant } from '@/api/auth-session'
 import type { MeSite } from '@/api/sites'
-import { TenantSwitcherView as TenantSwitcher } from '@/components/navigation/TenantSwitcherView'
-import { SiteSwitcherShell as SiteSwitcher } from '@/components/navigation/SiteSwitcherShell'
-import { AppSidebarFooterShell as AppSidebarFooter } from '@/components/navigation/AppSidebarFooterShell'
-import { AppSidebarHeader } from '@/components/navigation/AppSidebarHeader'
-import { AppSidebarModuleNav } from '@/components/navigation/AppSidebarModuleNav'
-import { AppSidebarFavorites } from '@/components/navigation/AppSidebarFavorites'
-import { ShellGlossaryHints } from '@/components/navigation/ShellGlossaryHints'
-import { cn } from '@/lib/utils'
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarRail,
+  SidebarSeparator,
+  useSidebar,
+} from '@/components/ui/sidebar'
+import { AppSidebarFavorites } from './AppSidebarFavorites'
+import { AppSidebarHeader } from './AppSidebarHeader'
+import { NavGroupMenu } from './NavGroupMenu'
+import { NavUser } from './NavUser'
+import { ShellGlossaryHints } from './ShellGlossaryHints'
+import { TeamSwitcher } from './TeamSwitcher'
+import { getVisibleNavGroups } from './nav-config'
 
 type AppSidebarProps = {
   userEmail: string | null
@@ -19,10 +33,8 @@ type AppSidebarProps = {
   activeSiteId: string | null
   sites: MeSite[]
   isLoadingSites: boolean
-  collapsed: boolean
   isSwitchingTenant: boolean
   isSwitchingSite: boolean
-  onToggleCollapsed: () => void
   onOpenSearch: () => void
   onSwitchTenant: (tenantId: string) => void
   onSwitchSite: (siteId: string) => void
@@ -38,63 +50,73 @@ export function AppSidebar({
   activeSiteId,
   sites,
   isLoadingSites,
-  collapsed,
   isSwitchingTenant,
   isSwitchingSite,
-  onToggleCollapsed,
   onOpenSearch,
   onSwitchTenant,
   onSwitchSite,
   onSignOut,
 }: AppSidebarProps) {
+  const { t } = useTranslation('nav')
+  const groups = getVisibleNavGroups({ platformRole, activeRole })
+  const { isMobile } = useSidebar()
+  const isMac = /Mac|iPhone|iPad/.test(navigator.platform)
+
   return (
-    <aside
-      className={cn(
-        'fixed left-0 top-0 z-30 h-screen border-r border-slate-800 bg-slate-950 text-slate-100 transition-[width] duration-200',
-        collapsed ? 'w-20' : 'w-72',
-      )}
-    >
-      <div className="flex h-full flex-col">
-        <AppSidebarHeader collapsed={collapsed} />
-
-        <div className="flex-1 overflow-y-auto">
-          <TenantSwitcher
-            activeTenant={activeTenant}
-            activeRole={activeRole}
-            memberships={memberships}
-            onSwitch={onSwitchTenant}
-            isSwitching={isSwitchingTenant}
-            collapsed={collapsed}
-          />
-
-          <SiteSwitcher
-            activeSiteId={activeSiteId}
-            sites={sites}
-            isLoadingSites={isLoadingSites}
-            isSwitching={isSwitchingSite}
-            onSwitch={onSwitchSite}
-            collapsed={collapsed}
-          />
-
-          <AppSidebarModuleNav
-            userEmail={userEmail}
-            platformRole={platformRole}
-            activeRole={activeRole}
-            collapsed={collapsed}
-          />
-
-          <AppSidebarFavorites collapsed={collapsed} />
-          <ShellGlossaryHints collapsed={collapsed} />
-        </div>
-
-        <AppSidebarFooter
-          userEmail={userEmail}
-          collapsed={collapsed}
-          onToggleCollapsed={onToggleCollapsed}
-          onOpenSearch={onOpenSearch}
-          onSignOut={onSignOut}
+    <Sidebar collapsible="icon">
+      <SidebarHeader>
+        <AppSidebarHeader />
+        <TeamSwitcher
+          activeTenant={activeTenant}
+          activeRole={activeRole}
+          memberships={memberships}
+          onSwitchTenant={onSwitchTenant}
+          isSwitchingTenant={isSwitchingTenant}
+          activeSiteId={activeSiteId}
+          sites={sites}
+          isLoadingSites={isLoadingSites}
+          onSwitchSite={onSwitchSite}
+          isSwitchingSite={isSwitchingSite}
         />
-      </div>
-    </aside>
+      </SidebarHeader>
+
+      <SidebarContent>
+        <SidebarMenu className="px-2 pt-2">
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              tooltip={t('search.label')}
+              aria-label={t('search.openAria')}
+              onClick={onOpenSearch}
+            >
+              <Search aria-hidden="true" />
+              <span>{t('search.label')}</span>
+              <kbd className="ml-auto rounded border border-sidebar-border px-1.5 font-sans text-xs text-sidebar-foreground group-data-[collapsible=icon]:hidden">
+                {isMac ? t('search.shortcutMac') : t('search.shortcut')}
+              </kbd>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+
+        <nav aria-label={t('aria.mainNavigation')}>
+          {groups.map((group, index) => (
+            <Fragment key={group.id}>
+              {index > 0 ? <SidebarSeparator /> : null}
+              <NavGroupMenu group={group} />
+            </Fragment>
+          ))}
+          <SidebarSeparator />
+          <AppSidebarFavorites />
+        </nav>
+
+        <ShellGlossaryHints />
+      </SidebarContent>
+
+      <SidebarFooter>
+        <NavUser userEmail={userEmail} onSignOut={onSignOut} />
+      </SidebarFooter>
+
+      {/* The rail toggles the desktop sidebar only; the mobile sheet has its own close control. */}
+      {isMobile ? null : <SidebarRail />}
+    </Sidebar>
   )
 }

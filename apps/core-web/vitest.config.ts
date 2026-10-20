@@ -9,18 +9,6 @@ export default mergeConfig(
   defineConfig({
     resolve: {
       alias: [
-        {
-          find: '@/components/navigation/TenantSwitcher',
-          replacement: path.resolve(import.meta.dirname, './src/components/navigation/TenantSwitcherView.tsx'),
-        },
-        {
-          find: '@/components/navigation/SiteSwitcher',
-          replacement: path.resolve(import.meta.dirname, './src/components/navigation/SiteSwitcherShell.tsx'),
-        },
-        {
-          find: '@/components/navigation/AppSidebarFooter',
-          replacement: path.resolve(import.meta.dirname, './src/components/navigation/AppSidebarFooterShell.tsx'),
-        },
         { find: '@', replacement: path.resolve(import.meta.dirname, './src') },
       ],
     },

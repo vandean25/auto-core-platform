@@ -13,16 +13,12 @@
     "administration": "Verwaltung",
     "favorites": "Favoriten"
   },
-  "sections": {
-    "coreModules": "Kernmodule",
-    "favorites": "Favoriten"
-  },
   "favorites": {
     "empty": "Noch keine gespeicherten Ansichten. Setzen Sie Filter in einer Tabelle und wählen Sie „Als Seitenleistenansicht speichern“.",
     "removeAria": "Gespeicherte Ansicht {{name}} entfernen"
   },
   "aria": {
-    "coreModules": "Kernmodule"
+    "mainNavigation": "Hauptnavigation"
   },
   "modules": {
     "dashboard": "Dashboard",
@@ -54,14 +50,15 @@
     "finance": "Finanzeinstellungen",
     "settings": "Einstellungen"
   },
-  "footer": {
-    "search": "Suche",
-    "openSearch": "Suche öffnen",
-    "settings": "Einstellungen",
+  "search": {
+    "label": "Suche",
+    "openAria": "Suche öffnen",
+    "shortcut": "Strg K",
+    "shortcutMac": "⌘ K"
+  },
+  "user": {
     "helpDocs": "Hilfe / Dokumentation",
-    "helpDocsOpensNewTab": "Hilfe / Dokumentation (öffnet in neuem Tab)",
-    "expandSidebar": "Seitenleiste ausklappen",
-    "collapseSidebar": "Seitenleiste einklappen"
+    "helpDocsOpensNewTab": "Hilfe / Dokumentation (öffnet in neuem Tab)"
   },
   "tenantSwitcher": {
     "currentTenant": "Aktueller Mandant",
@@ -71,9 +68,7 @@
   "siteSwitcher": {
     "currentSite": "Aktueller Standort",
     "switchSite": "Standort wechseln",
-    "selectSite": "Standort wählen",
     "noActiveSite": "Kein aktiver Standort",
-    "operationalNeedsSite": "Operative Ansichten benötigen eine Standortauswahl.",
     "activateSite": "{{name}} aktivieren"
   },
   "glossaryHints": {

@@ -17,10 +17,11 @@ import type { components } from '@/api/generated/openapi'
 import { useAuthSession, useSwitchTenant, type AuthSessionMembership, type AuthSessionTenant } from '@/api/auth-session'
 import { useMySites, useSetActiveSite, type MeSite } from '@/api/sites'
 import { Toaster } from '@/components/ui/sonner'
-import { cn } from '@/lib/utils'
+import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import { useAuth } from '@/auth/AuthProvider'
 import { isDemoGrantSessionErrorMessage, isFirebaseEmailLinkSignInUrl } from '@/auth/landing-demo-email-link'
 import { AppSidebar } from '@/components/navigation/AppSidebar'
+import { useSidebarOpen } from '@/components/navigation/sidebar-state'
 import { GlobalSearch } from '@/components/GlobalSearch'
 import { DashboardWidgetsProvider } from '@/features/dashboard-widgets/DashboardWidgetsProvider'
 import { RealtimeDashboardSyncProvider } from '@/features/realtime/RealtimeDashboardSyncProvider'
@@ -52,19 +53,12 @@ import LandingDemoEmailLinkCompletionPage from '@/pages/LandingDemoEmailLinkComp
 import LandingDemoSessionRejectedPage from '@/pages/LandingDemoSessionRejectedPage'
 import LoginPage from '@/pages/LoginPage'
 
-const SIDEBAR_COLLAPSED_STORAGE_KEY = 'acp:sidebar-collapsed'
-
-type AppMainProps = {
-  sidebarCollapsed: boolean
-}
-
-function AppMain({ sidebarCollapsed }: AppMainProps) {
+function AppMain() {
   return (
-    <main
-      id="main-content"
-      className={cn('min-h-screen transition-[padding-left] duration-200', sidebarCollapsed ? 'pl-20' : 'pl-72')}
-      tabIndex={-1}
-    >
+    <SidebarInset id="main-content" tabIndex={-1}>
+      <header className="sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 border-b border-border bg-background px-4">
+        <SidebarTrigger className="-ml-1" />
+      </header>
       <PageBreadcrumbsProvider>
         <PageContainerWithBreadcrumbs>
           <GlobalErrorBoundary>
@@ -73,7 +67,7 @@ function AppMain({ sidebarCollapsed }: AppMainProps) {
         </PageContainerWithBreadcrumbs>
       </PageBreadcrumbsProvider>
       <Toaster />
-    </main>
+    </SidebarInset>
   )
 }
 
@@ -122,14 +116,7 @@ function AppShell({
 
   const effectiveUserKey = userId ?? userEmail ?? `anon-${deviceId}`
   const [searchOpen, setSearchOpen] = React.useState(false)
-  const [sidebarCollapsed, setSidebarCollapsed] = React.useState<boolean>(() => {
-    if (typeof window === 'undefined') return false
-    return window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === 'true'
-  })
-
-  React.useEffect(() => {
-    window.localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(sidebarCollapsed))
-  }, [sidebarCollapsed])
+  const [sidebarOpen, setSidebarOpen] = useSidebarOpen()
 
   React.useEffect(() => {
     const down = (event: KeyboardEvent) => {
@@ -147,37 +134,37 @@ function AppShell({
     <SavedViewsProvider userKey={effectiveUserKey}>
       <DashboardWidgetsProvider userKey={effectiveUserKey}>
         <RealtimeDashboardSyncProvider>
-          <div className="min-h-screen bg-slate-100">
+          <>
             <NewVersionAvailableBanner />
-            <a
-              href="#main-content"
-              className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-white focus:px-3 focus:py-2 focus:text-sm focus:shadow-md"
-            >
-              {t('shell.skipToMainContent')}
-            </a>
+            <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
+              <a
+                href="#main-content"
+                className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:shadow-md"
+              >
+                {t('shell.skipToMainContent')}
+              </a>
 
-            <AppSidebar
-              userEmail={userEmail}
-              platformRole={platformRole}
-              activeTenant={activeTenant}
-              activeRole={activeRole}
-              memberships={memberships}
-              activeSiteId={activeSiteId}
-              sites={sites}
-              isLoadingSites={isLoadingSites}
-              collapsed={sidebarCollapsed}
-              isSwitchingTenant={isSwitchingTenant}
-              isSwitchingSite={isSwitchingSite}
-              onToggleCollapsed={() => setSidebarCollapsed((value) => !value)}
-              onOpenSearch={() => setSearchOpen(true)}
-              onSwitchTenant={onSwitchTenant}
-              onSwitchSite={onSwitchSite}
-              onSignOut={onSignOut}
-            />
+              <AppSidebar
+                userEmail={userEmail}
+                platformRole={platformRole}
+                activeTenant={activeTenant}
+                activeRole={activeRole}
+                memberships={memberships}
+                activeSiteId={activeSiteId}
+                sites={sites}
+                isLoadingSites={isLoadingSites}
+                isSwitchingTenant={isSwitchingTenant}
+                isSwitchingSite={isSwitchingSite}
+                onOpenSearch={() => setSearchOpen(true)}
+                onSwitchTenant={onSwitchTenant}
+                onSwitchSite={onSwitchSite}
+                onSignOut={onSignOut}
+              />
 
-            <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
-            <AppMain sidebarCollapsed={sidebarCollapsed} />
-          </div>
+              <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
+              <AppMain />
+            </SidebarProvider>
+          </>
         </RealtimeDashboardSyncProvider>
       </DashboardWidgetsProvider>
     </SavedViewsProvider>

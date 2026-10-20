@@ -34,15 +34,15 @@ import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { isAgentSupervisionEnabled } from '@/lib/runtime-flags'
 import type nav from '../../../../../locales/de/nav.json'
 
-export type NavModuleLabelKey = `modules.${keyof typeof nav.modules}`
-export type NavGroupLabelKey = `groups.${keyof typeof nav.groups}`
+type NavModuleLabelKey = `modules.${keyof typeof nav.modules}`
+type NavGroupLabelKey = `groups.${keyof typeof nav.groups}`
 
 export type NavAccessContext = {
   platformRole: string | null
   activeRole: components['schemas']['TenantMemberRole'] | null
 }
 
-export type NavItem = {
+type NavItem = {
   id: string
   labelKey: NavModuleLabelKey
   to: string
