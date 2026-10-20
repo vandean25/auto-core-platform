@@ -191,6 +191,7 @@ We use a **Context-Based Approach**, allowing both patterns strictly based on th
   gh pr create --draft --title "Your PR title" --body "Your PR description"
   ```
 - This is faster, more reliable, and avoids UI-related issues or authentication problems
+- **Claude Code cloud sessions:** GitHub access there allows REST only, not GraphQL, so `gh pr create`, `gh pr view` and other GraphQL-based `gh` commands fail. Use `gh api` with REST routes instead, e.g. `gh api repos/vandean25/auto-core-platform/pulls/<n>` (read) and `gh api -X POST repos/vandean25/auto-core-platform/pulls -f title=... -f head=<branch> -f base=main -f body=...` (create).
 
 ### PR Lifecycle & CI Verification
 - When opening a pull request for a Linear issue, create it initially as a **Draft PR** (`gh pr create --draft ...`).
