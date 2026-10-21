@@ -5,7 +5,6 @@ import {
   DATEV_BUCHUNGSSTAPEL_COLUMN_HEADERS,
   DATEV_DATA_CATEGORY,
   DATEV_DATA_COLUMN_INDEX,
-  DATEV_ENCODING,
   DATEV_EXTF_VERSION,
   DATEV_FORMAT_NAME,
   DATEV_FORMAT_REVISION,
@@ -139,5 +138,3 @@ export function buildAccountingExportFilename(input: {
 }): string {
   return `EXTF_${input.legalEntityId}_${input.dateFrom}_${input.dateTo}_${input.runId}.csv`;
 }
-
-export { DATEV_ENCODING };

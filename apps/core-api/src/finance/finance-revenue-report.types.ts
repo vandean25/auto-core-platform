@@ -8,11 +8,6 @@ export type RevenueReportAmounts = {
   gross: Prisma.Decimal;
 };
 
-export type RevenueReportBucket = RevenueReportAmounts & {
-  name?: string;
-  source?: RevenueReportSource;
-};
-
 export type RevenueReportPeriod = {
   from: string;
   to: string;

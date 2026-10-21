@@ -1,5 +1,3 @@
-import type { ResolvedAccountingAllocation } from '../accounting-profile/accounting-profile.types.js';
-
 export type AccountingExportDocumentKind = 'INVOICE' | 'CREDIT_NOTE';
 
 export type AccountingExportBlockerCode =
@@ -17,12 +15,6 @@ export type AccountingExportBlocker = {
   documentId?: string;
   documentKind?: AccountingExportDocumentKind;
   documentNumber?: string | null;
-};
-
-export type AccountingExportLineAllocation = {
-  lineId: string;
-  gross: string;
-  accountingAllocation: ResolvedAccountingAllocation;
 };
 
 export type AccountingExportManifestDocument = {
@@ -84,13 +76,4 @@ export type AccountingExportTotalsBucket = {
   net: string;
   tax: string;
   gross: string;
-};
-
-export type AccountingExportOverlapSummary = {
-  id: string;
-  dateFrom: string;
-  dateTo: string;
-  createdAt: string;
-  fileSha256: string;
-  documentCount: number;
 };

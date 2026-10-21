@@ -1,8 +1,6 @@
 export {
-  DEFAULT_AT_PROFILE_CODE,
   DEFAULT_DE_PROFILE_CODE,
   DEFAULT_FORMAT_VERSION,
-  DEFAULT_RZL_FORMAT_VERSION,
 } from './accounting-profile.codes.js';
 
 export const FIXED_SOURCE_CATEGORY_KEYS = {
@@ -10,9 +8,6 @@ export const FIXED_SOURCE_CATEGORY_KEYS = {
   MANUAL_LINE: 'manual_line',
   VEHICLE_MARGIN: 'vehicle_margin',
 } as const;
-
-export type FixedSourceCategoryKey =
-  (typeof FIXED_SOURCE_CATEGORY_KEYS)[keyof typeof FIXED_SOURCE_CATEGORY_KEYS];
 
 export type AccountingTaxMode = 'STANDARD' | 'MARGIN_SCHEME';
 
@@ -53,9 +48,4 @@ export type ResolvedAccountingAllocation = {
 
 export function revenueGroupSourceCategoryKey(revenueGroupId: number): string {
   return `revenue_group:${revenueGroupId}`;
-}
-
-export function parseRevenueGroupSourceCategoryKey(key: string): number | null {
-  const match = /^revenue_group:(\d+)$/.exec(key);
-  return match ? Number.parseInt(match[1], 10) : null;
 }
