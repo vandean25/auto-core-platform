@@ -31,12 +31,12 @@ export function createSentryOptions(env: SentryEnv): BrowserOptions {
     dsn,
     environment,
     release,
-    sendDefaultPii: false,
+    // v11 replaces sendDefaultPii, and its defaults collect user info, cookies, headers and bodies.
+    dataCollection: { userInfo: false, cookies: false, httpHeaders: false, httpBodies: [] },
     tracesSampleRate,
     tracePropagationTargets: propagationTargets,
     replaysSessionSampleRate: 0.1,
     replaysOnErrorSampleRate: 1.0,
-    enableLogs: true,
     beforeSend: (event, hint) => {
       if (isForceCloseDeleteOriginRejection(event)) {
         return null
