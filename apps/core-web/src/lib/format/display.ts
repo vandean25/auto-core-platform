@@ -13,10 +13,6 @@ function missingPlaceholder(): string {
   return i18n.t('common:placeholders.missing')
 }
 
-function unknownPlaceholder(): string {
-  return i18n.t('common:placeholders.unknown')
-}
-
 export function formatNumber(
   value: number | string | null | undefined,
   options?: Intl.NumberFormatOptions,
@@ -180,15 +176,6 @@ export function formatDateLabel(isoDate: string, timeZone: string): string {
 
 export function formatMonthYear(date: Date, timeZone: string): string {
   return formatWithIntlDateTimeInZone(date, timeZone, { month: 'long', year: 'numeric' })
-}
-
-export function formatRelativeMinutes(minutes: number): string {
-  const count = Math.max(0, Math.round(minutes))
-  return i18n.t('common:relative.minutesAgo', { count })
-}
-
-export function formatUnknownValue(): string {
-  return unknownPlaceholder()
 }
 
 export function formatOdometerKm(value: number | null | undefined): string {

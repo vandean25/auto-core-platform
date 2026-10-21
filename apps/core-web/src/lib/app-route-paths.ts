@@ -2,10 +2,7 @@ import { matchRoutes, type RouteObject } from 'react-router-dom'
 
 export const LOGIN_PATH = '/login' as const
 
-/** Firebase email-link continue URL for landing demo magic links (see LANDING_DEMO_SIGN_IN_CONTINUE_URL). */
-export const LANDING_DEMO_SIGN_IN_FINISH_PATH = LOGIN_PATH
-
-/** Optional dedicated finish route; behaves the same as {@link LANDING_DEMO_SIGN_IN_FINISH_PATH}. */
+/** Optional dedicated finish route; behaves the same as {@link LOGIN_PATH}. */
 export const LANDING_DEMO_SIGN_IN_FINISH_ALT_PATH = '/login/email-link' as const
 
 export const APP_ROUTE_PATHS = {

@@ -1,6 +1,4 @@
-import { DEFAULT_TIME_ZONE, FORMAT_LOCALE } from '@/lib/i18n/constants'
-
-export type DateTimeFormatPartType = Intl.DateTimeFormatPartTypes
+import { FORMAT_LOCALE } from '@/lib/i18n/constants'
 
 /** Austrian thousands separator is always `.` (spec), not ICU narrow no-break space. */
 function formatPartsToAustrianString(parts: Intl.NumberFormatPart[]): string {
@@ -60,5 +58,3 @@ export function localeCompareDisplay(a: string, b: string): number {
 export function normalizeForSearch(value: string): string {
   return value.toLocaleLowerCase(FORMAT_LOCALE)
 }
-
-export { DEFAULT_TIME_ZONE, FORMAT_LOCALE }

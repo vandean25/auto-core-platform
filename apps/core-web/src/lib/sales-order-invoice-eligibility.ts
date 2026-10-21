@@ -7,6 +7,3 @@ export function isSalesOrderFinalizeBlocked(
   if (isLoading) return true
   return status === 'INVOICED'
 }
-
-export const SALES_ORDER_FINALIZE_BLOCKED_MESSAGE =
-  'This sales order is already marked invoiced. Open the finalized invoice from Sales or refresh this page.'

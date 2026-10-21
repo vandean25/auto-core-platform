@@ -11,10 +11,6 @@ export const IMPORT_ENTITY_TYPE_VALUES = Object.keys(
   deEnums.importEntityType,
 ) as ImportEntityTypeUi[]
 
-export type DocumentBrandAssetState = keyof typeof deEnums.documentBrandAssetState
-
-export type DocumentBrandFailureCode = keyof typeof deEnums.documentBrandFailureCode
-
 export type DataTableColumnId = keyof typeof deEnums.dataTableColumn
 
 export const DATA_TABLE_COLUMN_IDS = Object.keys(deEnums.dataTableColumn) as DataTableColumnId[]

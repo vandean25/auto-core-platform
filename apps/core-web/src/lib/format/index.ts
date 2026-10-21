@@ -12,9 +12,7 @@ export {
   formatNumber,
   formatOdometerKm,
   formatPercent,
-  formatRelativeMinutes,
   formatTimeInZone,
-  formatUnknownValue,
 } from './display'
 
 export {

@@ -125,10 +125,6 @@ export function expiredOrUsedLinkMessageDe(): string {
   return 'Dieser Anmeldelink ist abgelaufen oder wurde bereits verwendet.'
 }
 
-export function demoGrantSessionRejectedMessageDe(): string {
-  return expiredOrUsedLinkMessageDe()
-}
-
 export function resolveLandingDemoAccessUrl(): string | null {
   const configured = import.meta.env.VITE_LANDING_PAGE_URL?.trim()
   return configured || null
