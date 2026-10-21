@@ -70,14 +70,18 @@ describe('useInvoicePartSearch', () => {
     expect(result.current.partSearchOpen).toBe(false)
   })
 
-  it('closes the dialog without touching a line when no line was opened', () => {
+  it('closes the dialog and touches no line when a part is picked with no line opened', () => {
     const updateItem = vi.fn()
     const { result } = renderHook(() => useInvoicePartSearch(updateItem))
 
+    act(() => {
+      result.current.setPartSearchOpen(true)
+    })
     act(() => {
       result.current.handleSelectPart(part)
     })
 
     expect(updateItem).not.toHaveBeenCalled()
+    expect(result.current.partSearchOpen).toBe(false)
   })
 })

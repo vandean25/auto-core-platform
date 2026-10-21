@@ -1,7 +1,8 @@
 import { renderHook } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import type { useUpdateInvoice } from '@/api/sales'
+import type { CreateInvoicePayload, useUpdateInvoice } from '@/api/sales'
 import type { Customer, Invoice } from '@/api/types'
+import { DOCUMENT_AUTOSAVE_DEBOUNCE_MS } from '@/hooks/useDebouncedAutoSave'
 import type { useInvoiceEditor } from '@/hooks/useInvoiceEditor'
 import { useInvoiceDraftAutosave } from './useInvoiceDraftAutosave'
 
@@ -38,27 +39,36 @@ const editorWith = (overrides: Partial<Editor> = {}) =>
     ...overrides,
   }) as unknown as Editor
 
-const renderAutosave = (editor: Editor = editorWith()) => {
-  const buildPayload = vi.fn(() => null)
+const renderAutosave = ({
+  editor = editorWith(),
+  loaded = invoice,
+  mutateAsync = vi.fn(),
+  buildPayload = vi.fn(() => null),
+}: {
+  editor?: Editor
+  loaded?: Invoice | null
+  mutateAsync?: ReturnType<typeof vi.fn>
+  buildPayload?: () => CreateInvoicePayload | null
+} = {}) => {
   const draftNotesRef: { current: string | undefined } = { current: undefined }
   const hook = renderHook(() =>
     useInvoiceDraftAutosave({
       invoiceId: 'inv-1',
-      invoice,
+      invoice: loaded ?? undefined,
       editor,
-      updateInvoiceMutation: { mutateAsync: vi.fn() } as unknown as UpdateMutation,
+      updateInvoiceMutation: { mutateAsync } as unknown as UpdateMutation,
       buildPayload,
       draftNotesRef,
     }),
   )
-  return { ...hook, buildPayload, draftNotesRef }
+  return { ...hook, draftNotesRef }
 }
 
 describe('useInvoiceDraftAutosave', () => {
   it('loads the saved draft into the editor', () => {
     const editor = editorWith()
 
-    renderAutosave(editor)
+    renderAutosave({ editor })
 
     expect(editor.hydrateFromSnapshot).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -82,10 +92,18 @@ describe('useInvoiceDraftAutosave', () => {
     expect(draftNotesRef.current).toBe('Danke')
   })
 
-  it('asks the page for the draft payload once the draft is loaded', () => {
-    const { buildPayload } = renderAutosave()
+  it('does not save when there is no draft to load', async () => {
+    const mutateAsync = vi.fn()
+    const buildPayload = vi.fn(() => ({
+      customerId: 'cust-1',
+      items: [{ catalogItemId: undefined, description: 'Brake pads', quantity: 1, unitPrice: 1, taxRate: 20 }],
+      notes: undefined,
+    }))
 
-    expect(buildPayload).toHaveBeenCalled()
+    renderAutosave({ loaded: null, mutateAsync, buildPayload })
+    await new Promise((resolve) => setTimeout(resolve, DOCUMENT_AUTOSAVE_DEBOUNCE_MS + 100))
+
+    expect(mutateAsync).not.toHaveBeenCalled()
   })
 
   it('starts idle', () => {

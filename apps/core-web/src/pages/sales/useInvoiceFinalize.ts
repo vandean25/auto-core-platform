@@ -4,12 +4,12 @@ import { useNavigate } from "react-router-dom"
 import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
-import { invoiceKeys, useFinalizeInvoice, type useUpdateInvoice } from "@/api/sales"
+import { invoiceKeys, useFinalizeInvoice, type CreateInvoicePayload, type useUpdateInvoice } from "@/api/sales"
 import { translateSalesApiError } from "@/features/sales/sales-api-error-i18n"
 import { APP_ROUTE_PATHS } from "@/lib/app-route-paths"
 import { assertFinalizedInvoice } from "@/lib/invoice-finalize"
 import { toastSuccessWithOpen } from "@/lib/toast-actions"
-import type { InvoiceDraftPayload, useInvoiceDraftAutosave } from "./useInvoiceDraftAutosave"
+import type { useInvoiceDraftAutosave } from "./useInvoiceDraftAutosave"
 
 type DraftAutosave = ReturnType<typeof useInvoiceDraftAutosave>
 type UpdateInvoiceMutation = ReturnType<typeof useUpdateInvoice>
@@ -18,7 +18,7 @@ interface UseInvoiceFinalizeOptions {
   invoiceId: string | undefined
   hasCustomer: boolean
   autosave: DraftAutosave
-  buildPayload: () => InvoiceDraftPayload | null
+  buildPayload: () => CreateInvoicePayload | null
   updateInvoiceMutation: UpdateInvoiceMutation
 }
 

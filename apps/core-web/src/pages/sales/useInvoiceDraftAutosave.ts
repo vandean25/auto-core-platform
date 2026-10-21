@@ -1,6 +1,6 @@
 import * as React from "react"
 
-import type { useUpdateInvoice } from "@/api/sales"
+import type { CreateInvoicePayload, useUpdateInvoice } from "@/api/sales"
 import type { Invoice } from "@/api/types"
 import { useDebouncedAutoSave } from "@/hooks/useDebouncedAutoSave"
 import type { useInvoiceEditor } from "@/hooks/useInvoiceEditor"
@@ -8,25 +8,12 @@ import type { useInvoiceEditor } from "@/hooks/useInvoiceEditor"
 type InvoiceEditor = ReturnType<typeof useInvoiceEditor>
 type UpdateInvoiceMutation = ReturnType<typeof useUpdateInvoice>
 
-/** The draft as the server saves it. The page builds it from the editor. */
-export interface InvoiceDraftPayload {
-  customerId: string
-  items: {
-    catalogItemId: string | undefined
-    description: string
-    quantity: number
-    unitPrice: number
-    taxRate: number
-  }[]
-  notes: string | undefined
-}
-
 interface UseInvoiceDraftAutosaveOptions {
   invoiceId: string | undefined
   invoice: Invoice | undefined
   editor: InvoiceEditor
   updateInvoiceMutation: UpdateInvoiceMutation
-  buildPayload: () => InvoiceDraftPayload | null
+  buildPayload: () => CreateInvoicePayload | null
   draftNotesRef: { current: string | undefined }
 }
 
@@ -91,7 +78,7 @@ export function useInvoiceDraftAutosave({
   }, [invoice, editor, draftNotesRef])
 
   const saveDraft = React.useCallback(
-    async (payload: InvoiceDraftPayload, signal: AbortSignal) => {
+    async (payload: CreateInvoicePayload, signal: AbortSignal) => {
       if (!invoiceId) return
       const serialized = JSON.stringify(payload)
       if (serialized === lastSavedRef.current) return

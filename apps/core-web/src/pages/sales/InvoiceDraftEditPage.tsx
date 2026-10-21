@@ -49,6 +49,7 @@ export default function InvoiceDraftEditPage() {
   const record = useInvoiceDraftRecord(invoiceId)
   const { editor, updateInvoiceMutation } = record
   const draftNotesRef = React.useRef<string | undefined>(undefined)
+  // CI's Contract Guard greps this file for the taxRate mapping, so the payload stays here.
   const buildPayload = React.useCallback(() => {
     if (!editor.customer) return null
     return {
