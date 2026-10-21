@@ -1,5 +1,4 @@
 import { ImportEntityType } from '@prisma/client';
-import { CANONICAL_MIGRATION_PRESET_NAME } from './canonical-migration.constants.js';
 import { expectedHeadersForFile } from './migration-csv-dictionary.js';
 import type { MigrationCsvFileName } from './migration-csv-dictionary.js';
 
@@ -25,18 +24,4 @@ export function buildCanonicalMigrationIdentityMapping(
     return identityMapping(expectedHeadersForFile(LABOR_FILE));
   }
   return {};
-}
-
-export function canonicalMigrationPresetDescriptor(
-  entityType: ImportEntityType,
-) {
-  const mapping = buildCanonicalMigrationIdentityMapping(entityType);
-  if (Object.keys(mapping).length === 0) {
-    return null;
-  }
-  return {
-    name: CANONICAL_MIGRATION_PRESET_NAME,
-    entity_type: entityType,
-    mapping,
-  };
 }

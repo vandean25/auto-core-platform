@@ -1,31 +1,9 @@
 /** Integer money/qty math for migration reconciliation (half-up, no float drift). */
 
 const MONEY_PATTERN = /^(0|[1-9][0-9]{0,17})\.(\d{2})$/;
-const SIGNED_MONEY_PATTERN = /^-?(0|[1-9][0-9]{0,17})\.(\d{2})$/;
 
 export function isCanonicalMoneyString(value: string): boolean {
   return MONEY_PATTERN.test(value);
-}
-
-export function isCanonicalSignedMoneyString(value: string): boolean {
-  return SIGNED_MONEY_PATTERN.test(value) && value !== '-0.00';
-}
-
-export function coerceManifestMoneyString(
-  value: unknown,
-): { ok: true; text: string } | { ok: false } {
-  if (typeof value === 'string') {
-    return isCanonicalMoneyString(value) || isCanonicalSignedMoneyString(value)
-      ? { ok: true, text: value }
-      : { ok: false };
-  }
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    const text = value.toFixed(2);
-    return isCanonicalMoneyString(text) || isCanonicalSignedMoneyString(text)
-      ? { ok: true, text }
-      : { ok: false };
-  }
-  return { ok: false };
 }
 
 export function tryParseMoneyToCents(value: string): bigint | null {
@@ -98,13 +76,4 @@ export function moneyStringsEqual(left: string, right: string): boolean {
     return false;
   }
   return leftCents === rightCents;
-}
-
-export function addMoneyStrings(net: string, vat: string): string {
-  const netCents = tryParseMoneyToCents(net);
-  const vatCents = tryParseMoneyToCents(vat);
-  if (netCents === null || vatCents === null) {
-    throw new Error('invalid money in addMoneyStrings');
-  }
-  return formatMoneyFromCents(netCents + vatCents);
 }

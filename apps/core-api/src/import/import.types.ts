@@ -1,7 +1,5 @@
 import type { ImportEntityType, ImportRowAction } from '@prisma/client';
 
-export type ImportColumnMapping = Record<string, string>;
-
 export type ImportJobOptions = {
   update_existing?: boolean;
   fill_empty_only?: boolean;
@@ -42,20 +40,6 @@ export type NormalizedCustomerRow = {
   address_zip: string | null;
   address_city: string | null;
   address_country: string | null;
-};
-
-export type NormalizedVehicleRow = {
-  external_id: string;
-  vin: string | null;
-  plate: string | null;
-  make: string;
-  model: string;
-  year: number;
-  mileage: number | null;
-  color: string | null;
-  owner_customer_external_id: string | null;
-  owner_external_id_provided: boolean;
-  key_number: string | null;
 };
 
 export type NormalizedLaborFitmentRow = {

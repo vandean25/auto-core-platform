@@ -204,20 +204,6 @@ export function laborComparableForUpdate(
   );
 }
 
-export function laborSnapshotFromNormalized(
-  row: NormalizedLaborOperationRow,
-): LaborOperationSnapshot {
-  return {
-    code: row.code,
-    description: row.description,
-    standard_aw: row.standard_aw,
-    hourly_rate: row.hourly_rate,
-    internal_cost: row.internal_cost,
-    category_id: row.category_id,
-    fitments: row.fitment ? [row.fitment] : [],
-  };
-}
-
 function fitmentsEqual(
   existing: NormalizedLaborFitmentRow[],
   desired: NormalizedLaborFitmentRow | null,
