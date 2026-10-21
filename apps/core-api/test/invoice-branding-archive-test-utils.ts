@@ -413,7 +413,7 @@ export async function exerciseFrozenInvoiceArchiveLifecycle(options: {
     await options.prisma.invoiceBrandAssetReference.findFirst({
       where: {
         tenant_id: invoiceAfterProfileChanges.tenant_id,
-        legal_entity_id: invoiceAfterProfileChanges.legal_entity_id,
+        legal_entity_id: options.legalEntityId,
         invoice_id: options.invoiceId,
         ...(options.logoAssetId ? { asset_id: options.logoAssetId } : {}),
       },

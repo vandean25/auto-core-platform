@@ -3,10 +3,14 @@ import type { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import type { LandingDemoSignInGrantService } from '../landing-demo-access/landing-demo-sign-in-grant.service.js';
 import { AuthSessionService } from './auth-session.service.js';
 
+function asyncMock() {
+  return jest.fn<(args: unknown) => Promise<unknown>>();
+}
+
 function createLandingDemoGrantMock(): LandingDemoSignInGrantService {
   return {
-    assertDemoSignInGrantForSession: jest.fn().mockResolvedValue(undefined),
-    userHasNonDemoActiveMembership: jest.fn().mockResolvedValue(false),
+    assertDemoSignInGrantForSession: asyncMock().mockResolvedValue(undefined),
+    userHasNonDemoActiveMembership: asyncMock().mockResolvedValue(false),
   } as unknown as LandingDemoSignInGrantService;
 }
 
@@ -15,7 +19,7 @@ const ACTIVE_SITE_ID = 'site-1';
 
 describe('AuthSessionService active-site session projection', () => {
   it('projects User.active_site_id into the authenticated tenant user', async () => {
-    const findFirst = jest.fn().mockResolvedValue({
+    const findFirst = asyncMock().mockResolvedValue({
       id: 'user-1',
       firebaseUid: 'firebase-user-1',
       email: 'user@example.com',
@@ -87,7 +91,7 @@ describe('AuthSessionService identity resolution and email verification', () => 
   };
 
   it('resolves by firebaseUid first and does not fall back to email if UID matches', async () => {
-    const findFirst = jest.fn().mockResolvedValue(sampleUserRecord);
+    const findFirst = asyncMock().mockResolvedValue(sampleUserRecord);
     const systemPrisma = {
       user: { findFirst },
     } as unknown as SystemPrismaService;
@@ -111,7 +115,7 @@ describe('AuthSessionService identity resolution and email verification', () => 
   });
 
   it('rejects identity resolution when UID is unknown and email is unverified', async () => {
-    const findFirst = jest.fn().mockResolvedValue(null);
+    const findFirst = asyncMock().mockResolvedValue(null);
     const systemPrisma = {
       user: { findFirst },
     } as unknown as SystemPrismaService;
@@ -137,7 +141,7 @@ describe('AuthSessionService identity resolution and email verification', () => 
   });
 
   it('rejects identity resolution when email is verified but user row already has another UID', async () => {
-    const findFirst = jest.fn()
+    const findFirst = asyncMock()
       .mockResolvedValueOnce(null) // by UID
       .mockResolvedValueOnce(null); // by email with firebaseUid: null
 
@@ -176,10 +180,10 @@ describe('AuthSessionService identity resolution and email verification', () => 
       id: 'unbound-user-1',
       firebaseUid: null,
     };
-    const findFirst = jest.fn()
+    const findFirst = asyncMock()
       .mockResolvedValueOnce(null) // by UID
       .mockResolvedValueOnce(unboundUser); // by email with firebaseUid: null
-    const update = jest.fn().mockResolvedValue({
+    const update = asyncMock().mockResolvedValue({
       ...unboundUser,
       firebaseUid: 'new-uid',
     });

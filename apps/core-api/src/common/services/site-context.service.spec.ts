@@ -10,7 +10,7 @@ const SITE_ID = 'site-1';
 const FIREBASE_UID = 'firebase-user-1';
 
 function createContext() {
-  const findFirst = jest.fn();
+  const findFirst = jest.fn<(args: unknown) => Promise<unknown>>();
   const systemPrisma = {
     user: { findFirst },
   } as unknown as SystemPrismaService;

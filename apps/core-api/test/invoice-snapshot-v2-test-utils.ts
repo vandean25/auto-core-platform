@@ -105,6 +105,7 @@ export async function seedInvoiceReadyCustomer(
   const tenantPrisma = createTenantAwarePrisma(prisma, tenantId);
   return tenantPrisma.customer.create({
     data: {
+      tenant_id: tenantId,
       first_name: 'Max',
       last_name: 'Mustermann',
       email: 'max@example.com',

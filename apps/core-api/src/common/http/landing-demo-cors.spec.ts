@@ -15,8 +15,7 @@ function createMockApp() {
 
 function createMockResponse() {
   const headers: Record<string, string | string[]> = {};
-  return {
-    headers,
+  const res = {
     setHeader(name: string, value: string) {
       headers[name.toLowerCase()] = value;
     },
@@ -25,6 +24,7 @@ function createMockResponse() {
     },
     end() {},
   } as Response;
+  return Object.assign(res, { headers });
 }
 
 describe('configureHttpCors', () => {

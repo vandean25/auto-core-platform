@@ -226,14 +226,13 @@ export async function createTestPlatformAdmin(
     },
     select: {
       id: true,
-      firebaseUid: true,
       email: true,
     },
   });
 
   return {
     userId: user.id,
-    firebaseUid: user.firebaseUid,
+    firebaseUid,
     email: user.email,
   };
 }

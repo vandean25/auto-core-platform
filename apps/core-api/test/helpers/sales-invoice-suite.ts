@@ -44,6 +44,7 @@ export async function createSalesInvoiceSuite() {
 
   const catalogItem = await prisma.catalogItem.create({
     data: {
+      tenant_id: tenantId,
       sku: `TEST-ITEM-${Date.now()}`,
       name: 'Test Item',
       cost_price: 10,
@@ -55,6 +56,7 @@ export async function createSalesInvoiceSuite() {
   const siteId = await resolveTestMainSiteId(prisma, tenantId);
   const location = await prisma.storageLocation.create({
     data: {
+      tenant_id: tenantId,
       code: `LOC-${Date.now()}`,
       name: 'Test Location',
       type: 'warehouse',
@@ -64,6 +66,7 @@ export async function createSalesInvoiceSuite() {
 
   await prisma.inventoryStock.create({
     data: {
+      tenant_id: tenantId,
       catalog_item_id: catalogItem.id,
       site_id: siteId,
       location_id: location.id,
