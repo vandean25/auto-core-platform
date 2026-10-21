@@ -27,6 +27,22 @@
     "tools/verify-build-chunks-fixtures/**",
     "tools/**/fixtures/**"
   ],
+  "ignoreExportsUsedInFile": true,
+  "ignoreDependencies": ["@fontsource/noto-sans", "tsconfig-paths", "@typescript/native"],
+  "ignoreExports": [
+    {
+      "file": "apps/core-web/src/app/lazy-app-pages.ts",
+      "exports": [
+        "WorkshopCheckInPage",
+        "WorkshopOrderDetails",
+        "WorkshopOrderLayout",
+        "WorkshopOrderWarrantyClaims"
+      ]
+    }
+  ],
+  "health": {
+    "ignore": ["**/*.spec.ts", "**/*.e2e-spec.ts", "**/*.test.ts", "**/*.test.tsx"]
+  },
   "rules": {
     "added-suppression": "error",
     "weakened-tests": "error",
