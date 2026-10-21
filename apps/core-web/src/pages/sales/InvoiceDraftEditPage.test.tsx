@@ -975,5 +975,68 @@ describe('InvoiceDraftEditPage autosave', () => {
       expect(mockNavigate).not.toHaveBeenCalled()
     })
 
+    it('re-arms the draft autosave when finalize starts, so the same draft is saved again', async () => {
+      // Current behavior, kept as-is in this refactor; fixing it is a separate ticket.
+      const updateMutation = vi.fn().mockResolvedValue(mockInvoice)
+      mockUpdate(updateMutation)
+      mockFinalize(
+        vi.fn().mockResolvedValue({ ...mockInvoice, status: 'FINALIZED', invoice_number: 'RE-2026-0001' }),
+      )
+
+      renderPage()
+      fireEvent.change(descriptionInput(), { target: { value: 'Brake pads premium' } })
+      openFinalizeDialog()
+      confirmFinalize()
+
+      await waitFor(() => {
+        expect(mockNavigate).toHaveBeenCalledWith('/sales/invoices/inv-1')
+      })
+      await waitForDebounce()
+
+      expect(updateMutation).toHaveBeenCalledTimes(2)
+      expect(updateMutation.mock.calls[1][0].payload).toEqual(updateMutation.mock.calls[0][0].payload)
+    })
+
+    it('does not save a changed invoice date on its own', async () => {
+      // Current behavior, kept as-is in this refactor; persisting dates is a separate ticket.
+      const updateMutation = vi.fn().mockResolvedValue(mockInvoice)
+      mockUpdate(updateMutation)
+
+      renderPage()
+      fireEvent.change(await screen.findByDisplayValue(format(new Date(mockInvoice.date), 'yyyy-MM-dd')), {
+        target: { value: '2026-09-25' },
+      })
+      await waitForDebounce()
+
+      expect(updateMutation).not.toHaveBeenCalled()
+    })
+
+    it('keeps changed invoice and due dates out of the finalize payload', async () => {
+      // Current behavior, kept as-is in this refactor; persisting dates is a separate ticket.
+      const updateMutation = vi.fn().mockResolvedValue(mockInvoice)
+      mockUpdate(updateMutation)
+      mockFinalize(
+        vi.fn().mockResolvedValue({ ...mockInvoice, status: 'FINALIZED', invoice_number: 'RE-2026-0001' }),
+      )
+
+      renderPage()
+      fireEvent.change(await screen.findByDisplayValue(format(new Date(mockInvoice.date), 'yyyy-MM-dd')), {
+        target: { value: '2026-09-25' },
+      })
+      fireEvent.change(screen.getByDisplayValue(format(new Date(mockInvoice.due_date), 'yyyy-MM-dd')), {
+        target: { value: '2026-10-20' },
+      })
+      openFinalizeDialog()
+      confirmFinalize()
+
+      await waitFor(() => {
+        expect(mockNavigate).toHaveBeenCalledWith('/sales/invoices/inv-1')
+      })
+      expect(Object.keys(updateMutation.mock.calls[0][0].payload).sort()).toEqual([
+        'customerId',
+        'items',
+        'notes',
+      ])
+    })
   })
 })
