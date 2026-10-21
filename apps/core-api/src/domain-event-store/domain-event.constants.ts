@@ -5,9 +5,6 @@ export const DOMAIN_EVENT_TYPES = {
   workshopOrderReadyV1: 'workshop_order.ready.v1',
 } as const;
 
-export type DomainEventType =
-  (typeof DOMAIN_EVENT_TYPES)[keyof typeof DOMAIN_EVENT_TYPES];
-
 export const DOMAIN_EVENT_SCHEMA_VERSION = 1;
 
 export const DOMAIN_EVENT_CURSOR_VERSION = 1;
