@@ -288,7 +288,7 @@ export function createTenantIsolationExtension() {
               operation,
               args,
               query,
-            ) as Promise<unknown>;
+            );
           },
         },
       },

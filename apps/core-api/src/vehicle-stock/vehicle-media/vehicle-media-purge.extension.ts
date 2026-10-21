@@ -250,12 +250,9 @@ export function createVehicleMediaPurgeTransactionExtension() {
       },
     });
 
-    batchTxRunners.runBatchTransaction = runParentTransaction.bind(
-      extension,
-    ) as TransactionRunner;
-    batchTxRunners.runExtendedTransaction = extension.$transaction.bind(
-      extension,
-    ) as TransactionRunner;
+    batchTxRunners.runBatchTransaction = runParentTransaction.bind(extension);
+    batchTxRunners.runExtendedTransaction =
+      extension.$transaction.bind(extension);
 
     return extension;
   });

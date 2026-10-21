@@ -29,7 +29,8 @@ export async function executeMcpWrite(
           tier: call.tier,
           status: 'EXECUTED',
           inputSummary: call.inputSummary,
-          resultSummary: (result) => call.execution.buildResultSummary(result),
+          resultSummary: (result: unknown) =>
+            call.execution.buildResultSummary(result),
         },
         tx,
         workResult !== undefined

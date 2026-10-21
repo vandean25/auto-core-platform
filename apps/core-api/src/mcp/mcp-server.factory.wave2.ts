@@ -69,7 +69,7 @@ export function createMcpServerWithWave2Reads(
         inputSchema: REGISTERED_TOOL_INPUT_SCHEMAS[toolName],
         outputSchema: mcpToolOutputSchemas[toolName],
       },
-      async (args) => {
+      async (args: unknown) => {
         const result = await toolHandler.executeTool(toolName, args, {
           agentId: session.agentId,
           onBehalfOfUserId: session.onBehalfOfUserId,
