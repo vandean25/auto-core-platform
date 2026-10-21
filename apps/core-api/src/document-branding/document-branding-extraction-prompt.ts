@@ -1,5 +1,3 @@
-import { DOCUMENT_BRAND_EXTRACTION_PROMPT_VERSION } from './document-branding-extraction-provider.js';
-
 const PROMPTS: Record<string, string> = {
   'document-branding-v1': `You analyze a normalized first-page letterhead image and return ONLY a JSON object with exactly these keys: confidence, cropRect, theme, warningCodes.
 
@@ -26,12 +24,3 @@ export function buildDocumentBrandingExtractionPrompt(
   }
   return prompt;
 }
-
-export function isSupportedDocumentBrandingPromptVersion(
-  promptVersion: string,
-): boolean {
-  return promptVersion in PROMPTS;
-}
-
-export const SUPPORTED_DOCUMENT_BRANDING_PROMPT_VERSION =
-  DOCUMENT_BRAND_EXTRACTION_PROMPT_VERSION;

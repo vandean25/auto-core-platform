@@ -7,12 +7,7 @@ export {
 } from './document-branding-request.dto.js';
 
 export {
-  DocumentBrandThemeResponseDto,
   DocumentBrandExtractionResponseDto,
-  DocumentBrandUploadConstraintsDto,
-  DocumentBrandThemeCapabilitiesDto,
-  DocumentBrandUploadCapabilitiesDto,
-  DocumentBrandProfileCapabilitiesDto,
   DocumentBrandProfileResponseDto,
   DocumentBrandAssetResponseDto,
   DocumentBrandPreviewResponseDto,
