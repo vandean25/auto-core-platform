@@ -52,6 +52,7 @@ export async function createVehicleStockSuite(options?: {
 
   const vendor = await prisma.vendor.create({
     data: {
+      tenant_id: tenantId,
       name: 'Used Cars GmbH',
       email: 'vendor@cars.test',
       account_number: 'VC-001',
@@ -61,6 +62,7 @@ export async function createVehicleStockSuite(options?: {
 
   const seller = await prisma.customer.create({
     data: {
+      tenant_id: tenantId,
       first_name: 'Private',
       last_name: 'Seller',
       email: 'seller@test.com',
@@ -71,6 +73,7 @@ export async function createVehicleStockSuite(options?: {
 
   const buyer = await prisma.customer.create({
     data: {
+      tenant_id: tenantId,
       first_name: 'Buyer',
       last_name: 'Person',
       email: 'buyer@test.com',

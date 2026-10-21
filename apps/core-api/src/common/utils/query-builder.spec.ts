@@ -14,7 +14,7 @@ describe('QueryBuilder', () => {
           { field: 'discount', operator: 'lt', value: 20 },
           { field: 'tax', operator: 'lte', value: 7 },
           { field: 'status', operator: 'in', value: ['ACTIVE', 'PENDING'] },
-          { field: 'archived', operator: 'notIn', value: [true] },
+          { field: 'archived', operator: 'notIn', value: true },
           { field: 'ignored', operator: 'equals', value: 'skip-me' },
         ],
         [

@@ -136,7 +136,7 @@ describe('LogLevelService', () => {
       });
 
       expect(loggerSpy).toHaveBeenCalledTimes(1);
-      const logged = JSON.parse(loggerSpy.mock.calls[0][0]);
+      const logged = JSON.parse(String(loggerSpy.mock.calls[0][0]));
       expect(logged).toEqual(
         expect.objectContaining({
           type: 'log_level_changed',

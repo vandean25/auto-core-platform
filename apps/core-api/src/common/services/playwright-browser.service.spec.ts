@@ -2,6 +2,11 @@ import type { Browser } from 'playwright';
 import { chromium } from 'playwright';
 import { PlaywrightBrowserService } from './playwright-browser.service.js';
 
+// The service only calls isConnected and close on these fakes.
+function asBrowser(browser: Partial<Browser>) {
+  return browser as Browser;
+}
+
 describe('PlaywrightBrowserService', () => {
   let service: PlaywrightBrowserService;
 
@@ -19,7 +24,9 @@ describe('PlaywrightBrowserService', () => {
       isConnected: jest.fn().mockReturnValue(true),
       close: jest.fn().mockResolvedValue(undefined),
     };
-    const launchSpy = jest.spyOn(chromium, 'launch').mockResolvedValue(browser);
+    const launchSpy = jest
+      .spyOn(chromium, 'launch')
+      .mockResolvedValue(asBrowser(browser));
 
     const [first, second] = await Promise.all([
       service.getBrowser(),
@@ -45,7 +52,7 @@ describe('PlaywrightBrowserService', () => {
 
     const launchSpy = jest
       .spyOn(chromium, 'launch')
-      .mockResolvedValue(liveBrowser);
+      .mockResolvedValue(asBrowser(liveBrowser));
 
     await expect(service.getBrowser()).resolves.toBe(liveBrowser);
     expect(launchSpy).toHaveBeenCalledTimes(1);

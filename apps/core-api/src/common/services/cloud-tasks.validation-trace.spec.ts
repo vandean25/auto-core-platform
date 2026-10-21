@@ -22,7 +22,13 @@ function createService() {
   const createTask = jest.fn<(request: unknown) => Promise<unknown[]>>();
   (
     service as unknown as {
-      client: { createTask: jest.Mock; queuePath: jest.Mock; taskPath: jest.Mock };
+      client: {
+        createTask: jest.Mock;
+        queuePath: jest.Mock;
+        taskPath: jest.Mock<
+          (project: string, location: string, queue: string, task: string) => string
+        >;
+      };
     }
   ).client = {
     createTask,

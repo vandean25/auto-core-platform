@@ -88,6 +88,6 @@ describe('AppObservabilityModule', () => {
 
   it('provides ObserveInstrument for method-level APM telemetry', () => {
     expect(ObserveInstrument).toBeDefined();
-    expect(typeof ObserveInstrument.instanceDecorator).toBe('function');
+    expect(typeof ObserveInstrument?.instanceDecorator).toBe('function');
   });
 });

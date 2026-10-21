@@ -1,7 +1,7 @@
 import { UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { jest } from '@jest/globals';
-import type { AuthenticatedUser } from './types/authenticated-user.js';
+import type { AuthSessionService } from './auth-session.service.js';
 
 const getFirebaseAdminAuth = jest.fn();
 
@@ -13,11 +13,8 @@ const { AuthService } = await import('./auth.service.js');
 
 describe('AuthService Firebase verification', () => {
   const authSessionService = {
-    resolveTenantUser: jest.fn<Promise<AuthenticatedUser | null>, [unknown]>(),
-    resolvePlatformAdmin: jest.fn<
-      Promise<AuthenticatedUser | null>,
-      [unknown]
-    >(),
+    resolveTenantUser: jest.fn<AuthSessionService['resolveTenantUser']>(),
+    resolvePlatformAdmin: jest.fn<AuthSessionService['resolvePlatformAdmin']>(),
   };
 
   beforeEach(() => {
@@ -40,11 +37,13 @@ describe('AuthService Firebase verification', () => {
 
   it('resolves membership from the database for verified Firebase tokens', async () => {
     const firebaseAuth = {
-      verifyIdToken: jest.fn().mockResolvedValue({
-        uid: 'firebase-user-id',
-        email: 'testauto@auto.core.at',
-        email_verified: true,
-      }),
+      verifyIdToken: jest
+        .fn<(token: string) => Promise<object>>()
+        .mockResolvedValue({
+          uid: 'firebase-user-id',
+          email: 'testauto@auto.core.at',
+          email_verified: true,
+        }),
     };
 
     getFirebaseAdminAuth.mockReturnValue(firebaseAuth);
@@ -82,11 +81,13 @@ describe('AuthService Firebase verification', () => {
 
   it('marks emailVerified as false when Firebase token has email_verified false or missing', async () => {
     const firebaseAuth = {
-      verifyIdToken: jest.fn().mockResolvedValue({
-        uid: 'unverified-user-id',
-        email: 'unverified@auto.core.at',
-        email_verified: false,
-      }),
+      verifyIdToken: jest
+        .fn<(token: string) => Promise<object>>()
+        .mockResolvedValue({
+          uid: 'unverified-user-id',
+          email: 'unverified@auto.core.at',
+          email_verified: false,
+        }),
     };
 
     getFirebaseAdminAuth.mockReturnValue(firebaseAuth);

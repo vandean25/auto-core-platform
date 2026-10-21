@@ -120,6 +120,7 @@ async function seedBaseTenantData(
 
   const vendor = await tenantPrisma.vendor.create({
     data: {
+      tenant_id: tenant.tenantId,
       name: E2E_FULLSTACK_VENDOR_NAME,
       email: 'e2e-fullstack-vendor@auto.core.test',
       account_number: 'E2E-FS-VND',
@@ -128,6 +129,7 @@ async function seedBaseTenantData(
 
   const vehicleBuyer = await tenantPrisma.customer.create({
     data: {
+      tenant_id: tenant.tenantId,
       first_name: E2E_FULLSTACK_VEHICLE_BUYER_FIRST,
       last_name: E2E_FULLSTACK_VEHICLE_BUYER_LAST,
       email: 'e2e-fullstack-vehicle-buyer@auto.core.test',
@@ -185,6 +187,7 @@ async function seedBaseTenantData(
 
   const workshopCustomer = await tenantPrisma.customer.create({
     data: {
+      tenant_id: tenant.tenantId,
       first_name: 'Werkstatt',
       last_name: 'Kundin E2E',
       email: 'e2e-fullstack-workshop-customer@auto.core.test',
@@ -225,6 +228,7 @@ async function seedBaseTenantData(
   });
   const catalogItem = await tenantPrisma.catalogItem.create({
     data: {
+      tenant_id: tenant.tenantId,
       sku: E2E_FULLSTACK_CATALOG_SKU,
       name: E2E_FULLSTACK_CATALOG_NAME,
       cost_price: 5,
@@ -236,6 +240,7 @@ async function seedBaseTenantData(
 
   const location = await tenantPrisma.storageLocation.create({
     data: {
+      tenant_id: tenant.tenantId,
       code: 'E2E-FS-WH',
       name: 'Fullstack warehouse',
       type: 'warehouse',
@@ -245,6 +250,7 @@ async function seedBaseTenantData(
 
   await tenantPrisma.inventoryStock.create({
     data: {
+      tenant_id: tenant.tenantId,
       catalog_item_id: catalogItem.id,
       site_id: siteId,
       location_id: location.id,

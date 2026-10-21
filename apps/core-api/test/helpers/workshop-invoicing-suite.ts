@@ -41,6 +41,7 @@ export async function createWorkshopInvoicingSuite() {
 
   const customer = await prisma.customer.create({
     data: {
+      tenant_id: tenantId,
       first_name: 'Workshop',
       last_name: 'Customer',
       email: `workshop-${Date.now()}@example.com`,
@@ -74,8 +75,13 @@ export async function createWorkshopVehicle(
   prisma: PrismaService,
   customerId: string,
 ) {
+  const customer = await prisma.customer.findFirstOrThrow({
+    where: { id: customerId },
+    select: { tenant_id: true },
+  });
   const vehicle = await prisma.vehicle.create({
     data: {
+      tenant_id: customer.tenant_id,
       make: 'BMW',
       model: 'X3',
       year: 2021,
