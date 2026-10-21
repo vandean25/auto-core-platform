@@ -100,12 +100,3 @@ export function registerSyntheticCanonicalResult(
 ): void {
   RECORDED_BY_REFERENCE[nativeResultReference] = result;
 }
-
-export function resetSyntheticCanonicalRegistry(): void {
-  for (const key of Object.keys(RECORDED_BY_REFERENCE)) {
-    if (key !== 'SYNTH-RESULT-001') {
-      delete RECORDED_BY_REFERENCE[key];
-    }
-  }
-  RECORDED_BY_REFERENCE['SYNTH-RESULT-001'] = SYNTHETIC_CANONICAL_POSITIVE;
-}

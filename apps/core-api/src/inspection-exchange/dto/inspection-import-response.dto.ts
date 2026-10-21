@@ -1,5 +1,4 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { PaginationMetaDto } from '../../common/dto/paginated-response.dto.js';
 
 export class InspectionImportReviewedFieldsDto {
   @ApiProperty()
@@ -91,14 +90,6 @@ export class ExternalInspectionResultSummaryDto {
 
   @ApiProperty()
   qualification_state!: string;
-}
-
-export class InspectionImportListResponseDto {
-  @ApiProperty({ type: [InspectionImportListItemDto] })
-  data!: InspectionImportListItemDto[];
-
-  @ApiProperty({ type: PaginationMetaDto })
-  meta!: PaginationMetaDto;
 }
 
 export class ApplyInspectionImportResponseDto {
