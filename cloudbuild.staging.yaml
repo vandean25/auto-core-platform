@@ -24,7 +24,7 @@ availableSecrets:
 
 steps:
   - id: migrate-db
-    name: node:22
+    name: node:24
     entrypoint: bash
     secretEnv:
       - DATABASE_URL

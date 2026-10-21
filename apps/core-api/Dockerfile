@@ -1,7 +1,7 @@
 # Build from the repository root:
 #   docker build -f apps/core-api/Dockerfile -t core-api .
 #   docker build -f apps/core-api/Dockerfile --target worker -t core-api-pdf-worker .
-FROM node:26-slim AS builder
+FROM node:24-slim AS builder
 
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
@@ -21,7 +21,7 @@ WORKDIR /usr/src/app/apps/core-api
 RUN npx prisma generate
 RUN npm run build
 
-FROM mcr.microsoft.com/playwright:v1.64.1-jammy AS worker
+FROM mcr.microsoft.com/playwright:v1.64.1-noble AS worker
 
 WORKDIR /usr/src/app
 
@@ -44,7 +44,7 @@ EXPOSE 3000
 
 CMD ["node", "dist/main.js"]
 
-FROM node:26-slim AS api
+FROM node:24-slim AS api
 
 WORKDIR /usr/src/app
 

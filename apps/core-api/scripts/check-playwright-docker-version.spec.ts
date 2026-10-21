@@ -35,7 +35,7 @@ function readPlaywrightVersionFromLockfile(): string {
 function readPlaywrightDockerTag(): string {
   const dockerfile = fs.readFileSync(DOCKERFILE_PATH, 'utf8');
   const match = dockerfile.match(
-    /^FROM mcr\.microsoft\.com\/playwright:v([0-9.]+)-jammy AS worker$/m,
+    /^FROM mcr\.microsoft\.com\/playwright:v([0-9.]+)-noble AS worker$/m,
   );
   if (!match) {
     throw new Error(
@@ -61,16 +61,16 @@ describe('Production image version pins (AUT-167)', () => {
     expect(dockerTagVersion).toBe(packageVersion);
   });
 
-  it('uses Node 26 slim for the API target', () => {
+  it('uses Node 24 slim for the API target', () => {
     const dockerfile = fs.readFileSync(DOCKERFILE_PATH, 'utf8');
 
-    expect(dockerfile).toMatch(/^FROM node:26-slim AS api$/m);
+    expect(dockerfile).toMatch(/^FROM node:24-slim AS api$/m);
   });
 
-  it('uses Node 22 in Cloud Build', () => {
+  it('uses Node 24 in Cloud Build', () => {
     const cloudBuild = fs.readFileSync(CLOUDBUILD_PATH, 'utf8');
 
-    expect(cloudBuild).toMatch(/^\s*name: node:22\s*$/m);
+    expect(cloudBuild).toMatch(/^\s*name: node:24\s*$/m);
   });
 
   it('requires Node 22 in the root engine declaration', () => {
