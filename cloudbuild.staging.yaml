@@ -42,7 +42,7 @@ steps:
       - ${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_RUN_SERVICE}:${SHORT_SHA}
 
   - id: migrate-db
-    # Migrate after both images build and push, so a failed build or push leaves the DB untouched.
+    # Migrate after the API image is pushed, so a failed build or push leaves the DB untouched.
     waitFor: [build-api-image, push-api-image]
     name: node:24
     entrypoint: bash
