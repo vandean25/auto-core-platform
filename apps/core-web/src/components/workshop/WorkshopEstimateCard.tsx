@@ -52,8 +52,6 @@ type DescribedOverrun = Pick<
   'total_over_threshold' | 'new_work_lines' | 'approved_total_gross' | 'current_total_gross' | 'threshold_pct' | 'new_line_count'
 >
 
-export { formatEstimateMoney }
-
 function formatEstimateDateTime(value: string | null | undefined): string {
   return value ? formatDateTime(value) : '—'
 }
@@ -686,5 +684,3 @@ export function WorkshopEstimateCard({
     </Card>
   )
 }
-
-export default WorkshopEstimateCard

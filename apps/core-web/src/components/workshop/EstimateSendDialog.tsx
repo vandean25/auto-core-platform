@@ -21,13 +21,6 @@ import { i18n } from '@/lib/i18n'
 
 export type EstimateSendCustomer = components['schemas']['WorkshopCustomerSummaryDto']
 
-export function estimateEmailMissingMessage(): string {
-  return i18n.t('estimateSend.emailMissing', { ns: 'workshop' })
-}
-
-/** @deprecated use estimateEmailMissingMessage */
-export const ESTIMATE_EMAIL_MISSING_MESSAGE = estimateEmailMissingMessage()
-
 export function describeSendError(error: unknown): string {
   const body = getErrorBody(error)
   const code = body?.code
