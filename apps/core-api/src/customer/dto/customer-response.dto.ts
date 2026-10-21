@@ -1,6 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { CustomerType, DisplayLanguage } from '@prisma/client';
-import { PaginationMetaDto } from '../../common/dto/paginated-response.dto.js';
 import { DryRunMetaDto } from '../../dry-run/dto/dry-run-response.dto.js';
 
 export class CustomerResponseDto extends DryRunMetaDto {
@@ -56,12 +55,4 @@ export class CustomerResponseDto extends DryRunMetaDto {
 
   @ApiProperty({ required: false })
   updatedAt?: Date;
-}
-
-export class CustomerPaginatedResponseDto {
-  @ApiProperty({ type: [CustomerResponseDto] })
-  data!: CustomerResponseDto[];
-
-  @ApiProperty({ type: PaginationMetaDto })
-  meta!: PaginationMetaDto;
 }

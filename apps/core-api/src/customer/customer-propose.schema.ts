@@ -98,13 +98,6 @@ export const proposeCustomerUpdateInputSchema = z
   })
   .strict();
 
-export type ProposeCustomerCreateInput = z.infer<
-  typeof proposeCustomerCreateInputSchema
->;
-export type ProposeCustomerUpdateInput = z.infer<
-  typeof proposeCustomerUpdateInputSchema
->;
-export type CustomerProposeFields = z.infer<typeof customerProposeFieldsSchema>;
 export type CustomerProposeAddress = z.infer<
   typeof customerProposeAddressSchema
 >;
