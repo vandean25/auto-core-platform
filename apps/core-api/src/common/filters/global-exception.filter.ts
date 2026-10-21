@@ -49,6 +49,20 @@ type ErrorRequestContext = {
   actorId?: string;
 };
 
+/** The allowlisted extras a client may see for an operational error. Empty for any other body. */
+function pickClientSafeFields(
+  safeBody: Record<string, unknown> | undefined,
+): Pick<ResolvedError, 'details' | 'params' | 'structuredDetails'> {
+  if (!safeBody) {
+    return { details: {}, params: {}, structuredDetails: {} };
+  }
+  return {
+    details: pickClientSafeHttpErrorDetails(safeBody),
+    params: pickClientSafeHttpErrorParams(safeBody),
+    structuredDetails: pickClientSafeHttpErrorStructuredDetails(safeBody),
+  };
+}
+
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(GlobalExceptionFilter.name);
@@ -114,67 +128,57 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   ): ResolvedError {
     const status = exception.getStatus();
     const responseBody = exception.getResponse();
-    let message: string | string[] = exception.message;
-    let error: string | undefined;
-    let code: string | undefined;
+    const body = isRecord(responseBody) ? responseBody : undefined;
+    const responseCode = typeof body?.code === 'string' ? body.code : undefined;
+    // Only an allowlisted code makes the body safe to forward in production.
+    const safeBody =
+      body && isClientSafeOperationalHttpError(body) ? body : undefined;
+    const isProductionServerError =
+      status >= 500 && process.env.NODE_ENV === 'production';
 
-    const responseCode =
-      isRecord(responseBody) && typeof responseBody.code === 'string'
-        ? responseBody.code
-        : undefined;
-
-    if (isRecord(responseBody)) {
-      message =
-        (responseBody.message as string | string[]) || exception.message;
-      error = responseBody.error as string | undefined;
+    if (isProductionServerError) {
+      this.logProductionHttpError(
+        exception,
+        responseCode,
+        context,
+        safeBody !== undefined,
+      );
     }
 
-    const isProduction = process.env.NODE_ENV === 'production';
-    const clientSafeOperational =
-      isRecord(responseBody) && isClientSafeOperationalHttpError(responseBody);
+    const isMasked = isProductionServerError && !safeBody;
+    return {
+      status,
+      message: isMasked
+        ? this.serverErrorMessage(context.requestId)
+        : (body?.message as string | string[]) || exception.message,
+      error: body?.error as string | undefined,
+      code: (safeBody && responseCode) || resolveHttpStatusFallbackCode(status),
+      ...pickClientSafeFields(safeBody),
+    };
+  }
 
-    if (clientSafeOperational && responseCode) {
-      code = responseCode;
+  /** A client-safe 5xx is an operational gate (warn, no stack); any other one is an unexpected failure (error + stack). */
+  private logProductionHttpError(
+    exception: HttpException,
+    responseCode: string | undefined,
+    context: ErrorRequestContext,
+    isClientSafe: boolean,
+  ): void {
+    const logPayload = JSON.stringify({
+      type: 'http_error',
+      ...(context.requestId ? { requestId: context.requestId } : {}),
+      statusCode: exception.getStatus(),
+      errorName: exception.constructor.name,
+      message: exception.message,
+      ...(responseCode ? { code: responseCode } : {}),
+      ...(context.tenantId ? { tenantId: context.tenantId } : {}),
+      ...(context.actorId ? { actorId: context.actorId } : {}),
+    });
+    if (isClientSafe) {
+      this.logger.warn(logPayload);
+    } else {
+      this.logger.error(logPayload, exception.stack);
     }
-
-    if (status >= 500 && isProduction) {
-      const logPayload = {
-        type: 'http_error',
-        ...(context.requestId ? { requestId: context.requestId } : {}),
-        statusCode: status,
-        errorName: exception.constructor.name,
-        message: exception.message,
-        ...(responseCode ? { code: responseCode } : {}),
-        ...(context.tenantId ? { tenantId: context.tenantId } : {}),
-        ...(context.actorId ? { actorId: context.actorId } : {}),
-      };
-      if (clientSafeOperational) {
-        this.logger.warn(JSON.stringify(logPayload));
-      } else {
-        this.logger.error(JSON.stringify(logPayload), exception.stack);
-        message = this.serverErrorMessage(context.requestId);
-        code = resolveHttpStatusFallbackCode(status);
-      }
-    }
-
-    if (!code) {
-      code = resolveHttpStatusFallbackCode(status);
-    }
-
-    const details =
-      isRecord(responseBody) && clientSafeOperational
-        ? pickClientSafeHttpErrorDetails(responseBody)
-        : {};
-    const params =
-      isRecord(responseBody) && clientSafeOperational
-        ? pickClientSafeHttpErrorParams(responseBody)
-        : {};
-    const structuredDetails =
-      isRecord(responseBody) && clientSafeOperational
-        ? pickClientSafeHttpErrorStructuredDetails(responseBody)
-        : {};
-
-    return { status, message, error, code, details, params, structuredDetails };
   }
 
   private handlePrismaError(
