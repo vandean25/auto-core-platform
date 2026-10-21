@@ -15,5 +15,3 @@ export const CORE_API_CRON_JOB_NAMES = [
   'registration-intake-expiry',
   'workshop-check-in-orphan-upload-cleanup',
 ] as const;
-
-export type CoreApiCronJobName = (typeof CORE_API_CRON_JOB_NAMES)[number];
