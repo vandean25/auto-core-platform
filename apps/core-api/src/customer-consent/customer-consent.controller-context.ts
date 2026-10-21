@@ -3,7 +3,6 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { TenantContextService } from '../common/services/tenant-context.service.js';
 import { isApiKeyPrincipal } from '../auth/types/authenticated-user.js';
@@ -70,11 +69,6 @@ export async function assertCustomerInTenant(
     throw new NotFoundException('Customer not found.');
   }
 }
-
-export type CommunicationStateRow =
-  Prisma.CustomerCommunicationStateGetPayload<{
-    select: { id: true; revision: true; processing_status: true };
-  }>;
 
 /**
  * Ensures the authenticated principal has an active site membership for the controller legal entity.
