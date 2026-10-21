@@ -29,6 +29,14 @@ export function valuationTypeUnsupported(): UnprocessableEntityException {
   });
 }
 
+export function valuationMarketUnsupported(): UnprocessableEntityException {
+  return new UnprocessableEntityException({
+    code: 'VALUATION_MARKET_UNSUPPORTED',
+    message: 'VALUATION_MARKET_UNSUPPORTED: Only market AT is supported.',
+    result: 'VALUATION_MARKET_UNSUPPORTED',
+  });
+}
+
 export function valuationVehicleNotFound(vehicleId: string): NotFoundException {
   return new NotFoundException(`Vehicle with ID ${vehicleId} not found`);
 }
