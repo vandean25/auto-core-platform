@@ -23,18 +23,6 @@ availableSecrets:
       env: DATABASE_URL
 
 steps:
-  - id: migrate-db
-    name: node:24
-    entrypoint: bash
-    secretEnv:
-      - DATABASE_URL
-    args:
-      - -lc
-      - |
-        set -euo pipefail
-        npm ci
-        npm exec --workspace=core-api -- tsx scripts/prisma-migrate-deploy-exit.ts
-
   - id: build-api-image
     name: gcr.io/cloud-builders/docker
     args:
@@ -53,7 +41,22 @@ steps:
       - push
       - ${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_RUN_SERVICE}:${SHORT_SHA}
 
+  - id: migrate-db
+    # Migrate after the API image is pushed, so a failed build or push leaves the DB untouched.
+    waitFor: [build-api-image, push-api-image]
+    name: node:24
+    entrypoint: bash
+    secretEnv:
+      - DATABASE_URL
+    args:
+      - -lc
+      - |
+        set -euo pipefail
+        npm ci
+        npm exec --workspace=core-api -- tsx scripts/prisma-migrate-deploy-exit.ts
+
   - id: deploy-staging-cloud-run
+    waitFor: [migrate-db]
     name: gcr.io/cloud-builders/gcloud
     entrypoint: bash
     args:
