@@ -764,40 +764,16 @@ export function createAuditExtension() {
       query: {
         $allModels: {
           update({ model, args, query }) {
-            return applyAuditUpdate.call(
-              this,
-              client,
-              model,
-              args,
-              query,
-            ) as Promise<unknown>;
+            return applyAuditUpdate.call(this, client, model, args, query);
           },
           delete({ model, args, query }) {
-            return applyAuditDelete.call(
-              this,
-              client,
-              model,
-              args,
-              query,
-            ) as Promise<unknown>;
+            return applyAuditDelete.call(this, client, model, args, query);
           },
           updateMany({ model, args, query }) {
-            return applyAuditUpdateMany.call(
-              this,
-              client,
-              model,
-              args,
-              query,
-            ) as Promise<unknown>;
+            return applyAuditUpdateMany.call(this, client, model, args, query);
           },
           deleteMany({ model, args, query }) {
-            return applyAuditDeleteMany.call(
-              this,
-              client,
-              model,
-              args,
-              query,
-            ) as Promise<unknown>;
+            return applyAuditDeleteMany.call(this, client, model, args, query);
           },
         },
       },
