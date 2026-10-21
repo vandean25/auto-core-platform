@@ -1,9 +1,9 @@
 import { ImportRowAction } from '@prisma/client';
+import { normalizeVehicleRow } from './vehicle-import-normalize.row.js';
 import {
-  normalizeVehicleRow,
   planVehicleDryRunRow,
   vehicleComparableForUpdate,
-} from './vehicle-import.logic.js';
+} from './vehicle-import-plan.row.js';
 
 const mapping = {
   external_id: 'Fahrzeug-Nr',
