@@ -11,7 +11,3 @@ export const PUBLIC_API_SCOPES = [
 ] as const;
 
 export type PublicApiScope = (typeof PUBLIC_API_SCOPES)[number];
-
-export function isPublicApiScope(value: string): value is PublicApiScope {
-  return (PUBLIC_API_SCOPES as readonly string[]).includes(value);
-}
