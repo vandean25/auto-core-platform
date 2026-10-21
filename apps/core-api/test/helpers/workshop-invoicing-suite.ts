@@ -75,6 +75,7 @@ export async function createWorkshopVehicle(
   prisma: PrismaService,
   customerId: string,
 ) {
+  // The tenant-scoped client adds tenant_id to this lookup.
   const customer = await prisma.customer.findFirstOrThrow({
     where: { id: customerId },
     select: { tenant_id: true },

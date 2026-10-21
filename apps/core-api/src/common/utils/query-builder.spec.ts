@@ -61,6 +61,23 @@ describe('QueryBuilder', () => {
       });
     });
 
+    it('keeps array values for notIn as given', () => {
+      const where = QueryBuilder.buildWhere(
+        [
+          {
+            field: 'status',
+            operator: 'notIn',
+            value: ['DELETED', 'ARCHIVED'],
+          },
+        ],
+        ['status'],
+      );
+
+      expect(where).toEqual({
+        status: { notIn: ['DELETED', 'ARCHIVED'] },
+      });
+    });
+
     it('falls back to equals for unsupported operators', () => {
       const where = QueryBuilder.buildWhere(
         [

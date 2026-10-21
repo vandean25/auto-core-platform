@@ -26,7 +26,12 @@ function createService() {
         createTask: jest.Mock;
         queuePath: jest.Mock;
         taskPath: jest.Mock<
-          (project: string, location: string, queue: string, task: string) => string
+          (
+            project: string,
+            location: string,
+            queue: string,
+            task: string,
+          ) => string
         >;
       };
     }
