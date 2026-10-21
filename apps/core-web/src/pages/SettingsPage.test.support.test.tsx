@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 export const financeSettingsResult = {
   data: {
-    lock_date: null,
+    lock_date: null as string | null,
     invoice_prefix: 'RE',
     next_invoice_number: 1,
   },
@@ -50,7 +50,8 @@ vi.mock('@/components/ui/tabs', async () => {
   }
 
   type TabsProps = {
-    value: string
+    value?: string
+    defaultValue?: string
     onValueChange?: (value: string) => void
     className?: string
     children: ReactNode
@@ -75,9 +76,17 @@ vi.mock('@/components/ui/tabs', async () => {
 
   const TabsContext = React.createContext<TabsContextValue | null>(null)
 
-  function Tabs({ value, onValueChange, className, children }: TabsProps) {
+  function Tabs({ value, defaultValue, onValueChange, className, children }: TabsProps) {
+    const [internalValue, setInternalValue] = React.useState(defaultValue ?? '')
+    const isControlled = value !== undefined
+    const currentValue = isControlled ? value : internalValue
+    const handleValueChange = (next: string) => {
+      if (!isControlled) setInternalValue(next)
+      onValueChange?.(next)
+    }
+
     return (
-      <TabsContext.Provider value={{ value, onValueChange }}>
+      <TabsContext.Provider value={{ value: currentValue, onValueChange: handleValueChange }}>
         <div className={className}>{children}</div>
       </TabsContext.Provider>
     )
@@ -147,17 +156,17 @@ vi.mock('@/api/locations', () => ({
   useDeleteLocation: () => deleteLocationResult,
 }))
 
+export const authSessionResult: { data?: { activeRole: string }; isLoading: boolean } = {
+  data: { activeRole: 'ADMIN' },
+  isLoading: false,
+}
+
 vi.mock('@/api/auth-session', () => ({
-  useAuthSession: () => ({
-    data: {
-      activeRole: 'ADMIN',
-    },
-    isLoading: false,
-  }),
+  useAuthSession: () => authSessionResult,
 }))
 
 vi.mock('@/components/RevenueGroupTable', () => ({
-  RevenueGroupTable: () => <div>Revenue groups table</div>,
+  RevenueGroupTable: ({ groups }: { groups: unknown[] }) => <div>Revenue groups table ({groups.length})</div>,
 }))
 
 vi.mock('@/components/AddRevenueGroupDialog', () => ({
@@ -165,11 +174,27 @@ vi.mock('@/components/AddRevenueGroupDialog', () => ({
 }))
 
 vi.mock('@/components/BrandTable', () => ({
-  BrandTable: () => <div>Brands table</div>,
+  BrandTable: ({ brands, onEdit }: { brands: { name: string }[]; onEdit: (brand: { name: string }) => void }) => (
+    <div>
+      Brands table ({brands.length})
+      {brands.map((brand) => (
+        <button key={brand.name} type='button' onClick={() => onEdit(brand)}>
+          Edit {brand.name}
+        </button>
+      ))}
+    </div>
+  ),
 }))
 
 vi.mock('@/components/AddBrandDialog', () => ({
-  AddBrandDialog: () => <button type='button'>+ Brand</button>,
+  AddBrandDialog: ({ brand, onClose }: { brand: { name: string } | null; onClose: () => void }) => (
+    <div>
+      <span>Editing brand: {brand ? brand.name : 'none'}</span>
+      <button type='button' onClick={onClose}>
+        Close brand dialog
+      </button>
+    </div>
+  ),
 }))
 
 vi.mock('@/components/labor/LaborCategoriesTab', () => ({
@@ -202,6 +227,30 @@ vi.mock('@/components/settings/MarginRulesTab', () => ({
 
 vi.mock('@/components/settings/data-import/DataImportSettingsTab', () => ({
   DataImportSettingsTab: () => <div>Data import tab content</div>,
+}))
+
+vi.mock('@/components/settings/ApiKeysSettingsTab', () => ({
+  ApiKeysSettingsTab: () => <div>API keys tab content</div>,
+}))
+
+vi.mock('@/components/settings/VoiceTranslationSettingsTab', () => ({
+  VoiceTranslationSettingsTab: () => <div>Voice translation tab content</div>,
+}))
+
+vi.mock('@/components/settings/workshop-hours-settings-panel', () => ({
+  WorkshopHoursSettingsPanel: () => <div>Hours tab content</div>,
+}))
+
+vi.mock('@/components/settings/vehicle-data-settings-panel', () => ({
+  VehicleDataSettingsPanel: () => <div>Vehicle data tab content</div>,
+}))
+
+vi.mock('@/components/settings/sites-settings-tab', () => ({
+  SitesSettingsTab: () => <div>Sites tab content</div>,
+}))
+
+vi.mock('@/components/settings/accounting-export-settings-panel', () => ({
+  AccountingExportSettingsPanel: () => <div>Accounting export tab content</div>,
 }))
 
 describe('SettingsPage shared test support', () => {
