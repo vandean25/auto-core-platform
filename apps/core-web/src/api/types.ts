@@ -2,14 +2,11 @@ import type { components } from './generated/openapi'
 
 type OpenApiSchemas = components['schemas']
 
-export type InventoryStatus = OpenApiSchemas['InventoryItemResponseDto']['status']
-
 export type InventoryItem = OpenApiSchemas['InventoryItemResponseDto'] & {
     category?: string
 }
 
 export type InventoryTransaction = OpenApiSchemas['InventoryTransactionResponseDto']
-export type TransactionType = InventoryTransaction['type']
 
 /** Client-normalized inventory list. The query hook maps API `pageSize` onto `limit`. */
 export interface InventoryResponse {
@@ -25,7 +22,6 @@ export interface InventoryResponse {
 export type Vendor = OpenApiSchemas['VendorResponseDto']
 export type Brand = OpenApiSchemas['BrandResponseDto']
 export type Customer = OpenApiSchemas['CustomerResponseDto']
-export type CustomerType = Customer['type']
 export type Vehicle = OpenApiSchemas['VehicleResponseDto']
 
 export type SalesOrder = OpenApiSchemas['SalesOrderResponseDto']
@@ -98,10 +94,6 @@ export type WorkshopOrder = Omit<
 export type WorkshopPickLineItemPayload =
     OpenApiSchemas['PickWorkshopPartsLineDto']
 export type WorkshopPickPartsPayload = OpenApiSchemas['PickWorkshopPartsDto']
-export type WorkshopPickLineAllocation =
-    OpenApiSchemas['PickWorkshopPartAllocationResponseDto']
-export type WorkshopPickMovedLine =
-    OpenApiSchemas['PickWorkshopPartMovedLineResponseDto']
 export type WorkshopPickPartsResponse =
     OpenApiSchemas['PickWorkshopPartsResponseDto']
 
@@ -130,9 +122,6 @@ export type WorkshopSearchResponse = OpenApiSchemas['WorkshopSearchResponseDto']
 export type LaborOperationSearchItem = OpenApiSchemas['LaborOperationSearchItemDto']
 export type LaborOperationSearchResponse =
     OpenApiSchemas['LaborOperationSearchResponseDto']
-export type LaborCategory = OpenApiSchemas['LaborCategoryResponseDto']
-export type LaborFitmentItem = OpenApiSchemas['LaborOperationFitmentResponseDto']
-export type LaborOperationDetail = OpenApiSchemas['LaborOperationResponseDto']
 
 export type CatalogPartSearchItem = OpenApiSchemas['CatalogPartSearchItemDto']
 export type CatalogSearchResponse = OpenApiSchemas['CatalogSearchResponseDto']

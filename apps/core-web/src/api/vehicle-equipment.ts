@@ -3,8 +3,6 @@ import { fetchWithAuth } from './client'
 import type { components } from './generated/openapi'
 import { vehicleListingKeys } from './vehicle-listing'
 
-export type VehicleEquipmentOption =
-  components['schemas']['VehicleEquipmentOptionDto']
 export type VehicleEquipmentAssignment =
   components['schemas']['VehicleEquipmentAssignmentDto']
 export type VehicleEquipmentAssertion =

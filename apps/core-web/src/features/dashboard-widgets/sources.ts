@@ -129,5 +129,4 @@ export const DASHBOARD_WIDGET_SOURCE_INVENTORY = getDashboardWidgetSource('inven
 export const DASHBOARD_WIDGET_SOURCE_CUSTOMERS = getDashboardWidgetSource('customers')
 export const DASHBOARD_WIDGET_SOURCE_VENDORS = getDashboardWidgetSource('vendors')
 export const DASHBOARD_WIDGET_SOURCE_VEHICLES = getDashboardWidgetSource('vehicles')
-export const DASHBOARD_WIDGET_SOURCE_PICKERL_DUE = getDashboardWidgetSource('pickerl-due')
 

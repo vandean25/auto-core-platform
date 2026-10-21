@@ -9,8 +9,6 @@ export type PatchVehicleListingChannelDto =
   components['schemas']['PatchVehicleListingChannelDto']
 export type VehicleListingExportValidationResponse =
   components['schemas']['VehicleListingExportValidationResponseDto']
-export type VehicleListingChannelValidation =
-  components['schemas']['VehicleListingChannelValidationDto']
 export type VehicleListingExportFieldIssue =
   components['schemas']['VehicleListingExportFieldIssueDto']
 

@@ -12,10 +12,6 @@ import { fetchWithAuth } from './client'
 
 export type AgentProposal = components['schemas']['AgentProposalResponseDto']
 export type AgentProposalListResponse = components['schemas']['AgentProposalListResponseDto']
-export type RejectAgentProposalPayload = components['schemas']['RejectAgentProposalDto']
-
-export type AgentProposalStatus = AgentProposal['status']
-export type AgentPolicyTier = AgentProposal['tier']
 
 export const MAX_AGENT_PROPOSAL_IDS_PER_REQUEST = 100
 

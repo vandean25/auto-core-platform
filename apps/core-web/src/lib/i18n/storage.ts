@@ -15,13 +15,6 @@ export function writeStoredUiLanguage(language: UiLanguage): void {
   window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, language)
 }
 
-export function clearStoredUiLanguage(): void {
-  if (typeof window === 'undefined') {
-    return
-  }
-  window.localStorage.removeItem(UI_LANGUAGE_STORAGE_KEY)
-}
-
 export function resolveInitialUiLanguage(): UiLanguage {
   return readStoredUiLanguage() ?? DEFAULT_UI_LANGUAGE
 }

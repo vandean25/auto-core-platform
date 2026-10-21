@@ -15,10 +15,6 @@ export function formattedHours(value: number, suffix = ' h'): string {
   return formatHours(value, suffix)
 }
 
-export function formattedCurrencyLabel(amount: number | string, label: string): string {
-  return `${formattedCurrency(amount)} (${label})`
-}
-
 export function formattedCurrencyLabelPattern(amount: number | string, label: string): RegExp {
   const amountPart = formattedCurrency(amount)
     .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')

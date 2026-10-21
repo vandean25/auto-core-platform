@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
 
-import type { ImportJob } from './import-wizard-logic'
+import type { ImportJob } from '@/api/imports'
 import {
   canApplyImport,
   importRowQueryFromFilter,

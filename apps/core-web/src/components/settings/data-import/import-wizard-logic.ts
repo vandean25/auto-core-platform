@@ -1,7 +1,4 @@
-import type { components } from '@/api/generated/openapi'
-
-export type ImportJob = components['schemas']['ImportJobResponseDto']
-export type ImportJobRow = components['schemas']['ImportJobRowDto']
+import type { ImportJob } from '@/api/imports'
 
 export type ImportWizardOptions = {
   update_existing: boolean

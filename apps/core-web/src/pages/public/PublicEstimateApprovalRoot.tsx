@@ -18,5 +18,3 @@ export function readApprovalToken(pathname: string): string {
 export function PublicEstimateApprovalRoot() {
   return <PublicEstimateApprovalPage token={readApprovalToken(window.location.pathname)} />
 }
-
-export default PublicEstimateApprovalRoot

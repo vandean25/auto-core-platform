@@ -5,11 +5,6 @@ import {
 } from '@/api/api-error'
 import { wireCodeForHttpStatus } from '@/api/http-status-fallback-codes'
 
-/** @deprecated Use getApiErrorBody from `@/api/api-error`. */
-export type ApiErrorBody = ReturnType<typeof getApiErrorBody> extends undefined
-  ? never
-  : NonNullable<ReturnType<typeof getApiErrorBody>>
-
 export const VEHICLE_HAS_ACTIVE_ORDER_CODE = 'VEHICLE_HAS_ACTIVE_ORDER'
 
 type ApiErrorLike = {

@@ -16,7 +16,7 @@ import type {
   WorkshopTaskStatus,
 } from './types'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
-import type { ApiErrorBody } from '@/lib/error-utils'
+import type { ApiErrorBody } from './api-error'
 import { buildDataTableUrl } from './data-table-query'
 import { laborKeys } from './labor'
 import {
@@ -129,8 +129,6 @@ export type WorkshopCapacityWeek = components['schemas']['WorkshopCapacityWeekDt
 export type WorkshopCapacityBay = components['schemas']['WorkshopCapacityBayDto']
 export type WorkshopCapacityCell = components['schemas']['WorkshopCapacityCellDto']
 export type WorkshopCapacityOrder = components['schemas']['WorkshopCapacityOrderDto']
-export type UpdateWorkshopOrderSchedulePayload =
-  components['schemas']['UpdateWorkshopOrderDto']
 
 type WorkshopHolidayListResponse = {
   data: WorkshopHoliday[]
@@ -879,8 +877,6 @@ export async function downloadWorkshopPdf(orderId: string): Promise<Blob> {
 
 // ─── Board API ────────────────────────────────────────────────────────────────
 
-export type WorkshopMechanic = components['schemas']['WorkshopMechanicDto']
-export type WorkshopBay = components['schemas']['WorkshopBayDto']
 export type WorkshopResourcesResponse = components['schemas']['WorkshopResourcesResponseDto']
 export type BoardOrder = components['schemas']['BoardOrderDto']
 export type BoardActiveResponse = components['schemas']['BoardActiveResponseDto']

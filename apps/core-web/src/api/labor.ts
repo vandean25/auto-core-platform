@@ -43,7 +43,6 @@ export const laborKeys = {
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type LaborCategory = components['schemas']['LaborCategoryResponseDto']
 export type LaborCategoriesResponse = components['schemas']['LaborCategoriesResponseDto']
 
 export type CreateLaborCategoryPayload = components['schemas']['CreateLaborCategoryDto']
