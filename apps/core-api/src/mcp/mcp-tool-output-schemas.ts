@@ -1538,5 +1538,3 @@ export const mcpToolOutputSchemas = {
     generateWeeklyReportPdfCommittedOutputSchema,
   ),
 } satisfies Record<McpToolName, z.ZodType>;
-
-export type McpToolOutputSchemas = typeof mcpToolOutputSchemas;

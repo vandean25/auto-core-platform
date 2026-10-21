@@ -10,10 +10,6 @@ import {
 import { z } from 'zod';
 
 const bookingCursorSchema = z.object({ id: z.string().uuid() });
-const estimateCursorSchema = z.object({
-  sent_at: z.string().datetime().nullable(),
-  id: z.string().uuid(),
-});
 
 export function isLoanerBookingOverdue(
   booking: Pick<LoanerBookingResponse, 'status' | 'plannedTo' | 'returnedAt'>,
@@ -184,22 +180,6 @@ export function paginateLoanerBookings<T extends { id: string }>(
   };
 }
 
-export function paginateEstimateVersions<
-  T extends { id: string; sent_at: string | null },
->(rows: T[], pageSize: number, cursor?: string) {
-  const startIndex =
-    cursor === undefined ? 0 : findEstimateStartIndex(rows, cursor);
-  const slice = rows.slice(startIndex, startIndex + pageSize);
-  const next =
-    startIndex + pageSize < rows.length && slice.length > 0
-      ? encodeEstimateCursor(slice[slice.length - 1])
-      : null;
-  return {
-    data: slice,
-    meta: { page_size: pageSize, next_cursor: next },
-  };
-}
-
 const communicationCursorSchema = z.object({
   at: z.string().datetime(),
   id: z.string().uuid(),
@@ -257,25 +237,4 @@ function decodeBookingCursor(cursor: string): string {
     return cursor;
   }
   return parsed.data.id;
-}
-
-function findEstimateStartIndex<
-  T extends { id: string; sent_at: string | null },
->(rows: T[], cursor: string): number {
-  const decoded = decodeMcpPositionCursor(cursor);
-  const parsed = estimateCursorSchema.safeParse(decoded);
-  if (!parsed.success) {
-    return 0;
-  }
-  const index = rows.findIndex(
-    (row) => row.id === parsed.data.id && row.sent_at === parsed.data.sent_at,
-  );
-  return index < 0 ? 0 : index + 1;
-}
-
-function encodeEstimateCursor(row: { id: string; sent_at: string | null }) {
-  return encodeMcpPositionCursor({
-    id: row.id,
-    sent_at: row.sent_at,
-  });
 }

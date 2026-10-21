@@ -68,7 +68,3 @@ function mcpOutputResultOfWithOptions<S extends Shape>(
 export function mcpOutputResultOf<S extends Shape>(success: S) {
   return mcpOutputResultOfWithOptions(success, {});
 }
-
-export function mcpOutputLooseResultOf<S extends Shape>(success: S) {
-  return mcpOutputResultOfWithOptions(success, { loose: true });
-}

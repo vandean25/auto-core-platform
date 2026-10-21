@@ -13,10 +13,6 @@ const CUSTOMER_PROPOSE_TOOLS = new Set<McpWriteToolName>([
   'propose_customer_update',
 ]);
 
-export function isCustomerMcpProposeTool(toolName: McpWriteToolName): boolean {
-  return CUSTOMER_PROPOSE_TOOLS.has(toolName);
-}
-
 /** Customer PROPOSE path; returns undefined for other tools. */
 export async function tryProposeCustomerMcpWrite(
   deps: McpWritePipelineCommitDeps,
