@@ -9,9 +9,6 @@ export const SANDBOX_CATALOG_ADAPTER_IDS = {
   AFTERMARKET_LABOR: 'sandbox-aftermarket-labor',
 } as const;
 
-export type SandboxCatalogAdapterId =
-  (typeof SANDBOX_CATALOG_ADAPTER_IDS)[keyof typeof SANDBOX_CATALOG_ADAPTER_IDS];
-
 export const SANDBOX_CATALOG_QUERY = {
   EMPTY: '__SANDBOX_EMPTY__',
   ERROR: '__SANDBOX_ERROR__',
