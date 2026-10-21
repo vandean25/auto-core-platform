@@ -6,13 +6,6 @@ const TIER_RANK: Record<AgentPolicyTier, number> = {
   HUMAN_ONLY: 2,
 };
 
-export function compareTierStrictness(
-  left: AgentPolicyTier,
-  right: AgentPolicyTier,
-): number {
-  return TIER_RANK[left] - TIER_RANK[right];
-}
-
 export function isTierAtLeastAsStrictAs(
   candidate: AgentPolicyTier,
   baseline: AgentPolicyTier,

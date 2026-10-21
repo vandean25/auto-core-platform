@@ -26,6 +26,3 @@ export const MCP_WRITE_POLICY_ACTION_TYPES = {
   propose_invoice_draft_from_order: 'invoice.create_draft_from_workshop_order',
   propose_estimate_send: 'estimate.send_customer_message',
 } as const;
-
-export type McpWritePolicyActionType =
-  (typeof MCP_WRITE_POLICY_ACTION_TYPES)[keyof typeof MCP_WRITE_POLICY_ACTION_TYPES];
