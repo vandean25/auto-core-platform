@@ -369,14 +369,6 @@ export async function createWorkshopMediaUploadSlot(
   return deps.workshopMediaUploadMcp.createUploadSlot(parsed);
 }
 
-export async function previewWorkshopMediaUploadSlot(
-  deps: PendingActionHandlerDeps,
-  input: unknown,
-): Promise<unknown> {
-  const parsed = requestWorkshopMediaUploadInputSchema.parse(input);
-  return deps.workshopMediaUploadMcp.previewUploadSlot(parsed);
-}
-
 export async function previewWeeklyReportPdf(
   deps: PendingActionHandlerDeps,
   input: unknown,
