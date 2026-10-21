@@ -1,13 +1,5 @@
 import { Prisma } from '@prisma/client';
 
-export interface VehicleQueryParams {
-  search?: string;
-  page?: number;
-  pageSize?: number;
-  sortField?: string;
-  sortDirection?: 'asc' | 'desc';
-}
-
 export interface VehiclePaginationParams {
   page: number;
   pageSize: number;

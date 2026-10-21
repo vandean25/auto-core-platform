@@ -25,8 +25,6 @@
  *   flat `<listing_ref>_<01..30>.jpg` ZIP members exactly (ACP cap 30).
  */
 
-export const AUTOSCOUT24_PROVISIONAL_LAYOUT_VERSION = '1';
-
 /** `action` for active offers in the provisional layout. */
 export const AUTOSCOUT24_PROVISIONAL_ACTION = 'UPSERT';
 

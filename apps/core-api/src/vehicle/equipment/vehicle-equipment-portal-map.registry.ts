@@ -37,10 +37,3 @@ export function getEquipmentPortalProfileConfig(
   }
   return config;
 }
-
-export function listEquipmentPortalProfiles(
-  version = VEHICLE_EQUIPMENT_PORTAL_MAPS_V1.version,
-): EquipmentListingSerializerProfile[] {
-  const document = getEquipmentPortalMapDocument(version);
-  return Object.keys(document.profiles) as EquipmentListingSerializerProfile[];
-}

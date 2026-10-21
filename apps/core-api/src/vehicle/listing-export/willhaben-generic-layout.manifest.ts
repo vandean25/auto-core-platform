@@ -21,8 +21,6 @@
  *   those inputs exist (empty cell = value not available).
  */
 
-export const WILLHABEN_GENERIC_LAYOUT_VERSION = '1';
-
 /** `action` for active offers in the provisional layout. */
 export const WILLHABEN_GENERIC_ACTION = 'UPSERT';
 

@@ -1,5 +1,3 @@
-import type { AppEnv } from '../../../config/env.js';
-
 export const DEFAULT_AUTOSCOUT24_DMS_HTTP_TIMEOUT_MS = 15_000;
 
 export function isVehicleListingAs24PushEnvEnabled(
@@ -55,10 +53,3 @@ export function useAutoscout24DmsFakeAdapterInProcess(
   }
   return env.AUTOSCOUT24_DMS_USE_FAKE_ADAPTER?.trim().toLowerCase() === 'true';
 }
-
-export type Autoscout24DmsEnvSlice = Pick<
-  AppEnv,
-  | 'VEHICLE_LISTING_AS24_PUSH_ENABLED'
-  | 'AUTOSCOUT24_DMS_API_BASE_URL'
-  | 'AUTOSCOUT24_DMS_API_CREDENTIALS_SECRET_REF'
->;
