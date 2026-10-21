@@ -44,9 +44,6 @@ export interface InvoiceCustomerAddressSnapshot {
   country: string;
 }
 
-export type InvoiceLineItemCreateWithoutInvoiceInput =
-  Prisma.InvoiceItemUncheckedCreateWithoutInvoiceInput;
-
 export interface DraftInvoiceLineItemInput {
   catalog_item_id?: string | null;
   catalogItemId?: string | null;
