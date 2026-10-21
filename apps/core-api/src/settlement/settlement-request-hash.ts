@@ -20,11 +20,3 @@ export function hashSettlementRecordRequest(input: {
   });
   return createHash('sha256').update(payload).digest('hex');
 }
-
-export function hashSettlementReconcileRequest(input: {
-  invoiceId: string;
-  idempotencyKey: string;
-}): string {
-  const payload = JSON.stringify(input);
-  return createHash('sha256').update(payload).digest('hex');
-}
