@@ -21,7 +21,6 @@ export const AGENT_ACTION_STATUSES = [
   'FALLBACK',
 ] as const;
 
-export type AgentActionTier = (typeof AGENT_ACTION_TIERS)[number];
 export type AgentActionStatus = (typeof AGENT_ACTION_STATUSES)[number];
 
 const tierSchema = z.enum(AGENT_ACTION_TIERS);
