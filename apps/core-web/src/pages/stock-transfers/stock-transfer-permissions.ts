@@ -11,10 +11,6 @@ export function hasSiteMembership(siteId: string, memberSiteIds: Set<string>) {
   return memberSiteIds.has(siteId)
 }
 
-export function canCreateTransfer(memberSiteIds: Set<string>) {
-  return memberSiteIds.size > 0
-}
-
 export function canSuggestSourceBin(fromSiteId: string, memberSiteIds: Set<string>) {
   return hasSiteMembership(fromSiteId, memberSiteIds)
 }

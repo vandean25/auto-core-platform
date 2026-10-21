@@ -2,8 +2,6 @@ import type { AgentProposal } from '@/api/agent-proposals'
 
 export type AmountTaxBasis = 'NET' | 'GROSS'
 
-export type WorkshopPriceDisplay = 'GROSS' | 'NET_WITH_VAT'
-
 const PURCHASE_ORDER_PROPOSE_ACTION = 'purchase_order.propose_draft'
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>

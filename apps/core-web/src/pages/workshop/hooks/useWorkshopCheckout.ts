@@ -13,7 +13,6 @@ import type {
   Invoice,
   WorkshopOrder,
   WorkshopTask,
-  WorkshopTaskLineItem,
 } from '@/api/types'
 import {
   useWorkshopCalculations,
@@ -24,12 +23,6 @@ import type { DiscountState } from './useWorkshopCalculations'
 import type { CheckoutFooterProps } from '../components/CheckoutFooter'
 import { i18n } from '@/lib/i18n'
 import { getErrorMessage } from '../utils/error'
-
-export interface CheckoutLineRow {
-  rowKey: string
-  taskId: string
-  lineItem: WorkshopTaskLineItem
-}
 
 export interface InvoiceLineDiscountUpdate {
   id: string

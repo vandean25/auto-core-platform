@@ -406,5 +406,3 @@ export function PublicEstimateApprovalPage({ token }: PublicEstimateApprovalPage
     </main>
   )
 }
-
-export default PublicEstimateApprovalPage

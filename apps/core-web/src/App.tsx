@@ -430,7 +430,7 @@ function App() {
   )
 }
 
-export { AppRoutes, MechanicRoutes } from '@/app/AppRouteTree'
+export { AppRoutes } from '@/app/AppRouteTree'
 export { MechanicShell } from '@/components/shell/MechanicShell'
 
 export default App
