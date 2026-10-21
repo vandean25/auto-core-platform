@@ -4,9 +4,10 @@ import { ImportEntityType } from '@prisma/client';
 import { parseCsvFile, rowToRecord } from './csv-parse.util.js';
 import { buildCanonicalMigrationIdentityMapping } from './canonical-migration-preset.js';
 import { normalizeCustomerRow, planCustomerDryRunRow } from './customer-import.logic.js';
-import { normalizeVehicleRow, planVehicleDryRunRow } from './vehicle-import.logic.js';
+import { normalizeVehicleRow } from './vehicle-import-normalize.row.js';
+import { planVehicleDryRunRow } from './vehicle-import-plan.row.js';
 import type { CustomerMatchContext } from './customer-import.logic.js';
-import type { VehicleMatchContext } from './vehicle-import.logic.js';
+import type { VehicleMatchContext } from './vehicle-import-plan.row.js';
 
 const fixtureDir = join(process.cwd(), 'test/fixtures/migration-csv-v1');
 
