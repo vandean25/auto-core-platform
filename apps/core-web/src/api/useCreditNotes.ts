@@ -9,7 +9,6 @@ import { invoiceKeys } from './sales'
 import { throwHttpError } from '@/lib/error-utils'
 
 export type CreditNoteResponseDto = components['schemas']['CreditNoteResponseDto']
-export type CreditNoteStatus = components['schemas']['CreditNoteStatus']
 export type CreateCreditNoteDto = components['schemas']['CreateCreditNoteDto']
 export type UpdateCreditNoteDto = components['schemas']['UpdateCreditNoteDto']
 export type FinalizeCreditNoteDto = components['schemas']['FinalizeCreditNoteDto']
@@ -274,8 +273,6 @@ export async function downloadCreditNotePdf(
       : undefined,
   })
 }
-
-export type CreditNotePdfGenerationMode = 'cached' | 'enqueued' | 'generated'
 
 export async function generateAndDownloadCreditNotePdf(
   creditNoteId: string,

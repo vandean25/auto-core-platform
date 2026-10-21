@@ -4,7 +4,6 @@ import type { components } from './generated/openapi'
 
 export type AuditLog = components['schemas']['AuditLogResponseDto']
 export type AuditLogListResponse = components['schemas']['AuditLogListResponseDto']
-export type AuditLogPaginationMeta = components['schemas']['AuditLogPaginationMetaDto']
 
 export type ListAuditLogsOptions = {
   page?: number

@@ -133,8 +133,6 @@ export function useGenerateInvoicePdf() {
   })
 }
 
-export type InvoicePdfGenerationMode = 'cached' | 'enqueued' | 'generated'
-
 export async function fetchInvoicePdfGenerationError(
   invoiceId: string,
 ): Promise<string | null> {
