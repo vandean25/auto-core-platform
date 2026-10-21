@@ -502,25 +502,27 @@ describe('PurchaseOrderDetail behavior', () => {
       expect(updateMutateAsync).not.toHaveBeenCalled()
     })
 
-    // Pins today's behavior, which looks like a bug: the debounced autosave scheduled by typing is
-    // not cancelled when Enter refuses the value, so the rejected quantity is still sent.
-    it('still sends the refused quantity once the debounced autosave fires', async () => {
-      setPo({
-        ...draftPurchaseOrder,
-        items: [{ ...draftPurchaseOrder.items[0], quantity: 5, quantity_received: 3 }],
-      })
-      renderPage()
-      fireEvent.click(screen.getByRole('button', { name: '5' }))
-      fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '2' } })
-      fireEvent.keyDown(screen.getByRole('spinbutton'), { key: 'Enter' })
+    it.each(['Enter', 'blur'])(
+      'cancels the pending autosave when %s refuses a quantity below the received one',
+      async (trigger) => {
+        setPo({
+          ...draftPurchaseOrder,
+          items: [{ ...draftPurchaseOrder.items[0], quantity: 5, quantity_received: 3 }],
+        })
+        renderPage()
+        fireEvent.click(screen.getByRole('button', { name: '5' }))
+        fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '2' } })
+        if (trigger === 'Enter') {
+          fireEvent.keyDown(screen.getByRole('spinbutton'), { key: 'Enter' })
+        } else {
+          fireEvent.blur(screen.getByRole('spinbutton'))
+        }
 
-      await advance(1000)
-      expect(updateMutateAsync).toHaveBeenCalledWith({
-        orderId: 'po-1',
-        itemId: 'item-1',
-        updates: { quantity: 2 },
-      })
-    })
+        expect(toast.error).toHaveBeenCalledTimes(1)
+        await advance(1000)
+        expect(updateMutateAsync).not.toHaveBeenCalled()
+      },
+    )
 
     it('does not autosave on a non-draft order', async () => {
       setPo({ ...draftPurchaseOrder, status: 'SENT' })
