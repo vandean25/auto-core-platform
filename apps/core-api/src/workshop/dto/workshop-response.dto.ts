@@ -2,7 +2,6 @@ export * from './workshop-order-nested-response.dto.js';
 
 import { ApiProperty } from '@nestjs/swagger';
 import { WorkshopOrderPurpose, WorkshopOrderStatus } from '@prisma/client';
-import { PaginationMetaDto } from '../../common/dto/paginated-response.dto.js';
 import { DryRunMetaDto } from '../../dry-run/dto/dry-run-response.dto.js';
 import { WorkshopReadyEmailNoticeDto } from './workshop-ready-email-notice.dto.js';
 import {
@@ -93,12 +92,4 @@ export class WorkshopOrderResponseDto extends DryRunMetaDto {
       'Ready-for-pickup email state when the order is COMPLETED (AUT-357). Null while the job is still open.',
   })
   ready_email_notice?: WorkshopReadyEmailNoticeDto | null;
-}
-
-export class WorkshopPaginatedResponseDto {
-  @ApiProperty({ type: [WorkshopOrderResponseDto] })
-  data!: WorkshopOrderResponseDto[];
-
-  @ApiProperty({ type: PaginationMetaDto })
-  meta!: PaginationMetaDto;
 }

@@ -89,10 +89,6 @@ export const proposeWorkshopBookingInputSchema = z
     }
   });
 
-export type ProposeWorkshopBookingInput = z.infer<
-  typeof proposeWorkshopBookingInputSchema
->;
-
 export type NormalizedWorkshopBookingPackage = {
   customerId: string;
   vehicleId: string;
