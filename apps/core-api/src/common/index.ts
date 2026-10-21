@@ -1,6 +1,6 @@
 export { CommonModule } from './common.module.js';
 
-// common barrel — single import path for shared utilities
+// common barrel — module, filters and validation helpers; logging and PDF worker symbols live in ./logging and ./pdf
 export { GlobalExceptionFilter } from './filters/global-exception.filter.js';
 
 export { CloudTasksService } from './services/cloud-tasks.service.js';

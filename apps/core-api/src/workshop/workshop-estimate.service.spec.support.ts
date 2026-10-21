@@ -1,11 +1,9 @@
-import { ServiceUnavailableException } from '@nestjs/common';
 import {
   WorkshopEstimateStatus,
   WorkshopOrderStatus,
 } from '@prisma/client';
 import type { WorkshopEstimateOverrunService } from './workshop-estimate-overrun.service.js';
 import { WorkshopEstimateService } from './workshop-estimate.service.js';
-import { estimateBrandingFixture } from './workshop-estimate.spec.support.js';
 
 export const HARNESS_TENANT_ID = 'tenant-1';
 export const HARNESS_SITE_ID = 'site-1';
@@ -207,12 +205,3 @@ export function buildWorkshopEstimateServiceHarness(role = 'ADMIN') {
   );
   return { service, prisma, tx, tenantContext, pdf, outbox, wakeUps, overruns };
 }
-
-type GatingPrisma = {
-  $transaction: jest.Mock;
-  workshopOrder: { findFirst: jest.Mock };
-  workshopEstimateVersion: { findFirst: jest.Mock };
-  workshopEstimate: { findFirst: jest.Mock };
-  workshopEstimateSequence: { upsert: jest.Mock };
-  financeSettings: { findFirst: jest.Mock };
-};
