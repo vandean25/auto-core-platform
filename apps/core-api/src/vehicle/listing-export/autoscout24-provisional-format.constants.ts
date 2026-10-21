@@ -12,13 +12,8 @@ export const AUTOSCOUT24_PROVISIONAL_PROFILE = 'AS24_PROVISIONAL_V1';
 export const AUTOSCOUT24_PROVISIONAL_CSV_FILENAME =
   'autoscout24-provisional.csv';
 
-/** Node BufferEncoding label for UTF-8 (files carry an explicit BOM). */
-export const AUTOSCOUT24_PROVISIONAL_CSV_ENCODING = 'utf-8';
-
 /** UTF-8 byte order mark prepended to the CSV file. */
 export const AUTOSCOUT24_PROVISIONAL_CSV_BOM = '﻿';
-
-export const AUTOSCOUT24_PROVISIONAL_CSV_DELIMITER = ';';
 
 /** CRLF row terminator; one physical line per record (control chars normalised). */
 export const AUTOSCOUT24_PROVISIONAL_ROW_TERMINATOR = '\r\n';

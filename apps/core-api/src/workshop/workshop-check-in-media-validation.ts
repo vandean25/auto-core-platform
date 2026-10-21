@@ -7,14 +7,7 @@ import type { CheckInDamageMarkerDto } from './dto/workshop-check-in.dto.js';
 import { CHECK_IN_ERROR_CODES } from './workshop-check-in.rules.js';
 import { assertCheckInDraftForMutation } from './workshop-check-in-immutability.js';
 
-export {
-  assertMcpWorkshopMediaUploadDeclared,
-  MCP_WORKSHOP_MEDIA_UPLOAD_MIME_TYPES,
-  MCP_WORKSHOP_MEDIA_UPLOAD_PURPOSES,
-  resolveMcpWorkshopMediaPurpose,
-  type McpWorkshopMediaUploadMimeType,
-  type McpWorkshopMediaUploadPurpose,
-} from './workshop-mcp-media-validation.js';
+export { assertMcpWorkshopMediaUploadDeclared } from './workshop-mcp-media-validation.js';
 
 type CheckInDb = Pick<
   Prisma.TransactionClient,

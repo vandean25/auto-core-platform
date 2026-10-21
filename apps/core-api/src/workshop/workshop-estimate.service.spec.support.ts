@@ -1,31 +1,9 @@
-import { ServiceUnavailableException } from '@nestjs/common';
 import {
   WorkshopEstimateStatus,
   WorkshopOrderStatus,
 } from '@prisma/client';
 import type { WorkshopEstimateOverrunService } from './workshop-estimate-overrun.service.js';
 import { WorkshopEstimateService } from './workshop-estimate.service.js';
-import { estimateBrandingFixture } from './workshop-estimate.spec.support.js';
-
-export const SEND_FLAG = 'CUSTOMER_ESTIMATE_SEND_ENABLED';
-
-export function expectEstimateServiceUnavailable(
-  error: unknown,
-  code: string,
-): void {
-  expect(error).toBeInstanceOf(ServiceUnavailableException);
-  expect((error as ServiceUnavailableException).getResponse()).toMatchObject({
-    code,
-  });
-}
-
-export function restoreSendFlag(previous: string | undefined): void {
-  if (previous === undefined) {
-    delete process.env[SEND_FLAG];
-  } else {
-    process.env[SEND_FLAG] = previous;
-  }
-}
 
 export const HARNESS_TENANT_ID = 'tenant-1';
 export const HARNESS_SITE_ID = 'site-1';
@@ -226,59 +204,4 @@ export function buildWorkshopEstimateServiceHarness(role = 'ADMIN') {
     overruns as never,
   );
   return { service, prisma, tx, tenantContext, pdf, outbox, wakeUps, overruns };
-}
-
-export const mockedBranding = estimateBrandingFixture;
-
-type GatingPrisma = {
-  $transaction: jest.Mock;
-  workshopOrder: { findFirst: jest.Mock };
-  workshopEstimateVersion: { findFirst: jest.Mock };
-  workshopEstimate: { findFirst: jest.Mock };
-  workshopEstimateSequence: { upsert: jest.Mock };
-  financeSettings: { findFirst: jest.Mock };
-};
-
-/** Minimal prisma stand-in for role and send-gating unit tests. */
-export function buildWorkshopEstimateGatingHarness(role?: string) {
-  const tx = {
-    workshopOrder: { findFirst: jest.fn().mockResolvedValue(null) },
-    workshopEstimateVersion: { findFirst: jest.fn().mockResolvedValue(null) },
-  };
-  const prisma: GatingPrisma = {
-    $transaction: jest.fn(async (callback: (client: typeof tx) => unknown) =>
-      callback(tx),
-    ),
-    workshopOrder: tx.workshopOrder,
-    workshopEstimateVersion: tx.workshopEstimateVersion,
-    workshopEstimate: { findFirst: jest.fn().mockResolvedValue(null) },
-    workshopEstimateSequence: { upsert: jest.fn() },
-    financeSettings: { findFirst: jest.fn().mockResolvedValue(null) },
-  };
-  const tenantContext = {
-    getAuthenticatedUser: jest
-      .fn()
-      .mockReturnValue(role ? { role } : undefined),
-    getTenantId: jest.fn().mockResolvedValue(HARNESS_TENANT_ID),
-  };
-  const siteContext = {
-    getSiteId: jest.fn().mockResolvedValue(HARNESS_SITE_ID),
-  };
-  const pdf = {
-    requestGeneration: jest.fn(),
-    getPdf: jest.fn(),
-  };
-  const outbox = { enqueueInTx: jest.fn() };
-  const wakeUps = { enqueueWakeUp: jest.fn() };
-  const overruns = { observe: jest.fn().mockResolvedValue(null) };
-  const service = new WorkshopEstimateService(
-    prisma as never,
-    tenantContext as never,
-    siteContext as never,
-    pdf as never,
-    outbox,
-    wakeUps as never,
-    overruns as never,
-  );
-  return { service, prisma, pdf };
 }

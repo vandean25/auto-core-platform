@@ -1,9 +1,4 @@
-import type { Prisma } from '@prisma/client';
 import type { MigrationManifest } from '../migration-manifest.types.js';
-
-export type CanonicalMigrationDryRunOptions = {
-  migration_manifest?: Prisma.InputJsonObject;
-};
 
 export function parseMigrationManifestFromDryRunOptions(
   optionsJson: Record<string, unknown>,

@@ -3,8 +3,6 @@
  * Source: https://services.mobile.de/manual/upload-interface-csv_de.html (AUT-569).
  */
 
-export const MOBILE_DE_REFERENCE_LAYOUT_VERSION = '1';
-
 /** Used-stock export always sets neufahrzeug=0 (route requires inventory_role=USED). */
 export const MOBILE_DE_REFERENCE_USED_CAR_DEFAULTS: Readonly<
   Record<number, string>

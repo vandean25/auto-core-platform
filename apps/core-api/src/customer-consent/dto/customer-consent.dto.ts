@@ -96,13 +96,6 @@ export class RecordCommunicationEventDto {
   evidence?: Record<string, unknown>;
 }
 
-export class CommunicationPreferencesQueryDto {
-  @ApiPropertyOptional({ format: 'uuid' })
-  @IsOptional()
-  @IsUUID()
-  controller_legal_entity_id?: string;
-}
-
 export class ChannelPreferenceDto {
   @ApiProperty({ enum: CustomerConsentChannel })
   channel!: CustomerConsentChannel;

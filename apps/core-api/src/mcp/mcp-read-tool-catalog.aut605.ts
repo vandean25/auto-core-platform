@@ -16,9 +16,6 @@ export const MCP_READ_TOOL_NAMES_WITH_COMPLIANCE = [
   ...MCP_COMPLIANCE_READ_TOOL_NAMES,
 ] as const;
 
-export type McpReadToolNameWithCompliance =
-  (typeof MCP_READ_TOOL_NAMES_WITH_COMPLIANCE)[number];
-
 export const MCP_TOOL_NAMES_WITH_COMPLIANCE = [
   ...MCP_READ_TOOL_NAMES_WITH_COMPLIANCE,
   ...MCP_WRITE_TOOL_NAMES,

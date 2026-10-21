@@ -50,9 +50,3 @@ export function defaultRevenueGroupNameForWorkshopLineType(
   }
   return null;
 }
-
-export function isWorkshopLaborRevenueGroupName(
-  revenueGroupName: string | null | undefined,
-): boolean {
-  return revenueGroupName === WORKSHOP_LABOR_REVENUE_GROUP_NAME;
-}

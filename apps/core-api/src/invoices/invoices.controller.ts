@@ -18,7 +18,7 @@ import {
 } from '@nestjs/swagger';
 import * as Sentry from '@sentry/node';
 import type { Readable } from 'node:stream';
-import { PdfWorker } from '../common/index.js';
+import { PdfWorker } from '../common/pdf/index.js';
 import { InvoicesService } from './invoices.service.js';
 import { CreateDraftInvoiceDto } from './dto/create-draft-invoice.dto.js';
 import { InvoiceResponseDto } from '../sales/dto/invoice-response.dto.js';

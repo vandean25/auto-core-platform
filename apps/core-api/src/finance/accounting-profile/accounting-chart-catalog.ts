@@ -13,9 +13,6 @@ import {
 export const DATEV_ACCOUNT_CHARTS = ['SKR03', 'SKR04'] as const;
 export const AT_ACCOUNT_CHARTS = ['UGB', 'EA'] as const;
 
-export type DatevAccountChart = (typeof DATEV_ACCOUNT_CHARTS)[number];
-export type AtAccountChart = (typeof AT_ACCOUNT_CHARTS)[number];
-
 const PROFILE_LABELS: ReadonlyMap<string, string> = new Map([
   [DEFAULT_DE_PROFILE_CODE, 'DATEV'],
   [DEFAULT_AT_PROFILE_CODE, 'RZL'],

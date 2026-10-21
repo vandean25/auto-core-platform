@@ -1,7 +1,5 @@
 export const FISKALY_SIGN_AT_PROVIDER_ID = 'FISKALY_SIGN_AT_1_2_6' as const;
 
-export const FISKALY_SIGN_AT_BASE_URL = 'https://rksv.fiskaly.com';
-
 /** Live HTTP signing is off unless explicitly enabled in the runtime environment. */
 export function isFiskalySignAtLiveEnabled(): boolean {
   return process.env.FISKALY_SIGN_AT_LIVE_ENABLED === 'true';

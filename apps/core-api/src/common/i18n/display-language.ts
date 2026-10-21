@@ -10,7 +10,3 @@ export const DEFAULT_FORMAT_LOCALE = 'de-AT';
 
 /** Bumped when locales pdf.json files change and affect frozen document renders. */
 export const I18N_TRANSLATION_BUNDLE_VERSION = 'pdf-resources-2026-10-v1';
-
-export function isDisplayLanguage(value: string): value is DisplayLanguage {
-  return value === 'de' || value === 'en';
-}

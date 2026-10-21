@@ -10,9 +10,6 @@ export const MCP_WORKSHOP_MEDIA_UPLOAD_MIME_TYPES = [
   'image/webp',
 ] as const;
 
-export type McpWorkshopMediaUploadMimeType =
-  (typeof MCP_WORKSHOP_MEDIA_UPLOAD_MIME_TYPES)[number];
-
 export const MCP_WORKSHOP_MEDIA_UPLOAD_PURPOSES = [
   'MECHANIC_FINDING',
   'CHECK_IN',

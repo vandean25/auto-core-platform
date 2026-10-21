@@ -70,12 +70,3 @@ function settlementNotInSlice(message: string): UnprocessableEntityException {
     message,
   });
 }
-
-export function isBlockingPaymentStatus(status: string): boolean {
-  return (
-    status === 'PENDING' ||
-    status === 'UNKNOWN' ||
-    status === 'SETTLED' ||
-    status === 'SETTLED_EXTERNAL'
-  );
-}

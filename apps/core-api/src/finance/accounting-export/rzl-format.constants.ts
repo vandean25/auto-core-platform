@@ -53,15 +53,11 @@ export const RZL_FIBU_EURO_PUBLIC_FIELD_NAMES = [
   'DMS-GUID',
 ] as const;
 
-export type RzlFibuEuroPublicFieldName =
-  (typeof RZL_FIBU_EURO_PUBLIC_FIELD_NAMES)[number];
-
 /**
  * ACP draft RZL FIBU import layout (see rzl-fibu-import.serializer.ts and the
  * RZL spec). K/C/B booking columns are ACP's own pinned reading, not the official
  * Euro-Version column list above.
  */
-export const RZL_ENCODING = 'windows-1252';
 export const RZL_FIELD_SEPARATOR = ';';
 export const RZL_LINE_BREAK = '\r\n';
 

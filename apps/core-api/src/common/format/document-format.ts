@@ -6,15 +6,6 @@ const DATE_FORMAT: Intl.DateTimeFormatOptions = {
   year: 'numeric',
 };
 
-const MONEY_FORMAT_OPTIONS: Intl.NumberFormatOptions = {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-};
-
-const DECIMAL_FORMAT_OPTIONS: Intl.NumberFormatOptions = {
-  maximumFractionDigits: 3,
-};
-
 /** Calendar dates on customer PDFs always use Austrian formatting. */
 export function formatDocumentDate(
   value: string | Date,
@@ -25,33 +16,4 @@ export function formatDocumentDate(
     return String(value);
   }
   return date.toLocaleDateString(formatLocale, DATE_FORMAT);
-}
-
-export function formatDocumentCurrency(
-  amount: string | number,
-  currency = 'EUR',
-  formatLocale: string = DEFAULT_FORMAT_LOCALE,
-): string {
-  const numeric = typeof amount === 'string' ? Number(amount) : amount;
-  if (!Number.isFinite(numeric)) {
-    return `${amount} ${currency}`;
-  }
-  return new Intl.NumberFormat(formatLocale, {
-    style: 'currency',
-    currency,
-    ...MONEY_FORMAT_OPTIONS,
-  }).format(numeric);
-}
-
-export function formatDocumentDecimal(
-  value: string | number,
-  formatLocale: string = DEFAULT_FORMAT_LOCALE,
-): string {
-  const numeric = typeof value === 'string' ? Number(value) : value;
-  if (!Number.isFinite(numeric)) {
-    return String(value);
-  }
-  return new Intl.NumberFormat(formatLocale, DECIMAL_FORMAT_OPTIONS).format(
-    numeric,
-  );
 }

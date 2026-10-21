@@ -17,9 +17,6 @@ export const MCP_READ_TOOL_NAMES_WITH_WAVE2 = [
   ...MCP_WAVE2_READ_TOOL_NAMES,
 ] as const;
 
-export type McpReadToolNameWithWave2 =
-  (typeof MCP_READ_TOOL_NAMES_WITH_WAVE2)[number];
-
 export const MCP_TOOL_NAMES_WITH_WAVE2 = [
   ...MCP_READ_TOOL_NAMES_WITH_WAVE2,
   ...MCP_WRITE_TOOL_NAMES,
@@ -34,7 +31,3 @@ export function isMcpWave2ReadToolName(
 ): toolName is McpWave2ReadToolName {
   return wave2ReadToolSet.has(toolName);
 }
-
-/** @deprecated Use {@link MCP_TOOL_NAMES_WITH_WAVE2} — alias for compliance-era imports. */
-export const MCP_TOOL_NAMES_WITH_COMPLIANCE_AND_WAVE2 =
-  MCP_TOOL_NAMES_WITH_WAVE2;

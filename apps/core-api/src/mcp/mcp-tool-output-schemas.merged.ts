@@ -11,5 +11,3 @@ export const mcpToolOutputSchemas = {
   ...mcpComplianceReadOutputSchemas,
   get_capabilities: getCapabilitiesOutputSchemaWithCompliance,
 } as Record<McpToolNameWithCompliance, z.ZodTypeAny>;
-
-export type McpToolOutputSchemas = typeof mcpToolOutputSchemas;

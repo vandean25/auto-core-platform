@@ -37,7 +37,3 @@ export function reviewRequired() {
 export function invalidAssessmentTimestamp() {
   return new BadRequestException({ code: 'INVALID_ASSESSMENT_TIMESTAMP' });
 }
-
-export function sourceConflict() {
-  return new ConflictException({ code: 'SOURCE_CONFLICT' });
-}

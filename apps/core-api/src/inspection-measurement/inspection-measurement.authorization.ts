@@ -32,14 +32,6 @@ export function hasMeasurementWriteRole(
   return Boolean(role && WRITE_ROLES.has(role));
 }
 
-export function assertMeasurementWriteRole(
-  tenantContext: TenantContextService,
-): void {
-  if (!hasMeasurementWriteRole(tenantContext)) {
-    throw measurementImportForbidden();
-  }
-}
-
 export async function assertMechanicMeasurementOrderAccess(
   prisma: PrismaService,
   tenantContext: TenantContextService,

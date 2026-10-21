@@ -1,6 +1,5 @@
 import { createHash } from 'node:crypto';
 import type { VehicleListingVatDisplay } from '@prisma/client';
-import { VEHICLE_LISTING_PLATFORM_DEFAULTS } from './vehicle-listing-platform.defaults.js';
 
 export const VEHICLE_LISTING_CONTENT_HASH_SCHEMA_VERSION = 4;
 
@@ -139,40 +138,4 @@ export function computeVehicleListingContentSha256(
   const payload = buildVehicleListingContentHashPayload(input);
   const canonical = JSON.stringify(payload);
   return createHash('sha256').update(canonical, 'utf8').digest('hex');
-}
-
-/** Empty listing cycle defaults (used on create before advisor input). */
-export function emptyVehicleListingContentSha256(
-  listingRef: string,
-  vehicle: VehicleListingContentHashVehicleRow,
-): string {
-  return computeVehicleListingContentSha256({
-    listing_ref: listingRef,
-    title: null,
-    description: null,
-    description_language: 'DE',
-    price_gross_eur: null,
-    vat_display: null,
-    nova_included_confirmed: false,
-    mandatory_fees_included_confirmed: false,
-    equipment_free_text: null,
-    portal_category: null,
-    export_assertions: {
-      damage_free: null,
-      metallic: null,
-      guarantee: null,
-      jahreswagen: null,
-      recommendation: null,
-      demo_vehicle: null,
-    },
-    equipment: [],
-    equipment_free_text_lines: [],
-    photos: [],
-    channels: VEHICLE_LISTING_PLATFORM_DEFAULTS.map((row) => ({
-      platform: row.platform,
-      serializer_profile: row.serializer_profile,
-      mapping_version: row.mapping_version,
-    })),
-    vehicle,
-  });
 }

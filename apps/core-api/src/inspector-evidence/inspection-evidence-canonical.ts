@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import {
   INSPECTOR_EVIDENCE_SCHEMA_VERSION,
   type EvidenceAssessmentRequest,
@@ -68,34 +67,6 @@ export function clampReviewValidUntil(
   return requestedValidUntil.getTime() > cap.getTime()
     ? cap
     : requestedValidUntil;
-}
-
-export function evidencePayloadDigest(
-  payload: InspectorEvidencePayload,
-): string {
-  const canonical = JSON.stringify({
-    schema_version: payload.schema_version,
-    source_version: payload.source_version,
-    issuer: payload.issuer,
-    source_person_ref: payload.source_person_ref,
-    station_ref: payload.station_ref,
-    assignment_ref: payload.assignment_ref,
-    assignment_from: payload.assignment_from,
-    assignment_until_exclusive: payload.assignment_until_exclusive,
-    vehicle_classes: [...payload.vehicle_classes].sort(),
-    weight_scope: payload.weight_scope,
-    brake_course_scope: payload.brake_course_scope,
-    training_completed_on: payload.training_completed_on,
-    next_training_due_on: payload.next_training_due_on,
-    continuation_from: payload.continuation_from,
-    continuation_until_exclusive: payload.continuation_until_exclusive,
-    effective_from: payload.effective_from,
-    effective_until_exclusive: payload.effective_until_exclusive,
-    withdrawal_effective_at: payload.withdrawal_effective_at,
-    document_ref: payload.document_ref,
-    provenance: payload.provenance,
-  });
-  return createHash('sha256').update(canonical, 'utf8').digest('hex');
 }
 
 export function validateEvidencePayload(

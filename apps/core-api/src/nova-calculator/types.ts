@@ -51,8 +51,6 @@ export interface CalculateNovaResult {
 export type NovaImportMode =
   'eu_used_m1' | 'third_country' | 'previously_exempt';
 
-export type NovaValueBasis = 'known_new_net' | 'achtelung';
-
 export type NovaCalculationErrorCode =
   | 'MISSING_CO2'
   | 'INVALID_CO2'

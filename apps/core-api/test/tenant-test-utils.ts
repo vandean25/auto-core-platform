@@ -3,7 +3,6 @@ import type { PrismaService } from '../src/prisma/prisma.service.js';
 import { TenantContextStorage } from '../src/common/services/tenant-context.storage.js';
 import { randomUUID } from 'node:crypto';
 
-export const HR_TEST_AVG_WORKDAY_MINUTES = 515;
 export const HR_TEST_ANNUAL_LEAVE_MINUTES = 12875;
 export const HR_TEST_WEEK_LEAVE_MINUTES = 2850;
 export const HR_TEST_THREE_DAY_LEAVE_MINUTES = 1710;

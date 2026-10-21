@@ -188,16 +188,6 @@ export function buildZipVariants(value: string | null | undefined): string[] {
   return [...new Set([raw, normalized])];
 }
 
-/** The spellings of a UID the database may hold. */
-export function buildVatIdVariants(value: string | null | undefined): string[] {
-  const raw = trimmedOrNull(value);
-  const normalized = normalizeMatchVatId(raw);
-  if (!raw || !normalized) {
-    return [];
-  }
-  return [...new Set([raw, normalized])];
-}
-
 /** Keeps the first letter and the domain of an e-mail: max@example.at becomes m***@example.at. */
 export function maskMatchEmail(value: string | null | undefined): string {
   const trimmed = trimmedOrNull(value);

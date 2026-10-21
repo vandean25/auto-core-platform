@@ -1,5 +1,4 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { PaginationMetaDto } from '../../common/dto/paginated-response.dto.js';
 
 export class BrakeMeasurementWheelResponseDto {
   @ApiProperty()
@@ -147,12 +146,4 @@ export class MeasurementImportListItemDto {
 
   @ApiPropertyOptional({ type: AppliedMeasurementSummaryDto, nullable: true })
   applied_measurement!: AppliedMeasurementSummaryDto | null;
-}
-
-export class MeasurementImportListResponseDto {
-  @ApiProperty({ type: [MeasurementImportListItemDto] })
-  data!: MeasurementImportListItemDto[];
-
-  @ApiProperty({ type: PaginationMetaDto })
-  meta!: PaginationMetaDto;
 }

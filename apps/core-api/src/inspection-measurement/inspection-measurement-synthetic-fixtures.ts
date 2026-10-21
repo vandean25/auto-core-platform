@@ -58,14 +58,3 @@ export function registerSyntheticMeasurement(
     device_range: overrides.device_range ?? base.device_range,
   };
 }
-
-export function resetSyntheticMeasurementsForTests(): void {
-  for (const key of Object.keys(RECORDED_BY_REFERENCE)) {
-    if (key !== 'SYNTH-NATIVE-RESULT-1') {
-      delete RECORDED_BY_REFERENCE[key];
-    }
-  }
-  RECORDED_BY_REFERENCE['SYNTH-NATIVE-RESULT-1'] = structuredClone(
-    SYNTHETIC_BRAKE_MEASUREMENT,
-  );
-}

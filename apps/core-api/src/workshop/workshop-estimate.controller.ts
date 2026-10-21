@@ -18,7 +18,7 @@ import {
 } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { pipeline } from 'node:stream/promises';
-import { PdfWorker } from '../common/index.js';
+import { PdfWorker } from '../common/pdf/index.js';
 import {
   WorkshopEstimateListResponseDto,
   WorkshopEstimateResponseDto,

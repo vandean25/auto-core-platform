@@ -8,10 +8,7 @@ import {
   resolveLocalizedDocumentLocale,
   snapshotUsesLocalizedPdfResources,
 } from '../common/i18n/pdf-resource-bundle.js';
-import type {
-  PdfRenderMode,
-  ResolvedPdfRenderMode,
-} from '../common/i18n/pdf-render-mode.js';
+import type { ResolvedPdfRenderMode } from '../common/i18n/pdf-render-mode.js';
 import type { WorkshopOrderForPdf } from './workshop-pdf.types.js';
 
 type TenantLocaleReader = {
@@ -48,10 +45,4 @@ export async function resolveWorkshopOrderPdfRenderContext(
       tenantDefault,
     ),
   };
-}
-
-export function workshopPdfRenderModeForTests(
-  documentLocale: DisplayLanguage,
-): { documentLocale: DisplayLanguage; renderMode: PdfRenderMode } {
-  return { documentLocale, renderMode: 'localized' };
 }

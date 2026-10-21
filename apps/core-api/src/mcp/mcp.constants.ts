@@ -13,7 +13,6 @@ export const MCP_SERVER_IMPLEMENTATION = {
   version: '1.0.0',
 } as const;
 
-export const MCP_DEFAULT_PAGE = 1;
 export const MCP_DEFAULT_PAGE_SIZE = 10;
 export const MCP_MAX_PAGE_SIZE = 25;
 
@@ -27,8 +26,6 @@ export const MCP_CAPABILITIES_DEFAULT_PAGE_SIZE = MCP_MAX_PAGE_SIZE;
 export const MCP_TOOL_RESULT_MAX_BYTES = 32_768;
 
 export const MCP_MAX_OPEN_SESSIONS = 200;
-
-export const MCP_ACTION_PREFIX = 'mcp';
 
 export const MCP_READ_TOOL_NAMES = [
   'search_customers',

@@ -1,5 +1,3 @@
-export const DATEV_PROFILE_CODE = 'ACP-DATEV-DE-EUR-1';
-export const DATEV_FORMAT_VERSION = 'EXTF-700-Buchungsstapel-13';
 export const DATEV_EXTF_VERSION = 700;
 export const DATEV_DATA_CATEGORY = 21;
 export const DATEV_FORMAT_NAME = 'Buchungsstapel';

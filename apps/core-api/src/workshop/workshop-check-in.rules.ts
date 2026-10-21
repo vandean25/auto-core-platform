@@ -1,5 +1,4 @@
 import { WorkshopOrderStatus } from '@prisma/client';
-import { CHECK_IN_DAMAGE_TYPE_VALUES } from './workshop-check-in-zones.js';
 
 export const CHECK_IN_ERROR_CODES = {
   CHECK_IN_EXISTS: 'CHECK_IN_EXISTS',
@@ -29,10 +28,6 @@ export const CHECK_IN_MAX_NOTES_LENGTH = 2000;
 export const CHECK_IN_MAX_ODOMETER = 9_999_999;
 export const CHECK_IN_MAX_KEY_COUNT = 10;
 export const CHECK_IN_MAX_WARNING_LIGHT_LENGTH = 80;
-
-export const CHECK_IN_DAMAGE_TYPES = new Set<string>(
-  CHECK_IN_DAMAGE_TYPE_VALUES,
-);
 
 export const CHECK_IN_TYRE_SEASONS = new Set([
   'SUMMER',

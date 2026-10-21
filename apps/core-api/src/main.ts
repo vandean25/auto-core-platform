@@ -4,11 +4,13 @@ import { ApiRootModule } from './api-root.module.js';
 import {
   createGlobalValidationPipes,
   GlobalExceptionFilter,
-  HttpLoggingInterceptor,
-  LogLevelService,
   ObserveInstrument,
   isObserveTelemetryConfigured,
 } from './common/index.js';
+import {
+  HttpLoggingInterceptor,
+  LogLevelService,
+} from './common/logging/index.js';
 import { validateEnv } from './config/env.js';
 import { configureHttpSecurity } from './common/http/http-security.js';
 import {

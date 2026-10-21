@@ -20,8 +20,6 @@ import type {
 
 export type {
   MigrationBundleInput,
-  MigrationManifest,
-  MigrationManifestFileEntry,
   MigrationValidationIssue,
 } from './migration-manifest.types.js';
 

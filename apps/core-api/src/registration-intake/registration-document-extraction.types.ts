@@ -29,9 +29,3 @@ export interface RegistrationMatchSnapshot {
   }[];
   cases: string[];
 }
-
-export interface RegistrationIntakeEvidence {
-  documentKind: RegistrationDocumentKind;
-  warnings: RegistrationProviderWarning[];
-  fields: Record<string, RegistrationFieldEvidence>;
-}

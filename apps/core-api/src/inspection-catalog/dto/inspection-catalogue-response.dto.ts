@@ -56,14 +56,6 @@ export class ActivateInspectionCatalogueResponseDto {
   replay!: boolean;
 }
 
-export class CatalogueReferenceQueryItemDto {
-  @ApiProperty()
-  position_id!: string;
-
-  @ApiProperty({ nullable: true })
-  entry_id!: string | null;
-}
-
 export class CatalogueReferenceResolutionDto {
   @ApiProperty()
   position_id!: string;

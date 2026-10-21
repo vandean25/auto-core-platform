@@ -5,11 +5,7 @@ import type {
 } from '@prisma/client';
 import { consentProofRetainUntil } from './customer-consent-retention-core.helpers.js';
 
-export {
-  addCalendarYearsPreservingDate,
-  consentProofRetainUntil,
-  CUSTOMER_CONSENT_PROOF_RETENTION_YEARS,
-} from './customer-consent-retention-core.helpers.js';
+export { consentProofRetainUntil } from './customer-consent-retention-core.helpers.js';
 
 export async function stampProofChainRetainUntil(
   tx: Prisma.TransactionClient,

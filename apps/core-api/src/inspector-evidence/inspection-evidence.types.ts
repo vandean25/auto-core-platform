@@ -1,7 +1,5 @@
 export const INSPECTOR_EVIDENCE_SCHEMA_VERSION = 'acp-inspector-evidence/1';
 
-export const MAX_REVIEW_FRESHNESS_MS = 30 * 24 * 60 * 60 * 1000;
-
 export type InspectorEvidenceReviewState =
   'UNREVIEWED' | 'EVIDENCE_REVIEWED' | 'SOURCE_CONFLICT';
 

@@ -35,8 +35,3 @@ export type ListSiteEstimateVersionsPageRequest =
     pageSize: number;
     cursor?: string;
   };
-
-export type ListSiteEstimateVersionsPage = {
-  rows: SiteEstimateVersionListRow[];
-  nextCursor: string | null;
-};

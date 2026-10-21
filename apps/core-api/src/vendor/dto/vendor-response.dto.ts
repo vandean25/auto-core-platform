@@ -1,6 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { BrandResponseDto } from '../../brand/dto/brand-response.dto.js';
-import { PaginationMetaDto } from '../../common/dto/paginated-response.dto.js';
 
 export class VendorResponseDto {
   @ApiProperty()
@@ -23,12 +22,4 @@ export class VendorResponseDto {
 
   @ApiProperty()
   updatedAt!: Date;
-}
-
-export class VendorPaginatedResponseDto {
-  @ApiProperty({ type: [VendorResponseDto] })
-  data!: VendorResponseDto[];
-
-  @ApiProperty({ type: PaginationMetaDto })
-  meta!: PaginationMetaDto;
 }

@@ -1,5 +1,4 @@
 export const SLOT_MINUTES = [15, 30, 60] as const;
-export type SlotMinutes = (typeof SLOT_MINUTES)[number];
 
 export const HH_MM = /^([01]\d|2[0-3]):[0-5]\d$/;
 

@@ -233,9 +233,3 @@ export function arrangeApply(
     }),
   );
 }
-
-export const ENTITY_TYPES = {
-  customer: ImportEntityType.CUSTOMER,
-  vehicle: ImportEntityType.VEHICLE,
-  supplier: ImportEntityType.SUPPLIER_PRICE_LIST,
-} as const;
