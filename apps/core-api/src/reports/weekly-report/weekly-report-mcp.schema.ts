@@ -49,7 +49,3 @@ export const generateWeeklyReportPdfInputSchema = z
       });
     }
   });
-
-export type GenerateWeeklyReportPdfMcpInput = z.infer<
-  typeof generateWeeklyReportPdfInputSchema
->;
