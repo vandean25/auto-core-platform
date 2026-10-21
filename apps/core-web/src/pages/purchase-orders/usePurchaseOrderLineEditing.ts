@@ -44,7 +44,7 @@ export function usePurchaseOrderLineEditing(
     [id],
   )
 
-  const { saveStatus, triggerAutoSave } = useDebouncedAutoSave({
+  const { saveStatus, triggerAutoSave, clearPendingSave } = useDebouncedAutoSave({
     enabled: po?.status === "DRAFT",
     save: saveLineQuantity,
     shouldSave: (snapshot) => Number.isFinite(snapshot.quantity) && snapshot.quantity > 0,
@@ -83,6 +83,7 @@ export function usePurchaseOrderLineEditing(
           received: item.quantity_received,
         }),
       });
+      clearPendingSave();
       cancelEditing();
       return;
     }
