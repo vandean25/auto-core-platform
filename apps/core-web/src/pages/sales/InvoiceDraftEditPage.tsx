@@ -48,16 +48,34 @@ export default function InvoiceDraftEditPage() {
   const { id: invoiceId } = useParams<{ id: string }>()
   const record = useInvoiceDraftRecord(invoiceId)
   const { editor, updateInvoiceMutation } = record
+  const draftNotesRef = React.useRef<string | undefined>(undefined)
+  const buildPayload = React.useCallback(() => {
+    if (!editor.customer) return null
+    return {
+      customerId: editor.customer.id,
+      items: editor.items.map((item) => ({
+        catalogItemId: item.catalog_item_id,
+        description: item.description,
+        quantity: item.quantity,
+        unitPrice: item.unit_price,
+        taxRate: item.tax_rate,
+      })),
+      notes: draftNotesRef.current,
+    }
+  }, [editor.customer, editor.items])
   const autosave = useInvoiceDraftAutosave({
     invoiceId,
     invoice: record.invoice,
     editor,
     updateInvoiceMutation,
+    buildPayload,
+    draftNotesRef,
   })
   const finalize = useInvoiceFinalize({
     invoiceId,
     hasCustomer: Boolean(editor.customer),
     autosave,
+    buildPayload,
     updateInvoiceMutation,
   })
   const partSearch = useInvoicePartSearch(editor.updateItem)

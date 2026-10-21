@@ -8,33 +8,49 @@ import type { useInvoiceEditor } from "@/hooks/useInvoiceEditor"
 type InvoiceEditor = ReturnType<typeof useInvoiceEditor>
 type UpdateInvoiceMutation = ReturnType<typeof useUpdateInvoice>
 
+/** The draft as the server saves it. The page builds it from the editor. */
+export interface InvoiceDraftPayload {
+  customerId: string
+  items: {
+    catalogItemId: string | undefined
+    description: string
+    quantity: number
+    unitPrice: number
+    taxRate: number
+  }[]
+  notes: string | undefined
+}
+
 interface UseInvoiceDraftAutosaveOptions {
   invoiceId: string | undefined
   invoice: Invoice | undefined
   editor: InvoiceEditor
   updateInvoiceMutation: UpdateInvoiceMutation
+  buildPayload: () => InvoiceDraftPayload | null
+  draftNotesRef: { current: string | undefined }
 }
 
 /**
  * Loads the saved draft into the editor, then saves edits to it.
- * Returns the save status and the payload helpers that finalize uses.
+ * Returns the save status and the controls that finalize uses.
  */
 export function useInvoiceDraftAutosave({
   invoiceId,
   invoice,
   editor,
   updateInvoiceMutation,
+  buildPayload,
+  draftNotesRef,
 }: UseInvoiceDraftAutosaveOptions) {
   const lastSavedRef = React.useRef<string | null>(null)
   const hydratedRef = React.useRef(false)
-  const draftNotesRef = React.useRef<string | undefined>(undefined)
   const updateMutationRef = React.useRef(updateInvoiceMutation)
 
   React.useEffect(() => {
     hydratedRef.current = false
     lastSavedRef.current = null
     draftNotesRef.current = undefined
-  }, [invoiceId])
+  }, [invoiceId, draftNotesRef])
 
   React.useEffect(() => {
     updateMutationRef.current = updateInvoiceMutation
@@ -72,25 +88,10 @@ export function useInvoiceDraftAutosave({
         })
       : null
     hydratedRef.current = true
-  }, [invoice, editor])
-
-  const buildPayload = React.useCallback(() => {
-    if (!editor.customer) return null
-    return {
-      customerId: editor.customer.id,
-      items: editor.items.map((item) => ({
-        catalogItemId: item.catalog_item_id,
-        description: item.description,
-        quantity: item.quantity,
-        unitPrice: item.unit_price,
-        taxRate: item.tax_rate,
-      })),
-      notes: draftNotesRef.current,
-    }
-  }, [editor.customer, editor.items])
+  }, [invoice, editor, draftNotesRef])
 
   const saveDraft = React.useCallback(
-    async (payload: NonNullable<ReturnType<typeof buildPayload>>, signal: AbortSignal) => {
+    async (payload: InvoiceDraftPayload, signal: AbortSignal) => {
       if (!invoiceId) return
       const serialized = JSON.stringify(payload)
       if (serialized === lastSavedRef.current) return
@@ -122,5 +123,5 @@ export function useInvoiceDraftAutosave({
     triggerAutoSave(payload)
   }, [buildPayload, triggerAutoSave])
 
-  return { saveStatus, buildPayload, clearPendingSave, abortInFlightSave }
+  return { saveStatus, clearPendingSave, abortInFlightSave }
 }

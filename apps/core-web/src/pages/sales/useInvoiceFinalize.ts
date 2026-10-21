@@ -9,7 +9,7 @@ import { translateSalesApiError } from "@/features/sales/sales-api-error-i18n"
 import { APP_ROUTE_PATHS } from "@/lib/app-route-paths"
 import { assertFinalizedInvoice } from "@/lib/invoice-finalize"
 import { toastSuccessWithOpen } from "@/lib/toast-actions"
-import type { useInvoiceDraftAutosave } from "./useInvoiceDraftAutosave"
+import type { InvoiceDraftPayload, useInvoiceDraftAutosave } from "./useInvoiceDraftAutosave"
 
 type DraftAutosave = ReturnType<typeof useInvoiceDraftAutosave>
 type UpdateInvoiceMutation = ReturnType<typeof useUpdateInvoice>
@@ -18,6 +18,7 @@ interface UseInvoiceFinalizeOptions {
   invoiceId: string | undefined
   hasCustomer: boolean
   autosave: DraftAutosave
+  buildPayload: () => InvoiceDraftPayload | null
   updateInvoiceMutation: UpdateInvoiceMutation
 }
 
@@ -26,6 +27,7 @@ export function useInvoiceFinalize({
   invoiceId,
   hasCustomer,
   autosave,
+  buildPayload,
   updateInvoiceMutation,
 }: UseInvoiceFinalizeOptions) {
   const { t } = useTranslation("sales")
@@ -68,7 +70,7 @@ export function useInvoiceFinalize({
       return
     }
 
-    const payload = autosave.buildPayload()
+    const payload = buildPayload()
     if (!payload) {
       toast.error(t("invoices.draft.incompleteDraft"))
       return

@@ -30,33 +30,29 @@ const invoice = {
   ],
 } as unknown as Invoice
 
-const line = {
-  tempId: 'line-1',
-  id: 'line-1',
-  catalog_item_id: undefined,
-  description: 'Brake pads',
-  quantity: 1,
-  unit_price: 1,
-  tax_rate: 20,
-}
-
 const editorWith = (overrides: Partial<Editor> = {}) =>
   ({
     customer,
-    items: [line],
+    items: [],
     hydrateFromSnapshot: vi.fn(),
     ...overrides,
   }) as unknown as Editor
 
-const renderAutosave = (editor: Editor) =>
-  renderHook(() =>
+const renderAutosave = (editor: Editor = editorWith()) => {
+  const buildPayload = vi.fn(() => null)
+  const draftNotesRef: { current: string | undefined } = { current: undefined }
+  const hook = renderHook(() =>
     useInvoiceDraftAutosave({
       invoiceId: 'inv-1',
       invoice,
       editor,
       updateInvoiceMutation: { mutateAsync: vi.fn() } as unknown as UpdateMutation,
+      buildPayload,
+      draftNotesRef,
     }),
   )
+  return { ...hook, buildPayload, draftNotesRef }
+}
 
 describe('useInvoiceDraftAutosave', () => {
   it('loads the saved draft into the editor', () => {
@@ -80,24 +76,20 @@ describe('useInvoiceDraftAutosave', () => {
     )
   })
 
-  it('builds the draft payload from the editor, with the saved notes', () => {
-    const { result } = renderAutosave(editorWith())
+  it('keeps the saved notes in the ref the page builds the payload from', () => {
+    const { draftNotesRef } = renderAutosave()
 
-    expect(result.current.buildPayload()).toEqual({
-      customerId: 'cust-1',
-      items: [{ catalogItemId: undefined, description: 'Brake pads', quantity: 1, unitPrice: 1, taxRate: 20 }],
-      notes: 'Danke',
-    })
+    expect(draftNotesRef.current).toBe('Danke')
   })
 
-  it('builds no payload without a customer', () => {
-    const { result } = renderAutosave(editorWith({ customer: null }))
+  it('asks the page for the draft payload once the draft is loaded', () => {
+    const { buildPayload } = renderAutosave()
 
-    expect(result.current.buildPayload()).toBeNull()
+    expect(buildPayload).toHaveBeenCalled()
   })
 
   it('starts idle', () => {
-    const { result } = renderAutosave(editorWith())
+    const { result } = renderAutosave()
 
     expect(result.current.saveStatus).toBe('idle')
   })

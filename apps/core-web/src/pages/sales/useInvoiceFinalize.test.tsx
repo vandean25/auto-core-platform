@@ -20,7 +20,6 @@ type FinalizeMutation = ReturnType<typeof salesApi.useFinalizeInvoice>
 const autosaveWith = (overrides: Partial<Autosave> = {}): Autosave =>
   ({
     saveStatus: 'idle',
-    buildPayload: vi.fn(() => ({ customerId: 'cust-1', items: [], notes: undefined })),
     clearPendingSave: vi.fn(),
     abortInFlightSave: vi.fn(),
     ...overrides,
@@ -45,6 +44,7 @@ const renderFinalize = ({ hasCustomer = true, autosave = autosaveWith() } = {}) 
         invoiceId: 'inv-1',
         hasCustomer,
         autosave,
+        buildPayload: () => ({ customerId: 'cust-1', items: [], notes: undefined }),
         updateInvoiceMutation: { mutateAsync: vi.fn() } as unknown as ReturnType<typeof salesApi.useUpdateInvoice>,
       }),
     { wrapper },
