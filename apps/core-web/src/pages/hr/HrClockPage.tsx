@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import type { UseQueryResult } from '@tanstack/react-query'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
@@ -11,6 +12,8 @@ import { useAuthSession } from '@/api/auth-session'
 import {
   type AttendanceEvent,
   type HrApiError,
+  type HrClockResponse,
+  type HrMeResponse,
   useHrAttendance,
   useHrEmployeeClock,
   useHrMe,
@@ -273,76 +276,130 @@ function ManagerAttendanceSection({
   )
 }
 
-export default function HrClockPage() {
-  const { t } = useTranslation('hr')
-  useEffect(() => { void ensureNamespaceLoaded('hr') }, [])
+type ClockQuery = Pick<UseQueryResult<HrClockResponse, HrApiError>, 'data' | 'error' | 'isLoading' | 'isFetching'>
+type MeQuery = Pick<UseQueryResult<HrMeResponse, HrApiError>, 'data' | 'error' | 'isLoading'>
+type ClockView = 'missing' | 'loading' | 'error' | 'content'
 
-  const sessionQuery = useAuthSession()
-  const meQuery = useHrMe()
-  const clockQuery = useHrMeClock()
-  const punchClockMutation = usePunchClock()
-  const punchEmployeeMutation = usePunchEmployeeClock()
-  const [selectedEmployeeIdState, setSelectedEmployeeId] = useState<string | null>(null)
+function isClockUnavailable(query: ClockQuery): boolean {
+  return query.isLoading || query.isFetching || Boolean(query.error) || !query.data
+}
 
-  const activeRole = sessionQuery.data?.activeRole
-  const canManageAttendance = isManagerRole(activeRole)
-  const clockResponse = clockQuery.data
-  const todayEvents = clockResponse?.todayEvents ?? []
-  const meEmployeeId = meQuery.data?.employee.id ?? ''
+function buildEmployeeOptions(
+  employees: readonly { id: string; name: string; isActive: boolean }[],
+  me: HrMeResponse | undefined,
+): EmployeeOption[] {
+  const options = employees
+    .filter((employee) => employee.isActive)
+    .map((employee) => ({ id: employee.id, name: employee.name }))
+
+  if (me && !options.some((employee) => employee.id === me.employee.id)) {
+    options.unshift({ id: me.employee.id, name: me.employee.name })
+  }
+
+  return options
+}
+
+function resolveClockView(
+  canManageAttendance: boolean,
+  isMissingEmployee: boolean,
+  meQuery: MeQuery,
+  clockQuery: ClockQuery,
+): ClockView {
+  if (isMissingEmployee) return 'missing'
+  if (canManageAttendance) return 'content'
+  if (meQuery.isLoading || clockQuery.isLoading) return 'loading'
+  if (meQuery.error || clockQuery.error || !meQuery.data || !clockQuery.data) return 'error'
+  return 'content'
+}
+
+function useClockEmployeeOptions(me: HrMeResponse | undefined) {
   const { data: employeeResponse, isLoading: isEmployeesLoading } = useEmployees({
     includeInactive: false,
     limit: 100,
   })
-  const employeeOptions = useMemo<EmployeeOption[]>(() => {
-    const options = (employeeResponse?.data ?? [])
-      .filter((employee) => employee.isActive)
-      .map((employee) => ({
-        id: employee.id,
-        name: employee.name,
-      }))
+  const employees = employeeResponse?.data
+  const employeeOptions = useMemo(() => buildEmployeeOptions(employees ?? [], me), [employees, me])
 
-    if (meQuery.data && !options.some((employee) => employee.id === meEmployeeId)) {
-      options.unshift({ id: meEmployeeId, name: meQuery.data.employee.name })
-    }
+  return { employeeOptions, isEmployeesLoading }
+}
 
-    return options
-  }, [employeeResponse?.data, meEmployeeId, meQuery.data])
-  const defaultEmployeeId = meEmployeeId || employeeOptions[0]?.id || ''
-  const selectedEmployeeId = selectedEmployeeIdState ?? defaultEmployeeId
-  const selectedEmployeeClockQuery = useHrEmployeeClock(
-    selectedEmployeeId && selectedEmployeeId !== meEmployeeId ? selectedEmployeeId : null,
+function useSelectedEmployeeId(meEmployeeId: string, employeeOptions: readonly EmployeeOption[]) {
+  const [selectedEmployeeIdState, setSelectedEmployeeId] = useState<string | null>(null)
+  const selectedEmployeeId = selectedEmployeeIdState ?? (meEmployeeId || employeeOptions[0]?.id || '')
+
+  return { selectedEmployeeId, setSelectedEmployeeId }
+}
+
+function useSelectedEmployeeClock(
+  selectedEmployeeId: string,
+  meEmployeeId: string,
+  ownClockQuery: ClockQuery,
+) {
+  const isSelfSelected = selectedEmployeeId === meEmployeeId
+  const otherClockQuery = useHrEmployeeClock(
+    selectedEmployeeId && !isSelfSelected ? selectedEmployeeId : null,
   )
-  const selectedClockResponse = selectedEmployeeId === meEmployeeId
-    ? clockResponse
-    : selectedEmployeeClockQuery.data
-  const selectedEmployeeState = selectedEmployeeId === meEmployeeId && meEmployeeId
-    ? clockResponse?.state
-    : selectedEmployeeClockQuery.data?.state
-  const selectedEmployeeClockUnavailable = !selectedEmployeeId || (
-    selectedEmployeeId === meEmployeeId && meEmployeeId
-      ? clockQuery.isLoading || clockQuery.isFetching || Boolean(clockQuery.error) || !clockResponse
-      : selectedEmployeeClockQuery.isLoading ||
-        selectedEmployeeClockQuery.isFetching ||
-        Boolean(selectedEmployeeClockQuery.error) ||
-        !selectedEmployeeClockQuery.data
-  )
-  const timezone = selectedClockResponse?.timezone ??
-    meQuery.data?.timezone ??
-    resolvedSystemTimeZone()
-  const today = getTenantLocalToday(todayEvents, timezone)
+  const selectedClockQuery = isSelfSelected && meEmployeeId ? ownClockQuery : otherClockQuery
+
+  return {
+    isSelfSelected,
+    response: isSelfSelected ? ownClockQuery.data : otherClockQuery.data,
+    state: selectedClockQuery.data?.state,
+    unavailable: !selectedEmployeeId || isClockUnavailable(selectedClockQuery),
+  }
+}
+
+function useEmployeeSelection(me: HrMeResponse | undefined, ownClockQuery: ClockQuery) {
+  const meEmployeeId = me?.employee.id ?? ''
+  const { employeeOptions, isEmployeesLoading } = useClockEmployeeOptions(me)
+  const { selectedEmployeeId, setSelectedEmployeeId } = useSelectedEmployeeId(meEmployeeId, employeeOptions)
+  const selectedClock = useSelectedEmployeeClock(selectedEmployeeId, meEmployeeId, ownClockQuery)
+
+  return { employeeOptions, isEmployeesLoading, selectedEmployeeId, setSelectedEmployeeId, ...selectedClock }
+}
+
+type EmployeeSelection = ReturnType<typeof useEmployeeSelection>
+
+function useLoadErrorToast(error: unknown, fallbackMessage: string) {
+  useEffect(() => {
+    if (!error || getErrorStatus(error) === 403) return
+    toast.error(getErrorMessage(error, fallbackMessage))
+  }, [error])
+}
+
+function useOwnClock(t: TFunction<'hr'>) {
+  const sessionQuery = useAuthSession()
+  const meQuery = useHrMe()
+  const clockQuery = useHrMeClock()
+  const canManageAttendance = isManagerRole(sessionQuery.data?.activeRole)
   const isMissingEmployee = !canManageAttendance && (
     getErrorStatus(meQuery.error) === 403 || getErrorStatus(clockQuery.error) === 403
   )
 
-  useEffect(() => {
-    if (!meQuery.error || getErrorStatus(meQuery.error) === 403) return
-    toast.error(getErrorMessage(meQuery.error, t('clock.toast.loadProfileFailed')))
-  }, [meQuery.error])
+  useLoadErrorToast(meQuery.error, t('clock.toast.loadProfileFailed'))
+  useLoadErrorToast(clockQuery.error, t('clock.toast.loadClockFailed'))
 
-  useEffect(() => {
-    if (!clockQuery.error || getErrorStatus(clockQuery.error) === 403) return
-    toast.error(getErrorMessage(clockQuery.error, t('clock.toast.loadClockFailed')))
-  }, [clockQuery.error])
+  return {
+    me: meQuery.data,
+    clockQuery,
+    canManageAttendance,
+    view: resolveClockView(canManageAttendance, isMissingEmployee, meQuery, clockQuery),
+    loadError: meQuery.error ?? clockQuery.error,
+    todayEvents: clockQuery.data?.todayEvents ?? [],
+    hasOwnClock: Boolean(meQuery.data && clockQuery.data),
+  }
+}
+
+function resolveClockTimezone(
+  selectedClock: HrClockResponse | undefined,
+  me: HrMeResponse | undefined,
+): string {
+  return selectedClock?.timezone ?? me?.timezone ?? resolvedSystemTimeZone()
+}
+
+function useClockPunchHandlers(t: TFunction<'hr'>, selection: EmployeeSelection) {
+  const punchClockMutation = usePunchClock()
+  const punchEmployeeMutation = usePunchEmployeeClock()
 
   const handleSelfPunch = (type: AttendanceEventType) => {
     punchClockMutation.mutate(
@@ -356,15 +413,15 @@ export default function HrClockPage() {
   }
 
   const handleManagerPunch = (type: AttendanceEventType) => {
-    if (selectedEmployeeClockUnavailable || !selectedEmployeeId) return
+    if (selection.unavailable || !selection.selectedEmployeeId) return
 
-    if (selectedEmployeeId === meEmployeeId) {
+    if (selection.isSelfSelected) {
       handleSelfPunch(type)
       return
     }
 
     punchEmployeeMutation.mutate(
-      { employeeId: selectedEmployeeId, type },
+      { employeeId: selection.selectedEmployeeId, type },
       {
         onError: (error) => {
           toast.error(getErrorMessage(error, t('clock.toast.punchEmployeeFailed')))
@@ -373,6 +430,142 @@ export default function HrClockPage() {
     )
   }
 
+  return {
+    handleSelfPunch,
+    handleManagerPunch,
+    isSelfPunchPending: punchClockMutation.isPending,
+    isManagerPunchPending: selection.isSelfSelected
+      ? punchClockMutation.isPending
+      : punchEmployeeMutation.isPending,
+  }
+}
+
+type ClockPunchHandlers = ReturnType<typeof useClockPunchHandlers>
+
+type ManagerPunchControlsProps = {
+  t: TFunction<'hr'>
+  selection: EmployeeSelection
+  punch: ClockPunchHandlers
+}
+
+function ManagerPunchControls({ t, selection, punch }: ManagerPunchControlsProps) {
+  return (
+    <div className='flex flex-col gap-3 sm:flex-row sm:items-end' data-testid='hr-clock-manager-actions'>
+      <div className='space-y-1'>
+        <label htmlFor='attendance-employee' className='text-sm font-medium'>{t('clock.employee')}</label>
+        <select
+          id='attendance-employee'
+          value={selection.selectedEmployeeId}
+          disabled={selection.isEmployeesLoading}
+          onChange={(event) => selection.setSelectedEmployeeId(event.target.value)}
+          className='flex h-10 min-w-48 rounded-md border border-input bg-background px-3 py-2 text-sm'
+        >
+          {selection.employeeOptions.map((employee) => (
+            <option key={employee.id} value={employee.id}>{employee.name}</option>
+          ))}
+        </select>
+      </div>
+      <AttendancePunchBar
+        state={selection.state ?? 'CLOCKED_OUT'}
+        statusLabel={selection.state ? undefined : t('clock.unavailable')}
+        disabled={selection.unavailable}
+        pending={punch.isManagerPunchPending}
+        onPunch={punch.handleManagerPunch}
+      />
+    </div>
+  )
+}
+
+type ClockHeaderActionsProps = {
+  t: TFunction<'hr'>
+  view: ClockView
+  canManageAttendance: boolean
+  ownClock: HrClockResponse | undefined
+  selection: EmployeeSelection
+  punch: ClockPunchHandlers
+}
+
+function ClockHeaderActions({ t, view, canManageAttendance, ownClock, selection, punch }: ClockHeaderActionsProps) {
+  if (view === 'missing') return null
+  if (canManageAttendance) return <ManagerPunchControls t={t} selection={selection} punch={punch} />
+
+  return ownClock ? (
+    <AttendancePunchBar
+      state={ownClock.state}
+      pending={punch.isSelfPunchPending}
+      onPunch={punch.handleSelfPunch}
+    />
+  ) : null
+}
+
+function TodayTimelineSection({ events, timezone, t }: { events: readonly AttendanceEvent[]; timezone: string; t: TFunction<'hr'> }) {
+  return (
+    <section className='space-y-3 rounded-lg border bg-white p-4' aria-labelledby='today-timeline-heading'>
+      <div>
+        <h2 id='today-timeline-heading' className='text-lg font-semibold'>{t('clock.todayTimeline')}</h2>
+        <p className='text-sm text-slate-500'>{t('clock.todayTimelineHint')}</p>
+      </div>
+      <TodayTimeline events={events} timezone={timezone} t={t} />
+    </section>
+  )
+}
+
+type ClockPageBodyProps = {
+  t: TFunction<'hr'>
+  view: ClockView
+  loadError: unknown
+  hasOwnClock: boolean
+  todayEvents: readonly AttendanceEvent[]
+  timezone: string
+  managerEmployeeId: string
+}
+
+function ClockPageBody({
+  t,
+  view,
+  loadError,
+  hasOwnClock,
+  todayEvents,
+  timezone,
+  managerEmployeeId,
+}: ClockPageBodyProps) {
+  if (view === 'missing') return <MissingEmployeeState t={t} />
+  if (view === 'loading') return <ClockPageSkeleton />
+  if (view === 'error') {
+    return (
+      <Alert variant='destructive'>
+        <AlertTitle>{t('clock.attendanceUnavailable')}</AlertTitle>
+        <AlertDescription>
+          {getErrorMessage(loadError, t('clock.toast.loadTimeClockFailed'))}
+        </AlertDescription>
+      </Alert>
+    )
+  }
+
+  return (
+    <>
+      {hasOwnClock ? <TodayTimelineSection events={todayEvents} timezone={timezone} t={t} /> : null}
+
+      {managerEmployeeId ? (
+        <ManagerAttendanceSection
+          t={t}
+          selectedEmployeeId={managerEmployeeId}
+          today={getTenantLocalToday(todayEvents, timezone)}
+          timezone={timezone}
+        />
+      ) : null}
+    </>
+  )
+}
+
+export default function HrClockPage() {
+  const { t } = useTranslation('hr')
+  useEffect(() => { void ensureNamespaceLoaded('hr') }, [])
+
+  const own = useOwnClock(t)
+  const selection = useEmployeeSelection(own.me, own.clockQuery)
+  const punch = useClockPunchHandlers(t, selection)
+
   return (
     <div className='space-y-6'>
       <div className='flex items-center justify-between gap-4' data-testid='hr-clock-header'>
@@ -380,75 +573,25 @@ export default function HrClockPage() {
           <h2 className='text-2xl font-semibold tracking-tight'>{t('clock.pageTitle')}</h2>
           <p className='text-slate-500'>{t('clock.pageDescription')}</p>
         </div>
-        {!canManageAttendance && clockResponse && !isMissingEmployee ? (
-          <AttendancePunchBar
-            state={clockResponse.state}
-            pending={punchClockMutation.isPending}
-            onPunch={handleSelfPunch}
-          />
-        ) : null}
-        {canManageAttendance && !isMissingEmployee ? (
-          <div className='flex flex-col gap-3 sm:flex-row sm:items-end' data-testid='hr-clock-manager-actions'>
-            <div className='space-y-1'>
-              <label htmlFor='attendance-employee' className='text-sm font-medium'>{t('clock.employee')}</label>
-              <select
-                id='attendance-employee'
-                value={selectedEmployeeId}
-                disabled={isEmployeesLoading}
-                onChange={(event) => setSelectedEmployeeId(event.target.value)}
-                className='flex h-10 min-w-48 rounded-md border border-input bg-background px-3 py-2 text-sm'
-              >
-                {employeeOptions.map((employee) => (
-                  <option key={employee.id} value={employee.id}>{employee.name}</option>
-                ))}
-              </select>
-            </div>
-            <AttendancePunchBar
-              state={selectedEmployeeState ?? 'CLOCKED_OUT'}
-              statusLabel={selectedEmployeeState ? undefined : t('clock.unavailable')}
-              disabled={selectedEmployeeClockUnavailable}
-              pending={selectedEmployeeId === meEmployeeId
-                ? punchClockMutation.isPending
-                : punchEmployeeMutation.isPending}
-              onPunch={handleManagerPunch}
-            />
-          </div>
-        ) : null}
+        <ClockHeaderActions
+          t={t}
+          view={own.view}
+          canManageAttendance={own.canManageAttendance}
+          ownClock={own.clockQuery.data}
+          selection={selection}
+          punch={punch}
+        />
       </div>
 
-      {isMissingEmployee ? (
-        <MissingEmployeeState t={t} />
-      ) : !canManageAttendance && (meQuery.isLoading || clockQuery.isLoading) ? (
-        <ClockPageSkeleton />
-      ) : !canManageAttendance && (meQuery.error || clockQuery.error || !meQuery.data || !clockResponse) ? (
-        <Alert variant='destructive'>
-          <AlertTitle>{t('clock.attendanceUnavailable')}</AlertTitle>
-          <AlertDescription>
-            {getErrorMessage(meQuery.error ?? clockQuery.error, t('clock.toast.loadTimeClockFailed'))}
-          </AlertDescription>
-        </Alert>
-      ) : (
-        <>
-          {meQuery.data && clockResponse ? (
-            <section className='space-y-3 rounded-lg border bg-white p-4' aria-labelledby='today-timeline-heading'>
-              <div>
-                <h2 id='today-timeline-heading' className='text-lg font-semibold'>{t('clock.todayTimeline')}</h2>
-                <p className='text-sm text-slate-500'>{t('clock.todayTimelineHint')}</p>
-              </div>
-              <TodayTimeline events={todayEvents} timezone={timezone} t={t} />
-            </section>
-          ) : null}
-
-          {canManageAttendance && selectedEmployeeId ? (
-            <ManagerAttendanceSection
-              t={t}
-              selectedEmployeeId={selectedEmployeeId}
-              today={today}
-              timezone={timezone}
-            />
-          ) : null}
-        </>
-      )}
+      <ClockPageBody
+        t={t}
+        view={own.view}
+        loadError={own.loadError}
+        hasOwnClock={own.hasOwnClock}
+        todayEvents={own.todayEvents}
+        timezone={resolveClockTimezone(selection.response, own.me)}
+        managerEmployeeId={own.canManageAttendance ? selection.selectedEmployeeId : ''}
+      />
     </div>
   )
 }
