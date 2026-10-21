@@ -20,7 +20,7 @@ import {
 import type { Readable } from 'node:stream';
 import * as Sentry from '@sentry/node';
 import { ApiPaginatedResponse } from '../common/dto/paginated-response.dto.js';
-import { PdfWorker } from '../common/index.js';
+import { PdfWorker } from '../common/pdf/index.js';
 import { CreditNotePdfService } from './credit-note-pdf.service.js';
 import { CreditNotesService } from './credit-notes.service.js';
 import {

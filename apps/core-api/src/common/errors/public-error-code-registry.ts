@@ -17,10 +17,6 @@ export function isPublicWireErrorCode(code: string): boolean {
   return PUBLIC_ERROR_CODE_REGISTRY.codes[code]?.public === true;
 }
 
-export function allowedErrorParamsForCode(code: string): readonly string[] {
-  return PUBLIC_ERROR_CODE_REGISTRY.codes[code]?.params ?? [];
-}
-
 export function listPublicWireErrorCodes(): string[] {
   return Object.entries(PUBLIC_ERROR_CODE_REGISTRY.codes)
     .filter(([, entry]) => entry.public)

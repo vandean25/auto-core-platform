@@ -14,7 +14,7 @@ import {
 } from '@nestjs/common';
 import { ApiOkResponse, ApiProduces, ApiTags } from '@nestjs/swagger';
 import * as Sentry from '@sentry/node';
-import { PdfWorker } from '../common/index.js';
+import { PdfWorker } from '../common/pdf/index.js';
 import { VehicleSaleService } from './vehicle-sale.service.js';
 import { VehicleSaleTradeInService } from './vehicle-sale-trade-in.service.js';
 import { VehicleSaleKaufvertragPdfService } from './kaufvertrag/kaufvertrag-pdf.service.js';

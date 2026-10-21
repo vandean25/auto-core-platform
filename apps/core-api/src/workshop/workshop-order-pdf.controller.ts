@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { PdfWorker } from '../common/index.js';
+import { PdfWorker } from '../common/pdf/index.js';
 import { WorkshopPdfGenerationResponseDto } from './dto/index.js';
 import * as pdf from './workshop-pdf.service.js';
 import {
