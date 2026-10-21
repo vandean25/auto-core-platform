@@ -31,8 +31,16 @@ export function createSentryOptions(env: SentryEnv): BrowserOptions {
     dsn,
     environment,
     release,
-    // v11 replaces sendDefaultPii, and its defaults collect user info, cookies, headers and bodies.
-    dataCollection: { userInfo: false, cookies: false, httpHeaders: false, httpBodies: [] },
+    // v11 replaces sendDefaultPii. Keeps v10's browser data (User-Agent and Referer) and turns the rest off.
+    dataCollection: {
+      userInfo: false,
+      cookies: false,
+      httpHeaders: { request: { allow: ['user-agent', 'referer'] }, response: false },
+      httpBodies: [],
+      genAI: { inputs: false, outputs: false },
+      databaseQueryData: false,
+      frameContextLines: 7,
+    },
     tracesSampleRate,
     tracePropagationTargets: propagationTargets,
     replaysSessionSampleRate: 0.1,

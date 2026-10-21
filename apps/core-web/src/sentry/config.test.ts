@@ -18,8 +18,11 @@ describe('createSentryOptions', () => {
     expect(options.dataCollection).toEqual({
       userInfo: false,
       cookies: false,
-      httpHeaders: false,
+      httpHeaders: { request: { allow: ['user-agent', 'referer'] }, response: false },
       httpBodies: [],
+      genAI: { inputs: false, outputs: false },
+      databaseQueryData: false,
+      frameContextLines: 7,
     })
     expect(options.tracesSampleRate).toBe(0.1)
     expect(options.tracePropagationTargets).toEqual([
