@@ -1,32 +1,20 @@
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { useSearchParams } from "react-router-dom"
-import { format } from "date-fns"
-import { Loader2, Save, AlertTriangle } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
 
 import { useAuthSession } from "@/api/auth-session"
-import { useFinanceSettings, useUpdateFinanceSettings, useRevenueGroups } from "@/api/useFinance"
+import { useRevenueGroups } from "@/api/useFinance"
 import { useBrands } from "@/api/brands"
 import { useLocationTree, useCreateLocation, useDeleteLocation, type StorageLocation, type LocationType } from "@/api/locations"
 import { SettingsSectionHeading } from "@/components/settings/SettingsSectionHeading"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle
-} from "@/components/ui/alert-dialog"
 import { RevenueGroupTable } from "@/components/RevenueGroupTable"
 import { AddRevenueGroupDialog } from "@/components/AddRevenueGroupDialog"
 import { BrandTable } from "@/components/BrandTable"
@@ -40,7 +28,6 @@ import { TeamSettingsTab } from "@/components/settings/TeamSettingsTab"
 import { ApiKeysSettingsTab } from "@/components/settings/ApiKeysSettingsTab"
 import { VoiceTranslationSettingsTab } from "@/components/settings/VoiceTranslationSettingsTab"
 import { AuditLogsTab } from "@/components/settings/AuditLogsTab"
-import { AccountingExportSettingsPanel } from "@/components/settings/accounting-export-settings-panel"
 import { LegalEntitiesSettingsTab } from "@/components/settings/LegalEntitiesSettingsTab"
 import { SitesSettingsTab } from "@/components/settings/sites-settings-tab"
 import { VehicleDataSettingsPanel } from "@/components/settings/vehicle-data-settings-panel"
@@ -49,8 +36,10 @@ import { DataImportSettingsTab } from "@/components/settings/data-import/DataImp
 import { cn } from "@/lib/utils"
 import { getErrorMessage } from "@/lib/error-utils"
 import { ensureNamespaceLoaded } from "@/lib/i18n"
-import type { Brand } from "@/api/types"
+import type { Brand, RevenueGroup } from "@/api/types"
 import { Folder, ChevronRight, ChevronDown, Box, Trash2 } from "lucide-react"
+import { FinanceSettingsTab, LockDateAlertDialog, useFinanceSettingsForm } from "./settings-finance-tab"
+import { getVisibleTabs, type SettingsTab } from "./settings-page-tabs"
 
 // ─── Location Tree Item (reused from former LocationManagement) ────────────
 const LocationTreeItem = ({
@@ -285,10 +274,58 @@ function StorageLocationsTab() {
     )
 }
 
-// ─── Main Settings Page ────────────────────────────────────────────────────
-const VALID_TABS = ["finance", "voice-translation", "revenue-groups", "brands", "legal-entities", "sites", "locations", "employees", "bays", "hours", "labor", "vehicle-data", "margin-rules", "data-import", "team", "api-keys", "audit-logs"] as const
-type SettingsTab = typeof VALID_TABS[number]
+// ─── Revenue Groups Tab ────────────────────────────────────────────────────
+function RevenueGroupsTab({ groups, isLoading }: { groups: RevenueGroup[] | undefined; isLoading: boolean }) {
+    const { t } = useTranslation(['settings', 'common'])
 
+    return (
+        <div className="p-6 bg-white border rounded-lg shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+                <SettingsSectionHeading
+                    title={t('revenueGroups.title')}
+                    description={t('revenueGroups.description')}
+                />
+                <AddRevenueGroupDialog />
+            </div>
+            {isLoading ? (
+                <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+            ) : (
+                <RevenueGroupTable groups={groups || []} />
+            )}
+        </div>
+    )
+}
+
+// ─── Brands Tab ────────────────────────────────────────────────────────────
+function BrandsTab({ brands, isLoading }: { brands: Brand[] | undefined; isLoading: boolean }) {
+    const { t } = useTranslation(['settings', 'common'])
+    const [editingBrand, setEditingBrand] = React.useState<Brand | null>(null)
+
+    return (
+        <div className="p-6 bg-white border rounded-lg shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+                <div>
+                    <SettingsSectionHeading
+                        title={t('brands.title')}
+                        description={t('brands.description')}
+                    />
+                </div>
+                <AddBrandDialog brand={editingBrand} onClose={() => setEditingBrand(null)} />
+            </div>
+            {isLoading ? (
+                <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+            ) : (
+                <BrandTable brands={brands || []} onEdit={setEditingBrand} />
+            )}
+        </div>
+    )
+}
+
+// ─── Main Settings Page ────────────────────────────────────────────────────
 export default function SettingsPage() {
     const { t } = useTranslation(['settings', 'common'])
     React.useEffect(() => {
@@ -296,72 +333,60 @@ export default function SettingsPage() {
     }, [])
     const sessionQuery = useAuthSession()
     const [searchParams, setSearchParams] = useSearchParams()
-    const rawTab = searchParams.get("tab")
     const canManageTeam = sessionQuery.data?.activeRole === 'ADMIN' || sessionQuery.data?.activeRole === 'OWNER'
-    const canManageVehicleData = canManageTeam
-    const requestedTab = VALID_TABS.includes(rawTab as SettingsTab) ? (rawTab as SettingsTab) : "finance"
-    const activeTab: SettingsTab =
-        requestedTab === 'team' && !canManageTeam ? 'finance'
-        : requestedTab === 'api-keys' && !canManageTeam ? 'finance'
-        : requestedTab === 'vehicle-data' && !canManageVehicleData ? 'finance'
-        : requestedTab === 'margin-rules' && !canManageTeam ? 'finance'
-        : requestedTab === 'data-import' && !canManageTeam ? 'finance'
-        : (requestedTab === 'legal-entities' || requestedTab === 'sites') && !canManageTeam ? 'finance'
-        : requestedTab
+    const visibleTabs = getVisibleTabs(canManageTeam)
+    const activeTab = visibleTabs.find(tab => tab === searchParams.get("tab")) ?? "finance"
 
-    // ── Finance state ──
-    const { data: settings, isLoading } = useFinanceSettings()
+    const finance = useFinanceSettingsForm()
     const { data: groups, isLoading: isLoadingGroups } = useRevenueGroups()
     const { data: brands, isLoading: isLoadingBrands } = useBrands()
-    const updateMutation = useUpdateFinanceSettings()
-
-    const [formState, setFormState] = React.useState({
-        lock_date: "",
-        invoice_prefix: "",
-        next_invoice_number: 0
-    })
-    const [isAlertOpen, setIsAlertOpen] = React.useState(false)
-    const [editingBrand, setEditingBrand] = React.useState<Brand | null>(null)
-
-    React.useEffect(() => {
-        if (settings) {
-            setFormState({
-                lock_date: settings.lock_date ? format(new Date(settings.lock_date), 'yyyy-MM-dd') : "",
-                invoice_prefix: settings.invoice_prefix,
-                next_invoice_number: settings.next_invoice_number
-            })
-        }
-    }, [settings])
-
-    const handleSaveRequest = (e: React.FormEvent) => {
-        e.preventDefault()
-        if (settings?.lock_date && formState.lock_date && new Date(formState.lock_date) > new Date(settings.lock_date)) {
-            setIsAlertOpen(true)
-        } else {
-            handleSave()
-        }
-    }
-
-    const handleSave = async () => {
-        try {
-            await updateMutation.mutateAsync({
-                lock_date: formState.lock_date || null,
-                invoice_prefix: formState.invoice_prefix,
-                next_invoice_number: formState.next_invoice_number
-            })
-            toast.success(t('finance.toast.updated'))
-            setIsAlertOpen(false)
-        } catch (error) {
-            toast.error(t('finance.toast.updateFailed'))
-        }
-    }
-
-    const handleTabChange = (value: string) => {
-        setSearchParams({ tab: value })
-    }
 
     if (sessionQuery.isLoading) {
         return <PageLoader />
+    }
+
+    const tabLabels: Record<SettingsTab, string> = {
+        "finance": t('tabs.finance'),
+        "voice-translation": t('tabs.voiceTranslation'),
+        "revenue-groups": t('tabs.revenueGroups'),
+        "brands": t('tabs.brands'),
+        "legal-entities": t('tabs.legalEntities'),
+        "sites": t('tabs.sites'),
+        "locations": t('tabs.locations'),
+        "employees": t('tabs.employees'),
+        "bays": t('tabs.bays'),
+        "hours": t('tabs.hours'),
+        "labor": t('tabs.labor'),
+        "vehicle-data": t('tabs.vehicleData'),
+        "margin-rules": t('tabs.marginRules'),
+        "data-import": t('tabs.dataImport'),
+        "team": t('tabs.team'),
+        "api-keys": t('tabs.apiKeys'),
+        "audit-logs": t('tabs.auditLogs')
+    }
+
+    const tabPanels: Record<SettingsTab, React.ReactNode> = {
+        "finance": <FinanceSettingsTab form={finance} canManageExports={canManageTeam} />,
+        "voice-translation": <VoiceTranslationSettingsTab />,
+        "revenue-groups": <RevenueGroupsTab groups={groups} isLoading={isLoadingGroups} />,
+        "brands": <BrandsTab brands={brands} isLoading={isLoadingBrands} />,
+        "legal-entities": <LegalEntitiesSettingsTab />,
+        "sites": <SitesSettingsTab />,
+        "locations": <StorageLocationsTab />,
+        "employees": <EmployeeSettingsTab />,
+        "bays": <BaySettingsTab />,
+        "hours": <WorkshopHoursSettingsPanel />,
+        "labor": <LaborCategoriesTab />,
+        "vehicle-data": <VehicleDataSettingsPanel />,
+        "margin-rules": <MarginRulesTab />,
+        "data-import": <DataImportSettingsTab />,
+        "team": <TeamSettingsTab />,
+        "api-keys": <ApiKeysSettingsTab />,
+        "audit-logs": (
+            <div className="p-6 bg-white border rounded-lg shadow-sm">
+                <AuditLogsTab />
+            </div>
+        )
     }
 
     return (
@@ -373,245 +398,21 @@ export default function SettingsPage() {
                 </div>
             </div>
 
-            <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
+            <Tabs value={activeTab} onValueChange={(value) => setSearchParams({ tab: value })} className="space-y-6">
                 <TabsList className="flex h-auto w-full max-w-[1300px] justify-start gap-1 overflow-x-auto">
-                    <TabsTrigger className="shrink-0" value="finance">{t('tabs.finance')}</TabsTrigger>
-                    <TabsTrigger className="shrink-0" value="voice-translation">{t('tabs.voiceTranslation')}</TabsTrigger>
-                    <TabsTrigger className="shrink-0" value="revenue-groups">{t('tabs.revenueGroups')}</TabsTrigger>
-                    <TabsTrigger className="shrink-0" value="brands">{t('tabs.brands')}</TabsTrigger>
-                    {canManageTeam ? <TabsTrigger className="shrink-0" value="legal-entities">{t('tabs.legalEntities')}</TabsTrigger> : null}
-                    {canManageTeam ? <TabsTrigger className="shrink-0" value="sites">{t('tabs.sites')}</TabsTrigger> : null}
-                    <TabsTrigger className="shrink-0" value="locations">{t('tabs.locations')}</TabsTrigger>
-                    <TabsTrigger className="shrink-0" value="employees">{t('tabs.employees')}</TabsTrigger>
-                    <TabsTrigger className="shrink-0" value="bays">{t('tabs.bays')}</TabsTrigger>
-                    <TabsTrigger className="shrink-0" value="hours">{t('tabs.hours')}</TabsTrigger>
-                    <TabsTrigger className="shrink-0" value="labor">{t('tabs.labor')}</TabsTrigger>
-                    {canManageVehicleData ? <TabsTrigger className="shrink-0" value="vehicle-data">{t('tabs.vehicleData')}</TabsTrigger> : null}
-                    {canManageTeam ? <TabsTrigger className="shrink-0" value="margin-rules">{t('tabs.marginRules')}</TabsTrigger> : null}
-                    {canManageTeam ? <TabsTrigger className="shrink-0" value="data-import">{t('tabs.dataImport')}</TabsTrigger> : null}
-                    {canManageTeam ? <TabsTrigger className="shrink-0" value="team">{t('tabs.team')}</TabsTrigger> : null}
-                    {canManageTeam ? <TabsTrigger className="shrink-0" value="api-keys">{t('tabs.apiKeys')}</TabsTrigger> : null}
-                    <TabsTrigger className="shrink-0" value="audit-logs">{t('tabs.auditLogs')}</TabsTrigger>
+                    {visibleTabs.map(tab => (
+                        <TabsTrigger key={tab} className="shrink-0" value={tab}>{tabLabels[tab]}</TabsTrigger>
+                    ))}
                 </TabsList>
 
-                {/* ── Finance Tab ── */}
-                <TabsContent value="finance" className="space-y-6">
-                    <Tabs defaultValue="fiscal" className="space-y-6">
-                        <TabsList>
-                            <TabsTrigger value="fiscal">{t('finance.subTabs.fiscal')}</TabsTrigger>
-                            {canManageTeam ? (
-                                <TabsTrigger value="accounting-export">{t('finance.subTabs.accountingExport')}</TabsTrigger>
-                            ) : null}
-                        </TabsList>
-                        <TabsContent value="fiscal" className="space-y-6">
-                    {isLoading ? (
-                        <div className="flex items-center justify-center min-h-[200px]">
-                            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                        </div>
-                    ) : (
-                    <form onSubmit={handleSaveRequest} className="space-y-8">
-                        <div className="grid gap-6 p-6 bg-white border rounded-lg shadow-sm">
-                            <div className="space-y-4">
-                                <SettingsSectionHeading title={t('finance.fiscal.title')} />
-                                <div className="grid gap-2 max-w-sm">
-                                    <Label htmlFor="lock_date">{t('finance.fiscal.lockDate')}</Label>
-                                    <Input
-                                        id="lock_date"
-                                        type="date"
-                                        value={formState.lock_date}
-                                        onChange={e => setFormState(prev => ({ ...prev, lock_date: e.target.value }))}
-                                    />
-                                    <p className="text-sm text-muted-foreground">
-                                        {t('finance.fiscal.lockDateHint')}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <hr />
-
-                            <div className="space-y-4">
-                                <SettingsSectionHeading title={t('finance.invoicing.title')} />
-                                <div className="grid grid-cols-2 gap-4 max-w-md">
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="prefix">{t('finance.invoicing.prefix')}</Label>
-                                        <Input
-                                            id="prefix"
-                                            value={formState.invoice_prefix}
-                                            onChange={e => setFormState(prev => ({ ...prev, invoice_prefix: e.target.value }))}
-                                        />
-                                    </div>
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="next_number">{t('finance.invoicing.nextNumber')}</Label>
-                                        <Input
-                                            id="next_number"
-                                            type="number"
-                                            value={formState.next_invoice_number}
-                                            onChange={e => setFormState(prev => ({ ...prev, next_invoice_number: parseInt(e.target.value) || 0 }))}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="flex justify-end">
-                            <Button type="submit" disabled={updateMutation.isPending}>
-                                {updateMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                                {t('finance.saveChanges')}
-                            </Button>
-                        </div>
-                    </form>
-                    )}
-                        </TabsContent>
-                        {canManageTeam ? (
-                            <TabsContent value="accounting-export" className="space-y-6">
-                                <AccountingExportSettingsPanel canManageExports={canManageTeam} />
-                            </TabsContent>
-                        ) : null}
-                    </Tabs>
-                </TabsContent>
-
-                <TabsContent value="voice-translation" className="space-y-6">
-                    <VoiceTranslationSettingsTab />
-                </TabsContent>
-
-                {/* ── Revenue Groups Tab ── */}
-                <TabsContent value="revenue-groups" className="space-y-6">
-                    <div className="p-6 bg-white border rounded-lg shadow-sm">
-                        <div className="flex items-center justify-between mb-6">
-                            <SettingsSectionHeading
-                                title={t('revenueGroups.title')}
-                                description={t('revenueGroups.description')}
-                            />
-                            <AddRevenueGroupDialog />
-                        </div>
-                        {isLoadingGroups ? (
-                            <div className="flex items-center justify-center py-12">
-                                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                            </div>
-                        ) : (
-                            <RevenueGroupTable groups={groups || []} />
-                        )}
-                    </div>
-                </TabsContent>
-
-                {/* ── Brands Tab ── */}
-                <TabsContent value="brands" className="space-y-6">
-                    <div className="p-6 bg-white border rounded-lg shadow-sm">
-                        <div className="flex items-center justify-between mb-6">
-                            <div>
-                                <SettingsSectionHeading
-                                    title={t('brands.title')}
-                                    description={t('brands.description')}
-                                />
-                            </div>
-                            <AddBrandDialog brand={editingBrand} onClose={() => setEditingBrand(null)} />
-                        </div>
-                        {isLoadingBrands ? (
-                            <div className="flex items-center justify-center py-12">
-                                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                            </div>
-                        ) : (
-                            <BrandTable brands={brands || []} onEdit={setEditingBrand} />
-                        )}
-                    </div>
-                </TabsContent>
-
-                {canManageTeam ? (
-                    <TabsContent value="legal-entities" className="space-y-6">
-                        <LegalEntitiesSettingsTab />
+                {visibleTabs.map(tab => (
+                    <TabsContent key={tab} value={tab} className="space-y-6">
+                        {tabPanels[tab]}
                     </TabsContent>
-                ) : null}
-
-                {canManageTeam ? (
-                    <TabsContent value="sites" className="space-y-6">
-                        <SitesSettingsTab />
-                    </TabsContent>
-                ) : null}
-
-                {/* ── Storage Locations Tab ── */}
-                <TabsContent value="locations" className="space-y-6">
-                    <StorageLocationsTab />
-                </TabsContent>
-
-                {/* ── Employees Tab ── */}
-                <TabsContent value="employees" className="space-y-6">
-                    <EmployeeSettingsTab />
-                </TabsContent>
-
-                {/* ── Bays Tab ── */}
-                <TabsContent value="bays" className="space-y-6">
-                    <BaySettingsTab />
-                </TabsContent>
-
-                <TabsContent value="hours" className="space-y-6">
-                    <WorkshopHoursSettingsPanel />
-                </TabsContent>
-
-                {/* ── Labor Tab ── */}
-                <TabsContent value="labor" className="space-y-6">
-                    <LaborCategoriesTab />
-                </TabsContent>
-
-                {canManageVehicleData ? (
-                    <TabsContent value="vehicle-data" className="space-y-6">
-                        <VehicleDataSettingsPanel />
-                    </TabsContent>
-                ) : null}
-
-                {canManageTeam ? (
-                    <TabsContent value="margin-rules" className="space-y-6">
-                        <MarginRulesTab />
-                    </TabsContent>
-                ) : null}
-
-                {canManageTeam ? (
-                    <TabsContent value="data-import" className="space-y-6">
-                        <DataImportSettingsTab />
-                    </TabsContent>
-                ) : null}
-
-                {/* ── Team Tab ── */}
-                {canManageTeam ? (
-                    <TabsContent value="team" className="space-y-6">
-                        <TeamSettingsTab />
-                    </TabsContent>
-                ) : null}
-
-                {/* ── API Keys Tab (OWNER/ADMIN; ADR-0026) ── */}
-                {canManageTeam ? (
-                    <TabsContent value="api-keys" className="space-y-6">
-                        <ApiKeysSettingsTab />
-                    </TabsContent>
-                ) : null}
-
-                {/* ── Audit Logs Tab ── */}
-                <TabsContent value="audit-logs" className="space-y-6">
-                    <div className="p-6 bg-white border rounded-lg shadow-sm">
-                        <AuditLogsTab />
-                    </div>
-                </TabsContent>
+                ))}
             </Tabs>
 
-            {/* Lock Date Alert Dialog */}
-            <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle className="flex items-center gap-2">
-                            <AlertTriangle className="h-5 w-5 text-amber-500" />
-                            {t('finance.lockDialog.title')}
-                        </AlertDialogTitle>
-                        <AlertDialogDescription>
-                            {t('finance.lockDialog.description')}
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>{t('common:actions.cancel')}</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleSave} className="bg-amber-600 hover:bg-amber-700">
-                            {t('finance.lockDialog.confirm')}
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <LockDateAlertDialog form={finance} />
         </div>
     )
 }
