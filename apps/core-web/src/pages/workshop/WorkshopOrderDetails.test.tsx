@@ -5,6 +5,7 @@ import {
   waitFor,
   cleanup,
   within,
+  act,
 } from "@testing-library/react";
 import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 import { WorkshopOrderDetails } from "./WorkshopOrderDetails";
@@ -16,6 +17,9 @@ import * as invoicesApi from "@/api/invoices";
 import * as vehicleInspectionApi from "@/api/vehicle-inspection-records";
 import * as authSessionApi from "@/api/auth-session";
 import * as estimateApi from "@/api/workshop-estimates";
+import * as vehiclesApi from "@/api/vehicles";
+import * as catalogSettingsApi from "@/api/useCatalogProviderSettings";
+import { getCatalogSourceBannerCopy } from "@/features/workshop/catalog-source-copy";
 import { toast } from "sonner";
 import { formattedCurrencyPattern } from "@/test/format-assertions";
 import { deWorkshop } from "@/test/de-workshop";
@@ -43,6 +47,32 @@ vi.mock("@/api/workshop", async (importOriginal) => {
     downloadWorkshopPdf: vi.fn(),
   };
 });
+vi.mock("@/api/vehicles", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/api/vehicles")>();
+  return {
+    ...actual,
+    useVehicle: vi.fn(actual.useVehicle),
+    useResolveVehicleIdentity: vi.fn(actual.useResolveVehicleIdentity),
+  };
+});
+vi.mock("@/api/useCatalogProviderSettings", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/api/useCatalogProviderSettings")>();
+  return {
+    ...actual,
+    useCatalogProviderSettings: vi.fn(actual.useCatalogProviderSettings),
+  };
+});
+const fitmentModal = vi.hoisted(() => ({
+  props: null as null | Record<string, (...args: never[]) => void> &
+    Record<string, unknown>,
+}));
+vi.mock("@/components/workshop/FitmentSearchModal", () => ({
+  FitmentSearchModal: (props: NonNullable<typeof fitmentModal.props>) => {
+    fitmentModal.props = props;
+    return <div data-testid="fitment-modal" />;
+  },
+}));
 vi.mock("@/api/sales");
 vi.mock("@/api/invoices");
 vi.mock("@/api/vehicle-inspection-records");
@@ -1519,6 +1549,660 @@ describe("WorkshopOrderDetails Characterization", () => {
       expect(
         screen.queryByText("Kostenvoranschlag", { exact: true }),
       ).not.toBeInTheDocument();
+    });
+  });
+
+  // =====================================================================
+  // AUT-672: characterization of the page-level handlers and wiring
+  // =====================================================================
+
+  describe("page handlers and wiring (AUT-672)", () => {
+    const orderDetailCopy = deWorkshop.orderDetail;
+    const resourcesWithMechanic = {
+      data: {
+        mechanics: [
+          { id: "mech-1", name: "Alex Tech", isActive: true, role: "MECHANIC", sortOrder: 1 },
+        ],
+        bays: [{ id: "bay-1", name: "Bay 3" }],
+      },
+      isLoading: false,
+    };
+
+    afterEach(() => {
+      asMock(vehiclesApi.useVehicle).mockReset();
+      asMock(vehiclesApi.useResolveVehicleIdentity).mockReset();
+      asMock(catalogSettingsApi.useCatalogProviderSettings).mockReset();
+      asMock(vehicleInspectionApi.useVehicleInspectionRecords).mockReturnValue({
+        data: [],
+        isLoading: false,
+      });
+      fitmentModal.props = null;
+    });
+
+    const editInline = (
+      displayText: string,
+      ariaLabel: string,
+      nextValue: string,
+    ) => {
+      fireEvent.click(screen.getByText(displayText));
+      const textarea = screen.getByLabelText(ariaLabel);
+      fireEvent.change(textarea, { target: { value: nextValue } });
+      fireEvent.blur(textarea);
+    };
+
+    describe("document title", () => {
+      it("titles the page with the order number", () => {
+        renderComponent();
+
+        expect(document.title).toContain("WO-001");
+      });
+    });
+
+    describe("inline note saves", () => {
+      it("saves the internal notes and toasts success", async () => {
+        const mutateAsync = vi.fn().mockResolvedValue({});
+        asMock(workshopApi.useUpdateWorkshopOrder).mockReturnValue(
+          createMutationMock({ mutateAsync }),
+        );
+        renderComponent();
+
+        editInline("Customer waiting in lobby", deWorkshop.taskList.internalNotesAria, "New note");
+
+        await waitFor(() =>
+          expect(mutateAsync).toHaveBeenCalledWith({ id: "order-1", notes: "New note" }),
+        );
+        expect(toast.success).toHaveBeenCalledWith(orderDetailToast.notesSaved);
+      });
+
+      it("toasts the error message when saving the internal notes fails", async () => {
+        const mutateAsync = vi.fn().mockRejectedValue(new Error("Notes rejected"));
+        asMock(workshopApi.useUpdateWorkshopOrder).mockReturnValue(
+          createMutationMock({ mutateAsync }),
+        );
+        renderComponent();
+
+        editInline("Customer waiting in lobby", deWorkshop.taskList.internalNotesAria, "New note");
+
+        await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Notes rejected"));
+        expect(toast.success).not.toHaveBeenCalled();
+      });
+
+      it("falls back to the translated message when the notes error carries none", async () => {
+        const mutateAsync = vi.fn().mockRejectedValue("boom");
+        asMock(workshopApi.useUpdateWorkshopOrder).mockReturnValue(
+          createMutationMock({ mutateAsync }),
+        );
+        renderComponent();
+
+        editInline("Customer waiting in lobby", deWorkshop.taskList.internalNotesAria, "New note");
+
+        await waitFor(() =>
+          expect(toast.error).toHaveBeenCalledWith(orderDetailToast.notesSaveFailed),
+        );
+      });
+
+      it("saves the reported issue and toasts success", async () => {
+        const mutateAsync = vi.fn().mockResolvedValue({});
+        asMock(workshopApi.useUpdateWorkshopOrder).mockReturnValue(
+          createMutationMock({ mutateAsync }),
+        );
+        renderComponent();
+
+        editInline("Strange noise from engine", deWorkshop.taskList.reportedIssueAria, "Rattle");
+
+        await waitFor(() =>
+          expect(mutateAsync).toHaveBeenCalledWith({ id: "order-1", reportedIssue: "Rattle" }),
+        );
+        expect(toast.success).toHaveBeenCalledWith(orderDetailToast.reportedIssueSaved);
+      });
+
+      it("shows the snake_case reported issue and saves it under the camelCase field", async () => {
+        const mutateAsync = vi.fn().mockResolvedValue({});
+        setupDefaultMocks({
+          ...baseOrder,
+          reportedIssue: undefined,
+          reported_issue: "Legacy issue text",
+        });
+        asMock(workshopApi.useUpdateWorkshopOrder).mockReturnValue(
+          createMutationMock({ mutateAsync }),
+        );
+        renderComponent();
+
+        editInline("Legacy issue text", deWorkshop.taskList.reportedIssueAria, "Updated");
+
+        await waitFor(() =>
+          expect(mutateAsync).toHaveBeenCalledWith({ id: "order-1", reportedIssue: "Updated" }),
+        );
+      });
+
+      it("toasts when saving the reported issue fails", async () => {
+        const mutateAsync = vi.fn().mockRejectedValue("boom");
+        asMock(workshopApi.useUpdateWorkshopOrder).mockReturnValue(
+          createMutationMock({ mutateAsync }),
+        );
+        renderComponent();
+
+        editInline("Strange noise from engine", deWorkshop.taskList.reportedIssueAria, "Rattle");
+
+        await waitFor(() =>
+          expect(toast.error).toHaveBeenCalledWith(orderDetailToast.reportedIssueSaveFailed),
+        );
+      });
+
+      it("renders the notes read-only when the order is invoiced", () => {
+        setupDefaultMocks(invoicedOrder);
+        renderComponent();
+
+        fireEvent.click(screen.getByText("Customer waiting in lobby"));
+
+        expect(
+          screen.queryByLabelText(deWorkshop.taskList.internalNotesAria),
+        ).not.toBeInTheDocument();
+      });
+    });
+
+    describe("task status and mechanic notes", () => {
+      it("sends IN_PROGRESS when a done task is unchecked", async () => {
+        const mutateAsync = vi.fn().mockResolvedValue({});
+        setupDefaultMocks({
+          ...baseOrder,
+          tasks: [{ ...baseOrder.tasks[0]!, status: "DONE", done: true }],
+        });
+        asMock(workshopApi.useUpdateWorkshopTask).mockReturnValue(
+          createMutationMock({ mutateAsync }),
+        );
+        renderComponent();
+
+        fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+
+        await waitFor(() =>
+          expect(mutateAsync).toHaveBeenCalledWith({
+            orderId: "order-1",
+            taskId: "task-1",
+            status: "IN_PROGRESS",
+          }),
+        );
+      });
+
+      it("toasts when the task status update fails", async () => {
+        asMock(workshopApi.useUpdateWorkshopTask).mockReturnValue(
+          createMutationMock({ mutateAsync: vi.fn().mockRejectedValue("boom") }),
+        );
+        renderComponent();
+
+        fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+
+        await waitFor(() =>
+          expect(toast.error).toHaveBeenCalledWith(orderDetailToast.taskStatusUpdateFailed),
+        );
+      });
+
+      it("saves the mechanic notes of an expanded task without a success toast", async () => {
+        const mutateAsync = vi.fn().mockResolvedValue({});
+        asMock(workshopApi.useUpdateWorkshopTask).mockReturnValue(
+          createMutationMock({ mutateAsync }),
+        );
+        renderComponent();
+
+        fireEvent.click(screen.getByText("Oil Change"));
+        fireEvent.click(screen.getByRole("button", { name: deWorkshop.taskList.mechanicNotesEmpty }));
+        const textarea = screen.getByLabelText(deWorkshop.taskList.mechanicNotesAria);
+        fireEvent.change(textarea, { target: { value: "Checked filter" } });
+        fireEvent.blur(textarea);
+
+        await waitFor(() =>
+          expect(mutateAsync).toHaveBeenCalledWith({
+            orderId: "order-1",
+            taskId: "task-1",
+            mechanicNotes: "Checked filter",
+          }),
+        );
+        expect(toast.success).not.toHaveBeenCalled();
+      });
+
+      it("toasts when saving the mechanic notes fails", async () => {
+        asMock(workshopApi.useUpdateWorkshopTask).mockReturnValue(
+          createMutationMock({ mutateAsync: vi.fn().mockRejectedValue("boom") }),
+        );
+        renderComponent();
+
+        fireEvent.click(screen.getByText("Oil Change"));
+        fireEvent.click(screen.getByRole("button", { name: deWorkshop.taskList.mechanicNotesEmpty }));
+        const textarea = screen.getByLabelText(deWorkshop.taskList.mechanicNotesAria);
+        fireEvent.change(textarea, { target: { value: "Checked filter" } });
+        fireEvent.blur(textarea);
+
+        await waitFor(() =>
+          expect(toast.error).toHaveBeenCalledWith(orderDetailToast.mechanicNotesUpdateFailed),
+        );
+      });
+    });
+
+    describe("task deletion", () => {
+      const openDeleteDialog = () => {
+        fireEvent.click(screen.getByText("Oil Change"));
+        fireEvent.click(screen.getByRole("button", { name: taskListCopy.deleteTask }));
+        return screen.getByRole("alertdialog");
+      };
+
+      it("asks for confirmation naming the task", () => {
+        renderComponent();
+
+        const dialog = openDeleteDialog();
+
+        expect(within(dialog).getByText(orderDetailCopy.deleteTaskTitle)).toBeInTheDocument();
+        expect(within(dialog).getByText(/Oil Change/)).toBeInTheDocument();
+      });
+
+      it("deletes the task on confirm, collapses it and closes the dialog", async () => {
+        const mutateAsync = vi.fn().mockResolvedValue({});
+        asMock(workshopApi.useDeleteWorkshopTask).mockReturnValue(
+          createMutationMock({ mutateAsync }),
+        );
+        renderComponent();
+
+        const dialog = openDeleteDialog();
+        fireEvent.click(within(dialog).getByRole("button", { name: orderDetailCopy.deleteTask }));
+
+        await waitFor(() =>
+          expect(mutateAsync).toHaveBeenCalledWith({ orderId: "order-1", taskId: "task-1" }),
+        );
+        expect(toast.success).toHaveBeenCalledWith(orderDetailToast.taskDeleted);
+        await waitFor(() =>
+          expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument(),
+        );
+        expect(
+          screen.queryByRole("button", { name: taskListCopy.mechanicNotesEmpty }),
+        ).not.toBeInTheDocument();
+      });
+
+      it("keeps the dialog open and toasts when the deletion fails", async () => {
+        const mutateAsync = vi.fn().mockRejectedValue(new Error("Task is referenced"));
+        asMock(workshopApi.useDeleteWorkshopTask).mockReturnValue(
+          createMutationMock({ mutateAsync }),
+        );
+        renderComponent();
+
+        const dialog = openDeleteDialog();
+        fireEvent.click(within(dialog).getByRole("button", { name: orderDetailCopy.deleteTask }));
+
+        await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Task is referenced"));
+        expect(toast.success).not.toHaveBeenCalled();
+        expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+      });
+
+      it("closes the dialog on cancel without deleting", async () => {
+        const mutateAsync = vi.fn();
+        asMock(workshopApi.useDeleteWorkshopTask).mockReturnValue(
+          createMutationMock({ mutateAsync }),
+        );
+        renderComponent();
+
+        const dialog = openDeleteDialog();
+        fireEvent.click(within(dialog).getByRole("button", { name: orderDetailCopy.cancel }));
+
+        await waitFor(() =>
+          expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument(),
+        );
+        expect(mutateAsync).not.toHaveBeenCalled();
+      });
+
+      it("disables deletion once a draft invoice is linked", () => {
+        setupDefaultMocks({ ...baseOrder, invoice: { id: "inv-draft-1" } });
+        asMock(salesApi.useInvoice).mockReturnValue({
+          data: { id: "inv-draft-1", status: "DRAFT", invoice_number: "RE-1", items: [] },
+          isLoading: false,
+        });
+        renderComponent();
+
+        fireEvent.click(screen.getByText("Oil Change"));
+
+        expect(screen.getByRole("button", { name: taskListCopy.deleteTask })).toBeDisabled();
+      });
+
+      it("disables the delete button while a deletion is pending", () => {
+        asMock(workshopApi.useDeleteWorkshopTask).mockReturnValue(
+          createMutationMock({ isPending: true }),
+        );
+        renderComponent();
+
+        fireEvent.click(screen.getByText("Oil Change"));
+
+        expect(screen.getByRole("button", { name: taskListCopy.deleteTask })).toBeDisabled();
+      });
+    });
+
+    describe("print action", () => {
+      it("shows the queued toast and skips the download when the PDF is enqueued", async () => {
+        asMock(workshopApi.useGenerateWorkshopPdf).mockReturnValue(
+          createMutationMock({ mutateAsync: vi.fn().mockResolvedValue({ enqueued: true }) }),
+        );
+        renderComponent();
+
+        fireEvent.click(screen.getAllByText("Jobkarte drucken")[0]!);
+
+        await waitFor(() =>
+          expect(toast.success).toHaveBeenCalledWith(orderDetailToast.jobCardPdfQueued, {
+            id: "toast-id",
+          }),
+        );
+        expect(toast.loading).toHaveBeenCalledWith(orderDetailToast.jobCardPdfGenerating);
+        expect(workshopApi.downloadWorkshopPdf).not.toHaveBeenCalled();
+      });
+
+      it("downloads a sanitized job card file name and resolves the loading toast", async () => {
+        asMock(workshopApi.useGenerateWorkshopPdf).mockReturnValue(
+          createMutationMock({ mutateAsync: vi.fn().mockResolvedValue({ enqueued: false }) }),
+        );
+        window.URL.createObjectURL = vi.fn().mockReturnValue("mock-url");
+        window.URL.revokeObjectURL = vi.fn();
+        const downloads: string[] = [];
+        const clickSpy = vi
+          .spyOn(HTMLAnchorElement.prototype, "click")
+          .mockImplementation(function (this: HTMLAnchorElement) {
+            downloads.push(this.download);
+          });
+        renderComponent();
+
+        fireEvent.click(screen.getAllByText("Jobkarte drucken")[0]!);
+
+        await waitFor(() =>
+          expect(toast.success).toHaveBeenCalledWith(orderDetailToast.jobCardPdfDownloaded, {
+            id: "toast-id",
+          }),
+        );
+        expect(downloads).toEqual(["job_card_wo_001.pdf"]);
+        clickSpy.mockRestore();
+      });
+
+      it("toasts the error under the loading toast id when PDF generation fails", async () => {
+        asMock(workshopApi.useGenerateWorkshopPdf).mockReturnValue(
+          createMutationMock({ mutateAsync: vi.fn().mockRejectedValue("boom") }),
+        );
+        renderComponent();
+
+        fireEvent.click(screen.getAllByText("Jobkarte drucken")[0]!);
+
+        await waitFor(() =>
+          expect(toast.error).toHaveBeenCalledWith(orderDetailToast.jobCardPdfFailed, {
+            id: "toast-id",
+          }),
+        );
+      });
+    });
+
+    describe("technician assignment", () => {
+      const pickAlex = () => {
+        fireEvent.click(screen.getByTestId("assigned-tech-select"));
+        fireEvent.click(screen.getByRole("option", { name: "Alex Tech" }));
+      };
+
+      it("updates the cached order optimistically while the assignment is pending", async () => {
+        let resolveAssign: (value: unknown) => void = () => undefined;
+        const mutateAsync = vi.fn(
+          () => new Promise((resolve) => { resolveAssign = resolve; }),
+        );
+        asMock(workshopApi.useAssignBoard).mockReturnValue(createMutationMock({ mutateAsync }));
+        asMock(workshopApi.useWorkshopResources).mockReturnValue(resourcesWithMechanic);
+        queryClient.setQueryData(workshopApi.workshopKeys.detail("order-1"), baseOrder);
+        renderComponent();
+
+        pickAlex();
+
+        await waitFor(() =>
+          expect(
+            queryClient.getQueryData<{ mechanicId?: string; mechanic_id?: string }>(
+              workshopApi.workshopKeys.detail("order-1"),
+            ),
+          ).toMatchObject({ mechanicId: "mech-1", mechanic_id: "mech-1" }),
+        );
+        await act(async () => resolveAssign({}));
+        expect(toast.success).toHaveBeenCalledWith(orderDetailToast.technicianAssigned);
+      });
+
+      it("rolls the cached order back and toasts when the assignment fails", async () => {
+        asMock(workshopApi.useAssignBoard).mockReturnValue(
+          createMutationMock({ mutateAsync: vi.fn().mockRejectedValue("boom") }),
+        );
+        asMock(workshopApi.useWorkshopResources).mockReturnValue(resourcesWithMechanic);
+        queryClient.setQueryData(workshopApi.workshopKeys.detail("order-1"), baseOrder);
+        renderComponent();
+
+        pickAlex();
+
+        await waitFor(() =>
+          expect(toast.error).toHaveBeenCalledWith(orderDetailToast.technicianAssignFailed),
+        );
+        expect(queryClient.getQueryData(workshopApi.workshopKeys.detail("order-1"))).toEqual(baseOrder);
+      });
+
+      it("reads the technician and bay from the snake_case ids", () => {
+        setupDefaultMocks({ ...baseOrder, mechanic_id: "mech-1", bay_id: "bay-1" });
+        asMock(workshopApi.useWorkshopResources).mockReturnValue(resourcesWithMechanic);
+        renderComponent();
+
+        expect(screen.getAllByText(/Bay 3/).length).toBeGreaterThan(0);
+        expect(screen.getAllByText(/Alex Tech/).length).toBeGreaterThan(0);
+      });
+
+      it("allows assigning on a scheduled order", () => {
+        setupDefaultMocks({ ...baseOrder, status: "SCHEDULED" });
+        asMock(workshopApi.useWorkshopResources).mockReturnValue(resourcesWithMechanic);
+        renderComponent();
+
+        expect(screen.getByTestId("assigned-tech-select")).not.toBeDisabled();
+      });
+    });
+
+    describe("check-in link", () => {
+      it.each(["INTAKE", "IN_PROGRESS"] as const)("links to the check-in page while %s", (status) => {
+        setupDefaultMocks({ ...baseOrder, status });
+        renderComponent();
+
+        expect(screen.getByTestId("workshop-order-check-in-link")).toHaveAttribute(
+          "href",
+          "/workshop/orders/order-1/check-in",
+        );
+      });
+
+      it.each(["SCHEDULED", "COMPLETED", "INVOICED"] as const)(
+        "hides the check-in link while %s",
+        (status) => {
+          setupDefaultMocks({ ...baseOrder, status });
+          renderComponent();
+
+          expect(screen.queryByTestId("workshop-order-check-in-link")).not.toBeInTheDocument();
+        },
+      );
+    });
+
+    describe("waiting tasks panel", () => {
+      const waitingOrder = {
+        ...baseOrder,
+        tasks: [
+          { ...baseOrder.tasks[0]!, id: "task-w1", status: "WAITING_CUSTOMER" as const },
+          { ...baseOrder.tasks[0]!, id: "task-w2", status: "WAITING_CUSTOMER" as const },
+          { ...baseOrder.tasks[0]!, id: "task-p", status: "IN_PROGRESS" as const },
+        ],
+      };
+
+      it("counts only the tasks waiting for the customer", () => {
+        setupDefaultMocks(waitingOrder);
+        renderComponent();
+
+        expect(screen.getByTestId("resume-waiting-tasks-panel")).toHaveTextContent(/^2 Aufgaben/);
+      });
+
+      it("is hidden when no task waits", () => {
+        renderComponent();
+
+        expect(screen.queryByTestId("resume-waiting-tasks-panel")).not.toBeInTheDocument();
+      });
+
+      it("is hidden from a technician session", () => {
+        setupDefaultMocks(waitingOrder);
+        asMock(authSessionApi.useAuthSession).mockReturnValue({ data: { activeRole: "TECH" } });
+        renderComponent();
+
+        expect(screen.queryByTestId("resume-waiting-tasks-panel")).not.toBeInTheDocument();
+      });
+    });
+
+    describe("Pickerl prompt guards", () => {
+      const pickerlOrder = {
+        ...baseOrder,
+        tasks: [
+          { ...baseOrder.tasks[0]!, title: "§57a Begutachtung", status: "DONE" as const, done: true },
+        ],
+      };
+
+      it("waits for the inspection records before prompting", () => {
+        setupDefaultMocks(pickerlOrder);
+        asMock(vehicleInspectionApi.useVehicleInspectionRecords).mockReturnValue({
+          data: undefined,
+          isLoading: true,
+        });
+        renderComponent();
+
+        expect(screen.queryByRole("heading", { name: "Pickerl erfasst" })).not.toBeInTheDocument();
+      });
+
+      it("prompts only once per completed task", async () => {
+        setupDefaultMocks(pickerlOrder);
+        const view = renderComponent();
+        expect(await screen.findByRole("heading", { name: "Pickerl erfasst" })).toBeInTheDocument();
+        fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+        await waitFor(() =>
+          expect(screen.queryByRole("heading", { name: "Pickerl erfasst" })).not.toBeInTheDocument(),
+        );
+
+        asMock(vehicleInspectionApi.useVehicleInspectionRecords).mockReturnValue({
+          data: [{ createdAt: "2020-01-01T00:00:00.000Z" }],
+          isLoading: false,
+        });
+        view.rerender(
+          <QueryClientProvider client={queryClient}>
+            <MemoryRouter initialEntries={["/workshop/orders/order-1"]}>
+              <Routes>
+                <Route path="/workshop/orders/:id" element={<WorkshopOrderDetails />} />
+              </Routes>
+            </MemoryRouter>
+          </QueryClientProvider>,
+        );
+
+        expect(screen.queryByRole("heading", { name: "Pickerl erfasst" })).not.toBeInTheDocument();
+      });
+    });
+
+    describe("fitment search", () => {
+      const openFitmentSearch = () => {
+        fireEvent.click(screen.getByText("Oil Change"));
+        fireEvent.click(screen.getByTestId("open-fitment-search-button"));
+      };
+
+      it("offers no fitment search on an invoiced order", () => {
+        setupDefaultMocks(invoicedOrder);
+        renderComponent();
+
+        fireEvent.click(screen.getByText("Oil Change"));
+
+        expect(screen.queryByTestId("open-fitment-search-button")).not.toBeInTheDocument();
+      });
+
+      it("keeps the modal unmounted until a task opens it", () => {
+        renderComponent();
+
+        expect(screen.queryByTestId("fitment-modal")).not.toBeInTheDocument();
+      });
+
+      it("opens the modal for the task with a stale identity and no OEM concern by default", () => {
+        renderComponent();
+
+        openFitmentSearch();
+
+        expect(screen.getByTestId("fitment-modal")).toBeInTheDocument();
+        expect(fitmentModal.props).toMatchObject({
+          open: true,
+          workshopOrderId: "order-1",
+          taskId: "task-1",
+          vehicleId: "veh-1",
+          oemConcernCode: null,
+          isIdentityStale: true,
+        });
+      });
+
+      it("passes the OEM concern and a fresh identity of the vehicle to the modal", () => {
+        asMock(vehiclesApi.useVehicle).mockReturnValue({
+          data: {
+            make_brand_id: 7,
+            identity_input_fingerprint: "fp",
+            identity_resolved_at: "2026-01-01T00:00:00.000Z",
+          },
+        });
+        asMock(catalogSettingsApi.useCatalogProviderSettings).mockReturnValue({
+          data: { oemConcerns: [{ code: "VAG", memberMakes: [{ id: 7 }] }] },
+        });
+        renderComponent();
+
+        openFitmentSearch();
+
+        expect(fitmentModal.props).toMatchObject({ oemConcernCode: "VAG", isIdentityStale: false });
+      });
+
+      it("unmounts the modal when it asks to close", () => {
+        renderComponent();
+        openFitmentSearch();
+
+        act(() => fitmentModal.props!.onOpenChange(false as never));
+
+        expect(screen.queryByTestId("fitment-modal")).not.toBeInTheDocument();
+      });
+
+      it("shows the catalog source of a search session in the header", () => {
+        renderComponent();
+        openFitmentSearch();
+        const metadata = {
+          concern: "PARTS",
+          sourceUsed: "AFTERMARKET",
+          oemStatus: "EMPTY",
+          fallbackReason: "EMPTY",
+        } as const;
+
+        act(() => fitmentModal.props!.onSearchSessionUpdate(metadata as never));
+
+        expect(screen.getByText(getCatalogSourceBannerCopy(metadata))).toBeInTheDocument();
+      });
+
+      it("closes the modal and resolves the vehicle identity on request", async () => {
+        const mutateAsync = vi.fn().mockResolvedValue({});
+        asMock(vehiclesApi.useResolveVehicleIdentity).mockReturnValue(
+          createMutationMock({ mutateAsync }),
+        );
+        renderComponent();
+        openFitmentSearch();
+
+        act(() => fitmentModal.props!.onRequestResolveIdentity());
+
+        expect(screen.queryByTestId("fitment-modal")).not.toBeInTheDocument();
+        await waitFor(() => expect(mutateAsync).toHaveBeenCalledWith("veh-1"));
+        await waitFor(() =>
+          expect(toast.success).toHaveBeenCalledWith(orderDetailToast.vehicleIdentityResolved),
+        );
+      });
+
+      it("toasts when resolving the vehicle identity fails", async () => {
+        asMock(vehiclesApi.useResolveVehicleIdentity).mockReturnValue(
+          createMutationMock({ mutateAsync: vi.fn().mockRejectedValue("boom") }),
+        );
+        renderComponent();
+        openFitmentSearch();
+
+        act(() => fitmentModal.props!.onRequestResolveIdentity());
+
+        await waitFor(() =>
+          expect(toast.error).toHaveBeenCalledWith(orderDetailToast.vehicleIdentityResolveFailed),
+        );
+      });
     });
   });
 });
