@@ -273,6 +273,25 @@ describe('MechanicQueuePage', () => {
   // ─── Header actions ──────────────────────────────────────────────────────────
 
   describe('header actions', () => {
+    it('uses 44px touch targets on queue interactive controls', () => {
+      setupDefaultMocks()
+      asMock(hrApi.useHrMeClock).mockReturnValue(
+        createClockQueryMock({
+          state: 'CLOCKED_OUT',
+          timezone: 'Europe/Vienna',
+          lastEvent: null,
+          todayEvents: [],
+        }),
+      )
+
+      renderQueuePage()
+
+      expect(screen.getByLabelText('Refresh queue')).toHaveClass('min-h-11')
+      expect(screen.getByPlaceholderText('Search tasks, plates, WO…')).toHaveClass('min-h-11')
+      expect(screen.getByRole('link', { name: /Oil Change/ })).toHaveClass('min-h-11')
+      expect(screen.getByRole('button', { name: 'Come to work' })).toHaveClass('min-h-11')
+    })
+
     it('renders a refresh button in the header', () => {
       setupDefaultMocks()
 

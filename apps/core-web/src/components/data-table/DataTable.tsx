@@ -28,8 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { DataTablePagination } from "./data-table-pagination"
 import type { DashboardWidgetTableSource } from "@/features/dashboard-widgets/types"
 import { TableSkeleton } from "@/components/ui/skeleton-presets"
 import { cn } from "@/lib/utils"
@@ -139,6 +138,8 @@ interface DataTableProps<TData extends object> {
   // Adds a checkbox column. While rows are selected, the returned actions dock in a floating bar.
   bulkActions?: (selectedRows: TData[]) => ReactNode
   onRowClick?: (row: TData) => void
+  /** Prefetch row detail on pointer enter or keyboard focus (not touch scroll). */
+  onRowPrefetch?: (row: TData) => void
   getRowHref?: (row: TData) => string | undefined
   getRowAccessibleName?: (row: TData) => string
   getRowContextActions?: (row: TData) => DataTableRowContextAction<TData>[]
@@ -169,6 +170,7 @@ export function DataTable<TData extends object>({
   emptyState,
   bulkActions,
   onRowClick,
+  onRowPrefetch,
   getRowHref,
   getRowAccessibleName,
   getRowContextActions,
@@ -211,11 +213,6 @@ export function DataTable<TData extends object>({
     manualSorting: true,
     manualFiltering: true,
   })
-
-  const pageSizeChoices =
-    pageSizeOptions.length > 0
-      ? [...new Set([...pageSizeOptions, pagination.pageSize])].sort((a, b) => a - b)
-      : []
 
   const visibleColumnCount = table.getVisibleLeafColumns().length
 
@@ -292,6 +289,8 @@ export function DataTable<TData extends object>({
                   data-row-id={rowId}
                   data-state={row.getIsSelected() && "selected"}
                   onClick={(event) => handleRowClick(event, data, rowData, onRowClick)}
+                  onPointerEnter={() => onRowPrefetch?.(rowData)}
+                  onFocus={() => onRowPrefetch?.(rowData)}
                   onContextMenu={(event) => {
                     event.preventDefault()
                     openRowContextMenu(
@@ -376,52 +375,7 @@ export function DataTable<TData extends object>({
           </TableBody>
         </Table>
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-2 py-4">
-        {pageSizeChoices.length > 0 ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span>{t('dataTable.rowsPerPage')}</span>
-            <Select
-              value={String(pagination.pageSize)}
-              onValueChange={(value) => setPagination({ pageIndex: 0, pageSize: Number(value) })}
-            >
-              <SelectTrigger aria-label={t('dataTable.rowsPerPageAria')} className="h-8 w-[76px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {pageSizeChoices.map((size) => (
-                  <SelectItem key={size} value={String(size)}>
-                    {size}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        ) : null}
-        <div className="flex items-center justify-end space-x-2">
-          <Button
-              variant="outline"
-              size="sm"
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
-          >
-              {t('dataTable.previous')}
-          </Button>
-          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-              <span>{t('dataTable.page')}</span>
-              <span className="font-medium">{table.getState().pagination.pageIndex + 1}</span>
-              <span>{t('dataTable.of')}</span>
-              <span className="font-medium">{table.getPageCount()}</span>
-          </div>
-          <Button
-              variant="outline"
-              size="sm"
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
-          >
-              {t('dataTable.next')}
-          </Button>
-        </div>
-      </div>
+      <DataTablePagination table={table} pageSizeOptions={pageSizeOptions} />
 
       <DataTableSelectionBar table={table} bulkActions={bulkActions} />
 

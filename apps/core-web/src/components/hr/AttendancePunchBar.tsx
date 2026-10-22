@@ -24,6 +24,8 @@ export type AttendancePunchBarProps = {
   disabled?: boolean
   statusLabel?: string
   size?: 'default' | 'compact'
+  /** 44px minimum targets for tablet mechanic queue (does not change global Button sizes). */
+  touchFriendly?: boolean
   onPunch: (type: components['schemas']['AttendanceEventType']) => void
 }
 
@@ -68,6 +70,7 @@ export function AttendancePunchBar({
   disabled = false,
   statusLabel,
   size = 'default',
+  touchFriendly = false,
   onPunch,
 }: AttendancePunchBarProps) {
   const { t } = useTranslation('hr')
@@ -93,7 +96,8 @@ export function AttendancePunchBar({
             key={type}
             type="button"
             variant="outline"
-            size={isCompact ? 'sm' : 'default'}
+            size={isCompact && !touchFriendly ? 'sm' : 'default'}
+            className={touchFriendly ? 'min-h-11' : undefined}
             disabled={!isActionEnabled(action, state, pending || disabled)}
             onClick={() => onPunch(type)}
           >

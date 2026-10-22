@@ -517,8 +517,10 @@ export function useWorkshopPickList(queryParams?: DataTableQueryParams) {
   })
 }
 
-export function useWorkshopOrder(id: string) {
-  return useQuery<WorkshopOrder>({
+export const WORKSHOP_ORDER_DETAIL_STALE_MS = 30_000
+
+export function workshopOrderDetailQueryOptions(id: string) {
+  return {
     queryKey: workshopKeys.detail(id),
     queryFn: async () => {
       const response = await fetchWithAuth(`${WORKSHOP_API}/orders/${id}`)
@@ -526,6 +528,13 @@ export function useWorkshopOrder(id: string) {
       const json = await response.json()
       return normalizeOrder(json)
     },
+    staleTime: WORKSHOP_ORDER_DETAIL_STALE_MS,
+  }
+}
+
+export function useWorkshopOrder(id: string) {
+  return useQuery<WorkshopOrder>({
+    ...workshopOrderDetailQueryOptions(id),
     enabled: !!id,
   })
 }
@@ -674,34 +683,78 @@ export const useCreateWorkshopTask = () => {
   })
 }
 
+type UpdateWorkshopTaskVariables = {
+  orderId: string
+  taskId: string
+  title?: string
+  status?: WorkshopTaskStatus
+  mechanicNotes?: string
+}
+
+function patchWorkshopOrderTask(
+  order: WorkshopOrder,
+  taskId: string,
+  status: WorkshopTaskStatus,
+): WorkshopOrder {
+  return {
+    ...order,
+    tasks: (order.tasks ?? []).map((task) =>
+      task.id === taskId ? { ...task, status, done: status === 'DONE' } : task,
+    ),
+  }
+}
+
+const updateWorkshopTaskOptimistic = optimisticMutationOptions<
+  WorkshopOrder,
+  UpdateWorkshopTaskVariables
+>({
+  queryKey: (variables) => workshopKeys.detail(variables.orderId),
+  mutationKey: [...workshopKeys.all, 'task-status'],
+  entityId: ({ taskId }) => taskId,
+  shouldOptimistic: ({ status }) => status !== undefined,
+  apply: (order, { taskId, status }) =>
+    status === undefined ? order : patchWorkshopOrderTask(order, taskId, status),
+  revert: (order, { taskId }, snapshot) => {
+    const previous = (snapshot.tasks ?? []).find((task) => task.id === taskId)
+    if (!previous) return order
+    return patchWorkshopOrderTask(order, taskId, previous.status)
+  },
+})
+
 export const useUpdateWorkshopTask = () => {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({
-      orderId,
-      taskId,
-      title,
-      status,
-      mechanicNotes,
-    }: {
-      orderId: string
-      taskId: string
-      title?: string
-      status?: WorkshopTaskStatus
-      mechanicNotes?: string
-    }) => {
+    ...updateWorkshopTaskOptimistic,
+    mutationFn: async (variables: UpdateWorkshopTaskVariables) => {
+      const { orderId, taskId, title, status, mechanicNotes } = variables
       const response = await fetchWithAuth(`${WORKSHOP_API}/orders/${orderId}/tasks/${taskId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, status, mechanicNotes }),
       })
-      if (!response.ok) throw new Error('Failed to update task')
+      if (!response.ok) {
+        throw await parseErrorResponse(response, 'Failed to update task')
+      }
       const json = await response.json()
       return normalizeOrder(json)
     },
-    onSuccess: (order) => {
+    onSuccess: (_order, variables) => {
       queryClient.invalidateQueries({ queryKey: workshopKeys.orders() })
-      queryClient.setQueryData(workshopKeys.order(order.id), order)
+      if (variables.status === undefined) {
+        const mergeNotes = (current: WorkshopOrder | undefined): WorkshopOrder | undefined => {
+          if (!current) return current
+          return {
+            ...current,
+            tasks: current.tasks?.map((task) =>
+              task.id === variables.taskId
+                ? { ...task, mechanicNotes: variables.mechanicNotes ?? task.mechanicNotes }
+                : task,
+            ),
+          }
+        }
+        queryClient.setQueryData(workshopKeys.detail(variables.orderId), mergeNotes)
+        queryClient.setQueryData(workshopKeys.order(variables.orderId), mergeNotes)
+      }
     },
   })
 }
@@ -929,6 +982,18 @@ function patchBoardOrder(
   return { ...cache, data: cache.data.map((order) => (order.id === orderId ? patch(order) : order)) }
 }
 
+function patchWorkshopOrderAssignment(
+  order: WorkshopOrder,
+  payload: AssignBoardPayload,
+): WorkshopOrder {
+  const { mechanicId, bayId } = payload
+  return {
+    ...order,
+    ...(mechanicId !== undefined && { mechanicId, mechanic_id: mechanicId }),
+    ...(bayId !== undefined && { bayId, bay_id: bayId }),
+  }
+}
+
 const assignBoardOptimistic = optimisticMutationOptions<BoardActiveResponse, AssignBoardPayload>({
   queryKey: boardKeys.active(),
   mutationKey: [...boardKeys.active(), 'assign'],
@@ -948,6 +1013,29 @@ const assignBoardOptimistic = optimisticMutationOptions<BoardActiveResponse, Ass
       ...(bayId !== undefined && { bayId: before.bayId }),
     }))
   },
+  extraCaches: [
+    {
+      queryKey: ({ orderId }) => workshopKeys.detail(orderId),
+      apply: (cache, payload) =>
+        cache === undefined ? cache : patchWorkshopOrderAssignment(cache as WorkshopOrder, payload),
+      revert: (cache, payload, snapshot) => {
+        if (cache === undefined || snapshot === undefined) return cache
+        const order = cache as WorkshopOrder
+        const before = snapshot as WorkshopOrder
+        return {
+          ...order,
+          ...(payload.mechanicId !== undefined && {
+            mechanicId: before.mechanicId,
+            mechanic_id: before.mechanic_id,
+          }),
+          ...(payload.bayId !== undefined && {
+            bayId: before.bayId,
+            bay_id: before.bay_id,
+          }),
+        }
+      },
+    },
+  ],
 })
 
 export function useAssignBoard() {
@@ -966,9 +1054,8 @@ export function useAssignBoard() {
       }
       return response.json()
     },
-    // The board itself is refetched by the optimistic helper's onSettled.
-    onSuccess: (_response, payload) => {
-      queryClient.invalidateQueries({ queryKey: workshopKeys.detail(payload.orderId) })
+    // Board + order detail caches are refetched by the optimistic helper's onSettled.
+    onSuccess: (_response, _payload) => {
       queryClient.invalidateQueries({ queryKey: workshopKeys.orders() })
     },
   })

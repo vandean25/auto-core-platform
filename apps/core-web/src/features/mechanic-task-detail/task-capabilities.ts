@@ -30,3 +30,46 @@ export function getTaskCapabilities({
     isNotStarted,
   }
 }
+
+export type TaskCapabilities = ReturnType<typeof getTaskCapabilities>
+
+export type TaskHeaderActionState = Pick<
+  TaskCapabilities,
+  'canStart' | 'canSwitch' | 'canPause' | 'canComplete' | 'isNotStarted'
+> & {
+  startPending: boolean
+  switchPending: boolean
+  pausePending: boolean
+  completePending: boolean
+}
+
+export type TaskHeaderActionHandlers = {
+  onStart: () => void
+  onOpenSwitch: () => void
+  onOpenPause: () => void
+  onComplete: () => void
+}
+
+type TaskLifecyclePendingSource = {
+  startTask: { isPending: boolean }
+  switchTask: { isPending: boolean }
+  pauseTask: { isPending: boolean }
+  completeTask: { isPending: boolean }
+}
+
+export function buildTaskHeaderActionState(
+  capabilities: TaskCapabilities,
+  lifecycle: TaskLifecyclePendingSource,
+): TaskHeaderActionState {
+  return {
+    canStart: capabilities.canStart,
+    canSwitch: capabilities.canSwitch,
+    canPause: capabilities.canPause,
+    canComplete: capabilities.canComplete,
+    isNotStarted: capabilities.isNotStarted,
+    startPending: lifecycle.startTask.isPending,
+    switchPending: lifecycle.switchTask.isPending,
+    pausePending: lifecycle.pauseTask.isPending,
+    completePending: lifecycle.completeTask.isPending,
+  }
+}

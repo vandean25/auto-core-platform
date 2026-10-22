@@ -23,6 +23,12 @@ import { getCatalogSourceBannerCopy } from "@/features/workshop/catalog-source-c
 import { toast } from "sonner";
 import { formattedCurrencyPattern } from "@/test/format-assertions";
 import { deWorkshop } from "@/test/de-workshop";
+import { fetchWithAuth } from "@/api/client";
+
+vi.mock("@/api/client", () => ({
+  API_BASE_URL: "http://127.0.0.1:3000",
+  fetchWithAuth: vi.fn(),
+}));
 
 const taskListCopy = deWorkshop.taskList;
 const checkoutCopy = deWorkshop.checkout;
@@ -1932,17 +1938,36 @@ describe("WorkshopOrderDetails Characterization", () => {
     });
 
     describe("technician assignment", () => {
+      beforeEach(async () => {
+        const actual = await vi.importActual<typeof import("@/api/workshop")>(
+          "@/api/workshop",
+        );
+        vi.mocked(workshopApi.useAssignBoard).mockImplementation(actual.useAssignBoard);
+      });
+
       const pickAlex = () => {
         fireEvent.click(screen.getByTestId("assigned-tech-select"));
         fireEvent.click(screen.getByRole("option", { name: "Alex Tech" }));
       };
 
       it("updates the cached order optimistically while the assignment is pending", async () => {
-        let resolveAssign: (value: unknown) => void = () => undefined;
-        const mutateAsync = vi.fn(
-          () => new Promise((resolve) => { resolveAssign = resolve; }),
-        );
-        asMock(workshopApi.useAssignBoard).mockReturnValue(createMutationMock({ mutateAsync }));
+        let resolveAssign: (() => void) | undefined;
+        vi.mocked(fetchWithAuth).mockImplementation((input, init) => {
+          if (
+            String(input) === "/api/workshop/board/assign" &&
+            init?.method === "PATCH"
+          ) {
+            return new Promise<Response>((resolve) => {
+              resolveAssign = () =>
+                resolve({
+                  ok: true,
+                  status: 200,
+                  json: async () => ({}),
+                } as Response);
+            });
+          }
+          return Promise.reject(new Error(`unexpected fetch ${String(input)}`));
+        });
         asMock(workshopApi.useWorkshopResources).mockReturnValue(resourcesWithMechanic);
         queryClient.setQueryData(workshopApi.workshopKeys.detail("order-1"), baseOrder);
         renderComponent();
@@ -1956,14 +1981,16 @@ describe("WorkshopOrderDetails Characterization", () => {
             ),
           ).toMatchObject({ mechanicId: "mech-1", mechanic_id: "mech-1" }),
         );
-        await act(async () => resolveAssign({}));
+        await act(async () => resolveAssign?.());
         expect(toast.success).toHaveBeenCalledWith(orderDetailToast.technicianAssigned);
       });
 
       it("rolls the cached order back and toasts when the assignment fails", async () => {
-        asMock(workshopApi.useAssignBoard).mockReturnValue(
-          createMutationMock({ mutateAsync: vi.fn().mockRejectedValue("boom") }),
-        );
+        vi.mocked(fetchWithAuth).mockResolvedValue({
+          ok: false,
+          status: 403,
+          json: async () => ({ message: "forbidden" }),
+        } as Response);
         asMock(workshopApi.useWorkshopResources).mockReturnValue(resourcesWithMechanic);
         queryClient.setQueryData(workshopApi.workshopKeys.detail("order-1"), baseOrder);
         renderComponent();
@@ -1971,9 +1998,15 @@ describe("WorkshopOrderDetails Characterization", () => {
         pickAlex();
 
         await waitFor(() =>
-          expect(toast.error).toHaveBeenCalledWith(orderDetailToast.technicianAssignFailed),
+          expect(toast.error).toHaveBeenCalledWith("forbidden"),
         );
-        expect(queryClient.getQueryData(workshopApi.workshopKeys.detail("order-1"))).toEqual(baseOrder);
+        await waitFor(() => {
+          const order = queryClient.getQueryData<{ mechanicId?: string | null; mechanic_id?: string | null }>(
+            workshopApi.workshopKeys.detail("order-1"),
+          );
+          expect(order?.mechanicId ?? null).toBeNull();
+          expect(order?.mechanic_id ?? null).toBeNull();
+        });
       });
 
       it("reads the technician and bay from the snake_case ids", () => {
