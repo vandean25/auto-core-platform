@@ -318,6 +318,7 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
 
     const otherCust = await otherPrisma.customer.create({
       data: {
+        tenant_id: otherTenant.tenantId,
         first_name: 'Other',
         last_name: 'Cust',
         email: `other-cust-${Date.now()}@e2e.local`,
@@ -326,6 +327,7 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
     });
     const otherVehicle = await otherPrisma.vehicle.create({
       data: {
+        tenant_id: otherTenant.tenantId,
         make: 'Honda',
         model: 'Civic',
         year: 2021,
@@ -335,6 +337,7 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
     });
     const otherOrder = await otherPrisma.workshopOrder.create({
       data: {
+        tenant_id: otherTenant.tenantId,
         order_number: `WO-OTHER-${Date.now()}`,
         customer_id: otherCust.id,
         vehicle_id: otherVehicle.id,
@@ -345,6 +348,7 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
     });
     const otherTask = await otherPrisma.workshopTask.create({
       data: {
+        tenant_id: otherTenant.tenantId,
         workshop_order_id: otherOrder.id,
         title: 'Oil Service',
         sequence: 1,

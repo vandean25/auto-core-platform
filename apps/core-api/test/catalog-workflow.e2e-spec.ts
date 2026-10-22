@@ -19,7 +19,7 @@ describe('Catalog Workflow Search (e2e)', () => {
   let tenantId: string;
 
   // Track created IDs for deterministic cleanup
-  const createdBrandIds: string[] = [];
+  const createdBrandIds: number[] = [];
   const createdLaborOpIds: string[] = [];
   let createdWorkshopOrderId: string | undefined;
   let createdCustomerId: string | undefined;
@@ -74,6 +74,7 @@ describe('Catalog Workflow Search (e2e)', () => {
     // 1. Setup Master Data (Brands)
     const skodaBrand = await prisma.brand.create({
       data: {
+        tenant_id: tenantId,
         name: `${PREFIX}Skoda-${ts}`,
         normalized_name: normalizeVehicleMakeAlias(`${PREFIX}Skoda-${ts}`),
         isVehicleMake: true,
@@ -84,6 +85,7 @@ describe('Catalog Workflow Search (e2e)', () => {
 
     const bmwBrand = await prisma.brand.create({
       data: {
+        tenant_id: tenantId,
         name: `${PREFIX}BMW-${ts}`,
         normalized_name: normalizeVehicleMakeAlias(`${PREFIX}BMW-${ts}`),
         isVehicleMake: true,
@@ -100,6 +102,7 @@ describe('Catalog Workflow Search (e2e)', () => {
     // Case A: Universal (No fitments)
     const opUniversal = await prisma.laborOperation.create({
       data: {
+        tenant_id: tenantId,
         code: universalCode,
         description: `SearchKey Universal ${ts}`,
         standard_aw: 1.0,
@@ -111,6 +114,7 @@ describe('Catalog Workflow Search (e2e)', () => {
     // Case B: Matching (Skoda Octavia)
     const opMatching = await prisma.laborOperation.create({
       data: {
+        tenant_id: tenantId,
         code: matchingCode,
         description: `SearchKey Matching ${ts}`,
         standard_aw: 1.5,
@@ -129,6 +133,7 @@ describe('Catalog Workflow Search (e2e)', () => {
     // Case C: Non-Matching (BMW)
     const opNonMatching = await prisma.laborOperation.create({
       data: {
+        tenant_id: tenantId,
         code: nonMatchingCode,
         description: `SearchKey Hidden ${ts}`,
         standard_aw: 2.0,

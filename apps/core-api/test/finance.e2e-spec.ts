@@ -95,6 +95,7 @@ describe('FinanceModule (e2e)', () => {
 
     const customer = await prisma.customer.create({
       data: {
+        tenant_id: tenantId,
         first_name: 'Finance',
         last_name: 'Test',
         email: `fin-${Date.now()}@test.com`,
@@ -104,6 +105,7 @@ describe('FinanceModule (e2e)', () => {
     const oldDate = new Date('2025-06-01');
     const invoice = await prisma.invoice.create({
       data: {
+        tenant_id: tenantId,
         customer_id: customer.id,
         date: oldDate,
         due_date: new Date('2025-06-15'),
@@ -135,6 +137,7 @@ describe('FinanceModule (e2e)', () => {
       },
       update: {},
       create: {
+        tenant_id: tenantId,
         name: revenueGroupName,
         tax_rate: 20.0,
         account_number: 'E2E-4000',
@@ -143,6 +146,7 @@ describe('FinanceModule (e2e)', () => {
 
     const customer = await prisma.customer.create({
       data: {
+        tenant_id: tenantId,
         first_name: 'Snapshot',
         last_name: 'Test',
         email: `snap-${Date.now()}@test.com`,
@@ -151,6 +155,7 @@ describe('FinanceModule (e2e)', () => {
 
     const catalogItem = await prisma.catalogItem.create({
       data: {
+        tenant_id: tenantId,
         sku: `SNAP-ITEM-${Date.now()}`,
         name: 'Snapshot Item',
         cost_price: 50,
@@ -198,6 +203,7 @@ describe('FinanceModule (e2e)', () => {
   it('rejects source-less sales invoice draft creation', async () => {
     const customer = await prisma.customer.create({
       data: {
+        tenant_id: tenantId,
         first_name: 'Blocked',
         last_name: 'Draft',
         email: `blocked-${Date.now()}@test.com`,

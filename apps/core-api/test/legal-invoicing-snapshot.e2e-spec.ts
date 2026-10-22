@@ -74,6 +74,7 @@ describe('Legal invoicing snapshot v2 (e2e)', () => {
 
     const vendor = await tenantPrisma.vendor.create({
       data: {
+        tenant_id: tenant.tenantId,
         name: 'Used Cars GmbH',
         email: `vendor-${Date.now()}@cars.test`,
         account_number: 'VC-001',
@@ -83,6 +84,7 @@ describe('Legal invoicing snapshot v2 (e2e)', () => {
 
     const vehicle = await tenantPrisma.vehicle.create({
       data: {
+        tenant_id: tenant.tenantId,
         make: 'Volkswagen',
         model: 'Golf',
         year: 2018,
@@ -94,6 +96,7 @@ describe('Legal invoicing snapshot v2 (e2e)', () => {
 
     const catalogItem = await tenantPrisma.catalogItem.create({
       data: {
+        tenant_id: tenant.tenantId,
         sku: `AUT298-${Date.now()}`,
         name: 'Brake Pad',
         cost_price: 10,
@@ -104,6 +107,7 @@ describe('Legal invoicing snapshot v2 (e2e)', () => {
 
     const location = await tenantPrisma.storageLocation.create({
       data: {
+        tenant_id: tenant.tenantId,
         code: `LOC-${Date.now()}`,
         name: 'Warehouse',
         type: 'warehouse',
@@ -112,6 +116,7 @@ describe('Legal invoicing snapshot v2 (e2e)', () => {
     });
     await tenantPrisma.inventoryStock.create({
       data: {
+        tenant_id: tenant.tenantId,
         catalog_item_id: catalogItemId,
         site_id: siteId,
         location_id: location.id,

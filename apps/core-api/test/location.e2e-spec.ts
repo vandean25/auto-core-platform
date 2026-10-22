@@ -16,6 +16,7 @@ describe('Location Hierarchy (e2e)', () => {
   let app: INestApplication;
   let authToken: string;
   let prisma: PrismaService;
+  let tenantId: string;
 
   beforeAll(async () => {
     app = await createE2eApp();
@@ -23,6 +24,7 @@ describe('Location Hierarchy (e2e)', () => {
     prisma = app.get<PrismaService>(PrismaService);
 
     const testTenant = await createTestTenant(prisma);
+    tenantId = testTenant.tenantId;
     prisma = createTenantAwarePrisma(prisma, testTenant.tenantId);
     authToken = createTestAuthToken(app.get(AuthService), testTenant);
 
@@ -83,6 +85,7 @@ describe('Location Hierarchy (e2e)', () => {
     const legalEntity = await prisma.legalEntity.findFirstOrThrow();
     const secondSite = await prisma.site.create({
       data: {
+        tenant_id: tenantId,
         legal_entity_id: legalEntity.id,
         code: 'MUC',
         name: 'Munich',
@@ -95,6 +98,7 @@ describe('Location Hierarchy (e2e)', () => {
     const [visibleLocation, hiddenLocation] = await Promise.all([
       prisma.storageLocation.create({
         data: {
+          tenant_id: tenantId,
           site_id: mainSite.id,
           name: 'Vienna warehouse',
           code: 'VIE-WH',
@@ -103,6 +107,7 @@ describe('Location Hierarchy (e2e)', () => {
       }),
       prisma.storageLocation.create({
         data: {
+          tenant_id: tenantId,
           site_id: secondSite.id,
           name: 'Munich warehouse',
           code: 'MUC-WH',
@@ -199,6 +204,7 @@ describe('Location Hierarchy (e2e)', () => {
     // Create Item
     const brand = await prisma.brand.create({
       data: {
+        tenant_id: tenantId,
         name: 'StockBrand',
         normalized_name: normalizeVehicleMakeAlias('StockBrand'),
         isPartManufacturer: true,
@@ -206,6 +212,7 @@ describe('Location Hierarchy (e2e)', () => {
     });
     const item = await prisma.catalogItem.create({
       data: {
+        tenant_id: tenantId,
         sku: 'SKU-STOCK',
         name: 'Stock Item',
         cost_price: 10,
@@ -217,6 +224,7 @@ describe('Location Hierarchy (e2e)', () => {
     // Let's create a vendor first
     const vendor = await prisma.vendor.create({
       data: {
+        tenant_id: tenantId,
         name: 'StockVendor',
         email: 'sv@test.com',
         account_number: 'SV1',
@@ -257,7 +265,7 @@ describe('Location Hierarchy (e2e)', () => {
       .expect(201);
 
     // Check where the stock went
-    const stock = await prisma.inventoryStock.findFirst({
+    const stock = await prisma.inventoryStock.findFirstOrThrow({
       where: { catalog_item_id: item.id },
       include: { location: true },
     });

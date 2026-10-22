@@ -109,6 +109,7 @@ describe('Audit Tracing and Governance (e2e)', () => {
     // 1. Create a customer to be deleted
     const customer = await prismaA.customer.create({
       data: {
+        tenant_id: tenantA,
         first_name: 'DeleteMe',
         last_name: 'Testing',
         email: `deleteme-${Date.now()}@example.com`,
@@ -142,6 +143,7 @@ describe('Audit Tracing and Governance (e2e)', () => {
     // Tenant A creates an update
     const customerA = await prismaA.customer.create({
       data: {
+        tenant_id: tenantA,
         first_name: 'TenantACustomer',
         last_name: 'Owner',
         email: `tenanta-${Date.now()}@example.com`,
@@ -178,6 +180,7 @@ describe('Audit Tracing and Governance (e2e)', () => {
     // 1. Create a catalog item and storage location
     const item = await prismaA.catalogItem.create({
       data: {
+        tenant_id: tenantA,
         sku: `AUDIT-INV-${Date.now()}`,
         name: 'Audit Inventory Part',
         cost_price: 25,
@@ -188,6 +191,7 @@ describe('Audit Tracing and Governance (e2e)', () => {
     const siteId = await resolveTestMainSiteId(prisma, tenantA);
     const location = await prismaA.storageLocation.create({
       data: {
+        tenant_id: tenantA,
         name: 'Main Shelf',
         code: `LOC-${Date.now()}`,
         type: 'warehouse',
@@ -198,6 +202,7 @@ describe('Audit Tracing and Governance (e2e)', () => {
     // 2. Perform an inventory transaction
     const initialTx = await prismaA.inventoryTransaction.create({
       data: {
+        tenant_id: tenantA,
         item_id: item.id,
         site_id: siteId,
         location_id: location.id,
@@ -236,6 +241,7 @@ describe('Audit Tracing and Governance (e2e)', () => {
     const uniqueSuffix = Date.now().toString();
     const c1 = await prismaA.customer.create({
       data: {
+        tenant_id: tenantA,
         first_name: `Batch1_${uniqueSuffix}`,
         last_name: 'BatchTest',
         email: `batch1-${uniqueSuffix}@example.com`,
@@ -243,6 +249,7 @@ describe('Audit Tracing and Governance (e2e)', () => {
     });
     const c2 = await prismaA.customer.create({
       data: {
+        tenant_id: tenantA,
         first_name: `Batch2_${uniqueSuffix}`,
         last_name: 'BatchTest',
         email: `batch2-${uniqueSuffix}@example.com`,
@@ -285,6 +292,7 @@ describe('Audit Tracing and Governance (e2e)', () => {
     // 2. Perform a mutation
     const customer = await prismaA.customer.create({
       data: {
+        tenant_id: tenantA,
         first_name: 'LogLevelCustomer',
         last_name: 'Test',
         email: `loglevel-${Date.now()}@example.com`,

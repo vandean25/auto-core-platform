@@ -165,6 +165,7 @@ describe('RZL accounting export (e2e)', () => {
 
     const catalogItem = await tenantPrisma.catalogItem.create({
       data: {
+        tenant_id: tenant.tenantId,
         sku: `AUT350-${Date.now()}`,
         name: 'Brake Pad',
         cost_price: 20,
@@ -175,6 +176,7 @@ describe('RZL accounting export (e2e)', () => {
 
     const location = await tenantPrisma.storageLocation.create({
       data: {
+        tenant_id: tenant.tenantId,
         code: `LOC-AT-${atSiteId.slice(0, 8)}`,
         name: 'Warehouse',
         type: 'warehouse',
@@ -183,6 +185,7 @@ describe('RZL accounting export (e2e)', () => {
     });
     await tenantPrisma.inventoryStock.create({
       data: {
+        tenant_id: tenant.tenantId,
         catalog_item_id: catalogItemId,
         site_id: atSiteId,
         location_id: location.id,

@@ -117,6 +117,7 @@ describe('Public API keys (e2e, AUT-411)', () => {
   async function createCustomer(tenantId: string, firstName: string): Promise<string> {
     const customer = await createTenantAwarePrisma(prisma, tenantId).customer.create({
       data: {
+        tenant_id: tenantId,
         type: 'PRIVATE',
         first_name: firstName,
         last_name: 'Testperson',

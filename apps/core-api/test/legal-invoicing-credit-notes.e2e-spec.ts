@@ -61,6 +61,7 @@ describe('Legal invoicing credit notes (e2e)', () => {
 
     const catalogItem = await tenantPrisma.catalogItem.create({
       data: {
+        tenant_id: tenant.tenantId,
         sku: `AUT302-${Date.now()}`,
         name: 'Oil Filter',
         cost_price: 5,
@@ -71,6 +72,7 @@ describe('Legal invoicing credit notes (e2e)', () => {
 
     const location = await tenantPrisma.storageLocation.create({
       data: {
+        tenant_id: tenant.tenantId,
         code: `LOC-${Date.now()}`,
         name: 'Warehouse',
         type: 'warehouse',
@@ -79,6 +81,7 @@ describe('Legal invoicing credit notes (e2e)', () => {
     });
     await tenantPrisma.inventoryStock.create({
       data: {
+        tenant_id: tenant.tenantId,
         catalog_item_id: catalogItemId,
         site_id: siteId,
         location_id: location.id,

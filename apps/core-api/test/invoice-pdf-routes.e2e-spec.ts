@@ -258,7 +258,7 @@ describe('Invoice PDF routes (e2e)', () => {
 
     afterEach(async () => {
       if (tenantId) {
-        await deleteDocumentBrandRows(basePrisma, prisma);
+        await deleteDocumentBrandRows(basePrisma, prisma, tenantId);
         await cleanupTestTenantGraph(basePrisma, tenantId);
         tenantId = '';
       }

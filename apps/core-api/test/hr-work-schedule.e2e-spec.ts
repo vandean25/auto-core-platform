@@ -86,9 +86,10 @@ describe('HR Work Schedule API (e2e)', () => {
     foreignSiteId = await runWithTenantContext(foreignTenantId, async () => (await prisma.site.findFirstOrThrow({ where: { tenant_id: foreignTenantId }, select: { id: true } })).id);
 
     await runWithTenantContext(tenantId, async () => {
+      const salesFirebaseUid = `e2e-sales-schedule-${Date.now()}`;
       const salesUser = await prisma.user.create({
         data: {
-          firebaseUid: `e2e-sales-schedule-${Date.now()}`,
+          firebaseUid: salesFirebaseUid,
           email: `e2e-sales-schedule-${Date.now()}@test.local`,
         },
       });
@@ -98,15 +99,16 @@ describe('HR Work Schedule API (e2e)', () => {
         role: 'SALES',
       });
       salesToken = authService.createTestToken({
-        sub: salesUser.firebaseUid,
+        sub: salesFirebaseUid,
         email: salesUser.email,
         tenantId,
         role: 'SALES',
       });
 
+      const adminFirebaseUid = `e2e-admin-schedule-${Date.now()}`;
       const adminUser = await prisma.user.create({
         data: {
-          firebaseUid: `e2e-admin-schedule-${Date.now()}`,
+          firebaseUid: adminFirebaseUid,
           email: `e2e-admin-schedule-${Date.now()}@test.local`,
         },
       });
@@ -124,15 +126,16 @@ describe('HR Work Schedule API (e2e)', () => {
         },
       });
       adminToken = authService.createTestToken({
-        sub: adminUser.firebaseUid,
+        sub: adminFirebaseUid,
         email: adminUser.email,
         tenantId,
         role: 'ADMIN',
       });
 
+      const techFirebaseUid = `e2e-tech-schedule-${Date.now()}`;
       const techUser = await prisma.user.create({
         data: {
-          firebaseUid: `e2e-tech-schedule-${Date.now()}`,
+          firebaseUid: techFirebaseUid,
           email: `e2e-tech-schedule-${Date.now()}@test.local`,
         },
       });
@@ -142,7 +145,7 @@ describe('HR Work Schedule API (e2e)', () => {
         role: 'TECH',
       });
       techToken = authService.createTestToken({
-        sub: techUser.firebaseUid,
+        sub: techFirebaseUid,
         email: techUser.email,
         tenantId,
         role: 'TECH',

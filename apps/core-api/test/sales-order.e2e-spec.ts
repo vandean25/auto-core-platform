@@ -58,6 +58,7 @@ describe('Sales Order Workflow (e2e)', () => {
     // Create Catalog Item
     const item = await prisma.catalogItem.create({
       data: {
+        tenant_id: testTenant.tenantId,
         sku: 'PART-001',
         name: 'Oil Filter',
         cost_price: 5.0,
@@ -70,6 +71,7 @@ describe('Sales Order Workflow (e2e)', () => {
     const siteId = await resolveTestMainSiteId(prisma, testTenant.tenantId);
     const location = await prisma.storageLocation.create({
       data: {
+        tenant_id: testTenant.tenantId,
         code: `LOC-SO-${Date.now()}`,
         name: `SO-Location-${Date.now()}`,
         type: 'warehouse',
@@ -80,6 +82,7 @@ describe('Sales Order Workflow (e2e)', () => {
 
     await prisma.inventoryStock.create({
       data: {
+        tenant_id: testTenant.tenantId,
         catalog_item_id: catalogItemId,
         site_id: siteId,
         location_id: locationId,
@@ -135,7 +138,7 @@ describe('Sales Order Workflow (e2e)', () => {
       .expect(200);
 
     // Verify update
-    const updatedOrder = await prisma.salesOrder.findFirst({
+    const updatedOrder = await prisma.salesOrder.findFirstOrThrow({
       where: { id: orderId },
     });
     expect(Number(updatedOrder.total_amount)).toBe(30);
@@ -150,7 +153,7 @@ describe('Sales Order Workflow (e2e)', () => {
     expect(invoiceRes.body.invoice_number).toBeNull();
     expect(invoiceRes.body.status).toBe('DRAFT');
 
-    const pendingOrder = await prisma.salesOrder.findFirst({
+    const pendingOrder = await prisma.salesOrder.findFirstOrThrow({
       where: { id: orderId },
     });
     expect(pendingOrder.status).toBe('CONFIRMED');
@@ -164,7 +167,7 @@ describe('Sales Order Workflow (e2e)', () => {
     expect(finalizeRes.body.status).toBe('FINALIZED');
     expect(finalizeRes.body.invoice_number).toMatch(/RE-\d{4}-\d{4}/);
 
-    const finalOrder = await prisma.salesOrder.findFirst({
+    const finalOrder = await prisma.salesOrder.findFirstOrThrow({
       where: { id: orderId },
     });
     expect(finalOrder.status).toBe('INVOICED');

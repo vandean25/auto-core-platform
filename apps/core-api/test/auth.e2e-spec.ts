@@ -1,3 +1,4 @@
+import { jest as esmJest } from '@jest/globals';
 import {
   Controller,
   Get,
@@ -22,7 +23,8 @@ const firebaseAuthMock = {
 const TENANT_A_ID = '11111111-1111-4111-8111-111111111111';
 const TENANT_B_ID = '22222222-2222-4222-8222-222222222222';
 
-jest.unstable_mockModule('../src/auth/firebase-admin.js', () => ({
+// @types/jest has no unstable_mockModule; @jest/globals types it.
+esmJest.unstable_mockModule('../src/auth/firebase-admin.js', () => ({
   getFirebaseAdminAuth: () => firebaseAuthMock,
 }));
 
@@ -64,7 +66,7 @@ class PlatformProbeController {
 
 describe('Bearer auth (e2e)', () => {
   let app: INestApplication;
-  let authService: AuthService;
+  let authService: InstanceType<typeof AuthService>;
 
   const prismaMock = {
     tenant: {

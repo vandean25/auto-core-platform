@@ -484,6 +484,7 @@ describe('Dry-run support on state-changing endpoints (e2e)', () => {
             type: 'CUSTOMER',
             action: 'CREATED',
             entityId: 'cust-1',
+            timestamp: new Date().toISOString(),
           }),
         ).toThrow(DryRunSideEffectBlockedException);
 

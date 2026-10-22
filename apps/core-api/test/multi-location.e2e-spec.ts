@@ -372,9 +372,10 @@ describe('Multi-Location guards (e2e)', () => {
 
     it('GET /api/legal-entities forbids non-admins', async () => {
       const tenantAPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
+      const salesFirebaseUid = `e2e-sales-http-${tenantA.tenantId}`;
       const salesUser = await tenantAPrisma.user.create({
         data: {
-          firebaseUid: `e2e-sales-http-${tenantA.tenantId}`,
+          firebaseUid: salesFirebaseUid,
           email: `sales-http-${tenantA.tenantId}@example.com`,
           active_tenant_id: tenantA.tenantId,
           active_site_id: null,
@@ -390,7 +391,7 @@ describe('Multi-Location guards (e2e)', () => {
 
       const authHeader = `Bearer ${createTestAuthToken(authService, {
         ...tenantA,
-        firebaseUid: salesUser.firebaseUid,
+        firebaseUid: salesFirebaseUid,
         email: salesUser.email,
       })}`;
       await request(app.getHttpServer())
@@ -401,9 +402,10 @@ describe('Multi-Location guards (e2e)', () => {
 
     it('GET /api/sites?includeInactive=true forbids non-admins', async () => {
       const tenantAPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
+      const salesFirebaseUid = `e2e-sales-http2-${tenantA.tenantId}`;
       const salesUser = await tenantAPrisma.user.create({
         data: {
-          firebaseUid: `e2e-sales-http2-${tenantA.tenantId}`,
+          firebaseUid: salesFirebaseUid,
           email: `sales-http2-${tenantA.tenantId}@example.com`,
           active_tenant_id: tenantA.tenantId,
           active_site_id: null,
@@ -419,7 +421,7 @@ describe('Multi-Location guards (e2e)', () => {
 
       const authHeader = `Bearer ${createTestAuthToken(authService, {
         ...tenantA,
-        firebaseUid: salesUser.firebaseUid,
+        firebaseUid: salesFirebaseUid,
         email: salesUser.email,
       })}`;
       await request(app.getHttpServer())

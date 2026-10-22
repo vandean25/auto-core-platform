@@ -35,6 +35,7 @@ describe('Inventory item mutations (e2e)', () => {
     const siteId = await resolveTestMainSiteId(prisma, tenantId);
     const catalogItem = await tenantPrisma.catalogItem.create({
       data: {
+        tenant_id: tenantId,
         sku: 'DEMO-PART-001',
         name: 'Demo filter',
         cost_price: 4.5,
@@ -46,6 +47,7 @@ describe('Inventory item mutations (e2e)', () => {
 
     const warehouse = await tenantPrisma.storageLocation.create({
       data: {
+        tenant_id: tenantId,
         code: 'WH-DEMO-01',
         name: 'Demo warehouse',
         type: LocationType.warehouse,
@@ -54,6 +56,7 @@ describe('Inventory item mutations (e2e)', () => {
     });
     const bin = await tenantPrisma.storageLocation.create({
       data: {
+        tenant_id: tenantId,
         code: 'BIN-DEMO-01',
         name: 'Demo bin A1',
         type: LocationType.bin,

@@ -61,6 +61,7 @@ describe('Customer consent ledger (e2e)', () => {
 
     const customer = await prisma.customer.create({
       data: {
+        tenant_id: tenantId,
         first_name: 'Sample',
         last_name: 'Customer',
         email: `aut589-${Date.now()}@example.com`,
@@ -71,6 +72,7 @@ describe('Customer consent ledger (e2e)', () => {
 
     const otherCustomer = await otherPrisma.customer.create({
       data: {
+        tenant_id: otherTenantId,
         first_name: 'Other',
         last_name: 'Tenant',
         email: `aut589-other-${Date.now()}@example.com`,
@@ -192,6 +194,7 @@ describe('Customer consent ledger (e2e)', () => {
   it('does not create communication state rows on preferences read alone', async () => {
     const fresh = await prisma.customer.create({
       data: {
+        tenant_id: tenantId,
         first_name: 'Read',
         last_name: 'Only',
         email: `aut589-read-${Date.now()}@example.com`,
@@ -211,6 +214,7 @@ describe('Customer consent ledger (e2e)', () => {
   it('unsubscribe link withdraws again after a later grant', async () => {
     const fresh = await prisma.customer.create({
       data: {
+        tenant_id: tenantId,
         first_name: 'Unsub',
         last_name: 'Twice',
         email: `aut589-unsub-${Date.now()}@example.com`,
