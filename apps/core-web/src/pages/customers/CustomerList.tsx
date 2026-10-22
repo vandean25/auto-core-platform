@@ -150,7 +150,7 @@ export default function CustomerList() {
           message: t('list.empty'),
           action: (
             <Button onClick={handleCreate}>
-              <Plus className="mr-2 h-4 w-4" /> {t('list.addCustomer')}
+              <Plus className="mr-2 h-4 w-4" /> {t('list.emptyAction')}
             </Button>
           ),
         }}

@@ -38,6 +38,7 @@
     "addCustomer": "Kunde",
     "searchPlaceholder": "Kunden durchsuchen…",
     "empty": "Noch keine Kunden angelegt.",
+    "emptyAction": "Kunde anlegen",
     "saveViewTitle": "Kunden",
     "deleteConfirm": "Diesen Kunden wirklich löschen?",
     "deleted": "Kunde gelöscht",

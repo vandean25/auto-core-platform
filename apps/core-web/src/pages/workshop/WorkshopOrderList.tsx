@@ -119,7 +119,7 @@ export default function WorkshopOrderList() {
           action: (
             <Button onClick={() => setCreateOpen(true)}>
               <Plus className='h-4 w-4 mr-2' />
-              {t('orders.list.newOrder')}
+              {t('orders.list.emptyAction')}
             </Button>
           ),
         }}

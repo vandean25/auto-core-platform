@@ -340,6 +340,7 @@
       "partsPickHint": "Zu kommissionierende Teile für offene Aufträge",
       "newOrder": "Auftrag",
       "empty": "Noch keine Werkstattaufträge vorhanden.",
+      "emptyAction": "Auftrag anlegen",
       "saveViewTitle": "Werkstattaufträge",
       "searchPlaceholder": "Werkstattaufträge suchen…",
       "rowAria": "Werkstattauftrag {{orderNo}}",

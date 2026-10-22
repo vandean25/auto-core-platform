@@ -10,7 +10,6 @@ import type { DashboardWidgetTableSource } from "@/features/dashboard-widgets/ty
 import { downloadCsv } from "@/lib/csv"
 import { DataTableViewOptions } from "./data-table-view-options"
 import { DataTableColumnFilters } from "./data-table-column-filters"
-import { DataTableDensityToggle } from "./data-table-density-toggle"
 import { buildDataTableCsv, getDataTableCsvFileName, getDataTableExportColumns } from "./data-table-csv"
 
 interface DataTableToolbarProps<TData extends object> {
@@ -97,7 +96,6 @@ export function DataTableToolbar<TData extends object>({
             {t('dataTable.exportCsv')}
           </Button>
         ) : null}
-        <DataTableDensityToggle />
         <DataTableViewOptions table={table} />
       </div>
     </div>

@@ -198,13 +198,12 @@ describe('DataTable layout options', () => {
 
   it('toggles compact density', () => {
     const { container } = render(<Harness />)
-    const toggle = screen.getByRole('button', { name: dt.density.compact })
 
     expect(container.querySelector('[data-density]')).toHaveAttribute('data-density', 'normal')
-    fireEvent.click(toggle)
+    fireEvent.keyDown(screen.getByRole('button', { name: dt.columns }), { key: 'Enter' })
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: dt.density.compact }))
 
     expect(container.querySelector('[data-density]')).toHaveAttribute('data-density', 'compact')
-    expect(toggle).toHaveAttribute('aria-pressed', 'true')
   })
 })
 

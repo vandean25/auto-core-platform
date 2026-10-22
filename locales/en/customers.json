@@ -38,6 +38,7 @@
     "addCustomer": "Customer",
     "searchPlaceholder": "Search customers...",
     "empty": "No customers yet.",
+    "emptyAction": "Create customer",
     "saveViewTitle": "Customers",
     "deleteConfirm": "Are you sure you want to delete this customer?",
     "deleted": "Customer deleted",
