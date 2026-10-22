@@ -42,12 +42,12 @@ describe('employee.helpers', () => {
     it('maps only provided fields and trims name', () => {
       const data = buildEmployeeUpdateData({
         name: '  John Doe  ',
-        role: EmployeeRole.OFFICE,
+        role: EmployeeRole.PARTS_CLERK,
         hiredOn: '2025-01-01',
       });
       expect(data).toEqual({
         name: 'John Doe',
-        role: EmployeeRole.OFFICE,
+        role: EmployeeRole.PARTS_CLERK,
         hired_on: new Date('2025-01-01T00:00:00.000Z'),
       });
     });

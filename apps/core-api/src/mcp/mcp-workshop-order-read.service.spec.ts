@@ -108,7 +108,7 @@ function buildService(options: {
           return true;
         }),
       ),
-      count: jest.fn(async ({ where }: { where: Record<string, unknown> }) => {
+      count: jest.fn(async ({ where }: { where: Record<string, unknown> }): Promise<number> => {
         const rows = await prisma.workshopOrder.findMany({ where });
         return rows.length;
       }),

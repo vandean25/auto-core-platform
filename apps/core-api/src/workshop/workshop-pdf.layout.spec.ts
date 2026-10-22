@@ -100,8 +100,8 @@ describe('workshop-pdf.layout', () => {
     it('renders dash placeholder when customer name is empty', () => {
       const customer = {
         ...createBaseOrder().customer!,
-        first_name: null,
-        last_name: null,
+        first_name: '',
+        last_name: '',
         company_name: null,
         address_zip: null,
         address_city: null,

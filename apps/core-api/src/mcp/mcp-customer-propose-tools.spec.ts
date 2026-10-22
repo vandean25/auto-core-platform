@@ -9,11 +9,17 @@ import { effectiveMcpWriteTier } from './mcp-write-tier.util.js';
 import { proposeMcpWriteViaPersist } from './mcp-write-pipeline.commit-propose.persist-path.js';
 import { runMcpWriteDryRunPath } from './mcp-write-pipeline.dry-run-path.js';
 import { maskLoggedArgs } from './mcp-write-pipeline.mask.js';
-import { mapExecutorHooks } from './mcp-write-execution-hooks.js';
+import {
+  mapExecutorHooks,
+  type McpWriteOptionalHooks,
+} from './mcp-write-execution-hooks.js';
 import {
   customerCreateExecutor,
 } from '../pending-action-executor/pending-action-executor.customer.js';
-import type { McpWriteCall } from './mcp-write-pipeline.types.js';
+import type {
+  McpWriteCall,
+  McpWriteExecution,
+} from './mcp-write-pipeline.types.js';
 
 const CUSTOMER_TOOLS = [
   'propose_customer_create',
@@ -198,18 +204,20 @@ describe('MCP customer proposal tools (AUT-613)', () => {
         },
         commandIdempotency: { completeInTransaction: jest.fn() },
       } as never;
+      const execution: McpWriteExecution &
+        Pick<McpWriteOptionalHooks, 'maskProposalPayload'> = {
+        toolName: 'propose_customer_create',
+        policyActionType: 'customer.create',
+        buildPolicyContext: () => ({}),
+        execute: async () => ({}),
+        buildResultSummary: () => ({}),
+        maskProposalPayload: (payload: unknown) => ({
+          ...(payload as Record<string, unknown>),
+          fields: { email: 'm***@example.at' },
+        }),
+      };
       const call: McpWriteCall = {
-        execution: {
-          toolName: 'propose_customer_create',
-          policyActionType: 'customer.create',
-          buildPolicyContext: () => ({}),
-          execute: async () => ({}),
-          buildResultSummary: () => ({}),
-          maskProposalPayload: (payload: unknown) => ({
-            ...(payload as Record<string, unknown>),
-            fields: { email: 'm***@example.at' },
-          }),
-        },
+        execution,
         input: {
           action: 'customer.create',
           idempotency_key: 'aut613-create-1',
@@ -310,15 +318,17 @@ describe('MCP customer proposal tools (AUT-613)', () => {
         tenantContext: { getTenantId: jest.fn().mockResolvedValue('tenant-1') },
         commandIdempotency: { completeInTransaction: jest.fn() },
       } as never;
+      const execution: McpWriteExecution &
+        Pick<McpWriteOptionalHooks, 'maskProposalPayload'> = {
+        toolName: 'propose_customer_create',
+        policyActionType: 'customer.create',
+        buildPolicyContext: () => ({}),
+        execute: async () => ({}),
+        buildResultSummary: () => ({}),
+        maskProposalPayload: (payload: unknown) => payload,
+      };
       const call: McpWriteCall = {
-        execution: {
-          toolName: 'propose_customer_create',
-          policyActionType: 'customer.create',
-          buildPolicyContext: () => ({}),
-          execute: async () => ({}),
-          buildResultSummary: () => ({}),
-          maskProposalPayload: (payload: unknown) => payload,
-        },
+        execution,
         input: {
           action: 'customer.create',
           idempotency_key: 'aut613-create-1',

@@ -375,14 +375,14 @@ describe('EmployeeService', () => {
     await expect(
       service.create({
         name: 'New',
-        role: EmployeeRole.OFFICE,
+        role: EmployeeRole.PARTS_CLERK,
         annualLeaveMinutes: 15450,
       }),
     ).rejects.toThrow('Tenant admin access is required.');
     await expect(
       service.create({
         name: 'New',
-        role: EmployeeRole.OFFICE,
+        role: EmployeeRole.PARTS_CLERK,
         hiredOn: '2026-05-01',
       }),
     ).rejects.toThrow('Tenant admin access is required.');
@@ -399,7 +399,7 @@ describe('EmployeeService', () => {
     const updatedEmployee = {
       ...baseEmployee,
       name: 'Jane Updated',
-      role: EmployeeRole.OFFICE,
+      role: EmployeeRole.PARTS_CLERK,
       is_active: false,
       sort_order: 2,
       user_id: 'user-2',
@@ -411,7 +411,7 @@ describe('EmployeeService', () => {
 
     const result = await service.update('emp-1', {
       name: 'Jane Updated',
-      role: EmployeeRole.OFFICE,
+      role: EmployeeRole.PARTS_CLERK,
       isActive: false,
       sortOrder: 2,
       userId: 'user-2',
@@ -422,7 +422,7 @@ describe('EmployeeService', () => {
       where: { id: 'emp-1', tenant_id: 'tenant-1' },
       data: {
         name: 'Jane Updated',
-        role: EmployeeRole.OFFICE,
+        role: EmployeeRole.PARTS_CLERK,
         is_active: false,
         sort_order: 2,
         user_id: 'user-2',
@@ -430,7 +430,7 @@ describe('EmployeeService', () => {
       },
     });
     expect(result.name).toBe('Jane Updated');
-    expect(result.role).toBe(EmployeeRole.OFFICE);
+    expect(result.role).toBe(EmployeeRole.PARTS_CLERK);
     expect(result.isActive).toBe(false);
   });
 

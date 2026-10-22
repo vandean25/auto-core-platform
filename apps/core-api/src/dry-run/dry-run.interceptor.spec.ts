@@ -62,7 +62,7 @@ describe('DryRunInterceptor', () => {
     } as unknown as ExecutionContext;
 
     mockCallHandler = {
-      handle: jest.fn(),
+      handle: jest.fn<CallHandler['handle']>(),
     };
 
     interceptor = new DryRunInterceptor(
@@ -73,7 +73,7 @@ describe('DryRunInterceptor', () => {
 
   describe('when dry_run is NOT requested', () => {
     it('passes through to next.handle() when no dry_run query or header is present', async () => {
-      mockCallHandler.handle = jest.fn().mockReturnValue(of({ success: true }));
+      mockCallHandler.handle = jest.fn<CallHandler['handle']>().mockReturnValue(of({ success: true }));
 
       const result$ = interceptor.intercept(mockExecutionContext, mockCallHandler);
       const result = await firstValueFrom(result$);
@@ -85,7 +85,7 @@ describe('DryRunInterceptor', () => {
 
     it('passes through to next.handle() when dry_run=false', async () => {
       mockRequest.query.dry_run = 'false';
-      mockCallHandler.handle = jest.fn().mockReturnValue(of({ success: true }));
+      mockCallHandler.handle = jest.fn<CallHandler['handle']>().mockReturnValue(of({ success: true }));
 
       const result$ = interceptor.intercept(mockExecutionContext, mockCallHandler);
       const result = await firstValueFrom(result$);
@@ -97,7 +97,7 @@ describe('DryRunInterceptor', () => {
 
     it('passes through if execution context is not http', async () => {
       (mockExecutionContext.getType as jest.Mock).mockReturnValue('rpc');
-      mockCallHandler.handle = jest.fn().mockReturnValue(of('rpc-data'));
+      mockCallHandler.handle = jest.fn<CallHandler['handle']>().mockReturnValue(of('rpc-data'));
 
       const result$ = interceptor.intercept(mockExecutionContext, mockCallHandler);
       const result = await firstValueFrom(result$);
@@ -171,7 +171,7 @@ describe('DryRunInterceptor', () => {
         const result = await work();
         return { result, wouldChange: [] };
       });
-      mockCallHandler.handle = jest.fn().mockReturnValue(of({ created: true }));
+      mockCallHandler.handle = jest.fn<CallHandler['handle']>().mockReturnValue(of({ created: true }));
 
       const result$ = interceptor.intercept(mockExecutionContext, mockCallHandler);
       const res = await firstValueFrom(result$);
@@ -196,7 +196,7 @@ describe('DryRunInterceptor', () => {
         const result = await work();
         return { result, wouldChange: [] };
       });
-      mockCallHandler.handle = jest.fn().mockReturnValue(of({ headerTest: true }));
+      mockCallHandler.handle = jest.fn<CallHandler['handle']>().mockReturnValue(of({ headerTest: true }));
 
       const result$ = interceptor.intercept(mockExecutionContext, mockCallHandler);
       const res = await firstValueFrom(result$);
@@ -220,7 +220,7 @@ describe('DryRunInterceptor', () => {
         result: { id: 'cust-1', name: 'Sample' },
         wouldChange: [{ entity: 'Customer', id: 'cust-1', op: 'create' }],
       });
-      mockCallHandler.handle = jest.fn().mockReturnValue(of({ id: 'cust-1', name: 'Sample' }));
+      mockCallHandler.handle = jest.fn<CallHandler['handle']>().mockReturnValue(of({ id: 'cust-1', name: 'Sample' }));
 
       const result$ = interceptor.intercept(mockExecutionContext, mockCallHandler);
       const res = await firstValueFrom(result$);
@@ -245,7 +245,7 @@ describe('DryRunInterceptor', () => {
         result: [{ id: '1' }, { id: '2' }],
         wouldChange: [],
       });
-      mockCallHandler.handle = jest.fn().mockReturnValue(of([{ id: '1' }, { id: '2' }]));
+      mockCallHandler.handle = jest.fn<CallHandler['handle']>().mockReturnValue(of([{ id: '1' }, { id: '2' }]));
 
       const result$ = interceptor.intercept(mockExecutionContext, mockCallHandler);
       const res = await firstValueFrom(result$);
@@ -268,7 +268,7 @@ describe('DryRunInterceptor', () => {
         result: 'deleted-successfully',
         wouldChange: [{ entity: 'Task', id: 'task-1', op: 'delete' }],
       });
-      mockCallHandler.handle = jest.fn().mockReturnValue(of('deleted-successfully'));
+      mockCallHandler.handle = jest.fn<CallHandler['handle']>().mockReturnValue(of('deleted-successfully'));
 
       const result$ = interceptor.intercept(mockExecutionContext, mockCallHandler);
       const res = await firstValueFrom(result$);

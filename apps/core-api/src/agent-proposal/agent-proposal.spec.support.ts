@@ -252,6 +252,7 @@ export const createMockProposal = (overrides?: Partial<any>) => ({
     amount_eur: 50,
   },
   preview_json: null,
+  created_by_agent: null,
   tier: AgentPolicyTier.PROPOSE,
   status: AgentProposalStatus.PENDING,
   decided_by: null,

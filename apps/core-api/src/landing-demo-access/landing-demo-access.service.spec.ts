@@ -6,7 +6,7 @@ import type { NotificationOutboxService } from '../notifications/notification-ou
 import type { NotificationCloudTasksService } from '../notifications/notification-cloud-tasks.service.js';
 import type { LandingDemoSignInGrantService } from './landing-demo-sign-in-grant.service.js';
 
-const getUserByEmail = jest.fn();
+const getUserByEmail = jest.fn<(email: string) => Promise<unknown>>();
 const getFirebaseAdminAuth = jest.fn(() => ({ getUserByEmail }));
 
 jest.unstable_mockModule('../auth/firebase-admin.js', () => ({
@@ -18,10 +18,11 @@ const { LandingDemoAccessService } = await import(
 );
 
 describe('LandingDemoAccessService account isolation', () => {
-  const createAccessRequest = jest.fn();
-  const tenantFindFirst = jest.fn();
-  const userFindFirst = jest.fn();
-  const transaction = jest.fn();
+  const createAccessRequest = jest.fn<(...args: unknown[]) => Promise<unknown>>();
+  const tenantFindFirst = jest.fn<(...args: unknown[]) => Promise<unknown>>();
+  const userFindFirst = jest.fn<(...args: unknown[]) => Promise<unknown>>();
+  const transaction =
+    jest.fn<(callback: (tx: unknown) => unknown) => Promise<unknown>>();
 
   const demoGrants = {
     userHasNonDemoActiveMembership: jest.fn(),
@@ -29,11 +30,13 @@ describe('LandingDemoAccessService account isolation', () => {
   } as unknown as LandingDemoSignInGrantService;
 
   const rateLimits = {
-    consume: jest.fn().mockResolvedValue({ allowed: true, retryAfterSeconds: 0 }),
+    consume: jest
+      .fn<PublicRateLimitStore['consume']>()
+      .mockResolvedValue({ allowed: true, retryAfterSeconds: 0 }),
   } as unknown as PublicRateLimitStore;
 
   const turnstile = {
-    verify: jest.fn().mockResolvedValue(true),
+    verify: jest.fn<TurnstileVerifier['verify']>().mockResolvedValue(true),
   } as unknown as TurnstileVerifier;
 
   const outbox = {
@@ -41,10 +44,12 @@ describe('LandingDemoAccessService account isolation', () => {
   } as unknown as NotificationOutboxService;
 
   const notificationWakeUps = {
-    enqueueWakeUp: jest.fn().mockResolvedValue(undefined),
+    enqueueWakeUp: jest
+      .fn<NotificationCloudTasksService['enqueueWakeUp']>()
+      .mockResolvedValue(undefined),
   } as unknown as NotificationCloudTasksService;
 
-  let service: LandingDemoAccessService;
+  let service: InstanceType<typeof LandingDemoAccessService>;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -75,11 +80,11 @@ describe('LandingDemoAccessService account isolation', () => {
     } as unknown as SystemPrismaService;
 
     demoGrants.userHasNonDemoActiveMembership = jest
-      .fn()
+      .fn<LandingDemoSignInGrantService['userHasNonDemoActiveMembership']>()
       .mockResolvedValue(true);
 
     outbox.enqueueInTx = jest
-      .fn()
+      .fn<NotificationOutboxService['enqueueInTx']>()
       .mockResolvedValue({ blocked: false, created: true, id: 'o1' });
 
     service = new LandingDemoAccessService(

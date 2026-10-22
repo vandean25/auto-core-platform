@@ -23,14 +23,23 @@ import { mcpToolOutputSchemas } from './mcp-tool-output-schemas.js';
 
 describe('McpWritePipelineService', () => {
   let service: McpWritePipelineService;
-  let mockAgentPolicy: jest.Mocked<AgentPolicyService>;
-  let mockDryRun: jest.Mocked<DryRunService>;
-  let mockAgentActionLog: jest.Mocked<AgentActionLogService>;
-  let mockAgentProposals: jest.Mocked<AgentProposalService>;
+  let mockAgentPolicy: Pick<jest.Mocked<AgentPolicyService>, 'evaluateAction'>;
+  let mockDryRun: Pick<
+    jest.Mocked<DryRunService>,
+    'executeInRollbackTransaction'
+  >;
+  let mockAgentActionLog: { record: jest.Mock; recordInTransaction: jest.Mock };
+  let mockAgentProposals: Pick<
+    jest.Mocked<AgentProposalService>,
+    'persistPendingAction'
+  >;
   let mockPrisma: { $transaction: jest.Mock };
-  let mockCommandIdempotency: jest.Mocked<McpWriteCommandIdempotencyService>;
-  let mockRequestContext: jest.Mocked<RequestContextService>;
-  let mockTenantContext: jest.Mocked<TenantContextService>;
+  let mockCommandIdempotency: Pick<
+    jest.Mocked<McpWriteCommandIdempotencyService>,
+    'beginOrReplay' | 'completeInTransaction' | 'abandon'
+  >;
+  let mockRequestContext: Pick<jest.Mocked<RequestContextService>, 'getTraceId'>;
+  let mockTenantContext: Pick<jest.Mocked<TenantContextService>, 'getTenantId'>;
 
   const mockContext: McpWriteToolContext = {
     agentId: 'test-agent',
@@ -39,7 +48,7 @@ describe('McpWritePipelineService', () => {
 
   const createMockExecution = (
     toolName: 'propose_line_item' | 'draft_workshop_order' | 'reserve_part' | 'release_reservation',
-  ): McpWriteExecution => {
+  ): McpWriteExecution & { execute: jest.Mock } => {
     const executeFn = jest.fn().mockResolvedValue({ id: 'created-id' });
     const policyActionMap: Record<string, string> = {
       propose_line_item: 'workshop_order.propose_line',
@@ -65,8 +74,8 @@ describe('McpWritePipelineService', () => {
   });
 
   const setupDefaultMocks = () => {
-    mockAgentPolicy = { evaluateAction: jest.fn() } as jest.Mocked<AgentPolicyService>;
-    mockDryRun = { executeInRollbackTransaction: jest.fn() } as jest.Mocked<DryRunService>;
+    mockAgentPolicy = { evaluateAction: jest.fn() };
+    mockDryRun = { executeInRollbackTransaction: jest.fn() };
     mockAgentActionLog = {
       record: jest.fn(),
       recordInTransaction: jest.fn(
@@ -80,10 +89,10 @@ describe('McpWritePipelineService', () => {
           workResult: work ? await work() : undefined,
         }),
       ),
-    } as jest.Mocked<AgentActionLogService>;
+    };
     mockAgentProposals = {
       persistPendingAction: jest.fn().mockResolvedValue({ id: 'proposal-1' }),
-    } as jest.Mocked<AgentProposalService>;
+    };
     const tx = {
       tag: 'tx' as const,
       agentProposal: {
@@ -102,13 +111,13 @@ describe('McpWritePipelineService', () => {
       }),
       completeInTransaction: jest.fn().mockResolvedValue(undefined),
       abandon: jest.fn().mockResolvedValue(undefined),
-    } as jest.Mocked<McpWriteCommandIdempotencyService>;
+    };
     mockRequestContext = {
       getTraceId: jest.fn().mockReturnValue('trace-claim'),
-    } as jest.Mocked<RequestContextService>;
+    };
     mockTenantContext = {
       getTenantId: jest.fn().mockResolvedValue('tenant-1'),
-    } as jest.Mocked<TenantContextService>;
+    };
   };
 
   beforeEach(async () => {
@@ -170,7 +179,7 @@ describe('McpWritePipelineService', () => {
       mockAgentPolicy.evaluateAction.mockResolvedValue(createMockEvaluation(AgentPolicyTier.AUTO));
       mockDryRun.executeInRollbackTransaction.mockImplementation(async (fn) => ({
         result: await fn(),
-        wouldChange: [{ type: 'create', entity: 'WorkshopTaskLineItem', entity_id: 'created-id' }],
+        wouldChange: [{ op: 'create', entity: 'WorkshopTaskLineItem', id: 'created-id', provisional: true }],
       }));
       mockAgentActionLog.record.mockResolvedValue({ traceId: 'trace-123' } as any);
 
@@ -203,7 +212,7 @@ describe('McpWritePipelineService', () => {
       mockAgentPolicy.evaluateAction.mockResolvedValue(createMockEvaluation(AgentPolicyTier.HUMAN_ONLY));
       mockDryRun.executeInRollbackTransaction.mockImplementation(async (fn) => ({
         result: await fn(),
-        wouldChange: [{ type: 'create', entity: 'WorkshopTaskLineItem', entity_id: 'created-id' }],
+        wouldChange: [{ op: 'create', entity: 'WorkshopTaskLineItem', id: 'created-id', provisional: true }],
       }));
       mockAgentActionLog.record.mockResolvedValue({ traceId: 'trace-123' } as any);
 
@@ -234,7 +243,7 @@ describe('McpWritePipelineService', () => {
       mockAgentPolicy.evaluateAction.mockResolvedValue(createMockEvaluation(AgentPolicyTier.AUTO));
       mockDryRun.executeInRollbackTransaction.mockImplementation(async (fn) => ({
         result: await fn(),
-        wouldChange: [{ type: 'create', entity: 'WorkshopOrder', entity_id: 'created-id' }],
+        wouldChange: [{ op: 'create', entity: 'WorkshopOrder', id: 'created-id', provisional: true }],
       }));
       mockAgentActionLog.recordInTransaction.mockImplementation(
         async (_options, _tx, executeFn) => {
@@ -267,7 +276,7 @@ describe('McpWritePipelineService', () => {
         callOrder.push('dry-run-start');
         const result = await fn();
         callOrder.push('dry-run-end');
-        return { result, wouldChange: [{ type: 'create', entity: 'WorkshopOrder', entity_id: 'created-id' }] };
+        return { result, wouldChange: [{ op: 'create', entity: 'WorkshopOrder', id: 'created-id', provisional: true }] };
       });
 
       mockAgentActionLog.recordInTransaction.mockImplementation(
@@ -302,7 +311,7 @@ describe('McpWritePipelineService', () => {
       mockAgentPolicy.evaluateAction.mockResolvedValue(createMockEvaluation(AgentPolicyTier.AUTO));
       mockDryRun.executeInRollbackTransaction.mockImplementation(async (fn) => ({
         result: await fn(),
-        wouldChange: [{ type: 'create', entity: 'WorkshopOrder', entity_id: 'created-id' }],
+        wouldChange: [{ op: 'create', entity: 'WorkshopOrder', id: 'created-id', provisional: true }],
       }));
       mockAgentActionLog.recordInTransaction.mockImplementation(
         async (_options, _tx, executeFn) => {
@@ -461,7 +470,7 @@ describe('McpWritePipelineService', () => {
       mockAgentPolicy.evaluateAction.mockResolvedValue(createMockEvaluation(AgentPolicyTier.HUMAN_ONLY));
       mockDryRun.executeInRollbackTransaction.mockImplementation(async (fn) => ({
         result: await fn(),
-        wouldChange: [{ type: 'create', entity: 'WorkshopOrder', entity_id: 'created-id' }],
+        wouldChange: [{ op: 'create', entity: 'WorkshopOrder', id: 'created-id', provisional: true }],
       }));
       mockAgentActionLog.record.mockResolvedValue({ traceId } as any);
 

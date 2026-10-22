@@ -42,14 +42,17 @@ const CONTRACT_CUSTOMER = {
 
 export type PipelineDryRunFixture = {  service: McpWritePipelineService;
   executors: PendingActionExecutorService;
-  mockAgentPolicy: jest.Mocked<AgentPolicyService>;
-  mockAgentActionLog: jest.Mocked<AgentActionLogService>;
+  mockAgentPolicy: Pick<jest.Mocked<AgentPolicyService>, 'evaluateAction'>;
+  mockAgentActionLog: { record: jest.Mock; recordInTransaction: jest.Mock };
   mockPrisma: {
     client: { $transaction: jest.Mock };
     $transaction: jest.Mock;
     mcpWriteCommandReceipt: { create: jest.Mock };
   };
-  mockCommandIdempotency: jest.Mocked<McpWriteCommandIdempotencyService>;
+  mockCommandIdempotency: Pick<
+    jest.Mocked<McpWriteCommandIdempotencyService>,
+    'beginOrReplay' | 'completeInTransaction' | 'abandon'
+  >;
   txAgentProposalCreate: jest.Mock;
   mockWorkshopMediaUploadMcp: {
     createUploadSlot: jest.Mock;
@@ -81,11 +84,11 @@ export async function createPipelineDryRunFixture(options?: {
       rule_id: 'rule-1',
       rule_version: 1,
     }),
-  } as jest.Mocked<AgentPolicyService>;
+  };
   const mockAgentActionLog = {
     record: jest.fn().mockResolvedValue({ traceId: 'trace-dry-run' }),
     recordInTransaction: jest.fn(),
-  } as jest.Mocked<AgentActionLogService>;
+  };
   const mockPrisma = {
     client: {
       $transaction: jest.fn().mockImplementation(async (callback) =>
@@ -99,7 +102,7 @@ export async function createPipelineDryRunFixture(options?: {
     beginOrReplay: jest.fn(),
     completeInTransaction: jest.fn(),
     abandon: jest.fn(),
-  } as jest.Mocked<McpWriteCommandIdempotencyService>;
+  };
 
   const realAdapters = options?.useRealAdapters
     ? buildRealAdapterServices()
@@ -322,7 +325,6 @@ export async function createPipelineDryRunFixture(options?: {
     mockWorkshopMediaUploadMcp as never,
     mockMechanicFindingPropose as never,
     mockWeeklyReportMcp as never,
-    {},
   );
 
   const module: TestingModule = await Test.createTestingModule({

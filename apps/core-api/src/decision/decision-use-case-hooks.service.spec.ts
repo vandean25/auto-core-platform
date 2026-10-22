@@ -1,4 +1,5 @@
 import type { Customer } from '@prisma/client';
+import type { DryRunRowResult } from '../import/import.types.js';
 import { DecisionUseCaseHooksService } from './decision-use-case-hooks.service.js';
 import { DecisionShadowService } from './decision-shadow.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -88,13 +89,13 @@ describe('DecisionUseCaseHooksService', () => {
     isShadowEnabled.mockReturnValue(true);
     findMany.mockResolvedValue([]);
     const service = buildService();
-    const priorRow = {
+    const priorRow: DryRunRowResult = {
       ...ambiguousCustomerRow(1),
       action: 'CREATE',
       entity_id: null,
       warnings: [],
     };
-    const duplicateRow = {
+    const duplicateRow: DryRunRowResult = {
       ...ambiguousCustomerRow(2),
       action: 'CREATE',
       entity_id: null,
@@ -141,7 +142,7 @@ describe('DecisionUseCaseHooksService', () => {
   });
 });
 
-function ambiguousCustomerRow(rowNo: number) {
+function ambiguousCustomerRow(rowNo: number): DryRunRowResult {
   return {
     row_no: rowNo,
     external_id: `external-${rowNo}`,
@@ -163,7 +164,7 @@ function ambiguousCustomerRow(rowNo: number) {
       address_city: null,
       address_country: 'AT',
     },
-  } as const;
+  };
 }
 
 function matchingCustomer(): Customer {

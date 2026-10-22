@@ -53,6 +53,7 @@ function agentActionRecord(overrides: Partial<AgentActionLog> = {}): AgentAction
     actor_type: 'AGENT',
     agent_id: 'mcp:cursor',
     on_behalf_of_user_id: USER_ID,
+    api_key_id: null,
     action_type: 'mcp.search_customers',
     tier: 'AUTO',
     status: 'EXECUTED',

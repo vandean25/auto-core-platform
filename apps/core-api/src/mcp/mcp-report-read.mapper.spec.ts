@@ -1,4 +1,5 @@
 import type { NovaCalculateResult } from '../vehicle/nova-calculation.service.js';
+import type { McpInvoiceCustomer } from './mcp-invoice-read.mapper.js';
 import type { VehicleStockReportsService } from '../vehicle-stock/vehicle-stock-reports.service.js';
 import type { WorkshopKpiReportsService } from '../workshop/workshop-kpi-reports.service.js';
 import { decodeMcpCursor } from './mcp-output.util.js';
@@ -20,13 +21,19 @@ const VEHICLE_A = '00000000-0000-4000-8000-0000000000a2';
 const VEHICLE_B = '00000000-0000-4000-8000-0000000000b2';
 const VEHICLE_C = '00000000-0000-4000-8000-0000000000c2';
 
-const PERSON = {
+const PERSON: Pick<
+  McpInvoiceCustomer,
+  'type' | 'company_name' | 'first_name' | 'last_name'
+> = {
   type: 'PRIVATE',
   company_name: null,
   first_name: 'Erika',
   last_name: 'Musterfrau',
 };
-const COMPANY = {
+const COMPANY: Pick<
+  McpInvoiceCustomer,
+  'type' | 'company_name' | 'first_name' | 'last_name'
+> = {
   type: 'COMPANY',
   company_name: 'Musterwerkstatt Nord GmbH',
   first_name: 'Max',

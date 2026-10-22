@@ -25,9 +25,12 @@ import { WeeklyReportPdfService } from '../reports/weekly-report/weekly-report-p
 
 describe('McpWritePipelineService generate_weekly_report_pdf', () => {
   let service: McpWritePipelineService;
-  let mockDryRun: jest.Mocked<DryRunService>;
-  let mockAgentPolicy: jest.Mocked<AgentPolicyService>;
-  let mockAgentActionLog: jest.Mocked<AgentActionLogService>;
+  let mockDryRun: Pick<
+    jest.Mocked<DryRunService>,
+    'executeInRollbackTransaction'
+  >;
+  let mockAgentPolicy: Pick<jest.Mocked<AgentPolicyService>, 'evaluateAction'>;
+  let mockAgentActionLog: { record: jest.Mock; recordInTransaction: jest.Mock };
   let mockPrisma: { $transaction: jest.Mock };
   let weeklyReportPdf: WeeklyReportPdfService;
   let storage: {
@@ -139,14 +142,14 @@ describe('McpWritePipelineService generate_weekly_report_pdf', () => {
 
     mockAgentPolicy = {
       evaluateAction: jest.fn(),
-    } as jest.Mocked<AgentPolicyService>;
+    };
     mockDryRun = {
       executeInRollbackTransaction: jest.fn(),
-    } as jest.Mocked<DryRunService>;
+    };
     mockAgentActionLog = {
       recordInTransaction: jest.fn(),
       record: jest.fn(),
-    } as jest.Mocked<AgentActionLogService>;
+    };
     mockPrisma = {
       $transaction: jest.fn((fn) =>
         fn({ tag: 'tx', agentActionLog: { create: jest.fn() } }),
@@ -179,6 +182,8 @@ describe('McpWritePipelineService generate_weekly_report_pdf', () => {
     mockAgentPolicy.evaluateAction.mockResolvedValue({
       tier: AgentPolicyTier.AUTO,
       reasons: [],
+      rule_id: 'rule-1',
+      rule_version: 1,
     });
     mockAgentActionLog.recordInTransaction.mockImplementation(
       async (_input, _tx, work) => {
