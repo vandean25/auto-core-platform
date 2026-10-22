@@ -3,13 +3,11 @@ import type { TFunction } from 'i18next'
 import type { NavigateFunction } from 'react-router-dom'
 
 import { useAuthRole } from '@/features/actions/use-auth-role'
-import { createVehicleRowActions } from '@/features/actions/vehicle-row-actions'
+import {
+  createVehicleRowActions,
+  type VehicleListRow,
+} from '@/features/actions/vehicle-row-actions'
 import { useRegistryRowBehaviour } from '@/features/actions/use-registry-row-behaviour'
-
-export type VehicleListRow = {
-  id: string
-  vehicle: string
-}
 
 export function useVehicleListRowBehaviour(t: TFunction<'vehicles'>, navigate: NavigateFunction) {
   const role = useAuthRole()

@@ -6,6 +6,15 @@ import type { Customer } from '@/api/types'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import type { EntityActionDefinition } from './entity-action'
 
+export type CustomerListRow = Customer
+
+export function getCustomerListRowLabel(row: CustomerListRow): string {
+  if (row.type === 'COMPANY' && row.company_name) {
+    return row.company_name
+  }
+  return `${row.first_name} ${row.last_name}`.trim()
+}
+
 export type CustomerRowActionContext = {
   navigate: NavigateFunction
   onDelete: (customerId: string) => void | Promise<void>
@@ -19,7 +28,7 @@ export function canDeleteCustomerFromList(_role: string | undefined): boolean {
 
 export function createCustomerRowActions(
   t: TFunction<'customers'>,
-): EntityActionDefinition<Customer, CustomerRowActionContext>[] {
+): EntityActionDefinition<CustomerListRow, CustomerRowActionContext>[] {
   return [
     {
       id: 'open',

@@ -16,10 +16,8 @@ import { StatusBadge } from '@/components/status/StatusBadge'
 import { useWorkshopOrders } from '@/api/workshop'
 import { DASHBOARD_WIDGET_SOURCE_WORKSHOP_ORDERS } from '@/features/dashboard-widgets/sources'
 import { getWorkshopCustomerDisplayName } from '@/features/workshop/pick-utils'
-import {
-  useWorkshopOrderListRowBehaviour,
-  type WorkshopOrderListRow,
-} from './useWorkshopOrderListRowBehaviour'
+import type { WorkshopOrderListRow } from '@/features/actions/work-order-row-actions'
+import { useWorkshopOrderListRowBehaviour } from './useWorkshopOrderListRowBehaviour'
 
 export default function WorkshopOrderList() {
   const { t } = useTranslation('workshop')

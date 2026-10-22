@@ -7,19 +7,12 @@ import {
   useGenerateWorkshopPdf,
   workshopOrderDetailQueryOptions,
 } from '@/api/workshop'
-import type { WorkshopOrder } from '@/api/types'
 import { useAuthRole } from '@/features/actions/use-auth-role'
-import { createWorkshopOrderRowActions } from '@/features/actions/work-order-row-actions'
+import {
+  createWorkshopOrderRowActions,
+  type WorkshopOrderListRow,
+} from '@/features/actions/work-order-row-actions'
 import { useRegistryRowBehaviour } from '@/features/actions/use-registry-row-behaviour'
-
-export type WorkshopOrderListRow = {
-  id: string
-  orderNo: string
-  customer: string
-  vehicle: string
-  openedAt: string
-  status: WorkshopOrder['status']
-}
 
 export function useWorkshopOrderListRowBehaviour(
   t: TFunction<'workshop'>,

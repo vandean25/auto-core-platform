@@ -40,6 +40,7 @@
     "empty": "Noch keine Kunden angelegt.",
     "emptyAction": "Kunde anlegen",
     "saveViewTitle": "Kunden",
+    "rowAria": "Kunde {{name}}",
     "deleteConfirm": "Diesen Kunden wirklich löschen?",
     "deleted": "Kunde gelöscht",
     "deleteFailed": "Kunde konnte nicht gelöscht werden",

@@ -12,7 +12,8 @@ import { DASHBOARD_WIDGET_SOURCE_VEHICLES } from '@/features/dashboard-widgets/s
 import { Button } from '@/components/ui/button'
 import { VehicleDialog } from '@/components/vehicles/VehicleDialog'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
-import { useVehicleListRowBehaviour, type VehicleListRow } from './useVehicleListRowBehaviour'
+import type { VehicleListRow } from '@/features/actions/vehicle-row-actions'
+import { useVehicleListRowBehaviour } from './useVehicleListRowBehaviour'
 
 type VehicleRow = VehicleListRow & {
   year: number

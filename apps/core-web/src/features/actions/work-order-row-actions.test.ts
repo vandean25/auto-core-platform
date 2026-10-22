@@ -14,7 +14,10 @@ describe('work order row actions', () => {
   const row: WorkshopOrderListRow = {
     id: 'order-1',
     orderNo: 'WO-1',
-    status: 'INTAKE',
+    status: 'INTAKE' as const,
+    customer: 'Ada Lovelace',
+    vehicle: '2024 Audi A4',
+    openedAt: '2026-01-01',
   }
 
   it('exposes open, check-in and PDF actions for standard roles', () => {
@@ -23,7 +26,7 @@ describe('work order row actions', () => {
   })
 
   it('disables check-in when the order is no longer open for intake', () => {
-    const invoiced = { ...row, status: 'INVOICED' }
+    const invoiced: WorkshopOrderListRow = { ...row, status: 'INVOICED' }
     const actions = filterEntityActions(definitions, 'ADMIN', invoiced)
     expect(actions.map((action) => action.id)).toEqual(['open', 'jobCardPdf'])
     expect(isWorkshopCheckInOpenStatus(invoiced.status)).toBe(false)

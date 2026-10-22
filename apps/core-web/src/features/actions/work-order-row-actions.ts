@@ -9,12 +9,16 @@ import {
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { triggerBlobDownload } from '@/lib/download'
 import { toast } from 'sonner'
+import type { WorkshopOrder } from '@/api/types'
 import type { EntityActionDefinition } from './entity-action'
 
 export type WorkshopOrderListRow = {
   id: string
   orderNo: string
-  status: string
+  customer: string
+  vehicle: string
+  openedAt: string
+  status: WorkshopOrder['status']
 }
 
 export type WorkshopOrderRowActionContext = {
