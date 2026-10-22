@@ -55,7 +55,7 @@ export function buildVehicleUpdatePayload(
 
 export function hasVehicleIdentityChanged(
   existingVehicle: Pick<ExistingVehicleIdentity, 'vin' | 'plate'>,
-  updateVehicleDto: Pick<UpdateVehicleDto, 'vin' | 'plate'>,
+  updateVehicleDto: { vin?: string | null; plate?: string | null },
 ): boolean {
   const vinChanged =
     updateVehicleDto.vin !== undefined &&

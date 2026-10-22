@@ -5,10 +5,12 @@ import {
   type Prisma,
 } from '@prisma/client';
 
-type ChannelCommitClient = Pick<
-  Prisma.TransactionClient,
-  'vehicleListingChannel'
->;
+type ChannelCommitClient = {
+  vehicleListingChannel: Pick<
+    Prisma.TransactionClient['vehicleListingChannel'],
+    'updateMany'
+  >;
+};
 
 export async function commitListingChannelGeneratedExport(
   tx: ChannelCommitClient,

@@ -31,6 +31,8 @@ import { MCP_TOOL_DESCRIPTIONS } from './mcp-tool-descriptions.js';
 import { effectiveMcpWriteTier } from './mcp-write-tier.util.js';
 import { buildAgentResponseLanguageInstruction } from './mcp-agent-response-language.js';
 import { McpUserLocaleService } from './mcp-user-locale.service.js';
+import type { McpComplianceReadToolName } from './mcp-read-tool-catalog.aut605.js';
+import type { McpWave2ReadToolName } from './mcp-read-wave2-catalog.js';
 
 export type McpCallerType = 'agent' | 'human_on_behalf';
 
@@ -48,7 +50,7 @@ export type McpWhoami = {
 export type McpCapabilityTier = 'AUTO' | 'PROPOSE';
 
 export type McpCapability = {
-  tool: McpToolName;
+  tool: McpToolName | McpWave2ReadToolName | McpComplianceReadToolName;
   description: string;
   tier: McpCapabilityTier;
   access: 'read' | 'write';

@@ -1,5 +1,4 @@
 import type { McpCapability } from './mcp-capabilities.service.js';
-import type { McpToolName } from './mcp.constants.js';
 import { MCP_COMPLIANCE_READ_TOOL_NAMES } from './mcp-read-tool-catalog.aut605.js';
 import { MCP_COMPLIANCE_READ_TOOL_DESCRIPTIONS } from './mcp-tool-descriptions.compliance-reads.js';
 
@@ -9,7 +8,7 @@ export function appendComplianceReadCapabilities(
 ): McpCapability[] {
   const complianceTools: McpCapability[] = MCP_COMPLIANCE_READ_TOOL_NAMES.map(
     (tool) => ({
-      tool: tool as McpToolName,
+      tool,
       description: MCP_COMPLIANCE_READ_TOOL_DESCRIPTIONS[tool],
       tier: 'AUTO',
       access: 'read',
