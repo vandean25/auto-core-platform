@@ -471,6 +471,87 @@ describe('concurrent board assign and workshop task status', () => {
     await respond(TASK_PATCH_URL, 'PATCH', 200, createOrder('DONE'))
   })
 
+  it('notes save does not refetch order detail while assign still owns the cache', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    const initialOrder = {
+      ...createOrder('IN_PROGRESS'),
+      mechanicId: 'mech-1',
+      mechanic_id: 'mech-1',
+    }
+    queryClient.setQueryData(workshopKeys.detail('order-1'), initialOrder)
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>
+        <RealtimeDashboardSyncProvider>{children}</RealtimeDashboardSyncProvider>
+      </QueryClientProvider>
+    )
+    const view = renderHook(
+      () => ({
+        order: useQuery({
+          queryKey: workshopKeys.detail('order-1'),
+          queryFn: async () => {
+            const response = await fetchWithAuth(ORDER_DETAIL_URL)
+            if (!response.ok) throw new Error('failed')
+            return response.json() as Promise<WorkshopOrder>
+          },
+          initialData: initialOrder,
+          staleTime: Infinity,
+        }),
+        board: useBoardActive(),
+        assign: useWorkshopBoardAssignment('mechanic'),
+        updateTask: useUpdateWorkshopTask(),
+      }),
+      { wrapper },
+    )
+    await waitFor(() => expect(mocks.socket.on).toHaveBeenCalled())
+    await respond(BOARD_URL, 'GET', 200, {
+      data: [{ id: 'order-1', mechanicId: 'mech-1', bayId: null }],
+    } as BoardActiveResponse)
+    await waitFor(() => expect(view.result.current.board.data).toBeDefined())
+
+    act(() =>
+      view.result.current.assign('order-1', { kind: 'mechanic', id: 'mech-2', label: 'mech-2' }),
+    )
+    await settle()
+
+    act(() => {
+      void view.result.current.updateTask.mutateAsync({
+        orderId: 'order-1',
+        taskId: 'task-1',
+        mechanicNotes: 'Pads look fine',
+      })
+    })
+    await settle()
+
+    const notesPatch = unanswered(TASK_PATCH_URL, 'PATCH').find(
+      (request) => (request.body as { mechanicNotes?: string }).mechanicNotes !== undefined,
+    )
+    expect(notesPatch).toBeDefined()
+    notesPatch!.respond(200, {
+      ...createOrder('IN_PROGRESS'),
+      mechanicId: 'mech-1',
+      mechanic_id: 'mech-1',
+      tasks: [
+        {
+          ...createOrder('IN_PROGRESS').tasks![0],
+          mechanicNotes: 'Pads look fine',
+        },
+      ],
+    })
+    await settle()
+
+    expect(unanswered(ORDER_DETAIL_URL, 'GET')).toHaveLength(0)
+    expect(queryClient.getQueryData<WorkshopOrder>(workshopKeys.detail('order-1'))?.mechanicId).toBe(
+      'mech-2',
+    )
+    expect(
+      queryClient.getQueryData<WorkshopOrder>(workshopKeys.detail('order-1'))?.tasks?.[0]?.mechanicNotes,
+    ).toBe('Pads look fine')
+
+    await respond(ASSIGN_URL, 'PATCH', 200, {})
+  })
+
   it('failed assign reverts mechanic on order detail but keeps optimistic task status', async () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -490,6 +571,7 @@ describe('concurrent board assign and workshop task status', () => {
       () => ({
         board: useBoardActive(),
         assign: useWorkshopBoardAssignment('mechanic'),
+        updateTask: useUpdateWorkshopTask(),
       }),
       { wrapper },
     )
@@ -506,6 +588,18 @@ describe('concurrent board assign and workshop task status', () => {
     expect(queryClient.getQueryData<WorkshopOrder>(workshopKeys.detail('order-1'))?.mechanicId).toBe(
       'mech-2',
     )
+
+    act(() => {
+      void view.result.current.updateTask.mutateAsync({
+        orderId: 'order-1',
+        taskId: 'task-1',
+        status: 'DONE',
+      })
+    })
+    await settle()
+    expect(
+      queryClient.getQueryData<WorkshopOrder>(workshopKeys.detail('order-1'))?.tasks?.[0]?.status,
+    ).toBe('DONE')
 
     await respond(ASSIGN_URL, 'PATCH', 403, { message: 'forbidden' })
     await waitFor(() =>

@@ -68,30 +68,57 @@ function getOptimisticMutationContext(mutation: Mutation): OptimisticContext<unk
   return mutation.state.context as OptimisticContext<unknown> | undefined
 }
 
-function countPendingMutationsForQueryKey(
+function mutationTouchesQueryKey(mutation: Mutation, queryKey: QueryKey): boolean {
+  const ctx = getOptimisticMutationContext(mutation)
+  if (!ctx) return false
+  const target = hashKey(queryKey)
+  if (ctx.resolvedQueryKey !== undefined && hashKey(ctx.resolvedQueryKey) === target) return true
+  return ctx.extraSnapshots.some((extra) => hashKey(extra.queryKey) === target)
+}
+
+function countOtherPendingMutationsForQueryKey(
   client: MutationFunctionContext['client'],
   queryKey: QueryKey,
+  exceptMutationId?: number,
 ): number {
-  const target = hashKey(queryKey)
   return client
     .getMutationCache()
     .getAll()
     .filter((mutation) => {
       if (mutation.state.status !== 'pending') return false
-      const ctx = getOptimisticMutationContext(mutation)
-      return ctx?.resolvedQueryKey !== undefined && hashKey(ctx.resolvedQueryKey) === target
+      if (exceptMutationId !== undefined && mutation.mutationId === exceptMutationId) return false
+      return mutationTouchesQueryKey(mutation, queryKey)
     }).length
+}
+
+function findSettlingMutationId(
+  client: MutationFunctionContext['client'],
+  key: QueryKey,
+  variables: unknown,
+  context: OptimisticContext<unknown> | undefined,
+): number | undefined {
+  return client
+    .getMutationCache()
+    .getAll()
+    .find(
+      (mutation) =>
+        mutation.state.status === 'pending' &&
+        hashKey(mutation.options.mutationKey as QueryKey) === hashKey(key) &&
+        mutation.state.variables === variables &&
+        mutation.state.context === context,
+    )?.mutationId
 }
 
 function invalidateSettledCaches(
   client: MutationFunctionContext['client'],
   resolvedQueryKey: QueryKey,
   extraSnapshots: ExtraSnapshot[],
+  exceptMutationId?: number,
 ) {
-  if (countPendingMutationsForQueryKey(client, resolvedQueryKey) > 1) return
+  if (countOtherPendingMutationsForQueryKey(client, resolvedQueryKey, exceptMutationId) > 0) return
   void client.invalidateQueries({ queryKey: resolvedQueryKey })
   for (const { queryKey: extraKey } of extraSnapshots) {
-    if (countPendingMutationsForQueryKey(client, extraKey) > 0) return
+    if (countOtherPendingMutationsForQueryKey(client, extraKey, exceptMutationId) > 0) return
     void client.invalidateQueries({ queryKey: extraKey })
   }
 }
@@ -206,7 +233,13 @@ export function optimisticMutationOptions<TCache, TVariables>({
     ) => {
       const resolvedQueryKey = context?.resolvedQueryKey ?? resolveQueryKey(queryKey, variables)
       const extraSnapshots = context?.skipped ? [] : (context?.extraSnapshots ?? [])
-      invalidateSettledCaches(client, resolvedQueryKey, extraSnapshots)
+      const settlingMutationId = findSettlingMutationId(
+        client,
+        mutationKey,
+        variables,
+        context as OptimisticContext<unknown> | undefined,
+      )
+      invalidateSettledCaches(client, resolvedQueryKey, extraSnapshots, settlingMutationId)
     },
   }
 }
