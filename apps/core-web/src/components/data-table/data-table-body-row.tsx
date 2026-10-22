@@ -124,6 +124,65 @@ type RowKeyHandlerArgs<TData extends object> = {
   onArrowFocus: (direction: 'up' | 'down') => void
 }
 
+function handleDataTableRowArrowKey(
+  event: ReactKeyboardEvent<HTMLTableRowElement>,
+  onArrowFocus: (direction: 'up' | 'down') => void,
+): boolean {
+  if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') {
+    return false
+  }
+  if (isInteractiveTarget(event.target)) {
+    return true
+  }
+  event.preventDefault()
+  onArrowFocus(event.key === 'ArrowDown' ? 'down' : 'up')
+  return true
+}
+
+function handleDataTableRowContextMenuKey<TData extends object>(
+  event: ReactKeyboardEvent<HTMLTableRowElement>,
+  resolvedRow: TData,
+  openRowContextMenu: (row: TData, x: number, y: number) => boolean,
+): boolean {
+  if (event.key !== 'ContextMenu' && !(event.shiftKey && event.key === 'F10')) {
+    return false
+  }
+  const rect = event.currentTarget.getBoundingClientRect()
+  event.preventDefault()
+  openRowContextMenu(resolvedRow, rect.left + 12, rect.top + rect.height / 2)
+  return true
+}
+
+function handleDataTableRowActivateKey<TData extends object>(
+  event: ReactKeyboardEvent<HTMLTableRowElement>,
+  resolvedRow: TData,
+  data: TData[],
+  interaction: RowInteractionState,
+  onRowClick: ((row: TData) => void) | undefined,
+): boolean {
+  if (event.key !== 'Enter' && event.key !== ' ') {
+    return false
+  }
+  if (isInteractiveTarget(event.target)) {
+    return true
+  }
+  if (interaction.rowUsesDetailLink) {
+    event.preventDefault()
+    if (onRowClick) {
+      onRowClick(resolvedRow)
+      return true
+    }
+    openDetailFromRow(event.currentTarget)
+    return true
+  }
+  if (!onRowClick) {
+    return false
+  }
+  event.preventDefault()
+  activateRow(event, resolvedRow, data, onRowClick)
+  return true
+}
+
 export function handleDataTableBodyRowKeyDown<TData extends object>({
   event,
   rowData,
@@ -136,51 +195,9 @@ export function handleDataTableBodyRowKeyDown<TData extends object>({
   const resolvedRow = resolveRowFromElement(event.currentTarget, data, rowData)
   const onRowClick = rowBehaviour?.onRowClick
 
-  if (event.key === 'ArrowDown') {
-    if (isInteractiveTarget(event.target)) return
-    event.preventDefault()
-    onArrowFocus('down')
-    return
-  }
-
-  if (event.key === 'ArrowUp') {
-    if (isInteractiveTarget(event.target)) return
-    event.preventDefault()
-    onArrowFocus('up')
-    return
-  }
-
-  if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
-    const rect = event.currentTarget.getBoundingClientRect()
-    event.preventDefault()
-    openRowContextMenu(resolvedRow, rect.left + 12, rect.top + rect.height / 2)
-    return
-  }
-
-  if (event.key !== 'Enter' && event.key !== ' ') {
-    return
-  }
-
-  if (isInteractiveTarget(event.target)) {
-    return
-  }
-
-  if (interaction.rowUsesDetailLink) {
-    event.preventDefault()
-    if (onRowClick) {
-      onRowClick(resolvedRow)
-      return
-    }
-    openDetailFromRow(event.currentTarget)
-    return
-  }
-
-  if (!onRowClick) {
-    return
-  }
-
-  event.preventDefault()
-  activateRow(event, resolvedRow, data, onRowClick)
+  if (handleDataTableRowArrowKey(event, onArrowFocus)) return
+  if (handleDataTableRowContextMenuKey(event, resolvedRow, openRowContextMenu)) return
+  handleDataTableRowActivateKey(event, resolvedRow, data, interaction, onRowClick)
 }
 
 type DataTableBodyRowProps<TData extends object> = {

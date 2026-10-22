@@ -48,14 +48,14 @@ vi.mock('@/api/workshop', () => ({
 vi.mock('@/components/data-table/DataTable', () => ({
   DataTable: ({
     data,
-    onRowClick,
+    rowBehaviour,
   }: {
     data: AuditLog[]
-    onRowClick?: (row: AuditLog) => void
+    rowBehaviour?: { onRowClick?: (row: AuditLog) => void }
   }) => (
     <div data-testid="mock-data-table">
       {data.map((log) => (
-        <button key={log.id} type="button" onClick={() => onRowClick?.(log)}>
+        <button key={log.id} type="button" onClick={() => rowBehaviour?.onRowClick?.(log)}>
           {log.entityType} - {log.entityId}
         </button>
       ))}

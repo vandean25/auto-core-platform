@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { type LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { useTranslation } from 'react-i18next'
@@ -15,9 +15,7 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { DASHBOARD_WIDGET_SOURCE_CUSTOMERS } from '@/features/dashboard-widgets/sources'
 import { getErrorMessage } from '@/lib/error-utils'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
-import { useAuth } from '@/auth/AuthProvider'
-import { createCustomerRowActions } from '@/features/actions/customer-row-actions'
-import { useRegistryRowBehaviour } from '@/features/actions/use-registry-row-behaviour'
+import { useCustomerListRowBehaviour } from './useCustomerListRowBehaviour'
 
 export default function CustomerList() {
   const { t } = useTranslation('customers')
@@ -25,8 +23,6 @@ export default function CustomerList() {
     void ensureNamespaceLoaded('customers')
   }, [])
   const navigate = useNavigate()
-  const { claims } = useAuth()
-  const role = claims?.role
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
   const { data: responseData, isLoading, isError } = useCustomers(queryParams)
   const [searchParams, setSearchParams] = useSearchParams()
@@ -68,15 +64,7 @@ export default function CustomerList() {
     setIsDialogOpen(true)
   }
 
-  const customerActionDefinitions = useMemo(() => createCustomerRowActions(t), [t])
-  const rowBehaviour = useRegistryRowBehaviour({
-    role,
-    definitions: customerActionDefinitions,
-    runContext: { navigate, onDelete: handleDelete, t },
-    tableBehaviour: {
-      onRowClick: (row) => navigate(`/customers/${row.id}`),
-    },
-  })
+  const rowBehaviour = useCustomerListRowBehaviour(t, navigate, handleDelete)
 
   const columns: ColumnDef<Customer>[] = [
     {

@@ -10,7 +10,7 @@ import {
   type OnChangeFn,
   flexRender,
 } from '@tanstack/react-table'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -30,6 +30,7 @@ import {
   getRowInteraction,
 } from './data-table-body-row'
 import type { DataTableRowBehaviour } from './data-table-row-behaviour'
+import { useDataTableRovingFocus } from './use-data-table-roving-focus'
 
 // Only header render functions (the DataTableColumnHeader pattern) expose a sort control.
 // Plain-text headers do not, so they must not advertise sorting.
@@ -100,7 +101,6 @@ export function DataTable<TData extends object>({
   const rootRef = useRef<HTMLDivElement | null>(null)
   const tableBodyRef = useRef<HTMLTableSectionElement | null>(null)
   const [density, setDensity] = useState<DataTableDensity>('normal')
-  const [focusedRowIndex, setFocusedRowIndex] = useState(0)
   const hasBulkActions = Boolean(bulkActions)
   const { rowSelection, setRowSelection, withSelectColumn } = useDataTableSelection<TData>(
     hasBulkActions,
@@ -141,37 +141,15 @@ export function DataTable<TData extends object>({
   const visibleColumnCount = table.getVisibleLeafColumns().length
   const bodyRows = table.getRowModel().rows
 
-  const rovingRowIndices = bodyRows
-    .map((row, index) => ({ row, index }))
-    .filter(({ row }) =>
-      getRowInteraction(row as DataTableBodyRowModel<TData>, rowBehaviour).rowIsRovingFocusable,
-    )
-    .map(({ index }) => index)
-
-  useEffect(() => {
-    setFocusedRowIndex(0)
-  }, [data, pagination.pageIndex, pagination.pageSize])
-
-  const focusRowAtRovingIndex = (rovingIndex: number) => {
-    if (rovingRowIndices.length === 0) return
-    const clamped = Math.max(0, Math.min(rovingIndex, rovingRowIndices.length - 1))
-    setFocusedRowIndex(clamped)
-    const domIndex = rovingRowIndices[clamped]
-    const rowElement = tableBodyRef.current?.querySelectorAll<HTMLTableRowElement>(
-      'tr[data-table-row="true"]',
-    )[domIndex]
-    rowElement?.focus()
-  }
-
-  const handleArrowFocus = (visibleRowIndex: number, direction: 'up' | 'down') => {
-    const rovingPosition = rovingRowIndices.indexOf(visibleRowIndex)
-    if (rovingPosition < 0) return
-    const next =
-      direction === 'down'
-        ? Math.min(rovingPosition + 1, rovingRowIndices.length - 1)
-        : Math.max(rovingPosition - 1, 0)
-    focusRowAtRovingIndex(next)
-  }
+  const bodyRowModels = bodyRows.map((row) => row as DataTableBodyRowModel<TData>)
+  const paginationKey = `${pagination.pageIndex}:${pagination.pageSize}`
+  const { handleArrowFocus, tabIndexForRow, onRowFocus } = useDataTableRovingFocus(
+    bodyRowModels,
+    rowBehaviour,
+    data,
+    paginationKey,
+    tableBodyRef,
+  )
 
   return (
     <div className="space-y-4" ref={rootRef}>
@@ -222,13 +200,6 @@ export function DataTable<TData extends object>({
               bodyRows.map((row, visibleRowIndex) => {
                 const bodyRow = row as DataTableBodyRowModel<TData>
                 const interaction = getRowInteraction(bodyRow, rowBehaviour)
-                const rovingPosition = rovingRowIndices.indexOf(visibleRowIndex)
-                const tabIndex =
-                  !interaction.rowIsRovingFocusable || rovingPosition < 0
-                    ? undefined
-                    : rovingPosition === focusedRowIndex
-                      ? 0
-                      : -1
 
                 return (
                   <DataTableBodyRow
@@ -237,14 +208,10 @@ export function DataTable<TData extends object>({
                     data={data}
                     rowBehaviour={rowBehaviour}
                     interaction={interaction}
-                    tabIndex={tabIndex}
+                    tabIndex={tabIndexForRow(visibleRowIndex, interaction.rowIsRovingFocusable)}
                     openRowContextMenu={openRowContextMenu}
                     onArrowFocus={(direction) => handleArrowFocus(visibleRowIndex, direction)}
-                    onRowFocus={() => {
-                      if (rovingPosition >= 0) {
-                        setFocusedRowIndex(rovingPosition)
-                      }
-                    }}
+                    onRowFocus={() => onRowFocus(visibleRowIndex)}
                   />
                 )
               })
