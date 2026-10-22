@@ -57,7 +57,9 @@ describe('DocumentBrandingProfileStore', () => {
         create: jest.fn().mockResolvedValue(created),
       },
     };
-    prisma.$transaction.mockImplementation(async (callback) => callback(tx));
+    prisma.$transaction.mockImplementation(
+      async (callback: (client: typeof tx) => unknown) => callback(tx),
+    );
     const action = jest.fn(async (_tx, profile, scopedTenantId) => ({
       profileId: profile.id,
       scopedTenantId,

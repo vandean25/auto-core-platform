@@ -12,6 +12,7 @@ import type { TenantContextService } from '../common/services/tenant-context.ser
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { InvoicePdfRenderer } from './invoice-pdf.renderer.js';
 import type { PdfStorage } from '../common/pdf/pdf-storage.js';
+import { asFake } from './invoice-fixtures.spec.support.js';
 import type { InvoiceSnapshot } from './invoice-snapshot.js';
 import { hashInvoiceSnapshot } from './invoice-snapshot-hash.js';
 
@@ -60,7 +61,7 @@ describe('InvoicePdfService.requestGeneration', () => {
       prisma as unknown as PrismaService,
       {} as InvoicePdfRenderer,
       {} as PdfStorage,
-      cloudTasks,
+      asFake<CloudTasksService>(cloudTasks),
       {
         getTenantId: jest.fn().mockResolvedValue(tenantId),
       } as unknown as TenantContextService,
@@ -228,8 +229,8 @@ describe('InvoicePdfService.generateNow', () => {
 
     service = new InvoicePdfService(
       prisma as unknown as PrismaService,
-      renderer,
-      storage,
+      asFake<InvoicePdfRenderer>(renderer),
+      asFake<PdfStorage>(storage),
       {} as CloudTasksService,
       {
         getTenantId: jest.fn().mockResolvedValue(tenantId),
@@ -355,7 +356,7 @@ describe('InvoicePdfService.getPdf', () => {
     service = new InvoicePdfService(
       prisma as unknown as PrismaService,
       {} as InvoicePdfRenderer,
-      storage,
+      asFake<PdfStorage>(storage),
       {} as CloudTasksService,
       {
         getTenantId: jest.fn().mockResolvedValue(tenantId),
@@ -681,7 +682,7 @@ describe('InvoicePdfService branded archive publication', () => {
       service as unknown as {
         generateBrandedArchive: (
           input: {
-            invoice: typeof invoice;
+            invoice: typeof invoice & { snapshot: unknown };
             renderSnapshot: InvoiceSnapshot;
             frozenSnapshot: unknown;
             tenantId: string;
@@ -729,7 +730,7 @@ describe('InvoicePdfService branded archive publication', () => {
     process.env.INVOICE_PDF_BUCKET = 'invoice-bucket';
     const renderSnapshot = {
       ...snapshot,
-      branding: { ...snapshot.branding, logo: null },
+      branding: { ...snapshot.branding!, logo: null },
     };
     const frozenSnapshot = {
       ...renderSnapshot,
@@ -781,7 +782,7 @@ describe('InvoicePdfService branded archive publication', () => {
       invoice_id: 'invoice-1',
       snapshot_sha256: hashInvoiceSnapshot({
         ...snapshot,
-        branding: { ...snapshot.branding, logo: null },
+        branding: { ...snapshot.branding!, logo: null },
       }),
       template_version: 'invoice-brand-v1',
     };
@@ -835,7 +836,7 @@ describe('InvoicePdfService branded archive publication', () => {
 
     const renderSnapshot = {
       ...snapshot,
-      branding: { ...snapshot.branding, logo: null },
+      branding: { ...snapshot.branding!, logo: null },
     };
     await generate({
       invoice: {
@@ -868,7 +869,7 @@ describe('InvoicePdfService branded archive publication', () => {
     process.env.INVOICE_PDF_BUCKET = 'invoice-bucket';
     const frozenSnapshot = {
       ...snapshot,
-      branding: { ...snapshot.branding, logo: null },
+      branding: { ...snapshot.branding!, logo: null },
     };
     const identity = createArchiveIdentity(frozenSnapshot);
     const pdfBytes = Buffer.from('immutable winner');
@@ -929,7 +930,7 @@ describe('InvoicePdfService branded archive publication', () => {
     process.env.INVOICE_PDF_BUCKET = 'invoice-bucket';
     const frozenSnapshot = {
       ...snapshot,
-      branding: { ...snapshot.branding, logo: null },
+      branding: { ...snapshot.branding!, logo: null },
     };
     const identity = createArchiveIdentity(frozenSnapshot);
     const archive = createArchive(
@@ -968,7 +969,7 @@ describe('InvoicePdfService branded archive publication', () => {
     process.env.INVOICE_PDF_BUCKET = 'invoice-bucket';
     const frozenSnapshot = {
       ...snapshot,
-      branding: { ...snapshot.branding, logo: null },
+      branding: { ...snapshot.branding!, logo: null },
     };
     const identity = createArchiveIdentity(frozenSnapshot);
     const archive = createArchive(
@@ -1008,7 +1009,7 @@ describe('InvoicePdfService branded archive publication', () => {
     process.env.INVOICE_PDF_BUCKET = 'invoice-bucket';
     const frozenSnapshot = {
       ...snapshot,
-      branding: { ...snapshot.branding, logo: null },
+      branding: { ...snapshot.branding!, logo: null },
     };
     const identity = createArchiveIdentity(frozenSnapshot);
     const archive = createArchive(
@@ -1076,7 +1077,7 @@ describe('InvoicePdfService branded archive publication', () => {
     process.env.INVOICE_PDF_BUCKET = 'invoice-bucket';
     const frozenSnapshot = {
       ...snapshot,
-      branding: { ...snapshot.branding, logo: null },
+      branding: { ...snapshot.branding!, logo: null },
     };
     const conflict = Object.assign(new Error('archive already exists'), {
       code: 412,

@@ -30,6 +30,14 @@ type FixtureFile = {
   cases: FixtureCase[];
 };
 
+// The fixture type marks body and error optional; the branches that read them always have one.
+function requiredField<T>(value: T | undefined): T {
+  if (value === undefined) {
+    throw new Error('fixture case is missing an expected field');
+  }
+  return value;
+}
+
 const fixturePath = join(
   process.cwd(),
   '../../docs/internal/02-Feature-Specs/Vehicles/fixtures/nova-eu-used-import/cases.json',
@@ -207,7 +215,7 @@ describe('nova-eu-used-import cases.json', () => {
                 string,
                 unknown
               >;
-              expect(response).toMatchObject(caseRow.expected.error);
+              expect(response).toMatchObject(requiredField(caseRow.expected.error));
               expect(response).not.toHaveProperty('novaAmountEuro');
               if (caseRow.expected.mustNot) {
                 assertMustNot(response, caseRow.expected.mustNot);
@@ -218,7 +226,7 @@ describe('nova-eu-used-import cases.json', () => {
 
           const result = await service.calculate(dto);
           const actualBody = normalizeSuccessBody({ ...result });
-          const expectedBody = normalizeSuccessBody(caseRow.expected.body);
+          const expectedBody = normalizeSuccessBody(requiredField(caseRow.expected.body));
           expect(pickExpectedShape(actualBody, expectedBody)).toEqual(
             expectedBody,
           );
@@ -243,7 +251,7 @@ describe('nova-eu-used-import cases.json', () => {
               string,
               unknown
             >;
-            expect(response).toMatchObject(caseRow.expected.error);
+            expect(response).toMatchObject(requiredField(caseRow.expected.error));
             expect(response).not.toHaveProperty('novaAmountEuro');
             if (caseRow.expected.mustNot) {
               assertMustNot(response, caseRow.expected.mustNot);
@@ -254,7 +262,7 @@ describe('nova-eu-used-import cases.json', () => {
 
         const result = await run();
         const actualBody = normalizeSuccessBody({ ...result });
-        const expectedBody = normalizeSuccessBody(caseRow.expected.body);
+        const expectedBody = normalizeSuccessBody(requiredField(caseRow.expected.body));
         expect(pickExpectedShape(actualBody, expectedBody)).toEqual(expectedBody);
         if (caseRow.expected.mustNot) {
           assertMustNot(actualBody, caseRow.expected.mustNot);

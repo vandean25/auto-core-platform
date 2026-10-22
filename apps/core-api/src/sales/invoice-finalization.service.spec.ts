@@ -24,14 +24,15 @@ describe('InvoiceFinalizationService', () => {
     ),
     deductOnHandForSale: jest.fn(),
   } as unknown as AtpService;
+  const prepareV2Snapshot = jest.fn().mockResolvedValue({
+    snapshot: { schema_version: 2 },
+    ownership: { siteId: 'site-1', legalEntityId: 'le-1' },
+    dueDate: new Date(),
+    supplyFrom: new Date(),
+    supplyTo: new Date(),
+  });
   const snapshotCommit = {
-    prepareV2Snapshot: jest.fn().mockResolvedValue({
-      snapshot: { schema_version: 2 },
-      ownership: { siteId: 'site-1', legalEntityId: 'le-1' },
-      dueDate: new Date(),
-      supplyFrom: new Date(),
-      supplyTo: new Date(),
-    }),
+    prepareV2Snapshot,
     persistV2Snapshot: jest.fn().mockResolvedValue(undefined),
   } as unknown as InvoiceSnapshotCommitService;
 
@@ -63,7 +64,7 @@ describe('InvoiceFinalizationService', () => {
     jest.clearAllMocks();
     tx.invoiceSequence.upsert.mockResolvedValue({ current: 1 });
     tx.$queryRaw.mockResolvedValue([]);
-    atpService.deductOnHandForSale.mockResolvedValue(undefined);
+    jest.mocked(atpService.deductOnHandForSale).mockResolvedValue(undefined);
   });
 
   it('finalizes invoice and transitions linked sales order', async () => {
@@ -206,9 +207,9 @@ describe('InvoiceFinalizationService', () => {
         quantity_reserved: 0,
       },
     ]);
-    atpService.deductOnHandForSale.mockRejectedValue(
-      new ConflictException('Insufficient ATP'),
-    );
+    jest
+      .mocked(atpService.deductOnHandForSale)
+      .mockRejectedValue(new ConflictException('Insufficient ATP'));
 
     await expect(
       service.finalizeInTransaction(tx as never, 'tenant-1', {
@@ -243,7 +244,7 @@ describe('InvoiceFinalizationService', () => {
   });
 
   it('does not consume an invoice number when snapshot validation fails', async () => {
-    snapshotCommit.prepareV2Snapshot.mockRejectedValue(
+    prepareV2Snapshot.mockRejectedValue(
       new BadRequestException({
         code: 'SELLER_IDENTITY_INCOMPLETE',
         missingFields: ['vat_id'],
@@ -289,7 +290,7 @@ describe('InvoiceFinalizationService', () => {
   });
 
   it('deducts inventory and transitions sales order using ownership site', async () => {
-    snapshotCommit.prepareV2Snapshot.mockResolvedValue({
+    prepareV2Snapshot.mockResolvedValue({
       snapshot: { schema_version: 2 },
       ownership: { siteId: 'ownership-site', legalEntityId: 'le-1' },
       dueDate: new Date(),

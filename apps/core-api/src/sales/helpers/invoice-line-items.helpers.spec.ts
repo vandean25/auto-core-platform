@@ -4,6 +4,8 @@ import {
   buildFormattedInvoiceItems,
   buildInvoiceDueDate,
 } from './invoice-line-items.helpers.js';
+import type { PrismaService } from '../../prisma/prisma.service.js';
+import { fakePrisma } from './prisma-fake.spec.support.js';
 
 describe('invoice-line-items.helpers', () => {
   const prisma = {
@@ -11,6 +13,7 @@ describe('invoice-line-items.helpers', () => {
       findMany: jest.fn(),
     },
   };
+  const scoped = fakePrisma<Pick<PrismaService, 'catalogItem'>>(prisma);
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -35,7 +38,7 @@ describe('invoice-line-items.helpers', () => {
       },
     ]);
 
-    const result = await buildFormattedInvoiceItems(prisma, 'tenant-1', [
+    const result = await buildFormattedInvoiceItems(scoped,'tenant-1', [
       {
         catalogItemId: 'catalog-1',
         description: 'Oil filter',
@@ -72,7 +75,7 @@ describe('invoice-line-items.helpers', () => {
     prisma.catalogItem.findMany.mockResolvedValue([]);
 
     await expect(
-      buildFormattedInvoiceItems(prisma, 'tenant-1', [
+      buildFormattedInvoiceItems(scoped,'tenant-1', [
         {
           catalogItemId: 'missing',
           description: 'Unknown part',

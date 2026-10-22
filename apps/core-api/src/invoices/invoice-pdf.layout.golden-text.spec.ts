@@ -70,7 +70,8 @@ describe('invoice-pdf.layout golden text', () => {
     vehicle: {
       make: 'Demo',
       model: 'City',
-      year: '2020',
+      year: 2020,
+      engine_code: null,
       plate: 'W-12345A',
       vin: 'VIN00000000000001',
     },
@@ -86,7 +87,7 @@ describe('invoice-pdf.layout golden text', () => {
         revenue_group_name: null,
       },
     ],
-    tax_breakdown: [{ rate: '20', net: '100.00', tax: '20.00' }],
+    tax_breakdown: [{ rate: '20', net: '100.00', tax: '20.00', gross: '120.00' }],
     snapshot_created_at: '2026-04-07T12:00:00.000Z',
   });
 

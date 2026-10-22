@@ -40,7 +40,7 @@ describe('invoice-inventory.helpers', () => {
     jest.clearAllMocks();
     tx.$queryRaw.mockResolvedValue([]);
     tx.inventoryStock.findMany.mockResolvedValue([]);
-    atpService.deductOnHandForSale.mockResolvedValue(undefined);
+    jest.mocked(atpService.deductOnHandForSale).mockResolvedValue(undefined);
   });
 
   it('deducts free ATP and records SALE_ISSUE inventory transactions', async () => {
@@ -210,9 +210,9 @@ describe('invoice-inventory.helpers', () => {
         quantity_reserved: new Prisma.Decimal(0),
       },
     ]);
-    atpService.deductOnHandForSale.mockRejectedValue(
-      new ConflictException('Insufficient ATP'),
-    );
+    jest
+      .mocked(atpService.deductOnHandForSale)
+      .mockRejectedValue(new ConflictException('Insufficient ATP'));
 
     await expect(
       processSaleInventoryDeduction({
@@ -288,7 +288,7 @@ describe('invoice-inventory.helpers', () => {
       events.push('lock');
       return [];
     });
-    atpService.deductOnHandForSale.mockImplementation(async () => {
+    jest.mocked(atpService.deductOnHandForSale).mockImplementation(async () => {
       events.push('deduct');
     });
     tx.inventoryStock.findMany.mockResolvedValue([

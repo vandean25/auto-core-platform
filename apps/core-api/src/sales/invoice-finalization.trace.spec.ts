@@ -4,6 +4,10 @@ import { InvoiceStatus, Prisma, SalesOrderStatus } from '@prisma/client';
 import type { AtpService } from '../inventory/atp.service.js';
 import type { InvoiceSnapshotCommitService } from '../invoices/invoice-snapshot-commit.service.js';
 
+function asyncMock() {
+  return jest.fn<(args: unknown) => Promise<unknown>>();
+}
+
 const mockStartSpan = jest.fn();
 const mockGetClient = jest.fn();
 
@@ -57,8 +61,8 @@ describe('InvoiceFinalizationService span', () => {
       findFirst: jest.fn(),
     },
     inventoryTransaction: { createMany: jest.fn() },
-    invoice: { updateMany: jest.fn(), findFirst: jest.fn() },
-    salesOrder: { findFirst: jest.fn(), updateMany: jest.fn() },
+    invoice: { updateMany: asyncMock(), findFirst: asyncMock() },
+    salesOrder: { findFirst: asyncMock(), updateMany: asyncMock() },
   };
 
   const draftInvoice = {

@@ -27,7 +27,9 @@ import {
   InvoiceStatus,
   InvoiceTaxMode,
   Prisma,
+  RksvMode,
 } from '@prisma/client';
+import { customerRow, vehicleRow } from './invoice-fixtures.spec.support.js';
 
 describe('invoice-pdf.layout', () => {
   const createV2Seller = () => ({
@@ -156,7 +158,8 @@ describe('invoice-pdf.layout', () => {
     vehicle: {
       make: 'VW',
       model: 'Golf',
-      year: '2020',
+      year: 2020,
+      engine_code: null,
       plate: 'W-1234X',
       vin: 'WVWZZZ1234567890',
     },
@@ -556,13 +559,23 @@ describe('invoice-pdf.layout', () => {
           pdf_storage_key: null,
           pdf_generated_at: null,
           pdf_generation_error: null,
+          pdf_archive_bucket: null,
+          pdf_archive_key: null,
+          pdf_archive_generation: null,
+          pdf_archive_sha256: null,
           createdAt: new Date(),
           updatedAt: new Date(),
           items: [],
-          customer: createV2Snapshot().customer,
-          vehicle: createV2Snapshot().vehicle,
+          customer: customerRow(createV2Snapshot().customer),
+          vehicle: vehicleRow(createV2Snapshot().vehicle!),
         },
         seller: {
+          id: 'le-1',
+          tenant_id: 'tenant-1',
+          is_active: true,
+          rksv_mode: RksvMode.OFF,
+          createdAt: new Date(),
+          updatedAt: new Date(),
           ...createV2Snapshot().seller!,
           payment_terms_days: 14,
           payment_terms_text: 'Zahlbar innerhalb von 14 Tagen ohne Abzug.',

@@ -3,7 +3,9 @@ import {
   assertCatalogItemsBelongToTenant,
   assertCustomerBelongsToTenant,
   assertVehicleBelongsToTenant,
+  type TenantScopedPrisma,
 } from './sales-tenant-validation.helpers.js';
+import { fakePrisma } from './prisma-fake.spec.support.js';
 
 describe('sales-tenant-validation.helpers', () => {
   const prisma = {
@@ -11,6 +13,7 @@ describe('sales-tenant-validation.helpers', () => {
     vehicle: { findFirst: jest.fn() },
     catalogItem: { count: jest.fn() },
   };
+  const scoped = fakePrisma<TenantScopedPrisma>(prisma);
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -20,7 +23,7 @@ describe('sales-tenant-validation.helpers', () => {
     prisma.customer.findFirst.mockResolvedValue({ id: 'customer-1' });
 
     await expect(
-      assertCustomerBelongsToTenant(prisma, 'customer-1', 'tenant-1'),
+      assertCustomerBelongsToTenant(scoped,'customer-1', 'tenant-1'),
     ).resolves.toBeUndefined();
   });
 
@@ -28,7 +31,7 @@ describe('sales-tenant-validation.helpers', () => {
     prisma.customer.findFirst.mockResolvedValue(null);
 
     await expect(
-      assertCustomerBelongsToTenant(prisma, 'customer-1', 'tenant-1'),
+      assertCustomerBelongsToTenant(scoped,'customer-1', 'tenant-1'),
     ).rejects.toThrow(BadRequestException);
   });
 
@@ -36,7 +39,7 @@ describe('sales-tenant-validation.helpers', () => {
     prisma.vehicle.findFirst.mockResolvedValue({ id: 'vehicle-1' });
 
     await expect(
-      assertVehicleBelongsToTenant(prisma, 'vehicle-1', 'tenant-1'),
+      assertVehicleBelongsToTenant(scoped,'vehicle-1', 'tenant-1'),
     ).resolves.toBeUndefined();
   });
 
@@ -44,7 +47,7 @@ describe('sales-tenant-validation.helpers', () => {
     prisma.vehicle.findFirst.mockResolvedValue(null);
 
     await expect(
-      assertVehicleBelongsToTenant(prisma, 'vehicle-1', 'tenant-1'),
+      assertVehicleBelongsToTenant(scoped,'vehicle-1', 'tenant-1'),
     ).rejects.toThrow(BadRequestException);
   });
 
@@ -53,7 +56,7 @@ describe('sales-tenant-validation.helpers', () => {
 
     await expect(
       assertCatalogItemsBelongToTenant(
-        prisma,
+        scoped,
         ['item-1', 'item-2', 'item-1'],
         'tenant-1',
       ),
@@ -66,7 +69,7 @@ describe('sales-tenant-validation.helpers', () => {
 
   it('skips catalog validation when no ids are provided', async () => {
     await expect(
-      assertCatalogItemsBelongToTenant(prisma, [], 'tenant-1'),
+      assertCatalogItemsBelongToTenant(scoped,[], 'tenant-1'),
     ).resolves.toBeUndefined();
 
     expect(prisma.catalogItem.count).not.toHaveBeenCalled();
@@ -76,7 +79,7 @@ describe('sales-tenant-validation.helpers', () => {
     prisma.catalogItem.count.mockResolvedValue(1);
 
     await expect(
-      assertCatalogItemsBelongToTenant(prisma, ['item-1', 'item-2'], 'tenant-1'),
+      assertCatalogItemsBelongToTenant(scoped,['item-1', 'item-2'], 'tenant-1'),
     ).rejects.toThrow(BadRequestException);
   });
 });

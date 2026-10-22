@@ -1,5 +1,5 @@
 import sharp from 'sharp';
-import { HttpException, UnsupportedMediaTypeException } from '@nestjs/common';
+import { UnsupportedMediaTypeException } from '@nestjs/common';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { DocumentBrandingAssetStorage } from './document-branding-asset-storage.js';
@@ -187,7 +187,7 @@ describe('DocumentBrandingUploadService', () => {
       response: expect.objectContaining({
         code: 'BRAND_UPLOAD_QUOTA_EXCEEDED',
       }),
-    } satisfies Partial<HttpException>);
+    });
     expect(storage.storeImmutable).not.toHaveBeenCalled();
   });
 

@@ -1,4 +1,5 @@
 import { buildInvoiceSnapshot } from './invoice-snapshot.js';
+import { customerRow } from './invoice-fixtures.spec.support.js';
 import {
   CustomerType,
   Prisma,
@@ -14,7 +15,7 @@ describe('Invoice Snapshot Integrity', () => {
     date: new Date('2023-01-01T10:00:00Z'),
     due_date: new Date('2023-01-15T10:00:00Z'),
     notes: 'Thank you for your business',
-    customer: {
+    customer: customerRow({
       id: 'cust-1',
       type: CustomerType.PRIVATE,
       first_name: 'John',
@@ -29,7 +30,7 @@ describe('Invoice Snapshot Integrity', () => {
       company_name: null,
       createdAt: new Date(),
       updatedAt: new Date(),
-    },
+    }),
     vehicle: null,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -48,6 +49,16 @@ describe('Invoice Snapshot Integrity', () => {
     pdf_generation_error: null,
     workshop_order_id: null,
     sales_order_id: null,
+    tenant_id: 'tenant-1',
+    site_id: 'site-1',
+    legal_entity_id: 'le-1',
+    currency: 'EUR',
+    supply_date_from: null,
+    supply_date_to: null,
+    pdf_archive_bucket: null,
+    pdf_archive_key: null,
+    pdf_archive_generation: null,
+    pdf_archive_sha256: null,
   };
 
   it('should verify mathematical accuracy: total_net + total_tax === total_gross', () => {
@@ -59,7 +70,10 @@ describe('Invoice Snapshot Integrity', () => {
       items: [
         {
           id: 'item-1',
+          tenant_id: 'tenant-1',
           invoice_id: 'inv-123',
+          catalog_item_id: null,
+          accounting_snapshot: null,
           description: 'Service',
           quantity: new Prisma.Decimal('1.00'),
           unit_price: new Prisma.Decimal('100.00'),
@@ -96,7 +110,10 @@ describe('Invoice Snapshot Integrity', () => {
       items: [
         {
           id: 'item-1',
+          tenant_id: 'tenant-1',
           invoice_id: 'inv-123',
+          catalog_item_id: null,
+          accounting_snapshot: null,
           description: 'Service',
           quantity: new Prisma.Decimal('1.00'),
           unit_price: new Prisma.Decimal('100.1234'),
@@ -127,7 +144,10 @@ describe('Invoice Snapshot Integrity', () => {
       items: [
         {
           id: 'item-1',
+          tenant_id: 'tenant-1',
           invoice_id: 'inv-123',
+          catalog_item_id: null,
+          accounting_snapshot: null,
           description: 'Discounted Service',
           quantity: new Prisma.Decimal('1.00'),
           unit_price: new Prisma.Decimal('100.00'),

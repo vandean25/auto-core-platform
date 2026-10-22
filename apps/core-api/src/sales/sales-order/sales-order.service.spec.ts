@@ -11,6 +11,62 @@ import { FinanceService } from '../../finance/finance.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { SalesOrderService } from './sales-order.service.js';
 
+type FoundSalesOrder = Awaited<ReturnType<SalesOrderService['findOne']>>;
+
+// Complete findOne result; the update and confirm paths under test never read the neutral fields.
+function foundSalesOrder(
+  overrides: Partial<FoundSalesOrder> = {},
+): FoundSalesOrder {
+  return {
+    id: 'so-1',
+    tenant_id: 'tenant-1',
+    site_id: 'site-1',
+    order_number: 'SO-2026-0001',
+    customer_id: 'cust-1',
+    vehicle_id: null,
+    status: SalesOrderStatus.DRAFT,
+    total_amount: new Prisma.Decimal(20),
+    notes: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    customer: {
+      id: 'cust-1',
+      tenant_id: 'tenant-1',
+      type: 'PRIVATE',
+      company_name: null,
+      first_name: 'Max',
+      last_name: 'Mustermann',
+      email: null,
+      phone: null,
+      vat_id: null,
+      address_street: null,
+      address_city: null,
+      address_zip: null,
+      address_country: null,
+      contact_email_ok: false,
+      preferred_language: null,
+      legacy_restricted_at: null,
+      legacy_restricted_reason: null,
+      block_level: 'NONE',
+      block_reason: null,
+      salutation: null,
+      title: null,
+      title_suffix: null,
+      letter_salutation: null,
+      payment_terms_days: null,
+      payment_terms_text: null,
+      default_bill_to_customer_id: null,
+      labor_price_group_id: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    vehicle: null,
+    invoice: null,
+    items: [],
+    ...overrides,
+  };
+}
+
 describe('SalesOrderService', () => {
   let service: SalesOrderService;
 
@@ -220,24 +276,26 @@ describe('SalesOrderService', () => {
   });
 
   it('confirms DRAFT sales order in the same transaction as invoice creation', async () => {
-    jest.spyOn(service, 'findOne').mockResolvedValue({
-      id: 'so-1',
-      site_id: 'site-1',
-      status: SalesOrderStatus.DRAFT,
-      customer_id: 'cust-1',
-      vehicle_id: null,
-      notes: null,
-      items: [
-        {
-          catalog_item_id: 'cat-1',
-          description: 'Brake pads',
-          quantity: new Prisma.Decimal(1),
-          unit_price: new Prisma.Decimal(10),
-          tax_rate: new Prisma.Decimal(20),
-          total: new Prisma.Decimal(10),
-        },
-      ],
-    });
+    jest.spyOn(service, 'findOne').mockResolvedValue(
+      foundSalesOrder({
+        items: [
+          {
+            id: 'item-1',
+            tenant_id: 'tenant-1',
+            sales_order_id: 'so-1',
+            catalog_item_id: 'cat-1',
+            catalog_item: null,
+            description: 'Brake pads',
+            quantity: new Prisma.Decimal(1),
+            unit_price: new Prisma.Decimal(10),
+            tax_rate: new Prisma.Decimal(20),
+            total: new Prisma.Decimal(10),
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ],
+      }),
+    );
 
     const invoiceTransaction = {
       site: {
@@ -295,12 +353,7 @@ describe('SalesOrderService', () => {
   });
 
   it('replaces items and recalculates total when update payload includes items', async () => {
-    jest.spyOn(service, 'findOne').mockResolvedValue({
-      id: 'so-1',
-      site_id: 'site-1',
-      total_amount: new Prisma.Decimal(20),
-      items: [],
-    });
+    jest.spyOn(service, 'findOne').mockResolvedValue(foundSalesOrder());
 
     mockPrisma.catalogItem.count.mockResolvedValue(1);
     transactionContext.salesOrder.updateMany.mockResolvedValue({ count: 1 });
@@ -439,12 +492,7 @@ describe('SalesOrderService', () => {
   });
 
   it('rejects replacement items that omit catalog_item_id', async () => {
-    jest.spyOn(service, 'findOne').mockResolvedValue({
-      id: 'so-1',
-      site_id: 'site-1',
-      total_amount: new Prisma.Decimal(20),
-      items: [],
-    });
+    jest.spyOn(service, 'findOne').mockResolvedValue(foundSalesOrder());
 
     await expect(
       service.update('so-1', {

@@ -97,18 +97,19 @@ describe('SettlementService', () => {
       },
     } as unknown as PrismaService;
     const { service } = createService(prisma);
-    jest
-      .spyOn(
-        service,
-        'assertSettlementAccess',
-      )
-      .mockResolvedValue(undefined);
     const loadInvoice = jest
-      .spyOn(service, 'loadInvoiceForSite')
+      .fn<Promise<unknown>, [string, string, string]>()
       .mockResolvedValue(invoice);
     const sync = jest
-      .spyOn(service, 'syncOpenFiscalReceipt')
+      .fn<Promise<void>, unknown[]>()
       .mockResolvedValue(undefined);
+    Object.assign(service, {
+      assertSettlementAccess: jest
+        .fn<Promise<void>, [string, string]>()
+        .mockResolvedValue(undefined),
+      loadInvoiceForSite: loadInvoice,
+      syncOpenFiscalReceipt: sync,
+    });
 
     await service.reconcileSettlement(invoiceId, {
       idempotencyKey: 'key-1',
@@ -132,15 +133,15 @@ describe('SettlementService', () => {
       legalEntity: { findFirst: jest.fn() },
     } as unknown as PrismaService;
     const { service } = createService(prisma);
-    jest
-      .spyOn(
-        service,
-        'assertSettlementAccess',
-      )
-      .mockResolvedValue(undefined);
-    jest
-      .spyOn(service, 'loadInvoiceForSite')
-      .mockRejectedValue(new NotFoundException('Invoice not found'));
+    // jest.spyOn cannot target private methods; typed fakes are set on the instance.
+    Object.assign(service, {
+      assertSettlementAccess: jest
+        .fn<Promise<void>, [string, string]>()
+        .mockResolvedValue(undefined),
+      loadInvoiceForSite: jest
+        .fn<Promise<unknown>, [string, string, string]>()
+        .mockRejectedValue(new NotFoundException('Invoice not found')),
+    });
 
     await expect(
       service.reconcileSettlement(invoiceId, { idempotencyKey: 'key-1' }),
@@ -206,13 +207,19 @@ describe('SettlementService', () => {
       total_gross: { toFixed: () => '120.00' },
       currency: 'EUR',
     };
-    jest.spyOn(service, 'assertSettlementAccess').mockResolvedValue(undefined);
     const loadInvoice = jest
-      .spyOn(service, 'loadInvoiceForSite')
+      .fn<Promise<unknown>, [string, string, string]>()
       .mockResolvedValue(invoice);
     const sync = jest
-      .spyOn(service, 'syncOpenFiscalReceipt')
+      .fn<Promise<void>, unknown[]>()
       .mockResolvedValue(undefined);
+    Object.assign(service, {
+      assertSettlementAccess: jest
+        .fn<Promise<void>, [string, string]>()
+        .mockResolvedValue(undefined),
+      loadInvoiceForSite: loadInvoice,
+      syncOpenFiscalReceipt: sync,
+    });
 
     await service.recordSettlement(invoiceId, {
       idempotencyKey: 'key-1',
@@ -321,18 +328,25 @@ describe('SettlementService', () => {
       },
     } as unknown as PrismaService;
     const { service } = createService(prisma);
-    jest.spyOn(service, 'assertSettlementAccess').mockResolvedValue(undefined);
-    jest.spyOn(service, 'loadInvoiceForSite').mockResolvedValue({
-      id: invoiceId,
-      tenant_id: tenantId,
-      site_id: siteId,
-      legal_entity_id: 'le-1',
-      total_gross: { toFixed: () => '120.00' },
-      currency: 'EUR',
+    Object.assign(service, {
+      assertSettlementAccess: jest
+        .fn<Promise<void>, [string, string]>()
+        .mockResolvedValue(undefined),
+      loadInvoiceForSite: jest
+        .fn<Promise<unknown>, [string, string, string]>()
+        .mockResolvedValue({
+          id: invoiceId,
+          tenant_id: tenantId,
+          site_id: siteId,
+          legal_entity_id: 'le-1',
+          total_gross: { toFixed: () => '120.00' },
+          currency: 'EUR',
+        }),
     });
     const recordRksvSpy = jest
-      .spyOn(service, 'recordRksvSettlement')
+      .fn<Promise<unknown>, [unknown]>()
       .mockResolvedValue({});
+    Object.assign(service, { recordRksvSettlement: recordRksvSpy });
 
     await service.recordSettlement(invoiceId, {
       idempotencyKey: 'key-1',
@@ -407,7 +421,11 @@ describe('SettlementService', () => {
       },
     } as unknown as PrismaService;
     const { service } = createService(prisma);
-    jest.spyOn(service, 'invokeProviderSign').mockResolvedValue(undefined);
+    Object.assign(service, {
+      invokeProviderSign: jest
+        .fn<Promise<void>, [unknown]>()
+        .mockResolvedValue(undefined),
+    });
 
     const params = {
       tenantId,

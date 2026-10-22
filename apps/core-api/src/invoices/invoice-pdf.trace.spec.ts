@@ -6,6 +6,10 @@ import type { PrismaService } from '../prisma/prisma.service.js';
 import type { InvoicePdfRenderer } from './invoice-pdf.renderer.js';
 import type { PdfStorage } from '../common/pdf/pdf-storage.js';
 
+function asyncMock() {
+  return jest.fn<(args: unknown) => Promise<unknown>>();
+}
+
 type FakeSpan = {
   name: string;
   op: string;
@@ -74,8 +78,8 @@ describe('InvoicePdfService.requestGeneration span', () => {
     const prisma = {
       client: {
         invoice: {
-          findFirst: jest.fn().mockResolvedValue(invoiceRow),
-          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+          findFirst: asyncMock().mockResolvedValue(invoiceRow),
+          updateMany: asyncMock().mockResolvedValue({ count: 1 }),
         },
       },
     };
@@ -85,11 +89,11 @@ describe('InvoicePdfService.requestGeneration span', () => {
       {} as PdfStorage,
       cloudTasks as unknown as CloudTasksService,
       {
-        getTenantId: jest.fn().mockResolvedValue(tenantId),
+        getTenantId: asyncMock().mockResolvedValue(tenantId),
       } as unknown as TenantContextService,
       undefined,
       {
-        listAuthorizedSiteIds: jest.fn().mockResolvedValue(['site-1']),
+        listAuthorizedSiteIds: asyncMock().mockResolvedValue(['site-1']),
       } as never,
     );
   });

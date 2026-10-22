@@ -441,7 +441,7 @@ describe('invoice-creation.helpers', () => {
                   unit_price: 50,
                   type: 'LABOR',
                   part_execution_status:
-                    WorkshopPartLineExecutionStatus.COMPLETED,
+                    WorkshopPartLineExecutionStatus.CONSUMED,
                 },
                 {
                   description: 'Cancelled Part',
@@ -606,7 +606,7 @@ describe('invoice-creation.helpers', () => {
                 quantity: new Prisma.Decimal(1),
                 unit_price: new Prisma.Decimal(100),
                 part_execution_status:
-                  WorkshopPartLineExecutionStatus.COMPLETED,
+                  WorkshopPartLineExecutionStatus.CONSUMED,
               },
             ],
           },
@@ -639,7 +639,7 @@ describe('invoice-creation.helpers', () => {
                 unit_price: new Prisma.Decimal(80),
                 type: 'LABOR',
                 part_execution_status:
-                  WorkshopPartLineExecutionStatus.COMPLETED,
+                  WorkshopPartLineExecutionStatus.CONSUMED,
               },
             ],
           },

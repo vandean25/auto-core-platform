@@ -7,6 +7,11 @@ import type { DocumentBrandingExtractionImageProcessor } from './document-brandi
 import type { DocumentBrandingExtractionProvider } from './document-branding-extraction-provider.js';
 import type { DocumentBrandingExtractionTaskService } from './document-branding-extraction-task.service.js';
 
+// Fakes implement only the members these tests call; this is the one cast.
+function asFake<T>(double: Partial<T>): T {
+  return double as T;
+}
+
 type FakeSpan = {
   name: string;
   op: string;
@@ -14,6 +19,10 @@ type FakeSpan = {
   setAttribute: jest.Mock;
   setAttributes: jest.Mock;
 };
+
+function asyncMock() {
+  return jest.fn<(args: unknown) => Promise<unknown>>();
+}
 
 // Each startSpan call is recorded, so the branding.extract tree can be read back by op.
 const recordedSpans: FakeSpan[] = [];
@@ -87,75 +96,93 @@ describe('DocumentBrandingExtractionWorkerService spans', () => {
 
   let transaction: Record<string, any>;
   let prisma: Record<string, any>;
-  let storage: Record<string, jest.Mock>;
-  let processor: Record<string, jest.Mock>;
-  let provider: Record<string, jest.Mock>;
-  let tasks: { enqueue: jest.Mock };
+  let storage: Record<string, ReturnType<typeof asyncMock>>;
+  let processor: Record<string, ReturnType<typeof asyncMock>>;
+  let provider: {
+    isAvailable: jest.Mock<() => boolean>;
+    getMetadata: jest.Mock<() => { providerId: string; modelId: string }>;
+    extract: ReturnType<typeof asyncMock>;
+  };
+  let tasks: {
+    enqueue: jest.Mock<DocumentBrandingExtractionTaskService['enqueue']>;
+  };
   let service: InstanceType<typeof DocumentBrandingExtractionWorkerService>;
 
   beforeEach(() => {
     recordedSpans.length = 0;
     transaction = {
       documentBrandExtraction: {
-        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        updateMany: asyncMock().mockResolvedValue({ count: 1 }),
       },
       legalEntity: {
-        findFirst: jest.fn().mockResolvedValue({ id: 'entity-1' }),
-        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        findFirst: asyncMock().mockResolvedValue({ id: 'entity-1' }),
+        updateMany: asyncMock().mockResolvedValue({ count: 1 }),
       },
       documentBrandAsset: {
-        findFirst: jest.fn().mockResolvedValue({ id: 'source-1' }),
-        create: jest.fn().mockResolvedValue({}),
+        findFirst: asyncMock().mockResolvedValue({ id: 'source-1' }),
+        create: asyncMock().mockResolvedValue({}),
       },
     };
     prisma = {
       documentBrandExtraction: {
-        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-        findFirst: jest
-          .fn()
+        updateMany: asyncMock().mockResolvedValue({ count: 1 }),
+        findFirst: asyncMock()
           .mockResolvedValueOnce({ attempt_count: 1 })
           .mockResolvedValueOnce(extraction),
       },
       tenantMember: {
-        findFirst: jest.fn().mockResolvedValue({ id: 'membership-1' }),
+        findFirst: asyncMock().mockResolvedValue({ id: 'membership-1' }),
       },
       legalEntity: {
-        findFirst: jest.fn().mockResolvedValue({ id: 'entity-1' }),
+        findFirst: asyncMock().mockResolvedValue({ id: 'entity-1' }),
       },
-      documentBrandAsset: { findFirst: jest.fn().mockResolvedValue(source) },
-      $transaction: jest.fn((callback) => callback(transaction)),
+      documentBrandAsset: { findFirst: asyncMock().mockResolvedValue(source) },
+      $transaction: jest.fn<(callback: (tx: unknown) => unknown) => unknown>(
+        (callback) => callback(transaction),
+      ),
     };
     storage = {
-      readGeneration: jest.fn().mockResolvedValue(sourceBytes),
-      storeImmutable: jest
-        .fn()
-        .mockResolvedValue({ bucket: 'private-branding', generation: '9' }),
-      deleteGeneration: jest.fn().mockResolvedValue(undefined),
+      readGeneration: asyncMock().mockResolvedValue(sourceBytes),
+      storeImmutable: asyncMock().mockResolvedValue({
+        bucket: 'private-branding',
+        generation: '9',
+      }),
+      deleteGeneration: asyncMock().mockResolvedValue(undefined),
     };
     processor = {
-      normalizePng: jest
-        .fn()
-        .mockResolvedValue({ bytes: sourceBytes, width: 2, height: 2 }),
-      cropLogo: jest
-        .fn()
-        .mockResolvedValue({ bytes: sourceBytes, width: 2, height: 2 }),
+      normalizePng: asyncMock().mockResolvedValue({
+        bytes: sourceBytes,
+        width: 2,
+        height: 2,
+      }),
+      cropLogo: asyncMock().mockResolvedValue({
+        bytes: sourceBytes,
+        width: 2,
+        height: 2,
+      }),
     };
     provider = {
-      isAvailable: jest.fn().mockReturnValue(true),
-      getMetadata: jest.fn().mockReturnValue({
-        providerId: 'mock-provider',
-        modelId: 'mock-model',
-      }),
-      extract: jest.fn().mockResolvedValue(response),
+      isAvailable: jest.fn<() => boolean>().mockReturnValue(true),
+      getMetadata: jest
+        .fn<() => { providerId: string; modelId: string }>()
+        .mockReturnValue({
+          providerId: 'mock-provider',
+          modelId: 'mock-model',
+        }),
+      extract: asyncMock().mockResolvedValue(response),
     };
-    tasks = { enqueue: jest.fn().mockResolvedValue(undefined) };
+    tasks = {
+      enqueue: jest
+        .fn<DocumentBrandingExtractionTaskService['enqueue']>()
+        .mockResolvedValue({ taskId: 'task-1' }),
+    };
     service = new DocumentBrandingExtractionWorkerService(
       prisma as unknown as PrismaService,
       storage as unknown as DocumentBrandingAssetStorage,
       {} as DocumentBrandingPdfParser,
       processor as unknown as DocumentBrandingExtractionImageProcessor,
-      provider as unknown as DocumentBrandingExtractionProvider,
-      tasks as unknown as DocumentBrandingExtractionTaskService,
+      provider,
+      asFake<DocumentBrandingExtractionTaskService>(tasks),
     );
   });
 
