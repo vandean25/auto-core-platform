@@ -1,3 +1,5 @@
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { TABLE_CLEANERS, cleanDb } from './clean-db.js';
 
 describe('cleanDb', () => {
@@ -228,7 +230,7 @@ describe('cleanDb', () => {
     ]);
   });
 
-  it('cleans only AUT-408 invoice, ledger and purchase rows before demo parents', async () => {
+  it('orders AUT-408 demo cleaners by sale, trade-in purchase and vehicle foreign keys', async () => {
     const tables = TABLE_CLEANERS.map((cleaner) => cleaner.table);
     const saleIndex = tables.indexOf('vehicle_sales');
     const vehicleIndex = tables.indexOf('vehicles');
@@ -257,16 +259,17 @@ describe('cleanDb', () => {
     expect(saleIndex).toBeGreaterThan(-1);
     expect(saleIndex).toBeLessThan(vehicleIndex);
     expect(saleIndex).toBeLessThan(customerIndex);
-    for (const table of [
-      'invoices',
-      'vehicle_ledger_entries',
-      'vehicle_purchases',
-    ]) {
+    for (const table of ['invoices', 'vehicle_ledger_entries']) {
       const index = tables.indexOf(table);
       expect(index).toBeGreaterThan(-1);
       expect(index).toBeLessThan(saleIndex);
       expect(index).toBeLessThan(vehicleIndex);
     }
+    // vehicle_sales.trade_in_purchase_id references vehicle_purchases with
+    // ON DELETE RESTRICT, so a trade-in sale is cleaned before its purchase.
+    const purchaseIndex = tables.indexOf('vehicle_purchases');
+    expect(purchaseIndex).toBeGreaterThan(saleIndex);
+    expect(purchaseIndex).toBeLessThan(vehicleIndex);
 
     await invoiceCleaner.clean({ invoice } as any);
     expect(invoice.deleteMany).toHaveBeenNthCalledWith(1, {
@@ -329,5 +332,84 @@ describe('cleanDb', () => {
       },
     });
     expect(customer.deleteMany).toHaveBeenNthCalledWith(2);
+  });
+});
+
+const schema = fs.readFileSync(
+  path.resolve(
+    import.meta.dirname,
+    '..',
+    '..',
+    '..',
+    'prisma',
+    'schema.prisma',
+  ),
+  'utf8',
+);
+
+interface SchemaForeignKey {
+  table: string;
+  parentTable: string;
+  columns: string[];
+}
+
+function readSchemaForeignKeys(): SchemaForeignKey[] {
+  const models = new Map<string, { table: string; body: string }>();
+  for (const match of schema.matchAll(/^model (\w+) \{([\s\S]*?)^\}/gm)) {
+    const mapped = match[2].match(/@@map\("([^"]+)"\)/);
+    models.set(match[1], { table: mapped?.[1] ?? match[1], body: match[2] });
+  }
+  const foreignKeys: SchemaForeignKey[] = [];
+  for (const { table, body } of models.values()) {
+    for (const line of body.split('\n')) {
+      const relation = line.match(/^\s+\w+\s+(\w+)\??\s+@relation\((.*)\)\s*$/);
+      const parent = relation && models.get(relation[1]);
+      const fields = relation?.[2].match(/fields:\s*\[([^\]]*)\]/)?.[1];
+      if (parent && fields) {
+        foreignKeys.push({
+          table,
+          parentTable: parent.table,
+          columns: fields.split(',').map((column) => column.trim()),
+        });
+      }
+    }
+  }
+  return foreignKeys;
+}
+
+describe('TABLE_CLEANERS against prisma/schema.prisma', () => {
+  const tables = TABLE_CLEANERS.map((cleaner) => cleaner.table);
+  const foreignKeys = readSchemaForeignKeys();
+
+  it('cleans every table with a tenant_id foreign key before tenants', () => {
+    const tenantTables = new Set(
+      foreignKeys
+        .filter((foreignKey) => foreignKey.columns.includes('tenant_id'))
+        .map((foreignKey) => foreignKey.table),
+    );
+    const uncleaned = [...tenantTables].filter(
+      (table) => !tables.includes(table),
+    );
+    const cleanedAfterTenants = [...tenantTables].filter(
+      (table) => tables.indexOf(table) > tables.indexOf('tenants'),
+    );
+
+    expect(tenantTables.size).toBeGreaterThan(100);
+    expect(uncleaned).toEqual([]);
+    expect(cleanedAfterTenants).toEqual([]);
+  });
+
+  it('cleans every foreign key child before the table it references', () => {
+    const misordered = foreignKeys
+      .filter(({ table, parentTable }) => {
+        const child = tables.indexOf(table);
+        const parent = tables.indexOf(parentTable);
+        return (
+          table !== parentTable && child > -1 && parent > -1 && child > parent
+        );
+      })
+      .map(({ table, parentTable }) => `${table} -> ${parentTable}`);
+
+    expect(misordered).toEqual([]);
   });
 });
