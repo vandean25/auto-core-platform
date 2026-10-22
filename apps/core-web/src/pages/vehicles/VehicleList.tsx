@@ -60,7 +60,7 @@ export default function VehicleList() {
   }, [responseData, t])
 
   const peek = usePeekSearchParam()
-  const rowBehaviour = useVehicleListRowBehaviour(t, navigate, peek.openPeek)
+  const rowBehaviour = useVehicleListRowBehaviour(t, navigate, peek.openPeek, rows)
 
   const columns = useMemo<ColumnDef<VehicleRow>[]>(
     () => [

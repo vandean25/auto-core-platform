@@ -29,7 +29,7 @@ const customer: Customer = {
 
 function renderCustomerRowBehaviour() {
   const openPeek = vi.fn()
-  const rowBehaviour = renderHook(() => useCustomerListRowBehaviour(openPeek), {
+  const rowBehaviour = renderHook(() => useCustomerListRowBehaviour(openPeek, [customer]), {
     wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
   }).result.current
   return { rowBehaviour, openPeek }

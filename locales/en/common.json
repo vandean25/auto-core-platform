@@ -255,6 +255,24 @@
       "requestOnLanding": "Request a new demo link on the Auto Core landing page."
     }
   },
+  "shortcuts": {
+    "title": "Keyboard shortcuts",
+    "description": "Active keyboard shortcuts in Auto Core.",
+    "sections": {
+      "global": "Global",
+      "navigation": "Navigation",
+      "lists": "Lists"
+    },
+    "entries": {
+      "globalSearch": "Global search",
+      "toggleSidebar": "Show or hide the sidebar",
+      "showHelp": "Show this help",
+      "goWorkshopOrders": "Workshop orders",
+      "goCustomers": "Customers",
+      "goVehicles": "Vehicles",
+      "rowOpenDetail": "Open focused row in full"
+    }
+  },
   "sidebar": {
     "toggle": "Show or hide the sidebar",
     "mobileTitle": "Navigation",
