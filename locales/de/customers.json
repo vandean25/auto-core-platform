@@ -37,6 +37,7 @@
     "description": "Kundenstamm und CRM verwalten.",
     "addCustomer": "Kunde",
     "searchPlaceholder": "Kunden durchsuchen…",
+    "empty": "Noch keine Kunden angelegt.",
     "saveViewTitle": "Kunden",
     "deleteConfirm": "Diesen Kunden wirklich löschen?",
     "deleted": "Kunde gelöscht",

@@ -11,6 +11,7 @@ import { toast } from 'sonner'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { DataTable } from '@/components/data-table/DataTable'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { DASHBOARD_WIDGET_SOURCE_CUSTOMERS } from '@/features/dashboard-widgets/sources'
 import { getErrorMessage } from '@/lib/error-utils'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
@@ -127,15 +128,15 @@ export default function CustomerList() {
 
   return (
     <>
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{t('list.title')}</h1>
-          <p className="text-slate-500">{t('list.description')}</p>
-        </div>
-        <Button onClick={handleCreate}>
-          <Plus className="mr-2 h-4 w-4" /> {t('list.addCustomer')}
-        </Button>
-      </div>
+      <PageHeader
+        title={t('list.title')}
+        description={t('list.description')}
+        actions={
+          <Button onClick={handleCreate}>
+            <Plus className="mr-2 h-4 w-4" /> {t('list.addCustomer')}
+          </Button>
+        }
+      />
 
       <DataTable
         columns={columns}
@@ -145,6 +146,14 @@ export default function CustomerList() {
         pageCount={pageCount}
         isLoading={isLoading}
         searchPlaceholder={t('list.searchPlaceholder')}
+        emptyState={{
+          message: t('list.empty'),
+          action: (
+            <Button onClick={handleCreate}>
+              <Plus className="mr-2 h-4 w-4" /> {t('list.addCustomer')}
+            </Button>
+          ),
+        }}
         onRowClick={(row) => navigate(`/customers/${row.id}`)}
         getRowContextActions={(row) => [
           {

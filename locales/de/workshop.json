@@ -339,6 +339,7 @@
       "partsPickQueue": "Teile-Kommissionierung",
       "partsPickHint": "Zu kommissionierende Teile für offene Aufträge",
       "newOrder": "Auftrag",
+      "empty": "Noch keine Werkstattaufträge vorhanden.",
       "saveViewTitle": "Werkstattaufträge",
       "searchPlaceholder": "Werkstattaufträge suchen…",
       "rowAria": "Werkstattauftrag {{orderNo}}",

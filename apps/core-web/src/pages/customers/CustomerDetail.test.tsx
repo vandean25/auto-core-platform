@@ -128,7 +128,7 @@ describe('CustomerDetail', () => {
     })
   })
 
-  it('renders loading state when fetching customer', () => {
+  it('renders loading state when fetching customer', async () => {
     asMock(customersApi.useCustomer).mockReturnValue({
       data: undefined,
       isLoading: true,
@@ -145,7 +145,8 @@ describe('CustomerDetail', () => {
       </QueryClientProvider>,
     )
 
-    expect(screen.getByText(deCustomers.detail.loading)).toBeInTheDocument()
+    // The skeleton appears after a short delay so fast responses do not flash it.
+    expect(await screen.findByText(deCustomers.detail.loading)).toBeInTheDocument()
   })
 
   it('renders error state when fetch fails', () => {
