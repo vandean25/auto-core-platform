@@ -17,6 +17,8 @@ import { useWorkshopOrders } from '@/api/workshop'
 import { DASHBOARD_WIDGET_SOURCE_WORKSHOP_ORDERS } from '@/features/dashboard-widgets/sources'
 import { getWorkshopCustomerDisplayName } from '@/features/workshop/pick-utils'
 import type { WorkshopOrderListRow } from '@/features/actions/work-order-row-actions'
+import { WorkshopOrderPeekSheet } from '@/features/peek/WorkshopOrderPeekSheet'
+import { usePeekSearchParam } from '@/features/peek/use-peek-search-param'
 import { useWorkshopOrderListRowBehaviour } from './useWorkshopOrderListRowBehaviour'
 
 export default function WorkshopOrderList() {
@@ -26,7 +28,8 @@ export default function WorkshopOrderList() {
   const [createOpen, setCreateOpen] = useState(false)
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
   const { data: responseData, isLoading, isError } = useWorkshopOrders(queryParams)
-  const rowBehaviour = useWorkshopOrderListRowBehaviour(t, navigate, queryClient)
+  const peek = usePeekSearchParam()
+  const rowBehaviour = useWorkshopOrderListRowBehaviour(t, navigate, queryClient, peek.openPeek)
 
   const rows = useMemo<WorkshopOrderListRow[]>(() => {
     const source = responseData?.data ?? []
@@ -127,6 +130,13 @@ export default function WorkshopOrderList() {
       />
 
       <WorkshopOrderIntakeDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <WorkshopOrderPeekSheet
+        t={t}
+        navigate={navigate}
+        peekId={peek.peekId}
+        isPeekOpen={peek.isPeekOpen}
+        closePeek={peek.closePeek}
+      />
     </div>
   )
 }

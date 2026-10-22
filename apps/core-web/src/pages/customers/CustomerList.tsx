@@ -13,6 +13,8 @@ import { DataTable } from '@/components/data-table/DataTable'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { DASHBOARD_WIDGET_SOURCE_CUSTOMERS } from '@/features/dashboard-widgets/sources'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { CustomerPeekSheet } from '@/features/peek/CustomerPeekSheet'
+import { usePeekSearchParam } from '@/features/peek/use-peek-search-param'
 import { useCustomerListRowBehaviour } from './useCustomerListRowBehaviour'
 
 export default function CustomerList() {
@@ -50,7 +52,8 @@ export default function CustomerList() {
     setIsDialogOpen(true)
   }
 
-  const rowBehaviour = useCustomerListRowBehaviour()
+  const peek = usePeekSearchParam()
+  const rowBehaviour = useCustomerListRowBehaviour(peek.openPeek)
 
   const columns: ColumnDef<Customer>[] = [
     {
@@ -155,6 +158,11 @@ export default function CustomerList() {
         open={isDialogOpen}
         onOpenChange={setIsDialogOpen}
         customer={selectedCustomer}
+      />
+      <CustomerPeekSheet
+        peekId={peek.peekId}
+        isPeekOpen={peek.isPeekOpen}
+        closePeek={peek.closePeek}
       />
     </>
   )

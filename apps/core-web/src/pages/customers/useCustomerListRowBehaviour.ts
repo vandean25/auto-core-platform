@@ -1,11 +1,9 @@
-import { useCallback, useMemo } from 'react'
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
-import { toast } from 'sonner'
 
-import { useDeleteCustomer } from '@/api/customers'
-import { getErrorMessage } from '@/lib/error-utils'
 import { useAuthRole } from '@/features/actions/use-auth-role'
+import { useCustomerDeleteHandler } from './use-customer-delete-handler'
 import {
   createCustomerRowActions,
   getCustomerListRowLabel,
@@ -13,24 +11,11 @@ import {
 } from '@/features/actions/customer-row-actions'
 import { useRegistryRowBehaviour } from '@/features/actions/use-registry-row-behaviour'
 
-export function useCustomerListRowBehaviour() {
+export function useCustomerListRowBehaviour(openPeek: (id: string) => void) {
   const { t } = useTranslation('customers')
   const navigate = useNavigate()
   const role = useAuthRole()
-  const deleteMutation = useDeleteCustomer()
-
-  const handleDelete = useCallback(
-    async (id: string) => {
-      if (!confirm(t('list.deleteConfirm'))) return
-      try {
-        await deleteMutation.mutateAsync(id)
-        toast.success(t('list.deleted'))
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, t('list.deleteFailed')))
-      }
-    },
-    [deleteMutation, t],
-  )
+  const handleDelete = useCustomerDeleteHandler()
 
   const customerActionDefinitions = useMemo(() => createCustomerRowActions(t), [t])
 
@@ -39,9 +24,9 @@ export function useCustomerListRowBehaviour() {
       getRowHref: (row: CustomerListRow) => `/customers/${row.id}`,
       getRowAccessibleName: (row: CustomerListRow) =>
         t('list.rowAria', { name: getCustomerListRowLabel(row) }),
-      onRowClick: (row: CustomerListRow) => navigate(`/customers/${row.id}`),
+      onRowClick: (row: CustomerListRow) => openPeek(row.id),
     }),
-    [navigate, t],
+    [openPeek, t],
   )
 
   const runContext = useMemo(

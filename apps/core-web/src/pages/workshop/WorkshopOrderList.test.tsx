@@ -8,7 +8,15 @@ import { deWorkshop } from '@/test/de-workshop'
 
 const list = deWorkshop.orders.list
 
-vi.mock('@/api/workshop')
+vi.mock('@/api/workshop', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/api/workshop')>()
+  return {
+    ...actual,
+    useWorkshopOrders: vi.fn(),
+    useWorkshopOrder: vi.fn(() => ({ data: undefined, isLoading: false })),
+    useGenerateWorkshopPdf: vi.fn(() => ({ mutateAsync: vi.fn() })),
+  }
+})
 vi.mock('@/auth/AuthProvider', () => ({
   useAuth: () => ({ claims: { role: 'ADMIN' } }),
 }))

@@ -356,6 +356,10 @@
         "opened": "Opened",
         "status": "Status"
       }
+    },
+    "peek": {
+      "titleFallback": "Workshop order",
+      "notFound": "Order not found."
     }
   },
   "warranty": {

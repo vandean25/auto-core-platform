@@ -54,6 +54,10 @@
       "open": "Kunde öffnen"
     }
   },
+  "peek": {
+    "titleFallback": "Kunde",
+    "notFound": "Kunde nicht gefunden."
+  },
   "detail": {
     "loading": "Kundendetails werden geladen…",
     "loadFailed": "Kunde konnte nicht geladen werden: {{message}}",

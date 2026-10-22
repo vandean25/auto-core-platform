@@ -25,6 +25,10 @@
       "customer": "Kunde"
     }
   },
+  "peek": {
+    "titleFallback": "Fahrzeug",
+    "notFound": "Fahrzeug nicht gefunden."
+  },
   "detail": {
     "loading": "Fahrzeugdetails werden geladen…",
     "loadFailed": "Fahrzeug konnte nicht geladen werden: {{message}}",
