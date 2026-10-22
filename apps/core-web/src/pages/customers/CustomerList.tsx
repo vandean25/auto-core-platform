@@ -23,7 +23,7 @@ export default function CustomerList() {
   }, [])
   const navigate = useNavigate()
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
-  const { data: responseData, isLoading } = useCustomers(queryParams)
+  const { data: responseData, isLoading, isError } = useCustomers(queryParams)
   const [searchParams, setSearchParams] = useSearchParams()
 
   const customers: Customer[] = Array.isArray(responseData)
@@ -146,14 +146,18 @@ export default function CustomerList() {
         pageCount={pageCount}
         isLoading={isLoading}
         searchPlaceholder={t('list.searchPlaceholder')}
-        emptyState={{
-          message: t('list.empty'),
-          action: (
-            <Button onClick={handleCreate}>
-              <Plus className="mr-2 h-4 w-4" /> {t('list.emptyAction')}
-            </Button>
-          ),
-        }}
+        emptyState={
+          isError
+            ? undefined
+            : {
+                message: t('list.empty'),
+                action: (
+                  <Button onClick={handleCreate}>
+                    <Plus className="mr-2 h-4 w-4" /> {t('list.emptyAction')}
+                  </Button>
+                ),
+              }
+        }
         onRowClick={(row) => navigate(`/customers/${row.id}`)}
         getRowContextActions={(row) => [
           {

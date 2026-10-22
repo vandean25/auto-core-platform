@@ -64,6 +64,7 @@ export function DataTableFacetedFilter<TData extends object>({ column, filter }:
                       {isSelected ? <Check className="h-3 w-3" /> : null}
                     </span>
                     <span>{option.label}</span>
+                    {isSelected ? <span className="sr-only">{t('dataTable.filters.itemSelected')}</span> : null}
                     {option.count !== undefined ? (
                       <span className="ml-auto text-xs tabular-nums text-muted-foreground">{option.count}</span>
                     ) : null}

@@ -54,6 +54,7 @@
       "selected_one": "{{count}} ausgewählt",
       "selected_other": "{{count}} ausgewählt",
       "clear": "Filter zurücksetzen",
+      "itemSelected": "ausgewählt",
       "noMatches": "Keine Treffer."
     },
     "density": {

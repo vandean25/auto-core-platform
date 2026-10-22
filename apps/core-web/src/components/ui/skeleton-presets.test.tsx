@@ -46,10 +46,10 @@ describe('skeleton presets', () => {
 
     elapse(199)
     expect(container.querySelectorAll('tbody tr')).toHaveLength(0)
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(screen.queryAllByRole('status')).toHaveLength(0)
     elapse(1)
     expect(container.querySelectorAll('tbody tr')).toHaveLength(5)
-    expect(screen.getByRole('status')).toBeInTheDocument()
+    expect(screen.getAllByRole('status')).toHaveLength(2)
   })
 
   it('DetailSkeleton announces loading to assistive tech', () => {

@@ -47,7 +47,7 @@ function isInteractiveTarget(target: EventTarget | null): boolean {
   }
 
   return Boolean(
-    target.closest('button, a, input, select, textarea, [role="button"]'),
+    target.closest('button, a, input, select, textarea, [role="button"], [data-column-id="select"]'),
   )
 }
 
@@ -181,7 +181,10 @@ export function DataTable<TData extends object>({
   const rootRef = useRef<HTMLDivElement | null>(null)
   const [density, setDensity] = useState<DataTableDensity>("normal")
   const hasBulkActions = Boolean(bulkActions)
-  const { rowSelection, setRowSelection, withSelectColumn, withSelectionReset } = useDataTableSelection<TData>(hasBulkActions)
+  const { rowSelection, setRowSelection, withSelectColumn } = useDataTableSelection<TData>(
+    hasBulkActions,
+    JSON.stringify([sorting, columnFilters, globalFilter, pagination]),
+  )
 
   const { openRowContextMenu, menu: contextMenu } = useDataTableContextMenu(getRowContextActions)
 
@@ -202,7 +205,7 @@ export function DataTable<TData extends object>({
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
     onSortingChange: setSorting,
-    onPaginationChange: withSelectionReset(setPagination),
+    onPaginationChange: setPagination,
     getCoreRowModel: getCoreRowModel(),
     manualPagination: true,
     manualSorting: true,

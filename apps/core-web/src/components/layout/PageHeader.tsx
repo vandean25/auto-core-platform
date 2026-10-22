@@ -20,7 +20,7 @@ export function PageHeader({ title, description, breadcrumbs, leading, actions, 
   return (
     <header className={cn('mb-8 flex flex-col gap-4', className)}>
       {breadcrumbs}
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-4">
           {leading}
           <div className="min-w-0">

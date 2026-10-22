@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import type { OnChangeFn, PaginationState, RowSelectionState } from '@tanstack/react-table'
+import type { RowSelectionState } from '@tanstack/react-table'
 import type { LegacyColumnDef as ColumnDef, LegacyReactTable as Table } from '@tanstack/react-table/legacy'
 import { useTranslation } from 'react-i18next'
 
@@ -36,19 +36,20 @@ function createSelectColumn<TData extends object>(): ColumnDef<TData> {
 }
 
 /** Row selection state plus the checkbox column, which is only added when `enabled`. */
-export function useDataTableSelection<TData extends object>(enabled: boolean) {
+export function useDataTableSelection<TData extends object>(enabled: boolean, resetKey: string) {
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+  // Selected rows belong to one page of one result set, so any change of sort, filter, search or page drops them.
+  const [seenResetKey, setSeenResetKey] = useState(resetKey)
+  if (seenResetKey !== resetKey) {
+    setSeenResetKey(resetKey)
+    setRowSelection({})
+  }
   // Stable identity: header and cell are components, which would remount on every render otherwise.
   const selectColumn = useMemo(() => createSelectColumn<TData>(), [])
 
   return {
     rowSelection,
     setRowSelection,
-    // Selected rows belong to one page of a server-paged list, so a page change drops them.
-    withSelectionReset: (onChange: OnChangeFn<PaginationState>): OnChangeFn<PaginationState> => (updater) => {
-      setRowSelection({})
-      onChange(updater)
-    },
     withSelectColumn: (columns: ColumnDef<TData>[]) => (enabled ? [selectColumn, ...columns] : columns),
   }
 }

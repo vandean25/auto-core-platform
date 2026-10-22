@@ -20,7 +20,7 @@ const toIso = (date: Date) => format(date, 'yyyy-MM-dd')
 
 export function DataTableDateRangeFilter<TData extends object>({ column, filter }: DataTableDateRangeFilterProps<TData>) {
   const { t } = useTranslation('common')
-  const [fromIso, toIsoValue] = splitFilterValue(column.getFilterValue()).concat('')
+  const [fromIso = '', toIsoValue = ''] = splitFilterValue(column.getFilterValue())
   const range: DateRange | undefined = fromIso
     ? { from: parseISO(fromIso), to: toIsoValue ? parseISO(toIsoValue) : undefined }
     : undefined

@@ -85,6 +85,7 @@ describe('DataTable filters', () => {
     fireEvent.click(screen.getByRole('option', { name: /Erledigt/ }))
 
     expect(onFiltersChange).toHaveBeenLastCalledWith([{ id: 'status', value: 'OPEN,DONE' }])
+    expect(screen.getByRole('option', { name: /Offen/ })).toHaveTextContent(dt.filters.itemSelected)
     expect(screen.getByRole('button', { name: /Status/ })).toHaveTextContent('2 ausgewählt')
   })
 
@@ -143,6 +144,7 @@ describe('DataTable states', () => {
     expect(container.querySelector('tbody .animate-pulse')).not.toBeNull()
     expect(screen.queryByText(dt.noResults)).not.toBeInTheDocument()
     expect(container.querySelector('table')).toHaveAttribute('aria-busy', 'true')
+    expect(screen.getByRole('status')).toHaveTextContent(deCommon.shell.loading)
   })
 
   it('does not flash a skeleton when loading finishes within the delay', () => {
@@ -237,6 +239,26 @@ describe('DataTable action bar', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: dt.selectAll }))
 
     expect(within(screen.getByRole('toolbar')).getByText('2 ausgewählt')).toBeInTheDocument()
+  })
+
+  it('drops the selection when the filter changes', () => {
+    render(<Harness bulkActions={bulkActions} />)
+    fireEvent.click(screen.getAllByRole('checkbox', { name: dt.selectRow })[0])
+    expect(screen.getByRole('toolbar')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Status' }))
+    fireEvent.click(screen.getByRole('option', { name: /Offen/ }))
+
+    expect(screen.queryByRole('toolbar')).not.toBeInTheDocument()
+  })
+
+  it('does not open the row when the padding around a checkbox is clicked', () => {
+    const onRowClick = vi.fn()
+    render(<Harness bulkActions={bulkActions} onRowClick={onRowClick} />)
+
+    fireEvent.click(screen.getAllByRole('checkbox', { name: dt.selectRow })[0].closest('td')!)
+
+    expect(onRowClick).not.toHaveBeenCalled()
   })
 
   it('does not trigger onRowClick when a row checkbox is clicked', () => {

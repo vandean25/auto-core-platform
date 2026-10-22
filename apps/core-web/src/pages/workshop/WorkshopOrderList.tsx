@@ -31,7 +31,7 @@ export default function WorkshopOrderList() {
   const navigate = useNavigate()
   const [createOpen, setCreateOpen] = useState(false)
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
-  const { data: responseData, isLoading } = useWorkshopOrders(queryParams)
+  const { data: responseData, isLoading, isError } = useWorkshopOrders(queryParams)
 
   const rows = useMemo<WorkshopOrderRow[]>(() => {
     const source = responseData?.data ?? []
@@ -114,15 +114,19 @@ export default function WorkshopOrderList() {
         pageCount={responseData?.meta?.pageCount ?? 1}
         isLoading={isLoading}
         searchPlaceholder={t('orders.list.searchPlaceholder')}
-        emptyState={{
-          message: t('orders.list.empty'),
-          action: (
-            <Button onClick={() => setCreateOpen(true)}>
-              <Plus className='h-4 w-4 mr-2' />
-              {t('orders.list.emptyAction')}
-            </Button>
-          ),
-        }}
+        emptyState={
+          isError
+            ? undefined
+            : {
+                message: t('orders.list.empty'),
+                action: (
+                  <Button onClick={() => setCreateOpen(true)}>
+                    <Plus className='h-4 w-4 mr-2' />
+                    {t('orders.list.emptyAction')}
+                  </Button>
+                ),
+              }
+        }
         getRowHref={(row) => `/workshop/orders/${row.id}`}
         getRowAccessibleName={(row) => t('orders.list.rowAria', { orderNo: row.orderNo })}
         onRowClick={(row) => navigate(`/workshop/orders/${row.id}`)}

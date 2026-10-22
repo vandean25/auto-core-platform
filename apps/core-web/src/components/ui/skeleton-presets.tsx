@@ -10,6 +10,7 @@ const SKELETON_DELAY_MS = 200
 
 /** Placeholder body rows for a table. Render inside a `TableBody` while loading. */
 export function TableSkeleton({ rows = 5, cols, delayMs = SKELETON_DELAY_MS }: { rows?: number; cols: number; delayMs?: number }) {
+  const { t } = useTranslation('common')
   const visible = useDelayedFlag(true, delayMs)
   if (!visible) return null
 
@@ -17,6 +18,11 @@ export function TableSkeleton({ rows = 5, cols, delayMs = SKELETON_DELAY_MS }: {
     <TableRow key={rowIndex} className="hover:bg-transparent">
       {Array.from({ length: cols }, (_, colIndex) => (
         <TableCell key={colIndex}>
+          {rowIndex === 0 && colIndex === 0 ? (
+            <span role="status" className="sr-only">
+              {t('shell.loading')}
+            </span>
+          ) : null}
           <Skeleton className="h-4 w-full max-w-40" />
         </TableCell>
       ))}
