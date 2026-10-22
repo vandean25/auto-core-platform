@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'sonner'
@@ -15,6 +15,7 @@ import { fetchWithAuth } from '@/api/client'
 import {
   mechanicQueueKeys,
   useMechanicQueue,
+  useCompleteTask,
   useStartTask,
   type MechanicQueueResponse,
 } from '@/api/mechanic'
@@ -45,6 +46,8 @@ const ASSIGN_URL = '/api/workshop/board/assign'
 const QUEUE_URL = '/api/mechanic/queue'
 const START_URL = `/api/mechanic/tasks/task-1/start`
 const TASK_PATCH_URL = '/api/workshop/orders/order-1/tasks/task-1'
+const ORDER_DETAIL_URL = '/api/workshop/orders/order-1'
+const COMPLETE_URL = '/api/mechanic/tasks/task-1/complete'
 
 function pending(url: string, method = 'GET') {
   return requests.filter((request) => request.url === url && request.method === method)
@@ -168,6 +171,59 @@ describe('optimistic workshop task status vs realtime echo', () => {
     expect(order?.tasks?.[0]?.status).toBe('DONE')
   })
 
+  it('keeps the second optimistic status when the first task-status mutation settles', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    const initialOrder = createOrder('IN_PROGRESS')
+    queryClient.setQueryData(workshopKeys.detail('order-1'), initialOrder)
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    )
+    const view = renderHook(
+      () => ({
+        order: useQuery({
+          queryKey: workshopKeys.detail('order-1'),
+          queryFn: async () => {
+            const response = await fetchWithAuth(ORDER_DETAIL_URL)
+            if (!response.ok) throw new Error('failed')
+            return response.json() as Promise<WorkshopOrder>
+          },
+          initialData: initialOrder,
+          staleTime: Infinity,
+        }),
+        updateTask: useUpdateWorkshopTask(),
+      }),
+      { wrapper },
+    )
+    await waitFor(() => expect(view.result.current.order.data).toBeDefined())
+    const detailGetsBeforeMutate = pending(ORDER_DETAIL_URL, 'GET').length
+
+    act(() => {
+      void view.result.current.updateTask.mutateAsync({
+        orderId: 'order-1',
+        taskId: 'task-1',
+        status: 'DONE',
+      })
+      void view.result.current.updateTask.mutateAsync({
+        orderId: 'order-1',
+        taskId: 'task-1',
+        status: 'WAITING_PARTS',
+      })
+    })
+    await settle()
+
+    await respond(TASK_PATCH_URL, 'PATCH', 200, createOrder('IN_PROGRESS'))
+    await settle()
+
+    expect(
+      queryClient.getQueryData<WorkshopOrder>(workshopKeys.detail('order-1'))?.tasks?.[0]?.status,
+    ).toBe('WAITING_PARTS')
+    expect(pending(ORDER_DETAIL_URL, 'GET')).toHaveLength(detailGetsBeforeMutate)
+
+    await respond(TASK_PATCH_URL, 'PATCH', 200, createOrder('WAITING_PARTS'))
+  })
+
   it.each([403, 409])('rolls back task status and surfaces toast on %i', async (status) => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -235,6 +291,7 @@ describe('optimistic mechanic queue lifecycle vs realtime echo', () => {
       () => ({
         queue: useMechanicQueue(),
         start: useStartTask(),
+        complete: useCompleteTask(),
       }),
       { wrapper },
     )
@@ -259,6 +316,22 @@ describe('optimistic mechanic queue lifecycle vs realtime echo', () => {
 
     await respond(START_URL, 'POST', 200, { taskId: 'task-1', taskStatus: 'IN_PROGRESS' })
     await waitFor(() => expect(pending(QUEUE_URL).length).toBeGreaterThan(1))
+  })
+
+  it('keeps DONE when start fails while complete is queued on the shared lifecycle key', async () => {
+    const { view, queryClient } = await setupQueue()
+    act(() => {
+      void view.result.current.start.mutateAsync({ taskId: 'task-1' }).catch(() => undefined)
+      void view.result.current.complete.mutateAsync({ taskId: 'task-1' })
+    })
+    await settle()
+    await respond(START_URL, 'POST', 403, { message: 'rejected' })
+    await waitFor(() =>
+      expect(
+        queryClient.getQueryData<MechanicQueueResponse>(mechanicQueueKeys.queue())?.data[0]?.taskStatus,
+      ).toBe('DONE'),
+    )
+    await respond(COMPLETE_URL, 'POST', 200, { taskId: 'task-1', taskStatus: 'DONE' })
   })
 
   it('(c) two quick starts end on the last intent', async () => {

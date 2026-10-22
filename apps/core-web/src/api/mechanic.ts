@@ -120,12 +120,11 @@ function revertMechanicQueueTaskStatus(
 }
 
 function mechanicQueueLifecycleOptimistic<TVariables extends { taskId: string }>(
-  segment: string,
   resolveStatus: (variables: TVariables) => MechanicTaskStatus,
 ) {
   return optimisticMutationOptions<MechanicQueueResponse, TVariables>({
     queryKey: mechanicQueueKeys.queue(),
-    mutationKey: [...mechanicQueueLifecycleMutationKey, segment],
+    mutationKey: mechanicQueueLifecycleMutationKey,
     entityId: ({ taskId }) => taskId,
     apply: (cache, variables) =>
       patchMechanicQueueStatus(cache, variables.taskId, resolveStatus(variables)),
@@ -243,7 +242,7 @@ export function useMechanicTaskDetail(taskId: string) {
   });
 }
 
-const startTaskOptimistic = mechanicQueueLifecycleOptimistic("start", () => "IN_PROGRESS");
+const startTaskOptimistic = mechanicQueueLifecycleOptimistic(() => "IN_PROGRESS");
 
 export function useStartTask() {
   return useMutation({
@@ -298,7 +297,7 @@ export function useSwitchTask() {
 
 const pauseTaskOptimistic = mechanicQueueLifecycleOptimistic<
   { taskId: string; payload: PauseTaskPayload }
->("pause", ({ payload }) => pauseReasonToTaskStatus(payload.pauseReason));
+>(({ payload }) => pauseReasonToTaskStatus(payload.pauseReason));
 
 export function usePauseTask() {
   return useMutation({
@@ -326,7 +325,7 @@ export function usePauseTask() {
   });
 }
 
-const completeTaskOptimistic = mechanicQueueLifecycleOptimistic("complete", () => "DONE");
+const completeTaskOptimistic = mechanicQueueLifecycleOptimistic(() => "DONE");
 
 export function useCompleteTask() {
   return useMutation({

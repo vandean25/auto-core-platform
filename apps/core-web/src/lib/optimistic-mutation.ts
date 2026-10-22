@@ -64,15 +64,30 @@ function revertExtraCaches<TVariables>(
   }
 }
 
+function countPendingMutationsForQueryKey(
+  client: MutationFunctionContext['client'],
+  queryKey: QueryKey,
+): number {
+  const target = hashKey(queryKey)
+  return client
+    .getMutationCache()
+    .getAll()
+    .filter((mutation) => {
+      if (mutation.state.status !== 'pending') return false
+      const ctx = mutation.state.context as OptimisticContext<unknown> | undefined
+      return ctx?.resolvedQueryKey !== undefined && hashKey(ctx.resolvedQueryKey) === target
+    }).length
+}
+
 function invalidateSettledCaches(
   client: MutationFunctionContext['client'],
   resolvedQueryKey: QueryKey,
   extraSnapshots: ExtraSnapshot[],
 ) {
-  if (client.isMutating({ mutationKey: resolvedQueryKey }) > 1) return
+  if (countPendingMutationsForQueryKey(client, resolvedQueryKey) > 1) return
   void client.invalidateQueries({ queryKey: resolvedQueryKey })
   for (const { queryKey: extraKey } of extraSnapshots) {
-    if (client.isMutating({ mutationKey: resolvedQueryKey }) > 1) return
+    if (countPendingMutationsForQueryKey(client, extraKey) > 0) return
     void client.invalidateQueries({ queryKey: extraKey })
   }
 }

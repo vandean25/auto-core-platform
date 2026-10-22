@@ -738,10 +738,22 @@ export const useUpdateWorkshopTask = () => {
       const json = await response.json()
       return normalizeOrder(json)
     },
-    onSuccess: (order, variables) => {
+    onSuccess: (_order, variables) => {
       queryClient.invalidateQueries({ queryKey: workshopKeys.orders() })
       if (variables.status === undefined) {
-        queryClient.setQueryData(workshopKeys.order(order.id), order)
+        const mergeNotes = (current: WorkshopOrder | undefined): WorkshopOrder | undefined => {
+          if (!current) return current
+          return {
+            ...current,
+            tasks: current.tasks?.map((task) =>
+              task.id === variables.taskId
+                ? { ...task, mechanicNotes: variables.mechanicNotes ?? task.mechanicNotes }
+                : task,
+            ),
+          }
+        }
+        queryClient.setQueryData(workshopKeys.detail(variables.orderId), mergeNotes)
+        queryClient.setQueryData(workshopKeys.order(variables.orderId), mergeNotes)
       }
     },
   })
@@ -1006,7 +1018,18 @@ const assignBoardOptimistic = optimisticMutationOptions<BoardActiveResponse, Ass
       queryKey: ({ orderId }) => workshopKeys.detail(orderId),
       apply: (cache, payload) =>
         cache === undefined ? cache : patchWorkshopOrderAssignment(cache as WorkshopOrder, payload),
-      revert: (_cache, _payload, snapshot) => snapshot ?? _cache,
+      revert: (cache, _payload, snapshot) => {
+        if (cache === undefined || snapshot === undefined) return cache
+        const order = cache as WorkshopOrder
+        const before = snapshot as WorkshopOrder
+        return {
+          ...order,
+          mechanicId: before.mechanicId,
+          mechanic_id: before.mechanic_id,
+          bayId: before.bayId,
+          bay_id: before.bay_id,
+        }
+      },
     },
   ],
 })
