@@ -280,7 +280,7 @@ describe('optimistic board assignment vs. realtime echo', () => {
     // Another user moved order-2 in the meantime: the deferred refetch brings it in, our move stays.
     await respond(BOARD_URL, 'GET', 200, board(orderOne('mech-2'), orderTwo('mech-1')))
 
+    await waitFor(() => expect(mechanicOf('order-2')).toBe('mech-1'))
     expect(mechanicOf('order-1')).toBe('mech-2')
-    expect(mechanicOf('order-2')).toBe('mech-1')
   })
 })
