@@ -89,6 +89,7 @@ describe('Vehicle stock trading (e2e)', () => {
     const reusedVin = vin('REUSE01');
     const existing = await prisma.vehicle.create({
       data: {
+        tenant_id: tenantId,
         customer_id: buyerId,
         make: 'VW',
         model: 'Passat',
@@ -268,6 +269,7 @@ describe('Vehicle stock trading (e2e)', () => {
     const otherPrisma = createTenantAwarePrisma(basePrisma, otherTenantId);
     const foreignVendor = await otherPrisma.vendor.create({
       data: {
+        tenant_id: otherTenantId,
         name: 'Other Tenant Cars',
         email: 'other-vendor@cars.test',
         account_number: 'VC-OTHER',

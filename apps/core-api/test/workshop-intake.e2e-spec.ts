@@ -14,6 +14,10 @@ import {
 import { teardownTestApp } from './test-lifecycle.js';
 import { seedPickerlInspectionTemplate } from '../src/prisma/fixtures/pickerl-inspection-template.fixture.js';
 
+declare global {
+  var __regIntakeBytes: (id: string) => Buffer;
+}
+
 describe('Workshop Intake Module (e2e)', () => {
   let app: INestApplication;
   let authToken: string;
@@ -72,6 +76,7 @@ describe('Workshop Intake Module (e2e)', () => {
 
     const customer = await prisma.customer.create({
       data: {
+        tenant_id: tenantId,
         first_name: 'Workshop',
         last_name: 'Tester',
         email: 'workshop@test.com',
@@ -83,6 +88,7 @@ describe('Workshop Intake Module (e2e)', () => {
 
     const vehicle = await prisma.vehicle.create({
       data: {
+        tenant_id: tenantId,
         customer_id: customerId,
         make: 'Toyota',
         model: 'Corolla',
@@ -94,6 +100,7 @@ describe('Workshop Intake Module (e2e)', () => {
     vehicleId = vehicle.id;
     const pickerlVehicle = await prisma.vehicle.create({
       data: {
+        tenant_id: tenantId,
         customer_id: customerId,
         make: 'Toyota',
         model: 'Yaris',
@@ -311,8 +318,7 @@ describe('Workshop intake — registration document (AUT-537)', () => {
     const { encodeRegistrationIntakeFixtureBytes } = await import(
       '../src/registration-intake/registration-intake-fixture-bytes.js'
     );
-    (globalThis as { __regIntakeBytes?: typeof encodeRegistrationIntakeFixtureBytes }).__regIntakeBytes =
-      encodeRegistrationIntakeFixtureBytes;
+    globalThis.__regIntakeBytes = encodeRegistrationIntakeFixtureBytes;
 
     app = await createE2eApp((builder) =>
       builder
@@ -346,7 +352,7 @@ describe('Workshop intake — registration document (AUT-537)', () => {
   });
 
   it('photo → review → confirmed customer/vehicle without duplicate on re-apply', async () => {
-    const encode = (globalThis as { __regIntakeBytes: (id: string) => Buffer }).__regIntakeBytes;
+    const encode = globalThis.__regIntakeBytes;
     const front = encode('front-clear');
     const create = await request(app.getHttpServer())
       .post('/api/workshop/registration-intakes')

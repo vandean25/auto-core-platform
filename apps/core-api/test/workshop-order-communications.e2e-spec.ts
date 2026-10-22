@@ -59,6 +59,7 @@ describe('Workshop order communications (e2e)', () => {
   async function createOrderWithLabor(qty = 2, unitPrice = 80) {
     const vehicle = await prisma.vehicle.create({
       data: {
+        tenant_id: tenantId,
         make: 'Skoda',
         model: 'Octavia',
         year: 2019,
@@ -167,6 +168,7 @@ describe('Workshop order communications (e2e)', () => {
     customerEmail = `timeline-${Date.now()}@example.com`;
     const customer = await prisma.customer.create({
       data: {
+        tenant_id: tenantId,
         first_name: 'Anna',
         last_name: 'Beispiel',
         email: customerEmail,
@@ -344,6 +346,7 @@ describe('Workshop order communications (e2e)', () => {
     const otherToken = createTestAuthToken(app.get(AuthService), other);
     const otherCustomer = await otherPrisma.customer.create({
       data: {
+        tenant_id: other.tenantId,
         first_name: 'Bernd',
         last_name: 'Fremd',
         email: `fremd-${Date.now()}@example.com`,
@@ -357,6 +360,7 @@ describe('Workshop order communications (e2e)', () => {
     });
     const otherVehicle = await otherPrisma.vehicle.create({
       data: {
+        tenant_id: other.tenantId,
         make: 'Ford',
         model: 'Focus',
         year: 2018,

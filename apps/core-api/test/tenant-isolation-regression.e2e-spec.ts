@@ -338,6 +338,7 @@ describe('Tenant Isolation Regression (e2e)', () => {
 
     const bayA = await tenantAPrisma.bay.create({
       data: {
+        tenant_id: tenantAId,
         name: sharedBayName,
         is_active: true,
         sort_order: 1,
@@ -346,6 +347,7 @@ describe('Tenant Isolation Regression (e2e)', () => {
     });
     const bayB = await tenantBPrisma.bay.create({
       data: {
+        tenant_id: tenantBId,
         name: sharedBayName,
         is_active: true,
         sort_order: 1,
@@ -355,6 +357,7 @@ describe('Tenant Isolation Regression (e2e)', () => {
 
     const employeeA = await tenantAPrisma.employee.create({
       data: {
+        tenant_id: tenantAId,
         name: sharedEmployeeName,
         role: 'MECHANIC',
         is_active: true,
@@ -363,6 +366,7 @@ describe('Tenant Isolation Regression (e2e)', () => {
     });
     const employeeB = await tenantBPrisma.employee.create({
       data: {
+        tenant_id: tenantBId,
         name: sharedEmployeeName,
         role: 'MECHANIC',
         is_active: true,

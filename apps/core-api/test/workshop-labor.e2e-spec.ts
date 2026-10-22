@@ -29,6 +29,7 @@ describe('Workshop Labor Metadata (e2e)', () => {
 
     const customer = await prisma.customer.create({
       data: {
+        tenant_id: testTenant.tenantId,
         first_name: 'Workshop',
         last_name: 'Labor Tester',
         email: `workshop-labor-${Date.now()}@example.com`,
@@ -39,6 +40,7 @@ describe('Workshop Labor Metadata (e2e)', () => {
 
     const vehicle = await prisma.vehicle.create({
       data: {
+        tenant_id: testTenant.tenantId,
         make: 'BMW',
         model: 'X5',
         year: 2022,
@@ -50,6 +52,7 @@ describe('Workshop Labor Metadata (e2e)', () => {
 
     const laborOperation = await prisma.laborOperation.create({
       data: {
+        tenant_id: testTenant.tenantId,
         code: `LAB-E2E-${Date.now()}`,
         description: 'Workshop labor metadata operation',
         standard_aw: 1.5,

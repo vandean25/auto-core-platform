@@ -47,6 +47,7 @@ describe('Workshop estimates (e2e)', () => {
     // One open order per vehicle: every order gets its own vehicle.
     const vehicle = await prisma.vehicle.create({
       data: {
+        tenant_id: tenantId,
         make: 'Skoda',
         model: 'Octavia',
         year: 2019,
@@ -174,6 +175,7 @@ describe('Workshop estimates (e2e)', () => {
 
     const customer = await prisma.customer.create({
       data: {
+        tenant_id: tenantId,
         first_name: 'Anna',
         last_name: 'Beispiel',
         email: `kv-${Date.now()}@example.com`,

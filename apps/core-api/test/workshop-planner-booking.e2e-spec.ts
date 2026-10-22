@@ -43,6 +43,7 @@ describe('Workshop planner booking (e2e)', () => {
 
     const customer = await prisma.customer.create({
       data: {
+        tenant_id: tenantId,
         first_name: 'Planner',
         last_name: 'Booker',
         email: `planner-book-${Date.now()}@test.com`,
@@ -54,6 +55,7 @@ describe('Workshop planner booking (e2e)', () => {
     const [vehicleA, vehicleB, vehicleC, bay] = await Promise.all([
       prisma.vehicle.create({
         data: {
+          tenant_id: tenantId,
           customer_id: customerId,
           make: 'VW',
           model: 'Golf',
@@ -63,6 +65,7 @@ describe('Workshop planner booking (e2e)', () => {
       }),
       prisma.vehicle.create({
         data: {
+          tenant_id: tenantId,
           customer_id: customerId,
           make: 'VW',
           model: 'Passat',
@@ -72,6 +75,7 @@ describe('Workshop planner booking (e2e)', () => {
       }),
       prisma.vehicle.create({
         data: {
+          tenant_id: tenantId,
           customer_id: customerId,
           make: 'VW',
           model: 'Polo',
@@ -81,6 +85,7 @@ describe('Workshop planner booking (e2e)', () => {
       }),
       prisma.bay.create({
         data: {
+          tenant_id: tenantId,
           name: `Planner Bay ${Date.now()}`,
           is_active: true,
           sort_order: 1,
@@ -171,6 +176,7 @@ describe('Workshop planner booking (e2e)', () => {
     });
     const leave = await prisma.leaveRequest.create({
       data: {
+        tenant_id: tenantId,
         employee_id: mechanic.id,
         start_on: new Date('2026-08-24T00:00:00.000Z'),
         end_on: new Date('2026-08-26T00:00:00.000Z'),
@@ -180,6 +186,7 @@ describe('Workshop planner booking (e2e)', () => {
     });
     await prisma.leaveRequest.create({
       data: {
+        tenant_id: tenantId,
         employee_id: mechanic.id,
         start_on: new Date('2026-08-24T00:00:00.000Z'),
         end_on: new Date('2026-08-26T00:00:00.000Z'),
@@ -204,6 +211,7 @@ describe('Workshop planner booking (e2e)', () => {
     });
     await isolatedPrisma.leaveRequest.create({
       data: {
+        tenant_id: isolatedTenantId,
         employee_id: isolatedMechanic.id,
         start_on: new Date('2026-08-24T00:00:00.000Z'),
         end_on: new Date('2026-08-26T00:00:00.000Z'),
@@ -214,6 +222,7 @@ describe('Workshop planner booking (e2e)', () => {
 
     const awayVehicle = await prisma.vehicle.create({
       data: {
+        tenant_id: tenantId,
         customer_id: customerId,
         make: 'VW',
         model: 'Arteon',

@@ -40,6 +40,7 @@ describe('Workshop order ready email (AUT-357 e2e)', () => {
   async function completeCustomerOrder(forCustomerId: string) {
     const vehicle = await prisma.vehicle.create({
       data: {
+        tenant_id: tenantId,
         make: 'Skoda',
         model: 'Octavia',
         year: 2019,
@@ -93,6 +94,7 @@ describe('Workshop order ready email (AUT-357 e2e)', () => {
     adminUserId = adminUser.id;
     const customer = await prisma.customer.create({
       data: {
+        tenant_id: tenantId,
         first_name: 'Max',
         last_name: 'Muster',
         email: 'ready@example.at',
@@ -169,6 +171,7 @@ describe('Workshop order ready email (AUT-357 e2e)', () => {
   it('shows a blocked notice and writes no outbox row when contact_email_ok is false', async () => {
     const blocked = await prisma.customer.create({
       data: {
+        tenant_id: tenantId,
         first_name: 'Erika',
         last_name: 'Beispiel',
         email: 'blocked@example.at',

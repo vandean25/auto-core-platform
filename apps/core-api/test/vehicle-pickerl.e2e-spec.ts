@@ -41,9 +41,10 @@ describe('Vehicle Pickerl (e2e)', () => {
 
     await runWithTenantContext(tenantId, async () => {
       const authService = app.get(AuthService);
+      const techFirebaseUid = `e2e-tech-pickerl-${Date.now()}`;
       const techUser = await prisma.user.create({
         data: {
-          firebaseUid: `e2e-tech-pickerl-${Date.now()}`,
+          firebaseUid: techFirebaseUid,
           email: `e2e-tech-pickerl-${Date.now()}@test.local`,
         },
       });
@@ -53,15 +54,16 @@ describe('Vehicle Pickerl (e2e)', () => {
         role: 'TECH',
       });
       techToken = authService.createTestToken({
-        sub: techUser.firebaseUid,
+        sub: techFirebaseUid,
         email: techUser.email,
         tenantId,
         role: 'TECH',
       });
 
+      const salesFirebaseUid = `e2e-sales-pickerl-${Date.now()}`;
       const salesUser = await prisma.user.create({
         data: {
-          firebaseUid: `e2e-sales-pickerl-${Date.now()}`,
+          firebaseUid: salesFirebaseUid,
           email: `e2e-sales-pickerl-${Date.now()}@test.local`,
         },
       });
@@ -71,7 +73,7 @@ describe('Vehicle Pickerl (e2e)', () => {
         role: 'SALES',
       });
       salesToken = authService.createTestToken({
-        sub: salesUser.firebaseUid,
+        sub: salesFirebaseUid,
         email: salesUser.email,
         tenantId,
         role: 'SALES',

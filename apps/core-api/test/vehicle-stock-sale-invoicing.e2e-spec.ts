@@ -115,6 +115,7 @@ describe('Vehicle stock trading (e2e)', () => {
     const otherPrisma = createTenantAwarePrisma(basePrisma, otherTenantId);
     const foreignBuyer = await otherPrisma.customer.create({
       data: {
+        tenant_id: otherTenantId,
         first_name: 'Foreign',
         last_name: 'Buyer',
         email: 'foreign-buyer@test.com',

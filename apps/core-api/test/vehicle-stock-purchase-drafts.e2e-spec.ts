@@ -250,6 +250,7 @@ describe('Vehicle stock trading (e2e)', () => {
 
     const vehicle = await prisma.vehicle.create({
       data: {
+        tenant_id: tenantId,
         make: 'Volkswagen',
         model: 'Caddy',
         year: 2013,
@@ -259,6 +260,7 @@ describe('Vehicle stock trading (e2e)', () => {
     });
     await prisma.vehicleLedgerEntry.create({
       data: {
+        tenant_id: tenantId,
         vehicle_id: vehicle.id,
         entry_type: 'PURCHASE',
         amount: 3500,

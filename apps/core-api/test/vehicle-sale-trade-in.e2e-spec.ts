@@ -52,6 +52,7 @@ describe('Vehicle sale trade-in (e2e)', () => {
 
     const vendor = await prisma.vendor.create({
       data: {
+        tenant_id: tenantId,
         name: 'Demo Vehicle Vendor',
         email: 'vendor-trade-in@test.invalid',
         account_number: 'VC-TRADE-IN',
@@ -61,6 +62,7 @@ describe('Vehicle sale trade-in (e2e)', () => {
 
     const buyer = await prisma.customer.create({
       data: {
+        tenant_id: tenantId,
         first_name: 'Demo',
         last_name: 'Buyer',
         email: 'buyer-trade-in@test.invalid',
@@ -75,6 +77,7 @@ describe('Vehicle sale trade-in (e2e)', () => {
 
     const otherBuyer = await prisma.customer.create({
       data: {
+        tenant_id: tenantId,
         first_name: 'Other',
         last_name: 'Buyer',
         email: 'other-buyer-trade-in@test.invalid',

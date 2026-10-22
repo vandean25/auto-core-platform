@@ -186,6 +186,7 @@ describe('Vehicle stock trading (e2e)', () => {
     const hidden = await createAdditionalLotSite({ code: 'HIDDEN-STOCK' });
     const vehicle = await prisma.vehicle.create({
       data: {
+        tenant_id: tenantId,
         make: 'Volkswagen',
         model: 'Hidden Golf',
         year: 2021,
@@ -241,6 +242,7 @@ describe('Vehicle stock trading (e2e)', () => {
   it('returns 404 for customer and unparked vehicles in vehicle stock detail', async () => {
     const customerVehicle = await prisma.vehicle.create({
       data: {
+        tenant_id: tenantId,
         make: 'Volkswagen',
         model: 'Customer Golf',
         year: 2020,
@@ -251,6 +253,7 @@ describe('Vehicle stock trading (e2e)', () => {
     });
     const unparkedVehicle = await prisma.vehicle.create({
       data: {
+        tenant_id: tenantId,
         make: 'Volkswagen',
         model: 'Unparked Golf',
         year: 2020,

@@ -37,6 +37,7 @@ describe('Workshop Board Assign (e2e)', () => {
 
     const customer = await prisma.customer.create({
       data: {
+        tenant_id: tenantId,
         first_name: 'Board',
         last_name: 'Tester',
         email: `board-assign-${Date.now()}@example.com`,
@@ -47,6 +48,7 @@ describe('Workshop Board Assign (e2e)', () => {
 
     const vehicle = await prisma.vehicle.create({
       data: {
+        tenant_id: tenantId,
         make: 'Audi',
         model: 'A4',
         year: 2020,
@@ -58,6 +60,7 @@ describe('Workshop Board Assign (e2e)', () => {
 
     const order = await prisma.workshopOrder.create({
       data: {
+        tenant_id: tenantId,
         order_number: `WO-E2E-${Date.now()}`,
         customer_id: customerId,
         vehicle_id: vehicleId,
@@ -71,6 +74,7 @@ describe('Workshop Board Assign (e2e)', () => {
 
     const mechanic = await prisma.employee.create({
       data: {
+        tenant_id: tenantId,
         name: 'Board Mechanic',
         role: 'MECHANIC',
         is_active: true,
@@ -80,6 +84,7 @@ describe('Workshop Board Assign (e2e)', () => {
 
     const nonMechanic = await prisma.employee.create({
       data: {
+        tenant_id: tenantId,
         name: 'Board Advisor',
         role: 'SERVICE_ADVISOR',
         is_active: true,

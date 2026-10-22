@@ -49,10 +49,11 @@ describe('Pickerl Due (e2e)', () => {
     const testTenant = await createTestTenant(basePrisma, 'aut-380-fix');
     tenantId = testTenant.tenantId;
 
+    const adminFirebaseUid = `uid-${Date.now()}`;
     const testUser = await basePrisma.user.create({
       data: {
         email: `admin-${Date.now()}@pickerl.test`,
-        firebaseUid: `uid-${Date.now()}`,
+        firebaseUid: adminFirebaseUid,
       },
     });
 
@@ -64,15 +65,16 @@ describe('Pickerl Due (e2e)', () => {
 
     const authService = app.get(AuthService);
     adminToken = createTestAuthToken(authService, testTenant, {
-      sub: testUser.firebaseUid,
+      sub: adminFirebaseUid,
       email: testUser.email,
       role: 'ADMIN',
     });
 
     await runWithTenantContext(tenantId, async () => {
+      const techFirebaseUid = `e2e-tech-pickerl-due-${Date.now()}`;
       const techUser = await basePrisma.user.create({
         data: {
-          firebaseUid: `e2e-tech-pickerl-due-${Date.now()}`,
+          firebaseUid: techFirebaseUid,
           email: `e2e-tech-pickerl-due-${Date.now()}@test.local`,
         },
       });
@@ -82,7 +84,7 @@ describe('Pickerl Due (e2e)', () => {
         role: 'TECH',
       });
       techToken = authService.createTestToken({
-        sub: techUser.firebaseUid,
+        sub: techFirebaseUid,
         email: techUser.email,
         tenantId,
         role: 'TECH',
@@ -252,7 +254,7 @@ describe('Pickerl Due (e2e)', () => {
     expect(res.body.meta.pageCount).toBeDefined();
     expect(res.body.meta.totalPages).toBeUndefined();
 
-    const plates = res.body.data.map(v => v.plate);
+    const plates = res.body.data.map((v: { plate: string }) => v.plate);
     expect(plates).toContain('W-OVERDUE');
     expect(plates).toContain('W-DUE30');
     expect(plates).toContain('W-DUE60');

@@ -40,6 +40,7 @@ describe('Workshop intake promote (e2e)', () => {
 
     const customer = await prisma.customer.create({
       data: {
+        tenant_id: tenantId,
         first_name: 'Promote',
         last_name: 'Tester',
         email: `intake-promote-${Date.now()}@test.com`,
@@ -51,6 +52,7 @@ describe('Workshop intake promote (e2e)', () => {
     const [vehicle, bay] = await Promise.all([
       prisma.vehicle.create({
         data: {
+          tenant_id: tenantId,
           customer_id: customerId,
           make: 'VW',
           model: 'Golf',
@@ -60,6 +62,7 @@ describe('Workshop intake promote (e2e)', () => {
       }),
       prisma.bay.create({
         data: {
+          tenant_id: tenantId,
           name: `Promote Bay ${Date.now()}`,
           is_active: true,
           sort_order: 1,
@@ -132,6 +135,7 @@ describe('Workshop intake promote (e2e)', () => {
     const [vehicle, bay] = await Promise.all([
       prisma.vehicle.create({
         data: {
+          tenant_id: tenantId,
           customer_id: customerId,
           make: 'VW',
           model: 'Polo',
@@ -141,6 +145,7 @@ describe('Workshop intake promote (e2e)', () => {
       }),
       prisma.bay.create({
         data: {
+          tenant_id: tenantId,
           name: `Task Date Bay ${Date.now()}`,
           is_active: true,
           sort_order: 2,
@@ -185,6 +190,7 @@ describe('Workshop intake promote (e2e)', () => {
   it('serializes concurrent promote requests to one intake and one conflict', async () => {
     const vehicle = await prisma.vehicle.create({
       data: {
+        tenant_id: tenantId,
         customer_id: customerId,
         make: 'VW',
         model: 'Passat',
@@ -244,6 +250,7 @@ describe('Workshop intake promote (e2e)', () => {
   it('denies workshop order and task reads and mutations from another active site', async () => {
     const vehicle = await prisma.vehicle.create({
       data: {
+        tenant_id: tenantId,
         customer_id: customerId,
         make: 'VW',
         model: 'Touran',
