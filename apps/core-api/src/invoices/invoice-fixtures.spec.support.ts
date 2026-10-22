@@ -1,11 +1,11 @@
 import type { Customer, Vehicle } from '@prisma/client';
 
-// Fakes implement only the members these tests call; this is the one cast.
+// Test double: implements only the members these tests call.
 export function asFake<T>(double: Partial<T>): T {
   return double as T;
 }
 
-// Complete Customer row; fields a test does not set get the same neutral value as an unset customer.
+// Complete Customer row; fields a test does not set get neutral values (null, false, NONE).
 export function customerRow(overrides: Partial<Customer> = {}): Customer {
   return {
     id: 'customer-1',

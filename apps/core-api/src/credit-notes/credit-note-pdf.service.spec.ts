@@ -6,7 +6,7 @@ import type { PrismaService } from '../prisma/prisma.service.js';
 import type { InvoicePdfRenderer } from '../invoices/invoice-pdf.renderer.js';
 import type { PdfStorage } from '../common/pdf/pdf-storage.js';
 
-// Fakes implement only the members these tests call; this is the one cast.
+// Test double: implements only the members these tests call.
 function asFake<T>(double: Partial<T>): T {
   return double as T;
 }

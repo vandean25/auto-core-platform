@@ -4,10 +4,9 @@ import type { PrismaService } from '../prisma/prisma.service.js';
 import type { DocumentBrandingAssetStorage } from './document-branding-asset-storage.js';
 import type { DocumentBrandingPdfParser } from './document-branding-pdf-parser.js';
 import type { DocumentBrandingExtractionImageProcessor } from './document-branding-extraction-image-processor.js';
-import type { DocumentBrandingExtractionProvider } from './document-branding-extraction-provider.js';
 import type { DocumentBrandingExtractionTaskService } from './document-branding-extraction-task.service.js';
 
-// Fakes implement only the members these tests call; this is the one cast.
+// Test double: implements only the members these tests call.
 function asFake<T>(double: Partial<T>): T {
   return double as T;
 }

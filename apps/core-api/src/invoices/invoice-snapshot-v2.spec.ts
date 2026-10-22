@@ -3,6 +3,7 @@ import {
   DiscountType,
   InvoiceStatus,
   InvoiceTaxMode,
+  LegalEntityCountry,
   Prisma,
   RksvMode,
 } from '@prisma/client';
@@ -281,13 +282,18 @@ describe('buildInvoiceSnapshotV2', () => {
   });
 
   it('rejects margin-scheme snapshots when seller country is unsupported', () => {
+    // Deliberately outside LegalEntityCountry: the builder must reject it.
+    const unsupportedCountry: string = 'CH';
     expect(() =>
       buildInvoiceSnapshotV2({
         invoice: buildInvoice({
           tax_mode: InvoiceTaxMode.MARGIN_SCHEME,
           total_gross: new Prisma.Decimal('15000.00'),
         }),
-        seller: { ...seller, country_iso: 'CH' },
+        seller: {
+          ...seller,
+          country_iso: unsupportedCountry as LegalEntityCountry,
+        },
         siteId: 'site-1',
         legalEntityId: seller.id,
         lineAllocations: [buildLineAllocation({ id: 'line-margin' })],

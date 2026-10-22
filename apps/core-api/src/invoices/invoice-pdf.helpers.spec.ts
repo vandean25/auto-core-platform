@@ -33,7 +33,7 @@ import type { PdfStorage } from '../common/pdf/pdf-storage.js';
 import type { InvoicePdfRenderer } from './invoice-pdf.renderer.js';
 import type { CloudTasksService } from '../common/index.js';
 
-// Test double: the invoice delegate carries only the methods these helpers call; this is the one cast.
+// Test double: the invoice delegate carries only the methods these helpers call.
 function fakeInvoiceClient(
   invoice: Partial<InvoicePdfPrismaClient['client']['invoice']>,
 ): InvoicePdfPrismaClient {
