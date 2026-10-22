@@ -304,7 +304,6 @@ async function createTenantRecord(
         id: randomUUID(),
         name: `E2E Tenant ${unique}`,
         slug,
-        plan: 'STANDARD',
         is_active: true,
       },
       select: {

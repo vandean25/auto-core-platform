@@ -90,8 +90,8 @@ done
 step "Seeding legacy fixtures"
 psql_cmd <<'SQL' >/dev/null
 -- Tenant A: NO WorkshopSettings row
-INSERT INTO tenants (id, name, slug, plan, created_at, updated_at, is_active)
-VALUES ('t-a', 'Tenant A', 'tenant-a', 'STANDARD', NOW(), NOW(), true);
+INSERT INTO tenants (id, name, slug, created_at, updated_at, is_active)
+VALUES ('t-a', 'Tenant A', 'tenant-a', NOW(), NOW(), true);
 
 INSERT INTO users (id, firebase_uid, email, active_tenant_id, "createdAt", "updatedAt")
 VALUES ('u-a', 'fb-a', 'a@example.com', 't-a', NOW(), NOW());
@@ -99,8 +99,8 @@ INSERT INTO tenant_members (id, tenant_id, user_id, role, is_active, "createdAt"
 VALUES ('tm-a', 't-a', 'u-a', 'OWNER', true, NOW(), NOW());
 
 -- Tenant B: CH holiday country + partial opening hours + inactive member
-INSERT INTO tenants (id, name, slug, plan, created_at, updated_at, is_active)
-VALUES ('t-b', 'Tenant B', 'tenant-b', 'STANDARD', NOW(), NOW(), true);
+INSERT INTO tenants (id, name, slug, created_at, updated_at, is_active)
+VALUES ('t-b', 'Tenant B', 'tenant-b', NOW(), NOW(), true);
 
 INSERT INTO users (id, firebase_uid, email, active_tenant_id, "createdAt", "updatedAt")
 VALUES ('u-b', 'fb-b', 'b@example.com', 't-b', NOW(), NOW()),
@@ -127,8 +127,8 @@ INSERT INTO bays (id, tenant_id, name, is_active, sort_order, "createdAt", "upda
 VALUES ('bay-b', 't-b', 'Bay 1', true, 0, NOW(), NOW());
 
 -- Tenant C: US holiday country, existing vehicle_lot, parked vehicle WITHOUT location
-INSERT INTO tenants (id, name, slug, plan, created_at, updated_at, is_active)
-VALUES ('t-c', 'Tenant C', 'tenant-c', 'STANDARD', NOW(), NOW(), true);
+INSERT INTO tenants (id, name, slug, created_at, updated_at, is_active)
+VALUES ('t-c', 'Tenant C', 'tenant-c', NOW(), NOW(), true);
 
 INSERT INTO workshop_settings (id, tenant_id, timezone, slot_minutes, holiday_country_iso, "createdAt", "updatedAt")
 VALUES ('ws-c', 't-c', 'America/New_York', 30, 'US', NOW(), NOW());
@@ -227,8 +227,8 @@ done
 ) >/dev/null
 
 psql_cmd <<'SQL' >/dev/null
-INSERT INTO tenants (id, name, slug, plan, created_at, updated_at, is_active)
-VALUES ('t-onorder', 'ON Order Tenant', 'onorder', 'STANDARD', NOW(), NOW(), true);
+INSERT INTO tenants (id, name, slug, created_at, updated_at, is_active)
+VALUES ('t-onorder', 'ON Order Tenant', 'onorder', NOW(), NOW(), true);
 INSERT INTO vehicles (id, tenant_id, make, model, year, inventory_role, stock_status, "createdAt", "updatedAt")
 VALUES ('v-onorder', 't-onorder', 'Tesla', 'Model 3', 2023, 'USED', 'ON_ORDER', NOW(), NOW());
 SQL

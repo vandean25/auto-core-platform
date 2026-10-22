@@ -39,7 +39,6 @@ export async function seedTenantFoundation(
     create: {
       name: 'Default Workshop',
       slug: 'default-workshop',
-      plan: 'STANDARD',
     },
   });
 

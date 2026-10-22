@@ -1,7 +1,6 @@
 import { Transform } from 'class-transformer';
 import {
   IsBoolean,
-  IsEnum,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -11,7 +10,6 @@ import {
   Min,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { TenantPlan } from '@prisma/client';
 
 function trimIfString(value: unknown): unknown {
   return typeof value === 'string' ? value.trim() : value;
@@ -74,10 +72,6 @@ export class CreatePlatformTenantDto {
   @IsNotEmpty()
   @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
   slug!: string;
-
-  @ApiProperty({ enum: TenantPlan, enumName: 'TenantPlan' })
-  @IsEnum(TenantPlan)
-  plan!: TenantPlan;
 }
 
 export class UpdatePlatformTenantDto {
@@ -96,11 +90,6 @@ export class UpdatePlatformTenantDto {
   @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
   slug?: string;
 
-  @ApiPropertyOptional({ enum: TenantPlan, enumName: 'TenantPlan' })
-  @IsOptional()
-  @IsEnum(TenantPlan)
-  plan?: TenantPlan;
-
   @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()
@@ -116,9 +105,6 @@ export class PlatformTenantResponseDto {
 
   @ApiProperty()
   slug!: string;
-
-  @ApiProperty({ enum: TenantPlan, enumName: 'TenantPlan' })
-  plan!: TenantPlan;
 
   @ApiProperty()
   isActive!: boolean;

@@ -10,7 +10,6 @@ describe('tenant-foundation.fixture', () => {
           id: 'tenant-1',
           name: 'Default Workshop',
           slug: 'default-workshop',
-          plan: 'STANDARD',
         }),
       },
       legalEntity: {

@@ -35143,14 +35143,6 @@
           "lines"
         ]
       },
-      "TenantPlan": {
-        "type": "string",
-        "enum": [
-          "STANDARD",
-          "PREMIUM",
-          "ENTERPRISE"
-        ]
-      },
       "PlatformTenantResponseDto": {
         "type": "object",
         "properties": {
@@ -35163,13 +35155,6 @@
           },
           "slug": {
             "type": "string"
-          },
-          "plan": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/TenantPlan"
-              }
-            ]
           },
           "isActive": {
             "type": "boolean"
@@ -35190,7 +35175,6 @@
           "id",
           "name",
           "slug",
-          "plan",
           "isActive",
           "memberCount",
           "createdAt",
@@ -35247,19 +35231,11 @@
           "slug": {
             "type": "string",
             "description": "Lowercase slug used for tenant routing and lookup"
-          },
-          "plan": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/TenantPlan"
-              }
-            ]
           }
         },
         "required": [
           "name",
-          "slug",
-          "plan"
+          "slug"
         ]
       },
       "UpdatePlatformTenantDto": {
@@ -35270,13 +35246,6 @@
           },
           "slug": {
             "type": "string"
-          },
-          "plan": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/TenantPlan"
-              }
-            ]
           },
           "isActive": {
             "type": "boolean"

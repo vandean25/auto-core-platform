@@ -1,14 +1,13 @@
 {
   "tenants": {
     "pageTitle": "Mandanten",
-    "pageDescription": "Plattform-Mandanten, Tarife und Onboarding-Status verwalten.",
+    "pageDescription": "Plattform-Mandanten und Onboarding-Status verwalten.",
     "createButton": "+ Mandant",
     "searchPlaceholder": "Mandanten suchen…",
     "loadFailed": "Mandanten konnten nicht geladen werden.",
     "retry": "Erneut versuchen",
     "columns": {
       "name": "Name",
-      "plan": "Tarif",
       "members": "Mitglieder",
       "status": "Status"
     },
@@ -27,7 +26,6 @@
     "form": {
       "name": "Name",
       "slug": "Slug",
-      "plan": "Tarif",
       "status": "Status",
       "statusActive": "Aktiv",
       "statusInactive": "Inaktiv"

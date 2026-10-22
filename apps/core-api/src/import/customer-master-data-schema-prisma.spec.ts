@@ -25,7 +25,7 @@ describe('customer master data schema (Prisma enum and models)', () => {
     );
     expect(customerBlock).toContain('labor_price_group_id');
     expect(customerBlock).toContain(
-      'labor_price_group        LaborPriceGroup? @relation(fields: [tenant_id, labor_price_group_id], references: [tenant_id, id]',
+      'labor_price_group              LaborPriceGroup?    @relation(fields: [tenant_id, labor_price_group_id], references: [tenant_id, id], onDelete: SetNull)',
     );
   });
 

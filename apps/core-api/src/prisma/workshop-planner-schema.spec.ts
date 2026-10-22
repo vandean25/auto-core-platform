@@ -22,8 +22,8 @@ describe('Workshop planner Prisma schema', () => {
 
   it('moves planner fields onto Site instead of a tenant singleton', () => {
     expect(schema).not.toContain('model WorkshopSettings');
-    expect(schema).toContain('timezone                 String                @default("Europe/Vienna")');
-    expect(schema).toContain('slot_minutes             Int                   @default(30)');
-    expect(schema).toContain('holiday_country_iso      String                @default("AT")');
+    expect(schema).toContain('timezone                       String                                @default("Europe/Vienna")');
+    expect(schema).toContain('slot_minutes                   Int                                   @default(30)');
+    expect(schema).toContain('holiday_country_iso            String                                @default("AT")');
   });
 });

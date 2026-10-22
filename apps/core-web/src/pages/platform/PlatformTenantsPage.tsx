@@ -8,7 +8,6 @@ import { toast } from 'sonner'
 import { useAuthSession } from '@/api/auth-session'
 import {
   type PlatformTenant,
-  type TenantPlan,
   useCreatePlatformTenant,
   usePlatformTenants,
   useUpdatePlatformTenant,
@@ -41,19 +40,15 @@ import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { getErrorMessage } from '@/lib/error-utils'
 import { ensureNamespaceLoaded, translateEnum } from '@/lib/i18n'
 
-const TENANT_PLAN_OPTIONS = ['STANDARD', 'PREMIUM', 'ENTERPRISE'] as const
-
 type TenantFormState = {
   name: string
   slug: string
-  plan: TenantPlan
   isActive: 'ACTIVE' | 'INACTIVE'
 }
 
 const defaultTenantFormState: TenantFormState = {
   name: '',
   slug: '',
-  plan: 'STANDARD',
   isActive: 'ACTIVE',
 }
 
@@ -67,7 +62,6 @@ function matchesTenantSearch(tenant: PlatformTenant, term: string) {
   const haystack = [
     tenant.name,
     tenant.slug,
-    tenant.plan,
     String(tenant.memberCount),
     tenant.isActive ? translateEnum('status', 'ACTIVE') : translateEnum('status', 'INACTIVE'),
   ]
@@ -93,10 +87,6 @@ function sortTenants(
       return direction * left.slug.localeCompare(right.slug)
     }
 
-    if (sortField === 'plan') {
-      return direction * left.plan.localeCompare(right.plan)
-    }
-
     if (sortField === 'memberCount') {
       return direction * (left.memberCount - right.memberCount)
     }
@@ -113,7 +103,6 @@ function toEditFormState(tenant: PlatformTenant): TenantFormState {
   return {
     name: tenant.name,
     slug: tenant.slug,
-    plan: tenant.plan,
     isActive: tenant.isActive ? 'ACTIVE' : 'INACTIVE',
   }
 }
@@ -180,10 +169,6 @@ export default function PlatformTenantsPage() {
         ),
       },
       {
-        accessorKey: 'plan',
-        header: ({ column }) => <DataTableColumnHeader column={column} title={t('tenants.columns.plan')} />,
-      },
-      {
         accessorKey: 'memberCount',
         header: ({ column }) => <DataTableColumnHeader column={column} title={t('tenants.columns.members')} />,
       },
@@ -213,7 +198,6 @@ export default function PlatformTenantsPage() {
       await createMutation.mutateAsync({
         name: createFormState.name.trim(),
         slug: createFormState.slug.trim().toLowerCase(),
-        plan: createFormState.plan,
       })
       toast.success(t('tenants.toast.created'))
       setCreateFormState(defaultTenantFormState)
@@ -233,7 +217,6 @@ export default function PlatformTenantsPage() {
         data: {
           name: editFormState.name.trim(),
           slug: editFormState.slug.trim().toLowerCase(),
-          plan: editFormState.plan,
           isActive: editFormState.isActive === 'ACTIVE',
         },
       })
@@ -323,28 +306,6 @@ export default function PlatformTenantsPage() {
               />
             </div>
 
-            <div className='space-y-2'>
-              <Label htmlFor='tenant-plan'>{t('tenants.form.plan')}</Label>
-              <Select
-                value={createFormState.plan}
-                onValueChange={(nextPlan) => setCreateFormState((previous) => ({
-                  ...previous,
-                  plan: nextPlan as TenantPlan,
-                }))}
-              >
-                <SelectTrigger id='tenant-plan'>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {TENANT_PLAN_OPTIONS.map((plan) => (
-                    <SelectItem key={plan} value={plan}>
-                      {plan}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
             <DialogFooter>
               <Button type='submit' disabled={createMutation.isPending}>
                 {t('tenants.createDialog.submit')}
@@ -389,28 +350,6 @@ export default function PlatformTenantsPage() {
                   }))}
                   required
                 />
-              </div>
-
-              <div className='space-y-2'>
-                <Label htmlFor='tenant-edit-plan'>{t('tenants.form.plan')}</Label>
-                <Select
-                  value={editFormState.plan}
-                  onValueChange={(nextPlan) => setEditFormState((previous) => ({
-                    ...previous,
-                    plan: nextPlan as TenantPlan,
-                  }))}
-                >
-                  <SelectTrigger id='tenant-edit-plan'>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TENANT_PLAN_OPTIONS.map((plan) => (
-                      <SelectItem key={plan} value={plan}>
-                        {plan}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
 
               <div className='space-y-2'>
