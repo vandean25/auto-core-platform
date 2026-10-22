@@ -268,7 +268,7 @@ function headerIssues(texts: Texts): ImportRowIssue[] {
     .filter((field) => texts(field) === '')
     .map(requiredIssue);
   const kind = texts('kind');
-  if (kind !== '' && !(kind in DUE_DATE_KIND)) {
+  if (kind !== '' && !Object.values<string>(DUE_DATE_KIND).includes(kind)) {
     issues.push(invalidIssue('kind', `kind "${kind}" is not allowed`));
   }
   return issues;

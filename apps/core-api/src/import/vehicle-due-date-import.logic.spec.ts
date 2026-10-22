@@ -155,6 +155,19 @@ describe('planVehicleDueDateRows', () => {
     expect(codes(result)).toContain(CANONICAL_ROW_ISSUE_CODES.UNKNOWN_VEHICLE);
   });
 
+  it.each(['constructor', 'toString', 'BOGUS'])(
+    'rejects kind %s',
+    (kind) => {
+      const [result] = planVehicleDueDateRows(
+        [inspectionRow(1, { kind })],
+        MAPPING,
+        context(),
+      );
+      expect(result.action).toBe(ImportRowAction.ERROR);
+      expect(codes(result)).toContain(CANONICAL_ROW_ISSUE_CODES.VALUE_INVALID);
+    },
+  );
+
   describe('INSPECTION_57A rules', () => {
     it.each([
       ['missing inspected_on', { inspected_on: '' }],

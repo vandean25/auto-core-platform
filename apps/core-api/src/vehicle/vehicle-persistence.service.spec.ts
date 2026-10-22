@@ -233,7 +233,11 @@ describe('VehiclePersistenceService', () => {
       const tx = {
         vehicle: {
           findFirst: jest.fn().mockResolvedValue({ customer_id: currentCustomerId }),
-          updateMany: jest.fn().mockResolvedValue({ count }),
+          // First call is the row lock, the second the guarded update.
+          updateMany: jest
+            .fn()
+            .mockResolvedValueOnce({ count: 1 })
+            .mockResolvedValue({ count }),
         },
         vehicleParty: {
           findMany: jest.fn().mockResolvedValue([]),

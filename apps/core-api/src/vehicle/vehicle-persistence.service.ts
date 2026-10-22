@@ -17,7 +17,10 @@ import {
   OPEN_SERVICE_DUE,
 } from './vehicle-party.query.js';
 import { dayToDate } from './vehicle-party-date.util.js';
-import { changeMainContactInTx } from './vehicle-party.writer.js';
+import {
+  changeMainContactInTx,
+  lockVehicleForPartyWrite,
+} from './vehicle-party.writer.js';
 
 export interface VehicleListQuery {
   where: Prisma.VehicleWhereInput;
@@ -106,6 +109,8 @@ export class VehiclePersistenceService {
   }): Promise<number> {
     const { id, tenantId, existingVehicle, data, customerId, today } = input;
     return this.prisma.$transaction(async (tx) => {
+      // Lock first: the "customer unchanged" decision must see what the previous writer committed.
+      await lockVehicleForPartyWrite(tx, tenantId, id);
       const current = await tx.vehicle.findFirst({
         where: { id, tenant_id: tenantId },
         select: { customer_id: true },

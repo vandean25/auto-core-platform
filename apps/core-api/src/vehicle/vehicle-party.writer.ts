@@ -238,7 +238,7 @@ async function correctSameDayOwner(
   }
   await tx.vehicleParty.update({
     where: { tenant_id_id: { tenant_id: ctx.tenantId, id: owner.id } },
-    data: { customer_id: customerId },
+    data: { customer_id: customerId, notes: null },
   });
 }
 

@@ -78,7 +78,7 @@ describe('changeMainContactInTx', () => {
     expect(tx.vehicleParty.create).not.toHaveBeenCalled();
     expect(tx.vehicleParty.update).toHaveBeenCalledWith({
       where: { tenant_id_id: { tenant_id: 'tenant-1', id: 'p-1' } },
-      data: { customer_id: 'cust-b' },
+      data: { customer_id: 'cust-b', notes: null },
     });
   });
 
