@@ -1,4 +1,4 @@
-import { enableLegacyMigrationPurgeFlag } from '../../../scripts/legacy-migration-purge-flag.js';
+import { enableLegacyMigrationPurgeFlag } from '../../import/legacy-migration-purge-flag.js';
 import type { SeedPrismaClient } from './types.js';
 import {
   DEMO_GEWAHRLEISTUNG_PURCHASE_NUMBERS,
