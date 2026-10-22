@@ -44,14 +44,14 @@ vi.mock('sonner', () => ({
 vi.mock('@/components/data-table/DataTable', () => ({
   DataTable: ({
     data,
-    onRowClick,
+    rowBehaviour,
   }: {
     data: Array<{ id: string; email: string }>
-    onRowClick?: (row: { id: string; email: string }) => void
+    rowBehaviour?: { onRowClick?: (row: { id: string; email: string }) => void }
   }) => (
     <div>
       {data.map((member) => (
-        <button key={member.id} type='button' onClick={() => onRowClick?.(member)}>
+        <button key={member.id} type='button' onClick={() => rowBehaviour?.onRowClick?.(member)}>
           {member.email}
         </button>
       ))}

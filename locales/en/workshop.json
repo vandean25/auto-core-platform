@@ -344,6 +344,11 @@
       "saveViewTitle": "Workshop Orders",
       "searchPlaceholder": "Search workshop orders...",
       "rowAria": "Workshop order {{orderNo}}",
+      "actions": {
+        "open": "Open order",
+        "checkIn": "Vehicle check-in",
+        "jobCardPdf": "Job card PDF"
+      },
       "columns": {
         "orderNo": "Order No.",
         "customer": "Customer",

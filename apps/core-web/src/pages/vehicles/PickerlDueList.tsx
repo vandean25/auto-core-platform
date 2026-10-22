@@ -367,8 +367,10 @@ export default function PickerlDueList() {
         isLoading={isLoading}
         pageCount={responseData?.meta.pageCount ?? 0}
         enableCsvExport={false}
-        getRowAccessibleName={(row) => t("pickerlDue.vehicleRowAria", { plate: row.plate })}
-        onRowClick={(row) => navigate(`/vehicles/${row.id}`)}
+        rowBehaviour={{
+          getRowAccessibleName: (row) => t('pickerlDue.vehicleRowAria', { plate: row.plate }),
+          onRowClick: (row) => navigate(`/vehicles/${row.id}`),
+        }}
         columnFilters={columnFilters}
         setColumnFilters={setColumnFilters}
         setPagination={setPagination}

@@ -276,10 +276,12 @@ export default function PlatformTenantsPage() {
         isLoading={isLoading}
         searchPlaceholder={t('tenants.searchPlaceholder')}
         setPagination={setPagination}
-        onRowClick={(tenant) => {
-          setSelectedTenant(tenant)
-          setEditFormState(toEditFormState(tenant))
-          setSheetOpen(true)
+        rowBehaviour={{
+          onRowClick: (tenant) => {
+            setSelectedTenant(tenant)
+            setEditFormState(toEditFormState(tenant))
+            setSheetOpen(true)
+          },
         }}
         {...tableState}
       />

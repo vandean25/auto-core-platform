@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
@@ -13,19 +13,11 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { StatusBadge } from '@/components/status/StatusBadge'
-import { useWorkshopOrders, workshopOrderDetailQueryOptions } from '@/api/workshop'
-import type { WorkshopOrder } from '@/api/types'
+import { useWorkshopOrders } from '@/api/workshop'
 import { DASHBOARD_WIDGET_SOURCE_WORKSHOP_ORDERS } from '@/features/dashboard-widgets/sources'
 import { getWorkshopCustomerDisplayName } from '@/features/workshop/pick-utils'
-
-interface WorkshopOrderRow {
-  id: string
-  orderNo: string
-  customer: string
-  vehicle: string
-  openedAt: string
-  status: WorkshopOrder['status']
-}
+import type { WorkshopOrderListRow } from '@/features/actions/work-order-row-actions'
+import { useWorkshopOrderListRowBehaviour } from './useWorkshopOrderListRowBehaviour'
 
 export default function WorkshopOrderList() {
   const { t } = useTranslation('workshop')
@@ -34,8 +26,9 @@ export default function WorkshopOrderList() {
   const [createOpen, setCreateOpen] = useState(false)
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
   const { data: responseData, isLoading, isError } = useWorkshopOrders(queryParams)
+  const rowBehaviour = useWorkshopOrderListRowBehaviour(t, navigate, queryClient)
 
-  const rows = useMemo<WorkshopOrderRow[]>(() => {
+  const rows = useMemo<WorkshopOrderListRow[]>(() => {
     const source = responseData?.data ?? []
     return source.map((order) => ({
       id: order.id,
@@ -47,14 +40,7 @@ export default function WorkshopOrderList() {
     }))
   }, [responseData])
 
-  const prefetchOrderDetail = useCallback(
-    (row: WorkshopOrderRow) => {
-      void queryClient.prefetchQuery(workshopOrderDetailQueryOptions(row.id))
-    },
-    [queryClient],
-  )
-
-  const columns: ColumnDef<WorkshopOrderRow>[] = [
+  const columns: ColumnDef<WorkshopOrderListRow>[] = [
     {
       accessorKey: 'orderNo',
       meta: { rowLink: true, label: t('orders.list.columns.orderNo') },
@@ -136,10 +122,7 @@ export default function WorkshopOrderList() {
                 ),
               }
         }
-        getRowHref={(row) => `/workshop/orders/${row.id}`}
-        getRowAccessibleName={(row) => t('orders.list.rowAria', { orderNo: row.orderNo })}
-        onRowClick={(row) => navigate(`/workshop/orders/${row.id}`)}
-        onRowPrefetch={prefetchOrderDetail}
+        rowBehaviour={rowBehaviour}
         {...tableState}
       />
 

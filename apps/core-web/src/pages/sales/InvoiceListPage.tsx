@@ -161,12 +161,14 @@ export default function InvoiceListPage() {
         isLoading={isLoading}
         searchColumn="invoice_number"
         searchPlaceholder={t('invoices.list.searchPlaceholder')}
-        onRowClick={(row) => {
-          const path =
-            row.status === 'DRAFT' && row.sales_order_id
-              ? APP_ROUTE_PATHS.salesInvoiceEdit.replace(':id', row.id)
-              : APP_ROUTE_PATHS.salesInvoiceDetail.replace(':id', row.id)
-          navigate(path)
+        rowBehaviour={{
+          onRowClick: (row) => {
+            const path =
+              row.status === 'DRAFT' && row.sales_order_id
+                ? APP_ROUTE_PATHS.salesInvoiceEdit.replace(':id', row.id)
+                : APP_ROUTE_PATHS.salesInvoiceDetail.replace(':id', row.id)
+            navigate(path)
+          },
         }}
         {...tableState}
       />

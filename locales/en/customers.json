@@ -40,6 +40,7 @@
     "empty": "No customers yet.",
     "emptyAction": "New customer",
     "saveViewTitle": "Customers",
+    "rowAria": "Customer {{name}}",
     "deleteConfirm": "Are you sure you want to delete this customer?",
     "deleted": "Customer deleted",
     "deleteFailed": "Failed to delete customer",
@@ -48,7 +49,10 @@
       "contact": "Contact",
       "location": "Location"
     },
-    "delete": "Delete"
+    "delete": "Delete",
+    "actions": {
+      "open": "Open customer"
+    }
   },
   "detail": {
     "loading": "Loading customer details...",

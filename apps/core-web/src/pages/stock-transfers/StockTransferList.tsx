@@ -136,7 +136,7 @@ export default function StockTransferList() {
         isLoading={isLoading}
         searchColumn="transferNumber"
         searchPlaceholder={t('stockTransfers.list.searchPlaceholder')}
-        onRowClick={(row) => navigate(`/stock-transfers/${row.id}`)}
+        rowBehaviour={{ onRowClick: (row) => navigate(`/stock-transfers/${row.id}`) }}
         {...tableState}
       />
 

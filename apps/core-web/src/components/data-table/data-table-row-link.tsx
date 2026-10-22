@@ -8,6 +8,7 @@ type DataTableRowDetailLinkProps = {
   accessibleName: string
   children: ReactNode
   className?: string
+  tabIndex?: number
 }
 
 export function DataTableRowDetailLink({
@@ -15,10 +16,12 @@ export function DataTableRowDetailLink({
   accessibleName,
   children,
   className,
+  tabIndex,
 }: DataTableRowDetailLinkProps) {
   return (
     <Link
       to={href}
+      tabIndex={tabIndex}
       aria-label={accessibleName}
       className={cn(
         'inline-flex min-h-6 items-center rounded-sm font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',

@@ -9,6 +9,9 @@ import { deWorkshop } from '@/test/de-workshop'
 const list = deWorkshop.orders.list
 
 vi.mock('@/api/workshop')
+vi.mock('@/auth/AuthProvider', () => ({
+  useAuth: () => ({ claims: { role: 'ADMIN' } }),
+}))
 vi.mock('@/components/data-table/DataTable', () => ({
   DataTable: () => null,
 }))

@@ -1,5 +1,4 @@
 import {
-  type LegacyColumn,
   type LegacyColumnDef as ColumnDef,
   getCoreRowModel,
   useLegacyTable as useReactTable,
@@ -11,106 +10,37 @@ import {
   type OnChangeFn,
   flexRender,
 } from '@tanstack/react-table'
+import { useRef, useState, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
+
+import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import type { DashboardWidgetTableSource } from '@/features/dashboard-widgets/types'
+import { TableSkeleton } from '@/components/ui/skeleton-presets'
+import { cn } from '@/lib/utils'
+import { getDataTableHeadClassName } from './data-table-column-meta'
+import { DataTableDensityContext, type DataTableDensity } from './data-table-density-toggle'
+import { useDataTableContextMenu } from './data-table-context-menu'
+import { DataTableSelectionBar, useDataTableSelection } from './data-table-selection'
+import { DataTableEmptyRow, type DataTableEmptyState } from './data-table-states'
+import { DataTableToolbar } from './data-table-toolbar'
+import { DataTablePagination } from './data-table-pagination'
 import {
-  useRef,
-  useState,
-  type ReactNode,
-  type KeyboardEvent as ReactKeyboardEvent,
-  type MouseEvent as ReactMouseEvent,
-} from "react"
-import { useTranslation } from "react-i18next"
-
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import { DataTablePagination } from "./data-table-pagination"
-import type { DashboardWidgetTableSource } from "@/features/dashboard-widgets/types"
-import { TableSkeleton } from "@/components/ui/skeleton-presets"
-import { cn } from "@/lib/utils"
-import { getDataTableCellClassName, getDataTableHeadClassName } from "./data-table-column-meta"
-import { DataTableDensityContext, type DataTableDensity } from "./data-table-density-toggle"
-import { useDataTableContextMenu, type DataTableRowContextAction } from "./data-table-context-menu"
-import { DataTableSelectionBar, useDataTableSelection } from "./data-table-selection"
-import { DataTableEmptyRow, type DataTableEmptyState } from "./data-table-states"
-import { DataTableToolbar } from "./data-table-toolbar"
-import { DataTableRowDetailLink, isDataTableRowLinkColumn } from "./data-table-row-link"
-
-function isInteractiveTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof Element)) {
-    return false
-  }
-
-  return Boolean(
-    target.closest('button, a, input, select, textarea, [role="button"], [data-column-id="select"]'),
-  )
-}
-
-function getTableRowId(record: object): string | undefined {
-  const id = (record as { id?: unknown }).id
-  return typeof id === 'string' && id.length > 0 ? id : undefined
-}
+  DataTableBodyRow,
+  type DataTableBodyRowModel,
+  getRowInteraction,
+} from './data-table-body-row'
+import type { DataTableRowBehaviour } from './data-table-row-behaviour'
+import { useDataTableRovingFocus } from './use-data-table-roving-focus'
 
 // Only header render functions (the DataTableColumnHeader pattern) expose a sort control.
 // Plain-text headers do not, so they must not advertise sorting.
-function getAriaSort<TData extends object>(column: LegacyColumn<TData, unknown>) {
-  if (typeof column.columnDef.header !== "function" || !column.getCanSort()) return undefined
+function getAriaSort(column: { columnDef: { header?: unknown }; getCanSort: () => boolean; getIsSorted: () => false | 'asc' | 'desc' }) {
+  if (typeof column.columnDef.header !== 'function' || !column.getCanSort()) return undefined
 
   const sorted = column.getIsSorted()
-  if (sorted === "asc") return "ascending" as const
-  if (sorted === "desc") return "descending" as const
-  return "none" as const
-}
-
-function resolveRowFromElement<TData extends object>(
-  element: HTMLTableRowElement,
-  data: TData[],
-  fallback: TData,
-): TData {
-  const rowId = element.getAttribute('data-row-id')
-  if (!rowId) return fallback
-
-  const match = data.find((record) => getTableRowId(record) === rowId)
-  return match ?? fallback
-}
-
-function activateRow<TData extends object>(
-  event: ReactMouseEvent | ReactKeyboardEvent,
-  fallback: TData,
-  data: TData[],
-  onRowClick?: (row: TData) => void,
-) {
-  if (!onRowClick || isInteractiveTarget(event.target)) {
-    return
-  }
-
-  const rowElement = (event.currentTarget as HTMLElement).closest('tr')
-  if (!(rowElement instanceof HTMLTableRowElement)) {
-    return
-  }
-
-  onRowClick(resolveRowFromElement(rowElement, data, fallback))
-}
-
-const clickableRowClassName =
-  'cursor-pointer hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
-
-function handleRowClick<TData extends object>(
-  event: React.MouseEvent<HTMLTableRowElement>,
-  data: TData[],
-  fallback: TData,
-  onRowClick?: (row: TData) => void,
-) {
-  // Cell clicks are handled on <td>; keep <tr> for programmatic row.click() and tests.
-  if (event.target !== event.currentTarget) {
-    return
-  }
-
-  activateRow(event, fallback, data, onRowClick)
+  if (sorted === 'asc') return 'ascending' as const
+  if (sorted === 'desc') return 'descending' as const
+  return 'none' as const
 }
 
 const DEFAULT_PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const
@@ -133,17 +63,9 @@ interface DataTableProps<TData extends object> {
   searchColumn?: string
   searchPlaceholder?: string
   emptyStateMessage?: string
-  // Replaces the empty message and adds an action (e.g. "New customer") while no search or filter is active.
   emptyState?: DataTableEmptyState
-  // Adds a checkbox column. While rows are selected, the returned actions dock in a floating bar.
   bulkActions?: (selectedRows: TData[]) => ReactNode
-  onRowClick?: (row: TData) => void
-  /** Prefetch row detail on pointer enter or keyboard focus (not touch scroll). */
-  onRowPrefetch?: (row: TData) => void
-  getRowHref?: (row: TData) => string | undefined
-  getRowAccessibleName?: (row: TData) => string
-  getRowContextActions?: (row: TData) => DataTableRowContextAction<TData>[]
-  // Choices for the "Rows per page" select. An empty array hides it, e.g. for tables that render all their rows.
+  rowBehaviour?: DataTableRowBehaviour<TData>
   pageSizeOptions?: readonly number[]
   enableCsvExport?: boolean
   csvFileName?: string
@@ -169,11 +91,7 @@ export function DataTable<TData extends object>({
   emptyStateMessage,
   emptyState,
   bulkActions,
-  onRowClick,
-  onRowPrefetch,
-  getRowHref,
-  getRowAccessibleName,
-  getRowContextActions,
+  rowBehaviour,
   pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS,
   enableCsvExport,
   csvFileName,
@@ -181,20 +99,26 @@ export function DataTable<TData extends object>({
   const { t } = useTranslation('common')
   const resolvedEmptyStateMessage = emptyStateMessage ?? t('dataTable.noResults')
   const rootRef = useRef<HTMLDivElement | null>(null)
-  const [density, setDensity] = useState<DataTableDensity>("normal")
+  const tableBodyRef = useRef<HTMLTableSectionElement | null>(null)
+  const [density, setDensity] = useState<DataTableDensity>('normal')
   const hasBulkActions = Boolean(bulkActions)
   const { rowSelection, setRowSelection, withSelectColumn } = useDataTableSelection<TData>(
     hasBulkActions,
     JSON.stringify([sorting, columnFilters, globalFilter, pagination]),
   )
 
-  const { openRowContextMenu, menu: contextMenu } = useDataTableContextMenu(getRowContextActions)
+  const { openRowContextMenu, menu: contextMenu } = useDataTableContextMenu(
+    rowBehaviour?.getRowContextActions,
+  )
 
   const table = useReactTable({
     data,
     columns: withSelectColumn(columns),
     pageCount,
-    getRowId: (row, index) => getTableRowId(row) ?? String(index),
+    getRowId: (row, index) => {
+      const id = (row as { id?: unknown }).id
+      return typeof id === 'string' && id.length > 0 ? id : String(index)
+    },
     state: {
       columnFilters,
       sorting,
@@ -215,14 +139,25 @@ export function DataTable<TData extends object>({
   })
 
   const visibleColumnCount = table.getVisibleLeafColumns().length
+  const bodyRows = table.getRowModel().rows
+
+  const bodyRowModels = bodyRows.map((row) => row as DataTableBodyRowModel<TData>)
+  const paginationKey = `${pagination.pageIndex}:${pagination.pageSize}`
+  const { handleArrowFocus, tabIndexForRow, onRowFocus } = useDataTableRovingFocus(
+    bodyRowModels,
+    rowBehaviour,
+    data,
+    paginationKey,
+    tableBodyRef,
+  )
 
   return (
     <div className="space-y-4" ref={rootRef}>
       <DataTableDensityContext.Provider value={{ density, setDensity }}>
-        <DataTableToolbar 
-          table={table} 
-          searchColumn={searchColumn} 
-          placeholder={searchPlaceholder} 
+        <DataTableToolbar
+          table={table}
+          searchColumn={searchColumn}
+          placeholder={searchPlaceholder}
           saveViewTitle={saveViewTitle}
           dashboardSource={dashboardSource}
           enableCsvExport={enableCsvExport}
@@ -231,11 +166,10 @@ export function DataTable<TData extends object>({
           isLoading={isLoading}
         />
       </DataTableDensityContext.Provider>
-      {/* 70vh: the table scrolls inside its own box, which keeps the sticky header in view. */}
       <div
         className={cn(
-          "max-w-full overflow-x-auto rounded-md border [&>div]:max-h-[70vh]",
-          "data-[density=compact]:[&_td]:py-1.5 data-[density=compact]:[&_th]:h-9",
+          'max-w-full overflow-x-auto rounded-md border [&>div]:max-h-[70vh]',
+          'data-[density=compact]:[&_td]:py-1.5 data-[density=compact]:[&_th]:h-9',
         )}
         data-density={density}
       >
@@ -252,115 +186,33 @@ export function DataTable<TData extends object>({
                     >
                       {header.isPlaceholder
                         ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
+                        : flexRender(header.column.columnDef.header, header.getContext())}
                     </TableHead>
                   )
                 })}
               </TableRow>
             ))}
           </TableHeader>
-          <TableBody>
+          <TableBody ref={tableBodyRef}>
             {isLoading ? (
               <TableSkeleton rows={Math.min(pagination.pageSize, 8)} cols={visibleColumnCount} />
-            ) : table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => {
-                const rowData = row.original as TData
-                const rowId = getTableRowId(rowData)
-                const rowHref = getRowHref?.(rowData)
-                const rowAccessibleName = getRowAccessibleName?.(rowData)
-                const rowUsesDetailLink = Boolean(
-                  rowHref &&
-                    rowAccessibleName &&
-                    row
-                      .getVisibleCells()
-                      .some((cell) => isDataTableRowLinkColumn(cell.column.columnDef)),
-                )
-                const rowIsKeyboardActivatable = Boolean(
-                  (onRowClick && !rowUsesDetailLink) || getRowContextActions?.(rowData)?.length,
-                )
+            ) : bodyRows.length ? (
+              bodyRows.map((row, visibleRowIndex) => {
+                const bodyRow = row as DataTableBodyRowModel<TData>
+                const interaction = getRowInteraction(bodyRow, rowBehaviour)
 
                 return (
-                <TableRow
-                  key={row.id}
-                  data-table-row="true"
-                  data-row-id={rowId}
-                  data-state={row.getIsSelected() && "selected"}
-                  onClick={(event) => handleRowClick(event, data, rowData, onRowClick)}
-                  onPointerEnter={() => onRowPrefetch?.(rowData)}
-                  onFocus={() => onRowPrefetch?.(rowData)}
-                  onContextMenu={(event) => {
-                    event.preventDefault()
-                    openRowContextMenu(
-                      resolveRowFromElement(event.currentTarget, data, rowData),
-                      event.clientX,
-                      event.clientY,
-                    )
-                  }}
-                  onKeyDown={(event) => {
-                    const resolvedRow = resolveRowFromElement(event.currentTarget, data, rowData)
-
-                    if (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) {
-                      const rect = event.currentTarget.getBoundingClientRect()
-                      event.preventDefault()
-                      openRowContextMenu(resolvedRow, rect.left + 12, rect.top + rect.height / 2)
-                      return
-                    }
-
-                    if (rowUsesDetailLink) {
-                      return
-                    }
-
-                    if (event.key !== "Enter" && event.key !== " ") {
-                      return
-                    }
-
-                    if (!onRowClick || isInteractiveTarget(event.target)) {
-                      return
-                    }
-
-                    event.preventDefault()
-                    activateRow(event, resolvedRow, data, onRowClick)
-                  }}
-                  tabIndex={rowIsKeyboardActivatable ? 0 : undefined}
-                  className={onRowClick ? clickableRowClassName : ""}
-                >
-                  {row.getVisibleCells().map((cell) => {
-                    const cellContent = flexRender(
-                      cell.column.columnDef.cell,
-                      cell.getContext(),
-                    )
-                    const shouldRenderRowLink =
-                      rowUsesDetailLink &&
-                      isDataTableRowLinkColumn(cell.column.columnDef)
-
-                    return (
-                    <TableCell
-                      key={cell.id}
-                      data-column-id={cell.column.id}
-                      className={getDataTableCellClassName(cell.column.columnDef, Boolean(onRowClick))}
-                      onClick={
-                        onRowClick
-                          ? (event) => activateRow(event, rowData, data, onRowClick)
-                          : undefined
-                      }
-                    >
-                      {shouldRenderRowLink && rowHref && rowAccessibleName ? (
-                        <DataTableRowDetailLink
-                          href={rowHref}
-                          accessibleName={rowAccessibleName}
-                        >
-                          {cellContent}
-                        </DataTableRowDetailLink>
-                      ) : (
-                        cellContent
-                      )}
-                    </TableCell>
-                    )
-                  })}
-                </TableRow>
+                  <DataTableBodyRow
+                    key={row.id}
+                    row={bodyRow}
+                    data={data}
+                    rowBehaviour={rowBehaviour}
+                    interaction={interaction}
+                    tabIndex={tabIndexForRow(visibleRowIndex, interaction.rowIsRovingFocusable)}
+                    openRowContextMenu={openRowContextMenu}
+                    onArrowFocus={(direction) => handleArrowFocus(visibleRowIndex, direction)}
+                    onRowFocus={() => onRowFocus(visibleRowIndex)}
+                  />
                 )
               })
             ) : (

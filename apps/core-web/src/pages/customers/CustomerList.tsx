@@ -1,27 +1,25 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { type LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { useTranslation } from 'react-i18next'
-import { useCustomers, useDeleteCustomer } from '@/api/customers'
+import { useCustomers } from '@/api/customers'
 import type { Customer } from '@/api/types'
 import { Button } from '@/components/ui/button'
 import { CustomerDialog } from '@/components/customers/CustomerDialog'
 import { Plus, User, Building2 } from 'lucide-react'
-import { toast } from 'sonner'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { DataTable } from '@/components/data-table/DataTable'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { DASHBOARD_WIDGET_SOURCE_CUSTOMERS } from '@/features/dashboard-widgets/sources'
-import { getErrorMessage } from '@/lib/error-utils'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { useCustomerListRowBehaviour } from './useCustomerListRowBehaviour'
 
 export default function CustomerList() {
   const { t } = useTranslation('customers')
   useEffect(() => {
     void ensureNamespaceLoaded('customers')
   }, [])
-  const navigate = useNavigate()
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
   const { data: responseData, isLoading, isError } = useCustomers(queryParams)
   const [searchParams, setSearchParams] = useSearchParams()
@@ -31,7 +29,6 @@ export default function CustomerList() {
     : responseData?.data || []
   const pageCount = Array.isArray(responseData) ? 1 : responseData?.meta?.pageCount || 1
 
-  const deleteMutation = useDeleteCustomer()
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | undefined>(undefined)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
 
@@ -48,20 +45,12 @@ export default function CustomerList() {
     }
   }, [searchParams, setSearchParams])
 
-  const handleDelete = async (id: string) => {
-    if (!confirm(t('list.deleteConfirm'))) return
-    try {
-      await deleteMutation.mutateAsync(id)
-      toast.success(t('list.deleted'))
-    } catch (error: unknown) {
-      toast.error(getErrorMessage(error, t('list.deleteFailed')))
-    }
-  }
-
   const handleCreate = () => {
     setSelectedCustomer(undefined)
     setIsDialogOpen(true)
   }
+
+  const rowBehaviour = useCustomerListRowBehaviour()
 
   const columns: ColumnDef<Customer>[] = [
     {
@@ -158,14 +147,7 @@ export default function CustomerList() {
                 ),
               }
         }
-        onRowClick={(row) => navigate(`/customers/${row.id}`)}
-        getRowContextActions={(row) => [
-          {
-            label: t('list.delete'),
-            onClick: () => void handleDelete(row.id),
-            destructive: true,
-          },
-        ]}
+        rowBehaviour={rowBehaviour}
         {...tableState}
       />
 

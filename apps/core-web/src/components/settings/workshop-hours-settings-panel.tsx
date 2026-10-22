@@ -441,9 +441,9 @@ export function WorkshopHoursSettingsPanel() {
           isLoading={isLoadingHolidays}
           searchPlaceholder={t('workshopHours.holidays.searchPlaceholder')}
           setPagination={setPagination}
-          onRowClick={canManage ? openEditHoliday : undefined}
-          getRowContextActions={
-            canManage
+          rowBehaviour={{
+            onRowClick: canManage ? openEditHoliday : undefined,
+            getRowContextActions: canManage
               ? (row) => [
                   {
                     label: t('workshopHours.holidays.delete'),
@@ -453,8 +453,8 @@ export function WorkshopHoursSettingsPanel() {
                     },
                   },
                 ]
-              : undefined
-          }
+              : undefined,
+          }}
           {...tableState}
         />
       </SettingsTabPanel>

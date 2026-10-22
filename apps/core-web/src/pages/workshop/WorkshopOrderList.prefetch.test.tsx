@@ -15,6 +15,10 @@ vi.mock('@/api/workshop', async (importOriginal) => {
   }
 })
 
+vi.mock('@/auth/AuthProvider', () => ({
+  useAuth: () => ({ claims: { role: 'ADMIN' } }),
+}))
+
 vi.mock('@/api/client', () => ({
   fetchWithAuth: vi.fn(),
 }))
@@ -22,12 +26,12 @@ vi.mock('@/api/client', () => ({
 vi.mock('@/components/data-table/DataTable', () => ({
   DataTable: ({
     data,
-    onRowPrefetch,
+    rowBehaviour,
   }: {
     data: Array<{ id: string }>
-    onRowPrefetch?: (row: { id: string }) => void
+    rowBehaviour?: { onRowPrefetch?: (row: { id: string }) => void }
   }) => (
-    <button type="button" onPointerEnter={() => onRowPrefetch?.(data[0])}>
+    <button type="button" onPointerEnter={() => rowBehaviour?.onRowPrefetch?.(data[0])}>
       hover-row
     </button>
   ),

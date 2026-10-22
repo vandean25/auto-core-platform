@@ -470,7 +470,7 @@ export default function AccountingExportReadinessPage() {
             isLoading={readiness.isLoading}
             searchPlaceholder={t('accountingExportReadiness.searchPlaceholder')}
             emptyStateMessage={t('accountingExportReadiness.emptyState')}
-            onRowClick={(row) => navigate(row.href)}
+            rowBehaviour={{ onRowClick: (row) => navigate(row.href) }}
             {...tableState}
             setPagination={setPagination}
             setGlobalFilter={changeSearch}

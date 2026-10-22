@@ -699,7 +699,7 @@ export function AccountingExportSettingsPanel({
           pageCount={historyQuery.data?.meta.pageCount ?? 1}
           searchPlaceholder={t('accountingExport.history.searchPlaceholder')}
           setPagination={setPagination}
-          onRowClick={(row) => setSelectedRunId(row.id)}
+          rowBehaviour={{ onRowClick: (row) => setSelectedRunId(row.id) }}
           emptyStateMessage={t('accountingExport.history.empty')}
           {...tableState}
         />

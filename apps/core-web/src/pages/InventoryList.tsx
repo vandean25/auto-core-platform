@@ -144,11 +144,12 @@ export default function InventoryList() {
                 searchPlaceholder={t('partsList.searchPlaceholder')}
                 columnFilters={columnFilters}
                 setColumnFilters={setColumnFilters}
-                onRowClick={(item) =>
+                rowBehaviour={{
+                  onRowClick: (item) =>
                     navigate(`/inventory/${item.id}/ledger?sku=${encodeURIComponent(item.sku)}`, {
-                        state: { item },
-                    })
-                }
+                      state: { item },
+                    }),
+                }}
                 {...tableState}
             />
         </>

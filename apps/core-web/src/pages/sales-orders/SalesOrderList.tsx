@@ -125,18 +125,19 @@ export default function SalesOrderList() {
         isLoading={isLoading}
         searchColumn="order_number"
         searchPlaceholder={t('orders.list.searchPlaceholder')}
-        onRowClick={(row) => navigate(`/sales-orders/${row.id}`)}
-        getRowContextActions={(row) =>
-          row.status === 'DRAFT'
-            ? [
-                {
-                  label: t('shared.delete'),
-                  onClick: () => void handleDelete(row.id),
-                  destructive: true,
-                },
-              ]
-            : []
-        }
+        rowBehaviour={{
+          onRowClick: (row) => navigate(`/sales-orders/${row.id}`),
+          getRowContextActions: (row) =>
+            row.status === 'DRAFT'
+              ? [
+                  {
+                    label: t('shared.delete'),
+                    onClick: () => void handleDelete(row.id),
+                    destructive: true,
+                  },
+                ]
+              : [],
+        }}
         {...tableState}
       />
     </>

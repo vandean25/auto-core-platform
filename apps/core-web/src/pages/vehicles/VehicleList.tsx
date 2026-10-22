@@ -12,10 +12,10 @@ import { DASHBOARD_WIDGET_SOURCE_VEHICLES } from '@/features/dashboard-widgets/s
 import { Button } from '@/components/ui/button'
 import { VehicleDialog } from '@/components/vehicles/VehicleDialog'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
+import type { VehicleListRow } from '@/features/actions/vehicle-row-actions'
+import { useVehicleListRowBehaviour } from './useVehicleListRowBehaviour'
 
-type VehicleRow = {
-  id: string
-  vehicle: string
+type VehicleRow = VehicleListRow & {
   year: number
   vin: string
   plate: string
@@ -56,6 +56,8 @@ export default function VehicleList() {
       customer: getCustomerLabel(t, vehicle.customer),
     }))
   }, [responseData, t])
+
+  const rowBehaviour = useVehicleListRowBehaviour(t, navigate)
 
   const columns = useMemo<ColumnDef<VehicleRow>[]>(
     () => [
@@ -131,9 +133,7 @@ export default function VehicleList() {
         pageCount={responseData?.meta?.pageCount ?? 1}
         isLoading={isLoading}
         searchPlaceholder={t('list.searchPlaceholder')}
-        getRowHref={(row) => `/vehicles/${row.id}`}
-        getRowAccessibleName={(row) => t('list.rowAria', { vehicle: row.vehicle })}
-        onRowClick={(row) => navigate(`/vehicles/${row.id}`)}
+        rowBehaviour={rowBehaviour}
         {...tableState}
       />
     </>

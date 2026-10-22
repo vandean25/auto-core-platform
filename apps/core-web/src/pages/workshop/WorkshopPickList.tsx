@@ -138,9 +138,11 @@ export default function WorkshopPickList() {
         pageCount={responseData?.meta?.pageCount ?? 1}
         isLoading={isLoading}
         searchPlaceholder={t('pick.queue.searchPlaceholder')}
-        onRowClick={(row) => {
-          setActiveOrderId(row.id)
-          setIsDrawerOpen(true)
+        rowBehaviour={{
+          onRowClick: (row) => {
+            setActiveOrderId(row.id)
+            setIsDrawerOpen(true)
+          },
         }}
         {...tableState}
       />

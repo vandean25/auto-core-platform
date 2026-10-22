@@ -73,13 +73,20 @@ vi.mock('@/components/hr/LeaveBookingSheet', () => ({
 vi.mock('@/components/data-table/DataTable', () => ({
   DataTable: ({
     data,
-    getRowContextActions,
+    rowBehaviour,
   }: {
     data: Array<{ id: string; startOn: string; minutesCharged: number; note?: string | null }>
-    getRowContextActions?: (row: { id: string; startOn: string; minutesCharged: number; note?: string | null }) => Array<{
-      label: string
-      onClick: () => void
-    }>
+    rowBehaviour?: {
+      getRowContextActions?: (row: {
+        id: string
+        startOn: string
+        minutesCharged: number
+        note?: string | null
+      }) => Array<{
+        label: string
+        onClick: () => void
+      }>
+    }
   }) => (
     <div data-testid='leave-table'>
       {data.map((row) => (
@@ -87,7 +94,7 @@ vi.mock('@/components/data-table/DataTable', () => ({
           <span>{row.startOn}</span>
           <span>{row.minutesCharged}</span>
           <span data-testid='leave-row-note'>{row.note}</span>
-          {getRowContextActions?.(row).map((action) => (
+          {rowBehaviour?.getRowContextActions?.(row).map((action) => (
             <button key={action.label} type='button' onClick={action.onClick}>
               {action.label}
             </button>

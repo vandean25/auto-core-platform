@@ -67,7 +67,7 @@ describe('DataTable Characterization', () => {
 
   it('calls onRowClick when clicking cell text', () => {
     const onRowClick = vi.fn()
-    render(<DataTable {...defaultProps} onRowClick={onRowClick} />)
+    render(<DataTable {...defaultProps} rowBehaviour={{ onRowClick }} />)
 
     fireEvent.click(screen.getByText('Test Item'))
 
@@ -93,7 +93,7 @@ describe('DataTable Characterization', () => {
       <DataTable
         {...defaultProps}
         columns={columnsWithAction}
-        onRowClick={onRowClick}
+        rowBehaviour={{ onRowClick }}
       />,
     )
 
@@ -124,7 +124,7 @@ describe('DataTable Characterization', () => {
       <DataTable
         {...defaultProps}
         columns={columnsWithAction}
-        onRowClick={onRowClick}
+        rowBehaviour={{ onRowClick }}
       />,
     )
 
@@ -155,7 +155,7 @@ describe('DataTable Characterization', () => {
 
   it('calls onRowClick when the row element is clicked programmatically', () => {
     const onRowClick = vi.fn()
-    const { container } = render(<DataTable {...defaultProps} onRowClick={onRowClick} />)
+    const { container } = render(<DataTable {...defaultProps} rowBehaviour={{ onRowClick }} />)
 
     const row = container.querySelector('tbody tr[data-table-row="true"]')
     expect(row).not.toBeNull()
@@ -166,7 +166,7 @@ describe('DataTable Characterization', () => {
 
   it('activates clickable rows with Enter and Space', () => {
     const onRowClick = vi.fn()
-    render(<DataTable {...defaultProps} onRowClick={onRowClick} />)
+    render(<DataTable {...defaultProps} rowBehaviour={{ onRowClick }} />)
 
     const row = screen.getByRole('row', { name: 'Test Item' })
     fireEvent.keyDown(row, { key: 'Enter' })
@@ -193,9 +193,11 @@ describe('DataTable Characterization', () => {
           {...defaultProps}
           columns={columnsWithRowLink}
           data={[{ id: 'item-1', name: 'Test Item' }]}
-          getRowHref={(row) => `/items/${row.id}`}
-          getRowAccessibleName={(row) => `Open ${row.name}`}
-          onRowClick={onRowClick}
+          rowBehaviour={{
+            getRowHref: (row) => `/items/${row.id}`,
+            getRowAccessibleName: (row) => `Open ${row.name}`,
+            onRowClick,
+          }}
         />
       </MemoryRouter>,
     )
@@ -204,11 +206,11 @@ describe('DataTable Characterization', () => {
     expect(link).toHaveAttribute('href', '/items/item-1')
 
     const row = screen.getByRole('row', { name: /Test Item/ })
-    expect(row).not.toHaveAttribute('tabindex')
+    expect(row).toHaveAttribute('tabindex', '0')
 
-    link.focus()
-    fireEvent.keyDown(link, { key: 'Enter' })
-    expect(onRowClick).not.toHaveBeenCalled()
+    row.focus()
+    fireEvent.keyDown(row, { key: 'Enter' })
+    expect(onRowClick).toHaveBeenCalledWith({ id: 'item-1', name: 'Test Item' })
   })
 
   it('keeps the row detail link at least 24px tall so its hit area meets WCAG 2.5.8', () => {
@@ -226,9 +228,11 @@ describe('DataTable Characterization', () => {
           {...defaultProps}
           columns={columnsWithRowLink}
           data={[{ id: 'item-1', name: 'Test Item' }]}
-          getRowHref={(row) => `/items/${row.id}`}
-          getRowAccessibleName={(row) => `Open ${row.name}`}
-          onRowClick={vi.fn()}
+          rowBehaviour={{
+            getRowHref: (row) => `/items/${row.id}`,
+            getRowAccessibleName: (row) => `Open ${row.name}`,
+            onRowClick: vi.fn(),
+          }}
         />
       </MemoryRouter>,
     )
@@ -253,9 +257,11 @@ describe('DataTable Characterization', () => {
           {...defaultProps}
           columns={columnsWithRowLink}
           data={[{ id: 'item-1', name: 'Test Item' }]}
-          getRowHref={(row) => `/items/${row.id}`}
-          getRowAccessibleName={(row) => `Open ${row.name}`}
-          onRowClick={onRowClick}
+          rowBehaviour={{
+            getRowHref: (row) => `/items/${row.id}`,
+            getRowAccessibleName: (row) => `Open ${row.name}`,
+            onRowClick,
+          }}
         />
       </MemoryRouter>,
     )
@@ -274,9 +280,11 @@ describe('DataTable Characterization', () => {
         <DataTable
           {...defaultProps}
           data={[{ id: 'item-1', name: 'Test Item' }]}
-          getRowHref={(row) => `/items/${row.id}`}
-          getRowAccessibleName={(row) => `Open ${row.name}`}
-          onRowClick={onRowClick}
+          rowBehaviour={{
+            getRowHref: (row) => `/items/${row.id}`,
+            getRowAccessibleName: (row) => `Open ${row.name}`,
+            onRowClick,
+          }}
         />
       </MemoryRouter>,
     )
@@ -309,7 +317,7 @@ describe('DataTable Characterization', () => {
           },
         ]}
         data={customers}
-        onRowClick={onRowClick}
+        rowBehaviour={{ onRowClick }}
       />,
     )
 
@@ -334,7 +342,7 @@ describe('DataTable Characterization', () => {
           },
         ]}
         data={reordered}
-        onRowClick={onRowClick}
+        rowBehaviour={{ onRowClick }}
       />,
     )
 
@@ -354,7 +362,7 @@ describe('DataTable Characterization', () => {
         {...defaultProps}
         columns={[{ accessorKey: 'label', header: 'Name' }]}
         data={customers}
-        onRowClick={onRowClick}
+        rowBehaviour={{ onRowClick }}
       />,
     )
 
@@ -385,7 +393,7 @@ describe('DataTable Characterization', () => {
       <DataTable
         {...defaultProps}
         columns={columnsWithAction}
-        onRowClick={onRowClick}
+        rowBehaviour={{ onRowClick }}
       />,
     )
 
@@ -400,13 +408,15 @@ describe('DataTable Characterization', () => {
     render(
       <DataTable
         {...defaultProps}
-        getRowContextActions={() => [
-          {
-            label: 'Delete',
-            onClick: vi.fn(),
-            destructive: true,
-          },
-        ]}
+        rowBehaviour={{
+          getRowContextActions: () => [
+            {
+              label: 'Delete',
+              onClick: vi.fn(),
+              destructive: true,
+            },
+          ],
+        }}
       />,
     )
 
@@ -419,7 +429,7 @@ describe('DataTable Characterization', () => {
     render(
       <DataTable
         {...defaultProps}
-        getRowContextActions={() => []}
+        rowBehaviour={{ getRowContextActions: () => [] }}
       />,
     )
 
@@ -441,13 +451,15 @@ describe('DataTable Characterization', () => {
     render(
       <DataTable
         {...defaultProps}
-        getRowContextActions={() => [
-          {
-            label: 'Delete',
-            onClick: onDelete,
-            destructive: true,
-          },
-        ]}
+        rowBehaviour={{
+          getRowContextActions: () => [
+            {
+              label: 'Delete',
+              onClick: onDelete,
+              destructive: true,
+            },
+          ],
+        }}
       />,
     )
 
@@ -455,6 +467,48 @@ describe('DataTable Characterization', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
 
     expect(onDelete).toHaveBeenCalledWith({ name: 'Test Item' })
+  })
+
+  it('moves roving focus with ArrowDown and ArrowUp across rows', () => {
+    const customers = [
+      { id: 'cust-1', label: 'Row one' },
+      { id: 'cust-2', label: 'Row two' },
+      { id: 'cust-3', label: 'Row three' },
+    ]
+
+    render(
+      <DataTable
+        {...defaultProps}
+        columns={[{ accessorKey: 'label', header: 'Name' }]}
+        data={customers}
+        rowBehaviour={{ onRowClick: vi.fn() }}
+      />,
+    )
+
+    const rows = screen.getAllByRole('row').filter((row) => row.getAttribute('data-table-row') === 'true')
+    expect(rows[0]).toHaveAttribute('tabindex', '0')
+    expect(rows[1]).toHaveAttribute('tabindex', '-1')
+    expect(rows[2]).toHaveAttribute('tabindex', '-1')
+
+    fireEvent.keyDown(rows[0], { key: 'ArrowDown' })
+    expect(rows[1]).toHaveAttribute('tabindex', '0')
+    expect(rows[0]).toHaveAttribute('tabindex', '-1')
+
+    fireEvent.keyDown(rows[1], { key: 'ArrowDown' })
+    expect(rows[2]).toHaveAttribute('tabindex', '0')
+
+    fireEvent.keyDown(rows[2], { key: 'ArrowDown' })
+    expect(rows[2]).toHaveAttribute('tabindex', '0')
+
+    fireEvent.keyDown(rows[2], { key: 'ArrowUp' })
+    expect(rows[1]).toHaveAttribute('tabindex', '0')
+  })
+
+  it('keeps the clickable row focus ring class on activatable rows', () => {
+    render(<DataTable {...defaultProps} rowBehaviour={{ onRowClick: vi.fn() }} />)
+
+    const row = screen.getByRole('row', { name: 'Test Item' })
+    expect(row.className).toMatch(/focus-visible:ring/)
   })
 })
 
