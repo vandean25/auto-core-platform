@@ -137,6 +137,10 @@ describe('StockTransferService', () => {
   const tenantContext = {
     getTenantId: jest.fn(),
     getAuthenticatedUser: jest.fn(),
+    setAuthenticatedUser: jest.fn(),
+    setPublicEstimateApprovalTenant: jest.fn(),
+    setTenantIdForWorker: jest.fn(),
+    getRequiredTenantId: jest.fn(),
   };
   const ledgerService = {
     recordTransactions: jest.fn(),
@@ -223,7 +227,7 @@ describe('StockTransferService', () => {
     jest.mocked(realtimeService.emitStockTransferUpdated).mockReturnValue(undefined);
 
     service = new StockTransferService(
-      prisma,
+      prisma as never,
       tenantContext,
       ledgerService as never,
       realtimeService as never,

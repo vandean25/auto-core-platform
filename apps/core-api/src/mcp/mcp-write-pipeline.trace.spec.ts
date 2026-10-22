@@ -127,6 +127,8 @@ function buildService(tier: AgentPolicyTier) {
     workshopBookingPackage as never,
     workshopOrderCompletion as never,
     invoiceWorkshopDraftPropose as never,
+    undefined as never,
+    { get: () => { throw new Error('not registered'); } } as never,
   );
 }
 

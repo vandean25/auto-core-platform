@@ -132,15 +132,15 @@ describe('workshop-pdf.layout', () => {
       expect(html).toContain('80%');
     });
 
-    it('renders dashes when vehicle or stats are missing', () => {
+    it('renders dashes when make/model or stats are missing', () => {
       const html = buildWorkshopVehicleSection(
-        null,
+        { make: '', model: '', year: 2021, vin: null, plate: null },
         null,
         null,
         escapeHtml,
         enCopy,
       );
-      expect(html).toContain('— — (—)');
+      expect(html).toContain('— — (');
       expect(html).toContain('>—</div>');
     });
   });

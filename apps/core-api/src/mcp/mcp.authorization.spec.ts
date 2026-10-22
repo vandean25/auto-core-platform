@@ -33,6 +33,7 @@ describe('assertMcpTenantAccess', () => {
         userId: 'u1',
         email: 'a@example.com',
         role: 'ADMIN',
+        platformRole: 'SUPER_ADMIN',
       }),
     ).toThrow(ForbiddenException);
   });
