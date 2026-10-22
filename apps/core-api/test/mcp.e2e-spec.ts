@@ -346,9 +346,10 @@ describe('MCP server (e2e)', () => {
     });
   }
 
-  /** Intake order with its own staging tote. The Prisma client passed in decides the tenant. */
+  /** Intake order with its own staging tote. tenantId is the tenant of the Prisma client passed in. */
   async function createIntakeOrder(
     db: PrismaService,
+    tenantId: string,
     input: {
       label: string;
       siteId: string;
@@ -358,6 +359,7 @@ describe('MCP server (e2e)', () => {
   ): Promise<{ id: string }> {
     const staging = await db.storageLocation.create({
       data: {
+        tenant_id: tenantId,
         site_id: input.siteId,
         code: `${input.label}-STAGING-${Date.now()}`,
         name: `${input.label} staging`,
@@ -366,6 +368,7 @@ describe('MCP server (e2e)', () => {
     });
     return db.workshopOrder.create({
       data: {
+        tenant_id: tenantId,
         order_number: `${input.label}-${Date.now()}`,
         customer_id: input.customerId,
         vehicle_id: input.vehicleId,
@@ -379,9 +382,10 @@ describe('MCP server (e2e)', () => {
     });
   }
 
-  /** A PART line on a workshop task; the Prisma client passed in decides the tenant. */
+  /** A PART line on a workshop task; tenantId is the tenant of the Prisma client passed in. */
   function createPartLine(
     db: PrismaService,
+    tenantId: string,
     workshopTaskId: string,
     part: {
       item_no: string;
@@ -392,6 +396,7 @@ describe('MCP server (e2e)', () => {
   ) {
     return db.workshopTaskLineItem.create({
       data: {
+        tenant_id: tenantId,
         workshop_task_id: workshopTaskId,
         type: 'PART',
         part_execution_status: 'PENDING_PICK',
@@ -406,6 +411,7 @@ describe('MCP server (e2e)', () => {
     const searchToken = `McpE2e${Date.now()}`;
     const customer = await prismaA.customer.create({
       data: {
+        tenant_id: tenantA,
         first_name: 'Mcp',
         last_name: searchToken,
         email: `mcp-${Date.now()}@example.com`,
@@ -413,6 +419,7 @@ describe('MCP server (e2e)', () => {
     });
     const stagingLocation = await prismaA.storageLocation.create({
       data: {
+        tenant_id: tenantA,
         site_id: siteId,
         code: `MCP-TOTE-${searchToken}`,
         name: 'MCP test tote',
@@ -421,6 +428,7 @@ describe('MCP server (e2e)', () => {
     });
     const vehicle = await prismaA.vehicle.create({
       data: {
+        tenant_id: tenantA,
         make: 'Test',
         model: 'Mcp',
         year: 2020,
@@ -465,6 +473,7 @@ describe('MCP server (e2e)', () => {
     });
     const workshopOrder = await prismaA.workshopOrder.create({
       data: {
+        tenant_id: tenantA,
         order_number: `WO-${searchToken}`,
         customer_id: customer.id,
         vehicle_id: vehicle.id,
@@ -482,6 +491,7 @@ describe('MCP server (e2e)', () => {
     const sku = `SKU-${searchToken}`;
     const catalogItem = await prismaA.catalogItem.create({
       data: {
+        tenant_id: tenantA,
         sku,
         name: searchToken,
         cost_price: 1,
@@ -496,7 +506,7 @@ describe('MCP server (e2e)', () => {
         status: 'NOT_STARTED',
       },
     });
-    const lineItem = await createPartLine(prismaA, task.id, {
+    const lineItem = await createPartLine(prismaA, tenantA, task.id, {
       item_no: catalogItem.sku,
       description: catalogItem.name,
       unit_price: 2,
@@ -504,6 +514,7 @@ describe('MCP server (e2e)', () => {
     });
     const location = await prismaA.storageLocation.create({
       data: {
+        tenant_id: tenantA,
         site_id: siteId,
         code: `MCP-${searchToken}`,
         name: 'MCP test bin',
@@ -512,6 +523,7 @@ describe('MCP server (e2e)', () => {
     });
     await prismaA.inventoryStock.create({
       data: {
+        tenant_id: tenantA,
         catalog_item_id: catalogItem.id,
         site_id: siteId,
         location_id: location.id,
@@ -623,6 +635,7 @@ describe('MCP server (e2e)', () => {
   async function createDraftVehicle(prefix: string): Promise<DraftVehicle> {
     const customer = await prismaA.customer.create({
       data: {
+        tenant_id: tenantA,
         first_name: 'MCP',
         last_name: `${prefix}-${Date.now()}`,
         email: `${prefix}-${Date.now()}@example.com`,
@@ -630,6 +643,7 @@ describe('MCP server (e2e)', () => {
     });
     const vehicle = await prismaA.vehicle.create({
       data: {
+        tenant_id: tenantA,
         make: 'Test',
         model: prefix,
         year: 2022,
@@ -911,6 +925,7 @@ describe('MCP server (e2e)', () => {
     const siteId = await resolveTestMainSiteId(prisma, tenantA);
     const bay = await prismaA.bay.create({
       data: {
+        tenant_id: tenantA,
         name: `MCP test bay ${Date.now()}`,
         is_active: true,
         sort_order: 1,
@@ -1569,6 +1584,7 @@ describe('MCP server (e2e)', () => {
     });
     const otherSite = await prismaA.site.create({
       data: {
+        tenant_id: tenantA,
         legal_entity_id: mainSite.legal_entity_id,
         code: `MCP-IDEM-SITE-${Date.now()}`,
         name: 'MCP idempotency other site',
@@ -2077,7 +2093,7 @@ describe('MCP server (e2e)', () => {
    * reservation, which cancels that line, so the reserve cases below cannot reuse it.
    */
   function createReservableLine() {
-    return createPartLine(prismaA, fixtures.workshopTaskId, {
+    return createPartLine(prismaA, tenantA, fixtures.workshopTaskId, {
       item_no: fixtures.sku,
       description: 'Provisional preview part',
       unit_price: 2,
@@ -2244,6 +2260,7 @@ describe('MCP server (e2e)', () => {
     await setPolicyTier('inventory.part_reserve', 'AUTO');
     const freeTextLine = await createPartLine(
       prismaA,
+      tenantA,
       fixtures.workshopTaskId,
       {
         item_no: 'FREE-TEXT-DEMO',
@@ -2298,6 +2315,7 @@ describe('MCP server (e2e)', () => {
     });
     const otherSite = await prismaA.site.create({
       data: {
+        tenant_id: tenantA,
         legal_entity_id: mainSite.legal_entity_id,
         code: `MCP-RESERVE-OTHER-${Date.now()}`,
         name: 'MCP reserve other site',
@@ -2306,7 +2324,7 @@ describe('MCP server (e2e)', () => {
         holiday_country_iso: 'AT',
       },
     });
-    const otherSiteOrder = await createIntakeOrder(prismaA, {
+    const otherSiteOrder = await createIntakeOrder(prismaA, tenantA, {
       label: 'MCP-RESERVE-OTHER',
       siteId: otherSite.id,
       customerId: fixtures.customerId,
@@ -2316,13 +2334,13 @@ describe('MCP server (e2e)', () => {
       'Other site reserve task',
       otherSiteOrder.id,
     );
-    const catalogLine = await createPartLine(prismaA, otherSiteTask.id, {
+    const catalogLine = await createPartLine(prismaA, tenantA, otherSiteTask.id, {
       item_no: fixtures.sku,
       description: 'Other site catalog line',
       unit_price: 2,
       catalog_item_id: fixtures.catalogItemId,
     });
-    const freeTextLine = await createPartLine(prismaA, otherSiteTask.id, {
+    const freeTextLine = await createPartLine(prismaA, tenantA, otherSiteTask.id, {
       item_no: 'OTHER-SITE-FREE-TEXT',
       description: 'Other site free-text line',
       unit_price: 2,
@@ -2364,6 +2382,7 @@ describe('MCP server (e2e)', () => {
     const prismaB = createTenantAwarePrisma(prisma, tenantB);
     const tenantBCustomer = await prismaB.customer.create({
       data: {
+        tenant_id: tenantB,
         first_name: 'Cross',
         last_name: `Tenant-${Date.now()}`,
         email: `cross-${Date.now()}@example.com`,
@@ -2371,6 +2390,7 @@ describe('MCP server (e2e)', () => {
     });
     const tenantBVehicle = await prismaB.vehicle.create({
       data: {
+        tenant_id: tenantB,
         make: 'Test',
         model: 'CrossTenant',
         year: 2021,
@@ -2378,16 +2398,20 @@ describe('MCP server (e2e)', () => {
         customer_id: tenantBCustomer.id,
       },
     });
-    const tenantBOrder = await createIntakeOrder(prismaB, {
+    const tenantBOrder = await createIntakeOrder(prismaB, tenantB, {
       label: 'CROSS-TENANT',
       siteId: await resolveTestMainSiteId(prisma, tenantB),
       customerId: tenantBCustomer.id,
       vehicleId: tenantBVehicle.id,
     });
     const tenantBTask = await prismaB.workshopTask.create({
-      data: { workshop_order_id: tenantBOrder.id, title: 'Foreign task' },
+      data: {
+        tenant_id: tenantB,
+        workshop_order_id: tenantBOrder.id,
+        title: 'Foreign task',
+      },
     });
-    const tenantBLine = await createPartLine(prismaB, tenantBTask.id, {
+    const tenantBLine = await createPartLine(prismaB, tenantB, tenantBTask.id, {
       item_no: 'FOREIGN-PART',
       description: 'Foreign part',
       unit_price: 1,
@@ -2454,6 +2478,7 @@ describe('MCP server (e2e)', () => {
     });
     const otherSite = await prismaA.site.create({
       data: {
+        tenant_id: tenantA,
         legal_entity_id: mainSite.legal_entity_id,
         code: `MCP-OTHER-${Date.now()}`,
         name: 'MCP other site',
@@ -2462,7 +2487,7 @@ describe('MCP server (e2e)', () => {
         holiday_country_iso: 'AT',
       },
     });
-    const otherSiteOrder = await createIntakeOrder(prismaA, {
+    const otherSiteOrder = await createIntakeOrder(prismaA, tenantA, {
       label: 'MCP-OTHER',
       siteId: otherSite.id,
       customerId: fixtures.customerId,
@@ -3477,6 +3502,7 @@ describe('MCP server (e2e)', () => {
 
       const customer = await prismaA.customer.create({
         data: {
+          tenant_id: tenantA,
           first_name: 'History',
           last_name: historyToken,
           email: `history-${Date.now()}@example.com`,
@@ -3484,6 +3510,7 @@ describe('MCP server (e2e)', () => {
       });
       const vehicle = await prismaA.vehicle.create({
         data: {
+          tenant_id: tenantA,
           make: 'Test',
           model: 'History',
           year: 2019,
@@ -3494,6 +3521,7 @@ describe('MCP server (e2e)', () => {
       });
       await prismaA.vehicleInspectionRecord.create({
         data: {
+          tenant_id: tenantA,
           vehicle_id: vehicle.id,
           inspection_type: 'PICKERL_57A',
           inspected_on: new Date('2026-03-01T00:00:00.000Z'),
@@ -3504,6 +3532,7 @@ describe('MCP server (e2e)', () => {
       });
       const workshopOrder = await prismaA.workshopOrder.create({
         data: {
+          tenant_id: tenantA,
           order_number: `WO-${historyToken}`,
           customer_id: customer.id,
           vehicle_id: vehicle.id,
@@ -3521,6 +3550,7 @@ describe('MCP server (e2e)', () => {
       historyInvoiceArchiveKey = `invoices/archive/${historyToken}.pdf`;
       const invoice = await prismaA.invoice.create({
         data: {
+          tenant_id: tenantA,
           customer_id: customer.id,
           vehicle_id: vehicle.id,
           workshop_order_id: workshopOrder.id,
@@ -3544,6 +3574,7 @@ describe('MCP server (e2e)', () => {
       // Created after the work order, so the sales order is the newest order.
       const salesOrder = await prismaA.salesOrder.create({
         data: {
+          tenant_id: tenantA,
           order_number: `SO-${historyToken}`,
           customer_id: customer.id,
           site_id: siteId,
@@ -3558,6 +3589,7 @@ describe('MCP server (e2e)', () => {
       const siteIdB = await resolveTestMainSiteId(prisma, tenantB);
       const customerB = await prismaB.customer.create({
         data: {
+          tenant_id: tenantB,
           first_name: 'Other',
           last_name: `Tenant${historyToken}`,
           email: `other-tenant-${Date.now()}@example.com`,
@@ -3565,6 +3597,7 @@ describe('MCP server (e2e)', () => {
       });
       const vehicleB = await prismaB.vehicle.create({
         data: {
+          tenant_id: tenantB,
           make: 'Test',
           model: 'Other',
           year: 2018,
@@ -3574,6 +3607,7 @@ describe('MCP server (e2e)', () => {
       });
       const orderB = await prismaB.workshopOrder.create({
         data: {
+          tenant_id: tenantB,
           order_number: `WO-B-${historyToken}`,
           customer_id: customerB.id,
           vehicle_id: vehicleB.id,
@@ -3608,6 +3642,7 @@ describe('MCP server (e2e)', () => {
       historyOtherSiteId = otherSite.id;
       const otherSiteOrder = await prismaA.workshopOrder.create({
         data: {
+          tenant_id: tenantA,
           order_number: `WO-OTHER-${historyToken}`,
           customer_id: customer.id,
           vehicle_id: vehicle.id,
@@ -4016,6 +4051,7 @@ describe('MCP server (e2e)', () => {
       const second = await inTenant(tenantA, () =>
         prisma.site.create({
           data: {
+            tenant_id: tenantA,
             legal_entity_id: fixtures.legalEntityId,
             code: 'E2E-2',
             name: 'Zweigstelle E2E',
@@ -4278,6 +4314,7 @@ describe('MCP server (e2e)', () => {
       const token = fixtures.searchToken;
       const partB = await prismaA.catalogItem.create({
         data: {
+          tenant_id: tenantA,
           sku: `SKU-${token}-B`,
           name: `${token} B`,
           cost_price: 1,
@@ -4943,6 +4980,7 @@ describe('MCP server (e2e)', () => {
     const draftVehicle = await createDraftVehicle('mcp-booking-package');
     const dedicatedBay = await prismaA.bay.create({
       data: {
+        tenant_id: tenantA,
         site_id: fixtures.siteId,
         name: `MCP booking package ${Date.now()}`,
         is_active: true,
@@ -4951,6 +4989,7 @@ describe('MCP server (e2e)', () => {
     const schedule = scheduledBooking(16);
     const loanerVehicleRecord = await prismaA.vehicle.create({
       data: {
+        tenant_id: tenantA,
         customer_id: draftVehicle.customerId,
         make: 'VW',
         model: 'Golf',
@@ -4961,6 +5000,7 @@ describe('MCP server (e2e)', () => {
     });
     const loanerFleet = await prismaA.loanerVehicle.create({
       data: {
+        tenant_id: tenantA,
         site_id: fixtures.siteId,
         vehicle_id: loanerVehicleRecord.id,
         display_name: 'MCP Pool',
@@ -5038,6 +5078,7 @@ describe('MCP server (e2e)', () => {
     const draftVehicle = await createDraftVehicle('mcp-booking-loaner-fee');
     const dedicatedBay = await prismaA.bay.create({
       data: {
+        tenant_id: tenantA,
         site_id: fixtures.siteId,
         name: `MCP booking loaner fee ${Date.now()}`,
         is_active: true,
@@ -5046,6 +5087,7 @@ describe('MCP server (e2e)', () => {
     const schedule = scheduledBooking(17);
     const loanerVehicleRecord = await prismaA.vehicle.create({
       data: {
+        tenant_id: tenantA,
         customer_id: draftVehicle.customerId,
         make: 'VW',
         model: 'Polo',
@@ -5056,6 +5098,7 @@ describe('MCP server (e2e)', () => {
     });
     const loanerFleet = await prismaA.loanerVehicle.create({
       data: {
+        tenant_id: tenantA,
         site_id: fixtures.siteId,
         vehicle_id: loanerVehicleRecord.id,
         display_name: 'MCP Fee Pool',
@@ -5124,7 +5167,7 @@ describe('MCP server (e2e)', () => {
           status: 'NOT_STARTED',
         },
       });
-      const dedicatedLine = await createPartLine(prismaA, dedicatedTask.id, {
+      const dedicatedLine = await createPartLine(prismaA, tenantA, dedicatedTask.id, {
         item_no: fixtures.sku,
         description: fixtures.searchToken,
         unit_price: 2,
@@ -5194,7 +5237,7 @@ describe('MCP server (e2e)', () => {
             status: 'NOT_STARTED',
           },
         });
-        const secondLine = await createPartLine(prismaA, secondTask.id, {
+        const secondLine = await createPartLine(prismaA, tenantA, secondTask.id, {
           item_no: fixtures.sku,
           description: fixtures.searchToken,
           unit_price: 2,
@@ -5555,6 +5598,7 @@ describe('MCP server (e2e)', () => {
       });
       const otherSite = await prismaA.site.create({
         data: {
+          tenant_id: tenantA,
           legal_entity_id: mainSite.legal_entity_id,
           code: `MCP-PO-SITE-${Date.now()}`,
           name: 'MCP PO other site',
@@ -5697,6 +5741,7 @@ describe('MCP server (e2e)', () => {
     const draftVehicle = await createDraftVehicle('mcp-booking-replay');
     const dedicatedBay = await prismaA.bay.create({
       data: {
+        tenant_id: tenantA,
         site_id: fixtures.siteId,
         name: `MCP booking replay ${Date.now()}`,
         is_active: true,
@@ -5754,6 +5799,7 @@ describe('MCP server (e2e)', () => {
     async function seedCompletionOrder() {
       const order = await prismaA.workshopOrder.create({
         data: {
+          tenant_id: tenantA,
           order_number: `WO-COMPLETE-${Date.now()}`,
           customer_id: fixtures.customerId,
           vehicle_id: fixtures.vehicleId,
@@ -5906,6 +5952,7 @@ describe('MCP server (e2e)', () => {
       });
       const otherSite = await prismaA.site.create({
         data: {
+          tenant_id: tenantA,
           legal_entity_id: mainSite.legal_entity_id,
           code: `MCP-COMPLETE-OTHER-${Date.now()}`,
           name: 'MCP completion other site',
@@ -5917,6 +5964,7 @@ describe('MCP server (e2e)', () => {
       const foreignOrderId = await prismaA.workshopOrder
         .create({
           data: {
+            tenant_id: tenantA,
             order_number: `WO-OTHER-SITE-${Date.now()}`,
             customer_id: fixtures.customerId,
             vehicle_id: fixtures.vehicleId,
@@ -6015,6 +6063,7 @@ describe('MCP server (e2e)', () => {
       });
       const order = await prismaA.workshopOrder.create({
         data: {
+          tenant_id: tenantA,
           order_number: `WO-INV-DRAFT-${Date.now()}`,
           customer_id: fixtures.customerId,
           vehicle_id: fixtures.vehicleId,
@@ -6034,6 +6083,7 @@ describe('MCP server (e2e)', () => {
       });
       await prismaA.workshopTaskLineItem.create({
         data: {
+          tenant_id: tenantA,
           workshop_task_id: task.id,
           type: 'LABOR',
           item_no: 'INV-LABOR-01',
@@ -6195,6 +6245,7 @@ describe('MCP server (e2e)', () => {
       });
       const order = await prismaA.workshopOrder.create({
         data: {
+          tenant_id: tenantA,
           order_number: `WO-KVA-${Date.now()}`,
           customer_id: fixtures.customerId,
           vehicle_id: fixtures.vehicleId,
@@ -6214,6 +6265,7 @@ describe('MCP server (e2e)', () => {
       });
       await prismaA.workshopTaskLineItem.create({
         data: {
+          tenant_id: tenantA,
           workshop_task_id: task.id,
           type: 'LABOR',
           item_no: 'KVA-LABOR-01',
@@ -6450,6 +6502,7 @@ describe('MCP server (e2e)', () => {
       );
       await prismaA.workshopTaskLineItem.create({
         data: {
+          tenant_id: tenantA,
           workshop_task_id: task.id,
           type: 'LABOR',
           item_no: 'KVA-LABOR-02',
@@ -6547,6 +6600,7 @@ describe('MCP server (e2e)', () => {
       });
       const order = await prismaA.workshopOrder.create({
         data: {
+          tenant_id: tenantA,
           order_number: `WO-FIND-${Date.now()}`,
           customer_id: fixtures.customerId,
           vehicle_id: fixtures.vehicleId,

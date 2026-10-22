@@ -59,6 +59,7 @@ describe('Loaner vehicles (e2e)', () => {
 
     const customer = await prisma.customer.create({
       data: {
+        tenant_id: tenant.tenantId,
         first_name: 'demo',
         last_name: 'customer',
         type: 'PRIVATE',
@@ -68,6 +69,7 @@ describe('Loaner vehicles (e2e)', () => {
 
     const loanerVehicleRecord = await prisma.vehicle.create({
       data: {
+        tenant_id: tenant.tenantId,
         customer_id: customerId,
         make: 'Skoda',
         model: 'Octavia',
@@ -268,6 +270,7 @@ describe('Loaner vehicles (e2e)', () => {
   it('rejects a workshop order from another site', async () => {
     const foreignCustomer = await prisma.customer.create({
       data: {
+        tenant_id: tenant.tenantId,
         first_name: 'demo',
         last_name: 'customer',
         type: 'PRIVATE',
@@ -275,6 +278,7 @@ describe('Loaner vehicles (e2e)', () => {
     });
     const foreignVehicle = await prisma.vehicle.create({
       data: {
+        tenant_id: tenant.tenantId,
         customer_id: foreignCustomer.id,
         make: 'Ford',
         model: 'Focus',
@@ -284,6 +288,7 @@ describe('Loaner vehicles (e2e)', () => {
     });
     const foreignOrder = await prisma.workshopOrder.create({
       data: {
+        tenant_id: tenant.tenantId,
         site_id: otherSiteId,
         customer_id: foreignCustomer.id,
         vehicle_id: foreignVehicle.id,
@@ -310,6 +315,7 @@ describe('Loaner vehicles (e2e)', () => {
     const otherSiteId = await resolveTestMainSiteId(basePrisma, otherTenant.tenantId);
     const foreignCustomer = await otherPrisma.customer.create({
       data: {
+        tenant_id: tenant.tenantId,
         first_name: 'demo',
         last_name: 'customer',
         type: 'PRIVATE',
@@ -317,6 +323,7 @@ describe('Loaner vehicles (e2e)', () => {
     });
     const foreignVehicle = await otherPrisma.vehicle.create({
       data: {
+        tenant_id: tenant.tenantId,
         customer_id: foreignCustomer.id,
         make: 'Seat',
         model: 'Leon',
@@ -326,6 +333,7 @@ describe('Loaner vehicles (e2e)', () => {
     });
     const foreignOrder = await otherPrisma.workshopOrder.create({
       data: {
+        tenant_id: tenant.tenantId,
         site_id: otherSiteId,
         customer_id: foreignCustomer.id,
         vehicle_id: foreignVehicle.id,
@@ -362,6 +370,7 @@ describe('Loaner vehicles (e2e)', () => {
     const otherPrisma = createTenantAwarePrisma(basePrisma, otherTenant.tenantId);
     const foreignCustomer = await otherPrisma.customer.create({
       data: {
+        tenant_id: tenant.tenantId,
         first_name: 'demo',
         last_name: 'customer',
         type: 'PRIVATE',
@@ -440,7 +449,7 @@ describe('Loaner vehicles (e2e)', () => {
       });
 
     await request(app.getHttpServer())
-      .post(`/api/workshop/loaner-bookings/${created.id}/cancel`)
+      .post(`/api/workshop/loaner-bookings/${created.body.id}/cancel`)
       .set('Authorization', `Bearer ${mechanicToken}`)
       .expect(403);
   });
@@ -523,6 +532,7 @@ describe('Loaner vehicles (e2e)', () => {
     const otherPrisma = createTenantAwarePrisma(basePrisma, otherTenant.tenantId);
     const foreignVehicle = await otherPrisma.vehicle.create({
       data: {
+        tenant_id: tenant.tenantId,
         make: 'Audi',
         model: 'A3',
         year: 2020,
@@ -607,6 +617,7 @@ describe('Loaner vehicles (e2e)', () => {
   it('clears workshop_order_id but keeps tenant when the order is deleted', async () => {
     const vehicle = await prisma.vehicle.create({
       data: {
+        tenant_id: tenant.tenantId,
         customer_id: customerId,
         make: 'VW',
         model: 'Polo',
@@ -616,6 +627,7 @@ describe('Loaner vehicles (e2e)', () => {
     });
     const workshopOrder = await prisma.workshopOrder.create({
       data: {
+        tenant_id: tenant.tenantId,
         site_id: siteId,
         customer_id: customerId,
         vehicle_id: vehicle.id,
@@ -780,13 +792,19 @@ describe('Loaner vehicles (e2e)', () => {
 
     async function createPackageBay(name: string) {
       return prisma.bay.create({
-        data: { site_id: siteId, name, is_active: true },
+        data: {
+          tenant_id: tenant.tenantId,
+          site_id: siteId,
+          name,
+          is_active: true,
+        },
       });
     }
 
     async function createPackageVehicle(plate: string) {
       return prisma.vehicle.create({
         data: {
+          tenant_id: tenant.tenantId,
           customer_id: customerId,
           make: 'Seat',
           model: 'Leon',
@@ -1074,6 +1092,7 @@ describe('Loaner vehicles (e2e)', () => {
       const ordersBefore = await countSiteOrders();
       await prisma.workshopOrder.create({
         data: {
+          tenant_id: tenant.tenantId,
           site_id: siteId,
           customer_id: customerId,
           vehicle_id: blocker.id,
