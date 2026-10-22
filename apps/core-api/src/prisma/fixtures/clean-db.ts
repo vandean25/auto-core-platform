@@ -1,3 +1,4 @@
+import { enableLegacyMigrationPurgeFlag } from './legacy-migration-purge-flag.js';
 import type { SeedPrismaClient } from './types.js';
 import {
   DEMO_GEWAHRLEISTUNG_PURCHASE_NUMBERS,
@@ -170,8 +171,14 @@ export const TABLE_CLEANERS: TableCleaner[] = [
   },
   { table: 'sales_orders', clean: (p) => p.salesOrder.deleteMany() },
   { table: 'fiscal_registers', clean: (p) => p.fiscalRegister.deleteMany() },
+  {
+    table: 'legacy_document_lines',
+    clean: (p) => p.legacyDocumentLine.deleteMany(),
+  },
+  { table: 'legacy_documents', clean: (p) => p.legacyDocument.deleteMany() },
   { table: 'import_job_rows', clean: (p) => p.importJobRow.deleteMany() },
   { table: 'import_jobs', clean: (p) => p.importJob.deleteMany() },
+  { table: 'migration_runs', clean: (p) => p.migrationRun.deleteMany() },
   {
     table: 'import_mapping_profiles',
     clean: (p) => p.importMappingProfile.deleteMany(),
@@ -502,11 +509,22 @@ export async function cleanDb(prisma: SeedPrismaClient): Promise<string[]> {
   const existingTables = await getExistingTables(prisma);
   const cleaned: string[] = [];
 
-  for (const cleaner of TABLE_CLEANERS) {
-    if (existingTables.has(cleaner.table)) {
-      await cleaner.clean(prisma);
-      cleaned.push(cleaner.table);
+  const runCleaners = async (client: SeedPrismaClient) => {
+    for (const cleaner of TABLE_CLEANERS) {
+      if (existingTables.has(cleaner.table)) {
+        await cleaner.clean(client);
+        cleaned.push(cleaner.table);
+      }
     }
+  };
+
+  if (typeof prisma.$transaction === 'function') {
+    await prisma.$transaction(async (tx) => {
+      await enableLegacyMigrationPurgeFlag(tx);
+      await runCleaners(tx as SeedPrismaClient);
+    });
+  } else {
+    await runCleaners(prisma);
   }
 
   return cleaned;

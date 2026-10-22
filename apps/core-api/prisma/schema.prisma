@@ -181,6 +181,9 @@ model Tenant {
   documentBrandExtractions      DocumentBrandExtraction[]
   importJobs                    ImportJob[]
   importJobRows                 ImportJobRow[]
+  migrationRuns                 MigrationRun[]
+  legacyDocuments               LegacyDocument[]
+  legacyDocumentLines           LegacyDocumentLine[]
   externalIdMappings            ExternalIdMapping[]
   importMappingProfiles         ImportMappingProfile[]
   agentPolicyRules              AgentPolicyRule[]
@@ -484,6 +487,8 @@ model LegalEntity {
   workshopEstimateAssetRefs  WorkshopEstimateBrandAssetReference[]
   invoices                    Invoice[]
   creditNotes                 CreditNote[]
+  migrationRuns               MigrationRun[]
+  legacyDocuments             LegacyDocument[]
   customerConsents            CustomerConsent[]
   customerCommunicationStates CustomerCommunicationState[]
   customerConsentUnsubscribeTokens CustomerConsentUnsubscribeToken[]
@@ -871,6 +876,7 @@ model Site {
   fiscal_register          FiscalRegister?
   payments                 Payment[]
   domainEvents             DomainEvent[]
+  legacyDocuments          LegacyDocument[]
   createdAt                DateTime              @default(now())
   updatedAt                DateTime              @updatedAt
 
@@ -1676,6 +1682,8 @@ model Customer {
   consent_events           CustomerConsent[]
   communication_states     CustomerCommunicationState[]
   consent_unsubscribe_tokens CustomerConsentUnsubscribeToken[]
+  legacyDocumentsAsCustomer  LegacyDocument[] @relation("LegacyDocumentCustomer")
+  legacyDocumentsAsBillTo    LegacyDocument[] @relation("LegacyDocumentBillTo")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1856,6 +1864,7 @@ model Vehicle {
   listings                       VehicleListing[]
   tyre_sets                      TyreSet[]
   appliedRegistrationIntakes     RegistrationDocumentIntake[] @relation("RegistrationIntakeAppliedVehicle")
+  legacyDocuments                LegacyDocument[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -4888,6 +4897,148 @@ enum ImportRowAction {
   ERROR
 }
 
+enum CostBearer {
+  CUSTOMER
+  WARRANTY
+  GOODWILL
+  INTERNAL
+}
+
+enum LegacyDocumentType {
+  INVOICE
+  CREDIT_MEMO
+  SERVICE_ORDER
+  QUOTE
+  OPEN_ITEM
+  WARRANTY_CLAIM
+  SERVICE_CONTRACT
+  TYRE_ORDER
+  VEHICLE_HISTORY_SUMMARY
+}
+
+enum LegacyDocumentOrigin {
+  SOURCE
+  PRIOR_SYSTEM
+}
+
+enum LegacyDocumentLineType {
+  LABOR
+  PART
+  EXTERNAL_SERVICE
+  FEE
+  TEXT
+}
+
+enum MigrationRunStatus {
+  DRAFT
+  DRY_RUN_DONE
+  SIGNED_OFF
+  APPLIED
+  FAILED
+}
+
+model MigrationRun {
+  id               String             @id @default(uuid()) @db.Uuid
+  tenant_id        String
+  tenant           Tenant             @relation(fields: [tenant_id], references: [id])
+  source_system    String
+  legal_entity_id  String
+  legal_entity     LegalEntity        @relation(fields: [tenant_id, legal_entity_id], references: [tenant_id, id])
+  name             String
+  cutover_date     DateTime           @db.Date
+  status           MigrationRunStatus @default(DRAFT)
+  manifest_json    Json
+  manifest_sha256  String             @db.Char(64)
+  signed_off_by    String?
+  signed_off_at    DateTime?
+  created_at       DateTime           @default(now())
+  import_jobs      ImportJob[]
+  legacy_documents LegacyDocument[]   @relation("LegacyDocumentMigrationRun")
+  superseded_legacy_documents LegacyDocument[] @relation("LegacyDocumentSupersededByRun")
+
+  @@unique([tenant_id, id])
+  @@index([tenant_id])
+  @@map("migration_runs")
+}
+
+/// Partial unique indexes for legacy document identity are defined in migration SQL only — do not drop via Prisma drift.
+/// OPEN_ITEM rows require `migration_run_id` (`legacy_documents_open_item_requires_migration_run_check` in migration SQL only).
+model LegacyDocument {
+  id                    String               @id @default(uuid()) @db.Uuid
+  tenant_id             String
+  tenant                Tenant               @relation(fields: [tenant_id], references: [id])
+  site_id               String?
+  site                  Site?                @relation(fields: [tenant_id, site_id], references: [tenant_id, id])
+  legal_entity_id       String?
+  legal_entity          LegalEntity?         @relation(fields: [tenant_id, legal_entity_id], references: [tenant_id, id])
+  source_system         String
+  external_id           String
+  doc_type              LegacyDocumentType
+  origin                LegacyDocumentOrigin
+  doc_no                String
+  doc_date              DateTime             @db.Date
+  order_no              String?
+  customer_id           String?
+  customer              Customer?            @relation("LegacyDocumentCustomer", fields: [tenant_id, customer_id], references: [tenant_id, id])
+  bill_to_customer_id   String?
+  bill_to_customer      Customer?            @relation("LegacyDocumentBillTo", fields: [tenant_id, bill_to_customer_id], references: [tenant_id, id])
+  vehicle_id            String?
+  vehicle               Vehicle?             @relation(fields: [tenant_id, vehicle_id], references: [tenant_id, id])
+  vin_snapshot          String?
+  mileage               Int?
+  currency              String
+  net_total             Decimal              @db.Decimal(10, 2)
+  vat_total             Decimal              @db.Decimal(10, 2)
+  gross_total           Decimal              @db.Decimal(10, 2)
+  remaining_amount      Decimal?             @db.Decimal(10, 2)
+  due_date              DateTime?            @db.Date
+  payload_json          Json
+  payload_sha256        String               @db.Char(64)
+  file_ref              String?
+  file_sha256           String?              @db.Char(64)
+  retain_until          DateTime             @db.Date
+  legal_hold            Boolean              @default(false)
+  import_job_id         String
+  import_job            ImportJob            @relation(fields: [tenant_id, import_job_id], references: [tenant_id, id])
+  migration_run_id      String?              @db.Uuid
+  migration_run         MigrationRun?        @relation("LegacyDocumentMigrationRun", fields: [tenant_id, migration_run_id], references: [tenant_id, id])
+  superseded_by_run_id  String?              @db.Uuid
+  superseded_by_run     MigrationRun?        @relation("LegacyDocumentSupersededByRun", fields: [tenant_id, superseded_by_run_id], references: [tenant_id, id])
+  created_at            DateTime             @default(now())
+  lines                 LegacyDocumentLine[]
+
+  @@unique([tenant_id, id])
+  @@index([tenant_id])
+  @@index([tenant_id, source_system, doc_type, external_id])
+  @@index([tenant_id, migration_run_id, external_id])
+  @@map("legacy_documents")
+}
+
+/// Write-once enforcement for legacy document lines is defined in migration SQL only — do not drop via Prisma drift.
+model LegacyDocumentLine {
+  tenant_id           String
+  tenant              Tenant               @relation(fields: [tenant_id], references: [id])
+  legacy_document_id  String               @db.Uuid
+  legacy_document     LegacyDocument       @relation(fields: [tenant_id, legacy_document_id], references: [tenant_id, id], onDelete: Cascade)
+  line_no             Int
+  line_type           LegacyDocumentLineType
+  job_no              String?
+  job_text            String?
+  code                String
+  description         String
+  quantity            Decimal              @db.Decimal(10, 3)
+  unit_price          Decimal              @db.Decimal(10, 2)
+  net                 Decimal              @db.Decimal(10, 2)
+  vat_rate            Decimal              @db.Decimal(5, 2)
+  vat_note            String?
+  cost_bearer         CostBearer?
+  payload_json        Json
+
+  @@id([tenant_id, legacy_document_id, line_no])
+  @@index([tenant_id])
+  @@map("legacy_document_lines")
+}
+
 model ImportJob {
   id            String           @id @default(uuid())
   tenant_id     String
@@ -4903,9 +5054,12 @@ model ImportJob {
   created_by    String?
   createdAt     DateTime         @default(now())
   appliedAt     DateTime?
+  migration_run_id String?       @db.Uuid
+  migration_run    MigrationRun?  @relation(fields: [tenant_id, migration_run_id], references: [tenant_id, id])
   rows          ImportJobRow[]
   firstSeenExternalIdMappings ExternalIdMapping[]
   catalogPriceHistories       CatalogPriceHistory[]
+  legacyDocuments             LegacyDocument[]
 
   @@unique([tenant_id, id])
   @@index([tenant_id, createdAt])

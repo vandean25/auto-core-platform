@@ -1,5 +1,6 @@
 import type { Employee, EmployeeRole, TenantMemberRole } from '@prisma/client';
 import type { PrismaService } from '../src/prisma/prisma.service.js';
+import { enableLegacyMigrationPurgeFlag } from '../src/prisma/fixtures/legacy-migration-purge-flag.js';
 import { TenantContextStorage } from '../src/common/services/tenant-context.storage.js';
 import { randomUUID } from 'node:crypto';
 
@@ -516,6 +517,26 @@ export async function cleanupTestTenantGraph(
   await tenantPrisma.tyreSetEvent.deleteMany({});
   await tenantPrisma.tyreSet.deleteMany({});
   await tenantPrisma.tyreStorageSettings.deleteMany({});
+
+  await runWithTenantContext(tenantId, async () => {
+    await prisma.$transaction(async (tx) => {
+      await enableLegacyMigrationPurgeFlag(tx);
+      await tx.legacyDocumentLine.deleteMany({
+        where: { tenant_id: tenantId },
+      });
+      await tx.legacyDocument.deleteMany({
+        where: { tenant_id: tenantId },
+      });
+      await tx.importJob.updateMany({
+        where: { tenant_id: tenantId },
+        data: { migration_run_id: null },
+      });
+      await tx.migrationRun.deleteMany({
+        where: { tenant_id: tenantId },
+      });
+    });
+  });
+
   await tenantPrisma.importJobRow.deleteMany({});
   await tenantPrisma.externalIdMapping.deleteMany({});
   await tenantPrisma.importJob.deleteMany({});

@@ -831,6 +831,8 @@ WHERE ${quoteIdentifier('tenant_id')} = current_setting('app.target_tenant_id');
   return `${renderSchemaCheckSql(manifest)}
 BEGIN;
 
+SELECT set_config('acp.allow_purge', 'on', true);
+
 ${prePurge}
 
 ${selfStatements}

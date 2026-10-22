@@ -33,7 +33,6 @@ VALUES
   ('domain_event_consumer_progress'),
   ('employees'),
   ('finance_settings'),
-  ('import_jobs'),
   ('import_mapping_profiles'),
   ('inspection_catalogue_versions'),
   ('inspection_templates'),
@@ -61,21 +60,19 @@ VALUES
   ('customers'),
   ('document_brand_assets'),
   ('employee_leave_balances'),
-  ('external_id_mappings'),
-  ('import_job_rows'),
   ('inspection_catalogue_entries'),
   ('inspection_template_items'),
   ('labor_operations'),
   ('leave_requests'),
   ('legal_entity_accounting_profiles'),
   ('margin_rules'),
+  ('migration_runs'),
   ('parts_requisitions'),
   ('purchase_invoices'),
   ('sites'),
   ('vehicle_make_aliases'),
   ('voice_note_rate_limits'),
   ('bays'),
-  ('catalog_price_histories'),
   ('customer_communication_states'),
   ('customer_consent_unsubscribe_tokens'),
   ('customer_contact_points'),
@@ -83,6 +80,7 @@ VALUES
   ('domain_events'),
   ('employee_work_schedules'),
   ('fiscal_registers'),
+  ('import_jobs'),
   ('inspection_catalogue_imports'),
   ('inspection_device_sources'),
   ('inspection_source_connections'),
@@ -98,10 +96,13 @@ VALUES
   ('vendor_articles'),
   ('workshop_holidays'),
   ('workshop_opening_hours'),
+  ('catalog_price_histories'),
   ('customer_consents'),
   ('document_brand_profiles'),
   ('domain_event_consumer_deliveries'),
   ('employee_work_schedule_days'),
+  ('external_id_mappings'),
+  ('import_job_rows'),
   ('inspection_device_evidence'),
   ('inventory_stocks'),
   ('purchase_order_items'),
@@ -110,6 +111,7 @@ VALUES
   ('vehicles'),
   ('inspection_exchange_imports'),
   ('inspection_report_identities'),
+  ('legacy_documents'),
   ('loaner_vehicles'),
   ('purchase_invoice_lines'),
   ('sales_orders'),
@@ -121,6 +123,7 @@ VALUES
   ('external_inspection_results'),
   ('inspection_exchange_events'),
   ('inspection_measurement_identities'),
+  ('legacy_document_lines'),
   ('loaner_bookings'),
   ('notification_outbox'),
   ('registration_document_intakes'),
@@ -297,6 +300,7 @@ VALUES
   ('fiscal_registers', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('import_job_rows', 'import_jobs', 'tenant_id,import_job_id', 'tenant_id,id', 'CASCADE', 'CASCADE'),
   ('import_job_rows', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('import_jobs', 'migration_runs', 'tenant_id,migration_run_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('import_jobs', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('import_mapping_profiles', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('inspection_catalogue_entries', 'inspection_catalogue_versions', 'tenant_id,catalogue_version_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
@@ -390,6 +394,17 @@ VALUES
   ('landing_demo_sign_in_grants', 'users', 'user_id', 'id', 'RESTRICT', 'CASCADE'),
   ('leave_requests', 'employees', 'tenant_id,employee_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('leave_requests', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('legacy_document_lines', 'legacy_documents', 'tenant_id,legacy_document_id', 'tenant_id,id', 'CASCADE', 'CASCADE'),
+  ('legacy_document_lines', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('legacy_documents', 'customers', 'tenant_id,bill_to_customer_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('legacy_documents', 'customers', 'tenant_id,customer_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('legacy_documents', 'import_jobs', 'tenant_id,import_job_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('legacy_documents', 'legal_entities', 'tenant_id,legal_entity_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('legacy_documents', 'migration_runs', 'tenant_id,migration_run_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('legacy_documents', 'migration_runs', 'tenant_id,superseded_by_run_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('legacy_documents', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('legacy_documents', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('legacy_documents', 'vehicles', 'tenant_id,vehicle_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('legal_entities', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('legal_entity_accounting_profiles', 'legal_entities', 'tenant_id,legal_entity_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('legal_entity_accounting_profiles', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
@@ -406,6 +421,8 @@ VALUES
   ('margin_rules', 'revenue_groups', 'revenue_group_id', 'id', 'SET NULL', 'CASCADE'),
   ('margin_rules', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('mcp_write_command_receipts', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('migration_runs', 'legal_entities', 'tenant_id,legal_entity_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('migration_runs', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('notification_outbox', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('notification_outbox', 'workshop_orders', 'tenant_id,workshop_order_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('part_fitments', 'master_parts', 'master_part_id', 'id', 'CASCADE', 'CASCADE'),
@@ -784,6 +801,8 @@ COMMIT;
 
 BEGIN;
 
+SELECT set_config('acp.allow_purge', 'on', true);
+
 UPDATE public."users"
 SET "active_tenant_id" = NULL
 WHERE "active_tenant_id" = current_setting('app.target_tenant_id');
@@ -899,6 +918,8 @@ DELETE FROM public."notification_outbox"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."loaner_bookings"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."legacy_document_lines"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inspection_measurement_identities"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inspection_exchange_events"
@@ -921,6 +942,8 @@ DELETE FROM public."purchase_invoice_lines"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."loaner_vehicles"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."legacy_documents"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inspection_report_identities"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inspection_exchange_imports"
@@ -937,6 +960,10 @@ DELETE FROM public."inventory_stocks"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inspection_device_evidence"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."import_job_rows"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."external_id_mappings"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."employee_work_schedule_days"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."domain_event_consumer_deliveries"
@@ -944,6 +971,8 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."document_brand_profiles"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."customer_consents"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."catalog_price_histories"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_opening_hours"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
@@ -975,6 +1004,8 @@ DELETE FROM public."inspection_device_sources"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inspection_catalogue_imports"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."import_jobs"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."fiscal_registers"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."employee_work_schedules"
@@ -989,8 +1020,6 @@ DELETE FROM public."customer_consent_unsubscribe_tokens"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."customer_communication_states"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."catalog_price_histories"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."bays"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."voice_note_rate_limits"
@@ -1003,6 +1032,8 @@ DELETE FROM public."purchase_invoices"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."parts_requisitions"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."migration_runs"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."margin_rules"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."legal_entity_accounting_profiles"
@@ -1014,10 +1045,6 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inspection_template_items"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inspection_catalogue_entries"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."import_job_rows"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."external_id_mappings"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."employee_leave_balances"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
@@ -1073,8 +1100,6 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inspection_catalogue_versions"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."import_mapping_profiles"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."import_jobs"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."finance_settings"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
