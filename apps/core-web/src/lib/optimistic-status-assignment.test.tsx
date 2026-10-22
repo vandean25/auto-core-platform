@@ -53,6 +53,10 @@ function pending(url: string, method = 'GET') {
   return requests.filter((request) => request.url === url && request.method === method)
 }
 
+function unanswered(url: string, method = 'GET') {
+  return pending(url, method).filter((request) => !answered.has(request))
+}
+
 function nextRequest(url: string, method = 'GET'): Request {
   const request = pending(url, method).filter((candidate) => !answered.has(candidate)).at(-1)
   if (!request) throw new Error(`no pending ${method} ${url}`)
@@ -169,6 +173,57 @@ describe('optimistic workshop task status vs realtime echo', () => {
 
     const order = queryClient.getQueryData<WorkshopOrder>(workshopKeys.detail('order-1'))
     expect(order?.tasks?.[0]?.status).toBe('DONE')
+  })
+
+  it('clears rejected status after a queued notes save settles', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    queryClient.setQueryData(workshopKeys.detail('order-1'), createOrder('IN_PROGRESS'))
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    )
+    const { result } = renderHook(() => useUpdateWorkshopTask(), { wrapper })
+
+    act(() => {
+      void result.current
+        .mutateAsync({ orderId: 'order-1', taskId: 'task-1', status: 'DONE' })
+        .catch(() => undefined)
+      void result.current.mutateAsync({
+        orderId: 'order-1',
+        taskId: 'task-1',
+        mechanicNotes: 'Customer called back',
+      })
+    })
+    await settle()
+    expect(unanswered(TASK_PATCH_URL, 'PATCH')).toHaveLength(1)
+
+    await respond(TASK_PATCH_URL, 'PATCH', 409, { message: 'conflict' })
+    await waitFor(() => expect(unanswered(TASK_PATCH_URL, 'PATCH')).toHaveLength(1))
+
+    const notesPatch = unanswered(TASK_PATCH_URL, 'PATCH').find(
+      (request) => (request.body as { mechanicNotes?: string }).mechanicNotes !== undefined,
+    )
+    expect(notesPatch).toBeDefined()
+
+    notesPatch!.respond(200, {
+      ...createOrder('IN_PROGRESS'),
+      tasks: [
+        {
+          ...createOrder('IN_PROGRESS').tasks![0],
+          mechanicNotes: 'Customer called back',
+        },
+      ],
+    })
+    await settle()
+    await waitFor(() =>
+      expect(
+        queryClient.getQueryData<WorkshopOrder>(workshopKeys.detail('order-1'))?.tasks?.[0]?.status,
+      ).toBe('IN_PROGRESS'),
+    )
+    expect(
+      queryClient.getQueryData<WorkshopOrder>(workshopKeys.detail('order-1'))?.tasks?.[0]?.mechanicNotes,
+    ).toBe('Customer called back')
   })
 
   it('keeps the second optimistic status when the first task-status mutation settles', async () => {

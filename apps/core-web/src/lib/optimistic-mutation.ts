@@ -64,6 +64,10 @@ function revertExtraCaches<TVariables>(
   }
 }
 
+function getOptimisticMutationContext(mutation: Mutation): OptimisticContext<unknown> | undefined {
+  return mutation.state.context as OptimisticContext<unknown> | undefined
+}
+
 function countPendingMutationsForQueryKey(
   client: MutationFunctionContext['client'],
   queryKey: QueryKey,
@@ -74,7 +78,7 @@ function countPendingMutationsForQueryKey(
     .getAll()
     .filter((mutation) => {
       if (mutation.state.status !== 'pending') return false
-      const ctx = mutation.state.context as OptimisticContext<unknown> | undefined
+      const ctx = getOptimisticMutationContext(mutation)
       return ctx?.resolvedQueryKey !== undefined && hashKey(ctx.resolvedQueryKey) === target
     }).length
 }
@@ -178,8 +182,12 @@ export function optimisticMutationOptions<TCache, TVariables>({
       if (!context || context.skipped) return
       const snapshot = context.snapshot
       const id = entityId(variables)
-      const sameEntity = (mutation: Mutation) => entityId(mutation.state.variables as TVariables) === id
-      if (client.isMutating({ mutationKey, exact: true, predicate: sameEntity }) > 1) return
+      const sameEntityOptimistic = (mutation: Mutation) => {
+        const ctx = getOptimisticMutationContext(mutation)
+        if (ctx?.skipped) return false
+        return entityId(mutation.state.variables as TVariables) === id
+      }
+      if (client.isMutating({ mutationKey, exact: true, predicate: sameEntityOptimistic }) > 1) return
 
       if (snapshot !== undefined) {
         client.setQueryData<TCache>(context.resolvedQueryKey, (cache) =>
@@ -196,9 +204,9 @@ export function optimisticMutationOptions<TCache, TVariables>({
       context: OptimisticContext<TCache> | undefined,
       { client }: MutationFunctionContext,
     ) => {
-      if (context?.skipped) return
       const resolvedQueryKey = context?.resolvedQueryKey ?? resolveQueryKey(queryKey, variables)
-      invalidateSettledCaches(client, resolvedQueryKey, context?.extraSnapshots ?? [])
+      const extraSnapshots = context?.skipped ? [] : (context?.extraSnapshots ?? [])
+      invalidateSettledCaches(client, resolvedQueryKey, extraSnapshots)
     },
   }
 }

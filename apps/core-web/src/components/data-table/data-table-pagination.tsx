@@ -47,9 +47,7 @@ export function DataTablePagination<TData extends object>({
             </SelectContent>
           </Select>
         </div>
-      ) : (
-        <div />
-      )}
+      ) : null}
       <div className="flex items-center justify-end space-x-2">
         <Button
           variant="outline"
