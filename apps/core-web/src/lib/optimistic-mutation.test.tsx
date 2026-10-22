@@ -30,6 +30,7 @@ type Request = { url: string; method: string; body: unknown; respond: (status: n
 const BOARD_URL = '/api/workshop/board/active'
 const ASSIGN_URL = '/api/workshop/board/assign'
 const QUEUE_URL = '/api/test/queue'
+const PLANNER_URL = '/api/test/planner'
 
 /** Every fetch is a controlled promise: the test decides when and how each request answers. */
 let requests: Request[]
@@ -89,12 +90,18 @@ async function setup(initial: Order[]) {
         queryKey: [...mechanicQueueKeys.queue(), 'test'],
         queryFn: async () => (await fetchWithAuth(QUEUE_URL)).json() as Promise<unknown>,
       }),
+      // Under ['workshop'] like the board, but not refetched by the assign mutation itself.
+      planner: useQuery({
+        queryKey: workshopKeys.planner(),
+        queryFn: async () => (await fetchWithAuth(PLANNER_URL)).json() as Promise<unknown>,
+      }),
     }),
     { wrapper },
   )
   await waitFor(() => expect(mocks.socket.on).toHaveBeenCalledWith(ENTITY_UPDATED_EVENT, expect.any(Function)))
   await respond(BOARD_URL, 'GET', 200, board(...initial))
   await respond(QUEUE_URL, 'GET', 200, [])
+  await respond(PLANNER_URL, 'GET', 200, [])
   await waitFor(() => expect(view.result.current.board.data).toBeDefined())
 
   // Every value the board cache ever holds from here on, to prove it never flickers.
@@ -159,6 +166,7 @@ describe('optimistic board assignment vs. realtime echo', () => {
     await respond(BOARD_URL, 'GET', 200, board(orderOne('mech-2')))
 
     expect(mechanicOf('order-1')).toBe('mech-2')
+    expect(seen.length).toBeGreaterThan(0)
     expect(seen.every((snapshot) => snapshot['order-1'] === 'mech-2')).toBe(true)
   })
 
@@ -176,6 +184,7 @@ describe('optimistic board assignment vs. realtime echo', () => {
     await respond(BOARD_URL, 'GET', 200, board(orderOne('mech-2')))
 
     expect(mechanicOf('order-1')).toBe('mech-2')
+    expect(seen.length).toBeGreaterThan(0)
     expect(seen.every((snapshot) => snapshot['order-1'] === 'mech-2')).toBe(true)
     expect(pending(ASSIGN_URL, 'PATCH')).toHaveLength(1)
   })
@@ -203,6 +212,7 @@ describe('optimistic board assignment vs. realtime echo', () => {
     await respond(BOARD_URL, 'GET', 200, board(orderOne('mech-2')))
 
     expect(mechanicOf('order-1')).toBe('mech-2')
+    expect(seen.length).toBeGreaterThan(0)
     expect(seen.every((snapshot) => snapshot['order-1'] === 'mech-2')).toBe(true)
   })
 
@@ -259,10 +269,13 @@ describe('optimistic board assignment vs. realtime echo', () => {
     await drag('order-1', 'mech-2')
 
     emit('WORKSHOP_TASK') // e.g. another user's change
-    await waitFor(() => expect(pending(QUEUE_URL)).toHaveLength(2)) // unrelated to the board: applied at once
-    expect(pending(BOARD_URL)).toHaveLength(1) // the board part is deferred, not dropped
+    await waitFor(() => expect(pending(QUEUE_URL)).toHaveLength(2)) // not under the pending mutation: applied at once
+    await settle()
+    expect(pending(BOARD_URL)).toHaveLength(1) // under ['workshop']: deferred while the drag is in flight...
+    expect(pending(PLANNER_URL)).toHaveLength(1)
 
     await respond(ASSIGN_URL, 'PATCH', 200, {})
+    await waitFor(() => expect(pending(PLANNER_URL)).toHaveLength(2)) // ...and flushed, not dropped, once it settled
     await waitFor(() => expect(pending(BOARD_URL).length).toBeGreaterThan(1))
     // Another user moved order-2 in the meantime: the deferred refetch brings it in, our move stays.
     await respond(BOARD_URL, 'GET', 200, board(orderOne('mech-2'), orderTwo('mech-1')))

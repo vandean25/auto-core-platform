@@ -30,6 +30,9 @@ type OptimisticContext<TCache> = { snapshot: TCache | undefined }
  * - `onSettled`: refetches `queryKey`, but only once the last mutation of this key has settled.
  * - Mutations of one `mutationKey` run one after another (`scope`), so the server sees the user's order.
  *
+ * Do not pass your own `onMutate`/`onError`/`onSettled` after the spread (they would replace these), and do not
+ * invalidate `queryKey` in `onSuccess` (that refetch would overwrite a newer optimistic move).
+ *
  * Use `mutateAsync(...).catch(...)` for per-call error handling: callbacks passed to `mutate()` only
  * fire for the latest call of a hook instance.
  *
@@ -40,8 +43,10 @@ type OptimisticContext<TCache> = { snapshot: TCache | undefined }
  *     queryKey: rowKeys.list(),
  *     mutationKey: [...rowKeys.list(), 'status'],
  *     apply: (rows, { id, status }) => rows.map((r) => (r.id === id ? { ...r, status } : r)),
- *     revert: (rows, { id, status }, before) =>
- *       rows.map((r) => (r.id === id && r.status === status ? { ...r, status: before.find((b) => b.id === id)!.status } : r)),
+ *     revert: (rows, { id, status }, before) => {
+ *       const prev = before.find((b) => b.id === id)
+ *       return prev ? rows.map((r) => (r.id === id && r.status === status ? { ...r, status: prev.status } : r)) : rows
+ *     },
  *   }),
  *   mutationFn: patchStatus,
  * })

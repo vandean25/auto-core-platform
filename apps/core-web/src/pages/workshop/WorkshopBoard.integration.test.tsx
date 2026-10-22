@@ -13,6 +13,8 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 
 /** When set, the board/assign request waits for this promise (the test decides when the server answers). */
 let assignGate: Promise<Response> | null = null
+/** When set, board/active waits for this promise, so a rollback cannot be mistaken for a refetch. */
+let boardGate: Promise<Response> | null = null
 
 function createQueryClient() {
   return new QueryClient({
@@ -35,6 +37,7 @@ describe('WorkshopBoard integration', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     assignGate = null
+    boardGate = null
 
     vi.mocked(fetchWithAuth).mockImplementation(async (input, init) => {
       const url = typeof input === 'string' ? input : input.toString()
@@ -50,6 +53,7 @@ describe('WorkshopBoard integration', () => {
       }
 
       if (url === '/api/workshop/board/active') {
+        if (boardGate) return boardGate
         return jsonResponse({
           data: [
             {
@@ -150,6 +154,7 @@ describe('WorkshopBoard integration', () => {
     const assignTrigger = await screen.findByRole('button', {
       name: deWorkshop.orderCard.assignAria.replace('{{orderNumber}}', 'WO-2026-0001'),
     })
+    boardGate = new Promise<Response>(() => {}) // the board is loaded; any refetch from here on never answers
     fireEvent.keyDown(assignTrigger, { key: 'Enter' })
     fireEvent.click(await screen.findByTestId('assign-mechanic-mech-2'))
 

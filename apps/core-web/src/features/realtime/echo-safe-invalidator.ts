@@ -26,7 +26,7 @@ export function createEchoSafeInvalidator(queryClient: QueryClient) {
       if (isInFlight(queryKey)) deferred.set(hashKey(queryKey), queryKey)
       else invalidate(queryKey)
     },
-    /** Stops listening; anything still deferred is invalidated now so no update is lost. */
+    /** Stops listening; anything still deferred is invalidated now so no update is lost (the settle refetch heals a mid-drag teardown). */
     dispose() {
       unsubscribe()
       deferred.forEach(invalidate)
