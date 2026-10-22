@@ -172,6 +172,7 @@ describe('Vehicle stock trading (e2e)', () => {
       where: { id: created.body.id },
       select: { site_id: true },
     });
+    if (persisted.site_id === null) throw new Error('vehicle sale has no site');
     await prisma.siteMembership.updateMany({
       where: { site_id: persisted.site_id },
       data: { is_active: false },

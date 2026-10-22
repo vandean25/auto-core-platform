@@ -42,6 +42,7 @@ describe('Workshop Domain Models (e2e)', () => {
 
     const customer = await prisma.customer.create({
       data: {
+        tenant_id: tenantId,
         first_name: 'Domain',
         last_name: 'Tester',
         email: `workshop-domain-${Date.now()}@example.com`,
@@ -52,6 +53,7 @@ describe('Workshop Domain Models (e2e)', () => {
 
     const vehicle = await prisma.vehicle.create({
       data: {
+        tenant_id: tenantId,
         make: 'Skoda',
         model: 'Octavia',
         year: 2021,
@@ -63,6 +65,7 @@ describe('Workshop Domain Models (e2e)', () => {
 
     const mechanic = await prisma.employee.create({
       data: {
+        tenant_id: tenantId,
         name: 'Domain Mechanic',
         role: 'MECHANIC',
         is_active: true,
@@ -72,6 +75,7 @@ describe('Workshop Domain Models (e2e)', () => {
 
     const order = await prisma.workshopOrder.create({
       data: {
+        tenant_id: tenantId,
         order_number: `WO-DOMAIN-${Date.now()}`,
         site_id: siteId,
         customer_id: customerId,
@@ -86,6 +90,7 @@ describe('Workshop Domain Models (e2e)', () => {
 
     const task = await prisma.workshopTask.create({
       data: {
+        tenant_id: tenantId,
         workshop_order_id: orderId,
         title: 'Brake inspection task',
         status: 'NOT_STARTED',
@@ -108,6 +113,7 @@ describe('Workshop Domain Models (e2e)', () => {
   it('persists inspection templates, inspections, media metadata, and part execution status', async () => {
     const template = await prisma.inspectionTemplate.create({
       data: {
+        tenant_id: tenantId,
         code: `MPI-${Date.now()}`,
         title: 'Multi-point inspection',
         version: 1,
@@ -133,6 +139,7 @@ describe('Workshop Domain Models (e2e)', () => {
 
     const inspection = await prisma.workshopInspection.create({
       data: {
+        tenant_id: tenantId,
         workshop_order_id: orderId,
         workshop_task_id: taskId,
         inspection_template_id: template.id,
@@ -157,6 +164,7 @@ describe('Workshop Domain Models (e2e)', () => {
 
     const media = await prisma.workshopMedia.create({
       data: {
+        tenant_id: tenantId,
         workshop_order_id: orderId,
         workshop_task_id: taskId,
         uploaded_by_employee_id: mechanicId,
@@ -171,6 +179,7 @@ describe('Workshop Domain Models (e2e)', () => {
 
     const partLine = await prisma.workshopTaskLineItem.create({
       data: {
+        tenant_id: tenantId,
         workshop_task_id: taskId,
         type: 'PART',
         item_no: 'PAD-001',

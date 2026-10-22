@@ -224,7 +224,7 @@ describe('Vehicle stock trading (e2e)', () => {
             quantity: item.quantity.toString(),
             unit_price: item.unit_price.toFixed(2),
             tax_rate: item.tax_rate.toFixed(2),
-            line_total: item.line_total.toFixed(2),
+            line_total: item.line_total?.toFixed(2),
             revenue_group_name: item.revenue_group_name,
           })),
         }),
@@ -314,6 +314,7 @@ describe('Vehicle stock trading (e2e)', () => {
           select: { site_id: true },
         })
       ).site_id;
+      if (committedSiteId === null) throw new Error('committed invoice has no site');
       const inaccessibleSite = await createAdditionalLotSite({
         code: `PDF-HIDDEN-${Date.now()}`,
         grantMembership: true,

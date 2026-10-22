@@ -105,6 +105,7 @@ describe('Workshop check-in Annahme checklist (e2e)', () => {
 
     const customer = await prisma.customer.create({
       data: {
+        tenant_id: tenantId,
         first_name: 'Check',
         last_name: 'In',
         email: `aut563-${Date.now()}@example.com`,
@@ -113,6 +114,7 @@ describe('Workshop check-in Annahme checklist (e2e)', () => {
     });
     const vehicle = await prisma.vehicle.create({
       data: {
+        tenant_id: tenantId,
         make: 'Skoda',
         model: 'Octavia',
         year: 2021,
@@ -122,6 +124,7 @@ describe('Workshop check-in Annahme checklist (e2e)', () => {
     });
     const pickerlVehicle = await prisma.vehicle.create({
       data: {
+        tenant_id: tenantId,
         make: 'Skoda',
         model: 'Fabia',
         year: 2020,
@@ -131,6 +134,7 @@ describe('Workshop check-in Annahme checklist (e2e)', () => {
     });
     const order = await prisma.workshopOrder.create({
       data: {
+        tenant_id: tenantId,
         order_number: `WO-AUT563-${Date.now()}`,
         site_id: siteId,
         customer_id: customer.id,
@@ -249,6 +253,7 @@ describe('Workshop check-in Annahme checklist (e2e)', () => {
     }
     const raceOrder = await prisma.workshopOrder.create({
       data: {
+        tenant_id: tenantId,
         order_number: `WO-AUT563-RACE-${Date.now()}`,
         site_id: anchorOrder.site_id,
         customer_id: anchorOrder.customer_id,
@@ -364,6 +369,7 @@ describe('Workshop check-in Annahme checklist (e2e)', () => {
     }
     const legacyOrder = await prisma.workshopOrder.create({
       data: {
+        tenant_id: tenantId,
         order_number: `WO-AUT563-LEGACY-${Date.now()}`,
         site_id: anchorOrder.site_id,
         customer_id: anchorOrder.customer_id,

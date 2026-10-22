@@ -50,6 +50,7 @@ describe('Tyre storage (e2e)', () => {
 
     const customer = await tenantPrisma.customer.create({
       data: {
+        tenant_id: tenantId,
         first_name: 'Pilot',
         last_name: 'Customer',
         email: `pilot-${tenantId}@example.com`,

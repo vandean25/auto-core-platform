@@ -83,9 +83,10 @@ describe('Vehicle stock equipment (e2e)', () => {
       .set('Authorization', `Bearer ${suite.otherAuthToken}`)
       .expect(404);
 
+    const techFirebaseUid = `tech-equipment-${suite.tenantId}`;
     const techUser = await suite.basePrisma.user.create({
       data: {
-        firebaseUid: `tech-equipment-${suite.tenantId}`,
+        firebaseUid: techFirebaseUid,
         email: `tech-equipment-${suite.tenantId}@example.com`,
       },
     });
@@ -96,7 +97,7 @@ describe('Vehicle stock equipment (e2e)', () => {
     });
     const techToken = createTestAuthToken(suite.app.get(AuthService), {
       tenantId: suite.tenantId,
-      firebaseUid: techUser.firebaseUid,
+      firebaseUid: techFirebaseUid,
       email: techUser.email,
       role: 'TECH',
     });

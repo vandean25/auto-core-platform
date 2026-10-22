@@ -108,10 +108,16 @@ describe('Warranty claims (AUT-464, e2e)', () => {
   ): Promise<OrderFixture> {
     const suffix = uniqueSuffix();
     const customer = await prisma.customer.create({
-      data: { first_name: 'Demo', last_name: 'Kunde', type: 'PRIVATE' },
+      data: {
+        tenant_id: tenant.tenantId,
+        first_name: 'Demo',
+        last_name: 'Kunde',
+        type: 'PRIVATE',
+      },
     });
     const vehicle = await prisma.vehicle.create({
       data: {
+        tenant_id: tenant.tenantId,
         customer_id: customer.id,
         make: 'Demo',
         model: 'Roadster',
@@ -122,6 +128,7 @@ describe('Warranty claims (AUT-464, e2e)', () => {
     });
     const order = await prisma.workshopOrder.create({
       data: {
+        tenant_id: tenant.tenantId,
         site_id: options.siteId ?? siteId,
         customer_id: customer.id,
         vehicle_id: vehicle.id,
@@ -132,10 +139,15 @@ describe('Warranty claims (AUT-464, e2e)', () => {
       },
     });
     const task = await prisma.workshopTask.create({
-      data: { workshop_order_id: order.id, title: 'Kupplung prüfen' },
+      data: {
+        tenant_id: tenant.tenantId,
+        workshop_order_id: order.id,
+        title: 'Kupplung prüfen',
+      },
     });
     const laborLine = await prisma.workshopTaskLineItem.create({
       data: {
+        tenant_id: tenant.tenantId,
         workshop_task_id: task.id,
         type: 'LABOR',
         item_no: 'LAB-KUPPLUNG',
@@ -146,6 +158,7 @@ describe('Warranty claims (AUT-464, e2e)', () => {
     });
     const partLine = await prisma.workshopTaskLineItem.create({
       data: {
+        tenant_id: tenant.tenantId,
         workshop_task_id: task.id,
         type: 'PART',
         item_no: 'A1234567',
@@ -157,6 +170,7 @@ describe('Warranty claims (AUT-464, e2e)', () => {
     });
     const cancelledPartLine = await prisma.workshopTaskLineItem.create({
       data: {
+        tenant_id: tenant.tenantId,
         workshop_task_id: task.id,
         type: 'PART',
         item_no: 'B7654321',
@@ -181,10 +195,16 @@ describe('Warranty claims (AUT-464, e2e)', () => {
     const foreignPrisma = createTenantAwarePrisma(basePrisma, foreign.tenantId);
     const foreignSiteId = await resolveTestMainSiteId(basePrisma, foreign.tenantId);
     const customer = await foreignPrisma.customer.create({
-      data: { first_name: 'Demo', last_name: 'Fremd', type: 'PRIVATE' },
+      data: {
+        tenant_id: foreign.tenantId,
+        first_name: 'Demo',
+        last_name: 'Fremd',
+        type: 'PRIVATE',
+      },
     });
     const vehicle = await foreignPrisma.vehicle.create({
       data: {
+        tenant_id: foreign.tenantId,
         customer_id: customer.id,
         make: 'Demo',
         model: 'Roadster',
@@ -195,6 +215,7 @@ describe('Warranty claims (AUT-464, e2e)', () => {
     });
     const order = await foreignPrisma.workshopOrder.create({
       data: {
+        tenant_id: foreign.tenantId,
         site_id: foreignSiteId,
         customer_id: customer.id,
         vehicle_id: vehicle.id,
@@ -205,10 +226,15 @@ describe('Warranty claims (AUT-464, e2e)', () => {
       },
     });
     const task = await foreignPrisma.workshopTask.create({
-      data: { workshop_order_id: order.id, title: 'Fremde Aufgabe' },
+      data: {
+        tenant_id: foreign.tenantId,
+        workshop_order_id: order.id,
+        title: 'Fremde Aufgabe',
+      },
     });
     const line = await foreignPrisma.workshopTaskLineItem.create({
       data: {
+        tenant_id: foreign.tenantId,
         workshop_task_id: task.id,
         type: 'PART',
         item_no: 'FREMD-1',

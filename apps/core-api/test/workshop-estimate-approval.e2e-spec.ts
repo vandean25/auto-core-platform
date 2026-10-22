@@ -41,6 +41,7 @@ describe('Workshop estimate approval capture (e2e, AUT-355)', () => {
   async function createOrderWithLabor(qty = 2, unitPrice = 80) {
     const vehicle = await prisma.vehicle.create({
       data: {
+        tenant_id: tenantId,
         make: 'Skoda',
         model: 'Octavia',
         year: 2019,
@@ -154,6 +155,7 @@ describe('Workshop estimate approval capture (e2e, AUT-355)', () => {
 
     const customer = await prisma.customer.create({
       data: {
+        tenant_id: tenantId,
         first_name: 'Erika',
         last_name: 'Musterfrau',
         email: `ap-${Date.now()}@example.com`,

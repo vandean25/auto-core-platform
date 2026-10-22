@@ -68,6 +68,7 @@ describe('Workshop capacity week (e2e)', () => {
 
     const vehicle = await prisma.vehicle.create({
       data: {
+        tenant_id: tenantId,
         make: 'VW',
         model: 'Golf',
         year: 2021,
@@ -79,16 +80,29 @@ describe('Workshop capacity week (e2e)', () => {
 
     bayOneId = (
       await prisma.bay.create({
-        data: { name: 'Bay 1', site_id: siteId, is_active: true, sort_order: 1 },
+        data: {
+          tenant_id: tenantId,
+          name: 'Bay 1',
+          site_id: siteId,
+          is_active: true,
+          sort_order: 1,
+        },
       })
     ).id;
     bayTwoId = (
       await prisma.bay.create({
-        data: { name: 'Bay 2', site_id: siteId, is_active: true, sort_order: 2 },
+        data: {
+          tenant_id: tenantId,
+          name: 'Bay 2',
+          site_id: siteId,
+          is_active: true,
+          sort_order: 2,
+        },
       })
     ).id;
     const retiredBay = await prisma.bay.create({
       data: {
+        tenant_id: tenantId,
         name: 'Bay Retired',
         site_id: siteId,
         is_active: false,

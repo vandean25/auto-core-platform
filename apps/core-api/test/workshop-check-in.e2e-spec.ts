@@ -97,6 +97,7 @@ describe('Workshop check-in (e2e)', () => {
 
     const customer = await prisma.customer.create({
       data: {
+        tenant_id: tenantId,
         first_name: 'Pilot',
         last_name: 'Customer',
         email: `aut555-${Date.now()}@example.com`,
@@ -105,6 +106,7 @@ describe('Workshop check-in (e2e)', () => {
     });
     const vehicle = await prisma.vehicle.create({
       data: {
+        tenant_id: tenantId,
         make: 'VW',
         model: 'Golf',
         year: 2020,
@@ -114,6 +116,7 @@ describe('Workshop check-in (e2e)', () => {
     });
     const order = await prisma.workshopOrder.create({
       data: {
+        tenant_id: tenantId,
         order_number: `WO-AUT555-${Date.now()}`,
         site_id: siteId,
         customer_id: customer.id,
@@ -127,6 +130,7 @@ describe('Workshop check-in (e2e)', () => {
 
     const otherCustomer = await otherPrisma.customer.create({
       data: {
+        tenant_id: otherTenantId,
         first_name: 'Other',
         last_name: 'Tenant',
         email: `aut555-other-${Date.now()}@example.com`,
@@ -135,6 +139,7 @@ describe('Workshop check-in (e2e)', () => {
     });
     const otherVehicle = await otherPrisma.vehicle.create({
       data: {
+        tenant_id: otherTenantId,
         make: 'Audi',
         model: 'A3',
         year: 2019,
@@ -144,6 +149,7 @@ describe('Workshop check-in (e2e)', () => {
     });
     const otherOrder = await otherPrisma.workshopOrder.create({
       data: {
+        tenant_id: otherTenantId,
         order_number: `WO-AUT555-OTHER-${Date.now()}`,
         site_id: otherSiteId,
         customer_id: otherCustomer.id,

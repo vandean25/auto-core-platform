@@ -83,7 +83,7 @@ describe('Workshop estimate PDF (e2e)', () => {
     );
   }
 
-  function postWorker(versionId: string, payload: unknown) {
+  function postWorker(versionId: string, payload: object) {
     return api()
       .post(`/api/workshop/estimates/${versionId}/pdf/worker`)
       .set('x-cloud-tasks-secret', WORKER_SECRET)
@@ -125,6 +125,7 @@ describe('Workshop estimate PDF (e2e)', () => {
     // One open order per vehicle: every order gets its own vehicle.
     const vehicle = await prisma.vehicle.create({
       data: {
+        tenant_id: tenantId,
         make: 'Skoda',
         model: 'Octavia',
         year: 2019,
@@ -251,6 +252,7 @@ describe('Workshop estimate PDF (e2e)', () => {
 
     const customer = await prisma.customer.create({
       data: {
+        tenant_id: tenantId,
         first_name: 'Anna',
         last_name: 'Beispiel',
         email: `kv-pdf-${Date.now()}@example.com`,

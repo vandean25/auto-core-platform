@@ -46,6 +46,7 @@ describe('Vehicle NoVA calculation (e2e)', () => {
 
     const vehicleA = await tenantAPrisma.vehicle.create({
       data: {
+        tenant_id: tenantA.tenantId,
         make: 'Example',
         model: 'Preview A',
         year: 2024,
@@ -62,6 +63,7 @@ describe('Vehicle NoVA calculation (e2e)', () => {
 
     const vehicleWithoutCo2 = await tenantAPrisma.vehicle.create({
       data: {
+        tenant_id: tenantA.tenantId,
         make: 'Example',
         model: 'Preview without emissions',
         year: 2024,
@@ -74,6 +76,7 @@ describe('Vehicle NoVA calculation (e2e)', () => {
 
     const unparkedDealerVehicle = await tenantAPrisma.vehicle.create({
       data: {
+        tenant_id: tenantA.tenantId,
         make: 'Example',
         model: 'Unparked dealer vehicle',
         year: 2024,
@@ -89,6 +92,7 @@ describe('Vehicle NoVA calculation (e2e)', () => {
 
     const vehicleB = await tenantBPrisma.vehicle.create({
       data: {
+        tenant_id: tenantB.tenantId,
         make: 'Example',
         model: 'Preview B',
         year: 2024,

@@ -85,6 +85,7 @@ describe('Workshop check-in orphan upload cleanup (e2e)', () => {
 
     const customer = await prisma.customer.create({
       data: {
+        tenant_id: tenantId,
         first_name: 'Service',
         last_name: 'Guest',
         email: `aut562-${Date.now()}@example.com`,
@@ -93,6 +94,7 @@ describe('Workshop check-in orphan upload cleanup (e2e)', () => {
     });
     const vehicle = await prisma.vehicle.create({
       data: {
+        tenant_id: tenantId,
         make: 'VW',
         model: 'Polo',
         year: 2021,
@@ -102,6 +104,7 @@ describe('Workshop check-in orphan upload cleanup (e2e)', () => {
     });
     const order = await prisma.workshopOrder.create({
       data: {
+        tenant_id: tenantId,
         order_number: `WO-AUT562-${Date.now()}`,
         site_id: siteId,
         customer_id: customer.id,

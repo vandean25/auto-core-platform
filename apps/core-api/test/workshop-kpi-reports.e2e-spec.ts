@@ -52,20 +52,23 @@ describe('Workshop KPI reports (e2e)', () => {
     ).id);
 
     await runWithTenantContext(tenantId, async () => {
-      const owner = await prisma.user.create({ data: { firebaseUid: `kpi-owner-${tenantId}`, email: `kpi-owner-${tenantId}@test.local` } });
+      const ownerFirebaseUid = `kpi-owner-${tenantId}`;
+      const owner = await prisma.user.create({ data: { firebaseUid: ownerFirebaseUid, email: `kpi-owner-${tenantId}@test.local` } });
       await seedTestTenantMember(prisma, { tenantId, userId: owner.id, role: 'OWNER' });
       await prisma.siteMembership.create({ data: { tenant_id: tenantId, user_id: owner.id, site_id: tenantSiteId, is_active: true } });
-      ownerToken = auth.createTestToken({ sub: owner.firebaseUid, email: owner.email, tenantId, role: 'OWNER' });
+      ownerToken = auth.createTestToken({ sub: ownerFirebaseUid, email: owner.email, tenantId, role: 'OWNER' });
 
-      const user = await prisma.user.create({ data: { firebaseUid: `kpi-sales-${tenantId}`, email: `kpi-sales-${tenantId}@test.local` } });
+      const salesFirebaseUid = `kpi-sales-${tenantId}`;
+      const user = await prisma.user.create({ data: { firebaseUid: salesFirebaseUid, email: `kpi-sales-${tenantId}@test.local` } });
       await seedTestTenantMember(prisma, { tenantId, userId: user.id, role: 'SALES' });
       await prisma.siteMembership.create({ data: { tenant_id: tenantId, user_id: user.id, site_id: tenantSiteId, is_active: true } });
-      salesToken = auth.createTestToken({ sub: user.firebaseUid, email: user.email, tenantId, role: 'SALES' });
+      salesToken = auth.createTestToken({ sub: salesFirebaseUid, email: user.email, tenantId, role: 'SALES' });
 
-      const tech = await prisma.user.create({ data: { firebaseUid: `kpi-tech-${tenantId}`, email: `kpi-tech-${tenantId}@test.local` } });
+      const techFirebaseUid = `kpi-tech-${tenantId}`;
+      const tech = await prisma.user.create({ data: { firebaseUid: techFirebaseUid, email: `kpi-tech-${tenantId}@test.local` } });
       await seedTestTenantMember(prisma, { tenantId, userId: tech.id, role: 'TECH' });
       await prisma.siteMembership.create({ data: { tenant_id: tenantId, user_id: tech.id, site_id: tenantSiteId, is_active: true } });
-      techToken = auth.createTestToken({ sub: tech.firebaseUid, email: tech.email, tenantId, role: 'TECH' });
+      techToken = auth.createTestToken({ sub: techFirebaseUid, email: tech.email, tenantId, role: 'TECH' });
     });
   });
 
