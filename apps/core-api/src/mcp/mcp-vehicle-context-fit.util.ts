@@ -5,10 +5,11 @@ import {
   encodeMcpVehicleContextCursor,
   MCP_VEHICLE_CONTEXT_PAGINATED_SECTIONS,
   type McpVehicleContextPaginatedSection,
+  type McpVehicleContextSection,
 } from './mcp-vehicle-context.mapper.js';
 import type { McpKeysetCursor } from './mcp-output.util.js';
 
-type OkSection = {
+export type VehicleContextPaginatedOkSection = {
   state: 'ok';
   data: unknown[];
   meta?: {
@@ -20,12 +21,44 @@ type OkSection = {
   incomplete?: boolean;
 };
 
+export type VehicleContextIdentityOkSection = {
+  state: 'ok';
+  data: Record<string, unknown>;
+};
+
+export type VehicleContextSectionUnavailable = {
+  state: 'unavailable';
+  reason: 'active_site_required';
+  message: string;
+};
+
+export type VehicleContextSectionError = {
+  state: 'error';
+  message: string;
+};
+
+export type VehicleContextPaginatedSectionResult =
+  | VehicleContextPaginatedOkSection
+  | VehicleContextSectionUnavailable
+  | VehicleContextSectionError;
+
+type VehicleContextIdentitySectionResult =
+  | VehicleContextIdentityOkSection
+  | VehicleContextSectionUnavailable
+  | VehicleContextSectionError;
+
+export type VehicleContextSections = {
+  [K in McpVehicleContextSection]?: K extends 'identity'
+    ? VehicleContextIdentitySectionResult
+    : VehicleContextPaginatedSectionResult;
+};
+
 export type VehicleContextPayload = {
   vehicle_id: string;
   as_of: string;
   disclaimer: string;
   site_id: string | null;
-  sections: Partial<Record<string, OkSection | { state: string }>>;
+  sections: VehicleContextSections;
 };
 
 function serializedBytes(value: unknown): number {
@@ -33,8 +66,8 @@ function serializedBytes(value: unknown): number {
 }
 
 function isOkPaginatedSection(
-  section: OkSection | { state: string } | undefined,
-): section is OkSection {
+  section: VehicleContextPaginatedSectionResult | undefined,
+): section is VehicleContextPaginatedOkSection {
   return (
     section !== undefined &&
     section.state === 'ok' &&
@@ -98,7 +131,7 @@ function keysetForRow(
 }
 
 function trimSectionRow(
-  section: OkSection,
+  section: VehicleContextPaginatedOkSection,
   sectionName: McpVehicleContextPaginatedSection,
 ) {
   if (!Array.isArray(section.data) || section.data.length === 0) {
@@ -149,7 +182,9 @@ export function fitVehicleContextPayloadToCap(
       }
     }
     if (largestSection && largestLength > 0) {
-      const section = result.sections[largestSection] as OkSection;
+      const section = result.sections[
+        largestSection
+      ] as VehicleContextPaginatedOkSection;
       trimmed = trimSectionRow(section, largestSection);
     }
     if (!trimmed) {

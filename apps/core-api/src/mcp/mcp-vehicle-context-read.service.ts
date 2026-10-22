@@ -34,7 +34,11 @@ import {
   toMcpWarrantyClaimContextRow,
   toMcpWarrantyPeriodRow,
 } from './mcp-vehicle-context.mapper.js';
-import { fitVehicleContextPayloadToCap } from './mcp-vehicle-context-fit.util.js';
+import {
+  fitVehicleContextPayloadToCap,
+  type VehicleContextPaginatedSectionResult,
+  type VehicleContextSections,
+} from './mcp-vehicle-context-fit.util.js';
 import type { getVehicleContextInputSchema } from './mcp-tool-schemas.js';
 
 type GetVehicleContextInput = z.infer<typeof getVehicleContextInputSchema>;
@@ -44,25 +48,6 @@ type SectionUnavailable = {
   reason: 'active_site_required';
   message: string;
 };
-
-type SectionError = {
-  state: 'error';
-  message: string;
-};
-
-type SectionOk<T> = {
-  state: 'ok';
-  data: T;
-  meta?: {
-    total: number;
-    page_size: number;
-    next_cursor: string | null;
-  };
-  truncated?: boolean;
-  incomplete?: boolean;
-};
-
-type SectionResult<T> = SectionOk<T> | SectionUnavailable | SectionError;
 
 const ACTIVE_SITE_REQUIRED_MESSAGE =
   'An active site is required for this section.';
@@ -159,9 +144,7 @@ export class McpVehicleContextReadService {
     }
 
     const siteId = await this.siteContext.findSiteId();
-    const sections: Partial<
-      Record<McpVehicleContextSection, SectionResult<unknown>>
-    > = {};
+    const sections: VehicleContextSections = {};
 
     if (requested.includes('identity') && shouldLoad('identity')) {
       const latestInspection =
@@ -301,7 +284,7 @@ export class McpVehicleContextReadService {
     pageSize: number,
     asOf: Date,
     cursor: McpKeysetCursor | null,
-  ): Promise<SectionResult<unknown>> {
+  ): Promise<VehicleContextPaginatedSectionResult> {
     const cursorWhere = cursor ? { AND: [inspectionsOlderThan(cursor)] } : {};
     const [total, records] = await Promise.all([
       this.prisma.vehicleInspectionRecord.count({
@@ -355,7 +338,7 @@ export class McpVehicleContextReadService {
     vehicleId: string,
     pageSize: number,
     cursor: McpKeysetCursor | null,
-  ): Promise<SectionResult<unknown>> {
+  ): Promise<VehicleContextPaginatedSectionResult> {
     const baseWhere: Prisma.WorkshopOrderWhereInput = {
       tenant_id: tenantId,
       site_id: siteId,
@@ -413,7 +396,7 @@ export class McpVehicleContextReadService {
     vehicleId: string,
     pageSize: number,
     cursor: McpKeysetCursor | null,
-  ): Promise<SectionResult<unknown>> {
+  ): Promise<VehicleContextPaginatedSectionResult> {
     const [documents, total] = await Promise.all([
       this.documentReads.listDocuments({
         entity_type: 'vehicle',
@@ -500,7 +483,7 @@ export class McpVehicleContextReadService {
     vehicleId: string,
     pageSize: number,
     cursor: McpKeysetCursor | null,
-  ): Promise<SectionResult<unknown>> {
+  ): Promise<VehicleContextPaginatedSectionResult> {
     const orderScope = {
       tenant_id: tenantId,
       site_id: siteId,
@@ -563,7 +546,7 @@ export class McpVehicleContextReadService {
     asOf: Date,
     pageSize: number,
     cursor: McpKeysetCursor | null,
-  ): Promise<SectionResult<unknown>> {
+  ): Promise<VehicleContextPaginatedSectionResult> {
     const today = viennaIsoDay(asOf);
     const baseWhere: Prisma.VehicleSaleWhereInput = {
       tenant_id: tenantId,

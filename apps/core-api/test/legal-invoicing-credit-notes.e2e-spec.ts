@@ -184,7 +184,10 @@ describe('Legal invoicing credit notes (e2e)', () => {
       ],
       tax_breakdown: [
         {
-          rate: item.tax_rate,
+          rate:
+            typeof item.tax_rate === 'string' || typeof item.tax_rate === 'number'
+              ? item.tax_rate
+              : String(item.tax_rate),
           net: '0.05',
           tax: '0.01',
           gross: '0.06',
