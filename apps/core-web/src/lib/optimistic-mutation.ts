@@ -49,7 +49,7 @@ type OptimisticContext<TCache> = { snapshot: TCache | undefined }
  *     apply: (rows, { id, status }) => rows.map((r) => (r.id === id ? { ...r, status } : r)),
  *     revert: (rows, { id, status }, before) => {
  *       const prev = before.find((b) => b.id === id)
- *       return prev ? rows.map((r) => (r.id === id && r.status === status ? { ...r, status: prev.status } : r)) : rows
+ *       return prev ? rows.map((r) => (r.id === id ? { ...r, status: prev.status } : r)) : rows
  *     },
  *   }),
  *   mutationFn: patchStatus,
@@ -83,7 +83,8 @@ export function optimisticMutationOptions<TCache, TVariables>({
       const snapshot = context?.snapshot
       if (snapshot === undefined) return
       // Scope runs mutations in order, so any other pending one of this entity is newer; this one is still counted.
-      const sameEntity = (mutation: Mutation) => entityId(mutation.state.variables as TVariables) === entityId(variables)
+      const id = entityId(variables)
+      const sameEntity = (mutation: Mutation) => entityId(mutation.state.variables as TVariables) === id
       if (client.isMutating({ mutationKey, exact: true, predicate: sameEntity }) > 1) return
       client.setQueryData<TCache>(queryKey, (cache) =>
         cache === undefined ? cache : revert(cache, variables, snapshot),

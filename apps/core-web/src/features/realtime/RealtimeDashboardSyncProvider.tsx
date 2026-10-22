@@ -169,8 +169,7 @@ export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyn
       })
     }
 
-    // onClaimsUpdated and onSiteContextUpdated bypass the echo filter on purpose: they change the user's claims or
-    // active site, so all cached data (and any optimistic state) belongs to the old context and must refetch at once.
+    // onClaimsUpdated and onSiteContextUpdated skip the echo filter: they switch the user's context, so all cached data is stale at once.
     const onClaimsUpdated = (payload: unknown) => {
       if (!isClaimsUpdatedPayload(payload)) return
 

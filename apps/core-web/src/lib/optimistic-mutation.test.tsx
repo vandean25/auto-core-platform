@@ -299,7 +299,7 @@ describe('optimistic board assignment vs. realtime echo', () => {
     expect(mechanicOf('order-1')).toBe('mech-2')
   })
 
-  it('(c) a second mutation of the board settling does not refetch over a pending drag', async () => {
+  it('(c2) a second mutation of the board settling does not refetch over a pending drag', async () => {
     const { view, drag, mechanicOf } = await setup([orderOne()])
     await drag('order-1', 'mech-2')
 
@@ -314,7 +314,7 @@ describe('optimistic board assignment vs. realtime echo', () => {
     await waitFor(() => expect(pending(BOARD_URL).length).toBeGreaterThan(1))
   })
 
-  it('(d) A to B, B to A, A to B with the first rejected: the card stays on B', async () => {
+  it('(d2) A to B, B to A, A to B with the first rejected: the card stays on B', async () => {
     const { mechanicOf, drag, seen } = await setup([orderOne('mech-1')])
     await drag('order-1', 'mech-2')
     await drag('order-1', 'mech-1')
@@ -334,15 +334,18 @@ describe('optimistic board assignment vs. realtime echo', () => {
     await waitFor(() => expect(mechanicOf('order-1')).toBe('mech-2'))
   })
 
-  it('(e) a foreign echo held during a drag that then fails is applied after the rollback', async () => {
+  it('(e2) a foreign echo held during a drag that then fails is applied after the rollback', async () => {
     const { mechanicOf, drag } = await setup([orderOne(), orderTwo()])
     await drag('order-1', 'mech-2')
 
     emit('WORKSHOP_ORDER') // another user moved order-2
     await settle()
     expect(pending(BOARD_URL)).toHaveLength(1)
+    expect(pending(PLANNER_URL)).toHaveLength(1)
 
     await respond(ASSIGN_URL, 'PATCH', 409, { message: 'conflict' })
+    // The planner is under ['workshop'] but not refetched by the drag itself: only the flush can refetch it.
+    await waitFor(() => expect(pending(PLANNER_URL)).toHaveLength(2))
     await waitFor(() => expect(pending(BOARD_URL).length).toBeGreaterThan(1))
     await respond(BOARD_URL, 'GET', 200, board(orderOne(), orderTwo('mech-1')))
 
@@ -356,9 +359,10 @@ describe('optimistic board assignment vs. realtime echo', () => {
     emit('WORKSHOP_ORDER')
     await settle()
 
+    const disconnects = mocks.socket.disconnect.mock.calls.length
     mocks.token = 'token-2'
     view.rerender()
-    await waitFor(() => expect(mocks.socket.disconnect).toHaveBeenCalled())
+    await waitFor(() => expect(mocks.socket.disconnect.mock.calls.length).toBeGreaterThan(disconnects))
     await settle()
     expect(pending(BOARD_URL)).toHaveLength(1)
     expect(mechanicOf('order-1')).toBe('mech-2')
