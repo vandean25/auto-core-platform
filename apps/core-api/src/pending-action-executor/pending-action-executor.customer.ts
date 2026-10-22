@@ -7,15 +7,19 @@ import {
 } from '../customer/customer-propose.js';
 import type { CustomerCreateProposalPayload } from '../customer/customer-propose.payload.js';
 import { maskProposalArgs } from '../customer/customer-propose.payload.js';
-import {
-  updateCustomer,
-  type PendingActionHandlerDeps,
-} from './pending-action-executor.handlers.js';
+import { updateCustomer } from './pending-action-executor.handlers.js';
+import type { PrismaService } from '../prisma/prisma.service.js';
+import type { TenantContextService } from '../common/services/tenant-context.service.js';
 import type {
   PendingActionExecutor,
   PendingActionType,
 } from './pending-action-executor.types.js';
 import { asRecord } from './pending-action-executor.util.js';
+
+export type CustomerExecutorDeps = {
+  prisma: PrismaService;
+  tenantContext: Pick<TenantContextService, 'getTenantId'>;
+};
 
 function customerIdOf(result: unknown): string {
   const record = asRecord(result);
@@ -28,7 +32,7 @@ function customerIdOf(result: unknown): string {
  * not reversible, so the action log records it as such.
  */
 export function customerCreateExecutor(
-  deps: PendingActionHandlerDeps,
+  deps: CustomerExecutorDeps,
   actionType: PendingActionType,
 ): PendingActionExecutor {
   return {
@@ -75,7 +79,7 @@ export function customerCreateExecutor(
  * keeps working for proposals that were submitted before AUT-613.
  */
 export function customerUpdateExecutor(
-  deps: PendingActionHandlerDeps,
+  deps: CustomerExecutorDeps,
   actionType: PendingActionType,
 ): PendingActionExecutor {
   return {

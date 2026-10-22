@@ -9,6 +9,7 @@ import { SaveCurrentViewButton } from "@/features/saved-views/SaveCurrentViewBut
 import type { DashboardWidgetTableSource } from "@/features/dashboard-widgets/types"
 import { downloadCsv } from "@/lib/csv"
 import { DataTableViewOptions } from "./data-table-view-options"
+import { DataTableColumnFilters } from "./data-table-column-filters"
 import { buildDataTableCsv, getDataTableCsvFileName, getDataTableExportColumns } from "./data-table-csv"
 
 interface DataTableToolbarProps<TData extends object> {
@@ -60,7 +61,8 @@ export function DataTableToolbar<TData extends object>({
             className="h-8 w-[150px] lg:w-[250px]"
             />
         )}
-        
+        <DataTableColumnFilters table={table} />
+
         {isFiltered && (
           <Button
             variant="ghost"

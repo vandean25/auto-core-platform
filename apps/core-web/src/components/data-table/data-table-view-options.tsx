@@ -13,6 +13,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import { getDataTableColumnLabel } from "./data-table-column-label"
+import { DataTableDensityMenuItem } from "./data-table-density-toggle"
 
 interface DataTableViewOptionsProps<TData extends object> {
   table: Table<TData>
@@ -78,6 +79,8 @@ export function DataTableViewOptions<TData extends object>({
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <ColumnToggleItems table={table} />
+        <DropdownMenuSeparator />
+        <DataTableDensityMenuItem />
       </DropdownMenuContent>
     </DropdownMenu>
   )

@@ -35,8 +35,14 @@ const mockTenantContext = {
   }),
 };
 
+class TestableTenantMemberService extends TenantMemberService {
+  public override getFirebaseAuth() {
+    return super.getFirebaseAuth();
+  }
+}
+
 describe('TenantMemberService', () => {
-  let service: TenantMemberService;
+  let service: TestableTenantMemberService;
   let mockDashboardRealtime: {
     emitClaimsUpdated: jest.Mock;
     emitSiteContextUpdated: jest.Mock;
@@ -67,7 +73,7 @@ describe('TenantMemberService', () => {
       emitSiteAccessScopeUpdated: jest.fn(),
     };
 
-    service = new TenantMemberService(
+    service = new TestableTenantMemberService(
       mockSystemPrisma as unknown as SystemPrismaService,
       mockTenantContext as unknown as TenantContextService,
       mockDashboardRealtime as unknown as DashboardRealtimeService,
@@ -82,11 +88,8 @@ describe('TenantMemberService', () => {
     };
 
     jest
-      .spyOn(
-        service,
-        'getFirebaseAuth',
-      )
-      .mockReturnValue(mockFirebaseAuth);
+      .spyOn(service, 'getFirebaseAuth')
+      .mockImplementation(jest.fn().mockReturnValue(mockFirebaseAuth));
   });
 
   it('lists tenant members with related user data in a paginated response', async () => {

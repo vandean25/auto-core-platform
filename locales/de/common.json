@@ -42,7 +42,24 @@
     "exportCsvTitle": "Exportiert die sichtbaren Spalten der in dieser Tabelle geladenen Zeilen",
     "hide": "Ausblenden",
     "columnOptions": "{{title}} — Spaltenoptionen",
-    "loading": "Laden…"
+    "selectAll": "Alle Zeilen auf dieser Seite auswählen",
+    "selectRow": "Zeile auswählen",
+    "actionBar": {
+      "label": "Aktionen für ausgewählte Zeilen",
+      "selected_one": "{{count}} ausgewählt",
+      "selected_other": "{{count}} ausgewählt",
+      "clear": "Auswahl aufheben"
+    },
+    "filters": {
+      "selected_one": "{{count}} ausgewählt",
+      "selected_other": "{{count}} ausgewählt",
+      "clear": "Filter zurücksetzen",
+      "itemSelected": "ausgewählt",
+      "noMatches": "Keine Treffer."
+    },
+    "density": {
+      "compact": "Kompakte Zeilen"
+    }
   },
   "dashboard": {
     "title": "Dashboard",
