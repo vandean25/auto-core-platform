@@ -932,20 +932,20 @@ function patchBoardOrder(
 const assignBoardOptimistic = optimisticMutationOptions<BoardActiveResponse, AssignBoardPayload>({
   queryKey: boardKeys.active(),
   mutationKey: [...boardKeys.active(), 'assign'],
+  entityId: ({ orderId }) => orderId,
   apply: (cache, { orderId, mechanicId, bayId }) =>
     patchBoardOrder(cache, orderId, (order) => ({
       ...order,
       ...(mechanicId !== undefined && { mechanicId }),
       ...(bayId !== undefined && { bayId }),
     })),
-  // Per-field compare-and-restore: a newer move of the same card (field no longer holds this payload's value) wins.
   revert: (cache, { orderId, mechanicId, bayId }, snapshot) => {
     const before = snapshot.data.find((order) => order.id === orderId)
     if (!before) return cache
     return patchBoardOrder(cache, orderId, (order) => ({
       ...order,
-      ...(mechanicId !== undefined && order.mechanicId === mechanicId && { mechanicId: before.mechanicId }),
-      ...(bayId !== undefined && order.bayId === bayId && { bayId: before.bayId }),
+      ...(mechanicId !== undefined && { mechanicId: before.mechanicId }),
+      ...(bayId !== undefined && { bayId: before.bayId }),
     }))
   },
 })

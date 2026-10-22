@@ -1,19 +1,21 @@
 import type { ReactNode } from 'react'
-import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, useMutation, useQuery } from '@tanstack/react-query'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'sonner'
-import { useBoardActive, workshopKeys } from '@/api/workshop'
+import { boardKeys, useBoardActive, workshopKeys } from '@/api/workshop'
 import type { BoardActiveResponse } from '@/api/workshop'
 import { fetchWithAuth } from '@/api/client'
 import { mechanicQueueKeys } from '@/api/mechanic'
 import { RealtimeDashboardSyncProvider } from '@/features/realtime/RealtimeDashboardSyncProvider'
 import { ENTITY_UPDATED_EVENT } from '@/features/realtime/types'
+import { optimisticMutationOptions } from '@/lib/optimistic-mutation'
 import { useWorkshopBoardAssignment } from '@/pages/workshop/useWorkshopBoardAssignment'
 import { deWorkshop } from '@/test/de-workshop'
 
 const mocks = vi.hoisted(() => ({
   socket: { on: vi.fn(), off: vi.fn(), disconnect: vi.fn(), connect: vi.fn(), active: false },
+  token: 'token',
 }))
 
 vi.mock('socket.io-client', () => ({ io: () => mocks.socket }))
@@ -21,7 +23,7 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 vi.mock('@/api/client', () => ({ API_BASE_URL: 'http://127.0.0.1:3000', fetchWithAuth: vi.fn() }))
 vi.mock('@/lib/firebase', () => ({ firebaseAuth: { currentUser: null }, firebaseConfigMissing: false }))
 vi.mock('@/auth/AuthProvider', () => ({
-  useAuth: () => ({ user: { getIdToken: () => Promise.resolve('token') }, signOutUser: vi.fn() }),
+  useAuth: () => ({ user: { getIdToken: () => Promise.resolve(mocks.token) }, signOutUser: vi.fn() }),
 }))
 
 type Order = { id: string; mechanicId: string | null; bayId: string | null }
@@ -31,6 +33,7 @@ const BOARD_URL = '/api/workshop/board/active'
 const ASSIGN_URL = '/api/workshop/board/assign'
 const QUEUE_URL = '/api/test/queue'
 const PLANNER_URL = '/api/test/planner'
+const OTHER_URL = '/api/test/other'
 
 /** Every fetch is a controlled promise: the test decides when and how each request answers. */
 let requests: Request[]
@@ -64,7 +67,7 @@ const settle = () =>
   })
 
 function emit(type: 'WORKSHOP_ORDER' | 'WORKSHOP_TASK') {
-  const handler = mocks.socket.on.mock.calls.find(([event]) => event === ENTITY_UPDATED_EVENT)?.[1] as
+  const handler = mocks.socket.on.mock.calls.filter(([event]) => event === ENTITY_UPDATED_EVENT).at(-1)?.[1] as
     | ((payload: unknown) => void)
     | undefined
   act(() => handler?.({ type, action: 'UPDATED', entityId: 'order-1', timestamp: '2026-05-01T10:00:00.000Z' }))
@@ -95,6 +98,17 @@ async function setup(initial: Order[]) {
         queryKey: workshopKeys.planner(),
         queryFn: async () => (await fetchWithAuth(PLANNER_URL)).json() as Promise<unknown>,
       }),
+      // A second optimistic mutation on the board query, with its own mutation key and scope.
+      other: useMutation({
+        ...optimisticMutationOptions<BoardActiveResponse, { orderId: string }>({
+          queryKey: boardKeys.active(),
+          mutationKey: [...boardKeys.active(), 'other'],
+          entityId: ({ orderId }) => orderId,
+          apply: (cache) => cache,
+          revert: (cache) => cache,
+        }),
+        mutationFn: async () => (await fetchWithAuth(OTHER_URL, { method: 'POST' })).json() as Promise<unknown>,
+      }),
     }),
     { wrapper },
   )
@@ -116,7 +130,7 @@ async function setup(initial: Order[]) {
     act(() => view.result.current.assign(orderId, { kind: 'mechanic', id: mechanicId, label: mechanicId }))
     await settle()
   }
-  return { view, seen, mechanicOf, drag }
+  return { view, queryClient, seen, mechanicOf, drag }
 }
 
 describe('optimistic board assignment vs. realtime echo', () => {
@@ -124,6 +138,7 @@ describe('optimistic board assignment vs. realtime echo', () => {
     vi.clearAllMocks()
     requests = []
     answered = new Set()
+    mocks.token = 'token'
     vi.mocked(fetchWithAuth).mockImplementation(
       (input, init) =>
         new Promise<Response>((resolve) => {
@@ -282,5 +297,89 @@ describe('optimistic board assignment vs. realtime echo', () => {
 
     await waitFor(() => expect(mechanicOf('order-2')).toBe('mech-1'))
     expect(mechanicOf('order-1')).toBe('mech-2')
+  })
+
+  it('(c2) a second mutation of the board settling does not refetch over a pending drag', async () => {
+    const { view, drag, mechanicOf } = await setup([orderOne()])
+    await drag('order-1', 'mech-2')
+
+    act(() => view.result.current.other.mutate({ orderId: 'order-2' }))
+    await settle()
+    await respond(OTHER_URL, 'POST', 200, {})
+
+    expect(pending(BOARD_URL)).toHaveLength(1) // the drag is still pending: its optimistic state is not refetched over
+    expect(mechanicOf('order-1')).toBe('mech-2')
+
+    await respond(ASSIGN_URL, 'PATCH', 200, {})
+    await waitFor(() => expect(pending(BOARD_URL).length).toBeGreaterThan(1))
+  })
+
+  it('(d2) A to B, B to A, A to B with the first rejected: the card stays on B', async () => {
+    const { mechanicOf, drag, seen } = await setup([orderOne('mech-1')])
+    await drag('order-1', 'mech-2')
+    await drag('order-1', 'mech-1')
+    await drag('order-1', 'mech-2')
+    seen.length = 0
+
+    await respond(ASSIGN_URL, 'PATCH', 403, { message: 'forbidden' }) // the first drag fails
+    await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1))
+
+    expect(mechanicOf('order-1')).toBe('mech-2')
+    expect(seen.every((snapshot) => snapshot['order-1'] === 'mech-2')).toBe(true)
+
+    await respond(ASSIGN_URL, 'PATCH', 200, {})
+    await respond(ASSIGN_URL, 'PATCH', 200, {})
+    await waitFor(() => expect(pending(BOARD_URL).length).toBeGreaterThan(1))
+    await respond(BOARD_URL, 'GET', 200, board(orderOne('mech-2')))
+    await waitFor(() => expect(mechanicOf('order-1')).toBe('mech-2'))
+  })
+
+  it('(e2) a foreign echo held during a drag that then fails is applied after the rollback', async () => {
+    const { mechanicOf, drag } = await setup([orderOne(), orderTwo()])
+    await drag('order-1', 'mech-2')
+
+    emit('WORKSHOP_ORDER') // another user moved order-2
+    await settle()
+    expect(pending(BOARD_URL)).toHaveLength(1)
+    expect(pending(PLANNER_URL)).toHaveLength(1)
+
+    await respond(ASSIGN_URL, 'PATCH', 409, { message: 'conflict' })
+    // The planner is under ['workshop'] but not refetched by the drag itself: only the flush can refetch it.
+    await waitFor(() => expect(pending(PLANNER_URL)).toHaveLength(2))
+    await waitFor(() => expect(pending(BOARD_URL).length).toBeGreaterThan(1))
+    await respond(BOARD_URL, 'GET', 200, board(orderOne(), orderTwo('mech-1')))
+
+    await waitFor(() => expect(mechanicOf('order-2')).toBe('mech-1'))
+    expect(mechanicOf('order-1')).toBeNull()
+  })
+
+  it('a token refresh (socket teardown) while a drag is pending keeps held echoes held', async () => {
+    const { view, drag, mechanicOf } = await setup([orderOne()])
+    await drag('order-1', 'mech-2')
+    emit('WORKSHOP_ORDER')
+    await settle()
+
+    const disconnects = mocks.socket.disconnect.mock.calls.length
+    mocks.token = 'token-2'
+    view.rerender()
+    await waitFor(() => expect(mocks.socket.disconnect.mock.calls.length).toBeGreaterThan(disconnects))
+    await settle()
+    expect(pending(BOARD_URL)).toHaveLength(1)
+    expect(mechanicOf('order-1')).toBe('mech-2')
+
+    await respond(ASSIGN_URL, 'PATCH', 200, {})
+    await waitFor(() => expect(pending(BOARD_URL).length).toBeGreaterThan(1))
+  })
+
+  it('unmounting while a drag is pending still invalidates the held echoes', async () => {
+    const { view, queryClient, drag } = await setup([orderOne()])
+    await drag('order-1', 'mech-2')
+    emit('WORKSHOP_ORDER')
+    await settle()
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
+
+    view.unmount()
+
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: workshopKeys.all, refetchType: 'active' })
   })
 })
