@@ -6,6 +6,8 @@ import {
 } from '../common/queries/entity-history.query.js';
 import type { HistoryPagination } from '../common/utils/history-pagination.util.js';
 
+export const CUSTOMER_VEHICLE_PARTY_LIMIT = 100;
+
 export type CustomerDetailRecord = Prisma.CustomerGetPayload<{
   include: {
     vehicles: true;
@@ -26,13 +28,19 @@ export type CustomerDetailRecord = Prisma.CustomerGetPayload<{
       };
     };
     invoices: true;
+    vehicle_parties: {
+      include: {
+        vehicle: { select: { id: true; make: true; model: true; plate: true } };
+      };
+    };
   };
 }>;
 
 export function buildCustomerDetailInclude(
   pagination: HistoryPagination,
   authorizedSiteIds: readonly string[],
-): Prisma.CustomerInclude {
+  tenantId: string,
+) {
   const slice = { skip: pagination.skip, take: pagination.limit };
 
   return {
@@ -51,5 +59,13 @@ export function buildCustomerDetailInclude(
       where: { site_id: { in: [...authorizedSiteIds] } },
     },
     invoices: invoicesHistorySlice(slice),
-  };
+    vehicle_parties: {
+      where: { tenant_id: tenantId },
+      orderBy: { createdAt: 'desc' },
+      take: CUSTOMER_VEHICLE_PARTY_LIMIT,
+      include: {
+        vehicle: { select: { id: true, make: true, model: true, plate: true } },
+      },
+    },
+  } satisfies Prisma.CustomerInclude;
 }

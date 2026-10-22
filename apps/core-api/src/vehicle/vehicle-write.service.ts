@@ -10,6 +10,7 @@ import {
   assertVehicleRegulatoryFields,
   normalizeVehicleRegulatoryFields,
 } from './vehicle-regulatory.validation.js';
+import { viennaIsoDay } from '../vehicle-stock/gewaehrleistung/gewaehrleistung-status.js';
 import { VehiclePersistenceService } from './vehicle-persistence.service.js';
 import type { ExistingVehicleIdentity } from './vehicle-write.mapper.js';
 import {
@@ -67,7 +68,8 @@ export class VehicleWriteService {
   }
 
   /**
-   * Applies the guarded update and re-reads the row with its customer. Throws
+   * Applies the guarded update and re-reads the row with its customer. A changed customer_id
+   * also hands the OWNER party over in the same transaction. Throws
    * a conflict when VIN or plate changed under us, and not-found when the row
    * is gone.
    */
@@ -77,12 +79,22 @@ export class VehicleWriteService {
     existingVehicle: ExistingVehicleIdentity,
     data: Prisma.VehicleUncheckedUpdateManyInput,
   ) {
-    const updatedCount = await this.persistence.updateIfIdentityUnchanged(
-      id,
-      tenantId,
-      existingVehicle,
-      data,
-    );
+    const updatedCount =
+      data.customer_id === undefined
+        ? await this.persistence.updateIfIdentityUnchanged(
+            id,
+            tenantId,
+            existingVehicle,
+            data,
+          )
+        : await this.persistence.updateIfIdentityUnchangedWithMainContact({
+            id,
+            tenantId,
+            existingVehicle,
+            data,
+            customerId: data.customer_id as string | null,
+            today: viennaIsoDay(new Date()),
+          });
 
     if (updatedCount === 0) {
       await this.throwStaleOrMissing(id, tenantId);

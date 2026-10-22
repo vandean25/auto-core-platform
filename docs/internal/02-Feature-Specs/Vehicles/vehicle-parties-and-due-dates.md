@@ -1,0 +1,70 @@
+---
+title: "Vehicle parties and due dates (backend)"
+date: "2026-10-22"
+module: Vehicle
+status: draft
+linear-project: "legacy DMS migration"
+tags:
+  - feature-spec
+  - vehicle
+  - migration
+---
+
+# Vehicle parties and due dates (backend)
+
+## Summary
+
+A vehicle has more than one relevant party over time: owner, driver, bill-to, leasing company, insurer, previous owners. AUT-641 PR-A models them as time-bounded `VehicleParty` rows, adds the `VehicleNotice` table, and imports parties and due dates from the canonical migration CSV 1.1 ([migration-csv-vehicles.md](../Platform/migration-csv-vehicles.md)), so the Pickerl due list and service due dates work from day one after cutover. This page covers the API, MCP, invariants and import behavior. The UI is PR-B and is not part of this slice. No reminder, notification, cron job or realtime registration is added.
+
+`Vehicle.customer_id` stays the main contact. It always equals the single OWNER that is active today and is written only through the party service.
+
+## Data model
+
+| Table | Purpose |
+|---|---|
+| `vehicle_parties` | `role` (`OWNER`, `DRIVER`, `USER`, `BILL_TO`, `LEASING`, `INSURANCE`, `WARRANTY_PROVIDER`, `SERVICE_CONTRACT`, `PREVIOUS_OWNER`), `valid_from` / `valid_to` as dates, `source` (`MANUAL` or `LEGACY_IMPORT`), `notes`. Composite tenant FKs to vehicles and customers, `ON DELETE RESTRICT`. |
+| `vehicle_notices` | `type` (`CAMPAIGN`, `RECALL`, `REMARK`, `WARNING`, `SERVICE_DUE`), `title`, `body`, `status` (`OPEN`, `DONE`, `DISMISSED`), `due_date`, `due_mileage`, `external_ref`, `source`, `created_by_user_id`, `resolved_at`, `resolved_by_user_id`, `resolved_workshop_order_id`. Carries every column the notices work (AUT-642) needs. |
+| `vehicle_inspection_records.source` | gains `LEGACY_IMPORT`. |
+
+The interval is half-open: a party is active on day D when `valid_from <= D < valid_to`. A blank bound is unbounded. SQL-only constructs (documented on the Prisma models): the `valid_from < valid_to` check, a partial unique index that allows one open-ended OWNER, BILL_TO and LEASING per vehicle, and a partial unique index on `(vehicle, type, external_ref)` for notices.
+
+## Invariants
+
+- At most one OWNER, one BILL_TO and one LEASING per vehicle at any date, including future intervals. Adjacent intervals are valid. Other roles allow concurrent distinct customers; overlapping intervals for the same `(customer, role)` block, and so do overlapping OWNER and PREVIOUS_OWNER rows for the same customer.
+- PREVIOUS_OWNER needs `valid_to`, on or before today (API) or the cutover date (import).
+- Every write takes a per-vehicle row lock inside its transaction (a typed `UPDATE` of the vehicle row, which holds the row lock until commit) and rechecks the timeline under it. The partial unique index is the backstop; a violation maps to the same `409 VEHICLE_PARTY_OVERLAP`.
+- Future-dated OWNER, BILL_TO or LEASING rows are rejected (`422 VEHICLE_PARTY_FUTURE_START_UNSUPPORTED`; the importer reports `MIGRATION_UNSUPPORTED_CAPABILITY`) until a follow-up adds scheduled activation. Effective parties are computed at read time; `customer_id` is synced at write time only for an OWNER active today. Other roles may start in the future.
+- Ending the owner never clears `customer_id`. Setting `customer_id` through `PATCH /vehicles/:id` ends the active OWNER (valid_to = today) and starts a new OWNER (source `MANUAL`) in the same transaction; `null` ends the OWNER only. An owner that started today ends the next day so the interval stays non-empty. Vehicle create does not create a party.
+
+## API
+
+All routes are tenant-wide; they grant no site rights. Writes need OWNER, ADMIN or SALES.
+
+| Route | Result |
+|---|---|
+| `GET /vehicles/:vehicleId/parties` | Every party with history and customer summary, newest first, plus `suggested_bill_to`. |
+| `POST /vehicles/:vehicleId/parties` | Adds a party (`customer_id`, `role`, optional `valid_from`, `valid_to`, `notes`). |
+| `PATCH /vehicles/:vehicleId/parties/:partyId` | Ends an open-ended party (`valid_to`, default today). |
+| `GET /vehicles/:id` | Adds `parties` (active today) and `open_due_dates` (open `SERVICE_DUE` notices). |
+| `GET /customers/:id` | Adds `vehicle_parties` (vehicles by role, with history). |
+| `GET /vehicles/:vehicleId/inspection-records` | Shows `source: LEGACY_IMPORT`; such rows are immutable (403 on PATCH and DELETE), like `EBV_IMPORTED`. |
+
+`suggested_bill_to` is a read-only payer hint: the active BILL_TO, else the active LEASING, else `null`. The owner is never a fallback; with no BILL_TO and no LEASING the intake falls back to the order customer's own default bill-to. Nothing writes `WorkshopOrder.bill_to_customer_id` here.
+
+Deleting a customer that a party references returns `409 CUSTOMER_HAS_VEHICLE_PARTIES`.
+
+## Import
+
+`VEHICLE_PARTY` (`vehicle_parties.csv`) and `VEHICLE_DUE_DATE` (`vehicle_due_dates.csv`) use the canonical 1.1 columns and run through the normal dry-run and apply flow. Vehicles and customers must already be imported; an unknown external id is a row error. Replay is a no-op through `ExternalIdMapping`. The cutover date comes from the manifest when one is supplied, otherwise today.
+
+- Parties: the file is checked against itself and the untouched target parties. An owner transfer is an UPDATE that ends the old interval plus a CREATE for the new owner; updates apply first. Blank cells never clear a stored value. A changed vehicle, customer or role on a mapped id blocks. An active OWNER that differs from a main contact without an OWNER party is a reconciliation conflict.
+- `INSPECTION_57A` creates a `VehicleInspectionRecord` (`PICKERL_57A`, `LEGACY_IMPORT`) with no `ExternalInspectionResult` and no tolerance months. It appears in the Pickerl due list. Evidence is immutable: a changed replay blocks. The optional report reference is checked for uniqueness per vehicle but has no target column.
+- `SERVICE` creates one `OPEN` `SERVICE_DUE` notice (title `Service`, `LEGACY_IMPORT`). `external_ref` is required and unique per vehicle; a natural-key match without a mapping is a conflict. A locally resolved notice is never reopened or overwritten.
+
+## MCP (read only)
+
+`get_vehicle` carries `parties` and `open_due_dates`. `get_vehicle_context` has two new tenant-wide sections: `parties` (active parties with role, customer, validity) and `due_dates` (current `pickerl_due` and the open service-due notices). There is no MCP write for either.
+
+## Not in this slice
+
+The Vehicle parties UI (PR-B), notice create, resolve and import (AUT-642), payer selection and split invoicing (AUT-638, AUT-640, AUT-646), scheduled activation of future-dated parties, reminders and notifications.

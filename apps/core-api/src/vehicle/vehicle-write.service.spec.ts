@@ -14,6 +14,7 @@ describe('VehicleWriteService', () => {
     findIdentityForUpdate: jest.Mock;
     customerExists: jest.Mock;
     updateIfIdentityUnchanged: jest.Mock;
+    updateIfIdentityUnchangedWithMainContact: jest.Mock;
     vehicleExists: jest.Mock;
     findVehicleWithCustomer: jest.Mock;
   };
@@ -24,6 +25,7 @@ describe('VehicleWriteService', () => {
       findIdentityForUpdate: jest.fn(),
       customerExists: jest.fn(),
       updateIfIdentityUnchanged: jest.fn(),
+      updateIfIdentityUnchangedWithMainContact: jest.fn(),
       vehicleExists: jest.fn(),
       findVehicleWithCustomer: jest.fn(),
     };
@@ -148,6 +150,34 @@ describe('VehicleWriteService', () => {
         data,
       );
     });
+
+    it.each([['cust-2'], [null]])(
+      'hands the OWNER party over in the same transaction when customer_id is %s',
+      async (customerId) => {
+        const refetched = { id: vehicleId, customer: null };
+        persistence.updateIfIdentityUnchangedWithMainContact.mockResolvedValue(
+          1,
+        );
+        persistence.findVehicleWithCustomer.mockResolvedValue(refetched);
+
+        await expect(
+          service.applyUpdate(vehicleId, tenantId, existingVehicle, {
+            customer_id: customerId,
+          }),
+        ).resolves.toBe(refetched);
+        expect(persistence.updateIfIdentityUnchanged).not.toHaveBeenCalled();
+        expect(
+          persistence.updateIfIdentityUnchangedWithMainContact,
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({
+            id: vehicleId,
+            tenantId,
+            customerId,
+            data: { customer_id: customerId },
+          }),
+        );
+      },
+    );
 
     it('reports a conflict when the guard missed but the vehicle still exists', async () => {
       persistence.updateIfIdentityUnchanged.mockResolvedValue(0);

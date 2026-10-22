@@ -8,6 +8,8 @@ export const IMPLEMENTED_IMPORT_ENTITY_TYPES = [
   ImportEntityType.VEHICLE,
   ImportEntityType.SUPPLIER_PRICE_LIST,
   ImportEntityType.LABOR_OPERATION,
+  ImportEntityType.VEHICLE_PARTY,
+  ImportEntityType.VEHICLE_DUE_DATE,
 ] as const;
 
 export type ImplementedImportEntityType =

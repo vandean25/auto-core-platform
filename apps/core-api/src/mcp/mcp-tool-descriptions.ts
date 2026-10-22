@@ -45,7 +45,7 @@ export const MCP_TOOL_DESCRIPTIONS: Record<McpToolName, string> = {
   get_vehicle_history:
     'Vehicle history: Pickerl status and the newest inspections, with compact orders (paged with orders_cursor) and the first page of documents for the active site (list_documents for more)',
   get_vehicle_context:
-    'Compact vehicle work context by section (identity, open_workshop, inspections, documents, warranty_claims, warranty_periods): real IDs and document refs, as_of, per-section totals and cursors. Operational sections need the active site. Context only, not a legal warranty promise',
+    'Compact vehicle work context by section (identity, parties, due_dates, open_workshop, inspections, documents, warranty_claims, warranty_periods): real IDs and document refs, as_of, per-section totals and cursors. Operational sections need the active site. Context only, not a legal warranty promise',
   list_documents:
     'List stored PDFs for the active site (invoice, credit_note, workshop_order, vehicle_sale_contract), filtered by type, customer, vehicle, or owner record; newest first (keyset cursor, max 25)',
   get_document_pdf:

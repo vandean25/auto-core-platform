@@ -30,6 +30,16 @@ describe('ImportService getTemplate (characterization)', () => {
         'Arbeitswert-Nr;AW-Code;Beschreibung;AW;Stundensatz;Interner Kostensatz;Kategorie;Marke;Modell;Baujahr von;Baujahr bis;Motorcode\n',
         12,
       ],
+      [
+        ImportEntityType.VEHICLE_PARTY,
+        'external_id;vehicle_external_id;customer_external_id;role;valid_from;valid_to;notes\n',
+        7,
+      ],
+      [
+        ImportEntityType.VEHICLE_DUE_DATE,
+        'external_id;vehicle_external_id;kind;inspected_on;plaketten_valid_until_year;plaketten_valid_until_month;due_date;due_mileage;external_ref;station_name;notes\n',
+        11,
+      ],
     ])(
       'returns the %s template header, fields and CSV',
       (entityType, csv, fieldCount) => {

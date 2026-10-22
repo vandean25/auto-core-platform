@@ -7,6 +7,8 @@ import {
   buildHistoryMeta,
   type HistoryPagination,
 } from '../common/utils/history-pagination.util.js';
+import { viennaIsoDay } from '../vehicle-stock/gewaehrleistung/gewaehrleistung-status.js';
+import { toCustomerVehiclePartyResponse } from '../vehicle/vehicle-party-response.mapper.js';
 import type { CustomerDetailRecord } from './customer-detail.query.js';
 
 export interface CustomerDetailCounts {
@@ -16,9 +18,10 @@ export interface CustomerDetailCounts {
 
 type CustomerDetailProjectionInput = Omit<
   CustomerDetailRecord,
-  'vehicles' | 'workshop_orders'
+  'vehicles' | 'workshop_orders' | 'vehicle_parties'
 > & {
   vehicles?: CustomerDetailRecord['vehicles'];
+  vehicle_parties?: CustomerDetailRecord['vehicle_parties'];
   workshop_orders?: Array<
     Record<string, unknown> & {
       vehicle?: CustomerDetailRecord['workshop_orders'][number]['vehicle'];
@@ -41,6 +44,9 @@ export function projectCustomerDetail(
     workshop_orders: stripWorkshopOrdersVehicleIdentity(
       customer.workshop_orders,
       authorizedSiteIds,
+    ),
+    vehicle_parties: customer.vehicle_parties?.map((party) =>
+      toCustomerVehiclePartyResponse(party, viennaIsoDay(new Date())),
     ),
     workshop_orders_meta: buildHistoryMeta(pagination, counts.workshopOrders),
     invoices_meta: buildHistoryMeta(pagination, counts.invoices),

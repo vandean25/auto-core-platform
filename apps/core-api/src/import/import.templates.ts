@@ -69,6 +69,48 @@ const LABOR_OPERATION_TEMPLATE: ImportTemplateDefinition = {
     'Arbeitswert-Nr;AW-Code;Beschreibung;AW;Stundensatz;Interner Kostensatz;Kategorie;Marke;Modell;Baujahr von;Baujahr bis;Motorcode',
 };
 
+const VEHICLE_PARTY_TEMPLATE: ImportTemplateDefinition = {
+  entity_type: ImportEntityType.VEHICLE_PARTY,
+  fields: [
+    { key: 'external_id', label_de: 'Beteiligten-Nr', required: true },
+    { key: 'vehicle_external_id', label_de: 'Fahrzeug-Nr', required: true },
+    { key: 'customer_external_id', label_de: 'Kunden-Nr', required: true },
+    { key: 'role', label_de: 'Rolle', required: true },
+    { key: 'valid_from', label_de: 'Gültig ab', required: false },
+    { key: 'valid_to', label_de: 'Gültig bis', required: false },
+    { key: 'notes', label_de: 'Notizen', required: false },
+  ],
+  csv_header:
+    'external_id;vehicle_external_id;customer_external_id;role;valid_from;valid_to;notes',
+};
+
+const VEHICLE_DUE_DATE_TEMPLATE: ImportTemplateDefinition = {
+  entity_type: ImportEntityType.VEHICLE_DUE_DATE,
+  fields: [
+    { key: 'external_id', label_de: 'Fälligkeits-Nr', required: true },
+    { key: 'vehicle_external_id', label_de: 'Fahrzeug-Nr', required: true },
+    { key: 'kind', label_de: 'Art', required: true },
+    { key: 'inspected_on', label_de: 'Begutachtet am', required: false },
+    {
+      key: 'plaketten_valid_until_year',
+      label_de: 'Plakette gültig bis (Jahr)',
+      required: false,
+    },
+    {
+      key: 'plaketten_valid_until_month',
+      label_de: 'Plakette gültig bis (Monat)',
+      required: false,
+    },
+    { key: 'due_date', label_de: 'Fällig am', required: false },
+    { key: 'due_mileage', label_de: 'Fällig bei km', required: false },
+    { key: 'external_ref', label_de: 'Referenz', required: false },
+    { key: 'station_name', label_de: 'Prüfstelle', required: false },
+    { key: 'notes', label_de: 'Notizen', required: false },
+  ],
+  csv_header:
+    'external_id;vehicle_external_id;kind;inspected_on;plaketten_valid_until_year;plaketten_valid_until_month;due_date;due_mileage;external_ref;station_name;notes',
+};
+
 const SUPPLIER_PRICE_LIST_TEMPLATE: ImportTemplateDefinition = {
   entity_type: ImportEntityType.SUPPLIER_PRICE_LIST,
   fields: [
@@ -102,6 +144,12 @@ export function getImportTemplate(
   }
   if (entityType === ImportEntityType.LABOR_OPERATION) {
     return LABOR_OPERATION_TEMPLATE;
+  }
+  if (entityType === ImportEntityType.VEHICLE_PARTY) {
+    return VEHICLE_PARTY_TEMPLATE;
+  }
+  if (entityType === ImportEntityType.VEHICLE_DUE_DATE) {
+    return VEHICLE_DUE_DATE_TEMPLATE;
   }
   throw new Error('Unsupported import entity type');
 }

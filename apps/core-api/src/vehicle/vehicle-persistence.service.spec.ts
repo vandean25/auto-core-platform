@@ -139,6 +139,20 @@ describe('VehiclePersistenceService', () => {
     expect(include.sales.where).toEqual(siteScope);
   });
 
+  it('loads the active parties and open service-due notices inside the tenant', async () => {
+    await service.findVehicleDetail('vehicle-1', tenantId, [siteId]);
+
+    const { include } = prisma.vehicle.findFirst.mock.calls[0][0];
+
+    expect(include.parties.where).toMatchObject({ tenant_id: tenantId });
+    expect(include.parties.where.AND).toHaveLength(2);
+    expect(include.notices.where).toEqual({
+      tenant_id: tenantId,
+      type: 'SERVICE_DUE',
+      status: 'OPEN',
+    });
+  });
+
   it('lists a page of vehicles with the same where clause used for counting', async () => {
     const where = { tenant_id: tenantId };
     const orderBy = { make: 'asc' as const };

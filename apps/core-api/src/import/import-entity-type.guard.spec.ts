@@ -10,6 +10,8 @@ describe('import type handler registry', () => {
     for (const entityType of [
       ImportEntityType.CUSTOMER,
       ImportEntityType.LABOR_OPERATION,
+      ImportEntityType.VEHICLE_PARTY,
+      ImportEntityType.VEHICLE_DUE_DATE,
     ]) {
       expect(parseImportEntityType(entityType)).toBe(entityType);
       expect(() => assertImplementedImportEntityType(entityType)).not.toThrow();

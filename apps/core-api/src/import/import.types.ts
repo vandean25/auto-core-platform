@@ -10,6 +10,8 @@ export type ImportJobOptions = {
   accepted_row_numbers?: number[];
   price_jump_threshold_percent?: number;
   vendor_id?: string;
+  /** Migration cutover day (`YYYY-MM-DD`), taken from the canonical manifest. */
+  cutover_date?: string;
 };
 
 export type ImportJobTotals = {

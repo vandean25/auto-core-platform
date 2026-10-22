@@ -58,6 +58,8 @@ describe('McpVehicleContextReadService', () => {
   };
   let warrantyClaim: { findMany: jest.Mock; count: jest.Mock };
   let vehicleSale: { findMany: jest.Mock; count: jest.Mock };
+  let vehicleParty: { findMany: jest.Mock };
+  let vehicleNotice: { findMany: jest.Mock; count: jest.Mock };
   let invoice: { count: jest.Mock };
   let creditNote: { count: jest.Mock };
   let siteContext: { findSiteId: jest.Mock; getSiteId: jest.Mock };
@@ -94,6 +96,11 @@ describe('McpVehicleContextReadService', () => {
       findMany: jest.fn().mockResolvedValue([]),
       count: jest.fn().mockResolvedValue(0),
     };
+    vehicleParty = { findMany: jest.fn().mockResolvedValue([]) };
+    vehicleNotice = {
+      findMany: jest.fn().mockResolvedValue([]),
+      count: jest.fn().mockResolvedValue(0),
+    };
     invoice = { count: jest.fn().mockResolvedValue(0) };
     creditNote = { count: jest.fn().mockResolvedValue(0) };
     siteContext = {
@@ -118,6 +125,8 @@ describe('McpVehicleContextReadService', () => {
         vehicleInspectionRecord,
         warrantyClaim,
         vehicleSale,
+        vehicleParty,
+        vehicleNotice,
         invoice,
         creditNote,
       } as unknown as PrismaService,
@@ -127,6 +136,101 @@ describe('McpVehicleContextReadService', () => {
       siteContext as unknown as SiteContextService,
       documentReads as unknown as McpDocumentReadService,
       pickerlBarriers as never,
+    );
+  });
+
+  it('loads the active parties tenant-wide, without an active site', async () => {
+    siteContext.findSiteId.mockResolvedValue(null);
+    vehicleParty.findMany.mockResolvedValue([
+      {
+        id: 'party-1',
+        role: 'OWNER',
+        customer_id: 'cust-1',
+        valid_from: new Date('2024-01-01T00:00:00.000Z'),
+        valid_to: null,
+        source: 'LEGACY_IMPORT',
+        customer: {
+          company_name: null,
+          first_name: 'Anna',
+          last_name: 'Synthetic',
+        },
+      },
+    ]);
+
+    const result = await service.getVehicleContext({
+      vehicle_id: VEHICLE_ID,
+      sections: ['parties'],
+    });
+
+    expect(result.sections.parties).toEqual({
+      state: 'ok',
+      data: {
+        parties: [
+          {
+            id: 'party-1',
+            role: 'OWNER',
+            customer_id: 'cust-1',
+            customer_name: 'Anna Synthetic',
+            valid_from: '2024-01-01',
+            valid_to: null,
+            source: 'LEGACY_IMPORT',
+          },
+        ],
+      },
+    });
+    expect(vehicleParty.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tenant_id: TENANT_ID,
+          vehicle_id: VEHICLE_ID,
+        }),
+      }),
+    );
+  });
+
+  it('loads open service due dates and the current Pickerl due, tenant-scoped', async () => {
+    vehicleNotice.findMany.mockResolvedValue([
+      {
+        id: 'notice-1',
+        title: 'Service',
+        due_date: new Date('2099-01-15T00:00:00.000Z'),
+        due_mileage: 60000,
+        external_ref: 'SERVICE-001',
+        source: 'LEGACY_IMPORT',
+      },
+    ]);
+    vehicleNotice.count.mockResolvedValue(1);
+
+    const result = await service.getVehicleContext({
+      vehicle_id: VEHICLE_ID,
+      sections: ['due_dates'],
+    });
+
+    const section = result.sections.due_dates;
+    expect(section).toMatchObject({
+      state: 'ok',
+      data: {
+        open_service_due_total: 1,
+        open_service_due: [
+          {
+            id: 'notice-1',
+            due_date: '2099-01-15',
+            due_mileage: 60000,
+            external_ref: 'SERVICE-001',
+          },
+        ],
+      },
+    });
+    expect(section).toHaveProperty('data.pickerl_due');
+    expect(vehicleNotice.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tenant_id: TENANT_ID,
+          vehicle_id: VEHICLE_ID,
+          type: 'SERVICE_DUE',
+          status: 'OPEN',
+        }),
+      }),
     );
   });
 

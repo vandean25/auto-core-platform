@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, VehicleInspectionRecordSource } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { assertVehicleInspectionWriteAccess } from './vehicle-inspection.authorization.js';
@@ -56,7 +56,7 @@ export class VehicleInspectionRecordService {
         plaketten_valid_until_month: dto.plaketten_valid_until_month,
         station_name: dto.station_name,
         notes: dto.notes,
-        source: 'MANUAL',
+        source: VehicleInspectionRecordSource.MANUAL,
         created_by_user_id: user?.userId ?? null,
       },
     });
@@ -69,7 +69,7 @@ export class VehicleInspectionRecordService {
   ) {
     assertVehicleInspectionWriteAccess(this.tenantContext);
     const existing = await this.findOne(vehicleId, recordId);
-    if (existing.source === 'EBV_IMPORTED') {
+    if (existing.source !== VehicleInspectionRecordSource.MANUAL) {
       throw new ForbiddenException(
         'Imported inspection records cannot be modified',
       );
@@ -115,7 +115,7 @@ export class VehicleInspectionRecordService {
   async remove(vehicleId: string, recordId: string) {
     assertVehicleInspectionWriteAccess(this.tenantContext);
     const existing = await this.findOne(vehicleId, recordId);
-    if (existing.source === 'EBV_IMPORTED') {
+    if (existing.source !== VehicleInspectionRecordSource.MANUAL) {
       throw new ForbiddenException(
         'Imported inspection records cannot be deleted',
       );

@@ -5,40 +5,48 @@ import {
 } from './import-apply.errors.js';
 import type { ImportApplyRow } from './import-type-handler.js';
 
+type TargetLookup = (
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  entityId: string,
+) => Promise<boolean>;
+
+const found = (row: unknown) => row !== null;
+
+/** Whether the planned UPDATE target of each import type still exists in the tenant. */
+const TARGET_LOOKUPS: Partial<Record<ImportEntityType, TargetLookup>> = {
+  [ImportEntityType.CUSTOMER]: async (tx, tenantId, id) =>
+    found(await tx.customer.findFirst({ where: { tenant_id: tenantId, id } })),
+  [ImportEntityType.VEHICLE]: async (tx, tenantId, id) =>
+    found(await tx.vehicle.findFirst({ where: { tenant_id: tenantId, id } })),
+  [ImportEntityType.LABOR_OPERATION]: async (tx, tenantId, id) =>
+    found(
+      await tx.laborOperation.findFirst({ where: { tenant_id: tenantId, id } }),
+    ),
+  [ImportEntityType.VEHICLE_PARTY]: async (tx, tenantId, id) =>
+    found(
+      await tx.vehicleParty.findFirst({ where: { tenant_id: tenantId, id } }),
+    ),
+  [ImportEntityType.VEHICLE_DUE_DATE]: async (tx, tenantId, id) => {
+    const [record, notice] = await Promise.all([
+      tx.vehicleInspectionRecord.findFirst({
+        where: { tenant_id: tenantId, id },
+      }),
+      tx.vehicleNotice.findFirst({ where: { tenant_id: tenantId, id } }),
+    ]);
+    return found(record) || found(notice);
+  },
+};
+
 async function assertTargetExists(
   tx: Prisma.TransactionClient,
   tenantId: string,
   entityType: ImportEntityType,
   entityId: string,
 ): Promise<void> {
-  if (entityType === ImportEntityType.CUSTOMER) {
-    const customer = await tx.customer.findFirst({
-      where: { tenant_id: tenantId, id: entityId },
-    });
-    if (!customer) {
-      throw new ApplyRowStaleError();
-    }
-    return;
-  }
-
-  if (entityType === ImportEntityType.VEHICLE) {
-    const vehicle = await tx.vehicle.findFirst({
-      where: { tenant_id: tenantId, id: entityId },
-    });
-    if (!vehicle) {
-      throw new ApplyRowStaleError();
-    }
-    return;
-  }
-
-  if (entityType === ImportEntityType.LABOR_OPERATION) {
-    const operation = await tx.laborOperation.findFirst({
-      where: { tenant_id: tenantId, id: entityId },
-    });
-    if (!operation) {
-      throw new ApplyRowStaleError();
-    }
-    return;
+  const lookup = TARGET_LOOKUPS[entityType];
+  if (lookup && !(await lookup(tx, tenantId, entityId))) {
+    throw new ApplyRowStaleError();
   }
 }
 

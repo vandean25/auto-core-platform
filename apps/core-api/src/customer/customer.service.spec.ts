@@ -1,4 +1,8 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -55,6 +59,7 @@ describe('CustomerService', () => {
     vehicleSale: { count: jest.fn() },
     customerContactPoint: { count: jest.fn() },
     customerConsent: { count: jest.fn() },
+    vehicleParty: { count: jest.fn() },
   };
 
   beforeEach(async () => {
@@ -78,6 +83,7 @@ describe('CustomerService', () => {
     service = module.get<CustomerService>(CustomerService);
     jest.clearAllMocks();
     mockPrisma.customerContactPoint.count.mockResolvedValue(0);
+    mockPrisma.vehicleParty.count.mockResolvedValue(0);
     mockPrisma.customerConsent.count.mockResolvedValue(0);
   });
 
@@ -298,6 +304,27 @@ describe('CustomerService', () => {
     mockPrisma.vehicleSale.count.mockResolvedValue(0);
 
     await expect(service.remove('c-1')).rejects.toThrow(BadRequestException);
+  });
+
+  it('blocks delete with a 409 code when vehicle parties reference the customer', async () => {
+    mockPrisma.customer.findFirst.mockResolvedValue({ id: 'c-1' });
+    mockPrisma.salesOrder.count.mockResolvedValue(0);
+    mockPrisma.invoice.count.mockResolvedValue(0);
+    mockPrisma.workshopOrder.count.mockResolvedValue(0);
+    mockPrisma.vehicle.count.mockResolvedValue(0);
+    mockPrisma.vehiclePurchase.count.mockResolvedValue(0);
+    mockPrisma.vehicleSale.count.mockResolvedValue(0);
+    mockPrisma.vehicleParty.count.mockResolvedValue(1);
+
+    await expect(service.remove('c-1')).rejects.toMatchObject({
+      response: expect.objectContaining({
+        code: 'CUSTOMER_HAS_VEHICLE_PARTIES',
+      }),
+    });
+    await expect(service.remove('c-1')).rejects.toThrow(ConflictException);
+    expect(mockPrisma.vehicleParty.count).toHaveBeenCalledWith({
+      where: { tenant_id: 'tenant-1', customer_id: 'c-1' },
+    });
   });
 
   it('throws not found when customer does not exist', async () => {

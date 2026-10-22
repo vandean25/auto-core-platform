@@ -7,6 +7,7 @@ import {
   WorkshopOrderStatus,
 } from '@prisma/client';
 import { ApiProperty } from '@nestjs/swagger';
+import { CustomerVehiclePartyDto } from '../../vehicle/dto/vehicle-party.dto.js';
 
 export class CustomerHistoryMetaDto {
   @ApiProperty()
@@ -68,6 +69,15 @@ export class CustomerDetailResponseDto {
     maxItems: 100,
   })
   vehicles?: VehicleSummaryDto[];
+
+  @ApiProperty({
+    required: false,
+    type: () => [CustomerVehiclePartyDto],
+    maxItems: 100,
+    description:
+      'Vehicles related to this customer by party role, newest first, including ended parties.',
+  })
+  vehicle_parties?: CustomerVehiclePartyDto[];
 
   @ApiProperty({
     required: false,

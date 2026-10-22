@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { VehicleController } from './vehicle.controller.js';
 import { VehicleInspectionRecordController } from './vehicle-inspection-record.controller.js';
+import { VehiclePartyController } from './vehicle-party.controller.js';
+import { VehiclePartyService } from './vehicle-party.service.js';
 import { VehicleInspectionRecordService } from './vehicle-inspection-record.service.js';
 import {
   SandboxVehicleIdentityProvider,
@@ -23,7 +25,11 @@ import { InspectionExchangeModule } from '../inspection-exchange/inspection-exch
 
 @Module({
   imports: [PrismaModule, InspectionExchangeModule],
-  controllers: [VehicleController, VehicleInspectionRecordController],
+  controllers: [
+    VehicleController,
+    VehicleInspectionRecordController,
+    VehiclePartyController,
+  ],
   providers: [
     VehicleService,
     VehiclePersistenceService,
@@ -32,6 +38,7 @@ import { InspectionExchangeModule } from '../inspection-exchange/inspection-exch
     VehiclePickerlBarrierService,
     NovaCalculationService,
     VehicleInspectionRecordService,
+    VehiclePartyService,
     VehicleIdentityService,
     VehicleValuationService,
     SandboxVehicleIdentityProvider,

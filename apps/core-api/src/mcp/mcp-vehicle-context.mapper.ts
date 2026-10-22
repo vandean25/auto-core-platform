@@ -12,6 +12,8 @@ import {
 /** Finite section allowlist for get_vehicle_context. */
 export const MCP_VEHICLE_CONTEXT_SECTIONS = [
   'identity',
+  'parties',
+  'due_dates',
   'open_workshop',
   'inspections',
   'documents',

@@ -149,6 +149,18 @@ describe('cleanDb', () => {
     expect(cleaned).toEqual([]);
   });
 
+  it('cleans vehicle parties and notices before workshop orders, vehicles and customers', () => {
+    const tables = TABLE_CLEANERS.map((cleaner) => cleaner.table);
+
+    for (const table of ['vehicle_parties', 'vehicle_notices']) {
+      const index = tables.indexOf(table);
+      expect(index).toBeGreaterThan(-1);
+      expect(index).toBeLessThan(tables.indexOf('workshop_orders'));
+      expect(index).toBeLessThan(tables.indexOf('vehicles'));
+      expect(index).toBeLessThan(tables.indexOf('customers'));
+    }
+  });
+
   it('cleans accounting exports and profiles before legal entities', () => {
     const tables = TABLE_CLEANERS.map((cleaner) => cleaner.table);
     const exportIndex = tables.indexOf('accounting_exports');

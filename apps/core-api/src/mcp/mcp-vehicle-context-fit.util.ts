@@ -48,7 +48,8 @@ type VehicleContextIdentitySectionResult =
   | VehicleContextSectionError;
 
 export type VehicleContextSections = {
-  [K in McpVehicleContextSection]?: K extends 'identity'
+  [K in McpVehicleContextSection]?: K extends
+    'identity' | 'parties' | 'due_dates'
     ? VehicleContextIdentitySectionResult
     : VehicleContextPaginatedSectionResult;
 };

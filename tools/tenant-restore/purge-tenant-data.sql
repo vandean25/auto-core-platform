@@ -117,6 +117,7 @@ VALUES
   ('sales_orders'),
   ('tyre_sets'),
   ('vehicle_media'),
+  ('vehicle_parties'),
   ('vehicle_purchases'),
   ('vehicle_valuation_snapshots'),
   ('workshop_orders'),
@@ -132,6 +133,7 @@ VALUES
   ('vehicle_equipment_free_text_items'),
   ('vehicle_equipment_selections'),
   ('vehicle_listings'),
+  ('vehicle_notices'),
   ('vehicle_sales'),
   ('warranty_claims'),
   ('workshop_estimates'),
@@ -546,6 +548,12 @@ VALUES
   ('vehicle_media', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('vehicle_media', 'users', 'created_by_user_id', 'id', 'SET NULL', 'CASCADE'),
   ('vehicle_media', 'vehicles', 'tenant_id,vehicle_id', 'tenant_id,id', 'CASCADE', 'CASCADE'),
+  ('vehicle_notices', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('vehicle_notices', 'vehicles', 'tenant_id,vehicle_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('vehicle_notices', 'workshop_orders', 'tenant_id,resolved_workshop_order_id', 'tenant_id,id', 'SET NULL', 'CASCADE'),
+  ('vehicle_parties', 'customers', 'tenant_id,customer_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('vehicle_parties', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('vehicle_parties', 'vehicles', 'tenant_id,vehicle_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('vehicle_purchases', 'customers', 'customer_id', 'id', 'SET NULL', 'CASCADE'),
   ('vehicle_purchases', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('vehicle_purchases', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
@@ -902,6 +910,8 @@ DELETE FROM public."warranty_claims"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."vehicle_sales"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."vehicle_notices"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."vehicle_listings"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."vehicle_equipment_selections"
@@ -931,6 +941,8 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."vehicle_valuation_snapshots"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."vehicle_purchases"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."vehicle_parties"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."vehicle_media"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');

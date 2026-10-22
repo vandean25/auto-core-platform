@@ -187,6 +187,8 @@ describe('VehicleService', () => {
       id: vehicleId,
       customer: null,
       sales: [],
+      parties: [],
+      open_due_dates: [],
       pickerl_due: expect.objectContaining({
         status: 'UNKNOWN',
         due_month: null,
