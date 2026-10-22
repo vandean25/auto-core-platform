@@ -494,6 +494,7 @@ model LegalEntity {
   @@unique([tenant_id, id])
   @@unique([tenant_id, name])
   @@index([tenant_id])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "legal_entities_name_trgm_idx")
   @@map("legal_entities")
 }
 
@@ -876,6 +877,7 @@ model Site {
   @@unique([tenant_id, id])
   @@unique([tenant_id, code])
   @@index([tenant_id])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "sites_name_trgm_idx")
   @@map("sites")
 }
 
@@ -1115,6 +1117,8 @@ model CatalogItem {
 
   @@unique([tenant_id, sku]) // tenant-scoped
   @@index([tenant_id])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "catalog_items_name_trgm_idx")
+  @@index([sku(ops: raw("gin_trgm_ops"))], type: Gin, map: "catalog_items_sku_trgm_idx")
   @@map("catalog_items")
 }
 
@@ -1486,6 +1490,7 @@ model Vendor {
   updatedAt         DateTime          @updatedAt
 
   @@index([tenant_id])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "vendors_name_trgm_idx")
   @@map("vendors")
 }
 
@@ -1514,6 +1519,7 @@ model PurchaseOrder {
   @@unique([tenant_id, order_number]) // tenant-scoped
   @@index([tenant_id])
   @@index([tenant_id, site_id])
+  @@index([order_number(ops: raw("gin_trgm_ops"))], type: Gin, map: "purchase_orders_order_number_trgm_idx")
   @@map("purchase_orders")
 }
 
@@ -1677,6 +1683,11 @@ model Customer {
   @@unique([tenant_id, id])
   @@unique([tenant_id, email]) // tenant-scoped
   @@index([tenant_id])
+  @@index([first_name(ops: raw("gin_trgm_ops"))], type: Gin, map: "customers_first_name_trgm_idx")
+  @@index([last_name(ops: raw("gin_trgm_ops"))], type: Gin, map: "customers_last_name_trgm_idx")
+  @@index([company_name(ops: raw("gin_trgm_ops"))], type: Gin, map: "customers_company_name_trgm_idx")
+  @@index([email(ops: raw("gin_trgm_ops"))], type: Gin, map: "customers_email_trgm_idx")
+  @@index([phone(ops: raw("gin_trgm_ops"))], type: Gin, map: "customers_phone_trgm_idx")
   @@map("customers")
 }
 
@@ -1858,6 +1869,8 @@ model Vehicle {
   @@index([tenant_id, site_id])
   @@index([make_brand_id])
   @@index([tenant_id, vin])
+  @@index([plate(ops: raw("gin_trgm_ops"))], type: Gin, map: "vehicles_plate_trgm_idx")
+  @@index([vin(ops: raw("gin_trgm_ops"))], type: Gin, map: "vehicles_vin_trgm_idx")
   @@map("vehicles")
 }
 
@@ -2276,6 +2289,7 @@ model VehicleSale {
   @@index([tenant_id])
   @@index([tenant_id, site_id])
   @@index([tenant_id, trade_in_purchase_id])
+  @@index([sale_number(ops: raw("gin_trgm_ops"))], type: Gin, map: "vehicle_sales_sale_number_trgm_idx")
   @@map("vehicle_sales")
 }
 
@@ -3007,6 +3021,7 @@ model SalesOrder {
   @@unique([tenant_id, order_number]) // tenant-scoped
   @@index([tenant_id])
   @@index([tenant_id, site_id])
+  @@index([order_number(ops: raw("gin_trgm_ops"))], type: Gin, map: "sales_orders_order_number_trgm_idx")
   @@map("sales_orders")
 }
 
@@ -3119,6 +3134,7 @@ model Invoice {
   @@index([tenant_id])
   @@index([tenant_id, site_id, date])
   @@index([tenant_id, legal_entity_id, date])
+  @@index([invoice_number(ops: raw("gin_trgm_ops"))], type: Gin, map: "invoices_invoice_number_trgm_idx")
   @@map("invoices")
 }
 
@@ -3219,6 +3235,7 @@ model CreditNote {
   @@index([tenant_id])
   @@index([tenant_id, site_id, date])
   @@index([tenant_id, legal_entity_id, date])
+  @@index([credit_number(ops: raw("gin_trgm_ops"))], type: Gin, map: "credit_notes_credit_number_trgm_idx")
   @@map("credit_notes")
 }
 
@@ -3279,6 +3296,8 @@ model PurchaseInvoice {
 
   @@unique([tenant_id, invoice_number]) // tenant-scoped
   @@index([tenant_id])
+  @@index([invoice_number(ops: raw("gin_trgm_ops"))], type: Gin, map: "purchase_invoices_invoice_number_trgm_idx")
+  @@index([vendor_invoice_number(ops: raw("gin_trgm_ops"))], type: Gin, map: "purchase_invoices_vendor_invoice_number_trgm_idx")
   @@map("purchase_invoices")
 }
 
@@ -3420,6 +3439,7 @@ model Employee {
   @@unique([tenant_id, user_id])
   @@index([tenant_id])
   @@index([user_id])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "employees_name_trgm_idx")
   @@map("employees")
 }
 
@@ -3667,6 +3687,7 @@ model WorkshopOrder {
   @@index([mechanic_id], map: "idx_workshop_orders_mechanic_id")
   @@index([bay_id], map: "idx_workshop_orders_bay_id")
   @@index([tenant_id, bay_id, scheduled_start_at], map: "idx_workshop_orders_bay_schedule")
+  @@index([order_number(ops: raw("gin_trgm_ops"))], type: Gin, map: "workshop_orders_order_number_trgm_idx")
   @@map("workshop_orders")
 }
 
@@ -3713,6 +3734,7 @@ model WorkshopEstimate {
   @@unique([tenant_id, workshop_order_id])
   @@index([tenant_id])
   @@index([tenant_id, site_id])
+  @@index([estimate_number(ops: raw("gin_trgm_ops"))], type: Gin, map: "workshop_estimates_estimate_number_trgm_idx")
   @@map("workshop_estimates")
 }
 
