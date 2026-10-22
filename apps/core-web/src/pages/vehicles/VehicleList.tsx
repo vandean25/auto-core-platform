@@ -13,6 +13,8 @@ import { Button } from '@/components/ui/button'
 import { VehicleDialog } from '@/components/vehicles/VehicleDialog'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
 import type { VehicleListRow } from '@/features/actions/vehicle-row-actions'
+import { VehiclePeekSheet } from '@/features/peek/VehiclePeekSheet'
+import { usePeekSearchParam } from '@/features/peek/use-peek-search-param'
 import { useVehicleListRowBehaviour } from './useVehicleListRowBehaviour'
 
 type VehicleRow = VehicleListRow & {
@@ -57,7 +59,8 @@ export default function VehicleList() {
     }))
   }, [responseData, t])
 
-  const rowBehaviour = useVehicleListRowBehaviour(t, navigate)
+  const { openPeek } = usePeekSearchParam()
+  const rowBehaviour = useVehicleListRowBehaviour(t, navigate, openPeek)
 
   const columns = useMemo<ColumnDef<VehicleRow>[]>(
     () => [
@@ -136,6 +139,7 @@ export default function VehicleList() {
         rowBehaviour={rowBehaviour}
         {...tableState}
       />
+      <VehiclePeekSheet />
     </>
   )
 }

@@ -18,6 +18,7 @@ export function useWorkshopOrderListRowBehaviour(
   t: TFunction<'workshop'>,
   navigate: NavigateFunction,
   queryClient: QueryClient,
+  openPeek: (id: string) => void,
 ) {
   const role = useAuthRole()
   const generatePdf = useGenerateWorkshopPdf()
@@ -36,10 +37,10 @@ export function useWorkshopOrderListRowBehaviour(
       getRowHref: (row: WorkshopOrderListRow) => `/workshop/orders/${row.id}`,
       getRowAccessibleName: (row: WorkshopOrderListRow) =>
         t('orders.list.rowAria', { orderNo: row.orderNo }),
-      onRowClick: (row: WorkshopOrderListRow) => navigate(`/workshop/orders/${row.id}`),
+      onRowClick: (row: WorkshopOrderListRow) => openPeek(row.id),
       onRowPrefetch: prefetchOrderDetail,
     }),
-    [navigate, prefetchOrderDetail, t],
+    [openPeek, prefetchOrderDetail, t],
   )
 
   const runContext = useMemo(

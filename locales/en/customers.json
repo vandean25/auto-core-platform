@@ -54,6 +54,10 @@
       "open": "Open customer"
     }
   },
+  "peek": {
+    "titleFallback": "Customer",
+    "notFound": "Customer not found."
+  },
   "detail": {
     "loading": "Loading customer details...",
     "loadFailed": "Failed to load customer: {{message}}",

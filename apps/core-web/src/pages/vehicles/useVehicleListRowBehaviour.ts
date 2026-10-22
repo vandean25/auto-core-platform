@@ -9,7 +9,11 @@ import {
 } from '@/features/actions/vehicle-row-actions'
 import { useRegistryRowBehaviour } from '@/features/actions/use-registry-row-behaviour'
 
-export function useVehicleListRowBehaviour(t: TFunction<'vehicles'>, navigate: NavigateFunction) {
+export function useVehicleListRowBehaviour(
+  t: TFunction<'vehicles'>,
+  navigate: NavigateFunction,
+  openPeek: (id: string) => void,
+) {
   const role = useAuthRole()
   const vehicleActionDefinitions = useMemo(() => createVehicleRowActions(t), [t])
 
@@ -17,9 +21,9 @@ export function useVehicleListRowBehaviour(t: TFunction<'vehicles'>, navigate: N
     () => ({
       getRowHref: (row: VehicleListRow) => `/vehicles/${row.id}`,
       getRowAccessibleName: (row: VehicleListRow) => t('list.rowAria', { vehicle: row.vehicle }),
-      onRowClick: (row: VehicleListRow) => navigate(`/vehicles/${row.id}`),
+      onRowClick: (row: VehicleListRow) => openPeek(row.id),
     }),
-    [navigate, t],
+    [openPeek, t],
   )
 
   const runContext = useMemo(() => ({ navigate, t }), [navigate, t])

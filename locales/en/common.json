@@ -12,6 +12,10 @@
     "confirm": "Confirm",
     "close": "Close"
   },
+  "peek": {
+    "openInFull": "Open in full",
+    "actionsHeading": "Actions"
+  },
   "documentSave": {
     "saving": "Saving…",
     "saved": "All changes saved",

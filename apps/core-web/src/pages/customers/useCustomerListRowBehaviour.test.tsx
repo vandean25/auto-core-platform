@@ -28,19 +28,23 @@ const customer: Customer = {
 }
 
 function renderCustomerRowBehaviour() {
-  return renderHook(() => useCustomerListRowBehaviour(), {
+  const openPeek = vi.fn()
+  const rowBehaviour = renderHook(() => useCustomerListRowBehaviour(openPeek), {
     wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
   }).result.current
+  return { rowBehaviour, openPeek }
 }
 
 describe('useCustomerListRowBehaviour', () => {
   it('builds href, accessible name and context actions for a row', () => {
-    const rowBehaviour = renderCustomerRowBehaviour()
+    const { rowBehaviour, openPeek } = renderCustomerRowBehaviour()
 
     expect(rowBehaviour.getRowHref?.(customer)).toBe('/customers/cust-1')
     expect(rowBehaviour.getRowAccessibleName?.(customer)).toBe(
       list.rowAria.replace('{{name}}', 'Example GmbH'),
     )
+    rowBehaviour.onRowClick?.(customer)
+    expect(openPeek).toHaveBeenCalledWith('cust-1')
 
     const actions = rowBehaviour.getRowContextActions?.(customer) ?? []
     expect(actions.map((action) => action.label)).toEqual([list.actions.open, list.delete])

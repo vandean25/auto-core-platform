@@ -12,6 +12,10 @@
     "confirm": "Bestätigen",
     "close": "Schließen"
   },
+  "peek": {
+    "openInFull": "Vollständig öffnen",
+    "actionsHeading": "Aktionen"
+  },
   "documentSave": {
     "saving": "Speichern…",
     "saved": "Alle Änderungen gespeichert",

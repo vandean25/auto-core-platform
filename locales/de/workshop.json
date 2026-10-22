@@ -356,6 +356,10 @@
         "opened": "Eröffnet",
         "status": "Status"
       }
+    },
+    "peek": {
+      "titleFallback": "Werkstattauftrag",
+      "notFound": "Auftrag nicht gefunden."
     }
   },
   "warranty": {
