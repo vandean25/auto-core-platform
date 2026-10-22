@@ -359,6 +359,5 @@ describe('WorkshopPositionPlanService', () => {
       ),
     ).rejects.toBeInstanceOf(ConflictException);
     expect(reserveSpy).toHaveBeenCalledTimes(2);
-    reserveSpy.mockRestore();
   });
 });
