@@ -162,14 +162,15 @@ export function optimisticMutationOptions<TCache, TVariables>({
     ) => {
       if (!context || context.skipped) return
       const snapshot = context.snapshot
-      if (snapshot === undefined) return
       const id = entityId(variables)
       const sameEntity = (mutation: Mutation) => entityId(mutation.state.variables as TVariables) === id
       if (client.isMutating({ mutationKey, exact: true, predicate: sameEntity }) > 1) return
 
-      client.setQueryData<TCache>(context.resolvedQueryKey, (cache) =>
-        cache === undefined ? cache : revert(cache, variables, snapshot),
-      )
+      if (snapshot !== undefined) {
+        client.setQueryData<TCache>(context.resolvedQueryKey, (cache) =>
+          cache === undefined ? cache : revert(cache, variables, snapshot),
+        )
+      }
 
       revertExtraCaches(client, variables, context.extraSnapshots, extraCaches)
     },

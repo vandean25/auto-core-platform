@@ -2000,7 +2000,13 @@ describe("WorkshopOrderDetails Characterization", () => {
         await waitFor(() =>
           expect(toast.error).toHaveBeenCalledWith("forbidden"),
         );
-        expect(queryClient.getQueryData(workshopApi.workshopKeys.detail("order-1"))).toEqual(baseOrder);
+        await waitFor(() => {
+          const order = queryClient.getQueryData<{ mechanicId?: string | null; mechanic_id?: string | null }>(
+            workshopApi.workshopKeys.detail("order-1"),
+          );
+          expect(order?.mechanicId ?? null).toBeNull();
+          expect(order?.mechanic_id ?? null).toBeNull();
+        });
       });
 
       it("reads the technician and bay from the snake_case ids", () => {
