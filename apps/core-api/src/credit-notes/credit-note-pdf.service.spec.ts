@@ -6,6 +6,11 @@ import type { PrismaService } from '../prisma/prisma.service.js';
 import type { InvoicePdfRenderer } from '../invoices/invoice-pdf.renderer.js';
 import type { PdfStorage } from '../common/pdf/pdf-storage.js';
 
+// Test double: implements only the members these tests call.
+function asFake<T>(double: Partial<T>): T {
+  return double as T;
+}
+
 describe('CreditNotePdfService.getPdf', () => {
   const tenantId = 'tenant-1';
   const creditNoteId = 'credit-note-1';
@@ -43,7 +48,7 @@ describe('CreditNotePdfService.getPdf', () => {
     service = new CreditNotePdfService(
       prisma as unknown as PrismaService,
       {} as InvoicePdfRenderer,
-      storage,
+      asFake<PdfStorage>(storage),
       {} as CloudTasksService,
       {
         getTenantId: jest.fn().mockResolvedValue(tenantId),
@@ -184,8 +189,8 @@ describe('CreditNotePdfService.requestGeneration', () => {
     service = new CreditNotePdfService(
       prisma as unknown as PrismaService,
       {} as InvoicePdfRenderer,
-      storage,
-      { isEnabled: jest.fn().mockReturnValue(false) } as CloudTasksService,
+      asFake<PdfStorage>(storage),
+      asFake<CloudTasksService>({ isEnabled: jest.fn().mockReturnValue(false) }),
       {
         getTenantId: jest.fn().mockResolvedValue(tenantId),
       } as unknown as TenantContextService,

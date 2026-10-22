@@ -8,6 +8,7 @@ import { ServiceUnavailableException } from '@nestjs/common';
 import { FIXED_SOURCE_CATEGORY_KEYS } from '../finance/accounting-profile/accounting-profile.types.js';
 import type { SiteContextService } from '../site/site-context.service.js';
 import { InvoiceSnapshotCommitService } from './invoice-snapshot-commit.service.js';
+import { customerRow } from './invoice-fixtures.spec.support.js';
 
 describe('InvoiceSnapshotCommitService', () => {
   const originalWriterFlag = process.env.INVOICE_BRANDING_WRITER_ENABLED;
@@ -41,7 +42,7 @@ describe('InvoiceSnapshotCommitService', () => {
     updatedAt: new Date(),
   };
 
-  const customer = {
+  const customer = customerRow({
     id: 'customer-1',
     tenant_id: 'tenant-1',
     type: CustomerType.PRIVATE,
@@ -57,7 +58,7 @@ describe('InvoiceSnapshotCommitService', () => {
     address_country: 'AT',
     createdAt: new Date(),
     updatedAt: new Date(),
-  };
+  });
 
   const tx = {
     $queryRaw: jest.fn(),
@@ -88,7 +89,7 @@ describe('InvoiceSnapshotCommitService', () => {
     service = new InvoiceSnapshotCommitService(siteContext);
     jest.clearAllMocks();
     process.env.INVOICE_BRANDING_WRITER_ENABLED = 'true';
-    siteContext.listAuthorizedSiteIds.mockResolvedValue(['site-1']);
+    jest.mocked(siteContext.listAuthorizedSiteIds).mockResolvedValue(['site-1']);
     tx.$queryRaw.mockResolvedValue([{ id: 'site-1', is_active: true }]);
     tx.workshopOrder.findFirst.mockResolvedValue({ site_id: 'site-1' });
     tx.documentBrandProfile.findFirst.mockResolvedValue(null);
@@ -232,6 +233,16 @@ describe('InvoiceSnapshotCommitService', () => {
         notes: null,
         internal_notes: null,
         snapshot: null,
+        global_discount_type: null,
+        global_discount_value: null,
+        pdf_storage_bucket: null,
+        pdf_storage_key: null,
+        pdf_archive_bucket: null,
+        pdf_archive_key: null,
+        pdf_archive_generation: null,
+        pdf_archive_sha256: null,
+        pdf_generated_at: null,
+        pdf_generation_error: null,
         createdAt: new Date(),
         updatedAt: new Date(),
         customer,
@@ -478,6 +489,14 @@ describe('InvoiceSnapshotCommitService', () => {
           snapshot: null,
           global_discount_type: null,
           global_discount_value: null,
+          pdf_storage_bucket: null,
+          pdf_storage_key: null,
+          pdf_archive_bucket: null,
+          pdf_archive_key: null,
+          pdf_archive_generation: null,
+          pdf_archive_sha256: null,
+          pdf_generated_at: null,
+          pdf_generation_error: null,
           createdAt: new Date(),
           updatedAt: new Date(),
           customer,
@@ -525,6 +544,14 @@ describe('InvoiceSnapshotCommitService', () => {
           snapshot: null,
           global_discount_type: null,
           global_discount_value: null,
+          pdf_storage_bucket: null,
+          pdf_storage_key: null,
+          pdf_archive_bucket: null,
+          pdf_archive_key: null,
+          pdf_archive_generation: null,
+          pdf_archive_sha256: null,
+          pdf_generated_at: null,
+          pdf_generation_error: null,
           createdAt: new Date(),
           updatedAt: new Date(),
           customer: { ...customer, address_street: null },
@@ -572,6 +599,14 @@ describe('InvoiceSnapshotCommitService', () => {
           snapshot: null,
           global_discount_type: null,
           global_discount_value: null,
+          pdf_storage_bucket: null,
+          pdf_storage_key: null,
+          pdf_archive_bucket: null,
+          pdf_archive_key: null,
+          pdf_archive_generation: null,
+          pdf_archive_sha256: null,
+          pdf_generated_at: null,
+          pdf_generation_error: null,
           createdAt: new Date(),
           updatedAt: new Date(),
           customer: {
@@ -627,6 +662,14 @@ describe('InvoiceSnapshotCommitService', () => {
         snapshot: null,
         global_discount_type: null,
         global_discount_value: null,
+        pdf_storage_bucket: null,
+        pdf_storage_key: null,
+        pdf_archive_bucket: null,
+        pdf_archive_key: null,
+        pdf_archive_generation: null,
+        pdf_archive_sha256: null,
+        pdf_generated_at: null,
+        pdf_generation_error: null,
         createdAt: new Date(),
         updatedAt: new Date(),
         customer: {
@@ -706,6 +749,14 @@ describe('InvoiceSnapshotCommitService', () => {
           snapshot: null,
           global_discount_type: null,
           global_discount_value: null,
+          pdf_storage_bucket: null,
+          pdf_storage_key: null,
+          pdf_archive_bucket: null,
+          pdf_archive_key: null,
+          pdf_archive_generation: null,
+          pdf_archive_sha256: null,
+          pdf_generated_at: null,
+          pdf_generation_error: null,
           createdAt: new Date(),
           updatedAt: new Date(),
           customer,

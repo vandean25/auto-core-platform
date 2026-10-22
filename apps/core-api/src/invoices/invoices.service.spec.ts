@@ -13,7 +13,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { InvoiceSnapshotCommitService } from './invoice-snapshot-commit.service.js';
 import { InvoicesService } from './invoices.service.js';
 
-function expectNoIdentityResolutionState(vehicleView: object) {
+function expectNoIdentityResolutionState(vehicleView: unknown) {
   expect(vehicleView).not.toHaveProperty('identity_resolution_generation');
   expect(vehicleView).not.toHaveProperty('identity_resolution_token');
 }

@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import type { InvoicePdfPrismaClient } from './invoice-pdf-branding.helpers.js';
 import {
   backfillInvoicePdfMetadata,
   brandRenderInputUnavailable,
@@ -32,6 +33,12 @@ import type { PdfStorage } from '../common/pdf/pdf-storage.js';
 import type { InvoicePdfRenderer } from './invoice-pdf.renderer.js';
 import type { CloudTasksService } from '../common/index.js';
 
+// Test double: the invoice delegate carries only the methods these helpers call.
+function fakeInvoiceClient(
+  invoice: Partial<InvoicePdfPrismaClient['client']['invoice']>,
+): InvoicePdfPrismaClient {
+  return { client: { invoice } } as InvoicePdfPrismaClient;
+}
 
 describe('invoice-pdf.helpers', () => {
   describe('brandRenderInputUnavailable', () => {
@@ -405,7 +412,7 @@ describe('invoice-pdf.helpers', () => {
   describe('clearInvoiceGenerationError', () => {
     it('updates invoice to nullify pdf_generation_error', async () => {
       const updateMany = jest.fn().mockResolvedValue({ count: 1 });
-      const prisma = { client: { invoice: { updateMany } } };
+      const prisma = fakeInvoiceClient({ updateMany });
 
       await clearInvoiceGenerationError(prisma, 'inv-1', 'tenant-1');
       expect(updateMany).toHaveBeenCalledWith({
@@ -418,7 +425,7 @@ describe('invoice-pdf.helpers', () => {
   describe('safeStoreInvoiceGenerationError', () => {
     it('stores trimmed error message up to 2000 chars', async () => {
       const updateMany = jest.fn().mockResolvedValue({ count: 1 });
-      const prisma = { client: { invoice: { updateMany } } };
+      const prisma = fakeInvoiceClient({ updateMany });
       const logger = { error: jest.fn() };
 
       const longMessage = 'x'.repeat(2500);
@@ -438,7 +445,7 @@ describe('invoice-pdf.helpers', () => {
 
     it('logs error if storing error fails', async () => {
       const updateMany = jest.fn().mockRejectedValue(new Error('DB unreachable'));
-      const prisma = { client: { invoice: { updateMany } } };
+      const prisma = fakeInvoiceClient({ updateMany });
       const logger = { error: jest.fn() };
 
       await safeStoreInvoiceGenerationError(
@@ -459,7 +466,7 @@ describe('invoice-pdf.helpers', () => {
   describe('persistInvoiceGeneratedPdf', () => {
     it('updates invoice with pdf storage metadata', async () => {
       const updateMany = jest.fn().mockResolvedValue({ count: 1 });
-      const prisma = { client: { invoice: { updateMany } } };
+      const prisma = fakeInvoiceClient({ updateMany });
       const date = new Date();
 
       await persistInvoiceGeneratedPdf(
@@ -483,7 +490,7 @@ describe('invoice-pdf.helpers', () => {
 
     it('throws NotFoundException if no invoice was updated', async () => {
       const updateMany = jest.fn().mockResolvedValue({ count: 0 });
-      const prisma = { client: { invoice: { updateMany } } };
+      const prisma = fakeInvoiceClient({ updateMany });
 
       await expect(
         persistInvoiceGeneratedPdf(
@@ -500,7 +507,7 @@ describe('invoice-pdf.helpers', () => {
   describe('backfillInvoicePdfMetadata', () => {
     it('persists metadata successfully', async () => {
       const updateMany = jest.fn().mockResolvedValue({ count: 1 });
-      const prisma = { client: { invoice: { updateMany } } };
+      const prisma = fakeInvoiceClient({ updateMany });
       const logger = { warn: jest.fn() };
 
       await backfillInvoicePdfMetadata(
@@ -518,7 +525,7 @@ describe('invoice-pdf.helpers', () => {
 
     it('warns on failure without throwing', async () => {
       const updateMany = jest.fn().mockResolvedValue({ count: 0 });
-      const prisma = { client: { invoice: { updateMany } } };
+      const prisma = fakeInvoiceClient({ updateMany });
       const logger = { warn: jest.fn() };
 
       await expect(
@@ -696,7 +703,7 @@ describe('invoice-pdf.helpers', () => {
   describe('persistBrandedArchiveMetadata', () => {
     it('persists archive metadata successfully', async () => {
       const updateMany = jest.fn().mockResolvedValue({ count: 1 });
-      const prisma = { client: { invoice: { updateMany } } };
+      const prisma = fakeInvoiceClient({ updateMany });
       const date = new Date();
       const archive = {
         bucket: 'b',
@@ -706,7 +713,7 @@ describe('invoice-pdf.helpers', () => {
       };
 
       await persistBrandedArchiveMetadata(
-        prisma as any,
+        prisma,
         'inv-1',
         't-1',
         archive as any,
@@ -737,11 +744,11 @@ describe('invoice-pdf.helpers', () => {
   describe('object parameter compatibility', () => {
     it('supports object parameters for persistInvoiceGeneratedPdf', async () => {
       const updateMany = jest.fn().mockResolvedValue({ count: 1 });
-      const prisma = { client: { invoice: { updateMany } } };
+      const prisma = fakeInvoiceClient({ updateMany });
       const date = new Date();
 
       await persistInvoiceGeneratedPdf({
-        prisma: prisma as any,
+        prisma,
         invoiceId: 'inv-1',
         tenantId: 'tenant-1',
         upload: { bucket: 'b', key: 'k' },
@@ -753,11 +760,11 @@ describe('invoice-pdf.helpers', () => {
 
     it('supports object parameters for safeStoreInvoiceGenerationError', async () => {
       const updateMany = jest.fn().mockResolvedValue({ count: 1 });
-      const prisma = { client: { invoice: { updateMany } } };
+      const prisma = fakeInvoiceClient({ updateMany });
       const logger = { error: jest.fn() };
 
       await safeStoreInvoiceGenerationError({
-        prisma: prisma as any,
+        prisma,
         logger,
         invoiceId: 'inv-1',
         tenantId: 'tenant-1',

@@ -137,11 +137,17 @@ describe('Settlement cancellation failures', () => {
     } as unknown as PrismaService;
     const service = createService(provider);
     (service as unknown as { prisma: PrismaService }).prisma = prisma;
-    jest.spyOn(service, 'assertSettlementAccess').mockResolvedValue(undefined);
-    jest.spyOn(service, 'loadInvoiceForSite').mockResolvedValue({
-        id: 'invoice-1',
-        legal_entity_id: 'le-1',
-      });
+    Object.assign(service, {
+      assertSettlementAccess: jest
+        .fn<Promise<void>, [string, string]>()
+        .mockResolvedValue(undefined),
+      loadInvoiceForSite: jest
+        .fn<Promise<unknown>, [string, string, string]>()
+        .mockResolvedValue({
+          id: 'invoice-1',
+          legal_entity_id: 'le-1',
+        }),
+    });
 
     await expect(
       service.cancelFiscalReceipt('normal-1', {

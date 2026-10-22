@@ -1,6 +1,6 @@
 import { ServiceUnavailableException } from '@nestjs/common';
 import { createHash } from 'node:crypto';
-import { Prisma } from '@prisma/client';
+import { DocumentBrandExtractionState, Prisma } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { DocumentBrandingExtractionProvider } from './document-branding-extraction-provider.js';
@@ -283,16 +283,30 @@ function makeUniqueConstraintError(index: string) {
 function makeExtraction(overrides: Record<string, unknown> = {}) {
   return {
     id: 'extraction-1',
-    state: 'QUEUED',
+    tenant_id: 'tenant-1',
+    legal_entity_id: 'entity-1',
+    source_asset_id: null,
+    proposal_logo_asset_id: null,
+    requested_by_user_id: null,
+    base_revision: 0,
+    idempotency_key: 'idempotency-key-1',
+    state: DocumentBrandExtractionState.QUEUED,
     request_hash: 'hash',
-    attempt_count: 0,
     proposal: null,
     warning_codes: [],
-    base_revision: 0,
-    createdAt: new Date(),
+    failure_code: null,
+    provider_id: null,
+    model_id: null,
+    prompt_version: null,
+    attempt_count: 0,
+    dispatch_count: 0,
+    lease_token: null,
+    lease_until: null,
+    dispatched_at: null,
     completed_at: null,
     expires_at: null,
-    failure_code: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
     ...overrides,
   };
 }

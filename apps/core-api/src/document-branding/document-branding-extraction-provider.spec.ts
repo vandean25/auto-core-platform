@@ -1,5 +1,8 @@
 import { ServiceUnavailableException } from '@nestjs/common';
-import { DisabledDocumentBrandingExtractionProvider } from './document-branding-extraction-provider.js';
+import {
+  DisabledDocumentBrandingExtractionProvider,
+  type DocumentBrandingExtractionProvider,
+} from './document-branding-extraction-provider.js';
 
 describe('DisabledDocumentBrandingExtractionProvider', () => {
   it('reports unavailable until an approved production adapter is configured', () => {
@@ -9,7 +12,8 @@ describe('DisabledDocumentBrandingExtractionProvider', () => {
   });
 
   it('rejects extraction without making an outbound provider request', async () => {
-    const provider = new DisabledDocumentBrandingExtractionProvider();
+    const provider: DocumentBrandingExtractionProvider =
+      new DisabledDocumentBrandingExtractionProvider();
 
     await expect(
       provider.extract({

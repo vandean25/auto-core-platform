@@ -9,6 +9,7 @@ import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Readable } from 'node:stream';
 import { InvoiceStatus } from '@prisma/client';
+import type { PdfStreamResult } from './invoice-pdf-archive.helpers.js';
 
 const mockCaptureException = jest.fn();
 jest.unstable_mockModule('@sentry/node', () => ({
@@ -24,29 +25,33 @@ const { TenantContextService } = await import(
 );
 
 describe('InvoicesController', () => {
-  let controller: InvoicesController;
+  let controller: InstanceType<typeof InvoicesController>;
   let invoicesService: {
-    createDraftInvoice: jest.Mock;
-    issueInvoice: jest.Mock;
+    createDraftInvoice: jest.Mock<(orderId: string) => Promise<unknown>>;
+    issueInvoice: jest.Mock<(invoiceId: string) => Promise<unknown>>;
   };
   let invoicePdfService: {
-    requestGeneration: jest.Mock;
-    generateNow: jest.Mock;
-    getPdf: jest.Mock;
+    requestGeneration: jest.Mock<
+      (invoiceId: string, params: { targetBaseUrl: string }) => Promise<unknown>
+    >;
+    generateNow: jest.Mock<(invoiceId: string) => Promise<unknown>>;
+    getPdf: jest.Mock<(invoiceId: string) => Promise<PdfStreamResult>>;
   };
 
   const originalTargetBaseUrl = process.env.CLOUD_TASKS_TARGET_BASE_URL;
 
   beforeEach(async () => {
     invoicesService = {
-      createDraftInvoice: jest.fn(),
-      issueInvoice: jest.fn(),
+      createDraftInvoice: jest.fn<(orderId: string) => Promise<unknown>>(),
+      issueInvoice: jest.fn<(invoiceId: string) => Promise<unknown>>(),
     };
 
     invoicePdfService = {
-      requestGeneration: jest.fn(),
-      generateNow: jest.fn(),
-      getPdf: jest.fn(),
+      requestGeneration: jest.fn<
+        (invoiceId: string, params: { targetBaseUrl: string }) => Promise<unknown>
+      >(),
+      generateNow: jest.fn<(invoiceId: string) => Promise<unknown>>(),
+      getPdf: jest.fn<(invoiceId: string) => Promise<PdfStreamResult>>(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -61,7 +66,7 @@ describe('InvoicesController', () => {
       ],
     }).compile();
 
-    controller = module.get<InvoicesController>(InvoicesController);
+    controller = module.get(InvoicesController);
     jest.clearAllMocks();
   });
 

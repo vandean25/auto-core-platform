@@ -3,10 +3,13 @@ import {
   DiscountType,
   InvoiceStatus,
   InvoiceTaxMode,
+  LegalEntityCountry,
   Prisma,
+  RksvMode,
 } from '@prisma/client';
 import { buildInvoiceSnapshotV2 } from './invoice-snapshot-v2.js';
 import { isInvoiceSnapshotV2 } from './invoice-snapshot-v2.validation.js';
+import { customerRow } from './invoice-fixtures.spec.support.js';
 import type { ResolvedAccountingAllocation } from '../finance/accounting-profile/accounting-profile.types.js';
 
 const allocation = (
@@ -50,11 +53,12 @@ describe('buildInvoiceSnapshotV2', () => {
     representatives: null,
     payment_terms_days: 14,
     payment_terms_text: 'Zahlbar innerhalb von 14 Tagen.',
+    rksv_mode: RksvMode.OFF,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
 
-  const customer = {
+  const customer = customerRow({
     id: 'cust-1',
     type: CustomerType.PRIVATE,
     first_name: 'Max',
@@ -69,12 +73,12 @@ describe('buildInvoiceSnapshotV2', () => {
     company_name: null,
     createdAt: new Date(),
     updatedAt: new Date(),
-  };
+  });
 
   it('embeds frozen document locale metadata on new v2 snapshots', () => {
     const snapshot = buildInvoiceSnapshotV2({
       invoice: buildInvoice(),
-      seller: seller as never,
+      seller,
       siteId: 'site-1',
       legalEntityId: seller.id,
       lineAllocations: [buildLineAllocation()],
@@ -117,6 +121,10 @@ describe('buildInvoiceSnapshotV2', () => {
         pdf_storage_key: null,
         pdf_generated_at: null,
         pdf_generation_error: null,
+        pdf_archive_bucket: null,
+        pdf_archive_key: null,
+        pdf_archive_generation: null,
+        pdf_archive_sha256: null,
         createdAt: new Date(),
         updatedAt: new Date(),
         items: [
@@ -274,13 +282,18 @@ describe('buildInvoiceSnapshotV2', () => {
   });
 
   it('rejects margin-scheme snapshots when seller country is unsupported', () => {
+    // Deliberately outside LegalEntityCountry: the builder must reject it.
+    const unsupportedCountry: string = 'CH';
     expect(() =>
       buildInvoiceSnapshotV2({
         invoice: buildInvoice({
           tax_mode: InvoiceTaxMode.MARGIN_SCHEME,
           total_gross: new Prisma.Decimal('15000.00'),
         }),
-        seller: { ...seller, country_iso: 'CH' },
+        seller: {
+          ...seller,
+          country_iso: unsupportedCountry as LegalEntityCountry,
+        },
         siteId: 'site-1',
         legalEntityId: seller.id,
         lineAllocations: [buildLineAllocation({ id: 'line-margin' })],
@@ -408,9 +421,9 @@ describe('isInvoiceSnapshotV2 branding validation', () => {
   });
 });
 
-function buildInvoice(
-  overrides: Partial<Parameters<typeof buildInvoiceSnapshotV2>[0]['invoice']> = {},
-) {
+type InvoiceInput = Parameters<typeof buildInvoiceSnapshotV2>[0]['invoice'];
+
+function buildInvoice(overrides: Partial<InvoiceInput> = {}): InvoiceInput {
   return {
     id: 'inv-1',
     tenant_id: 'tenant-1',
@@ -441,10 +454,14 @@ function buildInvoice(
     pdf_storage_key: null,
     pdf_generated_at: null,
     pdf_generation_error: null,
+    pdf_archive_bucket: null,
+    pdf_archive_key: null,
+    pdf_archive_generation: null,
+    pdf_archive_sha256: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     items: [],
-    customer: {
+    customer: customerRow({
       id: 'cust-1',
       type: CustomerType.PRIVATE,
       first_name: 'Max',
@@ -459,7 +476,7 @@ function buildInvoice(
       company_name: null,
       createdAt: new Date(),
       updatedAt: new Date(),
-    },
+    }),
     vehicle: null,
     ...overrides,
   };

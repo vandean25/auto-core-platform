@@ -19,7 +19,7 @@ describe('invoice-snapshot-v2.helpers', () => {
   describe('collectCustomerMissingFields', () => {
     it('returns empty array when all required fields are present for INDIVIDUAL customer', () => {
       const customer = {
-        type: CustomerType.INDIVIDUAL,
+        type: CustomerType.PRIVATE,
         first_name: 'Max',
         last_name: 'Mustermann',
         address_street: 'Musterstraße 1',
@@ -48,7 +48,7 @@ describe('invoice-snapshot-v2.helpers', () => {
 
     it('returns missing fields when partial fields are missing', () => {
       const customer = {
-        type: CustomerType.INDIVIDUAL,
+        type: CustomerType.PRIVATE,
         first_name: 'Max',
         last_name: 'Mustermann',
         address_street: '',
@@ -464,7 +464,7 @@ describe('invoice-snapshot-v2.helpers', () => {
   describe('sub-builders', () => {
     it('buildCustomerSnapshot builds customer snapshot', () => {
       const customer = {
-        type: CustomerType.INDIVIDUAL,
+        type: CustomerType.PRIVATE,
         company_name: null,
         first_name: 'Anna',
         last_name: 'Schmidt',
@@ -515,7 +515,13 @@ describe('invoice-snapshot-v2.helpers', () => {
           lineDiscountValue: null,
           revenueGroupName: 'Parts',
           accountingAllocation: {
+            profileCode: 'ACP-DATEV-DE-EUR-1',
+            profileVersion: 1,
             sourceCategoryKey: 'parts',
+            debtorAccount: '1000',
+            buKey: null,
+            countryIso: 'AT' as const,
+            currency: 'EUR' as const,
             sourceCategoryLabel: 'Parts',
             taxMode: 'STANDARD' as const,
             taxRate: '20.00',
