@@ -1,20 +1,32 @@
 import { useCallback, useEffect, useRef } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { PEEK_SEARCH_PARAM } from './peek-search-param'
 import { stripPeekSearchParam } from './strip-peek-search-param'
 
 export function usePeekSearchParam() {
   const [searchParams, setSearchParams] = useSearchParams()
+  const location = useLocation()
   const navigate = useNavigate()
   const peekId = searchParams.get(PEEK_SEARCH_PARAM)
   const peekOpenedViaPushRef = useRef(false)
+  const pendingBackStripRef = useRef(false)
 
   useEffect(() => {
     if (!peekId) {
       peekOpenedViaPushRef.current = false
     }
   }, [peekId])
+
+  useEffect(() => {
+    if (!pendingBackStripRef.current) {
+      return
+    }
+    pendingBackStripRef.current = false
+    if (searchParams.get(PEEK_SEARCH_PARAM)) {
+      stripPeekSearchParam(setSearchParams)
+    }
+  }, [location.key, searchParams, setSearchParams])
 
   const openPeek = useCallback(
     (id: string) => {
@@ -34,8 +46,8 @@ export function usePeekSearchParam() {
   const closePeek = useCallback(() => {
     if (peekOpenedViaPushRef.current) {
       peekOpenedViaPushRef.current = false
+      pendingBackStripRef.current = true
       navigate(-1)
-      queueMicrotask(() => stripPeekSearchParam(setSearchParams))
       return
     }
     stripPeekSearchParam(setSearchParams)
