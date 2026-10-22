@@ -3,7 +3,7 @@
  * Safe to run multiple times (idempotent — GCS replaces the full lifecycle config).
  *
  * Usage:
- *   npx ts-node -r tsconfig-paths/register scripts/apply-gcs-lifecycle.ts
+ *   npx tsx scripts/apply-gcs-lifecycle.ts
  *
  * Required env vars:
  *   INVOICE_PDF_BUCKET   — target bucket name
