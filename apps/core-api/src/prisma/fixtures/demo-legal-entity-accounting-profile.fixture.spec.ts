@@ -57,6 +57,7 @@ describe('demo-legal-entity-accounting-profile.fixture', () => {
       legal_entity_id: 'le-1',
       version: 1,
       mapping_rules: mappingRules,
+      serializer_params: {},
       ...DEMO_WORKSHOP_ACCOUNTING_PROFILE_DEFAULTS,
       createdAt: new Date(),
       updatedAt: new Date(),

@@ -18,6 +18,7 @@ describe('projectCustomerDetail', () => {
       } as never,
       { page: 2, limit: 10, skip: 10 },
       { workshopOrders: 25, invoices: 5 },
+      [],
     );
 
     expect(result.vehicles).toEqual([{ id: 'vehicle-1' }]);

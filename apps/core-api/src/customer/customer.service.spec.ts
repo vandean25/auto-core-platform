@@ -99,16 +99,14 @@ describe('CustomerService', () => {
 
     const result = await service.findOne('customer-1');
 
-    expect(result.vehicles[0]).not.toHaveProperty(
+    const [firstVehicle] = result.vehicles ?? [];
+    const [firstOrder] = result.workshop_orders ?? [];
+    expect(firstVehicle).not.toHaveProperty('identity_resolution_generation');
+    expect(firstVehicle).not.toHaveProperty('identity_resolution_token');
+    expect(firstOrder.vehicle).not.toHaveProperty(
       'identity_resolution_generation',
     );
-    expect(result.vehicles[0]).not.toHaveProperty('identity_resolution_token');
-    expect(result.workshop_orders[0].vehicle).not.toHaveProperty(
-      'identity_resolution_generation',
-    );
-    expect(result.workshop_orders[0].vehicle).not.toHaveProperty(
-      'identity_resolution_token',
-    );
+    expect(firstOrder.vehicle).not.toHaveProperty('identity_resolution_token');
   });
 
   it('returns paginated history metadata for workshop orders and invoices', async () => {
@@ -176,7 +174,7 @@ describe('CustomerService', () => {
     mockPrisma.invoice.count.mockResolvedValue(0);
 
     const result = await service.findOne('customer-1');
-    const vehicle = result.vehicles[0];
+    const [vehicle] = result.vehicles ?? [];
 
     expect(vehicle.location_id ?? null).toBeNull();
     expect(vehicle.site_id ?? null).toBeNull();

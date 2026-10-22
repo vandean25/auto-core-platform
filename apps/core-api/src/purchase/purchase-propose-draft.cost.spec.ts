@@ -11,6 +11,8 @@ describe('purchase-propose-draft.cost', () => {
     const resolved = resolvePurchaseLineCost(
       { id: 'part-1', cost_price: new Prisma.Decimal('5.00') },
       {
+        id: 'va-1',
+        catalog_item_id: 'part-1',
         vendor_article_no: 'VA-1',
         last_cost: new Prisma.Decimal('7.50'),
         updatedAt: new Date(),
@@ -24,6 +26,8 @@ describe('purchase-propose-draft.cost', () => {
     const resolved = resolvePurchaseLineCost(
       { id: 'part-1', cost_price: new Prisma.Decimal('4.25') },
       {
+        id: 'va-1',
+        catalog_item_id: 'part-1',
         vendor_article_no: 'VA-1',
         last_cost: null,
         updatedAt: new Date(),

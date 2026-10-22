@@ -1,7 +1,7 @@
 import { jest } from '@jest/globals';
 
 jest.unstable_mockModule('../seed-vehicle-catalog-providers.js', () => ({
-  seedVehicleCatalogProviders: jest.fn().mockResolvedValue({
+  seedVehicleCatalogProviders: jest.fn<() => Promise<unknown>>().mockResolvedValue({
     brandsCreated: 2,
     aliasesUpserted: 3,
     concernsUpserted: 1,
@@ -13,7 +13,7 @@ jest.unstable_mockModule(
   '../../vehicle/equipment/seed-vehicle-equipment-options.js',
   () => ({
     seedVehicleEquipmentOptions: jest
-      .fn()
+      .fn<() => Promise<unknown>>()
       .mockResolvedValue({ optionsUpserted: 14 }),
   }),
 );
@@ -25,7 +25,7 @@ describe('brand.fixture', () => {
     const createdBrands: any[] = [];
     const mockPrisma: any = {
       brand: {
-        upsert: jest.fn().mockImplementation(async ({ create }) => {
+        upsert: jest.fn(async ({ create }: { create: Record<string, unknown> }) => {
           const record = { id: createdBrands.length + 1, ...create };
           createdBrands.push(record);
           return record;
@@ -50,7 +50,7 @@ describe('brand.fixture', () => {
     const createdVendors: any[] = [];
     const mockPrisma: any = {
       vendor: {
-        create: jest.fn().mockImplementation(async ({ data }) => {
+        create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => {
           createdVendors.push(data);
           return { id: `vend-${createdVendors.length}`, ...data };
         }),

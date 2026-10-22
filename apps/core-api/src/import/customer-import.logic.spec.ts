@@ -96,7 +96,7 @@ describe('customer-import.logic', () => {
       mappingByExternalId: new Map(),
       customerByEmail: new Map(),
       customerById: new Map(),
-      duplicateNameKeys: new Set(),
+      duplicateNameKeys: new Set<string>(),
       externalIdSeenInFile: new Map([['dup', 1]]),
       emailSeenInFile: new Map(),
     };

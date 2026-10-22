@@ -62,7 +62,11 @@ describe('BrandService', () => {
   });
 
   it('resolves the brand delegate lazily after construction', async () => {
-    const delayedPrisma = {
+    const delayedPrisma: {
+      brand?: Record<string, jest.Mock>;
+      catalogItem: { count: jest.Mock };
+      vendor: { count: jest.Mock };
+    } = {
       brand: undefined,
       catalogItem: { count: jest.fn() },
       vendor: { count: jest.fn() },

@@ -5,6 +5,7 @@ import {
   VehicleLedgerEntryType,
   WorkshopOrderPurpose,
 } from '@prisma/client';
+import type { VehicleLedgerEntry } from '@prisma/client';
 import { VehicleLedgerService } from './vehicle-ledger.service.js';
 
 describe('VehicleLedgerService', () => {
@@ -120,12 +121,13 @@ describe('VehicleLedgerService', () => {
       {} as never,
       { getTenantId: jest.fn() } as never,
     );
+    const appended = {} as VehicleLedgerEntry;
     const append = jest
       .spyOn(service, 'append')
-      .mockResolvedValue({} as Prisma.VehicleLedgerEntry);
+      .mockResolvedValue(appended);
 
     await expect(
-      service.completeStockPrep(tx, 'tenant-1', 'order-1'),
+      service.completeStockPrep(tx, 'tenant-1', 'order-1', 'site-1'),
     ).rejects.toThrow(ConflictException);
 
     expect(append).not.toHaveBeenCalled();

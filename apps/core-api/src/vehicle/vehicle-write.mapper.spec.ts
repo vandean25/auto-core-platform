@@ -1,3 +1,4 @@
+import type { UpdateVehicleDto } from './dto/update-vehicle.dto.js';
 import { VEHICLE_IDENTITY_RESET } from './vehicle-identity.util.js';
 import {
   buildVehicleCreatePayload,
@@ -86,7 +87,8 @@ describe('vehicle write mapper', () => {
     const existing = { vin: 'VIN-1', plate: 'PLATE-1' };
 
     it('ignores fields that were not supplied', () => {
-      expect(hasVehicleIdentityChanged(existing, { make: 'Ford' })).toBe(false);
+      const patch: Partial<UpdateVehicleDto> = { make: 'Ford' };
+      expect(hasVehicleIdentityChanged(existing, patch)).toBe(false);
     });
 
     it('treats a VIN that differs only by case and whitespace as unchanged', () => {

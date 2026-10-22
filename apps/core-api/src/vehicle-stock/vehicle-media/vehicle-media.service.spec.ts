@@ -26,6 +26,8 @@ describe('VehicleMediaService', () => {
   let service: VehicleMediaService;
   let prisma: {
     vehicle: { findFirst: jest.Mock };
+    user: { findUnique: jest.Mock };
+    tenantMember: { findFirst: jest.Mock };
     vehicleMedia: {
       findMany: jest.Mock;
       findFirst: jest.Mock;
@@ -67,6 +69,7 @@ describe('VehicleMediaService', () => {
     storage = {
       resolveBucket: () => 'test-bucket',
       objectPrefix: () => 'prefix/',
+      readObject: jest.fn(),
       storeProcessedObject: jest
         .fn()
         .mockImplementation(async (params) =>

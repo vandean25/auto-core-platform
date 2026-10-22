@@ -457,7 +457,7 @@ describe('LedgerService', () => {
           itemId: ITEM_ID,
           locationId: LOCATION_ID,
           quantity: -5,
-          type: TransactionType.SALE,
+          type: TransactionType.SALE_ISSUE,
         },
       ];
 

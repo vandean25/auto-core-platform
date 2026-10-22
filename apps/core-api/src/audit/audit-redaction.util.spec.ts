@@ -6,10 +6,11 @@ import {
   maskPhoneNumber,
   redactAuditSecrets,
 } from './audit-redaction.util.js';
+import type { AuditJsonValue } from './audit.types.js';
 
 describe('redactAuditSecrets', () => {
   it('redacts nested secret fields and returns redacted paths', () => {
-    const input = {
+    const input: AuditJsonValue = {
       customer_name: 'Jane',
       credentials: {
         password: 'secret',

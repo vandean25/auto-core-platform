@@ -45,6 +45,10 @@ describe('VehiclePurchaseService', () => {
     customer: { findFirst: jest.Mock };
     storageLocation: { findFirst: jest.Mock };
     vehicleLedgerEntry: { count: jest.Mock };
+    user: { findUnique: jest.Mock };
+    tenantMember: { findFirst: jest.Mock };
+    siteMembership: { findFirst: jest.Mock };
+    $queryRaw: jest.Mock;
   };
   let tenantContext: { getTenantId: jest.Mock };
   let ledger: { append: jest.Mock };
@@ -141,6 +145,7 @@ describe('VehiclePurchaseService', () => {
       await expect(
         service.create({
           seller_type: VehiclePurchaseSellerType.VENDOR,
+          vin: 'WVWZZZ1JZXW000001',
           make: 'Peugeot',
           model: '308',
           year: 2024,
@@ -153,6 +158,7 @@ describe('VehiclePurchaseService', () => {
       await expect(
         service.create({
           seller_type: VehiclePurchaseSellerType.CUSTOMER,
+          vin: 'WVWZZZ1JZXW000001',
           make: 'Peugeot',
           model: '308',
           year: 2024,
@@ -168,6 +174,7 @@ describe('VehiclePurchaseService', () => {
         service.create({
           seller_type: VehiclePurchaseSellerType.VENDOR,
           vendor_id: 'non-existent-vendor',
+          vin: 'WVWZZZ1JZXW000001',
           make: 'Peugeot',
           model: '308',
           year: 2024,
@@ -185,6 +192,7 @@ describe('VehiclePurchaseService', () => {
           seller_type: VehiclePurchaseSellerType.VENDOR,
           vendor_id: 'vendor-1',
           location_id: 'missing-loc',
+          vin: 'WVWZZZ1JZXW000001',
           make: 'Peugeot',
           model: '308',
           year: 2024,
