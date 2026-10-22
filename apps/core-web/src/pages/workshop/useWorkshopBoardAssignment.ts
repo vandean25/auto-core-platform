@@ -1,46 +1,20 @@
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { useQueryClient } from '@tanstack/react-query'
 import type { BoardViewMode } from '@/components/workshop/BoardViewToggle'
 import {
-  type BoardActiveResponse,
+  type AssignBoardPayload,
   type BoardAssignmentTarget,
   useAssignBoard,
-  workshopKeys,
 } from '@/api/workshop'
 
 export function useWorkshopBoardAssignment(viewMode: BoardViewMode) {
   const { t } = useTranslation('workshop')
-  const queryClient = useQueryClient()
-  const assignBoard = useAssignBoard()
+  const { mutateAsync } = useAssignBoard()
 
   return React.useCallback(
     (orderId: string, target: BoardAssignmentTarget | null) => {
-      const previousData = queryClient.getQueryData<BoardActiveResponse>(workshopKeys.boardActive())
-
-      queryClient.setQueryData<BoardActiveResponse>(workshopKeys.boardActive(), (old) => {
-        if (!old) return old
-
-        return {
-          ...old,
-          data: old.data.map((order) => {
-            if (order.id !== orderId) return order
-
-            if (target?.kind === 'mechanic') {
-              return { ...order, mechanicId: target.id }
-            }
-            if (target?.kind === 'bay') {
-              return { ...order, bayId: target.id }
-            }
-            return viewMode === 'mechanic'
-              ? { ...order, mechanicId: null }
-              : { ...order, bayId: null }
-          }),
-        }
-      })
-
-      const payload =
+      const payload: AssignBoardPayload =
         target?.kind === 'mechanic'
           ? { orderId, mechanicId: target.id }
           : target?.kind === 'bay'
@@ -49,16 +23,10 @@ export function useWorkshopBoardAssignment(viewMode: BoardViewMode) {
               ? { orderId, mechanicId: null }
               : { orderId, bayId: null }
 
-      assignBoard.mutate(payload, {
-        onError: () => {
-          queryClient.setQueryData(workshopKeys.boardActive(), previousData)
-          toast.error(t('board.assignError'))
-        },
-        onSettled: () => {
-          void queryClient.invalidateQueries({ queryKey: workshopKeys.boardActive() })
-        },
-      })
+      // The board update and rollback live in useAssignBoard. mutateAsync (not mutate's callbacks) so a
+      // quick second drag does not swallow the error toast of the first.
+      mutateAsync(payload).catch(() => toast.error(t('board.assignError')))
     },
-    [assignBoard, queryClient, t, viewMode],
+    [mutateAsync, t, viewMode],
   )
 }

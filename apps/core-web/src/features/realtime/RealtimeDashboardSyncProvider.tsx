@@ -12,6 +12,7 @@ import { workshopKeys } from '@/api/workshop'
 import { API_BASE_URL } from '@/api/client'
 import { useAuth } from '@/auth/AuthProvider'
 import { getQueryKeysToInvalidateForEntityType, isEntityUpdatedPayload } from '@/features/realtime/dashboard-entity-map'
+import { createEchoSafeInvalidator } from '@/features/realtime/echo-safe-invalidator'
 import { buildRealtimeSocketOptions, createHandshakeRetry } from '@/features/realtime/realtime-socket-options'
 import {
   AUTH_CLAIMS_UPDATED_EVENT,
@@ -135,14 +136,13 @@ export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyn
     socket.on('connect', handshakeRetry.onConnect)
     socket.on('connect_error', handshakeRetry.onConnectError)
 
+    // Echoes of the user's own optimistic mutations must not refetch over the optimistic state.
+    const echoSafeInvalidator = createEchoSafeInvalidator(queryClient)
     const onEntityUpdated = (payload: unknown) => {
       if (!isEntityUpdatedPayload(payload)) return
 
       for (const queryKey of getQueryKeysToInvalidateForEntityType(payload.type)) {
-        void queryClient.invalidateQueries({
-          queryKey,
-          refetchType: 'active',
-        })
+        echoSafeInvalidator.invalidate(queryKey)
       }
     }
 
@@ -237,6 +237,7 @@ export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyn
       socket.off('connect', handshakeRetry.onConnect)
       socket.off('connect_error', handshakeRetry.onConnectError)
       handshakeRetry.dispose()
+      echoSafeInvalidator.dispose()
       socket.disconnect()
     }
   }, [queryClient, shouldSkipRealtime, signOutUser, token])
