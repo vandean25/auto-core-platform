@@ -8,11 +8,13 @@ import {
   type VehicleListRow,
 } from '@/features/actions/vehicle-row-actions'
 import { useRegistryRowBehaviour } from '@/features/actions/use-registry-row-behaviour'
+import { useRegistryRowShortcuts } from '@/features/shortcuts/use-registry-row-shortcuts'
 
 export function useVehicleListRowBehaviour(
   t: TFunction<'vehicles'>,
   navigate: NavigateFunction,
   openPeek: (id: string) => void,
+  records: VehicleListRow[],
 ) {
   const role = useAuthRole()
   const vehicleActionDefinitions = useMemo(() => createVehicleRowActions(t), [t])
@@ -27,6 +29,13 @@ export function useVehicleListRowBehaviour(
   )
 
   const runContext = useMemo(() => ({ navigate, t }), [navigate, t])
+
+  useRegistryRowShortcuts({
+    role,
+    definitions: vehicleActionDefinitions,
+    runContext,
+    records,
+  })
 
   return useRegistryRowBehaviour({
     role,

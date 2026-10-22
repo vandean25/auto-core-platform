@@ -52,6 +52,7 @@ import { MechanicAccessDeniedPage, NotFoundPage } from '@/app/lazy-app-pages'
 import LandingDemoEmailLinkCompletionPage from '@/pages/LandingDemoEmailLinkCompletionPage'
 import LandingDemoSessionRejectedPage from '@/pages/LandingDemoSessionRejectedPage'
 import LoginPage from '@/pages/LoginPage'
+import { GlobalShortcutLayer } from '@/features/shortcuts/GlobalShortcutLayer'
 
 function AppMain() {
   return (
@@ -162,6 +163,7 @@ function AppShell({
               />
 
               <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
+              <GlobalShortcutLayer />
               <AppMain />
             </SidebarProvider>
           </>

@@ -53,7 +53,7 @@ export default function CustomerList() {
   }
 
   const peek = usePeekSearchParam()
-  const rowBehaviour = useCustomerListRowBehaviour(peek.openPeek)
+  const rowBehaviour = useCustomerListRowBehaviour(peek.openPeek, customers)
 
   const columns: ColumnDef<Customer>[] = [
     {

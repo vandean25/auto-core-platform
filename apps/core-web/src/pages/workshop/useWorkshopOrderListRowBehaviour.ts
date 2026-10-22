@@ -13,12 +13,14 @@ import {
   type WorkshopOrderListRow,
 } from '@/features/actions/work-order-row-actions'
 import { useRegistryRowBehaviour } from '@/features/actions/use-registry-row-behaviour'
+import { useRegistryRowShortcuts } from '@/features/shortcuts/use-registry-row-shortcuts'
 
 export function useWorkshopOrderListRowBehaviour(
   t: TFunction<'workshop'>,
   navigate: NavigateFunction,
   queryClient: QueryClient,
   openPeek: (id: string) => void,
+  records: WorkshopOrderListRow[],
 ) {
   const role = useAuthRole()
   const generatePdf = useGenerateWorkshopPdf()
@@ -47,6 +49,13 @@ export function useWorkshopOrderListRowBehaviour(
     () => ({ navigate, generatePdf, t }),
     [generatePdf, navigate, t],
   )
+
+  useRegistryRowShortcuts({
+    role,
+    definitions: workOrderActionDefinitions,
+    runContext,
+    records,
+  })
 
   return useRegistryRowBehaviour({
     role,

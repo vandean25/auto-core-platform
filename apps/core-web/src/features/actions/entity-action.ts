@@ -6,7 +6,7 @@ export type EntityActionDefinition<TRecord, TRunContext> = {
   id: string
   label: string
   icon?: LucideIcon
-  /** Reserved for AUT-694; not listened to yet. */
+  /** Single-letter shortcut when a list row is focused (AUT-694). */
   shortcutKey?: string
   destructive?: boolean
   isAllowedForRole: (role: string | undefined) => boolean

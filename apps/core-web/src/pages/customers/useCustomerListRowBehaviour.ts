@@ -10,8 +10,12 @@ import {
   type CustomerListRow,
 } from '@/features/actions/customer-row-actions'
 import { useRegistryRowBehaviour } from '@/features/actions/use-registry-row-behaviour'
+import { useRegistryRowShortcuts } from '@/features/shortcuts/use-registry-row-shortcuts'
 
-export function useCustomerListRowBehaviour(openPeek: (id: string) => void) {
+export function useCustomerListRowBehaviour(
+  openPeek: (id: string) => void,
+  records: CustomerListRow[],
+) {
   const { t } = useTranslation('customers')
   const navigate = useNavigate()
   const role = useAuthRole()
@@ -33,6 +37,13 @@ export function useCustomerListRowBehaviour(openPeek: (id: string) => void) {
     () => ({ navigate, onDelete: handleDelete, t }),
     [handleDelete, navigate, t],
   )
+
+  useRegistryRowShortcuts({
+    role,
+    definitions: customerActionDefinitions,
+    runContext,
+    records,
+  })
 
   return useRegistryRowBehaviour({
     role,

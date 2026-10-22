@@ -255,6 +255,24 @@
       "requestOnLanding": "Fordern Sie auf der Auto-Core-Landingpage einen neuen Demo-Link an."
     }
   },
+  "shortcuts": {
+    "title": "Tastenkürzel",
+    "description": "Aktive Tastenkürzel in Auto Core.",
+    "sections": {
+      "global": "Allgemein",
+      "navigation": "Navigation",
+      "lists": "Listen"
+    },
+    "entries": {
+      "globalSearch": "Globale Suche",
+      "toggleSidebar": "Seitenleiste ein- oder ausblenden",
+      "showHelp": "Diese Hilfe anzeigen",
+      "goWorkshopOrders": "Werkstattaufträge",
+      "goCustomers": "Kunden",
+      "goVehicles": "Fahrzeuge",
+      "rowOpenDetail": "Fokussierte Zeile vollständig öffnen"
+    }
+  },
   "sidebar": {
     "toggle": "Seitenleiste ein- oder ausblenden",
     "mobileTitle": "Navigation",

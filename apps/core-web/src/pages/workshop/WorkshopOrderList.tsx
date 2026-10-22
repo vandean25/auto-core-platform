@@ -29,7 +29,6 @@ export default function WorkshopOrderList() {
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
   const { data: responseData, isLoading, isError } = useWorkshopOrders(queryParams)
   const peek = usePeekSearchParam()
-  const rowBehaviour = useWorkshopOrderListRowBehaviour(t, navigate, queryClient, peek.openPeek)
 
   const rows = useMemo<WorkshopOrderListRow[]>(() => {
     const source = responseData?.data ?? []
@@ -42,6 +41,14 @@ export default function WorkshopOrderList() {
       status: order.status,
     }))
   }, [responseData])
+
+  const rowBehaviour = useWorkshopOrderListRowBehaviour(
+    t,
+    navigate,
+    queryClient,
+    peek.openPeek,
+    rows,
+  )
 
   const columns: ColumnDef<WorkshopOrderListRow>[] = [
     {
