@@ -339,6 +339,8 @@
       "partsPickQueue": "Parts pick queue",
       "partsPickHint": "Parts to pick for open workshop orders",
       "newOrder": "Order",
+      "empty": "No workshop orders yet.",
+      "emptyAction": "New order",
       "saveViewTitle": "Workshop Orders",
       "searchPlaceholder": "Search workshop orders...",
       "rowAria": "Workshop order {{orderNo}}",

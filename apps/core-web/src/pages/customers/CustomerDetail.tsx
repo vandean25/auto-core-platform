@@ -3,6 +3,8 @@ import { Link, useParams } from 'react-router-dom'
 import { useCustomer } from '@/api/customers'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { DetailSkeleton } from '@/components/ui/skeleton-presets'
 import { usePageBreadcrumbs } from '@/hooks/usePageBreadcrumbs'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { ArrowLeft, Package } from 'lucide-react'
@@ -27,7 +29,7 @@ export default function CustomerDetail() {
   })
 
   if (isLoading) {
-    return <div className='p-8 text-center'>{t('detail.loading')}</div>
+    return <DetailSkeleton label={t('detail.loading')} />
   }
 
   if (error) {
@@ -44,35 +46,35 @@ export default function CustomerDetail() {
 
   return (
     <div className='space-y-6'>
-      <div className='mb-8 flex flex-wrap items-start justify-between gap-4'>
-        <div className='flex min-w-0 items-center gap-4'>
+      <PageHeader
+        title={getCustomerDisplayName(customer)}
+        leading={
           <Button variant='ghost' size='icon' asChild>
             <Link to='/customers' aria-label={t('detail.backAria')}>
               <ArrowLeft className='h-4 w-4' />
             </Link>
           </Button>
-          <div className='min-w-0'>
-            <h1 className='text-2xl font-semibold tracking-tight break-words'>
-              {getCustomerDisplayName(customer)}
-            </h1>
-            <div className='flex items-center gap-2 text-slate-500 text-sm'>
-              {customer.type === 'COMPANY' && <Badge variant='outline'>{t('detail.companyBadge')}</Badge>}
-              <span>{t('detail.idLabel', { id: customer.id.substring(0, 8) })}</span>
+        }
+        description={
+          <div className='flex items-center gap-2'>
+            {customer.type === 'COMPANY' && <Badge variant='outline'>{t('detail.companyBadge')}</Badge>}
+            <span>{t('detail.idLabel', { id: customer.id.substring(0, 8) })}</span>
+          </div>
+        }
+        actions={
+          <div className='flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:items-end'>
+            <div className='flex flex-wrap justify-start gap-2 sm:justify-end'>
+              <Button asChild>
+                <Link to={`/sales-orders/new?customerId=${customer.id}`}>
+                  <Package className='mr-2 h-4 w-4' /> {t('detail.newSalesOrder')}
+                </Link>
+              </Button>
+              <CustomerStartService customerId={customer.id} vehicles={customer.vehicles ?? []} />
             </div>
+            <p className='text-xs text-muted-foreground'>{t('detail.invoiceHint')}</p>
           </div>
-        </div>
-        <div className='flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:items-end'>
-          <div className='flex flex-wrap justify-start gap-2 sm:justify-end'>
-            <Button asChild>
-              <Link to={`/sales-orders/new?customerId=${customer.id}`}>
-                <Package className='mr-2 h-4 w-4' /> {t('detail.newSalesOrder')}
-              </Link>
-            </Button>
-            <CustomerStartService customerId={customer.id} vehicles={customer.vehicles ?? []} />
-          </div>
-          <p className='text-xs text-slate-500'>{t('detail.invoiceHint')}</p>
-        </div>
-      </div>
+        }
+      />
 
       <div className='grid grid-cols-1 lg:grid-cols-3 gap-6 items-start'>
         <CustomerContactCard customer={customer} />

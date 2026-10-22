@@ -12,9 +12,9 @@ import {
   flexRender,
 } from '@tanstack/react-table'
 import {
-  useEffect,
   useRef,
   useState,
+  type ReactNode,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
 } from "react"
@@ -31,14 +31,15 @@ import {
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { DashboardWidgetTableSource } from "@/features/dashboard-widgets/types"
+import { TableSkeleton } from "@/components/ui/skeleton-presets"
+import { cn } from "@/lib/utils"
+import { getDataTableCellClassName, getDataTableHeadClassName } from "./data-table-column-meta"
+import { DataTableDensityContext, type DataTableDensity } from "./data-table-density-toggle"
+import { useDataTableContextMenu, type DataTableRowContextAction } from "./data-table-context-menu"
+import { DataTableSelectionBar, useDataTableSelection } from "./data-table-selection"
+import { DataTableEmptyRow, type DataTableEmptyState } from "./data-table-states"
 import { DataTableToolbar } from "./data-table-toolbar"
 import { DataTableRowDetailLink, isDataTableRowLinkColumn } from "./data-table-row-link"
-
-type DataTableRowContextAction<TData extends object> = {
-  label: string
-  onClick: (row: TData) => void
-  destructive?: boolean
-}
 
 function isInteractiveTarget(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) {
@@ -46,7 +47,7 @@ function isInteractiveTarget(target: EventTarget | null): boolean {
   }
 
   return Boolean(
-    target.closest('button, a, input, select, textarea, [role="button"]'),
+    target.closest('button, a, input, select, textarea, [role="button"], [data-column-id="select"]'),
   )
 }
 
@@ -133,6 +134,10 @@ interface DataTableProps<TData extends object> {
   searchColumn?: string
   searchPlaceholder?: string
   emptyStateMessage?: string
+  // Replaces the empty message and adds an action (e.g. "New customer") while no search or filter is active.
+  emptyState?: DataTableEmptyState
+  // Adds a checkbox column. While rows are selected, the returned actions dock in a floating bar.
+  bulkActions?: (selectedRows: TData[]) => ReactNode
   onRowClick?: (row: TData) => void
   getRowHref?: (row: TData) => string | undefined
   getRowAccessibleName?: (row: TData) => string
@@ -161,6 +166,8 @@ export function DataTable<TData extends object>({
   searchColumn,
   searchPlaceholder,
   emptyStateMessage,
+  emptyState,
+  bulkActions,
   onRowClick,
   getRowHref,
   getRowAccessibleName,
@@ -171,53 +178,19 @@ export function DataTable<TData extends object>({
 }: DataTableProps<TData>) {
   const { t } = useTranslation('common')
   const resolvedEmptyStateMessage = emptyStateMessage ?? t('dataTable.noResults')
-  const [contextMenu, setContextMenu] = useState<{
-    row: TData
-    x: number
-    y: number
-  } | null>(null)
-  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null)
-  const menuRef = useRef<HTMLDivElement | null>(null)
   const rootRef = useRef<HTMLDivElement | null>(null)
+  const [density, setDensity] = useState<DataTableDensity>("normal")
+  const hasBulkActions = Boolean(bulkActions)
+  const { rowSelection, setRowSelection, withSelectColumn } = useDataTableSelection<TData>(
+    hasBulkActions,
+    JSON.stringify([sorting, columnFilters, globalFilter, pagination]),
+  )
 
-  const openRowContextMenu = (row: TData, x: number, y: number) => {
-    const actions = getRowContextActions?.(row)
-    if (!actions || actions.length === 0) return false
-
-    setContextMenu({ row, x, y })
-    setMenuPosition({ top: y, left: x })
-    return true
-  }
-
-  useEffect(() => {
-    if (!contextMenu) return
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setContextMenu(null)
-      }
-    }
-
-    window.addEventListener("keydown", handleEscape)
-    return () => window.removeEventListener("keydown", handleEscape)
-  }, [contextMenu])
-
-  useEffect(() => {
-    if (!contextMenu || !menuRef.current) return
-
-    const menuWidth = menuRef.current.offsetWidth
-    const menuHeight = menuRef.current.offsetHeight
-    const maxLeft = Math.max(0, window.innerWidth - menuWidth)
-    const maxTop = Math.max(0, window.innerHeight - menuHeight)
-    const clampedLeft = Math.max(0, Math.min(contextMenu.x, maxLeft))
-    const clampedTop = Math.max(0, Math.min(contextMenu.y, maxTop))
-
-    setMenuPosition({ top: clampedTop, left: clampedLeft })
-  }, [contextMenu])
+  const { openRowContextMenu, menu: contextMenu } = useDataTableContextMenu(getRowContextActions)
 
   const table = useReactTable({
     data,
-    columns,
+    columns: withSelectColumn(columns),
     pageCount,
     getRowId: (row, index) => getTableRowId(row) ?? String(index),
     state: {
@@ -225,7 +198,10 @@ export function DataTable<TData extends object>({
       sorting,
       pagination,
       globalFilter,
+      rowSelection,
     },
+    enableRowSelection: hasBulkActions,
+    onRowSelectionChange: setRowSelection,
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
     onSortingChange: setSorting,
@@ -241,27 +217,42 @@ export function DataTable<TData extends object>({
       ? [...new Set([...pageSizeOptions, pagination.pageSize])].sort((a, b) => a - b)
       : []
 
+  const visibleColumnCount = table.getVisibleLeafColumns().length
+
   return (
     <div className="space-y-4" ref={rootRef}>
-      <DataTableToolbar 
-        table={table} 
-        searchColumn={searchColumn} 
-        placeholder={searchPlaceholder} 
-        saveViewTitle={saveViewTitle}
-        dashboardSource={dashboardSource}
-        enableCsvExport={enableCsvExport}
-        csvFileName={csvFileName}
-        getRoot={() => rootRef.current}
-        isLoading={isLoading}
-      />
-      <div className="max-w-full overflow-x-auto rounded-md border">
-        <Table>
-          <TableHeader>
+      <DataTableDensityContext.Provider value={{ density, setDensity }}>
+        <DataTableToolbar 
+          table={table} 
+          searchColumn={searchColumn} 
+          placeholder={searchPlaceholder} 
+          saveViewTitle={saveViewTitle}
+          dashboardSource={dashboardSource}
+          enableCsvExport={enableCsvExport}
+          csvFileName={csvFileName}
+          getRoot={() => rootRef.current}
+          isLoading={isLoading}
+        />
+      </DataTableDensityContext.Provider>
+      {/* 70vh: the table scrolls inside its own box, which keeps the sticky header in view. */}
+      <div
+        className={cn(
+          "max-w-full overflow-x-auto rounded-md border [&>div]:max-h-[70vh]",
+          "data-[density=compact]:[&_td]:py-1.5 data-[density=compact]:[&_th]:h-9",
+        )}
+        data-density={density}
+      >
+        <Table aria-busy={isLoading}>
+          <TableHeader className="sticky top-0 z-10 bg-background">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} data-table-header="true">
                 {headerGroup.headers.map((header) => {
                   return (
-                    <TableHead key={header.id} aria-sort={getAriaSort(header.column)}>
+                    <TableHead
+                      key={header.id}
+                      aria-sort={getAriaSort(header.column)}
+                      className={getDataTableHeadClassName(header.column.columnDef)}
+                    >
                       {header.isPlaceholder
                         ? null
                         : flexRender(
@@ -276,14 +267,7 @@ export function DataTable<TData extends object>({
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
-                  {t('dataTable.loading')}
-                </TableCell>
-              </TableRow>
+              <TableSkeleton rows={Math.min(pagination.pageSize, 8)} cols={visibleColumnCount} />
             ) : table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => {
                 const rowData = row.original as TData
@@ -357,7 +341,7 @@ export function DataTable<TData extends object>({
                     <TableCell
                       key={cell.id}
                       data-column-id={cell.column.id}
-                      className={onRowClick ? "cursor-pointer" : undefined}
+                      className={getDataTableCellClassName(cell.column.columnDef, Boolean(onRowClick))}
                       onClick={
                         onRowClick
                           ? (event) => activateRow(event, rowData, data, onRowClick)
@@ -381,14 +365,13 @@ export function DataTable<TData extends object>({
                 )
               })
             ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
-                  {resolvedEmptyStateMessage}
-                </TableCell>
-              </TableRow>
+              <DataTableEmptyRow
+                colSpan={visibleColumnCount}
+                fallbackMessage={resolvedEmptyStateMessage}
+                emptyState={emptyState}
+                columnFilters={columnFilters}
+                globalFilter={globalFilter}
+              />
             )}
           </TableBody>
         </Table>
@@ -440,44 +423,9 @@ export function DataTable<TData extends object>({
         </div>
       </div>
 
-      {contextMenu && (
-        <>
-          <button
-            type="button"
-            aria-label={t('dataTable.closeContextMenu')}
-            className="fixed inset-0 z-50 cursor-default"
-            onClick={() => setContextMenu(null)}
-            onContextMenu={(event) => {
-              event.preventDefault()
-              setContextMenu(null)
-            }}
-          />
-          <div
-            className="fixed z-50 min-w-40 rounded-md border bg-popover p-1 shadow-md"
-            style={{
-              top: menuPosition?.top ?? contextMenu.y,
-              left: menuPosition?.left ?? contextMenu.x,
-            }}
-            ref={menuRef}
-          >
-            {getRowContextActions?.(contextMenu.row).map((action: DataTableRowContextAction<TData>) => (
-              <button
-                key={action.label}
-                type="button"
-                className={`w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent ${
-                  action.destructive ? "text-destructive" : "text-foreground"
-                }`}
-                onClick={() => {
-                  action.onClick(contextMenu.row)
-                  setContextMenu(null)
-                }}
-              >
-                {action.label}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
+      <DataTableSelectionBar table={table} bulkActions={bulkActions} />
+
+      {contextMenu}
     </div>
   )
 }

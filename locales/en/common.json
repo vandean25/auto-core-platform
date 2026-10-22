@@ -42,7 +42,24 @@
     "exportCsvTitle": "Exports the visible columns of the rows loaded in this table",
     "hide": "Hide",
     "columnOptions": "{{title}} column options",
-    "loading": "Loading…"
+    "selectAll": "Select all rows on this page",
+    "selectRow": "Select row",
+    "actionBar": {
+      "label": "Actions for selected rows",
+      "selected_one": "{{count}} selected",
+      "selected_other": "{{count}} selected",
+      "clear": "Clear selection"
+    },
+    "filters": {
+      "selected_one": "{{count}} selected",
+      "selected_other": "{{count}} selected",
+      "clear": "Clear filter",
+      "itemSelected": "selected",
+      "noMatches": "No matches."
+    },
+    "density": {
+      "compact": "Compact rows"
+    }
   },
   "dashboard": {
     "title": "Dashboard",

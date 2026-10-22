@@ -8,6 +8,7 @@ import { TooltipHint } from '@/components/ui/tooltip'
 import { Plus } from 'lucide-react'
 import { WorkshopOrderIntakeDialog } from '@/components/workshop/WorkshopOrderIntakeDialog'
 import { DataTable } from '@/components/data-table/DataTable'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { StatusBadge } from '@/components/status/StatusBadge'
@@ -30,7 +31,7 @@ export default function WorkshopOrderList() {
   const navigate = useNavigate()
   const [createOpen, setCreateOpen] = useState(false)
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
-  const { data: responseData, isLoading } = useWorkshopOrders(queryParams)
+  const { data: responseData, isLoading, isError } = useWorkshopOrders(queryParams)
 
   const rows = useMemo<WorkshopOrderRow[]>(() => {
     const source = responseData?.data ?? []
@@ -87,23 +88,23 @@ export default function WorkshopOrderList() {
 
   return (
     <div className='space-y-6'>
-      <div className='flex items-center justify-between mb-8'>
-        <div>
-          <h1 className='text-2xl font-semibold tracking-tight'>{t('orders.list.title')}</h1>
-          <p className='text-slate-500'>{t('orders.list.description')}</p>
-        </div>
-        <div className='flex items-center gap-2'>
-          <TooltipHint hint={t('orders.list.partsPickHint')}>
-            <Button variant='outline' onClick={() => navigate('/workshop/pick-list')}>
-              {t('orders.list.partsPickQueue')}
+      <PageHeader
+        title={t('orders.list.title')}
+        description={t('orders.list.description')}
+        actions={
+          <>
+            <TooltipHint hint={t('orders.list.partsPickHint')}>
+              <Button variant='outline' onClick={() => navigate('/workshop/pick-list')}>
+                {t('orders.list.partsPickQueue')}
+              </Button>
+            </TooltipHint>
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className='h-4 w-4 mr-2' />
+              {t('orders.list.newOrder')}
             </Button>
-          </TooltipHint>
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className='h-4 w-4 mr-2' />
-            {t('orders.list.newOrder')}
-          </Button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       <DataTable
         columns={columns}
@@ -113,6 +114,19 @@ export default function WorkshopOrderList() {
         pageCount={responseData?.meta?.pageCount ?? 1}
         isLoading={isLoading}
         searchPlaceholder={t('orders.list.searchPlaceholder')}
+        emptyState={
+          isError
+            ? undefined
+            : {
+                message: t('orders.list.empty'),
+                action: (
+                  <Button onClick={() => setCreateOpen(true)}>
+                    <Plus className='h-4 w-4 mr-2' />
+                    {t('orders.list.emptyAction')}
+                  </Button>
+                ),
+              }
+        }
         getRowHref={(row) => `/workshop/orders/${row.id}`}
         getRowAccessibleName={(row) => t('orders.list.rowAria', { orderNo: row.orderNo })}
         onRowClick={(row) => navigate(`/workshop/orders/${row.id}`)}
