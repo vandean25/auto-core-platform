@@ -3,7 +3,8 @@ import { TenantMemberRole } from '@prisma/client';
 import type { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import { cronJobLockTestStub } from '../scheduler/cron-job-lock.test-helpers.js';
 
-const updateUser = jest.fn<() => Promise<void>>();
+const updateUser =
+  jest.fn<(uid: string, properties: { disabled: boolean }) => Promise<void>>();
 const getFirebaseAdminAuth = jest.fn(() => ({ updateUser }));
 
 jest.unstable_mockModule('../auth/firebase-admin.js', () => ({
@@ -22,22 +23,28 @@ describe('LandingDemoAccessCleanupService', () => {
   });
 
   it('disables Firebase only when no other active memberships remain', async () => {
-    const tenantMemberUpdate = jest.fn().mockResolvedValue({});
+    const tenantMemberUpdate = jest
+      .fn<(...args: unknown[]) => Promise<unknown>>()
+      .mockResolvedValue({});
     const tenantMemberCount = jest
-      .fn()
+      .fn<(...args: unknown[]) => Promise<unknown>>()
       .mockResolvedValueOnce(1)
       .mockResolvedValueOnce(0);
-    const deleteMany = jest.fn().mockResolvedValue({ count: 0 });
-    const findMany = jest.fn().mockResolvedValue([
-      {
-        id: 'm-1',
-        user: { id: 'u-1', firebaseUid: 'fb-1' },
-      },
-      {
-        id: 'm-2',
-        user: { id: 'u-2', firebaseUid: 'fb-2' },
-      },
-    ]);
+    const deleteMany = jest
+      .fn<(...args: unknown[]) => Promise<unknown>>()
+      .mockResolvedValue({ count: 0 });
+    const findMany = jest
+      .fn<(...args: unknown[]) => Promise<unknown>>()
+      .mockResolvedValue([
+        {
+          id: 'm-1',
+          user: { id: 'u-1', firebaseUid: 'fb-1' },
+        },
+        {
+          id: 'm-2',
+          user: { id: 'u-2', firebaseUid: 'fb-2' },
+        },
+      ]);
 
     const systemPrisma = {
       tenantMember: {

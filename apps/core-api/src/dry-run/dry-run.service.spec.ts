@@ -5,13 +5,15 @@ import { DryRunStorage } from './dry-run.storage.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { Prisma } from '@prisma/client';
 
+type Transaction = (
+  callback: (tx: Prisma.TransactionClient) => Promise<unknown>,
+) => Promise<unknown>;
+
 describe('DryRunService', () => {
   let dryRunService: DryRunService;
   let mockPrisma: {
     client: {
-      $transaction: jest.Mock<
-        (callback: (tx: Prisma.TransactionClient) => Promise<unknown>) => Promise<unknown>
-      >;
+      $transaction: jest.Mock<Transaction>;
     };
   };
   let mockTx: Prisma.TransactionClient;
@@ -25,9 +27,11 @@ describe('DryRunService', () => {
 
     mockPrisma = {
       client: {
-        $transaction: jest.fn().mockImplementation(async (callback: (tx: Prisma.TransactionClient) => Promise<unknown>) => {
-          return callback(mockTx);
-        }),
+        $transaction: jest.fn<Transaction>().mockImplementation(
+          async (callback) => {
+            return callback(mockTx);
+          },
+        ),
       },
     };
 
@@ -111,8 +115,8 @@ describe('DryRunService', () => {
 
     it('falls back to prisma.$transaction if prisma.client is not defined', async () => {
       const mockPrismaDirect = {
-        $transaction: jest.fn().mockImplementation(
-          async (callback: (tx: Prisma.TransactionClient) => Promise<unknown>) => {
+        $transaction: jest.fn<Transaction>().mockImplementation(
+          async (callback) => {
             return callback(mockTx);
           },
         ),

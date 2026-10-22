@@ -10,12 +10,16 @@ import type { SystemPrismaService } from '../prisma/system-prisma.service.js';
 
 describe('LandingDemoSignInGrantService', () => {
   it('consumes a valid grant on first demo sign-in', async () => {
-    const findFirst = jest.fn().mockResolvedValue({
-      id: 'grant-1',
-      consumed_at: null,
-      expires_at: new Date(Date.now() + 60_000),
-    });
-    const updateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const findFirst = jest
+      .fn<(...args: unknown[]) => Promise<unknown>>()
+      .mockResolvedValue({
+        id: 'grant-1',
+        consumed_at: null,
+        expires_at: new Date(Date.now() + 60_000),
+      });
+    const updateMany = jest
+      .fn<(...args: unknown[]) => Promise<unknown>>()
+      .mockResolvedValue({ count: 1 });
 
     const systemPrisma = {
       landingDemoSignInGrant: { findFirst, updateMany },
@@ -30,11 +34,13 @@ describe('LandingDemoSignInGrantService', () => {
   });
 
   it('allows subsequent sessions after the grant was consumed', async () => {
-    const findFirst = jest.fn().mockResolvedValue({
-      id: 'grant-1',
-      consumed_at: new Date(),
-      expires_at: new Date(Date.now() + 60_000),
-    });
+    const findFirst = jest
+      .fn<(...args: unknown[]) => Promise<unknown>>()
+      .mockResolvedValue({
+        id: 'grant-1',
+        consumed_at: new Date(),
+        expires_at: new Date(Date.now() + 60_000),
+      });
 
     const systemPrisma = {
       landingDemoSignInGrant: {
@@ -51,7 +57,9 @@ describe('LandingDemoSignInGrantService', () => {
   });
 
   it('rejects sign-in when no valid grant exists', async () => {
-    const findFirst = jest.fn().mockResolvedValue(null);
+    const findFirst = jest
+      .fn<(...args: unknown[]) => Promise<unknown>>()
+      .mockResolvedValue(null);
 
     const systemPrisma = {
       landingDemoSignInGrant: {
@@ -76,7 +84,9 @@ describe('LandingDemoSignInGrantService', () => {
   });
 
   it('detects non-demo active memberships', async () => {
-    const count = jest.fn().mockResolvedValue(2);
+    const count = jest
+      .fn<(...args: unknown[]) => Promise<unknown>>()
+      .mockResolvedValue(2);
     const systemPrisma = {
       tenantMember: { count },
       landingDemoSignInGrant: {},

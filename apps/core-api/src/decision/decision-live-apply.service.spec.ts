@@ -32,7 +32,10 @@ function customerRecord(): Customer {
 }
 
 /** Ambiguous import row: same name as the stored customer, so IMPORT_POSSIBLE_DUPLICATE. */
-function ambiguousRow(rowNo: number, overrides: Partial<DryRunRowResult> = {}) {
+function ambiguousRow(
+  rowNo: number,
+  overrides: Partial<DryRunRowResult> = {},
+): DryRunRowResult {
   return {
     row_no: rowNo,
     external_id: `external-${rowNo}`,
@@ -96,7 +99,9 @@ function buildHarness(options: {
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
     documentBrandAsset: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
-    $transaction: jest.fn(async (fn: (tx: unknown) => unknown) => fn(prisma)),
+    $transaction: jest.fn(
+      async (fn: (tx: unknown) => unknown): Promise<unknown> => fn(prisma),
+    ),
   };
   const shadow = {
     resolveTraceId: () => TRACE_ID,

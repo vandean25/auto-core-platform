@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { TenantContextService } from '../common/services/tenant-context.service.js';
 import type { RequestContextService } from '../common/services/request-context.service.js';
+import type { AgentActionRecordInput } from './agent-action-log.types.js';
 
 const mockGetClient = jest.fn();
 const mockGetActiveSpan = jest.fn();
@@ -21,8 +22,8 @@ const { AgentActionLogService } = await import(
 
 const TRACE_ID = '00000000-0000-4000-8000-00000000cc03';
 
-const actionInput = {
-  actorType: 'AGENT' as const,
+const actionInput: AgentActionRecordInput = {
+  actorType: 'AGENT',
   agentId: 'mcp:test',
   actionType: 'customer.update',
   tier: 'AUTO',

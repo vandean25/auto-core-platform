@@ -222,13 +222,15 @@ describe('AgentProposalDecisionService', () => {
     h.mockPrisma.agentProposal.findFirst.mockResolvedValue(createMockProposal());
     h.mockPrisma.agentProposal.updateMany.mockResolvedValue({ count: 1 });
     let transactionCalls = 0;
-    h.mockPrisma.$transaction.mockImplementation(async (callback) => {
-      transactionCalls += 1;
-      if (transactionCalls === 1) {
-        return callback(h.mockPrisma);
-      }
-      throw new Error('audit storage unavailable');
-    });
+    h.mockPrisma.$transaction.mockImplementation(
+      async (callback: (tx: unknown) => unknown) => {
+        transactionCalls += 1;
+        if (transactionCalls === 1) {
+          return callback(h.mockPrisma);
+        }
+        throw new Error('audit storage unavailable');
+      },
+    );
 
     await expect(h.decisions.approveProposal(proposalId)).rejects.toThrow(
       'execute failed',

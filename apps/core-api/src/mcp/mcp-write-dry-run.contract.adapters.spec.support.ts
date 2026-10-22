@@ -183,7 +183,7 @@ export function buildRealAdapterServices(): RealAdapterServices {
         valid_until: null,
       }),
     },
-    $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
+    $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>): Promise<unknown> =>
       fn(sharedPrisma),
     ),
     $queryRaw: jest.fn().mockResolvedValue([]),

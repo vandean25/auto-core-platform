@@ -30,6 +30,7 @@ function runWithTenantContext<T>(fn: () => T): T {
     });
     TenantContextStorage.setRequestMeta({
       requestId: 'req-dry-run-1',
+      traceId: 'trace-dry-run-1',
       source: 'API',
     });
     return fn();
@@ -58,7 +59,7 @@ describe('Prisma Dry-Run Integration', () => {
   describe('PrismaService Proxy Transaction Routing', () => {
     it('transparently routes model calls to tx when DryRunStorage has an active transaction client', async () => {
       const mockFindMany = jest
-        .fn()
+        .fn<(...args: unknown[]) => Promise<unknown>>()
         .mockResolvedValue([{ id: 'cust-1', name: 'Customer 1' }]);
       const mockTx = {
         customer: {
@@ -66,7 +67,7 @@ describe('Prisma Dry-Run Integration', () => {
         },
         workshopOrder: {
           findFirst: jest
-            .fn()
+            .fn<(...args: unknown[]) => Promise<unknown>>()
             .mockResolvedValue({ id: 'wo-1', number: 'WO-001' }),
         },
       } as unknown as Prisma.TransactionClient;
@@ -87,7 +88,9 @@ describe('Prisma Dry-Run Integration', () => {
     it('passes tx into $transaction callback when already inside a dry-run transaction', async () => {
       const mockTx = {
         customer: {
-          update: jest.fn().mockResolvedValue({ id: 'cust-1' }),
+          update: jest
+            .fn<(...args: unknown[]) => Promise<unknown>>()
+            .mockResolvedValue({ id: 'cust-1' }),
         },
       } as unknown as Prisma.TransactionClient;
 
@@ -112,13 +115,15 @@ describe('Prisma Dry-Run Integration', () => {
   describe('Audit Suppression and Change Collection (prisma-audit.extension)', () => {
     let collector: DryRunChangeCollector;
     let mockAuditLogCreate: jest.Mock;
-    let mockModelFindFirst: jest.Mock;
+    let mockModelFindFirst: jest.Mock<(...args: unknown[]) => Promise<unknown>>;
     let mockContext: Record<string, unknown>;
 
     beforeEach(() => {
       collector = new DryRunChangeCollector();
-      mockAuditLogCreate = jest.fn().mockResolvedValue({ id: 'audit-log-1' });
-      mockModelFindFirst = jest.fn();
+      mockAuditLogCreate = jest
+        .fn<(...args: unknown[]) => Promise<unknown>>()
+        .mockResolvedValue({ id: 'audit-log-1' });
+      mockModelFindFirst = jest.fn<(...args: unknown[]) => Promise<unknown>>();
       mockContext = {
         auditLog: {
           create: mockAuditLogCreate,
@@ -134,7 +139,9 @@ describe('Prisma Dry-Run Integration', () => {
       const beforeRow = { id: 'cust-1', name: 'Old Name' };
       const afterRow = { id: 'cust-1', name: 'New Name' };
       mockModelFindFirst.mockResolvedValue(beforeRow);
-      const queryFn = jest.fn().mockResolvedValue(afterRow);
+      const queryFn = jest
+        .fn<(...args: unknown[]) => Promise<unknown>>()
+        .mockResolvedValue(afterRow);
 
       await runWithTenantContext(async () => {
         await DryRunStorage.run(
@@ -165,7 +172,9 @@ describe('Prisma Dry-Run Integration', () => {
     it('suppresses audit log creation and records delete in collector during dry run', async () => {
       const beforeRow = { id: 'cust-2', name: 'Deleted Customer' };
       mockModelFindFirst.mockResolvedValue(beforeRow);
-      const queryFn = jest.fn().mockResolvedValue(beforeRow);
+      const queryFn = jest
+        .fn<(...args: unknown[]) => Promise<unknown>>()
+        .mockResolvedValue(beforeRow);
 
       await runWithTenantContext(async () => {
         await DryRunStorage.run(
@@ -206,7 +215,9 @@ describe('Prisma Dry-Run Integration', () => {
           return Promise.resolve(beforeRows);
         },
       );
-      const queryFn = jest.fn().mockResolvedValue({ count: 2 });
+      const queryFn = jest
+        .fn<(...args: unknown[]) => Promise<unknown>>()
+        .mockResolvedValue({ count: 2 });
 
       await runWithTenantContext(async () => {
         await DryRunStorage.run(
@@ -236,7 +247,9 @@ describe('Prisma Dry-Run Integration', () => {
         { id: 'cust-4', name: 'D' },
       ];
       (mockContext.customer as any).findMany.mockResolvedValue(beforeRows);
-      const queryFn = jest.fn().mockResolvedValue({ count: 2 });
+      const queryFn = jest
+        .fn<(...args: unknown[]) => Promise<unknown>>()
+        .mockResolvedValue({ count: 2 });
 
       await runWithTenantContext(async () => {
         await DryRunStorage.run(

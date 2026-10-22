@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { LeaveRequestStatus } from '@prisma/client';
+import { EmployeeRole, LeaveRequestStatus } from '@prisma/client';
 import {
   calculateRemainingLeaveMinutes,
   formatUtcDateOnly,
@@ -128,7 +128,7 @@ describe('hr-leave.helpers', () => {
         employee: {
           id: 'emp-1',
           name: 'Jane Doe',
-          role: 'SALES' as const,
+          role: EmployeeRole.PARTS_CLERK,
         },
       };
 
@@ -136,7 +136,7 @@ describe('hr-leave.helpers', () => {
       expect(dto.employee).toEqual({
         id: 'emp-1',
         name: 'Jane Doe',
-        role: 'SALES',
+        role: EmployeeRole.PARTS_CLERK,
       });
     });
   });

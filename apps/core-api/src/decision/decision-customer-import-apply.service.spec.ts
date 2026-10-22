@@ -56,7 +56,9 @@ function buildApplier(options: {
       findFirst: jest.fn().mockResolvedValue({ totals_json: TOTALS }),
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
-    $transaction: jest.fn(async (fn: (tx: unknown) => unknown) => fn(prisma)),
+    $transaction: jest.fn(
+      async (fn: (tx: unknown) => unknown): Promise<unknown> => fn(prisma),
+    ),
   };
   const shadow = {
     resolveTraceId: () => TRACE_ID,

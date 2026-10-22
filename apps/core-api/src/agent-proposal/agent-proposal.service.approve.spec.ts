@@ -162,7 +162,11 @@ describe('AgentProposalService approve', () => {
       mockPrisma.agentProposal.findFirst.mockResolvedValue(proposal);
       mockPrisma.agentProposal.updateMany.mockResolvedValue({ count: 1 });
       mockAgentActionLog.recordInTransaction.mockImplementation(
-        async (_input, _transaction, work) => {
+        async (
+          _input: unknown,
+          _transaction: unknown,
+          work?: () => Promise<unknown>,
+        ) => {
           if (work) await work();
           throw new Error('Audit storage unavailable');
         },
@@ -191,7 +195,11 @@ describe('AgentProposalService approve', () => {
       mockPrisma.agentProposal.findFirst.mockResolvedValue(proposal);
       mockPrisma.agentProposal.updateMany.mockResolvedValue({ count: 1 });
       mockAgentActionLog.recordInTransaction.mockImplementation(
-        async (_input, _transaction, work) => {
+        async (
+          _input: unknown,
+          _transaction: unknown,
+          work?: () => Promise<unknown>,
+        ) => {
           if (work) await work();
           throw new Error('Audit storage unavailable');
         },

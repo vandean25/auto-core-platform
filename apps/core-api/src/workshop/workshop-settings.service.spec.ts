@@ -119,7 +119,8 @@ describe('WorkshopSettingsService', () => {
     await expect(
       service.updateSettings({
         timezone: 'Europe/Vienna',
-        slotMinutes: 20,
+        // intentionally invalid: tests the runtime validation
+        slotMinutes: 20 as never,
         holidayCountryIso: 'AT',
         holidaySubdivisionCode: null,
         openingHours: openingHoursPayload(),
@@ -132,7 +133,8 @@ describe('WorkshopSettingsService', () => {
     hours[0] = {
       weekday: 1,
       isClosed: false,
-      openTime: '17:00',
+      // intentionally invalid: tests the runtime validation
+      openTime: '17:00' as never,
       closeTime: '17:00',
     };
 
