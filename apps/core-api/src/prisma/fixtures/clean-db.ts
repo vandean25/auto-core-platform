@@ -53,108 +53,30 @@ export const TABLE_CLEANERS: TableCleaner[] = [
     table: 'invoice_brand_asset_references',
     clean: (p) => p.invoiceBrandAssetReference.deleteMany(),
   },
-  { table: 'vendor_articles', clean: (p) => p.vendorArticle.deleteMany() },
-  {
-    table: 'catalog_price_histories',
-    clean: (p) => p.catalogPriceHistory.deleteMany(),
-  },
   { table: 'sales_order_items', clean: (p) => p.salesOrderItem.deleteMany() },
   {
     table: 'stock_transfer_lines',
     clean: (p) => p.stockTransferLine.deleteMany(),
   },
   {
-    table: 'workshop_opening_hours',
-    clean: (p) => p.workshopOpeningHour.deleteMany(),
+    table: 'domain_event_consumer_deliveries',
+    clean: (p) => p.domainEventConsumerDelivery.deleteMany(),
   },
-  { table: 'workshop_holidays', clean: (p) => p.workshopHoliday.deleteMany() },
-  { table: 'tyre_set_events', clean: (p) => p.tyreSetEvent.deleteMany() },
-  { table: 'tyre_sets', clean: (p) => p.tyreSet.deleteMany() },
   {
     table: 'inspection_measurements',
     clean: (p) => p.inspectionMeasurement.deleteMany(),
-  },
-  { table: 'site_memberships', clean: (p) => p.siteMembership.deleteMany() },
-  {
-    table: 'domain_event_consumer_deliveries',
-    clean: (p) => p.domainEventConsumerDelivery.deleteMany(),
   },
   {
     table: 'inspection_measurement_imports',
     clean: (p) => p.inspectionMeasurementImport.deleteMany(),
   },
   {
-    table: 'workshop_voice_note_drafts',
-    clean: (p) => p.workshopVoiceNoteDraft.deleteMany(),
-  },
-  { table: 'domain_events', clean: (p) => p.domainEvent.deleteMany() },
-  {
     table: 'inspection_measurement_identities',
     clean: (p) => p.inspectionMeasurementIdentity.deleteMany(),
   },
   {
-    table: 'registration_intake_byte_purges',
-    clean: (p) => p.registrationIntakeBytePurge.deleteMany(),
-  },
-  {
-    table: 'inspection_catalogue_imports',
-    clean: (p) => p.inspectionCatalogueImport.deleteMany(),
-  },
-  {
-    table: 'inspection_device_evidence',
-    clean: (p) => p.inspectionDeviceEvidence.deleteMany(),
-  },
-  {
-    table: 'inspection_device_sources',
-    clean: (p) => p.inspectionDeviceSource.deleteMany(),
-  },
-  {
-    table: 'inspection_exchange_events',
-    clean: (p) => p.inspectionExchangeEvent.deleteMany(),
-  },
-  {
-    table: 'inspection_finding_references',
-    clean: (p) => p.inspectionFindingReference.deleteMany(),
-  },
-  {
-    table: 'inspection_support_events',
-    clean: (p) => p.inspectionSupportEvent.deleteMany(),
-  },
-  {
-    table: 'inspector_evidence_revisions',
-    clean: (p) => p.inspectorEvidenceRevision.deleteMany(),
-  },
-  {
-    table: 'registration_document_intakes',
-    clean: (p) => p.registrationDocumentIntake.deleteMany(),
-  },
-  {
-    table: 'tenant_inspection_catalogue_activations',
-    clean: (p) => p.tenantInspectionCatalogueActivation.deleteMany(),
-  },
-  {
     table: 'vehicle_valuation_snapshots',
     clean: (p) => p.vehicleValuationSnapshot.deleteMany(),
-  },
-  {
-    table: 'accounting_exports',
-    clean: (p) => p.accountingExport.deleteMany(),
-  },
-  {
-    table: 'document_brand_profiles',
-    clean: (p) => p.documentBrandProfile.deleteMany(),
-  },
-  {
-    table: 'document_brand_extractions',
-    clean: (p) => p.documentBrandExtraction.deleteMany(),
-  },
-  {
-    table: 'legal_entity_accounting_profiles',
-    clean: (p) => p.legalEntityAccountingProfile.deleteMany(),
-  },
-  {
-    table: 'workshop_estimate_brand_asset_references',
-    clean: (p) => p.workshopEstimateBrandAssetReference.deleteMany(),
   },
   {
     table: 'customer_communication_states',
@@ -166,127 +88,18 @@ export const TABLE_CLEANERS: TableCleaner[] = [
   },
   { table: 'customer_consents', clean: (p) => p.customerConsent.deleteMany() },
   {
-    table: 'document_brand_assets',
-    clean: (p) => p.documentBrandAsset.deleteMany(),
-  },
-  { table: 'margin_rules', clean: (p) => p.marginRule.deleteMany() },
-  { table: 'finance_settings', clean: (p) => p.financeSettings.deleteMany() },
-  {
-    table: 'catalog_provider_settings',
-    clean: (p) => p.catalogProviderSettings.deleteMany(),
-  },
-  {
-    table: 'notification_outbox',
-    clean: (p) => p.notificationOutbox.deleteMany(),
-  },
-  { table: 'workshop_media', clean: (p) => p.workshopMedia.deleteMany() },
-  { table: 'loaner_bookings', clean: (p) => p.loanerBooking.deleteMany() },
-  { table: 'loaner_vehicles', clean: (p) => p.loanerVehicle.deleteMany() },
-  { table: 'workshop_check_ins', clean: (p) => p.workshopCheckIn.deleteMany() },
-  {
-    table: 'voice_note_rate_limits',
-    clean: (p) => p.voiceNoteRateLimit.deleteMany(),
-  },
-  {
-    table: 'vehicle_inspection_records',
-    clean: (p) => p.vehicleInspectionRecord.deleteMany(),
-  },
-  {
-    table: 'external_inspection_results',
-    clean: (p) => p.externalInspectionResult.deleteMany(),
-  },
-  {
-    table: 'inspection_exchange_imports',
-    clean: (p) => p.inspectionExchangeImport.deleteMany(),
-  },
-  {
-    table: 'inspection_source_connections',
-    clean: (p) => p.inspectionSourceConnection.deleteMany(),
-  },
-  {
-    table: 'vehicle_ledger_entries',
-    clean: async (p) => {
-      const vehicles = await p.vehicle.findMany({
-        where: {
-          tenant: { is: { slug: 'default-workshop' } },
-          vin: { in: [...DEMO_GEWAHRLEISTUNG_VINS] },
-        },
-        select: { id: true },
-      });
-      await p.vehicleLedgerEntry.deleteMany({
-        where: { vehicle_id: { in: vehicles.map(({ id }) => id) } },
-      });
-    },
-  },
-  {
-    table: 'vehicle_listing_channel_dms_syncs',
-    clean: (p) => p.vehicleListingChannelDmsSync.deleteMany(),
-  },
-  {
-    table: 'vehicle_listing_photos',
-    clean: (p) => p.vehicleListingPhoto.deleteMany(),
-  },
-  { table: 'vehicle_media', clean: (p) => p.vehicleMedia.deleteMany() },
-  {
-    table: 'vehicle_listing_channels',
-    clean: (p) => p.vehicleListingChannel.deleteMany(),
-  },
-  {
-    table: 'vehicle_listing_push_settings',
-    clean: (p) => p.vehicleListingPushSettings.deleteMany(),
-  },
-  {
-    table: 'vehicle_listings',
-    clean: (p) => p.vehicleListing.deleteMany(),
-  },
-  {
-    table: 'vehicle_equipment_selections',
-    clean: (p) => p.vehicleEquipmentSelection.deleteMany(),
-  },
-  {
-    table: 'vehicle_equipment_free_text_items',
-    clean: (p) => p.vehicleEquipmentFreeTextItem.deleteMany(),
-  },
-  {
-    table: 'inspection_report_identities',
-    clean: (p) => p.inspectionReportIdentity.deleteMany(),
-  },
-  {
-    table: 'vehicle_equipment_options',
-    clean: (p) => p.vehicleEquipmentOption.deleteMany(),
-  },
-  {
-    table: 'catalog_oem_concern_makes',
-    clean: (p) => p.catalogOemConcernMake.deleteMany(),
-  },
-  {
-    table: 'catalog_oem_concerns',
-    clean: (p) => p.catalogOemConcern.deleteMany(),
-  },
-  {
-    table: 'vehicle_make_aliases',
-    clean: (p) => p.vehicleMakeAlias.deleteMany(),
-  },
-  {
     table: 'customer_contact_points',
     clean: (p) => p.customerContactPoint.deleteMany(),
   },
-  { table: 'labor_entries', clean: (p) => p.laborEntry.deleteMany() },
-  { table: 'leave_requests', clean: (p) => p.leaveRequest.deleteMany() },
-  {
-    table: 'workshop_estimate_approvals',
-    clean: (p) => p.workshopEstimateApproval.deleteMany(),
-  },
-  {
-    table: 'workshop_inspection_items',
-    clean: (p) => p.workshopInspectionItem.deleteMany(),
-  },
-  {
-    table: 'workshop_inspections',
-    clean: (p) => p.workshopInspection.deleteMany(),
-  },
+  { table: 'loaner_bookings', clean: (p) => p.loanerBooking.deleteMany() },
+  { table: 'loaner_vehicles', clean: (p) => p.loanerVehicle.deleteMany() },
   { table: 'agent_action_logs', clean: (p) => p.agentActionLog.deleteMany() },
-  { table: 'agent_policy_rules', clean: (p) => p.agentPolicyRule.deleteMany() },
+  // Platform rules (tenant_id NULL) come from migrations; the seed does not recreate them.
+  {
+    table: 'agent_policy_rules',
+    clean: (p) =>
+      p.agentPolicyRule.deleteMany({ where: { tenant_id: { not: null } } }),
+  },
   { table: 'agent_proposals', clean: (p) => p.agentProposal.deleteMany() },
   { table: 'attendance_events', clean: (p) => p.attendanceEvent.deleteMany() },
   { table: 'audit_logs', clean: (p) => p.auditLog.deleteMany() },
@@ -297,6 +110,14 @@ export const TABLE_CLEANERS: TableCleaner[] = [
   {
     table: 'decision_shadow_logs',
     clean: (p) => p.decisionShadowLog.deleteMany(),
+  },
+  {
+    table: 'document_brand_profiles',
+    clean: (p) => p.documentBrandProfile.deleteMany(),
+  },
+  {
+    table: 'document_brand_extractions',
+    clean: (p) => p.documentBrandExtraction.deleteMany(),
   },
   {
     table: 'document_brand_quota_events',
@@ -342,29 +163,13 @@ export const TABLE_CLEANERS: TableCleaner[] = [
       await p.invoice.deleteMany();
     },
   },
-  { table: 'fiscal_registers', clean: (p) => p.fiscalRegister.deleteMany() },
+  { table: 'vendor_articles', clean: (p) => p.vendorArticle.deleteMany() },
+  {
+    table: 'catalog_price_histories',
+    clean: (p) => p.catalogPriceHistory.deleteMany(),
+  },
   { table: 'sales_orders', clean: (p) => p.salesOrder.deleteMany() },
-  {
-    table: 'vehicle_sales',
-    clean: (p) =>
-      p.vehicleSale.deleteMany({
-        where: {
-          tenant: { is: { slug: 'default-workshop' } },
-          sale_number: { in: [...DEMO_GEWAHRLEISTUNG_SALE_NUMBERS] },
-        },
-      }),
-  },
-  {
-    table: 'vehicle_purchases',
-    clean: (p) =>
-      p.vehiclePurchase.deleteMany({
-        where: {
-          tenant: { is: { slug: 'default-workshop' } },
-          purchase_number: { in: [...DEMO_GEWAHRLEISTUNG_PURCHASE_NUMBERS] },
-        },
-      }),
-  },
-  { table: 'vendors', clean: (p) => p.vendor.deleteMany() },
+  { table: 'fiscal_registers', clean: (p) => p.fiscalRegister.deleteMany() },
   { table: 'import_job_rows', clean: (p) => p.importJobRow.deleteMany() },
   { table: 'import_jobs', clean: (p) => p.importJob.deleteMany() },
   {
@@ -376,21 +181,47 @@ export const TABLE_CLEANERS: TableCleaner[] = [
     clean: (p) => p.inspectionCatalogueEntry.deleteMany(),
   },
   {
-    table: 'inspection_catalogue_versions',
-    clean: (p) => p.inspectionCatalogueVersion.deleteMany(),
+    table: 'inspection_catalogue_imports',
+    clean: (p) => p.inspectionCatalogueImport.deleteMany(),
   },
   {
-    table: 'inspection_template_items',
-    clean: (p) => p.inspectionTemplateItem.deleteMany(),
+    table: 'inspection_device_evidence',
+    clean: (p) => p.inspectionDeviceEvidence.deleteMany(),
   },
   {
-    table: 'inspection_templates',
-    clean: (p) => p.inspectionTemplate.deleteMany(),
+    table: 'inspection_device_sources',
+    clean: (p) => p.inspectionDeviceSource.deleteMany(),
+  },
+  {
+    table: 'inspection_exchange_events',
+    clean: (p) => p.inspectionExchangeEvent.deleteMany(),
+  },
+  {
+    table: 'inspection_finding_references',
+    clean: (p) => p.inspectionFindingReference.deleteMany(),
+  },
+  {
+    table: 'inspection_support_events',
+    clean: (p) => p.inspectionSupportEvent.deleteMany(),
+  },
+  {
+    table: 'inspector_evidence_revisions',
+    clean: (p) => p.inspectorEvidenceRevision.deleteMany(),
   },
   { table: 'invoice_sequences', clean: (p) => p.invoiceSequence.deleteMany() },
+  { table: 'labor_entries', clean: (p) => p.laborEntry.deleteMany() },
+  { table: 'leave_requests', clean: (p) => p.leaveRequest.deleteMany() },
   {
     table: 'mcp_write_command_receipts',
     clean: (p) => p.mcpWriteCommandReceipt.deleteMany(),
+  },
+  {
+    table: 'registration_intake_byte_purges',
+    clean: (p) => p.registrationIntakeBytePurge.deleteMany(),
+  },
+  {
+    table: 'registration_document_intakes',
+    clean: (p) => p.registrationDocumentIntake.deleteMany(),
   },
   {
     table: 'stock_transfer_commands',
@@ -398,7 +229,16 @@ export const TABLE_CLEANERS: TableCleaner[] = [
   },
   { table: 'stock_transfers', clean: (p) => p.stockTransfer.deleteMany() },
   { table: 'tenant_api_keys', clean: (p) => p.tenantApiKey.deleteMany() },
-  { table: 'tenant_members', clean: (p) => p.tenantMember.deleteMany() },
+  {
+    table: 'tenant_inspection_catalogue_activations',
+    clean: (p) => p.tenantInspectionCatalogueActivation.deleteMany(),
+  },
+  {
+    table: 'inspection_catalogue_versions',
+    clean: (p) => p.inspectionCatalogueVersion.deleteMany(),
+  },
+  { table: 'tyre_set_events', clean: (p) => p.tyreSetEvent.deleteMany() },
+  { table: 'tyre_sets', clean: (p) => p.tyreSet.deleteMany() },
   {
     table: 'tyre_storage_settings',
     clean: (p) => p.tyreStorageSettings.deleteMany(),
@@ -416,8 +256,28 @@ export const TABLE_CLEANERS: TableCleaner[] = [
     clean: (p) => p.workshopTaskLineItem.deleteMany(),
   },
   { table: 'catalog_items', clean: (p) => p.catalogItem.deleteMany() },
-  { table: 'workshop_tasks', clean: (p) => p.workshopTask.deleteMany() },
+  {
+    table: 'workshop_opening_hours',
+    clean: (p) => p.workshopOpeningHour.deleteMany(),
+  },
+  { table: 'workshop_holidays', clean: (p) => p.workshopHoliday.deleteMany() },
+  { table: 'site_memberships', clean: (p) => p.siteMembership.deleteMany() },
+  { table: 'domain_events', clean: (p) => p.domainEvent.deleteMany() },
+  {
+    table: 'accounting_exports',
+    clean: (p) => p.accountingExport.deleteMany(),
+  },
+  {
+    table: 'legal_entity_accounting_profiles',
+    clean: (p) => p.legalEntityAccountingProfile.deleteMany(),
+  },
+  { table: 'margin_rules', clean: (p) => p.marginRule.deleteMany() },
   { table: 'revenue_groups', clean: (p) => p.revenueGroup.deleteMany() },
+  { table: 'finance_settings', clean: (p) => p.financeSettings.deleteMany() },
+  {
+    table: 'catalog_provider_settings',
+    clean: (p) => p.catalogProviderSettings.deleteMany(),
+  },
   { table: 'labor_operations', clean: (p) => p.laborOperation.deleteMany() },
   {
     table: 'labor_categories',
@@ -426,18 +286,127 @@ export const TABLE_CLEANERS: TableCleaner[] = [
       await p.laborCategory.deleteMany();
     },
   },
+  {
+    table: 'notification_outbox',
+    clean: (p) => p.notificationOutbox.deleteMany(),
+  },
+  {
+    table: 'voice_note_rate_limits',
+    clean: (p) => p.voiceNoteRateLimit.deleteMany(),
+  },
+  {
+    table: 'vehicle_inspection_records',
+    clean: (p) => p.vehicleInspectionRecord.deleteMany(),
+  },
+  {
+    table: 'vehicle_ledger_entries',
+    clean: async (p) => {
+      const vehicles = await p.vehicle.findMany({
+        where: {
+          tenant: { is: { slug: 'default-workshop' } },
+          vin: { in: [...DEMO_GEWAHRLEISTUNG_VINS] },
+        },
+        select: { id: true },
+      });
+      await p.vehicleLedgerEntry.deleteMany({
+        where: { vehicle_id: { in: vehicles.map(({ id }) => id) } },
+      });
+    },
+  },
+  {
+    table: 'vehicle_sales',
+    clean: (p) =>
+      p.vehicleSale.deleteMany({
+        where: {
+          tenant: { is: { slug: 'default-workshop' } },
+          sale_number: { in: [...DEMO_GEWAHRLEISTUNG_SALE_NUMBERS] },
+        },
+      }),
+  },
+  {
+    table: 'vehicle_listing_channel_dms_syncs',
+    clean: (p) => p.vehicleListingChannelDmsSync.deleteMany(),
+  },
+  {
+    table: 'vehicle_listing_photos',
+    clean: (p) => p.vehicleListingPhoto.deleteMany(),
+  },
+  {
+    table: 'vehicle_listing_channels',
+    clean: (p) => p.vehicleListingChannel.deleteMany(),
+  },
+  {
+    table: 'vehicle_listing_push_settings',
+    clean: (p) => p.vehicleListingPushSettings.deleteMany(),
+  },
+  {
+    table: 'vehicle_listings',
+    clean: (p) => p.vehicleListing.deleteMany(),
+  },
+  {
+    table: 'vehicle_equipment_selections',
+    clean: (p) => p.vehicleEquipmentSelection.deleteMany(),
+  },
+  {
+    table: 'vehicle_equipment_free_text_items',
+    clean: (p) => p.vehicleEquipmentFreeTextItem.deleteMany(),
+  },
+  {
+    table: 'external_inspection_results',
+    clean: (p) => p.externalInspectionResult.deleteMany(),
+  },
+  {
+    table: 'inspection_exchange_imports',
+    clean: (p) => p.inspectionExchangeImport.deleteMany(),
+  },
+  {
+    table: 'inspection_report_identities',
+    clean: (p) => p.inspectionReportIdentity.deleteMany(),
+  },
+  { table: 'vehicle_media', clean: (p) => p.vehicleMedia.deleteMany() },
+  {
+    table: 'vehicle_purchases',
+    clean: (p) =>
+      p.vehiclePurchase.deleteMany({
+        where: {
+          tenant: { is: { slug: 'default-workshop' } },
+          purchase_number: { in: [...DEMO_GEWAHRLEISTUNG_PURCHASE_NUMBERS] },
+        },
+      }),
+  },
+  {
+    table: 'inspection_source_connections',
+    clean: (p) => p.inspectionSourceConnection.deleteMany(),
+  },
+  { table: 'tenant_members', clean: (p) => p.tenantMember.deleteMany() },
   { table: 'warranty_claims', clean: (p) => p.warrantyClaim.deleteMany() },
   {
     table: 'workshop_command_presets',
     clean: (p) => p.workshopCommandPreset.deleteMany(),
   },
   {
+    table: 'workshop_estimate_approvals',
+    clean: (p) => p.workshopEstimateApproval.deleteMany(),
+  },
+  {
     table: 'workshop_estimate_approval_tokens',
     clean: (p) => p.workshopEstimateApprovalToken.deleteMany(),
   },
   {
+    table: 'workshop_estimate_brand_asset_references',
+    clean: (p) => p.workshopEstimateBrandAssetReference.deleteMany(),
+  },
+  {
+    table: 'document_brand_assets',
+    clean: (p) => p.documentBrandAsset.deleteMany(),
+  },
+  {
     table: 'workshop_estimate_overruns',
     clean: (p) => p.workshopEstimateOverrun.deleteMany(),
+  },
+  {
+    table: 'workshop_estimate_sequences',
+    clean: (p) => p.workshopEstimateSequence.deleteMany(),
   },
   {
     table: 'workshop_estimate_versions',
@@ -447,12 +416,47 @@ export const TABLE_CLEANERS: TableCleaner[] = [
     table: 'workshop_estimates',
     clean: (p) => p.workshopEstimate.deleteMany(),
   },
+  {
+    table: 'workshop_inspection_items',
+    clean: (p) => p.workshopInspectionItem.deleteMany(),
+  },
+  {
+    table: 'inspection_template_items',
+    clean: (p) => p.inspectionTemplateItem.deleteMany(),
+  },
+  { table: 'workshop_media', clean: (p) => p.workshopMedia.deleteMany() },
+  { table: 'workshop_check_ins', clean: (p) => p.workshopCheckIn.deleteMany() },
+  {
+    table: 'workshop_inspections',
+    clean: (p) => p.workshopInspection.deleteMany(),
+  },
+  {
+    table: 'inspection_templates',
+    clean: (p) => p.inspectionTemplate.deleteMany(),
+  },
+  {
+    table: 'workshop_voice_note_drafts',
+    clean: (p) => p.workshopVoiceNoteDraft.deleteMany(),
+  },
+  { table: 'workshop_tasks', clean: (p) => p.workshopTask.deleteMany() },
   { table: 'workshop_orders', clean: (p) => p.workshopOrder.deleteMany() },
-  { table: 'bays', clean: (p) => p.bay.deleteMany() },
   { table: 'vehicles', clean: (p) => p.vehicle.deleteMany() },
-  { table: 'storage_locations', clean: (p) => p.storageLocation.deleteMany() },
-  { table: 'sites', clean: (p) => p.site.deleteMany() },
-  { table: 'legal_entities', clean: (p) => p.legalEntity.deleteMany() },
+  {
+    table: 'vehicle_equipment_options',
+    clean: (p) => p.vehicleEquipmentOption.deleteMany(),
+  },
+  {
+    table: 'catalog_oem_concern_makes',
+    clean: (p) => p.catalogOemConcernMake.deleteMany(),
+  },
+  {
+    table: 'catalog_oem_concerns',
+    clean: (p) => p.catalogOemConcern.deleteMany(),
+  },
+  {
+    table: 'vehicle_make_aliases',
+    clean: (p) => p.vehicleMakeAlias.deleteMany(),
+  },
   {
     table: 'customers',
     clean: async (p) => {
@@ -465,16 +469,17 @@ export const TABLE_CLEANERS: TableCleaner[] = [
       await p.customer.deleteMany();
     },
   },
+  { table: 'vendors', clean: (p) => p.vendor.deleteMany() },
+  { table: 'brands', clean: (p) => p.brand.deleteMany() },
+  { table: 'bays', clean: (p) => p.bay.deleteMany() },
+  { table: 'employees', clean: (p) => p.employee.deleteMany() },
   {
     table: 'labor_price_groups',
     clean: (p) => p.laborPriceGroup.deleteMany(),
   },
-  { table: 'brands', clean: (p) => p.brand.deleteMany() },
-  { table: 'employees', clean: (p) => p.employee.deleteMany() },
-  {
-    table: 'workshop_estimate_sequences',
-    clean: (p) => p.workshopEstimateSequence.deleteMany(),
-  },
+  { table: 'storage_locations', clean: (p) => p.storageLocation.deleteMany() },
+  { table: 'sites', clean: (p) => p.site.deleteMany() },
+  { table: 'legal_entities', clean: (p) => p.legalEntity.deleteMany() },
   { table: 'tenants', clean: (p) => p.tenant.deleteMany() },
 ];
 

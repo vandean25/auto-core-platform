@@ -118,8 +118,8 @@ describe('cleanDb', () => {
       'purchase_order_items',
       'purchase_orders',
       'inventory_stocks',
-      'storage_locations',
       'brands',
+      'storage_locations',
       'tenants',
     ]);
     expect(executedDeletes).toEqual([
@@ -132,8 +132,8 @@ describe('cleanDb', () => {
       'purchase_order_items',
       'purchase_orders',
       'inventory_stocks',
-      'storage_locations',
       'brands',
+      'storage_locations',
       'tenants',
     ]);
   });
@@ -333,6 +333,21 @@ describe('cleanDb', () => {
     });
     expect(customer.deleteMany).toHaveBeenNthCalledWith(2);
   });
+
+  it('keeps platform agent policy rules when cleaning tenant rules', async () => {
+    const agentPolicyRule = {
+      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+    };
+    const tables = TABLE_CLEANERS.map((cleaner) => cleaner.table);
+    const agentPolicyCleaner =
+      TABLE_CLEANERS[tables.indexOf('agent_policy_rules')];
+
+    await agentPolicyCleaner.clean({ agentPolicyRule } as any);
+
+    expect(agentPolicyRule.deleteMany).toHaveBeenCalledWith({
+      where: { tenant_id: { not: null } },
+    });
+  });
 });
 
 const schema = fs.readFileSync(
@@ -381,6 +396,10 @@ describe('TABLE_CLEANERS against prisma/schema.prisma', () => {
   const tables = TABLE_CLEANERS.map((cleaner) => cleaner.table);
   const foreignKeys = readSchemaForeignKeys();
 
+  it('parses every relation that declares fields', () => {
+    expect(foreignKeys).toHaveLength(schema.match(/fields:/g)?.length ?? 0);
+  });
+
   it('cleans every table with a tenant_id foreign key before tenants', () => {
     const tenantTables = new Set(
       foreignKeys
@@ -394,7 +413,6 @@ describe('TABLE_CLEANERS against prisma/schema.prisma', () => {
       (table) => tables.indexOf(table) > tables.indexOf('tenants'),
     );
 
-    expect(tenantTables.size).toBeGreaterThan(100);
     expect(uncleaned).toEqual([]);
     expect(cleanedAfterTenants).toEqual([]);
   });
