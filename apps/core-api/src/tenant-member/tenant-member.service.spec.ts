@@ -83,7 +83,8 @@ describe('TenantMemberService', () => {
 
     jest
       .spyOn(
-        service,
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- required by TS 7; TS 6 shim lint disagrees (AUT-676)
+        service as unknown as { getFirebaseAuth(): unknown },
         'getFirebaseAuth',
       )
       .mockReturnValue(mockFirebaseAuth);

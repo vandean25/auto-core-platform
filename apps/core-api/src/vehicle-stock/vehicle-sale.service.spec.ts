@@ -154,7 +154,11 @@ describe('VehicleSaleService', () => {
 
   describe('Gewaehrleistung sale facts', () => {
     it('scopes the related vehicle when updating a draft sale', async () => {
-      jest.spyOn(service, 'findOne').mockResolvedValue({});
+      // pass-through: this test asserts the vehicle scope, not findOne's result
+      jest.spyOn(service, 'findOne').mockResolvedValue(
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- required by TS 7; TS 6 shim lint disagrees (AUT-676)
+        {} as Awaited<ReturnType<VehicleSaleService['findOne']>>,
+      );
       prisma.vehicleSale.findFirst.mockResolvedValue({
         id: saleId,
         tenant_id: tenantId,
@@ -181,7 +185,11 @@ describe('VehicleSaleService', () => {
     });
 
     it('scopes the related vehicle when correcting an invoiced sale', async () => {
-      jest.spyOn(service, 'findOne').mockResolvedValue({});
+      // pass-through: this test asserts the vehicle scope, not findOne's result
+      jest.spyOn(service, 'findOne').mockResolvedValue(
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- required by TS 7; TS 6 shim lint disagrees (AUT-676)
+        {} as Awaited<ReturnType<VehicleSaleService['findOne']>>,
+      );
       prisma.vehicleSale.findFirst.mockResolvedValue({
         id: saleId,
         tenant_id: tenantId,

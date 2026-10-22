@@ -70,10 +70,12 @@ describe('AutoScout24 DMS reads under tenant isolation', () => {
     const query = jest.fn().mockResolvedValue({ as24_dms_push_enabled: true });
     const prisma = {
       vehicleListingPushSettings: {
-        findFirst: (args: Record<string, unknown>) =>
-          runWithTenant(() =>
-            call('VehicleListingPushSettings', 'findFirst', args, query),
-          ),
+        findFirst: jest.fn().mockImplementation(
+          (args: Record<string, unknown>) =>
+            runWithTenant(() =>
+              call('VehicleListingPushSettings', 'findFirst', args, query),
+            ),
+        ),
       },
     };
 
