@@ -10,12 +10,10 @@ import {
 } from '@/features/actions/customer-row-actions'
 import { useCustomerDeleteHandler } from '@/pages/customers/use-customer-delete-handler'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
-import { usePeekSearchParam } from './use-peek-search-param'
 
-export function useCustomerPeekSheetData() {
+export function useCustomerPeekSheetData(peekId: string | null, closePeek: () => void) {
   const { t } = useTranslation('customers')
   const navigate = useNavigate()
-  const { peekId, isPeekOpen, closePeek } = usePeekSearchParam()
   const { data: customer, isLoading } = useCustomer(peekId ?? '')
   const role = useAuthRole()
   const handleDelete = useCustomerDeleteHandler({ onDeleted: closePeek })
@@ -33,9 +31,6 @@ export function useCustomerPeekSheetData() {
 
   return {
     t,
-    peekId,
-    isPeekOpen,
-    closePeek,
     customer,
     isLoading,
     role,

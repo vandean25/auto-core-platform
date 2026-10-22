@@ -8,16 +8,21 @@ import { createWorkshopOrderRowActions } from '@/features/actions/work-order-row
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { EntityPeekActionButtons } from './EntityPeekActionButtons'
 import { EntityPeekSheet } from './EntityPeekSheet'
-import { usePeekSearchParam } from './use-peek-search-param'
+import type { PeekListControl } from './peek-list-control'
 import { WorkshopOrderPeekContent, workshopOrderToListRow } from './WorkshopOrderPeekContent'
 
-type WorkshopOrderPeekSheetProps = {
+type WorkshopOrderPeekSheetProps = Pick<PeekListControl, 'peekId' | 'isPeekOpen' | 'closePeek'> & {
   t: TFunction<'workshop'>
   navigate: ReturnType<typeof useNavigate>
 }
 
-export function WorkshopOrderPeekSheet({ t, navigate }: WorkshopOrderPeekSheetProps) {
-  const { peekId, isPeekOpen, closePeek } = usePeekSearchParam()
+export function WorkshopOrderPeekSheet({
+  t,
+  navigate,
+  peekId,
+  isPeekOpen,
+  closePeek,
+}: WorkshopOrderPeekSheetProps) {
   const { data: order, isLoading } = useWorkshopOrder(peekId ?? '')
   const role = useAuthRole()
   const generatePdf = useGenerateWorkshopPdf()

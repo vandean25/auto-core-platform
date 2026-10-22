@@ -1,14 +1,14 @@
+import type { PeekListControl } from './peek-list-control'
 import { EntityPeekActionButtons } from './EntityPeekActionButtons'
 import { EntityPeekSheet } from './EntityPeekSheet'
 import { VehiclePeekContent } from './VehiclePeekContent'
 import { useVehiclePeekSheetData } from './use-vehicle-peek-sheet-data'
 
-export function VehiclePeekSheet() {
+type VehiclePeekSheetProps = Pick<PeekListControl, 'peekId' | 'isPeekOpen' | 'closePeek'>
+
+export function VehiclePeekSheet({ peekId, isPeekOpen, closePeek }: VehiclePeekSheetProps) {
   const {
     t,
-    peekId,
-    isPeekOpen,
-    closePeek,
     vehicle,
     isLoading,
     role,
@@ -17,7 +17,7 @@ export function VehiclePeekSheet() {
     runContext,
     openInFullHref,
     title,
-  } = useVehiclePeekSheetData()
+  } = useVehiclePeekSheetData(peekId)
 
   return (
     <EntityPeekSheet

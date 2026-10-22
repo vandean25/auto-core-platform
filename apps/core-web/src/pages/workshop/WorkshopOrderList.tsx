@@ -28,8 +28,8 @@ export default function WorkshopOrderList() {
   const [createOpen, setCreateOpen] = useState(false)
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
   const { data: responseData, isLoading, isError } = useWorkshopOrders(queryParams)
-  const { openPeek } = usePeekSearchParam()
-  const rowBehaviour = useWorkshopOrderListRowBehaviour(t, navigate, queryClient, openPeek)
+  const peek = usePeekSearchParam()
+  const rowBehaviour = useWorkshopOrderListRowBehaviour(t, navigate, queryClient, peek.openPeek)
 
   const rows = useMemo<WorkshopOrderListRow[]>(() => {
     const source = responseData?.data ?? []
@@ -130,7 +130,13 @@ export default function WorkshopOrderList() {
       />
 
       <WorkshopOrderIntakeDialog open={createOpen} onOpenChange={setCreateOpen} />
-      <WorkshopOrderPeekSheet t={t} navigate={navigate} />
+      <WorkshopOrderPeekSheet
+        t={t}
+        navigate={navigate}
+        peekId={peek.peekId}
+        isPeekOpen={peek.isPeekOpen}
+        closePeek={peek.closePeek}
+      />
     </div>
   )
 }

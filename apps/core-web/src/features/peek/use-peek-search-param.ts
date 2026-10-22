@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import { PEEK_SEARCH_PARAM } from './peek-search-param'
+import { stripPeekSearchParam } from './strip-peek-search-param'
 
 export function usePeekSearchParam() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -34,16 +35,10 @@ export function usePeekSearchParam() {
     if (peekOpenedViaPushRef.current) {
       peekOpenedViaPushRef.current = false
       navigate(-1)
+      queueMicrotask(() => stripPeekSearchParam(setSearchParams))
       return
     }
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev)
-        next.delete(PEEK_SEARCH_PARAM)
-        return next
-      },
-      { replace: true },
-    )
+    stripPeekSearchParam(setSearchParams)
   }, [navigate, setSearchParams])
 
   return {

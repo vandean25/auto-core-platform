@@ -71,12 +71,15 @@ export function EntityPeekSheet({
     )
   }
 
+  const sheetContentA11y = description ? {} : { 'aria-describedby': undefined }
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
         className="flex h-full w-full flex-col gap-0 p-0 sm:max-w-3xl"
         data-testid="entity-peek-sheet"
+        {...sheetContentA11y}
       >
         <SheetHeader className="space-y-1 border-b px-4 py-4 text-left sm:px-6">
           <SheetTitle>{title}</SheetTitle>

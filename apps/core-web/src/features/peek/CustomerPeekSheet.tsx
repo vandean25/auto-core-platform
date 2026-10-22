@@ -1,22 +1,14 @@
+import type { PeekListControl } from './peek-list-control'
 import { CustomerPeekContent } from './CustomerPeekContent'
 import { EntityPeekActionButtons } from './EntityPeekActionButtons'
 import { EntityPeekSheet } from './EntityPeekSheet'
 import { useCustomerPeekSheetData } from './use-customer-peek-sheet-data'
 
-export function CustomerPeekSheet() {
-  const {
-    t,
-    peekId,
-    isPeekOpen,
-    closePeek,
-    customer,
-    isLoading,
-    role,
-    definitions,
-    runContext,
-    openInFullHref,
-    title,
-  } = useCustomerPeekSheetData()
+type CustomerPeekSheetProps = Pick<PeekListControl, 'peekId' | 'isPeekOpen' | 'closePeek'>
+
+export function CustomerPeekSheet({ peekId, isPeekOpen, closePeek }: CustomerPeekSheetProps) {
+  const { t, customer, isLoading, role, definitions, runContext, openInFullHref, title } =
+    useCustomerPeekSheetData(peekId, closePeek)
 
   return (
     <EntityPeekSheet

@@ -19,6 +19,30 @@ function PeekHarness() {
   )
 }
 
+function SheetCloser({ closePeek, isPeekOpen }: { closePeek: () => void; isPeekOpen: boolean }) {
+  if (!isPeekOpen) {
+    return null
+  }
+  return (
+    <button type="button" onClick={() => closePeek()}>
+      sheet-close
+    </button>
+  )
+}
+
+function SplitPeekHarness() {
+  const peek = usePeekSearchParam()
+  const location = useLocation()
+
+  return (
+    <div>
+      <span data-testid="location">{location.pathname}{location.search}</span>
+      <button type="button" onClick={() => peek.openPeek('rec-1')}>open-from-list</button>
+      <SheetCloser closePeek={peek.closePeek} isPeekOpen={peek.isPeekOpen} />
+    </div>
+  )
+}
+
 function renderHarness(initialEntry = '/customers?page=2') {
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>
@@ -64,6 +88,44 @@ describe('usePeekSearchParam', () => {
     expect(router.state.location.search).toContain(`${PEEK_SEARCH_PARAM}=rec-1`)
 
     act(() => screen.getByRole('button', { name: 'close' }).click())
+    expect(router.state.location.search).toBe('?page=2')
+  })
+
+  it('opens from the list and closes from the sheet on the pre-open history entry', () => {
+    const router = createMemoryRouter([{ path: '/customers', element: <SplitPeekHarness /> }], {
+      initialEntries: ['/customers?page=2'],
+    })
+    render(<RouterProvider router={router} />)
+
+    act(() => screen.getByRole('button', { name: 'open-from-list' }).click())
+    expect(router.state.location.search).toContain(`${PEEK_SEARCH_PARAM}=rec-1`)
+
+    act(() => screen.getByRole('button', { name: 'sheet-close' }).click())
+    expect(router.state.location.search).toBe('?page=2')
+
+    act(() => screen.getByRole('button', { name: 'open-from-list' }).click())
+    expect(router.state.location.search).toContain(`${PEEK_SEARCH_PARAM}=rec-1`)
+    act(() => screen.getByRole('button', { name: 'sheet-close' }).click())
+    expect(router.state.location.search).toBe('?page=2')
+  })
+
+  it('strips leftover peek after history back without navigating again', async () => {
+    const router = createMemoryRouter([{ path: '/customers', element: <SplitPeekHarness /> }], {
+      initialEntries: ['/customers?page=2'],
+    })
+    render(<RouterProvider router={router} />)
+
+    act(() => screen.getByRole('button', { name: 'open-from-list' }).click())
+    act(() => screen.getByRole('button', { name: 'sheet-close' }).click())
+    expect(router.state.location.search).toBe('?page=2')
+
+    await act(async () => {
+      await Promise.resolve()
+      void router.navigate(`/customers?page=2&${PEEK_SEARCH_PARAM}=rec-1`, { replace: true })
+    })
+    expect(router.state.location.search).toContain(`${PEEK_SEARCH_PARAM}=rec-1`)
+
+    act(() => screen.getByRole('button', { name: 'sheet-close' }).click())
     expect(router.state.location.search).toBe('?page=2')
   })
 })

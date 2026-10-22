@@ -7,12 +7,10 @@ import { useAuthRole } from '@/features/actions/use-auth-role'
 import { createVehicleRowActions } from '@/features/actions/vehicle-row-actions'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { vehicleToListRow } from './VehiclePeekContent'
-import { usePeekSearchParam } from './use-peek-search-param'
 
-export function useVehiclePeekSheetData() {
+export function useVehiclePeekSheetData(peekId: string | null) {
   const { t } = useTranslation('vehicles')
   const navigate = useNavigate()
-  const { peekId, isPeekOpen, closePeek } = usePeekSearchParam()
   const { data: vehicle, isLoading } = useVehicle(peekId ?? '')
   const role = useAuthRole()
 
@@ -30,9 +28,6 @@ export function useVehiclePeekSheetData() {
 
   return {
     t,
-    peekId,
-    isPeekOpen,
-    closePeek,
     vehicle,
     isLoading,
     role,

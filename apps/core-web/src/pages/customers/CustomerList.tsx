@@ -52,8 +52,8 @@ export default function CustomerList() {
     setIsDialogOpen(true)
   }
 
-  const { openPeek } = usePeekSearchParam()
-  const rowBehaviour = useCustomerListRowBehaviour(openPeek)
+  const peek = usePeekSearchParam()
+  const rowBehaviour = useCustomerListRowBehaviour(peek.openPeek)
 
   const columns: ColumnDef<Customer>[] = [
     {
@@ -159,7 +159,11 @@ export default function CustomerList() {
         onOpenChange={setIsDialogOpen}
         customer={selectedCustomer}
       />
-      <CustomerPeekSheet />
+      <CustomerPeekSheet
+        peekId={peek.peekId}
+        isPeekOpen={peek.isPeekOpen}
+        closePeek={peek.closePeek}
+      />
     </>
   )
 }

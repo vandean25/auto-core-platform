@@ -6,6 +6,7 @@ import * as customersApi from '@/api/customers'
 import { DashboardWidgetsProvider } from '@/features/dashboard-widgets/DashboardWidgetsProvider'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import deCommon from '../../../../../locales/de/common.json'
+import deCustomers from '../../../../../locales/de/customers.json'
 import { PEEK_SEARCH_PARAM } from '@/features/peek/peek-search-param'
 import type { Customer } from '@/api/types'
 
@@ -83,6 +84,12 @@ describe('CustomerList peek sheet', () => {
     expect(within(sheet).getAllByText('Example GmbH').length).toBeGreaterThan(0)
     expect(screen.getByTestId('url-search').textContent).toContain(`${PEEK_SEARCH_PARAM}=cust-1`)
     expect(screen.getByTestId('url-search').textContent).toContain('page=2')
+  })
+
+  it('shows not found for unknown peek id', async () => {
+    asMock(customersApi.useCustomer).mockReturnValue({ data: undefined, isLoading: false })
+    renderList(`/customers?${PEEK_SEARCH_PARAM}=missing`)
+    expect(await screen.findByText(deCustomers.peek.notFound)).toBeInTheDocument()
   })
 
   it('still opens create dialog from ?action=create', async () => {
