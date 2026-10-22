@@ -470,4 +470,102 @@ describe('concurrent board assign and workshop task status', () => {
     await waitFor(() => expect(pending(BOARD_URL).length).toBeGreaterThan(1))
     await respond(TASK_PATCH_URL, 'PATCH', 200, createOrder('DONE'))
   })
+
+  it('failed assign reverts mechanic on order detail but keeps optimistic task status', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    const orderWithMechanic = {
+      ...createOrder('DONE'),
+      mechanicId: 'mech-1',
+      mechanic_id: 'mech-1',
+    }
+    queryClient.setQueryData(workshopKeys.detail('order-1'), orderWithMechanic)
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>
+        <RealtimeDashboardSyncProvider>{children}</RealtimeDashboardSyncProvider>
+      </QueryClientProvider>
+    )
+    const view = renderHook(
+      () => ({
+        board: useBoardActive(),
+        assign: useWorkshopBoardAssignment('mechanic'),
+      }),
+      { wrapper },
+    )
+    await waitFor(() => expect(mocks.socket.on).toHaveBeenCalled())
+    await respond(BOARD_URL, 'GET', 200, {
+      data: [{ id: 'order-1', mechanicId: 'mech-1', bayId: null }],
+    } as BoardActiveResponse)
+    await waitFor(() => expect(view.result.current.board.data).toBeDefined())
+
+    act(() =>
+      view.result.current.assign('order-1', { kind: 'mechanic', id: 'mech-2', label: 'mech-2' }),
+    )
+    await settle()
+    expect(queryClient.getQueryData<WorkshopOrder>(workshopKeys.detail('order-1'))?.mechanicId).toBe(
+      'mech-2',
+    )
+
+    await respond(ASSIGN_URL, 'PATCH', 403, { message: 'forbidden' })
+    await waitFor(() =>
+      expect(queryClient.getQueryData<WorkshopOrder>(workshopKeys.detail('order-1'))?.mechanicId).toBe(
+        'mech-1',
+      ),
+    )
+    expect(
+      queryClient.getQueryData<WorkshopOrder>(workshopKeys.detail('order-1'))?.tasks?.[0]?.status,
+    ).toBe('DONE')
+  })
+})
+
+describe('workshop task notes merge', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    requests = []
+    answered = new Set()
+    mocks.token = 'token'
+    vi.mocked(fetchWithAuth).mockImplementation(
+      (input, init) =>
+        new Promise<Response>((resolve) => {
+          requests.push({
+            url: String(input),
+            method: init?.method ?? 'GET',
+            body: init?.body ? JSON.parse(String(init.body)) : undefined,
+            respond: (status, body = {}) =>
+              resolve({ ok: status < 400, status, json: async () => body } as Response),
+          })
+        }),
+    )
+  })
+
+  it('merges mechanicNotes onto the cached order without replacing optimistic task status', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    queryClient.setQueryData(workshopKeys.detail('order-1'), createOrder('DONE'))
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    )
+    const { result } = renderHook(() => useUpdateWorkshopTask(), { wrapper })
+
+    act(() => {
+      void result.current.mutateAsync({
+        orderId: 'order-1',
+        taskId: 'task-1',
+        mechanicNotes: 'Check pads again',
+      })
+    })
+    await settle()
+    await respond(TASK_PATCH_URL, 'PATCH', 200, createOrder('IN_PROGRESS'))
+
+    await waitFor(() =>
+      expect(
+        queryClient.getQueryData<WorkshopOrder>(workshopKeys.detail('order-1'))?.tasks?.[0]?.status,
+      ).toBe('DONE'),
+    )
+    expect(
+      queryClient.getQueryData<WorkshopOrder>(workshopKeys.detail('order-1'))?.tasks?.[0]?.mechanicNotes,
+    ).toBe('Check pads again')
+  })
 })

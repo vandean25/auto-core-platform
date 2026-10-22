@@ -1018,16 +1018,20 @@ const assignBoardOptimistic = optimisticMutationOptions<BoardActiveResponse, Ass
       queryKey: ({ orderId }) => workshopKeys.detail(orderId),
       apply: (cache, payload) =>
         cache === undefined ? cache : patchWorkshopOrderAssignment(cache as WorkshopOrder, payload),
-      revert: (cache, _payload, snapshot) => {
+      revert: (cache, payload, snapshot) => {
         if (cache === undefined || snapshot === undefined) return cache
         const order = cache as WorkshopOrder
         const before = snapshot as WorkshopOrder
         return {
           ...order,
-          mechanicId: before.mechanicId,
-          mechanic_id: before.mechanic_id,
-          bayId: before.bayId,
-          bay_id: before.bay_id,
+          ...(payload.mechanicId !== undefined && {
+            mechanicId: before.mechanicId,
+            mechanic_id: before.mechanic_id,
+          }),
+          ...(payload.bayId !== undefined && {
+            bayId: before.bayId,
+            bay_id: before.bay_id,
+          }),
         }
       },
     },
