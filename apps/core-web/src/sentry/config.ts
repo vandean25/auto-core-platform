@@ -31,12 +31,21 @@ export function createSentryOptions(env: SentryEnv): BrowserOptions {
     dsn,
     environment,
     release,
-    sendDefaultPii: false,
+    // v11 replaces sendDefaultPii. Keeps v10's browser data (User-Agent and Referer) and turns the rest off.
+    dataCollection: {
+      userInfo: false,
+      cookies: false,
+      httpHeaders: { request: { allow: ['user-agent', 'referer'] }, response: false },
+      httpBodies: [],
+      urlQueryParams: { deny: ['forwarded', '-ip', 'remote-', 'via', '-user'] },
+      genAI: { inputs: false, outputs: false },
+      databaseQueryData: false,
+      frameContextLines: 7,
+    },
     tracesSampleRate,
     tracePropagationTargets: propagationTargets,
     replaysSessionSampleRate: 0.1,
     replaysOnErrorSampleRate: 1.0,
-    enableLogs: true,
     beforeSend: (event, hint) => {
       if (isForceCloseDeleteOriginRejection(event)) {
         return null

@@ -15,7 +15,16 @@ describe('createSentryOptions', () => {
     expect(options.dsn).toBe('https://public@example.ingest.sentry.io/123')
     expect(options.environment).toBe('production')
     expect(options.release).toBe('core-web@1.2.3')
-    expect(options.sendDefaultPii).toBe(false)
+    expect(options.dataCollection).toEqual({
+      userInfo: false,
+      cookies: false,
+      httpHeaders: { request: { allow: ['user-agent', 'referer'] }, response: false },
+      httpBodies: [],
+      urlQueryParams: { deny: ['forwarded', '-ip', 'remote-', 'via', '-user'] },
+      genAI: { inputs: false, outputs: false },
+      databaseQueryData: false,
+      frameContextLines: 7,
+    })
     expect(options.tracesSampleRate).toBe(0.1)
     expect(options.tracePropagationTargets).toEqual([
       'localhost',
@@ -24,7 +33,6 @@ describe('createSentryOptions', () => {
     ])
     expect(options.replaysSessionSampleRate).toBe(0.1)
     expect(options.replaysOnErrorSampleRate).toBe(1)
-    expect(options.enableLogs).toBe(true)
   })
 
   it('uses VITE_SENTRY_ENVIRONMENT and sample rate overrides', () => {
