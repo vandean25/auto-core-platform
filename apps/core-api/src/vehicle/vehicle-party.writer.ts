@@ -15,7 +15,6 @@ import {
   isActiveOn,
   selectActiveOwner,
   validatePartyShape,
-  VEHICLE_PARTY_ERROR_CODES,
   type PartyInterval,
   type PartyRuleViolation,
 } from './vehicle-party.rules.js';
@@ -62,17 +61,14 @@ export function toPartyInterval(
 }
 
 export function violationToException(violation: PartyRuleViolation) {
-  return new UnprocessableEntityException({
-    code: violation.code,
-    message: violation.message,
-  });
+  // Message only: stable HTTP error codes need DE/EN catalog entries, which come with the UI slice.
+  return new UnprocessableEntityException(violation.message);
 }
 
 function overlapException(candidate: PartyInterval) {
-  return new ConflictException({
-    code: VEHICLE_PARTY_ERROR_CODES.OVERLAP,
-    message: `${candidate.role} overlaps an existing party interval on this vehicle`,
-  });
+  return new ConflictException(
+    `${candidate.role} overlaps an existing party interval on this vehicle`,
+  );
 }
 
 /**
@@ -206,10 +202,7 @@ export async function endPartyInTx(
     throw new NotFoundException(`Vehicle party ${partyId} not found`);
   }
   if (party.valid_to !== null) {
-    throw new ConflictException({
-      code: VEHICLE_PARTY_ERROR_CODES.ALREADY_ENDED,
-      message: 'Only an open-ended party can be ended',
-    });
+    throw new ConflictException('Only an open-ended party can be ended');
   }
   const violation = validatePartyShape(
     { ...toPartyInterval(party), valid_to: validTo },

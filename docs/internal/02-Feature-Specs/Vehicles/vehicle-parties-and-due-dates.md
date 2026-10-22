@@ -32,8 +32,8 @@ The interval is half-open: a party is active on day D when `valid_from <= D < va
 
 - At most one OWNER, one BILL_TO and one LEASING per vehicle at any date, including future intervals. Adjacent intervals are valid. Other roles allow concurrent distinct customers; overlapping intervals for the same `(customer, role)` block, and so do overlapping OWNER and PREVIOUS_OWNER rows for the same customer.
 - PREVIOUS_OWNER needs `valid_to`, on or before today (API) or the cutover date (import).
-- Every write takes a per-vehicle row lock inside its transaction (a typed `UPDATE` of the vehicle row, which holds the row lock until commit) and rechecks the timeline under it. The partial unique index is the backstop; a violation maps to the same `409 VEHICLE_PARTY_OVERLAP`.
-- Future-dated OWNER, BILL_TO or LEASING rows are rejected (`422 VEHICLE_PARTY_FUTURE_START_UNSUPPORTED`; the importer reports `MIGRATION_UNSUPPORTED_CAPABILITY`) until a follow-up adds scheduled activation. Effective parties are computed at read time; `customer_id` is synced at write time only for an OWNER active today. Other roles may start in the future.
+- Every write takes a per-vehicle row lock inside its transaction (a typed `UPDATE` of the vehicle row, which holds the row lock until commit) and rechecks the timeline under it. The partial unique index is the backstop; a violation maps to the same `409` overlap error.
+- Future-dated OWNER, BILL_TO or LEASING rows are rejected (`422`; the importer reports `MIGRATION_UNSUPPORTED_CAPABILITY`) until a follow-up adds scheduled activation. Effective parties are computed at read time; `customer_id` is synced at write time only for an OWNER active today. Other roles may start in the future.
 - Ending the owner never clears `customer_id`. Setting `customer_id` through `PATCH /vehicles/:id` ends the active OWNER (valid_to = today) and starts a new OWNER (source `MANUAL`) in the same transaction; `null` ends the OWNER only. An owner that started today ends the next day so the interval stays non-empty. Vehicle create does not create a party.
 
 ## API
@@ -51,7 +51,9 @@ All routes are tenant-wide; they grant no site rights. Writes need OWNER, ADMIN 
 
 `suggested_bill_to` is a read-only payer hint: the active BILL_TO, else the active LEASING, else `null`. The owner is never a fallback; with no BILL_TO and no LEASING the intake falls back to the order customer's own default bill-to. Nothing writes `WorkshopOrder.bill_to_customer_id` here.
 
-Deleting a customer that a party references returns `409 CUSTOMER_HAS_VEHICLE_PARTIES`.
+Deleting a customer that a party references returns `409`.
+
+HTTP errors of the party endpoints carry a message only. Stable error codes need DE/EN catalog entries and locale keys, which come with the UI slice (PR-B). Import row issues keep their codes (`VEHICLE_PARTY_OVERLAP`, `IMPORT_UNKNOWN_VEHICLE` and so on); they are row labels, not HTTP errors.
 
 ## Import
 

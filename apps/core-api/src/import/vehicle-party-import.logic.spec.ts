@@ -1,5 +1,6 @@
 import { ImportRowAction } from '@prisma/client';
 import { IMPORT_ERROR_CODES } from './import.constants.js';
+import { CANONICAL_ROW_ISSUE_CODES } from './canonical-csv-cell.util.js';
 import {
   planVehiclePartyRows,
   type PartyPlanContext,
@@ -91,8 +92,8 @@ describe('planVehiclePartyRows', () => {
       context(),
     );
 
-    expect(errorCodes(results[0])).toContain(IMPORT_ERROR_CODES.UNKNOWN_VEHICLE);
-    expect(errorCodes(results[1])).toContain(IMPORT_ERROR_CODES.UNKNOWN_CUSTOMER);
+    expect(errorCodes(results[0])).toContain(CANONICAL_ROW_ISSUE_CODES.UNKNOWN_VEHICLE);
+    expect(errorCodes(results[1])).toContain(CANONICAL_ROW_ISSUE_CODES.UNKNOWN_CUSTOMER);
     expect(results.map((r) => r.action)).toEqual([
       ImportRowAction.ERROR,
       ImportRowAction.ERROR,
@@ -111,8 +112,8 @@ describe('planVehiclePartyRows', () => {
       context(),
     );
 
-    expect(errorCodes(results[0])).toContain(IMPORT_ERROR_CODES.VALUE_INVALID);
-    expect(errorCodes(results[1])).toContain(IMPORT_ERROR_CODES.VALUE_INVALID);
+    expect(errorCodes(results[0])).toContain(CANONICAL_ROW_ISSUE_CODES.VALUE_INVALID);
+    expect(errorCodes(results[1])).toContain(CANONICAL_ROW_ISSUE_CODES.VALUE_INVALID);
     expect(results[2].action).toBe(ImportRowAction.CREATE);
     expect(errorCodes(results[3])).toContain(
       IMPORT_ERROR_CODES.DUPLICATE_EXTERNAL_ID_IN_FILE,
@@ -240,7 +241,7 @@ describe('planVehiclePartyRows', () => {
       );
 
       expect(result.action).toBe(ImportRowAction.ERROR);
-      expect(errorCodes(result)).toContain(IMPORT_ERROR_CODES.IDENTITY_CHANGED);
+      expect(errorCodes(result)).toContain(CANONICAL_ROW_ISSUE_CODES.IDENTITY_CHANGED);
     });
 
     it('plans an owner transfer: end the old interval, create the new owner', () => {
@@ -291,7 +292,7 @@ describe('planVehiclePartyRows', () => {
 
       expect(result.action).toBe(ImportRowAction.ERROR);
       expect(errorCodes(result)).toContain(
-        IMPORT_ERROR_CODES.OWNER_CONTACT_CONFLICT,
+        CANONICAL_ROW_ISSUE_CODES.OWNER_CONTACT_CONFLICT,
       );
     });
 

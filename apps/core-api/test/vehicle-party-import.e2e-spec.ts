@@ -294,7 +294,7 @@ describe('Vehicle party and due date import (e2e)', () => {
         .delete(`/api/customers/${customerId}`)
         .set('Authorization', `Bearer ${token}`)
         .expect(409);
-      expect(blocked.body.code).toBe('CUSTOMER_HAS_VEHICLE_PARTIES');
+      expect(blocked.body.message).toContain('vehicle parties');
     });
   });
 

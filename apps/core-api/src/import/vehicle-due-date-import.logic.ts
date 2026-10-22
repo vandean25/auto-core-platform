@@ -1,5 +1,6 @@
 import { ImportRowAction } from '@prisma/client';
 import {
+  CANONICAL_ROW_ISSUE_CODES,
   cell,
   errorRow,
   invalidIssue,
@@ -9,7 +10,6 @@ import {
   requiredIssue,
   type PreparedBase,
 } from './canonical-csv-cell.util.js';
-import { IMPORT_ERROR_CODES } from './import.constants.js';
 import type {
   DryRunRowResult,
   ImportJobOptions,
@@ -258,19 +258,23 @@ function normalizeDueRow(
 }
 
 function conflictIssue(field: string, message: string): ImportRowIssue {
-  return { code: IMPORT_ERROR_CODES.NATURAL_KEY_CONFLICT, message, field };
+  return {
+    code: CANONICAL_ROW_ISSUE_CODES.NATURAL_KEY_CONFLICT,
+    message,
+    field,
+  };
 }
 
 function identityIssue(message: string): ImportRowIssue {
   return {
-    code: IMPORT_ERROR_CODES.IDENTITY_CHANGED,
+    code: CANONICAL_ROW_ISSUE_CODES.IDENTITY_CHANGED,
     message,
     field: 'external_id',
   };
 }
 
 function evidenceIssue(message: string): ImportRowIssue {
-  return { code: IMPORT_ERROR_CODES.EVIDENCE_IMMUTABLE, message };
+  return { code: CANONICAL_ROW_ISSUE_CODES.EVIDENCE_IMMUTABLE, message };
 }
 
 /** Blank notes and station never clear a stored value, so only supplied cells can differ. */
@@ -331,7 +335,7 @@ function resolveStoredService(
   } else {
     prepared.action = ImportRowAction.SKIP;
     prepared.warnings.push({
-      code: 'IMPORT_UPDATE_NOT_ENABLED',
+      code: CANONICAL_ROW_ISSUE_CODES.UPDATE_NOT_ENABLED,
       message: 'Existing notice differs; enable update_existing to apply it',
     });
   }
@@ -396,7 +400,7 @@ function resolveRow(prepared: PreparedDue, ctx: DueDatePlanContext): void {
   prepared.vehicleId = ctx.vehicleIdByExternalId.get(row.vehicle_external_id);
   if (!prepared.vehicleId) {
     prepared.issues.push({
-      code: IMPORT_ERROR_CODES.UNKNOWN_VEHICLE,
+      code: CANONICAL_ROW_ISSUE_CODES.UNKNOWN_VEHICLE,
       message: 'vehicle_external_id does not resolve in this tenant',
       field: 'vehicle_external_id',
     });

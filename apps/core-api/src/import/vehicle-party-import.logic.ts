@@ -3,10 +3,11 @@ import {
   findPartyConflict,
   isActiveOn,
   validatePartyShape,
-  VEHICLE_PARTY_ERROR_CODES,
+  VEHICLE_PARTY_RULE_CODES,
   type PartyInterval,
 } from '../vehicle/vehicle-party.rules.js';
 import {
+  CANONICAL_ROW_ISSUE_CODES,
   cell,
   errorRow,
   invalidIssue,
@@ -15,7 +16,6 @@ import {
   requiredIssue,
   type PreparedBase,
 } from './canonical-csv-cell.util.js';
-import { IMPORT_ERROR_CODES } from './import.constants.js';
 import { MIGRATION_MANIFEST_ERROR_CODES } from './migration-manifest.errors.js';
 import type {
   DryRunRowResult,
@@ -112,7 +112,7 @@ function toRuleIssue(violation: {
 }) {
   // The migration contract names a deferred capability, not a data error.
   const code =
-    violation.code === VEHICLE_PARTY_ERROR_CODES.FUTURE_START_UNSUPPORTED
+    violation.code === VEHICLE_PARTY_RULE_CODES.FUTURE_START_UNSUPPORTED
       ? MIGRATION_MANIFEST_ERROR_CODES.MIGRATION_UNSUPPORTED_CAPABILITY
       : violation.code;
   return { code, message: violation.message, field: violation.field };
@@ -125,14 +125,14 @@ function referenceIssues(
   const issues: ImportRowIssue[] = [];
   if (!ctx.vehicleIdByExternalId.has(row.vehicle_external_id)) {
     issues.push({
-      code: IMPORT_ERROR_CODES.UNKNOWN_VEHICLE,
+      code: CANONICAL_ROW_ISSUE_CODES.UNKNOWN_VEHICLE,
       message: 'vehicle_external_id does not resolve in this tenant',
       field: 'vehicle_external_id',
     });
   }
   if (!ctx.customerIdByExternalId.has(row.customer_external_id)) {
     issues.push({
-      code: IMPORT_ERROR_CODES.UNKNOWN_CUSTOMER,
+      code: CANONICAL_ROW_ISSUE_CODES.UNKNOWN_CUSTOMER,
       message: 'customer_external_id does not resolve in this tenant',
       field: 'customer_external_id',
     });
@@ -184,7 +184,7 @@ function prepareExisting(
   if (ctx.options.update_existing !== true) {
     prepared.action = ImportRowAction.SKIP;
     prepared.warnings.push({
-      code: 'IMPORT_UPDATE_NOT_ENABLED',
+      code: CANONICAL_ROW_ISSUE_CODES.UPDATE_NOT_ENABLED,
       message: 'Existing party differs; enable update_existing to apply it',
     });
     return;
@@ -259,7 +259,7 @@ function resolveStored(
     )
   ) {
     prepared.issues.push({
-      code: IMPORT_ERROR_CODES.IDENTITY_CHANGED,
+      code: CANONICAL_ROW_ISSUE_CODES.IDENTITY_CHANGED,
       message:
         'vehicle, customer and role of a mapped party cannot change; use a new external_id',
       field: 'external_id',
@@ -342,7 +342,7 @@ function finishRow(
   if (clash) {
     return errorRow(item.rowNo, item.externalId, [
       {
-        code: VEHICLE_PARTY_ERROR_CODES.OVERLAP,
+        code: VEHICLE_PARTY_RULE_CODES.OVERLAP,
         message: `${interval.role} overlaps another party interval on this vehicle`,
         field: 'valid_from',
       },
@@ -351,7 +351,7 @@ function finishRow(
   if (writes && hasUnmappedContactConflict(item, ctx)) {
     return errorRow(item.rowNo, item.externalId, [
       {
-        code: IMPORT_ERROR_CODES.OWNER_CONTACT_CONFLICT,
+        code: CANONICAL_ROW_ISSUE_CODES.OWNER_CONTACT_CONFLICT,
         message:
           'The active OWNER differs from the vehicle main contact that has no OWNER party; assign or end the owner explicitly',
         field: 'customer_external_id',

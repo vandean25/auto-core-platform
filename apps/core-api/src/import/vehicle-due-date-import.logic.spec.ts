@@ -1,5 +1,6 @@
 import { ImportRowAction } from '@prisma/client';
 import { IMPORT_ERROR_CODES } from './import.constants.js';
+import { CANONICAL_ROW_ISSUE_CODES } from './canonical-csv-cell.util.js';
 import {
   planVehicleDueDateRows,
   type DueDatePlanContext,
@@ -151,7 +152,7 @@ describe('planVehicleDueDateRows', () => {
       context(),
     );
     expect(result.action).toBe(ImportRowAction.ERROR);
-    expect(codes(result)).toContain(IMPORT_ERROR_CODES.UNKNOWN_VEHICLE);
+    expect(codes(result)).toContain(CANONICAL_ROW_ISSUE_CODES.UNKNOWN_VEHICLE);
   });
 
   describe('INSPECTION_57A rules', () => {
@@ -195,7 +196,7 @@ describe('planVehicleDueDateRows', () => {
         ImportRowAction.ERROR,
         ImportRowAction.ERROR,
       ]);
-      expect(codes(sameDay[0])).toContain(IMPORT_ERROR_CODES.NATURAL_KEY_CONFLICT);
+      expect(codes(sameDay[0])).toContain(CANONICAL_ROW_ISSUE_CODES.NATURAL_KEY_CONFLICT);
 
       const sameReference = planVehicleDueDateRows(
         [
@@ -218,7 +219,7 @@ describe('planVehicleDueDateRows', () => {
         context({ inspections: [storedInspection()] }),
       );
       expect(result.action).toBe(ImportRowAction.ERROR);
-      expect(codes(result)).toContain(IMPORT_ERROR_CODES.NATURAL_KEY_CONFLICT);
+      expect(codes(result)).toContain(CANONICAL_ROW_ISSUE_CODES.NATURAL_KEY_CONFLICT);
     });
 
     it('skips an identical replay and blocks changed evidence', () => {
@@ -236,7 +237,7 @@ describe('planVehicleDueDateRows', () => {
         ctx,
       );
       expect(changed.action).toBe(ImportRowAction.ERROR);
-      expect(codes(changed)).toContain(IMPORT_ERROR_CODES.EVIDENCE_IMMUTABLE);
+      expect(codes(changed)).toContain(CANONICAL_ROW_ISSUE_CODES.EVIDENCE_IMMUTABLE);
     });
   });
 
@@ -295,7 +296,7 @@ describe('planVehicleDueDateRows', () => {
         ImportRowAction.ERROR,
         ImportRowAction.CREATE,
       ]);
-      expect(codes(results[0])).toContain(IMPORT_ERROR_CODES.NATURAL_KEY_CONFLICT);
+      expect(codes(results[0])).toContain(CANONICAL_ROW_ISSUE_CODES.NATURAL_KEY_CONFLICT);
     });
 
     it('blocks an unmapped SERVICE_DUE notice with the same natural key', () => {
@@ -305,7 +306,7 @@ describe('planVehicleDueDateRows', () => {
         context({ serviceNotices: [storedNotice()] }),
       );
       expect(result.action).toBe(ImportRowAction.ERROR);
-      expect(codes(result)).toContain(IMPORT_ERROR_CODES.NATURAL_KEY_CONFLICT);
+      expect(codes(result)).toContain(CANONICAL_ROW_ISSUE_CODES.NATURAL_KEY_CONFLICT);
     });
 
     it('skips an identical replay of an OPEN notice', () => {
@@ -354,7 +355,7 @@ describe('planVehicleDueDateRows', () => {
         }),
       );
       expect(result.action).toBe(ImportRowAction.ERROR);
-      expect(codes(result)).toContain(IMPORT_ERROR_CODES.EVIDENCE_IMMUTABLE);
+      expect(codes(result)).toContain(CANONICAL_ROW_ISSUE_CODES.EVIDENCE_IMMUTABLE);
     });
 
     it('blocks a changed schedule reference on a mapped id', () => {
@@ -367,7 +368,7 @@ describe('planVehicleDueDateRows', () => {
         }),
       );
       expect(result.action).toBe(ImportRowAction.ERROR);
-      expect(codes(result)).toContain(IMPORT_ERROR_CODES.IDENTITY_CHANGED);
+      expect(codes(result)).toContain(CANONICAL_ROW_ISSUE_CODES.IDENTITY_CHANGED);
     });
   });
 });

@@ -276,11 +276,9 @@ export class CustomerService {
     }
 
     if (counts.vehicleParties > 0) {
-      throw new ConflictException({
-        code: 'CUSTOMER_HAS_VEHICLE_PARTIES',
-        message:
-          'Customer cannot be deleted while vehicle parties reference it. End the party validity instead.',
-      });
+      throw new ConflictException(
+        'Customer cannot be deleted while vehicle parties reference it. End the party validity instead.',
+      );
     }
 
     if (counts.contactPoints > 0 || counts.consentEvents > 0) {

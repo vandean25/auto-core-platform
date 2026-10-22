@@ -15,12 +15,11 @@ export type PartyRuleViolation = {
   field?: string;
 };
 
-export const VEHICLE_PARTY_ERROR_CODES = {
+export const VEHICLE_PARTY_RULE_CODES = {
   INTERVAL_INVALID: 'VEHICLE_PARTY_INTERVAL_INVALID',
   PREVIOUS_OWNER_END_REQUIRED: 'VEHICLE_PARTY_PREVIOUS_OWNER_END_REQUIRED',
   FUTURE_START_UNSUPPORTED: 'VEHICLE_PARTY_FUTURE_START_UNSUPPORTED',
   OVERLAP: 'VEHICLE_PARTY_OVERLAP',
-  ALREADY_ENDED: 'VEHICLE_PARTY_ALREADY_ENDED',
 } as const;
 
 /** At most one of these is active per vehicle at any date. */
@@ -92,7 +91,7 @@ function checkInterval(party: PartyInterval): PartyRuleViolation | null {
     return null;
   }
   return {
-    code: VEHICLE_PARTY_ERROR_CODES.INTERVAL_INVALID,
+    code: VEHICLE_PARTY_RULE_CODES.INTERVAL_INVALID,
     message: 'valid_from must be before valid_to',
     field: 'valid_to',
   };
@@ -109,7 +108,7 @@ function checkPreviousOwner(
     return null;
   }
   return {
-    code: VEHICLE_PARTY_ERROR_CODES.PREVIOUS_OWNER_END_REQUIRED,
+    code: VEHICLE_PARTY_RULE_CODES.PREVIOUS_OWNER_END_REQUIRED,
     message: `PREVIOUS_OWNER requires valid_to on or before ${cutoff}`,
     field: 'valid_to',
   };
@@ -124,7 +123,7 @@ function checkFutureStart(
     return null;
   }
   return {
-    code: VEHICLE_PARTY_ERROR_CODES.FUTURE_START_UNSUPPORTED,
+    code: VEHICLE_PARTY_RULE_CODES.FUTURE_START_UNSUPPORTED,
     message: `${party.role} with a future valid_from is not supported yet`,
     field: 'valid_from',
   };

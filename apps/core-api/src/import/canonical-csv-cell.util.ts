@@ -4,6 +4,19 @@ import type { ImportDryRunInput } from './import-type-handler.js';
 import { IMPORT_ERROR_CODES } from './import.constants.js';
 import type { DryRunRowResult, ImportRowIssue } from './import.types.js';
 
+/** Row issue codes of the canonical vehicle files. They label dry-run rows; none is an HTTP error code. */
+export const CANONICAL_ROW_ISSUE_CODES = {
+  VALUE_REQUIRED: 'IMPORT_VALUE_REQUIRED',
+  VALUE_INVALID: 'IMPORT_VALUE_INVALID',
+  UNKNOWN_VEHICLE: 'IMPORT_UNKNOWN_VEHICLE',
+  UNKNOWN_CUSTOMER: 'IMPORT_UNKNOWN_CUSTOMER',
+  IDENTITY_CHANGED: 'IMPORT_IDENTITY_CHANGED',
+  NATURAL_KEY_CONFLICT: 'IMPORT_NATURAL_KEY_CONFLICT',
+  EVIDENCE_IMMUTABLE: 'IMPORT_EVIDENCE_IMMUTABLE',
+  OWNER_CONTACT_CONFLICT: 'IMPORT_OWNER_CONTACT_CONFLICT',
+  UPDATE_NOT_ENABLED: 'IMPORT_UPDATE_NOT_ENABLED',
+} as const;
+
 /** Trimmed cell for a canonical field, or '' when the field is not mapped. */
 export function cell(
   record: Record<string, string>,
@@ -16,14 +29,14 @@ export function cell(
 
 export function requiredIssue(field: string): ImportRowIssue {
   return {
-    code: IMPORT_ERROR_CODES.VALUE_REQUIRED,
+    code: CANONICAL_ROW_ISSUE_CODES.VALUE_REQUIRED,
     message: `${field} is required`,
     field,
   };
 }
 
 export function invalidIssue(field: string, message: string): ImportRowIssue {
-  return { code: IMPORT_ERROR_CODES.VALUE_INVALID, message, field };
+  return { code: CANONICAL_ROW_ISSUE_CODES.VALUE_INVALID, message, field };
 }
 
 /** `YYYY-MM-DD` calendar day, or null when blank or not a real date. */
