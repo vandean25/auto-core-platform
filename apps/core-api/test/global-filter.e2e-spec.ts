@@ -15,6 +15,7 @@ describe('GlobalExceptionFilter (e2e)', () => {
   let app: INestApplication;
   let authToken: string;
   let prisma: PrismaService;
+  let tenantId: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -30,6 +31,7 @@ describe('GlobalExceptionFilter (e2e)', () => {
     prisma = app.get<PrismaService>(PrismaService);
 
     const testTenant = await createTestTenant(prisma);
+    tenantId = testTenant.tenantId;
     prisma = createTenantAwarePrisma(prisma, testTenant.tenantId);
     authToken = createTestAuthToken(app.get(AuthService), testTenant);
   });
@@ -44,6 +46,7 @@ describe('GlobalExceptionFilter (e2e)', () => {
     // Create first customer
     await prisma.customer.create({
       data: {
+        tenant_id: tenantId,
         first_name: 'Filter',
         last_name: 'Test',
         email,

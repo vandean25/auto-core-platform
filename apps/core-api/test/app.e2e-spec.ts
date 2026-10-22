@@ -3,13 +3,12 @@ import { AuthService } from '../src/auth/auth.service.js';
 
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { App } from 'supertest/types';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { createTestAuthToken, createTestTenant, cleanupTestTenantGraph } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
 
 describe('AppController (e2e)', () => {
-  let app: INestApplication<App>;
+  let app: INestApplication;
   let authToken: string;
   let prisma: PrismaService;
   let tenantId: string;

@@ -150,6 +150,7 @@ describe('Accounting export readiness (e2e)', () => {
 
     const catalogItem = await tenantPrisma.catalogItem.create({
       data: {
+        tenant_id: tenantA.tenantId,
         sku: `AUT352-${Date.now()}`,
         name: 'Brake Disc',
         cost_price: 20,
@@ -160,6 +161,7 @@ describe('Accounting export readiness (e2e)', () => {
 
     const location = await tenantPrisma.storageLocation.create({
       data: {
+        tenant_id: tenantA.tenantId,
         code: `LOC-${deSiteId.slice(0, 8)}`,
         name: 'Warehouse',
         type: 'warehouse',
@@ -168,6 +170,7 @@ describe('Accounting export readiness (e2e)', () => {
     });
     await tenantPrisma.inventoryStock.create({
       data: {
+        tenant_id: tenantA.tenantId,
         catalog_item_id: catalogItemId,
         site_id: deSiteId,
         location_id: location.id,

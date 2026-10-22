@@ -79,6 +79,7 @@ describe('invoice branding commitment lock order (e2e)', () => {
 
     const catalogItem = await prisma.catalogItem.create({
       data: {
+        tenant_id: tenantId,
         sku: `AUT323-${randomUUID()}`,
         name: 'Concurrent commitment part',
         cost_price: 10,
@@ -88,6 +89,7 @@ describe('invoice branding commitment lock order (e2e)', () => {
     catalogItemId = catalogItem.id;
     const location = await prisma.storageLocation.create({
       data: {
+        tenant_id: tenantId,
         code: `AUT323-${randomUUID()}`,
         name: 'Concurrent commitment stock',
         type: 'warehouse',
@@ -96,6 +98,7 @@ describe('invoice branding commitment lock order (e2e)', () => {
     });
     await prisma.inventoryStock.create({
       data: {
+        tenant_id: tenantId,
         catalog_item_id: catalogItemId,
         site_id: siteId,
         location_id: location.id,
@@ -104,6 +107,7 @@ describe('invoice branding commitment lock order (e2e)', () => {
     });
     const vendor = await prisma.vendor.create({
       data: {
+        tenant_id: tenantId,
         name: 'Concurrent vehicle supplier',
         email: `aut323-${randomUUID()}@example.test`,
         account_number: `AUT323-${randomUUID()}`,
@@ -230,6 +234,7 @@ describe('invoice branding commitment lock order (e2e)', () => {
 
     const vehicle = await prisma.vehicle.create({
       data: {
+        tenant_id: tenantId,
         make: 'BMW',
         model: 'Workshop vehicle',
         year: 2021,

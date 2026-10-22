@@ -87,6 +87,7 @@ describe('Agent action log (e2e)', () => {
   it('record correlates audit rows and GET /agent-actions/:traceId returns both', async () => {
     const customer = await prismaA.customer.create({
       data: {
+        tenant_id: tenantA,
         first_name: 'Agent',
         last_name: 'Target',
         email: `agent-target-${Date.now()}@example.com`,

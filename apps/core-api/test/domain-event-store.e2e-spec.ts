@@ -40,6 +40,7 @@ describe('Domain event store (e2e, AUT-536)', () => {
 
     const customer = await prisma.customer.create({
       data: {
+        tenant_id: tenantId,
         first_name: 'Pilot',
         last_name: 'Customer',
         email: `domain-events-${Date.now()}@example.com`,
@@ -49,6 +50,7 @@ describe('Domain event store (e2e, AUT-536)', () => {
     customerId = customer.id;
     const vehicle = await prisma.vehicle.create({
       data: {
+        tenant_id: tenantId,
         customer_id: customerId,
         make: 'VW',
         model: 'Polo',
@@ -59,6 +61,7 @@ describe('Domain event store (e2e, AUT-536)', () => {
     vehicleId = vehicle.id;
     const bay = await prisma.bay.create({
       data: {
+        tenant_id: tenantId,
         name: `Domain Bay ${Date.now()}`,
         is_active: true,
         sort_order: 1,
@@ -107,6 +110,7 @@ describe('Domain event store (e2e, AUT-536)', () => {
   it('rolls back the workshop order when domain event append fails on scheduled create', async () => {
     const rollbackVehicle = await prisma.vehicle.create({
       data: {
+        tenant_id: tenantId,
         customer_id: customerId,
         make: 'VW',
         model: 'Golf',
@@ -143,6 +147,7 @@ describe('Domain event store (e2e, AUT-536)', () => {
   it('pages the feed by monotonic sequence with a versioned cursor', async () => {
     const pagingVehicle = await prisma.vehicle.create({
       data: {
+        tenant_id: tenantId,
         customer_id: customerId,
         make: 'Audi',
         model: 'A3',

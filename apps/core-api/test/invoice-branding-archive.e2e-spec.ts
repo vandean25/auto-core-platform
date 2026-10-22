@@ -191,6 +191,7 @@ describe('invoice brand asset reference persistence (e2e)', () => {
     const unique = randomUUID();
     const customer = await tenantPrisma.customer.create({
       data: {
+        tenant_id: tenantId,
         first_name: 'Invoice',
         last_name: unique,
         type: 'PRIVATE',

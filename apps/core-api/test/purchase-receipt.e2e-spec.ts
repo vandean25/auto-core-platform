@@ -60,6 +60,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
     // Create test vendor
     const vendor = await prisma.vendor.create({
       data: {
+        tenant_id: tenantId,
         name: 'Test Vendor',
         email: 'test@vendor.com',
         account_number: 'TEST001',
@@ -71,6 +72,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
     // Create test catalog item
     const item = await prisma.catalogItem.create({
       data: {
+        tenant_id: tenantId,
         sku: 'TEST-001',
         name: 'Test Part',
         // brand: 'TestBrand', // Wrong schema but preserving
@@ -137,6 +139,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
       // Create PO with 2 items
       const item2 = await prisma.catalogItem.create({
         data: {
+          tenant_id: tenantId,
           sku: 'TEST-002',
           name: 'Test Part 2',
           // brand: 'TestBrand',
@@ -169,7 +172,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
       expect(receiptResponse.body.status).toBe('COMPLETED');
 
       // Verify all items marked as received
-      const updatedPO = await prisma.purchaseOrder.findFirst({
+      const updatedPO = await prisma.purchaseOrder.findFirstOrThrow({
         where: { id: poId },
         include: { items: true },
       });
@@ -202,10 +205,10 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
       expect(transactions.map((t) => Number(t.quantity))).toContain(2);
 
       // Verify inventory stock updated
-      const stock1 = await prisma.inventoryStock.findFirst({
+      const stock1 = await prisma.inventoryStock.findFirstOrThrow({
         where: { catalog_item_id: catalogItemId },
       });
-      const stock2 = await prisma.inventoryStock.findFirst({
+      const stock2 = await prisma.inventoryStock.findFirstOrThrow({
         where: { catalog_item_id: item2.id },
       });
 
@@ -288,7 +291,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
         .expect(201);
 
       // Verify consistency: if status is COMPLETED, all items must be received
-      const finalPO = await prisma.purchaseOrder.findFirst({
+      const finalPO = await prisma.purchaseOrder.findFirstOrThrow({
         where: { id: poId },
         include: { items: true },
       });

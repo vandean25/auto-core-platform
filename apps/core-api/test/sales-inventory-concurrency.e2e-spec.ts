@@ -50,6 +50,7 @@ describe('Sales multi-stock concurrency (e2e)', () => {
     const [firstItem, secondItem] = await Promise.all([
       tenantPrisma.catalogItem.create({
         data: {
+          tenant_id: tenant.tenantId,
           sku: `SALES-A-${Date.now()}`,
           name: 'Sales part A',
           retail_price: 20,
@@ -57,6 +58,7 @@ describe('Sales multi-stock concurrency (e2e)', () => {
       }),
       tenantPrisma.catalogItem.create({
         data: {
+          tenant_id: tenant.tenantId,
           sku: `SALES-B-${Date.now()}`,
           name: 'Sales part B',
           retail_price: 30,
@@ -68,6 +70,7 @@ describe('Sales multi-stock concurrency (e2e)', () => {
     const [firstLocation, secondLocation] = await Promise.all([
       tenantPrisma.storageLocation.create({
         data: {
+          tenant_id: tenant.tenantId,
           site_id: siteId,
           code: `SALES-BIN-A-${Date.now()}`,
           name: 'Sales bin A',
@@ -76,6 +79,7 @@ describe('Sales multi-stock concurrency (e2e)', () => {
       }),
       tenantPrisma.storageLocation.create({
         data: {
+          tenant_id: tenant.tenantId,
           site_id: siteId,
           code: `SALES-BIN-B-${Date.now()}`,
           name: 'Sales bin B',
@@ -87,6 +91,7 @@ describe('Sales multi-stock concurrency (e2e)', () => {
     const [firstStock, secondStock] = await Promise.all([
       tenantPrisma.inventoryStock.create({
         data: {
+          tenant_id: tenant.tenantId,
           catalog_item_id: firstItem.id,
           site_id: siteId,
           location_id: firstLocation.id,
@@ -95,6 +100,7 @@ describe('Sales multi-stock concurrency (e2e)', () => {
       }),
       tenantPrisma.inventoryStock.create({
         data: {
+          tenant_id: tenant.tenantId,
           catalog_item_id: secondItem.id,
           site_id: siteId,
           location_id: secondLocation.id,

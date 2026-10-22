@@ -19,6 +19,7 @@ describe('Catalog Module (e2e)', () => {
   let authToken: string;
   let basePrisma: PrismaService;
   let prisma: PrismaService;
+  let tenantId: string;
 
   beforeAll(async () => {
     app = await createE2eApp();
@@ -26,6 +27,7 @@ describe('Catalog Module (e2e)', () => {
     basePrisma = app.get<PrismaService>(PrismaService);
 
     const testTenant = await createTestTenant(basePrisma);
+    tenantId = testTenant.tenantId;
     prisma = createTenantAwarePrisma(basePrisma, testTenant.tenantId);
     authToken = createTestAuthToken(app.get(AuthService), testTenant);
 
@@ -64,6 +66,7 @@ describe('Catalog Module (e2e)', () => {
     try {
       const vehicle = await prisma.vehicle.create({
         data: {
+          tenant_id: tenantId,
           vin: `e2e-catalog-${ts}`,
           make: 'Toyota',
           model: 'Corolla',
@@ -74,6 +77,7 @@ describe('Catalog Module (e2e)', () => {
 
       const customer = await prisma.customer.create({
         data: {
+          tenant_id: tenantId,
           first_name: 'Catalog',
           last_name: 'Tester',
           email: `e2e-catalog-${ts}@test.com`,
@@ -86,6 +90,7 @@ describe('Catalog Module (e2e)', () => {
 
       const workshopOrder = await prisma.workshopOrder.create({
         data: {
+          tenant_id: tenantId,
           site_id: mainSite.id,
           customer_id: customerId,
           vehicle_id: vehicleId,
@@ -99,6 +104,7 @@ describe('Catalog Module (e2e)', () => {
 
       const category = await prisma.laborCategory.create({
         data: {
+          tenant_id: tenantId,
           name: `${PREFIX}Search Category`,
           description: 'Category for catalog search e2e coverage',
         },
@@ -107,6 +113,7 @@ describe('Catalog Module (e2e)', () => {
 
       const categorizedOp = await prisma.laborOperation.create({
         data: {
+          tenant_id: tenantId,
           code: `e2e-catalog-CAT-${ts}`,
           description: 'SearchTerm Categorized Op',
           standard_aw: 1.25,
@@ -127,6 +134,7 @@ describe('Catalog Module (e2e)', () => {
 
       const uncategorizedOp = await prisma.laborOperation.create({
         data: {
+          tenant_id: tenantId,
           code: `e2e-catalog-UNCAT-${ts}`,
           description: 'SearchTerm Uncategorized Op',
           standard_aw: 1.0,

@@ -14,6 +14,7 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
   let prisma: PrismaService;
   let vendorId: string;
   let catalogItemId: string;
+  let tenantId: string;
 
   beforeAll(async () => {
     app = await createE2eApp();
@@ -21,6 +22,7 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
     prisma = app.get<PrismaService>(PrismaService);
 
     const testTenant = await createTestTenant(prisma);
+    tenantId = testTenant.tenantId;
     prisma = createTenantAwarePrisma(prisma, testTenant.tenantId);
     authToken = createTestAuthToken(app.get(AuthService), testTenant);
 
@@ -51,6 +53,7 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
     const brandName = 'TestBrand-' + Date.now();
     const brand = await prisma.brand.create({
       data: {
+        tenant_id: tenantId,
         name: brandName,
         normalized_name: normalizeVehicleMakeAlias(brandName),
       },
@@ -59,6 +62,7 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
     // Create test vendor
     const vendor = await prisma.vendor.create({
       data: {
+        tenant_id: tenantId,
         name: 'Test Vendor Fix',
         email: 'test-fix-' + Date.now() + '@vendor.com',
         account_number: 'TEST-' + Date.now(),
@@ -72,6 +76,7 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
     // Create test catalog item
     const item = await prisma.catalogItem.create({
       data: {
+        tenant_id: tenantId,
         sku: 'TEST-FIX-001-' + Date.now(),
         name: 'Test Part Fix',
         unit: 'pcs',
@@ -134,6 +139,7 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
       // Create a fresh catalog item for this test to ensure isolation
       const freshItem = await prisma.catalogItem.create({
         data: {
+          tenant_id: tenantId,
           sku: 'TEST-FIX-002-' + Date.now(),
           name: 'Test Part Fix 2',
           unit: 'pcs',

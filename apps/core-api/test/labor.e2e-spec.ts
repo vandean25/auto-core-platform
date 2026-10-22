@@ -20,6 +20,7 @@ describe('Labor Module (e2e)', () => {
   let app: INestApplication;
   let authToken: string;
   let prisma: PrismaService;
+  let tenantId: string;
 
   beforeAll(async () => {
     app = await createE2eApp();
@@ -27,6 +28,7 @@ describe('Labor Module (e2e)', () => {
     prisma = app.get<PrismaService>(PrismaService);
 
     const testTenant = await createTestTenant(prisma);
+    tenantId = testTenant.tenantId;
     prisma = createTenantAwarePrisma(prisma, testTenant.tenantId);
     authToken = createTestAuthToken(app.get(AuthService), testTenant);
 
@@ -401,6 +403,7 @@ describe('Labor Module (e2e)', () => {
       try {
         const vehicle = await prisma.vehicle.create({
           data: {
+            tenant_id: tenantId,
             vin: `e2e-labor-SRCH-${ts}`,
             make: 'Toyota',
             model: 'Corolla',
@@ -411,6 +414,7 @@ describe('Labor Module (e2e)', () => {
 
         const customer = await prisma.customer.create({
           data: {
+            tenant_id: tenantId,
             first_name: 'Labor',
             last_name: 'Tester',
             email: `e2e-labor-${ts}@test.com`,
@@ -423,6 +427,7 @@ describe('Labor Module (e2e)', () => {
 
         const workshopOrder = await prisma.workshopOrder.create({
           data: {
+            tenant_id: tenantId,
             site_id: mainSite.id,
             customer_id: customerId,
             vehicle_id: vehicleId,
@@ -436,6 +441,7 @@ describe('Labor Module (e2e)', () => {
 
         const category = await prisma.laborCategory.create({
           data: {
+            tenant_id: tenantId,
             name: `${PREFIX}Search Category`,
             description: 'Category for labor search e2e coverage',
           },
@@ -444,6 +450,7 @@ describe('Labor Module (e2e)', () => {
 
         const activeOp = await prisma.laborOperation.create({
           data: {
+            tenant_id: tenantId,
             code: `e2e-labor-SRCH-ACT-${ts}`,
             description: 'SearchTerm Active Op',
             standard_aw: 1.0,
@@ -464,6 +471,7 @@ describe('Labor Module (e2e)', () => {
 
         const inactiveOp = await prisma.laborOperation.create({
           data: {
+            tenant_id: tenantId,
             code: `e2e-labor-SRCH-INACT-${ts}`,
             description: 'SearchTerm Inactive Op',
             standard_aw: 1.0,

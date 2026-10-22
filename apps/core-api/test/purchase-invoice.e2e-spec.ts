@@ -42,6 +42,7 @@ describe('PurchaseInvoice (e2e)', () => {
     // Setup Test Data
     const vendor = await prisma.vendor.create({
       data: {
+        tenant_id: tenantId,
         name: 'Test Invoice Vendor',
         email: `invoice-vendor-${Date.now()}@example.com`,
         account_number: 'INV123',
@@ -51,6 +52,7 @@ describe('PurchaseInvoice (e2e)', () => {
 
     const catalogItem = await prisma.catalogItem.create({
       data: {
+        tenant_id: tenantId,
         sku: `PI-TEST-ITEM-${Date.now()}`,
         name: 'Invoice Test Item',
         cost_price: 10,
@@ -62,6 +64,7 @@ describe('PurchaseInvoice (e2e)', () => {
     // Create PO and Receive Items
     const po = await prisma.purchaseOrder.create({
       data: {
+        tenant_id: tenantId,
         vendor_id: vendorId,
         order_number: `PO-INV-${Date.now()}`,
         status: 'COMPLETED', // Simulating received

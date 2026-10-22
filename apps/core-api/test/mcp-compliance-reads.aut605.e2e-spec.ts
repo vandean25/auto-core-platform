@@ -69,6 +69,7 @@ describe('MCP compliance read tools (e2e)', () => {
     const label = `Compliance${Date.now()}`;
     const customer = await prismaTenant.customer.create({
       data: {
+        tenant_id: tenantId,
         first_name: 'Compliance',
         last_name: label,
         email: `compliance-${Date.now()}@example.com`,
@@ -77,6 +78,7 @@ describe('MCP compliance read tools (e2e)', () => {
     customerId = customer.id;
     const staging = await prismaTenant.storageLocation.create({
       data: {
+        tenant_id: tenantId,
         site_id: siteId,
         code: `CMP-TOTE-${label}`,
         name: 'Compliance staging',
@@ -85,6 +87,7 @@ describe('MCP compliance read tools (e2e)', () => {
     });
     const vehicle = await prismaTenant.vehicle.create({
       data: {
+        tenant_id: tenantId,
         make: 'Test',
         model: 'Compliance',
         year: 2021,
@@ -94,6 +97,7 @@ describe('MCP compliance read tools (e2e)', () => {
     });
     const order = await prismaTenant.workshopOrder.create({
       data: {
+        tenant_id: tenantId,
         order_number: `WO-${label}`,
         customer_id: customer.id,
         vehicle_id: vehicle.id,

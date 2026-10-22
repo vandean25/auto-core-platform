@@ -40,9 +40,10 @@ describe('Catalog provider settings (e2e)', () => {
     await runWithTenantContext(tenantId, async () => {
       await seedVehicleCatalogProviders(basePrisma, tenantId);
 
+      const techFirebaseUid = `tech-catalog-settings-${tenantId}`;
       const techUser = await basePrisma.user.create({
         data: {
-          firebaseUid: `tech-catalog-settings-${tenantId}`,
+          firebaseUid: techFirebaseUid,
           email: `tech-catalog-settings-${tenantId}@example.com`,
         },
       });
@@ -53,14 +54,15 @@ describe('Catalog provider settings (e2e)', () => {
       });
       techToken = createTestAuthToken(app.get(AuthService), {
         ...testTenant,
-        firebaseUid: techUser.firebaseUid,
+        firebaseUid: techFirebaseUid,
         email: techUser.email,
         role: 'TECH',
       });
 
+      const salesFirebaseUid = `sales-catalog-settings-${tenantId}`;
       const salesUser = await basePrisma.user.create({
         data: {
-          firebaseUid: `sales-catalog-settings-${tenantId}`,
+          firebaseUid: salesFirebaseUid,
           email: `sales-catalog-settings-${tenantId}@example.com`,
         },
       });
@@ -71,7 +73,7 @@ describe('Catalog provider settings (e2e)', () => {
       });
       salesToken = createTestAuthToken(app.get(AuthService), {
         ...testTenant,
-        firebaseUid: salesUser.firebaseUid,
+        firebaseUid: salesFirebaseUid,
         email: salesUser.email,
         role: 'SALES',
       });

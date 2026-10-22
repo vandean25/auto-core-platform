@@ -89,7 +89,7 @@ describe('Catalog external search (e2e)', () => {
       });
       techAuthToken = createTestAuthToken(app.get(AuthService), {
         ...testTenant,
-        firebaseUid: techUser.firebaseUid,
+        firebaseUid: techFirebaseUid,
         email: techUser.email,
         role: 'TECH',
       });
@@ -519,6 +519,7 @@ describe('Catalog external search (e2e)', () => {
     const { workshopOrder, task, vehicle } = await createResolvedPeugeotOrder();
     const laborCategory = await prisma.laborCategory.create({
       data: {
+        tenant_id: tenantId,
         name: `Catalog labor ${Date.now()}`,
         default_hourly_rate: 0,
         default_internal_cost_rate: null,

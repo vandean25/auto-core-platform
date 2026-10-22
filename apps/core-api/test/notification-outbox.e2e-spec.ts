@@ -344,8 +344,12 @@ describe('Notification outbox: WAITING_CUSTOMER (e2e)', () => {
     expect(first.blocked).toBe(false);
     if (!first.blocked) {
       expect(first.created).toBe(true);
+      expect(second).toEqual({
+        blocked: false,
+        id: first.id,
+        created: false,
+      });
     }
-    expect(second).toEqual({ blocked: false, id: first.id, created: false });
     const stored = await createTenantAwarePrisma(
       basePrisma,
       tenantId,

@@ -44,6 +44,7 @@ describe('Public estimate approval (e2e, ADR-0025 §7)', () => {
   async function createOrderWithLabor(qty = 2, unitPrice = 80) {
     const vehicle = await prisma.vehicle.create({
       data: {
+        tenant_id: tenantId,
         make: 'Skoda',
         model: 'Octavia',
         year: 2019,
@@ -165,6 +166,7 @@ describe('Public estimate approval (e2e, ADR-0025 §7)', () => {
     customerEmail = `public-${Date.now()}@example.com`;
     const customer = await prisma.customer.create({
       data: {
+        tenant_id: tenantId,
         first_name: 'Anna',
         last_name: 'Beispiel',
         email: customerEmail,

@@ -192,6 +192,7 @@ describe('Locale preferences (e2e)', () => {
     const tenantPrisma = createTenantAwarePrisma(prisma, tenantId);
     const customer = await tenantPrisma.customer.create({
       data: {
+        tenant_id: tenantId,
         type: 'PRIVATE',
         first_name: 'Test',
         last_name: 'Kunde',
