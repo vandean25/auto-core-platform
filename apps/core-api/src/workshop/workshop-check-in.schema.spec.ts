@@ -17,7 +17,7 @@ describe('WorkshopCheckIn Prisma schema', () => {
     expect(block).toContain('@@unique([tenant_id, workshop_order_id])');
     expect(block).toContain('@@index([tenant_id])');
     expect(block).toContain(
-      'workshop_order      WorkshopOrder         @relation(fields: [tenant_id, workshop_order_id], references: [tenant_id, id], onDelete: Restrict',
+      'workshop_order          WorkshopOrder         @relation(fields: [tenant_id, workshop_order_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)',
     );
     expect(schema).toContain('enum WorkshopCheckInStatus');
     expect(block).not.toMatch(/model WorkshopOrder/);
@@ -27,10 +27,10 @@ describe('WorkshopCheckIn Prisma schema', () => {
     const block =
       schema.match(/model WorkshopMedia \{[\s\S]*?\n\}/m)?.[0] ?? '';
 
-    expect(block).toContain('purpose                 WorkshopMediaPurpose');
+    expect(block).toContain('purpose                 WorkshopMediaPurpose     @default(GENERAL)');
     expect(block).toContain('check_in_id             String?');
     expect(block).toContain(
-      'check_in                WorkshopCheckIn?         @relation(fields: [tenant_id, check_in_id], references: [tenant_id, id], onDelete: Restrict',
+      'check_in                WorkshopCheckIn?         @relation(fields: [tenant_id, check_in_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)',
     );
     expect(block).toContain('@@index([tenant_id, check_in_id]');
     expect(schema).toContain('enum WorkshopMediaPurpose');
