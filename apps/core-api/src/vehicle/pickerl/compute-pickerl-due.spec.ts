@@ -181,7 +181,7 @@ describe('computePickerlDue', () => {
     ({ vehicle, records, onDate, ruleSetVersion, expected }) => {
       const result = computePickerlDue(
         vehicle,
-        records,
+        [...records],
         new Date(`${onDate}T12:00:00.000Z`),
         ruleSetVersion ?? null,
       );

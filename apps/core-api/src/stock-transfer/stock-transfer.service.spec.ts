@@ -220,7 +220,7 @@ describe('StockTransferService', () => {
     (ledgerService.recordTransactions as jest.Mock).mockResolvedValue(
       undefined,
     );
-    realtimeService.emitStockTransferUpdated.mockReturnValue(undefined);
+    jest.mocked(realtimeService.emitStockTransferUpdated).mockReturnValue(undefined);
 
     service = new StockTransferService(
       prisma,
@@ -332,7 +332,7 @@ describe('StockTransferService', () => {
           if (failurePoint === 'recipient lookup') {
             prisma.siteMembership.findMany.mockRejectedValue(failure);
           } else {
-            realtimeService.emitStockTransferUpdated.mockImplementation(() => {
+            jest.mocked(realtimeService.emitStockTransferUpdated).mockImplementation(() => {
               throw failure;
             });
           }
@@ -375,7 +375,7 @@ describe('StockTransferService', () => {
         events.push('commit');
         return result;
       });
-      realtimeService.emitStockTransferUpdated.mockImplementation(() => {
+      jest.mocked(realtimeService.emitStockTransferUpdated).mockImplementation(() => {
         events.push('emit');
       });
 

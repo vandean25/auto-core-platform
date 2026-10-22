@@ -157,7 +157,7 @@ describe('PartsRequisitionService', () => {
       role: 'ADMIN',
     });
     siteContext.getSiteId.mockResolvedValue(siteId);
-    atpService.reserveOnHand.mockResolvedValue(undefined);
+    jest.mocked(atpService.reserveOnHand).mockResolvedValue(undefined);
     ledgerService.recordTransactions.mockResolvedValue(undefined);
     tx.workshopTaskLineItem.findFirst.mockResolvedValue(buildLine());
     tx.storageLocation.findFirst.mockResolvedValue({
@@ -492,7 +492,7 @@ describe('PartsRequisitionService', () => {
   });
 
   it('surfaces a zero-row ATP update as a conflict without creating a slice', async () => {
-    atpService.reserveOnHand.mockRejectedValue(
+    jest.mocked(atpService.reserveOnHand).mockRejectedValue(
       new ConflictException('Insufficient ATP'),
     );
 

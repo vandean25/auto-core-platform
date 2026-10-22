@@ -5,6 +5,7 @@ import {
   planLaborOperationDryRunRow,
   resolveLaborCategoryId,
 } from './labor-operation-import.logic.js';
+import type { ImportRowIssue } from './import.types.js';
 
 const mapping = {
   external_id: 'Arbeitswert-Nr',
@@ -63,7 +64,7 @@ describe('labor-operation-import.logic', () => {
   });
 
   it('warns when category name is unknown', () => {
-    const warnings: { code: string }[] = [];
+    const warnings: ImportRowIssue[] = [];
     const categoryId = resolveLaborCategoryId('Unknown', emptyContext(), warnings);
     expect(categoryId).toBeNull();
     expect(warnings.some((warning) => warning.code === 'LABOR_CATEGORY_UNKNOWN')).toBe(

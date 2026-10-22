@@ -49,6 +49,8 @@ const BRANDING: KaufvertragSnapshotBranding = {
 
 const WARRANTY: KaufvertragGewaehrleistung = {
   regime: 'CONSUMER_BASE',
+  contractConcludedAt: new Date('2026-10-02T00:00:00.000Z'),
+  handedOverAt: new Date('2026-10-08T00:00:00.000Z'),
   buyerIsConsumer: true,
   basePeriodYears: 2,
   presumptionPeriodYears: 1,

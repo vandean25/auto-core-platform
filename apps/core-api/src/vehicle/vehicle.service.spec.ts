@@ -271,7 +271,7 @@ describe('VehicleService', () => {
     prisma.vehicle.count.mockResolvedValue(1);
 
     const result = await service.findAll({});
-    const vehicle = result.data[0];
+    const [vehicle] = result.data ?? [];
 
     expect(vehicle.location_id ?? null).toBeNull();
     expect(vehicle.site_id ?? null).toBeNull();

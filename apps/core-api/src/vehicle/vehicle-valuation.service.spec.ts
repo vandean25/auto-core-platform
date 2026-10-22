@@ -93,9 +93,7 @@ describe('VehicleValuationService', () => {
     fixtureProvider = new FixtureVehicleValuationProvider();
     provider = {
       isAvailable: jest.fn().mockReturnValue(true),
-      quote: jest.fn((input, signal) =>
-        fixtureProvider.quote(input, signal),
-      ),
+      quote: jest.fn((input, _signal) => fixtureProvider.quote(input)),
     };
     prisma = {
       vehicle: { findFirst: jest.fn() },

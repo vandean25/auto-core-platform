@@ -17,6 +17,7 @@ describe('datev-serializer', () => {
     clientNumber: '1',
     fiscalYearStartMonth: 1,
     defaultDebtorAccount: '1000',
+    serializerParams: {},
     isEnabled: true,
   };
 

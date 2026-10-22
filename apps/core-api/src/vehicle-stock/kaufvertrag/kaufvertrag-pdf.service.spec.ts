@@ -137,6 +137,7 @@ function createHarness(sale: unknown, options: { cloudTasks?: boolean } = {}) {
         key: string;
         generation: string;
         expectedSha256: string;
+        validateMetadata: (metadata: Record<string, string>) => boolean;
       }) => ({
         bucket: params.bucket,
         key: params.key,

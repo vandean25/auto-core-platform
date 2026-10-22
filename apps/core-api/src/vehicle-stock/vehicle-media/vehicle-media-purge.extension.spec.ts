@@ -16,6 +16,7 @@ describe('vehicle-media-purge extension helpers', () => {
   const purgeStorage: VehicleMediaStorage = {
     resolveBucket: () => 'b',
     objectPrefix: () => 'p/',
+    readObject: jest.fn(),
     storeProcessedObject: async () => 'k',
     deleteObjects: async () => undefined,
     deleteVehicleMediaPrefix: jest.fn(),
@@ -128,7 +129,7 @@ describe('vehicle-media-purge extension helpers', () => {
   });
 
   it('rejects when post-commit purge fails', async () => {
-    purgeStorage.deleteVehicleMediaPrefix.mockRejectedValueOnce(
+    jest.mocked(purgeStorage.deleteVehicleMediaPrefix).mockRejectedValueOnce(
       new Error('storage down'),
     );
 

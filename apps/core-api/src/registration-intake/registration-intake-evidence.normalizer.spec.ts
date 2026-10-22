@@ -11,11 +11,13 @@ describe('normalizeRegistrationEvidenceFields', () => {
         raw: 'WVWZZZSYNTH000001',
         normalized: 'WVWZZZSYNTH000001',
         uncertainty: 0.05,
+        source: null,
       },
       co2: {
         raw: '119',
         normalized: 119,
         uncertainty: 0.04,
+        source: null,
       },
     };
     const { cases } = normalizeRegistrationEvidenceFields(fields, 'WVWZZZSYNTH000001');
@@ -28,10 +30,12 @@ describe('normalizeRegistrationEvidenceFields', () => {
         raw: 'W A',
         normalized: 'W A',
         uncertainty: 1,
+        source: null,
         alternate: {
           raw: 'W B',
           normalized: 'W B',
           uncertainty: 0.1,
+          source: null,
         },
       },
     };
@@ -42,6 +46,7 @@ describe('normalizeRegistrationEvidenceFields', () => {
           raw: 'WVWZZZSYNTH000001',
           normalized: 'WVWZZZSYNTH000001',
           uncertainty: 0.05,
+          source: null,
         },
         ...fields,
       },

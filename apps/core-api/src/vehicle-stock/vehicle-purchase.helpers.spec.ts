@@ -269,7 +269,7 @@ describe('vehicle-purchase.helpers', () => {
     it('throws UnprocessableEntityException when location is not vehicle_lot', () => {
       expect(() =>
         validateRetargetingLot(
-          { site_id: 'site-target', type: LocationType.parts_shelf },
+          { site_id: 'site-target', type: LocationType.shelf },
           'site-target',
         ),
       ).toThrow(UnprocessableEntityException);
@@ -395,7 +395,7 @@ describe('vehicle-purchase.helpers', () => {
         make: 'VW',
         model: 'Golf',
         year: 2021,
-        purchase_price: '15000',
+        purchase_price: 15000,
       });
       expect(data.tenant_id).toBe('t1');
       expect(data.site_id).toBe('s1');
@@ -413,7 +413,7 @@ describe('vehicle-purchase.helpers', () => {
         make: 'BMW',
         model: 'X5',
         year: 2022,
-        purchase_price: '25000',
+        purchase_price: 25000,
       });
       expect(data.vendor_id).toBeNull();
       expect(data.customer_id).toBe('c1');
@@ -442,7 +442,7 @@ describe('vehicle-purchase.helpers', () => {
       ).toThrow(UnprocessableEntityException);
       expect(() =>
         assertValidCreateLocation(
-          { site_id: 's1', type: LocationType.parts_shelf },
+          { site_id: 's1', type: LocationType.shelf },
           's1',
         ),
       ).toThrow(UnprocessableEntityException);

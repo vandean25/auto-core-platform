@@ -44,6 +44,9 @@ describe('VehicleSaleService', () => {
     siteMembership: { findFirst: jest.Mock };
     site: { findFirst: jest.Mock };
     financeSettings: { upsert: jest.Mock; update: jest.Mock };
+    vehiclePurchase: { findFirst: jest.Mock };
+    vehicleListing: { findFirst: jest.Mock };
+    vehicleListingChannel: { update: jest.Mock };
     $queryRaw: jest.Mock;
     $transaction: jest.Mock;
   };

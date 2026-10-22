@@ -14,7 +14,7 @@ describe('AtpService', () => {
   let prisma: {
     inventoryStock: { findFirst: jest.Mock };
     partsReservation: { findMany: jest.Mock };
-    $executeRaw: jest.Mock;
+    $executeRaw: jest.Mock<Promise<number>, [TemplateStringsArray, ...unknown[]]>;
   };
   let transactionClient: typeof prisma;
 

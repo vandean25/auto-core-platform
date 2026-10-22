@@ -37,7 +37,6 @@ function buildMinimalManifest(
     extracted_at: '2026-10-19T08:00:00Z',
     cutover_date: '2026-11-01',
     currency: 'EUR',
-    files: overrides.files,
     assets: [],
     control_totals: {
       counts_by_type: overrides.counts,

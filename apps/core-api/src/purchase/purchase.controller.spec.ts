@@ -8,6 +8,7 @@ import {
 const SWAGGER_API_RESPONSE = 'swagger/apiResponse';
 import { PurchaseController } from './purchase.controller.js';
 import { PurchaseService } from './purchase.service.js';
+import type { PurchaseOrderWithRelations } from './purchase.service.js';
 import { PurchaseOrderResponseDto } from './dto/purchase-order-response.dto.js';
 import { PurchaseOrderItemResponseDto } from './dto/purchase-order-response.dto.js';
 import { PurchaseOrderQueryBuilder } from './purchase-order-query.builder.js';
@@ -28,7 +29,26 @@ describe('PurchaseController', () => {
     deleteItemFromPurchaseOrder: jest.Mock;
   };
 
-  const sampleOrder = { id: 'po-1', order_number: 'PO-2026-0001' };
+  const sampleOrder: PurchaseOrderWithRelations = {
+    id: 'po-1',
+    tenant_id: 'tenant-1',
+    site_id: null,
+    vendor_id: 'vendor-1',
+    status: 'DRAFT',
+    order_number: 'PO-2026-0001',
+    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    vendor: {
+      id: 'vendor-1',
+      tenant_id: 'tenant-1',
+      name: 'Vendor',
+      email: 'vendor@example.com',
+      account_number: '1000',
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    },
+    items: [],
+  };
   const sampleItem = { id: 'item-1', catalog_item_id: 'cat-1' };
 
   beforeEach(async () => {
