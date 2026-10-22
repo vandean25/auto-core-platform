@@ -252,6 +252,9 @@ jobs:
       - name: Lint backend
         run: npm run lint --workspace=core-api
 
+      - name: Typecheck backend specs
+        run: npm run typecheck:spec --workspace=core-api
+
       - name: Build backend
         # Typecheck gate: tsc runs here and fails the job on any type error.
         run: npm run build --workspace=core-api
