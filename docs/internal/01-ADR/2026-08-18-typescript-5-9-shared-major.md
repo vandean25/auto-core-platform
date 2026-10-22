@@ -50,7 +50,7 @@ Adopt Microsoft’s side-by-side layout at the workspace root:
 
 **Script runners**
 
-* Nest/OpenAPI/Prisma seed: `ts-node -r tsconfig-paths/register` (TS 6 shim)
+* Prisma seed: `tsx prisma/seed.ts` (AUT-679 dropped `ts-node`); OpenAPI runs from the `tsc` build.
 * Standalone scripts (lint, GCS, seeds helpers): `tsx`
 
 **TS 7 config hygiene**

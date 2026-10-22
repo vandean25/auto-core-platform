@@ -44,9 +44,6 @@
     "agent-eval:report": "tsx scripts/agent-eval-report.ts",
     "agent-eval:fixtures": "node scripts/generate-agent-eval-fixtures.mjs"
   },
-  "prisma": {
-    "seed": "node --loader ts-node/esm prisma/seed.ts"
-  },
   "dependencies": {
     "@google-cloud/speech": "^8.0.1",
     "@google-cloud/storage": "^8.0.0",
@@ -114,8 +111,6 @@
     "supertest": "^7.0.0",
     "ts-jest": "^29.4.10",
     "ts-loader": "^9.6.2",
-    "ts-node": "^10.9.2",
-    "tsconfig-paths": "^4.2.0",
     "tsx": "^4.23.15",
     "typescript-eslint": "8.68.0"
   },
@@ -162,9 +157,5 @@
     ],
     "coverageDirectory": "coverage",
     "testEnvironment": "node"
-  },
-  "overrides": {
-    "js-yaml": "^5.3.0",
-    "uuid": "^11.1.1"
   }
 }
