@@ -1,10 +1,13 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { useAuthSession } from '@/api/auth-session'
 import { usePlatformTenants } from '@/api/platform-tenants'
 import dePlatform from '../../../../../locales/de/platform.json'
 import PlatformTenantsPage from './PlatformTenantsPage'
+
+const createMutateAsync = vi.fn()
+const updateMutateAsync = vi.fn()
 
 const platformTenantsResult = {
   data: {
@@ -13,7 +16,6 @@ const platformTenantsResult = {
         id: 'tenant-1',
         name: 'North Branch',
         slug: 'north-branch',
-        plan: 'PREMIUM',
         isActive: true,
         memberCount: 7,
         createdAt: '2026-04-23T10:00:00.000Z',
@@ -33,8 +35,8 @@ vi.mock('@/api/auth-session', () => ({
 
 vi.mock('@/api/platform-tenants', () => ({
   usePlatformTenants: vi.fn(() => platformTenantsResult),
-  useCreatePlatformTenant: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useUpdatePlatformTenant: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useCreatePlatformTenant: vi.fn(() => ({ mutateAsync: createMutateAsync, isPending: false })),
+  useUpdatePlatformTenant: vi.fn(() => ({ mutateAsync: updateMutateAsync, isPending: false })),
 }))
 
 describe('PlatformTenantsPage', () => {
@@ -57,6 +59,7 @@ describe('PlatformTenantsPage', () => {
     expect(screen.getByRole('heading', { name: dePlatform.tenants.pageTitle })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: dePlatform.tenants.createButton })).toBeInTheDocument()
     expect(screen.getByText('North Branch')).toBeInTheDocument()
+    expect(screen.queryByText('Tarif')).not.toBeInTheDocument()
     expect(vi.mocked(usePlatformTenants)).toHaveBeenCalledWith({
       includeInactive: true,
       limit: 100,
@@ -81,5 +84,77 @@ describe('PlatformTenantsPage', () => {
     )
 
     expect(screen.getByText('Dashboard destination')).toBeInTheDocument()
+  })
+
+  it('creates tenants without a plan field in the dialog or payload', () => {
+    vi.mocked(useAuthSession).mockReturnValue({
+      data: { platformRole: 'SUPER_ADMIN' },
+      isLoading: false,
+    } as ReturnType<typeof useAuthSession>)
+    createMutateAsync.mockResolvedValue(platformTenantsResult.data.data[0])
+
+    render(
+      <MemoryRouter initialEntries={['/platform/tenants']}>
+        <Routes>
+          <Route path='/platform/tenants' element={<PlatformTenantsPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: dePlatform.tenants.createButton }))
+
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).queryByLabelText('Tarif')).not.toBeInTheDocument()
+
+    fireEvent.change(within(dialog).getByLabelText(dePlatform.tenants.form.name), {
+      target: { value: 'South Branch' },
+    })
+    fireEvent.change(within(dialog).getByLabelText(dePlatform.tenants.form.slug), {
+      target: { value: 'south-branch' },
+    })
+    fireEvent.click(within(dialog).getByRole('button', { name: dePlatform.tenants.createDialog.submit }))
+
+    expect(createMutateAsync).toHaveBeenCalledWith({
+      name: 'South Branch',
+      slug: 'south-branch',
+    })
+    expect(createMutateAsync.mock.calls[0][0]).not.toHaveProperty('plan')
+  })
+
+  it('updates tenants without a plan field in the sheet or payload', () => {
+    vi.mocked(useAuthSession).mockReturnValue({
+      data: { platformRole: 'SUPER_ADMIN' },
+      isLoading: false,
+    } as ReturnType<typeof useAuthSession>)
+    updateMutateAsync.mockResolvedValue({
+      ...platformTenantsResult.data.data[0],
+      name: 'North Branch Updated',
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/platform/tenants']}>
+        <Routes>
+          <Route path='/platform/tenants' element={<PlatformTenantsPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByText('North Branch'))
+
+    expect(screen.queryByLabelText('Tarif')).not.toBeInTheDocument()
+
+    const nameInput = screen.getByLabelText(dePlatform.tenants.form.name)
+    fireEvent.change(nameInput, { target: { value: 'North Branch Updated' } })
+    fireEvent.click(screen.getByRole('button', { name: dePlatform.tenants.editSheet.submit }))
+
+    expect(updateMutateAsync).toHaveBeenCalledWith({
+      id: 'tenant-1',
+      data: {
+        name: 'North Branch Updated',
+        slug: 'north-branch',
+        isActive: true,
+      },
+    })
+    expect(updateMutateAsync.mock.calls[0][0].data).not.toHaveProperty('plan')
   })
 })

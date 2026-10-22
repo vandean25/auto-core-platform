@@ -19,12 +19,6 @@ enum DisplayLanguage {
   en
 }
 
-enum TenantPlan {
-  STANDARD
-  PREMIUM
-  ENTERPRISE
-}
-
 enum TenantMemberRole {
   OWNER
   ADMIN
@@ -38,170 +32,169 @@ enum PlatformAdminRole {
 }
 
 model Tenant {
-  id         String     @id @default(uuid())
-  name       String
-  slug       String     @unique
-  plan       TenantPlan @default(STANDARD)
-  created_at DateTime   @default(now())
-  updated_at DateTime   @updatedAt
-  is_active  Boolean    @default(true)
+  id                        String          @id @default(uuid())
+  name                      String
+  slug                      String          @unique
+  created_at                DateTime        @default(now())
+  updated_at                DateTime        @updatedAt
+  is_active                 Boolean         @default(true)
   /// AUT-547 dedicated tenant for self-service landing demos (isolated from QA seed data).
-  is_landing_demo_tenant Boolean @default(false)
+  is_landing_demo_tenant    Boolean         @default(false)
   /// AUT-413 tenant opt-out for decision live-apply. Only `shadow` is valid; NULL inherits the environment.
-  decision_apply_mode String? @db.VarChar(16)
+  decision_apply_mode       String?         @db.VarChar(16)
   /// AUT-411 per-key request budget for the public API (requests per 1-minute window, each key).
-  api_rate_limit_per_minute Int @default(60)
+  api_rate_limit_per_minute Int             @default(60)
   /// AUT-576 tenant default UI/document language when user/customer preference is unset.
   default_locale            DisplayLanguage @default(de)
   /// AUT-576 fixed Austrian formatting region (read-only in v1).
   format_locale             String          @default("de-AT") @db.VarChar(8)
 
-  revenueGroups                 RevenueGroup[]
-  financeSettings               FinanceSettings?
-  voiceTranslationSettings      VoiceTranslationSettings?
-  brands                        Brand[]
-  catalogItems                  CatalogItem[]
-  storageLocations              StorageLocation[]
-  inventoryStocks               InventoryStock[]
-  inventoryTransactions         InventoryTransaction[]
-  vendors                       Vendor[]
-  purchaseOrders                PurchaseOrder[]
-  purchaseOrderItems            PurchaseOrderItem[]
-  customers                     Customer[]
-  customerContactPoints         CustomerContactPoint[]
-  customerConsents              CustomerConsent[]
-  customerCommunicationStates   CustomerCommunicationState[]
+  revenueGroups                    RevenueGroup[]
+  financeSettings                  FinanceSettings?
+  voiceTranslationSettings         VoiceTranslationSettings?
+  brands                           Brand[]
+  catalogItems                     CatalogItem[]
+  storageLocations                 StorageLocation[]
+  inventoryStocks                  InventoryStock[]
+  inventoryTransactions            InventoryTransaction[]
+  vendors                          Vendor[]
+  purchaseOrders                   PurchaseOrder[]
+  purchaseOrderItems               PurchaseOrderItem[]
+  customers                        Customer[]
+  customerContactPoints            CustomerContactPoint[]
+  customerConsents                 CustomerConsent[]
+  customerCommunicationStates      CustomerCommunicationState[]
   customerConsentUnsubscribeTokens CustomerConsentUnsubscribeToken[]
-  vehicles                      Vehicle[]
-  vehiclePurchases              VehiclePurchase[]
-  vehicleSales                  VehicleSale[]
-  vehicleLedgerEntries          VehicleLedgerEntry[]
-  vehicleInspectionRecords      VehicleInspectionRecord[]
-  inspectionSourceConnections   InspectionSourceConnection[]
-  inspectionExchangeImports     InspectionExchangeImport[]
-  inspectionReportIdentities    InspectionReportIdentity[]
-  externalInspectionResults     ExternalInspectionResult[]
-  inspectionExchangeEvents      InspectionExchangeEvent[]
-  inspectionCatalogueVersions   InspectionCatalogueVersion[]
-  inspectionCatalogueEntries    InspectionCatalogueEntry[]
-  inspectionCatalogueActivations TenantInspectionCatalogueActivation[]
-  inspectionCatalogueImports    InspectionCatalogueImport[]
-  inspectionFindingReferences   InspectionFindingReference[]
-  inspectorEvidenceRevisions    InspectorEvidenceRevision[]
-  inspectionSupportEvents       InspectionSupportEvent[]
-  inspectionDeviceSources       InspectionDeviceSource[]
-  inspectionDeviceEvidence      InspectionDeviceEvidence[]
-  inspectionMeasurementIdentities InspectionMeasurementIdentity[]
-  inspectionMeasurementImports  InspectionMeasurementImport[]
-  inspectionMeasurements        InspectionMeasurement[]
-  vehicleValuationSnapshots     VehicleValuationSnapshot[]
-  vehicleMedia                  VehicleMedia[]
-  vehicleEquipmentOptions       VehicleEquipmentOption[]
-  vehicleEquipmentSelections    VehicleEquipmentSelection[]
-  vehicleEquipmentFreeTextItems VehicleEquipmentFreeTextItem[]
-  vehicleListings               VehicleListing[]
-  vehicleListingChannels        VehicleListingChannel[]
-  vehicleListingPhotos          VehicleListingPhoto[]
-  vehicleListingPushSettings    VehicleListingPushSettings?
-  vehicleListingChannelDmsSyncs VehicleListingChannelDmsSync[]
-  salesOrders                   SalesOrder[]
-  salesOrderItems               SalesOrderItem[]
-  invoices                      Invoice[]
-  invoiceSequences              InvoiceSequence[]
-  invoiceItems                  InvoiceItem[]
-  creditNotes                   CreditNote[]
-  creditNoteItems               CreditNoteItem[]
-  creditNoteSequences           CreditNoteSequence[]
-  workshopEstimates             WorkshopEstimate[]
-  workshopEstimateSequences     WorkshopEstimateSequence[]
-  workshopEstimateVersions      WorkshopEstimateVersion[]
-  workshopEstimateAssetRefs     WorkshopEstimateBrandAssetReference[]
-  notificationOutbox            NotificationOutbox[]
-  estimateApprovalTokens        WorkshopEstimateApprovalToken[]
-  estimateApprovals             WorkshopEstimateApproval[]
-  workshopEstimateOverruns      WorkshopEstimateOverrun[]
-  purchaseInvoices              PurchaseInvoice[]
-  purchaseInvoiceLines          PurchaseInvoiceLine[]
-  inspectionTemplates           InspectionTemplate[]
-  inspectionTemplateItems       InspectionTemplateItem[]
-  workshopInspections           WorkshopInspection[]
-  workshopInspectionItems       WorkshopInspectionItem[]
-  workshopMedia                 WorkshopMedia[]
-  workshopCheckIns              WorkshopCheckIn[]
-  workshopVoiceNoteDrafts       WorkshopVoiceNoteDraft[]
-  voiceNoteRateLimits           VoiceNoteRateLimit[]
-  workshopOrders                WorkshopOrder[]
-  loanerVehicles                LoanerVehicle[]
-  loanerBookings                LoanerBooking[]
-  warrantyClaims                WarrantyClaim[]
-  warrantyClaimLines            WarrantyClaimLine[]
-  workshopTasks                 WorkshopTask[]
-  workshopTaskLineItems         WorkshopTaskLineItem[]
-  employees                     Employee[]
-  bays                          Bay[]
-  workshopOpeningHours          WorkshopOpeningHour[]
-  workshopHolidays              WorkshopHoliday[]
-  employeeLeaveBalances         EmployeeLeaveBalance[]
-  leaveRequests                 LeaveRequest[]
-  attendanceEvents              AttendanceEvent[]
-  employeeWorkSchedules         EmployeeWorkSchedule[]
-  employeeWorkScheduleDays      EmployeeWorkScheduleDay[]
-  laborCategories               LaborCategory[]
-  laborPriceGroups              LaborPriceGroup[]
-  laborOperations               LaborOperation[]
-  laborEntries                  LaborEntry[]
-  catalogProviderSettings       CatalogProviderSettings?
-  catalogOemConcerns            CatalogOemConcern[]
-  catalogOemConcernMakes        CatalogOemConcernMake[]
-  vehicleMakeAliases            VehicleMakeAlias[]
-  auditLogs                     AuditLog[]
-  agentActionLogs               AgentActionLog[]
-  decisionShadowLogs            DecisionShadowLog[]
-  memberships                   TenantMember[]
-  siteMemberships               SiteMembership[]
-  partsReservations             PartsReservation[]
-  partsRequisitions             PartsRequisition[]
-  partsRequisitionLines         PartsRequisitionLine[]
-  activeUsers                   User[]                         @relation("UserActiveTenant")
-  legalEntities                 LegalEntity[]
-  legalEntityAccountingProfiles LegalEntityAccountingProfile[]
-  accountingExports             AccountingExport[]
-  sites                         Site[]
-  stockTransfers                StockTransfer[]
-  stockTransferLines            StockTransferLine[]
-  stockTransferCommands         StockTransferCommand[]
-  documentBrandProfiles         DocumentBrandProfile[]
-  documentBrandAssets           DocumentBrandAsset[]
-  invoiceBrandAssetReferences   InvoiceBrandAssetReference[]
-  documentBrandQuotaEvents      DocumentBrandQuotaEvent[]
-  documentBrandQuotaLocks       DocumentBrandQuotaLock[]
-  tyreSets                      TyreSet[]
-  tyreSetEvents                 TyreSetEvent[]
-  tyreStorageSettings           TyreStorageSettings?
-  documentBrandExtractions      DocumentBrandExtraction[]
-  importJobs                    ImportJob[]
-  importJobRows                 ImportJobRow[]
-  migrationRuns                 MigrationRun[]
-  legacyDocuments               LegacyDocument[]
-  legacyDocumentLines           LegacyDocumentLine[]
-  externalIdMappings            ExternalIdMapping[]
-  importMappingProfiles         ImportMappingProfile[]
-  agentPolicyRules              AgentPolicyRule[]
-  agentProposals                AgentProposal[]
-  workshopCommandPresets        WorkshopCommandPreset[]
-  mcpWriteCommandReceipts       McpWriteCommandReceipt[]
-  domainEvents                  DomainEvent[]
-  domainEventConsumerProgress   DomainEventConsumerProgress[]
-  domainEventConsumerDeliveries DomainEventConsumerDelivery[]
-  registrationDocumentIntakes   RegistrationDocumentIntake[]
-  registrationIntakeBytePurges  RegistrationIntakeBytePurge[]
-  payments                      Payment[]
-  fiscalRegisters               FiscalRegister[]
-  fiscalReceipts                FiscalReceipt[]
-  vendorArticles                VendorArticle[]
-  marginRules                   MarginRule[]
-  catalogPriceHistories         CatalogPriceHistory[]
-  tenantApiKeys                 TenantApiKey[]
+  vehicles                         Vehicle[]
+  vehiclePurchases                 VehiclePurchase[]
+  vehicleSales                     VehicleSale[]
+  vehicleLedgerEntries             VehicleLedgerEntry[]
+  vehicleInspectionRecords         VehicleInspectionRecord[]
+  inspectionSourceConnections      InspectionSourceConnection[]
+  inspectionExchangeImports        InspectionExchangeImport[]
+  inspectionReportIdentities       InspectionReportIdentity[]
+  externalInspectionResults        ExternalInspectionResult[]
+  inspectionExchangeEvents         InspectionExchangeEvent[]
+  inspectionCatalogueVersions      InspectionCatalogueVersion[]
+  inspectionCatalogueEntries       InspectionCatalogueEntry[]
+  inspectionCatalogueActivations   TenantInspectionCatalogueActivation[]
+  inspectionCatalogueImports       InspectionCatalogueImport[]
+  inspectionFindingReferences      InspectionFindingReference[]
+  inspectorEvidenceRevisions       InspectorEvidenceRevision[]
+  inspectionSupportEvents          InspectionSupportEvent[]
+  inspectionDeviceSources          InspectionDeviceSource[]
+  inspectionDeviceEvidence         InspectionDeviceEvidence[]
+  inspectionMeasurementIdentities  InspectionMeasurementIdentity[]
+  inspectionMeasurementImports     InspectionMeasurementImport[]
+  inspectionMeasurements           InspectionMeasurement[]
+  vehicleValuationSnapshots        VehicleValuationSnapshot[]
+  vehicleMedia                     VehicleMedia[]
+  vehicleEquipmentOptions          VehicleEquipmentOption[]
+  vehicleEquipmentSelections       VehicleEquipmentSelection[]
+  vehicleEquipmentFreeTextItems    VehicleEquipmentFreeTextItem[]
+  vehicleListings                  VehicleListing[]
+  vehicleListingChannels           VehicleListingChannel[]
+  vehicleListingPhotos             VehicleListingPhoto[]
+  vehicleListingPushSettings       VehicleListingPushSettings?
+  vehicleListingChannelDmsSyncs    VehicleListingChannelDmsSync[]
+  salesOrders                      SalesOrder[]
+  salesOrderItems                  SalesOrderItem[]
+  invoices                         Invoice[]
+  invoiceSequences                 InvoiceSequence[]
+  invoiceItems                     InvoiceItem[]
+  creditNotes                      CreditNote[]
+  creditNoteItems                  CreditNoteItem[]
+  creditNoteSequences              CreditNoteSequence[]
+  workshopEstimates                WorkshopEstimate[]
+  workshopEstimateSequences        WorkshopEstimateSequence[]
+  workshopEstimateVersions         WorkshopEstimateVersion[]
+  workshopEstimateAssetRefs        WorkshopEstimateBrandAssetReference[]
+  notificationOutbox               NotificationOutbox[]
+  estimateApprovalTokens           WorkshopEstimateApprovalToken[]
+  estimateApprovals                WorkshopEstimateApproval[]
+  workshopEstimateOverruns         WorkshopEstimateOverrun[]
+  purchaseInvoices                 PurchaseInvoice[]
+  purchaseInvoiceLines             PurchaseInvoiceLine[]
+  inspectionTemplates              InspectionTemplate[]
+  inspectionTemplateItems          InspectionTemplateItem[]
+  workshopInspections              WorkshopInspection[]
+  workshopInspectionItems          WorkshopInspectionItem[]
+  workshopMedia                    WorkshopMedia[]
+  workshopCheckIns                 WorkshopCheckIn[]
+  workshopVoiceNoteDrafts          WorkshopVoiceNoteDraft[]
+  voiceNoteRateLimits              VoiceNoteRateLimit[]
+  workshopOrders                   WorkshopOrder[]
+  loanerVehicles                   LoanerVehicle[]
+  loanerBookings                   LoanerBooking[]
+  warrantyClaims                   WarrantyClaim[]
+  warrantyClaimLines               WarrantyClaimLine[]
+  workshopTasks                    WorkshopTask[]
+  workshopTaskLineItems            WorkshopTaskLineItem[]
+  employees                        Employee[]
+  bays                             Bay[]
+  workshopOpeningHours             WorkshopOpeningHour[]
+  workshopHolidays                 WorkshopHoliday[]
+  employeeLeaveBalances            EmployeeLeaveBalance[]
+  leaveRequests                    LeaveRequest[]
+  attendanceEvents                 AttendanceEvent[]
+  employeeWorkSchedules            EmployeeWorkSchedule[]
+  employeeWorkScheduleDays         EmployeeWorkScheduleDay[]
+  laborCategories                  LaborCategory[]
+  laborPriceGroups                 LaborPriceGroup[]
+  laborOperations                  LaborOperation[]
+  laborEntries                     LaborEntry[]
+  catalogProviderSettings          CatalogProviderSettings?
+  catalogOemConcerns               CatalogOemConcern[]
+  catalogOemConcernMakes           CatalogOemConcernMake[]
+  vehicleMakeAliases               VehicleMakeAlias[]
+  auditLogs                        AuditLog[]
+  agentActionLogs                  AgentActionLog[]
+  decisionShadowLogs               DecisionShadowLog[]
+  memberships                      TenantMember[]
+  siteMemberships                  SiteMembership[]
+  partsReservations                PartsReservation[]
+  partsRequisitions                PartsRequisition[]
+  partsRequisitionLines            PartsRequisitionLine[]
+  activeUsers                      User[]                                @relation("UserActiveTenant")
+  legalEntities                    LegalEntity[]
+  legalEntityAccountingProfiles    LegalEntityAccountingProfile[]
+  accountingExports                AccountingExport[]
+  sites                            Site[]
+  stockTransfers                   StockTransfer[]
+  stockTransferLines               StockTransferLine[]
+  stockTransferCommands            StockTransferCommand[]
+  documentBrandProfiles            DocumentBrandProfile[]
+  documentBrandAssets              DocumentBrandAsset[]
+  invoiceBrandAssetReferences      InvoiceBrandAssetReference[]
+  documentBrandQuotaEvents         DocumentBrandQuotaEvent[]
+  documentBrandQuotaLocks          DocumentBrandQuotaLock[]
+  tyreSets                         TyreSet[]
+  tyreSetEvents                    TyreSetEvent[]
+  tyreStorageSettings              TyreStorageSettings?
+  documentBrandExtractions         DocumentBrandExtraction[]
+  importJobs                       ImportJob[]
+  importJobRows                    ImportJobRow[]
+  migrationRuns                    MigrationRun[]
+  legacyDocuments                  LegacyDocument[]
+  legacyDocumentLines              LegacyDocumentLine[]
+  externalIdMappings               ExternalIdMapping[]
+  importMappingProfiles            ImportMappingProfile[]
+  agentPolicyRules                 AgentPolicyRule[]
+  agentProposals                   AgentProposal[]
+  workshopCommandPresets           WorkshopCommandPreset[]
+  mcpWriteCommandReceipts          McpWriteCommandReceipt[]
+  domainEvents                     DomainEvent[]
+  domainEventConsumerProgress      DomainEventConsumerProgress[]
+  domainEventConsumerDeliveries    DomainEventConsumerDelivery[]
+  registrationDocumentIntakes      RegistrationDocumentIntake[]
+  registrationIntakeBytePurges     RegistrationIntakeBytePurge[]
+  payments                         Payment[]
+  fiscalRegisters                  FiscalRegister[]
+  fiscalReceipts                   FiscalReceipt[]
+  vendorArticles                   VendorArticle[]
+  marginRules                      MarginRule[]
+  catalogPriceHistories            CatalogPriceHistory[]
+  tenantApiKeys                    TenantApiKey[]
 
   @@map("tenants")
 }
@@ -213,17 +206,17 @@ enum AgentPolicyTier {
 }
 
 model AgentPolicyRule {
-  id              String           @id @default(uuid())
+  id              String          @id @default(uuid())
   tenant_id       String?
-  tenant          Tenant?          @relation(fields: [tenant_id], references: [id])
+  tenant          Tenant?         @relation(fields: [tenant_id], references: [id])
   action_type     String
   tier            AgentPolicyTier
-  conditions_json Json             @default("{}")
-  enabled         Boolean          @default(true)
+  conditions_json Json            @default("{}")
+  enabled         Boolean         @default(true)
   version         Int
   created_by      String?
-  created_at      DateTime         @default(now())
-  updated_at      DateTime         @updatedAt
+  created_at      DateTime        @default(now())
+  updated_at      DateTime        @updatedAt
 
   @@unique([tenant_id, id])
   @@unique([tenant_id, action_type, version])
@@ -241,22 +234,22 @@ enum AgentProposalStatus {
 }
 
 model AgentProposal {
-  id           String              @id @default(uuid())
-  tenant_id    String
-  tenant       Tenant              @relation(fields: [tenant_id], references: [id])
-  trace_id     String              @db.Uuid
-  action_type  String
-  payload_json Json
-  preview_json Json?
+  id               String              @id @default(uuid())
+  tenant_id        String
+  tenant           Tenant              @relation(fields: [tenant_id], references: [id])
+  trace_id         String              @db.Uuid
+  action_type      String
+  payload_json     Json
+  preview_json     Json?
   created_by_agent String?
-  tier         AgentPolicyTier     @default(PROPOSE)
-  status       AgentProposalStatus @default(PENDING)
-  decided_by   String?
-  decided_at   DateTime?
-  reason       String?
-  expires_at   DateTime            @default(dbgenerated("(now() + '7 days'::interval)"))
-  createdAt    DateTime            @default(now()) @map("created_at")
-  updatedAt    DateTime            @updatedAt @map("updated_at")
+  tier             AgentPolicyTier     @default(PROPOSE)
+  status           AgentProposalStatus @default(PENDING)
+  decided_by       String?
+  decided_at       DateTime?
+  reason           String?
+  expires_at       DateTime            @default(dbgenerated("(now() + '7 days'::interval)"))
+  createdAt        DateTime            @default(now()) @map("created_at")
+  updatedAt        DateTime            @updatedAt @map("updated_at")
 
   @@unique([tenant_id, id])
   @@index([tenant_id, status, createdAt])
@@ -293,13 +286,13 @@ model McpWriteCommandReceipt {
 }
 
 model User {
-  id                                String                    @id @default(uuid())
-  firebaseUid                       String?                   @unique @map("firebase_uid")
-  email                             String                    @unique
-  firstName                         String?                   @map("first_name")
-  lastName                          String?                   @map("last_name")
+  id                                String                       @id @default(uuid())
+  firebaseUid                       String?                      @unique @map("firebase_uid")
+  email                             String                       @unique
+  firstName                         String?                      @map("first_name")
+  lastName                          String?                      @map("last_name")
   active_tenant_id                  String?
-  activeTenant                      Tenant?                   @relation("UserActiveTenant", fields: [active_tenant_id], references: [id])
+  activeTenant                      Tenant?                      @relation("UserActiveTenant", fields: [active_tenant_id], references: [id])
   active_site_id                    String?
   /// AUT-576 self UI language; null follows the active tenant default.
   locale                            DisplayLanguage?
@@ -307,39 +300,39 @@ model User {
   siteMemberships                   SiteMembership[]
   platformAdmin                     PlatformAdmin?
   employees                         Employee[]
-  transfersRequested                StockTransfer[]           @relation("StockTransferRequestedBy")
-  transfersApproved                 StockTransfer[]           @relation("StockTransferApprovedBy")
-  transfersShipped                  StockTransfer[]           @relation("StockTransferShippedBy")
-  transfersReceived                 StockTransfer[]           @relation("StockTransferReceivedBy")
-  confirmedDocumentBrandProfiles    DocumentBrandProfile[]    @relation("DocumentBrandConfirmedBy")
-  requestedDocumentBrandExtractions DocumentBrandExtraction[] @relation("DocumentBrandExtractionRequestedBy")
+  transfersRequested                StockTransfer[]              @relation("StockTransferRequestedBy")
+  transfersApproved                 StockTransfer[]              @relation("StockTransferApprovedBy")
+  transfersShipped                  StockTransfer[]              @relation("StockTransferShippedBy")
+  transfersReceived                 StockTransfer[]              @relation("StockTransferReceivedBy")
+  confirmedDocumentBrandProfiles    DocumentBrandProfile[]       @relation("DocumentBrandConfirmedBy")
+  requestedDocumentBrandExtractions DocumentBrandExtraction[]    @relation("DocumentBrandExtractionRequestedBy")
   capturedRegistrationIntakes       RegistrationDocumentIntake[] @relation("RegistrationIntakeCapturedBy")
-  createdTenantApiKeys              TenantApiKey[]            @relation("TenantApiKeyCreatedBy")
-  revokedTenantApiKeys              TenantApiKey[]            @relation("TenantApiKeyRevokedBy")
-  workshopEstimateApprovalsRecorded WorkshopEstimateApproval[] @relation("WorkshopEstimateApprovalRecordedBy")
-  workshopEstimateOverrunsNotified  WorkshopEstimateOverrun[]  @relation("WorkshopEstimateOverrunNotifiedBy")
-  vehicleMediaCreated               VehicleMedia[]             @relation("VehicleMediaCreatedBy")
-  paymentsRecorded                  Payment[]                 @relation("PaymentRecordedBy")
+  createdTenantApiKeys              TenantApiKey[]               @relation("TenantApiKeyCreatedBy")
+  revokedTenantApiKeys              TenantApiKey[]               @relation("TenantApiKeyRevokedBy")
+  workshopEstimateApprovalsRecorded WorkshopEstimateApproval[]   @relation("WorkshopEstimateApprovalRecordedBy")
+  workshopEstimateOverrunsNotified  WorkshopEstimateOverrun[]    @relation("WorkshopEstimateOverrunNotifiedBy")
+  vehicleMediaCreated               VehicleMedia[]               @relation("VehicleMediaCreatedBy")
+  paymentsRecorded                  Payment[]                    @relation("PaymentRecordedBy")
   landingDemoSignInGrants           LandingDemoSignInGrant[]
-  createdAt                         DateTime                  @default(now())
-  updatedAt                         DateTime                  @updatedAt
+  createdAt                         DateTime                     @default(now())
+  updatedAt                         DateTime                     @updatedAt
 
   @@index([active_tenant_id])
   @@map("users")
 }
 
 model TenantMember {
-  id        String           @id @default(uuid())
-  tenant_id String
-  tenant    Tenant           @relation(fields: [tenant_id], references: [id])
-  user_id   String
-  user      User             @relation(fields: [user_id], references: [id])
-  role      TenantMemberRole
-  is_active Boolean          @default(true)
+  id                     String           @id @default(uuid())
+  tenant_id              String
+  tenant                 Tenant           @relation(fields: [tenant_id], references: [id])
+  user_id                String
+  user                   User             @relation(fields: [user_id], references: [id])
+  role                   TenantMemberRole
+  is_active              Boolean          @default(true)
   /// AUT-547 self-service demo memberships expire automatically (enforced in auth session).
   demo_access_expires_at DateTime?
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
 
   siteMemberships SiteMembership[]
 
@@ -351,15 +344,15 @@ model TenantMember {
 
 /// AUT-547 landing-page demo form submission (privacy-minimal retention; see docs/deletion-policy.md).
 model LandingDemoAccessRequest {
-  id                  String   @id @default(uuid())
-  email               String   @db.VarChar(320)
-  name                String   @db.VarChar(200)
-  betrieb             String   @db.VarChar(200)
-  telefon             String?  @db.VarChar(80)
-  nachricht           String?  @db.VarChar(2000)
+  id                  String                   @id @default(uuid())
+  email               String                   @db.VarChar(320)
+  name                String                   @db.VarChar(200)
+  betrieb             String                   @db.VarChar(200)
+  telefon             String?                  @db.VarChar(80)
+  nachricht           String?                  @db.VarChar(2000)
   consent_recorded_at DateTime
-  client_ip_hash      String?  @db.VarChar(64)
-  createdAt           DateTime @default(now()) @map("created_at")
+  client_ip_hash      String?                  @db.VarChar(64)
+  createdAt           DateTime                 @default(now()) @map("created_at")
   signInGrants        LandingDemoSignInGrant[]
 
   @@index([email, createdAt(sort: Desc)])
@@ -451,50 +444,50 @@ enum FiscalReceiptType {
 }
 
 model LegalEntity {
-  id                          String                        @id @default(uuid())
-  tenant_id                   String
-  tenant                      Tenant                        @relation(fields: [tenant_id], references: [id])
-  name                        String
-  country_iso                 LegalEntityCountry
-  is_active                   Boolean                       @default(true)
-  address_street              String?
-  address_line2               String?
-  address_zip                 String?
-  address_city                String?
-  tax_number                  String?
-  vat_id                      String?
-  iban                        String?
-  bic                         String?
-  bank_name                   String?
-  email                       String?
-  phone                       String?
-  registration_number         String?
-  registration_court          String?
-  representatives             String?
-  payment_terms_days          Int?
-  payment_terms_text          String?
-  rksv_mode                   RksvMode                      @default(OFF)
-  sites                       Site[]
-  fiscal_registers            FiscalRegister[]
-  payments                    Payment[]
-  accountingProfile           LegalEntityAccountingProfile?
-  accountingExports           AccountingExport[]
-  documentBrandProfile        DocumentBrandProfile?
-  documentBrandAssets         DocumentBrandAsset[]
-  documentBrandExtractions    DocumentBrandExtraction[]
-  invoiceBrandAssetReferences InvoiceBrandAssetReference[]
-  workshopEstimateVersions   WorkshopEstimateVersion[]
-  workshopEstimateAssetRefs  WorkshopEstimateBrandAssetReference[]
-  invoices                    Invoice[]
-  creditNotes                 CreditNote[]
-  migrationRuns               MigrationRun[]
-  legacyDocuments             LegacyDocument[]
-  customerConsents            CustomerConsent[]
-  customerCommunicationStates CustomerCommunicationState[]
+  id                               String                                @id @default(uuid())
+  tenant_id                        String
+  tenant                           Tenant                                @relation(fields: [tenant_id], references: [id])
+  name                             String
+  country_iso                      LegalEntityCountry
+  is_active                        Boolean                               @default(true)
+  address_street                   String?
+  address_line2                    String?
+  address_zip                      String?
+  address_city                     String?
+  tax_number                       String?
+  vat_id                           String?
+  iban                             String?
+  bic                              String?
+  bank_name                        String?
+  email                            String?
+  phone                            String?
+  registration_number              String?
+  registration_court               String?
+  representatives                  String?
+  payment_terms_days               Int?
+  payment_terms_text               String?
+  rksv_mode                        RksvMode                              @default(OFF)
+  sites                            Site[]
+  fiscal_registers                 FiscalRegister[]
+  payments                         Payment[]
+  accountingProfile                LegalEntityAccountingProfile?
+  accountingExports                AccountingExport[]
+  documentBrandProfile             DocumentBrandProfile?
+  documentBrandAssets              DocumentBrandAsset[]
+  documentBrandExtractions         DocumentBrandExtraction[]
+  invoiceBrandAssetReferences      InvoiceBrandAssetReference[]
+  workshopEstimateVersions         WorkshopEstimateVersion[]
+  workshopEstimateAssetRefs        WorkshopEstimateBrandAssetReference[]
+  invoices                         Invoice[]
+  creditNotes                      CreditNote[]
+  migrationRuns                    MigrationRun[]
+  legacyDocuments                  LegacyDocument[]
+  customerConsents                 CustomerConsent[]
+  customerCommunicationStates      CustomerCommunicationState[]
   customerConsentUnsubscribeTokens CustomerConsentUnsubscribeToken[]
-  inspectionSourceConnections       InspectionSourceConnection[]
-  createdAt                   DateTime                      @default(now())
-  updatedAt                   DateTime                      @updatedAt
+  inspectionSourceConnections      InspectionSourceConnection[]
+  createdAt                        DateTime                              @default(now())
+  updatedAt                        DateTime                              @updatedAt
 
   @@unique([tenant_id, id])
   @@unique([tenant_id, name])
@@ -504,22 +497,22 @@ model LegalEntity {
 }
 
 model FiscalRegister {
-  id                         String            @id @default(uuid())
-  tenant_id                  String
-  tenant                     Tenant            @relation(fields: [tenant_id], references: [id])
-  legal_entity_id            String
-  legal_entity               LegalEntity       @relation(fields: [tenant_id, legal_entity_id], references: [tenant_id, id], onDelete: Restrict)
-  site_id                    String
-  site                       Site              @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
-  provider                   String
-  env                        FiscalRegisterEnv
-  provider_cash_register_id  String            @db.Uuid
-  provider_scu_id            String            @db.Uuid
-  provider_state             String
-  credentials_secret_ref     String?
-  fiscal_receipts            FiscalReceipt[]
-  createdAt                  DateTime          @default(now())
-  updatedAt                  DateTime          @updatedAt
+  id                        String            @id @default(uuid())
+  tenant_id                 String
+  tenant                    Tenant            @relation(fields: [tenant_id], references: [id])
+  legal_entity_id           String
+  legal_entity              LegalEntity       @relation(fields: [tenant_id, legal_entity_id], references: [tenant_id, id], onDelete: Restrict)
+  site_id                   String
+  site                      Site              @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
+  provider                  String
+  env                       FiscalRegisterEnv
+  provider_cash_register_id String            @db.Uuid
+  provider_scu_id           String            @db.Uuid
+  provider_state            String
+  credentials_secret_ref    String?
+  fiscal_receipts           FiscalReceipt[]
+  createdAt                 DateTime          @default(now())
+  updatedAt                 DateTime          @updatedAt
 
   @@unique([tenant_id, site_id])
   @@unique([tenant_id, id])
@@ -528,62 +521,62 @@ model FiscalRegister {
 }
 
 model Payment {
-  id                       String         @id @default(uuid())
-  tenant_id                String
-  tenant                   Tenant         @relation(fields: [tenant_id], references: [id])
-  invoice_id               String
-  invoice                  Invoice        @relation(fields: [tenant_id, invoice_id], references: [tenant_id, id], onDelete: Restrict)
-  site_id                  String
-  site                     Site           @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
-  legal_entity_id          String
-  legal_entity             LegalEntity    @relation(fields: [tenant_id, legal_entity_id], references: [tenant_id, id], onDelete: Restrict)
-  recorded_by_user_id      String?
-  recorded_by_user         User?          @relation("PaymentRecordedBy", fields: [recorded_by_user_id], references: [id], onDelete: SetNull)
-  status                   PaymentStatus
-  method                   PaymentMethod
-  amount                   Decimal        @db.Decimal(10, 2)
-  currency                 String
-  idempotency_key          String
-  request_hash             String
-  external_receipt_number  String?
-  external_receipt_date    DateTime?      @db.Date
-  fiscal_receipts          FiscalReceipt[]
-  createdAt                DateTime       @default(now())
-  updatedAt                DateTime       @updatedAt
+  id                      String          @id @default(uuid())
+  tenant_id               String
+  tenant                  Tenant          @relation(fields: [tenant_id], references: [id])
+  invoice_id              String
+  invoice                 Invoice         @relation(fields: [tenant_id, invoice_id], references: [tenant_id, id], onDelete: Restrict)
+  site_id                 String
+  site                    Site            @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
+  legal_entity_id         String
+  legal_entity            LegalEntity     @relation(fields: [tenant_id, legal_entity_id], references: [tenant_id, id], onDelete: Restrict)
+  recorded_by_user_id     String?
+  recorded_by_user        User?           @relation("PaymentRecordedBy", fields: [recorded_by_user_id], references: [id], onDelete: SetNull)
+  status                  PaymentStatus
+  method                  PaymentMethod
+  amount                  Decimal         @db.Decimal(10, 2)
+  currency                String
+  idempotency_key         String
+  request_hash            String
+  external_receipt_number String?
+  external_receipt_date   DateTime?       @db.Date
+  fiscal_receipts         FiscalReceipt[]
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
 
   @@unique([tenant_id, idempotency_key])
-  @@index([tenant_id, invoice_id, status])
   @@unique([tenant_id, id])
+  @@index([tenant_id, invoice_id, status])
   @@map("payments")
 }
 
 model FiscalReceipt {
-  id                        String             @id @default(uuid())
-  tenant_id                 String
-  tenant                    Tenant             @relation(fields: [tenant_id], references: [id])
-  payment_id                String
-  payment                   Payment            @relation(fields: [tenant_id, payment_id], references: [tenant_id, id], onDelete: Restrict)
-  fiscal_register_id        String
-  fiscal_register           FiscalRegister     @relation(fields: [tenant_id, fiscal_register_id], references: [tenant_id, id], onDelete: Restrict)
-  sign_idempotency_key      String?
-  provider_receipt_id       String             @db.Uuid
-  receipt_type              FiscalReceiptType
-  state                     FiscalReceiptState
-  request_body              Json
-  response_body             Json?
-  provider_http_status      Int?
-  provider_error_code       String?
-  provider_request_id       String?
+  id                         String             @id @default(uuid())
+  tenant_id                  String
+  tenant                     Tenant             @relation(fields: [tenant_id], references: [id])
+  payment_id                 String
+  payment                    Payment            @relation(fields: [tenant_id, payment_id], references: [tenant_id, id], onDelete: Restrict)
+  fiscal_register_id         String
+  fiscal_register            FiscalRegister     @relation(fields: [tenant_id, fiscal_register_id], references: [tenant_id, id], onDelete: Restrict)
+  sign_idempotency_key       String?
+  provider_receipt_id        String             @db.Uuid
+  receipt_type               FiscalReceiptType
+  state                      FiscalReceiptState
+  request_body               Json
+  response_body              Json?
+  provider_http_status       Int?
+  provider_error_code        String?
+  provider_request_id        String?
   original_fiscal_receipt_id String?
-  original_fiscal_receipt   FiscalReceipt?     @relation("FiscalReceiptCancellation", fields: [tenant_id, original_fiscal_receipt_id], references: [tenant_id, id], onDelete: Restrict)
-  cancellation_receipts     FiscalReceipt[]    @relation("FiscalReceiptCancellation")
-  createdAt                 DateTime           @default(now())
-  updatedAt                 DateTime           @updatedAt
+  original_fiscal_receipt    FiscalReceipt?     @relation("FiscalReceiptCancellation", fields: [tenant_id, original_fiscal_receipt_id], references: [tenant_id, id], onDelete: Restrict)
+  cancellation_receipts      FiscalReceipt[]    @relation("FiscalReceiptCancellation")
+  createdAt                  DateTime           @default(now())
+  updatedAt                  DateTime           @updatedAt
 
   @@unique([tenant_id, provider_receipt_id])
   @@unique([tenant_id, sign_idempotency_key])
-  @@index([tenant_id, fiscal_register_id, createdAt])
   @@unique([tenant_id, id])
+  @@index([tenant_id, fiscal_register_id, createdAt])
   @@map("fiscal_receipts")
 }
 
@@ -678,10 +671,10 @@ model DocumentBrandAsset {
   createdAt                    DateTime                  @default(now())
   updatedAt                    DateTime                  @updatedAt
 
-  draftForProfiles       DocumentBrandProfile[] @relation("DocumentBrandDraftLogo")
-  draftSourceForProfiles DocumentBrandProfile[] @relation("DocumentBrandDraftSource")
-  activeForProfiles      DocumentBrandProfile[] @relation("DocumentBrandActiveLogo")
-  invoiceReferences InvoiceBrandAssetReference[]
+  draftForProfiles           DocumentBrandProfile[]                @relation("DocumentBrandDraftLogo")
+  draftSourceForProfiles     DocumentBrandProfile[]                @relation("DocumentBrandDraftSource")
+  activeForProfiles          DocumentBrandProfile[]                @relation("DocumentBrandActiveLogo")
+  invoiceReferences          InvoiceBrandAssetReference[]
   workshopEstimateReferences WorkshopEstimateBrandAssetReference[]
 
   @@unique([tenant_id, id])
@@ -734,31 +727,31 @@ model DocumentBrandExtraction {
 }
 
 model DocumentBrandProfile {
-  id                                String              @id @default(uuid())
+  id                                String                   @id @default(uuid())
   tenant_id                         String
-  tenant                            Tenant              @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  tenant                            Tenant                   @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
   legal_entity_id                   String
-  legal_entity                      LegalEntity         @relation(fields: [tenant_id, legal_entity_id], references: [tenant_id, id], onDelete: Restrict)
-  revision                          Int                 @default(1)
-  active_revision                   Int                 @default(0)
+  legal_entity                      LegalEntity              @relation(fields: [tenant_id, legal_entity_id], references: [tenant_id, id], onDelete: Restrict)
+  revision                          Int                      @default(1)
+  active_revision                   Int                      @default(0)
   active_theme                      Json?
   draft_theme                       Json?
   active_logo_asset_id              String?
-  activeLogoAsset                   DocumentBrandAsset? @relation("DocumentBrandActiveLogo", fields: [tenant_id, legal_entity_id, active_logo_asset_id], references: [tenant_id, legal_entity_id, id], onDelete: Restrict)
+  activeLogoAsset                   DocumentBrandAsset?      @relation("DocumentBrandActiveLogo", fields: [tenant_id, legal_entity_id, active_logo_asset_id], references: [tenant_id, legal_entity_id, id], onDelete: Restrict)
   draft_logo_asset_id               String?
-  draftLogoAsset                    DocumentBrandAsset? @relation("DocumentBrandDraftLogo", fields: [tenant_id, legal_entity_id, draft_logo_asset_id], references: [tenant_id, legal_entity_id, id], onDelete: Restrict)
+  draftLogoAsset                    DocumentBrandAsset?      @relation("DocumentBrandDraftLogo", fields: [tenant_id, legal_entity_id, draft_logo_asset_id], references: [tenant_id, legal_entity_id, id], onDelete: Restrict)
   draft_source_asset_id             String?
-  draftSourceAsset                  DocumentBrandAsset? @relation("DocumentBrandDraftSource", fields: [tenant_id, legal_entity_id, draft_source_asset_id], references: [tenant_id, legal_entity_id, id], onDelete: Restrict)
+  draftSourceAsset                  DocumentBrandAsset?      @relation("DocumentBrandDraftSource", fields: [tenant_id, legal_entity_id, draft_source_asset_id], references: [tenant_id, legal_entity_id, id], onDelete: Restrict)
   draft_extraction_id               String?
   draftExtraction                   DocumentBrandExtraction? @relation("DocumentBrandDraftExtraction", fields: [tenant_id, legal_entity_id, draft_extraction_id], references: [tenant_id, legal_entity_id, id], onDelete: Restrict)
   confirmed_at                      DateTime?
   confirmed_by_user_id              String?
-  confirmedByUser                   User?               @relation("DocumentBrandConfirmedBy", fields: [confirmed_by_user_id], references: [id], onDelete: SetNull)
+  confirmedByUser                   User?                    @relation("DocumentBrandConfirmedBy", fields: [confirmed_by_user_id], references: [id], onDelete: SetNull)
   last_confirmation_key             String?
   last_confirmation_hash            String?
   last_confirmation_result_revision Int?
-  createdAt                         DateTime            @default(now())
-  updatedAt                         DateTime            @updatedAt
+  createdAt                         DateTime                 @default(now())
+  updatedAt                         DateTime                 @updatedAt
 
   @@unique([tenant_id, id])
   @@unique([tenant_id, legal_entity_id])
@@ -822,63 +815,63 @@ model AccountingExport {
 }
 
 model Site {
-  id                       String                @id @default(uuid())
-  tenant_id                String
-  tenant                   Tenant                @relation(fields: [tenant_id], references: [id])
-  legal_entity_id          String
-  legal_entity             LegalEntity           @relation(fields: [tenant_id, legal_entity_id], references: [tenant_id, id])
-  code                     String
-  name                     String
-  address_street           String?
-  address_city             String?
-  address_zip              String?
-  address_country          String?
-  timezone                 String                @default("Europe/Vienna")
-  slot_minutes             Int                   @default(30)
-  holiday_country_iso      String                @default("AT")
-  holiday_subdivision_code String?
-  is_active                Boolean               @default(true)
-  memberships              SiteMembership[]
-  openingHours             WorkshopOpeningHour[]
-  holidays                 WorkshopHoliday[]
-  employeeWorkSchedules   EmployeeWorkSchedule[]
-  bays                     Bay[]
-  storageLocations         StorageLocation[]
-  workshopOrders           WorkshopOrder[]
-  registrationDocumentIntakes RegistrationDocumentIntake[]
-  inspectionSourceConnections InspectionSourceConnection[]
-  inspectionExchangeImports   InspectionExchangeImport[]
-  externalInspectionResults     ExternalInspectionResult[]
-  inspectionExchangeEvents      InspectionExchangeEvent[]
+  id                             String                                @id @default(uuid())
+  tenant_id                      String
+  tenant                         Tenant                                @relation(fields: [tenant_id], references: [id])
+  legal_entity_id                String
+  legal_entity                   LegalEntity                           @relation(fields: [tenant_id, legal_entity_id], references: [tenant_id, id])
+  code                           String
+  name                           String
+  address_street                 String?
+  address_city                   String?
+  address_zip                    String?
+  address_country                String?
+  timezone                       String                                @default("Europe/Vienna")
+  slot_minutes                   Int                                   @default(30)
+  holiday_country_iso            String                                @default("AT")
+  holiday_subdivision_code       String?
+  is_active                      Boolean                               @default(true)
+  memberships                    SiteMembership[]
+  openingHours                   WorkshopOpeningHour[]
+  holidays                       WorkshopHoliday[]
+  employeeWorkSchedules          EmployeeWorkSchedule[]
+  bays                           Bay[]
+  storageLocations               StorageLocation[]
+  workshopOrders                 WorkshopOrder[]
+  registrationDocumentIntakes    RegistrationDocumentIntake[]
+  inspectionSourceConnections    InspectionSourceConnection[]
+  inspectionExchangeImports      InspectionExchangeImport[]
+  externalInspectionResults      ExternalInspectionResult[]
+  inspectionExchangeEvents       InspectionExchangeEvent[]
   inspectionCatalogueActivations TenantInspectionCatalogueActivation[]
-  inspectionCatalogueImports    InspectionCatalogueImport[]
-  inspectionFindingReferences   InspectionFindingReference[]
-  inspectorEvidenceRevisions    InspectorEvidenceRevision[]
-  inspectionSupportEvents       InspectionSupportEvent[]
-  inspectionDeviceSources       InspectionDeviceSource[]
-  inspectionDeviceEvidence      InspectionDeviceEvidence[]
-  inspectionMeasurementImports  InspectionMeasurementImport[]
-  inspectionMeasurements        InspectionMeasurement[]
-  outboundTransfers        StockTransfer[]       @relation("StockTransferFromSite")
-  inboundTransfers         StockTransfer[]       @relation("StockTransferToSite")
-  salesOrders              SalesOrder[]
-  purchaseOrders           PurchaseOrder[]
-  vehiclePurchases         VehiclePurchase[]
-  vehicleSales             VehicleSale[]
-  vehicleValuationSnapshots VehicleValuationSnapshot[]
-  vehicleMedia              VehicleMedia[]
-  vehicleListings           VehicleListing[]
-  tyreSets                 TyreSet[]
-  invoices                 Invoice[]
-  creditNotes              CreditNote[]
-  workshopEstimates        WorkshopEstimate[]
-  loanerVehicles           LoanerVehicle[]
-  fiscal_register          FiscalRegister?
-  payments                 Payment[]
-  domainEvents             DomainEvent[]
-  legacyDocuments          LegacyDocument[]
-  createdAt                DateTime              @default(now())
-  updatedAt                DateTime              @updatedAt
+  inspectionCatalogueImports     InspectionCatalogueImport[]
+  inspectionFindingReferences    InspectionFindingReference[]
+  inspectorEvidenceRevisions     InspectorEvidenceRevision[]
+  inspectionSupportEvents        InspectionSupportEvent[]
+  inspectionDeviceSources        InspectionDeviceSource[]
+  inspectionDeviceEvidence       InspectionDeviceEvidence[]
+  inspectionMeasurementImports   InspectionMeasurementImport[]
+  inspectionMeasurements         InspectionMeasurement[]
+  outboundTransfers              StockTransfer[]                       @relation("StockTransferFromSite")
+  inboundTransfers               StockTransfer[]                       @relation("StockTransferToSite")
+  salesOrders                    SalesOrder[]
+  purchaseOrders                 PurchaseOrder[]
+  vehiclePurchases               VehiclePurchase[]
+  vehicleSales                   VehicleSale[]
+  vehicleValuationSnapshots      VehicleValuationSnapshot[]
+  vehicleMedia                   VehicleMedia[]
+  vehicleListings                VehicleListing[]
+  tyreSets                       TyreSet[]
+  invoices                       Invoice[]
+  creditNotes                    CreditNote[]
+  workshopEstimates              WorkshopEstimate[]
+  loanerVehicles                 LoanerVehicle[]
+  fiscal_register                FiscalRegister?
+  payments                       Payment[]
+  domainEvents                   DomainEvent[]
+  legacyDocuments                LegacyDocument[]
+  createdAt                      DateTime                              @default(now())
+  updatedAt                      DateTime                              @updatedAt
 
   @@unique([tenant_id, id])
   @@unique([tenant_id, code])
@@ -934,25 +927,25 @@ model RevenueGroup {
 }
 
 model FinanceSettings {
-  id                           String    @id @default(uuid())
-  tenant_id                    String
-  tenant                       Tenant    @relation(fields: [tenant_id], references: [id])
-  fiscal_year_start_month      Int       @default(1)
-  lock_date                    DateTime?
-  next_invoice_number          Int       @default(1001)
-  invoice_prefix               String    @default("RE-2026-")
-  next_sales_order_number      Int       @default(1001)
-  sales_order_prefix           String    @default("SO-2026-")
-  next_workshop_order_number   Int       @default(1)
-  workshop_order_prefix        String
-  next_vehicle_purchase_number Int       @default(1)
-  vehicle_purchase_prefix      String    @default("VP-2026-")
-  next_vehicle_sale_number     Int       @default(1)
-  vehicle_sale_prefix          String    @default("VS-2026-")
-  next_stock_transfer_number   Int       @default(1)
-  stock_transfer_prefix        String    @default("TR-2026-")
-  price_jump_threshold_percent Decimal?  @default(20) @db.Decimal(5, 2)
-  estimate_overrun_threshold_pct Decimal @default(15) @db.Decimal(5, 2)
+  id                             String    @id @default(uuid())
+  tenant_id                      String
+  tenant                         Tenant    @relation(fields: [tenant_id], references: [id])
+  fiscal_year_start_month        Int       @default(1)
+  lock_date                      DateTime?
+  next_invoice_number            Int       @default(1001)
+  invoice_prefix                 String    @default("RE-2026-")
+  next_sales_order_number        Int       @default(1001)
+  sales_order_prefix             String    @default("SO-2026-")
+  next_workshop_order_number     Int       @default(1)
+  workshop_order_prefix          String
+  next_vehicle_purchase_number   Int       @default(1)
+  vehicle_purchase_prefix        String    @default("VP-2026-")
+  next_vehicle_sale_number       Int       @default(1)
+  vehicle_sale_prefix            String    @default("VS-2026-")
+  next_stock_transfer_number     Int       @default(1)
+  stock_transfer_prefix          String    @default("TR-2026-")
+  price_jump_threshold_percent   Decimal?  @default(20) @db.Decimal(5, 2)
+  estimate_overrun_threshold_pct Decimal   @default(15) @db.Decimal(5, 2)
 
   updatedAt DateTime @updatedAt
 
@@ -992,14 +985,14 @@ model Brand {
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 
-  vendors                Vendor[]                @relation("VendorBrands")
-  catalogItems           CatalogItem[]
-  vehiclesAsMake         Vehicle[]               @relation("VehicleMakeBrand")
-  vehicleMakeAliases     VehicleMakeAlias[]
-  catalogOemConcernMakes CatalogOemConcernMake[]
-  partsRequisitions      PartsRequisition[]
-  marginRules            MarginRule[]
-  laborOperationsMakeBrand LaborOperation[] @relation("LaborOperationMakeBrand")
+  vendors                  Vendor[]                @relation("VendorBrands")
+  catalogItems             CatalogItem[]
+  vehiclesAsMake           Vehicle[]               @relation("VehicleMakeBrand")
+  vehicleMakeAliases       VehicleMakeAlias[]
+  catalogOemConcernMakes   CatalogOemConcernMake[]
+  partsRequisitions        PartsRequisition[]
+  marginRules              MarginRule[]
+  laborOperationsMakeBrand LaborOperation[]        @relation("LaborOperationMakeBrand")
 
   @@unique([tenant_id, name]) // tenant-scoped
   @@unique([tenant_id, normalized_name]) // tenant-scoped canonical name
@@ -1391,28 +1384,28 @@ enum AgentActionLogActorType {
 }
 
 model AgentActionLog {
-  id                    String                  @id @default(uuid())
-  tenant_id             String
-  tenant                Tenant                  @relation(fields: [tenant_id], references: [id])
-  trace_id              String                  @db.Uuid
-  parent_trace_id       String?                 @db.Uuid
-  actor_type            AgentActionLogActorType
-  agent_id              String?
-  on_behalf_of_user_id  String?
+  id                   String                  @id @default(uuid())
+  tenant_id            String
+  tenant               Tenant                  @relation(fields: [tenant_id], references: [id])
+  trace_id             String                  @db.Uuid
+  parent_trace_id      String?                 @db.Uuid
+  actor_type           AgentActionLogActorType
+  agent_id             String?
+  on_behalf_of_user_id String?
   /// AUT-411 TenantApiKey id when actor_type = API_KEY. Identifier only, never the secret.
-  api_key_id            String?
-  action_type           String
-  tier                  String
-  status                String
-  input_summary_json    Json?
-  result_summary_json   Json?
-  entity_type           String?
-  entity_id             String?
-  reversible            Boolean                 @default(false)
-  reverted_by_log_id    String?
-  reverted_by_log       AgentActionLog?         @relation("AgentActionLogRevert", fields: [tenant_id, reverted_by_log_id], references: [tenant_id, id], onDelete: SetNull)
-  reverts               AgentActionLog[]        @relation("AgentActionLogRevert")
-  created_at            DateTime                @default(now())
+  api_key_id           String?
+  action_type          String
+  tier                 String
+  status               String
+  input_summary_json   Json?
+  result_summary_json  Json?
+  entity_type          String?
+  entity_id            String?
+  reversible           Boolean                 @default(false)
+  reverted_by_log_id   String?
+  reverted_by_log      AgentActionLog?         @relation("AgentActionLogRevert", fields: [tenant_id, reverted_by_log_id], references: [tenant_id, id], onDelete: SetNull)
+  reverts              AgentActionLog[]        @relation("AgentActionLogRevert")
+  created_at           DateTime                @default(now())
 
   @@unique([tenant_id, id])
   @@index([tenant_id, created_at])
@@ -1456,21 +1449,21 @@ model TenantApiKey {
 }
 
 model DecisionShadowLog {
-  id                    String   @id @default(uuid())
-  tenant_id             String
-  tenant                Tenant   @relation(fields: [tenant_id], references: [id])
-  trace_id              String   @db.Uuid
-  use_case              String
-  input_hash            String
-  input_redacted_json   Json
-  suggestion_json       Json?
-  actual_outcome_json   Json
-  match                 Boolean?
-  provider              String
-  model                 String?
-  latency_ms            Int?
-  error                 String?
-  created_at            DateTime @default(now())
+  id                  String   @id @default(uuid())
+  tenant_id           String
+  tenant              Tenant   @relation(fields: [tenant_id], references: [id])
+  trace_id            String   @db.Uuid
+  use_case            String
+  input_hash          String
+  input_redacted_json Json
+  suggestion_json     Json?
+  actual_outcome_json Json
+  match               Boolean?
+  provider            String
+  model               String?
+  latency_ms          Int?
+  error               String?
+  created_at          DateTime @default(now())
 
   @@unique([tenant_id, id])
   @@index([tenant_id, created_at])
@@ -1645,45 +1638,45 @@ model Customer {
 
   // Advisor confirmation at intake that the email address is for order communication (ADR-0025 §8).
   // Email sends require it, and a permanent refusal of the address clears it.
-  contact_email_ok Boolean @default(false)
+  contact_email_ok   Boolean          @default(false)
   /// AUT-576 customer document/email language; null follows tenant default.
   preferred_language DisplayLanguage?
 
-  legacy_restricted_at     DateTime?
-  legacy_restricted_reason String?
-  block_level              CustomerBlockLevel @default(NONE)
-  block_reason             String?
-  salutation               CustomerSalutation?
-  title                    String?
-  title_suffix             String?
-  letter_salutation        String?
-  payment_terms_days       Int?
-  payment_terms_text       String?
-  default_bill_to_customer_id String?
+  legacy_restricted_at           DateTime?
+  legacy_restricted_reason       String?
+  block_level                    CustomerBlockLevel  @default(NONE)
+  block_reason                   String?
+  salutation                     CustomerSalutation?
+  title                          String?
+  title_suffix                   String?
+  letter_salutation              String?
+  payment_terms_days             Int?
+  payment_terms_text             String?
+  default_bill_to_customer_id    String?
   // Composite FK ON DELETE SET NULL uses column list in migration SQL (Prisma onDelete: SetNull).
-  default_bill_to_customer    Customer?  @relation("CustomerDefaultBillTo", fields: [tenant_id, default_bill_to_customer_id], references: [tenant_id, id], onDelete: SetNull)
-  customers_with_default_bill_to Customer[] @relation("CustomerDefaultBillTo")
-  labor_price_group_id     String?        @db.Uuid
+  default_bill_to_customer       Customer?           @relation("CustomerDefaultBillTo", fields: [tenant_id, default_bill_to_customer_id], references: [tenant_id, id], onDelete: SetNull)
+  customers_with_default_bill_to Customer[]          @relation("CustomerDefaultBillTo")
+  labor_price_group_id           String?             @db.Uuid
   // Composite FK ON DELETE SET NULL uses column list in migration SQL (Prisma onDelete: SetNull).
-  labor_price_group        LaborPriceGroup? @relation(fields: [tenant_id, labor_price_group_id], references: [tenant_id, id], onDelete: SetNull)
+  labor_price_group              LaborPriceGroup?    @relation(fields: [tenant_id, labor_price_group_id], references: [tenant_id, id], onDelete: SetNull)
 
-  vehicles                Vehicle[]
-  reserved_stock_vehicles Vehicle[]         @relation("VehicleStockReservation")
-  invoices                Invoice[]
-  sales_orders            SalesOrder[]
-  workshop_orders         WorkshopOrder[] @relation("WorkshopOrderCustomer")
-  bill_to_workshop_orders WorkshopOrder[] @relation("WorkshopOrderBillTo")
-  vehicle_purchases       VehiclePurchase[] @relation("VehiclePurchaseSeller")
-  vehicle_sales           VehicleSale[]
-  loaner_bookings         LoanerBooking[]
-  tyre_sets               TyreSet[]
-  appliedRegistrationIntakes RegistrationDocumentIntake[] @relation("RegistrationIntakeAppliedCustomer")
-  contact_points           CustomerContactPoint[]
-  consent_events           CustomerConsent[]
-  communication_states     CustomerCommunicationState[]
+  vehicles                   Vehicle[]
+  reserved_stock_vehicles    Vehicle[]                         @relation("VehicleStockReservation")
+  invoices                   Invoice[]
+  sales_orders               SalesOrder[]
+  workshop_orders            WorkshopOrder[]                   @relation("WorkshopOrderCustomer")
+  bill_to_workshop_orders    WorkshopOrder[]                   @relation("WorkshopOrderBillTo")
+  vehicle_purchases          VehiclePurchase[]                 @relation("VehiclePurchaseSeller")
+  vehicle_sales              VehicleSale[]
+  loaner_bookings            LoanerBooking[]
+  tyre_sets                  TyreSet[]
+  appliedRegistrationIntakes RegistrationDocumentIntake[]      @relation("RegistrationIntakeAppliedCustomer")
+  contact_points             CustomerContactPoint[]
+  consent_events             CustomerConsent[]
+  communication_states       CustomerCommunicationState[]
   consent_unsubscribe_tokens CustomerConsentUnsubscribeToken[]
-  legacyDocumentsAsCustomer  LegacyDocument[] @relation("LegacyDocumentCustomer")
-  legacyDocumentsAsBillTo    LegacyDocument[] @relation("LegacyDocumentBillTo")
+  legacyDocumentsAsCustomer  LegacyDocument[]                  @relation("LegacyDocumentCustomer")
+  legacyDocumentsAsBillTo    LegacyDocument[]                  @relation("LegacyDocumentBillTo")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1700,18 +1693,18 @@ model Customer {
 }
 
 model CustomerContactPoint {
-  id                  String                         @id @default(uuid())
+  id                  String                           @id @default(uuid())
   tenant_id           String
-  tenant              Tenant                         @relation(fields: [tenant_id], references: [id])
+  tenant              Tenant                           @relation(fields: [tenant_id], references: [id])
   customer_id         String
-  customer            Customer                       @relation(fields: [tenant_id, customer_id], references: [tenant_id, id], onDelete: Restrict)
+  customer            Customer                         @relation(fields: [tenant_id, customer_id], references: [tenant_id, id], onDelete: Restrict)
   channel             CustomerConsentChannel
   encrypted_address   String
   address_fingerprint String
-  is_current          Boolean                        @default(true)
+  is_current          Boolean                          @default(true)
   transport_validity  CustomerContactTransportValidity @default(UNKNOWN)
-  created_at          DateTime                       @default(now())
-  updated_at          DateTime                       @updatedAt
+  created_at          DateTime                         @default(now())
+  updated_at          DateTime                         @updatedAt
   consent_events      CustomerConsent[]
 
   @@unique([tenant_id, id])
@@ -1721,18 +1714,18 @@ model CustomerContactPoint {
 }
 
 model CustomerCommunicationState {
-  id                       String                              @id @default(uuid())
-  tenant_id                String
-  tenant                   Tenant                              @relation(fields: [tenant_id], references: [id])
+  id                         String                                @id @default(uuid())
+  tenant_id                  String
+  tenant                     Tenant                                @relation(fields: [tenant_id], references: [id])
   controller_legal_entity_id String
-  controller_legal_entity  LegalEntity                         @relation(fields: [tenant_id, controller_legal_entity_id], references: [tenant_id, id], onDelete: Restrict)
-  customer_id              String
-  customer                 Customer                            @relation(fields: [tenant_id, customer_id], references: [tenant_id, id], onDelete: Restrict)
-  revision                 Int                                 @default(0)
-  processing_status        CustomerCommunicationProcessingStatus @default(ACTIVE)
-  preferred_service_channel CustomerConsentChannel?
-  created_at               DateTime                            @default(now())
-  updated_at               DateTime                            @updatedAt
+  controller_legal_entity    LegalEntity                           @relation(fields: [tenant_id, controller_legal_entity_id], references: [tenant_id, id], onDelete: Restrict)
+  customer_id                String
+  customer                   Customer                              @relation(fields: [tenant_id, customer_id], references: [tenant_id, id], onDelete: Restrict)
+  revision                   Int                                   @default(0)
+  processing_status          CustomerCommunicationProcessingStatus @default(ACTIVE)
+  preferred_service_channel  CustomerConsentChannel?
+  created_at                 DateTime                              @default(now())
+  updated_at                 DateTime                              @updatedAt
 
   @@unique([tenant_id, controller_legal_entity_id, customer_id])
   @@unique([tenant_id, id])
@@ -1740,35 +1733,35 @@ model CustomerCommunicationState {
 }
 
 model CustomerConsent {
-  id                       String                 @id @default(uuid())
-  tenant_id                String
-  tenant                   Tenant                 @relation(fields: [tenant_id], references: [id])
+  id                         String                 @id @default(uuid())
+  tenant_id                  String
+  tenant                     Tenant                 @relation(fields: [tenant_id], references: [id])
   controller_legal_entity_id String
-  controller_legal_entity  LegalEntity            @relation(fields: [tenant_id, controller_legal_entity_id], references: [tenant_id, id], onDelete: Restrict)
-  customer_id              String
-  customer                 Customer               @relation(fields: [tenant_id, customer_id], references: [tenant_id, id], onDelete: Restrict)
-  contact_point_id         String?
-  contact_point            CustomerContactPoint?  @relation(fields: [tenant_id, contact_point_id], references: [tenant_id, id], onDelete: Restrict)
-  channel                  CustomerConsentChannel
-  purpose                  CustomerConsentPurpose
-  status                   CustomerConsentStatus
-  basis                    CustomerConsentBasis?
-  sequence                 Int
-  recorded_at              DateTime               @default(now())
-  occurred_at              DateTime
-  source                   CustomerConsentSource
-  actor_member_id          String?
-  text_version             String?
-  text_language            String?                @db.VarChar(8)
-  text_snapshot            String?
-  text_content_hash        String?
-  evidence                 Json?
-  supersedes_event_id      String?
-  revoked_at               DateTime?
-  idempotency_key          String?
-  retain_until             DateTime?
-  legal_hold               Boolean                @default(false)
-  created_at               DateTime               @default(now())
+  controller_legal_entity    LegalEntity            @relation(fields: [tenant_id, controller_legal_entity_id], references: [tenant_id, id], onDelete: Restrict)
+  customer_id                String
+  customer                   Customer               @relation(fields: [tenant_id, customer_id], references: [tenant_id, id], onDelete: Restrict)
+  contact_point_id           String?
+  contact_point              CustomerContactPoint?  @relation(fields: [tenant_id, contact_point_id], references: [tenant_id, id], onDelete: Restrict)
+  channel                    CustomerConsentChannel
+  purpose                    CustomerConsentPurpose
+  status                     CustomerConsentStatus
+  basis                      CustomerConsentBasis?
+  sequence                   Int
+  recorded_at                DateTime               @default(now())
+  occurred_at                DateTime
+  source                     CustomerConsentSource
+  actor_member_id            String?
+  text_version               String?
+  text_language              String?                @db.VarChar(8)
+  text_snapshot              String?
+  text_content_hash          String?
+  evidence                   Json?
+  supersedes_event_id        String?
+  revoked_at                 DateTime?
+  idempotency_key            String?
+  retain_until               DateTime?
+  legal_hold                 Boolean                @default(false)
+  created_at                 DateTime               @default(now())
 
   @@unique([tenant_id, id])
   @@unique([tenant_id, controller_legal_entity_id, customer_id, idempotency_key], map: "customer_consents_tnt_ctrl_cust_idem_key")
@@ -1779,19 +1772,19 @@ model CustomerConsent {
 }
 
 model CustomerConsentUnsubscribeToken {
-  id                       String                 @id @default(uuid())
-  tenant_id                String
-  tenant                   Tenant                 @relation(fields: [tenant_id], references: [id])
+  id                         String                 @id @default(uuid())
+  tenant_id                  String
+  tenant                     Tenant                 @relation(fields: [tenant_id], references: [id])
   controller_legal_entity_id String
-  controller_legal_entity  LegalEntity            @relation(fields: [tenant_id, controller_legal_entity_id], references: [tenant_id, id], onDelete: Restrict)
-  customer_id              String
-  customer                 Customer               @relation(fields: [tenant_id, customer_id], references: [tenant_id, id], onDelete: Restrict)
-  channel                  CustomerConsentChannel
-  contact_fingerprint      String
-  token_sha256             String
-  retain_until             DateTime
-  created_at               DateTime               @default(now())
-  used_at                  DateTime?
+  controller_legal_entity    LegalEntity            @relation(fields: [tenant_id, controller_legal_entity_id], references: [tenant_id, id], onDelete: Restrict)
+  customer_id                String
+  customer                   Customer               @relation(fields: [tenant_id, customer_id], references: [tenant_id, id], onDelete: Restrict)
+  channel                    CustomerConsentChannel
+  contact_fingerprint        String
+  token_sha256               String
+  retain_until               DateTime
+  created_at                 DateTime               @default(now())
+  used_at                    DateTime?
 
   @@unique([tenant_id, id])
   @@unique([tenant_id, token_sha256])
@@ -1800,71 +1793,71 @@ model CustomerConsentUnsubscribeToken {
 }
 
 model Vehicle {
-  id                             String               @id @default(uuid())
-  tenant_id                      String
-  tenant                         Tenant               @relation(fields: [tenant_id], references: [id])
-  make                           String
-  model                          String
-  year                           Int
-  engine_code                    String?
-  vin                            String?
-  plate                          String?
-  make_brand_id                  Int?                 @map("make_brand_id")
-  makeBrand                      Brand?               @relation("VehicleMakeBrand", fields: [make_brand_id], references: [id], onDelete: SetNull)
-  hsn                            String?
-  tsn                            String?
-  identity_keys                  Json?                @map("identity_keys")
-  identity_input_fingerprint     String?              @map("identity_input_fingerprint")
-  identity_resolved_at           DateTime?            @map("identity_resolved_at")
-  identity_resolution_generation String?              @map("identity_resolution_generation")
-  identity_resolution_token      String?              @map("identity_resolution_token")
-  fuel_type                      String?              @map("fuel_type")
-  power_kw                       Int?                 @map("power_kw")
-  customer_id                    String?
-  customer                       Customer?            @relation(fields: [customer_id], references: [id])
-  inventory_role                 VehicleInventoryRole @default(CUSTOMER)
-  stock_status                   VehicleStockStatus?
-  stock_received_at              DateTime?
-  stock_cost_basis               Decimal?             @db.Decimal(12, 2)
-  tax_scheme                     VehicleTaxScheme?
-  mileage                        Int?
-  color                          String?
-  key_number                     String?
-  registration_certificate_no    String?
-  first_registration_date        DateTime?            @map("first_registration_date") @db.Date
-  co2_wltp_g_km                  Int?                 @map("co2_wltp_g_km")
-  co2_nedc_g_km                  Int?                 @map("co2_nedc_g_km")
-  typenschein_no                 String?              @map("typenschein_no")
-  national_code                  String?              @map("national_code") @db.VarChar(16)
-  nova_class                     String?              @map("nova_class")
-  emission_class                 String?              @map("emission_class")
-  site_id                        String?
-  location_id                    String?
-  location                       StorageLocation?     @relation("VehicleLot", fields: [tenant_id, site_id, location_id], references: [tenant_id, site_id, id], onDelete: Restrict)
-  reserved_for_customer_id       String?
-  reserved_for_customer          Customer?            @relation("VehicleStockReservation", fields: [reserved_for_customer_id], references: [id], onDelete: SetNull)
-  invoices                       Invoice[]
-  sales_orders                   SalesOrder[]
-  workshop_orders                WorkshopOrder[]
-  purchases                      VehiclePurchase[]
-  sales                          VehicleSale[]
-  ledger_entries                 VehicleLedgerEntry[]
-  loaner_fleet_entry             LoanerVehicle?
-  inspection_records             VehicleInspectionRecord[]
-  inspectionReportIdentities     InspectionReportIdentity[]
-  inspectionExchangeImports      InspectionExchangeImport[]
-  externalInspectionResults      ExternalInspectionResult[]
+  id                              String                          @id @default(uuid())
+  tenant_id                       String
+  tenant                          Tenant                          @relation(fields: [tenant_id], references: [id])
+  make                            String
+  model                           String
+  year                            Int
+  engine_code                     String?
+  vin                             String?
+  plate                           String?
+  make_brand_id                   Int?                            @map("make_brand_id")
+  makeBrand                       Brand?                          @relation("VehicleMakeBrand", fields: [make_brand_id], references: [id], onDelete: SetNull)
+  hsn                             String?
+  tsn                             String?
+  identity_keys                   Json?                           @map("identity_keys")
+  identity_input_fingerprint      String?                         @map("identity_input_fingerprint")
+  identity_resolved_at            DateTime?                       @map("identity_resolved_at")
+  identity_resolution_generation  String?                         @map("identity_resolution_generation")
+  identity_resolution_token       String?                         @map("identity_resolution_token")
+  fuel_type                       String?                         @map("fuel_type")
+  power_kw                        Int?                            @map("power_kw")
+  customer_id                     String?
+  customer                        Customer?                       @relation(fields: [customer_id], references: [id])
+  inventory_role                  VehicleInventoryRole            @default(CUSTOMER)
+  stock_status                    VehicleStockStatus?
+  stock_received_at               DateTime?
+  stock_cost_basis                Decimal?                        @db.Decimal(12, 2)
+  tax_scheme                      VehicleTaxScheme?
+  mileage                         Int?
+  color                           String?
+  key_number                      String?
+  registration_certificate_no     String?
+  first_registration_date         DateTime?                       @map("first_registration_date") @db.Date
+  co2_wltp_g_km                   Int?                            @map("co2_wltp_g_km")
+  co2_nedc_g_km                   Int?                            @map("co2_nedc_g_km")
+  typenschein_no                  String?                         @map("typenschein_no")
+  national_code                   String?                         @map("national_code") @db.VarChar(16)
+  nova_class                      String?                         @map("nova_class")
+  emission_class                  String?                         @map("emission_class")
+  site_id                         String?
+  location_id                     String?
+  location                        StorageLocation?                @relation("VehicleLot", fields: [tenant_id, site_id, location_id], references: [tenant_id, site_id, id], onDelete: Restrict)
+  reserved_for_customer_id        String?
+  reserved_for_customer           Customer?                       @relation("VehicleStockReservation", fields: [reserved_for_customer_id], references: [id], onDelete: SetNull)
+  invoices                        Invoice[]
+  sales_orders                    SalesOrder[]
+  workshop_orders                 WorkshopOrder[]
+  purchases                       VehiclePurchase[]
+  sales                           VehicleSale[]
+  ledger_entries                  VehicleLedgerEntry[]
+  loaner_fleet_entry              LoanerVehicle?
+  inspection_records              VehicleInspectionRecord[]
+  inspectionReportIdentities      InspectionReportIdentity[]
+  inspectionExchangeImports       InspectionExchangeImport[]
+  externalInspectionResults       ExternalInspectionResult[]
   inspectionMeasurementIdentities InspectionMeasurementIdentity[]
-  inspectionMeasurementImports   InspectionMeasurementImport[]
-  inspectionMeasurements         InspectionMeasurement[]
-  valuation_snapshots            VehicleValuationSnapshot[]
-  media                          VehicleMedia[]
-  equipmentSelections            VehicleEquipmentSelection[]
-  equipmentFreeTextItems         VehicleEquipmentFreeTextItem[]
-  listings                       VehicleListing[]
-  tyre_sets                      TyreSet[]
-  appliedRegistrationIntakes     RegistrationDocumentIntake[] @relation("RegistrationIntakeAppliedVehicle")
-  legacyDocuments                LegacyDocument[]
+  inspectionMeasurementImports    InspectionMeasurementImport[]
+  inspectionMeasurements          InspectionMeasurement[]
+  valuation_snapshots             VehicleValuationSnapshot[]
+  media                           VehicleMedia[]
+  equipmentSelections             VehicleEquipmentSelection[]
+  equipmentFreeTextItems          VehicleEquipmentFreeTextItem[]
+  listings                        VehicleListing[]
+  tyre_sets                       TyreSet[]
+  appliedRegistrationIntakes      RegistrationDocumentIntake[]    @relation("RegistrationIntakeAppliedVehicle")
+  legacyDocuments                 LegacyDocument[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1886,26 +1879,26 @@ model Vehicle {
 /// Stock vehicle photos. Partial unique index `vehicle_media_one_cover_per_vehicle`
 /// (one `is_cover` per vehicle) is defined in migration SQL only — do not drop via Prisma drift.
 model VehicleMedia {
-  id                    String   @id @default(uuid())
+  id                    String                @id @default(uuid())
   tenant_id             String
-  tenant                Tenant   @relation(fields: [tenant_id], references: [id])
+  tenant                Tenant                @relation(fields: [tenant_id], references: [id])
   vehicle_id            String
-  vehicle               Vehicle  @relation(fields: [tenant_id, vehicle_id], references: [tenant_id, id], onDelete: Cascade, onUpdate: Cascade)
+  vehicle               Vehicle               @relation(fields: [tenant_id, vehicle_id], references: [tenant_id, id], onDelete: Cascade, onUpdate: Cascade)
   site_id               String
-  site                  Site     @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
-  sort_order            Int      @default(0) @map("sort_order")
-  is_cover              Boolean  @default(false) @map("is_cover")
-  storage_bucket        String   @map("storage_bucket")
-  processed_storage_key String   @map("processed_storage_key")
-  variant_storage_keys  Json     @map("variant_storage_keys")
-  content_type          String   @map("content_type")
+  site                  Site                  @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
+  sort_order            Int                   @default(0) @map("sort_order")
+  is_cover              Boolean               @default(false) @map("is_cover")
+  storage_bucket        String                @map("storage_bucket")
+  processed_storage_key String                @map("processed_storage_key")
+  variant_storage_keys  Json                  @map("variant_storage_keys")
+  content_type          String                @map("content_type")
   width                 Int
   height                Int
-  content_sha256        String   @map("content_sha256") @db.Char(64)
-  created_by_user_id    String?  @map("created_by_user_id")
-  created_by            User?    @relation("VehicleMediaCreatedBy", fields: [created_by_user_id], references: [id], onDelete: SetNull)
-  createdAt             DateTime @default(now()) @map("created_at")
-  updatedAt             DateTime @updatedAt @map("updated_at")
+  content_sha256        String                @map("content_sha256") @db.Char(64)
+  created_by_user_id    String?               @map("created_by_user_id")
+  created_by            User?                 @relation("VehicleMediaCreatedBy", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+  createdAt             DateTime              @default(now()) @map("created_at")
+  updatedAt             DateTime              @updatedAt @map("updated_at")
   listingPhotos         VehicleListingPhoto[]
 
   @@unique([tenant_id, id])
@@ -1915,16 +1908,16 @@ model VehicleMedia {
 
 /// Tenant-owned marketplace equipment taxonomy option (AUT-566).
 model VehicleEquipmentOption {
-  id         String   @id @default(uuid())
+  id         String                      @id @default(uuid())
   tenant_id  String
-  tenant     Tenant   @relation(fields: [tenant_id], references: [id])
-  code       String   @db.VarChar(64)
-  label_de   String   @map("label_de") @db.VarChar(120)
-  label_en   String   @map("label_en") @db.VarChar(120)
-  category   String   @db.VarChar(32)
-  active     Boolean  @default(true)
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  tenant     Tenant                      @relation(fields: [tenant_id], references: [id])
+  code       String                      @db.VarChar(64)
+  label_de   String                      @map("label_de") @db.VarChar(120)
+  label_en   String                      @map("label_en") @db.VarChar(120)
+  category   String                      @db.VarChar(32)
+  active     Boolean                     @default(true)
+  createdAt  DateTime                    @default(now()) @map("created_at")
+  updatedAt  DateTime                    @updatedAt @map("updated_at")
   selections VehicleEquipmentSelection[]
 
   @@unique([tenant_id, code])
@@ -2030,37 +2023,37 @@ enum VehicleListingDmsSyncState {
 
 /// Marketplace listing draft for one stock purchase cycle (AUT-567).
 model VehicleListing {
-  id                                String                          @id @default(uuid())
+  id                                String                            @id @default(uuid())
   tenant_id                         String
-  tenant                            Tenant                          @relation(fields: [tenant_id], references: [id])
-  site_id                           String                          @map("site_id")
-  site                              Site                            @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
-  vehicle_id                        String                          @map("vehicle_id")
-  vehicle                           Vehicle                         @relation(fields: [tenant_id, vehicle_id], references: [tenant_id, id], onDelete: Cascade, onUpdate: Cascade)
-  stock_purchase_id                 String                          @map("stock_purchase_id")
-  stockPurchase                     VehiclePurchase                 @relation(fields: [tenant_id, stock_purchase_id], references: [tenant_id, id], onDelete: Cascade, onUpdate: Cascade)
-  listing_ref                       String                          @map("listing_ref") @db.VarChar(33)
-  revision                          Int                             @default(1)
-  title                             String?                         @db.VarChar(120)
-  description                       String?                         @db.VarChar(3000)
+  tenant                            Tenant                            @relation(fields: [tenant_id], references: [id])
+  site_id                           String                            @map("site_id")
+  site                              Site                              @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
+  vehicle_id                        String                            @map("vehicle_id")
+  vehicle                           Vehicle                           @relation(fields: [tenant_id, vehicle_id], references: [tenant_id, id], onDelete: Cascade, onUpdate: Cascade)
+  stock_purchase_id                 String                            @map("stock_purchase_id")
+  stockPurchase                     VehiclePurchase                   @relation(fields: [tenant_id, stock_purchase_id], references: [tenant_id, id], onDelete: Cascade, onUpdate: Cascade)
+  listing_ref                       String                            @map("listing_ref") @db.VarChar(33)
+  revision                          Int                               @default(1)
+  title                             String?                           @db.VarChar(120)
+  description                       String?                           @db.VarChar(3000)
   description_language              VehicleListingDescriptionLanguage @default(DE) @map("description_language")
-  price_gross_eur                   Decimal?                        @map("price_gross_eur") @db.Decimal(12, 2)
-  vat_display                       VehicleListingVatDisplay?       @map("vat_display")
-  nova_included_confirmed           Boolean                         @default(false) @map("nova_included_confirmed")
-  mandatory_fees_included_confirmed Boolean                       @default(false) @map("mandatory_fees_included_confirmed")
-  equipment_free_text               String?                         @map("equipment_free_text") @db.VarChar(2000)
-  portal_category                   String?                         @map("portal_category") @db.VarChar(64)
-  export_assertion_damage_free      Boolean?                        @map("export_assertion_damage_free")
-  export_assertion_metallic         Boolean?                        @map("export_assertion_metallic")
-  export_assertion_guarantee        Boolean?                        @map("export_assertion_guarantee")
-  export_assertion_jahreswagen      Boolean?                        @map("export_assertion_jahreswagen")
-  export_assertion_recommendation   Boolean?                        @map("export_assertion_recommendation")
-  export_assertion_demo_vehicle     Boolean?                        @map("export_assertion_demo_vehicle")
-  content_sha256                    String                          @map("content_sha256") @db.Char(64)
+  price_gross_eur                   Decimal?                          @map("price_gross_eur") @db.Decimal(12, 2)
+  vat_display                       VehicleListingVatDisplay?         @map("vat_display")
+  nova_included_confirmed           Boolean                           @default(false) @map("nova_included_confirmed")
+  mandatory_fees_included_confirmed Boolean                           @default(false) @map("mandatory_fees_included_confirmed")
+  equipment_free_text               String?                           @map("equipment_free_text") @db.VarChar(2000)
+  portal_category                   String?                           @map("portal_category") @db.VarChar(64)
+  export_assertion_damage_free      Boolean?                          @map("export_assertion_damage_free")
+  export_assertion_metallic         Boolean?                          @map("export_assertion_metallic")
+  export_assertion_guarantee        Boolean?                          @map("export_assertion_guarantee")
+  export_assertion_jahreswagen      Boolean?                          @map("export_assertion_jahreswagen")
+  export_assertion_recommendation   Boolean?                          @map("export_assertion_recommendation")
+  export_assertion_demo_vehicle     Boolean?                          @map("export_assertion_demo_vehicle")
+  content_sha256                    String                            @map("content_sha256") @db.Char(64)
   channels                          VehicleListingChannel[]
   photos                            VehicleListingPhoto[]
-  createdAt                         DateTime                        @default(now()) @map("created_at")
-  updatedAt                         DateTime                        @updatedAt @map("updated_at")
+  createdAt                         DateTime                          @default(now()) @map("created_at")
+  updatedAt                         DateTime                          @updatedAt @map("updated_at")
 
   @@unique([tenant_id, vehicle_id, stock_purchase_id])
   @@unique([tenant_id, listing_ref])
@@ -2071,24 +2064,24 @@ model VehicleListing {
 
 /// Per-portal export state for a listing (AUT-567).
 model VehicleListingChannel {
-  id                         String                     @id @default(uuid())
+  id                         String                         @id @default(uuid())
   tenant_id                  String
-  tenant                     Tenant                     @relation(fields: [tenant_id], references: [id])
-  listing_id                 String                     @map("listing_id")
-  listing                    VehicleListing             @relation(fields: [tenant_id, listing_id], references: [tenant_id, id], onDelete: Cascade, onUpdate: Cascade)
+  tenant                     Tenant                         @relation(fields: [tenant_id], references: [id])
+  listing_id                 String                         @map("listing_id")
+  listing                    VehicleListing                 @relation(fields: [tenant_id, listing_id], references: [tenant_id, id], onDelete: Cascade, onUpdate: Cascade)
   platform                   VehicleListingPlatform
-  serializer_profile         String                     @map("serializer_profile") @db.VarChar(64)
-  mapping_version            String                     @map("mapping_version") @db.VarChar(16)
-  desired_state              VehicleListingDesiredState @default(INACTIVE) @map("desired_state")
-  export_state               VehicleListingExportState  @default(NEVER_EXPORTED) @map("export_state")
-  remote_state               VehicleListingRemoteState  @default(UNKNOWN) @map("remote_state")
-  last_export_at             DateTime?                  @map("last_export_at")
-  last_export_content_sha256 String?                    @map("last_export_content_sha256") @db.Char(64)
-  external_ref               String?                    @map("external_ref") @db.VarChar(120)
-  removal_revision           Int                        @default(0) @map("removal_revision")
+  serializer_profile         String                         @map("serializer_profile") @db.VarChar(64)
+  mapping_version            String                         @map("mapping_version") @db.VarChar(16)
+  desired_state              VehicleListingDesiredState     @default(INACTIVE) @map("desired_state")
+  export_state               VehicleListingExportState      @default(NEVER_EXPORTED) @map("export_state")
+  remote_state               VehicleListingRemoteState      @default(UNKNOWN) @map("remote_state")
+  last_export_at             DateTime?                      @map("last_export_at")
+  last_export_content_sha256 String?                        @map("last_export_content_sha256") @db.Char(64)
+  external_ref               String?                        @map("external_ref") @db.VarChar(120)
+  removal_revision           Int                            @default(0) @map("removal_revision")
   dms_syncs                  VehicleListingChannelDmsSync[]
-  createdAt                  DateTime                   @default(now()) @map("created_at")
-  updatedAt                  DateTime                   @updatedAt @map("updated_at")
+  createdAt                  DateTime                       @default(now()) @map("created_at")
+  updatedAt                  DateTime                       @updatedAt @map("updated_at")
 
   @@unique([tenant_id, listing_id, platform])
   @@unique([tenant_id, id])
@@ -2098,31 +2091,31 @@ model VehicleListingChannel {
 
 /// Per-tenant opt-in for marketplace API push (AUT-572). Env flag must also be enabled.
 model VehicleListingPushSettings {
-  tenant_id              String   @id @map("tenant_id")
-  tenant                 Tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  as24_dms_push_enabled  Boolean  @default(false) @map("as24_dms_push_enabled")
-  createdAt              DateTime @default(now()) @map("created_at")
-  updatedAt              DateTime @updatedAt @map("updated_at")
+  tenant_id             String   @id @map("tenant_id")
+  tenant                Tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  as24_dms_push_enabled Boolean  @default(false) @map("as24_dms_push_enabled")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
 
   @@map("vehicle_listing_push_settings")
 }
 
 /// DMS API sync status per listing channel (AUT-572).
 model VehicleListingChannelDmsSync {
-  id                    String                      @id @default(uuid())
-  tenant_id             String
-  tenant                Tenant                      @relation(fields: [tenant_id], references: [id])
-  channel_id            String                      @map("channel_id")
-  channel               VehicleListingChannel       @relation(fields: [tenant_id, channel_id], references: [tenant_id, id], onDelete: Cascade, onUpdate: Cascade)
-  provider              VehicleListingDmsProvider
-  external_listing_id   String?                     @map("external_listing_id") @db.VarChar(120)
-  sync_state            VehicleListingDmsSyncState  @default(NEVER_SYNCED) @map("sync_state")
-  last_sync_at          DateTime?                   @map("last_sync_at")
-  last_sync_error_code  String?                     @map("last_sync_error_code") @db.VarChar(64)
-  last_idempotency_key  String?                     @map("last_idempotency_key") @db.VarChar(128)
-  last_sync_payload_digest String?                  @map("last_sync_payload_digest") @db.Char(64)
-  createdAt             DateTime                    @default(now()) @map("created_at")
-  updatedAt             DateTime                    @updatedAt @map("updated_at")
+  id                       String                     @id @default(uuid())
+  tenant_id                String
+  tenant                   Tenant                     @relation(fields: [tenant_id], references: [id])
+  channel_id               String                     @map("channel_id")
+  channel                  VehicleListingChannel      @relation(fields: [tenant_id, channel_id], references: [tenant_id, id], onDelete: Cascade, onUpdate: Cascade)
+  provider                 VehicleListingDmsProvider
+  external_listing_id      String?                    @map("external_listing_id") @db.VarChar(120)
+  sync_state               VehicleListingDmsSyncState @default(NEVER_SYNCED) @map("sync_state")
+  last_sync_at             DateTime?                  @map("last_sync_at")
+  last_sync_error_code     String?                    @map("last_sync_error_code") @db.VarChar(64)
+  last_idempotency_key     String?                    @map("last_idempotency_key") @db.VarChar(128)
+  last_sync_payload_digest String?                    @map("last_sync_payload_digest") @db.Char(64)
+  createdAt                DateTime                   @default(now()) @map("created_at")
+  updatedAt                DateTime                   @updatedAt @map("updated_at")
 
   @@unique([tenant_id, channel_id, provider])
   @@unique([tenant_id, id])
@@ -2208,21 +2201,21 @@ enum WorkshopOrderPurpose {
 }
 
 model VehiclePurchase {
-  id                          String                    @id @default(uuid())
+  id                          String                         @id @default(uuid())
   tenant_id                   String
-  tenant                      Tenant                    @relation(fields: [tenant_id], references: [id])
+  tenant                      Tenant                         @relation(fields: [tenant_id], references: [id])
   site_id                     String?
-  site                        Site?                     @relation(fields: [tenant_id, site_id], references: [tenant_id, id])
+  site                        Site?                          @relation(fields: [tenant_id, site_id], references: [tenant_id, id])
   purchase_number             String
-  status                      VehiclePurchaseStatus     @default(DRAFT)
+  status                      VehiclePurchaseStatus          @default(DRAFT)
   seller_type                 VehiclePurchaseSellerType
   vendor_id                   String?
-  vendor                      Vendor?                   @relation(fields: [vendor_id], references: [id])
+  vendor                      Vendor?                        @relation(fields: [vendor_id], references: [id])
   customer_id                 String?
-  customer                    Customer?                 @relation("VehiclePurchaseSeller", fields: [customer_id], references: [id])
-  acquisition_kind            VehicleAcquisitionKind    @default(DIRECT)
+  customer                    Customer?                      @relation("VehiclePurchaseSeller", fields: [customer_id], references: [id])
+  acquisition_kind            VehicleAcquisitionKind         @default(DIRECT)
   vehicle_id                  String?
-  vehicle                     Vehicle?                  @relation(fields: [vehicle_id], references: [id])
+  vehicle                     Vehicle?                       @relation(fields: [vehicle_id], references: [id])
   vin                         String?
   make                        String
   model                       String
@@ -2233,17 +2226,17 @@ model VehiclePurchase {
   mileage                     Int?
   key_number                  String?
   registration_certificate_no String?
-  first_registration_date     DateTime?                 @map("first_registration_date") @db.Date
-  purchase_price              Decimal                   @db.Decimal(12, 2)
+  first_registration_date     DateTime?                      @map("first_registration_date") @db.Date
+  purchase_price              Decimal                        @db.Decimal(12, 2)
   location_id                 String?
   received_at                 DateTime?
   ledger_entries              VehicleLedgerEntry[]
-  trade_in_sales              VehicleSale[]             @relation("VehicleSaleTradeIn")
+  trade_in_sales              VehicleSale[]                  @relation("VehicleSaleTradeIn")
   equipmentSelections         VehicleEquipmentSelection[]
   equipmentFreeTextItems      VehicleEquipmentFreeTextItem[]
   listings                    VehicleListing[]
-  createdAt                   DateTime                  @default(now())
-  updatedAt                   DateTime                  @updatedAt
+  createdAt                   DateTime                       @default(now())
+  updatedAt                   DateTime                       @updatedAt
 
   @@unique([tenant_id, purchase_number])
   @@unique([tenant_id, id])
@@ -2253,45 +2246,45 @@ model VehiclePurchase {
 }
 
 model VehicleSale {
-  id                   String               @id @default(uuid())
-  tenant_id            String
-  tenant               Tenant               @relation(fields: [tenant_id], references: [id])
-  site_id              String?
-  site                 Site?                @relation(fields: [tenant_id, site_id], references: [tenant_id, id])
-  sale_number          String
-  status               VehicleSaleStatus    @default(DRAFT)
-  vehicle_id           String
-  vehicle              Vehicle              @relation(fields: [vehicle_id], references: [id])
-  customer_id          String
-  customer             Customer             @relation(fields: [customer_id], references: [id])
-  sale_price           Decimal              @db.Decimal(12, 2)
-  cost_basis_snapshot  Decimal?             @db.Decimal(12, 2)
-  margin_vat_snapshot  Decimal?             @db.Decimal(12, 2)
-  days_to_sell_snapshot Int?
-  contract_concluded_at DateTime?            @db.Date
-  handed_over_at       DateTime?            @db.Date
-  buyer_is_consumer    Boolean?
+  id                                   String               @id @default(uuid())
+  tenant_id                            String
+  tenant                               Tenant               @relation(fields: [tenant_id], references: [id])
+  site_id                              String?
+  site                                 Site?                @relation(fields: [tenant_id, site_id], references: [tenant_id, id])
+  sale_number                          String
+  status                               VehicleSaleStatus    @default(DRAFT)
+  vehicle_id                           String
+  vehicle                              Vehicle              @relation(fields: [vehicle_id], references: [id])
+  customer_id                          String
+  customer                             Customer             @relation(fields: [customer_id], references: [id])
+  sale_price                           Decimal              @db.Decimal(12, 2)
+  cost_basis_snapshot                  Decimal?             @db.Decimal(12, 2)
+  margin_vat_snapshot                  Decimal?             @db.Decimal(12, 2)
+  days_to_sell_snapshot                Int?
+  contract_concluded_at                DateTime?            @db.Date
+  handed_over_at                       DateTime?            @db.Date
+  buyer_is_consumer                    Boolean?
   gewaehrleistung_shortened_negotiated Boolean?
-  gewaehrleistung_note String?
-  gewaehrleistung_ends_on DateTime?          @db.Date
-  presumption_ends_on  DateTime?             @db.Date
-  gewaehrleistung_rule_version String?
-  garantie_months      Int?
-  garantie_terms       String?
-  kaufvertrag_snapshot Json?
-  kaufvertrag_snapshot_sha256    String?
-  kaufvertrag_archive_bucket     String?
-  kaufvertrag_archive_key        String?
-  kaufvertrag_archive_generation String?
-  kaufvertrag_archive_sha256     String?
-  kaufvertrag_generated_at       DateTime?
-  kaufvertrag_generation_error   String?
-  trade_in_purchase_id String?
-  trade_in_purchase    VehiclePurchase?     @relation("VehicleSaleTradeIn", fields: [tenant_id, trade_in_purchase_id], references: [tenant_id, id], onDelete: Restrict)
-  invoice              Invoice?
-  ledger_entries       VehicleLedgerEntry[]
-  createdAt            DateTime             @default(now())
-  updatedAt            DateTime             @updatedAt
+  gewaehrleistung_note                 String?
+  gewaehrleistung_ends_on              DateTime?            @db.Date
+  presumption_ends_on                  DateTime?            @db.Date
+  gewaehrleistung_rule_version         String?
+  garantie_months                      Int?
+  garantie_terms                       String?
+  kaufvertrag_snapshot                 Json?
+  kaufvertrag_snapshot_sha256          String?
+  kaufvertrag_archive_bucket           String?
+  kaufvertrag_archive_key              String?
+  kaufvertrag_archive_generation       String?
+  kaufvertrag_archive_sha256           String?
+  kaufvertrag_generated_at             DateTime?
+  kaufvertrag_generation_error         String?
+  trade_in_purchase_id                 String?
+  trade_in_purchase                    VehiclePurchase?     @relation("VehicleSaleTradeIn", fields: [tenant_id, trade_in_purchase_id], references: [tenant_id, id], onDelete: Restrict)
+  invoice                              Invoice?
+  ledger_entries                       VehicleLedgerEntry[]
+  createdAt                            DateTime             @default(now())
+  updatedAt                            DateTime             @updatedAt
 
   @@unique([tenant_id, id])
   @@unique([tenant_id, sale_number])
@@ -2374,55 +2367,54 @@ enum InspectionOccurrenceKind {
 }
 
 model VehicleInspectionRecord {
-  id                           String                        @id @default(uuid())
-  tenant_id                    String
-  tenant                       Tenant                        @relation(fields: [tenant_id], references: [id])
-  vehicle_id                   String
-  vehicle                      Vehicle                       @relation(fields: [vehicle_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  inspection_type              VehicleInspectionType
-  inspected_on                 DateTime                      @map("inspected_on") @db.Date
-  plaketten_valid_until_year   Int                           @map("plaketten_valid_until_year")
-  plaketten_valid_until_month  Int                           @map("plaketten_valid_until_month")
-  station_name                 String?                       @map("station_name")
-  source                       VehicleInspectionRecordSource @default(MANUAL)
-  external_inspection_result_id String?                      @map("external_inspection_result_id")
-  externalInspectionResult     ExternalInspectionResult?     @relation(fields: [tenant_id, external_inspection_result_id], references: [tenant_id, id], onDelete: Restrict)
-  notes                        String?
-  created_by_user_id           String?                       @map("created_by_user_id")
-  createdAt                    DateTime                      @default(now())
-  updatedAt                    DateTime                      @updatedAt
+  id                            String                        @id @default(uuid())
+  tenant_id                     String
+  tenant                        Tenant                        @relation(fields: [tenant_id], references: [id])
+  vehicle_id                    String
+  vehicle                       Vehicle                       @relation(fields: [vehicle_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  inspection_type               VehicleInspectionType
+  inspected_on                  DateTime                      @map("inspected_on") @db.Date
+  plaketten_valid_until_year    Int                           @map("plaketten_valid_until_year")
+  plaketten_valid_until_month   Int                           @map("plaketten_valid_until_month")
+  station_name                  String?                       @map("station_name")
+  source                        VehicleInspectionRecordSource @default(MANUAL)
+  external_inspection_result_id String?                       @map("external_inspection_result_id")
+  externalInspectionResult      ExternalInspectionResult?     @relation(fields: [tenant_id, external_inspection_result_id], references: [tenant_id, id], onDelete: Restrict)
+  notes                         String?
+  created_by_user_id            String?                       @map("created_by_user_id")
+  createdAt                     DateTime                      @default(now())
+  updatedAt                     DateTime                      @updatedAt
 
   @@unique([tenant_id, id])
   @@unique([tenant_id, external_inspection_result_id])
   @@index([tenant_id, vehicle_id, inspected_on], map: "idx_vehicle_inspection_records_vehicle_inspected")
   @@index([tenant_id, plaketten_valid_until_year, plaketten_valid_until_month], map: "idx_vehicle_inspection_records_tenant_valid_until")
-
   @@map("vehicle_inspection_records")
 }
 
 model InspectionSourceConnection {
-  id                  String                 @id @default(uuid())
-  tenant_id           String
-  tenant              Tenant                 @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
-  site_id             String
-  site                Site                   @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
-  legal_entity_id     String
-  legal_entity        LegalEntity            @relation(fields: [tenant_id, legal_entity_id], references: [tenant_id, id], onDelete: Restrict)
-  source_system       InspectionSourceSystem
-  source_account_ref  String                 @db.VarChar(128)
-  source_station_id   String                 @db.VarChar(128)
-  profile_id          String                 @db.VarChar(64)
-  profile_version     String                 @db.VarChar(64)
-  profile_digest      String                 @db.Char(64)
-  binding_revision    Int                    @default(1)
-  read_enabled        Boolean                @default(false)
-  secret_ref          String?                @db.VarChar(256)
-  is_active           Boolean                @default(true)
-  createdAt           DateTime               @default(now())
-  updatedAt           DateTime               @updatedAt
+  id                 String                 @id @default(uuid())
+  tenant_id          String
+  tenant             Tenant                 @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  site_id            String
+  site               Site                   @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
+  legal_entity_id    String
+  legal_entity       LegalEntity            @relation(fields: [tenant_id, legal_entity_id], references: [tenant_id, id], onDelete: Restrict)
+  source_system      InspectionSourceSystem
+  source_account_ref String                 @db.VarChar(128)
+  source_station_id  String                 @db.VarChar(128)
+  profile_id         String                 @db.VarChar(64)
+  profile_version    String                 @db.VarChar(64)
+  profile_digest     String                 @db.Char(64)
+  binding_revision   Int                    @default(1)
+  read_enabled       Boolean                @default(false)
+  secret_ref         String?                @db.VarChar(256)
+  is_active          Boolean                @default(true)
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
 
-  imports           InspectionExchangeImport[]
-  externalResults   ExternalInspectionResult[]
+  imports         InspectionExchangeImport[]
+  externalResults ExternalInspectionResult[]
 
   @@unique([tenant_id, id])
   @@unique([tenant_id, site_id, source_system, source_account_ref])
@@ -2455,12 +2447,12 @@ model InspectionExchangeImport {
   vehicle_id                 String
   vehicle                    Vehicle                       @relation(fields: [tenant_id, vehicle_id], references: [tenant_id, id], onDelete: Restrict)
   connection_id              String
-  connection                 InspectionSourceConnection      @relation(fields: [tenant_id, connection_id], references: [tenant_id, id], onDelete: Restrict)
+  connection                 InspectionSourceConnection    @relation(fields: [tenant_id, connection_id], references: [tenant_id, id], onDelete: Restrict)
   workshop_order_id          String?
   state                      InspectionExchangeImportState
   native_result_reference    String                        @db.VarChar(128)
   preview_fingerprint        String?                       @db.Char(64)
-  semantic_digest              String?                       @db.Char(64)
+  semantic_digest            String?                       @db.Char(64)
   preview_expires_at         DateTime?
   error_code                 String?                       @db.VarChar(64)
   error_detail_redacted      String?                       @db.VarChar(512)
@@ -2472,8 +2464,8 @@ model InspectionExchangeImport {
   createdAt                  DateTime                      @default(now())
   updatedAt                  DateTime                      @updatedAt
 
-  events          InspectionExchangeEvent[]
-  externalResult  ExternalInspectionResult?
+  events         InspectionExchangeEvent[]
+  externalResult ExternalInspectionResult?
 
   @@unique([tenant_id, id])
   @@index([tenant_id, site_id, vehicle_id, createdAt])
@@ -2495,41 +2487,41 @@ model ExternalInspectionResult {
   import                        InspectionExchangeImport   @relation(fields: [tenant_id, import_id], references: [tenant_id, id], onDelete: Restrict)
   report_identity_id            String?
   reportIdentity                InspectionReportIdentity?  @relation(fields: [tenant_id, report_identity_id, vehicle_id], references: [tenant_id, id, vehicle_id], onDelete: Restrict)
-  source_system                   InspectionSourceSystem
-  source_account_ref              String                     @db.VarChar(128)
-  source_station_id               String                     @db.VarChar(128)
-  source_result_id                String                     @db.VarChar(128)
-  source_revision                 String                     @db.VarChar(128)
-  source_schema_version           String                     @db.VarChar(64)
-  zbd_report_id                   String?                    @db.VarChar(128)
-  occurrence_kind                 InspectionOccurrenceKind
-  occurrence_predecessor          Json?
-  classification_evidence_ref     String?                    @db.VarChar(128)
-  vehicle_vin                     String                     @db.VarChar(17)
-  vehicle_first_registration_on   DateTime                   @db.Date
-  vehicle_registration_plate      String?                    @db.VarChar(32)
-  inspected_at                    DateTime
-  inspected_on                    DateTime                   @db.Date
-  inspector_source_person_id      String                     @db.VarChar(128)
-  qualification_evidence_ref      String?                    @db.VarChar(128)
-  outcome                         ExternalInspectionOutcome
-  native_outcome_code             String?                    @db.VarChar(128)
-  plate_number                    String?                    @db.VarChar(32)
-  plate_colour                    String?                    @db.VarChar(32)
-  plate_valid_until_year          Int?
-  plate_valid_until_month         Int?
-  odometer_value                  Decimal?                   @db.Decimal(12, 3)
-  odometer_unit                   String?                    @db.VarChar(8)
-  finality                        ExternalInspectionFinality
-  acknowledgement_state           ExternalInspectionAckState
-  acknowledgement_evidence_type   String?                    @db.VarChar(64)
-  acknowledgement_evidence_ref    String?                    @db.VarChar(128)
-  retrieved_at                    DateTime
-  original_digest                 String                     @db.Char(64)
-  semantic_digest                 String                     @db.Char(64)
-  applied_by_user_id              String
-  applied_at                      DateTime                   @default(now())
-  createdAt                       DateTime                   @default(now())
+  source_system                 InspectionSourceSystem
+  source_account_ref            String                     @db.VarChar(128)
+  source_station_id             String                     @db.VarChar(128)
+  source_result_id              String                     @db.VarChar(128)
+  source_revision               String                     @db.VarChar(128)
+  source_schema_version         String                     @db.VarChar(64)
+  zbd_report_id                 String?                    @db.VarChar(128)
+  occurrence_kind               InspectionOccurrenceKind
+  occurrence_predecessor        Json?
+  classification_evidence_ref   String?                    @db.VarChar(128)
+  vehicle_vin                   String                     @db.VarChar(17)
+  vehicle_first_registration_on DateTime                   @db.Date
+  vehicle_registration_plate    String?                    @db.VarChar(32)
+  inspected_at                  DateTime
+  inspected_on                  DateTime                   @db.Date
+  inspector_source_person_id    String                     @db.VarChar(128)
+  qualification_evidence_ref    String?                    @db.VarChar(128)
+  outcome                       ExternalInspectionOutcome
+  native_outcome_code           String?                    @db.VarChar(128)
+  plate_number                  String?                    @db.VarChar(32)
+  plate_colour                  String?                    @db.VarChar(32)
+  plate_valid_until_year        Int?
+  plate_valid_until_month       Int?
+  odometer_value                Decimal?                   @db.Decimal(12, 3)
+  odometer_unit                 String?                    @db.VarChar(8)
+  finality                      ExternalInspectionFinality
+  acknowledgement_state         ExternalInspectionAckState
+  acknowledgement_evidence_type String?                    @db.VarChar(64)
+  acknowledgement_evidence_ref  String?                    @db.VarChar(128)
+  retrieved_at                  DateTime
+  original_digest               String                     @db.Char(64)
+  semantic_digest               String                     @db.Char(64)
+  applied_by_user_id            String
+  applied_at                    DateTime                   @default(now())
+  createdAt                     DateTime                   @default(now())
 
   projection VehicleInspectionRecord?
 
@@ -2541,21 +2533,21 @@ model ExternalInspectionResult {
 }
 
 model InspectionExchangeEvent {
-  id                 String                        @id @default(uuid())
+  id                 String                         @id @default(uuid())
   tenant_id          String
-  tenant             Tenant                        @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  tenant             Tenant                         @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
   site_id            String
-  site               Site                          @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
+  site               Site                           @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
   import_id          String
-  import             InspectionExchangeImport      @relation(fields: [tenant_id, import_id], references: [tenant_id, id], onDelete: Restrict)
+  import             InspectionExchangeImport       @relation(fields: [tenant_id, import_id], references: [tenant_id, id], onDelete: Restrict)
   external_result_id String?
   previous_state     InspectionExchangeImportState?
   new_state          InspectionExchangeImportState
-  reason             String?                       @db.VarChar(128)
+  reason             String?                        @db.VarChar(128)
   actor_user_id      String?
-  semantic_digest    String?                       @db.Char(64)
-  conflicting_digest String?                       @db.Char(64)
-  created_at         DateTime                      @default(now())
+  semantic_digest    String?                        @db.Char(64)
+  conflicting_digest String?                        @db.Char(64)
+  created_at         DateTime                       @default(now())
 
   @@index([tenant_id, import_id, created_at])
   @@map("inspection_exchange_events")
@@ -2617,10 +2609,10 @@ model InspectionCatalogueVersion {
   approval_evidence_ref String?                       @db.VarChar(128)
   createdAt             DateTime                      @default(now())
 
-  entries             InspectionCatalogueEntry[]
-  activations         TenantInspectionCatalogueActivation[]
-  findingReferences   InspectionFindingReference[]
-  stagedImports       InspectionCatalogueImport[] @relation("StagedCatalogueVersion")
+  entries           InspectionCatalogueEntry[]
+  activations       TenantInspectionCatalogueActivation[]
+  findingReferences InspectionFindingReference[]
+  stagedImports     InspectionCatalogueImport[]           @relation("StagedCatalogueVersion")
 
   @@unique([tenant_id, id])
   @@unique([tenant_id, source_kind, source_version, content_sha256])
@@ -2629,18 +2621,18 @@ model InspectionCatalogueVersion {
 }
 
 model InspectionCatalogueEntry {
-  id                   String                   @id @default(uuid())
+  id                   String                     @id @default(uuid())
   tenant_id            String
-  tenant               Tenant                   @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  tenant               Tenant                     @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
   catalogue_version_id String
   catalogueVersion     InspectionCatalogueVersion @relation(fields: [tenant_id, catalogue_version_id], references: [tenant_id, id], onDelete: Restrict)
-  position_id          String                   @db.VarChar(64)
-  entry_id             String?                  @db.VarChar(64)
-  entry_locator        String                   @db.VarChar(192)
+  position_id          String                     @db.VarChar(64)
+  entry_id             String?                    @db.VarChar(64)
+  entry_locator        String                     @db.VarChar(192)
   label                String
   allowed_groups       Json
-  vehicle_scope        String                   @db.VarChar(64)
-  createdAt            DateTime                 @default(now())
+  vehicle_scope        String                     @db.VarChar(64)
+  createdAt            DateTime                   @default(now())
 
   @@unique([tenant_id, id])
   @@unique([tenant_id, catalogue_version_id, entry_locator])
@@ -2649,18 +2641,18 @@ model InspectionCatalogueEntry {
 }
 
 model TenantInspectionCatalogueActivation {
-  id                   String                   @id @default(uuid())
+  id                   String                        @id @default(uuid())
   tenant_id            String
-  tenant               Tenant                   @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  tenant               Tenant                        @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
   site_id              String
-  site                 Site                     @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
+  site                 Site                          @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
   catalogue_version_id String
-  catalogueVersion     InspectionCatalogueVersion @relation(fields: [tenant_id, catalogue_version_id], references: [tenant_id, id], onDelete: Restrict)
+  catalogueVersion     InspectionCatalogueVersion    @relation(fields: [tenant_id, catalogue_version_id], references: [tenant_id, id], onDelete: Restrict)
   source_kind          InspectionCatalogueSourceKind
   activated_at         DateTime
   activated_by_user_id String
   deactivated_at       DateTime?
-  createdAt            DateTime                 @default(now())
+  createdAt            DateTime                      @default(now())
 
   @@unique([tenant_id, id])
   @@index([tenant_id, site_id, source_kind, deactivated_at])
@@ -2694,23 +2686,23 @@ model InspectionCatalogueImport {
 }
 
 model InspectionFindingReference {
-  id                       String                   @id @default(uuid())
-  tenant_id                String
-  tenant                   Tenant                   @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
-  site_id                  String
-  site                     Site                     @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
-  workshop_inspection_id   String
-  workshopInspection       WorkshopInspection       @relation(fields: [tenant_id, workshop_inspection_id], references: [tenant_id, id], onDelete: Restrict)
-  catalogue_version_id     String
-  catalogueVersion         InspectionCatalogueVersion @relation(fields: [tenant_id, catalogue_version_id], references: [tenant_id, id], onDelete: Restrict)
-  position_id              String                   @db.VarChar(64)
-  entry_id                 String?                  @db.VarChar(64)
-  label_snapshot           String
-  allowed_groups_snapshot  Json
-  provenance_snapshot      Json
-  human_finding_label      String?
-  created_by_user_id       String
-  createdAt                DateTime                 @default(now())
+  id                      String                     @id @default(uuid())
+  tenant_id               String
+  tenant                  Tenant                     @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  site_id                 String
+  site                    Site                       @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
+  workshop_inspection_id  String
+  workshopInspection      WorkshopInspection         @relation(fields: [tenant_id, workshop_inspection_id], references: [tenant_id, id], onDelete: Restrict)
+  catalogue_version_id    String
+  catalogueVersion        InspectionCatalogueVersion @relation(fields: [tenant_id, catalogue_version_id], references: [tenant_id, id], onDelete: Restrict)
+  position_id             String                     @db.VarChar(64)
+  entry_id                String?                    @db.VarChar(64)
+  label_snapshot          String
+  allowed_groups_snapshot Json
+  provenance_snapshot     Json
+  human_finding_label     String?
+  created_by_user_id      String
+  createdAt               DateTime                   @default(now())
 
   @@unique([tenant_id, id])
   @@index([tenant_id, workshop_inspection_id])
@@ -2829,10 +2821,10 @@ model InspectionDeviceSource {
   createdAt          DateTime                     @default(now())
   updatedAt          DateTime                     @updatedAt
 
-  evidenceRows    InspectionDeviceEvidence[]
-  identities      InspectionMeasurementIdentity[]
-  imports         InspectionMeasurementImport[]
-  measurements    InspectionMeasurement[]
+  evidenceRows InspectionDeviceEvidence[]
+  identities   InspectionMeasurementIdentity[]
+  imports      InspectionMeasurementImport[]
+  measurements InspectionMeasurement[]
 
   @@unique([tenant_id, id])
   @@unique([tenant_id, site_id, source_system, source_instance_id])
@@ -2887,34 +2879,34 @@ model InspectionMeasurementIdentity {
 }
 
 model InspectionMeasurementImport {
-  id                           String                         @id @default(uuid())
+  id                           String                           @id @default(uuid())
   tenant_id                    String
-  tenant                       Tenant                         @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  tenant                       Tenant                           @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
   site_id                      String
-  site                         Site                           @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
+  site                         Site                             @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
   workshop_order_id            String
-  workshopOrder                WorkshopOrder                  @relation(fields: [tenant_id, workshop_order_id], references: [tenant_id, id], onDelete: Restrict)
+  workshopOrder                WorkshopOrder                    @relation(fields: [tenant_id, workshop_order_id], references: [tenant_id, id], onDelete: Restrict)
   vehicle_id                   String
-  vehicle                      Vehicle                        @relation(fields: [tenant_id, vehicle_id], references: [tenant_id, id], onDelete: Restrict)
+  vehicle                      Vehicle                          @relation(fields: [tenant_id, vehicle_id], references: [tenant_id, id], onDelete: Restrict)
   device_source_id             String
-  deviceSource                 InspectionDeviceSource         @relation(fields: [tenant_id, device_source_id], references: [tenant_id, id], onDelete: Restrict)
+  deviceSource                 InspectionDeviceSource           @relation(fields: [tenant_id, device_source_id], references: [tenant_id, id], onDelete: Restrict)
   state                        InspectionMeasurementImportState
-  native_measurement_reference String                         @db.VarChar(128)
-  preview_fingerprint          String?                        @db.Char(64)
-  semantic_digest              String?                        @db.Char(64)
+  native_measurement_reference String                           @db.VarChar(128)
+  preview_fingerprint          String?                          @db.Char(64)
+  semantic_digest              String?                          @db.Char(64)
   preview_expires_at           DateTime?
-  quarantine_reason            String?                        @db.VarChar(64)
-  error_code                   String?                        @db.VarChar(64)
-  error_detail_redacted        String?                        @db.VarChar(512)
-  version                      Int                            @default(0)
+  quarantine_reason            String?                          @db.VarChar(64)
+  error_code                   String?                          @db.VarChar(64)
+  error_detail_redacted        String?                          @db.VarChar(512)
+  version                      Int                              @default(0)
   measurement_identity_id      String?
-  measurementIdentity          InspectionMeasurementIdentity? @relation(fields: [tenant_id, measurement_identity_id], references: [tenant_id, id], onDelete: Restrict)
-  applied_measurement_id       String?                        @db.VarChar(64)
+  measurementIdentity          InspectionMeasurementIdentity?   @relation(fields: [tenant_id, measurement_identity_id], references: [tenant_id, id], onDelete: Restrict)
+  applied_measurement_id       String?                          @db.VarChar(64)
   created_by_user_id           String
   reviewed_by_user_id          String?
   reviewed_at                  DateTime?
-  createdAt                    DateTime                       @default(now())
-  updatedAt                    DateTime                       @updatedAt
+  createdAt                    DateTime                         @default(now())
+  updatedAt                    DateTime                         @updatedAt
 
   sourceMeasurement InspectionMeasurement? @relation("ImportSourceMeasurement")
 
@@ -2925,39 +2917,39 @@ model InspectionMeasurementImport {
 }
 
 model InspectionMeasurement {
-  id                      String                       @id @default(uuid())
-  tenant_id               String
-  tenant                  Tenant                       @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
-  site_id                 String
-  site                    Site                         @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
-  workshop_order_id       String
-  workshopOrder           WorkshopOrder                @relation(fields: [tenant_id, workshop_order_id], references: [tenant_id, id], onDelete: Restrict)
-  vehicle_id              String
-  vehicle                 Vehicle                      @relation(fields: [tenant_id, vehicle_id], references: [tenant_id, id], onDelete: Restrict)
-  device_source_id        String
-  deviceSource            InspectionDeviceSource       @relation(fields: [tenant_id, device_source_id], references: [tenant_id, id], onDelete: Restrict)
-  import_id               String
-  import                  InspectionMeasurementImport  @relation("ImportSourceMeasurement", fields: [tenant_id, import_id], references: [tenant_id, id], onDelete: Restrict)
-  measurement_identity_id String
-  measurementIdentity     InspectionMeasurementIdentity @relation(fields: [tenant_id, measurement_identity_id], references: [tenant_id, id], onDelete: Restrict)
-  source_system           BrakeMeasurementSourceSystem
-  source_instance_id      String                       @db.VarChar(128)
-  measurement_id          String                       @db.VarChar(128)
-  revision                String                       @db.VarChar(128)
-  session_ref             String                       @db.VarChar(128)
-  vehicle_vin             String                       @db.VarChar(17)
-  measured_at             DateTime
-  finality                BrakeMeasurementFinality
-  test_kind               String                       @db.VarChar(32)
-  wheels_json             Json
-  device_evidence_ref     String?                      @db.VarChar(128)
-  native_result_ref       String?                      @db.VarChar(128)
-  previous_measurement_ref String?                     @db.VarChar(128)
-  original_digest         String                       @db.Char(64)
-  semantic_digest         String                       @db.Char(64)
-  applied_by_user_id      String
-  applied_at              DateTime                     @default(now())
-  createdAt               DateTime                     @default(now())
+  id                       String                        @id @default(uuid())
+  tenant_id                String
+  tenant                   Tenant                        @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  site_id                  String
+  site                     Site                          @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
+  workshop_order_id        String
+  workshopOrder            WorkshopOrder                 @relation(fields: [tenant_id, workshop_order_id], references: [tenant_id, id], onDelete: Restrict)
+  vehicle_id               String
+  vehicle                  Vehicle                       @relation(fields: [tenant_id, vehicle_id], references: [tenant_id, id], onDelete: Restrict)
+  device_source_id         String
+  deviceSource             InspectionDeviceSource        @relation(fields: [tenant_id, device_source_id], references: [tenant_id, id], onDelete: Restrict)
+  import_id                String
+  import                   InspectionMeasurementImport   @relation("ImportSourceMeasurement", fields: [tenant_id, import_id], references: [tenant_id, id], onDelete: Restrict)
+  measurement_identity_id  String
+  measurementIdentity      InspectionMeasurementIdentity @relation(fields: [tenant_id, measurement_identity_id], references: [tenant_id, id], onDelete: Restrict)
+  source_system            BrakeMeasurementSourceSystem
+  source_instance_id       String                        @db.VarChar(128)
+  measurement_id           String                        @db.VarChar(128)
+  revision                 String                        @db.VarChar(128)
+  session_ref              String                        @db.VarChar(128)
+  vehicle_vin              String                        @db.VarChar(17)
+  measured_at              DateTime
+  finality                 BrakeMeasurementFinality
+  test_kind                String                        @db.VarChar(32)
+  wheels_json              Json
+  device_evidence_ref      String?                       @db.VarChar(128)
+  native_result_ref        String?                       @db.VarChar(128)
+  previous_measurement_ref String?                       @db.VarChar(128)
+  original_digest          String                        @db.Char(64)
+  semantic_digest          String                        @db.Char(64)
+  applied_by_user_id       String
+  applied_at               DateTime                      @default(now())
+  createdAt                DateTime                      @default(now())
 
   @@unique([tenant_id, id])
   @@unique([tenant_id, import_id])
@@ -2966,30 +2958,30 @@ model InspectionMeasurement {
 }
 
 model VehicleValuationSnapshot {
-  id                    String   @id @default(uuid())
-  tenant_id             String
-  tenant                Tenant   @relation(fields: [tenant_id], references: [id])
-  vehicle_id            String
-  vehicle               Vehicle  @relation(fields: [vehicle_id], references: [id], onDelete: Cascade)
-  site_id               String?
-  site                  Site?    @relation(fields: [tenant_id, site_id], references: [tenant_id, id])
-  national_code         String   @map("national_code") @db.VarChar(6)
-  valuation_type        String   @map("valuation_type")
-  mileage_km            Int      @map("mileage_km")
-  condition             String
-  requested_as_of       DateTime @map("requested_as_of") @db.Date
-  provider_as_of        DateTime @map("provider_as_of") @db.Date
-  currency              String   @db.Char(3)
-  amount                Decimal  @db.Decimal(12, 2)
-  source                String
-  reference_version     String   @map("reference_version")
-  contract_version      String   @map("contract_version")
-  native_id_state       String   @map("native_id_state")
-  input_sha256          String   @map("input_sha256") @db.Char(64)
-  provider_body_sha256  String   @map("provider_body_sha256") @db.Char(64)
-  idempotency_key       String   @map("idempotency_key") @db.VarChar(80)
-  created_by            String   @map("created_by")
-  createdAt             DateTime @default(now()) @map("created_at")
+  id                   String   @id @default(uuid())
+  tenant_id            String
+  tenant               Tenant   @relation(fields: [tenant_id], references: [id])
+  vehicle_id           String
+  vehicle              Vehicle  @relation(fields: [vehicle_id], references: [id], onDelete: Cascade)
+  site_id              String?
+  site                 Site?    @relation(fields: [tenant_id, site_id], references: [tenant_id, id])
+  national_code        String   @map("national_code") @db.VarChar(6)
+  valuation_type       String   @map("valuation_type")
+  mileage_km           Int      @map("mileage_km")
+  condition            String
+  requested_as_of      DateTime @map("requested_as_of") @db.Date
+  provider_as_of       DateTime @map("provider_as_of") @db.Date
+  currency             String   @db.Char(3)
+  amount               Decimal  @db.Decimal(12, 2)
+  source               String
+  reference_version    String   @map("reference_version")
+  contract_version     String   @map("contract_version")
+  native_id_state      String   @map("native_id_state")
+  input_sha256         String   @map("input_sha256") @db.Char(64)
+  provider_body_sha256 String   @map("provider_body_sha256") @db.Char(64)
+  idempotency_key      String   @map("idempotency_key") @db.VarChar(80)
+  created_by           String   @map("created_by")
+  createdAt            DateTime @default(now()) @map("created_at")
 
   @@unique([tenant_id, idempotency_key])
   @@index([tenant_id, vehicle_id, createdAt])
@@ -3347,33 +3339,33 @@ enum RegistrationDocumentIntakeState {
 }
 
 model RegistrationDocumentIntake {
-  id                      String                          @id @default(uuid())
-  tenant_id               String
-  tenant                  Tenant                          @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
-  site_id                 String
-  site                    Site                            @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
-  captured_by_user_id     String
-  capturedByUser          User                            @relation("RegistrationIntakeCapturedBy", fields: [captured_by_user_id], references: [id], onDelete: Restrict)
-  idempotency_key         String                          @db.VarChar(128)
-  request_hash            String                          @db.Char(64)
-  state                   RegistrationDocumentIntakeState
-  document_kind           String?                         @db.VarChar(32)
-  failure_code            String?                         @db.VarChar(64)
-  evidence                Json?
-  match_snapshot          Json?
-  lease_token             String?                         @db.VarChar(64)
-  provider_id             String?                         @db.VarChar(64)
-  prompt_version          String?                         @db.VarChar(64)
-  applied_customer_id     String?
-  appliedCustomer         Customer?                       @relation("RegistrationIntakeAppliedCustomer", fields: [applied_customer_id], references: [id], onDelete: SetNull)
-  applied_vehicle_id      String?
-  appliedVehicle          Vehicle?                        @relation("RegistrationIntakeAppliedVehicle", fields: [applied_vehicle_id], references: [id], onDelete: SetNull)
+  id                        String                          @id @default(uuid())
+  tenant_id                 String
+  tenant                    Tenant                          @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  site_id                   String
+  site                      Site                            @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
+  captured_by_user_id       String
+  capturedByUser            User                            @relation("RegistrationIntakeCapturedBy", fields: [captured_by_user_id], references: [id], onDelete: Restrict)
+  idempotency_key           String                          @db.VarChar(128)
+  request_hash              String                          @db.Char(64)
+  state                     RegistrationDocumentIntakeState
+  document_kind             String?                         @db.VarChar(32)
+  failure_code              String?                         @db.VarChar(64)
+  evidence                  Json?
+  match_snapshot            Json?
+  lease_token               String?                         @db.VarChar(64)
+  provider_id               String?                         @db.VarChar(64)
+  prompt_version            String?                         @db.VarChar(64)
+  applied_customer_id       String?
+  appliedCustomer           Customer?                       @relation("RegistrationIntakeAppliedCustomer", fields: [applied_customer_id], references: [id], onDelete: SetNull)
+  applied_vehicle_id        String?
+  appliedVehicle            Vehicle?                        @relation("RegistrationIntakeAppliedVehicle", fields: [applied_vehicle_id], references: [id], onDelete: SetNull)
   applied_workshop_order_id String?
-  appliedWorkshopOrder    WorkshopOrder?                  @relation("RegistrationIntakeAppliedOrder", fields: [applied_workshop_order_id], references: [id], onDelete: SetNull)
-  expires_at              DateTime?
-  bytePurge               RegistrationIntakeBytePurge?
-  createdAt               DateTime                        @default(now())
-  updatedAt               DateTime                        @updatedAt
+  appliedWorkshopOrder      WorkshopOrder?                  @relation("RegistrationIntakeAppliedOrder", fields: [applied_workshop_order_id], references: [id], onDelete: SetNull)
+  expires_at                DateTime?
+  bytePurge                 RegistrationIntakeBytePurge?
+  createdAt                 DateTime                        @default(now())
+  updatedAt                 DateTime                        @updatedAt
 
   @@unique([tenant_id, id])
   @@unique([tenant_id, captured_by_user_id, site_id, idempotency_key])
@@ -3383,15 +3375,15 @@ model RegistrationDocumentIntake {
 }
 
 model RegistrationIntakeBytePurge {
-  id            String                   @id @default(uuid())
+  id            String                     @id @default(uuid())
   tenant_id     String
-  tenant        Tenant                   @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  tenant        Tenant                     @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
   intake_id     String
   intake        RegistrationDocumentIntake @relation(fields: [tenant_id, intake_id], references: [tenant_id, id], onDelete: Restrict)
-  object_prefix String                   @db.VarChar(256)
-  attempts      Int                      @default(0)
-  last_error    String?                  @db.VarChar(512)
-  created_at    DateTime                 @default(now())
+  object_prefix String                     @db.VarChar(256)
+  attempts      Int                        @default(0)
+  last_error    String?                    @db.VarChar(512)
+  created_at    DateTime                   @default(now())
   processed_at  DateTime?
 
   @@unique([tenant_id, id])
@@ -3415,34 +3407,34 @@ enum EmployeeRole {
 }
 
 model Employee {
-  id                       String                   @id @default(uuid())
-  tenant_id                String
-  tenant                   Tenant                   @relation(fields: [tenant_id], references: [id])
-  user_id                  String?                  @map("user_id")
-  user                     User?                    @relation(fields: [user_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  name                     String
-  role                     EmployeeRole
-  is_active                Boolean                  @default(true)
-  sort_order               Int                      @default(0)
-  mother_language_code     String?
-  tyre_set_events          TyreSetEvent[]
-  workshopOrdersAsMechanic WorkshopOrder[]          @relation("WorkshopOrderMechanic")
-  workshopTasksAsMechanic  WorkshopTask[]           @relation("WorkshopTaskMechanic")
-  laborEntries             LaborEntry[]             @relation("EmployeeLaborEntries")
-  uploadedWorkshopMedia    WorkshopMedia[]          @relation("WorkshopMediaUploadedByEmployee")
-  createdVoiceNoteDrafts   WorkshopVoiceNoteDraft[] @relation("CreatedVoiceNoteDrafts")
-  acceptedVoiceNoteDrafts  WorkshopVoiceNoteDraft[] @relation("AcceptedVoiceNoteDrafts")
-  voiceNoteRateLimits      VoiceNoteRateLimit[]
-  hired_on                 DateTime?                @db.Date
-  annual_leave_minutes     Int                      @default(0)
-  workSchedules            EmployeeWorkSchedule[]
-  leaveBalances            EmployeeLeaveBalance[]
-  leaveRequests            LeaveRequest[]
-  attendanceEvents         AttendanceEvent[]
-  loaner_licence_checks    LoanerBooking[]          @relation("LoanerLicenceCheckedBy")
+  id                         String                      @id @default(uuid())
+  tenant_id                  String
+  tenant                     Tenant                      @relation(fields: [tenant_id], references: [id])
+  user_id                    String?                     @map("user_id")
+  user                       User?                       @relation(fields: [user_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  name                       String
+  role                       EmployeeRole
+  is_active                  Boolean                     @default(true)
+  sort_order                 Int                         @default(0)
+  mother_language_code       String?
+  tyre_set_events            TyreSetEvent[]
+  workshopOrdersAsMechanic   WorkshopOrder[]             @relation("WorkshopOrderMechanic")
+  workshopTasksAsMechanic    WorkshopTask[]              @relation("WorkshopTaskMechanic")
+  laborEntries               LaborEntry[]                @relation("EmployeeLaborEntries")
+  uploadedWorkshopMedia      WorkshopMedia[]             @relation("WorkshopMediaUploadedByEmployee")
+  createdVoiceNoteDrafts     WorkshopVoiceNoteDraft[]    @relation("CreatedVoiceNoteDrafts")
+  acceptedVoiceNoteDrafts    WorkshopVoiceNoteDraft[]    @relation("AcceptedVoiceNoteDrafts")
+  voiceNoteRateLimits        VoiceNoteRateLimit[]
+  hired_on                   DateTime?                   @db.Date
+  annual_leave_minutes       Int                         @default(0)
+  workSchedules              EmployeeWorkSchedule[]
+  leaveBalances              EmployeeLeaveBalance[]
+  leaveRequests              LeaveRequest[]
+  attendanceEvents           AttendanceEvent[]
+  loaner_licence_checks      LoanerBooking[]             @relation("LoanerLicenceCheckedBy")
   inspectorEvidenceRevisions InspectorEvidenceRevision[]
-  createdAt                DateTime                 @default(now())
-  updatedAt                DateTime                 @updatedAt
+  createdAt                  DateTime                    @default(now())
+  updatedAt                  DateTime                    @updatedAt
 
   @@unique([tenant_id, id])
   @@unique([tenant_id, user_id])
@@ -3656,24 +3648,24 @@ model WorkshopOrder {
   bay_id              String?
   bay                 Bay?             @relation(fields: [bay_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
-  odometer               Int
-  fuel_level             Int // 0-100
-  reported_issue         String?
-  notes                  String?
-  scheduled_start_at     DateTime?
-  scheduled_end_at       DateTime?
-  inspections            WorkshopInspection[]
-  media                  WorkshopMedia[]
-  check_in               WorkshopCheckIn?
-  tasks                  WorkshopTask[]
-  invoice                Invoice?
-  estimates              WorkshopEstimate[]
-  notification_outbox    NotificationOutbox[]
-  vehicle_ledger_entries VehicleLedgerEntry[]
-  loaner_bookings        LoanerBooking[]
-  tyre_set_events        TyreSetEvent[]
-  warranty_claims        WarrantyClaim[]
-  appliedRegistrationIntakes RegistrationDocumentIntake[] @relation("RegistrationIntakeAppliedOrder")
+  odometer                        Int
+  fuel_level                      Int // 0-100
+  reported_issue                  String?
+  notes                           String?
+  scheduled_start_at              DateTime?
+  scheduled_end_at                DateTime?
+  inspections                     WorkshopInspection[]
+  media                           WorkshopMedia[]
+  check_in                        WorkshopCheckIn?
+  tasks                           WorkshopTask[]
+  invoice                         Invoice?
+  estimates                       WorkshopEstimate[]
+  notification_outbox             NotificationOutbox[]
+  vehicle_ledger_entries          VehicleLedgerEntry[]
+  loaner_bookings                 LoanerBooking[]
+  tyre_set_events                 TyreSetEvent[]
+  warranty_claims                 WarrantyClaim[]
+  appliedRegistrationIntakes      RegistrationDocumentIntake[]    @relation("RegistrationIntakeAppliedOrder")
   inspectionMeasurementIdentities InspectionMeasurementIdentity[]
   inspectionMeasurementImports    InspectionMeasurementImport[]
   inspectionMeasurements          InspectionMeasurement[]
@@ -3751,27 +3743,27 @@ model WorkshopEstimate {
 /// SENT and later rows carry the immutable snapshot, its hash and the PDF archive
 /// (ADR-0025 §2 and §4). Only the status and PDF columns change after send.
 model WorkshopEstimateVersion {
-  id                     String                              @id @default(uuid())
+  id                     String                               @id @default(uuid())
   tenant_id              String
-  tenant                 Tenant                              @relation(fields: [tenant_id], references: [id])
+  tenant                 Tenant                               @relation(fields: [tenant_id], references: [id])
   estimate_id            String
-  estimate               WorkshopEstimate                    @relation(fields: [tenant_id, estimate_id], references: [tenant_id, id], onDelete: Restrict)
+  estimate               WorkshopEstimate                     @relation(fields: [tenant_id, estimate_id], references: [tenant_id, id], onDelete: Restrict)
   version                Int
-  status                 WorkshopEstimateStatus             @default(DRAFT)
+  status                 WorkshopEstimateStatus               @default(DRAFT)
   legal_entity_id        String?
-  legal_entity           LegalEntity?                        @relation(fields: [tenant_id, legal_entity_id], references: [tenant_id, id])
+  legal_entity           LegalEntity?                         @relation(fields: [tenant_id, legal_entity_id], references: [tenant_id, id])
   sent_at                DateTime?
   valid_from             DateTime?
   valid_until            DateTime?
-  total_net              Decimal?                            @db.Decimal(10, 2)
-  total_tax              Decimal?                            @db.Decimal(10, 2)
-  total_gross            Decimal?                            @db.Decimal(10, 2)
+  total_net              Decimal?                             @db.Decimal(10, 2)
+  total_tax              Decimal?                             @db.Decimal(10, 2)
+  total_gross            Decimal?                             @db.Decimal(10, 2)
   snapshot               Json?
   snapshot_sha256        String?
   legal_text_version     String?
   legal_text_sha256      String?
   retain_until           DateTime?
-  legal_hold             Boolean                             @default(false)
+  legal_hold             Boolean                              @default(false)
   pdf_storage_bucket     String?
   pdf_storage_key        String?
   pdf_archive_generation String?
@@ -3782,8 +3774,8 @@ model WorkshopEstimateVersion {
   approval_tokens        WorkshopEstimateApprovalToken[]
   approvals              WorkshopEstimateApproval[]
   overruns               WorkshopEstimateOverrun[]
-  createdAt              DateTime                            @default(now())
-  updatedAt              DateTime                            @updatedAt
+  createdAt              DateTime                             @default(now())
+  updatedAt              DateTime                             @updatedAt
 
   @@unique([tenant_id, id])
   @@unique([tenant_id, estimate_id, version])
@@ -3818,16 +3810,16 @@ model WorkshopEstimateBrandAssetReference {
 /// never the token itself. The token expires at the version's valid_until. Superseding the version, when a
 /// later version is sent, invalidates its tokens. Approval consumes the token once (a later phase).
 model WorkshopEstimateApprovalToken {
-  id                           String                  @id @default(uuid())
+  id                           String                     @id @default(uuid())
   tenant_id                    String
-  tenant                       Tenant                  @relation(fields: [tenant_id], references: [id], onDelete: Restrict, map: "wat_tenant_fkey")
+  tenant                       Tenant                     @relation(fields: [tenant_id], references: [id], onDelete: Restrict, map: "wat_tenant_fkey")
   workshop_estimate_version_id String
-  version                      WorkshopEstimateVersion @relation(fields: [tenant_id, workshop_estimate_version_id], references: [tenant_id, id], onDelete: Restrict, map: "wat_version_fkey")
+  version                      WorkshopEstimateVersion    @relation(fields: [tenant_id, workshop_estimate_version_id], references: [tenant_id, id], onDelete: Restrict, map: "wat_version_fkey")
   token_sha256                 String
   expires_at                   DateTime
   invalidated_at               DateTime?
   consumed_at                  DateTime?
-  createdAt                    DateTime                @default(now())
+  createdAt                    DateTime                   @default(now())
   approvals                    WorkshopEstimateApproval[]
 
   @@unique([tenant_id, id], map: "wat_tenant_id_uq")
@@ -3995,7 +3987,7 @@ model NotificationOutbox {
   template_version    Int?
   /// AUT-576 language frozen when the message was rendered for enqueue.
   document_locale     DisplayLanguage?
-  format_locale       String?           @db.VarChar(8)
+  format_locale       String?                   @db.VarChar(8)
   subject             String?
   body                String?
   body_sha256         String?
@@ -4029,19 +4021,19 @@ model NotificationOutbox {
 /// it records. `sequence` gives stable feed ordering; consumers resume with a versioned cursor on
 /// `(sequence, id)`, not `occurred_at` alone. Rows are append-only and have no delete API.
 model DomainEvent {
-  id             String   @id @default(uuid())
-  sequence       BigInt   @default(autoincrement())
-  event_type     String
-  schema_version Int
-  tenant_id      String
-  tenant         Tenant   @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
-  site_id        String
-  site           Site     @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
-  entity_id      String
-  occurred_at    DateTime
-  trace_id       String   @db.Uuid
-  occurrence_key String
-  payload        Json?
+  id                 String                        @id @default(uuid())
+  sequence           BigInt                        @default(autoincrement())
+  event_type         String
+  schema_version     Int
+  tenant_id          String
+  tenant             Tenant                        @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  site_id            String
+  site               Site                          @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
+  entity_id          String
+  occurred_at        DateTime
+  trace_id           String                        @db.Uuid
+  occurrence_key     String
+  payload            Json?
   consumerDeliveries DomainEventConsumerDelivery[]
 
   @@unique([tenant_id, occurrence_key])
@@ -4055,14 +4047,14 @@ model DomainEvent {
 /// committed for the event; a claim prevents two workers from processing the same tenant batch.
 model DomainEventConsumerProgress {
   tenant_id        String
-  tenant           Tenant   @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  tenant           Tenant    @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
   consumer_key     String
-  cursor_sequence  BigInt   @default(0)
+  cursor_sequence  BigInt    @default(0)
   cursor_event_id  String?
-  claim_token      String?  @db.Uuid
+  claim_token      String?   @db.Uuid
   claim_expires_at DateTime?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   @@id([tenant_id, consumer_key])
   @@map("domain_event_consumer_progress")
@@ -4072,13 +4064,13 @@ model DomainEventConsumerProgress {
 /// sees the row and advances the cursor without writing a second outbox notice.
 model DomainEventConsumerDelivery {
   tenant_id              String
-  tenant                 Tenant     @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  tenant                 Tenant      @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
   consumer_key           String
   domain_event_id        String
   domain_event           DomainEvent @relation(fields: [tenant_id, domain_event_id], references: [tenant_id, id], onDelete: Restrict)
   outcome                String
   notification_outbox_id String?
-  createdAt              DateTime   @default(now())
+  createdAt              DateTime    @default(now())
 
   @@unique([tenant_id, consumer_key, domain_event_id])
   @@index([tenant_id, consumer_key])
@@ -4188,51 +4180,51 @@ enum TyreSetEventType {
 }
 
 model TyreStorageSettings {
-  id                  String   @id @default(uuid())
-  tenant_id           String   @unique
-  tenant              Tenant   @relation(fields: [tenant_id], references: [id])
-  summer_swap_month   Int      @default(3)
-  summer_swap_day     Int      @default(1)
-  winter_swap_month   Int      @default(10)
-  winter_swap_day     Int      @default(1)
-  due_for_swap_days   Int      @default(30)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id                String   @id @default(uuid())
+  tenant_id         String   @unique
+  tenant            Tenant   @relation(fields: [tenant_id], references: [id])
+  summer_swap_month Int      @default(3)
+  summer_swap_day   Int      @default(1)
+  winter_swap_month Int      @default(10)
+  winter_swap_day   Int      @default(1)
+  due_for_swap_days Int      @default(30)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   @@index([tenant_id])
   @@map("tyre_storage_settings")
 }
 
 model TyreSet {
-  id                   String         @id @default(uuid())
-  tenant_id            String
-  tenant               Tenant         @relation(fields: [tenant_id], references: [id])
-  customer_id          String
-  customer             Customer       @relation(fields: [customer_id], references: [id])
-  vehicle_id           String?
-  vehicle              Vehicle?       @relation(fields: [vehicle_id], references: [id])
-  site_id              String
-  site                 Site           @relation(fields: [tenant_id, site_id], references: [tenant_id, id])
-  location_id          String?
-  location             StorageLocation? @relation(fields: [tenant_id, site_id, location_id], references: [tenant_id, site_id, id], onDelete: SetNull)
-  label                String
-  season               TyreSeason
-  tyre_count           Int            @default(4)
-  rim_type             TyreRimType    @default(NONE)
-  brand                String?
-  model                String?
-  dimension            String?
-  dot_codes            String[]
-  tread_depth_mm_json  Json?
-  condition_notes      String?
-  status               TyreSetStatus  @default(IN_STORAGE)
-  stored_since         DateTime?      @db.Date
-  planned_swap_on      DateTime?      @db.Date
-  bin_label            String?
-  created_by_user_id   String?
-  events               TyreSetEvent[]
-  createdAt            DateTime       @default(now())
-  updatedAt            DateTime       @updatedAt
+  id                  String           @id @default(uuid())
+  tenant_id           String
+  tenant              Tenant           @relation(fields: [tenant_id], references: [id])
+  customer_id         String
+  customer            Customer         @relation(fields: [customer_id], references: [id])
+  vehicle_id          String?
+  vehicle             Vehicle?         @relation(fields: [vehicle_id], references: [id])
+  site_id             String
+  site                Site             @relation(fields: [tenant_id, site_id], references: [tenant_id, id])
+  location_id         String?
+  location            StorageLocation? @relation(fields: [tenant_id, site_id, location_id], references: [tenant_id, site_id, id], onDelete: SetNull)
+  label               String
+  season              TyreSeason
+  tyre_count          Int              @default(4)
+  rim_type            TyreRimType      @default(NONE)
+  brand               String?
+  model               String?
+  dimension           String?
+  dot_codes           String[]
+  tread_depth_mm_json Json?
+  condition_notes     String?
+  status              TyreSetStatus    @default(IN_STORAGE)
+  stored_since        DateTime?        @db.Date
+  planned_swap_on     DateTime?        @db.Date
+  bin_label           String?
+  created_by_user_id  String?
+  events              TyreSetEvent[]
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
 
   @@unique([tenant_id, id])
   @@index([tenant_id, status])
@@ -4377,32 +4369,32 @@ model WorkshopTaskLineItem {
   workshop_task_id String
   workshop_task    WorkshopTask @relation(fields: [tenant_id, workshop_task_id], references: [tenant_id, id], onDelete: Cascade)
 
-  type                    WorkshopLineItemType
-  part_execution_status   WorkshopPartLineExecutionStatus?
+  type                      WorkshopLineItemType
+  part_execution_status     WorkshopPartLineExecutionStatus?
   // For PART this stores SKU/part number; for LABOR this stores a labor code.
-  item_no                 String
-  description             String
-  quantity                Decimal                          @db.Decimal(10, 3)
-  unit_price              Decimal                          @db.Decimal(10, 2)
-  catalog_item_id         String?
-  catalog_item            CatalogItem?                     @relation(fields: [catalog_item_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  source_system           String?
-  external_operation_code String?
-  fitment_notes           String?
-  cost_price_est          Decimal?                         @db.Decimal(10, 2)
-  oem_numbers             Json?
-  labor_category_id       String?                          @db.Uuid
-  labor_category          LaborCategory?                   @relation(fields: [labor_category_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  hourly_rate_snapshot    Decimal?                         @db.Decimal(10, 2)
-  catalog_hit_jti         String?
-  labor_operation_id      String?                          @db.Uuid
-  labor_operation         LaborOperation?                  @relation(fields: [labor_operation_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  standard_aw             Decimal?                         @db.Decimal(10, 2)
-  actual_hours            Decimal?                         @db.Decimal(10, 2)
-  internal_cost_rate      Decimal?                         @db.Decimal(10, 2)
-  deferred_part_reservation Boolean                        @default(false)
-  parts_reservations      PartsReservation[]
-  warranty_claim_lines    WarrantyClaimLine[]
+  item_no                   String
+  description               String
+  quantity                  Decimal                          @db.Decimal(10, 3)
+  unit_price                Decimal                          @db.Decimal(10, 2)
+  catalog_item_id           String?
+  catalog_item              CatalogItem?                     @relation(fields: [catalog_item_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  source_system             String?
+  external_operation_code   String?
+  fitment_notes             String?
+  cost_price_est            Decimal?                         @db.Decimal(10, 2)
+  oem_numbers               Json?
+  labor_category_id         String?                          @db.Uuid
+  labor_category            LaborCategory?                   @relation(fields: [labor_category_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  hourly_rate_snapshot      Decimal?                         @db.Decimal(10, 2)
+  catalog_hit_jti           String?
+  labor_operation_id        String?                          @db.Uuid
+  labor_operation           LaborOperation?                  @relation(fields: [labor_operation_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  standard_aw               Decimal?                         @db.Decimal(10, 2)
+  actual_hours              Decimal?                         @db.Decimal(10, 2)
+  internal_cost_rate        Decimal?                         @db.Decimal(10, 2)
+  deferred_part_reservation Boolean                          @default(false)
+  parts_reservations        PartsReservation[]
+  warranty_claim_lines      WarrantyClaimLine[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -4551,21 +4543,21 @@ model InspectionTemplateItem {
 }
 
 model WorkshopInspection {
-  id                     String                   @id @default(uuid())
-  tenant_id              String
-  tenant                 Tenant                   @relation(fields: [tenant_id], references: [id])
-  workshop_order_id      String
-  workshop_order         WorkshopOrder            @relation(fields: [tenant_id, workshop_order_id], references: [tenant_id, id], onDelete: Cascade, onUpdate: Cascade)
-  workshop_task_id       String?
-  workshop_task          WorkshopTask?            @relation(fields: [tenant_id, workshop_task_id], references: [tenant_id, id], onDelete: SetNull, onUpdate: Cascade)
-  inspection_template_id String?
-  inspection_template    InspectionTemplate?      @relation(fields: [tenant_id, inspection_template_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
-  title                  String
-  items                  WorkshopInspectionItem[]
+  id                         String                       @id @default(uuid())
+  tenant_id                  String
+  tenant                     Tenant                       @relation(fields: [tenant_id], references: [id])
+  workshop_order_id          String
+  workshop_order             WorkshopOrder                @relation(fields: [tenant_id, workshop_order_id], references: [tenant_id, id], onDelete: Cascade, onUpdate: Cascade)
+  workshop_task_id           String?
+  workshop_task              WorkshopTask?                @relation(fields: [tenant_id, workshop_task_id], references: [tenant_id, id], onDelete: SetNull, onUpdate: Cascade)
+  inspection_template_id     String?
+  inspection_template        InspectionTemplate?          @relation(fields: [tenant_id, inspection_template_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
+  title                      String
+  items                      WorkshopInspectionItem[]
   catalogueFindingReferences InspectionFindingReference[]
-  check_in               WorkshopCheckIn?
-  createdAt              DateTime                 @default(now())
-  updatedAt              DateTime                 @updatedAt
+  check_in                   WorkshopCheckIn?
+  createdAt                  DateTime                     @default(now())
+  updatedAt                  DateTime                     @updatedAt
 
   @@unique([tenant_id, id])
   @@index([tenant_id])
@@ -4600,39 +4592,39 @@ model WorkshopInspectionItem {
 }
 
 model WorkshopCheckIn {
-  id                  String                @id @default(uuid())
-  tenant_id           String
-  tenant              Tenant                @relation(fields: [tenant_id], references: [id])
-  workshop_order_id   String
-  workshop_order      WorkshopOrder         @relation(fields: [tenant_id, workshop_order_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
-  status              WorkshopCheckInStatus @default(DRAFT)
-  revision            Int                   @default(1)
-  condition_json      Json                  @default("{}")
-  damage_markers_json Json                  @default("[]")
-  items_left          String                @default("")
-  key_count           Int                   @default(0)
-  warning_lights      String[]              @default([])
-  odometer            Int
-  fuel_level          Int
-  snapshot_json       Json?
-  content_sha256      String?               @db.Char(64)
-  completed_at        DateTime?
-  completed_by_user_id String?
-  pdf_storage_bucket  String?
-  pdf_storage_key     String?
-  pdf_sha256          String?               @db.Char(64)
-  pdf_generated_at    DateTime?
-  inspection_id       String?
-  inspection          WorkshopInspection?   @relation(fields: [tenant_id, inspection_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
+  id                      String                @id @default(uuid())
+  tenant_id               String
+  tenant                  Tenant                @relation(fields: [tenant_id], references: [id])
+  workshop_order_id       String
+  workshop_order          WorkshopOrder         @relation(fields: [tenant_id, workshop_order_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
+  status                  WorkshopCheckInStatus @default(DRAFT)
+  revision                Int                   @default(1)
+  condition_json          Json                  @default("{}")
+  damage_markers_json     Json                  @default("[]")
+  items_left              String                @default("")
+  key_count               Int                   @default(0)
+  warning_lights          String[]              @default([])
+  odometer                Int
+  fuel_level              Int
+  snapshot_json           Json?
+  content_sha256          String?               @db.Char(64)
+  completed_at            DateTime?
+  completed_by_user_id    String?
+  pdf_storage_bucket      String?
+  pdf_storage_key         String?
+  pdf_sha256              String?               @db.Char(64)
+  pdf_generated_at        DateTime?
+  inspection_id           String?
+  inspection              WorkshopInspection?   @relation(fields: [tenant_id, inspection_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
   signed_by_name          String?               @db.VarChar(200)
   signed_at               DateTime?
   acknowledgement_version String?               @db.VarChar(64)
   acknowledgement_text    String?               @db.Text
   device_hash             String?               @db.Char(64)
   ip_hash                 String?               @db.Char(64)
-  media               WorkshopMedia[]
-  createdAt           DateTime              @default(now())
-  updatedAt           DateTime              @updatedAt
+  media                   WorkshopMedia[]
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
 
   @@unique([tenant_id, id])
   @@unique([tenant_id, workshop_order_id])
@@ -4749,16 +4741,16 @@ model LaborEntry {
 }
 
 model LaborPriceGroup {
-  id          String   @id @default(uuid()) @db.Uuid
+  id          String     @id @default(uuid()) @db.Uuid
   tenant_id   String
-  tenant      Tenant   @relation(fields: [tenant_id], references: [id])
+  tenant      Tenant     @relation(fields: [tenant_id], references: [id])
   code        String
   name        String
-  hourly_rate Decimal  @db.Decimal(10, 2)
-  is_active   Boolean  @default(true)
+  hourly_rate Decimal    @db.Decimal(10, 2)
+  is_active   Boolean    @default(true)
   customers   Customer[]
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+  created_at  DateTime   @default(now())
+  updated_at  DateTime   @updatedAt
 
   @@unique([tenant_id, id])
   @@unique([tenant_id, code])
@@ -4938,23 +4930,23 @@ enum MigrationRunStatus {
 }
 
 model MigrationRun {
-  id               String             @id @default(uuid()) @db.Uuid
-  tenant_id        String
-  tenant           Tenant             @relation(fields: [tenant_id], references: [id])
-  source_system    String
-  legal_entity_id  String
-  legal_entity     LegalEntity        @relation(fields: [tenant_id, legal_entity_id], references: [tenant_id, id])
-  name             String
-  cutover_date     DateTime           @db.Date
-  status           MigrationRunStatus @default(DRAFT)
-  manifest_json    Json
-  manifest_sha256  String             @db.Char(64)
-  signed_off_by    String?
-  signed_off_at    DateTime?
-  created_at       DateTime           @default(now())
-  import_jobs      ImportJob[]
-  legacy_documents LegacyDocument[]   @relation("LegacyDocumentMigrationRun")
-  superseded_legacy_documents LegacyDocument[] @relation("LegacyDocumentSupersededByRun")
+  id                          String             @id @default(uuid()) @db.Uuid
+  tenant_id                   String
+  tenant                      Tenant             @relation(fields: [tenant_id], references: [id])
+  source_system               String
+  legal_entity_id             String
+  legal_entity                LegalEntity        @relation(fields: [tenant_id, legal_entity_id], references: [tenant_id, id])
+  name                        String
+  cutover_date                DateTime           @db.Date
+  status                      MigrationRunStatus @default(DRAFT)
+  manifest_json               Json
+  manifest_sha256             String             @db.Char(64)
+  signed_off_by               String?
+  signed_off_at               DateTime?
+  created_at                  DateTime           @default(now())
+  import_jobs                 ImportJob[]
+  legacy_documents            LegacyDocument[]   @relation("LegacyDocumentMigrationRun")
+  superseded_legacy_documents LegacyDocument[]   @relation("LegacyDocumentSupersededByRun")
 
   @@unique([tenant_id, id])
   @@index([tenant_id])
@@ -4964,48 +4956,48 @@ model MigrationRun {
 /// Partial unique indexes for legacy document identity are defined in migration SQL only — do not drop via Prisma drift.
 /// OPEN_ITEM rows require `migration_run_id` (`legacy_documents_open_item_requires_migration_run_check` in migration SQL only).
 model LegacyDocument {
-  id                    String               @id @default(uuid()) @db.Uuid
-  tenant_id             String
-  tenant                Tenant               @relation(fields: [tenant_id], references: [id])
-  site_id               String?
-  site                  Site?                @relation(fields: [tenant_id, site_id], references: [tenant_id, id])
-  legal_entity_id       String?
-  legal_entity          LegalEntity?         @relation(fields: [tenant_id, legal_entity_id], references: [tenant_id, id])
-  source_system         String
-  external_id           String
-  doc_type              LegacyDocumentType
-  origin                LegacyDocumentOrigin
-  doc_no                String
-  doc_date              DateTime             @db.Date
-  order_no              String?
-  customer_id           String?
-  customer              Customer?            @relation("LegacyDocumentCustomer", fields: [tenant_id, customer_id], references: [tenant_id, id])
-  bill_to_customer_id   String?
-  bill_to_customer      Customer?            @relation("LegacyDocumentBillTo", fields: [tenant_id, bill_to_customer_id], references: [tenant_id, id])
-  vehicle_id            String?
-  vehicle               Vehicle?             @relation(fields: [tenant_id, vehicle_id], references: [tenant_id, id])
-  vin_snapshot          String?
-  mileage               Int?
-  currency              String
-  net_total             Decimal              @db.Decimal(10, 2)
-  vat_total             Decimal              @db.Decimal(10, 2)
-  gross_total           Decimal              @db.Decimal(10, 2)
-  remaining_amount      Decimal?             @db.Decimal(10, 2)
-  due_date              DateTime?            @db.Date
-  payload_json          Json
-  payload_sha256        String               @db.Char(64)
-  file_ref              String?
-  file_sha256           String?              @db.Char(64)
-  retain_until          DateTime             @db.Date
-  legal_hold            Boolean              @default(false)
-  import_job_id         String
-  import_job            ImportJob            @relation(fields: [tenant_id, import_job_id], references: [tenant_id, id])
-  migration_run_id      String?              @db.Uuid
-  migration_run         MigrationRun?        @relation("LegacyDocumentMigrationRun", fields: [tenant_id, migration_run_id], references: [tenant_id, id])
-  superseded_by_run_id  String?              @db.Uuid
-  superseded_by_run     MigrationRun?        @relation("LegacyDocumentSupersededByRun", fields: [tenant_id, superseded_by_run_id], references: [tenant_id, id])
-  created_at            DateTime             @default(now())
-  lines                 LegacyDocumentLine[]
+  id                   String               @id @default(uuid()) @db.Uuid
+  tenant_id            String
+  tenant               Tenant               @relation(fields: [tenant_id], references: [id])
+  site_id              String?
+  site                 Site?                @relation(fields: [tenant_id, site_id], references: [tenant_id, id])
+  legal_entity_id      String?
+  legal_entity         LegalEntity?         @relation(fields: [tenant_id, legal_entity_id], references: [tenant_id, id])
+  source_system        String
+  external_id          String
+  doc_type             LegacyDocumentType
+  origin               LegacyDocumentOrigin
+  doc_no               String
+  doc_date             DateTime             @db.Date
+  order_no             String?
+  customer_id          String?
+  customer             Customer?            @relation("LegacyDocumentCustomer", fields: [tenant_id, customer_id], references: [tenant_id, id])
+  bill_to_customer_id  String?
+  bill_to_customer     Customer?            @relation("LegacyDocumentBillTo", fields: [tenant_id, bill_to_customer_id], references: [tenant_id, id])
+  vehicle_id           String?
+  vehicle              Vehicle?             @relation(fields: [tenant_id, vehicle_id], references: [tenant_id, id])
+  vin_snapshot         String?
+  mileage              Int?
+  currency             String
+  net_total            Decimal              @db.Decimal(10, 2)
+  vat_total            Decimal              @db.Decimal(10, 2)
+  gross_total          Decimal              @db.Decimal(10, 2)
+  remaining_amount     Decimal?             @db.Decimal(10, 2)
+  due_date             DateTime?            @db.Date
+  payload_json         Json
+  payload_sha256       String               @db.Char(64)
+  file_ref             String?
+  file_sha256          String?              @db.Char(64)
+  retain_until         DateTime             @db.Date
+  legal_hold           Boolean              @default(false)
+  import_job_id        String
+  import_job           ImportJob            @relation(fields: [tenant_id, import_job_id], references: [tenant_id, id])
+  migration_run_id     String?              @db.Uuid
+  migration_run        MigrationRun?        @relation("LegacyDocumentMigrationRun", fields: [tenant_id, migration_run_id], references: [tenant_id, id])
+  superseded_by_run_id String?              @db.Uuid
+  superseded_by_run    MigrationRun?        @relation("LegacyDocumentSupersededByRun", fields: [tenant_id, superseded_by_run_id], references: [tenant_id, id])
+  created_at           DateTime             @default(now())
+  lines                LegacyDocumentLine[]
 
   @@unique([tenant_id, id])
   @@index([tenant_id])
@@ -5016,23 +5008,23 @@ model LegacyDocument {
 
 /// Write-once enforcement for legacy document lines is defined in migration SQL only — do not drop via Prisma drift.
 model LegacyDocumentLine {
-  tenant_id           String
-  tenant              Tenant               @relation(fields: [tenant_id], references: [id])
-  legacy_document_id  String               @db.Uuid
-  legacy_document     LegacyDocument       @relation(fields: [tenant_id, legacy_document_id], references: [tenant_id, id], onDelete: Cascade)
-  line_no             Int
-  line_type           LegacyDocumentLineType
-  job_no              String?
-  job_text            String?
-  code                String
-  description         String
-  quantity            Decimal              @db.Decimal(10, 3)
-  unit_price          Decimal              @db.Decimal(10, 2)
-  net                 Decimal              @db.Decimal(10, 2)
-  vat_rate            Decimal              @db.Decimal(5, 2)
-  vat_note            String?
-  cost_bearer         CostBearer?
-  payload_json        Json
+  tenant_id          String
+  tenant             Tenant                 @relation(fields: [tenant_id], references: [id])
+  legacy_document_id String                 @db.Uuid
+  legacy_document    LegacyDocument         @relation(fields: [tenant_id, legacy_document_id], references: [tenant_id, id], onDelete: Cascade)
+  line_no            Int
+  line_type          LegacyDocumentLineType
+  job_no             String?
+  job_text           String?
+  code               String
+  description        String
+  quantity           Decimal                @db.Decimal(10, 3)
+  unit_price         Decimal                @db.Decimal(10, 2)
+  net                Decimal                @db.Decimal(10, 2)
+  vat_rate           Decimal                @db.Decimal(5, 2)
+  vat_note           String?
+  cost_bearer        CostBearer?
+  payload_json       Json
 
   @@id([tenant_id, legacy_document_id, line_no])
   @@index([tenant_id])
@@ -5040,23 +5032,23 @@ model LegacyDocumentLine {
 }
 
 model ImportJob {
-  id            String           @id @default(uuid())
-  tenant_id     String
-  tenant        Tenant           @relation(fields: [tenant_id], references: [id])
-  entity_type   ImportEntityType
-  source_system String
-  file_name     String
-  file_sha256   String
-  status        ImportJobStatus  @default(DRY_RUN_DONE)
-  mapping_json  Json
-  options_json  Json
-  totals_json   Json
-  created_by    String?
-  createdAt     DateTime         @default(now())
-  appliedAt     DateTime?
-  migration_run_id String?       @db.Uuid
-  migration_run    MigrationRun?  @relation(fields: [tenant_id, migration_run_id], references: [tenant_id, id])
-  rows          ImportJobRow[]
+  id                          String                @id @default(uuid())
+  tenant_id                   String
+  tenant                      Tenant                @relation(fields: [tenant_id], references: [id])
+  entity_type                 ImportEntityType
+  source_system               String
+  file_name                   String
+  file_sha256                 String
+  status                      ImportJobStatus       @default(DRY_RUN_DONE)
+  mapping_json                Json
+  options_json                Json
+  totals_json                 Json
+  created_by                  String?
+  createdAt                   DateTime              @default(now())
+  appliedAt                   DateTime?
+  migration_run_id            String?               @db.Uuid
+  migration_run               MigrationRun?         @relation(fields: [tenant_id, migration_run_id], references: [tenant_id, id])
+  rows                        ImportJobRow[]
   firstSeenExternalIdMappings ExternalIdMapping[]
   catalogPriceHistories       CatalogPriceHistory[]
   legacyDocuments             LegacyDocument[]
@@ -5126,18 +5118,18 @@ enum MarginRoundingStrategy {
 }
 
 model VendorArticle {
-  id                String       @id @default(uuid())
+  id                String      @id @default(uuid())
   tenant_id         String
-  tenant            Tenant       @relation(fields: [tenant_id], references: [id])
+  tenant            Tenant      @relation(fields: [tenant_id], references: [id])
   vendor_id         String
-  vendor            Vendor       @relation(fields: [vendor_id], references: [id], onDelete: Restrict)
+  vendor            Vendor      @relation(fields: [vendor_id], references: [id], onDelete: Restrict)
   catalog_item_id   String
-  catalog_item      CatalogItem  @relation(fields: [catalog_item_id], references: [id], onDelete: Restrict)
+  catalog_item      CatalogItem @relation(fields: [catalog_item_id], references: [id], onDelete: Restrict)
   vendor_article_no String
-  last_cost         Decimal?     @db.Decimal(10, 2)
-  last_rrp          Decimal?     @db.Decimal(10, 2)
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
+  last_cost         Decimal?    @db.Decimal(10, 2)
+  last_rrp          Decimal?    @db.Decimal(10, 2)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
 
   @@unique([tenant_id, vendor_id, vendor_article_no])
   @@index([tenant_id, catalog_item_id])
@@ -5145,41 +5137,41 @@ model VendorArticle {
 }
 
 model MarginRule {
-  id                String                 @id @default(uuid())
-  tenant_id         String
-  tenant            Tenant                 @relation(fields: [tenant_id], references: [id])
-  name              String
-  priority          Int                    @default(0)
-  brand_id          Int?
-  brand             Brand?                 @relation(fields: [brand_id], references: [id], onDelete: SetNull)
-  revenue_group_id  Int?
-  revenue_group     RevenueGroup?          @relation(fields: [revenue_group_id], references: [id], onDelete: SetNull)
-  cost_min          Decimal?               @db.Decimal(10, 2)
-  cost_max          Decimal?               @db.Decimal(10, 2)
-  markup_percent    Decimal?               @db.Decimal(5, 2)
-  use_supplier_rrp  Boolean                @default(false)
-  rounding          MarginRoundingStrategy @default(NONE)
-  is_active         Boolean                @default(true)
-  createdAt         DateTime               @default(now())
-  updatedAt         DateTime               @updatedAt
+  id               String                 @id @default(uuid())
+  tenant_id        String
+  tenant           Tenant                 @relation(fields: [tenant_id], references: [id])
+  name             String
+  priority         Int                    @default(0)
+  brand_id         Int?
+  brand            Brand?                 @relation(fields: [brand_id], references: [id], onDelete: SetNull)
+  revenue_group_id Int?
+  revenue_group    RevenueGroup?          @relation(fields: [revenue_group_id], references: [id], onDelete: SetNull)
+  cost_min         Decimal?               @db.Decimal(10, 2)
+  cost_max         Decimal?               @db.Decimal(10, 2)
+  markup_percent   Decimal?               @db.Decimal(5, 2)
+  use_supplier_rrp Boolean                @default(false)
+  rounding         MarginRoundingStrategy @default(NONE)
+  is_active        Boolean                @default(true)
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
 
   @@index([tenant_id, priority])
   @@map("margin_rules")
 }
 
 model CatalogPriceHistory {
-  id              String       @id @default(uuid())
+  id              String      @id @default(uuid())
   tenant_id       String
-  tenant          Tenant       @relation(fields: [tenant_id], references: [id])
+  tenant          Tenant      @relation(fields: [tenant_id], references: [id])
   catalog_item_id String
-  catalog_item    CatalogItem  @relation(fields: [catalog_item_id], references: [id], onDelete: Restrict)
-  old_cost        Decimal?     @db.Decimal(10, 2)
-  new_cost        Decimal?     @db.Decimal(10, 2)
-  old_retail      Decimal?     @db.Decimal(10, 2)
-  new_retail      Decimal?     @db.Decimal(10, 2)
+  catalog_item    CatalogItem @relation(fields: [catalog_item_id], references: [id], onDelete: Restrict)
+  old_cost        Decimal?    @db.Decimal(10, 2)
+  new_cost        Decimal?    @db.Decimal(10, 2)
+  old_retail      Decimal?    @db.Decimal(10, 2)
+  new_retail      Decimal?    @db.Decimal(10, 2)
   import_job_id   String?
-  import_job      ImportJob?   @relation(fields: [tenant_id, import_job_id], references: [tenant_id, id], onDelete: SetNull)
-  createdAt       DateTime     @default(now())
+  import_job      ImportJob?  @relation(fields: [tenant_id, import_job_id], references: [tenant_id, id], onDelete: SetNull)
+  createdAt       DateTime    @default(now())
 
   @@index([tenant_id, catalog_item_id, createdAt])
   @@index([tenant_id, import_job_id])

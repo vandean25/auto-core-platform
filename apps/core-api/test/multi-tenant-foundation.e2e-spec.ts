@@ -18,13 +18,10 @@ describe('Multi-tenant foundation schema', () => {
     );
 
     expect(schema).toContain('model Tenant {');
-    expect(schema).toContain('slug       String     @unique');
-    expect(schema).toContain('plan       TenantPlan @default(STANDARD)');
-    expect(schema).toContain('is_active  Boolean    @default(true)');
-    expect(schema).toContain('enum TenantPlan {');
-    expect(schema).toContain('STANDARD');
-    expect(schema).toContain('PREMIUM');
-    expect(schema).toContain('ENTERPRISE');
+    expect(schema).toContain('slug                      String          @unique');
+    expect(schema).toContain('is_active                 Boolean         @default(true)');
+    expect(schema).not.toContain('TenantPlan');
+    expect(schema).not.toMatch(/\n\s+plan\s+TenantPlan/);
     expect(realtimeExtension).not.toMatch(/TENANT:\s*true/);
   });
 

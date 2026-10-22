@@ -10496,14 +10496,11 @@ export interface components {
             idempotencyKey: string;
             lines: components["schemas"]["ReturnStockTransferLineDto"][];
         };
-        /** @enum {string} */
-        TenantPlan: "STANDARD" | "PREMIUM" | "ENTERPRISE";
         PlatformTenantResponseDto: {
             /** Format: uuid */
             id: string;
             name: string;
             slug: string;
-            plan: components["schemas"]["TenantPlan"];
             isActive: boolean;
             memberCount: number;
             /** Format: date-time */
@@ -10525,12 +10522,10 @@ export interface components {
             name: string;
             /** @description Lowercase slug used for tenant routing and lookup */
             slug: string;
-            plan: components["schemas"]["TenantPlan"];
         };
         UpdatePlatformTenantDto: {
             name?: string;
             slug?: string;
-            plan?: components["schemas"]["TenantPlan"];
             isActive?: boolean;
         };
         LogLevelOverrideDto: {

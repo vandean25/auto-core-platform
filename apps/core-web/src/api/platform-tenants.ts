@@ -2,7 +2,6 @@ import { fetchJsonWithAuth } from "./api-error";
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { components } from './generated/openapi'
 
-export type TenantPlan = components['schemas']['TenantPlan']
 export type PlatformTenant = components['schemas']['PlatformTenantResponseDto']
 export type PlatformTenantsListResponse = components['schemas']['PlatformTenantListResponseDto']
 export type CreatePlatformTenantPayload = components['schemas']['CreatePlatformTenantDto']

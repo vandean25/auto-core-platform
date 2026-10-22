@@ -127,7 +127,6 @@ async function main() {
     create: {
       name: master.landingDemo.tenantName,
       slug: DEMO_TENANT_SLUG,
-      plan: 'STANDARD',
       is_landing_demo_tenant: true,
       default_locale: LANDING_DEMO_LANGUAGE,
     },

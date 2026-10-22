@@ -62,7 +62,6 @@ export class PlatformAdminService {
           data: {
             name: dto.name.trim(),
             slug: dto.slug.trim().toLowerCase(),
-            plan: dto.plan,
           },
           include: {
             _count: {
@@ -96,7 +95,6 @@ export class PlatformAdminService {
           ...(dto.slug !== undefined && {
             slug: dto.slug.trim().toLowerCase(),
           }),
-          ...(dto.plan !== undefined && { plan: dto.plan }),
           ...(dto.isActive !== undefined && { is_active: dto.isActive }),
         },
         include: {
@@ -151,7 +149,6 @@ export class PlatformAdminService {
       id: tenant.id,
       name: tenant.name,
       slug: tenant.slug,
-      plan: tenant.plan,
       isActive: tenant.is_active,
       memberCount: tenant._count.memberships,
       createdAt: tenant.created_at,

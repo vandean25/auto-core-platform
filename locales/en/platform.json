@@ -1,14 +1,13 @@
 {
   "tenants": {
     "pageTitle": "Tenants",
-    "pageDescription": "Manage platform tenants, plans, and onboarding state.",
+    "pageDescription": "Manage platform tenants and onboarding state.",
     "createButton": "+ Tenant",
     "searchPlaceholder": "Search tenants…",
     "loadFailed": "Failed to load tenants.",
     "retry": "Retry",
     "columns": {
       "name": "Name",
-      "plan": "Plan",
       "members": "Members",
       "status": "Status"
     },
@@ -27,7 +26,6 @@
     "form": {
       "name": "Name",
       "slug": "Slug",
-      "plan": "Plan",
       "status": "Status",
       "statusActive": "Active",
       "statusInactive": "Inactive"
