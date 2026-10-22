@@ -3,6 +3,15 @@ import { Prisma } from '@prisma/client';
 import { WorkshopPositionPlanService } from './workshop-position-plan.service.js';
 import { laborNetCents, partNetCents } from './workshop-position-plan.math.js';
 
+type ReservePartLine = (
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  siteId: string,
+  lineItemId: string,
+  catalogItemId: string,
+  quantity: Prisma.Decimal,
+) => Promise<void>;
+
 describe('WorkshopPositionPlanService', () => {
   const mockPrisma = {
     workshopCommandPreset: { findMany: jest.fn().mockResolvedValue([]) },
@@ -242,11 +251,8 @@ describe('WorkshopPositionPlanService', () => {
       mockPrisma as never,
       atp as never,
     );
-    jest
-      .spyOn(
-        planService,
-        'reservePartLineInTransaction',
-      )
+    planService['reservePartLineInTransaction'] = jest
+      .fn()
       .mockResolvedValue(undefined);
 
     await planService.applyPlanInTransaction(
@@ -330,16 +336,17 @@ describe('WorkshopPositionPlanService', () => {
         ]),
       },
     };
-    const reserveSpy = jest
-      .spyOn(service, 'reservePartLineInTransaction')
-      .mockImplementation(async (_tx, _t, _s, _lineId, _cat, quantity) => {
+    const reserveSpy = jest.fn<Promise<void>, Parameters<ReservePartLine>>(
+      async (_tx, _t, _s, _lineId, _cat, quantity) => {
         if (quantity.toNumber() > 1) {
           throw new ConflictException({
             code: 'INSUFFICIENT_STOCK',
             message: 'Insufficient stock to reserve the planned part line',
           });
         }
-      });
+      },
+    );
+    service['reservePartLineInTransaction'] = reserveSpy;
 
     await expect(
       service.applyPlanInTransaction(
@@ -352,6 +359,5 @@ describe('WorkshopPositionPlanService', () => {
       ),
     ).rejects.toBeInstanceOf(ConflictException);
     expect(reserveSpy).toHaveBeenCalledTimes(2);
-    reserveSpy.mockRestore();
   });
 });

@@ -138,7 +138,7 @@ describe('mechanic-diagnostics.helpers', () => {
             itemId: 'item-1',
             responseValue: 'OK',
             passed: true,
-            severity: 'LOW',
+            severity: 'ADVISORY',
             notes: 'All clear',
           },
         ]),

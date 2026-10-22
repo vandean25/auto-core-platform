@@ -7,13 +7,13 @@ import {
 
 const TZ = 'Europe/Vienna';
 const OPENINGS = [
-  { weekday: 1, is_closed: false, open_time: '07:30', close_time: '17:00' },
-  { weekday: 2, is_closed: false, open_time: '07:30', close_time: '17:00' },
-  { weekday: 3, is_closed: false, open_time: '07:30', close_time: '17:00' },
-  { weekday: 4, is_closed: false, open_time: '07:30', close_time: '17:00' },
-  { weekday: 5, is_closed: false, open_time: '07:30', close_time: '17:00' },
-  { weekday: 6, is_closed: false, open_time: '08:00', close_time: '12:00' },
-  { weekday: 7, is_closed: true, open_time: '07:30', close_time: '17:00' },
+  { id: 'oh-1', tenant_id: 'tenant-1', site_id: 'site-1', weekday: 1, is_closed: false, open_time: '07:30', close_time: '17:00' },
+  { id: 'oh-2', tenant_id: 'tenant-1', site_id: 'site-1', weekday: 2, is_closed: false, open_time: '07:30', close_time: '17:00' },
+  { id: 'oh-3', tenant_id: 'tenant-1', site_id: 'site-1', weekday: 3, is_closed: false, open_time: '07:30', close_time: '17:00' },
+  { id: 'oh-4', tenant_id: 'tenant-1', site_id: 'site-1', weekday: 4, is_closed: false, open_time: '07:30', close_time: '17:00' },
+  { id: 'oh-5', tenant_id: 'tenant-1', site_id: 'site-1', weekday: 5, is_closed: false, open_time: '07:30', close_time: '17:00' },
+  { id: 'oh-6', tenant_id: 'tenant-1', site_id: 'site-1', weekday: 6, is_closed: false, open_time: '08:00', close_time: '12:00' },
+  { id: 'oh-7', tenant_id: 'tenant-1', site_id: 'site-1', weekday: 7, is_closed: true, open_time: '07:30', close_time: '17:00' },
 ] as const;
 
 function order(

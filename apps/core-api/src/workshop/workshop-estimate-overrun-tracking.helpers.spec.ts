@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client';
+import { asFake } from '../invoices/invoice-fixtures.spec.support.js';
 import {
   needsCustomerNotice,
   toOverrunView,
@@ -14,7 +15,7 @@ const warning = {
   new_line_count: 0,
 };
 
-const detected: OverrunTrackingRow = {
+const detected = asFake<OverrunTrackingRow>({
   id: 'row-1',
   detected_at: new Date('2026-10-12T08:00:00.000Z'),
   notified_at: null,
@@ -22,7 +23,7 @@ const detected: OverrunTrackingRow = {
   notified_amount_gross: null,
   customer_reaction: null,
   note: null,
-};
+});
 
 describe('needsCustomerNotice', () => {
   const noticed = (amount: string) => ({

@@ -1,4 +1,5 @@
 import { ConflictException, UnprocessableEntityException } from '@nestjs/common';
+import { asFake } from '../invoices/invoice-fixtures.spec.support.js';
 import {
   EstimateApprovalChannel,
   EstimateApprovalDecision,
@@ -233,7 +234,7 @@ describe('decisionToVersionStatus', () => {
 
 describe('appendEstimateDecisionDomainEvent', () => {
   it('appends only the durable domain event in the caller transaction', async () => {
-    const tx = {};
+    const tx = asFake<Prisma.TransactionClient>({});
     const domainEventStore = {
       appendInTx: jest.fn().mockResolvedValue({ eventId: 'e1', sequence: BigInt(1) }),
     };

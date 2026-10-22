@@ -52,7 +52,7 @@ describe('MechanicFindingService', () => {
   });
 
   it('rejects submit when mechanic notes are empty', async () => {
-    mockPrisma.workshopTask.findFirst.mockResolvedValue({
+    (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue({
       ...OPEN_TASK,
       mechanic_notes: '   ',
     });
@@ -63,7 +63,7 @@ describe('MechanicFindingService', () => {
   });
 
   it('rejects submit for a completed task', async () => {
-    mockPrisma.workshopTask.findFirst.mockResolvedValue({
+    (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue({
       ...OPEN_TASK,
       status: 'DONE',
     });
@@ -74,7 +74,7 @@ describe('MechanicFindingService', () => {
   });
 
   it('rejects submit when the order is at another site', async () => {
-    mockPrisma.workshopTask.findFirst.mockResolvedValue({
+    (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue({
       ...OPEN_TASK,
       workshop_order: { ...OPEN_TASK.workshop_order, site_id: 'site-other' },
     });
@@ -85,7 +85,7 @@ describe('MechanicFindingService', () => {
   });
 
   it('rejects submit when the task is not visible in the tenant', async () => {
-    mockPrisma.workshopTask.findFirst.mockResolvedValue(null);
+    (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(null);
 
     await expect(
       service.submitFinding(MECHANIC_ID, TASK_ID, {}),
@@ -93,8 +93,8 @@ describe('MechanicFindingService', () => {
   });
 
   it('rejects foreign media ids for the task', async () => {
-    mockPrisma.workshopTask.findFirst.mockResolvedValue(OPEN_TASK);
-    mockPrisma.workshopMedia.findMany.mockResolvedValue([
+    (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(OPEN_TASK);
+    (mockPrisma.workshopMedia.findMany as jest.Mock).mockResolvedValue([
       {
         id: 'media-authorized',
         mime_type: 'image/jpeg',
@@ -110,8 +110,8 @@ describe('MechanicFindingService', () => {
   });
 
   it('creates a pending agent proposal with finding evidence', async () => {
-    mockPrisma.workshopTask.findFirst.mockResolvedValue(OPEN_TASK);
-    mockPrisma.workshopMedia.findMany.mockResolvedValue([]);
+    (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(OPEN_TASK);
+    (mockPrisma.workshopMedia.findMany as jest.Mock).mockResolvedValue([]);
     mockAgentProposals.persistPendingAction.mockResolvedValue({
       id: 'proposal-1',
       trace_id: 'trace-1',
@@ -134,8 +134,8 @@ describe('MechanicFindingService', () => {
   });
 
   it('includes all authorized task media when no media_ids are sent', async () => {
-    mockPrisma.workshopTask.findFirst.mockResolvedValue(OPEN_TASK);
-    mockPrisma.workshopMedia.findMany.mockResolvedValue([
+    (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(OPEN_TASK);
+    (mockPrisma.workshopMedia.findMany as jest.Mock).mockResolvedValue([
       {
         id: 'media-1',
         mime_type: 'image/jpeg',
@@ -173,9 +173,9 @@ describe('MechanicFindingService', () => {
   });
 
   it('replays the same proposal for duplicate command_id', async () => {
-    mockPrisma.workshopTask.findFirst.mockResolvedValue(OPEN_TASK);
-    mockPrisma.workshopMedia.findMany.mockResolvedValue([]);
-    mockPrisma.agentProposal.findFirst.mockResolvedValue({
+    (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(OPEN_TASK);
+    (mockPrisma.workshopMedia.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.agentProposal.findFirst as jest.Mock).mockResolvedValue({
       id: 'proposal-existing',
       trace_id: '51500000-0000-4000-8000-000000000538',
       action_type: MECHANIC_FINDING_ACTION_TYPE,
@@ -196,9 +196,9 @@ describe('MechanicFindingService', () => {
   });
 
   it('rejects duplicate command_id when the stored fingerprint differs', async () => {
-    mockPrisma.workshopTask.findFirst.mockResolvedValue(OPEN_TASK);
-    mockPrisma.workshopMedia.findMany.mockResolvedValue([]);
-    mockPrisma.agentProposal.findFirst.mockResolvedValue({
+    (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(OPEN_TASK);
+    (mockPrisma.workshopMedia.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.agentProposal.findFirst as jest.Mock).mockResolvedValue({
       id: 'proposal-existing',
       trace_id: '51500000-0000-4000-8000-000000000538',
       action_type: MECHANIC_FINDING_ACTION_TYPE,

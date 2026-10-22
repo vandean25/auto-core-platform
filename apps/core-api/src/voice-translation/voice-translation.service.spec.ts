@@ -3,7 +3,7 @@ import { jest } from '@jest/globals';
 import type { TenantContextService } from '../common/services/tenant-context.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 
-const mockLongRunningRecognize = jest.fn();
+const mockLongRunningRecognize = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const mockTranslateText = jest.fn();
 const mockSpeechClientCtor = jest.fn();
 const mockTranslationClientCtor = jest.fn();
@@ -32,41 +32,49 @@ describe('VoiceTranslationService', () => {
   const tenantId = 'tenant-1';
   const key = Buffer.alloc(32, 7).toString('base64');
 
+  const mockFindFirst = jest.fn<(...args: unknown[]) => Promise<unknown>>();
+  const mockUpsert = jest.fn<
+    (args: {
+      create: Record<string, unknown>;
+      update: Record<string, unknown>;
+    }) => Promise<unknown>
+  >();
+
   const mockPrisma = {
     voiceTranslationSettings: {
-      findFirst: jest.fn(),
-      upsert: jest.fn(),
+      findFirst: mockFindFirst,
+      upsert: mockUpsert,
     },
   } as unknown as PrismaService;
 
   const mockTenantContext = {
-    getTenantId: jest.fn().mockResolvedValue(tenantId),
+    getTenantId: jest
+      .fn<TenantContextService['getTenantId']>()
+      .mockResolvedValue(tenantId),
   } as unknown as TenantContextService;
 
-  let service: VoiceTranslationService;
+  let service: InstanceType<typeof VoiceTranslationService>;
 
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.SECRET_ENCRYPTION_KEY = key;
-    (mockPrisma.voiceTranslationSettings.upsert as jest.Mock).mockImplementation(
-      ({ create, update }: { create: Record<string, unknown>; update: Record<string, unknown> }) => {
-        const merged = { ...create, ...update };
-        return {
-          id: 'settings-1',
-          target_language_code: (merged.target_language_code as string) ?? 'de',
-          google_project_id: (merged.google_project_id as string | null) ?? null,
-          google_location: (merged.google_location as string) ?? 'global',
-          google_service_account_encrypted:
-            (merged.google_service_account_encrypted as string | null) ?? null,
-          updatedAt: new Date('2026-01-01T00:00:00.000Z'),
-        };
-      },
-    );
+    mockUpsert.mockImplementation(async ({ create, update }) => {
+      const merged = { ...create, ...update };
+      return {
+        id: 'settings-1',
+        target_language_code: (merged.target_language_code as string) ?? 'de',
+        google_project_id: (merged.google_project_id as string | null) ?? null,
+        google_location: (merged.google_location as string) ?? 'global',
+        google_service_account_encrypted:
+          (merged.google_service_account_encrypted as string | null) ?? null,
+        updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      };
+    });
     service = new VoiceTranslationService(mockPrisma, mockTenantContext);
   });
 
   it('returns synthesized defaults in getSettings() when no row exists', async () => {
-    (mockPrisma.voiceTranslationSettings.findFirst as jest.Mock).mockResolvedValue(null);
+    mockFindFirst.mockResolvedValue(null);
 
     const result = await service.getSettings();
 
@@ -85,7 +93,7 @@ describe('VoiceTranslationService', () => {
   });
 
   it('stores encrypted credential on updateSettings()', async () => {
-    (mockPrisma.voiceTranslationSettings.upsert as jest.Mock).mockResolvedValue({
+    mockUpsert.mockResolvedValue({
       id: 'settings-1',
       target_language_code: 'de',
       google_project_id: 'my-project',
@@ -103,19 +111,18 @@ describe('VoiceTranslationService', () => {
       }),
     });
 
-    const upsertCall = (mockPrisma.voiceTranslationSettings.upsert as jest.Mock).mock
-      .calls[0][0];
+    const upsertCall = mockUpsert.mock.calls[0][0];
     expect(upsertCall.update.google_service_account_encrypted).toMatch(/^v1:/);
   });
 
   it('falls back to default target language when no settings row exists', async () => {
-    (mockPrisma.voiceTranslationSettings.findFirst as jest.Mock).mockResolvedValue(null);
+    mockFindFirst.mockResolvedValue(null);
 
     await expect(service.getTargetLanguageCode(tenantId)).resolves.toBe('de');
   });
 
   it('throws ServiceUnavailableException when credential is missing', async () => {
-    (mockPrisma.voiceTranslationSettings.findFirst as jest.Mock).mockResolvedValue({
+    mockFindFirst.mockResolvedValue({
       google_project_id: 'my-project',
       google_location: 'global',
       google_service_account_encrypted: null,
@@ -133,7 +140,7 @@ describe('VoiceTranslationService', () => {
   });
 
   it('throws ServiceUnavailableException when stored credential format is invalid', async () => {
-    (mockPrisma.voiceTranslationSettings.findFirst as jest.Mock).mockResolvedValue({
+    mockFindFirst.mockResolvedValue({
       google_project_id: 'my-project',
       google_location: 'global',
       google_service_account_encrypted: 'invalid-format',
@@ -159,12 +166,11 @@ describe('VoiceTranslationService', () => {
         project_id: 'my-project',
       }),
     });
-    (mockPrisma.voiceTranslationSettings.findFirst as jest.Mock).mockResolvedValue({
+    mockFindFirst.mockResolvedValue({
       google_project_id: seeded.googleProjectId,
       google_location: seeded.googleLocation,
       google_service_account_encrypted:
-        (mockPrisma.voiceTranslationSettings.upsert as jest.Mock).mock.calls[0][0]
-          .update.google_service_account_encrypted,
+        mockUpsert.mock.calls[0][0].update.google_service_account_encrypted,
     });
     mockLongRunningRecognize.mockResolvedValue([
       {

@@ -62,7 +62,7 @@ export function matchEstimateVersionWhereClause(
   const { OR: orBranches, ...scalarParts } = clause;
   const keys = Object.keys(scalarParts).filter(
     (key) =>
-      scalarParts[key as keyof Prisma.WorkshopEstimateVersionWhereInput] !==
+      scalarParts[key as keyof typeof scalarParts] !==
       undefined,
   );
   if (keys.length === 0 && !orBranches) {

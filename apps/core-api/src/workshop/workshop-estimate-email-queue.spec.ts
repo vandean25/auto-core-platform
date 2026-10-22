@@ -5,6 +5,8 @@ import {
   NotificationRecipientKind,
   WorkshopEstimateStatus,
 } from '@prisma/client';
+import type { NotificationOutboxService } from '../notifications/notification-outbox.service.js';
+import { asFake } from '../invoices/invoice-fixtures.spec.support.js';
 import { hashApprovalToken } from './workshop-estimate-approval-token.helpers.js';
 import {
   type EstimateEmailInput,
@@ -58,7 +60,7 @@ describe('workshop estimate email queue (ADR-0025 §6 and §7)', () => {
         .mockResolvedValue({ blocked: false, id: 'outbox-1', created: true }),
     };
 
-    const id = await queueEstimateEmailInTx(tx as never, outbox, INPUT);
+    const id = await queueEstimateEmailInTx(tx as never, asFake<NotificationOutboxService>(outbox), INPUT);
 
     expect(id).toBe('outbox-1');
     const tokenWrite = tx.workshopEstimateApprovalToken.create.mock.calls[0][0]
@@ -99,7 +101,7 @@ describe('workshop estimate email queue (ADR-0025 §6 and §7)', () => {
         .mockResolvedValue({ blocked: false, id: 'outbox-1', created: true }),
     };
 
-    await queueEstimateEmailInTx(tx as never, outbox, {
+    await queueEstimateEmailInTx(tx as never, asFake<NotificationOutboxService>(outbox), {
       ...INPUT,
       customer: {
         ...INPUT.customer,
@@ -114,10 +116,12 @@ describe('workshop estimate email queue (ADR-0025 §6 and §7)', () => {
 
   it('writes nothing when the customer has not confirmed the address', async () => {
     const tx = makeTx();
-    const outbox = { enqueueInTx: jest.fn() };
+    const outbox = {
+      enqueueInTx: jest.fn(),
+    };
 
     await expect(
-      queueEstimateEmailInTx(tx as never, outbox, {
+      queueEstimateEmailInTx(tx as never, asFake<NotificationOutboxService>(outbox), {
         ...INPUT,
         customer: {
           ...INPUT.customer,

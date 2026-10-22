@@ -53,7 +53,7 @@ describe('WorkshopOrdersController', () => {
       page: '2',
       pageSize: '25',
       sortField: 'createdAt',
-      sortDirection: 'desc',
+      sortDirection: 'desc' as const,
     };
     const result = controller.findAll(query);
 

@@ -10,6 +10,8 @@ import { PartsRequisitionService } from '../parts-requisition/parts-requisition.
 import { VEHICLE_IDENTITY_RESET } from '../vehicle/vehicle-identity.util.js';
 import { DomainEventStoreService } from '../domain-event-store/domain-event-store.service.js';
 import { RequestContextService } from '../common/services/request-context.service.js';
+import type { RegisterIntakeDto } from './dto/register-intake.dto.js';
+import { asFake } from '../invoices/invoice-fixtures.spec.support.js';
 import { WorkshopOrderReadyEmailService } from './workshop-order-ready-email.service.js';
 import {
   mockPrisma,
@@ -801,10 +803,12 @@ describe('WorkshopIntakeService', () => {
       customer: { id: 'c-matched' },
     });
 
-    await service.register({
-      email: 'john@example.com',
-      plate: 'PL-1',
-    });
+    await service.register(
+      asFake<RegisterIntakeDto>({
+        email: 'john@example.com',
+        plate: 'PL-1',
+      }),
+    );
 
     expect(mockPrisma.customer.findFirst).toHaveBeenCalledWith({
       where: {
@@ -831,13 +835,15 @@ describe('WorkshopIntakeService', () => {
       customer: { id: 'c-new' },
     });
 
-    await service.register({
-      firstName: 'Alice',
-      lastName: 'Smith',
-      email: 'alice@example.com',
-      phone: '+43123456',
-      plate: 'PL-2',
-    });
+    await service.register(
+      asFake<RegisterIntakeDto>({
+        firstName: 'Alice',
+        lastName: 'Smith',
+        email: 'alice@example.com',
+        phone: '+43123456',
+        plate: 'PL-2',
+      }),
+    );
 
     expect(mockPrisma.customer.create).toHaveBeenCalledWith({
       data: {

@@ -24,7 +24,9 @@ type PrivateInvoiceResponseField =
 
 export function omitInvoiceSnapshot<T extends InvoiceResponseWithPrivateFields>(
   invoice: T,
-): Omit<T, PrivateInvoiceResponseField> {
+): Omit<T, PrivateInvoiceResponseField> & {
+  margin_scheme_legal_note?: string | null;
+} {
   const {
     snapshot: _snapshot,
     legal_entity: _legalEntity,
