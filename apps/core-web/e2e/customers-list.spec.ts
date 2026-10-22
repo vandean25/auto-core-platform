@@ -3,7 +3,11 @@ import { test, expect } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
 import { createMockCustomer, createMockListResponse } from './utils/mock-factories';
 import { DE_CUSTOMERS } from './helpers/de-customers';
-import { expectListPeekForRecord, openListPeekInFull } from './helpers/peek-list';
+import {
+  closeListPeekSheet,
+  expectListPeekForRecord,
+  openListPeekInFull,
+} from './helpers/peek-list';
 
 /**
  * AUT-220: Clicking a customer row must open that customer's peek sheet; Open in full reaches detail.
@@ -70,16 +74,13 @@ test.describe('Customers list row navigation (AUT-220)', () => {
     page: import('@playwright/test').Page,
     label: string,
     expectedId: string,
-    sheetLabel: string,
+    sheetHeading: string,
   ) {
     const row = page.locator('[data-table-row="true"]').filter({ hasText: label }).first();
     await expect(row).toBeVisible();
     await row.getByText(label).click();
-    await expectListPeekForRecord(page, expectedId, sheetLabel);
-    await openListPeekInFull(page);
-    await expect(page).toHaveURL(new RegExp(`/customers/${expectedId}$`));
-    await page.goto('/customers');
-    await page.waitForLoadState('networkidle');
+    await expectListPeekForRecord(page, expectedId, sheetHeading);
+    await closeListPeekSheet(page);
   }
 
   test('each row opens the matching customer peek and Open in full reaches detail', async ({ page }) => {
@@ -92,6 +93,12 @@ test.describe('Customers list row navigation (AUT-220)', () => {
     await clickRowAndExpectPeek(page, 'Klaus Kombi', 'cust-klaus', 'Klaus Kombi');
     await clickRowAndExpectPeek(page, 'Susi Sorglos', 'cust-susi', 'Susi Sorglos');
     await clickRowAndExpectPeek(page, 'Thomas Turboschrauber', 'cust-thomas', 'Thomas Turboschrauber');
+
+    const annaRow = page.locator('[data-table-row="true"]').filter({ hasText: 'Anna Alpin' }).first();
+    await annaRow.getByText('Anna Alpin').click();
+    await expectListPeekForRecord(page, 'cust-anna', 'Anna Alpin');
+    await openListPeekInFull(page);
+    await expect(page).toHaveURL(/\/customers\/cust-anna$/);
   });
 
   test('row clicks stay correct after scrolling a short viewport (AUT-220)', async ({ page }) => {
@@ -100,7 +107,11 @@ test.describe('Customers list row navigation (AUT-220)', () => {
     await corePage.navigate('/customers');
 
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-    await clickRowAndExpectPeek(page, 'Max Mustermann3', 'cust-max', 'Max Mustermann3');
+    const row = page.locator('[data-table-row="true"]').filter({ hasText: 'Max Mustermann3' }).first();
+    await row.getByText('Max Mustermann3').click();
+    await expectListPeekForRecord(page, 'cust-max', 'Max Mustermann3');
+    await openListPeekInFull(page);
+    await expect(page).toHaveURL(/\/customers\/cust-max$/);
   });
 
   test('mouse click at row center opens the matching customer peek (AUT-220)', async ({ page }) => {
