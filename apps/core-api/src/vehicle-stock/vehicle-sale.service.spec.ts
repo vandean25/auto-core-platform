@@ -20,6 +20,8 @@ import { AuditService } from '../audit/audit.service.js';
 import { RequestContextService } from '../common/services/request-context.service.js';
 import { Autoscout24DmsListingPushService } from '../vehicle/listing-export/autoscout24-dms/autoscout24-dms-listing-push.service.js';
 
+const passThrough = <T>(): T => ({}) as T; // pass-through value, not asserted.
+
 describe('VehicleSaleService', () => {
   const tenantId = 'tenant-1';
   const vehicleId = 'vehicle-1';
@@ -156,8 +158,7 @@ describe('VehicleSaleService', () => {
     it('scopes the related vehicle when updating a draft sale', async () => {
       // pass-through: this test asserts the vehicle scope, not findOne's result
       jest.spyOn(service, 'findOne').mockResolvedValue(
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- required by TS 7; TS 6 shim lint disagrees (AUT-676)
-        {} as Awaited<ReturnType<VehicleSaleService['findOne']>>,
+        passThrough<Awaited<ReturnType<VehicleSaleService['findOne']>>>(),
       );
       prisma.vehicleSale.findFirst.mockResolvedValue({
         id: saleId,
@@ -187,8 +188,7 @@ describe('VehicleSaleService', () => {
     it('scopes the related vehicle when correcting an invoiced sale', async () => {
       // pass-through: this test asserts the vehicle scope, not findOne's result
       jest.spyOn(service, 'findOne').mockResolvedValue(
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- required by TS 7; TS 6 shim lint disagrees (AUT-676)
-        {} as Awaited<ReturnType<VehicleSaleService['findOne']>>,
+        passThrough<Awaited<ReturnType<VehicleSaleService['findOne']>>>(),
       );
       prisma.vehicleSale.findFirst.mockResolvedValue({
         id: saleId,
