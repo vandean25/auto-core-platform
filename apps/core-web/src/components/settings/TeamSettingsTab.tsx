@@ -238,9 +238,11 @@ export function TeamSettingsTab() {
         isLoading={isLoading}
         searchPlaceholder={t('team.searchPlaceholder')}
         setPagination={setPagination}
-        onRowClick={(member) => {
-          setSelectedMember(member)
-          setSheetOpen(true)
+        rowBehaviour={{
+          onRowClick: (member) => {
+            setSelectedMember(member)
+            setSheetOpen(true)
+          },
         }}
         {...tableState}
       />

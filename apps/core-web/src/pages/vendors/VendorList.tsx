@@ -92,14 +92,16 @@ export default function VendorList() {
                 isLoading={isLoading}
                 searchColumn="name"
                 searchPlaceholder={t('vendors.list.searchPlaceholder')}
-                onRowClick={(row) => navigate(`/vendors/${row.id}`)}
-                getRowContextActions={(row) => [
+                rowBehaviour={{
+                  onRowClick: (row) => navigate(`/vendors/${row.id}`),
+                  getRowContextActions: (row) => [
                     {
-                        label: t('actions.delete'),
-                        onClick: () => void handleDelete(row.id),
-                        destructive: true,
+                      label: t('actions.delete'),
+                      onClick: () => void handleDelete(row.id),
+                      destructive: true,
                     },
-                ]}
+                  ],
+                }}
                 {...tableState}
             />
 

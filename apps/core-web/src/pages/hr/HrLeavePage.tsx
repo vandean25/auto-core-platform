@@ -296,25 +296,27 @@ export default function HrLeavePage() {
           setSorting={setSorting}
           pagination={pagination}
           setPagination={setPagination}
-          onRowClick={(booking) => {
-            setSelectedBooking(booking)
-            setSheetOpen(true)
+          rowBehaviour={{
+            onRowClick: (booking) => {
+              setSelectedBooking(booking)
+              setSheetOpen(true)
+            },
+            getRowContextActions: (row) =>
+              canCancelBooking(row)
+                ? [
+                    {
+                      label: t('leave.cancel'),
+                      destructive: true,
+                      onClick: () =>
+                        cancelLeave.mutate(row.id, {
+                          onError: (error) => {
+                            toast.error(getErrorMessage(error, t('leave.toast.cancelFailed')))
+                          },
+                        }),
+                    },
+                  ]
+                : [],
           }}
-          getRowContextActions={(row) =>
-            canCancelBooking(row)
-              ? [
-                  {
-                    label: t('leave.cancel'),
-                    destructive: true,
-                    onClick: () => cancelLeave.mutate(row.id, {
-                      onError: (error) => {
-                        toast.error(getErrorMessage(error, t('leave.toast.cancelFailed')))
-                      },
-                    }),
-                  },
-                ]
-              : []
-          }
         />
       </section>
 

@@ -13,10 +13,13 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { StatusBadge } from '@/components/status/StatusBadge'
-import { useWorkshopOrders, workshopOrderDetailQueryOptions } from '@/api/workshop'
+import { useGenerateWorkshopPdf, useWorkshopOrders, workshopOrderDetailQueryOptions } from '@/api/workshop'
 import type { WorkshopOrder } from '@/api/types'
 import { DASHBOARD_WIDGET_SOURCE_WORKSHOP_ORDERS } from '@/features/dashboard-widgets/sources'
 import { getWorkshopCustomerDisplayName } from '@/features/workshop/pick-utils'
+import { useAuth } from '@/auth/AuthProvider'
+import { createWorkshopOrderRowActions } from '@/features/actions/work-order-row-actions'
+import { useRegistryRowBehaviour } from '@/features/actions/use-registry-row-behaviour'
 
 interface WorkshopOrderRow {
   id: string
@@ -31,6 +34,9 @@ export default function WorkshopOrderList() {
   const { t } = useTranslation('workshop')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { claims } = useAuth()
+  const role = claims?.role
+  const generatePdf = useGenerateWorkshopPdf()
   const [createOpen, setCreateOpen] = useState(false)
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
   const { data: responseData, isLoading, isError } = useWorkshopOrders(queryParams)
@@ -53,6 +59,30 @@ export default function WorkshopOrderList() {
     },
     [queryClient],
   )
+
+  const workOrderActionDefinitions = useMemo(() => createWorkshopOrderRowActions(t), [t])
+
+  const tableRowBehaviour = useMemo(
+    () => ({
+      getRowHref: (row: WorkshopOrderRow) => `/workshop/orders/${row.id}`,
+      getRowAccessibleName: (row: WorkshopOrderRow) => t('orders.list.rowAria', { orderNo: row.orderNo }),
+      onRowClick: (row: WorkshopOrderRow) => navigate(`/workshop/orders/${row.id}`),
+      onRowPrefetch: prefetchOrderDetail,
+    }),
+    [navigate, prefetchOrderDetail, t],
+  )
+
+  const runContext = useMemo(
+    () => ({ navigate, generatePdf, t }),
+    [generatePdf, navigate, t],
+  )
+
+  const rowBehaviour = useRegistryRowBehaviour({
+    role,
+    definitions: workOrderActionDefinitions,
+    runContext,
+    tableBehaviour: tableRowBehaviour,
+  })
 
   const columns: ColumnDef<WorkshopOrderRow>[] = [
     {
@@ -136,10 +166,7 @@ export default function WorkshopOrderList() {
                 ),
               }
         }
-        getRowHref={(row) => `/workshop/orders/${row.id}`}
-        getRowAccessibleName={(row) => t('orders.list.rowAria', { orderNo: row.orderNo })}
-        onRowClick={(row) => navigate(`/workshop/orders/${row.id}`)}
-        onRowPrefetch={prefetchOrderDetail}
+        rowBehaviour={rowBehaviour}
         {...tableState}
       />
 

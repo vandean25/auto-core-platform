@@ -144,17 +144,19 @@ export default function VehicleStockList() {
         pageCount={responseData?.meta?.pageCount ?? 1}
         isLoading={isLoading}
         searchPlaceholder={t('stockList.searchPlaceholder')}
-        onRowClick={(row) => navigate(stockRowPath(row))}
-        getRowContextActions={(row) => {
-          const draftPurchaseId = row.draft_purchase_id
-          if (!draftPurchaseId) return []
-          return [
-            {
-              label: t('shared.delete'),
-              onClick: () => void handleDeleteDraft(draftPurchaseId),
-              destructive: true,
-            },
-          ]
+        rowBehaviour={{
+          onRowClick: (row) => navigate(stockRowPath(row)),
+          getRowContextActions: (row) => {
+            const draftPurchaseId = row.draft_purchase_id
+            if (!draftPurchaseId) return []
+            return [
+              {
+                label: t('shared.delete'),
+                onClick: () => void handleDeleteDraft(draftPurchaseId),
+                destructive: true,
+              },
+            ]
+          },
         }}
         {...tableState}
       />

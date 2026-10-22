@@ -48,7 +48,10 @@
       "contact": "Contact",
       "location": "Location"
     },
-    "delete": "Delete"
+    "delete": "Delete",
+    "actions": {
+      "open": "Open customer"
+    }
   },
   "detail": {
     "loading": "Loading customer details...",

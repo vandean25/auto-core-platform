@@ -272,15 +272,17 @@ export function BaySettingsTab() {
         isLoading={isLoading}
         searchPlaceholder={t('bays.searchPlaceholder')}
         setPagination={setPagination}
-        getRowContextActions={(row) => [
-          {
-            label: t('bays.delete'),
-            destructive: true,
-            onClick: () => {
-              void handleDelete(row.id)
+        rowBehaviour={{
+          getRowContextActions: (row) => [
+            {
+              label: t('bays.delete'),
+              destructive: true,
+              onClick: () => {
+                void handleDelete(row.id)
+              },
             },
-          },
-        ]}
+          ],
+        }}
         {...tableState}
       />
 

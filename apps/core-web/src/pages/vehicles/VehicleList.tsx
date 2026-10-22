@@ -12,6 +12,9 @@ import { DASHBOARD_WIDGET_SOURCE_VEHICLES } from '@/features/dashboard-widgets/s
 import { Button } from '@/components/ui/button'
 import { VehicleDialog } from '@/components/vehicles/VehicleDialog'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { useAuth } from '@/auth/AuthProvider'
+import { createVehicleRowActions } from '@/features/actions/vehicle-row-actions'
+import { useRegistryRowBehaviour } from '@/features/actions/use-registry-row-behaviour'
 
 type VehicleRow = {
   id: string
@@ -42,6 +45,8 @@ export default function VehicleList() {
     void ensureNamespaceLoaded('vehicles')
   }, [])
   const navigate = useNavigate()
+  const { claims } = useAuth()
+  const role = claims?.role
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
   const { data: responseData, isLoading } = useVehicles(queryParams)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
@@ -56,6 +61,18 @@ export default function VehicleList() {
       customer: getCustomerLabel(t, vehicle.customer),
     }))
   }, [responseData, t])
+
+  const vehicleActionDefinitions = useMemo(() => createVehicleRowActions(t), [t])
+  const rowBehaviour = useRegistryRowBehaviour({
+    role,
+    definitions: vehicleActionDefinitions,
+    runContext: { navigate, t },
+    tableBehaviour: {
+      getRowHref: (row) => `/vehicles/${row.id}`,
+      getRowAccessibleName: (row) => t('list.rowAria', { vehicle: row.vehicle }),
+      onRowClick: (row) => navigate(`/vehicles/${row.id}`),
+    },
+  })
 
   const columns = useMemo<ColumnDef<VehicleRow>[]>(
     () => [
@@ -131,9 +148,7 @@ export default function VehicleList() {
         pageCount={responseData?.meta?.pageCount ?? 1}
         isLoading={isLoading}
         searchPlaceholder={t('list.searchPlaceholder')}
-        getRowHref={(row) => `/vehicles/${row.id}`}
-        getRowAccessibleName={(row) => t('list.rowAria', { vehicle: row.vehicle })}
-        onRowClick={(row) => navigate(`/vehicles/${row.id}`)}
+        rowBehaviour={rowBehaviour}
         {...tableState}
       />
     </>

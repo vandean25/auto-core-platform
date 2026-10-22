@@ -291,7 +291,7 @@ export function AuditLogsTab() {
         isLoading={isLoading}
         searchPlaceholder={t('auditLogs.searchPlaceholder')}
         setPagination={setPagination}
-        onRowClick={handleRowClick}
+        rowBehaviour={{ onRowClick: handleRowClick }}
         {...tableState}
       />
 

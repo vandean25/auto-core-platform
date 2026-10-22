@@ -348,10 +348,11 @@ export default function LoanerVehiclesPage() {
         pageCount={1}
         pageSizeOptions={[]}
         searchPlaceholder={t('loaner.searchPlaceholder')}
-        getRowAccessibleName={(row) => t('loaner.rowAria', { name: row.displayName })}
-        onRowClick={(row) =>
-          setSelectedVehicleId((current) => (current === row.id ? null : row.id))
-        }
+        rowBehaviour={{
+          getRowAccessibleName: (row) => t('loaner.rowAria', { name: row.displayName }),
+          onRowClick: (row) =>
+            setSelectedVehicleId((current) => (current === row.id ? null : row.id)),
+        }}
         {...tableState}
       />
 

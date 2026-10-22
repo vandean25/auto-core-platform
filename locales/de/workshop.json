@@ -344,6 +344,11 @@
       "saveViewTitle": "Werkstattaufträge",
       "searchPlaceholder": "Werkstattaufträge suchen…",
       "rowAria": "Werkstattauftrag {{orderNo}}",
+      "actions": {
+        "open": "Auftrag öffnen",
+        "checkIn": "Fahrzeugannahme",
+        "jobCardPdf": "Werkstattkarte als PDF"
+      },
       "columns": {
         "orderNo": "Auftragsnr.",
         "customer": "Kunde",

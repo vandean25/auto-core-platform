@@ -142,18 +142,19 @@ export default function PurchaseBillsPage() {
                 dashboardSource={DASHBOARD_WIDGET_SOURCE_PURCHASE_BILLS}
                 isLoading={isLoading}
                 pageCount={pageCount}
-                onRowClick={handleRowClick}
-                getRowContextActions={(row) =>
+                rowBehaviour={{
+                  onRowClick: handleRowClick,
+                  getRowContextActions: (row) =>
                     row.status === 'DRAFT'
-                        ? [
-                              {
-                                  label: t('actions.delete'),
-                                  onClick: () => void handleDelete(row.id),
-                                  destructive: true,
-                              },
-                          ]
-                        : []
-                }
+                      ? [
+                          {
+                            label: t('actions.delete'),
+                            onClick: () => void handleDelete(row.id),
+                            destructive: true,
+                          },
+                        ]
+                      : [],
+                }}
                 {...tableState}
             />
         </>

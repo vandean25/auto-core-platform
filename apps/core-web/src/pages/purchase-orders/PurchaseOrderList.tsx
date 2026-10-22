@@ -96,18 +96,19 @@ export default function PurchaseOrderList() {
                 isLoading={isLoading}
                 searchColumn="order_number"
                 searchPlaceholder={t('purchaseOrders.list.searchPlaceholder')}
-                onRowClick={(row) => navigate(`/purchase-orders/${row.id}`)}
-                getRowContextActions={(row) =>
+                rowBehaviour={{
+                  onRowClick: (row) => navigate(`/purchase-orders/${row.id}`),
+                  getRowContextActions: (row) =>
                     row.status === 'DRAFT'
-                        ? [
-                              {
-                                  label: t('actions.delete'),
-                                  onClick: () => void handleDelete(row.id),
-                                  destructive: true,
-                              },
-                          ]
-                        : []
-                }
+                      ? [
+                          {
+                            label: t('actions.delete'),
+                            onClick: () => void handleDelete(row.id),
+                            destructive: true,
+                          },
+                        ]
+                      : [],
+                }}
                 {...tableState}
             />
         </>

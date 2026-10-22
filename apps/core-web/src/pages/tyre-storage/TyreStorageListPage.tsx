@@ -292,7 +292,9 @@ export default function TyreStorageListPage() {
         columns={columns}
         data={rows}
         isLoading={isLoading}
-        onRowClick={(row) => navigate(APP_ROUTE_PATHS.tyreStorageDetail.replace(':id', row.id))}
+        rowBehaviour={{
+          onRowClick: (row) => navigate(APP_ROUTE_PATHS.tyreStorageDetail.replace(':id', row.id)),
+        }}
         {...tableState}
         pageCount={viewMode === 'due' ? 1 : listData?.meta?.pageCount}
         pageSizeOptions={viewMode === 'due' ? [] : undefined}

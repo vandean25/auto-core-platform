@@ -48,7 +48,10 @@
       "contact": "Kontakt",
       "location": "Standort"
     },
-    "delete": "Löschen"
+    "delete": "Löschen",
+    "actions": {
+      "open": "Kunde öffnen"
+    }
   },
   "detail": {
     "loading": "Kundendetails werden geladen…",

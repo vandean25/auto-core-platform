@@ -109,9 +109,9 @@ export default function CreditNotesPage() {
         data={data}
         pageCount={pageCount}
         isLoading={isLoading}
-        onRowClick={(row) =>
-          navigate(APP_ROUTE_PATHS.creditNoteDetail.replace(':id', row.id))
-        }
+        rowBehaviour={{
+          onRowClick: (row) => navigate(APP_ROUTE_PATHS.creditNoteDetail.replace(':id', row.id)),
+        }}
         {...tableState}
       />
     </>

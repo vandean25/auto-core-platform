@@ -254,7 +254,7 @@ describe('DataTable action bar', () => {
 
   it('does not open the row when the padding around a checkbox is clicked', () => {
     const onRowClick = vi.fn()
-    render(<Harness bulkActions={bulkActions} onRowClick={onRowClick} />)
+    render(<Harness bulkActions={bulkActions} rowBehaviour={{ onRowClick }} />)
 
     fireEvent.click(screen.getAllByRole('checkbox', { name: dt.selectRow })[0].closest('td')!)
 
@@ -263,7 +263,7 @@ describe('DataTable action bar', () => {
 
   it('does not trigger onRowClick when a row checkbox is clicked', () => {
     const onRowClick = vi.fn()
-    render(<Harness bulkActions={bulkActions} onRowClick={onRowClick} />)
+    render(<Harness bulkActions={bulkActions} rowBehaviour={{ onRowClick }} />)
 
     fireEvent.click(screen.getAllByRole('checkbox', { name: dt.selectRow })[0])
 

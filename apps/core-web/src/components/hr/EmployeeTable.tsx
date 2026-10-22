@@ -568,21 +568,23 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
         isLoading={isLoading}
         searchPlaceholder={t('employees.searchPlaceholder')}
         setPagination={setPagination}
-        onRowClick={(employee) => {
-          setSelectedEmployee(employee)
-          setCarryoverMinutes(String(employee.carryoverMinutes))
-          setSheetAllowanceDays('')
-          setSheetOpen(true)
-        }}
-        getRowContextActions={(row) => [
-          {
-            label: t('employees.delete'),
-            destructive: true,
-            onClick: () => {
-              void handleDelete(row.id)
-            },
+        rowBehaviour={{
+          onRowClick: (employee) => {
+            setSelectedEmployee(employee)
+            setCarryoverMinutes(String(employee.carryoverMinutes))
+            setSheetAllowanceDays('')
+            setSheetOpen(true)
           },
-        ]}
+          getRowContextActions: (row) => [
+            {
+              label: t('employees.delete'),
+              destructive: true,
+              onClick: () => {
+                void handleDelete(row.id)
+              },
+            },
+          ],
+        }}
         {...tableState}
       />
 

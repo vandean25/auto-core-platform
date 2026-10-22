@@ -14,6 +14,9 @@
     "searchPlaceholder": "Search vehicles...",
     "saveViewTitle": "Vehicles",
     "rowAria": "Vehicle {{vehicle}}",
+    "actions": {
+      "open": "Open vehicle"
+    },
     "columns": {
       "makeModel": "Make & Model",
       "year": "Year",
