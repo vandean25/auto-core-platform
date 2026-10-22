@@ -12,6 +12,7 @@ import {
 import { AppModule } from '../src/app.module.js';
 import { createGlobalValidationPipe } from '../src/common/index.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import { enableLegacyMigrationPurgeFlag } from '../src/prisma/fixtures/legacy-migration-purge-flag.js';
 import {
   cleanupTestTenantGraph,
   createTestTenant,
@@ -143,6 +144,20 @@ describe('legacy migration schema M2 (e2e)', () => {
     await cleanupTestTenantGraph(prisma, tenantAId);
     await cleanupTestTenantGraph(prisma, tenantBId);
     await teardownTestApp(app);
+  });
+
+  it('sets transaction-local acp.allow_purge on a real Prisma transaction client', async () => {
+    await prisma.$transaction(async (tx) => {
+      await enableLegacyMigrationPurgeFlag(tx);
+      const queryRaw = tx['$queryRaw'].bind(tx) as (
+        query: TemplateStringsArray,
+        ...values: unknown[]
+      ) => Promise<Array<{ value: string | null }>>;
+      const rows = await queryRaw`
+        SELECT current_setting('acp.allow_purge', true) AS value
+      `;
+      expect(rows[0]?.value).toBe('on');
+    });
   });
 
   it('blocks update of protected legacy document fields', async () => {
