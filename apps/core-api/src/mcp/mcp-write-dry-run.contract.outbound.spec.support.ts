@@ -79,7 +79,7 @@ export function installOutboundSideEffectSpies(): OutboundSideEffectSpies {
 
   const cloudTasksSpy = jest
     .spyOn(CloudTasksService.prototype, 'enqueuePdfGeneration')
-    .mockResolvedValue('task-1');
+    .mockResolvedValue({ taskId: 'task-1' });
   const gcsSpy = jest
     .spyOn(MechanicMediaStorage.prototype, 'generateUploadPolicy')
     .mockRejectedValue(new Error('GCS signing must not run during dry_run tests'));

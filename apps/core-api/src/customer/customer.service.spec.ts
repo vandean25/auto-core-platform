@@ -178,11 +178,11 @@ describe('CustomerService', () => {
 
     expect(vehicle.location_id ?? null).toBeNull();
     expect(vehicle.site_id ?? null).toBeNull();
-    expect(vehicle.location ?? null).toBeNull();
+    expect(vehicle).toMatchObject({ location: null });
     expect(vehicle.stock_status ?? null).toBeNull();
     expect(vehicle.inventory_role ?? null).toBeNull();
     expect(vehicle.reserved_for_customer_id ?? null).toBeNull();
-    expect(vehicle.reserved_for_customer ?? null).toBeNull();
+    expect(vehicle).toMatchObject({ reserved_for_customer: null });
   });
 
   it('scopes customer detail histories and counts to authorized sites', async () => {

@@ -21,6 +21,7 @@ import { WorkshopMediaUploadMcpService } from '../mechanic/workshop-media-upload
 import { WeeklyReportMcpService } from '../reports/weekly-report/weekly-report-mcp.service.js';
 import { McpWriteCommandIdempotencyService } from './mcp-write-command-idempotency.service.js';
 import { McpWritePipelineService } from './mcp-write-pipeline.service.js';
+import type { McpWriteToolResult } from './mcp-write-pipeline.types.js';
 
 const CONTRACT_CUSTOMER = {
   id: '00000000-0000-4000-8000-000000000040',
@@ -54,15 +55,14 @@ export type PipelineDryRunFixture = {  service: McpWritePipelineService;
     'beginOrReplay' | 'completeInTransaction' | 'abandon'
   >;
   txAgentProposalCreate: jest.Mock;
-  mockWorkshopMediaUploadMcp: {
-    createUploadSlot: jest.Mock;
-    previewUploadSlot: jest.Mock;
-  };
-  mockWeeklyReportMcp: {
-    preview: jest.Mock;
-    execute: jest.Mock;
-    refreshReplayResult: jest.Mock;
-  };
+  mockWorkshopMediaUploadMcp: Pick<
+    WorkshopMediaUploadMcpService,
+    'createUploadSlot' | 'previewUploadSlot'
+  >;
+  mockWeeklyReportMcp: Pick<
+    WeeklyReportMcpService,
+    'preview' | 'execute' | 'refreshReplayResult'
+  >;
   mockContext: { agentId: string; onBehalfOfUserId: string };
   executorPrisma: Record<string, unknown>;
   realAdapterSpies: import('./mcp-write-dry-run.contract.adapters.spec.support.js').AdapterLowLevelSpies | null;
@@ -136,7 +136,7 @@ export async function createPipelineDryRunFixture(options?: {
           },
         }),
         execute: jest.fn(),
-        refreshReplayResult: jest.fn((result: unknown) =>
+        refreshReplayResult: jest.fn((result: McpWriteToolResult) =>
           Promise.resolve(result),
         ),
       };

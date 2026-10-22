@@ -18,6 +18,7 @@ import { WorkshopEstimateSendProposeService } from '../workshop/workshop-estimat
 import { MechanicFindingProposeService } from '../mechanic/mechanic-finding-propose.service.js';
 import type { McpWriteExecution, McpWriteToolContext } from './mcp-write-pipeline.service.js';
 import { mcpWritePipelineMediaWeeklyTestProviders } from './mcp-write-weekly-report-pipeline.spec.support.js';
+import { expectCommitted } from './mcp-write-pipeline.spec.support.js';
 import { toMcpJsonObject } from './mcp-output.util.js';
 import { mcpToolOutputSchemas } from './mcp-tool-output-schemas.js';
 
@@ -184,6 +185,7 @@ describe('McpWritePipelineService', () => {
       mockAgentActionLog.record.mockResolvedValue({ traceId: 'trace-123' } as any);
 
       const result = await service.run(execution, input, mockContext);
+      expectCommitted(result);
 
       expect(mockAgentPolicy.evaluateAction).toHaveBeenCalledWith('workshop_order.propose_line', {});
       expect(result.tier).toBe(AgentPolicyTier.PROPOSE);
@@ -253,6 +255,7 @@ describe('McpWritePipelineService', () => {
       );
 
       const result = await service.run(execution, input, mockContext);
+      expectCommitted(result);
 
       expect(result.tier).toBe(AgentPolicyTier.AUTO);
       expect(result.status).toBe('executed');
@@ -321,6 +324,7 @@ describe('McpWritePipelineService', () => {
       );
 
       const result = await service.run(execution, input, mockContext);
+      expectCommitted(result);
 
       expect(result.tier).toBe(AgentPolicyTier.AUTO);
       expect(result.status).toBe('executed');
@@ -425,7 +429,7 @@ describe('McpWritePipelineService', () => {
       mockAgentPolicy.evaluateAction.mockResolvedValue(createMockEvaluation(AgentPolicyTier.PROPOSE));
       mockDryRun.executeInRollbackTransaction.mockImplementation(async (fn) => ({
         result: await fn(),
-        wouldChange: [{ type: 'create', entity: 'WorkshopOrder', entity_id: 'created-id' }],
+        wouldChange: [{ op: 'create', entity: 'WorkshopOrder', id: 'created-id', provisional: true }],
       }));
       mockAgentActionLog.recordInTransaction.mockResolvedValue({
         traceId,
@@ -433,12 +437,13 @@ describe('McpWritePipelineService', () => {
       } as any);
 
       const result = await service.run(execution, input, mockContext);
+      expectCommitted(result);
 
       expect(result.tier).toBe(AgentPolicyTier.PROPOSE);
       expect(result.status).toBe('needs_approval');
       expect(result.proposal).toEqual({
         payload: input,
-        would_change: [{ type: 'create', entity: 'WorkshopOrder', entity_id: 'created-id' }],
+        would_change: [{ op: 'create', entity: 'WorkshopOrder', id: 'created-id', provisional: true }],
         preview: { id: 'created-id' },
         provisional: true,
       });
@@ -549,6 +554,7 @@ describe('McpWritePipelineService', () => {
         { customer_id: 'cust-1', vehicle_id: 'veh-1' },
         mockContext,
       );
+      expectCommitted(result);
 
       expect(result.status).toBe('executed');
       expectOutputMatchesSchema('draft_workshop_order', result);
@@ -568,6 +574,7 @@ describe('McpWritePipelineService', () => {
         { workshop_order_id: 'order-1', workshop_task_id: 'task-1' },
         mockContext,
       );
+      expectCommitted(result);
 
       expect(result.tier).toBe(AgentPolicyTier.PROPOSE);
       expect(result.status).toBe('needs_approval');

@@ -26,10 +26,10 @@ describe('MCP registered tool input schemas', () => {
 
   it('gives every write tool a dry_run argument', () => {
     for (const toolName of MCP_WRITE_TOOL_NAMES) {
-      const schema = MCP_REGISTERED_TOOL_INPUT_SCHEMAS[toolName] as {
-        shape: Record<string, unknown>;
-      };
-      expect(Object.keys(schema.shape)).toContain('dry_run');
+      expect(MCP_REGISTERED_TOOL_INPUT_SCHEMAS[toolName]).toHaveProperty([
+        'shape',
+        'dry_run',
+      ]);
     }
   });
 });

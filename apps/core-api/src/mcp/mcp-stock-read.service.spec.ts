@@ -118,6 +118,7 @@ describe('McpStockReadService AUT-428 stock ids', () => {
     );
 
     const result = await service.searchParts({ query: 'filter' });
+    if (!('data' in result)) throw new Error('expected a data result');
 
     expect(result.data[0]).toMatchObject({
       catalog_item_id: CATALOG_ITEM,
@@ -242,6 +243,7 @@ describe('McpStockReadService AUT-428 stock ids', () => {
       query: 'filter',
       workshop_order_id: WORKSHOP_ORDER,
     });
+    if (!('parts' in result)) throw new Error('expected a parts result');
 
     expect(catalogService.search).toHaveBeenCalledWith('filter', WORKSHOP_ORDER);
     expect(result.parts[0]).toMatchObject({
@@ -283,6 +285,7 @@ describe('McpStockReadService AUT-428 stock ids', () => {
       query: 'filter',
       workshop_order_id: WORKSHOP_ORDER,
     });
+    if (!('parts' in result)) throw new Error('expected a parts result');
 
     expect(result.parts).toEqual([]);
     expect(prisma.catalogItem.findMany).not.toHaveBeenCalled();

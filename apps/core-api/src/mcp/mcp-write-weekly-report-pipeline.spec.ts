@@ -22,6 +22,8 @@ import { MechanicFindingProposeService } from '../mechanic/mechanic-finding-prop
 import { mcpToolOutputSchemas } from './mcp-tool-output-schemas.js';
 import { toMcpJsonObject } from './mcp-output.util.js';
 import { WeeklyReportPdfService } from '../reports/weekly-report/weekly-report-pdf.service.js';
+import { generateWeeklyReportPdfInputSchema } from '../reports/weekly-report/weekly-report-mcp.schema.js';
+import { expectCommitted } from './mcp-write-pipeline.spec.support.js';
 
 describe('McpWritePipelineService generate_weekly_report_pdf', () => {
   let service: McpWritePipelineService;
@@ -57,8 +59,10 @@ describe('McpWritePipelineService generate_weekly_report_pdf', () => {
     toolName: 'generate_weekly_report_pdf',
     policyActionType: 'report.generate_weekly_pdf',
     buildPolicyContext: () => Promise.resolve({}),
-    preview: (input) => weeklyReportPdf.preview(input),
-    execute: (input) => weeklyReportPdf.execute(input),
+    preview: (input) =>
+      weeklyReportPdf.preview(generateWeeklyReportPdfInputSchema.parse(input)),
+    execute: (input) =>
+      weeklyReportPdf.execute(generateWeeklyReportPdfInputSchema.parse(input)),
     executeOutsideTransaction: true,
     buildResultSummary: (result) => result,
   });
@@ -199,6 +203,7 @@ describe('McpWritePipelineService generate_weekly_report_pdf', () => {
       { iso_week: '2026-W42' },
       mockContext,
     );
+    expectCommitted(result);
 
     expect(mockDryRun.executeInRollbackTransaction).not.toHaveBeenCalled();
     expect(rateLimit.assertAllowed).toHaveBeenCalledTimes(1);

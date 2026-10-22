@@ -1,8 +1,4 @@
-import {
-  WorkshopOrderStatus,
-  WorkshopPartLineExecutionStatus,
-  WorkshopTaskStatus,
-} from '@prisma/client';
+import { WorkshopOrderStatus, WorkshopTaskStatus } from '@prisma/client';
 import { CloudTasksService } from '../common/services/cloud-tasks.service.js';
 import { MechanicMediaStorage } from '../mechanic/mechanic-media.storage.js';
 import { WorkshopMediaUploadMcpService } from '../mechanic/workshop-media-upload-mcp.service.js';
@@ -142,7 +138,7 @@ export function buildRealAdapterServices(): RealAdapterServices {
                 description: 'Labor',
                 quantity: 1,
                 unit_price: 50,
-                part_execution_status: WorkshopPartLineExecutionStatus.OPEN,
+                part_execution_status: null,
               },
             ],
           },
