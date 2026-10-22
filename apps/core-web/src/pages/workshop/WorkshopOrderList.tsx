@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { formatDate } from '@/lib/format'
 import { Button } from '@/components/ui/button'
@@ -11,7 +12,7 @@ import { DataTable } from '@/components/data-table/DataTable'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { StatusBadge } from '@/components/status/StatusBadge'
-import { useWorkshopOrders } from '@/api/workshop'
+import { useWorkshopOrders, workshopOrderDetailQueryOptions } from '@/api/workshop'
 import type { WorkshopOrder } from '@/api/types'
 import { DASHBOARD_WIDGET_SOURCE_WORKSHOP_ORDERS } from '@/features/dashboard-widgets/sources'
 import { getWorkshopCustomerDisplayName } from '@/features/workshop/pick-utils'
@@ -28,6 +29,7 @@ interface WorkshopOrderRow {
 export default function WorkshopOrderList() {
   const { t } = useTranslation('workshop')
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [createOpen, setCreateOpen] = useState(false)
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
   const { data: responseData, isLoading } = useWorkshopOrders(queryParams)
@@ -43,6 +45,13 @@ export default function WorkshopOrderList() {
       status: order.status,
     }))
   }, [responseData])
+
+  const prefetchOrderDetail = useCallback(
+    (row: WorkshopOrderRow) => {
+      void queryClient.prefetchQuery(workshopOrderDetailQueryOptions(row.id))
+    },
+    [queryClient],
+  )
 
   const columns: ColumnDef<WorkshopOrderRow>[] = [
     {
@@ -116,6 +125,7 @@ export default function WorkshopOrderList() {
         getRowHref={(row) => `/workshop/orders/${row.id}`}
         getRowAccessibleName={(row) => t('orders.list.rowAria', { orderNo: row.orderNo })}
         onRowClick={(row) => navigate(`/workshop/orders/${row.id}`)}
+        onRowPrefetch={prefetchOrderDetail}
         {...tableState}
       />
 

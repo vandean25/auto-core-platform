@@ -1,14 +1,12 @@
 import { useTranslation } from 'react-i18next'
-import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { useAssignBoard, useWorkshopResources, workshopKeys } from '@/api/workshop'
+import { useAssignBoard, useWorkshopResources } from '@/api/workshop'
 import type { WorkshopOrder } from '@/api/types'
 import { getErrorMessage } from '../utils/error'
 
 /** Assigned technician and bay of an order, and the optimistic technician assignment (rolled back when it fails). */
 export function useWorkshopTechAssignment(order: WorkshopOrder) {
   const { t } = useTranslation('workshop')
-  const queryClient = useQueryClient()
   const assignBoard = useAssignBoard()
   const workshopResourcesQuery = useWorkshopResources()
   const workshopResources = workshopResourcesQuery?.data
@@ -31,16 +29,6 @@ export function useWorkshopTechAssignment(order: WorkshopOrder) {
     if (!canAssignTech) return
     if (mechanicId === assignedTechId) return
 
-    const previousOrder = queryClient.getQueryData<WorkshopOrder>(
-      workshopKeys.detail(order.id),
-    )
-
-    queryClient.setQueryData<WorkshopOrder>(workshopKeys.detail(order.id), {
-      ...order,
-      mechanicId,
-      mechanic_id: mechanicId,
-    })
-
     try {
       await assignBoard.mutateAsync({ orderId: order.id, mechanicId })
       toast.success(
@@ -49,9 +37,6 @@ export function useWorkshopTechAssignment(order: WorkshopOrder) {
           : t('orderDetail.toast.technicianUnassigned'),
       )
     } catch (error: unknown) {
-      if (previousOrder) {
-        queryClient.setQueryData(workshopKeys.detail(order.id), previousOrder)
-      }
       toast.error(getErrorMessage(error, t('orderDetail.toast.technicianAssignFailed')))
     }
   }

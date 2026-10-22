@@ -1,9 +1,17 @@
 import { hashKey } from '@tanstack/react-query'
 import type { Mutation, MutationFunctionContext, QueryKey } from '@tanstack/react-query'
 
+export type QueryKeyResolver<TVariables> = QueryKey | ((variables: TVariables) => QueryKey)
+
+export type ExtraOptimisticCache<TVariables> = {
+  queryKey: (variables: TVariables) => QueryKey
+  apply: (cache: unknown, variables: TVariables) => unknown
+  revert: (cache: unknown, variables: TVariables, snapshot: unknown) => unknown
+}
+
 type OptimisticMutationConfig<TCache, TVariables> = {
   /** Query whose cached data the mutation patches optimistically. */
-  queryKey: QueryKey
+  queryKey: QueryKeyResolver<TVariables>
   /**
    * Must start with `queryKey` (e.g. `[...queryKey, 'assign']`): pending mutations are looked up by `queryKey`,
    * and `RealtimeDashboardSyncProvider` defers echo refetches of every query key that prefixes a pending mutation key.
@@ -19,9 +27,27 @@ type OptimisticMutationConfig<TCache, TVariables> = {
    * failure never clobbers another entity.
    */
   revert: (cache: TCache, variables: TVariables, snapshot: TCache) => TCache
+  /** Optional extra caches patched in the same mutation (e.g. order detail while assigning the board). */
+  extraCaches?: ExtraOptimisticCache<TVariables>[]
+  /** When false, skips cancel/snapshot/apply (mutation still uses scope and settle invalidation). */
+  shouldOptimistic?: (variables: TVariables) => boolean
 }
 
-type OptimisticContext<TCache> = { snapshot: TCache | undefined }
+type ExtraSnapshot = { queryKey: QueryKey; snapshot: unknown }
+
+type OptimisticContext<TCache> = {
+  snapshot: TCache | undefined
+  resolvedQueryKey: QueryKey
+  extraSnapshots: ExtraSnapshot[]
+  skipped?: boolean
+}
+
+function resolveQueryKey<TVariables>(
+  key: QueryKeyResolver<TVariables>,
+  variables: TVariables,
+): QueryKey {
+  return typeof key === 'function' ? key(variables) : key
+}
 
 /**
  * Socket-echo-safe optimistic update for `useMutation`. Spread the result next to `mutationFn`:
@@ -61,6 +87,8 @@ export function optimisticMutationOptions<TCache, TVariables>({
   entityId,
   apply,
   revert,
+  extraCaches,
+  shouldOptimistic,
 }: OptimisticMutationConfig<TCache, TVariables>) {
   return {
     mutationKey,
@@ -69,10 +97,34 @@ export function optimisticMutationOptions<TCache, TVariables>({
       variables: TVariables,
       { client }: MutationFunctionContext,
     ) => {
-      await client.cancelQueries({ queryKey })
-      const snapshot = client.getQueryData<TCache>(queryKey)
-      client.setQueryData<TCache>(queryKey, (cache) => (cache === undefined ? cache : apply(cache, variables)))
-      return { snapshot }
+      const resolvedQueryKey = resolveQueryKey(queryKey, variables)
+      if (shouldOptimistic && !shouldOptimistic(variables)) {
+        return {
+          snapshot: undefined,
+          resolvedQueryKey,
+          extraSnapshots: [],
+          skipped: true,
+        } satisfies OptimisticContext<TCache>
+      }
+
+      await client.cancelQueries({ queryKey: resolvedQueryKey })
+      const snapshot = client.getQueryData<TCache>(resolvedQueryKey)
+      client.setQueryData<TCache>(resolvedQueryKey, (cache) =>
+        cache === undefined ? cache : apply(cache, variables),
+      )
+
+      const extraSnapshots: ExtraSnapshot[] = []
+      for (const extra of extraCaches ?? []) {
+        const extraKey = extra.queryKey(variables)
+        await client.cancelQueries({ queryKey: extraKey })
+        const extraSnapshot = client.getQueryData(extraKey)
+        extraSnapshots.push({ queryKey: extraKey, snapshot: extraSnapshot })
+        client.setQueryData(extraKey, (cache) =>
+          cache === undefined ? cache : extra.apply(cache, variables),
+        )
+      }
+
+      return { snapshot, resolvedQueryKey, extraSnapshots } satisfies OptimisticContext<TCache>
     },
     onError: (
       _error: unknown,
@@ -80,27 +132,41 @@ export function optimisticMutationOptions<TCache, TVariables>({
       context: OptimisticContext<TCache> | undefined,
       { client }: MutationFunctionContext,
     ) => {
-      const snapshot = context?.snapshot
+      if (!context || context.skipped) return
+      const snapshot = context.snapshot
       if (snapshot === undefined) return
-      // Scope runs mutations in order, so any other pending one of this entity is newer; this one is still counted.
       const id = entityId(variables)
       const sameEntity = (mutation: Mutation) => entityId(mutation.state.variables as TVariables) === id
       if (client.isMutating({ mutationKey, exact: true, predicate: sameEntity }) > 1) return
-      client.setQueryData<TCache>(queryKey, (cache) =>
+
+      client.setQueryData<TCache>(context.resolvedQueryKey, (cache) =>
         cache === undefined ? cache : revert(cache, variables, snapshot),
       )
+
+      for (const [index, { queryKey: extraKey, snapshot: extraSnapshot }] of context.extraSnapshots.entries()) {
+        const extra = extraCaches?.[index]
+        if (!extra || extraSnapshot === undefined) continue
+        client.setQueryData(extraKey, (cache) =>
+          cache === undefined ? cache : extra.revert(cache, variables, extraSnapshot),
+        )
+      }
     },
     onSettled: (
       _data: unknown,
       _error: unknown,
-      _variables: TVariables,
-      _context: OptimisticContext<TCache> | undefined,
+      variables: TVariables,
+      context: OptimisticContext<TCache> | undefined,
       { client }: MutationFunctionContext,
     ) => {
-      // This mutation is still pending here; a newer one (of any mutation under `queryKey`) owns the cache until it settles too.
-      if (client.isMutating({ mutationKey: queryKey }) > 1) return
-      // Not returned: awaiting the refetch would keep this mutation pending and hold up the next one in scope.
-      void client.invalidateQueries({ queryKey })
+      if (context?.skipped) return
+      const resolvedQueryKey = context?.resolvedQueryKey ?? resolveQueryKey(queryKey, variables)
+      if (client.isMutating({ mutationKey: resolvedQueryKey }) > 1) return
+      void client.invalidateQueries({ queryKey: resolvedQueryKey })
+
+      for (const { queryKey: extraKey } of context?.extraSnapshots ?? []) {
+        if (client.isMutating({ mutationKey: resolvedQueryKey }) > 1) return
+        void client.invalidateQueries({ queryKey: extraKey })
+      }
     },
   }
 }

@@ -74,7 +74,7 @@ export function DiagnosticsSection({
           <div className="mt-4 flex justify-end">
             <Button
               type="button"
-              size="sm"
+              className="min-h-11"
               disabled={!canSubmitFinding || submitFindingPending}
               onClick={onSubmitFinding}
             >

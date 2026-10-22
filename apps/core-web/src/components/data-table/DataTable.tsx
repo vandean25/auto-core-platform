@@ -134,6 +134,8 @@ interface DataTableProps<TData extends object> {
   searchPlaceholder?: string
   emptyStateMessage?: string
   onRowClick?: (row: TData) => void
+  /** Prefetch row detail on pointer enter or keyboard focus (not touch scroll). */
+  onRowPrefetch?: (row: TData) => void
   getRowHref?: (row: TData) => string | undefined
   getRowAccessibleName?: (row: TData) => string
   getRowContextActions?: (row: TData) => DataTableRowContextAction<TData>[]
@@ -162,6 +164,7 @@ export function DataTable<TData extends object>({
   searchPlaceholder,
   emptyStateMessage,
   onRowClick,
+  onRowPrefetch,
   getRowHref,
   getRowAccessibleName,
   getRowContextActions,
@@ -308,6 +311,8 @@ export function DataTable<TData extends object>({
                   data-row-id={rowId}
                   data-state={row.getIsSelected() && "selected"}
                   onClick={(event) => handleRowClick(event, data, rowData, onRowClick)}
+                  onPointerEnter={() => onRowPrefetch?.(rowData)}
+                  onFocus={() => onRowPrefetch?.(rowData)}
                   onContextMenu={(event) => {
                     event.preventDefault()
                     openRowContextMenu(

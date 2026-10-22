@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { optimisticMutationOptions } from "@/lib/optimistic-mutation";
 import type { components } from "./generated/openapi";
 import { fetchWithAuth } from "./client";
 import { createHttpError } from "@/lib/error-utils";
@@ -56,6 +57,58 @@ export const mechanicQueueKeys = {
   taskChecklist: (taskId: string) =>
     [...mechanicQueueKeys.all, "task", taskId, "checklist"] as const,
 };
+
+type MechanicTaskStatus = MechanicQueueItem["taskStatus"];
+
+const mechanicQueueLifecycleMutationKey = [
+  ...mechanicQueueKeys.queue(),
+  "lifecycle",
+] as const;
+
+function patchMechanicQueueStatus(
+  response: MechanicQueueResponse,
+  taskId: string,
+  taskStatus: MechanicTaskStatus,
+): MechanicQueueResponse {
+  return {
+    ...response,
+    data: response.data.map((item) =>
+      item.taskId === taskId ? { ...item, taskStatus } : item,
+    ),
+  };
+}
+
+function patchMechanicTaskDetailStatus(
+  detail: MechanicTaskDetail,
+  taskStatus: MechanicTaskStatus,
+): MechanicTaskDetail {
+  return { ...detail, taskStatus };
+}
+
+function pauseReasonToTaskStatus(
+  reason: PauseTaskPayload["pauseReason"],
+): MechanicTaskStatus {
+  if (reason === "WAITING_PARTS") return "WAITING_PARTS";
+  if (reason === "WAITING_CUSTOMER") return "WAITING_CUSTOMER";
+  return "PAUSED";
+}
+
+function mechanicTaskDetailExtraCache<TVariables extends { taskId: string }>(
+  resolveStatus: (variables: TVariables) => MechanicTaskStatus,
+) {
+  return {
+    queryKey: ({ taskId }: TVariables) => mechanicQueueKeys.taskDetail(taskId),
+    apply: (cache: unknown, variables: TVariables) =>
+      cache === undefined
+        ? cache
+        : patchMechanicTaskDetailStatus(
+            cache as MechanicTaskDetail,
+            resolveStatus(variables),
+          ),
+    revert: (_cache: unknown, _variables: unknown, snapshot: unknown) =>
+      snapshot ?? _cache,
+  };
+}
 
 export function useMechanicTaskChecklist(taskId: string) {
   return useQuery<MechanicTaskChecklist>({
@@ -139,8 +192,10 @@ export function useMechanicQueue() {
   });
 }
 
-export function useMechanicTaskDetail(taskId: string) {
-  return useQuery<MechanicTaskDetail>({
+export const MECHANIC_TASK_DETAIL_STALE_MS = 30_000;
+
+export function mechanicTaskDetailQueryOptions(taskId: string) {
+  return {
     queryKey: mechanicQueueKeys.taskDetail(taskId),
     queryFn: async () => {
       const response = await fetchWithAuth(
@@ -153,13 +208,38 @@ export function useMechanicTaskDetail(taskId: string) {
       }
       return response.json() as Promise<MechanicTaskDetail>;
     },
+    staleTime: MECHANIC_TASK_DETAIL_STALE_MS,
+  };
+}
+
+export function useMechanicTaskDetail(taskId: string) {
+  return useQuery<MechanicTaskDetail>({
+    ...mechanicTaskDetailQueryOptions(taskId),
     enabled: !!taskId,
   });
 }
 
+const startTaskOptimistic = optimisticMutationOptions<
+  MechanicQueueResponse,
+  { taskId: string }
+>({
+  queryKey: mechanicQueueKeys.queue(),
+  mutationKey: [...mechanicQueueLifecycleMutationKey, "start"],
+  entityId: ({ taskId }) => taskId,
+  apply: (cache, { taskId }) =>
+    patchMechanicQueueStatus(cache, taskId, "IN_PROGRESS"),
+  revert: (cache, { taskId }, snapshot) => {
+    const previous = snapshot.data.find((item) => item.taskId === taskId);
+    return previous
+      ? patchMechanicQueueStatus(cache, taskId, previous.taskStatus)
+      : cache;
+  },
+  extraCaches: [mechanicTaskDetailExtraCache(() => "IN_PROGRESS")],
+});
+
 export function useStartTask() {
-  const queryClient = useQueryClient();
   return useMutation({
+    ...startTaskOptimistic,
     mutationFn: async ({ taskId }: { taskId: string }) => {
       const response = await fetchWithAuth(
         `/api/mechanic/tasks/${encodeURIComponent(taskId)}/start`,
@@ -169,14 +249,6 @@ export function useStartTask() {
         return throwHttpError(response, "Failed to start task");
       }
       return response.json() as Promise<MechanicTaskDetail>;
-    },
-    onSuccess: (_data, { taskId }) => {
-      void queryClient.invalidateQueries({
-        queryKey: mechanicQueueKeys.queue(),
-      });
-      void queryClient.invalidateQueries({
-        queryKey: mechanicQueueKeys.taskDetail(taskId),
-      });
     },
   });
 }
@@ -216,9 +288,35 @@ export function useSwitchTask() {
   });
 }
 
+const pauseTaskOptimistic = optimisticMutationOptions<
+  MechanicQueueResponse,
+  { taskId: string; payload: PauseTaskPayload }
+>({
+  queryKey: mechanicQueueKeys.queue(),
+  mutationKey: [...mechanicQueueLifecycleMutationKey, "pause"],
+  entityId: ({ taskId }) => taskId,
+  apply: (cache, { taskId, payload }) =>
+    patchMechanicQueueStatus(
+      cache,
+      taskId,
+      pauseReasonToTaskStatus(payload.pauseReason),
+    ),
+  revert: (cache, { taskId }, snapshot) => {
+    const previous = snapshot.data.find((item) => item.taskId === taskId);
+    return previous
+      ? patchMechanicQueueStatus(cache, taskId, previous.taskStatus)
+      : cache;
+  },
+  extraCaches: [
+    mechanicTaskDetailExtraCache((variables) =>
+      pauseReasonToTaskStatus(variables.payload.pauseReason),
+    ),
+  ],
+});
+
 export function usePauseTask() {
-  const queryClient = useQueryClient();
   return useMutation({
+    ...pauseTaskOptimistic,
     mutationFn: async ({
       taskId,
       payload,
@@ -239,20 +337,30 @@ export function usePauseTask() {
       }
       return response.json() as Promise<MechanicTaskDetail>;
     },
-    onSuccess: (_data, { taskId }) => {
-      void queryClient.invalidateQueries({
-        queryKey: mechanicQueueKeys.queue(),
-      });
-      void queryClient.invalidateQueries({
-        queryKey: mechanicQueueKeys.taskDetail(taskId),
-      });
-    },
   });
 }
 
+const completeTaskOptimistic = optimisticMutationOptions<
+  MechanicQueueResponse,
+  { taskId: string }
+>({
+  queryKey: mechanicQueueKeys.queue(),
+  mutationKey: [...mechanicQueueLifecycleMutationKey, "complete"],
+  entityId: ({ taskId }) => taskId,
+  apply: (cache, { taskId }) =>
+    patchMechanicQueueStatus(cache, taskId, "DONE"),
+  revert: (cache, { taskId }, snapshot) => {
+    const previous = snapshot.data.find((item) => item.taskId === taskId);
+    return previous
+      ? patchMechanicQueueStatus(cache, taskId, previous.taskStatus)
+      : cache;
+  },
+  extraCaches: [mechanicTaskDetailExtraCache(() => "DONE")],
+});
+
 export function useCompleteTask() {
-  const queryClient = useQueryClient();
   return useMutation({
+    ...completeTaskOptimistic,
     mutationFn: async ({ taskId }: { taskId: string }) => {
       const response = await fetchWithAuth(
         `/api/mechanic/tasks/${encodeURIComponent(taskId)}/complete`,
@@ -262,14 +370,6 @@ export function useCompleteTask() {
         return throwHttpError(response, "Failed to complete task");
       }
       return response.json() as Promise<MechanicTaskDetail>;
-    },
-    onSuccess: (_data, { taskId }) => {
-      void queryClient.invalidateQueries({
-        queryKey: mechanicQueueKeys.queue(),
-      });
-      void queryClient.invalidateQueries({
-        queryKey: mechanicQueueKeys.taskDetail(taskId),
-      });
     },
   });
 }

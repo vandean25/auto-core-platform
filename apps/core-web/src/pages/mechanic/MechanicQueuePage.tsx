@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { AttendancePunchBar } from '@/components/hr/AttendancePunchBar'
-import { useMechanicQueue } from '@/api/mechanic'
+import { mechanicTaskDetailQueryOptions, useMechanicQueue } from '@/api/mechanic'
 import type { MechanicQueueItem } from '@/api/mechanic'
 import { useHrMeClock, usePunchClock } from '@/api/hr'
 import type { PunchClockPayload } from '@/api/hr'
@@ -14,6 +15,7 @@ import { MechanicQueueCard } from './MechanicQueueCard'
 
 export default function MechanicQueuePage() {
   const { t } = useTranslation('workshop')
+  const queryClient = useQueryClient()
   const { data: queueResponse, isLoading, error: queueError, refetch } = useMechanicQueue()
   const { data: clockResponse, error: clockError } = useHrMeClock()
   const { mutate: punchClock, isPending: isPunchPending } = usePunchClock()
@@ -48,6 +50,13 @@ export default function MechanicQueuePage() {
     })
   }, [queueResponse, search])
 
+  const prefetchTaskDetail = useCallback(
+    (taskId: string) => {
+      void queryClient.prefetchQuery(mechanicTaskDetailQueryOptions(taskId))
+    },
+    [queryClient],
+  )
+
   const hasSearch = search.trim().length > 0
   const queueErrorStatus = queueError ? getErrorStatus(queueError) : null
   const hasIdentityError = queueErrorStatus === 404
@@ -66,12 +75,13 @@ export default function MechanicQueuePage() {
               state={clockResponse.state}
               pending={isPunchPending}
               size="compact"
+              touchFriendly
               onPunch={handlePunch}
             />
           ) : null}
           <Button
             variant="outline"
-            size="sm"
+            className="min-h-11 min-w-11"
             onClick={() => void refetch()}
             aria-label={t('mechanic.queue.refreshAria')}
           >
@@ -82,6 +92,7 @@ export default function MechanicQueuePage() {
 
       <Input
         type="search"
+        className="min-h-11"
         value={search}
         onChange={(event) => setSearch(event.target.value)}
         placeholder={t('mechanic.queue.searchPlaceholder')}
@@ -101,7 +112,7 @@ export default function MechanicQueuePage() {
           <p className="mt-1 text-red-900">
             {getErrorMessage(queueError, t('mechanic.queue.loadErrorFallback'))}
           </p>
-          <Button className="mt-4" variant="outline" size="sm" onClick={() => void refetch()}>
+          <Button className="mt-4 min-h-11" variant="outline" onClick={() => void refetch()}>
             {t('mechanic.queue.tryAgain')}
           </Button>
         </div>
@@ -120,7 +131,11 @@ export default function MechanicQueuePage() {
       {!isLoading && !queueError && items.length > 0 ? (
         <div className="space-y-3">
           {items.map((item: MechanicQueueItem) => (
-            <MechanicQueueCard key={item.taskId} item={item} />
+            <MechanicQueueCard
+              key={item.taskId}
+              item={item}
+              onPrefetch={() => prefetchTaskDetail(item.taskId)}
+            />
           ))}
         </div>
       ) : null}

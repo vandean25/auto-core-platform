@@ -48,8 +48,7 @@ export function TaskHeader({
       <div className="flex items-start gap-3">
         <Button
           variant="ghost"
-          size="sm"
-          className="mt-0.5 shrink-0"
+          className="mt-0.5 min-h-11 min-w-11 shrink-0"
           onClick={onBack}
           aria-label={t('mechanic.taskDetail.header.backAria')}
         >
@@ -72,7 +71,7 @@ export function TaskHeader({
             <Button
               onClick={onStart}
               disabled={startPending}
-              className="min-h-[44px] min-w-[96px] gap-2"
+              className="min-h-11 min-w-[96px] gap-2"
             >
               <Play className="h-4 w-4" />
               {isNotStarted ? t('mechanic.taskDetail.header.start') : t('mechanic.taskDetail.header.resume')}
@@ -83,7 +82,7 @@ export function TaskHeader({
               variant="outline"
               onClick={onOpenSwitch}
               disabled={switchPending || startPending}
-              className="min-h-[44px] gap-2"
+              className="min-h-11 gap-2"
               title={t('mechanic.taskDetail.header.switchTitle')}
             >
               <Zap className="h-4 w-4" />
@@ -95,7 +94,7 @@ export function TaskHeader({
               variant="outline"
               onClick={onOpenPause}
               disabled={pausePending}
-              className="min-h-[44px] gap-2"
+              className="min-h-11 gap-2"
             >
               <Pause className="h-4 w-4" />
               {t('mechanic.taskDetail.header.pause')}
@@ -106,7 +105,7 @@ export function TaskHeader({
               variant="outline"
               onClick={onComplete}
               disabled={completePending}
-              className="min-h-[44px] gap-2 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+              className="min-h-11 gap-2 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
             >
               <CheckCircle className="h-4 w-4" />
               {t('mechanic.taskDetail.header.complete')}

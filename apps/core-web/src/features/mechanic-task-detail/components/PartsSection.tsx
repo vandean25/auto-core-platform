@@ -22,7 +22,7 @@ export function PartsSection({ partItems, isDone, onRequestPart }: PartsSectionP
         <div className="flex items-center justify-between">
           <CardTitle className="text-base">{t('mechanic.taskDetail.parts.title')}</CardTitle>
           {!isDone && (
-            <Button size="sm" variant="outline" className="min-h-[36px] gap-1" onClick={onRequestPart}>
+            <Button variant="outline" className="min-h-11 gap-1" onClick={onRequestPart}>
               <Plus className="h-3.5 w-3.5" />
               {t('mechanic.taskDetail.parts.request')}
             </Button>

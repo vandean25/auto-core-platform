@@ -153,9 +153,8 @@ export function MechanicTaskDetailView({
       <div className="flex justify-center">
         <Button
           variant="ghost"
-          size="sm"
           onClick={() => void refetch()}
-          className="gap-2 text-slate-500"
+          className="min-h-11 gap-2 text-slate-500"
         >
           <RefreshCw className="h-3.5 w-3.5" />
           {t("mechanic.taskDetail.refreshTask")}

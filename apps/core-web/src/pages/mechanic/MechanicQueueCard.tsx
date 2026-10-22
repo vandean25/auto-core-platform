@@ -7,18 +7,21 @@ import type { MechanicQueueItem } from '@/api/mechanic'
 
 interface MechanicQueueCardProps {
   item: MechanicQueueItem
+  onPrefetch?: () => void
 }
 
 function formatVehicle(item: MechanicQueueItem) {
   return `${item.vehicle.year} ${item.vehicle.make} ${item.vehicle.model}`
 }
 
-export function MechanicQueueCard({ item }: MechanicQueueCardProps) {
+export function MechanicQueueCard({ item, onPrefetch }: MechanicQueueCardProps) {
   const { t } = useTranslation('workshop')
   return (
     <Link
       to={`/mechanic/tasks/${item.taskId}`}
-      className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      className="block min-h-11 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      onPointerEnter={onPrefetch}
+      onFocus={onPrefetch}
     >
       <Card className="min-h-[72px] p-4 transition-colors hover:bg-slate-50">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
