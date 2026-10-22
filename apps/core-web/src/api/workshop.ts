@@ -19,6 +19,7 @@ import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 import type { ApiErrorBody } from './api-error'
 import { buildDataTableUrl } from './data-table-query'
 import { laborKeys } from './labor'
+import { optimisticMutationOptions } from '@/lib/optimistic-mutation'
 import {
   getWorkshopCustomerDisplayName,
   isWorkshopOrderPickEligible,
@@ -920,9 +921,39 @@ export function useBoardActive() {
   })
 }
 
+function patchBoardOrder(
+  cache: BoardActiveResponse,
+  orderId: string,
+  patch: (order: BoardOrder) => BoardOrder,
+): BoardActiveResponse {
+  return { ...cache, data: cache.data.map((order) => (order.id === orderId ? patch(order) : order)) }
+}
+
+const assignBoardOptimistic = optimisticMutationOptions<BoardActiveResponse, AssignBoardPayload>({
+  queryKey: boardKeys.active(),
+  mutationKey: [...boardKeys.active(), 'assign'],
+  apply: (cache, { orderId, mechanicId, bayId }) =>
+    patchBoardOrder(cache, orderId, (order) => ({
+      ...order,
+      ...(mechanicId !== undefined && { mechanicId }),
+      ...(bayId !== undefined && { bayId }),
+    })),
+  // Per-field compare-and-restore: a newer move of the same card (field no longer holds this payload's value) wins.
+  revert: (cache, { orderId, mechanicId, bayId }, snapshot) => {
+    const before = snapshot.data.find((order) => order.id === orderId)
+    if (!before) return cache
+    return patchBoardOrder(cache, orderId, (order) => ({
+      ...order,
+      ...(mechanicId !== undefined && order.mechanicId === mechanicId && { mechanicId: before.mechanicId }),
+      ...(bayId !== undefined && order.bayId === bayId && { bayId: before.bayId }),
+    }))
+  },
+})
+
 export function useAssignBoard() {
   const queryClient = useQueryClient()
   return useMutation({
+    ...assignBoardOptimistic,
     mutationFn: async (payload: AssignBoardPayload) => {
       const response = await fetchWithAuth(`${WORKSHOP_API}/board/assign`, {
         method: 'PATCH',
@@ -935,8 +966,8 @@ export function useAssignBoard() {
       }
       return response.json()
     },
+    // The board itself is refetched by the optimistic helper's onSettled.
     onSuccess: (_response, payload) => {
-      queryClient.invalidateQueries({ queryKey: boardKeys.active() })
       queryClient.invalidateQueries({ queryKey: workshopKeys.detail(payload.orderId) })
       queryClient.invalidateQueries({ queryKey: workshopKeys.orders() })
     },

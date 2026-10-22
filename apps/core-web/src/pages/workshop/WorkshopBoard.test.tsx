@@ -140,8 +140,9 @@ describe('WorkshopBoard', () => {
       isLoading: false,
     })
 
+    assignMutate.mockResolvedValue({})
     ;(workshopApi.useAssignBoard as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
-      mutate: assignMutate,
+      mutateAsync: assignMutate,
     })
 
     ;(workshopApi.workshopKeys as unknown as { boardActive: () => readonly string[] }).boardActive =
@@ -171,13 +172,7 @@ describe('WorkshopBoard', () => {
 
     fireEvent.click(screen.getByRole('menuitem', { name: 'Demo Mechanic A' }))
 
-    expect(assignMutate).toHaveBeenCalledWith(
-      { orderId: 'order-1', mechanicId: 'mech-2' },
-      expect.objectContaining({
-        onError: expect.any(Function),
-        onSettled: expect.any(Function),
-      }),
-    )
+    expect(assignMutate).toHaveBeenCalledWith({ orderId: 'order-1', mechanicId: 'mech-2' })
   })
 
   it('keeps the dragged card on the board after drop', () => {
@@ -219,13 +214,7 @@ describe('WorkshopBoard', () => {
       })
     })
 
-    expect(assignMutate).toHaveBeenCalledWith(
-      { orderId: 'order-1', mechanicId: 'mech-2' },
-      expect.objectContaining({
-        onError: expect.any(Function),
-        onSettled: expect.any(Function),
-      }),
-    )
+    expect(assignMutate).toHaveBeenCalledWith({ orderId: 'order-1', mechanicId: 'mech-2' })
   })
 
   it('announces drag events with the order number and column label instead of ids', () => {
