@@ -89,6 +89,17 @@ export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyn
   const shouldSkipRealtime =
     isE2EAuthBypassEnabled() || isE2ETestTokenAuthEnabled()
 
+  // One filter per queryClient, not per socket: a token refresh must not flush echoes held for a pending drag.
+  const echoSafeInvalidatorRef = React.useRef<ReturnType<typeof createEchoSafeInvalidator> | null>(null)
+  React.useEffect(() => {
+    const echoSafeInvalidator = createEchoSafeInvalidator(queryClient)
+    echoSafeInvalidatorRef.current = echoSafeInvalidator
+    return () => {
+      echoSafeInvalidatorRef.current = null
+      echoSafeInvalidator.dispose()
+    }
+  }, [queryClient])
+
   React.useEffect(() => {
     if (shouldSkipRealtime) {
       setToken(null)
@@ -137,12 +148,11 @@ export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyn
     socket.on('connect_error', handshakeRetry.onConnectError)
 
     // Echoes of the user's own optimistic mutations must not refetch over the optimistic state.
-    const echoSafeInvalidator = createEchoSafeInvalidator(queryClient)
     const onEntityUpdated = (payload: unknown) => {
       if (!isEntityUpdatedPayload(payload)) return
 
       for (const queryKey of getQueryKeysToInvalidateForEntityType(payload.type)) {
-        echoSafeInvalidator.invalidate(queryKey)
+        echoSafeInvalidatorRef.current?.invalidate(queryKey)
       }
     }
 
@@ -159,6 +169,8 @@ export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyn
       })
     }
 
+    // onClaimsUpdated and onSiteContextUpdated bypass the echo filter on purpose: they change the user's claims or
+    // active site, so all cached data (and any optimistic state) belongs to the old context and must refetch at once.
     const onClaimsUpdated = (payload: unknown) => {
       if (!isClaimsUpdatedPayload(payload)) return
 
@@ -237,7 +249,6 @@ export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyn
       socket.off('connect', handshakeRetry.onConnect)
       socket.off('connect_error', handshakeRetry.onConnectError)
       handshakeRetry.dispose()
-      echoSafeInvalidator.dispose()
       socket.disconnect()
     }
   }, [queryClient, shouldSkipRealtime, signOutUser, token])
