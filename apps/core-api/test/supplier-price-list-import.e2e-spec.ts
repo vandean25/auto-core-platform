@@ -28,8 +28,8 @@ describe('Supplier Price List Import (e2e)', () => {
 
   let tenantA: Awaited<ReturnType<typeof createTestTenant>>;
   let tenantB: Awaited<ReturnType<typeof createTestTenant>>;
-  let tenantPrismaA: ReturnType<typeof createTenantAwarePrisma>;
-  let tenantPrismaB: ReturnType<typeof createTenantAwarePrisma>;
+  let tenantPrismaA: PrismaService;
+  let tenantPrismaB: PrismaService;
 
   let adminTokenA: string;
   let ownerTokenA: string;
@@ -63,9 +63,10 @@ describe('Supplier Price List Import (e2e)', () => {
     adminTokenA = createTestAuthToken(authService, tenantA);
 
     // Owner user and token for Tenant A
+    const ownerFirebaseUid = `e2e-owner-${tenantA.tenantId}`;
     const ownerUser = await prisma.user.create({
       data: {
-        firebaseUid: `e2e-owner-${tenantA.tenantId}`,
+        firebaseUid: ownerFirebaseUid,
         email: `owner-${tenantA.tenantId}@example.com`,
       },
     });
@@ -75,16 +76,17 @@ describe('Supplier Price List Import (e2e)', () => {
       role: 'OWNER',
     });
     ownerTokenA = authService.createTestToken({
-      sub: ownerUser.firebaseUid,
+      sub: ownerFirebaseUid,
       email: ownerUser.email,
       tenantId: tenantA.tenantId,
       role: 'OWNER',
     });
 
     // Tech user and token for Tenant A
+    const techFirebaseUid = `e2e-tech-${tenantA.tenantId}`;
     const techUser = await prisma.user.create({
       data: {
-        firebaseUid: `e2e-tech-${tenantA.tenantId}`,
+        firebaseUid: techFirebaseUid,
         email: `tech-${tenantA.tenantId}@example.com`,
       },
     });
@@ -94,7 +96,7 @@ describe('Supplier Price List Import (e2e)', () => {
       role: 'TECH',
     });
     techTokenA = authService.createTestToken({
-      sub: techUser.firebaseUid,
+      sub: techFirebaseUid,
       email: techUser.email,
       tenantId: tenantA.tenantId,
       role: 'TECH',

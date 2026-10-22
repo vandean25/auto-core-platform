@@ -18,7 +18,7 @@ describe('Operational Document Retarget (e2e)', () => {
   let authService: AuthService;
 
   let tenant: TestTenantResult;
-  let tenantPrisma: ReturnType<typeof createTenantAwarePrisma>;
+  let tenantPrisma: PrismaService;
 
   let siteA: { id: string };
   let siteB: { id: string };
@@ -116,9 +116,10 @@ describe('Operational Document Retarget (e2e)', () => {
     });
 
     // User 1: member of Site A ONLY
+    const userAFirebaseUid = 'uid-user-a-' + tenant.tenantId;
     const userA = await prisma.user.create({
       data: {
-        firebaseUid: 'uid-user-a-' + tenant.tenantId,
+        firebaseUid: userAFirebaseUid,
         email: 'usera-' + tenant.tenantId + '@example.com',
         active_tenant_id: tenant.tenantId,
         active_site_id: siteA.id,
@@ -140,14 +141,15 @@ describe('Operational Document Retarget (e2e)', () => {
     });
     userAOnlyToken = createTestAuthToken(authService, {
       ...tenant,
-      firebaseUid: userA.firebaseUid,
+      firebaseUid: userAFirebaseUid,
       email: userA.email,
     });
 
     // User 2: member of Site A AND Site B
+    const userBothFirebaseUid = 'uid-user-both-' + tenant.tenantId;
     const userBoth = await prisma.user.create({
       data: {
-        firebaseUid: 'uid-user-both-' + tenant.tenantId,
+        firebaseUid: userBothFirebaseUid,
         email: 'userboth-' + tenant.tenantId + '@example.com',
         active_tenant_id: tenant.tenantId,
         active_site_id: siteA.id,
@@ -170,13 +172,14 @@ describe('Operational Document Retarget (e2e)', () => {
     });
     userBothSitesToken = createTestAuthToken(authService, {
       ...tenant,
-      firebaseUid: userBoth.firebaseUid,
+      firebaseUid: userBothFirebaseUid,
       email: userBoth.email,
     });
 
     // Create shared customer, vehicle, vendor, catalog item
     const customer = await tenantPrisma.customer.create({
       data: {
+        tenant_id: tenant.tenantId,
         first_name: 'Jane',
         last_name: 'Doe',
         email: 'jane.doe@example.com',
@@ -187,6 +190,7 @@ describe('Operational Document Retarget (e2e)', () => {
 
     const vehicle = await tenantPrisma.vehicle.create({
       data: {
+        tenant_id: tenant.tenantId,
         customer_id: customerId,
         make: 'Audi',
         model: 'A4',
@@ -199,6 +203,7 @@ describe('Operational Document Retarget (e2e)', () => {
 
     const vendor = await tenantPrisma.vendor.create({
       data: {
+        tenant_id: tenant.tenantId,
         name: 'Auto Parts Ltd',
         email: 'parts@example.com',
         account_number: 'VEND-001',
@@ -208,6 +213,7 @@ describe('Operational Document Retarget (e2e)', () => {
 
     const catalogItem = await tenantPrisma.catalogItem.create({
       data: {
+        tenant_id: tenant.tenantId,
         sku: `OIL-FILTER-${tenant.tenantId.slice(0, 8)}`,
         name: 'Synthetic Oil Filter',
         cost_price: 15.0,
@@ -247,6 +253,7 @@ describe('Operational Document Retarget (e2e)', () => {
     const hour = 8 + (slot % 10);
     const vehicle = await tenantPrisma.vehicle.create({
       data: {
+        tenant_id: tenant.tenantId,
         customer_id: customerId,
         make: 'Audi',
         model: 'A4',
@@ -668,12 +675,14 @@ describe('Operational Document Retarget (e2e)', () => {
 
       const task = await tenantPrisma.workshopTask.create({
         data: {
+          tenant_id: tenant.tenantId,
           workshop_order_id: orderId,
           title: 'Brake service',
         },
       });
       const line = await tenantPrisma.workshopTaskLineItem.create({
         data: {
+          tenant_id: tenant.tenantId,
           workshop_task_id: task.id,
           type: 'PART',
           part_execution_status: 'PENDING_PICK',

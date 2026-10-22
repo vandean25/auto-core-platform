@@ -267,6 +267,7 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
       const otherBrandName = `other-make-${Date.now()}`;
       const otherBrand = await fixture.prisma.brand.create({
         data: {
+          tenant_id: fixture.tenant.tenantId,
           name: otherBrandName,
           normalized_name: otherBrandName.toLowerCase(),
           isVehicleMake: true,
@@ -345,6 +346,7 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
       });
       const catalogItem = await fixture.prisma.catalogItem.create({
         data: {
+          tenant_id: fixture.tenant.tenantId,
           sku: `second-${Date.now()}`,
           name: 'Oil filter',
           cost_price: 4,
@@ -353,6 +355,7 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
       });
       const secondLine = await fixture.prisma.workshopTaskLineItem.create({
         data: {
+          tenant_id: fixture.tenant.tenantId,
           workshop_task_id: task.id,
           type: 'PART',
           part_execution_status: 'PENDING_PICK',
@@ -582,7 +585,7 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
         const txRecord = await fixture.prisma.inventoryTransaction.findFirstOrThrow({
           where: { item_id: catalogItem.id, type: 'PURCHASE_RECEIPT' },
         });
-        expect(new Prisma.Decimal(txRecord.cost_basis).toString()).toBe('10');
+        expect(txRecord.cost_basis?.toString()).toBe('10');
         return;
       }
 
@@ -819,6 +822,7 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
       const site = await fixture.prisma.site.findFirstOrThrow({ where: { code: 'MAIN' } });
       const stagingTote2 = await fixture.prisma.storageLocation.create({
         data: {
+          tenant_id: fixture.tenant.tenantId,
           site_id: site.id,
           code: `TOTE2-${Date.now()}`,
           name: 'Staging tote 2',
@@ -827,6 +831,7 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
       });
       const vehicle2 = await fixture.prisma.vehicle.create({
         data: {
+          tenant_id: fixture.tenant.tenantId,
           make: 'Toyota',
           model: 'Corolla',
           year: 2021,
@@ -835,6 +840,7 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
       });
       const order2 = await fixture.prisma.workshopOrder.create({
         data: {
+          tenant_id: fixture.tenant.tenantId,
           order_number: `ORDER2-${Date.now()}`,
           site_id: site.id,
           vehicle_id: vehicle2.id,
@@ -845,10 +851,15 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
         },
       });
       const task2 = await fixture.prisma.workshopTask.create({
-        data: { workshop_order_id: order2.id, title: 'Replace pads job 2' },
+        data: {
+          tenant_id: fixture.tenant.tenantId,
+          workshop_order_id: order2.id,
+          title: 'Replace pads job 2',
+        },
       });
       const line2 = await fixture.prisma.workshopTaskLineItem.create({
         data: {
+          tenant_id: fixture.tenant.tenantId,
           workshop_task_id: task2.id,
           type: 'PART',
           part_execution_status: 'PENDING_PICK',
@@ -929,6 +940,7 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
       const site = await fixture.prisma.site.findFirstOrThrow({ where: { code: 'MAIN' } });
       const stagingTote2 = await fixture.prisma.storageLocation.create({
         data: {
+          tenant_id: fixture.tenant.tenantId,
           site_id: site.id,
           code: `TOTE-REV-${Date.now()}`,
           name: 'Staging tote rev',
@@ -937,6 +949,7 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
       });
       const vehicle2 = await fixture.prisma.vehicle.create({
         data: {
+          tenant_id: fixture.tenant.tenantId,
           make: 'Toyota',
           model: 'Corolla',
           year: 2022,
@@ -945,6 +958,7 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
       });
       const order2 = await fixture.prisma.workshopOrder.create({
         data: {
+          tenant_id: fixture.tenant.tenantId,
           order_number: `ORDER-REV-${Date.now()}`,
           site_id: site.id,
           vehicle_id: vehicle2.id,
@@ -955,10 +969,15 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
         },
       });
       const task2 = await fixture.prisma.workshopTask.create({
-        data: { workshop_order_id: order2.id, title: 'Replace pads rev' },
+        data: {
+          tenant_id: fixture.tenant.tenantId,
+          workshop_order_id: order2.id,
+          title: 'Replace pads rev',
+        },
       });
       const line2 = await fixture.prisma.workshopTaskLineItem.create({
         data: {
+          tenant_id: fixture.tenant.tenantId,
           workshop_task_id: task2.id,
           type: 'PART',
           part_execution_status: 'PENDING_PICK',
@@ -1154,6 +1173,7 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
     });
     const sourceLocation = await prisma.storageLocation.create({
       data: {
+        tenant_id: tenant.tenantId,
         site_id: site.id,
         code: `${prefix}-SOURCE-${Date.now()}`,
         name: `${sourceType} source`,
@@ -1162,6 +1182,7 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
     });
     const stagingLocation = await prisma.storageLocation.create({
       data: {
+        tenant_id: tenant.tenantId,
         site_id: site.id,
         code: `${prefix}-STAGING-${Date.now()}`,
         name: 'Staging tote',
@@ -1170,6 +1191,7 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
     });
     const catalogItem = await prisma.catalogItem.create({
       data: {
+        tenant_id: tenant.tenantId,
         sku: `${prefix}-SKU-${Date.now()}`,
         name: 'Brake pad',
         cost_price: 10,
@@ -1179,6 +1201,7 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
     const makeName = `${prefix}-make-${Date.now()}`;
     const brand = await prisma.brand.create({
       data: {
+        tenant_id: tenant.tenantId,
         name: makeName,
         normalized_name: makeName.toLowerCase(),
         isVehicleMake: true,
@@ -1186,6 +1209,7 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
     });
     const vendor = await prisma.vendor.create({
       data: {
+        tenant_id: tenant.tenantId,
         name: `${prefix} vendor`,
         email: `${prefix}-vendor@example.com`,
         account_number: `${prefix}-ACC-${Date.now()}`,
@@ -1193,6 +1217,7 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
     });
     const vehicle = await prisma.vehicle.create({
       data: {
+        tenant_id: tenant.tenantId,
         make: 'Toyota',
         model: 'Corolla',
         year: 2020,
@@ -1201,6 +1226,7 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
     });
     const order = await prisma.workshopOrder.create({
       data: {
+        tenant_id: tenant.tenantId,
         order_number: `${prefix}-ORDER-${Date.now()}`,
         site_id: siteOwned ? site.id : null,
         vehicle_id: vehicle.id,
@@ -1212,12 +1238,14 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
     });
     const task = await prisma.workshopTask.create({
       data: {
+        tenant_id: tenant.tenantId,
         workshop_order_id: order.id,
         title: 'Replace brake pads',
       },
     });
     const line = await prisma.workshopTaskLineItem.create({
       data: {
+        tenant_id: tenant.tenantId,
         workshop_task_id: task.id,
         type: 'PART',
         part_execution_status: 'PENDING_PICK',
@@ -1230,6 +1258,7 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
     });
     const stock = await prisma.inventoryStock.create({
       data: {
+        tenant_id: tenant.tenantId,
         catalog_item_id: catalogItem.id,
         site_id: site.id,
         location_id: sourceLocation.id,
@@ -1259,6 +1288,7 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
     const legalEntity = await reservationFixture.prisma.legalEntity.findFirstOrThrow();
     const otherSite = await reservationFixture.prisma.site.create({
       data: {
+        tenant_id: reservationFixture.tenant.tenantId,
         legal_entity_id: legalEntity.id,
         code: `OTHER-${Date.now()}`,
         name: 'Other site',
@@ -1269,6 +1299,7 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
     });
     const location = await reservationFixture.prisma.storageLocation.create({
       data: {
+        tenant_id: reservationFixture.tenant.tenantId,
         site_id: otherSite.id,
         code: `OTHER-BIN-${Date.now()}`,
         name: 'Other site bin',
