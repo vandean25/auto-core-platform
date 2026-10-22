@@ -1,8 +1,9 @@
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, CheckCircle, Pause, Play, Zap } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { Button } from '@/components/ui/button'
 import type { MechanicTaskDetail } from '@/api/mechanic'
+import { TaskHeaderActions } from './TaskHeaderActions'
 
 type TaskHeaderProps = {
   task: MechanicTaskDetail
@@ -65,54 +66,23 @@ export function TaskHeader({
         </div>
       </div>
 
-      {!isDone && (
-        <div className="flex shrink-0 items-center gap-2 flex-wrap justify-end sm:flex-nowrap">
-          {canStart && (
-            <Button
-              onClick={onStart}
-              disabled={startPending}
-              className="min-h-11 min-w-[96px] gap-2"
-            >
-              <Play className="h-4 w-4" />
-              {isNotStarted ? t('mechanic.taskDetail.header.start') : t('mechanic.taskDetail.header.resume')}
-            </Button>
-          )}
-          {canSwitch && (
-            <Button
-              variant="outline"
-              onClick={onOpenSwitch}
-              disabled={switchPending || startPending}
-              className="min-h-11 gap-2"
-              title={t('mechanic.taskDetail.header.switchTitle')}
-            >
-              <Zap className="h-4 w-4" />
-              {t('mechanic.taskDetail.header.switchHere')}
-            </Button>
-          )}
-          {canPause && (
-            <Button
-              variant="outline"
-              onClick={onOpenPause}
-              disabled={pausePending}
-              className="min-h-11 gap-2"
-            >
-              <Pause className="h-4 w-4" />
-              {t('mechanic.taskDetail.header.pause')}
-            </Button>
-          )}
-          {canComplete && (
-            <Button
-              variant="outline"
-              onClick={onComplete}
-              disabled={completePending}
-              className="min-h-11 gap-2 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-            >
-              <CheckCircle className="h-4 w-4" />
-              {t('mechanic.taskDetail.header.complete')}
-            </Button>
-          )}
-        </div>
-      )}
+      {!isDone ? (
+        <TaskHeaderActions
+          canStart={canStart}
+          canSwitch={canSwitch}
+          canPause={canPause}
+          canComplete={canComplete}
+          isNotStarted={isNotStarted}
+          startPending={startPending}
+          switchPending={switchPending}
+          pausePending={pausePending}
+          completePending={completePending}
+          onStart={onStart}
+          onOpenSwitch={onOpenSwitch}
+          onOpenPause={onOpenPause}
+          onComplete={onComplete}
+        />
+      ) : null}
     </div>
   )
 }

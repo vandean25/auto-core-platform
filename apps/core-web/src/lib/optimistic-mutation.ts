@@ -49,6 +49,34 @@ function resolveQueryKey<TVariables>(
   return typeof key === 'function' ? key(variables) : key
 }
 
+function revertExtraCaches<TVariables>(
+  client: MutationFunctionContext['client'],
+  variables: TVariables,
+  extraSnapshots: ExtraSnapshot[],
+  extraCaches: ExtraOptimisticCache<TVariables>[] | undefined,
+) {
+  for (const [index, { queryKey: extraKey, snapshot: extraSnapshot }] of extraSnapshots.entries()) {
+    const extra = extraCaches?.[index]
+    if (!extra || extraSnapshot === undefined) continue
+    client.setQueryData(extraKey, (cache) =>
+      cache === undefined ? cache : extra.revert(cache, variables, extraSnapshot),
+    )
+  }
+}
+
+function invalidateSettledCaches(
+  client: MutationFunctionContext['client'],
+  resolvedQueryKey: QueryKey,
+  extraSnapshots: ExtraSnapshot[],
+) {
+  if (client.isMutating({ mutationKey: resolvedQueryKey }) > 1) return
+  void client.invalidateQueries({ queryKey: resolvedQueryKey })
+  for (const { queryKey: extraKey } of extraSnapshots) {
+    if (client.isMutating({ mutationKey: resolvedQueryKey }) > 1) return
+    void client.invalidateQueries({ queryKey: extraKey })
+  }
+}
+
 /**
  * Socket-echo-safe optimistic update for `useMutation`. Spread the result next to `mutationFn`:
  *
@@ -143,13 +171,7 @@ export function optimisticMutationOptions<TCache, TVariables>({
         cache === undefined ? cache : revert(cache, variables, snapshot),
       )
 
-      for (const [index, { queryKey: extraKey, snapshot: extraSnapshot }] of context.extraSnapshots.entries()) {
-        const extra = extraCaches?.[index]
-        if (!extra || extraSnapshot === undefined) continue
-        client.setQueryData(extraKey, (cache) =>
-          cache === undefined ? cache : extra.revert(cache, variables, extraSnapshot),
-        )
-      }
+      revertExtraCaches(client, variables, context.extraSnapshots, extraCaches)
     },
     onSettled: (
       _data: unknown,
@@ -160,13 +182,7 @@ export function optimisticMutationOptions<TCache, TVariables>({
     ) => {
       if (context?.skipped) return
       const resolvedQueryKey = context?.resolvedQueryKey ?? resolveQueryKey(queryKey, variables)
-      if (client.isMutating({ mutationKey: resolvedQueryKey }) > 1) return
-      void client.invalidateQueries({ queryKey: resolvedQueryKey })
-
-      for (const { queryKey: extraKey } of context?.extraSnapshots ?? []) {
-        if (client.isMutating({ mutationKey: resolvedQueryKey }) > 1) return
-        void client.invalidateQueries({ queryKey: extraKey })
-      }
+      invalidateSettledCaches(client, resolvedQueryKey, context?.extraSnapshots ?? [])
     },
   }
 }

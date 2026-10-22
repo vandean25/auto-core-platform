@@ -110,6 +110,30 @@ function mechanicTaskDetailExtraCache<TVariables extends { taskId: string }>(
   };
 }
 
+function revertMechanicQueueTaskStatus(
+  cache: MechanicQueueResponse,
+  taskId: string,
+  snapshot: MechanicQueueResponse,
+) {
+  const previous = snapshot.data.find((item) => item.taskId === taskId);
+  return previous ? patchMechanicQueueStatus(cache, taskId, previous.taskStatus) : cache;
+}
+
+function mechanicQueueLifecycleOptimistic<TVariables extends { taskId: string }>(
+  segment: string,
+  resolveStatus: (variables: TVariables) => MechanicTaskStatus,
+) {
+  return optimisticMutationOptions<MechanicQueueResponse, TVariables>({
+    queryKey: mechanicQueueKeys.queue(),
+    mutationKey: [...mechanicQueueLifecycleMutationKey, segment],
+    entityId: ({ taskId }) => taskId,
+    apply: (cache, variables) =>
+      patchMechanicQueueStatus(cache, variables.taskId, resolveStatus(variables)),
+    revert: (cache, { taskId }, snapshot) => revertMechanicQueueTaskStatus(cache, taskId, snapshot),
+    extraCaches: [mechanicTaskDetailExtraCache(resolveStatus)],
+  });
+}
+
 export function useMechanicTaskChecklist(taskId: string) {
   return useQuery<MechanicTaskChecklist>({
     queryKey: mechanicQueueKeys.taskChecklist(taskId),
@@ -219,23 +243,7 @@ export function useMechanicTaskDetail(taskId: string) {
   });
 }
 
-const startTaskOptimistic = optimisticMutationOptions<
-  MechanicQueueResponse,
-  { taskId: string }
->({
-  queryKey: mechanicQueueKeys.queue(),
-  mutationKey: [...mechanicQueueLifecycleMutationKey, "start"],
-  entityId: ({ taskId }) => taskId,
-  apply: (cache, { taskId }) =>
-    patchMechanicQueueStatus(cache, taskId, "IN_PROGRESS"),
-  revert: (cache, { taskId }, snapshot) => {
-    const previous = snapshot.data.find((item) => item.taskId === taskId);
-    return previous
-      ? patchMechanicQueueStatus(cache, taskId, previous.taskStatus)
-      : cache;
-  },
-  extraCaches: [mechanicTaskDetailExtraCache(() => "IN_PROGRESS")],
-});
+const startTaskOptimistic = mechanicQueueLifecycleOptimistic("start", () => "IN_PROGRESS");
 
 export function useStartTask() {
   return useMutation({
@@ -288,31 +296,9 @@ export function useSwitchTask() {
   });
 }
 
-const pauseTaskOptimistic = optimisticMutationOptions<
-  MechanicQueueResponse,
+const pauseTaskOptimistic = mechanicQueueLifecycleOptimistic<
   { taskId: string; payload: PauseTaskPayload }
->({
-  queryKey: mechanicQueueKeys.queue(),
-  mutationKey: [...mechanicQueueLifecycleMutationKey, "pause"],
-  entityId: ({ taskId }) => taskId,
-  apply: (cache, { taskId, payload }) =>
-    patchMechanicQueueStatus(
-      cache,
-      taskId,
-      pauseReasonToTaskStatus(payload.pauseReason),
-    ),
-  revert: (cache, { taskId }, snapshot) => {
-    const previous = snapshot.data.find((item) => item.taskId === taskId);
-    return previous
-      ? patchMechanicQueueStatus(cache, taskId, previous.taskStatus)
-      : cache;
-  },
-  extraCaches: [
-    mechanicTaskDetailExtraCache((variables) =>
-      pauseReasonToTaskStatus(variables.payload.pauseReason),
-    ),
-  ],
-});
+>("pause", ({ payload }) => pauseReasonToTaskStatus(payload.pauseReason));
 
 export function usePauseTask() {
   return useMutation({
@@ -340,23 +326,7 @@ export function usePauseTask() {
   });
 }
 
-const completeTaskOptimistic = optimisticMutationOptions<
-  MechanicQueueResponse,
-  { taskId: string }
->({
-  queryKey: mechanicQueueKeys.queue(),
-  mutationKey: [...mechanicQueueLifecycleMutationKey, "complete"],
-  entityId: ({ taskId }) => taskId,
-  apply: (cache, { taskId }) =>
-    patchMechanicQueueStatus(cache, taskId, "DONE"),
-  revert: (cache, { taskId }, snapshot) => {
-    const previous = snapshot.data.find((item) => item.taskId === taskId);
-    return previous
-      ? patchMechanicQueueStatus(cache, taskId, previous.taskStatus)
-      : cache;
-  },
-  extraCaches: [mechanicTaskDetailExtraCache(() => "DONE")],
-});
+const completeTaskOptimistic = mechanicQueueLifecycleOptimistic("complete", () => "DONE");
 
 export function useCompleteTask() {
   return useMutation({
