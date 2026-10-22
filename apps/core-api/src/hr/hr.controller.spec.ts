@@ -343,6 +343,7 @@ describe('HrController', () => {
 
   it('POST /api/hr/employees/:id/work-schedule creates a version', async () => {
     const dto = {
+      siteId: 'site-1',
       effectiveFrom: '2026-09-01',
       days: [],
     };

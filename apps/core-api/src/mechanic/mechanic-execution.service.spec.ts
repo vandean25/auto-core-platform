@@ -14,6 +14,10 @@ import {
   WorkshopTaskStatus,
 } from '@prisma/client';
 import type { SiteContextService } from '../common/services/site-context.service.js';
+import type { NotificationOutboxService } from '../notifications/notification-outbox.service.js';
+import type { WorkshopOrderReadyEmailService } from '../workshop/workshop-order-ready-email.service.js';
+import type { NotificationCloudTasksService } from '../notifications/notification-cloud-tasks.service.js';
+import { asFake } from '../invoices/invoice-fixtures.spec.support.js';
 import { MechanicExecutionService } from './mechanic-execution.service.js';
 import {
   MECHANIC_ID,
@@ -37,11 +41,15 @@ describe('MechanicExecutionService', () => {
       mockPrisma,
       mockTenantContext,
       mockRealtimeService,
-      mockNotificationOutbox,
+      asFake<NotificationOutboxService>(mockNotificationOutbox),
       mockVehicleLedger,
       { getSiteId: jest.fn().mockResolvedValue('site-1') } as unknown as SiteContextService,
-      { onOrderCompletedInTx: jest.fn().mockResolvedValue(null) },
-      { enqueueWakeUp: jest.fn().mockResolvedValue(undefined) },
+      asFake<WorkshopOrderReadyEmailService>({
+        onOrderCompletedInTx: jest.fn().mockResolvedValue(null),
+      }),
+      asFake<NotificationCloudTasksService>({
+        enqueueWakeUp: jest.fn().mockResolvedValue(undefined),
+      }),
     );
     (mockTenantContext.getAuthenticatedUser as jest.Mock).mockReturnValue({
       userId: 'user-1',
@@ -157,7 +165,7 @@ describe('MechanicExecutionService', () => {
       ]);
 
       const result = await service.getMechanicQueue(MECHANIC_ID);
-      const item = result[0] as Record<string, unknown>;
+      const item: object = result[0];
 
       expect(item).not.toHaveProperty('customer');
       expect(item).not.toHaveProperty('email');
@@ -171,7 +179,7 @@ describe('MechanicExecutionService', () => {
       ]);
 
       const result = await service.getMechanicQueue(MECHANIC_ID);
-      const item = result[0] as Record<string, unknown>;
+      const item: object = result[0];
 
       expect(item).not.toHaveProperty('unitPrice');
       expect(item).not.toHaveProperty('internalCostRate');
@@ -352,7 +360,7 @@ describe('MechanicExecutionService', () => {
       );
 
       const result = await service.getMechanicTaskDetail(MECHANIC_ID, TASK_ID);
-      const item = result as Record<string, unknown>;
+      const item: object = result;
 
       expect(item).not.toHaveProperty('customer');
       expect(item).not.toHaveProperty('email');
@@ -365,7 +373,7 @@ describe('MechanicExecutionService', () => {
       );
 
       const result = await service.getMechanicTaskDetail(MECHANIC_ID, TASK_ID);
-      const item = result as Record<string, unknown>;
+      const item: object = result;
 
       expect(item).not.toHaveProperty('unitPrice');
       expect(item).not.toHaveProperty('internalCostRate');

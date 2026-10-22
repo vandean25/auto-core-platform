@@ -9,6 +9,7 @@ import type { CloudTasksService } from '../common/services/cloud-tasks.service.j
 import type { PdfStorage } from '../common/pdf/pdf-storage.js';
 import type { TenantContextService } from '../common/services/tenant-context.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
+import { asFake } from '../invoices/invoice-fixtures.spec.support.js';
 import type { MechanicMediaStorage } from '../mechanic/mechanic-media.storage.js';
 import { WorkshopPdfService } from './workshop-pdf.service.js';
 import type { WorkshopPdfRenderer } from './workshop-pdf.renderer.js';
@@ -18,7 +19,7 @@ function stubCheckInPdfMediaLoading(
   mediaStorage: jest.Mocked<Pick<MechanicMediaStorage, 'readObjectBytes'>>,
   prisma: {
     client: {
-      workshopMedia: { findFirst: jest.Mock };
+      workshopMedia?: { findFirst: jest.Mock };
     };
   },
 ) {
@@ -111,6 +112,8 @@ describe('WorkshopPdfService', () => {
       workshopCheckIn: {
         updateMany: jest.Mock;
       };
+      tenant: { findFirst: jest.Mock };
+      workshopMedia?: { findFirst: jest.Mock };
     };
   };
 
@@ -174,13 +177,13 @@ describe('WorkshopPdfService', () => {
 
     service = new WorkshopPdfService(
       prisma as unknown as PrismaService,
-      renderer,
-      storage,
-      cloudTasks,
+      asFake<WorkshopPdfRenderer>(renderer),
+      asFake<PdfStorage>(storage),
+      asFake<CloudTasksService>(cloudTasks),
       {
         getTenantId: jest.fn().mockResolvedValue(tenantId),
       } as unknown as TenantContextService,
-      mediaStorage,
+      asFake<MechanicMediaStorage>(mediaStorage),
     );
   });
 

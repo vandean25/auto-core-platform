@@ -9,6 +9,7 @@ import { HrIdentityService } from './hr-identity.service.js';
 describe('HrAttendanceService', () => {
   let service: HrAttendanceService;
   let prisma: {
+    $transaction: jest.Mock;
     attendanceEvent: {
       findFirst: jest.Mock;
       findMany: jest.Mock;

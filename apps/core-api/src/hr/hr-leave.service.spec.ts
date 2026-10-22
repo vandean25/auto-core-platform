@@ -27,7 +27,9 @@ describe('HrLeaveService', () => {
       aggregate: jest.fn(),
     },
     user: { findFirst: jest.fn() },
-    $transaction: jest.fn((cb) => cb(mockPrisma)),
+    $transaction: jest.fn(
+      (cb: (tx: unknown) => unknown): unknown => cb(mockPrisma),
+    ),
   };
   const mockTenantContext = {
     getTenantId: jest.fn().mockResolvedValue('tenant-1'),

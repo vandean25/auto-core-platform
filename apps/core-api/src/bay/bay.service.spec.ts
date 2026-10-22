@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { BayService } from './bay.service.js';
 import { SiteContextService } from '../common/services/site-context.service.js';
+import { asFake } from '../invoices/invoice-fixtures.spec.support.js';
 
 const mockPrisma = {
   bay: {
@@ -37,9 +38,9 @@ describe('BayService', () => {
     service = new BayService(
       mockPrisma as unknown as PrismaService,
       { getTenantId: jest.fn().mockResolvedValue('tenant-1') } as never,
-      {
+      asFake<SiteContextService>({
         getSiteId: jest.fn().mockResolvedValue('site-1'),
-      } as SiteContextService,
+      }),
     );
     jest.clearAllMocks();
   });

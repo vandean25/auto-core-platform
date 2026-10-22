@@ -40,6 +40,8 @@ import {
   validateCreatePrerequisites,
   validateStockPrepVehicle,
 } from './workshop-intake.helpers.js';
+import type { RegisterIntakeDto } from './dto/register-intake.dto.js';
+import { asFake } from '../invoices/invoice-fixtures.spec.support.js';
 
 describe('workshop-intake.helpers', () => {
   describe('resolveFindAllPagination', () => {
@@ -741,9 +743,11 @@ describe('workshop-intake.helpers', () => {
         customer: { findFirst: jest.fn().mockResolvedValue({ id: 'c-1' }) },
       } as any;
 
-      const id = await computeCustomerId(prisma, 'tenant-1', {
-        customerId: 'c-1',
-      });
+      const id = await computeCustomerId(
+        prisma,
+        'tenant-1',
+        asFake<RegisterIntakeDto>({ customerId: 'c-1' }),
+      );
       expect(id).toBe('c-1');
     });
 
@@ -753,7 +757,11 @@ describe('workshop-intake.helpers', () => {
       } as any;
 
       await expect(
-        computeCustomerId(prisma, 'tenant-1', { customerId: 'c-missing' }),
+        computeCustomerId(
+          prisma,
+          'tenant-1',
+          asFake<RegisterIntakeDto>({ customerId: 'c-missing' }),
+        ),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -762,9 +770,11 @@ describe('workshop-intake.helpers', () => {
         customer: { findFirst: jest.fn().mockResolvedValue({ id: 'c-email' }) },
       } as any;
 
-      const id = await computeCustomerId(prisma, 'tenant-1', {
-        email: 'john@example.com',
-      });
+      const id = await computeCustomerId(
+        prisma,
+        'tenant-1',
+        asFake<RegisterIntakeDto>({ email: 'john@example.com' }),
+      );
       expect(id).toBe('c-email');
     });
 
@@ -776,11 +786,15 @@ describe('workshop-intake.helpers', () => {
         },
       } as any;
 
-      const id = await computeCustomerId(prisma, 'tenant-1', {
-        firstName: 'Jane',
-        lastName: 'Doe',
-        email: 'jane@example.com',
-      });
+      const id = await computeCustomerId(
+        prisma,
+        'tenant-1',
+        asFake<RegisterIntakeDto>({
+          firstName: 'Jane',
+          lastName: 'Doe',
+          email: 'jane@example.com',
+        }),
+      );
       expect(id).toBe('c-new');
       expect(prisma.customer.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -855,7 +869,7 @@ describe('workshop-intake.helpers', () => {
           identity_resolution_generation: null,
           identity_resolution_token: null,
         },
-        dto: { plate: 'NEW-PLATE' },
+        dto: asFake<RegisterIntakeDto>({ plate: 'NEW-PLATE' }),
         customerId: 'c-1',
         vin: 'VIN123',
       });
@@ -881,7 +895,7 @@ describe('workshop-intake.helpers', () => {
             identity_resolution_generation: null,
             identity_resolution_token: null,
           },
-          dto: { plate: 'NEW-PLATE' },
+          dto: asFake<RegisterIntakeDto>({ plate: 'NEW-PLATE' }),
           customerId: 'c-1',
           vin: 'VIN123',
         }),
@@ -902,7 +916,12 @@ describe('workshop-intake.helpers', () => {
       const result = await createNewIntakeVehicle({
         tx,
         tenantId: 'tenant-1',
-        dto: { plate: 'ABC-123', make: 'Audi', model: 'A4', year: 2020 },
+        dto: asFake<RegisterIntakeDto>({
+          plate: 'ABC-123',
+          make: 'Audi',
+          model: 'A4',
+          year: 2020,
+        }),
         customerId: 'c-1',
         vin: 'VIN999',
       });
@@ -930,7 +949,7 @@ describe('workshop-intake.helpers', () => {
       const result = await resolveIntakeVehicle(
         tx,
         'tenant-1',
-        { plate: 'NEW', vin: 'VIN123' },
+        asFake<RegisterIntakeDto>({ plate: 'NEW', vin: 'VIN123' }),
         'c-1',
       );
       expect(result.id).toBe('v-exist');
@@ -951,10 +970,11 @@ describe('workshop-intake.helpers', () => {
         ),
       } as any;
 
-      const result = await executeRegisterIntake(prisma, 'tenant-1', {
-        customerId: 'c-1',
-        plate: 'NEW-123',
-      });
+      const result = await executeRegisterIntake(
+        prisma,
+        'tenant-1',
+        asFake<RegisterIntakeDto>({ customerId: 'c-1', plate: 'NEW-123' }),
+      );
       expect(result.id).toBe('v-registered');
     });
   });

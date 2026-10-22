@@ -4,6 +4,8 @@ import type { Socket, Server } from 'socket.io';
 import { jest } from '@jest/globals';
 import type { AuthService } from '../auth/auth.service.js';
 import type { SiteContextService } from '../site/site-context.service.js';
+import type { TenantAuthenticatedUser } from '../auth/types/authenticated-user.js';
+import { asFake } from '../invoices/invoice-fixtures.spec.support.js';
 import {
   AUTH_CLAIMS_UPDATED_EVENT,
   DASHBOARD_ENTITY_UPDATED_EVENT,
@@ -17,10 +19,10 @@ import {
 } from './dashboard-events.types.js';
 const mockCreateAdapter = jest.fn(() => 'mock-redis-adapter');
 
-const mockPubQuit = jest.fn().mockResolvedValue('OK');
-const mockPubConnect = jest.fn().mockResolvedValue('OK');
-const mockSubQuit = jest.fn().mockResolvedValue('OK');
-const mockSubConnect = jest.fn().mockResolvedValue('OK');
+const mockPubQuit = jest.fn<() => Promise<string>>().mockResolvedValue('OK');
+const mockPubConnect = jest.fn<() => Promise<string>>().mockResolvedValue('OK');
+const mockSubQuit = jest.fn<() => Promise<string>>().mockResolvedValue('OK');
+const mockSubConnect = jest.fn<() => Promise<string>>().mockResolvedValue('OK');
 const mockPubOn = jest.fn();
 const mockSubOn = jest.fn();
 
@@ -288,7 +290,7 @@ describe('redactTransferForSockets and buildStockTransferPayload', () => {
     const input = {
       fromSiteId: 'site-a',
       toSiteId: 'site-b',
-      action: 'TRANSFERRED' as const,
+      action: 'UPDATED' as const,
       transfer: { id: 'tx-1', lines: [{ sourceLocationId: 'loc-1' }] },
       recipients: [],
     };
@@ -300,51 +302,74 @@ describe('redactTransferForSockets and buildStockTransferPayload', () => {
   });
 });
 
-type MockSocket = {
-  id: string;
-  handshake: { auth?: Record<string, unknown> };
-  join: jest.Mock<Promise<void>, [string]>;
-  disconnect: jest.Mock<void, [boolean?]>;
-  data: Record<string, unknown>;
-};
+type RemoteSocketFake = Awaited<
+  ReturnType<ReturnType<Server['in']>['fetchSockets']>
+>[number];
 
-function createClient(token?: string): MockSocket {
-  return {
+function createClient(token?: string): Socket {
+  return asFake<Socket>({
     id: 'socket-1',
-    handshake: token ? { auth: { token } } : { auth: {} },
-    join: jest.fn().mockResolvedValue(undefined),
-    disconnect: jest.fn(),
+    handshake: {
+      headers: {},
+      time: '',
+      address: '',
+      xdomain: false,
+      secure: false,
+      issued: 0,
+      url: '',
+      query: {},
+      auth: token ? { token } : {},
+    },
+    join: jest
+      .fn<(room: string) => Promise<void>>()
+      .mockResolvedValue(undefined),
+    disconnect: jest.fn<(close?: boolean) => Socket>(),
     data: {},
-  };
+  });
 }
 
 describe('DashboardGateway', () => {
-  let authService: jest.Mocked<Pick<AuthService, 'authenticateBearerToken'>>;
+  let authService: {
+    authenticateBearerToken: jest.Mock<
+      (authorizationHeader?: string) => Promise<TenantAuthenticatedUser>
+    >;
+  };
   let siteContext: jest.Mocked<Pick<SiteContextService, 'resolveSiteId'>>;
-  let gateway: DashboardGateway;
+  let gateway: InstanceType<typeof DashboardGateway>;
   let middleware: (socket: any, next: (err?: Error) => void) => void;
 
   beforeEach(() => {
     authService = {
-      authenticateBearerToken: jest.fn(),
+      authenticateBearerToken: jest.fn<
+        (authorizationHeader?: string) => Promise<TenantAuthenticatedUser>
+      >(),
     };
     siteContext = {
-      resolveSiteId: jest.fn().mockResolvedValue(null),
+      resolveSiteId: jest
+        .fn<SiteContextService['resolveSiteId']>()
+        .mockResolvedValue(null),
     };
-    gateway = new DashboardGateway(authService, siteContext);
+    gateway = new DashboardGateway(
+      asFake<AuthService>(authService),
+      asFake<SiteContextService>(siteContext),
+    );
 
-    const mockServer = {
-      use: jest.fn((fn) => {
+    const mockServer = asFake<Server>({
+      use: jest.fn<(fn: typeof middleware) => Server>(function (
+        this: Server,
+        fn,
+      ) {
         middleware = fn;
+        return this;
       }),
-    };
+    });
     gateway.afterInit(mockServer);
   });
 
   describe('middleware authentication', () => {
     it('rejects connection when socket auth token is missing', async () => {
       const client = createClient();
-      const next = jest.fn();
+      const next = jest.fn<(...args: unknown[]) => void>();
 
       await new Promise<void>((resolve) => {
         middleware(client, (...args: any[]) => {
@@ -355,12 +380,12 @@ describe('DashboardGateway', () => {
 
       expect(authService.authenticateBearerToken).not.toHaveBeenCalled();
       expect(next).toHaveBeenCalledWith(expect.any(Error));
-      expect(next.mock.calls[0][0].message).toBe('Unauthorized');
+      expect((next.mock.calls[0][0] as Error).message).toBe('Unauthorized');
     });
 
     it('rejects connection when socket auth token is invalid', async () => {
       const client = createClient('bad-token');
-      const next = jest.fn();
+      const next = jest.fn<(...args: unknown[]) => void>();
       authService.authenticateBearerToken.mockRejectedValue(
         new Error('invalid token'),
       );
@@ -376,12 +401,12 @@ describe('DashboardGateway', () => {
         'Bearer bad-token',
       );
       expect(next).toHaveBeenCalledWith(expect.any(Error));
-      expect(next.mock.calls[0][0].message).toBe('Unauthorized');
+      expect((next.mock.calls[0][0] as Error).message).toBe('Unauthorized');
     });
 
     it('authenticates and attaches user data to socket from jwt tenantId', async () => {
       const client = createClient('jwt-token');
-      const next = jest.fn();
+      const next = jest.fn<(...args: unknown[]) => void>();
       authService.authenticateBearerToken.mockResolvedValue({
         userId: 'user-1',
         email: 'user@example.com',
@@ -417,7 +442,7 @@ describe('DashboardGateway', () => {
       expect(client.join).toHaveBeenCalledWith('user_user-1');
 
       const logCalls = loggerDebugSpy.mock.calls.map((call) =>
-        JSON.parse(call[0]),
+        JSON.parse(call[0] as string),
       );
       expect(logCalls).toContainEqual(
         expect.objectContaining({
@@ -466,7 +491,7 @@ describe('DashboardGateway', () => {
       gateway.handleDisconnect(client);
 
       const logCalls = loggerDebugSpy.mock.calls.map((call) =>
-        JSON.parse(call[0]),
+        JSON.parse(call[0] as string),
       );
       expect(logCalls).toContainEqual(
         expect.objectContaining({
@@ -480,9 +505,11 @@ describe('DashboardGateway', () => {
   });
 
   it('emits realtime updates only to tenant-prefixed room without tenantId in payload', () => {
-    const emit = jest.fn();
-    const to = jest.fn().mockReturnValue({ emit });
-    gateway.server = { to };
+    const emit = jest.fn<(event: string, payload: { transfer: unknown }) => boolean>();
+    const to = jest
+      .fn<Server['to']>()
+      .mockReturnValue(asFake<ReturnType<Server['to']>>({ emit }));
+    gateway.server = asFake<Server>({ to });
 
     const payload: DashboardEntityUpdatedPayload = {
       type: 'CUSTOMER',
@@ -500,9 +527,11 @@ describe('DashboardGateway', () => {
   });
 
   it('emits claims refresh events only to the affected user room', () => {
-    const emit = jest.fn();
-    const to = jest.fn().mockReturnValue({ emit });
-    gateway.server = { to };
+    const emit = jest.fn<(event: string, payload: { transfer: unknown }) => boolean>();
+    const to = jest
+      .fn<Server['to']>()
+      .mockReturnValue(asFake<ReturnType<Server['to']>>({ emit }));
+    gateway.server = asFake<Server>({ to });
 
     const payload: AuthClaimsUpdatedPayload = {
       reason: 'membership-updated',
@@ -516,9 +545,11 @@ describe('DashboardGateway', () => {
   });
 
   it('emits site access scope events only to the affected user room', () => {
-    const emit = jest.fn();
-    const to = jest.fn().mockReturnValue({ emit });
-    gateway.server = { to };
+    const emit = jest.fn<(event: string, payload: { transfer: unknown }) => boolean>();
+    const to = jest
+      .fn<Server['to']>()
+      .mockReturnValue(asFake<ReturnType<Server['to']>>({ emit }));
+    gateway.server = asFake<Server>({ to });
 
     const payload: SiteAccessScopeUpdatedPayload = {
       timestamp: new Date().toISOString(),
@@ -531,9 +562,11 @@ describe('DashboardGateway', () => {
   });
 
   it('redacts source locations per transfer recipient', () => {
-    const emit = jest.fn();
-    const to = jest.fn().mockReturnValue({ emit });
-    gateway.server = { to };
+    const emit = jest.fn<(event: string, payload: { transfer: unknown }) => boolean>();
+    const to = jest
+      .fn<Server['to']>()
+      .mockReturnValue(asFake<ReturnType<Server['to']>>({ emit }));
+    gateway.server = asFake<Server>({ to });
 
     gateway.emitStockTransferUpdated('tenant-a', {
       action: 'UPDATED',
@@ -579,24 +612,30 @@ describe('DashboardGateway', () => {
   });
 
   it('moves every user-room socket to the new site room then emits site context updated', async () => {
-    const emit = jest.fn();
-    const to = jest.fn().mockReturnValue({ emit });
+    const emit = jest.fn<(event: string, payload: { transfer: unknown }) => boolean>();
+    const to = jest
+      .fn<Server['to']>()
+      .mockReturnValue(asFake<ReturnType<Server['to']>>({ emit }));
     const leave = jest.fn();
     const join = jest.fn();
     const socketData = { activeSiteId: 'site-old' };
-    const fetchSockets = jest.fn().mockResolvedValue([
-      {
-        data: socketData,
-        rooms: new Set(['socket-1', 'user_user-1', 'site_site-old']),
-        leave,
-        join,
-      },
-    ]);
-    const inRoom = jest.fn().mockReturnValue({ fetchSockets });
-    gateway.server = {
+    const fetchSockets = jest
+      .fn<ReturnType<Server['in']>['fetchSockets']>()
+      .mockResolvedValue([
+        asFake<RemoteSocketFake>({
+          data: socketData,
+          rooms: new Set(['socket-1', 'user_user-1', 'site_site-old']),
+          leave,
+          join,
+        }),
+      ]);
+    const inRoom = jest
+      .fn<Server['in']>()
+      .mockReturnValue(asFake<ReturnType<Server['in']>>({ fetchSockets }));
+    gateway.server = asFake<Server>({
       to,
       in: inRoom,
-    };
+    });
 
     const payload: SiteContextUpdatedPayload = {
       siteId: 'site-new',
@@ -614,23 +653,29 @@ describe('DashboardGateway', () => {
   });
 
   it('clears the site room when site context updates with null', async () => {
-    const emit = jest.fn();
-    const to = jest.fn().mockReturnValue({ emit });
+    const emit = jest.fn<(event: string, payload: { transfer: unknown }) => boolean>();
+    const to = jest
+      .fn<Server['to']>()
+      .mockReturnValue(asFake<ReturnType<Server['to']>>({ emit }));
     const leave = jest.fn();
     const join = jest.fn();
     const socketData = { activeSiteId: 'site-old' };
-    const fetchSockets = jest.fn().mockResolvedValue([
-      {
-        data: socketData,
-        rooms: new Set(['socket-1', 'user_user-1', 'site_site-old']),
-        leave,
-        join,
-      },
-    ]);
-    gateway.server = {
+    const fetchSockets = jest
+      .fn<ReturnType<Server['in']>['fetchSockets']>()
+      .mockResolvedValue([
+        asFake<RemoteSocketFake>({
+          data: socketData,
+          rooms: new Set(['socket-1', 'user_user-1', 'site_site-old']),
+          leave,
+          join,
+        }),
+      ]);
+    gateway.server = asFake<Server>({
       to,
-      in: jest.fn().mockReturnValue({ fetchSockets }),
-    };
+      in: jest
+        .fn<Server['in']>()
+        .mockReturnValue(asFake<ReturnType<Server['in']>>({ fetchSockets })),
+    });
 
     const payload: SiteContextUpdatedPayload = {
       siteId: null,
@@ -647,21 +692,26 @@ describe('DashboardGateway', () => {
   it('uses the remote socket room set when moving a socket repeatedly', async () => {
     const leave = jest.fn();
     const join = jest.fn();
-    const emit = jest.fn();
-    const remoteSocket = (activeSiteId: string, siteRoom: string) => ({
-      data: { activeSiteId },
-      rooms: new Set(['socket-1', 'user_user-1', siteRoom]),
-      leave,
-      join,
-    });
+    const emit = jest.fn<(event: string, payload: { transfer: unknown }) => boolean>();
+    const remoteSocket = (activeSiteId: string, siteRoom: string) =>
+      asFake<RemoteSocketFake>({
+        data: { activeSiteId },
+        rooms: new Set(['socket-1', 'user_user-1', siteRoom]),
+        leave,
+        join,
+      });
     const fetchSockets = jest
-      .fn()
+      .fn<ReturnType<Server['in']>['fetchSockets']>()
       .mockResolvedValueOnce([remoteSocket('site-old', 'site_site-old')])
       .mockResolvedValueOnce([remoteSocket('site-old', 'site_site-new')]);
-    gateway.server = {
-      to: jest.fn().mockReturnValue({ emit }),
-      in: jest.fn().mockReturnValue({ fetchSockets }),
-    };
+    gateway.server = asFake<Server>({
+      to: jest
+        .fn<Server['to']>()
+        .mockReturnValue(asFake<ReturnType<Server['to']>>({ emit })),
+      in: jest
+        .fn<Server['in']>()
+        .mockReturnValue(asFake<ReturnType<Server['in']>>({ fetchSockets })),
+    });
 
     await gateway.emitSiteContextUpdated('user-1', {
       siteId: 'site-new',
@@ -702,7 +752,10 @@ describe('DashboardGateway', () => {
 
     it('attaches Redis adapter when REDIS_URL is provided and connect succeeds', async () => {
       jest.clearAllMocks();
-      const gatewayWithRedis = new DashboardGateway(authService, siteContext);
+      const gatewayWithRedis = new DashboardGateway(
+        asFake<AuthService>(authService),
+        asFake<SiteContextService>(siteContext),
+      );
       const mockServer = {
         use: jest.fn(),
         adapter: jest.fn(),
@@ -726,7 +779,10 @@ describe('DashboardGateway', () => {
 
     it('attaches Redis adapter to root server when afterInit receives a Namespace object', async () => {
       jest.clearAllMocks();
-      const gatewayWithRedis = new DashboardGateway(authService, siteContext);
+      const gatewayWithRedis = new DashboardGateway(
+        asFake<AuthService>(authService),
+        asFake<SiteContextService>(siteContext),
+      );
       const rootServer = {
         adapter: jest.fn(),
       };
@@ -751,7 +807,10 @@ describe('DashboardGateway', () => {
       jest.clearAllMocks();
       mockPubConnect.mockRejectedValueOnce(new Error('Connection refused'));
 
-      const gatewayWithRedis = new DashboardGateway(authService, siteContext);
+      const gatewayWithRedis = new DashboardGateway(
+        asFake<AuthService>(authService),
+        asFake<SiteContextService>(siteContext),
+      );
       const mockServer = {
         use: jest.fn(),
         adapter: jest.fn(),
@@ -777,7 +836,10 @@ describe('DashboardGateway', () => {
           }),
       );
 
-      const gatewayWithRedis = new DashboardGateway(authService, siteContext);
+      const gatewayWithRedis = new DashboardGateway(
+        asFake<AuthService>(authService),
+        asFake<SiteContextService>(siteContext),
+      );
       const mockServer = {
         use: jest.fn(),
         adapter: jest.fn(),
@@ -802,7 +864,10 @@ describe('DashboardGateway', () => {
       process.env.NODE_ENV = 'production';
       mockPubConnect.mockRejectedValueOnce(new Error('Connection refused'));
 
-      const gatewayWithRedis = new DashboardGateway(authService, siteContext);
+      const gatewayWithRedis = new DashboardGateway(
+        asFake<AuthService>(authService),
+        asFake<SiteContextService>(siteContext),
+      );
       const mockServer = {
         use: jest.fn(),
         adapter: jest.fn(),
@@ -827,8 +892,8 @@ describe('DashboardGateway', () => {
     it('keeps default in-memory adapter when REDIS_URL is unset', () => {
       jest.clearAllMocks();
       const gatewayWithoutRedis = new DashboardGateway(
-        authService,
-        siteContext,
+        asFake<AuthService>(authService),
+        asFake<SiteContextService>(siteContext),
       );
       const mockServer = {
         use: jest.fn(),
@@ -843,7 +908,10 @@ describe('DashboardGateway', () => {
 
     it('cleans up Redis clients on module destroy', async () => {
       jest.clearAllMocks();
-      const gatewayWithRedis = new DashboardGateway(authService, siteContext);
+      const gatewayWithRedis = new DashboardGateway(
+        asFake<AuthService>(authService),
+        asFake<SiteContextService>(siteContext),
+      );
       const mockServer = {
         use: jest.fn(),
         adapter: jest.fn(),

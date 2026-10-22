@@ -42,7 +42,11 @@ describe('workshop-loaner-fee.helpers', () => {
     expect(row.type).toBe(WorkshopLineItemType.FEE);
     expect(row.item_no).toBe(LOANER_FEE_ITEM_NO);
     expect(row.description).toBe(LOANER_FEE_DESCRIPTION);
-    expect(new Prisma.Decimal(row.quantity ?? 0).toString()).toBe('3');
-    expect(new Prisma.Decimal(row.unit_price ?? 0).toString()).toBe('45');
+    expect(
+      new Prisma.Decimal((row.quantity ?? 0) as string | number | Prisma.Decimal).toString(),
+    ).toBe('3');
+    expect(
+      new Prisma.Decimal((row.unit_price ?? 0) as string | number | Prisma.Decimal).toString(),
+    ).toBe('45');
   });
 });

@@ -39,6 +39,7 @@ describe('MechanicController', () => {
     requestPart: jest.fn(),
     createMediaUploadPolicy: jest.fn(),
     saveMediaMetadata: jest.fn(),
+    uploadVoiceNote: jest.fn(),
   };
 
   const baseDetail: MechanicTaskDetailDto = {

@@ -40,7 +40,9 @@ describe('purgeOrphanCheckInUpload', () => {
   };
 
   function createPrismaMock(options: {
-    lockRows: Array<typeof lockedRow | null>;
+    lockRows: Array<
+      (Omit<typeof lockedRow, 'check_in_id'> & { check_in_id: string | null }) | null
+    >;
     existsAfter?: boolean;
   }) {
     let lockCall = 0;

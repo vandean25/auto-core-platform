@@ -4,6 +4,8 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { WorkshopEstimateService } from './workshop-estimate.service.js';
+import type { NotificationOutboxService } from '../notifications/notification-outbox.service.js';
+import { asFake } from '../invoices/invoice-fixtures.spec.support.js';
 
 const SEND_FLAG = 'CUSTOMER_ESTIMATE_SEND_ENABLED';
 
@@ -35,7 +37,9 @@ function buildService(role: string | undefined) {
     requestGeneration: jest.fn(),
     getPdf: jest.fn(),
   };
-  const outbox = { enqueueInTx: jest.fn() };
+  const outbox = asFake<NotificationOutboxService>({
+    enqueueInTx: jest.fn(),
+  });
   const wakeUps = { enqueueWakeUp: jest.fn() };
   const overruns = { observe: jest.fn().mockResolvedValue(null) };
   const service = new WorkshopEstimateService(

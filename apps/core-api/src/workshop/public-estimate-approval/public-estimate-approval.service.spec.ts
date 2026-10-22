@@ -6,6 +6,8 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import type { WorkshopEstimateSnapshot } from '../workshop-estimate-snapshot.js';
+import type { RequestContextService } from '../../common/services/request-context.service.js';
+import { asFake } from '../../invoices/invoice-fixtures.spec.support.js';
 import {
   PublicEstimateDecision,
   type PublicEstimateDecisionDto,
@@ -126,9 +128,9 @@ function build() {
     isEnabled: jest.fn().mockReturnValue(false),
     enqueueWakeUp: jest.fn(),
   };
-  const requestContext = {
+  const requestContext = asFake<RequestContextService>({
     getTraceId: jest.fn().mockReturnValue('trace-approval-1'),
-  };
+  });
   const service = new PublicEstimateApprovalService(
     lookup as never,
     tenantContext as never,

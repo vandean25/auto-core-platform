@@ -14,6 +14,7 @@ describe('WorkshopPdfRenderer', () => {
     notes: 'Internal note line 1\nInternal note line 2',
     customer: {
       type: 'PRIVATE',
+      preferred_language: null,
       first_name: 'Ada',
       last_name: 'Lovelace',
       company_name: null,
@@ -47,6 +48,7 @@ describe('WorkshopPdfRenderer', () => {
       createOrder({
         customer: {
           type: 'PRIVATE',
+          preferred_language: null,
           first_name: '',
           last_name: '',
           company_name: null,

@@ -1,4 +1,4 @@
-import { WorkshopEstimateStatus } from '@prisma/client';
+import { Prisma, WorkshopEstimateStatus } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { effectiveEstimateStatus } from './workshop-estimate-version-expiry.js';
 import { listSiteEstimateVersionsPage } from './workshop-estimate-version-site-list.read.js';
@@ -62,10 +62,11 @@ describe('buildSiteEstimateVersionsPageWhere', () => {
       NOW,
     );
     expect(where.AND).toHaveLength(3);
-    const statusClause = where.AND?.[1];
+    const andClauses = where.AND as Prisma.WorkshopEstimateVersionWhereInput[];
+    const statusClause = andClauses[1];
     expect(statusClause).toMatchObject({ status: WorkshopEstimateStatus.SENT });
     expect(statusClause?.OR).toBeDefined();
-    expect(where.AND?.[2]?.OR).toBeDefined();
+    expect(andClauses[2]?.OR).toBeDefined();
   });
 });
 

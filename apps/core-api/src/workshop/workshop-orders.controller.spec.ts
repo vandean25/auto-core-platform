@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { WorkshopIntakeService } from './workshop-intake.service.js';
 import { WorkshopInvoiceService } from './workshop-invoice.service.js';
 import { WorkshopOrdersController } from './workshop-orders.controller.js';
+import { asFake } from '../invoices/invoice-fixtures.spec.support.js';
 
 describe('WorkshopOrdersController', () => {
   it('delegates create to intake service', async () => {
@@ -15,9 +16,9 @@ describe('WorkshopOrdersController', () => {
     }).compile();
 
     const controller = module.get(WorkshopOrdersController);
-    const dto = { vehicle_id: 'v-1' } as Parameters<
-      WorkshopOrdersController['create']
-    >[0];
+    const dto = asFake<Parameters<WorkshopOrdersController['create']>[0]>({
+      vehicleId: 'v-1',
+    });
 
     expect(controller.create(dto)).toEqual({ id: 'o-1' });
     expect(intakeService.create).toHaveBeenCalledWith(dto);

@@ -3,10 +3,10 @@ import type { Server } from 'socket.io';
 import { Logger } from '@nestjs/common';
 
 const mockCreateAdapter = jest.fn(() => 'mock-redis-adapter');
-const mockPubQuit = jest.fn().mockResolvedValue('OK');
-const mockPubConnect = jest.fn().mockResolvedValue('OK');
-const mockSubQuit = jest.fn().mockResolvedValue('OK');
-const mockSubConnect = jest.fn().mockResolvedValue('OK');
+const mockPubQuit = jest.fn<() => Promise<string>>().mockResolvedValue('OK');
+const mockPubConnect = jest.fn<() => Promise<string>>().mockResolvedValue('OK');
+const mockSubQuit = jest.fn<() => Promise<string>>().mockResolvedValue('OK');
+const mockSubConnect = jest.fn<() => Promise<string>>().mockResolvedValue('OK');
 const mockPubOn = jest.fn();
 const mockSubOn = jest.fn();
 
@@ -62,7 +62,7 @@ describe('dashboard-redis.adapter', () => {
 
   describe('connectRedisClients', () => {
     it('resolves when connect completes within timeout', async () => {
-      const connect = jest.fn().mockResolvedValue('OK');
+      const connect = jest.fn<() => Promise<string>>().mockResolvedValue('OK');
       await expect(connectRedisClients(connect, 100)).resolves.toBeUndefined();
       expect(connect).toHaveBeenCalledTimes(1);
     });

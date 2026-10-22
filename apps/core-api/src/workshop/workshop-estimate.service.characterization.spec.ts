@@ -18,11 +18,13 @@ import {
 const SEND_FLAG = 'CUSTOMER_ESTIMATE_SEND_ENABLED';
 
 jest.mock('./workshop-task.helpers.js', () => ({
-  lockWorkshopRows: jest.fn().mockResolvedValue(undefined),
+  lockWorkshopRows: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
 }));
 
 jest.mock('../common/i18n/customer-document-language.js', () => ({
-  loadTenantDefaultLocale: jest.fn().mockResolvedValue('de'),
+  loadTenantDefaultLocale: jest
+    .fn<() => Promise<string>>()
+    .mockResolvedValue('de'),
   resolveCustomerDocumentLanguage: jest.fn().mockReturnValue('de'),
 }));
 
