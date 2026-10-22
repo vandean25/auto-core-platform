@@ -37,6 +37,7 @@ export function createSentryOptions(env: SentryEnv): BrowserOptions {
       cookies: false,
       httpHeaders: { request: { allow: ['user-agent', 'referer'] }, response: false },
       httpBodies: [],
+      urlQueryParams: { deny: ['forwarded', '-ip', 'remote-', 'via', '-user'] },
       genAI: { inputs: false, outputs: false },
       databaseQueryData: false,
       frameContextLines: 7,
