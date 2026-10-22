@@ -12,7 +12,11 @@ import {
 import { AppModule } from '../src/app.module.js';
 import { createGlobalValidationPipe } from '../src/common/index.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
-import { createTestTenant, runWithTenantContext } from './tenant-test-utils.js';
+import {
+  cleanupTestTenantGraph,
+  createTestTenant,
+  runWithTenantContext,
+} from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
 
 describe('legacy migration schema M2 (e2e)', () => {
@@ -136,6 +140,8 @@ describe('legacy migration schema M2 (e2e)', () => {
   });
 
   afterAll(async () => {
+    await cleanupTestTenantGraph(prisma, tenantAId);
+    await cleanupTestTenantGraph(prisma, tenantBId);
     await teardownTestApp(app);
   });
 
@@ -282,6 +288,18 @@ describe('legacy migration schema M2 (e2e)', () => {
       createLegacyDocument(tenantAId, job.id, {
         external_id: `${prefix}-dup`,
         doc_type: LegacyDocumentType.INVOICE,
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('rejects OPEN_ITEM without migration_run_id', async () => {
+    const job = await createImportJob(tenantAId);
+
+    await expect(
+      createLegacyDocument(tenantAId, job.id, {
+        external_id: `${prefix}-open-no-run`,
+        doc_type: LegacyDocumentType.OPEN_ITEM,
+        migration_run_id: null,
       }),
     ).rejects.toThrow();
   });

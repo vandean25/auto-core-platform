@@ -37,6 +37,9 @@ describe('legacy migration schema M2 (Prisma enums and models)', () => {
     expect(block).toContain('@@unique([tenant_id, id])');
     expect(block).toContain('@@index([tenant_id, source_system, doc_type, external_id])');
     expect(block).toContain('@@index([tenant_id, migration_run_id, external_id])');
+    expect(schema).toContain(
+      'OPEN_ITEM rows require `migration_run_id` (`legacy_documents_open_item_requires_migration_run_check`',
+    );
   });
 
   it('defines LegacyDocumentLine with composite tenant FK to LegacyDocument', () => {

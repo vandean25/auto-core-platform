@@ -4,7 +4,7 @@ import type { Prisma } from '@prisma/client';
 export async function enableLegacyMigrationPurgeFlag(
   tx: Prisma.TransactionClient,
 ): Promise<void> {
-  const executeRaw = tx['$executeRaw'] as (
+  const executeRaw = tx['$executeRaw'].bind(tx) as (
     query: TemplateStringsArray,
     ...values: unknown[]
   ) => Promise<unknown>;

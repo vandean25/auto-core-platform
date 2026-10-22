@@ -140,6 +140,9 @@ ALTER TABLE "legacy_documents" ADD CONSTRAINT "legacy_documents_tenant_id_migrat
 ALTER TABLE "legacy_documents" ADD CONSTRAINT "legacy_documents_tenant_id_superseded_by_run_id_fkey"
   FOREIGN KEY ("tenant_id", "superseded_by_run_id") REFERENCES "migration_runs"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
+ALTER TABLE "legacy_documents" ADD CONSTRAINT "legacy_documents_open_item_requires_migration_run_check"
+  CHECK ("doc_type" <> 'OPEN_ITEM' OR "migration_run_id" IS NOT NULL);
+
 CREATE TABLE "legacy_document_lines" (
   "tenant_id" TEXT NOT NULL,
   "legacy_document_id" UUID NOT NULL,

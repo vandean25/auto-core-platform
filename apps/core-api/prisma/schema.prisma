@@ -4962,6 +4962,7 @@ model MigrationRun {
 }
 
 /// Partial unique indexes for legacy document identity are defined in migration SQL only — do not drop via Prisma drift.
+/// OPEN_ITEM rows require `migration_run_id` (`legacy_documents_open_item_requires_migration_run_check` in migration SQL only).
 model LegacyDocument {
   id                    String               @id @default(uuid()) @db.Uuid
   tenant_id             String
