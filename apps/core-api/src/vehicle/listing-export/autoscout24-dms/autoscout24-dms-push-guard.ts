@@ -1,9 +1,17 @@
 import { ServiceUnavailableException } from '@nestjs/common';
-import type { PrismaClient } from '@prisma/client';
 import { isVehicleListingAs24PushEnvEnabled } from './autoscout24-dms-env.js';
 
+type PushSettingsReader = {
+  vehicleListingPushSettings: {
+    findFirst(args: {
+      where: { tenant_id: string };
+      select: { as24_dms_push_enabled: true };
+    }): PromiseLike<{ as24_dms_push_enabled: boolean } | null>;
+  };
+};
+
 export async function assertVehicleListingAs24PushEnabled(
-  prisma: Pick<PrismaClient, 'vehicleListingPushSettings'>,
+  prisma: PushSettingsReader,
   tenantId: string,
 ): Promise<void> {
   if (!isVehicleListingAs24PushEnvEnabled()) {

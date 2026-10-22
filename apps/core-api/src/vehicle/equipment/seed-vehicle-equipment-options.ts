@@ -1,8 +1,12 @@
-import type { PrismaClient } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import { chunkedPromiseAll } from '../../common/utils/promise.util.js';
 import { VEHICLE_EQUIPMENT_STARTER_DEFINITIONS } from './vehicle-equipment-taxonomy.js';
 
-type EquipmentSeedClient = Pick<PrismaClient, 'vehicleEquipmentOption'>;
+type EquipmentSeedClient = {
+  vehicleEquipmentOption: {
+    upsert: (args: Prisma.VehicleEquipmentOptionUpsertArgs) => Promise<unknown>;
+  };
+};
 
 export interface VehicleEquipmentSeedSummary {
   optionsUpserted: number;

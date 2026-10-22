@@ -2,6 +2,7 @@ import type { AgentPolicyTier } from '@prisma/client';
 import type { AgentActionRecordInput } from '../agent-action-log/agent-action-log.types.js';
 import type { AgentPolicyEvaluateContext } from '../agent-policy/agent-policy.types.js';
 import type { WouldChangeItem } from '../dry-run/dry-run.types.js';
+import type { CustomerProposalResultFields } from './mcp-write-customer-result.js';
 import type { McpWriteToolName } from './mcp.constants.js';
 
 export type McpWriteToolContext = {
@@ -44,7 +45,7 @@ export type McpWriteToolResult = {
   pending_action_id?: string;
   trace_id?: string;
   replayed?: boolean;
-};
+} & CustomerProposalResultFields;
 
 export type McpWriteCall = {
   execution: McpWriteExecution;
