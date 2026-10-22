@@ -5,6 +5,7 @@ import type { PrismaService } from '../prisma/prisma.service.js';
 import {
   customerCreateExecutor,
   customerUpdateExecutor,
+  type CustomerExecutorDeps,
 } from './pending-action-executor.customer.js';
 
 const TENANT_ID = 'tenant-1';
@@ -31,6 +32,14 @@ function customerRow(overrides: Record<string, unknown> = {}) {
 }
 
 function createDeps(rows: Record<string, unknown>[] = []) {
+  const findFirst = jest.fn(async ({ where }: { where?: { tenant_id?: string; id?: string } }) => {
+    const found = rows.find(
+      (row) =>
+        (!where?.tenant_id || row.tenant_id === where.tenant_id) &&
+        (!where?.id || row.id === where.id),
+    );
+    return found ?? null;
+  });
   const prisma = {
     customer: {
       findMany: jest.fn().mockImplementation(async ({ where }) =>
@@ -38,14 +47,7 @@ function createDeps(rows: Record<string, unknown>[] = []) {
           (row) => !where?.tenant_id || row.tenant_id === where.tenant_id,
         ),
       ),
-      findFirst: jest.fn().mockImplementation(async ({ where }) => {
-        const found = rows.find(
-          (row) =>
-            (!where?.tenant_id || row.tenant_id === where.tenant_id) &&
-            (!where?.id || row.id === where.id),
-        );
-        return found ?? null;
-      }),
+      findFirst,
       create: jest.fn().mockImplementation(async ({ data }) => customerRow(data)),
       update: jest.fn().mockImplementation(async ({ data }) =>
         customerRow({ ...(rows[0] ?? {}), ...data }),
@@ -57,11 +59,15 @@ function createDeps(rows: Record<string, unknown>[] = []) {
 
   return {
     prisma,
+    findFirst,
     tenantContext: {
       getTenantId: jest.fn().mockResolvedValue(TENANT_ID),
     },
     siteContext: { getSiteId: jest.fn().mockResolvedValue('site-1') },
-  } as never;
+  } satisfies CustomerExecutorDeps & {
+    findFirst: jest.Mock;
+    siteContext: { getSiteId: jest.Mock };
+  };
 }
 
 describe('customer pending action executors (AUT-613)', () => {
@@ -199,7 +205,7 @@ describe('customer pending action executors (AUT-613)', () => {
           idempotency_key: 'aut613-update-1',
         },
       );
-      deps.prisma.customer.findFirst.mockResolvedValue(
+      deps.findFirst.mockResolvedValueOnce(
         customerRow({ email: 'zwischen@example.at' }),
       );
 

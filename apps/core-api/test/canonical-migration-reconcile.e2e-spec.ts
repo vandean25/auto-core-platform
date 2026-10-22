@@ -104,8 +104,12 @@ describe('Canonical migration reconciliation (e2e)', () => {
       row_count: 0,
     });
     manifest.control_totals.open_orders_net = '1.00';
+    const countsByType = manifest.control_totals.counts_by_type as Record<
+      string,
+      number
+    >;
     manifest.control_totals.counts_by_type = {
-      ...manifest.control_totals.counts_by_type,
+      ...countsByType,
       open_orders: 0,
     };
 

@@ -5,7 +5,10 @@ import { AppModule } from '../src/app.module.js';
 import { createGlobalValidationPipe } from '../src/common/index.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
-import { canContact } from '../src/customer-consent/customer-consent.permissions.js';
+import {
+  canContact,
+  type LedgerEventSlice,
+} from '../src/customer-consent/customer-consent.permissions.js';
 import { mintUnsubscribeToken } from '../src/customer-consent/customer-consent-token.helpers.js';
 import {
   cleanupTestTenantGraph,
@@ -148,10 +151,20 @@ describe('Customer consent ledger (e2e)', () => {
       })
       .expect(201);
 
-    const events = await prisma.customerConsent.findMany({
+    const consentRows = await prisma.customerConsent.findMany({
       where: { tenant_id: tenantId, customer_id: customerId },
       orderBy: { sequence: 'asc' },
     });
+    const events: LedgerEventSlice[] = consentRows.map((row) => ({
+      purpose: row.purpose,
+      channel: row.channel,
+      status: row.status,
+      sequence: row.sequence,
+      basis: row.basis,
+      text_version: row.text_version,
+      text_snapshot: row.text_snapshot,
+      evidence: row.evidence as LedgerEventSlice['evidence'],
+    }));
     const decision = canContact({
       purpose: 'NEWSLETTER',
       channel: 'EMAIL',

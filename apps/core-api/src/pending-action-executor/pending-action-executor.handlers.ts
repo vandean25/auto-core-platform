@@ -31,6 +31,7 @@ import { proposePurchaseOrderInputSchema } from '../purchase/purchase-propose-dr
 import { requestWorkshopMediaUploadInputSchema } from '../mechanic/mechanic-finding-propose.schema.js';
 import { generateWeeklyReportPdfInputSchema } from '../reports/weekly-report/weekly-report-mcp.schema.js';
 import { asRecord } from './pending-action-executor.util.js';
+import type { CustomerExecutorDeps } from './pending-action-executor.customer.js';
 
 export type PendingActionHandlerDeps = {
   prisma: PrismaService;
@@ -159,7 +160,7 @@ export async function releaseReservation(
 }
 
 export async function updateCustomer(
-  deps: PendingActionHandlerDeps,
+  deps: CustomerExecutorDeps,
   input: unknown,
 ): Promise<unknown> {
   const record = asRecord(input);
