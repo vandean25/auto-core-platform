@@ -244,11 +244,13 @@ describe('legacy migration schema M2 (e2e)', () => {
     await expect(
       inTenant(tenantAId, () =>
         prisma.legacyDocumentLine.update({
-        where: {
-          tenant_id: tenantAId,
-          legacy_document_id: doc.id,
-          line_no: 1,
-        },
+          where: {
+            tenant_id_legacy_document_id_line_no: {
+              tenant_id: tenantAId,
+              legacy_document_id: doc.id,
+              line_no: 1,
+            },
+          },
           data: { description: 'Changed' },
         }),
       ),
@@ -257,12 +259,14 @@ describe('legacy migration schema M2 (e2e)', () => {
     await expect(
       inTenant(tenantAId, () =>
         prisma.legacyDocumentLine.delete({
-        where: {
-          tenant_id: tenantAId,
-          legacy_document_id: doc.id,
-          line_no: 1,
-        },
-      }),
+          where: {
+            tenant_id_legacy_document_id_line_no: {
+              tenant_id: tenantAId,
+              legacy_document_id: doc.id,
+              line_no: 1,
+            },
+          },
+        }),
       ),
     ).rejects.toThrow();
   });
