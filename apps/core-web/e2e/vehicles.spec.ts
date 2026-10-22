@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
 import { createMockCustomer, createMockListResponse, createMockVehicleListItem } from './utils/mock-factories';
 import { DE_VEHICLES, deVehicleListRowAria } from './helpers/de-vehicles';
+import { expectListPeekForRecord, openListPeekInFull } from './helpers/peek-list';
 
 /**
  * Blueprint Validation Suite — Vehicles Module
@@ -64,16 +65,27 @@ test.describe('Blueprint: Vehicles Module', () => {
 
   test('list page renders and follows golden rules', async ({ page }) => {
     const corePage = new AutoCorePage(page, DE_VEHICLES.list.addVehicle);
+    const listVehicle = createMockVehicleListItem({ make: 'Honda', model: 'Civic', plate: 'HD-1234' });
 
     await page.route(AutoCorePage.apiRouteMatcher('/api/vehicles'), async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(
-          createMockListResponse([
-            createMockVehicleListItem({ make: 'Honda', model: 'Civic', plate: 'HD-1234' }),
-          ])
-        ),
+        body: JSON.stringify(createMockListResponse([listVehicle])),
+      });
+    });
+
+    await page.route(AutoCorePage.apiRouteMatcher(`/api/vehicles/${listVehicle.id}`), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ...listVehicle,
+          sales_orders: [],
+          workshop_orders: [],
+          invoices: [],
+          customer: null,
+        }),
       });
     });
 
@@ -85,9 +97,12 @@ test.describe('Blueprint: Vehicles Module', () => {
     // Verify data table exists
     await expect(corePage.dataTable).toBeVisible();
 
-    // Verify row click navigation
     await expectNoCriticalA11yViolations(page);
-    await corePage.openRowDetails('Honda Civic');
+    const row = page.locator('[data-table-row="true"]').filter({ hasText: 'Honda Civic' }).first();
+    await row.locator('[data-column-id="plate"]').click();
+    await expectListPeekForRecord(page, listVehicle.id, 'Honda Civic');
+    await openListPeekInFull(page);
+    await expect(page).toHaveURL(new RegExp(`/vehicles/${listVehicle.id}$`));
   });
 
   test('detail page header and customer info renders correctly', async ({ page }) => {

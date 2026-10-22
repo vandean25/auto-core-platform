@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
 import { createMockListResponse, createMockWorkshopOrder } from './utils/mock-factories'
 import { DE_WORKSHOP } from './helpers/de-workshop'
+import { expectListPeekForRecord, openListPeekInFull } from './helpers/peek-list'
 
 function workshopOrderRowLinkName(orderNo: string) {
   return DE_WORKSHOP.orders.list.rowAria.replace('{{orderNo}}', orderNo)
@@ -32,7 +33,7 @@ test.describe('Workshop Orders list', () => {
     expect(box?.height ?? 0).toBeGreaterThanOrEqual(24)
   })
 
-  test('opens the workshop order detail when a row is clicked', async ({ page }) => {
+  test('opens the workshop order peek when a row is clicked and Open in full reaches detail', async ({ page }) => {
     const corePage = new AutoCorePage(page, 'Order')
     const order = createMockWorkshopOrder({
       id: 'workshop-order-click-1',
@@ -66,7 +67,12 @@ test.describe('Workshop Orders list', () => {
     await corePage.navigate('/workshop/orders')
     await expect(corePage.dataTable).toBeVisible()
     await expectNoCriticalA11yViolations(page);
-    await corePage.openRowDetails('WO-2026-0221')
+
+    const row = page.locator('[data-table-row="true"]').filter({ hasText: 'WO-2026-0221' }).first()
+    await row.locator('[data-column-id="vehicle"]').click()
+
+    await expectListPeekForRecord(page, order.id, order.order_number)
+    await openListPeekInFull(page)
 
     await page.waitForURL(`/workshop/orders/${order.id}`)
     await page.waitForLoadState('networkidle')
