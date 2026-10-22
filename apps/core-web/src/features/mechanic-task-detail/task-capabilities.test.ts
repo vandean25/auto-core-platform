@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
-import { getTaskCapabilities } from './task-capabilities'
+import { buildTaskHeaderActionState, getTaskCapabilities } from './task-capabilities'
 
 describe('getTaskCapabilities', () => {
   it('allows start and switch for NOT_STARTED tasks', () => {
@@ -63,6 +63,33 @@ describe('getTaskCapabilities', () => {
       canPause: false,
       canComplete: false,
       isDone: true,
+    })
+  })
+})
+
+describe('buildTaskHeaderActionState', () => {
+  it('maps capability flags and each pending flag from lifecycle', () => {
+    const capabilities = getTaskCapabilities({
+      taskStatus: 'IN_PROGRESS',
+      hasOpenLaborEntry: true,
+    })
+    const state = buildTaskHeaderActionState(capabilities, {
+      startTask: { isPending: true },
+      switchTask: { isPending: false },
+      pauseTask: { isPending: true },
+      completeTask: { isPending: false },
+    })
+
+    expect(state).toEqual({
+      canStart: capabilities.canStart,
+      canSwitch: capabilities.canSwitch,
+      canPause: capabilities.canPause,
+      canComplete: capabilities.canComplete,
+      isNotStarted: capabilities.isNotStarted,
+      startPending: true,
+      switchPending: false,
+      pausePending: true,
+      completePending: false,
     })
   })
 })

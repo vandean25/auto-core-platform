@@ -3,44 +3,23 @@ import { ArrowLeft } from 'lucide-react'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { Button } from '@/components/ui/button'
 import type { MechanicTaskDetail } from '@/api/mechanic'
+import type { TaskHeaderActionHandlers, TaskHeaderActionState } from '../task-capabilities'
 import { TaskHeaderActions } from './TaskHeaderActions'
 
 type TaskHeaderProps = {
   task: MechanicTaskDetail
-  canStart: boolean
-  canSwitch: boolean
-  canPause: boolean
-  canComplete: boolean
   isDone: boolean
-  isNotStarted: boolean
-  startPending: boolean
-  switchPending: boolean
-  pausePending: boolean
-  completePending: boolean
   onBack: () => void
-  onStart: () => void
-  onOpenSwitch: () => void
-  onOpenPause: () => void
-  onComplete: () => void
+  actionState: TaskHeaderActionState
+  actionHandlers: TaskHeaderActionHandlers
 }
 
 export function TaskHeader({
   task,
-  canStart,
-  canSwitch,
-  canPause,
-  canComplete,
   isDone,
-  isNotStarted,
-  startPending,
-  switchPending,
-  pausePending,
-  completePending,
   onBack,
-  onStart,
-  onOpenSwitch,
-  onOpenPause,
-  onComplete,
+  actionState,
+  actionHandlers,
 }: TaskHeaderProps) {
   const { t } = useTranslation('workshop')
 
@@ -66,23 +45,7 @@ export function TaskHeader({
         </div>
       </div>
 
-      {!isDone ? (
-        <TaskHeaderActions
-          canStart={canStart}
-          canSwitch={canSwitch}
-          canPause={canPause}
-          canComplete={canComplete}
-          isNotStarted={isNotStarted}
-          startPending={startPending}
-          switchPending={switchPending}
-          pausePending={pausePending}
-          completePending={completePending}
-          onStart={onStart}
-          onOpenSwitch={onOpenSwitch}
-          onOpenPause={onOpenPause}
-          onComplete={onComplete}
-        />
-      ) : null}
+      {!isDone ? <TaskHeaderActions state={actionState} handlers={actionHandlers} /> : null}
     </div>
   )
 }

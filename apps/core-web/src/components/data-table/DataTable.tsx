@@ -28,8 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { DataTablePagination } from "./data-table-pagination"
 import type { DashboardWidgetTableSource } from "@/features/dashboard-widgets/types"
 import { TableSkeleton } from "@/components/ui/skeleton-presets"
 import { cn } from "@/lib/utils"
@@ -215,11 +214,6 @@ export function DataTable<TData extends object>({
     manualFiltering: true,
   })
 
-  const pageSizeChoices =
-    pageSizeOptions.length > 0
-      ? [...new Set([...pageSizeOptions, pagination.pageSize])].sort((a, b) => a - b)
-      : []
-
   const visibleColumnCount = table.getVisibleLeafColumns().length
 
   return (
@@ -381,52 +375,7 @@ export function DataTable<TData extends object>({
           </TableBody>
         </Table>
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-2 py-4">
-        {pageSizeChoices.length > 0 ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span>{t('dataTable.rowsPerPage')}</span>
-            <Select
-              value={String(pagination.pageSize)}
-              onValueChange={(value) => setPagination({ pageIndex: 0, pageSize: Number(value) })}
-            >
-              <SelectTrigger aria-label={t('dataTable.rowsPerPageAria')} className="h-8 w-[76px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {pageSizeChoices.map((size) => (
-                  <SelectItem key={size} value={String(size)}>
-                    {size}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        ) : null}
-        <div className="flex items-center justify-end space-x-2">
-          <Button
-              variant="outline"
-              size="sm"
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
-          >
-              {t('dataTable.previous')}
-          </Button>
-          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-              <span>{t('dataTable.page')}</span>
-              <span className="font-medium">{table.getState().pagination.pageIndex + 1}</span>
-              <span>{t('dataTable.of')}</span>
-              <span className="font-medium">{table.getPageCount()}</span>
-          </div>
-          <Button
-              variant="outline"
-              size="sm"
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
-          >
-              {t('dataTable.next')}
-          </Button>
-        </div>
-      </div>
+      <DataTablePagination table={table} pageSizeOptions={pageSizeOptions} />
 
       <DataTableSelectionBar table={table} bulkActions={bulkActions} />
 

@@ -1,39 +1,27 @@
 import { useTranslation } from 'react-i18next'
 import { CheckCircle, Pause, Play, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import type { TaskHeaderActionHandlers, TaskHeaderActionState } from '../task-capabilities'
 
 type TaskHeaderActionsProps = {
-  canStart: boolean
-  canSwitch: boolean
-  canPause: boolean
-  canComplete: boolean
-  isNotStarted: boolean
-  startPending: boolean
-  switchPending: boolean
-  pausePending: boolean
-  completePending: boolean
-  onStart: () => void
-  onOpenSwitch: () => void
-  onOpenPause: () => void
-  onComplete: () => void
+  state: TaskHeaderActionState
+  handlers: TaskHeaderActionHandlers
 }
 
-export function TaskHeaderActions({
-  canStart,
-  canSwitch,
-  canPause,
-  canComplete,
-  isNotStarted,
-  startPending,
-  switchPending,
-  pausePending,
-  completePending,
-  onStart,
-  onOpenSwitch,
-  onOpenPause,
-  onComplete,
-}: TaskHeaderActionsProps) {
+export function TaskHeaderActions({ state, handlers }: TaskHeaderActionsProps) {
   const { t } = useTranslation('workshop')
+  const {
+    canStart,
+    canSwitch,
+    canPause,
+    canComplete,
+    isNotStarted,
+    startPending,
+    switchPending,
+    pausePending,
+    completePending,
+  } = state
+  const { onStart, onOpenSwitch, onOpenPause, onComplete } = handlers
 
   return (
     <div className="flex shrink-0 items-center gap-2 flex-wrap justify-end sm:flex-nowrap">
