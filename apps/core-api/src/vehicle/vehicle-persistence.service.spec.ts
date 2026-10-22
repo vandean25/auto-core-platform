@@ -227,4 +227,68 @@ describe('VehiclePersistenceService', () => {
       select: { id: true, order_number: true },
     });
   });
+
+  describe('updateIfIdentityUnchangedWithMainContact', () => {
+    function buildTx(currentCustomerId: string | null, count = 1) {
+      const tx = {
+        vehicle: {
+          findFirst: jest.fn().mockResolvedValue({ customer_id: currentCustomerId }),
+          updateMany: jest.fn().mockResolvedValue({ count }),
+        },
+        vehicleParty: {
+          findMany: jest.fn().mockResolvedValue([]),
+          create: jest.fn().mockResolvedValue({
+            id: 'p-new',
+            role: 'OWNER',
+            customer_id: 'cust-2',
+            valid_from: new Date('2026-11-01T00:00:00.000Z'),
+            valid_to: null,
+          }),
+        },
+        customer: { findFirst: jest.fn().mockResolvedValue({ id: 'cust-2' }) },
+      };
+      (prisma as unknown as { $transaction: jest.Mock }).$transaction = jest
+        .fn()
+        .mockImplementation((fn: (client: unknown) => unknown) => fn(tx));
+      return tx;
+    }
+
+    const input = (customerId: string | null) => ({
+      id: 'vehicle-1',
+      tenantId,
+      existingVehicle: { id: 'vehicle-1', vin: null, plate: null },
+      data: { customer_id: customerId },
+      customerId,
+      today: '2026-11-01',
+    });
+
+    it('hands the OWNER over when the customer really changes', async () => {
+      const tx = buildTx('cust-1');
+
+      await expect(
+        service.updateIfIdentityUnchangedWithMainContact(input('cust-2')),
+      ).resolves.toBe(1);
+
+      expect(tx.vehicleParty.findMany).toHaveBeenCalled();
+      expect(tx.vehicleParty.create).toHaveBeenCalled();
+    });
+
+    it('does not touch the parties when the customer is repeated', async () => {
+      const tx = buildTx('cust-1');
+
+      await service.updateIfIdentityUnchangedWithMainContact(input('cust-1'));
+
+      expect(tx.vehicleParty.findMany).not.toHaveBeenCalled();
+      expect(tx.vehicleParty.create).not.toHaveBeenCalled();
+    });
+
+    it('writes no party when the identity guard is stale', async () => {
+      const tx = buildTx('cust-1', 0);
+
+      await expect(
+        service.updateIfIdentityUnchangedWithMainContact(input('cust-2')),
+      ).resolves.toBe(0);
+      expect(tx.vehicleParty.findMany).not.toHaveBeenCalled();
+    });
+  });
 });

@@ -72,16 +72,29 @@ describe('Vehicle parties (e2e)', () => {
         .set('Authorization', `Bearer ${tenant.authToken}`),
   });
 
+  async function vehicleContactOf(vehicleId: string) {
+    return (
+      await tenantA.prisma.vehicle.findFirstOrThrow({
+        where: { id: vehicleId, tenant_id: tenantA.tenantId },
+      })
+    ).customer_id;
+  }
+
+  /** OWNER rows active today (half-open interval), not merely open-ended ones. */
   async function activeOwners(vehicleId: string) {
     const rows = await tenantA.prisma.vehicleParty.findMany({
       where: {
         tenant_id: tenantA.tenantId,
         vehicle_id: vehicleId,
         role: 'OWNER',
-        valid_to: null,
       },
     });
-    return rows;
+    const day = (value: Date | null) => value?.toISOString().slice(0, 10);
+    return rows.filter(
+      (row) =>
+        (day(row.valid_from) ?? '') <= today &&
+        (day(row.valid_to) ?? '9999-12-31') > today,
+    );
   }
 
   describe('customer_id sync in both directions', () => {
@@ -166,7 +179,64 @@ describe('Vehicle parties (e2e)', () => {
       const parties = await tenantA.prisma.vehicleParty.findMany({
         where: { tenant_id: tenantA.tenantId, vehicle_id: vehicle.id },
       });
-      expect(parties).toHaveLength(2);
+      // Bob started today, so clearing the contact withdraws that same-day row; Alice's history stays.
+      expect(parties).toHaveLength(1);
+    });
+
+    it('keeps one active OWNER and no future-dated OWNER across several same-day changes', async () => {
+      const [alice, bob, carol, dave] = [
+        await newCustomer(tenantA, 'Alice'),
+        await newCustomer(tenantA, 'Bob'),
+        await newCustomer(tenantA, 'Carol'),
+        await newCustomer(tenantA, 'Dave'),
+      ];
+      const vehicle = await newVehicle(tenantA);
+      await api(tenantA)
+        .post(`/api/vehicles/${vehicle.id}/parties`)
+        .send({ customer_id: alice.id, role: 'OWNER', valid_from: yearAgo })
+        .expect(201);
+
+      for (const customer of [bob, carol, dave]) {
+        await api(tenantA)
+          .patch(`/api/vehicles/${vehicle.id}`)
+          .send({ customer_id: customer.id })
+          .expect(200);
+        const owners = await activeOwners(vehicle.id);
+        expect(owners.map((owner) => owner.customer_id)).toEqual([customer.id]);
+        expect(await vehicleContactOf(vehicle.id)).toBe(customer.id);
+      }
+
+      const rows = await tenantA.prisma.vehicleParty.findMany({
+        where: { tenant_id: tenantA.tenantId, vehicle_id: vehicle.id },
+      });
+      // Alice (ended today) and one same-day OWNER; the intermediate ones were corrected in place.
+      expect(rows).toHaveLength(2);
+      expect(
+        rows.every((row) => (row.valid_from?.toISOString().slice(0, 10) ?? '') <= today),
+      ).toBe(true);
+
+      await api(tenantA)
+        .patch(`/api/vehicles/${vehicle.id}`)
+        .send({ customer_id: null })
+        .expect(200);
+      expect(await activeOwners(vehicle.id)).toHaveLength(0);
+      expect(await vehicleContactOf(vehicle.id)).toBeNull();
+    });
+
+    it('does not invent a party when PATCH repeats the current customer', async () => {
+      const alice = await newCustomer(tenantA, 'Alice');
+      const vehicle = await newVehicle(tenantA, alice.id);
+
+      await api(tenantA)
+        .patch(`/api/vehicles/${vehicle.id}`)
+        .send({ customer_id: alice.id })
+        .expect(200);
+
+      expect(
+        await tenantA.prisma.vehicleParty.count({
+          where: { tenant_id: tenantA.tenantId, vehicle_id: vehicle.id },
+        }),
+      ).toBe(0);
     });
 
     it('does not create a party when a vehicle is created with a customer', async () => {

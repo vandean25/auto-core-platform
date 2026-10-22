@@ -9,7 +9,7 @@ import { attachPickerlDue } from './pickerl/attach-pickerl-due.js';
 import type { PickerlBarrierFlags } from './pickerl/apply-pickerl-record-selection.js';
 import { stripVehicleIdentityResolutionState } from './vehicle-identity.util.js';
 import { toPartyResponse } from './vehicle-party-response.mapper.js';
-import { dateToDay } from './vehicle-party.writer.js';
+import { dateToDay } from './vehicle-party-date.util.js';
 import type { VehiclePersistenceService } from './vehicle-persistence.service.js';
 
 type VehicleListRow = Awaited<

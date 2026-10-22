@@ -1,4 +1,9 @@
-import type { Customer, Vehicle, VehicleParty } from '@prisma/client';
+import type {
+  Customer,
+  Vehicle,
+  VehicleParty,
+  VehiclePartyRole,
+} from '@prisma/client';
 import type {
   CustomerVehiclePartyDto,
   SuggestedBillToDto,
@@ -6,7 +11,8 @@ import type {
   VehiclePartyResponseDto,
 } from './dto/vehicle-party.dto.js';
 import { isActiveOn } from './vehicle-party.rules.js';
-import { dateToDay, toPartyInterval } from './vehicle-party.writer.js';
+import { dateToDay } from './vehicle-party-date.util.js';
+import { toPartyInterval } from './vehicle-party.writer.js';
 
 export type PartyRowWithCustomer = VehicleParty & {
   customer: Pick<
@@ -37,7 +43,10 @@ export function toPartyResponse(
 
 export function toPartiesResponse(
   rows: PartyRowWithCustomer[],
-  suggestion: { customer_id: string; role: 'BILL_TO' | 'LEASING' } | null,
+  suggestion: {
+    customer_id: string;
+    role: Extract<VehiclePartyRole, 'BILL_TO' | 'LEASING'>;
+  } | null,
   today: string,
 ): VehiclePartiesResponseDto {
   const suggested: SuggestedBillToDto | null = suggestion

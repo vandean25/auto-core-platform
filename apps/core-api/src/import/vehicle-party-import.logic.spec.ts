@@ -296,6 +296,24 @@ describe('planVehiclePartyRows', () => {
       );
     });
 
+    it('blocks a file that ends the owner without a successor while a main contact exists', () => {
+      const [result] = planVehiclePartyRows(
+        [csvRow(1, { valid_to: '2026-06-01' })],
+        MAPPING,
+        context({
+          partyIdByExternalId: new Map([['PARTY-1', 'p-1']]),
+          storedParties: [stored({ id: 'p-1', customer_id: 'cust-a' })],
+          vehicleContact: new Map([['veh-1', 'cust-a']]),
+          options: { cutover_date: '2026-11-01', update_existing: true },
+        }),
+      );
+
+      expect(result.action).toBe(ImportRowAction.ERROR);
+      expect(errorCodes(result)).toContain(
+        CANONICAL_ROW_ISSUE_CODES.OWNER_CONTACT_CONFLICT,
+      );
+    });
+
     it('accepts an OWNER that matches the existing contact', () => {
       const [result] = planVehiclePartyRows(
         [csvRow(1, {})],

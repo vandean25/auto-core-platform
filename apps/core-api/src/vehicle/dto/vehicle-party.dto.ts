@@ -11,6 +11,7 @@ import {
   IsString,
   IsUUID,
   Matches,
+  MaxLength,
 } from 'class-validator';
 
 const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -39,6 +40,7 @@ export class CreateVehiclePartyDto {
   @ApiPropertyOptional({ type: String, nullable: true })
   @IsOptional()
   @IsString()
+  @MaxLength(2000)
   notes?: string | null;
 }
 
@@ -116,8 +118,11 @@ export class SuggestedBillToDto {
   @ApiProperty()
   customer_id!: string;
 
-  @ApiProperty({ enum: ['BILL_TO', 'LEASING'] })
-  role!: 'BILL_TO' | 'LEASING';
+  @ApiProperty({
+    enum: [VehiclePartyRole.BILL_TO, VehiclePartyRole.LEASING],
+    enumName: 'SuggestedBillToRole',
+  })
+  role!: Extract<VehiclePartyRole, 'BILL_TO' | 'LEASING'>;
 
   @ApiProperty({ type: () => VehiclePartyCustomerDto })
   customer!: VehiclePartyCustomerDto;

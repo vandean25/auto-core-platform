@@ -54,6 +54,7 @@ CREATE INDEX "vehicle_parties_tenant_id_customer_id_idx" ON "vehicle_parties"("t
 CREATE UNIQUE INDEX "vehicle_parties_tenant_id_id_key" ON "vehicle_parties"("tenant_id", "id");
 
 CREATE INDEX "vehicle_notices_tenant_id_vehicle_id_status_idx" ON "vehicle_notices"("tenant_id", "vehicle_id", "status");
+CREATE INDEX "vehicle_notices_tenant_id_status_due_date_idx" ON "vehicle_notices"("tenant_id", "status", "due_date");
 CREATE UNIQUE INDEX "vehicle_notices_tenant_id_id_key" ON "vehicle_notices"("tenant_id", "id");
 
 ALTER TABLE "vehicle_parties" ADD CONSTRAINT "vehicle_parties_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

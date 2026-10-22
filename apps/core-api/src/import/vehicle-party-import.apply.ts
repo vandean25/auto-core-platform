@@ -7,9 +7,9 @@ import {
   VehicleRecordSource,
 } from '@prisma/client';
 import { viennaIsoDay } from '../vehicle-stock/gewaehrleistung/gewaehrleistung-status.js';
+import { dateToDay } from '../vehicle/vehicle-party-date.util.js';
 import {
   addPartyInTx,
-  dateToDay,
   updatePartyBoundsInTx,
   type PartyWriteContext,
 } from '../vehicle/vehicle-party.writer.js';

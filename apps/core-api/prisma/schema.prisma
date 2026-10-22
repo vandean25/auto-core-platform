@@ -2487,6 +2487,7 @@ model VehicleNotice {
 
   @@unique([tenant_id, id])
   @@index([tenant_id, vehicle_id, status])
+  @@index([tenant_id, status, due_date])
   @@map("vehicle_notices")
 }
 

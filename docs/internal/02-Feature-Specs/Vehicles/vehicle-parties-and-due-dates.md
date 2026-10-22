@@ -16,7 +16,7 @@ tags:
 
 A vehicle has more than one relevant party over time: owner, driver, bill-to, leasing company, insurer, previous owners. AUT-641 PR-A models them as time-bounded `VehicleParty` rows, adds the `VehicleNotice` table, and imports parties and due dates from the canonical migration CSV 1.1 ([migration-csv-vehicles.md](../Platform/migration-csv-vehicles.md)), so the Pickerl due list and service due dates work from day one after cutover. This page covers the API, MCP, invariants and import behavior. The UI is PR-B and is not part of this slice. No reminder, notification, cron job or realtime registration is added.
 
-`Vehicle.customer_id` stays the main contact. It always equals the single OWNER that is active today and is written only through the party service.
+`Vehicle.customer_id` stays the main contact. It follows the single OWNER that is active today and is written by the party service (see the known gap below).
 
 ## Data model
 
@@ -34,7 +34,8 @@ The interval is half-open: a party is active on day D when `valid_from <= D < va
 - PREVIOUS_OWNER needs `valid_to`, on or before today (API) or the cutover date (import).
 - Every write takes a per-vehicle row lock inside its transaction (a typed `UPDATE` of the vehicle row, which holds the row lock until commit) and rechecks the timeline under it. The partial unique index is the backstop; a violation maps to the same `409` overlap error.
 - Future-dated OWNER, BILL_TO or LEASING rows are rejected (`422`; the importer reports `MIGRATION_UNSUPPORTED_CAPABILITY`) until a follow-up adds scheduled activation. Effective parties are computed at read time; `customer_id` is synced at write time only for an OWNER active today. Other roles may start in the future.
-- Ending the owner never clears `customer_id`. Setting `customer_id` through `PATCH /vehicles/:id` ends the active OWNER (valid_to = today) and starts a new OWNER (source `MANUAL`) in the same transaction; `null` ends the OWNER only. An owner that started today ends the next day so the interval stays non-empty. Vehicle create does not create a party.
+- Ending the owner never clears `customer_id`. Setting `customer_id` through `PATCH /vehicles/:id` to a different customer ends the active OWNER (valid_to = today) and starts a new OWNER (source `MANUAL`, valid_from = today) in the same transaction; repeating the current customer changes nothing. An OWNER that started today cannot end today (the interval would be empty), so a `MANUAL` one is corrected in place (or withdrawn when the contact is cleared); an imported one returns `409`. `null` ends the OWNER only. Vehicle create does not create a party.
+- Known gap: other code paths still write `Vehicle.customer_id` directly (vehicle sale, registration intake ownership correction, workshop intake vehicle helper, and the `vehicles.csv` import). After such a write the old OWNER party stays active until it is ended; hooking those paths into the party service belongs to a later slice, because those modules are outside this PR.
 
 ## API
 

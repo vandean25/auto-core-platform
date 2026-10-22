@@ -16,7 +16,8 @@ import {
   OPEN_DUE_DATE_LIMIT,
   OPEN_SERVICE_DUE,
 } from './vehicle-party.query.js';
-import { changeMainContactInTx, dayToDate } from './vehicle-party.writer.js';
+import { dayToDate } from './vehicle-party-date.util.js';
+import { changeMainContactInTx } from './vehicle-party.writer.js';
 
 export interface VehicleListQuery {
   where: Prisma.VehicleWhereInput;
@@ -105,11 +106,16 @@ export class VehiclePersistenceService {
   }): Promise<number> {
     const { id, tenantId, existingVehicle, data, customerId, today } = input;
     return this.prisma.$transaction(async (tx) => {
+      const current = await tx.vehicle.findFirst({
+        where: { id, tenant_id: tenantId },
+        select: { customer_id: true },
+      });
       const { count } = await tx.vehicle.updateMany({
         where: buildVehicleIdentityGuard(id, tenantId, existingVehicle),
         data,
       });
-      if (count > 0) {
+      // Repeating the current customer is not a change: no party is invented or moved.
+      if (count > 0 && current?.customer_id !== customerId) {
         await changeMainContactInTx(tx, { tenantId, today }, id, customerId);
       }
       return count;

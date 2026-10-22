@@ -9,7 +9,7 @@ import {
   VehicleNoticeType,
   VehicleRecordSource,
 } from '@prisma/client';
-import { dateToDay, dayToDate } from '../vehicle/vehicle-party.writer.js';
+import { dateToDay, dayToDate } from '../vehicle/vehicle-party-date.util.js';
 import {
   ApplyRowStaleError,
   resolveImportExternalId,
@@ -19,6 +19,10 @@ import { createExternalMapping } from './import-external-id.store.js';
 import type { ImportApplyJob, ImportApplyRow } from './import-type-handler.js';
 import { assignImportUpdateFields } from './import-update-data.util.js';
 import type { ImportJobOptions } from './import.types.js';
+import {
+  DUE_DATE_KIND,
+  type DueDateKind,
+} from './vehicle-due-date-import.logic.js';
 
 export type DueDateApplyContext = {
   tenantId: string;
@@ -30,7 +34,7 @@ export type DueDateApplyContext = {
 const SERVICE_TITLE = 'Service';
 
 type DuePayload = {
-  kind: 'INSPECTION_57A' | 'SERVICE';
+  kind: DueDateKind;
   vehicle_id: string;
   inspected_on?: string;
   plaketten_valid_until_year?: number;
@@ -60,7 +64,7 @@ async function recordCreate(
   tx: Prisma.TransactionClient,
   ctx: DueDateApplyContext,
   externalId: string,
-  entityType: 'VehicleInspectionRecord' | 'VehicleNotice',
+  entityType: string,
   created: { id: string },
   snapshot: Record<string, unknown>,
 ): Promise<void> {
@@ -223,7 +227,7 @@ export async function applyVehicleDueDateImportRow(
   const due = payload as unknown as DuePayload;
 
   if (row.action === ImportRowAction.CREATE) {
-    await (due.kind === 'SERVICE'
+    await (due.kind === DUE_DATE_KIND.SERVICE
       ? createServiceNotice(tx, ctx, externalId, due)
       : createInspection(tx, ctx, externalId, due));
     return;
@@ -231,7 +235,7 @@ export async function applyVehicleDueDateImportRow(
   if (
     row.action === ImportRowAction.UPDATE &&
     row.entity_id &&
-    due.kind === 'SERVICE'
+    due.kind === DUE_DATE_KIND.SERVICE
   ) {
     const options = (ctx.job.options_json as ImportJobOptions | null) ?? {};
     await updateServiceNotice(tx, ctx, row.entity_id, due, options);

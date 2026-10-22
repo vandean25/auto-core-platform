@@ -9842,10 +9842,11 @@ export interface components {
             station_name?: Record<string, never>;
             notes?: Record<string, never>;
         };
+        /** @enum {string} */
+        SuggestedBillToRole: "BILL_TO" | "LEASING";
         SuggestedBillToDto: {
             customer_id: string;
-            /** @enum {string} */
-            role: "BILL_TO" | "LEASING";
+            role: components["schemas"]["SuggestedBillToRole"];
             customer: components["schemas"]["VehiclePartyCustomerDto"];
         };
         VehiclePartiesResponseDto: {

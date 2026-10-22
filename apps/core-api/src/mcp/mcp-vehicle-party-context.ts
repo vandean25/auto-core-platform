@@ -4,7 +4,7 @@ import {
   OPEN_DUE_DATE_LIMIT,
   openServiceDueWhere,
 } from '../vehicle/vehicle-party.query.js';
-import { dateToDay, dayToDate } from '../vehicle/vehicle-party.writer.js';
+import { dateToDay, dayToDate } from '../vehicle/vehicle-party-date.util.js';
 import { viennaIsoDay } from '../vehicle-stock/gewaehrleistung/gewaehrleistung-status.js';
 
 type CustomerName = {

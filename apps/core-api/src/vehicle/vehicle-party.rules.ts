@@ -159,7 +159,10 @@ export function selectActiveOwner<T extends PartyInterval>(
 export function suggestBillTo(
   parties: readonly PartyInterval[],
   day: string,
-): { customer_id: string; role: 'BILL_TO' | 'LEASING' } | null {
+): {
+  customer_id: string;
+  role: Extract<VehiclePartyRole, 'BILL_TO' | 'LEASING'>;
+} | null {
   for (const role of [VehiclePartyRole.BILL_TO, VehiclePartyRole.LEASING]) {
     const match = parties.find(
       (row) => row.role === role && isActiveOn(row, day),

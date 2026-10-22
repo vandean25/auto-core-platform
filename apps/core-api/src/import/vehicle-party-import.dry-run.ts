@@ -1,7 +1,7 @@
 import { ImportEntityType } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { viennaIsoDay } from '../vehicle-stock/gewaehrleistung/gewaehrleistung-status.js';
-import { dateToDay } from '../vehicle/vehicle-party.writer.js';
+import { dateToDay } from '../vehicle/vehicle-party-date.util.js';
 import { loadVehicleBoundMappings } from './canonical-csv-cell.util.js';
 import { rowToRecord, type ParsedCsv } from './csv-parse.util.js';
 import type { ImportDryRunInput } from './import-type-handler.js';

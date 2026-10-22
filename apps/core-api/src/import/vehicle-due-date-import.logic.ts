@@ -1,4 +1,4 @@
-import { ImportRowAction } from '@prisma/client';
+import { ImportRowAction, VehicleNoticeStatus } from '@prisma/client';
 import {
   CANONICAL_ROW_ISSUE_CODES,
   cell,
@@ -16,6 +16,14 @@ import type {
   ImportRowIssue,
 } from './import.types.js';
 
+/** The `kind` tokens of the canonical vehicle_due_dates.csv. */
+export const DUE_DATE_KIND = {
+  INSPECTION_57A: 'INSPECTION_57A',
+  SERVICE: 'SERVICE',
+} as const;
+
+export type DueDateKind = (typeof DUE_DATE_KIND)[keyof typeof DUE_DATE_KIND];
+
 export type StoredInspection = {
   id: string;
   vehicle_id: string;
@@ -30,7 +38,7 @@ export type StoredServiceNotice = {
   id: string;
   vehicle_id: string;
   external_ref: string | null;
-  status: string;
+  status: VehicleNoticeStatus;
   body: string | null;
   due_date: string | null;
   due_mileage: number | null;
@@ -48,6 +56,34 @@ export type DueDatePlanContext = {
   today: string;
 };
 
+/** The plan context with lookups by id and by vehicle, built once per file. */
+type IndexedDueCtx = DueDatePlanContext & {
+  inspectionById: Map<string, StoredInspection>;
+  noticeById: Map<string, StoredServiceNotice>;
+  inspectionsByVehicle: Map<string, StoredInspection[]>;
+  noticesByVehicle: Map<string, StoredServiceNotice[]>;
+};
+
+function groupByVehicle<T extends { vehicle_id: string }>(rows: T[]) {
+  const grouped = new Map<string, T[]>();
+  for (const row of rows) {
+    const list = grouped.get(row.vehicle_id) ?? [];
+    list.push(row);
+    grouped.set(row.vehicle_id, list);
+  }
+  return grouped;
+}
+
+function indexContext(ctx: DueDatePlanContext): IndexedDueCtx {
+  return {
+    ...ctx,
+    inspectionById: new Map(ctx.inspections.map((item) => [item.id, item])),
+    noticeById: new Map(ctx.serviceNotices.map((item) => [item.id, item])),
+    inspectionsByVehicle: groupByVehicle(ctx.inspections),
+    noticesByVehicle: groupByVehicle(ctx.serviceNotices),
+  };
+}
+
 export type DueDateCsvRow = { rowNo: number; record: Record<string, string> };
 
 type CommonFields = {
@@ -58,7 +94,7 @@ type CommonFields = {
 };
 
 type NormalizedInspection = CommonFields & {
-  kind: 'INSPECTION_57A';
+  kind: typeof DUE_DATE_KIND.INSPECTION_57A;
   inspected_on: string;
   plaketten_valid_until_year: number;
   plaketten_valid_until_month: number;
@@ -66,7 +102,7 @@ type NormalizedInspection = CommonFields & {
 };
 
 type NormalizedService = CommonFields & {
-  kind: 'SERVICE';
+  kind: typeof DUE_DATE_KIND.SERVICE;
   due_date: string | null;
   due_mileage: number | null;
 };
@@ -145,7 +181,11 @@ function normalizeInspection(
   issues: ImportRowIssue[],
 ): NormalizedInspection | null {
   issues.push(
-    ...blankIssues(texts, ['due_date', 'due_mileage'], 'INSPECTION_57A'),
+    ...blankIssues(
+      texts,
+      ['due_date', 'due_mileage'],
+      DUE_DATE_KIND.INSPECTION_57A,
+    ),
   );
   const inspectedRaw = texts('inspected_on');
   const inspected_on = parseIsoDay(inspectedRaw);
@@ -166,7 +206,7 @@ function normalizeInspection(
   }
   return {
     ...common,
-    kind: 'INSPECTION_57A',
+    kind: DUE_DATE_KIND.INSPECTION_57A,
     inspected_on,
     plaketten_valid_until_year: year,
     plaketten_valid_until_month: month,
@@ -205,7 +245,7 @@ function normalizeService(
         'plaketten_valid_until_month',
         'station_name',
       ],
-      'SERVICE',
+      DUE_DATE_KIND.SERVICE,
     ),
   );
   if (common.external_ref === null) {
@@ -220,7 +260,7 @@ function normalizeService(
   }
   return issues.length > 0
     ? null
-    : { ...common, kind: 'SERVICE', due_date, due_mileage };
+    : { ...common, kind: DUE_DATE_KIND.SERVICE, due_date, due_mileage };
 }
 
 function headerIssues(texts: Texts): ImportRowIssue[] {
@@ -228,7 +268,7 @@ function headerIssues(texts: Texts): ImportRowIssue[] {
     .filter((field) => texts(field) === '')
     .map(requiredIssue);
   const kind = texts('kind');
-  if (kind !== '' && kind !== 'INSPECTION_57A' && kind !== 'SERVICE') {
+  if (kind !== '' && !(kind in DUE_DATE_KIND)) {
     issues.push(invalidIssue('kind', `kind "${kind}" is not allowed`));
   }
   return issues;
@@ -251,7 +291,7 @@ function normalizeDueRow(
     notes: texts('notes') || null,
   };
   const row =
-    texts('kind') === 'SERVICE'
+    texts('kind') === DUE_DATE_KIND.SERVICE
       ? normalizeService(common, texts, issues)
       : normalizeInspection(common, texts, cutoff, issues);
   return { row, issues };
@@ -322,7 +362,7 @@ function resolveStoredService(
     );
     return;
   }
-  if (stored.status !== 'OPEN') {
+  if (stored.status !== VehicleNoticeStatus.OPEN) {
     prepared.issues.push(
       evidenceIssue('The notice was resolved locally and cannot be reopened'),
     );
@@ -345,19 +385,19 @@ function resolveMapped(
   prepared: PreparedDue,
   row: NormalizedDueRow,
   mappedId: string,
-  ctx: DueDatePlanContext,
+  ctx: IndexedDueCtx,
 ): void {
   const vehicleId = prepared.vehicleId as string;
-  const inspection = ctx.inspections.find((item) => item.id === mappedId);
-  const notice = ctx.serviceNotices.find((item) => item.id === mappedId);
+  const inspection = ctx.inspectionById.get(mappedId);
+  const notice = ctx.noticeById.get(mappedId);
   const target = inspection ?? notice;
   if (!target || target.vehicle_id !== vehicleId) {
     prepared.issues.push(
       identityIssue('The mapped target does not belong to this vehicle'),
     );
-  } else if (row.kind === 'INSPECTION_57A' && inspection) {
+  } else if (row.kind === DUE_DATE_KIND.INSPECTION_57A && inspection) {
     resolveStoredInspection(prepared, row, inspection);
-  } else if (row.kind === 'SERVICE' && notice) {
+  } else if (row.kind === DUE_DATE_KIND.SERVICE && notice) {
     resolveStoredService(prepared, row, notice, ctx.options);
   } else {
     prepared.issues.push(
@@ -369,20 +409,16 @@ function resolveMapped(
 function checkAgainstStored(
   prepared: PreparedDue,
   row: NormalizedDueRow,
-  ctx: DueDatePlanContext,
+  ctx: IndexedDueCtx,
 ): void {
   const vehicleId = prepared.vehicleId as string;
   const clash =
-    row.kind === 'INSPECTION_57A'
-      ? ctx.inspections.some(
-          (item) =>
-            item.vehicle_id === vehicleId &&
-            item.inspected_on === row.inspected_on,
+    row.kind === DUE_DATE_KIND.INSPECTION_57A
+      ? (ctx.inspectionsByVehicle.get(vehicleId) ?? []).some(
+          (item) => item.inspected_on === row.inspected_on,
         )
-      : ctx.serviceNotices.some(
-          (item) =>
-            item.vehicle_id === vehicleId &&
-            item.external_ref === row.external_ref,
+      : (ctx.noticesByVehicle.get(vehicleId) ?? []).some(
+          (item) => item.external_ref === row.external_ref,
         );
   if (clash) {
     prepared.issues.push(
@@ -395,7 +431,7 @@ function checkAgainstStored(
 }
 
 /** Resolves the vehicle and matches the row to a mapped or natural-key target. */
-function resolveRow(prepared: PreparedDue, ctx: DueDatePlanContext): void {
+function resolveRow(prepared: PreparedDue, ctx: IndexedDueCtx): void {
   const row = prepared.row as NormalizedDueRow;
   prepared.vehicleId = ctx.vehicleIdByExternalId.get(row.vehicle_external_id);
   if (!prepared.vehicleId) {
@@ -417,7 +453,7 @@ function resolveRow(prepared: PreparedDue, ctx: DueDatePlanContext): void {
 function prepareRow(
   csv: DueDateCsvRow,
   mapping: Record<string, string>,
-  ctx: DueDatePlanContext,
+  ctx: IndexedDueCtx,
   seen: Map<string, number>,
 ): PreparedDue {
   const cutoff = ctx.options.cutover_date ?? ctx.today;
@@ -434,7 +470,7 @@ function prepareRow(
 function naturalKeys(item: PreparedDue): string[] {
   const row = item.row as NormalizedDueRow;
   const vehicle = item.vehicleId as string;
-  if (row.kind === 'SERVICE') {
+  if (row.kind === DUE_DATE_KIND.SERVICE) {
     return [`${vehicle}|service|${row.external_ref}`];
   }
   return [
@@ -485,7 +521,8 @@ export function planVehicleDueDateRows(
   ctx: DueDatePlanContext,
 ): DryRunRowResult[] {
   const seen = new Map<string, number>();
-  const prepared = rows.map((csv) => prepareRow(csv, mapping, ctx, seen));
+  const indexed = indexContext(ctx);
+  const prepared = rows.map((csv) => prepareRow(csv, mapping, indexed, seen));
   flagFileConflicts(prepared);
   return prepared.map(toResult);
 }

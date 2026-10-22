@@ -46,6 +46,26 @@ export type PartyPlanContext = {
   today: string;
 };
 
+/** The plan context with the lookups the per-row checks need, built once per file. */
+type IndexedPartyCtx = PartyPlanContext & {
+  storedById: Map<string, StoredParty>;
+  storedByVehicle: Map<string, StoredParty[]>;
+};
+
+function indexContext(ctx: PartyPlanContext): IndexedPartyCtx {
+  const storedByVehicle = new Map<string, StoredParty[]>();
+  for (const party of ctx.storedParties) {
+    const rows = storedByVehicle.get(party.vehicle_id) ?? [];
+    rows.push(party);
+    storedByVehicle.set(party.vehicle_id, rows);
+  }
+  return {
+    ...ctx,
+    storedById: new Map(ctx.storedParties.map((party) => [party.id, party])),
+    storedByVehicle,
+  };
+}
+
 export type PartyCsvRow = { rowNo: number; record: Record<string, string> };
 
 type NormalizedPartyRow = {
@@ -198,7 +218,7 @@ function prepareExisting(
 }
 
 /** Resolves references, checks the shape of the row and matches it to a stored party. */
-function resolveRow(prepared: PreparedParty, ctx: PartyPlanContext): void {
+function resolveRow(prepared: PreparedParty, ctx: IndexedPartyCtx): void {
   const row = prepared.row as NormalizedPartyRow;
   prepared.issues.push(...referenceIssues(row, ctx));
   if (prepared.issues.length > 0) {
@@ -223,7 +243,7 @@ function resolveRow(prepared: PreparedParty, ctx: PartyPlanContext): void {
     return;
   }
   const storedId = ctx.partyIdByExternalId.get(row.external_id);
-  const stored = ctx.storedParties.find((party) => party.id === storedId);
+  const stored = storedId ? ctx.storedById.get(storedId) : undefined;
   if (stored) {
     resolveStored(prepared, stored, ctx);
   }
@@ -232,7 +252,7 @@ function resolveRow(prepared: PreparedParty, ctx: PartyPlanContext): void {
 function prepareRow(
   csv: PartyCsvRow,
   mapping: Record<string, string>,
-  ctx: PartyPlanContext,
+  ctx: IndexedPartyCtx,
   seen: Map<string, number>,
 ): PreparedParty {
   return prepareCanonicalRow<NormalizedPartyRow>(
@@ -279,8 +299,11 @@ function buildTimeline(
       .map((p) => p.entityId),
   );
   const timeline = new Map<string, PartyInterval[]>();
-  const add = (vehicleId: string, interval: PartyInterval) =>
-    timeline.set(vehicleId, [...(timeline.get(vehicleId) ?? []), interval]);
+  const add = (vehicleId: string, interval: PartyInterval) => {
+    const rows = timeline.get(vehicleId) ?? [];
+    rows.push(interval);
+    timeline.set(vehicleId, rows);
+  };
 
   for (const party of ctx.storedParties) {
     if (!touched.has(party.id)) {
@@ -300,7 +323,7 @@ function buildTimeline(
 
 function hasUnmappedContactConflict(
   item: PreparedParty,
-  ctx: PartyPlanContext,
+  ctx: IndexedPartyCtx,
 ): boolean {
   const interval = item.interval as PartyInterval;
   if (
@@ -314,18 +337,55 @@ function hasUnmappedContactConflict(
   if (contact === null || contact === interval.customer_id) {
     return false;
   }
-  return !ctx.storedParties.some(
+  return !(ctx.storedByVehicle.get(vehicleId) ?? []).some(
     (party) =>
-      party.vehicle_id === vehicleId &&
-      party.role === VehiclePartyRole.OWNER &&
-      party.customer_id === contact,
+      party.role === VehiclePartyRole.OWNER && party.customer_id === contact,
   );
+}
+
+/** True when the file leaves the vehicle without an OWNER active today while a main contact exists. */
+function leavesNoActiveOwner(
+  item: PreparedParty,
+  timeline: Map<string, PartyInterval[]>,
+  ctx: IndexedPartyCtx,
+): boolean {
+  const vehicleId = item.vehicleId as string;
+  if ((ctx.vehicleContact.get(vehicleId) ?? null) === null) {
+    return false;
+  }
+  return !(timeline.get(vehicleId) ?? []).some(
+    (party) =>
+      party.role === VehiclePartyRole.OWNER && isActiveOn(party, ctx.today),
+  );
+}
+
+/** Reconciliation conflicts between an OWNER row and the vehicle's existing main contact. */
+function contactConflictIssue(
+  item: PreparedParty,
+  timeline: Map<string, PartyInterval[]>,
+  ctx: IndexedPartyCtx,
+): ImportRowIssue | null {
+  if ((item.interval as PartyInterval).role !== VehiclePartyRole.OWNER) {
+    return null;
+  }
+  const reason = hasUnmappedContactConflict(item, ctx)
+    ? 'The active OWNER differs from the vehicle main contact that has no OWNER party; assign or end the owner explicitly'
+    : leavesNoActiveOwner(item, timeline, ctx)
+      ? 'The file leaves no OWNER active today while the vehicle has a main contact; assign or end the owner explicitly'
+      : null;
+  return reason === null
+    ? null
+    : {
+        code: CANONICAL_ROW_ISSUE_CODES.OWNER_CONTACT_CONFLICT,
+        message: reason,
+        field: 'customer_external_id',
+      };
 }
 
 function finishRow(
   item: PreparedParty,
   timeline: Map<string, PartyInterval[]>,
-  ctx: PartyPlanContext,
+  ctx: IndexedPartyCtx,
 ): DryRunRowResult {
   if (item.issues.length > 0 || !item.row) {
     return errorRow(item.rowNo, item.externalId, item.issues, item.warnings);
@@ -348,15 +408,9 @@ function finishRow(
       },
     ]);
   }
-  if (writes && hasUnmappedContactConflict(item, ctx)) {
-    return errorRow(item.rowNo, item.externalId, [
-      {
-        code: CANONICAL_ROW_ISSUE_CODES.OWNER_CONTACT_CONFLICT,
-        message:
-          'The active OWNER differs from the vehicle main contact that has no OWNER party; assign or end the owner explicitly',
-        field: 'customer_external_id',
-      },
-    ]);
+  const contactIssue = writes && contactConflictIssue(item, timeline, ctx);
+  if (contactIssue) {
+    return errorRow(item.rowNo, item.externalId, [contactIssue]);
   }
   return {
     row_no: item.rowNo,
@@ -384,7 +438,8 @@ export function planVehiclePartyRows(
   ctx: PartyPlanContext,
 ): DryRunRowResult[] {
   const seen = new Map<string, number>();
-  const prepared = rows.map((csv) => prepareRow(csv, mapping, ctx, seen));
-  const timeline = buildTimeline(prepared, ctx);
-  return prepared.map((item) => finishRow(item, timeline, ctx));
+  const indexed = indexContext(ctx);
+  const prepared = rows.map((csv) => prepareRow(csv, mapping, indexed, seen));
+  const timeline = buildTimeline(prepared, indexed);
+  return prepared.map((item) => finishRow(item, timeline, indexed));
 }

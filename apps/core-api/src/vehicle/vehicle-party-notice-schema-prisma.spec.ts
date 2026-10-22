@@ -119,6 +119,7 @@ describe('vehicle party and notice schema M3', () => {
     );
     expect(notice).toContain('@@unique([tenant_id, id])');
     expect(notice).toContain('@@index([tenant_id, vehicle_id, status])');
+    expect(notice).toContain('@@index([tenant_id, status, due_date])');
     expect(notice).toContain('@@map("vehicle_notices")');
     expect(schema).toContain('vehicle_notices_external_ref_key');
   });

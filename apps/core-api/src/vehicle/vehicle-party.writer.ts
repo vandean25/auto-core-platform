@@ -9,7 +9,6 @@ import {
   VehicleRecordSource,
   type VehicleParty,
 } from '@prisma/client';
-import { addIsoDays } from '../vehicle-stock/gewaehrleistung/gewaehrleistung-status.js';
 import {
   findPartyConflict,
   isActiveOn,
@@ -18,6 +17,7 @@ import {
   type PartyInterval,
   type PartyRuleViolation,
 } from './vehicle-party.rules.js';
+import { dateToDay, dayToDate } from './vehicle-party-date.util.js';
 
 /**
  * Every write here runs inside the caller's transaction and starts with a row lock on the
@@ -39,14 +39,6 @@ export type NewParty = {
   notes: string | null;
   source: VehicleRecordSource;
 };
-
-export function dayToDate(day: string | null): Date | null {
-  return day === null ? null : new Date(`${day}T00:00:00.000Z`);
-}
-
-export function dateToDay(date: Date | null): string | null {
-  return date === null ? null : date.toISOString().slice(0, 10);
-}
 
 export function toPartyInterval(
   row: VehicleParty,
@@ -212,40 +204,69 @@ export async function endPartyInTx(
     throw violationToException(violation);
   }
   return tx.vehicleParty.update({
-    where: { id: party.id },
+    where: { tenant_id_id: { tenant_id: ctx.tenantId, id: party.id } },
     data: { valid_to: dayToDate(validTo) },
   });
 }
 
 /**
- * Ends the active OWNER and starts the next one on the handover day. An owner that started
- * today ends the next day so the interval stays non-empty.
+ * An OWNER that started today cannot end today (the interval would be empty). A manual one is a
+ * same-day correction: it is re-pointed at the new customer, or withdrawn when the contact is
+ * cleared, so no future-dated OWNER is ever created. An imported one is evidence and stays.
  */
-// shortcut: same-day owner corrections push the handover to tomorrow, upgrade when they need an in-place fix.
+async function correctSameDayOwner(
+  tx: Prisma.TransactionClient,
+  ctx: PartyWriteContext,
+  timeline: VehicleParty[],
+  owner: VehicleParty,
+  customerId: string | null,
+): Promise<void> {
+  if (owner.source !== VehicleRecordSource.MANUAL) {
+    throw new ConflictException(
+      'The owner was assigned today by an import; end it from tomorrow or correct it in the import',
+    );
+  }
+  if (customerId === null) {
+    await tx.vehicleParty.deleteMany({
+      where: { id: owner.id, tenant_id: ctx.tenantId },
+    });
+    return;
+  }
+  const next = { ...toPartyInterval(owner), customer_id: customerId };
+  if (findPartyConflict(timeline.map(toPartyInterval), next)) {
+    throw overlapException(next);
+  }
+  await tx.vehicleParty.update({
+    where: { tenant_id_id: { tenant_id: ctx.tenantId, id: owner.id } },
+    data: { customer_id: customerId },
+  });
+}
+
+/** Ends the active OWNER today and starts the next one today. */
 async function handOverOwner(
   tx: Prisma.TransactionClient,
   ctx: PartyWriteContext,
   vehicleId: string,
-  active: (PartyInterval & { id: string }) | null,
+  timeline: VehicleParty[],
+  active: VehicleParty | null,
   customerId: string | null,
 ): Promise<void> {
-  const startedToday =
-    active?.valid_from != null && active.valid_from >= ctx.today;
-  const handoverDay =
-    active && startedToday
-      ? addIsoDays(active.valid_from as string, 1)
-      : ctx.today;
+  const interval = active ? toPartyInterval(active) : null;
+  if (active && interval && (interval.valid_from ?? '') >= ctx.today) {
+    await correctSameDayOwner(tx, ctx, timeline, active, customerId);
+    return;
+  }
   if (active) {
     await tx.vehicleParty.update({
-      where: { id: active.id },
-      data: { valid_to: dayToDate(handoverDay) },
+      where: { tenant_id_id: { tenant_id: ctx.tenantId, id: active.id } },
+      data: { valid_to: dayToDate(ctx.today) },
     });
   }
   if (customerId !== null) {
     await insertLockedParty(tx, ctx, vehicleId, {
       customer_id: customerId,
       role: VehiclePartyRole.OWNER,
-      valid_from: handoverDay,
+      valid_from: ctx.today,
       valid_to: null,
       notes: null,
       source: VehicleRecordSource.MANUAL,
@@ -266,13 +287,17 @@ export async function changeMainContactInTx(
 ): Promise<void> {
   await lockVehicleForPartyWrite(tx, ctx.tenantId, vehicleId);
   const timeline = await loadTimeline(tx, ctx.tenantId, vehicleId);
-  const active = selectActiveOwner(timeline.map(toPartyInterval), ctx.today);
+  const activeInterval = selectActiveOwner(
+    timeline.map(toPartyInterval),
+    ctx.today,
+  );
+  const active = timeline.find((row) => row.id === activeInterval?.id) ?? null;
   const unchanged = active
     ? active.customer_id === customerId
     : customerId === null;
 
   if (!unchanged) {
-    await handOverOwner(tx, ctx, vehicleId, active, customerId);
+    await handOverOwner(tx, ctx, vehicleId, timeline, active, customerId);
   }
   await tx.vehicle.updateMany({
     where: { id: vehicleId, tenant_id: ctx.tenantId },
@@ -316,7 +341,7 @@ export async function updatePartyBoundsInTx(
     throw overlapException(next);
   }
   const updated = await tx.vehicleParty.update({
-    where: { id: party.id },
+    where: { tenant_id_id: { tenant_id: ctx.tenantId, id: party.id } },
     data: {
       valid_from: dayToDate(next.valid_from),
       valid_to: dayToDate(next.valid_to),
