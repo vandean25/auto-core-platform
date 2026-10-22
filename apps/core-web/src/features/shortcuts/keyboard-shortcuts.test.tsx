@@ -221,6 +221,16 @@ describe('useRegistryRowShortcuts', () => {
     pressKey(document, 'o')
     expect(navigate).not.toHaveBeenCalled()
   })
+
+  it('ignores repeated O so navigate runs only once', () => {
+    const navigate = vi.fn() as NavigateFunction
+    render(<CustomerRowShortcutHarness records={[customerA]} navigate={navigate} />)
+    focusRow('cust-a')
+    pressKey(document, 'o')
+    pressKey(document, 'o', { repeat: true })
+    expect(navigate).toHaveBeenCalledTimes(1)
+    expect(navigate).toHaveBeenCalledWith('/customers/cust-a')
+  })
 })
 
 describe('GlobalShortcutLayer', () => {
@@ -293,6 +303,82 @@ describe('GlobalShortcutLayer', () => {
     input.focus()
     pressKey(input, '?', { shiftKey: true })
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('ignores repeated G then navigates on W', () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Routes>
+          <Route
+            path="*"
+            element={
+              <>
+                <GlobalShortcutLayer />
+                <LocationDisplay />
+              </>
+            }
+          />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    pressKey(document, 'g')
+    pressKey(document, 'g', { repeat: true })
+    pressKey(document, 'w')
+    expect(screen.getByTestId('location')).toHaveTextContent('/workshop/orders')
+  })
+
+  it('does not navigate when G is pressed with Ctrl', () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Routes>
+          <Route
+            path="*"
+            element={
+              <>
+                <GlobalShortcutLayer />
+                <LocationDisplay />
+              </>
+            }
+          />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    pressKey(document, 'g', { ctrlKey: true })
+    pressKey(document, 'w')
+    expect(screen.getByTestId('location')).toHaveTextContent('/dashboard')
+  })
+
+  it('replaces an armed chord when G is pressed again before timeout', () => {
+    vi.useFakeTimers()
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Routes>
+          <Route
+            path="*"
+            element={
+              <>
+                <GlobalShortcutLayer />
+                <LocationDisplay />
+              </>
+            }
+          />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    pressKey(document, 'g')
+    vi.advanceTimersByTime(200)
+    pressKey(document, 'w')
+    expect(screen.getByTestId('location')).toHaveTextContent('/workshop/orders')
+
+    vi.advanceTimersByTime(700)
+    pressKey(document, 'g')
+    vi.advanceTimersByTime(200)
+    pressKey(document, 'c')
+    expect(screen.getByTestId('location')).toHaveTextContent('/customers')
+    vi.useRealTimers()
   })
 
   it('suspends G-sequences while a dialog is open', () => {

@@ -65,6 +65,7 @@ export function useRegistryRowShortcuts<TRecord extends { id: string }, TRunCont
     },
     {
       enabled: (event) => isRowShortcutEnabled(event) && shortcutKeys.length > 0,
+      ignoreEventWhen: (event) => event.repeat,
       preventDefault: true,
     },
     [definitions, recordById, role, runContext, shortcutKeys],
