@@ -38,9 +38,8 @@ function fakeProvider(
   allowedRoles: string[],
   search: (ctx: SearchContext) => Promise<SearchResult[]> = () =>
     Promise.resolve([]),
-  siteScoped = false,
 ): SearchProvider & { search: jest.Mock } {
-  return { type, allowedRoles, siteScoped, search: jest.fn(search) };
+  return { type, allowedRoles, search: jest.fn(search) };
 }
 
 function buildService(
@@ -170,12 +169,10 @@ describe('SearchService', () => {
 
   describe('site rule', () => {
     const siteProvider = (hits: SearchResult[]) =>
-      fakeProvider(
-        'workshop_order',
-        ['ADMIN'],
-        () => Promise.resolve(hits),
-        true,
-      );
+      fakeProvider('workshop_order', ['ADMIN'], async (ctx) => {
+        await ctx.getSiteScope();
+        return hits;
+      });
 
     it('orders active-site hits before other-site hits, then by score', async () => {
       const provider = siteProvider([
@@ -205,13 +202,13 @@ describe('SearchService', () => {
       });
       await service.search({ q: '4711' });
       const ctx = provider.search.mock.calls[0][0] as SearchContext;
-      expect(ctx.siteScope).toEqual({
+      await expect(ctx.getSiteScope()).resolves.toEqual({
         activeSiteId: 'site-a',
         siteIds: ['site-a', 'site-b'],
       });
     });
 
-    it('resolves sites only when a selected provider is site-scoped', async () => {
+    it('resolves the site scope only when a provider asks for it', async () => {
       const { service, siteContext } = buildService(
         [fakeProvider('customer', ['ADMIN'])],
         'ADMIN',
@@ -221,13 +218,33 @@ describe('SearchService', () => {
       expect(siteContext.listAuthorizedSiteIds).not.toHaveBeenCalled();
     });
 
+    it('resolves the site scope once for several providers', async () => {
+      const providers = [
+        siteProvider([hit('workshop_order', 'o1', 1, 'site-a')]),
+        fakeProvider('invoice', ['ADMIN'], async (ctx) => {
+          await ctx.getSiteScope();
+          return [hit('invoice', 'i1', 1, 'site-a')];
+        }),
+      ];
+      const { service, siteContext } = buildService(providers, 'ADMIN', {
+        active: 'site-a',
+        authorized: ['site-a'],
+      });
+      await service.search({ q: '4711' });
+      expect(siteContext.tryGetSite).toHaveBeenCalledTimes(1);
+      expect(siteContext.listAuthorizedSiteIds).toHaveBeenCalledTimes(1);
+    });
+
     it('fails closed with an empty scope when the site lookup throws', async () => {
       const provider = siteProvider([]);
       const { service, siteContext } = buildService([provider], 'ADMIN');
       siteContext.listAuthorizedSiteIds.mockRejectedValue(new Error('boom'));
       await service.search({ q: '4711' });
       const ctx = provider.search.mock.calls[0][0] as SearchContext;
-      expect(ctx.siteScope).toEqual({ activeSiteId: null, siteIds: [] });
+      await expect(ctx.getSiteScope()).resolves.toEqual({
+        activeSiteId: null,
+        siteIds: [],
+      });
     });
   });
 

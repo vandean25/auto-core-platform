@@ -22,6 +22,7 @@ export function vehicleMatchWhere(
   query: ParsedSearchQuery,
   tier: MatchTier,
 ): Prisma.VehicleWhereInput | null {
+  if (query.kind === 'uuid') return { id: query.text.toLowerCase() };
   const or: Prisma.VehicleWhereInput[] = [];
   if (query.plate) {
     or.push(

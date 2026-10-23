@@ -1,6 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import type { PrismaService } from '../../prisma/prisma.service.js';
-import { collectRanked, type ScoredRow } from '../search-ranking.js';
+import { collectMatches, type ScoredRow } from '../search-ranking.js';
 import type {
   SearchContext,
   SearchProvider,
@@ -9,37 +9,35 @@ import type {
 import { joinParts } from './search-format.js';
 import { vehicleMatchWhere } from './vehicle-match.js';
 
-const SELECT = {
+export const VEHICLE_SEARCH_SELECT = {
   id: true,
   make: true,
   model: true,
   plate: true,
   vin: true,
-  year: true,
+  site_id: true,
 } as const;
-const ORDER_BY: Prisma.VehicleOrderByWithRelationInput[] = [
-  { updatedAt: 'desc' },
-  { id: 'asc' },
-];
+export const VEHICLE_SEARCH_ORDER_BY: Prisma.VehicleOrderByWithRelationInput[] =
+  [{ updatedAt: 'desc' }, { id: 'asc' }];
 
-type VehicleRow = {
+export type VehicleSearchRow = {
   id: string;
   make: string;
   model: string;
   plate: string | null;
   vin: string | null;
-  year: number;
+  site_id: string | null;
 };
 
-export function vehicleTitle(row: VehicleRow): string {
+export function vehicleTitle(row: VehicleSearchRow): string {
   return `${row.make} ${row.model}`.trim();
 }
 
-export function vehicleSubtitle(row: VehicleRow): string | null {
+export function vehicleSubtitle(row: VehicleSearchRow): string | null {
   return joinParts([row.plate, row.vin]);
 }
 
-function toResult({ row, score }: ScoredRow<VehicleRow>): SearchResult {
+function toResult({ row, score }: ScoredRow<VehicleSearchRow>): SearchResult {
   return {
     type: 'vehicle',
     id: row.id,
@@ -58,26 +56,23 @@ export class VehicleSearchProvider implements SearchProvider {
   constructor(private readonly prisma: PrismaService) {}
 
   async search(ctx: SearchContext): Promise<SearchResult[]> {
-    const isUuid = ctx.query.kind === 'uuid';
-    const rows = await collectRanked<VehicleRow>(
-      ctx.limit,
-      async (tier) => {
-        const match = isUuid
-          ? { id: ctx.query.text.toLowerCase() }
-          : vehicleMatchWhere(ctx.query, tier);
-        if (!match) return [];
-        return this.prisma.vehicle.findMany({
+    const rows = await collectMatches<
+      VehicleSearchRow,
+      Prisma.VehicleWhereInput
+    >(
+      ctx,
+      (tier) => vehicleMatchWhere(ctx.query, tier),
+      (match) =>
+        this.prisma.vehicle.findMany({
           where: {
             ...match,
             tenant_id: ctx.tenantId,
             inventory_role: 'CUSTOMER',
           },
-          select: SELECT,
-          orderBy: ORDER_BY,
+          select: VEHICLE_SEARCH_SELECT,
+          orderBy: VEHICLE_SEARCH_ORDER_BY,
           take: ctx.limit,
-        });
-      },
-      isUuid ? ['exact'] : undefined,
+        }),
     );
     return rows.map(toResult);
   }

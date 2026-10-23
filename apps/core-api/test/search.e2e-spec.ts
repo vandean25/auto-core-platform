@@ -308,6 +308,16 @@ describe('Global search (e2e)', () => {
       }
     });
 
+    it('finds a customer and a workshop order by id', async () => {
+      for (const [id, type] of [
+        [ids.customer, 'customer'],
+        [ids.orderMain, 'workshop_order'],
+      ]) {
+        const groups = await groupsFor(adminToken, id, { types: type });
+        expect(groups[0].results.map((r) => r.id)).toContain(id);
+      }
+    });
+
     it('ranks an exact document number above a partial one', async () => {
       const groups = await groupsFor(adminToken, `WO-SRCH-${SUFFIX}-1`, {
         types: 'workshop_order',

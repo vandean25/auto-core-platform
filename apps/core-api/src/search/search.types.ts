@@ -44,15 +44,14 @@ export interface SearchContext {
   role: string;
   query: ParsedSearchQuery;
   limit: number;
-  siteScope: SiteScope;
+  /** Resolved on first call only, so providers without a site rule cost no site queries. */
+  getSiteScope: () => Promise<SiteScope>;
 }
 
 export interface SearchProvider {
   readonly type: SearchResultType;
   /** Session roles that may receive this type; enforced by SearchService. */
   readonly allowedRoles: readonly string[];
-  /** True when the provider reads `ctx.siteScope`, so the service resolves it. */
-  readonly siteScoped?: boolean;
   search(ctx: SearchContext): Promise<SearchResult[]>;
 }
 

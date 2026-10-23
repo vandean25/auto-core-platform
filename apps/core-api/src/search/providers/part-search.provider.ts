@@ -1,7 +1,7 @@
 import type { Prisma } from '@prisma/client';
 import type { PrismaService } from '../../prisma/prisma.service.js';
 import {
-  collectRanked,
+  collectMatches,
   tierFilter,
   type MatchTier,
   type ScoredRow,
@@ -62,20 +62,16 @@ export class PartSearchProvider implements SearchProvider {
   constructor(private readonly prisma: PrismaService) {}
 
   async search(ctx: SearchContext): Promise<SearchResult[]> {
-    const isUuid = ctx.query.kind === 'uuid';
-    const rows = await collectRanked<PartRow>(
-      ctx.limit,
-      async (tier) => {
-        const match = matchWhere(ctx.query, tier);
-        if (!match) return [];
-        return this.prisma.catalogItem.findMany({
+    const rows = await collectMatches<PartRow, Prisma.CatalogItemWhereInput>(
+      ctx,
+      (tier) => matchWhere(ctx.query, tier),
+      (match) =>
+        this.prisma.catalogItem.findMany({
           where: { ...match, tenant_id: ctx.tenantId },
           select: SELECT,
           orderBy: ORDER_BY,
           take: ctx.limit,
-        });
-      },
-      isUuid ? ['exact'] : undefined,
+        }),
     );
     return rows.map(toResult);
   }

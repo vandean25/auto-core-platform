@@ -1,5 +1,5 @@
 import type { Prisma } from '@prisma/client';
-import type { SiteScope } from './search.types.js';
+import type { ParsedSearchQuery, SiteScope } from './search.types.js';
 
 /** exact > prefix > contains; every tier is an ILIKE the trigram indexes (AUT-661) can serve. */
 export type MatchTier = 'exact' | 'prefix' | 'contains';
@@ -15,6 +15,11 @@ export const TIER_SCORE: Record<MatchTier, number> = {
   prefix: 0.8,
   contains: 0.5,
 };
+
+/** A uuid is an id lookup, so only the exact tier can match. */
+export function tiersFor(query: ParsedSearchQuery): readonly MatchTier[] {
+  return query.kind === 'uuid' ? ['exact'] : MATCH_TIERS;
+}
 
 export interface ScoredRow<T> {
   row: T;
@@ -60,6 +65,25 @@ export async function collectRanked<T extends { id: string }>(
     }
   }
   return merged;
+}
+
+/**
+ * One tiered search: `buildWhere` returns the predicate for a tier (or null when the input says nothing about
+ * this entity, which skips the query) and `find` runs it with `take: limit`.
+ */
+export function collectMatches<T extends { id: string }, W>(
+  ctx: { query: ParsedSearchQuery; limit: number },
+  buildWhere: (tier: MatchTier) => W | null,
+  find: (where: W) => Promise<T[]>,
+): Promise<ScoredRow<T>[]> {
+  return collectRanked(
+    ctx.limit,
+    async (tier) => {
+      const where = buildWhere(tier);
+      return where ? find(where) : [];
+    },
+    tiersFor(ctx.query),
+  );
 }
 
 /** Active-site hits first, then hits of the other authorized sites of the same tenant. */

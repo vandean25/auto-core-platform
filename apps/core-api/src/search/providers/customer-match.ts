@@ -35,6 +35,8 @@ export function customerMatchWhere(
   restricted: boolean,
 ): Prisma.CustomerWhereInput | null {
   switch (query.kind) {
+    case 'uuid':
+      return { id: query.text.toLowerCase() };
     case 'name':
       return customerNameWhere(tier, query.terms);
     case 'email':

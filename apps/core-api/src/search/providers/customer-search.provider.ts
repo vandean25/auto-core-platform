@@ -1,5 +1,6 @@
+import type { Prisma } from '@prisma/client';
 import type { PrismaService } from '../../prisma/prisma.service.js';
-import { collectRanked, type ScoredRow } from '../search-ranking.js';
+import { collectMatches, type ScoredRow } from '../search-ranking.js';
 import type {
   SearchContext,
   SearchProvider,
@@ -7,7 +8,6 @@ import type {
 } from '../search.types.js';
 import { customerMatchWhere } from './customer-match.js';
 import { customerLabel, joinParts } from './search-format.js';
-import type { Prisma } from '@prisma/client';
 
 const BASE_SELECT = {
   id: true,
@@ -51,22 +51,16 @@ export class CustomerSearchProvider implements SearchProvider {
 
   async search(ctx: SearchContext): Promise<SearchResult[]> {
     const restricted = ctx.role === 'TECH';
-    const isUuid = ctx.query.kind === 'uuid';
-    const rows = await collectRanked<CustomerRow>(
-      ctx.limit,
-      async (tier) => {
-        const match = isUuid
-          ? { id: ctx.query.text.toLowerCase() }
-          : customerMatchWhere(ctx.query, tier, restricted);
-        if (!match) return [];
-        return this.prisma.customer.findMany({
+    const rows = await collectMatches<CustomerRow, Prisma.CustomerWhereInput>(
+      ctx,
+      (tier) => customerMatchWhere(ctx.query, tier, restricted),
+      (match) =>
+        this.prisma.customer.findMany({
           where: { ...match, tenant_id: ctx.tenantId },
           select: restricted ? BASE_SELECT : FULL_SELECT,
           orderBy: ORDER_BY,
           take: ctx.limit,
-        });
-      },
-      isUuid ? ['exact'] : undefined,
+        }),
     );
     return rows.map(toResult);
   }

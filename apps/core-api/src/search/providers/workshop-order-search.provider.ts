@@ -3,6 +3,7 @@ import type { PrismaService } from '../../prisma/prisma.service.js';
 import {
   collectSiteRanked,
   tierFilter,
+  tiersFor,
   type MatchTier,
   type ScoredRow,
 } from '../search-ranking.js';
@@ -85,10 +86,9 @@ export class WorkshopOrderSearchProvider implements SearchProvider {
 
   async search(ctx: SearchContext): Promise<SearchResult[]> {
     const restricted = ctx.role === 'TECH';
-    const isUuid = ctx.query.kind === 'uuid';
     const rows = await collectSiteRanked<WorkshopOrderRow>(
       ctx.limit,
-      ctx.siteScope,
+      await ctx.getSiteScope(),
       async (tier, siteIds) => {
         const match = matchWhere(ctx.query, tier, restricted);
         if (!match) return [];
@@ -103,7 +103,7 @@ export class WorkshopOrderSearchProvider implements SearchProvider {
           take: ctx.limit,
         });
       },
-      isUuid ? ['exact'] : undefined,
+      tiersFor(ctx.query),
     );
     return rows.map(toResult);
   }

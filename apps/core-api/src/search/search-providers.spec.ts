@@ -4,6 +4,7 @@ import type {
   SearchContext,
   SearchProvider,
   SearchResultType,
+  SiteScope,
 } from './search.types.js';
 
 type Call = { model: string; method: string; args: any };
@@ -32,14 +33,24 @@ function createPrismaMock(rowsByModel: Record<string, unknown[]> = {}) {
   return { prisma: prisma as never, calls };
 }
 
-function ctx(q: string, overrides: Partial<SearchContext> = {}): SearchContext {
+function ctx(
+  q: string,
+  overrides: Partial<Omit<SearchContext, 'getSiteScope'>> & {
+    siteScope?: SiteScope;
+  } = {},
+): SearchContext {
+  const { siteScope, ...rest } = overrides;
+  const scope = siteScope ?? {
+    activeSiteId: 'site-a',
+    siteIds: ['site-a', 'site-b'],
+  };
   return {
     tenantId: 'tenant-a',
     role: 'ADMIN',
     query: parseSearchQuery(q),
     limit: 5,
-    siteScope: { activeSiteId: 'site-a', siteIds: ['site-a', 'site-b'] },
-    ...overrides,
+    getSiteScope: () => Promise.resolve(scope),
+    ...rest,
   };
 }
 
@@ -77,14 +88,6 @@ describe('createSearchProviders (registry)', () => {
       invoice: ['OWNER', 'ADMIN', 'SALES', 'DEMO'],
       part: ['OWNER', 'ADMIN', 'SALES', 'DEMO'],
     });
-  });
-
-  it('marks exactly the site-aware providers as site-scoped', () => {
-    expect(providers.filter((p) => p.siteScoped).map((p) => p.type)).toEqual([
-      'stock_vehicle',
-      'workshop_order',
-      'invoice',
-    ]);
   });
 });
 

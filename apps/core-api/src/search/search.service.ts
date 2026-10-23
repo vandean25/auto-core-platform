@@ -12,12 +12,21 @@ import type {
 import { parseSearchQuery } from './search-query.parser.js';
 import {
   SEARCH_PROVIDERS,
+  type SearchContext,
   type SearchProvider,
   type SearchResult,
   type SiteScope,
 } from './search.types.js';
 
 const NO_SITES: SiteScope = { activeSiteId: null, siteIds: [] };
+
+function hasSiteHits(settled: PromiseSettledResult<SearchResult[]>[]): boolean {
+  return settled.some(
+    (outcome) =>
+      outcome.status === 'fulfilled' &&
+      outcome.value.some((result) => result.siteId),
+  );
+}
 
 /** Active-site hits first, then by score; the sort is stable so provider order breaks ties. */
 function compareResults(activeSiteId: string | null) {
@@ -44,27 +53,23 @@ export class SearchService {
     if (selected.length === 0) {
       return { groups: [] };
     }
-    const siteScope = selected.some((provider) => provider.siteScoped)
-      ? await this.resolveSiteScope()
-      : NO_SITES;
-    const ctx = {
+    let siteScope: Promise<SiteScope> | undefined;
+    const ctx: SearchContext = {
       tenantId,
       role,
       query: parseSearchQuery(dto.q),
       limit: dto.limit ?? SEARCH_DEFAULT_LIMIT,
-      siteScope,
+      getSiteScope: () => (siteScope ??= this.resolveSiteScope()),
     };
     const settled = await Promise.allSettled(
       selected.map((provider) => provider.search(ctx)),
     );
+    const activeSiteId = hasSiteHits(settled)
+      ? (await ctx.getSiteScope()).activeSiteId
+      : null;
     return {
       groups: settled.map((outcome, index) =>
-        this.toGroup(
-          selected[index],
-          outcome,
-          siteScope.activeSiteId,
-          ctx.limit,
-        ),
+        this.toGroup(selected[index], outcome, activeSiteId, ctx.limit),
       ),
     };
   }

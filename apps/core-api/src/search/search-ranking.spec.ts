@@ -1,6 +1,9 @@
+import { parseSearchQuery } from './search-query.parser.js';
 import {
+  collectMatches,
   collectRanked,
   collectSiteRanked,
+  tiersFor,
   TIER_SCORE,
   tierFilter,
 } from './search-ranking.js';
@@ -128,5 +131,31 @@ describe('collectSiteRanked', () => {
       ['exact'],
     );
     expect(out.map((r) => r.row.id)).toEqual(['b1', 'a1']);
+  });
+});
+
+describe('collectMatches', () => {
+  const hits = [{ id: 'x' }];
+
+  it('runs every tier for text input and skips tiers without a predicate', async () => {
+    const find = jest.fn().mockResolvedValue(hits);
+    const out = await collectMatches(
+      { query: parseSearchQuery('max'), limit: 5 },
+      (tier) => (tier === 'prefix' ? null : { tier }),
+      find,
+    );
+    expect(find.mock.calls.map(([where]) => where.tier)).toEqual([
+      'exact',
+      'contains',
+    ]);
+    expect(out).toEqual([{ row: { id: 'x' }, score: TIER_SCORE.exact }]);
+  });
+
+  it('runs only the exact tier for a uuid', async () => {
+    const query = parseSearchQuery('3f2b8c1e-9a4d-4e6f-8b1a-2c3d4e5f6a7b');
+    expect(tiersFor(query)).toEqual(['exact']);
+    const find = jest.fn().mockResolvedValue(hits);
+    await collectMatches({ query, limit: 5 }, () => ({}), find);
+    expect(find).toHaveBeenCalledTimes(1);
   });
 });
