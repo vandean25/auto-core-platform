@@ -454,7 +454,7 @@ describe('CustomerService', () => {
 
     expect(mockPrisma.customer.update).toHaveBeenCalledWith({
       where: { id: 'c-1' },
-      data: { phone: '123' },
+      data: { phone: '123', phone_digits: '123' },
     });
   });
 

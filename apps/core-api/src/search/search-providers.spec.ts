@@ -243,6 +243,54 @@ describe('customer provider and the TECH restriction', () => {
     const where = findMany.mock.calls[0][0].where;
     expect(where.AND).toHaveLength(2);
   });
+
+  it('matches phone input on phone_digits, exact and prefix only', async () => {
+    const findMany = jest.fn().mockResolvedValue([]);
+    await provider(
+      createSearchProviders({ customer: { findMany } } as never),
+      'customer',
+    ).search(ctx('+43 664 1234567'));
+    const phoneDigitFilters = findMany.mock.calls.map(([{ where }]) =>
+      where.OR?.find((c: { phone_digits?: unknown }) => c.phone_digits),
+    );
+    expect(phoneDigitFilters).toEqual([
+      { phone_digits: { equals: '06641234567' } },
+      { phone_digits: { startsWith: '06641234567' } },
+      undefined,
+    ]);
+  });
+
+  it.each([
+    '+43 664 1234567',
+    '0664/1234567',
+    '0664-123 45 67',
+    '06641234567',
+  ])('normalises full phone search %p to the same phone_digits key', async (q) => {
+    const findMany = jest.fn().mockResolvedValue([]);
+    await provider(
+      createSearchProviders({ customer: { findMany } } as never),
+      'customer',
+    ).search(ctx(q));
+    const exactWhere = findMany.mock.calls[0][0].where;
+    const digitsClause = exactWhere.OR?.find(
+      (c: { phone_digits?: { equals?: string } }) => c.phone_digits?.equals,
+    );
+    expect(digitsClause?.phone_digits?.equals).toBe('06641234567');
+  });
+
+  it('matches a typed phone prefix on phone_digits', async () => {
+    const findMany = jest.fn().mockResolvedValue([]);
+    await provider(
+      createSearchProviders({ customer: { findMany } } as never),
+      'customer',
+    ).search(ctx('0664 12'));
+    const prefixWhere = findMany.mock.calls[1][0].where;
+    const prefixClause = prefixWhere.OR?.find(
+      (c: { phone_digits?: { startsWith?: string } }) =>
+        c.phone_digits?.startsWith,
+    );
+    expect(prefixClause?.phone_digits?.startsWith).toBe('066412');
+  });
 });
 
 describe('vehicle providers and the shared plate normaliser', () => {

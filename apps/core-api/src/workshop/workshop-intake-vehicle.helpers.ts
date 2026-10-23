@@ -1,3 +1,4 @@
+import { withPhoneDigits } from '../customer/customer-phone.util.js';
 import { withPlateNormalized } from '../vehicle/vehicle-plate.util.js';
 import {
   BadRequestException,
@@ -223,14 +224,14 @@ export async function computeCustomerId(
   }
 
   const customer = await prisma.customer.create({
-    data: {
+    data: withPhoneDigits({
       tenant_id: tenantId,
       first_name: dto.firstName || '',
       last_name: dto.lastName || '',
       email: dto.email,
       phone: dto.phone,
       type: 'PRIVATE',
-    },
+    }),
   });
   return customer.id;
 }

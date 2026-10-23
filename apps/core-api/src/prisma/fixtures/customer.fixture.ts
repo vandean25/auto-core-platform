@@ -1,3 +1,4 @@
+import { withPhoneDigits } from '../../customer/customer-phone.util.js';
 import { normalizePlate } from '../../vehicle/vehicle-plate.util.js';
 import type { SeedPrismaClient } from './types.js';
 import { seedCanonicalMigrationImportPresets } from './canonical-migration-import-presets.fixture.js';
@@ -114,15 +115,15 @@ export async function seedCustomersAndVehicles(
         where: {
           tenant_id_email: { tenant_id: tenantId, email: customer.email },
         },
-        update: {
+        update: withPhoneDigits({
           first_name: customer.first_name,
           last_name: customer.last_name,
           phone: customer.phone,
           address_street: customer.address_street,
           address_city: customer.address_city,
           address_zip: customer.address_zip,
-        },
-        create: {
+        }),
+        create: withPhoneDigits({
           tenant_id: tenantId,
           first_name: customer.first_name,
           last_name: customer.last_name,
@@ -131,7 +132,7 @@ export async function seedCustomersAndVehicles(
           address_street: customer.address_street,
           address_city: customer.address_city,
           address_zip: customer.address_zip,
-        },
+        }),
       }),
     ),
   );

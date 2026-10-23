@@ -1,3 +1,4 @@
+import { normalizePhone } from '../../customer/customer-phone.util.js';
 import { seedCustomersAndVehicles } from './customer.fixture.js';
 
 describe('customer.fixture', () => {
@@ -35,6 +36,10 @@ describe('customer.fixture', () => {
       expect(data.plate_normalized).toBe(
         data.plate.replace(/[\s.-]+/g, '').toUpperCase(),
       );
+    }
+    for (const [{ create, update }] of mockPrisma.customer.upsert.mock.calls) {
+      expect(create.phone_digits).toBe(normalizePhone(create.phone));
+      expect(update.phone_digits).toBe(normalizePhone(update.phone));
     }
   });
 });
