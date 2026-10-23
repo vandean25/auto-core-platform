@@ -239,7 +239,7 @@ describe('Vehicle parties (e2e)', () => {
       ).toBe(0);
     });
 
-    it('does not create a party when a vehicle is created with a customer', async () => {
+    it('starts the first OWNER when a vehicle is created with a customer', async () => {
       const alice = await newCustomer(tenantA, 'Alice');
       const created = await api(tenantA)
         .post('/api/vehicles')
@@ -248,7 +248,14 @@ describe('Vehicle parties (e2e)', () => {
       const parties = await tenantA.prisma.vehicleParty.findMany({
         where: { tenant_id: tenantA.tenantId, vehicle_id: created.body.id },
       });
-      expect(parties).toHaveLength(0);
+      expect(parties).toHaveLength(1);
+      expect(parties[0]).toMatchObject({
+        customer_id: alice.id,
+        role: 'OWNER',
+        source: 'MANUAL',
+        valid_to: null,
+      });
+      expect(await vehicleContactOf(created.body.id)).toBe(alice.id);
     });
   });
 
