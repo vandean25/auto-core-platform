@@ -77,7 +77,7 @@ describe('recent search items', () => {
 
     window.localStorage.setItem(
       key,
-      JSON.stringify([item(1), { ...item(2), href: 'https://evil.example/x' }, { ...item(3), type: 'other' }]),
+      JSON.stringify([item(1), { ...item(2), href: 'https://evil.example/x' }, { ...item(3), type: 'other' }, { ...item(4), type: 'toString' }]),
     )
     expect(readRecentItems(key)).toEqual([item(1)])
   })

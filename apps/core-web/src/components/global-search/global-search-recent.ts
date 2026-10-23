@@ -24,7 +24,7 @@ function isRecentItem(value: unknown): value is RecentSearchItem {
     isString(item?.id) &&
     isString(item.title) &&
     isString(item.type) &&
-    item.type in SEARCH_TYPE_REGISTRY &&
+    Object.hasOwn(SEARCH_TYPE_REGISTRY, item.type) &&
     (item.subtitle === null || isString(item.subtitle)) &&
     isAppHref(item.href)
   )

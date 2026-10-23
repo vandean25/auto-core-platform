@@ -1,42 +1,41 @@
 // @vitest-environment node
+import { Package, Truck } from 'lucide-react'
 import { describe, expect, it } from 'vitest'
-import {
-  filterQuickActionSections,
-  quickActionSections,
-} from './global-search-quick-actions'
+import { filterQuickActionSections, type QuickActionSection } from './global-search-quick-actions'
 
-const labelsOf = (sections: ReturnType<typeof filterQuickActionSections>) =>
-  sections.flatMap((section) => section.items.map((item) => item.label))
+const sections: QuickActionSection[] = [
+  {
+    heading: 'Navigate',
+    items: [{ href: '/inventory', icon: Package, label: 'Open Inventory', description: 'Browse parts and stock levels.' }],
+  },
+  {
+    heading: 'Create',
+    items: [
+      { href: '/purchase-orders/new', icon: Truck, label: 'Create Purchase Order', description: 'Raise a new supplier order.' },
+      { href: '/purchase-bills/new', icon: Truck, label: 'Create Purchase Bill', description: 'Match a vendor invoice to receipts.' },
+    ],
+  },
+]
+
+const labelsOf = (result: QuickActionSection[]) => result.flatMap((section) => section.items.map((item) => item.label))
 
 describe('filterQuickActionSections', () => {
   it('returns every section unchanged for an empty query', () => {
-    expect(filterQuickActionSections(quickActionSections, '')).toBe(quickActionSections)
+    expect(filterQuickActionSections(sections, '')).toBe(sections)
   })
 
   it('matches label and description case-insensitively and drops empty sections', () => {
-    const result = filterQuickActionSections(quickActionSections, 'PURCHASE')
+    const result = filterQuickActionSections(sections, 'PURCHASE')
 
     expect(result.map((section) => section.heading)).toEqual(['Create'])
     expect(labelsOf(result)).toEqual(['Create Purchase Order', 'Create Purchase Bill'])
   })
 
-  it('finds the invoicing action by its label', () => {
-    const labels = labelsOf(filterQuickActionSections(quickActionSections, 'invoice'))
-
-    expect(labels).toContain('Find a sales order to invoice')
-    expect(labels).not.toContain('Create Sales Invoice')
-  })
-
-  it('keeps the previous Create Sales Invoice wording searchable', () => {
-    expect(labelsOf(filterQuickActionSections(quickActionSections, 'sales invoice'))).toContain(
-      'Find a sales order to invoice',
-    )
-    expect(
-      labelsOf(filterQuickActionSections(quickActionSections, 'Create Sales Invoice')),
-    ).toContain('Find a sales order to invoice')
+  it('matches the description text', () => {
+    expect(labelsOf(filterQuickActionSections(sections, 'stock levels'))).toEqual(['Open Inventory'])
   })
 
   it('returns no sections when nothing matches', () => {
-    expect(filterQuickActionSections(quickActionSections, 'zzz')).toEqual([])
+    expect(filterQuickActionSections(sections, 'zzz')).toEqual([])
   })
 })

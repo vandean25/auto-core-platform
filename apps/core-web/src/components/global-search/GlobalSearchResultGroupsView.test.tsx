@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { Command, CommandList } from '@/components/ui/command'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { SearchGroup } from '@/api/search'
@@ -156,6 +156,21 @@ describe('RecentItemsGroup', () => {
     screen.getByRole('button', { name: /Erika Muster.*entfernen/ }).click()
 
     expect(onRemove).toHaveBeenCalledWith(item)
+    expect(onSelect).not.toHaveBeenCalled()
+  })
+
+  it('does not let Enter on the remove button select the highlighted item', () => {
+    const onSelect = vi.fn()
+    render(
+      <Command shouldFilter={false}>
+        <CommandList>
+          <RecentItemsGroup items={[item]} onSelect={onSelect} onRemove={vi.fn()} />
+        </CommandList>
+      </Command>,
+    )
+
+    fireEvent.keyDown(screen.getByRole('button', { name: /entfernen/ }), { key: 'Enter' })
+
     expect(onSelect).not.toHaveBeenCalled()
   })
 

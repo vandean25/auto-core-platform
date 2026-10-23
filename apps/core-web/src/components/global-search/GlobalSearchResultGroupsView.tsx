@@ -104,6 +104,10 @@ export function RecentItemsGroup({
             type="button"
             aria-label={t('globalSearch.removeRecent', { title: item.title })}
             className="ml-2 shrink-0 rounded p-1 text-muted-foreground hover:bg-slate-100 hover:text-foreground"
+            // cmdk selects the highlighted item on Enter, even when the key comes from this button.
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') event.stopPropagation()
+            }}
             onClick={(event) => {
               event.stopPropagation()
               onRemove(item)

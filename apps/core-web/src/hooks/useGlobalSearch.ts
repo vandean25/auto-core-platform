@@ -26,6 +26,9 @@ export function useGlobalSearch(input: string) {
     queryFn: ({ signal }) => fetchSearch(q, types, signal),
     enabled,
     retry: false,
+    // The app default keeps data fresh for 5 minutes; search hits change with every create and site switch.
+    staleTime: 0,
+    gcTime: 0,
   })
 
   const groups: SearchGroup[] = enabled && isSettled ? (query.data?.groups ?? []) : []
