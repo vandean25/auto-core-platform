@@ -18,7 +18,8 @@ export function normalizePhone(
     return `0${digits.slice(2)}`;
   }
   if (digits.startsWith('00')) {
-    return digits.slice(2);
+    const international = digits.slice(2);
+    return international.length > 0 ? international : null;
   }
   return digits;
 }

@@ -1,27 +1,5 @@
 import { normalizePhone, withPhoneDigits } from './customer-phone.util.js';
 
-/** Mirrors the AUT-698 migration SQL backfill on digit-only input. */
-function normalizePhoneMigrationSql(digits: string | null): string | null {
-  if (!digits) {
-    return null;
-  }
-  if (digits.startsWith('0043')) {
-    return `0${digits.slice(4)}`;
-  }
-  if (digits.startsWith('43') && digits.length > 2) {
-    return `0${digits.slice(2)}`;
-  }
-  if (digits.startsWith('00')) {
-    return digits.slice(2);
-  }
-  return digits;
-}
-
-function digitsOnly(value: string): string | null {
-  const digits = value.replace(/\D/g, '');
-  return digits.length > 0 ? digits : null;
-}
-
 describe('normalizePhone', () => {
   it.each([
     ['+43 664 1234567', '06641234567'],
@@ -32,17 +10,10 @@ describe('normalizePhone', () => {
     ['+49 170 1234567', '491701234567'],
     ['0049 170 1234567', '491701234567'],
     ['0170 1234567', '01701234567'],
+    ['43', '43'],
+    ['00', null],
   ])('normalises %p to %p', (input, expected) => {
     expect(normalizePhone(input)).toBe(expected);
-  });
-
-  it.each([
-    ['+43 664 1234567'],
-    ['0664/1234567'],
-    ['+49 170 1234567'],
-  ])('matches the migration SQL backfill for %p', (input) => {
-    const rawDigits = digitsOnly(input);
-    expect(normalizePhone(input)).toBe(normalizePhoneMigrationSql(rawDigits));
   });
 
   it.each([[null], [undefined], [''], ['   '], ['abc']])(

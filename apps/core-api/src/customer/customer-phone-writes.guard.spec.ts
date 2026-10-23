@@ -32,6 +32,21 @@ function findPhoneWritesWithoutHelper(source: string): string[] {
   return hits;
 }
 
+/** Legacy paths assign `data.phone` then pass `data` to updateMany without a `phone:` literal. */
+function findUpdateManyPhoneDrift(source: string): string[] {
+  if (!/\bdata\.phone\s*=/.test(source)) {
+    return [];
+  }
+  const hits: string[] = [];
+  for (const match of source.matchAll(/\bcustomer\.updateMany\(/g)) {
+    const args = balanced(source, match.index + match[0].length - 1);
+    if (!/\bwithPhoneDigits\s*\(/.test(args)) {
+      hits.push('customer.updateMany(');
+    }
+  }
+  return hits;
+}
+
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const path = join(dir, entry.name);
@@ -54,7 +69,10 @@ describe('Customer.phone write paths', () => {
       .filter(isScanned)
       .flatMap((file) => {
         const source = readFileSync(file, 'utf8');
-        const hits = findPhoneWritesWithoutHelper(source);
+        const hits = [
+          ...findPhoneWritesWithoutHelper(source),
+          ...findUpdateManyPhoneDrift(source),
+        ];
         return hits.map((hit) => `${relative(SRC_ROOT, file)}: ${hit}`);
       });
     expect(offenders).toEqual([]);

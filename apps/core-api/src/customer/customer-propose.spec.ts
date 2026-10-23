@@ -7,6 +7,7 @@ import {
   enrichCustomerUpdateProposal,
   maskCustomerProposalPayload,
 } from './customer-propose.js';
+import { normalizePhone } from './customer-phone.util.js';
 
 const TENANT_ID = 'tenant-1';
 const CUSTOMER_ID = '00000000-0000-4000-8000-000000000040';
@@ -320,6 +321,28 @@ describe('customer proposals (AUT-613)', () => {
       );
       expect(outcome.entity).toBe('Customer');
       expect(outcome.op).toBe('create');
+    });
+
+    it('sets phone_digits when the create proposal includes a phone', async () => {
+      const harness = createHarness();
+      const phone = '+43 664 1234567';
+
+      await applyCustomerCreateProposal(
+        { prisma: harness.prisma, tenantId: TENANT_ID },
+        await enrichCustomerCreateProposal(
+          { prisma: harness.prisma, tenantId: TENANT_ID },
+          { ...CREATE_INPUT, phone },
+        ),
+      );
+
+      expect(harness.customer.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            phone,
+            phone_digits: normalizePhone(phone),
+          }),
+        }),
+      );
     });
 
     it('refuses a create when the e-mail was taken in the meantime', async () => {

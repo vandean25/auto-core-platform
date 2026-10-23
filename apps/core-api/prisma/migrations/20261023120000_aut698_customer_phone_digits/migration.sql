@@ -15,7 +15,7 @@ SET "phone_digits" = CASE
   WHEN e.digits IS NULL THEN NULL
   WHEN e.digits LIKE '0043%' THEN '0' || SUBSTRING(e.digits FROM 5)
   WHEN e.digits LIKE '43%' AND LENGTH(e.digits) > 2 THEN '0' || SUBSTRING(e.digits FROM 3)
-  WHEN e.digits LIKE '00%' THEN SUBSTRING(e.digits FROM 3)
+  WHEN e.digits LIKE '00%' THEN NULLIF(SUBSTRING(e.digits FROM 3), '')
   ELSE e.digits
 END
 FROM extracted AS e

@@ -262,6 +262,7 @@ describe('AgentProposalService approve execution', () => {
         data: {
           first_name: 'Jane',
           phone: '+49123456789',
+          phone_digits: '49123456789',
         },
       });
 
