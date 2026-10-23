@@ -45,6 +45,10 @@ describe('Catalog Workflow Search (e2e)', () => {
         });
       }
       if (createdVehicleId) {
+        // The register intake starts an OWNER party, which restricts the vehicle delete.
+        await prisma.vehicleParty.deleteMany({
+          where: { vehicle_id: createdVehicleId },
+        });
         await prisma.vehicle.deleteMany({ where: { id: createdVehicleId } });
       }
       if (createdCustomerId) {

@@ -43,6 +43,7 @@ describe('VehiclePurchaseService', () => {
     financeSettings: { upsert: jest.Mock; update: jest.Mock };
     vendor: { findFirst: jest.Mock };
     customer: { findFirst: jest.Mock };
+    vehicleParty: { findMany: jest.Mock };
     storageLocation: { findFirst: jest.Mock };
     vehicleLedgerEntry: { count: jest.Mock };
     user: { findUnique: jest.Mock };
