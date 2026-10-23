@@ -37,11 +37,19 @@ function createLockPool(logger: Logger): Pool {
   }
 
   logPoolerHostWarning(logger);
-  return new Pool({
+  const pool = new Pool({
     connectionString,
     max: LOCK_POOL_MAX,
+    connectionTimeoutMillis: 10_000,
     idleTimeoutMillis: LOCK_POOL_IDLE_TIMEOUT_MS,
   });
+  pool.on('error', (error) => {
+    logger.error(
+      `Cron job lock pool idle client error: ${error.message}`,
+      error.stack,
+    );
+  });
+  return pool;
 }
 
 export function getCronJobLockPool(): Pool {

@@ -53,13 +53,14 @@ function mockLockPool() {
     return { rows: [] };
   });
   const client = { query, release: jest.fn() } as unknown as PoolClient;
-  const pool = {
-    connect: jest.fn<() => Promise<PoolClient>>().mockResolvedValue(client),
-  } as unknown as Pool;
+  const connect = jest
+    .fn<() => Promise<PoolClient>>()
+    .mockResolvedValue(client);
+  const pool = { connect } as unknown as Pool;
 
   mockGetCronJobLockPool.mockReturnValue(pool);
 
-  return { pool, client, query };
+  return { pool, connect, client, query };
 }
 
 describe('withCronJobLock in-process guard', () => {
@@ -68,7 +69,7 @@ describe('withCronJobLock in-process guard', () => {
   });
 
   it('skips a nested call for the same job name without taking a second lock', async () => {
-    const { pool } = mockLockPool();
+    const { connect } = mockLockPool();
 
     let nestedRan = false;
     const ran = await withCronJobLock('nested-guard-test', async () => {
@@ -80,17 +81,17 @@ describe('withCronJobLock in-process guard', () => {
 
     expect(ran).toBe(true);
     expect(nestedRan).toBe(false);
-    expect(pool.connect).toHaveBeenCalledTimes(1);
+    expect(connect).toHaveBeenCalledTimes(1);
   });
 
   it('allows only one concurrent connect for the same job name', async () => {
-    const { pool } = mockLockPool();
+    const { connect } = mockLockPool();
     let releaseConnect!: () => void;
     const connectGate = new Promise<void>((resolve) => {
       releaseConnect = resolve;
     });
 
-    pool.connect.mockImplementationOnce(async () => {
+    connect.mockImplementationOnce(async () => {
       await connectGate;
       return {
         query: jest.fn(async (sql: string) => {
@@ -110,10 +111,10 @@ describe('withCronJobLock in-process guard', () => {
     const second = withCronJobLock('concurrent-guard-test', async () => {});
 
     await Promise.resolve();
-    expect(pool.connect).toHaveBeenCalledTimes(1);
+    expect(connect).toHaveBeenCalledTimes(1);
 
     releaseConnect();
     await Promise.all([first, second]);
-    expect(pool.connect).toHaveBeenCalledTimes(1);
+    expect(connect).toHaveBeenCalledTimes(1);
   });
 });

@@ -56,11 +56,13 @@ export async function withCronJobLock(
     return false;
   }
 
-  runningInThisProcess.add(jobName);
-  const pool = getCronJobLockPool();
   let client: PoolClient | undefined;
   let acquired = false;
+  let reserved = false;
   try {
+    runningInThisProcess.add(jobName);
+    reserved = true;
+    const pool = getCronJobLockPool();
     client = await pool.connect();
     acquired = await tryAcquireCronJobAdvisoryLockOnClient(client, jobName);
     if (!acquired) {
@@ -73,21 +75,36 @@ export async function withCronJobLock(
     await fn();
     return true;
   } finally {
+    let releaseError: Error | undefined;
     if (client) {
       if (acquired) {
-        const released = await releaseCronJobAdvisoryLockOnClient(
-          client,
-          jobName,
-        );
-        if (!released) {
-          (logger.warn ?? logger.log).call(
-            logger,
-            `Cron job "${jobName}": pg_advisory_unlock did not release the lock on this session.`,
+        try {
+          const released = await releaseCronJobAdvisoryLockOnClient(
+            client,
+            jobName,
           );
+          if (!released) {
+            (logger.warn ?? logger.log).call(
+              logger,
+              `Cron job "${jobName}": pg_advisory_unlock did not release the lock on this session.`,
+            );
+            releaseError = new Error(
+              `Cron job "${jobName}": advisory unlock did not release.`,
+            );
+          }
+        } catch (error) {
+          releaseError =
+            error instanceof Error ? error : new Error(String(error));
         }
       }
-      client.release();
+      try {
+        client.release(releaseError);
+      } catch {
+        // pg may throw while destroying a broken session; reservation still clears below.
+      }
     }
-    runningInThisProcess.delete(jobName);
+    if (reserved) {
+      runningInThisProcess.delete(jobName);
+    }
   }
 }
