@@ -28,6 +28,10 @@
   "pageLoader": {
     "loading": "Loading Auto Core…"
   },
+  "localeBundle": {
+    "loadFailed": "Could not load translations. Please try again.",
+    "retry": "Try again"
+  },
   "dataTable": {
     "noResults": "No results.",
     "rowsPerPage": "Rows per page",

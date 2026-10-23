@@ -6,8 +6,10 @@ import { useAuthSession } from '@/api/auth-session'
 import { useMySites } from '@/api/sites'
 import { useGlobalSearch } from '@/hooks/useGlobalSearch'
 import { CommandDialog, CommandInput, CommandList } from '@/components/ui/command'
-import { useLazyNamespaceBundleReady } from '@/lib/i18n'
+import { LocaleBundleLoadFailed, useLazyNamespaceBundleReady } from '@/lib/i18n'
 import { PageLoader } from '@/components/ui/PageLoader'
+
+const GLOBAL_SEARCH_LAZY_NAMESPACES = ['settings', 'workshop', 'customers', 'vehicles'] as const
 import { GlobalSearchContextActionGroup } from './GlobalSearchContextActionGroup'
 import { QuickActionGroup } from './GlobalSearchResultGroups'
 import { PrefixHelp, RecentItemsGroup, SearchResults } from './GlobalSearchResultGroupsView'
@@ -232,12 +234,18 @@ function GlobalSearchDialogContent({ open, onOpenChange }: GlobalSearchDialogPro
 }
 
 export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogProps) {
-  const bundleStatus = useLazyNamespaceBundleReady(['settings'])
+  const { status, retry } = useLazyNamespaceBundleReady(GLOBAL_SEARCH_LAZY_NAMESPACES)
 
-  if (bundleStatus !== 'ready') {
+  if (status !== 'ready') {
     return (
       <CommandDialog open={open} onOpenChange={onOpenChange} title="" description="">
-        {open ? <PageLoader /> : null}
+        {open ? (
+          status === 'failed' ? (
+            <LocaleBundleLoadFailed onRetry={retry} className="py-8" />
+          ) : (
+            <PageLoader />
+          )
+        ) : null}
       </CommandDialog>
     )
   }

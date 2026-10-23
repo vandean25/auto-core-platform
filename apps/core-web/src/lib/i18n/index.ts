@@ -1,6 +1,7 @@
 export * from './constants'
 export { I18nProvider } from './I18nProvider'
 export { initI18n, changeUiLanguage, ensureNamespaceLoaded, i18n } from './init-i18n'
+export { LocaleBundleLoadFailed } from './LocaleBundleLoadFailed'
 export { useLazyNamespaceBundleReady } from './use-lazy-namespace-bundle-ready'
 export { useUiLanguage } from './use-ui-language'
 export * from './enum-labels'

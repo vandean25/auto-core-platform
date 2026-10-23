@@ -1,13 +1,16 @@
 import { Outlet } from 'react-router-dom'
 import { PageLoader } from '@/components/ui/PageLoader'
-import { useLazyNamespaceBundleReady } from '@/lib/i18n'
+import { LocaleBundleLoadFailed, useLazyNamespaceBundleReady } from '@/lib/i18n'
 
 /** Loads the lazy `workshop` namespace before rendering workshop/mechanic routes. */
 export function WorkshopNamespaceLayout() {
-  const bundleStatus = useLazyNamespaceBundleReady(['workshop'])
+  const { status, retry } = useLazyNamespaceBundleReady(['workshop'])
 
-  if (bundleStatus !== 'ready') {
+  if (status === 'loading') {
     return <PageLoader />
+  }
+  if (status === 'failed') {
+    return <LocaleBundleLoadFailed onRetry={retry} />
   }
 
   return <Outlet />

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { LazyNamespace } from './constants'
 import { ensureNamespaceLoaded, i18n } from './init-i18n'
 
@@ -9,30 +9,52 @@ function bundlesReady(namespaces: readonly LazyNamespace[]): boolean {
   return namespaces.every((namespace) => i18n.hasResourceBundle(language, namespace))
 }
 
+export type LazyNamespaceBundleReadyState = {
+  status: LazyNamespaceBundleStatus
+  retry: () => void
+}
+
 /** Loads lazy namespaces once per language; returns `failed` when a locale chunk cannot be loaded. */
 export function useLazyNamespaceBundleReady(
   namespaces: readonly LazyNamespace[],
-): LazyNamespaceBundleStatus {
+): LazyNamespaceBundleReadyState {
   const language = i18n.language
   const namespaceKey = namespaces.slice().sort().join('\0')
+  const [retryToken, setRetryToken] = useState(0)
   const [status, setStatus] = useState<LazyNamespaceBundleStatus>(() =>
     bundlesReady(namespaces) ? 'ready' : 'loading',
   )
 
+  const retry = useCallback(() => {
+    setRetryToken((value) => value + 1)
+  }, [])
+
   useEffect(() => {
+    let cancelled = false
+
     if (bundlesReady(namespaces)) {
       setStatus('ready')
-      return
+      return () => {
+        cancelled = true
+      }
     }
+
     setStatus('loading')
     void Promise.all(namespaces.map((namespace) => ensureNamespaceLoaded(namespace)))
       .then(() => {
-        setStatus('ready')
+        if (cancelled) return
+        setStatus(bundlesReady(namespaces) ? 'ready' : 'loading')
       })
       .catch(() => {
-        setStatus('failed')
+        if (!cancelled) {
+          setStatus('failed')
+        }
       })
-  }, [language, namespaceKey])
 
-  return status
+    return () => {
+      cancelled = true
+    }
+  }, [language, namespaceKey, retryToken])
+
+  return { status, retry }
 }

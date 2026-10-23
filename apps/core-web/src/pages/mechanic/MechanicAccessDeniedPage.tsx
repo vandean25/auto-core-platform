@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { PageLoader } from '@/components/ui/PageLoader'
 import { MECHANIC_ROUTE_PATHS } from '@/lib/app-route-paths'
-import { useLazyNamespaceBundleReady } from '@/lib/i18n'
+import { LocaleBundleLoadFailed, useLazyNamespaceBundleReady } from '@/lib/i18n'
 
 function MechanicAccessDeniedContent() {
   const { t } = useTranslation('workshop')
@@ -26,10 +26,13 @@ function MechanicAccessDeniedContent() {
 }
 
 export default function MechanicAccessDeniedPage() {
-  const bundleStatus = useLazyNamespaceBundleReady(['workshop'])
+  const { status, retry } = useLazyNamespaceBundleReady(['workshop'])
 
-  if (bundleStatus !== 'ready') {
+  if (status === 'loading') {
     return <PageLoader />
+  }
+  if (status === 'failed') {
+    return <LocaleBundleLoadFailed onRetry={retry} />
   }
 
   return <MechanicAccessDeniedContent />

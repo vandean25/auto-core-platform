@@ -42,7 +42,7 @@ function AgedStockDashboardWidgetContent() {
 }
 
 export function AgedStockDashboardWidget() {
-  const bundleStatus = useLazyNamespaceBundleReady(['vehicles'])
+  const { status: bundleStatus } = useLazyNamespaceBundleReady(['vehicles'])
   if (bundleStatus !== 'ready') {
     return null
   }

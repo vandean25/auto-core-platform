@@ -22,7 +22,7 @@ function percentage(value: string | null | undefined) {
 }
 
 export function WorkshopKpiDashboardWidget() {
-  const bundleStatus = useLazyNamespaceBundleReady(['workshop'])
+  const { status: bundleStatus } = useLazyNamespaceBundleReady(['workshop'])
   const { t } = useTranslation('workshop')
   const sites = useMySites()
   const session = useAuthSession()

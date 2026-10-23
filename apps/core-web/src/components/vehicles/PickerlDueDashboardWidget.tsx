@@ -34,7 +34,7 @@ function PickerlDueDashboardWidgetContent({ window }: { window: 30 | 60 | 90 }) 
 }
 
 export function PickerlDueDashboardWidget({ window }: { window: 30 | 60 | 90 }) {
-  const bundleStatus = useLazyNamespaceBundleReady(['vehicles'])
+  const { status: bundleStatus } = useLazyNamespaceBundleReady(['vehicles'])
   if (bundleStatus !== 'ready') {
     return null
   }
