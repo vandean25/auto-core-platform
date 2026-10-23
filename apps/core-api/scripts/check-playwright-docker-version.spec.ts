@@ -61,13 +61,27 @@ describe('Production image version pins (AUT-167)', () => {
     expect(dockerTagVersion).toBe(packageVersion);
   });
 
-  it('copies repo-root locales into the builder stage', () => {
+  it('copies repo-root locales into the builder stage after npm ci', () => {
     const dockerfile = fs.readFileSync(DOCKERFILE_PATH, 'utf8');
     const builderStage = dockerfile.split(
       /^FROM mcr\.microsoft\.com\/playwright:/m,
     )[0];
 
     expect(builderStage).toMatch(/^COPY locales \.\/locales$/m);
+    const npmCiIndex = builderStage.indexOf('npm ci');
+    const copyLocalesIndex = builderStage.indexOf('COPY locales ./locales');
+    const buildIndex = builderStage.indexOf('npm run build');
+    expect(copyLocalesIndex).toBeGreaterThan(npmCiIndex);
+    expect(buildIndex).toBeGreaterThan(copyLocalesIndex);
+  });
+
+  it('fails the builder when dist/locales is missing after build', () => {
+    const dockerfile = fs.readFileSync(DOCKERFILE_PATH, 'utf8');
+    const builderStage = dockerfile.split(
+      /^FROM mcr\.microsoft\.com\/playwright:/m,
+    )[0];
+
+    expect(builderStage).toMatch(/^RUN test -d dist\/locales$/m);
   });
 
   it('uses Node 24.22.1 slim for the API target', () => {
