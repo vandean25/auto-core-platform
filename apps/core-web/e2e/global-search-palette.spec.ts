@@ -1,5 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
+import {
+  createMockCustomerDetailResponse,
+  createMockWorkshopOrder,
+} from './utils/mock-factories';
 
 /**
  * AUT-663: the Cmd+K palette answers from one GET /api/search. The API is mocked; the session is the
@@ -105,6 +109,128 @@ test.describe('AUT-663: global search palette', () => {
     expect(requests).toHaveLength(1);
     expect(requests[0].searchParams.get('q')).toBe('RE-2026');
     expect(requests[0].searchParams.get('types')).toBe('invoice');
+  });
+
+  test.describe('AUT-692: context actions from the action registry', () => {
+    const orderId = 'f0000000-0000-4000-8000-000000000003';
+    const customerId = 'c0000000-0000-4000-8000-000000000001';
+    const vehicleId = 'e0000000-0000-4000-8000-000000000002';
+
+    async function mockWorkOrderDetail(page: Page) {
+      await page.route(AutoCorePage.apiRouteMatcher(`/api/workshop/orders/${orderId}`), (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(
+            createMockWorkshopOrder({
+              id: orderId,
+              order_number: 'WO-2026-0042',
+              status: 'INTAKE',
+            }),
+          ),
+        }),
+      );
+      await page.route(AutoCorePage.apiRouteMatcher(`/api/workshop/orders/${orderId}/estimates`), (route) =>
+        route.fulfill({ status: 500, contentType: 'application/json', body: '{"message":"n/a"}' }),
+      );
+    }
+
+    test('runs a workshop order registry action from the palette', async ({ page }) => {
+      await mockSearch(page);
+      await mockWorkOrderDetail(page);
+      await page.goto(`/workshop/orders/${orderId}`);
+
+      await openPalette(page);
+      await expect(page.getByText('Aktueller Datensatz')).toBeVisible();
+      await page.getByRole('option', { name: /Fahrzeugannahme/ }).click();
+
+      await expect(page).toHaveURL(new RegExp(`/workshop/orders/${orderId}/check-in$`));
+    });
+
+    test('opens intake prefilled from a customer detail page', async ({ page }) => {
+      await mockSearch(page);
+      await page.route(AutoCorePage.apiRouteMatcher(`/api/customers/${customerId}/communication-preferences`), (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            customer_id: customerId,
+            controller_legal_entity_id: 'ctrl-1',
+            controller_legal_entity_name: 'Demo Workshop GmbH',
+            revision: 0,
+            processing_status: 'ACTIVE',
+            preferences: [],
+          }),
+        }),
+      );
+      await page.route(AutoCorePage.apiRouteMatcher(`/api/customers/${customerId}/communication-history`), (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ data: [], meta: { total: 0, page: 1, pageSize: 25, pageCount: 1 } }),
+        }),
+      );
+      await page.route(AutoCorePage.apiRouteMatcher(/\/api\/tyre-sets\/by-customer\/.*/), (route) =>
+        route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
+      );
+      await page.route(AutoCorePage.apiRouteMatcher(`/api/customers/${customerId}`), (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(
+            createMockCustomerDetailResponse({
+              id: customerId,
+              first_name: 'Erika',
+              last_name: 'Musterfrau',
+            }),
+          ),
+        }),
+      );
+      await page.goto(`/customers/${customerId}`);
+
+      const input = await openPalette(page);
+      await input.fill('Werkstatt');
+      await page.getByRole('option', { name: /Werkstattauftrag anlegen/ }).click();
+
+      await expect(page).toHaveURL(
+        new RegExp(`/workshop/intake\\?customerId=${customerId}`),
+      );
+    });
+
+    test('opens intake prefilled from a vehicle detail page', async ({ page }) => {
+      await mockSearch(page);
+      await page.route(AutoCorePage.apiRouteMatcher(`/api/vehicles/${vehicleId}/parties`), (route) =>
+        route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
+      );
+      await page.route(AutoCorePage.apiRouteMatcher(`/api/vehicles/${vehicleId}`), (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            id: vehicleId,
+            year: 2021,
+            make: 'VW',
+            model: 'Golf',
+            plate: 'W-MUS1',
+            customer: {
+              id: customerId,
+              first_name: 'Erika',
+              last_name: 'Musterfrau',
+              type: 'PERSON',
+            },
+          }),
+        }),
+      );
+      await page.goto(`/vehicles/${vehicleId}`);
+
+      const input = await openPalette(page);
+      await input.fill('Werkstatt');
+      await page.getByRole('option', { name: /Werkstattauftrag anlegen/ }).click();
+
+      await expect(page).toHaveURL(
+        new RegExp(`/workshop/intake\\?vehicleId=${vehicleId}&customerId=${customerId}`),
+      );
+    });
   });
 
   test('lists a recently opened item after a reload', async ({ page }) => {

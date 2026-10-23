@@ -15,6 +15,28 @@ vi.mock('react-router-dom', async () => {
 vi.mock('@/hooks/useGlobalSearch')
 vi.mock('@/api/auth-session', () => ({ useAuthSession: vi.fn() }))
 vi.mock('@/api/sites', () => ({ useMySites: () => ({ data: [] }) }))
+vi.mock('@/auth/AuthProvider', () => ({
+  useAuth: () => ({ claims: { role: 'ADMIN' } }),
+}))
+vi.mock('@/api/workshop', async () => {
+  const actual = await vi.importActual<typeof import('@/api/workshop')>('@/api/workshop')
+  return {
+    ...actual,
+    useWorkshopOrder: () => ({ data: undefined, isLoading: false }),
+    useGenerateWorkshopPdf: () => ({ mutateAsync: vi.fn() }),
+  }
+})
+vi.mock('@/api/customers', async () => {
+  const actual = await vi.importActual<typeof import('@/api/customers')>('@/api/customers')
+  return { ...actual, useCustomer: () => ({ data: undefined, isLoading: false }) }
+})
+vi.mock('@/api/vehicles', async () => {
+  const actual = await vi.importActual<typeof import('@/api/vehicles')>('@/api/vehicles')
+  return { ...actual, useVehicle: () => ({ data: undefined, isLoading: false }) }
+})
+vi.mock('@/pages/customers/use-customer-delete-handler', () => ({
+  useCustomerDeleteHandler: () => vi.fn(),
+}))
 
 describe('GlobalSearch navigation targets', () => {
   beforeEach(async () => {
