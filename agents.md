@@ -101,6 +101,7 @@ auto-core-platform/
 - **Navigation & Layout**: Defined in `src/App.tsx`. Navigation is grouped into domains (Sales, Inventory, Procurement, Workshop, Vehicle stock).
 - **ID Generation**: Always use the centralized `generateId()` utility from `@/lib/id` instead of direct `crypto.randomUUID()` calls. This ensures compatibility with automated test environments (Playwright) where `crypto.randomUUID` might be unavailable.
 - **Settings**: All configuration (Finance, Revenue Groups, Brands, Storage Locations) is consolidated into a unified tabbed page at `src/pages/SettingsPage.tsx`, accessible via the gear icon.
+- **Action Registry & Action IDs**: Shared record/page actions live in `src/features/actions/entity-action.ts` using stable `<entity>.<action>` IDs (e.g., `customer.delete`, `workOrder.jobCardPdf`), exposed on page action buttons via `data-action-id` (`RegistryActionButton`) and gated through `src/features/actions/action-role-predicates.ts`.
 
 ### Page Layout Defaults
 - **Main Container**: Admin routes are wrapped by `PageContainer` in `App.tsx` (`max-w-page mx-auto p-6`). Adjust width via `--container-page` in `src/index.css`. Pages should not repeat that wrapper — use `space-y-6` / `space-y-8` on a root fragment or inner div when vertical spacing is needed.

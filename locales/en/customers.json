@@ -41,6 +41,7 @@
     "emptyAction": "New customer",
     "saveViewTitle": "Customers",
     "rowAria": "Customer {{name}}",
+    "deleteConfirmTitle": "Delete customer",
     "deleteConfirm": "Are you sure you want to delete this customer?",
     "deleted": "Customer deleted",
     "deleteFailed": "Failed to delete customer",

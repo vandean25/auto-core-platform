@@ -10,7 +10,13 @@ import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { triggerBlobDownload } from '@/lib/download'
 import { toast } from 'sonner'
 import type { WorkshopOrder } from '@/api/types'
-import type { EntityActionDefinition } from './entity-action'
+import {
+  canCheckInWorkshopOrder,
+  canGenerateWorkshopJobCardPdf,
+  canOpenWorkshopOrder,
+  isWorkshopCheckInOpenStatus,
+} from './action-role-predicates'
+import { ENTITY_ACTION_IDS, type EntityActionDefinition } from './entity-action'
 
 export type WorkshopOrderListRow = {
   id: string
@@ -35,40 +41,39 @@ function workshopOrderCheckInPath(orderId: string) {
   return APP_ROUTE_PATHS.workshopOrderCheckIn.replace(':id', orderId)
 }
 
-export function isWorkshopCheckInOpenStatus(status: string | null | undefined): boolean {
-  return status === 'INTAKE' || status === 'IN_PROGRESS'
-}
-
 export function createWorkshopOrderRowActions(
   t: TFunction<'workshop'>,
 ): EntityActionDefinition<WorkshopOrderListRow, WorkshopOrderRowActionContext>[] {
   return [
     {
-      id: 'open',
+      id: ENTITY_ACTION_IDS.workOrderOpen,
+      kind: 'navigate',
       label: t('orders.list.actions.open'),
       icon: ExternalLink,
       shortcutKey: 'o',
-      isAllowedForRole: () => true,
+      isAllowedForRole: canOpenWorkshopOrder,
       isEnabled: () => true,
       run: (row, { navigate }) => {
         navigate(workshopOrderDetailPath(row.id))
       },
     },
     {
-      id: 'checkIn',
+      id: ENTITY_ACTION_IDS.workOrderCheckIn,
+      kind: 'navigate',
       label: t('orders.list.actions.checkIn'),
       icon: LogIn,
-      isAllowedForRole: () => true,
+      isAllowedForRole: canCheckInWorkshopOrder,
       isEnabled: (row) => isWorkshopCheckInOpenStatus(row.status),
       run: (row, { navigate }) => {
         navigate(workshopOrderCheckInPath(row.id))
       },
     },
     {
-      id: 'jobCardPdf',
+      id: ENTITY_ACTION_IDS.workOrderJobCardPdf,
+      kind: 'run',
       label: t('orders.list.actions.jobCardPdf'),
       icon: FileDown,
-      isAllowedForRole: () => true,
+      isAllowedForRole: canGenerateWorkshopJobCardPdf,
       isEnabled: () => true,
       run: async (row, { generatePdf, t: translate }) => {
         const toastId = toast.loading(translate('orderDetail.toast.jobCardPdfGenerating'))

@@ -5,7 +5,10 @@ import type { Customer } from '@/api/types'
 import type { WorkshopOrder } from '@/api/types'
 import type { Vehicle } from '@/api/types'
 import {
+  executeEntityAction,
   filterEntityActions,
+  resolveEntityActionChildren,
+  type EntityActionChild,
   type EntityActionDefinition,
 } from '@/features/actions/entity-action'
 import type { CustomerListRow } from '@/features/actions/customer-row-actions'
@@ -22,6 +25,7 @@ export type PaletteContextAction = {
   icon?: LucideIcon
   description: string
   destructive?: boolean
+  children?: PaletteContextAction[]
   onSelect: () => void
 }
 
@@ -45,23 +49,59 @@ export function filterPaletteContextActions(
   )
 }
 
-function mapRegistryActions<TRecord extends object, TRunContext>(
+function mapRegistryChildren<TRecord extends object, TRunContext>(
+  children: EntityActionChild<TRecord, TRunContext>[] | undefined,
+  role: string | undefined,
+  record: TRecord,
+  runContext: TRunContext,
+  fallbackDescription: string,
+): PaletteContextAction[] | undefined {
+  if (!children) return undefined
+
+  return children
+    .filter(
+      (child) =>
+        (child.isAllowedForRole ? child.isAllowedForRole(role) : true) &&
+        (child.isEnabled ? child.isEnabled(record) : true),
+    )
+    .map((child) => {
+      const nested = resolveEntityActionChildren(child.children, record, runContext)
+      return {
+        id: child.id,
+        label: child.label,
+        icon: child.icon,
+        description: child.description ?? fallbackDescription,
+        destructive: child.destructive,
+        children: mapRegistryChildren(nested, role, record, runContext, fallbackDescription),
+        onSelect: () => {
+          executeEntityAction(child, record, runContext)
+        },
+      }
+    })
+}
+
+export function mapRegistryActionsToPalette<TRecord extends object, TRunContext>(
   definitions: EntityActionDefinition<TRecord, TRunContext>[],
   role: string | undefined,
   record: TRecord,
   runContext: TRunContext,
   describe: (definition: EntityActionDefinition<TRecord, TRunContext>) => string,
 ): PaletteContextAction[] {
-  return filterEntityActions(definitions, role, record).map((definition) => ({
-    id: definition.id,
-    label: definition.label,
-    icon: definition.icon,
-    description: describe(definition),
-    destructive: definition.destructive,
-    onSelect: () => {
-      void definition.run(record, runContext)
-    },
-  }))
+  return filterEntityActions(definitions, role, record).map((definition) => {
+    const description = describe(definition)
+    const rawChildren = resolveEntityActionChildren(definition.children, record, runContext)
+    return {
+      id: definition.id,
+      label: definition.label,
+      icon: definition.icon,
+      description,
+      destructive: definition.destructive,
+      children: mapRegistryChildren(rawChildren, role, record, runContext, description),
+      onSelect: () => {
+        executeEntityAction(definition, record, runContext)
+      },
+    }
+  })
 }
 
 export function buildWorkshopOrderPaletteContextActions<TRunContext>(
@@ -72,7 +112,7 @@ export function buildWorkshopOrderPaletteContextActions<TRunContext>(
   t: TFunction<'nav'>,
 ): PaletteContextAction[] {
   const record = workshopOrderToListRow(order)
-  return mapRegistryActions(definitions, role, record, runContext, () =>
+  return mapRegistryActionsToPalette(definitions, role, record, runContext, () =>
     t('globalSearch.contextActions.workOrder', { orderNo: record.orderNo }),
   )
 }
@@ -84,7 +124,7 @@ export function buildCustomerPaletteContextActions<TRunContext>(
   runContext: TRunContext,
   t: TFunction<'nav'>,
 ): PaletteContextAction[] {
-  return mapRegistryActions(definitions, role, customer, runContext, () =>
+  return mapRegistryActionsToPalette(definitions, role, customer, runContext, () =>
     t('globalSearch.contextActions.customer'),
   )
 }
@@ -97,7 +137,7 @@ export function buildVehiclePaletteContextActions<TRunContext>(
   t: TFunction<'nav'>,
 ): PaletteContextAction[] {
   const record = vehicleToListRow(vehicle)
-  return mapRegistryActions(definitions, role, record, runContext, () =>
+  return mapRegistryActionsToPalette(definitions, role, record, runContext, () =>
     t('globalSearch.contextActions.vehicle', { vehicle: record.vehicle }),
   )
 }

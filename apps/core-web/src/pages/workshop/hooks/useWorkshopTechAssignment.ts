@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useAssignBoard, useWorkshopResources } from '@/api/workshop'
 import type { WorkshopOrder } from '@/api/types'
+import { isWorkshopTechAssignableStatus } from '@/features/actions/action-role-predicates'
 import { getErrorMessage } from '../utils/error'
 
 /** Assigned technician and bay of an order, and the optimistic technician assignment (rolled back when it fails). */
@@ -11,10 +12,7 @@ export function useWorkshopTechAssignment(order: WorkshopOrder) {
   const workshopResourcesQuery = useWorkshopResources()
   const workshopResources = workshopResourcesQuery?.data
 
-  const canAssignTech =
-    order.status === 'SCHEDULED' ||
-    order.status === 'INTAKE' ||
-    order.status === 'IN_PROGRESS'
+  const canAssignTech = isWorkshopTechAssignableStatus(order.status)
   const assignedTechId = order.mechanicId ?? order.mechanic_id ?? null
   const assignedTechName =
     workshopResources?.mechanics.find((mechanic) => mechanic.id === assignedTechId)?.name ?? null

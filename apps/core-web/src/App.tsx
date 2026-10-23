@@ -23,6 +23,7 @@ import { isDemoGrantSessionErrorMessage, isFirebaseEmailLinkSignInUrl } from '@/
 import { AppSidebar } from '@/components/navigation/AppSidebar'
 import { useSidebarOpen } from '@/components/navigation/sidebar-state'
 import { GlobalSearch } from '@/components/GlobalSearch'
+import { EntityActionConfirmHost } from '@/features/actions/action-confirm-host'
 import { DashboardWidgetsProvider } from '@/features/dashboard-widgets/DashboardWidgetsProvider'
 import { RealtimeDashboardSyncProvider } from '@/features/realtime/RealtimeDashboardSyncProvider'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
@@ -163,6 +164,7 @@ function AppShell({
               />
 
               <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
+              <EntityActionConfirmHost />
               <GlobalShortcutLayer />
               <AppMain />
             </SidebarProvider>

@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useHotkeys } from 'react-hotkeys-hook'
 
 import {
+  executeEntityAction,
   filterEntityActions,
   type EntityActionDefinition,
 } from '@/features/actions/entity-action'
@@ -61,7 +62,7 @@ export function useRegistryRowShortcuts<TRecord extends { id: string }, TRunCont
         return
       }
       event.preventDefault()
-      void action.run(record, runContext)
+      executeEntityAction(action, record, runContext)
     },
     {
       enabled: (event) => isRowShortcutEnabled(event) && shortcutKeys.length > 0,

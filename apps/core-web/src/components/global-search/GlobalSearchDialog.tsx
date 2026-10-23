@@ -10,6 +10,10 @@ import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { GlobalSearchContextActionGroup } from './GlobalSearchContextActionGroup'
 import { QuickActionGroup } from './GlobalSearchResultGroups'
 import { PrefixHelp, RecentItemsGroup, SearchResults } from './GlobalSearchResultGroupsView'
+import {
+  filterPaletteContextActions,
+  type PaletteContextAction,
+} from './global-search-context-actions'
 import { useGlobalSearchPaletteContext } from './use-global-search-palette-context'
 import { truncate } from './global-search-format'
 import { getPaletteSections } from './global-search-navigation'
@@ -18,6 +22,68 @@ import { recentItemsKey, useRecentItems, type RecentSearchItem } from './global-
 interface GlobalSearchDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+}
+
+type PaletteSubPage = {
+  id: string
+  heading: string
+  items: PaletteContextAction[]
+}
+
+function handlePaletteInputKeyDown(
+  event: React.KeyboardEvent<HTMLInputElement>,
+  rawSearch: string,
+  newTabRef: React.MutableRefObject<boolean>,
+  popSubPage: () => boolean,
+) {
+  if (event.key === 'Enter') {
+    newTabRef.current = event.metaKey || event.ctrlKey
+    return
+  }
+  if (event.key === 'Backspace' && !rawSearch && popSubPage()) {
+    event.preventDefault()
+  }
+}
+
+function usePaletteSubPages(
+  open: boolean,
+  query: string,
+  setSearch: (value: string) => void,
+  onOpenChange: (open: boolean) => void,
+) {
+  const [subPages, setSubPages] = React.useState<PaletteSubPage[]>([])
+
+  React.useEffect(() => {
+    if (!open) setSubPages([])
+  }, [open])
+
+  const activeSubPage = subPages[subPages.length - 1]
+
+  const popSubPage = () => {
+    if (!activeSubPage) return false
+    setSearch('')
+    setSubPages((prev) => prev.slice(0, -1))
+    return true
+  }
+
+  const runContextAction = (action: PaletteContextAction) => {
+    const children = action.children
+    if (children?.length) {
+      setSearch('')
+      setSubPages((prev) => [...prev, { id: action.id, heading: action.label, items: children }])
+      return
+    }
+    setSearch('')
+    setSubPages([])
+    onOpenChange(false)
+    action.onSelect()
+  }
+
+  const subPageSection = activeSubPage
+    ? { heading: activeSubPage.heading, items: filterPaletteContextActions(activeSubPage.items, query) }
+    : null
+
+  return { activeSubPage, subPageSection, popSubPage, runContextAction }
 }
 
 export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogProps) {
@@ -33,15 +99,18 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
 
   React.useEffect(() => {
     if (open) void ensureNamespaceLoaded('settings')
+    else setSearch('')
   }, [open])
 
   const query = search.trim()
   const paletteContext = useGlobalSearchPaletteContext(open, query)
+  const subPage = usePaletteSubPages(open, query, setSearch, onOpenChange)
   const sections = getPaletteSections(
     session ? { platformRole: session.platformRole ?? null, activeRole: session.activeRole } : null,
     query,
     paletteContext.intakePrefill,
   )
+  const contextSection = subPage.subPageSection ?? paletteContext.contextSection
 
   const openHref = (href: string) => {
     const inNewTab = newTabRef.current
@@ -57,18 +126,12 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
     openHref(item.href)
   }
 
-  const runContextAction = (action: { onSelect: () => void }) => {
-    setSearch('')
-    onOpenChange(false)
-    action.onSelect()
-  }
-
   return (
     <CommandDialog
       open={open}
-      onOpenChange={(nextOpen) => {
-        onOpenChange(nextOpen)
-        if (!nextOpen) setSearch('')
+      onOpenChange={onOpenChange}
+      onEscapeKeyDown={(event) => {
+        if (subPage.popSubPage()) event.preventDefault()
       }}
       title={t('globalSearch.title')}
       description={t('globalSearch.description')}
@@ -76,12 +139,10 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
     >
       <CommandInput
         aria-label={t('globalSearch.inputLabel')}
-        placeholder={t('globalSearch.placeholder')}
+        placeholder={subPage.activeSubPage?.heading ?? t('globalSearch.placeholder')}
         value={search}
         onValueChange={setSearch}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter') newTabRef.current = event.metaKey || event.ctrlKey
-        }}
+        onKeyDown={(event) => handlePaletteInputKeyDown(event, search, newTabRef, subPage.popSubPage)}
       />
 
       <CommandList
@@ -90,34 +151,38 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
           newTabRef.current = event.metaKey || event.ctrlKey
         }}
       >
-        {paletteContext.contextSection ? (
+        {contextSection ? (
           <GlobalSearchContextActionGroup
-            section={paletteContext.contextSection}
-            onSelect={runContextAction}
+            section={contextSection}
+            onSelect={subPage.runContextAction}
           />
         ) : null}
 
-        {query ? (
-          <SearchResults
-            groups={groups}
-            isLoading={isLoading}
-            error={error}
-            hasSections={sections.length > 0}
-            activeSiteId={session?.activeSiteId ?? null}
-            sites={sites ?? []}
-            query={truncate(query)}
-            onSelect={openItem}
-          />
-        ) : (
+        {!subPage.activeSubPage ? (
           <>
-            <RecentItemsGroup items={recent.items} onSelect={openItem} onRemove={recent.remove} />
-            <PrefixHelp />
-          </>
-        )}
+            {query ? (
+              <SearchResults
+                groups={groups}
+                isLoading={isLoading}
+                error={error}
+                hasSections={sections.length > 0}
+                activeSiteId={session?.activeSiteId ?? null}
+                sites={sites ?? []}
+                query={truncate(query)}
+                onSelect={openItem}
+              />
+            ) : (
+              <>
+                <RecentItemsGroup items={recent.items} onSelect={openItem} onRemove={recent.remove} />
+                <PrefixHelp />
+              </>
+            )}
 
-        {sections.map((section) => (
-          <QuickActionGroup key={section.heading} section={section} onSelect={openHref} />
-        ))}
+            {sections.map((section) => (
+              <QuickActionGroup key={section.heading} section={section} onSelect={openHref} />
+            ))}
+          </>
+        ) : null}
       </CommandList>
     </CommandDialog>
   )

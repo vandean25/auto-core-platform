@@ -8,6 +8,13 @@ import { TyreSetsSummary } from "@/features/tyre-storage/TyreSetsSummary";
 import { WorkshopOrderMeasurementsSection } from "@/components/workshop/WorkshopOrderMeasurementsSection";
 import { useWorkshopOrder } from "@/api/workshop";
 import type { WorkshopOrder } from "@/api/types";
+import {
+  canCheckInWorkshopOrder,
+  canGenerateWorkshopJobCardPdf,
+  isWorkshopCheckInOpenStatus,
+  isWorkshopOrderLockedStatus,
+} from "@/features/actions/action-role-predicates";
+import { useAuthRole } from "@/features/actions/use-auth-role";
 import { OrderTopBar, CustomerVehicleInfo } from "./components/OrderHeader";
 import { OrderAdvisorPanels } from "./components/OrderAdvisorPanels";
 import { OrderLoading, OrderNotFound } from "./components/OrderLoadStates";
@@ -36,9 +43,10 @@ export function WorkshopOrderDetails() {
 }
 
 function WorkshopOrderView({ order }: { order: WorkshopOrder }) {
-  const isLocked = order.status === "INVOICED";
+  const role = useAuthRole();
+  const isLocked = isWorkshopOrderLockedStatus(order.status);
   const checkInHref =
-    order.status === "INTAKE" || order.status === "IN_PROGRESS"
+    canCheckInWorkshopOrder(role) && isWorkshopCheckInOpenStatus(order.status)
       ? APP_ROUTE_PATHS.workshopOrderCheckIn.replace(":id", order.id)
       : null;
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
@@ -81,7 +89,7 @@ function WorkshopOrderView({ order }: { order: WorkshopOrder }) {
           bayName={tech.assignedBayName}
           catalogSearchSession={fitment.catalogSearchSession}
           oemConcernCode={fitment.oemConcernCode}
-          onPrint={orderActions.print}
+          onPrint={canGenerateWorkshopJobCardPdf(role) ? orderActions.print : () => undefined}
           checkInHref={checkInHref}
         />
 

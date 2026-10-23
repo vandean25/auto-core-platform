@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import type { TFunction } from 'i18next'
 import type { NavigateFunction } from 'react-router-dom'
 
+import { canOpenVehicle } from '@/features/actions/action-role-predicates'
 import { useAuthRole } from '@/features/actions/use-auth-role'
 import {
   createVehicleRowActions,
@@ -21,11 +22,14 @@ export function useVehicleListRowBehaviour(
 
   const tableRowBehaviour = useMemo(
     () => ({
-      getRowHref: (row: VehicleListRow) => `/vehicles/${row.id}`,
+      getRowHref: (row: VehicleListRow) =>
+        canOpenVehicle(role) ? `/vehicles/${row.id}` : undefined,
       getRowAccessibleName: (row: VehicleListRow) => t('list.rowAria', { vehicle: row.vehicle }),
-      onRowClick: (row: VehicleListRow) => openPeek(row.id),
+      onRowClick: (row: VehicleListRow) => {
+        if (canOpenVehicle(role)) openPeek(row.id)
+      },
     }),
-    [openPeek, t],
+    [openPeek, role, t],
   )
 
   const runContext = useMemo(() => ({ navigate, t }), [navigate, t])

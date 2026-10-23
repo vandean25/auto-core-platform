@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
+import { canOpenCustomer } from '@/features/actions/action-role-predicates'
 import { useAuthRole } from '@/features/actions/use-auth-role'
 import { useCustomerDeleteHandler } from './use-customer-delete-handler'
 import {
@@ -25,12 +26,15 @@ export function useCustomerListRowBehaviour(
 
   const tableRowBehaviour = useMemo(
     () => ({
-      getRowHref: (row: CustomerListRow) => `/customers/${row.id}`,
+      getRowHref: (row: CustomerListRow) =>
+        canOpenCustomer(role) ? `/customers/${row.id}` : undefined,
       getRowAccessibleName: (row: CustomerListRow) =>
         t('list.rowAria', { name: getCustomerListRowLabel(row) }),
-      onRowClick: (row: CustomerListRow) => openPeek(row.id),
+      onRowClick: (row: CustomerListRow) => {
+        if (canOpenCustomer(role)) openPeek(row.id)
+      },
     }),
-    [openPeek, t],
+    [openPeek, role, t],
   )
 
   const runContext = useMemo(

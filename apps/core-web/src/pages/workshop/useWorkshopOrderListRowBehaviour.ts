@@ -7,6 +7,7 @@ import {
   useGenerateWorkshopPdf,
   workshopOrderDetailQueryOptions,
 } from '@/api/workshop'
+import { canOpenWorkshopOrder } from '@/features/actions/action-role-predicates'
 import { useAuthRole } from '@/features/actions/use-auth-role'
 import {
   createWorkshopOrderRowActions,
@@ -36,13 +37,16 @@ export function useWorkshopOrderListRowBehaviour(
 
   const tableRowBehaviour = useMemo(
     () => ({
-      getRowHref: (row: WorkshopOrderListRow) => `/workshop/orders/${row.id}`,
+      getRowHref: (row: WorkshopOrderListRow) =>
+        canOpenWorkshopOrder(role) ? `/workshop/orders/${row.id}` : undefined,
       getRowAccessibleName: (row: WorkshopOrderListRow) =>
         t('orders.list.rowAria', { orderNo: row.orderNo }),
-      onRowClick: (row: WorkshopOrderListRow) => openPeek(row.id),
+      onRowClick: (row: WorkshopOrderListRow) => {
+        if (canOpenWorkshopOrder(role)) openPeek(row.id)
+      },
       onRowPrefetch: prefetchOrderDetail,
     }),
-    [openPeek, prefetchOrderDetail, t],
+    [openPeek, prefetchOrderDetail, role, t],
   )
 
   const runContext = useMemo(
