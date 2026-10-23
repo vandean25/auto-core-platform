@@ -158,6 +158,21 @@ describe('VehiclePersistenceService', () => {
     });
   });
 
+  it('never writes customer_id in the guarded update', async () => {
+    prisma.vehicle.updateMany.mockResolvedValue({ count: 1 });
+
+    await service.updateIfIdentityUnchanged(
+      'vehicle-1',
+      tenantId,
+      { id: 'vehicle-1', vin: null, plate: null },
+      { make: 'Ford', customer_id: 'cust-1' },
+    );
+
+    expect(prisma.vehicle.updateMany.mock.calls[0][0].data).toEqual({
+      make: 'Ford',
+    });
+  });
+
   it('reports whether a vehicle still exists in the tenant', async () => {
     prisma.vehicle.findFirst.mockResolvedValueOnce({ id: 'vehicle-1' });
     prisma.vehicle.findFirst.mockResolvedValueOnce(null);

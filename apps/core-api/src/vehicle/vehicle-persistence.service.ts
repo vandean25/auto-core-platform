@@ -111,9 +111,12 @@ export class VehiclePersistenceService {
     existingVehicle: ExistingVehicleIdentity,
     data: Prisma.VehicleUncheckedUpdateManyInput,
   ): Promise<number> {
+    // customer_id is written by setOwnerInTx only, together with the OWNER party.
+    const vehicleData = { ...data };
+    delete vehicleData.customer_id;
     const { count } = await this.prisma.vehicle.updateMany({
       where: buildVehicleIdentityGuard(id, tenantId, existingVehicle),
-      data: withPlateNormalized(data),
+      data: withPlateNormalized(vehicleData),
     });
     return count;
   }

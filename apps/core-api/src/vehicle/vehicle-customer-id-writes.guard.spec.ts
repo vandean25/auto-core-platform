@@ -23,6 +23,9 @@ function balanced(text: string, open: number): string {
   return text.slice(open);
 }
 
+// customer_id, or the relation form of it (customer: { connect | disconnect }).
+const OWNER_FIELD =
+  /\bcustomer_id\b|\bcustomer:\s*\{\s*(?:connect|disconnect)\b/;
 const WHERE_BLOCK = /\bwhere:\s*\{/;
 
 function withoutWhere(args: string): string {
@@ -43,7 +46,7 @@ function findCustomerIdWrites(source: string): string[] {
   const hits: string[] = [];
   for (const match of source.matchAll(VEHICLE_WRITE_CALL)) {
     const args = balanced(source, match.index + match[0].length - 1);
-    if (/\bcustomer_id\b/.test(withoutWhere(args))) hits.push(match[0]);
+    if (OWNER_FIELD.test(withoutWhere(args))) hits.push(match[0]);
   }
   return hits;
 }
@@ -76,6 +79,14 @@ describe('Vehicle.customer_id writes', () => {
     expect(
       findCustomerIdWrites(
         'await tx.vehicle.create({ data: { make, customer_id: null } });',
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('flags the relation form of the owner as well', () => {
+    expect(
+      findCustomerIdWrites(
+        'await tx.vehicle.update({ where: { id }, data: { customer: { disconnect: true } } });',
       ),
     ).toHaveLength(1);
   });
