@@ -51,7 +51,7 @@
     "CHECK_IN_DAMAGE_TYPE_INVALID": "Diese Schadensart ist für eine Schadensmarkierung nicht zulässig.",
     "CHECK_IN_EXISTS": "Für diesen Auftrag existiert bereits eine Annahme.",
     "CHECK_IN_MEDIA_INVALID": "Mindestens ein Foto ist für diese Annahme nicht gültig.",
-    "CHECK_IN_MEDIA_UPLOADER_REQUIRED": "Zum Hochladen von Fotos muss Ihr Konto einem aktiven Mitarbeiter zugeordnet sein. Bitte wenden Sie sich an Ihren Administrator.",
+    "CHECK_IN_MEDIA_UPLOADER_REQUIRED": "Ihr Benutzerkonto ist keinem aktiven Mitarbeiter dieses Betriebs zugeordnet. Bitte lassen Sie es von einem Administrator verknüpfen.",
     "CHECK_IN_ORDER_STATUS": "Annahme ist nur bei Aufträgen in Annahme oder in Bearbeitung möglich.",
     "CHECK_IN_SIGNATURE_REQUIRED": "Bitte tragen Sie den Namen ein, bestätigen Sie den Hinweis und lassen Sie unterschreiben, bevor Sie abschließen.",
     "CHECK_IN_ZONE_INVALID": "Dieser Fahrzeugbereich ist für eine Schadensmarkierung nicht zulässig.",

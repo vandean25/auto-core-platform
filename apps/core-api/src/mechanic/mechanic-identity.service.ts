@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { resolveActiveEmployeeIdForAuthUser } from '../employee/resolve-active-employee-for-auth-user.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
 @Injectable()
@@ -23,25 +24,20 @@ export class MechanicIdentityService {
 
     const tenantId = await this.tenantContext.getTenantId();
 
-    const employee = await this.prisma.employee.findFirst({
-      where: {
-        tenant_id: tenantId,
-        role: 'MECHANIC',
-        is_active: true,
-        user: {
-          OR: [{ firebaseUid: user.userId }, { email: user.email }],
-        },
-      },
-      select: { id: true },
-    });
+    const employeeId = await resolveActiveEmployeeIdForAuthUser(
+      this.prisma,
+      user,
+      tenantId,
+      { role: 'MECHANIC' },
+    );
 
-    if (!employee) {
+    if (!employeeId) {
       throw new NotFoundException(
         'Active mechanic employee for the authenticated user was not found in this tenant.',
       );
     }
 
-    return employee.id;
+    return employeeId;
   }
 
   /**
