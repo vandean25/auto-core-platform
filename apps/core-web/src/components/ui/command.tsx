@@ -28,6 +28,7 @@ type CommandDialogProps = DialogProps & {
   description?: string
   shouldFilter?: boolean
   filter?: (value: string, search: string, keywords?: string[]) => number
+  onEscapeKeyDown?: (event: KeyboardEvent) => void
 }
 
 const CommandDialog = ({
@@ -36,11 +37,15 @@ const CommandDialog = ({
   description = "Search and navigate the app.",
   shouldFilter,
   filter,
+  onEscapeKeyDown,
   ...props
 }: CommandDialogProps) => {
   return (
     <Dialog {...props}>
-      <DialogContent className="overflow-hidden p-0 sm:max-w-2xl">
+      <DialogContent
+        className="overflow-hidden p-0 sm:max-w-2xl"
+        onEscapeKeyDown={onEscapeKeyDown}
+      >
         <DialogHeader className="sr-only">
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>

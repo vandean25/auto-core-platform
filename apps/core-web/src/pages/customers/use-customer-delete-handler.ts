@@ -10,20 +10,20 @@ type UseCustomerDeleteHandlerOptions = {
 }
 
 export function useCustomerDeleteHandler(options: UseCustomerDeleteHandlerOptions = {}) {
+  const { onDeleted } = options
   const { t } = useTranslation('customers')
   const deleteMutation = useDeleteCustomer()
 
   return useCallback(
     async (id: string) => {
-      if (!confirm(t('list.deleteConfirm'))) return
       try {
         await deleteMutation.mutateAsync(id)
         toast.success(t('list.deleted'))
-        options.onDeleted?.()
+        onDeleted?.()
       } catch (error: unknown) {
         toast.error(getErrorMessage(error, t('list.deleteFailed')))
       }
     },
-    [deleteMutation, options.onDeleted, t],
+    [deleteMutation, onDeleted, t],
   )
 }

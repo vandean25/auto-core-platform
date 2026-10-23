@@ -11,6 +11,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import deCommon from '../../../../../locales/de/common.json'
 import { createCustomerRowActions } from '@/features/actions/customer-row-actions'
+import { ENTITY_ACTION_IDS } from '@/features/actions/entity-action'
 import type { Customer } from '@/api/types'
 import { G_SEQUENCE_TIMEOUT_MS } from './shortcut-constants'
 import {
@@ -206,7 +207,7 @@ describe('useRegistryRowShortcuts', () => {
   it('does not run actions filtered out by role', () => {
     const navigate = vi.fn() as NavigateFunction
     const definitions = createCustomerRowActions(customerT).map((definition) =>
-      definition.id === 'open'
+      definition.id === ENTITY_ACTION_IDS.customerOpen
         ? { ...definition, isAllowedForRole: () => false }
         : definition,
     )

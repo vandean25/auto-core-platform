@@ -1,8 +1,9 @@
-import { act, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import CustomerList from './CustomerList'
 import * as customersApi from '@/api/customers'
+import { EntityActionConfirmHost } from '@/features/actions/action-confirm-host'
 import { DashboardWidgetsProvider } from '@/features/dashboard-widgets/DashboardWidgetsProvider'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import deCommon from '../../../../../locales/de/common.json'
@@ -15,7 +16,15 @@ vi.mock('@/auth/AuthProvider', () => ({
   useAuth: () => ({ claims: { role: 'ADMIN' } }),
 }))
 vi.mock('@/components/customers/CustomerDialog', () => ({
-  CustomerDialog: ({ open }: { open: boolean }) => (open ? <div role="dialog">create-customer</div> : null),
+  CustomerDialog: ({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) =>
+    open ? (
+      <div role="dialog">
+        <span>create-customer</span>
+        <button type="button" onClick={() => onOpenChange(false)}>
+          close-create-dialog
+        </button>
+      </div>
+    ) : null,
 }))
 
 const asMock = <T extends (...args: never[]) => unknown>(fn: T) =>
@@ -50,6 +59,7 @@ function renderList(initialEntry = '/customers?page=2') {
                 <>
                   <UrlSearchProbe />
                   <CustomerList />
+                  <EntityActionConfirmHost />
                 </>
               }
             />
@@ -61,7 +71,7 @@ function renderList(initialEntry = '/customers?page=2') {
   )
 }
 
-describe('CustomerList peek sheet', () => {
+describe('CustomerList peek sheet and registry primitives', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     asMock(customersApi.useCustomers).mockReturnValue({
@@ -92,9 +102,39 @@ describe('CustomerList peek sheet', () => {
     expect(await screen.findByText(deCustomers.peek.notFound)).toBeInTheDocument()
   })
 
-  it('still opens create dialog from ?action=create', async () => {
-    renderList('/customers?action=create')
+  it('still opens create dialog from ?action=create and removes param on close', async () => {
+    renderList('/customers?page=2&action=create')
     expect(await screen.findByRole('dialog')).toHaveTextContent('create-customer')
+    expect(screen.getByTestId('url-search').textContent).toBe('?page=2&action=create')
+
+    fireEvent.click(screen.getByRole('button', { name: 'close-create-dialog' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByTestId('url-search').textContent).toBe('?page=2')
+  })
+
+  it('routes context-menu customer delete through the shared confirm host without browser confirm()', async () => {
+    const windowConfirm = vi.spyOn(window, 'confirm')
+    const mutateAsync = vi.fn().mockResolvedValue(undefined)
+    asMock(customersApi.useDeleteCustomer).mockReturnValue({ mutateAsync })
+
+    renderList()
+    fireEvent.contextMenu(screen.getByText('contact@example.test'))
+    fireEvent.click(screen.getByRole('button', { name: deCustomers.list.delete }))
+
+    expect(windowConfirm).not.toHaveBeenCalled()
+    expect(mutateAsync).not.toHaveBeenCalled()
+    const alert = await screen.findByRole('alertdialog')
+    expect(alert).toHaveTextContent(deCustomers.list.deleteConfirm)
+
+    fireEvent.click(within(alert).getByRole('button', { name: deCommon.actions.cancel }))
+    expect(mutateAsync).not.toHaveBeenCalled()
+
+    fireEvent.contextMenu(screen.getByText('contact@example.test'))
+    fireEvent.click(screen.getByRole('button', { name: deCustomers.list.delete }))
+    const alertAgain = await screen.findByRole('alertdialog')
+    fireEvent.click(within(alertAgain).getByRole('button', { name: deCustomers.list.delete }))
+    expect(mutateAsync).toHaveBeenCalledWith('cust-1')
+    windowConfirm.mockRestore()
   })
 
   it('closes with the sheet close control', async () => {

@@ -19,6 +19,7 @@ export function GlobalSearchContextActionGroup({
           <CommandItem
             key={action.id}
             value={`${action.id} ${action.label}`}
+            data-action-id={action.id}
             onSelect={() => onSelect(action)}
           >
             {Icon ? <Icon aria-hidden="true" className="mr-2 h-4 w-4 shrink-0" /> : null}

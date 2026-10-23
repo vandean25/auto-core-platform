@@ -8,6 +8,10 @@ import { TyreSetsSummary } from "@/features/tyre-storage/TyreSetsSummary";
 import { WorkshopOrderMeasurementsSection } from "@/components/workshop/WorkshopOrderMeasurementsSection";
 import { useWorkshopOrder } from "@/api/workshop";
 import type { WorkshopOrder } from "@/api/types";
+import {
+  isWorkshopCheckInOpenStatus,
+  isWorkshopOrderLockedStatus,
+} from "@/features/actions/action-role-predicates";
 import { OrderTopBar, CustomerVehicleInfo } from "./components/OrderHeader";
 import { OrderAdvisorPanels } from "./components/OrderAdvisorPanels";
 import { OrderLoading, OrderNotFound } from "./components/OrderLoadStates";
@@ -36,11 +40,10 @@ export function WorkshopOrderDetails() {
 }
 
 function WorkshopOrderView({ order }: { order: WorkshopOrder }) {
-  const isLocked = order.status === "INVOICED";
-  const checkInHref =
-    order.status === "INTAKE" || order.status === "IN_PROGRESS"
-      ? APP_ROUTE_PATHS.workshopOrderCheckIn.replace(":id", order.id)
-      : null;
+  const isLocked = isWorkshopOrderLockedStatus(order.status);
+  const checkInHref = isWorkshopCheckInOpenStatus(order.status)
+    ? APP_ROUTE_PATHS.workshopOrderCheckIn.replace(":id", order.id)
+    : null;
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
 
   const {

@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
 import { type LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { useTranslation } from 'react-i18next'
 import { useCustomers } from '@/api/customers'
@@ -11,11 +10,14 @@ import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { DataTable } from '@/components/data-table/DataTable'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { useActionDialogParam } from '@/features/actions/use-action-dialog-param'
 import { DASHBOARD_WIDGET_SOURCE_CUSTOMERS } from '@/features/dashboard-widgets/sources'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { CustomerPeekSheet } from '@/features/peek/CustomerPeekSheet'
 import { usePeekSearchParam } from '@/features/peek/use-peek-search-param'
 import { useCustomerListRowBehaviour } from './useCustomerListRowBehaviour'
+
+export const CUSTOMER_CREATE_DIALOG_ACTION_IDS = ['create', 'customer.create'] as const
 
 export default function CustomerList() {
   const { t } = useTranslation('customers')
@@ -24,7 +26,6 @@ export default function CustomerList() {
   }, [])
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
   const { data: responseData, isLoading, isError } = useCustomers(queryParams)
-  const [searchParams, setSearchParams] = useSearchParams()
 
   const customers: Customer[] = Array.isArray(responseData)
     ? responseData
@@ -32,20 +33,9 @@ export default function CustomerList() {
   const pageCount = Array.isArray(responseData) ? 1 : responseData?.meta?.pageCount || 1
 
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | undefined>(undefined)
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-
-  useEffect(() => {
-    if (searchParams.get('action') === 'create') {
-      setTimeout(() => {
-        setSelectedCustomer(undefined)
-        setIsDialogOpen(true)
-
-        const newParams = new URLSearchParams(searchParams)
-        newParams.delete('action')
-        setSearchParams(newParams, { replace: true })
-      }, 0)
-    }
-  }, [searchParams, setSearchParams])
+  const { open: isDialogOpen, onOpenChange: setIsDialogOpen } = useActionDialogParam(
+    CUSTOMER_CREATE_DIALOG_ACTION_IDS,
+  )
 
   const handleCreate = () => {
     setSelectedCustomer(undefined)

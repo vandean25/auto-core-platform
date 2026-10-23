@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'sonner'
 import * as customersApi from '@/api/customers'
 import { registerGermanUiForTests } from '@/test/german-ui'
@@ -17,12 +17,23 @@ function mockDelete(mutateAsync: (id: string) => Promise<unknown>) {
 }
 
 describe('useCustomerDeleteHandler', () => {
-  beforeEach(() => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
-  })
   afterEach(() => {
     vi.restoreAllMocks()
     vi.clearAllMocks()
+  })
+
+  it('deletes without calling browser confirm() and notifies onDeleted', async () => {
+    const windowConfirm = vi.spyOn(window, 'confirm')
+    const onDeleted = vi.fn()
+    const mutateAsync = vi.fn().mockResolvedValue(undefined)
+    mockDelete(mutateAsync)
+
+    const { result } = renderHook(() => useCustomerDeleteHandler({ onDeleted }))
+    await act(() => result.current('cust-1'))
+
+    expect(windowConfirm).not.toHaveBeenCalled()
+    expect(mutateAsync).toHaveBeenCalledWith('cust-1')
+    expect(onDeleted).toHaveBeenCalledTimes(1)
   })
 
   it('explains a 409 caused by vehicle parties with the translated stable code', async () => {

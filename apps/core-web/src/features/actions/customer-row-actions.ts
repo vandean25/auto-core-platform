@@ -4,7 +4,11 @@ import { ExternalLink, Trash2 } from 'lucide-react'
 
 import type { Customer } from '@/api/types'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
-import type { EntityActionDefinition } from './entity-action'
+import {
+  canDeleteCustomerFromList,
+  canOpenCustomer,
+} from './action-role-predicates'
+import { ENTITY_ACTION_IDS, type EntityActionDefinition } from './entity-action'
 
 export type CustomerListRow = Customer
 
@@ -21,31 +25,33 @@ export type CustomerRowActionContext = {
   t: TFunction<'customers'>
 }
 
-/** Mirrors list delete access today: any signed-in role that can open the list. */
-export function canDeleteCustomerFromList(_role: string | undefined): boolean {
-  return true
-}
-
 export function createCustomerRowActions(
   t: TFunction<'customers'>,
 ): EntityActionDefinition<CustomerListRow, CustomerRowActionContext>[] {
   return [
     {
-      id: 'open',
+      id: ENTITY_ACTION_IDS.customerOpen,
+      kind: 'navigate',
       label: t('list.actions.open'),
       icon: ExternalLink,
       shortcutKey: 'o',
-      isAllowedForRole: () => true,
+      isAllowedForRole: canOpenCustomer,
       isEnabled: () => true,
       run: (customer, { navigate }) => {
         navigate(APP_ROUTE_PATHS.customerDetail.replace(':id', customer.id))
       },
     },
     {
-      id: 'delete',
+      id: ENTITY_ACTION_IDS.customerDelete,
+      kind: 'run',
       label: t('list.delete'),
       icon: Trash2,
       destructive: true,
+      confirm: {
+        title: t('list.deleteConfirmTitle'),
+        description: t('list.deleteConfirm'),
+        confirmLabel: t('list.delete'),
+      },
       isAllowedForRole: canDeleteCustomerFromList,
       isEnabled: () => true,
       run: (customer, { onDelete }) => {

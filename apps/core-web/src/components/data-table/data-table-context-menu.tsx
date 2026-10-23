@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 
 export type DataTableRowContextAction<TData extends object> = {
+  id?: string
   label: string
   onClick: (row: TData) => void
   destructive?: boolean
@@ -77,8 +78,9 @@ export function useDataTableContextMenu<TData extends object>(
       >
         {getRowContextActions?.(contextMenu.row).map((action: DataTableRowContextAction<TData>) => (
           <button
-            key={action.label}
+            key={action.id ?? action.label}
             type="button"
+            data-action-id={action.id}
             className={`w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent ${
               action.destructive ? "text-destructive" : "text-foreground"
             }`}
