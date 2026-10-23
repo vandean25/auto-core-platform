@@ -44,6 +44,7 @@ async function loadPartyPlanContext(
       valid_from: dateToDay(party.valid_from),
       valid_to: dateToDay(party.valid_to),
       notes: party.notes,
+      source: party.source,
     })),
     vehicleContact: new Map(vehicles.map((v) => [v.id, v.customer_id])),
     options: input.options,

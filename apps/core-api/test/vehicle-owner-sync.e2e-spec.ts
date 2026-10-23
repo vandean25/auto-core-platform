@@ -17,6 +17,15 @@ const CUSTOMER_HEADERS = [
   'last_name',
   'email',
 ];
+const PARTY_HEADERS = [
+  'external_id',
+  'vehicle_external_id',
+  'customer_external_id',
+  'role',
+  'valid_from',
+  'valid_to',
+  'notes',
+];
 const VEHICLE_HEADERS = [
   'external_id',
   'vin',
@@ -43,7 +52,7 @@ describe('Vehicle owner and customer_id stay in sync (e2e)', () => {
     await disposeVehicleStockSuite(suite);
   });
 
-  async function importCsv(
+  async function dryRunCsv(
     entityType: string,
     headers: string[],
     rows: string[][],
@@ -68,17 +77,27 @@ describe('Vehicle owner and customer_id stay in sync (e2e)', () => {
       .get(`/api/imports/${dryRun.body.id}/rows?limit=100`)
       .set('Authorization', `Bearer ${suite.authToken}`)
       .expect(200);
-    expect(
-      jobRows.body.data.flatMap((row: { errors: unknown }) => row.errors),
-    ).toEqual([]);
+    const errors = jobRows.body.data.flatMap(
+      (row: { errors: Array<{ code: string }> }) => row.errors,
+    );
+    return { jobId: dryRun.body.id as string, errors };
+  }
+
+  async function importCsv(
+    entityType: string,
+    headers: string[],
+    rows: string[][],
+  ) {
+    const { jobId, errors } = await dryRunCsv(entityType, headers, rows);
+    expect(errors).toEqual([]);
     await request(suite.app.getHttpServer())
-      .post(`/api/imports/${dryRun.body.id}/apply`)
+      .post(`/api/imports/${jobId}/apply`)
       .set('Authorization', `Bearer ${suite.authToken}`)
       .expect(200);
   }
 
   const mappedId = async (
-    entityType: 'VEHICLE' | 'CUSTOMER',
+    entityType: 'VEHICLE' | 'CUSTOMER' | 'VEHICLE_PARTY',
     externalId: string,
   ) =>
     (
@@ -149,6 +168,133 @@ describe('Vehicle owner and customer_id stay in sync (e2e)', () => {
       source: 'LEGACY_IMPORT',
     });
     expect(await contactOf(vehicleId)).toBe(customerA);
+  });
+
+  describe('vehicle_parties.csv after the vehicles.csv import', () => {
+    const longAgoDay = longAgo.toISOString().slice(0, 10);
+    const vehicleRow = (
+      externalId: string,
+      vinValue: string,
+      owner: string,
+    ) => [
+      externalId,
+      vinValue,
+      `W-${externalId}`,
+      'Synthetic',
+      'Adopt',
+      '2020',
+      owner,
+    ];
+    const partyRow = (
+      externalId: string,
+      vehicle: string,
+      customer: string,
+      validFrom = longAgoDay,
+    ) => [externalId, vehicle, customer, 'OWNER', validFrom, '', ''];
+
+    beforeAll(async () => {
+      await importCsv('CUSTOMER', CUSTOMER_HEADERS, [
+        ['ADOPT-C-A', 'PRIVATE', 'Anna', 'Adopt', 'aut697-adopt-a@example.com'],
+        [
+          'ADOPT-C-B',
+          'PRIVATE',
+          'Bernd',
+          'Adopt',
+          'aut697-adopt-b@example.com',
+        ],
+      ]);
+    });
+
+    it('adopts the imported OWNER: one OWNER with the earlier start, and a replay changes nothing', async () => {
+      await importCsv('VEHICLE', VEHICLE_HEADERS, [
+        vehicleRow('ADOPT-V-1', '1HGCM82633A697002', 'ADOPT-C-A'),
+      ]);
+      const vehicleId = await mappedId('VEHICLE', 'ADOPT-V-1');
+      const customerA = await mappedId('CUSTOMER', 'ADOPT-C-A');
+      const [imported] = await ownerParties(vehicleId);
+      expect(imported.valid_from).toEqual(todayDate);
+
+      const rows = [partyRow('ADOPT-P-1', 'ADOPT-V-1', 'ADOPT-C-A')];
+      await importCsv('VEHICLE_PARTY', PARTY_HEADERS, rows);
+
+      const parties = await ownerParties(vehicleId);
+      expect(parties).toHaveLength(1);
+      expect(parties[0]).toMatchObject({
+        id: imported.id,
+        customer_id: customerA,
+        valid_from: longAgo,
+        valid_to: null,
+        source: 'LEGACY_IMPORT',
+      });
+      expect(await contactOf(vehicleId)).toBe(customerA);
+      expect(await mappedId('VEHICLE_PARTY', 'ADOPT-P-1')).toBe(imported.id);
+
+      const replay = await dryRunCsv('VEHICLE_PARTY', PARTY_HEADERS, rows);
+      expect(replay.errors).toEqual([]);
+      await importCsv('VEHICLE_PARTY', PARTY_HEADERS, rows);
+      expect(await ownerParties(vehicleId)).toHaveLength(1);
+    });
+
+    it('gives one OWNER when the parties file comes first and the vehicles file follows', async () => {
+      await importCsv('VEHICLE', VEHICLE_HEADERS, [
+        vehicleRow('ADOPT-V-4', '1HGCM82633A697005', ''),
+      ]);
+      const vehicleId = await mappedId('VEHICLE', 'ADOPT-V-4');
+      await importCsv('VEHICLE_PARTY', PARTY_HEADERS, [
+        partyRow('ADOPT-P-4', 'ADOPT-V-4', 'ADOPT-C-A'),
+      ]);
+
+      await importCsv('VEHICLE', VEHICLE_HEADERS, [
+        vehicleRow('ADOPT-V-4', '1HGCM82633A697005', 'ADOPT-C-A'),
+      ]);
+
+      const parties = await ownerParties(vehicleId);
+      expect(parties).toHaveLength(1);
+      expect(parties[0]).toMatchObject({ valid_from: longAgo, valid_to: null });
+      expect(await contactOf(vehicleId)).toBe(
+        await mappedId('CUSTOMER', 'ADOPT-C-A'),
+      );
+    });
+
+    it('keeps the overlap for another customer', async () => {
+      await importCsv('VEHICLE', VEHICLE_HEADERS, [
+        vehicleRow('ADOPT-V-2', '1HGCM82633A697003', 'ADOPT-C-A'),
+      ]);
+
+      const { errors } = await dryRunCsv('VEHICLE_PARTY', PARTY_HEADERS, [
+        partyRow('ADOPT-P-2', 'ADOPT-V-2', 'ADOPT-C-B'),
+      ]);
+
+      expect(errors.map((error: { code: string }) => error.code)).toContain(
+        'VEHICLE_PARTY_OVERLAP',
+      );
+    });
+
+    it('never adopts a MANUAL owner', async () => {
+      await importCsv('VEHICLE', VEHICLE_HEADERS, [
+        vehicleRow('ADOPT-V-3', '1HGCM82633A697004', ''),
+      ]);
+      const vehicleId = await mappedId('VEHICLE', 'ADOPT-V-3');
+      const customerA = await mappedId('CUSTOMER', 'ADOPT-C-A');
+      await suite.prisma.vehicleParty.create({
+        data: {
+          tenant_id: suite.tenantId,
+          vehicle_id: vehicleId,
+          customer_id: customerA,
+          role: 'OWNER',
+          valid_from: todayDate,
+          source: 'MANUAL',
+        },
+      });
+
+      const { errors } = await dryRunCsv('VEHICLE_PARTY', PARTY_HEADERS, [
+        partyRow('ADOPT-P-3', 'ADOPT-V-3', 'ADOPT-C-A'),
+      ]);
+
+      expect(errors.map((error: { code: string }) => error.code)).toContain(
+        'VEHICLE_PARTY_OVERLAP',
+      );
+    });
   });
 
   it('ends the previous OWNER on a vehicle sale and leaves BILL_TO and LEASING active', async () => {
