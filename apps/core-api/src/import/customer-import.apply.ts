@@ -13,6 +13,7 @@ import {
 } from './import-external-id.store.js';
 import type { ImportApplyJob, ImportApplyRow } from './import-type-handler.js';
 import { confirmationAfterEmailWrite } from '../customer/customer-contact-email.js';
+import { withPhoneDigits } from '../customer/customer-phone.util.js';
 import { assignImportUpdateFields } from './import-update-data.util.js';
 import type { ImportJobOptions } from './import.types.js';
 
@@ -63,7 +64,7 @@ function buildCustomerUpdateData(
   if (confirmationAfterEmailWrite(existing.email, data) === false) {
     data.contact_email_ok = false;
   }
-  return data;
+  return withPhoneDigits(data);
 }
 
 async function createCustomer(
@@ -73,7 +74,7 @@ async function createCustomer(
   payload: Record<string, unknown>,
 ): Promise<void> {
   const created = await tx.customer.create({
-    data: {
+    data: withPhoneDigits({
       tenant_id: ctx.tenantId,
       type: payload.type as Prisma.CustomerCreateInput['type'],
       company_name: payload.company_name as string | null,
@@ -86,7 +87,7 @@ async function createCustomer(
       address_zip: payload.address_zip as string | null,
       address_city: payload.address_city as string | null,
       address_country: (payload.address_country as string | null) ?? 'AT',
-    },
+    }),
   });
   await createExternalMapping(
     tx,

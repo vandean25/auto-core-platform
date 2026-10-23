@@ -1,4 +1,5 @@
 import type { Prisma } from '@prisma/client';
+import { normalizePhone } from '../../customer/customer-phone.util.js';
 import { tierFilter, type MatchTier } from '../search-ranking.js';
 import type { ParsedSearchQuery } from '../search.types.js';
 
@@ -18,11 +19,32 @@ export function customerNameWhere(
   };
 }
 
-// shortcut: phones match the stored formatting only (typed or separator-free), no stored normalised column; upgrade with a normalised phone column.
+function phoneDigitsWhere(
+  tier: MatchTier,
+  digits: string,
+): Prisma.CustomerWhereInput | null {
+  if (tier === 'contains') {
+    return null;
+  }
+  return {
+    phone_digits:
+      tier === 'exact' ? { equals: digits } : { startsWith: digits },
+  };
+}
+
 function phoneWhere(tier: MatchTier, text: string): Prisma.CustomerWhereInput {
+  const or: Prisma.CustomerWhereInput[] = [];
+  const normalized = normalizePhone(text);
+  if (normalized) {
+    const digitsFilter = phoneDigitsWhere(tier, normalized);
+    if (digitsFilter) {
+      or.push(digitsFilter);
+    }
+  }
   const compact = text.replace(/[\s/().-]/g, '');
   const variants = compact === text ? [text] : [text, compact];
-  return { OR: variants.map((value) => ({ phone: tierFilter(tier, value) })) };
+  or.push(...variants.map((value) => ({ phone: tierFilter(tier, value) })));
+  return { OR: or };
 }
 
 /**

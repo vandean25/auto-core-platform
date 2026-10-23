@@ -193,6 +193,24 @@ describe('customer pending action executors (AUT-613)', () => {
       expect(result).toMatchObject({ id: CUSTOMER_ID });
     });
 
+    it('derives phone_digits on the legacy payload when phone is updated', async () => {
+      const deps = createDeps([customerRow()]);
+      const executor = customerUpdateExecutor(deps, 'customer.update');
+
+      await executor.execute({
+        customer_id: CUSTOMER_ID,
+        phone: '+49123456789',
+      });
+
+      expect(deps.prisma.customer.updateMany).toHaveBeenCalledWith({
+        where: { id: CUSTOMER_ID, tenant_id: TENANT_ID },
+        data: {
+          phone: '+49123456789',
+          phone_digits: '49123456789',
+        },
+      });
+    });
+
     it('rejects approval when the customer changed after the proposal was stored', async () => {
       const deps = createDeps([customerRow()]);
       const executor = customerUpdateExecutor(deps, 'customer.update');

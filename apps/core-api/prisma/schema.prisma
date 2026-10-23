@@ -1631,6 +1631,8 @@ model Customer {
   last_name    String
   email        String?
   phone        String?
+  /// AUT-698: normalizePhone(phone), kept in sync by every phone write path; backs phone search.
+  phone_digits String?
   vat_id       String? // UID-Nummer
 
   address_street  String?
@@ -1692,6 +1694,7 @@ model Customer {
   @@index([company_name(ops: raw("gin_trgm_ops"))], type: Gin, map: "customers_company_name_trgm_idx")
   @@index([email(ops: raw("gin_trgm_ops"))], type: Gin, map: "customers_email_trgm_idx")
   @@index([phone(ops: raw("gin_trgm_ops"))], type: Gin, map: "customers_phone_trgm_idx")
+  @@index([tenant_id, phone_digits])
   @@map("customers")
 }
 

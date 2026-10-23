@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { ImportJobStatus, Prisma } from '@prisma/client';
 import { confirmationAfterEmailWrite } from '../customer/customer-contact-email.js';
+import { withPhoneDigits } from '../customer/customer-phone.util.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { TenantContextService } from '../common/services/tenant-context.service.js';
 import type { SiteContextService } from '../site/site-context.service.js';
@@ -193,7 +194,7 @@ export async function updateCustomer(
   if (typeof record.phone === 'string') data.phone = record.phone;
   await deps.prisma.customer.updateMany({
     where: { id: customer.id, tenant_id: tenantId },
-    data,
+    data: withPhoneDigits(data),
   });
   return { id: customer.id, entityId: customer.id };
 }

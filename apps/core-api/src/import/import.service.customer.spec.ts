@@ -559,6 +559,7 @@ describe('ImportService customer import (characterization)', () => {
           last_name: 'Autohaus Muster',
           email: 'info@muster.at',
           phone: null,
+          phone_digits: null,
           vat_id: null,
           address_street: null,
           address_zip: null,
@@ -669,7 +670,7 @@ describe('ImportService customer import (characterization)', () => {
 
       expect(h.prisma.customer.update).toHaveBeenCalledWith({
         where: { id: 'cust-1' },
-        data: { phone: '555' },
+        data: { phone: '555', phone_digits: '555' },
       });
       expect(h.prisma.externalIdMapping.upsert).toHaveBeenCalledWith({
         where: {

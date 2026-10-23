@@ -18,6 +18,7 @@ import {
   assertCustomerVatIdFormat,
   normalizeCustomerVatId,
 } from './customer-vat-id.validation.js';
+import { withPhoneDigits } from './customer-phone.util.js';
 
 const CUSTOMER_HAS_ACTIVE_REFERENCES_CODE = 'CUSTOMER_HAS_ACTIVE_REFERENCES';
 const CUSTOMER_HAS_VEHICLES_CODE = 'CUSTOMER_HAS_VEHICLES';
@@ -137,13 +138,13 @@ export class CustomerService {
     );
     const normalizedVatId = normalizeCustomerVatId(createCustomerDto.vat_id);
     return this.prisma.customer.create({
-      data: {
+      data: withPhoneDigits({
         ...createCustomerDto,
         ...(createCustomerDto.vat_id !== undefined
           ? { vat_id: normalizedVatId }
           : {}),
         tenant_id: tenantId,
-      },
+      }),
     });
   }
 
@@ -245,7 +246,7 @@ export class CustomerService {
 
     return this.prisma.customer.update({
       where: { id },
-      data,
+      data: withPhoneDigits(data),
     });
   }
 

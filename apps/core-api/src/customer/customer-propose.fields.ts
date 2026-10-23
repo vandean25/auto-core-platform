@@ -9,6 +9,7 @@ import {
   assertCustomerVatIdFormat,
   normalizeCustomerVatId,
 } from './customer-vat-id.validation.js';
+import { withPhoneDigits } from './customer-phone.util.js';
 
 const ADDRESS_COLUMN_BY_KEY = {
   street: 'address_street',
@@ -110,7 +111,7 @@ export function toCustomerCreateData(
   assignOptional(data, 'vat_id', normalizeCustomerVatId(fields.vat_id));
   assignOptional(data, 'preferred_language', fields.preferred_language);
   assignAddress(data, fields.address);
-  return data;
+  return withPhoneDigits(data);
 }
 
 /**
@@ -145,7 +146,7 @@ export function toCustomerUpdateData(
   ) {
     data.contact_email_ok = false;
   }
-  return data;
+  return withPhoneDigits(data);
 }
 
 function assignOptional(

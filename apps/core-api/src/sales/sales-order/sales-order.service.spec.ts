@@ -38,6 +38,7 @@ function foundSalesOrder(
       last_name: 'Mustermann',
       email: null,
       phone: null,
+      phone_digits: null,
       vat_id: null,
       address_street: null,
       address_city: null,

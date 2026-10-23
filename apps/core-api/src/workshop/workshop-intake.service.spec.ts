@@ -907,6 +907,7 @@ describe('WorkshopIntakeService', () => {
         last_name: 'Smith',
         email: 'alice@example.com',
         phone: '+43123456',
+        phone_digits: '0123456',
         type: 'PRIVATE',
       },
     });
