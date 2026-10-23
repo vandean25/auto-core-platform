@@ -21,7 +21,8 @@ function percentage(value: string | null | undefined) {
   return value == null ? '—' : formatPercent(Number(value))
 }
 
-function WorkshopKpiDashboardWidgetContent() {
+export function WorkshopKpiDashboardWidget() {
+  const bundleStatus = useLazyNamespaceBundleReady(['workshop'])
   const { t } = useTranslation('workshop')
   const sites = useMySites()
   const session = useAuthSession()
@@ -30,7 +31,9 @@ function WorkshopKpiDashboardWidgetContent() {
   const current = useWorkshopKpiReport({ siteId, ...monthRange(0), groupBy: 'mechanic' }, canReadReport)
   const previous = useWorkshopKpiReport({ siteId, ...monthRange(-1), groupBy: 'mechanic' }, canReadReport)
 
-  if (!canReadReport) return null
+  if (!canReadReport || bundleStatus !== 'ready') {
+    return null
+  }
 
   return (
     <Card>
@@ -73,12 +76,4 @@ function WorkshopKpiDashboardWidgetContent() {
       </CardContent>
     </Card>
   )
-}
-
-export function WorkshopKpiDashboardWidget() {
-  const bundleStatus = useLazyNamespaceBundleReady(['workshop'])
-  if (bundleStatus !== 'ready') {
-    return null
-  }
-  return <WorkshopKpiDashboardWidgetContent />
 }
