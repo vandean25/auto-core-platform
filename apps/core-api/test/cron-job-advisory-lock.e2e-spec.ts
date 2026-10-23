@@ -37,22 +37,26 @@ describe('cron job advisory lock (e2e)', () => {
       await hold;
     });
 
+    for (let attempt = 0; attempt < 50 && effect === 0; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    expect(effect).toBe(1);
+
     const lockPool = getCronJobLockPool();
     const challenger = await lockPool.connect();
     try {
-      let blocked = false;
-      for (let attempt = 0; attempt < 50; attempt += 1) {
-        const result = await challenger.query<{ acquired: boolean }>(
-          'SELECT pg_try_advisory_lock($1::int, $2::int) AS acquired',
+      const result = await challenger.query<{ acquired: boolean }>(
+        'SELECT pg_try_advisory_lock($1::int, $2::int) AS acquired',
+        [key1, key2],
+      );
+      if (result.rows[0]?.acquired === true) {
+        await challenger.query(
+          'SELECT pg_advisory_unlock($1::int, $2::int)',
           [key1, key2],
         );
-        if (result.rows[0]?.acquired === false) {
-          blocked = true;
-          break;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 20));
+        throw new Error('challenger acquired the advisory lock before the holder');
       }
-      expect(blocked).toBe(true);
+      expect(result.rows[0]?.acquired).toBe(false);
     } finally {
       challenger.release();
     }
