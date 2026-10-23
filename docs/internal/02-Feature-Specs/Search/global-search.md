@@ -78,6 +78,8 @@ Two fields are narrower than the tiers: an email is looked up exact and as prefi
 
 The plate normaliser is shared with the vehicle import (`vehicle/vehicle-plate.util.ts`): whitespace, hyphens and dots are removed and letters upper-cased. `vehicles.plate_normalized` holds `normalizePlate(plate)`. The migration backfills it with an equivalent SQL expression (an e2e test runs the migration statement and `normalizePlate` on the same sample plates), and every write path that sets `plate` goes through `withPlateNormalized`: `VehicleService` create/update (via the persistence service), the dealer stock lot payload (purchase receive), workshop intake and registration intake, the vehicle import, and the seed fixtures.
 
+The backfill upper-cases with the database's `UPPER`, which follows the database locale for non-ASCII letters (and keeps a sharp s that JS turns into `SS`); plates are ASCII in practice. A vehicle written by an old instance during a rolling deploy can have a NULL `plate_normalized` until it is next edited; re-running the backfill `UPDATE ... WHERE plate_normalized IS NULL` closes that.
+
 Known gap: phone numbers match the stored formatting only (as typed, or without separators). There is no normalised phone column; a follow-up ticket covers it.
 
 ## Role matrix

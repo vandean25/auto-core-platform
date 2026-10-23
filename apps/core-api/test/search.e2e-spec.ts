@@ -495,6 +495,12 @@ describe('Global search (e2e)', () => {
       ).toBe(400);
     });
 
+    it('treats an empty types list as not set', async () => {
+      const res = await search(adminToken, { q: 'max', types: '' });
+      expect(res.status).toBe(200);
+      expect(res.body.groups.length).toBeGreaterThan(0);
+    });
+
     it('requires authentication', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/search')

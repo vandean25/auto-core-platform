@@ -38,6 +38,7 @@ export function customerMatchWhere(
     case 'uuid':
       return { id: query.text.toLowerCase() };
     case 'name':
+    case 'plate': // "A1" or "H2O" is plate-shaped but may be a customer name
       return customerNameWhere(tier, query.terms);
     case 'email':
       // Exact and prefix only: an address is looked up whole or as typed so far.

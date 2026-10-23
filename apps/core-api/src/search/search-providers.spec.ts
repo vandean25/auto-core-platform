@@ -225,6 +225,15 @@ describe('customer provider and the TECH restriction', () => {
     ]);
   });
 
+  it('also searches names for plate-shaped input such as A1', async () => {
+    const findMany = jest.fn().mockResolvedValue([]);
+    await provider(
+      createSearchProviders({ customer: { findMany } } as never),
+      'customer',
+    ).search(ctx('A1'));
+    expect(findMany.mock.calls[0][0].where.AND).toHaveLength(1);
+  });
+
   it('matches every name word in any order', async () => {
     const findMany = jest.fn().mockResolvedValue([]);
     await provider(

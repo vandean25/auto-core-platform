@@ -8,15 +8,19 @@
  */
 const APPROVAL_TOKEN_SEGMENT = /(estimate-approvals[\\/])[^\\/?#\s"]+/gi;
 
-/** The global search text is customer data (names, emails, phones, plates), so its `q` value is never logged. */
-const SEARCH_TEXT_PARAM = /(\/search\?(?:[^#\s"]*&)?q=)[^&#\s"]*/gi;
+/** The global search text is customer data (names, emails, phones, plates), so nothing of its query string is logged. */
+const SEARCH_QUERY = /(\/search\/?)\?[^#\s"]*/gi;
+
+/** Sentry also attaches the raw query string under these keys, without the path. */
+const QUERY_STRING_KEYS = new Set(['query_string', 'url.query', 'http.query']);
+const SEARCH_TEXT_PARAM = /([?&]|^)q=[^&#\s"]*/g;
 
 const MAX_SCRUB_DEPTH = 12;
 
 export function redactRequestPath(path: string): string {
   return path
     .replace(APPROVAL_TOKEN_SEGMENT, '$1:token')
-    .replace(SEARCH_TEXT_PARAM, '$1:redacted');
+    .replace(SEARCH_QUERY, '$1?:redacted');
 }
 
 /**
@@ -40,7 +44,10 @@ function scrubValue(value: unknown, depth: number): unknown {
   if (value !== null && typeof value === 'object') {
     const scrubbed: Record<string, unknown> = {};
     for (const [key, item] of Object.entries(value)) {
-      scrubbed[key] = scrubValue(item, depth + 1);
+      scrubbed[key] =
+        QUERY_STRING_KEYS.has(key) && typeof item === 'string'
+          ? item.replace(SEARCH_TEXT_PARAM, '$1q=:redacted')
+          : scrubValue(item, depth + 1);
     }
     return scrubbed;
   }

@@ -29,6 +29,12 @@ function splitCommaList(value: unknown): unknown {
     .filter((part) => part.length > 0);
 }
 
+// An empty ?types= means "not set", not "no type".
+function splitTypes(value: unknown): unknown {
+  const list = splitCommaList(value);
+  return Array.isArray(list) && list.length === 0 ? undefined : list;
+}
+
 export class SearchQueryDto {
   @ApiProperty({
     description:
@@ -50,7 +56,7 @@ export class SearchQueryDto {
     example: 'customer,vehicle',
   })
   @IsOptional()
-  @Transform(({ value }) => splitCommaList(value))
+  @Transform(({ value }) => splitTypes(value))
   @IsArray()
   @ArrayUnique()
   @IsIn(SEARCH_RESULT_TYPES, { each: true })
