@@ -45,54 +45,55 @@ function getVehicleLabel(order: WorkshopOrder) {
   return `${order.vehicle.year} ${order.vehicle.make} ${order.vehicle.model}`
 }
 
-function OrderTopBarBadges({
-  order,
+function OrderTopBarLoanerBadge({ order }: { order: WorkshopOrder }) {
+  const { t } = useTranslation('workshop')
+  const loaner = order.loanerBooking
+  if (!loaner) return null
+
+  return (
+    <Link
+      to={`${APP_ROUTE_PATHS.workshopLoanerVehicles}?vehicle=${loaner.loanerVehicleId}`}
+      className='inline-flex items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-800 hover:bg-sky-100'
+    >
+      <span>
+        {t('orderHeader.loanerUntil', {
+          label: loaner.vehiclePlate ?? loaner.displayName,
+          date: formatDateShort(loaner.plannedTo),
+        })}
+      </span>
+      <StatusBadge status={loaner.status} />
+    </Link>
+  )
+}
+
+function OrderTopBarCatalogBanners({
   catalogSearchSession,
   oemConcernCode,
 }: {
-  order: WorkshopOrder
   catalogSearchSession?: CatalogSearchSession
   oemConcernCode?: CatalogProviderOemConcern['code'] | null
 }) {
-  const { t } = useTranslation('workshop')
-  const loaner = order.loanerBooking
-  const hasCatalogBanners = Boolean(catalogSearchSession?.parts || catalogSearchSession?.labor)
+  const parts = catalogSearchSession?.parts
+  const labor = catalogSearchSession?.labor
+  if (!parts && !labor) return null
 
   return (
-    <>
-      {loaner ? (
-        <Link
-          to={`${APP_ROUTE_PATHS.workshopLoanerVehicles}?vehicle=${loaner.loanerVehicleId}`}
-          className='inline-flex items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-800 hover:bg-sky-100'
-        >
-          <span>
-            {t('orderHeader.loanerUntil', {
-              label: loaner.vehiclePlate ?? loaner.displayName,
-              date: formatDateShort(loaner.plannedTo),
-            })}
-          </span>
-          <StatusBadge status={loaner.status} />
-        </Link>
+    <div className='flex flex-wrap gap-2 pt-1'>
+      {parts ? (
+        <CatalogSourceBanner
+          metadata={parts}
+          oemConcernCode={oemConcernCode}
+          compact
+        />
       ) : null}
-      {hasCatalogBanners ? (
-        <div className='flex flex-wrap gap-2 pt-1'>
-          {catalogSearchSession?.parts ? (
-            <CatalogSourceBanner
-              metadata={catalogSearchSession.parts}
-              oemConcernCode={oemConcernCode}
-              compact
-            />
-          ) : null}
-          {catalogSearchSession?.labor ? (
-            <CatalogSourceBanner
-              metadata={catalogSearchSession.labor}
-              oemConcernCode={oemConcernCode}
-              compact
-            />
-          ) : null}
-        </div>
+      {labor ? (
+        <CatalogSourceBanner
+          metadata={labor}
+          oemConcernCode={oemConcernCode}
+          compact
+        />
       ) : null}
-    </>
+    </div>
   )
 }
 
@@ -161,8 +162,8 @@ export function OrderTopBar({
                   bay: bayName ?? unassigned,
                 })}
               </p>
-              <OrderTopBarBadges
-                order={order}
+              <OrderTopBarLoanerBadge order={order} />
+              <OrderTopBarCatalogBanners
                 catalogSearchSession={catalogSearchSession}
                 oemConcernCode={oemConcernCode}
               />
@@ -245,7 +246,7 @@ export function CustomerVehicleInfo({
   assignedTechId,
   mechanics = [],
   bayName,
-  canAssignTech = true,
+  canAssignTech = false,
   isAssigningTech = false,
   onAssignedTechChange,
 }: {

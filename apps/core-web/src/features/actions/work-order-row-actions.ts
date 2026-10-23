@@ -48,7 +48,11 @@ export type WorkshopOrderRowActionContext = {
   generatePdf: ReturnType<typeof useGenerateWorkshopPdf>
   t: TFunction<'workshop'>
   mechanics?: WorkshopMechanicOption[]
-  assignMechanic?: (orderId: string, mechanicId: string | null) => void | Promise<void>
+  assignMechanic?: (
+    orderId: string,
+    mechanicId: string | null,
+    currentMechanicId: string | null,
+  ) => void | Promise<void>
   updateTaskStatus?: (
     orderId: string,
     taskId: string,
@@ -123,7 +127,7 @@ function buildAssignMechanicChildren(
       isEnabled: (record: WorkshopOrderListRow) =>
         isWorkshopTechAssignableStatus(record.status) && record.mechanicId !== mechanic.id,
       run: async (record: WorkshopOrderListRow, ctx: WorkshopOrderRowActionContext) => {
-        await ctx.assignMechanic?.(record.id, mechanic.id)
+        await ctx.assignMechanic?.(record.id, mechanic.id, record.mechanicId ?? null)
       },
     })),
   ]
@@ -136,7 +140,7 @@ function buildAssignMechanicChildren(
       isEnabled: (record: WorkshopOrderListRow) =>
         isWorkshopTechAssignableStatus(record.status) && Boolean(record.mechanicId),
       run: async (record: WorkshopOrderListRow, ctx: WorkshopOrderRowActionContext) => {
-        await ctx.assignMechanic?.(record.id, null)
+        await ctx.assignMechanic?.(record.id, null, record.mechanicId ?? null)
       },
     })
   }

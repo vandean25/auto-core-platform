@@ -115,7 +115,7 @@ describe('work order row actions', () => {
     }
 
     await children[0]?.run?.(row, context)
-    expect(assignMechanic).toHaveBeenCalledWith('order-1', 'mech-1')
+    expect(assignMechanic).toHaveBeenCalledWith('order-1', 'mech-1', null)
 
     const assignedRow: WorkshopOrderListRow = { ...row, mechanicId: 'mech-1' }
     const assignedChildren =
@@ -126,7 +126,7 @@ describe('work order row actions', () => {
     )
     expect(unassignChild).toBeDefined()
     await unassignChild?.run?.(assignedRow, context)
-    expect(assignMechanic).toHaveBeenCalledWith('order-1', null)
+    expect(assignMechanic).toHaveBeenCalledWith('order-1', null, 'mech-1')
   })
 
   it('builds two-step taskState sub-menu (pick task -> done / reopen) and updates task status', async () => {
@@ -171,6 +171,10 @@ describe('work order row actions', () => {
     const mutateAssign = vi.fn().mockResolvedValue({})
     await runAssignWorkshopOrderMechanic('order-1', 'mech-1', null, mutateAssign, t)
     expect(mutateAssign).toHaveBeenCalledWith({ orderId: 'order-1', mechanicId: 'mech-1' })
+
+    mutateAssign.mockClear()
+    await runAssignWorkshopOrderMechanic('order-1', null, 'mech-1', mutateAssign, t)
+    expect(mutateAssign).toHaveBeenCalledWith({ orderId: 'order-1', mechanicId: null })
 
     const mutateTask = vi.fn().mockResolvedValue({})
     await runUpdateWorkshopOrderTaskStatus('order-1', 'task-1', 'DONE', mutateTask, t)

@@ -35,11 +35,15 @@ export function usePaletteContextRunContexts() {
   )
 
   const assignMechanic = useCallback(
-    async (orderId: string, mechanicId: string | null) => {
+    async (
+      orderId: string,
+      mechanicId: string | null,
+      currentMechanicId: string | null,
+    ) => {
       await runAssignWorkshopOrderMechanic(
         orderId,
         mechanicId,
-        undefined,
+        currentMechanicId,
         assignBoard.mutateAsync,
         tWorkshop,
       )

@@ -32,6 +32,9 @@ vi.mock('@/api/workshop', async () => {
     ...actual,
     useWorkshopOrder: vi.fn(),
     useGenerateWorkshopPdf: () => ({ mutateAsync: vi.fn() }),
+    useAssignBoard: () => ({ mutateAsync: vi.fn() }),
+    useUpdateWorkshopTask: () => ({ mutateAsync: vi.fn() }),
+    useWorkshopResources: () => ({ data: undefined, isLoading: false }),
   }
 })
 vi.mock('@/api/customers', async () => {
