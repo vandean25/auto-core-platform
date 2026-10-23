@@ -36,6 +36,8 @@ type PartyPayload = {
   valid_from: string | null;
   valid_to: string | null;
   notes: string | null;
+  /** The row took over an OWNER the vehicles.csv import started; its external id maps to it. */
+  adopts_existing?: boolean;
 };
 
 function auditSnapshot(party: {
@@ -152,5 +154,16 @@ export async function applyVehiclePartyImportRow(
   }
   if (row.action === ImportRowAction.UPDATE && row.entity_id) {
     await updateParty(tx, ctx, row.entity_id, party);
+    if (party.adopts_existing === true) {
+      await createExternalMapping(
+        tx,
+        ctx.tenantId,
+        ImportEntityType.VEHICLE_PARTY,
+        ctx.job.source_system,
+        externalId,
+        row.entity_id,
+        ctx.job.id,
+      );
+    }
   }
 }

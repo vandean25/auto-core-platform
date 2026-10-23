@@ -25,6 +25,7 @@ import {
 import {
   addPartyInTx,
   endPartyInTx,
+  partyWriteContext,
   toPartyInterval,
   type PartyWriteContext,
 } from './vehicle-party.writer.js';
@@ -87,10 +88,7 @@ export class VehiclePartyService {
   }
 
   private async writeContext(): Promise<PartyWriteContext> {
-    return {
-      tenantId: await this.tenantContext.getTenantId(),
-      today: viennaIsoDay(new Date()),
-    };
+    return partyWriteContext(await this.tenantContext.getTenantId());
   }
 
   private async assertVehicleExists(tenantId: string, vehicleId: string) {

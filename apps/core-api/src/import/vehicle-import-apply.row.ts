@@ -4,7 +4,12 @@ import {
   ImportEntityType,
   ImportRowAction,
   Prisma,
+  VehicleRecordSource,
 } from '@prisma/client';
+import {
+  partyWriteContext,
+  setOwnerInTx,
+} from '../vehicle/vehicle-party.writer.js';
 import {
   ApplyRowStaleError,
   resolveImportExternalId,
@@ -16,10 +21,7 @@ import {
   upsertExternalMapping,
 } from './import-external-id.store.js';
 import type { ImportApplyJob, ImportApplyRow } from './import-type-handler.js';
-import {
-  assignImportUpdateFields,
-  isBlankValue,
-} from './import-update-data.util.js';
+import { assignImportUpdateFields } from './import-update-data.util.js';
 import type { ImportJobOptions } from './import.types.js';
 import { toImportFirstRegistrationDate } from './vehicle-import-apply-fields.js';
 
@@ -48,7 +50,7 @@ function buildVehicleUpdateData(
   payload: Record<string, unknown>,
   options: ImportJobOptions,
 ): Prisma.VehicleUncheckedUpdateInput {
-  const data = assignImportUpdateFields(
+  return assignImportUpdateFields(
     existing,
     [
       ['make', payload.make],
@@ -66,21 +68,6 @@ function buildVehicleUpdateData(
     ],
     options,
   );
-  if (payload.owner_external_id_provided === true) {
-    if (isBlankValue(payload.customer_id)) {
-      data.customer_id = null;
-    } else {
-      Object.assign(
-        data,
-        assignImportUpdateFields(
-          existing,
-          [['customer_id', payload.customer_id]],
-          options,
-        ),
-      );
-    }
-  }
-  return data;
 }
 
 async function createVehicle(
@@ -103,12 +90,21 @@ async function createVehicle(
       mileage: payload.mileage as number | null,
       color: payload.color as string | null,
       key_number: payload.key_number as string | null,
-      customer_id: payload.customer_id as string | null,
       ...(registrationDate !== undefined
         ? { first_registration_date: registrationDate ?? null }
         : {}),
     }),
   });
+  const customerId = (payload.customer_id as string | null | undefined) ?? null;
+  if (customerId) {
+    await setOwnerInTx(
+      tx,
+      partyWriteContext(ctx.tenantId),
+      created.id,
+      customerId,
+      VehicleRecordSource.LEGACY_IMPORT,
+    );
+  }
   await createExternalMapping(
     tx,
     ctx.tenantId,
@@ -127,7 +123,7 @@ async function createVehicle(
     created.id,
     AuditLogAction.CREATE,
     null,
-    pickVehicleImportAuditSnapshot(created),
+    pickVehicleImportAuditSnapshot({ ...created, customer_id: customerId }),
   );
 }
 

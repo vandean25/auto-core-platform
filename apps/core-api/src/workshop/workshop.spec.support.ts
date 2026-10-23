@@ -38,6 +38,10 @@ export const mockPrisma = {
     upsert: jest.fn(),
     updateMany: jest.fn(),
   },
+  vehicleParty: {
+    findMany: jest.fn(),
+    create: jest.fn(),
+  },
   workshopOrder: {
     create: jest.fn(),
     findUnique: jest.fn(),
@@ -205,6 +209,12 @@ export function resetWorkshopMocks() {
     cb(mockPrisma),
   );
   mockPrisma.$queryRaw.mockResolvedValue([{ id: 'site-1', is_active: true }]);
+  // setOwnerInTx: vehicle row lock, empty OWNER timeline, a created OWNER row.
+  mockPrisma.vehicle.updateMany.mockResolvedValue({ count: 1 });
+  mockPrisma.vehicleParty.findMany.mockResolvedValue([]);
+  mockPrisma.vehicleParty.create.mockImplementation(
+    ({ data }: { data: object }) => ({ id: 'p-new', ...data }),
+  );
 }
 
 export const workshopPrismaProvider = {

@@ -13,6 +13,7 @@ import {
   VehicleLedgerEntryType,
   VehiclePurchaseSellerType,
   VehiclePurchaseStatus,
+  VehicleRecordSource,
   VehicleStockStatus,
   VehicleTaxScheme,
 } from '@prisma/client';
@@ -26,6 +27,10 @@ import {
   normalizeVehicleIdentityValue,
   normalizeVehicleIdentityValueOrNull,
 } from '../vehicle/vehicle-identity.util.js';
+import {
+  partyWriteContext,
+  setOwnerInTx,
+} from '../vehicle/vehicle-party.writer.js';
 import type { CreateVehiclePurchaseDto } from './dto/create-vehicle-purchase.dto.js';
 import type { PatchVehiclePurchaseDto } from './dto/patch-vehicle-purchase.dto.js';
 import {
@@ -196,7 +201,6 @@ export function buildLotStockPayload(
     registration_certificate_no: purchase.registration_certificate_no,
     site_id: purchase.site_id,
     location_id: purchase.location_id,
-    customer_id: null,
     inventory_role: VehicleInventoryRole.USED,
     stock_status: VehicleStockStatus.IN_STOCK,
     stock_received_at: purchase.received_at,
@@ -286,6 +290,14 @@ export async function updateExistingStockVehicleHelper(
   if (flipped.count === 0) {
     throw new ConflictException('VIN is already in dealer stock');
   }
+  // Dealer stock has no owner: the previous owner's OWNER party ends with the stock intake.
+  await setOwnerInTx(
+    params.tx,
+    partyWriteContext(params.tenantId),
+    params.existing.id,
+    null,
+    VehicleRecordSource.MANUAL,
+  );
 }
 
 export interface ExecuteDraftUpdateParams {

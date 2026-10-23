@@ -23,9 +23,12 @@ describe('VehicleService', () => {
       findMany: jest.Mock;
       count: jest.Mock;
       updateMany: jest.Mock;
+      findFirstOrThrow: jest.Mock;
     };
     customer: { findFirst: jest.Mock };
+    vehicleParty: { findMany: jest.Mock; create: jest.Mock };
     workshopOrder: { findFirst: jest.Mock; findMany: jest.Mock };
+    $transaction: jest.Mock;
   };
   let tenantContext: { getTenantId: jest.Mock };
 
@@ -37,10 +40,19 @@ describe('VehicleService', () => {
         findMany: jest.fn(),
         count: jest.fn(),
         updateMany: jest.fn(),
+        findFirstOrThrow: jest.fn(),
       },
       customer: { findFirst: jest.fn() },
+      vehicleParty: {
+        findMany: jest.fn().mockResolvedValue([]),
+        create: jest.fn().mockImplementation(async ({ data }) => data),
+      },
       workshopOrder: { findFirst: jest.fn(), findMany: jest.fn() },
+      $transaction: jest.fn(),
     };
+    prisma.$transaction.mockImplementation(
+      (callback: (tx: typeof prisma) => unknown) => callback(prisma),
+    );
     tenantContext = {
       getTenantId: jest.fn().mockResolvedValue(tenantId),
     };
@@ -555,22 +567,41 @@ describe('VehicleService', () => {
       prisma.customer.findFirst.mockResolvedValue({ id: 'cust-1' });
       prisma.vehicle.create.mockResolvedValue({
         id: 'veh-1',
+        tenant_id: tenantId,
+      });
+      prisma.vehicle.updateMany.mockResolvedValue({ count: 1 });
+      prisma.vehicle.findFirstOrThrow.mockResolvedValue({
+        id: 'veh-1',
         customer: { id: 'cust-1' },
       });
 
-      await service.create({
-        make: 'Toyota',
-        model: 'Corolla',
-        year: 2022,
-        customer_id: 'cust-1',
-      });
-
-      expect(prisma.vehicle.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
+      await expect(
+        service.create({
+          make: 'Toyota',
+          model: 'Corolla',
+          year: 2022,
           customer_id: 'cust-1',
-          tenant_id: tenantId,
         }),
-        include: { customer: true },
+      ).resolves.toEqual({ id: 'veh-1', customer: { id: 'cust-1' } });
+
+      // customer_id is written by the party writer, together with the first OWNER.
+      expect(prisma.vehicle.create.mock.calls[0][0].data).not.toHaveProperty(
+        'customer_id',
+      );
+      expect(prisma.vehicle.create.mock.calls[0][0].data).toMatchObject({
+        tenant_id: tenantId,
+      });
+      expect(prisma.vehicleParty.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          vehicle_id: 'veh-1',
+          customer_id: 'cust-1',
+          role: 'OWNER',
+          source: 'MANUAL',
+        }),
+      });
+      expect(prisma.vehicle.updateMany).toHaveBeenLastCalledWith({
+        where: { id: 'veh-1', tenant_id: tenantId },
+        data: { customer_id: 'cust-1' },
       });
     });
 

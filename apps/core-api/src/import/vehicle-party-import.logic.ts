@@ -1,4 +1,8 @@
-import { ImportRowAction, VehiclePartyRole } from '@prisma/client';
+import {
+  ImportRowAction,
+  VehiclePartyRole,
+  VehicleRecordSource,
+} from '@prisma/client';
 import {
   findPartyConflict,
   isActiveOn,
@@ -31,6 +35,7 @@ export type StoredParty = {
   valid_from: string | null;
   valid_to: string | null;
   notes: string | null;
+  source: VehicleRecordSource;
 };
 
 export type PartyPlanContext = {
@@ -50,6 +55,10 @@ export type PartyPlanContext = {
 type IndexedPartyCtx = PartyPlanContext & {
   storedById: Map<string, StoredParty>;
   storedByVehicle: Map<string, StoredParty[]>;
+  /** Stored parties that already carry an external id from an earlier import. */
+  mappedPartyIds: Set<string>;
+  /** Stored parties an earlier row of this file adopted. */
+  adoptedPartyIds: Set<string>;
 };
 
 function indexContext(ctx: PartyPlanContext): IndexedPartyCtx {
@@ -63,6 +72,8 @@ function indexContext(ctx: PartyPlanContext): IndexedPartyCtx {
     ...ctx,
     storedById: new Map(ctx.storedParties.map((party) => [party.id, party])),
     storedByVehicle,
+    mappedPartyIds: new Set(ctx.partyIdByExternalId.values()),
+    adoptedPartyIds: new Set(),
   };
 }
 
@@ -82,6 +93,8 @@ type PreparedParty = PreparedBase<NormalizedPartyRow> & {
   customerId?: string;
   /** Interval the row stands for once applied (or the stored one when not applied). */
   interval?: PartyInterval;
+  /** The row takes over an OWNER the vehicles.csv import started, instead of creating one. */
+  adoptsExisting?: boolean;
 };
 
 const ROLES = new Set<string>(Object.values(VehiclePartyRole));
@@ -246,7 +259,62 @@ function resolveRow(prepared: PreparedParty, ctx: IndexedPartyCtx): void {
   const stored = storedId ? ctx.storedById.get(storedId) : undefined;
   if (stored) {
     resolveStored(prepared, stored, ctx);
+    return;
   }
+  adoptLegacyOwner(prepared, ctx);
+}
+
+function startsOnOrBefore(from: string | null, storedFrom: string | null) {
+  return from === null || (storedFrom !== null && from <= storedFrom);
+}
+
+function isAdoptableOwner(
+  party: StoredParty,
+  row: NormalizedPartyRow,
+  customerId: string,
+): boolean {
+  return (
+    party.role === VehiclePartyRole.OWNER &&
+    party.source === VehicleRecordSource.LEGACY_IMPORT &&
+    party.customer_id === customerId &&
+    party.valid_to === null &&
+    startsOnOrBefore(row.valid_from, party.valid_from)
+  );
+}
+
+/**
+ * The vehicles.csv import starts an OWNER dated the import day. An open OWNER row of the same
+ * customer that starts on or before it takes that party over (its valid_from moves to the
+ * file's day) instead of overlapping it. MANUAL owners, other customers and closed rows never
+ * adopt.
+ */
+function adoptLegacyOwner(prepared: PreparedParty, ctx: IndexedPartyCtx): void {
+  const row = prepared.row as NormalizedPartyRow;
+  if (row.role !== VehiclePartyRole.OWNER || row.valid_to !== null) {
+    return;
+  }
+  const target = (ctx.storedByVehicle.get(prepared.vehicleId as string) ?? [])
+    .filter(
+      (party) =>
+        !ctx.mappedPartyIds.has(party.id) && !ctx.adoptedPartyIds.has(party.id),
+    )
+    .find((party) =>
+      isAdoptableOwner(party, row, prepared.customerId as string),
+    );
+  if (!target) {
+    return;
+  }
+  ctx.adoptedPartyIds.add(target.id);
+  prepared.adoptsExisting = true;
+  prepared.action = ImportRowAction.UPDATE;
+  prepared.entityId = target.id;
+  prepared.interval = {
+    id: target.id,
+    role: target.role,
+    customer_id: target.customer_id,
+    valid_from: row.valid_from ?? target.valid_from,
+    valid_to: null,
+  };
 }
 
 function prepareRow(
@@ -382,6 +450,19 @@ function contactConflictIssue(
       };
 }
 
+function plannedPayload(item: PreparedParty, row: NormalizedPartyRow) {
+  return {
+    external_id: row.external_id,
+    vehicle_id: item.vehicleId,
+    customer_id: item.customerId,
+    role: row.role,
+    valid_from: row.valid_from,
+    valid_to: row.valid_to,
+    notes: row.notes,
+    ...(item.adoptsExisting ? { adopts_existing: true } : {}),
+  };
+}
+
 function finishRow(
   item: PreparedParty,
   timeline: Map<string, PartyInterval[]>,
@@ -419,15 +500,7 @@ function finishRow(
     entity_id: item.entityId,
     errors: [],
     warnings: item.warnings,
-    normalized: {
-      external_id: item.row.external_id,
-      vehicle_id: item.vehicleId,
-      customer_id: item.customerId,
-      role: item.row.role,
-      valid_from: item.row.valid_from,
-      valid_to: item.row.valid_to,
-      notes: item.row.notes,
-    },
+    normalized: plannedPayload(item, item.row),
   };
 }
 

@@ -169,13 +169,15 @@ describe('vehicle-purchase.helpers', () => {
     it('constructs stock data for new vehicle', () => {
       const stockData = buildLotStockPayload(basePurchase, null);
 
+      // The owner is cleared through the party writer, never in the stock data.
+      expect(stockData).not.toHaveProperty('customer_id');
+
       expect(stockData).toMatchObject({
         make: 'Toyota',
         model: 'Corolla',
         year: 2020,
         plate: 'AA-123-BB',
         plate_normalized: 'AA123BB',
-        customer_id: null,
         inventory_role: VehicleInventoryRole.USED,
         stock_status: VehicleStockStatus.IN_STOCK,
         tax_scheme: VehicleTaxScheme.MARGIN,

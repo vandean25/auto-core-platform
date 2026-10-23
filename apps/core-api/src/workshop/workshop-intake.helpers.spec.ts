@@ -847,8 +847,20 @@ describe('workshop-intake.helpers', () => {
   });
 
   describe('updateExistingIntakeVehicle and createNewIntakeVehicle', () => {
-    it('updates vehicle plate and customer_id', async () => {
+    // What setOwnerInTx reads and writes besides the vehicle row: the tenant's customer and the OWNER timeline.
+    const ownerSyncMocks = () => ({
+      customer: { findFirst: jest.fn().mockResolvedValue({ id: 'c-1' }) },
+      vehicleParty: {
+        findMany: jest.fn().mockResolvedValue([]),
+        create: jest
+          .fn()
+          .mockImplementation(({ data }) => ({ id: 'p-new', ...data })),
+      },
+    });
+
+    it('updates the plate and moves the owner through the party writer', async () => {
       const tx = {
+        ...ownerSyncMocks(),
         vehicle: {
           updateMany: jest.fn().mockResolvedValue({ count: 1 }),
           findFirst: jest.fn().mockResolvedValue({
@@ -874,7 +886,20 @@ describe('workshop-intake.helpers', () => {
         vin: 'VIN123',
       });
 
-      expect(tx.vehicle.updateMany).toHaveBeenCalled();
+      expect(tx.vehicle.updateMany.mock.calls[0][0].data).not.toHaveProperty(
+        'customer_id',
+      );
+      expect(tx.vehicleParty.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          vehicle_id: 'v-1',
+          customer_id: 'c-1',
+          role: 'OWNER',
+        }),
+      });
+      expect(tx.vehicle.updateMany).toHaveBeenLastCalledWith({
+        where: { id: 'v-1', tenant_id: 'tenant-1' },
+        data: { customer_id: 'c-1' },
+      });
       expect(result.id).toBe('v-1');
     });
 
@@ -904,8 +929,11 @@ describe('workshop-intake.helpers', () => {
 
     it('creates new vehicle with stripped identity state', async () => {
       const tx = {
+        ...ownerSyncMocks(),
         vehicle: {
-          create: jest.fn().mockResolvedValue({
+          create: jest.fn().mockResolvedValue({ id: 'v-new' }),
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+          findFirst: jest.fn().mockResolvedValue({
             id: 'v-new',
             plate: 'ABC-123',
             customer: { id: 'c-1' },
@@ -927,10 +955,21 @@ describe('workshop-intake.helpers', () => {
       });
 
       expect(result.id).toBe('v-new');
+      expect(tx.vehicle.create.mock.calls[0][0].data).not.toHaveProperty(
+        'customer_id',
+      );
+      expect(tx.vehicleParty.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          vehicle_id: 'v-new',
+          customer_id: 'c-1',
+          role: 'OWNER',
+        }),
+      });
     });
 
     it('resolves existing vehicle when found', async () => {
       const tx = {
+        ...ownerSyncMocks(),
         vehicle: {
           findFirst: jest.fn().mockResolvedValueOnce({
             id: 'v-exist',
@@ -962,9 +1001,11 @@ describe('workshop-intake.helpers', () => {
         },
         $transaction: jest.fn().mockImplementation((cb) =>
           cb({
+            ...ownerSyncMocks(),
             vehicle: {
-              findFirst: jest.fn().mockResolvedValue(null),
               create: jest.fn().mockResolvedValue({ id: 'v-registered' }),
+              updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+              findFirst: jest.fn().mockResolvedValue({ id: 'v-registered' }),
             },
           }),
         ),

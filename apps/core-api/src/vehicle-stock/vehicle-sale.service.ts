@@ -9,12 +9,17 @@ import {
   Prisma,
   VehicleInventoryRole,
   VehicleLedgerEntryType,
+  VehicleRecordSource,
   VehicleSaleStatus,
   WorkshopOrderPurpose,
   WorkshopOrderStatus,
   type VehiclePurchase,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
+import {
+  partyWriteContext,
+  setOwnerInTx,
+} from '../vehicle/vehicle-party.writer.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
 import {
@@ -717,13 +722,20 @@ export class VehicleSaleService {
         stock_received_at: null,
         stock_cost_basis: null,
         inventory_role: VehicleInventoryRole.CUSTOMER,
-        customer_id: posted.customer_id,
         reserved_for_customer_id: null,
       },
     });
     if (stockGuard.count === 0) {
       throw new ConflictException('Vehicle is no longer sellable');
     }
+    // The buyer becomes the OWNER. BILL_TO and LEASING parties stay as they are.
+    await setOwnerInTx(
+      tx,
+      partyWriteContext(tenantId),
+      posted.vehicle_id,
+      posted.customer_id,
+      VehicleRecordSource.MANUAL,
+    );
 
     await this.ledger.append(
       {

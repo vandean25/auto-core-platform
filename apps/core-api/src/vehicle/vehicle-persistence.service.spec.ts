@@ -62,15 +62,69 @@ describe('VehiclePersistenceService', () => {
     });
   });
 
-  it('creates the vehicle with its customer relation included', async () => {
+  describe('createVehicle', () => {
     const data = { make: 'Ford', model: 'Focus', year: 2021, tenant_id: tenantId };
-    prisma.vehicle.create.mockResolvedValue({ id: 'vehicle-1' });
 
-    await expect(service.createVehicle(data)).resolves.toEqual({ id: 'vehicle-1' });
+    function buildCreateTx() {
+      const tx = {
+        vehicle: {
+          create: jest.fn().mockResolvedValue({ id: 'vehicle-1', tenant_id: tenantId }),
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+          findFirstOrThrow: jest.fn().mockResolvedValue({ id: 'vehicle-1', customer: { id: 'cust-1' } }),
+        },
+        vehicleParty: {
+          findMany: jest.fn().mockResolvedValue([]),
+          create: jest.fn().mockImplementation(({ data: party }) => ({ id: 'p-1', ...party })),
+        },
+        customer: { findFirst: jest.fn().mockResolvedValue({ id: 'cust-1' }) },
+      };
+      (prisma as unknown as { $transaction: jest.Mock }).$transaction = jest
+        .fn()
+        .mockImplementation((fn: (client: unknown) => unknown) => fn(tx));
+      return tx;
+    }
 
-    expect(prisma.vehicle.create).toHaveBeenCalledWith({
-      data,
-      include: { customer: true },
+    it('creates a vehicle without an owner in one write, with its customer relation included', async () => {
+      const tx = buildCreateTx();
+
+      await expect(service.createVehicle(data)).resolves.toEqual({
+        id: 'vehicle-1',
+        tenant_id: tenantId,
+      });
+
+      expect(tx.vehicle.create).toHaveBeenCalledWith({
+        data,
+        include: { customer: true },
+      });
+      expect(tx.vehicleParty.create).not.toHaveBeenCalled();
+      expect(tx.vehicle.findFirstOrThrow).not.toHaveBeenCalled();
+    });
+
+    it('starts the OWNER and sets customer_id through the party writer, not in the create data', async () => {
+      const tx = buildCreateTx();
+
+      await expect(
+        service.createVehicle({ ...data, customer_id: 'cust-1' }),
+      ).resolves.toEqual({ id: 'vehicle-1', customer: { id: 'cust-1' } });
+
+      expect(tx.vehicle.create.mock.calls[0][0].data).toMatchObject({
+        tenant_id: tenantId,
+      });
+      expect(tx.vehicle.create.mock.calls[0][0].data).not.toHaveProperty(
+        'customer_id',
+      );
+      expect(tx.vehicleParty.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          vehicle_id: 'vehicle-1',
+          customer_id: 'cust-1',
+          role: 'OWNER',
+          source: 'MANUAL',
+        }),
+      });
+      expect(tx.vehicle.updateMany).toHaveBeenLastCalledWith({
+        where: { id: 'vehicle-1', tenant_id: tenantId },
+        data: { customer_id: 'cust-1' },
+      });
     });
   });
 
@@ -101,6 +155,21 @@ describe('VehiclePersistenceService', () => {
         identity_resolution_token: null,
       },
       data: { make: 'Ford' },
+    });
+  });
+
+  it('never writes customer_id in the guarded update', async () => {
+    prisma.vehicle.updateMany.mockResolvedValue({ count: 1 });
+
+    await service.updateIfIdentityUnchanged(
+      'vehicle-1',
+      tenantId,
+      { id: 'vehicle-1', vin: null, plate: null },
+      { make: 'Ford', customer_id: 'cust-1' },
+    );
+
+    expect(prisma.vehicle.updateMany.mock.calls[0][0].data).toEqual({
+      make: 'Ford',
     });
   });
 
@@ -275,6 +344,8 @@ describe('VehiclePersistenceService', () => {
 
       expect(tx.vehicleParty.findMany).toHaveBeenCalled();
       expect(tx.vehicleParty.create).toHaveBeenCalled();
+      // customer_id reaches the row only through the party writer (the last updateMany).
+      expect(tx.vehicle.updateMany.mock.calls[1][0].data).not.toHaveProperty('customer_id');
     });
 
     it('does not touch the parties when the customer is repeated', async () => {
