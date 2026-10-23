@@ -44,7 +44,7 @@ steps:
   - id: migrate-db
     # Migrate after the API image is pushed, so a failed build or push leaves the DB untouched.
     waitFor: [build-api-image, push-api-image]
-    name: node:24
+    name: node:24.22.1
     entrypoint: bash
     secretEnv:
       - DATABASE_URL

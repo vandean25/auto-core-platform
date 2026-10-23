@@ -1,7 +1,7 @@
 # Build from the repository root:
 #   docker build -f apps/core-api/Dockerfile -t core-api .
 #   docker build -f apps/core-api/Dockerfile --target worker -t core-api-pdf-worker .
-FROM node:24-slim AS builder
+FROM node:24.22.1-slim AS builder
 
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
@@ -22,6 +22,10 @@ RUN npx prisma generate
 RUN npm run build
 
 FROM mcr.microsoft.com/playwright:v1.64.1-noble AS worker
+
+RUN apt-get update && apt-get install -y --only-upgrade nodejs && rm -rf /var/lib/apt/lists/*
+
+RUN node -e "const [a,b,c]=process.versions.node.split('.').map(Number); if (a!==24 || b<22 || (b===22 && c<1)) { console.error('Node ' + process.version + ' is below 24.22.1 or not 24.x'); process.exit(1) }"
 
 WORKDIR /usr/src/app
 
@@ -44,7 +48,7 @@ EXPOSE 3000
 
 CMD ["node", "dist/main.js"]
 
-FROM node:24-slim AS api
+FROM node:24.22.1-slim AS api
 
 WORKDIR /usr/src/app
 

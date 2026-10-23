@@ -89,7 +89,7 @@ steps:
   - id: migrate-db
     # Migrate after both images build, so a failed build leaves the DB untouched.
     waitFor: [build-api-image, build-pdf-worker-image]
-    name: node:24
+    name: node:24.22.1
     entrypoint: bash
     secretEnv:
       - DATABASE_URL
@@ -177,7 +177,7 @@ steps:
           --quiet
 
   - id: build-frontend
-    name: node:24
+    name: node:24.22.1
     entrypoint: bash
     secretEnv:
       - VITE_FIREBASE_API_KEY
