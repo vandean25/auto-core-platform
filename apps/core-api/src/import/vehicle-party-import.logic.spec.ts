@@ -432,6 +432,29 @@ describe('planVehiclePartyRows', () => {
       expect(result.action).toBe(ImportRowAction.ERROR);
     });
 
+    it('does not adopt an OWNER that is already closed', () => {
+      const result = plan({}, [importedToday({ valid_to: '2027-01-01' })]);
+
+      expect(result.action).not.toBe(ImportRowAction.UPDATE);
+    });
+
+    it('does not adopt a party of another role for the same customer', () => {
+      const result = plan({}, [importedToday({ role: 'BILL_TO' })]);
+
+      expect(result.action).toBe(ImportRowAction.CREATE);
+      expect(result.entity_id).toBeNull();
+    });
+
+    it('adopts a row without a start day and keeps the stored day', () => {
+      const result = plan({ valid_from: '' }, [importedToday()]);
+
+      expect(result).toMatchObject({
+        action: ImportRowAction.UPDATE,
+        entity_id: 'p-import',
+        normalized: { valid_from: null, adopts_existing: true },
+      });
+    });
+
     it('does not adopt a party that already carries an external id', () => {
       const result = plan({}, [importedToday()], {
         partyIdByExternalId: new Map([['OTHER', 'p-import']]),

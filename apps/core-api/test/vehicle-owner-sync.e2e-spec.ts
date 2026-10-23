@@ -56,6 +56,7 @@ describe('Vehicle owner and customer_id stay in sync (e2e)', () => {
     entityType: string,
     headers: string[],
     rows: string[][],
+    options: Record<string, unknown> = {},
   ) {
     const dryRun = await request(suite.app.getHttpServer())
       .post('/api/imports')
@@ -66,7 +67,7 @@ describe('Vehicle owner and customer_id stay in sync (e2e)', () => {
         'mapping',
         JSON.stringify(Object.fromEntries(headers.map((h) => [h, h]))),
       )
-      .field('options', JSON.stringify({}))
+      .field('options', JSON.stringify(options))
       .attach(
         'file',
         Buffer.from(serializeCsv(headers, rows, ','), 'utf8'),
@@ -87,8 +88,14 @@ describe('Vehicle owner and customer_id stay in sync (e2e)', () => {
     entityType: string,
     headers: string[],
     rows: string[][],
+    options: Record<string, unknown> = {},
   ) {
-    const { jobId, errors } = await dryRunCsv(entityType, headers, rows);
+    const { jobId, errors } = await dryRunCsv(
+      entityType,
+      headers,
+      rows,
+      options,
+    );
     expect(errors).toEqual([]);
     await request(suite.app.getHttpServer())
       .post(`/api/imports/${jobId}/apply`)
@@ -235,7 +242,7 @@ describe('Vehicle owner and customer_id stay in sync (e2e)', () => {
       expect(await ownerParties(vehicleId)).toHaveLength(1);
     });
 
-    it('gives one OWNER when the parties file comes first and the vehicles file follows', async () => {
+    it('keeps the OWNER of the parties file when a later vehicles file names another owner', async () => {
       await importCsv('VEHICLE', VEHICLE_HEADERS, [
         vehicleRow('ADOPT-V-4', '1HGCM82633A697005', ''),
       ]);
@@ -244,9 +251,13 @@ describe('Vehicle owner and customer_id stay in sync (e2e)', () => {
         partyRow('ADOPT-P-4', 'ADOPT-V-4', 'ADOPT-C-A'),
       ]);
 
-      await importCsv('VEHICLE', VEHICLE_HEADERS, [
-        vehicleRow('ADOPT-V-4', '1HGCM82633A697005', 'ADOPT-C-A'),
-      ]);
+      // UPDATE rows of vehicles.csv never applied the owner; this pins that behavior.
+      await importCsv(
+        'VEHICLE',
+        VEHICLE_HEADERS,
+        [vehicleRow('ADOPT-V-4', '1HGCM82633A697005', 'ADOPT-C-B')],
+        { update_existing: true },
+      );
 
       const parties = await ownerParties(vehicleId);
       expect(parties).toHaveLength(1);
