@@ -1,3 +1,4 @@
+import { readDocumentSnapshotLocaleFields } from '../common/i18n/document-snapshot-locale.js';
 import type { CreditNoteSnapshotV2 } from './credit-note-snapshot.js';
 import type { InvoiceSnapshot } from '../invoices/invoice-snapshot.js';
 
@@ -24,6 +25,8 @@ export function toRenderableCreditNoteSnapshot(
   if (!isCreditNoteSnapshotV2(snapshot)) {
     return null;
   }
+
+  const localeFields = readDocumentSnapshotLocaleFields(snapshot);
 
   return {
     id: creditNoteId,
@@ -60,5 +63,6 @@ export function toRenderableCreditNoteSnapshot(
     document_kind: 'CREDIT_NOTE',
     credit_title: snapshot.credit_title,
     original_document: snapshot.original_document,
+    ...(localeFields ?? {}),
   };
 }
