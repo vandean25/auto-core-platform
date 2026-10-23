@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { useTranslation } from 'react-i18next'
+import { useTranslation } from './use-translation'
 import type { UiLanguage } from './constants'
 import { isUiLanguage } from './constants'
 import { changeUiLanguage } from './init-i18n'

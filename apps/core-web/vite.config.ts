@@ -42,6 +42,11 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         "@": path.resolve(import.meta.dirname, "./src"),
+        "react-i18next": path.resolve(import.meta.dirname, "./src/lib/i18n/react-i18next.ts"),
+        "react-i18next-original": path.resolve(
+          import.meta.dirname,
+          "../../node_modules/react-i18next/dist/es/index.js",
+        ),
       },
     },
     test: {

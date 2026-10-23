@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useState, type ReactNode } from 'react'
-import { I18nextProvider } from 'react-i18next'
+import { I18nextProvider } from './react-i18next-public'
 import { initI18n, i18n } from './init-i18n'
 import type { InitI18nOptions } from './init-i18n'
 

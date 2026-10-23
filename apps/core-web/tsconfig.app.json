@@ -30,6 +30,12 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "react-i18next": [
+        "./src/lib/i18n/react-i18next.ts"
+      ],
+      "react-i18next-original": [
+        "../../node_modules/react-i18next"
       ]
     }
   },
