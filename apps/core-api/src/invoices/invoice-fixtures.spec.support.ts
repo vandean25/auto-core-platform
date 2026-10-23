@@ -52,6 +52,7 @@ export function vehicleRow(overrides: Partial<Vehicle> = {}): Vehicle {
     engine_code: null,
     vin: null,
     plate: null,
+    plate_normalized: null,
     make_brand_id: null,
     hsn: null,
     tsn: null,

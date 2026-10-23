@@ -46,7 +46,7 @@ describe('withPlateNormalized', () => {
   });
 
   it('leaves data untouched when the plate is not written', () => {
-    const data = { make: 'x' };
+    const data: { make: string; plate?: string } = { make: 'x' };
     expect(withPlateNormalized(data)).toBe(data);
     expect(withPlateNormalized({ plate: undefined })).not.toHaveProperty(
       'plate_normalized',
