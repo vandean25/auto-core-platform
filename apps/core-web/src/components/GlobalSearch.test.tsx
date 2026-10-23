@@ -1,324 +1,207 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { changeUiLanguage } from '@/lib/i18n'
+import { changeUiLanguage, ensureNamespaceLoaded } from '@/lib/i18n'
 import { GlobalSearch } from './GlobalSearch'
 import * as searchHook from '@/hooks/useGlobalSearch'
-import type { WorkshopOrder } from '@/api/types'
+import * as authSession from '@/api/auth-session'
+import { recentItemsKey, readRecentItems } from './global-search/global-search-recent'
 
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
-  return {
-    ...actual,
-    useNavigate: () => mockNavigate,
-  }
+  return { ...actual, useNavigate: () => mockNavigate }
 })
 
 vi.mock('@/hooks/useGlobalSearch')
+vi.mock('@/api/auth-session', () => ({ useAuthSession: vi.fn() }))
+vi.mock('@/api/sites', () => ({
+  useMySites: () => ({ data: [{ id: 'site-1', code: 'W', name: 'Wien', legalEntityId: 'le-1' }] }),
+}))
 
-describe('GlobalSearch Component', () => {
+const PLACEHOLDER = 'Search parts, customers, vehicles, jobs…'
+const customer = {
+  type: 'customer' as const,
+  id: 'cust-123',
+  title: 'Max Mustermann',
+  subtitle: 'max@mustermann.at',
+  href: '/customers/cust-123',
+  score: 1,
+}
+
+function mockSession(activeRole: 'ADMIN' | 'TECH' = 'ADMIN') {
+  vi.mocked(authSession.useAuthSession).mockReturnValue({
+    data: {
+      userId: 'user-1',
+      activeTenant: { id: 'tenant-1' },
+      activeRole,
+      activeSiteId: 'site-1',
+      platformRole: undefined,
+    },
+  } as unknown as ReturnType<typeof authSession.useAuthSession>)
+}
+
+function mockSearch(overrides: Partial<ReturnType<typeof searchHook.useGlobalSearch>> = {}) {
+  vi.mocked(searchHook.useGlobalSearch).mockReturnValue({
+    groups: [],
+    isLoading: false,
+    error: null,
+    ...overrides,
+  })
+}
+
+function renderPalette(onOpenChange = vi.fn()) {
+  render(
+    <MemoryRouter>
+      <GlobalSearch open={true} onOpenChange={onOpenChange} />
+    </MemoryRouter>,
+  )
+  return { onOpenChange, input: screen.getByPlaceholderText(PLACEHOLDER) }
+}
+
+describe('GlobalSearch', () => {
   beforeEach(async () => {
     await changeUiLanguage('en')
+    await ensureNamespaceLoaded('settings')
     vi.clearAllMocks()
+    window.localStorage.clear()
+    mockSession()
+    mockSearch()
   })
 
-  afterEach(() => {
-    cleanup()
-  })
+  afterEach(cleanup)
 
-  it('renders updated placeholder and dialog description', () => {
-    vi.mocked(searchHook.useGlobalSearch).mockReturnValue({
-      data: { inventory: [], customers: [], vehicles: [], orders: [] },
-      isLoading: false,
-      isFetching: false,
-      error: null,
-    })
+  it('renders the placeholder and the dialog description', () => {
+    renderPalette()
 
-    render(
-      <MemoryRouter>
-        <GlobalSearch open={true} onOpenChange={vi.fn()} />
-      </MemoryRouter>,
-    )
-
-    expect(screen.getByPlaceholderText('Search parts, customers, vehicles, jobs…')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText(PLACEHOLDER)).toBeInTheDocument()
     expect(screen.getByText('Jump to a part, customer, vehicle, job, or command.')).toBeInTheDocument()
   })
 
-  it('renders Customers, Vehicles, Workshop orders, and Inventory groups when query matches', () => {
-    vi.mocked(searchHook.useGlobalSearch).mockReturnValue({
-      data: {
-        customers: [
-          {
-            id: 'cust-123',
-            type: 'PRIVATE',
-            first_name: 'Max',
-            last_name: 'Mustermann',
-            email: 'max@mustermann.at',
-            phone: '+43 1 234567',
-            vehicles: [],
-          },
-        ],
-        vehicles: [
-          {
-            id: 'veh-456',
-            make: 'Volkswagen',
-            model: 'Golf',
-            year: 2021,
-            plate: 'W-12345AB',
-            vin: 'WVWZZZ12345',
-            customer: null,
-          },
-        ],
-        orders: [
-          {
-            id: 'wo-789',
-            order_number: 'WO-2026-0004',
-            status: 'IN_PROGRESS',
-            customer: { id: 'cust-123', type: 'PRIVATE', first_name: 'Max', last_name: 'Mustermann' },
-            vehicle: { id: 'veh-456', make: 'Audi', model: 'A4', year: 2020, plate: 'W-12345AB' },
-          } as unknown as WorkshopOrder,
-        ],
-        inventory: [
-          {
-            id: 'item-1',
-            sku: 'BRK-001',
-            name: 'Brake Pad',
-            brand: 'Bosch',
-            price: 49.9,
-            quantity_available: 4,
-            warehouse_location: 'A-01',
-            status: 'IN_STOCK',
-          },
-        ],
-      },
-      isLoading: false,
-      isFetching: false,
-      error: null,
-    })
+  it('explains the prefix filters while the input is empty', () => {
+    renderPalette()
 
-    render(
-      <MemoryRouter>
-        <GlobalSearch open={true} onOpenChange={vi.fn()} />
-      </MemoryRouter>,
-    )
-
-    const input = screen.getByPlaceholderText('Search parts, customers, vehicles, jobs…')
-    fireEvent.change(input, { target: { value: 'Mustermann' } })
-
-    expect(screen.getByText('Customers')).toBeInTheDocument()
-    expect(screen.getByText('Max Mustermann')).toBeInTheDocument()
-
-    expect(screen.getByText('Vehicles')).toBeInTheDocument()
-    expect(screen.getByText('W-12345AB')).toBeInTheDocument()
-
-    expect(screen.getByText('Workshop orders')).toBeInTheDocument()
-    expect(screen.getByText('WO-2026-0004')).toBeInTheDocument()
-
-    expect(screen.getByText('Inventory')).toBeInTheDocument()
-    expect(screen.getByText('BRK-001')).toBeInTheDocument()
+    expect(screen.getByText('Search one type with a prefix:')).toBeInTheDocument()
+    expect(screen.getByText('fz:')).toBeInTheDocument()
   })
 
-  it('navigates to customer detail when customer item selected', () => {
-    vi.mocked(searchHook.useGlobalSearch).mockReturnValue({
-      data: {
-        customers: [
-          {
-            id: 'cust-123',
-            type: 'PRIVATE',
-            first_name: 'Max',
-            last_name: 'Mustermann',
-            email: 'max@mustermann.at',
-            phone: '+43 1 234567',
-            vehicles: [],
-          },
-        ],
-        vehicles: [],
-        orders: [],
-        inventory: [],
-      },
-      isLoading: false,
-      isFetching: false,
-      error: null,
-    })
-
-    const onOpenChange = vi.fn()
-    render(
-      <MemoryRouter>
-        <GlobalSearch open={true} onOpenChange={onOpenChange} />
-      </MemoryRouter>,
-    )
-
-    const input = screen.getByPlaceholderText('Search parts, customers, vehicles, jobs…')
+  it('opens the result and closes the palette on select', () => {
+    mockSearch({ groups: [{ type: 'customer', results: [customer] }] })
+    const { input, onOpenChange } = renderPalette()
     fireEvent.change(input, { target: { value: 'Mustermann' } })
 
-    const customerItem = screen.getByText('Max Mustermann')
-    fireEvent.click(customerItem)
+    fireEvent.click(screen.getByText('Max Mustermann'))
 
     expect(mockNavigate).toHaveBeenCalledWith('/customers/cust-123')
     expect(onOpenChange).toHaveBeenCalledWith(false)
   })
 
-  it('renders updated empty state copy when no results match', () => {
-    vi.mocked(searchHook.useGlobalSearch).mockReturnValue({
-      data: { inventory: [], customers: [], vehicles: [], orders: [] },
-      isLoading: false,
-      isFetching: false,
-      error: null,
-    })
-
-    render(
-      <MemoryRouter>
-        <GlobalSearch open={true} onOpenChange={vi.fn()} />
-      </MemoryRouter>,
-    )
-
-    const input = screen.getByPlaceholderText('Search parts, customers, vehicles, jobs…')
-    fireEvent.change(input, { target: { value: 'xyz123nonexistent' } })
-
-    expect(
-      screen.getByText('No parts, customers, vehicles, jobs, or commands match “xyz123nonexistent”.'),
-    ).toBeInTheDocument()
-  })
-
-  it('navigates to /vehicles/:id when selecting a vehicle match', () => {
-    vi.mocked(searchHook.useGlobalSearch).mockReturnValue({
-      data: {
-        inventory: [],
-        customers: [],
-        vehicles: [
-          {
-            id: 'veh-456',
-            make: 'Audi',
-            model: 'A4',
-            year: 2020,
-            plate: 'W-12345AB',
-            vin: 'WAUZZZ8K9BA123456',
-            customer: null,
-          },
-        ],
-        orders: [],
-      },
-      isLoading: false,
-      isFetching: false,
-      error: null,
-    })
-
-    const onOpenChange = vi.fn()
-    render(
-      <MemoryRouter>
-        <GlobalSearch open={true} onOpenChange={onOpenChange} />
-      </MemoryRouter>,
-    )
-
-    const input = screen.getByPlaceholderText('Search parts, customers, vehicles, jobs…')
-    fireEvent.change(input, { target: { value: 'W-12345AB' } })
-
-    const vehicleItem = screen.getByText('W-12345AB')
-    fireEvent.click(vehicleItem)
-
-    expect(mockNavigate).toHaveBeenCalledWith('/vehicles/veh-456')
-    expect(onOpenChange).toHaveBeenCalledWith(false)
-  })
-
-  it('navigates to /workshop/orders/:id when selecting an order match', () => {
-    vi.mocked(searchHook.useGlobalSearch).mockReturnValue({
-      data: {
-        inventory: [],
-        customers: [],
-        vehicles: [],
-        orders: [
-          {
-            id: 'wo-789',
-            order_number: 'WO-2026-0004',
-            status: 'IN_PROGRESS',
-            customer: { id: 'cust-123', type: 'PRIVATE', first_name: 'Max', last_name: 'Mustermann' },
-            vehicle: { id: 'veh-456', make: 'Audi', model: 'A4', year: 2020, plate: 'W-12345AB' },
-          } as unknown as WorkshopOrder,
-        ],
-      },
-      isLoading: false,
-      isFetching: false,
-      error: null,
-    })
-
-    const onOpenChange = vi.fn()
-    render(
-      <MemoryRouter>
-        <GlobalSearch open={true} onOpenChange={onOpenChange} />
-      </MemoryRouter>,
-    )
-
-    const input = screen.getByPlaceholderText('Search parts, customers, vehicles, jobs…')
-    fireEvent.change(input, { target: { value: 'WO-2026-0004' } })
-
-    const orderItem = screen.getByText('WO-2026-0004')
-    fireEvent.click(orderItem)
-
-    expect(mockNavigate).toHaveBeenCalledWith('/workshop/orders/wo-789')
-    expect(onOpenChange).toHaveBeenCalledWith(false)
-  })
-
-  it('filters quick actions so searching "invoice" shows Find a sales order to invoice', () => {
-    vi.mocked(searchHook.useGlobalSearch).mockReturnValue({
-      data: { inventory: [], customers: [], vehicles: [], orders: [] },
-      isLoading: false,
-      isFetching: false,
-      error: null,
-    })
-
-    render(
-      <MemoryRouter>
-        <GlobalSearch open={true} onOpenChange={vi.fn()} />
-      </MemoryRouter>,
-    )
-
-    const input = screen.getByPlaceholderText('Search parts, customers, vehicles, jobs…')
-    fireEvent.change(input, { target: { value: 'invoice' } })
-
-    expect(screen.getByText('Find a sales order to invoice')).toBeInTheDocument()
-    expect(screen.queryByText('Create Purchase Order')).not.toBeInTheDocument()
-  })
-
-  it('does not display CommandEmpty while search is still fetching', () => {
-    vi.mocked(searchHook.useGlobalSearch).mockReturnValue({
-      data: { inventory: [], customers: [], vehicles: [], orders: [] },
-      isLoading: true,
-      isFetching: true,
-      error: null,
-    })
-
-    render(
-      <MemoryRouter>
-        <GlobalSearch open={true} onOpenChange={vi.fn()} />
-      </MemoryRouter>,
-    )
-
-    const input = screen.getByPlaceholderText('Search parts, customers, vehicles, jobs…')
+  it('remembers the opened result per user and tenant, without extra fields', () => {
+    mockSearch({ groups: [{ type: 'customer', results: [{ ...customer, siteId: 'site-1' }] }] })
+    const { input } = renderPalette()
     fireEvent.change(input, { target: { value: 'Mustermann' } })
 
-    expect(screen.getByText('Searching…')).toBeInTheDocument()
-    expect(screen.queryByText(/No parts, customers, vehicles, jobs, or commands match/)).not.toBeInTheDocument()
+    fireEvent.click(screen.getByText('Max Mustermann'))
+
+    expect(readRecentItems(recentItemsKey('user-1', 'tenant-1'))).toEqual([
+      {
+        type: 'customer',
+        id: 'cust-123',
+        title: 'Max Mustermann',
+        subtitle: 'max@mustermann.at',
+        href: '/customers/cust-123',
+      },
+    ])
   })
 
-  it('does not display CommandEmpty when an error is present', () => {
-    vi.mocked(searchHook.useGlobalSearch).mockReturnValue({
-      data: { inventory: [], customers: [], vehicles: [], orders: [] },
-      isLoading: false,
-      isFetching: false,
-      error: new Error('Network error'),
-    })
-
-    render(
-      <MemoryRouter>
-        <GlobalSearch open={true} onOpenChange={vi.fn()} />
-      </MemoryRouter>,
+  it('shows recently opened items first when the input is empty and removes one on request', () => {
+    window.localStorage.setItem(
+      recentItemsKey('user-1', 'tenant-1'),
+      JSON.stringify([{ ...customer, score: undefined }]),
     )
+    renderPalette()
 
-    const input = screen.getByPlaceholderText('Search parts, customers, vehicles, jobs…')
-    fireEvent.change(input, { target: { value: 'test' } })
+    expect(screen.getByText('Recently opened')).toBeInTheDocument()
+    expect(screen.getByText('Max Mustermann')).toBeInTheDocument()
 
+    fireEvent.click(screen.getByRole('button', { name: /Remove “Max Mustermann”/ }))
+
+    expect(screen.queryByText('Max Mustermann')).not.toBeInTheDocument()
+    expect(readRecentItems(recentItemsKey('user-1', 'tenant-1'))).toEqual([])
+    expect(mockNavigate).not.toHaveBeenCalled()
+  })
+
+  it('opens in a new tab with Cmd+Enter and in the app with Enter', () => {
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null)
+    mockSearch({ groups: [{ type: 'customer', results: [customer] }] })
+    const { input } = renderPalette()
+    fireEvent.change(input, { target: { value: 'Mustermann' } })
+
+    fireEvent.keyDown(input, { key: 'Enter', metaKey: true })
+    expect(open).toHaveBeenCalledWith('/customers/cust-123', '_blank', 'noopener,noreferrer')
+    expect(mockNavigate).not.toHaveBeenCalled()
+
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(mockNavigate).toHaveBeenCalledWith('/customers/cust-123')
+    open.mockRestore()
+  })
+
+  it('offers the sidebar entries of the role and the settings tabs when typing', () => {
+    const { input } = renderPalette()
+
+    expect(screen.getByText('Credit Notes')).toBeInTheDocument()
+
+    fireEvent.change(input, { target: { value: 'team' } })
+    expect(screen.getByText('Team')).toBeInTheDocument()
+  })
+
+  it('hides entries the role may not open', () => {
+    mockSession('TECH')
+    renderPalette()
+
+    expect(screen.queryByText('Credit Notes')).not.toBeInTheDocument()
+    expect(screen.getByText('Dashboard')).toBeInTheDocument()
+  })
+
+  it('shows only entities for a prefix filter', () => {
+    mockSearch({ groups: [{ type: 'customer', results: [customer] }] })
+    const { input } = renderPalette()
+
+    fireEvent.change(input, { target: { value: 'k:Mustermann' } })
+
+    expect(screen.getByText('Max Mustermann')).toBeInTheDocument()
+    expect(screen.queryByText('Create Sales Order')).not.toBeInTheDocument()
+  })
+
+  it('shows a hint when nothing matches', () => {
+    const { input } = renderPalette()
+
+    fireEvent.change(input, { target: { value: 'zzz unknown' } })
+
+    expect(screen.getByText(/No parts, customers, vehicles, jobs, or commands match “zzz unknown”/)).toBeInTheDocument()
+    expect(screen.getByText(/Try a full name \(first and last\)/)).toBeInTheDocument()
+  })
+
+  it('shows no hint while loading or after a failed request', () => {
+    mockSearch({ isLoading: true })
+    const { input } = renderPalette()
+    fireEvent.change(input, { target: { value: 'zzz unknown' } })
+    expect(screen.queryByText(/No parts, customers/)).not.toBeInTheDocument()
+
+    cleanup()
+    mockSearch({ error: new Error('Network error') })
+    const second = renderPalette()
+    fireEvent.change(second.input, { target: { value: 'zzz unknown' } })
     expect(screen.getByText('Search is temporarily unavailable.')).toBeInTheDocument()
-    expect(screen.queryByText(/No parts, customers, vehicles, jobs, or commands match/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/No parts, customers/)).not.toBeInTheDocument()
+  })
+
+  it('routes Create Sales Order to the new sales order form', () => {
+    const { input } = renderPalette()
+
+    fireEvent.change(input, { target: { value: 'sales order' } })
+    fireEvent.click(screen.getByText('Create Sales Order'))
+
+    expect(mockNavigate).toHaveBeenCalledWith('/sales-orders/new')
   })
 })

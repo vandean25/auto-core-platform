@@ -4,50 +4,49 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { changeUiLanguage } from '@/lib/i18n'
 import { GlobalSearch } from './GlobalSearch'
 import * as searchHook from '@/hooks/useGlobalSearch'
+import * as authSession from '@/api/auth-session'
 
 vi.mock('@/hooks/useGlobalSearch')
+vi.mock('@/api/auth-session', () => ({ useAuthSession: vi.fn() }))
+vi.mock('@/api/sites', () => ({ useMySites: () => ({ data: [] }) }))
 
-describe('GlobalSearch quick actions locale', () => {
+describe('GlobalSearch locale', () => {
   beforeEach(async () => {
     await changeUiLanguage('de')
     vi.clearAllMocks()
-    vi.mocked(searchHook.useGlobalSearch).mockReturnValue({
-      data: { inventory: [], customers: [], vehicles: [], orders: [] },
-      isLoading: false,
-      isFetching: false,
-      error: null,
-    })
+    vi.mocked(searchHook.useGlobalSearch).mockReturnValue({ groups: [], isLoading: false, error: null })
+    vi.mocked(authSession.useAuthSession).mockReturnValue({
+      data: { userId: 'u', activeTenant: { id: 't' }, activeRole: 'ADMIN', activeSiteId: null },
+    } as unknown as ReturnType<typeof authSession.useAuthSession>)
   })
 
-  afterEach(() => {
-    cleanup()
-  })
+  afterEach(cleanup)
 
-  it('rebuilds quick actions when the UI language changes without a new query', async () => {
+  it('rebuilds the palette entries when the UI language changes without a new query', async () => {
     const { rerender } = render(
       <MemoryRouter>
         <GlobalSearch open={true} onOpenChange={vi.fn()} />
       </MemoryRouter>,
     )
 
-    expect(screen.getByText('Dashboard öffnen')).toBeInTheDocument()
+    expect(screen.getByText('Anlegen')).toBeInTheDocument()
+    expect(screen.getByText('Kundenaufträge')).toBeInTheDocument()
 
     rerender(
       <MemoryRouter>
         <GlobalSearch open={false} onOpenChange={vi.fn()} />
       </MemoryRouter>,
     )
-
     await changeUiLanguage('en')
-
     rerender(
       <MemoryRouter>
         <GlobalSearch open={true} onOpenChange={vi.fn()} />
       </MemoryRouter>,
     )
 
-    expect(screen.getByText('Open Dashboard')).toBeInTheDocument()
-    expect(screen.queryByText('Dashboard öffnen')).not.toBeInTheDocument()
+    expect(screen.getByText('Create')).toBeInTheDocument()
+    expect(screen.getByText('Sales Orders')).toBeInTheDocument()
+    expect(screen.queryByText('Kundenaufträge')).not.toBeInTheDocument()
 
     await changeUiLanguage('de')
   })

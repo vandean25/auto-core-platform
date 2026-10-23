@@ -79,46 +79,25 @@
     "description": "Jump to a part, customer, vehicle, job, or command.",
     "inputLabel": "Search parts, customers, vehicles, jobs, or commands",
     "placeholder": "Search parts, customers, vehicles, jobs…",
-    "emptyIdle": "Start typing to search parts, customers, vehicles, jobs, or commands.",
     "emptyNoMatch": "No parts, customers, vehicles, jobs, or commands match “{{query}}”.",
     "emptyHint": "Try a full name (first and last), a plate, a VIN or an order number.",
-    "searching": "Searching…",
     "unavailable": "Search is temporarily unavailable.",
+    "groupUnavailable": "These results are temporarily unavailable.",
+    "otherSite": "Other site",
+    "recent": "Recently opened",
+    "removeRecent": "Remove “{{title}}” from recently opened",
+    "prefixHelp": "Search one type with a prefix:",
     "groups": {
-      "customers": "Customers",
-      "vehicles": "Vehicles",
-      "workshopOrders": "Workshop orders",
-      "inventory": "Inventory"
+      "customer": "Customers",
+      "vehicle": "Vehicles",
+      "stockVehicle": "Vehicle stock",
+      "workshopOrder": "Workshop orders",
+      "invoice": "Invoices",
+      "part": "Parts"
     },
-    "inventoryInStock": "{{count}} in stock",
     "quickActions": {
       "navigate": "Navigate",
       "create": "Create",
-      "openDashboard": {
-        "label": "Open Dashboard",
-        "description": "Review widgets and saved views."
-      },
-      "openInventory": {
-        "label": "Open Inventory",
-        "description": "Browse parts and stock levels."
-      },
-      "openTransfers": {
-        "label": "Open Transfers",
-        "description": "Request and track cross-site stock moves."
-      },
-      "findSalesOrderToInvoice": {
-        "label": "Find a sales order to invoice",
-        "description": "Open a sales order and use Create Invoice to draft its invoice.",
-        "keywords": "create sales invoice,sales invoice"
-      },
-      "openWorkshopIntake": {
-        "label": "Open Workshop Intake",
-        "description": "Start a new workshop visit."
-      },
-      "openSettings": {
-        "label": "Open Settings",
-        "description": "Manage finance and master data."
-      },
       "createSalesOrder": {
         "label": "Create Sales Order",
         "description": "Capture a new customer order."
