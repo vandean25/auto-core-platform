@@ -13,6 +13,7 @@ import { PrefixHelp, RecentItemsGroup, SearchResults } from './GlobalSearchResul
 import {
   filterPaletteContextActions,
   type PaletteContextAction,
+  type PaletteContextActionSection,
 } from './global-search-context-actions'
 import { useGlobalSearchPaletteContext } from './use-global-search-palette-context'
 import { truncate } from './global-search-format'
@@ -30,6 +31,27 @@ type PaletteSubPage = {
   items: PaletteContextAction[]
 }
 
+function getSessionSearchMeta(session: ReturnType<typeof useAuthSession>['data']) {
+  if (!session) return { recentKey: null, roleInfo: null, activeSiteId: null }
+  return {
+    recentKey: recentItemsKey(session.userId, session.activeTenant.id),
+    roleInfo: { platformRole: session.platformRole ?? null, activeRole: session.activeRole },
+    activeSiteId: session.activeSiteId ?? null,
+  }
+}
+
+function navigatePaletteHref(
+  href: string,
+  inNewTab: boolean,
+  navigate: ReturnType<typeof useNavigate>,
+) {
+  if (inNewTab) {
+    window.open(href, '_blank', 'noopener,noreferrer')
+    return
+  }
+  navigate(href)
+}
+
 function handlePaletteInputKeyDown(
   event: React.KeyboardEvent<HTMLInputElement>,
   rawSearch: string,
@@ -45,17 +67,31 @@ function handlePaletteInputKeyDown(
   }
 }
 
-function usePaletteSubPages(
-  open: boolean,
-  query: string,
-  setSearch: (value: string) => void,
-  onOpenChange: (open: boolean) => void,
-) {
+type UsePaletteSubPagesArgs = {
+  open: boolean
+  query: string
+  rootSection: PaletteContextActionSection | null
+  defaultPlaceholder: string
+  setSearch: (value: string) => void
+  onOpenChange: (open: boolean) => void
+}
+
+function usePaletteSubPages({
+  open,
+  query,
+  rootSection,
+  defaultPlaceholder,
+  setSearch,
+  onOpenChange,
+}: UsePaletteSubPagesArgs) {
   const [subPages, setSubPages] = React.useState<PaletteSubPage[]>([])
 
   React.useEffect(() => {
-    if (!open) setSubPages([])
-  }, [open])
+    if (!open) {
+      setSearch('')
+      setSubPages([])
+    }
+  }, [open, setSearch])
 
   const activeSubPage = subPages[subPages.length - 1]
 
@@ -79,11 +115,23 @@ function usePaletteSubPages(
     action.onSelect()
   }
 
-  const subPageSection = activeSubPage
-    ? { heading: activeSubPage.heading, items: filterPaletteContextActions(activeSubPage.items, query) }
-    : null
+  const handleEscapeKeyDown = (event: KeyboardEvent) => {
+    if (popSubPage()) event.preventDefault()
+  }
 
-  return { activeSubPage, subPageSection, popSubPage, runContextAction }
+  const contextSection = activeSubPage
+    ? { heading: activeSubPage.heading, items: filterPaletteContextActions(activeSubPage.items, query) }
+    : rootSection
+  const placeholder = activeSubPage ? activeSubPage.heading : defaultPlaceholder
+
+  return {
+    isSubPage: Boolean(activeSubPage),
+    contextSection,
+    placeholder,
+    popSubPage,
+    runContextAction,
+    handleEscapeKeyDown,
+  }
 }
 
 export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogProps) {
@@ -92,33 +140,33 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
   // Cmd/Ctrl+Enter or Cmd/Ctrl+click opens a new tab. cmdk's onSelect carries no event, so the modifier is read first.
   const newTabRef = React.useRef(false)
   const navigate = useNavigate()
-  const session = useAuthSession().data
+  const sessionMeta = getSessionSearchMeta(useAuthSession().data)
   const sites = useMySites().data
   const { groups, isLoading, error } = useGlobalSearch(search)
-  const recent = useRecentItems(session ? recentItemsKey(session.userId, session.activeTenant.id) : null, open)
+  const recent = useRecentItems(sessionMeta.recentKey, open)
 
   React.useEffect(() => {
     if (open) void ensureNamespaceLoaded('settings')
-    else setSearch('')
   }, [open])
 
   const query = search.trim()
   const paletteContext = useGlobalSearchPaletteContext(open, query)
-  const subPage = usePaletteSubPages(open, query, setSearch, onOpenChange)
-  const sections = getPaletteSections(
-    session ? { platformRole: session.platformRole ?? null, activeRole: session.activeRole } : null,
+  const subPage = usePaletteSubPages({
+    open,
     query,
-    paletteContext.intakePrefill,
-  )
-  const contextSection = subPage.subPageSection ?? paletteContext.contextSection
+    rootSection: paletteContext.contextSection,
+    defaultPlaceholder: t('globalSearch.placeholder'),
+    setSearch,
+    onOpenChange,
+  })
+  const sections = getPaletteSections(sessionMeta.roleInfo, query, paletteContext.intakePrefill)
 
   const openHref = (href: string) => {
     const inNewTab = newTabRef.current
     newTabRef.current = false
     setSearch('')
     onOpenChange(false)
-    if (inNewTab) window.open(href, '_blank', 'noopener,noreferrer')
-    else navigate(href)
+    navigatePaletteHref(href, inNewTab, navigate)
   }
 
   const openItem = (item: RecentSearchItem) => {
@@ -130,16 +178,14 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
     <CommandDialog
       open={open}
       onOpenChange={onOpenChange}
-      onEscapeKeyDown={(event) => {
-        if (subPage.popSubPage()) event.preventDefault()
-      }}
+      onEscapeKeyDown={subPage.handleEscapeKeyDown}
       title={t('globalSearch.title')}
       description={t('globalSearch.description')}
       shouldFilter={false}
     >
       <CommandInput
         aria-label={t('globalSearch.inputLabel')}
-        placeholder={subPage.activeSubPage?.heading ?? t('globalSearch.placeholder')}
+        placeholder={subPage.placeholder}
         value={search}
         onValueChange={setSearch}
         onKeyDown={(event) => handlePaletteInputKeyDown(event, search, newTabRef, subPage.popSubPage)}
@@ -151,14 +197,14 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
           newTabRef.current = event.metaKey || event.ctrlKey
         }}
       >
-        {contextSection ? (
+        {subPage.contextSection ? (
           <GlobalSearchContextActionGroup
-            section={contextSection}
+            section={subPage.contextSection}
             onSelect={subPage.runContextAction}
           />
         ) : null}
 
-        {!subPage.activeSubPage ? (
+        {!subPage.isSubPage ? (
           <>
             {query ? (
               <SearchResults
@@ -166,7 +212,7 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
                 isLoading={isLoading}
                 error={error}
                 hasSections={sections.length > 0}
-                activeSiteId={session?.activeSiteId ?? null}
+                activeSiteId={sessionMeta.activeSiteId}
                 sites={sites ?? []}
                 query={truncate(query)}
                 onSelect={openItem}

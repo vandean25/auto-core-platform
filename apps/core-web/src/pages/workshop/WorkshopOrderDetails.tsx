@@ -9,12 +9,9 @@ import { WorkshopOrderMeasurementsSection } from "@/components/workshop/Workshop
 import { useWorkshopOrder } from "@/api/workshop";
 import type { WorkshopOrder } from "@/api/types";
 import {
-  canCheckInWorkshopOrder,
-  canGenerateWorkshopJobCardPdf,
   isWorkshopCheckInOpenStatus,
   isWorkshopOrderLockedStatus,
 } from "@/features/actions/action-role-predicates";
-import { useAuthRole } from "@/features/actions/use-auth-role";
 import { OrderTopBar, CustomerVehicleInfo } from "./components/OrderHeader";
 import { OrderAdvisorPanels } from "./components/OrderAdvisorPanels";
 import { OrderLoading, OrderNotFound } from "./components/OrderLoadStates";
@@ -43,12 +40,10 @@ export function WorkshopOrderDetails() {
 }
 
 function WorkshopOrderView({ order }: { order: WorkshopOrder }) {
-  const role = useAuthRole();
   const isLocked = isWorkshopOrderLockedStatus(order.status);
-  const checkInHref =
-    canCheckInWorkshopOrder(role) && isWorkshopCheckInOpenStatus(order.status)
-      ? APP_ROUTE_PATHS.workshopOrderCheckIn.replace(":id", order.id)
-      : null;
+  const checkInHref = isWorkshopCheckInOpenStatus(order.status)
+    ? APP_ROUTE_PATHS.workshopOrderCheckIn.replace(":id", order.id)
+    : null;
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
 
   const {
@@ -89,7 +84,7 @@ function WorkshopOrderView({ order }: { order: WorkshopOrder }) {
           bayName={tech.assignedBayName}
           catalogSearchSession={fitment.catalogSearchSession}
           oemConcernCode={fitment.oemConcernCode}
-          onPrint={canGenerateWorkshopJobCardPdf(role) ? orderActions.print : () => undefined}
+          onPrint={orderActions.print}
           checkInHref={checkInHref}
         />
 
