@@ -7,8 +7,10 @@ import { useMySites } from '@/api/sites'
 import { useGlobalSearch } from '@/hooks/useGlobalSearch'
 import { CommandDialog, CommandInput, CommandList } from '@/components/ui/command'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { GlobalSearchContextActionGroup } from './GlobalSearchContextActionGroup'
 import { QuickActionGroup } from './GlobalSearchResultGroups'
 import { PrefixHelp, RecentItemsGroup, SearchResults } from './GlobalSearchResultGroupsView'
+import { useGlobalSearchPaletteContext } from './use-global-search-palette-context'
 import { truncate } from './global-search-format'
 import { getPaletteSections } from './global-search-navigation'
 import { recentItemsKey, useRecentItems, type RecentSearchItem } from './global-search-recent'
@@ -34,9 +36,11 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
   }, [open])
 
   const query = search.trim()
+  const paletteContext = useGlobalSearchPaletteContext(open, query)
   const sections = getPaletteSections(
     session ? { platformRole: session.platformRole ?? null, activeRole: session.activeRole } : null,
     query,
+    paletteContext.intakePrefill,
   )
 
   const openHref = (href: string) => {
@@ -51,6 +55,12 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
   const openItem = (item: RecentSearchItem) => {
     recent.add(item)
     openHref(item.href)
+  }
+
+  const runContextAction = (action: { onSelect: () => void }) => {
+    setSearch('')
+    onOpenChange(false)
+    action.onSelect()
   }
 
   return (
@@ -80,6 +90,13 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
           newTabRef.current = event.metaKey || event.ctrlKey
         }}
       >
+        {paletteContext.contextSection ? (
+          <GlobalSearchContextActionGroup
+            section={paletteContext.contextSection}
+            onSelect={runContextAction}
+          />
+        ) : null}
+
         {query ? (
           <SearchResults
             groups={groups}

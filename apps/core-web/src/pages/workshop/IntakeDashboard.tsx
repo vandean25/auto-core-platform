@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useIntakeDashboardPrefill } from './use-intake-dashboard-prefill'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -21,6 +22,8 @@ export function IntakeDashboard() {
   const { data, isLoading } = useWorkshopSearch(debouncedSearch)
   const [isRegisterOpen, setIsRegisterOpen] = useState(false)
   const [selectedVehicle, setSelectedVehicle] = useState<{ id: string, description: string, customerId: string } | null>(null)
+
+  useIntakeDashboardPrefill({ search, selectedVehicle, setSearch, setSelectedVehicle })
 
   return (
     <div className="space-y-6">

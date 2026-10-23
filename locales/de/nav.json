@@ -95,9 +95,19 @@
       "invoice": "Rechnungen",
       "part": "Teile"
     },
+    "contextActions": {
+      "heading": "Aktueller Datensatz",
+      "customer": "Aktionen für diesen Kunden",
+      "vehicle": "Aktionen für {{vehicle}}",
+      "workOrder": "Aktionen für {{orderNo}}"
+    },
     "quickActions": {
       "navigate": "Navigation",
       "create": "Anlegen",
+      "createWorkOrder": {
+        "label": "Werkstattauftrag anlegen",
+        "description": "Annahme mit vorausgefülltem Datensatz öffnen."
+      },
       "createSalesOrder": {
         "label": "Kundenauftrag anlegen",
         "description": "Neuen Kundenauftrag erfassen."

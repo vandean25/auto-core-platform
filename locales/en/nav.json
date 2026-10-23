@@ -95,9 +95,19 @@
       "invoice": "Invoices",
       "part": "Parts"
     },
+    "contextActions": {
+      "heading": "Current record",
+      "customer": "Actions for this customer",
+      "vehicle": "Actions for {{vehicle}}",
+      "workOrder": "Actions for {{orderNo}}"
+    },
     "quickActions": {
       "navigate": "Navigate",
       "create": "Create",
+      "createWorkOrder": {
+        "label": "Create workshop order",
+        "description": "Open intake with this record prefilled."
+      },
       "createSalesOrder": {
         "label": "Create Sales Order",
         "description": "Capture a new customer order."

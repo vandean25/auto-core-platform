@@ -5,6 +5,7 @@ import { getVisibleTabs, type SettingsTab } from '@/pages/settings-page-tabs'
 import { filterQuickActionSections, type QuickActionSection } from './global-search-quick-actions'
 import { getGlobalSearchQuickActionSections } from './global-search-quick-actions-data'
 import { parseSearchInput } from './global-search-types'
+import type { WorkshopIntakePrefill } from './workshop-intake-prefill'
 import type settings from '../../../../../locales/de/settings.json'
 
 // The same tab labels the settings page shows.
@@ -66,10 +67,17 @@ export function getSettingsSection(context: NavAccessContext, navigation: QuickA
  * Everything the palette offers besides search results, narrowed to the query. Settings tabs only
  * show once the user types, and a prefix filter (`k:`, `fz:` ...) asks for entities only.
  */
-export function getPaletteSections(context: NavAccessContext | null, query: string): QuickActionSection[] {
+export function getPaletteSections(
+  context: NavAccessContext | null,
+  query: string,
+  intakePrefill?: WorkshopIntakePrefill | null,
+): QuickActionSection[] {
   if (!context || parseSearchInput(query).types) return []
 
   const navigation = getNavigationSection(context)
   const settings = query ? [getSettingsSection(context, navigation)] : []
-  return filterQuickActionSections([navigation, ...settings, ...getGlobalSearchQuickActionSections()], query)
+  return filterQuickActionSections(
+    [navigation, ...settings, ...getGlobalSearchQuickActionSections(intakePrefill)],
+    query,
+  )
 }
