@@ -117,4 +117,45 @@ describe('withCronJobLock in-process guard', () => {
     await Promise.all([first, second]);
     expect(connect).toHaveBeenCalledTimes(1);
   });
+
+  it('clears the in-process reservation when getCronJobLockPool throws', async () => {
+    const { connect, pool } = mockLockPool();
+    mockGetCronJobLockPool
+      .mockImplementationOnce(() => {
+        throw new Error('DATABASE_URL is required');
+      })
+      .mockReturnValue(pool);
+
+    await expect(
+      withCronJobLock('pool-throw-test', async () => {}),
+    ).rejects.toThrow('DATABASE_URL is required');
+
+    await withCronJobLock('pool-throw-test', async () => {});
+    expect(connect).toHaveBeenCalledTimes(1);
+  });
+
+  it('releases the client and clears the reservation when pg_advisory_unlock throws', async () => {
+    const release = jest.fn();
+    const query = jest.fn(async (sql: string) => {
+      if (sql.includes('pg_try_advisory_lock')) {
+        return { rows: [{ acquired: true }] };
+      }
+      if (sql.includes('pg_advisory_unlock')) {
+        throw new Error('unlock failed');
+      }
+      return { rows: [] };
+    });
+    const client = { query, release } as unknown as PoolClient;
+    const connect = jest
+      .fn<() => Promise<PoolClient>>()
+      .mockResolvedValue(client);
+    mockGetCronJobLockPool.mockReturnValue({ connect } as unknown as Pool);
+
+    await withCronJobLock('unlock-throw-test', async () => {});
+
+    expect(release).toHaveBeenCalledWith(expect.any(Error));
+
+    await withCronJobLock('unlock-throw-test', async () => {});
+    expect(connect).toHaveBeenCalledTimes(2);
+  });
 });
