@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { ScheduleModule } from '@nestjs/schedule';
 import { CommonModule } from '../common/index.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
@@ -23,7 +22,6 @@ import { RateLimitStore } from './rate-limit/rate-limit.store.js';
   imports: [
     PrismaModule,
     CommonModule,
-    ScheduleModule.forRoot(),
     VoiceTranslationModule,
     VehicleStockModule,
     NotificationsModule,

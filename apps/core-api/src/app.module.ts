@@ -7,6 +7,7 @@ import {
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { TenantContextMiddleware } from './common/services/tenant-context.middleware.js';
@@ -79,6 +80,7 @@ import { SearchModule } from './search/search.module.js';
     AppObservabilityModule.register(),
     forwardRef(() => PrismaModule),
     EventEmitterModule.forRoot(),
+    ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([
       AUTH_THROTTLER_OPTIONS,
       ESTIMATE_APPROVAL_THROTTLER_OPTIONS,
