@@ -14,19 +14,22 @@ export type IntakeSelectedVehicle = {
 
 type UseIntakeDashboardPrefillArgs = {
   search: string
+  selectedVehicle: IntakeSelectedVehicle | null
   setSearch: (value: string) => void
   setSelectedVehicle: (value: IntakeSelectedVehicle | null) => void
 }
 
 export function useIntakeDashboardPrefill({
   search,
+  selectedVehicle,
   setSearch,
   setSelectedVehicle,
 }: UseIntakeDashboardPrefillArgs) {
   const appliedRef = useRef<string | null>(null)
   const prefill = readWorkshopIntakePrefillFromSearch(window.location.search)
   const vehicleQuery = useVehicle(prefill.vehicleId ?? '')
-  const customerQuery = useCustomer<CustomerDetailResponse>(prefill.customerId ?? '')
+  const customerIdForQuery = prefill.vehicleId ? '' : (prefill.customerId ?? '')
+  const customerQuery = useCustomer<CustomerDetailResponse>(customerIdForQuery)
 
   useEffect(() => {
     const key = `${prefill.vehicleId ?? ''}:${prefill.customerId ?? ''}`
@@ -36,19 +39,23 @@ export function useIntakeDashboardPrefill({
     }
     if (appliedRef.current === key) return
 
-    const applied = applyIntakeDashboardPrefill({
+    const result = applyIntakeDashboardPrefill({
       prefill,
       vehicle: vehicleQuery.data,
       customer: customerQuery.data,
       search,
+      selectedVehicle,
       setSearch,
       setSelectedVehicle,
     })
-    if (applied) appliedRef.current = key
+    if (result === 'applied' || result === 'skipped') {
+      appliedRef.current = key
+    }
   }, [
     customerQuery.data,
     prefill,
     search,
+    selectedVehicle,
     setSearch,
     setSelectedVehicle,
     vehicleQuery.data,

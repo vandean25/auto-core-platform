@@ -23,7 +23,7 @@ export function IntakeDashboard() {
   const [isRegisterOpen, setIsRegisterOpen] = useState(false)
   const [selectedVehicle, setSelectedVehicle] = useState<{ id: string, description: string, customerId: string } | null>(null)
 
-  useIntakeDashboardPrefill({ search, setSearch, setSelectedVehicle })
+  useIntakeDashboardPrefill({ search, selectedVehicle, setSearch, setSelectedVehicle })
 
   return (
     <div className="space-y-6">

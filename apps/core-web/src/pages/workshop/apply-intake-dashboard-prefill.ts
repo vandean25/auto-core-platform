@@ -4,11 +4,14 @@ import { getCustomerDisplayName } from '@/pages/customers/customer-detail-model'
 import type { WorkshopIntakePrefill } from '@/components/global-search/workshop-intake-prefill'
 import type { IntakeSelectedVehicle } from './use-intake-dashboard-prefill'
 
+export type ApplyIntakeDashboardPrefillResult = 'applied' | 'skipped' | 'pending'
+
 export function applyIntakeDashboardPrefill({
   prefill,
   vehicle,
   customer,
   search,
+  selectedVehicle,
   setSearch,
   setSelectedVehicle,
 }: {
@@ -16,18 +19,25 @@ export function applyIntakeDashboardPrefill({
   vehicle: Vehicle | undefined
   customer: CustomerDetailResponse | undefined
   search: string
+  selectedVehicle: IntakeSelectedVehicle | null
   setSearch: (value: string) => void
   setSelectedVehicle: (value: IntakeSelectedVehicle | null) => void
-}): boolean {
+}): ApplyIntakeDashboardPrefillResult {
+  if (!prefill.vehicleId && !prefill.customerId) return 'pending'
+
+  if (search.trim() || selectedVehicle) {
+    return 'skipped'
+  }
+
   if (prefill.vehicleId && vehicle) {
     const customerId = vehicle.customer?.id
-    if (!customerId) return false
+    if (!customerId) return 'pending'
     setSelectedVehicle({
       id: vehicle.id,
       description: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
       customerId,
     })
-    return true
+    return 'applied'
   }
 
   if (!prefill.vehicleId && prefill.customerId && customer) {
@@ -39,15 +49,13 @@ export function applyIntakeDashboardPrefill({
         description: `${onlyVehicle.make} ${onlyVehicle.model}`,
         customerId: customer.id,
       })
-      return true
+      return 'applied'
     }
 
-    if (search.trim().length === 0) {
-      const label = getCustomerDisplayName(customer)
-      if (label) setSearch(label)
-      return true
-    }
+    const label = getCustomerDisplayName(customer)
+    if (label) setSearch(label)
+    return 'applied'
   }
 
-  return false
+  return 'pending'
 }
