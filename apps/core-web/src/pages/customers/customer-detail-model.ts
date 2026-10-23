@@ -51,6 +51,7 @@ export type CustomerVehicleRow = {
 export function buildCustomerVehicleRows(customer: CustomerDetailResponse): CustomerVehicleRow[] {
   const vehicles = customer.vehicles ?? []
   const parties = customer.vehicle_parties ?? []
+  // The party DTO has no VIN. It is shown only for vehicles still linked to this customer.
   const vinById = new Map(vehicles.map((vehicle) => [vehicle.id, vehicle.vin ?? null]))
   const partyVehicleIds = new Set(parties.map((party) => party.vehicle_id))
   const partyRows: CustomerVehicleRow[] = parties.map((party) => ({

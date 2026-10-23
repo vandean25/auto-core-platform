@@ -305,7 +305,8 @@
       "save": "Hinzufügen",
       "cancel": "Abbrechen",
       "customerRequired": "Bitte wählen Sie einen Kunden."
-    }
+    },
+    "validRange": "{{from}} – {{to}}"
   },
   "openDueDates": {
     "title": "Offene Fälligkeiten",

@@ -12,6 +12,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { getErrorMessage } from '@/lib/error-utils'
 import { VEHICLE_PARTY_ROLES, formatVehiclePartyRole, type VehiclePartyRole } from './vehicle-party-model'
 
+/** PREVIOUS_OWNER needs an end date, which this form does not collect, so it is not offered here. */
+const ADDABLE_ROLES = VEHICLE_PARTY_ROLES.filter((option) => option !== 'PREVIOUS_OWNER')
+
 type AddVehiclePartyDialogProps = {
   vehicleId: string
   open: boolean
@@ -27,6 +30,7 @@ export function AddVehiclePartyDialog({ vehicleId, open, onOpenChange }: AddVehi
   const [error, setError] = useState<string | null>(null)
 
   const close = () => {
+    setRole('DRIVER')
     setCustomer(null)
     setValidFrom('')
     setError(null)
@@ -67,7 +71,7 @@ export function AddVehiclePartyDialog({ vehicleId, open, onOpenChange }: AddVehi
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {VEHICLE_PARTY_ROLES.map((option) => (
+                {ADDABLE_ROLES.map((option) => (
                   <SelectItem key={option} value={option}>
                     {formatVehiclePartyRole(option)}
                   </SelectItem>

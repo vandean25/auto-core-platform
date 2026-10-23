@@ -305,7 +305,8 @@
       "save": "Add",
       "cancel": "Cancel",
       "customerRequired": "Please select a customer."
-    }
+    },
+    "validRange": "{{from}} – {{to}}"
   },
   "openDueDates": {
     "title": "Open due dates",

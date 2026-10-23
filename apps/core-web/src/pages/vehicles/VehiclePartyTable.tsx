@@ -45,7 +45,10 @@ export function VehiclePartyTable({ parties, emptyText, onEnd, endingPartyId }: 
                 </Link>
               </TableCell>
               <TableCell>
-                {formatIsoDateOnly(party.valid_from)} – {party.valid_to ? formatIsoDateOnly(party.valid_to) : t('parties.validOpen')}
+                {t('parties.validRange', {
+                  from: formatIsoDateOnly(party.valid_from),
+                  to: party.valid_to ? formatIsoDateOnly(party.valid_to) : t('parties.validOpen'),
+                })}
               </TableCell>
               {showActions ? (
                 <TableCell className='text-right'>
