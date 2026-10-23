@@ -233,7 +233,10 @@ export function DataTableBodyRow<TData extends object>({
       data-row-id={rowId}
       data-state={row.getIsSelected() && 'selected'}
       onClick={(event) => handleRowClick(event, data, rowData, onRowClick)}
-      onPointerEnter={() => rowBehaviour?.onRowPrefetch?.(rowData)}
+      onPointerEnter={(event) => {
+        if (event.pointerType === 'touch') return
+        rowBehaviour?.onRowPrefetch?.(rowData)
+      }}
       onFocus={(event) => {
         if (event.target === event.currentTarget) {
           onRowFocus()

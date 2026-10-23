@@ -347,7 +347,11 @@
       "actions": {
         "open": "Auftrag öffnen",
         "checkIn": "Fahrzeugannahme",
-        "jobCardPdf": "Werkstattkarte als PDF"
+        "jobCardPdf": "Werkstattkarte als PDF",
+        "assignMechanic": "Mechaniker zuweisen",
+        "taskState": "Aufgabenstatus",
+        "taskDone": "Erledigt",
+        "taskReopen": "Wieder öffnen"
       },
       "columns": {
         "orderNo": "Auftragsnr.",
@@ -1441,8 +1445,8 @@
     "loadFailed": "Der Kostenvoranschlag konnte nicht geladen werden. Bitte versuchen Sie es später erneut.",
     "errors": {
       "404": "Dieser Link ist nicht gültig.",
-      "410": "Dieser Link ist abgelaufen oder wurde bereits verwendet.",
       "409": "Dieser Kostenvoranschlag kann nicht mehr angenommen oder abgelehnt werden.",
+      "410": "Dieser Link ist abgelaufen oder wurde bereits verwendet.",
       "429": "Zu viele Anfragen. Bitte versuchen Sie es später erneut."
     },
     "workshop": "Werkstatt",

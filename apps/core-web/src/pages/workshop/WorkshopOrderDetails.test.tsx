@@ -1470,6 +1470,10 @@ describe("WorkshopOrderDetails Characterization", () => {
       renderComponent();
 
       const printButtons = screen.getAllByText("Jobkarte drucken");
+      expect(printButtons[0]?.closest("button")).toHaveAttribute(
+        "data-action-id",
+        "workOrder.jobCardPdf",
+      );
       fireEvent.click(printButtons[0]);
 
       await waitFor(() => {

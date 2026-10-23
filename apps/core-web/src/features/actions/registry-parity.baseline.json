@@ -200,7 +200,6 @@
   "pages/workshop/components/CheckoutSummary.tsx::Button::onIssueInvoice",
   "pages/workshop/components/CheckoutSummary.tsx::Button::onReopenTask(task.id)",
   "pages/workshop/components/CheckoutSummary.tsx::Button::onToggleGroup(task.id)",
-  "pages/workshop/components/OrderHeader.tsx::Button::onPrint",
   "pages/workshop/components/OrderLoadStates.tsx::Button::navigate('/workshop/orders')",
   "pages/workshop/components/TaskList.tsx::Button::onAddTask",
   "pages/workshop/components/TaskList.tsx::Button::onOpenFitmentSearch(task.id)",

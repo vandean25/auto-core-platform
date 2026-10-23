@@ -14,6 +14,8 @@ export function workshopOrderToListRow(order: WorkshopOrder): WorkshopOrderListR
     vehicle: `${order.vehicle.year} ${order.vehicle.make} ${order.vehicle.model}`,
     openedAt: formatDate(order.createdAt),
     status: order.status,
+    mechanicId: order.mechanicId ?? order.mechanic_id ?? null,
+    tasks: order.tasks,
   }
 }
 

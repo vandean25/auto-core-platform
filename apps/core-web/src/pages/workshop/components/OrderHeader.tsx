@@ -1,6 +1,9 @@
-import { Link } from 'react-router-dom'
+import { useMemo } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Phone, Clock, Key, MapPin, User, Printer } from 'lucide-react'
+import { Phone, Clock, Key, MapPin, User } from 'lucide-react'
+import { useAuthSession } from '@/api/auth-session'
+import { useGenerateWorkshopPdf } from '@/api/workshop'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { formatDateShort, formatOdometerKm } from '@/lib/format'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
@@ -15,6 +18,10 @@ import {
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { CatalogSourceBanner } from '@/components/workshop/CatalogSourceBanner'
 import type { CatalogProviderOemConcern, WorkshopOrder } from '@/api/types'
+import { isWorkshopTechAssignableStatus } from '@/features/actions/action-role-predicates'
+import { RegistryActionButton } from '@/features/actions/RegistryActionButton'
+import { createWorkshopOrderJobCardPdfAction } from '@/features/actions/work-order-row-actions'
+import { workshopOrderToListRow } from '@/features/peek/WorkshopOrderPeekContent'
 import type { CatalogSearchSession } from '@/features/workshop/catalog-source-copy'
 
 type WorkshopMechanicOption = {
@@ -38,13 +45,84 @@ function getVehicleLabel(order: WorkshopOrder) {
   return `${order.vehicle.year} ${order.vehicle.make} ${order.vehicle.model}`
 }
 
+function OrderTopBarBadges({
+  order,
+  catalogSearchSession,
+  oemConcernCode,
+}: {
+  order: WorkshopOrder
+  catalogSearchSession?: CatalogSearchSession
+  oemConcernCode?: CatalogProviderOemConcern['code'] | null
+}) {
+  const { t } = useTranslation('workshop')
+  const loaner = order.loanerBooking
+  const hasCatalogBanners = Boolean(catalogSearchSession?.parts || catalogSearchSession?.labor)
+
+  return (
+    <>
+      {loaner ? (
+        <Link
+          to={`${APP_ROUTE_PATHS.workshopLoanerVehicles}?vehicle=${loaner.loanerVehicleId}`}
+          className='inline-flex items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-800 hover:bg-sky-100'
+        >
+          <span>
+            {t('orderHeader.loanerUntil', {
+              label: loaner.vehiclePlate ?? loaner.displayName,
+              date: formatDateShort(loaner.plannedTo),
+            })}
+          </span>
+          <StatusBadge status={loaner.status} />
+        </Link>
+      ) : null}
+      {hasCatalogBanners ? (
+        <div className='flex flex-wrap gap-2 pt-1'>
+          {catalogSearchSession?.parts ? (
+            <CatalogSourceBanner
+              metadata={catalogSearchSession.parts}
+              oemConcernCode={oemConcernCode}
+              compact
+            />
+          ) : null}
+          {catalogSearchSession?.labor ? (
+            <CatalogSourceBanner
+              metadata={catalogSearchSession.labor}
+              oemConcernCode={oemConcernCode}
+              compact
+            />
+          ) : null}
+        </div>
+      ) : null}
+    </>
+  )
+}
+
+function OrderJobCardPdfButton({ order }: { order: WorkshopOrder }) {
+  const { t } = useTranslation('workshop')
+  const navigate = useNavigate()
+  const generatePdf = useGenerateWorkshopPdf()
+  const role = useAuthSession()?.data?.activeRole
+  const jobCardPdfAction = useMemo(() => createWorkshopOrderJobCardPdfAction(t), [t])
+  const listRow = useMemo(() => workshopOrderToListRow(order), [order])
+  const runContext = useMemo(() => ({ navigate, generatePdf, t }), [generatePdf, navigate, t])
+
+  return (
+    <RegistryActionButton
+      action={jobCardPdfAction}
+      record={listRow}
+      runContext={runContext}
+      role={role}
+      label={t('orderHeader.printJobCard')}
+      className="min-h-11"
+    />
+  )
+}
+
 export interface OrderTopBarProps {
   order: WorkshopOrder
   assignedTechName?: string | null
   bayName?: string | null
   catalogSearchSession?: CatalogSearchSession
   oemConcernCode?: CatalogProviderOemConcern['code'] | null
-  onPrint: () => void
   checkInHref?: string | null
 }
 
@@ -54,7 +132,6 @@ export function OrderTopBar({
   bayName,
   catalogSearchSession,
   oemConcernCode,
-  onPrint,
   checkInHref,
 }: OrderTopBarProps) {
   const { t } = useTranslation('workshop')
@@ -84,38 +161,11 @@ export function OrderTopBar({
                   bay: bayName ?? unassigned,
                 })}
               </p>
-              {order.loanerBooking ? (
-                <Link
-                  to={`${APP_ROUTE_PATHS.workshopLoanerVehicles}?vehicle=${order.loanerBooking.loanerVehicleId}`}
-                  className='inline-flex items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-800 hover:bg-sky-100'
-                >
-                  <span>
-                    {t('orderHeader.loanerUntil', {
-                      label: order.loanerBooking.vehiclePlate ?? order.loanerBooking.displayName,
-                      date: formatDateShort(order.loanerBooking.plannedTo),
-                    })}
-                  </span>
-                  <StatusBadge status={order.loanerBooking.status} />
-                </Link>
-              ) : null}
-              {(catalogSearchSession?.parts || catalogSearchSession?.labor) && (
-                <div className='flex flex-wrap gap-2 pt-1'>
-                  {catalogSearchSession.parts && (
-                    <CatalogSourceBanner
-                      metadata={catalogSearchSession.parts}
-                      oemConcernCode={oemConcernCode}
-                      compact
-                    />
-                  )}
-                  {catalogSearchSession.labor && (
-                    <CatalogSourceBanner
-                      metadata={catalogSearchSession.labor}
-                      oemConcernCode={oemConcernCode}
-                      compact
-                    />
-                  )}
-                </div>
-              )}
+              <OrderTopBarBadges
+                order={order}
+                catalogSearchSession={catalogSearchSession}
+                oemConcernCode={oemConcernCode}
+              />
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -126,15 +176,66 @@ export function OrderTopBar({
                   </Link>
                 </Button>
               ) : null}
-              <Button variant='outline' className="min-h-11" onClick={onPrint}>
-                <Printer className='h-4 w-4 mr-2' />
-                {t('orderHeader.printJobCard')}
-              </Button>
+              <OrderJobCardPdfButton order={order} />
             </div>
           </div>
         </CardContent>
       </Card>
     </header>
+  )
+}
+
+function AssignedTechField({
+  assignedTechName,
+  assignedTechId,
+  mechanics,
+  disabled,
+  unassignedLabel,
+  ariaLabel,
+  onAssignedTechChange,
+}: {
+  assignedTechName?: string | null
+  assignedTechId?: string | null
+  mechanics: WorkshopMechanicOption[]
+  disabled: boolean
+  unassignedLabel: string
+  ariaLabel: string
+  onAssignedTechChange?: (mechanicId: string | null) => void
+}) {
+  if (!onAssignedTechChange) {
+    return (
+      <div className='font-medium flex items-center'>
+        <User className='w-4 h-4 mr-1.5 text-slate-500' />
+        {assignedTechName ?? unassignedLabel}
+      </div>
+    )
+  }
+
+  return (
+    <Select
+      value={assignedTechId ?? 'unassigned'}
+      onValueChange={(value) => onAssignedTechChange(value === 'unassigned' ? null : value)}
+      disabled={disabled}
+    >
+      <SelectTrigger
+        className='h-9 font-medium'
+        data-testid='assigned-tech-select'
+        aria-label={ariaLabel}
+      >
+        <div className='flex items-center'>
+          <User className='w-4 h-4 mr-1.5 text-slate-500' />
+          <SelectValue placeholder={unassignedLabel} />
+        </div>
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value='unassigned'>{unassignedLabel}</SelectItem>
+        {mechanics.map((mechanic) => (
+          <SelectItem key={mechanic.id} value={mechanic.id}>
+            {mechanic.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 }
 
@@ -144,7 +245,7 @@ export function CustomerVehicleInfo({
   assignedTechId,
   mechanics = [],
   bayName,
-  canAssignTech = false,
+  canAssignTech = true,
   isAssigningTech = false,
   onAssignedTechChange,
 }: {
@@ -158,6 +259,7 @@ export function CustomerVehicleInfo({
   onAssignedTechChange?: (mechanicId: string | null) => void
 }) {
   const { t } = useTranslation('workshop')
+  const canAssign = canAssignTech && isWorkshopTechAssignableStatus(order.status)
   const customerName = getCustomerName(order, t('orderHeader.dealerStock'))
   const customerPhone = order.customer?.phone ?? ''
   const unassigned = t('orderHeader.unassigned')
@@ -174,39 +276,15 @@ export function CustomerVehicleInfo({
           <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
             <div>
               <div className='text-muted-foreground mb-1'>{t('orderHeader.assignedTech')}</div>
-              {onAssignedTechChange ? (
-                <Select
-                  value={assignedTechId ?? 'unassigned'}
-                  onValueChange={(value) =>
-                    onAssignedTechChange(value === 'unassigned' ? null : value)
-                  }
-                  disabled={!canAssignTech || isAssigningTech}
-                >
-                  <SelectTrigger
-                    className='h-9 font-medium'
-                    data-testid='assigned-tech-select'
-                    aria-label={t('orderHeader.assignedTech')}
-                  >
-                    <div className='flex items-center'>
-                      <User className='w-4 h-4 mr-1.5 text-slate-500' />
-                      <SelectValue placeholder={unassigned} />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value='unassigned'>{unassigned}</SelectItem>
-                    {mechanics.map((mechanic) => (
-                      <SelectItem key={mechanic.id} value={mechanic.id}>
-                        {mechanic.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <div className='font-medium flex items-center'>
-                  <User className='w-4 h-4 mr-1.5 text-slate-500' />
-                  {assignedTechName ?? unassigned}
-                </div>
-              )}
+              <AssignedTechField
+                assignedTechName={assignedTechName}
+                assignedTechId={assignedTechId}
+                mechanics={mechanics}
+                disabled={!canAssign || isAssigningTech}
+                unassignedLabel={unassigned}
+                ariaLabel={t('orderHeader.assignedTech')}
+                onAssignedTechChange={onAssignedTechChange}
+              />
             </div>
             <div>
               <div className='text-muted-foreground mb-1'>{t('orderHeader.bayLocation')}</div>
