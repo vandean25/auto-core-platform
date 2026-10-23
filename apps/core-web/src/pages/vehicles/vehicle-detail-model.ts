@@ -50,6 +50,7 @@ export type VehicleDetailResponse = Vehicle & {
   workshop_orders?: VehicleWorkshopOrderSummary[]
   invoices?: VehicleInvoiceSummary[]
   pickerl_due?: components['schemas']['PickerlDueDto']
+  open_due_dates?: components['schemas']['VehicleOpenDueDateDto'][]
   sales?: VehicleSale[]
 }
 

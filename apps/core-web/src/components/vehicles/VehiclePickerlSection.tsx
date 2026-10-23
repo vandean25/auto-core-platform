@@ -23,6 +23,12 @@ import { WorkshopOrderIntakeDialog } from '@/components/workshop/WorkshopOrderIn
 
 type PickerlDue = components['schemas']['PickerlDueDto']
 
+/** Imported records are evidence: the record table offers no edit or delete for them. */
+const SOURCE_LABEL_KEYS = {
+  EBV_IMPORTED: 'pickerlSection.sourceEbv',
+  LEGACY_IMPORT: 'pickerlSection.sourceLegacy',
+} as const
+
 type VehiclePickerlSectionProps = {
   vehicleId: string
   pickerlDue?: PickerlDue | null
@@ -158,9 +164,7 @@ export function VehiclePickerlSection({
                   {record.plaketten_valid_until_year}
                 </TableCell>
                 <TableCell>
-                  {record.source === 'EBV_IMPORTED'
-                    ? t('pickerlSection.sourceEbv')
-                    : t('pickerlSection.sourceManual')}
+                  {t(SOURCE_LABEL_KEYS[record.source as keyof typeof SOURCE_LABEL_KEYS] ?? 'pickerlSection.sourceManual')}
                 </TableCell>
                 <TableCell>{record.station_name ?? emDash}</TableCell>
               </TableRow>

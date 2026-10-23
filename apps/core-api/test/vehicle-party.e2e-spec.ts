@@ -268,6 +268,7 @@ describe('Vehicle parties (e2e)', () => {
         .post(`/api/vehicles/${vehicle.id}/parties`)
         .send({ customer_id: bob.id, role: 'OWNER' })
         .expect(409);
+      expect(conflict.body.code).toBe('VEHICLE_PARTY_OVERLAP');
       expect(conflict.body.message).toContain('overlaps');
 
       const adjacent = await api(tenantA)
@@ -290,6 +291,7 @@ describe('Vehicle parties (e2e)', () => {
         .post(`/api/vehicles/${vehicle.id}/parties`)
         .send({ customer_id: alice.id, role: 'PREVIOUS_OWNER' })
         .expect(422);
+      expect(missingEnd.body.code).toBe('VEHICLE_PARTY_PREVIOUS_OWNER_END_REQUIRED');
       expect(missingEnd.body.message).toContain('PREVIOUS_OWNER requires valid_to');
 
       const future = await api(tenantA)
@@ -300,6 +302,7 @@ describe('Vehicle parties (e2e)', () => {
           valid_from: '2999-01-01',
         })
         .expect(422);
+      expect(future.body.code).toBe('VEHICLE_PARTY_FUTURE_START_UNSUPPORTED');
       expect(future.body.message).toContain('future valid_from');
     });
 

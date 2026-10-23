@@ -151,8 +151,8 @@ export function useDeleteCustomer() {
                 method: 'DELETE',
             })
             if (!response.ok) {
-                const error = await response.json().catch(() => ({ message: 'Failed to delete customer' }))
-                throw new Error(error.message || 'Failed to delete customer')
+                const payload = (await response.json().catch(() => ({}))) as { message?: string }
+                throw Object.assign(new Error(payload.message || 'Failed to delete customer'), { data: payload })
             }
             return response.json()
         },

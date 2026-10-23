@@ -15,12 +15,19 @@ export type PartyRuleViolation = {
   field?: string;
 };
 
-export const VEHICLE_PARTY_RULE_CODES = {
+/** Stable wire codes of the party endpoints; the web app maps each to DE/EN copy. */
+export const VEHICLE_PARTY_ERROR_CODES = {
   INTERVAL_INVALID: 'VEHICLE_PARTY_INTERVAL_INVALID',
   PREVIOUS_OWNER_END_REQUIRED: 'VEHICLE_PARTY_PREVIOUS_OWNER_END_REQUIRED',
   FUTURE_START_UNSUPPORTED: 'VEHICLE_PARTY_FUTURE_START_UNSUPPORTED',
   OVERLAP: 'VEHICLE_PARTY_OVERLAP',
+  ALREADY_ENDED: 'VEHICLE_PARTY_ALREADY_ENDED',
+  OWNER_IMPORTED_TODAY: 'VEHICLE_PARTY_OWNER_IMPORTED_TODAY',
+  WRITE_FORBIDDEN: 'VEHICLE_PARTY_WRITE_FORBIDDEN',
 } as const;
+
+/** Same codes under the name the import uses for its row labels. */
+export const VEHICLE_PARTY_RULE_CODES = VEHICLE_PARTY_ERROR_CODES;
 
 /** At most one of these is active per vehicle at any date. */
 export const SINGLETON_PARTY_ROLES: readonly VehiclePartyRole[] = [

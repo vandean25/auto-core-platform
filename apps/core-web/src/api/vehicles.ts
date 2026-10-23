@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { QueryClient } from '@tanstack/react-query'
 import type { Vehicle } from './types'
 import { fetchWithAuth } from './client'
+import { customerKeys } from './customers'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 import { buildDataTableUrl } from './data-table-query'
 import type { components } from './generated/openapi'
@@ -9,6 +11,10 @@ export type OpenPickerlWorkshopOrder = components['schemas']['OpenPickerlOrderDt
 
 type CreateVehicleDto = components['schemas']['CreateVehicleDto']
 type UpdateVehicleDto = components['schemas']['UpdateVehicleDto']
+type VehiclePartiesResponse = components['schemas']['VehiclePartiesResponseDto']
+export type VehiclePartyResponse = components['schemas']['VehiclePartyResponseDto']
+export type VehicleOpenDueDate = components['schemas']['VehicleOpenDueDateDto']
+type CreateVehiclePartyDto = components['schemas']['CreateVehiclePartyDto']
 
 type VehicleListResponse = {
   data: Array<
@@ -37,6 +43,66 @@ export const vehicleKeys = {
   pickerlDue: (filters: string) => [...vehicleKeys.all, 'pickerlDue', { filters }] as const,
   pickerlDueAll: () => [...vehicleKeys.all, 'pickerlDue'] as const,
   openPickerlOrder: (vehicleId: string) => [...vehicleKeys.all, vehicleId, 'openPickerlOrder'] as const,
+  parties: (vehicleId: string) => [...vehicleKeys.all, vehicleId, 'parties'] as const,
+}
+
+/** Party writes and vehicle customer changes move the main contact and the customer's vehicle list. */
+function invalidatePartyDependents(queryClient: QueryClient) {
+  queryClient.invalidateQueries({ queryKey: vehicleKeys.all })
+  queryClient.invalidateQueries({ queryKey: customerKeys.all })
+}
+
+async function requestVehicleParty<T>(url: string, init: RequestInit, fallback: string): Promise<T> {
+  const response = await fetchWithAuth(url, {
+    ...init,
+    headers: init.body ? { 'Content-Type': 'application/json' } : undefined,
+  })
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => ({}))) as { message?: string }
+    throw Object.assign(new Error(payload.message || fallback), { status: response.status, data: payload })
+  }
+  return response.json() as Promise<T>
+}
+
+export function useVehicleParties(vehicleId: string) {
+  return useQuery<VehiclePartiesResponse>({
+    queryKey: vehicleKeys.parties(vehicleId),
+    queryFn: () =>
+      requestVehicleParty<VehiclePartiesResponse>(
+        `/api/vehicles/${encodeURIComponent(vehicleId)}/parties`,
+        {},
+        'Failed to fetch vehicle parties',
+      ),
+    enabled: Boolean(vehicleId),
+  })
+}
+
+export function useAddVehicleParty(vehicleId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (data: CreateVehiclePartyDto) =>
+      requestVehicleParty<VehiclePartyResponse>(
+        `/api/vehicles/${encodeURIComponent(vehicleId)}/parties`,
+        { method: 'POST', body: JSON.stringify(data) },
+        'Failed to add vehicle party',
+      ),
+    onSuccess: () => invalidatePartyDependents(queryClient),
+  })
+}
+
+export function useEndVehicleParty(vehicleId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (partyId: string) =>
+      requestVehicleParty<VehiclePartyResponse>(
+        `/api/vehicles/${encodeURIComponent(vehicleId)}/parties/${encodeURIComponent(partyId)}`,
+        { method: 'PATCH', body: JSON.stringify({}) },
+        'Failed to end vehicle party',
+      ),
+    onSuccess: () => invalidatePartyDependents(queryClient),
+  })
 }
 
 export function useOpenPickerlWorkshopOrder(vehicleId: string) {
@@ -149,7 +215,7 @@ export function useUpdateVehicle() {
       return response.json()
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: vehicleKeys.all })
+      invalidatePartyDependents(queryClient)
     },
   })
 }

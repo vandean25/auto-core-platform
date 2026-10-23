@@ -18,7 +18,10 @@ import {
   type PartyRowWithCustomer,
 } from './vehicle-party-response.mapper.js';
 import { PARTY_CUSTOMER_SUMMARY } from './vehicle-persistence.service.js';
-import { suggestBillTo } from './vehicle-party.rules.js';
+import {
+  VEHICLE_PARTY_ERROR_CODES,
+  suggestBillTo,
+} from './vehicle-party.rules.js';
 import {
   addPartyInTx,
   endPartyInTx,
@@ -76,9 +79,10 @@ export class VehiclePartyService {
   private assertWriteAccess(): void {
     const user = this.tenantContext.getAuthenticatedUser();
     if (!user?.role || !PARTY_WRITE_ROLES.has(user.role)) {
-      throw new ForbiddenException(
-        'Only OWNER, ADMIN, or SALES may modify vehicle parties.',
-      );
+      throw new ForbiddenException({
+        code: VEHICLE_PARTY_ERROR_CODES.WRITE_FORBIDDEN,
+        message: 'Only OWNER, ADMIN, or SALES may modify vehicle parties.',
+      });
     }
   }
 

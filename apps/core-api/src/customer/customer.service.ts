@@ -19,6 +19,11 @@ import {
   normalizeCustomerVatId,
 } from './customer-vat-id.validation.js';
 
+export const CUSTOMER_HAS_ACTIVE_REFERENCES_CODE = 'CUSTOMER_HAS_ACTIVE_REFERENCES';
+export const CUSTOMER_HAS_VEHICLES_CODE = 'CUSTOMER_HAS_VEHICLES';
+export const CUSTOMER_HAS_VEHICLE_PARTIES_CODE = 'CUSTOMER_HAS_VEHICLE_PARTIES';
+export const CUSTOMER_RETENTION_BLOCKS_DELETE_CODE = 'CUSTOMER_RETENTION_BLOCKS_DELETE';
+
 function isPrismaCustomerQuery(
   params: unknown,
 ): params is Prisma.CustomerFindManyArgs {
@@ -264,27 +269,35 @@ export class CustomerService {
     ].some((count) => count > 0);
 
     if (hasActiveReferences) {
-      throw new BadRequestException(
-        'Customer cannot be deleted because it has linked orders or invoices. Use archive/deactivate instead.',
-      );
+      throw new BadRequestException({
+        code: CUSTOMER_HAS_ACTIVE_REFERENCES_CODE,
+        message:
+          'Customer cannot be deleted because it has linked orders or invoices. Use archive/deactivate instead.',
+      });
     }
 
     if (counts.vehicles > 0) {
-      throw new BadRequestException(
-        'Customer cannot be deleted while vehicles are linked. Reassign or remove vehicles first.',
-      );
+      throw new BadRequestException({
+        code: CUSTOMER_HAS_VEHICLES_CODE,
+        message:
+          'Customer cannot be deleted while vehicles are linked. Reassign or remove vehicles first.',
+      });
     }
 
     if (counts.vehicleParties > 0) {
-      throw new ConflictException(
-        'Customer cannot be deleted while vehicle parties reference it. End the party validity instead.',
-      );
+      throw new ConflictException({
+        code: CUSTOMER_HAS_VEHICLE_PARTIES_CODE,
+        message:
+          'Customer cannot be deleted while vehicle parties reference it. End the party validity instead.',
+      });
     }
 
     if (counts.contactPoints > 0 || counts.consentEvents > 0) {
-      throw new BadRequestException(
-        'Customer cannot be deleted while contact preferences or consent proof are retained. Use erasure processing or wait for retention expiry.',
-      );
+      throw new BadRequestException({
+        code: CUSTOMER_RETENTION_BLOCKS_DELETE_CODE,
+        message:
+          'Customer cannot be deleted while contact preferences or consent proof are retained. Use erasure processing or wait for retention expiry.',
+      });
     }
 
     const deleteResult = await this.prisma.$transaction(async (tx) => {

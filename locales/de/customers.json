@@ -168,7 +168,18 @@
       "vin": "FIN",
       "plate": "Kennzeichen",
       "noVehiclesRegistered": "Keine Fahrzeuge erfasst",
-      "invoiceDraft": "Entwurf"
+      "invoiceDraft": "Entwurf",
+      "role": "Rolle",
+      "validity": "Gültigkeit",
+      "partyStatus": "Status"
+    },
+    "partyStatus": {
+      "active": "Aktiv",
+      "ended": "Beendet"
+    },
+    "validity": {
+      "open": "ab {{from}}",
+      "closed": "{{from}} – {{to}}"
     }
   },
   "dialog": {

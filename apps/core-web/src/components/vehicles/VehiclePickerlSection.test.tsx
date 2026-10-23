@@ -23,8 +23,10 @@ vi.mock('@/api/vehicle-inspection-imports', () => ({
   }),
 }))
 
+const { mockRecords } = vi.hoisted(() => ({ mockRecords: [] as Array<Record<string, unknown>> }))
+
 vi.mock('@/api/vehicle-inspection-records', () => ({
-  useVehicleInspectionRecords: () => ({ data: [], isLoading: false }),
+  useVehicleInspectionRecords: () => ({ data: mockRecords, isLoading: false }),
   useCreateVehicleInspectionRecord: () => ({
     mutateAsync: vi.fn(),
     isPending: false,
@@ -32,7 +34,10 @@ vi.mock('@/api/vehicle-inspection-records', () => ({
 }))
 
 describe('VehiclePickerlSection', () => {
-  afterEach(() => cleanup())
+  afterEach(() => {
+    cleanup()
+    mockRecords.length = 0
+  })
 
   it('shows unknown copy when pickerl status is UNKNOWN', () => {
     render(
@@ -70,5 +75,24 @@ describe('VehiclePickerlSection', () => {
 
     expect(screen.getByRole('button', { name: '§57a-Auftrag öffnen' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '§57a-Auftrag anlegen' })).not.toBeInTheDocument()
+  })
+
+  it('labels legacy imports and offers no edit or delete for them', () => {
+    mockRecords.push({
+      id: 'record-1',
+      inspected_on: '2026-03-01',
+      plaketten_valid_until_month: 3,
+      plaketten_valid_until_year: 2028,
+      station_name: null,
+      source: 'LEGACY_IMPORT',
+    })
+    render(
+      <MemoryRouter>
+        <VehiclePickerlSection vehicleId='vehicle-1' pickerlDue={null} />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByText('Altdaten-Import')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /bearbeiten|löschen/i })).not.toBeInTheDocument()
   })
 })

@@ -233,6 +233,7 @@ type TestCustomer = Omit<typeof mockCustomer, 'type' | 'company_name' | 'email' 
   workshop_orders: unknown[]
   invoices: unknown[]
   vehicles: unknown[]
+  vehicle_parties: unknown[]
 }
 
 const baseCustomer = (overrides: Partial<TestCustomer> = {}): TestCustomer => ({
@@ -242,6 +243,7 @@ const baseCustomer = (overrides: Partial<TestCustomer> = {}): TestCustomer => ({
   workshop_orders: [],
   invoices: [],
   vehicles: [],
+  vehicle_parties: [],
   ...overrides,
 })
 
@@ -266,6 +268,26 @@ const openTab = (name: string) => fireEvent.mouseDown(screen.getByRole('tab', { 
 
 const audi = { id: 'veh-1', vin: 'WAUZZZ8V1KA123456', plate: 'W-1234AB', make: 'Audi', model: 'A3', year: 2020 }
 const bmwNoPlate = { id: 'veh-2', vin: null, plate: null, make: 'BMW', model: '320d', year: 2018 }
+const audiOwner = {
+  id: 'cvp-1',
+  vehicle_id: 'veh-1',
+  role: 'OWNER',
+  valid_from: '2024-03-01',
+  valid_to: null,
+  source: 'MANUAL',
+  is_active: true,
+  vehicle: { id: 'veh-1', make: 'Audi', model: 'A3', plate: 'W-1234AB' },
+}
+const bmwPreviousOwner = {
+  id: 'cvp-2',
+  vehicle_id: 'veh-2',
+  role: 'PREVIOUS_OWNER',
+  valid_from: '2019-01-01',
+  valid_to: '2023-12-31',
+  source: 'LEGACY_IMPORT',
+  is_active: false,
+  vehicle: { id: 'veh-2', make: 'BMW', model: '320d', plate: null },
+}
 
 describe('CustomerDetail characterization', () => {
   const mutateAsync = vi.fn()
@@ -546,8 +568,8 @@ describe('CustomerDetail characterization', () => {
   })
 
   describe('vehicles tab', () => {
-    it('lists vehicles with make/model, year, VIN and plate, falling back to not available', () => {
-      renderDetail(baseCustomer({ vehicles: [audi, bmwNoPlate] }))
+    it('lists vehicles by party role with validity and active or ended status', () => {
+      renderDetail(baseCustomer({ vehicle_parties: [audiOwner, bmwPreviousOwner] }))
       openTab(detail.tabs.vehicles)
 
       const rows = within(screen.getByRole('tabpanel')).getAllByRole('button')
@@ -556,14 +578,18 @@ describe('CustomerDetail characterization', () => {
         fill(detail.aria.openVehicle, { make: 'BMW', model: '320d' }),
       ])
       expect(within(rows[0]).getByText('Audi A3')).toBeInTheDocument()
-      expect(within(rows[0]).getByText('2020')).toBeInTheDocument()
-      expect(within(rows[0]).getByText('WAUZZZ8V1KA123456')).toBeInTheDocument()
       expect(within(rows[0]).getByText('W-1234AB')).toBeInTheDocument()
-      expect(within(rows[1]).getAllByText(detail.notAvailable)).toHaveLength(2)
+      expect(within(rows[0]).getByText('Halter')).toBeInTheDocument()
+      expect(within(rows[0]).getByText(/01\.03\.2024/)).toBeInTheDocument()
+      expect(within(rows[0]).getByText('Aktiv')).toBeInTheDocument()
+      expect(within(rows[1]).getByText('Altbesitzer')).toBeInTheDocument()
+      expect(within(rows[1]).getByText(/31\.12\.2023/)).toBeInTheDocument()
+      expect(within(rows[1]).getByText('Beendet')).toBeInTheDocument()
+      expect(within(rows[1]).getAllByText(detail.notAvailable)).toHaveLength(1)
     })
 
     it('opens a vehicle on click, Enter and Space but not other keys', () => {
-      renderDetail(baseCustomer({ vehicles: [audi] }))
+      renderDetail(baseCustomer({ vehicle_parties: [audiOwner] }))
       openTab(detail.tabs.vehicles)
       const row = screen.getByRole('button', { name: fill(detail.aria.openVehicle, { make: 'Audi', model: 'A3' }) })
 

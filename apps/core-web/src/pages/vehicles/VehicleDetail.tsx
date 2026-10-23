@@ -11,7 +11,9 @@ import { Button } from '@/components/ui/button'
 import { VehicleDialog } from '@/components/vehicles/VehicleDialog'
 import { ChangeCustomerDialog } from './ChangeCustomerDialog'
 import { VehicleInfoCard } from './VehicleInfoCard'
+import { VehicleOpenDueDates } from './VehicleOpenDueDates'
 import { VehicleOrderTabs } from './VehicleOrderTabs'
+import { VehiclePartiesSection } from './VehiclePartiesSection'
 import { useChangeCustomer } from './useVehicleDetailMutations'
 import { getVehicleDescription, type VehicleDetailResponse } from './vehicle-detail-model'
 
@@ -73,6 +75,11 @@ function VehicleDetailContent({ vehicle }: { vehicle: VehicleDetailResponse }) {
         <div className='lg:col-span-2'>
           <VehicleOrderTabs vehicle={vehicle} />
         </div>
+      </div>
+
+      <div className='grid grid-cols-1 lg:grid-cols-2 gap-6 items-start'>
+        <VehiclePartiesSection vehicleId={vehicle.id} vehicleCustomer={vehicle.customer ?? null} />
+        <VehicleOpenDueDates dueDates={vehicle.open_due_dates ?? []} />
       </div>
 
       <ChangeCustomerDialog {...customerDialogProps} />

@@ -226,7 +226,8 @@
     "loading": "Loading…",
     "empty": "No inspection recorded yet.",
     "sourceEbv": "EBV imported",
-    "sourceManual": "Manual"
+    "sourceManual": "Manual",
+    "sourceLegacy": "Legacy import"
   },
   "recordPickerlDialog": {
     "title": "Record Pickerl",
@@ -273,5 +274,43 @@
     "agedStockTitle": "Aged stock · over 90 days",
     "agedStockCostBasis": "Cost basis {{amount}}",
     "pickerlDueTitle": "Pickerl due in {{count}} days"
+  },
+  "parties": {
+    "title": "Parties",
+    "subtitle": "Owner, driver, bill-to and other parties with their validity period.",
+    "mainContact": "Main contact",
+    "noOwnerHint": "No active owner recorded. The main contact comes from the vehicle.",
+    "add": "Add party",
+    "end": "End",
+    "empty": "No active parties.",
+    "historyToggle": "History ({{count}})",
+    "historyEmpty": "No ended parties.",
+    "validOpen": "open",
+    "loadFailed": "Parties could not be loaded.",
+    "addFailed": "The party could not be added.",
+    "endFailed": "The party could not be ended.",
+    "added": "Party added.",
+    "ended": "Party ended.",
+    "columns": {
+      "role": "Role",
+      "customer": "Customer",
+      "validity": "Validity"
+    },
+    "dialog": {
+      "title": "Add party",
+      "role": "Role",
+      "customer": "Customer",
+      "validFrom": "Valid from",
+      "validFromHint": "Leave empty for today. Owner, bill-to and leasing can only start from today.",
+      "save": "Add",
+      "cancel": "Cancel",
+      "customerRequired": "Please select a customer."
+    }
+  },
+  "openDueDates": {
+    "title": "Open due dates",
+    "empty": "No open due dates.",
+    "dueOn": "Due on {{date}}",
+    "dueMileage": "Due at {{mileage}}"
   }
 }

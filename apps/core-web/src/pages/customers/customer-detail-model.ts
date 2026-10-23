@@ -1,3 +1,4 @@
+import type { components } from '@/api/generated/openapi'
 import type {
   Customer,
   InvoiceStatus,
@@ -31,6 +32,8 @@ type WorkshopOrderSummary = {
   vehicle?: Vehicle | null
 }
 
+export type CustomerVehicleParty = components['schemas']['CustomerVehiclePartyDto']
+
 export type InvoiceSummary = {
   id: string
   invoice_number: string | null
@@ -44,6 +47,8 @@ export type CustomerDetailResponse = Customer & {
   workshop_orders?: WorkshopOrderSummary[]
   invoices?: InvoiceSummary[]
   vehicles?: Vehicle[]
+  /** Vehicles by party role, including ended parties and previous owners. */
+  vehicle_parties?: CustomerVehicleParty[]
 }
 
 export type ActiveOrderRow = {
