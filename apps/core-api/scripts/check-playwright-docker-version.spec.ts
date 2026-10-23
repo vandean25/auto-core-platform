@@ -61,16 +61,49 @@ describe('Production image version pins (AUT-167)', () => {
     expect(dockerTagVersion).toBe(packageVersion);
   });
 
-  it('uses Node 24 slim for the API target', () => {
+  it('copies repo-root locales into the builder stage after npm ci', () => {
     const dockerfile = fs.readFileSync(DOCKERFILE_PATH, 'utf8');
+    const builderStage = dockerfile.split(
+      /^FROM mcr\.microsoft\.com\/playwright:/m,
+    )[0];
 
-    expect(dockerfile).toMatch(/^FROM node:24-slim AS api$/m);
+    expect(builderStage).toMatch(/^COPY locales \.\/locales$/m);
+    const npmCiIndex = builderStage.indexOf('npm ci');
+    const copyLocalesIndex = builderStage.indexOf('COPY locales ./locales');
+    const buildIndex = builderStage.indexOf('npm run build');
+    expect(copyLocalesIndex).toBeGreaterThan(npmCiIndex);
+    expect(buildIndex).toBeGreaterThan(copyLocalesIndex);
   });
 
-  it('uses Node 24 in Cloud Build', () => {
+  it('fails the builder when dist/locales is missing after build', () => {
+    const dockerfile = fs.readFileSync(DOCKERFILE_PATH, 'utf8');
+    const builderStage = dockerfile.split(
+      /^FROM mcr\.microsoft\.com\/playwright:/m,
+    )[0];
+
+    expect(builderStage).toMatch(/^RUN test -d dist\/locales$/m);
+  });
+
+  it('uses Node 24.22.1 slim for the API target', () => {
+    const dockerfile = fs.readFileSync(DOCKERFILE_PATH, 'utf8');
+
+    expect(dockerfile).toMatch(
+      /^FROM node:24\.22\.1-slim(@sha256:[a-f0-9]{64})? AS api$/m,
+    );
+  });
+
+  it('uses Node 24.22.1 in Cloud Build', () => {
     const cloudBuild = fs.readFileSync(CLOUDBUILD_PATH, 'utf8');
 
-    expect(cloudBuild).toMatch(/^\s*name: node:24\s*$/m);
+    expect(cloudBuild).toMatch(/^\s*name: node:24\.22\.1\s*$/m);
+  });
+
+  it('fails the worker image build when Node is below 24.22.1', () => {
+    const dockerfile = fs.readFileSync(DOCKERFILE_PATH, 'utf8');
+
+    expect(dockerfile).toMatch(
+      /process\.versions\.node\.split\('\.'\)\.map\(Number\)/,
+    );
   });
 
   it('requires Node 22 in the root engine declaration', () => {

@@ -1,5 +1,5 @@
 import i18next, { type TFunction } from 'i18next';
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -7,18 +7,14 @@ import {
   DISPLAY_LANGUAGES,
   type DisplayLanguage,
 } from './display-language.js';
+import { resolveLocalesRoot } from './locales-root.js';
 
 export const PDF_I18N_NAMESPACE = 'pdf';
 
 let initialized = false;
 
 function localesRoot(): string {
-  const moduleDir = dirname(fileURLToPath(import.meta.url));
-  const bundled = resolve(moduleDir, '../../../locales');
-  if (existsSync(bundled)) {
-    return bundled;
-  }
-  return resolve(moduleDir, '../../../../../locales');
+  return resolveLocalesRoot(dirname(fileURLToPath(import.meta.url)));
 }
 
 function readPdfBundle(language: DisplayLanguage): Record<string, unknown> {
