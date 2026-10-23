@@ -5,6 +5,7 @@ import { loadEnv } from 'vite'
 import tailwindcss from '@tailwindcss/vite'
 import { sentryVitePlugin } from '@sentry/vite-plugin'
 import { emitVersionJsonPlugin } from './vite-plugins/emit-version-json.ts'
+import { reactI18nextAliases } from './vite-i18n-aliases.ts'
 
 // Production source maps are uploaded by Cloud Build under the git tag release.
 const hasSentryUploadCredentials = Boolean(
@@ -42,11 +43,7 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         "@": path.resolve(import.meta.dirname, "./src"),
-        "react-i18next": path.resolve(import.meta.dirname, "./src/lib/i18n/react-i18next.ts"),
-        "react-i18next-original": path.resolve(
-          import.meta.dirname,
-          "../../node_modules/react-i18next/dist/es/index.js",
-        ),
+        ...reactI18nextAliases(import.meta.dirname),
       },
     },
     test: {

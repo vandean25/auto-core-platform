@@ -1,7 +1,6 @@
 export * from './constants'
 export { I18nProvider } from './I18nProvider'
 export { initI18n, changeUiLanguage, ensureNamespaceLoaded, i18n } from './init-i18n'
-export { useTranslation } from './use-translation'
 export { useUiLanguage } from './use-ui-language'
 export * from './enum-labels'
 export * from './enum-registry'
