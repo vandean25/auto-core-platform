@@ -1,3 +1,4 @@
+import { withPlateNormalized } from '../vehicle/vehicle-plate.util.js';
 import {
   ConflictException,
   Injectable,
@@ -484,7 +485,7 @@ export class RegistrationIntakeApplyService {
           ? { customer_id: dto.ownershipCorrection.expectedCustomerId }
           : {}),
       },
-      data: {
+      data: withPlateNormalized({
         plate: dto.plate,
         ...(dto.ownershipCorrection
           ? { customer_id: dto.ownershipCorrection.nextCustomerId }
@@ -492,7 +493,7 @@ export class RegistrationIntakeApplyService {
         ...(plateChanged
           ? { ...VEHICLE_IDENTITY_RESET, identity_resolution_token: null }
           : {}),
-      },
+      }),
     });
     if (updated.count === 0) {
       throw new ConflictException(

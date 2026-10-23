@@ -1805,6 +1805,8 @@ model Vehicle {
   engine_code                     String?
   vin                             String?
   plate                           String?
+  /// AUT-662: normalizePlate(plate), kept in sync by every plate write path; backs plate search.
+  plate_normalized                String?
   make_brand_id                   Int?                            @map("make_brand_id")
   makeBrand                       Brand?                          @relation("VehicleMakeBrand", fields: [make_brand_id], references: [id], onDelete: SetNull)
   hsn                             String?
@@ -1876,6 +1878,7 @@ model Vehicle {
   @@index([tenant_id, site_id])
   @@index([make_brand_id])
   @@index([tenant_id, vin])
+  @@index([tenant_id, plate_normalized])
   @@index([plate(ops: raw("gin_trgm_ops"))], type: Gin, map: "vehicles_plate_trgm_idx")
   @@index([vin(ops: raw("gin_trgm_ops"))], type: Gin, map: "vehicles_vin_trgm_idx")
   @@map("vehicles")

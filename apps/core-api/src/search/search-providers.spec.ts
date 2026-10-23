@@ -213,6 +213,18 @@ describe('customer provider and the TECH restriction', () => {
     expect(result.subtitle).toBe('max@example.com');
   });
 
+  it('looks an email up exact and as prefix, never as contains', async () => {
+    const findMany = jest.fn().mockResolvedValue([]);
+    await provider(
+      createSearchProviders({ customer: { findMany } } as never),
+      'customer',
+    ).search(ctx('max@exa'));
+    expect(findMany.mock.calls.map(([a]) => a.where.email)).toEqual([
+      { equals: 'max@exa', mode: 'insensitive' },
+      { startsWith: 'max@exa', mode: 'insensitive' },
+    ]);
+  });
+
   it('matches every name word in any order', async () => {
     const findMany = jest.fn().mockResolvedValue([]);
     await provider(
@@ -225,17 +237,50 @@ describe('customer provider and the TECH restriction', () => {
 });
 
 describe('vehicle providers and the shared plate normaliser', () => {
-  it('matches a plate typed with spaces, hyphens or dots in its normalised and typed form', async () => {
+  it('matches a plate typed with spaces, hyphens or dots on plate_normalized, exact and prefix only', async () => {
     const findMany = jest.fn().mockResolvedValue([]);
     await provider(
       createSearchProviders({ vehicle: { findMany } } as never),
       'vehicle',
     ).search(ctx('w-12345.a'));
-    const [{ where }] = findMany.mock.calls[0];
-    const plates = where.OR.filter((c: any) => c.plate).map(
-      (c: any) => c.plate.equals,
+    const plateFilters = findMany.mock.calls.map(([{ where }]) =>
+      where.OR.find((c: any) => c.plate_normalized),
     );
-    expect(plates).toEqual(['W12345A', 'w-12345.a']);
+    expect(plateFilters).toEqual([
+      { plate_normalized: { equals: 'W12345A' } },
+      { plate_normalized: { startsWith: 'W12345A' } },
+      undefined, // contains tier has no plate predicate
+    ]);
+    for (const [{ where }] of findMany.mock.calls) {
+      expect(JSON.stringify(where)).not.toContain('"plate":');
+    }
+  });
+
+  it('matches a VIN fragment of 6+ characters as prefix and suffix', async () => {
+    const findMany = jest.fn().mockResolvedValue([]);
+    await provider(
+      createSearchProviders({ vehicle: { findMany } } as never),
+      'vehicle',
+    ).search(ctx('zzz1kzaw123456'));
+    const vinFilters = findMany.mock.calls.map(
+      ([{ where }]) => where.OR.find((c: any) => c.vin).vin,
+    );
+    expect(vinFilters).toEqual([
+      { equals: 'ZZZ1KZAW123456', mode: 'insensitive' },
+      { startsWith: 'ZZZ1KZAW123456', mode: 'insensitive' },
+      { endsWith: 'ZZZ1KZAW123456', mode: 'insensitive' },
+    ]);
+  });
+
+  it('does not search the VIN for fragments shorter than 6 characters', async () => {
+    const findMany = jest.fn().mockResolvedValue([]);
+    await provider(
+      createSearchProviders({ vehicle: { findMany } } as never),
+      'vehicle',
+    ).search(ctx('4711a'));
+    for (const [{ where }] of findMany.mock.calls) {
+      expect(JSON.stringify(where)).not.toContain('"vin"');
+    }
   });
 
   it('also searches make and model for plate-shaped input such as X5', async () => {

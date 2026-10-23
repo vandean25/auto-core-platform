@@ -7,6 +7,7 @@ const UUID_RE =
 const EMAIL_RE = /^\S+@\S*$/;
 // ISO 3779 charset, 17 characters, at least one letter (17 digits is a number).
 const VIN_RE = /^(?=.*[A-Z])[A-HJ-NPR-Z0-9]{17}$/i;
+const VIN_FRAGMENT_RE = /^[A-HJ-NPR-Z0-9]{6,17}$/i;
 const PHONE_RE = /^\+?\d[\d\s/().-]*$/;
 const MIN_PHONE_DIGITS = 6;
 // Digits only, or a document prefix (2+ letters, dash) with a digit later on, like RE-2026-0012.
@@ -47,6 +48,7 @@ export function parseSearchQuery(raw: string): ParsedSearchQuery {
     text,
     kind: detectKind(text, plate),
     plate,
+    vin: VIN_FRAGMENT_RE.test(text) ? text.toUpperCase() : null,
     terms: splitSearchTerms(text),
   };
 }

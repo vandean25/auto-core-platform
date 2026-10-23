@@ -23,7 +23,8 @@ type Group = {
 
 const SUFFIX = `${Date.now()}`.slice(-6);
 const VIN = 'SRCHVN00000000001';
-const PLATE = 'W7777SX';
+const PLATE = 'W 7777 SX';
+const PLATE_NORMALIZED = 'W7777SX';
 
 /**
  * AUT-662 GET /api/search: one hit per type, tenant isolation, role split and
@@ -182,6 +183,7 @@ describe('Global search (e2e)', () => {
         year: 2020,
         vin: VIN,
         plate: PLATE,
+        plate_normalized: PLATE_NORMALIZED,
         customer_id: customer.id,
       },
     });
@@ -193,7 +195,8 @@ describe('Global search (e2e)', () => {
         make: 'Stockmake',
         model: `Lot${SUFFIX}`,
         year: 2022,
-        plate: 'G123SK',
+        plate: 'G 123 SK',
+        plate_normalized: 'G123SK',
         inventory_role: 'USED',
         stock_status: 'IN_STOCK',
         site_id: mainSiteId,
@@ -259,7 +262,7 @@ describe('Global search (e2e)', () => {
   describe('one hit per type', () => {
     it.each([
       ['customer', `Searchable${SUFFIX}`, 'customer', `/customers/`],
-      ['vehicle', PLATE, 'vehicle', `/vehicles/`],
+      ['vehicle', PLATE_NORMALIZED, 'vehicle', `/vehicles/`],
       ['stock_vehicle', `Lot${SUFFIX}`, 'stock', `/vehicle-stock/`],
       [
         'workshop_order',
@@ -301,8 +304,15 @@ describe('Global search (e2e)', () => {
       }
     });
 
-    it('finds a vehicle by VIN and by plate typed with separators', async () => {
-      for (const q of [VIN, 'w-7777-sx']) {
+    it('finds a vehicle by VIN, VIN prefix and suffix, and by plate however it is typed', async () => {
+      for (const q of [
+        VIN,
+        'SRCHVN0000',
+        'VN00000000001',
+        'w-7777-sx',
+        'w.7777.sx',
+        'W 7777',
+      ]) {
         const groups = await groupsFor(adminToken, q, { types: 'vehicle' });
         expect(groups[0].results.map((r) => r.id)).toContain(ids.vehicle);
       }
@@ -349,7 +359,7 @@ describe('Global search (e2e)', () => {
     it('tenant B sees nothing of tenant A', async () => {
       const queries = [
         `Searchable${SUFFIX}`,
-        PLATE,
+        PLATE_NORMALIZED,
         VIN,
         `Lot${SUFFIX}`,
         `WO-SRCH-${SUFFIX}`,

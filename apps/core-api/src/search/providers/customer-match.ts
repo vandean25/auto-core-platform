@@ -40,7 +40,10 @@ export function customerMatchWhere(
     case 'name':
       return customerNameWhere(tier, query.terms);
     case 'email':
-      return restricted ? null : { email: tierFilter(tier, query.text) };
+      // Exact and prefix only: an address is looked up whole or as typed so far.
+      return restricted || tier === 'contains'
+        ? null
+        : { email: tierFilter(tier, query.text) };
     case 'phone':
       return restricted ? null : phoneWhere(tier, query.text);
     default:

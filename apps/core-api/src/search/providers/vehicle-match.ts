@@ -13,27 +13,37 @@ function makeModelWhere(
   };
 }
 
-/**
- * Vehicle predicate for plate, VIN and make/model input; `null` when the input is not about a vehicle.
- * shortcut: a plate is matched as typed and in its normalised form, so a plate stored with separators is
- * only found when typed the same way (no plate_normalized column); upgrade by adding that column.
- */
+/** Exact and prefix on the normalised plate; no contains, so the btree index on plate_normalized serves it. */
+function plateWhere(
+  tier: MatchTier,
+  plate: string,
+): Prisma.VehicleWhereInput | null {
+  if (tier === 'contains') return null;
+  return {
+    plate_normalized:
+      tier === 'exact' ? { equals: plate } : { startsWith: plate },
+  };
+}
+
+/** A VIN fragment of 6+ characters matches as prefix or suffix (exact for a full VIN). */
+function vinWhere(tier: MatchTier, vin: string): Prisma.VehicleWhereInput {
+  const filter =
+    tier === 'contains'
+      ? { endsWith: vin, mode: 'insensitive' as const }
+      : tierFilter(tier, vin);
+  return { vin: filter };
+}
+
+/** Vehicle predicate for plate, VIN and make/model input; `null` when the input is not about a vehicle. */
 export function vehicleMatchWhere(
   query: ParsedSearchQuery,
   tier: MatchTier,
 ): Prisma.VehicleWhereInput | null {
   if (query.kind === 'uuid') return { id: query.text.toLowerCase() };
   const or: Prisma.VehicleWhereInput[] = [];
-  if (query.plate) {
-    or.push(
-      { plate: tierFilter(tier, query.plate) },
-      { plate: tierFilter(tier, query.text) },
-      { vin: tierFilter(tier, query.plate) },
-    );
-  }
-  if (query.kind === 'vin') {
-    or.push({ vin: tierFilter(tier, query.text) });
-  }
+  const plate = query.plate ? plateWhere(tier, query.plate) : null;
+  if (plate) or.push(plate);
+  if (query.vin) or.push(vinWhere(tier, query.vin));
   // Model names like "X5" or "Q7" look like plates, so plate-shaped input searches make/model too.
   if (query.kind === 'name' || query.kind === 'plate') {
     or.push(makeModelWhere(tier, query.terms));

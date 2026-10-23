@@ -1,3 +1,4 @@
+import { withPlateNormalized } from '../vehicle/vehicle-plate.util.js';
 import {
   BadRequestException,
   ConflictException,
@@ -76,13 +77,13 @@ export async function updateExistingIntakeVehicle(
       identity_resolution_token:
         existingVehicle.identity_resolution_token ?? null,
     },
-    data: {
+    data: withPlateNormalized({
       plate: dto.plate,
       customer_id: customerId,
       ...(identityChanged
         ? { ...VEHICLE_IDENTITY_RESET, identity_resolution_token: null }
         : {}),
-    },
+    }),
   });
 
   if (updated.count === 0) {
@@ -107,7 +108,7 @@ export async function createNewIntakeVehicle(
   const { tx, tenantId, dto, customerId, vin } = params;
   try {
     const vehicle = await tx.vehicle.create({
-      data: {
+      data: withPlateNormalized({
         tenant_id: tenantId,
         vin,
         plate: dto.plate,
@@ -115,7 +116,7 @@ export async function createNewIntakeVehicle(
         model: dto.model,
         year: dto.year,
         customer_id: customerId,
-      },
+      }),
       include: {
         customer: true,
       },

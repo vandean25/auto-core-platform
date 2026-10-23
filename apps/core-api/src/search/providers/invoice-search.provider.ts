@@ -75,7 +75,6 @@ function toResult({ row, score }: ScoredRow<InvoiceRow>): SearchResult {
 export class InvoiceSearchProvider implements SearchProvider {
   readonly type = 'invoice';
   readonly allowedRoles = ['OWNER', 'ADMIN', 'SALES', 'DEMO'] as const;
-  readonly siteScoped = true;
 
   constructor(private readonly prisma: PrismaService) {}
 

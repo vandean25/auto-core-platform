@@ -53,7 +53,7 @@ The route is `@MechanicAccessible()`, so TECH sessions get `200` with their rest
 
 ## Matching
 
-The parser classifies the trimmed input (first match wins): `uuid`, `email` (contains `@`), `vin` (17 characters, ISO 3779 charset, at least one letter), `phone` (6+ digits, starts with `+` or `0`), `number` (digits only, or 2+ letters, a dash and a digit later, like `RE-2026-0012`), `plate`, `name`. A plate-shaped input also keeps its normalised plate when it was classified `number` (`AB-123`).
+The parser classifies the trimmed input (first match wins): `uuid`, `email` (contains `@`), `vin` (17 characters, ISO 3779 charset, at least one letter), `phone` (6+ digits, starts with `+` or `0`), `number` (digits only, or 2+ letters, a dash and a digit later, like `RE-2026-0012`), `plate`, `name`. Independently of the kind, a plate-shaped input keeps its normalised plate (`AB-123` is a `number` and a plate) and an input of 6 to 17 VIN-charset characters keeps an upper-cased VIN fragment.
 
 Each provider runs three parallel queries against the trigram indexes from AUT-661 (`ILIKE`, `take: limit`, `select` only):
 
@@ -65,18 +65,20 @@ Each provider runs three parallel queries against the trigram indexes from AUT-6
 
 `%`, `_` and `\` typed by the user are escaped, so they are literal characters. The best tier wins per entity; there is no `count()` anywhere.
 
+Two fields are narrower than the tiers: an email is looked up exact and as prefix only (no contains), and a plate is matched on `vehicles.plate_normalized` exact and prefix only (no contains), so the btree index `(tenant_id, plate_normalized)` serves it. A VIN fragment uses the same three tiers, with the contains tier being a suffix match (`endsWith`).
+
 | Type | Matches |
 |---|---|
 | customer | uuid → id; email; phone; name words (each word must hit first name, last name or company name, in any order) |
-| vehicle | `inventory_role = CUSTOMER`. Plate (typed and normalised), plate-shaped text also against VIN, VIN, make/model words |
+| vehicle | `inventory_role = CUSTOMER`. `plate_normalized`, VIN fragment (prefix/suffix, exact when full), make/model words |
 | stock_vehicle | Dealer roles with a `stock_status`, same matching as vehicle |
 | workshop_order | order number, uuid, vehicle (plate/VIN/make/model), customer (name/email/phone) |
 | invoice | invoice number, uuid, vehicle, customer. Only issued invoices (those with a number) |
 | part | SKU, name words, uuid |
 
-The plate normaliser is shared with the vehicle import (`vehicle/vehicle-plate.util.ts`): spaces, hyphens and dots are removed and letters upper-cased. There is no `plate_normalized` column, so a plate stored with separators is only found when typed the same way.
+The plate normaliser is shared with the vehicle import (`vehicle/vehicle-plate.util.ts`): whitespace, hyphens and dots are removed and letters upper-cased. `vehicles.plate_normalized` holds `normalizePlate(plate)`. The migration backfills it with an equivalent SQL expression (an e2e test runs the migration statement and `normalizePlate` on the same sample plates), and every write path that sets `plate` goes through `withPlateNormalized`: `VehicleService` create/update (via the persistence service), the dealer stock lot payload (purchase receive), workshop intake and registration intake, the vehicle import, and the seed fixtures.
 
-Phone numbers match the stored formatting (as typed, or without separators).
+Known gap: phone numbers match the stored formatting only (as typed, or without separators). There is no normalised phone column; a follow-up ticket covers it.
 
 ## Role matrix
 
@@ -103,7 +105,7 @@ Providers sit behind the `SEARCH_PROVIDERS` injection token (`createSearchProvid
 
 ## Database Impact
 
-None. No schema or migration change.
+`vehicles.plate_normalized` (nullable `TEXT`) with a btree index on `(tenant_id, plate_normalized)`; expand-only migration with a backfill from `plate`. No other schema change.
 
 ### Deletion Policy Impact
 

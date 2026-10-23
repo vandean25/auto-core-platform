@@ -1,3 +1,4 @@
+import { normalizePlate } from '../../vehicle/vehicle-plate.util.js';
 import type { SeedPrismaClient } from './types.js';
 import { seedCanonicalMigrationImportPresets } from './canonical-migration-import-presets.fixture.js';
 
@@ -152,6 +153,7 @@ export async function seedCustomersAndVehicles(
           data: {
             tenant_id: tenantId,
             ...vehicle,
+            plate_normalized: normalizePlate(vehicle.plate),
             customer_id: customerId,
           },
         });

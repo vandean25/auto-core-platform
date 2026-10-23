@@ -5,3 +5,24 @@ export function normalizePlate(
   const normalized = value?.replace(/[\s.-]+/g, '').toUpperCase() ?? '';
   return normalized.length > 0 ? normalized : null;
 }
+
+/**
+ * Every vehicle write that sets `plate` runs its data through this, so `plate_normalized` (the search column)
+ * cannot drift. Data that does not write the plate is returned as is.
+ */
+export function withPlateNormalized<T extends { plate?: unknown }>(
+  data: T,
+): T & { plate_normalized?: string | null } {
+  const { plate } = data;
+  if (plate === undefined) {
+    return data;
+  }
+  const value =
+    plate !== null && typeof plate === 'object' && 'set' in plate
+      ? plate.set
+      : plate;
+  return {
+    ...data,
+    plate_normalized: normalizePlate(typeof value === 'string' ? value : null),
+  };
+}

@@ -1,3 +1,4 @@
+import { withPlateNormalized } from '../vehicle/vehicle-plate.util.js';
 import {
   BadRequestException,
   ConflictException,
@@ -183,7 +184,7 @@ export function buildLotStockPayload(
     normalizeVehicleIdentityValue(existingVehicle.plate) !==
       normalizeVehicleIdentityValue(purchase.plate);
 
-  return {
+  return withPlateNormalized({
     make: purchase.make,
     model: purchase.model,
     year: purchase.year,
@@ -204,7 +205,7 @@ export function buildLotStockPayload(
     ...(resetIdentity
       ? { ...VEHICLE_IDENTITY_RESET, identity_resolution_token: null }
       : {}),
-  };
+  });
 }
 
 export interface LinkPurchaseParams {

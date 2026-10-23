@@ -80,7 +80,6 @@ function toResult({ row, score }: ScoredRow<WorkshopOrderRow>): SearchResult {
 export class WorkshopOrderSearchProvider implements SearchProvider {
   readonly type = 'workshop_order';
   readonly allowedRoles = ['OWNER', 'ADMIN', 'SALES', 'TECH', 'DEMO'] as const;
-  readonly siteScoped = true;
 
   constructor(private readonly prisma: PrismaService) {}
 

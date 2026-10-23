@@ -125,6 +125,9 @@ describe('seedDemoGewaehrleistungSales', () => {
       expect(data.inventory_role).toBe('USED');
       expect(data.stock_status).toBe('IN_STOCK');
       expect(data.stock_cost_basis).toBeDefined();
+      expect(data.plate_normalized).toBe(
+        data.plate.replace(/[\s.-]+/g, '').toUpperCase(),
+      );
       expect(data.purchases.create.status).toBe('RECEIVED');
       expect(data.ledger_entries.create.entry_type).toBe('PURCHASE');
       expect(data.ledger_entries.create.amount).toBe(data.stock_cost_basis);

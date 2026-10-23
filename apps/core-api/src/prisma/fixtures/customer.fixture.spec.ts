@@ -31,5 +31,10 @@ describe('customer.fixture', () => {
     const vehicleArgs = mockPrisma.vehicle.create.mock.calls[0][0];
     expect(vehicleArgs.data.tenant_id).toBe('tenant-1');
     expect(vehicleArgs.data.customer_id).toBe('cust-Max');
+    for (const [{ data }] of mockPrisma.vehicle.create.mock.calls) {
+      expect(data.plate_normalized).toBe(
+        data.plate.replace(/[\s.-]+/g, '').toUpperCase(),
+      );
+    }
   });
 });

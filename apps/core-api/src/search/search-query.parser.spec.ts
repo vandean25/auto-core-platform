@@ -45,6 +45,15 @@ describe('parseSearchQuery', () => {
     expect(parseSearchQuery('a1@b.c').plate).toBeNull();
   });
 
+  it('keeps an upper-cased VIN fragment of 6 to 17 characters', () => {
+    expect(parseSearchQuery('zzz1kzaw123456').vin).toBe('ZZZ1KZAW123456');
+    expect(parseSearchQuery('WVWZZZ1KZAW123456').vin).toBe('WVWZZZ1KZAW123456');
+    expect(parseSearchQuery('12345').vin).toBeNull();
+    expect(parseSearchQuery('ABCDEQ').vin).toBeNull(); // Q is not a VIN character
+    expect(parseSearchQuery('W 12345 A').vin).toBeNull();
+    expect(parseSearchQuery('x'.repeat(18)).vin).toBeNull();
+  });
+
   it('splits a multi-word name into terms and collapses whitespace', () => {
     const parsed = parseSearchQuery('  max   mustermann ');
     expect(parsed.text).toBe('max mustermann');

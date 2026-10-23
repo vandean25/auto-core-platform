@@ -18,6 +18,8 @@ export interface ParsedSearchQuery {
   kind: SearchQueryKind;
   /** Normalised plate when the input is plate-shaped, even if `kind` is `number`. */
   plate: string | null;
+  /** Upper-cased VIN fragment (6 to 17 VIN-charset characters), matched as prefix or suffix. */
+  vin: string | null;
   /** Whitespace-separated words, capped like the workshop name search. */
   terms: string[];
 }
