@@ -79,46 +79,25 @@
     "description": "Teil, Kunde, Fahrzeug, Auftrag oder Befehl aufrufen.",
     "inputLabel": "Teile, Kunden, Fahrzeuge, Aufträge oder Befehle suchen",
     "placeholder": "Teile, Kunden, Fahrzeuge, Aufträge…",
-    "emptyIdle": "Tippen Sie, um Teile, Kunden, Fahrzeuge, Aufträge oder Befehle zu suchen.",
     "emptyNoMatch": "Keine Teile, Kunden, Fahrzeuge, Aufträge oder Befehle passen zu „{{query}}“.",
     "emptyHint": "Vollständigen Namen (Vor- und Nachname), Kennzeichen, FIN oder Auftragsnummer versuchen.",
-    "searching": "Suche…",
     "unavailable": "Suche vorübergehend nicht verfügbar.",
+    "groupUnavailable": "Diese Ergebnisse sind vorübergehend nicht verfügbar.",
+    "otherSite": "Anderer Standort",
+    "recent": "Zuletzt geöffnet",
+    "removeRecent": "„{{title}}“ aus den zuletzt geöffneten Einträgen entfernen",
+    "prefixHelp": "Mit Präfix gezielt suchen:",
     "groups": {
-      "customers": "Kunden",
-      "vehicles": "Fahrzeuge",
-      "workshopOrders": "Werkstattaufträge",
-      "inventory": "Lager"
+      "customer": "Kunden",
+      "vehicle": "Fahrzeuge",
+      "stockVehicle": "Fahrzeugbestand",
+      "workshopOrder": "Werkstattaufträge",
+      "invoice": "Rechnungen",
+      "part": "Teile"
     },
-    "inventoryInStock": "{{count}} auf Lager",
     "quickActions": {
       "navigate": "Navigation",
       "create": "Anlegen",
-      "openDashboard": {
-        "label": "Dashboard öffnen",
-        "description": "Widgets und gespeicherte Ansichten ansehen."
-      },
-      "openInventory": {
-        "label": "Lager öffnen",
-        "description": "Teile und Bestände durchsuchen."
-      },
-      "openTransfers": {
-        "label": "Umlagerungen öffnen",
-        "description": "Standortübergreifende Umlagerungen anfordern und verfolgen."
-      },
-      "findSalesOrderToInvoice": {
-        "label": "Kundenauftrag zum Fakturieren finden",
-        "description": "Kundenauftrag öffnen und Rechnung anlegen.",
-        "keywords": "Rechnung aus Kundenauftrag,Kundenrechnung"
-      },
-      "openWorkshopIntake": {
-        "label": "Fahrzeugannahme öffnen",
-        "description": "Neuen Werkstattbesuch starten."
-      },
-      "openSettings": {
-        "label": "Einstellungen öffnen",
-        "description": "Finanzen und Stammdaten verwalten."
-      },
       "createSalesOrder": {
         "label": "Kundenauftrag anlegen",
         "description": "Neuen Kundenauftrag erfassen."

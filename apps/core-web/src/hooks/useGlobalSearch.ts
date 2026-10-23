@@ -1,161 +1,39 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import type {
-  InventoryItem,
-  InventoryResponse,
-  WorkshopOrder,
-  WorkshopSearchResponse,
-} from '@/api/types'
-import type { components } from '@/api/generated/openapi'
-import { inventoryKeys } from '@/api/inventory'
-import { workshopKeys } from '@/api/workshop'
-import { fetchWithAuth } from '@/api/client'
-import { buildDataTableUrl } from '@/api/data-table-query'
+import { fetchSearch, searchKeys, type SearchGroup } from '@/api/search'
+import { isSearchableQuery, parseSearchInput } from '@/components/global-search/global-search-types'
 
-export type WorkshopSearchCustomer = components['schemas']['WorkshopSearchCustomerDto']
-export type WorkshopSearchVehicle = components['schemas']['WorkshopSearchVehicleDto']
-
-export interface GlobalSearchResults {
-  inventory: InventoryItem[]
-  customers: WorkshopSearchCustomer[]
-  vehicles: WorkshopSearchVehicle[]
-  orders: WorkshopOrder[]
-}
-
-const GLOBAL_SEARCH_CAP = 5
 const SEARCH_DEBOUNCE_MS = 300
 
-export function useGlobalSearch(searchTerm: string) {
-  const [debouncedSearch, setDebouncedSearch] = useState('')
+/**
+ * One debounced GET /api/search for the palette input. Stale requests are aborted through the
+ * query function's signal. `groups` stays empty while the input is still being debounced.
+ */
+export function useGlobalSearch(input: string) {
+  const trimmed = input.trim()
+  const [debounced, setDebounced] = useState(trimmed)
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(searchTerm)
-    }, SEARCH_DEBOUNCE_MS)
-
+    const timer = setTimeout(() => setDebounced(trimmed), SEARCH_DEBOUNCE_MS)
     return () => clearTimeout(timer)
-  }, [searchTerm])
+  }, [trimmed])
 
-  const query = debouncedSearch.trim()
-  const isEnabled = query.length > 0
-
-  // 1. Inventory query (cap 5)
-  const inventoryQuery = useQuery<InventoryResponse>({
-    queryKey: inventoryKeys.list({ search: query, pageSize: GLOBAL_SEARCH_CAP }),
-    queryFn: async () => {
-      const searchParams = new URLSearchParams()
-      searchParams.append('search', query)
-      searchParams.append('pageSize', String(GLOBAL_SEARCH_CAP))
-
-      const response = await fetchWithAuth(`/api/inventory?${searchParams.toString()}`)
-      if (!response.ok) {
-        throw new Error('Inventory search failed')
-      }
-      return response.json()
-    },
-    enabled: isEnabled,
+  const { q, types } = parseSearchInput(debounced)
+  const enabled = isSearchableQuery(q)
+  const isSettled = trimmed === debounced
+  const query = useQuery({
+    queryKey: searchKeys.results(q, types),
+    queryFn: ({ signal }) => fetchSearch(q, types, signal),
+    enabled,
+    retry: false,
   })
 
-  // 2. Customers + Vehicles via GET /api/workshop/search?q=
-  const workshopSearchQuery = useQuery<WorkshopSearchResponse>({
-    queryKey: workshopKeys.search(query),
-    queryFn: async () => {
-      const response = await fetchWithAuth(`/api/workshop/search?q=${encodeURIComponent(query)}`)
-      if (!response.ok) {
-        throw new Error('Workshop entity search failed')
-      }
-      return response.json()
-    },
-    enabled: isEnabled,
-  })
-
-  // 3. Workshop Orders via GET /api/workshop/orders?search= (cap 5)
-  const workshopOrdersQuery = useQuery<{ data: WorkshopOrder[] }>({
-    queryKey: workshopKeys.ordersPage({ search: query, pageSize: GLOBAL_SEARCH_CAP, page: 1, filters: [] }),
-    queryFn: async () => {
-      const url = buildDataTableUrl('/api/workshop/orders', {
-        search: query,
-        pageSize: GLOBAL_SEARCH_CAP,
-        page: 1,
-        filters: [],
-      }, {
-        searchFallbackFilterFields: [
-          'order_number',
-          'id',
-          'customer.first_name',
-          'customer.last_name',
-          'vehicle.make',
-          'vehicle.model',
-          'vehicle.plate',
-        ],
-      })
-      const response = await fetchWithAuth(url)
-      if (!response.ok) {
-        throw new Error('Workshop orders search failed')
-      }
-      return response.json()
-    },
-    enabled: isEnabled,
-  })
-
-  const liveQuery = searchTerm.trim()
-  const isDebouncing = liveQuery !== query
-
-  const data = useMemo<GlobalSearchResults>(() => {
-    if (!isEnabled || isDebouncing) {
-      return {
-        inventory: [],
-        customers: [],
-        vehicles: [],
-        orders: [],
-      }
-    }
-
-    const inventory = (inventoryQuery.data?.data ?? []).slice(0, GLOBAL_SEARCH_CAP)
-    const customers = (workshopSearchQuery.data?.data?.customers ?? []).slice(0, GLOBAL_SEARCH_CAP)
-    const vehicles = (workshopSearchQuery.data?.data?.vehicles ?? []).slice(0, GLOBAL_SEARCH_CAP)
-    const orders = (workshopOrdersQuery.data?.data ?? []).slice(0, GLOBAL_SEARCH_CAP)
-
-    return {
-      inventory,
-      customers,
-      vehicles,
-      orders,
-    }
-  }, [
-    isEnabled,
-    isDebouncing,
-    inventoryQuery.data,
-    workshopSearchQuery.data,
-    workshopOrdersQuery.data,
-  ])
-
-  const isLoading = Boolean(
-    isDebouncing ||
-      (isEnabled &&
-        (inventoryQuery.isLoading ||
-          workshopSearchQuery.isLoading ||
-          workshopOrdersQuery.isLoading)),
-  )
-
-  const isFetching = Boolean(
-    isDebouncing ||
-      (isEnabled &&
-        (inventoryQuery.isFetching ||
-          workshopSearchQuery.isFetching ||
-          workshopOrdersQuery.isFetching)),
-  )
-
-  const error =
-    inventoryQuery.error ||
-    workshopSearchQuery.error ||
-    workshopOrdersQuery.error ||
-    null
+  const groups: SearchGroup[] = enabled && isSettled ? (query.data?.groups ?? []) : []
+  const wantsSearch = isSearchableQuery(parseSearchInput(trimmed).q)
 
   return {
-    data,
-    isLoading,
-    isFetching,
-    error: error as Error | null,
+    groups,
+    isLoading: wantsSearch && (!isSettled || query.isLoading),
+    error: enabled && isSettled ? query.error : null,
   }
 }

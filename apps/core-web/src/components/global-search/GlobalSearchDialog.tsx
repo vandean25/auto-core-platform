@@ -2,24 +2,16 @@ import * as React from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
+import { useAuthSession } from '@/api/auth-session'
+import { useMySites } from '@/api/sites'
 import { useGlobalSearch } from '@/hooks/useGlobalSearch'
-import {
-  CommandDialog,
-  CommandEmpty,
-  CommandInput,
-  CommandList,
-} from '@/components/ui/command'
-import { cn } from '@/lib/utils'
+import { CommandDialog, CommandInput, CommandList } from '@/components/ui/command'
+import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { QuickActionGroup } from './GlobalSearchResultGroups'
-import {
-  CustomerResultsGroup,
-  InventoryResultsGroup,
-  OrderResultsGroup,
-  VehicleResultsGroup,
-} from './GlobalSearchResultGroupsView'
+import { PrefixHelp, RecentItemsGroup, SearchResults } from './GlobalSearchResultGroupsView'
 import { truncate } from './global-search-format'
-import { filterQuickActionSections } from './global-search-quick-actions'
-import { getGlobalSearchQuickActionSections } from './global-search-quick-actions-data'
+import { getPaletteSections } from './global-search-navigation'
+import { recentItemsKey, useRecentItems, type RecentSearchItem } from './global-search-recent'
 
 interface GlobalSearchDialogProps {
   open: boolean
@@ -27,51 +19,47 @@ interface GlobalSearchDialogProps {
 }
 
 export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogProps) {
-  const { t, i18n } = useTranslation('nav')
+  const { t } = useTranslation(['nav', 'settings'])
   const [search, setSearch] = React.useState('')
-  const query = search.trim()
-  const truncatedQuery = truncate(query)
-  const { data: searchResults, isFetching, error } = useGlobalSearch(query)
+  // Cmd/Ctrl+Enter or Cmd/Ctrl+click opens a new tab. cmdk's onSelect carries no event, so the modifier is read first.
+  const newTabRef = React.useRef(false)
   const navigate = useNavigate()
+  const session = useAuthSession().data
+  const sites = useMySites().data
+  const { groups, isLoading, error } = useGlobalSearch(search)
+  const recent = useRecentItems(session ? recentItemsKey(session.userId, session.activeTenant.id) : null, open)
 
-  const handleOpenChange = (nextOpen: boolean) => {
-    onOpenChange(nextOpen)
+  React.useEffect(() => {
+    if (open) void ensureNamespaceLoaded('settings')
+  }, [open])
 
-    if (!nextOpen) {
-      setSearch('')
-    }
-  }
-
-  const handleNavigate = (href: string) => {
-    setSearch('')
-    onOpenChange(false)
-    navigate(href)
-  }
-
-  const inventoryResults = searchResults?.inventory ?? []
-  const customerResults = searchResults?.customers ?? []
-  const vehicleResults = searchResults?.vehicles ?? []
-  const orderResults = searchResults?.orders ?? []
-  const hasSearch = query.length > 0
-
-  const filteredQuickActions = React.useMemo(
-    () => filterQuickActionSections(getGlobalSearchQuickActionSections(), query),
-    // i18n.language: quick-action labels must refresh when the UI locale changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- locale is intentional memo input
-    [query, i18n.language],
+  const query = search.trim()
+  const sections = getPaletteSections(
+    session ? { platformRole: session.platformRole ?? null, activeRole: session.activeRole } : null,
+    query,
   )
 
-  const hasAnyResults =
-    filteredQuickActions.length > 0 ||
-    customerResults.length > 0 ||
-    vehicleResults.length > 0 ||
-    orderResults.length > 0 ||
-    inventoryResults.length > 0
+  const openHref = (href: string) => {
+    const inNewTab = newTabRef.current
+    newTabRef.current = false
+    setSearch('')
+    onOpenChange(false)
+    if (inNewTab) window.open(href, '_blank', 'noopener,noreferrer')
+    else navigate(href)
+  }
+
+  const openItem = (item: RecentSearchItem) => {
+    recent.add(item)
+    openHref(item.href)
+  }
 
   return (
     <CommandDialog
       open={open}
-      onOpenChange={handleOpenChange}
+      onOpenChange={(nextOpen) => {
+        onOpenChange(nextOpen)
+        if (!nextOpen) setSearch('')
+      }}
       title={t('globalSearch.title')}
       description={t('globalSearch.description')}
       shouldFilter={false}
@@ -81,47 +69,38 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
         placeholder={t('globalSearch.placeholder')}
         value={search}
         onValueChange={setSearch}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') newTabRef.current = event.metaKey || event.ctrlKey
+        }}
       />
 
-      <CommandList className="max-h-[420px] overflow-y-auto overflow-x-hidden px-1 pb-2">
-        {!hasAnyResults && !isFetching && !error ? (
-          <CommandEmpty>
-            {hasSearch ? (
-              <>
-                <p>{t('globalSearch.emptyNoMatch', { query: truncatedQuery })}</p>
-                <p className="mt-1 text-xs text-slate-500">{t('globalSearch.emptyHint')}</p>
-              </>
-            ) : (
-              t('globalSearch.emptyIdle')
-            )}
-          </CommandEmpty>
-        ) : null}
-
-        {filteredQuickActions.map((section, sectionIndex) => (
-          <QuickActionGroup
-            key={section.heading}
-            section={section}
-            showSeparator={sectionIndex === 0}
-            onSelect={handleNavigate}
+      <CommandList
+        className="max-h-[420px] overflow-y-auto overflow-x-hidden px-1 pb-2"
+        onClickCapture={(event) => {
+          newTabRef.current = event.metaKey || event.ctrlKey
+        }}
+      >
+        {query ? (
+          <SearchResults
+            groups={groups}
+            isLoading={isLoading}
+            error={error}
+            hasSections={sections.length > 0}
+            activeSiteId={session?.activeSiteId ?? null}
+            sites={sites ?? []}
+            query={truncate(query)}
+            onSelect={openItem}
           />
-        ))}
-
-        {hasSearch ? (
+        ) : (
           <>
-            {error ? (
-              <div className={cn('px-2 py-6 text-sm text-destructive')}>{t('globalSearch.unavailable')}</div>
-            ) : null}
-
-            {isFetching ? (
-              <div className="px-2 py-3 text-xs text-slate-500">{t('globalSearch.searching')}</div>
-            ) : null}
-
-            <CustomerResultsGroup customers={customerResults} onSelect={handleNavigate} />
-            <VehicleResultsGroup vehicles={vehicleResults} onSelect={handleNavigate} />
-            <OrderResultsGroup orders={orderResults} onSelect={handleNavigate} />
-            <InventoryResultsGroup items={inventoryResults} onSelect={handleNavigate} />
+            <RecentItemsGroup items={recent.items} onSelect={openItem} onRemove={recent.remove} />
+            <PrefixHelp />
           </>
-        ) : null}
+        )}
+
+        {sections.map((section) => (
+          <QuickActionGroup key={section.heading} section={section} onSelect={openHref} />
+        ))}
       </CommandList>
     </CommandDialog>
   )
