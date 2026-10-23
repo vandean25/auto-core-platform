@@ -37,6 +37,57 @@ async function releaseCronJobAdvisoryLockOnClient(
   return result.rows[0]?.released === true;
 }
 
+function toError(error: unknown): Error {
+  return error instanceof Error ? error : new Error(String(error));
+}
+
+async function unlockCronJobSession(
+  client: PoolClient,
+  jobName: string,
+  logger: CronJobLockLogger,
+): Promise<Error | undefined> {
+  try {
+    const released = await releaseCronJobAdvisoryLockOnClient(client, jobName);
+    if (released) {
+      return undefined;
+    }
+
+    (logger.warn ?? logger.log).call(
+      logger,
+      `Cron job "${jobName}": pg_advisory_unlock did not release the lock on this session.`,
+    );
+    return new Error(`Cron job "${jobName}": advisory unlock did not release.`);
+  } catch (error) {
+    return toError(error);
+  }
+}
+
+async function releaseCronJobLockClient(
+  client: PoolClient,
+  jobName: string,
+  acquired: boolean,
+  logger: CronJobLockLogger,
+): Promise<void> {
+  let releaseError: Error | undefined;
+  try {
+    if (acquired) {
+      releaseError = await unlockCronJobSession(client, jobName, logger);
+    }
+  } finally {
+    try {
+      client.release(releaseError);
+    } catch {
+      // pg may throw while destroying a broken session; reservation still clears below.
+    }
+  }
+}
+
+function clearCronJobReservation(jobName: string, reserved: boolean): void {
+  if (reserved) {
+    runningInThisProcess.delete(jobName);
+  }
+}
+
 /**
  * Runs `fn` when this process holds the cluster-wide cron lock for `jobName`.
  * The lock is held on one pinned dedicated-pool connection for the whole callback so
@@ -76,38 +127,8 @@ export async function withCronJobLock(
     return true;
   } finally {
     if (client) {
-      let releaseError: Error | undefined;
-      try {
-        if (acquired) {
-          try {
-            const released = await releaseCronJobAdvisoryLockOnClient(
-              client,
-              jobName,
-            );
-            if (!released) {
-              (logger.warn ?? logger.log).call(
-                logger,
-                `Cron job "${jobName}": pg_advisory_unlock did not release the lock on this session.`,
-              );
-              releaseError = new Error(
-                `Cron job "${jobName}": advisory unlock did not release.`,
-              );
-            }
-          } catch (error) {
-            releaseError =
-              error instanceof Error ? error : new Error(String(error));
-          }
-        }
-      } finally {
-        try {
-          client.release(releaseError);
-        } catch {
-          // pg may throw while destroying a broken session; reservation still clears below.
-        }
-      }
+      await releaseCronJobLockClient(client, jobName, acquired, logger);
     }
-    if (reserved) {
-      runningInThisProcess.delete(jobName);
-    }
+    clearCronJobReservation(jobName, reserved);
   }
 }
