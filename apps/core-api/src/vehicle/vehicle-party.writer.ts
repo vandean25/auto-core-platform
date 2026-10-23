@@ -19,6 +19,7 @@ import {
   type PartyRuleViolation,
 } from './vehicle-party.rules.js';
 import { dateToDay, dayToDate } from './vehicle-party-date.util.js';
+import { viennaIsoDay } from '../vehicle-stock/gewaehrleistung/gewaehrleistung-status.js';
 
 /**
  * Every write here runs inside the caller's transaction and starts with a row lock on the
@@ -31,6 +32,10 @@ export type PartyWriteContext = {
   /** Migration cutover day. Only the importer sets it. */
   cutover?: string;
 };
+
+export function partyWriteContext(tenantId: string): PartyWriteContext {
+  return { tenantId, today: viennaIsoDay(new Date()) };
+}
 
 export type NewParty = {
   customer_id: string;
@@ -259,6 +264,7 @@ async function handOverOwner(
   timeline: VehicleParty[],
   active: VehicleParty | null,
   customerId: string | null,
+  source: VehicleRecordSource,
 ): Promise<void> {
   const interval = active ? toPartyInterval(active) : null;
   if (active && interval && (interval.valid_from ?? '') >= ctx.today) {
@@ -278,23 +284,28 @@ async function handOverOwner(
       valid_from: ctx.today,
       valid_to: null,
       notes: null,
-      source: VehicleRecordSource.MANUAL,
+      source,
     });
   }
 }
 
 /**
- * Keeps the parties in step with an explicit change of the main contact (PATCH customer_id):
- * the active OWNER ends and, for a customer, a new OWNER starts, in the caller's transaction.
- * Clearing the contact (null) ends the OWNER and starts none.
+ * The only writer of `Vehicle.customer_id`: the active OWNER and the main contact change
+ * together, in the caller's transaction. The active OWNER ends and, for a customer, a new OWNER
+ * starts (`source` is the origin of that row). The same customer changes nothing. `null` ends
+ * the OWNER and starts none. Other roles (BILL_TO, LEASING, ...) are never touched.
  */
-export async function changeMainContactInTx(
+export async function setOwnerInTx(
   tx: Prisma.TransactionClient,
   ctx: PartyWriteContext,
   vehicleId: string,
   customerId: string | null,
+  source: VehicleRecordSource,
 ): Promise<void> {
   await lockVehicleForPartyWrite(tx, ctx.tenantId, vehicleId);
+  if (customerId !== null) {
+    await assertCustomerInTenant(tx, ctx.tenantId, customerId);
+  }
   const timeline = await loadTimeline(tx, ctx.tenantId, vehicleId);
   const activeInterval = selectActiveOwner(
     timeline.map(toPartyInterval),
@@ -306,7 +317,15 @@ export async function changeMainContactInTx(
     : customerId === null;
 
   if (!unchanged) {
-    await handOverOwner(tx, ctx, vehicleId, timeline, active, customerId);
+    await handOverOwner(
+      tx,
+      ctx,
+      vehicleId,
+      timeline,
+      active,
+      customerId,
+      source,
+    );
   }
   await tx.vehicle.updateMany({
     where: { id: vehicleId, tenant_id: ctx.tenantId },

@@ -5,7 +5,7 @@ import {
   Inject,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, VehicleRecordSource } from '@prisma/client';
 import type { Prisma as PrismaTypes } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
@@ -17,6 +17,10 @@ import {
   normalizeVehicleIdentityValue,
   normalizeVehicleIdentityValueOrNull,
 } from '../vehicle/vehicle-identity.util.js';
+import {
+  partyWriteContext,
+  setOwnerInTx,
+} from '../vehicle/vehicle-party.writer.js';
 import { createNewIntakeVehicle } from '../workshop/workshop-intake-vehicle.helpers.js';
 import type {
   RegistrationFieldEvidence,
@@ -487,9 +491,6 @@ export class RegistrationIntakeApplyService {
       },
       data: withPlateNormalized({
         plate: dto.plate,
-        ...(dto.ownershipCorrection
-          ? { customer_id: dto.ownershipCorrection.nextCustomerId }
-          : {}),
         ...(plateChanged
           ? { ...VEHICLE_IDENTITY_RESET, identity_resolution_token: null }
           : {}),
@@ -503,7 +504,27 @@ export class RegistrationIntakeApplyService {
       );
     }
 
+    await this.applyOwnershipCorrection(tx, tenantId, vehicleId, dto);
     await this.applyRegulatoryFieldUpdates(tx, tenantId, vehicleId, dto);
+  }
+
+  /** The corrected holder becomes the OWNER; customer_id follows through the party writer. */
+  private async applyOwnershipCorrection(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    vehicleId: string,
+    dto: ApplyRegistrationIntakeDto,
+  ) {
+    if (!dto.ownershipCorrection) {
+      return;
+    }
+    await setOwnerInTx(
+      tx,
+      partyWriteContext(tenantId),
+      vehicleId,
+      dto.ownershipCorrection.nextCustomerId,
+      VehicleRecordSource.MANUAL,
+    );
   }
 
   private async applyRegulatoryFieldUpdates(

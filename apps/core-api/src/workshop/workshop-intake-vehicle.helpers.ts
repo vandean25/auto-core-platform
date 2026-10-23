@@ -7,8 +7,13 @@ import {
 import {
   Prisma,
   VehicleInventoryRole,
+  VehicleRecordSource,
   VehicleStockStatus,
 } from '@prisma/client';
+import {
+  partyWriteContext,
+  setOwnerInTx,
+} from '../vehicle/vehicle-party.writer.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { RegisterIntakeDto } from './dto/register-intake.dto.js';
 import {
@@ -79,7 +84,6 @@ export async function updateExistingIntakeVehicle(
     },
     data: withPlateNormalized({
       plate: dto.plate,
-      customer_id: customerId,
       ...(identityChanged
         ? { ...VEHICLE_IDENTITY_RESET, identity_resolution_token: null }
         : {}),
@@ -91,6 +95,13 @@ export async function updateExistingIntakeVehicle(
       'Vehicle VIN or plate changed while registering intake; please retry',
     );
   }
+  await setOwnerInTx(
+    tx,
+    partyWriteContext(tenantId),
+    existingVehicle.id,
+    customerId,
+    VehicleRecordSource.MANUAL,
+  );
 
   const vehicle = await tx.vehicle.findFirst({
     where: { id: existingVehicle.id, tenant_id: tenantId },
@@ -106,8 +117,9 @@ export async function createNewIntakeVehicle(
   params: CreateNewIntakeVehicleParams,
 ) {
   const { tx, tenantId, dto, customerId, vin } = params;
+  let created: { id: string };
   try {
-    const vehicle = await tx.vehicle.create({
+    created = await tx.vehicle.create({
       data: withPlateNormalized({
         tenant_id: tenantId,
         vin,
@@ -115,13 +127,9 @@ export async function createNewIntakeVehicle(
         make: dto.make,
         model: dto.model,
         year: dto.year,
-        customer_id: customerId,
       }),
-      include: {
-        customer: true,
-      },
+      select: { id: true },
     });
-    return stripVehicleIdentityResolutionState(vehicle);
   } catch (error: unknown) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -133,6 +141,21 @@ export async function createNewIntakeVehicle(
     }
     throw error;
   }
+  await setOwnerInTx(
+    tx,
+    partyWriteContext(tenantId),
+    created.id,
+    customerId,
+    VehicleRecordSource.MANUAL,
+  );
+  const vehicle = await tx.vehicle.findFirst({
+    where: { id: created.id, tenant_id: tenantId },
+    include: { customer: true },
+  });
+  if (!vehicle) {
+    throw new NotFoundException(`Vehicle ${created.id} not found`);
+  }
+  return stripVehicleIdentityResolutionState(vehicle);
 }
 
 export async function resolveIntakeVehicle(

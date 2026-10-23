@@ -36,6 +36,7 @@ describe('VehicleSaleService', () => {
       create: jest.Mock;
     };
     vehicle: { findFirst: jest.Mock; updateMany: jest.Mock };
+    vehicleParty: { findMany: jest.Mock; create: jest.Mock };
     customer: { findFirst: jest.Mock };
     workshopOrder: { count: jest.Mock };
     vehicleLedgerEntry: { findMany: jest.Mock };
@@ -80,6 +81,11 @@ describe('VehicleSaleService', () => {
         create: jest.fn(),
       },
       vehicle: { findFirst: jest.fn(), updateMany: jest.fn() },
+      // setOwnerInTx: a vehicle without an OWNER party yet.
+      vehicleParty: {
+        findMany: jest.fn().mockResolvedValue([]),
+        create: jest.fn().mockImplementation(async ({ data }) => data),
+      },
       vehiclePurchase: {
         findFirst: jest.fn().mockResolvedValue(null),
       },

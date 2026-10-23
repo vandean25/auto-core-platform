@@ -1,5 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { Prisma, WorkshopOrderStatus } from '@prisma/client';
+import {
+  Prisma,
+  VehicleRecordSource,
+  WorkshopOrderStatus,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
   invoicesHistorySlice,
@@ -19,8 +23,9 @@ import {
 import { dayToDate } from './vehicle-party-date.util.js';
 import { withPlateNormalized } from './vehicle-plate.util.js';
 import {
-  changeMainContactInTx,
   lockVehicleForPartyWrite,
+  partyWriteContext,
+  setOwnerInTx,
 } from './vehicle-party.writer.js';
 
 export interface VehicleListQuery {
@@ -76,9 +81,26 @@ export class VehiclePersistenceService {
   }
 
   async createVehicle(data: Prisma.VehicleUncheckedCreateInput) {
-    return this.prisma.vehicle.create({
-      data: withPlateNormalized(data),
-      include: { customer: true },
+    const { customer_id: customerId, ...vehicleData } = data;
+    return this.prisma.$transaction(async (tx) => {
+      const created = await tx.vehicle.create({
+        data: withPlateNormalized(vehicleData),
+        include: { customer: true },
+      });
+      if (!customerId) {
+        return created;
+      }
+      await setOwnerInTx(
+        tx,
+        partyWriteContext(created.tenant_id),
+        created.id,
+        customerId,
+        VehicleRecordSource.MANUAL,
+      );
+      return tx.vehicle.findFirstOrThrow({
+        where: { id: created.id, tenant_id: created.tenant_id },
+        include: { customer: true },
+      });
     });
   }
 
@@ -108,7 +130,10 @@ export class VehiclePersistenceService {
     customerId: string | null;
     today: string;
   }): Promise<number> {
-    const { id, tenantId, existingVehicle, data, customerId, today } = input;
+    const { id, tenantId, existingVehicle, customerId, today } = input;
+    // customer_id is written by setOwnerInTx only, together with the OWNER party.
+    const data = { ...input.data };
+    delete data.customer_id;
     return this.prisma.$transaction(async (tx) => {
       // Lock first: the "customer unchanged" decision must see what the previous writer committed.
       await lockVehicleForPartyWrite(tx, tenantId, id);
@@ -122,7 +147,13 @@ export class VehiclePersistenceService {
       });
       // Repeating the current customer is not a change: no party is invented or moved.
       if (count > 0 && current?.customer_id !== customerId) {
-        await changeMainContactInTx(tx, { tenantId, today }, id, customerId);
+        await setOwnerInTx(
+          tx,
+          { tenantId, today },
+          id,
+          customerId,
+          VehicleRecordSource.MANUAL,
+        );
       }
       return count;
     });

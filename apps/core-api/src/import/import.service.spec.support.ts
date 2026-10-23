@@ -35,7 +35,8 @@ const PRISMA_DELEGATES: Record<string, string[]> = {
   vendorArticle: ['findFirst', 'findMany', 'upsert'],
   catalogPriceHistory: ['create'],
   customer: ['findMany', 'findFirst', 'create', 'update'],
-  vehicle: ['findMany', 'findFirst', 'create', 'update'],
+  vehicle: ['findMany', 'findFirst', 'create', 'update', 'updateMany'],
+  vehicleParty: ['findMany', 'create'],
   externalIdMapping: ['findMany', 'findFirst', 'create', 'upsert'],
   importJob: ['create', 'findFirst', 'updateMany', 'update'],
   importJobRow: ['findMany', 'update', 'count'],
@@ -100,6 +101,15 @@ function applyDefaults(harness: ImportHarness): void {
   ] as const) {
     harness.prisma[model][method].mockResolvedValue([]);
   }
+  // setOwnerInTx: vehicle row lock, empty OWNER timeline, a created OWNER row.
+  harness.prisma.vehicle.updateMany.mockResolvedValue({ count: 1 });
+  harness.prisma.vehicleParty.findMany.mockResolvedValue([]);
+  harness.prisma.vehicleParty.create.mockImplementation(
+    async ({ data }: { data: Record<string, unknown> }) => ({
+      id: 'party-new',
+      ...data,
+    }),
+  );
   harness.prisma.importJob.create.mockImplementation(
     async ({ data }: { data: Record<string, unknown> }) => ({
       ...data,

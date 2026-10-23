@@ -48,6 +48,7 @@ describe('VehicleSaleService characterization', () => {
       create: jest.fn(),
     },
     vehicle: { findFirst: jest.fn(), updateMany: jest.fn() },
+    vehicleParty: { findMany: jest.fn(), create: jest.fn(), update: jest.fn() },
     vehiclePurchase: { findFirst: jest.fn() },
     vehicleListing: { findFirst: jest.fn().mockResolvedValue(null) },
     vehicleListingChannel: { update: jest.fn() },
@@ -164,6 +165,9 @@ describe('VehicleSaleService characterization', () => {
     prisma.workshopOrder.count.mockResolvedValue(0);
     prisma.vehicleLedgerEntry.findMany.mockResolvedValue([]);
     prisma.vehicleSale.updateMany.mockResolvedValue({ count: 1 });
+    // setOwnerInTx: a vehicle without an OWNER party yet.
+    prisma.vehicleParty.findMany.mockResolvedValue([]);
+    prisma.vehicleParty.create.mockImplementation(async ({ data }) => data);
     prisma.vehiclePurchase.findFirst.mockResolvedValue(options.purchase ?? null);
     prisma.invoiceSequence.upsert.mockResolvedValue({ current: 1 });
     prisma.invoice.create.mockImplementation(async ({ data }) => ({
@@ -453,6 +457,49 @@ describe('VehicleSaleService characterization', () => {
       });
     });
 
+    it('ends the previous OWNER on finalize and leaves BILL_TO and LEASING active', async () => {
+      const sale = saleFixture();
+      primeFinalize(sale);
+      const day = (value: string) => new Date(`${value}T00:00:00.000Z`);
+      const party = (id: string, role: string, customer: string) => ({
+        id,
+        tenant_id: tenantId,
+        vehicle_id: vehicleId,
+        customer_id: customer,
+        role,
+        valid_from: day('2020-01-01'),
+        valid_to: null,
+        source: 'MANUAL',
+        notes: null,
+        createdAt: day('2020-01-01'),
+      });
+      const parties = [
+        party('p-owner', 'OWNER', 'customer-old'),
+        party('p-bill', 'BILL_TO', 'customer-payer'),
+        party('p-lease', 'LEASING', 'customer-lessor'),
+      ];
+      // The second timeline read sees the ended OWNER, as it does in the database.
+      prisma.vehicleParty.findMany
+        .mockResolvedValueOnce(parties)
+        .mockResolvedValueOnce([
+          { ...parties[0], valid_to: day('2026-01-01') },
+          parties[1],
+          parties[2],
+        ]);
+
+      await service.finalize(saleId);
+
+      expect(prisma.vehicleParty.update).toHaveBeenCalledTimes(1);
+      expect(prisma.vehicleParty.update).toHaveBeenCalledWith({
+        where: { tenant_id_id: { tenant_id: tenantId, id: 'p-owner' } },
+        data: { valid_to: expect.any(Date) },
+      });
+      expect(prisma.vehicleParty.create).toHaveBeenCalledTimes(1);
+      expect(prisma.vehicleParty.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ role: 'OWNER', customer_id: customerId }),
+      });
+    });
+
     it('finalizes to INVOICED with the next RE number and retires the vehicle from stock', async () => {
       const sale = saleFixture();
       primeFinalize(sale);
@@ -490,9 +537,21 @@ describe('VehicleSaleService characterization', () => {
           stock_received_at: null,
           stock_cost_basis: null,
           inventory_role: VehicleInventoryRole.CUSTOMER,
-          customer_id: customerId,
           reserved_for_customer_id: null,
         },
+      });
+      // The buyer becomes the OWNER through the party writer; the stock write sets no customer_id.
+      expect(prisma.vehicleParty.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          vehicle_id: vehicleId,
+          customer_id: customerId,
+          role: 'OWNER',
+          source: 'MANUAL',
+        }),
+      });
+      expect(prisma.vehicle.updateMany).toHaveBeenLastCalledWith({
+        where: { id: vehicleId, tenant_id: tenantId },
+        data: { customer_id: customerId },
       });
       expect(ledger.append).toHaveBeenCalledWith(
         expect.objectContaining({

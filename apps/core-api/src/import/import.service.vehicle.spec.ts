@@ -410,6 +410,7 @@ describe('ImportService vehicle import (characterization)', () => {
       h.prisma.externalIdMapping.findFirst.mockResolvedValue(null);
       h.prisma.externalIdMapping.create.mockResolvedValue({});
       h.prisma.externalIdMapping.upsert.mockResolvedValue({});
+      h.prisma.customer.findFirst.mockResolvedValue({ id: 'cust-1' });
       h.prisma.vehicle.create.mockResolvedValue({
         id: 'veh-new',
         make: 'VW',
@@ -445,8 +446,20 @@ describe('ImportService vehicle import (characterization)', () => {
           mileage: 120000,
           color: 'Blau',
           key_number: 'S-7',
-          customer_id: 'cust-1',
         },
+      });
+      // The owner goes through the party writer: an OWNER row from the import, then customer_id.
+      expect(h.prisma.vehicleParty.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          vehicle_id: 'veh-new',
+          customer_id: 'cust-1',
+          role: 'OWNER',
+          source: 'LEGACY_IMPORT',
+        }),
+      });
+      expect(h.prisma.vehicle.updateMany).toHaveBeenLastCalledWith({
+        where: { id: 'veh-new', tenant_id: TENANT_ID },
+        data: { customer_id: 'cust-1' },
       });
       expect(h.prisma.externalIdMapping.create).toHaveBeenCalledWith({
         data: {

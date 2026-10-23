@@ -76,6 +76,7 @@ describe('VehiclePurchaseService', () => {
       },
       vendor: { findFirst: jest.fn() },
       customer: { findFirst: jest.fn() },
+      vehicleParty: { findMany: jest.fn().mockResolvedValue([]) },
       storageLocation: { findFirst: jest.fn() },
       vehicleLedgerEntry: { count: jest.fn() },
       user: { findUnique: jest.fn() },
@@ -448,6 +449,11 @@ describe('VehiclePurchaseService', () => {
           plate: 'NEW-1',
           ...VEHICLE_IDENTITY_RESET,
         }),
+      });
+      // Taking a customer's vehicle into stock clears its owner (lock, then customer_id).
+      expect(prisma.vehicle.updateMany).toHaveBeenLastCalledWith({
+        where: { id: vehicleId, tenant_id: tenantId },
+        data: { customer_id: null },
       });
     });
 

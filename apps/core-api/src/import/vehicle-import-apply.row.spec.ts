@@ -42,6 +42,7 @@ describe('vehicle-import-apply.row (Erstzulassung)', () => {
     h.prisma.externalIdMapping.findFirst.mockResolvedValue(null);
     h.prisma.externalIdMapping.create.mockResolvedValue({});
     h.prisma.externalIdMapping.upsert.mockResolvedValue({});
+    h.prisma.customer.findFirst.mockResolvedValue({ id: 'cust-1' });
     h.prisma.vehicle.create.mockResolvedValue({
       id: 'veh-new',
       make: 'VW',

@@ -155,10 +155,24 @@ describe('WorkshopIntakeService', () => {
       data: {
         plate: 'NEW-1',
         plate_normalized: 'NEW1',
-        customer_id: 'c-1',
         ...VEHICLE_IDENTITY_RESET,
         identity_resolution_token: null,
       },
+    });
+    // customer_id is written by the party writer, together with the OWNER party.
+    expect(mockPrisma.vehicleParty.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        vehicle_id: 'v-1',
+        customer_id: 'c-1',
+        role: 'OWNER',
+      }),
+    });
+    expect(mockPrisma.vehicle.updateMany).toHaveBeenLastCalledWith({
+      where: {
+        id: 'v-1',
+        tenant_id: '00000000-0000-0000-0000-000000000001',
+      },
+      data: { customer_id: 'c-1' },
     });
     expect(mockPrisma.vehicle.findFirst).toHaveBeenNthCalledWith(2, {
       where: {
@@ -171,8 +185,16 @@ describe('WorkshopIntakeService', () => {
 
   it('does not expose identity resolution state from a registered vehicle response', async () => {
     mockPrisma.customer.findFirst.mockResolvedValue({ id: 'c-1' });
-    mockPrisma.vehicle.findFirst.mockResolvedValue(null);
+    mockPrisma.vehicle.findFirst.mockResolvedValueOnce(null);
     mockPrisma.vehicle.create.mockResolvedValue({
+      id: 'v-1',
+      vin: 'VIN-1',
+      plate: 'PL-1',
+      identity_resolution_generation: 'generation-1',
+      identity_resolution_token: 'token-1',
+      customer: { id: 'c-1' },
+    });
+    mockPrisma.vehicle.findFirst.mockResolvedValue({
       id: 'v-1',
       vin: 'VIN-1',
       plate: 'PL-1',
@@ -222,7 +244,6 @@ describe('WorkshopIntakeService', () => {
     expect(updateData).toEqual({
       plate: 'PL-1',
       plate_normalized: 'PL1',
-      customer_id: 'c-1',
     });
     for (const resetKey of Object.keys(VEHICLE_IDENTITY_RESET)) {
       expect(updateData).not.toHaveProperty(resetKey);
@@ -261,17 +282,23 @@ describe('WorkshopIntakeService', () => {
       },
       data: expect.objectContaining({
         plate: 'NEW-1',
-        customer_id: 'c-1',
         ...VEHICLE_IDENTITY_RESET,
       }),
     });
+    expect(mockPrisma.vehicleParty.create).not.toHaveBeenCalled();
     expect(mockPrisma.vehicle.upsert).not.toHaveBeenCalled();
   });
 
   it('canonicalizes the VIN when looking up and creating a registered vehicle', async () => {
     mockPrisma.customer.findFirst.mockResolvedValue({ id: 'c-1' });
-    mockPrisma.vehicle.findFirst.mockResolvedValue(null);
+    mockPrisma.vehicle.findFirst.mockResolvedValueOnce(null);
     mockPrisma.vehicle.create.mockResolvedValue({
+      id: 'v-1',
+      vin: 'VF1ABC123',
+      plate: 'PL-1',
+      customer: { id: 'c-1' },
+    });
+    mockPrisma.vehicle.findFirst.mockResolvedValue({
       id: 'v-1',
       vin: 'VF1ABC123',
       plate: 'PL-1',
@@ -386,8 +413,13 @@ describe('WorkshopIntakeService', () => {
 
   it('looks up and creates a registered vehicle with a nullable blank VIN', async () => {
     mockPrisma.customer.findFirst.mockResolvedValue({ id: 'c-1' });
-    mockPrisma.vehicle.findFirst.mockResolvedValue(null);
     mockPrisma.vehicle.create.mockResolvedValue({
+      id: 'v-1',
+      vin: null,
+      plate: 'PL-1',
+      customer: { id: 'c-1' },
+    });
+    mockPrisma.vehicle.findFirst.mockResolvedValue({
       id: 'v-1',
       vin: null,
       plate: 'PL-1',
@@ -403,7 +435,11 @@ describe('WorkshopIntakeService', () => {
       year: 2024,
     });
 
-    expect(mockPrisma.vehicle.findFirst).not.toHaveBeenCalled();
+    // No VIN lookup: the only read is the read-back of the created vehicle.
+    expect(mockPrisma.vehicle.findFirst).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.vehicle.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ id: 'v-1' }) }),
+    );
     expect(mockPrisma.vehicle.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ vin: null }),
@@ -413,12 +449,13 @@ describe('WorkshopIntakeService', () => {
 
   it('creates a new vehicle instead of reusing an existing VIN-less vehicle', async () => {
     mockPrisma.customer.findFirst.mockResolvedValue({ id: 'c-1' });
-    mockPrisma.vehicle.findFirst.mockResolvedValue({
-      id: 'unrelated-v-1',
-      vin: null,
-      plate: 'OTHER-PLATE',
-    });
     mockPrisma.vehicle.create.mockResolvedValue({
+      id: 'v-1',
+      vin: null,
+      plate: 'NEW-PLATE',
+      customer: { id: 'c-1' },
+    });
+    mockPrisma.vehicle.findFirst.mockResolvedValue({
       id: 'v-1',
       vin: null,
       plate: 'NEW-PLATE',
@@ -434,7 +471,8 @@ describe('WorkshopIntakeService', () => {
       year: 2024,
     });
 
-    expect(mockPrisma.vehicle.findFirst).not.toHaveBeenCalled();
+    // No VIN lookup, so no existing vehicle can be reused: the only read is the read-back.
+    expect(mockPrisma.vehicle.findFirst).toHaveBeenCalledTimes(1);
     expect(mockPrisma.vehicle.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ vin: null }),
@@ -802,8 +840,12 @@ describe('WorkshopIntakeService', () => {
 
   it('matches existing customer by email when customerId is omitted in register', async () => {
     mockPrisma.customer.findFirst.mockResolvedValue({ id: 'c-matched' });
-    mockPrisma.vehicle.findFirst.mockResolvedValue(null);
     mockPrisma.vehicle.create.mockResolvedValue({
+      id: 'v-1',
+      plate: 'PL-1',
+      customer: { id: 'c-matched' },
+    });
+    mockPrisma.vehicle.findFirst.mockResolvedValue({
       id: 'v-1',
       plate: 'PL-1',
       customer: { id: 'c-matched' },
@@ -822,20 +864,27 @@ describe('WorkshopIntakeService', () => {
         email: 'john@example.com',
       },
     });
-    expect(mockPrisma.vehicle.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          customer_id: 'c-matched',
-        }),
+    expect(mockPrisma.vehicleParty.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        vehicle_id: 'v-1',
+        customer_id: 'c-matched',
+        role: 'OWNER',
       }),
-    );
+    });
   });
 
   it('creates new private customer when customerId and existing email do not match in register', async () => {
-    mockPrisma.customer.findFirst.mockResolvedValue(null);
+    // The email lookup finds nobody; the party writer then finds the created customer.
+    mockPrisma.customer.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValue({ id: 'c-new' });
     mockPrisma.customer.create.mockResolvedValue({ id: 'c-new' });
-    mockPrisma.vehicle.findFirst.mockResolvedValue(null);
     mockPrisma.vehicle.create.mockResolvedValue({
+      id: 'v-1',
+      plate: 'PL-2',
+      customer: { id: 'c-new' },
+    });
+    mockPrisma.vehicle.findFirst.mockResolvedValue({
       id: 'v-1',
       plate: 'PL-2',
       customer: { id: 'c-new' },
@@ -861,13 +910,13 @@ describe('WorkshopIntakeService', () => {
         type: 'PRIVATE',
       },
     });
-    expect(mockPrisma.vehicle.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          customer_id: 'c-new',
-        }),
+    expect(mockPrisma.vehicleParty.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        vehicle_id: 'v-1',
+        customer_id: 'c-new',
+        role: 'OWNER',
       }),
-    );
+    });
   });
 
   describe('guarded site retargeting', () => {
