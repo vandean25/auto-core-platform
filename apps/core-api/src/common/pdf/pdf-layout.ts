@@ -33,10 +33,7 @@ export function buildPdfFooterPageNumbersHtml(
     total: PDF_FOOTER_TOTAL_PLACEHOLDER,
   });
   return labeled
-    .replaceAll(
-      PDF_FOOTER_PAGE_PLACEHOLDER,
-      '<span class="pageNumber"></span>',
-    )
+    .replaceAll(PDF_FOOTER_PAGE_PLACEHOLDER, '<span class="pageNumber"></span>')
     .replaceAll(
       PDF_FOOTER_TOTAL_PLACEHOLDER,
       '<span class="totalPages"></span>',
