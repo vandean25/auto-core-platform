@@ -6,7 +6,7 @@ import { AutoCorePage } from './pom/AutoCorePage';
  * e2e ADMIN (user e2e-test-user, tenant e2e-tenant-id).
  */
 
-const INPUT_LABEL = 'Teile, Kunden, Fahrzeuge, Aufträge oder Befehle suchen';
+const PLACEHOLDER = 'Teile, Kunden, Fahrzeuge, Aufträge…';
 
 const SEARCH_RESPONSE = {
   groups: [
@@ -56,8 +56,10 @@ async function mockSearch(page: Page, requests: URL[] = []) {
 }
 
 async function openPalette(page: Page) {
+  // The shortcut listener is attached with the app shell, so wait for the sidebar first.
+  await expect(page.getByRole('navigation', { name: 'Hauptnavigation' })).toBeVisible();
   await page.keyboard.press('ControlOrMeta+k');
-  const input = page.getByRole('combobox', { name: INPUT_LABEL });
+  const input = page.getByPlaceholder(PLACEHOLDER);
   await expect(input).toBeVisible();
   return input;
 }
