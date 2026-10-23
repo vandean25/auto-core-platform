@@ -521,14 +521,14 @@ describe('Registration document intake (e2e)', () => {
     });
     const existing = await tenantPrisma.vehicle.create({
       data: {
-        tenant_id: tenantId,
-        customer_id: holder.id,
-        vin: 'WVWZZZSYNTH000001',
         plate: 'W OLD 9',
         plate_normalized: 'WOLD9',
+        year: 2018,
+        model: 'Old',
         make: 'Synthetic',
-        model: 'Demo',
-        year: 2019,
+        vin: 'WVWZZZSYNTH000001',
+        tenant_id: tenantId,
+        customer_id: holder.id,
       },
     });
     const front = encodeRegistrationIntakeFixtureBytes('front-clear');
