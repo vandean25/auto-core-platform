@@ -84,6 +84,17 @@ describe('Production image version pins (AUT-167)', () => {
     expect(builderStage).toMatch(/^RUN test -d dist\/locales$/m);
   });
 
+  it('fails the builder when dist/locales/de/seedMaster.json is missing after build', () => {
+    const dockerfile = fs.readFileSync(DOCKERFILE_PATH, 'utf8');
+    const builderStage = dockerfile.split(
+      /^FROM mcr\.microsoft\.com\/playwright:/m,
+    )[0];
+
+    expect(builderStage).toMatch(
+      /^RUN test -f dist\/locales\/de\/seedMaster\.json$/m,
+    );
+  });
+
   it('uses Node 24.22.1 slim for the API target', () => {
     const dockerfile = fs.readFileSync(DOCKERFILE_PATH, 'utf8');
 
