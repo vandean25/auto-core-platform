@@ -195,6 +195,8 @@ model Tenant {
   marginRules                      MarginRule[]
   catalogPriceHistories            CatalogPriceHistory[]
   tenantApiKeys                    TenantApiKey[]
+  vehicleParties                   VehicleParty[]
+  vehicleNotices                   VehicleNotice[]
 
   @@map("tenants")
 }
@@ -1677,6 +1679,7 @@ model Customer {
   consent_unsubscribe_tokens CustomerConsentUnsubscribeToken[]
   legacyDocumentsAsCustomer  LegacyDocument[]                  @relation("LegacyDocumentCustomer")
   legacyDocumentsAsBillTo    LegacyDocument[]                  @relation("LegacyDocumentBillTo")
+  vehicle_parties            VehicleParty[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1858,6 +1861,8 @@ model Vehicle {
   tyre_sets                       TyreSet[]
   appliedRegistrationIntakes      RegistrationDocumentIntake[]    @relation("RegistrationIntakeAppliedVehicle")
   legacyDocuments                 LegacyDocument[]
+  parties                         VehicleParty[]
+  notices                         VehicleNotice[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2325,6 +2330,7 @@ enum VehicleInspectionType {
 enum VehicleInspectionRecordSource {
   MANUAL
   EBV_IMPORTED
+  LEGACY_IMPORT
 }
 
 enum InspectionSourceSystem {
@@ -2390,6 +2396,99 @@ model VehicleInspectionRecord {
   @@index([tenant_id, vehicle_id, inspected_on], map: "idx_vehicle_inspection_records_vehicle_inspected")
   @@index([tenant_id, plaketten_valid_until_year, plaketten_valid_until_month], map: "idx_vehicle_inspection_records_tenant_valid_until")
   @@map("vehicle_inspection_records")
+}
+
+enum VehiclePartyRole {
+  OWNER
+  DRIVER
+  USER
+  BILL_TO
+  LEASING
+  INSURANCE
+  WARRANTY_PROVIDER
+  SERVICE_CONTRACT
+  PREVIOUS_OWNER
+}
+
+enum VehicleNoticeType {
+  CAMPAIGN
+  RECALL
+  REMARK
+  WARNING
+  SERVICE_DUE
+}
+
+enum VehicleNoticeStatus {
+  OPEN
+  DONE
+  DISMISSED
+}
+
+/// Provenance of a vehicle party or notice row.
+enum VehicleRecordSource {
+  MANUAL
+  LEGACY_IMPORT
+}
+
+/// Time-bounded relationship between a vehicle and a customer (AUT-641). The interval is half-open
+/// `[valid_from, valid_to)`; a blank bound is unbounded. `Vehicle.customer_id` stays the main contact
+/// and is written by the party service from the single active OWNER.
+/// SQL-only constructs in migration SQL — do not drop via Prisma drift:
+/// `vehicle_parties_valid_interval_check` (`valid_from` < `valid_to` when both are set) and the partial unique
+/// index `vehicle_parties_one_active_singleton_role_key` (one open-ended OWNER, BILL_TO or LEASING per vehicle).
+/// Historical overlaps are checked by the party service under the vehicle row lock.
+model VehicleParty {
+  id          String              @id @default(uuid())
+  tenant_id   String
+  tenant      Tenant              @relation(fields: [tenant_id], references: [id])
+  vehicle_id  String
+  vehicle     Vehicle             @relation(fields: [tenant_id, vehicle_id], references: [tenant_id, id], onDelete: Restrict)
+  customer_id String
+  customer    Customer            @relation(fields: [tenant_id, customer_id], references: [tenant_id, id], onDelete: Restrict)
+  role        VehiclePartyRole
+  valid_from  DateTime?           @db.Date
+  valid_to    DateTime?           @db.Date
+  source      VehicleRecordSource @default(MANUAL)
+  notes       String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@unique([tenant_id, id])
+  @@index([tenant_id, vehicle_id])
+  @@index([tenant_id, customer_id])
+  @@map("vehicle_parties")
+}
+
+/// Campaign, recall, remark, warning or service-due notice on a vehicle (AUT-641 table, AUT-642 behavior).
+/// SQL-only construct in migration SQL — do not drop via Prisma drift: partial unique index
+/// `vehicle_notices_external_ref_key` on (`tenant_id`, `vehicle_id`, `type`, `external_ref`) where `external_ref` is set.
+/// The workshop order FK is `ON DELETE SET NULL ("resolved_workshop_order_id")` in migration SQL (column list).
+model VehicleNotice {
+  id                         String              @id @default(uuid())
+  tenant_id                  String
+  tenant                     Tenant              @relation(fields: [tenant_id], references: [id])
+  vehicle_id                 String
+  vehicle                    Vehicle             @relation(fields: [tenant_id, vehicle_id], references: [tenant_id, id], onDelete: Restrict)
+  type                       VehicleNoticeType
+  title                      String
+  body                       String?
+  status                     VehicleNoticeStatus @default(OPEN)
+  due_date                   DateTime?           @db.Date
+  due_mileage                Int?
+  external_ref               String?
+  source                     VehicleRecordSource @default(MANUAL)
+  created_by_user_id         String?
+  resolved_at                DateTime?
+  resolved_by_user_id        String?
+  resolved_workshop_order_id String?
+  resolved_workshop_order    WorkshopOrder?      @relation(fields: [tenant_id, resolved_workshop_order_id], references: [tenant_id, id], onDelete: SetNull)
+  createdAt                  DateTime            @default(now())
+  updatedAt                  DateTime            @updatedAt
+
+  @@unique([tenant_id, id])
+  @@index([tenant_id, vehicle_id, status])
+  @@index([tenant_id, status, due_date])
+  @@map("vehicle_notices")
 }
 
 model InspectionSourceConnection {
@@ -3669,6 +3768,7 @@ model WorkshopOrder {
   inspectionMeasurementIdentities InspectionMeasurementIdentity[]
   inspectionMeasurementImports    InspectionMeasurementImport[]
   inspectionMeasurements          InspectionMeasurement[]
+  resolved_vehicle_notices        VehicleNotice[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

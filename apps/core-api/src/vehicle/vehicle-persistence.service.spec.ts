@@ -139,6 +139,20 @@ describe('VehiclePersistenceService', () => {
     expect(include.sales.where).toEqual(siteScope);
   });
 
+  it('loads the active parties and open service-due notices inside the tenant', async () => {
+    await service.findVehicleDetail('vehicle-1', tenantId, [siteId]);
+
+    const { include } = prisma.vehicle.findFirst.mock.calls[0][0];
+
+    expect(include.parties.where).toMatchObject({ tenant_id: tenantId });
+    expect(include.parties.where.AND).toHaveLength(2);
+    expect(include.notices.where).toEqual({
+      tenant_id: tenantId,
+      type: 'SERVICE_DUE',
+      status: 'OPEN',
+    });
+  });
+
   it('lists a page of vehicles with the same where clause used for counting', async () => {
     const where = { tenant_id: tenantId };
     const orderBy = { make: 'asc' as const };
@@ -211,6 +225,74 @@ describe('VehiclePersistenceService', () => {
       },
       orderBy: { createdAt: 'desc' },
       select: { id: true, order_number: true },
+    });
+  });
+
+  describe('updateIfIdentityUnchangedWithMainContact', () => {
+    function buildTx(currentCustomerId: string | null, count = 1) {
+      const tx = {
+        vehicle: {
+          findFirst: jest.fn().mockResolvedValue({ customer_id: currentCustomerId }),
+          // First call is the row lock, the second the guarded update.
+          updateMany: jest
+            .fn()
+            .mockResolvedValueOnce({ count: 1 })
+            .mockResolvedValue({ count }),
+        },
+        vehicleParty: {
+          findMany: jest.fn().mockResolvedValue([]),
+          create: jest.fn().mockResolvedValue({
+            id: 'p-new',
+            role: 'OWNER',
+            customer_id: 'cust-2',
+            valid_from: new Date('2026-11-01T00:00:00.000Z'),
+            valid_to: null,
+          }),
+        },
+        customer: { findFirst: jest.fn().mockResolvedValue({ id: 'cust-2' }) },
+      };
+      (prisma as unknown as { $transaction: jest.Mock }).$transaction = jest
+        .fn()
+        .mockImplementation((fn: (client: unknown) => unknown) => fn(tx));
+      return tx;
+    }
+
+    const input = (customerId: string | null) => ({
+      id: 'vehicle-1',
+      tenantId,
+      existingVehicle: { id: 'vehicle-1', vin: null, plate: null },
+      data: { customer_id: customerId },
+      customerId,
+      today: '2026-11-01',
+    });
+
+    it('hands the OWNER over when the customer really changes', async () => {
+      const tx = buildTx('cust-1');
+
+      await expect(
+        service.updateIfIdentityUnchangedWithMainContact(input('cust-2')),
+      ).resolves.toBe(1);
+
+      expect(tx.vehicleParty.findMany).toHaveBeenCalled();
+      expect(tx.vehicleParty.create).toHaveBeenCalled();
+    });
+
+    it('does not touch the parties when the customer is repeated', async () => {
+      const tx = buildTx('cust-1');
+
+      await service.updateIfIdentityUnchangedWithMainContact(input('cust-1'));
+
+      expect(tx.vehicleParty.findMany).not.toHaveBeenCalled();
+      expect(tx.vehicleParty.create).not.toHaveBeenCalled();
+    });
+
+    it('writes no party when the identity guard is stale', async () => {
+      const tx = buildTx('cust-1', 0);
+
+      await expect(
+        service.updateIfIdentityUnchangedWithMainContact(input('cust-2')),
+      ).resolves.toBe(0);
+      expect(tx.vehicleParty.findMany).not.toHaveBeenCalled();
     });
   });
 });

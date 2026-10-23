@@ -3713,6 +3713,41 @@ export interface paths {
         patch: operations["VehicleInspectionRecordController_update"];
         trace?: never;
     };
+    "/api/vehicles/{vehicleId}/parties": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List vehicle parties with history and the payer suggestion */
+        get: operations["VehiclePartyController_list"];
+        put?: never;
+        /** Add a vehicle party */
+        post: operations["VehiclePartyController_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vehicles/{vehicleId}/parties/{partyId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** End an open-ended vehicle party */
+        patch: operations["VehiclePartyController_end"];
+        trace?: never;
+    };
     "/api/inspection-source-connections": {
         parameters: {
             query?: never;
@@ -6129,6 +6164,47 @@ export interface components {
              */
             last_inspected_on: string | null;
         };
+        /** @enum {string} */
+        VehiclePartyRole: "OWNER" | "DRIVER" | "USER" | "BILL_TO" | "LEASING" | "INSURANCE" | "WARRANTY_PROVIDER" | "SERVICE_CONTRACT" | "PREVIOUS_OWNER";
+        /** @enum {string} */
+        VehicleRecordSource: "MANUAL" | "LEGACY_IMPORT";
+        /** @enum {string} */
+        CustomerType: "PRIVATE" | "COMPANY";
+        VehiclePartyCustomerDto: {
+            id: string;
+            type: components["schemas"]["CustomerType"];
+            company_name: string | null;
+            first_name: string;
+            last_name: string;
+        };
+        VehiclePartyResponseDto: {
+            id: string;
+            vehicle_id: string;
+            customer_id: string;
+            role: components["schemas"]["VehiclePartyRole"];
+            /** Format: date */
+            valid_from: string | null;
+            /** Format: date */
+            valid_to: string | null;
+            source: components["schemas"]["VehicleRecordSource"];
+            notes: string | null;
+            /** @description Active today, using the half-open interval. */
+            is_active: boolean;
+            customer: components["schemas"]["VehiclePartyCustomerDto"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        VehicleOpenDueDateDto: {
+            id: string;
+            title: string;
+            /** Format: date */
+            due_date: string | null;
+            due_mileage: number | null;
+            external_ref: string | null;
+            source: components["schemas"]["VehicleRecordSource"];
+        };
         VehicleResponseDto: {
             /**
              * @description Indicates whether the request was executed in dry-run mode
@@ -6166,6 +6242,10 @@ export interface components {
             emission_class?: string | null;
             customer?: components["schemas"]["CustomerResponseDto"] | null;
             pickerl_due?: components["schemas"]["PickerlDueDto"];
+            /** @description Detail only: parties active today, each with role and customer. */
+            parties?: components["schemas"]["VehiclePartyResponseDto"][];
+            /** @description Detail only: open service-due notices, soonest first (read only). */
+            open_due_dates?: components["schemas"]["VehicleOpenDueDateDto"][];
         };
         /** @enum {string} */
         InvoiceTaxMode: "STANDARD" | "MARGIN_SCHEME";
@@ -6427,8 +6507,6 @@ export interface components {
             revoked_at?: Record<string, never> | null;
             revision: number;
         };
-        /** @enum {string} */
-        CustomerType: "PRIVATE" | "COMPANY";
         CreateCustomerDto: {
             type?: components["schemas"]["CustomerType"];
             company_name?: string;
@@ -6451,6 +6529,24 @@ export interface components {
             year: number;
             vin?: string | null;
             plate?: string | null;
+        };
+        CustomerVehiclePartyVehicleDto: {
+            id: string;
+            make: string;
+            model: string;
+            plate: string | null;
+        };
+        CustomerVehiclePartyDto: {
+            id: string;
+            vehicle_id: string;
+            role: components["schemas"]["VehiclePartyRole"];
+            /** Format: date */
+            valid_from: string | null;
+            /** Format: date */
+            valid_to: string | null;
+            source: components["schemas"]["VehicleRecordSource"];
+            is_active: boolean;
+            vehicle: components["schemas"]["CustomerVehiclePartyVehicleDto"];
         };
         SalesOrderSummaryDto: {
             id: string;
@@ -6506,6 +6602,8 @@ export interface components {
             address_zip?: string | null;
             address_country?: string | null;
             vehicles?: components["schemas"]["VehicleSummaryDto"][];
+            /** @description Vehicles related to this customer by party role, newest first, including ended parties. */
+            vehicle_parties?: components["schemas"]["CustomerVehiclePartyDto"][];
             sales_orders?: components["schemas"]["SalesOrderSummaryDto"][];
             workshop_orders?: components["schemas"]["WorkshopOrderSummaryDto"][];
             invoices?: components["schemas"]["InvoiceSummaryDto"][];
@@ -7095,6 +7193,10 @@ export interface components {
             emission_class?: string | null;
             customer?: components["schemas"]["CustomerResponseDto"] | null;
             pickerl_due?: components["schemas"]["PickerlDueDto"];
+            /** @description Detail only: parties active today, each with role and customer. */
+            parties?: components["schemas"]["VehiclePartyResponseDto"][];
+            /** @description Detail only: open service-due notices, soonest first (read only). */
+            open_due_dates?: components["schemas"]["VehicleOpenDueDateDto"][];
         };
         WorkshopSearchVehicleDto: {
             /**
@@ -7133,6 +7235,10 @@ export interface components {
             emission_class?: string | null;
             customer: components["schemas"]["CustomerResponseDto"] | null;
             pickerl_due?: components["schemas"]["PickerlDueDto"];
+            /** @description Detail only: parties active today, each with role and customer. */
+            parties?: components["schemas"]["VehiclePartyResponseDto"][];
+            /** @description Detail only: open service-due notices, soonest first (read only). */
+            open_due_dates?: components["schemas"]["VehicleOpenDueDateDto"][];
         };
         WorkshopSearchCustomerDto: {
             /**
@@ -9701,7 +9807,7 @@ export interface components {
         /** @enum {string} */
         VehicleInspectionType: "PICKERL_57A";
         /** @enum {string} */
-        VehicleInspectionRecordSource: "MANUAL" | "EBV_IMPORTED";
+        VehicleInspectionRecordSource: "MANUAL" | "EBV_IMPORTED" | "LEGACY_IMPORT";
         VehicleInspectionRecordResponseDto: {
             id: string;
             vehicle_id: string;
@@ -9735,6 +9841,36 @@ export interface components {
             plaketten_valid_until_month?: number;
             station_name?: Record<string, never>;
             notes?: Record<string, never>;
+        };
+        /** @enum {string} */
+        SuggestedBillToRole: "BILL_TO" | "LEASING";
+        SuggestedBillToDto: {
+            customer_id: string;
+            role: components["schemas"]["SuggestedBillToRole"];
+            customer: components["schemas"]["VehiclePartyCustomerDto"];
+        };
+        VehiclePartiesResponseDto: {
+            /** @description Every party of the vehicle, including ended ones and previous owners. */
+            data: components["schemas"]["VehiclePartyResponseDto"][];
+            /** @description Read-only payer hint: active BILL_TO, else LEASING, else null. The owner is never a payer fallback. */
+            suggested_bill_to: components["schemas"]["SuggestedBillToDto"] | null;
+        };
+        CreateVehiclePartyDto: {
+            /** Format: uuid */
+            customer_id: string;
+            role: components["schemas"]["VehiclePartyRole"];
+            /** Format: date */
+            valid_from?: string | null;
+            /** Format: date */
+            valid_to?: string | null;
+            notes?: string | null;
+        };
+        EndVehiclePartyDto: {
+            /**
+             * Format: date
+             * @description Exclusive end day. Defaults to today.
+             */
+            valid_to?: string;
         };
         PreviewInspectionImportDto: {
             connection_id: string;
@@ -18872,6 +19008,113 @@ export interface operations {
             };
         };
     };
+    VehiclePartyController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehiclePartiesResponseDto"];
+                };
+            };
+            /** @description Vehicle was not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    VehiclePartyController_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateVehiclePartyDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehiclePartyResponseDto"];
+                };
+            };
+            /** @description Overlaps an existing party interval */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid interval or role */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    VehiclePartyController_end: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                partyId: string;
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EndVehiclePartyDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehiclePartyResponseDto"];
+                };
+            };
+            /** @description The party already has an end date */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid end date */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     InspectionExchangeController_listConnections: {
         parameters: {
             query?: never;
@@ -20472,8 +20715,8 @@ export interface operations {
                     /** Format: binary */
                     file: string;
                     /** @enum {string} */
-                    entityType: "CUSTOMER" | "VEHICLE" | "SUPPLIER_PRICE_LIST" | "LABOR_OPERATION";
-                    /** @example incadea */
+                    entityType: "CUSTOMER" | "VEHICLE" | "SUPPLIER_PRICE_LIST" | "LABOR_OPERATION" | "VEHICLE_PARTY" | "VEHICLE_DUE_DATE";
+                    /** @example legacy-dms */
                     sourceSystem: string;
                     /** @description JSON object mapping logical fields to CSV headers */
                     mapping: string;

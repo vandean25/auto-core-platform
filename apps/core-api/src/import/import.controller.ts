@@ -69,9 +69,11 @@ export class ImportController {
             'VEHICLE',
             'SUPPLIER_PRICE_LIST',
             'LABOR_OPERATION',
+            'VEHICLE_PARTY',
+            'VEHICLE_DUE_DATE',
           ],
         },
-        sourceSystem: { type: 'string', example: 'incadea' },
+        sourceSystem: { type: 'string', example: 'legacy-dms' },
         mapping: {
           type: 'string',
           description: 'JSON object mapping logical fields to CSV headers',
@@ -215,6 +217,12 @@ export class ImportController {
     }
     if (normalized === ImportEntityType.LABOR_OPERATION) {
       return ImportEntityType.LABOR_OPERATION;
+    }
+    if (normalized === ImportEntityType.VEHICLE_PARTY) {
+      return ImportEntityType.VEHICLE_PARTY;
+    }
+    if (normalized === ImportEntityType.VEHICLE_DUE_DATE) {
+      return ImportEntityType.VEHICLE_DUE_DATE;
     }
     throw new BadRequestException({
       code: IMPORT_ERROR_CODES.INVALID_ENTITY_TYPE,

@@ -3,6 +3,10 @@ import { PaginationMetaDto } from '../../common/dto/paginated-response.dto.js';
 import { CustomerResponseDto } from '../../customer/dto/customer-response.dto.js';
 import { DryRunMetaDto } from '../../dry-run/dto/dry-run-response.dto.js';
 import { PickerlDueDto } from './pickerl-due.dto.js';
+import {
+  VehicleOpenDueDateDto,
+  VehiclePartyResponseDto,
+} from './vehicle-party.dto.js';
 
 export class OpenPickerlOrderDto {
   @ApiProperty()
@@ -110,6 +114,22 @@ export class VehicleResponseDto extends DryRunMetaDto {
 
   @ApiProperty({ type: () => PickerlDueDto, required: false })
   pickerl_due?: PickerlDueDto;
+
+  @ApiProperty({
+    type: () => [VehiclePartyResponseDto],
+    required: false,
+    description:
+      'Detail only: parties active today, each with role and customer.',
+  })
+  parties?: VehiclePartyResponseDto[];
+
+  @ApiProperty({
+    type: () => [VehicleOpenDueDateDto],
+    required: false,
+    description:
+      'Detail only: open service-due notices, soonest first (read only).',
+  })
+  open_due_dates?: VehicleOpenDueDateDto[];
 }
 
 export class VehicleListItemDto extends VehicleResponseDto {}

@@ -131,5 +131,73 @@ describe('vehicle response mapper', () => {
         presumption_ends_on_expired: true,
       });
     });
+
+    it('maps the active parties and open service-due notices to day strings', () => {
+      const response = toVehicleDetailResponse(
+        {
+          id: 'vehicle-1',
+          first_registration_date: null,
+          customer: null,
+          inspection_records: [],
+          sales: [],
+          parties: [
+            {
+              id: 'party-1',
+              vehicle_id: 'vehicle-1',
+              customer_id: 'cust-1',
+              role: 'OWNER',
+              valid_from: new Date('2024-01-01T00:00:00.000Z'),
+              valid_to: null,
+              source: 'LEGACY_IMPORT',
+              notes: null,
+              createdAt: new Date('2026-10-13T00:00:00.000Z'),
+              updatedAt: new Date('2026-10-13T00:00:00.000Z'),
+              customer: {
+                id: 'cust-1',
+                type: 'PRIVATE',
+                company_name: null,
+                first_name: 'Anna',
+                last_name: 'Synthetic',
+              },
+            },
+          ],
+          notices: [
+            {
+              id: 'notice-1',
+              title: 'Service',
+              body: null,
+              due_date: new Date('2027-01-15T00:00:00.000Z'),
+              due_mileage: 60000,
+              external_ref: 'SERVICE-001',
+              source: 'LEGACY_IMPORT',
+            },
+          ],
+        } as never,
+        [siteId],
+        new Date('2026-10-13T12:00:00.000Z'),
+      );
+
+      expect(response.parties).toEqual([
+        expect.objectContaining({
+          id: 'party-1',
+          role: 'OWNER',
+          valid_from: '2024-01-01',
+          valid_to: null,
+          is_active: true,
+          customer: expect.objectContaining({ first_name: 'Anna' }),
+        }),
+      ]);
+      expect(response.open_due_dates).toEqual([
+        {
+          id: 'notice-1',
+          title: 'Service',
+          due_date: '2027-01-15',
+          due_mileage: 60000,
+          external_ref: 'SERVICE-001',
+          source: 'LEGACY_IMPORT',
+        },
+      ]);
+      expect(response).not.toHaveProperty('notices');
+    });
   });
 });

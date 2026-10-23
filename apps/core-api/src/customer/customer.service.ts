@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -89,6 +90,7 @@ async function getCustomerReferenceCounts(
     vehicleSales,
     contactPoints,
     consentEvents,
+    vehicleParties,
   ] = await Promise.all([
     prisma.salesOrder.count({ where: siteScoped }),
     prisma.invoice.count({ where: tenantScoped }),
@@ -98,6 +100,7 @@ async function getCustomerReferenceCounts(
     prisma.vehicleSale.count({ where: siteScoped }),
     prisma.customerContactPoint.count({ where: tenantScoped }),
     prisma.customerConsent.count({ where: tenantScoped }),
+    prisma.vehicleParty.count({ where: tenantScoped }),
   ]);
   return {
     salesOrders,
@@ -108,6 +111,7 @@ async function getCustomerReferenceCounts(
     vehicleSales,
     contactPoints,
     consentEvents,
+    vehicleParties,
   };
 }
 
@@ -168,7 +172,11 @@ export class CustomerService {
     const [customer, workshopOrdersTotal, invoicesTotal] = await Promise.all([
       this.prisma.customer.findFirst({
         where: { id, tenant_id: tenantId },
-        include: buildCustomerDetailInclude(pagination, authorizedSiteIds),
+        include: buildCustomerDetailInclude(
+          pagination,
+          authorizedSiteIds,
+          tenantId,
+        ),
       }),
       this.prisma.workshopOrder.count({
         where: {
@@ -264,6 +272,12 @@ export class CustomerService {
     if (counts.vehicles > 0) {
       throw new BadRequestException(
         'Customer cannot be deleted while vehicles are linked. Reassign or remove vehicles first.',
+      );
+    }
+
+    if (counts.vehicleParties > 0) {
+      throw new ConflictException(
+        'Customer cannot be deleted while vehicle parties reference it. End the party validity instead.',
       );
     }
 

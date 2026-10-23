@@ -10,6 +10,17 @@ import { DEFAULT_HISTORY_LIMIT } from '../common/utils/history-pagination.util.j
 import { PICKERL_TASK_TITLE } from '../workshop/workshop-pickerl.helpers.js';
 import type { ExistingVehicleIdentity } from './vehicle-write.mapper.js';
 import { buildVehicleIdentityGuard } from './vehicle-write.mapper.js';
+import { viennaIsoDay } from '../vehicle-stock/gewaehrleistung/gewaehrleistung-status.js';
+import {
+  activeOnDay,
+  OPEN_DUE_DATE_LIMIT,
+  OPEN_SERVICE_DUE,
+} from './vehicle-party.query.js';
+import { dayToDate } from './vehicle-party-date.util.js';
+import {
+  changeMainContactInTx,
+  lockVehicleForPartyWrite,
+} from './vehicle-party.writer.js';
 
 export interface VehicleListQuery {
   where: Prisma.VehicleWhereInput;
@@ -17,6 +28,17 @@ export interface VehicleListQuery {
   skip: number;
   take: number;
 }
+
+/** Customer fields shown next to a party. */
+export const PARTY_CUSTOMER_SUMMARY = {
+  select: {
+    id: true,
+    type: true,
+    company_name: true,
+    first_name: true,
+    last_name: true,
+  },
+} as const;
 
 const OPEN_PICKERL_ORDER_STATUSES: WorkshopOrderStatus[] = [
   WorkshopOrderStatus.SCHEDULED,
@@ -73,6 +95,38 @@ export class VehiclePersistenceService {
     return count;
   }
 
+  /**
+   * Same guarded update, plus the OWNER hand-over for the new main contact, in one
+   * transaction. Returns 0 (and writes nothing) when the identity guard is stale.
+   */
+  async updateIfIdentityUnchangedWithMainContact(input: {
+    id: string;
+    tenantId: string;
+    existingVehicle: ExistingVehicleIdentity;
+    data: Prisma.VehicleUncheckedUpdateManyInput;
+    customerId: string | null;
+    today: string;
+  }): Promise<number> {
+    const { id, tenantId, existingVehicle, data, customerId, today } = input;
+    return this.prisma.$transaction(async (tx) => {
+      // Lock first: the "customer unchanged" decision must see what the previous writer committed.
+      await lockVehicleForPartyWrite(tx, tenantId, id);
+      const current = await tx.vehicle.findFirst({
+        where: { id, tenant_id: tenantId },
+        select: { customer_id: true },
+      });
+      const { count } = await tx.vehicle.updateMany({
+        where: buildVehicleIdentityGuard(id, tenantId, existingVehicle),
+        data,
+      });
+      // Repeating the current customer is not a change: no party is invented or moved.
+      if (count > 0 && current?.customer_id !== customerId) {
+        await changeMainContactInTx(tx, { tenantId, today }, id, customerId);
+      }
+      return count;
+    });
+  }
+
   async vehicleExists(id: string, tenantId: string): Promise<boolean> {
     const vehicle = await this.prisma.vehicle.findFirst({
       where: { id, tenant_id: tenantId },
@@ -125,6 +179,28 @@ export class VehiclePersistenceService {
             plaketten_valid_until_month: true,
             source: true,
             external_inspection_result_id: true,
+          },
+        },
+        parties: {
+          where: {
+            tenant_id: tenantId,
+            ...activeOnDay(dayToDate(viennaIsoDay(new Date())) as Date),
+          },
+          orderBy: [{ role: 'asc' }, { id: 'asc' }],
+          take: OPEN_DUE_DATE_LIMIT,
+          include: { customer: PARTY_CUSTOMER_SUMMARY },
+        },
+        notices: {
+          where: { tenant_id: tenantId, ...OPEN_SERVICE_DUE },
+          orderBy: [{ due_date: 'asc' }, { id: 'asc' }],
+          take: OPEN_DUE_DATE_LIMIT,
+          select: {
+            id: true,
+            title: true,
+            due_date: true,
+            due_mileage: true,
+            external_ref: true,
+            source: true,
           },
         },
       },

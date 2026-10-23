@@ -9,6 +9,8 @@ function identityMapping(headers: string[]): Record<string, string> {
 const CUSTOMER_FILE: MigrationCsvFileName = 'customers.csv';
 const VEHICLE_FILE: MigrationCsvFileName = 'vehicles.csv';
 const LABOR_FILE: MigrationCsvFileName = 'labor_operations.csv';
+const PARTY_FILE: MigrationCsvFileName = 'vehicle_parties.csv';
+const DUE_DATE_FILE: MigrationCsvFileName = 'vehicle_due_dates.csv';
 
 export function buildCanonicalMigrationIdentityMapping(
   entityType: ImportEntityType,
@@ -22,6 +24,12 @@ export function buildCanonicalMigrationIdentityMapping(
   }
   if (entityType === ImportEntityType.LABOR_OPERATION) {
     return identityMapping(expectedHeadersForFile(LABOR_FILE));
+  }
+  if (entityType === ImportEntityType.VEHICLE_PARTY) {
+    return identityMapping(expectedHeadersForFile(PARTY_FILE));
+  }
+  if (entityType === ImportEntityType.VEHICLE_DUE_DATE) {
+    return identityMapping(expectedHeadersForFile(DUE_DATE_FILE));
   }
   return {};
 }

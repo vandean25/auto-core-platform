@@ -16,6 +16,10 @@ import { toGewaehrleistungReadFields } from '../vehicle-stock/vehicle-sale.warra
 import { buildMcpKeysetPage, keysetCursorOf } from './mcp-audit-read.mapper.js';
 import { McpDocumentReadService } from './mcp-document-read.service.js';
 import {
+  loadMcpActiveParties,
+  loadMcpOpenServiceDue,
+} from './mcp-vehicle-party-context.js';
+import {
   clampMcpPageSize,
   decodeMcpKeysetCursor,
   encodeMcpKeysetCursor,
@@ -147,28 +151,6 @@ export class McpVehicleContextReadService {
     const sections: VehicleContextSections = {};
 
     if (requested.includes('identity') && shouldLoad('identity')) {
-      const latestInspection =
-        await this.prisma.vehicleInspectionRecord.findFirst({
-          where: { tenant_id: tenantId, vehicle_id: vehicle.id },
-          orderBy: [{ inspected_on: 'desc' }, { id: 'desc' }],
-          select: {
-            inspected_on: true,
-            plaketten_valid_until_year: true,
-            plaketten_valid_until_month: true,
-          },
-        });
-      const pickerl_barriers = await this.pickerlBarriers.loadBarrierFlags(
-        tenantId,
-        vehicle.id,
-      );
-      const { pickerl_due } = attachPickerlDue(
-        {
-          ...vehicle,
-          inspection_records: latestInspection ? [latestInspection] : [],
-          pickerl_barriers,
-        },
-        asOf,
-      );
       sections.identity = {
         state: 'ok',
         data: {
@@ -183,10 +165,20 @@ export class McpVehicleContextReadService {
               ? vehicle.first_registration_date.toISOString().slice(0, 10)
               : null,
           },
-          pickerl_due,
+          pickerl_due: await this.loadPickerlDue(tenantId, vehicle, asOf),
         },
       };
     }
+
+    Object.assign(
+      sections,
+      await this.loadPartyAndDueSections(
+        requested.filter(shouldLoad),
+        tenantId,
+        vehicle,
+        asOf,
+      ),
+    );
 
     if (requested.includes('inspections') && shouldLoad('inspections')) {
       sections.inspections = await this.loadInspectionsSection(
@@ -266,6 +258,78 @@ export class McpVehicleContextReadService {
       site_id: siteId,
       sections,
     });
+  }
+
+  /** Tenant-wide `parties` and `due_dates` sections; needs no active site. Read only. */
+  private async loadPartyAndDueSections(
+    wanted: McpVehicleContextSection[],
+    tenantId: string,
+    vehicle: { id: string; first_registration_date: Date | null },
+    asOf: Date,
+  ): Promise<VehicleContextSections> {
+    const sections: VehicleContextSections = {};
+    if (wanted.includes('parties')) {
+      sections.parties = {
+        state: 'ok',
+        data: {
+          parties: await loadMcpActiveParties(
+            this.prisma,
+            tenantId,
+            vehicle.id,
+            asOf,
+          ),
+        },
+      };
+    }
+    if (wanted.includes('due_dates')) {
+      const openServiceDue = await loadMcpOpenServiceDue(
+        this.prisma,
+        tenantId,
+        vehicle.id,
+      );
+      sections.due_dates = {
+        state: 'ok',
+        data: {
+          pickerl_due: await this.loadPickerlDue(tenantId, vehicle, asOf),
+          open_service_due_total: openServiceDue.total,
+          open_service_due: openServiceDue.rows,
+        },
+      };
+    }
+    return sections;
+  }
+
+  private async loadPickerlDue(
+    tenantId: string,
+    vehicle: {
+      id: string;
+      first_registration_date: Date | null;
+    },
+    asOf: Date,
+  ) {
+    const latestInspection =
+      await this.prisma.vehicleInspectionRecord.findFirst({
+        where: { tenant_id: tenantId, vehicle_id: vehicle.id },
+        orderBy: [{ inspected_on: 'desc' }, { id: 'desc' }],
+        select: {
+          inspected_on: true,
+          plaketten_valid_until_year: true,
+          plaketten_valid_until_month: true,
+        },
+      });
+    const pickerl_barriers = await this.pickerlBarriers.loadBarrierFlags(
+      tenantId,
+      vehicle.id,
+    );
+    const { pickerl_due } = attachPickerlDue(
+      {
+        ...vehicle,
+        inspection_records: latestInspection ? [latestInspection] : [],
+        pickerl_barriers,
+      },
+      asOf,
+    );
+    return pickerl_due;
   }
 
   private resolveSections(

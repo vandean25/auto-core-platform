@@ -293,6 +293,8 @@ const vehicleDetailShape = {
   purchases: z.array(z.looseObject({ id: idString })),
   sales_orders: z.array(z.looseObject({ id: idString })),
   workshop_orders: z.array(z.looseObject({ id: idString })),
+  parties: z.array(z.looseObject({ id: idString })).optional(),
+  open_due_dates: z.array(z.looseObject({ id: idString })).optional(),
 };
 
 const workshopOrderShape = {
@@ -1107,6 +1109,43 @@ export const mcpToolOutputSchemas = {
               first_registration_date: isoDateOnly.nullable(),
             }),
             pickerl_due: pickerlDueSchema,
+          }),
+        })
+        .optional(),
+      parties: z
+        .object({
+          state: z.literal('ok'),
+          data: z.object({
+            parties: z.array(
+              z.object({
+                id: idString,
+                role: z.string(),
+                customer_id: idString,
+                customer_name: z.string(),
+                valid_from: isoDateOnly.nullable(),
+                valid_to: isoDateOnly.nullable(),
+                source: z.string(),
+              }),
+            ),
+          }),
+        })
+        .optional(),
+      due_dates: z
+        .object({
+          state: z.literal('ok'),
+          data: z.object({
+            pickerl_due: pickerlDueSchema,
+            open_service_due_total: count,
+            open_service_due: z.array(
+              z.object({
+                id: idString,
+                title: z.string(),
+                due_date: isoDateOnly.nullable(),
+                due_mileage: count.nullable(),
+                external_ref: nullableString,
+                source: z.string(),
+              }),
+            ),
           }),
         })
         .optional(),

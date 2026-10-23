@@ -11980,6 +11980,140 @@
         ]
       }
     },
+    "/api/vehicles/{vehicleId}/parties": {
+      "get": {
+        "operationId": "VehiclePartyController_list",
+        "parameters": [
+          {
+            "name": "vehicleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehiclePartiesResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Vehicle was not found"
+          }
+        },
+        "summary": "List vehicle parties with history and the payer suggestion",
+        "tags": [
+          "VehicleParty"
+        ]
+      },
+      "post": {
+        "operationId": "VehiclePartyController_add",
+        "parameters": [
+          {
+            "name": "vehicleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateVehiclePartyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehiclePartyResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Overlaps an existing party interval"
+          },
+          "422": {
+            "description": "Invalid interval or role"
+          }
+        },
+        "summary": "Add a vehicle party",
+        "tags": [
+          "VehicleParty"
+        ]
+      }
+    },
+    "/api/vehicles/{vehicleId}/parties/{partyId}": {
+      "patch": {
+        "operationId": "VehiclePartyController_end",
+        "parameters": [
+          {
+            "name": "partyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "vehicleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EndVehiclePartyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehiclePartyResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The party already has an end date"
+          },
+          "422": {
+            "description": "Invalid end date"
+          }
+        },
+        "summary": "End an open-ended vehicle party",
+        "tags": [
+          "VehicleParty"
+        ]
+      }
+    },
     "/api/inspection-source-connections": {
       "get": {
         "operationId": "InspectionExchangeController_listConnections",
@@ -14470,12 +14604,14 @@
                       "CUSTOMER",
                       "VEHICLE",
                       "SUPPLIER_PRICE_LIST",
-                      "LABOR_OPERATION"
+                      "LABOR_OPERATION",
+                      "VEHICLE_PARTY",
+                      "VEHICLE_DUE_DATE"
                     ]
                   },
                   "sourceSystem": {
                     "type": "string",
-                    "example": "incadea"
+                    "example": "legacy-dms"
                   },
                   "mapping": {
                     "type": "string",
@@ -19702,6 +19838,176 @@
           "last_inspected_on"
         ]
       },
+      "VehiclePartyRole": {
+        "type": "string",
+        "enum": [
+          "OWNER",
+          "DRIVER",
+          "USER",
+          "BILL_TO",
+          "LEASING",
+          "INSURANCE",
+          "WARRANTY_PROVIDER",
+          "SERVICE_CONTRACT",
+          "PREVIOUS_OWNER"
+        ]
+      },
+      "VehicleRecordSource": {
+        "type": "string",
+        "enum": [
+          "MANUAL",
+          "LEGACY_IMPORT"
+        ]
+      },
+      "CustomerType": {
+        "type": "string",
+        "enum": [
+          "PRIVATE",
+          "COMPANY"
+        ]
+      },
+      "VehiclePartyCustomerDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CustomerType"
+              }
+            ]
+          },
+          "company_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "first_name": {
+            "type": "string"
+          },
+          "last_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "company_name",
+          "first_name",
+          "last_name"
+        ]
+      },
+      "VehiclePartyResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "vehicle_id": {
+            "type": "string"
+          },
+          "customer_id": {
+            "type": "string"
+          },
+          "role": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VehiclePartyRole"
+              }
+            ]
+          },
+          "valid_from": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "valid_to": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "source": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VehicleRecordSource"
+              }
+            ]
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
+          },
+          "is_active": {
+            "type": "boolean",
+            "description": "Active today, using the half-open interval."
+          },
+          "customer": {
+            "$ref": "#/components/schemas/VehiclePartyCustomerDto"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "vehicle_id",
+          "customer_id",
+          "role",
+          "valid_from",
+          "valid_to",
+          "source",
+          "notes",
+          "is_active",
+          "customer",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "VehicleOpenDueDateDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "due_date": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "due_mileage": {
+            "type": "number",
+            "nullable": true
+          },
+          "external_ref": {
+            "type": "string",
+            "nullable": true
+          },
+          "source": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VehicleRecordSource"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "due_date",
+          "due_mileage",
+          "external_ref",
+          "source"
+        ]
+      },
       "VehicleResponseDto": {
         "type": "object",
         "properties": {
@@ -19824,6 +20130,20 @@
           },
           "pickerl_due": {
             "$ref": "#/components/schemas/PickerlDueDto"
+          },
+          "parties": {
+            "description": "Detail only: parties active today, each with role and customer.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VehiclePartyResponseDto"
+            }
+          },
+          "open_due_dates": {
+            "description": "Detail only: open service-due notices, soonest first (read only).",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VehicleOpenDueDateDto"
+            }
           }
         },
         "required": [
@@ -20874,13 +21194,6 @@
           "revision"
         ]
       },
-      "CustomerType": {
-        "type": "string",
-        "enum": [
-          "PRIVATE",
-          "COMPANY"
-        ]
-      },
       "CreateCustomerDto": {
         "type": "object",
         "properties": {
@@ -20967,6 +21280,81 @@
           "make",
           "model",
           "year"
+        ]
+      },
+      "CustomerVehiclePartyVehicleDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "make": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "plate": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "make",
+          "model",
+          "plate"
+        ]
+      },
+      "CustomerVehiclePartyDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "vehicle_id": {
+            "type": "string"
+          },
+          "role": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VehiclePartyRole"
+              }
+            ]
+          },
+          "valid_from": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "valid_to": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "source": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VehicleRecordSource"
+              }
+            ]
+          },
+          "is_active": {
+            "type": "boolean"
+          },
+          "vehicle": {
+            "$ref": "#/components/schemas/CustomerVehiclePartyVehicleDto"
+          }
+        },
+        "required": [
+          "id",
+          "vehicle_id",
+          "role",
+          "valid_from",
+          "valid_to",
+          "source",
+          "is_active",
+          "vehicle"
         ]
       },
       "SalesOrderSummaryDto": {
@@ -21185,6 +21573,14 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/VehicleSummaryDto"
+            }
+          },
+          "vehicle_parties": {
+            "maxItems": 100,
+            "description": "Vehicles related to this customer by party role, newest first, including ended parties.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CustomerVehiclePartyDto"
             }
           },
           "sales_orders": {
@@ -23332,6 +23728,20 @@
           },
           "pickerl_due": {
             "$ref": "#/components/schemas/PickerlDueDto"
+          },
+          "parties": {
+            "description": "Detail only: parties active today, each with role and customer.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VehiclePartyResponseDto"
+            }
+          },
+          "open_due_dates": {
+            "description": "Detail only: open service-due notices, soonest first (read only).",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VehicleOpenDueDateDto"
+            }
           }
         },
         "required": [
@@ -23463,6 +23873,20 @@
           },
           "pickerl_due": {
             "$ref": "#/components/schemas/PickerlDueDto"
+          },
+          "parties": {
+            "description": "Detail only: parties active today, each with role and customer.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VehiclePartyResponseDto"
+            }
+          },
+          "open_due_dates": {
+            "description": "Detail only: open service-due notices, soonest first (read only).",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VehicleOpenDueDateDto"
+            }
           }
         },
         "required": [
@@ -32532,7 +32956,8 @@
         "type": "string",
         "enum": [
           "MANUAL",
-          "EBV_IMPORTED"
+          "EBV_IMPORTED",
+          "LEGACY_IMPORT"
         ]
       },
       "VehicleInspectionRecordResponseDto": {
@@ -32661,6 +33086,106 @@
           },
           "notes": {
             "type": "object"
+          }
+        }
+      },
+      "SuggestedBillToRole": {
+        "type": "string",
+        "enum": [
+          "BILL_TO",
+          "LEASING"
+        ]
+      },
+      "SuggestedBillToDto": {
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string"
+          },
+          "role": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SuggestedBillToRole"
+              }
+            ]
+          },
+          "customer": {
+            "$ref": "#/components/schemas/VehiclePartyCustomerDto"
+          }
+        },
+        "required": [
+          "customer_id",
+          "role",
+          "customer"
+        ]
+      },
+      "VehiclePartiesResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "description": "Every party of the vehicle, including ended ones and previous owners.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VehiclePartyResponseDto"
+            }
+          },
+          "suggested_bill_to": {
+            "nullable": true,
+            "description": "Read-only payer hint: active BILL_TO, else LEASING, else null. The owner is never a payer fallback.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SuggestedBillToDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "suggested_bill_to"
+        ]
+      },
+      "CreateVehiclePartyDto": {
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "role": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VehiclePartyRole"
+              }
+            ]
+          },
+          "valid_from": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "valid_to": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "customer_id",
+          "role"
+        ]
+      },
+      "EndVehiclePartyDto": {
+        "type": "object",
+        "properties": {
+          "valid_to": {
+            "type": "string",
+            "format": "date",
+            "description": "Exclusive end day. Defaults to today."
           }
         }
       },

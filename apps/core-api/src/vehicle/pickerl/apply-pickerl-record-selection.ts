@@ -1,10 +1,11 @@
+import { VehicleInspectionRecordSource } from '@prisma/client';
 import type {
   PickerlInspectionRecordInput,
   PickerlWarning,
 } from './compute-pickerl-due.js';
 
 export type PickerlRecordSourceRow = PickerlInspectionRecordInput & {
-  source?: 'MANUAL' | 'EBV_IMPORTED';
+  source?: VehicleInspectionRecordSource;
   external_inspection_result_id?: string | null;
 };
 
@@ -52,7 +53,7 @@ export function selectPickerlComputationRecords(
 
   const manualByDay = new Map<string, Set<string>>();
   for (const row of rows) {
-    if (row.source !== 'MANUAL') continue;
+    if (row.source !== VehicleInspectionRecordSource.MANUAL) continue;
     const day = formatDateKey(row.inspected_on);
     const expiries = manualByDay.get(day) ?? new Set<string>();
     expiries.add(expiryKey(row));
@@ -76,7 +77,10 @@ export function selectPickerlComputationRecords(
   );
 
   for (const row of ordered) {
-    if (row.source === 'EBV_IMPORTED' && row.external_inspection_result_id) {
+    if (
+      row.source === VehicleInspectionRecordSource.EBV_IMPORTED &&
+      row.external_inspection_result_id
+    ) {
       if (usedExternal.has(row.external_inspection_result_id)) {
         continue;
       }

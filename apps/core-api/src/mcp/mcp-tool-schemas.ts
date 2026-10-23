@@ -415,7 +415,7 @@ export const getVehicleContextInputSchema = z.object({
     .min(1)
     .optional()
     .describe(
-      'identity, open_workshop, inspections, documents, warranty_claims, warranty_periods. Default: all',
+      'identity, parties, due_dates, open_workshop, inspections, documents, warranty_claims, warranty_periods. Default: all',
     ),
   pageSize: pageSizeCamelSchema,
   cursor: vehicleContextCursorSchema

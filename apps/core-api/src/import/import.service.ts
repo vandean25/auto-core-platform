@@ -49,7 +49,9 @@ import { assertCanonicalMigrationUploadAllowed } from './migration-manifest-uplo
 import { SupplierChunkedApplyRunner } from './supplier-price-list-apply.runner.js';
 import { SupplierPriceListImportHandler } from './supplier-price-list-import.handler.js';
 import { LaborOperationImportHandler } from './labor-operation-import.handler.js';
+import { VehicleDueDateImportHandler } from './vehicle-due-date-import.handler.js';
 import { VehicleImportHandler } from './vehicle-import.handler.js';
+import { VehiclePartyImportHandler } from './vehicle-party-import.handler.js';
 
 function buildRowsWhere(
   tenantId: string,
@@ -120,6 +122,16 @@ export class ImportService {
         this.audit,
         rowRunner,
       ),
+      [ImportEntityType.VEHICLE_PARTY]: new VehiclePartyImportHandler(
+        prisma,
+        this.audit,
+        rowRunner,
+      ),
+      [ImportEntityType.VEHICLE_DUE_DATE]: new VehicleDueDateImportHandler(
+        prisma,
+        this.audit,
+        rowRunner,
+      ),
     };
   }
 
@@ -139,10 +151,15 @@ export class ImportService {
       tenantId,
     );
 
-    const options = normalizeImportOptions(params.optionsJson);
     const migrationManifest = parseMigrationManifestFromDryRunOptions(
       params.optionsJson,
     );
+    const options: ImportJobOptions = {
+      ...normalizeImportOptions(params.optionsJson),
+      ...(migrationManifest
+        ? { cutover_date: migrationManifest.cutover_date }
+        : {}),
+    };
     assertCanonicalMigrationUploadAllowed(params.file, migrationManifest);
 
     const parsed = traceImportParse(params.entityType, () =>

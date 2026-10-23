@@ -50,6 +50,8 @@ export const MIGRATION_CSV_HANDLED_FILES: readonly MigrationCsvFileName[] = [
   'customers.csv',
   'vehicles.csv',
   'labor_operations.csv',
+  'vehicle_parties.csv',
+  'vehicle_due_dates.csv',
 ];
 
 export const MIGRATION_CSV_FILE_SPECS: Record<

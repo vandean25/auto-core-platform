@@ -301,6 +301,8 @@ export const TABLE_CLEANERS: TableCleaner[] = [
     table: 'voice_note_rate_limits',
     clean: (p) => p.voiceNoteRateLimit.deleteMany(),
   },
+  { table: 'vehicle_parties', clean: (p) => p.vehicleParty.deleteMany() },
+  { table: 'vehicle_notices', clean: (p) => p.vehicleNotice.deleteMany() },
   {
     table: 'vehicle_inspection_records',
     clean: (p) => p.vehicleInspectionRecord.deleteMany(),
