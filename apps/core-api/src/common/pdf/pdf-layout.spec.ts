@@ -66,5 +66,18 @@ describe('pdf-layout helpers', () => {
       expect(template).toContain('class="pageNumber"');
       expect(template).toContain('class="totalPages"');
     });
+
+    it('renders German page labels for de locale', () => {
+      const template = buildPdfFooterTemplate('Arbeitskarte WO-1', 'de');
+      expect(template).toContain('Seite <span class="pageNumber"></span> von');
+      expect(template).not.toMatch(/Page <span class="pageNumber"/);
+    });
+
+    it('renders English page labels for en locale', () => {
+      const template = buildPdfFooterTemplate('Job Card WO-1', 'en');
+      expect(template).toContain('Page <span class="pageNumber"></span> of');
+      expect(template).not.toContain('Seite');
+      expect(template).not.toContain(' von ');
+    });
   });
 });
