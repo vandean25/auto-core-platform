@@ -11,6 +11,7 @@ COPY package.json package-lock.json ./
 COPY apps/core-api/package.json ./apps/core-api/
 COPY apps/core-web/package.json ./apps/core-web/
 COPY apps/core-api/prisma ./apps/core-api/prisma/
+COPY locales ./locales
 
 RUN PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm ci --workspace=core-api
 

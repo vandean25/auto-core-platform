@@ -61,6 +61,15 @@ describe('Production image version pins (AUT-167)', () => {
     expect(dockerTagVersion).toBe(packageVersion);
   });
 
+  it('copies repo-root locales into the builder stage', () => {
+    const dockerfile = fs.readFileSync(DOCKERFILE_PATH, 'utf8');
+    const builderStage = dockerfile.split(
+      /^FROM mcr\.microsoft\.com\/playwright:/m,
+    )[0];
+
+    expect(builderStage).toMatch(/^COPY locales \.\/locales$/m);
+  });
+
   it('uses Node 24.22.1 slim for the API target', () => {
     const dockerfile = fs.readFileSync(DOCKERFILE_PATH, 'utf8');
 
