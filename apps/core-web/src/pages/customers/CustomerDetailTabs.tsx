@@ -12,14 +12,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { formatDate } from '@/lib/format'
+import { formatDate, formatIsoDateOnly } from '@/lib/format'
 import { formatCurrency } from '@/lib/utils'
-import type { Vehicle } from '@/api/types'
 import { CustomerConsentPanel } from './CustomerConsentPanel'
+import { formatVehiclePartyRole } from '@/pages/vehicles/vehicle-party-model'
 import {
+  buildCustomerVehicleRows,
   getActiveOrders,
   toNumber,
   type CustomerDetailResponse,
+  type CustomerVehicleRow,
   type InvoiceSummary,
 } from './customer-detail-model'
 
@@ -134,7 +136,18 @@ function InvoicesTable({ invoices }: { invoices: InvoiceSummary[] }) {
   )
 }
 
-function VehiclesTable({ vehicles }: { vehicles: Vehicle[] }) {
+function PartyValidity({ row }: { row: CustomerVehicleRow }) {
+  const { t } = useTranslation('customers')
+  if (!row.valid_from) {
+    return <>{t('detail.notAvailable')}</>
+  }
+  if (row.valid_to) {
+    return <>{t('detail.validity.closed', { from: formatIsoDateOnly(row.valid_from), to: formatIsoDateOnly(row.valid_to) })}</>
+  }
+  return <>{t('detail.validity.open', { from: formatIsoDateOnly(row.valid_from) })}</>
+}
+
+function VehiclesTable({ rows }: { rows: CustomerVehicleRow[] }) {
   const { t } = useTranslation('customers')
   const notAvailable = t('detail.notAvailable')
 
@@ -145,30 +158,34 @@ function VehiclesTable({ vehicles }: { vehicles: Vehicle[] }) {
           <TableHeader>
             <TableRow>
               <TableHead>{t('detail.tables.makeModel')}</TableHead>
-              <TableHead>{t('detail.tables.year')}</TableHead>
-              <TableHead>{t('detail.tables.vin')}</TableHead>
               <TableHead>{t('detail.tables.plate')}</TableHead>
+              <TableHead>{t('detail.tables.vin')}</TableHead>
+              <TableHead>{t('detail.tables.role')}</TableHead>
+              <TableHead>{t('detail.tables.validity')}</TableHead>
+              <TableHead>{t('detail.tables.partyStatus')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {vehicles.map((vehicle) => (
+            {rows.map((row) => (
               <ClickableRow
-                key={vehicle.id}
-                to={`/vehicles/${vehicle.id}`}
+                key={row.key}
+                to={`/vehicles/${row.vehicle.id}`}
                 ariaLabel={t('detail.aria.openVehicle', {
-                  make: vehicle.make,
-                  model: vehicle.model,
+                  make: row.vehicle.make,
+                  model: row.vehicle.model,
                 })}
               >
-                <TableCell className='font-medium'>{vehicle.make} {vehicle.model}</TableCell>
-                <TableCell>{vehicle.year}</TableCell>
-                <TableCell>{vehicle.vin || notAvailable}</TableCell>
-                <TableCell>{vehicle.plate || notAvailable}</TableCell>
+                <TableCell className='font-medium'>{row.vehicle.make} {row.vehicle.model}</TableCell>
+                <TableCell>{row.vehicle.plate || notAvailable}</TableCell>
+                <TableCell>{row.vin || notAvailable}</TableCell>
+                <TableCell>{formatVehiclePartyRole(row.role)}</TableCell>
+                <TableCell><PartyValidity row={row} /></TableCell>
+                <TableCell>{row.is_active ? t('detail.partyStatus.active') : t('detail.partyStatus.ended')}</TableCell>
               </ClickableRow>
             ))}
-            {vehicles.length === 0 && (
+            {rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className='text-center py-4 text-muted-foreground'>{t('detail.tables.noVehiclesRegistered')}</TableCell>
+                <TableCell colSpan={6} className='text-center py-4 text-muted-foreground'>{t('detail.tables.noVehiclesRegistered')}</TableCell>
               </TableRow>
             )}
           </TableBody>
@@ -199,7 +216,7 @@ export function CustomerDetailTabs({ customer }: { customer: CustomerDetailRespo
       </TabsContent>
 
       <TabsContent value='vehicles' className='mt-4'>
-        <VehiclesTable vehicles={customer.vehicles ?? []} />
+        <VehiclesTable rows={buildCustomerVehicleRows(customer)} />
       </TabsContent>
 
       <TabsContent value='consent' className='mt-4'>

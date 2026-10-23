@@ -215,6 +215,59 @@ test.describe('Blueprint: Customer Detail Page', () => {
     await expect(page.getByText('WVWZZZ1JZXW000001')).toBeVisible();
   });
 
+  test('renders vehicle parties by role on the Vehicles tab', async ({ page }) => {
+    const owned = createMockVehicle({ id: 'veh-owner-1', make: 'Skoda', model: 'Octavia', year: 2021, plate: 'W-OWNER1' });
+    const formerly = createMockVehicle({ id: 'veh-prev-1', make: 'Opel', model: 'Corsa', year: 2015, plate: 'W-PREV1' });
+
+    const detail = createMockCustomerDetailResponse({
+      id: CUSTOMER_ID,
+      first_name: 'Jane',
+      last_name: 'Smith',
+      vehicle_parties: [
+        {
+          id: 'party-owner-1',
+          vehicle_id: owned.id,
+          role: 'OWNER',
+          valid_from: '2026-01-01',
+          valid_to: null,
+          source: 'MANUAL',
+          is_active: true,
+          vehicle: { id: owned.id, make: owned.make, model: owned.model, plate: owned.plate },
+        },
+        {
+          id: 'party-prev-1',
+          vehicle_id: formerly.id,
+          role: 'PREVIOUS_OWNER',
+          valid_from: '2020-01-01',
+          valid_to: '2024-12-31',
+          source: 'LEGACY_IMPORT',
+          is_active: false,
+          vehicle: { id: formerly.id, make: formerly.make, model: formerly.model, plate: formerly.plate },
+        },
+      ],
+    });
+
+    await page.route(AutoCorePage.apiRouteMatcher(`/api/customers/${CUSTOMER_ID}`), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(detail),
+      });
+    });
+
+    await page.goto(`/customers/${CUSTOMER_ID}`);
+    await page.waitForLoadState('networkidle');
+
+    await page.getByRole('tab', { name: DE_CUSTOMERS.detail.tabs.vehicles }).click();
+
+    const tabPanel = page.getByRole('tabpanel');
+    await expect(tabPanel.getByText('Skoda Octavia')).toBeVisible();
+    await expect(tabPanel.getByText('Halter')).toBeVisible();
+    await expect(tabPanel.getByText('Opel Corsa')).toBeVisible();
+    await expect(tabPanel.getByText('Altbesitzer')).toBeVisible();
+    await expect(tabPanel.getByText('Beendet')).toBeVisible();
+  });
+
   test('renders empty states for all tabs when customer has no orders/invoices/vehicles', async ({
     page,
   }) => {

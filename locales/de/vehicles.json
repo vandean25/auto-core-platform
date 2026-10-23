@@ -226,7 +226,8 @@
     "loading": "Laden…",
     "empty": "Noch keine Begutachtung erfasst.",
     "sourceEbv": "EBV importiert",
-    "sourceManual": "Manuell"
+    "sourceManual": "Manuell",
+    "sourceLegacy": "Altdaten-Import"
   },
   "recordPickerlDialog": {
     "title": "Pickerl erfasst",
@@ -273,5 +274,44 @@
     "agedStockTitle": "Standzeit · über 90 Tage",
     "agedStockCostBasis": "Kostenbasis {{amount}}",
     "pickerlDueTitle": "Pickerl fällig in {{count}} Tagen"
+  },
+  "parties": {
+    "title": "Beteiligte",
+    "subtitle": "Halter, Fahrer, Rechnungsempfänger und weitere Beteiligte mit Gültigkeitszeitraum.",
+    "mainContact": "Hauptkontakt",
+    "noOwnerHint": "Kein aktiver Halter hinterlegt. Der Hauptkontakt stammt aus dem Fahrzeug.",
+    "add": "Beteiligten hinzufügen",
+    "end": "Beenden",
+    "empty": "Keine aktiven Beteiligten.",
+    "historyToggle": "Verlauf ({{count}})",
+    "historyEmpty": "Keine beendeten Beteiligten.",
+    "validOpen": "offen",
+    "loadFailed": "Beteiligte konnten nicht geladen werden.",
+    "addFailed": "Beteiligter konnte nicht hinzugefügt werden.",
+    "endFailed": "Beteiligter konnte nicht beendet werden.",
+    "added": "Beteiligter hinzugefügt.",
+    "ended": "Beteiligter beendet.",
+    "columns": {
+      "role": "Rolle",
+      "customer": "Kunde",
+      "validity": "Gültigkeit"
+    },
+    "dialog": {
+      "title": "Beteiligten hinzufügen",
+      "role": "Rolle",
+      "customer": "Kunde",
+      "validFrom": "Gültig ab",
+      "validFromHint": "Leer lassen für heute. Halter, Rechnungsempfänger und Leasing können erst ab heute beginnen.",
+      "save": "Hinzufügen",
+      "cancel": "Abbrechen",
+      "customerRequired": "Bitte wählen Sie einen Kunden."
+    },
+    "validRange": "{{from}} – {{to}}"
+  },
+  "openDueDates": {
+    "title": "Offene Fälligkeiten",
+    "empty": "Keine offenen Fälligkeiten.",
+    "dueOn": "Fällig am {{date}}",
+    "dueMileage": "Fällig bei {{mileage}}"
   }
 }

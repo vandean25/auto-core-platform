@@ -148,9 +148,13 @@ describe('endPartyInTx', () => {
   it('only ends an open-ended party', async () => {
     const tx = buildTx([row({ valid_to: day('2026-06-01') })]);
 
-    await expect(
-      endPartyInTx(tx as never, ctx, 'veh-1', 'p-1', '2026-11-01'),
-    ).rejects.toThrow(ConflictException);
+    const error = await endPartyInTx(tx as never, ctx, 'veh-1', 'p-1', '2026-11-01').catch(
+      (caught: unknown) => caught,
+    );
+    expect(error).toBeInstanceOf(ConflictException);
+    expect(error).toMatchObject({
+      response: { code: 'VEHICLE_PARTY_ALREADY_ENDED' },
+    });
     expect(tx.vehicleParty.update).not.toHaveBeenCalled();
   });
 

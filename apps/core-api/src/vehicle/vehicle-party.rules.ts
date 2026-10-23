@@ -15,11 +15,15 @@ export type PartyRuleViolation = {
   field?: string;
 };
 
+/** Party rule and endpoint codes. The web app maps each to DE/EN copy (see the feature spec). */
 export const VEHICLE_PARTY_RULE_CODES = {
   INTERVAL_INVALID: 'VEHICLE_PARTY_INTERVAL_INVALID',
   PREVIOUS_OWNER_END_REQUIRED: 'VEHICLE_PARTY_PREVIOUS_OWNER_END_REQUIRED',
   FUTURE_START_UNSUPPORTED: 'VEHICLE_PARTY_FUTURE_START_UNSUPPORTED',
   OVERLAP: 'VEHICLE_PARTY_OVERLAP',
+  ALREADY_ENDED: 'VEHICLE_PARTY_ALREADY_ENDED',
+  OWNER_IMPORTED_TODAY: 'VEHICLE_PARTY_OWNER_IMPORTED_TODAY',
+  WRITE_FORBIDDEN: 'VEHICLE_PARTY_WRITE_FORBIDDEN',
 } as const;
 
 /** At most one of these is active per vehicle at any date. */

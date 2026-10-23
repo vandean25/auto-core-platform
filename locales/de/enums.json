@@ -308,5 +308,16 @@
     "warehouse_location": "Lagerort",
     "warrantyEnds": "Gewährleistung endet",
     "year": "Baujahr"
+  },
+  "vehiclePartyRole": {
+    "OWNER": "Halter",
+    "DRIVER": "Fahrer",
+    "USER": "Nutzer",
+    "BILL_TO": "Rechnungsempfänger",
+    "LEASING": "Leasinggeber",
+    "INSURANCE": "Versicherung",
+    "WARRANTY_PROVIDER": "Garantiegeber",
+    "SERVICE_CONTRACT": "Servicevertrag",
+    "PREVIOUS_OWNER": "Altbesitzer"
   }
 }

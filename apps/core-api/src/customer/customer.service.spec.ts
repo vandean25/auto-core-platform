@@ -316,7 +316,11 @@ describe('CustomerService', () => {
     mockPrisma.vehicleSale.count.mockResolvedValue(0);
     mockPrisma.vehicleParty.count.mockResolvedValue(1);
 
-    await expect(service.remove('c-1')).rejects.toThrow(ConflictException);
+    const error = await service.remove('c-1').catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(ConflictException);
+    expect(error).toMatchObject({
+      response: { code: 'CUSTOMER_HAS_VEHICLE_PARTIES' },
+    });
     expect(mockPrisma.vehicleParty.count).toHaveBeenCalledWith({
       where: { tenant_id: 'tenant-1', customer_id: 'c-1' },
     });

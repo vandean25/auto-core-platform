@@ -21,6 +21,9 @@ vi.mock('@/features/tyre-storage/TyreSetsSummary', () => ({
     <div data-testid='tyre-sets'>{`${vehicleId}|${customerId}`}</div>
   ),
 }))
+vi.mock('./VehiclePartiesSection', () => ({
+  VehiclePartiesSection: () => <div data-testid='vehicle-parties' />,
+}))
 vi.mock('@/components/vehicles/VehiclePickerlSection', () => ({
   VehiclePickerlSection: (props: { vehicleId: string; pickerlDue?: unknown }) => (
     <div data-testid='pickerl'>{JSON.stringify(props)}</div>

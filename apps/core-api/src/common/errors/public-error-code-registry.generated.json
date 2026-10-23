@@ -229,6 +229,18 @@
       "public": true,
       "params": []
     },
+    "CUSTOMER_HAS_ACTIVE_REFERENCES": {
+      "public": true,
+      "params": []
+    },
+    "CUSTOMER_HAS_VEHICLES": {
+      "public": true,
+      "params": []
+    },
+    "CUSTOMER_HAS_VEHICLE_PARTIES": {
+      "public": true,
+      "params": []
+    },
     "CUSTOMER_IDENTITY_INCOMPLETE": {
       "public": false,
       "params": []
@@ -239,6 +251,10 @@
     },
     "CUSTOMER_PROPOSAL_INVALID": {
       "public": false,
+      "params": []
+    },
+    "CUSTOMER_RETENTION_BLOCKS_DELETE": {
+      "public": true,
       "params": []
     },
     "CUSTOMER_STALE_PROPOSAL": {
@@ -1514,6 +1530,34 @@
     },
     "VEHICLE_NOVA_CLASS_INVALID": {
       "public": false,
+      "params": []
+    },
+    "VEHICLE_PARTY_ALREADY_ENDED": {
+      "public": true,
+      "params": []
+    },
+    "VEHICLE_PARTY_FUTURE_START_UNSUPPORTED": {
+      "public": true,
+      "params": []
+    },
+    "VEHICLE_PARTY_INTERVAL_INVALID": {
+      "public": true,
+      "params": []
+    },
+    "VEHICLE_PARTY_OVERLAP": {
+      "public": true,
+      "params": []
+    },
+    "VEHICLE_PARTY_OWNER_IMPORTED_TODAY": {
+      "public": true,
+      "params": []
+    },
+    "VEHICLE_PARTY_PREVIOUS_OWNER_END_REQUIRED": {
+      "public": true,
+      "params": []
+    },
+    "VEHICLE_PARTY_WRITE_FORBIDDEN": {
+      "public": true,
       "params": []
     },
     "VEHICLE_PHOTO_TOO_LARGE": {

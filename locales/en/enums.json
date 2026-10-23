@@ -308,5 +308,16 @@
     "warehouse_location": "Warehouse location",
     "warrantyEnds": "Warranty ends",
     "year": "Year"
+  },
+  "vehiclePartyRole": {
+    "OWNER": "Owner",
+    "DRIVER": "Driver",
+    "USER": "User",
+    "BILL_TO": "Bill-to",
+    "LEASING": "Leasing company",
+    "INSURANCE": "Insurance",
+    "WARRANTY_PROVIDER": "Warranty provider",
+    "SERVICE_CONTRACT": "Service contract",
+    "PREVIOUS_OWNER": "Previous owner"
   }
 }

@@ -14,7 +14,7 @@ tags:
 
 ## Summary
 
-A vehicle has more than one relevant party over time: owner, driver, bill-to, leasing company, insurer, previous owners. AUT-641 PR-A models them as time-bounded `VehicleParty` rows, adds the `VehicleNotice` table, and imports parties and due dates from the canonical migration CSV 1.1 ([migration-csv-vehicles.md](../Platform/migration-csv-vehicles.md)), so the Pickerl due list and service due dates work from day one after cutover. This page covers the API, MCP, invariants and import behavior. The UI is PR-B and is not part of this slice. No reminder, notification, cron job or realtime registration is added.
+A vehicle has more than one relevant party over time: owner, driver, bill-to, leasing company, insurer, previous owners. AUT-641 PR-A models them as time-bounded `VehicleParty` rows, adds the `VehicleNotice` table, and imports parties and due dates from the canonical migration CSV 1.1 ([migration-csv-vehicles.md](../Platform/migration-csv-vehicles.md)), so the Pickerl due list and service due dates work from day one after cutover. This page covers the API, MCP, invariants, import behavior and the vehicle UI. No reminder, notification, cron job or realtime registration is added.
 
 `Vehicle.customer_id` stays the main contact. It follows the single OWNER that is active today and is written by the party service (see the known gap below).
 
@@ -54,7 +54,23 @@ All routes are tenant-wide; they grant no site rights. Writes need OWNER, ADMIN 
 
 Deleting a customer that a party references returns `409`.
 
-HTTP errors of the party endpoints carry a message only. Stable error codes need DE/EN catalog entries and locale keys, which come with the UI slice (PR-B). Import row issues keep their codes (`VEHICLE_PARTY_OVERLAP`, `IMPORT_UNKNOWN_VEHICLE` and so on); they are row labels, not HTTP errors.
+HTTP errors carry a stable `code` next to the message. The web app maps each code to DE/EN copy in `locales/*/errors.json`.
+
+| Code | Status | Thrown by |
+|---|---|---|
+| `VEHICLE_PARTY_WRITE_FORBIDDEN` | 403 | party writes by a role other than OWNER, ADMIN or SALES |
+| `VEHICLE_PARTY_OVERLAP` | 409 | overlapping interval for the same role (also the partial unique index backstop) |
+| `VEHICLE_PARTY_ALREADY_ENDED` | 409 | ending a party that already has an end date |
+| `VEHICLE_PARTY_OWNER_IMPORTED_TODAY` | 409 | changing an OWNER that an import assigned today |
+| `VEHICLE_PARTY_INTERVAL_INVALID` | 422 | `valid_from` not before `valid_to` |
+| `VEHICLE_PARTY_PREVIOUS_OWNER_END_REQUIRED` | 422 | PREVIOUS_OWNER without an end date up to today |
+| `VEHICLE_PARTY_FUTURE_START_UNSUPPORTED` | 422 | future-dated OWNER, BILL_TO or LEASING |
+| `CUSTOMER_HAS_VEHICLE_PARTIES` | 409 | customer delete while a party references the customer |
+| `CUSTOMER_HAS_ACTIVE_REFERENCES` | 400 | customer delete with orders or invoices |
+| `CUSTOMER_HAS_VEHICLES` | 400 | customer delete with linked vehicles |
+| `CUSTOMER_RETENTION_BLOCKS_DELETE` | 400 | customer delete while consent or contact preferences are retained |
+
+The codes are listed in `CLIENT_SAFE_HTTP_ERROR_CODES`, otherwise the global filter drops them. Import row issues keep their codes (`VEHICLE_PARTY_OVERLAP`, `IMPORT_UNKNOWN_VEHICLE` and so on); they are row labels, not HTTP errors.
 
 ## Import
 
@@ -64,10 +80,18 @@ HTTP errors of the party endpoints carry a message only. Stable error codes need
 - `INSPECTION_57A` creates a `VehicleInspectionRecord` (`PICKERL_57A`, `LEGACY_IMPORT`) with no `ExternalInspectionResult` and no tolerance months. It appears in the Pickerl due list. Evidence is immutable: a changed replay blocks. The optional report reference is checked for uniqueness per vehicle but has no target column.
 - `SERVICE` creates one `OPEN` `SERVICE_DUE` notice (title `Service`, `LEGACY_IMPORT`). `external_ref` is required and unique per vehicle; a natural-key match without a mapping is a conflict. A locally resolved notice is never reopened or overwritten.
 
+## UI (vehicle and customer screens)
+
+- Vehicle detail shows a "Parties" card: the main contact (the active OWNER, else `Vehicle.customer_id` without a backfill and with a hint), the active parties by role, and a collapsible history that includes previous owners. Users with OWNER, ADMIN or SALES can add a party (role, customer, optional start day) and end an active one; other roles see the lists only. After a write the vehicle and customer caches are invalidated, so the main contact refreshes.
+- Vehicle detail shows the open due dates (`open_due_dates`) read only. Creating and resolving them is AUT-642.
+- The Pickerl record list labels `LEGACY_IMPORT` records "Altdaten-Import". The record table has no edit or delete actions, so imported records are immutable in the UI as well as in the API.
+- The customer vehicles tab lists vehicles by party role with validity and an active or ended status. Deleting a customer shows the translated message for each delete code above.
+- The intake dialog does not show `suggested_bill_to` yet. The API field is available; the payer selection and `WorkshopOrder.bill_to_customer_id` stay out of scope (AUT-638, AUT-640, AUT-646).
+
 ## MCP (read only)
 
 `get_vehicle` carries `parties` and `open_due_dates`. `get_vehicle_context` has two new tenant-wide sections: `parties` (active parties with role, customer, validity) and `due_dates` (current `pickerl_due` and the open service-due notices). There is no MCP write for either.
 
 ## Not in this slice
 
-The Vehicle parties UI (PR-B), notice create, resolve and import (AUT-642), payer selection and split invoicing (AUT-638, AUT-640, AUT-646), scheduled activation of future-dated parties, reminders and notifications.
+Notice create, resolve, the open-notices list and import (AUT-642), payer selection and split invoicing (AUT-638, AUT-640, AUT-646), scheduled activation of future-dated parties, reminders and notifications.

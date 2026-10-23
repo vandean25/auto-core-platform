@@ -150,7 +150,11 @@ export function VehicleInfoCard({ vehicle, onChangeCustomer }: VehicleInfoCardPr
             </Button>
           </div>
           {vehicle.customer ? (
-            <Link className='font-medium hover:underline' to={`/customers/${vehicle.customer.id}`}>
+            <Link
+              className='font-medium hover:underline'
+              to={`/customers/${vehicle.customer.id}`}
+              data-testid='vehicle-customer-link'
+            >
               {getCustomerName(vehicle.customer)}
             </Link>
           ) : (
