@@ -4,12 +4,16 @@ import type { DataTableRowContextAction } from '@/components/data-table/data-tab
 import { requestEntityActionConfirm } from './action-confirm-host'
 
 /**
- * Stable registry action id format: `<entity>.<action>` (camelCase segments, e.g.
- * `customer.delete`, `workOrder.jobCardPdf`). Page action buttons rendered from the
- * registry expose this id via `data-action-id` so automated guard tests (AUT-700) can
- * verify every page action resolves to a registered definition.
+ * Stable registry action id format: `<entity>.<action>` with optional dot-separated
+ * child segments (`<entity>.<action>.<segment>...`, e.g. `customer.delete`,
+ * `workOrder.jobCardPdf`, `workOrder.taskState.t1.done`). The first segment is the
+ * camelCase entity name (`[a-z][a-zA-Z0-9]*`); each following segment is non-empty
+ * alphanumeric (`[a-zA-Z0-9]+`) so child sub-menu items can include record ids.
+ * Page action buttons rendered from the registry expose this id via `data-action-id`
+ * so automated guard tests (AUT-700) can verify every page action resolves to a
+ * registered definition.
  */
-export const ENTITY_ACTION_ID_PATTERN = /^[a-z][a-zA-Z0-9]*\.[a-z][a-zA-Z0-9]*$/
+export const ENTITY_ACTION_ID_PATTERN = /^[a-z][a-zA-Z0-9]*(\.[a-zA-Z0-9]+)+$/
 
 export const ENTITY_ACTION_IDS = {
   customerOpen: 'customer.open',

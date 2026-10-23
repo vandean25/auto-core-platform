@@ -101,7 +101,7 @@ auto-core-platform/
 - **Navigation & Layout**: Defined in `src/App.tsx`. Navigation is grouped into domains (Sales, Inventory, Procurement, Workshop, Vehicle stock).
 - **ID Generation**: Always use the centralized `generateId()` utility from `@/lib/id` instead of direct `crypto.randomUUID()` calls. This ensures compatibility with automated test environments (Playwright) where `crypto.randomUUID` might be unavailable.
 - **Settings**: All configuration (Finance, Revenue Groups, Brands, Storage Locations) is consolidated into a unified tabbed page at `src/pages/SettingsPage.tsx`, accessible via the gear icon.
-- **Action Registry & Action IDs**: Shared record/page actions live in `src/features/actions/entity-action.ts` using stable `<entity>.<action>` IDs (e.g., `customer.delete`, `workOrder.jobCardPdf`), exposed on page action buttons via `data-action-id` (`RegistryActionButton`) and gated through `src/features/actions/action-role-predicates.ts`.
+- **Action Registry & Action IDs**: Shared record/page actions live in `src/features/actions/entity-action.ts` using stable `<entity>.<action>` IDs with optional dot-separated child segments (`<entity>.<action>.<segment>...`, e.g., `customer.delete`, `workOrder.jobCardPdf`, `workOrder.taskState.t1.done`), exposed on page action buttons via `data-action-id` (`RegistryActionButton`) and gated through `src/features/actions/action-role-predicates.ts`. Every record action on an ACP page must be a registry action reachable via Cmd+K with identical role gating and confirmations. This is enforced by `src/features/actions/registry-parity.test.ts` against `src/features/actions/registry-parity.baseline.json`: new `onClick` `Button`/`DropdownMenuItem` or `AlertDialogTrigger` elements in `src/pages/` or `src/features/` without a registered `data-action-id` fail CI, and migrating an existing action requires deleting its entry from `registry-parity.baseline.json` (the baseline may only shrink). Dialog footers (`DialogFooter`, `AlertDialogFooter`, `SheetFooter`), settings/admin configuration screens, and the mechanic touch UI are excluded.
 
 ### Page Layout Defaults
 - **Main Container**: Admin routes are wrapped by `PageContainer` in `App.tsx` (`max-w-page mx-auto p-6`). Adjust width via `--container-page` in `src/index.css`. Pages should not repeat that wrapper — use `space-y-6` / `space-y-8` on a root fragment or inner div when vertical spacing is needed.
@@ -196,6 +196,7 @@ We use a **Context-Based Approach**, allowing both patterns strictly based on th
 
 ### PR Lifecycle & CI Verification
 - When opening a pull request for a Linear issue, create it initially as a **Draft PR** (`gh pr create --draft ...`).
+- UI ticket acceptance criterion: **Every new record action is a registry action and reachable via Cmd+K.**
 - Monitor/verify that all continuous integration checks (linting, tests, build) pass.
 - Once and only when all CI checks succeed, mark the pull request as ready for review:
   ```bash

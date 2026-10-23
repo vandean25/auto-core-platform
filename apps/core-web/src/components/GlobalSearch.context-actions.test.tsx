@@ -244,17 +244,19 @@ describe('GlobalSearch context actions', () => {
 
     const input = screen.getByRole('combobox')
     fireEvent.keyDown(input, { key: 'Backspace' })
-    expect(screen.getByText('Assign mechanic')).toBeInTheDocument()
+    expect(screen.queryByText('Alex Gruber')).toBeNull()
+    expect(screen.getByRole('option', { name: /Assign mechanic/i })).toBeInTheDocument()
 
     fireEvent.click(screen.getByText('Task status'))
-    expect(screen.getByText('Brake inspection')).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /Brake inspection/i })).toBeInTheDocument()
 
     fireEvent.click(screen.getByText('Brake inspection'))
     expect(screen.getByText('Mark done')).toBeInTheDocument()
 
     fireEvent.keyDown(input, { key: 'Escape' })
     expect(onOpenChange).not.toHaveBeenCalled()
-    expect(screen.getByText('Brake inspection')).toBeInTheDocument()
+    expect(screen.queryByText('Mark done')).toBeNull()
+    expect(screen.getByRole('option', { name: /Brake inspection/i })).toBeInTheDocument()
 
     fireEvent.click(screen.getByText('Brake inspection'))
     fireEvent.click(screen.getByText('Mark done'))
