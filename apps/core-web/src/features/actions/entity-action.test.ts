@@ -68,9 +68,14 @@ describe('entity action registry helpers', () => {
     expect(navigate).toHaveBeenCalledWith('/items/order-1')
   })
 
-  it('validates <entity>.<action> ids and enforces confirm on every destructive registry action', () => {
+  it('validates <entity>.<action> ids (including multi-segment child ids) and enforces confirm on every destructive registry action', () => {
     expect(isValidEntityActionId(ENTITY_ACTION_IDS.customerDelete)).toBe(true)
+    expect(isValidEntityActionId('workOrder.taskState.t1.done')).toBe(true)
     expect(isValidEntityActionId('delete')).toBe(false)
+    expect(isValidEntityActionId('Customer.delete')).toBe(false)
+    expect(isValidEntityActionId('customer.')).toBe(false)
+    expect(isValidEntityActionId('customer..delete')).toBe(false)
+    expect(isValidEntityActionId('.delete')).toBe(false)
     expect(isRegisteredEntityActionId(ENTITY_ACTION_IDS.workOrderJobCardPdf)).toBe(true)
     expect(isRegisteredEntityActionId('unknown.action')).toBe(false)
 
