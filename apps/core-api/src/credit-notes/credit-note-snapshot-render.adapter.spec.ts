@@ -1,5 +1,7 @@
+import { I18N_TRANSLATION_BUNDLE_VERSION } from '../common/i18n/display-language.js';
 import { escapeHtml } from '../common/pdf/pdf-layout.js';
 import {
+  buildInvoiceFooterTemplate,
   buildInvoiceTotalsSection,
   MARGIN_SCHEME_LEGAL_NOTES,
 } from '../invoices/invoice-pdf.layout.js';
@@ -86,6 +88,14 @@ describe('toRenderableCreditNoteSnapshot', () => {
     },
   };
 
+  const localizedSnapshot = (documentLocale: 'de' | 'en') => ({
+    ...snapshot,
+    document_locale: documentLocale,
+    format_locale: 'de-AT' as const,
+    translation_bundle_version: I18N_TRANSLATION_BUNDLE_VERSION,
+    legal_text_version: null,
+  });
+
   it('maps credit note snapshots for PDF rendering', () => {
     const renderable = toRenderableCreditNoteSnapshot(
       snapshot,
@@ -101,6 +111,38 @@ describe('toRenderableCreditNoteSnapshot', () => {
       original_document: snapshot.original_document,
       total_gross: '120.00',
     });
+  });
+
+  it('localizes shared PDF footer page labels via adapter (de)', () => {
+    const renderable = toRenderableCreditNoteSnapshot(
+      localizedSnapshot('de'),
+      'CN-2026-0001',
+      'credit-de',
+    );
+    const footer = buildInvoiceFooterTemplate(
+      'CN-2026-0001',
+      escapeHtml,
+      renderable!,
+    );
+
+    expect(footer).toContain('Seite <span class="pageNumber"></span> von');
+    expect(footer).not.toMatch(/Page <span class="pageNumber"/);
+  });
+
+  it('localizes shared PDF footer page labels via adapter (en)', () => {
+    const renderable = toRenderableCreditNoteSnapshot(
+      localizedSnapshot('en'),
+      'CN-2026-0001',
+      'credit-en',
+    );
+    const footer = buildInvoiceFooterTemplate(
+      'CN-2026-0001',
+      escapeHtml,
+      renderable!,
+    );
+
+    expect(footer).toContain('Page <span class="pageNumber"></span> of');
+    expect(footer).not.toContain('Seite');
   });
 
   it('renders DE margin-scheme legal wording on Stornorechnung totals', () => {
