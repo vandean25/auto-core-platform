@@ -22,6 +22,7 @@ WORKDIR /usr/src/app/apps/core-api
 RUN npx prisma generate
 RUN npm run build
 RUN test -d dist/locales
+RUN test -f dist/locales/de/seedMaster.json
 
 FROM mcr.microsoft.com/playwright:v1.64.1-noble AS worker
 
