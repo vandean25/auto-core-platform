@@ -54,6 +54,15 @@ describe('parseSearchQuery', () => {
     expect(parseSearchQuery('x'.repeat(18)).vin).toBeNull();
   });
 
+  it('stays linear on adversarial input', () => {
+    const started = Date.now();
+    for (const input of ['!@'.repeat(50), '0'.repeat(99), 'a-'.repeat(49)]) {
+      parseSearchQuery(input);
+    }
+    expect(Date.now() - started).toBeLessThan(200);
+    expect(parseSearchQuery('@@@').kind).not.toBe('email');
+  });
+
   it('splits a multi-word name into terms and collapses whitespace', () => {
     const parsed = parseSearchQuery('  max   mustermann ');
     expect(parsed.text).toBe('max mustermann');

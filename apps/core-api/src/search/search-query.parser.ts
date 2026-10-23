@@ -4,14 +4,15 @@ import type { ParsedSearchQuery, SearchQueryKind } from './search.types.js';
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const EMAIL_RE = /^\S+@\S*$/;
-// ISO 3779 charset, 17 characters, at least one letter (17 digits is a number).
-const VIN_RE = /^(?=.*[A-Z])[A-HJ-NPR-Z0-9]{17}$/i;
+const EMAIL_RE = /^[^\s@]+@\S*$/;
+// ISO 3779 charset, 17 characters.
+const VIN_RE = /^[A-HJ-NPR-Z0-9]{17}$/i;
 const VIN_FRAGMENT_RE = /^[A-HJ-NPR-Z0-9]{6,17}$/i;
 const PHONE_RE = /^\+?\d[\d\s/().-]*$/;
 const MIN_PHONE_DIGITS = 6;
-// Digits only, or a document prefix (2+ letters, dash) with a digit later on, like RE-2026-0012.
-const NUMBER_RE = /^(\d+|[A-Za-z]{2,}-[\w-]*\d[\w-]*)$/;
+const DIGITS_RE = /^\d+$/;
+// Document prefix (2+ letters, dash) like RE-2026-0012; the digit is checked separately to keep the pattern linear.
+const DOCUMENT_PREFIX_RE = /^[A-Za-z]{2,}-[\w-]+$/;
 const PLATE_INPUT_RE = /^[A-Za-z0-9 .-]+$/;
 const PLATE_SHAPE_RE = /^[A-Z]{1,3}\d{1,6}[A-Z]{0,3}$/;
 
@@ -22,6 +23,16 @@ function isPhone(text: string): boolean {
     digits >= MIN_PHONE_DIGITS &&
     (text.startsWith('+') || text.startsWith('0'))
   );
+}
+
+function isNumber(text: string): boolean {
+  return (
+    DIGITS_RE.test(text) || (DOCUMENT_PREFIX_RE.test(text) && /\d/.test(text))
+  );
+}
+
+function isVin(text: string): boolean {
+  return VIN_RE.test(text) && /[A-Z]/i.test(text); // 17 digits is a number
 }
 
 function detectPlate(text: string): string | null {
@@ -35,9 +46,9 @@ function detectPlate(text: string): string | null {
 function detectKind(text: string, plate: string | null): SearchQueryKind {
   if (UUID_RE.test(text)) return 'uuid';
   if (EMAIL_RE.test(text)) return 'email';
-  if (VIN_RE.test(text)) return 'vin';
+  if (isVin(text)) return 'vin';
   if (isPhone(text)) return 'phone';
-  if (NUMBER_RE.test(text)) return 'number';
+  if (isNumber(text)) return 'number';
   return plate ? 'plate' : 'name';
 }
 
