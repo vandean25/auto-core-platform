@@ -398,6 +398,42 @@ describe('site-aware providers', () => {
   });
 });
 
+describe('workshop order provider and the TECH restriction', () => {
+  it.each(['max@example.com', '+43 664 1234567'])(
+    'does not let TECH probe customer contact data through orders with %s',
+    async (q) => {
+      const findMany = jest.fn().mockResolvedValue([]);
+      await provider(
+        createSearchProviders({ workshopOrder: { findMany } } as never),
+        'workshop_order',
+      ).search(ctx(q, { role: 'TECH' }));
+      expect(findMany).not.toHaveBeenCalled();
+    },
+  );
+
+  it('still lets non-TECH roles find orders by customer email', async () => {
+    const findMany = jest.fn().mockResolvedValue([]);
+    await provider(
+      createSearchProviders({ workshopOrder: { findMany } } as never),
+      'workshop_order',
+    ).search(ctx('max@example.com'));
+    expect(findMany).toHaveBeenCalled();
+  });
+
+  it('scopes the nested customer and vehicle filters to the tenant', async () => {
+    const findMany = jest.fn().mockResolvedValue([]);
+    await provider(
+      createSearchProviders({ workshopOrder: { findMany } } as never),
+      'workshop_order',
+    ).search(ctx('Max'));
+    const { where } = findMany.mock.calls[0][0];
+    for (const clause of where.OR) {
+      const nested = clause.customer ?? clause.vehicle;
+      expect(nested.tenant_id).toBe('tenant-a');
+    }
+  });
+});
+
 describe('invoice and part providers', () => {
   it('searches issued invoices only', async () => {
     const findMany = jest.fn().mockResolvedValue([]);

@@ -14,6 +14,8 @@ const DIGITS_RE = /^\d+$/;
 // Document prefix (2+ letters, dash) like RE-2026-0012; the digit is checked separately to keep the pattern linear.
 const DOCUMENT_PREFIX_RE = /^[A-Za-z]{2,}-[\w-]+$/;
 const PLATE_INPUT_RE = /^[A-Za-z0-9 .-]+$/;
+const MAX_PLATE_LENGTH = 10;
+// Strict Austrian/German shape; only this makes the plate the primary kind (names with digits stay names).
 const PLATE_SHAPE_RE = /^[A-Z]{1,3}\d{1,6}[A-Z]{0,3}$/;
 
 function isPhone(text: string): boolean {
@@ -35,12 +37,18 @@ function isVin(text: string): boolean {
   return VIN_RE.test(text) && /[A-Z]/i.test(text); // 17 digits is a number
 }
 
+/** Any short input with a letter and a digit may be a plate (also vanity plates like S-SKODA1). */
 function detectPlate(text: string): string | null {
   if (!PLATE_INPUT_RE.test(text)) {
     return null;
   }
   const plate = normalizePlate(text);
-  return plate && PLATE_SHAPE_RE.test(plate) ? plate : null;
+  return plate &&
+    plate.length <= MAX_PLATE_LENGTH &&
+    /[A-Z]/.test(plate) &&
+    /\d/.test(plate)
+    ? plate
+    : null;
 }
 
 function detectKind(text: string, plate: string | null): SearchQueryKind {
@@ -49,7 +57,7 @@ function detectKind(text: string, plate: string | null): SearchQueryKind {
   if (isVin(text)) return 'vin';
   if (isPhone(text)) return 'phone';
   if (isNumber(text)) return 'number';
-  return plate ? 'plate' : 'name';
+  return plate && PLATE_SHAPE_RE.test(plate) ? 'plate' : 'name';
 }
 
 export function parseSearchQuery(raw: string): ParsedSearchQuery {

@@ -328,6 +328,19 @@ describe('ImportService vehicle import (characterization)', () => {
       });
     });
 
+    it('matches a stored plate with hyphens or dots against the normalised import plate', async () => {
+      h.prisma.vehicle.findMany.mockResolvedValue([
+        storedVehicle({ vin: null, plate: 'w-12.ab' }),
+      ]);
+      const text = vehicleCsv(
+        completeRow('V-9', { [COL.vin]: '', [COL.plate]: 'W 12-AB' }),
+      );
+
+      const [row] = await dryRunRows(text, { allow_missing_vin: true });
+
+      expect(row).toMatchObject({ entity_id: 'veh-1' });
+    });
+
     it('updates a matched vehicle when a compared field differs under update_existing', async () => {
       h.prisma.vehicle.findMany.mockResolvedValue([
         storedVehicle({ mileage: 99000 }),

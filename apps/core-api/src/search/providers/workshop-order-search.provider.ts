@@ -44,6 +44,7 @@ type WorkshopOrderRow = {
 };
 
 function matchWhere(
+  tenantId: string,
   query: ParsedSearchQuery,
   tier: MatchTier,
   restricted: boolean,
@@ -54,9 +55,9 @@ function matchWhere(
     or.push({ order_number: tierFilter(tier, query.text) });
   }
   const vehicle = vehicleMatchWhere(query, tier);
-  if (vehicle) or.push({ vehicle });
+  if (vehicle) or.push({ vehicle: { ...vehicle, tenant_id: tenantId } });
   const customer = customerMatchWhere(query, tier, restricted);
-  if (customer) or.push({ customer });
+  if (customer) or.push({ customer: { ...customer, tenant_id: tenantId } });
   return or.length > 0 ? { OR: or } : null;
 }
 
@@ -89,7 +90,7 @@ export class WorkshopOrderSearchProvider implements SearchProvider {
       ctx.limit,
       await ctx.getSiteScope(),
       async (tier, siteIds) => {
-        const match = matchWhere(ctx.query, tier, restricted);
+        const match = matchWhere(ctx.tenantId, ctx.query, tier, restricted);
         if (!match) return [];
         return this.prisma.workshopOrder.findMany({
           where: {

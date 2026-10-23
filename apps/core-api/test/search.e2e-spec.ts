@@ -441,6 +441,27 @@ describe('Global search (e2e)', () => {
       }
     });
 
+    it('TECH cannot probe customer contact data through workshop orders', async () => {
+      for (const q of [
+        `hubertus.${SUFFIX}@searchable.example.test`,
+        `+43 660 ${SUFFIX}`,
+      ]) {
+        const groups = await groupsFor(techToken, q, {
+          types: 'workshop_order',
+        });
+        expect(groups[0].results).toEqual([]);
+      }
+    });
+
+    it('ADMIN finds orders by customer email, which TECH cannot', async () => {
+      const groups = await groupsFor(
+        adminToken,
+        `hubertus.${SUFFIX}@searchable.example.test`,
+        { types: 'workshop_order' },
+      );
+      expect(groups[0].results.map((r) => r.id)).toContain(ids.orderMain);
+    });
+
     it('ADMIN sees the contact subtitle that TECH does not', async () => {
       const groups = await groupsFor(adminToken, `Searchable${SUFFIX}`, {
         types: 'customer',

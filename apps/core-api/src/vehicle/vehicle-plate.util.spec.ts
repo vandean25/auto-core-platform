@@ -7,6 +7,7 @@ describe('normalizePlate', () => {
     ['W.12345.A', 'W12345A'],
     ['  g 123\tab ', 'G123AB'],
     ['M-AB 1234', 'MAB1234'],
+    ['w\u00a012345\ufeffa', 'W12345A'],
   ])(
     'strips spaces, hyphens and dots and upper-cases %p',
     (input, expected) => {

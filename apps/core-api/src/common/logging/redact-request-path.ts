@@ -8,10 +8,15 @@
  */
 const APPROVAL_TOKEN_SEGMENT = /(estimate-approvals[\\/])[^\\/?#\s"]+/gi;
 
+/** The global search text is customer data (names, emails, phones, plates), so its `q` value is never logged. */
+const SEARCH_TEXT_PARAM = /(\/search\?(?:[^#\s"]*&)?q=)[^&#\s"]*/gi;
+
 const MAX_SCRUB_DEPTH = 12;
 
 export function redactRequestPath(path: string): string {
-  return path.replace(APPROVAL_TOKEN_SEGMENT, '$1:token');
+  return path
+    .replace(APPROVAL_TOKEN_SEGMENT, '$1:token')
+    .replace(SEARCH_TEXT_PARAM, '$1:redacted');
 }
 
 /**

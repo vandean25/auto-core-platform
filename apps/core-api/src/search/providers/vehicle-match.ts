@@ -13,7 +13,7 @@ function makeModelWhere(
   };
 }
 
-/** Exact and prefix on the normalised plate; no contains, so the btree index on plate_normalized serves it. */
+/** Exact and prefix on the normalised plate; no contains. The index (tenant_id, plate_normalized) narrows to the tenant and serves equality. */
 function plateWhere(
   tier: MatchTier,
   plate: string,

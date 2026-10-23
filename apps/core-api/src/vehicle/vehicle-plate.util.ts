@@ -1,8 +1,11 @@
+// Explicit set (not \s) so the SQL backfill in the AUT-662 migration can mirror it exactly.
+const PLATE_SEPARATORS = /[ \t\n\r\f\v\u00a0\ufeff.-]+/g;
+
 /** Shared by vehicle import and global search: spaces, hyphens and dots are dropped, letters upper-cased. */
 export function normalizePlate(
   value: string | null | undefined,
 ): string | null {
-  const normalized = value?.replace(/[\s.-]+/g, '').toUpperCase() ?? '';
+  const normalized = value?.replace(PLATE_SEPARATORS, '').toUpperCase() ?? '';
   return normalized.length > 0 ? normalized : null;
 }
 

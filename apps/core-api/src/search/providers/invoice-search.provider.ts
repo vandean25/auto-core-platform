@@ -44,6 +44,7 @@ type InvoiceRow = {
 };
 
 function matchWhere(
+  tenantId: string,
   query: ParsedSearchQuery,
   tier: MatchTier,
 ): Prisma.InvoiceWhereInput | null {
@@ -53,9 +54,9 @@ function matchWhere(
     or.push({ invoice_number: tierFilter(tier, query.text) });
   }
   const vehicle = vehicleMatchWhere(query, tier);
-  if (vehicle) or.push({ vehicle });
+  if (vehicle) or.push({ vehicle: { ...vehicle, tenant_id: tenantId } });
   const customer = customerMatchWhere(query, tier, false);
-  if (customer) or.push({ customer });
+  if (customer) or.push({ customer: { ...customer, tenant_id: tenantId } });
   return or.length > 0 ? { OR: or } : null;
 }
 
@@ -83,7 +84,7 @@ export class InvoiceSearchProvider implements SearchProvider {
       ctx.limit,
       await ctx.getSiteScope(),
       async (tier, siteIds) => {
-        const match = matchWhere(ctx.query, tier);
+        const match = matchWhere(ctx.tenantId, ctx.query, tier);
         if (!match) return [];
         return this.prisma.invoice.findMany({
           where: {

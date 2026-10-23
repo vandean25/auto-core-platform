@@ -25,6 +25,9 @@ const SAMPLE_PLATES = [
   'E12-3',
   'ä 12 ö',
   '- . -',
+  'W\u00a012345\ufeffA',
+  '\ufeffG\u2003 1',
+  'w\u00a0\u00a0-12',
   '',
   'abc',
 ];

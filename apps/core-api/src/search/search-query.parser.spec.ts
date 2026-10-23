@@ -39,6 +39,16 @@ describe('parseSearchQuery', () => {
     expect(parsed.plate).toBe('AB123');
   });
 
+  it('keeps a plate candidate for vanity plates', () => {
+    for (const [input, kind, plate] of [
+      ['S-SKODA1', 'name', 'SSKODA1'],
+      ['G-TUNER1', 'name', 'GTUNER1'],
+      ['IL-4WD1', 'number', 'IL4WD1'],
+    ]) {
+      expect(parseSearchQuery(input)).toMatchObject({ kind, plate });
+    }
+  });
+
   it('has no plate for names, numbers and emails', () => {
     expect(parseSearchQuery('Max Mustermann').plate).toBeNull();
     expect(parseSearchQuery('4711').plate).toBeNull();
