@@ -34,6 +34,48 @@ type WorkshopOrderSummary = {
 
 export type CustomerVehicleParty = components['schemas']['CustomerVehiclePartyDto']
 
+export type CustomerVehicleRow = {
+  key: string
+  vehicle: { id: string; make: string; model: string; plate: string | null }
+  vin: string | null
+  role: CustomerVehicleParty['role']
+  valid_from: string | null
+  valid_to: string | null
+  is_active: boolean
+}
+
+/**
+ * Party rows, plus a read-time fallback: a vehicle linked only through `customer_id`, with no party
+ * row at all, is listed as the owner because it is the customer's main contact.
+ */
+export function buildCustomerVehicleRows(customer: CustomerDetailResponse): CustomerVehicleRow[] {
+  const vehicles = customer.vehicles ?? []
+  const parties = customer.vehicle_parties ?? []
+  const vinById = new Map(vehicles.map((vehicle) => [vehicle.id, vehicle.vin ?? null]))
+  const partyVehicleIds = new Set(parties.map((party) => party.vehicle_id))
+  const partyRows: CustomerVehicleRow[] = parties.map((party) => ({
+    key: party.id,
+    vehicle: party.vehicle,
+    vin: vinById.get(party.vehicle_id) ?? null,
+    role: party.role,
+    valid_from: party.valid_from,
+    valid_to: party.valid_to,
+    is_active: party.is_active,
+  }))
+  const fallbackRows: CustomerVehicleRow[] = vehicles
+    .filter((vehicle) => !partyVehicleIds.has(vehicle.id))
+    .map((vehicle) => ({
+      key: `customer-id-${vehicle.id}`,
+      vehicle: { id: vehicle.id, make: vehicle.make, model: vehicle.model, plate: vehicle.plate ?? null },
+      vin: vehicle.vin ?? null,
+      role: 'OWNER',
+      valid_from: null,
+      valid_to: null,
+      is_active: true,
+    }))
+  return [...partyRows, ...fallbackRows]
+}
+
 export type InvoiceSummary = {
   id: string
   invoice_number: string | null

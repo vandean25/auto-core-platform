@@ -124,6 +124,14 @@ test.describe('Blueprint: Vehicles Module', () => {
       });
     });
 
+    await page.route(AutoCorePage.apiRouteMatcher(`/api/vehicles/${mockVehicle.id}/parties`), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: [], suggested_bill_to: null }),
+      });
+    });
+
     await page.goto(`/vehicles/${mockVehicle.id}`);
     await page.waitForLoadState('networkidle');
 
@@ -138,11 +146,62 @@ test.describe('Blueprint: Vehicles Module', () => {
     ).toBeVisible();
     await expect(page.getByText('142').first()).toBeVisible();
 
-    // Verify Customer Link renders inside the Info card
-    const customerLink = page.getByRole('link', { name: 'Jane Smith' });
+    // Verify Customer Link renders inside the Info card (the parties card links the same customer as a fallback)
+    const customerLink = page.getByTestId('vehicle-customer-link');
     await expect(customerLink).toBeVisible();
     await expect(customerLink).toHaveAttribute('href', `/customers/${mockVehicle.customer.id}`);
     await expectNoCriticalA11yViolations(page);
+  });
+
+  test('parties card lists the OWNER returned by the parties endpoint', async ({ page }) => {
+    const mockVehicle = {
+      ...createMockVehicleListItem({ make: 'Ford', model: 'Focus', year: 2018, plate: 'FD-5678' }),
+      co2_wltp_g_km: 142,
+      first_registration_date: '2020-05-01',
+      sales_orders: [],
+      workshop_orders: [],
+      invoices: [],
+      customer: createMockCustomer({ first_name: 'Jane', last_name: 'Smith' }),
+    };
+
+    await page.route(AutoCorePage.apiRouteMatcher(`/api/vehicles/${mockVehicle.id}`), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(mockVehicle),
+      });
+    });
+    await page.route(AutoCorePage.apiRouteMatcher(`/api/vehicles/${mockVehicle.id}/parties`), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: [
+            {
+              id: 'party-owner-1',
+              vehicle_id: mockVehicle.id,
+              customer_id: mockVehicle.customer.id,
+              role: 'OWNER',
+              valid_from: '2026-01-01',
+              valid_to: null,
+              source: 'MANUAL',
+              notes: null,
+              is_active: true,
+              customer: { id: mockVehicle.customer.id, type: 'PRIVATE', company_name: null, first_name: 'Jane', last_name: 'Smith' },
+              createdAt: '2026-01-01T08:00:00.000Z',
+              updatedAt: '2026-01-01T08:00:00.000Z',
+            },
+          ],
+          suggested_bill_to: null,
+        }),
+      });
+    });
+
+    await page.goto(`/vehicles/${mockVehicle.id}`);
+    await page.waitForLoadState('networkidle');
+
+    await expect(page.getByText('Beteiligte', { exact: true })).toBeVisible();
+    await expect(page.getByRole('cell', { name: 'Halter' })).toBeVisible();
   });
 
   test('create vehicle dialog sends regulatory fields in POST body', async ({ page }) => {

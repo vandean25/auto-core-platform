@@ -185,6 +185,17 @@ type MockCustomerHistoryMeta = {
   hasMore: boolean;
 };
 
+export type MockCustomerVehicleParty = {
+  id: string;
+  vehicle_id: string;
+  role: string;
+  valid_from: string | null;
+  valid_to: string | null;
+  source: string;
+  is_active: boolean;
+  vehicle: { id: string; make: string; model: string; plate: string | null };
+};
+
 type MockCustomerDetailResponse = MockCustomer & {
   vat_id?: string | null;
   address_street?: string | null;
@@ -195,6 +206,7 @@ type MockCustomerDetailResponse = MockCustomer & {
   workshop_orders?: MockWorkshopOrderSummary[];
   invoices?: MockInvoiceSummary[];
   vehicles?: MockVehicleDetail[];
+  vehicle_parties?: MockCustomerVehicleParty[];
   workshop_orders_meta?: MockCustomerHistoryMeta;
   invoices_meta?: MockCustomerHistoryMeta;
 };
@@ -218,6 +230,7 @@ export const createMockCustomerDetailResponse = (
   workshop_orders: [],
   invoices: [],
   vehicles: [],
+  vehicle_parties: [],
   workshop_orders_meta: {
     page: 1,
     pageSize: 10,

@@ -585,7 +585,20 @@ describe('CustomerDetail characterization', () => {
       expect(within(rows[1]).getByText('Altbesitzer')).toBeInTheDocument()
       expect(within(rows[1]).getByText(/31\.12\.2023/)).toBeInTheDocument()
       expect(within(rows[1]).getByText('Beendet')).toBeInTheDocument()
-      expect(within(rows[1]).getAllByText(detail.notAvailable)).toHaveLength(1)
+      expect(within(rows[0]).getAllByText(detail.notAvailable)).toHaveLength(1)
+      expect(within(rows[1]).getAllByText(detail.notAvailable)).toHaveLength(2)
+    })
+
+    it('lists a vehicle linked only through customer_id as owner, without a party row', () => {
+      renderDetail(baseCustomer({ vehicles: [audi] }))
+      openTab(detail.tabs.vehicles)
+
+      const row = within(screen.getByRole('tabpanel')).getByRole('button', {
+        name: fill(detail.aria.openVehicle, { make: 'Audi', model: 'A3' }),
+      })
+      expect(within(row).getByText('Halter')).toBeInTheDocument()
+      expect(within(row).getByText('WAUZZZ8V1KA123456')).toBeInTheDocument()
+      expect(within(row).getByText('Aktiv')).toBeInTheDocument()
     })
 
     it('opens a vehicle on click, Enter and Space but not other keys', () => {
