@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useMySites } from '@/api/sites'
 import { useWorkshopKpiReport } from '@/api/workshop-kpi-reports'
 import { formatPercent } from '@/lib/format'
+import { useLazyNamespaceBundleReady } from '@/lib/i18n'
 
 const REPORT_ROLES = ['OWNER', 'ADMIN', 'SALES']
 
@@ -20,7 +21,7 @@ function percentage(value: string | null | undefined) {
   return value == null ? '—' : formatPercent(Number(value))
 }
 
-export function WorkshopKpiDashboardWidget() {
+function WorkshopKpiDashboardWidgetContent() {
   const { t } = useTranslation('workshop')
   const sites = useMySites()
   const session = useAuthSession()
@@ -72,4 +73,12 @@ export function WorkshopKpiDashboardWidget() {
       </CardContent>
     </Card>
   )
+}
+
+export function WorkshopKpiDashboardWidget() {
+  const bundleStatus = useLazyNamespaceBundleReady(['workshop'])
+  if (bundleStatus !== 'ready') {
+    return null
+  }
+  return <WorkshopKpiDashboardWidgetContent />
 }

@@ -2,9 +2,11 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { PageLoader } from '@/components/ui/PageLoader'
 import { MECHANIC_ROUTE_PATHS } from '@/lib/app-route-paths'
+import { useLazyNamespaceBundleReady } from '@/lib/i18n'
 
-export default function MechanicAccessDeniedPage() {
+function MechanicAccessDeniedContent() {
   const { t } = useTranslation('workshop')
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-slate-50 px-4 py-12 sm:px-6">
@@ -21,4 +23,14 @@ export default function MechanicAccessDeniedPage() {
       </Card>
     </div>
   )
+}
+
+export default function MechanicAccessDeniedPage() {
+  const bundleStatus = useLazyNamespaceBundleReady(['workshop'])
+
+  if (bundleStatus !== 'ready') {
+    return <PageLoader />
+  }
+
+  return <MechanicAccessDeniedContent />
 }

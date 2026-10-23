@@ -30,9 +30,6 @@
     "paths": {
       "@/*": [
         "./src/*"
-      ],
-      "react-i18next": [
-        "./src/lib/i18n/react-i18next.ts"
       ]
     }
   },
