@@ -174,6 +174,7 @@ describe('vehicle-purchase.helpers', () => {
         model: 'Corolla',
         year: 2020,
         plate: 'AA-123-BB',
+        plate_normalized: 'AA123BB',
         customer_id: null,
         inventory_role: VehicleInventoryRole.USED,
         stock_status: VehicleStockStatus.IN_STOCK,
@@ -182,6 +183,18 @@ describe('vehicle-purchase.helpers', () => {
         stock_cost_basis: basePurchase.purchase_price,
       });
       expect(stockData).not.toHaveProperty('identity_resolution_generation');
+    });
+
+    it('re-derives plate_normalized for a reused vehicle with another plate', () => {
+      const stockData = buildLotStockPayload(
+        { ...basePurchase, plate: 'x 9.9' },
+        { plate: 'OLD-PLATE' },
+      );
+
+      expect(stockData).toMatchObject({
+        plate: 'x 9.9',
+        plate_normalized: 'X99',
+      });
     });
 
     it('does not reset identity if plate matches existing normalized plate', () => {
@@ -494,4 +507,3 @@ describe('vehicle-purchase.helpers', () => {
     });
   });
 });
-

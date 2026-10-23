@@ -1,3 +1,4 @@
+import { normalizePlate } from '../../vehicle/vehicle-plate.util.js';
 import {
   CustomerType,
   InvoiceStatus,
@@ -189,6 +190,7 @@ export async function seedDemoGewaehrleistungSales(
             year: sale.vehicle.year,
             vin: sale.vehicle.vin,
             plate: sale.vehicle.plate,
+            plate_normalized: normalizePlate(sale.vehicle.plate),
             first_registration_date: sale.vehicle.firstRegistrationDate,
             purchases: {
               create: {

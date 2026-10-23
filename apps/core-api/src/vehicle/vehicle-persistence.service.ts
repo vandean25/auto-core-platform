@@ -17,6 +17,7 @@ import {
   OPEN_SERVICE_DUE,
 } from './vehicle-party.query.js';
 import { dayToDate } from './vehicle-party-date.util.js';
+import { withPlateNormalized } from './vehicle-plate.util.js';
 import {
   changeMainContactInTx,
   lockVehicleForPartyWrite,
@@ -76,7 +77,7 @@ export class VehiclePersistenceService {
 
   async createVehicle(data: Prisma.VehicleUncheckedCreateInput) {
     return this.prisma.vehicle.create({
-      data,
+      data: withPlateNormalized(data),
       include: { customer: true },
     });
   }
@@ -90,7 +91,7 @@ export class VehiclePersistenceService {
   ): Promise<number> {
     const { count } = await this.prisma.vehicle.updateMany({
       where: buildVehicleIdentityGuard(id, tenantId, existingVehicle),
-      data,
+      data: withPlateNormalized(data),
     });
     return count;
   }
@@ -117,7 +118,7 @@ export class VehiclePersistenceService {
       });
       const { count } = await tx.vehicle.updateMany({
         where: buildVehicleIdentityGuard(id, tenantId, existingVehicle),
-        data,
+        data: withPlateNormalized(data),
       });
       // Repeating the current customer is not a change: no party is invented or moved.
       if (count > 0 && current?.customer_id !== customerId) {

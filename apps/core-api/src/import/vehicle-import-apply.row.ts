@@ -1,3 +1,4 @@
+import { withPlateNormalized } from '../vehicle/vehicle-plate.util.js';
 import {
   AuditLogAction,
   ImportEntityType,
@@ -92,7 +93,7 @@ async function createVehicle(
     ? toImportFirstRegistrationDate(payload.first_registration_date)
     : undefined;
   const created = await tx.vehicle.create({
-    data: {
+    data: withPlateNormalized({
       tenant_id: ctx.tenantId,
       make: String(payload.make),
       model: String(payload.model),
@@ -106,7 +107,7 @@ async function createVehicle(
       ...(registrationDate !== undefined
         ? { first_registration_date: registrationDate ?? null }
         : {}),
-    },
+    }),
   });
   await createExternalMapping(
     tx,
@@ -150,7 +151,7 @@ async function updateVehicle(
   );
   const after = await tx.vehicle.update({
     where: { id: entityId },
-    data: updateData,
+    data: withPlateNormalized(updateData),
   });
   await upsertExternalMapping(
     tx,

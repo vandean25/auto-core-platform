@@ -154,6 +154,7 @@ describe('WorkshopIntakeService', () => {
       },
       data: {
         plate: 'NEW-1',
+        plate_normalized: 'NEW1',
         customer_id: 'c-1',
         ...VEHICLE_IDENTITY_RESET,
         identity_resolution_token: null,
@@ -220,6 +221,7 @@ describe('WorkshopIntakeService', () => {
     const updateData = mockPrisma.vehicle.updateMany.mock.calls[0][0].data;
     expect(updateData).toEqual({
       plate: 'PL-1',
+      plate_normalized: 'PL1',
       customer_id: 'c-1',
     });
     for (const resetKey of Object.keys(VEHICLE_IDENTITY_RESET)) {
@@ -299,7 +301,11 @@ describe('WorkshopIntakeService', () => {
     });
     expect(mockPrisma.vehicle.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ vin: 'VF1ABC123' }),
+        data: expect.objectContaining({
+          vin: 'VF1ABC123',
+          plate: 'PL-1',
+          plate_normalized: 'PL1',
+        }),
       }),
     );
     expect(mockPrisma.vehicle.upsert).not.toHaveBeenCalled();

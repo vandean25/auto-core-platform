@@ -387,6 +387,25 @@ describe('VehicleService', () => {
     });
   });
 
+  it('sets plate_normalized when creating a vehicle', async () => {
+    prisma.vehicle.create.mockResolvedValue({ id: vehicleId });
+
+    await service.create({
+      make: 'Peugeot',
+      model: '308',
+      year: 2024,
+      plate: 'w 12345-a',
+    });
+
+    expect(prisma.vehicle.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        plate: 'w 12345-a',
+        plate_normalized: 'W12345A',
+      }),
+      include: { customer: true },
+    });
+  });
+
   it('persists a blank VIN as null when creating a vehicle', async () => {
     const createdVehicle = { id: vehicleId, vin: null };
     prisma.vehicle.create.mockResolvedValue(createdVehicle);
@@ -437,7 +456,10 @@ describe('VehicleService', () => {
     await service.update(vehicleId, { plate: 'PLATE-1' });
 
     const updateData = prisma.vehicle.updateMany.mock.calls[0][0].data;
-    expect(updateData).toEqual({ plate: 'PLATE-1' });
+    expect(updateData).toEqual({
+      plate: 'PLATE-1',
+      plate_normalized: 'PLATE1',
+    });
   });
 
   it('does not clear identity fields when updating an equivalent normalized VIN', async () => {

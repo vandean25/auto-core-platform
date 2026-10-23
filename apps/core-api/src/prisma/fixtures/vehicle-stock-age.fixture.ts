@@ -1,3 +1,4 @@
+import { normalizePlate } from '../../vehicle/vehicle-plate.util.js';
 import {
   VehicleInventoryRole,
   VehicleLedgerEntryType,
@@ -62,6 +63,7 @@ export async function seedVehicleStockAgeDemo(
           year,
           vin: `E12DEMO0000000000${index + 1}`,
           plate: `E12-${index + 1}`,
+          plate_normalized: normalizePlate(`E12-${index + 1}`),
           purchases: {
             create: {
               tenant_id: tenantId,

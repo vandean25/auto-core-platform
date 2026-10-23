@@ -55,3 +55,36 @@ describe('redactEventPaths', () => {
     expect(scrubbed.level).toBe('error');
   });
 });
+
+describe('search text redaction', () => {
+  it.each([
+    ['/api/search?q=max%20mustermann', '/api/search?:redacted'],
+    ['/api/search?types=customer&q=max@example.at', '/api/search?:redacted'],
+    ['/api/search/?q=Name', '/api/search/?:redacted'],
+    ['/api/search?q=Secret&q=b', '/api/search?:redacted'],
+    ['/api/search?q=W-12345A#frag', '/api/search?:redacted#frag'],
+  ])('hides the whole query of %s', (input, expected) => {
+    expect(redactRequestPath(input)).toBe(expected);
+  });
+
+  it('leaves other paths alone', () => {
+    expect(redactRequestPath('/api/customers?x=keep')).toBe(
+      '/api/customers?x=keep',
+    );
+  });
+
+  it('hides q in the query strings Sentry attaches to events', () => {
+    const event = {
+      request: { query_string: 'types=customer&q=Mustermann' },
+      contexts: { trace: { data: { 'url.query': '?q=max@example.at&limit=5' } } },
+      breadcrumbs: [{ data: { 'http.query': '?q=W-1' } }],
+    };
+
+    expect(JSON.stringify(redactEventPaths(event))).not.toMatch(
+      /Mustermann|max@example|W-1/,
+    );
+    expect(redactEventPaths(event).request.query_string).toBe(
+      'types=customer&q=:redacted',
+    );
+  });
+});

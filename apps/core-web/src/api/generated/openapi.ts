@@ -4954,6 +4954,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["SearchController_search"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent-supervision/triage": {
         parameters: {
             query?: never;
@@ -11287,6 +11303,36 @@ export interface components {
         CancelFiscalReceiptDto: {
             /** Format: uuid */
             idempotencyKey: string;
+        };
+        SearchResultDto: {
+            /** @enum {string} */
+            type: "customer" | "vehicle" | "stock_vehicle" | "workshop_order" | "invoice" | "part";
+            /** Format: uuid */
+            id: string;
+            title: string;
+            subtitle: string | null;
+            /** @description App route that opens the entity. */
+            href: string;
+            /** @description 1 exact, 0.8 prefix, 0.5 contains. */
+            score: number;
+            /**
+             * Format: uuid
+             * @description Owning site for site-scoped types.
+             */
+            siteId?: string;
+        };
+        SearchGroupDto: {
+            /** @enum {string} */
+            type: "customer" | "vehicle" | "stock_vehicle" | "workshop_order" | "invoice" | "part";
+            results: components["schemas"]["SearchResultDto"][];
+            /**
+             * @description Set when this type failed; the other groups are still valid.
+             * @enum {string}
+             */
+            error?: "unavailable";
+        };
+        SearchResponseDto: {
+            groups: components["schemas"]["SearchGroupDto"][];
         };
         AgentSupervisionTriageItemDto: {
             /** @enum {string} */
@@ -21499,6 +21545,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SettlementResponseDto"];
+                };
+            };
+        };
+    };
+    SearchController_search: {
+        parameters: {
+            query: {
+                /** @description Maximum results per type. */
+                limit?: number;
+                /** @description Search text. At least 2 characters; a purely numeric input may be 1 character. */
+                q: string;
+                /** @description Comma-separated result types. Defaults to every type the session role may see. */
+                types?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchResponseDto"];
                 };
             };
         };

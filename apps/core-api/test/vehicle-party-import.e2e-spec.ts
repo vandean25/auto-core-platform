@@ -285,7 +285,7 @@ describe('Vehicle party and due date import (e2e)', () => {
             source: 'LEGACY_IMPORT',
             valid_to: today,
             is_active: false,
-            vehicle: expect.objectContaining({ plate: 'W-641-1' }),
+            vehicle: expect.objectContaining({ plate: 'W6411' }),
           }),
         ]),
       );
@@ -368,7 +368,7 @@ describe('Vehicle party and due date import (e2e)', () => {
         .set('Authorization', `Bearer ${token}`)
         .expect(200);
       const plates = response.body.data.map((vehicle: { plate: string }) => vehicle.plate);
-      expect(plates).toContain('W-641-2');
+      expect(plates).toContain('W6412');
     });
 
     it('keeps LEGACY_IMPORT inspection records immutable through the API', async () => {

@@ -202,6 +202,7 @@ async function seedBaseTenantData(
       year: 2019,
       vin: 'WVWE2EFULLSTKW001',
       plate: 'W-E2EFS1',
+      plate_normalized: 'WE2EFS1',
       customer_id: workshopCustomer.id,
     },
   });

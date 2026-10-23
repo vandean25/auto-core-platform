@@ -6,6 +6,7 @@ import {
   normalizeVin,
 } from './vin.validation.js';
 import { readMappedFirstRegistrationDate } from './import-first-registration-date.util.js';
+import { normalizePlate } from '../vehicle/vehicle-plate.util.js';
 
 function cellValue(
   record: Record<string, string>,
@@ -17,11 +18,6 @@ function cellValue(
     return '';
   }
   return record[column]?.trim() ?? '';
-}
-
-function normalizePlate(value: string | null | undefined): string | null {
-  const normalized = value?.trim().toUpperCase().replace(/\s+/g, '') ?? '';
-  return normalized.length > 0 ? normalized : null;
 }
 
 function parseYear(raw: string): number | null {

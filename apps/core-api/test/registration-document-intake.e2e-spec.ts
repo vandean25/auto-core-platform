@@ -183,6 +183,10 @@ describe('Registration document intake (e2e)', () => {
     const tenantPrisma = createTenantAwarePrisma(prisma, tenantId);
     expect(await tenantPrisma.vehicle.count()).toBe(1);
     expect(await tenantPrisma.customer.count()).toBe(1);
+    const createdVehicle = await tenantPrisma.vehicle.findFirstOrThrow({
+      where: { id: apply.body.vehicleId },
+    });
+    expect(createdVehicle.plate_normalized).toBe('WSYNTH1');
 
     const order = await request(app.getHttpServer())
       .post(`/api/workshop/registration-intakes/${create.body.id}/order`)
@@ -503,6 +507,56 @@ describe('Registration document intake (e2e)', () => {
     });
     expect(vehicle?.co2_wltp_g_km).toBeNull();
     expect(vehicle?.co2_nedc_g_km).toBeNull();
+  });
+
+  it('keeps plate_normalized in step when intake changes the plate of an existing vehicle', async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenantId);
+    const holder = await tenantPrisma.customer.create({
+      data: {
+        tenant_id: tenantId,
+        first_name: 'pilot',
+        last_name: 'customer',
+        type: 'PRIVATE',
+      },
+    });
+    const existing = await tenantPrisma.vehicle.create({
+      data: {
+        plate: 'W OLD 9',
+        plate_normalized: 'WOLD9',
+        year: 2018,
+        model: 'Old',
+        make: 'Synthetic',
+        vin: 'WVWZZZSYNTH000001',
+        tenant_id: tenantId,
+        customer_id: holder.id,
+      },
+    });
+    const front = encodeRegistrationIntakeFixtureBytes('front-clear');
+    const create = await request(app.getHttpServer())
+      .post('/api/workshop/registration-intakes')
+      .set('Authorization', `Bearer ${authToken}`)
+      .set('Idempotency-Key', 'plate-update-1')
+      .field('sides', 'FRONT')
+      .attach('files', front, 'front.jpg')
+      .expect(201);
+    await request(app.getHttpServer())
+      .post(`/api/workshop/registration-intakes/${create.body.id}/apply`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        vin: 'WVWZZZSYNTH000001',
+        plate: 'W SYNTH 1',
+        holder: { firstName: 'pilot', lastName: 'customer' },
+        nationalcode: 'NC1001',
+        firstRegistration: '2019-03-12',
+        customerId: holder.id,
+        vehicleId: existing.id,
+      })
+      .expect(200);
+    const updated = await tenantPrisma.vehicle.findFirstOrThrow({
+      where: { id: existing.id },
+    });
+    expect(updated.plate).toBe('W SYNTH 1');
+    expect(updated.plate_normalized).toBe('WSYNTH1');
   });
 
   it('rejects ownership correction when nextCustomerId is not the confirmed holder', async () => {

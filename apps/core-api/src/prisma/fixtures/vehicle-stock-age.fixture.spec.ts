@@ -15,6 +15,9 @@ describe('seedVehicleStockAgeDemo', () => {
     for (const [{ data }] of prisma.vehicle.create.mock.calls) {
       expect(data.stock_received_at).toEqual(data.purchases.create.received_at);
       expect(data.stock_cost_basis).toBe(data.purchases.create.purchase_price);
+      expect(data.plate_normalized).toBe(
+        data.plate.replace(/[\s.-]+/g, '').toUpperCase(),
+      );
     }
     const receivedDays = prisma.vehicle.create.mock.calls.map(
       ([{ data }]: [{ data: Record<string, any> }]) => {

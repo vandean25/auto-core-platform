@@ -1,3 +1,4 @@
+import { normalizePlate } from '../vehicle/vehicle-plate.util.js';
 import { ImportEntityType, ImportRowAction } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { rowToRecord, type ParsedCsv } from './csv-parse.util.js';
@@ -36,11 +37,9 @@ async function loadVehicleMatchContext(
     if (vehicle.vin) {
       vehicleByVin.set(vehicle.vin.toUpperCase(), vehicle.id);
     }
-    if (vehicle.plate) {
-      vehicleByPlate.set(
-        vehicle.plate.toUpperCase().replace(/\s+/g, ''),
-        vehicle.id,
-      );
+    const plate = normalizePlate(vehicle.plate);
+    if (plate) {
+      vehicleByPlate.set(plate, vehicle.id);
     }
   }
 
