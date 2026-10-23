@@ -16,7 +16,27 @@ import {
   canManageVehicleParties,
   resolveMainContact,
   splitVehicleParties,
+  type MainContact,
 } from './vehicle-party-model'
+
+function MainContactLine({ contact, partiesLoaded }: { contact: MainContact | null; partiesLoaded: boolean }) {
+  const { t } = useTranslation('vehicles')
+  const showNoOwnerHint = partiesLoaded && contact !== null && !contact.fromOwnerParty
+
+  return (
+    <div className='space-y-1 text-sm'>
+      <div className='flex flex-wrap items-center gap-2'>
+        <span className='text-muted-foreground'>{t('parties.mainContact')}</span>
+        {contact ? (
+          <Link className='font-medium hover:underline' to={`/customers/${contact.id}`}>
+            {contact.name}
+          </Link>
+        ) : null}
+      </div>
+      {showNoOwnerHint ? <p className='text-xs text-muted-foreground'>{t('parties.noOwnerHint')}</p> : null}
+    </div>
+  )
+}
 
 type VehiclePartiesSectionProps = {
   vehicleId: string
@@ -59,19 +79,7 @@ export function VehiclePartiesSection({ vehicleId, vehicleCustomer }: VehiclePar
         ) : null}
       </CardHeader>
       <CardContent className='space-y-4'>
-        <div className='space-y-1 text-sm'>
-          <div className='flex flex-wrap items-center gap-2'>
-            <span className='text-muted-foreground'>{t('parties.mainContact')}</span>
-            {mainContact ? (
-              <Link className='font-medium hover:underline' to={`/customers/${mainContact.id}`}>
-                {mainContact.name}
-              </Link>
-            ) : null}
-          </div>
-          {mainContact && !mainContact.fromOwnerParty ? (
-            <p className='text-xs text-muted-foreground'>{t('parties.noOwnerHint')}</p>
-          ) : null}
-        </div>
+        <MainContactLine contact={mainContact} partiesLoaded={partiesQuery.isSuccess} />
         {partiesQuery.isError ? (
           <p role='alert' className='text-sm text-destructive'>
             {t('parties.loadFailed')}

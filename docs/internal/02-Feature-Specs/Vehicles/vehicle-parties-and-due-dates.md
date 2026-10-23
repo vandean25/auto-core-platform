@@ -70,7 +70,7 @@ HTTP errors carry a stable `code` next to the message. The web app maps each cod
 | `CUSTOMER_HAS_VEHICLES` | 400 | customer delete with linked vehicles |
 | `CUSTOMER_RETENTION_BLOCKS_DELETE` | 400 | customer delete while consent or contact preferences are retained |
 
-The codes are listed in `CLIENT_SAFE_HTTP_ERROR_CODES`, otherwise the global filter drops them. Import row issues keep their codes (`VEHICLE_PARTY_OVERLAP`, `IMPORT_UNKNOWN_VEHICLE` and so on); they are row labels, not HTTP errors. The import shares the value of `VEHICLE_PARTY_RULE_CODES`, which is an alias of `VEHICLE_PARTY_ERROR_CODES`.
+The codes are listed in `CLIENT_SAFE_HTTP_ERROR_CODES`, otherwise the global filter drops them. Import row issues keep their codes (`VEHICLE_PARTY_OVERLAP`, `IMPORT_UNKNOWN_VEHICLE` and so on); they are row labels, not HTTP errors.
 
 ## Import
 

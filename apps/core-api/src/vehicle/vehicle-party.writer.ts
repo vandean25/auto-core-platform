@@ -10,7 +10,7 @@ import {
   type VehicleParty,
 } from '@prisma/client';
 import {
-  VEHICLE_PARTY_ERROR_CODES,
+  VEHICLE_PARTY_RULE_CODES,
   findPartyConflict,
   isActiveOn,
   selectActiveOwner,
@@ -62,7 +62,7 @@ export function violationToException(violation: PartyRuleViolation) {
 
 function overlapException(candidate: PartyInterval) {
   return new ConflictException({
-    code: VEHICLE_PARTY_ERROR_CODES.OVERLAP,
+    code: VEHICLE_PARTY_RULE_CODES.OVERLAP,
     message: `${candidate.role} overlaps an existing party interval on this vehicle`,
   });
 }
@@ -199,7 +199,7 @@ export async function endPartyInTx(
   }
   if (party.valid_to !== null) {
     throw new ConflictException({
-      code: VEHICLE_PARTY_ERROR_CODES.ALREADY_ENDED,
+      code: VEHICLE_PARTY_RULE_CODES.ALREADY_ENDED,
       message: 'Only an open-ended party can be ended',
     });
   }
@@ -230,7 +230,7 @@ async function correctSameDayOwner(
 ): Promise<void> {
   if (owner.source !== VehicleRecordSource.MANUAL) {
     throw new ConflictException({
-      code: VEHICLE_PARTY_ERROR_CODES.OWNER_IMPORTED_TODAY,
+      code: VEHICLE_PARTY_RULE_CODES.OWNER_IMPORTED_TODAY,
       message:
         'The owner was assigned today by an import; end it from tomorrow or correct it in the import',
     });

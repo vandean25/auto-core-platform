@@ -70,6 +70,7 @@ function mockParties(data: unknown[]) {
   vi.mocked(vehiclesApi.useVehicleParties).mockReturnValue({
     data: { data, suggested_bill_to: null },
     isError: false,
+    isSuccess: true,
   } as unknown as ReturnType<typeof vehiclesApi.useVehicleParties>)
 }
 
