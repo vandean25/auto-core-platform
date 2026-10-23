@@ -1,4 +1,7 @@
-import { resolveRuntimeDatabaseUrl } from './runtime-database-url.js';
+import {
+  resolveDirectDatabaseUrl,
+  resolveRuntimeDatabaseUrl,
+} from './runtime-database-url.js';
 
 describe('resolveRuntimeDatabaseUrl', () => {
   const originalDatabaseUrl = process.env.DATABASE_URL;
@@ -7,6 +10,13 @@ describe('resolveRuntimeDatabaseUrl', () => {
   afterEach(() => {
     restoreEnv('DATABASE_URL', originalDatabaseUrl);
     restoreEnv('DATABASE_URL_POOLED', originalPooledUrl);
+  });
+
+  it('returns DATABASE_URL from resolveDirectDatabaseUrl', () => {
+    process.env.DATABASE_URL = 'postgresql://direct:5432/core';
+    process.env.DATABASE_URL_POOLED = 'postgresql://pooled:5432/core';
+
+    expect(resolveDirectDatabaseUrl()).toBe('postgresql://direct:5432/core');
   });
 
   it('prefers DATABASE_URL_POOLED when it is set', () => {

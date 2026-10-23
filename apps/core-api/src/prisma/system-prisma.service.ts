@@ -19,6 +19,10 @@ import {
   type SystemPrismaTransactionClient,
 } from './system-prisma.types.js';
 import { withCronJobLock } from '../scheduler/cron-job-advisory-lock.js';
+import {
+  retainCronJobLockPool,
+  releaseCronJobLockPool,
+} from '../scheduler/cron-job-lock-pool.js';
 
 /**
  * Unextended Prisma client for global identity and three documented exceptions.
@@ -147,19 +151,20 @@ export class SystemPrismaService
   }
 
   /**
-   * Cluster-wide dedup for in-process @Cron handlers (AUT-611). Pins one pool
-   * connection for the whole sweep so session advisory locks are not dropped
-   * while other queries use the shared runtime pool.
+   * Cluster-wide dedup for in-process @Cron handlers (AUT-611). Pins one
+   * dedicated lock-pool connection for the whole sweep so session advisory
+   * locks are not dropped while cron work uses the shared runtime pool.
    */
   async withCronJobLock(
     jobName: string,
     fn: () => Promise<void>,
     logger?: Pick<LoggerService, 'log' | 'warn'>,
   ): Promise<boolean> {
-    return withCronJobLock(this.pool, jobName, fn, logger);
+    return withCronJobLock(jobName, fn, logger);
   }
 
   async onModuleInit() {
+    retainCronJobLockPool(this.logger);
     if (
       process.env.SKIP_PRISMA_CONNECT === 'true' ||
       process.env.SKIP_PRISMA_CONNECT === '1'
@@ -176,6 +181,7 @@ export class SystemPrismaService
   async onModuleDestroy() {
     await this.prisma.$disconnect();
     await releaseSharedRuntimePool();
+    await releaseCronJobLockPool();
   }
 
   private async connectWithRetry(retries = 5, delay = 2000) {

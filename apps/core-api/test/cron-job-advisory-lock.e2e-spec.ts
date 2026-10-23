@@ -1,5 +1,9 @@
 import { Pool } from 'pg';
 import { withCronJobLock } from '../src/scheduler/cron-job-advisory-lock.js';
+import {
+  getCronJobLockPool,
+  resetCronJobLockPool,
+} from '../src/scheduler/cron-job-lock-pool.js';
 
 describe('cron job advisory lock (e2e)', () => {
   let pool: Pool;
@@ -10,9 +14,11 @@ describe('cron job advisory lock (e2e)', () => {
       throw new Error('DATABASE_URL is required for cron advisory lock e2e tests');
     }
     pool = new Pool({ connectionString, max: 2 });
+    getCronJobLockPool();
   });
 
   afterAll(async () => {
+    await resetCronJobLockPool();
     await pool.end();
   });
 
@@ -21,12 +27,12 @@ describe('cron job advisory lock (e2e)', () => {
     let effect = 0;
 
     const [ranA, ranB] = await Promise.all([
-      withCronJobLock(pool, jobName, async () => {
+      withCronJobLock(jobName, async () => {
         effect += 1;
         await pool.query('SELECT pg_sleep(0.25)');
         await pool.query('SELECT 1');
       }),
-      withCronJobLock(pool, jobName, async () => {
+      withCronJobLock(jobName, async () => {
         effect += 1;
         await pool.query('SELECT pg_sleep(0.25)');
       }),
@@ -35,7 +41,7 @@ describe('cron job advisory lock (e2e)', () => {
     expect(effect).toBe(1);
     expect([ranA, ranB].filter(Boolean)).toHaveLength(1);
 
-    const ranAfterRelease = await withCronJobLock(pool, jobName, async () => {
+    const ranAfterRelease = await withCronJobLock(jobName, async () => {
       effect += 1;
     });
     expect(ranAfterRelease).toBe(true);

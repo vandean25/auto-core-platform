@@ -1,7 +1,9 @@
+import { Logger } from '@nestjs/common';
 import { Pool } from 'pg';
 import { resolveRuntimeDatabaseUrl } from './runtime-database-url.js';
 
 const DEFAULT_RUNTIME_POOL_MAX = 10;
+const sharedPoolLogger = new Logger('SharedRuntimePool');
 
 let sharedPool: Pool | undefined;
 let ownerCount = 0;
@@ -11,6 +13,15 @@ export function getSharedRuntimePool(): Pool {
     sharedPool = new Pool({
       connectionString: resolveRuntimeDatabaseUrl(),
       max: DEFAULT_RUNTIME_POOL_MAX,
+      connectionTimeoutMillis: 10_000,
+      idleTimeoutMillis: 30_000,
+      keepAlive: true,
+    });
+    sharedPool.on('error', (error) => {
+      sharedPoolLogger.error(
+        `Shared runtime pool idle client error: ${error.message}`,
+        error.stack,
+      );
     });
   }
 

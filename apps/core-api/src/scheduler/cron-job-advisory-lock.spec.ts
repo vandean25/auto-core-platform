@@ -1,10 +1,18 @@
+import { jest } from '@jest/globals';
 import type { Pool, PoolClient } from 'pg';
 import {
   CORE_API_CRON_ADVISORY_LOCK_CLASS,
   cronJobAdvisoryLockKeys,
 } from './cron-job-advisory-lock-key.js';
 import { CORE_API_CRON_JOB_NAMES } from './core-api-cron-job-names.js';
-import { withCronJobLock } from './cron-job-advisory-lock.js';
+
+const mockGetCronJobLockPool = jest.fn<() => Pool>();
+
+jest.unstable_mockModule('./cron-job-lock-pool.js', () => ({
+  getCronJobLockPool: mockGetCronJobLockPool,
+}));
+
+const { withCronJobLock } = await import('./cron-job-advisory-lock.js');
 
 const INT32_MIN = -2_147_483_648;
 const INT32_MAX = 2_147_483_647;
@@ -34,25 +42,37 @@ describe('cronJobAdvisoryLockKeys', () => {
   });
 });
 
+function mockLockPool() {
+  const query = jest.fn(async (sql: string) => {
+    if (sql.includes('pg_try_advisory_lock')) {
+      return { rows: [{ acquired: true }] };
+    }
+    if (sql.includes('pg_advisory_unlock')) {
+      return { rows: [{ released: true }] };
+    }
+    return { rows: [] };
+  });
+  const client = { query, release: jest.fn() } as unknown as PoolClient;
+  const pool = {
+    connect: jest.fn<() => Promise<PoolClient>>().mockResolvedValue(client),
+  } as unknown as Pool;
+
+  mockGetCronJobLockPool.mockReturnValue(pool);
+
+  return { pool, client, query };
+}
+
 describe('withCronJobLock in-process guard', () => {
+  beforeEach(() => {
+    mockGetCronJobLockPool.mockReset();
+  });
+
   it('skips a nested call for the same job name without taking a second lock', async () => {
-    const query = jest.fn(async (sql: string) => {
-      if (sql.includes('pg_try_advisory_lock')) {
-        return { rows: [{ acquired: true }] };
-      }
-      if (sql.includes('pg_advisory_unlock')) {
-        return { rows: [{ released: true }] };
-      }
-      return { rows: [] };
-    });
-    const client = { query, release: jest.fn() } as unknown as PoolClient;
-    const pool = {
-      connect: jest.fn().mockResolvedValue(client),
-    } as unknown as Pool;
+    const { pool } = mockLockPool();
 
     let nestedRan = false;
-    const ran = await withCronJobLock(pool, 'nested-guard-test', async () => {
-      const nested = await withCronJobLock(pool, 'nested-guard-test', async () => {
+    const ran = await withCronJobLock('nested-guard-test', async () => {
+      const nested = await withCronJobLock('nested-guard-test', async () => {
         nestedRan = true;
       });
       expect(nested).toBe(false);
@@ -60,6 +80,40 @@ describe('withCronJobLock in-process guard', () => {
 
     expect(ran).toBe(true);
     expect(nestedRan).toBe(false);
+    expect(pool.connect).toHaveBeenCalledTimes(1);
+  });
+
+  it('allows only one concurrent connect for the same job name', async () => {
+    const { pool } = mockLockPool();
+    let releaseConnect!: () => void;
+    const connectGate = new Promise<void>((resolve) => {
+      releaseConnect = resolve;
+    });
+
+    pool.connect.mockImplementationOnce(async () => {
+      await connectGate;
+      return {
+        query: jest.fn(async (sql: string) => {
+          if (sql.includes('pg_try_advisory_lock')) {
+            return { rows: [{ acquired: true }] };
+          }
+          if (sql.includes('pg_advisory_unlock')) {
+            return { rows: [{ released: true }] };
+          }
+          return { rows: [] };
+        }),
+        release: jest.fn(),
+      } as unknown as PoolClient;
+    });
+
+    const first = withCronJobLock('concurrent-guard-test', async () => {});
+    const second = withCronJobLock('concurrent-guard-test', async () => {});
+
+    await Promise.resolve();
+    expect(pool.connect).toHaveBeenCalledTimes(1);
+
+    releaseConnect();
+    await Promise.all([first, second]);
     expect(pool.connect).toHaveBeenCalledTimes(1);
   });
 });
