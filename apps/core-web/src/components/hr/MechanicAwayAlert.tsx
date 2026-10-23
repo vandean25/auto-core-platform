@@ -1,11 +1,10 @@
-import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AlertTriangle } from 'lucide-react'
 
 import type { components } from '@/api/generated/openapi'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { formatIsoDateOnly } from '@/lib/format'
-import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { useLazyNamespaceBundleReady } from '@/lib/i18n'
 
 type PlannerEmployeeAway = components['schemas']['PlannerEmployeeAwayDto']
 
@@ -15,10 +14,12 @@ interface MechanicAwayAlertProps {
 }
 
 export function MechanicAwayAlert({ employeeAway, mechanicName }: MechanicAwayAlertProps) {
+  const { status: bundleStatus } = useLazyNamespaceBundleReady(['hr'])
   const { t } = useTranslation('hr')
-  useEffect(() => {
-    void ensureNamespaceLoaded('hr')
-  }, [])
+
+  if (bundleStatus !== 'ready') {
+    return null
+  }
 
   if (!employeeAway) {
     return null

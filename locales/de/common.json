@@ -28,6 +28,10 @@
   "pageLoader": {
     "loading": "Auto Core wird geladen…"
   },
+  "localeBundle": {
+    "loadFailed": "Die Texte konnten nicht geladen werden. Bitte versuchen Sie es erneut.",
+    "retry": "Erneut laden"
+  },
   "dataTable": {
     "noResults": "Keine Ergebnisse.",
     "rowsPerPage": "Zeilen pro Seite",

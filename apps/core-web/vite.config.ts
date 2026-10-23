@@ -5,7 +5,6 @@ import { loadEnv } from 'vite'
 import tailwindcss from '@tailwindcss/vite'
 import { sentryVitePlugin } from '@sentry/vite-plugin'
 import { emitVersionJsonPlugin } from './vite-plugins/emit-version-json.ts'
-
 // Production source maps are uploaded by Cloud Build under the git tag release.
 const hasSentryUploadCredentials = Boolean(
   process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG && process.env.SENTRY_PROJECT

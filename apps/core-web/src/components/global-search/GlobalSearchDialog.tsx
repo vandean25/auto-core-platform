@@ -6,7 +6,10 @@ import { useAuthSession } from '@/api/auth-session'
 import { useMySites } from '@/api/sites'
 import { useGlobalSearch } from '@/hooks/useGlobalSearch'
 import { CommandDialog, CommandInput, CommandList } from '@/components/ui/command'
-import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { LocaleBundleLoadFailed, useLazyNamespaceBundleReady } from '@/lib/i18n'
+import { PageLoader } from '@/components/ui/PageLoader'
+
+const GLOBAL_SEARCH_LAZY_NAMESPACES = ['settings', 'workshop', 'customers', 'vehicles'] as const
 import { GlobalSearchContextActionGroup } from './GlobalSearchContextActionGroup'
 import { QuickActionGroup } from './GlobalSearchResultGroups'
 import { PrefixHelp, RecentItemsGroup, SearchResults } from './GlobalSearchResultGroupsView'
@@ -134,7 +137,7 @@ function usePaletteSubPages({
   }
 }
 
-export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogProps) {
+function GlobalSearchDialogContent({ open, onOpenChange }: GlobalSearchDialogProps) {
   const { t } = useTranslation(['nav', 'settings'])
   const [search, setSearch] = React.useState('')
   // Cmd/Ctrl+Enter or Cmd/Ctrl+click opens a new tab. cmdk's onSelect carries no event, so the modifier is read first.
@@ -144,10 +147,6 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
   const sites = useMySites().data
   const { groups, isLoading, error } = useGlobalSearch(search)
   const recent = useRecentItems(sessionMeta.recentKey, open)
-
-  React.useEffect(() => {
-    if (open) void ensureNamespaceLoaded('settings')
-  }, [open])
 
   const query = search.trim()
   const paletteContext = useGlobalSearchPaletteContext(open, query)
@@ -232,4 +231,24 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
       </CommandList>
     </CommandDialog>
   )
+}
+
+export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogProps) {
+  const { status, retry } = useLazyNamespaceBundleReady(GLOBAL_SEARCH_LAZY_NAMESPACES)
+
+  if (status !== 'ready') {
+    return (
+      <CommandDialog open={open} onOpenChange={onOpenChange} title="" description="">
+        {open ? (
+          status === 'failed' ? (
+            <LocaleBundleLoadFailed onRetry={retry} className="py-8" />
+          ) : (
+            <PageLoader />
+          )
+        ) : null}
+      </CommandDialog>
+    )
+  }
+
+  return <GlobalSearchDialogContent open={open} onOpenChange={onOpenChange} />
 }
