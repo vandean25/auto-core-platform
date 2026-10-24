@@ -51,7 +51,7 @@
     "CHECK_IN_DAMAGE_TYPE_INVALID": "This damage type is not valid for a check-in marker.",
     "CHECK_IN_EXISTS": "A check-in already exists for this order.",
     "CHECK_IN_MEDIA_INVALID": "At least one photo is not valid for this check-in.",
-    "CHECK_IN_MEDIA_UPLOADER_REQUIRED": "Your user must be linked to an active employee record to upload check-in photos.",
+    "CHECK_IN_MEDIA_UPLOADER_REQUIRED": "Your user account is not linked to an active employee in this workshop. Ask an administrator to link it.",
     "CHECK_IN_ORDER_STATUS": "Check-in is only available for orders in intake or in progress.",
     "CHECK_IN_SIGNATURE_REQUIRED": "Enter the signer name, accept the acknowledgement, and draw a signature before completing.",
     "CHECK_IN_ZONE_INVALID": "This vehicle zone is not valid for a check-in marker.",
