@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import {
   WorkshopTaskInspectionChecklistView,
   type InspectionChecklistViewLabels,
@@ -12,13 +13,16 @@ import {
   type WorkshopCheckIn,
 } from '@/api/workshop-check-in'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { resolveWorkshopCheckInErrorCode } from './check-in-errors'
 import { useEffect, useMemo } from 'react'
 
 type Props = {
   orderId: string
+  /** Called after a stale-revision (409) save, once the record has been refreshed. */
+  onRevisionConflict?: () => void
 }
 
-export function WorkshopCheckInInspectionChecklist({ orderId }: Props) {
+export function WorkshopCheckInInspectionChecklist({ orderId, onRevisionConflict }: Props) {
   const { t } = useTranslation('workshop')
   const queryClient = useQueryClient()
   useEffect(() => {
@@ -84,8 +88,13 @@ export function WorkshopCheckInInspectionChecklist({ orderId }: Props) {
               },
             ],
           })
-        } catch {
-          throw new Error(t('checkIn.inspection.saveError'))
+        } catch (error) {
+          if (resolveWorkshopCheckInErrorCode(error) === 'CHECK_IN_CONFLICT') {
+            await Promise.all([checkInQuery.refetch(), inspectionQuery.refetch()])
+            onRevisionConflict?.()
+            return
+          }
+          toast.error(t('checkIn.inspection.saveError'))
         }
       }}
     />

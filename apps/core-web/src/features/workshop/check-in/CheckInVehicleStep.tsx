@@ -15,6 +15,7 @@ import { CHECK_IN_TYRE_SEASONS } from './check-in-zones'
 
 type Props = {
   orderId: string
+  onRevisionConflict?: () => void
   draft: CheckInDraftSnapshot
   readOnly: boolean
   onPatch: (patch: Partial<CheckInDraftSnapshot>) => void
@@ -23,6 +24,7 @@ type Props = {
 
 export function CheckInVehicleStep({
   orderId,
+  onRevisionConflict,
   draft,
   readOnly,
   onPatch,
@@ -162,7 +164,10 @@ export function CheckInVehicleStep({
         </div>
       </section>
 
-      <WorkshopCheckInInspectionChecklist orderId={orderId} />
+      <WorkshopCheckInInspectionChecklist
+          orderId={orderId}
+          onRevisionConflict={onRevisionConflict}
+        />
     </div>
   )
 }

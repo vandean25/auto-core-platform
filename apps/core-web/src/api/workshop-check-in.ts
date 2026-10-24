@@ -299,12 +299,14 @@ export function useUpdateWorkshopCheckInInspection() {
         },
       )
       if (!response.ok) {
-        throw new Error('Failed to update check-in inspection')
+        return parseCheckInErrorResponse(response)
       }
       const inspection = (await response.json()) as WorkshopCheckInInspection
       await queryClient.fetchQuery({
         queryKey: workshopCheckInKeys.record(payload.orderId),
         queryFn: () => fetchWorkshopCheckInRecord(payload.orderId),
+        // The PATCH bumped the revision; never serve the cached (stale) record.
+        staleTime: 0,
       })
       return inspection
     },
