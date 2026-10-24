@@ -20,7 +20,10 @@ export function MechanicQueueCard({ item, onPrefetch }: MechanicQueueCardProps) 
     <Link
       to={`/mechanic/tasks/${item.taskId}`}
       className="block min-h-11 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-      onPointerEnter={onPrefetch}
+      onPointerEnter={(event) => {
+        if (event.pointerType === 'touch') return
+        onPrefetch?.()
+      }}
       onFocus={onPrefetch}
     >
       <Card className="min-h-[72px] p-4 transition-colors hover:bg-slate-50">

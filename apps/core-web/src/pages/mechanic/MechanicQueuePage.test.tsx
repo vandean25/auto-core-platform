@@ -426,5 +426,24 @@ describe('MechanicQueuePage', () => {
         expect(screen.getByText('Task Detail')).toBeInTheDocument()
       })
     })
+
+    it('prefetches task detail on mouse pointerenter and skips touch pointerenter', () => {
+      setupDefaultMocks()
+      asMock(mechanicApi.mechanicTaskDetailQueryOptions).mockImplementation((taskId: string) => ({
+        queryKey: ['mechanic', 'task', taskId],
+        queryFn: vi.fn().mockResolvedValue({}),
+      }))
+      const prefetchSpy = vi.spyOn(QueryClient.prototype, 'prefetchQuery')
+
+      renderQueuePage()
+
+      const link = screen.getByRole('link', { name: /Oil Change/ })
+      fireEvent.pointerEnter(link, { pointerType: 'touch' })
+      expect(prefetchSpy).not.toHaveBeenCalled()
+
+      fireEvent.pointerEnter(link, { pointerType: 'mouse' })
+      expect(prefetchSpy).toHaveBeenCalledTimes(1)
+      prefetchSpy.mockRestore()
+    })
   })
 })

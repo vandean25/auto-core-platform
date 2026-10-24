@@ -17,6 +17,7 @@ import {
   useMechanicQueue,
   useCompleteTask,
   useStartTask,
+  useSwitchTask,
   type MechanicQueueResponse,
 } from '@/api/mechanic'
 import { RealtimeDashboardSyncProvider } from '@/features/realtime/RealtimeDashboardSyncProvider'
@@ -347,6 +348,7 @@ describe('optimistic mechanic queue lifecycle vs realtime echo', () => {
         queue: useMechanicQueue(),
         start: useStartTask(),
         complete: useCompleteTask(),
+        switchTask: useSwitchTask(),
       }),
       { wrapper },
     )
@@ -399,6 +401,26 @@ describe('optimistic mechanic queue lifecycle vs realtime echo', () => {
     expect(
       queryClient.getQueryData<MechanicQueueResponse>(mechanicQueueKeys.queue())?.data[0]?.taskStatus,
     ).toBe('IN_PROGRESS')
+  })
+
+  it('routes useSwitchTask through the shared lifecycle optimistic helper', async () => {
+    const { view, queryClient } = await setupQueue()
+    act(() => {
+      void view.result.current.switchTask.mutateAsync({
+        taskId: 'task-1',
+        payload: { previousPauseReason: 'SWITCHED_TO_HIGHER_PRIORITY' },
+      })
+    })
+    await settle()
+    expect(
+      queryClient.getQueryData<MechanicQueueResponse>(mechanicQueueKeys.queue())?.data[0]?.taskStatus,
+    ).toBe('IN_PROGRESS')
+
+    await respond('/api/mechanic/tasks/task-1/switch', 'POST', 200, {
+      taskId: 'task-1',
+      taskStatus: 'IN_PROGRESS',
+    })
+    await waitFor(() => expect(pending(QUEUE_URL).length).toBeGreaterThan(1))
   })
 })
 
