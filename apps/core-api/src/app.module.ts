@@ -74,13 +74,14 @@ import { DryRunModule } from './dry-run/dry-run.module.js';
 import { MarginRuleModule } from './margin-rule/margin-rule.module.js';
 import { SettlementModule } from './settlement/settlement.module.js';
 import { SearchModule } from './search/search.module.js';
+import { isSchedulerEnabled } from './scheduler/scheduler-enabled.js';
 
 @Module({
   imports: [
     AppObservabilityModule.register(),
     forwardRef(() => PrismaModule),
     EventEmitterModule.forRoot(),
-    ScheduleModule.forRoot(),
+    ...(isSchedulerEnabled() ? [ScheduleModule.forRoot()] : []),
     ThrottlerModule.forRoot([
       AUTH_THROTTLER_OPTIONS,
       ESTIMATE_APPROVAL_THROTTLER_OPTIONS,

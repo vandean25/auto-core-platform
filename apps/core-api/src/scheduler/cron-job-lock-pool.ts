@@ -3,8 +3,9 @@ import { Pool } from 'pg';
 import { inspectRuntimeDatabaseUrls } from '../prisma/runtime-database-url-health.js';
 import { resolveDirectDatabaseUrl } from '../prisma/runtime-database-url.js';
 
-const LOCK_POOL_MAX = 2;
-const LOCK_POOL_IDLE_TIMEOUT_MS = 30_000;
+const LOCK_POOL_MAX = 8;
+const LOCK_POOL_CONNECT_TIMEOUT_MS = 30_000;
+const LOCK_POOL_IDLE_TIMEOUT_MS = 90_000;
 
 const defaultLogger = new Logger('CronJobLockPool');
 
@@ -40,7 +41,7 @@ function createLockPool(logger: Logger): Pool {
   const pool = new Pool({
     connectionString,
     max: LOCK_POOL_MAX,
-    connectionTimeoutMillis: 10_000,
+    connectionTimeoutMillis: LOCK_POOL_CONNECT_TIMEOUT_MS,
     idleTimeoutMillis: LOCK_POOL_IDLE_TIMEOUT_MS,
   });
   pool.on('error', (error) => {
