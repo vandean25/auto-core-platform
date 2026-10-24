@@ -382,4 +382,86 @@ describe('optimistic board assignment vs. realtime echo', () => {
 
     expect(invalidate).toHaveBeenCalledWith({ queryKey: workshopKeys.all, refetchType: 'active' })
   })
+
+  it('invalidates non-busy extra keys even when the primary queryKey has another pending mutation', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    const primaryKey = ['test', 'primary'] as const
+    const busyExtraKey = ['test', 'busy-extra'] as const
+    const freeExtraKey = ['test', 'free-extra'] as const
+    queryClient.setQueryData(primaryKey, { count: 0 })
+    queryClient.setQueryData(busyExtraKey, { count: 0 })
+    queryClient.setQueryData(freeExtraKey, { count: 0 })
+
+    let resolveBusy: (() => void) | undefined
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    )
+    const { result } = renderHook(
+      () => ({
+        busyOnPrimaryAndFirstExtra: useMutation({
+          ...optimisticMutationOptions<{ count: number }, { id: string }>({
+            queryKey: primaryKey,
+            mutationKey: [...primaryKey, 'busy'],
+            entityId: ({ id }) => id,
+            apply: (c) => c,
+            revert: (c) => c,
+            extraCaches: [
+              {
+                queryKey: () => busyExtraKey,
+                apply: (c) => c,
+                revert: (c) => c,
+              },
+            ],
+          }),
+          mutationFn: () =>
+            new Promise<void>((resolve) => {
+              resolveBusy = resolve
+            }),
+        }),
+        settlingWithExtraKeys: useMutation({
+          ...optimisticMutationOptions<{ count: number }, { id: string }>({
+            queryKey: primaryKey,
+            mutationKey: [...primaryKey, 'settling'],
+            entityId: ({ id }) => id,
+            apply: (c) => c,
+            revert: (c) => c,
+            extraCaches: [
+              {
+                queryKey: () => busyExtraKey,
+                apply: (c) => c,
+                revert: (c) => c,
+              },
+              {
+                queryKey: () => freeExtraKey,
+                apply: (c) => c,
+                revert: (c) => c,
+              },
+            ],
+          }),
+          mutationFn: async () => undefined,
+        }),
+      }),
+      { wrapper },
+    )
+
+    act(() => {
+      result.current.busyOnPrimaryAndFirstExtra.mutate({ id: '1' })
+    })
+    await settle()
+
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
+    await act(async () => {
+      await result.current.settlingWithExtraKeys.mutateAsync({ id: '2' })
+    })
+
+    expect(invalidateSpy).not.toHaveBeenCalledWith({ queryKey: primaryKey })
+    expect(invalidateSpy).not.toHaveBeenCalledWith({ queryKey: busyExtraKey })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: freeExtraKey })
+
+    await act(async () => {
+      resolveBusy?.()
+    })
+  })
 })

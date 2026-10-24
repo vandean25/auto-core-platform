@@ -84,7 +84,6 @@ function WorkshopOrderView({ order }: { order: WorkshopOrder }) {
           bayName={tech.assignedBayName}
           catalogSearchSession={fitment.catalogSearchSession}
           oemConcernCode={fitment.oemConcernCode}
-          onPrint={orderActions.print}
           checkInHref={checkInHref}
         />
 

@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  canAssignWorkshopOrderMechanic,
   canCheckInWorkshopOrder,
   canDeleteCustomerFromList,
   canGenerateWorkshopJobCardPdf,
   canOpenCustomer,
   canOpenVehicle,
   canOpenWorkshopOrder,
+  canUpdateWorkshopOrderTaskState,
   isWorkshopCheckInOpenStatus,
   isWorkshopOrderLockedStatus,
   isWorkshopTechAssignableStatus,
@@ -20,6 +22,8 @@ describe('action-role-predicates', () => {
     expect(canOpenWorkshopOrder('ADMIN')).toBe(true)
     expect(canCheckInWorkshopOrder('SERVICE_ADVISOR')).toBe(true)
     expect(canGenerateWorkshopJobCardPdf('OWNER')).toBe(true)
+    expect(canAssignWorkshopOrderMechanic('ADMIN')).toBe(true)
+    expect(canUpdateWorkshopOrderTaskState('TECH')).toBe(true)
 
     expect(canOpenCustomer('')).toBe(false)
     expect(canDeleteCustomerFromList('')).toBe(false)
@@ -27,6 +31,8 @@ describe('action-role-predicates', () => {
     expect(canOpenWorkshopOrder('')).toBe(false)
     expect(canCheckInWorkshopOrder('')).toBe(false)
     expect(canGenerateWorkshopJobCardPdf('')).toBe(false)
+    expect(canAssignWorkshopOrderMechanic('')).toBe(false)
+    expect(canUpdateWorkshopOrderTaskState('')).toBe(false)
   })
 
   it('evaluates workshop order status predicates consistently', () => {
