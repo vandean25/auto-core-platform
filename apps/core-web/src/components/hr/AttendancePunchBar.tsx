@@ -1,4 +1,3 @@
-import { useEffect } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { LogIn, LogOut, Pause, Stethoscope } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -7,7 +6,7 @@ import type { components } from '@/api/generated/openapi'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { useLazyNamespaceBundleReady } from '@/lib/i18n'
 type AttendanceState = components['schemas']['AttendanceState']
 type AttendanceEventType = components['schemas']['AttendanceEventType']
 
@@ -73,10 +72,12 @@ export function AttendancePunchBar({
   touchFriendly = false,
   onPunch,
 }: AttendancePunchBarProps) {
+  const { status: bundleStatus } = useLazyNamespaceBundleReady(['hr'])
   const { t } = useTranslation('hr')
-  useEffect(() => {
-    void ensureNamespaceLoaded('hr')
-  }, [])
+
+  if (bundleStatus !== 'ready') {
+    return null
+  }
 
   const isCompact = size === 'compact'
 

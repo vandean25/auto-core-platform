@@ -1,5 +1,8 @@
 import type { TFunction } from 'i18next';
-import { escapeHtml } from '../../common/pdf/pdf-layout.js';
+import {
+  buildPdfFooterPageNumbersHtml,
+  escapeHtml,
+} from '../../common/pdf/pdf-layout.js';
 import { buildAuthoritativeGermanLegalNoticeHtml } from '../../common/i18n/pdf-legal-notice.js';
 import { resolveDocumentLanguage } from '../../common/i18n/locale-resolution.js';
 import { createPdfTranslator } from '../../common/i18n/pdf-i18n.js';
@@ -330,6 +333,6 @@ export function buildKaufvertragFooterTemplate(
   return `<style>${fontFaceCss}</style>
 <div style="font-family:'ACP Sans','Noto Sans',sans-serif;font-size:8pt;color:#475569;width:100%;padding:0 16mm;display:flex;justify-content:space-between;">
   <span>${escapeHtml(snapshot.seller.name)} · Vertrag ${escapeHtml(snapshot.sale.sale_number)}</span>
-  <span>Seite <span class="pageNumber"></span> von <span class="totalPages"></span></span>
+  <span>${buildPdfFooterPageNumbersHtml(resolveDocumentLanguage(snapshot))}</span>
 </div>`;
 }

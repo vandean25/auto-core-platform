@@ -1,4 +1,44 @@
+import {
+  readDocumentSnapshotLocaleFields,
+  type DocumentSnapshotLocaleReader,
+} from '../i18n/document-snapshot-locale.js';
+import {
+  DEFAULT_DISPLAY_LANGUAGE,
+  type DisplayLanguage,
+} from '../i18n/display-language.js';
+import { createPdfTranslator } from '../i18n/pdf-i18n.js';
+import { resolveLocalizedDocumentLocale } from '../i18n/pdf-resource-bundle.js';
+
 export type EscapeHtml = (value: unknown) => string;
+
+const PDF_FOOTER_PAGE_PLACEHOLDER = '\u0000PAGE\u0000';
+const PDF_FOOTER_TOTAL_PLACEHOLDER = '\u0000TOTAL\u0000';
+
+export function resolvePdfFooterDocumentLocale(
+  snapshot: DocumentSnapshotLocaleReader | null | undefined,
+): DisplayLanguage {
+  return (
+    resolveLocalizedDocumentLocale(snapshot) ??
+    readDocumentSnapshotLocaleFields(snapshot)?.document_locale ??
+    DEFAULT_DISPLAY_LANGUAGE
+  );
+}
+
+export function buildPdfFooterPageNumbersHtml(
+  documentLocale: DisplayLanguage = DEFAULT_DISPLAY_LANGUAGE,
+): string {
+  const t = createPdfTranslator(documentLocale);
+  const labeled = t('layout.pageOfTotal', {
+    page: PDF_FOOTER_PAGE_PLACEHOLDER,
+    total: PDF_FOOTER_TOTAL_PLACEHOLDER,
+  });
+  return labeled
+    .replaceAll(PDF_FOOTER_PAGE_PLACEHOLDER, '<span class="pageNumber"></span>')
+    .replaceAll(
+      PDF_FOOTER_TOTAL_PLACEHOLDER,
+      '<span class="totalPages"></span>',
+    );
+}
 
 export function escapeHtml(value: unknown): string {
   if (value === null || value === undefined) {
@@ -60,7 +100,11 @@ export const buildBasePdfStyles = (): string => `
   ${buildPdfTableStyles()}
 `;
 
-export function buildPdfFooterTemplate(titleHtml: string): string {
+export function buildPdfFooterTemplate(
+  titleHtml: string,
+  documentLocale: DisplayLanguage = DEFAULT_DISPLAY_LANGUAGE,
+): string {
+  const pageNumbersHtml = buildPdfFooterPageNumbersHtml(documentLocale);
   return `
       <div style="
         width: 100%;
@@ -73,7 +117,7 @@ export function buildPdfFooterTemplate(titleHtml: string): string {
         align-items: center;
       ">
         <span>${titleHtml}</span>
-        <span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>
+        <span>${pageNumbersHtml}</span>
       </div>
     `;
 }

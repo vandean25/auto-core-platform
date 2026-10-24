@@ -1,4 +1,7 @@
 {
+  "layout": {
+    "pageOfTotal": "Seite {{page}} von {{total}}"
+  },
   "legal": {
     "authoritativeGermanNotice": "Die deutsche Fassung der Rechtstexte ist maßgeblich. Die englische Übersetzung dient der Information. Zwingende gesetzliche Rechte bleiben unberührt."
   },

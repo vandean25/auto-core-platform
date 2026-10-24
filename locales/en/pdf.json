@@ -1,4 +1,7 @@
 {
+  "layout": {
+    "pageOfTotal": "Page {{page}} of {{total}}"
+  },
   "legal": {
     "authoritativeGermanNotice": "The German version of the legal texts is authoritative. The English translation is provided for information. Mandatory statutory rights remain unaffected."
   },

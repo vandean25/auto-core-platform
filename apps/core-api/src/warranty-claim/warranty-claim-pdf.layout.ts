@@ -1,5 +1,9 @@
 import type { WorkshopLineItemType } from '@prisma/client';
-import { escapeHtml } from '../common/pdf/pdf-layout.js';
+import {
+  buildPdfFooterPageNumbersHtml,
+  escapeHtml,
+} from '../common/pdf/pdf-layout.js';
+import { DEFAULT_DISPLAY_LANGUAGE } from '../common/i18n/display-language.js';
 import type { WarrantyClaimResponse } from './warranty-claim.mapper.js';
 
 const DEFAULT_PRIMARY = '#1d4ed8';
@@ -254,6 +258,6 @@ export function buildWarrantyClaimFooterTemplate(
   return `<style>${fontFaceCss}</style>
 <div style="font-family:'ACP Sans','Noto Sans',sans-serif;font-size:8pt;color:#475569;width:100%;padding:0 16mm;display:flex;justify-content:space-between;">
   <span>${escapeHtml(content.seller.name)} · Auftrag ${escapeHtml(content.order.orderNumber)}</span>
-  <span>Seite <span class="pageNumber"></span> von <span class="totalPages"></span></span>
+  <span>${buildPdfFooterPageNumbersHtml(DEFAULT_DISPLAY_LANGUAGE)}</span>
 </div>`;
 }

@@ -217,6 +217,7 @@ describe('workshop-pdf.layout', () => {
       expect(template).toContain('Job Card WO-100');
       expect(template).toContain('class="pageNumber"');
       expect(template).toContain('class="totalPages"');
+      expect(template).toContain('Page <span class="pageNumber"></span> of');
     });
   });
 

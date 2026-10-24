@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { ScheduleModule } from '@nestjs/schedule';
 import { CommonModule } from '../../common/index.js';
 import { PrismaModule } from '../../prisma/prisma.module.js';
 import { SiteModule } from '../../site/site.module.js';
@@ -13,7 +12,7 @@ import { RoutingAutoscout24DmsListingPublisherAdapter } from './autoscout24-dms/
 import { Autoscout24DmsPushController } from './autoscout24-dms-push.controller.js';
 
 @Module({
-  imports: [PrismaModule, CommonModule, SiteModule, ScheduleModule.forRoot()],
+  imports: [PrismaModule, CommonModule, SiteModule],
   controllers: [Autoscout24DmsPushController],
   providers: [
     FakeAutoscout24DmsListingPublisherAdapter,

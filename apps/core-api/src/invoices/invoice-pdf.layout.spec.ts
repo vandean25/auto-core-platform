@@ -1,3 +1,4 @@
+import { I18N_TRANSLATION_BUNDLE_VERSION } from '../common/i18n/display-language.js';
 import { escapeHtml } from '../common/pdf/pdf-layout.js';
 import {
   buildBrandedInvoiceHeaderTemplate,
@@ -773,6 +774,24 @@ describe('invoice-pdf.layout', () => {
 
       expect(footer).toContain('Stornorechnung CN-2026-0001');
       expect(footer).not.toContain('Gutschrift');
+    });
+
+    it('uses localized German page labels in the shared footer', () => {
+      const snapshot = {
+        ...createCreditNoteSnapshot('Stornorechnung'),
+        document_locale: 'de' as const,
+        format_locale: 'de-AT' as const,
+        translation_bundle_version: I18N_TRANSLATION_BUNDLE_VERSION,
+        legal_text_version: null,
+      };
+      const footer = buildInvoiceFooterTemplate(
+        'CN-2026-0001',
+        escapeHtml,
+        snapshot,
+      );
+
+      expect(footer).toContain('Seite <span class="pageNumber"></span> von');
+      expect(footer).not.toMatch(/Page <span class="pageNumber"/);
     });
   });
 

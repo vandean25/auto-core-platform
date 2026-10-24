@@ -250,7 +250,10 @@ export const buildWorkshopFooterTemplate = (
   renderMode: PdfRenderMode = 'legacy',
 ): string => {
   const copy = getWorkshopPdfCopy(documentLocale, renderMode);
-  return buildPdfFooterTemplate(escape(copy.footerDocumentLabel(orderNumber)));
+  return buildPdfFooterTemplate(
+    escape(copy.footerDocumentLabel(orderNumber)),
+    documentLocale,
+  );
 };
 
 export const buildWorkshopHtmlDocument = (

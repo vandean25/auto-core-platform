@@ -1,7 +1,6 @@
-import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { useLazyNamespaceBundleReady } from '@/lib/i18n'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useVehicleStockAgeReport } from '@/api/vehicle-stock'
 import { Loader2 } from 'lucide-react'
@@ -12,11 +11,8 @@ function formatEuro(value: string) {
   return `${groupedWhole},${fraction}\u00a0€`
 }
 
-export function AgedStockDashboardWidget() {
+function AgedStockDashboardWidgetContent() {
   const { t } = useTranslation('vehicles')
-  useEffect(() => {
-    void ensureNamespaceLoaded('vehicles')
-  }, [])
   const navigate = useNavigate()
   const { data, isLoading } = useVehicleStockAgeReport({ bucket: 'over_90', page: 1, limit: 1 })
 
@@ -43,4 +39,12 @@ export function AgedStockDashboardWidget() {
       </CardContent>
     </Card>
   )
+}
+
+export function AgedStockDashboardWidget() {
+  const { status: bundleStatus } = useLazyNamespaceBundleReady(['vehicles'])
+  if (bundleStatus !== 'ready') {
+    return null
+  }
+  return <AgedStockDashboardWidgetContent />
 }

@@ -1,6 +1,7 @@
 import {
   buildBasePdfStyles,
   buildPdfFooterTemplate,
+  resolvePdfFooterDocumentLocale,
   type EscapeHtml,
 } from '../common/pdf/pdf-layout.js';
 import {
@@ -603,6 +604,7 @@ export const buildInvoiceFooterTemplate = (
       : isDachRechnungSnapshot(snapshot)
         ? 'Rechnung'
         : 'Invoice');
+  const footerDocumentLocale = resolvePdfFooterDocumentLocale(snapshot);
   if (snapshot.template_version === 'invoice-brand-v1' && snapshot.branding) {
     const { tokens } = snapshot.branding;
     const bandColor =
@@ -625,5 +627,8 @@ export const buildInvoiceFooterTemplate = (
       </div>
     </div>`;
   }
-  return buildPdfFooterTemplate(`${prefix} ${escape(invoiceNumber)}`);
+  return buildPdfFooterTemplate(
+    `${prefix} ${escape(invoiceNumber)}`,
+    footerDocumentLocale,
+  );
 };

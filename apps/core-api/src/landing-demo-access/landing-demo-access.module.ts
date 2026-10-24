@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
 import { LandingDemoAccessController } from './landing-demo-access.controller.js';
@@ -10,12 +9,7 @@ import { LandingDemoAccessCleanupService } from './landing-demo-access.cleanup.s
 import { LandingDemoSignInGrantModule } from './landing-demo-sign-in-grant.module.js';
 
 @Module({
-  imports: [
-    PrismaModule,
-    NotificationsModule,
-    ScheduleModule.forRoot(),
-    LandingDemoSignInGrantModule,
-  ],
+  imports: [PrismaModule, NotificationsModule, LandingDemoSignInGrantModule],
   controllers: [LandingDemoAccessController],
   providers: [
     LandingDemoAccessService,
