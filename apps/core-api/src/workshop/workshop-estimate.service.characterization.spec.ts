@@ -55,7 +55,7 @@ describe('WorkshopEstimateService characterization', () => {
           status: WorkshopEstimateStatus.SENT,
           sent_at: new Date('2026-10-10T08:00:00.000Z'),
           valid_from: new Date('2026-10-10T08:00:00.000Z'),
-          valid_until: new Date('2026-10-24T08:00:00.000Z'),
+          valid_until: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
           total_net: new Prisma.Decimal('160.00'),
           total_tax: new Prisma.Decimal('32.00'),
           total_gross: new Prisma.Decimal('192.00'),
