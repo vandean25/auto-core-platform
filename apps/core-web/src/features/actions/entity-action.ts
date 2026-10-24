@@ -21,6 +21,8 @@ export const ENTITY_ACTION_IDS = {
   workOrderOpen: 'workOrder.open',
   workOrderCheckIn: 'workOrder.checkIn',
   workOrderJobCardPdf: 'workOrder.jobCardPdf',
+  workOrderAssignMechanic: 'workOrder.assignMechanic',
+  workOrderTaskState: 'workOrder.taskState',
   vehicleOpen: 'vehicle.open',
 } as const
 
@@ -141,12 +143,14 @@ export function toDataTableContextActions<TRecord extends object, TRunContext>(
   record: TRecord,
   runContext: TRunContext,
 ): DataTableRowContextAction<TRecord>[] {
-  return filterEntityActions(definitions, role, record).map((definition) => ({
-    id: definition.id,
-    label: definition.label,
-    destructive: definition.destructive,
-    onClick: () => {
-      executeEntityAction(definition, record, runContext)
-    },
-  }))
+  return filterEntityActions(definitions, role, record)
+    .filter((definition) => !definition.children)
+    .map((definition) => ({
+      id: definition.id,
+      label: definition.label,
+      destructive: definition.destructive,
+      onClick: () => {
+        executeEntityAction(definition, record, runContext)
+      },
+    }))
 }
