@@ -43,7 +43,12 @@ describe('WorkshopEstimateService characterization', () => {
 
   describe('sendVersion', () => {
     beforeEach(() => {
+      jest.useFakeTimers({ now: new Date('2026-10-10T08:00:00.000Z') });
       process.env[SEND_FLAG] = 'true';
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
     });
 
     function wireSendSuccess(harness: Harness) {
