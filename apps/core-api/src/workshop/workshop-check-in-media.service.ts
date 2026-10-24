@@ -199,12 +199,6 @@ export class WorkshopCheckInMediaService {
       throw new NotFoundException('Workshop order not found');
     }
 
-    const uploadedByEmployeeId = await resolveCheckInMediaUploaderEmployeeId(
-      this.prisma,
-      this.tenantContext,
-      tenantId,
-    );
-
     const checkInRow = await this.prisma.workshopCheckIn.findFirst({
       where: { tenant_id: tenantId, workshop_order_id: orderId },
       select: { id: true },
@@ -361,6 +355,13 @@ export class WorkshopCheckInMediaService {
             replacedSignatureRows.push(prior);
           }
         }
+
+        const uploadedByEmployeeId =
+          await resolveCheckInMediaUploaderEmployeeId(
+            tx,
+            this.tenantContext,
+            tenantId,
+          );
 
         let row: CheckInMediaRow;
         try {

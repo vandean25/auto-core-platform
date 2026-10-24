@@ -369,6 +369,72 @@ describe('WorkshopCheckInService', () => {
     });
   });
 
+  it('completes without check-in photos when the user has no linked employee', async () => {
+    mockPrisma.employee.findFirst.mockReset();
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+      id: ORDER_ID,
+      status: WorkshopOrderStatus.IN_PROGRESS,
+      odometer: 1,
+      fuel_level: 1,
+    });
+    mockPrisma.workshopCheckIn.findFirst
+      .mockResolvedValueOnce({
+        id: CHECK_IN_ID,
+        status: WorkshopCheckInStatus.DRAFT,
+      })
+      .mockResolvedValueOnce({
+        id: CHECK_IN_ID,
+        tenant_id: TENANT_ID,
+        workshop_order_id: ORDER_ID,
+        status: WorkshopCheckInStatus.DRAFT,
+        revision: 2,
+        condition_json: {
+          schema_version: 1,
+          tyre_season: 'WINTER',
+          exterior_notes: '',
+          interior_notes: '',
+        },
+        damage_markers_json: [],
+        items_left: '',
+        key_count: 1,
+        warning_lights: [],
+        odometer: 1,
+        fuel_level: 1,
+      })
+      .mockResolvedValueOnce({
+        id: CHECK_IN_ID,
+        tenant_id: TENANT_ID,
+        workshop_order_id: ORDER_ID,
+        status: WorkshopCheckInStatus.COMPLETED,
+        revision: 3,
+        condition_json: {},
+        damage_markers_json: [],
+        items_left: '',
+        key_count: 1,
+        warning_lights: [],
+        odometer: 1,
+        fuel_level: 1,
+        content_sha256: 'a'.repeat(64),
+        completed_at: new Date(),
+        completed_by_user_id: 'u-unlinked',
+        pdf_sha256: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    mockTenantContext.getAuthenticatedUser.mockReturnValue({
+      role: 'ADMIN',
+      userId: 'u-unlinked',
+      email: 'unlinked@workshop.at',
+    });
+    mockPrisma.workshopMedia.findMany.mockResolvedValue([]);
+    mockPrisma.workshopCheckIn.updateMany.mockResolvedValue({ count: 1 });
+
+    const result = await service.complete(ORDER_ID, completePayload(2));
+
+    expect(result.status).toBe(WorkshopCheckInStatus.COMPLETED);
+    expect(mockPrisma.employee.findFirst).not.toHaveBeenCalled();
+  });
+
   it('completes a draft atomically and leaves pdf_sha256 unset', async () => {
     const completedAt = new Date('2026-10-17T12:00:00.000Z');
     jest.useFakeTimers();
