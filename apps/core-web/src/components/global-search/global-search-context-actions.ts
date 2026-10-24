@@ -87,20 +87,25 @@ export function mapRegistryActionsToPalette<TRecord extends object, TRunContext>
   runContext: TRunContext,
   describe: (definition: EntityActionDefinition<TRecord, TRunContext>) => string,
 ): PaletteContextAction[] {
-  return filterEntityActions(definitions, role, record).map((definition) => {
+  return filterEntityActions(definitions, role, record).flatMap((definition) => {
     const description = describe(definition)
     const rawChildren = resolveEntityActionChildren(definition.children, record, runContext)
-    return {
-      id: definition.id,
-      label: definition.label,
-      icon: definition.icon,
-      description,
-      destructive: definition.destructive,
-      children: mapRegistryChildren(rawChildren, role, record, runContext, description),
-      onSelect: () => {
-        executeEntityAction(definition, record, runContext)
+    const children = mapRegistryChildren(rawChildren, role, record, runContext, description)
+    if (definition.children && (!children || children.length === 0)) return []
+
+    return [
+      {
+        id: definition.id,
+        label: definition.label,
+        icon: definition.icon,
+        description,
+        destructive: definition.destructive,
+        children,
+        onSelect: () => {
+          executeEntityAction(definition, record, runContext)
+        },
       },
-    }
+    ]
   })
 }
 

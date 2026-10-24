@@ -347,7 +347,11 @@
       "actions": {
         "open": "Open order",
         "checkIn": "Vehicle check-in",
-        "jobCardPdf": "Job card PDF"
+        "jobCardPdf": "Job card PDF",
+        "assignMechanic": "Assign mechanic",
+        "taskState": "Task status",
+        "taskDone": "Done",
+        "taskReopen": "Reopen"
       },
       "columns": {
         "orderNo": "Order No.",
@@ -1441,8 +1445,8 @@
     "loadFailed": "The estimate could not be loaded. Please try again later.",
     "errors": {
       "404": "This link is not valid.",
-      "410": "This link has expired or was already used.",
       "409": "This estimate can no longer be approved or declined.",
+      "410": "This link has expired or was already used.",
       "429": "Too many requests. Please try again later."
     },
     "workshop": "Workshop",

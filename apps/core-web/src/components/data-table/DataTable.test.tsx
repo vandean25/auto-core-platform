@@ -74,6 +74,22 @@ describe('DataTable Characterization', () => {
     expect(onRowClick).toHaveBeenCalledWith({ name: 'Test Item' })
   })
 
+  it('prefetches on mouse pointerenter and skips touch pointerenter', () => {
+    const onRowPrefetch = vi.fn()
+    const { container } = render(
+      <DataTable {...defaultProps} rowBehaviour={{ onRowPrefetch }} />,
+    )
+
+    const row = container.querySelector('tbody tr[data-table-row="true"]')
+    expect(row).not.toBeNull()
+
+    fireEvent.pointerEnter(row!, { pointerType: 'touch' })
+    expect(onRowPrefetch).not.toHaveBeenCalled()
+
+    fireEvent.pointerEnter(row!, { pointerType: 'mouse' })
+    expect(onRowPrefetch).toHaveBeenCalledWith({ name: 'Test Item' })
+  })
+
   it('does not call onRowClick when clicking an interactive child in a cell', () => {
     const onRowClick = vi.fn()
     const columnsWithAction = [

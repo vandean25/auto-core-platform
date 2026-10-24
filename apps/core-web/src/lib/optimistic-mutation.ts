@@ -115,10 +115,11 @@ function invalidateSettledCaches(
   extraSnapshots: ExtraSnapshot[],
   exceptMutationId?: number,
 ) {
-  if (countOtherPendingMutationsForQueryKey(client, resolvedQueryKey, exceptMutationId) > 0) return
-  void client.invalidateQueries({ queryKey: resolvedQueryKey })
+  if (countOtherPendingMutationsForQueryKey(client, resolvedQueryKey, exceptMutationId) === 0) {
+    void client.invalidateQueries({ queryKey: resolvedQueryKey })
+  }
   for (const { queryKey: extraKey } of extraSnapshots) {
-    if (countOtherPendingMutationsForQueryKey(client, extraKey, exceptMutationId) > 0) return
+    if (countOtherPendingMutationsForQueryKey(client, extraKey, exceptMutationId) > 0) continue
     void client.invalidateQueries({ queryKey: extraKey })
   }
 }

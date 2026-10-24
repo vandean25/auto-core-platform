@@ -260,9 +260,14 @@ export function useStartTask() {
   });
 }
 
+const switchTaskOptimistic = mechanicQueueLifecycleOptimistic<{
+  taskId: string;
+  payload: SwitchTaskPayload;
+}>(() => "IN_PROGRESS");
+
 export function useSwitchTask() {
-  const queryClient = useQueryClient();
   return useMutation({
+    ...switchTaskOptimistic,
     mutationFn: async ({
       taskId,
       payload,
@@ -283,14 +288,6 @@ export function useSwitchTask() {
         return throwHttpError(response, "Failed to switch task");
       }
       return response.json() as Promise<MechanicTaskDetail>;
-    },
-    onSuccess: (_data, { taskId }) => {
-      void queryClient.invalidateQueries({
-        queryKey: mechanicQueueKeys.queue(),
-      });
-      void queryClient.invalidateQueries({
-        queryKey: mechanicQueueKeys.taskDetail(taskId),
-      });
     },
   });
 }
