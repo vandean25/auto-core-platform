@@ -193,12 +193,6 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
     setConflictOpen(true)
   }, [])
 
-  const onChecklistConflict = useCallback(() => {
-    localDraftRef.current = latestDraftRef.current
-    setConflictCompletedRemotely(false)
-    setConflictOpen(true)
-  }, [])
-
   const offline = useCheckInOffline({
     orderId,
     checkIn: checkInQuery.data,
@@ -510,7 +504,6 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
           readOnly={readOnly}
           onPatch={patchDraft}
           onPatchCondition={patchCondition}
-          onRevisionConflict={onChecklistConflict}
         />
       )}
       {step === 'condition' && mediaQuery.isError && (
@@ -561,7 +554,6 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
         <CheckInReviewStep
           orderId={orderId}
           orderNumber={orderQuery.data.order_number ?? orderId}
-          onRevisionConflict={onChecklistConflict}
           vehicleLabel={vehicleLabel}
           draft={draft}
           record={checkInQuery.data}

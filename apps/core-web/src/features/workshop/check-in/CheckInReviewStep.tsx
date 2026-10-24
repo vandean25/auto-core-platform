@@ -13,7 +13,6 @@ import type { RefObject } from 'react'
 
 type Props = {
   orderId: string
-  onRevisionConflict?: () => void
   orderNumber: string
   vehicleLabel: string
   draft: CheckInDraftSnapshot
@@ -32,7 +31,6 @@ type Props = {
 
 export function CheckInReviewStep({
   orderId,
-  onRevisionConflict,
   orderNumber,
   vehicleLabel,
   draft,
@@ -134,10 +132,7 @@ export function CheckInReviewStep({
         )}
       </section>
 
-      <WorkshopCheckInInspectionChecklist
-          orderId={orderId}
-          onRevisionConflict={onRevisionConflict}
-        />
+      <WorkshopCheckInInspectionChecklist orderId={orderId} />
       <CheckInSignatureSlot
         readOnly={readOnly}
         signedByName={signedByName}
