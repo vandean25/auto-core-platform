@@ -102,7 +102,6 @@ describe('mobile form conventions (grep guard)', () => {
 
   it('CommandInput uses mobile field text sizing', () => {
     const commandSource = readFileSync(join(webSrcRoot, 'components/ui/command.tsx'), 'utf8')
-    expect(commandSource).toContain('text-base')
-    expect(commandSource).toContain('md:text-sm')
+    expect(commandSource).toContain('mobileFieldTextClass')
   })
 })
