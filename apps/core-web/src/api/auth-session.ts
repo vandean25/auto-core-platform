@@ -81,7 +81,7 @@ export function useAuthSession(userKey?: string | null, enabled = true) {
   return useQuery<AuthSession>({
     queryKey: authSessionKeys.user(resolvedUserKey),
     enabled: enabled && Boolean(resolvedUserKey),
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       if (isE2EAuthBypassEnabled() && !isE2ETestTokenAuthEnabled()) {
         return getE2EAuthSession()
       }
@@ -89,6 +89,7 @@ export function useAuthSession(userKey?: string | null, enabled = true) {
       return fetchJsonWithAuth<AuthSession>(
         "/api/auth/me",
         "Failed to fetch auth session",
+        { signal },
       );
     },
   });

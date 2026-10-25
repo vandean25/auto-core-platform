@@ -9,8 +9,9 @@ import {
   signInWithRedirect,
   signOut,
 } from 'firebase/auth'
-import { authSessionKeys } from '@/api/auth-session'
 import { firebaseAuth, firebaseConfigMissing } from '@/lib/firebase'
+import type { AuthClaims } from '@/auth/auth-claims'
+import { applyFirebaseIdTokenChange } from '@/auth/firebase-id-token-change'
 import {
   getE2ETestToken,
   isE2EAuthBypassEnabled,
@@ -44,21 +45,18 @@ type AuthenticatedUser = {
   getIdTokenResult: (forceRefresh?: boolean) => Promise<AuthTokenResult>
 }
 
+const AUTH_INIT_WATCHDOG_MS = 15_000
+
 type AuthContextValue = {
   user: AuthenticatedUser | null
   claims: AuthClaims | null
   loading: boolean
+  authInitTimedOut: boolean
   isConfigured: boolean
   signIn: (email: string, password: string) => Promise<void>
   signInWithGoogle: () => Promise<void>
   sendPasswordResetEmail: (email: string) => Promise<void>
   signOutUser: () => Promise<void>
-}
-
-type AuthClaims = {
-  tenantId?: string
-  role?: string
-  platformRole?: string
 }
 
 const AuthContext = React.createContext<AuthContextValue | null>(null)
@@ -68,6 +66,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = React.useState<AuthenticatedUser | null>(null)
   const [claims, setClaims] = React.useState<AuthClaims | null>(null)
   const [loading, setLoading] = React.useState(true)
+  const [authInitTimedOut, setAuthInitTimedOut] = React.useState(false)
+  const previousUidRef = React.useRef<string | null | undefined>(undefined)
 
   React.useEffect(() => {
     if (isE2ETestTokenAuthEnabled()) {
@@ -114,37 +114,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     let active = true
+    let authInitPending = true
+    setAuthInitTimedOut(false)
+
+    const finishAuthInit = () => {
+      authInitPending = false
+      setLoading(false)
+    }
+
+    let watchdog = window.setTimeout(() => {
+      if (!active || !authInitPending) return
+      setAuthInitTimedOut(true)
+    }, AUTH_INIT_WATCHDOG_MS)
+
+    const rescheduleAuthInitWatchdog = () => {
+      window.clearTimeout(watchdog)
+      watchdog = window.setTimeout(() => {
+        if (!active || !authInitPending) return
+        setAuthInitTimedOut(true)
+      }, AUTH_INIT_WATCHDOG_MS)
+    }
 
     const unsubscribe = onIdTokenChanged(firebaseAuth, (nextUser) => {
-      void (async () => {
-        if (!active) return
-
-        queryClient.removeQueries({ queryKey: authSessionKeys.all })
-
-        setUser(nextUser)
-
-        if (!nextUser) {
-          setClaims(null)
-          setLoading(false)
-          return
-        }
-
-        try {
-          const tokenResult = await nextUser.getIdTokenResult()
-          if (!active) return
-          setClaims(extractAuthClaims(tokenResult.claims))
-          setLoading(false)
-        } catch {
-          if (!active) return
-          setClaims(null)
-          setUser(null)
-          setLoading(false)
-        }
-      })()
+      rescheduleAuthInitWatchdog()
+      void applyFirebaseIdTokenChange({
+        nextUser,
+        previousUidRef,
+        queryClient,
+        isActive: () => active,
+        onAuthInitTimedOutReset: () => setAuthInitTimedOut(false),
+        setUser: (next) => setUser(next as AuthenticatedUser | null),
+        setClaims,
+        finishAuthInit,
+      })
     })
 
     return () => {
       active = false
+      window.clearTimeout(watchdog)
       unsubscribe()
     }
   }, [queryClient])
@@ -201,12 +208,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     claims,
     loading,
+    authInitTimedOut,
     isConfigured: !firebaseConfigMissing,
     signIn,
     signInWithGoogle,
     sendPasswordResetEmail,
     signOutUser,
-  }), [user, claims, loading, signIn, signInWithGoogle, sendPasswordResetEmail, signOutUser])
+  }), [user, claims, loading, authInitTimedOut, signIn, signInWithGoogle, sendPasswordResetEmail, signOutUser])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
@@ -221,11 +229,3 @@ export function useAuth() {
   return context
 }
 
-function extractAuthClaims(rawClaims: Record<string, unknown>): AuthClaims {
-  return {
-    tenantId: typeof rawClaims.tenantId === 'string' ? rawClaims.tenantId : undefined,
-    role: typeof rawClaims.role === 'string' ? rawClaims.role : undefined,
-    platformRole:
-      typeof rawClaims.platformRole === 'string' ? rawClaims.platformRole : undefined,
-  }
-}

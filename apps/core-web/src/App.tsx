@@ -9,9 +9,10 @@ import {
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { AuthLoadingScreen } from '@/components/shell/AuthLoadingScreen'
-import { MechanicShell } from '@/components/shell/MechanicShell'
+import { resolveAuthBootstrapScreen } from '@/components/shell/auth-bootstrap-screen'
 import { ShellSessionLoadFailed } from '@/components/shell/ShellSessionLoadFailed'
+import { resolveAuthenticatedSessionGate } from '@/components/shell/authenticated-app-session-gate'
+import { MechanicShell } from '@/components/shell/MechanicShell'
 import { shellSwitchSiteFailedMessage, shellSwitchTenantFailedMessage } from '@/lib/shell-session-toasts'
 import type { components } from '@/api/generated/openapi'
 import { useAuthSession, useSwitchTenant, type AuthSessionMembership, type AuthSessionTenant } from '@/api/auth-session'
@@ -19,7 +20,7 @@ import { useMySites, useSetActiveSite, type MeSite } from '@/api/sites'
 import { Toaster } from '@/components/ui/sonner'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import { useAuth } from '@/auth/AuthProvider'
-import { isDemoGrantSessionErrorMessage, isFirebaseEmailLinkSignInUrl } from '@/auth/landing-demo-email-link'
+import { isFirebaseEmailLinkSignInUrl } from '@/auth/landing-demo-email-link'
 import { AppSidebar } from '@/components/navigation/AppSidebar'
 import { useSidebarOpen } from '@/components/navigation/sidebar-state'
 import { GlobalSearch } from '@/components/GlobalSearch'
@@ -51,7 +52,6 @@ import { PageLoader } from '@/components/ui/PageLoader'
 import { AppRoutes, MechanicRoutes } from '@/app/AppRouteTree'
 import { MechanicAccessDeniedPage, NotFoundPage } from '@/app/lazy-app-pages'
 import LandingDemoEmailLinkCompletionPage from '@/pages/LandingDemoEmailLinkCompletionPage'
-import LandingDemoSessionRejectedPage from '@/pages/LandingDemoSessionRejectedPage'
 import LoginPage from '@/pages/LoginPage'
 import { GlobalShortcutLayer } from '@/features/shortcuts/GlobalShortcutLayer'
 
@@ -252,14 +252,18 @@ function resolvePostLoginPath(state: unknown) {
 }
 
 function LoginRoute() {
-  const { user, loading } = useAuth()
+  const { user, loading, authInitTimedOut } = useAuth()
   const location = useLocation()
   const emailLinkSignIn =
     typeof globalThis.location !== 'undefined' &&
     isFirebaseEmailLinkSignInUrl(globalThis.location.href)
 
-  if (loading) {
-    return <AuthLoadingScreen />
+  const loginBootstrapScreen = resolveAuthBootstrapScreen({
+    authInitTimedOut,
+    loading,
+  })
+  if (loginBootstrapScreen) {
+    return loginBootstrapScreen
   }
 
   if (user && !emailLinkSignIn) {
@@ -296,7 +300,7 @@ type CheckInOfflinePurgePrompt =
     }
 
 function AuthenticatedApp() {
-  const { user, loading, signOutUser } = useAuth()
+  const { user, loading, authInitTimedOut, signOutUser } = useAuth()
   const location = useLocation()
   const sessionQuery = useAuthSession(user?.uid ?? user?.email ?? null, Boolean(user))
   const switchTenantMutation = useSwitchTenant()
@@ -315,8 +319,13 @@ function AuthenticatedApp() {
 
   const isUnknownPath = !isKnownAppPath(location.pathname)
 
-  if (loading || (user && sessionQuery.isLoading)) {
-    return <AuthLoadingScreen />
+  const bootstrapScreen = resolveAuthBootstrapScreen({
+    authInitTimedOut,
+    loading,
+    awaitingInitialSession: Boolean(user) && sessionQuery.isLoading && !sessionQuery.data,
+  })
+  if (bootstrapScreen) {
+    return bootstrapScreen
   }
 
   if (!user) {
@@ -331,17 +340,13 @@ function AuthenticatedApp() {
     return <Navigate to={LOGIN_PATH} replace state={{ from: location }} />
   }
 
-  if (sessionQuery.isError) {
-    const message =
-      sessionQuery.error instanceof Error ? sessionQuery.error.message : ''
-    if (isDemoGrantSessionErrorMessage(message)) {
-      return (
-        <LandingDemoSessionRejectedPage onSignOut={() => void signOutUser()} />
-      )
-    }
+  const sessionGate = resolveAuthenticatedSessionGate(sessionQuery, signOutUser)
+  if (sessionGate) {
+    return sessionGate
   }
 
-  if (!sessionQuery.data) {
+  const session = sessionQuery.data
+  if (!session) {
     return <ShellSessionLoadFailed />
   }
 
@@ -350,11 +355,11 @@ function AuthenticatedApp() {
       <ShellRouter
         userId={user.uid}
         userEmail={user.email ?? null}
-        platformRole={sessionQuery.data.platformRole ?? null}
-        activeTenant={sessionQuery.data.activeTenant}
-        activeRole={sessionQuery.data.activeRole}
-        memberships={sessionQuery.data.memberships}
-        activeSiteId={sessionQuery.data.activeSiteId}
+        platformRole={session.platformRole ?? null}
+        activeTenant={session.activeTenant}
+        activeRole={session.activeRole}
+        memberships={session.memberships}
+        activeSiteId={session.activeSiteId}
         sites={mySitesQuery.data ?? []}
         isLoadingSites={mySitesQuery.isLoading}
         isSwitchingTenant={switchTenantMutation.isPending}

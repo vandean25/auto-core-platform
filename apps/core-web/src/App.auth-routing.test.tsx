@@ -53,6 +53,7 @@ describe('App auth and 404 routing (AUT-201)', () => {
     mockUseAuth.mockReturnValue({
       user: null,
       loading: false,
+      authInitTimedOut: false,
       signOutUser: vi.fn(),
     })
     mockUseAuthSession.mockReturnValue({
@@ -108,6 +109,7 @@ describe('App auth and 404 routing (AUT-201)', () => {
     mockUseAuth.mockReturnValue({
       user: null,
       loading: true,
+      authInitTimedOut: false,
       signOutUser: vi.fn(),
     })
 
