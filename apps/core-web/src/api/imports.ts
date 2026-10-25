@@ -192,6 +192,24 @@ export type ApplyImportJobPayload =
       }
     }
 
+export function useCancelImportJob() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (jobId: string) => {
+      const response = await fetchWithAuth(`/api/imports/${jobId}/cancel`, {
+        method: 'POST',
+      })
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response, 'Failed to cancel import'))
+      }
+      return response.json() as Promise<ImportJob>
+    },
+    onSuccess: (job) => {
+      void queryClient.invalidateQueries({ queryKey: importKeys.job(job.id) })
+    },
+  })
+}
+
 export function useApplyImportJob() {
   return useMutation({
     mutationFn: async (payload: ApplyImportJobPayload) => {

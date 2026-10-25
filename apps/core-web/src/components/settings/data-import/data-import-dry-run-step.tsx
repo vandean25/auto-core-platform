@@ -47,6 +47,7 @@ export type DataImportDryRunStepProps = {
   onEditMapping: () => void
   applyEnabled: boolean
   onApply: () => void
+  onBackgroundCancelled?: () => void
 }
 
 /** Wizard step 4: report of the dry-run with the validated rows of the file. */
@@ -63,7 +64,10 @@ export function DataImportDryRunStep(props: DataImportDryRunStepProps) {
         {t('dataImport.dryRun.title')}
       </h4>
 
-      <ImportBackgroundProgressAlert job={job} />
+      <ImportBackgroundProgressAlert
+        job={job}
+        onCancelled={() => props.onBackgroundCancelled?.()}
+      />
 
       {props.dryRunStale ? (
         <Alert variant="destructive">

@@ -117,6 +117,7 @@ export function DataImportSettingsTab() {
           onEditMapping={() => model.wizard.setStep(3)}
           applyEnabled={model.apply.applyEnabled}
           onApply={() => model.apply.setConfirmApplyOpen(true)}
+          onBackgroundCancelled={() => model.wizard.resetDryRun()}
         />
       ) : null}
 

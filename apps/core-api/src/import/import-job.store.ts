@@ -8,9 +8,11 @@ import {
 import type { PrismaService } from '../prisma/prisma.service.js';
 import {
   IMPORT_WORKER_LEASE_MS,
+  readWorkerState,
   type ImportJobOptionsWithWorker,
   type ImportJobUploadRef,
   type ImportJobWorkerState,
+  type ImportWorkerPhase,
 } from './import-job.worker-state.js';
 import type {
   DryRunRowResult,
@@ -180,16 +182,64 @@ export class ImportJobStore {
     });
   }
 
-  cancelJob(tenantId: string, jobId: string) {
+  async cancelBackgroundDryRun(tenantId: string, jobId: string) {
+    const job = await this.findJob(tenantId, jobId);
+    if (!job || job.status !== ImportJobStatus.APPLYING) {
+      return { count: 0 };
+    }
+    const worker = readWorkerState(job.options_json as ImportJobOptionsWithWorker);
+    if (!worker || worker.phase !== 'dry_run') {
+      return { count: 0 };
+    }
     return this.prisma.importJob.updateMany({
       where: {
         tenant_id: tenantId,
         id: jobId,
-        status: {
-          in: [ImportJobStatus.DRY_RUN_DONE, ImportJobStatus.APPLYING],
-        },
+        status: ImportJobStatus.APPLYING,
       },
       data: { status: ImportJobStatus.CANCELLED },
+    });
+  }
+
+  async claimWorkerLease(
+    tenantId: string,
+    jobId: string,
+    phase: ImportWorkerPhase,
+  ): Promise<ImportJobWorkerState | null> {
+    return this.prisma.$transaction(async (tx) => {
+      const rows = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT id FROM import_jobs
+        WHERE tenant_id = ${tenantId}
+          AND id = ${jobId}
+          AND status = ${ImportJobStatus.APPLYING}::"ImportJobStatus"
+        FOR UPDATE
+      `;
+      if (rows.length === 0) {
+        return null;
+      }
+      const job = await tx.importJob.findFirst({
+        where: { tenant_id: tenantId, id: jobId },
+      });
+      if (!job) {
+        return null;
+      }
+      const options = job.options_json as ImportJobOptionsWithWorker;
+      const worker = readWorkerState(options);
+      if (!worker || worker.phase !== phase) {
+        return null;
+      }
+      const now = Date.now();
+      const refreshed: ImportJobWorkerState = {
+        ...worker,
+        lease_until: new Date(now + IMPORT_WORKER_LEASE_MS).toISOString(),
+      };
+      await tx.importJob.update({
+        where: { id: jobId },
+        data: {
+          options_json: { ...options, worker: refreshed },
+        },
+      });
+      return refreshed;
     });
   }
 
@@ -224,6 +274,47 @@ export class ImportJobStore {
     return this.prisma.importJobRow.findMany({
       where: { tenant_id: tenantId, import_job_id: jobId },
       orderBy: { row_no: 'asc' },
+    });
+  }
+
+  findApplyRowsAfter(
+    tenantId: string,
+    jobId: string,
+    afterRowNo: number,
+    take: number,
+  ) {
+    return this.prisma.importJobRow.findMany({
+      where: {
+        tenant_id: tenantId,
+        import_job_id: jobId,
+        row_no: { gt: afterRowNo },
+      },
+      orderBy: { row_no: 'asc' },
+      take,
+    });
+  }
+
+  countApplyRows(tenantId: string, jobId: string) {
+    return this.prisma.importJobRow.count({
+      where: { tenant_id: tenantId, import_job_id: jobId },
+    });
+  }
+
+  finishDryRunIfStillApplying(tenantId: string, jobId: string, data: {
+    totals_json: ImportJobTotals;
+    options_json: ImportJobOptions;
+  }) {
+    return this.prisma.importJob.updateMany({
+      where: {
+        tenant_id: tenantId,
+        id: jobId,
+        status: ImportJobStatus.APPLYING,
+      },
+      data: {
+        status: ImportJobStatus.DRY_RUN_DONE,
+        totals_json: data.totals_json,
+        options_json: data.options_json,
+      },
     });
   }
 

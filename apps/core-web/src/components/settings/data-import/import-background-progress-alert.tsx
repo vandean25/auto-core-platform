@@ -1,18 +1,25 @@
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 
 import type { ImportJob } from '@/api/imports'
+import { useCancelImportJob } from '@/api/imports'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { formatNumber } from '@/lib/format'
+import { getErrorMessage } from '@/lib/error-utils'
 
 type ImportBackgroundProgressAlertProps = {
   job: ImportJob
+  onCancelled?: (job: ImportJob) => void
 }
 
 export function ImportBackgroundProgressAlert({
   job,
+  onCancelled,
 }: ImportBackgroundProgressAlertProps) {
   const { t } = useTranslation(['settings', 'common'])
+  const cancelMutation = useCancelImportJob()
   if (job.status !== 'APPLYING' || !job.progress) {
     return null
   }
@@ -42,6 +49,26 @@ export function ImportBackgroundProgressAlert({
           })}
           {etaLabel}
         </p>
+        {job.progress.phase === 'dry_run' ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={cancelMutation.isPending}
+            onClick={() => {
+              void cancelMutation
+                .mutateAsync(job.id)
+                .then((cancelled) => onCancelled?.(cancelled))
+                .catch((error) =>
+                  toast.error(
+                    getErrorMessage(error, t('dataImport.toast.cancelFailed')),
+                  ),
+                )
+            }}
+          >
+            {t('dataImport.background.cancel')}
+          </Button>
+        ) : null}
       </AlertDescription>
     </Alert>
   )

@@ -8,7 +8,10 @@ import {
 } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { toRowApplyError } from './import-apply.errors.js';
-import { assertApplyRowIsFresh } from './import-apply.freshness.js';
+import {
+  assertApplyRowIsFresh,
+} from './import-apply.freshness.js';
+import { resolveImportExternalId } from './import-apply.errors.js';
 import type { ImportAuditWriter } from './import-audit.writer.js';
 import { markImportRowFailed } from './import-job.store.js';
 import {
@@ -60,7 +63,15 @@ export class RowByRowApplyRunner {
     options?: { resumeAfterRowNo?: number; stopAfterBatch?: boolean },
   ): Promise<SerializedImportJob> {
     const { tenantId, job, rows, actorUserId } = input;
-    const totals = createApplyTotals(rows.length);
+    const storedTotals = job.totals_json as ImportJobTotals | null;
+    const rowCount = Math.max(rows.length, storedTotals?.rows ?? 0);
+    const totals = createApplyTotals(rowCount);
+    if (options?.stopAfterBatch && storedTotals) {
+      totals.create = storedTotals.create ?? 0;
+      totals.update = storedTotals.update ?? 0;
+      totals.skip = storedTotals.skip ?? 0;
+      totals.error = storedTotals.error ?? 0;
+    }
     const resumeAfter = options?.resumeAfterRowNo ?? 0;
     const pending = rows.filter((row) => row.row_no > resumeAfter);
     const batchSize = options?.stopAfterBatch
@@ -122,6 +133,25 @@ export class RowByRowApplyRunner {
     }
   }
 
+  private async isCreateAlreadyCommittedByJob(
+    input: ImportApplyInput,
+    entityType: ImportEntityType,
+    row: ImportApplyRow,
+  ): Promise<boolean> {
+    const payload = row.normalized_json as Record<string, unknown>;
+    const externalId = resolveImportExternalId(payload, row.external_id);
+    const mapping = await this.prisma.externalIdMapping.findFirst({
+      where: {
+        tenant_id: input.tenantId,
+        entity_type: entityType,
+        source_system: input.job.source_system,
+        external_id: externalId,
+      },
+      select: { first_seen_import_job_id: true },
+    });
+    return mapping?.first_seen_import_job_id === input.job.id;
+  }
+
   private async applyOne(
     input: ImportApplyInput,
     entityType: ImportEntityType,
@@ -139,6 +169,12 @@ export class RowByRowApplyRunner {
     }
 
     try {
+      if (
+        row.action === ImportRowAction.CREATE &&
+        (await this.isCreateAlreadyCommittedByJob(input, entityType, row))
+      ) {
+        return;
+      }
       await this.prisma.$transaction(async (tx) => {
         await assertApplyRowIsFresh(
           tx,

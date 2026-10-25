@@ -20,6 +20,7 @@ import { CustomerImportHandler } from './customer-import.handler.js';
 import {
   applyInProgress,
   assertJobCanBeApplied,
+  importJobCannotCancel,
   importJobNotFound,
 } from './import-job.errors.js';
 import {
@@ -48,10 +49,10 @@ import {
 import type { ImportTypeHandler } from './import-type-handler.js';
 import { ImportVendorResolver } from './import-vendor.resolver.js';
 import { assessImportUpload } from './import-upload.util.js';
-import { sliceParsedCsv } from './import-csv-batch.util.js';
-import { parseCsvFile } from './csv-parse.util.js';
 import { ImportCloudTasksService } from './import-cloud-tasks.service.js';
 import { enqueueOrRunImportWorker } from './import-dispatch.js';
+import { readImportCsvDataRowSlice } from './import-csv-stream.util.js';
+import { resolveImportWorkerTargetBaseUrl } from './import-worker-target.js';
 import {
   ImportFileStorageService,
   readMulterUploadContent,
@@ -199,7 +200,6 @@ export class ImportService {
 
     if (assessed.useBackground) {
       const fileContent = readMulterUploadContent(params.file);
-      const headerParsed = parseCsvFile(fileContent);
       const placeholderJobId = cryptoRandomUuid();
       const upload = await this.fileStorage.storeUpload({
         tenantId,
@@ -213,12 +213,12 @@ export class ImportService {
           entityType: params.entityType,
           sourceSystem: params.sourceSystem,
           fileName: params.file.originalname,
-          fileSha256: headerParsed.sha256,
+          fileSha256: assessed.sha256,
           mapping: params.mappingJson,
           options,
           actorUserId: currentUser.id,
           upload,
-          expectedRows: headerParsed.rows.length,
+          expectedRows: assessed.rowCount,
         });
         await this.audit.writeImportJobAudit(
           this.prisma,
@@ -232,7 +232,7 @@ export class ImportService {
           jobId: job.id,
           phase: 'dry_run',
           cloudTasks: this.cloudTasks,
-          targetBaseUrl: process.env.CLOUD_TASKS_TARGET_BASE_URL,
+          targetBaseUrl: resolveImportWorkerTargetBaseUrl(),
           nodeEnv: process.env.NODE_ENV,
           runInline: () =>
             this.runImportWorkerAttempt({
@@ -387,7 +387,7 @@ export class ImportService {
         jobId,
         phase: 'apply',
         cloudTasks: this.cloudTasks,
-        targetBaseUrl: process.env.CLOUD_TASKS_TARGET_BASE_URL,
+        targetBaseUrl: resolveImportWorkerTargetBaseUrl(),
         nodeEnv: process.env.NODE_ENV,
         runInline: () =>
           this.runImportWorkerAttempt({
@@ -442,10 +442,17 @@ export class ImportService {
   async cancelJob(jobId: string) {
     assertTenantAdmin(this.tenantContext);
     const tenantId = await this.tenantContext.getTenantId();
-    const result = await this.jobStore.cancelJob(tenantId, jobId);
-    if (result.count === 0) {
+    const existing = await this.jobStore.findJob(tenantId, jobId);
+    if (!existing) {
       throw importJobNotFound();
     }
+    const result = await this.jobStore.cancelBackgroundDryRun(tenantId, jobId);
+    if (result.count === 0) {
+      throw importJobCannotCancel();
+    }
+    await this.deleteJobUploadIfPresent(
+      existing.options_json as ImportJobOptionsWithWorker,
+    );
     const job = await this.jobStore.findJob(tenantId, jobId);
     if (!job) {
       throw importJobNotFound();
@@ -453,11 +460,29 @@ export class ImportService {
     return this.serializeJob(job, job.totals_json as ImportJobTotals);
   }
 
+  private async deleteJobUploadIfPresent(
+    options: ImportJobOptionsWithWorker,
+  ): Promise<void> {
+    const upload = readUploadRef(options);
+    if (!upload) {
+      return;
+    }
+    await this.fileStorage.deleteUpload(upload).catch(() => undefined);
+  }
+
   async runImportWorkerAttempt(params: {
     tenantId: string;
     jobId: string;
     phase: 'dry_run' | 'apply';
   }): Promise<void> {
+    const claimed = await this.jobStore.claimWorkerLease(
+      params.tenantId,
+      params.jobId,
+      params.phase,
+    );
+    if (!claimed) {
+      return;
+    }
     const job = await this.jobStore.findJob(params.tenantId, params.jobId);
     if (!job || job.status !== ImportJobStatus.APPLYING) {
       return;
@@ -523,17 +548,17 @@ export class ImportService {
       this.handlers[job.entity_type as ImplementedImportEntityType];
     const mapping = job.mapping_json as Record<string, string>;
     const totals = job.totals_json as ImportJobTotals;
-    const bytes = await this.fileStorage.readBytes(upload);
-    const parsedFull = parseCsvFile(bytes);
     const startOffset = worker.processed_rows;
-    const batchRows = parsedFull.rows.slice(
+    const parsedBatch = await readImportCsvDataRowSlice(
+      this.fileStorage.openReadStream(upload),
       startOffset,
-      startOffset + IMPORT_WORKER_BATCH_SIZE,
+      IMPORT_WORKER_BATCH_SIZE,
     );
-    if (batchRows.length === 0) {
+    if (!parsedBatch || parsedBatch.rows.length === 0) {
       await this.completeBackgroundDryRun(tenantId, jobId, handler, options);
       return;
     }
+    const batchRows = parsedBatch.rows;
 
     await Sentry.startSpan(
       {
@@ -546,7 +571,6 @@ export class ImportService {
         },
       },
       async () => {
-        const parsedBatch = sliceParsedCsv(parsedFull, startOffset, batchRows);
         const planned = await handler.planDryRun(
           {
             tenantId,
@@ -570,7 +594,7 @@ export class ImportService {
             mergedTotals.error += 1;
         }
         const processed = startOffset + batchRows.length;
-        mergedTotals.rows = parsedFull.rows.length;
+        mergedTotals.rows = Math.max(totals.rows, processed);
         await this.jobStore.appendDryRunRows(
           tenantId,
           jobId,
@@ -578,11 +602,11 @@ export class ImportService {
           mergedTotals,
           {
             processed_rows: processed,
-            lease_until: new Date(Date.now() + 120_000).toISOString(),
+            lease_until: new Date(0).toISOString(),
           },
           options,
         );
-        if (processed >= parsedFull.rows.length) {
+        if (processed >= totals.rows) {
           await this.completeBackgroundDryRun(
             tenantId,
             jobId,
@@ -596,7 +620,7 @@ export class ImportService {
           jobId,
           phase: 'dry_run',
           cloudTasks: this.cloudTasks,
-          targetBaseUrl: process.env.CLOUD_TASKS_TARGET_BASE_URL,
+          targetBaseUrl: resolveImportWorkerTargetBaseUrl(),
           nodeEnv: process.env.NODE_ENV,
           runInline: () =>
             this.runImportWorkerAttempt({
@@ -640,14 +664,11 @@ export class ImportService {
       : totals;
     const optionsForPersist = { ...options };
     delete (optionsForPersist as { worker?: unknown }).worker;
-    await this.prisma.importJob.update({
-      where: { id: jobId },
-      data: {
-        status: ImportJobStatus.DRY_RUN_DONE,
-        totals_json: finalTotals,
-        options_json: optionsForPersist,
-      },
+    await this.jobStore.finishDryRunIfStillApplying(tenantId, jobId, {
+      totals_json: finalTotals,
+      options_json: optionsForPersist,
     });
+    await this.deleteJobUploadIfPresent(options);
   }
 
   private async runBackgroundApplyBatch(
@@ -690,7 +711,14 @@ export class ImportService {
     if (!worker || worker.phase !== 'apply') {
       return null;
     }
-    const rows = await this.jobStore.findApplyRows(tenantId, jobId);
+    const resumeAfter = worker.last_committed_row_no ?? 0;
+    const rows = await this.jobStore.findApplyRowsAfter(
+      tenantId,
+      jobId,
+      resumeAfter,
+      IMPORT_APPLY_BATCH_SIZE,
+    );
+    const rowCount = await this.jobStore.countApplyRows(tenantId, jobId);
     assertImplementedImportEntityType(job.entity_type);
     const handler = this.handlers[job.entity_type];
     const effectiveOptions = (job.options_json as ImportJobOptions) ?? {};
@@ -700,14 +728,22 @@ export class ImportService {
       rows,
       effectiveOptions,
     });
+    const jobForApply = {
+      ...job,
+      totals_json: {
+        ...(job.totals_json as ImportJobTotals),
+        rows: rowCount,
+      },
+    };
     return {
-      job,
+      job: jobForApply,
       worker,
       rows,
       handler,
       effectiveOptions,
       preparation,
-      resumeAfter: worker.last_committed_row_no ?? 0,
+      resumeAfter,
+      rowCount,
     };
   }
 
@@ -719,25 +755,35 @@ export class ImportService {
     resumeAfter: number;
     resultStatus: ImportJobStatus;
   }): Promise<void> {
-    const pending = params.rows.filter(
-      (row) => row.row_no > params.resumeAfter,
-    );
-    const batchRows = pending.slice(0, IMPORT_APPLY_BATCH_SIZE);
+    const batchRows = params.rows;
     const lastCommitted = batchRows.at(-1)?.row_no ?? params.resumeAfter;
-    const lastRowNo = params.rows.at(-1)?.row_no ?? lastCommitted;
-    const done = lastCommitted >= lastRowNo;
+    const hasMore =
+      (await this.jobStore.findApplyRowsAfter(
+        params.tenantId,
+        params.jobId,
+        lastCommitted,
+        1,
+      )).length > 0;
+    const done = !hasMore;
     if (done || params.resultStatus !== ImportJobStatus.APPLYING) {
       return;
     }
+    const refreshedJob = await this.jobStore.findJob(
+      params.tenantId,
+      params.jobId,
+    );
+    const refreshedWorker = readWorkerState(
+      refreshedJob?.options_json as ImportJobOptionsWithWorker,
+    );
+    const leaseToken = refreshedWorker?.lease_token ?? params.worker.lease_token;
     await this.jobStore.updateWorkerProgress(
       params.tenantId,
       params.jobId,
-      params.worker.lease_token,
+      leaseToken,
       {
         last_committed_row_no: lastCommitted,
-        processed_rows: params.rows.filter((row) => row.row_no <= lastCommitted)
-          .length,
-        lease_until: new Date(Date.now() + 120_000).toISOString(),
+        processed_rows: lastCommitted,
+        lease_until: new Date(0).toISOString(),
       },
     );
     await enqueueOrRunImportWorker({
@@ -745,7 +791,7 @@ export class ImportService {
       jobId: params.jobId,
       phase: 'apply',
       cloudTasks: this.cloudTasks,
-      targetBaseUrl: process.env.CLOUD_TASKS_TARGET_BASE_URL,
+      targetBaseUrl: resolveImportWorkerTargetBaseUrl(),
       nodeEnv: process.env.NODE_ENV,
       runInline: () =>
         this.runImportWorkerAttempt({

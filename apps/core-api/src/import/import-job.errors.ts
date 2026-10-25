@@ -16,6 +16,13 @@ export function applyInProgress(): ConflictException {
   });
 }
 
+export function importJobCannotCancel(): ConflictException {
+  return new ConflictException({
+    code: IMPORT_ERROR_CODES.JOB_STALE,
+    message: 'Import job cannot be cancelled in its current phase',
+  });
+}
+
 /** Only a dry-run job that is not already applying or applied can be applied. */
 export function assertJobCanBeApplied(status: ImportJobStatus): void {
   if (status === ImportJobStatus.APPLYING) {

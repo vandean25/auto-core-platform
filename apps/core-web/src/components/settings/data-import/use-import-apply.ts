@@ -116,10 +116,20 @@ export function useImportApply(params: {
           acceptedRowNumbers: params.acceptedRowNumbers,
         }),
       )
+      if (result.status === 'APPLIED') {
+        params.onApplied(result)
+        setConfirmApplyOpen(false)
+        invalidateLaborCaches(queryClient, params.entityType)
+        toast.success(t('dataImport.toast.applied'))
+        return
+      }
+      if (result.status === 'APPLYING') {
+        params.onApplied(result)
+        setConfirmApplyOpen(false)
+        return
+      }
       params.onApplied(result)
       setConfirmApplyOpen(false)
-      invalidateLaborCaches(queryClient, params.entityType)
-      toast.success(t('dataImport.toast.applied'))
     } catch (error) {
       toast.error(getErrorMessage(error, t('dataImport.toast.applyFailed')))
     } finally {

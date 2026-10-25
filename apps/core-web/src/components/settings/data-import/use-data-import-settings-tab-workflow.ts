@@ -32,7 +32,7 @@ export function useDataImportSettingsTabWorkflow(core: Core) {
     onMappingLoaded: wizard.setMapping,
     resetDryRun: wizard.resetDryRun,
   })
-  useSyncBackgroundDryRunJob(wizard.dryRunJob, wizard.applyDryRunResult)
+  useSyncBackgroundDryRunJob(wizard.dryRunJob, wizard.syncBackgroundJobProgress)
 
   const dryRun = useImportDryRunAction({
     entityType: wizard.entityType,

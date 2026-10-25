@@ -73,6 +73,7 @@ export type ImportWizardState = {
   toggleRowAcceptance: (rowNo: number, accepted: boolean) => void
   applyCsvSelection: (selection: ImportCsvSelection) => void
   applyDryRunResult: (job: ImportJob) => void
+  syncBackgroundJobProgress: (job: ImportJob) => void
   applyAppliedResult: (job: ImportJob) => void
 }
 
@@ -168,6 +169,18 @@ export function useImportWizardState(params: {
     setRowsPage(1)
   }, [])
 
+  const syncBackgroundJobProgress = React.useCallback((job: ImportJob) => {
+    setDryRunJob(job)
+    if (job.progress?.phase === 'apply') {
+      setAppliedJob(job)
+      setStep(5)
+      return
+    }
+    if (job.status === 'DRY_RUN_DONE') {
+      applyDryRunResult(job)
+    }
+  }, [applyDryRunResult])
+
   const applyAppliedResult = React.useCallback((job: ImportJob) => {
     setAppliedJob(job)
     setDryRunJob(job)
@@ -216,6 +229,7 @@ export function useImportWizardState(params: {
     toggleRowAcceptance,
     applyCsvSelection,
     applyDryRunResult,
+    syncBackgroundJobProgress,
     applyAppliedResult,
   }
 }

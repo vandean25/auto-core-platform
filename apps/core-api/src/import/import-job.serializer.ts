@@ -30,11 +30,13 @@ export function serializeImportJob(
   job: ImportJobView,
   totals: ImportJobTotals,
 ) {
+  const rawOptions = (job.options_json ?? {}) as ImportJobOptionsWithWorker;
   const progress = computeImportProgress({
     status: job.status,
     totals,
-    options: job.options_json as ImportJobOptionsWithWorker,
+    options: rawOptions,
   });
+  const { worker: _worker, upload: _upload, ...publicOptions } = rawOptions;
   return {
     id: job.id,
     entity_type: job.entity_type,
@@ -43,7 +45,7 @@ export function serializeImportJob(
     file_sha256: job.file_sha256,
     status: job.status,
     mapping: job.mapping_json,
-    options: job.options_json,
+    options: publicOptions,
     totals,
     progress,
     created_by: job.created_by,

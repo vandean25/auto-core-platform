@@ -12,6 +12,7 @@ import { isCloudTasksEnabled } from '../common/services/cloud-tasks.config.js';
 import { SideEffectGuard } from '../dry-run/side-effect-guard.js';
 import type { ImportWorkerPhase } from './import-job.worker-state.js';
 import { signImportTaskPayload } from './import-task.payload.js';
+import { resolveImportWorkerTargetBaseUrl } from './import-worker-target.js';
 
 @Injectable()
 export class ImportCloudTasksService {
@@ -41,12 +42,10 @@ export class ImportCloudTasksService {
   }
 
   private resolveTargetBaseUrl(): string {
-    const raw =
-      process.env.CLOUD_TASKS_TARGET_BASE_URL?.trim() ||
-      process.env.CLOUD_TASKS_NOTIFICATION_TARGET_BASE_URL?.trim();
+    const raw = resolveImportWorkerTargetBaseUrl();
     if (!raw) {
       throw new InternalServerErrorException(
-        'CLOUD_TASKS_TARGET_BASE_URL is not configured',
+        'Import worker target base URL is not configured',
       );
     }
     return raw.endsWith('/') ? raw : `${raw}/`;

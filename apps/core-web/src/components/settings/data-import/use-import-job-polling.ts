@@ -29,17 +29,28 @@ export function useImportJobPolling(jobId: string | null) {
   })
 }
 
-/** Keeps wizard dry-run state in sync while a background job is processing. */
+/** Keeps wizard state in sync while a background import job is processing. */
 export function useSyncBackgroundDryRunJob(
   dryRunJob: ImportJob | null | undefined,
-  applyDryRunResult: (job: ImportJob) => void,
+  syncBackgroundJobProgress: (job: ImportJob) => void,
 ) {
   const poll = useImportJobPolling(
     dryRunJob?.status === 'APPLYING' ? dryRunJob.id : null,
   )
   React.useEffect(() => {
-    if (poll.data) {
-      applyDryRunResult(poll.data)
+    if (!poll.data) return
+    const job = poll.data
+    if (
+      job.status === 'DRY_RUN_DONE' ||
+      job.status === 'APPLIED' ||
+      job.status === 'FAILED' ||
+      job.status === 'CANCELLED'
+    ) {
+      syncBackgroundJobProgress(job)
+      return
     }
-  }, [poll.data, applyDryRunResult])
+    if (job.status === 'APPLYING') {
+      syncBackgroundJobProgress(job)
+    }
+  }, [poll.data, syncBackgroundJobProgress])
 }

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   HttpCode,
@@ -27,6 +28,9 @@ export class ImportWorkerController {
     @Param('id') jobId: string,
     @Body() task: SignedImportTaskPayload,
   ): Promise<void> {
+    if (task.jobId !== jobId) {
+      throw new BadRequestException('Import worker job id mismatch');
+    }
     await this.worker.runWorkerAttempt({
       tenantId: task.tenantId,
       jobId,
