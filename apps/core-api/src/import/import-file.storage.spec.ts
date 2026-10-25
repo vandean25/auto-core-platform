@@ -6,6 +6,7 @@ import {
   buildGcsImportObjectKey,
   buildTenantImportObjectKey,
   LocalImportFileStorage,
+  assertTrustedImportStagingPath,
   sanitizeImportFileName,
 } from './import-file.storage.js';
 
@@ -24,6 +25,12 @@ describe('import file storage path safety', () => {
         fileName: '../prices.csv',
       }),
     ).toBe('tenant-1/job-2/prices.csv');
+  });
+
+  it('rejects staging paths outside the temp directory', () => {
+    expect(() => assertTrustedImportStagingPath('/etc/passwd')).toThrow(
+      BadRequestException,
+    );
   });
 
   it('rejects path traversal in stored object keys for local reads', async () => {

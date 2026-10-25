@@ -8,7 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { basename, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { SideEffectGuard } from '../dry-run/side-effect-guard.js';
 import { resolvePdfStorageBucket } from '../common/pdf/pdf-bucket.js';
 
@@ -18,6 +18,26 @@ export type StoredImportFileRef = {
 
 const DEFAULT_IMPORT_FILE_NAME = 'import.csv';
 const SAFE_PATH_SEGMENT = /^[a-zA-Z0-9._-]+$/;
+const IMPORT_MULTER_STAGING_DIR = join(tmpdir(), 'acp-import-multer');
+const IMPORT_LOCAL_UPLOAD_ROOT = join(tmpdir(), 'acp-import-uploads');
+
+/** Ensures multer staging paths stay under the OS temp directory. */
+export function assertTrustedImportStagingPath(localPath: string): string {
+  const resolved = resolve(localPath);
+  const allowedRoots = [
+    resolve(tmpdir()),
+    resolve(IMPORT_MULTER_STAGING_DIR),
+    resolve(IMPORT_LOCAL_UPLOAD_ROOT),
+  ];
+  if (
+    allowedRoots.some(
+      (root) => resolved === root || resolved.startsWith(`${root}/`),
+    )
+  ) {
+    return resolved;
+  }
+  throw new BadRequestException('Invalid import staging path.');
+}
 
 /** Basename-only file label safe for object keys and temp paths. */
 export function sanitizeImportFileName(fileName: string): string {
@@ -146,7 +166,8 @@ export class GcsImportFileStorage implements ImportFileStorage {
       fileName: params.fileName,
     });
     const bucket = this.storage.bucket(bucketName);
-    await bucket.upload(params.localPath, {
+    const stagingPath = assertTrustedImportStagingPath(params.localPath);
+    await bucket.upload(stagingPath, {
       destination: objectKey,
       resumable: true,
       metadata: {
@@ -205,10 +226,8 @@ export class LocalImportFileStorage implements ImportFileStorage {
       fileName: params.fileName,
     });
     const target = resolveLocalImportPath(this.root, objectKey);
-    await mkdir(join(this.root, params.tenantId, params.jobId), {
-      recursive: true,
-    });
-    const bytes = await readFile(params.localPath);
+    await mkdir(dirname(target), { recursive: true });
+    const bytes = await readFile(assertTrustedImportStagingPath(params.localPath));
     await writeFile(target, bytes);
     return { object_key: objectKey };
   }
@@ -275,10 +294,11 @@ export async function persistMulterUploadToTemp(
   file: Express.Multer.File,
 ): Promise<{ localPath: string; cleanup: () => Promise<void> }> {
   if (file.path) {
+    const localPath = assertTrustedImportStagingPath(file.path);
     return {
-      localPath: file.path,
+      localPath,
       cleanup: async () => {
-        await unlink(file.path).catch(() => undefined);
+        await unlink(localPath).catch(() => undefined);
       },
     };
   }

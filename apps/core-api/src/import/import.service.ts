@@ -55,6 +55,7 @@ import { ImportCloudTasksService } from './import-cloud-tasks.service.js';
 import { enqueueOrRunImportWorker } from './import-dispatch.js';
 import {
   ImportFileStorageService,
+  assertTrustedImportStagingPath,
   persistMulterUploadToTemp,
 } from './import-file.storage.js';
 import {
@@ -203,7 +204,9 @@ export class ImportService {
         params.file,
       );
       try {
-        const fileBuffer = await readFile(localPath);
+        const fileBuffer = await readFile(
+          assertTrustedImportStagingPath(localPath),
+        );
         const headerParsed = parseCsvFile(fileBuffer);
         const placeholderJobId = cryptoRandomUuid();
         const upload = await this.fileStorage.storeUpload({
