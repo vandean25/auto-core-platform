@@ -6,6 +6,7 @@
 
 /* Dark mode follows the `dark` class on <html>, not the OS setting. The class is prepared, not toggled yet (AUT-655). */
 @custom-variant dark (&:is(.dark *));
+@custom-variant hover-capable (@media (hover: hover));
 
 /*
  * ACP theme (AUT-655): slate neutrals, one blue accent (primary, ring, chart-1) and calm status tones.
@@ -174,5 +175,20 @@
   /* Tabular figures in tables, so amounts and dates line up in their columns */
   table {
     font-feature-settings: "tnum" 1;
+  }
+}
+
+@layer utilities {
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .safe-area-x {
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
   }
 }

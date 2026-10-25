@@ -20,6 +20,8 @@ type InlineEditProps = {
   displayClassName?: string
   inputClassName?: string
   ariaLabel?: string
+  inputType?: React.HTMLInputTypeAttribute
+  autoComplete?: string
 }
 
 function getFocusableElements() {
@@ -117,6 +119,8 @@ interface InlineEditorInputProps {
   ariaLabel?: string
   inputClassName?: string
   rows?: number
+  inputType?: React.HTMLInputTypeAttribute
+  autoComplete?: string
 }
 
 function InlineEditorInput({
@@ -133,6 +137,8 @@ function InlineEditorInput({
   ariaLabel,
   inputClassName,
   rows,
+  inputType,
+  autoComplete,
 }: InlineEditorInputProps) {
   const errorId = React.useId()
   const errorMarkup = validationError ? (
@@ -150,7 +156,7 @@ function InlineEditorInput({
           onBlur={onBlur}
           onKeyDown={onKeyDown}
           className={cn(
-            'w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring',
+            'w-full rounded-md border border-input bg-background px-3 py-2 text-base outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring md:text-sm',
             validationError && 'border-red-500 focus-visible:ring-red-500',
             inputClassName,
           )}
@@ -173,8 +179,10 @@ function InlineEditorInput({
         onChange={(event) => onChange(event.target.value)}
         onBlur={onBlur}
         onKeyDown={onKeyDown}
+        type={inputType}
+        autoComplete={autoComplete}
         className={cn(
-          'h-9 text-sm',
+          'h-9',
           validationError && 'border-red-500 focus-visible:ring-red-500',
           inputClassName,
         )}
@@ -236,7 +244,7 @@ function InlineEditDisplay({
         isSaving ? (
           <Loader2 className='pointer-events-none absolute right-1.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-muted-foreground' />
         ) : (
-          <Pencil className='pointer-events-none absolute right-1.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground opacity-0 transition-opacity group-hover/inline-edit:opacity-70' />
+          <Pencil className='pointer-events-none absolute right-1.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground opacity-0 transition-opacity pointer-coarse:opacity-70 hover-capable:group-hover/inline-edit:opacity-70' />
         )
       )}
     </div>
@@ -266,6 +274,8 @@ export function InlineEdit({
   displayClassName,
   inputClassName,
   ariaLabel,
+  inputType,
+  autoComplete,
 }: InlineEditProps) {
   const normalizedValue = value ?? ''
   const [isEditing, setIsEditing] = React.useState(false)
@@ -379,6 +389,8 @@ export function InlineEdit({
         ariaLabel={ariaLabel}
         inputClassName={inputClassName}
         rows={rows}
+        inputType={inputType}
+        autoComplete={autoComplete}
       />
     )
   }

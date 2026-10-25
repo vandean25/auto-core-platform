@@ -133,7 +133,7 @@ export function QuickRegisterDialog({ open, onOpenChange, defaultVin }: QuickReg
                         </div>
                         <div className="space-y-2 mt-2">
                             <Label htmlFor="phone">{t('quickRegister.phone')}</Label>
-                            <Input id="phone" {...register('phone')} />
+                            <Input id="phone" type="tel" autoComplete="tel" {...register('phone')} />
                         </div>
                     </div>
 

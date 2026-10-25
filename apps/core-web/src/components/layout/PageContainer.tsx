@@ -13,7 +13,7 @@ type PageContainerProps = {
 /** Shared shell wrapper for admin routes — width from `--container-page` in index.css */
 export function PageContainer({ children, className, breadcrumbs }: PageContainerProps) {
   return (
-    <div className={cn('w-full max-w-page mx-auto p-6', className)}>
+    <div className={cn('w-full max-w-page mx-auto p-4 md:p-6', className)}>
       {breadcrumbs?.length ? <Breadcrumbs items={breadcrumbs} /> : null}
       {children}
     </div>

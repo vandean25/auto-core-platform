@@ -131,6 +131,8 @@ export function CustomerContactCard({ customer }: { customer: CustomerDetailResp
             placeholder={t('detail.placeholders.phone')}
             emptyText={t('detail.empty.phone')}
             ariaLabel={t('detail.aria.phone')}
+            inputType="tel"
+            autoComplete="tel"
           />
         </div>
         <TyreSetsSummary customerId={customer.id} />

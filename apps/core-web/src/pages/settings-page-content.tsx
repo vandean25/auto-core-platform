@@ -85,11 +85,11 @@ const LocationTreeItem = ({
                     </Badge>
                 </button>
 
-                <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="ml-auto opacity-0 transition-opacity pointer-coarse:opacity-100 hover-capable:group-hover:opacity-100">
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6 text-red-500 hover:text-red-700 hover:bg-red-50"
+                        className="min-h-11 min-w-11 text-red-500 hover:text-red-700 hover:bg-red-50"
                         aria-label={t('storageLocations.deleteAria', { name: location.name, code: location.code })}
                         onClick={(e) => {
                             e.stopPropagation()

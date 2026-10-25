@@ -955,7 +955,7 @@ describe('DataTable Export CSV', () => {
       {
         accessorKey: 'orderNumber',
         header: 'Minutes',
-        cell: () => <input type="number" defaultValue="12000" readOnly />,
+        cell: () => <input type="number" inputMode="numeric" defaultValue="12000" readOnly />,
       },
     ]
     render(<OrderTable columns={minutesColumns} rows={[{ id: 'order-1', orderNumber: 'SO-1' }]} />)

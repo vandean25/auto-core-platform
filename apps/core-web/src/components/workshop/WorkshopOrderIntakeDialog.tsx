@@ -408,6 +408,8 @@ export function WorkshopOrderIntakeDialog({
                     />
                     <Input
                       placeholder={t('orderIntake.phone')}
+                      type="tel"
+                      autoComplete="tel"
                       value={newCustomer.phone}
                       onChange={(e) => setNewCustomer((v) => ({ ...v, phone: e.target.value }))}
                     />

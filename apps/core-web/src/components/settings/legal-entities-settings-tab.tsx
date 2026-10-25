@@ -970,6 +970,8 @@ function LegalEntitySellerForm({
           <Label htmlFor="seller-phone">{t('legalEntities.seller.fields.phone')}</Label>
           <Input
             id="seller-phone"
+            type="tel"
+            autoComplete="tel"
             value={form.phone}
             onChange={(event) => updateField('phone', event.target.value)}
           />
