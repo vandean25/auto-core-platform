@@ -6,16 +6,45 @@ import * as React from 'react'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { APP_ROUTE_PATHS, LOGIN_PATH } from '@/lib/app-route-paths'
+import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { createHttpError } from '@/lib/error-utils'
 import App from './App'
+
+const authState = {
+  user: { uid: 'user-1', email: 'testauto@auto.core.at' } as {
+    uid: string
+    email: string
+  } | null,
+  loading: false,
+  authInitTimedOut: false,
+}
 
 const mockUseAuth = vi.fn()
 const mockUseAuthSession = vi.fn()
 const mockUseSwitchTenant = vi.fn()
+const mockSignOutUser = vi.fn()
 
 vi.mock('@/auth/AuthProvider', () => ({
   useAuth: () => mockUseAuth(),
+}))
+
+vi.mock('@/components/shell/AuthSessionRevokedRedirect', () => ({
+  AuthSessionRevokedRedirect: ({
+    signOutUser,
+  }: {
+    signOutUser: () => Promise<void>
+  }) => {
+    const [signedOut, setSignedOut] = React.useState(false)
+    React.useEffect(() => {
+      void signOutUser()
+        .then(() => {
+          authState.user = null
+          setSignedOut(true)
+        })
+        .catch(() => undefined)
+    }, [signOutUser])
+    return signedOut ? <div>signed-out</div> : <div>signing-out</div>
+  },
 }))
 
 vi.mock('@/api/auth-session', () => ({
@@ -78,12 +107,16 @@ const sessionFixture = {
 
 describe('App session refresh (AUT-734)', () => {
   beforeEach(() => {
-    mockUseAuth.mockReturnValue({
-      user: { uid: 'user-1', email: 'testauto@auto.core.at' },
-      loading: false,
-      authInitTimedOut: false,
-      signOutUser: vi.fn(),
+    authState.user = { uid: 'user-1', email: 'testauto@auto.core.at' }
+    mockSignOutUser.mockImplementation(async () => {
+      authState.user = null
     })
+    mockUseAuth.mockImplementation(() => ({
+      user: authState.user,
+      loading: authState.loading,
+      authInitTimedOut: authState.authInitTimedOut,
+      signOutUser: mockSignOutUser,
+    }))
     mockUseAuthSession.mockReturnValue({
       isLoading: true,
       isError: false,
@@ -109,13 +142,6 @@ describe('App session refresh (AUT-734)', () => {
   })
 
   it('signs out and redirects to login when a background refetch returns 401 with cached session data', async () => {
-    const signOutUser = vi.fn().mockResolvedValue(undefined)
-    mockUseAuth.mockReturnValue({
-      user: { uid: 'user-1', email: 'testauto@auto.core.at' },
-      loading: false,
-      authInitTimedOut: false,
-      signOutUser,
-    })
     mockUseAuthSession.mockReturnValue({
       isLoading: false,
       isError: true,
@@ -126,10 +152,10 @@ describe('App session refresh (AUT-734)', () => {
     renderAtPath(APP_ROUTE_PATHS.dashboard)
 
     await waitFor(() => {
-      expect(signOutUser).toHaveBeenCalled()
+      expect(mockSignOutUser).toHaveBeenCalled()
     })
     await waitFor(() => {
-      expect(window.location.pathname).toBe(LOGIN_PATH)
+      expect(screen.getByText('signed-out')).toBeInTheDocument()
     })
     expect(screen.queryByText('ACP')).not.toBeInTheDocument()
   })

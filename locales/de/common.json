@@ -178,6 +178,10 @@
       "description": "Die Anmeldung konnte nicht abgeschlossen werden. Bitte laden Sie die Seite neu oder melden Sie sich erneut an.",
       "retry": "Erneut versuchen",
       "signInAgain": "Erneut anmelden"
+    },
+    "sessionSignOutFailed": {
+      "description": "Die Abmeldung ist fehlgeschlagen. Bitte versuchen Sie es erneut.",
+      "retry": "Erneut abmelden"
     }
   },
   "notFound": {

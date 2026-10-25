@@ -20,16 +20,16 @@ export function resolveAuthenticatedSessionGate(
     return sessionQuery.data ? null : <ShellSessionLoadFailed />
   }
 
-  if (getHttpErrorStatus(sessionQuery.error) === 401) {
-    return <AuthSessionRevokedRedirect signOutUser={signOutUser} />
-  }
-
   const message =
     sessionQuery.error instanceof Error ? sessionQuery.error.message : ''
   if (isDemoGrantSessionErrorMessage(message)) {
     return (
       <LandingDemoSessionRejectedPage onSignOut={() => void signOutUser()} />
     )
+  }
+
+  if (getHttpErrorStatus(sessionQuery.error) === 401) {
+    return <AuthSessionRevokedRedirect signOutUser={signOutUser} />
   }
 
   return sessionQuery.data ? null : <ShellSessionLoadFailed />
