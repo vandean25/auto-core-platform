@@ -43,7 +43,11 @@ vi.mock('@/components/shell/AuthSessionRevokedRedirect', () => ({
         })
         .catch(() => undefined)
     }, [signOutUser])
-    return signedOut ? <div>signed-out</div> : <div>signing-out</div>
+    return signedOut ? (
+      <div data-testid="auth-session-signed-out" />
+    ) : (
+      <div data-testid="auth-session-signing-out" />
+    )
   },
 }))
 
@@ -155,7 +159,7 @@ describe('App session refresh (AUT-734)', () => {
       expect(mockSignOutUser).toHaveBeenCalled()
     })
     await waitFor(() => {
-      expect(screen.getByText('signed-out')).toBeInTheDocument()
+      expect(screen.getByTestId('auth-session-signed-out')).toBeInTheDocument()
     })
     expect(screen.queryByText('ACP')).not.toBeInTheDocument()
   })

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { registerGermanUiForTests } from '@/test/german-ui'
 
 vi.mock('@/components/shell/AuthSessionRevokedRedirect', () => ({
-  AuthSessionRevokedRedirect: () => <div>session-revoked-redirect</div>,
+  AuthSessionRevokedRedirect: () => <div data-testid="session-revoked-redirect" />,
 }))
 
 import type { AuthSession } from '@/api/auth-session'
@@ -64,7 +64,7 @@ describe('resolveAuthenticatedSessionGate', () => {
 
     render(<>{gate}</>)
 
-    expect(screen.getByText('session-revoked-redirect')).toBeInTheDocument()
+    expect(screen.getByTestId('session-revoked-redirect')).toBeInTheDocument()
     expect(
       screen.queryByRole('heading', { name: 'Demo-Zugang nicht verfügbar' }),
     ).not.toBeInTheDocument()
