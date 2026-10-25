@@ -158,6 +158,7 @@
     "IMPORT_ARTICLE_NOT_FOUND": "Import article not found.",
     "IMPORT_CONSENT_COLUMN_IGNORED": "Import consent column ignored.",
     "IMPORT_DESCRIPTION_REQUIRED": "Import description required.",
+    "IMPORT_DRY_RUN_IN_PROGRESS": "Import dry-run in progress.",
     "IMPORT_DUPLICATE_ARTICLE_NO_IN_FILE": "Import duplicate article no in file.",
     "IMPORT_DUPLICATE_CODE_IN_FILE": "Import duplicate code in file.",
     "IMPORT_DUPLICATE_EMAIL_IN_FILE": "Import duplicate email in file.",

@@ -1,3 +1,4 @@
+import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 
 import type { ImportJob } from '@/api/imports'
@@ -26,4 +27,19 @@ export function useImportJobPolling(jobId: string | null) {
     queryFn: () => fetchImportJob(jobId!),
     refetchInterval: (query) => (isInProgress(query.state.data) ? POLL_MS : false),
   })
+}
+
+/** Keeps wizard dry-run state in sync while a background job is processing. */
+export function useSyncBackgroundDryRunJob(
+  dryRunJob: ImportJob | null | undefined,
+  applyDryRunResult: (job: ImportJob) => void,
+) {
+  const poll = useImportJobPolling(
+    dryRunJob?.status === 'APPLYING' ? dryRunJob.id : null,
+  )
+  React.useEffect(() => {
+    if (poll.data) {
+      applyDryRunResult(poll.data)
+    }
+  }, [poll.data, applyDryRunResult])
 }

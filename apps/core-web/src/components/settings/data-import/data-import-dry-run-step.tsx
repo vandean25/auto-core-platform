@@ -3,7 +3,6 @@ import { AlertTriangle, Download } from 'lucide-react'
 
 import type { ImportJob, ImportJobRow, ImportJobRowsMeta } from '@/api/imports'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -19,6 +18,7 @@ import {
 import { formatNumber } from '@/lib/format'
 
 import { DataImportDryRunRows } from './data-import-dry-run-rows'
+import { ImportBackgroundProgressAlert } from './import-background-progress-alert'
 import type { ImportEntityTypeUi } from './import-field-labels'
 import type { ImportRowFilter, ImportWizardOptions } from './import-wizard-logic'
 
@@ -69,32 +69,7 @@ export function DataImportDryRunStep(props: DataImportDryRunStepProps) {
         {t('dataImport.dryRun.title')}
       </h4>
 
-      {job.status === 'APPLYING' && job.progress ? (
-        <Alert>
-          <AlertTitle as="h5">{t('dataImport.background.title')}</AlertTitle>
-          <AlertDescription className="space-y-2">
-            <p>{t('dataImport.background.description')}</p>
-            <Progress
-              value={
-                job.progress.total_rows > 0
-                  ? (job.progress.processed_rows / job.progress.total_rows) * 100
-                  : 0
-              }
-            />
-            <p className="text-sm text-muted-foreground">
-              {t('dataImport.background.rows', {
-                processed: formatNumber(job.progress.processed_rows),
-                total: formatNumber(job.progress.total_rows),
-              })}
-              {job.progress.eta_seconds != null && job.progress.eta_seconds > 0
-                ? ` · ${t('dataImport.background.eta', {
-                    minutes: Math.max(1, Math.ceil(job.progress.eta_seconds / 60)),
-                  })}`
-                : ''}
-            </p>
-          </AlertDescription>
-        </Alert>
-      ) : null}
+      <ImportBackgroundProgressAlert job={job} />
 
       {props.dryRunStale ? (
         <Alert variant="destructive">

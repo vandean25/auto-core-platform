@@ -653,14 +653,41 @@ export class ImportService {
     tenantId: string,
     jobId: string,
   ): Promise<void> {
+    const context = await this.loadBackgroundApplyContext(tenantId, jobId);
+    if (!context) {
+      return;
+    }
+    const result = await context.handler.apply({
+      tenantId,
+      job: context.job,
+      rows: context.rows,
+      actorUserId: context.job.created_by ?? 'import-worker',
+      effectiveOptions: context.effectiveOptions,
+      preparation: context.preparation,
+      batchOptions: {
+        resumeAfterRowNo: context.resumeAfter,
+        stopAfterBatch: true,
+      },
+    });
+    await this.continueBackgroundApplyIfNeeded({
+      tenantId,
+      jobId,
+      worker: context.worker,
+      rows: context.rows,
+      resumeAfter: context.resumeAfter,
+      resultStatus: result.status,
+    });
+  }
+
+  private async loadBackgroundApplyContext(tenantId: string, jobId: string) {
     const job = await this.jobStore.findJob(tenantId, jobId);
     if (!job) {
-      return;
+      return null;
     }
     const options = job.options_json as ImportJobOptionsWithWorker;
     const worker = readWorkerState(options);
     if (!worker || worker.phase !== 'apply') {
-      return;
+      return null;
     }
     const rows = await this.jobStore.findApplyRows(tenantId, jobId);
     assertImplementedImportEntityType(job.entity_type);
@@ -672,43 +699,57 @@ export class ImportService {
       rows,
       effectiveOptions,
     });
-    const resumeAfter = worker.last_committed_row_no ?? 0;
-    const result = await handler.apply({
-      tenantId,
+    return {
       job,
+      worker,
       rows,
-      actorUserId: job.created_by ?? 'import-worker',
+      handler,
       effectiveOptions,
       preparation,
-      batchOptions: { resumeAfterRowNo: resumeAfter, stopAfterBatch: true },
-    });
-    const pending = rows.filter((row) => row.row_no > resumeAfter);
+      resumeAfter: worker.last_committed_row_no ?? 0,
+    };
+  }
+
+  private async continueBackgroundApplyIfNeeded(params: {
+    tenantId: string;
+    jobId: string;
+    worker: NonNullable<ReturnType<typeof readWorkerState>>;
+    rows: Awaited<ReturnType<ImportJobStore['findApplyRows']>>;
+    resumeAfter: number;
+    resultStatus: ImportJobStatus;
+  }): Promise<void> {
+    const pending = params.rows.filter((row) => row.row_no > params.resumeAfter);
     const batchRows = pending.slice(0, IMPORT_APPLY_BATCH_SIZE);
-    const lastCommitted = batchRows.at(-1)?.row_no ?? resumeAfter;
-    const lastRowNo = rows.at(-1)?.row_no ?? lastCommitted;
+    const lastCommitted = batchRows.at(-1)?.row_no ?? params.resumeAfter;
+    const lastRowNo = params.rows.at(-1)?.row_no ?? lastCommitted;
     const done = lastCommitted >= lastRowNo;
-    if (!done && result.status === ImportJobStatus.APPLYING) {
-      await this.jobStore.updateWorkerProgress(
-        tenantId,
-        jobId,
-        worker.lease_token,
-        {
-          last_committed_row_no: lastCommitted,
-          processed_rows: rows.filter((row) => row.row_no <= lastCommitted)
-            .length,
-          lease_until: new Date(Date.now() + 120_000).toISOString(),
-        },
-      );
-      await enqueueOrRunImportWorker({
-        tenantId,
-        jobId,
-        phase: 'apply',
-        cloudTasks: this.cloudTasks,
-        targetBaseUrl: process.env.CLOUD_TASKS_TARGET_BASE_URL,
-        nodeEnv: process.env.NODE_ENV,
-        runInline: () =>
-          this.runImportWorkerAttempt({ tenantId, jobId, phase: 'apply' }),
-      });
+    if (done || params.resultStatus !== ImportJobStatus.APPLYING) {
+      return;
     }
+    await this.jobStore.updateWorkerProgress(
+      params.tenantId,
+      params.jobId,
+      params.worker.lease_token,
+      {
+        last_committed_row_no: lastCommitted,
+        processed_rows: params.rows.filter((row) => row.row_no <= lastCommitted)
+          .length,
+        lease_until: new Date(Date.now() + 120_000).toISOString(),
+      },
+    );
+    await enqueueOrRunImportWorker({
+      tenantId: params.tenantId,
+      jobId: params.jobId,
+      phase: 'apply',
+      cloudTasks: this.cloudTasks,
+      targetBaseUrl: process.env.CLOUD_TASKS_TARGET_BASE_URL,
+      nodeEnv: process.env.NODE_ENV,
+      runInline: () =>
+        this.runImportWorkerAttempt({
+          tenantId: params.tenantId,
+          jobId: params.jobId,
+          phase: 'apply',
+        }),
+    });
   }
 }

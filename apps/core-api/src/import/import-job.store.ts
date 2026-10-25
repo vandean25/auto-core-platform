@@ -150,43 +150,6 @@ export class ImportJobStore {
     });
   }
 
-  async tryClaimWorkerLease(
-    tenantId: string,
-    jobId: string,
-    phase: ImportWorkerPhase,
-  ): Promise<string | null> {
-    const job = await this.findJob(tenantId, jobId);
-    if (!job || job.status !== ImportJobStatus.APPLYING) {
-      return null;
-    }
-    const options = job.options_json as ImportJobOptionsWithWorker;
-    const worker = options.worker;
-    if (!worker || worker.phase !== phase) {
-      return null;
-    }
-    const leaseUntil = Date.parse(worker.lease_until);
-    if (Number.isFinite(leaseUntil) && leaseUntil > Date.now()) {
-      return null;
-    }
-    const leaseToken = randomUUID();
-    const nextWorker: ImportJobWorkerState = {
-      ...worker,
-      lease_token: leaseToken,
-      lease_until: new Date(Date.now() + IMPORT_WORKER_LEASE_MS).toISOString(),
-    };
-    const updated = await this.prisma.importJob.updateMany({
-      where: {
-        tenant_id: tenantId,
-        id: jobId,
-        status: ImportJobStatus.APPLYING,
-      },
-      data: {
-        options_json: { ...options, worker: nextWorker },
-      },
-    });
-    return updated.count === 1 ? leaseToken : null;
-  }
-
   async updateWorkerProgress(
     tenantId: string,
     jobId: string,

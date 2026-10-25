@@ -141,6 +141,7 @@
   "IMPORT_AMBIGUOUS_VENDOR": "Mehrdeutiger Lieferant beim Import.",
   "IMPORT_APPLY_FAILED": "Import-Anwendung fehlgeschlagen.",
   "IMPORT_APPLY_IN_PROGRESS": "Import-Anwendung läuft bereits.",
+  "IMPORT_DRY_RUN_IN_PROGRESS": "Import-Probelauf läuft bereits.",
   "IMPORT_ARTICLE_NOT_FOUND": "Import-Artikel nicht gefunden.",
   "IMPORT_CONSENT_COLUMN_IGNORED": "Zustimmungsspalte beim Import ignoriert.",
   "IMPORT_DESCRIPTION_REQUIRED": "Beschreibung beim Import erforderlich.",

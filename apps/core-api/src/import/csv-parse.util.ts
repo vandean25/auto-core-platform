@@ -34,57 +34,83 @@ export function sanitizeCsvInjectionValue(value: string): string {
   return value;
 }
 
+type CsvRecordParseState = {
+  rows: string[][];
+  currentRow: string[];
+  currentCell: string;
+  inQuotes: boolean;
+};
+
+function pushCsvRow(state: CsvRecordParseState): void {
+  state.currentRow.push(state.currentCell.trim());
+  if (state.currentRow.some((cell) => cell.length > 0)) {
+    state.rows.push(state.currentRow);
+  }
+  state.currentRow = [];
+  state.currentCell = '';
+}
+
+function consumeQuotedCsvChar(
+  state: CsvRecordParseState,
+  text: string,
+  index: number,
+): number {
+  const char = text[index];
+  if (char !== '"') {
+    state.currentCell += char;
+    return index;
+  }
+  if (text[index + 1] === '"') {
+    state.currentCell += '"';
+    return index + 1;
+  }
+  state.inQuotes = false;
+  return index;
+}
+
+function consumeUnquotedCsvChar(
+  state: CsvRecordParseState,
+  char: string,
+  delimiter: string,
+): void {
+  if (char === '"') {
+    state.inQuotes = true;
+    return;
+  }
+  if (char === delimiter) {
+    state.currentRow.push(state.currentCell.trim());
+    state.currentCell = '';
+    return;
+  }
+  if (char === '\n') {
+    pushCsvRow(state);
+    return;
+  }
+  state.currentCell += char;
+}
+
 export function parseCsvRecords(text: string, delimiter: string): string[][] {
-  const rows: string[][] = [];
-  let currentRow: string[] = [];
-  let currentCell = '';
-  let inQuotes = false;
+  const state: CsvRecordParseState = {
+    rows: [],
+    currentRow: [],
+    currentCell: '',
+    inQuotes: false,
+  };
 
   for (let index = 0; index < text.length; index += 1) {
     const char = text[index];
-    if (inQuotes) {
-      if (char === '"') {
-        if (text[index + 1] === '"') {
-          currentCell += '"';
-          index += 1;
-        } else {
-          inQuotes = false;
-        }
-      } else {
-        currentCell += char;
-      }
+    if (state.inQuotes) {
+      index = consumeQuotedCsvChar(state, text, index);
       continue;
     }
-
-    if (char === '"') {
-      inQuotes = true;
-      continue;
-    }
-    if (char === delimiter) {
-      currentRow.push(currentCell.trim());
-      currentCell = '';
-      continue;
-    }
-    if (char === '\n') {
-      currentRow.push(currentCell.trim());
-      if (currentRow.some((cell) => cell.length > 0)) {
-        rows.push(currentRow);
-      }
-      currentRow = [];
-      currentCell = '';
-      continue;
-    }
-    currentCell += char;
+    consumeUnquotedCsvChar(state, char, delimiter);
   }
 
-  if (currentCell.length > 0 || currentRow.length > 0) {
-    currentRow.push(currentCell.trim());
-    if (currentRow.some((cell) => cell.length > 0)) {
-      rows.push(currentRow);
-    }
+  if (state.currentCell.length > 0 || state.currentRow.length > 0) {
+    pushCsvRow(state);
   }
 
-  return rows;
+  return state.rows;
 }
 
 export function parseCsvFile(buffer: Buffer): ParsedCsv {

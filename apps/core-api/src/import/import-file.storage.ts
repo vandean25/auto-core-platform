@@ -228,8 +228,6 @@ export class LocalImportFileStorage implements ImportFileStorage {
   }
 }
 
-export const IMPORT_FILE_STORAGE = Symbol('IMPORT_FILE_STORAGE');
-
 export function createImportFileStorage(): ImportFileStorage {
   if (process.env.IMPORT_UPLOAD_STORAGE === 'local') {
     return new LocalImportFileStorage();

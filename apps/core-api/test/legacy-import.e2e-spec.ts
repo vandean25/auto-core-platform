@@ -13,10 +13,7 @@ import {
   runWithTenantContext,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
-import {
-  IMPORT_MAX_FILE_BYTES,
-  IMPORT_MAX_ROW_COUNT,
-} from '../src/import/import.constants.js';
+import { IMPORT_MAX_FILE_BYTES } from '../src/import/import.constants.js';
 import { serializeCsv } from '../src/import/csv-parse.util.js';
 
 describe('Legacy CSV import (e2e)', () => {

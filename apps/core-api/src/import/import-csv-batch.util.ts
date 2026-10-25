@@ -1,6 +1,4 @@
 import { createHash } from 'node:crypto';
-import { createInterface } from 'node:readline';
-import type { Readable } from 'node:stream';
 import {
   decodeCsvBuffer,
   detectDelimiterFromHeaderLine,
@@ -12,48 +10,6 @@ export type CsvBatch = {
   rowOffset: number;
   rows: string[][];
 };
-
-/** Streams a stored CSV and yields fixed-size data-row batches without loading all rows. */
-export async function* iterateCsvRowBatches(params: {
-  stream: Readable;
-  batchSize: number;
-}): AsyncGenerator<{
-  headers: string[];
-  delimiter: ';' | ',';
-  batch: CsvBatch;
-}> {
-  const lines: string[] = [];
-  const rl = createInterface({ input: params.stream, crlfDelay: Infinity });
-  for await (const line of rl) {
-    if (line.trim().length > 0) {
-      lines.push(line);
-    }
-  }
-  if (lines.length === 0) {
-    return;
-  }
-  const delimiter = detectDelimiterFromHeaderLine(lines[0]);
-  const records = parseCsvRecords(lines.join('\n'), delimiter);
-  if (records.length === 0) {
-    return;
-  }
-  const [headers, ...dataRows] = records;
-  for (let offset = 0; offset < dataRows.length; offset += params.batchSize) {
-    yield {
-      headers,
-      delimiter,
-      batch: {
-        rowOffset: offset,
-        rows: dataRows.slice(offset, offset + params.batchSize),
-      },
-    };
-  }
-}
-
-export function countCsvDataRows(buffer: Buffer): number {
-  const parsed = parseCsvBufferHeadersOnly(buffer);
-  return parsed.dataRowCount;
-}
 
 export function parseCsvBufferHeadersOnly(buffer: Buffer): {
   headers: string[];

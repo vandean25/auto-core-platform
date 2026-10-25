@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { parseCsvFile, type ParsedCsv } from './csv-parse.util.js';
+import { parseCsvFile } from './csv-parse.util.js';
 import { parseCsvBufferHeadersOnly } from './import-csv-batch.util.js';
 import { IMPORT_ERROR_CODES } from './import.constants.js';
 import {
@@ -77,16 +77,4 @@ export function assessImportUpload(
     sha256: parsed.sha256,
     useBackground: false,
   };
-}
-
-/** Legacy entry point for synchronous imports. */
-export function parseImportUpload(file: Express.Multer.File): ParsedCsv {
-  const assessed = assessImportUpload(file);
-  if (assessed.useBackground || !assessed.parsed) {
-    throw new BadRequestException({
-      code: IMPORT_ERROR_CODES.ROW_LIMIT_EXCEEDED,
-      message: 'CSV requires background import processing',
-    });
-  }
-  return assessed.parsed;
 }

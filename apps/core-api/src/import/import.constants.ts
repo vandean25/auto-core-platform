@@ -1,16 +1,10 @@
 import {
   readImportApplyBatchSize,
   readImportMaxFileBytes,
-  readImportMaxRowCount,
-  readImportSyncMaxFileBytes,
-  readImportSyncMaxRowCount,
   readImportWorkerBatchSize,
 } from './import-limits.js';
 
 export const IMPORT_MAX_FILE_BYTES = readImportMaxFileBytes();
-export const IMPORT_MAX_ROW_COUNT = readImportMaxRowCount();
-export const IMPORT_SYNC_MAX_FILE_BYTES = readImportSyncMaxFileBytes();
-export const IMPORT_SYNC_MAX_ROW_COUNT = readImportSyncMaxRowCount();
 export const IMPORT_WORKER_BATCH_SIZE = readImportWorkerBatchSize();
 export const IMPORT_APPLY_BATCH_SIZE = readImportApplyBatchSize();
 
