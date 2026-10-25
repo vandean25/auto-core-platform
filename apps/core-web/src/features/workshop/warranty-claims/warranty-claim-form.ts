@@ -9,6 +9,7 @@ import type {
 } from '@/api/types'
 import { formatCurrency } from '@/lib/format'
 import { i18n } from '@/lib/i18n'
+import { mobileFieldTextClass } from '@/lib/mobile-field-text'
 
 export const WARRANTY_CLAIM_TYPES: WarrantyClaimType[] = ['GARANTIE', 'KULANZ', 'GEWAEHRLEISTUNG']
 
@@ -37,7 +38,7 @@ export function warrantyClaimStatusFilterOptions() {
 
 /** Same look as the other multi-line inputs in the workshop UI. */
 export const TEXTAREA_CLASS_NAME =
-  'flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm'
+  `flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${mobileFieldTextClass}`
 
 const TYPE_FILE_SLUGS: Record<WarrantyClaimType, string> = {
   GARANTIE: 'garantie',

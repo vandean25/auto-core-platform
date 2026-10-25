@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { Loader2, Pencil } from 'lucide-react'
+import { mobileFieldTextClass } from '@/lib/mobile-field-text'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import type { ZodType } from 'zod'
@@ -211,7 +212,8 @@ function InlineEditorInput({
           onBlur={onBlur}
           onKeyDown={onKeyDown}
           className={cn(
-            'w-full rounded-md border border-input bg-background px-3 py-2 text-base outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring md:text-sm',
+            'w-full rounded-md border border-input bg-background px-3 py-2 outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring',
+            mobileFieldTextClass,
             validationError && 'border-red-500 focus-visible:ring-red-500',
             inputClassName,
           )}

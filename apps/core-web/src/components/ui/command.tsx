@@ -5,6 +5,7 @@ import { type DialogProps } from "@radix-ui/react-dialog"
 import { Command as CommandPrimitive } from "cmdk"
 import { Search } from "lucide-react"
 
+import { mobileFieldTextClass } from "@/lib/mobile-field-text"
 import { cn } from "@/lib/utils"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
@@ -75,7 +76,8 @@ const CommandInput = React.forwardRef<
       ref={ref}
       aria-label={ariaLabel ?? "Search"}
       className={cn(
-        "flex h-10 w-full rounded-md bg-transparent py-3 text-base outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+        "flex h-10 w-full rounded-md bg-transparent py-3 outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50",
+        mobileFieldTextClass,
         className
       )}
       {...props}
