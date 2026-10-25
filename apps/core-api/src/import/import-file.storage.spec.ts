@@ -1,7 +1,4 @@
 import { BadRequestException } from '@nestjs/common';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import {
   buildGcsImportObjectKey,
   buildTenantImportObjectKey,
@@ -42,15 +39,11 @@ describe('import file storage path safety', () => {
 
   it('stores and reads under the configured root', async () => {
     const storage = new LocalImportFileStorage();
-    const tempDir = await mkdtemp(join(tmpdir(), 'import-upload-'));
-    const source = join(tempDir, 'source.csv');
-    await writeFile(source, 'a,b\n1,2\n');
-
     const ref = await storage.storeUpload({
       tenantId: 'tenant-a',
       jobId: 'job-b',
       fileName: 'data.csv',
-      localPath: source,
+      content: Buffer.from('a,b\n1,2\n', 'utf8'),
     });
 
     expect(ref.object_key).toBe('tenant-a/job-b/data.csv');
@@ -64,6 +57,5 @@ describe('import file storage path safety', () => {
     expect(bytes.toString('utf8')).toContain('a,b');
 
     await storage.deleteUpload(ref);
-    await rm(tempDir, { recursive: true, force: true });
   });
 });

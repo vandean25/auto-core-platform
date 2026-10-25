@@ -4,7 +4,6 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { Storage } from '@google-cloud/storage';
-import { randomUUID } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -130,7 +129,7 @@ export interface ImportFileStorage {
     tenantId: string;
     jobId: string;
     fileName: string;
-    localPath: string;
+    content: Buffer;
   }): Promise<StoredImportFileRef>;
 
   openReadStream(ref: StoredImportFileRef): NodeJS.ReadableStream;
@@ -156,7 +155,7 @@ export class GcsImportFileStorage implements ImportFileStorage {
     tenantId: string;
     jobId: string;
     fileName: string;
-    localPath: string;
+    content: Buffer;
   }): Promise<StoredImportFileRef> {
     SideEffectGuard.assertAllowed('GCS_WRITE');
     const bucketName = resolveImportUploadBucket();
@@ -166,10 +165,8 @@ export class GcsImportFileStorage implements ImportFileStorage {
       fileName: params.fileName,
     });
     const bucket = this.storage.bucket(bucketName);
-    const stagingPath = assertTrustedImportStagingPath(params.localPath);
-    await bucket.upload(stagingPath, {
-      destination: objectKey,
-      resumable: true,
+    await bucket.file(objectKey).save(params.content, {
+      resumable: false,
       metadata: {
         contentType: 'text/csv',
         cacheControl: 'private, no-store',
@@ -217,7 +214,7 @@ export class LocalImportFileStorage implements ImportFileStorage {
     tenantId: string;
     jobId: string;
     fileName: string;
-    localPath: string;
+    content: Buffer;
   }): Promise<StoredImportFileRef> {
     await mkdir(this.root, { recursive: true });
     const objectKey = buildTenantImportObjectKey({
@@ -227,8 +224,7 @@ export class LocalImportFileStorage implements ImportFileStorage {
     });
     const target = resolveLocalImportPath(this.root, objectKey);
     await mkdir(dirname(target), { recursive: true });
-    const bytes = await readFile(assertTrustedImportStagingPath(params.localPath));
-    await writeFile(target, bytes);
+    await writeFile(target, params.content);
     return { object_key: objectKey };
   }
 
@@ -272,7 +268,7 @@ export class ImportFileStorageService implements ImportFileStorage {
     tenantId: string;
     jobId: string;
     fileName: string;
-    localPath: string;
+    content: Buffer;
   }): Promise<StoredImportFileRef> {
     return this.delegate.storeUpload(params);
   }
@@ -290,34 +286,12 @@ export class ImportFileStorageService implements ImportFileStorage {
   }
 }
 
-export async function persistMulterUploadToTemp(
-  file: Express.Multer.File,
-): Promise<{ localPath: string; cleanup: () => Promise<void> }> {
-  if (file.path) {
-    const localPath = assertTrustedImportStagingPath(file.path);
-    return {
-      localPath,
-      cleanup: async () => {
-        await unlink(localPath).catch(() => undefined);
-      },
-    };
-  }
-  if (!file.buffer) {
+/** Nest multer uses in-memory storage for import uploads; bytes must be present. */
+export function readMulterUploadContent(file: Express.Multer.File): Buffer {
+  if (!file.buffer?.length) {
     throw new InternalServerErrorException(
       'Import upload is missing file bytes',
     );
   }
-  await mkdir(join(tmpdir(), 'acp-import-multer'), { recursive: true });
-  const localPath = join(
-    tmpdir(),
-    'acp-import-multer',
-    `${Date.now()}-${randomUUID()}.csv`,
-  );
-  await writeFile(localPath, file.buffer);
-  return {
-    localPath,
-    cleanup: async () => {
-      await unlink(localPath).catch(() => undefined);
-    },
-  };
+  return file.buffer;
 }

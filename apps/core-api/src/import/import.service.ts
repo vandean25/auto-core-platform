@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as Sentry from '@sentry/node';
 import { randomUUID as cryptoRandomUuid } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
 import {
   ImportEntityType,
   ImportJobStatus,
@@ -55,8 +54,7 @@ import { ImportCloudTasksService } from './import-cloud-tasks.service.js';
 import { enqueueOrRunImportWorker } from './import-dispatch.js';
 import {
   ImportFileStorageService,
-  assertTrustedImportStagingPath,
-  persistMulterUploadToTemp,
+  readMulterUploadContent,
 } from './import-file.storage.js';
 import {
   readUploadRef,
@@ -200,21 +198,16 @@ export class ImportService {
     await handler.prepareCreate(tenantId, params.sourceSystem, options);
 
     if (assessed.useBackground) {
-      const { localPath, cleanup } = await persistMulterUploadToTemp(
-        params.file,
-      );
+      const fileContent = readMulterUploadContent(params.file);
+      const headerParsed = parseCsvFile(fileContent);
+      const placeholderJobId = cryptoRandomUuid();
+      const upload = await this.fileStorage.storeUpload({
+        tenantId,
+        jobId: placeholderJobId,
+        fileName: params.file.originalname,
+        content: fileContent,
+      });
       try {
-        const fileBuffer = await readFile(
-          assertTrustedImportStagingPath(localPath),
-        );
-        const headerParsed = parseCsvFile(fileBuffer);
-        const placeholderJobId = cryptoRandomUuid();
-        const upload = await this.fileStorage.storeUpload({
-          tenantId,
-          jobId: placeholderJobId,
-          fileName: params.file.originalname,
-          localPath,
-        });
         const job = await this.jobStore.createPendingBackgroundJob({
           tenantId,
           entityType: params.entityType,
@@ -249,8 +242,9 @@ export class ImportService {
             }),
         });
         return this.serializeJob(job, job.totals_json as ImportJobTotals);
-      } finally {
-        await cleanup();
+      } catch (error) {
+        await this.fileStorage.deleteUpload(upload).catch(() => undefined);
+        throw error;
       }
     }
 
