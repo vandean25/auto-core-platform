@@ -1068,6 +1068,13 @@
       "back": "Zurück",
       "runDryRun": "Probelauf starten"
     },
+    "background": {
+      "title": "Import wird im Hintergrund verarbeitet",
+      "description": "Große Dateien werden in Stapeln geprüft. Sie können diese Seite geöffnet lassen; der Fortschritt aktualisiert sich automatisch.",
+      "rows": "{{processed}} / {{total}} Zeilen",
+      "eta": "Noch etwa {{minutes}} Min.",
+      "cancel": "Import abbrechen"
+    },
     "dryRun": {
       "title": "4. Probelauf-Bericht",
       "stale": {

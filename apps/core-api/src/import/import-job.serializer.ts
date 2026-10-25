@@ -6,6 +6,10 @@ import type {
 } from '@prisma/client';
 import { serializeCsv } from './csv-parse.util.js';
 import type { ImportJobTotals } from './import.types.js';
+import {
+  computeImportProgress,
+  type ImportJobOptionsWithWorker,
+} from './import-job.worker-state.js';
 
 export type ImportJobView = {
   id: string;
@@ -26,6 +30,11 @@ export function serializeImportJob(
   job: ImportJobView,
   totals: ImportJobTotals,
 ) {
+  const progress = computeImportProgress({
+    status: job.status,
+    totals,
+    options: job.options_json as ImportJobOptionsWithWorker,
+  });
   return {
     id: job.id,
     entity_type: job.entity_type,
@@ -36,6 +45,7 @@ export function serializeImportJob(
     mapping: job.mapping_json,
     options: job.options_json,
     totals,
+    progress,
     created_by: job.created_by,
     created_at: job.createdAt.toISOString(),
     applied_at: job.appliedAt?.toISOString() ?? null,

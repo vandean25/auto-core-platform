@@ -35,6 +35,11 @@ export type ImportDryRunInput = {
   options: ImportJobOptions;
 };
 
+export type ImportApplyBatchOptions = {
+  resumeAfterRowNo?: number;
+  stopAfterBatch?: boolean;
+};
+
 export type ImportApplyInput = {
   tenantId: string;
   job: ImportApplyJob;
@@ -42,6 +47,7 @@ export type ImportApplyInput = {
   actorUserId: string;
   effectiveOptions: ImportJobOptions;
   preparation: ImportApplyPreparation;
+  batchOptions?: ImportApplyBatchOptions;
 };
 
 /**

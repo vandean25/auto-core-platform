@@ -126,7 +126,8 @@ describe('ImportService stage spans', () => {
 
     await h.service.applyJob(JOB_ID);
 
-    expect(spans.map((span) => span.op)).toEqual(['import.commit']);
+    expect(spans.map((span) => span.op)).toContain('import.commit');
+    expect(spans.map((span) => span.op)).toContain('import.apply.batch');
     expect(spans[0].attributes).toEqual({
       entity_type: 'CUSTOMER',
       row_count: 2,
@@ -143,7 +144,7 @@ describe('ImportService stage spans', () => {
       response: { code: IMPORT_ERROR_CODES.EMPTY_FILE },
     });
 
-    expect(spans.map((span) => span.op)).toEqual(['import.parse']);
+    expect(spans.map((span) => span.op)).toEqual([]);
     expect(h.prisma.importJob.create).not.toHaveBeenCalled();
   });
 

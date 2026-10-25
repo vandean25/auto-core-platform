@@ -22,6 +22,7 @@ import { useImportCsvFile } from './use-import-csv-file'
 import { useImportDownloads } from './use-import-downloads'
 import { useImportDryRunAction } from './use-import-dry-run'
 import { useImportProfiles } from './use-import-profiles'
+import { useImportJobPolling } from './use-import-job-polling'
 import { useImportRows } from './use-import-rows'
 import { EMPTY_CSV_SELECTION, useImportWizardState } from './use-import-wizard-state'
 
@@ -82,6 +83,15 @@ export function DataImportSettingsTab() {
     onMappingLoaded: wizard.setMapping,
     resetDryRun: wizard.resetDryRun,
   })
+  const backgroundPoll = useImportJobPolling(
+    wizard.dryRunJob?.status === 'APPLYING' ? wizard.dryRunJob.id : null,
+  )
+  React.useEffect(() => {
+    if (backgroundPoll.data) {
+      wizard.applyDryRunResult(backgroundPoll.data)
+    }
+  }, [backgroundPoll.data, wizard.applyDryRunResult])
+
   const dryRun = useImportDryRunAction({
     entityType: wizard.entityType,
     sourceSystem,

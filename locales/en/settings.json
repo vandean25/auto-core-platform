@@ -1068,6 +1068,13 @@
       "back": "Back",
       "runDryRun": "Run dry-run"
     },
+    "background": {
+      "title": "Processing import in the background",
+      "description": "Large files are validated in batches. You can leave this page open; progress updates automatically.",
+      "rows": "{{processed}} / {{total}} rows",
+      "eta": "About {{minutes}} min remaining",
+      "cancel": "Cancel import"
+    },
     "dryRun": {
       "title": "4. Dry-run report",
       "stale": {

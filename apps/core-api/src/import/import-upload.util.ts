@@ -1,38 +1,92 @@
 import { BadRequestException } from '@nestjs/common';
 import { parseCsvFile, type ParsedCsv } from './csv-parse.util.js';
+import { parseCsvBufferHeadersOnly } from './import-csv-batch.util.js';
+import { IMPORT_ERROR_CODES } from './import.constants.js';
 import {
-  IMPORT_ERROR_CODES,
-  IMPORT_MAX_FILE_BYTES,
-  IMPORT_MAX_ROW_COUNT,
-} from './import.constants.js';
+  isBackgroundImportCandidate,
+  readImportMaxFileBytes,
+  readImportMaxRowCount,
+} from './import-limits.js';
 
-/** Checks an uploaded CSV and parses it. Rejects empty, oversized and over-long files. */
-export function parseImportUpload(file: Express.Multer.File): ParsedCsv {
-  if (!file?.buffer) {
+export type ImportUploadStats = {
+  parsed?: ParsedCsv;
+  rowCount: number;
+  sha256: string;
+  useBackground: boolean;
+};
+
+/** Checks an uploaded CSV and parses it when the file is small enough for sync handling. */
+export function assessImportUpload(
+  file: Express.Multer.File,
+): ImportUploadStats {
+  if (!file?.buffer && !file?.path) {
     throw new BadRequestException({
       code: IMPORT_ERROR_CODES.EMPTY_FILE,
       message: 'CSV file is required',
     });
   }
-  if (file.size > IMPORT_MAX_FILE_BYTES) {
+  const maxFileBytes = readImportMaxFileBytes();
+  if (file.size > maxFileBytes) {
     throw new BadRequestException({
       code: IMPORT_ERROR_CODES.FILE_TOO_LARGE,
-      message: `CSV file exceeds ${IMPORT_MAX_FILE_BYTES} bytes`,
+      message: `CSV file exceeds ${maxFileBytes} bytes`,
     });
   }
 
-  const parsed = parseCsvFile(file.buffer);
-  if (parsed.headers.length === 0 || parsed.rows.length === 0) {
+  const buffer = file.buffer ?? undefined;
+  if (!buffer) {
+    const useBackground = isBackgroundImportCandidate({ fileBytes: file.size });
+    return {
+      rowCount: 0,
+      sha256: '',
+      useBackground,
+    };
+  }
+
+  const headerStats = parseCsvBufferHeadersOnly(buffer);
+  if (headerStats.headers.length === 0 || headerStats.dataRowCount === 0) {
     throw new BadRequestException({
       code: IMPORT_ERROR_CODES.EMPTY_FILE,
       message: 'CSV file has no data rows',
     });
   }
-  if (parsed.rows.length > IMPORT_MAX_ROW_COUNT) {
+  const maxRowCount = readImportMaxRowCount();
+  if (headerStats.dataRowCount > maxRowCount) {
     throw new BadRequestException({
       code: IMPORT_ERROR_CODES.ROW_LIMIT_EXCEEDED,
-      message: `CSV exceeds ${IMPORT_MAX_ROW_COUNT} rows`,
+      message: `CSV exceeds ${maxRowCount} rows`,
     });
   }
-  return parsed;
+
+  const useBackground = isBackgroundImportCandidate({
+    fileBytes: file.size,
+    rowCount: headerStats.dataRowCount,
+  });
+  if (useBackground) {
+    return {
+      rowCount: headerStats.dataRowCount,
+      sha256: headerStats.sha256,
+      useBackground: true,
+    };
+  }
+
+  const parsed = parseCsvFile(buffer);
+  return {
+    parsed,
+    rowCount: parsed.rows.length,
+    sha256: parsed.sha256,
+    useBackground: false,
+  };
+}
+
+/** Legacy entry point for synchronous imports. */
+export function parseImportUpload(file: Express.Multer.File): ParsedCsv {
+  const assessed = assessImportUpload(file);
+  if (assessed.useBackground || !assessed.parsed) {
+    throw new BadRequestException({
+      code: IMPORT_ERROR_CODES.ROW_LIMIT_EXCEEDED,
+      message: 'CSV requires background import processing',
+    });
+  }
+  return assessed.parsed;
 }

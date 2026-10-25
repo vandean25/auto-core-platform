@@ -1,6 +1,20 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ImportEntityType, ImportJobStatus } from '@prisma/client';
 
+export class ImportJobProgressDto {
+  @ApiProperty({ enum: ['dry_run', 'apply'], nullable: true })
+  phase!: 'dry_run' | 'apply' | null;
+
+  @ApiProperty()
+  processed_rows!: number;
+
+  @ApiProperty()
+  total_rows!: number;
+
+  @ApiProperty({ nullable: true, type: Number })
+  eta_seconds!: number | null;
+}
+
 export class ImportJobTotalsDto {
   @ApiProperty()
   rows!: number;
@@ -48,6 +62,9 @@ export class ImportJobResponseDto {
 
   @ApiProperty({ type: ImportJobTotalsDto })
   totals!: ImportJobTotalsDto;
+
+  @ApiPropertyOptional({ type: ImportJobProgressDto, nullable: true })
+  progress?: ImportJobProgressDto | null;
 
   @ApiProperty({ nullable: true })
   created_by!: string | null;

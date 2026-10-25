@@ -85,17 +85,21 @@ export class CustomerImportHandler implements ImportTypeHandler {
 
   apply(input: ImportApplyInput): Promise<SerializedImportJob> {
     const audit = this.audit;
-    return this.rowRunner.run(input, this.entityType, (tx, row) =>
-      applyCustomerImportRow(
-        tx,
-        {
-          tenantId: input.tenantId,
-          job: input.job,
-          actorUserId: input.actorUserId,
-          audit,
-        },
-        row,
-      ),
+    return this.rowRunner.run(
+      input,
+      this.entityType,
+      (tx, row) =>
+        applyCustomerImportRow(
+          tx,
+          {
+            tenantId: input.tenantId,
+            job: input.job,
+            actorUserId: input.actorUserId,
+            audit,
+          },
+          row,
+        ),
+      input.batchOptions,
     );
   }
 }

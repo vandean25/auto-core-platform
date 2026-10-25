@@ -4667,6 +4667,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/imports/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel a background import job before apply */
+        post: operations["ImportController_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tyre-sets/settings": {
         parameters: {
             query?: never;
@@ -10873,6 +10890,13 @@ export interface components {
             error: number;
             flagged_jumps?: number;
         };
+        ImportJobProgressDto: {
+            /** @enum {string|null} */
+            phase: "dry_run" | "apply" | null;
+            processed_rows: number;
+            total_rows: number;
+            eta_seconds: number | null;
+        };
         ImportJobResponseDto: {
             id: string;
             entity_type: components["schemas"]["ImportEntityType"];
@@ -10887,6 +10911,7 @@ export interface components {
                 [key: string]: unknown;
             };
             totals: components["schemas"]["ImportJobTotalsDto"];
+            progress?: components["schemas"]["ImportJobProgressDto"] | null;
             created_by: Record<string, never> | null;
             created_at: string;
             applied_at: Record<string, never> | null;
@@ -20947,6 +20972,27 @@ export interface operations {
                 "application/json": components["schemas"]["ApplyImportJobDto"];
             };
         };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJobResponseDto"];
+                };
+            };
+        };
+    };
+    ImportController_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             200: {
                 headers: {

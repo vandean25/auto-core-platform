@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common';
+import * as Sentry from '@sentry/node';
 import {
   ImportEntityType,
   ImportJobStatus,
@@ -10,7 +11,10 @@ import { toRowApplyError } from './import-apply.errors.js';
 import { assertApplyRowIsFresh } from './import-apply.freshness.js';
 import type { ImportAuditWriter } from './import-audit.writer.js';
 import { markImportRowFailed } from './import-job.store.js';
-import { IMPORT_LOGGER_CONTEXT } from './import.constants.js';
+import {
+  IMPORT_APPLY_BATCH_SIZE,
+  IMPORT_LOGGER_CONTEXT,
+} from './import.constants.js';
 import type {
   SerializedImportJob,
   SerializeImportJobFn,
@@ -53,13 +57,43 @@ export class RowByRowApplyRunner {
     input: ImportApplyInput,
     entityType: ImportEntityType,
     writeRow: ImportRowWriter,
+    options?: { resumeAfterRowNo?: number; stopAfterBatch?: boolean },
   ): Promise<SerializedImportJob> {
     const { tenantId, job, rows, actorUserId } = input;
     const totals = createApplyTotals(rows.length);
+    const resumeAfter = options?.resumeAfterRowNo ?? 0;
+    const pending = rows.filter((row) => row.row_no > resumeAfter);
+    const batchSize = options?.stopAfterBatch
+      ? IMPORT_APPLY_BATCH_SIZE
+      : pending.length;
 
     try {
-      for (const row of rows) {
-        await this.applyOne(input, entityType, writeRow, row, totals);
+      const batchRows = pending.slice(0, batchSize);
+      await Sentry.startSpan(
+        {
+          name: 'Import apply batch',
+          op: 'import.apply.batch',
+          attributes: {
+            jobId: job.id,
+            batchSize: batchRows.length,
+            resumeAfterRowNo: resumeAfter,
+          },
+        },
+        async () => {
+          for (const row of batchRows) {
+            await this.applyOne(input, entityType, writeRow, row, totals);
+          }
+        },
+      );
+
+      const batchIncomplete =
+        options?.stopAfterBatch && pending.length > batchRows.length;
+      if (batchIncomplete) {
+        const partial = await this.prisma.importJob.update({
+          where: { id: job.id },
+          data: { totals_json: totals, status: ImportJobStatus.APPLYING },
+        });
+        return this.serialize(partial, totals);
       }
 
       const updated = await this.prisma.importJob.update({

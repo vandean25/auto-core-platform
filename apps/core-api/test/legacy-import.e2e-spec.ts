@@ -50,6 +50,7 @@ describe('Legacy CSV import (e2e)', () => {
   };
 
   beforeAll(async () => {
+    process.env.IMPORT_MAX_ROW_COUNT = '20000';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -262,7 +263,7 @@ describe('Legacy CSV import (e2e)', () => {
 
     await cleanupTestTenantGraph(prisma, techTenant.tenantId);
 
-    const rows = Array.from({ length: IMPORT_MAX_ROW_COUNT + 1 }, (_, i) => [
+    const rows = Array.from({ length: 20_001 }, (_, i) => [
       String(10_000 + i),
       'PRIVATE',
       'Bulk',

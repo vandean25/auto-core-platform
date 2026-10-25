@@ -65,6 +65,7 @@ describe('ImportService job lifecycle — getJob', () => {
         status: ImportJobStatus.DRY_RUN_DONE,
         mapping: CUSTOMER_MAPPING,
         totals: DRY_RUN_CREATE_TOTALS,
+        progress: null,
         applied_at: null,
       });
     });

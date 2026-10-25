@@ -12,7 +12,7 @@ function stripBom(text: string): string {
   return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
 }
 
-function decodeCsvBuffer(buffer: Buffer): string {
+export function decodeCsvBuffer(buffer: Buffer): string {
   const asUtf8 = stripBom(buffer.toString('utf8'));
   if (!asUtf8.includes('\uFFFD')) {
     return asUtf8;
@@ -20,7 +20,7 @@ function decodeCsvBuffer(buffer: Buffer): string {
   return stripBom(iconv.decode(buffer, 'win1252'));
 }
 
-function detectDelimiter(headerLine: string): ';' | ',' {
+export function detectDelimiterFromHeaderLine(headerLine: string): ';' | ',' {
   const semicolons = (headerLine.match(/;/g) ?? []).length;
   const commas = (headerLine.match(/,/g) ?? []).length;
   return semicolons >= commas ? ';' : ',';
@@ -34,7 +34,7 @@ export function sanitizeCsvInjectionValue(value: string): string {
   return value;
 }
 
-function parseCsvRecords(text: string, delimiter: string): string[][] {
+export function parseCsvRecords(text: string, delimiter: string): string[][] {
   const rows: string[][] = [];
   let currentRow: string[] = [];
   let currentCell = '';
@@ -102,7 +102,7 @@ export function parseCsvFile(buffer: Buffer): ParsedCsv {
 
   const firstLineEnd = text.indexOf('\n');
   const headerLine = firstLineEnd === -1 ? text : text.slice(0, firstLineEnd);
-  const delimiter = detectDelimiter(headerLine);
+  const delimiter = detectDelimiterFromHeaderLine(headerLine);
   const records = parseCsvRecords(text, delimiter);
 
   if (records.length === 0) {

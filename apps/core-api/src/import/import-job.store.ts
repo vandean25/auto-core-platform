@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import {
   ImportEntityType,
   ImportJobStatus,
@@ -5,6 +6,13 @@ import {
   Prisma,
 } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
+import {
+  IMPORT_WORKER_LEASE_MS,
+  type ImportJobOptionsWithWorker,
+  type ImportJobUploadRef,
+  type ImportJobWorkerState,
+  type ImportWorkerPhase,
+} from './import-job.worker-state.js';
 import type {
   DryRunRowResult,
   ImportJobOptions,
@@ -73,6 +81,154 @@ export class ImportJobStore {
     });
   }
 
+  createPendingBackgroundJob(input: {
+    tenantId: string;
+    entityType: ImportEntityType;
+    sourceSystem: string;
+    fileName: string;
+    fileSha256: string;
+    mapping: Record<string, string>;
+    options: ImportJobOptionsWithWorker;
+    actorUserId: string;
+    upload: ImportJobUploadRef;
+    expectedRows: number;
+  }) {
+    const leaseToken = randomUUID();
+    const now = new Date();
+    const worker: ImportJobWorkerState = {
+      phase: 'dry_run',
+      lease_token: leaseToken,
+      lease_until: new Date(now.getTime() + IMPORT_WORKER_LEASE_MS).toISOString(),
+      processed_rows: 0,
+      started_at: now.toISOString(),
+    };
+    const totals: ImportJobTotals = {
+      rows: input.expectedRows,
+      create: 0,
+      update: 0,
+      skip: 0,
+      error: 0,
+    };
+    return this.prisma.importJob.create({
+      data: {
+        tenant_id: input.tenantId,
+        entity_type: input.entityType,
+        source_system: input.sourceSystem,
+        file_name: input.fileName,
+        file_sha256: input.fileSha256,
+        status: ImportJobStatus.APPLYING,
+        mapping_json: input.mapping,
+        options_json: {
+          ...input.options,
+          upload: input.upload,
+          worker,
+        },
+        totals_json: totals,
+        created_by: input.actorUserId,
+      },
+    });
+  }
+
+  appendDryRunRows(
+    tenantId: string,
+    jobId: string,
+    rows: DryRunRowResult[],
+    totals: ImportJobTotals,
+    workerPatch: Partial<ImportJobWorkerState>,
+    options: ImportJobOptionsWithWorker,
+  ) {
+    const worker = { ...options.worker!, ...workerPatch };
+    return this.prisma.importJob.update({
+      where: { tenant_id: tenantId, id: jobId },
+      data: {
+        totals_json: totals,
+        options_json: { ...options, worker },
+        rows: { create: rows.map(toRowCreate) },
+      },
+    });
+  }
+
+  async tryClaimWorkerLease(
+    tenantId: string,
+    jobId: string,
+    phase: ImportWorkerPhase,
+  ): Promise<string | null> {
+    const job = await this.findJob(tenantId, jobId);
+    if (!job || job.status !== ImportJobStatus.APPLYING) {
+      return null;
+    }
+    const options = job.options_json as ImportJobOptionsWithWorker;
+    const worker = options.worker;
+    if (!worker || worker.phase !== phase) {
+      return null;
+    }
+    const leaseUntil = Date.parse(worker.lease_until);
+    if (Number.isFinite(leaseUntil) && leaseUntil > Date.now()) {
+      return null;
+    }
+    const leaseToken = randomUUID();
+    const nextWorker: ImportJobWorkerState = {
+      ...worker,
+      lease_token: leaseToken,
+      lease_until: new Date(
+        Date.now() + IMPORT_WORKER_LEASE_MS,
+      ).toISOString(),
+    };
+    const updated = await this.prisma.importJob.updateMany({
+      where: {
+        tenant_id: tenantId,
+        id: jobId,
+        status: ImportJobStatus.APPLYING,
+      },
+      data: {
+        options_json: { ...options, worker: nextWorker },
+      },
+    });
+    return updated.count === 1 ? leaseToken : null;
+  }
+
+  async updateWorkerProgress(
+    tenantId: string,
+    jobId: string,
+    leaseToken: string,
+    patch: Partial<ImportJobWorkerState> & {
+      totals?: ImportJobTotals;
+      status?: ImportJobStatus;
+    },
+  ) {
+    const job = await this.findJob(tenantId, jobId);
+    if (!job) {
+      return null;
+    }
+    const options = job.options_json as ImportJobOptionsWithWorker;
+    if (options.worker?.lease_token !== leaseToken) {
+      return null;
+    }
+    const worker = { ...options.worker, ...patch };
+    return this.prisma.importJob.update({
+      where: { tenant_id: tenantId, id: jobId },
+      data: {
+        ...(patch.status ? { status: patch.status } : {}),
+        ...(patch.totals ? { totals_json: patch.totals } : {}),
+        options_json: { ...options, worker },
+        ...(patch.status === ImportJobStatus.APPLIED
+          ? { appliedAt: new Date() }
+          : {}),
+      },
+    });
+  }
+
+  cancelJob(tenantId: string, jobId: string) {
+    return this.prisma.importJob.updateMany({
+      where: {
+        tenant_id: tenantId,
+        id: jobId,
+        status: { in: [ImportJobStatus.DRY_RUN_DONE, ImportJobStatus.APPLYING] },
+      },
+      data: { status: ImportJobStatus.CANCELLED },
+    });
+  }
+
   findRowsPage(
     where: Prisma.ImportJobRowWhereInput,
     skip: number,
@@ -116,6 +272,33 @@ export class ImportJobStore {
         status: ImportJobStatus.DRY_RUN_DONE,
       },
       data: { status: ImportJobStatus.APPLYING },
+    });
+  }
+
+  async lockForBackgroundApply(
+    tenantId: string,
+    jobId: string,
+    options: ImportJobOptionsWithWorker,
+  ) {
+    const leaseToken = randomUUID();
+    const worker: ImportJobWorkerState = {
+      phase: 'apply',
+      lease_token: leaseToken,
+      lease_until: new Date(Date.now() + IMPORT_WORKER_LEASE_MS).toISOString(),
+      processed_rows: 0,
+      last_committed_row_no: 0,
+      started_at: new Date().toISOString(),
+    };
+    return this.prisma.importJob.updateMany({
+      where: {
+        tenant_id: tenantId,
+        id: jobId,
+        status: ImportJobStatus.DRY_RUN_DONE,
+      },
+      data: {
+        status: ImportJobStatus.APPLYING,
+        options_json: { ...options, worker },
+      },
     });
   }
 }

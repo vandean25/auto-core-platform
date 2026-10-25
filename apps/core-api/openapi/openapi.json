@@ -14952,6 +14952,37 @@
         ]
       }
     },
+    "/api/imports/{id}/cancel": {
+      "post": {
+        "operationId": "ImportController_cancel",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportJobResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Cancel a background import job before apply",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
     "/api/tyre-sets/settings": {
       "get": {
         "operationId": "TyreStorageController_getSettings",
@@ -36381,6 +36412,35 @@
           "error"
         ]
       },
+      "ImportJobProgressDto": {
+        "type": "object",
+        "properties": {
+          "phase": {
+            "type": "string",
+            "enum": [
+              "dry_run",
+              "apply"
+            ],
+            "nullable": true
+          },
+          "processed_rows": {
+            "type": "number"
+          },
+          "total_rows": {
+            "type": "number"
+          },
+          "eta_seconds": {
+            "type": "number",
+            "nullable": true
+          }
+        },
+        "required": [
+          "phase",
+          "processed_rows",
+          "total_rows",
+          "eta_seconds"
+        ]
+      },
       "ImportJobResponseDto": {
         "type": "object",
         "properties": {
@@ -36422,6 +36482,15 @@
           },
           "totals": {
             "$ref": "#/components/schemas/ImportJobTotalsDto"
+          },
+          "progress": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImportJobProgressDto"
+              }
+            ]
           },
           "created_by": {
             "type": "object",

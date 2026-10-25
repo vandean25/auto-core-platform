@@ -53,6 +53,7 @@ export abstract class RowByRowImportHandler implements ImportTypeHandler {
       { ...input, rows: this.orderRows(input.rows) },
       this.entityType,
       (tx, row) => this.writeRow(tx, row, input),
+      input.batchOptions,
     );
   }
 }

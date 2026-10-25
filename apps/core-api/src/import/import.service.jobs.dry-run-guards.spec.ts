@@ -11,6 +11,7 @@ import {
   IMPORT_ERROR_CODES,
   IMPORT_MAX_FILE_BYTES,
 } from './import.constants.js';
+import * as importLimits from './import-limits.js';
 import {
   ACTOR_AUTH_UID,
   ACTOR_DB_ID,
@@ -145,6 +146,9 @@ describe('ImportService job lifecycle — createDryRunFromUpload request guards'
     });
 
     it('rejects more than the row limit with IMPORT_ROW_LIMIT_EXCEEDED', async () => {
+      const limitSpy = jest
+        .spyOn(importLimits, 'readImportMaxRowCount')
+        .mockReturnValue(20_000);
       const dataRows = Array.from({ length: 20_001 }, (_, i) => `K-${i}`);
       const text = ['external_id', ...dataRows].join('\n');
 
@@ -159,6 +163,7 @@ describe('ImportService job lifecycle — createDryRunFromUpload request guards'
           message: 'CSV exceeds 20000 rows',
         },
       });
+      limitSpy.mockRestore();
     });
   });
 

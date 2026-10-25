@@ -204,6 +204,14 @@ export class ImportController {
     return this.importService.applyJob(id, body);
   }
 
+  @Post(':id/cancel')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Cancel a background import job before apply' })
+  @ApiOkResponse({ type: ImportJobResponseDto })
+  cancel(@Param('id') id: string) {
+    return this.importService.cancelJob(id);
+  }
+
   private parseEntityType(value: string): ImportEntityType {
     const normalized = value?.trim().toUpperCase();
     if (normalized === ImportEntityType.CUSTOMER) {

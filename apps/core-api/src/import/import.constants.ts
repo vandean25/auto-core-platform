@@ -1,5 +1,19 @@
-export const IMPORT_MAX_FILE_BYTES = 10 * 1024 * 1024;
-export const IMPORT_MAX_ROW_COUNT = 20_000;
+import {
+  readImportApplyBatchSize,
+  readImportMaxFileBytes,
+  readImportMaxRowCount,
+  readImportSyncMaxFileBytes,
+  readImportSyncMaxRowCount,
+  readImportWorkerBatchSize,
+} from './import-limits.js';
+
+export const IMPORT_MAX_FILE_BYTES = readImportMaxFileBytes();
+export const IMPORT_MAX_ROW_COUNT = readImportMaxRowCount();
+export const IMPORT_SYNC_MAX_FILE_BYTES = readImportSyncMaxFileBytes();
+export const IMPORT_SYNC_MAX_ROW_COUNT = readImportSyncMaxRowCount();
+export const IMPORT_WORKER_BATCH_SIZE = readImportWorkerBatchSize();
+export const IMPORT_APPLY_BATCH_SIZE = readImportApplyBatchSize();
+
 export const IMPORT_JOB_RETENTION_DAYS = 180;
 
 export const IMPORT_SOURCE = 'import';
@@ -16,6 +30,7 @@ export const IMPORT_ERROR_CODES = {
   JOB_ALREADY_APPLIED: 'IMPORT_JOB_ALREADY_APPLIED',
   JOB_STALE: 'IMPORT_JOB_STALE',
   APPLY_IN_PROGRESS: 'IMPORT_APPLY_IN_PROGRESS',
+  DRY_RUN_IN_PROGRESS: 'IMPORT_DRY_RUN_IN_PROGRESS',
   INVALID_ENTITY_TYPE: 'IMPORT_INVALID_ENTITY_TYPE',
   INVALID_MAPPING: 'IMPORT_INVALID_MAPPING',
   ROW_STALE: 'IMPORT_ROW_STALE',
