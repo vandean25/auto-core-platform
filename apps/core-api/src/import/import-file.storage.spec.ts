@@ -1,0 +1,62 @@
+import { BadRequestException } from '@nestjs/common';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import {
+  buildGcsImportObjectKey,
+  buildTenantImportObjectKey,
+  LocalImportFileStorage,
+  sanitizeImportFileName,
+} from './import-file.storage.js';
+
+describe('import file storage path safety', () => {
+  it('strips directory components from upload file names', () => {
+    expect(sanitizeImportFileName('../../etc/passwd')).toBe('passwd');
+    expect(sanitizeImportFileName('..\\evil.csv')).toBe('evil.csv');
+    expect(sanitizeImportFileName('')).toBe('import.csv');
+  });
+
+  it('builds tenant object keys with safe segments only', () => {
+    expect(
+      buildTenantImportObjectKey({
+        tenantId: 'tenant-1',
+        jobId: 'job-2',
+        fileName: '../prices.csv',
+      }),
+    ).toBe('tenant-1/job-2/prices.csv');
+  });
+
+  it('rejects path traversal in stored object keys for local reads', async () => {
+    const storage = new LocalImportFileStorage();
+    await expect(
+      storage.readBytes({ object_key: '../../outside.csv' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('stores and reads under the configured root', async () => {
+    const storage = new LocalImportFileStorage();
+    const tempDir = await mkdtemp(join(tmpdir(), 'import-upload-'));
+    const source = join(tempDir, 'source.csv');
+    await writeFile(source, 'a,b\n1,2\n');
+
+    const ref = await storage.storeUpload({
+      tenantId: 'tenant-a',
+      jobId: 'job-b',
+      fileName: 'data.csv',
+      localPath: source,
+    });
+
+    expect(ref.object_key).toBe('tenant-a/job-b/data.csv');
+    expect(buildGcsImportObjectKey({
+      tenantId: 'tenant-a',
+      jobId: 'job-b',
+      fileName: 'data.csv',
+    })).toBe('tenants/tenant-a/imports/job-b/data.csv');
+
+    const bytes = await storage.readBytes(ref);
+    expect(bytes.toString('utf8')).toContain('a,b');
+
+    await storage.deleteUpload(ref);
+    await rm(tempDir, { recursive: true, force: true });
+  });
+});

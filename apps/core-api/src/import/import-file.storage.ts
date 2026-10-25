@@ -1,15 +1,107 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { Storage } from '@google-cloud/storage';
+import { randomUUID } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 import { SideEffectGuard } from '../dry-run/side-effect-guard.js';
 import { resolvePdfStorageBucket } from '../common/pdf/pdf-bucket.js';
 
 export type StoredImportFileRef = {
   object_key: string;
 };
+
+const DEFAULT_IMPORT_FILE_NAME = 'import.csv';
+const SAFE_PATH_SEGMENT = /^[a-zA-Z0-9._-]+$/;
+
+/** Basename-only file label safe for object keys and temp paths. */
+export function sanitizeImportFileName(fileName: string): string {
+  const normalized = fileName.normalize('NFC').replace(/\0/g, '');
+  const lastSegment =
+    normalized.split(/[/\\]/).filter((part) => part.length > 0).pop() ??
+    normalized;
+  const cleaned = basename(lastSegment)
+    .replace(/[\\/\p{Cc}\p{Cf}"]/gu, ' ')
+    .trim()
+    .slice(0, 255);
+  if (!cleaned || cleaned === '.' || cleaned === '..') {
+    return DEFAULT_IMPORT_FILE_NAME;
+  }
+  return cleaned;
+}
+
+function assertSafePathSegment(segment: string, label: string): void {
+  if (!segment || segment === '.' || segment === '..') {
+    throw new BadRequestException(`Invalid import ${label}.`);
+  }
+  if (!SAFE_PATH_SEGMENT.test(segment)) {
+    throw new BadRequestException(`Invalid import ${label}.`);
+  }
+}
+
+export function buildTenantImportObjectKey(params: {
+  tenantId: string;
+  jobId: string;
+  fileName: string;
+}): string {
+  assertSafePathSegment(params.tenantId, 'tenant id');
+  assertSafePathSegment(params.jobId, 'job id');
+  const safeName = sanitizeImportFileName(params.fileName);
+  return `${params.tenantId}/${params.jobId}/${safeName}`;
+}
+
+export function buildGcsImportObjectKey(params: {
+  tenantId: string;
+  jobId: string;
+  fileName: string;
+}): string {
+  assertSafePathSegment(params.tenantId, 'tenant id');
+  assertSafePathSegment(params.jobId, 'job id');
+  const safeName = sanitizeImportFileName(params.fileName);
+  return `tenants/${params.tenantId}/imports/${params.jobId}/${safeName}`;
+}
+
+function assertSafeStoredObjectKey(objectKey: string): void {
+  const segments = objectKey.split('/').filter((segment) => segment.length > 0);
+  if (segments.length === 0) {
+    throw new BadRequestException('Invalid import object key.');
+  }
+  for (const segment of segments) {
+    if (segment === '.' || segment === '..') {
+      throw new BadRequestException('Invalid import object key.');
+    }
+  }
+}
+
+function resolveLocalImportPath(root: string, objectKey: string): string {
+  assertSafeStoredObjectKey(objectKey);
+  const segments = objectKey.split('/').filter((segment) => segment.length > 0);
+  const resolvedRoot = resolve(root);
+  const target = resolve(resolvedRoot, ...segments);
+  if (target !== resolvedRoot && !target.startsWith(`${resolvedRoot}/`)) {
+    throw new BadRequestException('Invalid import object key.');
+  }
+  return target;
+}
+
+function assertSafeGcsImportObjectKey(objectKey: string): void {
+  if (!objectKey.startsWith('tenants/')) {
+    throw new BadRequestException('Invalid import object key.');
+  }
+  assertSafeStoredObjectKey(objectKey);
+  const tail = objectKey.slice('tenants/'.length);
+  const segments = tail.split('/').filter((segment) => segment.length > 0);
+  if (segments.length !== 4 || segments[1] !== 'imports') {
+    throw new BadRequestException('Invalid import object key.');
+  }
+  assertSafePathSegment(segments[0], 'tenant id');
+  assertSafePathSegment(segments[2], 'job id');
+}
 
 export interface ImportFileStorage {
   storeUpload(params: {
@@ -46,7 +138,11 @@ export class GcsImportFileStorage implements ImportFileStorage {
   }): Promise<StoredImportFileRef> {
     SideEffectGuard.assertAllowed('GCS_WRITE');
     const bucketName = resolveImportUploadBucket();
-    const objectKey = `tenants/${params.tenantId}/imports/${params.jobId}/${params.fileName}`;
+    const objectKey = buildGcsImportObjectKey({
+      tenantId: params.tenantId,
+      jobId: params.jobId,
+      fileName: params.fileName,
+    });
     const bucket = this.storage.bucket(bucketName);
     await bucket.upload(params.localPath, {
       destination: objectKey,
@@ -60,11 +156,13 @@ export class GcsImportFileStorage implements ImportFileStorage {
   }
 
   openReadStream(ref: StoredImportFileRef): NodeJS.ReadableStream {
+    assertSafeGcsImportObjectKey(ref.object_key);
     const bucketName = resolveImportUploadBucket();
     return this.storage.bucket(bucketName).file(ref.object_key).createReadStream();
   }
 
   async readBytes(ref: StoredImportFileRef): Promise<Buffer> {
+    assertSafeGcsImportObjectKey(ref.object_key);
     const bucketName = resolveImportUploadBucket();
     const [bytes] = await this.storage
       .bucket(bucketName)
@@ -75,6 +173,7 @@ export class GcsImportFileStorage implements ImportFileStorage {
 
   async deleteUpload(ref: StoredImportFileRef): Promise<void> {
     SideEffectGuard.assertAllowed('GCS_WRITE');
+    assertSafeGcsImportObjectKey(ref.object_key);
     const bucketName = resolveImportUploadBucket();
     await this.storage
       .bucket(bucketName)
@@ -95,8 +194,12 @@ export class LocalImportFileStorage implements ImportFileStorage {
     localPath: string;
   }): Promise<StoredImportFileRef> {
     await mkdir(this.root, { recursive: true });
-    const objectKey = `${params.tenantId}/${params.jobId}/${params.fileName}`;
-    const target = join(this.root, objectKey);
+    const objectKey = buildTenantImportObjectKey({
+      tenantId: params.tenantId,
+      jobId: params.jobId,
+      fileName: params.fileName,
+    });
+    const target = resolveLocalImportPath(this.root, objectKey);
     await mkdir(join(this.root, params.tenantId, params.jobId), {
       recursive: true,
     });
@@ -106,15 +209,17 @@ export class LocalImportFileStorage implements ImportFileStorage {
   }
 
   openReadStream(ref: StoredImportFileRef): NodeJS.ReadableStream {
-    return createReadStream(join(this.root, ref.object_key));
+    return createReadStream(resolveLocalImportPath(this.root, ref.object_key));
   }
 
   async readBytes(ref: StoredImportFileRef): Promise<Buffer> {
-    return readFile(join(this.root, ref.object_key));
+    return readFile(resolveLocalImportPath(this.root, ref.object_key));
   }
 
   async deleteUpload(ref: StoredImportFileRef): Promise<void> {
-    await unlink(join(this.root, ref.object_key)).catch(() => undefined);
+    await unlink(resolveLocalImportPath(this.root, ref.object_key)).catch(
+      () => undefined,
+    );
   }
 }
 
@@ -181,7 +286,7 @@ export async function persistMulterUploadToTemp(
   const localPath = join(
     tmpdir(),
     'acp-import-multer',
-    `${Date.now()}-${file.originalname}`,
+    `${Date.now()}-${randomUUID()}.csv`,
   );
   await writeFile(localPath, file.buffer);
   return {
