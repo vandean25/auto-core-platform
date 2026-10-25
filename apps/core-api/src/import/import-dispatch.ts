@@ -25,7 +25,10 @@ export async function enqueueOrRunImportWorker(params: {
   tenantId: string;
   jobId: string;
   phase: ImportWorkerPhase;
-  cloudTasks: Pick<ImportCloudTasksService, 'isEnabled' | 'enqueueImportWorker'>;
+  cloudTasks: Pick<
+    ImportCloudTasksService,
+    'isEnabled' | 'enqueueImportWorker'
+  >;
   targetBaseUrl: string | undefined;
   nodeEnv?: string;
   runInline: () => Promise<void>;

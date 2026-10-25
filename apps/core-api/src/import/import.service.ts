@@ -46,11 +46,9 @@ import {
   assertImplementedImportEntityType,
   type ImplementedImportEntityType,
 } from './import-entity-type.guard.js';
-import type {
-  ImportTypeHandler,
-} from './import-type-handler.js';
+import type { ImportTypeHandler } from './import-type-handler.js';
 import { ImportVendorResolver } from './import-vendor.resolver.js';
-import { assessImportUpload, parseImportUpload } from './import-upload.util.js';
+import { assessImportUpload } from './import-upload.util.js';
 import { sliceParsedCsv } from './import-csv-batch.util.js';
 import { parseCsvFile } from './csv-parse.util.js';
 import { ImportCloudTasksService } from './import-cloud-tasks.service.js';
@@ -247,10 +245,7 @@ export class ImportService {
               phase: 'dry_run',
             }),
         });
-        return this.serializeJob(
-          job,
-          job.totals_json as ImportJobTotals,
-        );
+        return this.serializeJob(job, job.totals_json as ImportJobTotals);
       } finally {
         await cleanup();
       }
@@ -523,7 +518,8 @@ export class ImportService {
     if (!worker || !upload) {
       return;
     }
-    const handler = this.handlers[job.entity_type as ImplementedImportEntityType];
+    const handler =
+      this.handlers[job.entity_type as ImplementedImportEntityType];
     const mapping = job.mapping_json as Record<string, string>;
     const totals = job.totals_json as ImportJobTotals;
     const bytes = await this.fileStorage.readBytes(upload);
@@ -566,9 +562,11 @@ export class ImportService {
         const mergedTotals = { ...totals };
         for (const row of rows) {
           if (row.action === ImportRowAction.CREATE) mergedTotals.create += 1;
-          else if (row.action === ImportRowAction.UPDATE) mergedTotals.update += 1;
+          else if (row.action === ImportRowAction.UPDATE)
+            mergedTotals.update += 1;
           else if (row.action === ImportRowAction.SKIP) mergedTotals.skip += 1;
-          else if (row.action === ImportRowAction.ERROR) mergedTotals.error += 1;
+          else if (row.action === ImportRowAction.ERROR)
+            mergedTotals.error += 1;
         }
         const processed = startOffset + batchRows.length;
         mergedTotals.rows = parsedFull.rows.length;
@@ -584,7 +582,12 @@ export class ImportService {
           options,
         );
         if (processed >= parsedFull.rows.length) {
-          await this.completeBackgroundDryRun(tenantId, jobId, handler, options);
+          await this.completeBackgroundDryRun(
+            tenantId,
+            jobId,
+            handler,
+            options,
+          );
           return;
         }
         await enqueueOrRunImportWorker({
@@ -634,13 +637,14 @@ export class ImportService {
           totals,
         })
       : totals;
-    const { worker: _worker, upload, ...restOptions } = options;
+    const optionsForPersist = { ...options };
+    delete (optionsForPersist as { worker?: unknown }).worker;
     await this.prisma.importJob.update({
       where: { id: jobId },
       data: {
         status: ImportJobStatus.DRY_RUN_DONE,
         totals_json: finalTotals,
-        options_json: { ...restOptions, upload },
+        options_json: optionsForPersist,
       },
     });
   }
@@ -684,11 +688,17 @@ export class ImportService {
     const lastRowNo = rows.at(-1)?.row_no ?? lastCommitted;
     const done = lastCommitted >= lastRowNo;
     if (!done && result.status === ImportJobStatus.APPLYING) {
-      await this.jobStore.updateWorkerProgress(tenantId, jobId, worker.lease_token, {
-        last_committed_row_no: lastCommitted,
-        processed_rows: rows.filter((row) => row.row_no <= lastCommitted).length,
-        lease_until: new Date(Date.now() + 120_000).toISOString(),
-      });
+      await this.jobStore.updateWorkerProgress(
+        tenantId,
+        jobId,
+        worker.lease_token,
+        {
+          last_committed_row_no: lastCommitted,
+          processed_rows: rows.filter((row) => row.row_no <= lastCommitted)
+            .length,
+          lease_until: new Date(Date.now() + 120_000).toISOString(),
+        },
+      );
       await enqueueOrRunImportWorker({
         tenantId,
         jobId,

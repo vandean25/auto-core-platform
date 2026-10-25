@@ -1,22 +1,19 @@
 import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { AppModule } from '../src/app.module.js';
-import { createGlobalValidationPipe } from '../src/common/index.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
-import { AuthService } from '../src/auth/auth.service.js';
+import { serializeCsv } from '../src/import/csv-parse.util.js';
 import {
   cleanupTestTenantGraph,
   createTestAuthToken,
   createTestTenant,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
-import { serializeCsv } from '../src/import/csv-parse.util.js';
+import { createE2eApp } from './helpers/e2e-suite.js';
+import { AuthService } from '../src/auth/auth.service.js';
 
 describe('Import background dry-run (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
-  let authService: AuthService;
   let tenant: Awaited<ReturnType<typeof createTestTenant>>;
   let authHeader: string;
 
@@ -29,16 +26,9 @@ describe('Import background dry-run (e2e)', () => {
   beforeAll(async () => {
     process.env.IMPORT_UPLOAD_STORAGE = 'local';
     process.env.IMPORT_SYNC_MAX_ROW_COUNT = '2';
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(createGlobalValidationPipe());
-    await app.init();
-
+    app = await createE2eApp();
     prisma = app.get(PrismaService);
-    authService = app.get(AuthService);
+    const authService = app.get(AuthService);
     tenant = await createTestTenant(prisma, 'import-bg');
     authHeader = `Bearer ${createTestAuthToken(authService, tenant)}`;
   });
@@ -65,7 +55,7 @@ describe('Import background dry-run (e2e)', () => {
     );
 
     const createRes = await request(app.getHttpServer())
-      .post('/imports')
+      .post('/api/imports')
       .set('Authorization', authHeader)
       .field('entityType', 'CUSTOMER')
       .field('sourceSystem', 'synthetic_dms:bg')
@@ -81,7 +71,7 @@ describe('Import background dry-run (e2e)', () => {
     for (let attempt = 0; attempt < 30 && job.status === 'APPLYING'; attempt += 1) {
       await new Promise((resolve) => setTimeout(resolve, 200));
       const poll = await request(app.getHttpServer())
-        .get(`/imports/${jobId}`)
+        .get(`/api/imports/${jobId}`)
         .set('Authorization', authHeader)
         .expect(200);
       job = poll.body;

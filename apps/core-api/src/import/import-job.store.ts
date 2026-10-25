@@ -98,7 +98,9 @@ export class ImportJobStore {
     const worker: ImportJobWorkerState = {
       phase: 'dry_run',
       lease_token: leaseToken,
-      lease_until: new Date(now.getTime() + IMPORT_WORKER_LEASE_MS).toISOString(),
+      lease_until: new Date(
+        now.getTime() + IMPORT_WORKER_LEASE_MS,
+      ).toISOString(),
       processed_rows: 0,
       started_at: now.toISOString(),
     };
@@ -170,9 +172,7 @@ export class ImportJobStore {
     const nextWorker: ImportJobWorkerState = {
       ...worker,
       lease_token: leaseToken,
-      lease_until: new Date(
-        Date.now() + IMPORT_WORKER_LEASE_MS,
-      ).toISOString(),
+      lease_until: new Date(Date.now() + IMPORT_WORKER_LEASE_MS).toISOString(),
     };
     const updated = await this.prisma.importJob.updateMany({
       where: {
@@ -223,7 +223,9 @@ export class ImportJobStore {
       where: {
         tenant_id: tenantId,
         id: jobId,
-        status: { in: [ImportJobStatus.DRY_RUN_DONE, ImportJobStatus.APPLYING] },
+        status: {
+          in: [ImportJobStatus.DRY_RUN_DONE, ImportJobStatus.APPLYING],
+        },
       },
       data: { status: ImportJobStatus.CANCELLED },
     });

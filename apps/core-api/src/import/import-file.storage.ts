@@ -23,8 +23,10 @@ const SAFE_PATH_SEGMENT = /^[a-zA-Z0-9._-]+$/;
 export function sanitizeImportFileName(fileName: string): string {
   const normalized = fileName.normalize('NFC').replace(/\0/g, '');
   const lastSegment =
-    normalized.split(/[/\\]/).filter((part) => part.length > 0).pop() ??
-    normalized;
+    normalized
+      .split(/[/\\]/)
+      .filter((part) => part.length > 0)
+      .pop() ?? normalized;
   const cleaned = basename(lastSegment)
     .replace(/[\\/\p{Cc}\p{Cf}"]/gu, ' ')
     .trim()
@@ -158,7 +160,10 @@ export class GcsImportFileStorage implements ImportFileStorage {
   openReadStream(ref: StoredImportFileRef): NodeJS.ReadableStream {
     assertSafeGcsImportObjectKey(ref.object_key);
     const bucketName = resolveImportUploadBucket();
-    return this.storage.bucket(bucketName).file(ref.object_key).createReadStream();
+    return this.storage
+      .bucket(bucketName)
+      .file(ref.object_key)
+      .createReadStream();
   }
 
   async readBytes(ref: StoredImportFileRef): Promise<Buffer> {
@@ -280,7 +285,9 @@ export async function persistMulterUploadToTemp(
     };
   }
   if (!file.buffer) {
-    throw new InternalServerErrorException('Import upload is missing file bytes');
+    throw new InternalServerErrorException(
+      'Import upload is missing file bytes',
+    );
   }
   await mkdir(join(tmpdir(), 'acp-import-multer'), { recursive: true });
   const localPath = join(

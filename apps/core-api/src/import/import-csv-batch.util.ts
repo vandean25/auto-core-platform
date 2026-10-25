@@ -17,7 +17,11 @@ export type CsvBatch = {
 export async function* iterateCsvRowBatches(params: {
   stream: Readable;
   batchSize: number;
-}): AsyncGenerator<{ headers: string[]; delimiter: ';' | ','; batch: CsvBatch }> {
+}): AsyncGenerator<{
+  headers: string[];
+  delimiter: ';' | ',';
+  batch: CsvBatch;
+}> {
   const lines: string[] = [];
   const rl = createInterface({ input: params.stream, crlfDelay: Infinity });
   for await (const line of rl) {
