@@ -173,7 +173,12 @@
     "switchSiteFailed": "Standortwechsel fehlgeschlagen.",
     "mechanicBadge": "Mechaniker",
     "loading": "Laden…",
-    "skipToMainContent": "Zum Hauptinhalt springen"
+    "skipToMainContent": "Zum Hauptinhalt springen",
+    "authInitTimedOut": {
+      "description": "Die Anmeldung konnte nicht abgeschlossen werden. Bitte laden Sie die Seite neu oder melden Sie sich erneut an.",
+      "retry": "Erneut versuchen",
+      "signInAgain": "Erneut anmelden"
+    }
   },
   "notFound": {
     "title": "Seite nicht gefunden",

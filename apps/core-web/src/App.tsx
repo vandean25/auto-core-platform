@@ -9,7 +9,7 @@ import {
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { AuthLoadingScreen } from '@/components/shell/AuthLoadingScreen'
+import { resolveAuthBootstrapScreen } from '@/components/shell/auth-bootstrap-screen'
 import { MechanicShell } from '@/components/shell/MechanicShell'
 import { ShellSessionLoadFailed } from '@/components/shell/ShellSessionLoadFailed'
 import { shellSwitchSiteFailedMessage, shellSwitchTenantFailedMessage } from '@/lib/shell-session-toasts'
@@ -252,14 +252,18 @@ function resolvePostLoginPath(state: unknown) {
 }
 
 function LoginRoute() {
-  const { user, loading } = useAuth()
+  const { user, loading, authInitTimedOut } = useAuth()
   const location = useLocation()
   const emailLinkSignIn =
     typeof globalThis.location !== 'undefined' &&
     isFirebaseEmailLinkSignInUrl(globalThis.location.href)
 
-  if (loading) {
-    return <AuthLoadingScreen />
+  const loginBootstrapScreen = resolveAuthBootstrapScreen({
+    authInitTimedOut,
+    loading,
+  })
+  if (loginBootstrapScreen) {
+    return loginBootstrapScreen
   }
 
   if (user && !emailLinkSignIn) {
@@ -296,7 +300,7 @@ type CheckInOfflinePurgePrompt =
     }
 
 function AuthenticatedApp() {
-  const { user, loading, signOutUser } = useAuth()
+  const { user, loading, authInitTimedOut, signOutUser } = useAuth()
   const location = useLocation()
   const sessionQuery = useAuthSession(user?.uid ?? user?.email ?? null, Boolean(user))
   const switchTenantMutation = useSwitchTenant()
@@ -315,8 +319,13 @@ function AuthenticatedApp() {
 
   const isUnknownPath = !isKnownAppPath(location.pathname)
 
-  if (loading || (user && sessionQuery.isLoading)) {
-    return <AuthLoadingScreen />
+  const bootstrapScreen = resolveAuthBootstrapScreen({
+    authInitTimedOut,
+    loading,
+    awaitingInitialSession: Boolean(user) && sessionQuery.isLoading && !sessionQuery.data,
+  })
+  if (bootstrapScreen) {
+    return bootstrapScreen
   }
 
   if (!user) {

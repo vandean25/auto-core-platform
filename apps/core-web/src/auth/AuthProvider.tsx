@@ -44,10 +44,13 @@ type AuthenticatedUser = {
   getIdTokenResult: (forceRefresh?: boolean) => Promise<AuthTokenResult>
 }
 
+const AUTH_INIT_WATCHDOG_MS = 15_000
+
 type AuthContextValue = {
   user: AuthenticatedUser | null
   claims: AuthClaims | null
   loading: boolean
+  authInitTimedOut: boolean
   isConfigured: boolean
   signIn: (email: string, password: string) => Promise<void>
   signInWithGoogle: () => Promise<void>
@@ -68,6 +71,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = React.useState<AuthenticatedUser | null>(null)
   const [claims, setClaims] = React.useState<AuthClaims | null>(null)
   const [loading, setLoading] = React.useState(true)
+  const [authInitTimedOut, setAuthInitTimedOut] = React.useState(false)
+  const previousUidRef = React.useRef<string | null | undefined>(undefined)
 
   React.useEffect(() => {
     if (isE2ETestTokenAuthEnabled()) {
@@ -114,18 +119,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     let active = true
+    let authInitPending = true
+    setAuthInitTimedOut(false)
+
+    const finishAuthInit = () => {
+      authInitPending = false
+      setLoading(false)
+    }
+
+    const watchdog = window.setTimeout(() => {
+      if (!active || !authInitPending) return
+      setAuthInitTimedOut(true)
+    }, AUTH_INIT_WATCHDOG_MS)
 
     const unsubscribe = onIdTokenChanged(firebaseAuth, (nextUser) => {
       void (async () => {
         if (!active) return
 
-        queryClient.removeQueries({ queryKey: authSessionKeys.all })
+        const nextUid = nextUser?.uid ?? null
+        if (previousUidRef.current !== nextUid) {
+          if (previousUidRef.current !== undefined) {
+            queryClient.removeQueries({ queryKey: authSessionKeys.all })
+          }
+          previousUidRef.current = nextUid
+        }
 
+        setAuthInitTimedOut(false)
         setUser(nextUser)
 
         if (!nextUser) {
           setClaims(null)
-          setLoading(false)
+          finishAuthInit()
           return
         }
 
@@ -133,18 +157,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const tokenResult = await nextUser.getIdTokenResult()
           if (!active) return
           setClaims(extractAuthClaims(tokenResult.claims))
-          setLoading(false)
+          finishAuthInit()
         } catch {
           if (!active) return
           setClaims(null)
           setUser(null)
-          setLoading(false)
+          finishAuthInit()
         }
       })()
     })
 
     return () => {
       active = false
+      window.clearTimeout(watchdog)
       unsubscribe()
     }
   }, [queryClient])
@@ -201,12 +226,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     claims,
     loading,
+    authInitTimedOut,
     isConfigured: !firebaseConfigMissing,
     signIn,
     signInWithGoogle,
     sendPasswordResetEmail,
     signOutUser,
-  }), [user, claims, loading, signIn, signInWithGoogle, sendPasswordResetEmail, signOutUser])
+  }), [user, claims, loading, authInitTimedOut, signIn, signInWithGoogle, sendPasswordResetEmail, signOutUser])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

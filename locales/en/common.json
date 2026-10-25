@@ -173,7 +173,12 @@
     "switchSiteFailed": "Failed to switch site.",
     "mechanicBadge": "Mechanic",
     "loading": "Loading…",
-    "skipToMainContent": "Skip to main content"
+    "skipToMainContent": "Skip to main content",
+    "authInitTimedOut": {
+      "description": "Sign-in could not be completed. Please reload the page or sign in again.",
+      "retry": "Retry",
+      "signInAgain": "Sign in again"
+    }
   },
   "notFound": {
     "title": "Page not found",

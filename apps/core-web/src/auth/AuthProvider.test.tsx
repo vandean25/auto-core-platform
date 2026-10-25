@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, render, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { authSessionKeys } from '@/api/auth-session'
 import { AuthProvider, useAuth } from '@/auth/AuthProvider'
@@ -75,6 +75,20 @@ function AuthActions({ onReady }: { onReady: (actions: ReturnType<typeof useAuth
   return null
 }
 
+function AuthStateProbe() {
+  const { authInitTimedOut, loading } = useAuth()
+
+  if (authInitTimedOut && loading) {
+    return <div>auth-init-timed-out</div>
+  }
+
+  if (loading) {
+    return <div>auth-loading</div>
+  }
+
+  return <div>auth-ready</div>
+}
+
 describe('AuthProvider', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -85,7 +99,7 @@ describe('AuthProvider', () => {
     vi.clearAllMocks()
   })
 
-  it('clears cached auth-session queries whenever the Firebase auth user changes', async () => {
+  it('clears cached auth-session queries when the Firebase user signs out or switches accounts', async () => {
     const queryClient = createQueryClient()
     const removeQueries = vi.spyOn(queryClient, 'removeQueries')
 
@@ -102,9 +116,7 @@ describe('AuthProvider', () => {
     })
 
     await waitFor(() => {
-      expect(removeQueries).toHaveBeenCalledWith({
-        queryKey: authSessionKeys.all,
-      })
+      expect(removeQueries).not.toHaveBeenCalled()
     })
 
     queryClient.setQueryData(authSessionKeys.all, {
@@ -124,8 +136,64 @@ describe('AuthProvider', () => {
     })
 
     await waitFor(() => {
-      expect(removeQueries).toHaveBeenCalledTimes(2)
+      expect(removeQueries).toHaveBeenCalledTimes(1)
     })
+  })
+
+  it('does not clear cached auth-session queries when the uid is unchanged (token refresh)', async () => {
+    const queryClient = createQueryClient()
+    const removeQueries = vi.spyOn(queryClient, 'removeQueries')
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <div>ready</div>
+        </AuthProvider>
+      </QueryClientProvider>,
+    )
+
+    const user = createUser('user-1', 'testauto@auto.core.at')
+
+    await act(async () => {
+      mocks.authListener?.(user)
+    })
+
+    await waitFor(() => {
+      expect(removeQueries).not.toHaveBeenCalled()
+    })
+
+    removeQueries.mockClear()
+
+    await act(async () => {
+      mocks.authListener?.(user)
+    })
+
+    await waitFor(() => {
+      expect(removeQueries).not.toHaveBeenCalled()
+    })
+  })
+
+  it('shows the auth init timeout screen when Firebase does not respond within 15 seconds', async () => {
+    vi.useFakeTimers()
+    const queryClient = createQueryClient()
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <AuthStateProbe />
+        </AuthProvider>
+      </QueryClientProvider>,
+    )
+
+    expect(screen.queryByText('auth-init-timed-out')).not.toBeInTheDocument()
+
+    await act(async () => {
+      vi.advanceTimersByTime(15_000)
+    })
+
+    expect(screen.getByText('auth-init-timed-out')).toBeInTheDocument()
+
+    vi.useRealTimers()
   })
 
   it('falls back to redirect when popup sign-in is blocked', async () => {
