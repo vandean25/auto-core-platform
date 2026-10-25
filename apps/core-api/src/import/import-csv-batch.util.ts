@@ -6,11 +6,6 @@ import {
   type ParsedCsv,
 } from './csv-parse.util.js';
 
-export type CsvBatch = {
-  rowOffset: number;
-  rows: string[][];
-};
-
 export function parseCsvBufferHeadersOnly(buffer: Buffer): {
   headers: string[];
   delimiter: ';' | ',';

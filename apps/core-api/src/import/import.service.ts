@@ -251,7 +251,11 @@ export class ImportService {
       }
     }
 
-    const parsed = traceImportParse(params.entityType, () => assessed.parsed!);
+    const syncParsed = assessed.parsed;
+    if (!syncParsed) {
+      throw new Error('Sync import path requires a parsed CSV buffer');
+    }
+    const parsed = traceImportParse(params.entityType, () => syncParsed);
     const dryRunRows = await traceImportValidate(params.entityType, () =>
       handler.planDryRun(
         {
@@ -718,7 +722,9 @@ export class ImportService {
     resumeAfter: number;
     resultStatus: ImportJobStatus;
   }): Promise<void> {
-    const pending = params.rows.filter((row) => row.row_no > params.resumeAfter);
+    const pending = params.rows.filter(
+      (row) => row.row_no > params.resumeAfter,
+    );
     const batchRows = pending.slice(0, IMPORT_APPLY_BATCH_SIZE);
     const lastCommitted = batchRows.at(-1)?.row_no ?? params.resumeAfter;
     const lastRowNo = params.rows.at(-1)?.row_no ?? lastCommitted;

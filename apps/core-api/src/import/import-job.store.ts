@@ -11,7 +11,6 @@ import {
   type ImportJobOptionsWithWorker,
   type ImportJobUploadRef,
   type ImportJobWorkerState,
-  type ImportWorkerPhase,
 } from './import-job.worker-state.js';
 import type {
   DryRunRowResult,

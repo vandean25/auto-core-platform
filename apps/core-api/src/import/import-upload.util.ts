@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { parseCsvFile } from './csv-parse.util.js';
+import { parseCsvFile, type ParsedCsv } from './csv-parse.util.js';
 import { parseCsvBufferHeadersOnly } from './import-csv-batch.util.js';
 import { IMPORT_ERROR_CODES } from './import.constants.js';
 import {
