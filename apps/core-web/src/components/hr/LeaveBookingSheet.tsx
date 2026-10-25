@@ -204,7 +204,7 @@ export function LeaveBookingSheet({
               {isManager ? (
                 <select
                   id='leave-employee'
-                  className='flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm'
+                  className='flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base md:text-sm'
                   value={formState.employeeId}
                   onChange={(event) => {
                     setFormState((current) => ({ ...current, employeeId: event.target.value }))
@@ -256,7 +256,7 @@ export function LeaveBookingSheet({
                 onChange={(event) => {
                   setFormState((current) => ({ ...current, note: event.target.value }))
                 }}
-                className='min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring'
+                className='min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-base md:text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring'
                 placeholder={t('leave.bookingSheet.notePlaceholder')}
               />
             </div>

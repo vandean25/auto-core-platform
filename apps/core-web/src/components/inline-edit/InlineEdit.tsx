@@ -271,7 +271,7 @@ function InlineEditDisplay({
   const displayContent = (
     <div
       className={cn(
-        'group/inline-edit relative w-full rounded-md px-2 py-1 -mx-2 text-left transition-colors',
+        'group/inline-edit relative w-full min-h-11 rounded-md px-2 py-1 -mx-2 text-left transition-colors',
         !readOnly && 'hover:bg-slate-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         className,
       )}

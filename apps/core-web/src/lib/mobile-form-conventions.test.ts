@@ -79,4 +79,30 @@ describe('mobile form conventions (grep guard)', () => {
     expect(inputSource).toContain('resolveNumberInputMode')
     expect(inputSource).toContain('inputMode={resolvedInputMode}')
   })
+
+  it('production textareas use mobile field text sizing', () => {
+    const violations: string[] = []
+    const textareaBlock = /<textarea[\s\S]*?(?:\/>|<\/textarea>)/g
+    for (const filePath of listTsxFiles(webSrcRoot)) {
+      const content = readFileSync(filePath, 'utf8')
+      const matches = content.match(textareaBlock) ?? []
+      for (const block of matches) {
+        const hasMobileSizing =
+          block.includes('mobileFieldTextClass') ||
+          block.includes('TEXTAREA_CLASS_NAME') ||
+          block.includes('TEXTAREA_CLASS') ||
+          (block.includes('text-base') && block.includes('md:text-sm'))
+        if (hasMobileSizing) continue
+        violations.push(`${relative(webRoot, filePath)}`)
+      }
+    }
+
+    expect(violations).toEqual([])
+  })
+
+  it('CommandInput uses mobile field text sizing', () => {
+    const commandSource = readFileSync(join(webSrcRoot, 'components/ui/command.tsx'), 'utf8')
+    expect(commandSource).toContain('text-base')
+    expect(commandSource).toContain('md:text-sm')
+  })
 })

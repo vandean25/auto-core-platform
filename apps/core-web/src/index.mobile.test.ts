@@ -11,11 +11,17 @@ describe('mobile shell foundations', () => {
     expect(html).toContain('viewport-fit=cover')
   })
 
-  it('defines safe-area utility classes', () => {
+  it('uses additive safe-area inset utilities', () => {
     const css = readFileSync(join(webRoot, 'src/index.css'), 'utf8')
-    expect(css).toContain('.safe-area-top')
-    expect(css).toContain('env(safe-area-inset-top')
-    expect(css).toContain('.safe-area-bottom')
+    expect(css).toContain('.safe-area-inset-bottom')
+    expect(css).toContain('env(safe-area-inset-bottom')
+  })
+
+  it('keeps shell header padding when safe-area insets are zero', () => {
+    const appSource = readFileSync(join(webRoot, 'src/App.tsx'), 'utf8')
+    expect(appSource).toContain('max(1rem,env(safe-area-inset-left')
+    expect(appSource).toContain('min-h-12')
+    expect(appSource).not.toContain('safe-area-x')
   })
 
   it('exposes hover-capable variant for touch-visible actions', () => {

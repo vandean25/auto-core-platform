@@ -200,7 +200,7 @@ function DecisionForm({
         <Label htmlFor="decision-note">{t('estimateDecision.record.note')}</Label>
         <textarea
           id="decision-note"
-          className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-base md:text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           value={note}
           onChange={(event) => setNote(event.target.value)}
           placeholder={t('estimateDecision.record.notePlaceholder')}

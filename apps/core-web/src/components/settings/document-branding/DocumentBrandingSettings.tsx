@@ -753,7 +753,7 @@ export function DocumentBrandingSettings({
             id="brand-header-text"
             maxLength={decorativeTextMaxCodePoints}
             rows={2}
-            className="w-full rounded-md border border-input px-3 py-2 text-sm"
+            className="w-full rounded-md border border-input px-3 py-2 text-base md:text-sm"
             value={theme.headerText}
             disabled={themeEditingDisabled}
             aria-invalid={Boolean(themeFieldErrors.headerText)}

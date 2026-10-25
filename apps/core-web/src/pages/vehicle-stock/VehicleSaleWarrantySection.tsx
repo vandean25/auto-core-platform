@@ -7,7 +7,7 @@ import { gewaehrleistungStatusBadge, negotiatedShorteningBlockReason } from '@/l
 import type { VehicleSaleForm } from './useVehicleSaleForm'
 
 const TEXTAREA_CLASS =
-  'min-h-20 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'min-h-20 w-full rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:text-sm'
 
 /** Consumer classification and the negotiated shortening, with why the shortening is blocked or was refused. */
 function ShorteningFields({

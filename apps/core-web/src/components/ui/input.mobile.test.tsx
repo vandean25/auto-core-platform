@@ -1,5 +1,6 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
+import { Command, CommandInput } from './command'
 import { Input } from './input'
 import { Select, SelectTrigger, SelectValue } from './select'
 
@@ -27,5 +28,15 @@ describe('mobile input font sizing', () => {
   it('assigns inputMode for number inputs', () => {
     render(<Input type="number" step="0.01" aria-label="Price" />)
     expect(screen.getByLabelText('Price')).toHaveAttribute('inputMode', 'decimal')
+  })
+
+  it('keeps CommandInput at text-base below md', () => {
+    render(
+      <Command>
+        <CommandInput aria-label="Search commands" />
+      </Command>,
+    )
+    expect(screen.getByLabelText('Search commands')).toHaveClass('text-base')
+    expect(screen.getByLabelText('Search commands')).toHaveClass('md:text-sm')
   })
 })

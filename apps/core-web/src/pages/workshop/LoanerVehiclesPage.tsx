@@ -456,7 +456,7 @@ export default function LoanerVehiclesPage() {
             {(overdueData?.data ?? []).map((booking) => (
               <div
                 key={booking.id}
-                className='flex flex-wrap items-center justify-between gap-2 rounded-md border border-rose-100 bg-white px-3 py-2 text-sm'
+                className='flex flex-wrap items-center justify-between gap-2 rounded-md border border-rose-100 bg-white px-3 py-2 text-base md:text-sm'
               >
                 <span>
                   {t('loaner.overdueUntil', {
@@ -644,7 +644,7 @@ export default function LoanerVehiclesPage() {
               <Label htmlFor='handover-damage'>{t('loaner.damageOut')}</Label>
               <textarea
                 id='handover-damage'
-                className='flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+                className='flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-base md:text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
                 value={handOverDamageNotes}
                 onChange={(event) => setHandOverDamageNotes(event.target.value)}
               />
@@ -691,7 +691,7 @@ export default function LoanerVehiclesPage() {
               <Label htmlFor='return-damage'>{t('loaner.damageIn')}</Label>
               <textarea
                 id='return-damage'
-                className='flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+                className='flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-base md:text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
                 value={returnDamageNotes}
                 onChange={(event) => setReturnDamageNotes(event.target.value)}
               />

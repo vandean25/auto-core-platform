@@ -99,7 +99,7 @@ export function CheckInVehicleStep({
           <Label htmlFor="check-in-items-left">{t('checkIn.fields.itemsLeft')}</Label>
           <textarea
             id="check-in-items-left"
-            className="flex min-h-[88px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+            className="flex min-h-[88px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-base md:text-sm"
             disabled={readOnly}
             value={draft.items_left}
             onChange={(event) => onPatch({ items_left: event.target.value })}

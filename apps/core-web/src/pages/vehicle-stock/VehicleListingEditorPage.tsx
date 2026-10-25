@@ -485,7 +485,7 @@ export default function VehicleListingEditorPage() {
               <Label htmlFor="listing-description">{t('listing.fields.description')}</Label>
               <textarea
                 id="listing-description"
-                className="mt-1 min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+                className="mt-1 min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-base md:text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
                 value={draft.description}
                 onChange={(event) => updateDraft({ description: event.target.value })}
               />
@@ -595,7 +595,7 @@ export default function VehicleListingEditorPage() {
               </Label>
               <textarea
                 id="listing-equipment-free-text"
-                className="mt-1 min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+                className="mt-1 min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-base md:text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
                 value={draft.equipment_free_text}
                 onChange={(event) => updateDraft({ equipment_free_text: event.target.value })}
               />
