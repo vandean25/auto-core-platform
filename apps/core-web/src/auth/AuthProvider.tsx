@@ -134,7 +134,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         queryClient,
         isActive: () => active,
         onAuthInitTimedOutReset: () => setAuthInitTimedOut(false),
-        setUser,
+        setUser: (next) => setUser(next as AuthenticatedUser | null),
         setClaims,
         finishAuthInit,
       })
