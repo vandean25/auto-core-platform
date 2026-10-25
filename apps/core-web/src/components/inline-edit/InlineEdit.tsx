@@ -20,8 +20,8 @@ type InlineEditProps = {
   displayClassName?: string
   inputClassName?: string
   ariaLabel?: string
-  inputType?: React.HTMLInputTypeAttribute
-  autoComplete?: string
+  /** When true, uses a tel keyboard and autocomplete for phone numbers. */
+  phone?: boolean
 }
 
 function getFocusableElements() {
@@ -119,8 +119,64 @@ interface InlineEditorInputProps {
   ariaLabel?: string
   inputClassName?: string
   rows?: number
-  inputType?: React.HTMLInputTypeAttribute
-  autoComplete?: string
+  phone?: boolean
+}
+
+function InlineEditTextInput({
+  inputRef,
+  draftValue,
+  onChange,
+  onBlur,
+  onKeyDown,
+  validationError,
+  errorId,
+  isSaving,
+  placeholder,
+  ariaLabel,
+  inputClassName,
+  phone,
+}: {
+  inputRef: React.RefObject<HTMLInputElement | null>
+  draftValue: string
+  onChange: (val: string) => void
+  onBlur: () => void
+  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void
+  validationError: string | null
+  errorId: string
+  isSaving: boolean
+  placeholder?: string
+  ariaLabel?: string
+  inputClassName?: string
+  phone?: boolean
+}) {
+  const errorMarkup = validationError ? (
+    <p id={errorId} className='mt-1 text-xs text-red-500' role='alert'>{validationError}</p>
+  ) : null
+
+  return (
+    <div>
+      <Input
+        ref={inputRef}
+        type={phone ? 'tel' : undefined}
+        autoComplete={phone ? 'tel' : undefined}
+        value={draftValue}
+        onChange={(event) => onChange(event.target.value)}
+        onBlur={onBlur}
+        onKeyDown={onKeyDown}
+        className={cn(
+          'h-9',
+          validationError && 'border-red-500 focus-visible:ring-red-500',
+          inputClassName,
+        )}
+        placeholder={placeholder}
+        aria-label={ariaLabel}
+        aria-invalid={!!validationError}
+        aria-describedby={validationError ? errorId : undefined}
+        disabled={isSaving}
+      />
+      {errorMarkup}
+    </div>
+  )
 }
 
 function InlineEditorInput({
@@ -137,8 +193,7 @@ function InlineEditorInput({
   ariaLabel,
   inputClassName,
   rows,
-  inputType,
-  autoComplete,
+  phone,
 }: InlineEditorInputProps) {
   const errorId = React.useId()
   const errorMarkup = validationError ? (
@@ -172,28 +227,20 @@ function InlineEditorInput({
   }
 
   return (
-    <div>
-      <Input
-        ref={inputRef}
-        value={draftValue}
-        onChange={(event) => onChange(event.target.value)}
-        onBlur={onBlur}
-        onKeyDown={onKeyDown}
-        type={inputType}
-        autoComplete={autoComplete}
-        className={cn(
-          'h-9',
-          validationError && 'border-red-500 focus-visible:ring-red-500',
-          inputClassName,
-        )}
-        placeholder={placeholder}
-        aria-label={ariaLabel}
-        aria-invalid={!!validationError}
-        aria-describedby={validationError ? errorId : undefined}
-        disabled={isSaving}
-      />
-      {errorMarkup}
-    </div>
+    <InlineEditTextInput
+      inputRef={inputRef}
+      draftValue={draftValue}
+      onChange={onChange}
+      onBlur={onBlur}
+      onKeyDown={onKeyDown}
+      validationError={validationError}
+      errorId={errorId}
+      isSaving={isSaving}
+      placeholder={placeholder}
+      ariaLabel={ariaLabel}
+      inputClassName={inputClassName}
+      phone={phone}
+    />
   )
 }
 
@@ -274,8 +321,7 @@ export function InlineEdit({
   displayClassName,
   inputClassName,
   ariaLabel,
-  inputType,
-  autoComplete,
+  phone,
 }: InlineEditProps) {
   const normalizedValue = value ?? ''
   const [isEditing, setIsEditing] = React.useState(false)
@@ -389,8 +435,7 @@ export function InlineEdit({
         ariaLabel={ariaLabel}
         inputClassName={inputClassName}
         rows={rows}
-        inputType={inputType}
-        autoComplete={autoComplete}
+        phone={phone}
       />
     )
   }

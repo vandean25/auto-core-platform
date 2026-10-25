@@ -29,7 +29,6 @@ const PHONE_FIELD_MARKERS = [
   /id=["']seller-phone["']/,
   /placeholder=\{t\(['"]orderIntake\.phone['"]\)\}/,
   /ariaLabel=\{t\(['"]detail\.aria\.phone['"]\)\}/,
-  /inputType=["']tel["']/,
 ]
 
 function isPhoneFieldFile(content: string): boolean {
@@ -37,8 +36,10 @@ function isPhoneFieldFile(content: string): boolean {
 }
 
 function hasTelAttributes(content: string): boolean {
-  const hasTypeTel = /type=["']tel["']/.test(content) || /inputType=["']tel["']/.test(content)
-  return hasTypeTel && /autoComplete=["']tel["']/.test(content)
+  const hasExplicitTel =
+    /type=["']tel["']/.test(content) && /autoComplete=["']tel["']/.test(content)
+  const hasPhoneInlineEdit = /<InlineEdit[\s\S]{0,500}\bphone\b/.test(content)
+  return hasExplicitTel || hasPhoneInlineEdit
 }
 
 describe('mobile form conventions (grep guard)', () => {
