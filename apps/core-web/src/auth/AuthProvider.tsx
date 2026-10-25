@@ -9,8 +9,9 @@ import {
   signInWithRedirect,
   signOut,
 } from 'firebase/auth'
-import { authSessionKeys } from '@/api/auth-session'
 import { firebaseAuth, firebaseConfigMissing } from '@/lib/firebase'
+import type { AuthClaims } from '@/auth/auth-claims'
+import { applyFirebaseIdTokenChange } from '@/auth/firebase-id-token-change'
 import {
   getE2ETestToken,
   isE2EAuthBypassEnabled,
@@ -56,12 +57,6 @@ type AuthContextValue = {
   signInWithGoogle: () => Promise<void>
   sendPasswordResetEmail: (email: string) => Promise<void>
   signOutUser: () => Promise<void>
-}
-
-type AuthClaims = {
-  tenantId?: string
-  role?: string
-  platformRole?: string
 }
 
 const AuthContext = React.createContext<AuthContextValue | null>(null)
@@ -133,38 +128,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, AUTH_INIT_WATCHDOG_MS)
 
     const unsubscribe = onIdTokenChanged(firebaseAuth, (nextUser) => {
-      void (async () => {
-        if (!active) return
-
-        const nextUid = nextUser?.uid ?? null
-        if (previousUidRef.current !== nextUid) {
-          if (previousUidRef.current !== undefined) {
-            queryClient.removeQueries({ queryKey: authSessionKeys.all })
-          }
-          previousUidRef.current = nextUid
-        }
-
-        setAuthInitTimedOut(false)
-        setUser(nextUser)
-
-        if (!nextUser) {
-          setClaims(null)
-          finishAuthInit()
-          return
-        }
-
-        try {
-          const tokenResult = await nextUser.getIdTokenResult()
-          if (!active) return
-          setClaims(extractAuthClaims(tokenResult.claims))
-          finishAuthInit()
-        } catch {
-          if (!active) return
-          setClaims(null)
-          setUser(null)
-          finishAuthInit()
-        }
-      })()
+      void applyFirebaseIdTokenChange({
+        nextUser,
+        previousUidRef,
+        queryClient,
+        isActive: () => active,
+        onAuthInitTimedOutReset: () => setAuthInitTimedOut(false),
+        setUser,
+        setClaims,
+        finishAuthInit,
+      })
     })
 
     return () => {
@@ -247,11 +220,3 @@ export function useAuth() {
   return context
 }
 
-function extractAuthClaims(rawClaims: Record<string, unknown>): AuthClaims {
-  return {
-    tenantId: typeof rawClaims.tenantId === 'string' ? rawClaims.tenantId : undefined,
-    role: typeof rawClaims.role === 'string' ? rawClaims.role : undefined,
-    platformRole:
-      typeof rawClaims.platformRole === 'string' ? rawClaims.platformRole : undefined,
-  }
-}
