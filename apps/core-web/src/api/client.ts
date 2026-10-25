@@ -24,15 +24,52 @@ function requestTargetsAuthMe(input: RequestInfo | URL): boolean {
   }
 }
 
+function throwIfAborted(signal?: AbortSignal | null): void {
+  if (!signal?.aborted) {
+    return
+  }
+  throw signal.reason ?? new DOMException('The operation was aborted.', 'AbortError')
+}
+
 function mergeAbortSignals(signals: AbortSignal[]): AbortSignal | undefined {
-  const active = signals.filter((signal) => !signal.aborted)
-  if (active.length === 0) {
+  if (signals.length === 0) {
     return undefined
   }
-  if (active.length === 1) {
-    return active[0]
+  if (signals.length === 1) {
+    return signals[0]
   }
-  return AbortSignal.any(active)
+  return AbortSignal.any(signals)
+}
+
+async function awaitWithAbortSignal<T>(promise: Promise<T>, signal?: AbortSignal | null): Promise<T> {
+  if (!signal) {
+    return promise
+  }
+
+  throwIfAborted(signal)
+
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => {
+      reject(signal.reason ?? new DOMException('The operation was aborted.', 'AbortError'))
+    }
+
+    signal.addEventListener('abort', onAbort, { once: true })
+
+    void promise.then(
+      (value) => {
+        signal.removeEventListener('abort', onAbort)
+        if (signal.aborted) {
+          onAbort()
+          return
+        }
+        resolve(value)
+      },
+      (error: unknown) => {
+        signal.removeEventListener('abort', onAbort)
+        reject(error)
+      },
+    )
+  })
 }
 
 export function resolveApiUrl(input: RequestInfo | URL): RequestInfo | URL {
@@ -50,18 +87,7 @@ export function resolveApiUrl(input: RequestInfo | URL): RequestInfo | URL {
 }
 
 export async function fetchWithAuth(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  const headers = new Headers(init?.headers)
-
-  const testToken = isE2ETestTokenAuthEnabled() ? getE2ETestToken() : null
-  if (testToken) {
-    headers.set('Authorization', `Bearer ${testToken}`)
-  } else {
-    const currentUser = firebaseAuth?.currentUser
-    if (currentUser) {
-      const idToken = await currentUser.getIdToken()
-      headers.set('Authorization', `Bearer ${idToken}`)
-    }
-  }
+  throwIfAborted(init?.signal)
 
   const resolvedInput = resolveApiUrl(input)
   const signals: AbortSignal[] = []
@@ -71,11 +97,27 @@ export async function fetchWithAuth(input: RequestInfo | URL, init?: RequestInit
   if (init?.signal) {
     signals.push(init.signal)
   }
+  const requestSignal = mergeAbortSignals(signals)
+
+  const headers = new Headers(init?.headers)
+
+  const testToken = isE2ETestTokenAuthEnabled() ? getE2ETestToken() : null
+  if (testToken) {
+    headers.set('Authorization', `Bearer ${testToken}`)
+  } else {
+    const currentUser = firebaseAuth?.currentUser
+    if (currentUser) {
+      const idToken = await awaitWithAbortSignal(currentUser.getIdToken(), requestSignal)
+      headers.set('Authorization', `Bearer ${idToken}`)
+    }
+  }
+
+  throwIfAborted(requestSignal)
 
   const config: RequestInit = {
     ...init,
     headers,
-    signal: mergeAbortSignals(signals),
+    signal: requestSignal,
   }
 
   return fetch(resolvedInput, config)

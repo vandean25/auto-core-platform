@@ -205,7 +205,10 @@ export async function fetchJsonWithAuth<T>(
   if (!response.ok) {
     const payload = (await response.json().catch(() => undefined)) as
       { message?: string } | undefined;
-    throw new Error(payload?.message || fallbackMessage);
+    const message = payload?.message || fallbackMessage;
+    const err = new Error(message) as Error & { status: number };
+    err.status = response.status;
+    throw err;
   }
   return response.json() as Promise<T>;
 }

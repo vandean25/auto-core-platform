@@ -2,8 +2,17 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fetchWithAuth, resolveApiUrl } from './client'
 
+const firebaseMocks = vi.hoisted(() => {
+  const currentUser = {
+    getIdToken: vi.fn().mockResolvedValue('firebase-id-token'),
+  }
+  return { currentUser }
+})
+
 vi.mock('@/lib/firebase', () => ({
-  firebaseAuth: null,
+  firebaseAuth: {
+    currentUser: firebaseMocks.currentUser,
+  },
 }))
 
 vi.mock('@/lib/runtime-flags', () => ({
@@ -29,6 +38,7 @@ describe('fetchWithAuth', () => {
   afterEach(() => {
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
+    firebaseMocks.currentUser.getIdToken.mockResolvedValue('firebase-id-token')
   })
 
   it('aborts /api/auth/me when the request hangs beyond the session timeout', async () => {
@@ -45,6 +55,10 @@ describe('fetchWithAuth', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const pending = fetchWithAuth('/api/auth/me')
+
+    await vi.waitFor(() => {
+      expect(fetchMock).toHaveBeenCalled()
+    })
     timeoutController.abort(new DOMException('Timeout', 'TimeoutError'))
 
     await expect(pending).rejects.toThrow()
@@ -54,6 +68,40 @@ describe('fetchWithAuth', () => {
         signal: expect.any(AbortSignal),
       }),
     )
+  })
+
+  it('does not call fetch when the caller signal is already aborted before getIdToken', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    const controller = new AbortController()
+    controller.abort(new DOMException('Cancelled', 'AbortError'))
+
+    await expect(
+      fetchWithAuth('/api/inventory?page=1', { signal: controller.signal }),
+    ).rejects.toThrow()
+
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(firebaseMocks.currentUser.getIdToken).not.toHaveBeenCalled()
+  })
+
+  it('does not call fetch when the caller aborts while getIdToken is pending', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    const controller = new AbortController()
+    firebaseMocks.currentUser.getIdToken.mockImplementation(
+      () =>
+        new Promise<string>((resolve) => {
+          setTimeout(() => resolve('late-token'), 50)
+        }),
+    )
+
+    const pending = fetchWithAuth('/api/inventory?page=1', { signal: controller.signal })
+    controller.abort(new DOMException('Cancelled', 'AbortError'))
+
+    await expect(pending).rejects.toThrow()
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('does not apply the session timeout to non-auth API calls', async () => {

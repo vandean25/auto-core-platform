@@ -122,12 +122,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false)
     }
 
-    const watchdog = window.setTimeout(() => {
+    let watchdog = window.setTimeout(() => {
       if (!active || !authInitPending) return
       setAuthInitTimedOut(true)
     }, AUTH_INIT_WATCHDOG_MS)
 
+    const rescheduleAuthInitWatchdog = () => {
+      window.clearTimeout(watchdog)
+      watchdog = window.setTimeout(() => {
+        if (!active || !authInitPending) return
+        setAuthInitTimedOut(true)
+      }, AUTH_INIT_WATCHDOG_MS)
+    }
+
     const unsubscribe = onIdTokenChanged(firebaseAuth, (nextUser) => {
+      rescheduleAuthInitWatchdog()
       void applyFirebaseIdTokenChange({
         nextUser,
         previousUidRef,

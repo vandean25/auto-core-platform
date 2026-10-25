@@ -142,6 +142,21 @@ export type HttpError = Error & {
   }
 }
 
+export function getHttpErrorStatus(error: unknown): number | null {
+  if (!isObjectLike(error)) {
+    return null
+  }
+  const status = error.status
+  if (typeof status === 'number') {
+    return status
+  }
+  const response = error.response
+  if (isObjectLike(response) && typeof response.status === 'number') {
+    return response.status
+  }
+  return null
+}
+
 export function createHttpError(
   message: string,
   status: number,

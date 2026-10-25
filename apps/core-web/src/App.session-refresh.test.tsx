@@ -3,10 +3,11 @@
  */
 
 import * as React from 'react'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
+import { APP_ROUTE_PATHS, LOGIN_PATH } from '@/lib/app-route-paths'
+import { createHttpError } from '@/lib/error-utils'
 import App from './App'
 
 const mockUseAuth = vi.fn()
@@ -20,11 +21,6 @@ vi.mock('@/auth/AuthProvider', () => ({
 vi.mock('@/api/auth-session', () => ({
   useAuthSession: (...args: unknown[]) => mockUseAuthSession(...args),
   useSwitchTenant: () => mockUseSwitchTenant(),
-}))
-
-vi.mock('@/api/sites', () => ({
-  useMySites: () => ({ data: [], isLoading: false }),
-  useSetActiveSite: () => ({ isPending: false, mutateAsync: vi.fn() }),
 }))
 
 vi.mock('@/api/sites', () => ({
@@ -110,5 +106,31 @@ describe('App session refresh (AUT-734)', () => {
 
     expect(await screen.findByText('ACP')).toBeInTheDocument()
     expect(screen.queryByText('Laden…')).not.toBeInTheDocument()
+  })
+
+  it('signs out and redirects to login when a background refetch returns 401 with cached session data', async () => {
+    const signOutUser = vi.fn().mockResolvedValue(undefined)
+    mockUseAuth.mockReturnValue({
+      user: { uid: 'user-1', email: 'testauto@auto.core.at' },
+      loading: false,
+      authInitTimedOut: false,
+      signOutUser,
+    })
+    mockUseAuthSession.mockReturnValue({
+      isLoading: false,
+      isError: true,
+      data: sessionFixture,
+      error: createHttpError('Unauthorized', 401),
+    })
+
+    renderAtPath(APP_ROUTE_PATHS.dashboard)
+
+    await waitFor(() => {
+      expect(signOutUser).toHaveBeenCalled()
+    })
+    await waitFor(() => {
+      expect(window.location.pathname).toBe(LOGIN_PATH)
+    })
+    expect(screen.queryByText('ACP')).not.toBeInTheDocument()
   })
 })
