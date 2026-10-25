@@ -195,7 +195,7 @@ function EditableDateField({ ariaLabel, canEdit, initialValue, onSave }: Editabl
         className='group/inline-edit relative -mx-2 w-full rounded-md px-2 py-1 text-left transition-colors hover:bg-slate-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
       >
         <span className='block pr-5 text-sm text-muted-foreground italic'>{t('employees.notSet')}</span>
-        <Pencil className='pointer-events-none absolute right-1.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground opacity-0 transition-opacity group-hover/inline-edit:opacity-70' />
+        <Pencil className='pointer-events-none absolute right-1.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground opacity-0 transition-opacity pointer-coarse:opacity-70 hover-capable:group-hover/inline-edit:opacity-70' />
       </button>
     )
   }

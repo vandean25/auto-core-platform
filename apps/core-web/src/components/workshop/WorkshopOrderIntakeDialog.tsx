@@ -408,6 +408,8 @@ export function WorkshopOrderIntakeDialog({
                     />
                     <Input
                       placeholder={t('orderIntake.phone')}
+                      type="tel"
+                      autoComplete="tel"
                       value={newCustomer.phone}
                       onChange={(e) => setNewCustomer((v) => ({ ...v, phone: e.target.value }))}
                     />
@@ -449,7 +451,7 @@ export function WorkshopOrderIntakeDialog({
               />
             </div>
             <textarea
-              className="w-full min-h-20 rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="w-full min-h-20 rounded-md border border-input bg-transparent px-3 py-2 text-base md:text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
               placeholder={t('orderIntake.notesPlaceholder')}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}

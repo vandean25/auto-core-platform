@@ -247,7 +247,7 @@ function CategoryTreeRow({
         {/* Edit Button */}
         <button
           onClick={e => { e.stopPropagation(); onEdit(category) }}
-          className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-slate-700 shrink-0"
+          className="inline-flex min-h-11 min-w-11 items-center justify-center opacity-0 transition-opacity pointer-coarse:opacity-100 hover-capable:group-hover:opacity-100 text-slate-400 hover:text-slate-700 shrink-0"
           aria-label={t("labor.categories.tree.editAria", { name: category.name })}
           title={t("labor.categories.tree.editTitle")}
         >

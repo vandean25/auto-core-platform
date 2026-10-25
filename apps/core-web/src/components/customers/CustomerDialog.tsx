@@ -214,7 +214,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                                     <FormItem>
                                         <FormLabel>{t('dialog.phone')}</FormLabel>
                                         <FormControl>
-                                            <Input {...field} value={field.value ?? ''} />
+                                            <Input type="tel" autoComplete="tel" {...field} value={field.value ?? ''} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>

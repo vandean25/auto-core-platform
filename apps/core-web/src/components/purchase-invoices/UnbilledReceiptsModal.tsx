@@ -92,12 +92,12 @@ export function UnbilledReceiptsModal({ open, onOpenChange, items, onAdd, preSel
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
-                <DialogHeader>
+            <DialogContent className="max-h-[80vh] max-w-4xl flex flex-col gap-0 overflow-hidden p-0">
+                <DialogHeader className="shrink-0 px-6 pt-6">
                     <DialogTitle>{t('purchaseInvoices.unbilledModal.title')}</DialogTitle>
                 </DialogHeader>
-                
-                <div className="flex-1 overflow-auto py-4">
+
+                <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
                     <Table>
                         <TableHeader>
                             <TableRow>
@@ -144,7 +144,7 @@ export function UnbilledReceiptsModal({ open, onOpenChange, items, onAdd, preSel
                     </Table>
                 </div>
 
-                <DialogFooter>
+                <DialogFooter className="shrink-0 px-6 pb-6">
                     <Button variant="outline" onClick={() => onOpenChange(false)}>{t('actions.cancel')}</Button>
                     <Button onClick={handleAdd} disabled={items.filter(i => selected[i.purchaseOrderItemId]).length === 0}>
                         {t('purchaseInvoices.unbilledModal.addSelected')}

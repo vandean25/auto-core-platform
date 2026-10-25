@@ -143,7 +143,7 @@ export function VoiceTranslationSettingsTab() {
             </Label>
             <textarea
               id='voice-google-credential'
-              className='min-h-[160px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono'
+              className='min-h-[160px] w-full rounded-md border border-input bg-background px-3 py-2 text-base md:text-sm font-mono'
               value={
                 showCredential
                   ? formState.googleServiceAccountJson

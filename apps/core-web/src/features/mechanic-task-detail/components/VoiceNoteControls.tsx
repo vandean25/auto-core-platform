@@ -105,7 +105,7 @@ export function VoiceNoteControls({
             value={voiceDraftValue}
             onChange={(event) => onDraftChange(event.target.value)}
             rows={4}
-            className="w-full resize-y rounded-md border border-slate-200 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 disabled:opacity-50"
+            className="w-full resize-y rounded-md border border-slate-200 bg-white px-3 py-2 text-base md:text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 disabled:opacity-50"
             disabled={disabled}
           />
           <div className="flex flex-wrap justify-end gap-2">

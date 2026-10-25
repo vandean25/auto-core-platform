@@ -970,6 +970,8 @@ function LegalEntitySellerForm({
           <Label htmlFor="seller-phone">{t('legalEntities.seller.fields.phone')}</Label>
           <Input
             id="seller-phone"
+            type="tel"
+            autoComplete="tel"
             value={form.phone}
             onChange={(event) => updateField('phone', event.target.value)}
           />
@@ -996,7 +998,7 @@ function LegalEntitySellerForm({
           <Label htmlFor="seller-representatives">{t('legalEntities.seller.fields.representatives')}</Label>
           <textarea
             id="seller-representatives"
-            className="min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-base md:text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             value={form.representatives}
             onChange={(event) => updateField('representatives', event.target.value)}
           />
@@ -1037,7 +1039,7 @@ function LegalEntitySellerForm({
           <Label htmlFor="seller-payment-text">{t('legalEntities.seller.fields.paymentTermsText')}</Label>
           <textarea
             id="seller-payment-text"
-            className="min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-base md:text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             value={form.paymentTermsText}
             onChange={(event) => updateField('paymentTermsText', event.target.value)}
           />

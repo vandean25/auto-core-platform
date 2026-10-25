@@ -24,7 +24,7 @@ export function MechanicShell({ activeTenant, userEmail, onSignOut, children }: 
   return (
     <div className="min-h-screen bg-slate-50">
       <NewVersionAvailableBanner />
-      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 shadow-sm">
+      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-200 bg-white pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] pt-[calc(0.75rem+env(safe-area-inset-top,0px))] pb-3 shadow-sm">
         <div className="flex items-center gap-3">
           <span className="font-semibold tracking-tight text-slate-900">ACP</span>
           {activeTenant ? (

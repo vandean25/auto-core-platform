@@ -247,7 +247,7 @@ export function CustomerConsentPanel({
               <Label htmlFor='consent-text'>{t('consent.textShown')}</Label>
               <textarea
                 id='consent-text'
-                className='flex min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm'
+                className='flex min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-base md:text-sm'
                 value={textSnapshot}
                 onChange={(event) => setTextSnapshot(event.target.value)}
               />

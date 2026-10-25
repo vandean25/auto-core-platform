@@ -57,8 +57,8 @@ import { GlobalShortcutLayer } from '@/features/shortcuts/GlobalShortcutLayer'
 
 function AppMain() {
   return (
-    <SidebarInset id="main-content" tabIndex={-1}>
-      <header className="sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 border-b border-border bg-background px-4">
+    <SidebarInset id="main-content" tabIndex={-1} className="safe-area-inset-bottom">
+      <header className="sticky top-0 z-10 flex min-h-12 shrink-0 items-center gap-2 border-b border-border bg-background pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] pt-[env(safe-area-inset-top,0px))]">
         <SidebarTrigger className="-ml-1" />
       </header>
       <PageBreadcrumbsProvider>

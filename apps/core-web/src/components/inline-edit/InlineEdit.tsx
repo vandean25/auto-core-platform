@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { Loader2, Pencil } from 'lucide-react'
+import { mobileFieldTextClass } from '@/lib/mobile-field-text'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import type { ZodType } from 'zod'
@@ -20,6 +21,8 @@ type InlineEditProps = {
   displayClassName?: string
   inputClassName?: string
   ariaLabel?: string
+  /** When true, uses a tel keyboard and autocomplete for phone numbers. */
+  phone?: boolean
 }
 
 function getFocusableElements() {
@@ -117,6 +120,64 @@ interface InlineEditorInputProps {
   ariaLabel?: string
   inputClassName?: string
   rows?: number
+  phone?: boolean
+}
+
+function InlineEditTextInput({
+  inputRef,
+  draftValue,
+  onChange,
+  onBlur,
+  onKeyDown,
+  validationError,
+  errorId,
+  isSaving,
+  placeholder,
+  ariaLabel,
+  inputClassName,
+  phone,
+}: {
+  inputRef: React.RefObject<HTMLInputElement | null>
+  draftValue: string
+  onChange: (val: string) => void
+  onBlur: () => void
+  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void
+  validationError: string | null
+  errorId: string
+  isSaving: boolean
+  placeholder?: string
+  ariaLabel?: string
+  inputClassName?: string
+  phone?: boolean
+}) {
+  const errorMarkup = validationError ? (
+    <p id={errorId} className='mt-1 text-xs text-red-500' role='alert'>{validationError}</p>
+  ) : null
+
+  return (
+    <div>
+      <Input
+        ref={inputRef}
+        type={phone ? 'tel' : undefined}
+        autoComplete={phone ? 'tel' : undefined}
+        value={draftValue}
+        onChange={(event) => onChange(event.target.value)}
+        onBlur={onBlur}
+        onKeyDown={onKeyDown}
+        className={cn(
+          'h-9',
+          validationError && 'border-red-500 focus-visible:ring-red-500',
+          inputClassName,
+        )}
+        placeholder={placeholder}
+        aria-label={ariaLabel}
+        aria-invalid={!!validationError}
+        aria-describedby={validationError ? errorId : undefined}
+        disabled={isSaving}
+      />
+      {errorMarkup}
+    </div>
+  )
 }
 
 function InlineEditorInput({
@@ -133,6 +194,7 @@ function InlineEditorInput({
   ariaLabel,
   inputClassName,
   rows,
+  phone,
 }: InlineEditorInputProps) {
   const errorId = React.useId()
   const errorMarkup = validationError ? (
@@ -150,7 +212,8 @@ function InlineEditorInput({
           onBlur={onBlur}
           onKeyDown={onKeyDown}
           className={cn(
-            'w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring',
+            'w-full rounded-md border border-input bg-background px-3 py-2 outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring',
+            mobileFieldTextClass,
             validationError && 'border-red-500 focus-visible:ring-red-500',
             inputClassName,
           )}
@@ -166,26 +229,20 @@ function InlineEditorInput({
   }
 
   return (
-    <div>
-      <Input
-        ref={inputRef}
-        value={draftValue}
-        onChange={(event) => onChange(event.target.value)}
-        onBlur={onBlur}
-        onKeyDown={onKeyDown}
-        className={cn(
-          'h-9 text-sm',
-          validationError && 'border-red-500 focus-visible:ring-red-500',
-          inputClassName,
-        )}
-        placeholder={placeholder}
-        aria-label={ariaLabel}
-        aria-invalid={!!validationError}
-        aria-describedby={validationError ? errorId : undefined}
-        disabled={isSaving}
-      />
-      {errorMarkup}
-    </div>
+    <InlineEditTextInput
+      inputRef={inputRef}
+      draftValue={draftValue}
+      onChange={onChange}
+      onBlur={onBlur}
+      onKeyDown={onKeyDown}
+      validationError={validationError}
+      errorId={errorId}
+      isSaving={isSaving}
+      placeholder={placeholder}
+      ariaLabel={ariaLabel}
+      inputClassName={inputClassName}
+      phone={phone}
+    />
   )
 }
 
@@ -216,7 +273,7 @@ function InlineEditDisplay({
   const displayContent = (
     <div
       className={cn(
-        'group/inline-edit relative w-full rounded-md px-2 py-1 -mx-2 text-left transition-colors',
+        'group/inline-edit relative w-full min-h-11 rounded-md px-2 py-1 -mx-2 text-left transition-colors',
         !readOnly && 'hover:bg-slate-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         className,
       )}
@@ -236,7 +293,7 @@ function InlineEditDisplay({
         isSaving ? (
           <Loader2 className='pointer-events-none absolute right-1.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-muted-foreground' />
         ) : (
-          <Pencil className='pointer-events-none absolute right-1.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground opacity-0 transition-opacity group-hover/inline-edit:opacity-70' />
+          <Pencil className='pointer-events-none absolute right-1.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground opacity-0 transition-opacity pointer-coarse:opacity-70 hover-capable:group-hover/inline-edit:opacity-70' />
         )
       )}
     </div>
@@ -266,6 +323,7 @@ export function InlineEdit({
   displayClassName,
   inputClassName,
   ariaLabel,
+  phone,
 }: InlineEditProps) {
   const normalizedValue = value ?? ''
   const [isEditing, setIsEditing] = React.useState(false)
@@ -379,6 +437,7 @@ export function InlineEdit({
         ariaLabel={ariaLabel}
         inputClassName={inputClassName}
         rows={rows}
+        phone={phone}
       />
     )
   }
