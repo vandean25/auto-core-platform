@@ -56,9 +56,7 @@ export function createResumedApplyTotals(
   rowCount: number,
   storedTotals: ImportJobTotals | null | undefined,
 ): ImportJobTotals {
-  const totals = createApplyTotals(
-    Math.max(rowCount, storedTotals?.rows ?? 0),
-  );
+  const totals = createApplyTotals(Math.max(rowCount, storedTotals?.rows ?? 0));
   if (!storedTotals) {
     return totals;
   }
