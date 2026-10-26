@@ -72,4 +72,37 @@ describe('vehicle party batch rows', () => {
       2,
     ]);
   });
+
+  it('merges every closing update in the lookahead window for the same vehicle', () => {
+    const fileBatch = Array.from({ length: IMPORT_APPLY_BATCH_SIZE }, (_, index) =>
+      plannedRow(index + 1, ImportRowAction.SKIP),
+    );
+    fileBatch[IMPORT_APPLY_BATCH_SIZE - 1] = plannedRow(
+      IMPORT_APPLY_BATCH_SIZE,
+      ImportRowAction.CREATE,
+    );
+    const lookahead = [
+      plannedRow(IMPORT_APPLY_BATCH_SIZE + 1, ImportRowAction.SKIP),
+      plannedRow(IMPORT_APPLY_BATCH_SIZE + 2, ImportRowAction.UPDATE, {
+        entity_id: 'party-close-a',
+      }),
+      plannedRow(IMPORT_APPLY_BATCH_SIZE + 3, ImportRowAction.UPDATE, {
+        entity_id: 'party-close-b',
+      }),
+    ];
+    const ordered = buildVehiclePartyBackgroundApplyRows(fileBatch, lookahead);
+    const updateRows = ordered.filter(
+      (row) => row.action === ImportRowAction.UPDATE,
+    );
+    expect(updateRows.map((row) => row.row_no)).toEqual([
+      IMPORT_APPLY_BATCH_SIZE + 2,
+      IMPORT_APPLY_BATCH_SIZE + 3,
+    ]);
+    expect(ordered.at(-1)?.row_no).toBe(IMPORT_APPLY_BATCH_SIZE);
+    expect(
+      ordered.findIndex((row) => row.row_no === IMPORT_APPLY_BATCH_SIZE + 2),
+    ).toBeLessThan(
+      ordered.findIndex((row) => row.row_no === IMPORT_APPLY_BATCH_SIZE),
+    );
+  });
 });

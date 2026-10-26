@@ -382,4 +382,241 @@ describe('VehiclePartyImportHandler owner transfer across batches', () => {
       IMPORT_APPLY_BATCH_SIZE,
     ]);
   });
+
+  it('applies a gap lookahead owner transfer through the handler', async () => {
+    const worker: ImportJobWorkerState = {
+      phase: 'apply',
+      lease_token: 'lease-party-gap',
+      lease_until: new Date(0).toISOString(),
+      processed_rows: 0,
+      last_committed_row_no: 0,
+      started_at: new Date().toISOString(),
+    };
+    const { prisma } = createWorkerPrisma(worker);
+    const runner = new RowByRowApplyRunner(
+      prisma as never,
+      { writeImportJobAudit: jest.fn() } as never,
+      (job, totals) =>
+        ({ ...job, totals, status: job.status }) as unknown as SerializedImportJob,
+    );
+    const handler = new TrackingVehiclePartyImportHandler(
+      prisma as never,
+      { writeImportJobAudit: jest.fn() } as never,
+      runner,
+    );
+    const fileBatch = Array.from({ length: IMPORT_APPLY_BATCH_SIZE }, (_, index) =>
+      plannedRow(index + 1, ImportRowAction.SKIP),
+    );
+    fileBatch[IMPORT_APPLY_BATCH_SIZE - 1] = plannedRow(
+      IMPORT_APPLY_BATCH_SIZE,
+      ImportRowAction.CREATE,
+    );
+    const lookahead = [
+      plannedRow(IMPORT_APPLY_BATCH_SIZE + 1, ImportRowAction.SKIP),
+      plannedRow(IMPORT_APPLY_BATCH_SIZE + 2, ImportRowAction.UPDATE),
+    ];
+
+    await handler.apply({
+      tenantId: 'tenant-1',
+      job: {
+        id: 'job-1',
+        source_system: 'legacy',
+        options_json: { worker },
+        totals_json: {
+          rows: IMPORT_APPLY_BATCH_SIZE + 2,
+          create: 0,
+          update: 0,
+          skip: 0,
+          error: 0,
+        },
+      },
+      rows: fileBatch,
+      actorUserId: 'user-1',
+      effectiveOptions: {},
+      preparation: { vendor: null },
+      batchOptions: {
+        resumeAfterRowNo: 0,
+        stopAfterBatch: true,
+        hasMoreRowsAfterBatch: false,
+        lookaheadRows: lookahead,
+        leaseToken: worker.lease_token,
+      },
+    });
+
+    const appliedRowNos = handler.applied.map((row) => row.row_no);
+    expect(appliedRowNos.indexOf(IMPORT_APPLY_BATCH_SIZE + 2)).toBeLessThan(
+      appliedRowNos.indexOf(IMPORT_APPLY_BATCH_SIZE),
+    );
+    expect(
+      handler.applied.find((row) => row.action === ImportRowAction.CREATE)?.row_no,
+    ).toBe(IMPORT_APPLY_BATCH_SIZE);
+    expect(worker.last_committed_row_no).toBe(IMPORT_APPLY_BATCH_SIZE + 2);
+  });
+
+  it('applies two closing updates before the create in one page', async () => {
+    const worker: ImportJobWorkerState = {
+      phase: 'apply',
+      lease_token: 'lease-party-multi',
+      lease_until: new Date(0).toISOString(),
+      processed_rows: 0,
+      last_committed_row_no: 0,
+      started_at: new Date().toISOString(),
+    };
+    const { prisma } = createWorkerPrisma(worker);
+    const runner = new RowByRowApplyRunner(
+      prisma as never,
+      { writeImportJobAudit: jest.fn() } as never,
+      (job, totals) =>
+        ({ ...job, totals, status: job.status }) as unknown as SerializedImportJob,
+    );
+    const handler = new TrackingVehiclePartyImportHandler(
+      prisma as never,
+      { writeImportJobAudit: jest.fn() } as never,
+      runner,
+    );
+    const fileBatch = Array.from({ length: IMPORT_APPLY_BATCH_SIZE }, (_, index) =>
+      plannedRow(index + 1, ImportRowAction.SKIP),
+    );
+    fileBatch[IMPORT_APPLY_BATCH_SIZE - 1] = plannedRow(
+      IMPORT_APPLY_BATCH_SIZE,
+      ImportRowAction.CREATE,
+    );
+    const lookahead = [
+      plannedRow(IMPORT_APPLY_BATCH_SIZE + 1, ImportRowAction.UPDATE, {
+        entity_id: 'party-close-a',
+      }),
+      plannedRow(IMPORT_APPLY_BATCH_SIZE + 2, ImportRowAction.UPDATE, {
+        entity_id: 'party-close-b',
+      }),
+    ];
+
+    await handler.apply({
+      tenantId: 'tenant-1',
+      job: {
+        id: 'job-1',
+        source_system: 'legacy',
+        options_json: { worker },
+        totals_json: {
+          rows: IMPORT_APPLY_BATCH_SIZE + 2,
+          create: 0,
+          update: 0,
+          skip: 0,
+          error: 0,
+        },
+      },
+      rows: fileBatch,
+      actorUserId: 'user-1',
+      effectiveOptions: {},
+      preparation: { vendor: null },
+      batchOptions: {
+        resumeAfterRowNo: 0,
+        stopAfterBatch: true,
+        hasMoreRowsAfterBatch: false,
+        lookaheadRows: lookahead,
+        leaseToken: worker.lease_token,
+      },
+    });
+
+    const createIndex = handler.applied.findIndex(
+      (row) => row.row_no === IMPORT_APPLY_BATCH_SIZE,
+    );
+    expect(
+      handler.applied.findIndex((row) => row.row_no === IMPORT_APPLY_BATCH_SIZE + 1),
+    ).toBeLessThan(createIndex);
+    expect(
+      handler.applied.findIndex((row) => row.row_no === IMPORT_APPLY_BATCH_SIZE + 2),
+    ).toBeLessThan(createIndex);
+    expect(worker.last_committed_row_no).toBe(IMPORT_APPLY_BATCH_SIZE + 2);
+  });
+
+  it('applies owner transfer when the create is on the second batch page', async () => {
+    const worker: ImportJobWorkerState = {
+      phase: 'apply',
+      lease_token: 'lease-party-page2',
+      lease_until: new Date(0).toISOString(),
+      processed_rows: 0,
+      last_committed_row_no: 0,
+      started_at: new Date().toISOString(),
+    };
+    const { prisma } = createWorkerPrisma(worker);
+    const runner = new RowByRowApplyRunner(
+      prisma as never,
+      { writeImportJobAudit: jest.fn() } as never,
+      (job, totals) =>
+        ({ ...job, totals, status: job.status }) as unknown as SerializedImportJob,
+    );
+    const handler = new TrackingVehiclePartyImportHandler(
+      prisma as never,
+      { writeImportJobAudit: jest.fn() } as never,
+      runner,
+    );
+
+    const firstPage = Array.from({ length: IMPORT_APPLY_BATCH_SIZE }, (_, index) =>
+      plannedRow(index + 1, ImportRowAction.SKIP),
+    );
+    await handler.apply({
+      tenantId: 'tenant-1',
+      job: {
+        id: 'job-1',
+        source_system: 'legacy',
+        options_json: { worker },
+        totals_json: {
+          rows: IMPORT_APPLY_BATCH_SIZE + 2,
+          create: 0,
+          update: 0,
+          skip: 0,
+          error: 0,
+        },
+      },
+      rows: firstPage,
+      actorUserId: 'user-1',
+      effectiveOptions: {},
+      preparation: { vendor: null },
+      batchOptions: {
+        resumeAfterRowNo: 0,
+        stopAfterBatch: true,
+        hasMoreRowsAfterBatch: true,
+        leaseToken: worker.lease_token,
+      },
+    });
+    expect(worker.last_committed_row_no).toBe(IMPORT_APPLY_BATCH_SIZE);
+    handler.applied.length = 0;
+
+    const secondPage = [plannedRow(IMPORT_APPLY_BATCH_SIZE + 1, ImportRowAction.CREATE)];
+    const secondLookahead = [
+      plannedRow(IMPORT_APPLY_BATCH_SIZE + 2, ImportRowAction.UPDATE),
+    ];
+    await handler.apply({
+      tenantId: 'tenant-1',
+      job: {
+        id: 'job-1',
+        source_system: 'legacy',
+        options_json: { worker },
+        totals_json: {
+          rows: IMPORT_APPLY_BATCH_SIZE + 2,
+          create: 0,
+          update: 0,
+          skip: 0,
+          error: 0,
+        },
+      },
+      rows: secondPage,
+      actorUserId: 'user-1',
+      effectiveOptions: {},
+      preparation: { vendor: null },
+      batchOptions: {
+        resumeAfterRowNo: worker.last_committed_row_no,
+        stopAfterBatch: true,
+        hasMoreRowsAfterBatch: false,
+        lookaheadRows: secondLookahead,
+        leaseToken: worker.lease_token,
+      },
+    });
+
+    expect(handler.applied.map((row) => row.row_no)).toEqual([
+      IMPORT_APPLY_BATCH_SIZE + 2,
+      IMPORT_APPLY_BATCH_SIZE + 1,
+    ]);
+    expect(worker.last_committed_row_no).toBe(IMPORT_APPLY_BATCH_SIZE + 2);
+  });
 });
