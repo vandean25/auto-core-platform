@@ -46,8 +46,9 @@ export abstract class RowByRowImportHandler implements ImportTypeHandler {
   /** The order rows are applied in. File order unless a handler needs another. */
   protected orderRows(
     rows: ImportApplyRow[],
-    _input: ImportApplyInput,
+    input: ImportApplyInput,
   ): ImportApplyRow[] {
+    void input;
     return rows;
   }
 
