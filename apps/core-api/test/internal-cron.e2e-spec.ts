@@ -1,10 +1,11 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
+import { PrismaService } from '../src/prisma/prisma.service.js';
 import { teardownTestApp } from './test-lifecycle.js';
 
 describe('Internal HTTP cron (e2e)', () => {
   let app: INestApplication;
-  let basePrisma: import('../src/prisma/prisma.service.js').PrismaService;
+  let basePrisma: PrismaService;
   const saved: Record<string, string | undefined> = {};
 
   beforeAll(async () => {
@@ -56,7 +57,7 @@ describe('Internal HTTP cron (e2e)', () => {
       }
     }
     if (app) {
-      await teardownTestApp(app, basePrisma as never);
+      await teardownTestApp(app, basePrisma);
     }
   });
 
