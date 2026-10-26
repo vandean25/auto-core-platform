@@ -96,4 +96,25 @@ describe('GlobalExceptionFilter (e2e)', () => {
     expect(response.body).toHaveProperty('message');
     expect(response.body).toHaveProperty('error');
   });
+
+  it('returns 413 for an unauthenticated JSON body over 100 KiB (AUT-731)', async () => {
+    const oversizedBody = JSON.stringify({
+      padding: 'x'.repeat(101 * 1024),
+    });
+
+    const response = await request(app.getHttpServer())
+      .post('/api/customers')
+      .set('Content-Type', 'application/json')
+      .send(oversizedBody);
+
+    expect(response.status).toBe(HttpStatus.PAYLOAD_TOO_LARGE);
+    expect(response.body).toMatchObject({
+      statusCode: HttpStatus.PAYLOAD_TOO_LARGE,
+      error: 'Payload Too Large',
+      code: 'HTTP_413',
+    });
+    expect(response.body).toHaveProperty('message');
+    expect(response.body).not.toHaveProperty('requestId');
+    expect(response.body).not.toHaveProperty('eventId');
+  });
 });

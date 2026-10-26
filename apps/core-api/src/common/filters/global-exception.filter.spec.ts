@@ -22,6 +22,25 @@ esmJest.unstable_mockModule('@sentry/node', () => ({
 
 const { GlobalExceptionFilter } = await import('./global-exception.filter.js');
 
+function createBodyParserHttpError(options: {
+  status: number;
+  type: string;
+  message: string;
+  expose?: boolean;
+}): Error {
+  const error = new Error(options.message) as Error & {
+    expose: boolean;
+    status: number;
+    statusCode: number;
+    type: string;
+  };
+  error.expose = options.expose ?? true;
+  error.status = options.status;
+  error.statusCode = options.status;
+  error.type = options.type;
+  return error;
+}
+
 describe('GlobalExceptionFilter', () => {
   let filter: InstanceType<typeof GlobalExceptionFilter>;
   let mockStatus: jest.Mock;
@@ -463,6 +482,112 @@ describe('GlobalExceptionFilter', () => {
     expect(mockJson.mock.calls[0][0]).not.toHaveProperty('orderId');
     expect(mockJson.mock.calls[0][0]).toMatchObject({ code: 'HTTP_409' });
   });
+
+  describe('body-parser http-errors (AUT-731)', () => {
+    beforeEach(() => {
+      mockCaptureException.mockReset();
+    });
+
+    it('maps entity.too.large to 413 without Sentry capture', () => {
+      const exception = createBodyParserHttpError({
+        status: 413,
+        type: 'entity.too.large',
+        message: 'request entity too large',
+      });
+      TenantContextStorage.run(() => {
+        TenantContextStorage.setRequestMeta({
+          requestId: 'req-413',
+          traceId: '00000000-0000-4000-8000-000000000010',
+          source: 'API',
+        });
+        filter.catch(exception, mockHost);
+      });
+
+      expect(mockStatus).toHaveBeenCalledWith(413);
+      expect(mockJson).toHaveBeenCalledWith({
+        statusCode: 413,
+        message: 'request entity too large',
+        error: 'Payload Too Large',
+        code: 'HTTP_413',
+      });
+      expect(mockCaptureException).not.toHaveBeenCalled();
+      expect(mockLoggerWarn).toHaveBeenCalledWith(
+        JSON.stringify({ type: 'entity.too.large', requestId: 'req-413' }),
+      );
+      expect(mockLoggerError).not.toHaveBeenCalled();
+    });
+
+    it('maps entity.parse.failed to 400 without Sentry capture', () => {
+      const exception = createBodyParserHttpError({
+        status: 400,
+        type: 'entity.parse.failed',
+        message: 'Unexpected token o in JSON at position 1',
+      });
+      filter.catch(exception, mockHost);
+
+      expect(mockStatus).toHaveBeenCalledWith(400);
+      expect(mockJson).toHaveBeenCalledWith({
+        statusCode: 400,
+        message: 'Unexpected token o in JSON at position 1',
+        error: 'Bad Request',
+        code: 'HTTP_400',
+      });
+      expect(mockCaptureException).not.toHaveBeenCalled();
+    });
+
+    it('maps encoding.unsupported to 415 without Sentry capture', () => {
+      const exception = createBodyParserHttpError({
+        status: 415,
+        type: 'encoding.unsupported',
+        message: 'unsupported content encoding "gzip"',
+      });
+      filter.catch(exception, mockHost);
+
+      expect(mockStatus).toHaveBeenCalledWith(415);
+      expect(mockJson).toHaveBeenCalledWith({
+        statusCode: 415,
+        message: 'unsupported content encoding "gzip"',
+        error: 'Unsupported Media Type',
+        code: 'HTTP_415',
+      });
+      expect(mockCaptureException).not.toHaveBeenCalled();
+    });
+
+    it('keeps expose=false 413 errors as 500 with Sentry capture', () => {
+      mockCaptureException.mockReturnValue('evt-bp');
+      const exception = createBodyParserHttpError({
+        status: 413,
+        type: 'entity.too.large',
+        message: 'hidden',
+        expose: false,
+      });
+      filter.catch(exception, mockHost);
+
+      expect(mockStatus).toHaveBeenCalledWith(500);
+      expect(mockCaptureException).toHaveBeenCalledWith(exception);
+      expect(mockJson).toHaveBeenCalledWith(
+        expect.objectContaining({
+          statusCode: 500,
+          code: 'HTTP_500',
+          eventId: 'evt-bp',
+        }),
+      );
+    });
+
+    it('does not map expose=true 5xx body-parser errors', () => {
+      mockCaptureException.mockReturnValue('evt-5xx-bp');
+      const exception = createBodyParserHttpError({
+        status: 503,
+        type: 'entity.too.large',
+        message: 'upstream',
+      });
+      filter.catch(exception, mockHost);
+
+      expect(mockStatus).toHaveBeenCalledWith(500);
+      expect(mockCaptureException).toHaveBeenCalledWith(exception);
+    });
+  });
+
   describe('handleHttpException characterization (AUT-672)', () => {
     const originalNodeEnv = process.env.NODE_ENV;
 
