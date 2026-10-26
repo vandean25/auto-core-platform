@@ -58,8 +58,9 @@ describe('fillImportJobApplySequences SQL order', () => {
     await fillImportJobApplySequences(tx, 'tenant-1', 'job-1', 'row_no');
     await fillImportJobApplySequences(tx, 'tenant-1', 'job-1', 'updates_first');
     expect(executeRaw).toHaveBeenCalledTimes(2);
-    const rowNoSql = String(executeRaw.mock.calls[0]?.[0] ?? '');
-    const updatesFirstSql = String(executeRaw.mock.calls[1]?.[0] ?? '');
+    const calls = executeRaw.mock.calls as unknown[][];
+    const rowNoSql = String(calls[0]?.[0] ?? '');
+    const updatesFirstSql = String(calls[1]?.[0] ?? '');
     expect(rowNoSql).toContain('ORDER BY row_no');
     expect(updatesFirstSql).toContain("action <> 'UPDATE'");
     expect(updatesFirstSql).toContain('row_no');
