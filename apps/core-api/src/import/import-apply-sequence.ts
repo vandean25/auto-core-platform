@@ -1,7 +1,11 @@
-/** SQL ORDER BY terms for assigning apply_seq (must match in-memory sync order). */
-export const DEFAULT_IMPORT_APPLY_SEQUENCE_ORDER = 'row_no ASC';
+import type { ImportApplyRow } from './import-type-handler.js';
 
-export const VEHICLE_PARTY_IMPORT_APPLY_SEQUENCE_ORDER = `(action <> 'UPDATE'::"ImportRowAction"), row_no ASC`;
+/** Default background apply_seq order (matches sync row_no order). */
+export function sortImportApplyRowsByRowNo(
+  rows: ImportApplyRow[],
+): ImportApplyRow[] {
+  return [...rows].sort((a, b) => a.row_no - b.row_no);
+}
 
 export function applySeqForRow(row: {
   apply_seq?: number | null;

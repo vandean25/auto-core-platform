@@ -14,6 +14,7 @@ import {
 import type { DryRunRowResult } from './import.types.js';
 import { applyVehicleImportRow } from './vehicle-import-apply.row.js';
 import { planVehicleDryRun } from './vehicle-import.dry-run.js';
+import { sortImportApplyRowsByRowNo } from './import-apply-sequence.js';
 
 /** Vehicle imports. Rows are written one at a time, like customer imports. */
 export class VehicleImportHandler implements ImportTypeHandler {
@@ -26,7 +27,7 @@ export class VehicleImportHandler implements ImportTypeHandler {
   ) {}
 
   sortRowsForApplySequence(rows: ImportApplyRow[]): ImportApplyRow[] {
-    return [...rows].sort((a, b) => a.row_no - b.row_no);
+    return sortImportApplyRowsByRowNo(rows);
   }
 
   prepareCreate(): Promise<void> {

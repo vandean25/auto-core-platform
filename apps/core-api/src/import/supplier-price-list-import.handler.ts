@@ -16,6 +16,7 @@ import {
 import { IMPORT_ERROR_CODES } from './import.constants.js';
 import type { DryRunRowResult, ImportJobOptions } from './import.types.js';
 import { planSupplierPriceListRows } from './supplier-price-list-import.dry-run.js';
+import { sortImportApplyRowsByRowNo } from './import-apply-sequence.js';
 
 /**
  * A price list may only be applied when every flagged price jump is accepted, either for
@@ -61,7 +62,7 @@ export class SupplierPriceListImportHandler implements ImportTypeHandler {
   ) {}
 
   sortRowsForApplySequence(rows: ImportApplyRow[]): ImportApplyRow[] {
-    return [...rows].sort((a, b) => a.row_no - b.row_no);
+    return sortImportApplyRowsByRowNo(rows);
   }
 
   /** Stores the resolved vendor id on the job options, so later steps use the same vendor. */

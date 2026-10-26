@@ -16,6 +16,7 @@ import {
   type ImportWorkerPhase,
 } from './import-job.worker-state.js';
 import type { ImportApplyRow } from './import-type-handler.js';
+import { assertApplyWorkerLease } from './import-background-apply.commit.js';
 import type {
   DryRunRowResult,
   ImportJobOptions,
@@ -520,20 +521,14 @@ export async function commitApplyWorkerRowInTransaction(
   leaseToken: string,
   applySeq: number,
 ): Promise<void> {
+  await assertApplyWorkerLease(tx, tenantId, jobId, leaseToken);
   const job = await tx.importJob.findFirst({
-    where: {
-      tenant_id: tenantId,
-      id: jobId,
-      status: ImportJobStatus.APPLYING,
-    },
+    where: { tenant_id: tenantId, id: jobId },
   });
   if (!job) {
     throw new ImportWorkerLeaseLostError();
   }
   const options = job.options_json as ImportJobOptionsWithWorker;
-  if (options.worker?.lease_token !== leaseToken) {
-    throw new ImportWorkerLeaseLostError();
-  }
   const worker: ImportJobWorkerState = {
     ...options.worker,
     last_committed_apply_seq: applySeq,
