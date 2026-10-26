@@ -821,6 +821,7 @@ export class ImportService {
       batchOptions: {
         resumeAfterRowNo: context.resumeAfter,
         stopAfterBatch: true,
+        hasMoreRowsAfterBatch: context.hasMoreRowsAfterBatch,
         leaseToken: context.worker.lease_token,
       },
     });
@@ -850,12 +851,14 @@ export class ImportService {
       return null;
     }
     const resumeAfter = worker.last_committed_row_no ?? 0;
-    const rows = await this.jobStore.findApplyRowsAfter(
+    const page = await this.jobStore.findApplyRowsAfter(
       tenantId,
       jobId,
       resumeAfter,
-      IMPORT_APPLY_BATCH_SIZE,
+      IMPORT_APPLY_BATCH_SIZE + 1,
     );
+    const hasMoreRowsAfterBatch = page.length > IMPORT_APPLY_BATCH_SIZE;
+    const rows = page.slice(0, IMPORT_APPLY_BATCH_SIZE);
     const rowCount = await this.jobStore.countApplyRows(tenantId, jobId);
     assertImplementedImportEntityType(job.entity_type);
     const handler = this.handlers[job.entity_type];
@@ -882,6 +885,7 @@ export class ImportService {
       preparation,
       resumeAfter,
       rowCount,
+      hasMoreRowsAfterBatch,
     };
   }
 

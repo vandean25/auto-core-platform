@@ -30,6 +30,7 @@ import {
   tallyWrittenRow,
 } from './import-totals.util.js';
 import type {
+  ImportApplyBatchOptions,
   ImportApplyInput,
   ImportApplyRow,
 } from './import-type-handler.js';
@@ -66,7 +67,7 @@ export class RowByRowApplyRunner {
     input: ImportApplyInput,
     entityType: ImportEntityType,
     writeRow: ImportRowWriter,
-    options?: { resumeAfterRowNo?: number; stopAfterBatch?: boolean },
+    options?: ImportApplyBatchOptions,
   ): Promise<SerializedImportJob> {
     const { job, rows } = input;
     const storedTotals = job.totals_json as ImportJobTotals | null;
@@ -131,7 +132,7 @@ export class RowByRowApplyRunner {
 
   private planApplyBatch(
     rows: ImportApplyRow[],
-    options?: { resumeAfterRowNo?: number; stopAfterBatch?: boolean },
+    options?: ImportApplyBatchOptions,
   ) {
     const resumeAfter = options?.resumeAfterRowNo ?? 0;
     const pending = rows.filter((row) => row.row_no > resumeAfter);
@@ -140,7 +141,9 @@ export class RowByRowApplyRunner {
       : pending.length;
     const batchRows = pending.slice(0, batchSize);
     const batchIncomplete =
-      Boolean(options?.stopAfterBatch) && pending.length > batchRows.length;
+      Boolean(options?.stopAfterBatch) &&
+      (options.hasMoreRowsAfterBatch ??
+        pending.length > batchRows.length);
     return { resumeAfter, batchRows, batchIncomplete };
   }
 
@@ -265,15 +268,7 @@ export class RowByRowApplyRunner {
     writeRow: ImportRowWriter,
     row: ImportApplyRow,
     totals: ImportJobTotals,
-    options?: {
-      resumeAfterRowNo?: number;
-      stopAfterBatch?: boolean;
-      leaseToken?: string;
-      onRowCommitted?: (
-        tx: Prisma.TransactionClient,
-        rowNo: number,
-      ) => Promise<void>;
-    },
+    options?: ImportApplyBatchOptions,
   ): Promise<void> {
     if (row.action === ImportRowAction.ERROR) {
       totals.error += 1;
@@ -314,6 +309,9 @@ export class RowByRowApplyRunner {
       });
       tallyWrittenRow(totals, row.action);
     } catch (error) {
+      if (error instanceof ImportWorkerLeaseLostError) {
+        throw error;
+      }
       this.logger.warn(
         `Import apply row failed jobId=${input.job.id} rowNo=${row.row_no} cause=${describeCause(error)}`,
       );
