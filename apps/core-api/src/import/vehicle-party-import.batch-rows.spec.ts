@@ -1,55 +1,75 @@
-import { ImportRowAction } from '@prisma/client';
+import { ImportRowAction, VehiclePartyRole } from '@prisma/client';
+import { IMPORT_APPLY_BATCH_SIZE } from './import.constants.js';
 import {
-  expandVehiclePartyBatchWithLookahead,
+  buildVehiclePartyBackgroundApplyRows,
   orderVehiclePartyApplyRows,
+  vehiclePartyVehicleId,
 } from './vehicle-party-import.batch-rows.js';
+import type { ImportApplyRow } from './import-type-handler.js';
+
+const VEHICLE_ID = 'veh-tenant-uuid-1';
+
+function plannedRow(
+  rowNo: number,
+  action: ImportRowAction,
+  overrides: Record<string, unknown> = {},
+): ImportApplyRow {
+  return {
+    row_no: rowNo,
+    action,
+    entity_id: action === ImportRowAction.UPDATE ? `party-${rowNo}` : null,
+    external_id: `ext-${rowNo}`,
+    normalized_json: {
+      external_id: `ext-${rowNo}`,
+      vehicle_id: VEHICLE_ID,
+      customer_id: 'cust-1',
+      role: VehiclePartyRole.OWNER,
+      valid_from: '2026-01-01',
+      valid_to: null,
+      notes: null,
+      ...overrides,
+    },
+  };
+}
 
 describe('vehicle party batch rows', () => {
-  it('merges a peeked closing update for a new owner on the same vehicle', () => {
-    const batch = [
-      {
-        row_no: 50,
-        action: ImportRowAction.CREATE,
-        entity_id: null,
-        external_id: 'party-new',
+  it('reads vehicle_id from the persisted planned payload', () => {
+    const row = plannedRow(1, ImportRowAction.CREATE);
+    expect(vehiclePartyVehicleId(row)).toBe(VEHICLE_ID);
+    expect(
+      vehiclePartyVehicleId({
+        ...row,
         normalized_json: { vehicle_external_id: 'VEH-1' },
-      },
-    ];
-    const lookahead = [
-      {
-        row_no: 51,
-        action: ImportRowAction.UPDATE,
-        entity_id: 'party-old',
-        external_id: 'party-old',
-        normalized_json: { vehicle_external_id: 'VEH-1' },
-      },
-    ];
-    const merged = expandVehiclePartyBatchWithLookahead(batch, lookahead);
-    expect(merged.map((row) => row.row_no)).toEqual([50, 51]);
-    expect(orderVehiclePartyApplyRows(merged).map((row) => row.row_no)).toEqual(
-      [51, 50],
-    );
+      }),
+    ).toBeUndefined();
   });
 
-  it('ignores lookahead rows for unrelated vehicles', () => {
-    const batch = [
-      {
-        row_no: 2,
-        action: ImportRowAction.CREATE,
-        entity_id: null,
-        external_id: 'party-new',
-        normalized_json: { vehicle_external_id: 'VEH-1' },
-      },
-    ];
+  it('merges a peeked closing update when the file batch ends with a new owner', () => {
+    const fileBatch = Array.from({ length: IMPORT_APPLY_BATCH_SIZE }, (_, index) =>
+      plannedRow(index + 1, ImportRowAction.SKIP),
+    );
+    fileBatch[IMPORT_APPLY_BATCH_SIZE - 1] = plannedRow(
+      IMPORT_APPLY_BATCH_SIZE,
+      ImportRowAction.CREATE,
+    );
     const lookahead = [
-      {
-        row_no: 3,
-        action: ImportRowAction.UPDATE,
-        entity_id: 'party-old',
-        external_id: 'party-old',
-        normalized_json: { vehicle_external_id: 'VEH-2' },
-      },
+      plannedRow(IMPORT_APPLY_BATCH_SIZE + 1, ImportRowAction.UPDATE),
     ];
-    expect(expandVehiclePartyBatchWithLookahead(batch, lookahead)).toEqual(batch);
+    const ordered = buildVehiclePartyBackgroundApplyRows(fileBatch, lookahead);
+    expect(ordered).toHaveLength(IMPORT_APPLY_BATCH_SIZE + 1);
+    expect(ordered[0]?.row_no).toBe(IMPORT_APPLY_BATCH_SIZE + 1);
+    expect(ordered.at(-1)?.row_no).toBe(IMPORT_APPLY_BATCH_SIZE);
+    expect(ordered.at(-1)?.action).toBe(ImportRowAction.CREATE);
+  });
+
+  it('orders in-page updates before creates on the same vehicle', () => {
+    const rows = [
+      plannedRow(2, ImportRowAction.CREATE),
+      plannedRow(1, ImportRowAction.UPDATE),
+    ];
+    expect(orderVehiclePartyApplyRows(rows).map((row) => row.row_no)).toEqual([
+      1,
+      2,
+    ]);
   });
 });

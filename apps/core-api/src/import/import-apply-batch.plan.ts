@@ -10,9 +10,11 @@ export function planImportApplyBatch(
 ) {
   const resumeAfter = options?.resumeAfterRowNo ?? 0;
   const pending = rows.filter((row) => row.row_no > resumeAfter);
-  const batchSize = options?.stopAfterBatch
-    ? IMPORT_APPLY_BATCH_SIZE
-    : pending.length;
+  const batchSize = options?.applyEntireWorkerPage
+    ? pending.length
+    : options?.stopAfterBatch
+      ? IMPORT_APPLY_BATCH_SIZE
+      : pending.length;
   const batchRows = pending.slice(0, batchSize);
   const batchIncomplete =
     Boolean(options?.stopAfterBatch) &&

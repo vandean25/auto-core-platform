@@ -1,40 +1,45 @@
 import { ImportRowAction } from '@prisma/client';
 import type { ImportApplyRow } from './import-type-handler.js';
 
-function vehicleExternalId(row: ImportApplyRow): string | undefined {
+/** Tenant vehicle id stored on planned vehicle-party rows at dry-run persist time. */
+export function vehiclePartyVehicleId(row: ImportApplyRow): string | undefined {
   const normalized = row.normalized_json as Record<string, unknown> | null;
-  const value = normalized?.vehicle_external_id;
+  const value = normalized?.vehicle_id;
   return typeof value === 'string' && value.length > 0 ? value : undefined;
 }
 
-/** Pulls a closing UPDATE from the peek row when the batch ends with a new owner CREATE. */
-export function expandVehiclePartyBatchWithLookahead(
-  batchRows: ImportApplyRow[],
+function plannedOwnerCreate(row: ImportApplyRow): boolean {
+  return row.action === ImportRowAction.CREATE;
+}
+
+/**
+ * Builds the full apply list for one background worker page: the file slice plus any
+ * peeked closing UPDATE that pairs with a CREATE on the same vehicle_id, ordered
+ * UPDATE-first without dropping rows to IMPORT_APPLY_BATCH_SIZE.
+ */
+export function buildVehiclePartyBackgroundApplyRows(
+  fileBatch: ImportApplyRow[],
   lookahead: ImportApplyRow[],
 ): ImportApplyRow[] {
-  if (lookahead.length === 0 || batchRows.length === 0) {
-    return batchRows;
-  }
-  const createVehicles = new Set(
-    batchRows
-      .filter((row) => row.action === ImportRowAction.CREATE)
-      .map(vehicleExternalId)
+  const byRowNo = new Map(fileBatch.map((row) => [row.row_no, row]));
+  const createVehicleIds = new Set(
+    fileBatch
+      .filter(plannedOwnerCreate)
+      .map(vehiclePartyVehicleId)
       .filter((id): id is string => Boolean(id)),
   );
-  if (createVehicles.size === 0) {
-    return batchRows;
-  }
-  const merged = new Map(batchRows.map((row) => [row.row_no, row]));
-  for (const row of lookahead) {
-    if (row.action !== ImportRowAction.UPDATE) {
-      continue;
-    }
-    const vehicleId = vehicleExternalId(row);
-    if (vehicleId && createVehicles.has(vehicleId)) {
-      merged.set(row.row_no, row);
+  if (createVehicleIds.size > 0) {
+    for (const row of lookahead) {
+      if (row.action !== ImportRowAction.UPDATE) {
+        continue;
+      }
+      const vehicleId = vehiclePartyVehicleId(row);
+      if (vehicleId && createVehicleIds.has(vehicleId)) {
+        byRowNo.set(row.row_no, row);
+      }
     }
   }
-  return [...merged.values()].sort((a, b) => a.row_no - b.row_no);
+  return orderVehiclePartyApplyRows([...byRowNo.values()]);
 }
 
 export function orderVehiclePartyApplyRows(
