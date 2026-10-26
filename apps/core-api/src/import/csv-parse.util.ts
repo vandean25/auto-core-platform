@@ -8,8 +8,12 @@ export type ParsedCsv = {
   sha256: string;
 };
 
-function stripBom(text: string): string {
+export function stripBomFromText(text: string): string {
   return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+}
+
+function stripBom(text: string): string {
+  return stripBomFromText(text);
 }
 
 export function decodeCsvBuffer(buffer: Buffer): string {

@@ -38,6 +38,11 @@ export type ImportDryRunInput = {
 export type ImportApplyBatchOptions = {
   resumeAfterRowNo?: number;
   stopAfterBatch?: boolean;
+  leaseToken?: string;
+  onRowCommitted?: (
+    tx: Prisma.TransactionClient,
+    rowNo: number,
+  ) => Promise<void>;
 };
 
 export type ImportApplyInput = {

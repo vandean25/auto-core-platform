@@ -48,7 +48,12 @@ import {
 } from './import-entity-type.guard.js';
 import type { ImportTypeHandler } from './import-type-handler.js';
 import { ImportVendorResolver } from './import-vendor.resolver.js';
-import { assessImportUpload } from './import-upload.util.js';
+import {
+  assessImportUpload,
+  openTrustedMulterStagingReadStream,
+  unlinkTrustedMulterStagingFile,
+} from './import-upload.util.js';
+import { pipeImportCsvToStorage } from './import-upload-pipeline.js';
 import { ImportCloudTasksService } from './import-cloud-tasks.service.js';
 import { enqueueOrRunImportWorker } from './import-dispatch.js';
 import { readImportCsvDataRowSlice } from './import-csv-stream.util.js';
@@ -194,31 +199,47 @@ export class ImportService {
     };
     assertCanonicalMigrationUploadAllowed(params.file, migrationManifest);
 
-    const assessed = assessImportUpload(params.file);
+    const assessed = await assessImportUpload(params.file);
     const handler = this.handlers[params.entityType];
     await handler.prepareCreate(tenantId, params.sourceSystem, options);
 
     if (assessed.useBackground) {
-      const fileContent = readMulterUploadContent(params.file);
       const placeholderJobId = cryptoRandomUuid();
-      const upload = await this.fileStorage.storeUpload({
-        tenantId,
-        jobId: placeholderJobId,
-        fileName: params.file.originalname,
-        content: fileContent,
-      });
+      let uploadRef: { object_key: string } | undefined;
+      let fileSha256 = assessed.sha256;
+      let expectedRows = assessed.rowCount;
       try {
+        if (params.file.path) {
+          const piped = await pipeImportCsvToStorage(this.fileStorage, {
+            tenantId,
+            jobId: placeholderJobId,
+            fileName: params.file.originalname,
+            source: openTrustedMulterStagingReadStream(params.file),
+          });
+          uploadRef = piped.ref;
+          fileSha256 = piped.sha256;
+          expectedRows = piped.dataRowCount;
+          await unlinkTrustedMulterStagingFile(params.file);
+        } else {
+          const content = readMulterUploadContent(params.file);
+          uploadRef = await this.fileStorage.storeUpload({
+            tenantId,
+            jobId: placeholderJobId,
+            fileName: params.file.originalname,
+            content,
+          });
+        }
         const job = await this.jobStore.createPendingBackgroundJob({
           tenantId,
           entityType: params.entityType,
           sourceSystem: params.sourceSystem,
           fileName: params.file.originalname,
-          fileSha256: assessed.sha256,
+          fileSha256,
           mapping: params.mappingJson,
           options,
           actorUserId: currentUser.id,
-          upload,
-          expectedRows: assessed.rowCount,
+          upload: uploadRef,
+          expectedRows,
         });
         await this.audit.writeImportJobAudit(
           this.prisma,
@@ -243,7 +264,10 @@ export class ImportService {
         });
         return this.serializeJob(job, job.totals_json as ImportJobTotals);
       } catch (error) {
-        await this.fileStorage.deleteUpload(upload).catch(() => undefined);
+        if (uploadRef) {
+          await this.fileStorage.deleteUpload(uploadRef).catch(() => undefined);
+        }
+        await unlinkTrustedMulterStagingFile(params.file);
         throw error;
       }
     }
@@ -475,28 +499,39 @@ export class ImportService {
     jobId: string;
     phase: 'dry_run' | 'apply';
   }): Promise<void> {
-    const claimed = await this.jobStore.claimWorkerLease(
-      params.tenantId,
-      params.jobId,
-      params.phase,
-    );
-    if (!claimed) {
-      return;
+    try {
+      const claimed = await this.jobStore.claimWorkerLease(
+        params.tenantId,
+        params.jobId,
+        params.phase,
+      );
+      if (!claimed) {
+        return;
+      }
+      const job = await this.jobStore.findJob(params.tenantId, params.jobId);
+      if (!job || job.status !== ImportJobStatus.APPLYING) {
+        return;
+      }
+      const options = job.options_json as ImportJobOptionsWithWorker;
+      const worker = readWorkerState(options);
+      if (!worker || worker.phase !== params.phase) {
+        return;
+      }
+      if (params.phase === 'dry_run') {
+        await this.runBackgroundDryRunBatch(params.tenantId, params.jobId);
+        return;
+      }
+      await this.runBackgroundApplyBatch(params.tenantId, params.jobId);
+    } catch (error) {
+      await this.jobStore.markFailedIfApplying(params.tenantId, params.jobId);
+      const job = await this.jobStore.findJob(params.tenantId, params.jobId);
+      if (job) {
+        await this.deleteJobUploadIfPresent(
+          job.options_json as ImportJobOptionsWithWorker,
+        );
+      }
+      throw error;
     }
-    const job = await this.jobStore.findJob(params.tenantId, params.jobId);
-    if (!job || job.status !== ImportJobStatus.APPLYING) {
-      return;
-    }
-    const options = job.options_json as ImportJobOptionsWithWorker;
-    const worker = readWorkerState(options);
-    if (!worker || worker.phase !== params.phase) {
-      return;
-    }
-    if (params.phase === 'dry_run') {
-      await this.runBackgroundDryRunBatch(params.tenantId, params.jobId);
-      return;
-    }
-    await this.runBackgroundApplyBatch(params.tenantId, params.jobId);
   }
 
   async recoverStaleImportJobs(): Promise<void> {
@@ -553,6 +588,7 @@ export class ImportService {
       this.fileStorage.openReadStream(upload),
       startOffset,
       IMPORT_WORKER_BATCH_SIZE,
+      job.file_sha256,
     );
     if (!parsedBatch || parsedBatch.rows.length === 0) {
       await this.completeBackgroundDryRun(tenantId, jobId, handler, options);
@@ -595,7 +631,7 @@ export class ImportService {
         }
         const processed = startOffset + batchRows.length;
         mergedTotals.rows = Math.max(totals.rows, processed);
-        await this.jobStore.appendDryRunRows(
+        const appended = await this.jobStore.appendDryRunRows(
           tenantId,
           jobId,
           rows,
@@ -606,6 +642,9 @@ export class ImportService {
           },
           options,
         );
+        if (!appended) {
+          return;
+        }
         if (processed >= totals.rows) {
           await this.completeBackgroundDryRun(
             tenantId,
@@ -689,8 +728,14 @@ export class ImportService {
       batchOptions: {
         resumeAfterRowNo: context.resumeAfter,
         stopAfterBatch: true,
+        leaseToken: context.worker.lease_token,
       },
     });
+    if (result.status === ImportJobStatus.FAILED) {
+      await this.deleteJobUploadIfPresent(
+        context.job.options_json as ImportJobOptionsWithWorker,
+      );
+    }
     await this.continueBackgroundApplyIfNeeded({
       tenantId,
       jobId,
@@ -755,8 +800,15 @@ export class ImportService {
     resumeAfter: number;
     resultStatus: ImportJobStatus;
   }): Promise<void> {
-    const batchRows = params.rows;
-    const lastCommitted = batchRows.at(-1)?.row_no ?? params.resumeAfter;
+    const refreshedJob = await this.jobStore.findJob(
+      params.tenantId,
+      params.jobId,
+    );
+    const refreshedWorker = readWorkerState(
+      refreshedJob?.options_json as ImportJobOptionsWithWorker,
+    );
+    const lastCommitted =
+      refreshedWorker?.last_committed_row_no ?? params.resumeAfter;
     const hasMore =
       (await this.jobStore.findApplyRowsAfter(
         params.tenantId,
@@ -768,13 +820,6 @@ export class ImportService {
     if (done || params.resultStatus !== ImportJobStatus.APPLYING) {
       return;
     }
-    const refreshedJob = await this.jobStore.findJob(
-      params.tenantId,
-      params.jobId,
-    );
-    const refreshedWorker = readWorkerState(
-      refreshedJob?.options_json as ImportJobOptionsWithWorker,
-    );
     const leaseToken = refreshedWorker?.lease_token ?? params.worker.lease_token;
     await this.jobStore.updateWorkerProgress(
       params.tenantId,

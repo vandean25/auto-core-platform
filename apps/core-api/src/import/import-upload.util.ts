@@ -1,7 +1,11 @@
 import { BadRequestException } from '@nestjs/common';
+import { readFile, unlink } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
 import { parseCsvFile, type ParsedCsv } from './csv-parse.util.js';
 import { parseCsvBufferHeadersOnly } from './import-csv-batch.util.js';
+import { assessImportCsvFromStagingPath } from './import-csv-stream.util.js';
 import { IMPORT_ERROR_CODES } from './import.constants.js';
+import { assertTrustedImportStagingPath } from './import-file.storage.js';
 import {
   isBackgroundImportCandidate,
   readImportMaxFileBytes,
@@ -15,10 +19,29 @@ export type ImportUploadStats = {
   useBackground: boolean;
 };
 
+function assertRowLimits(dataRowCount: number): void {
+  const maxRowCount = readImportMaxRowCount();
+  if (dataRowCount > maxRowCount) {
+    throw new BadRequestException({
+      code: IMPORT_ERROR_CODES.ROW_LIMIT_EXCEEDED,
+      message: `CSV exceeds ${maxRowCount} rows`,
+    });
+  }
+}
+
+function assertNonEmpty(headers: string[], dataRowCount: number): void {
+  if (headers.length === 0 || dataRowCount === 0) {
+    throw new BadRequestException({
+      code: IMPORT_ERROR_CODES.EMPTY_FILE,
+      message: 'CSV file has no data rows',
+    });
+  }
+}
+
 /** Checks an uploaded CSV and parses it when the file is small enough for sync handling. */
-export function assessImportUpload(
+export async function assessImportUpload(
   file: Express.Multer.File,
-): ImportUploadStats {
+): Promise<ImportUploadStats> {
   if (!file?.buffer && !file?.path) {
     throw new BadRequestException({
       code: IMPORT_ERROR_CODES.EMPTY_FILE,
@@ -33,30 +56,51 @@ export function assessImportUpload(
     });
   }
 
-  const buffer = file.buffer ?? undefined;
-  if (!buffer) {
-    const useBackground = isBackgroundImportCandidate({ fileBytes: file.size });
+  const useBackgroundBySize = isBackgroundImportCandidate({
+    fileBytes: file.size,
+  });
+
+  if (file.path) {
+    const trustedPath = assertTrustedImportStagingPath(file.path);
+    if (useBackgroundBySize) {
+      const headerStats = await assessImportCsvFromStagingPath(trustedPath);
+      assertNonEmpty(headerStats.headers, headerStats.dataRowCount);
+      assertRowLimits(headerStats.dataRowCount);
+      return {
+        rowCount: headerStats.dataRowCount,
+        sha256: headerStats.sha256,
+        useBackground: true,
+      };
+    }
+    const buffer = await readFile(trustedPath);
+    await unlink(trustedPath).catch(() => undefined);
+    const headerStats = parseCsvBufferHeadersOnly(buffer);
+    assertNonEmpty(headerStats.headers, headerStats.dataRowCount);
+    assertRowLimits(headerStats.dataRowCount);
+    const useBackground = isBackgroundImportCandidate({
+      fileBytes: file.size,
+      rowCount: headerStats.dataRowCount,
+    });
+    if (useBackground) {
+      return {
+        rowCount: headerStats.dataRowCount,
+        sha256: headerStats.sha256,
+        useBackground: true,
+      };
+    }
+    const parsed = parseCsvFile(buffer);
     return {
-      rowCount: 0,
-      sha256: '',
-      useBackground,
+      parsed,
+      rowCount: parsed.rows.length,
+      sha256: parsed.sha256,
+      useBackground: false,
     };
   }
 
+  const buffer = file.buffer!;
   const headerStats = parseCsvBufferHeadersOnly(buffer);
-  if (headerStats.headers.length === 0 || headerStats.dataRowCount === 0) {
-    throw new BadRequestException({
-      code: IMPORT_ERROR_CODES.EMPTY_FILE,
-      message: 'CSV file has no data rows',
-    });
-  }
-  const maxRowCount = readImportMaxRowCount();
-  if (headerStats.dataRowCount > maxRowCount) {
-    throw new BadRequestException({
-      code: IMPORT_ERROR_CODES.ROW_LIMIT_EXCEEDED,
-      message: `CSV exceeds ${maxRowCount} rows`,
-    });
-  }
+  assertNonEmpty(headerStats.headers, headerStats.dataRowCount);
+  assertRowLimits(headerStats.dataRowCount);
 
   const useBackground = isBackgroundImportCandidate({
     fileBytes: file.size,
@@ -77,4 +121,21 @@ export function assessImportUpload(
     sha256: parsed.sha256,
     useBackground: false,
   };
+}
+
+export async function unlinkTrustedMulterStagingFile(
+  file: Express.Multer.File,
+): Promise<void> {
+  if (!file.path) {
+    return;
+  }
+  const trustedPath = assertTrustedImportStagingPath(file.path);
+  await unlink(trustedPath).catch(() => undefined);
+}
+
+export function openTrustedMulterStagingReadStream(
+  file: Express.Multer.File,
+): NodeJS.ReadableStream {
+  const trustedPath = assertTrustedImportStagingPath(file.path!);
+  return createReadStream(trustedPath);
 }

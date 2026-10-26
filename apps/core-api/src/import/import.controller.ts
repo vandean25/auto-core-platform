@@ -25,10 +25,8 @@ import {
 import type { Response } from 'express';
 import { ImportEntityType, ImportRowAction } from '@prisma/client';
 import { ImportService } from './import.service.js';
-import {
-  IMPORT_ERROR_CODES,
-  IMPORT_MAX_FILE_BYTES,
-} from './import.constants.js';
+import { IMPORT_ERROR_CODES } from './import.constants.js';
+import { importUploadMulterOptions } from './import-multer.storage.js';
 import { ImportJobResponseDto } from './dto/import-job-response.dto.js';
 import { ImportJobRowsResponseDto } from './dto/import-job-rows-response.dto.js';
 import { ImportTemplateResponseDto } from './dto/import-template-response.dto.js';
@@ -49,11 +47,7 @@ export class ImportController {
   ) {}
 
   @Post()
-  @UseInterceptors(
-    FileInterceptor('file', {
-      limits: { fileSize: IMPORT_MAX_FILE_BYTES + 5 * 1024 * 1024 },
-    }),
-  )
+  @UseInterceptors(FileInterceptor('file', importUploadMulterOptions))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Upload CSV and run a synchronous import dry-run' })
   @ApiBody({

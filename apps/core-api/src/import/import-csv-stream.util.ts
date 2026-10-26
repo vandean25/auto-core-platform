@@ -1,47 +1,72 @@
-import { createHash } from 'node:crypto';
-import { Readable } from 'node:stream';
+import { createReadStream } from 'node:fs';
 import type { ParsedCsv } from './csv-parse.util.js';
-import { parseCsvBufferDataRowSlice } from './import-csv-batch.util.js';
+import { readCsvDataRowSliceFromStream } from './csv-incremental.parser.js';
+import { assertTrustedImportStagingPath } from './import-file.storage.js';
+import { CsvIncrementalParser } from './csv-incremental.parser.js';
+import { createHash } from 'node:crypto';
 
-async function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
-  const chunks: Buffer[] = [];
-  for await (const chunk of stream as AsyncIterable<Buffer | string>) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-  }
-  return Buffer.concat(chunks);
-}
-
-/**
- * Reads a slice of data rows from stored import CSV without retaining earlier rows.
- * shortcut: loads the object into one buffer per tick; upgrade to a true byte stream parser if files grow past ~100 MiB.
- */
 export async function readImportCsvDataRowSlice(
   stream: NodeJS.ReadableStream,
   skipDataRows: number,
   takeDataRows: number,
+  fileSha256 = '',
 ): Promise<ParsedCsv | null> {
-  const buffer = await streamToBuffer(stream);
-  return parseCsvBufferDataRowSlice(buffer, skipDataRows, takeDataRows);
+  const slice = await readCsvDataRowSliceFromStream(
+    stream,
+    skipDataRows,
+    takeDataRows,
+  );
+  if (!slice) {
+    return null;
+  }
+  return {
+    headers: slice.headers,
+    rows: slice.rows,
+    delimiter: slice.delimiter,
+    sha256: fileSha256,
+  };
 }
 
-export function bufferImportCsvStream(
+export async function assessImportCsvFromReadable(
   stream: NodeJS.ReadableStream,
-): Promise<{ buffer: Buffer; sha256: string }> {
+): Promise<{
+  headers: string[];
+  delimiter: ';' | ',';
+  dataRowCount: number;
+  sha256: string;
+}> {
   const hash = createHash('sha256');
-  const chunks: Buffer[] = [];
-  return new Promise((resolve, reject) => {
-    stream.on('data', (chunk: Buffer | string) => {
-      const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-      hash.update(buf);
-      chunks.push(buf);
-    });
-    stream.on('error', reject);
-    stream.on('end', () => {
-      resolve({ buffer: Buffer.concat(chunks), sha256: hash.digest('hex') });
-    });
-  });
+  const parser = new CsvIncrementalParser();
+  let headers: string[] = [];
+  let dataRowCount = 0;
+
+  for await (const chunk of stream as AsyncIterable<Buffer>) {
+    hash.update(chunk);
+    for (const cells of parser.feedChunk(chunk)) {
+      if (headers.length === 0) {
+        headers = cells;
+        continue;
+      }
+      dataRowCount += 1;
+    }
+  }
+  for (const cells of parser.finish()) {
+    if (headers.length === 0) {
+      headers = cells;
+      continue;
+    }
+    dataRowCount += 1;
+  }
+
+  return {
+    headers,
+    delimiter: parser.getDelimiter(),
+    dataRowCount,
+    sha256: hash.digest('hex'),
+  };
 }
 
-export function toReadableStream(buffer: Buffer): NodeJS.ReadableStream {
-  return Readable.from(buffer);
+export async function assessImportCsvFromStagingPath(stagingPath: string) {
+  const trusted = assertTrustedImportStagingPath(stagingPath);
+  return assessImportCsvFromReadable(createReadStream(trusted));
 }

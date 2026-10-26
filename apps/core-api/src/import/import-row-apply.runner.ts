@@ -13,7 +13,10 @@ import {
 } from './import-apply.freshness.js';
 import { resolveImportExternalId } from './import-apply.errors.js';
 import type { ImportAuditWriter } from './import-audit.writer.js';
-import { markImportRowFailed } from './import-job.store.js';
+import {
+  commitApplyWorkerRowInTransaction,
+  markImportRowFailed,
+} from './import-job.store.js';
 import {
   IMPORT_APPLY_BATCH_SIZE,
   IMPORT_LOGGER_CONTEXT,
@@ -92,29 +95,56 @@ export class RowByRowApplyRunner {
         },
         async () => {
           for (const row of batchRows) {
-            await this.applyOne(input, entityType, writeRow, row, totals);
+            await this.applyOne(input, entityType, writeRow, row, totals, options);
           }
         },
       );
 
       const batchIncomplete =
         options?.stopAfterBatch && pending.length > batchRows.length;
+      const guardedWrite = Boolean(options?.stopAfterBatch);
       if (batchIncomplete) {
-        const partial = await this.prisma.importJob.update({
-          where: { id: job.id },
-          data: { totals_json: totals, status: ImportJobStatus.APPLYING },
-        });
-        return this.serialize(partial, totals);
+        let partial;
+        if (guardedWrite) {
+          await this.prisma.importJob.updateMany({
+            where: { id: job.id, status: ImportJobStatus.APPLYING },
+            data: { totals_json: totals },
+          });
+          partial = await this.prisma.importJob.findFirst({
+            where: { id: job.id },
+          });
+        } else {
+          partial = await this.prisma.importJob.update({
+            where: { id: job.id },
+            data: { totals_json: totals, status: ImportJobStatus.APPLYING },
+          });
+        }
+        return this.serialize(partial!, totals);
       }
 
-      const updated = await this.prisma.importJob.update({
-        where: { id: job.id },
-        data: {
-          status: ImportJobStatus.APPLIED,
-          appliedAt: new Date(),
-          totals_json: totals,
-        },
-      });
+      let updated;
+      if (guardedWrite) {
+        await this.prisma.importJob.updateMany({
+          where: { id: job.id, status: ImportJobStatus.APPLYING },
+          data: {
+            status: ImportJobStatus.APPLIED,
+            appliedAt: new Date(),
+            totals_json: totals,
+          },
+        });
+        updated = await this.prisma.importJob.findFirst({
+          where: { id: job.id },
+        });
+      } else {
+        updated = await this.prisma.importJob.update({
+          where: { id: job.id },
+          data: {
+            status: ImportJobStatus.APPLIED,
+            appliedAt: new Date(),
+            totals_json: totals,
+          },
+        });
+      }
       await this.audit.writeImportJobAudit(
         this.prisma,
         tenantId,
@@ -123,12 +153,19 @@ export class RowByRowApplyRunner {
         'applied',
         totals,
       );
-      return this.serialize(updated, totals);
+      return this.serialize(updated!, totals);
     } catch (error) {
-      await this.prisma.importJob.update({
-        where: { id: job.id },
-        data: { status: ImportJobStatus.FAILED, totals_json: totals },
-      });
+      if (options?.stopAfterBatch) {
+        await this.prisma.importJob.updateMany({
+          where: { id: job.id, status: ImportJobStatus.APPLYING },
+          data: { status: ImportJobStatus.FAILED, totals_json: totals },
+        });
+      } else {
+        await this.prisma.importJob.update({
+          where: { id: job.id },
+          data: { status: ImportJobStatus.FAILED, totals_json: totals },
+        });
+      }
       throw error;
     }
   }
@@ -158,6 +195,7 @@ export class RowByRowApplyRunner {
     writeRow: ImportRowWriter,
     row: ImportApplyRow,
     totals: ImportJobTotals,
+    options?: { resumeAfterRowNo?: number; stopAfterBatch?: boolean; leaseToken?: string; onRowCommitted?: (tx: Prisma.TransactionClient, rowNo: number) => Promise<void> },
   ): Promise<void> {
     if (row.action === ImportRowAction.ERROR) {
       totals.error += 1;
@@ -184,6 +222,17 @@ export class RowByRowApplyRunner {
           row,
         );
         await writeRow(tx, row);
+        if (options?.onRowCommitted && options.leaseToken) {
+          await options.onRowCommitted(tx, row.row_no);
+        } else if (options?.leaseToken) {
+          await commitApplyWorkerRowInTransaction(
+            tx,
+            input.tenantId,
+            input.job.id,
+            options.leaseToken,
+            row.row_no,
+          );
+        }
       });
       tallyWrittenRow(totals, row.action);
     } catch (error) {

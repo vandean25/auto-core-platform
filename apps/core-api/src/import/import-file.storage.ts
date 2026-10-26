@@ -4,8 +4,10 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { Storage } from '@google-cloud/storage';
-import { createReadStream } from 'node:fs';
+import { createReadStream, createWriteStream } from 'node:fs';
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
+import { pipeline } from 'node:stream/promises';
+import type { Transform } from 'node:stream';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { SideEffectGuard } from '../dry-run/side-effect-guard.js';
@@ -17,7 +19,7 @@ export type StoredImportFileRef = {
 
 const DEFAULT_IMPORT_FILE_NAME = 'import.csv';
 const SAFE_PATH_SEGMENT = /^[a-zA-Z0-9._-]+$/;
-const IMPORT_MULTER_STAGING_DIR = join(tmpdir(), 'acp-import-multer');
+export const IMPORT_MULTER_STAGING_DIR = join(tmpdir(), 'acp-import-multer');
 const IMPORT_LOCAL_UPLOAD_ROOT = join(tmpdir(), 'acp-import-uploads');
 
 /** Ensures multer staging paths stay under the OS temp directory. */
@@ -132,6 +134,14 @@ export interface ImportFileStorage {
     content: Buffer;
   }): Promise<StoredImportFileRef>;
 
+  storeUploadFromStream(params: {
+    tenantId: string;
+    jobId: string;
+    fileName: string;
+    source: NodeJS.ReadableStream;
+    through?: Transform;
+  }): Promise<StoredImportFileRef>;
+
   openReadStream(ref: StoredImportFileRef): NodeJS.ReadableStream;
 
   readBytes(ref: StoredImportFileRef): Promise<Buffer>;
@@ -172,6 +182,39 @@ export class GcsImportFileStorage implements ImportFileStorage {
         cacheControl: 'private, no-store',
       },
     });
+    return { object_key: objectKey };
+  }
+
+  async storeUploadFromStream(params: {
+    tenantId: string;
+    jobId: string;
+    fileName: string;
+    source: NodeJS.ReadableStream;
+    through?: Transform;
+  }): Promise<StoredImportFileRef> {
+    SideEffectGuard.assertAllowed('GCS_WRITE');
+    const bucketName = resolveImportUploadBucket();
+    const objectKey = buildGcsImportObjectKey({
+      tenantId: params.tenantId,
+      jobId: params.jobId,
+      fileName: params.fileName,
+    });
+    const writeStream = this.storage
+      .bucket(bucketName)
+      .file(objectKey)
+      .createWriteStream({
+        resumable: false,
+        metadata: {
+          contentType: 'text/csv',
+          cacheControl: 'private, no-store',
+        },
+      });
+    const stages: NodeJS.ReadableStream[] = [params.source];
+    if (params.through) {
+      stages.push(params.through);
+    }
+    stages.push(writeStream);
+    await pipeline(...stages);
     return { object_key: objectKey };
   }
 
@@ -228,6 +271,30 @@ export class LocalImportFileStorage implements ImportFileStorage {
     return { object_key: objectKey };
   }
 
+  async storeUploadFromStream(params: {
+    tenantId: string;
+    jobId: string;
+    fileName: string;
+    source: NodeJS.ReadableStream;
+    through?: Transform;
+  }): Promise<StoredImportFileRef> {
+    await mkdir(this.root, { recursive: true });
+    const objectKey = buildTenantImportObjectKey({
+      tenantId: params.tenantId,
+      jobId: params.jobId,
+      fileName: params.fileName,
+    });
+    const target = resolveLocalImportPath(this.root, objectKey);
+    await mkdir(dirname(target), { recursive: true });
+    const stages: NodeJS.ReadableStream[] = [params.source];
+    if (params.through) {
+      stages.push(params.through);
+    }
+    stages.push(createWriteStream(target));
+    await pipeline(...stages);
+    return { object_key: objectKey };
+  }
+
   openReadStream(ref: StoredImportFileRef): NodeJS.ReadableStream {
     return createReadStream(resolveLocalImportPath(this.root, ref.object_key));
   }
@@ -271,6 +338,16 @@ export class ImportFileStorageService implements ImportFileStorage {
     content: Buffer;
   }): Promise<StoredImportFileRef> {
     return this.delegate.storeUpload(params);
+  }
+
+  storeUploadFromStream(params: {
+    tenantId: string;
+    jobId: string;
+    fileName: string;
+    source: NodeJS.ReadableStream;
+    through?: Transform;
+  }): Promise<StoredImportFileRef> {
+    return this.delegate.storeUploadFromStream(params);
   }
 
   openReadStream(ref: StoredImportFileRef): NodeJS.ReadableStream {

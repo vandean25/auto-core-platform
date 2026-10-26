@@ -132,7 +132,7 @@ export class ImportJobStore {
     });
   }
 
-  appendDryRunRows(
+  async appendDryRunRows(
     tenantId: string,
     jobId: string,
     rows: DryRunRowResult[],
@@ -141,6 +141,17 @@ export class ImportJobStore {
     options: ImportJobOptionsWithWorker,
   ) {
     const worker = { ...options.worker!, ...workerPatch };
+    const locked = await this.prisma.importJob.updateMany({
+      where: {
+        tenant_id: tenantId,
+        id: jobId,
+        status: ImportJobStatus.APPLYING,
+      },
+      data: {},
+    });
+    if (locked.count === 0) {
+      return null;
+    }
     return this.prisma.importJob.update({
       where: { tenant_id: tenantId, id: jobId },
       data: {
@@ -169,17 +180,32 @@ export class ImportJobStore {
       return null;
     }
     const worker = { ...options.worker, ...patch };
-    return this.prisma.importJob.update({
-      where: { tenant_id: tenantId, id: jobId },
+    const locked = await this.prisma.importJob.updateMany({
+      where: {
+        tenant_id: tenantId,
+        id: jobId,
+        status: ImportJobStatus.APPLYING,
+      },
       data: {
-        ...(patch.status ? { status: patch.status } : {}),
         ...(patch.totals ? { totals_json: patch.totals } : {}),
         options_json: { ...options, worker },
-        ...(patch.status === ImportJobStatus.APPLIED
-          ? { appliedAt: new Date() }
-          : {}),
       },
     });
+    if (locked.count === 0) {
+      return null;
+    }
+    if (patch.status && patch.status !== ImportJobStatus.APPLYING) {
+      return this.prisma.importJob.update({
+        where: { tenant_id: tenantId, id: jobId },
+        data: {
+          status: patch.status,
+          ...(patch.status === ImportJobStatus.APPLIED
+            ? { appliedAt: new Date() }
+            : {}),
+        },
+      });
+    }
+    return this.findJob(tenantId, jobId);
   }
 
   async cancelBackgroundDryRun(tenantId: string, jobId: string) {
@@ -229,8 +255,13 @@ export class ImportJobStore {
         return null;
       }
       const now = Date.now();
+      const leaseUntil = Date.parse(worker.lease_until);
+      if (Number.isFinite(leaseUntil) && leaseUntil > now) {
+        return null;
+      }
       const refreshed: ImportJobWorkerState = {
         ...worker,
+        lease_token: randomUUID(),
         lease_until: new Date(now + IMPORT_WORKER_LEASE_MS).toISOString(),
       };
       await tx.importJob.update({
@@ -300,6 +331,54 @@ export class ImportJobStore {
     });
   }
 
+  markFailedIfApplying(
+    tenantId: string,
+    jobId: string,
+    totals?: ImportJobTotals,
+  ) {
+    return this.prisma.importJob.updateMany({
+      where: {
+        tenant_id: tenantId,
+        id: jobId,
+        status: ImportJobStatus.APPLYING,
+      },
+      data: {
+        status: ImportJobStatus.FAILED,
+        ...(totals ? { totals_json: totals } : {}),
+      },
+    });
+  }
+
+  updateApplyingTotals(tenantId: string, jobId: string, totals: ImportJobTotals) {
+    return this.prisma.importJob.updateMany({
+      where: {
+        tenant_id: tenantId,
+        id: jobId,
+        status: ImportJobStatus.APPLYING,
+      },
+      data: { totals_json: totals },
+    });
+  }
+
+  markAppliedIfApplying(
+    tenantId: string,
+    jobId: string,
+    totals: ImportJobTotals,
+  ) {
+    return this.prisma.importJob.updateMany({
+      where: {
+        tenant_id: tenantId,
+        id: jobId,
+        status: ImportJobStatus.APPLYING,
+      },
+      data: {
+        status: ImportJobStatus.APPLIED,
+        appliedAt: new Date(),
+        totals_json: totals,
+      },
+    });
+  }
+
   finishDryRunIfStillApplying(tenantId: string, jobId: string, data: {
     totals_json: ImportJobTotals;
     options_json: ImportJobOptions;
@@ -356,6 +435,39 @@ export class ImportJobStore {
       },
     });
   }
+}
+
+/** Records a row that failed during apply, with the code and message shown on the row. */
+export async function commitApplyWorkerRowInTransaction(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  jobId: string,
+  leaseToken: string,
+  rowNo: number,
+): Promise<void> {
+  const job = await tx.importJob.findFirst({
+    where: {
+      tenant_id: tenantId,
+      id: jobId,
+      status: ImportJobStatus.APPLYING,
+    },
+  });
+  if (!job) {
+    return;
+  }
+  const options = job.options_json as ImportJobOptionsWithWorker;
+  if (options.worker?.lease_token !== leaseToken) {
+    return;
+  }
+  const worker: ImportJobWorkerState = {
+    ...options.worker,
+    last_committed_row_no: rowNo,
+    processed_rows: rowNo,
+  };
+  await tx.importJob.update({
+    where: { id: jobId },
+    data: { options_json: { ...options, worker } },
+  });
 }
 
 /** Records a row that failed during apply, with the code and message shown on the row. */
