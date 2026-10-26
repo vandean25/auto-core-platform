@@ -1,15 +1,18 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, PayloadTooLargeException } from '@nestjs/common';
 import { createReadStream } from 'node:fs';
 import { readFile, unlink } from 'node:fs/promises';
 import { parseCsvFile, type ParsedCsv } from './csv-parse.util.js';
 import { parseCsvBufferHeadersOnly } from './import-csv-batch.util.js';
 import { assessImportCsvFromReadable } from './import-csv-stream.util.js';
-import { IMPORT_ERROR_CODES } from './import.constants.js';
+import {
+  IMPORT_ERROR_CODES,
+  IMPORT_UPLOAD_TOO_LARGE_MESSAGE,
+} from './import.constants.js';
 import { buildImportMulterStagingPath } from './import-staging-path.js';
 import {
   isBackgroundImportCandidate,
-  readImportMaxFileBytes,
   readImportMaxRowCount,
+  readImportUploadMaxFileBytes,
 } from './import-limits.js';
 
 export type ImportUploadStats = {
@@ -54,11 +57,11 @@ export async function assessImportUpload(
       message: 'CSV file is required',
     });
   }
-  const maxFileBytes = readImportMaxFileBytes();
-  if (file.size > maxFileBytes) {
-    throw new BadRequestException({
+  const maxUploadBytes = readImportUploadMaxFileBytes();
+  if (file.size > maxUploadBytes) {
+    throw new PayloadTooLargeException({
       code: IMPORT_ERROR_CODES.FILE_TOO_LARGE,
-      message: `CSV file exceeds ${maxFileBytes} bytes`,
+      message: IMPORT_UPLOAD_TOO_LARGE_MESSAGE,
     });
   }
 

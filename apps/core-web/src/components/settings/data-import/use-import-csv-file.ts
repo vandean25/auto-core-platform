@@ -5,6 +5,7 @@ import { getErrorMessage } from '@/lib/error-utils'
 
 import type { ImportEntityTypeUi, ImportFieldDefinition } from './import-field-labels'
 import { suggestColumnMapping } from './import-mapping-suggest'
+import { assertImportUploadFileSize } from './import-upload-limit'
 import { parseImportCsvFile, sha256HexFromFile } from './parse-import-csv-client'
 import type { ImportCsvSelection } from './use-import-wizard-state'
 
@@ -19,6 +20,7 @@ export function useImportCsvFile(params: {
 
   const parseCsvFile = async (file: File): Promise<ImportCsvSelection | null> => {
     try {
+      assertImportUploadFileSize(file)
       const parsed = await parseImportCsvFile(file)
       const fingerprint = await sha256HexFromFile(file)
       return {

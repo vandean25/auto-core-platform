@@ -2,6 +2,7 @@
 
 const DEFAULT_MAX_ROWS = 250_000;
 const DEFAULT_MAX_BYTES = 100 * 1024 * 1024;
+const DEFAULT_HTTP_UPLOAD_MAX_BYTES = 30 * 1024 * 1024;
 const DEFAULT_SYNC_MAX_ROWS = 20_000;
 const DEFAULT_SYNC_MAX_BYTES = 10 * 1024 * 1024;
 
@@ -17,6 +18,13 @@ export function readImportMaxRowCount(): number {
 
 export function readImportMaxFileBytes(): number {
   return readPositiveInt(process.env.IMPORT_MAX_FILE_BYTES, DEFAULT_MAX_BYTES);
+}
+
+export function readImportUploadMaxFileBytes(): number {
+  return readPositiveInt(
+    process.env.IMPORT_UPLOAD_MAX_FILE_BYTES,
+    DEFAULT_HTTP_UPLOAD_MAX_BYTES,
+  );
 }
 
 export function readImportSyncMaxRowCount(): number {

@@ -9,7 +9,7 @@ import {
 } from '@prisma/client';
 import {
   IMPORT_ERROR_CODES,
-  IMPORT_MAX_FILE_BYTES,
+  IMPORT_UPLOAD_MAX_FILE_BYTES,
 } from './import.constants.js';
 import {
   ACTOR_AUTH_UID,
@@ -107,10 +107,10 @@ describe('ImportService job lifecycle — createDryRunFromUpload request guards'
       });
     });
 
-    it('rejects a file over the byte limit with IMPORT_FILE_TOO_LARGE', async () => {
+    it('rejects a file over the upload byte limit with IMPORT_FILE_TOO_LARGE', async () => {
       const file = {
         ...csvUpload(CUSTOMER_CSV),
-        size: IMPORT_MAX_FILE_BYTES + 1,
+        size: IMPORT_UPLOAD_MAX_FILE_BYTES + 1,
       };
 
       await expect(
@@ -118,10 +118,10 @@ describe('ImportService job lifecycle — createDryRunFromUpload request guards'
           dryRunParams(ImportEntityType.CUSTOMER, CUSTOMER_CSV, { file }),
         ),
       ).rejects.toMatchObject({
-        status: 400,
+        status: 413,
         response: {
           code: IMPORT_ERROR_CODES.FILE_TOO_LARGE,
-          message: `CSV file exceeds ${IMPORT_MAX_FILE_BYTES} bytes`,
+          message: 'Datei zu groß (max. 30 MB), bitte aufteilen',
         },
       });
     });

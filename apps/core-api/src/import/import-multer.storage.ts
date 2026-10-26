@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { diskStorage } from 'multer';
-import { IMPORT_MAX_FILE_BYTES } from './import.constants.js';
+import { IMPORT_UPLOAD_MAX_FILE_BYTES } from './import.constants.js';
 import { IMPORT_MULTER_STAGING_DIR } from './import-file.storage.js';
 import { setImportStagingKey } from './import-staging-path.js';
 
@@ -17,6 +17,6 @@ export const importUploadMulterOptions = {
     },
   }),
   limits: {
-    fileSize: IMPORT_MAX_FILE_BYTES + 5 * 1024 * 1024,
+    fileSize: IMPORT_UPLOAD_MAX_FILE_BYTES + 1024,
   },
 };
