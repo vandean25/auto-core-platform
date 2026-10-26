@@ -54,7 +54,11 @@ import {
   type ImportUploadStats,
   unlinkImportMulterStagingFile,
 } from './import-upload.util.js';
-import { getImportStagingKey } from './import-staging-path.js';
+import {
+  buildImportMulterStagingPath,
+  getImportStagingKey,
+} from './import-staging-path.js';
+import { readFile } from 'node:fs/promises';
 import { pipeImportCsvToStorage } from './import-upload-pipeline.js';
 import { ImportCloudTasksService } from './import-cloud-tasks.service.js';
 import { enqueueOrRunImportWorker } from './import-dispatch.js';
@@ -200,12 +204,21 @@ export class ImportService {
         ? { cutover_date: migrationManifest.cutover_date }
         : {}),
     };
-    assertCanonicalMigrationUploadAllowed(params.file, migrationManifest);
-
     const stagingRequest =
       params.uploadRequest && getImportStagingKey(params.uploadRequest)
         ? params.uploadRequest
         : undefined;
+    let migrationUploadBytes = params.file.buffer;
+    if (!migrationUploadBytes && stagingRequest) {
+      migrationUploadBytes = await readFile(
+        buildImportMulterStagingPath(stagingRequest),
+      );
+    }
+    assertCanonicalMigrationUploadAllowed(
+      params.file,
+      migrationManifest,
+      migrationUploadBytes,
+    );
     const assessed = await assessImportUpload(params.file, stagingRequest);
     const handler = this.handlers[params.entityType];
     await handler.prepareCreate(tenantId, params.sourceSystem, options);

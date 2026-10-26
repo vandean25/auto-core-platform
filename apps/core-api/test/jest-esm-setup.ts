@@ -12,3 +12,7 @@ if (
 ) {
   process.env.WORKSHOP_MEDIA_BUCKET = 'test-workshop-media-bucket';
 }
+
+if (!process.env.IMPORT_UPLOAD_STORAGE?.trim()) {
+  process.env.IMPORT_UPLOAD_STORAGE = 'local';
+}

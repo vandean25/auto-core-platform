@@ -51,6 +51,24 @@ export function createApplyTotals(rowCount: number): ImportJobTotals {
   return { rows: rowCount, create: 0, update: 0, skip: 0, error: 0 };
 }
 
+/** Seeds apply totals for a resumed batch from stored job totals. */
+export function createResumedApplyTotals(
+  rowCount: number,
+  storedTotals: ImportJobTotals | null | undefined,
+): ImportJobTotals {
+  const totals = createApplyTotals(
+    Math.max(rowCount, storedTotals?.rows ?? 0),
+  );
+  if (!storedTotals) {
+    return totals;
+  }
+  totals.create = storedTotals.create ?? 0;
+  totals.update = storedTotals.update ?? 0;
+  totals.skip = storedTotals.skip ?? 0;
+  totals.error = storedTotals.error ?? 0;
+  return totals;
+}
+
 /** Counts a row that was written as CREATE or UPDATE. Other outcomes are not tallied here. */
 export function tallyWrittenRow(
   totals: ImportJobTotals,

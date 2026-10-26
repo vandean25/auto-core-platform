@@ -23,7 +23,11 @@ import type {
   SerializedImportJob,
   SerializeImportJobFn,
 } from './import-job.serializer.js';
-import { createApplyTotals, tallyWrittenRow } from './import-totals.util.js';
+import {
+  createApplyTotals,
+  createResumedApplyTotals,
+  tallyWrittenRow,
+} from './import-totals.util.js';
 import type {
   ImportApplyInput,
   ImportApplyRow,
@@ -64,7 +68,11 @@ export class RowByRowApplyRunner {
     options?: { resumeAfterRowNo?: number; stopAfterBatch?: boolean },
   ): Promise<SerializedImportJob> {
     const { tenantId, job, rows, actorUserId } = input;
-    const totals = this.composeApplyTotals(job, rows.length, options);
+    const storedTotals = job.totals_json as ImportJobTotals | null;
+    const totals =
+      options?.stopAfterBatch && storedTotals
+        ? createResumedApplyTotals(rows.length, storedTotals)
+        : createApplyTotals(Math.max(rows.length, storedTotals?.rows ?? 0));
     const plan = this.planApplyBatch(rows, options);
     const guardedWrite = Boolean(options?.stopAfterBatch);
 
@@ -106,25 +114,6 @@ export class RowByRowApplyRunner {
       await this.markJobFailed(job.id, totals, guardedWrite);
       throw error;
     }
-  }
-
-  private composeApplyTotals(
-    job: ImportApplyInput['job'],
-    rowCount: number,
-    options?: { stopAfterBatch?: boolean },
-  ): ImportJobTotals {
-    const storedTotals = job.totals_json as ImportJobTotals | null;
-    const totals = createApplyTotals(
-      Math.max(rowCount, storedTotals?.rows ?? 0),
-    );
-    if (!options?.stopAfterBatch || !storedTotals) {
-      return totals;
-    }
-    totals.create = storedTotals.create ?? 0;
-    totals.update = storedTotals.update ?? 0;
-    totals.skip = storedTotals.skip ?? 0;
-    totals.error = storedTotals.error ?? 0;
-    return totals;
   }
 
   private planApplyBatch(

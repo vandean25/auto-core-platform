@@ -317,9 +317,6 @@ export function createImportFileStorage(): ImportFileStorage {
   if (process.env.IMPORT_UPLOAD_STORAGE === 'local') {
     return new LocalImportFileStorage();
   }
-  if (process.env.NODE_ENV === 'test') {
-    return new LocalImportFileStorage();
-  }
   try {
     return new GcsImportFileStorage();
   } catch (error) {

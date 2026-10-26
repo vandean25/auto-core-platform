@@ -7,17 +7,19 @@ import { validateMigrationBundle } from './migration-manifest.validator.js';
 export function assertCanonicalMigrationUploadAllowed(
   file: Express.Multer.File,
   migrationManifest: MigrationManifest | undefined,
+  fileContent?: Buffer,
 ): void {
   if (!migrationManifest) {
     return;
   }
   const fileName = file.originalname?.trim();
-  if (!fileName || !file.buffer) {
+  const content = file.buffer ?? fileContent;
+  if (!fileName || !content) {
     return;
   }
   const issues = validateMigrationBundle({
     manifest: migrationManifest,
-    files: { [fileName]: file.buffer },
+    files: { [fileName]: content },
     allowPartialFiles: true,
   });
   if (issues.length === 0) {
