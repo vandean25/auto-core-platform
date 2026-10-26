@@ -6,7 +6,7 @@ export const guidesGroups = [
   },
   {
     groupKey: 'dailyWork',
-    pages: ['workflows/sign-in', 'workflows/dashboard'],
+    pages: ['workflows/sign-in', 'workflows/dashboard', 'workflows/keyboard-shortcuts'],
   },
   { groupKey: 'people', pages: ['hr'] },
   {
