@@ -40,6 +40,8 @@ export type ImportApplyBatchOptions = {
   resumeAfterRowNo?: number;
   stopAfterBatch?: boolean;
   hasMoreRowsAfterBatch?: boolean;
+  /** Extra rows peeked past the batch slice (vehicle party owner-transfer lookahead). */
+  lookaheadRows?: ImportApplyRow[];
   leaseToken?: string;
   onRowCommitted?: (
     tx: Prisma.TransactionClient,

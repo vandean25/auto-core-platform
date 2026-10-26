@@ -20,7 +20,7 @@ export abstract class RowByRowImportHandler implements ImportTypeHandler {
   constructor(
     protected readonly prisma: PrismaService,
     protected readonly audit: ImportAuditWriter,
-    private readonly rowRunner: RowByRowApplyRunner,
+    protected readonly rowRunner: RowByRowApplyRunner,
   ) {}
 
   prepareCreate(): Promise<void> {

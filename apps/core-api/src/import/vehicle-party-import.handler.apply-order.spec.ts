@@ -49,7 +49,7 @@ describe('VehiclePartyImportHandler apply row order', () => {
     const appliedRows = run.mock.calls[0]?.[0]?.rows as
       | Array<{ row_no: number }>
       | undefined;
-    expect(appliedRows?.map((row) => row.row_no)).toEqual([1, 2]);
+    expect(appliedRows?.map((row) => row.row_no)).toEqual([2, 1]);
     expect(run.mock.calls[0]?.[1]).toBe(ImportEntityType.VEHICLE_PARTY);
   });
 

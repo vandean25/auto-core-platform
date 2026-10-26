@@ -822,6 +822,11 @@ export class ImportService {
         resumeAfterRowNo: context.resumeAfter,
         stopAfterBatch: true,
         hasMoreRowsAfterBatch: context.hasMoreRowsAfterBatch,
+        lookaheadRows:
+          context.job.entity_type === ImportEntityType.VEHICLE_PARTY &&
+          context.rows.length < context.page.length
+            ? context.page.slice(context.rows.length)
+            : undefined,
         leaseToken: context.worker.lease_token,
       },
     });
@@ -880,6 +885,7 @@ export class ImportService {
       job: jobForApply,
       worker,
       rows,
+      page,
       handler,
       effectiveOptions,
       preparation,
