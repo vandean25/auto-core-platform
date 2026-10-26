@@ -7,7 +7,7 @@ import { Storage } from '@google-cloud/storage';
 import { createReadStream, createWriteStream } from 'node:fs';
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { pipeline } from 'node:stream/promises';
-import type { Transform } from 'node:stream';
+import type { Readable, Transform, Writable } from 'node:stream';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { SideEffectGuard } from '../dry-run/side-effect-guard.js';
@@ -209,12 +209,15 @@ export class GcsImportFileStorage implements ImportFileStorage {
           cacheControl: 'private, no-store',
         },
       });
-    const stages: NodeJS.ReadableStream[] = [params.source];
     if (params.through) {
-      stages.push(params.through);
+      await pipeline(
+        params.source as Readable,
+        params.through,
+        writeStream as Writable,
+      );
+    } else {
+      await pipeline(params.source as Readable, writeStream as Writable);
     }
-    stages.push(writeStream);
-    await pipeline(...stages);
     return { object_key: objectKey };
   }
 
@@ -286,12 +289,16 @@ export class LocalImportFileStorage implements ImportFileStorage {
     });
     const target = resolveLocalImportPath(this.root, objectKey);
     await mkdir(dirname(target), { recursive: true });
-    const stages: NodeJS.ReadableStream[] = [params.source];
+    const writeStream = createWriteStream(target);
     if (params.through) {
-      stages.push(params.through);
+      await pipeline(
+        params.source as Readable,
+        params.through,
+        writeStream as Writable,
+      );
+    } else {
+      await pipeline(params.source as Readable, writeStream as Writable);
     }
-    stages.push(createWriteStream(target));
-    await pipeline(...stages);
     return { object_key: objectKey };
   }
 

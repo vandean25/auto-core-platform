@@ -20,7 +20,7 @@ const applyingJob = (phase: 'dry_run' | 'apply'): ImportJob =>
     created_by: 'u1',
     created_at: new Date().toISOString(),
     applied_at: null,
-  }) as ImportJob;
+  }) as unknown as ImportJob;
 
 vi.mock('@/api/client', () => ({
   fetchWithAuth: vi.fn(),

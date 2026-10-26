@@ -21,6 +21,7 @@ export type ImportApplyJob = {
   id: string;
   source_system: string;
   options_json: Prisma.JsonValue;
+  totals_json?: Prisma.JsonValue;
 };
 
 export type VendorRef = { id: string; name: string };

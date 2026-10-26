@@ -172,8 +172,9 @@ export async function readCsvDataRowSliceFromStream(
   for await (const chunk of stream as AsyncIterable<Buffer>) {
     const stop = collect(parser.feedChunk(chunk));
     if (stop === 'stop') {
-      if (typeof (stream as { destroy?: () => void }).destroy === 'function') {
-        (stream as { destroy: () => void }).destroy();
+      const destroyable = stream as unknown as { destroy?: () => void };
+      if (typeof destroyable.destroy === 'function') {
+        destroyable.destroy();
       }
       break;
     }

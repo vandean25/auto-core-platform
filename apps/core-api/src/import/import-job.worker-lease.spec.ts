@@ -22,10 +22,9 @@ describe('ImportJobStore.claimWorkerLease', () => {
     const prisma = {
       $transaction: async (fn: (tx: unknown) => Promise<unknown>) =>
         fn({
-          $queryRaw: async () => [{ id: job.id }],
           importJob: {
             findFirst: async () => job,
-            update: jest.fn(),
+            updateMany: jest.fn(),
           },
         }),
     };
@@ -51,20 +50,19 @@ describe('ImportJobStore.claimWorkerLease', () => {
         },
       },
     };
-    const update = jest.fn();
+    const updateMany = jest.fn(async () => ({ count: 1 }));
     const prisma = {
       $transaction: async (fn: (tx: unknown) => Promise<unknown>) =>
         fn({
-          $queryRaw: async () => [{ id: job.id }],
           importJob: {
             findFirst: async () => job,
-            update,
+            updateMany,
           },
         }),
     };
     const store = new ImportJobStore(prisma as never);
     const claimed = await store.claimWorkerLease('tenant-1', 'job-1', 'apply');
     expect(claimed?.lease_token).not.toBe('token-a');
-    expect(update).toHaveBeenCalled();
+    expect(updateMany).toHaveBeenCalled();
   });
 });

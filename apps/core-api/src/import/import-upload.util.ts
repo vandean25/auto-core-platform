@@ -81,7 +81,6 @@ export async function assessImportUpload(
     }
     const stagingPath = buildImportMulterStagingPath(request);
     const buffer = await readFile(stagingPath);
-    await unlink(stagingPath).catch(() => undefined);
     const headerStats = parseCsvBufferHeadersOnly(buffer);
     assertNonEmpty(headerStats.headers, headerStats.dataRowCount);
     assertRowLimits(headerStats.dataRowCount);
@@ -96,6 +95,7 @@ export async function assessImportUpload(
         useBackground: true,
       };
     }
+    await unlink(stagingPath).catch(() => undefined);
     const parsed = parseCsvFile(buffer);
     return {
       parsed,

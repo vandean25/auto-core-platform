@@ -232,19 +232,14 @@ export class ImportJobStore {
     jobId: string,
     phase: ImportWorkerPhase,
   ): Promise<ImportJobWorkerState | null> {
-    return this.prisma.$transaction(async (tx) => {
-      const rows = await tx.$queryRaw<Array<{ id: string }>>`
-        SELECT id FROM import_jobs
-        WHERE tenant_id = ${tenantId}
-          AND id = ${jobId}
-          AND status = ${ImportJobStatus.APPLYING}::"ImportJobStatus"
-        FOR UPDATE
-      `;
-      if (rows.length === 0) {
-        return null;
-      }
+    return this.prisma.$transaction(
+      async (tx) => {
       const job = await tx.importJob.findFirst({
-        where: { tenant_id: tenantId, id: jobId },
+        where: {
+          tenant_id: tenantId,
+          id: jobId,
+          status: ImportJobStatus.APPLYING,
+        },
       });
       if (!job) {
         return null;
@@ -264,14 +259,23 @@ export class ImportJobStore {
         lease_token: randomUUID(),
         lease_until: new Date(now + IMPORT_WORKER_LEASE_MS).toISOString(),
       };
-      await tx.importJob.update({
-        where: { id: jobId },
+      const locked = await tx.importJob.updateMany({
+        where: {
+          tenant_id: tenantId,
+          id: jobId,
+          status: ImportJobStatus.APPLYING,
+        },
         data: {
           options_json: { ...options, worker: refreshed },
         },
       });
+      if (locked.count === 0) {
+        return null;
+      }
       return refreshed;
-    });
+    },
+      { isolationLevel: 'Serializable' },
+    );
   }
 
   findRowsPage(
@@ -345,36 +349,6 @@ export class ImportJobStore {
       data: {
         status: ImportJobStatus.FAILED,
         ...(totals ? { totals_json: totals } : {}),
-      },
-    });
-  }
-
-  updateApplyingTotals(tenantId: string, jobId: string, totals: ImportJobTotals) {
-    return this.prisma.importJob.updateMany({
-      where: {
-        tenant_id: tenantId,
-        id: jobId,
-        status: ImportJobStatus.APPLYING,
-      },
-      data: { totals_json: totals },
-    });
-  }
-
-  markAppliedIfApplying(
-    tenantId: string,
-    jobId: string,
-    totals: ImportJobTotals,
-  ) {
-    return this.prisma.importJob.updateMany({
-      where: {
-        tenant_id: tenantId,
-        id: jobId,
-        status: ImportJobStatus.APPLYING,
-      },
-      data: {
-        status: ImportJobStatus.APPLIED,
-        appliedAt: new Date(),
-        totals_json: totals,
       },
     });
   }

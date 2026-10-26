@@ -2,8 +2,6 @@ import { createHash } from 'node:crypto';
 import {
   decodeCsvBuffer,
   detectDelimiterFromHeaderLine,
-  parseCsvRecords,
-  type ParsedCsv,
 } from './csv-parse.util.js';
 
 type CsvRowWalkState = {
@@ -122,57 +120,3 @@ export function parseCsvBufferHeadersOnly(buffer: Buffer): {
   return { headers, delimiter, dataRowCount, sha256 };
 }
 
-export function parseCsvBufferDataRowSlice(
-  buffer: Buffer,
-  skipDataRows: number,
-  takeDataRows: number,
-): ParsedCsv | null {
-  const text = decodeCsvBuffer(buffer)
-    .replace(/\r\n/g, '\n')
-    .replace(/\r/g, '\n');
-  const sha256 = createHash('sha256').update(buffer).digest('hex');
-  if (text.trim().length === 0) {
-    return null;
-  }
-  if (takeDataRows < 0) {
-    return null;
-  }
-  const firstLineEnd = text.indexOf('\n');
-  const headerLine = firstLineEnd === -1 ? text : text.slice(0, firstLineEnd);
-  const delimiter = detectDelimiterFromHeaderLine(headerLine);
-  let headers: string[] = [];
-  const rows: string[][] = [];
-  let dataIndex = 0;
-  forEachCsvRecord(text, delimiter, (cells, index) => {
-    if (index === 0) {
-      headers = cells;
-      return;
-    }
-    if (dataIndex < skipDataRows) {
-      dataIndex += 1;
-      return;
-    }
-    if (rows.length >= takeDataRows) {
-      return 'stop';
-    }
-    rows.push(cells);
-    dataIndex += 1;
-  });
-  if (headers.length === 0) {
-    return null;
-  }
-  return { headers, rows, delimiter, sha256 };
-}
-
-export function sliceParsedCsv(
-  parsed: ParsedCsv,
-  rowOffset: number,
-  rows: string[][],
-): ParsedCsv {
-  return {
-    headers: parsed.headers,
-    rows,
-    delimiter: parsed.delimiter,
-    sha256: parsed.sha256,
-  };
-}
