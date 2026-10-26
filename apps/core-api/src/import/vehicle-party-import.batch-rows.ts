@@ -12,6 +12,47 @@ function plannedOwnerCreate(row: ImportApplyRow): boolean {
   return row.action === ImportRowAction.CREATE;
 }
 
+function createVehicleIdsInBatch(fileBatch: ImportApplyRow[]): Set<string> {
+  return new Set(
+    fileBatch
+      .filter(plannedOwnerCreate)
+      .map(vehiclePartyVehicleId)
+      .filter((id): id is string => Boolean(id)),
+  );
+}
+
+function maxClosingUpdateRowNo(
+  lookahead: ImportApplyRow[],
+  createVehicleIds: Set<string>,
+  byRowNo: Map<number, ImportApplyRow>,
+): number {
+  let maxMergedLookaheadRowNo = 0;
+  for (const row of lookahead) {
+    if (row.action !== ImportRowAction.UPDATE) {
+      continue;
+    }
+    const vehicleId = vehiclePartyVehicleId(row);
+    if (!vehicleId || !createVehicleIds.has(vehicleId)) {
+      continue;
+    }
+    byRowNo.set(row.row_no, row);
+    maxMergedLookaheadRowNo = Math.max(maxMergedLookaheadRowNo, row.row_no);
+  }
+  return maxMergedLookaheadRowNo;
+}
+
+function includeLookaheadRowsThrough(
+  lookahead: ImportApplyRow[],
+  throughRowNo: number,
+  byRowNo: Map<number, ImportApplyRow>,
+): void {
+  for (const row of lookahead) {
+    if (row.row_no <= throughRowNo) {
+      byRowNo.set(row.row_no, row);
+    }
+  }
+}
+
 /**
  * Builds the full apply list for one background worker page: the file slice plus any
  * peeked closing UPDATE that pairs with a CREATE on the same vehicle_id, every
@@ -23,31 +64,17 @@ export function buildVehiclePartyBackgroundApplyRows(
   lookahead: ImportApplyRow[],
 ): ImportApplyRow[] {
   const byRowNo = new Map(fileBatch.map((row) => [row.row_no, row]));
-  const createVehicleIds = new Set(
-    fileBatch
-      .filter(plannedOwnerCreate)
-      .map(vehiclePartyVehicleId)
-      .filter((id): id is string => Boolean(id)),
+  const createVehicleIds = createVehicleIdsInBatch(fileBatch);
+  if (createVehicleIds.size === 0) {
+    return orderVehiclePartyApplyRows([...byRowNo.values()]);
+  }
+  const maxMergedLookaheadRowNo = maxClosingUpdateRowNo(
+    lookahead,
+    createVehicleIds,
+    byRowNo,
   );
-  let maxMergedLookaheadRowNo = 0;
-  if (createVehicleIds.size > 0) {
-    for (const row of lookahead) {
-      if (row.action !== ImportRowAction.UPDATE) {
-        continue;
-      }
-      const vehicleId = vehiclePartyVehicleId(row);
-      if (vehicleId && createVehicleIds.has(vehicleId)) {
-        byRowNo.set(row.row_no, row);
-        maxMergedLookaheadRowNo = Math.max(maxMergedLookaheadRowNo, row.row_no);
-      }
-    }
-    if (maxMergedLookaheadRowNo > 0) {
-      for (const row of lookahead) {
-        if (row.row_no <= maxMergedLookaheadRowNo) {
-          byRowNo.set(row.row_no, row);
-        }
-      }
-    }
+  if (maxMergedLookaheadRowNo > 0) {
+    includeLookaheadRowsThrough(lookahead, maxMergedLookaheadRowNo, byRowNo);
   }
   return orderVehiclePartyApplyRows([...byRowNo.values()]);
 }
