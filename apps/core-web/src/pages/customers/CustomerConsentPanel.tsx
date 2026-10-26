@@ -224,7 +224,7 @@ export function CustomerConsentPanel({
               <Label htmlFor='consent-purpose'>{t('consent.purpose')}</Label>
               <select
                 id='consent-purpose'
-                className='flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm'
+                className='flex h-9 w-full rounded-md border border-input bg-background px-3 text-base md:text-sm'
                 value={purpose}
                 onChange={(event) => setPurpose(event.target.value)}
               >
@@ -273,7 +273,7 @@ export function CustomerConsentPanel({
             <Label htmlFor='revoke-purpose'>{t('consent.purpose')}</Label>
             <select
               id='revoke-purpose'
-              className='flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm'
+              className='flex h-9 w-full rounded-md border border-input bg-background px-3 text-base md:text-sm'
               value={purpose}
               onChange={(event) => setPurpose(event.target.value)}
             >

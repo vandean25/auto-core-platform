@@ -26,6 +26,13 @@ const DialogOverlay = React.forwardRef<
 ))
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
+function isDialogHeaderElement(child: React.ReactNode): boolean {
+  return (
+    React.isValidElement(child) &&
+    (child.type as { displayName?: string }).displayName === 'DialogHeader'
+  )
+}
+
 function isDialogFooterElement(child: React.ReactNode): boolean {
   return (
     React.isValidElement(child) &&
@@ -33,16 +40,76 @@ function isDialogFooterElement(child: React.ReactNode): boolean {
   )
 }
 
-function splitDialogChildren(children: React.ReactNode) {
-  const items = React.Children.toArray(children)
-  const footerIndex = items.findIndex(isDialogFooterElement)
-  if (footerIndex === -1) {
-    return { body: children, footer: null as React.ReactNode }
-  }
+const dialogBodyClassName =
+  'dialog-body min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden pr-1'
+
+type DialogLayoutParts = {
+  header: React.ReactNode | null
+  body: React.ReactNode
+  footer: React.ReactNode | null
+  formShell: React.ReactElement<React.FormHTMLAttributes<HTMLFormElement>> | null
+}
+
+function partitionDialogNodes(nodes: React.ReactNode): Omit<DialogLayoutParts, 'formShell'> {
+  const items = React.Children.toArray(nodes)
+  const header = items.find(isDialogHeaderElement) ?? null
+  const footerNode = items.find(isDialogFooterElement) ?? null
+  const bodyItems = items.filter((item) => item !== header && item !== footerNode)
+  const body = bodyItems.length <= 1 ? (bodyItems[0] ?? null) : bodyItems
+
   return {
-    body: items.slice(0, footerIndex),
-    footer: items.slice(footerIndex),
+    header,
+    body,
+    footer: footerNode,
   }
+}
+
+function resolveDialogLayout(children: React.ReactNode): DialogLayoutParts {
+  const topLevel = React.Children.toArray(children)
+  if (
+    topLevel.length === 1 &&
+    React.isValidElement(topLevel[0]) &&
+    topLevel[0].type === 'form'
+  ) {
+    const formShell = topLevel[0] as React.ReactElement<
+      React.FormHTMLAttributes<HTMLFormElement>
+    >
+    const parts = partitionDialogNodes(formShell.props.children)
+    return { ...parts, formShell }
+  }
+
+  const parts = partitionDialogNodes(children)
+  return { ...parts, formShell: null }
+}
+
+function renderManagedDialogLayout(layout: DialogLayoutParts) {
+  const { header, body, footer, formShell } = layout
+  const hasPinnedRegions = header !== null || footer !== null
+
+  const inner = hasPinnedRegions ? (
+    <>
+      {header ? <div className="shrink-0">{header}</div> : null}
+      <div className={dialogBodyClassName}>{body}</div>
+      {footer ? <div className="shrink-0">{footer}</div> : null}
+    </>
+  ) : (
+    <div className={dialogBodyClassName}>{body}</div>
+  )
+
+  if (formShell) {
+    return React.cloneElement(
+      formShell,
+      {
+        className: cn(
+          'flex min-h-0 min-w-0 flex-1 flex-col gap-4',
+          formShell.props.className,
+        ),
+      },
+      inner,
+    )
+  }
+
+  return inner
 }
 
 function callerManagesDialogLayout(className: string) {
@@ -59,9 +126,7 @@ const DialogContent = React.forwardRef<
     className,
   )
   const managedLayout = callerManagesDialogLayout(className ?? '')
-  const { body, footer } = managedLayout
-    ? { body: children, footer: null as React.ReactNode }
-    : splitDialogChildren(children)
+  const layout = managedLayout ? null : resolveDialogLayout(children)
 
   return (
   <DialogPortal>
@@ -75,16 +140,7 @@ const DialogContent = React.forwardRef<
         <X className="h-4 w-4" />
         <span className="sr-only">{t('actions.close')}</span>
       </DialogPrimitive.Close>
-      {managedLayout ? (
-        children
-      ) : footer ? (
-        <>
-          <div className="dialog-body min-h-0 flex-1 overflow-y-auto pr-1">{body}</div>
-          <div className="shrink-0">{footer}</div>
-        </>
-      ) : (
-        <div className="dialog-body min-h-0 flex-1 overflow-y-auto pr-1">{body}</div>
-      )}
+      {managedLayout || !layout ? children : renderManagedDialogLayout(layout)}
     </DialogPrimitive.Content>
   </DialogPortal>
   )
@@ -124,7 +180,7 @@ const DialogBody = ({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
-    className={cn("dialog-body min-h-0 flex-1 overflow-y-auto pr-1", className)}
+    className={cn(dialogBodyClassName, className)}
     {...props}
   />
 )

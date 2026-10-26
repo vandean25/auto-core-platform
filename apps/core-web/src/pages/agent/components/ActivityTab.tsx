@@ -134,7 +134,7 @@ export function ActivityTab({
               id="activity-status-select"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="h-9 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs text-slate-700 shadow-sm focus:border-slate-500 focus:outline-none"
+              className="h-9 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-base text-slate-700 shadow-sm focus:border-slate-500 focus:outline-none md:text-xs"
               data-testid="filter-status-select"
             >
               <option value="ALL">
@@ -158,7 +158,7 @@ export function ActivityTab({
               id="activity-tier-select"
               value={tierFilter}
               onChange={(e) => setTierFilter(e.target.value)}
-              className="h-9 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs text-slate-700 shadow-sm focus:border-slate-500 focus:outline-none"
+              className="h-9 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-base text-slate-700 shadow-sm focus:border-slate-500 focus:outline-none md:text-xs"
               data-testid="filter-tier-select"
             >
               <option value="ALL">

@@ -34,7 +34,7 @@ export function BrandCombobox({ value, onChange, placeholder }: BrandComboboxPro
   const selectedBrand = brands?.find(b => b.id === value)
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex min-w-0 items-center gap-2">
       {selectedBrand?.logoUrl && (
         <img src={selectedBrand.logoUrl} alt="" className="w-6 h-6 object-contain rounded border bg-white" />
       )}
@@ -44,7 +44,7 @@ export function BrandCombobox({ value, onChange, placeholder }: BrandComboboxPro
             variant="outline"
             role="combobox"
             aria-expanded={open}
-            className="w-full justify-between"
+            className="min-w-0 w-full justify-between"
             disabled={isLoading}
           >
             {isLoading ? (

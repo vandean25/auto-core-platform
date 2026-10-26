@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import {
     Dialog,
     DialogContent,
+    DialogFooter,
     DialogHeader,
     DialogTitle,
     DialogTrigger,
@@ -159,7 +160,11 @@ export function VehicleDialog({ vehicle, trigger, open: controlledOpen, onOpenCh
                     <DialogTitle>{isEdit ? t('vehicles:dialog.editTitle') : t('vehicles:dialog.addTitle')}</DialogTitle>
                 </DialogHeader>
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <form
+                        id="vehicle-dialog-form"
+                        onSubmit={form.handleSubmit(onSubmit)}
+                        className="space-y-4"
+                    >
                         <div className="grid grid-cols-2 gap-4">
                             <FormField
                                 control={form.control}
@@ -263,16 +268,20 @@ export function VehicleDialog({ vehicle, trigger, open: controlledOpen, onOpenCh
                             }
                         />
 
-                        <div className="flex justify-end gap-2 pt-4">
-                            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
-                                {t('common:actions.cancel')}
-                            </Button>
-                            <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                                {isEdit ? t('vehicles:dialog.saveChanges') : t('vehicles:dialog.create')}
-                            </Button>
-                        </div>
                     </form>
                 </Form>
+                <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
+                        {t('common:actions.cancel')}
+                    </Button>
+                    <Button
+                        type="submit"
+                        form="vehicle-dialog-form"
+                        disabled={createMutation.isPending || updateMutation.isPending}
+                    >
+                        {isEdit ? t('vehicles:dialog.saveChanges') : t('vehicles:dialog.create')}
+                    </Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     )

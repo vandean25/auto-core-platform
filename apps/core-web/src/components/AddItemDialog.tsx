@@ -57,13 +57,13 @@ export function AddItemDialog() {
                     <DialogHeader>
                         <DialogTitle>{t('inventory:addItemDialog.title')}</DialogTitle>
                     </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="grid gap-2">
+                    <div className="grid min-w-0 gap-4 py-4">
+                        <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div className="grid min-w-0 gap-2">
                                 <Label htmlFor="sku">{t('inventory:addItemDialog.sku')}</Label>
                                 <Input id="sku" name="sku" placeholder={t('inventory:addItemDialog.skuPlaceholder')} required />
                             </div>
-                            <div className="grid gap-2">
+                            <div className="grid min-w-0 gap-2">
                                 <Label>{t('inventory:addItemDialog.brand')}</Label>
                                 <BrandCombobox value={selectedBrandId} onChange={setSelectedBrandId} />
                             </div>
@@ -72,12 +72,12 @@ export function AddItemDialog() {
                             <Label htmlFor="name">{t('inventory:addItemDialog.name')}</Label>
                             <Input id="name" name="name" placeholder={t('inventory:addItemDialog.namePlaceholder')} required />
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="grid gap-2">
+                        <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div className="grid min-w-0 gap-2">
                                 <Label htmlFor="cost_price">{t('inventory:addItemDialog.costPrice')}</Label>
                                 <Input id="cost_price" name="cost_price" type="number" step="0.01" required />
                             </div>
-                            <div className="grid gap-2">
+                            <div className="grid min-w-0 gap-2">
                                 <Label htmlFor="retail_price">{t('inventory:addItemDialog.retailPrice')}</Label>
                                 <Input id="retail_price" name="retail_price" type="number" step="0.01" required />
                             </div>
