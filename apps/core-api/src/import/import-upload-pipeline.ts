@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { Transform } from 'node:stream';
 import { CsvIncrementalParser } from './csv-incremental.parser.js';
+import { createUtf8CsvStreamValidator } from './import-csv-encoding.util.js';
 import type {
   ImportFileStorage,
   StoredImportFileRef,
@@ -26,11 +27,18 @@ export async function pipeImportCsvToStorage(
 ): Promise<ImportUploadPipeResult> {
   const hash = createHash('sha256');
   const parser = new CsvIncrementalParser();
+  const utf8 = createUtf8CsvStreamValidator();
   let headers: string[] = [];
   let dataRowCount = 0;
 
   const inspect = new Transform({
     transform(chunk: Buffer, _encoding, callback) {
+      try {
+        utf8.feed(chunk);
+      } catch (error) {
+        callback(error as Error);
+        return;
+      }
       hash.update(chunk);
       const records = parser.feedChunk(chunk);
       for (const cells of records) {
@@ -43,6 +51,12 @@ export async function pipeImportCsvToStorage(
       callback(null, chunk);
     },
     flush(callback) {
+      try {
+        utf8.finish();
+      } catch (error) {
+        callback(error as Error);
+        return;
+      }
       for (const cells of parser.finish()) {
         if (headers.length === 0) {
           headers = cells;

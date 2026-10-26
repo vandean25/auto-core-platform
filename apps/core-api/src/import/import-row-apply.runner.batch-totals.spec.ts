@@ -50,7 +50,7 @@ describe('RowByRowApplyRunner batch totals', () => {
           id: 'job-1',
           source_system: 'legacy',
           options_json: {},
-          totals_json: { rows: 4, create: 0, update: 0, skip: 0, error: 0 },
+          totals_json: { rows: 4, create: 2, update: 1, skip: 0, error: 0 },
         },
         rows,
         actorUserId: 'user-1',
@@ -62,6 +62,12 @@ describe('RowByRowApplyRunner batch totals', () => {
       { resumeAfterRowNo: 0, stopAfterBatch: true },
     );
     expect(result.totals.skip).toBe(2);
-    expect(updates[0]?.totals_json).toMatchObject({ skip: 2, rows: 4 });
+    expect(result.totals.create).toBe(2);
+    expect(updates[0]?.totals_json).toMatchObject({
+      skip: 2,
+      create: 2,
+      update: 1,
+      rows: 4,
+    });
   });
 });

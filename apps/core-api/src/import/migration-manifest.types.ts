@@ -28,9 +28,18 @@ export type MigrationManifest = {
   assets?: unknown[];
 };
 
+export type MigrationPresentFileStats = {
+  sha256: string;
+  rowCount: number;
+};
+
 export type MigrationBundleInput = {
   manifest: MigrationManifest;
   files: Record<string, Buffer>;
   assets?: Record<string, Buffer>;
   allowPartialFiles?: boolean;
+  /** Files uploaded in this request without loading full buffers (reconciliation only). */
+  presentFileNames?: string[];
+  /** Manifest hash/row_count checks for streamed uploads. */
+  presentFileStats?: Record<string, MigrationPresentFileStats>;
 };

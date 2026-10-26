@@ -3,6 +3,7 @@ import {
   detectDelimiterFromHeaderLine,
   stripBomFromText,
 } from './csv-parse.util.js';
+import { createUtf8CsvStreamValidator } from './import-csv-encoding.util.js';
 
 type CsvRowWalkState = {
   currentRow: string[];
@@ -158,6 +159,7 @@ export async function readCsvDataRowSliceFromStream(
   takeDataRows: number,
 ): Promise<CsvStreamSliceResult | null> {
   const parser = new CsvIncrementalParser();
+  const utf8 = createUtf8CsvStreamValidator();
   const rows: string[][] = [];
   let dataRowsSeen = 0;
 
@@ -176,6 +178,7 @@ export async function readCsvDataRowSliceFromStream(
   };
 
   for await (const chunk of stream as AsyncIterable<Buffer>) {
+    utf8.feed(chunk);
     const stop = collect(parser.feedChunk(chunk));
     if (stop === 'stop') {
       const destroyable = stream as unknown as { destroy?: () => void };
@@ -188,6 +191,7 @@ export async function readCsvDataRowSliceFromStream(
   if (rows.length < takeDataRows) {
     collect(parser.finish());
   }
+  utf8.finish();
 
   const headers = parser.getHeaders();
   if (headers.length === 0) {

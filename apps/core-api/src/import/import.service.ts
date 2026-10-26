@@ -54,11 +54,7 @@ import {
   type ImportUploadStats,
   unlinkImportMulterStagingFile,
 } from './import-upload.util.js';
-import {
-  buildImportMulterStagingPath,
-  getImportStagingKey,
-} from './import-staging-path.js';
-import { readFile } from 'node:fs/promises';
+import { getImportStagingKey } from './import-staging-path.js';
 import { pipeImportCsvToStorage } from './import-upload-pipeline.js';
 import { ImportCloudTasksService } from './import-cloud-tasks.service.js';
 import { enqueueOrRunImportWorker } from './import-dispatch.js';
@@ -85,6 +81,7 @@ import { buildTemplateCsv, getImportTemplate } from './import.templates.js';
 import type { ImportJobOptions, ImportJobTotals } from './import.types.js';
 import { parseMigrationManifestFromDryRunOptions } from './canonical-migration-import/canonical-migration-import.options.js';
 import { assertCanonicalMigrationUploadAllowed } from './migration-manifest-upload.guard.js';
+import { isImportWorkerContentionError } from './import-worker.errors.js';
 import { SupplierChunkedApplyRunner } from './supplier-price-list-apply.runner.js';
 import { SupplierPriceListImportHandler } from './supplier-price-list-import.handler.js';
 import { LaborOperationImportHandler } from './labor-operation-import.handler.js';
@@ -208,18 +205,13 @@ export class ImportService {
       params.uploadRequest && getImportStagingKey(params.uploadRequest)
         ? params.uploadRequest
         : undefined;
-    let migrationUploadBytes = params.file.buffer;
-    if (!migrationUploadBytes && stagingRequest) {
-      migrationUploadBytes = await readFile(
-        buildImportMulterStagingPath(stagingRequest),
-      );
-    }
-    assertCanonicalMigrationUploadAllowed(
-      params.file,
-      migrationManifest,
-      migrationUploadBytes,
-    );
     const assessed = await assessImportUpload(params.file, stagingRequest);
+    if (migrationManifest) {
+      assertCanonicalMigrationUploadAllowed(params.file, migrationManifest, {
+        sha256: assessed.sha256,
+        dataRowCount: assessed.rowCount,
+      });
+    }
     const handler = this.handlers[params.entityType];
     await handler.prepareCreate(tenantId, params.sourceSystem, options);
 
@@ -351,22 +343,30 @@ export class ImportService {
       (job.options_json as ImportJobOptions) ?? {},
       applyOptions,
     );
-    const rows = await this.jobStore.findApplyRows(tenantId, jobId);
+    const rowCount = await this.jobStore.countApplyRows(tenantId, jobId);
     assertImplementedImportEntityType(job.entity_type);
     const handler = this.handlers[job.entity_type];
-    const preparation = await handler.prepareApply({
-      tenantId,
-      job,
-      rows,
-      applyOptions,
-      effectiveOptions,
-    });
+    const dryRunTotals = job.totals_json as ImportJobTotals;
 
-    if (rows.length > readImportSyncMaxRowCount()) {
+    if (rowCount > readImportSyncMaxRowCount()) {
+      const rows = await this.jobStore.findApplyRowsAfter(
+        tenantId,
+        jobId,
+        0,
+        IMPORT_APPLY_BATCH_SIZE,
+      );
+      const preparation = await handler.prepareApply({
+        tenantId,
+        job,
+        rows,
+        applyOptions,
+        effectiveOptions,
+      });
       const lock = await this.jobStore.lockForBackgroundApply(
         tenantId,
         jobId,
         job.options_json as ImportJobOptionsWithWorker,
+        dryRunTotals,
       );
       if (lock.count === 0) {
         throw applyInProgress();
@@ -391,6 +391,15 @@ export class ImportService {
         refreshed!.totals_json as ImportJobTotals,
       );
     }
+
+    const rows = await this.jobStore.findApplyRows(tenantId, jobId);
+    const preparation = await handler.prepareApply({
+      tenantId,
+      job,
+      rows,
+      applyOptions,
+      effectiveOptions,
+    });
 
     const lock = await this.jobStore.lockForApply(tenantId, jobId);
     if (lock.count === 0) {
@@ -574,6 +583,9 @@ export class ImportService {
       }
       await this.runBackgroundApplyBatch(params.tenantId, params.jobId);
     } catch (error) {
+      if (isImportWorkerContentionError(error)) {
+        return;
+      }
       await this.jobStore.markFailedIfApplying(params.tenantId, params.jobId);
       const job = await this.jobStore.findJob(params.tenantId, params.jobId);
       if (job) {
@@ -733,25 +745,40 @@ export class ImportService {
     if (!job) {
       return;
     }
-    const storedRows = await this.jobStore.findApplyRows(tenantId, jobId);
-    const dryRunRows = storedRows.map((row) => ({
-      row_no: row.row_no,
-      external_id: row.external_id,
-      action: row.action,
-      entity_id: row.entity_id,
-      errors: (row.errors_json as never[]) ?? [],
-      warnings: (row.warnings_json as never[]) ?? [],
-      normalized: row.normalized_json as Record<string, unknown> | null,
-    }));
-    const totals = computeDryRunTotals(dryRunRows);
-    const finalTotals = handler.finishCreate
-      ? await handler.finishCreate({
+    let finalTotals = job.totals_json as ImportJobTotals;
+    if (handler.finishCreate) {
+      const pageSize = IMPORT_WORKER_BATCH_SIZE;
+      let skip = 0;
+      while (true) {
+        const [batch] = await this.jobStore.findRowsPage(
+          { tenant_id: tenantId, import_job_id: jobId },
+          skip,
+          pageSize,
+        );
+        if (batch.length === 0) {
+          break;
+        }
+        const dryRunRows = batch.map((row) => ({
+          row_no: row.row_no,
+          external_id: row.external_id,
+          action: row.action,
+          entity_id: row.entity_id,
+          errors: (row.errors_json as never[]) ?? [],
+          warnings: (row.warnings_json as never[]) ?? [],
+          normalized: row.normalized_json as Record<string, unknown> | null,
+        }));
+        finalTotals = await handler.finishCreate({
           tenantId,
           jobId,
           rows: dryRunRows,
-          totals,
-        })
-      : totals;
+          totals: finalTotals,
+        });
+        skip += batch.length;
+        if (batch.length < pageSize) {
+          break;
+        }
+      }
+    }
     const optionsForPersist = { ...options };
     delete (optionsForPersist as { worker?: unknown }).worker;
     await this.jobStore.finishDryRunIfStillApplying(tenantId, jobId, {

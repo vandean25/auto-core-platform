@@ -6,6 +6,7 @@ import {
   Prisma,
 } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
+import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 import {
   IMPORT_WORKER_LEASE_MS,
   readWorkerState,
@@ -232,7 +233,8 @@ export class ImportJobStore {
     jobId: string,
     phase: ImportWorkerPhase,
   ): Promise<ImportJobWorkerState | null> {
-    return this.prisma.$transaction(
+    try {
+      return await this.prisma.$transaction(
       async (tx) => {
         const job = await tx.importJob.findFirst({
           where: {
@@ -264,6 +266,10 @@ export class ImportJobStore {
             tenant_id: tenantId,
             id: jobId,
             status: ImportJobStatus.APPLYING,
+            options_json: {
+              path: ['worker', 'lease_token'],
+              equals: worker.lease_token,
+            },
           },
           data: {
             options_json: { ...options, worker: refreshed },
@@ -276,6 +282,15 @@ export class ImportJobStore {
       },
       { isolationLevel: 'Serializable' },
     );
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2034'
+      ) {
+        return null;
+      }
+      throw error;
+    }
   }
 
   findRowsPage(
@@ -391,7 +406,15 @@ export class ImportJobStore {
     tenantId: string,
     jobId: string,
     options: ImportJobOptionsWithWorker,
+    dryRunTotals: ImportJobTotals,
   ) {
+    const applyTotals: ImportJobTotals = {
+      rows: dryRunTotals.rows,
+      create: 0,
+      update: 0,
+      skip: 0,
+      error: 0,
+    };
     const leaseToken = randomUUID();
     const worker: ImportJobWorkerState = {
       phase: 'apply',
@@ -409,6 +432,7 @@ export class ImportJobStore {
       },
       data: {
         status: ImportJobStatus.APPLYING,
+        totals_json: applyTotals,
         options_json: { ...options, worker },
       },
     });
@@ -431,11 +455,11 @@ export async function commitApplyWorkerRowInTransaction(
     },
   });
   if (!job) {
-    return;
+    throw new ImportWorkerLeaseLostError();
   }
   const options = job.options_json as ImportJobOptionsWithWorker;
   if (options.worker?.lease_token !== leaseToken) {
-    return;
+    throw new ImportWorkerLeaseLostError();
   }
   const worker: ImportJobWorkerState = {
     ...options.worker,

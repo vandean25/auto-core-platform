@@ -2,6 +2,7 @@ import type { ParsedCsv } from './csv-parse.util.js';
 import { readCsvDataRowSliceFromStream } from './csv-incremental.parser.js';
 import { CsvIncrementalParser } from './csv-incremental.parser.js';
 import { createHash } from 'node:crypto';
+import { createUtf8CsvStreamValidator } from './import-csv-encoding.util.js';
 
 export async function readImportCsvDataRowSlice(
   stream: NodeJS.ReadableStream,
@@ -35,10 +36,12 @@ export async function assessImportCsvFromReadable(
 }> {
   const hash = createHash('sha256');
   const parser = new CsvIncrementalParser();
+  const utf8 = createUtf8CsvStreamValidator();
   let headers: string[] = [];
   let dataRowCount = 0;
 
   for await (const chunk of stream as AsyncIterable<Buffer>) {
+    utf8.feed(chunk);
     hash.update(chunk);
     for (const cells of parser.feedChunk(chunk)) {
       if (headers.length === 0) {
@@ -55,6 +58,7 @@ export async function assessImportCsvFromReadable(
     }
     dataRowCount += 1;
   }
+  utf8.finish();
 
   return {
     headers,

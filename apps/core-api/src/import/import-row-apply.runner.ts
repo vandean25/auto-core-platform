@@ -15,6 +15,7 @@ import {
   commitApplyWorkerRowInTransaction,
   markImportRowFailed,
 } from './import-job.store.js';
+import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 import {
   IMPORT_APPLY_BATCH_SIZE,
   IMPORT_LOGGER_CONTEXT,
@@ -111,6 +112,9 @@ export class RowByRowApplyRunner {
       );
       return this.serialize(updatedJob!, totals);
     } catch (error) {
+      if (error instanceof ImportWorkerLeaseLostError) {
+        throw error;
+      }
       await this.markJobFailed(job.id, totals, guardedWrite);
       throw error;
     }
