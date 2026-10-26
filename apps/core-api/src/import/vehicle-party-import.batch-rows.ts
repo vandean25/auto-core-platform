@@ -37,7 +37,9 @@ export function expandVehiclePartyBatchWithLookahead(
   return [...merged.values()].sort((a, b) => a.row_no - b.row_no);
 }
 
-export function orderVehiclePartyApplyRows(rows: ImportApplyRow[]): ImportApplyRow[] {
+export function orderVehiclePartyApplyRows(
+  rows: ImportApplyRow[],
+): ImportApplyRow[] {
   const updates = rows
     .filter((row) => row.action === ImportRowAction.UPDATE)
     .sort((a, b) => a.row_no - b.row_no);

@@ -33,6 +33,7 @@ export class VehiclePartyImportHandler extends RowByRowImportHandler {
     rows: ImportApplyRow[],
     input: ImportApplyInput,
   ): ImportApplyRow[] {
+    void input;
     return orderVehiclePartyApplyRows(rows);
   }
 
