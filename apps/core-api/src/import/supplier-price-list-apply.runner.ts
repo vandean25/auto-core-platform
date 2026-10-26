@@ -12,13 +12,12 @@ import {
 } from './import-job.store.js';
 import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 import type {
+  ImportJobView,
   SerializedImportJob,
   SerializeImportJobFn,
 } from './import-job.serializer.js';
-import {
-  IMPORT_APPLY_BATCH_SIZE,
-  IMPORT_LOGGER_CONTEXT,
-} from './import.constants.js';
+import { planImportApplyBatch } from './import-apply-batch.plan.js';
+import { IMPORT_LOGGER_CONTEXT } from './import.constants.js';
 import {
   createApplyTotals,
   createResumedApplyTotals,
@@ -69,76 +68,99 @@ export class SupplierChunkedApplyRunner {
     input: ImportApplyInput,
     vendor: VendorRef,
   ): Promise<SerializedImportJob> {
-    const { job, rows } = input;
     const batchOptions = input.batchOptions;
-    const storedTotals = job.totals_json as ImportJobTotals | null;
-    const totals =
-      batchOptions?.stopAfterBatch && storedTotals
-        ? createResumedApplyTotals(rows.length, storedTotals)
-        : createApplyTotals(Math.max(rows.length, storedTotals?.rows ?? 0));
-    const plan = this.planApplyBatch(rows, batchOptions);
+    const plan = planImportApplyBatch(input.rows, batchOptions);
+    const totals = this.buildTotals(input, batchOptions);
     const guardedWrite = Boolean(batchOptions?.stopAfterBatch);
-    const ctx: SupplierApplyContext = {
-      tenantId: input.tenantId,
-      vendorId: vendor.id,
-      jobId: job.id,
-      sourceSystem: job.source_system,
-    };
-
+    const ctx = this.buildContext(input, vendor);
     let jobApplied = false;
     try {
-      for (
-        let offset = 0;
-        offset < plan.batchRows.length;
-        offset += CHUNK_SIZE
-      ) {
-        await this.applyChunk(
-          input,
-          ctx,
-          plan.batchRows.slice(offset, offset + CHUNK_SIZE),
-          offset,
-          totals,
-          batchOptions,
-        );
-      }
-
-      if (plan.batchIncomplete) {
-        const partialJob = await this.persistApplyingTotals(
-          job.id,
-          totals,
-          guardedWrite,
-        );
-        return this.serialize(partialJob!, totals);
-      }
-
-      const updatedJob = await this.markApplied(input, totals, guardedWrite);
-      jobApplied = true;
-      return this.serialize(updatedJob, totals);
+      await this.applyPlannedChunks(
+        input,
+        ctx,
+        plan.batchRows,
+        totals,
+        batchOptions,
+      );
+      const finishedJob = await this.finishApplyRun(
+        input,
+        totals,
+        guardedWrite,
+        plan.batchIncomplete,
+      );
+      jobApplied = finishedJob.applied;
+      return this.serialize(finishedJob.job, totals);
     } catch (error) {
       if (error instanceof ImportWorkerLeaseLostError) {
         throw error;
       }
       if (!jobApplied) {
-        await this.markFailed(job.id, totals);
+        await this.markFailed(input.job.id, totals);
       }
       throw error;
     }
   }
 
-  private planApplyBatch(
-    rows: ImportApplyRow[],
-    options?: ImportApplyBatchOptions,
-  ) {
-    const resumeAfter = options?.resumeAfterRowNo ?? 0;
-    const pending = rows.filter((row) => row.row_no > resumeAfter);
-    const batchSize = options?.stopAfterBatch
-      ? IMPORT_APPLY_BATCH_SIZE
-      : pending.length;
-    const batchRows = pending.slice(0, batchSize);
-    const batchIncomplete =
-      Boolean(options?.stopAfterBatch) &&
-      (options?.hasMoreRowsAfterBatch ?? pending.length > batchRows.length);
-    return { resumeAfter, batchRows, batchIncomplete };
+  private buildTotals(
+    input: ImportApplyInput,
+    batchOptions?: ImportApplyBatchOptions,
+  ): ImportJobTotals {
+    const storedTotals = input.job.totals_json as ImportJobTotals | null;
+    if (batchOptions?.stopAfterBatch && storedTotals) {
+      return createResumedApplyTotals(input.rows.length, storedTotals);
+    }
+    return createApplyTotals(
+      Math.max(input.rows.length, storedTotals?.rows ?? 0),
+    );
+  }
+
+  private buildContext(
+    input: ImportApplyInput,
+    vendor: VendorRef,
+  ): SupplierApplyContext {
+    return {
+      tenantId: input.tenantId,
+      vendorId: vendor.id,
+      jobId: input.job.id,
+      sourceSystem: input.job.source_system,
+    };
+  }
+
+  private async applyPlannedChunks(
+    input: ImportApplyInput,
+    ctx: SupplierApplyContext,
+    batchRows: ImportApplyRow[],
+    totals: ImportJobTotals,
+    batchOptions?: ImportApplyBatchOptions,
+  ): Promise<void> {
+    for (let offset = 0; offset < batchRows.length; offset += CHUNK_SIZE) {
+      await this.applyChunk(
+        input,
+        ctx,
+        batchRows.slice(offset, offset + CHUNK_SIZE),
+        offset,
+        totals,
+        batchOptions,
+      );
+    }
+  }
+
+  private async finishApplyRun(
+    input: ImportApplyInput,
+    totals: ImportJobTotals,
+    guardedWrite: boolean,
+    batchIncomplete: boolean,
+  ): Promise<{ job: ImportJobView; applied: boolean }> {
+    if (batchIncomplete) {
+      const partialJob = await this.persistApplyingTotals(
+        input.job.id,
+        totals,
+        guardedWrite,
+      );
+      return { job: partialJob as ImportJobView, applied: false };
+    }
+    const updatedJob = await this.markApplied(input, totals, guardedWrite);
+    return { job: updatedJob as ImportJobView, applied: true };
   }
 
   private async applyChunk(

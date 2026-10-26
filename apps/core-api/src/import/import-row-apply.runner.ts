@@ -16,10 +16,8 @@ import {
   markImportRowFailed,
 } from './import-job.store.js';
 import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
-import {
-  IMPORT_APPLY_BATCH_SIZE,
-  IMPORT_LOGGER_CONTEXT,
-} from './import.constants.js';
+import { planImportApplyBatch } from './import-apply-batch.plan.js';
+import { IMPORT_LOGGER_CONTEXT } from './import.constants.js';
 import type {
   SerializedImportJob,
   SerializeImportJobFn,
@@ -75,7 +73,7 @@ export class RowByRowApplyRunner {
       options?.stopAfterBatch && storedTotals
         ? createResumedApplyTotals(rows.length, storedTotals)
         : createApplyTotals(Math.max(rows.length, storedTotals?.rows ?? 0));
-    const plan = this.planApplyBatch(rows, options);
+    const plan = planImportApplyBatch(rows, options);
     const guardedWrite = Boolean(options?.stopAfterBatch);
 
     try {
@@ -128,22 +126,6 @@ export class RowByRowApplyRunner {
       totals,
     );
     return this.serialize(updatedJob!, totals);
-  }
-
-  private planApplyBatch(
-    rows: ImportApplyRow[],
-    options?: ImportApplyBatchOptions,
-  ) {
-    const resumeAfter = options?.resumeAfterRowNo ?? 0;
-    const pending = rows.filter((row) => row.row_no > resumeAfter);
-    const batchSize = options?.stopAfterBatch
-      ? IMPORT_APPLY_BATCH_SIZE
-      : pending.length;
-    const batchRows = pending.slice(0, batchSize);
-    const batchIncomplete =
-      Boolean(options?.stopAfterBatch) &&
-      (options?.hasMoreRowsAfterBatch ?? pending.length > batchRows.length);
-    return { resumeAfter, batchRows, batchIncomplete };
   }
 
   private async runApplyBatchSpan(
