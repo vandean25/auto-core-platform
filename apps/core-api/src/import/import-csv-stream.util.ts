@@ -20,6 +20,19 @@ function nextDataRowCount(dataRowCount: number, maxDataRows: number): number {
   return nextCount;
 }
 
+/** Increments the streaming data-row counter for parser-emitted records (not the header). */
+export function applyEmittedCsvRecordCount(
+  dataRowCount: number,
+  emittedRecordCount: number,
+  maxDataRows: number,
+): number {
+  let count = dataRowCount;
+  for (let index = 0; index < emittedRecordCount; index += 1) {
+    count = nextDataRowCount(count, maxDataRows);
+  }
+  return count;
+}
+
 export async function readImportCsvDataRowSlice(
   stream: NodeJS.ReadableStream,
   skipDataRows: number,
@@ -61,14 +74,18 @@ export async function assessImportCsvFromReadable(
     utf8.feed(chunk);
     hash.update(chunk);
     const records = parser.feedChunk(chunk);
-    for (let index = 0; index < records.length; index += 1) {
-      dataRowCount = nextDataRowCount(dataRowCount, maxDataRows);
-    }
+    dataRowCount = applyEmittedCsvRecordCount(
+      dataRowCount,
+      records.length,
+      maxDataRows,
+    );
   }
   const tailRecords = parser.finish();
-  for (let index = 0; index < tailRecords.length; index += 1) {
-    dataRowCount = nextDataRowCount(dataRowCount, maxDataRows);
-  }
+  dataRowCount = applyEmittedCsvRecordCount(
+    dataRowCount,
+    tailRecords.length,
+    maxDataRows,
+  );
   utf8.finish();
 
   const headers = parser.getHeaders();

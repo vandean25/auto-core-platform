@@ -1,9 +1,8 @@
-import { BadRequestException } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import { Transform } from 'node:stream';
 import { CsvIncrementalParser } from './csv-incremental.parser.js';
+import { applyEmittedCsvRecordCount } from './import-csv-stream.util.js';
 import { createUtf8CsvStreamValidator } from './import-csv-encoding.util.js';
-import { IMPORT_ERROR_CODES } from './import.constants.js';
 import { readImportMaxRowCount } from './import-limits.js';
 import type {
   ImportFileStorage,
@@ -34,16 +33,6 @@ export async function pipeImportCsvToStorage(
   let dataRowCount = 0;
   const maxDataRows = readImportMaxRowCount();
 
-  const countDataRow = (): void => {
-    dataRowCount += 1;
-    if (dataRowCount > maxDataRows) {
-      throw new BadRequestException({
-        code: IMPORT_ERROR_CODES.ROW_LIMIT_EXCEEDED,
-        message: `CSV exceeds ${maxDataRows} rows`,
-      });
-    }
-  };
-
   const inspect = new Transform({
     transform(chunk: Buffer, _encoding, callback) {
       try {
@@ -53,9 +42,16 @@ export async function pipeImportCsvToStorage(
         return;
       }
       hash.update(chunk);
-      const records = parser.feedChunk(chunk);
-      for (let index = 0; index < records.length; index += 1) {
-        countDataRow();
+      try {
+        const records = parser.feedChunk(chunk);
+        dataRowCount = applyEmittedCsvRecordCount(
+          dataRowCount,
+          records.length,
+          maxDataRows,
+        );
+      } catch (error) {
+        callback(error as Error);
+        return;
       }
       callback(null, chunk);
     },
@@ -68,9 +64,11 @@ export async function pipeImportCsvToStorage(
       }
       try {
         const tailRecords = parser.finish();
-        for (let index = 0; index < tailRecords.length; index += 1) {
-          countDataRow();
-        }
+        dataRowCount = applyEmittedCsvRecordCount(
+          dataRowCount,
+          tailRecords.length,
+          maxDataRows,
+        );
       } catch (error) {
         callback(error as Error);
         return;
