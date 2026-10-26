@@ -253,54 +253,51 @@ export class ImportJobStore {
     phase: ImportWorkerPhase,
   ): Promise<ImportJobWorkerState | null> {
     try {
-      return await this.prisma.$transaction(
-        async (tx) => {
-          const job = await tx.importJob.findFirst({
-            where: {
-              tenant_id: tenantId,
-              id: jobId,
-              status: ImportJobStatus.APPLYING,
+      return await this.prisma.$transaction(async (tx) => {
+        const job = await tx.importJob.findFirst({
+          where: {
+            tenant_id: tenantId,
+            id: jobId,
+            status: ImportJobStatus.APPLYING,
+          },
+        });
+        if (!job) {
+          return null;
+        }
+        const options = job.options_json as ImportJobOptionsWithWorker;
+        const worker = readWorkerState(options);
+        if (!worker || worker.phase !== phase) {
+          return null;
+        }
+        const now = Date.now();
+        const leaseUntil = Date.parse(worker.lease_until);
+        if (Number.isFinite(leaseUntil) && leaseUntil > now) {
+          return null;
+        }
+        const refreshed: ImportJobWorkerState = {
+          ...worker,
+          lease_token: randomUUID(),
+          lease_until: new Date(now + IMPORT_WORKER_LEASE_MS).toISOString(),
+        };
+        const locked = await tx.importJob.updateMany({
+          where: {
+            tenant_id: tenantId,
+            id: jobId,
+            status: ImportJobStatus.APPLYING,
+            options_json: {
+              path: ['worker', 'lease_token'],
+              equals: worker.lease_token,
             },
-          });
-          if (!job) {
-            return null;
-          }
-          const options = job.options_json as ImportJobOptionsWithWorker;
-          const worker = readWorkerState(options);
-          if (!worker || worker.phase !== phase) {
-            return null;
-          }
-          const now = Date.now();
-          const leaseUntil = Date.parse(worker.lease_until);
-          if (Number.isFinite(leaseUntil) && leaseUntil > now) {
-            return null;
-          }
-          const refreshed: ImportJobWorkerState = {
-            ...worker,
-            lease_token: randomUUID(),
-            lease_until: new Date(now + IMPORT_WORKER_LEASE_MS).toISOString(),
-          };
-          const locked = await tx.importJob.updateMany({
-            where: {
-              tenant_id: tenantId,
-              id: jobId,
-              status: ImportJobStatus.APPLYING,
-              options_json: {
-                path: ['worker', 'lease_token'],
-                equals: worker.lease_token,
-              },
-            },
-            data: {
-              options_json: { ...options, worker: refreshed },
-            },
-          });
-          if (locked.count === 0) {
-            return null;
-          }
-          return refreshed;
-        },
-        IMPORT_SERIALIZABLE_TX,
-      );
+          },
+          data: {
+            options_json: { ...options, worker: refreshed },
+          },
+        });
+        if (locked.count === 0) {
+          return null;
+        }
+        return refreshed;
+      }, IMPORT_SERIALIZABLE_TX);
     } catch (error) {
       if (isRetryableTransactionError(error)) {
         return null;
