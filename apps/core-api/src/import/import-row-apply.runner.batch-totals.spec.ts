@@ -59,7 +59,7 @@ describe('RowByRowApplyRunner batch totals', () => {
       },
       ImportEntityType.CUSTOMER,
       async () => undefined,
-      { resumeAfterRowNo: 0, stopAfterBatch: true },
+      { resumeAfterApplySeq: 0, stopAfterBatch: true },
     );
     expect(result.totals.skip).toBe(2);
     expect(result.totals.create).toBe(2);

@@ -79,7 +79,7 @@ describe('RowByRowApplyRunner worker cursor', () => {
       lease_token: 'lease-1',
       lease_until: new Date(0).toISOString(),
       processed_rows: 0,
-      last_committed_row_no: 0,
+      last_committed_apply_seq: 0,
       started_at: new Date().toISOString(),
     };
     const { prisma, appliedUpdates } = createWorkerPrisma(worker);
@@ -99,8 +99,8 @@ describe('RowByRowApplyRunner worker cursor', () => {
     };
     let lastResult: SerializedImportJob | undefined;
 
-    while ((worker.last_committed_row_no ?? 0) < totalRows) {
-      const resumeAfter = worker.last_committed_row_no ?? 0;
+    while ((worker.last_committed_apply_seq ?? 0) < totalRows) {
+      const resumeAfter = worker.last_committed_apply_seq ?? 0;
       const batchStart = resumeAfter + 1;
       const remaining = totalRows - resumeAfter;
       const pageLen = Math.min(IMPORT_APPLY_BATCH_SIZE, remaining);
@@ -125,14 +125,14 @@ describe('RowByRowApplyRunner worker cursor', () => {
         ImportEntityType.CUSTOMER,
         async () => undefined,
         {
-          resumeAfterRowNo: resumeAfter,
+          resumeAfterApplySeq: resumeAfter,
           stopAfterBatch: true,
           hasMoreRowsAfterBatch,
           leaseToken: worker.lease_token,
         },
       );
       totalsJson = lastResult.totals;
-      expect(worker.last_committed_row_no).toBe(resumeAfter + pageLen);
+      expect(worker.last_committed_apply_seq).toBe(resumeAfter + pageLen);
     }
 
     expect(lastResult?.status).toBe(ImportJobStatus.APPLIED);
@@ -140,7 +140,7 @@ describe('RowByRowApplyRunner worker cursor', () => {
     expect(lastResult?.totals.error).toBe(
       totalRows - IMPORT_APPLY_BATCH_SIZE,
     );
-    expect(worker.last_committed_row_no).toBe(totalRows);
+    expect(worker.last_committed_apply_seq).toBe(totalRows);
     expect(appliedUpdates).toHaveLength(1);
   });
 });

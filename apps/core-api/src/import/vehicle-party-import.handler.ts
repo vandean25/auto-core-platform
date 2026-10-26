@@ -5,15 +5,14 @@ import type {
   ImportApplyRow,
   ImportDryRunInput,
 } from './import-type-handler.js';
-import type { SerializedImportJob } from './import-job.serializer.js';
-import type { DryRunRowResult } from './import.types.js';
 import { RowByRowImportHandler } from './row-by-row-import.handler.js';
 import { applyVehiclePartyImportRow } from './vehicle-party-import.apply.js';
 import {
-  buildVehiclePartyBackgroundApplyRows,
   orderVehiclePartyApplyRows,
-} from './vehicle-party-import.batch-rows.js';
+  vehiclePartyApplySequenceOrderSql,
+} from './vehicle-party-import.apply-order.js';
 import { planVehiclePartyDryRun } from './vehicle-party-import.dry-run.js';
+import type { DryRunRowResult } from './import.types.js';
 
 /** Vehicle party imports (canonical vehicle_parties.csv). */
 export class VehiclePartyImportHandler extends RowByRowImportHandler {
@@ -26,33 +25,16 @@ export class VehiclePartyImportHandler extends RowByRowImportHandler {
     return planVehiclePartyDryRun(this.prisma, input, parsed);
   }
 
+  override applySequenceOrderSql(): string {
+    return vehiclePartyApplySequenceOrderSql();
+  }
+
   protected override orderRows(
     rows: ImportApplyRow[],
     input: ImportApplyInput,
   ): ImportApplyRow[] {
     void input;
     return orderVehiclePartyApplyRows(rows);
-  }
-
-  override apply(input: ImportApplyInput): Promise<SerializedImportJob> {
-    const batchOptions = input.batchOptions;
-    if (batchOptions?.stopAfterBatch) {
-      const rows = buildVehiclePartyBackgroundApplyRows(
-        input.rows,
-        batchOptions.lookaheadRows ?? [],
-      );
-      return this.rowRunner.run(
-        { ...input, rows },
-        this.entityType,
-        (tx, row) => this.writeRow(tx, row, input),
-        {
-          ...batchOptions,
-          applyEntireWorkerPage: true,
-          deferWorkerCursorCommits: true,
-        },
-      );
-    }
-    return super.apply(input);
   }
 
   protected writeRow(

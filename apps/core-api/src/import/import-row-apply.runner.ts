@@ -11,6 +11,8 @@ import { toRowApplyError } from './import-apply.errors.js';
 import { assertApplyRowIsFresh } from './import-apply.freshness.js';
 import { resolveImportExternalId } from './import-apply.errors.js';
 import type { ImportAuditWriter } from './import-audit.writer.js';
+import { applySeqForRow } from './import-apply-sequence.js';
+import { commitBackgroundApplyRowInTransaction } from './import-background-apply.commit.js';
 import { persistImportJobApplyingTotals } from './import-job.guarded-persist.util.js';
 import {
   commitApplyWorkerRowInTransaction,
@@ -48,6 +50,8 @@ function describeCause(error: unknown): string {
   return error instanceof Error ? error.name : 'unknown';
 }
 
+const SERIALIZABLE_ROW_TX = { isolationLevel: 'Serializable' as const };
+
 /**
  * Applies a job one row at a time, each row in its own transaction. Any row failure, whatever
  * its cause, becomes an ERROR row. A failure outside the rows marks the job FAILED and is
@@ -78,13 +82,20 @@ export class RowByRowApplyRunner {
     const guardedWrite = Boolean(options?.stopAfterBatch);
 
     try {
-      return await this.applyPlannedBatch(
+      await this.runApplyBatchSpan(
         input,
         entityType,
         writeRow,
-        plan,
+        plan.batchRows,
+        totals,
+        plan.resumeAfter,
+        options,
+      );
+      return await this.finishApplyRun(
+        input,
         totals,
         guardedWrite,
+        plan.batchIncomplete,
         options,
       );
     } catch (error) {
@@ -96,42 +107,33 @@ export class RowByRowApplyRunner {
     }
   }
 
-  private async applyPlannedBatch(
-    input: ImportApplyInput,
-    entityType: ImportEntityType,
-    writeRow: ImportRowWriter,
-    plan: ReturnType<typeof planImportApplyBatch>,
-    totals: ImportJobTotals,
-    guardedWrite: boolean,
-    options?: ImportApplyBatchOptions,
-  ): Promise<SerializedImportJob> {
-    await this.runApplyBatchSpan(
-      input,
-      entityType,
-      writeRow,
-      plan.batchRows,
-      totals,
-      plan.resumeAfter,
-      options,
-    );
-    if (options?.deferWorkerCursorCommits && options.leaseToken) {
-      await this.commitWorkerBatchHighWater(input, plan.batchRows, options);
-    }
-    return await this.finishApplyRun(
-      input,
-      totals,
-      guardedWrite,
-      plan.batchIncomplete,
-    );
-  }
-
   private async finishApplyRun(
     input: ImportApplyInput,
     totals: ImportJobTotals,
     guardedWrite: boolean,
     batchIncomplete: boolean,
+    options?: ImportApplyBatchOptions,
   ): Promise<SerializedImportJob> {
     const { tenantId, job, actorUserId } = input;
+    const refreshed = await this.prisma.importJob.findFirst({
+      where: { id: job.id },
+    });
+    if (
+      options?.useApplySequence &&
+      refreshed?.status === ImportJobStatus.APPLIED
+    ) {
+      const appliedTotals =
+        (refreshed.totals_json as ImportJobTotals) ?? totals;
+      await this.audit.writeImportJobAudit(
+        this.prisma,
+        tenantId,
+        actorUserId,
+        job.id,
+        'applied',
+        appliedTotals,
+      );
+      return this.serialize(refreshed, appliedTotals);
+    }
     if (batchIncomplete) {
       const partialJob = await persistImportJobApplyingTotals(
         this.prisma,
@@ -169,7 +171,7 @@ export class RowByRowApplyRunner {
         attributes: {
           jobId: input.job.id,
           batchSize: batchRows.length,
-          resumeAfterRowNo: resumeAfter,
+          resumeAfterApplySeq: resumeAfter,
         },
       },
       async () => {
@@ -250,51 +252,129 @@ export class RowByRowApplyRunner {
     return mapping?.first_seen_import_job_id === input.job.id;
   }
 
-  private async commitWorkerBatchHighWater(
+  private async applyOne(
     input: ImportApplyInput,
-    batchRows: ImportApplyRow[],
-    options: ImportApplyBatchOptions,
-  ): Promise<void> {
-    const leaseToken = options.leaseToken;
-    if (batchRows.length === 0 || !leaseToken) {
-      return;
-    }
-    const highWater = Math.max(...batchRows.map((row) => row.row_no));
-    await this.prisma.$transaction(async (tx) => {
-      await commitApplyWorkerRowInTransaction(
-        tx,
-        input.tenantId,
-        input.job.id,
-        leaseToken,
-        highWater,
-      );
-    });
-  }
-
-  private async advanceWorkerCursor(
-    input: ImportApplyInput,
-    rowNo: number,
+    entityType: ImportEntityType,
+    writeRow: ImportRowWriter,
+    row: ImportApplyRow,
+    totals: ImportJobTotals,
     options?: ImportApplyBatchOptions,
   ): Promise<void> {
-    if (options?.deferWorkerCursorCommits) {
-      return;
-    }
-    const leaseToken = options?.leaseToken;
-    if (!leaseToken) {
-      return;
-    }
-    await this.prisma.$transaction(async (tx) => {
-      await commitApplyWorkerRowInTransaction(
-        tx,
-        input.tenantId,
-        input.job.id,
-        leaseToken,
-        rowNo,
+    if (options?.useApplySequence && options.leaseToken && options.maxApplySeq) {
+      await this.applyOneWithSequence(
+        input,
+        entityType,
+        writeRow,
+        row,
+        totals,
+        options,
       );
-    });
+      return;
+    }
+    await this.applyOneLegacy(input, entityType, writeRow, row, totals, options);
   }
 
-  private async applyOne(
+  private async applyOneWithSequence(
+    input: ImportApplyInput,
+    entityType: ImportEntityType,
+    writeRow: ImportRowWriter,
+    row: ImportApplyRow,
+    totals: ImportJobTotals,
+    options: ImportApplyBatchOptions,
+  ): Promise<void> {
+    const applySeq = row.apply_seq;
+    const leaseToken = options.leaseToken;
+    const maxApplySeq = options.maxApplySeq;
+    if (applySeq == null || !leaseToken || maxApplySeq == null) {
+      throw new Error('Background apply row is missing apply_seq');
+    }
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await this.applyRowBodyInTransaction(
+          tx,
+          input,
+          entityType,
+          writeRow,
+          row,
+          totals,
+        );
+        await commitBackgroundApplyRowInTransaction(tx, {
+          tenantId: input.tenantId,
+          jobId: input.job.id,
+          leaseToken,
+          applySeq,
+          totals,
+          maxApplySeq,
+        });
+      }, SERIALIZABLE_ROW_TX);
+    } catch (error) {
+      if (error instanceof ImportWorkerLeaseLostError) {
+        throw error;
+      }
+      this.logger.warn(
+        `Import apply row failed jobId=${input.job.id} rowNo=${row.row_no} cause=${describeCause(error)}`,
+      );
+      await this.prisma.$transaction(async (tx) => {
+        await tx.importJobRow.update({
+          where: {
+            tenant_id_import_job_id_row_no: {
+              tenant_id: input.tenantId,
+              import_job_id: input.job.id,
+              row_no: row.row_no,
+            },
+          },
+          data: {
+            action: ImportRowAction.ERROR,
+            errors_json: [toRowApplyError(error)],
+          },
+        });
+        totals.error += 1;
+        await commitBackgroundApplyRowInTransaction(tx, {
+          tenantId: input.tenantId,
+          jobId: input.job.id,
+          leaseToken,
+          applySeq,
+          totals,
+          maxApplySeq,
+        });
+      }, SERIALIZABLE_ROW_TX);
+    }
+  }
+
+  private async applyRowBodyInTransaction(
+    tx: Prisma.TransactionClient,
+    input: ImportApplyInput,
+    entityType: ImportEntityType,
+    writeRow: ImportRowWriter,
+    row: ImportApplyRow,
+    totals: ImportJobTotals,
+  ): Promise<void> {
+    if (row.action === ImportRowAction.ERROR) {
+      totals.error += 1;
+      return;
+    }
+    if (row.action === ImportRowAction.SKIP) {
+      totals.skip += 1;
+      return;
+    }
+    if (
+      row.action === ImportRowAction.CREATE &&
+      (await this.isCreateAlreadyCommittedByJob(input, entityType, row))
+    ) {
+      return;
+    }
+    await assertApplyRowIsFresh(
+      tx,
+      input.tenantId,
+      entityType,
+      input.job.source_system,
+      row,
+    );
+    await writeRow(tx, row);
+    tallyWrittenRow(totals, row.action);
+  }
+
+  private async applyOneLegacy(
     input: ImportApplyInput,
     entityType: ImportEntityType,
     writeRow: ImportRowWriter,
@@ -304,12 +384,12 @@ export class RowByRowApplyRunner {
   ): Promise<void> {
     if (row.action === ImportRowAction.ERROR) {
       totals.error += 1;
-      await this.advanceWorkerCursor(input, row.row_no, options);
+      await this.advanceWorkerCursor(input, applySeqForRow(row), options);
       return;
     }
     if (row.action === ImportRowAction.SKIP) {
       totals.skip += 1;
-      await this.advanceWorkerCursor(input, row.row_no, options);
+      await this.advanceWorkerCursor(input, applySeqForRow(row), options);
       return;
     }
 
@@ -318,7 +398,7 @@ export class RowByRowApplyRunner {
         row.action === ImportRowAction.CREATE &&
         (await this.isCreateAlreadyCommittedByJob(input, entityType, row))
       ) {
-        await this.advanceWorkerCursor(input, row.row_no, options);
+        await this.advanceWorkerCursor(input, applySeqForRow(row), options);
         return;
       }
       await this.prisma.$transaction(async (tx) => {
@@ -332,13 +412,13 @@ export class RowByRowApplyRunner {
         await writeRow(tx, row);
         if (options?.onRowCommitted && options.leaseToken) {
           await options.onRowCommitted(tx, row.row_no);
-        } else if (options?.leaseToken && !options.deferWorkerCursorCommits) {
+        } else if (options?.leaseToken) {
           await commitApplyWorkerRowInTransaction(
             tx,
             input.tenantId,
             input.job.id,
             options.leaseToken,
-            row.row_no,
+            applySeqForRow(row),
           );
         }
       });
@@ -358,7 +438,27 @@ export class RowByRowApplyRunner {
         row.row_no,
         toRowApplyError(error),
       );
-      await this.advanceWorkerCursor(input, row.row_no, options);
+      await this.advanceWorkerCursor(input, applySeqForRow(row), options);
     }
+  }
+
+  private async advanceWorkerCursor(
+    input: ImportApplyInput,
+    applySeq: number,
+    options?: ImportApplyBatchOptions,
+  ): Promise<void> {
+    const leaseToken = options?.leaseToken;
+    if (!leaseToken) {
+      return;
+    }
+    await this.prisma.$transaction(async (tx) => {
+      await commitApplyWorkerRowInTransaction(
+        tx,
+        input.tenantId,
+        input.job.id,
+        leaseToken,
+        applySeq,
+      );
+    });
   }
 }

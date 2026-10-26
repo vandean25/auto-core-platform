@@ -10,6 +10,7 @@ import {
   type ImportDryRunInput,
   type ImportTypeHandler,
 } from './import-type-handler.js';
+import { DEFAULT_IMPORT_APPLY_SEQUENCE_ORDER } from './import-apply-sequence.js';
 import type { DryRunRowResult } from './import.types.js';
 import { applyVehicleImportRow } from './vehicle-import-apply.row.js';
 import { planVehicleDryRun } from './vehicle-import.dry-run.js';
@@ -23,6 +24,10 @@ export class VehicleImportHandler implements ImportTypeHandler {
     private readonly audit: ImportAuditWriter,
     private readonly rowRunner: RowByRowApplyRunner,
   ) {}
+
+  applySequenceOrderSql(): string {
+    return DEFAULT_IMPORT_APPLY_SEQUENCE_ORDER;
+  }
 
   prepareCreate(): Promise<void> {
     return Promise.resolve();

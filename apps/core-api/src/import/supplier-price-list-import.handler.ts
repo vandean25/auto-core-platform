@@ -13,6 +13,7 @@ import {
   type ImportTypeHandler,
   type VendorRef,
 } from './import-type-handler.js';
+import { DEFAULT_IMPORT_APPLY_SEQUENCE_ORDER } from './import-apply-sequence.js';
 import { IMPORT_ERROR_CODES } from './import.constants.js';
 import type { DryRunRowResult, ImportJobOptions } from './import.types.js';
 import { planSupplierPriceListRows } from './supplier-price-list-import.dry-run.js';
@@ -59,6 +60,10 @@ export class SupplierPriceListImportHandler implements ImportTypeHandler {
     private readonly vendors: ImportVendorResolver,
     private readonly runner: SupplierChunkedApplyRunner,
   ) {}
+
+  applySequenceOrderSql(): string {
+    return DEFAULT_IMPORT_APPLY_SEQUENCE_ORDER;
+  }
 
   /** Stores the resolved vendor id on the job options, so later steps use the same vendor. */
   async prepareCreate(

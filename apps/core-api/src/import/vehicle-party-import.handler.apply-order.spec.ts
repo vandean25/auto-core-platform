@@ -4,7 +4,7 @@ import type { ImportApplyInput } from './import-type-handler.js';
 import { VehiclePartyImportHandler } from './vehicle-party-import.handler.js';
 
 describe('VehiclePartyImportHandler apply row order', () => {
-  it('keeps file order during background apply batches', async () => {
+  it('keeps database apply_seq order during background apply batches', async () => {
     const run = jest.fn(
       async (
         _input: ImportApplyInput,
@@ -44,12 +44,16 @@ describe('VehiclePartyImportHandler apply row order', () => {
       actorUserId: 'user-1',
       effectiveOptions: {},
       preparation: { vendor: null },
-      batchOptions: { stopAfterBatch: true, leaseToken: 'lease-1' },
+      batchOptions: {
+        stopAfterBatch: true,
+        leaseToken: 'lease-1',
+        useApplySequence: true,
+      },
     });
     const appliedRows = run.mock.calls[0]?.[0]?.rows as
       | Array<{ row_no: number }>
       | undefined;
-    expect(appliedRows?.map((row) => row.row_no)).toEqual([2, 1]);
+    expect(appliedRows?.map((row) => row.row_no)).toEqual([1, 2]);
     expect(run.mock.calls[0]?.[1]).toBe(ImportEntityType.VEHICLE_PARTY);
   });
 

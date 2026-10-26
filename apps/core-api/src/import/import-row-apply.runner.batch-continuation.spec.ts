@@ -74,7 +74,7 @@ describe('RowByRowApplyRunner background batch continuation', () => {
       ImportEntityType.CUSTOMER,
       async () => undefined,
       {
-        resumeAfterRowNo: 0,
+        resumeAfterApplySeq: 0,
         stopAfterBatch: true,
         hasMoreRowsAfterBatch: true,
       },
@@ -101,7 +101,7 @@ describe('RowByRowApplyRunner background batch continuation', () => {
       ImportEntityType.CUSTOMER,
       async () => undefined,
       {
-        resumeAfterRowNo: IMPORT_APPLY_BATCH_SIZE,
+        resumeAfterApplySeq: IMPORT_APPLY_BATCH_SIZE,
         stopAfterBatch: true,
         hasMoreRowsAfterBatch: false,
       },
@@ -175,7 +175,7 @@ describe('RowByRowApplyRunner background batch continuation', () => {
         ImportEntityType.CUSTOMER,
         async () => undefined,
         {
-          resumeAfterRowNo: resumeAfter,
+          resumeAfterApplySeq: resumeAfter,
           stopAfterBatch: true,
           hasMoreRowsAfterBatch,
         },

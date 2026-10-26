@@ -8,9 +8,6 @@ export const IMPORT_MAX_FILE_BYTES = readImportMaxFileBytes();
 export const IMPORT_WORKER_BATCH_SIZE = readImportWorkerBatchSize();
 export const IMPORT_APPLY_BATCH_SIZE = readImportApplyBatchSize();
 
-/** Extra apply rows loaded after each vehicle-party page to find closing updates. */
-export const IMPORT_VEHICLE_PARTY_OWNER_TRANSFER_LOOKAHEAD = 25;
-
 export const IMPORT_JOB_RETENTION_DAYS = 180;
 
 export const IMPORT_SOURCE = 'import';

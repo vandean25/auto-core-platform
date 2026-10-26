@@ -15,6 +15,7 @@ import {
   type ImportJobWorkerState,
   type ImportWorkerPhase,
 } from './import-job.worker-state.js';
+import type { ImportApplyRow } from './import-type-handler.js';
 import type {
   DryRunRowResult,
   ImportJobOptions,
@@ -33,6 +34,19 @@ export type CreateDryRunJobInput = {
   actorUserId: string;
   rows: DryRunRowResult[];
 };
+
+export function toImportApplyRow(
+  row: Prisma.ImportJobRowGetPayload<object>,
+): ImportApplyRow {
+  return {
+    row_no: row.row_no,
+    apply_seq: row.apply_seq,
+    action: row.action,
+    entity_id: row.entity_id,
+    external_id: row.external_id,
+    normalized_json: row.normalized_json ?? {},
+  };
+}
 
 function toRowCreate(row: DryRunRowResult) {
   return {
@@ -344,6 +358,58 @@ export class ImportJobStore {
     });
   }
 
+  findApplyRowsAfterApplySeq(
+    tenantId: string,
+    jobId: string,
+    afterApplySeq: number,
+    take: number,
+  ) {
+    return this.prisma.importJobRow
+      .findMany({
+        where: {
+          tenant_id: tenantId,
+          import_job_id: jobId,
+          apply_seq: { gt: afterApplySeq, not: null },
+        },
+        orderBy: { apply_seq: 'asc' },
+        take,
+      })
+      .then((rows) => rows.map(toImportApplyRow));
+  }
+
+  async maxApplySeq(tenantId: string, jobId: string): Promise<number> {
+    const row = await this.prisma.importJobRow.findFirst({
+      where: { tenant_id: tenantId, import_job_id: jobId, apply_seq: { not: null } },
+      orderBy: { apply_seq: 'desc' },
+      select: { apply_seq: true },
+    });
+    return row?.apply_seq ?? 0;
+  }
+
+  assignApplySequences(
+    tenantId: string,
+    jobId: string,
+    orderBySql: string,
+  ): Promise<number> {
+    return this.prisma.$executeRawUnsafe(
+      `
+      UPDATE "import_job_rows" AS r
+      SET "apply_seq" = sub.seq
+      FROM (
+        SELECT "row_no",
+               ROW_NUMBER() OVER (ORDER BY ${orderBySql}) AS seq
+        FROM "import_job_rows"
+        WHERE "tenant_id" = $1::text AND "import_job_id" = $2::text
+      ) AS sub
+      WHERE r."tenant_id" = $1::text
+        AND r."import_job_id" = $2::text
+        AND r."row_no" = sub."row_no"
+      `,
+      tenantId,
+      jobId,
+    );
+  }
+
   countApplyRows(tenantId: string, jobId: string) {
     return this.prisma.importJobRow.count({
       where: { tenant_id: tenantId, import_job_id: jobId },
@@ -421,7 +487,7 @@ export class ImportJobStore {
       lease_token: leaseToken,
       lease_until: new Date(0).toISOString(),
       processed_rows: 0,
-      last_committed_row_no: 0,
+      last_committed_apply_seq: 0,
       started_at: new Date().toISOString(),
     };
     return this.prisma.importJob.updateMany({
@@ -445,7 +511,7 @@ export async function commitApplyWorkerRowInTransaction(
   tenantId: string,
   jobId: string,
   leaseToken: string,
-  rowNo: number,
+  applySeq: number,
 ): Promise<void> {
   const job = await tx.importJob.findFirst({
     where: {
@@ -463,8 +529,8 @@ export async function commitApplyWorkerRowInTransaction(
   }
   const worker: ImportJobWorkerState = {
     ...options.worker,
-    last_committed_row_no: rowNo,
-    processed_rows: rowNo,
+    last_committed_apply_seq: applySeq,
+    processed_rows: applySeq,
   };
   await tx.importJob.update({
     where: { id: jobId },

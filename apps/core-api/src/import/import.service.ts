@@ -73,7 +73,6 @@ import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import {
   IMPORT_LOGGER_CONTEXT,
   IMPORT_APPLY_BATCH_SIZE,
-  IMPORT_VEHICLE_PARTY_OWNER_TRANSFER_LOOKAHEAD,
   IMPORT_WORKER_BATCH_SIZE,
 } from './import.constants.js';
 import { readImportSyncMaxRowCount } from './import-limits.js';
@@ -372,6 +371,11 @@ export class ImportService {
       if (lock.count === 0) {
         throw applyInProgress();
       }
+      await this.jobStore.assignApplySequences(
+        tenantId,
+        jobId,
+        handler.applySequenceOrderSql(),
+      );
       await enqueueOrRunImportWorker({
         tenantId,
         jobId,
@@ -820,14 +824,11 @@ export class ImportService {
       effectiveOptions: context.effectiveOptions,
       preparation: context.preparation,
       batchOptions: {
-        resumeAfterRowNo: context.resumeAfter,
+        resumeAfterApplySeq: context.resumeAfter,
         stopAfterBatch: true,
         hasMoreRowsAfterBatch: context.hasMoreRowsAfterBatch,
-        lookaheadRows:
-          context.job.entity_type === ImportEntityType.VEHICLE_PARTY &&
-          context.rows.length < context.page.length
-            ? context.page.slice(context.rows.length)
-            : undefined,
+        useApplySequence: true,
+        maxApplySeq: context.maxApplySeq,
         leaseToken: context.worker.lease_token,
       },
     });
@@ -856,20 +857,16 @@ export class ImportService {
     if (!worker || worker.phase !== 'apply') {
       return null;
     }
-    const resumeAfter = worker.last_committed_row_no ?? 0;
-    const applyFetchSize =
-      job.entity_type === ImportEntityType.VEHICLE_PARTY
-        ? IMPORT_APPLY_BATCH_SIZE +
-          IMPORT_VEHICLE_PARTY_OWNER_TRANSFER_LOOKAHEAD
-        : IMPORT_APPLY_BATCH_SIZE + 1;
-    const page = await this.jobStore.findApplyRowsAfter(
+    const resumeAfter = worker.last_committed_apply_seq ?? 0;
+    const page = await this.jobStore.findApplyRowsAfterApplySeq(
       tenantId,
       jobId,
       resumeAfter,
-      applyFetchSize,
+      IMPORT_APPLY_BATCH_SIZE + 1,
     );
     const hasMoreRowsAfterBatch = page.length > IMPORT_APPLY_BATCH_SIZE;
     const rows = page.slice(0, IMPORT_APPLY_BATCH_SIZE);
+    const maxApplySeq = await this.jobStore.maxApplySeq(tenantId, jobId);
     const rowCount = await this.jobStore.countApplyRows(tenantId, jobId);
     assertImplementedImportEntityType(job.entity_type);
     const handler = this.handlers[job.entity_type];
@@ -898,6 +895,7 @@ export class ImportService {
       resumeAfter,
       rowCount,
       hasMoreRowsAfterBatch,
+      maxApplySeq,
     };
   }
 
@@ -917,10 +915,10 @@ export class ImportService {
       refreshedJob?.options_json as ImportJobOptionsWithWorker,
     );
     const lastCommitted =
-      refreshedWorker?.last_committed_row_no ?? params.resumeAfter;
+      refreshedWorker?.last_committed_apply_seq ?? params.resumeAfter;
     const hasMore =
       (
-        await this.jobStore.findApplyRowsAfter(
+        await this.jobStore.findApplyRowsAfterApplySeq(
           params.tenantId,
           params.jobId,
           lastCommitted,
@@ -938,7 +936,7 @@ export class ImportService {
       params.jobId,
       leaseToken,
       {
-        last_committed_row_no: lastCommitted,
+        last_committed_apply_seq: lastCommitted,
         processed_rows: lastCommitted,
         lease_until: new Date(0).toISOString(),
       },

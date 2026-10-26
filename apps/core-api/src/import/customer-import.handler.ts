@@ -15,6 +15,7 @@ import {
   type ImportDryRunInput,
   type ImportTypeHandler,
 } from './import-type-handler.js';
+import { DEFAULT_IMPORT_APPLY_SEQUENCE_ORDER } from './import-apply-sequence.js';
 import { IMPORT_LOGGER_CONTEXT } from './import.constants.js';
 import type { ParsedCsv } from './csv-parse.util.js';
 import type { DryRunRowResult, ImportJobTotals } from './import.types.js';
@@ -35,6 +36,10 @@ export class CustomerImportHandler implements ImportTypeHandler {
     private readonly decisionLive: DecisionLiveApplyService,
     private readonly requestContext: RequestContextService,
   ) {}
+
+  applySequenceOrderSql(): string {
+    return DEFAULT_IMPORT_APPLY_SEQUENCE_ORDER;
+  }
 
   prepareCreate(): Promise<void> {
     return Promise.resolve();

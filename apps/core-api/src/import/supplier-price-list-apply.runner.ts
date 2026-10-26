@@ -17,6 +17,7 @@ import type {
   SerializedImportJob,
   SerializeImportJobFn,
 } from './import-job.serializer.js';
+import { applySeqForRow } from './import-apply-sequence.js';
 import { planImportApplyBatch } from './import-apply-batch.plan.js';
 import { IMPORT_LOGGER_CONTEXT } from './import.constants.js';
 import {
@@ -195,7 +196,7 @@ export class SupplierChunkedApplyRunner {
   private async commitWorkerRow(
     tx: Prisma.TransactionClient,
     input: ImportApplyInput,
-    rowNo: number,
+    row: ImportApplyRow,
     batchOptions?: ImportApplyBatchOptions,
   ): Promise<void> {
     if (!batchOptions?.leaseToken) {
@@ -206,20 +207,20 @@ export class SupplierChunkedApplyRunner {
       input.tenantId,
       input.job.id,
       batchOptions.leaseToken,
-      rowNo,
+      applySeqForRow(row),
     );
   }
 
   private async advanceWorkerCursor(
     input: ImportApplyInput,
-    rowNo: number,
+    row: ImportApplyRow,
     batchOptions?: ImportApplyBatchOptions,
   ): Promise<void> {
     if (!batchOptions?.leaseToken) {
       return;
     }
     await this.prisma.$transaction(async (tx) => {
-      await this.commitWorkerRow(tx, input, rowNo, batchOptions);
+      await this.commitWorkerRow(tx, input, row, batchOptions);
     });
   }
 
@@ -234,14 +235,14 @@ export class SupplierChunkedApplyRunner {
     for (const row of chunk) {
       if (row.action === ImportRowAction.ERROR) {
         counts.error += 1;
-        await this.commitWorkerRow(tx, input, row.row_no, batchOptions);
+        await this.commitWorkerRow(tx, input, row, batchOptions);
       } else if (row.action === ImportRowAction.SKIP) {
         counts.skip += 1;
-        await this.commitWorkerRow(tx, input, row.row_no, batchOptions);
+        await this.commitWorkerRow(tx, input, row, batchOptions);
       } else {
         const result = await applySupplierImportRow(tx, ctx, row);
         tallyWrittenRow(counts, result.action);
-        await this.commitWorkerRow(tx, input, row.row_no, batchOptions);
+        await this.commitWorkerRow(tx, input, row, batchOptions);
       }
     }
     return counts;
@@ -257,19 +258,19 @@ export class SupplierChunkedApplyRunner {
   ): Promise<void> {
     if (row.action === ImportRowAction.ERROR) {
       totals.error += 1;
-      await this.advanceWorkerCursor(input, row.row_no, batchOptions);
+      await this.advanceWorkerCursor(input, row, batchOptions);
       return;
     }
     if (row.action === ImportRowAction.SKIP) {
       totals.skip += 1;
-      await this.advanceWorkerCursor(input, row.row_no, batchOptions);
+      await this.advanceWorkerCursor(input, row, batchOptions);
       return;
     }
 
     try {
       const result = await this.prisma.$transaction(async (tx) => {
         const applied = await applySupplierImportRow(tx, ctx, row);
-        await this.commitWorkerRow(tx, input, row.row_no, batchOptions);
+        await this.commitWorkerRow(tx, input, row, batchOptions);
         return applied;
       });
       tallyWrittenRow(totals, result.action);
@@ -288,7 +289,7 @@ export class SupplierChunkedApplyRunner {
         toRowApplyError(rowError),
       );
       totals.error += 1;
-      await this.advanceWorkerCursor(input, row.row_no, batchOptions);
+      await this.advanceWorkerCursor(input, row, batchOptions);
     }
   }
 

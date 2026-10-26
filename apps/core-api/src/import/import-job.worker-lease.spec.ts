@@ -45,7 +45,7 @@ describe('ImportJobStore.claimWorkerLease', () => {
           lease_token: 'token-a',
           lease_until: past,
           processed_rows: 10,
-          last_committed_row_no: 10,
+          last_committed_apply_seq: 10,
           started_at: new Date().toISOString(),
         },
       },

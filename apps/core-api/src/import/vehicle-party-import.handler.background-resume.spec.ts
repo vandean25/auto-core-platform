@@ -8,6 +8,11 @@ import type { ImportJobWorkerState } from './import-job.worker-state.js';
 import type { SerializedImportJob } from './import-job.serializer.js';
 import { RowByRowApplyRunner } from './import-row-apply.runner.js';
 import type { ImportApplyInput, ImportApplyRow } from './import-type-handler.js';
+import {
+  assignVehiclePartyApplySeqs,
+  maxApplySeq,
+  pageByApplySeq,
+} from './import-apply-sequence.test-util.js';
 import { VehiclePartyImportHandler } from './vehicle-party-import.handler.js';
 
 function makeMixedPage(lastRowNo: number, updateRowNo: number) {
@@ -32,17 +37,25 @@ function createWorkerPrisma(worker: ImportJobWorkerState) {
         id: 'job-1',
         status: ImportJobStatus.APPLYING,
         options_json: { worker },
+        totals_json: {},
       }),
       update: async (args: {
-        data: { options_json?: { worker: ImportJobWorkerState } };
+        data: {
+          status?: ImportJobStatus;
+          options_json?: { worker: ImportJobWorkerState };
+        };
       }) => {
         if (args.data.options_json?.worker) {
           Object.assign(worker, args.data.options_json.worker);
+        }
+        if (args.data.status === ImportJobStatus.APPLIED) {
+          jobStatus = ImportJobStatus.APPLIED;
         }
       },
     },
     vehicleParty: { findFirst: async () => ({ id: 'party' }) },
     externalIdMapping: { findFirst: async () => null },
+    importJobRow: { update: jest.fn() },
   };
   return {
     prisma: {
@@ -87,7 +100,7 @@ describe('VehiclePartyImportHandler background resume', () => {
       lease_token: 'lease-party',
       lease_until: new Date(0).toISOString(),
       processed_rows: 0,
-      last_committed_row_no: 0,
+      last_committed_apply_seq: 0,
       started_at: new Date().toISOString(),
     };
     const { prisma } = createWorkerPrisma(worker);
@@ -105,6 +118,10 @@ describe('VehiclePartyImportHandler background resume', () => {
 
     const totalRows = IMPORT_APPLY_BATCH_SIZE + 1;
     const updateRowNo = IMPORT_APPLY_BATCH_SIZE;
+    const allRows = assignVehiclePartyApplySeqs(
+      makeMixedPage(totalRows, updateRowNo),
+    );
+    const maxSeq = maxApplySeq(allRows);
     let totalsJson = {
       rows: totalRows,
       create: 0,
@@ -113,16 +130,10 @@ describe('VehiclePartyImportHandler background resume', () => {
       error: 0,
     };
 
-    while ((worker.last_committed_row_no ?? 0) < totalRows) {
-      const resumeAfter = worker.last_committed_row_no ?? 0;
-      const batchStart = resumeAfter + 1;
-      const remaining = totalRows - resumeAfter;
-      const pageLen = Math.min(IMPORT_APPLY_BATCH_SIZE, remaining);
-      const pageEnd = batchStart + pageLen - 1;
-      const page = makeMixedPage(pageEnd, updateRowNo).filter(
-        (row) => row.row_no > resumeAfter,
-      );
-      const hasMoreRowsAfterBatch = resumeAfter + pageLen < totalRows;
+    while ((worker.last_committed_apply_seq ?? 0) < maxSeq) {
+      const resumeAfter = worker.last_committed_apply_seq ?? 0;
+      const peek = pageByApplySeq(allRows, resumeAfter, IMPORT_APPLY_BATCH_SIZE + 1);
+      const page = peek.slice(0, IMPORT_APPLY_BATCH_SIZE);
       const result = await handler.apply({
         tenantId: 'tenant-1',
         job: {
@@ -136,25 +147,23 @@ describe('VehiclePartyImportHandler background resume', () => {
         effectiveOptions: {},
         preparation: { vendor: null },
         batchOptions: {
-          resumeAfterRowNo: resumeAfter,
+          resumeAfterApplySeq: resumeAfter,
           stopAfterBatch: true,
-          hasMoreRowsAfterBatch,
+          hasMoreRowsAfterBatch: peek.length > IMPORT_APPLY_BATCH_SIZE,
+          useApplySequence: true,
+          maxApplySeq: maxSeq,
           leaseToken: worker.lease_token,
         },
       });
       totalsJson = result.totals;
-      expect(worker.last_committed_row_no).toBe(resumeAfter + pageLen);
     }
 
     const counts = new Map<number, number>();
     for (const rowNo of handler.appliedRowNos) {
       counts.set(rowNo, (counts.get(rowNo) ?? 0) + 1);
     }
-    for (const [rowNo, count] of counts) {
+    for (const count of counts.values()) {
       expect(count).toBe(1);
-      if (rowNo === updateRowNo) {
-        expect(count).toBe(1);
-      }
     }
     expect(handler.appliedRowNos).toHaveLength(totalRows);
     expect(handler.appliedRowNos).toContain(updateRowNo);

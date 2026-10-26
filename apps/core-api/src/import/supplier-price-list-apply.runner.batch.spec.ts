@@ -29,7 +29,7 @@ describe('SupplierChunkedApplyRunner background batches', () => {
       lease_token: 'lease-supplier',
       lease_until: new Date(0).toISOString(),
       processed_rows: 0,
-      last_committed_row_no: 0,
+      last_committed_apply_seq: 0,
       started_at: new Date().toISOString(),
     };
     let jobStatus: ImportJobStatus = ImportJobStatus.APPLYING;
@@ -88,8 +88,8 @@ describe('SupplierChunkedApplyRunner background batches', () => {
     };
     let lastResult: SerializedImportJob | undefined;
 
-    while ((worker.last_committed_row_no ?? 0) < totalRows) {
-      const resumeAfter = worker.last_committed_row_no ?? 0;
+    while ((worker.last_committed_apply_seq ?? 0) < totalRows) {
+      const resumeAfter = worker.last_committed_apply_seq ?? 0;
       const batchStart = resumeAfter + 1;
       const remaining = totalRows - resumeAfter;
       const pageLen = Math.min(IMPORT_APPLY_BATCH_SIZE, remaining);
@@ -109,7 +109,7 @@ describe('SupplierChunkedApplyRunner background batches', () => {
           effectiveOptions: { vendor_id: 'vendor-1' },
           preparation: { vendor },
           batchOptions: {
-            resumeAfterRowNo: resumeAfter,
+            resumeAfterApplySeq: resumeAfter,
             stopAfterBatch: true,
             hasMoreRowsAfterBatch,
             leaseToken: worker.lease_token,
@@ -118,12 +118,12 @@ describe('SupplierChunkedApplyRunner background batches', () => {
         vendor,
       );
       totalsJson = lastResult.totals;
-      expect(worker.last_committed_row_no).toBe(resumeAfter + pageLen);
+      expect(worker.last_committed_apply_seq).toBe(resumeAfter + pageLen);
     }
 
     expect(lastResult?.status).toBe(ImportJobStatus.APPLIED);
     expect(lastResult?.totals.skip).toBe(totalRows);
-    expect(worker.last_committed_row_no).toBe(totalRows);
+    expect(worker.last_committed_apply_seq).toBe(totalRows);
     expect(appliedUpdates).toHaveLength(1);
   });
 });

@@ -10,6 +10,7 @@ import type { SerializedImportJob } from './import-job.serializer.js';
 /** A job row as loaded for apply. */
 export type ImportApplyRow = {
   row_no: number;
+  apply_seq?: number | null;
   action: ImportRowAction;
   entity_id: string | null;
   external_id: string | null;
@@ -37,15 +38,12 @@ export type ImportDryRunInput = {
 };
 
 export type ImportApplyBatchOptions = {
-  resumeAfterRowNo?: number;
+  resumeAfterApplySeq?: number;
   stopAfterBatch?: boolean;
   hasMoreRowsAfterBatch?: boolean;
-  /** Extra rows peeked past the batch slice (vehicle party owner-transfer lookahead). */
-  lookaheadRows?: ImportApplyRow[];
-  /** Apply every row in the input without slicing again to IMPORT_APPLY_BATCH_SIZE. */
-  applyEntireWorkerPage?: boolean;
-  /** Commit worker cursor once after the whole page (out-of-order vehicle-party apply). */
-  deferWorkerCursorCommits?: boolean;
+  /** Background apply uses apply_seq cursor and per-row Serializable commits. */
+  useApplySequence?: boolean;
+  maxApplySeq?: number;
   leaseToken?: string;
   onRowCommitted?: (
     tx: Prisma.TransactionClient,
@@ -102,4 +100,7 @@ export interface ImportTypeHandler {
 
   /** Applies the rows of a locked job and returns the applied job. */
   apply(input: ImportApplyInput): Promise<SerializedImportJob>;
+
+  /** ORDER BY terms for assigning apply_seq when background apply starts. */
+  applySequenceOrderSql(): string;
 }
