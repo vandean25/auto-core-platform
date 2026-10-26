@@ -38,7 +38,7 @@ describe('cronJobAdvisoryLockKeys', () => {
       expect(keys.has(encoded)).toBe(false);
       keys.add(encoded);
     }
-    expect(CORE_API_CRON_JOB_NAMES).toHaveLength(14);
+    expect(CORE_API_CRON_JOB_NAMES).toHaveLength(15);
   });
 });
 
@@ -132,6 +132,75 @@ describe('withCronJobLock in-process guard', () => {
 
     await withCronJobLock('pool-throw-test', async () => {});
     expect(connect).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips the job when the lock pool cannot connect in in-process mode', async () => {
+    const previousMode = process.env.SCHEDULER_MODE;
+    process.env.SCHEDULER_MODE = 'in-process';
+    const warn = jest.fn();
+    const connect = jest
+      .fn<() => Promise<PoolClient>>()
+      .mockRejectedValue(new Error('connect timed out'));
+    mockGetCronJobLockPool.mockReturnValue({ connect } as unknown as Pool);
+
+    const ran = await withCronJobLock(
+      'connect-fail-test',
+      async () => {
+        throw new Error('body should not run');
+      },
+      { log: jest.fn(), warn },
+    );
+
+    expect(ran).toBe(false);
+    expect(warn).toHaveBeenCalledWith(
+      'Cron job "connect-fail-test": could not connect for advisory lock.',
+    );
+    process.env.SCHEDULER_MODE = previousMode;
+  });
+
+  it('throws when the lock pool cannot connect in http scheduler mode', async () => {
+    const previousMode = process.env.SCHEDULER_MODE;
+    process.env.SCHEDULER_MODE = 'http';
+    const connect = jest
+      .fn<() => Promise<PoolClient>>()
+      .mockRejectedValue(new Error('connect timed out'));
+    mockGetCronJobLockPool.mockReturnValue({ connect } as unknown as Pool);
+
+    await expect(
+      withCronJobLock('connect-fail-http-test', async () => {}),
+    ).rejects.toMatchObject({ status: 503 });
+
+    process.env.SCHEDULER_MODE = previousMode;
+  });
+
+  it('allows seven different jobs to connect concurrently', async () => {
+    const activeClients: PoolClient[] = [];
+    const connect = jest.fn(async () => {
+      const query = jest.fn(async (sql: string) => {
+        if (sql.includes('pg_try_advisory_lock')) {
+          return { rows: [{ acquired: true }] };
+        }
+        if (sql.includes('pg_advisory_unlock')) {
+          return { rows: [{ released: true }] };
+        }
+        return { rows: [] };
+      });
+      const client = {
+        query,
+        release: jest.fn(),
+      } as unknown as PoolClient;
+      activeClients.push(client);
+      return client;
+    });
+    mockGetCronJobLockPool.mockReturnValue({ connect } as unknown as Pool);
+
+    const jobs = Array.from({ length: 7 }, (_, index) =>
+      withCronJobLock(`parallel-job-${index}`, async () => {}),
+    );
+    await Promise.all(jobs);
+
+    expect(connect).toHaveBeenCalledTimes(7);
+    expect(activeClients).toHaveLength(7);
   });
 
   it('releases the client and clears the reservation when pg_advisory_unlock throws', async () => {

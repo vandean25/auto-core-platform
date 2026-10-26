@@ -616,8 +616,8 @@ export class ImportService {
     throw error;
   }
 
-  async recoverStaleImportJobs(): Promise<void> {
-    await this.systemPrisma.withCronJobLock(
+  async recoverStaleImportJobs(): Promise<boolean> {
+    return this.systemPrisma.withCronJobLock(
       'import-job-worker-recovery',
       async () => {
         const stale = await this.prisma.importJob.findMany({

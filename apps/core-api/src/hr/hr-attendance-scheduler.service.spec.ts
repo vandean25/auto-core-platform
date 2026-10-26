@@ -56,7 +56,7 @@ describe('HrAttendanceSchedulerService', () => {
     ]);
 
     const closeTime = new Date('2026-08-22T23:59:00Z');
-    await service.closeOrphanedShifts(closeTime);
+    await service.run(closeTime);
 
     expect(systemPrisma.attendanceEvent.create).toHaveBeenCalledWith({
       data: {
@@ -100,7 +100,7 @@ describe('HrAttendanceSchedulerService', () => {
     ]);
 
     const closeTime = new Date('2026-08-22T23:59:00Z');
-    await service.closeOrphanedShifts(closeTime);
+    await service.run(closeTime);
 
     expect(systemPrisma.attendanceEvent.create).toHaveBeenCalledTimes(2);
     expect(systemPrisma.attendanceEvent.create).toHaveBeenCalledWith({
@@ -141,7 +141,7 @@ describe('HrAttendanceSchedulerService', () => {
       },
     ]);
 
-    await service.closeOrphanedShifts(new Date());
+    await service.run(new Date());
 
     expect(systemPrisma.attendanceEvent.create).not.toHaveBeenCalled();
   });
@@ -156,7 +156,7 @@ describe('HrAttendanceSchedulerService', () => {
       },
     ]);
 
-    await service.closeOrphanedShifts(closeTime);
+    await service.run(closeTime);
 
     expect(systemPrisma.attendanceEvent.findMany).not.toHaveBeenCalled();
     expect(systemPrisma.attendanceEvent.create).not.toHaveBeenCalled();

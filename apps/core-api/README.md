@@ -80,6 +80,26 @@ $ npm run test:e2e
 $ npm run test:cov
 ```
 
+## HTTP-triggered crons (AUT-715)
+
+Core-api scheduled jobs normally run in-process via `@nestjs/schedule` (`SCHEDULER_MODE=in-process`, the default). On Cloud Run with CPU throttling, Infra can switch QA core-api to **HTTP mode** so Cloud Scheduler hits `POST /api/internal/cron/:jobName` on the service `run.app` URL (OIDC, not Firebase session auth).
+
+| Variable | When required | Purpose |
+| --- | --- | --- |
+| `SCHEDULER_MODE` | Optional (`in-process`, `http`, `off`) | `http` disables in-process crons and enables the internal endpoint; `off` disables both (pdf-worker). |
+| `CRON_OIDC_AUDIENCE` | Required when `SCHEDULER_MODE=http` | Must match the core-api Cloud Run URL used as the scheduler target (token `aud`). |
+| `CRON_INVOKER_SA_EMAIL` | Required when `SCHEDULER_MODE=http` | Service account email Cloud Scheduler uses; token `email` must match and be verified. |
+
+Pdf-worker deploy sets `SCHEDULER_MODE=off`. Until Infra overrides cloudbuild substitutions, QA core-api stays `SCHEDULER_MODE=in-process` (placeholders for the OIDC vars are wired but not validated in that mode).
+
+Example manual invoke (replace placeholders; never commit real URLs or emails):
+
+```bash
+curl -sS -X POST \
+  -H "Authorization: Bearer $(gcloud auth print-identity-token --audiences=https://core-api-PLACEHOLDER.run.app)" \
+  "https://core-api-PLACEHOLDER.run.app/api/internal/cron/notification-outbox-recovery"
+```
+
 ## Deployment
 
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.

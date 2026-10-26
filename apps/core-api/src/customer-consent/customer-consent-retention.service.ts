@@ -22,7 +22,11 @@ export class CustomerConsentRetentionService {
 
   @Cron('23 3 * * *', { name: 'customer-consent-proof-purge' })
   async purgeExpiredProofRows(): Promise<void> {
-    await this.systemPrisma.withCronJobLock(
+    await this.run();
+  }
+
+  async run(): Promise<boolean> {
+    return this.systemPrisma.withCronJobLock(
       'customer-consent-proof-purge',
       async () => {
         const tenants = await this.systemPrisma.tenant.findMany({

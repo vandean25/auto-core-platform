@@ -34,7 +34,7 @@ describe('cron job lock pool', () => {
 
     expect(poolConstructor).toHaveBeenCalledWith(
       expect.objectContaining({
-        max: 8,
+        max: 10,
         connectionTimeoutMillis: 30_000,
         idleTimeoutMillis: 90_000,
       }),

@@ -75,6 +75,7 @@ import { MarginRuleModule } from './margin-rule/margin-rule.module.js';
 import { SettlementModule } from './settlement/settlement.module.js';
 import { SearchModule } from './search/search.module.js';
 import { isSchedulerEnabled } from './scheduler/scheduler-enabled.js';
+import { SchedulerModule } from './scheduler/scheduler.module.js';
 
 @Module({
   imports: [
@@ -140,6 +141,7 @@ import { isSchedulerEnabled } from './scheduler/scheduler-enabled.js';
     McpModule,
     PublicApiModule,
     LandingDemoAccessModule,
+    SchedulerModule,
   ],
   controllers: [AppController, HealthController],
   providers: [

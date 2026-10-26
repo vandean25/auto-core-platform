@@ -27,7 +27,11 @@ export class ImportRetentionService {
 
   @Cron('31 3 * * *', { name: 'import-job-row-purge' })
   async purgeStaleRows(): Promise<void> {
-    await this.systemPrisma.withCronJobLock(
+    await this.run();
+  }
+
+  async run(): Promise<boolean> {
+    return this.systemPrisma.withCronJobLock(
       'import-job-row-purge',
       async () => {
         const config = readImportJobRowRetentionPurgeConfig();

@@ -3,7 +3,7 @@ import { Pool } from 'pg';
 import { inspectRuntimeDatabaseUrls } from '../prisma/runtime-database-url-health.js';
 import { resolveDirectDatabaseUrl } from '../prisma/runtime-database-url.js';
 
-const LOCK_POOL_MAX = 8;
+const LOCK_POOL_MAX = 10;
 const LOCK_POOL_CONNECT_TIMEOUT_MS = 30_000;
 const LOCK_POOL_IDLE_TIMEOUT_MS = 90_000;
 

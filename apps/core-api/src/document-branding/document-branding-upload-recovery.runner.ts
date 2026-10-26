@@ -30,7 +30,11 @@ export class DocumentBrandingUploadRecoveryRunner {
   @Cron(CronExpression.EVERY_MINUTE, {
     name: 'document-branding-upload-recovery',
   })
-  recoverAndClean() {
+  async recoverAndClean(): Promise<void> {
+    await this.run();
+  }
+
+  async run(): Promise<boolean> {
     return runDocumentBrandingRecoveryCron({
       jobName: 'document-branding-upload-recovery',
       logger: this.logger,

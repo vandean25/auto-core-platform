@@ -216,6 +216,47 @@ describe('validateEnv', () => {
       ).INVOICE_BRANDING_WRITER_ENABLED,
     ).toBe(true);
   });
+
+  it('requires cron OIDC env when SCHEDULER_MODE is http', () => {
+    const error = expectEnvError(
+      productionEnv({
+        SCHEDULER_MODE: 'http',
+      }),
+    );
+    expect(error.missing).toEqual(
+      expect.arrayContaining(['CRON_OIDC_AUDIENCE', 'CRON_INVOKER_SA_EMAIL']),
+    );
+    expect(() =>
+      validateEnv(
+        productionEnv({
+          SCHEDULER_MODE: 'http',
+          CRON_OIDC_AUDIENCE: 'https://core-api-example.run.app',
+          CRON_INVOKER_SA_EMAIL:
+            'scheduler-invoker@example-project.iam.gserviceaccount.com',
+        }),
+      ),
+    ).not.toThrow();
+
+    const placeholderError = expectEnvError(
+      productionEnv({
+        SCHEDULER_MODE: 'http',
+        CRON_OIDC_AUDIENCE: 'PLACEHOLDER_CORE_API_RUN_APP_URL',
+        CRON_INVOKER_SA_EMAIL: 'PLACEHOLDER_CLOUD_SCHEDULER_INVOKER_SA_EMAIL',
+      }),
+    );
+    expect(placeholderError.invalid).toEqual(
+      expect.arrayContaining(['CRON_OIDC_AUDIENCE', 'CRON_INVOKER_SA_EMAIL']),
+    );
+  });
+
+  it('rejects unknown SCHEDULER_MODE values', () => {
+    const error = expectEnvError(
+      productionEnv({
+        SCHEDULER_MODE: 'not-a-real-mode',
+      }),
+    );
+    expect(error.invalid).toContain('SCHEDULER_MODE');
+  });
 });
 
 describe('DOCUMENTED_ENV_KEYS', () => {

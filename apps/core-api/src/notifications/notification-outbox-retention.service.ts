@@ -24,7 +24,11 @@ export class NotificationOutboxRetentionService {
 
   @Cron('17 3 * * *', { name: 'notification-outbox-body-purge' })
   async purgeBodies(): Promise<void> {
-    await this.systemPrisma.withCronJobLock(
+    await this.run();
+  }
+
+  async run(): Promise<boolean> {
+    return this.systemPrisma.withCronJobLock(
       'notification-outbox-body-purge',
       async () => {
         const tenants = await this.systemPrisma.tenant.findMany({

@@ -44,7 +44,11 @@ export class NotificationOutboxRecoveryService {
     name: 'notification-outbox-recovery',
   })
   async recover(): Promise<void> {
-    await this.systemPrisma.withCronJobLock(
+    await this.run();
+  }
+
+  async run(): Promise<boolean> {
+    return this.systemPrisma.withCronJobLock(
       'notification-outbox-recovery',
       async () => {
         const queueOn = this.wakeUps.isEnabled();

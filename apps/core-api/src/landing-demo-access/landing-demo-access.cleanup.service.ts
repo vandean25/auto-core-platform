@@ -14,7 +14,11 @@ export class LandingDemoAccessCleanupService {
     name: 'landing-demo-access-cleanup',
   })
   async deactivateExpiredDemoMemberships(): Promise<void> {
-    await this.systemPrisma.withCronJobLock(
+    await this.run();
+  }
+
+  async run(): Promise<boolean> {
+    return this.systemPrisma.withCronJobLock(
       'landing-demo-access-cleanup',
       async () => {
         await this.deactivateExpiredDemoMembershipsWork();

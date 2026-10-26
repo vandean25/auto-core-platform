@@ -25,10 +25,14 @@ export class Autoscout24DmsDeactivationRetryService {
     name: 'autoscout24-dms-deactivation-retry',
   })
   async runScheduledRetries(): Promise<void> {
+    await this.run();
+  }
+
+  async run(): Promise<boolean> {
     if (!isVehicleListingAs24PushEnvEnabled()) {
-      return;
+      return true;
     }
-    await this.systemPrisma.withCronJobLock(
+    return this.systemPrisma.withCronJobLock(
       'autoscout24-dms-deactivation-retry',
       async () => {
         const tenants = await this.systemPrisma.tenant.findMany({

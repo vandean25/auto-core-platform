@@ -24,7 +24,11 @@ export class MechanicSchedulerService {
 
   @Cron('59 23 * * *', { name: 'mechanic-shift-close' })
   async closeOrphanedLaborEntries(): Promise<void> {
-    await this.systemPrisma.withCronJobLock(
+    await this.run();
+  }
+
+  async run(): Promise<boolean> {
+    return this.systemPrisma.withCronJobLock(
       'mechanic-shift-close',
       async () => {
         this.logger.log(

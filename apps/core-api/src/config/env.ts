@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { addSchedulerEnvValidationIssues } from './scheduler-env-validation.js';
 import { parseApprovalBaseUrl } from '../workshop/workshop-estimate-approval-token.helpers.js';
 import {
   NOTIFICATION_ENV_KEYS,
@@ -33,6 +34,9 @@ export const DOCUMENTED_ENV_KEYS = [
   'DECISION_PROVIDER',
   'DECISION_SHADOW_ENABLED',
   'SCHEDULER_ENABLED',
+  'SCHEDULER_MODE',
+  'CRON_OIDC_AUDIENCE',
+  'CRON_INVOKER_SA_EMAIL',
   'DECISION_OPENROUTER_MODEL',
   'DECISION_HTTP_TIMEOUT_MS',
   'INVOICE_BRANDING_WRITER_ENABLED',
@@ -145,6 +149,9 @@ const envSchema = z
     DECISION_PROVIDER: optionalString,
     DECISION_SHADOW_ENABLED: optionalBooleanString,
     SCHEDULER_ENABLED: optionalBooleanString,
+    SCHEDULER_MODE: optionalString,
+    CRON_OIDC_AUDIENCE: optionalString,
+    CRON_INVOKER_SA_EMAIL: optionalString,
     DECISION_OPENROUTER_MODEL: optionalString,
     DECISION_HTTP_TIMEOUT_MS: optionalString,
     INVOICE_BRANDING_WRITER_ENABLED: optionalBooleanString.transform(
@@ -259,6 +266,8 @@ const envSchema = z
         env.CLOUD_TASKS_WORKER_SECRET,
       );
     }
+
+    addSchedulerEnvValidationIssues(ctx, env);
   });
 
 export type AppEnv = z.infer<typeof envSchema>;
