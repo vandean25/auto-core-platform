@@ -17,6 +17,7 @@ import {
 import { createHash } from 'node:crypto';
 import { normalizeVehicleMakeAlias } from '../catalog/vehicle-make-alias.util.js';
 import { verifyCatalogHitPayload } from '../catalog/catalog-hit-payload.js';
+import { isRetryableTransactionError } from '../common/prisma/is-retryable-transaction-error.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { AddWorkshopTaskLineFromCatalogDto } from './dto/add-workshop-task-line-from-catalog.dto.js';
@@ -542,11 +543,7 @@ export class WorkshopCatalogLineService {
   }
 
   private isRetryableTransactionError(error: unknown): boolean {
-    return (
-      this.isUniqueViolation(error) ||
-      (error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2034')
-    );
+    return this.isUniqueViolation(error) || isRetryableTransactionError(error);
   }
 
   private mapLine(line: CatalogLineRecord) {
