@@ -5,7 +5,14 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 
-const mockVerifyIdToken = jest.fn();
+const mockVerifyIdToken = jest.fn<
+  (options: { idToken: string; audience: string }) => Promise<{
+    getPayload: () => {
+      email?: string;
+      email_verified?: boolean;
+    };
+  }>
+>();
 
 jest.unstable_mockModule('google-auth-library', () => ({
   OAuth2Client: jest.fn().mockImplementation(() => ({
