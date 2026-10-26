@@ -22,7 +22,14 @@ export class VehiclePartyImportHandler extends RowByRowImportHandler {
   }
 
   // An owner transfer ends the old interval (UPDATE) before the new owner starts (CREATE).
-  protected override orderRows(rows: ImportApplyRow[]): ImportApplyRow[] {
+  // Background batches must keep file order so the worker cursor matches row_no.
+  protected override orderRows(
+    rows: ImportApplyRow[],
+    input: ImportApplyInput,
+  ): ImportApplyRow[] {
+    if (input.batchOptions?.stopAfterBatch) {
+      return rows;
+    }
     return [...rows].sort(
       (a, b) =>
         Number(b.action === ImportRowAction.UPDATE) -

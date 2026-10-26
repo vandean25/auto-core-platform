@@ -44,13 +44,16 @@ export abstract class RowByRowImportHandler implements ImportTypeHandler {
   ): Promise<void>;
 
   /** The order rows are applied in. File order unless a handler needs another. */
-  protected orderRows(rows: ImportApplyRow[]): ImportApplyRow[] {
+  protected orderRows(
+    rows: ImportApplyRow[],
+    _input: ImportApplyInput,
+  ): ImportApplyRow[] {
     return rows;
   }
 
   apply(input: ImportApplyInput): Promise<SerializedImportJob> {
     return this.rowRunner.run(
-      { ...input, rows: this.orderRows(input.rows) },
+      { ...input, rows: this.orderRows(input.rows, input) },
       this.entityType,
       (tx, row) => this.writeRow(tx, row, input),
       input.batchOptions,
