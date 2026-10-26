@@ -12,7 +12,7 @@ import type {
   ImportTypeHandler,
 } from './import-type-handler.js';
 import type { DryRunRowResult } from './import.types.js';
-import { sortImportApplyRowsByRowNo } from './import-apply-sequence.js';
+import type { ImportApplySequenceOrderKey } from './import-apply-sequence-order.js';
 
 /** Shared shape of the handlers that plan a CSV in memory and write one row per transaction. */
 export abstract class RowByRowImportHandler implements ImportTypeHandler {
@@ -53,8 +53,8 @@ export abstract class RowByRowImportHandler implements ImportTypeHandler {
     return rows;
   }
 
-  sortRowsForApplySequence(rows: ImportApplyRow[]): ImportApplyRow[] {
-    return sortImportApplyRowsByRowNo(rows);
+  applySequenceOrderKey(): ImportApplySequenceOrderKey {
+    return 'row_no';
   }
 
   apply(input: ImportApplyInput): Promise<SerializedImportJob> {

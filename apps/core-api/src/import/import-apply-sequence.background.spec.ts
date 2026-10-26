@@ -14,7 +14,9 @@ import {
   maxApplySeq,
   pageByApplySeq,
 } from './import-apply-sequence.test-util.js';
+import { buildVehiclePartySixtyRowFixture } from './import-apply-sequence-parity.fixture.js';
 import { orderVehiclePartyApplyRows } from './vehicle-party-import.apply-order.js';
+import { IMPORT_APPLY_BATCH_SIZE } from './import.constants.js';
 import { VehiclePartyImportHandler } from './vehicle-party-import.handler.js';
 import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 
@@ -87,7 +89,11 @@ function createSequenceWorkerPrisma(worker: ImportJobWorkerState) {
           status: jobStatus,
           totals_json: {},
         }),
-        update: jest.fn(),
+        update: jest.fn(async (args: { where: { id: string }; data: { status?: ImportJobStatus } }) => ({
+          id: args.where.id,
+          status: args.data.status ?? jobStatus,
+          totals_json: {},
+        })),
       },
       importJobRow: { update: jest.fn() },
     },
@@ -112,22 +118,113 @@ class TrackingVehiclePartyImportHandler extends VehiclePartyImportHandler {
 }
 
 describe('import apply_seq background apply', () => {
-  it('matches synchronous vehicle-party order including gap rows', () => {
-    const fileRows = [
-      plannedRow(1, ImportRowAction.SKIP),
-      plannedRow(2, ImportRowAction.SKIP),
-      plannedRow(3, ImportRowAction.CREATE),
-      plannedRow(4, ImportRowAction.CREATE, { vehicle_id: 'other' }),
-      plannedRow(5, ImportRowAction.UPDATE),
-    ];
-    const withSeq = assignVehiclePartyApplySeqs(fileRows);
-    const syncOrder = orderVehiclePartyApplyRows(fileRows).map((r) => r.row_no);
-    const seqOrder = [...withSeq]
-      .sort((a, b) => (a.apply_seq ?? 0) - (b.apply_seq ?? 0))
-      .map((r) => r.row_no);
-    expect(seqOrder).toEqual(syncOrder);
-    expect(seqOrder.indexOf(5)).toBeLessThan(seqOrder.indexOf(3));
-    expect(seqOrder).toContain(4);
+  it('matches sync and background write order on a 60-row fixture (batch 50, gap at 51)', async () => {
+    const allRows = buildVehiclePartySixtyRowFixture();
+    const withSeq = assignVehiclePartyApplySeqs(allRows);
+    const maxSeq = maxApplySeq(withSeq);
+    const worker: ImportJobWorkerState = {
+      phase: 'apply',
+      lease_token: 'lease-parity',
+      lease_until: new Date(0).toISOString(),
+      processed_rows: 0,
+      last_committed_apply_seq: 0,
+      started_at: new Date().toISOString(),
+    };
+    const { prisma } = createSequenceWorkerPrisma(worker);
+    const runner = new RowByRowApplyRunner(
+      prisma as never,
+      { writeImportJobAudit: jest.fn() } as never,
+      (job, totals) =>
+        ({ ...job, totals, status: job.status }) as unknown as SerializedImportJob,
+    );
+    const syncHandler = new TrackingVehiclePartyImportHandler(
+      prisma as never,
+      { writeImportJobAudit: jest.fn() } as never,
+      runner,
+    );
+    const totalsJson = {
+      rows: allRows.length,
+      create: 0,
+      update: 0,
+      skip: 0,
+      error: 0,
+    };
+    await syncHandler.apply({
+      tenantId: 'tenant-1',
+      job: {
+        id: 'job-sync',
+        source_system: 'legacy',
+        options_json: {},
+        totals_json: totalsJson,
+      },
+      rows: allRows,
+      actorUserId: 'user-1',
+      effectiveOptions: {},
+      preparation: { vendor: null },
+    });
+    const syncWrites = syncHandler.applied.map((row) => row.row_no);
+
+    const bgHandler = new TrackingVehiclePartyImportHandler(
+      prisma as never,
+      { writeImportJobAudit: jest.fn() } as never,
+      runner,
+    );
+    const bgWorker: ImportJobWorkerState = {
+      phase: 'apply',
+      lease_token: 'lease-bg',
+      lease_until: new Date(0).toISOString(),
+      processed_rows: 0,
+      last_committed_apply_seq: 0,
+      started_at: new Date().toISOString(),
+    };
+    const { prisma: bgPrisma } = createSequenceWorkerPrisma(bgWorker);
+    const bgRunner = new RowByRowApplyRunner(
+      bgPrisma as never,
+      { writeImportJobAudit: jest.fn() } as never,
+      (job, totals) =>
+        ({ ...job, totals, status: job.status }) as unknown as SerializedImportJob,
+    );
+    const bgTracking = new TrackingVehiclePartyImportHandler(
+      bgPrisma as never,
+      { writeImportJobAudit: jest.fn() } as never,
+      bgRunner,
+    );
+    let bgTotals = { ...totalsJson };
+    while ((bgWorker.last_committed_apply_seq ?? 0) < maxSeq) {
+      const resumeAfter = bgWorker.last_committed_apply_seq ?? 0;
+      const peek = pageByApplySeq(
+        withSeq,
+        resumeAfter,
+        IMPORT_APPLY_BATCH_SIZE + 1,
+      );
+      const page = peek.slice(0, IMPORT_APPLY_BATCH_SIZE);
+      const result = await bgTracking.apply({
+        tenantId: 'tenant-1',
+        job: {
+          id: 'job-bg',
+          source_system: 'legacy',
+          options_json: { worker: bgWorker },
+          totals_json: bgTotals,
+        },
+        rows: page,
+        actorUserId: 'user-1',
+        effectiveOptions: {},
+        preparation: { vendor: null },
+        batchOptions: {
+          resumeAfterApplySeq: resumeAfter,
+          stopAfterBatch: true,
+          hasMoreRowsAfterBatch: peek.length > IMPORT_APPLY_BATCH_SIZE,
+          useApplySequence: true,
+          maxApplySeq: maxSeq,
+          leaseToken: bgWorker.lease_token,
+        },
+      });
+      bgTotals = result.totals;
+    }
+    const bgWrites = bgTracking.applied.map((row) => row.row_no);
+    expect(bgWrites).toEqual(syncWrites);
+    expect(new Set(bgWrites).size).toBe(bgWrites.length);
+    expect(bgWrites.filter((rowNo) => rowNo === 51)).toHaveLength(0);
   });
 
   it('applies every row across batch size 3 without skipping the gap row', async () => {
@@ -300,5 +397,113 @@ describe('import apply_seq background apply', () => {
     );
     expect(worker.last_committed_apply_seq).toBe(2);
     expect(getStatus()).toBe(ImportJobStatus.APPLIED);
+  });
+
+  it('resumes after lease loss without duplicating committed rows', async () => {
+    const worker: ImportJobWorkerState = {
+      phase: 'apply',
+      lease_token: 'lease-resume',
+      lease_until: new Date(0).toISOString(),
+      processed_rows: 0,
+      last_committed_apply_seq: 0,
+      started_at: new Date().toISOString(),
+    };
+    const { prisma } = createSequenceWorkerPrisma(worker);
+    const rows = assignVehiclePartyApplySeqs([
+      plannedRow(1, ImportRowAction.UPDATE),
+      plannedRow(2, ImportRowAction.CREATE),
+      plannedRow(3, ImportRowAction.CREATE),
+    ]);
+    const maxSeq = maxApplySeq(rows);
+    const applied: number[] = [];
+    let failRow2Once = true;
+    const runner = new RowByRowApplyRunner(
+      prisma as never,
+      { writeImportJobAudit: jest.fn() } as never,
+      (job, totals) =>
+        ({ ...job, totals, status: job.status }) as unknown as SerializedImportJob,
+    );
+    const applyBatch = async () => {
+      const resumeAfter = worker.last_committed_apply_seq ?? 0;
+      const page = pageByApplySeq(rows, resumeAfter, 10);
+      await runner.run(
+        {
+          tenantId: 'tenant-1',
+          job: {
+            id: 'job-1',
+            source_system: 'legacy',
+            options_json: { worker },
+            totals_json: { rows: 3, create: 0, update: 0, skip: 0, error: 0 },
+          },
+          rows: page,
+          actorUserId: 'user-1',
+          effectiveOptions: {},
+          preparation: { vendor: null },
+        },
+        ImportEntityType.VEHICLE_PARTY,
+        async (_tx, row) => {
+          if (row.row_no === 2 && failRow2Once) {
+            failRow2Once = false;
+            throw new ImportWorkerLeaseLostError();
+          }
+          applied.push(row.row_no);
+        },
+        {
+          stopAfterBatch: true,
+          useApplySequence: true,
+          maxApplySeq: maxSeq,
+          leaseToken: worker.lease_token,
+        },
+      );
+    };
+    await expect(applyBatch()).rejects.toBeInstanceOf(ImportWorkerLeaseLostError);
+    expect(worker.last_committed_apply_seq).toBe(1);
+    expect(applied).toEqual([1]);
+    await applyBatch();
+    expect(worker.last_committed_apply_seq).toBe(maxSeq);
+    expect(applied).toEqual([1, 2, 3]);
+  });
+
+  it('does not mark APPLIED when the worker page is empty', async () => {
+    const worker: ImportJobWorkerState = {
+      phase: 'apply',
+      lease_token: 'lease-empty',
+      lease_until: new Date(0).toISOString(),
+      processed_rows: 0,
+      last_committed_apply_seq: 2,
+      started_at: new Date().toISOString(),
+    };
+    const { prisma, getStatus } = createSequenceWorkerPrisma(worker);
+    const runner = new RowByRowApplyRunner(
+      prisma as never,
+      { writeImportJobAudit: jest.fn() } as never,
+      (job, totals) =>
+        ({ ...job, totals, status: job.status }) as unknown as SerializedImportJob,
+    );
+    await runner.run(
+      {
+        tenantId: 'tenant-1',
+        job: {
+          id: 'job-1',
+          source_system: 'legacy',
+          options_json: { worker },
+          totals_json: { rows: 2, create: 0, update: 0, skip: 0, error: 0 },
+        },
+        rows: [],
+        actorUserId: 'user-1',
+        effectiveOptions: {},
+        preparation: { vendor: null },
+      },
+      ImportEntityType.VEHICLE_PARTY,
+      async () => undefined,
+      {
+        stopAfterBatch: true,
+        hasMoreRowsAfterBatch: false,
+        useApplySequence: true,
+        maxApplySeq: 2,
+        leaseToken: worker.lease_token,
+      },
+    );
+    expect(getStatus()).toBe(ImportJobStatus.APPLYING);
   });
 });

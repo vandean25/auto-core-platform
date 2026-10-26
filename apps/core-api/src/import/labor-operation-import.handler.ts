@@ -14,7 +14,6 @@ import {
 import type { DryRunRowResult } from './import.types.js';
 import { applyLaborOperationImportRow } from './labor-operation-import.apply.js';
 import { planLaborOperationDryRun } from './labor-operation-import.dry-run.js';
-import { sortImportApplyRowsByRowNo } from './import-apply-sequence.js';
 
 /** Labor operation (Arbeitswerte) imports. */
 export class LaborOperationImportHandler implements ImportTypeHandler {
@@ -26,8 +25,8 @@ export class LaborOperationImportHandler implements ImportTypeHandler {
     private readonly rowRunner: RowByRowApplyRunner,
   ) {}
 
-  sortRowsForApplySequence(rows: ImportApplyRow[]): ImportApplyRow[] {
-    return sortImportApplyRowsByRowNo(rows);
+  applySequenceOrderKey() {
+    return 'row_no' as const;
   }
 
   prepareCreate(): Promise<void> {

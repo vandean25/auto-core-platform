@@ -5180,7 +5180,7 @@ model ImportJobRow {
 
   @@id([tenant_id, import_job_id, row_no])
   @@index([tenant_id, import_job_id, action])
-  @@index([tenant_id, import_job_id, apply_seq])
+  @@unique([tenant_id, import_job_id, apply_seq])
   @@map("import_job_rows")
 }
 

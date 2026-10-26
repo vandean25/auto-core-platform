@@ -17,6 +17,8 @@ import {
 } from './import-job.worker-state.js';
 import type { ImportApplyRow } from './import-type-handler.js';
 import { assertApplyWorkerLease } from './import-background-apply.commit.js';
+import { fillImportJobApplySequences } from './import-apply-sequence-fill.js';
+import type { ImportApplySequenceOrderKey } from './import-apply-sequence-order.js';
 import type {
   DryRunRowResult,
   ImportJobOptions,
@@ -391,33 +393,6 @@ export class ImportJobStore {
     return row?.apply_seq ?? 0;
   }
 
-  async assignApplySequences(
-    tenantId: string,
-    jobId: string,
-    sortRows: (rows: ImportApplyRow[]) => ImportApplyRow[],
-  ): Promise<void> {
-    const rows = await this.prisma.importJobRow.findMany({
-      where: { tenant_id: tenantId, import_job_id: jobId },
-      orderBy: { row_no: 'asc' },
-    });
-    const ordered = sortRows(rows.map(toImportApplyRow));
-    await this.prisma.$transaction(async (tx) => {
-      for (let index = 0; index < ordered.length; index += 1) {
-        const row = ordered[index];
-        await tx.importJobRow.update({
-          where: {
-            tenant_id_import_job_id_row_no: {
-              tenant_id: tenantId,
-              import_job_id: jobId,
-              row_no: row.row_no,
-            },
-          },
-          data: { apply_seq: index + 1 },
-        });
-      }
-    });
-  }
-
   countApplyRows(tenantId: string, jobId: string) {
     return this.prisma.importJobRow.count({
       where: { tenant_id: tenantId, import_job_id: jobId },
@@ -481,6 +456,7 @@ export class ImportJobStore {
     jobId: string,
     options: ImportJobOptionsWithWorker,
     dryRunTotals: ImportJobTotals,
+    applySequenceOrderKey: ImportApplySequenceOrderKey,
   ) {
     const applyTotals: ImportJobTotals = {
       rows: dryRunTotals.rows,
@@ -498,17 +474,43 @@ export class ImportJobStore {
       last_committed_apply_seq: 0,
       started_at: new Date().toISOString(),
     };
-    return this.prisma.importJob.updateMany({
-      where: {
-        tenant_id: tenantId,
-        id: jobId,
-        status: ImportJobStatus.DRY_RUN_DONE,
-      },
-      data: {
-        status: ImportJobStatus.APPLYING,
-        totals_json: applyTotals,
-        options_json: { ...options, worker },
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const lock = await tx.importJob.updateMany({
+        where: {
+          tenant_id: tenantId,
+          id: jobId,
+          status: ImportJobStatus.DRY_RUN_DONE,
+        },
+        data: {
+          status: ImportJobStatus.APPLYING,
+          totals_json: applyTotals,
+          options_json: { ...options, worker },
+        },
+      });
+      if (lock.count === 0) {
+        return lock;
+      }
+      if (dryRunTotals.rows > 0) {
+        await fillImportJobApplySequences(
+          tx,
+          tenantId,
+          jobId,
+          applySequenceOrderKey,
+        );
+      } else {
+        await tx.importJob.updateMany({
+          where: {
+            tenant_id: tenantId,
+            id: jobId,
+            status: ImportJobStatus.APPLYING,
+          },
+          data: {
+            status: ImportJobStatus.APPLIED,
+            appliedAt: new Date(),
+          },
+        });
+      }
+      return lock;
     });
   }
 }

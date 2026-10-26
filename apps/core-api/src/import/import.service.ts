@@ -370,15 +370,11 @@ export class ImportService {
         jobId,
         job.options_json as ImportJobOptionsWithWorker,
         dryRunTotals,
+        handler.applySequenceOrderKey(),
       );
       if (lock.count === 0) {
         throw applyInProgress();
       }
-      await this.jobStore.assignApplySequences(
-        tenantId,
-        jobId,
-        handler.sortRowsForApplySequence.bind(handler),
-      );
       await enqueueOrRunImportWorker({
         tenantId,
         jobId,
@@ -871,6 +867,10 @@ export class ImportService {
     const rows = page.slice(0, IMPORT_APPLY_BATCH_SIZE);
     const maxApplySeq = await this.jobStore.maxApplySeq(tenantId, jobId);
     const rowCount = await this.jobStore.countApplyRows(tenantId, jobId);
+    if (rowCount > 0 && maxApplySeq === 0) {
+      await this.jobStore.markFailedIfApplying(tenantId, jobId);
+      return null;
+    }
     assertImplementedImportEntityType(job.entity_type);
     const handler = this.handlers[job.entity_type];
     const effectiveOptions = (job.options_json as ImportJobOptions) ?? {};

@@ -6,6 +6,7 @@ import type {
   ImportJobTotals,
 } from './import.types.js';
 import type { SerializedImportJob } from './import-job.serializer.js';
+import type { ImportApplySequenceOrderKey } from './import-apply-sequence-order.js';
 
 /** A job row as loaded for apply. */
 export type ImportApplyRow = {
@@ -101,6 +102,6 @@ export interface ImportTypeHandler {
   /** Applies the rows of a locked job and returns the applied job. */
   apply(input: ImportApplyInput): Promise<SerializedImportJob>;
 
-  /** Global apply order for background apply_seq assignment (matches sync apply). */
-  sortRowsForApplySequence(rows: ImportApplyRow[]): ImportApplyRow[];
+  /** Key for set-based apply_seq SQL (matches synchronous apply order). */
+  applySequenceOrderKey(): ImportApplySequenceOrderKey;
 }

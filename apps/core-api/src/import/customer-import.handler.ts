@@ -19,7 +19,6 @@ import {
 import { IMPORT_LOGGER_CONTEXT } from './import.constants.js';
 import type { ParsedCsv } from './csv-parse.util.js';
 import type { DryRunRowResult, ImportJobTotals } from './import.types.js';
-import { sortImportApplyRowsByRowNo } from './import-apply-sequence.js';
 
 /**
  * Customer imports. After a dry run, the tenant's decision mode decides whether the rows go
@@ -38,8 +37,8 @@ export class CustomerImportHandler implements ImportTypeHandler {
     private readonly requestContext: RequestContextService,
   ) {}
 
-  sortRowsForApplySequence(rows: ImportApplyRow[]): ImportApplyRow[] {
-    return sortImportApplyRowsByRowNo(rows);
+  applySequenceOrderKey() {
+    return 'row_no' as const;
   }
 
   prepareCreate(): Promise<void> {
