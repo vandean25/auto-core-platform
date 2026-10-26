@@ -118,40 +118,37 @@ describe('GlobalExceptionFilter (e2e)', () => {
     expect(response.body).not.toHaveProperty('eventId');
   });
 
-  it('returns 400 for an unauthenticated gzip body with invalid bytes (AUT-744)', async () => {
-    const response = await request(app.getHttpServer())
-      .post('/api/customers')
-      .set('Content-Type', 'application/json')
-      .set('Content-Encoding', 'gzip')
-      .set('x-request-id', 'req-invalid-gzip')
-      .send(Buffer.from([0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00]));
+  it.each([
+    {
+      encoding: 'gzip',
+      body: Buffer.from([0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00]),
+      requestId: 'req-invalid-gzip',
+    },
+    {
+      encoding: 'deflate',
+      body: Buffer.from([0x78, 0x9c, 0xff, 0xff, 0x00, 0x00, 0x00]),
+    },
+  ])(
+    'returns 400 for an unauthenticated $encoding body with invalid bytes (AUT-744)',
+    async ({ encoding, body, requestId }) => {
+      let httpRequest = request(app.getHttpServer())
+        .post('/api/customers')
+        .set('Content-Type', 'application/json')
+        .set('Content-Encoding', encoding);
+      if (requestId) {
+        httpRequest = httpRequest.set('x-request-id', requestId);
+      }
+      const response = await httpRequest.send(body);
 
-    expect(response.status).toBe(HttpStatus.BAD_REQUEST);
-    expect(response.body).toMatchObject({
-      statusCode: HttpStatus.BAD_REQUEST,
-      error: 'Bad Request',
-      code: 'HTTP_400',
-      message: 'Invalid request body encoding',
-    });
-    expect(response.body).not.toHaveProperty('eventId');
-    expect(JSON.stringify(response.body)).not.toMatch(/Z_DATA_ERROR|zlib/i);
-  });
-
-  it('returns 400 for an unauthenticated deflate body with invalid bytes (AUT-744)', async () => {
-    const response = await request(app.getHttpServer())
-      .post('/api/customers')
-      .set('Content-Type', 'application/json')
-      .set('Content-Encoding', 'deflate')
-      .send(Buffer.from([0x78, 0x9c, 0xff, 0xff, 0x00, 0x00, 0x00]));
-
-    expect(response.status).toBe(HttpStatus.BAD_REQUEST);
-    expect(response.body).toMatchObject({
-      statusCode: HttpStatus.BAD_REQUEST,
-      error: 'Bad Request',
-      code: 'HTTP_400',
-      message: 'Invalid request body encoding',
-    });
-    expect(response.body).not.toHaveProperty('eventId');
-    expect(JSON.stringify(response.body)).not.toMatch(/Z_DATA_ERROR|zlib/i);
-  });
+      expect(response.status).toBe(HttpStatus.BAD_REQUEST);
+      expect(response.body).toMatchObject({
+        statusCode: HttpStatus.BAD_REQUEST,
+        error: 'Bad Request',
+        code: 'HTTP_400',
+        message: 'Invalid request body encoding',
+      });
+      expect(response.body).not.toHaveProperty('eventId');
+      expect(JSON.stringify(response.body)).not.toMatch(/Z_DATA_ERROR|zlib/i);
+    },
+  );
 });

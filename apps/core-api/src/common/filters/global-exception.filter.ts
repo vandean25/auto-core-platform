@@ -153,6 +153,16 @@ function resolveBodyDecompressionError(
   };
 }
 
+function buildErrorRequestContext(request: Request): ErrorRequestContext {
+  const user = TenantContextStorage.getUser();
+  const requestMeta = TenantContextStorage.getRequestMeta();
+  return {
+    requestId: requestMeta?.requestId ?? inboundRequestId(request),
+    tenantId: user?.tenantId,
+    actorId: user?.userId,
+  };
+}
+
 function resolveBodyParserHttpError(
   exception: unknown,
   context: ErrorRequestContext,
@@ -203,13 +213,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const request = ctx.getRequest<Request>();
     const response = ctx.getResponse<Response>();
 
-    const user = TenantContextStorage.getUser();
-    const requestMeta = TenantContextStorage.getRequestMeta();
-    const context: ErrorRequestContext = {
-      requestId: requestMeta?.requestId ?? inboundRequestId(request),
-      tenantId: user?.tenantId,
-      actorId: user?.userId,
-    };
+    const context = buildErrorRequestContext(request);
 
     const resolved = this.resolveException(exception, context);
     const eventId = this.captureSentryIfInternal(exception, resolved.status);
