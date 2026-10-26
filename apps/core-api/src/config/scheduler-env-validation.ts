@@ -4,9 +4,7 @@ import {
   schedulerModeWhenSet,
 } from '../scheduler/scheduler-mode.js';
 type SchedulerEnvKey =
-  | 'SCHEDULER_MODE'
-  | 'CRON_OIDC_AUDIENCE'
-  | 'CRON_INVOKER_SA_EMAIL';
+  'SCHEDULER_MODE' | 'CRON_OIDC_AUDIENCE' | 'CRON_INVOKER_SA_EMAIL';
 
 const REQUIRED_ISSUE = 'Required';
 const INVALID_ISSUE = 'invalid';
