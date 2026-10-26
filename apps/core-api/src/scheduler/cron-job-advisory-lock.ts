@@ -114,7 +114,15 @@ export async function withCronJobLock(
     runningInThisProcess.add(jobName);
     reserved = true;
     const pool = getCronJobLockPool();
-    client = await pool.connect();
+    try {
+      client = await pool.connect();
+    } catch {
+      (logger.warn ?? logger.log).call(
+        logger,
+        `Cron job "${jobName}": could not connect for advisory lock.`,
+      );
+      return false;
+    }
     acquired = await tryAcquireCronJobAdvisoryLockOnClient(client, jobName);
     if (!acquired) {
       logger.log(

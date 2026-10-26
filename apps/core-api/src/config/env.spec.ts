@@ -216,6 +216,27 @@ describe('validateEnv', () => {
       ).INVOICE_BRANDING_WRITER_ENABLED,
     ).toBe(true);
   });
+
+  it('requires cron OIDC env when SCHEDULER_MODE is http', () => {
+    const error = expectEnvError(
+      productionEnv({
+        SCHEDULER_MODE: 'http',
+      }),
+    );
+    expect(error.missing).toEqual(
+      expect.arrayContaining(['CRON_OIDC_AUDIENCE', 'CRON_INVOKER_SA_EMAIL']),
+    );
+    expect(() =>
+      validateEnv(
+        productionEnv({
+          SCHEDULER_MODE: 'http',
+          CRON_OIDC_AUDIENCE: 'https://core-api-PLACEHOLDER.run.app',
+          CRON_INVOKER_SA_EMAIL:
+            'scheduler-invoker@PLACEHOLDER.iam.gserviceaccount.com',
+        }),
+      ),
+    ).not.toThrow();
+  });
 });
 
 describe('DOCUMENTED_ENV_KEYS', () => {

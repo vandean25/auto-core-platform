@@ -134,6 +134,57 @@ describe('withCronJobLock in-process guard', () => {
     expect(connect).toHaveBeenCalledTimes(1);
   });
 
+  it('skips the job when the lock pool cannot connect', async () => {
+    const warn = jest.fn();
+    const connect = jest
+      .fn<() => Promise<PoolClient>>()
+      .mockRejectedValue(new Error('connect timed out'));
+    mockGetCronJobLockPool.mockReturnValue({ connect } as unknown as Pool);
+
+    const ran = await withCronJobLock(
+      'connect-fail-test',
+      async () => {
+        throw new Error('body should not run');
+      },
+      { log: jest.fn(), warn },
+    );
+
+    expect(ran).toBe(false);
+    expect(warn).toHaveBeenCalledWith(
+      'Cron job "connect-fail-test": could not connect for advisory lock.',
+    );
+  });
+
+  it('allows seven different jobs to connect concurrently', async () => {
+    const activeClients: PoolClient[] = [];
+    const connect = jest.fn(async () => {
+      const query = jest.fn(async (sql: string) => {
+        if (sql.includes('pg_try_advisory_lock')) {
+          return { rows: [{ acquired: true }] };
+        }
+        if (sql.includes('pg_advisory_unlock')) {
+          return { rows: [{ released: true }] };
+        }
+        return { rows: [] };
+      });
+      const client = {
+        query,
+        release: jest.fn(),
+      } as unknown as PoolClient;
+      activeClients.push(client);
+      return client;
+    });
+    mockGetCronJobLockPool.mockReturnValue({ connect } as unknown as Pool);
+
+    const jobs = Array.from({ length: 7 }, (_, index) =>
+      withCronJobLock(`parallel-job-${index}`, async () => {}),
+    );
+    await Promise.all(jobs);
+
+    expect(connect).toHaveBeenCalledTimes(7);
+    expect(activeClients).toHaveLength(7);
+  });
+
   it('releases the client and clears the reservation when pg_advisory_unlock throws', async () => {
     const release = jest.fn();
     const query = jest.fn(async (sql: string) => {

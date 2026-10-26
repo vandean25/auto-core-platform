@@ -27,8 +27,12 @@ export class DocumentBrandingExtractionRecoveryService {
   @Cron(CronExpression.EVERY_MINUTE, {
     name: 'document-branding-extraction-recovery',
   })
-  async recover() {
-    await this.systemPrisma.withCronJobLock(
+  async recover(): Promise<void> {
+    await this.run();
+  }
+
+  async run(): Promise<boolean> {
+    return this.systemPrisma.withCronJobLock(
       'document-branding-extraction-recovery',
       async () => {
         const tenants = await this.systemPrisma.tenant.findMany({

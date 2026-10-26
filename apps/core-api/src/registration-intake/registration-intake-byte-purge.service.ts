@@ -21,7 +21,11 @@ export class RegistrationIntakeBytePurgeService {
 
   @Cron(CronExpression.EVERY_MINUTE, { name: 'registration-intake-byte-purge' })
   async purgePending(): Promise<void> {
-    await this.systemPrisma.withCronJobLock(
+    await this.run();
+  }
+
+  async run(): Promise<boolean> {
+    return this.systemPrisma.withCronJobLock(
       'registration-intake-byte-purge',
       async () => {
         const tenants = await this.systemPrisma.tenant.findMany({

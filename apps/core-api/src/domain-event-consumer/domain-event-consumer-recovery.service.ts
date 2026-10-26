@@ -23,7 +23,11 @@ export class DomainEventConsumerRecoveryService {
 
   @Cron(CronExpression.EVERY_MINUTE, { name: 'domain-event-consumer-recovery' })
   async recover(): Promise<void> {
-    await this.systemPrisma.withCronJobLock(
+    await this.run();
+  }
+
+  async run(): Promise<boolean> {
+    return this.systemPrisma.withCronJobLock(
       'domain-event-consumer-recovery',
       async () => {
         const tenants = await this.systemPrisma.tenant.findMany({

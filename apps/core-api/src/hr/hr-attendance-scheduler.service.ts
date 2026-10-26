@@ -22,8 +22,12 @@ export class HrAttendanceSchedulerService {
   constructor(private readonly systemPrisma: SystemPrismaService) {}
 
   @Cron('59 23 * * *', { name: 'hr-shift-close' })
-  async closeOrphanedShifts(now: Date = new Date()): Promise<void> {
-    await this.systemPrisma.withCronJobLock(
+  async closeOrphanedShifts(): Promise<void> {
+    await this.run();
+  }
+
+  async run(now: Date = new Date()): Promise<boolean> {
+    return this.systemPrisma.withCronJobLock(
       'hr-shift-close',
       async () => {
         await this.closeOrphanedShiftsWork(now);

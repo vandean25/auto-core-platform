@@ -23,12 +23,16 @@ export class WorkshopCheckInOrphanUploadCleanupService {
     name: 'workshop-check-in-orphan-upload-cleanup',
   })
   async purgeOrphans(): Promise<void> {
+    await this.run();
+  }
+
+  async run(): Promise<boolean> {
     const config = readWorkshopCheckInOrphanUploadPurgeConfig();
     if (!config.enabled) {
-      return;
+      return true;
     }
     const cutoff = new Date(Date.now() - config.ttlMs);
-    await this.systemPrisma.withCronJobLock(
+    return this.systemPrisma.withCronJobLock(
       'workshop-check-in-orphan-upload-cleanup',
       async () => {
         const tenants = await this.systemPrisma.tenant.findMany({

@@ -9,8 +9,8 @@ export async function runDocumentBrandingRecoveryCron(params: {
   requestContext: RequestContextService;
   workerId: string;
   runForTenant: (now: Date) => Promise<void>;
-}) {
-  await params.systemPrisma.withCronJobLock(
+}): Promise<boolean> {
+  return params.systemPrisma.withCronJobLock(
     params.jobName,
     async () => {
       const tenants = await params.systemPrisma.tenant.findMany({
