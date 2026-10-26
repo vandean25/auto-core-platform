@@ -20,7 +20,7 @@ export class ImportTaskGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest<Request>();
-    const body = request.body;
+    const body: unknown = request.body;
     if (!body || typeof body !== 'object') {
       throw new UnauthorizedException('Import task payload is required');
     }

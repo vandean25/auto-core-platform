@@ -31,7 +31,6 @@ export async function pipeImportCsvToStorage(
   const hash = createHash('sha256');
   const parser = new CsvIncrementalParser();
   const utf8 = createUtf8CsvStreamValidator();
-  let headers: string[] = [];
   let dataRowCount = 0;
   const maxDataRows = readImportMaxRowCount();
 
@@ -55,11 +54,7 @@ export async function pipeImportCsvToStorage(
       }
       hash.update(chunk);
       const records = parser.feedChunk(chunk);
-      for (const cells of records) {
-        if (headers.length === 0) {
-          headers = cells;
-          continue;
-        }
+      for (let index = 0; index < records.length; index += 1) {
         countDataRow();
       }
       callback(null, chunk);
@@ -72,11 +67,8 @@ export async function pipeImportCsvToStorage(
         return;
       }
       try {
-        for (const cells of parser.finish()) {
-          if (headers.length === 0) {
-            headers = cells;
-            continue;
-          }
+        const tailRecords = parser.finish();
+        for (let index = 0; index < tailRecords.length; index += 1) {
           countDataRow();
         }
       } catch (error) {
@@ -98,7 +90,7 @@ export async function pipeImportCsvToStorage(
   return {
     ref,
     sha256: hash.digest('hex'),
-    headers,
+    headers: parser.getHeaders(),
     delimiter: parser.getDelimiter(),
     dataRowCount,
   };

@@ -9,29 +9,15 @@ import { createUtf8CsvStreamValidator } from './import-csv-encoding.util.js';
 import { IMPORT_ERROR_CODES } from './import.constants.js';
 import { readImportMaxRowCount } from './import-limits.js';
 
-function assertStreamingRowWithinLimit(
-  dataRowCount: number,
-  maxDataRows: number,
-): void {
-  if (dataRowCount > maxDataRows) {
+function nextDataRowCount(dataRowCount: number, maxDataRows: number): number {
+  const nextCount = dataRowCount + 1;
+  if (nextCount > maxDataRows) {
     throw new BadRequestException({
       code: IMPORT_ERROR_CODES.ROW_LIMIT_EXCEEDED,
       message: `CSV exceeds ${maxDataRows} rows`,
     });
   }
-}
-
-function countParsedDataRow(
-  headers: string[],
-  dataRowCount: number,
-  maxDataRows: number,
-): { headers: string[]; dataRowCount: number } {
-  if (headers.length === 0) {
-    return { headers: cells, dataRowCount };
-  }
-  const nextCount = dataRowCount + 1;
-  assertStreamingRowWithinLimit(nextCount, maxDataRows);
-  return { headers, dataRowCount: nextCount };
+  return nextCount;
 }
 
 export async function readImportCsvDataRowSlice(
@@ -69,37 +55,23 @@ export async function assessImportCsvFromReadable(
   const hash = createHash('sha256');
   const parser = new CsvIncrementalParser();
   const utf8 = createUtf8CsvStreamValidator();
-  let headers: string[] = [];
   let dataRowCount = 0;
 
   for await (const chunk of stream as AsyncIterable<Buffer>) {
     utf8.feed(chunk);
     hash.update(chunk);
-    for (const cells of parser.feedChunk(chunk)) {
-      if (headers.length === 0) {
-        headers = cells;
-        continue;
-      }
-      ({ dataRowCount } = countParsedDataRow(
-        headers,
-        dataRowCount,
-        maxDataRows,
-      ));
+    const records = parser.feedChunk(chunk);
+    for (let index = 0; index < records.length; index += 1) {
+      dataRowCount = nextDataRowCount(dataRowCount, maxDataRows);
     }
   }
-  for (const cells of parser.finish()) {
-    if (headers.length === 0) {
-      headers = cells;
-      continue;
-    }
-    ({ dataRowCount } = countParsedDataRow(
-      headers,
-      dataRowCount,
-      maxDataRows,
-    ));
+  const tailRecords = parser.finish();
+  for (let index = 0; index < tailRecords.length; index += 1) {
+    dataRowCount = nextDataRowCount(dataRowCount, maxDataRows);
   }
   utf8.finish();
 
+  const headers = parser.getHeaders();
   return {
     headers,
     delimiter: parser.getDelimiter(),

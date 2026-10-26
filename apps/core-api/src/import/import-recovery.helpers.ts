@@ -21,7 +21,9 @@ export function filterExpiredImportWorkerCandidates(
 ): StaleImportJobCandidate[] {
   const candidates: StaleImportJobCandidate[] = [];
   for (const row of rows) {
-    const worker = readWorkerState(row.options_json as ImportJobOptionsWithWorker);
+    const worker = readWorkerState(
+      row.options_json as ImportJobOptionsWithWorker,
+    );
     if (!worker) {
       continue;
     }
