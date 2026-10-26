@@ -529,8 +529,12 @@ export async function commitApplyWorkerRowInTransaction(
     throw new ImportWorkerLeaseLostError();
   }
   const options = job.options_json as ImportJobOptionsWithWorker;
+  const workerState = options.worker;
+  if (!workerState) {
+    throw new ImportWorkerLeaseLostError();
+  }
   const worker: ImportJobWorkerState = {
-    ...options.worker,
+    ...workerState,
     last_committed_apply_seq: applySeq,
     processed_rows: applySeq,
   };
