@@ -322,10 +322,13 @@ npm run build              # Production build
 
 ## MCP Servers & Skills
 This project uses the following MCP servers:
+- **context7**: Version-specific third-party library documentation (project config: `.cursor/mcp.json`). Optional `CONTEXT7_API_KEY` in the agent environment for higher rate limits (never commit keys).
 - **mcp-server-neon**: For managing the Neon PostgreSQL database (branching, migrations, etc.).
 - **github-mcp-server**: For GitHub operations.
 - **prisma-mcp-server**: For database schema management.
 - **repowise** (optional): codebase-intelligence MCP (`get_context`, `get_change_risk`, `get_dead_code`). Not a CI gate; never put repowise scores in PRs.
+
+When you are unsure about a third-party library API (e.g. Prisma, NestJS, React, Playwright), look it up via Context7 for the version pinned in the relevant `package.json` before writing code — on demand, not on every task.
 
 Use the `mcp-server-neon` skills for database operations like creating branches or running migrations.
 
