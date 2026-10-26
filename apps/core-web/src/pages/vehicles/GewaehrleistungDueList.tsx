@@ -159,7 +159,7 @@ export default function GewaehrleistungDueList() {
         <span>{t('gewaehrleistungDue.windowLabel')}</span>
         <select
           aria-label={t('gewaehrleistungDue.windowAria')}
-          className="h-10 w-full rounded-md border bg-background px-3"
+          className="h-10 w-full rounded-md border bg-background px-3 text-base md:text-sm"
           value={windowDays}
           onChange={(event) => setWindowDays(Number(event.target.value) as (typeof WINDOWS)[number])}
         >

@@ -104,4 +104,23 @@ describe('mobile form conventions (grep guard)', () => {
     const commandSource = readFileSync(join(webSrcRoot, 'components/ui/command.tsx'), 'utf8')
     expect(commandSource).toContain('mobileFieldTextClass')
   })
+
+  it('native select elements use mobile field text sizing', () => {
+    const violations: string[] = []
+    const selectBlock = /<select[\s\S]*?(?:\/>|>[\s\S]*?<\/select>)/g
+    for (const filePath of listTsxFiles(webSrcRoot)) {
+      const content = readFileSync(filePath, 'utf8')
+      const matches = content.match(selectBlock) ?? []
+      for (const block of matches) {
+        const hasMobileSizing =
+          block.includes('mobileFieldTextClass') ||
+          block.includes('mobileNativeSelectClass') ||
+          (block.includes('text-base') && /md:text-/.test(block))
+        if (hasMobileSizing) continue
+        violations.push(`${relative(webRoot, filePath)}`)
+      }
+    }
+
+    expect(violations).toEqual([])
+  })
 })

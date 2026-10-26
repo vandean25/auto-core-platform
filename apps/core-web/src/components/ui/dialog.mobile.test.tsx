@@ -1,7 +1,7 @@
 import { cleanup, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { cn } from '@/lib/utils'
-import { Dialog, DialogContent, DialogFooter, DialogTitle } from './dialog'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './dialog'
 
 afterEach(cleanup)
 
@@ -39,6 +39,26 @@ describe('DialogContent mobile foundations', () => {
     expect(body?.className).toContain('overflow-y-auto')
   })
 
+  it('keeps DialogHeader outside the scroll region', () => {
+    render(
+      <Dialog open>
+        <DialogContent aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle>Pinned title</DialogTitle>
+          </DialogHeader>
+          <p>Scrollable body</p>
+        </DialogContent>
+      </Dialog>,
+    )
+
+    const content = screen.getByRole('dialog')
+    const body = content.querySelector('.dialog-body')
+    const title = screen.getByText('Pinned title')
+
+    expect(body).toBeTruthy()
+    expect(body?.contains(title)).toBe(false)
+  })
+
   it('keeps DialogFooter outside the scroll region', () => {
     render(
       <Dialog open>
@@ -61,6 +81,33 @@ describe('DialogContent mobile foundations', () => {
     expect(within(content).getByRole('button', { name: 'Confirm' })).not.toEqual(
       body?.querySelector('button'),
     )
+  })
+
+  it('keeps header and footer pinned when they are wrapped in a form', () => {
+    render(
+      <Dialog open>
+        <DialogContent aria-describedby={undefined}>
+          <form onSubmit={(event) => event.preventDefault()}>
+            <DialogHeader>
+              <DialogTitle>Form dialog</DialogTitle>
+            </DialogHeader>
+            <p>Fields</p>
+            <DialogFooter>
+              <button type="submit">Save</button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>,
+    )
+
+    const content = screen.getByRole('dialog')
+    const body = content.querySelector('.dialog-body')
+    const title = screen.getByText('Form dialog')
+    const save = screen.getByRole('button', { name: 'Save' })
+
+    expect(body?.contains(title)).toBe(false)
+    expect(body?.contains(save)).toBe(false)
+    expect(content.querySelector('form')).toBeTruthy()
   })
 
   it('preserves a caller-provided wide max width class', () => {

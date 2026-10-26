@@ -319,7 +319,7 @@ export function WorkScheduleEditor({
         <>
         {canEdit ? <div className='space-y-2'>
           <Label htmlFor='schedule-site'>{t('workSchedule.siteAssignment')}</Label>
-          <select id='schedule-site' aria-label={t('workSchedule.siteAssignment')} value={siteId} onChange={(event) => setSiteId(event.target.value)} className='h-10 rounded-md border px-3'>
+          <select id='schedule-site' aria-label={t('workSchedule.siteAssignment')} value={siteId} onChange={(event) => setSiteId(event.target.value)} className='h-10 rounded-md border px-3 text-base md:text-sm'>
             <option value=''>{t('workSchedule.selectSite')}</option>
             {(sitesQuery.data ?? []).map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}
           </select>
@@ -343,7 +343,7 @@ export function WorkScheduleEditor({
         <div className='space-y-4' data-testid='first-schedule-version'>
           <div className='space-y-2'>
             <Label htmlFor='schedule-site'>{t('workSchedule.siteAssignment')}</Label>
-            <select id='schedule-site' aria-label={t('workSchedule.siteAssignment')} value={siteId} onChange={(event) => setSiteId(event.target.value)} className='h-10 rounded-md border px-3'>
+            <select id='schedule-site' aria-label={t('workSchedule.siteAssignment')} value={siteId} onChange={(event) => setSiteId(event.target.value)} className='h-10 rounded-md border px-3 text-base md:text-sm'>
               <option value=''>{t('workSchedule.selectSite')}</option>
               {(sitesQuery.data ?? []).map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}
             </select>
@@ -391,7 +391,7 @@ export function WorkScheduleEditor({
         <div className='space-y-4 rounded-md border border-dashed p-4' data-testid='new-schedule-version'>
           <div className='space-y-2'>
             <Label htmlFor='schedule-new-version-site'>{t('workSchedule.newVersionSite')}</Label>
-            <select id='schedule-new-version-site' aria-label={t('workSchedule.newVersionSiteAria')} value={newVersionSiteId} onChange={(event) => setNewVersionSiteId(event.target.value)} className='h-10 rounded-md border px-3'>
+            <select id='schedule-new-version-site' aria-label={t('workSchedule.newVersionSiteAria')} value={newVersionSiteId} onChange={(event) => setNewVersionSiteId(event.target.value)} className='h-10 rounded-md border px-3 text-base md:text-sm'>
               <option value=''>{t('workSchedule.selectSite')}</option>
               {(sitesQuery.data ?? []).map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}
             </select>

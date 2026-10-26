@@ -458,7 +458,7 @@ function ManagerPunchControls({ t, selection, punch }: ManagerPunchControlsProps
           value={selection.selectedEmployeeId}
           disabled={selection.isEmployeesLoading}
           onChange={(event) => selection.setSelectedEmployeeId(event.target.value)}
-          className='flex h-10 min-w-48 rounded-md border border-input bg-background px-3 py-2 text-sm'
+          className='flex h-10 min-w-48 rounded-md border border-input bg-background px-3 py-2 text-base md:text-sm'
         >
           {selection.employeeOptions.map((employee) => (
             <option key={employee.id} value={employee.id}>{employee.name}</option>

@@ -193,7 +193,7 @@ export default function VehiclePurchasePage() {
         <label className="space-y-1 text-sm">
           <span className="text-slate-500">{t('purchase.sellerType')}</span>
           <select
-            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base md:text-sm"
             disabled={!isDraft}
             value={form.seller_type}
             onChange={(event) =>
@@ -211,7 +211,7 @@ export default function VehiclePurchasePage() {
           <label className="space-y-1 text-sm">
             <span className="text-slate-500">{t('purchase.vendor')}</span>
             <select
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base md:text-sm"
               disabled={!isDraft}
               value={form.vendor_id}
               onChange={(event) =>

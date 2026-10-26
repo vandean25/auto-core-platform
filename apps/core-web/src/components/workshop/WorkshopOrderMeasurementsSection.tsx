@@ -7,6 +7,7 @@ import {
   useWorkshopMeasurements,
 } from '@/api/workshop-measurements'
 import { describeMeasurementError } from '@/api/measurement-errors'
+import { mobileNativeSelectClass } from '@/lib/mobile-field-text'
 import {
   MEASUREMENT_IMPORT_STATE_LABELS,
   MEASUREMENT_QUARANTINE_LABELS,
@@ -181,7 +182,7 @@ export function WorkshopOrderMeasurementsSection({
                 <Label htmlFor='device-source'>{t('measurementsSection.deviceLabel')}</Label>
                 <select
                   id='device-source'
-                  className='w-full rounded-md border px-2 py-2 text-sm'
+                  className={mobileNativeSelectClass}
                   value={selectedDeviceId}
                   onChange={(event) => setDeviceSourceId(event.target.value)}
                 >

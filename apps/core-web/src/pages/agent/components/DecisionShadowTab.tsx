@@ -78,7 +78,7 @@ export function DecisionShadowTab() {
               onChange={(e) =>
                 setUseCaseFilter(e.target.value as 'ALL' | DecisionShadowUseCase)
               }
-              className="h-9 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs text-slate-700 shadow-sm focus:border-slate-500 focus:outline-none"
+              className="h-9 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-base text-slate-700 shadow-sm focus:border-slate-500 focus:outline-none md:text-xs"
               data-testid="filter-decision-shadow-use-case-select"
             >
               <option value="ALL">
