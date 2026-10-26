@@ -15,8 +15,18 @@ export function readBearerTokenFromAuthorizationHeader(
     return undefined;
   }
   const token = trimmed.slice(BEARER_PREFIX.length).trim();
-  if (token === '' || token.includes(' ') || token.includes('\t')) {
+  if (token === '' || tokenContainsWhitespace(token)) {
     return undefined;
   }
   return token;
+}
+
+function tokenContainsWhitespace(token: string): boolean {
+  for (let index = 0; index < token.length; index += 1) {
+    const code = token.charCodeAt(index);
+    if (code <= 0x20 || code === 0x7f) {
+      return true;
+    }
+  }
+  return false;
 }

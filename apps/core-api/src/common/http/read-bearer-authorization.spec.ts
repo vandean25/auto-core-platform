@@ -22,5 +22,8 @@ describe('readBearerTokenFromAuthorizationHeader', () => {
     expect(
       readBearerTokenFromAuthorizationHeader('Bearer token\ttrail'),
     ).toBeUndefined();
+    expect(
+      readBearerTokenFromAuthorizationHeader('Bearer a\nb'),
+    ).toBeUndefined();
   });
 });

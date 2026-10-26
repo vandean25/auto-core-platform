@@ -13,7 +13,7 @@ export class ImportWorkerService {
     return this.importService.runImportWorkerAttempt(params);
   }
 
-  recoverStaleJobs(): Promise<void> {
+  recoverStaleJobs(): Promise<boolean> {
     return this.importService.recoverStaleImportJobs();
   }
 }

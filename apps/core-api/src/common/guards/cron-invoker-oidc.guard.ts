@@ -36,7 +36,7 @@ export class CronInvokerOidcGuard implements CanActivate {
       const payload = ticket.getPayload();
       if (payload?.email !== invokerEmail || payload.email_verified !== true) {
         this.logger.warn(
-          `Rejected cron OIDC token for route ${request.originalUrl}`,
+          `Rejected cron OIDC token for route ${cronInvokeRouteForLog(request)}`,
         );
         throw new UnauthorizedException();
       }
@@ -46,7 +46,7 @@ export class CronInvokerOidcGuard implements CanActivate {
         throw error;
       }
       this.logger.warn(
-        `Invalid cron OIDC token for route ${request.originalUrl}`,
+        `Invalid cron OIDC token for route ${cronInvokeRouteForLog(request)}`,
       );
       throw new UnauthorizedException();
     }
@@ -62,4 +62,14 @@ function readBearerToken(request: Request): string | undefined {
         ? raw[0]
         : undefined;
   return readBearerTokenFromAuthorizationHeader(header);
+}
+
+function cronInvokeRouteForLog(request: Request): string {
+  const path = request.path?.trim();
+  if (path) {
+    return path;
+  }
+  const original = request.originalUrl ?? '';
+  const queryIndex = original.indexOf('?');
+  return queryIndex === -1 ? original : original.slice(0, queryIndex);
 }

@@ -5,6 +5,7 @@ import { DocumentBrandingExtractionRecoveryService } from '../document-branding/
 import { DocumentBrandingUploadRecoveryRunner } from '../document-branding/document-branding-upload-recovery.runner.js';
 import { DomainEventConsumerRecoveryService } from '../domain-event-consumer/domain-event-consumer-recovery.service.js';
 import { HrAttendanceSchedulerService } from '../hr/hr-attendance-scheduler.service.js';
+import { ImportRecoveryService } from '../import/import-recovery.service.js';
 import { ImportRetentionService } from '../import/import-retention.service.js';
 import { LandingDemoAccessCleanupService } from '../landing-demo-access/landing-demo-access.cleanup.service.js';
 import { MechanicSchedulerService } from '../mechanic/mechanic-scheduler.service.js';
@@ -26,6 +27,7 @@ export const CORE_API_CRON_JOB_RUNNER_TYPES = {
   'domain-event-consumer-recovery': DomainEventConsumerRecoveryService,
   'hr-shift-close': HrAttendanceSchedulerService,
   'import-job-row-purge': ImportRetentionService,
+  'import-job-worker-recovery': ImportRecoveryService,
   'landing-demo-access-cleanup': LandingDemoAccessCleanupService,
   'mechanic-shift-close': MechanicSchedulerService,
   'notification-outbox-recovery': NotificationOutboxRecoveryService,

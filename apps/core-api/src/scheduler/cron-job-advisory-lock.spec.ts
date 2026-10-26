@@ -38,7 +38,7 @@ describe('cronJobAdvisoryLockKeys', () => {
       expect(keys.has(encoded)).toBe(false);
       keys.add(encoded);
     }
-    expect(CORE_API_CRON_JOB_NAMES).toHaveLength(14);
+    expect(CORE_API_CRON_JOB_NAMES).toHaveLength(15);
   });
 });
 

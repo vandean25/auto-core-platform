@@ -73,6 +73,14 @@ describe('CronInvokerOidcGuard', () => {
     );
   });
 
+  it('rejects a malformed bearer header without calling verifyIdToken', async () => {
+    const guard = new CronInvokerOidcGuard();
+    await expect(
+      guard.canActivate(contextWithAuth('Bearer two parts')),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(mockVerifyIdToken).not.toHaveBeenCalled();
+  });
+
   it('rejects wrong audience from verifyIdToken', async () => {
     mockVerifyIdToken.mockRejectedValue(new Error('audience mismatch'));
     const guard = new CronInvokerOidcGuard();
