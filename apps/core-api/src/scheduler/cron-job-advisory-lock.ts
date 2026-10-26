@@ -1,4 +1,5 @@
-import { Logger } from '@nestjs/common';
+import { Logger, ServiceUnavailableException } from '@nestjs/common';
+import { isSchedulerModeHttp } from './scheduler-mode.js';
 import type { PoolClient } from 'pg';
 import { cronJobAdvisoryLockKeys } from './cron-job-advisory-lock-key.js';
 import { getCronJobLockPool } from './cron-job-lock-pool.js';
@@ -121,6 +122,9 @@ export async function withCronJobLock(
         logger,
         `Cron job "${jobName}": could not connect for advisory lock.`,
       );
+      if (isSchedulerModeHttp()) {
+        throw new ServiceUnavailableException();
+      }
       return false;
     }
     acquired = await tryAcquireCronJobAdvisoryLockOnClient(client, jobName);

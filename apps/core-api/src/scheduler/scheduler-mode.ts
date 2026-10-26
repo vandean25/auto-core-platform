@@ -22,6 +22,17 @@ function parseExplicitSchedulerMode(
   return undefined;
 }
 
+/** When `SCHEDULER_MODE` is unset/blank, returns `unset`; otherwise parsed or `invalid`. */
+export function schedulerModeWhenSet(
+  raw: string | undefined,
+): 'unset' | SchedulerMode | 'invalid' {
+  if (!raw?.trim()) {
+    return 'unset';
+  }
+  const parsed = parseExplicitSchedulerMode(raw);
+  return parsed ?? 'invalid';
+}
+
 /**
  * Resolves how core-api runs scheduled jobs (AUT-715).
  * Default is in-process. When `SCHEDULER_MODE` is unset, `SCHEDULER_ENABLED=false`

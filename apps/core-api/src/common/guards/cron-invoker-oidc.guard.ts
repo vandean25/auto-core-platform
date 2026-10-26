@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { OAuth2Client } from 'google-auth-library';
+import { readBearerTokenFromAuthorizationHeader } from '../http/read-bearer-authorization.js';
 
 @Injectable()
 export class CronInvokerOidcGuard implements CanActivate {
@@ -54,30 +55,11 @@ export class CronInvokerOidcGuard implements CanActivate {
 
 function readBearerToken(request: Request): string | undefined {
   const raw = request.headers.authorization;
-  const header = readAuthorizationHeaderValue(raw);
-  if (!header) {
-    return undefined;
-  }
-  const trimmed = header.trim();
-  const spaceIndex = trimmed.indexOf(' ');
-  if (spaceIndex <= 0) {
-    return undefined;
-  }
-  if (trimmed.slice(0, spaceIndex).toLowerCase() !== 'bearer') {
-    return undefined;
-  }
-  const token = trimmed.slice(spaceIndex + 1).trim();
-  return token || undefined;
-}
-
-function readAuthorizationHeaderValue(
-  raw: string | string[] | undefined,
-): string | undefined {
-  if (typeof raw === 'string') {
-    return raw;
-  }
-  if (Array.isArray(raw) && typeof raw[0] === 'string') {
-    return raw[0];
-  }
-  return undefined;
+  const header =
+    typeof raw === 'string'
+      ? raw
+      : Array.isArray(raw) && typeof raw[0] === 'string'
+        ? raw[0]
+        : undefined;
+  return readBearerTokenFromAuthorizationHeader(header);
 }

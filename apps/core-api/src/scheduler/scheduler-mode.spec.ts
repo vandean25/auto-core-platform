@@ -3,6 +3,7 @@ import {
   isInProcessSchedulerMode,
   isSchedulerModeHttp,
   resolveSchedulerMode,
+  schedulerModeWhenSet,
 } from './scheduler-mode.js';
 
 describe('resolveSchedulerMode', () => {
@@ -28,6 +29,15 @@ describe('resolveSchedulerMode', () => {
         SCHEDULER_MODE: 'in-process',
       }),
     ).toBe('in-process');
+  });
+});
+
+describe('schedulerModeWhenSet', () => {
+  it('classifies unset, valid, and invalid explicit values', () => {
+    expect(schedulerModeWhenSet(undefined)).toBe('unset');
+    expect(schedulerModeWhenSet('  ')).toBe('unset');
+    expect(schedulerModeWhenSet('http')).toBe('http');
+    expect(schedulerModeWhenSet('typo')).toBe('invalid');
   });
 });
 

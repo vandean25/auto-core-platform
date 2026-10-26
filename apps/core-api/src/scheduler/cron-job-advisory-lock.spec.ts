@@ -134,7 +134,9 @@ describe('withCronJobLock in-process guard', () => {
     expect(connect).toHaveBeenCalledTimes(1);
   });
 
-  it('skips the job when the lock pool cannot connect', async () => {
+  it('skips the job when the lock pool cannot connect in in-process mode', async () => {
+    const previousMode = process.env.SCHEDULER_MODE;
+    process.env.SCHEDULER_MODE = 'in-process';
     const warn = jest.fn();
     const connect = jest
       .fn<() => Promise<PoolClient>>()
@@ -153,6 +155,22 @@ describe('withCronJobLock in-process guard', () => {
     expect(warn).toHaveBeenCalledWith(
       'Cron job "connect-fail-test": could not connect for advisory lock.',
     );
+    process.env.SCHEDULER_MODE = previousMode;
+  });
+
+  it('throws when the lock pool cannot connect in http scheduler mode', async () => {
+    const previousMode = process.env.SCHEDULER_MODE;
+    process.env.SCHEDULER_MODE = 'http';
+    const connect = jest
+      .fn<() => Promise<PoolClient>>()
+      .mockRejectedValue(new Error('connect timed out'));
+    mockGetCronJobLockPool.mockReturnValue({ connect } as unknown as Pool);
+
+    await expect(
+      withCronJobLock('connect-fail-http-test', async () => {}),
+    ).rejects.toMatchObject({ status: 503 });
+
+    process.env.SCHEDULER_MODE = previousMode;
   });
 
   it('allows seven different jobs to connect concurrently', async () => {
