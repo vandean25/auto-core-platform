@@ -64,6 +64,18 @@ const BODY_PARSER_HTTP_ERROR_TYPES = new Set([
   'request.aborted',
 ]);
 
+const HTTP_STATUS_DISPLAY_NAMES: Readonly<Record<number, string>> = {
+  400: 'Bad Request',
+  401: 'Unauthorized',
+  403: 'Forbidden',
+  404: 'Not Found',
+  409: 'Conflict',
+  413: 'Payload Too Large',
+  415: 'Unsupported Media Type',
+  422: 'Unprocessable Entity',
+  500: 'Internal Server Error',
+};
+
 function asBodyParserHttpError(
   exception: Error,
 ): { status: number; type: string; message: string } | undefined {
@@ -387,28 +399,6 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   }
 
   private getHttpStatusName(status: number): string {
-    // Map common status codes to human-readable strings to match NestJS defaults
-    switch (status) {
-      case 400:
-        return 'Bad Request';
-      case 401:
-        return 'Unauthorized';
-      case 403:
-        return 'Forbidden';
-      case 404:
-        return 'Not Found';
-      case 409:
-        return 'Conflict';
-      case 413:
-        return 'Payload Too Large';
-      case 415:
-        return 'Unsupported Media Type';
-      case 422:
-        return 'Unprocessable Entity';
-      case 500:
-        return 'Internal Server Error';
-      default:
-        return HttpStatus[status] || 'Error';
-    }
+    return HTTP_STATUS_DISPLAY_NAMES[status] ?? (HttpStatus[status] || 'Error');
   }
 }
