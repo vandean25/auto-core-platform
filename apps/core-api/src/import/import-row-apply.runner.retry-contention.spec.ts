@@ -28,7 +28,7 @@ function createWorker(): ImportJobWorkerState {
 }
 
 function createSequencePrisma(worker: ImportJobWorkerState) {
-  let jobStatus = ImportJobStatus.APPLYING;
+  let jobStatus: ImportJobStatus = ImportJobStatus.APPLYING;
   const tx = {
     importJob: {
       findFirst: async () => ({
