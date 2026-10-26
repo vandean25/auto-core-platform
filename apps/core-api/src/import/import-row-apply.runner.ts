@@ -261,6 +261,26 @@ export class RowByRowApplyRunner {
     return mapping?.first_seen_import_job_id === input.job.id;
   }
 
+  private async advanceWorkerCursor(
+    input: ImportApplyInput,
+    rowNo: number,
+    options?: ImportApplyBatchOptions,
+  ): Promise<void> {
+    const leaseToken = options?.leaseToken;
+    if (!leaseToken) {
+      return;
+    }
+    await this.prisma.$transaction(async (tx) => {
+      await commitApplyWorkerRowInTransaction(
+        tx,
+        input.tenantId,
+        input.job.id,
+        leaseToken,
+        rowNo,
+      );
+    });
+  }
+
   private async applyOne(
     input: ImportApplyInput,
     entityType: ImportEntityType,
@@ -271,10 +291,12 @@ export class RowByRowApplyRunner {
   ): Promise<void> {
     if (row.action === ImportRowAction.ERROR) {
       totals.error += 1;
+      await this.advanceWorkerCursor(input, row.row_no, options);
       return;
     }
     if (row.action === ImportRowAction.SKIP) {
       totals.skip += 1;
+      await this.advanceWorkerCursor(input, row.row_no, options);
       return;
     }
 
@@ -283,6 +305,7 @@ export class RowByRowApplyRunner {
         row.action === ImportRowAction.CREATE &&
         (await this.isCreateAlreadyCommittedByJob(input, entityType, row))
       ) {
+        await this.advanceWorkerCursor(input, row.row_no, options);
         return;
       }
       await this.prisma.$transaction(async (tx) => {
@@ -322,6 +345,7 @@ export class RowByRowApplyRunner {
         row.row_no,
         toRowApplyError(error),
       );
+      await this.advanceWorkerCursor(input, row.row_no, options);
     }
   }
 }
