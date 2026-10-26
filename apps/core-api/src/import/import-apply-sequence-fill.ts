@@ -9,7 +9,6 @@ export async function fillImportJobApplySequences(
   orderKey: ImportApplySequenceOrderKey,
 ): Promise<void> {
   if (orderKey === 'row_no') {
-    // fallow-ignore-next-line added-suppression
     // eslint-disable-next-line no-restricted-syntax -- AUT-623: set-based apply_seq fill; tenant_id explicit in both predicates
     await tx.$executeRaw`
       UPDATE import_job_rows r
@@ -25,7 +24,6 @@ export async function fillImportJobApplySequences(
     `;
     return;
   }
-  // fallow-ignore-next-line added-suppression
   // eslint-disable-next-line no-restricted-syntax -- AUT-623: set-based apply_seq fill; tenant_id explicit in both predicates
   await tx.$executeRaw`
     UPDATE import_job_rows r
