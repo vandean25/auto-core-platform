@@ -355,7 +355,7 @@ export class ImportService {
         0,
         IMPORT_APPLY_BATCH_SIZE,
       );
-      const preparation = await handler.prepareApply({
+      await handler.prepareApply({
         tenantId,
         job,
         rows,
