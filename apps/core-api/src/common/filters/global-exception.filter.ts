@@ -54,6 +54,7 @@ type BodyParserHttpError = Error & {
   status?: number;
   statusCode?: number;
   type?: unknown;
+  code?: unknown;
 };
 
 const BODY_PARSER_HTTP_ERROR_TYPES = new Set([
@@ -62,7 +63,22 @@ const BODY_PARSER_HTTP_ERROR_TYPES = new Set([
   'encoding.unsupported',
   'charset.unsupported',
   'request.aborted',
+  'request.size.invalid',
 ]);
+
+const BODY_DECOMPRESSION_ERROR_MESSAGE = 'Invalid request body encoding';
+
+function inboundRequestId(request: Request): string | undefined {
+  const value = request.headers?.['x-request-id'];
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  }
+  if (Array.isArray(value)) {
+    return value.map((entry) => entry.trim()).find((entry) => entry.length > 0);
+  }
+  return undefined;
+}
 
 const HTTP_STATUS_DISPLAY_NAMES: Readonly<Record<number, string>> = {
   400: 'Bad Request',
@@ -94,6 +110,47 @@ function asBodyParserHttpError(
     return undefined;
   }
   return { status, type: err.type, message: err.message };
+}
+
+function asBodyDecompressionError(exception: Error): boolean {
+  const err = exception as BodyParserHttpError;
+  if (err.expose !== true) {
+    return false;
+  }
+  const status = err.status ?? err.statusCode;
+  if (status !== HttpStatus.BAD_REQUEST) {
+    return false;
+  }
+  if (typeof err.type === 'string') {
+    return false;
+  }
+  return typeof err.code === 'string' && err.code.startsWith('Z_');
+}
+
+function resolveBodyDecompressionError(
+  exception: unknown,
+  context: ErrorRequestContext,
+  logger: Logger,
+): ResolvedError | undefined {
+  if (!(exception instanceof Error)) {
+    return undefined;
+  }
+  if (!asBodyDecompressionError(exception)) {
+    return undefined;
+  }
+
+  logger.warn(
+    JSON.stringify({
+      type: 'body_decompression_error',
+      ...(context.requestId ? { requestId: context.requestId } : {}),
+    }),
+  );
+
+  return {
+    status: HttpStatus.BAD_REQUEST,
+    message: BODY_DECOMPRESSION_ERROR_MESSAGE,
+    code: resolveHttpStatusFallbackCode(HttpStatus.BAD_REQUEST),
+  };
 }
 
 function resolveBodyParserHttpError(
@@ -149,7 +206,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const user = TenantContextStorage.getUser();
     const requestMeta = TenantContextStorage.getRequestMeta();
     const context: ErrorRequestContext = {
-      requestId: requestMeta?.requestId,
+      requestId: requestMeta?.requestId ?? inboundRequestId(request),
       tenantId: user?.tenantId,
       actorId: user?.userId,
     };
@@ -197,6 +254,14 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     );
     if (bodyParserError) {
       return bodyParserError;
+    }
+    const decompressionError = resolveBodyDecompressionError(
+      exception,
+      context,
+      this.logger,
+    );
+    if (decompressionError) {
+      return decompressionError;
     }
     if (exception instanceof Error) {
       return this.handleGenericError(exception, context);

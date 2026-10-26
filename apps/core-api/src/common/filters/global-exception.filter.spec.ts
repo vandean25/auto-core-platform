@@ -41,6 +41,30 @@ function createBodyParserHttpError(options: {
   return error;
 }
 
+function createBodyDecompressionHttpError(options: {
+  code: string;
+  message: string;
+  expose?: boolean;
+  status?: number;
+  type?: string;
+}): Error {
+  const error = new Error(options.message) as Error & {
+    expose: boolean;
+    status?: number;
+    statusCode?: number;
+    type?: string;
+    code: string;
+  };
+  error.expose = options.expose ?? true;
+  error.status = options.status ?? 400;
+  error.statusCode = options.status ?? 400;
+  if (options.type !== undefined) {
+    error.type = options.type;
+  }
+  error.code = options.code;
+  return error;
+}
+
 describe('GlobalExceptionFilter', () => {
   let filter: InstanceType<typeof GlobalExceptionFilter>;
   let mockStatus: jest.Mock;
@@ -585,6 +609,94 @@ describe('GlobalExceptionFilter', () => {
 
       expect(mockStatus).toHaveBeenCalledWith(500);
       expect(mockCaptureException).toHaveBeenCalledWith(exception);
+    });
+
+    it('maps request.size.invalid to 400 without Sentry capture', () => {
+      const exception = createBodyParserHttpError({
+        status: 400,
+        type: 'request.size.invalid',
+        message: 'request size did not match content length',
+      });
+      TenantContextStorage.run(() => {
+        TenantContextStorage.setRequestMeta({
+          requestId: 'req-size-invalid',
+          traceId: '00000000-0000-4000-8000-000000000011',
+          source: 'API',
+        });
+        filter.catch(exception, mockHost);
+      });
+
+      expect(mockStatus).toHaveBeenCalledWith(400);
+      expect(mockJson).toHaveBeenCalledWith({
+        statusCode: 400,
+        message: 'request size did not match content length',
+        error: 'Bad Request',
+        code: 'HTTP_400',
+      });
+      expect(mockCaptureException).not.toHaveBeenCalled();
+      expect(mockLoggerWarn).toHaveBeenCalledWith(
+        JSON.stringify({
+          type: 'request.size.invalid',
+          requestId: 'req-size-invalid',
+        }),
+      );
+    });
+  });
+
+  describe('body decompression http-errors (AUT-744)', () => {
+    beforeEach(() => {
+      mockCaptureException.mockReset();
+    });
+
+    it('maps a wrapped Z_DATA_ERROR to 400 with a generic message without Sentry capture', () => {
+      const exception = createBodyDecompressionHttpError({
+        code: 'Z_DATA_ERROR',
+        message: 'incorrect header check',
+      });
+      TenantContextStorage.run(() => {
+        TenantContextStorage.setRequestMeta({
+          requestId: 'req-zlib',
+          traceId: '00000000-0000-4000-8000-000000000012',
+          source: 'API',
+        });
+        filter.catch(exception, mockHost);
+      });
+
+      expect(mockStatus).toHaveBeenCalledWith(400);
+      expect(mockJson).toHaveBeenCalledWith({
+        statusCode: 400,
+        message: 'Invalid request body encoding',
+        error: 'Bad Request',
+        code: 'HTTP_400',
+      });
+      expect(mockCaptureException).not.toHaveBeenCalled();
+      expect(mockLoggerWarn).toHaveBeenCalledWith(
+        JSON.stringify({
+          type: 'body_decompression_error',
+          requestId: 'req-zlib',
+        }),
+      );
+      expect(mockLoggerError).not.toHaveBeenCalled();
+    });
+
+    it('keeps a bare zlib error without status as 500 with Sentry capture', () => {
+      mockCaptureException.mockReturnValue('evt-zlib');
+      const exception = new Error('incorrect header check') as Error & {
+        code: string;
+      };
+      exception.code = 'Z_DATA_ERROR';
+      filter.catch(exception, mockHost);
+
+      expect(mockStatus).toHaveBeenCalledWith(500);
+      expect(mockCaptureException).toHaveBeenCalledWith(exception);
+      expect(mockJson).toHaveBeenCalledWith(
+        expect.objectContaining({
+          statusCode: 500,
+          code: 'HTTP_500',
+          eventId: 'evt-zlib',
+        }),
+      );
+      expect(mockLoggerWarn).not.toHaveBeenCalled();
     });
   });
 
