@@ -74,17 +74,22 @@ describe('import apply_seq fill (e2e)', () => {
       where: { firebaseUid: tenant.firebaseUid },
       select: { id: true },
     });
-    const job = await store.createDryRunJob({
-      tenantId: tenant.tenantId,
-      entityType: ImportEntityType.VEHICLE_PARTY,
-      sourceSystem: 'legacy',
-      fileSha256: 'sha',
-      mapping: {},
-      options: {},
-      totals: { rows: 3, create: 1, update: 2, skip: 0, error: 0 },
-      actorUserId: actor.id,
-      rows: dryRunRows,
-    });
+    const job = await runWithTenantContext(
+      tenant.tenantId,
+      async () =>
+        store.createDryRunJob({
+          tenantId: tenant.tenantId,
+          entityType: ImportEntityType.VEHICLE_PARTY,
+          sourceSystem: 'legacy',
+          fileSha256: 'sha',
+          mapping: {},
+          options: {},
+          totals: { rows: 3, create: 1, update: 2, skip: 0, error: 0 },
+          actorUserId: actor.id,
+          rows: dryRunRows,
+        }),
+      { userId: actor.id },
+    );
     await runWithTenantContext(
       tenant.tenantId,
       async () =>
