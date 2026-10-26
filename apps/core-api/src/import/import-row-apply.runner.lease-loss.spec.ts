@@ -3,6 +3,7 @@ import {
   ImportJobStatus,
   ImportRowAction,
 } from '@prisma/client';
+import type { SerializedImportJob } from './import-job.serializer.js';
 import { RowByRowApplyRunner } from './import-row-apply.runner.js';
 import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 
@@ -24,7 +25,8 @@ describe('RowByRowApplyRunner lease loss', () => {
     const runner = new RowByRowApplyRunner(
       prisma as never,
       { writeImportJobAudit: jest.fn() } as never,
-      (job, totals) => ({ ...job, totals, status: job.status }),
+      (job, totals) =>
+        ({ ...job, totals, status: job.status }) as unknown as SerializedImportJob,
     );
     await expect(
       runner.run(

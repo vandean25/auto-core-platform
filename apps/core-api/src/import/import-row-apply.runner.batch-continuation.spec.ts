@@ -23,7 +23,7 @@ function makeSkipRows(count: number, startRowNo = 1) {
 describe('RowByRowApplyRunner background batch continuation', () => {
   it('stays APPLYING when the page is full but more rows remain', async () => {
     const appliedUpdates: unknown[] = [];
-    let jobStatus = ImportJobStatus.APPLYING;
+    let jobStatus: ImportJobStatus = ImportJobStatus.APPLYING;
     const prisma = {
       externalIdMapping: { findFirst: async () => null },
       $transaction: async (fn: (tx: unknown) => Promise<void>) => fn({}),
@@ -114,7 +114,7 @@ describe('RowByRowApplyRunner background batch continuation', () => {
   it('applies more than IMPORT_WORKER_BATCH_SIZE rows across many worker batches', async () => {
     const totalRows = IMPORT_WORKER_BATCH_SIZE + 1;
     const appliedUpdates: unknown[] = [];
-    let jobStatus = ImportJobStatus.APPLYING;
+    let jobStatus: ImportJobStatus = ImportJobStatus.APPLYING;
     const prisma = {
       externalIdMapping: { findFirst: async () => null },
       $transaction: async (fn: (tx: unknown) => Promise<void>) => fn({}),
