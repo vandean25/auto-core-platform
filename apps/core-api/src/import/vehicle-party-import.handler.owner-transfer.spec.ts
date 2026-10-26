@@ -18,6 +18,7 @@ const VEHICLE_ID = 'veh-tenant-uuid-1';
 function plannedRow(
   rowNo: number,
   action: ImportRowAction,
+  overrides: Record<string, unknown> = {},
 ): ImportApplyRow {
   return {
     row_no: rowNo,
@@ -32,6 +33,7 @@ function plannedRow(
       valid_from: '2026-01-01',
       valid_to: action === ImportRowAction.UPDATE ? '2026-06-01' : null,
       notes: null,
+      ...overrides,
     },
   };
 }
