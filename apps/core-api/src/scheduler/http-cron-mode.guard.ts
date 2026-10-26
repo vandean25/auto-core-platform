@@ -1,8 +1,4 @@
-import {
-  CanActivate,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { CanActivate, Injectable, NotFoundException } from '@nestjs/common';
 import { isSchedulerModeHttp } from './scheduler-mode.js';
 
 @Injectable()

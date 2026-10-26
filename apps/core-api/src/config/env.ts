@@ -267,10 +267,7 @@ const envSchema = z
       );
     }
 
-    if (resolveSchedulerMode(env) === 'http') {
-      addRequiredIssue(ctx, 'CRON_OIDC_AUDIENCE', env.CRON_OIDC_AUDIENCE);
-      addRequiredIssue(ctx, 'CRON_INVOKER_SA_EMAIL', env.CRON_INVOKER_SA_EMAIL);
-    }
+    addHttpCronSchedulerEnvIssues(ctx, env);
   });
 
 export type AppEnv = z.infer<typeof envSchema>;
@@ -306,6 +303,22 @@ export function validateEnv(env: NodeJS.ProcessEnv = process.env): AppEnv {
   }
 
   throw new EnvValidationError(missing, invalid);
+}
+
+function addHttpCronSchedulerEnvIssues(
+  ctx: z.RefinementCtx,
+  env: {
+    CRON_OIDC_AUDIENCE?: string;
+    CRON_INVOKER_SA_EMAIL?: string;
+    SCHEDULER_MODE?: string;
+    SCHEDULER_ENABLED?: string;
+  },
+): void {
+  if (resolveSchedulerMode(env) !== 'http') {
+    return;
+  }
+  addRequiredIssue(ctx, 'CRON_OIDC_AUDIENCE', env.CRON_OIDC_AUDIENCE);
+  addRequiredIssue(ctx, 'CRON_INVOKER_SA_EMAIL', env.CRON_INVOKER_SA_EMAIL);
 }
 
 function addRequiredIssue(

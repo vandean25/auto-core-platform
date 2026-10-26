@@ -33,10 +33,7 @@ export class CronInvokerOidcGuard implements CanActivate {
         audience,
       });
       const payload = ticket.getPayload();
-      if (
-        payload?.email !== invokerEmail ||
-        payload.email_verified !== true
-      ) {
+      if (payload?.email !== invokerEmail || payload.email_verified !== true) {
         this.logger.warn(
           `Rejected cron OIDC token for route ${request.originalUrl}`,
         );
@@ -57,11 +54,30 @@ export class CronInvokerOidcGuard implements CanActivate {
 
 function readBearerToken(request: Request): string | undefined {
   const raw = request.headers.authorization;
-  const header = Array.isArray(raw) ? raw[0] : raw;
-  if (typeof header !== 'string') {
+  const header = readAuthorizationHeaderValue(raw);
+  if (!header) {
     return undefined;
   }
-  const match = header.match(/^Bearer\s+(.+)$/i);
-  const token = match?.[1]?.trim();
+  const trimmed = header.trim();
+  const spaceIndex = trimmed.indexOf(' ');
+  if (spaceIndex <= 0) {
+    return undefined;
+  }
+  if (trimmed.slice(0, spaceIndex).toLowerCase() !== 'bearer') {
+    return undefined;
+  }
+  const token = trimmed.slice(spaceIndex + 1).trim();
   return token || undefined;
+}
+
+function readAuthorizationHeaderValue(
+  raw: string | string[] | undefined,
+): string | undefined {
+  if (typeof raw === 'string') {
+    return raw;
+  }
+  if (Array.isArray(raw) && typeof raw[0] === 'string') {
+    return raw[0];
+  }
+  return undefined;
 }

@@ -11,7 +11,6 @@ import {
 import { ApiExcludeEndpoint } from '@nestjs/swagger';
 import { Public } from '../common/decorators/public.decorator.js';
 import { CronInvokerOidcGuard } from '../common/guards/cron-invoker-oidc.guard.js';
-import type { CoreApiCronJobName } from './core-api-cron-job-name.js';
 import { CoreApiCronJobRegistryService } from './core-api-cron-job-registry.service.js';
 import { HttpCronModeGuard } from './http-cron-mode.guard.js';
 
@@ -33,17 +32,16 @@ export class InternalCronController {
       throw new NotFoundException();
     }
 
-    const stableName = jobName as CoreApiCronJobName;
-    this.logger.log(`HTTP cron invoke started: ${stableName}`);
+    this.logger.log(`HTTP cron invoke started: ${jobName}`);
     try {
-      const ran = await this.registry.run(stableName);
+      const ran = await this.registry.run(jobName);
       this.logger.log(
-        `HTTP cron invoke finished: ${stableName} (${ran ? 'ran' : 'skipped'})`,
+        `HTTP cron invoke finished: ${jobName} (${ran ? 'ran' : 'skipped'})`,
       );
       return { status: ran ? 'ran' : 'skipped' };
     } catch (error) {
       this.logger.error(
-        `HTTP cron job "${stableName}" failed: ${
+        `HTTP cron job "${jobName}" failed: ${
           error instanceof Error ? error.name : 'unknown'
         }`,
       );
