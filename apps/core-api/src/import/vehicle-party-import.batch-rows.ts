@@ -14,8 +14,9 @@ function plannedOwnerCreate(row: ImportApplyRow): boolean {
 
 /**
  * Builds the full apply list for one background worker page: the file slice plus any
- * peeked closing UPDATE that pairs with a CREATE on the same vehicle_id, ordered
- * UPDATE-first without dropping rows to IMPORT_APPLY_BATCH_SIZE.
+ * peeked closing UPDATE that pairs with a CREATE on the same vehicle_id, every
+ * lookahead row up to that update (gap fillers included), ordered UPDATE-first
+ * without dropping rows to IMPORT_APPLY_BATCH_SIZE.
  */
 export function buildVehiclePartyBackgroundApplyRows(
   fileBatch: ImportApplyRow[],
@@ -28,6 +29,7 @@ export function buildVehiclePartyBackgroundApplyRows(
       .map(vehiclePartyVehicleId)
       .filter((id): id is string => Boolean(id)),
   );
+  let maxMergedLookaheadRowNo = 0;
   if (createVehicleIds.size > 0) {
     for (const row of lookahead) {
       if (row.action !== ImportRowAction.UPDATE) {
@@ -36,6 +38,14 @@ export function buildVehiclePartyBackgroundApplyRows(
       const vehicleId = vehiclePartyVehicleId(row);
       if (vehicleId && createVehicleIds.has(vehicleId)) {
         byRowNo.set(row.row_no, row);
+        maxMergedLookaheadRowNo = Math.max(maxMergedLookaheadRowNo, row.row_no);
+      }
+    }
+    if (maxMergedLookaheadRowNo > 0) {
+      for (const row of lookahead) {
+        if (row.row_no <= maxMergedLookaheadRowNo) {
+          byRowNo.set(row.row_no, row);
+        }
       }
     }
   }

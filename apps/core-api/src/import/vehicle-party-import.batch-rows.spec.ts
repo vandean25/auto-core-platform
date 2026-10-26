@@ -98,11 +98,34 @@ describe('vehicle party batch rows', () => {
       IMPORT_APPLY_BATCH_SIZE + 2,
       IMPORT_APPLY_BATCH_SIZE + 3,
     ]);
-    expect(ordered.at(-1)?.row_no).toBe(IMPORT_APPLY_BATCH_SIZE);
+    expect(ordered.map((row) => row.row_no)).toContain(IMPORT_APPLY_BATCH_SIZE + 1);
+    expect(
+      ordered.find((row) => row.action === ImportRowAction.CREATE && row.row_no === IMPORT_APPLY_BATCH_SIZE)
+        ?.row_no,
+    ).toBe(IMPORT_APPLY_BATCH_SIZE);
     expect(
       ordered.findIndex((row) => row.row_no === IMPORT_APPLY_BATCH_SIZE + 2),
     ).toBeLessThan(
       ordered.findIndex((row) => row.row_no === IMPORT_APPLY_BATCH_SIZE),
     );
+  });
+
+  it('includes gap rows in lookahead but not rows past the merged closing update', () => {
+    const fileBatch = Array.from({ length: IMPORT_APPLY_BATCH_SIZE }, (_, index) =>
+      plannedRow(index + 1, ImportRowAction.SKIP),
+    );
+    fileBatch[IMPORT_APPLY_BATCH_SIZE - 1] = plannedRow(
+      IMPORT_APPLY_BATCH_SIZE,
+      ImportRowAction.CREATE,
+    );
+    const lookahead = [
+      plannedRow(IMPORT_APPLY_BATCH_SIZE + 1, ImportRowAction.SKIP),
+      plannedRow(IMPORT_APPLY_BATCH_SIZE + 2, ImportRowAction.UPDATE),
+      plannedRow(IMPORT_APPLY_BATCH_SIZE + 3, ImportRowAction.SKIP),
+    ];
+    const ordered = buildVehiclePartyBackgroundApplyRows(fileBatch, lookahead);
+    const rowNos = ordered.map((row) => row.row_no);
+    expect(rowNos).toContain(IMPORT_APPLY_BATCH_SIZE + 1);
+    expect(rowNos).not.toContain(IMPORT_APPLY_BATCH_SIZE + 3);
   });
 });

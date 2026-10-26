@@ -374,7 +374,9 @@ describe('VehiclePartyImportHandler owner transfer across batches', () => {
       ImportRowAction.CREATE,
     );
     const lookahead = [
-      plannedRow(IMPORT_APPLY_BATCH_SIZE + 1, ImportRowAction.SKIP),
+      plannedRow(IMPORT_APPLY_BATCH_SIZE + 1, ImportRowAction.CREATE, {
+        vehicle_id: 'other-vehicle',
+      }),
       plannedRow(IMPORT_APPLY_BATCH_SIZE + 2, ImportRowAction.UPDATE),
     ];
     const ordered = buildVehiclePartyBackgroundApplyRows(fileBatch, lookahead);
@@ -382,6 +384,7 @@ describe('VehiclePartyImportHandler owner transfer across batches', () => {
       IMPORT_APPLY_BATCH_SIZE + 2,
       ...Array.from({ length: IMPORT_APPLY_BATCH_SIZE - 1 }, (_, index) => index + 1),
       IMPORT_APPLY_BATCH_SIZE,
+      IMPORT_APPLY_BATCH_SIZE + 1,
     ]);
   });
 
@@ -414,7 +417,9 @@ describe('VehiclePartyImportHandler owner transfer across batches', () => {
       ImportRowAction.CREATE,
     );
     const lookahead = [
-      plannedRow(IMPORT_APPLY_BATCH_SIZE + 1, ImportRowAction.SKIP),
+      plannedRow(IMPORT_APPLY_BATCH_SIZE + 1, ImportRowAction.CREATE, {
+        vehicle_id: 'other-vehicle',
+      }),
       plannedRow(IMPORT_APPLY_BATCH_SIZE + 2, ImportRowAction.UPDATE),
     ];
 
@@ -446,6 +451,7 @@ describe('VehiclePartyImportHandler owner transfer across batches', () => {
     });
 
     const appliedRowNos = handler.applied.map((row) => row.row_no);
+    expect(appliedRowNos).toContain(IMPORT_APPLY_BATCH_SIZE + 1);
     expect(appliedRowNos.indexOf(IMPORT_APPLY_BATCH_SIZE + 2)).toBeLessThan(
       appliedRowNos.indexOf(IMPORT_APPLY_BATCH_SIZE),
     );
