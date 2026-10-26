@@ -13,7 +13,7 @@ describe('ImportRecoveryService', () => {
     recoverStaleJobs = jest.fn();
     service = new ImportRecoveryService({
       recoverStaleJobs,
-    } as ImportWorkerService);
+    } as unknown as ImportWorkerService);
   });
 
   afterEach(() => {
