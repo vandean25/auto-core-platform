@@ -23,6 +23,7 @@ import {
 } from './import-job.store.js';
 import {
   ImportWorkerLeaseLostError,
+  isImportWorkerContentionError,
   isPrismaSerializationFailure,
 } from './import-worker.errors.js';
 import { planImportApplyBatch } from './import-apply-batch.plan.js';
@@ -34,6 +35,8 @@ import type {
 import {
   createApplyTotals,
   createResumedApplyTotals,
+  importTotalsAfterApplyRowTally,
+  type ImportApplyRowTally,
   tallyWrittenRow,
 } from './import-totals.util.js';
 import type {
@@ -59,7 +62,15 @@ function describeCause(error: unknown): string {
 const SERIALIZABLE_ROW_TX = { isolationLevel: 'Serializable' as const };
 const SERIALIZABLE_ROW_TX_MAX_ATTEMPTS = 3;
 
-type ApplyRowTally = 'skip' | 'error' | 'written' | 'noop';
+function serializationRetryDelayMs(): number {
+  return 15 + Math.floor(Math.random() * 35);
+}
+
+function delayMs(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
 
 /**
  * Applies a job one row at a time, each row in its own transaction. Any row failure, whatever
@@ -108,12 +119,19 @@ export class RowByRowApplyRunner {
         options,
       );
     } catch (error) {
-      if (error instanceof ImportWorkerLeaseLostError) {
+      if (this.shouldRethrowApplyRunError(error)) {
         throw error;
       }
       await this.markJobFailed(job.id, totals, guardedWrite);
       throw error;
     }
+  }
+
+  private shouldRethrowApplyRunError(error: unknown): boolean {
+    return (
+      error instanceof ImportWorkerLeaseLostError ||
+      isImportWorkerContentionError(error)
+    );
   }
 
   private async finishApplyRun(
@@ -319,7 +337,7 @@ export class RowByRowApplyRunner {
       attempt++
     ) {
       try {
-        const tally = await this.commitImportSequenceRow(
+        const { nextTotals } = await this.commitImportSequenceRow(
           input,
           entityType,
           writeRow,
@@ -329,17 +347,18 @@ export class RowByRowApplyRunner {
           applySeq,
           maxApplySeq,
         );
-        this.applyRowTallyToTotals(totals, row, tally);
+        Object.assign(totals, nextTotals);
         return;
       } catch (error) {
         const outcome = this.sequenceRowAttemptOutcome(error, attempt);
         if (outcome === 'retry') {
+          await delayMs(serializationRetryDelayMs());
           continue;
         }
         if (outcome === 'rethrow') {
           throw error;
         }
-        await this.markImportSequenceRowFailed(
+        const nextTotals = await this.markImportSequenceRowFailed(
           input,
           row,
           totals,
@@ -348,7 +367,7 @@ export class RowByRowApplyRunner {
           maxApplySeq,
           error,
         );
-        totals.error += 1;
+        Object.assign(totals, nextTotals);
         return;
       }
     }
@@ -378,7 +397,7 @@ export class RowByRowApplyRunner {
     leaseToken: string,
     applySeq: number,
     maxApplySeq: number,
-  ): Promise<ApplyRowTally> {
+  ): Promise<{ nextTotals: ImportJobTotals }> {
     return this.prisma.$transaction(async (tx) => {
       await assertApplyWorkerLease(
         tx,
@@ -393,15 +412,20 @@ export class RowByRowApplyRunner {
         writeRow,
         row,
       );
+      const nextTotals = importTotalsAfterApplyRowTally(
+        totals,
+        row.action,
+        rowTally,
+      );
       await commitBackgroundApplyRowInTransaction(tx, {
         tenantId: input.tenantId,
         jobId: input.job.id,
         leaseToken,
         applySeq,
-        totals,
+        totals: nextTotals,
         maxApplySeq,
       });
-      return rowTally;
+      return { nextTotals };
     }, SERIALIZABLE_ROW_TX);
   }
 
@@ -413,9 +437,14 @@ export class RowByRowApplyRunner {
     applySeq: number,
     maxApplySeq: number,
     error: unknown,
-  ): Promise<void> {
+  ): Promise<ImportJobTotals> {
     this.logger.warn(
       `Import apply row failed jobId=${input.job.id} rowNo=${row.row_no} cause=${describeCause(error)}`,
+    );
+    const nextTotals = importTotalsAfterApplyRowTally(
+      totals,
+      row.action,
+      'error',
     );
     await this.prisma.$transaction(async (tx) => {
       await tx.importJobRow.update({
@@ -436,28 +465,11 @@ export class RowByRowApplyRunner {
         jobId: input.job.id,
         leaseToken,
         applySeq,
-        totals: { ...totals, error: totals.error + 1 },
+        totals: nextTotals,
         maxApplySeq,
       });
     }, SERIALIZABLE_ROW_TX);
-  }
-
-  private applyRowTallyToTotals(
-    totals: ImportJobTotals,
-    row: ImportApplyRow,
-    tally: ApplyRowTally,
-  ): void {
-    if (tally === 'skip') {
-      totals.skip += 1;
-      return;
-    }
-    if (tally === 'error') {
-      totals.error += 1;
-      return;
-    }
-    if (tally === 'written') {
-      tallyWrittenRow(totals, row.action);
-    }
+    return nextTotals;
   }
 
   private async applyRowBodyInTransaction(
@@ -466,7 +478,7 @@ export class RowByRowApplyRunner {
     entityType: ImportEntityType,
     writeRow: ImportRowWriter,
     row: ImportApplyRow,
-  ): Promise<ApplyRowTally> {
+  ): Promise<ImportApplyRowTally> {
     if (row.action === ImportRowAction.ERROR) {
       return 'error';
     }

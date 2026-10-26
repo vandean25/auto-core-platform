@@ -46,25 +46,44 @@ function plannedRow(
   };
 }
 
-function createSequenceWorkerPrisma(worker: ImportJobWorkerState) {
+function createSequenceWorkerPrisma(
+  worker: ImportJobWorkerState,
+  initialTotals?: {
+    rows: number;
+    create: number;
+    update: number;
+    skip: number;
+    error: number;
+  },
+) {
   let jobStatus: ImportJobStatus = ImportJobStatus.APPLYING;
+  const jobTotals = {
+    rows: initialTotals?.rows ?? 0,
+    create: initialTotals?.create ?? 0,
+    update: initialTotals?.update ?? 0,
+    skip: initialTotals?.skip ?? 0,
+    error: initialTotals?.error ?? 0,
+  };
   const tx = {
     importJob: {
       findFirst: async () => ({
         id: 'job-1',
-        status: ImportJobStatus.APPLYING,
+        status: jobStatus,
         options_json: { worker },
-        totals_json: {},
+        totals_json: { ...jobTotals },
       }),
       update: async (args: {
         data: {
           status?: ImportJobStatus;
           options_json?: { worker: ImportJobWorkerState };
-          totals_json?: unknown;
+          totals_json?: typeof jobTotals;
         };
       }) => {
         if (args.data.options_json?.worker) {
           Object.assign(worker, args.data.options_json.worker);
+        }
+        if (args.data.totals_json) {
+          Object.assign(jobTotals, args.data.totals_json);
         }
         if (args.data.status === ImportJobStatus.APPLIED) {
           jobStatus = ImportJobStatus.APPLIED;
@@ -87,7 +106,7 @@ function createSequenceWorkerPrisma(worker: ImportJobWorkerState) {
         findFirst: async () => ({
           id: 'job-1',
           status: jobStatus,
-          totals_json: {},
+          totals_json: { ...jobTotals },
         }),
         update: jest.fn(async (args: { where: { id: string }; data: { status?: ImportJobStatus } }) => ({
           id: args.where.id,
@@ -149,7 +168,7 @@ describe('import apply_seq background apply', () => {
       skip: 0,
       error: 0,
     };
-    await syncHandler.apply({
+    const syncResult = await syncHandler.apply({
       tenantId: 'tenant-1',
       job: {
         id: 'job-sync',
@@ -177,7 +196,7 @@ describe('import apply_seq background apply', () => {
       last_committed_apply_seq: 0,
       started_at: new Date().toISOString(),
     };
-    const { prisma: bgPrisma } = createSequenceWorkerPrisma(bgWorker);
+    const { prisma: bgPrisma } = createSequenceWorkerPrisma(bgWorker, totalsJson);
     const bgRunner = new RowByRowApplyRunner(
       bgPrisma as never,
       { writeImportJobAudit: jest.fn() } as never,
@@ -224,7 +243,8 @@ describe('import apply_seq background apply', () => {
     const bgWrites = bgTracking.applied.map((row) => row.row_no);
     expect(bgWrites).toEqual(syncWrites);
     expect(new Set(bgWrites).size).toBe(bgWrites.length);
-    expect(bgWrites.filter((rowNo) => rowNo === 51)).toHaveLength(0);
+    expect(bgWrites).toContain(51);
+    expect(bgTotals).toEqual(syncResult.totals);
   });
 
   it('applies every row across batch size 3 without skipping the gap row', async () => {

@@ -1,15 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import type { ImportApplySequenceOrderKey } from './import-apply-sequence-order.js';
 
-function executeRaw(
-  tx: Prisma.TransactionClient,
-): (query: TemplateStringsArray, ...values: unknown[]) => Promise<unknown> {
-  return tx['$executeRaw'].bind(tx) as (
-    query: TemplateStringsArray,
-    ...values: unknown[]
-  ) => Promise<unknown>;
-}
-
 /** Set-based apply_seq assignment; must run in the same transaction as DRY_RUN_DONE → APPLYING. */
 export async function fillImportJobApplySequences(
   tx: Prisma.TransactionClient,
@@ -17,9 +8,10 @@ export async function fillImportJobApplySequences(
   jobId: string,
   orderKey: ImportApplySequenceOrderKey,
 ): Promise<void> {
-  const run = executeRaw(tx);
   if (orderKey === 'row_no') {
-    await run`
+    // fallow-ignore-next-line added-suppression
+    // eslint-disable-next-line no-restricted-syntax -- AUT-623: set-based apply_seq fill; tenant_id explicit in both predicates
+    await tx.$executeRaw`
       UPDATE import_job_rows r
       SET apply_seq = s.seq
       FROM (
@@ -33,7 +25,9 @@ export async function fillImportJobApplySequences(
     `;
     return;
   }
-  await run`
+  // fallow-ignore-next-line added-suppression
+  // eslint-disable-next-line no-restricted-syntax -- AUT-623: set-based apply_seq fill; tenant_id explicit in both predicates
+  await tx.$executeRaw`
     UPDATE import_job_rows r
     SET apply_seq = s.seq
     FROM (

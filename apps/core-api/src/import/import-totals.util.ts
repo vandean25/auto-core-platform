@@ -75,3 +75,22 @@ export function tallyWrittenRow(
   if (action === ImportRowAction.CREATE) totals.create += 1;
   else if (action === ImportRowAction.UPDATE) totals.update += 1;
 }
+
+export type ImportApplyRowTally = 'skip' | 'error' | 'written' | 'noop';
+
+/** Returns apply totals after one background row outcome (does not mutate `totals`). */
+export function importTotalsAfterApplyRowTally(
+  totals: ImportJobTotals,
+  action: ImportRowAction,
+  tally: ImportApplyRowTally,
+): ImportJobTotals {
+  const next = { ...totals };
+  if (tally === 'skip') {
+    next.skip += 1;
+  } else if (tally === 'error') {
+    next.error += 1;
+  } else if (tally === 'written') {
+    tallyWrittenRow(next, action);
+  }
+  return next;
+}

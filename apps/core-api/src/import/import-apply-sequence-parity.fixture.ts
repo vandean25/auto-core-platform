@@ -3,13 +3,13 @@ import type { ImportApplyRow } from './import-type-handler.js';
 
 const VEHICLE_ID = 'veh-parity';
 
-/** 60 rows: dense UPDATE block, gap SKIP at 51, creates across page boundary (batch 50). */
+/** 60 rows: dense UPDATE block, gap CREATE at 51, creates across page boundary (batch 50). */
 export function buildVehiclePartySixtyRowFixture(): ImportApplyRow[] {
   const rows: ImportApplyRow[] = [];
   for (let rowNo = 1; rowNo <= 60; rowNo += 1) {
     let action: ImportRowAction = ImportRowAction.UPDATE;
     if (rowNo === 51) {
-      action = ImportRowAction.SKIP;
+      action = ImportRowAction.CREATE;
     } else if (rowNo >= 52 && rowNo <= 55) {
       action = ImportRowAction.CREATE;
     } else if (rowNo > 55) {

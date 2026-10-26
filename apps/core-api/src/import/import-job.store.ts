@@ -474,44 +474,46 @@ export class ImportJobStore {
       last_committed_apply_seq: 0,
       started_at: new Date().toISOString(),
     };
-    return this.prisma.$transaction(async (tx) => {
-      const lock = await tx.importJob.updateMany({
-        where: {
-          tenant_id: tenantId,
-          id: jobId,
-          status: ImportJobStatus.DRY_RUN_DONE,
-        },
-        data: {
-          status: ImportJobStatus.APPLYING,
-          totals_json: applyTotals,
-          options_json: { ...options, worker },
-        },
-      });
-      if (lock.count === 0) {
-        return lock;
-      }
-      if (dryRunTotals.rows > 0) {
+    return this.prisma.$transaction(
+      async (tx) => {
+        const lock = await tx.importJob.updateMany({
+          where: {
+            tenant_id: tenantId,
+            id: jobId,
+            status: ImportJobStatus.DRY_RUN_DONE,
+          },
+          data: {
+            status: ImportJobStatus.APPLYING,
+            totals_json: applyTotals,
+            options_json: { ...options, worker },
+          },
+        });
+        if (lock.count === 0) {
+          return lock;
+        }
         await fillImportJobApplySequences(
           tx,
           tenantId,
           jobId,
           applySequenceOrderKey,
         );
-      } else {
-        await tx.importJob.updateMany({
-          where: {
-            tenant_id: tenantId,
-            id: jobId,
-            status: ImportJobStatus.APPLYING,
-          },
-          data: {
-            status: ImportJobStatus.APPLIED,
-            appliedAt: new Date(),
-          },
-        });
-      }
-      return lock;
-    });
+        if (dryRunTotals.rows === 0) {
+          await tx.importJob.updateMany({
+            where: {
+              tenant_id: tenantId,
+              id: jobId,
+              status: ImportJobStatus.APPLYING,
+            },
+            data: {
+              status: ImportJobStatus.APPLIED,
+              appliedAt: new Date(),
+            },
+          });
+        }
+        return lock;
+      },
+      { timeout: 120_000, maxWait: 10_000 },
+    );
   }
 }
 
