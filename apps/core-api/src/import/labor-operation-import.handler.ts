@@ -7,7 +7,6 @@ import type { SerializedImportJob } from './import-job.serializer.js';
 import {
   type ImportApplyInput,
   type ImportApplyPreparation,
-  type ImportApplyRow,
   type ImportDryRunInput,
   type ImportTypeHandler,
 } from './import-type-handler.js';

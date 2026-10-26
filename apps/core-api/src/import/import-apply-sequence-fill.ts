@@ -3,10 +3,7 @@ import type { ImportApplySequenceOrderKey } from './import-apply-sequence-order.
 
 function executeRaw(
   tx: Prisma.TransactionClient,
-): (
-  query: TemplateStringsArray,
-  ...values: unknown[]
-) => Promise<unknown> {
+): (query: TemplateStringsArray, ...values: unknown[]) => Promise<unknown> {
   return tx['$executeRaw'].bind(tx) as (
     query: TemplateStringsArray,
     ...values: unknown[]

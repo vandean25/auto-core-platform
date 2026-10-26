@@ -14,6 +14,7 @@ import {
   cleanupTestTenantGraph,
   createTenantAwarePrisma,
   createTestTenant,
+  runWithTenantContext,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
 
@@ -84,12 +85,17 @@ describe('import apply_seq fill (e2e)', () => {
       actorUserId: actor.id,
       rows: dryRunRows,
     });
-    await store.lockForBackgroundApply(
+    await runWithTenantContext(
       tenant.tenantId,
-      job.id,
-      {},
-      { rows: 3, create: 0, update: 0, skip: 0, error: 0 },
-      'updates_first',
+      async () =>
+        store.lockForBackgroundApply(
+          tenant.tenantId,
+          job.id,
+          {},
+          { rows: 3, create: 0, update: 0, skip: 0, error: 0 },
+          'updates_first',
+        ),
+      { userId: actor.id },
     );
     const loaded = await tenantPrisma.importJobRow.findMany({
       where: { import_job_id: job.id },

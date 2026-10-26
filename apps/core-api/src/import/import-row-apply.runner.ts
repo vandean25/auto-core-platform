@@ -313,7 +313,11 @@ export class RowByRowApplyRunner {
     if (maxApplySeq === 0) {
       throw new Error('Background apply job has no apply_seq assigned');
     }
-    for (let attempt = 0; attempt < SERIALIZABLE_ROW_TX_MAX_ATTEMPTS; attempt++) {
+    for (
+      let attempt = 0;
+      attempt < SERIALIZABLE_ROW_TX_MAX_ATTEMPTS;
+      attempt++
+    ) {
       try {
         const tally = await this.commitImportSequenceRow(
           input,

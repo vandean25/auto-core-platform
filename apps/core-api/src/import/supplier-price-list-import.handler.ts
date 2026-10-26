@@ -8,7 +8,6 @@ import type { SupplierChunkedApplyRunner } from './supplier-price-list-apply.run
 import {
   type ImportApplyInput,
   type ImportApplyPreparation,
-  type ImportApplyRow,
   type ImportDryRunInput,
   type ImportTypeHandler,
   type VendorRef,
