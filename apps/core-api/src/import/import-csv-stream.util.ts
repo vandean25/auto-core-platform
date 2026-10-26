@@ -1,8 +1,38 @@
-import type { ParsedCsv } from './csv-parse.util.js';
-import { readCsvDataRowSliceFromStream } from './csv-incremental.parser.js';
-import { CsvIncrementalParser } from './csv-incremental.parser.js';
+import { BadRequestException } from '@nestjs/common';
 import { createHash } from 'node:crypto';
+import type { ParsedCsv } from './csv-parse.util.js';
+import {
+  CsvIncrementalParser,
+  readCsvDataRowSliceFromStream,
+} from './csv-incremental.parser.js';
 import { createUtf8CsvStreamValidator } from './import-csv-encoding.util.js';
+import { IMPORT_ERROR_CODES } from './import.constants.js';
+import { readImportMaxRowCount } from './import-limits.js';
+
+function assertStreamingRowWithinLimit(
+  dataRowCount: number,
+  maxDataRows: number,
+): void {
+  if (dataRowCount > maxDataRows) {
+    throw new BadRequestException({
+      code: IMPORT_ERROR_CODES.ROW_LIMIT_EXCEEDED,
+      message: `CSV exceeds ${maxDataRows} rows`,
+    });
+  }
+}
+
+function countParsedDataRow(
+  headers: string[],
+  dataRowCount: number,
+  maxDataRows: number,
+): { headers: string[]; dataRowCount: number } {
+  if (headers.length === 0) {
+    return { headers: cells, dataRowCount };
+  }
+  const nextCount = dataRowCount + 1;
+  assertStreamingRowWithinLimit(nextCount, maxDataRows);
+  return { headers, dataRowCount: nextCount };
+}
 
 export async function readImportCsvDataRowSlice(
   stream: NodeJS.ReadableStream,
@@ -28,12 +58,14 @@ export async function readImportCsvDataRowSlice(
 
 export async function assessImportCsvFromReadable(
   stream: NodeJS.ReadableStream,
+  options?: { maxDataRows?: number },
 ): Promise<{
   headers: string[];
   delimiter: ';' | ',';
   dataRowCount: number;
   sha256: string;
 }> {
+  const maxDataRows = options?.maxDataRows ?? readImportMaxRowCount();
   const hash = createHash('sha256');
   const parser = new CsvIncrementalParser();
   const utf8 = createUtf8CsvStreamValidator();
@@ -48,7 +80,11 @@ export async function assessImportCsvFromReadable(
         headers = cells;
         continue;
       }
-      dataRowCount += 1;
+      ({ dataRowCount } = countParsedDataRow(
+        headers,
+        dataRowCount,
+        maxDataRows,
+      ));
     }
   }
   for (const cells of parser.finish()) {
@@ -56,7 +92,11 @@ export async function assessImportCsvFromReadable(
       headers = cells;
       continue;
     }
-    dataRowCount += 1;
+    ({ dataRowCount } = countParsedDataRow(
+      headers,
+      dataRowCount,
+      maxDataRows,
+    ));
   }
   utf8.finish();
 

@@ -20,4 +20,29 @@ describe('CsvIncrementalParser', () => {
     const rows = parser.feedChunk(Buffer.from('1;2\n3;4\n'));
     expect(rows).toEqual([['1', '2'], ['3', '4']]);
   });
+
+  it('returns exactly batchSize rows when the file has batchSize data rows', async () => {
+    const batchSize = 3;
+    const data = Array.from({ length: batchSize }, (_, i) => `${i + 1};x`).join('\n');
+    const csv = `a;b\n${data}\n`;
+    const stream = Readable.from([Buffer.from(csv)]);
+    const slice = await readCsvDataRowSliceFromStream(stream, 0, batchSize);
+    expect(slice?.rows).toHaveLength(batchSize);
+    expect(slice?.rows.at(-1)).toEqual([String(batchSize), 'x']);
+  });
+
+  it('includes the last row when the file has batchSize plus one data rows', async () => {
+    const batchSize = 3;
+    const data = Array.from({ length: batchSize + 1 }, (_, i) => `${i + 1};x`).join('\n');
+    const csv = `a;b\n${data}\n`;
+    const stream = Readable.from([Buffer.from(csv)]);
+    const slice = await readCsvDataRowSliceFromStream(stream, 0, batchSize);
+    expect(slice?.rows).toHaveLength(batchSize);
+    const tail = await readCsvDataRowSliceFromStream(
+      Readable.from([Buffer.from(csv)]),
+      batchSize,
+      1,
+    );
+    expect(tail?.rows).toEqual([[String(batchSize + 1), 'x']]);
+  });
 });

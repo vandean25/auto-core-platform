@@ -1,7 +1,10 @@
+import { BadRequestException } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import { Transform } from 'node:stream';
 import { CsvIncrementalParser } from './csv-incremental.parser.js';
 import { createUtf8CsvStreamValidator } from './import-csv-encoding.util.js';
+import { IMPORT_ERROR_CODES } from './import.constants.js';
+import { readImportMaxRowCount } from './import-limits.js';
 import type {
   ImportFileStorage,
   StoredImportFileRef,
@@ -30,6 +33,17 @@ export async function pipeImportCsvToStorage(
   const utf8 = createUtf8CsvStreamValidator();
   let headers: string[] = [];
   let dataRowCount = 0;
+  const maxDataRows = readImportMaxRowCount();
+
+  const countDataRow = (): void => {
+    dataRowCount += 1;
+    if (dataRowCount > maxDataRows) {
+      throw new BadRequestException({
+        code: IMPORT_ERROR_CODES.ROW_LIMIT_EXCEEDED,
+        message: `CSV exceeds ${maxDataRows} rows`,
+      });
+    }
+  };
 
   const inspect = new Transform({
     transform(chunk: Buffer, _encoding, callback) {
@@ -46,7 +60,7 @@ export async function pipeImportCsvToStorage(
           headers = cells;
           continue;
         }
-        dataRowCount += 1;
+        countDataRow();
       }
       callback(null, chunk);
     },
@@ -57,12 +71,17 @@ export async function pipeImportCsvToStorage(
         callback(error as Error);
         return;
       }
-      for (const cells of parser.finish()) {
-        if (headers.length === 0) {
-          headers = cells;
-          continue;
+      try {
+        for (const cells of parser.finish()) {
+          if (headers.length === 0) {
+            headers = cells;
+            continue;
+          }
+          countDataRow();
         }
-        dataRowCount += 1;
+      } catch (error) {
+        callback(error as Error);
+        return;
       }
       callback();
     },
