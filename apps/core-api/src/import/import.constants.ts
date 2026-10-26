@@ -1,10 +1,14 @@
 import {
   readImportApplyBatchSize,
   readImportMaxFileBytes,
+  readImportUploadMaxFileBytes,
   readImportWorkerBatchSize,
 } from './import-limits.js';
 
 export const IMPORT_MAX_FILE_BYTES = readImportMaxFileBytes();
+export const IMPORT_UPLOAD_MAX_FILE_BYTES = readImportUploadMaxFileBytes();
+export const IMPORT_UPLOAD_TOO_LARGE_MESSAGE =
+  'Datei zu groß (max. 30 MB), bitte aufteilen';
 export const IMPORT_WORKER_BATCH_SIZE = readImportWorkerBatchSize();
 export const IMPORT_APPLY_BATCH_SIZE = readImportApplyBatchSize();
 

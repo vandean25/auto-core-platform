@@ -161,19 +161,20 @@ export async function readCsvDataRowSliceFromStream(
   const parser = new CsvIncrementalParser();
   const utf8 = createUtf8CsvStreamValidator();
   const rows: string[][] = [];
-  let dataRowsSeen = 0;
+  let skippedDataRows = 0;
+  let collectedDataRows = 0;
 
   const collect = (records: string[][]): 'stop' | void => {
     for (const cells of records) {
-      if (dataRowsSeen < skipDataRows) {
-        dataRowsSeen += 1;
+      if (skippedDataRows < skipDataRows) {
+        skippedDataRows += 1;
         continue;
       }
-      if (rows.length >= takeDataRows) {
+      if (collectedDataRows >= takeDataRows) {
         return 'stop';
       }
       rows.push(cells);
-      dataRowsSeen += 1;
+      collectedDataRows += 1;
     }
   };
 

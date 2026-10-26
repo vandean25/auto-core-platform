@@ -1,7 +1,9 @@
 import { createHash } from 'node:crypto';
 import { Transform } from 'node:stream';
 import { CsvIncrementalParser } from './csv-incremental.parser.js';
+import { applyEmittedCsvRecordCount } from './import-csv-stream.util.js';
 import { createUtf8CsvStreamValidator } from './import-csv-encoding.util.js';
+import { readImportMaxRowCount } from './import-limits.js';
 import type {
   ImportFileStorage,
   StoredImportFileRef,
@@ -28,8 +30,8 @@ export async function pipeImportCsvToStorage(
   const hash = createHash('sha256');
   const parser = new CsvIncrementalParser();
   const utf8 = createUtf8CsvStreamValidator();
-  let headers: string[] = [];
   let dataRowCount = 0;
+  const maxDataRows = readImportMaxRowCount();
 
   const inspect = new Transform({
     transform(chunk: Buffer, _encoding, callback) {
@@ -40,13 +42,16 @@ export async function pipeImportCsvToStorage(
         return;
       }
       hash.update(chunk);
-      const records = parser.feedChunk(chunk);
-      for (const cells of records) {
-        if (headers.length === 0) {
-          headers = cells;
-          continue;
-        }
-        dataRowCount += 1;
+      try {
+        const records = parser.feedChunk(chunk);
+        dataRowCount = applyEmittedCsvRecordCount(
+          dataRowCount,
+          records.length,
+          maxDataRows,
+        );
+      } catch (error) {
+        callback(error as Error);
+        return;
       }
       callback(null, chunk);
     },
@@ -57,12 +62,16 @@ export async function pipeImportCsvToStorage(
         callback(error as Error);
         return;
       }
-      for (const cells of parser.finish()) {
-        if (headers.length === 0) {
-          headers = cells;
-          continue;
-        }
-        dataRowCount += 1;
+      try {
+        const tailRecords = parser.finish();
+        dataRowCount = applyEmittedCsvRecordCount(
+          dataRowCount,
+          tailRecords.length,
+          maxDataRows,
+        );
+      } catch (error) {
+        callback(error as Error);
+        return;
       }
       callback();
     },
@@ -79,7 +88,7 @@ export async function pipeImportCsvToStorage(
   return {
     ref,
     sha256: hash.digest('hex'),
-    headers,
+    headers: parser.getHeaders(),
     delimiter: parser.getDelimiter(),
     dataRowCount,
   };

@@ -13,7 +13,10 @@ import {
   runWithTenantContext,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
-import { IMPORT_MAX_FILE_BYTES } from '../src/import/import.constants.js';
+import {
+  IMPORT_UPLOAD_MAX_FILE_BYTES,
+  IMPORT_UPLOAD_TOO_LARGE_MESSAGE,
+} from '../src/import/import.constants.js';
 import { serializeCsv } from '../src/import/csv-parse.util.js';
 
 describe('Legacy CSV import (e2e)', () => {
@@ -297,8 +300,8 @@ describe('Legacy CSV import (e2e)', () => {
       });
   });
 
-  it('returns IMPORT_FILE_TOO_LARGE for oversized uploads', async () => {
-    const big = Buffer.alloc(IMPORT_MAX_FILE_BYTES + 100, 'a');
+  it('returns IMPORT_FILE_TOO_LARGE for oversized uploads within multer slack', async () => {
+    const big = Buffer.alloc(IMPORT_UPLOAD_MAX_FILE_BYTES + 100, 'a');
     await request(app.getHttpServer())
       .post('/imports')
       .set('Authorization', authHeaderA)
@@ -306,9 +309,26 @@ describe('Legacy CSV import (e2e)', () => {
       .field('sourceSystem', 'legacy-dms')
       .field('mapping', JSON.stringify(customerMapping))
       .attach('file', big, 'big.csv')
-      .expect(400)
+      .expect(413)
       .expect((res) => {
         expect(res.body.code).toBe('IMPORT_FILE_TOO_LARGE');
+        expect(res.body.message).toBe(IMPORT_UPLOAD_TOO_LARGE_MESSAGE);
+      });
+  });
+
+  it('returns IMPORT_FILE_TOO_LARGE when multer rejects a body above the 30 MiB cap', async () => {
+    const big = Buffer.alloc(IMPORT_UPLOAD_MAX_FILE_BYTES + 2048, 'a');
+    await request(app.getHttpServer())
+      .post('/imports')
+      .set('Authorization', authHeaderA)
+      .field('entityType', 'CUSTOMER')
+      .field('sourceSystem', 'legacy-dms')
+      .field('mapping', JSON.stringify(customerMapping))
+      .attach('file', big, 'big.csv')
+      .expect(413)
+      .expect((res) => {
+        expect(res.body.code).toBe('IMPORT_FILE_TOO_LARGE');
+        expect(res.body.message).toBe(IMPORT_UPLOAD_TOO_LARGE_MESSAGE);
       });
   });
 
