@@ -1,7 +1,5 @@
-import { createReadStream } from 'node:fs';
 import type { ParsedCsv } from './csv-parse.util.js';
 import { readCsvDataRowSliceFromStream } from './csv-incremental.parser.js';
-import { assertTrustedImportStagingPath } from './import-file.storage.js';
 import { CsvIncrementalParser } from './csv-incremental.parser.js';
 import { createHash } from 'node:crypto';
 
@@ -64,9 +62,4 @@ export async function assessImportCsvFromReadable(
     dataRowCount,
     sha256: hash.digest('hex'),
   };
-}
-
-export async function assessImportCsvFromStagingPath(stagingPath: string) {
-  const trusted = assertTrustedImportStagingPath(stagingPath);
-  return assessImportCsvFromReadable(createReadStream(trusted));
 }

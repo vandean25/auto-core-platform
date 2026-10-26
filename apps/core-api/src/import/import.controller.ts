@@ -8,10 +8,12 @@ import {
   Param,
   Post,
   Query,
+  Req,
   Res,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiBody,
@@ -81,6 +83,7 @@ export class ImportController {
   })
   @ApiCreatedResponse({ type: ImportJobResponseDto })
   async createDryRun(
+    @Req() uploadRequest: Request,
     @UploadedFile() file: Express.Multer.File | undefined,
     @Body('entityType') entityType: string,
     @Body('sourceSystem') sourceSystem: string,
@@ -92,6 +95,7 @@ export class ImportController {
       ? this.parseJsonObject(options, 'options')
       : {};
     return this.importService.createDryRunFromUpload({
+      uploadRequest,
       file: file as Express.Multer.File,
       entityType: this.parseEntityType(entityType),
       sourceSystem: sourceSystem?.trim() ?? 'legacy',

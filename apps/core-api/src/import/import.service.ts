@@ -50,9 +50,10 @@ import type { ImportTypeHandler } from './import-type-handler.js';
 import { ImportVendorResolver } from './import-vendor.resolver.js';
 import {
   assessImportUpload,
-  openTrustedMulterStagingReadStream,
-  unlinkTrustedMulterStagingFile,
+  openImportMulterStagingReadStream,
+  unlinkImportMulterStagingFile,
 } from './import-upload.util.js';
+import { getImportStagingKey } from './import-staging-path.js';
 import { pipeImportCsvToStorage } from './import-upload-pipeline.js';
 import { ImportCloudTasksService } from './import-cloud-tasks.service.js';
 import { enqueueOrRunImportWorker } from './import-dispatch.js';
@@ -173,6 +174,7 @@ export class ImportService {
   }
 
   async createDryRunFromUpload(params: {
+    uploadRequest?: object;
     file: Express.Multer.File;
     entityType: ImportEntityType;
     sourceSystem: string;
@@ -199,7 +201,11 @@ export class ImportService {
     };
     assertCanonicalMigrationUploadAllowed(params.file, migrationManifest);
 
-    const assessed = await assessImportUpload(params.file);
+    const stagingRequest =
+      params.uploadRequest && getImportStagingKey(params.uploadRequest)
+        ? params.uploadRequest
+        : undefined;
+    const assessed = await assessImportUpload(params.file, stagingRequest);
     const handler = this.handlers[params.entityType];
     await handler.prepareCreate(tenantId, params.sourceSystem, options);
 
@@ -209,17 +215,17 @@ export class ImportService {
       let fileSha256 = assessed.sha256;
       let expectedRows = assessed.rowCount;
       try {
-        if (params.file.path) {
+        if (stagingRequest) {
           const piped = await pipeImportCsvToStorage(this.fileStorage, {
             tenantId,
             jobId: placeholderJobId,
             fileName: params.file.originalname,
-            source: openTrustedMulterStagingReadStream(params.file),
+            source: openImportMulterStagingReadStream(stagingRequest),
           });
           uploadRef = piped.ref;
           fileSha256 = piped.sha256;
           expectedRows = piped.dataRowCount;
-          await unlinkTrustedMulterStagingFile(params.file);
+          await unlinkImportMulterStagingFile(stagingRequest);
         } else {
           const content = readMulterUploadContent(params.file);
           uploadRef = await this.fileStorage.storeUpload({
@@ -267,7 +273,9 @@ export class ImportService {
         if (uploadRef) {
           await this.fileStorage.deleteUpload(uploadRef).catch(() => undefined);
         }
-        await unlinkTrustedMulterStagingFile(params.file);
+        if (stagingRequest) {
+          await unlinkImportMulterStagingFile(stagingRequest);
+        }
         throw error;
       }
     }

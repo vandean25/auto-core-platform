@@ -46,7 +46,9 @@ describe('ImportController', () => {
 
       mockImportService.createDryRunFromUpload.mockResolvedValue({ id: 'job-1' });
 
+      const uploadRequest = {};
       const result = await controller.createDryRun(
+        uploadRequest as never,
         file,
         'SUPPLIER_PRICE_LIST',
         'vendor-uuid',
@@ -55,6 +57,7 @@ describe('ImportController', () => {
       );
 
       expect(mockImportService.createDryRunFromUpload).toHaveBeenCalledWith({
+        uploadRequest,
         file,
         entityType: ImportEntityType.SUPPLIER_PRICE_LIST,
         sourceSystem: 'vendor-uuid',
@@ -73,6 +76,7 @@ describe('ImportController', () => {
 
       await expect(
         controller.createDryRun(
+          {} as never,
           file,
           'UNKNOWN_TYPE',
           'source',
