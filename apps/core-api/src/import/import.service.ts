@@ -85,6 +85,7 @@ import type { ImportJobOptions, ImportJobTotals } from './import.types.js';
 import { parseMigrationManifestFromDryRunOptions } from './canonical-migration-import/canonical-migration-import.options.js';
 import { assertCanonicalMigrationUploadAllowed } from './migration-manifest-upload.guard.js';
 import { isImportWorkerContentionError } from './import-worker.errors.js';
+import { filterExpiredImportWorkerCandidates } from './import-recovery.helpers.js';
 import { SupplierChunkedApplyRunner } from './supplier-price-list-apply.runner.js';
 import { SupplierPriceListImportHandler } from './supplier-price-list-import.handler.js';
 import { LaborOperationImportHandler } from './labor-operation-import.handler.js';
@@ -126,9 +127,9 @@ export class ImportService {
     private readonly systemPrisma: SystemPrismaService,
     private readonly fileStorage: ImportFileStorageService,
     private readonly cloudTasks: ImportCloudTasksService,
+    private readonly requestContext: RequestContextService,
     decisionHooks: DecisionUseCaseHooksService,
     decisionLive: DecisionLiveApplyService,
-    requestContext: RequestContextService,
   ) {
     this.audit = new ImportAuditWriter(tenantContext);
     this.jobStore = new ImportJobStore(prisma);
@@ -620,27 +621,52 @@ export class ImportService {
     return this.systemPrisma.withCronJobLock(
       'import-job-worker-recovery',
       async () => {
-        const stale = await this.prisma.importJob.findMany({
-          where: { status: ImportJobStatus.APPLYING },
-          select: { id: true, tenant_id: true, options_json: true },
-          take: 50,
+        const tenants = await this.systemPrisma.tenant.findMany({
+          select: { id: true },
         });
         const now = Date.now();
-        for (const row of stale) {
-          const options = row.options_json as ImportJobOptionsWithWorker;
-          const worker = readWorkerState(options);
-          if (!worker) {
-            continue;
+        const candidates: ReturnType<
+          typeof filterExpiredImportWorkerCandidates
+        > = [];
+        for (const { id: tenantId } of tenants) {
+          try {
+            await this.requestContext.runAsWorker(
+              tenantId,
+              async () => {
+                const stale = await this.prisma.importJob.findMany({
+                  where: { status: ImportJobStatus.APPLYING },
+                  select: { id: true, tenant_id: true, options_json: true },
+                  take: 50,
+                });
+                candidates.push(
+                  ...filterExpiredImportWorkerCandidates(stale, now),
+                );
+              },
+              { workerId: 'import-job-worker-recovery' },
+            );
+          } catch (cause) {
+            this.logger.warn(
+              `Import worker recovery listing failed for one tenant: ${cause instanceof Error ? cause.name : 'unknown'}`,
+            );
           }
-          const leaseUntil = Date.parse(worker.lease_until);
-          if (Number.isFinite(leaseUntil) && leaseUntil > now) {
-            continue;
+        }
+        for (const candidate of candidates.slice(0, 50)) {
+          try {
+            await this.requestContext.runAsWorker(
+              candidate.tenantId,
+              () =>
+                this.runImportWorkerAttempt({
+                  tenantId: candidate.tenantId,
+                  jobId: candidate.jobId,
+                  phase: candidate.phase,
+                }),
+              { workerId: 'import-job-worker-recovery' },
+            );
+          } catch (cause) {
+            this.logger.warn(
+              `Import worker recovery failed for one tenant: ${cause instanceof Error ? cause.name : 'unknown'}`,
+            );
           }
-          await this.runImportWorkerAttempt({
-            tenantId: row.tenant_id,
-            jobId: row.id,
-            phase: worker.phase,
-          });
         }
       },
       this.logger,

@@ -41,7 +41,7 @@ const PRISMA_DELEGATES: Record<string, string[]> = {
   vehicle: ['findMany', 'findFirst', 'create', 'update', 'updateMany'],
   vehicleParty: ['findMany', 'create'],
   externalIdMapping: ['findMany', 'findFirst', 'create', 'upsert'],
-  importJob: ['create', 'findFirst', 'updateMany', 'update'],
+  importJob: ['create', 'findFirst', 'findMany', 'updateMany', 'update'],
   importJobRow: ['findMany', 'update', 'count'],
   auditLog: ['create'],
 };
@@ -65,11 +65,29 @@ export interface ImportHarness {
   };
   decisionLive: { applyCustomerImportDecisions: jest.Mock };
   decisionHooks: { scheduleCustomerImportDryRunShadows: jest.Mock };
-  requestContext: { getTraceId: jest.Mock };
+  requestContext: {
+    getTraceId: jest.Mock;
+    runAsWorker: jest.Mock;
+  };
+  systemPrisma: {
+    withCronJobLock: jest.Mock;
+    tenant: { findMany: jest.Mock };
+  };
 }
 
 function applyDefaults(harness: ImportHarness): void {
   jest.resetAllMocks();
+  harness.systemPrisma.withCronJobLock.mockImplementation(
+    async (_name: string, fn: () => Promise<void>) => {
+      await fn();
+      return true;
+    },
+  );
+  harness.requestContext.runAsWorker.mockImplementation(
+    async (_tenantId: string, fn: () => Promise<void>) => {
+      await fn();
+    },
+  );
   harness.prisma.$transaction.mockImplementation(
     (callback: (tx: MockPrisma) => unknown) => callback(harness.prisma),
   );
@@ -134,7 +152,25 @@ export function setupImportHarness(): ImportHarness {
     tenantContext: { getTenantId: jest.fn(), getAuthenticatedUser: jest.fn() },
     decisionLive: { applyCustomerImportDecisions: jest.fn() },
     decisionHooks: { scheduleCustomerImportDryRunShadows: jest.fn() },
-    requestContext: { getTraceId: jest.fn() },
+    requestContext: {
+      getTraceId: jest.fn(),
+      runAsWorker: jest.fn(
+        async (_tenantId: string, fn: () => Promise<void>) => {
+          await fn();
+        },
+      ),
+    },
+    systemPrisma: {
+      withCronJobLock: jest.fn(
+        async (_name: string, fn: () => Promise<void>) => {
+          await fn();
+          return true;
+        },
+      ),
+      tenant: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    },
   };
 
   beforeEach(async () => {
@@ -153,10 +189,7 @@ export function setupImportHarness(): ImportHarness {
           useValue: harness.decisionLive,
         },
         { provide: RequestContextService, useValue: harness.requestContext },
-        {
-          provide: SystemPrismaService,
-          useValue: { withCronJobLock: jest.fn(async (_n, fn) => fn()) },
-        },
+        { provide: SystemPrismaService, useValue: harness.systemPrisma },
         {
           provide: ImportFileStorageService,
           useValue: {
