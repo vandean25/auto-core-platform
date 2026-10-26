@@ -1,14 +1,16 @@
 import { Prisma } from '@prisma/client';
-import { DriverAdapterError } from '@prisma/driver-adapter-utils';
 import { ImportJobStore } from './import-job.store.js';
 import { commitApplyWorkerRowInTransaction } from './import-job.store.js';
 import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 
 describe('import worker contention', () => {
   it('claimWorkerLease returns null on driver adapter write conflict', async () => {
+    const conflict = new Error('write conflict');
+    conflict.name = 'DriverAdapterError';
+    Object.assign(conflict, { cause: { kind: 'TransactionWriteConflict' } });
     const prisma = {
       $transaction: async () => {
-        throw new DriverAdapterError({ kind: 'TransactionWriteConflict' });
+        throw conflict;
       },
     };
     const store = new ImportJobStore(prisma as never);

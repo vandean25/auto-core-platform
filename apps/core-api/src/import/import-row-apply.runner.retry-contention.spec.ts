@@ -4,11 +4,17 @@ import {
   ImportRowAction,
   Prisma,
 } from '@prisma/client';
-import { DriverAdapterError } from '@prisma/driver-adapter-utils';
 import type { SerializedImportJob } from './import-job.serializer.js';
 import type { ImportJobWorkerState } from './import-job.worker-state.js';
 import { RowByRowApplyRunner } from './import-row-apply.runner.js';
 import { assignVehiclePartyApplySeqs } from './import-apply-sequence.test-util.js';
+
+function driverAdapterWriteConflict(): Error {
+  const error = new Error('write conflict');
+  error.name = 'DriverAdapterError';
+  Object.assign(error, { cause: { kind: 'TransactionWriteConflict' } });
+  return error;
+}
 
 function createWorker(): ImportJobWorkerState {
   return {
@@ -73,7 +79,7 @@ describe('RowByRowApplyRunner transaction retries', () => {
     prisma.$transaction = async (fn, options) => {
       txAttempts += 1;
       if (txAttempts === 1) {
-        throw new DriverAdapterError({ kind: 'TransactionWriteConflict' });
+        throw driverAdapterWriteConflict();
       }
       return originalTransaction(fn, options);
     };
@@ -205,7 +211,7 @@ describe('RowByRowApplyRunner transaction retries', () => {
     sharedPrisma.$transaction = async (fn, options) => {
       if (!conflictOnce.seen) {
         conflictOnce.seen = true;
-        throw new DriverAdapterError({ kind: 'TransactionWriteConflict' });
+        throw driverAdapterWriteConflict();
       }
       return originalTransaction(fn, options);
     };

@@ -1,11 +1,20 @@
 import { Prisma } from '@prisma/client';
-import { DriverAdapterError } from '@prisma/driver-adapter-utils';
 import { isRetryableTransactionError } from './is-retryable-transaction-error.js';
+
+function driverAdapterWriteConflict(): Error {
+  const error = new Error(
+    'Transaction failed due to a write conflict or a deadlock.',
+  );
+  error.name = 'DriverAdapterError';
+  Object.assign(error, { cause: { kind: 'TransactionWriteConflict' } });
+  return error;
+}
 
 describe('isRetryableTransactionError', () => {
   it('classifies DriverAdapterError TransactionWriteConflict as retryable', () => {
-    const error = new DriverAdapterError({ kind: 'TransactionWriteConflict' });
-    expect(isRetryableTransactionError(error)).toBe(true);
+    expect(isRetryableTransactionError(driverAdapterWriteConflict())).toBe(
+      true,
+    );
   });
 
   it('classifies P2028 as retryable', () => {

@@ -1,5 +1,4 @@
 import { Prisma } from '@prisma/client';
-import { DriverAdapterError } from '@prisma/driver-adapter-utils';
 
 const RETRYABLE_PRISMA_CODES = new Set(['P2034', 'P2028', 'P2024']);
 
@@ -30,13 +29,31 @@ function isPostgresRetrySqlState(code: string): boolean {
   return RETRYABLE_PG_SQLSTATES.has(code);
 }
 
-function isDriverAdapterRetryCause(
-  cause: DriverAdapterError['cause'],
-): boolean {
+type DriverAdapterCause = {
+  kind?: string;
+  code?: string;
+};
+
+function readDriverAdapterCause(error: Error): DriverAdapterCause | undefined {
+  if (!('cause' in error)) {
+    return undefined;
+  }
+  const cause = (error as { cause?: unknown }).cause;
+  if (!cause || typeof cause !== 'object') {
+    return undefined;
+  }
+  return cause as DriverAdapterCause;
+}
+
+function isDriverAdapterRetryCause(cause: DriverAdapterCause): boolean {
   if (cause.kind === 'TransactionWriteConflict') {
     return true;
   }
-  if (cause.kind === 'postgres' && isPostgresRetrySqlState(cause.code)) {
+  if (
+    cause.kind === 'postgres' &&
+    typeof cause.code === 'string' &&
+    isPostgresRetrySqlState(cause.code)
+  ) {
     return true;
   }
   return false;
@@ -68,8 +85,9 @@ export function isRetryableTransactionError(error: unknown): boolean {
     const sqlState = prismaDatabaseSqlState(error);
     return sqlState !== undefined && isPostgresRetrySqlState(sqlState);
   }
-  if (error instanceof DriverAdapterError) {
-    return isDriverAdapterRetryCause(error.cause);
+  if (error instanceof Error && error.name === 'DriverAdapterError') {
+    const cause = readDriverAdapterCause(error);
+    return cause !== undefined && isDriverAdapterRetryCause(cause);
   }
   if (isNodeConnectionError(error)) {
     return true;
