@@ -160,7 +160,7 @@ export class SupplierChunkedApplyRunner {
       return { job: partialJob as ImportJobView, applied: false };
     }
     const updatedJob = await this.markApplied(input, totals, guardedWrite);
-    return { job: updatedJob as ImportJobView, applied: true };
+    return { job: updatedJob, applied: true };
   }
 
   private async applyChunk(
