@@ -14,13 +14,17 @@ import { importUploadFileTooLarge } from './import-upload.errors.js';
 /** Maps multer LIMIT_FILE_SIZE to the import wizard upload error shape. */
 @Injectable()
 export class ImportUploadInterceptor implements NestInterceptor {
-  intercept(_context: ExecutionContext, next: CallHandler): Observable<unknown> {
+  intercept(
+    _context: ExecutionContext,
+    next: CallHandler,
+  ): Observable<unknown> {
     return next.handle().pipe(
       catchError((error: unknown) => {
         if (!(error instanceof HttpException)) {
           return throwError(() => error);
         }
-        if (error.getStatus() !== HttpStatus.PAYLOAD_TOO_LARGE) {
+        const status = error.getStatus();
+        if (status !== Number(HttpStatus.PAYLOAD_TOO_LARGE)) {
           return throwError(() => error);
         }
         const response = error.getResponse();
