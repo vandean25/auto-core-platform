@@ -35,5 +35,10 @@ The banner states that **HUMAN_ONLY** actions must be performed manually. Superv
   </Accordion>
   <Accordion title="MCP write tools">
     External agents using MCP write tools should call with `dry_run: true` first (preview without persisting), then call again without dry-run to execute or raise an approval proposal. The platform blocks side effects such as outbound email during a dry-run.
+
+    New proposal tools (always **PROPOSE** once enabled by the tenant): **`propose_customer_create`** and **`propose_customer_update`** for customer master data — including duplicate checks (email, UID, phone, name with postcode) before the proposal is stored. Consent and contact preferences stay human-only, not via MCP.
+  </Accordion>
+  <Accordion title="Additional MCP read tools (wave 2)">
+    Integrators can also read **`list_loaner_bookings`** (including overdue returns), **`list_estimates`** (estimate versions), **`list_order_communications`** (timeline without message bodies), **`get_check_in`** (check-in summary), and **`get_staff_availability`** (OWNER/ADMIN staff presence) — each scoped to tenant or active site as returned by `get_capabilities`.
   </Accordion>
 </AccordionGroup>

@@ -1,6 +1,6 @@
 ---
 title: "Dashboard and search"
-description: "Turn saved list filters into widgets, and jump to parts, customers, vehicles, or jobs with Ctrl+K."
+description: "Turn saved list filters into widgets, and jump to parts, customers, vehicles, jobs, or invoices with Ctrl+K."
 ---
 
 **Dashboard** is a command board you build, not a fixed report pack. Subtitle: build your command center from saved table filters.
@@ -23,16 +23,57 @@ That button is on Customers, Vehicles, Sales Orders, Workshop Orders, Inventory,
 
 ## Global search
 
-**Ctrl+K** (Windows) or **Cmd+K** (Mac) opens search. Placeholder: **Search parts, customers, vehicles, jobs…**
+**Ctrl+K** (Windows) or **Cmd+K** (Mac) opens **Global Search**. Placeholder: **Search parts, customers, vehicles, jobs…**
 
-Search runs across five groups in parallel:
-- **Commands**: Jump directly to views or trigger create dialogs (for example, **Open Workshop Intake** or **Create Sales Order**).
-- **Customers**: Search by individual name, company name, or phone to open `/customers/:id`.
-- **Vehicles**: Search by license plate, VIN, or make/model to open `/vehicles/:id`.
-- **Workshop orders**: Search by work order number (e.g. `WO-2026-0004`), vehicle plate, or customer to open `/workshop/orders/:id`.
-- **Inventory**: Search by SKU or description to jump to the part's stock ledger.
+Type at least two characters (a digits-only query, such as a phone number without spaces, needs only one digit). Hits at other sites show **Other site**.
+
+### Search groups
+
+Results are grouped by type:
+
+| Group | Examples |
+| --- | --- |
+| **Customers** | Name, company, email, phone |
+| **Vehicles** | Plate, VIN, make/model |
+| **Vehicle stock** | Dealer stock vehicles at the site |
+| **Workshop orders** | Order number, plate, customer |
+| **Invoices** | Invoice number |
+| **Parts** | SKU or description → part stock ledger |
+
+### Navigate and create
+
+With no type prefix, the palette also lists:
+
+- **Navigate** — the same destinations as the grouped sidebar (filtered by your role).
+- **Settings** — deep links to settings tabs once you start typing (only tabs that are not already in the sidebar).
+- **Create** — e.g. **Create workshop order**, **Create Sales Order**, **Create Purchase Order**, **Create Purchase Bill**.
+
+On a customer or vehicle detail page, **Create workshop order** opens [Workshop intake](/en/workflows/workshop-intake) with that record prefilled.
+
+### Prefix filters
+
+Start the query with a prefix to search one type only (help text appears in the palette):
+
+| Prefix | Type |
+| --- | --- |
+| `k:` | Customers |
+| `fz:` | Vehicles and vehicle stock |
+| `a:` | Workshop orders |
+| `r:` | Invoices |
+| `t:` | Parts |
+
+Example: `r:RE-2026` finds invoices with that number.
+
+### Recently opened
+
+After you open a hit, the palette remembers it under **Recently opened** (per user and tenant). You can remove individual entries there.
+
+### Actions on the current record
+
+On a customer, vehicle, or workshop order detail page, the palette shows **Current record** with quick actions from the action registry — for example **Vehicle check-in** on an order or **Create workshop order** from a customer. On a workshop order you can also run actions such as **Assign mechanic**, mark tasks **Done** / **Reopen task**, and **Job card PDF** from search when your role and order status allow it.
 
 <Tip>
 Lists stay live. When someone else receives stock or updates a job, the widgets update.
 </Tip>
 
+More shortcuts: [Keyboard shortcuts](/en/workflows/keyboard-shortcuts).

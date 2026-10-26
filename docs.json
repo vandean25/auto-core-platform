@@ -121,7 +121,8 @@
                 "group": "Tägliche Arbeit",
                 "pages": [
                   "workflows/sign-in",
-                  "workflows/dashboard"
+                  "workflows/dashboard",
+                  "workflows/keyboard-shortcuts"
                 ]
               },
               {
@@ -352,7 +353,8 @@
                 "group": "Daily work",
                 "pages": [
                   "en/workflows/sign-in",
-                  "en/workflows/dashboard"
+                  "en/workflows/dashboard",
+                  "en/workflows/keyboard-shortcuts"
                 ]
               },
               {

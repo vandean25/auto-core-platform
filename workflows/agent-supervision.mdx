@@ -35,5 +35,10 @@ Das Banner weist darauf hin, dass **HUMAN_ONLY**-Aktionen manuell ausgeführt we
   </Accordion>
   <Accordion title="Schreibende Agenten-Tools (MCP)">
     Externe Agenten mit MCP-Schreibtools sollten zuerst mit `dry_run: true` simulieren (Vorschau ohne Persistenz), danach ohne Dry-Run ausführen oder einen Genehmigungsvorschlag auslösen. Die Plattform blockiert Nebenwirkungen wie E-Mail-Versand während eines Dry-Runs.
+
+    Neu als Vorschlags-Tools (immer **PROPOSE**, nach Freischaltung durch den Mandanten): **`propose_customer_create`** und **`propose_customer_update`** für Kundenstammdaten — inklusive Duplikatprüfung (E-Mail, UID, Telefon, Name mit PLZ) vor dem Speichern des Vorschlags. Zustimmung/Kontaktpräferenzen bleiben menschliche Aktionen, nicht per MCP.
+  </Accordion>
+  <Accordion title="Zusätzliche MCP-Lese-Tools (Wave 2)">
+    Integratoren können u. a. **`list_loaner_bookings`** (inkl. überfällige Rückgaben), **`list_estimates`** (KVA-Versionen), **`list_order_communications`** (Zeitleiste ohne Nachrichtentext), **`get_check_in`** (Annahme-Zusammenfassung) und **`get_staff_availability`** (OWNER/ADMIN, Personal-Anwesenheit) lesen — jeweils mandanten- bzw. standortgebunden wie in `get_capabilities`.
   </Accordion>
 </AccordionGroup>

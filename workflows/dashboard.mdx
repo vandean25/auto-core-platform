@@ -1,6 +1,6 @@
 ---
 title: "Dashboard und Suche"
-description: "Gespeicherte Listenfilter in Widgets verwandeln und mit Strg+K zu Teilen, Kunden, Fahrzeugen oder Aufträgen springen."
+description: "Gespeicherte Listenfilter in Widgets verwandeln und mit Strg+K zu Teilen, Kunden, Fahrzeugen, Aufträgen oder Rechnungen springen."
 ---
 
 **Dashboard** ist ein Kommandoboard, das Sie selbst bauen — kein festes Report-Paket. Untertitel: Bauen Sie Ihre Kommandozentrale aus gespeicherten Tabellenfiltern.
@@ -23,16 +23,57 @@ Dieser Button gibt es bei Kunden, Fahrzeugen, Kundenaufträgen, Werkstattaufträ
 
 ## Globale Suche
 
-**Strg+K** (Windows) oder **Cmd+K** (Mac) öffnet die Suche. Platzhalter: **Teile, Kunden, Fahrzeuge, Aufträge…**
+**Strg+K** (Windows) oder **Cmd+K** (Mac) öffnet die **Globale Suche**. Platzhalter: **Teile, Kunden, Fahrzeuge, Aufträge…**
 
-Die Suche läuft parallel über fünf Gruppen:
-- **Befehle**: Direkt zu Ansichten springen oder Anlegen-Dialoge starten (z. B. **Fahrzeugannahme öffnen** oder **Kundenauftrag anlegen**).
-- **Kunden**: Suche nach Name, Firmenname oder Telefon, um `/customers/:id` zu öffnen.
-- **Fahrzeuge**: Suche nach Kennzeichen, FIN oder Marke/Modell, um `/vehicles/:id` zu öffnen.
-- **Werkstattaufträge**: Suche nach Auftragsnummer (z. B. `WO-2026-0004`), Kennzeichen oder Kunde, um `/workshop/orders/:id` zu öffnen.
-- **Lager**: Suche nach SKU oder Beschreibung, um zum Bestandsjournal des Teils zu springen.
+Geben Sie mindestens zwei Zeichen ein (bei einer reinen Ziffernfolge, z. B. einer Telefonnummer ohne Leerzeichen, reicht eine Ziffer). Treffer aus anderen Standorten zeigen **Anderer Standort**.
+
+### Suchgruppen
+
+Die Ergebnisse erscheinen nach Typ gruppiert:
+
+| Gruppe | Beispiel |
+| --- | --- |
+| **Kunden** | Name, Firma, E-Mail, Telefon |
+| **Fahrzeuge** | Kennzeichen, FIN, Marke/Modell |
+| **Fahrzeugbestand** | Händler-Bestandsfahrzeuge am Standort |
+| **Werkstattaufträge** | Auftragsnummer, Kennzeichen, Kunde |
+| **Rechnungen** | Rechnungsnummer |
+| **Teile** | SKU oder Beschreibung → Bestandsjournal des Teils |
+
+### Navigation und Anlegen
+
+Ohne Typ-Präfix listet die Palette zusätzlich:
+
+- **Navigation** — dieselben Ziele wie in der gruppierten Seitenleiste (nach Rolle gefiltert).
+- **Einstellungen** — direkte Links zu Einstellungs-Tabs, sobald Sie tippen (nur Tabs, die nicht schon in der Seitenleiste stehen).
+- **Anlegen** — z. B. **Werkstattauftrag anlegen**, **Kundenauftrag anlegen**, **Bestellung anlegen**, **Eingangsrechnung anlegen**.
+
+Auf einer Kunden- oder Fahrzeugdetailseite füllt **Werkstattauftrag anlegen** die [Fahrzeugannahme](/workflows/workshop-intake) mit diesem Datensatz vor.
+
+### Präfix-Filter
+
+Mit einem Präfix am Anfang der Eingabe suchen Sie nur in einem Typ (Hilfetext steht in der Palette):
+
+| Präfix | Typ |
+| --- | --- |
+| `k:` | Kunden |
+| `fz:` | Fahrzeuge und Fahrzeugbestand |
+| `a:` | Werkstattaufträge |
+| `r:` | Rechnungen |
+| `t:` | Teile |
+
+Beispiel: `r:RE-2026` findet Rechnungen mit dieser Nummer.
+
+### Zuletzt geöffnet
+
+Nach dem Öffnen eines Treffers merkt sich die Palette den Datensatz unter **Zuletzt geöffnet** (pro Benutzer und Mandant). Einzelne Einträge können Sie dort entfernen.
+
+### Aktionen am aktuellen Datensatz
+
+Stehen Sie auf einer Kunden-, Fahrzeug- oder Werkstattauftragsdetailseite, zeigt die Palette den Block **Aktueller Datensatz** mit Schnellaktionen aus dem Aktionsregister — z. B. **Fahrzeugannahme** am Auftrag oder **Werkstattauftrag anlegen** vom Kunden. Am Werkstattauftrag können u. a. **Mechaniker zuweisen**, Aufgaben **Erledigt** / **Wieder öffnen** und **Werkstattkarte als PDF** aus der Suche heraus laufen (sichtbar nach Rolle und Auftragsstatus).
 
 <Tip>
 Listen bleiben live. Wenn jemand anderes Ware einbucht oder einen Auftrag ändert, aktualisieren sich die Widgets.
 </Tip>
 
+Weitere Tastenkürzel: [Tastenkürzel](/workflows/keyboard-shortcuts).
