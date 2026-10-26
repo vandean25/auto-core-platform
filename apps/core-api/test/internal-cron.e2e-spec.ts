@@ -4,7 +4,7 @@ import { teardownTestApp } from './test-lifecycle.js';
 
 describe('Internal HTTP cron (e2e)', () => {
   let app: INestApplication;
-  let basePrisma: { $disconnect: () => Promise<void> };
+  let basePrisma: import('../src/prisma/prisma.service.js').PrismaService;
   const saved: Record<string, string | undefined> = {};
 
   beforeAll(async () => {
