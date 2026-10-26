@@ -11,7 +11,6 @@ import type {
   ImportDryRunInput,
   ImportTypeHandler,
 } from './import-type-handler.js';
-import { DEFAULT_IMPORT_APPLY_SEQUENCE_ORDER } from './import-apply-sequence.js';
 import type { DryRunRowResult } from './import.types.js';
 
 /** Shared shape of the handlers that plan a CSV in memory and write one row per transaction. */
@@ -53,8 +52,8 @@ export abstract class RowByRowImportHandler implements ImportTypeHandler {
     return rows;
   }
 
-  applySequenceOrderSql(): string {
-    return DEFAULT_IMPORT_APPLY_SEQUENCE_ORDER;
+  sortRowsForApplySequence(rows: ImportApplyRow[]): ImportApplyRow[] {
+    return [...rows].sort((a, b) => a.row_no - b.row_no);
   }
 
   apply(input: ImportApplyInput): Promise<SerializedImportJob> {

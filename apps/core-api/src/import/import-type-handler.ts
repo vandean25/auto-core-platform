@@ -101,6 +101,6 @@ export interface ImportTypeHandler {
   /** Applies the rows of a locked job and returns the applied job. */
   apply(input: ImportApplyInput): Promise<SerializedImportJob>;
 
-  /** ORDER BY terms for assigning apply_seq when background apply starts. */
-  applySequenceOrderSql(): string;
+  /** Global apply order for background apply_seq assignment (matches sync apply). */
+  sortRowsForApplySequence(rows: ImportApplyRow[]): ImportApplyRow[];
 }

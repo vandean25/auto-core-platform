@@ -379,35 +379,42 @@ export class ImportJobStore {
 
   async maxApplySeq(tenantId: string, jobId: string): Promise<number> {
     const row = await this.prisma.importJobRow.findFirst({
-      where: { tenant_id: tenantId, import_job_id: jobId, apply_seq: { not: null } },
+      where: {
+        tenant_id: tenantId,
+        import_job_id: jobId,
+        apply_seq: { not: null },
+      },
       orderBy: { apply_seq: 'desc' },
       select: { apply_seq: true },
     });
     return row?.apply_seq ?? 0;
   }
 
-  assignApplySequences(
+  async assignApplySequences(
     tenantId: string,
     jobId: string,
-    orderBySql: string,
-  ): Promise<number> {
-    return this.prisma.$executeRawUnsafe(
-      `
-      UPDATE "import_job_rows" AS r
-      SET "apply_seq" = sub.seq
-      FROM (
-        SELECT "row_no",
-               ROW_NUMBER() OVER (ORDER BY ${orderBySql}) AS seq
-        FROM "import_job_rows"
-        WHERE "tenant_id" = $1::text AND "import_job_id" = $2::text
-      ) AS sub
-      WHERE r."tenant_id" = $1::text
-        AND r."import_job_id" = $2::text
-        AND r."row_no" = sub."row_no"
-      `,
-      tenantId,
-      jobId,
-    );
+    sortRows: (rows: ImportApplyRow[]) => ImportApplyRow[],
+  ): Promise<void> {
+    const rows = await this.prisma.importJobRow.findMany({
+      where: { tenant_id: tenantId, import_job_id: jobId },
+      orderBy: { row_no: 'asc' },
+    });
+    const ordered = sortRows(rows.map(toImportApplyRow));
+    await this.prisma.$transaction(async (tx) => {
+      for (let index = 0; index < ordered.length; index += 1) {
+        const row = ordered[index];
+        await tx.importJobRow.update({
+          where: {
+            tenant_id_import_job_id_row_no: {
+              tenant_id: tenantId,
+              import_job_id: jobId,
+              row_no: row.row_no,
+            },
+          },
+          data: { apply_seq: index + 1 },
+        });
+      }
+    });
   }
 
   countApplyRows(tenantId: string, jobId: string) {

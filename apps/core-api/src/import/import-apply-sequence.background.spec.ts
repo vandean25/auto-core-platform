@@ -159,7 +159,7 @@ describe('import apply_seq background apply', () => {
       plannedRow(5, ImportRowAction.UPDATE),
     ]);
     const maxSeq = maxApplySeq(allRows);
-    let totalsJson = {
+    const totalsJson = {
       rows: allRows.length,
       create: 0,
       update: 0,

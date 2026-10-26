@@ -46,7 +46,10 @@ import {
   assertImplementedImportEntityType,
   type ImplementedImportEntityType,
 } from './import-entity-type.guard.js';
-import type { ImportTypeHandler } from './import-type-handler.js';
+import type {
+  ImportApplyRow,
+  ImportTypeHandler,
+} from './import-type-handler.js';
 import { ImportVendorResolver } from './import-vendor.resolver.js';
 import {
   assessImportUpload,
@@ -374,7 +377,7 @@ export class ImportService {
       await this.jobStore.assignApplySequences(
         tenantId,
         jobId,
-        handler.applySequenceOrderSql(),
+        handler.sortRowsForApplySequence.bind(handler),
       );
       await enqueueOrRunImportWorker({
         tenantId,
@@ -903,7 +906,7 @@ export class ImportService {
     tenantId: string;
     jobId: string;
     worker: NonNullable<ReturnType<typeof readWorkerState>>;
-    rows: Awaited<ReturnType<ImportJobStore['findApplyRows']>>;
+    rows: ImportApplyRow[];
     resumeAfter: number;
     resultStatus: ImportJobStatus;
   }): Promise<void> {

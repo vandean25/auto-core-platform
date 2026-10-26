@@ -260,7 +260,11 @@ export class RowByRowApplyRunner {
     totals: ImportJobTotals,
     options?: ImportApplyBatchOptions,
   ): Promise<void> {
-    if (options?.useApplySequence && options.leaseToken && options.maxApplySeq) {
+    if (
+      options?.useApplySequence &&
+      options.leaseToken &&
+      options.maxApplySeq
+    ) {
       await this.applyOneWithSequence(
         input,
         entityType,
@@ -271,7 +275,14 @@ export class RowByRowApplyRunner {
       );
       return;
     }
-    await this.applyOneLegacy(input, entityType, writeRow, row, totals, options);
+    await this.applyOneLegacy(
+      input,
+      entityType,
+      writeRow,
+      row,
+      totals,
+      options,
+    );
   }
 
   private async applyOneWithSequence(

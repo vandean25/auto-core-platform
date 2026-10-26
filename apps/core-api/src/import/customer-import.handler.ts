@@ -12,10 +12,10 @@ import type { SerializedImportJob } from './import-job.serializer.js';
 import {
   type ImportApplyInput,
   type ImportApplyPreparation,
+  type ImportApplyRow,
   type ImportDryRunInput,
   type ImportTypeHandler,
 } from './import-type-handler.js';
-import { DEFAULT_IMPORT_APPLY_SEQUENCE_ORDER } from './import-apply-sequence.js';
 import { IMPORT_LOGGER_CONTEXT } from './import.constants.js';
 import type { ParsedCsv } from './csv-parse.util.js';
 import type { DryRunRowResult, ImportJobTotals } from './import.types.js';
@@ -37,8 +37,8 @@ export class CustomerImportHandler implements ImportTypeHandler {
     private readonly requestContext: RequestContextService,
   ) {}
 
-  applySequenceOrderSql(): string {
-    return DEFAULT_IMPORT_APPLY_SEQUENCE_ORDER;
+  sortRowsForApplySequence(rows: ImportApplyRow[]): ImportApplyRow[] {
+    return [...rows].sort((a, b) => a.row_no - b.row_no);
   }
 
   prepareCreate(): Promise<void> {

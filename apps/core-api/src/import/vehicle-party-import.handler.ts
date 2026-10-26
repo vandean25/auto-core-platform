@@ -7,10 +7,7 @@ import type {
 } from './import-type-handler.js';
 import { RowByRowImportHandler } from './row-by-row-import.handler.js';
 import { applyVehiclePartyImportRow } from './vehicle-party-import.apply.js';
-import {
-  orderVehiclePartyApplyRows,
-  vehiclePartyApplySequenceOrderSql,
-} from './vehicle-party-import.apply-order.js';
+import { orderVehiclePartyApplyRows } from './vehicle-party-import.apply-order.js';
 import { planVehiclePartyDryRun } from './vehicle-party-import.dry-run.js';
 import type { DryRunRowResult } from './import.types.js';
 
@@ -25,8 +22,8 @@ export class VehiclePartyImportHandler extends RowByRowImportHandler {
     return planVehiclePartyDryRun(this.prisma, input, parsed);
   }
 
-  override applySequenceOrderSql(): string {
-    return vehiclePartyApplySequenceOrderSql();
+  override sortRowsForApplySequence(rows: ImportApplyRow[]): ImportApplyRow[] {
+    return orderVehiclePartyApplyRows(rows);
   }
 
   protected override orderRows(
