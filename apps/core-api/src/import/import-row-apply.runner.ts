@@ -11,6 +11,7 @@ import { toRowApplyError } from './import-apply.errors.js';
 import { assertApplyRowIsFresh } from './import-apply.freshness.js';
 import { resolveImportExternalId } from './import-apply.errors.js';
 import type { ImportAuditWriter } from './import-audit.writer.js';
+import { persistImportJobApplyingTotals } from './import-job.guarded-persist.util.js';
 import {
   commitApplyWorkerRowInTransaction,
   markImportRowFailed,
@@ -77,23 +78,14 @@ export class RowByRowApplyRunner {
     const guardedWrite = Boolean(options?.stopAfterBatch);
 
     try {
-      await this.runApplyBatchSpan(
+      return await this.applyPlannedBatch(
         input,
         entityType,
         writeRow,
-        plan.batchRows,
-        totals,
-        plan.resumeAfter,
-        options,
-      );
-      if (options?.deferWorkerCursorCommits && options.leaseToken) {
-        await this.commitWorkerBatchHighWater(input, plan.batchRows, options);
-      }
-      return await this.finishApplyRun(
-        input,
+        plan,
         totals,
         guardedWrite,
-        plan.batchIncomplete,
+        options,
       );
     } catch (error) {
       if (error instanceof ImportWorkerLeaseLostError) {
@@ -104,6 +96,35 @@ export class RowByRowApplyRunner {
     }
   }
 
+  private async applyPlannedBatch(
+    input: ImportApplyInput,
+    entityType: ImportEntityType,
+    writeRow: ImportRowWriter,
+    plan: ReturnType<typeof planImportApplyBatch>,
+    totals: ImportJobTotals,
+    guardedWrite: boolean,
+    options?: ImportApplyBatchOptions,
+  ): Promise<SerializedImportJob> {
+    await this.runApplyBatchSpan(
+      input,
+      entityType,
+      writeRow,
+      plan.batchRows,
+      totals,
+      plan.resumeAfter,
+      options,
+    );
+    if (options?.deferWorkerCursorCommits && options.leaseToken) {
+      await this.commitWorkerBatchHighWater(input, plan.batchRows, options);
+    }
+    return await this.finishApplyRun(
+      input,
+      totals,
+      guardedWrite,
+      plan.batchIncomplete,
+    );
+  }
+
   private async finishApplyRun(
     input: ImportApplyInput,
     totals: ImportJobTotals,
@@ -112,7 +133,8 @@ export class RowByRowApplyRunner {
   ): Promise<SerializedImportJob> {
     const { tenantId, job, actorUserId } = input;
     if (batchIncomplete) {
-      const partialJob = await this.persistApplyingTotals(
+      const partialJob = await persistImportJobApplyingTotals(
+        this.prisma,
         job.id,
         totals,
         guardedWrite,
@@ -163,24 +185,6 @@ export class RowByRowApplyRunner {
         }
       },
     );
-  }
-
-  private async persistApplyingTotals(
-    jobId: string,
-    totals: ImportJobTotals,
-    guardedWrite: boolean,
-  ) {
-    if (guardedWrite) {
-      await this.prisma.importJob.updateMany({
-        where: { id: jobId, status: ImportJobStatus.APPLYING },
-        data: { totals_json: totals },
-      });
-      return this.prisma.importJob.findFirst({ where: { id: jobId } });
-    }
-    return this.prisma.importJob.update({
-      where: { id: jobId },
-      data: { totals_json: totals, status: ImportJobStatus.APPLYING },
-    });
   }
 
   private async markJobApplied(

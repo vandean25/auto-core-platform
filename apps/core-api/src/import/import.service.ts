@@ -859,7 +859,8 @@ export class ImportService {
     const resumeAfter = worker.last_committed_row_no ?? 0;
     const applyFetchSize =
       job.entity_type === ImportEntityType.VEHICLE_PARTY
-        ? IMPORT_APPLY_BATCH_SIZE + IMPORT_VEHICLE_PARTY_OWNER_TRANSFER_LOOKAHEAD
+        ? IMPORT_APPLY_BATCH_SIZE +
+          IMPORT_VEHICLE_PARTY_OWNER_TRANSFER_LOOKAHEAD
         : IMPORT_APPLY_BATCH_SIZE + 1;
     const page = await this.jobStore.findApplyRowsAfter(
       tenantId,

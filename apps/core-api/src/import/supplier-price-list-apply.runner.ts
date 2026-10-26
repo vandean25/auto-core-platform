@@ -6,6 +6,7 @@ import {
   toRowApplyError,
 } from './import-apply.errors.js';
 import type { ImportAuditWriter } from './import-audit.writer.js';
+import { persistImportJobApplyingTotals } from './import-job.guarded-persist.util.js';
 import {
   commitApplyWorkerRowInTransaction,
   markImportRowFailed,
@@ -152,7 +153,8 @@ export class SupplierChunkedApplyRunner {
     batchIncomplete: boolean,
   ): Promise<{ job: ImportJobView; applied: boolean }> {
     if (batchIncomplete) {
-      const partialJob = await this.persistApplyingTotals(
+      const partialJob = await persistImportJobApplyingTotals(
+        this.prisma,
         input.job.id,
         totals,
         guardedWrite,
@@ -288,24 +290,6 @@ export class SupplierChunkedApplyRunner {
       totals.error += 1;
       await this.advanceWorkerCursor(input, row.row_no, batchOptions);
     }
-  }
-
-  private async persistApplyingTotals(
-    jobId: string,
-    totals: ImportJobTotals,
-    guardedWrite: boolean,
-  ) {
-    if (guardedWrite) {
-      await this.prisma.importJob.updateMany({
-        where: { id: jobId, status: ImportJobStatus.APPLYING },
-        data: { totals_json: totals },
-      });
-      return this.prisma.importJob.findFirst({ where: { id: jobId } });
-    }
-    return this.prisma.importJob.update({
-      where: { id: jobId },
-      data: { totals_json: totals, status: ImportJobStatus.APPLYING },
-    });
   }
 
   /** The APPLIED transition and its audit entry commit together or not at all. */
