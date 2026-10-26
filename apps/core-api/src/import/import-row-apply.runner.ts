@@ -142,7 +142,7 @@ export class RowByRowApplyRunner {
     const batchRows = pending.slice(0, batchSize);
     const batchIncomplete =
       Boolean(options?.stopAfterBatch) &&
-      (options.hasMoreRowsAfterBatch ??
+      (options?.hasMoreRowsAfterBatch ??
         pending.length > batchRows.length);
     return { resumeAfter, batchRows, batchIncomplete };
   }
