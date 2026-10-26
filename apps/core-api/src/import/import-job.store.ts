@@ -461,12 +461,10 @@ export async function commitApplyWorkerRowInTransaction(
   if (options.worker?.lease_token !== leaseToken) {
     throw new ImportWorkerLeaseLostError();
   }
-  const previous = options.worker.last_committed_row_no ?? 0;
-  const highWater = Math.max(previous, rowNo);
   const worker: ImportJobWorkerState = {
     ...options.worker,
-    last_committed_row_no: highWater,
-    processed_rows: highWater,
+    last_committed_row_no: rowNo,
+    processed_rows: rowNo,
   };
   await tx.importJob.update({
     where: { id: jobId },

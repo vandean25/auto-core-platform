@@ -86,6 +86,9 @@ export class RowByRowApplyRunner {
         plan.resumeAfter,
         options,
       );
+      if (options?.deferWorkerCursorCommits && options.leaseToken) {
+        await this.commitWorkerBatchHighWater(input, plan.batchRows, options);
+      }
       return await this.finishApplyRun(
         input,
         totals,
@@ -243,11 +246,35 @@ export class RowByRowApplyRunner {
     return mapping?.first_seen_import_job_id === input.job.id;
   }
 
+  private async commitWorkerBatchHighWater(
+    input: ImportApplyInput,
+    batchRows: ImportApplyRow[],
+    options: ImportApplyBatchOptions,
+  ): Promise<void> {
+    const leaseToken = options.leaseToken;
+    if (batchRows.length === 0 || !leaseToken) {
+      return;
+    }
+    const highWater = Math.max(...batchRows.map((row) => row.row_no));
+    await this.prisma.$transaction(async (tx) => {
+      await commitApplyWorkerRowInTransaction(
+        tx,
+        input.tenantId,
+        input.job.id,
+        leaseToken,
+        highWater,
+      );
+    });
+  }
+
   private async advanceWorkerCursor(
     input: ImportApplyInput,
     rowNo: number,
     options?: ImportApplyBatchOptions,
   ): Promise<void> {
+    if (options?.deferWorkerCursorCommits) {
+      return;
+    }
     const leaseToken = options?.leaseToken;
     if (!leaseToken) {
       return;
@@ -301,7 +328,7 @@ export class RowByRowApplyRunner {
         await writeRow(tx, row);
         if (options?.onRowCommitted && options.leaseToken) {
           await options.onRowCommitted(tx, row.row_no);
-        } else if (options?.leaseToken) {
+        } else if (options?.leaseToken && !options.deferWorkerCursorCommits) {
           await commitApplyWorkerRowInTransaction(
             tx,
             input.tenantId,

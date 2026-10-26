@@ -44,6 +44,8 @@ export type ImportApplyBatchOptions = {
   lookaheadRows?: ImportApplyRow[];
   /** Apply every row in the input without slicing again to IMPORT_APPLY_BATCH_SIZE. */
   applyEntireWorkerPage?: boolean;
+  /** Commit worker cursor once after the whole page (out-of-order vehicle-party apply). */
+  deferWorkerCursorCommits?: boolean;
   leaseToken?: string;
   onRowCommitted?: (
     tx: Prisma.TransactionClient,

@@ -73,6 +73,7 @@ import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import {
   IMPORT_LOGGER_CONTEXT,
   IMPORT_APPLY_BATCH_SIZE,
+  IMPORT_VEHICLE_PARTY_OWNER_TRANSFER_LOOKAHEAD,
   IMPORT_WORKER_BATCH_SIZE,
 } from './import.constants.js';
 import { readImportSyncMaxRowCount } from './import-limits.js';
@@ -856,11 +857,15 @@ export class ImportService {
       return null;
     }
     const resumeAfter = worker.last_committed_row_no ?? 0;
+    const applyFetchSize =
+      job.entity_type === ImportEntityType.VEHICLE_PARTY
+        ? IMPORT_APPLY_BATCH_SIZE + IMPORT_VEHICLE_PARTY_OWNER_TRANSFER_LOOKAHEAD
+        : IMPORT_APPLY_BATCH_SIZE + 1;
     const page = await this.jobStore.findApplyRowsAfter(
       tenantId,
       jobId,
       resumeAfter,
-      IMPORT_APPLY_BATCH_SIZE + 1,
+      applyFetchSize,
     );
     const hasMoreRowsAfterBatch = page.length > IMPORT_APPLY_BATCH_SIZE;
     const rows = page.slice(0, IMPORT_APPLY_BATCH_SIZE);

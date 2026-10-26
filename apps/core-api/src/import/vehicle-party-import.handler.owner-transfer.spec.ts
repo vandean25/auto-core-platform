@@ -9,7 +9,9 @@ import type { ImportJobWorkerState } from './import-job.worker-state.js';
 import type { SerializedImportJob } from './import-job.serializer.js';
 import { RowByRowApplyRunner } from './import-row-apply.runner.js';
 import type { ImportApplyInput, ImportApplyRow } from './import-type-handler.js';
+import { buildVehiclePartyBackgroundApplyRows } from './vehicle-party-import.batch-rows.js';
 import { VehiclePartyImportHandler } from './vehicle-party-import.handler.js';
+import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 
 const VEHICLE_ID = 'veh-tenant-uuid-1';
 
@@ -246,5 +248,138 @@ describe('VehiclePartyImportHandler owner transfer across batches', () => {
       IMPORT_APPLY_BATCH_SIZE + 2,
     ]);
     expect(worker.last_committed_row_no).toBe(totalRows);
+  });
+
+  it('retries the create when the page is interrupted after the closing update', async () => {
+    const worker: ImportJobWorkerState = {
+      phase: 'apply',
+      lease_token: 'lease-party',
+      lease_until: new Date(0).toISOString(),
+      processed_rows: 0,
+      last_committed_row_no: 0,
+      started_at: new Date().toISOString(),
+    };
+    const { prisma } = createWorkerPrisma(worker);
+    const runner = new RowByRowApplyRunner(
+      prisma as never,
+      { writeImportJobAudit: jest.fn() } as never,
+      (job, totals) =>
+        ({ ...job, totals, status: job.status }) as unknown as SerializedImportJob,
+    );
+    let interruptAfterUpdate = true;
+    class InterruptingHandler extends VehiclePartyImportHandler {
+      readonly applied: number[] = [];
+
+      protected override writeRow(
+        _tx: Prisma.TransactionClient,
+        row: ImportApplyRow,
+        _input: ImportApplyInput,
+      ): Promise<void> {
+        this.applied.push(row.row_no);
+        if (
+          interruptAfterUpdate &&
+          row.row_no === IMPORT_APPLY_BATCH_SIZE + 1 &&
+          row.action === ImportRowAction.UPDATE
+        ) {
+          interruptAfterUpdate = false;
+          throw new ImportWorkerLeaseLostError();
+        }
+        return Promise.resolve();
+      }
+    }
+    const handler = new InterruptingHandler(
+      prisma as never,
+      { writeImportJobAudit: jest.fn() } as never,
+      runner,
+    );
+    const fileBatch = Array.from({ length: IMPORT_APPLY_BATCH_SIZE }, (_, index) =>
+      plannedRow(index + 1, ImportRowAction.SKIP),
+    );
+    fileBatch[IMPORT_APPLY_BATCH_SIZE - 1] = plannedRow(
+      IMPORT_APPLY_BATCH_SIZE,
+      ImportRowAction.CREATE,
+    );
+    const lookahead = [
+      plannedRow(IMPORT_APPLY_BATCH_SIZE + 1, ImportRowAction.UPDATE),
+    ];
+
+    await expect(
+      handler.apply({
+        tenantId: 'tenant-1',
+        job: {
+          id: 'job-1',
+          source_system: 'legacy',
+          options_json: { worker },
+          totals_json: {
+            rows: IMPORT_APPLY_BATCH_SIZE + 1,
+            create: 0,
+            update: 0,
+            skip: 0,
+            error: 0,
+          },
+        },
+        rows: fileBatch,
+        actorUserId: 'user-1',
+        effectiveOptions: {},
+        preparation: { vendor: null },
+        batchOptions: {
+          resumeAfterRowNo: 0,
+          stopAfterBatch: true,
+          hasMoreRowsAfterBatch: false,
+          lookaheadRows: lookahead,
+          leaseToken: worker.lease_token,
+        },
+      }),
+    ).rejects.toBeInstanceOf(ImportWorkerLeaseLostError);
+    expect(worker.last_committed_row_no).toBe(0);
+
+    await handler.apply({
+      tenantId: 'tenant-1',
+      job: {
+        id: 'job-1',
+        source_system: 'legacy',
+        options_json: { worker },
+        totals_json: {
+          rows: IMPORT_APPLY_BATCH_SIZE + 1,
+          create: 0,
+          update: 0,
+          skip: 0,
+          error: 0,
+        },
+      },
+      rows: fileBatch,
+      actorUserId: 'user-1',
+      effectiveOptions: {},
+      preparation: { vendor: null },
+      batchOptions: {
+        resumeAfterRowNo: 0,
+        stopAfterBatch: true,
+        hasMoreRowsAfterBatch: false,
+        lookaheadRows: lookahead,
+        leaseToken: worker.lease_token,
+      },
+    });
+    expect(handler.applied).toContain(IMPORT_APPLY_BATCH_SIZE);
+    expect(worker.last_committed_row_no).toBe(IMPORT_APPLY_BATCH_SIZE + 1);
+  });
+
+  it('merges a closing update past a gap row in the lookahead window', async () => {
+    const fileBatch = Array.from({ length: IMPORT_APPLY_BATCH_SIZE }, (_, index) =>
+      plannedRow(index + 1, ImportRowAction.SKIP),
+    );
+    fileBatch[IMPORT_APPLY_BATCH_SIZE - 1] = plannedRow(
+      IMPORT_APPLY_BATCH_SIZE,
+      ImportRowAction.CREATE,
+    );
+    const lookahead = [
+      plannedRow(IMPORT_APPLY_BATCH_SIZE + 1, ImportRowAction.SKIP),
+      plannedRow(IMPORT_APPLY_BATCH_SIZE + 2, ImportRowAction.UPDATE),
+    ];
+    const ordered = buildVehiclePartyBackgroundApplyRows(fileBatch, lookahead);
+    expect(ordered.map((row) => row.row_no)).toEqual([
+      IMPORT_APPLY_BATCH_SIZE + 2,
+      ...Array.from({ length: IMPORT_APPLY_BATCH_SIZE - 1 }, (_, index) => index + 1),
+      IMPORT_APPLY_BATCH_SIZE,
+    ]);
   });
 });

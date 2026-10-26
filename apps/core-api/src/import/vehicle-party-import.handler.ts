@@ -45,7 +45,11 @@ export class VehiclePartyImportHandler extends RowByRowImportHandler {
         { ...input, rows },
         this.entityType,
         (tx, row) => this.writeRow(tx, row, input),
-        { ...batchOptions, applyEntireWorkerPage: true },
+        {
+          ...batchOptions,
+          applyEntireWorkerPage: true,
+          deferWorkerCursorCommits: true,
+        },
       );
     }
     return super.apply(input);
