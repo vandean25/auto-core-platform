@@ -6,6 +6,8 @@ import {
   Prisma,
 } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
+import { isRetryableTransactionError } from '../common/prisma/is-retryable-transaction-error.js';
+import { IMPORT_SERIALIZABLE_TX } from './import.constants.js';
 import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 import {
   IMPORT_WORKER_LEASE_MS,
@@ -297,13 +299,10 @@ export class ImportJobStore {
           }
           return refreshed;
         },
-        { isolationLevel: 'Serializable' },
+        IMPORT_SERIALIZABLE_TX,
       );
     } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2034'
-      ) {
+      if (isRetryableTransactionError(error)) {
         return null;
       }
       throw error;

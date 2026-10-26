@@ -7,7 +7,8 @@ import {
   Prisma,
 } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
-import { toRowApplyError } from './import-apply.errors.js';
+import { isRetryableTransactionError } from '../common/prisma/is-retryable-transaction-error.js';
+import { isRowLevelApplyError, toRowApplyError } from './import-apply.errors.js';
 import { assertApplyRowIsFresh } from './import-apply.freshness.js';
 import { resolveImportExternalId } from './import-apply.errors.js';
 import type { ImportAuditWriter } from './import-audit.writer.js';
@@ -24,10 +25,13 @@ import {
 import {
   ImportWorkerLeaseLostError,
   isImportWorkerContentionError,
-  isPrismaSerializationFailure,
 } from './import-worker.errors.js';
 import { planImportApplyBatch } from './import-apply-batch.plan.js';
-import { IMPORT_LOGGER_CONTEXT } from './import.constants.js';
+import {
+  IMPORT_LOGGER_CONTEXT,
+  IMPORT_ROW_TX_MAX_ATTEMPTS,
+  IMPORT_SERIALIZABLE_TX,
+} from './import.constants.js';
 import type {
   SerializedImportJob,
   SerializeImportJobFn,
@@ -59,11 +63,10 @@ function describeCause(error: unknown): string {
   return error instanceof Error ? error.name : 'unknown';
 }
 
-const SERIALIZABLE_ROW_TX = { isolationLevel: 'Serializable' as const };
-const SERIALIZABLE_ROW_TX_MAX_ATTEMPTS = 3;
-
-function serializationRetryDelayMs(): number {
-  return 15 + Math.floor(Math.random() * 35);
+function retryableTransactionDelayMs(attempt: number): number {
+  const cappedBase = Math.min(50 * 2 ** attempt, 2000);
+  const jitter = Math.floor(Math.random() * cappedBase * 0.25);
+  return cappedBase + jitter;
 }
 
 function delayMs(ms: number): Promise<void> {
@@ -73,9 +76,10 @@ function delayMs(ms: number): Promise<void> {
 }
 
 /**
- * Applies a job one row at a time, each row in its own transaction. Any row failure, whatever
- * its cause, becomes an ERROR row. A failure outside the rows marks the job FAILED and is
- * rethrown. Customer and vehicle imports use this runner.
+ * Applies a job one row at a time, each row in its own transaction. Row-level data problems
+ * become ERROR rows; transaction contention and timeouts are retried or rethrown. A failure
+ * outside the rows marks the job FAILED and is rethrown. Customer and vehicle imports use
+ * this runner.
  */
 export class RowByRowApplyRunner {
   private readonly logger = new Logger(IMPORT_LOGGER_CONTEXT);
@@ -331,11 +335,7 @@ export class RowByRowApplyRunner {
     if (maxApplySeq === 0) {
       throw new Error('Background apply job has no apply_seq assigned');
     }
-    for (
-      let attempt = 0;
-      attempt < SERIALIZABLE_ROW_TX_MAX_ATTEMPTS;
-      attempt++
-    ) {
+    for (let attempt = 0; attempt < IMPORT_ROW_TX_MAX_ATTEMPTS; attempt++) {
       try {
         const { nextTotals } = await this.commitImportSequenceRow(
           input,
@@ -352,7 +352,7 @@ export class RowByRowApplyRunner {
       } catch (error) {
         const outcome = this.sequenceRowAttemptOutcome(error, attempt);
         if (outcome === 'retry') {
-          await delayMs(serializationRetryDelayMs());
+          await delayMs(retryableTransactionDelayMs(attempt));
           continue;
         }
         if (outcome === 'rethrow') {
@@ -380,12 +380,13 @@ export class RowByRowApplyRunner {
     if (error instanceof ImportWorkerLeaseLostError) {
       return 'rethrow';
     }
-    if (isPrismaSerializationFailure(error)) {
-      return attempt < SERIALIZABLE_ROW_TX_MAX_ATTEMPTS - 1
-        ? 'retry'
-        : 'rethrow';
+    if (isRowLevelApplyError(error)) {
+      return 'mark_failed';
     }
-    return 'mark_failed';
+    if (isRetryableTransactionError(error)) {
+      return attempt < IMPORT_ROW_TX_MAX_ATTEMPTS - 1 ? 'retry' : 'rethrow';
+    }
+    return 'rethrow';
   }
 
   private async commitImportSequenceRow(
@@ -426,7 +427,7 @@ export class RowByRowApplyRunner {
         maxApplySeq,
       });
       return { nextTotals };
-    }, SERIALIZABLE_ROW_TX);
+    }, IMPORT_SERIALIZABLE_TX);
   }
 
   private async markImportSequenceRowFailed(
@@ -468,7 +469,7 @@ export class RowByRowApplyRunner {
         totals: nextTotals,
         maxApplySeq,
       });
-    }, SERIALIZABLE_ROW_TX);
+    }, IMPORT_SERIALIZABLE_TX);
     return nextTotals;
   }
 
@@ -549,10 +550,13 @@ export class RowByRowApplyRunner {
             applySeqForRow(row),
           );
         }
-      });
+      }, IMPORT_SERIALIZABLE_TX);
       tallyWrittenRow(totals, row.action);
     } catch (error) {
       if (error instanceof ImportWorkerLeaseLostError) {
+        throw error;
+      }
+      if (!isRowLevelApplyError(error)) {
         throw error;
       }
       this.logger.warn(
@@ -587,6 +591,6 @@ export class RowByRowApplyRunner {
         leaseToken,
         applySeq,
       );
-    });
+    }, IMPORT_SERIALIZABLE_TX);
   }
 }
