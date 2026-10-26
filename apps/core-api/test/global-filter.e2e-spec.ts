@@ -10,6 +10,7 @@ import {
   GlobalExceptionFilter,
 } from '../src/common/index.js';
 import { teardownTestApp } from './test-lifecycle.js';
+import * as Sentry from '@sentry/node';
 
 describe('GlobalExceptionFilter (e2e)', () => {
   let app: INestApplication;
@@ -95,5 +96,28 @@ describe('GlobalExceptionFilter (e2e)', () => {
     expect(response.body).toHaveProperty('statusCode');
     expect(response.body).toHaveProperty('message');
     expect(response.body).toHaveProperty('error');
+  });
+
+  it('returns 413 for an unauthenticated JSON body over 100 KiB without Sentry capture (AUT-731)', async () => {
+    const captureSpy = jest.spyOn(Sentry, 'captureException');
+    const oversizedBody = JSON.stringify({
+      padding: 'x'.repeat(101 * 1024),
+    });
+
+    const response = await request(app.getHttpServer())
+      .post('/api/customers')
+      .set('Content-Type', 'application/json')
+      .send(oversizedBody);
+
+    expect(response.status).toBe(HttpStatus.PAYLOAD_TOO_LARGE);
+    expect(response.body).toMatchObject({
+      statusCode: HttpStatus.PAYLOAD_TOO_LARGE,
+      error: 'Payload Too Large',
+      code: 'HTTP_413',
+    });
+    expect(response.body).toHaveProperty('message');
+    expect(response.body).not.toHaveProperty('requestId');
+    expect(captureSpy).not.toHaveBeenCalled();
+    captureSpy.mockRestore();
   });
 });

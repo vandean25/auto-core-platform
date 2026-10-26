@@ -49,6 +49,68 @@ type ErrorRequestContext = {
   actorId?: string;
 };
 
+type BodyParserHttpError = Error & {
+  expose?: boolean;
+  status?: number;
+  statusCode?: number;
+  type?: unknown;
+};
+
+const BODY_PARSER_HTTP_ERROR_TYPES = new Set([
+  'entity.too.large',
+  'entity.parse.failed',
+  'encoding.unsupported',
+  'charset.unsupported',
+  'request.aborted',
+]);
+
+function asBodyParserHttpError(
+  exception: Error,
+): { status: number; type: string; message: string } | undefined {
+  const err = exception as BodyParserHttpError;
+  if (err.expose !== true) {
+    return undefined;
+  }
+  const status = err.status ?? err.statusCode;
+  if (typeof status !== 'number' || status < 400 || status > 499) {
+    return undefined;
+  }
+  if (
+    typeof err.type !== 'string' ||
+    !BODY_PARSER_HTTP_ERROR_TYPES.has(err.type)
+  ) {
+    return undefined;
+  }
+  return { status, type: err.type, message: err.message };
+}
+
+function resolveBodyParserHttpError(
+  exception: unknown,
+  context: ErrorRequestContext,
+  logger: Logger,
+): ResolvedError | undefined {
+  if (!(exception instanceof Error)) {
+    return undefined;
+  }
+  const parsed = asBodyParserHttpError(exception);
+  if (!parsed) {
+    return undefined;
+  }
+
+  logger.warn(
+    JSON.stringify({
+      type: parsed.type,
+      ...(context.requestId ? { requestId: context.requestId } : {}),
+    }),
+  );
+
+  return {
+    status: parsed.status,
+    message: parsed.message,
+    code: resolveHttpStatusFallbackCode(parsed.status),
+  };
+}
+
 /** The allowlisted extras a client may see for an operational error. Empty for any other body. */
 function pickClientSafeFields(
   safeBody: Record<string, unknown> | undefined,
@@ -115,6 +177,14 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }
     if (exception instanceof ApplicationError) {
       return this.handleApplicationError(exception);
+    }
+    const bodyParserError = resolveBodyParserHttpError(
+      exception,
+      context,
+      this.logger,
+    );
+    if (bodyParserError) {
+      return bodyParserError;
     }
     if (exception instanceof Error) {
       return this.handleGenericError(exception, context);
@@ -329,6 +399,10 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         return 'Not Found';
       case 409:
         return 'Conflict';
+      case 413:
+        return 'Payload Too Large';
+      case 415:
+        return 'Unsupported Media Type';
       case 422:
         return 'Unprocessable Entity';
       case 500:
