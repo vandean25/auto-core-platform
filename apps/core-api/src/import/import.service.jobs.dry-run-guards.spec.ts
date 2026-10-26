@@ -145,20 +145,30 @@ describe('ImportService job lifecycle — createDryRunFromUpload request guards'
     });
 
     it('rejects more than the row limit with IMPORT_ROW_LIMIT_EXCEEDED', async () => {
+      const previousLimit = process.env.IMPORT_MAX_ROW_COUNT;
+      process.env.IMPORT_MAX_ROW_COUNT = '20000';
       const dataRows = Array.from({ length: 20_001 }, (_, i) => `K-${i}`);
       const text = ['external_id', ...dataRows].join('\n');
 
-      await expect(
-        h.service.createDryRunFromUpload(
-          dryRunParams(ImportEntityType.CUSTOMER, text),
-        ),
-      ).rejects.toMatchObject({
-        status: 400,
-        response: {
-          code: IMPORT_ERROR_CODES.ROW_LIMIT_EXCEEDED,
-          message: 'CSV exceeds 20000 rows',
-        },
-      });
+      try {
+        await expect(
+          h.service.createDryRunFromUpload(
+            dryRunParams(ImportEntityType.CUSTOMER, text),
+          ),
+        ).rejects.toMatchObject({
+          status: 400,
+          response: {
+            code: IMPORT_ERROR_CODES.ROW_LIMIT_EXCEEDED,
+            message: 'CSV exceeds 20000 rows',
+          },
+        });
+      } finally {
+        if (previousLimit === undefined) {
+          delete process.env.IMPORT_MAX_ROW_COUNT;
+        } else {
+          process.env.IMPORT_MAX_ROW_COUNT = previousLimit;
+        }
+      }
     });
   });
 

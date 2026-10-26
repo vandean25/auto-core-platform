@@ -1,4 +1,4 @@
-import { writeFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Plugin } from 'vite'
 import { normalizeAppVersion } from '../src/lib/app-version.ts'
@@ -15,6 +15,7 @@ export function emitVersionJsonPlugin(appVersion: string): Plugin {
     closeBundle() {
       const version = normalizeAppVersion(appVersion)
       const payload = `${JSON.stringify({ version } satisfies { version: string })}\n`
+      mkdirSync(outDir, { recursive: true })
       writeFileSync(join(outDir, 'version.json'), payload, 'utf8')
     },
   }

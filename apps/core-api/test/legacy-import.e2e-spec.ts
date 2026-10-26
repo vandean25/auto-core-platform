@@ -13,10 +13,7 @@ import {
   runWithTenantContext,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
-import {
-  IMPORT_MAX_FILE_BYTES,
-  IMPORT_MAX_ROW_COUNT,
-} from '../src/import/import.constants.js';
+import { IMPORT_MAX_FILE_BYTES } from '../src/import/import.constants.js';
 import { serializeCsv } from '../src/import/csv-parse.util.js';
 
 describe('Legacy CSV import (e2e)', () => {
@@ -50,6 +47,7 @@ describe('Legacy CSV import (e2e)', () => {
   };
 
   beforeAll(async () => {
+    process.env.IMPORT_MAX_ROW_COUNT = '20000';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -262,7 +260,7 @@ describe('Legacy CSV import (e2e)', () => {
 
     await cleanupTestTenantGraph(prisma, techTenant.tenantId);
 
-    const rows = Array.from({ length: IMPORT_MAX_ROW_COUNT + 1 }, (_, i) => [
+    const rows = Array.from({ length: 20_001 }, (_, i) => [
       String(10_000 + i),
       'PRIVATE',
       'Bulk',
@@ -585,6 +583,58 @@ describe('Legacy CSV import (e2e)', () => {
         mapping: { external_id: 'Kunden-Nr' },
       })
       .expect(400);
+  });
+
+  describe('background dry-run threshold', () => {
+    const mapping = {
+      external_id: 'Kunden-Nr',
+      first_name: 'Vorname',
+      last_name: 'Nachname',
+    };
+
+    beforeAll(() => {
+      process.env.IMPORT_UPLOAD_STORAGE = 'local';
+      process.env.IMPORT_SYNC_MAX_ROW_COUNT = '2';
+    });
+
+    it('queues a background dry-run for files above the sync row threshold', async () => {
+      const rows = Array.from({ length: 5 }, (_, i) => [
+        String(1000 + i),
+        `Name${i}`,
+        `Family${i}`,
+      ]);
+      const csv = serializeCsv(
+        ['Kunden-Nr', 'Vorname', 'Nachname'],
+        rows,
+        ';',
+      );
+
+      const createRes = await request(app.getHttpServer())
+        .post('/imports')
+        .set('Authorization', authHeaderA)
+        .field('entityType', 'CUSTOMER')
+        .field('sourceSystem', 'synthetic_dms:bg')
+        .field('mapping', JSON.stringify(mapping))
+        .attach('file', Buffer.from(csv, 'utf8'), 'customers.csv')
+        .expect(201);
+
+      expect(createRes.body.status).toBe('APPLYING');
+      expect(createRes.body.progress).toBeTruthy();
+
+      const jobId = createRes.body.id as string;
+      let job = createRes.body;
+      for (let attempt = 0; attempt < 30 && job.status === 'APPLYING'; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        const poll = await request(app.getHttpServer())
+          .get(`/imports/${jobId}`)
+          .set('Authorization', authHeaderA)
+          .expect(200);
+        job = poll.body;
+      }
+
+      expect(job.status).toBe('DRY_RUN_DONE');
+      expect(job.totals.rows).toBe(5);
+    });
   });
 
   it('rejects duplicate mapping profile names per tenant', async () => {

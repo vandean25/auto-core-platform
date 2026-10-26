@@ -5,6 +5,9 @@ import { TenantContextService } from '../common/services/tenant-context.service.
 import { DecisionUseCaseHooksService } from '../decision/decision-use-case-hooks.service.js';
 import { DecisionLiveApplyService } from '../decision/decision-live-apply.service.js';
 import { RequestContextService } from '../common/services/request-context.service.js';
+import { SystemPrismaService } from '../prisma/system-prisma.service.js';
+import { ImportCloudTasksService } from './import-cloud-tasks.service.js';
+import { ImportFileStorageService } from './import-file.storage.js';
 import { ImportService } from './import.service.js';
 
 export const TENANT_ID = 'tenant-1';
@@ -150,6 +153,26 @@ export function setupImportHarness(): ImportHarness {
           useValue: harness.decisionLive,
         },
         { provide: RequestContextService, useValue: harness.requestContext },
+        {
+          provide: SystemPrismaService,
+          useValue: { withCronJobLock: jest.fn(async (_n, fn) => fn()) },
+        },
+        {
+          provide: ImportFileStorageService,
+          useValue: {
+            storeUpload: jest.fn(),
+            readBytes: jest.fn(),
+            openReadStream: jest.fn(),
+            deleteUpload: jest.fn(),
+          },
+        },
+        {
+          provide: ImportCloudTasksService,
+          useValue: {
+            isEnabled: jest.fn().mockReturnValue(false),
+            enqueueImportWorker: jest.fn(),
+          },
+        },
       ],
     }).compile();
     harness.service = moduleRef.get(ImportService);

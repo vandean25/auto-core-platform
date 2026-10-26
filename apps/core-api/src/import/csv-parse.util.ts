@@ -8,11 +8,15 @@ export type ParsedCsv = {
   sha256: string;
 };
 
-function stripBom(text: string): string {
+export function stripBomFromText(text: string): string {
   return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
 }
 
-function decodeCsvBuffer(buffer: Buffer): string {
+function stripBom(text: string): string {
+  return stripBomFromText(text);
+}
+
+export function decodeCsvBuffer(buffer: Buffer): string {
   const asUtf8 = stripBom(buffer.toString('utf8'));
   if (!asUtf8.includes('\uFFFD')) {
     return asUtf8;
@@ -20,7 +24,7 @@ function decodeCsvBuffer(buffer: Buffer): string {
   return stripBom(iconv.decode(buffer, 'win1252'));
 }
 
-function detectDelimiter(headerLine: string): ';' | ',' {
+export function detectDelimiterFromHeaderLine(headerLine: string): ';' | ',' {
   const semicolons = (headerLine.match(/;/g) ?? []).length;
   const commas = (headerLine.match(/,/g) ?? []).length;
   return semicolons >= commas ? ';' : ',';
@@ -34,57 +38,83 @@ export function sanitizeCsvInjectionValue(value: string): string {
   return value;
 }
 
-function parseCsvRecords(text: string, delimiter: string): string[][] {
-  const rows: string[][] = [];
-  let currentRow: string[] = [];
-  let currentCell = '';
-  let inQuotes = false;
+type CsvRecordParseState = {
+  rows: string[][];
+  currentRow: string[];
+  currentCell: string;
+  inQuotes: boolean;
+};
+
+function pushCsvRow(state: CsvRecordParseState): void {
+  state.currentRow.push(state.currentCell.trim());
+  if (state.currentRow.some((cell) => cell.length > 0)) {
+    state.rows.push(state.currentRow);
+  }
+  state.currentRow = [];
+  state.currentCell = '';
+}
+
+function consumeQuotedCsvChar(
+  state: CsvRecordParseState,
+  text: string,
+  index: number,
+): number {
+  const char = text[index];
+  if (char !== '"') {
+    state.currentCell += char;
+    return index;
+  }
+  if (text[index + 1] === '"') {
+    state.currentCell += '"';
+    return index + 1;
+  }
+  state.inQuotes = false;
+  return index;
+}
+
+function consumeUnquotedCsvChar(
+  state: CsvRecordParseState,
+  char: string,
+  delimiter: string,
+): void {
+  if (char === '"') {
+    state.inQuotes = true;
+    return;
+  }
+  if (char === delimiter) {
+    state.currentRow.push(state.currentCell.trim());
+    state.currentCell = '';
+    return;
+  }
+  if (char === '\n') {
+    pushCsvRow(state);
+    return;
+  }
+  state.currentCell += char;
+}
+
+export function parseCsvRecords(text: string, delimiter: string): string[][] {
+  const state: CsvRecordParseState = {
+    rows: [],
+    currentRow: [],
+    currentCell: '',
+    inQuotes: false,
+  };
 
   for (let index = 0; index < text.length; index += 1) {
     const char = text[index];
-    if (inQuotes) {
-      if (char === '"') {
-        if (text[index + 1] === '"') {
-          currentCell += '"';
-          index += 1;
-        } else {
-          inQuotes = false;
-        }
-      } else {
-        currentCell += char;
-      }
+    if (state.inQuotes) {
+      index = consumeQuotedCsvChar(state, text, index);
       continue;
     }
-
-    if (char === '"') {
-      inQuotes = true;
-      continue;
-    }
-    if (char === delimiter) {
-      currentRow.push(currentCell.trim());
-      currentCell = '';
-      continue;
-    }
-    if (char === '\n') {
-      currentRow.push(currentCell.trim());
-      if (currentRow.some((cell) => cell.length > 0)) {
-        rows.push(currentRow);
-      }
-      currentRow = [];
-      currentCell = '';
-      continue;
-    }
-    currentCell += char;
+    consumeUnquotedCsvChar(state, char, delimiter);
   }
 
-  if (currentCell.length > 0 || currentRow.length > 0) {
-    currentRow.push(currentCell.trim());
-    if (currentRow.some((cell) => cell.length > 0)) {
-      rows.push(currentRow);
-    }
+  if (state.currentCell.length > 0 || state.currentRow.length > 0) {
+    pushCsvRow(state);
   }
 
-  return rows;
+  return state.rows;
 }
 
 export function parseCsvFile(buffer: Buffer): ParsedCsv {
@@ -102,7 +132,7 @@ export function parseCsvFile(buffer: Buffer): ParsedCsv {
 
   const firstLineEnd = text.indexOf('\n');
   const headerLine = firstLineEnd === -1 ? text : text.slice(0, firstLineEnd);
-  const delimiter = detectDelimiter(headerLine);
+  const delimiter = detectDelimiterFromHeaderLine(headerLine);
   const records = parseCsvRecords(text, delimiter);
 
   if (records.length === 0) {

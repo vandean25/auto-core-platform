@@ -1,38 +1,145 @@
 import { BadRequestException } from '@nestjs/common';
+import { createReadStream } from 'node:fs';
+import { readFile, unlink } from 'node:fs/promises';
 import { parseCsvFile, type ParsedCsv } from './csv-parse.util.js';
+import { parseCsvBufferHeadersOnly } from './import-csv-batch.util.js';
+import { assessImportCsvFromReadable } from './import-csv-stream.util.js';
+import { IMPORT_ERROR_CODES } from './import.constants.js';
+import { buildImportMulterStagingPath } from './import-staging-path.js';
 import {
-  IMPORT_ERROR_CODES,
-  IMPORT_MAX_FILE_BYTES,
-  IMPORT_MAX_ROW_COUNT,
-} from './import.constants.js';
+  isBackgroundImportCandidate,
+  readImportMaxFileBytes,
+  readImportMaxRowCount,
+} from './import-limits.js';
 
-/** Checks an uploaded CSV and parses it. Rejects empty, oversized and over-long files. */
-export function parseImportUpload(file: Express.Multer.File): ParsedCsv {
-  if (!file?.buffer) {
+export type ImportUploadStats = {
+  parsed?: ParsedCsv;
+  rowCount: number;
+  sha256: string;
+  useBackground: boolean;
+};
+
+function assertRowLimits(dataRowCount: number): void {
+  const maxRowCount = readImportMaxRowCount();
+  if (dataRowCount > maxRowCount) {
     throw new BadRequestException({
-      code: IMPORT_ERROR_CODES.EMPTY_FILE,
-      message: 'CSV file is required',
+      code: IMPORT_ERROR_CODES.ROW_LIMIT_EXCEEDED,
+      message: `CSV exceeds ${maxRowCount} rows`,
     });
   }
-  if (file.size > IMPORT_MAX_FILE_BYTES) {
-    throw new BadRequestException({
-      code: IMPORT_ERROR_CODES.FILE_TOO_LARGE,
-      message: `CSV file exceeds ${IMPORT_MAX_FILE_BYTES} bytes`,
-    });
-  }
+}
 
-  const parsed = parseCsvFile(file.buffer);
-  if (parsed.headers.length === 0 || parsed.rows.length === 0) {
+function assertNonEmpty(headers: string[], dataRowCount: number): void {
+  if (headers.length === 0 || dataRowCount === 0) {
     throw new BadRequestException({
       code: IMPORT_ERROR_CODES.EMPTY_FILE,
       message: 'CSV file has no data rows',
     });
   }
-  if (parsed.rows.length > IMPORT_MAX_ROW_COUNT) {
+}
+
+function openStagingReadStream(request: object): NodeJS.ReadableStream {
+  const stagingPath = buildImportMulterStagingPath(request);
+  return createReadStream(stagingPath);
+}
+
+/** Checks an uploaded CSV and parses it when the file is small enough for sync handling. */
+export async function assessImportUpload(
+  file: Express.Multer.File,
+  request?: object,
+): Promise<ImportUploadStats> {
+  if (!file?.buffer && !request) {
     throw new BadRequestException({
-      code: IMPORT_ERROR_CODES.ROW_LIMIT_EXCEEDED,
-      message: `CSV exceeds ${IMPORT_MAX_ROW_COUNT} rows`,
+      code: IMPORT_ERROR_CODES.EMPTY_FILE,
+      message: 'CSV file is required',
     });
   }
-  return parsed;
+  const maxFileBytes = readImportMaxFileBytes();
+  if (file.size > maxFileBytes) {
+    throw new BadRequestException({
+      code: IMPORT_ERROR_CODES.FILE_TOO_LARGE,
+      message: `CSV file exceeds ${maxFileBytes} bytes`,
+    });
+  }
+
+  const useBackgroundBySize = isBackgroundImportCandidate({
+    fileBytes: file.size,
+  });
+
+  if (request) {
+    if (useBackgroundBySize) {
+      const headerStats = await assessImportCsvFromReadable(
+        openStagingReadStream(request),
+      );
+      assertNonEmpty(headerStats.headers, headerStats.dataRowCount);
+      assertRowLimits(headerStats.dataRowCount);
+      return {
+        rowCount: headerStats.dataRowCount,
+        sha256: headerStats.sha256,
+        useBackground: true,
+      };
+    }
+    const stagingPath = buildImportMulterStagingPath(request);
+    const buffer = await readFile(stagingPath);
+    const headerStats = parseCsvBufferHeadersOnly(buffer);
+    assertNonEmpty(headerStats.headers, headerStats.dataRowCount);
+    assertRowLimits(headerStats.dataRowCount);
+    const useBackground = isBackgroundImportCandidate({
+      fileBytes: file.size,
+      rowCount: headerStats.dataRowCount,
+    });
+    if (useBackground) {
+      return {
+        rowCount: headerStats.dataRowCount,
+        sha256: headerStats.sha256,
+        useBackground: true,
+      };
+    }
+    await unlink(stagingPath).catch(() => undefined);
+    const parsed = parseCsvFile(buffer);
+    return {
+      parsed,
+      rowCount: parsed.rows.length,
+      sha256: parsed.sha256,
+      useBackground: false,
+    };
+  }
+
+  const buffer = file.buffer;
+  const headerStats = parseCsvBufferHeadersOnly(buffer);
+  assertNonEmpty(headerStats.headers, headerStats.dataRowCount);
+  assertRowLimits(headerStats.dataRowCount);
+
+  const useBackground = isBackgroundImportCandidate({
+    fileBytes: file.size,
+    rowCount: headerStats.dataRowCount,
+  });
+  if (useBackground) {
+    return {
+      rowCount: headerStats.dataRowCount,
+      sha256: headerStats.sha256,
+      useBackground: true,
+    };
+  }
+
+  const parsed = parseCsvFile(buffer);
+  return {
+    parsed,
+    rowCount: parsed.rows.length,
+    sha256: parsed.sha256,
+    useBackground: false,
+  };
+}
+
+export async function unlinkImportMulterStagingFile(
+  request: object,
+): Promise<void> {
+  const stagingPath = buildImportMulterStagingPath(request);
+  await unlink(stagingPath).catch(() => undefined);
+}
+
+export function openImportMulterStagingReadStream(
+  request: object,
+): NodeJS.ReadableStream {
+  return openStagingReadStream(request);
 }

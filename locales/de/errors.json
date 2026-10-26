@@ -158,6 +158,7 @@
     "IMPORT_ARTICLE_NOT_FOUND": "Import-Artikel nicht gefunden.",
     "IMPORT_CONSENT_COLUMN_IGNORED": "Zustimmungsspalte beim Import ignoriert.",
     "IMPORT_DESCRIPTION_REQUIRED": "Beschreibung beim Import erforderlich.",
+    "IMPORT_DRY_RUN_IN_PROGRESS": "Import-Probelauf läuft bereits.",
     "IMPORT_DUPLICATE_ARTICLE_NO_IN_FILE": "Doppelte Artikelnummer in der Importdatei.",
     "IMPORT_DUPLICATE_CODE_IN_FILE": "Doppelter AW-Code in der Importdatei.",
     "IMPORT_DUPLICATE_EMAIL_IN_FILE": "Doppelte E-Mail-Adresse in der Importdatei.",

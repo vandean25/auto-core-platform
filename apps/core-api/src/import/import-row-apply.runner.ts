@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common';
+import * as Sentry from '@sentry/node';
 import {
   ImportEntityType,
   ImportJobStatus,
@@ -8,15 +9,38 @@ import {
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { toRowApplyError } from './import-apply.errors.js';
 import { assertApplyRowIsFresh } from './import-apply.freshness.js';
+import { resolveImportExternalId } from './import-apply.errors.js';
 import type { ImportAuditWriter } from './import-audit.writer.js';
-import { markImportRowFailed } from './import-job.store.js';
+import { applySeqForRow } from './import-apply-sequence.js';
+import {
+  assertApplyWorkerLease,
+  commitBackgroundApplyRowInTransaction,
+} from './import-background-apply.commit.js';
+import { persistImportJobApplyingTotals } from './import-job.guarded-persist.util.js';
+import {
+  commitApplyWorkerRowInTransaction,
+  markImportRowFailed,
+} from './import-job.store.js';
+import {
+  ImportWorkerLeaseLostError,
+  isImportWorkerContentionError,
+  isPrismaSerializationFailure,
+} from './import-worker.errors.js';
+import { planImportApplyBatch } from './import-apply-batch.plan.js';
 import { IMPORT_LOGGER_CONTEXT } from './import.constants.js';
 import type {
   SerializedImportJob,
   SerializeImportJobFn,
 } from './import-job.serializer.js';
-import { createApplyTotals, tallyWrittenRow } from './import-totals.util.js';
+import {
+  createApplyTotals,
+  createResumedApplyTotals,
+  importTotalsAfterApplyRowTally,
+  type ImportApplyRowTally,
+  tallyWrittenRow,
+} from './import-totals.util.js';
 import type {
+  ImportApplyBatchOptions,
   ImportApplyInput,
   ImportApplyRow,
 } from './import-type-handler.js';
@@ -33,6 +57,19 @@ function describeCause(error: unknown): string {
     return error.code;
   }
   return error instanceof Error ? error.name : 'unknown';
+}
+
+const SERIALIZABLE_ROW_TX = { isolationLevel: 'Serializable' as const };
+const SERIALIZABLE_ROW_TX_MAX_ATTEMPTS = 3;
+
+function serializationRetryDelayMs(): number {
+  return 15 + Math.floor(Math.random() * 35);
+}
+
+function delayMs(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }
 
 /**
@@ -53,39 +90,199 @@ export class RowByRowApplyRunner {
     input: ImportApplyInput,
     entityType: ImportEntityType,
     writeRow: ImportRowWriter,
+    options?: ImportApplyBatchOptions,
   ): Promise<SerializedImportJob> {
-    const { tenantId, job, rows, actorUserId } = input;
-    const totals = createApplyTotals(rows.length);
+    const { job, rows } = input;
+    const storedTotals = job.totals_json as ImportJobTotals | null;
+    const totals =
+      options?.stopAfterBatch && storedTotals
+        ? createResumedApplyTotals(rows.length, storedTotals)
+        : createApplyTotals(Math.max(rows.length, storedTotals?.rows ?? 0));
+    const plan = planImportApplyBatch(rows, options);
+    const guardedWrite = Boolean(options?.stopAfterBatch);
 
     try {
-      for (const row of rows) {
-        await this.applyOne(input, entityType, writeRow, row, totals);
+      await this.runApplyBatchSpan(
+        input,
+        entityType,
+        writeRow,
+        plan.batchRows,
+        totals,
+        plan.resumeAfter,
+        options,
+      );
+      return await this.finishApplyRun(
+        input,
+        totals,
+        guardedWrite,
+        plan.batchIncomplete,
+        options,
+      );
+    } catch (error) {
+      if (this.shouldRethrowApplyRunError(error)) {
+        throw error;
       }
+      await this.markJobFailed(job.id, totals, guardedWrite);
+      throw error;
+    }
+  }
 
-      const updated = await this.prisma.importJob.update({
-        where: { id: job.id },
+  private shouldRethrowApplyRunError(error: unknown): boolean {
+    return (
+      error instanceof ImportWorkerLeaseLostError ||
+      isImportWorkerContentionError(error)
+    );
+  }
+
+  private async finishApplyRun(
+    input: ImportApplyInput,
+    totals: ImportJobTotals,
+    guardedWrite: boolean,
+    batchIncomplete: boolean,
+    options?: ImportApplyBatchOptions,
+  ): Promise<SerializedImportJob> {
+    const { tenantId, job, actorUserId } = input;
+    const refreshed = await this.prisma.importJob.findFirst({
+      where: { id: job.id },
+    });
+    if (options?.useApplySequence) {
+      const appliedTotals =
+        (refreshed?.totals_json as ImportJobTotals) ?? totals;
+      if (refreshed?.status === ImportJobStatus.APPLIED) {
+        await this.audit.writeImportJobAudit(
+          this.prisma,
+          tenantId,
+          actorUserId,
+          job.id,
+          'applied',
+          appliedTotals,
+        );
+        return this.serialize(refreshed, appliedTotals);
+      }
+      const partialJob = await persistImportJobApplyingTotals(
+        this.prisma,
+        job.id,
+        totals,
+        guardedWrite,
+      );
+      return this.serialize(partialJob!, appliedTotals);
+    }
+    if (batchIncomplete) {
+      const partialJob = await persistImportJobApplyingTotals(
+        this.prisma,
+        job.id,
+        totals,
+        guardedWrite,
+      );
+      return this.serialize(partialJob!, totals);
+    }
+    const updatedJob = await this.markJobApplied(job.id, totals, guardedWrite);
+    await this.audit.writeImportJobAudit(
+      this.prisma,
+      tenantId,
+      actorUserId,
+      job.id,
+      'applied',
+      totals,
+    );
+    return this.serialize(updatedJob!, totals);
+  }
+
+  private async runApplyBatchSpan(
+    input: ImportApplyInput,
+    entityType: ImportEntityType,
+    writeRow: ImportRowWriter,
+    batchRows: ImportApplyRow[],
+    totals: ImportJobTotals,
+    resumeAfter: number,
+    options?: ImportApplyInput['batchOptions'],
+  ): Promise<void> {
+    await Sentry.startSpan(
+      {
+        name: 'Import apply batch',
+        op: 'import.apply.batch',
+        attributes: {
+          jobId: input.job.id,
+          batchSize: batchRows.length,
+          resumeAfterApplySeq: resumeAfter,
+        },
+      },
+      async () => {
+        for (const row of batchRows) {
+          await this.applyOne(
+            input,
+            entityType,
+            writeRow,
+            row,
+            totals,
+            options,
+          );
+        }
+      },
+    );
+  }
+
+  private async markJobApplied(
+    jobId: string,
+    totals: ImportJobTotals,
+    guardedWrite: boolean,
+  ) {
+    if (guardedWrite) {
+      await this.prisma.importJob.updateMany({
+        where: { id: jobId, status: ImportJobStatus.APPLYING },
         data: {
           status: ImportJobStatus.APPLIED,
           appliedAt: new Date(),
           totals_json: totals,
         },
       });
-      await this.audit.writeImportJobAudit(
-        this.prisma,
-        tenantId,
-        actorUserId,
-        job.id,
-        'applied',
-        totals,
-      );
-      return this.serialize(updated, totals);
-    } catch (error) {
-      await this.prisma.importJob.update({
-        where: { id: job.id },
+      return this.prisma.importJob.findFirst({ where: { id: jobId } });
+    }
+    return this.prisma.importJob.update({
+      where: { id: jobId },
+      data: {
+        status: ImportJobStatus.APPLIED,
+        appliedAt: new Date(),
+        totals_json: totals,
+      },
+    });
+  }
+
+  private async markJobFailed(
+    jobId: string,
+    totals: ImportJobTotals,
+    guardedWrite: boolean,
+  ): Promise<void> {
+    if (guardedWrite) {
+      await this.prisma.importJob.updateMany({
+        where: { id: jobId, status: ImportJobStatus.APPLYING },
         data: { status: ImportJobStatus.FAILED, totals_json: totals },
       });
-      throw error;
+      return;
     }
+    await this.prisma.importJob.update({
+      where: { id: jobId },
+      data: { status: ImportJobStatus.FAILED, totals_json: totals },
+    });
+  }
+
+  private async isCreateAlreadyCommittedByJob(
+    input: ImportApplyInput,
+    entityType: ImportEntityType,
+    row: ImportApplyRow,
+  ): Promise<boolean> {
+    const payload = row.normalized_json as Record<string, unknown>;
+    const externalId = resolveImportExternalId(payload, row.external_id);
+    const mapping = await this.prisma.externalIdMapping.findFirst({
+      where: {
+        tenant_id: input.tenantId,
+        entity_type: entityType,
+        source_system: input.job.source_system,
+        external_id: externalId,
+      },
+      select: { first_seen_import_job_id: true },
+    });
+    return mapping?.first_seen_import_job_id === input.job.id;
   }
 
   private async applyOne(
@@ -94,17 +291,244 @@ export class RowByRowApplyRunner {
     writeRow: ImportRowWriter,
     row: ImportApplyRow,
     totals: ImportJobTotals,
+    options?: ImportApplyBatchOptions,
+  ): Promise<void> {
+    if (options?.useApplySequence) {
+      await this.applyOneWithSequence(
+        input,
+        entityType,
+        writeRow,
+        row,
+        totals,
+        options,
+      );
+      return;
+    }
+    await this.applyOneLegacy(
+      input,
+      entityType,
+      writeRow,
+      row,
+      totals,
+      options,
+    );
+  }
+
+  private async applyOneWithSequence(
+    input: ImportApplyInput,
+    entityType: ImportEntityType,
+    writeRow: ImportRowWriter,
+    row: ImportApplyRow,
+    totals: ImportJobTotals,
+    options: ImportApplyBatchOptions,
+  ): Promise<void> {
+    const applySeq = row.apply_seq;
+    const leaseToken = options.leaseToken;
+    const maxApplySeq = options.maxApplySeq;
+    if (applySeq == null || !leaseToken || maxApplySeq == null) {
+      throw new Error('Background apply row is missing apply_seq');
+    }
+    if (maxApplySeq === 0) {
+      throw new Error('Background apply job has no apply_seq assigned');
+    }
+    for (
+      let attempt = 0;
+      attempt < SERIALIZABLE_ROW_TX_MAX_ATTEMPTS;
+      attempt++
+    ) {
+      try {
+        const { nextTotals } = await this.commitImportSequenceRow(
+          input,
+          entityType,
+          writeRow,
+          row,
+          totals,
+          leaseToken,
+          applySeq,
+          maxApplySeq,
+        );
+        Object.assign(totals, nextTotals);
+        return;
+      } catch (error) {
+        const outcome = this.sequenceRowAttemptOutcome(error, attempt);
+        if (outcome === 'retry') {
+          await delayMs(serializationRetryDelayMs());
+          continue;
+        }
+        if (outcome === 'rethrow') {
+          throw error;
+        }
+        const nextTotals = await this.markImportSequenceRowFailed(
+          input,
+          row,
+          totals,
+          leaseToken,
+          applySeq,
+          maxApplySeq,
+          error,
+        );
+        Object.assign(totals, nextTotals);
+        return;
+      }
+    }
+  }
+
+  private sequenceRowAttemptOutcome(
+    error: unknown,
+    attempt: number,
+  ): 'retry' | 'rethrow' | 'mark_failed' {
+    if (error instanceof ImportWorkerLeaseLostError) {
+      return 'rethrow';
+    }
+    if (isPrismaSerializationFailure(error)) {
+      return attempt < SERIALIZABLE_ROW_TX_MAX_ATTEMPTS - 1
+        ? 'retry'
+        : 'rethrow';
+    }
+    return 'mark_failed';
+  }
+
+  private async commitImportSequenceRow(
+    input: ImportApplyInput,
+    entityType: ImportEntityType,
+    writeRow: ImportRowWriter,
+    row: ImportApplyRow,
+    totals: ImportJobTotals,
+    leaseToken: string,
+    applySeq: number,
+    maxApplySeq: number,
+  ): Promise<{ nextTotals: ImportJobTotals }> {
+    return this.prisma.$transaction(async (tx) => {
+      await assertApplyWorkerLease(
+        tx,
+        input.tenantId,
+        input.job.id,
+        leaseToken,
+      );
+      const rowTally = await this.applyRowBodyInTransaction(
+        tx,
+        input,
+        entityType,
+        writeRow,
+        row,
+      );
+      const nextTotals = importTotalsAfterApplyRowTally(
+        totals,
+        row.action,
+        rowTally,
+      );
+      await commitBackgroundApplyRowInTransaction(tx, {
+        tenantId: input.tenantId,
+        jobId: input.job.id,
+        leaseToken,
+        applySeq,
+        totals: nextTotals,
+        maxApplySeq,
+      });
+      return { nextTotals };
+    }, SERIALIZABLE_ROW_TX);
+  }
+
+  private async markImportSequenceRowFailed(
+    input: ImportApplyInput,
+    row: ImportApplyRow,
+    totals: ImportJobTotals,
+    leaseToken: string,
+    applySeq: number,
+    maxApplySeq: number,
+    error: unknown,
+  ): Promise<ImportJobTotals> {
+    this.logger.warn(
+      `Import apply row failed jobId=${input.job.id} rowNo=${row.row_no} cause=${describeCause(error)}`,
+    );
+    const nextTotals = importTotalsAfterApplyRowTally(
+      totals,
+      row.action,
+      'error',
+    );
+    await this.prisma.$transaction(async (tx) => {
+      await tx.importJobRow.update({
+        where: {
+          tenant_id_import_job_id_row_no: {
+            tenant_id: input.tenantId,
+            import_job_id: input.job.id,
+            row_no: row.row_no,
+          },
+        },
+        data: {
+          action: ImportRowAction.ERROR,
+          errors_json: [toRowApplyError(error)],
+        },
+      });
+      await commitBackgroundApplyRowInTransaction(tx, {
+        tenantId: input.tenantId,
+        jobId: input.job.id,
+        leaseToken,
+        applySeq,
+        totals: nextTotals,
+        maxApplySeq,
+      });
+    }, SERIALIZABLE_ROW_TX);
+    return nextTotals;
+  }
+
+  private async applyRowBodyInTransaction(
+    tx: Prisma.TransactionClient,
+    input: ImportApplyInput,
+    entityType: ImportEntityType,
+    writeRow: ImportRowWriter,
+    row: ImportApplyRow,
+  ): Promise<ImportApplyRowTally> {
+    if (row.action === ImportRowAction.ERROR) {
+      return 'error';
+    }
+    if (row.action === ImportRowAction.SKIP) {
+      return 'skip';
+    }
+    if (
+      row.action === ImportRowAction.CREATE &&
+      (await this.isCreateAlreadyCommittedByJob(input, entityType, row))
+    ) {
+      return 'noop';
+    }
+    await assertApplyRowIsFresh(
+      tx,
+      input.tenantId,
+      entityType,
+      input.job.source_system,
+      row,
+    );
+    await writeRow(tx, row);
+    return 'written';
+  }
+
+  private async applyOneLegacy(
+    input: ImportApplyInput,
+    entityType: ImportEntityType,
+    writeRow: ImportRowWriter,
+    row: ImportApplyRow,
+    totals: ImportJobTotals,
+    options?: ImportApplyBatchOptions,
   ): Promise<void> {
     if (row.action === ImportRowAction.ERROR) {
       totals.error += 1;
+      await this.advanceWorkerCursor(input, applySeqForRow(row), options);
       return;
     }
     if (row.action === ImportRowAction.SKIP) {
       totals.skip += 1;
+      await this.advanceWorkerCursor(input, applySeqForRow(row), options);
       return;
     }
 
     try {
+      if (
+        row.action === ImportRowAction.CREATE &&
+        (await this.isCreateAlreadyCommittedByJob(input, entityType, row))
+      ) {
+        await this.advanceWorkerCursor(input, applySeqForRow(row), options);
+        return;
+      }
       await this.prisma.$transaction(async (tx) => {
         await assertApplyRowIsFresh(
           tx,
@@ -114,9 +538,23 @@ export class RowByRowApplyRunner {
           row,
         );
         await writeRow(tx, row);
+        if (options?.onRowCommitted && options.leaseToken) {
+          await options.onRowCommitted(tx, row.row_no);
+        } else if (options?.leaseToken) {
+          await commitApplyWorkerRowInTransaction(
+            tx,
+            input.tenantId,
+            input.job.id,
+            options.leaseToken,
+            applySeqForRow(row),
+          );
+        }
       });
       tallyWrittenRow(totals, row.action);
     } catch (error) {
+      if (error instanceof ImportWorkerLeaseLostError) {
+        throw error;
+      }
       this.logger.warn(
         `Import apply row failed jobId=${input.job.id} rowNo=${row.row_no} cause=${describeCause(error)}`,
       );
@@ -128,6 +566,27 @@ export class RowByRowApplyRunner {
         row.row_no,
         toRowApplyError(error),
       );
+      await this.advanceWorkerCursor(input, applySeqForRow(row), options);
     }
+  }
+
+  private async advanceWorkerCursor(
+    input: ImportApplyInput,
+    applySeq: number,
+    options?: ImportApplyBatchOptions,
+  ): Promise<void> {
+    const leaseToken = options?.leaseToken;
+    if (!leaseToken) {
+      return;
+    }
+    await this.prisma.$transaction(async (tx) => {
+      await commitApplyWorkerRowInTransaction(
+        tx,
+        input.tenantId,
+        input.job.id,
+        leaseToken,
+        applySeq,
+      );
+    });
   }
 }

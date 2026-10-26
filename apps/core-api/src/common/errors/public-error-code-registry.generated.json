@@ -621,6 +621,10 @@
       "public": true,
       "params": []
     },
+    "IMPORT_DRY_RUN_IN_PROGRESS": {
+      "public": true,
+      "params": []
+    },
     "IMPORT_DUPLICATE_ARTICLE_NO_IN_FILE": {
       "public": true,
       "params": []

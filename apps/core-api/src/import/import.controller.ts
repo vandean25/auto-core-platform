@@ -8,10 +8,12 @@ import {
   Param,
   Post,
   Query,
+  Req,
   Res,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiBody,
@@ -25,10 +27,8 @@ import {
 import type { Response } from 'express';
 import { ImportEntityType, ImportRowAction } from '@prisma/client';
 import { ImportService } from './import.service.js';
-import {
-  IMPORT_ERROR_CODES,
-  IMPORT_MAX_FILE_BYTES,
-} from './import.constants.js';
+import { IMPORT_ERROR_CODES } from './import.constants.js';
+import { importUploadMulterOptions } from './import-multer.storage.js';
 import { ImportJobResponseDto } from './dto/import-job-response.dto.js';
 import { ImportJobRowsResponseDto } from './dto/import-job-rows-response.dto.js';
 import { ImportTemplateResponseDto } from './dto/import-template-response.dto.js';
@@ -49,11 +49,7 @@ export class ImportController {
   ) {}
 
   @Post()
-  @UseInterceptors(
-    FileInterceptor('file', {
-      limits: { fileSize: IMPORT_MAX_FILE_BYTES + 5 * 1024 * 1024 },
-    }),
-  )
+  @UseInterceptors(FileInterceptor('file', importUploadMulterOptions))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Upload CSV and run a synchronous import dry-run' })
   @ApiBody({
@@ -87,6 +83,7 @@ export class ImportController {
   })
   @ApiCreatedResponse({ type: ImportJobResponseDto })
   async createDryRun(
+    @Req() uploadRequest: Request,
     @UploadedFile() file: Express.Multer.File | undefined,
     @Body('entityType') entityType: string,
     @Body('sourceSystem') sourceSystem: string,
@@ -98,6 +95,7 @@ export class ImportController {
       ? this.parseJsonObject(options, 'options')
       : {};
     return this.importService.createDryRunFromUpload({
+      uploadRequest,
       file: file as Express.Multer.File,
       entityType: this.parseEntityType(entityType),
       sourceSystem: sourceSystem?.trim() ?? 'legacy',
@@ -202,6 +200,14 @@ export class ImportController {
   @ApiOkResponse({ type: ImportJobResponseDto })
   apply(@Param('id') id: string, @Body() body?: ApplyImportJobDto) {
     return this.importService.applyJob(id, body);
+  }
+
+  @Post(':id/cancel')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Cancel a background import job before apply' })
+  @ApiOkResponse({ type: ImportJobResponseDto })
+  cancel(@Param('id') id: string) {
+    return this.importService.cancelJob(id);
   }
 
   private parseEntityType(value: string): ImportEntityType {

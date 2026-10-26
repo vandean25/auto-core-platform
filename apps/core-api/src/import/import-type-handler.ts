@@ -6,10 +6,12 @@ import type {
   ImportJobTotals,
 } from './import.types.js';
 import type { SerializedImportJob } from './import-job.serializer.js';
+import type { ImportApplySequenceOrderKey } from './import-apply-sequence-order.js';
 
 /** A job row as loaded for apply. */
 export type ImportApplyRow = {
   row_no: number;
+  apply_seq?: number | null;
   action: ImportRowAction;
   entity_id: string | null;
   external_id: string | null;
@@ -21,6 +23,7 @@ export type ImportApplyJob = {
   id: string;
   source_system: string;
   options_json: Prisma.JsonValue;
+  totals_json?: Prisma.JsonValue;
 };
 
 export type VendorRef = { id: string; name: string };
@@ -35,6 +38,20 @@ export type ImportDryRunInput = {
   options: ImportJobOptions;
 };
 
+export type ImportApplyBatchOptions = {
+  resumeAfterApplySeq?: number;
+  stopAfterBatch?: boolean;
+  hasMoreRowsAfterBatch?: boolean;
+  /** Background apply uses apply_seq cursor and per-row Serializable commits. */
+  useApplySequence?: boolean;
+  maxApplySeq?: number;
+  leaseToken?: string;
+  onRowCommitted?: (
+    tx: Prisma.TransactionClient,
+    rowNo: number,
+  ) => Promise<void>;
+};
+
 export type ImportApplyInput = {
   tenantId: string;
   job: ImportApplyJob;
@@ -42,6 +59,7 @@ export type ImportApplyInput = {
   actorUserId: string;
   effectiveOptions: ImportJobOptions;
   preparation: ImportApplyPreparation;
+  batchOptions?: ImportApplyBatchOptions;
 };
 
 /**
@@ -83,4 +101,7 @@ export interface ImportTypeHandler {
 
   /** Applies the rows of a locked job and returns the applied job. */
   apply(input: ImportApplyInput): Promise<SerializedImportJob>;
+
+  /** Key for set-based apply_seq SQL (matches synchronous apply order). */
+  applySequenceOrderKey(): ImportApplySequenceOrderKey;
 }

@@ -5176,9 +5176,11 @@ model ImportJobRow {
   errors_json     Json?
   warnings_json   Json?
   normalized_json Json?
+  apply_seq       Int?
 
   @@id([tenant_id, import_job_id, row_no])
   @@index([tenant_id, import_job_id, action])
+  @@unique([tenant_id, import_job_id, apply_seq])
   @@map("import_job_rows")
 }
 

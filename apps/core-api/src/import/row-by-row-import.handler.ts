@@ -12,6 +12,7 @@ import type {
   ImportTypeHandler,
 } from './import-type-handler.js';
 import type { DryRunRowResult } from './import.types.js';
+import type { ImportApplySequenceOrderKey } from './import-apply-sequence-order.js';
 
 /** Shared shape of the handlers that plan a CSV in memory and write one row per transaction. */
 export abstract class RowByRowImportHandler implements ImportTypeHandler {
@@ -20,7 +21,7 @@ export abstract class RowByRowImportHandler implements ImportTypeHandler {
   constructor(
     protected readonly prisma: PrismaService,
     protected readonly audit: ImportAuditWriter,
-    private readonly rowRunner: RowByRowApplyRunner,
+    protected readonly rowRunner: RowByRowApplyRunner,
   ) {}
 
   prepareCreate(): Promise<void> {
@@ -44,15 +45,28 @@ export abstract class RowByRowImportHandler implements ImportTypeHandler {
   ): Promise<void>;
 
   /** The order rows are applied in. File order unless a handler needs another. */
-  protected orderRows(rows: ImportApplyRow[]): ImportApplyRow[] {
+  protected orderRows(
+    rows: ImportApplyRow[],
+    input: ImportApplyInput,
+  ): ImportApplyRow[] {
+    void input;
     return rows;
   }
 
+  applySequenceOrderKey(): ImportApplySequenceOrderKey {
+    return 'row_no';
+  }
+
   apply(input: ImportApplyInput): Promise<SerializedImportJob> {
+    const rows =
+      input.batchOptions?.stopAfterBatch && input.batchOptions.useApplySequence
+        ? input.rows
+        : this.orderRows(input.rows, input);
     return this.rowRunner.run(
-      { ...input, rows: this.orderRows(input.rows) },
+      { ...input, rows },
       this.entityType,
       (tx, row) => this.writeRow(tx, row, input),
+      input.batchOptions,
     );
   }
 }

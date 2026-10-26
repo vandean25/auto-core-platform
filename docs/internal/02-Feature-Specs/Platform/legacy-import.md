@@ -21,8 +21,8 @@ The shipped five-step wizard is available to users who can manage team settings:
 1. Choose the entity and source system.
 2. Upload a CSV and review the detected headers and preview rows.
 3. Map CSV columns to import fields, or load and save a mapping profile for the entity and source system.
-4. Run a dry-run, then filter and review the resulting rows by action or errors.
-5. Apply the dry-run after reviewing the result.
+4. Run a dry-run, then filter and review the resulting rows by action or errors. Files above the synchronous threshold (defaults: 20 000 rows or 10 MiB) are stored in object storage and validated in the background; the wizard shows batch progress and an ETA while the job status is `APPLYING`.
+5. Apply the dry-run after reviewing the result. Large jobs apply in batches with the same progress UI; workers can resume after interruption without duplicating rows already committed (`external_id_mappings` / row freshness guards).
 
 The wizard can download entity templates and error-row CSVs. Marketing-consent columns are ignored by the import engine and reported as warnings.
 
@@ -43,7 +43,8 @@ Before a dry-run, optional `options.migration_manifest` validates the uploaded C
 
 | Method | Path | Notes |
 |--------|------|--------|
-| POST | `/imports` | Multipart CSV + `mapping` + `options`; dry-run only |
+| POST | `/imports` | Multipart CSV + `mapping` + `options`; dry-run (sync for small files, background for large) |
+| POST | `/imports/:id/cancel` | Cancel a background dry-run before apply |
 | GET | `/imports/:id` | Job summary |
 | GET | `/imports/:id/rows` | Paged rows; filter `action`, `hasErrors` |
 | GET | `/imports/:id/errors.csv` | Error rows CSV |

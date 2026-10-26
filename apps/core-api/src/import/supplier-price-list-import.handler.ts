@@ -60,6 +60,10 @@ export class SupplierPriceListImportHandler implements ImportTypeHandler {
     private readonly runner: SupplierChunkedApplyRunner,
   ) {}
 
+  applySequenceOrderKey() {
+    return 'row_no' as const;
+  }
+
   /** Stores the resolved vendor id on the job options, so later steps use the same vendor. */
   async prepareCreate(
     tenantId: string,
