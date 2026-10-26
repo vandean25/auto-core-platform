@@ -11,7 +11,7 @@ describe('ImportJobStore.lockForBackgroundApply', () => {
     await store.lockForBackgroundApply(
       'tenant-1',
       'job-1',
-      { worker: undefined } as never,
+      {},
       { rows: 250_000, create: 250_000, update: 0, skip: 0, error: 0 },
     );
     expect(updateMany).toHaveBeenCalledWith(

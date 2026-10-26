@@ -68,7 +68,7 @@ export class RowByRowApplyRunner {
     writeRow: ImportRowWriter,
     options?: { resumeAfterRowNo?: number; stopAfterBatch?: boolean },
   ): Promise<SerializedImportJob> {
-    const { tenantId, job, rows, actorUserId } = input;
+    const { job, rows } = input;
     const storedTotals = job.totals_json as ImportJobTotals | null;
     const totals =
       options?.stopAfterBatch && storedTotals
@@ -87,30 +87,12 @@ export class RowByRowApplyRunner {
         plan.resumeAfter,
         options,
       );
-
-      if (plan.batchIncomplete) {
-        const partialJob = await this.persistApplyingTotals(
-          job.id,
-          totals,
-          guardedWrite,
-        );
-        return this.serialize(partialJob!, totals);
-      }
-
-      const updatedJob = await this.markJobApplied(
-        job.id,
+      return await this.finishApplyRun(
+        input,
         totals,
         guardedWrite,
+        plan.batchIncomplete,
       );
-      await this.audit.writeImportJobAudit(
-        this.prisma,
-        tenantId,
-        actorUserId,
-        job.id,
-        'applied',
-        totals,
-      );
-      return this.serialize(updatedJob!, totals);
     } catch (error) {
       if (error instanceof ImportWorkerLeaseLostError) {
         throw error;
@@ -118,6 +100,33 @@ export class RowByRowApplyRunner {
       await this.markJobFailed(job.id, totals, guardedWrite);
       throw error;
     }
+  }
+
+  private async finishApplyRun(
+    input: ImportApplyInput,
+    totals: ImportJobTotals,
+    guardedWrite: boolean,
+    batchIncomplete: boolean,
+  ): Promise<SerializedImportJob> {
+    const { tenantId, job, actorUserId } = input;
+    if (batchIncomplete) {
+      const partialJob = await this.persistApplyingTotals(
+        job.id,
+        totals,
+        guardedWrite,
+      );
+      return this.serialize(partialJob!, totals);
+    }
+    const updatedJob = await this.markJobApplied(job.id, totals, guardedWrite);
+    await this.audit.writeImportJobAudit(
+      this.prisma,
+      tenantId,
+      actorUserId,
+      job.id,
+      'applied',
+      totals,
+    );
+    return this.serialize(updatedJob!, totals);
   }
 
   private planApplyBatch(

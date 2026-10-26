@@ -560,41 +560,56 @@ export class ImportService {
     phase: 'dry_run' | 'apply';
   }): Promise<void> {
     try {
-      const claimed = await this.jobStore.claimWorkerLease(
-        params.tenantId,
-        params.jobId,
-        params.phase,
-      );
-      if (!claimed) {
-        return;
-      }
-      const job = await this.jobStore.findJob(params.tenantId, params.jobId);
-      if (!job || job.status !== ImportJobStatus.APPLYING) {
-        return;
-      }
-      const options = job.options_json as ImportJobOptionsWithWorker;
-      const worker = readWorkerState(options);
-      if (!worker || worker.phase !== params.phase) {
-        return;
-      }
-      if (params.phase === 'dry_run') {
-        await this.runBackgroundDryRunBatch(params.tenantId, params.jobId);
-        return;
-      }
-      await this.runBackgroundApplyBatch(params.tenantId, params.jobId);
+      await this.runClaimedImportWorkerBatch(params);
     } catch (error) {
-      if (isImportWorkerContentionError(error)) {
-        return;
-      }
-      await this.jobStore.markFailedIfApplying(params.tenantId, params.jobId);
-      const job = await this.jobStore.findJob(params.tenantId, params.jobId);
-      if (job) {
-        await this.deleteJobUploadIfPresent(
-          job.options_json as ImportJobOptionsWithWorker,
-        );
-      }
-      throw error;
+      await this.failImportWorkerAttemptUnlessContention(params, error);
     }
+  }
+
+  private async runClaimedImportWorkerBatch(params: {
+    tenantId: string;
+    jobId: string;
+    phase: 'dry_run' | 'apply';
+  }): Promise<void> {
+    const claimed = await this.jobStore.claimWorkerLease(
+      params.tenantId,
+      params.jobId,
+      params.phase,
+    );
+    if (!claimed) {
+      return;
+    }
+    const job = await this.jobStore.findJob(params.tenantId, params.jobId);
+    if (!job || job.status !== ImportJobStatus.APPLYING) {
+      return;
+    }
+    const options = job.options_json as ImportJobOptionsWithWorker;
+    const worker = readWorkerState(options);
+    if (!worker || worker.phase !== params.phase) {
+      return;
+    }
+    if (params.phase === 'dry_run') {
+      await this.runBackgroundDryRunBatch(params.tenantId, params.jobId);
+      return;
+    }
+    await this.runBackgroundApplyBatch(params.tenantId, params.jobId);
+  }
+
+  private async failImportWorkerAttemptUnlessContention(
+    params: { tenantId: string; jobId: string },
+    error: unknown,
+  ): Promise<void> {
+    if (isImportWorkerContentionError(error)) {
+      return;
+    }
+    await this.jobStore.markFailedIfApplying(params.tenantId, params.jobId);
+    const job = await this.jobStore.findJob(params.tenantId, params.jobId);
+    if (job) {
+      await this.deleteJobUploadIfPresent(
+        job.options_json as ImportJobOptionsWithWorker,
+      );
+    }
+    throw error;
   }
 
   async recoverStaleImportJobs(): Promise<void> {
