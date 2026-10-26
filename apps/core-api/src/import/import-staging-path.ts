@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { join, resolve, sep } from 'node:path';
+import { resolve, sep } from 'node:path';
 import { IMPORT_MULTER_STAGING_DIR } from './import-file.storage.js';
 
 const SAFE_STAGING_FILE = /^[a-f0-9-]{36}\.csv$/;

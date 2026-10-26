@@ -36,7 +36,9 @@ export function serializeImportJob(
     totals,
     options: rawOptions,
   });
-  const { worker: _worker, upload: _upload, ...publicOptions } = rawOptions;
+  const publicOptions = { ...rawOptions };
+  delete publicOptions.worker;
+  delete publicOptions.upload;
   return {
     id: job.id,
     entity_type: job.entity_type,

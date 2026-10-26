@@ -210,13 +210,9 @@ export class GcsImportFileStorage implements ImportFileStorage {
         },
       });
     if (params.through) {
-      await pipeline(
-        params.source as Readable,
-        params.through,
-        writeStream as Writable,
-      );
+      await pipeline(params.source as Readable, params.through, writeStream);
     } else {
-      await pipeline(params.source as Readable, writeStream as Writable);
+      await pipeline(params.source as Readable, writeStream);
     }
     return { object_key: objectKey };
   }

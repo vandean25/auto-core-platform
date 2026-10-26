@@ -51,6 +51,7 @@ import { ImportVendorResolver } from './import-vendor.resolver.js';
 import {
   assessImportUpload,
   openImportMulterStagingReadStream,
+  type ImportUploadStats,
   unlinkImportMulterStagingFile,
 } from './import-upload.util.js';
 import { getImportStagingKey } from './import-staging-path.js';
@@ -210,74 +211,17 @@ export class ImportService {
     await handler.prepareCreate(tenantId, params.sourceSystem, options);
 
     if (assessed.useBackground) {
-      const placeholderJobId = cryptoRandomUuid();
-      let uploadRef: { object_key: string } | undefined;
-      let fileSha256 = assessed.sha256;
-      let expectedRows = assessed.rowCount;
-      try {
-        if (stagingRequest) {
-          const piped = await pipeImportCsvToStorage(this.fileStorage, {
-            tenantId,
-            jobId: placeholderJobId,
-            fileName: params.file.originalname,
-            source: openImportMulterStagingReadStream(stagingRequest),
-          });
-          uploadRef = piped.ref;
-          fileSha256 = piped.sha256;
-          expectedRows = piped.dataRowCount;
-          await unlinkImportMulterStagingFile(stagingRequest);
-        } else {
-          const content = readMulterUploadContent(params.file);
-          uploadRef = await this.fileStorage.storeUpload({
-            tenantId,
-            jobId: placeholderJobId,
-            fileName: params.file.originalname,
-            content,
-          });
-        }
-        const job = await this.jobStore.createPendingBackgroundJob({
-          tenantId,
-          entityType: params.entityType,
-          sourceSystem: params.sourceSystem,
-          fileName: params.file.originalname,
-          fileSha256,
-          mapping: params.mappingJson,
-          options,
-          actorUserId: currentUser.id,
-          upload: uploadRef,
-          expectedRows,
-        });
-        await this.audit.writeImportJobAudit(
-          this.prisma,
-          tenantId,
-          currentUser.id,
-          job.id,
-          'created',
-        );
-        await enqueueOrRunImportWorker({
-          tenantId,
-          jobId: job.id,
-          phase: 'dry_run',
-          cloudTasks: this.cloudTasks,
-          targetBaseUrl: resolveImportWorkerTargetBaseUrl(),
-          nodeEnv: process.env.NODE_ENV,
-          runInline: () =>
-            this.runImportWorkerAttempt({
-              tenantId,
-              jobId: job.id,
-              phase: 'dry_run',
-            }),
-        });
-        return this.serializeJob(job, job.totals_json as ImportJobTotals);
-      } catch (error) {
-        if (uploadRef) {
-          await this.fileStorage.deleteUpload(uploadRef).catch(() => undefined);
-        }
-        if (stagingRequest) {
-          await unlinkImportMulterStagingFile(stagingRequest);
-        }
-        throw error;
-      }
+      return this.createBackgroundDryRunFromUpload({
+        tenantId,
+        actorUserId: currentUser.id,
+        file: params.file,
+        entityType: params.entityType,
+        sourceSystem: params.sourceSystem,
+        mappingJson: params.mappingJson,
+        options,
+        stagingRequest,
+        assessed,
+      });
     }
 
     const syncParsed = assessed.parsed;
@@ -490,6 +434,92 @@ export class ImportService {
       throw importJobNotFound();
     }
     return this.serializeJob(job, job.totals_json as ImportJobTotals);
+  }
+
+  private async createBackgroundDryRunFromUpload(params: {
+    tenantId: string;
+    actorUserId: string;
+    file: Express.Multer.File;
+    entityType: ImportEntityType;
+    sourceSystem: string;
+    mappingJson: Record<string, string>;
+    options: ImportJobOptions;
+    stagingRequest?: object;
+    assessed: ImportUploadStats;
+  }) {
+    const placeholderJobId = cryptoRandomUuid();
+    let uploadRef: { object_key: string } | undefined;
+    let fileSha256 = params.assessed.sha256;
+    let expectedRows = params.assessed.rowCount;
+    try {
+      if (params.stagingRequest) {
+        const piped = await pipeImportCsvToStorage(this.fileStorage, {
+          tenantId: params.tenantId,
+          jobId: placeholderJobId,
+          fileName: params.file.originalname,
+          source: openImportMulterStagingReadStream(params.stagingRequest),
+        });
+        uploadRef = piped.ref;
+        fileSha256 = piped.sha256;
+        expectedRows = piped.dataRowCount;
+        await unlinkImportMulterStagingFile(params.stagingRequest);
+      } else {
+        const content = readMulterUploadContent(params.file);
+        uploadRef = await this.fileStorage.storeUpload({
+          tenantId: params.tenantId,
+          jobId: placeholderJobId,
+          fileName: params.file.originalname,
+          content,
+        });
+      }
+      if (!uploadRef) {
+        throw new Error(
+          'Import upload storage did not return a file reference',
+        );
+      }
+      const job = await this.jobStore.createPendingBackgroundJob({
+        tenantId: params.tenantId,
+        entityType: params.entityType,
+        sourceSystem: params.sourceSystem,
+        fileName: params.file.originalname,
+        fileSha256,
+        mapping: params.mappingJson,
+        options: params.options,
+        actorUserId: params.actorUserId,
+        upload: uploadRef,
+        expectedRows,
+      });
+      await this.audit.writeImportJobAudit(
+        this.prisma,
+        params.tenantId,
+        params.actorUserId,
+        job.id,
+        'created',
+      );
+      await enqueueOrRunImportWorker({
+        tenantId: params.tenantId,
+        jobId: job.id,
+        phase: 'dry_run',
+        cloudTasks: this.cloudTasks,
+        targetBaseUrl: resolveImportWorkerTargetBaseUrl(),
+        nodeEnv: process.env.NODE_ENV,
+        runInline: () =>
+          this.runImportWorkerAttempt({
+            tenantId: params.tenantId,
+            jobId: job.id,
+            phase: 'dry_run',
+          }),
+      });
+      return this.serializeJob(job, job.totals_json as ImportJobTotals);
+    } catch (error) {
+      if (uploadRef) {
+        await this.fileStorage.deleteUpload(uploadRef).catch(() => undefined);
+      }
+      if (params.stagingRequest) {
+        await unlinkImportMulterStagingFile(params.stagingRequest);
+      }
+      throw error;
+    }
   }
 
   private async deleteJobUploadIfPresent(
@@ -818,17 +848,20 @@ export class ImportService {
     const lastCommitted =
       refreshedWorker?.last_committed_row_no ?? params.resumeAfter;
     const hasMore =
-      (await this.jobStore.findApplyRowsAfter(
-        params.tenantId,
-        params.jobId,
-        lastCommitted,
-        1,
-      )).length > 0;
+      (
+        await this.jobStore.findApplyRowsAfter(
+          params.tenantId,
+          params.jobId,
+          lastCommitted,
+          1,
+        )
+      ).length > 0;
     const done = !hasMore;
     if (done || params.resultStatus !== ImportJobStatus.APPLYING) {
       return;
     }
-    const leaseToken = refreshedWorker?.lease_token ?? params.worker.lease_token;
+    const leaseToken =
+      refreshedWorker?.lease_token ?? params.worker.lease_token;
     await this.jobStore.updateWorkerProgress(
       params.tenantId,
       params.jobId,

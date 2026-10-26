@@ -99,9 +99,7 @@ export class ImportJobStore {
     const worker: ImportJobWorkerState = {
       phase: 'dry_run',
       lease_token: leaseToken,
-      lease_until: new Date(
-        now.getTime() + IMPORT_WORKER_LEASE_MS,
-      ).toISOString(),
+      lease_until: new Date(0).toISOString(),
       processed_rows: 0,
       started_at: now.toISOString(),
     };
@@ -213,7 +211,9 @@ export class ImportJobStore {
     if (!job || job.status !== ImportJobStatus.APPLYING) {
       return { count: 0 };
     }
-    const worker = readWorkerState(job.options_json as ImportJobOptionsWithWorker);
+    const worker = readWorkerState(
+      job.options_json as ImportJobOptionsWithWorker,
+    );
     if (!worker || worker.phase !== 'dry_run') {
       return { count: 0 };
     }
@@ -234,46 +234,46 @@ export class ImportJobStore {
   ): Promise<ImportJobWorkerState | null> {
     return this.prisma.$transaction(
       async (tx) => {
-      const job = await tx.importJob.findFirst({
-        where: {
-          tenant_id: tenantId,
-          id: jobId,
-          status: ImportJobStatus.APPLYING,
-        },
-      });
-      if (!job) {
-        return null;
-      }
-      const options = job.options_json as ImportJobOptionsWithWorker;
-      const worker = readWorkerState(options);
-      if (!worker || worker.phase !== phase) {
-        return null;
-      }
-      const now = Date.now();
-      const leaseUntil = Date.parse(worker.lease_until);
-      if (Number.isFinite(leaseUntil) && leaseUntil > now) {
-        return null;
-      }
-      const refreshed: ImportJobWorkerState = {
-        ...worker,
-        lease_token: randomUUID(),
-        lease_until: new Date(now + IMPORT_WORKER_LEASE_MS).toISOString(),
-      };
-      const locked = await tx.importJob.updateMany({
-        where: {
-          tenant_id: tenantId,
-          id: jobId,
-          status: ImportJobStatus.APPLYING,
-        },
-        data: {
-          options_json: { ...options, worker: refreshed },
-        },
-      });
-      if (locked.count === 0) {
-        return null;
-      }
-      return refreshed;
-    },
+        const job = await tx.importJob.findFirst({
+          where: {
+            tenant_id: tenantId,
+            id: jobId,
+            status: ImportJobStatus.APPLYING,
+          },
+        });
+        if (!job) {
+          return null;
+        }
+        const options = job.options_json as ImportJobOptionsWithWorker;
+        const worker = readWorkerState(options);
+        if (!worker || worker.phase !== phase) {
+          return null;
+        }
+        const now = Date.now();
+        const leaseUntil = Date.parse(worker.lease_until);
+        if (Number.isFinite(leaseUntil) && leaseUntil > now) {
+          return null;
+        }
+        const refreshed: ImportJobWorkerState = {
+          ...worker,
+          lease_token: randomUUID(),
+          lease_until: new Date(now + IMPORT_WORKER_LEASE_MS).toISOString(),
+        };
+        const locked = await tx.importJob.updateMany({
+          where: {
+            tenant_id: tenantId,
+            id: jobId,
+            status: ImportJobStatus.APPLYING,
+          },
+          data: {
+            options_json: { ...options, worker: refreshed },
+          },
+        });
+        if (locked.count === 0) {
+          return null;
+        }
+        return refreshed;
+      },
       { isolationLevel: 'Serializable' },
     );
   }
@@ -353,10 +353,14 @@ export class ImportJobStore {
     });
   }
 
-  finishDryRunIfStillApplying(tenantId: string, jobId: string, data: {
-    totals_json: ImportJobTotals;
-    options_json: ImportJobOptions;
-  }) {
+  finishDryRunIfStillApplying(
+    tenantId: string,
+    jobId: string,
+    data: {
+      totals_json: ImportJobTotals;
+      options_json: ImportJobOptions;
+    },
+  ) {
     return this.prisma.importJob.updateMany({
       where: {
         tenant_id: tenantId,
@@ -392,7 +396,7 @@ export class ImportJobStore {
     const worker: ImportJobWorkerState = {
       phase: 'apply',
       lease_token: leaseToken,
-      lease_until: new Date(Date.now() + IMPORT_WORKER_LEASE_MS).toISOString(),
+      lease_until: new Date(0).toISOString(),
       processed_rows: 0,
       last_committed_row_no: 0,
       started_at: new Date().toISOString(),

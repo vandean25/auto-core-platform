@@ -119,4 +119,3 @@ export function parseCsvBufferHeadersOnly(buffer: Buffer): {
   }
   return { headers, delimiter, dataRowCount, sha256 };
 }
-

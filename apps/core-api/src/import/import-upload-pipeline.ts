@@ -1,8 +1,10 @@
 import { createHash } from 'node:crypto';
 import { Transform } from 'node:stream';
-import { pipeline } from 'node:stream/promises';
 import { CsvIncrementalParser } from './csv-incremental.parser.js';
-import type { ImportFileStorage, StoredImportFileRef } from './import-file.storage.js';
+import type {
+  ImportFileStorage,
+  StoredImportFileRef,
+} from './import-file.storage.js';
 
 export type ImportUploadPipeResult = {
   ref: StoredImportFileRef;
@@ -67,20 +69,4 @@ export async function pipeImportCsvToStorage(
     delimiter: parser.getDelimiter(),
     dataRowCount,
   };
-}
-
-export async function pipeReadableThroughStorage(
-  storage: Pick<ImportFileStorage, 'storeUploadFromStream'>,
-  params: {
-    tenantId: string;
-    jobId: string;
-    fileName: string;
-    source: NodeJS.ReadableStream;
-  },
-  through: Transform,
-): Promise<StoredImportFileRef> {
-  return storage.storeUploadFromStream({
-    ...params,
-    through,
-  });
 }

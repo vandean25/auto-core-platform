@@ -69,14 +69,20 @@ export class CsvIncrementalParser {
   private headers: string[] | null = null;
 
   feedChunk(chunk: Buffer): string[][] {
-    const text = this.decoder.write(chunk).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const text = this.decoder
+      .write(chunk)
+      .replace(/\r\n/g, '\n')
+      .replace(/\r/g, '\n');
     return this.consumeText(text);
   }
 
   finish(): string[][] {
     const tail = this.decoder.end().replace(/\r\n/g, '\n').replace(/\r/g, '\n');
     const rows = tail.length > 0 ? this.consumeText(tail) : [];
-    if (this.walkState.currentCell.length > 0 || this.walkState.currentRow.length > 0) {
+    if (
+      this.walkState.currentCell.length > 0 ||
+      this.walkState.currentRow.length > 0
+    ) {
       pushWalkRow(this.walkState, rows);
     }
     return rows;

@@ -105,7 +105,7 @@ export async function assessImportUpload(
     };
   }
 
-  const buffer = file.buffer!;
+  const buffer = file.buffer;
   const headerStats = parseCsvBufferHeadersOnly(buffer);
   assertNonEmpty(headerStats.headers, headerStats.dataRowCount);
   assertRowLimits(headerStats.dataRowCount);

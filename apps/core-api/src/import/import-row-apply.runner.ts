@@ -8,9 +8,7 @@ import {
 } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { toRowApplyError } from './import-apply.errors.js';
-import {
-  assertApplyRowIsFresh,
-} from './import-apply.freshness.js';
+import { assertApplyRowIsFresh } from './import-apply.freshness.js';
 import { resolveImportExternalId } from './import-apply.errors.js';
 import type { ImportAuditWriter } from './import-audit.writer.js';
 import {
@@ -66,85 +64,35 @@ export class RowByRowApplyRunner {
     options?: { resumeAfterRowNo?: number; stopAfterBatch?: boolean },
   ): Promise<SerializedImportJob> {
     const { tenantId, job, rows, actorUserId } = input;
-    const storedTotals = job.totals_json as ImportJobTotals | null;
-    const rowCount = Math.max(rows.length, storedTotals?.rows ?? 0);
-    const totals = createApplyTotals(rowCount);
-    if (options?.stopAfterBatch && storedTotals) {
-      totals.create = storedTotals.create ?? 0;
-      totals.update = storedTotals.update ?? 0;
-      totals.skip = storedTotals.skip ?? 0;
-      totals.error = storedTotals.error ?? 0;
-    }
-    const resumeAfter = options?.resumeAfterRowNo ?? 0;
-    const pending = rows.filter((row) => row.row_no > resumeAfter);
-    const batchSize = options?.stopAfterBatch
-      ? IMPORT_APPLY_BATCH_SIZE
-      : pending.length;
+    const totals = this.composeApplyTotals(job, rows.length, options);
+    const plan = this.planApplyBatch(rows, options);
+    const guardedWrite = Boolean(options?.stopAfterBatch);
 
     try {
-      const batchRows = pending.slice(0, batchSize);
-      await Sentry.startSpan(
-        {
-          name: 'Import apply batch',
-          op: 'import.apply.batch',
-          attributes: {
-            jobId: job.id,
-            batchSize: batchRows.length,
-            resumeAfterRowNo: resumeAfter,
-          },
-        },
-        async () => {
-          for (const row of batchRows) {
-            await this.applyOne(input, entityType, writeRow, row, totals, options);
-          }
-        },
+      await this.runApplyBatchSpan(
+        input,
+        entityType,
+        writeRow,
+        plan.batchRows,
+        totals,
+        plan.resumeAfter,
+        options,
       );
 
-      const batchIncomplete =
-        options?.stopAfterBatch && pending.length > batchRows.length;
-      const guardedWrite = Boolean(options?.stopAfterBatch);
-      if (batchIncomplete) {
-        let partial;
-        if (guardedWrite) {
-          await this.prisma.importJob.updateMany({
-            where: { id: job.id, status: ImportJobStatus.APPLYING },
-            data: { totals_json: totals },
-          });
-          partial = await this.prisma.importJob.findFirst({
-            where: { id: job.id },
-          });
-        } else {
-          partial = await this.prisma.importJob.update({
-            where: { id: job.id },
-            data: { totals_json: totals, status: ImportJobStatus.APPLYING },
-          });
-        }
-        return this.serialize(partial!, totals);
+      if (plan.batchIncomplete) {
+        const partialJob = await this.persistApplyingTotals(
+          job.id,
+          totals,
+          guardedWrite,
+        );
+        return this.serialize(partialJob!, totals);
       }
 
-      let updated;
-      if (guardedWrite) {
-        await this.prisma.importJob.updateMany({
-          where: { id: job.id, status: ImportJobStatus.APPLYING },
-          data: {
-            status: ImportJobStatus.APPLIED,
-            appliedAt: new Date(),
-            totals_json: totals,
-          },
-        });
-        updated = await this.prisma.importJob.findFirst({
-          where: { id: job.id },
-        });
-      } else {
-        updated = await this.prisma.importJob.update({
-          where: { id: job.id },
-          data: {
-            status: ImportJobStatus.APPLIED,
-            appliedAt: new Date(),
-            totals_json: totals,
-          },
-        });
-      }
+      const updatedJob = await this.markJobApplied(
+        job.id,
+        totals,
+        guardedWrite,
+      );
       await this.audit.writeImportJobAudit(
         this.prisma,
         tenantId,
@@ -153,21 +101,141 @@ export class RowByRowApplyRunner {
         'applied',
         totals,
       );
-      return this.serialize(updated!, totals);
+      return this.serialize(updatedJob!, totals);
     } catch (error) {
-      if (options?.stopAfterBatch) {
-        await this.prisma.importJob.updateMany({
-          where: { id: job.id, status: ImportJobStatus.APPLYING },
-          data: { status: ImportJobStatus.FAILED, totals_json: totals },
-        });
-      } else {
-        await this.prisma.importJob.update({
-          where: { id: job.id },
-          data: { status: ImportJobStatus.FAILED, totals_json: totals },
-        });
-      }
+      await this.markJobFailed(job.id, totals, guardedWrite);
       throw error;
     }
+  }
+
+  private composeApplyTotals(
+    job: ImportApplyInput['job'],
+    rowCount: number,
+    options?: { stopAfterBatch?: boolean },
+  ): ImportJobTotals {
+    const storedTotals = job.totals_json as ImportJobTotals | null;
+    const totals = createApplyTotals(
+      Math.max(rowCount, storedTotals?.rows ?? 0),
+    );
+    if (!options?.stopAfterBatch || !storedTotals) {
+      return totals;
+    }
+    totals.create = storedTotals.create ?? 0;
+    totals.update = storedTotals.update ?? 0;
+    totals.skip = storedTotals.skip ?? 0;
+    totals.error = storedTotals.error ?? 0;
+    return totals;
+  }
+
+  private planApplyBatch(
+    rows: ImportApplyRow[],
+    options?: { resumeAfterRowNo?: number; stopAfterBatch?: boolean },
+  ) {
+    const resumeAfter = options?.resumeAfterRowNo ?? 0;
+    const pending = rows.filter((row) => row.row_no > resumeAfter);
+    const batchSize = options?.stopAfterBatch
+      ? IMPORT_APPLY_BATCH_SIZE
+      : pending.length;
+    const batchRows = pending.slice(0, batchSize);
+    const batchIncomplete =
+      Boolean(options?.stopAfterBatch) && pending.length > batchRows.length;
+    return { resumeAfter, batchRows, batchIncomplete };
+  }
+
+  private async runApplyBatchSpan(
+    input: ImportApplyInput,
+    entityType: ImportEntityType,
+    writeRow: ImportRowWriter,
+    batchRows: ImportApplyRow[],
+    totals: ImportJobTotals,
+    resumeAfter: number,
+    options?: ImportApplyInput['batchOptions'],
+  ): Promise<void> {
+    await Sentry.startSpan(
+      {
+        name: 'Import apply batch',
+        op: 'import.apply.batch',
+        attributes: {
+          jobId: input.job.id,
+          batchSize: batchRows.length,
+          resumeAfterRowNo: resumeAfter,
+        },
+      },
+      async () => {
+        for (const row of batchRows) {
+          await this.applyOne(
+            input,
+            entityType,
+            writeRow,
+            row,
+            totals,
+            options,
+          );
+        }
+      },
+    );
+  }
+
+  private async persistApplyingTotals(
+    jobId: string,
+    totals: ImportJobTotals,
+    guardedWrite: boolean,
+  ) {
+    if (guardedWrite) {
+      await this.prisma.importJob.updateMany({
+        where: { id: jobId, status: ImportJobStatus.APPLYING },
+        data: { totals_json: totals },
+      });
+      return this.prisma.importJob.findFirst({ where: { id: jobId } });
+    }
+    return this.prisma.importJob.update({
+      where: { id: jobId },
+      data: { totals_json: totals, status: ImportJobStatus.APPLYING },
+    });
+  }
+
+  private async markJobApplied(
+    jobId: string,
+    totals: ImportJobTotals,
+    guardedWrite: boolean,
+  ) {
+    if (guardedWrite) {
+      await this.prisma.importJob.updateMany({
+        where: { id: jobId, status: ImportJobStatus.APPLYING },
+        data: {
+          status: ImportJobStatus.APPLIED,
+          appliedAt: new Date(),
+          totals_json: totals,
+        },
+      });
+      return this.prisma.importJob.findFirst({ where: { id: jobId } });
+    }
+    return this.prisma.importJob.update({
+      where: { id: jobId },
+      data: {
+        status: ImportJobStatus.APPLIED,
+        appliedAt: new Date(),
+        totals_json: totals,
+      },
+    });
+  }
+
+  private async markJobFailed(
+    jobId: string,
+    totals: ImportJobTotals,
+    guardedWrite: boolean,
+  ): Promise<void> {
+    if (guardedWrite) {
+      await this.prisma.importJob.updateMany({
+        where: { id: jobId, status: ImportJobStatus.APPLYING },
+        data: { status: ImportJobStatus.FAILED, totals_json: totals },
+      });
+      return;
+    }
+    await this.prisma.importJob.update({
+      where: { id: jobId },
+      data: { status: ImportJobStatus.FAILED, totals_json: totals },
+    });
   }
 
   private async isCreateAlreadyCommittedByJob(
@@ -195,7 +263,15 @@ export class RowByRowApplyRunner {
     writeRow: ImportRowWriter,
     row: ImportApplyRow,
     totals: ImportJobTotals,
-    options?: { resumeAfterRowNo?: number; stopAfterBatch?: boolean; leaseToken?: string; onRowCommitted?: (tx: Prisma.TransactionClient, rowNo: number) => Promise<void> },
+    options?: {
+      resumeAfterRowNo?: number;
+      stopAfterBatch?: boolean;
+      leaseToken?: string;
+      onRowCommitted?: (
+        tx: Prisma.TransactionClient,
+        rowNo: number,
+      ) => Promise<void>;
+    },
   ): Promise<void> {
     if (row.action === ImportRowAction.ERROR) {
       totals.error += 1;
