@@ -8,7 +8,10 @@ import {
 } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { isRetryableTransactionError } from '../common/prisma/is-retryable-transaction-error.js';
-import { isRowLevelApplyError, toRowApplyError } from './import-apply.errors.js';
+import {
+  isRowLevelApplyError,
+  toRowApplyError,
+} from './import-apply.errors.js';
 import { assertApplyRowIsFresh } from './import-apply.freshness.js';
 import { resolveImportExternalId } from './import-apply.errors.js';
 import type { ImportAuditWriter } from './import-audit.writer.js';

@@ -19,8 +19,14 @@ function prismaDatabaseSqlState(
     return undefined;
   }
   if ('database_error_code' in meta) {
-    const code = (meta as { database_error_code?: unknown }).database_error_code;
-    return code === undefined ? undefined : String(code);
+    const code = (meta as { database_error_code?: unknown })
+      .database_error_code;
+    if (typeof code === 'string') {
+      return code;
+    }
+    if (typeof code === 'number' || typeof code === 'boolean') {
+      return String(code);
+    }
   }
   return undefined;
 }
@@ -42,7 +48,11 @@ function readDriverAdapterCause(error: Error): DriverAdapterCause | undefined {
   if (!cause || typeof cause !== 'object') {
     return undefined;
   }
-  return cause as DriverAdapterCause;
+  const record = cause as Record<string, unknown>;
+  return {
+    kind: typeof record.kind === 'string' ? record.kind : undefined,
+    code: typeof record.code === 'string' ? record.code : undefined,
+  };
 }
 
 function isDriverAdapterRetryCause(cause: DriverAdapterCause): boolean {

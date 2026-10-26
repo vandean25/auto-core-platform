@@ -26,10 +26,13 @@ describe('isRetryableTransactionError', () => {
   });
 
   it('classifies P2002 as not retryable', () => {
-    const error = new Prisma.PrismaClientKnownRequestError('Unique constraint', {
-      code: 'P2002',
-      clientVersion: 'test',
-    });
+    const error = new Prisma.PrismaClientKnownRequestError(
+      'Unique constraint',
+      {
+        code: 'P2002',
+        clientVersion: 'test',
+      },
+    );
     expect(isRetryableTransactionError(error)).toBe(false);
   });
 

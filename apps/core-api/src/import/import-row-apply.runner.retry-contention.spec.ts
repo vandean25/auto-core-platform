@@ -37,7 +37,10 @@ function createSequencePrisma(worker: ImportJobWorkerState) {
         options_json: { worker },
       }),
       update: async (args: {
-        data: { status?: ImportJobStatus; options_json?: { worker: ImportJobWorkerState } };
+        data: {
+          status?: ImportJobStatus;
+          options_json?: { worker: ImportJobWorkerState };
+        };
       }) => {
         if (args.data.options_json?.worker) {
           Object.assign(worker, args.data.options_json.worker);
@@ -89,7 +92,11 @@ describe('RowByRowApplyRunner transaction retries', () => {
       prisma as never,
       { writeImportJobAudit: jest.fn() } as never,
       (job, totals) =>
-        ({ ...job, totals, status: job.status }) as unknown as SerializedImportJob,
+        ({
+          ...job,
+          totals,
+          status: job.status,
+        }) as unknown as SerializedImportJob,
     );
     const rows = assignVehiclePartyApplySeqs([
       {
@@ -151,7 +158,11 @@ describe('RowByRowApplyRunner transaction retries', () => {
       prisma as never,
       { writeImportJobAudit: jest.fn() } as never,
       (job, totals) =>
-        ({ ...job, totals, status: job.status }) as unknown as SerializedImportJob,
+        ({
+          ...job,
+          totals,
+          status: job.status,
+        }) as unknown as SerializedImportJob,
     );
     const rows = assignVehiclePartyApplySeqs([
       {
@@ -220,7 +231,11 @@ describe('RowByRowApplyRunner transaction retries', () => {
       sharedPrisma as never,
       { writeImportJobAudit: jest.fn() } as never,
       (job, totals) =>
-        ({ ...job, totals, status: job.status }) as unknown as SerializedImportJob,
+        ({
+          ...job,
+          totals,
+          status: job.status,
+        }) as unknown as SerializedImportJob,
     );
     const rows = assignVehiclePartyApplySeqs([
       {
