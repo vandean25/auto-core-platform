@@ -6,7 +6,7 @@ import type { ImportTypeHandler } from './import-type-handler.js';
 import type { ImportFileStorageService } from './import-file.storage.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { readImportWorkerBatchSize } from './import-limits.js';
-import { IMPORT_WORKER_CHUNK_TIME_BUDGET_MS } from './import-worker-handoff.constants.js';
+import { reconcileChunkShouldStopBeforeNextUnit } from './import-reconcile-chunk-budget.js';
 import { computeImportDryRunReconcileUnits } from './import-dry-run-reconcile.units.js';
 import { replanImportDryRunUnit } from './import-dry-run-reconcile.plan-unit.js';
 import {
@@ -122,6 +122,7 @@ export async function runBackgroundDryRunReconcileChunk(params: {
   };
   flow: ImportWorkerFlowDeps;
   completeDryRun: (totals: ImportJobTotals) => Promise<void>;
+  nowMs?: () => number;
 }): Promise<void> {
   const worker = params.options.worker;
   const upload = readUploadRef(params.options);
@@ -146,35 +147,47 @@ export async function runBackgroundDryRunReconcileChunk(params: {
     return;
   }
 
-  const unitIndex = worker.dry_run_reconcile_cursor ?? 0;
+  let unitIndex = worker.dry_run_reconcile_cursor ?? 0;
   if (unitIndex >= units.length) {
     return;
   }
 
-  const chunkDeadlineMs = Date.now() + IMPORT_WORKER_CHUNK_TIME_BUDGET_MS;
-  if (Date.now() >= chunkDeadlineMs) {
+  const readNow = () => params.nowMs?.() ?? Date.now();
+  const chunkStartedMs = readNow();
+  const mapping = params.job.mapping_json as Record<string, string>;
+  const rows: import('./import.types.js').DryRunRowResult[] = [];
+
+  while (unitIndex < units.length) {
+    if (reconcileChunkShouldStopBeforeNextUnit(readNow(), chunkStartedMs)) {
+      break;
+    }
+    rows.push(
+      ...(await replanImportDryRunUnit({
+        prisma: params.prisma,
+        fileStorage: params.fileStorage,
+        upload,
+        fileSha256: params.job.file_sha256,
+        tenantId: params.tenantId,
+        jobId: params.jobId,
+        handler: params.handler,
+        input: {
+          tenantId: params.tenantId,
+          sourceSystem: params.job.source_system,
+          mapping,
+          options: params.options,
+        },
+        unit: units[unitIndex],
+      })),
+    );
+    unitIndex += 1;
+  }
+
+  const startIndex = worker.dry_run_reconcile_cursor ?? 0;
+  if (unitIndex === startIndex) {
     return;
   }
 
-  const mapping = params.job.mapping_json as Record<string, string>;
-  const rows = await replanImportDryRunUnit({
-    prisma: params.prisma,
-    fileStorage: params.fileStorage,
-    upload,
-    fileSha256: params.job.file_sha256,
-    tenantId: params.tenantId,
-    jobId: params.jobId,
-    handler: params.handler,
-    input: {
-      tenantId: params.tenantId,
-      sourceSystem: params.job.source_system,
-      mapping,
-      options: params.options,
-    },
-    unit: units[unitIndex],
-  });
-
-  const nextUnitIndex = unitIndex + 1;
+  const nextUnitIndex = unitIndex;
   const shouldFinalize = nextUnitIndex >= units.length;
 
   const persisted = await params.jobStore.persistDryRunReconcileChunk(

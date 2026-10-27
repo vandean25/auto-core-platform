@@ -53,6 +53,29 @@ describe('atomic reconcile units', () => {
     expect(units[0].replan_row_nos).toEqual([1, 21_000]);
   });
 
+  it('does not merge unrelated cross-batch keys into one replan set', async () => {
+    const prisma = {
+      importJobRow: {
+        findMany: jest.fn().mockResolvedValue([
+          { row_no: 1, external_id: 'far', normalized_json: {} },
+          { row_no: 100, external_id: 'mid', normalized_json: {} },
+          { row_no: 600, external_id: 'mid', normalized_json: {} },
+          { row_no: 21_000, external_id: 'far', normalized_json: {} },
+        ]),
+      },
+    };
+    const units = await computeImportDryRunReconcileUnits(prisma as never, {
+      tenantId: 't',
+      jobId: 'j',
+      entityType: ImportEntityType.CUSTOMER,
+      batchSize: 500,
+    });
+    expect(units).toHaveLength(2);
+    expect(units.map((unit) => unit.replan_row_nos.sort())).toEqual(
+      expect.arrayContaining([[1, 21_000], [100, 600]]),
+    );
+  });
+
   it('21k-row duplicate span is one reconcile unit (one window per unit)', async () => {
     const rows = [
       { row_no: 1, external_id: 'x', normalized_json: {} },

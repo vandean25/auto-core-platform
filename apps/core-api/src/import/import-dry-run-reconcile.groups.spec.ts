@@ -57,19 +57,35 @@ describe('computeImportDryRunReconcileRanges', () => {
     expect(reconcileUnits[0].replan_row_nos).toEqual([1, 21_000]);
   });
 
-  it('merges overlapping reconcile windows for cross-batch duplicates', async () => {
+  it('keeps one unit per reconcile key when context ranges overlap', async () => {
     const prisma = prismaWithRows([
-      { row_no: 10, external_id: 'a' },
-      { row_no: 510, external_id: 'b' },
-      { row_no: 511, external_id: 'a' },
+      { row_no: 1, external_id: 'far' },
+      { row_no: 100, external_id: 'mid' },
+      { row_no: 600, external_id: 'mid' },
+      { row_no: 21_000, external_id: 'far' },
     ]);
+    const { computeImportDryRunReconcileUnits } = await import(
+      './import-dry-run-reconcile.units.js'
+    );
+    const reconcileUnits = await computeImportDryRunReconcileUnits(prisma, {
+      tenantId,
+      jobId,
+      entityType: ImportEntityType.CUSTOMER,
+      batchSize: 500,
+    });
+    expect(reconcileUnits).toHaveLength(2);
+    const replanSets = reconcileUnits
+      .map((unit) => unit.replan_row_nos)
+      .sort((left, right) => left[0] - right[0]);
+    expect(replanSets).toEqual([[1, 21_000], [100, 600]]);
+
     const ranges = await computeImportDryRunReconcileRanges(prisma, {
       tenantId,
       jobId,
-      entityType: ImportEntityType.VEHICLE_PARTY,
+      entityType: ImportEntityType.CUSTOMER,
       batchSize: 500,
     });
-    expect(ranges).toEqual([{ from_row: 10, to_row: 511 }]);
+    expect(ranges).toHaveLength(2);
   });
 });
 

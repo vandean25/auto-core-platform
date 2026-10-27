@@ -68,33 +68,6 @@ function unitFromDuplicateSpan(span: SpanEntry): ImportDryRunReconcileUnit {
   };
 }
 
-function mergeUnits(
-  units: ImportDryRunReconcileUnit[],
-): ImportDryRunReconcileUnit[] {
-  const sorted = [...units].sort(
-    (a, b) => a.context_from_row - b.context_from_row,
-  );
-  const merged: ImportDryRunReconcileUnit[] = [];
-  for (const unit of sorted) {
-    const last = merged[merged.length - 1];
-    if (
-      last &&
-      unit.context_from_row <= last.context_to_row + 1 &&
-      unit.replan_row_nos.some((rowNo) => rowNo <= last.context_to_row + 1)
-    ) {
-      last.context_to_row = Math.max(last.context_to_row, unit.context_to_row);
-      const combined = new Set([
-        ...last.replan_row_nos,
-        ...unit.replan_row_nos,
-      ]);
-      last.replan_row_nos = [...combined].sort((a, b) => a - b);
-    } else {
-      merged.push({ ...unit, replan_row_nos: [...unit.replan_row_nos] });
-    }
-  }
-  return merged;
-}
-
 type ReconcileRow = {
   row_no: number;
   external_id: string | null;
@@ -197,7 +170,7 @@ export async function computeImportDryRunReconcileUnits(
     ...unitsFromVehicleGroups(vehicleRowNos, params.batchSize),
   ];
 
-  return mergeUnits(units);
+  return units.sort((a, b) => a.context_from_row - b.context_from_row);
 }
 
 function unitsFromSpanTracker(

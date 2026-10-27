@@ -30,12 +30,13 @@ async function planBatched(
   ) => Promise<DryRunRowResult[]>,
   input: ImportDryRunInput,
   parsed: ParsedCsv,
+  batchSize = BATCH,
 ): Promise<DryRunRowResult[]> {
   const merged: DryRunRowResult[] = [];
-  for (let offset = 0; offset < parsed.rows.length; offset += BATCH) {
+  for (let offset = 0; offset < parsed.rows.length; offset += batchSize) {
     const slice: ParsedCsv = {
       headers: parsed.headers,
-      rows: parsed.rows.slice(offset, offset + BATCH),
+      rows: parsed.rows.slice(offset, offset + batchSize),
       delimiter: parsed.delimiter,
       sha256: parsed.sha256,
     };
@@ -173,6 +174,58 @@ describe('dry-run reconcile parity (sync vs batched + range replan)', () => {
       context_to_row: 4,
       replan_row_nos: [1, 4],
     }, batched);
+    expect(signatures(batched)).toEqual(signatures(sync));
+  });
+
+  it('customer duplicate email across four batch windows (batch size 2) matches sync', async () => {
+    const mapping = {
+      external_id: 'id',
+      type: 'type',
+      first_name: 'first',
+      last_name: 'last',
+      email: 'email',
+      phone: 'phone',
+      vat_id: 'vat',
+      address_country: 'country',
+    };
+    const parsed = parseCsvFile(
+      Buffer.from(
+        serializeCsv(
+          Object.values(mapping),
+          [
+            ['c1', 'PRIVATE', 'A', 'One', 'dup@example.com', '', '', 'AT'],
+            ['c2', 'PRIVATE', 'B', 'Two', '', '', '', 'AT'],
+            ['c3', 'PRIVATE', 'C', 'Three', '', '', '', 'AT'],
+            ['c4', 'PRIVATE', 'D', 'Four', '', '', '', 'AT'],
+            ['c5', 'PRIVATE', 'E', 'Five', '', '', '', 'AT'],
+            ['c6', 'PRIVATE', 'F', 'Six', '', '', '', 'AT'],
+            ['c7', 'PRIVATE', 'G', 'Seven', 'dup@example.com', '', '', 'AT'],
+          ],
+        ),
+        'utf8',
+      ),
+    );
+    const input = {
+      tenantId: 'tenant-1',
+      sourceSystem: 'legacy',
+      mapping,
+      options: {},
+    };
+    const plan = (dryRunInput: ImportDryRunInput, slice: ParsedCsv) =>
+      planCustomerDryRun(prisma as never, dryRunInput, slice);
+    const sync = await plan(input, parsed);
+    const batched = await planBatched(plan, input, parsed, 2);
+    await replanUnit(
+      plan,
+      input,
+      parsed,
+      {
+        context_from_row: 1,
+        context_to_row: 7,
+        replan_row_nos: [1, 7],
+      },
+      batched,
+    );
     expect(signatures(batched)).toEqual(signatures(sync));
   });
 
